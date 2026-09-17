@@ -1,7 +1,14 @@
 import { sourceKey } from "@ultrapaint/contracts/base";
 import type { TreeNode } from "@ultrapaint/contracts/preview";
 import { cn } from "cn";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  MoreVertical,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import {
   type Dispatch,
   type DragEvent,
@@ -13,11 +20,26 @@ import {
   useState,
 } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { bridgeFor } from "../canvas/bridge.ts";
 import { PanelEmpty } from "../components/panel.tsx";
 import { runEdit } from "../lib/shortcuts.ts";
 import { useEditor } from "../state/editor.ts";
 import { findPath, hostOf } from "../state/tree.ts";
+
+/** A row's own indent, and where its chevron sits inside it. */
+const ROW_PAD = 8;
+const INDENT = 12;
+const CHEVRON_CENTER = 8;
+
+const ROOT_ANCESTORS: readonly string[] = [];
 
 const keyOf = (n: TreeNode) =>
   n.source ? `${sourceKey(n.source)}:${n.kind}` : n.id;
@@ -160,7 +182,7 @@ export const Layers = () => {
     <div className="py-1" ref={listRef} role="tree">
       {tree.children.map((c) => (
         <LayerNode
-          depth={0}
+          ancestors={ROOT_ANCESTORS}
           key={c.id}
           node={c}
           parent={tree}
@@ -189,6 +211,88 @@ interface LayerShared {
   toggle: (n: TreeNode) => void;
 }
 
+/**
+ * One line per level the row is nested under, drawn where that level's chevron sits. The rows sit
+ * flush against each other, so a line runs unbroken down the whole of a subtree.
+ */
+const DepthGuides = ({ ancestors }: { ancestors: readonly string[] }) => (
+  <>
+    {ancestors.map((id, level) => (
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-y-0 w-px bg-border"
+        key={id}
+        style={{ left: ROW_PAD + level * INDENT + CHEVRON_CENTER }}
+      />
+    ))}
+  </>
+);
+
+/**
+ * What can be done to the row without reaching for the canvas or a shortcut. Stays out of the way
+ * until the row is pointed at, focused, or the menu it opens is on screen.
+ */
+const RowMenu = ({
+  node,
+  screenId,
+  canEditText,
+}: {
+  node: TreeNode;
+  screenId: string;
+  canEditText: boolean;
+}) => {
+  const { source } = node;
+  if (!(source && node.editable)) {
+    return null;
+  }
+  const onEditText = () => bridgeFor(screenId).editText(node.id);
+  const onDuplicate = () => runEdit({ kind: "duplicate", target: source });
+  const onDelete = () => runEdit({ kind: "delete", target: source });
+  // Opening the menu selects the row, so the canvas shows what the actions — and the shortcuts
+  // they name — are about to touch.
+  const onOpenChange = (open: boolean) => {
+    if (open) {
+      useEditor.getState().select({ nodeId: node.id, screenId, source });
+    }
+  };
+  return (
+    <DropdownMenu onOpenChange={onOpenChange}>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            aria-label={`Actions for ${node.summary}`}
+            className="invisible ml-auto size-5 shrink-0 text-muted-foreground group-focus-within:visible group-hover:visible aria-expanded:visible"
+            size="icon-xs"
+            variant="ghost"
+          />
+        }
+      >
+        <MoreVertical className="size-3" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-44">
+        {canEditText ? (
+          <DropdownMenuItem onClick={onEditText}>
+            <Pencil />
+            Edit text
+            <DropdownMenuShortcut>⏎</DropdownMenuShortcut>
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuItem onClick={onDuplicate}>
+          <Copy />
+          Duplicate
+          <DropdownMenuShortcut>⌘D</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={onDelete} variant="destructive">
+          <Trash2 />
+          Delete
+          <DropdownMenuShortcut>⌫</DropdownMenuShortcut>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
 const rowTone = (selected: boolean, hovered: boolean) => {
   if (selected) {
     return "bg-brand/25 text-foreground";
@@ -200,12 +304,13 @@ const rowTone = (selected: boolean, hovered: boolean) => {
 
 const LayerNode = ({
   node,
-  depth,
+  ancestors,
   parent,
   shared,
 }: {
   node: TreeNode;
-  depth: number;
+  /** The rows this one is written inside, outermost first: one guide line each. */
+  ancestors: readonly string[];
   parent?: TreeNode;
   shared: LayerShared;
 }) => {
@@ -229,6 +334,7 @@ const LayerNode = ({
   const hasChildren = children.length > 0;
   // In source the children are written inside the component's JSX, not its host element.
   const rowParent = host ? { ...node, children } : node;
+  const rowAncestors = [...ancestors, node.id];
   const dropHere = dropTarget?.id === node.id ? dropTarget.position : null;
 
   const select = () => {
@@ -287,7 +393,7 @@ const LayerNode = ({
         aria-expanded={hasChildren ? !isCollapsed : undefined}
         aria-selected={selected}
         className={cn(
-          "group flex h-6 cursor-default items-center gap-1 pr-2 text-[11px]",
+          "group relative flex h-6 cursor-default items-center gap-1 pr-1 text-[11px]",
           rowTone(selected, hovered),
           !node.editable && node.id !== "root" && "text-muted-foreground/60",
           dropHere === "inside" && "ring-1 ring-brand ring-inset",
@@ -307,9 +413,10 @@ const LayerNode = ({
         onMouseEnter={onMouseEnter}
         onMouseLeave={clearHover}
         role="treeitem"
-        style={{ paddingLeft: 8 + depth * 12 }}
+        style={{ paddingLeft: ROW_PAD + ancestors.length * INDENT }}
         tabIndex={0}
       >
+        <DepthGuides ancestors={ancestors} />
         <Button
           aria-label={isCollapsed ? "Expand" : "Collapse"}
           className={cn(
@@ -341,11 +448,16 @@ const LayerNode = ({
             {hostLabel(node, host)}
           </span>
         ) : null}
+        <RowMenu
+          canEditText={!hasChildren}
+          node={node}
+          screenId={activeScreen}
+        />
       </div>
       {!isCollapsed && hasChildren
         ? children.map((c) => (
             <LayerNode
-              depth={depth + 1}
+              ancestors={rowAncestors}
               key={c.id}
               node={c}
               parent={rowParent}
