@@ -299,11 +299,13 @@ const colorOption = (
 };
 
 const fontOption = (name: string, value: string): TokenOption | null => {
-  if (!(name.startsWith("--font-") && !name.includes("--"))) {
+  if (!name.startsWith("--font-")) {
     return null;
   }
   const util = name.replace(FONT_TOKEN_PREFIX_RE, "");
-  if (name.slice(7).includes("--")) {
+  // Skip Tailwind's per-family sub-properties (`--font-sans--font-feature-settings`) and the
+  // font-weight scale (`--font-weight-bold`), which shares the prefix but is not a family.
+  if (util.includes("--") || util.startsWith("weight-")) {
     return null;
   }
   return {
