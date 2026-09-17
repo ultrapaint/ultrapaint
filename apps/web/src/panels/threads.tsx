@@ -216,7 +216,7 @@ const ThreadView = ({
     <MessageScrollerProvider
       autoScroll
       defaultScrollPosition="end"
-      key={thread.id}
+      key={`scroller:${thread.id}`}
     >
       <MessageScroller className="flex-1">
         <MessageScrollerViewport>
@@ -250,7 +250,7 @@ const ThreadView = ({
         <MessageScrollerButton />
       </MessageScroller>
     </MessageScrollerProvider>
-    <Composer key={thread.id} thread={thread} />
+    <Composer key={`composer:${thread.id}`} thread={thread} />
   </>
 );
 

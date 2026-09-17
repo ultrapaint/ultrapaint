@@ -156,65 +156,63 @@ const Zoom = () => {
   );
 };
 
-/** Floating tool strip at the bottom centre of the canvas. */
+/** Floating tool strip at the bottom centre of the canvas; the app positions it. */
 export const Toolbar = () => {
   const undo = useProject((s) => s.undo);
   // Holding Space pans for as long as it is held; the strip shows the tool in effect.
   const effective = useEditor((s) => (s.spacePan ? "pan" : s.mode));
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex justify-center">
-      <div className="pointer-events-auto flex items-center gap-1 rounded-xl border bg-sidebar p-1 text-sidebar-foreground shadow-black/30 shadow-lg">
-        <ToggleGroup
-          onValueChange={onModeChange}
-          spacing={0.5}
-          value={[effective]}
-        >
-          {modes.map((m) => (
-            <Tooltip key={m.value}>
-              <TooltipTrigger
-                render={
-                  <ToggleGroupItem
-                    aria-label={m.value}
-                    className="size-8 rounded-lg aria-pressed:bg-brand aria-pressed:text-brand-foreground data-pressed:bg-brand data-pressed:text-brand-foreground"
-                    value={m.value}
-                  >
-                    {m.icon}
-                  </ToggleGroupItem>
-                }
-              />
-              <TooltipContent side="top">{m.tooltip}</TooltipContent>
-            </Tooltip>
-          ))}
-        </ToggleGroup>
-        <Separator className="mx-0.5 h-5" orientation="vertical" />
-        <IconButton
-          className="size-8 rounded-lg"
-          disabled={!undo.canUndo}
-          onClick={undoEdit}
-          tooltip={
-            <>
-              Undo{undo.undoLabel ? ` · ${undo.undoLabel}` : ""} <Kbd>⌘Z</Kbd>
-            </>
-          }
-        >
-          <Undo2 />
-        </IconButton>
-        <IconButton
-          className="size-8 rounded-lg"
-          disabled={!undo.canRedo}
-          onClick={redoEdit}
-          tooltip={
-            <>
-              Redo <Kbd>⇧⌘Z</Kbd>
-            </>
-          }
-        >
-          <Redo2 />
-        </IconButton>
-        <Separator className="mx-0.5 h-5" orientation="vertical" />
-        <Zoom />
-      </div>
+    <div className="pointer-events-auto flex items-center gap-1 rounded-xl border bg-sidebar p-1 text-sidebar-foreground shadow-black/30 shadow-lg">
+      <ToggleGroup
+        onValueChange={onModeChange}
+        spacing={0.5}
+        value={[effective]}
+      >
+        {modes.map((m) => (
+          <Tooltip key={m.value}>
+            <TooltipTrigger
+              render={
+                <ToggleGroupItem
+                  aria-label={m.value}
+                  className="size-8 rounded-lg aria-pressed:bg-brand aria-pressed:text-brand-foreground data-pressed:bg-brand data-pressed:text-brand-foreground"
+                  value={m.value}
+                >
+                  {m.icon}
+                </ToggleGroupItem>
+              }
+            />
+            <TooltipContent side="top">{m.tooltip}</TooltipContent>
+          </Tooltip>
+        ))}
+      </ToggleGroup>
+      <Separator className="mx-0.5 h-5" orientation="vertical" />
+      <IconButton
+        className="size-8 rounded-lg"
+        disabled={!undo.canUndo}
+        onClick={undoEdit}
+        tooltip={
+          <>
+            Undo{undo.undoLabel ? ` · ${undo.undoLabel}` : ""} <Kbd>⌘Z</Kbd>
+          </>
+        }
+      >
+        <Undo2 />
+      </IconButton>
+      <IconButton
+        className="size-8 rounded-lg"
+        disabled={!undo.canRedo}
+        onClick={redoEdit}
+        tooltip={
+          <>
+            Redo <Kbd>⇧⌘Z</Kbd>
+          </>
+        }
+      >
+        <Redo2 />
+      </IconButton>
+      <Separator className="mx-0.5 h-5" orientation="vertical" />
+      <Zoom />
     </div>
   );
 };

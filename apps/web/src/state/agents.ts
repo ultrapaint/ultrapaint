@@ -10,6 +10,9 @@ import { reportError } from "./project.ts";
 interface AgentsStore {
   agents: readonly AgentConfig[];
   bind: () => void;
+  /** Files agent turns changed while the app was open, until they are looked at. */
+  changed: readonly string[];
+  clearChanged: (files?: readonly string[]) => void;
   current: string | null;
   items: Record<string, readonly ThreadItem[]>;
   load: () => Promise<void>;
@@ -36,10 +39,15 @@ export const useAgents = create<AgentsStore>((set, get) => ({
           return { current: s.current ?? ev.thread.id, threads };
         });
       } else if (ev.type === "item") {
+        const { item } = ev;
         set((s) => ({
+          changed:
+            item.kind === "turn_end"
+              ? [...new Set([...s.changed, ...item.changedFiles])]
+              : s.changed,
           items: {
             ...s.items,
-            [ev.threadId]: [...(s.items[ev.threadId] ?? []), ev.item],
+            [ev.threadId]: [...(s.items[ev.threadId] ?? []), item],
           },
         }));
       } else if (ev.type === "itemUpdate") {
@@ -65,6 +73,11 @@ export const useAgents = create<AgentsStore>((set, get) => ({
       }
     });
   },
+  changed: [],
+  clearChanged: (files) =>
+    set((s) => ({
+      changed: files ? s.changed.filter((f) => !files.includes(f)) : [],
+    })),
   current: null,
   items: {},
   load: async () => {

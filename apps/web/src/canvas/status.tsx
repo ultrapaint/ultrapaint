@@ -9,7 +9,7 @@ const startPreview = () =>
   api().request("host.start", undefined).catch(reportError);
 
 const Notice = ({ children }: { children: ReactNode }) => (
-  <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center">
+  <div className="pointer-events-none absolute inset-x-0 top-16 z-10 flex justify-center">
     <div className="pointer-events-auto flex h-8 items-center gap-2 rounded-lg border bg-sidebar pr-1 pl-2.5 text-sidebar-foreground shadow-black/30 shadow-lg [&>svg]:size-3.5">
       {children}
     </div>

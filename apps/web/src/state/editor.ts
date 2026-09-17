@@ -17,6 +17,18 @@ import { reportError, useProject } from "./project.ts";
 
 export type Mode = "select" | "interact" | "pan";
 
+/** What the app is for right now: prompting an agent, editing the design, or clicking through it. */
+export type Workspace = "vibe" | "design" | "prototype";
+
+export type LeftTab = "chat" | "layers" | "screens" | "palette" | "changes";
+
+/** Left panels each workspace offers, in rail order. The first is where a switch lands. */
+export const workspaceTabs: Record<Workspace, readonly LeftTab[]> = {
+  design: ["layers", "palette", "screens", "changes"],
+  prototype: ["chat", "screens", "changes"],
+  vibe: ["chat", "screens", "changes"],
+};
+
 export interface Selection {
   nodeId: string;
   screenId: string;
@@ -32,7 +44,7 @@ interface EditorStore {
   hover: { screenId: string; nodeId: string } | null;
   inspect: InspectResult | null;
   layout: CanvasLayout;
-  leftTab: "chat" | "layers" | "screens" | "palette" | "changes";
+  leftTab: LeftTab;
   mode: Mode;
 
   openFlow: (flow: string) => Promise<void>;
@@ -55,11 +67,13 @@ interface EditorStore {
   setTokens: (tokens: Record<string, string>) => void;
   setTree: (screenId: string, tree: TreeNode) => void;
   setView: (view: Partial<EditorStore["view"]>) => void;
+  setWorkspace: (workspace: Workspace) => void;
   /** Space is held: the canvas pans whatever the current mode. */
   spacePan: boolean;
   tokens: Record<string, string>;
   trees: Record<string, TreeNode>;
   view: { x: number; y: number; zoom: number };
+  workspace: Workspace;
   zoomToFit: (viewport: { width: number; height: number }) => void;
   zoomToSelection: (viewport: { width: number; height: number }) => void;
 }
@@ -196,10 +210,26 @@ export const useEditor = create<EditorStore>((set, get) => ({
   setTree: (screenId, tree) =>
     set((s) => ({ trees: { ...s.trees, [screenId]: tree } })),
   setView: (view) => set((s) => ({ view: { ...s.view, ...view } })),
+  setWorkspace: (workspace) => {
+    const tabs = workspaceTabs[workspace];
+    const { leftTab } = get();
+    set({
+      leftTab: tabs.includes(leftTab) ? leftTab : (tabs[0] ?? "chat"),
+      workspace,
+      // Nothing shows the selection in the prototype, so no key may act on it there.
+      ...(workspace === "prototype" && {
+        hover: null,
+        inspect: null,
+        selectedScreen: null,
+        selection: null,
+      }),
+    });
+  },
   spacePan: false,
   tokens: {},
   trees: {},
   view: { x: 80, y: 80, zoom: 0.5 },
+  workspace: "vibe",
   zoomToFit: (viewport) => {
     const frames = Object.values(get().frames);
     if (frames.length === 0) {

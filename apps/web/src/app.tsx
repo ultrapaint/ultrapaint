@@ -19,10 +19,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { AgentChanges } from "./canvas/agent-changes.tsx";
 import { installBridgeRouter } from "./canvas/bridge.ts";
 import { Canvas } from "./canvas/canvas.tsx";
+import { Prototype, PrototypeBar } from "./canvas/prototype.tsx";
 import { CanvasStatus } from "./canvas/status.tsx";
 import { Toolbar } from "./canvas/toolbar.tsx";
+import { WorkspaceSwitcher } from "./canvas/workspace-switcher.tsx";
 import { DialogHost } from "./components/dialogs.tsx";
 import { IconButton } from "./components/icon-button.tsx";
 import { ResizeHandle, usePanelWidth } from "./components/resize-handle.tsx";
@@ -35,45 +38,34 @@ import { SaveConfigDialog } from "./panels/save-config.tsx";
 import { Screens } from "./panels/screens.tsx";
 import { SettingsDialog } from "./panels/settings.tsx";
 import { Threads } from "./panels/threads.tsx";
+import { useAgents } from "./state/agents.ts";
 import { useCatalogue } from "./state/catalogue.ts";
 import { useConnection } from "./state/connection.ts";
-import { useEditor } from "./state/editor.ts";
+import { type LeftTab, useEditor, workspaceTabs } from "./state/editor.ts";
 import { bindProjectEvents, useProject } from "./state/project.ts";
 
 installBridgeRouter();
 
-type EditorState = ReturnType<typeof useEditor.getState>;
-type LeftTab = EditorState["leftTab"];
-
-const leftTabs: {
-  value: LeftTab;
-  label: string;
-  icon: LucideIcon;
-  panel: ComponentType;
-}[] = [
-  { icon: MessageSquare, label: "Chat", panel: Threads, value: "chat" },
-  { icon: LayersIcon, label: "Layers", panel: Layers, value: "layers" },
-  { icon: Shapes, label: "Components", panel: Palette, value: "palette" },
-  {
-    icon: MonitorSmartphone,
-    label: "Screens",
-    panel: Screens,
-    value: "screens",
-  },
-  {
-    icon: GitCompareArrows,
-    label: "Changes",
-    panel: Changes,
-    value: "changes",
-  },
-];
+const leftTabs: Record<
+  LeftTab,
+  { label: string; icon: LucideIcon; panel: ComponentType }
+> = {
+  changes: { icon: GitCompareArrows, label: "Changes", panel: Changes },
+  chat: { icon: MessageSquare, label: "Chat", panel: Threads },
+  layers: { icon: LayersIcon, label: "Layers", panel: Layers },
+  palette: { icon: Shapes, label: "Components", panel: Palette },
+  screens: { icon: MonitorSmartphone, label: "Screens", panel: Screens },
+};
 
 const leftBounds = { defaultWidth: 256, max: 480, min: 200 };
+/** A conversation reads better wide; switching to any other panel caps the width again. */
+const chatBounds = { ...leftBounds, max: 960 };
 const rightBounds = { defaultWidth: 288, max: 560, min: 240 };
 
-const RailButton = ({ tab }: { tab: (typeof leftTabs)[number] }) => {
-  const active = useEditor((s) => s.leftTab === tab.value);
-  const onClick = () => useEditor.getState().setLeftTab(tab.value);
+const RailButton = ({ value }: { value: LeftTab }) => {
+  const active = useEditor((s) => s.leftTab === value);
+  const onClick = () => useEditor.getState().setLeftTab(value);
+  const tab = leftTabs[value];
   const Icon = tab.icon;
   return (
     <Tooltip>
@@ -98,24 +90,27 @@ const RailButton = ({ tab }: { tab: (typeof leftTabs)[number] }) => {
   );
 };
 
-/** Icon navigation between the left panels, Figma-style. */
-const Rail = () => (
-  <nav
-    aria-label="Panels"
-    className="flex w-14 shrink-0 flex-col items-center gap-1 border-r bg-sidebar py-2"
-  >
-    <span
-      aria-label="ultrapaint"
-      className="mb-2 flex size-8 items-center justify-center rounded-lg bg-brand font-bold text-[11px] text-brand-foreground tracking-tight"
-      role="img"
+/** Icon navigation between the left panels the workspace offers, Figma-style. */
+const Rail = () => {
+  const workspace = useEditor((s) => s.workspace);
+  return (
+    <nav
+      aria-label="Panels"
+      className="flex w-14 shrink-0 flex-col items-center gap-1 border-r bg-sidebar py-2"
     >
-      UP
-    </span>
-    {leftTabs.map((t) => (
-      <RailButton key={t.value} tab={t} />
-    ))}
-  </nav>
-);
+      <span
+        aria-label="ultrapaint"
+        className="mb-2 flex size-8 items-center justify-center rounded-lg bg-brand font-bold text-[11px] text-brand-foreground tracking-tight"
+        role="img"
+      >
+        UP
+      </span>
+      {workspaceTabs[workspace].map((value) => (
+        <RailButton key={value} value={value} />
+      ))}
+    </nav>
+  );
+};
 
 const openSettings = () => useProject.getState().openSettings(true);
 // Saving needs settings to save; before the first ones exist the setup dialog is the way in.
@@ -171,10 +166,11 @@ const ProjectHeader = () => {
 
 const LeftPanel = () => {
   const leftTab = useEditor((s) => s.leftTab);
-  const [width, setWidth] = usePanelWidth("left", leftBounds);
-  const tab = leftTabs.find((t) => t.value === leftTab);
+  const bounds = leftTab === "chat" ? chatBounds : leftBounds;
+  const [width, setWidth] = usePanelWidth("left", bounds);
+  const tab = leftTabs[leftTab];
   // Only the active panel is mounted: panels subscribe to server events while visible.
-  const Active = tab?.panel;
+  const Active = tab.panel;
   return (
     <aside
       className="relative flex shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground"
@@ -182,13 +178,13 @@ const LeftPanel = () => {
     >
       <ProjectHeader />
       <div className="flex h-9 shrink-0 items-center px-3 font-medium text-[11px]">
-        {tab?.label}
+        {tab.label}
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
-        {Active ? <Active /> : null}
+        <Active />
       </div>
       <ResizeHandle
-        defaultWidth={leftBounds.defaultWidth}
+        defaultWidth={bounds.defaultWidth}
         onWidthChange={setWidth}
         side="left"
         width={width}
@@ -226,6 +222,7 @@ export const App = () => {
   const configured = useProject((s) => s.info.configured);
   const screens = useProject((s) => s.screens);
   const flow = useEditor((s) => s.flow);
+  const workspace = useEditor((s) => s.workspace);
   const bound = useRef<boolean>(false);
   useShortcuts();
 
@@ -244,6 +241,9 @@ export const App = () => {
   useEffect(() => {
     if (configured) {
       useCatalogue.getState().load();
+      // Agent events are followed from the start, not only while the chat is open: the badge
+      // over the tool strip reports turns that changed files.
+      useAgents.getState().bind();
     }
   }, [configured]);
 
@@ -294,11 +294,15 @@ export const App = () => {
           <Rail />
           <LeftPanel />
           <main className="relative min-w-0 flex-1">
-            <Canvas />
+            {workspace === "prototype" ? <Prototype /> : <Canvas />}
+            <WorkspaceSwitcher />
             <CanvasStatus />
-            <Toolbar />
+            <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex flex-col items-center gap-2">
+              <AgentChanges />
+              {workspace === "prototype" ? <PrototypeBar /> : <Toolbar />}
+            </div>
           </main>
-          <RightPanel />
+          {workspace === "design" && <RightPanel />}
         </div>
         <SettingsDialog />
         <SaveConfigDialog />
