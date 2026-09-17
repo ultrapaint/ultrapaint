@@ -8,6 +8,11 @@
  * with the sheet or the document element — right for a click, useless for a canvas, where
  * hovering is how the design is read. A lookup here undoes all of it for the instant it takes,
  * so an open dropdown can be inspected in select mode and the screen behind it stays selectable.
+ *
+ * The same is true one element at a time. A design system turns pointer events off on every
+ * icon it draws, so that a click on the tick of a menu item still lands on the item; a design
+ * turns them off on a decoration, so that it is not in the way. Neither is a reason for a
+ * canvas not to show them.
  */
 import { paintsNothing } from "./dom.ts";
 
@@ -85,11 +90,18 @@ const empty = (el: Element | null) =>
   el === null || el === document.documentElement || el === document.body;
 
 export const elementAt = (x: number, y: number): Element | null => {
-  // The plain lookup first: on a screen with nothing open it is the whole answer, and the page
-  // keeps whatever `pointer-events` the design itself asked for.
+  // The plain lookup first: it is what the page itself would answer, and on a leaf it is the
+  // whole answer, since nothing can hide inside an element that holds nothing.
   const direct = pick(document.elementsFromPoint(x, y));
-  if (!empty(direct)) {
+  if (!empty(direct) && direct?.childElementCount === 0) {
     return direct;
   }
-  return unblocked(() => pick(document.elementsFromPoint(x, y))) ?? direct;
+  const open = unblocked(() => pick(document.elementsFromPoint(x, y)));
+  if (empty(direct)) {
+    return open ?? direct;
+  }
+  // What the page kept from the lookup inside its own answer is taken — the tick of a menu
+  // item, the icon in a button — and what it kept on top of it is left where it is: a
+  // decoration spread over a screen is not what a point in the middle of it means.
+  return open && direct?.contains(open) ? open : direct;
 };
