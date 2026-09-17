@@ -123,19 +123,27 @@ const runSession = (options: ConnectionOptions, hooks: SessionHooks) =>
     if (!opened) {
       return false;
     }
-    hooks.onOpen(client as unknown as RequestCall);
+    // Subscribe before announcing the session: the editor loads its snapshots as soon as it
+    // sees "open", and a change between a snapshot and its subscription would be lost.
+    const streamEnded = yield* Deferred.make<void>();
     const subscribe = client as unknown as StreamCall;
     for (const event of eventNames) {
       yield* subscribe(`events.${event}`, undefined).pipe(
         Stream.runForEach((payload) =>
           Effect.sync(() => hooks.onEvent(event, payload))
         ),
-        // The stream ends with the socket; the next session subscribes again.
         Effect.ignore,
+        // These streams only end with the socket. One that ends on an open socket would leave
+        // the editor deaf to that event, so it ends the session and the supervisor reconnects.
+        Effect.ensuring(Deferred.succeed(streamEnded, undefined)),
         Effect.forkScoped
       );
     }
-    yield* Deferred.await(disconnected);
+    hooks.onOpen(client as unknown as RequestCall);
+    yield* Effect.raceFirst(
+      Deferred.await(disconnected),
+      Deferred.await(streamEnded)
+    );
     return true;
   }).pipe(Effect.scoped);
 
@@ -168,7 +176,15 @@ export class Connection {
     const hooks: SessionHooks = {
       onEvent: (event, payload) => {
         for (const listener of this.listeners.get(event) ?? []) {
-          listener(payload as never);
+          // One listener that throws must not stop the others, or the stream that feeds them.
+          try {
+            listener(payload as never);
+          } catch (error) {
+            console.error(
+              `[ultrapaint] listener for "${event}" failed`,
+              error
+            );
+          }
         }
       },
       onOpen: (call) => {

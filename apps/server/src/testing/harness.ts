@@ -22,6 +22,18 @@ const HOME_SCREEN = `export default function Home() {
 }
 `;
 
+const BUTTON_COMPONENT = `export interface ButtonProps {
+  disabled?: boolean;
+  label: string;
+  variant?: "primary" | "ghost";
+}
+
+/** A button. */
+export function Button(props: ButtonProps) {
+  return props.disabled ? null : null;
+}
+`;
+
 export const freePort = Effect.callback<number>((resume) => {
   const server = createServer();
   server.listen(0, "127.0.0.1", () => {
@@ -45,6 +57,7 @@ export const makeRepository = Effect.gen(function* () {
   yield* write("package.json", '{ "name": "fixture", "private": true }\n');
   yield* write("designs/package.json", '{ "name": "designs" }\n');
   yield* write("designs/home.tsx", HOME_SCREEN);
+  yield* write("ui/button.tsx", BUTTON_COMPONENT);
   const git = (...args: string[]) => runCommand("git", args, { cwd: repo });
   yield* git("init", "-q", "-b", "main");
   yield* git("config", "user.email", "test@example.com");

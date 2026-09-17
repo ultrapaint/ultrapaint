@@ -7,7 +7,7 @@
     "ultrapaint": "./src/bin.ts"
   },
   "scripts": {
-    "build": "esbuild src/bin.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/bin.mjs --external:typescript-api --external:esbuild --external:@babel/parser --external:magic-string --external:tailwind-merge --external:effect --external:@effect/platform-node --external:html-to-image",
+    "build": "esbuild src/bin.ts src/services/catalogue-worker.ts --bundle --platform=node --format=esm --target=node22 --outdir=dist --entry-names=[name] --out-extension:.js=.mjs --external:typescript-api --external:esbuild --external:@babel/parser --external:magic-string --external:tailwind-merge --external:effect --external:@effect/platform-node --external:html-to-image",
     "dev": "tsx watch --clear-screen=false src/bin.ts",
     "start": "tsx src/bin.ts",
     "test": "vitest run",

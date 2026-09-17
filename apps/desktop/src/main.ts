@@ -3,12 +3,13 @@
  * the only native additions are a folder picker and a window. No editor feature lives here.
  *
  * The server is a child process in the program's scope. Quitting closes the scope, which ends
- * the server's process group before Electron is allowed to exit.
+ * the server's process group before Electron is allowed to exit. A server that cannot start
+ * ends the app with a non-zero code.
  */
 import { createServer } from "node:net";
 import path from "node:path";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
-import { Effect, Schedule } from "effect";
+import { Deferred, Effect, Exit, Schedule } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
 
@@ -59,15 +60,7 @@ const startServer = Effect.gen(function* () {
   return port;
 });
 
-/** Holds Electron's quit until the scope, and with it the server, has been closed. */
-const quitRequested = Effect.callback<void>((resume) => {
-  app.once("before-quit", (event) => {
-    event.preventDefault();
-    resume(Effect.void);
-  });
-});
-
-const program = Effect.gen(function* () {
+const openWindow = Effect.gen(function* () {
   yield* Effect.promise(() => app.whenReady());
   const port = yield* startServer;
   ipcMain.handle("pick-folder", async () => {
@@ -88,12 +81,26 @@ const program = Effect.gen(function* () {
   });
   app.on("window-all-closed", () => app.quit());
   yield* Effect.promise(() => window.loadURL(`http://127.0.0.1:${port}/`));
-  yield* quitRequested;
+  return yield* Effect.never;
+});
+
+const program = Effect.gen(function* () {
+  // Registered before anything starts: a quit during the seconds the server takes to come up
+  // must also be held until the scope, and with it the server, has been closed.
+  const quit = yield* Deferred.make<void>();
+  app.once("before-quit", (event) => {
+    event.preventDefault();
+    Deferred.doneUnsafe(quit, Effect.void);
+  });
+  yield* Effect.raceFirst(openWindow, Deferred.await(quit));
 });
 
 program.pipe(
   Effect.scoped,
-  Effect.ensuring(Effect.sync(() => app.exit(0))),
+  Effect.tapCause((cause) => Effect.logError("desktop shell failed", cause)),
+  Effect.onExit((exit) =>
+    Effect.sync(() => app.exit(Exit.isSuccess(exit) ? 0 : 1))
+  ),
   Effect.provide(NodeServices.layer),
   NodeRuntime.runMain
 );

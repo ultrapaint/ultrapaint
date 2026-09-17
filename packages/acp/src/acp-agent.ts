@@ -33,15 +33,7 @@ import {
   type WriteTextFileRequest,
 } from "@agentclientprotocol/sdk";
 import type { AgentConfig } from "@ultrapaint/contracts/threads";
-import {
-  Deferred,
-  Effect,
-  Predicate,
-  Queue,
-  Result,
-  type Scope,
-  Stream,
-} from "effect";
+import { Deferred, Effect, Predicate, Queue, Result, type Scope } from "effect";
 import {
   type AcpError,
   AcpProcessExited,
@@ -108,8 +100,15 @@ export interface AcpAgent {
   readonly authenticate: (methodId: string) => Effect.Effect<void, AcpError>;
   readonly cancel: (sessionId: string) => Effect.Effect<void, AcpError>;
   /**
-   * Completes once every update received so far has been handled by the `updates` consumer.
-   * A prompt's response can arrive before its last update is processed; wait on this first.
+   * Runs `handler` for every `session/update`, one at a time, in the order the agent sent
+   * them. Never completes; fork it into the session's scope. Call it once.
+   */
+  readonly consumeUpdates: (
+    handler: (notification: SessionNotification) => Effect.Effect<void>
+  ) => Effect.Effect<never>;
+  /**
+   * Completes once `consumeUpdates` has finished handling every update received so far. A
+   * prompt's response can arrive before its last update is processed; wait on this first.
    */
   readonly drained: Effect.Effect<void>;
   /** Completes when the agent process ends, for any reason. */
@@ -136,8 +135,6 @@ export interface AcpAgent {
     sessionId: string,
     modeId: string
   ) => Effect.Effect<void, AcpError>;
-  /** `session/update` notifications, in the order the agent sent them. Consume it once. */
-  readonly updates: Stream.Stream<SessionNotification>;
 }
 
 type Inbox = SessionNotification | Deferred.Deferred<void>;
@@ -333,6 +330,16 @@ export const spawnAcpAgent = (
         call("session/cancel", () =>
           agent.notify("session/cancel", { sessionId })
         ),
+      // One item at a time, so a marker is reached only after the handler has finished with
+      // everything queued before it. A stream would resolve markers a whole chunk early.
+      consumeUpdates: (handler) =>
+        Effect.forever(
+          Effect.flatMap(Queue.take(inbox), (item) =>
+            isMarker(item)
+              ? Effect.asVoid(Deferred.succeed(item, undefined))
+              : handler(item)
+          )
+        ),
       drained: Effect.gen(function* () {
         // The SDK answers a request synchronously but dispatches notifications through an
         // async handler chain, so updates sent before a response can reach us a few
@@ -384,13 +391,5 @@ export const spawnAcpAgent = (
             agent.request("session/set_mode", { modeId, sessionId })
           )
         ),
-      updates: Stream.fromQueue(inbox).pipe(
-        Stream.filterEffect((item) =>
-          isMarker(item)
-            ? Effect.as(Deferred.succeed(item, undefined), false)
-            : Effect.succeed(true)
-        ),
-        Stream.map((item) => item as SessionNotification)
-      ),
     } satisfies AcpAgent;
   });

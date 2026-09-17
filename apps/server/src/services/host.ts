@@ -6,6 +6,7 @@ import {
   Deferred,
   Effect,
   Exit,
+  Fiber,
   FileSystem,
   Layer,
   Path,
@@ -215,14 +216,19 @@ export class HostManager extends Context.Service<
         Effect.catch((error: string) => setStatus({ error, state: "error" }))
       );
 
-      const start = lifecycle
-        .withPermits(1)(
+      // A request that goes away mid-start must not leave the host half started: the work is
+      // forked into the layer scope and the caller only waits for it.
+      const detached = <A>(effect: Effect.Effect<A>) =>
+        Effect.flatMap(Effect.forkIn(effect, layerScope), Fiber.join);
+
+      const start = detached(
+        lifecycle.withPermits(1)(
           Effect.suspend(() => (running ? SubscriptionRef.get(status) : launch))
         )
-        .pipe(Effect.withSpan("HostManager.start"));
+      ).pipe(Effect.withSpan("HostManager.start"));
 
-      const stop = lifecycle
-        .withPermits(1)(
+      const stop = detached(
+        lifecycle.withPermits(1)(
           Effect.gen(function* () {
             const current = running;
             if (!current) {
@@ -233,7 +239,7 @@ export class HostManager extends Context.Service<
             return yield* setStatus({ state: "stopped" });
           })
         )
-        .pipe(Effect.withSpan("HostManager.stop"));
+      ).pipe(Effect.withSpan("HostManager.stop"));
 
       return HostManager.of({
         changes: SubscriptionRef.changes(status),

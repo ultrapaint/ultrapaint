@@ -15,7 +15,7 @@ import type {
 } from "@ultrapaint/contracts/catalogue";
 // TypeScript 7 (native) has no JS compiler API; the catalogue uses the 5.x API under an alias.
 import ts from "typescript-api";
-import { hashContent } from "../hash.ts";
+import { hashContent, toPosix } from "../hash.ts";
 
 /** Bump when the extraction logic changes so stale caches are rebuilt. */
 const CATALOGUE_VERSION = 2;
@@ -451,12 +451,17 @@ const snippetFor = (name: string, props: PropMeta[]): string => {
     : `<${name}${attrs ? ` ${attrs}` : ""} />`;
 };
 
+const relativeTo = (root: string, abs: string) =>
+  toPosix(path.relative(root, abs));
+
 /** What the extraction needs from the project: resolved library directories and path mapping. */
 export interface ExtractContext {
   readonly componentPackages: readonly string[];
   /** Absolute paths, already checked to be inside the repository. */
   readonly libraryDirs: readonly string[];
-  readonly relative: (abs: string) => string;
+  /** Repository root; component files are reported relative to it. Plain data, so the whole
+   * context can be handed to a worker thread. */
+  readonly root: string;
 }
 
 export const catalogueSourceFiles = (ctx: ExtractContext): string[] => {
@@ -631,8 +636,8 @@ const fileComponents = (
         .slice(0, 200) || undefined;
     out.push({
       category,
-      file: ctx.relative(file),
-      group: spec?.pkg ?? path.dirname(ctx.relative(file)),
+      file: relativeTo(ctx.root, file),
+      group: spec?.pkg ?? path.dirname(relativeTo(ctx.root, file)),
       importFrom: spec?.specifier ?? base,
       name,
       props,

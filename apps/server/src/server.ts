@@ -44,7 +44,10 @@ const RpcRoute = Layer.effectDiscard(
         return yield* httpEffect;
       })
     );
-    yield* RpcServer.make(UltrapaintRpcs).pipe(
+    // By default one defect in a handler is fatal for the whole client: it fails every call in
+    // flight and all eight event streams. A defect here is an unexpected I/O error in one
+    // request and is reported as that request's failure.
+    yield* RpcServer.make(UltrapaintRpcs, { disableFatalDefects: true }).pipe(
       Effect.provideService(RpcServer.Protocol, protocol),
       Effect.forkScoped
     );

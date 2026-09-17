@@ -11,12 +11,11 @@ import {
   NotFound,
   Stale,
 } from "@ultrapaint/contracts/errors";
-import { Context, Effect, FileSystem, Layer, Path } from "effect";
+import { Context, Effect, FileSystem, Layer, Path, Semaphore } from "effect";
 import { ChildProcessSpawner } from "effect/unstable/process";
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { EventBus } from "../events.ts";
 import { hashContent } from "../hash.ts";
-import { makeKeyedLock } from "../keyed-lock.ts";
 import { runCommand } from "../process.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import {
@@ -146,9 +145,12 @@ export class EditService extends Context.Service<
       const path = yield* Path.Path;
       const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
       const writeAtomic = makeWriteAtomic(fs, path);
-      const lock = makeKeyedLock();
+      // Edits, undo and redo share one journal, so they run one at a time across all files.
+      // Choosing the entry to undo outside the lock would race an edit that is still being
+      // formatted, read that as an outside change and drop the whole history.
+      const journalLock = yield* Semaphore.make(1);
+      const exclusive = journalLock.withPermits(1);
 
-      // The journal is only touched in synchronous sections, so plain state is safe.
       let journal: JournalEntry[] = [];
       let cursor = 0;
       let invalidated: string | undefined;
@@ -236,8 +238,7 @@ export class EditService extends Context.Service<
             message: `${rel} is outside the designs directory`,
           });
         }
-        return yield* lock.withLock(
-          rel,
+        return yield* exclusive(
           Effect.gen(function* () {
             const { abs, content, hash } = yield* read(rel);
             if (expectedHash && expectedHash !== hash) {
@@ -300,17 +301,16 @@ export class EditService extends Context.Service<
 
       /** Moves the cursor one step in either direction, refusing if the file drifted. */
       const step = (direction: "undo" | "redo") =>
-        Effect.suspend(() => {
-          const entry =
-            direction === "undo" ? journal[cursor - 1] : journal[cursor];
-          if (!entry) {
-            return Effect.succeed(null);
-          }
-          const expected = direction === "undo" ? entry.after : entry.before;
-          const next = direction === "undo" ? entry.before : entry.after;
-          return lock.withLock(
-            entry.file,
-            Effect.gen(function* () {
+        exclusive(
+          Effect.suspend(() => {
+            const entry =
+              direction === "undo" ? journal[cursor - 1] : journal[cursor];
+            if (!entry) {
+              return Effect.succeed(null);
+            }
+            const expected = direction === "undo" ? entry.after : entry.before;
+            const next = direction === "undo" ? entry.before : entry.after;
+            return Effect.gen(function* () {
               const { abs, content } = yield* read(entry.file);
               if (content !== expected) {
                 if (direction === "undo") {
@@ -340,9 +340,9 @@ export class EditService extends Context.Service<
                     : null,
                 warnings: [],
               } satisfies EditResult;
-            })
-          );
-        }).pipe(Effect.withSpan(`EditService.${direction}`));
+            });
+          })
+        ).pipe(Effect.withSpan(`EditService.${direction}`));
 
       return EditService.of({
         apply,

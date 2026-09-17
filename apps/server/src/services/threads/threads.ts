@@ -34,11 +34,11 @@ import {
   Deferred,
   Effect,
   Exit,
+  Fiber,
   FileSystem,
   Layer,
   Path,
   Scope,
-  Stream,
 } from "effect";
 import { ChildProcessSpawner } from "effect/unstable/process";
 import { AppLog } from "../../app-log.ts";
@@ -154,6 +154,16 @@ export class ThreadService extends Context.Service<
       const live = new Map<string, Live>();
       // One session start per thread, however many calls ask for it at once.
       const starting = makeKeyedLock();
+      // One prompt at a time per thread, so two cannot both find the thread idle.
+      const opening = makeKeyedLock();
+
+      /**
+       * Runs work to completion even if the caller goes away. RPC handlers are interrupted when
+       * their socket closes (a page reload is enough), and a session start or the opening of a
+       * turn that stops half way leaves the thread in a state nothing recovers from.
+       */
+      const detached = <A, E>(effect: Effect.Effect<A, E>) =>
+        Effect.flatMap(Effect.forkIn(effect, serviceScope), Fiber.join);
 
       const newItemId = makeId("item");
       const currentPaths = project.use(Effect.map(RepoPaths, (paths) => paths));
@@ -327,10 +337,14 @@ export class ThreadService extends Context.Service<
                   null
                 )
               ),
+              // The replayed updates can trail the response; they are still history.
               Effect.ensuring(
-                Effect.sync(() => {
-                  session.replaying = false;
-                })
+                Effect.andThen(
+                  Effect.timeoutOption(session.agent.drained, "5 seconds"),
+                  Effect.sync(() => {
+                    session.replaying = false;
+                  })
+                )
               )
             );
           if (loaded) {
@@ -383,7 +397,10 @@ export class ThreadService extends Context.Service<
         );
         const session = yield* boot.pipe(
           Effect.mapError(agentFailure),
-          Effect.onError(() => Scope.close(scope, Exit.void))
+          Effect.onError(() => Scope.close(scope, Exit.void)),
+          Effect.tapError((error) =>
+            store.update(threadId, { error: error.message, status: "error" })
+          )
         );
         live.set(threadId, session);
 
@@ -392,6 +409,10 @@ export class ThreadService extends Context.Service<
         yield* Scope.addFinalizer(
           scope,
           Effect.gen(function* () {
+            // The project scope can close this one directly, without going through `stop`.
+            if (live.get(threadId) === session) {
+              live.delete(threadId);
+            }
             for (const pending of session.pending.values()) {
               yield* Deferred.succeed(pending.decision, CANCELLED);
             }
@@ -401,9 +422,11 @@ export class ThreadService extends Context.Service<
             }
           })
         );
-        yield* session.agent.updates.pipe(
-          Stream.runForEach((n) => onUpdate(threadId, session, n.update)),
-          Effect.forkIn(scope)
+        yield* Effect.forkIn(
+          session.agent.consumeUpdates((n) =>
+            onUpdate(threadId, session, n.update)
+          ),
+          scope
         );
         // An exit we did not ask for. Forked outside the session scope because it closes it.
         yield* session.agent.exited.pipe(
@@ -471,15 +494,15 @@ export class ThreadService extends Context.Service<
       });
 
       const ensureLive = (threadId: string) =>
-        starting
-          .withLock(
+        detached(
+          starting.withLock(
             threadId,
             Effect.suspend(() => {
               const existing = live.get(threadId);
               return existing ? Effect.succeed(existing) : start(threadId);
             })
           )
-          .pipe(Effect.withSpan("ThreadService.ensureLive"));
+        ).pipe(Effect.withSpan("ThreadService.ensureLive"));
 
       const sessionOf = Effect.fnUntraced(function* (threadId: string) {
         const session = yield* ensureLive(threadId);
@@ -690,7 +713,8 @@ export class ThreadService extends Context.Service<
         create,
         delete: (threadId) =>
           Effect.andThen(stop(threadId), store.remove(threadId)),
-        prompt,
+        prompt: (input) =>
+          detached(opening.withLock(input.threadId, prompt(input))),
         resolvePermission,
         setConfigOption: Effect.fn("ThreadService.setConfigOption")(function* (
           threadId: string,

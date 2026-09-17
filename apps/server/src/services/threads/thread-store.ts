@@ -177,7 +177,11 @@ export class ThreadStore extends Context.Service<
         push,
         remove: Effect.fnUntraced(function* (id: string) {
           threads.delete(id);
-          yield* Effect.ignore(fs.remove(fileOf(id), { force: true }));
+          // Behind any write still in flight, or its rename would bring the file back.
+          yield* writes.withLock(
+            id,
+            Effect.ignore(fs.remove(fileOf(id), { force: true }))
+          );
           yield* events.publish("agent", { threadId: id, type: "removed" });
         }),
         update,

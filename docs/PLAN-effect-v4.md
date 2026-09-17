@@ -235,13 +235,13 @@ About 5,000 lines rewritten: server 4,526, acp 339, client-runtime 190, desktop 
 
 ## Outcome
 
-All phases are done on the `effect-v4` branch. Tests went from 19 to 65; `apps/web/src` is
+All phases are done on the `effect-v4` branch. Tests went from 19 to 71; `apps/web/src` is
 unchanged and its bundle shrank from 995 kB to 856 kB (313 to 275 kB gzip), because Effect 4
 tree-shakes better than 3 even with the RPC client added.
 
-Verified by running it: the server over a real WebSocket (17 tests), agent threads against a
-scripted ACP agent (16), the `Connection` facade across a server restart (2), the ACP wrapper and
-terminals against real processes (10), the editor in a browser through Vite's `/ws` proxy
+Verified by running it: the server over a real WebSocket (20 tests), agent threads against a
+scripted ACP agent (18), the `Connection` facade across a server restart (2), the ACP wrapper and
+terminals against real processes (11), the editor in a browser through Vite's `/ws` proxy
 (settings, screens, pushed events, reconnect after a `tsx watch` restart), the esbuild server bundle
 with static files, `pnpm dev` and its Ctrl-C cleanup, and the Electron shell starting the server and
 taking it down on SIGTERM. Not run: quitting Electron from its menu (same scope close, reached
@@ -259,8 +259,9 @@ through `before-quit`), and the real Claude Code and Codex agents (the ADR 0004 
   in its own process group inside `acquireRelease`. Terminals and everything else use the spawner.
 - **`threads.cancel` does not interrupt the turn fiber.** It sends `session/cancel` and lets the agent
   answer the prompt with `cancelled`, so the transcript records how the turn really ended.
-- **The catalogue build still blocks the event loop** for its few seconds, as before. It is
-  serialised so two requests cannot build twice; moving it to a worker is a separate change.
+- **The catalogue build runs on a worker thread,** which was not planned. On the main thread the
+  compiler pass would starve the RPC keep-alive (a ping every 5 s, one miss drops the socket) and
+  disconnect the editor on a large design system. The bundle ships the worker as a second entry.
 
 ### Found on the way
 
@@ -279,3 +280,32 @@ through `before-quit`), and the real Claude Code and Codex agents (the ADR 0004 
   editor's WebSocket never drains. `disablePreemptiveShutdown` brings shutdown to about 60 ms.
 - "Remember this choice" stored a permission under the tool title and looked it up under the tool
   kind, so it never matched when the agent sent a kind. Both now use the same key.
+
+### Found by review, after the first pass
+
+An independent review of the finished rewrite found these. Each has a regression test, and the
+tests for the first three were checked to fail without their fix.
+
+- **One defect killed every event stream of a client.** `RpcServer` treats a handler defect as
+  fatal for the whole client by default. It is now `disableFatalDefects`, and `Connection` ends the
+  session if an event stream ends on an open socket, so it reconnects instead of going deaf.
+- **A thread stuck at "running" after the settings were saved again.** Closing the project scope
+  killed the agents but left their sessions registered; the next prompt forked its turn into a
+  closed scope. The session finalizer now unregisters the session.
+- **A request that went away mid-start left a thread unrecoverable.** RPC handler fibers are
+  interrupted when their socket closes, which a page reload does. Session start, the opening of a
+  turn, host start and stop, and project open now run detached from the caller, and prompts are
+  serialised per thread.
+- **`drained` resolved a whole chunk early** with a consumer slower than the agent, which the real
+  one is because it persists the transcript. Updates are now taken one at a time, and a session
+  replay is drained before new updates are accepted.
+- **Undo during formatting dropped the whole history.** The entry to undo was chosen outside the
+  lock. Edits, undo and redo now share one lock.
+- Smaller: screen mutations are serialised so two duplicates cannot pick the same name or lose a
+  canvas frame; a thread file cannot be resurrected by a write in flight; a bad `canvas.json` no
+  longer ends the watcher; a project that fails to open tells the editor; the desktop shell holds
+  a quit during startup and exits non-zero when the server cannot start.
+
+Known and left as it was: the formatter command interpolates the file name inside shell double
+quotes, so a file name containing `$(...)` in the target repository would run. The tool already
+executes that repository's Vite configuration, so this is not a new trust boundary.

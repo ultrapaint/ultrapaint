@@ -1,7 +1,7 @@
 import path from "node:path";
 import { assert, layer } from "@effect/vitest";
 import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
-import { Effect, FileSystem } from "effect";
+import { Effect, Fiber, FileSystem } from "effect";
 import { TestEnv, TestServer } from "./testing/harness.ts";
 
 /** Polls the thread until `done` holds. Agent turns report through the transcript. */
@@ -347,6 +347,44 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
 
           yield* client["checkpoints.revert"]({ id: beforeWrite?.id ?? "" });
           assert.isFalse(yield* fs.exists(written));
+        })
+    );
+
+    it.effect(
+      "finishes starting a session and its turn when the request goes away",
+      () =>
+        Effect.gen(function* () {
+          const threadId = yield* startThread;
+          yield* prompt(threadId, "exit");
+          yield* waitForThread(threadId, (t) => t.status === "error");
+
+          // A page reload interrupts the request while the agent is still booting.
+          const request = yield* Effect.forkScoped(prompt(threadId, "reply"));
+          yield* Effect.sleep("30 millis");
+          yield* Fiber.interrupt(request);
+
+          const { thread } = yield* waitForThread(threadId, turnEnded);
+          assert.strictEqual(thread?.status, "idle");
+        })
+    );
+
+    it.effect(
+      "restarts the session of a thread after the project was reopened",
+      () =>
+        Effect.gen(function* () {
+          const { client, settings } = yield* TestEnv;
+          const threadId = yield* startThread;
+          // Saving settings closes the project scope and every agent with it.
+          yield* client["settings.set"](settings);
+          yield* waitForThread(threadId, (t) => t.status === "idle");
+
+          yield* prompt(threadId, "reply");
+          const { items, thread } = yield* waitForThread(threadId, turnEnded);
+          assert.strictEqual(thread?.status, "idle");
+          assert.include(
+            items.map((i) => (i.kind === "agent" ? i.text : "")),
+            "Hello world"
+          );
         })
     );
 

@@ -5,6 +5,7 @@ import {
   Context,
   Effect,
   Exit,
+  Fiber,
   type FileSystem,
   Layer,
   Path,
@@ -154,14 +155,22 @@ export class ProjectManager extends Context.Service<
             })
           )
           .pipe(
-            // A repository that moved or vanished leaves the server running and unconfigured.
+            // A repository that moved or vanished leaves the server running and unconfigured,
+            // and the editor is told so.
             Effect.catchCause((cause) =>
-              log.log(
-                "server",
-                "error",
-                `could not open ${settings.repoPath}: ${String(cause)}`
+              Effect.andThen(
+                log.log(
+                  "server",
+                  "error",
+                  `could not open ${settings.repoPath}: ${String(cause)}`
+                ),
+                publishInfo
               )
             ),
+            // The old project is already closed by the time the new one is built; a caller that
+            // goes away in between must not leave the server with neither.
+            (effect) =>
+              Effect.flatMap(Effect.forkIn(effect, managerScope), Fiber.join),
             Effect.withSpan("ProjectManager.open")
           );
 

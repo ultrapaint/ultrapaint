@@ -13,6 +13,7 @@ import {
   Layer,
   Path,
   Schema,
+  Semaphore,
   Stream,
 } from "effect";
 import { makeWriteAtomic } from "../atomic-write.ts";
@@ -80,6 +81,10 @@ export class ScreensService extends Context.Service<
       const writeAtomic = makeWriteAtomic(fs, path);
       const walk = makeWalk(fs, path);
       const root = paths.designsDir;
+      // Renames, duplicates and deletes pick a file name and rewrite `canvas.json`; two at
+      // once would choose the same name or lose each other's frame.
+      const mutations = yield* Semaphore.make(1);
+      const exclusive = mutations.withPermits(1);
 
       const exists = (p: string) =>
         Effect.orElseSucceed(fs.exists(p), () => false);
@@ -263,9 +268,10 @@ export class ScreensService extends Context.Service<
       const onCanvasChanged = Effect.fnUntraced(function* (abs: string) {
         const dir = toPosix(path.relative(root, path.dirname(abs)));
         const flow = dir === "." ? "" : dir;
-        // An invalid canvas.json is reported when the editor asks for it, not from the watcher.
-        const layout = yield* Effect.option(readCanvas(flow));
-        if (layout._tag === "Some") {
+        // An invalid or vanished canvas.json is reported when the editor asks for it. Here it
+        // must not end the watcher, so defects are caught along with failures.
+        const layout = yield* Effect.exit(readCanvas(flow));
+        if (layout._tag === "Success") {
           yield* events.publish("canvas", { flow, layout: layout.value });
         }
       });
@@ -327,14 +333,15 @@ export class ScreensService extends Context.Service<
       }
 
       return ScreensService.of({
-        create,
-        delete: remove,
-        duplicate,
+        create: (flow, name, templateId) =>
+          exclusive(create(flow, name, templateId)),
+        delete: (id) => exclusive(remove(id)),
+        duplicate: (id) => exclusive(duplicate(id)),
         list,
         readCanvas,
-        rename,
+        rename: (id, name) => exclusive(rename(id, name)),
         templates: screenTemplates,
-        writeCanvas,
+        writeCanvas: (flow, layout) => exclusive(writeCanvas(flow, layout)),
       });
     })
   );

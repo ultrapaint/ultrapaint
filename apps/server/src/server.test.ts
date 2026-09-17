@@ -286,6 +286,78 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
       })
     );
 
+    it.effect(
+      "fails one request on an unexpected error and keeps the event streams",
+      () =>
+        Effect.gen(function* () {
+          const { client } = yield* TestEnv;
+          const { event, result } = yield* nextEvent(
+            client["events.screens"](),
+            Effect.gen(function* () {
+              // Reading a directory is an I/O error no wire error describes: a defect.
+              const broken = yield* Effect.exit(
+                client["source.read"]({ file: "designs" })
+              );
+              yield* client["screens.create"]({
+                flow: "",
+                name: "After Defect",
+              });
+              return broken;
+            })
+          );
+          assert.strictEqual(result._tag, "Failure");
+          const ids =
+            event._tag === "Some" ? event.value.screens.map((s) => s.id) : [];
+          assert.include(ids, "after-defect.tsx");
+          assert.isTrue((yield* client.health()).ok);
+        })
+    );
+
+    it.effect("builds the component catalogue off the main thread", () =>
+      Effect.gen(function* () {
+        const { client, settings } = yield* TestEnv;
+        yield* client["settings.set"]({ ...settings, libraryDirs: ["ui"] });
+        const catalogue = yield* client["catalogue.get"]({ refresh: true });
+        const button = catalogue.components.find((c) => c.name === "Button");
+        assert.strictEqual(button?.file, "ui/button.tsx");
+        assert.deepStrictEqual(
+          button?.props.map((p) => [p.name, p.type.kind, p.required]),
+          [
+            ["disabled", "boolean", false],
+            ["label", "string", true],
+            ["variant", "enum", false],
+          ]
+        );
+        // The second call is served from the cache and returns the same build.
+        const again = yield* client["catalogue.get"]({ refresh: false });
+        assert.strictEqual(again.builtAt, catalogue.builtAt);
+      })
+    );
+
+    it.effect(
+      "undoes the edit that is still being formatted, instead of dropping history",
+      () =>
+        Effect.gen(function* () {
+          const { client, settings } = yield* TestEnv;
+          // A slow formatter keeps the edit in flight while the undo arrives.
+          yield* client["settings.set"]({
+            ...settings,
+            formatCommand: "sleep 0.4",
+          });
+          const before = yield* client["source.read"]({ file: HEADING.file });
+          const edit = yield* Effect.forkScoped(
+            client["edit.apply"]({ op: setClasses(["italic"]) })
+          );
+          yield* Effect.sleep("100 millis");
+          const undone = yield* client["edit.undo"]();
+          yield* Fiber.join(edit);
+          assert.strictEqual(undone?.hash, before.hash);
+          const state = yield* client["edit.state"]();
+          assert.isUndefined(state.invalidated);
+          assert.isTrue(state.canRedo);
+        })
+    );
+
     it.effect("turns away a browser page from another origin", () =>
       Effect.gen(function* () {
         const { port } = yield* TestEnv;

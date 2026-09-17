@@ -1,3 +1,4 @@
+import { Worker } from "node:worker_threads";
 import type { Catalogue } from "@ultrapaint/contracts/catalogue";
 import type { ForbiddenPath } from "@ultrapaint/contracts/errors";
 import {
@@ -13,7 +14,6 @@ import { AppLog } from "../app-log.ts";
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { ServerConfig } from "../config.ts";
 import {
-  buildCatalogue,
   catalogueCacheKey,
   catalogueSourceFiles,
   type ExtractContext,
@@ -22,10 +22,39 @@ import { RepoPaths } from "./repo-paths.ts";
 
 const TRAILING_SLASH_RE = /\/$/;
 
+// Source checkouts run the TypeScript file directly; the esbuild bundle ships the worker as a
+// second entry next to `bin.mjs`.
+const WORKER_URL = new URL(
+  import.meta.url.endsWith(".ts")
+    ? "./catalogue-worker.ts"
+    : "./catalogue-worker.mjs",
+  import.meta.url
+);
+
 /**
- * Component catalogue for the palette and the props inspector. The extraction itself is the
- * synchronous TypeScript 5 compiler pass in `catalogue-extract.ts`; this service resolves the
- * library directories, caches the result in memory and on disk, and keeps builds from overlapping.
+ * Runs the compiler pass on a worker thread; interrupting the effect terminates the worker. A
+ * build that fails is a defect: an unexpected error in this request, not a wire error.
+ */
+const buildInWorker = (ctx: ExtractContext, files: string[]) =>
+  Effect.callback<Catalogue>((resume) => {
+    const worker = new Worker(WORKER_URL, { workerData: { ctx, files } });
+    worker.once("message", (catalogue: Catalogue) =>
+      resume(Effect.succeed(catalogue))
+    );
+    worker.once("error", (error) => resume(Effect.die(error)));
+    worker.once("exit", (code) => {
+      if (code !== 0) {
+        resume(Effect.die(new Error(`catalogue worker exited with ${code}`)));
+      }
+    });
+    return Effect.promise(() => worker.terminate());
+  });
+
+/**
+ * Component catalogue for the palette and the props inspector. The extraction is the synchronous
+ * TypeScript 5 compiler pass in `catalogue-extract.ts`, run on a worker thread; this service
+ * resolves the library directories, caches the result in memory and on disk, and keeps builds
+ * from overlapping.
  */
 export class CatalogueService extends Context.Service<
   CatalogueService,
@@ -56,7 +85,7 @@ export class CatalogueService extends Context.Service<
             paths.settings.libraryDirs,
             paths.resolve
           ),
-          relative: paths.relative,
+          root: paths.root,
         };
         const files = catalogueSourceFiles(ctx);
         const cacheFile = path.join(
@@ -76,7 +105,7 @@ export class CatalogueService extends Context.Service<
           }
         }
         const started = yield* Clock.currentTimeMillis;
-        const catalogue = buildCatalogue(ctx, files);
+        const catalogue = yield* buildInWorker(ctx, files);
         cached = catalogue;
         yield* Effect.ignore(
           writeAtomic(cacheFile, JSON.stringify(catalogue)),

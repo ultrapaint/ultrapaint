@@ -2,7 +2,7 @@ import path from "node:path";
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import type { AgentConfig } from "@ultrapaint/contracts/threads";
-import { Effect, Fiber, Stream } from "effect";
+import { type Duration, Effect, Fiber } from "effect";
 import {
   type AcpHandlers,
   type SessionNotification,
@@ -49,16 +49,21 @@ const textOf = (n: SessionNotification) =>
 /** Spawns the fake agent, opens a session and collects every update it sends. */
 const open = Effect.fnUntraced(function* (
   overrides: Partial<AcpHandlers> = {},
-  env: Record<string, string> = {}
+  env: Record<string, string> = {},
+  handlingTakes: Duration.Input = 0
 ) {
   const agent = yield* spawnAcpAgent(config(env), {
     cwd: process.cwd(),
     handlers: handlers(overrides),
   });
   const seen: string[] = [];
-  yield* agent.updates.pipe(
-    Stream.runForEach((n) => Effect.sync(() => seen.push(textOf(n)))),
-    Effect.forkScoped
+  yield* Effect.forkScoped(
+    agent.consumeUpdates((n) =>
+      Effect.andThen(
+        Effect.sleep(handlingTakes),
+        Effect.sync(() => seen.push(textOf(n)))
+      )
+    )
   );
   yield* agent.initialize;
   return { agent, seen };
@@ -74,6 +79,17 @@ describe("AcpAgent", () => {
       ]);
       yield* agent.drained;
       assert.strictEqual(response.stopReason, "end_turn");
+      assert.deepStrictEqual(seen, ["Thinking.", "Hello ", "world"]);
+    })
+  );
+
+  it.live("waits for a consumer that is slower than the agent", () =>
+    Effect.gen(function* () {
+      // Persisting the transcript makes the real consumer lag behind the agent.
+      const { agent, seen } = yield* open({}, {}, "40 millis");
+      const { sessionId } = yield* agent.newSession(process.cwd());
+      yield* agent.prompt(sessionId, [{ text: "reply", type: "text" }]);
+      yield* agent.drained;
       assert.deepStrictEqual(seen, ["Thinking.", "Hello ", "world"]);
     })
   );
