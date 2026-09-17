@@ -10,7 +10,12 @@ import type {
   NodeFacts,
   PreviewContext,
 } from "@ultrapaint/framework-api/browser";
-import { elementSummary, shorten } from "@ultrapaint/preview-core/dom";
+import {
+  drawsItsOwnBox,
+  drawsOnScreen,
+  elementSummary,
+  shorten,
+} from "@ultrapaint/preview-core/dom";
 
 interface Fiber {
   alternate: Fiber | null;
@@ -32,6 +37,7 @@ interface FiberRoot {
 
 const HOST_TAGS = new Set([5, 26, 27]);
 const TEXT_TAG = 6;
+const PORTAL_TAG = 4;
 const WHITESPACE_RE = /\s+/;
 
 const roots = new Set<FiberRoot>();
@@ -243,6 +249,54 @@ const domNodesOf = (fiber: Fiber): Element[] => {
   return out;
 };
 
+/** The portal that renders this fiber, if any; null when it is rendered in place. */
+const portalOf = (fiber: Fiber): Fiber | null => {
+  for (let f: Fiber | null = fiber; f; f = f.return) {
+    if (f.tag === PORTAL_TAG) {
+      return f;
+    }
+  }
+  return null;
+};
+
+/**
+ * Whether anything the fiber puts on the screen lands outside the given portal. The root a
+ * library appends to the body to hang its popup in does not count: it is an empty line at the
+ * end of the page, and every portal has one.
+ */
+const rendersOutside = (fiber: Fiber, portal: Fiber): boolean => {
+  if (fiber === portal) {
+    return false;
+  }
+  if (isHost(fiber) && drawsOnScreen(fiber.stateNode as Element)) {
+    return true;
+  }
+  for (let c = fiber.child; c; c = c.sibling) {
+    if (rendersOutside(c, portal)) {
+      return true;
+    }
+  }
+  return false;
+};
+
+/**
+ * The node inside `portal` a click in it means. A library hangs its popup in one or two
+ * transparent wrappers that do nothing but place it on the screen, so the outermost node is
+ * rarely the one a designer is pointing at: the answer is the outermost that paints a box of its
+ * own — the menu, the card, the tooltip — and the outermost of all when none of them paints.
+ */
+const popupNode = (fiber: Fiber, portal: Fiber): Fiber => {
+  const chain: Fiber[] = [];
+  for (let f: Fiber | null = fiber; f && f !== portal; f = f.return) {
+    if (isHost(f) || (isComponent(f) && stampOf(f))) {
+      chain.unshift(f);
+    }
+  }
+  return (
+    chain.find((f) => domNodesOf(f).some(drawsItsOwnBox)) ?? chain[0] ?? fiber
+  );
+};
+
 /** Given a DOM element, pick the fiber the user most likely means. */
 const selectableFiber = (el: Element, deepest: boolean): Fiber | null => {
   let fiber = fiberOfDom(el);
@@ -278,7 +332,14 @@ const selectableFiber = (el: Element, deepest: boolean): Fiber | null => {
       break;
     }
   }
-  return top;
+  // A portal is a boundary. The instance that owns an open dropdown also owns the trigger left
+  // behind in the layout and the sheet the library spreads over the screen, so selecting it from
+  // a click on the popup would outline the whole page and the popup itself would be reachable
+  // only through the layers panel. A click inside a portal picks the box the portal holds
+  // instead. An instance that renders nothing but its portal — a dialog written in the design —
+  // is already that box and is kept.
+  const portal = portalOf(fiber);
+  return portal && rendersOutside(top, portal) ? popupNode(fiber, portal) : top;
 };
 
 // ---- Facts ----

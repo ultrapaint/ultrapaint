@@ -9,16 +9,9 @@
  * hovering is how the design is read. A lookup here undoes all of it for the instant it takes,
  * so an open dropdown can be inspected in select mode and the screen behind it stays selectable.
  */
+import { paintsNothing } from "./dom.ts";
 
 const INERT = "inert";
-const TRANSPARENT =
-  /^(?:transparent|rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*0\s*\))$/;
-const BORDERS = [
-  "border-bottom-width",
-  "border-left-width",
-  "border-right-width",
-  "border-top-width",
-];
 
 let sheet: CSSStyleSheet | null | undefined;
 
@@ -62,15 +55,6 @@ const unblocked = <T>(read: () => T): T => {
     }
   }
 };
-
-const paintsNothing = (el: Element, style: CSSStyleDeclaration) =>
-  TRANSPARENT.test(style.backgroundColor) &&
-  style.backgroundImage === "none" &&
-  style.boxShadow === "none" &&
-  style.backdropFilter === "none" &&
-  BORDERS.every((p) => style.getPropertyValue(p) === "0px") &&
-  el.childElementCount === 0 &&
-  (el.textContent ?? "").trim() === "";
 
 /**
  * The sheet a popup puts over the page to catch the click that dismisses it: it covers the
