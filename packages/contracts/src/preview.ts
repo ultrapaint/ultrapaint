@@ -167,6 +167,11 @@ export const EditorMessage = Schema.Union([
     type: Schema.Literal("ed:watchRects"),
   }),
   Schema.Struct({ nodeId: Schema.String, type: Schema.Literal("ed:editText") }),
+  /** Whether the screen may respond to input at all: true only in interact mode. */
+  Schema.Struct({
+    interactive: Schema.Boolean,
+    type: Schema.Literal("ed:setInteractive"),
+  }),
   Schema.Struct({
     requestId: Schema.Number,
     type: Schema.Literal("ed:screenshot"),

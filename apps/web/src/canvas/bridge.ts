@@ -128,6 +128,11 @@ export class FrameBridge {
     this.send({ nodeId, type: "ed:editText" });
   }
 
+  /** Whether the screen may respond to input at all: true only in interact mode. */
+  setInteractive(interactive: boolean) {
+    this.send({ interactive, type: "ed:setInteractive" });
+  }
+
   requestTokens() {
     this.send({ type: "ed:getTokens" });
   }

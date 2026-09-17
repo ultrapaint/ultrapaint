@@ -12,6 +12,7 @@ import type {
 import { PREVIEW_PROTOCOL } from "@ultrapaint/framework-api/protocol";
 import { toPng } from "html-to-image";
 import { directText, parseStamp, STAMP, unionRect } from "./dom.ts";
+import { elementAt } from "./hit.ts";
 import { inspectStyles, invalidateRules, readTokens } from "./styles.ts";
 
 interface Config {
@@ -121,6 +122,69 @@ export const startPreview = (introspector: Introspector) => {
     };
   };
 
+  // ---- Interaction guard ----
+  // Select mode blocks pointer events on the iframe from the editor side, but that is only half
+  // of it: an element focused earlier still answers the keyboard, and the click the browser
+  // synthesises from Enter or Space still runs the component's handlers — enough to open a
+  // select and leave it hanging over a canvas that cannot close it. Everything the screen could
+  // respond to is stopped here unless the editor put the canvas in interact mode. A preview
+  // opened on its own (no editor around it) stays interactive.
+  let interactive = window.parent === window;
+
+  const GUARDED = [
+    "auxclick",
+    "beforeinput",
+    "change",
+    "click",
+    "contextmenu",
+    "dblclick",
+    "dragstart",
+    "drop",
+    "focusin",
+    "focusout",
+    "input",
+    "keydown",
+    "keypress",
+    "keyup",
+    "mousedown",
+    "mouseup",
+    "pointerdown",
+    "pointerup",
+    "submit",
+  ] as const;
+
+  const guard = (e: Event) => {
+    if (editing) {
+      if (e.type === "keydown") {
+        editKey(e as KeyboardEvent);
+      }
+      const { target } = e;
+      // Typing into the edited element must keep working, and the component under it must not
+      // see any of it. Anything outside falls through to the block below.
+      if (target instanceof Node && editing?.el.contains(target)) {
+        e.stopImmediatePropagation();
+        return;
+      }
+    }
+    if (interactive) {
+      return;
+    }
+    e.stopImmediatePropagation();
+    if (e.cancelable) {
+      // Stops what the browser itself would do: following a link, submitting a form, inserting
+      // the character a keystroke would have typed into a focused field.
+      e.preventDefault();
+    }
+  };
+
+  // Focus is deliberately left where it is when interact mode ends. A dropdown opened in
+  // interact mode should still be there to be measured and restyled after the switch back to
+  // select, and taking focus off it is one of the things that closes it. The guard above is
+  // what keeps it from answering, so nothing is gained by moving focus as well.
+  const setInteractive = (next: boolean) => {
+    interactive = next;
+  };
+
   // ---- Inline text editing ----
   let editing: {
     cleanup: () => void;
@@ -146,27 +210,34 @@ export const startPreview = (introspector: Introspector) => {
     }
   };
 
+  /** Enter commits, Escape reverts. Called from the guard, which owns the keyboard. */
+  const editKey = (e: KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      finishTextEdit(true);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      finishTextEdit(false);
+    }
+  };
+
   const startTextEdit = (nodeId: string) => {
     const el = introspector.elementsOf(nodeId)[0] as HTMLElement | undefined;
     if (!el) {
       return;
     }
+    // Only an element that holds text and nothing else. Making one with element children
+    // editable lets a keystroke delete a child React still believes it owns — the chevron of a
+    // select, an icon inside a button — and the next render throws on the missing node.
+    if (directText(el) === null) {
+      return;
+    }
     if (editing) {
       finishTextEdit(false);
     }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        finishTextEdit(true);
-      } else if (e.key === "Escape") {
-        e.preventDefault();
-        finishTextEdit(false);
-      }
-    };
     const onBlur = () => finishTextEdit(true);
     editing = {
       cleanup: () => {
-        el.removeEventListener("keydown", onKey);
         el.removeEventListener("blur", onBlur);
       },
       el,
@@ -179,8 +250,21 @@ export const startPreview = (introspector: Introspector) => {
     range.selectNodeContents(el);
     getSelection()?.removeAllRanges();
     getSelection()?.addRange(range);
-    el.addEventListener("keydown", onKey);
     el.addEventListener("blur", onBlur, { once: true });
+  };
+
+  /**
+   * Runs something that changes the DOM and changes it back, without our observer reading the
+   * pair as the screen having moved. `disconnect` empties the record queue, and nothing else
+   * runs in between.
+   */
+  const unobserved = <T>(f: () => T): T => {
+    mo.disconnect();
+    try {
+      return f();
+    } finally {
+      observe();
+    }
   };
 
   // ---- Handlers ----
@@ -194,7 +278,11 @@ export const startPreview = (introspector: Introspector) => {
         sendTree();
         break;
       case "ed:hitTest": {
-        const el = document.elementFromPoint(msg.x as number, msg.y as number);
+        // The lookup lifts `inert` off the page for an instant; our own observer would read
+        // that as the screen changing and ask for rects on every hover.
+        const el = unobserved(() =>
+          elementAt(msg.x as number, msg.y as number)
+        );
         post({
           nodeId: el ? introspector.selectable(el, Boolean(msg.deepest)) : null,
           requestId: msg.requestId,
@@ -215,6 +303,12 @@ export const startPreview = (introspector: Introspector) => {
         break;
       case "ed:editText":
         startTextEdit(msg.nodeId as string);
+        break;
+      case "ed:setInteractive":
+        if (editing && !msg.interactive) {
+          finishTextEdit(true);
+        }
+        setInteractive(Boolean(msg.interactive));
         break;
       case "ed:scrollIntoView":
         introspector
@@ -247,13 +341,20 @@ export const startPreview = (introspector: Introspector) => {
     invalidateRules();
     scheduleRects();
   });
-  const start = () => {
+  const observe = () =>
     mo.observe(document.documentElement, {
       attributes: true,
       characterData: true,
       childList: true,
       subtree: true,
     });
+  const start = () => {
+    for (const type of GUARDED) {
+      // Capture on the window: React listens on its root container, so this runs first and can
+      // keep an event from ever reaching a component.
+      window.addEventListener(type, guard, true);
+    }
+    observe();
     window.addEventListener("scroll", scheduleRects, true);
     window.addEventListener("resize", scheduleRects);
     new ResizeObserver(scheduleRects).observe(document.documentElement);

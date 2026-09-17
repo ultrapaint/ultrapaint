@@ -60,6 +60,9 @@ const commitText = (screenId: string, text: string) => {
     .catch(reportError);
 };
 
+const isInteractive = (s: { mode: string; spacePan: boolean }) =>
+  s.mode === "interact" && !s.spacePan;
+
 interface Props {
   frame: FrameLayout;
   hostUrl: string | null;
@@ -116,6 +119,9 @@ export const Frame = memo(
             if (Object.keys(store().tokens).length === 0) {
               bridge.requestTokens();
             }
+            // A screen that reloads (or arrives late) has to be told the current mode: it starts
+            // out interactive so that a preview opened on its own still works.
+            bridge.setInteractive(isInteractive(store()));
             store().setHostError(screen.id, null);
             break;
           case "ed:tree":
@@ -148,6 +154,16 @@ export const Frame = memo(
         removeBridge(screen.id);
       };
     }, [screen.id, visible, url]);
+
+    // Outside interact mode the screen is a picture: pointer events are off on the iframe, and
+    // the runtime swallows whatever else could reach a component (keys sent to an element that
+    // still holds focus, the click Enter synthesises on it).
+    useEffect(() => {
+      if (!(visible && url)) {
+        return;
+      }
+      bridgeFor(screen.id).setInteractive(mode === "interact" && !spacePan);
+    }, [screen.id, visible, url, mode, spacePan]);
 
     // Keep the selection attached to the same source after HMR (ids can change on remount).
     useEffect(() => {
