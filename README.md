@@ -18,12 +18,12 @@ Open the printed web URL, fill in the target repository in settings (there is a 
 fills the epicparty defaults), and the preview host starts inside that repository.
 
 - `apps/web` — the editor (React, Tailwind, Base UI). No Electron imports.
-- `apps/server` — local backend: settings, preview host, screens, AST edits, git, ACP threads.
+- `apps/server` — local backend on the Effect 4 runtime: settings, preview host, screens, AST edits, git, ACP threads.
 - `apps/desktop` — Electron shell: runs the server and loads the web bundle, adds a folder picker.
-- `packages/contracts` — Effect Schema for everything on the wire.
+- `packages/contracts` — Effect Schema for everything on the wire, and the `RpcGroup` that is the editor's API.
 - `packages/host-plugin` — Vite stamping plugin and the iframe runtime.
-- `packages/acp` — the only module that imports the ACP SDK; agent launch configs are data.
-- `packages/client-runtime`, `packages/shared` — client connection and small utilities.
+- `packages/acp` — the only module that imports the ACP SDK, behind an `AcpAgent` Effect interface; agent launch configs are data.
+- `packages/client-runtime`, `packages/shared` — the editor's RPC connection (reconnects, typed requests, events) and small utilities.
 
 Decisions: [`docs/adr/`](docs/adr/README.md). Storage verdict: [`docs/decisions/storage-format.md`](docs/decisions/storage-format.md).
 Spike results: [`docs/feature/spikes/findings.md`](docs/feature/spikes/findings.md).

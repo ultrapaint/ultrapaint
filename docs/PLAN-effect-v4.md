@@ -1,6 +1,7 @@
 # Plan: backend rewrite on Effect 4
 
-Status: proposed, 2026-09-17. Supersedes ADR 0005 and decision D12 in `PLAN.md`.
+Status: done, 2026-09-17. Recorded in ADR 0009, which supersedes ADR 0005 and decision D12 in
+`PLAN.md`. The outcome and the deviations from this plan are at the end.
 
 ## Decisions (locked with the user)
 
@@ -231,3 +232,50 @@ runtime dependency of the server if nothing else needs it, final full manual pas
 About 5,000 lines rewritten: server 4,526, acp 339, client-runtime 190, desktop 89, dev runner 52, plus
 918 lines of contracts ported mechanically. `source.ts` (794) and the compiler-API half of
 `catalogue.ts` stay largely as they are. Phases 3 and 4 are roughly half the work.
+
+## Outcome
+
+All phases are done on the `effect-v4` branch. Tests went from 19 to 65; `apps/web/src` is
+unchanged and its bundle shrank from 995 kB to 856 kB (313 to 275 kB gzip), because Effect 4
+tree-shakes better than 3 even with the RPC client added.
+
+Verified by running it: the server over a real WebSocket (17 tests), agent threads against a
+scripted ACP agent (16), the `Connection` facade across a server restart (2), the ACP wrapper and
+terminals against real processes (10), the editor in a browser through Vite's `/ws` proxy
+(settings, screens, pushed events, reconnect after a `tsx watch` restart), the esbuild server bundle
+with static files, `pnpm dev` and its Ctrl-C cleanup, and the Electron shell starting the server and
+taking it down on SIGTERM. Not run: quitting Electron from its menu (same scope close, reached
+through `before-quit`), and the real Claude Code and Codex agents (the ADR 0004 checklist).
+
+### Deviations
+
+- **No `ManagedRuntime` bridge.** The old server moved to `src-legacy` and kept running while the
+  new one was built beside it, then was deleted at the swap. Same guarantee, no throwaway glue.
+- **`Scope` plus `Layer.buildWithScope` instead of `LayerMap`** for the open project. `LayerMap` is a
+  keyed cache with idle eviction; the project is a singleton that must stay alive with no request
+  in flight. Agent sessions are scopes forked from the project scope.
+- **The ACP agent process is spawned with `node:child_process`,** not `ChildProcessSpawner`: the SDK
+  wants web streams over stdio and that wiring was already verified against real agents. It runs
+  in its own process group inside `acquireRelease`. Terminals and everything else use the spawner.
+- **`threads.cancel` does not interrupt the turn fiber.** It sends `session/cancel` and lets the agent
+  answer the prompt with `cancelled`, so the transcript records how the turn really ended.
+- **The catalogue build still blocks the event loop** for its few seconds, as before. It is
+  serialised so two requests cannot build twice; moving it to a worker is a separate change.
+
+### Found on the way
+
+- Schema 4 rejects a missing key where Schema 3 accepted it for `Unknown` fields. The old frame
+  schema broke on every request without input until its fields were made explicitly optional.
+- The ACP SDK answers a request synchronously but dispatches notifications through an async chain,
+  so a prompt's response can overtake its last updates. The old server had the same race, hidden by
+  a slow `git` call. `AcpAgent.drained` waits one macrotask and then for the update queue.
+- When the agent dies, the SDK rejects the call in flight slightly before Node reports the exit.
+  A failed call now checks for the exit first, so the editor sees "agent exited".
+- `RpcClient`'s own retry keeps its backoff after a successful reconnect. `Connection` disables it
+  and owns reconnection, with a backoff that resets once a socket opens.
+- `Effect.provide(layer)` closes the layer when that effect ends. The client's socket protocol has
+  to be built into the session scope with `Layer.build`.
+- `NodeHttpServer` waits 20 s for connections to drain before closing request scopes, and the
+  editor's WebSocket never drains. `disablePreemptiveShutdown` brings shutdown to about 60 ms.
+- "Remember this choice" stored a permission under the tool title and looked it up under the tool
+  kind, so it never matched when the agent sent a kind. Both now use the same key.

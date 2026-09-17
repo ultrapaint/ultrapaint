@@ -1,74 +1,82 @@
 /**
  * Desktop shell. It runs the same server and loads the same web bundle as the browser build;
  * the only native additions are a folder picker and a window. No editor feature lives here.
+ *
+ * The server is a child process in the program's scope. Quitting closes the scope, which ends
+ * the server's process group before Electron is allowed to exit.
  */
-import { type ChildProcess, spawn } from "node:child_process";
 import { createServer } from "node:net";
 import path from "node:path";
+import { NodeRuntime, NodeServices } from "@effect/platform-node";
+import { Effect, Schedule } from "effect";
+import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
 
-let server: ChildProcess | null = null;
-
-const freePort = (): Promise<number> =>
-  new Promise((resolve, reject) => {
-    const s = createServer();
-    s.listen(0, "127.0.0.1", () => {
-      const a = s.address();
-      const port = typeof a === "object" && a ? a.port : 0;
-      s.close(() => resolve(port));
-    });
-    s.on("error", reject);
+const freePort = Effect.callback<number>((resume) => {
+  const server = createServer();
+  server.listen(0, "127.0.0.1", () => {
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    server.close(() => resume(Effect.succeed(port)));
   });
+});
 
-const waitFor = async (url: string, timeoutMs: number) => {
-  const deadline = Date.now() + timeoutMs;
-  const attempt = async (): Promise<void> => {
-    if (Date.now() >= deadline) {
-      throw new Error(`server did not start: ${url}`);
-    }
-    try {
-      const r = await fetch(url);
-      if (r.ok) {
-        return;
+const healthy = (port: number) =>
+  Effect.tryPromise(() => fetch(`http://127.0.0.1:${port}/api/health`)).pipe(
+    Effect.filterOrFail((response) => response.ok)
+  );
+
+const startServer = Effect.gen(function* () {
+  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+  const port = yield* freePort;
+  const sibling = (...segments: string[]) =>
+    path.join(app.getAppPath(), "..", ...segments);
+  yield* spawner.spawn(
+    ChildProcess.make(
+      process.execPath,
+      [
+        sibling("server", "dist", "bin.mjs"),
+        "--port",
+        String(port),
+        "--web-dist",
+        sibling("web", "dist"),
+      ],
+      {
+        env: { ELECTRON_RUN_AS_NODE: "1" },
+        extendEnv: true,
+        forceKillAfter: "3 seconds",
+        stderr: "inherit",
+        stdin: "ignore",
+        stdout: "inherit",
       }
-    } catch {
-      /* not yet */
-    }
-    await new Promise((r) => setTimeout(r, 150));
-    return attempt();
-  };
-  await attempt();
-};
-
-const startServer = async (): Promise<number> => {
-  const port = await freePort();
-  const serverEntry = path.join(
-    app.getAppPath(),
-    "..",
-    "server",
-    "dist",
-    "bin.mjs"
+    )
   );
-  const webDist = path.join(app.getAppPath(), "..", "web", "dist");
-  server = spawn(
-    process.execPath,
-    [serverEntry, "--port", String(port), "--web-dist", webDist],
-    {
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
-      stdio: ["ignore", "inherit", "inherit"],
-    }
+  yield* healthy(port).pipe(
+    Effect.retry(Schedule.spaced("150 millis")),
+    Effect.timeout("20 seconds"),
+    Effect.orDie
   );
-  await waitFor(`http://127.0.0.1:${port}/api/health`, 20_000);
   return port;
-};
+});
 
-app.whenReady().then(async () => {
-  const port = await startServer();
-  ipcMain.handle("pick-folder", async () => {
-    const r = await dialog.showOpenDialog({ properties: ["openDirectory"] });
-    return r.canceled ? null : (r.filePaths[0] ?? null);
+/** Holds Electron's quit until the scope, and with it the server, has been closed. */
+const quitRequested = Effect.callback<void>((resume) => {
+  app.once("before-quit", (event) => {
+    event.preventDefault();
+    resume(Effect.void);
   });
-  const win = new BrowserWindow({
+});
+
+const program = Effect.gen(function* () {
+  yield* Effect.promise(() => app.whenReady());
+  const port = yield* startServer;
+  ipcMain.handle("pick-folder", async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ["openDirectory"],
+    });
+    return result.canceled ? null : (result.filePaths[0] ?? null);
+  });
+  const window = new BrowserWindow({
     backgroundColor: "#1a1a1d",
     height: 950,
     titleBarStyle: "hiddenInset",
@@ -78,12 +86,14 @@ app.whenReady().then(async () => {
     },
     width: 1500,
   });
-  await win.loadURL(`http://127.0.0.1:${port}/`);
+  app.on("window-all-closed", () => app.quit());
+  yield* Effect.promise(() => window.loadURL(`http://127.0.0.1:${port}/`));
+  yield* quitRequested;
 });
 
-app.on("window-all-closed", () => app.quit());
-app.on("before-quit", () => {
-  if (server?.pid) {
-    server.kill("SIGTERM");
-  }
-});
+program.pipe(
+  Effect.scoped,
+  Effect.ensuring(Effect.sync(() => app.exit(0))),
+  Effect.provide(NodeServices.layer),
+  NodeRuntime.runMain
+);

@@ -12,9 +12,11 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@effect/platform-node": "catalog:",
     "@ultrapaint/server": "workspace:*",
     "@ultrapaint/web": "workspace:*",
     "@types/node": "^24.0.0",
+    "effect": "catalog:",
     "electron": "^40.0.0",
     "esbuild": "^0.28.2",
     "typescript": "7.0.2",
