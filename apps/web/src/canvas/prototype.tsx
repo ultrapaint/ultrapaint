@@ -72,7 +72,9 @@ export const Prototype = () => {
 
   return (
     <div
-      className="relative flex h-full w-full items-center justify-center overflow-hidden bg-background"
+      // Shown in the layer that floats over the canvas, which passes clicks through: the screen
+      // itself takes them.
+      className="pointer-events-auto relative flex h-full w-full items-center justify-center overflow-hidden bg-background"
       ref={ref}
       style={{ paddingBottom: inset.bottom, paddingTop: inset.top }}
     >

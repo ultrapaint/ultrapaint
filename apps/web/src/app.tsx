@@ -164,16 +164,28 @@ const ProjectHeader = () => {
   );
 };
 
-const LeftPanel = () => {
+/**
+ * The panel floats over the canvas instead of pushing it: the canvas keeps its left edge against
+ * the rail, so widening the panel covers more of it and never moves what is drawn on it.
+ * `left-14` is the rail's own width.
+ */
+const LeftPanel = ({
+  defaultWidth,
+  width,
+  onWidthChange,
+}: {
+  defaultWidth: number;
+  width: number;
+  onWidthChange: (width: number) => void;
+}) => {
   const leftTab = useEditor((s) => s.leftTab);
-  const bounds = leftTab === "chat" ? chatBounds : leftBounds;
-  const [width, setWidth] = usePanelWidth("left", bounds);
   const tab = leftTabs[leftTab];
   // Only the active panel is mounted: panels subscribe to server events while visible.
   const Active = tab.panel;
   return (
     <aside
-      className="relative flex shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground"
+      className="absolute inset-y-0 left-14 z-30 flex flex-col border-r bg-sidebar text-sidebar-foreground"
+      data-canvas-cover
       style={{ width }}
     >
       <ProjectHeader />
@@ -184,8 +196,8 @@ const LeftPanel = () => {
         <Active />
       </div>
       <ResizeHandle
-        defaultWidth={bounds.defaultWidth}
-        onWidthChange={setWidth}
+        defaultWidth={defaultWidth}
+        onWidthChange={onWidthChange}
         side="left"
         width={width}
       />
@@ -223,6 +235,9 @@ export const App = () => {
   const screens = useProject((s) => s.screens);
   const flow = useEditor((s) => s.flow);
   const workspace = useEditor((s) => s.workspace);
+  const leftTab = useEditor((s) => s.leftTab);
+  const leftPanel = leftTab === "chat" ? chatBounds : leftBounds;
+  const [leftWidth, setLeftWidth] = usePanelWidth("left", leftPanel);
   const bound = useRef<boolean>(false);
   useShortcuts();
 
@@ -257,7 +272,9 @@ export const App = () => {
     const target =
       saved !== null && flows.includes(saved) ? saved : (flows[0] ?? "");
     useEditor.getState().openFlow(target);
-  }, [configured, screens, flow]);
+    // The canvas starts behind the panel, so the first view opens a margin past the panel's edge.
+    useEditor.getState().setView({ x: leftWidth + 80 });
+  }, [configured, screens, flow, leftWidth]);
 
   // Recompute frames when the screen list changes for the open flow.
   useEffect(() => {
@@ -290,16 +307,28 @@ export const App = () => {
   return (
     <TooltipProvider delay={300}>
       <div className="flex h-full flex-col">
-        <div className="flex min-h-0 flex-1">
+        <div className="relative flex min-h-0 flex-1">
           <Rail />
-          <LeftPanel />
+          <LeftPanel
+            defaultWidth={leftPanel.defaultWidth}
+            onWidthChange={setLeftWidth}
+            width={leftWidth}
+          />
           <main className="relative min-w-0 flex-1">
-            {workspace === "prototype" ? <Prototype /> : <Canvas />}
-            <WorkspaceSwitcher />
-            <CanvasStatus />
-            <div className="pointer-events-none absolute inset-x-0 bottom-4 z-10 flex flex-col items-center gap-2">
-              <AgentChanges />
-              {workspace === "prototype" ? <PrototypeBar /> : <Toolbar />}
+            {workspace !== "prototype" && <Canvas />}
+            {/* What floats over the canvas belongs in the part the panel leaves to be seen, and
+                so does the prototype, which is centred rather than panned. */}
+            <div
+              className="pointer-events-none absolute inset-y-0 right-0"
+              style={{ left: leftWidth }}
+            >
+              {workspace === "prototype" && <Prototype />}
+              <WorkspaceSwitcher />
+              <CanvasStatus />
+              <div className="absolute inset-x-0 bottom-4 z-10 flex flex-col items-center gap-2">
+                <AgentChanges />
+                {workspace === "prototype" ? <PrototypeBar /> : <Toolbar />}
+              </div>
             </div>
           </main>
           {workspace === "design" && <RightPanel />}

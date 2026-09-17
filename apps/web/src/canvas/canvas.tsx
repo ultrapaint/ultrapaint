@@ -232,6 +232,7 @@ export const Canvas = () => {
         (spacePan || mode === "pan") && "cursor-grab [&_*]:cursor-grab!",
         panning && "cursor-grabbing! [&_*]:cursor-grabbing!"
       )}
+      data-canvas
       onPointerCancel={onPointerUp}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}

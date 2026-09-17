@@ -2,9 +2,9 @@ import type { TreeNode } from "@ultrapaint/contracts/preview";
 import { useEffect } from "react";
 import { bridgeFor } from "../canvas/bridge.ts";
 import { api } from "../state/connection.ts";
-import { useEditor, workspaceOrder } from "../state/editor.ts";
-import { findPath, hostOf, rowChildren } from "../state/tree.ts";
+import { useEditor, type Viewport, workspaceOrder } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
+import { findPath, hostOf, rowChildren } from "../state/tree.ts";
 
 const isTyping = (e: KeyboardEvent) => {
   const t = e.target as HTMLElement | null;
@@ -240,18 +240,27 @@ export const useShortcuts = () => {
   }, []);
 };
 
-export const viewportSize = () => {
-  const el = document.querySelector("main > div");
-  return {
-    height: el?.clientHeight ?? window.innerHeight,
-    width: el?.clientWidth ?? window.innerWidth - 544,
-  };
+/**
+ * The part of the canvas that can be seen, in the canvas's own coordinates: the left panel floats
+ * over the canvas's left edge, and what is fitted or zoomed into belongs in what is left of it.
+ */
+export const viewportSize = (): Viewport => {
+  const el = document.querySelector("[data-canvas]");
+  if (!el) {
+    return { height: window.innerHeight, width: window.innerWidth - 544, x: 0 };
+  }
+  const rect = el.getBoundingClientRect();
+  const panel = document
+    .querySelector("[data-canvas-cover]")
+    ?.getBoundingClientRect();
+  const covered = panel ? Math.max(0, panel.right - rect.left) : 0;
+  return { height: rect.height, width: rect.width - covered, x: covered };
 };
 
 export const zoomBy = (k: number) => {
   const s = useEditor.getState();
-  const { width, height } = viewportSize();
-  const cx = width / 2;
+  const { width, height, x } = viewportSize();
+  const cx = x + width / 2;
   const cy = height / 2;
   const next = Math.min(4, Math.max(0.05, s.view.zoom * k));
   const r = next / s.view.zoom;

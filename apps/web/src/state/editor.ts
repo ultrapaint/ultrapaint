@@ -42,6 +42,16 @@ export interface Selection {
   source: SourceLocation | null;
 }
 
+/**
+ * The part of the canvas nothing covers, in the canvas's own coordinates: `x` is where it begins,
+ * past the left panel floating over the canvas's left edge.
+ */
+export interface Viewport {
+  height: number;
+  width: number;
+  x: number;
+}
+
 interface EditorStore {
   activeScreen: string | null;
   flow: string | null;
@@ -81,8 +91,8 @@ interface EditorStore {
   trees: Record<string, TreeNode>;
   view: { x: number; y: number; zoom: number };
   workspace: Workspace;
-  zoomToFit: (viewport: { width: number; height: number }) => void;
-  zoomToSelection: (viewport: { width: number; height: number }) => void;
+  zoomToFit: (viewport: Viewport) => void;
+  zoomToSelection: (viewport: Viewport) => void;
 }
 
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
@@ -273,7 +283,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
 
 const fitTo = (
   set: (partial: Partial<EditorStore>) => void,
-  viewport: { width: number; height: number },
+  viewport: Viewport,
   boxes: { x: number; y: number; width: number; height: number }[]
 ) => {
   const x1 = Math.min(...boxes.map((b) => b.x));
@@ -293,7 +303,7 @@ const fitTo = (
   );
   set({
     view: {
-      x: (viewport.width - (x2 - x1) * zoom) / 2 - x1 * zoom,
+      x: viewport.x + (viewport.width - (x2 - x1) * zoom) / 2 - x1 * zoom,
       y: (viewport.height - (y2 - y1) * zoom) / 2 - y1 * zoom,
       zoom,
     },
