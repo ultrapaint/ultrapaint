@@ -83,9 +83,6 @@ importers:
       '@ultrapaint/shared':
         specifier: workspace:*
         version: link:../../packages/shared
-      chokidar:
-        specifier: ^5.0.0
-        version: 5.0.0
       effect:
         specifier: 4.0.0-rc.115
         version: 4.0.0-rc.115
@@ -101,19 +98,16 @@ importers:
       typescript-api:
         specifier: npm:typescript@^5.9.3
         version: typescript@5.9.3
-      ws:
-        specifier: ^8.21.3
-        version: 8.21.3
     devDependencies:
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.0.0-rc.115(effect@4.0.0-rc.115)(vitest@5.0.1(@types/node@24.13.5)(vite@8.3.0(@types/node@24.13.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.1)))
+      '@ultrapaint/client-runtime':
+        specifier: workspace:*
+        version: link:../../packages/client-runtime
       '@types/node':
         specifier: ^24.0.0
         version: 24.13.5
-      '@types/ws':
-        specifier: ^8.18.1
-        version: 8.18.1
       esbuild:
         specifier: ^0.28.2
         version: 0.28.2
@@ -1620,10 +1614,6 @@ packages:
     resolution: {integrity: sha512-7NzBL0rN6fMUW+f7A6Io4h40qQlG+xGmtMxfbnH/K7TAtt8JQWVQK+6g0UXKMeVJoyV5EkkNsErQ8pVD3bLHbA==}
     engines: {node: ^12.17.0 || ^14.13 || >=16.0.0}
 
-  chokidar@5.0.0:
-    resolution: {integrity: sha512-TQMmc3w+5AxjpL8iIiwebF73dRDF4fBIieAqGn9RGCWaEVwQ6Fb2cGe31Yns0RRIzii5goJ1Y7xbMwo1TxMplw==}
-    engines: {node: '>= 20.19.0'}
-
   citty@0.2.2:
     resolution: {integrity: sha512-+6vJA3L98yv+IdfKGZHBNiGW5KHn22e/JwID0Strsz8h4S/csAu/OuICwxrg44k5MRiZHWIo8XXuJgQTriRP4w==}
 
@@ -2725,10 +2715,6 @@ packages:
   react@19.3.0:
     resolution: {integrity: sha512-E8LUcbtBWt20bbl2YoHfx4ZDBdxVTfOKtCZn9cDSJ4l6/nuoApcpIBcj47t2wZoVX8g2ZHuMHbiShgCR1T5Sog==}
     engines: {node: '>=0.10.0'}
-
-  readdirp@5.1.1:
-    resolution: {integrity: sha512-Kko+Y5XQ6fM+Ce3dq3m9YGxnacYZYl9cA1wZjaF3Vbry2L3i1qVg8+CAgNPsXRArPMUMCaOR7oa9Nqntc43JKA==}
-    engines: {node: '>= 20.19.0'}
 
   recast@0.23.21:
     resolution: {integrity: sha512-mFAyJq9vUbSTARLZUvAEf1z3YxlvAwswbmxMx2mPA/MSm4KmpwvwvhsH/NIrZhyOuwD60Lzyw2qh83uCbgTPYw==}
@@ -4321,10 +4307,6 @@ snapshots:
 
   chalk@5.6.2: {}
 
-  chokidar@5.0.0:
-    dependencies:
-      readdirp: 5.1.1
-
   citty@0.2.2: {}
 
   class-variance-authority@0.7.1:
@@ -5311,8 +5293,6 @@ snapshots:
       '@types/react': 19.3.0
 
   react@19.3.0: {}
-
-  readdirp@5.1.1: {}
 
   recast@0.23.21:
     dependencies:

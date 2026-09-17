@@ -1,0 +1,187 @@
+import { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
+import {
+  Clock,
+  Context,
+  Effect,
+  FileSystem,
+  Layer,
+  Path,
+  Schema,
+} from "effect";
+import { AppLog } from "../../app-log.ts";
+import { makeWriteAtomic } from "../../atomic-write.ts";
+import { ServerConfig } from "../../config.ts";
+import { EventBus } from "../../events.ts";
+import { makeKeyedLock } from "../../keyed-lock.ts";
+
+const Stored = Schema.Struct({
+  items: Schema.Array(ThreadItem),
+  thread: Thread,
+});
+const StoredJson = Schema.fromJsonString(Stored);
+const decodeStored = Schema.decodeUnknownEffect(StoredJson);
+const encodeStored = Schema.encodeEffect(StoredJson);
+
+interface Entry {
+  items: ThreadItem[];
+  thread: Thread;
+}
+
+/**
+ * Threads and their transcripts: in memory, persisted as one JSON file per thread, and every
+ * change published as an `agent` event. Knows nothing about agents or sessions.
+ */
+export class ThreadStore extends Context.Service<
+  ThreadStore,
+  {
+    readonly add: (thread: Thread) => Effect.Effect<void>;
+    readonly get: (id: string) => Effect.Effect<Thread | undefined>;
+    readonly hasItem: (id: string, itemId: string) => boolean;
+    readonly items: (id: string) => Effect.Effect<readonly ThreadItem[]>;
+    readonly list: Effect.Effect<Thread[]>;
+    readonly patchItem: (
+      id: string,
+      itemId: string,
+      patch: (item: ThreadItem) => ThreadItem
+    ) => Effect.Effect<void>;
+    readonly push: (id: string, item: ThreadItem) => Effect.Effect<void>;
+    readonly remove: (id: string) => Effect.Effect<void>;
+    readonly update: (
+      id: string,
+      patch: Partial<Thread>
+    ) => Effect.Effect<void>;
+  }
+>()("ultrapaint/server/ThreadStore") {
+  static readonly layer = Layer.effect(
+    ThreadStore,
+    Effect.gen(function* () {
+      const { home } = yield* ServerConfig;
+      const events = yield* EventBus;
+      const log = yield* AppLog;
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const writeAtomic = makeWriteAtomic(fs, path);
+      const dir = path.join(home, "threads");
+      const fileOf = (id: string) => path.join(dir, `${id}.json`);
+      const threads = new Map<string, Entry>();
+      // Streaming chunks persist the same file many times a second; keep the writes in order.
+      const writes = makeKeyedLock();
+
+      yield* Effect.orDie(fs.makeDirectory(dir, { recursive: true }));
+      const names = yield* Effect.orDie(fs.readDirectory(dir));
+      for (const name of names.filter((n) => n.endsWith(".json"))) {
+        yield* fs.readFileString(path.join(dir, name)).pipe(
+          Effect.flatMap(decodeStored),
+          Effect.tap((stored) =>
+            Effect.sync(() => {
+              // No session survives a restart, whatever the file says.
+              threads.set(stored.thread.id, {
+                items: [...stored.items],
+                thread: { ...stored.thread, status: "idle" },
+              });
+            })
+          ),
+          Effect.catch((error) =>
+            log.log(
+              "agent",
+              "warn",
+              `ignoring thread file ${name}: ${error.message}`
+            )
+          )
+        );
+      }
+
+      const persist = (id: string) =>
+        writes.withLock(
+          id,
+          Effect.suspend(() => {
+            const entry = threads.get(id);
+            if (!entry) {
+              return Effect.void;
+            }
+            return encodeStored(entry).pipe(
+              Effect.flatMap((json) => writeAtomic(fileOf(id), json)),
+              // The transcript in memory stays correct; the next change retries the write.
+              Effect.ignore({ log: true })
+            );
+          })
+        );
+
+      const update = Effect.fnUntraced(function* (
+        id: string,
+        patch: Partial<Thread>
+      ) {
+        const entry = threads.get(id);
+        if (!entry) {
+          return;
+        }
+        entry.thread = {
+          ...entry.thread,
+          ...patch,
+          updatedAt: yield* Clock.currentTimeMillis,
+        };
+        yield* persist(id);
+        yield* events.publish("agent", {
+          thread: entry.thread,
+          type: "thread",
+        });
+      });
+
+      const push = Effect.fnUntraced(function* (id: string, item: ThreadItem) {
+        const entry = threads.get(id);
+        if (!entry) {
+          return;
+        }
+        entry.items.push(item);
+        yield* persist(id);
+        yield* events.publish("agent", { item, threadId: id, type: "item" });
+      });
+
+      const patchItem = Effect.fnUntraced(function* (
+        id: string,
+        itemId: string,
+        patch: (item: ThreadItem) => ThreadItem
+      ) {
+        const entry = threads.get(id);
+        const index = entry?.items.findIndex((i) => i.id === itemId) ?? -1;
+        const existing = entry?.items[index];
+        if (!(entry && existing)) {
+          return;
+        }
+        const item = patch(existing);
+        entry.items[index] = item;
+        yield* persist(id);
+        yield* events.publish("agent", {
+          item,
+          threadId: id,
+          type: "itemUpdate",
+        });
+      });
+
+      return ThreadStore.of({
+        add: Effect.fnUntraced(function* (thread: Thread) {
+          threads.set(thread.id, { items: [], thread });
+          yield* persist(thread.id);
+          yield* events.publish("agent", { thread, type: "thread" });
+        }),
+        get: (id) => Effect.sync(() => threads.get(id)?.thread),
+        hasItem: (id, itemId) =>
+          threads.get(id)?.items.some((i) => i.id === itemId) ?? false,
+        items: (id) => Effect.sync(() => threads.get(id)?.items ?? []),
+        list: Effect.sync(() =>
+          Array.from(threads.values(), (e) => e.thread).sort(
+            (a, b) => b.updatedAt - a.updatedAt
+          )
+        ),
+        patchItem,
+        push,
+        remove: Effect.fnUntraced(function* (id: string) {
+          threads.delete(id);
+          yield* Effect.ignore(fs.remove(fileOf(id), { force: true }));
+          yield* events.publish("agent", { threadId: id, type: "removed" });
+        }),
+        update,
+      });
+    })
+  );
+}
