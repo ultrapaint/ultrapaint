@@ -70,6 +70,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { bridgeFor } from "../canvas/bridge.ts";
 import { confirmDialog } from "../components/dialogs.tsx";
 import { IconButton } from "../components/icon-button.tsx";
+import { Markdown } from "../components/markdown.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { useAgents } from "../state/agents.ts";
@@ -221,9 +222,15 @@ const ThreadView = ({
       <MessageScroller className="flex-1">
         <MessageScrollerViewport>
           <MessageScrollerContent className="gap-2 p-2">
-            {items.map((item) => (
+            {items.map((item, index) => (
               <MessageScrollerItem key={item.id} messageId={item.id}>
-                <Item item={item} threadId={thread.id} />
+                <Item
+                  item={item}
+                  streaming={
+                    thread.status === "running" && index === items.length - 1
+                  }
+                  threadId={thread.id}
+                />
               </MessageScrollerItem>
             ))}
             {(thread.status === "running" || thread.status === "starting") && (
@@ -312,7 +319,16 @@ const ChangedFileButton = ({ file }: { file: string }) => {
   );
 };
 
-const Item = ({ item, threadId }: { item: ThreadItem; threadId: string }) => {
+const Item = ({
+  item,
+  streaming,
+  threadId,
+}: {
+  item: ThreadItem;
+  /** The agent is still appending to this item, so its markdown may be cut mid-token. */
+  streaming: boolean;
+  threadId: string;
+}) => {
   switch (item.kind) {
     case "user":
       return (
@@ -341,8 +357,8 @@ const Item = ({ item, threadId }: { item: ThreadItem; threadId: string }) => {
         <Message>
           <MessageContent>
             <Bubble variant="ghost">
-              <BubbleContent className="select-text whitespace-pre-wrap">
-                {item.text}
+              <BubbleContent className="select-text">
+                <Markdown streaming={streaming}>{item.text}</Markdown>
               </BubbleContent>
             </Bubble>
           </MessageContent>
@@ -355,8 +371,10 @@ const Item = ({ item, threadId }: { item: ThreadItem; threadId: string }) => {
             <ChevronRight className={disclosureChevron} />
             thinking
           </Disclosure>
-          <CollapsibleContent className="mt-1 select-text whitespace-pre-wrap border-l pl-2 text-[11px] text-muted-foreground">
-            {item.text}
+          <CollapsibleContent className="mt-1 select-text border-l pl-2 text-muted-foreground">
+            <Markdown className="text-[11px]/relaxed" streaming={streaming}>
+              {item.text}
+            </Markdown>
           </CollapsibleContent>
         </Collapsible>
       );
