@@ -3,6 +3,14 @@ packages:
   - packages/*
   - spikes/*
 
+catalog:
+  '@effect/platform-node': 4.0.0-rc.115
+  '@effect/vitest': 4.0.0-rc.115
+  effect: 4.0.0-rc.115
+
+overrides:
+  effect: 'catalog:'
+
 allowBuilds:
   electron: true
   esbuild: true
@@ -17,3 +25,7 @@ minimumReleaseAgeExclude:
   - '@biomejs/cli-linux-x64@2.5.14'
   - '@biomejs/cli-win32-arm64@2.5.14'
   - '@biomejs/cli-win32-x64@2.5.14'
+  - '@effect/platform-node-shared@4.0.0-rc.115'
+  - '@effect/platform-node@4.0.0-rc.115'
+  - '@effect/vitest@4.0.0-rc.115'
+  - 'effect@4.0.0-rc.115'

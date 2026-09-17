@@ -5,7 +5,7 @@ import {
   requests,
   type WireError,
 } from "@ultrapaint/contracts/ipc";
-import { Schema as S } from "effect";
+import { Result, Schema as S } from "effect";
 
 export class AppError extends Error {
   readonly code: WireError["code"];
@@ -37,7 +37,7 @@ export class Router {
     const spec = (
       requests as Record<
         string,
-        { input: S.Schema<unknown>; output: S.Schema<unknown> }
+        { input: S.Codec<unknown>; output: S.Codec<unknown> }
       >
     )[method];
     const handler = this.handlers.get(method);
@@ -47,15 +47,15 @@ export class Router {
         ok: false,
       };
     }
-    const decoded = S.decodeUnknownEither(spec.input)(input);
-    if (decoded._tag === "Left") {
+    const decoded = S.decodeUnknownResult(spec.input)(input);
+    if (Result.isFailure(decoded)) {
       return {
-        error: { code: "bad_request", message: decoded.left.message },
+        error: { code: "bad_request", message: decoded.failure.message },
         ok: false,
       };
     }
     try {
-      const output = await handler(decoded.right as never);
+      const output = await handler(decoded.success as never);
       const encoded = S.encodeUnknownSync(spec.output)(output);
       return { ok: true, output: encoded };
     } catch (error) {

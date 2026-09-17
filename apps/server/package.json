@@ -4,23 +4,24 @@
   "private": true,
   "type": "module",
   "bin": {
-    "ultrapaint": "./src/bin.ts"
+    "ultrapaint": "./src-legacy/bin.ts"
   },
   "scripts": {
-    "build": "esbuild src/bin.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/bin.mjs --external:typescript-api --external:esbuild --external:ws --external:chokidar --external:@babel/parser --external:magic-string --external:tailwind-merge --external:effect --external:html-to-image --external:typescript",
-    "dev": "tsx watch --clear-screen=false src/bin.ts",
-    "start": "tsx src/bin.ts",
+    "build": "esbuild src-legacy/bin.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/bin.mjs --external:typescript-api --external:esbuild --external:ws --external:chokidar --external:@babel/parser --external:magic-string --external:tailwind-merge --external:effect --external:html-to-image --external:typescript",
+    "dev": "tsx watch --clear-screen=false src-legacy/bin.ts",
+    "start": "tsx src-legacy/bin.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@babel/parser": "^8.0.5",
+    "@effect/platform-node": "catalog:",
     "@ultrapaint/acp": "workspace:*",
     "@ultrapaint/contracts": "workspace:*",
     "@ultrapaint/host-plugin": "workspace:*",
     "@ultrapaint/shared": "workspace:*",
     "chokidar": "^5.0.0",
-    "effect": "^3.22.2",
+    "effect": "catalog:",
     "magic-string": "^1.4.1",
     "tailwind-merge": "^3.7.0",
     "typescript": "7.0.2",
@@ -28,6 +29,7 @@
     "ws": "^8.21.3"
   },
   "devDependencies": {
+    "@effect/vitest": "catalog:",
     "@types/node": "^24.0.0",
     "@types/ws": "^8.18.1",
     "esbuild": "^0.28.2",

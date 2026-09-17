@@ -1,8 +1,8 @@
-import { Schema as S } from "effect";
+import { Schema } from "effect";
 import { Json, RepoRelativePath } from "./base.ts";
 
-export const PropType = S.Struct({
-  kind: S.Literal(
+export const PropType = Schema.Struct({
+  kind: Schema.Literals([
     "string",
     "number",
     "boolean",
@@ -10,43 +10,43 @@ export const PropType = S.Struct({
     "node",
     "function",
     "object",
-    "other"
-  ),
-  members: S.optional(S.Array(S.String)),
-  raw: S.String,
+    "other",
+  ]),
+  members: Schema.optional(Schema.Array(Schema.String)),
+  raw: Schema.String,
 });
 export type PropType = typeof PropType.Type;
 
-export const PropMeta = S.Struct({
-  defaultValue: S.optional(Json),
-  description: S.optional(S.String),
-  name: S.String,
-  required: S.Boolean,
+export const PropMeta = Schema.Struct({
+  defaultValue: Schema.optional(Json),
+  description: Schema.optional(Schema.String),
+  name: Schema.String,
+  required: Schema.Boolean,
   type: PropType,
 });
 export type PropMeta = typeof PropMeta.Type;
 
-export const ComponentMeta = S.Struct({
-  category: S.String,
-  description: S.optional(S.String),
+export const ComponentMeta = Schema.Struct({
+  category: Schema.String,
+  description: Schema.optional(Schema.String),
   file: RepoRelativePath,
-  group: S.String,
+  group: Schema.String,
   /** Import specifier the screen should use, e.g. `@epicparty/ui-components/button`. */
-  importFrom: S.String,
-  name: S.String,
-  props: S.Array(PropMeta),
+  importFrom: Schema.String,
+  name: Schema.String,
+  props: Schema.Array(PropMeta),
   /** Default JSX snippet for insertion. */
-  snippet: S.String,
+  snippet: Schema.String,
   /** Storybook story ids usable as previews. */
-  storyIds: S.Array(S.String),
+  storyIds: Schema.Array(Schema.String),
   /** `cva` variants: name -> members. */
-  variants: S.Record({ key: S.String, value: S.Array(S.String) }),
+  variants: Schema.Record(Schema.String, Schema.Array(Schema.String)),
 });
 export type ComponentMeta = typeof ComponentMeta.Type;
 
-export const Catalogue = S.Struct({
-  builtAt: S.Number,
-  components: S.Array(ComponentMeta),
-  coverage: S.Struct({ total: S.Number, usable: S.Number }),
+export const Catalogue = Schema.Struct({
+  builtAt: Schema.Number,
+  components: Schema.Array(ComponentMeta),
+  coverage: Schema.Struct({ total: Schema.Number, usable: Schema.Number }),
 });
 export type Catalogue = typeof Catalogue.Type;

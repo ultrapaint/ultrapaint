@@ -1,19 +1,19 @@
-import { Schema as S } from "effect";
+import { Schema } from "effect";
 
-export const NonEmptyString = S.String.pipe(S.minLength(1));
+export const NonEmptyString = Schema.String.check(Schema.isMinLength(1));
 export type NonEmptyString = typeof NonEmptyString.Type;
 
 /** A path relative to the target repository root, posix separators. */
-export const RepoRelativePath = S.String.pipe(
-  S.pattern(/^(?!\/)(?!.*\.\.)[^\0]*$/)
+export const RepoRelativePath = Schema.String.check(
+  Schema.isPattern(/^(?!\/)(?!.*\.\.)[^\0]*$/)
 );
 export type RepoRelativePath = typeof RepoRelativePath.Type;
 
 /** Location of a JSX element in the target repository. */
-export const SourceLocation = S.Struct({
-  col: S.Int.pipe(S.nonNegative()),
+export const SourceLocation = Schema.Struct({
+  col: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
   file: RepoRelativePath,
-  line: S.Int.pipe(S.positive()),
+  line: Schema.Int.check(Schema.isGreaterThan(0)),
 });
 export type SourceLocation = typeof SourceLocation.Type;
 
@@ -35,15 +35,15 @@ export const parseSourceKey = (key: string): SourceLocation | null => {
   return { col, file, line };
 };
 
-export const Json: S.Schema<JsonValue> = S.suspend(() =>
-  S.Union(
-    S.Null,
-    S.Boolean,
-    S.Number,
-    S.String,
-    S.Array(Json),
-    S.Record({ key: S.String, value: Json })
-  )
+export const Json: Schema.Codec<JsonValue> = Schema.suspend(() =>
+  Schema.Union([
+    Schema.Null,
+    Schema.Boolean,
+    Schema.Number,
+    Schema.String,
+    Schema.Array(Json),
+    Schema.Record(Schema.String, Json),
+  ])
 );
 export type JsonValue =
   | null
@@ -53,4 +53,4 @@ export type JsonValue =
   | readonly JsonValue[]
   | { readonly [key: string]: JsonValue };
 
-export const Timestamp = S.Number;
+export const Timestamp = Schema.Number;

@@ -12,9 +12,10 @@
   },
   "dependencies": {
     "@ultrapaint/contracts": "workspace:*",
-    "effect": "^3.22.2"
+    "effect": "catalog:"
   },
   "devDependencies": {
+    "@effect/vitest": "catalog:",
     "typescript": "7.0.2",
     "vitest": "^5.0.1"
   }

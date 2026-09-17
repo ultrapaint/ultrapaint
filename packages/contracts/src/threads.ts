@@ -1,179 +1,191 @@
-import { Schema as S } from "effect";
+import { Schema } from "effect";
 import { Json } from "./base.ts";
 
-export const AgentConfig = S.Struct({
-  args: S.Array(S.String),
-  authHint: S.optional(S.String),
-  builtIn: S.Boolean,
+export const AgentConfig = Schema.Struct({
+  args: Schema.Array(Schema.String),
+  authHint: Schema.optional(Schema.String),
+  builtIn: Schema.Boolean,
   /** Executable; resolved through PATH or `npx` when `package` is set. */
-  command: S.String,
-  env: S.Record({ key: S.String, value: S.String }),
-  id: S.String,
-  name: S.String,
+  command: Schema.String,
+  env: Schema.Record(Schema.String, Schema.String),
+  id: Schema.String,
+  name: Schema.String,
   /** npm package that provides the command, used for `npx` fallback and install hints. */
-  package: S.optional(S.String),
+  package: Schema.optional(Schema.String),
 });
 export type AgentConfig = typeof AgentConfig.Type;
 
-export const ThreadStatus = S.Literal(
+export const ThreadStatus = Schema.Literals([
   "idle",
   "starting",
   "running",
   "cancelling",
   "error",
-  "closed"
-);
+  "closed",
+]);
 export type ThreadStatus = typeof ThreadStatus.Type;
 
-export const Thread = S.Struct({
-  agentId: S.String,
-  configOptions: S.optional(
-    S.Array(
-      S.Struct({
-        category: S.optional(S.String),
-        currentValue: S.String,
-        id: S.String,
-        name: S.String,
-        options: S.Array(
-          S.Struct({
-            description: S.optional(S.String),
-            name: S.String,
-            value: S.String,
+export const Thread = Schema.Struct({
+  agentId: Schema.String,
+  configOptions: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        category: Schema.optional(Schema.String),
+        currentValue: Schema.String,
+        id: Schema.String,
+        name: Schema.String,
+        options: Schema.Array(
+          Schema.Struct({
+            description: Schema.optional(Schema.String),
+            name: Schema.String,
+            value: Schema.String,
           })
         ),
       })
     )
   ),
-  createdAt: S.Number,
-  currentModeId: S.optional(S.String),
-  error: S.optional(S.String),
-  id: S.String,
+  createdAt: Schema.Number,
+  currentModeId: Schema.optional(Schema.String),
+  error: Schema.optional(Schema.String),
+  id: Schema.String,
   /** Advertised session modes, generic. */
-  modes: S.optional(
-    S.Array(
-      S.Struct({
-        description: S.optional(S.String),
-        id: S.String,
-        name: S.String,
+  modes: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        description: Schema.optional(Schema.String),
+        id: Schema.String,
+        name: Schema.String,
       })
     )
   ),
-  sessionId: S.optional(S.String),
+  sessionId: Schema.optional(Schema.String),
   status: ThreadStatus,
-  title: S.String,
-  updatedAt: S.Number,
+  title: Schema.String,
+  updatedAt: Schema.Number,
 });
 export type Thread = typeof Thread.Type;
 
-export const ToolCallStatus = S.Literal(
+export const ToolCallStatus = Schema.Literals([
   "pending",
   "in_progress",
   "completed",
-  "failed"
-);
+  "failed",
+]);
 
-export const ThreadItem = S.Union(
-  S.Struct({
-    at: S.Number,
-    attachments: S.Array(S.String),
-    id: S.String,
-    kind: S.Literal("user"),
-    text: S.String,
+export const ThreadItem = Schema.Union([
+  Schema.Struct({
+    at: Schema.Number,
+    attachments: Schema.Array(Schema.String),
+    id: Schema.String,
+    kind: Schema.Literal("user"),
+    text: Schema.String,
   }),
-  S.Struct({
-    at: S.Number,
-    id: S.String,
-    kind: S.Literal("agent"),
-    text: S.String,
+  Schema.Struct({
+    at: Schema.Number,
+    id: Schema.String,
+    kind: Schema.Literal("agent"),
+    text: Schema.String,
   }),
-  S.Struct({
-    at: S.Number,
-    id: S.String,
-    kind: S.Literal("thought"),
-    text: S.String,
+  Schema.Struct({
+    at: Schema.Number,
+    id: Schema.String,
+    kind: Schema.Literal("thought"),
+    text: Schema.String,
   }),
-  S.Struct({
-    at: S.Number,
-    content: S.Array(S.String),
-    id: S.String,
-    kind: S.Literal("tool"),
-    locations: S.Array(S.String),
+  Schema.Struct({
+    at: Schema.Number,
+    content: Schema.Array(Schema.String),
+    id: Schema.String,
+    kind: Schema.Literal("tool"),
+    locations: Schema.Array(Schema.String),
     status: ToolCallStatus,
-    title: S.String,
-    toolCallId: S.String,
-    toolKind: S.optional(S.String),
+    title: Schema.String,
+    toolCallId: Schema.String,
+    toolKind: Schema.optional(Schema.String),
   }),
-  S.Struct({
-    at: S.Number,
-    entries: S.Array(
-      S.Struct({
-        content: S.String,
-        priority: S.optional(S.String),
-        status: S.String,
+  Schema.Struct({
+    at: Schema.Number,
+    entries: Schema.Array(
+      Schema.Struct({
+        content: Schema.String,
+        priority: Schema.optional(Schema.String),
+        status: Schema.String,
       })
     ),
-    id: S.String,
-    kind: S.Literal("plan"),
+    id: Schema.String,
+    kind: Schema.Literal("plan"),
   }),
-  S.Struct({
-    at: S.Number,
-    decision: S.NullOr(S.String),
-    detail: S.optional(S.String),
-    id: S.String,
-    kind: S.Literal("permission"),
-    options: S.Array(
-      S.Struct({ kind: S.String, name: S.String, optionId: S.String })
+  Schema.Struct({
+    at: Schema.Number,
+    decision: Schema.NullOr(Schema.String),
+    detail: Schema.optional(Schema.String),
+    id: Schema.String,
+    kind: Schema.Literal("permission"),
+    options: Schema.Array(
+      Schema.Struct({
+        kind: Schema.String,
+        name: Schema.String,
+        optionId: Schema.String,
+      })
     ),
-    requestId: S.String,
-    title: S.String,
-    toolCallId: S.optional(S.String),
+    requestId: Schema.String,
+    title: Schema.String,
+    toolCallId: Schema.optional(Schema.String),
   }),
-  S.Struct({
-    at: S.Number,
-    id: S.String,
-    kind: S.Literal("status"),
-    text: S.String,
+  Schema.Struct({
+    at: Schema.Number,
+    id: Schema.String,
+    kind: Schema.Literal("status"),
+    text: Schema.String,
   }),
-  S.Struct({
-    at: S.Number,
-    changedFiles: S.Array(S.String),
-    id: S.String,
-    kind: S.Literal("turn_end"),
-    stopReason: S.String,
-  })
-);
+  Schema.Struct({
+    at: Schema.Number,
+    changedFiles: Schema.Array(Schema.String),
+    id: Schema.String,
+    kind: Schema.Literal("turn_end"),
+    stopReason: Schema.String,
+  }),
+]);
 export type ThreadItem = typeof ThreadItem.Type;
 
-export const PromptAttachment = S.Union(
-  S.Struct({ kind: S.Literal("file"), path: S.String }),
-  S.Struct({
-    col: S.Number,
-    file: S.String,
-    kind: S.Literal("selection"),
-    line: S.Number,
-    name: S.String,
+export const PromptAttachment = Schema.Union([
+  Schema.Struct({ kind: Schema.Literal("file"), path: Schema.String }),
+  Schema.Struct({
+    col: Schema.Number,
+    file: Schema.String,
+    kind: Schema.Literal("selection"),
+    line: Schema.Number,
+    name: Schema.String,
   }),
-  S.Struct({ dataUrl: S.String, kind: S.Literal("image"), name: S.String })
-);
+  Schema.Struct({
+    dataUrl: Schema.String,
+    kind: Schema.Literal("image"),
+    name: Schema.String,
+  }),
+]);
 export type PromptAttachment = typeof PromptAttachment.Type;
 
-export const PromptInput = S.Struct({
-  attachments: S.Array(PromptAttachment),
-  text: S.String,
-  threadId: S.String,
+export const PromptInput = Schema.Struct({
+  attachments: Schema.Array(PromptAttachment),
+  text: Schema.String,
+  threadId: Schema.String,
 });
 export type PromptInput = typeof PromptInput.Type;
 
-export const AgentEvent = S.Union(
-  S.Struct({ thread: Thread, type: S.Literal("thread") }),
-  S.Struct({ item: ThreadItem, threadId: S.String, type: S.Literal("item") }),
-  S.Struct({
+export const AgentEvent = Schema.Union([
+  Schema.Struct({ thread: Thread, type: Schema.Literal("thread") }),
+  Schema.Struct({
     item: ThreadItem,
-    threadId: S.String,
-    type: S.Literal("itemUpdate"),
+    threadId: Schema.String,
+    type: Schema.Literal("item"),
   }),
-  S.Struct({ threadId: S.String, type: S.Literal("removed") })
-);
+  Schema.Struct({
+    item: ThreadItem,
+    threadId: Schema.String,
+    type: Schema.Literal("itemUpdate"),
+  }),
+  Schema.Struct({ threadId: Schema.String, type: Schema.Literal("removed") }),
+]);
 export type AgentEvent = typeof AgentEvent.Type;
 
 export const _json = Json;

@@ -15,6 +15,20 @@
     "strict": true,
     "verbatimModuleSyntax": true,
     "target": "ES2023",
-    "lib": ["ES2023"]
+    "lib": ["ES2023"],
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "diagnosticSeverity": {
+          "missingEffectServiceDependency": "error",
+          "leakingRequirements": "error",
+          "anyUnknownInErrorContext": "error",
+          "globalErrorInEffectCatch": "error",
+          "floatingEffect": "error",
+          "missingReturnYieldStar": "error",
+          "unsafeEffectTypeAssertion": "error"
+        }
+      }
+    ]
   }
 }

@@ -1,28 +1,28 @@
-import { Schema as S } from "effect";
+import { Schema } from "effect";
 
-export const HostStatus = S.Struct({
-  error: S.optional(S.String),
-  pid: S.optional(S.Number),
-  port: S.optional(S.Number),
-  state: S.Literal("stopped", "starting", "running", "error"),
-  url: S.optional(S.String),
+export const HostStatus = Schema.Struct({
+  error: Schema.optional(Schema.String),
+  pid: Schema.optional(Schema.Number),
+  port: Schema.optional(Schema.Number),
+  state: Schema.Literals(["stopped", "starting", "running", "error"]),
+  url: Schema.optional(Schema.String),
 });
 export type HostStatus = typeof HostStatus.Type;
 
-export const ProjectInfo = S.Struct({
-  branch: S.optional(S.String),
-  configured: S.Boolean,
-  designsDir: S.optional(S.String),
+export const ProjectInfo = Schema.Struct({
+  branch: Schema.optional(Schema.String),
+  configured: Schema.Boolean,
+  designsDir: Schema.optional(Schema.String),
   host: HostStatus,
-  name: S.optional(S.String),
-  repoPath: S.optional(S.String),
+  name: Schema.optional(Schema.String),
+  repoPath: Schema.optional(Schema.String),
 });
 export type ProjectInfo = typeof ProjectInfo.Type;
 
-export const LogLine = S.Struct({
-  at: S.Number,
-  level: S.Literal("info", "warn", "error"),
-  source: S.Literal("host", "server", "agent"),
-  text: S.String,
+export const LogLine = Schema.Struct({
+  at: Schema.Number,
+  level: Schema.Literals(["info", "warn", "error"]),
+  source: Schema.Literals(["host", "server", "agent"]),
+  text: Schema.String,
 });
 export type LogLine = typeof LogLine.Type;

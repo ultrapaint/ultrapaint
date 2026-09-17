@@ -9,7 +9,7 @@ import {
   requests,
   type WireError,
 } from "@ultrapaint/contracts/ipc";
-import { Schema as S } from "effect";
+import { Result, Schema as S } from "effect";
 
 export type ConnectionState = "connecting" | "open" | "closed";
 
@@ -101,28 +101,28 @@ export class Connection {
       return;
     }
     const frame = decodeServerFrame(parsed);
-    if (frame._tag === "Left") {
+    if (Result.isFailure(frame)) {
       return;
     }
-    const f = frame.right;
+    const f = frame.success;
     if ("event" in f) {
       const name = f.event as EventName;
       const schema = events[name];
       if (!schema) {
         return;
       }
-      const payload = S.decodeUnknownEither(schema as S.Schema<unknown>)(
+      const payload = S.decodeUnknownResult(schema as S.Codec<unknown>)(
         f.payload
       );
-      if (payload._tag === "Left") {
+      if (Result.isFailure(payload)) {
         console.warn(
           `[ultrapaint] bad event payload for ${name}`,
-          payload.left.message
+          payload.failure.message
         );
         return;
       }
       for (const l of this.listeners.get(name) ?? []) {
-        l(payload.right as never);
+        l(payload.success as never);
       }
       return;
     }
@@ -149,22 +149,22 @@ export class Connection {
     const id = this.nextId;
     this.nextId += 1;
     const encodedInput = S.encodeUnknownSync(
-      requests[method].input as S.Schema<unknown>
+      requests[method].input as S.Codec<unknown>
     )(input);
     const raw = await new Promise<unknown>((resolve, reject) => {
       this.pending.set(id, { method, reject, resolve });
       ws.send(JSON.stringify({ id, input: encodedInput, method }));
     });
-    const decoded = S.decodeUnknownEither(
-      requests[method].output as S.Schema<unknown>
+    const decoded = S.decodeUnknownResult(
+      requests[method].output as S.Codec<unknown>
     )(raw);
-    if (decoded._tag === "Left") {
+    if (Result.isFailure(decoded)) {
       throw new RequestError(
         "internal",
-        `bad response for ${method}: ${decoded.left.message}`
+        `bad response for ${method}: ${decoded.failure.message}`
       );
     }
-    return decoded.right as RequestOutput<M>;
+    return decoded.success as RequestOutput<M>;
   }
 
   on<E extends EventName>(event: E, listener: Listener<E>): () => void {

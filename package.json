@@ -9,12 +9,15 @@
     "dev:web": "pnpm -F @ultrapaint/web dev",
     "format": "ultracite fix",
     "lint": "ultracite check",
+    "prepare": "effect-tsgo patch --typescript --skip-missing",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.14",
+    "@effect/tsgo": "^0.45.0",
     "@types/node": "^24.0.0",
+    "effect": "catalog:",
     "typescript": "7.0.2",
     "ultracite": "7.12.0"
   },

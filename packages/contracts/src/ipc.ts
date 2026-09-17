@@ -1,4 +1,4 @@
-import { Schema as S } from "effect";
+import { Schema } from "effect";
 import { SourceLocation } from "./base.ts";
 import { Catalogue } from "./catalogue.ts";
 import { EditRequest, EditResult, ElementSource, UndoState } from "./edit.ts";
@@ -20,111 +20,140 @@ import {
   ThreadItem,
 } from "./threads.ts";
 
-const { Void } = S;
+const { Void } = Schema;
 
 /** Every request the editor can make, with its input and output schema. */
 export const requests = {
-  "agents.list": { input: Void, output: S.Array(AgentConfig) },
+  "agents.list": { input: Void, output: Schema.Array(AgentConfig) },
 
-  "canvas.get": { input: S.Struct({ flow: S.String }), output: CanvasLayout },
+  "canvas.get": {
+    input: Schema.Struct({ flow: Schema.String }),
+    output: CanvasLayout,
+  },
   "canvas.set": {
-    input: S.Struct({ flow: S.String, layout: CanvasLayout }),
+    input: Schema.Struct({ flow: Schema.String, layout: CanvasLayout }),
     output: Void,
   },
 
   "catalogue.get": {
-    input: S.Struct({ refresh: S.Boolean }),
+    input: Schema.Struct({ refresh: Schema.Boolean }),
     output: Catalogue,
   },
   "catalogue.storyUrl": {
-    input: S.Struct({ storyId: S.String }),
-    output: S.NullOr(S.String),
+    input: Schema.Struct({ storyId: Schema.String }),
+    output: Schema.NullOr(Schema.String),
   },
   "checkpoints.diff": {
-    input: S.Struct({ id: S.String }),
-    output: S.Array(GitDiff),
+    input: Schema.Struct({ id: Schema.String }),
+    output: Schema.Array(GitDiff),
   },
-  "checkpoints.list": { input: Void, output: S.Array(Checkpoint) },
-  "checkpoints.revert": { input: S.Struct({ id: S.String }), output: Void },
+  "checkpoints.list": { input: Void, output: Schema.Array(Checkpoint) },
+  "checkpoints.revert": {
+    input: Schema.Struct({ id: Schema.String }),
+    output: Void,
+  },
 
   "edit.apply": { input: EditRequest, output: EditResult },
-  "edit.redo": { input: Void, output: S.NullOr(EditResult) },
+  "edit.redo": { input: Void, output: Schema.NullOr(EditResult) },
   "edit.state": { input: Void, output: UndoState },
-  "edit.undo": { input: Void, output: S.NullOr(EditResult) },
+  "edit.undo": { input: Void, output: Schema.NullOr(EditResult) },
   "git.commit": { input: GitCommitInput, output: GitCommitResult },
-  "git.diff": { input: S.Struct({ path: S.String }), output: GitDiff },
+  "git.diff": {
+    input: Schema.Struct({ path: Schema.String }),
+    output: GitDiff,
+  },
 
   "git.status": { input: Void, output: GitStatus },
   health: {
     input: Void,
-    output: S.Struct({ ok: S.Boolean, version: S.String }),
+    output: Schema.Struct({ ok: Schema.Boolean, version: Schema.String }),
   },
   "host.start": { input: Void, output: HostStatus },
   "host.stop": { input: Void, output: HostStatus },
-  "logs.recent": { input: Void, output: S.Array(LogLine) },
+  "logs.recent": { input: Void, output: Schema.Array(LogLine) },
 
   "project.info": { input: Void, output: ProjectInfo },
   "screens.create": {
-    input: S.Struct({
-      flow: S.String,
-      name: S.String,
-      template: S.optional(S.String),
+    input: Schema.Struct({
+      flow: Schema.String,
+      name: Schema.String,
+      template: Schema.optional(Schema.String),
     }),
     output: Screen,
   },
-  "screens.delete": { input: S.Struct({ id: S.String }), output: Void },
-  "screens.duplicate": { input: S.Struct({ id: S.String }), output: Screen },
+  "screens.delete": {
+    input: Schema.Struct({ id: Schema.String }),
+    output: Void,
+  },
+  "screens.duplicate": {
+    input: Schema.Struct({ id: Schema.String }),
+    output: Screen,
+  },
 
   "screens.list": { input: Void, output: ScreenList },
   "screens.rename": {
-    input: S.Struct({ id: S.String, name: S.String }),
+    input: Schema.Struct({ id: Schema.String, name: Schema.String }),
     output: Screen,
   },
   "screens.templates": {
     input: Void,
-    output: S.Array(S.Struct({ id: S.String, name: S.String })),
+    output: Schema.Array(
+      Schema.Struct({ id: Schema.String, name: Schema.String })
+    ),
   },
 
-  "settings.get": { input: Void, output: S.NullOr(Settings) },
+  "settings.get": { input: Void, output: Schema.NullOr(Settings) },
   "settings.set": { input: Settings, output: SettingsValidation },
   "settings.validate": { input: Settings, output: SettingsValidation },
 
-  "source.element": { input: SourceLocation, output: S.NullOr(ElementSource) },
-  "source.read": {
-    input: S.Struct({ file: S.String }),
-    output: S.Struct({ content: S.String, hash: S.String }),
+  "source.element": {
+    input: SourceLocation,
+    output: Schema.NullOr(ElementSource),
   },
-  "threads.cancel": { input: S.Struct({ threadId: S.String }), output: Void },
+  "source.read": {
+    input: Schema.Struct({ file: Schema.String }),
+    output: Schema.Struct({ content: Schema.String, hash: Schema.String }),
+  },
+  "threads.cancel": {
+    input: Schema.Struct({ threadId: Schema.String }),
+    output: Void,
+  },
   "threads.create": {
-    input: S.Struct({ agentId: S.String, title: S.optional(S.String) }),
+    input: Schema.Struct({
+      agentId: Schema.String,
+      title: Schema.optional(Schema.String),
+    }),
     output: Thread,
   },
-  "threads.delete": { input: S.Struct({ threadId: S.String }), output: Void },
-  "threads.items": {
-    input: S.Struct({ threadId: S.String }),
-    output: S.Array(ThreadItem),
+  "threads.delete": {
+    input: Schema.Struct({ threadId: Schema.String }),
+    output: Void,
   },
-  "threads.list": { input: Void, output: S.Array(Thread) },
+  "threads.items": {
+    input: Schema.Struct({ threadId: Schema.String }),
+    output: Schema.Array(ThreadItem),
+  },
+  "threads.list": { input: Void, output: Schema.Array(Thread) },
   "threads.permission": {
-    input: S.Struct({
-      optionId: S.String,
-      remember: S.Boolean,
-      requestId: S.String,
-      threadId: S.String,
+    input: Schema.Struct({
+      optionId: Schema.String,
+      remember: Schema.Boolean,
+      requestId: Schema.String,
+      threadId: Schema.String,
     }),
     output: Void,
   },
   "threads.prompt": { input: PromptInput, output: Void },
   "threads.setConfigOption": {
-    input: S.Struct({
-      optionId: S.String,
-      threadId: S.String,
-      value: S.String,
+    input: Schema.Struct({
+      optionId: Schema.String,
+      threadId: Schema.String,
+      value: Schema.String,
     }),
     output: Void,
   },
   "threads.setMode": {
-    input: S.Struct({ modeId: S.String, threadId: S.String }),
+    input: Schema.Struct({ modeId: Schema.String, threadId: Schema.String }),
     output: Void,
   },
 } as const;
@@ -138,9 +167,9 @@ export type RequestOutput<M extends RequestName> =
 /** Every event the server pushes to subscribed clients. */
 export const events = {
   agent: AgentEvent,
-  canvas: S.Struct({ flow: S.String, layout: CanvasLayout }),
+  canvas: Schema.Struct({ flow: Schema.String, layout: CanvasLayout }),
   "edit.state": UndoState,
-  "file.changed": S.Struct({ file: S.String, hash: S.String }),
+  "file.changed": Schema.Struct({ file: Schema.String, hash: Schema.String }),
   git: GitStatus,
   log: LogLine,
   project: ProjectInfo,
@@ -151,14 +180,14 @@ export type Events = typeof events;
 export type EventName = keyof Events;
 export type EventPayload<E extends EventName> = Events[E]["Type"];
 
-export const ClientFrame = S.Struct({
-  id: S.Number,
-  input: S.Unknown,
-  method: S.String,
+export const ClientFrame = Schema.Struct({
+  id: Schema.Number,
+  input: Schema.optional(Schema.Unknown),
+  method: Schema.String,
 });
 export type ClientFrame = typeof ClientFrame.Type;
 
-export const ErrorCode = S.Literal(
+export const ErrorCode = Schema.Literals([
   "bad_request",
   "not_found",
   "not_configured",
@@ -167,19 +196,33 @@ export const ErrorCode = S.Literal(
   "conflict",
   "host_error",
   "agent_error",
-  "internal"
-);
+  "internal",
+]);
 export type ErrorCode = typeof ErrorCode.Type;
 
-export const WireError = S.Struct({ code: ErrorCode, message: S.String });
+export const WireError = Schema.Struct({
+  code: ErrorCode,
+  message: Schema.String,
+});
 export type WireError = typeof WireError.Type;
 
-export const ServerFrame = S.Union(
-  S.Struct({ id: S.Number, ok: S.Literal(true), output: S.Unknown }),
-  S.Struct({ error: WireError, id: S.Number, ok: S.Literal(false) }),
-  S.Struct({ event: S.String, payload: S.Unknown })
-);
+export const ServerFrame = Schema.Union([
+  Schema.Struct({
+    id: Schema.Number,
+    ok: Schema.Literal(true),
+    output: Schema.optional(Schema.Unknown),
+  }),
+  Schema.Struct({
+    error: WireError,
+    id: Schema.Number,
+    ok: Schema.Literal(false),
+  }),
+  Schema.Struct({
+    event: Schema.String,
+    payload: Schema.optional(Schema.Unknown),
+  }),
+]);
 export type ServerFrame = typeof ServerFrame.Type;
 
-export const decodeClientFrame = S.decodeUnknownEither(ClientFrame);
-export const decodeServerFrame = S.decodeUnknownEither(ServerFrame);
+export const decodeClientFrame = Schema.decodeUnknownResult(ClientFrame);
+export const decodeServerFrame = Schema.decodeUnknownResult(ServerFrame);

@@ -24,7 +24,7 @@
       }
     },
     {
-      "includes": ["apps/server/src/services/catalogue.ts"],
+      "includes": ["apps/server/src-legacy/services/catalogue.ts"],
       "linter": {
         "rules": {
           "suspicious": {

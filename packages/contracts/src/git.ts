@@ -1,35 +1,38 @@
-import { Schema as S } from "effect";
+import { Schema } from "effect";
 
-export const GitFileStatus = S.Struct({
+export const GitFileStatus = Schema.Struct({
   /** Porcelain XY code, e.g. ` M`, `??`, `A `. */
-  code: S.String,
+  code: Schema.String,
   /** Whether the path is inside the designs directory. */
-  design: S.Boolean,
-  path: S.String,
-  staged: S.Boolean,
+  design: Schema.Boolean,
+  path: Schema.String,
+  staged: Schema.Boolean,
 });
 export type GitFileStatus = typeof GitFileStatus.Type;
 
-export const GitStatus = S.Struct({
-  branch: S.String,
-  files: S.Array(GitFileStatus),
+export const GitStatus = Schema.Struct({
+  branch: Schema.String,
+  files: Schema.Array(GitFileStatus),
 });
 export type GitStatus = typeof GitStatus.Type;
 
-export const GitDiff = S.Struct({ diff: S.String, path: S.String });
+export const GitDiff = Schema.Struct({
+  diff: Schema.String,
+  path: Schema.String,
+});
 export type GitDiff = typeof GitDiff.Type;
 
-export const GitCommitInput = S.Struct({
-  message: S.String,
-  paths: S.Array(S.String),
+export const GitCommitInput = Schema.Struct({
+  message: Schema.String,
+  paths: Schema.Array(Schema.String),
 });
-export const GitCommitResult = S.Struct({ sha: S.String });
+export const GitCommitResult = Schema.Struct({ sha: Schema.String });
 
-export const Checkpoint = S.Struct({
-  at: S.Number,
-  files: S.Array(S.String),
-  id: S.String,
-  label: S.String,
-  threadId: S.String,
+export const Checkpoint = Schema.Struct({
+  at: Schema.Number,
+  files: Schema.Array(Schema.String),
+  id: Schema.String,
+  label: Schema.String,
+  threadId: Schema.String,
 });
 export type Checkpoint = typeof Checkpoint.Type;

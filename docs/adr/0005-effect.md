@@ -1,6 +1,6 @@
 # ADR 0005: Effect
 
-Status: accepted, 2026-09-17. Replaces D12's scope.
+Status: superseded by [ADR 0009](0009-effect-runtime.md), 2026-09-17. Replaced D12's scope.
 
 ## Decision
 

@@ -3,6 +3,7 @@ import {
   type EventName,
   type EventPayload,
 } from "@ultrapaint/contracts/ipc";
+import { Result } from "effect";
 import type { WebSocket, WebSocketServer } from "ws";
 import type { AppContext } from "../context.ts";
 import type { Router } from "../router.ts";
@@ -42,7 +43,7 @@ export const attachWebSocket = (
         return;
       }
       const frame = decodeClientFrame(parsed);
-      if (frame._tag === "Left") {
+      if (Result.isFailure(frame)) {
         ws.send(
           JSON.stringify({
             error: { code: "bad_request", message: "malformed frame" },
@@ -52,7 +53,7 @@ export const attachWebSocket = (
         );
         return;
       }
-      const { id, method, input } = frame.right;
+      const { id, method, input } = frame.success;
       const result = await router.dispatch(method, input);
       if (result.ok) {
         ws.send(

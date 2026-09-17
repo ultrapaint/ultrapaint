@@ -1,4 +1,4 @@
-import { Schema as S } from "effect";
+import { Schema } from "effect";
 import { Json, SourceLocation } from "./base.ts";
 
 /**
@@ -6,7 +6,7 @@ import { Json, SourceLocation } from "./base.ts";
  * screen iframe. Transported over `postMessage`.
  */
 
-export const TreeNodeKind = S.Literal("component", "element", "text");
+export const TreeNodeKind = Schema.Literals(["component", "element", "text"]);
 export type TreeNodeKind = typeof TreeNodeKind.Type;
 
 export interface TreeNode {
@@ -19,137 +19,159 @@ export interface TreeNode {
   readonly summary: string;
 }
 
-export const TreeNode: S.Schema<TreeNode> = S.suspend(() =>
-  S.Struct({
-    children: S.Array(TreeNode),
-    editable: S.Boolean,
-    id: S.String,
+export const TreeNode: Schema.Codec<TreeNode> = Schema.suspend(() =>
+  Schema.Struct({
+    children: Schema.Array(TreeNode),
+    editable: Schema.Boolean,
+    id: Schema.String,
     kind: TreeNodeKind,
-    name: S.String,
-    source: S.NullOr(SourceLocation),
-    summary: S.String,
+    name: Schema.String,
+    source: Schema.NullOr(SourceLocation),
+    summary: Schema.String,
   })
 );
 
-export const Rect = S.Struct({
-  height: S.Number,
-  width: S.Number,
-  x: S.Number,
-  y: S.Number,
+export const Rect = Schema.Struct({
+  height: Schema.Number,
+  width: Schema.Number,
+  x: Schema.Number,
+  y: Schema.Number,
 });
 export type Rect = typeof Rect.Type;
 
-export const Provenance = S.Struct({
+export const Provenance = Schema.Struct({
   /** Class that produced the value, when a utility or component class. */
-  className: S.optional(S.String),
+  className: Schema.optional(Schema.String),
   /** Whether an inspector edit can rewrite this value in the selected element's source. */
-  editable: S.Boolean,
-  kind: S.Literal(
+  editable: Schema.Boolean,
+  kind: Schema.Literals([
     "utility",
     "component",
     "token",
     "inherited",
     "default",
-    "inline"
-  ),
+    "inline",
+  ]),
   /** Design token behind the value, when known. */
-  token: S.optional(S.String),
+  token: Schema.optional(Schema.String),
 });
 export type Provenance = typeof Provenance.Type;
 
-export const StyleValue = S.Struct({ provenance: Provenance, value: S.String });
+export const StyleValue = Schema.Struct({
+  provenance: Provenance,
+  value: Schema.String,
+});
 export type StyleValue = typeof StyleValue.Type;
 
-export const InspectResult = S.Struct({
+export const InspectResult = Schema.Struct({
   /** Class list on the DOM element. */
-  classes: S.Array(S.String),
-  editable: S.Boolean,
+  classes: Schema.Array(Schema.String),
+  editable: Schema.Boolean,
   /** Source location of the nearest editable ancestor, when the node itself is not editable. */
-  editableAncestor: S.NullOr(
-    S.Struct({ name: S.String, nodeId: S.String, source: SourceLocation })
+  editableAncestor: Schema.NullOr(
+    Schema.Struct({
+      name: Schema.String,
+      nodeId: Schema.String,
+      source: SourceLocation,
+    })
   ),
   kind: TreeNodeKind,
-  name: S.String,
-  nodeId: S.String,
+  name: Schema.String,
+  nodeId: Schema.String,
   /** Classes the selected instance passed itself through its `className` prop. */
-  ownClasses: S.Array(S.String),
+  ownClasses: Schema.Array(Schema.String),
   /** Serialisable props of the component instance, when the node is a component. */
-  props: S.Record({ key: S.String, value: Json }),
+  props: Schema.Record(Schema.String, Json),
   rect: Rect,
-  source: S.NullOr(SourceLocation),
-  styles: S.Record({ key: S.String, value: StyleValue }),
-  text: S.NullOr(S.String),
+  source: Schema.NullOr(SourceLocation),
+  styles: Schema.Record(Schema.String, StyleValue),
+  text: Schema.NullOr(Schema.String),
 });
 export type InspectResult = typeof InspectResult.Type;
 
-export const HostError = S.Struct({
-  file: S.optional(S.String),
-  line: S.optional(S.Number),
-  message: S.String,
-  stack: S.optional(S.String),
+export const HostError = Schema.Struct({
+  file: Schema.optional(Schema.String),
+  line: Schema.optional(Schema.Number),
+  message: Schema.String,
+  stack: Schema.optional(Schema.String),
 });
 export type HostError = typeof HostError.Type;
 
 /** Messages the host runtime sends to the editor. */
-export const HostMessage = S.Union(
-  S.Struct({ screen: S.String, type: S.Literal("ed:ready") }),
-  S.Struct({ tree: TreeNode, type: S.Literal("ed:tree") }),
-  S.Struct({ type: S.Literal("ed:hmr") }),
-  S.Struct({ error: HostError, type: S.Literal("ed:error") }),
-  S.Struct({
-    nodeId: S.NullOr(S.String),
-    requestId: S.Number,
-    type: S.Literal("ed:hit"),
+export const HostMessage = Schema.Union([
+  Schema.Struct({ screen: Schema.String, type: Schema.Literal("ed:ready") }),
+  Schema.Struct({ tree: TreeNode, type: Schema.Literal("ed:tree") }),
+  Schema.Struct({ type: Schema.Literal("ed:hmr") }),
+  Schema.Struct({ error: HostError, type: Schema.Literal("ed:error") }),
+  Schema.Struct({
+    nodeId: Schema.NullOr(Schema.String),
+    requestId: Schema.Number,
+    type: Schema.Literal("ed:hit"),
   }),
-  S.Struct({
-    requestId: S.Number,
-    result: S.NullOr(InspectResult),
-    type: S.Literal("ed:inspect"),
+  Schema.Struct({
+    requestId: Schema.Number,
+    result: Schema.NullOr(InspectResult),
+    type: Schema.Literal("ed:inspect"),
   }),
-  S.Struct({
-    rects: S.Record({ key: S.String, value: Rect }),
-    type: S.Literal("ed:rects"),
+  Schema.Struct({
+    rects: Schema.Record(Schema.String, Rect),
+    type: Schema.Literal("ed:rects"),
   }),
-  S.Struct({
-    nodeId: S.String,
-    text: S.String,
-    type: S.Literal("ed:textCommit"),
+  Schema.Struct({
+    nodeId: Schema.String,
+    text: Schema.String,
+    type: Schema.Literal("ed:textCommit"),
   }),
-  S.Struct({
-    dataUrl: S.NullOr(S.String),
-    requestId: S.Number,
-    type: S.Literal("ed:screenshot"),
+  Schema.Struct({
+    dataUrl: Schema.NullOr(Schema.String),
+    requestId: Schema.Number,
+    type: Schema.Literal("ed:screenshot"),
   }),
-  S.Struct({
-    tokens: S.Record({ key: S.String, value: S.String }),
-    type: S.Literal("ed:tokens"),
-  })
-);
+  Schema.Struct({
+    tokens: Schema.Record(Schema.String, Schema.String),
+    type: Schema.Literal("ed:tokens"),
+  }),
+]);
 export type HostMessage = typeof HostMessage.Type;
 
 /** Messages the editor sends to the host runtime. */
-export const EditorMessage = S.Union(
-  S.Struct({ type: S.Literal("ed:getTree") }),
-  S.Struct({ nodeId: S.NullOr(S.String), type: S.Literal("ed:hover") }),
-  S.Struct({ nodeId: S.NullOr(S.String), type: S.Literal("ed:select") }),
-  S.Struct({
-    deepest: S.Boolean,
-    requestId: S.Number,
-    type: S.Literal("ed:hitTest"),
-    x: S.Number,
-    y: S.Number,
+export const EditorMessage = Schema.Union([
+  Schema.Struct({ type: Schema.Literal("ed:getTree") }),
+  Schema.Struct({
+    nodeId: Schema.NullOr(Schema.String),
+    type: Schema.Literal("ed:hover"),
   }),
-  S.Struct({
-    nodeId: S.String,
-    requestId: S.Number,
-    type: S.Literal("ed:inspect"),
+  Schema.Struct({
+    nodeId: Schema.NullOr(Schema.String),
+    type: Schema.Literal("ed:select"),
   }),
-  S.Struct({ nodeIds: S.Array(S.String), type: S.Literal("ed:watchRects") }),
-  S.Struct({ nodeId: S.String, type: S.Literal("ed:editText") }),
-  S.Struct({ requestId: S.Number, type: S.Literal("ed:screenshot") }),
-  S.Struct({ type: S.Literal("ed:getTokens") }),
-  S.Struct({ nodeId: S.String, type: S.Literal("ed:scrollIntoView") })
-);
+  Schema.Struct({
+    deepest: Schema.Boolean,
+    requestId: Schema.Number,
+    type: Schema.Literal("ed:hitTest"),
+    x: Schema.Number,
+    y: Schema.Number,
+  }),
+  Schema.Struct({
+    nodeId: Schema.String,
+    requestId: Schema.Number,
+    type: Schema.Literal("ed:inspect"),
+  }),
+  Schema.Struct({
+    nodeIds: Schema.Array(Schema.String),
+    type: Schema.Literal("ed:watchRects"),
+  }),
+  Schema.Struct({ nodeId: Schema.String, type: Schema.Literal("ed:editText") }),
+  Schema.Struct({
+    requestId: Schema.Number,
+    type: Schema.Literal("ed:screenshot"),
+  }),
+  Schema.Struct({ type: Schema.Literal("ed:getTokens") }),
+  Schema.Struct({
+    nodeId: Schema.String,
+    type: Schema.Literal("ed:scrollIntoView"),
+  }),
+]);
 export type EditorMessage = typeof EditorMessage.Type;
 
 export const HOST_MESSAGE_PREFIX = "ed:";
