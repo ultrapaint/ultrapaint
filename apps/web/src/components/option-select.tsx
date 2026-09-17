@@ -1,6 +1,5 @@
 import { cn } from "cn";
 import type * as React from "react";
-import { useCallback } from "react";
 import {
   Select,
   SelectContent,
@@ -33,14 +32,11 @@ export const OptionSelect = ({
   className?: string;
   disabled?: boolean;
 }) => {
-  const onValueChange = useCallback(
-    (v: string | null) => {
-      if (v !== null) {
-        onChange(v);
-      }
-    },
-    [onChange]
-  );
+  const onValueChange = (v: string | null) => {
+    if (v !== null) {
+      onChange(v);
+    }
+  };
   return (
     <Select<string>
       disabled={disabled}

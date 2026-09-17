@@ -1,5 +1,5 @@
 import { cn } from "cn";
-import { type ComponentType, useCallback, useEffect, useRef } from "react";
+import { type ComponentType, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Toaster } from "@/components/ui/sonner";
@@ -65,10 +65,7 @@ const SidePanel = <T extends string>({
 }) => {
   // Only the active panel is mounted: panels subscribe to server events while visible.
   const Active = tabs.find((t) => t.value === value)?.panel;
-  const handleValueChange = useCallback(
-    (v: unknown) => onChange(v as T),
-    [onChange]
-  );
+  const handleValueChange = (v: unknown) => onChange(v as T);
   return (
     <aside
       className={cn(

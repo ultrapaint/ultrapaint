@@ -8,7 +8,6 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type SetStateAction,
-  useCallback,
   useEffect,
   useRef,
   useState,
@@ -50,79 +49,86 @@ export const Layers = () => {
   const [drag, setDrag] = useState<{ node: TreeNode } | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
 
-  // Auto-expand the path to the selection.
-  useEffect(() => {
-    if (!(selection && tree) || selection.screenId !== activeScreen) {
-      return;
-    }
-    const path = findPath(tree, selection.nodeId);
-    if (!path) {
-      return;
-    }
-    setCollapsed((prev) => {
-      const next = new Set(prev);
+  // Auto-expand the path to the selection whenever the selection or tree changes (adjusted during
+  // render rather than in an effect, so the expanded tree paints in the same pass).
+  const [revealed, setRevealed] = useState<{
+    selection: typeof selection;
+    tree: typeof tree;
+  } | null>(null);
+  const selectedHere =
+    selection && tree && selection.screenId === activeScreen ? selection : null;
+  if (
+    selectedHere &&
+    tree &&
+    (revealed?.selection !== selectedHere || revealed.tree !== tree)
+  ) {
+    setRevealed({ selection: selectedHere, tree });
+    const path = findPath(tree, selectedHere.nodeId);
+    if (path) {
+      const next = new Set(collapsed);
       for (const n of path) {
         next.delete(keyOf(n));
       }
-      return next;
-    });
+      setCollapsed(next);
+    }
+  }
+
+  useEffect(() => {
+    if (!revealed?.selection) {
+      return;
+    }
+    const { nodeId } = revealed.selection;
     requestAnimationFrame(() => {
       listRef.current
-        ?.querySelector(`[data-node="${selection.nodeId}"]`)
+        ?.querySelector(`[data-node="${nodeId}"]`)
         ?.scrollIntoView({ block: "nearest" });
     });
-  }, [selection, tree, activeScreen]);
+  }, [revealed]);
 
-  const toggle = useCallback(
-    (n: TreeNode) =>
-      setCollapsed((prev) => {
-        const next = new Set(prev);
-        const k = keyOf(n);
-        if (next.has(k)) {
-          next.delete(k);
-        } else {
-          next.add(k);
-        }
-        return next;
-      }),
-    []
-  );
+  const toggle = (n: TreeNode) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      const k = keyOf(n);
+      if (next.has(k)) {
+        next.delete(k);
+      } else {
+        next.add(k);
+      }
+      return next;
+    });
 
-  const onDrop = useCallback(
-    async (
-      target: TreeNode,
-      position: DropPosition,
-      parent: TreeNode | undefined
-    ) => {
-      if (!drag?.node.source) {
+  const onDrop = async (
+    target: TreeNode,
+    position: DropPosition,
+    parent: TreeNode | undefined
+  ) => {
+    if (!drag?.node.source) {
+      return;
+    }
+    if (position === "inside") {
+      if (!target.source) {
         return;
       }
-      if (position === "inside") {
-        if (!target.source) {
-          return;
-        }
-        await runEdit({
-          index: 0,
-          into: target.source,
-          kind: "move",
-          target: drag.node.source,
-        });
-      } else {
-        if (!parent?.source) {
-          return;
-        }
-        const siblings = parent.children.filter((c) => c.id !== drag.node.id);
-        const targetIdx = siblings.findIndex((c) => c.id === target.id);
-        await runEdit({
-          index: position === "before" ? targetIdx : targetIdx + 1,
-          into: parent.source,
-          kind: "move",
-          target: drag.node.source,
-        });
+      await runEdit({
+        index: 0,
+        into: target.source,
+        kind: "move",
+        target: drag.node.source,
+      });
+    } else {
+      if (!parent?.source) {
+        return;
       }
-    },
-    [drag]
-  );
+      const siblings = parent.children.filter((c) => c.id !== drag.node.id);
+      const targetIdx = siblings.findIndex((c) => c.id === target.id);
+      await runEdit({
+        index: position === "before" ? targetIdx : targetIdx + 1,
+        into: parent.source,
+        kind: "move",
+        target: drag.node.source,
+      });
+    }
+  };
 
   if (!(activeScreen && tree)) {
     return <PanelEmpty>Select a screen to see its layers</PanelEmpty>;
@@ -210,80 +216,55 @@ const LayerNode = ({
   const hasChildren = node.children.length > 0;
   const dropHere = dropTarget?.id === node.id ? dropTarget.position : null;
 
-  const select = useCallback(() => {
+  const select = () => {
     useEditor.getState().select({
       nodeId: node.id,
       screenId: activeScreen,
       source: node.source,
     });
-  }, [activeScreen, node.id, node.source]);
-  const onKeyDown = useCallback(
-    (e: KeyboardEvent<HTMLDivElement>) => {
-      if (e.target !== e.currentTarget) {
-        return;
+  };
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget) {
+      return;
+    }
+    if (e.key === "Enter" || e.key === " ") {
+      if (e.key === " ") {
+        e.preventDefault();
       }
-      if (e.key === "Enter" || e.key === " ") {
-        if (e.key === " ") {
-          e.preventDefault();
-        }
-        select();
-      }
-    },
-    [select]
-  );
-  const editText = useCallback(
-    () => bridgeFor(activeScreen).editText(node.id),
-    [activeScreen, node.id]
-  );
-  const onDragLeave = useCallback(
-    () => setDropTarget((d) => (d?.id === node.id ? null : d)),
-    [node.id, setDropTarget]
-  );
-  const onDragOver = useCallback(
-    (e: DragEvent<HTMLDivElement>) => {
-      if (!drag || drag.node.id === node.id || !node.editable) {
-        return;
-      }
-      e.preventDefault();
-      const r = e.currentTarget.getBoundingClientRect();
-      const y = (e.clientY - r.top) / r.height;
-      setDropTarget({ id: node.id, position: dropPositionAt(node, y) });
-    },
-    [drag, node, setDropTarget]
-  );
-  const onDragStart = useCallback(
-    (e: DragEvent<HTMLDivElement>) => {
-      setDrag({ node });
-      e.dataTransfer.effectAllowed = "move";
-    },
-    [node, setDrag]
-  );
-  const onDropHere = useCallback(
-    (e: DragEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      const t = dropTarget;
-      setDropTarget(null);
-      setDrag(null);
-      if (t) {
-        onDrop(node, t.position, parent);
-      }
-    },
-    [dropTarget, node, onDrop, parent, setDrag, setDropTarget]
-  );
-  const onMouseEnter = useCallback(
-    () =>
-      useEditor
-        .getState()
-        .setHover({ nodeId: node.id, screenId: activeScreen }),
-    [activeScreen, node.id]
-  );
-  const onToggle = useCallback(
-    (e: MouseEvent) => {
-      e.stopPropagation();
-      toggle(node);
-    },
-    [node, toggle]
-  );
+      select();
+    }
+  };
+  const editText = () => bridgeFor(activeScreen).editText(node.id);
+  const onDragLeave = () =>
+    setDropTarget((d) => (d?.id === node.id ? null : d));
+  const onDragOver = (e: DragEvent<HTMLDivElement>) => {
+    if (!drag || drag.node.id === node.id || !node.editable) {
+      return;
+    }
+    e.preventDefault();
+    const r = e.currentTarget.getBoundingClientRect();
+    const y = (e.clientY - r.top) / r.height;
+    setDropTarget({ id: node.id, position: dropPositionAt(node, y) });
+  };
+  const onDragStart = (e: DragEvent<HTMLDivElement>) => {
+    setDrag({ node });
+    e.dataTransfer.effectAllowed = "move";
+  };
+  const onDropHere = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const t = dropTarget;
+    setDropTarget(null);
+    setDrag(null);
+    if (t) {
+      onDrop(node, t.position, parent);
+    }
+  };
+  const onMouseEnter = () =>
+    useEditor.getState().setHover({ nodeId: node.id, screenId: activeScreen });
+  const onToggle = (e: MouseEvent) => {
+    e.stopPropagation();
+    toggle(node);
+  };
 
   return (
     <div>

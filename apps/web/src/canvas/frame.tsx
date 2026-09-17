@@ -10,7 +10,6 @@ import {
   memo,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
-  useCallback,
   useEffect,
   useRef,
 } from "react";
@@ -62,7 +61,11 @@ const commitText = (screenId: string, text: string) => {
 interface Props {
   frame: FrameLayout;
   hostUrl: string | null;
-  onDragStart: (e: ReactPointerEvent, kind: "move" | "resize") => void;
+  onDragStart: (
+    e: ReactPointerEvent,
+    screenId: string,
+    kind: "move" | "resize"
+  ) => void;
   screen: Screen;
   visible: boolean;
   zoom: number;
@@ -78,18 +81,20 @@ export const Frame = memo(
     const tree = useEditor((s) => s.trees[screen.id]);
     const hostError = useEditor((s) => s.hostErrors[screen.id]);
     const isActive = useEditor((s) => s.activeScreen === screen.id);
-    const bridge = bridgeFor(screen.id);
     const url = hostUrl
       ? `${hostUrl}/?screen=${encodeURIComponent(screen.id)}`
       : null;
     const inv = 1 / zoom;
 
-    // Bridge lifecycle.
+    // Bridge lifecycle. The bridge is looked up here and in handlers, never during render: the
+    // registry is mutable (cleanup removes the entry), so a render-time lookup would be cached by
+    // React Compiler and go stale.
     useEffect(() => {
       const iframe = iframeRef.current;
-      if (!(iframe && visible)) {
+      if (!(iframe && visible && url)) {
         return;
       }
+      const bridge = bridgeFor(screen.id);
       bridge.attach(iframe);
       const store = useEditor.getState;
       const off = bridge.on((msg: HostMessage) => {
@@ -130,7 +135,7 @@ export const Frame = memo(
         off();
         removeBridge(screen.id);
       };
-    }, [bridge, screen.id, visible]);
+    }, [screen.id, visible, url]);
 
     // Keep the selection attached to the same source after HMR (ids can change on remount).
     useEffect(() => {
@@ -161,8 +166,8 @@ export const Frame = memo(
       if (hover?.screenId === screen.id) {
         ids.push(hover.nodeId);
       }
-      bridge.watchRects(ids);
-    }, [bridge, screen.id, selection, hover, tree]);
+      bridgeFor(screen.id).watchRects(ids);
+    }, [screen.id, selection, hover, tree]);
 
     // Pointer interaction in select mode.
     const lastHit = useRef(0);
@@ -177,7 +182,7 @@ export const Frame = memo(
       }
       lastHit.current = now;
       const { x, y } = toFrame(e);
-      const id = await bridge.hitTest(x, y, e.altKey);
+      const id = await bridgeFor(screen.id).hitTest(x, y, e.altKey);
       const store = useEditor.getState();
       if (id) {
         store.setHover({ nodeId: id, screenId: screen.id });
@@ -192,7 +197,7 @@ export const Frame = memo(
         return;
       }
       const { x, y } = toFrame(e);
-      const id = await bridge.hitTest(x, y, e.altKey);
+      const id = await bridgeFor(screen.id).hitTest(x, y, e.altKey);
       const store = useEditor.getState();
       store.setActiveScreen(screen.id);
       if (!id) {
@@ -209,35 +214,19 @@ export const Frame = memo(
     };
     const onDoubleClick = async (e: ReactMouseEvent) => {
       const { x, y } = toFrame(e);
+      const bridge = bridgeFor(screen.id);
       const id = await bridge.hitTest(x, y, true);
       if (id) {
         bridge.editText(id);
       }
     };
 
-    const onPointerLeave = useCallback(() => {
+    const onPointerLeave = () => {
       const s = useEditor.getState();
       if (s.hover?.screenId === screen.id) {
         s.setHover(null);
       }
-    }, [screen.id]);
-    const onActivate = useCallback(
-      () => useEditor.getState().setActiveScreen(screen.id),
-      [screen.id]
-    );
-    const onMoveStart = useCallback(
-      (e: ReactPointerEvent) => onDragStart(e, "move"),
-      [onDragStart]
-    );
-    const onResizeStart = useCallback(
-      (e: ReactPointerEvent) => onDragStart(e, "resize"),
-      [onDragStart]
-    );
-    const onPresetChange = useCallback(
-      (v: string) =>
-        useEditor.getState().setPreset(screen.id, v as ViewportPreset),
-      [screen.id]
-    );
+    };
 
     const selectedRect =
       selection?.screenId === screen.id ? rects?.[selection.nodeId] : undefined;
@@ -272,8 +261,8 @@ export const Frame = memo(
         >
           <button
             className="cursor-grab select-none font-medium text-[12px] hover:text-foreground active:cursor-grabbing"
-            onClick={onActivate}
-            onPointerDown={onMoveStart}
+            onClick={() => useEditor.getState().setActiveScreen(screen.id)}
+            onPointerDown={(e) => onDragStart(e, screen.id, "move")}
             type="button"
           >
             {screen.name}
@@ -281,7 +270,9 @@ export const Frame = memo(
           <div className="w-24">
             <OptionSelect
               className="border-transparent bg-transparent text-[11px] text-muted-foreground hover:border-input dark:bg-transparent"
-              onChange={onPresetChange}
+              onChange={(v) =>
+                useEditor.getState().setPreset(screen.id, v as ViewportPreset)
+              }
               options={presets}
               size="sm"
               value={frame.preset}
@@ -341,7 +332,7 @@ export const Frame = memo(
 
         <div
           className="absolute cursor-nwse-resize rounded-sm bg-brand"
-          onPointerDown={onResizeStart}
+          onPointerDown={(e) => onDragStart(e, screen.id, "resize")}
           style={{
             bottom: -6 * inv,
             height: 10 * inv,

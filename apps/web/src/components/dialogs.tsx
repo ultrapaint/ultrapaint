@@ -2,7 +2,6 @@ import {
   type ChangeEvent,
   type FocusEvent,
   type FormEvent,
-  useCallback,
   useState,
 } from "react";
 import { create } from "zustand";
@@ -172,18 +171,13 @@ const PromptForm = ({
   onSettle: (value: string | null) => void;
 }) => {
   const [value, setValue] = useState(request.defaultValue ?? "");
-  const onSubmit = useCallback(
-    (e: FormEvent<HTMLFormElement>) => {
-      e.preventDefault();
-      onSettle(value.trim() === "" ? null : value);
-    },
-    [onSettle, value]
-  );
-  const onChange = useCallback(
-    (e: ChangeEvent<HTMLInputElement>) => setValue(e.target.value),
-    []
-  );
-  const onCancel = useCallback(() => onSettle(null), [onSettle]);
+  const onSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    onSettle(value.trim() === "" ? null : value);
+  };
+  const onChange = (e: ChangeEvent<HTMLInputElement>) =>
+    setValue(e.target.value);
+  const onCancel = () => onSettle(null);
   return (
     <form className="contents" onSubmit={onSubmit}>
       <DialogHeader>

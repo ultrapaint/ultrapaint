@@ -2,7 +2,6 @@ import type { FrameLayout } from "@ultrapaint/contracts/screens";
 import {
   type PointerEvent as ReactPointerEvent,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -19,10 +18,7 @@ export const Canvas = () => {
   const flow = useEditor((s) => s.flow);
   const mode = useEditor((s) => s.mode);
   const allScreens = useProject((s) => s.screens);
-  const screens = useMemo(
-    () => allScreens.filter((x) => x.flow === flow),
-    [allScreens, flow]
-  );
+  const screens = allScreens.filter((x) => x.flow === flow);
   const hostUrl = useHostUrl();
   const [size, setSize] = useState({ height: 0, width: 0 });
   const spaceDown = useRef(false);
@@ -117,24 +113,28 @@ export const Canvas = () => {
     };
   };
 
-  const startFrameDrag =
-    (screenId: string) => (e: ReactPointerEvent, kind: "move" | "resize") => {
-      e.preventDefault();
-      e.stopPropagation();
-      const frame = useEditor.getState().frames[screenId];
-      if (!frame) {
-        return;
-      }
-      ref.current?.setPointerCapture(e.pointerId);
-      drag.current = {
-        frame,
-        kind,
-        screenId,
-        startX: e.clientX,
-        startY: e.clientY,
-      };
-      useEditor.getState().setActiveScreen(screenId);
+  // Stable identity (only touches refs and the store) so memoized Frames skip re-rendering while panning.
+  const startFrameDrag = (
+    e: ReactPointerEvent,
+    screenId: string,
+    kind: "move" | "resize"
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const frame = useEditor.getState().frames[screenId];
+    if (!frame) {
+      return;
+    }
+    ref.current?.setPointerCapture(e.pointerId);
+    drag.current = {
+      frame,
+      kind,
+      screenId,
+      startX: e.clientX,
+      startY: e.clientY,
     };
+    useEditor.getState().setActiveScreen(screenId);
+  };
 
   const onPointerMove = (e: ReactPointerEvent) => {
     const d = drag.current;
@@ -241,7 +241,7 @@ export const Canvas = () => {
               frame={frame}
               hostUrl={hostUrl}
               key={screen.id}
-              onDragStart={startFrameDrag(screen.id)}
+              onDragStart={startFrameDrag}
               screen={screen}
               visible={isVisible(frame)}
               zoom={view.zoom}

@@ -3,7 +3,7 @@ import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
 import { cn } from "cn";
 import { RefreshCw, Search } from "lucide-react";
 import type * as React from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,20 +49,17 @@ const PaletteItem = ({
   target: SourceLocation | null;
   onPreview: (c: ComponentMeta) => void;
 }) => {
-  const onClick = useCallback(() => insert(c, target), [c, target]);
-  const onDragStart = useCallback(
-    (e: React.DragEvent) =>
-      e.dataTransfer.setData(
-        "application/ultrapaint-component",
-        JSON.stringify({
-          importFrom: c.importFrom,
-          name: c.name,
-          snippet: c.snippet,
-        })
-      ),
-    [c]
-  );
-  const onMouseEnter = useCallback(() => onPreview(c), [c, onPreview]);
+  const onClick = () => insert(c, target);
+  const onDragStart = (e: React.DragEvent) =>
+    e.dataTransfer.setData(
+      "application/ultrapaint-component",
+      JSON.stringify({
+        importFrom: c.importFrom,
+        name: c.name,
+        snippet: c.snippet,
+      })
+    );
+  const onMouseEnter = () => onPreview(c);
   return (
     <Button
       className="w-full justify-start gap-2 rounded-none font-normal text-[11px] text-muted-foreground active:translate-y-0"
@@ -90,7 +87,13 @@ export const Palette = () => {
   const inspect = useEditor((s) => s.inspect);
   const [query, setQuery] = useState("");
   const [preview, setPreview] = useState<ComponentMeta | null>(null);
-  const [storyUrl, setStoryUrl] = useState<string | null>(null);
+  const [story, setStory] = useState<{
+    id: string;
+    url: string | null;
+  } | null>(null);
+  const storyId = preview?.storyIds[0];
+  // Derived so a previewed component never shows the story of the previous one.
+  const storyUrl = storyId && story?.id === storyId ? story.url : null;
 
   useEffect(() => {
     if (configured && !catalogue && !loading) {
@@ -99,22 +102,18 @@ export const Palette = () => {
   }, [configured, catalogue, loading, load]);
 
   useEffect(() => {
-    const id = preview?.storyIds[0];
-    if (!id) {
-      setStoryUrl(null);
+    if (!storyId) {
       return;
     }
     api()
-      .request("catalogue.storyUrl", { storyId: id })
-      .then(setStoryUrl)
-      .catch(() => setStoryUrl(null));
-  }, [preview]);
+      .request("catalogue.storyUrl", { storyId })
+      .then((url) => setStory({ id: storyId, url }))
+      .catch(() => setStory({ id: storyId, url: null }));
+  }, [storyId]);
 
-  const onQueryChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value),
-    []
-  );
-  const reindex = useCallback(() => load(true), [load]);
+  const onQueryChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    setQuery(e.target.value);
+  const reindex = () => load(true);
 
   if (!configured) {
     return <PanelEmpty>Configure a repository first</PanelEmpty>;

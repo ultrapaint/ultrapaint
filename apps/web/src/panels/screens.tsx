@@ -7,7 +7,6 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type SetStateAction,
-  useCallback,
   useEffect,
   useState,
 } from "react";
@@ -51,12 +50,13 @@ export const Screens = () => {
       .catch(() => undefined);
   }, [configured]);
 
-  const create = useCallback(async () => {
+  const create = async () => {
     const targetFlow = (newFlow || flow || "").trim();
+    const screenName = name || "screen";
     try {
       const s = await api().request("screens.create", {
         flow: targetFlow,
-        name: name || "screen",
+        name: screenName,
         template,
       });
       setCreating(false);
@@ -68,26 +68,19 @@ export const Screens = () => {
     } catch (error) {
       reportError(error);
     }
-  }, [flow, name, newFlow, template]);
+  };
 
-  const toggleCreating = useCallback(() => setCreating((c) => !c), []);
-  const cancelCreating = useCallback(() => setCreating(false), []);
-  const onNameChange = useCallback(
-    (e: ChangeEvent<HTMLInputElement>) => setName(e.target.value),
-    []
-  );
-  const onNameKeyDown = useCallback(
-    (e: KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Enter") {
-        create();
-      }
-    },
-    [create]
-  );
-  const onNewFlowChange = useCallback(
-    (e: ChangeEvent<HTMLInputElement>) => setNewFlow(e.target.value),
-    []
-  );
+  const toggleCreating = () => setCreating((c) => !c);
+  const cancelCreating = () => setCreating(false);
+  const onNameChange = (e: ChangeEvent<HTMLInputElement>) =>
+    setName(e.target.value);
+  const onNameKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      create();
+    }
+  };
+  const onNewFlowChange = (e: ChangeEvent<HTMLInputElement>) =>
+    setNewFlow(e.target.value);
 
   if (!configured) {
     return <PanelEmpty>Configure a repository in settings</PanelEmpty>;
@@ -168,7 +161,7 @@ const FlowButton = ({
   active: boolean;
   count: number;
 }) => {
-  const open = useCallback(() => useEditor.getState().openFlow(flow), [flow]);
+  const open = () => useEditor.getState().openFlow(flow);
   return (
     <Button
       className={cn(
@@ -200,61 +193,46 @@ const ScreenRow = ({
   const { id, name } = screen;
   const renamingTo = renaming?.name;
 
-  const activate = useCallback(() => {
+  const activate = () => {
     useEditor.getState().setActiveScreen(id);
     useEditor.getState().select(null);
-  }, [id]);
-  const stopRenaming = useCallback(() => setRenaming(null), [setRenaming]);
-  const onRenameChange = useCallback(
-    (e: ChangeEvent<HTMLInputElement>) =>
-      setRenaming({ id, name: e.target.value }),
-    [id, setRenaming]
-  );
-  const onRenameKeyDown = useCallback(
-    async (e: KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Escape") {
-        setRenaming(null);
+  };
+  const stopRenaming = () => setRenaming(null);
+  const onRenameChange = (e: ChangeEvent<HTMLInputElement>) =>
+    setRenaming({ id, name: e.target.value });
+  const onRenameKeyDown = async (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Escape") {
+      setRenaming(null);
+    }
+    if (e.key === "Enter" && renamingTo !== undefined) {
+      try {
+        await api().request("screens.rename", { id, name: renamingTo });
+      } catch (error) {
+        reportError(error);
       }
-      if (e.key === "Enter" && renamingTo !== undefined) {
-        try {
-          await api().request("screens.rename", { id, name: renamingTo });
-        } catch (error) {
-          reportError(error);
-        }
-        setRenaming(null);
-      }
-    },
-    [id, renamingTo, setRenaming]
-  );
-  const startRenaming = useCallback(
-    (e: MouseEvent) => {
-      e.stopPropagation();
-      setRenaming({ id, name });
-    },
-    [id, name, setRenaming]
-  );
-  const duplicate = useCallback(
-    (e: MouseEvent) => {
-      e.stopPropagation();
-      api().request("screens.duplicate", { id }).catch(reportError);
-    },
-    [id]
-  );
-  const remove = useCallback(
-    async (e: MouseEvent) => {
-      e.stopPropagation();
-      const ok = await confirmDialog({
-        confirmLabel: "Delete",
-        description: "The screen file is removed from the designs directory.",
-        destructive: true,
-        title: `Delete ${name}?`,
-      });
-      if (ok) {
-        api().request("screens.delete", { id }).catch(reportError);
-      }
-    },
-    [id, name]
-  );
+      setRenaming(null);
+    }
+  };
+  const startRenaming = (e: MouseEvent) => {
+    e.stopPropagation();
+    setRenaming({ id, name });
+  };
+  const duplicate = (e: MouseEvent) => {
+    e.stopPropagation();
+    api().request("screens.duplicate", { id }).catch(reportError);
+  };
+  const remove = async (e: MouseEvent) => {
+    e.stopPropagation();
+    const ok = await confirmDialog({
+      confirmLabel: "Delete",
+      description: "The screen file is removed from the designs directory.",
+      destructive: true,
+      title: `Delete ${name}?`,
+    });
+    if (ok) {
+      api().request("screens.delete", { id }).catch(reportError);
+    }
+  };
 
   return (
     <div

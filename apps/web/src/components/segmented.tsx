@@ -1,6 +1,5 @@
 import { cn } from "cn";
 import type * as React from "react";
-import { useCallback } from "react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Tooltip,
@@ -22,16 +21,13 @@ export const Segmented = <T extends string>({
   className?: string;
   disabled?: boolean;
 }) => {
-  const onValueChange = useCallback(
-    (next: readonly unknown[]) => {
-      // Clicking the pressed item yields an empty group; a segmented control keeps its value.
-      const v = next[0] as T | undefined;
-      if (v !== undefined) {
-        onChange(v);
-      }
-    },
-    [onChange]
-  );
+  const onValueChange = (next: readonly unknown[]) => {
+    // Clicking the pressed item yields an empty group; a segmented control keeps its value.
+    const v = next[0] as T | undefined;
+    if (v !== undefined) {
+      onChange(v);
+    }
+  };
   return (
     <ToggleGroup
       className={cn("w-full min-w-0", className)}

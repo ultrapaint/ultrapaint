@@ -12,7 +12,6 @@ import {
   ZoomOut,
 } from "lucide-react";
 import type * as React from "react";
-import { useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -116,10 +115,7 @@ const previewLabel = (host: HostInfo) => {
 };
 
 const ZoomPresetItem = ({ pct }: { pct: number }) => {
-  const onClick = useCallback(
-    () => zoomBy(pct / 100 / useEditor.getState().view.zoom),
-    [pct]
-  );
+  const onClick = () => zoomBy(pct / 100 / useEditor.getState().view.zoom);
   return <DropdownMenuItem onClick={onClick}>{pct}%</DropdownMenuItem>;
 };
 

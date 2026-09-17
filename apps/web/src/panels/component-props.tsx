@@ -3,7 +3,7 @@ import type { ComponentMeta, PropMeta } from "@ultrapaint/contracts/catalogue";
 import type { ElementSource } from "@ultrapaint/contracts/edit";
 import type { InspectResult } from "@ultrapaint/contracts/preview";
 import type * as React from "react";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -123,10 +123,8 @@ const BooleanControl = ({
   onSet: SetProp;
   disabled: boolean;
 }) => {
-  const onCheckedChange = useCallback(
-    (checked: boolean) => onSet(name, checked ? true : null),
-    [name, onSet]
-  );
+  const onCheckedChange = (checked: boolean) =>
+    onSet(name, checked ? true : null);
   return (
     <Label className="font-normal text-muted-foreground">
       <Checkbox
@@ -154,10 +152,7 @@ const EnumControl = ({
   onSet: SetProp;
   disabled: boolean;
 }) => {
-  const onChange = useCallback(
-    (v: string) => onSet(name, v === "__unset" ? null : v),
-    [name, onSet]
-  );
+  const onChange = (v: string) => onSet(name, v === "__unset" ? null : v);
   return (
     <div className="flex min-w-0 flex-1 items-center gap-1">
       <OptionSelect
@@ -191,7 +186,7 @@ const NumberControl = ({
   disabled: boolean;
 }) => {
   const [draft, setDraft] = useState<string | null>(null);
-  const onBlur = useCallback(() => {
+  const onBlur = () => {
     if (draft === null) {
       return;
     }
@@ -202,11 +197,9 @@ const NumberControl = ({
     } else if (Number.isFinite(n)) {
       onSet(name, n);
     }
-  }, [draft, name, onSet]);
-  const onChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => setDraft(e.target.value),
-    []
-  );
+  };
+  const onChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    setDraft(e.target.value);
   return (
     <Input
       className="h-6 md:text-[11px]"
@@ -234,25 +227,23 @@ const TextControl = ({
   disabled: boolean;
 }) => {
   const [draft, setDraft] = useState<string | null>(null);
-  const onBlur = useCallback(() => {
+  const onBlur = () => {
     if (draft === null) {
       return;
     }
     setDraft(null);
     onSet(name, draft === "" ? null : draft);
-  }, [draft, name, onSet]);
-  const onChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => setDraft(e.target.value),
-    []
-  );
-  const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+  };
+  const onChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    setDraft(e.target.value);
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       (e.target as HTMLInputElement).blur();
     }
     if (e.key === "Escape") {
       setDraft(null);
     }
-  }, []);
+  };
   return (
     <Input
       className="h-6 md:text-[11px]"

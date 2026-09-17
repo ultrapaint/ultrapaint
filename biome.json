@@ -5,7 +5,24 @@
     "ultracite/biome/react",
     "ultracite/biome/vitest"
   ],
+  "linter": {
+    "rules": {
+      "nursery": {
+        "useReactCompiler": "error"
+      }
+    }
+  },
   "overrides": [
+    {
+      "includes": ["apps/web/**"],
+      "linter": {
+        "rules": {
+          "performance": {
+            "noJsxPropsBind": "off"
+          }
+        }
+      }
+    },
     {
       "includes": ["apps/server/src/services/catalogue.ts"],
       "linter": {
@@ -25,6 +42,16 @@
         "rules": {
           "a11y": {
             "useSemanticElements": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["apps/web/src/components/ui/carousel.tsx"],
+      "linter": {
+        "rules": {
+          "nursery": {
+            "useReactCompiler": "off"
           }
         }
       }

@@ -28,14 +28,7 @@ import {
   StretchHorizontal,
 } from "lucide-react";
 import type * as React from "react";
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -140,7 +133,7 @@ const PxField = ({
   const s = styles[prop];
   const [draft, setDraft] = useState<string | null>(null);
   const util = propertyToUtility[prop];
-  const commit = useCallback(() => {
+  const commit = () => {
     if (draft === null || !util) {
       return;
     }
@@ -153,36 +146,28 @@ const PxField = ({
     if (cls) {
       onClass([cls], removalFor(s));
     }
-  }, [draft, util, s, onClass]);
-  const onChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => setDraft(e.target.value),
-    []
-  );
-  const nudge = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      e.preventDefault();
-      const n = Number.parseFloat(draft ?? px(s?.value)) || 0;
-      const step = arrowStep(e);
-      const next = Math.max(0, n + (e.key === "ArrowUp" ? step : -step));
-      const cls = util ? classForValue(util, String(next)) : null;
-      if (cls) {
-        onClass([cls], removalFor(s));
-      }
-    },
-    [draft, util, s, onClass]
-  );
-  const onKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      blurOnEnter(e);
-      if (e.key === "Escape") {
-        setDraft(null);
-      }
-      if ((e.key === "ArrowUp" || e.key === "ArrowDown") && !disabled) {
-        nudge(e);
-      }
-    },
-    [disabled, nudge]
-  );
+  };
+  const onChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    setDraft(e.target.value);
+  const nudge = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const n = Number.parseFloat(draft ?? px(s?.value)) || 0;
+    const step = arrowStep(e);
+    const next = Math.max(0, n + (e.key === "ArrowUp" ? step : -step));
+    const cls = util ? classForValue(util, String(next)) : null;
+    if (cls) {
+      onClass([cls], removalFor(s));
+    }
+  };
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    blurOnEnter(e);
+    if (e.key === "Escape") {
+      setDraft(null);
+    }
+    if ((e.key === "ArrowUp" || e.key === "ArrowDown") && !disabled) {
+      nudge(e);
+    }
+  };
   return (
     <InputGroup
       className="h-6 min-w-0 flex-1"
@@ -316,19 +301,17 @@ const fontOption = (name: string, value: string): TokenOption | null => {
 
 const useTokenOptions = (kind: "color" | "font") => {
   const tokens = useEditor((s) => s.tokens);
-  return useMemo(() => {
-    const out: TokenOption[] = [];
-    for (const [name, value] of Object.entries(tokens)) {
-      const option =
-        kind === "color"
-          ? colorOption(name, value, out)
-          : fontOption(name, value);
-      if (option) {
-        out.push(option);
-      }
+  const out: TokenOption[] = [];
+  for (const [name, value] of Object.entries(tokens)) {
+    const option =
+      kind === "color"
+        ? colorOption(name, value, out)
+        : fontOption(name, value);
+    if (option) {
+      out.push(option);
     }
-    return out.sort((a, b) => a.value.localeCompare(b.value));
-  }, [tokens, kind]);
+  }
+  return out.sort((a, b) => a.value.localeCompare(b.value));
 };
 
 const ColorField = ({
@@ -358,25 +341,22 @@ const ColorField = ({
       ),
     ...options.filter((o) => !recent.includes(o.value)),
   ];
-  const onChange = useCallback(
-    (v: string) => {
-      if (v === "__custom") {
-        promptDialog({
-          defaultValue: s?.value ?? "#000000",
-          description: `Any CSS colour value. It is written as an arbitrary ${prefix}-[…] class.`,
-          title: "Custom colour",
-        }).then((hex) => {
-          if (hex) {
-            onClass([arbitrary(prefix, hex)], removalFor(s));
-          }
-        });
-        return;
-      }
-      recent.push(v);
-      onClass([`${prefix}-${v}`], removalFor(s));
-    },
-    [s, prefix, onClass, recent]
-  );
+  const onChange = (v: string) => {
+    if (v === "__custom") {
+      promptDialog({
+        defaultValue: s?.value ?? "#000000",
+        description: `Any CSS colour value. It is written as an arbitrary ${prefix}-[…] class.`,
+        title: "Custom colour",
+      }).then((hex) => {
+        if (hex) {
+          onClass([arbitrary(prefix, hex)], removalFor(s));
+        }
+      });
+      return;
+    }
+    recent.push(v);
+    onClass([`${prefix}-${v}`], removalFor(s));
+  };
   return (
     <div className="flex min-w-0 flex-1 items-center gap-1">
       <span
@@ -443,29 +423,26 @@ const ScaleSelect = ({
   const s = styles[prop];
   const cls = s?.provenance.className;
   const current = scaleValue(cls, prefix);
-  const onChange = useCallback(
-    (v: string) => {
-      if (v === "__custom") {
-        promptDialog({
-          defaultValue: px(s?.value),
-          description: "A px number or any CSS value.",
-          title: `Custom ${prop}`,
-        }).then((raw) => {
-          const util = propertyToUtility[prop];
-          if (!(raw && util)) {
-            return;
-          }
-          const c = classForValue(util, raw);
-          if (c) {
-            onClass([c], removalFor(s));
-          }
-        });
-        return;
-      }
-      onClass([v === "" ? prefix : `${prefix}-${v}`], removalFor(s));
-    },
-    [s, prop, prefix, onClass]
-  );
+  const onChange = (v: string) => {
+    if (v === "__custom") {
+      promptDialog({
+        defaultValue: px(s?.value),
+        description: "A px number or any CSS value.",
+        title: `Custom ${prop}`,
+      }).then((raw) => {
+        const util = propertyToUtility[prop];
+        if (!(raw && util)) {
+          return;
+        }
+        const c = classForValue(util, raw);
+        if (c) {
+          onClass([c], removalFor(s));
+        }
+      });
+      return;
+    }
+    onClass([v === "" ? prefix : `${prefix}-${v}`], removalFor(s));
+  };
   return (
     <OptionSelect
       disabled={disabled}
@@ -487,14 +464,16 @@ export const Inspector = () => {
   const tree = useEditor((s) =>
     selection ? s.trees[selection.screenId] : undefined
   );
-  const [source, setSource] = useState<ElementSource | null>(null);
+  const [loadedSource, setLoadedSource] = useState<ElementSource | null>(null);
+  // Only meaningful while the selection points at source; derived instead of reset from the effect.
+  const hasSource = Boolean(selection?.source);
+  const source = hasSource && tree ? loadedSource : null;
   const requestSeq = useRef(0);
 
   // Load inspection + source whenever selection or tree changes (tree changes after HMR).
   useEffect(() => {
     if (!(selection && tree)) {
       useEditor.getState().setInspect(null);
-      setSource(null);
       return;
     }
     requestSeq.current += 1;
@@ -510,39 +489,31 @@ export const Inspector = () => {
         .request("source.element", selection.source)
         .then((s) => {
           if (seq === requestSeq.current) {
-            setSource(s);
+            setLoadedSource(s);
           }
         })
-        .catch(() => setSource(null));
-    } else {
-      setSource(null);
+        .catch(() => setLoadedSource(null));
     }
   }, [selection, tree]);
 
   const target = selection?.source ?? null;
-  const onClass = useCallback(
-    (add: string[], remove: string[]) => {
-      if (!target) {
-        return;
-      }
-      runEdit({ add, kind: "setClasses", remove, target });
-    },
-    [target]
-  );
-  const setAttr = useCallback(
-    (name: string, value: JsonValue) => {
-      if (!target) {
-        return;
-      }
-      runEdit({
-        kind: "setAttribute",
-        name,
-        target,
-        value,
-      });
-    },
-    [target]
-  );
+  const onClass = (add: string[], remove: string[]) => {
+    if (!target) {
+      return;
+    }
+    runEdit({ add, kind: "setClasses", remove, target });
+  };
+  const setAttr = (name: string, value: JsonValue) => {
+    if (!target) {
+      return;
+    }
+    runEdit({
+      kind: "setAttribute",
+      name,
+      target,
+      value,
+    });
+  };
 
   if (!selection) {
     return (
@@ -557,6 +528,8 @@ export const Inspector = () => {
 
   const editable = inspect.editable && !!selection.source;
   const { styles } = inspect;
+  const paddingTopClass = styles["padding-top"]?.provenance.className;
+  const paddingLeftClass = styles["padding-left"]?.provenance.className;
 
   return (
     <div className="flex flex-col pb-8">
@@ -796,8 +769,7 @@ export const Inspector = () => {
         </Row>
         <div className="flex flex-wrap gap-1 pl-[72px]">
           <Prov s={styles["padding-top"]} />
-          {styles["padding-left"]?.provenance.className !==
-            styles["padding-top"]?.provenance.className && (
+          {paddingLeftClass !== paddingTopClass && (
             <Prov s={styles["padding-left"]} />
           )}
         </div>
@@ -1018,10 +990,8 @@ const DisplaySelect = ({
   disabled: boolean;
 }) => {
   const s = styles.display;
-  const onChange = useCallback(
-    (v: string) => onClass([v === "none" ? "hidden" : v], removalFor(s)),
-    [s, onClass]
-  );
+  const onChange = (v: string) =>
+    onClass([v === "none" ? "hidden" : v], removalFor(s));
   return (
     <OptionSelect
       disabled={disabled}
@@ -1076,10 +1046,7 @@ const ClassSegmented = ({
   disabled: boolean;
 }) => {
   const s = styles[prop];
-  const onChange = useCallback(
-    (v: string) => onClass([classFor(v)], removalFor(s)),
-    [s, classFor, onClass]
-  );
+  const onChange = (v: string) => onClass([classFor(v)], removalFor(s));
   return (
     <Segmented
       disabled={disabled}
@@ -1100,18 +1067,15 @@ const OpacityField = ({
   disabled: boolean;
 }) => {
   const s = styles.opacity;
-  const onBlur = useCallback(
-    (e: React.FocusEvent<HTMLInputElement>) => {
-      const n = Number(e.target.value);
-      if (Number.isFinite(n)) {
-        onClass(
-          [n >= 100 ? "opacity-100" : `opacity-${Math.round(n)}`],
-          removalFor(s)
-        );
-      }
-    },
-    [s, onClass]
-  );
+  const onBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const n = Number(e.target.value);
+    if (Number.isFinite(n)) {
+      onClass(
+        [n >= 100 ? "opacity-100" : `opacity-${Math.round(n)}`],
+        removalFor(s)
+      );
+    }
+  };
   return (
     <InputGroup className="h-6 w-20" data-disabled={disabled}>
       <InputGroupInput
@@ -1148,10 +1112,7 @@ const FontSelect = ({
     cls?.startsWith("font-") && options.find((o) => o.value === cls.slice(5))
       ? cls.slice(5)
       : null;
-  const onChange = useCallback(
-    (v: string) => onClass([`font-${v}`], removalFor(s)),
-    [s, onClass]
-  );
+  const onChange = (v: string) => onClass([`font-${v}`], removalFor(s));
   return (
     <>
       <OptionSelect
@@ -1176,7 +1137,7 @@ const OwnClassBadge = ({
   onClass: (a: string[], r: string[]) => void;
   disabled: boolean;
 }) => {
-  const remove = useCallback(() => onClass([], [name]), [name, onClass]);
+  const remove = () => onClass([], [name]);
   return (
     <Badge
       className="rounded-sm bg-brand/20 px-1.5 font-mono text-brand hover:bg-destructive/20 hover:text-destructive disabled:pointer-events-none"
@@ -1203,19 +1164,14 @@ const ClassEditor = ({
   const [draft, setDraft] = useState("");
   const own = source.className?.split(WHITESPACE_RE).filter(Boolean) ?? [];
   const inherited = inspect.classes.filter((c) => !own.includes(c));
-  const onChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => setDraft(e.target.value),
-    []
-  );
-  const onKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Enter" && draft.trim()) {
-        onClass(draft.trim().split(WHITESPACE_RE), []);
-        setDraft("");
-      }
-    },
-    [draft, onClass]
-  );
+  const onChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    setDraft(e.target.value);
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && draft.trim()) {
+      onClass(draft.trim().split(WHITESPACE_RE), []);
+      setDraft("");
+    }
+  };
   return (
     <>
       <div className="flex flex-wrap gap-1">
@@ -1310,7 +1266,7 @@ const Header = ({
 
 const NotEditable = ({ inspect }: { inspect: InspectResult }) => {
   const ancestor = inspect.editableAncestor;
-  const selectAncestor = useCallback(() => {
+  const selectAncestor = () => {
     const s = useEditor.getState();
     if (!(s.selection && ancestor)) {
       return;
@@ -1320,7 +1276,7 @@ const NotEditable = ({ inspect }: { inspect: InspectResult }) => {
       screenId: s.selection.screenId,
       source: ancestor.source,
     });
-  }, [ancestor]);
+  };
   return (
     <div className="border-b p-2">
       <Alert>

@@ -10,8 +10,8 @@ import {
   type Dispatch,
   type KeyboardEvent,
   type SetStateAction,
-  useCallback,
   useEffect,
+  useEffectEvent,
   useState,
 } from "react";
 import { Button } from "@/components/ui/button";
@@ -41,7 +41,7 @@ export const Changes = () => {
   const [cpDiff, setCpDiff] = useState<CheckpointDiff | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const refresh = useCallback(async () => {
+  const refresh = async () => {
     try {
       const [s, cps] = await Promise.all([
         api().request("git.status", undefined),
@@ -58,29 +58,35 @@ export const Changes = () => {
     } catch (error) {
       reportError(error);
     }
-  }, []);
+  };
 
-  const showDiff = useCallback(async (path: string) => {
+  const showDiff = async (path: string) => {
     try {
       setCpDiff(null);
       setDiff(await api().request("git.diff", { path }));
     } catch (error) {
       reportError(error);
     }
-  }, []);
+  };
+
+  const onFilesChanged = useEffectEvent(refresh);
+  const onShowDiffRequest = useEffectEvent(showDiff);
 
   useEffect(() => {
     if (!configured) {
       return;
     }
-    refresh();
+    const loadInitial = async () => {
+      await onFilesChanged();
+    };
+    loadInitial();
     const offGit = api().on("git", setStatus);
     const offFile = api().on("file.changed", () => {
-      refresh();
+      onFilesChanged();
     });
     const onShow = (e: Event) => {
       const path = (e as CustomEvent<string>).detail;
-      showDiff(path);
+      onShowDiffRequest(path);
     };
     window.addEventListener("ultrapaint:show-diff", onShow);
     return () => {
@@ -88,9 +94,9 @@ export const Changes = () => {
       offFile();
       window.removeEventListener("ultrapaint:show-diff", onShow);
     };
-  }, [configured, refresh, showDiff]);
+  }, [configured]);
 
-  const commit = useCallback(async () => {
+  const commit = async () => {
     if (!message.trim() || selected.size === 0) {
       return;
     }
@@ -106,27 +112,21 @@ export const Changes = () => {
       await refresh();
     } catch (error) {
       reportError(error);
-    } finally {
-      setBusy(false);
     }
-  }, [message, refresh, selected]);
+    setBusy(false);
+  };
 
-  const onMessageChange = useCallback(
-    (e: ChangeEvent<HTMLInputElement>) => setMessage(e.target.value),
-    []
-  );
-  const onMessageKeyDown = useCallback(
-    (e: KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Enter") {
-        commit();
-      }
-    },
-    [commit]
-  );
-  const closeDiff = useCallback(() => {
+  const onMessageChange = (e: ChangeEvent<HTMLInputElement>) =>
+    setMessage(e.target.value);
+  const onMessageKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      commit();
+    }
+  };
+  const closeDiff = () => {
     setDiff(null);
     setCpDiff(null);
-  }, []);
+  };
 
   if (!configured) {
     return <PanelEmpty>Configure a repository first</PanelEmpty>;
@@ -247,15 +247,12 @@ const CheckpointRow = ({
   onRevert: () => Promise<void>;
 }) => {
   const { id } = checkpoint;
-  const show = useCallback(
-    () =>
-      api()
-        .request("checkpoints.diff", { id })
-        .then((diffs) => onShowDiff({ diffs, id }))
-        .catch(reportError),
-    [id, onShowDiff]
-  );
-  const revert = useCallback(async () => {
+  const show = () =>
+    api()
+      .request("checkpoints.diff", { id })
+      .then((diffs) => onShowDiff({ diffs, id }))
+      .catch(reportError);
+  const revert = async () => {
     const ok = await confirmDialog({
       confirmLabel: "Revert",
       description:
@@ -269,7 +266,7 @@ const CheckpointRow = ({
         .then(onRevert)
         .catch(reportError);
     }
-  }, [id, onRevert]);
+  };
   return (
     <div className="flex items-center gap-1 py-0.5">
       <Button
@@ -309,21 +306,18 @@ const FileGroup = ({
   current?: string;
 }) => {
   const all = files.every((f) => selected.has(f.path));
-  const toggleAll = useCallback(
-    () =>
-      setSelected((prev) => {
-        const next = new Set(prev);
-        for (const f of files) {
-          if (all) {
-            next.delete(f.path);
-          } else {
-            next.add(f.path);
-          }
+  const toggleAll = () =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const f of files) {
+        if (all) {
+          next.delete(f.path);
+        } else {
+          next.add(f.path);
         }
-        return next;
-      }),
-    [all, files, setSelected]
-  );
+      }
+      return next;
+    });
   if (files.length === 0) {
     return null;
   }
@@ -361,20 +355,17 @@ const FileRow = ({
   current: boolean;
 }) => {
   const { path } = file;
-  const toggle = useCallback(
-    () =>
-      setSelected((prev) => {
-        const next = new Set(prev);
-        if (next.has(path)) {
-          next.delete(path);
-        } else {
-          next.add(path);
-        }
-        return next;
-      }),
-    [path, setSelected]
-  );
-  const show = useCallback(() => onShow(path), [onShow, path]);
+  const toggle = () =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
+      }
+      return next;
+    });
+  const show = () => onShow(path);
   return (
     <div
       className={cn(

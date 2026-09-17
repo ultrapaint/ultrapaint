@@ -1,3 +1,4 @@
+import type { Screen } from "@ultrapaint/contracts/screens";
 import type {
   PromptAttachment,
   Thread,
@@ -22,7 +23,6 @@ import {
   type ChangeEvent,
   type KeyboardEvent,
   type ReactNode,
-  useCallback,
   useEffect,
   useState,
 } from "react";
@@ -70,7 +70,7 @@ import { OptionSelect } from "../components/option-select.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { useAgents } from "../state/agents.ts";
 import { api } from "../state/connection.ts";
-import { useEditor } from "../state/editor.ts";
+import { type Selection, useEditor } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
 
 const openThread = (threadId: string) => useAgents.getState().open(threadId);
@@ -154,7 +154,7 @@ export const Threads = () => {
 type Agent = ReturnType<typeof useAgents.getState>["agents"][number];
 
 const AgentMenuItem = ({ agent }: { agent: Agent }) => {
-  const onClick = useCallback(() => createThread(agent.id), [agent.id]);
+  const onClick = () => createThread(agent.id);
   return (
     <DropdownMenuItem onClick={onClick}>
       <Bot />
@@ -169,7 +169,7 @@ const AgentMenuItem = ({ agent }: { agent: Agent }) => {
 };
 
 const DeleteThreadButton = ({ thread }: { thread: Thread }) => {
-  const onClick = useCallback(async () => {
+  const onClick = async () => {
     const ok = await confirmDialog({
       confirmLabel: "Delete",
       description: `“${thread.title}” and its history are removed.`,
@@ -181,7 +181,7 @@ const DeleteThreadButton = ({ thread }: { thread: Thread }) => {
         .request("threads.delete", { threadId: thread.id })
         .catch(reportError);
     }
-  }, [thread.id, thread.title]);
+  };
   return (
     <IconButton onClick={onClick} tooltip="Delete thread">
       <Trash2 />
@@ -249,17 +249,14 @@ const ConfigOptionSelect = ({
   option: ConfigOption;
   threadId: string;
 }) => {
-  const onChange = useCallback(
-    (value: string) =>
-      api()
-        .request("threads.setConfigOption", {
-          optionId: option.id,
-          threadId,
-          value,
-        })
-        .catch(reportError),
-    [option.id, threadId]
-  );
+  const onChange = (value: string) =>
+    api()
+      .request("threads.setConfigOption", {
+        optionId: option.id,
+        threadId,
+        value,
+      })
+      .catch(reportError);
   return (
     <div className="w-32" title={option.name}>
       <OptionSelect
@@ -274,13 +271,10 @@ const ConfigOptionSelect = ({
 
 const ThreadOptions = ({ thread }: { thread: Thread }) => {
   const options = thread.configOptions ?? [];
-  const setMode = useCallback(
-    (modeId: string) =>
-      api()
-        .request("threads.setMode", { modeId, threadId: thread.id })
-        .catch(reportError),
-    [thread.id]
-  );
+  const setMode = (modeId: string) =>
+    api()
+      .request("threads.setMode", { modeId, threadId: thread.id })
+      .catch(reportError);
   if (!thread.modes?.length && options.length === 0) {
     return null;
   }
@@ -343,12 +337,12 @@ const keyedEntries = <T extends { content: string }>(entries: readonly T[]) => {
 };
 
 const ChangedFileButton = ({ file }: { file: string }) => {
-  const onClick = useCallback(() => {
+  const onClick = () => {
     useEditor.getState().setLeftTab("changes");
     window.dispatchEvent(
       new CustomEvent("ultrapaint:show-diff", { detail: file })
     );
-  }, [file]);
+  };
   return (
     <Button
       className="max-w-full justify-start px-0 font-mono text-brand"
@@ -506,18 +500,15 @@ const PermissionOption = ({
   requestId: string;
   threadId: string;
 }) => {
-  const onClick = useCallback(
-    () =>
-      api()
-        .request("threads.permission", {
-          optionId: option.optionId,
-          remember,
-          requestId,
-          threadId,
-        })
-        .catch(reportError),
-    [option.optionId, remember, requestId, threadId]
-  );
+  const onClick = () =>
+    api()
+      .request("threads.permission", {
+        optionId: option.optionId,
+        remember,
+        requestId,
+        threadId,
+      })
+      .catch(reportError);
   return (
     <Button
       onClick={onClick}
@@ -537,10 +528,7 @@ const Permission = ({
   threadId: string;
 }) => {
   const [remember, setRemember] = useState(false);
-  const onRememberChange = useCallback(
-    (c: boolean) => setRemember(c === true),
-    []
-  );
+  const onRememberChange = (c: boolean) => setRemember(c === true);
   return (
     <Alert className={cn(!item.decision && "border-brand bg-brand/10")}>
       <ShieldQuestion />
@@ -584,6 +572,44 @@ const Permission = ({
   );
 };
 
+/** Gathers the context the composer attaches to a prompt. */
+const collectAttachments = async ({
+  fileOf,
+  selectionSource,
+  selectionName,
+  shotOf,
+}: {
+  fileOf: Screen | null;
+  selectionSource: Selection["source"];
+  selectionName: string;
+  shotOf: Screen | null;
+}) => {
+  const attachments: PromptAttachment[] = [];
+  if (fileOf) {
+    attachments.push({ kind: "file", path: fileOf.file });
+  }
+  if (selectionSource) {
+    attachments.push({
+      col: selectionSource.col,
+      file: selectionSource.file,
+      kind: "selection",
+      line: selectionSource.line,
+      name: selectionName,
+    });
+  }
+  if (shotOf) {
+    const dataUrl = await bridgeFor(shotOf.id).screenshot();
+    if (dataUrl) {
+      attachments.push({
+        dataUrl,
+        kind: "image",
+        name: `${shotOf.name} screenshot`,
+      });
+    }
+  }
+  return attachments;
+};
+
 const Composer = ({ thread }: { thread: Thread }) => {
   const [text, setText] = useState("");
   const [attachScreen, setAttachScreen] = useState(true);
@@ -599,35 +625,19 @@ const Composer = ({ thread }: { thread: Thread }) => {
   );
   const running = thread.status === "running" || thread.status === "cancelling";
 
-  const send = useCallback(async () => {
+  const send = async () => {
     if (!text.trim() || running) {
       return;
     }
     setBusy(true);
+    const context = {
+      fileOf: attachScreen && screen ? screen : null,
+      selectionName: inspect?.name ?? "element",
+      selectionSource: attachSelection && selection ? selection.source : null,
+      shotOf: attachShot && screen ? screen : null,
+    };
     try {
-      const attachments: PromptAttachment[] = [];
-      if (attachScreen && screen) {
-        attachments.push({ kind: "file", path: screen.file });
-      }
-      if (attachSelection && selection?.source) {
-        attachments.push({
-          col: selection.source.col,
-          file: selection.source.file,
-          kind: "selection",
-          line: selection.source.line,
-          name: inspect?.name ?? "element",
-        });
-      }
-      if (attachShot && screen) {
-        const dataUrl = await bridgeFor(screen.id).screenshot();
-        if (dataUrl) {
-          attachments.push({
-            dataUrl,
-            kind: "image",
-            name: `${screen.name} screenshot`,
-          });
-        }
-      }
+      const attachments = await collectAttachments(context);
       await api().request("threads.prompt", {
         attachments,
         text,
@@ -636,44 +646,23 @@ const Composer = ({ thread }: { thread: Thread }) => {
       setText("");
     } catch (error) {
       reportError(error);
-    } finally {
-      setBusy(false);
     }
-  }, [
-    attachScreen,
-    attachSelection,
-    attachShot,
-    inspect?.name,
-    running,
-    screen,
-    selection?.source,
-    text,
-    thread.id,
-  ]);
+    setBusy(false);
+  };
 
-  const onTextChange = useCallback(
-    (e: ChangeEvent<HTMLTextAreaElement>) => setText(e.target.value),
-    []
-  );
-  const onTextKeyDown = useCallback(
-    (e: KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        send();
-      }
-    },
-    [send]
-  );
-  const cancel = useCallback(
-    () =>
-      api()
-        .request("threads.cancel", { threadId: thread.id })
-        .catch(reportError),
-    [thread.id]
-  );
+  const onTextChange = (e: ChangeEvent<HTMLTextAreaElement>) =>
+    setText(e.target.value);
+  const onTextKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      send();
+    }
+  };
+  const cancel = () =>
+    api().request("threads.cancel", { threadId: thread.id }).catch(reportError);
 
   const agentName =
-    useAgents.getState().agents.find((a) => a.id === thread.agentId)?.name ??
+    useAgents((s) => s.agents.find((a) => a.id === thread.agentId)?.name) ??
     "the agent";
 
   return (
