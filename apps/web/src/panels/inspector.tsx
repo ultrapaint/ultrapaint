@@ -10,6 +10,8 @@ import {
   pxToSpacing,
   radiusScale,
   shadowScale,
+  spacingScale,
+  spacingToPx,
   trackingScale,
 } from "@ultrapaint/shared/tailwind";
 import { cn } from "cn";
@@ -38,16 +40,15 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from "@/components/ui/input-group";
 import { bridgeFor } from "../canvas/bridge.ts";
-import { promptDialog } from "../components/dialogs.tsx";
-import { OptionSelect } from "../components/option-select.tsx";
 import { PanelEmpty, Row, Section } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";
+import {
+  ArbitraryDot,
+  isArbitraryClass,
+  StyleCombobox,
+  type StyleOption,
+} from "../components/style-combobox.tsx";
 import { runEdit } from "../lib/shortcuts.ts";
 import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
@@ -66,129 +67,30 @@ const COLOR_UTILITY_RE =
   /\d|^(foreground|muted|background|border|surface|brand|solid)/;
 const FONT_TOKEN_PREFIX_RE = /^--font-/;
 const WHITESPACE_RE = /\s+/;
+const PLAIN_NUMBER_RE = /^-?\d*\.?\d+(px)?$/;
+const FRACTION_RE = /^\d+\/\d+$/;
 
-const provLabel = (p: StyleValue["provenance"]) => {
+/**
+ * Where a value comes from, shown muted next to its control: the class, token or inline style
+ * behind it. Browser defaults and inherited values say nothing worth the space.
+ */
+const provHint = (s: StyleValue | undefined): string | undefined => {
+  const p = s?.provenance;
+  if (!p) {
+    return;
+  }
   if (p.kind === "utility" || p.kind === "component") {
     return p.className;
   }
-  return p.kind === "token" ? p.token : p.kind;
-};
-
-const provVariant = (p: StyleValue["provenance"]) => {
-  if (p.kind === "inline") {
-    return "destructive";
+  if (p.kind === "token") {
+    return p.token;
   }
-  return p.kind === "component" ? "secondary" : "ghost";
+  return p.kind === "inline" ? "inline style" : undefined;
 };
 
-const Prov = ({ s }: { s: StyleValue | undefined }) => {
-  if (!s) {
-    return null;
-  }
-  const p = s.provenance;
-  const label = provLabel(p);
-  return (
-    <Badge
-      className={cn(
-        "block h-4 max-w-[88px] truncate rounded-sm px-1 font-mono text-[9px] leading-4",
-        p.kind === "utility" && "bg-brand/20 text-brand",
-        (p.kind === "inherited" || p.kind === "default") &&
-          "text-muted-foreground"
-      )}
-      title={`${p.kind}${p.token ? ` · ${p.token}` : ""}${p.className ? ` · .${p.className}` : ""}`}
-      variant={provVariant(p)}
-    >
-      {label}
-    </Badge>
-  );
-};
-
-const blurOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
-  if (e.key === "Enter") {
-    (e.target as HTMLInputElement).blur();
-  }
-};
-
-const arrowStep = (e: { shiftKey: boolean; altKey: boolean }) => {
-  if (e.shiftKey) {
-    return 10;
-  }
-  return e.altKey ? 1 : 4;
-};
-
-/** Number field for a CSS px value that writes a Tailwind class on commit. */
-const PxField = ({
-  prop,
-  styles,
-  onClass,
-  disabled,
-  short,
-}: {
-  prop: string;
-  styles: Record<string, StyleValue>;
-  onClass: (add: string[], remove: string[]) => void;
-  disabled: boolean;
-  short?: string;
-}) => {
-  const s = styles[prop];
-  const [draft, setDraft] = useState<string | null>(null);
-  const util = propertyToUtility[prop];
-  const commit = () => {
-    if (draft === null || !util) {
-      return;
-    }
-    const v = draft.trim();
-    setDraft(null);
-    if (v === "" || v === px(s?.value)) {
-      return;
-    }
-    const cls = classForValue(util, v);
-    if (cls) {
-      onClass([cls], removalFor(s));
-    }
-  };
-  const onChange = (e: React.ChangeEvent<HTMLInputElement>) =>
-    setDraft(e.target.value);
-  const nudge = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    e.preventDefault();
-    const n = Number.parseFloat(draft ?? px(s?.value)) || 0;
-    const step = arrowStep(e);
-    const next = Math.max(0, n + (e.key === "ArrowUp" ? step : -step));
-    const cls = util ? classForValue(util, String(next)) : null;
-    if (cls) {
-      onClass([cls], removalFor(s));
-    }
-  };
-  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    blurOnEnter(e);
-    if (e.key === "Escape") {
-      setDraft(null);
-    }
-    if ((e.key === "ArrowUp" || e.key === "ArrowDown") && !disabled) {
-      nudge(e);
-    }
-  };
-  return (
-    <InputGroup
-      className="h-6 min-w-0 flex-1"
-      data-disabled={disabled}
-      title={`${prop}: ${s?.value ?? ""}`}
-    >
-      {short ? (
-        <InputGroupAddon className="w-5 py-0 pl-1.5 font-normal text-[10px]">
-          {short}
-        </InputGroupAddon>
-      ) : null}
-      <InputGroupInput
-        className="h-full px-1.5 md:text-[11px]"
-        disabled={disabled}
-        onBlur={commit}
-        onChange={onChange}
-        onKeyDown={onKeyDown}
-        value={draft ?? px(s?.value)}
-      />
-    </InputGroup>
-  );
+const valueTitle = (prop: string, s: StyleValue | undefined) => {
+  const hint = provHint(s);
+  return `${prop}: ${s?.value ?? ""}${hint ? ` · ${hint}` : ""}`;
 };
 
 const removalFor = (s: StyleValue | undefined): string[] =>
@@ -216,10 +118,13 @@ const classForValue = (
   if (v === "none") {
     return `${util.prefix}-none`;
   }
-  const n = Number.parseFloat(v);
-  if (!Number.isFinite(n)) {
+  if (FRACTION_RE.test(v)) {
+    return `${util.prefix}-${v}`;
+  }
+  if (!PLAIN_NUMBER_RE.test(v)) {
     return arbitrary(util.prefix, v);
   }
+  const n = Number.parseFloat(v);
   if (
     util.scale === "spacing" ||
     util.scale === "width" ||
@@ -250,7 +155,114 @@ const classForValue = (
   return arbitrary(util.prefix, `${n}px`);
 };
 
+/**
+ * Turns what was typed into a class. A number goes through the scale first; anything else becomes
+ * an arbitrary value, offered only once it is valid CSS for the property so half-typed queries
+ * don't suggest junk.
+ */
+const customFor =
+  (prop: string, util: { prefix: string; scale?: string }) =>
+  (query: string): string | null => {
+    const cls = classForValue(util, query);
+    if (
+      cls &&
+      isArbitraryClass(cls) &&
+      !PLAIN_NUMBER_RE.test(query) &&
+      !CSS.supports(prop, query.trim())
+    ) {
+      return null;
+    }
+    return cls;
+  };
+
+const SIZE_KEYWORDS = [
+  "auto",
+  "full",
+  "screen",
+  "fit",
+  "min",
+  "max",
+  "1/2",
+  "1/3",
+  "2/3",
+  "1/4",
+  "3/4",
+];
+const CONTAINER_SCALE = [
+  "3xs",
+  "2xs",
+  "xs",
+  "sm",
+  "md",
+  "lg",
+  "xl",
+  "2xl",
+  "3xl",
+  "4xl",
+  "5xl",
+  "6xl",
+  "7xl",
+  "prose",
+];
+
+/** Scale steps a px property can take: spacing labelled in px, plus keywords for sizes. */
+const pxOptions = (util: { prefix: string; scale?: string }): StyleOption[] => {
+  const { prefix, scale } = util;
+  const keyword = (v: string): StyleOption => ({
+    label: v,
+    value: `${prefix}-${v}`,
+  });
+  const steps = spacingScale.map((step) => ({
+    label: String(spacingToPx(step)),
+    value: `${prefix}-${step}`,
+  }));
+  if (scale !== "width" && scale !== "height") {
+    return prefix.startsWith("m") ? [keyword("auto"), ...steps] : steps;
+  }
+  return [
+    ...(prefix.startsWith("max-") ? [keyword("none")] : []),
+    ...(prefix === "max-w" ? CONTAINER_SCALE.map(keyword) : []),
+    ...SIZE_KEYWORDS.map(keyword),
+    ...steps,
+  ];
+};
+
+/** Size or spacing field: the spacing scale in px, with arbitrary px values as the fallback. */
+const PxField = ({
+  prop,
+  styles,
+  onClass,
+  disabled,
+  short,
+}: {
+  prop: string;
+  styles: Record<string, StyleValue>;
+  onClass: (add: string[], remove: string[]) => void;
+  disabled: boolean;
+  short?: string;
+}) => {
+  const s = styles[prop];
+  const util = propertyToUtility[prop];
+  if (!util) {
+    return null;
+  }
+  const onPick = (cls: string) => onClass([cls], removalFor(s));
+  return (
+    <StyleCombobox
+      current={s?.provenance.className}
+      custom={customFor(prop, util)}
+      disabled={disabled}
+      display={px(s?.value)}
+      leading={short ? <span className="w-2.5">{short}</span> : undefined}
+      onPick={onPick}
+      options={pxOptions(util)}
+      title={valueTitle(prop, s)}
+    />
+  );
+};
+
 interface TokenOption {
+  description?: string;
   label: string;
   preview?: ReactNode;
   value: string;
@@ -273,12 +285,7 @@ const colorOption = (
   }
   return {
     label: util,
-    preview: (
-      <span
-        className="size-3 shrink-0 rounded-sm border border-input"
-        style={{ background: value }}
-      />
-    ),
+    preview: <Swatch color={value} />,
     value: util,
   };
 };
@@ -294,7 +301,8 @@ const fontOption = (name: string, value: string): TokenOption | null => {
     return null;
   }
   return {
-    label: `${util} · ${value.split(",")[0]?.replaceAll('"', "")}`,
+    description: value.split(",")[0]?.replaceAll('"', ""),
+    label: util,
     value: util,
   };
 };
@@ -314,6 +322,19 @@ const useTokenOptions = (kind: "color" | "font") => {
   return out.sort((a, b) => a.value.localeCompare(b.value));
 };
 
+const Swatch = ({
+  color,
+  className,
+}: {
+  color?: string;
+  className?: string;
+}) => (
+  <span
+    className={cn("size-3 shrink-0 rounded-sm border border-input", className)}
+    style={{ background: color }}
+  />
+);
+
 const ColorField = ({
   prop,
   prefix,
@@ -329,49 +350,35 @@ const ColorField = ({
 }) => {
   const s = styles[prop];
   const options = useTokenOptions("color");
-  const current = s?.provenance.className?.startsWith(`${prefix}-`)
-    ? s.provenance.className.slice(prefix.length + 1)
-    : null;
   const recent = useRecent("color");
   const ordered = [
     ...recent
-      .filter((r) => options.find((o) => o.value === r))
-      .map(
-        (r) => options.find((o) => o.value === r) as (typeof options)[number]
-      ),
+      .map((r) => options.find((o) => o.value === r))
+      .filter((o) => o !== undefined),
     ...options.filter((o) => !recent.includes(o.value)),
   ];
-  const onChange = (v: string) => {
-    if (v === "__custom") {
-      promptDialog({
-        defaultValue: s?.value ?? "#000000",
-        description: `Any CSS colour value. It is written as an arbitrary ${prefix}-[…] class.`,
-        title: "Custom colour",
-      }).then((hex) => {
-        if (hex) {
-          onClass([arbitrary(prefix, hex)], removalFor(s));
-        }
-      });
-      return;
+  const onPick = (cls: string) => {
+    if (!isArbitraryClass(cls)) {
+      recent.push(cls.slice(prefix.length + 1));
     }
-    recent.push(v);
-    onClass([`${prefix}-${v}`], removalFor(s));
+    onClass([cls], removalFor(s));
   };
+  const custom = (query: string) =>
+    CSS.supports("color", query.trim())
+      ? arbitrary(prefix, query.trim())
+      : null;
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-1">
-      <span
-        className="size-5 shrink-0 rounded-sm border border-input"
-        style={{ background: s?.value }}
-      />
-      <OptionSelect
-        disabled={disabled}
-        onChange={onChange}
-        options={[...ordered, { label: "Custom…", value: "__custom" }]}
-        placeholder={s?.value ?? "—"}
-        size="sm"
-        value={current}
-      />
-    </div>
+    <StyleCombobox
+      current={s?.provenance.className}
+      custom={custom}
+      disabled={disabled}
+      display={s?.value ?? ""}
+      hint={provHint(s)}
+      leading={<Swatch color={s?.value} />}
+      onPick={onPick}
+      options={ordered.map((o) => ({ ...o, value: `${prefix}-${o.value}` }))}
+      title={valueTitle(prop, s)}
+    />
   );
 };
 
@@ -396,17 +403,42 @@ const useRecent = (key: string) => {
   });
 };
 
-const scaleValue = (cls: string | undefined, prefix: string) => {
-  if (cls?.startsWith(`${prefix}-`)) {
-    return cls.slice(prefix.length + 1);
+/**
+ * Named steps of a theme scale: Tailwind's defaults, plus whatever the project defines under the
+ * same token namespace (`--text-display`), described by the token's value.
+ */
+const useScaleOptions = (
+  prefix: string,
+  scale: readonly string[],
+  namespace: string | undefined,
+  labels: ((v: string) => string) | undefined
+): StyleOption[] => {
+  const tokens = useEditor((s) => s.tokens);
+  const steps = [...scale];
+  if (namespace) {
+    for (const name of Object.keys(tokens)) {
+      const step = name.slice(namespace.length + 3);
+      if (
+        name.startsWith(`--${namespace}-`) &&
+        !step.includes("--") &&
+        !steps.includes(step)
+      ) {
+        steps.push(step);
+      }
+    }
   }
-  return cls === prefix ? "" : null;
+  return steps.map((v) => ({
+    description: namespace ? tokens[`--${namespace}-${v}`] : undefined,
+    label: labels ? labels(v) : v,
+    value: v === "" ? prefix : `${prefix}-${v}`,
+  }));
 };
 
 const ScaleSelect = ({
   prop,
   prefix,
   scale,
+  tokens,
   styles,
   onClass,
   disabled,
@@ -415,45 +447,26 @@ const ScaleSelect = ({
   prop: string;
   prefix: string;
   scale: readonly string[];
+  /** Theme namespace whose tokens extend the scale, e.g. `text` for `--text-*`. */
+  tokens?: string;
   styles: Record<string, StyleValue>;
   onClass: (add: string[], remove: string[]) => void;
   disabled: boolean;
   labels?: (v: string) => string;
 }) => {
   const s = styles[prop];
-  const cls = s?.provenance.className;
-  const current = scaleValue(cls, prefix);
-  const onChange = (v: string) => {
-    if (v === "__custom") {
-      promptDialog({
-        defaultValue: px(s?.value),
-        description: "A px number or any CSS value.",
-        title: `Custom ${prop}`,
-      }).then((raw) => {
-        const util = propertyToUtility[prop];
-        if (!(raw && util)) {
-          return;
-        }
-        const c = classForValue(util, raw);
-        if (c) {
-          onClass([c], removalFor(s));
-        }
-      });
-      return;
-    }
-    onClass([v === "" ? prefix : `${prefix}-${v}`], removalFor(s));
-  };
+  const options = useScaleOptions(prefix, scale, tokens, labels);
+  const onPick = (cls: string) => onClass([cls], removalFor(s));
   return (
-    <OptionSelect
+    <StyleCombobox
+      current={s?.provenance.className}
+      custom={customFor(prop, propertyToUtility[prop] ?? { prefix })}
       disabled={disabled}
-      onChange={onChange}
-      options={[
-        ...scale.map((v) => ({ label: labels ? labels(v) : v, value: v })),
-        { label: "Custom…", value: "__custom" },
-      ]}
-      placeholder={px(s?.value) || "—"}
-      size="sm"
-      value={current}
+      display={px(s?.value)}
+      hint={provHint(s)}
+      onPick={onPick}
+      options={options}
+      title={valueTitle(prop, s)}
     />
   );
 };
@@ -528,8 +541,6 @@ export const Inspector = () => {
 
   const editable = inspect.editable && !!selection.source;
   const { styles } = inspect;
-  const paddingTopClass = styles["padding-top"]?.provenance.className;
-  const paddingLeftClass = styles["padding-left"]?.provenance.className;
 
   return (
     <div className="flex flex-col pb-8">
@@ -546,14 +557,11 @@ export const Inspector = () => {
 
       <Section title="Layout">
         <Row label="Display">
-          <div className="flex min-w-0 flex-1 items-center gap-1">
-            <DisplaySelect
-              disabled={!editable}
-              onClass={onClass}
-              styles={styles}
-            />
-            <Prov s={styles.display} />
-          </div>
+          <DisplaySelect
+            disabled={!editable}
+            onClass={onClass}
+            styles={styles}
+          />
         </Row>
         {(styles.display?.value.includes("flex") ||
           styles.display?.value.includes("grid")) && (
@@ -673,7 +681,6 @@ export const Inspector = () => {
                 short="↔"
                 styles={styles}
               />
-              <Prov s={styles["row-gap"]} />
             </Row>
           </>
         )}
@@ -728,10 +735,6 @@ export const Inspector = () => {
             styles={styles}
           />
         </Row>
-        <div className="flex gap-1 pl-[72px]">
-          <Prov s={styles.width} />
-          <Prov s={styles.height} />
-        </div>
       </Section>
 
       <Section title="Spacing">
@@ -767,12 +770,6 @@ export const Inspector = () => {
             styles={styles}
           />
         </Row>
-        <div className="flex flex-wrap gap-1 pl-[72px]">
-          <Prov s={styles["padding-top"]} />
-          {paddingLeftClass !== paddingTopClass && (
-            <Prov s={styles["padding-left"]} />
-          )}
-        </div>
         <Row label="Margin">
           <PxField
             disabled={!editable}
@@ -805,9 +802,6 @@ export const Inspector = () => {
             styles={styles}
           />
         </Row>
-        <div className="flex gap-1 pl-[72px]">
-          <Prov s={styles["margin-top"]} />
-        </div>
       </Section>
 
       <Section title="Typography">
@@ -817,14 +811,13 @@ export const Inspector = () => {
         <Row label="Size">
           <ScaleSelect
             disabled={!editable}
-            labels={fontSizeLabel}
             onClass={onClass}
             prefix="text"
             prop="font-size"
             scale={fontSizeScale}
             styles={styles}
+            tokens="text"
           />
-          <Prov s={styles["font-size"]} />
         </Row>
         <Row label="Weight">
           <ScaleSelect
@@ -834,8 +827,8 @@ export const Inspector = () => {
             prop="font-weight"
             scale={fontWeightScale}
             styles={styles}
+            tokens="font-weight"
           />
-          <Prov s={styles["font-weight"]} />
         </Row>
         <Row label="Line height">
           <ScaleSelect
@@ -845,8 +838,8 @@ export const Inspector = () => {
             prop="line-height"
             scale={leadingScale}
             styles={styles}
+            tokens="leading"
           />
-          <Prov s={styles["line-height"]} />
         </Row>
         <Row label="Tracking">
           <ScaleSelect
@@ -856,8 +849,8 @@ export const Inspector = () => {
             prop="letter-spacing"
             scale={trackingScale}
             styles={styles}
+            tokens="tracking"
           />
-          <Prov s={styles["letter-spacing"]} />
         </Row>
         <Row label="Align">
           <ClassSegmented
@@ -884,7 +877,6 @@ export const Inspector = () => {
             prop="color"
             styles={styles}
           />
-          <Prov s={styles.color} />
         </Row>
         <Row label="Background">
           <ColorField
@@ -894,7 +886,6 @@ export const Inspector = () => {
             prop="background-color"
             styles={styles}
           />
-          <Prov s={styles["background-color"]} />
         </Row>
       </Section>
 
@@ -909,7 +900,6 @@ export const Inspector = () => {
             scale={["0", "", "2", "4", "8"]}
             styles={styles}
           />
-          <Prov s={styles["border-top-width"]} />
         </Row>
         <Row label="Colour">
           <ColorField
@@ -928,8 +918,8 @@ export const Inspector = () => {
             prop="border-top-left-radius"
             scale={radiusScale}
             styles={styles}
+            tokens="radius"
           />
-          <Prov s={styles["border-top-left-radius"]} />
         </Row>
       </Section>
 
@@ -940,7 +930,6 @@ export const Inspector = () => {
             onClass={onClass}
             styles={styles}
           />
-          <Prov s={styles.opacity} />
         </Row>
         <Row label="Shadow">
           <ScaleSelect
@@ -950,8 +939,8 @@ export const Inspector = () => {
             prop="box-shadow"
             scale={shadowScale}
             styles={styles}
+            tokens="shadow"
           />
-          <Prov s={styles["box-shadow"]} />
         </Row>
       </Section>
 
@@ -969,17 +958,21 @@ export const Inspector = () => {
   );
 };
 
-const displayOptions = [
+const displayOptions: StyleOption[] = [
   "block",
   "flex",
   "inline-flex",
   "grid",
+  "inline-grid",
   "inline",
   "inline-block",
-  "none",
+  "flow-root",
   "contents",
-].map((v) => ({ label: v, value: v }));
+  "table",
+  "none",
+].map((v) => ({ label: v, value: v === "none" ? "hidden" : v }));
 
+/** Display is a closed set of keywords, all listed, so it takes no arbitrary value. */
 const DisplaySelect = ({
   styles,
   onClass,
@@ -990,15 +983,16 @@ const DisplaySelect = ({
   disabled: boolean;
 }) => {
   const s = styles.display;
-  const onChange = (v: string) =>
-    onClass([v === "none" ? "hidden" : v], removalFor(s));
+  const onPick = (cls: string) => onClass([cls], removalFor(s));
   return (
-    <OptionSelect
+    <StyleCombobox
+      current={s?.provenance.className}
       disabled={disabled}
-      onChange={onChange}
+      display={s?.value ?? ""}
+      hint={provHint(s)}
+      onPick={onPick}
       options={displayOptions}
-      size="sm"
-      value={s?.value ?? null}
+      title={valueTitle("display", s)}
     />
   );
 };
@@ -1026,7 +1020,6 @@ const textAlignClass = (v: string) =>
     start: "text-left",
   })[v] as string;
 
-const fontSizeLabel = (v: string) => `${v} · ${v}`;
 const borderWidthLabel = (v: string) => (v === "" ? "1" : v);
 
 /** Segmented control over a CSS property that writes the class picked by `classFor`. */
@@ -1057,6 +1050,11 @@ const ClassSegmented = ({
   );
 };
 
+const opacityOptions: StyleOption[] = Array.from({ length: 21 }, (_, i) => ({
+  label: `${i * 5}%`,
+  value: `opacity-${i * 5}`,
+}));
+
 const OpacityField = ({
   styles,
   onClass,
@@ -1067,32 +1065,25 @@ const OpacityField = ({
   disabled: boolean;
 }) => {
   const s = styles.opacity;
-  const onBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    const n = Number(e.target.value);
-    if (Number.isFinite(n)) {
-      onClass(
-        [n >= 100 ? "opacity-100" : `opacity-${Math.round(n)}`],
-        removalFor(s)
-      );
+  const onPick = (cls: string) => onClass([cls], removalFor(s));
+  const custom = (query: string) => {
+    const n = Number(query.trim().replace("%", ""));
+    if (!(query.trim() && Number.isFinite(n))) {
+      return null;
     }
+    return `opacity-${Math.min(100, Math.max(0, Math.round(n)))}`;
   };
   return (
-    <InputGroup className="h-6 w-20" data-disabled={disabled}>
-      <InputGroupInput
-        className="h-full px-1.5 md:text-[11px]"
-        defaultValue={Math.round(Number.parseFloat(s?.value ?? "1") * 100)}
-        disabled={disabled}
-        key={s?.value}
-        onBlur={onBlur}
-        onKeyDown={blurOnEnter}
-      />
-      <InputGroupAddon
-        align="inline-end"
-        className="py-0 pr-1.5 font-normal text-[10px]"
-      >
-        %
-      </InputGroupAddon>
-    </InputGroup>
+    <StyleCombobox
+      className="w-24 flex-none"
+      current={s?.provenance.className}
+      custom={custom}
+      disabled={disabled}
+      display={`${Math.round(Number.parseFloat(s?.value ?? "1") * 100)}%`}
+      onPick={onPick}
+      options={opacityOptions}
+      title={valueTitle("opacity", s)}
+    />
   );
 };
 
@@ -1105,26 +1096,27 @@ const FontSelect = ({
   onClass: (a: string[], r: string[]) => void;
   disabled: boolean;
 }) => {
-  const options = useTokenOptions("font");
+  const options = useTokenOptions("font").map((o) => ({
+    ...o,
+    value: `font-${o.value}`,
+  }));
   const s = styles["font-family"];
-  const cls = s?.provenance.className;
-  const current =
-    cls?.startsWith("font-") && options.find((o) => o.value === cls.slice(5))
-      ? cls.slice(5)
+  const onPick = (cls: string) => onClass([cls], removalFor(s));
+  const custom = (query: string) =>
+    CSS.supports("font-family", query.trim())
+      ? arbitrary("font", `family-name:${query.trim()}`)
       : null;
-  const onChange = (v: string) => onClass([`font-${v}`], removalFor(s));
   return (
-    <>
-      <OptionSelect
-        disabled={disabled}
-        onChange={onChange}
-        options={options}
-        placeholder={s?.value.split(",")[0]?.replaceAll('"', "") ?? "—"}
-        size="sm"
-        value={current}
-      />
-      <Prov s={s} />
-    </>
+    <StyleCombobox
+      current={s?.provenance.className}
+      custom={custom}
+      disabled={disabled}
+      display={s?.value.split(",")[0]?.replaceAll('"', "") ?? ""}
+      hint={provHint(s)}
+      onPick={onPick}
+      options={options}
+      title={valueTitle("font-family", s)}
+    />
   );
 };
 
@@ -1143,8 +1135,13 @@ const OwnClassBadge = ({
       className="rounded-sm bg-brand/20 px-1.5 font-mono text-brand hover:bg-destructive/20 hover:text-destructive disabled:pointer-events-none"
       onClick={remove}
       render={<button disabled={disabled} type="button" />}
-      title="Remove"
+      title={
+        isArbitraryClass(name)
+          ? "Arbitrary value, outside the design system. Click to remove."
+          : "Remove"
+      }
     >
+      {isArbitraryClass(name) ? <ArbitraryDot /> : null}
       {name}
     </Badge>
   );

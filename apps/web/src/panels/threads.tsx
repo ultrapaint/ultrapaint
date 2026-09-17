@@ -6,18 +6,22 @@ import type {
 } from "@ultrapaint/contracts/threads";
 import { cn } from "cn";
 import {
+  AppWindow,
   ArrowUp,
   Bot,
+  Camera,
   Check,
+  ChevronDown,
   ChevronRight,
   CircleAlert,
-  Image,
   ListTodo,
   Paperclip,
   Plus,
   ShieldQuestion,
   Square,
+  SquareDashedMousePointer,
   Trash2,
+  X,
 } from "lucide-react";
 import {
   type ChangeEvent,
@@ -38,18 +42,19 @@ import {
 } from "@/components/ui/collapsible";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupTextarea,
-} from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
 import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker";
 import { Message, MessageContent } from "@/components/ui/message";
@@ -62,7 +67,6 @@ import {
   MessageScrollerViewport,
 } from "@/components/ui/message-scroller";
 import { Spinner } from "@/components/ui/spinner";
-import { Toggle } from "@/components/ui/toggle";
 import { bridgeFor } from "../canvas/bridge.ts";
 import { confirmDialog } from "../components/dialogs.tsx";
 import { IconButton } from "../components/icon-button.tsx";
@@ -75,9 +79,20 @@ import { reportError, useProject } from "../state/project.ts";
 
 const openThread = (threadId: string) => useAgents.getState().open(threadId);
 
-const createThread = async (agentId: string) => {
+/** Prompt text carried into a thread created from another thread's composer. */
+const drafts = new Map<string, string>();
+const takeDraft = (threadId: string) => {
+  const draft = drafts.get(threadId) ?? "";
+  drafts.delete(threadId);
+  return draft;
+};
+
+const createThread = async (agentId: string, draft = "") => {
   try {
     const t = await api().request("threads.create", { agentId });
+    if (draft) {
+      drafts.set(t.id, draft);
+    }
     await useAgents.getState().open(t.id);
   } catch (error) {
     reportError(error);
@@ -197,7 +212,6 @@ const ThreadView = ({
   items: readonly ThreadItem[];
 }) => (
   <>
-    <ThreadOptions thread={thread} />
     {/* Keyed by thread so each one opens scrolled to its latest message. */}
     <MessageScrollerProvider
       autoScroll
@@ -236,66 +250,9 @@ const ThreadView = ({
         <MessageScrollerButton />
       </MessageScroller>
     </MessageScrollerProvider>
-    <Composer thread={thread} />
+    <Composer key={thread.id} thread={thread} />
   </>
 );
-
-type ConfigOption = NonNullable<Thread["configOptions"]>[number];
-
-const ConfigOptionSelect = ({
-  option,
-  threadId,
-}: {
-  option: ConfigOption;
-  threadId: string;
-}) => {
-  const onChange = (value: string) =>
-    api()
-      .request("threads.setConfigOption", {
-        optionId: option.id,
-        threadId,
-        value,
-      })
-      .catch(reportError);
-  return (
-    <div className="w-32" title={option.name}>
-      <OptionSelect
-        onChange={onChange}
-        options={option.options.map((x) => ({ label: x.name, value: x.value }))}
-        size="sm"
-        value={option.currentValue}
-      />
-    </div>
-  );
-};
-
-const ThreadOptions = ({ thread }: { thread: Thread }) => {
-  const options = thread.configOptions ?? [];
-  const setMode = (modeId: string) =>
-    api()
-      .request("threads.setMode", { modeId, threadId: thread.id })
-      .catch(reportError);
-  if (!thread.modes?.length && options.length === 0) {
-    return null;
-  }
-  return (
-    <div className="flex flex-wrap gap-1 border-b px-2 py-1.5">
-      {thread.modes && thread.modes.length > 0 && (
-        <div className="w-32">
-          <OptionSelect
-            onChange={setMode}
-            options={thread.modes.map((m) => ({ label: m.name, value: m.id }))}
-            size="sm"
-            value={thread.currentModeId ?? null}
-          />
-        </div>
-      )}
-      {options.map((o) => (
-        <ConfigOptionSelect key={o.id} option={o} threadId={thread.id} />
-      ))}
-    </div>
-  );
-};
 
 const Disclosure = ({
   className,
@@ -610,8 +567,289 @@ const collectAttachments = async ({
   return attachments;
 };
 
+type ConfigOption = NonNullable<Thread["configOptions"]>[number];
+
+const ON_OFF = [
+  ["on", "off"],
+  ["true", "false"],
+  ["enabled", "disabled"],
+  ["yes", "no"],
+];
+
+/** The "on" value of an option that is really a switch (two values like on/off), else null. */
+const switchOnValue = (option: ConfigOption): string | null => {
+  if (option.options.length !== 2) {
+    return null;
+  }
+  for (const [on, off] of ON_OFF) {
+    const on_ = option.options.find(
+      (o) => o.value.toLowerCase() === on || o.name.toLowerCase() === on
+    );
+    const off_ = option.options.find(
+      (o) => o.value.toLowerCase() === off || o.name.toLowerCase() === off
+    );
+    if (on_ && off_) {
+      return on_.value;
+    }
+  }
+  return null;
+};
+
+const EFFORT_RE = /effort|thought|thinking|reasoning/i;
+
+const isModelOption = (o: ConfigOption) =>
+  o.category === "model" || o.id === "model";
+const isEffortOption = (o: ConfigOption) =>
+  o.category === "thought_level" || EFFORT_RE.test(o.id);
+
+const setConfigOption = (threadId: string, optionId: string, value: string) =>
+  api()
+    .request("threads.setConfigOption", { optionId, threadId, value })
+    .catch(reportError);
+
+const currentName = (option: ConfigOption | undefined) =>
+  option?.options.find((o) => o.value === option.currentValue)?.name;
+
+const SwitchOptionItem = ({
+  option,
+  onValue,
+  threadId,
+}: {
+  option: ConfigOption;
+  onValue: string;
+  threadId: string;
+}) => {
+  const checked = option.currentValue === onValue;
+  const offValue =
+    option.options.find((o) => o.value !== onValue)?.value ?? onValue;
+  const onCheckedChange = (next: boolean) =>
+    setConfigOption(threadId, option.id, next ? onValue : offValue);
+  return (
+    <DropdownMenuCheckboxItem
+      checked={checked}
+      className="pr-2 [&>[data-slot=dropdown-menu-checkbox-item-indicator]]:hidden"
+      onCheckedChange={onCheckedChange}
+    >
+      {option.name}
+      <span
+        aria-hidden
+        className={cn(
+          "ml-auto flex h-4 w-7 items-center rounded-full p-0.5 transition-colors",
+          checked ? "bg-brand" : "bg-input"
+        )}
+      >
+        <span
+          className={cn(
+            "size-3 rounded-full bg-white transition-transform",
+            checked && "translate-x-3"
+          )}
+        />
+      </span>
+    </DropdownMenuCheckboxItem>
+  );
+};
+
+const SelectOptionSub = ({
+  option,
+  threadId,
+}: {
+  option: ConfigOption;
+  threadId: string;
+}) => {
+  const onValueChange = (value: unknown) =>
+    setConfigOption(threadId, option.id, value as string);
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger>
+        {option.name}
+        <span className="ml-auto max-w-32 truncate text-muted-foreground">
+          {currentName(option)}
+        </span>
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className="max-h-80 min-w-48">
+        <DropdownMenuRadioGroup
+          onValueChange={onValueChange}
+          value={option.currentValue}
+        >
+          {option.options.map((o) => (
+            <DropdownMenuRadioItem key={o.value} value={o.value}>
+              <span className="flex min-w-0 flex-col">
+                <span>{o.name}</span>
+                {o.description ? (
+                  <span className="max-w-64 whitespace-normal text-[10px] text-muted-foreground leading-snug">
+                    {o.description}
+                  </span>
+                ) : null}
+              </span>
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  );
+};
+
+/**
+ * Agent, model and session options in one menu below the prompt, Cursor-style: switches first,
+ * then the other choices, the model last; the agent itself at the bottom.
+ */
+const ModelPicker = ({ thread, draft }: { thread: Thread; draft: string }) => {
+  const agents = useAgents((s) => s.agents);
+  const agent = agents.find((a) => a.id === thread.agentId);
+  // Session modes have their own picker next to this one.
+  const hasModePicker = (thread.modes?.length ?? 0) > 0;
+  const options = (thread.configOptions ?? []).filter(
+    (o) => !(hasModePicker && o.category === "mode")
+  );
+  const model = options.find(isModelOption);
+  const effort = options.find(isEffortOption);
+  const switches = options.flatMap((o) => {
+    const onValue = switchOnValue(o);
+    return onValue ? [{ onValue, option: o }] : [];
+  });
+  const selects = options.filter(
+    (o) => !(switchOnValue(o) || isModelOption(o))
+  );
+  const onAgentChange = (agentId: unknown) => {
+    if (agentId !== thread.agentId) {
+      // A session belongs to one agent: another agent means another thread.
+      createThread(agentId as string, draft);
+    }
+  };
+  const effortName =
+    effort && !switchOnValue(effort) ? currentName(effort) : null;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            className="min-w-0 gap-1 px-1.5 font-normal text-muted-foreground hover:text-foreground"
+            size="sm"
+            variant="ghost"
+          />
+        }
+      >
+        <span className="truncate text-foreground">
+          {currentName(model) ?? agent?.name ?? thread.agentId}
+        </span>
+        {effortName ? (
+          <span className="shrink-0 text-muted-foreground">{effortName}</span>
+        ) : null}
+        <ChevronDown className="shrink-0" data-icon="inline-end" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-60" side="top">
+        {switches.length > 0 && (
+          <DropdownMenuGroup>
+            {switches.map(({ option, onValue }) => (
+              <SwitchOptionItem
+                key={option.id}
+                onValue={onValue}
+                option={option}
+                threadId={thread.id}
+              />
+            ))}
+          </DropdownMenuGroup>
+        )}
+        {selects.length > 0 && (
+          <DropdownMenuGroup>
+            {selects.map((o) => (
+              <SelectOptionSub key={o.id} option={o} threadId={thread.id} />
+            ))}
+          </DropdownMenuGroup>
+        )}
+        {model ? (
+          <DropdownMenuGroup>
+            <SelectOptionSub option={model} threadId={thread.id} />
+          </DropdownMenuGroup>
+        ) : null}
+        {options.length > 0 && <DropdownMenuSeparator />}
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            Agent
+            <span className="ml-auto max-w-32 truncate text-muted-foreground">
+              {agent?.name ?? thread.agentId}
+            </span>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="min-w-48">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="text-[10px]">
+                Another agent starts a new thread
+              </DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                onValueChange={onAgentChange}
+                value={thread.agentId}
+              >
+                {agents.map((a) => (
+                  <DropdownMenuRadioItem key={a.id} value={a.id}>
+                    <Bot />
+                    {a.name}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuGroup>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
+const ModePicker = ({ thread }: { thread: Thread }) => {
+  const modes = thread.modes ?? [];
+  if (modes.length === 0) {
+    return null;
+  }
+  const current = modes.find((m) => m.id === thread.currentModeId);
+  const onValueChange = (modeId: unknown) =>
+    api()
+      .request("threads.setMode", {
+        modeId: modeId as string,
+        threadId: thread.id,
+      })
+      .catch(reportError);
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            className="min-w-0 gap-1 rounded-full bg-muted px-2 font-normal"
+            size="sm"
+            variant="ghost"
+          />
+        }
+      >
+        <span className="truncate">{current?.name ?? "Mode"}</span>
+        <ChevronDown
+          className="shrink-0 text-muted-foreground"
+          data-icon="inline-end"
+        />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-56" side="top">
+        <DropdownMenuRadioGroup
+          onValueChange={onValueChange}
+          value={thread.currentModeId ?? null}
+        >
+          {modes.map((m) => (
+            <DropdownMenuRadioItem key={m.id} value={m.id}>
+              <span className="flex min-w-0 flex-col">
+                <span>{m.name}</span>
+                {m.description ? (
+                  <span className="whitespace-normal text-[10px] text-muted-foreground leading-snug">
+                    {m.description}
+                  </span>
+                ) : null}
+              </span>
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
 const Composer = ({ thread }: { thread: Thread }) => {
-  const [text, setText] = useState("");
+  const [text, setText] = useState(() => takeDraft(thread.id));
   const [attachScreen, setAttachScreen] = useState(true);
   const [attachSelection, setAttachSelection] = useState(true);
   const [attachShot, setAttachShot] = useState(false);
@@ -665,95 +903,146 @@ const Composer = ({ thread }: { thread: Thread }) => {
     useAgents((s) => s.agents.find((a) => a.id === thread.agentId)?.name) ??
     "the agent";
 
+  const selectionSource = selection?.source ?? null;
+  const showScreen = Boolean(screen && attachScreen);
+  const showSelection = Boolean(selectionSource && attachSelection);
+  const showShot = Boolean(screen && attachShot);
+
   return (
-    <div className="border-t p-2">
-      <InputGroup>
-        <InputGroupTextarea
-          className="max-h-40 min-h-14"
+    <div className="p-2">
+      <div className="flex flex-col rounded-xl border bg-input/20 transition-colors focus-within:border-ring dark:bg-input/30">
+        {showScreen || showSelection || showShot ? (
+          <div className="flex flex-wrap gap-1 px-2 pt-2">
+            {showScreen && screen ? (
+              <ContextChip
+                icon={<AppWindow />}
+                label={screen.name}
+                onRemove={() => setAttachScreen(false)}
+                title={`Screen file: ${screen.file}`}
+              />
+            ) : null}
+            {showSelection && selectionSource ? (
+              <ContextChip
+                icon={<SquareDashedMousePointer />}
+                label={`${inspect?.name ?? "Selection"} :${selectionSource.line}`}
+                onRemove={() => setAttachSelection(false)}
+                title={`Selected element: ${selectionSource.file}:${selectionSource.line}`}
+              />
+            ) : null}
+            {showShot && screen ? (
+              <ContextChip
+                icon={<Camera />}
+                label="Screenshot"
+                onRemove={() => setAttachShot(false)}
+                title={`Screenshot of ${screen.name}`}
+              />
+            ) : null}
+          </div>
+        ) : null}
+        <textarea
+          className="field-sizing-content max-h-60 min-h-24 w-full resize-none bg-transparent px-3 py-2 text-xs/relaxed outline-none placeholder:text-muted-foreground"
           onChange={onTextChange}
           onKeyDown={onTextKeyDown}
-          placeholder={`Ask ${agentName}… (⌘↩ to send)`}
+          placeholder={`Ask ${agentName} to change the design…`}
           value={text}
         />
-        <InputGroupAddon align="block-end" className="flex-wrap">
-          {screen && (
-            <Chip
-              icon={<Paperclip />}
-              onPressedChange={setAttachScreen}
-              pressed={attachScreen}
+        <div className="flex items-center gap-1 px-1.5 pb-1.5">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  aria-label="Add context"
+                  className="text-muted-foreground"
+                  size="icon-sm"
+                  title="Add context"
+                  variant="ghost"
+                />
+              }
             >
-              {screen.name}
-            </Chip>
-          )}
-          {selection?.source ? (
-            <Chip
-              icon={<Paperclip />}
-              onPressedChange={setAttachSelection}
-              pressed={attachSelection}
-            >
-              {inspect?.name ?? "selection"}:{selection.source.line}
-            </Chip>
-          ) : null}
-          {screen && (
-            <Chip
-              icon={<Image />}
-              onPressedChange={setAttachShot}
-              pressed={attachShot}
-            >
-              screenshot
-            </Chip>
-          )}
+              <Plus />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56" side="top">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>
+                  Send along with the prompt
+                </DropdownMenuLabel>
+                <DropdownMenuCheckboxItem
+                  checked={attachScreen}
+                  disabled={!screen}
+                  onCheckedChange={setAttachScreen}
+                >
+                  <AppWindow />
+                  Screen file
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem
+                  checked={attachSelection}
+                  disabled={!selectionSource}
+                  onCheckedChange={setAttachSelection}
+                >
+                  <SquareDashedMousePointer />
+                  Selected element
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem
+                  checked={attachShot}
+                  disabled={!screen}
+                  onCheckedChange={setAttachShot}
+                >
+                  <Camera />
+                  Screenshot of the screen
+                </DropdownMenuCheckboxItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <ModePicker thread={thread} />
+          <ModelPicker draft={text} thread={thread} />
+          <div className="flex-1" />
           {running ? (
-            <InputGroupButton
-              className="ml-auto"
-              onClick={cancel}
-              size="sm"
-              variant="outline"
-            >
-              <Square /> Stop
-            </InputGroupButton>
+            <Button onClick={cancel} size="sm" variant="outline">
+              <Square data-icon="inline-start" /> Stop
+            </Button>
           ) : (
-            <InputGroupButton
+            <Button
               aria-label="Send"
-              className="ml-auto rounded-full"
+              className="rounded-full"
               disabled={busy || !text.trim() || thread.status === "starting"}
               onClick={send}
-              size="icon-xs"
+              size="icon-sm"
               title="Send (⌘↩)"
-              variant="default"
             >
               <ArrowUp />
-            </InputGroupButton>
+            </Button>
           )}
-        </InputGroupAddon>
-      </InputGroup>
+        </div>
+      </div>
     </div>
   );
 };
 
-/** Attachment toggle: pressed means the context is sent along with the prompt. */
-const Chip = ({
-  pressed,
-  onPressedChange,
+/** Context sent with the prompt; removing it keeps it out until re-added from the + menu. */
+const ContextChip = ({
   icon,
-  children,
+  label,
+  title,
+  onRemove,
 }: {
-  pressed: boolean;
-  onPressedChange: (pressed: boolean) => void;
   icon: ReactNode;
-  children: ReactNode;
+  label: string;
+  title: string;
+  onRemove: () => void;
 }) => (
-  <Toggle
-    className={cn(
-      "h-5 min-w-0 rounded-full px-1.5 font-normal",
-      !pressed && "text-muted-foreground line-through"
-    )}
-    onPressedChange={onPressedChange}
-    pressed={pressed}
-    size="sm"
-    variant="outline"
+  <span
+    className="flex h-5 min-w-0 items-center gap-1 rounded-md border bg-background/40 pr-0.5 pl-1.5 text-[11px] [&_svg]:size-3 [&_svg]:shrink-0 [&_svg]:text-muted-foreground"
+    title={title}
   >
     {icon}
-    <span className="max-w-28 truncate">{children}</span>
-  </Toggle>
+    <span className="max-w-32 truncate">{label}</span>
+    <button
+      aria-label={`Remove ${label}`}
+      className="flex size-4 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+      onClick={onRemove}
+      type="button"
+    >
+      <X />
+    </button>
+  </span>
 );

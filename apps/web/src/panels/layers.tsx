@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { bridgeFor } from "../canvas/bridge.ts";
 import { PanelEmpty } from "../components/panel.tsx";
 import { runEdit } from "../lib/shortcuts.ts";
-import { findPath, useEditor } from "../state/editor.ts";
+import { findPath, hostOf, useEditor } from "../state/editor.ts";
 
 const keyOf = (n: TreeNode) =>
   n.source ? `${sourceKey(n.source)}:${n.kind}` : n.id;
@@ -27,6 +27,14 @@ interface DropTarget {
   id: string;
   position: DropPosition;
 }
+
+const QUOTED_TEXT_RE = / ".*"$/;
+
+/** The host element's summary, without the text the component's summary already quotes. */
+const hostLabel = (component: TreeNode, host: TreeNode) =>
+  QUOTED_TEXT_RE.test(component.summary)
+    ? host.summary.replace(QUOTED_TEXT_RE, "")
+    : host.summary;
 
 const dropPositionAt = (node: TreeNode, y: number): DropPosition => {
   if (node.kind !== "text" && y > 0.3 && y < 0.7) {
@@ -211,9 +219,15 @@ const LayerNode = ({
     toggle,
   } = shared;
   const isCollapsed = collapsed.has(keyOf(node));
-  const selected = shared.selectedId === node.id;
-  const hovered = shared.hoveredId === node.id;
-  const hasChildren = node.children.length > 0;
+  const host = hostOf(node);
+  const children = host ? host.children : node.children;
+  const isRow = (id: string | null) =>
+    id !== null && (id === node.id || id === host?.id);
+  const selected = isRow(shared.selectedId);
+  const hovered = isRow(shared.hoveredId);
+  const hasChildren = children.length > 0;
+  // In source the children are written inside the component's JSX, not its host element.
+  const rowParent = host ? { ...node, children } : node;
   const dropHere = dropTarget?.id === node.id ? dropTarget.position : null;
 
   const select = () => {
@@ -314,20 +328,26 @@ const LayerNode = ({
         <span
           className={cn(
             "truncate",
+            host && "max-w-[70%] shrink-0",
             node.kind === "component" && "font-medium text-brand",
             selected && node.kind === "component" && "text-foreground"
           )}
         >
           {node.summary}
         </span>
+        {host ? (
+          <span className="min-w-0 truncate text-muted-foreground/70">
+            {hostLabel(node, host)}
+          </span>
+        ) : null}
       </div>
       {!isCollapsed && hasChildren
-        ? node.children.map((c) => (
+        ? children.map((c) => (
             <LayerNode
               depth={depth + 1}
               key={c.id}
               node={c}
-              parent={node}
+              parent={rowParent}
               shared={shared}
             />
           ))

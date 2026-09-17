@@ -32,14 +32,16 @@ interface EditorStore {
   hover: { screenId: string; nodeId: string } | null;
   inspect: InspectResult | null;
   layout: CanvasLayout;
-  leftTab: "layers" | "screens" | "palette" | "changes";
+  leftTab: "chat" | "layers" | "screens" | "palette" | "changes";
   mode: Mode;
 
   openFlow: (flow: string) => Promise<void>;
   rects: Record<string, Record<string, Rect>>;
-  rightTab: "design" | "agents";
   select: (selection: Selection | null) => void;
+  /** Screen selected as a whole (its frame), as opposed to an element inside it. */
+  selectedScreen: string | null;
   selection: Selection | null;
+  selectScreen: (screenId: string | null) => void;
   setActiveScreen: (screenId: string | null) => void;
   setFrame: (screenId: string, frame: FrameLayout, persist?: boolean) => void;
   setHostError: (screenId: string, error: string | null) => void;
@@ -49,10 +51,12 @@ interface EditorStore {
   setMode: (mode: Mode) => void;
   setPreset: (screenId: string, preset: ViewportPreset) => void;
   setRects: (screenId: string, rects: Record<string, Rect>) => void;
-  setRightTab: (tab: EditorStore["rightTab"]) => void;
+  setSpacePan: (spacePan: boolean) => void;
   setTokens: (tokens: Record<string, string>) => void;
   setTree: (screenId: string, tree: TreeNode) => void;
   setView: (view: Partial<EditorStore["view"]>) => void;
+  /** Space is held: the canvas pans whatever the current mode. */
+  spacePan: boolean;
   tokens: Record<string, string>;
   trees: Record<string, TreeNode>;
   view: { x: number; y: number; zoom: number };
@@ -101,7 +105,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
   hover: null,
   inspect: null,
   layout: { frames: {}, version: 1 },
-  leftTab: "layers",
+  leftTab: "chat",
   mode: "select",
 
   openFlow: async (flow) => {
@@ -119,6 +123,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
         inspect: null,
         layout,
         rects: {},
+        selectedScreen: null,
         selection: null,
         trees: {},
       });
@@ -128,15 +133,22 @@ export const useEditor = create<EditorStore>((set, get) => ({
     }
   },
   rects: {},
-  rightTab: "design",
   select: (selection) =>
     set({
       activeScreen: selection?.screenId ?? get().activeScreen,
       inspect: selection ? get().inspect : null,
-      rightTab: selection ? "design" : get().rightTab,
+      selectedScreen: null,
       selection,
     }),
+  selectedScreen: null,
   selection: null,
+  selectScreen: (screenId) =>
+    set({
+      activeScreen: screenId ?? get().activeScreen,
+      inspect: null,
+      selectedScreen: screenId,
+      selection: null,
+    }),
   setActiveScreen: (activeScreen) => set({ activeScreen }),
   setFrame: (screenId, frame, persist = true) => {
     set((s) => ({ frames: { ...s.frames, [screenId]: frame } }));
@@ -179,11 +191,12 @@ export const useEditor = create<EditorStore>((set, get) => ({
   },
   setRects: (screenId, rects) =>
     set((s) => ({ rects: { ...s.rects, [screenId]: rects } })),
-  setRightTab: (rightTab) => set({ rightTab }),
+  setSpacePan: (spacePan) => set({ spacePan }),
   setTokens: (tokens) => set({ tokens }),
   setTree: (screenId, tree) =>
     set((s) => ({ trees: { ...s.trees, [screenId]: tree } })),
   setView: (view) => set((s) => ({ view: { ...s.view, ...view } })),
+  spacePan: false,
   tokens: {},
   trees: {},
   view: { x: 80, y: 80, zoom: 0.5 },
@@ -195,7 +208,12 @@ export const useEditor = create<EditorStore>((set, get) => ({
     fitTo(set, viewport, frames);
   },
   zoomToSelection: (viewport) => {
-    const { selection, frames, rects } = get();
+    const { selection, selectedScreen, frames, rects } = get();
+    const screenFrame = selectedScreen ? frames[selectedScreen] : undefined;
+    if (screenFrame) {
+      fitTo(set, viewport, [screenFrame]);
+      return;
+    }
     if (!selection) {
       return;
     }
@@ -244,6 +262,23 @@ const fitTo = (
     },
   });
 };
+
+/**
+ * The element a component renders as its only child. The layers panel shows the two on one row,
+ * so navigation treats them as one node.
+ */
+export const hostOf = (node: TreeNode | undefined): TreeNode | null => {
+  const only = node?.children[0];
+  return node?.kind === "component" &&
+    node.children.length === 1 &&
+    only?.kind === "element"
+    ? only
+    : null;
+};
+
+/** Children as the layers panel shows them: a component's host element is skipped. */
+export const rowChildren = (node: TreeNode): readonly TreeNode[] =>
+  (hostOf(node) ?? node).children;
 
 /** Finds a node by id in a tree, returning the path of ancestors. */
 export const findPath = (

@@ -1,4 +1,5 @@
 import type { FrameLayout } from "@ultrapaint/contracts/screens";
+import { cn } from "cn";
 import {
   type PointerEvent as ReactPointerEvent,
   useEffect,
@@ -17,11 +18,12 @@ export const Canvas = () => {
   const frames = useEditor((s) => s.frames);
   const flow = useEditor((s) => s.flow);
   const mode = useEditor((s) => s.mode);
+  const spacePan = useEditor((s) => s.spacePan);
   const allScreens = useProject((s) => s.screens);
   const screens = allScreens.filter((x) => x.flow === flow);
   const hostUrl = useHostUrl();
   const [size, setSize] = useState({ height: 0, width: 0 });
-  const spaceDown = useRef(false);
+  const [panning, setPanning] = useState(false);
   const drag = useRef<
     | { kind: "pan"; startX: number; startY: number; vx: number; vy: number }
     | {
@@ -75,35 +77,43 @@ export const Canvas = () => {
   }, []);
 
   useEffect(() => {
+    const store = useEditor.getState;
     const down = (e: KeyboardEvent) => {
       if (e.code === "Space" && !isTyping(e)) {
-        spaceDown.current = true;
         e.preventDefault();
+        if (!store().spacePan) {
+          store().setSpacePan(true);
+        }
       }
     };
     const up = (e: KeyboardEvent) => {
-      if (e.code === "Space") {
-        spaceDown.current = false;
+      if (e.code === "Space" && store().spacePan) {
+        store().setSpacePan(false);
       }
     };
+    // A key released while the window is in the background never reaches keyup.
+    const blur = () => store().setSpacePan(false);
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
+    window.addEventListener("blur", blur);
     return () => {
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", blur);
     };
   }, []);
 
   const onPointerDown = (e: ReactPointerEvent) => {
-    const panning = e.button === 1 || spaceDown.current || mode === "pan";
-    if (!panning) {
+    const pan = e.button === 1 || spacePan || mode === "pan";
+    if (!pan) {
       if (e.target === e.currentTarget) {
-        useEditor.getState().select(null);
+        useEditor.getState().selectScreen(null);
       }
       return;
     }
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    setPanning(true);
     drag.current = {
       kind: "pan",
       startX: e.clientX,
@@ -119,9 +129,14 @@ export const Canvas = () => {
     screenId: string,
     kind: "move" | "resize"
   ) => {
+    const s = useEditor.getState();
+    // Let the event reach the canvas, which pans.
+    if (e.button === 1 || s.spacePan || s.mode === "pan") {
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
-    const frame = useEditor.getState().frames[screenId];
+    const frame = s.frames[screenId];
     if (!frame) {
       return;
     }
@@ -133,7 +148,7 @@ export const Canvas = () => {
       startX: e.clientX,
       startY: e.clientY,
     };
-    useEditor.getState().setActiveScreen(screenId);
+    s.selectScreen(screenId);
   };
 
   const onPointerMove = (e: ReactPointerEvent) => {
@@ -178,6 +193,7 @@ export const Canvas = () => {
   const onPointerUp = () => {
     const d = drag.current;
     drag.current = null;
+    setPanning(false);
     if (d && d.kind !== "pan") {
       const s = useEditor.getState();
       const f = s.frames[d.screenId];
@@ -210,7 +226,12 @@ export const Canvas = () => {
 
   return (
     <div
-      className="relative h-full w-full overflow-hidden bg-background"
+      className={cn(
+        "relative h-full w-full overflow-hidden bg-background",
+        // Frame chrome sets its own cursors; while panning the hand wins everywhere.
+        (spacePan || mode === "pan") && "cursor-grab [&_*]:cursor-grab!",
+        panning && "cursor-grabbing! [&_*]:cursor-grabbing!"
+      )}
       onPointerCancel={onPointerUp}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -221,7 +242,6 @@ export const Canvas = () => {
           "radial-gradient(circle, var(--border) 1px, transparent 1px)",
         backgroundPosition: `${view.x}px ${view.y}px`,
         backgroundSize: `${Math.max(12, 24 * view.zoom)}px ${Math.max(12, 24 * view.zoom)}px`,
-        cursor: mode === "pan" ? "grab" : undefined,
       }}
     >
       <div

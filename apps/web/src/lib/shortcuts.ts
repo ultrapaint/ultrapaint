@@ -1,7 +1,8 @@
+import type { TreeNode } from "@ultrapaint/contracts/preview";
 import { useEffect } from "react";
 import { bridgeFor } from "../canvas/bridge.ts";
 import { api } from "../state/connection.ts";
-import { findPath, useEditor } from "../state/editor.ts";
+import { findPath, hostOf, rowChildren, useEditor } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
 
 const isTyping = (e: KeyboardEvent) => {
@@ -123,6 +124,26 @@ const handleZoomKey = (e: KeyboardEvent, s: EditorState, meta: boolean) => {
   }
 };
 
+/**
+ * The selected node and its parent as the layers panel shows them: a component and its host
+ * element share a row, so navigation moves as if they were one node.
+ */
+const rowPath = (path: readonly TreeNode[]) => {
+  let node = path.at(-1);
+  let parent = path.at(-2);
+  let depth = path.length - 2;
+  if (parent && hostOf(parent)?.id === node?.id) {
+    node = parent;
+    depth -= 1;
+    parent = path[depth];
+  }
+  const grand = path[depth - 1];
+  if (parent && grand && hostOf(grand)?.id === parent.id) {
+    parent = grand;
+  }
+  return { node, parent };
+};
+
 // Tree navigation.
 const handleTreeNavigation = (e: KeyboardEvent, s: EditorState) => {
   const { selection } = s;
@@ -135,8 +156,7 @@ const handleTreeNavigation = (e: KeyboardEvent, s: EditorState) => {
     return;
   }
   e.preventDefault();
-  const node = path.at(-1);
-  const parent = path.at(-2);
+  const { node, parent } = rowPath(path);
   if (!node) {
     return;
   }
@@ -156,13 +176,15 @@ const handleTreeNavigation = (e: KeyboardEvent, s: EditorState) => {
       s.select(null);
     }
   } else if (e.key === "ArrowRight") {
-    const [child] = node.children;
+    const [child] = rowChildren(node);
     if (child) {
       go(child.id, child.source);
     }
   } else if (parent) {
-    const idx = parent.children.findIndex((c) => c.id === node.id);
-    const sib = parent.children[idx + (e.key === "ArrowDown" ? 1 : -1)];
+    const siblings = rowChildren(parent);
+    const current = node;
+    const idx = siblings.findIndex((c) => c.id === current.id);
+    const sib = siblings[idx + (e.key === "ArrowDown" ? 1 : -1)];
     if (sib) {
       go(sib.id, sib.source);
     }
@@ -180,6 +202,10 @@ export const useShortcuts = () => {
       if (handleEditKey(e, s, meta)) {
         return;
       }
+      if (e.key === "Escape" && s.selectedScreen) {
+        s.selectScreen(null);
+        return;
+      }
       handleModeKey(e, s, meta);
       handleZoomKey(e, s, meta);
       handleTreeNavigation(e, s);
@@ -192,7 +218,7 @@ export const useShortcuts = () => {
 export const viewportSize = () => {
   const el = document.querySelector("main > div");
   return {
-    height: el?.clientHeight ?? window.innerHeight - 40,
+    height: el?.clientHeight ?? window.innerHeight,
     width: el?.clientWidth ?? window.innerWidth - 544,
   };
 };

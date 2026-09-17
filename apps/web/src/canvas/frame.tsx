@@ -13,6 +13,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   useEffect,
   useRef,
+  useState,
 } from "react";
 import { OptionSelect } from "../components/option-select.tsx";
 import { api } from "../state/connection.ts";
@@ -76,6 +77,7 @@ export const Frame = memo(
   ({ screen, frame, hostUrl, zoom, visible, onDragStart }: Props) => {
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const mode = useEditor((s) => s.mode);
+    const spacePan = useEditor((s) => s.spacePan);
     const selection = useEditor((s) => s.selection);
     const hover = useEditor((s) => s.hover);
     const rects = useEditor((s) => s.rects[screen.id]);
@@ -256,55 +258,24 @@ export const Frame = memo(
           width: frame.width,
         }}
       >
-        {/* Chrome: constant screen size regardless of zoom. */}
-        <div
-          className={cn(
-            "absolute left-0 flex items-center gap-2 whitespace-nowrap",
-            isActive ? "text-foreground" : "text-muted-foreground"
-          )}
-          style={{
-            height: 26,
-            top: -30 * inv,
-            transform: `scale(${inv})`,
-            transformOrigin: "bottom left",
-          }}
-        >
-          <button
-            className="cursor-grab select-none font-medium text-[12px] hover:text-foreground active:cursor-grabbing"
-            onClick={() => useEditor.getState().setActiveScreen(screen.id)}
-            onPointerDown={(e) => onDragStart(e, screen.id, "move")}
-            type="button"
-          >
-            {screen.name}
-          </button>
-          <div className="w-24">
-            <OptionSelect
-              className="border-transparent bg-transparent text-[11px] text-muted-foreground hover:border-input dark:bg-transparent"
-              onChange={(v) =>
-                useEditor.getState().setPreset(screen.id, v as ViewportPreset)
-              }
-              options={presets}
-              size="sm"
-              value={frame.preset}
-            />
-          </div>
-          <span className="text-[11px] text-muted-foreground">
-            {Math.round(frame.width)} × {Math.round(frame.height)}
-          </span>
-        </div>
+        <FrameChrome
+          frame={frame}
+          inv={inv}
+          isActive={isActive}
+          onDragStart={onDragStart}
+          screen={screen}
+        />
 
-        <div
-          className={cn(
-            "absolute inset-0 overflow-hidden bg-white shadow-2xl",
-            isActive && "ring-1 ring-brand/60"
-          )}
-        >
+        <div className="absolute inset-0 overflow-hidden bg-white shadow-2xl">
           {visible && url ? (
             <iframe
               className="block h-full w-full border-0 bg-white"
               ref={iframeRef}
               src={url}
-              style={{ pointerEvents: mode === "interact" ? "auto" : "none" }}
+              style={{
+                pointerEvents:
+                  mode === "interact" && !spacePan ? "auto" : "none",
+              }}
               title={screen.name}
             />
           ) : (
@@ -312,7 +283,7 @@ export const Frame = memo(
               {url ? "" : "Preview host not running"}
             </div>
           )}
-          {mode === "select" && (
+          {mode === "select" && !spacePan && (
             <button
               aria-label={`Select elements in ${screen.name}`}
               className="absolute inset-0 h-full w-full cursor-default"
@@ -355,6 +326,75 @@ export const Frame = memo(
   }
 );
 Frame.displayName = "Frame";
+
+/** Screen name, viewport preset and size above the frame, plus the frame's selection outline. */
+const FrameChrome = ({
+  screen,
+  frame,
+  inv,
+  isActive,
+  onDragStart,
+}: Pick<Props, "frame" | "onDragStart" | "screen"> & {
+  inv: number;
+  isActive: boolean;
+}) => {
+  const isSelected = useEditor((s) => s.selectedScreen === screen.id);
+  const [titleHover, setTitleHover] = useState(false);
+  const selectScreen = () => useEditor.getState().selectScreen(screen.id);
+  return (
+    <>
+      {/* Chrome: constant screen size and distance from the frame regardless of zoom. */}
+      <div
+        className={cn(
+          "absolute left-0 flex items-center gap-2 whitespace-nowrap",
+          isSelected || isActive ? "text-foreground" : "text-muted-foreground"
+        )}
+        style={{
+          bottom: `calc(100% + ${6 * inv}px)`,
+          height: 26,
+          transform: `scale(${inv})`,
+          transformOrigin: "bottom left",
+        }}
+      >
+        <button
+          className={cn(
+            "cursor-pointer select-none font-medium text-[12px] hover:text-foreground",
+            isSelected && "text-brand hover:text-brand"
+          )}
+          onClick={selectScreen}
+          onPointerDown={(e) => onDragStart(e, screen.id, "move")}
+          onPointerEnter={() => setTitleHover(true)}
+          onPointerLeave={() => setTitleHover(false)}
+          type="button"
+        >
+          {screen.name}
+        </button>
+        <div className="w-24">
+          <OptionSelect
+            className="border-transparent bg-transparent text-[11px] text-muted-foreground hover:border-input dark:bg-transparent"
+            onChange={(v) =>
+              useEditor.getState().setPreset(screen.id, v as ViewportPreset)
+            }
+            options={presets}
+            size="sm"
+            value={frame.preset}
+          />
+        </div>
+        <span className="text-[11px] text-muted-foreground">
+          {Math.round(frame.width)} × {Math.round(frame.height)}
+        </span>
+      </div>
+      {isSelected || titleHover ? (
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            outline: `${(isSelected ? 2 : 1) * inv}px solid ${isSelected ? "#4f8cff" : "rgba(79,140,255,0.6)"}`,
+          }}
+        />
+      ) : null}
+    </>
+  );
+};
 
 const Outline = ({
   rect,
