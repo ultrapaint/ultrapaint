@@ -15,7 +15,6 @@ import {
   drawsOnScreen,
   elementSummary,
   shorten,
-  unionRect,
 } from "@ultrapaint/preview-core/dom";
 
 interface Fiber {
@@ -336,46 +335,12 @@ const firstRow = ({ inside, portal, rows }: ReturnType<typeof rowsAbove>) => {
   return painted === -1 ? Math.max(inside - 1, 0) : painted;
 };
 
-const SAME_BOX = 0.5;
-
 /**
- * Drops a row that draws exactly the box of the row holding it, since a step of the way in that
- * moves no outline reads as a click that did nothing. A library hangs its popup in wrappers
- * that only place it on the screen, and the element an instance ends up rendering is wrapped
- * again inside it.
- *
- * A row the design itself wrote is kept whatever its box — there, every element is one the
- * designer put there and has to stay within reach — unless it repeats the line of source the
- * row above it already stands for, which is what a library forwarding an instance's props down
- * to its own element produces.
- */
-const withoutEmptySteps = (rows: readonly Fiber[]): Fiber[] => {
-  const kept: Fiber[] = [];
-  let box: ReturnType<typeof unionRect> | null = null;
-  let stamp: string | null = null;
-  for (const f of rows) {
-    const r = unionRect(domNodesOf(f));
-    const own = stampOf(f);
-    const same =
-      box !== null &&
-      Math.abs(box.x - r.x) < SAME_BOX &&
-      Math.abs(box.y - r.y) < SAME_BOX &&
-      Math.abs(box.width - r.width) < SAME_BOX &&
-      Math.abs(box.height - r.height) < SAME_BOX;
-    if (same && (own === stamp || !isEditable(parseStamp(own)))) {
-      continue;
-    }
-    kept.push(f);
-    box = r;
-    stamp = own;
-  }
-  return kept;
-};
-
-/**
- * The rows a click at this element can reach, outermost first. The first is what a plain click
+ * The nodes a click at this element can reach, outermost first. The first is what a plain click
  * takes; the editor walks the rest of the way in as the same place is clicked again, and jumps
- * to the last of them when a click is held with Alt.
+ * to the last of them when a click is held with Alt. Every node on the way is offered, whatever
+ * its box: two of them can be laid out exactly alike and still be different nodes, and one that
+ * the layers panel lists has to be reachable on the canvas too.
  */
 const chainAt = (el: Element): string[] => {
   let fiber = fiberOfDom(el);
@@ -387,8 +352,10 @@ const chainAt = (el: Element): string[] => {
     return [];
   }
   const above = rowsAbove(fiber);
-  const rows = above.rows.slice(0, firstRow(above) + 1).reverse();
-  return withoutEmptySteps(rows).map(idFor);
+  return above.rows
+    .slice(0, firstRow(above) + 1)
+    .reverse()
+    .map(idFor);
 };
 
 // ---- Facts ----

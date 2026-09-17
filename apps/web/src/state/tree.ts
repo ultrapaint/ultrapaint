@@ -68,6 +68,27 @@ export const findPath = (
 };
 
 /**
+ * The chain as the layers panel lists it: a component and the element it renders as its only
+ * child share a row there, so they are one step of the way in here. Nothing else is merged —
+ * two nodes laid out exactly alike are still two nodes, and one the panel lists has to be
+ * reachable on the canvas too.
+ */
+const asRows = (
+  chain: readonly string[],
+  tree: TreeNode | undefined
+): string[] => {
+  const rows: string[] = [];
+  for (const id of chain) {
+    const above = rows.at(-1);
+    if (above && hostOf(findNode(tree, above) ?? undefined)?.id === id) {
+      continue;
+    }
+    rows.push(id);
+  }
+  return rows;
+};
+
+/**
  * Which node under the pointer a click takes, and what a hover therefore shows.
  *
  * The first of the chain is the one the preview offers: an instance of the design system whole,
@@ -84,20 +105,21 @@ export const stepInto = (
   selectedId: string | null,
   alt: boolean
 ): string | null => {
-  const last = chain.at(-1) ?? null;
-  if (alt || chain.length < 2) {
+  const rows = asRows(chain, tree);
+  const last = rows.at(-1) ?? null;
+  if (alt || rows.length < 2) {
     return last;
   }
   const open = new Set(
     (selectedId ? findPath(tree, selectedId) : null)?.map((n) => n.id)
   );
   let depth = -1;
-  chain.forEach((id, i) => {
+  rows.forEach((id, i) => {
     if (open.has(id)) {
       depth = i;
     }
   });
-  return chain[Math.min(depth + 1, chain.length - 1)] ?? last;
+  return rows[Math.min(depth + 1, rows.length - 1)] ?? last;
 };
 
 export const findBySource = (

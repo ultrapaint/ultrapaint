@@ -12,6 +12,11 @@ const node = (id: string, children: TreeNode[] = []): TreeNode => ({
   summary: id,
 });
 
+const component = (id: string, children: TreeNode[] = []): TreeNode => ({
+  ...node(id, children),
+  kind: "component",
+});
+
 /** A screen holding an open menu: one popup, a list, and two items of one row each. */
 const tree = node("root", [
   node("card", [node("trigger")]),
@@ -61,5 +66,37 @@ describe("what a click on the canvas takes", () => {
 
   it("answers with nothing when the point is on nothing", () => {
     expect(stepInto([], tree, "popup", false)).toBeNull();
+  });
+});
+
+/** An icon inside an indicator: laid out exactly alike, and still two nodes of the tree. */
+const nested = node("root", [
+  component("indicator", [component("icon", [node("svg", [node("path")])])]),
+]);
+
+describe("nodes laid out exactly alike", () => {
+  it("still goes deeper, one of them at a time", () => {
+    const chain = ["indicator", "icon", "svg", "path"];
+    expect(stepInto(chain, nested, "indicator", false)).toBe("icon");
+    expect(stepInto(chain, nested, "icon", false)).toBe("path");
+  });
+
+  it("puts a component and the element it renders on one step, as the panel does", () => {
+    // `icon` renders `svg` as its only child, so the two are one row of the layers panel.
+    expect(
+      stepInto(["indicator", "icon", "svg"], nested, "indicator", false)
+    ).toBe("icon");
+    expect(stepInto(["indicator", "icon", "svg"], nested, "icon", false)).toBe(
+      "icon"
+    );
+  });
+
+  it("reaches the innermost row with alt held", () => {
+    expect(stepInto(["indicator", "icon", "svg"], nested, null, true)).toBe(
+      "icon"
+    );
+    expect(
+      stepInto(["indicator", "icon", "svg", "path"], nested, null, true)
+    ).toBe("path");
   });
 });
