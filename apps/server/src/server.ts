@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import { NodeHttpServer } from "@effect/platform-node";
 import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Stream } from "effect";
 import {
   HttpRouter,
   HttpServerRequest,
@@ -15,6 +15,8 @@ import { EventBus } from "./events.ts";
 import { ProjectManager } from "./project.ts";
 import { RpcHandlers } from "./rpc-handlers.ts";
 import { SettingsService } from "./services/settings.ts";
+import { SetupService } from "./services/setup.ts";
+import { Storage } from "./services/storage.ts";
 import { AgentConfigs } from "./services/threads/agent-configs.ts";
 import { Checkpoints } from "./services/threads/checkpoints.ts";
 import { ThreadStore } from "./services/threads/thread-store.ts";
@@ -93,10 +95,25 @@ const Boot = Layer.effectDiscard(
     const project = yield* ProjectManager;
     const log = yield* AppLog;
     yield* log.log("server", "info", `listening on http://127.0.0.1:${port}`);
+    const storage = yield* (yield* Storage).info;
+    if (storage.mode === "ephemeral") {
+      yield* log.log(
+        "server",
+        "warn",
+        "started without a configuration: settings and agent threads are not saved"
+      );
+    } else {
+      yield* log.log("server", "info", `configuration: ${storage.configPath}`);
+    }
     const saved = yield* settings.get;
     if (saved) {
       yield* Effect.forkScoped(project.open(saved));
     }
+    // The configuration file changed under us (an editor, a branch switch): follow it.
+    yield* settings.changes.pipe(
+      Stream.runForEach((next) => project.open(next)),
+      Effect.forkScoped
+    );
   })
 );
 
@@ -109,6 +126,8 @@ const Threads = ThreadService.layer.pipe(
 const Services = Threads.pipe(
   Layer.provideMerge(ProjectManager.layer),
   Layer.provideMerge(SettingsService.layer),
+  Layer.provideMerge(SetupService.layer),
+  Layer.provideMerge(Storage.layer),
   Layer.provideMerge(AppLog.layer),
   Layer.provideMerge(EventBus.layer)
 );

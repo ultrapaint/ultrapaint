@@ -1,0 +1,33 @@
+{
+  "name": "@ultrapaint/framework-react-vite",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "build": "node --experimental-strip-types scripts/build.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@babel/parser": "^8.0.5",
+    "@ultrapaint/contracts": "workspace:*",
+    "@ultrapaint/framework-api": "workspace:*",
+    "@ultrapaint/preview-core": "workspace:*",
+    "@ultrapaint/renderer-react": "workspace:*",
+    "@ultrapaint/shared": "workspace:*",
+    "@vitejs/plugin-react": "^6.1.1",
+    "esbuild": "^0.28.2",
+    "magic-string": "^1.4.1",
+    "tailwind-merge": "^3.7.0",
+    "typescript-api": "npm:typescript@^5.9.3",
+    "vite": "^8.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "7.0.2",
+    "vitest": "^5.0.1"
+  }
+}

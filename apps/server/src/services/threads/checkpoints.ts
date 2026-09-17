@@ -11,13 +11,13 @@ import {
   Schema,
 } from "effect";
 import { makeWriteAtomic } from "../../atomic-write.ts";
-import { ServerConfig } from "../../config.ts";
 import { EventBus } from "../../events.ts";
 import { makeWalk } from "../../fs-walk.ts";
 import { hashContent } from "../../hash.ts";
 import { makeId } from "../../ids.ts";
 import { ProjectManager } from "../../project.ts";
 import { RepoPaths } from "../repo-paths.ts";
+import { Storage } from "../storage.ts";
 import { simpleDiff } from "./diff.ts";
 
 const KEEP = 30;
@@ -52,15 +52,19 @@ export class Checkpoints extends Context.Service<
   static readonly layer = Layer.effect(
     Checkpoints,
     Effect.gen(function* () {
-      const { home } = yield* ServerConfig;
+      const storage = yield* Storage;
       const project = yield* ProjectManager;
       const events = yield* EventBus;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const writeAtomic = makeWriteAtomic(fs, path);
       const walk = makeWalk(fs, path);
-      const dir = path.join(home, "checkpoints");
-      const fileOf = (id: string) => path.join(dir, `${id}.json`);
+      // Asked for on every write: saving an unsaved session moves the state directory.
+      const fileOf = (id: string) =>
+        Effect.map(storage.stateDir, (state) =>
+          path.join(state, "checkpoints", `${id}.json`)
+        );
+      const dir = path.join(yield* storage.stateDir, "checkpoints");
       const store = new Map<string, Record>();
 
       yield* Effect.orDie(fs.makeDirectory(dir, { recursive: true }));
@@ -119,7 +123,9 @@ export class Checkpoints extends Context.Service<
         store.set(record.checkpoint.id, record);
         yield* encodeRecord(record).pipe(
           Effect.flatMap((json) =>
-            writeAtomic(fileOf(record.checkpoint.id), json)
+            Effect.flatMap(fileOf(record.checkpoint.id), (file) =>
+              writeAtomic(file, json)
+            )
           ),
           Effect.orDie
         );
@@ -129,7 +135,9 @@ export class Checkpoints extends Context.Service<
         for (const old of oldest) {
           store.delete(old.checkpoint.id);
           yield* Effect.ignore(
-            fs.remove(fileOf(old.checkpoint.id), { force: true })
+            Effect.flatMap(fileOf(old.checkpoint.id), (file) =>
+              fs.remove(file, { force: true })
+            )
           );
         }
       });

@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+import { StorageInfo } from "./settings.ts";
 
 export const HostStatus = Schema.Struct({
   error: Schema.optional(Schema.String),
@@ -16,6 +17,8 @@ export const ProjectInfo = Schema.Struct({
   host: HostStatus,
   name: Schema.optional(Schema.String),
   repoPath: Schema.optional(Schema.String),
+  /** Where settings and tool state are kept; drives the "not saved" warning. */
+  storage: StorageInfo,
 });
 export type ProjectInfo = typeof ProjectInfo.Type;
 

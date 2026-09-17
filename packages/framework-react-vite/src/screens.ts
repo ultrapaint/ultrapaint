@@ -1,6 +1,8 @@
+import type { ScreenFiles } from "@ultrapaint/framework-api/node";
 import { humanise } from "@ultrapaint/shared/path";
 
 const TSX_EXT_RE = /\.tsx$/;
+const NON_SCREEN_TSX_RE = /\.(stories|test|spec)\.tsx$/;
 const LEADING_LETTER_RE = /^[A-Za-z]/;
 
 export const screenTemplates = [
@@ -36,4 +38,23 @@ export const renderTemplate = (id: string, name: string): string => {
     default:
       return `export default function ${name}() {\n  return <main className="min-h-screen bg-background-100 p-8" />;\n}\n`;
   }
+};
+
+/** Screens are TSX modules whose default export is the screen component. */
+export const screens: ScreenFiles = {
+  // The component is named after the file, so a copy is renamed with it.
+  duplicate: (content, from, to) =>
+    content.replace(
+      new RegExp(`export default function ${componentName(from)}\\b`),
+      `export default function ${componentName(to)}`
+    ),
+  extension: ".tsx",
+  fileName: screenFileName,
+  isScreenFile: (name) =>
+    TSX_EXT_RE.test(name) &&
+    !NON_SCREEN_TSX_RE.test(name) &&
+    !name.startsWith("_"),
+  render: (templateId, fileName) =>
+    renderTemplate(templateId, componentName(fileName)),
+  templates: screenTemplates,
 };

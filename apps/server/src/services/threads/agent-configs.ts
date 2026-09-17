@@ -19,7 +19,7 @@ const CustomAgent = Schema.fromJsonString(
 const decodeCustomAgent = Schema.decodeUnknownEffect(CustomAgent);
 
 /**
- * Launch configurations are data: the built-in ones plus any JSON file under the home
+ * Launch configurations are data: the built-in ones plus any JSON file under the user
  * directory. They are read on every call so a new file shows up without a restart.
  */
 export class AgentConfigs extends Context.Service<
@@ -32,11 +32,11 @@ export class AgentConfigs extends Context.Service<
   static readonly layer = Layer.effect(
     AgentConfigs,
     Effect.gen(function* () {
-      const { home } = yield* ServerConfig;
+      const { userDir } = yield* ServerConfig;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const dir = path.join(home, "agents");
-      yield* Effect.orDie(fs.makeDirectory(dir, { recursive: true }));
+      // Only ever read: an unsaved session must not leave anything behind.
+      const dir = path.join(userDir, "agents");
 
       const readCustom = (name: string) =>
         fs.readFileString(path.join(dir, name)).pipe(

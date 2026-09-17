@@ -10,7 +10,10 @@ interface ProjectStore {
   info: ProjectInfo;
   load: () => Promise<void>;
   logs: readonly LogLine[];
+  openSaveConfig: (open: boolean) => void;
   openSettings: (open: boolean) => void;
+  /** The dialog that turns an unsaved session into a configuration file. */
+  saveConfigOpen: boolean;
   screens: readonly Screen[];
   setError: (error: string | null) => void;
   settings: Settings | null;
@@ -20,7 +23,11 @@ interface ProjectStore {
 
 export const useProject = create<ProjectStore>((set, get) => ({
   error: null,
-  info: { configured: false, host: { state: "stopped" } },
+  info: {
+    configured: false,
+    host: { state: "stopped" },
+    storage: { mode: "managed" },
+  },
   load: async () => {
     const c = api();
     try {
@@ -42,7 +49,9 @@ export const useProject = create<ProjectStore>((set, get) => ({
     }
   },
   logs: [],
+  openSaveConfig: (saveConfigOpen) => set({ saveConfigOpen }),
   openSettings: (settingsOpen) => set({ settingsOpen }),
+  saveConfigOpen: false,
   screens: [],
   setError: (error) => set({ error }),
   settings: null,

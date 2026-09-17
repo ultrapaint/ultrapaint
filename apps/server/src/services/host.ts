@@ -1,6 +1,5 @@
 import { createServer } from "node:net";
 import type { HostStatus } from "@ultrapaint/contracts/project";
-import { buildHostPlugin } from "@ultrapaint/host-plugin/build";
 import {
   Context,
   Deferred,
@@ -19,11 +18,8 @@ import {
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 import { AppLog } from "../app-log.ts";
 import { makeWriteAtomic } from "../atomic-write.ts";
-import { hostFiles } from "./host-files.ts";
+import { ProjectFramework } from "./framework.ts";
 import { RepoPaths } from "./repo-paths.ts";
-
-const NO_VITE =
-  "The designs package cannot resolve `vite`. Add `vite`, `@vitejs/plugin-react` and `@tailwindcss/vite` to its devDependencies and install.";
 
 const freePort = Effect.callback<number, Error>((resume) => {
   const server = createServer();
@@ -49,8 +45,8 @@ interface Running {
 }
 
 /**
- * Runs the preview host: the target repository's own Vite, started inside the designs
- * package with a generated configuration. The child lives in its own scope, so stopping the
+ * Runs the preview host: what the project's framework generates, served by the script it
+ * names, run from the package the screens resolve their imports from. The child lives in its own scope, so stopping the
  * host, reopening the project and shutting the server down all end the same process.
  */
 export class HostManager extends Context.Service<
@@ -67,6 +63,7 @@ export class HostManager extends Context.Service<
     HostManager,
     Effect.gen(function* () {
       const paths = yield* RepoPaths;
+      const framework = yield* ProjectFramework;
       const log = yield* AppLog;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -86,60 +83,68 @@ export class HostManager extends Context.Service<
       const exists = (p: string) =>
         Effect.orElseSucceed(fs.exists(p), () => false);
 
-      /** The designs package must resolve `vite`; it is driven through its JS API. */
-      const resolvesVite = Effect.gen(function* () {
-        const candidates = [paths.designsDir, paths.root].map((base) =>
-          path.join(base, "node_modules", "vite", "package.json")
-        );
-        for (const candidate of candidates) {
-          if (yield* exists(candidate)) {
-            return true;
-          }
-        }
-        return false;
-      });
-
-      const generate = Effect.fnUntraced(function* (built: {
-        plugin: string;
-        runtime: string;
-      }) {
+      const generate = Effect.gen(function* () {
         const dir = path.join(paths.designsDir, ".ultrapaint");
-        const files = hostFiles({
-          built,
-          designsDir: paths.designsDir,
-          dir,
-          root: paths.root,
-          settings: paths.settings,
-        });
-        for (const [name, content] of Object.entries(files)) {
-          yield* writeAtomic(path.join(dir, name), content);
-        }
-        const ignore = path.join(dir, ".gitignore");
-        if (!(yield* exists(ignore))) {
-          yield* writeAtomic(ignore, "*\n");
-        }
-        return dir;
+        const generated = yield* Effect.tryPromise(() =>
+          framework.preview.generate({
+            anchorDir: paths.anchorDir,
+            designsDir: paths.designsDir,
+            dir,
+            root: paths.root,
+            settings: paths.settings,
+          })
+        ).pipe(
+          Effect.mapError(
+            (e) => `the preview could not be prepared: ${String(e.cause)}`
+          )
+        );
+        yield* Effect.orDie(
+          Effect.gen(function* () {
+            for (const [name, content] of Object.entries(generated.files)) {
+              yield* writeAtomic(path.join(dir, name), content);
+            }
+            // The directory is ours: a file an older version generated must not linger.
+            const keep = new Set([
+              ...Object.keys(generated.files),
+              ".gitignore",
+            ]);
+            for (const name of yield* fs.readDirectory(dir)) {
+              const file = path.join(dir, name);
+              if (!keep.has(name) && (yield* fs.stat(file)).type === "File") {
+                yield* fs.remove(file);
+              }
+            }
+            const ignore = path.join(dir, ".gitignore");
+            if (!(yield* exists(ignore))) {
+              yield* writeAtomic(ignore, "*\n");
+            }
+          })
+        );
+        return generated.serve;
       });
 
+      // The last thing the preview said on stderr: why it exited, when it exits.
+      let lastError = "";
       const pipeOutput = (
         stream: Stream.Stream<Uint8Array, unknown>,
         level: "info" | "warn"
       ) =>
         stream.pipe(
           Stream.decodeText(),
-          Stream.runForEach((chunk) => log.log("host", level, chunk.trimEnd())),
+          Stream.runForEach((chunk) => {
+            const text = chunk.trimEnd();
+            if (level === "warn" && text !== "") {
+              lastError = text;
+            }
+            return log.log("host", level, text);
+          }),
           Effect.ignore
         );
 
       const launch = Effect.gen(function* () {
-        if (!(yield* resolvesVite)) {
-          return yield* setStatus({ error: NO_VITE, state: "error" });
-        }
+        lastError = "";
         yield* setStatus({ state: "starting" });
-        const built = yield* Effect.tryPromise(() => buildHostPlugin()).pipe(
-          Effect.mapError((e) => `host plugin build failed: ${String(e.cause)}`)
-        );
-        const dir = yield* Effect.orDie(generate(built));
+        const serve = yield* generate;
         const port = yield* Effect.orDie(freePort);
 
         const scope = yield* Scope.fork(layerScope);
@@ -148,10 +153,16 @@ export class HostManager extends Context.Service<
           .spawn(
             ChildProcess.make(
               process.execPath,
-              [path.join(dir, "serve.mjs"), String(port)],
+              [serve.script, ...serve.args, String(port)],
               {
-                cwd: paths.designsDir,
-                env: { FORCE_COLOR: "0", NODE_ENV: "development" },
+                cwd: paths.anchorDir,
+                // `pnpm` puts its own store on NODE_PATH; the preview must only see what the
+                // target repository can resolve, never this tool's dependencies.
+                env: {
+                  FORCE_COLOR: "0",
+                  NODE_ENV: "development",
+                  NODE_PATH: "",
+                },
                 extendEnv: true,
                 forceKillAfter: "3 seconds",
                 stdin: "ignore",
@@ -170,8 +181,13 @@ export class HostManager extends Context.Service<
 
         // An exit we did not ask for is an error the editor must see.
         const exited = handle.exitCode.pipe(
-          Effect.map((code) => `vite exited (${code})`),
-          Effect.orElseSucceed(() => "vite exited")
+          Effect.map((code) => `the preview exited (${code})`),
+          Effect.orElseSucceed(() => "the preview exited"),
+          // Its output is piped on another fiber; give the last lines a moment to arrive.
+          Effect.tap(() => Effect.sleep("50 millis")),
+          Effect.map((reason) =>
+            lastError ? `${reason}: ${lastError}` : reason
+          )
         );
         yield* Effect.forkIn(
           Effect.gen(function* () {
@@ -197,7 +213,9 @@ export class HostManager extends Context.Service<
           Effect.raceFirst(Effect.as(exited, "exited" as const))
         );
         if (outcome === "exited") {
-          return yield* SubscriptionRef.get(status);
+          // The watcher above reports the same thing; whichever comes first, the caller must
+          // not be told the preview is still starting.
+          return yield* setStatus({ error: yield* exited, state: "error" });
         }
         if (outcome === "timeout") {
           return yield* setStatus({

@@ -99,7 +99,12 @@ export type HostError = typeof HostError.Type;
 
 /** Messages the host runtime sends to the editor. */
 export const HostMessage = Schema.Union([
-  Schema.Struct({ screen: Schema.String, type: Schema.Literal("ed:ready") }),
+  Schema.Struct({
+    /** Version of this protocol the preview speaks; absent from previews older than 1. */
+    protocol: Schema.optional(Schema.Number),
+    screen: Schema.String,
+    type: Schema.Literal("ed:ready"),
+  }),
   Schema.Struct({ tree: TreeNode, type: Schema.Literal("ed:tree") }),
   Schema.Struct({ type: Schema.Literal("ed:hmr") }),
   Schema.Struct({ error: HostError, type: Schema.Literal("ed:error") }),

@@ -1,23 +1,67 @@
+import { BadRequest, Conflict } from "@ultrapaint/contracts/errors";
 import {
-  Settings,
+  CONFIG_FILE_NAME,
+  type PersistInput,
+  type PersistResult,
+  ProjectConfig,
+  type Settings,
   type SettingsValidation,
 } from "@ultrapaint/contracts/settings";
-import { Context, Effect, FileSystem, Layer, Path, Ref, Schema } from "effect";
+import {
+  Context,
+  Effect,
+  FileSystem,
+  Layer,
+  Path,
+  PubSub,
+  Ref,
+  Schema,
+  Stream,
+} from "effect";
 import { ChildProcessSpawner } from "effect/unstable/process";
 import { AppLog } from "../app-log.ts";
 import { makeWriteAtomic } from "../atomic-write.ts";
-import { ServerConfig } from "../config.ts";
 import { runGit } from "./git.ts";
+import { toConfig, toSettings } from "./project-config.ts";
+import { Storage } from "./storage.ts";
 
-const SettingsJson = Schema.fromJsonString(Settings);
-const decodeSettings = Schema.decodeUnknownEffect(SettingsJson);
-const encodeSettings = Schema.encodeEffect(Settings);
+const ConfigJson = Schema.fromJsonString(ProjectConfig);
+const decodeConfig = Schema.decodeUnknownEffect(ConfigJson);
+const encodeConfig = Schema.encodeEffect(ProjectConfig);
 
-/** Tool-local settings, persisted as `settings.json` under the home directory. */
+/** A configuration file the user pointed at, or that sits in the repository, cannot be read. */
+export class ConfigInvalid extends Schema.TaggedError<ConfigInvalid>()(
+  "ConfigInvalid",
+  { file: Schema.String, message: Schema.String }
+) {}
+
+/** Where the settings file is and how it is written, for the current storage target. */
+interface SettingsFile {
+  readonly baseDir: string;
+  readonly path: string;
+  /** A file in a repository is shared: no absolute path goes into it. */
+  readonly relative: boolean;
+}
+
+const sortKeys = (value: object) =>
+  Object.fromEntries(
+    Object.entries(value).sort(([a], [b]) => (a < b ? -1 : Number(a > b)))
+  );
+
+/**
+ * The settings, wherever the storage target keeps them: the desktop app's `settings.json`, an
+ * `ultrapaint.json` in the repository, or only memory when the session is unsaved.
+ */
 export class SettingsService extends Context.Service<
   SettingsService,
   {
+    /** Settings that arrived because someone else changed the configuration file. */
+    readonly changes: Stream.Stream<Settings>;
     readonly get: Effect.Effect<Settings | null>;
+    /** Saves an unsaved session to a new configuration file and keeps saving from then on. */
+    readonly persist: (
+      input: PersistInput
+    ) => Effect.Effect<PersistResult, BadRequest | Conflict>;
     /** Validates and, when valid, persists. Returns the validation either way. */
     readonly set: (settings: Settings) => Effect.Effect<SettingsValidation>;
     readonly validate: (
@@ -28,36 +72,135 @@ export class SettingsService extends Context.Service<
   static readonly layer = Layer.effect(
     SettingsService,
     Effect.gen(function* () {
-      const { home } = yield* ServerConfig;
+      const storage = yield* Storage;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const log = yield* AppLog;
       const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-      const file = path.join(home, "settings.json");
+      const layerScope = yield* Effect.scope;
       const writeAtomic = makeWriteAtomic(fs, path);
+      const external = yield* PubSub.unbounded<Settings>();
 
-      yield* Effect.orDie(fs.makeDirectory(home, { recursive: true }));
       const exists = (p: string) =>
         Effect.orElseSucceed(fs.exists(p), () => false);
 
-      const initial = (yield* exists(file))
-        ? yield* fs.readFileString(file).pipe(
-            Effect.flatMap(decodeSettings),
-            // A hand-edited or outdated file must not stop the server from starting.
-            Effect.catch((error) =>
-              Effect.as(
+      const settingsFile = Effect.map(
+        storage.target,
+        (target): SettingsFile | null => {
+          if (target.mode === "managed") {
+            return {
+              baseDir: target.home,
+              path: path.join(target.home, "settings.json"),
+              relative: false,
+            };
+          }
+          if (target.mode === "file") {
+            return {
+              baseDir: path.dirname(target.configPath),
+              path: target.configPath,
+              relative: true,
+            };
+          }
+          return null;
+        }
+      );
+
+      // What this process last read or wrote, to tell our own writes from someone else's.
+      let lastText: string | null = null;
+      let schemaRef: string | undefined;
+
+      const read = Effect.fnUntraced(function* (file: SettingsFile) {
+        const text = yield* fs.readFileString(file.path);
+        const config = yield* decodeConfig(text);
+        lastText = text;
+        schemaRef = config.$schema;
+        return toSettings(path, config, file.baseDir);
+      });
+
+      const write = Effect.fnUntraced(function* (
+        file: SettingsFile,
+        settings: Settings
+      ) {
+        const config = toConfig(path, settings, file.baseDir, {
+          relative: file.relative,
+          schema: schemaRef,
+        });
+        const encoded = yield* encodeConfig(config);
+        const text = `${JSON.stringify(sortKeys(encoded), null, 2)}\n`;
+        yield* writeAtomic(file.path, text);
+        lastText = text;
+      }, Effect.orDie);
+
+      const load = Effect.gen(function* () {
+        const file = yield* settingsFile;
+        if (!(file && (yield* exists(file.path)))) {
+          return null;
+        }
+        const loaded = read(file);
+        if (file.relative) {
+          // A shared file is never silently replaced: say what is wrong with it and stop.
+          return yield* Effect.mapError(
+            loaded,
+            (error) =>
+              new ConfigInvalid({ file: file.path, message: error.message })
+          );
+        }
+        // The desktop app's own file: an outdated one must not stop the app from starting.
+        return yield* Effect.catch(loaded, (error) =>
+          Effect.as(
+            log.log(
+              "server",
+              "warn",
+              `ignoring invalid settings at ${file.path}: ${error.message}`
+            ),
+            null
+          )
+        );
+      });
+
+      const current = yield* Ref.make<Settings | null>(yield* load);
+
+      // ---- changes made to the file by someone else (an editor, `git pull`) ----
+      const reload = Effect.fnUntraced(function* (file: SettingsFile) {
+        const text = yield* fs.readFileString(file.path);
+        if (text === lastText) {
+          return;
+        }
+        const settings = yield* read(file);
+        yield* Ref.set(current, settings);
+        yield* log.log("server", "info", `reloaded ${file.path}`);
+        yield* PubSub.publish(external, settings);
+      });
+
+      const watch = (file: SettingsFile) =>
+        fs.watch(path.dirname(file.path)).pipe(
+          Stream.filter(
+            (event) => path.basename(event.path) === path.basename(file.path)
+          ),
+          Stream.debounce("120 millis"),
+          Stream.runForEach(() =>
+            reload(file).pipe(
+              // A half-written or invalid file keeps the last good settings in force.
+              Effect.catch((error) =>
                 log.log(
                   "server",
                   "warn",
-                  `ignoring invalid settings at ${file}: ${error.message}`
-                ),
-                null
+                  `ignoring change to ${file.path}: ${error.message}`
+                )
               )
             )
-          )
-        : null;
-      const current = yield* Ref.make<Settings | null>(initial);
+          ),
+          // A directory that cannot be watched only means external edits need a restart.
+          Effect.ignore({ log: true }),
+          Effect.forkIn(layerScope)
+        );
 
+      const initialFile = yield* settingsFile;
+      if (initialFile?.relative) {
+        yield* watch(initialFile);
+      }
+
+      // ---- validation ----
       const gitLine = (cwd: string, args: readonly string[]) =>
         runGit(cwd, args).pipe(
           Effect.provideService(
@@ -91,15 +234,18 @@ export class SettingsService extends Context.Service<
         } else {
           problems.push(`Repository path does not exist: ${repo}`);
         }
-        const designs = path.join(repo, settings.designsDir);
-        if (!(yield* exists(designs))) {
+        if (!(yield* exists(path.join(repo, settings.designsDir)))) {
           problems.push(
             `Designs directory does not exist: ${settings.designsDir}`
           );
-        } else if (!(yield* exists(path.join(designs, "package.json")))) {
-          problems.push(
-            "Designs directory should be a workspace package with its own package.json so screens can resolve React and the design system."
-          );
+        }
+        if (settings.resolveFrom !== undefined) {
+          const anchor = path.join(repo, settings.resolveFrom, "package.json");
+          if (!(yield* exists(anchor))) {
+            problems.push(
+              `The package screens resolve their imports from has no package.json: ${settings.resolveFrom}`
+            );
+          }
         }
         for (const dir of settings.libraryDirs) {
           if (!(yield* exists(path.join(repo, dir)))) {
@@ -117,23 +263,83 @@ export class SettingsService extends Context.Service<
         } satisfies SettingsValidation;
       });
 
+      const store = Effect.fnUntraced(function* (settings: Settings) {
+        const next = { ...settings, repoPath: path.resolve(settings.repoPath) };
+        const file = yield* settingsFile;
+        if (file) {
+          yield* write(file, next);
+        }
+        yield* Ref.set(current, next);
+      });
+
       const set = Effect.fn("SettingsService.set")(function* (
         settings: Settings
       ) {
         const validation = yield* validate(settings);
-        if (!validation.ok) {
-          return validation;
+        if (validation.ok) {
+          yield* store(settings);
         }
-        const next = { ...settings, repoPath: path.resolve(settings.repoPath) };
-        const encoded = yield* Effect.orDie(encodeSettings(next));
-        yield* Effect.orDie(
-          writeAtomic(file, JSON.stringify(encoded, null, 2))
-        );
-        yield* Ref.set(current, next);
         return validation;
       });
 
-      return SettingsService.of({ get: Ref.get(current), set, validate });
+      const persist = Effect.fn("SettingsService.persist")(function* (
+        input: PersistInput
+      ) {
+        const target = yield* storage.target;
+        if (target.mode !== "ephemeral") {
+          return yield* new BadRequest({
+            message: "this session already saves its configuration",
+          });
+        }
+        const { configPath } = input;
+        if (!(path.isAbsolute(configPath) && configPath.endsWith(".json"))) {
+          return yield* new BadRequest({
+            message:
+              "The configuration file must be an absolute path to a .json file.",
+          });
+        }
+        if (!(yield* exists(path.dirname(configPath)))) {
+          return yield* new BadRequest({
+            message: `Directory does not exist: ${path.dirname(configPath)}`,
+          });
+        }
+        if (!input.overwrite && (yield* exists(configPath))) {
+          return yield* new Conflict({
+            message: `${configPath} already exists`,
+          });
+        }
+        const validation = yield* validate(input.settings);
+        if (!validation.ok) {
+          return { validation } satisfies PersistResult;
+        }
+        yield* storage.promote(configPath);
+        yield* store(input.settings);
+        const file = yield* settingsFile;
+        if (file) {
+          yield* watch(file);
+        }
+        yield* log.log(
+          "server",
+          "info",
+          `configuration saved to ${configPath}`
+        );
+        return {
+          command:
+            path.basename(configPath) === CONFIG_FILE_NAME
+              ? `cd ${path.dirname(configPath)} && ultrapaint`
+              : `ultrapaint --config ${configPath}`,
+          configPath,
+          validation,
+        } satisfies PersistResult;
+      });
+
+      return SettingsService.of({
+        changes: Stream.fromPubSub(external),
+        get: Ref.get(current),
+        persist,
+        set,
+        validate,
+      });
     })
   );
 }

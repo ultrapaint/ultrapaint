@@ -7,12 +7,13 @@ import { EventBus } from "./events.ts";
 import { ProjectManager } from "./project.ts";
 import { CatalogueService } from "./services/catalogue.ts";
 import { EditService } from "./services/edit.ts";
+import { ProjectFramework } from "./services/framework.ts";
 import { GitService } from "./services/git.ts";
 import { HostManager } from "./services/host.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
 import { ScreensService } from "./services/screens.ts";
 import { SettingsService } from "./services/settings.ts";
-import { elementSource } from "./services/source.ts";
+import { SetupService } from "./services/setup.ts";
 import { AgentConfigs } from "./services/threads/agent-configs.ts";
 import { Checkpoints } from "./services/threads/checkpoints.ts";
 import { ThreadStore } from "./services/threads/thread-store.ts";
@@ -25,6 +26,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
   Effect.gen(function* () {
     const config = yield* ServerConfig;
     const settings = yield* SettingsService;
+    const setup = yield* SetupService;
     const project = yield* ProjectManager;
     const events = yield* EventBus;
     const log = yield* AppLog;
@@ -102,6 +104,20 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "screens.templates": () => screens((s) => Effect.succeed(s.templates)),
 
       "settings.get": () => settings.get,
+      "settings.persist": Effect.fnUntraced(function* (input) {
+        const before = yield* settings.get;
+        const result = yield* settings.persist(input);
+        const saved = yield* settings.get;
+        if (result.validation.ok && saved) {
+          const { configured } = yield* project.info;
+          // Saving what is already running must not restart the preview.
+          if (!configured || JSON.stringify(before) !== JSON.stringify(saved)) {
+            yield* project.open(saved);
+          }
+          yield* project.publishInfo;
+        }
+        return result;
+      }),
       "settings.set": Effect.fnUntraced(function* (input) {
         const validation = yield* settings.set(input);
         const saved = yield* settings.get;
@@ -111,19 +127,22 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
         return validation;
       }),
       "settings.validate": (input) => settings.validate(input),
+      "setup.createDesigns": (input) => setup.createDesigns(input),
+      "setup.detect": ({ repoPath }) => setup.detect(repoPath),
       "source.element": (location) =>
         project.use(
           Effect.gen(function* () {
             const paths = yield* RepoPaths;
+            const framework = yield* ProjectFramework;
             const { content } = yield* (yield* EditService).read(location.file);
-            // `source.ts` is pure and throws on TSX it cannot parse.
+            // The source editor is pure and throws on a file it cannot parse.
             return yield* Effect.try({
               catch: (error) =>
                 new BadRequest({
                   message: `${location.file} cannot be parsed: ${String(error)}`,
                 }),
               try: () =>
-                elementSource(
+                framework.source.elementSource(
                   content,
                   location.file,
                   location,

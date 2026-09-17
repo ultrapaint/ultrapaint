@@ -20,32 +20,20 @@ import { makeWriteAtomic } from "../atomic-write.ts";
 import { EventBus } from "../events.ts";
 import { makeWalk } from "../fs-walk.ts";
 import { hashContent, toPosix } from "../hash.ts";
+import { ProjectFramework } from "./framework.ts";
 import { RepoPaths } from "./repo-paths.ts";
-import {
-  componentName,
-  renderTemplate,
-  screenFileName,
-  screenTemplates,
-} from "./screen-templates.ts";
 
 const IGNORED_DIRS = new Set(["node_modules", ".ultrapaint", "dist", ".vite"]);
 const CANVAS_FILE = "canvas.json";
-const TSX_EXT_RE = /\.tsx$/;
-const NON_SCREEN_TSX_RE = /\.(stories|test|spec)\.tsx$/;
 const SEGMENT_RE = /[\\/]/;
 
 const decodeCanvas = Schema.decodeUnknownEffect(
   Schema.fromJsonString(CanvasLayout)
 );
 
-const isScreenFile = (name: string) =>
-  TSX_EXT_RE.test(name) &&
-  !NON_SCREEN_TSX_RE.test(name) &&
-  !name.startsWith("_");
-
 type ScreensFailure = NotFound | Conflict | ForbiddenPath;
 
-/** Discovers screens (TSX files) in the designs directory, watches them and owns `canvas.json`. */
+/** Discovers screens (what the framework calls a screen file) in the designs directory, watches them and owns `canvas.json`. */
 export class ScreensService extends Context.Service<
   ScreensService,
   {
@@ -64,7 +52,10 @@ export class ScreensService extends Context.Service<
       id: string,
       name: string
     ) => Effect.Effect<Screen, ScreensFailure>;
-    readonly templates: typeof screenTemplates;
+    readonly templates: readonly {
+      readonly id: string;
+      readonly name: string;
+    }[];
     readonly writeCanvas: (
       flow: string,
       layout: CanvasLayout
@@ -75,6 +66,8 @@ export class ScreensService extends Context.Service<
     ScreensService,
     Effect.gen(function* () {
       const paths = yield* RepoPaths;
+      const { screens: screenFiles } = yield* ProjectFramework;
+      const { isScreenFile } = screenFiles;
       const events = yield* EventBus;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -186,12 +179,12 @@ export class ScreensService extends Context.Service<
         name: string,
         templateId = "blank"
       ) {
-        const fileName = screenFileName(name);
+        const fileName = screenFiles.fileName(name);
         const dir = yield* paths.resolve(path.join(root, flow));
         const abs = path.join(dir, fileName);
         yield* failIfExists(abs);
         yield* Effect.orDie(
-          writeAtomic(abs, renderTemplate(templateId, componentName(fileName)))
+          writeAtomic(abs, screenFiles.render(templateId, fileName))
         );
         yield* publishList;
         return { ...toScreen(abs), flow };
@@ -202,7 +195,7 @@ export class ScreensService extends Context.Service<
         name: string
       ) {
         const { abs, screen } = yield* byId(id);
-        const fileName = screenFileName(name);
+        const fileName = screenFiles.fileName(name);
         const target = path.join(path.dirname(abs), fileName);
         yield* failIfExists(target);
         yield* Effect.orDie(fs.rename(abs, target));
@@ -219,19 +212,19 @@ export class ScreensService extends Context.Service<
         id: string
       ) {
         const { abs, screen } = yield* byId(id);
-        const base = path.basename(abs, ".tsx");
+        const { extension } = screenFiles;
+        const base = path.basename(abs, extension);
         let n = 2;
-        let target = path.join(path.dirname(abs), `${base}-${n}.tsx`);
+        let target = path.join(path.dirname(abs), `${base}-${n}${extension}`);
         while (yield* exists(target)) {
           n += 1;
-          target = path.join(path.dirname(abs), `${base}-${n}.tsx`);
+          target = path.join(path.dirname(abs), `${base}-${n}${extension}`);
         }
         const source = yield* Effect.orDie(fs.readFileString(abs));
-        const content = source.replace(
-          new RegExp(
-            `export default function ${componentName(path.basename(abs))}\\b`
-          ),
-          `export default function ${componentName(path.basename(target))}`
+        const content = screenFiles.duplicate(
+          source,
+          path.basename(abs),
+          path.basename(target)
         );
         yield* Effect.orDie(writeAtomic(target, content));
         const from = path.basename(screen.id);
@@ -340,7 +333,7 @@ export class ScreensService extends Context.Service<
         list,
         readCanvas,
         rename: (id, name) => exclusive(rename(id, name)),
-        templates: screenTemplates,
+        templates: screenFiles.templates,
         writeCanvas: (flow, layout) => exclusive(writeCanvas(flow, layout)),
       });
     })

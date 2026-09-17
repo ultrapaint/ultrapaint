@@ -7,6 +7,7 @@ import {
   Pointer,
   Redo2,
   Settings,
+  TriangleAlert,
   Undo2,
   ZoomIn,
   ZoomOut,
@@ -104,6 +105,15 @@ const zoomToFit = () => useEditor.getState().zoomToFit(viewportSize());
 const zoomToSelection = () =>
   useEditor.getState().zoomToSelection(viewportSize());
 const openSettings = () => useProject.getState().openSettings(true);
+// Saving needs settings to save; before the first ones exist the setup dialog is the way in.
+const openSaveConfig = () => {
+  const { openSaveConfig: open, settings } = useProject.getState();
+  if (settings) {
+    open(true);
+  } else {
+    openSettings();
+  }
+};
 
 type HostInfo = ReturnType<typeof useProject.getState>["info"]["host"];
 
@@ -242,6 +252,27 @@ export const TopBar = () => {
         </IconButton>
       </div>
       <Separator className="my-2" orientation="vertical" />
+      {info.storage.mode === "ephemeral" && (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                className="text-warning hover:text-warning"
+                onClick={openSaveConfig}
+                size="sm"
+                variant="ghost"
+              />
+            }
+          >
+            <TriangleAlert data-icon="inline-start" />
+            Not saved
+          </TooltipTrigger>
+          <TooltipContent className="max-w-64" side="bottom">
+            Started without a configuration file. Settings and agent threads are
+            lost when the tool stops. Click to save a configuration.
+          </TooltipContent>
+        </Tooltip>
+      )}
       <IconButton onClick={openSettings} tooltip="Settings">
         <Settings />
       </IconButton>

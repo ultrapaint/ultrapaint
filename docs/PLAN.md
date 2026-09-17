@@ -4,6 +4,11 @@ Status: executed, 2026-09-17. See section 6 for what was built and what remains.
 [`discuss/work-definition.md`](discuss/work-definition.md), and the investigation in section 1.
 This plan turns the milestones of the work definition into ordered, checkable steps.
 
+Changed since: step 2.3 (settings under one tool home) is replaced by the storage modes of
+[ADR 0010](adr/0010-storage-modes.md). D13, D14 and `packages/host-plugin` (D20, steps 3.x) are
+replaced by the editor / preview core / renderer / framework split of
+[ADR 0011](adr/0011-preview-split.md): the designs directory no longer has to be a package.
+
 ---
 
 ## 1. Investigation findings (what changes the plan)

@@ -74,9 +74,6 @@ importers:
 
   apps/server:
     dependencies:
-      '@babel/parser':
-        specifier: ^8.0.5
-        version: 8.0.5
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1)
@@ -86,24 +83,27 @@ importers:
       '@ultrapaint/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@ultrapaint/host-plugin':
+      '@ultrapaint/framework-api':
         specifier: workspace:*
-        version: link:../../packages/host-plugin
+        version: link:../../packages/framework-api
+      '@ultrapaint/framework-react-vite':
+        specifier: workspace:*
+        version: link:../../packages/framework-react-vite
       '@ultrapaint/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@vitejs/plugin-react':
+        specifier: ^6.1.1
+        version: 6.1.1(@rolldown/plugin-babel@0.2.4(@babel/core@7.29.7)(@babel/runtime@7.29.7)(rolldown@1.2.8)(vite@8.3.0(@types/node@24.13.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.1)))(babel-plugin-react-compiler@1.0.0)(vite@8.3.0(@types/node@24.13.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.1))
       effect:
         specifier: 4.0.0-rc.115
         version: 4.0.0-rc.115
-      magic-string:
-        specifier: ^1.4.1
-        version: 1.4.1
-      tailwind-merge:
-        specifier: ^3.7.0
-        version: 3.7.0
       typescript-api:
         specifier: npm:typescript@^5.9.3
         version: typescript@5.9.3
+      vite:
+        specifier: ^8.3.0
+        version: 8.3.0(@types/node@24.13.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.1)
     devDependencies:
       '@effect/vitest':
         specifier: 'catalog:'
@@ -138,6 +138,9 @@ importers:
       '@ultrapaint/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@ultrapaint/framework-api':
+        specifier: workspace:*
+        version: link:../../packages/framework-api
       '@ultrapaint/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -299,27 +302,114 @@ importers:
         specifier: ^5.0.1
         version: 5.0.1(@types/node@24.13.5)(vite@8.3.0(@types/node@24.13.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.1))
 
-  packages/host-plugin:
+  packages/framework-api:
+    dependencies:
+      '@ultrapaint/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.5
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: ^5.0.1
+        version: 5.0.1(@types/node@24.13.5)(vite@8.3.0(@types/node@24.13.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.1))
+
+  packages/framework-react-vite:
     dependencies:
       '@babel/parser':
         specifier: ^8.0.5
         version: 8.0.5
+      '@ultrapaint/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@ultrapaint/framework-api':
+        specifier: workspace:*
+        version: link:../framework-api
+      '@ultrapaint/preview-core':
+        specifier: workspace:*
+        version: link:../preview-core
+      '@ultrapaint/renderer-react':
+        specifier: workspace:*
+        version: link:../renderer-react
+      '@ultrapaint/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@vitejs/plugin-react':
+        specifier: ^6.1.1
+        version: 6.1.1(@rolldown/plugin-babel@0.2.4(@babel/core@7.29.7)(@babel/runtime@7.29.7)(rolldown@1.2.8)(vite@8.3.0(@types/node@24.13.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.1)))(babel-plugin-react-compiler@1.0.0)(vite@8.3.0(@types/node@24.13.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.1))
       esbuild:
         specifier: ^0.28.2
         version: 0.28.2
-      html-to-image:
-        specifier: ^1.11.13
-        version: 1.11.13
       magic-string:
         specifier: ^1.4.1
         version: 1.4.1
+      tailwind-merge:
+        specifier: ^3.7.0
+        version: 3.7.0
+      typescript-api:
+        specifier: npm:typescript@^5.9.3
+        version: typescript@5.9.3
+      vite:
+        specifier: ^8.3.0
+        version: 8.3.0(@types/node@24.13.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.1)
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.5
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: ^5.0.1
+        version: 5.0.1(@types/node@24.13.5)(vite@8.3.0(@types/node@24.13.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.1))
+
+  packages/preview-core:
+    dependencies:
+      html-to-image:
+        specifier: ^1.11.13
+        version: 1.11.13
     devDependencies:
       '@ultrapaint/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@types/node':
-        specifier: ^24.0.0
-        version: 24.13.5
+      '@ultrapaint/framework-api':
+        specifier: workspace:*
+        version: link:../framework-api
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: ^5.0.1
+        version: 5.0.1(@types/node@24.13.5)(vite@8.3.0(@types/node@24.13.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.1))
+
+  packages/renderer-react:
+    dependencies:
+      '@ultrapaint/framework-api':
+        specifier: workspace:*
+        version: link:../framework-api
+      '@ultrapaint/preview-core':
+        specifier: workspace:*
+        version: link:../preview-core
+    devDependencies:
+      '@ultrapaint/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19.3.0
+        version: 19.3.0(@types/react@19.3.0)
+      react:
+        specifier: ^19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: ^19.3.0
+        version: 19.3.0(react@19.3.0)
       typescript:
         specifier: 7.0.2
         version: 7.0.2

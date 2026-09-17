@@ -95,10 +95,11 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
       () =>
         Effect.gen(function* () {
           const { client } = yield* TestEnv;
-          // The fixture has no `vite`; the editor must learn that from the status.
+          // Nothing in the fixture depends on react; the editor must learn that, and what to
+          // change, from the status.
           const status = yield* client["host.start"]();
           assert.strictEqual(status.state, "error");
-          assert.include(status.error ?? "", "vite");
+          assert.include(status.error ?? "", "react cannot be resolved");
         })
     );
 

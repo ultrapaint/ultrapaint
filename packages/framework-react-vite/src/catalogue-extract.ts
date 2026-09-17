@@ -3,6 +3,8 @@
  * defaults and `cva` variants from the configured design-system directories with the
  * TypeScript compiler API, and caches the result under the tool home.
  */
+
+import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { parse } from "@babel/parser";
@@ -13,9 +15,17 @@ import type {
   PropMeta,
   PropType,
 } from "@ultrapaint/contracts/catalogue";
+import type {
+  CatalogueBuilder,
+  CatalogueContext,
+} from "@ultrapaint/framework-api/node";
 // TypeScript 7 (native) has no JS compiler API; the catalogue uses the 5.x API under an alias.
 import ts from "typescript-api";
-import { hashContent, toPosix } from "../hash.ts";
+
+const hashContent = (content: string): string =>
+  createHash("sha1").update(content).digest("hex").slice(0, 16);
+
+const toPosix = (p: string) => p.replaceAll("\\", "/");
 
 /** Bump when the extraction logic changes so stale caches are rebuilt. */
 const CATALOGUE_VERSION = 2;
@@ -454,15 +464,7 @@ const snippetFor = (name: string, props: PropMeta[]): string => {
 const relativeTo = (root: string, abs: string) =>
   toPosix(path.relative(root, abs));
 
-/** What the extraction needs from the project: resolved library directories and path mapping. */
-export interface ExtractContext {
-  readonly componentPackages: readonly string[];
-  /** Absolute paths, already checked to be inside the repository. */
-  readonly libraryDirs: readonly string[];
-  /** Repository root; component files are reported relative to it. Plain data, so the whole
-   * context can be handed to a worker thread. */
-  readonly root: string;
-}
+export type ExtractContext = CatalogueContext;
 
 export const catalogueSourceFiles = (ctx: ExtractContext): string[] => {
   const files: string[] = [];
@@ -648,4 +650,18 @@ const fileComponents = (
     });
   }
   return out;
+};
+
+// Source checkouts run the TypeScript file directly; a bundle ships the worker next to it.
+const workerUrl = new URL(
+  import.meta.url.endsWith(".ts")
+    ? "./catalogue-worker.ts"
+    : "./catalogue-worker.mjs",
+  import.meta.url
+);
+
+export const catalogue: CatalogueBuilder = {
+  cacheKey: catalogueCacheKey,
+  sourceFiles: catalogueSourceFiles,
+  workerUrl,
 };

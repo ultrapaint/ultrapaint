@@ -2,14 +2,21 @@ import { createServer } from "node:net";
 import { NodeServices } from "@effect/platform-node";
 import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
 import type { Settings } from "@ultrapaint/contracts/settings";
-import { Context, Effect, FileSystem, Layer, Path } from "effect";
+import {
+  Context,
+  Effect,
+  FileSystem,
+  Layer,
+  Path,
+  type PlatformError,
+} from "effect";
 import {
   RpcClient,
   type RpcClientError,
   RpcSerialization,
 } from "effect/unstable/rpc";
 import { Socket } from "effect/unstable/socket";
-import { ServerConfig } from "../config.ts";
+import { ServerConfig, type StorageTarget } from "../config.ts";
 import { runCommand } from "../process.ts";
 import { ServerLive } from "../server.ts";
 
@@ -87,69 +94,88 @@ export class TestEnv extends Context.Service<
  * and a real RPC client over WebSocket. The fake ACP agent is registered as `fake`, and as
  * `fake-auth` and `fake-load` with the matching behaviour switched on.
  */
-export const TestServer = Layer.unwrap(
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const home = yield* fs.makeTempDirectoryScoped();
-    const repo = yield* makeRepository;
-    const port = yield* freePort;
-    const fakeAgent = path.resolve(
-      import.meta.dirname,
-      "../../../../packages/acp/testing/fake-agent.mjs"
-    );
-    yield* fs.makeDirectory(path.join(home, "agents"), { recursive: true });
-    const agents = {
-      fake: {},
-      "fake-auth": { FAKE_AGENT_AUTH: "1" },
-      "fake-load": { FAKE_AGENT_LOAD: "1" },
-    };
-    for (const [id, env] of Object.entries(agents)) {
-      yield* fs.writeFileString(
-        path.join(home, "agents", `${id}.json`),
-        JSON.stringify({
-          args: [fakeAgent],
-          command: process.execPath,
-          env,
-          id,
-          name: "Fake",
-        })
+export const makeTestServer = (
+  /** Runs before the server starts, so it can also put a configuration file in place. */
+  storageFor: (dirs: {
+    readonly home: string;
+    readonly repo: string;
+  }) => Effect.Effect<
+    StorageTarget,
+    PlatformError.PlatformError,
+    FileSystem.FileSystem
+  >
+) =>
+  Layer.unwrap(
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const home = yield* fs.makeTempDirectoryScoped();
+      const repo = yield* makeRepository;
+      const port = yield* freePort;
+      const storage = yield* Effect.orDie(storageFor({ home, repo }));
+      const fakeAgent = path.resolve(
+        import.meta.dirname,
+        "../../../../packages/acp/testing/fake-agent.mjs"
       );
-    }
+      yield* fs.makeDirectory(path.join(home, "agents"), { recursive: true });
+      const agents = {
+        fake: {},
+        "fake-auth": { FAKE_AGENT_AUTH: "1" },
+        "fake-load": { FAKE_AGENT_LOAD: "1" },
+      };
+      for (const [id, env] of Object.entries(agents)) {
+        yield* fs.writeFileString(
+          path.join(home, "agents", `${id}.json`),
+          JSON.stringify({
+            args: [fakeAgent],
+            command: process.execPath,
+            env,
+            id,
+            name: "Fake",
+          })
+        );
+      }
 
-    const server = ServerLive.pipe(
-      Layer.provide(
-        Layer.succeed(ServerConfig, {
+      const server = ServerLive.pipe(
+        Layer.provide(
+          Layer.succeed(ServerConfig, {
+            cwd: repo,
+            port,
+            storage,
+            userDir: home,
+            version: "test",
+            webDist: undefined,
+          })
+        )
+      );
+      const protocol = RpcClient.layerProtocolSocket().pipe(
+        Layer.provide(Socket.layerWebSocket(`ws://127.0.0.1:${port}/ws`)),
+        Layer.provide(Socket.layerWebSocketConstructorGlobal),
+        Layer.provide(RpcSerialization.layerJson)
+      );
+      const env = Layer.effect(
+        TestEnv,
+        Effect.map(RpcClient.make(UltrapaintRpcs), (client) => ({
+          client,
           home,
           port,
-          version: "test",
-          webDist: undefined,
-        })
-      )
-    );
-    const protocol = RpcClient.layerProtocolSocket().pipe(
-      Layer.provide(Socket.layerWebSocket(`ws://127.0.0.1:${port}/ws`)),
-      Layer.provide(Socket.layerWebSocketConstructorGlobal),
-      Layer.provide(RpcSerialization.layerJson)
-    );
-    const env = Layer.effect(
-      TestEnv,
-      Effect.map(RpcClient.make(UltrapaintRpcs), (client) => ({
-        client,
-        home,
-        port,
-        repo,
-        settings: {
-          componentPackages: [],
-          designsDir: "designs",
-          hostCss: [],
-          libraryDirs: [],
-          repoPath: repo,
-          theme: "light",
-        } satisfies Settings,
-      }))
-    );
-    // The client connects only after the server layer is up.
-    return env.pipe(Layer.provide(protocol), Layer.provide(server));
-  })
-).pipe(Layer.provideMerge(NodeServices.layer));
+          repo,
+          settings: {
+            componentPackages: [],
+            designsDir: "designs",
+            hostCss: [],
+            libraryDirs: [],
+            repoPath: repo,
+            theme: "light",
+          } satisfies Settings,
+        }))
+      );
+      // The client connects only after the server layer is up.
+      return env.pipe(Layer.provide(protocol), Layer.provide(server));
+    })
+  ).pipe(Layer.provideMerge(NodeServices.layer));
+
+/** The desktop app's arrangement: settings and state in one home directory. */
+export const TestServer = makeTestServer(({ home }) =>
+  Effect.succeed({ home, mode: "managed" })
+);

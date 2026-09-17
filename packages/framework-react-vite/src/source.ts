@@ -4,7 +4,16 @@
  */
 import { parse } from "@babel/parser";
 import type { JsonValue, SourceLocation } from "@ultrapaint/contracts/base";
-import type { ElementSource, ImportSpec } from "@ultrapaint/contracts/edit";
+import type {
+  EditOp,
+  ElementSource,
+  ImportSpec,
+} from "@ultrapaint/contracts/edit";
+import {
+  type EditOutcome,
+  SourceEditError,
+  type SourceEditor,
+} from "@ultrapaint/framework-api/node";
 import MagicString from "magic-string";
 import { twMerge } from "tailwind-merge";
 
@@ -16,17 +25,8 @@ const WHITESPACE_RUN_RE = /\s+/;
 
 /**
  * This module is pure and synchronous. It throws `SourceEditError` for edits that cannot be
- * applied; `EditService` turns it into a wire error at the service boundary.
+ * applied; the server turns it into a wire error at the service boundary.
  */
-export class SourceEditError extends Error {
-  readonly code: "not_found" | "conflict";
-
-  constructor(code: "not_found" | "conflict", message: string) {
-    super(message);
-    this.code = code;
-    this.name = "SourceEditError";
-  }
-}
 
 export interface Node {
   end: number;
@@ -424,13 +424,6 @@ const insertChild = (
   ms.appendLeft(parent.openingElement.end, `\n${indent}  ${text}\n${indent}`);
 };
 
-export interface EditOutcome {
-  code: string;
-  /** Pre-order index of the element to track after formatting, or null. */
-  trackIndex: number | null;
-  warnings: string[];
-}
-
 const require = (
   elements: { node: JsxElement; parent: Node | null }[],
   loc: SourceLocation
@@ -804,4 +797,33 @@ export const removeUnusedImports = (code: string): string => {
     }
   }
   return ms.toString();
+};
+
+const applyOp = (op: EditOp, code: string): EditOutcome => {
+  switch (op.kind) {
+    case "setClasses":
+      return applySetClasses(code, op.target, op.add, op.remove);
+    case "setAttribute":
+      return applySetAttribute(code, op.target, op.name, op.value);
+    case "setText":
+      return applySetText(code, op.target, op.text);
+    case "delete":
+      return applyDelete(code, op.target);
+    case "duplicate":
+      return applyDuplicate(code, op.target);
+    case "move":
+      return applyMove(code, op.target, op.into, op.index);
+    default:
+      return applyInsert(code, op.into, op.index, op.jsx, op.imports);
+  }
+};
+
+/** The JSX source editor, as the server uses it. */
+export const source: SourceEditor = {
+  apply: applyOp,
+  elementSource,
+  locate: (code, file, trackIndex) => {
+    const element = collectElements(parseTsx(code))[trackIndex]?.node;
+    return element ? locationOf(element, file) : null;
+  },
 };

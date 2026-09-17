@@ -22,7 +22,17 @@ import {
 } from "./git.ts";
 import { HostStatus, LogLine, ProjectInfo } from "./project.ts";
 import { CanvasLayout, Screen, ScreenList } from "./screens.ts";
-import { Settings, SettingsValidation } from "./settings.ts";
+import {
+  PersistInput,
+  PersistResult,
+  Settings,
+  SettingsValidation,
+} from "./settings.ts";
+import {
+  CreateDesignsInput,
+  CreateDesignsResult,
+  SetupSuggestions,
+} from "./setup.ts";
 import {
   AgentConfig,
   AgentEvent,
@@ -75,6 +85,24 @@ const requestRpcs = [
     success: SettingsValidation,
   }),
   Rpc.make("settings.set", { payload: Settings, success: SettingsValidation }),
+  // Only while nothing is saved: writes the configuration file and keeps saving from then on.
+  Rpc.make("settings.persist", {
+    error: Schema.Union([BadRequest, Conflict]),
+    payload: PersistInput,
+    success: PersistResult,
+  }),
+
+  // First-run setup: what the repository looks like, and a designs directory to start in.
+  Rpc.make("setup.detect", {
+    error: BadRequest,
+    payload: { repoPath: Schema.String },
+    success: SetupSuggestions,
+  }),
+  Rpc.make("setup.createDesigns", {
+    error: Schema.Union([BadRequest, ForbiddenPath]),
+    payload: CreateDesignsInput,
+    success: CreateDesignsResult,
+  }),
 
   Rpc.make("project.info", { success: ProjectInfo }),
   Rpc.make("host.start", { error: NotConfigured, success: HostStatus }),

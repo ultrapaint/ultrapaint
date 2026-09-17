@@ -1,6 +1,7 @@
 import { Worker } from "node:worker_threads";
 import type { Catalogue } from "@ultrapaint/contracts/catalogue";
 import type { ForbiddenPath } from "@ultrapaint/contracts/errors";
+import type { CatalogueContext } from "@ultrapaint/framework-api/node";
 import {
   Clock,
   Context,
@@ -12,32 +13,23 @@ import {
 } from "effect";
 import { AppLog } from "../app-log.ts";
 import { makeWriteAtomic } from "../atomic-write.ts";
-import { ServerConfig } from "../config.ts";
-import {
-  catalogueCacheKey,
-  catalogueSourceFiles,
-  type ExtractContext,
-} from "./catalogue-extract.ts";
+import { ProjectFramework } from "./framework.ts";
 import { RepoPaths } from "./repo-paths.ts";
+import { Storage } from "./storage.ts";
 
 const TRAILING_SLASH_RE = /\/$/;
-
-// Source checkouts run the TypeScript file directly; the esbuild bundle ships the worker as a
-// second entry next to `bin.mjs`.
-const WORKER_URL = new URL(
-  import.meta.url.endsWith(".ts")
-    ? "./catalogue-worker.ts"
-    : "./catalogue-worker.mjs",
-  import.meta.url
-);
 
 /**
  * Runs the compiler pass on a worker thread; interrupting the effect terminates the worker. A
  * build that fails is a defect: an unexpected error in this request, not a wire error.
  */
-const buildInWorker = (ctx: ExtractContext, files: string[]) =>
+const buildInWorker = (
+  workerUrl: URL,
+  ctx: CatalogueContext,
+  files: string[]
+) =>
   Effect.callback<Catalogue>((resume) => {
-    const worker = new Worker(WORKER_URL, { workerData: { ctx, files } });
+    const worker = new Worker(workerUrl, { workerData: { ctx, files } });
     worker.once("message", (catalogue: Catalogue) =>
       resume(Effect.succeed(catalogue))
     );
@@ -67,7 +59,8 @@ export class CatalogueService extends Context.Service<
     CatalogueService,
     Effect.gen(function* () {
       const paths = yield* RepoPaths;
-      const { home } = yield* ServerConfig;
+      const storage = yield* Storage;
+      const { catalogue: builder } = yield* ProjectFramework;
       const log = yield* AppLog;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -79,7 +72,7 @@ export class CatalogueService extends Context.Service<
         if (!refresh && cached) {
           return cached;
         }
-        const ctx: ExtractContext = {
+        const ctx: CatalogueContext = {
           componentPackages: paths.settings.componentPackages,
           libraryDirs: yield* Effect.forEach(
             paths.settings.libraryDirs,
@@ -87,11 +80,11 @@ export class CatalogueService extends Context.Service<
           ),
           root: paths.root,
         };
-        const files = catalogueSourceFiles(ctx);
+        const files = builder.sourceFiles(ctx);
         const cacheFile = path.join(
-          home,
+          yield* storage.stateDir,
           "catalogue",
-          `${catalogueCacheKey(ctx, files)}.json`
+          `${builder.cacheKey(ctx, files)}.json`
         );
         if (!refresh) {
           // A missing or unreadable cache file only means the catalogue is rebuilt.
@@ -105,7 +98,7 @@ export class CatalogueService extends Context.Service<
           }
         }
         const started = yield* Clock.currentTimeMillis;
-        const catalogue = yield* buildInWorker(ctx, files);
+        const catalogue = yield* buildInWorker(builder.workerUrl, ctx, files);
         cached = catalogue;
         yield* Effect.ignore(
           writeAtomic(cacheFile, JSON.stringify(catalogue)),

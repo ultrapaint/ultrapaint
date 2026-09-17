@@ -1,5 +1,5 @@
 {
-  "name": "@ultrapaint/host-plugin",
+  "name": "@ultrapaint/framework-api",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -7,18 +7,13 @@
     "./*": "./src/*.ts"
   },
   "scripts": {
-    "build": "node --experimental-strip-types scripts/build.ts",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@babel/parser": "^8.0.5",
-    "esbuild": "^0.28.2",
-    "html-to-image": "^1.11.13",
-    "magic-string": "^1.4.1"
+    "@ultrapaint/contracts": "workspace:*"
   },
   "devDependencies": {
-    "@ultrapaint/contracts": "workspace:*",
     "@types/node": "^24.0.0",
     "typescript": "7.0.2",
     "vitest": "^5.0.1"

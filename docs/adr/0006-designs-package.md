@@ -1,6 +1,6 @@
 # ADR 0006: Screens live in a workspace package
 
-Status: accepted, 2026-09-17. Confirms D2 and D14.
+Status: superseded by 0011: a designs package still works, but is no longer required. Accepted 2026-09-17. Confirms D2 and D14.
 
 For epicparty the screens live in `products/prime/designs/`, a workspace package named
 `@epicparty-prime/designs` that depends on `@epicparty/ui-components`,

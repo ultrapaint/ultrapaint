@@ -4,6 +4,7 @@ import type {
   Screen,
   ViewportPreset,
 } from "@ultrapaint/contracts/screens";
+import { PREVIEW_PROTOCOL } from "@ultrapaint/framework-api/protocol";
 import { cn } from "cn";
 import { AlertTriangle } from "lucide-react";
 import {
@@ -100,6 +101,15 @@ export const Frame = memo(
       const off = bridge.on((msg: HostMessage) => {
         switch (msg.type) {
           case "ed:ready":
+            // A repository may pin its own framework package one day; an older preview
+            // would then misread what the editor sends.
+            if ((msg.protocol ?? PREVIEW_PROTOCOL) !== PREVIEW_PROTOCOL) {
+              store().setHostError(
+                screen.id,
+                `The preview speaks protocol ${msg.protocol}, the editor ${PREVIEW_PROTOCOL}. Update the framework package installed in the repository.`
+              );
+              break;
+            }
             bridge.requestTree();
             if (Object.keys(store().tokens).length === 0) {
               bridge.requestTokens();

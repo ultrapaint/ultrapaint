@@ -11,27 +11,15 @@ import {
   NotFound,
   Stale,
 } from "@ultrapaint/contracts/errors";
+import { SourceEditError } from "@ultrapaint/framework-api/node";
 import { Context, Effect, FileSystem, Layer, Path, Semaphore } from "effect";
 import { ChildProcessSpawner } from "effect/unstable/process";
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { EventBus } from "../events.ts";
 import { hashContent } from "../hash.ts";
 import { runCommand } from "../process.ts";
+import { ProjectFramework } from "./framework.ts";
 import { RepoPaths } from "./repo-paths.ts";
-import {
-  applyDelete,
-  applyDuplicate,
-  applyInsert,
-  applyMove,
-  applySetAttribute,
-  applySetClasses,
-  applySetText,
-  collectElements,
-  type EditOutcome,
-  locationOf,
-  parseTsx,
-  SourceEditError,
-} from "./source.ts";
 
 const JOURNAL_LIMIT = 200;
 
@@ -79,26 +67,7 @@ const labelOf = (op: EditOp): string => {
   }
 };
 
-const runOp = (op: EditOp, code: string): EditOutcome => {
-  switch (op.kind) {
-    case "setClasses":
-      return applySetClasses(code, op.target, op.add, op.remove);
-    case "setAttribute":
-      return applySetAttribute(code, op.target, op.name, op.value);
-    case "setText":
-      return applySetText(code, op.target, op.text);
-    case "delete":
-      return applyDelete(code, op.target);
-    case "duplicate":
-      return applyDuplicate(code, op.target);
-    case "move":
-      return applyMove(code, op.target, op.into, op.index);
-    default:
-      return applyInsert(code, op.into, op.index, op.jsx, op.imports);
-  }
-};
-
-/** `source.ts` is pure and throws; this is the one place its failures become wire errors. */
+/** A framework's source editor is pure and throws; here its failures become wire errors. */
 const sourceFailure = (file: string) => (error: unknown) => {
   if (error instanceof SourceEditError) {
     return error.code === "not_found"
@@ -107,14 +76,6 @@ const sourceFailure = (file: string) => (error: unknown) => {
   }
   const reason = error instanceof Error ? error.message : String(error);
   return new BadRequest({ message: `${file} cannot be parsed: ${reason}` });
-};
-
-const locate = (content: string, file: string, trackIndex: number | null) => {
-  if (trackIndex === null) {
-    return null;
-  }
-  const element = collectElements(parseTsx(content))[trackIndex]?.node;
-  return element ? locationOf(element, file) : null;
 };
 
 /**
@@ -140,6 +101,22 @@ export class EditService extends Context.Service<
     EditService,
     Effect.gen(function* () {
       const paths = yield* RepoPaths;
+      const framework = yield* ProjectFramework;
+      // Null when nothing is tracked, and when the framework cannot parse the result.
+      const locate = (
+        code: string,
+        file: string,
+        trackIndex: number | null
+      ) => {
+        if (trackIndex === null) {
+          return null;
+        }
+        try {
+          return framework.source.locate(code, file, trackIndex);
+        } catch {
+          return null;
+        }
+      };
       const events = yield* EventBus;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -248,7 +225,7 @@ export class EditService extends Context.Service<
             }
             const outcome = yield* Effect.try({
               catch: sourceFailure(rel),
-              try: () => runOp(op, content),
+              try: () => framework.source.apply(op, content),
             });
             if (outcome.code === content) {
               return {
@@ -265,9 +242,11 @@ export class EditService extends Context.Service<
             const after = yield* Effect.orDie(fs.readFileString(abs));
             const afterHash = hashContent(after);
             // Positions shift after formatting; an unparsable result just loses the location.
-            const location: SourceLocation | null = yield* Effect.try(() =>
-              locate(after, rel, outcome.trackIndex)
-            ).pipe(Effect.orElseSucceed(() => null));
+            const location: SourceLocation | null = locate(
+              after,
+              rel,
+              outcome.trackIndex
+            );
 
             // Drop redo entries beyond the cursor, then append.
             journal = [

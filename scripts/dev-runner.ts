@@ -15,14 +15,44 @@ const base = 4700 + ((hash[0] as number) % 40) * 2;
 const serverPort = Number(process.env.ULTRAPAINT_PORT ?? base);
 const webPort = Number(process.env.ULTRAPAINT_WEB_PORT ?? base + 1);
 
-const run = Effect.fn("run")(function* (name: string, app: string) {
+// Everything after `pnpm dev --` goes to the server: `--config <file>` to work from a
+// configuration file, `--ephemeral` to try the unsaved mode. Without either, development keeps
+// its settings the way the desktop app does, in `~/.ultrapaint`.
+// The server runs from `apps/server`, so a relative `--config` is resolved here, against the
+// directory `pnpm dev` was typed in.
+const invokedFrom = process.env.INIT_CWD ?? process.cwd();
+const serverArgs = process.argv
+  .slice(2)
+  .filter((arg) => arg !== "--")
+  .map((arg, index, all) => {
+    if (all[index - 1] === "--config") {
+      return path.resolve(invokedFrom, arg);
+    }
+    return arg.startsWith("--config=")
+      ? `--config=${path.resolve(invokedFrom, arg.slice("--config=".length))}`
+      : arg;
+  });
+const picksStorage =
+  serverArgs.some(
+    (arg) => arg === "--ephemeral" || arg.startsWith("--config")
+  ) || process.env.ULTRAPAINT_CONFIG !== undefined;
+const home =
+  process.env.ULTRAPAINT_HOME ??
+  path.join(process.env.HOME ?? root, ".ultrapaint");
+
+const run = Effect.fn("run")(function* (
+  name: string,
+  app: string,
+  args: readonly string[] = []
+) {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const child = yield* spawner.spawn(
-    ChildProcess.make("pnpm", ["dev"], {
+    ChildProcess.make("pnpm", ["dev", ...args], {
       cwd: path.join(root, "apps", app),
       env: {
         ULTRAPAINT_PORT: String(serverPort),
         ULTRAPAINT_WEB_PORT: String(webPort),
+        ...(picksStorage ? {} : { ULTRAPAINT_HOME: home }),
       },
       extendEnv: true,
       forceKillAfter: "2 seconds",
@@ -42,7 +72,7 @@ Console.log(
   `[dev-runner] server http://127.0.0.1:${serverPort}  web http://127.0.0.1:${webPort}`
 ).pipe(
   Effect.andThen(
-    Effect.all([run("server", "server"), run("web", "web")], {
+    Effect.all([run("server", "server", serverArgs), run("web", "web")], {
       concurrency: "unbounded",
     })
   ),

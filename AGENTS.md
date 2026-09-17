@@ -29,8 +29,12 @@ together, one RC at a time, and never patch `effect`.
   `Effect.acquireRelease` or a scoped layer. Background work uses `Effect.forkScoped`. Shutdown is
   scope closure; `NodeRuntime.runMain` owns the signals.
 - Processes are stopped through the handle that spawned them, never by name or pattern.
-- Pure code stays pure: `apps/server/src/services/source.ts` and the catalogue extraction are
-  synchronous functions wrapped at the service boundary.
+- Pure code stays pure: a framework package (`packages/framework-react-vite`: the source editor,
+  the catalogue extraction, repository detection) is synchronous and free of Effect. The server
+  reaches it only through the `ProjectFramework` service and wraps it at that boundary.
+- The storage target (`managed`, `file`, `ephemeral`) is part of `ServerConfig`. Whatever touches
+  the state directory asks the `Storage` service for it at the moment of use: saving an
+  ephemeral session moves it while the server runs.
 - Tests use `@effect/vitest`: `it.effect`, `layer(...)`, `TestClock` instead of sleeps. No
   `Effect.runPromise` inside a test body.
 - `pnpm typecheck` runs the Effect language service through `@effect/tsgo` (patched in

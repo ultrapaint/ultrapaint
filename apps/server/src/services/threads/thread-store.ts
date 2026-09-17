@@ -10,9 +10,9 @@ import {
 } from "effect";
 import { AppLog } from "../../app-log.ts";
 import { makeWriteAtomic } from "../../atomic-write.ts";
-import { ServerConfig } from "../../config.ts";
 import { EventBus } from "../../events.ts";
 import { makeKeyedLock } from "../../keyed-lock.ts";
+import { Storage } from "../storage.ts";
 
 const Stored = Schema.Struct({
   items: Schema.Array(ThreadItem),
@@ -55,14 +55,18 @@ export class ThreadStore extends Context.Service<
   static readonly layer = Layer.effect(
     ThreadStore,
     Effect.gen(function* () {
-      const { home } = yield* ServerConfig;
+      const storage = yield* Storage;
       const events = yield* EventBus;
       const log = yield* AppLog;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const writeAtomic = makeWriteAtomic(fs, path);
-      const dir = path.join(home, "threads");
-      const fileOf = (id: string) => path.join(dir, `${id}.json`);
+      // Asked for on every write: saving an unsaved session moves the state directory.
+      const fileOf = (id: string) =>
+        Effect.map(storage.stateDir, (state) =>
+          path.join(state, "threads", `${id}.json`)
+        );
+      const dir = path.join(yield* storage.stateDir, "threads");
       const threads = new Map<string, Entry>();
       // Streaming chunks persist the same file many times a second; keep the writes in order.
       const writes = makeKeyedLock();
@@ -100,7 +104,9 @@ export class ThreadStore extends Context.Service<
               return Effect.void;
             }
             return encodeStored(entry).pipe(
-              Effect.flatMap((json) => writeAtomic(fileOf(id), json)),
+              Effect.flatMap((json) =>
+                Effect.flatMap(fileOf(id), (file) => writeAtomic(file, json))
+              ),
               // The transcript in memory stays correct; the next change retries the write.
               Effect.ignore({ log: true })
             );
@@ -180,7 +186,11 @@ export class ThreadStore extends Context.Service<
           // Behind any write still in flight, or its rename would bring the file back.
           yield* writes.withLock(
             id,
-            Effect.ignore(fs.remove(fileOf(id), { force: true }))
+            Effect.ignore(
+              Effect.flatMap(fileOf(id), (file) =>
+                fs.remove(file, { force: true })
+              )
+            )
           );
           yield* events.publish("agent", { threadId: id, type: "removed" });
         }),

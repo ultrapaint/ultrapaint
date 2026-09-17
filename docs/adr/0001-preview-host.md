@@ -1,6 +1,6 @@
 # ADR 0001: Preview host
 
-Status: accepted, 2026-09-17. Supersedes D3 and D13 in the work definition and plan.
+Status: superseded by 0011. Accepted 2026-09-17. Supersedes D3 and D13 in the work definition and plan.
 
 ## Context
 

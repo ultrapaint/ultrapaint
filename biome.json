@@ -24,7 +24,7 @@
       }
     },
     {
-      "includes": ["apps/server/src/services/catalogue-extract.ts"],
+      "includes": ["packages/framework-react-vite/src/catalogue-extract.ts"],
       "linter": {
         "rules": {
           "suspicious": {

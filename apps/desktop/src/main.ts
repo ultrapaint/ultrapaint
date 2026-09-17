@@ -41,6 +41,11 @@ const startServer = Effect.gen(function* () {
         String(port),
         "--web-dist",
         sibling("web", "dist"),
+        // The desktop app owns its settings: one file in the user's home, whatever
+        // directory the app happened to be launched from.
+        "--home",
+        process.env.ULTRAPAINT_HOME ??
+          path.join(app.getPath("home"), ".ultrapaint"),
       ],
       {
         env: { ELECTRON_RUN_AS_NODE: "1" },

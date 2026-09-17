@@ -11,6 +11,11 @@ import { toPosix } from "../hash.ts";
 export class RepoPaths extends Context.Service<
   RepoPaths,
   {
+    /**
+     * Package the screens resolve their imports from: the one the settings name, or the
+     * nearest package around the designs directory, which may be the designs directory itself.
+     */
+    readonly anchorDir: string;
     readonly designsDir: string;
     readonly isEditable: (rel: string) => boolean;
     readonly isInDesigns: (rel: string) => boolean;
@@ -28,8 +33,12 @@ export class RepoPaths extends Context.Service<
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const root = path.resolve(settings.repoPath);
-        const realRoot = yield* Effect.orDie(fs.realPath(root));
+        // The real path, so that paths agree with what watchers and the preview's bundler
+        // report for a repository reached through a symlink (`/tmp` on macOS).
+        const root = yield* Effect.orDie(
+          fs.realPath(path.resolve(settings.repoPath))
+        );
+        const realRoot = root;
         const designs = toPosix(settings.designsDir);
 
         const exists = (p: string) =>
@@ -61,13 +70,30 @@ export class RepoPaths extends Context.Service<
           return abs;
         });
 
+        const designsDir = path.join(root, settings.designsDir);
+        const nearestPackage = Effect.fnUntraced(function* (from: string) {
+          let dir = from;
+          while (dir.startsWith(root) && dir !== path.dirname(dir)) {
+            if (yield* exists(path.join(dir, "package.json"))) {
+              return dir;
+            }
+            dir = path.dirname(dir);
+          }
+          return root;
+        });
+        const anchorDir =
+          settings.resolveFrom === undefined
+            ? yield* nearestPackage(designsDir)
+            : path.join(root, settings.resolveFrom);
+
         const isInDesigns = (rel: string) => {
           const posix = toPosix(rel);
           return posix === designs || posix.startsWith(`${designs}/`);
         };
 
         return RepoPaths.of({
-          designsDir: path.join(root, settings.designsDir),
+          anchorDir,
+          designsDir,
           isEditable: (rel) =>
             isInDesigns(rel) &&
             !toPosix(rel).includes("/.ultrapaint/") &&

@@ -1,9 +1,10 @@
 import { getPlatform } from "@ultrapaint/client-runtime/platform";
-import type { Settings } from "@ultrapaint/contracts/settings";
+import type { Settings, StorageInfo } from "@ultrapaint/contracts/settings";
 import { defaultSettings } from "@ultrapaint/contracts/settings";
-import { CircleAlert } from "lucide-react";
+import type { SetupSuggestions } from "@ultrapaint/contracts/setup";
+import { CircleAlert, FolderSearch } from "lucide-react";
 import type * as React from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +24,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { OptionSelect } from "../components/option-select.tsx";
+import { applySuggestions, describeSuggestions } from "../lib/setup.ts";
 import { api } from "../state/connection.ts";
 import { useProject } from "../state/project.ts";
 
@@ -32,6 +34,8 @@ const themes = [
 ];
 
 const LIST_SEPARATOR_RE = /[\n,]/;
+
+const MISSING_DESIGNS_PREFIX = "Designs directory does not exist";
 
 const list = (v: string) =>
   v
@@ -56,19 +60,37 @@ export const SettingsDialog = () => {
   );
 };
 
+/** Where a save goes, in the words of the storage mode the server runs in. */
+const storageLine = (storage: StorageInfo) => {
+  if (storage.mode === "ephemeral") {
+    return "Started without a configuration file: these settings are not saved.";
+  }
+  return `Saved to ${storage.configPath}`;
+};
+
 /** Mounted with the dialog, so every open starts from the saved settings. */
 const SettingsForm = ({ saved }: { saved: Settings | null }) => {
-  const [draft, setDraft] = useState<Settings>(saved ?? defaultSettings(""));
+  const storage = useProject((s) => s.info.storage);
+  const [draft, setDraft] = useState<Settings>(
+    saved ?? defaultSettings(storage.defaultRepoPath ?? "")
+  );
+  const unsaved = storage.mode === "ephemeral";
+  // A configuration file in the repository says where the repository is by where it lies.
+  const repoFromFile = storage.mode === "file";
   const [problems, setProblems] = useState<readonly string[]>([]);
   const [busy, setBusy] = useState(false);
+  const idleLabel = unsaved ? "Apply" : "Save and open";
+  const saveLabel = busy ? "Validating…" : idleLabel;
   const platform = getPlatform();
 
-  const save = async () => {
+  const apply = async (): Promise<boolean> => {
     setBusy(true);
+    let ok = false;
     try {
       const v = await api().request("settings.set", draft);
       setProblems(v.problems);
-      if (v.ok) {
+      ({ ok } = v);
+      if (ok) {
         useProject.getState().openSettings(false);
         await useProject.getState().load();
       }
@@ -76,17 +98,66 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
       setProblems([(error as Error).message]);
     }
     setBusy(false);
+    return ok;
+  };
+  const save = () => {
+    apply();
+  };
+  const saveToFile = async () => {
+    if (await apply()) {
+      useProject.getState().openSaveConfig(true);
+    }
   };
 
-  const applyEpicpartyDefaults = () =>
-    setDraft((d) => ({
-      ...d,
-      componentPackages: ["@epicparty/ui-components"],
-      designsDir: "products/prime/designs",
-      hostCss: ["../host.css"],
-      libraryDirs: ["ui/components/src/components"],
-      theme: "light",
-    }));
+  // ---- first-run setup: what the repository looks like ----
+  const [found, setFound] = useState<SetupSuggestions | null>(null);
+  const detectNow = () => {
+    if (!draft.repoPath) {
+      return;
+    }
+    api()
+      .request("setup.detect", { repoPath: draft.repoPath })
+      .then((suggestions) => {
+        setFound(suggestions);
+        setDraft((d) => applySuggestions(d, suggestions));
+        setProblems([]);
+      })
+      .catch((error: Error) => setProblems([error.message]));
+  };
+  // Nothing is configured yet and the server knows a repository: propose a setup for it.
+  const firstRepoPath = saved ? "" : (storage.defaultRepoPath ?? "");
+  useEffect(() => {
+    if (!firstRepoPath) {
+      return;
+    }
+    api()
+      .request("setup.detect", { repoPath: firstRepoPath })
+      .then((suggestions) => {
+        setFound(suggestions);
+        setDraft((d) => applySuggestions(d, suggestions));
+      })
+      // The form works without suggestions; a repository that cannot be read says so on save.
+      .catch(() => setFound(null));
+  }, [firstRepoPath]);
+
+  const missingDesigns = problems.some((p) =>
+    p.startsWith(MISSING_DESIGNS_PREFIX)
+  );
+  const createDesigns = async () => {
+    setBusy(true);
+    try {
+      await api().request("setup.createDesigns", {
+        designsDir: draft.designsDir,
+        linkDependencies: true,
+        repoPath: draft.repoPath,
+        resolveFrom: draft.resolveFrom,
+      });
+      await apply();
+    } catch (error) {
+      setProblems([(error as Error).message]);
+    }
+    setBusy(false);
+  };
 
   const cancel = () => useProject.getState().openSettings(false);
   const browse = async () => {
@@ -98,6 +169,10 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const onRepoPath = (e: React.ChangeEvent<HTMLInputElement>) => {
     const repoPath = e.target.value;
     setDraft((d) => ({ ...d, repoPath }));
+  };
+  const onResolveFrom = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const resolveFrom = e.target.value.trim() || undefined;
+    setDraft((d) => ({ ...d, resolveFrom }));
   };
   const onDesignsDir = (e: React.ChangeEvent<HTMLInputElement>) => {
     const designsDir = e.target.value;
@@ -135,6 +210,12 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           and are versioned with the code.
         </DialogDescription>
       </DialogHeader>
+      {found ? (
+        <Alert>
+          <FolderSearch />
+          <AlertDescription>{describeSuggestions(found)}</AlertDescription>
+        </Alert>
+      ) : null}
       <FieldGroup className="gap-4">
         <Field>
           <FieldLabel htmlFor="settings-repo">Repository path</FieldLabel>
@@ -143,16 +224,19 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
               id="settings-repo"
               onChange={onRepoPath}
               placeholder="/Users/you/code/repo"
+              readOnly={repoFromFile}
               value={draft.repoPath}
             />
-            {platform.pickFolder ? (
+            {platform.pickFolder && !repoFromFile ? (
               <Button onClick={browse} variant="outline">
                 Browse…
               </Button>
             ) : null}
           </div>
           <FieldDescription>
-            Absolute path to a git repository with a package.json.
+            {repoFromFile
+              ? "Given by where the configuration file is."
+              : "Absolute path to a git repository with a package.json."}
           </FieldDescription>
         </Field>
         <Field>
@@ -164,8 +248,24 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
             value={draft.designsDir}
           />
           <FieldDescription>
-            Relative to the repository. Should be a workspace package that
-            depends on react, vite and the design system.
+            Relative to the repository. Screens are saved here as source files.
+          </FieldDescription>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="settings-resolve">
+            Resolve imports from
+          </FieldLabel>
+          <Input
+            id="settings-resolve"
+            onChange={onResolveFrom}
+            placeholder="apps/web"
+            value={draft.resolveFrom ?? ""}
+          />
+          <FieldDescription>
+            A package of the repository that already depends on React and the
+            design system. Screens import what that package can import, so
+            nothing has to be installed for them. Leave empty when the designs
+            directory is a package of its own.
           </FieldDescription>
         </Field>
         <Field>
@@ -256,12 +356,39 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
                 <li key={p}>{p}</li>
               ))}
             </ul>
+            {missingDesigns ? (
+              <div className="mt-2 flex flex-col gap-1">
+                <Button
+                  className="self-start"
+                  disabled={busy}
+                  onClick={createDesigns}
+                  size="sm"
+                  variant="outline"
+                >
+                  Create {draft.designsDir}
+                </Button>
+                <span className="text-muted-foreground text-xs">
+                  Creates the directory with a tsconfig.json
+                  {draft.resolveFrom
+                    ? `, and links the dependencies of ${draft.resolveFrom} (git-ignored) so editors resolve what the screens import`
+                    : ""}
+                  . Nothing is installed.
+                </span>
+              </div>
+            ) : null}
           </AlertDescription>
         </Alert>
       )}
+      <p
+        className={
+          unsaved ? "text-warning text-xs" : "text-muted-foreground text-xs"
+        }
+      >
+        {storageLine(storage)}
+      </p>
       <DialogFooter className="sm:justify-between">
-        <Button onClick={applyEpicpartyDefaults} variant="ghost">
-          Fill epicparty defaults
+        <Button onClick={detectNow} variant="ghost">
+          Detect from repository
         </Button>
         <div className="flex gap-1">
           {saved ? (
@@ -269,8 +396,13 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
               Cancel
             </Button>
           ) : null}
+          {unsaved ? (
+            <Button disabled={busy} onClick={saveToFile} variant="outline">
+              Save to file…
+            </Button>
+          ) : null}
           <Button disabled={busy} onClick={save}>
-            {busy ? "Validating…" : "Save and open"}
+            {saveLabel}
           </Button>
         </div>
       </DialogFooter>

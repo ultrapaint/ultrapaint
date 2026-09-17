@@ -15,14 +15,15 @@ import {
 } from "effect";
 import type { ChildProcessSpawner } from "effect/unstable/process";
 import { AppLog } from "./app-log.ts";
-import type { ServerConfig } from "./config.ts";
 import { EventBus } from "./events.ts";
 import { CatalogueService } from "./services/catalogue.ts";
 import { EditService } from "./services/edit.ts";
+import { ProjectFramework } from "./services/framework.ts";
 import { GitService } from "./services/git.ts";
 import { HostManager } from "./services/host.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
 import { ScreensService } from "./services/screens.ts";
+import { Storage } from "./services/storage.ts";
 
 /** Everything that exists once a target repository is configured. */
 export type ProjectServices =
@@ -30,6 +31,7 @@ export type ProjectServices =
   | EditService
   | GitService
   | HostManager
+  | ProjectFramework
   | RepoPaths
   | ScreensService;
 
@@ -39,7 +41,7 @@ type ProjectRequirements =
   | EventBus
   | FileSystem.FileSystem
   | Path.Path
-  | ServerConfig;
+  | Storage;
 
 const projectLayer = (settings: Settings) =>
   Layer.mergeAll(
@@ -48,7 +50,10 @@ const projectLayer = (settings: Settings) =>
     GitService.layer,
     HostManager.layer,
     ScreensService.layer
-  ).pipe(Layer.provideMerge(RepoPaths.layer(settings)));
+  ).pipe(
+    Layer.provideMerge(ProjectFramework.layer),
+    Layer.provideMerge(RepoPaths.layer(settings))
+  );
 
 interface OpenProject {
   readonly scope: Scope.Closeable;
@@ -70,6 +75,8 @@ export class ProjectManager extends Context.Service<
     readonly info: Effect.Effect<ProjectInfo>;
     /** Closes the open project, if any, and opens the one the settings describe. */
     readonly open: (settings: Settings) => Effect.Effect<void>;
+    /** Tells the editor the project changed; saving a configuration changes the storage. */
+    readonly publishInfo: Effect.Effect<void>;
     /** Scope of the open project, for work that must end when the project does. */
     readonly scope: Effect.Effect<Scope.Scope, NotConfigured>;
     /** Runs an effect against the open project. */
@@ -85,6 +92,7 @@ export class ProjectManager extends Context.Service<
       const path = yield* Path.Path;
       const events = yield* EventBus;
       const log = yield* AppLog;
+      const storage = yield* Storage;
       const managerScope = yield* Effect.scope;
       // open and close never interleave.
       const lifecycle = yield* Semaphore.make(1);
@@ -100,7 +108,7 @@ export class ProjectManager extends Context.Service<
               : Effect.fail(notConfigured())
         );
 
-      const info: Effect.Effect<ProjectInfo> = use(
+      const openInfo = use(
         Effect.gen(function* () {
           const paths = yield* RepoPaths;
           const git = yield* GitService;
@@ -113,12 +121,21 @@ export class ProjectManager extends Context.Service<
             host: yield* host.status,
             name: path.basename(paths.root),
             repoPath: paths.root,
-          } satisfies ProjectInfo;
+          };
         })
       ).pipe(
-        Effect.orElseSucceed(
-          (): ProjectInfo => ({ configured: false, host: { state: "stopped" } })
-        )
+        Effect.orElseSucceed(() => ({
+          configured: false,
+          host: { state: "stopped" as const },
+        }))
+      );
+      const info: Effect.Effect<ProjectInfo> = Effect.zipWith(
+        openInfo,
+        storage.info,
+        (project, storageInfo): ProjectInfo => ({
+          ...project,
+          storage: storageInfo,
+        })
       );
 
       const publishInfo = Effect.flatMap(info, (value) =>
@@ -178,6 +195,7 @@ export class ProjectManager extends Context.Service<
         close: lifecycle.withPermits(1)(closeCurrent),
         info,
         open,
+        publishInfo,
         scope: Effect.suspend(() =>
           current ? Effect.succeed(current.scope) : Effect.fail(notConfigured())
         ),

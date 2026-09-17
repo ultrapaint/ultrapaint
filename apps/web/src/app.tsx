@@ -14,6 +14,7 @@ import { Changes } from "./panels/changes.tsx";
 import { Inspector } from "./panels/inspector.tsx";
 import { Layers } from "./panels/layers.tsx";
 import { Palette } from "./panels/palette.tsx";
+import { SaveConfigDialog } from "./panels/save-config.tsx";
 import { Screens } from "./panels/screens.tsx";
 import { SettingsDialog } from "./panels/settings.tsx";
 import { Threads } from "./panels/threads.tsx";
@@ -193,6 +194,7 @@ export const App = () => {
           </div>
         )}
         <SettingsDialog />
+        <SaveConfigDialog />
         <DialogHost />
         <Toaster
           closeButton
