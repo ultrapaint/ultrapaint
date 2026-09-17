@@ -15,6 +15,7 @@ import {
   drawsOnScreen,
   elementSummary,
   shorten,
+  unionRect,
 } from "@ultrapaint/preview-core/dom";
 
 interface Fiber {
@@ -249,16 +250,6 @@ const domNodesOf = (fiber: Fiber): Element[] => {
   return out;
 };
 
-/** The portal that renders this fiber, if any; null when it is rendered in place. */
-const portalOf = (fiber: Fiber): Fiber | null => {
-  for (let f: Fiber | null = fiber; f; f = f.return) {
-    if (f.tag === PORTAL_TAG) {
-      return f;
-    }
-  }
-  return null;
-};
-
 /**
  * Whether anything the fiber puts on the screen lands outside the given portal. The root a
  * library appends to the body to hang its popup in does not count: it is an empty line at the
@@ -280,66 +271,124 @@ const rendersOutside = (fiber: Fiber, portal: Fiber): boolean => {
 };
 
 /**
- * The node inside `portal` a click in it means. A library hangs its popup in one or two
- * transparent wrappers that do nothing but place it on the screen, so the outermost node is
- * rarely the one a designer is pointing at: the answer is the outermost that paints a box of its
- * own — the menu, the card, the tooltip — and the outermost of all when none of them paints.
+ * The rows the layers panel shows on the way from an element up to the root, innermost first,
+ * together with the portal the element sits in and how many of those rows that portal holds.
+ *
+ * A component and the element it forwards its props to are one row, named after the outermost
+ * component of the run: that is the instance, and everything under it down to the host element
+ * is its implementation.
  */
-const popupNode = (fiber: Fiber, portal: Fiber): Fiber => {
-  const chain: Fiber[] = [];
-  for (let f: Fiber | null = fiber; f && f !== portal; f = f.return) {
+const rowsAbove = (fiber: Fiber) => {
+  const rows: Fiber[] = [];
+  let portal: Fiber | null = null;
+  let inside = 0;
+  let f: Fiber | null = fiber;
+  while (f) {
+    if (!portal && f.tag === PORTAL_TAG) {
+      portal = f;
+      inside = rows.length;
+    }
     if (isHost(f) || (isComponent(f) && stampOf(f))) {
-      chain.unshift(f);
+      const stamp = stampOf(f);
+      let top: Fiber = f;
+      while (
+        stamp &&
+        top.return &&
+        isComponent(top.return) &&
+        stampOf(top.return) === stamp
+      ) {
+        top = top.return;
+      }
+      rows.push(top);
+      f = top.return;
+    } else {
+      f = f.return;
     }
   }
-  return (
-    chain.find((f) => domNodesOf(f).some(drawsItsOwnBox)) ?? chain[0] ?? fiber
-  );
+  return { inside, portal, rows };
 };
 
-/** Given a DOM element, pick the fiber the user most likely means. */
-const selectableFiber = (el: Element, deepest: boolean): Fiber | null => {
+/**
+ * Where a plain click lands: the nearest row the design itself wrote, so a design-system
+ * instance is taken whole rather than picked apart.
+ *
+ * A portal is a boundary. The instance that owns an open dropdown also owns the trigger left
+ * behind in the layout and the sheet the library spreads over the screen, so taking it from a
+ * click on the popup would outline the whole page. A click inside a portal starts at the box
+ * the portal holds instead: the outermost row there that paints a fill, a border or a shadow —
+ * the menu, the card, the tooltip — since a library hangs its popup in transparent wrappers
+ * that do nothing but place it. An instance that renders nothing but its portal, a dialog
+ * written in the design, is already that box and is kept.
+ */
+const firstRow = ({ inside, portal, rows }: ReturnType<typeof rowsAbove>) => {
+  const editable = rows.findIndex((f) => {
+    const s = parseStamp(stampOf(f));
+    return s !== null && isEditable(s);
+  });
+  const i = editable === -1 ? 0 : editable;
+  const row = rows[i];
+  if (!(portal && row && rendersOutside(row, portal))) {
+    return i;
+  }
+  const painted = rows
+    .slice(0, inside)
+    .findLastIndex((f) => domNodesOf(f).some(drawsItsOwnBox));
+  return painted === -1 ? Math.max(inside - 1, 0) : painted;
+};
+
+const SAME_BOX = 0.5;
+
+/**
+ * Drops a row that draws exactly the box of the row holding it, since a step of the way in that
+ * moves no outline reads as a click that did nothing. A library hangs its popup in wrappers
+ * that only place it on the screen, and the element an instance ends up rendering is wrapped
+ * again inside it.
+ *
+ * A row the design itself wrote is kept whatever its box — there, every element is one the
+ * designer put there and has to stay within reach — unless it repeats the line of source the
+ * row above it already stands for, which is what a library forwarding an instance's props down
+ * to its own element produces.
+ */
+const withoutEmptySteps = (rows: readonly Fiber[]): Fiber[] => {
+  const kept: Fiber[] = [];
+  let box: ReturnType<typeof unionRect> | null = null;
+  let stamp: string | null = null;
+  for (const f of rows) {
+    const r = unionRect(domNodesOf(f));
+    const own = stampOf(f);
+    const same =
+      box !== null &&
+      Math.abs(box.x - r.x) < SAME_BOX &&
+      Math.abs(box.y - r.y) < SAME_BOX &&
+      Math.abs(box.width - r.width) < SAME_BOX &&
+      Math.abs(box.height - r.height) < SAME_BOX;
+    if (same && (own === stamp || !isEditable(parseStamp(own)))) {
+      continue;
+    }
+    kept.push(f);
+    box = r;
+    stamp = own;
+  }
+  return kept;
+};
+
+/**
+ * The rows a click at this element can reach, outermost first. The first is what a plain click
+ * takes; the editor walks the rest of the way in as the same place is clicked again, and jumps
+ * to the last of them when a click is held with Alt.
+ */
+const chainAt = (el: Element): string[] => {
   let fiber = fiberOfDom(el);
   // Climb to the host fiber of this element (text fibers etc.).
   while (fiber && !isHost(fiber)) {
     fiber = fiber.return;
   }
   if (!fiber) {
-    return null;
+    return [];
   }
-  if (deepest) {
-    return fiber;
-  }
-  // Find the nearest ancestor with an editable stamp; then climb while the stamp is the same,
-  // so a design-system instance is selected instead of the host element it forwards props to.
-  let f: Fiber | null = fiber;
-  while (f) {
-    const s = stampOf(f);
-    if (s && isEditable(parseStamp(s)) && (isHost(f) || isComponent(f))) {
-      break;
-    }
-    f = f.return;
-  }
-  if (!f) {
-    return fiber;
-  }
-  const stamp = stampOf(f);
-  let top = f;
-  for (let p = f.return; p; p = p.return) {
-    if (stampOf(p) === stamp && isComponent(p)) {
-      top = p;
-    } else if (isHost(p) || (isComponent(p) && stampOf(p))) {
-      break;
-    }
-  }
-  // A portal is a boundary. The instance that owns an open dropdown also owns the trigger left
-  // behind in the layout and the sheet the library spreads over the screen, so selecting it from
-  // a click on the popup would outline the whole page and the popup itself would be reachable
-  // only through the layers panel. A click inside a portal picks the box the portal holds
-  // instead. An instance that renders nothing but its portal — a dialog written in the design —
-  // is already that box and is kept.
-  const portal = portalOf(fiber);
-  return portal && rendersOutside(top, portal) ? popupNode(fiber, portal) : top;
+  const above = rowsAbove(fiber);
+  const rows = above.rows.slice(0, firstRow(above) + 1).reverse();
+  return withoutEmptySteps(rows).map(idFor);
 };
 
 // ---- Facts ----
@@ -428,6 +477,7 @@ const describe = (nodeId: string): NodeFacts | null => {
 };
 
 export const reactIntrospector: Introspector = {
+  chainAt,
   describe,
   elementsOf: (nodeId) => {
     const fiber = fiberFor(nodeId);
@@ -436,10 +486,6 @@ export const reactIntrospector: Introspector = {
   install: (ctx) => {
     context = ctx;
     installHook();
-  },
-  selectable: (element, deepest) => {
-    const fiber = selectableFiber(element, deepest);
-    return fiber ? idFor(fiber) : null;
   },
   tree,
 };

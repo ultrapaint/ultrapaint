@@ -16,7 +16,8 @@ import { Button } from "@/components/ui/button";
 import { bridgeFor } from "../canvas/bridge.ts";
 import { PanelEmpty } from "../components/panel.tsx";
 import { runEdit } from "../lib/shortcuts.ts";
-import { findPath, hostOf, useEditor } from "../state/editor.ts";
+import { useEditor } from "../state/editor.ts";
+import { findPath, hostOf } from "../state/tree.ts";
 
 const keyOf = (n: TreeNode) =>
   n.source ? `${sourceKey(n.source)}:${n.kind}` : n.id;

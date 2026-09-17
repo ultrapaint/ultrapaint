@@ -41,6 +41,11 @@ export interface NodeFacts {
 
 /** Reads a framework's component tree. Node ids are the renderer's and stay stable across commits. */
 export interface Introspector {
+  /**
+   * The nodes a click on this element can reach, outermost first. The first is what a plain
+   * click means; the rest are the way in, one step at a time.
+   */
+  readonly chainAt: (element: Element) => readonly string[];
   readonly describe: (nodeId: string) => NodeFacts | null;
   /** DOM elements a node renders; several for a component that returns a fragment. */
   readonly elementsOf: (nodeId: string) => Element[];
@@ -49,8 +54,6 @@ export interface Introspector {
    * DevTools hook has to exist before React initialises).
    */
   readonly install: (context: PreviewContext) => void;
-  /** The node a click on this element most likely means, or the element itself when `deepest`. */
-  readonly selectable: (element: Element, deepest: boolean) => string | null;
   /** The mounted tree, or null while nothing is mounted. */
   readonly tree: () => TreeNode[] | null;
 }

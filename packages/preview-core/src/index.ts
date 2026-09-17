@@ -284,7 +284,7 @@ export const startPreview = (introspector: Introspector) => {
           elementAt(msg.x as number, msg.y as number)
         );
         post({
-          nodeId: el ? introspector.selectable(el, Boolean(msg.deepest)) : null,
+          nodeIds: el ? introspector.chainAt(el) : [],
           requestId: msg.requestId,
           type: "ed:hit",
         });

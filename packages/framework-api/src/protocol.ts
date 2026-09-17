@@ -7,5 +7,9 @@
  * 2: `ed:setInteractive`. The editor now trusts the preview to ignore input outside interact
  * mode; a preview that predates the message would answer the keyboard on a canvas that is
  * supposed to be a picture.
+ *
+ * 3: `ed:hit` answers with the whole chain of nodes under the point instead of one, and
+ * `ed:hitTest` no longer carries `deepest`. Which of them a click takes is the editor's to
+ * decide: it is what holds the selection the drilling walks along.
  */
-export const PREVIEW_PROTOCOL = 2;
+export const PREVIEW_PROTOCOL = 3;

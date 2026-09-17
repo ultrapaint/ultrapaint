@@ -108,8 +108,9 @@ export const HostMessage = Schema.Union([
   Schema.Struct({ tree: TreeNode, type: Schema.Literal("ed:tree") }),
   Schema.Struct({ type: Schema.Literal("ed:hmr") }),
   Schema.Struct({ error: HostError, type: Schema.Literal("ed:error") }),
+  /** The nodes under the point, outermost first; empty when the point is on nothing. */
   Schema.Struct({
-    nodeId: Schema.NullOr(Schema.String),
+    nodeIds: Schema.Array(Schema.String),
     requestId: Schema.Number,
     type: Schema.Literal("ed:hit"),
   }),
@@ -151,7 +152,6 @@ export const EditorMessage = Schema.Union([
     type: Schema.Literal("ed:select"),
   }),
   Schema.Struct({
-    deepest: Schema.Boolean,
     requestId: Schema.Number,
     type: Schema.Literal("ed:hitTest"),
     x: Schema.Number,

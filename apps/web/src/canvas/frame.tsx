@@ -17,7 +17,8 @@ import {
 } from "react";
 import { OptionSelect } from "../components/option-select.tsx";
 import { api } from "../state/connection.ts";
-import { findBySource, useEditor } from "../state/editor.ts";
+import { useEditor } from "../state/editor.ts";
+import { findBySource, findNode, stepInto } from "../state/tree.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { bridgeFor, removeBridge } from "./bridge.ts";
 
@@ -166,11 +167,17 @@ export const Frame = memo(
     }, [screen.id, visible, url, mode, spacePan]);
 
     // Keep the selection attached to the same source after HMR (ids can change on remount).
+    // Only once the node it names is gone: a source does not name one node. Every item of a
+    // list is written once and rendered many times, and a library forwards the props of an
+    // instance — and with them its stamp — all the way down to the element it renders, so
+    // looking a selection up by its source again would answer with a different node than the
+    // one that was just picked.
     useEffect(() => {
       if (
         !(tree && selection) ||
         selection.screenId !== screen.id ||
-        !selection.source
+        !selection.source ||
+        findNode(tree, selection.nodeId)
       ) {
         return;
       }
@@ -203,14 +210,24 @@ export const Frame = memo(
       const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
       return { x: (e.clientX - r.left) / zoom, y: (e.clientY - r.top) / zoom };
     };
+    /** The node a pointer event at this position means, given what is selected. */
+    const nodeAt = async (e: ReactPointerEvent | ReactMouseEvent) => {
+      const { x, y } = toFrame(e);
+      const chain = await bridgeFor(screen.id).hitTest(x, y);
+      const store = useEditor.getState();
+      const selected =
+        store.selection?.screenId === screen.id
+          ? store.selection.nodeId
+          : null;
+      return stepInto(chain, store.trees[screen.id], selected, e.altKey);
+    };
     const onMove = async (e: ReactPointerEvent) => {
       const now = performance.now();
       if (now - lastHit.current < 40) {
         return;
       }
       lastHit.current = now;
-      const { x, y } = toFrame(e);
-      const id = await bridgeFor(screen.id).hitTest(x, y, e.altKey);
+      const id = await nodeAt(e);
       const store = useEditor.getState();
       if (id) {
         store.setHover({ nodeId: id, screenId: screen.id });
@@ -218,20 +235,8 @@ export const Frame = memo(
         store.setHover(null);
       }
     };
-    const onClick = async (e: ReactMouseEvent) => {
-      // Keyboard activation (Enter/Space) has no pointer position to hit-test: it only activates the screen.
-      if (e.detail === 0) {
-        useEditor.getState().setActiveScreen(screen.id);
-        return;
-      }
-      const { x, y } = toFrame(e);
-      const id = await bridgeFor(screen.id).hitTest(x, y, e.altKey);
+    const select = (id: string) => {
       const store = useEditor.getState();
-      store.setActiveScreen(screen.id);
-      if (!id) {
-        store.select(null);
-        return;
-      }
       const t = store.trees[screen.id];
       const node = t ? findNode(t, id) : null;
       store.select({
@@ -240,11 +245,27 @@ export const Frame = memo(
         source: node?.source ?? null,
       });
     };
+    const onClick = async (e: ReactMouseEvent) => {
+      // Keyboard activation (Enter/Space) has no pointer position to hit-test: it only activates the screen.
+      if (e.detail === 0) {
+        useEditor.getState().setActiveScreen(screen.id);
+        return;
+      }
+      const id = await nodeAt(e);
+      useEditor.getState().setActiveScreen(screen.id);
+      if (id) {
+        select(id);
+      } else {
+        useEditor.getState().select(null);
+      }
+    };
     const onDoubleClick = async (e: ReactMouseEvent) => {
       const { x, y } = toFrame(e);
       const bridge = bridgeFor(screen.id);
-      const id = await bridge.hitTest(x, y, true);
+      // Text is edited where it is written, whatever the two clicks before this selected.
+      const id = (await bridge.hitTest(x, y)).at(-1);
       if (id) {
+        select(id);
         bridge.editText(id);
       }
     };
@@ -447,22 +468,6 @@ const Outline = ({
     )}
   </div>
 );
-
-const findNode = (
-  tree: import("@ultrapaint/contracts/preview").TreeNode,
-  id: string
-): import("@ultrapaint/contracts/preview").TreeNode | null => {
-  if (tree.id === id) {
-    return tree;
-  }
-  for (const c of tree.children) {
-    const r = findNode(c, id);
-    if (r) {
-      return r;
-    }
-  }
-  return null;
-};
 
 export const useHostUrl = () =>
   useProject((s) =>

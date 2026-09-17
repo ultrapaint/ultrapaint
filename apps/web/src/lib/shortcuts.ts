@@ -2,13 +2,8 @@ import type { TreeNode } from "@ultrapaint/contracts/preview";
 import { useEffect } from "react";
 import { bridgeFor } from "../canvas/bridge.ts";
 import { api } from "../state/connection.ts";
-import {
-  findPath,
-  hostOf,
-  rowChildren,
-  useEditor,
-  workspaceOrder,
-} from "../state/editor.ts";
+import { useEditor, workspaceOrder } from "../state/editor.ts";
+import { findPath, hostOf, rowChildren } from "../state/tree.ts";
 import { reportError, useProject } from "../state/project.ts";
 
 const isTyping = (e: KeyboardEvent) => {

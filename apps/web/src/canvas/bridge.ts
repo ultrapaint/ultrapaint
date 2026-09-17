@@ -81,21 +81,17 @@ export class FrameBridge {
     });
   }
 
-  async hitTest(
-    x: number,
-    y: number,
-    deepest: boolean
-  ): Promise<string | null> {
+  /** The nodes under the point, outermost first; empty when the point is on nothing. */
+  async hitTest(x: number, y: number): Promise<readonly string[]> {
     const r = await this.request<Extract<HostMessage, { type: "ed:hit" }>>(
       (requestId) => ({
-        deepest,
         requestId,
         type: "ed:hitTest",
         x,
         y,
       })
     );
-    return r?.nodeId ?? null;
+    return r?.nodeIds ?? [];
   }
 
   async inspect(nodeId: string): Promise<InspectResult | null> {
