@@ -1,27 +1,29 @@
-import { Dialog } from "@base-ui/react/dialog";
 import { getPlatform } from "@ultrapaint/client-runtime";
 import type { Settings } from "@ultrapaint/contracts";
 import { defaultSettings } from "@ultrapaint/contracts";
+import { CircleAlert } from "lucide-react";
 import * as React from "react";
-import { Button, Input, Label } from "../components/ui.tsx";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { OptionSelect } from "../components/option-select.tsx";
 import { api } from "../state/connection.ts";
 import { useProject } from "../state/project.ts";
 
-const Field = ({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  children: React.ReactNode;
-}) => (
-  <label className="flex flex-col gap-1">
-    <Label className="text-ink-2">{label}</Label>
-    {children}
-    {hint && <span className="text-[10px] text-ink-3">{hint}</span>}
-  </label>
-);
+const themes = [
+  { value: "light", label: "light" },
+  { value: "dark", label: "dark" },
+];
 
 const list = (v: string) =>
   v
@@ -68,21 +70,21 @@ export const SettingsDialog = () => {
     }));
 
   return (
-    <Dialog.Root open={open} onOpenChange={(o) => saved && useProject.getState().openSettings(o)}>
-      <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/50" />
-        <Dialog.Popup className="fixed top-1/2 left-1/2 z-50 flex w-[560px] max-w-[95vw] -translate-x-1/2 -translate-y-1/2 flex-col gap-3 rounded-lg border border-line-2 bg-panel-2 p-5 shadow-2xl">
-          <Dialog.Title className="font-semibold text-ink text-sm">Target repository</Dialog.Title>
-          <Dialog.Description className="text-ink-3">
+    <Dialog open={open} onOpenChange={(o) => saved && useProject.getState().openSettings(o)}>
+      <DialogContent showCloseButton={!!saved} className="sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Target repository</DialogTitle>
+          <DialogDescription>
             The tool runs against a local repository. Design files live inside it and are versioned
             with the code.
-          </Dialog.Description>
-          <Field
-            label="Repository path"
-            hint="Absolute path to a git repository with a package.json."
-          >
+          </DialogDescription>
+        </DialogHeader>
+        <FieldGroup className="gap-4">
+          <Field>
+            <FieldLabel htmlFor="settings-repo">Repository path</FieldLabel>
             <div className="flex gap-1">
               <Input
+                id="settings-repo"
                 value={draft.repoPath}
                 onChange={(e) => setDraft({ ...draft, repoPath: e.target.value })}
                 placeholder="/Users/you/code/repo"
@@ -99,96 +101,122 @@ export const SettingsDialog = () => {
                 </Button>
               )}
             </div>
+            <FieldDescription>
+              Absolute path to a git repository with a package.json.
+            </FieldDescription>
           </Field>
-          <Field
-            label="Designs directory"
-            hint="Relative to the repository. Should be a workspace package that depends on react, vite and the design system."
-          >
+          <Field>
+            <FieldLabel htmlFor="settings-designs">Designs directory</FieldLabel>
             <Input
+              id="settings-designs"
               value={draft.designsDir}
               onChange={(e) => setDraft({ ...draft, designsDir: e.target.value })}
               placeholder="products/prime/designs"
             />
+            <FieldDescription>
+              Relative to the repository. Should be a workspace package that depends on react, vite
+              and the design system.
+            </FieldDescription>
           </Field>
-          <Field
-            label="Host CSS imports"
-            hint="One per line, resolved from the designs directory. Include the design-system Tailwind entry and fonts."
-          >
-            <textarea
-              className="min-h-14 rounded-md border border-line bg-panel px-2 py-1 text-xs outline-none focus:border-accent"
+          <Field>
+            <FieldLabel htmlFor="settings-css">Host CSS imports</FieldLabel>
+            <Textarea
+              id="settings-css"
+              className="min-h-14"
               value={draft.hostCss.join("\n")}
               onChange={(e) => setDraft({ ...draft, hostCss: list(e.target.value) })}
             />
+            <FieldDescription>
+              One per line, resolved from the designs directory. Include the design-system Tailwind
+              entry and fonts.
+            </FieldDescription>
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field
-              label="Design-system source dirs"
-              hint="Stamped and catalogued. Relative to the repository, one per line."
-            >
-              <textarea
-                className="min-h-14 rounded-md border border-line bg-panel px-2 py-1 text-xs outline-none focus:border-accent"
+            <Field>
+              <FieldLabel htmlFor="settings-libs">Design-system source dirs</FieldLabel>
+              <Textarea
+                id="settings-libs"
+                className="min-h-14"
                 value={draft.libraryDirs.join("\n")}
                 onChange={(e) => setDraft({ ...draft, libraryDirs: list(e.target.value) })}
               />
+              <FieldDescription>
+                Stamped and catalogued. Relative to the repository, one per line.
+              </FieldDescription>
             </Field>
-            <Field label="Component packages" hint="Package names whose exports form the palette.">
-              <textarea
-                className="min-h-14 rounded-md border border-line bg-panel px-2 py-1 text-xs outline-none focus:border-accent"
+            <Field>
+              <FieldLabel htmlFor="settings-packages">Component packages</FieldLabel>
+              <Textarea
+                id="settings-packages"
+                className="min-h-14"
                 value={draft.componentPackages.join("\n")}
                 onChange={(e) => setDraft({ ...draft, componentPackages: list(e.target.value) })}
               />
+              <FieldDescription>Package names whose exports form the palette.</FieldDescription>
             </Field>
           </div>
           <div className="grid grid-cols-[1fr_1fr_100px] gap-3">
-            <Field
-              label="Formatter command"
-              hint="Run from the repo root after each edit. {file} is replaced. Leave empty to auto-detect Biome or Prettier."
-            >
+            <Field>
+              <FieldLabel htmlFor="settings-format">Formatter command</FieldLabel>
               <Input
+                id="settings-format"
                 value={draft.formatCommand ?? ""}
                 onChange={(e) => setDraft({ ...draft, formatCommand: e.target.value || undefined })}
               />
+              <FieldDescription>
+                Run from the repo root after each edit. {"{file}"} is replaced. Leave empty to
+                auto-detect Biome or Prettier.
+              </FieldDescription>
             </Field>
-            <Field label="Storybook URL" hint="Optional. Palette previews use running stories.">
+            <Field>
+              <FieldLabel htmlFor="settings-storybook">Storybook URL</FieldLabel>
               <Input
+                id="settings-storybook"
                 value={draft.storybookUrl ?? ""}
                 onChange={(e) => setDraft({ ...draft, storybookUrl: e.target.value || undefined })}
                 placeholder="http://localhost:6006"
               />
+              <FieldDescription>Optional. Palette previews use running stories.</FieldDescription>
             </Field>
-            <Field label="Theme">
-              <select
-                className="h-7 rounded-md border border-line bg-panel px-2 text-xs"
+            <Field>
+              <FieldLabel>Theme</FieldLabel>
+              <OptionSelect
                 value={draft.theme}
-                onChange={(e) => setDraft({ ...draft, theme: e.target.value as Settings["theme"] })}
-              >
-                <option value="light">light</option>
-                <option value="dark">dark</option>
-              </select>
+                options={themes}
+                onChange={(v) => setDraft({ ...draft, theme: v as Settings["theme"] })}
+              />
             </Field>
           </div>
-          {problems.length > 0 && (
-            <ul className="list-disc rounded-md border border-danger/40 bg-danger/10 py-2 pl-6 text-danger">
-              {problems.map((p) => (
-                <li key={p}>{p}</li>
-              ))}
-            </ul>
-          )}
-          <div className="flex items-center justify-between pt-1">
-            <Button size="xs" onClick={applyEpicpartyDefaults}>
-              Fill epicparty defaults
-            </Button>
-            <div className="flex gap-1">
-              {saved && (
-                <Button onClick={() => useProject.getState().openSettings(false)}>Cancel</Button>
-              )}
-              <Button variant="solid" disabled={busy} onClick={save}>
-                {busy ? "Validating…" : "Save and open"}
+        </FieldGroup>
+        {problems.length > 0 && (
+          <Alert variant="destructive">
+            <CircleAlert />
+            <AlertTitle>The settings could not be saved</AlertTitle>
+            <AlertDescription>
+              <ul className="list-disc pl-4">
+                {problems.map((p) => (
+                  <li key={p}>{p}</li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
+        <DialogFooter className="sm:justify-between">
+          <Button variant="ghost" onClick={applyEpicpartyDefaults}>
+            Fill epicparty defaults
+          </Button>
+          <div className="flex gap-1">
+            {saved && (
+              <Button variant="outline" onClick={() => useProject.getState().openSettings(false)}>
+                Cancel
               </Button>
-            </div>
+            )}
+            <Button disabled={busy} onClick={save}>
+              {busy ? "Validating…" : "Save and open"}
+            </Button>
           </div>
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };

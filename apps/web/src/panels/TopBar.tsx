@@ -1,4 +1,5 @@
 import {
+  ChevronDown,
   GitBranch,
   Hand,
   MousePointer2,
@@ -9,12 +10,60 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import { Button, IconButton, Kbd, Select, Tooltip } from "../components/ui.tsx";
-import { cn } from "../lib/cn.ts";
+import type * as React from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Kbd } from "@/components/ui/kbd";
+import { Separator } from "@/components/ui/separator";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { IconButton } from "../components/icon-button.tsx";
 import { viewportSize, zoomBy } from "../lib/shortcuts.ts";
+import { cn } from "../lib/utils.ts";
 import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
+
+type Mode = ReturnType<typeof useEditor.getState>["mode"];
+
+const modes: { value: Mode; icon: React.ReactNode; tooltip: React.ReactNode }[] = [
+  {
+    value: "select",
+    icon: <MousePointer2 />,
+    tooltip: (
+      <>
+        Select <Kbd>V</Kbd>
+      </>
+    ),
+  },
+  {
+    value: "interact",
+    icon: <Pointer />,
+    tooltip: (
+      <>
+        Interact with the UI <Kbd>I</Kbd>
+      </>
+    ),
+  },
+  {
+    value: "pan",
+    icon: <Hand />,
+    tooltip: (
+      <>
+        Pan <Kbd>H</Kbd> or hold <Kbd>Space</Kbd>
+      </>
+    ),
+  },
+];
 
 export const TopBar = () => {
   const info = useProject((s) => s.info);
@@ -34,105 +83,82 @@ export const TopBar = () => {
   };
 
   return (
-    <header className="flex h-10 shrink-0 items-center gap-2 border-line border-b bg-panel px-2">
-      <div className="flex items-center gap-1 pr-2">
-        <span className="font-semibold text-ink">ultrapaint</span>
-      </div>
-      <div className="flex items-center gap-0.5 rounded-md border border-line p-0.5">
-        <Tooltip
-          content={
-            <span>
-              Select <Kbd>V</Kbd>
-            </span>
-          }
-        >
-          <IconButton
-            active={mode === "select"}
-            onClick={() => useEditor.getState().setMode("select")}
-          >
-            <MousePointer2 className="size-3.5" />
-          </IconButton>
-        </Tooltip>
-        <Tooltip
-          content={
-            <span>
-              Interact with the UI <Kbd>I</Kbd>
-            </span>
-          }
-        >
-          <IconButton
-            active={mode === "interact"}
-            onClick={() => useEditor.getState().setMode("interact")}
-          >
-            <Pointer className="size-3.5" />
-          </IconButton>
-        </Tooltip>
-        <Tooltip
-          content={
-            <span>
-              Pan <Kbd>H</Kbd> or hold <Kbd>Space</Kbd>
-            </span>
-          }
-        >
-          <IconButton active={mode === "pan"} onClick={() => useEditor.getState().setMode("pan")}>
-            <Hand className="size-3.5" />
-          </IconButton>
-        </Tooltip>
-      </div>
+    <header className="flex h-10 shrink-0 items-center gap-2 border-b bg-sidebar px-2 text-sidebar-foreground">
+      <span className="px-1 font-semibold">ultrapaint</span>
+      <Separator orientation="vertical" className="my-2" />
+      <ToggleGroup
+        value={[mode]}
+        onValueChange={(next) => {
+          const v = next[0] as Mode | undefined;
+          if (v) useEditor.getState().setMode(v);
+        }}
+        spacing={0.5}
+      >
+        {modes.map((m) => (
+          <Tooltip key={m.value}>
+            <TooltipTrigger
+              render={
+                <ToggleGroupItem value={m.value} aria-label={m.value}>
+                  {m.icon}
+                </ToggleGroupItem>
+              }
+            />
+            <TooltipContent side="bottom">{m.tooltip}</TooltipContent>
+          </Tooltip>
+        ))}
+      </ToggleGroup>
+      <Separator orientation="vertical" className="my-2" />
       <div className="flex items-center gap-0.5">
-        <Tooltip
-          content={
-            <span>
-              Undo <Kbd>⌘Z</Kbd>
-              {undo.undoLabel ? ` · ${undo.undoLabel}` : ""}
-            </span>
+        <IconButton
+          disabled={!undo.canUndo}
+          onClick={() => undoRedo(false)}
+          tooltip={
+            <>
+              Undo{undo.undoLabel ? ` · ${undo.undoLabel}` : ""} <Kbd>⌘Z</Kbd>
+            </>
           }
         >
-          <IconButton disabled={!undo.canUndo} onClick={() => undoRedo(false)}>
-            <Undo2 className="size-3.5" />
-          </IconButton>
-        </Tooltip>
-        <Tooltip
-          content={
-            <span>
+          <Undo2 />
+        </IconButton>
+        <IconButton
+          disabled={!undo.canRedo}
+          onClick={() => undoRedo(true)}
+          tooltip={
+            <>
               Redo <Kbd>⇧⌘Z</Kbd>
-            </span>
+            </>
           }
         >
-          <IconButton disabled={!undo.canRedo} onClick={() => undoRedo(true)}>
-            <Redo2 className="size-3.5" />
-          </IconButton>
-        </Tooltip>
+          <Redo2 />
+        </IconButton>
       </div>
       <div className="flex-1" />
       {info.configured ? (
-        <div className="flex items-center gap-2 text-ink-2">
-          <span className="text-ink">{info.name}</span>
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <span className="font-medium text-foreground">{info.name}</span>
           <span className="flex items-center gap-1">
             <GitBranch className="size-3" />
             {info.branch}
           </span>
-          <span className="flex items-center gap-1.5">
+          <Badge variant="outline" title={host.error}>
             <span
               className={cn(
-                "inline-block size-2 rounded-full",
-                host.state === "running" && "bg-ok",
-                host.state === "starting" && "animate-pulse bg-accent",
-                host.state === "error" && "bg-danger",
-                host.state === "stopped" && "bg-ink-3",
+                "inline-block size-1.5 rounded-full",
+                host.state === "running" && "bg-success",
+                host.state === "starting" && "animate-pulse bg-brand",
+                host.state === "error" && "bg-destructive",
+                host.state === "stopped" && "bg-muted-foreground",
               )}
             />
-            <span title={host.error}>
-              {host.state === "running"
-                ? `preview :${host.port}`
-                : host.state === "error"
-                  ? "preview failed"
-                  : `preview ${host.state}`}
-            </span>
-          </span>
+            {host.state === "running"
+              ? `preview :${host.port}`
+              : host.state === "error"
+                ? "preview failed"
+                : `preview ${host.state}`}
+          </Badge>
           {host.state !== "running" && host.state !== "starting" && (
             <Button
-              size="xs"
+              size="sm"
               variant="outline"
               onClick={() => api().request("host.start", undefined).catch(reportError)}
             >
@@ -141,39 +167,53 @@ export const TopBar = () => {
           )}
         </div>
       ) : (
-        <span className="text-ink-3">No repository configured</span>
+        <span className="text-muted-foreground">No repository configured</span>
       )}
       <div className="flex-1" />
       <div className="flex items-center gap-0.5">
-        <IconButton onClick={() => zoomBy(0.8)}>
-          <ZoomOut className="size-3.5" />
+        <IconButton tooltip="Zoom out" onClick={() => zoomBy(0.8)}>
+          <ZoomOut />
         </IconButton>
-        <div className="w-20">
-          <Select
-            value={String(Math.round(zoom * 100))}
-            onChange={(v) => {
-              const s = useEditor.getState();
-              if (v === "fit") s.zoomToFit(viewportSize());
-              else if (v === "sel") s.zoomToSelection(viewportSize());
-              else zoomBy(Number(v) / 100 / s.view.zoom);
-            }}
-            options={[
-              { value: String(Math.round(zoom * 100)), label: `${Math.round(zoom * 100)}%` },
-              { value: "50", label: "50%" },
-              { value: "100", label: "100%" },
-              { value: "200", label: "200%" },
-              { value: "fit", label: "Zoom to fit  ⇧1" },
-              { value: "sel", label: "Zoom to selection  ⇧2" },
-            ].filter((o, i, a) => a.findIndex((x) => x.value === o.value) === i)}
-            className="h-7 border-transparent bg-transparent"
-          />
-        </div>
-        <IconButton onClick={() => zoomBy(1.25)}>
-          <ZoomIn className="size-3.5" />
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={<Button variant="ghost" className="w-16 justify-between tabular-nums" />}
+          >
+            {Math.round(zoom * 100)}%
+            <ChevronDown data-icon="inline-end" className="text-muted-foreground" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuGroup>
+              {[50, 100, 200].map((pct) => (
+                <DropdownMenuItem
+                  key={pct}
+                  onClick={() => zoomBy(pct / 100 / useEditor.getState().view.zoom)}
+                >
+                  {pct}%
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem onClick={() => useEditor.getState().zoomToFit(viewportSize())}>
+                Zoom to fit
+                <DropdownMenuShortcut>⇧1</DropdownMenuShortcut>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => useEditor.getState().zoomToSelection(viewportSize())}
+              >
+                Zoom to selection
+                <DropdownMenuShortcut>⇧2</DropdownMenuShortcut>
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <IconButton tooltip="Zoom in" onClick={() => zoomBy(1.25)}>
+          <ZoomIn />
         </IconButton>
       </div>
-      <IconButton onClick={() => useProject.getState().openSettings(true)} title="Settings">
-        <Settings className="size-3.5" />
+      <Separator orientation="vertical" className="my-2" />
+      <IconButton tooltip="Settings" onClick={() => useProject.getState().openSettings(true)}>
+        <Settings />
       </IconButton>
     </header>
   );

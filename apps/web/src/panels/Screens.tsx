@@ -1,7 +1,12 @@
 import { Copy, FilePlus2, FolderOpen, Pencil, Trash2 } from "lucide-react";
 import * as React from "react";
-import { Button, Empty, IconButton, Input, Select } from "../components/ui.tsx";
-import { cn } from "../lib/cn.ts";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { confirmDialog } from "../components/dialogs.tsx";
+import { IconButton } from "../components/icon-button.tsx";
+import { OptionSelect } from "../components/option-select.tsx";
+import { PanelEmpty } from "../components/panel.tsx";
+import { cn } from "../lib/utils.ts";
 import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
@@ -27,7 +32,7 @@ export const Screens = () => {
       .catch(() => undefined);
   }, [configured]);
 
-  if (!configured) return <Empty>Configure a repository in settings</Empty>;
+  if (!configured) return <PanelEmpty>Configure a repository in settings</PanelEmpty>;
 
   const create = async () => {
     const targetFlow = (newFlow || flow || "").trim();
@@ -48,14 +53,14 @@ export const Screens = () => {
 
   return (
     <div className="flex flex-col">
-      <div className="flex items-center gap-1 border-line border-b px-2 py-1.5">
-        <span className="flex-1 text-[11px] text-ink-3">Flows</span>
-        <IconButton title="New screen" onClick={() => setCreating((c) => !c)}>
-          <FilePlus2 className="size-3.5" />
+      <div className="flex items-center gap-1 border-b px-2 py-1.5">
+        <span className="flex-1 text-[11px] text-muted-foreground">Flows</span>
+        <IconButton tooltip="New screen" onClick={() => setCreating((c) => !c)}>
+          <FilePlus2 />
         </IconButton>
       </div>
       {creating && (
-        <div className="flex flex-col gap-1.5 border-line border-b bg-panel-2 p-2">
+        <div className="flex flex-col gap-1.5 border-b bg-muted/30 p-2">
           <Input
             placeholder="Screen name"
             value={name}
@@ -68,16 +73,16 @@ export const Screens = () => {
             value={newFlow}
             onChange={(e) => setNewFlow(e.target.value)}
           />
-          <Select
+          <OptionSelect
             value={template}
             onChange={setTemplate}
             options={templates.map((t) => ({ value: t.id, label: t.name }))}
           />
           <div className="flex justify-end gap-1">
-            <Button size="xs" onClick={() => setCreating(false)}>
+            <Button size="sm" variant="ghost" onClick={() => setCreating(false)}>
               Cancel
             </Button>
-            <Button size="xs" variant="solid" onClick={create}>
+            <Button size="sm" onClick={create}>
               Create
             </Button>
           </div>
@@ -85,18 +90,20 @@ export const Screens = () => {
       )}
       {flows.map((f) => (
         <div key={f || "(root)"}>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
             className={cn(
-              "flex h-7 w-full items-center gap-1.5 px-2 text-left text-[11px]",
-              f === flow ? "text-ink" : "text-ink-2 hover:bg-panel-2",
+              "w-full justify-start gap-1.5 rounded-none font-normal text-[11px] active:translate-y-0",
+              f !== flow && "text-muted-foreground",
             )}
             onClick={() => useEditor.getState().openFlow(f)}
           >
-            <FolderOpen className="size-3.5 text-ink-3" />
-            <span className="flex-1 truncate">{f || "(root)"}</span>
-            <span className="text-ink-3">{screens.filter((s) => s.flow === f).length}</span>
-          </button>
+            <FolderOpen className="text-muted-foreground" />
+            <span className="flex-1 truncate text-left">{f || "(root)"}</span>
+            <span className="text-muted-foreground">
+              {screens.filter((s) => s.flow === f).length}
+            </span>
+          </Button>
           {f === flow &&
             screens
               .filter((s) => s.flow === f)
@@ -105,7 +112,9 @@ export const Screens = () => {
                   key={s.id}
                   className={cn(
                     "group flex h-6 items-center gap-1 pr-1 pl-7 text-[11px]",
-                    activeScreen === s.id ? "bg-accent/20 text-ink" : "text-ink-2 hover:bg-panel-2",
+                    activeScreen === s.id
+                      ? "bg-brand/20 text-foreground"
+                      : "text-muted-foreground hover:bg-muted/50",
                   )}
                   onClick={() => {
                     useEditor.getState().setActiveScreen(s.id);
@@ -139,8 +148,8 @@ export const Screens = () => {
                   )}
                   <span className="hidden items-center group-hover:flex">
                     <IconButton
-                      size="xs"
-                      title="Rename"
+                      size="icon-xs"
+                      tooltip="Rename"
                       onClick={(e) => {
                         e.stopPropagation();
                         setRenaming({ id: s.id, name: s.name });
@@ -149,8 +158,8 @@ export const Screens = () => {
                       <Pencil className="size-3" />
                     </IconButton>
                     <IconButton
-                      size="xs"
-                      title="Duplicate"
+                      size="icon-xs"
+                      tooltip="Duplicate"
                       onClick={(e) => {
                         e.stopPropagation();
                         api().request("screens.duplicate", { id: s.id }).catch(reportError);
@@ -159,12 +168,17 @@ export const Screens = () => {
                       <Copy className="size-3" />
                     </IconButton>
                     <IconButton
-                      size="xs"
-                      title="Delete"
-                      onClick={(e) => {
+                      size="icon-xs"
+                      tooltip="Delete"
+                      onClick={async (e) => {
                         e.stopPropagation();
-                        if (confirm(`Delete ${s.name}?`))
-                          api().request("screens.delete", { id: s.id }).catch(reportError);
+                        const ok = await confirmDialog({
+                          title: `Delete ${s.name}?`,
+                          description: "The screen file is removed from the designs directory.",
+                          confirmLabel: "Delete",
+                          destructive: true,
+                        });
+                        if (ok) api().request("screens.delete", { id: s.id }).catch(reportError);
                       }}
                     >
                       <Trash2 className="size-3" />
@@ -174,7 +188,7 @@ export const Screens = () => {
               ))}
         </div>
       ))}
-      {flows.length === 0 && <Empty>No screens yet. Create one to start.</Empty>}
+      {flows.length === 0 && <PanelEmpty>No screens yet. Create one to start.</PanelEmpty>}
     </div>
   );
 };

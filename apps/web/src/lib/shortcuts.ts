@@ -15,6 +15,15 @@ const isTyping = (e: KeyboardEvent) => {
   );
 };
 
+/**
+ * Dialogs, menus and select popups are not page-blocking the way native confirm/prompt were, so
+ * while one is open keys must not reach the canvas (Backspace would delete the selection behind
+ * it). They are only mounted while open; focus can stay on the trigger, so the target is no guide.
+ */
+const overlayOpen = () =>
+  document.querySelector('[role="dialog"],[role="alertdialog"],[role="menu"],[role="listbox"]') !==
+  null;
+
 export const runEdit = async (op: import("@ultrapaint/contracts").EditOp) => {
   const s = useEditor.getState();
   try {
@@ -33,7 +42,7 @@ export const runEdit = async (op: import("@ultrapaint/contracts").EditOp) => {
 export const useShortcuts = () => {
   React.useEffect(() => {
     const onKey = async (e: KeyboardEvent) => {
-      if (isTyping(e)) return;
+      if (isTyping(e) || overlayOpen()) return;
       const s = useEditor.getState();
       const meta = e.metaKey || e.ctrlKey;
       const viewport = viewportSize();

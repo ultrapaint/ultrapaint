@@ -1,8 +1,8 @@
 import type { FrameLayout, HostMessage, Screen, ViewportPreset } from "@ultrapaint/contracts";
 import { AlertTriangle } from "lucide-react";
 import * as React from "react";
-import { Select } from "../components/ui.tsx";
-import { cn } from "../lib/cn.ts";
+import { OptionSelect } from "../components/option-select.tsx";
+import { cn } from "../lib/utils.ts";
 import { api } from "../state/connection.ts";
 import { findBySource, useEditor } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
@@ -165,7 +165,7 @@ export const Frame = React.memo(({ screen, frame, hostUrl, zoom, visible, onDrag
       <div
         className={cn(
           "absolute left-0 flex items-center gap-2 whitespace-nowrap",
-          isActive ? "text-ink" : "text-ink-2",
+          isActive ? "text-foreground" : "text-muted-foreground",
         )}
         style={{
           top: -30 * inv,
@@ -176,21 +176,22 @@ export const Frame = React.memo(({ screen, frame, hostUrl, zoom, visible, onDrag
       >
         <button
           type="button"
-          className="cursor-grab select-none font-medium text-[12px] hover:text-ink active:cursor-grabbing"
+          className="cursor-grab select-none font-medium text-[12px] hover:text-foreground active:cursor-grabbing"
           onPointerDown={(e) => onDragStart(e, "move")}
           onClick={() => useEditor.getState().setActiveScreen(screen.id)}
         >
           {screen.name}
         </button>
         <div className="w-24">
-          <Select
+          <OptionSelect
+            size="sm"
             value={frame.preset}
             options={presets}
             onChange={(v) => useEditor.getState().setPreset(screen.id, v as ViewportPreset)}
-            className="h-6 border-transparent bg-transparent text-[11px] text-ink-3 hover:border-line"
+            className="border-transparent bg-transparent text-[11px] text-muted-foreground hover:border-input dark:bg-transparent"
           />
         </div>
-        <span className="text-[11px] text-ink-3">
+        <span className="text-[11px] text-muted-foreground">
           {Math.round(frame.width)} × {Math.round(frame.height)}
         </span>
       </div>
@@ -198,7 +199,7 @@ export const Frame = React.memo(({ screen, frame, hostUrl, zoom, visible, onDrag
       <div
         className={cn(
           "absolute inset-0 overflow-hidden bg-white shadow-2xl",
-          isActive && "ring-1 ring-accent/60",
+          isActive && "ring-1 ring-brand/60",
         )}
       >
         {visible && url ? (
@@ -210,7 +211,7 @@ export const Frame = React.memo(({ screen, frame, hostUrl, zoom, visible, onDrag
             style={{ pointerEvents: mode === "interact" ? "auto" : "none" }}
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-ink-3">
+          <div className="flex h-full items-center justify-center text-zinc-500">
             {url ? "" : "Preview host not running"}
           </div>
         )}
@@ -230,7 +231,7 @@ export const Frame = React.memo(({ screen, frame, hostUrl, zoom, visible, onDrag
         {selectedRect && <Outline rect={selectedRect} inv={inv} kind="selection" />}
         {hostError && (
           <div
-            className="absolute inset-x-0 bottom-0 flex items-start gap-2 bg-danger/90 p-3 font-mono text-[11px] text-white"
+            className="absolute inset-x-0 bottom-0 flex items-start gap-2 bg-destructive/90 p-3 font-mono text-[11px] text-white"
             style={{ fontSize: 11 * inv, padding: 12 * inv }}
           >
             <AlertTriangle className="size-4 shrink-0" />
@@ -240,7 +241,7 @@ export const Frame = React.memo(({ screen, frame, hostUrl, zoom, visible, onDrag
       </div>
 
       <div
-        className="absolute cursor-nwse-resize rounded-sm bg-accent"
+        className="absolute cursor-nwse-resize rounded-sm bg-brand"
         style={{ right: -6 * inv, bottom: -6 * inv, width: 10 * inv, height: 10 * inv }}
         onPointerDown={(e) => onDragStart(e, "resize")}
       />
@@ -271,7 +272,7 @@ const Outline = ({
   >
     {kind === "selection" && (
       <span
-        className="absolute left-1/2 rounded bg-accent px-1 py-0.5 font-medium text-[10px] text-white"
+        className="absolute left-1/2 rounded-sm bg-brand px-1 py-0.5 font-medium text-[10px] text-brand-foreground"
         style={{
           top: "100%",
           transform: `translate(-50%, ${4 * inv}px) scale(${inv})`,

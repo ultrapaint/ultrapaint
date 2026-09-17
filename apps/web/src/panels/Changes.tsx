@@ -1,8 +1,14 @@
 import type { Checkpoint, GitDiff, GitStatus } from "@ultrapaint/contracts";
 import { GitCommitHorizontal, History, RefreshCw, Undo2 } from "lucide-react";
 import * as React from "react";
-import { Button, Empty, IconButton, Input } from "../components/ui.tsx";
-import { cn } from "../lib/cn.ts";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { confirmDialog } from "../components/dialogs.tsx";
+import { IconButton } from "../components/icon-button.tsx";
+import { PanelEmpty } from "../components/panel.tsx";
+import { cn } from "../lib/utils.ts";
 import { api } from "../state/connection.ts";
 import { reportError, useProject } from "../state/project.ts";
 
@@ -76,20 +82,21 @@ export const Changes = () => {
     }
   };
 
-  if (!configured) return <Empty>Configure a repository first</Empty>;
-  if (!status) return <Empty>Loading…</Empty>;
+  if (!configured) return <PanelEmpty>Configure a repository first</PanelEmpty>;
+  if (!status) return <PanelEmpty>Loading…</PanelEmpty>;
 
   const design = status.files.filter((f) => f.design);
   const other = status.files.filter((f) => !f.design);
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-1 border-line border-b px-2 py-1.5 text-ink-2">
+      <div className="flex items-center gap-1 border-b px-2 py-1.5 text-muted-foreground">
         <span className="flex-1 truncate">
-          on <span className="text-ink">{status.branch}</span> · {status.files.length} changed
+          on <span className="text-foreground">{status.branch}</span> · {status.files.length}{" "}
+          changed
         </span>
-        <IconButton onClick={() => refresh()} title="Refresh">
-          <RefreshCw className="size-3" />
+        <IconButton onClick={() => refresh()} tooltip="Refresh">
+          <RefreshCw />
         </IconButton>
       </div>
       <div className="max-h-[45%] min-h-0 overflow-auto">
@@ -109,9 +116,11 @@ export const Changes = () => {
           onShow={showDiff}
           current={diff?.path}
         />
-        {status.files.length === 0 && <div className="p-3 text-ink-3">Working tree clean</div>}
+        {status.files.length === 0 && (
+          <div className="p-3 text-muted-foreground">Working tree clean</div>
+        )}
       </div>
-      <div className="flex gap-1 border-line border-y p-2">
+      <div className="flex gap-1 border-y p-2">
         <Input
           placeholder="Commit message"
           value={message}
@@ -119,12 +128,11 @@ export const Changes = () => {
           onKeyDown={(e) => e.key === "Enter" && commit()}
         />
         <Button
-          variant="solid"
           disabled={busy || !message.trim() || selected.size === 0}
           onClick={commit}
           title="Commit selected files"
         >
-          <GitCommitHorizontal className="size-3.5" /> {selected.size}
+          <GitCommitHorizontal data-icon="inline-start" /> {selected.size}
         </Button>
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
@@ -134,19 +142,20 @@ export const Changes = () => {
           <DiffView diffs={[diff]} />
         ) : (
           <div className="p-2">
-            <div className="mb-1 flex items-center gap-1 text-[10px] text-ink-3 uppercase">
+            <div className="mb-1 flex items-center gap-1 text-[10px] text-muted-foreground uppercase">
               <History className="size-3" /> Agent turn checkpoints
             </div>
             {checkpoints.length === 0 && (
-              <div className="text-ink-3">
+              <div className="text-muted-foreground">
                 No checkpoints yet. One is taken before each agent turn.
               </div>
             )}
             {checkpoints.map((c) => (
-              <div key={c.id} className="flex items-center gap-1 py-0.5 text-ink-2">
-                <button
-                  type="button"
-                  className="flex-1 truncate text-left hover:text-ink"
+              <div key={c.id} className="flex items-center gap-1 py-0.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="-ml-2 min-w-0 flex-1 justify-start font-normal text-muted-foreground"
                   onClick={() =>
                     api()
                       .request("checkpoints.diff", { id: c.id })
@@ -154,20 +163,29 @@ export const Changes = () => {
                       .catch(reportError)
                   }
                 >
-                  {new Date(c.at).toLocaleTimeString()} · {c.label}
-                </button>
+                  <span className="truncate">
+                    {new Date(c.at).toLocaleTimeString()} · {c.label}
+                  </span>
+                </Button>
                 <IconButton
-                  size="xs"
-                  title="Revert design files to this checkpoint"
-                  onClick={() =>
-                    confirm("Revert design files to this checkpoint?") &&
-                    api()
-                      .request("checkpoints.revert", { id: c.id })
-                      .then(refresh)
-                      .catch(reportError)
-                  }
+                  size="icon-sm"
+                  tooltip="Revert design files to this checkpoint"
+                  onClick={async () => {
+                    const ok = await confirmDialog({
+                      title: "Revert to this checkpoint?",
+                      description:
+                        "Design files are restored to their state at this checkpoint. Files added since are removed.",
+                      confirmLabel: "Revert",
+                      destructive: true,
+                    });
+                    if (ok)
+                      api()
+                        .request("checkpoints.revert", { id: c.id })
+                        .then(refresh)
+                        .catch(reportError);
+                  }}
                 >
-                  <Undo2 className="size-3" />
+                  <Undo2 />
                 </IconButton>
               </div>
             ))}
@@ -175,9 +193,10 @@ export const Changes = () => {
         )}
       </div>
       {(diff || cpDiff) && (
-        <div className="border-line border-t p-1">
+        <div className="border-t p-1">
           <Button
-            size="xs"
+            size="sm"
+            variant="ghost"
             onClick={() => {
               setDiff(null);
               setCpDiff(null);
@@ -210,11 +229,10 @@ const FileGroup = ({
   const all = files.every((f) => selected.has(f.path));
   return (
     <div>
-      <div className="flex items-center gap-2 px-2 py-1 text-[10px] text-ink-3 uppercase">
-        <input
-          type="checkbox"
+      <Label className="gap-2 px-2 py-1 font-normal text-[10px] text-muted-foreground uppercase">
+        <Checkbox
           checked={all}
-          onChange={() =>
+          onCheckedChange={() =>
             setSelected((prev) => {
               const next = new Set(prev);
               for (const f of files) all ? next.delete(f.path) : next.add(f.path);
@@ -223,19 +241,21 @@ const FileGroup = ({
           }
         />
         {title} ({files.length})
-      </div>
+      </Label>
       {files.map((f) => (
         <div
           key={f.path}
           className={cn(
             "flex h-6 items-center gap-2 px-2 text-[11px]",
-            current === f.path ? "bg-accent/20 text-ink" : "text-ink-2 hover:bg-panel-2",
+            current === f.path
+              ? "bg-brand/20 text-foreground"
+              : "text-muted-foreground hover:bg-muted/50",
           )}
         >
-          <input
-            type="checkbox"
+          <Checkbox
+            aria-label={`Select ${f.path}`}
             checked={selected.has(f.path)}
-            onChange={() =>
+            onCheckedChange={() =>
               setSelected((prev) => {
                 const next = new Set(prev);
                 next.has(f.path) ? next.delete(f.path) : next.add(f.path);
@@ -251,7 +271,9 @@ const FileGroup = ({
           >
             {f.path.split("/").slice(-2).join("/")}
           </button>
-          <span className="font-mono text-[10px] text-ink-3">{f.code.trim() || "M"}</span>
+          <span className="font-mono text-[10px] text-muted-foreground">
+            {f.code.trim() || "M"}
+          </span>
         </div>
       ))}
     </div>
@@ -262,16 +284,18 @@ const DiffView = ({ diffs }: { diffs: readonly GitDiff[] }) => (
   <div className="p-2">
     {diffs.map((d) => (
       <div key={d.path} className="mb-2">
-        <div className="mb-1 truncate font-mono text-[10px] text-ink-2">{d.path}</div>
-        <pre className="overflow-auto rounded bg-panel-2 p-1.5 font-mono text-[10px] leading-4">
+        <div className="mb-1 truncate font-mono text-[10px] text-muted-foreground">{d.path}</div>
+        <pre className="overflow-auto rounded-md bg-muted/50 p-1.5 font-mono text-[10px] leading-4">
           {d.diff.split("\n").map((line, i) => (
             <div
               key={`${i}-${line.slice(0, 10)}`}
               className={cn(
-                line.startsWith("+") && !line.startsWith("+++") && "bg-ok/15 text-ok",
-                line.startsWith("-") && !line.startsWith("---") && "bg-danger/15 text-danger",
-                line.startsWith("@@") && "text-accent",
-                !/^[+\-@]/.test(line) && "text-ink-3",
+                line.startsWith("+") && !line.startsWith("+++") && "bg-success/15 text-success",
+                line.startsWith("-") &&
+                  !line.startsWith("---") &&
+                  "bg-destructive/15 text-destructive",
+                line.startsWith("@@") && "text-brand",
+                !/^[+\-@]/.test(line) && "text-muted-foreground",
               )}
             >
               {line || " "}

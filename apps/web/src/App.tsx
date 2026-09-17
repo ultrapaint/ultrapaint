@@ -1,8 +1,15 @@
 import * as React from "react";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Toaster } from "@/components/ui/sonner";
+import { Spinner } from "@/components/ui/spinner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { installBridgeRouter } from "./canvas/bridge.ts";
 import { Canvas } from "./canvas/Canvas.tsx";
-import { Tabs } from "./components/ui.tsx";
+import { DialogHost } from "./components/dialogs.tsx";
 import { useShortcuts } from "./lib/shortcuts.ts";
+import { cn } from "./lib/utils.ts";
 import { Changes } from "./panels/Changes.tsx";
 import { Inspector } from "./panels/Inspector.tsx";
 import { Layers } from "./panels/Layers.tsx";
@@ -17,6 +24,60 @@ import { useEditor } from "./state/editor.ts";
 import { bindProjectEvents, useProject } from "./state/project.ts";
 
 installBridgeRouter();
+
+type EditorState = ReturnType<typeof useEditor.getState>;
+type LeftTab = EditorState["leftTab"];
+type RightTab = EditorState["rightTab"];
+
+const leftTabs: { value: LeftTab; label: string; panel: React.ComponentType }[] = [
+  { value: "layers", label: "Layers", panel: Layers },
+  { value: "screens", label: "Screens", panel: Screens },
+  { value: "palette", label: "Insert", panel: Palette },
+  { value: "changes", label: "Changes", panel: Changes },
+];
+
+const rightTabs: { value: RightTab; label: string; panel: React.ComponentType }[] = [
+  { value: "design", label: "Design", panel: Inspector },
+  { value: "agents", label: "Agents", panel: Threads },
+];
+
+const SidePanel = <T extends string>({
+  side,
+  value,
+  onChange,
+  tabs,
+}: {
+  side: "left" | "right";
+  value: T;
+  onChange: (v: T) => void;
+  tabs: { value: T; label: string; panel: React.ComponentType }[];
+}) => {
+  // Only the active panel is mounted: panels subscribe to server events while visible.
+  const Active = tabs.find((t) => t.value === value)?.panel;
+  return (
+    <aside
+      className={cn(
+        "flex shrink-0 flex-col bg-sidebar text-sidebar-foreground",
+        side === "left" ? "w-64 border-r" : "w-72 border-l",
+      )}
+    >
+      <Tabs value={value} onValueChange={(v) => onChange(v as T)} className="min-h-0 flex-1 gap-0">
+        <div className="flex h-10 shrink-0 items-center border-b px-2">
+          <TabsList className="w-full">
+            {tabs.map((t) => (
+              <TabsTrigger key={t.value} value={t.value}>
+                {t.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
+        <TabsContent value={value} className="min-h-0 overflow-auto">
+          {Active && <Active />}
+        </TabsContent>
+      </Tabs>
+    </aside>
+  );
+};
 
 export const App = () => {
   const connState = useConnection((s) => s.state);
@@ -62,66 +123,50 @@ export const App = () => {
     if (missing || extra) void useEditor.getState().openFlow(flow);
   }, [screens, flow]);
 
+  // Errors surface as toasts; the store slot is only a hand-off from non-React code.
+  React.useEffect(() => {
+    if (!error) return;
+    toast.error("Something went wrong", { description: error, duration: 10000 });
+    useProject.getState().setError(null);
+  }, [error]);
+
   return (
-    <div className="flex h-full flex-col">
-      <TopBar />
-      <div className="flex min-h-0 flex-1">
-        <aside className="flex w-64 shrink-0 flex-col border-line border-r bg-panel">
-          <Tabs
+    <TooltipProvider delay={300}>
+      <div className="flex h-full flex-col">
+        <TopBar />
+        <div className="flex min-h-0 flex-1">
+          <SidePanel
+            side="left"
             value={leftTab}
             onChange={(v) => useEditor.getState().setLeftTab(v)}
-            tabs={[
-              { value: "layers", label: "Layers" },
-              { value: "screens", label: "Screens" },
-              { value: "palette", label: "Insert" },
-              { value: "changes", label: "Changes" },
-            ]}
+            tabs={leftTabs}
           />
-          <div className="min-h-0 flex-1 overflow-auto">
-            {leftTab === "layers" && <Layers />}
-            {leftTab === "screens" && <Screens />}
-            {leftTab === "palette" && <Palette />}
-            {leftTab === "changes" && <Changes />}
-          </div>
-        </aside>
-        <main className="min-w-0 flex-1">
-          <Canvas />
-        </main>
-        <aside className="flex w-72 shrink-0 flex-col border-line border-l bg-panel">
-          <Tabs
+          <main className="min-w-0 flex-1">
+            <Canvas />
+          </main>
+          <SidePanel
+            side="right"
             value={rightTab}
             onChange={(v) => useEditor.getState().setRightTab(v)}
-            tabs={[
-              { value: "design", label: "Design" },
-              { value: "agents", label: "Agents" },
-            ]}
+            tabs={rightTabs}
           />
-          <div className="min-h-0 flex-1 overflow-auto">
-            {rightTab === "design" ? <Inspector /> : <Threads />}
+        </div>
+        {connState !== "open" && (
+          <div className="pointer-events-none absolute inset-x-0 top-12 z-40 flex justify-center">
+            <Badge variant="secondary" className="h-6 px-2.5 shadow-lg">
+              <Spinner /> Connecting to the local backend…
+            </Badge>
           </div>
-        </aside>
+        )}
+        <SettingsDialog />
+        <DialogHost />
+        <Toaster
+          theme="dark"
+          position="bottom-right"
+          closeButton
+          toastOptions={{ classNames: { description: "whitespace-pre-wrap" } }}
+        />
       </div>
-      {connState !== "open" && (
-        <div className="absolute inset-x-0 top-10 z-40 flex justify-center">
-          <div className="rounded-md bg-panel-3 px-3 py-1.5 text-ink-2 shadow-lg">
-            Connecting to the local backend…
-          </div>
-        </div>
-      )}
-      {error && (
-        <div className="absolute right-4 bottom-4 z-40 max-w-md rounded-md border border-danger/40 bg-panel-2 p-3 text-ink shadow-xl">
-          <div className="mb-1 font-medium text-danger">Something went wrong</div>
-          <div className="whitespace-pre-wrap text-ink-2">{error}</div>
-          <button
-            type="button"
-            className="mt-2 text-ink-3 hover:text-ink"
-            onClick={() => useProject.getState().setError(null)}
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-      <SettingsDialog />
-    </div>
+    </TooltipProvider>
   );
 };

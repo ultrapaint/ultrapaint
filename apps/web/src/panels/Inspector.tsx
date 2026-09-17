@@ -20,13 +20,24 @@ import {
   AlignRight,
   ArrowDown,
   ArrowRight,
+  ChevronRight,
+  Lock,
   StretchHorizontal,
 } from "lucide-react";
 import * as React from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { bridgeFor } from "../canvas/bridge.ts";
-import { Button, Empty, Input, Label, Row, Section, Segmented, Select } from "../components/ui.tsx";
-import { cn } from "../lib/cn.ts";
+import { promptDialog } from "../components/dialogs.tsx";
+import { OptionSelect } from "../components/option-select.tsx";
+import { PanelEmpty, Row, Section } from "../components/panel.tsx";
+import { Segmented } from "../components/segmented.tsx";
 import { runEdit } from "../lib/shortcuts.ts";
+import { cn } from "../lib/utils.ts";
 import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
 import { ComponentProps } from "./ComponentProps.tsx";
@@ -47,18 +58,17 @@ const Prov = ({ s }: { s: StyleValue | undefined }) => {
         ? p.token
         : p.kind;
   return (
-    <span
+    <Badge
+      variant={p.kind === "inline" ? "destructive" : p.kind === "component" ? "secondary" : "ghost"}
       title={`${p.kind}${p.token ? ` · ${p.token}` : ""}${p.className ? ` · .${p.className}` : ""}`}
       className={cn(
-        "max-w-[88px] truncate rounded px-1 font-mono text-[9px]",
-        p.kind === "utility" && "bg-accent/20 text-accent",
-        p.kind === "component" && "bg-panel-3 text-ink-2",
-        (p.kind === "inherited" || p.kind === "default") && "text-ink-3",
-        p.kind === "inline" && "bg-danger/20 text-danger",
+        "block h-4 max-w-[88px] truncate rounded-sm px-1 font-mono text-[9px] leading-4",
+        p.kind === "utility" && "bg-brand/20 text-brand",
+        (p.kind === "inherited" || p.kind === "default") && "text-muted-foreground",
       )}
     >
       {label}
-    </span>
+    </Badge>
   );
 };
 
@@ -88,10 +98,18 @@ const PxField = ({
     if (cls) onClass([cls], removalFor(s));
   };
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-1" title={`${prop}: ${s?.value ?? ""}`}>
-      {short && <span className="w-3 text-[10px] text-ink-3">{short}</span>}
-      <Input
-        className="h-6 px-1.5 text-[11px]"
+    <InputGroup
+      className="h-6 min-w-0 flex-1"
+      data-disabled={disabled}
+      title={`${prop}: ${s?.value ?? ""}`}
+    >
+      {short && (
+        <InputGroupAddon className="w-5 py-0 pl-1.5 font-normal text-[10px]">
+          {short}
+        </InputGroupAddon>
+      )}
+      <InputGroupInput
+        className="h-full px-1.5 md:text-[11px]"
         disabled={disabled}
         value={draft ?? px(s?.value)}
         onChange={(e) => setDraft(e.target.value)}
@@ -109,7 +127,7 @@ const PxField = ({
           }
         }}
       />
-    </div>
+    </InputGroup>
   );
 };
 
@@ -152,7 +170,7 @@ const useTokenOptions = (kind: "color" | "font") => {
           label: util,
           preview: (
             <span
-              className="size-3 shrink-0 rounded-sm border border-line-2"
+              className="size-3 shrink-0 rounded-sm border border-input"
               style={{ background: value }}
             />
           ),
@@ -196,19 +214,24 @@ const ColorField = ({
   return (
     <div className="flex min-w-0 flex-1 items-center gap-1">
       <span
-        className="size-5 shrink-0 rounded border border-line-2"
+        className="size-5 shrink-0 rounded-sm border border-input"
         style={{ background: s?.value }}
       />
-      <Select
+      <OptionSelect
         disabled={disabled}
-        className="h-6 text-[11px]"
+        size="sm"
         value={current}
         placeholder={s?.value ?? "—"}
         options={[...ordered, { value: "__custom", label: "Custom…" }]}
         onChange={(v) => {
           if (v === "__custom") {
-            const hex = prompt("CSS colour value", s?.value ?? "#000000");
-            if (hex) onClass([arbitrary(prefix, hex)], removalFor(s));
+            void promptDialog({
+              title: "Custom colour",
+              description: `Any CSS colour value. It is written as an arbitrary ${prefix}-[…] class.`,
+              defaultValue: s?.value ?? "#000000",
+            }).then((hex) => {
+              if (hex) onClass([arbitrary(prefix, hex)], removalFor(s));
+            });
             return;
           }
           recent.push(v);
@@ -263,9 +286,9 @@ const ScaleSelect = ({
       ? ""
       : null;
   return (
-    <Select
+    <OptionSelect
       disabled={disabled}
-      className="h-6 text-[11px]"
+      size="sm"
       value={current}
       placeholder={px(s?.value) || "—"}
       options={[
@@ -274,12 +297,16 @@ const ScaleSelect = ({
       ]}
       onChange={(v) => {
         if (v === "__custom") {
-          const raw = prompt("Value (px or CSS)", px(s?.value));
-          const util = propertyToUtility[prop];
-          if (raw && util) {
+          void promptDialog({
+            title: `Custom ${prop}`,
+            description: "A px number or any CSS value.",
+            defaultValue: px(s?.value),
+          }).then((raw) => {
+            const util = propertyToUtility[prop];
+            if (!raw || !util) return;
             const c = classForValue(util, raw);
             if (c) onClass([c], removalFor(s));
-          }
+          });
           return;
         }
         onClass([v === "" ? prefix : `${prefix}-${v}`], removalFor(s));
@@ -317,8 +344,9 @@ export const Inspector = () => {
     } else setSource(null);
   }, [selection, tree]);
 
-  if (!selection) return <Empty>Select an element on the canvas or in the layers panel</Empty>;
-  if (!inspect) return <Empty>Inspecting…</Empty>;
+  if (!selection)
+    return <PanelEmpty>Select an element on the canvas or in the layers panel</PanelEmpty>;
+  if (!inspect) return <PanelEmpty>Inspecting…</PanelEmpty>;
 
   const editable = inspect.editable && !!selection.source;
   const onClass = (add: string[], remove: string[]) => {
@@ -342,9 +370,9 @@ export const Inspector = () => {
       <Section title="Layout">
         <Row label="Display">
           <div className="flex min-w-0 flex-1 items-center gap-1">
-            <Select
+            <OptionSelect
               disabled={!editable}
-              className="h-6 text-[11px]"
+              size="sm"
               value={styles.display?.value ?? null}
               options={[
                 "block",
@@ -376,7 +404,7 @@ export const Inspector = () => {
                     removalFor(styles["flex-direction"]),
                   )
                 }
-                className="h-6"
+                disabled={!editable}
               />
               <Segmented
                 value={styles["flex-wrap"]?.value ?? null}
@@ -390,7 +418,7 @@ export const Inspector = () => {
                     removalFor(styles["flex-wrap"]),
                   )
                 }
-                className="h-6"
+                disabled={!editable}
               />
             </Row>
             <Row label="Align">
@@ -431,7 +459,7 @@ export const Inspector = () => {
                     removalFor(styles["align-items"]),
                   )
                 }
-                className="h-6"
+                disabled={!editable}
               />
             </Row>
             <Row label="Justify">
@@ -472,7 +500,7 @@ export const Inspector = () => {
                     removalFor(styles["justify-content"]),
                   )
                 }
-                className="h-6"
+                disabled={!editable}
               />
             </Row>
             <Row label="Gap">
@@ -677,7 +705,7 @@ export const Inspector = () => {
                 removalFor(styles["text-align"]),
               )
             }
-            className="h-6"
+            disabled={!editable}
           />
         </Row>
       </Section>
@@ -742,22 +770,26 @@ export const Inspector = () => {
 
       <Section title="Effects">
         <Row label="Opacity">
-          <Input
-            className="h-6 w-16 text-[11px]"
-            disabled={!editable}
-            defaultValue={Math.round(Number.parseFloat(styles.opacity?.value ?? "1") * 100)}
-            key={styles.opacity?.value}
-            onBlur={(e) => {
-              const n = Number(e.target.value);
-              if (Number.isFinite(n))
-                onClass(
-                  [n >= 100 ? "opacity-100" : `opacity-${Math.round(n)}`],
-                  removalFor(styles.opacity),
-                );
-            }}
-            onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-          />
-          <span className="text-ink-3">%</span>
+          <InputGroup className="h-6 w-20" data-disabled={!editable}>
+            <InputGroupInput
+              className="h-full px-1.5 md:text-[11px]"
+              disabled={!editable}
+              defaultValue={Math.round(Number.parseFloat(styles.opacity?.value ?? "1") * 100)}
+              key={styles.opacity?.value}
+              onBlur={(e) => {
+                const n = Number(e.target.value);
+                if (Number.isFinite(n))
+                  onClass(
+                    [n >= 100 ? "opacity-100" : `opacity-${Math.round(n)}`],
+                    removalFor(styles.opacity),
+                  );
+              }}
+              onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+            />
+            <InputGroupAddon align="inline-end" className="py-0 pr-1.5 font-normal text-[10px]">
+              %
+            </InputGroupAddon>
+          </InputGroup>
           <Prov s={styles.opacity} />
         </Row>
         <Row label="Shadow">
@@ -798,9 +830,9 @@ const FontSelect = ({
     cls?.startsWith("font-") && options.find((o) => o.value === cls.slice(5)) ? cls.slice(5) : null;
   return (
     <>
-      <Select
+      <OptionSelect
         disabled={disabled}
-        className="h-6 text-[11px]"
+        size="sm"
         value={current}
         placeholder={s?.value.split(",")[0]?.replaceAll('"', "") ?? "—"}
         options={options}
@@ -829,21 +861,22 @@ const ClassEditor = ({
     <>
       <div className="flex flex-wrap gap-1">
         {own.map((c) => (
-          <button
+          <Badge
             key={c}
-            type="button"
-            disabled={disabled}
+            render={<button type="button" disabled={disabled} />}
             title="Remove"
-            className="rounded bg-accent/20 px-1.5 py-0.5 font-mono text-[10px] text-accent hover:bg-danger/20 hover:text-danger disabled:pointer-events-none"
+            className="rounded-sm bg-brand/20 px-1.5 font-mono text-brand hover:bg-destructive/20 hover:text-destructive disabled:pointer-events-none"
             onClick={() => onClass([], [c])}
           >
             {c}
-          </button>
+          </Badge>
         ))}
-        {own.length === 0 && <span className="text-ink-3">No classes on this element</span>}
+        {own.length === 0 && (
+          <span className="text-muted-foreground">No classes on this element</span>
+        )}
       </div>
       <Input
-        className="h-6 font-mono text-[11px]"
+        className="h-6 font-mono md:text-[11px]"
         placeholder="Add classes…"
         disabled={disabled}
         value={draft}
@@ -856,80 +889,81 @@ const ClassEditor = ({
         }}
       />
       {inherited.length > 0 && (
-        <details className="text-ink-3">
-          <summary className="cursor-default text-[10px]">
+        <Collapsible>
+          <CollapsibleTrigger
+            render={<Button variant="ghost" size="xs" className="-ml-2 text-muted-foreground" />}
+          >
+            <ChevronRight className="transition-transform group-data-panel-open/button:rotate-90" />
             {inherited.length} classes from the component
-          </summary>
-          <div className="mt-1 flex flex-wrap gap-1">
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-1 flex flex-wrap gap-1">
             {inherited.map((c) => (
-              <span key={c} className="rounded bg-panel-3 px-1 font-mono text-[10px]">
+              <Badge key={c} variant="secondary" className="rounded-sm px-1.5 font-mono">
                 {c}
-              </span>
+              </Badge>
             ))}
-          </div>
-        </details>
+          </CollapsibleContent>
+        </Collapsible>
       )}
     </>
   );
 };
 
 const Header = ({ inspect, source }: { inspect: InspectResult; source: ElementSource | null }) => (
-  <div className="flex flex-col gap-0.5 border-line border-b px-3 py-2.5">
+  <div className="flex flex-col gap-0.5 border-b px-3 py-2.5">
     <div className="flex items-center gap-2">
-      <span
-        className={cn(
-          "font-semibold text-sm",
-          inspect.kind === "component" ? "text-accent" : "text-ink",
-        )}
-      >
+      <span className={cn("font-semibold text-sm", inspect.kind === "component" && "text-brand")}>
         {inspect.name}
       </span>
-      <span className="text-ink-3">
+      <span className="text-muted-foreground">
         {Math.round(inspect.rect.width)} × {Math.round(inspect.rect.height)}
       </span>
     </div>
     {inspect.source && (
       <span
-        className="truncate font-mono text-[10px] text-ink-3"
+        className="truncate font-mono text-[10px] text-muted-foreground"
         title={`${inspect.source.file}:${inspect.source.line}:${inspect.source.col}`}
       >
         {inspect.source.file.split("/").slice(-2).join("/")}:{inspect.source.line}
       </span>
     )}
     {source?.text !== null && source?.text !== undefined && (
-      <span className="truncate text-ink-2">“{source.text}”</span>
+      <span className="truncate text-muted-foreground">“{source.text}”</span>
     )}
   </div>
 );
 
 const NotEditable = ({ inspect }: { inspect: InspectResult }) => (
-  <div className="flex flex-col gap-1.5 border-line border-b bg-panel-2 px-3 py-2.5 text-ink-2">
-    <div>
-      This element comes from{" "}
-      <span className="font-mono text-[10px] text-ink">
-        {inspect.source ? inspect.source.file : "code outside the stamped directories"}
-      </span>
-      , not from a screen file, so its values are read-only here.
-    </div>
-    {inspect.editableAncestor && (
-      <Button
-        size="xs"
-        variant="outline"
-        className="self-start"
-        onClick={() => {
-          const s = useEditor.getState();
-          if (!s.selection || !inspect.editableAncestor) return;
-          s.select({
-            screenId: s.selection.screenId,
-            nodeId: inspect.editableAncestor.nodeId,
-            source: inspect.editableAncestor.source,
-          });
-        }}
-      >
-        Select {inspect.editableAncestor.name} instead
-      </Button>
-    )}
+  <div className="border-b p-2">
+    <Alert>
+      <Lock />
+      <AlertDescription className="flex flex-col gap-1.5">
+        <span>
+          This element comes from{" "}
+          <span className="font-mono text-[10px] text-foreground">
+            {inspect.source ? inspect.source.file : "code outside the stamped directories"}
+          </span>
+          , not from a screen file, so its values are read-only here.
+        </span>
+        {inspect.editableAncestor && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="self-start"
+            onClick={() => {
+              const s = useEditor.getState();
+              if (!s.selection || !inspect.editableAncestor) return;
+              s.select({
+                screenId: s.selection.screenId,
+                nodeId: inspect.editableAncestor.nodeId,
+                source: inspect.editableAncestor.source,
+              });
+            }}
+          >
+            Select {inspect.editableAncestor.name} instead
+          </Button>
+        )}
+      </AlertDescription>
+    </Alert>
   </div>
 );
-
-export { Label };

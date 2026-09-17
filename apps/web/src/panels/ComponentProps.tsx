@@ -6,7 +6,11 @@ import type {
   PropMeta,
 } from "@ultrapaint/contracts";
 import * as React from "react";
-import { Input, Row, Section, Select } from "../components/ui.tsx";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { OptionSelect } from "../components/option-select.tsx";
+import { Row, Section } from "../components/panel.tsx";
 import { useCatalogue } from "../state/catalogue.ts";
 
 const HIDDEN = new Set(["children", "className", "key", "ref", "data-ed", "style"]);
@@ -97,25 +101,22 @@ const PropControl = ({
 
   if (kind === "boolean") {
     return (
-      <label className="flex items-center gap-2">
-        <input
-          type="checkbox"
+      <Label className="font-normal text-muted-foreground">
+        <Checkbox
           disabled={disabled}
           checked={value === true}
-          onChange={(e) => onSet(name, e.target.checked ? true : null)}
+          onCheckedChange={(checked) => onSet(name, checked ? true : null)}
         />
-        <span className="text-ink-3">
-          {value === true ? "true" : value === false ? "false" : "unset"}
-        </span>
-      </label>
+        {value === true ? "true" : value === false ? "false" : "unset"}
+      </Label>
     );
   }
   if (kind === "enum" && members && members.length > 0) {
     return (
       <div className="flex min-w-0 flex-1 items-center gap-1">
-        <Select
+        <OptionSelect
           disabled={disabled}
-          className="h-6 text-[11px]"
+          size="sm"
           value={typeof value === "string" ? value : null}
           placeholder={
             meta?.defaultValue !== undefined ? `default (${String(meta.defaultValue)})` : "unset"
@@ -132,7 +133,7 @@ const PropControl = ({
   if (kind === "number") {
     return (
       <Input
-        className="h-6 text-[11px]"
+        className="h-6 md:text-[11px]"
         type="number"
         disabled={disabled}
         value={draft ?? (typeof value === "number" ? String(value) : "")}
@@ -150,14 +151,14 @@ const PropControl = ({
   }
   if (kind === "node" || kind === "function" || kind === "object" || (raw && value === null)) {
     return (
-      <span className="truncate font-mono text-[10px] text-ink-3" title={raw}>
+      <span className="truncate font-mono text-[10px] text-muted-foreground" title={raw}>
         {raw ?? (kind === "node" ? "<node>" : "ƒ")}
       </span>
     );
   }
   return (
     <Input
-      className="h-6 text-[11px]"
+      className="h-6 md:text-[11px]"
       disabled={disabled}
       placeholder={meta?.defaultValue !== undefined ? String(meta.defaultValue) : "unset"}
       value={draft ?? (typeof value === "string" ? value : "")}

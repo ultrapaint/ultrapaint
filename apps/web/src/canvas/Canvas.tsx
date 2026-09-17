@@ -174,9 +174,9 @@ export const Canvas = () => {
   return (
     <div
       ref={ref}
-      className="relative h-full w-full overflow-hidden bg-canvas"
+      className="relative h-full w-full overflow-hidden bg-background"
       style={{
-        backgroundImage: "radial-gradient(circle, oklch(30% 0.006 260) 1px, transparent 1px)",
+        backgroundImage: "radial-gradient(circle, var(--border) 1px, transparent 1px)",
         backgroundSize: `${Math.max(12, 24 * view.zoom)}px ${Math.max(12, 24 * view.zoom)}px`,
         backgroundPosition: `${view.x}px ${view.y}px`,
         cursor: mode === "pan" ? "grab" : undefined,
@@ -210,7 +210,7 @@ export const Canvas = () => {
         })}
       </div>
       {screens.length === 0 && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-ink-3">
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-muted-foreground">
           {flow === null ? "Open a flow from the Screens panel" : "This flow has no screens yet"}
         </div>
       )}

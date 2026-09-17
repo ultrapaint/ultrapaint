@@ -1,9 +1,13 @@
 import type { ComponentMeta } from "@ultrapaint/contracts";
 import { RefreshCw, Search } from "lucide-react";
 import * as React from "react";
-import { Empty, IconButton, Input } from "../components/ui.tsx";
-import { cn } from "../lib/cn.ts";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { IconButton } from "../components/icon-button.tsx";
+import { PanelEmpty } from "../components/panel.tsx";
 import { runEdit } from "../lib/shortcuts.ts";
+import { cn } from "../lib/utils.ts";
 import { useCatalogue } from "../state/catalogue.ts";
 import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
@@ -34,8 +38,9 @@ export const Palette = () => {
       .catch(() => setStoryUrl(null));
   }, [preview]);
 
-  if (!configured) return <Empty>Configure a repository first</Empty>;
-  if (!catalogue) return <Empty>{loading ? "Indexing the design system…" : "No catalogue"}</Empty>;
+  if (!configured) return <PanelEmpty>Configure a repository first</PanelEmpty>;
+  if (!catalogue)
+    return <PanelEmpty>{loading ? "Indexing the design system…" : "No catalogue"}</PanelEmpty>;
 
   const q = query.trim().toLowerCase();
   const list = catalogue.components.filter(
@@ -64,23 +69,26 @@ export const Palette = () => {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-1 border-line border-b px-2 py-1.5">
-        <Search className="size-3.5 text-ink-3" />
-        <Input
-          className="h-6 border-transparent bg-transparent"
-          placeholder="Search components…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        <IconButton title="Re-index" onClick={() => load(true)} disabled={loading}>
-          <RefreshCw className={cn("size-3", loading && "animate-spin")} />
+      <div className="flex items-center gap-1 border-b px-2 py-1.5">
+        <InputGroup>
+          <InputGroupAddon>
+            <Search />
+          </InputGroupAddon>
+          <InputGroupInput
+            placeholder="Search components…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </InputGroup>
+        <IconButton tooltip="Re-index" onClick={() => load(true)} disabled={loading}>
+          <RefreshCw className={cn(loading && "animate-spin")} />
         </IconButton>
       </div>
-      <div className="border-line border-b px-2 py-1 text-[10px] text-ink-3">
+      <div className="border-b px-2 py-1 text-[10px] text-muted-foreground">
         {target ? (
           <>
             Click to insert into{" "}
-            <span className="text-ink">
+            <span className="text-foreground">
               {inspect?.editable ? inspect.name : inspect?.editableAncestor?.name}
             </span>
           </>
@@ -94,12 +102,13 @@ export const Palette = () => {
       <div className="min-h-0 flex-1 overflow-auto">
         {Array.from(byCategory.entries()).map(([cat, comps]) => (
           <div key={cat}>
-            <div className="sticky top-0 bg-panel px-2 py-1 font-medium text-[10px] text-ink-3 uppercase">
+            <div className="sticky top-0 z-10 bg-sidebar px-2 py-1 font-medium text-[10px] text-muted-foreground uppercase">
               {cat}
             </div>
             {comps.map((c) => (
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
                 key={`${c.group}:${c.name}`}
                 disabled={!target}
                 draggable
@@ -111,45 +120,48 @@ export const Palette = () => {
                 }
                 onClick={() => insert(c)}
                 onMouseEnter={() => setPreview(c)}
-                className="flex h-6 w-full items-center gap-2 px-2 text-left text-[11px] text-ink-2 hover:bg-panel-2 hover:text-ink disabled:opacity-50"
+                className="w-full justify-start gap-2 rounded-none font-normal text-[11px] text-muted-foreground active:translate-y-0"
                 title={c.description ?? c.snippet}
               >
                 <span className="truncate">{c.name}</span>
-                <span className="ml-auto truncate text-[10px] text-ink-3">
+                <span className="ml-auto truncate text-[10px] text-muted-foreground/70">
                   {Object.keys(c.variants).join(" · ")}
                 </span>
-              </button>
+              </Button>
             ))}
           </div>
         ))}
       </div>
       {preview && (
-        <div className="border-line border-t p-2">
-          <div className="mb-1 flex items-center justify-between">
-            <span className="font-medium text-ink">{preview.name}</span>
-            <span className="truncate font-mono text-[10px] text-ink-3">{preview.importFrom}</span>
+        <div className="border-t p-2">
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <span className="font-medium">{preview.name}</span>
+            <span className="truncate font-mono text-[10px] text-muted-foreground">
+              {preview.importFrom}
+            </span>
           </div>
           {storyUrl ? (
             <iframe
               title={preview.name}
               src={storyUrl}
-              className="h-32 w-full rounded border border-line bg-white"
+              className="h-32 w-full rounded-md border bg-white"
             />
           ) : (
-            <pre className="max-h-24 overflow-auto rounded bg-panel-2 p-1.5 font-mono text-[10px] text-ink-2">
+            <pre className="max-h-24 overflow-auto rounded-md bg-muted/50 p-1.5 font-mono text-[10px] text-muted-foreground">
               {preview.snippet}
             </pre>
           )}
           {preview.props.length > 0 && (
             <div className="mt-1 flex flex-wrap gap-1">
               {preview.props.slice(0, 8).map((p) => (
-                <span
+                <Badge
                   key={p.name}
-                  className="rounded bg-panel-3 px-1 font-mono text-[10px] text-ink-3"
+                  variant="secondary"
+                  className="rounded-sm px-1.5 font-mono"
                   title={p.type.raw}
                 >
                   {p.name}
-                </span>
+                </Badge>
               ))}
             </div>
           )}

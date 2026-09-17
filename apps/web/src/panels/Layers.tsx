@@ -2,10 +2,11 @@ import type { TreeNode } from "@ultrapaint/contracts";
 import { sourceKey } from "@ultrapaint/contracts";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import * as React from "react";
+import { Button } from "@/components/ui/button";
 import { bridgeFor } from "../canvas/bridge.ts";
-import { Empty } from "../components/ui.tsx";
-import { cn } from "../lib/cn.ts";
+import { PanelEmpty } from "../components/panel.tsx";
 import { runEdit } from "../lib/shortcuts.ts";
+import { cn } from "../lib/utils.ts";
 import { findPath, useEditor } from "../state/editor.ts";
 
 const keyOf = (n: TreeNode) => (n.source ? `${sourceKey(n.source)}:${n.kind}` : n.id);
@@ -41,7 +42,7 @@ export const Layers = () => {
   }, [selection, tree, activeScreen]);
 
   if (!activeScreen || !tree) {
-    return <Empty>Select a screen to see its layers</Empty>;
+    return <PanelEmpty>Select a screen to see its layers</PanelEmpty>;
   }
 
   const toggle = (n: TreeNode) =>
@@ -117,14 +118,14 @@ export const Layers = () => {
           className={cn(
             "group flex h-6 cursor-default items-center gap-1 pr-2 text-[11px]",
             selected
-              ? "bg-accent/25 text-ink"
+              ? "bg-brand/25 text-foreground"
               : hovered
-                ? "bg-panel-3 text-ink"
-                : "text-ink-2 hover:bg-panel-2",
-            !node.editable && node.id !== "root" && "text-ink-3",
-            dropHere === "inside" && "ring-1 ring-accent ring-inset",
-            dropHere === "before" && "shadow-[inset_0_2px_0_0_var(--color-accent)]",
-            dropHere === "after" && "shadow-[inset_0_-2px_0_0_var(--color-accent)]",
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:bg-muted/50",
+            !node.editable && node.id !== "root" && "text-muted-foreground/60",
+            dropHere === "inside" && "ring-1 ring-brand ring-inset",
+            dropHere === "before" && "shadow-[inset_0_2px_0_0_var(--color-brand)]",
+            dropHere === "after" && "shadow-[inset_0_-2px_0_0_var(--color-brand)]",
           )}
           style={{ paddingLeft: 8 + depth * 12 }}
           onClick={() => {
@@ -138,24 +139,23 @@ export const Layers = () => {
           }
           onMouseLeave={() => useEditor.getState().setHover(null)}
         >
-          <button
-            type="button"
-            className={cn(
-              "flex size-4 shrink-0 items-center justify-center text-ink-3",
-              !hasChildren && "invisible",
-            )}
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            aria-label={isCollapsed ? "Expand" : "Collapse"}
+            className={cn("size-4 text-muted-foreground", !hasChildren && "invisible")}
             onClick={(e) => {
               e.stopPropagation();
               toggle(node);
             }}
           >
             {isCollapsed ? <ChevronRight className="size-3" /> : <ChevronDown className="size-3" />}
-          </button>
+          </Button>
           <span
             className={cn(
               "truncate",
-              node.kind === "component" && "font-medium text-accent",
-              selected && node.kind === "component" && "text-ink",
+              node.kind === "component" && "font-medium text-brand",
+              selected && node.kind === "component" && "text-foreground",
             )}
           >
             {node.summary}
