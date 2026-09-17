@@ -2,7 +2,13 @@ import type { TreeNode } from "@ultrapaint/contracts/preview";
 import { useEffect } from "react";
 import { bridgeFor } from "../canvas/bridge.ts";
 import { api } from "../state/connection.ts";
-import { findPath, hostOf, rowChildren, useEditor } from "../state/editor.ts";
+import {
+  findPath,
+  hostOf,
+  rowChildren,
+  useEditor,
+  workspaceOrder,
+} from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
 
 const isTyping = (e: KeyboardEvent) => {
@@ -103,6 +109,23 @@ const handleModeKey = (e: KeyboardEvent, s: EditorState, meta: boolean) => {
   }
 };
 
+/**
+ * Ctrl+1..3 jump to a workspace. Ctrl and not ⌘, which the browser keeps for its tabs, and
+ * exclusive: returns true when the key was consumed.
+ */
+const handleWorkspaceKey = (e: KeyboardEvent, s: EditorState) => {
+  if (!e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) {
+    return false;
+  }
+  const next = workspaceOrder[Number(e.key) - 1];
+  if (!next) {
+    return false;
+  }
+  e.preventDefault();
+  s.setWorkspace(next);
+  return true;
+};
+
 const handleZoomKey = (e: KeyboardEvent, s: EditorState, meta: boolean) => {
   const viewport = viewportSize();
   if (e.shiftKey && e.key === "!") {
@@ -194,10 +217,17 @@ const handleTreeNavigation = (e: KeyboardEvent, s: EditorState) => {
 export const useShortcuts = () => {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (isTyping(e) || overlayOpen()) {
+      if (overlayOpen()) {
         return;
       }
       const s = useEditor.getState();
+      // A workspace switch carries no meaning for a text field, so it works while typing too.
+      if (handleWorkspaceKey(e, s)) {
+        return;
+      }
+      if (isTyping(e)) {
+        return;
+      }
       const meta = e.metaKey || e.ctrlKey;
       if (handleEditKey(e, s, meta)) {
         return;

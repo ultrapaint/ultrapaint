@@ -20,6 +20,13 @@ export type Mode = "select" | "interact" | "pan";
 /** What the app is for right now: prompting an agent, editing the design, or clicking through it. */
 export type Workspace = "vibe" | "design" | "prototype";
 
+/** Switcher order, which is also the order Ctrl+1..3 follow. */
+export const workspaceOrder: readonly Workspace[] = [
+  "vibe",
+  "design",
+  "prototype",
+];
+
 export type LeftTab = "chat" | "layers" | "screens" | "palette" | "changes";
 
 /** Left panels each workspace offers, in rail order. The first is where a switch lands. */
