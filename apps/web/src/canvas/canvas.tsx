@@ -1,26 +1,32 @@
-import type { FrameLayout } from "@ultrapaint/contracts";
-import * as React from "react";
+import type { FrameLayout } from "@ultrapaint/contracts/screens";
+import {
+  type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
-import { Frame, useHostUrl } from "./Frame.tsx";
+import { Frame, useHostUrl } from "./frame.tsx";
 
 const clampZoom = (z: number) => Math.min(4, Math.max(0.05, z));
 
 export const Canvas = () => {
-  const ref = React.useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
   const view = useEditor((s) => s.view);
   const frames = useEditor((s) => s.frames);
   const flow = useEditor((s) => s.flow);
   const mode = useEditor((s) => s.mode);
   const allScreens = useProject((s) => s.screens);
-  const screens = React.useMemo(
+  const screens = useMemo(
     () => allScreens.filter((x) => x.flow === flow),
-    [allScreens, flow],
+    [allScreens, flow]
   );
   const hostUrl = useHostUrl();
-  const [size, setSize] = React.useState({ width: 0, height: 0 });
-  const spaceDown = React.useRef(false);
-  const drag = React.useRef<
+  const [size, setSize] = useState({ height: 0, width: 0 });
+  const spaceDown = useRef(false);
+  const drag = useRef<
     | { kind: "pan"; startX: number; startY: number; vx: number; vy: number }
     | {
         kind: "move" | "resize";
@@ -32,21 +38,25 @@ export const Canvas = () => {
     | null
   >(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const el = ref.current;
-    if (!el) return;
+    if (!el) {
+      return;
+    }
     const ro = new ResizeObserver(() =>
-      setSize({ width: el.clientWidth, height: el.clientHeight }),
+      setSize({ height: el.clientHeight, width: el.clientWidth })
     );
     ro.observe(el);
-    setSize({ width: el.clientWidth, height: el.clientHeight });
+    setSize({ height: el.clientHeight, width: el.clientWidth });
     return () => ro.disconnect();
   }, []);
 
   // Wheel: pan, or zoom with ctrl/meta (pinch gestures arrive with ctrlKey).
-  React.useEffect(() => {
+  useEffect(() => {
     const el = ref.current;
-    if (!el) return;
+    if (!el) {
+      return;
+    }
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const s = useEditor.getState();
@@ -55,9 +65,11 @@ export const Canvas = () => {
         const rect = el.getBoundingClientRect();
         const cx = e.clientX - rect.left;
         const cy = e.clientY - rect.top;
-        const next = clampZoom(zoom * Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.002)));
+        const next = clampZoom(
+          zoom * Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.002))
+        );
         const k = next / zoom;
-        s.setView({ zoom: next, x: cx - (cx - x) * k, y: cy - (cy - y) * k });
+        s.setView({ x: cx - (cx - x) * k, y: cy - (cy - y) * k, zoom: next });
       } else {
         s.setView({ x: x - e.deltaX, y: y - e.deltaY });
       }
@@ -66,7 +78,7 @@ export const Canvas = () => {
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.code === "Space" && !isTyping(e)) {
         spaceDown.current = true;
@@ -74,7 +86,9 @@ export const Canvas = () => {
       }
     };
     const up = (e: KeyboardEvent) => {
-      if (e.code === "Space") spaceDown.current = false;
+      if (e.code === "Space") {
+        spaceDown.current = false;
+      }
     };
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
@@ -84,36 +98,58 @@ export const Canvas = () => {
     };
   }, []);
 
-  const onPointerDown = (e: React.PointerEvent) => {
+  const onPointerDown = (e: ReactPointerEvent) => {
     const panning = e.button === 1 || spaceDown.current || mode === "pan";
     if (!panning) {
-      if (e.target === e.currentTarget) useEditor.getState().select(null);
+      if (e.target === e.currentTarget) {
+        useEditor.getState().select(null);
+      }
       return;
     }
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    drag.current = { kind: "pan", startX: e.clientX, startY: e.clientY, vx: view.x, vy: view.y };
+    drag.current = {
+      kind: "pan",
+      startX: e.clientX,
+      startY: e.clientY,
+      vx: view.x,
+      vy: view.y,
+    };
   };
 
-  const startFrameDrag = (screenId: string) => (e: React.PointerEvent, kind: "move" | "resize") => {
-    e.preventDefault();
-    e.stopPropagation();
-    const frame = useEditor.getState().frames[screenId];
-    if (!frame) return;
-    ref.current?.setPointerCapture(e.pointerId);
-    drag.current = { kind, screenId, startX: e.clientX, startY: e.clientY, frame };
-    useEditor.getState().setActiveScreen(screenId);
-  };
+  const startFrameDrag =
+    (screenId: string) => (e: ReactPointerEvent, kind: "move" | "resize") => {
+      e.preventDefault();
+      e.stopPropagation();
+      const frame = useEditor.getState().frames[screenId];
+      if (!frame) {
+        return;
+      }
+      ref.current?.setPointerCapture(e.pointerId);
+      drag.current = {
+        frame,
+        kind,
+        screenId,
+        startX: e.clientX,
+        startY: e.clientY,
+      };
+      useEditor.getState().setActiveScreen(screenId);
+    };
 
-  const onPointerMove = (e: React.PointerEvent) => {
+  const onPointerMove = (e: ReactPointerEvent) => {
     const d = drag.current;
-    if (!d) return;
+    if (!d) {
+      return;
+    }
     const s = useEditor.getState();
-    const zoom = s.view.zoom;
+    const { zoom } = s.view;
     const dx = (e.clientX - d.startX) / zoom;
     const dy = (e.clientY - d.startY) / zoom;
     if (d.kind === "pan") {
-      s.setView({ x: d.vx + (e.clientX - d.startX), y: d.vy + (e.clientY - d.startY) });
+      s.setView({
+        x: d.vx + (e.clientX - d.startX),
+        y: d.vy + (e.clientY - d.startY),
+      });
     } else if (d.kind === "move") {
       const others = Object.entries(s.frames)
         .filter(([id]) => id !== d.screenId)
@@ -122,7 +158,7 @@ export const Canvas = () => {
         { ...d.frame, x: d.frame.x + dx, y: d.frame.y + dy },
         others,
         8 / zoom,
-        e.shiftKey,
+        e.shiftKey
       );
       s.setFrame(d.screenId, snapped, false);
     } else {
@@ -130,11 +166,11 @@ export const Canvas = () => {
         d.screenId,
         {
           ...d.frame,
-          width: Math.max(120, d.frame.width + dx),
           height: Math.max(120, d.frame.height + dy),
           preset: "custom",
+          width: Math.max(120, d.frame.width + dx),
         },
-        false,
+        false
       );
     }
   };
@@ -145,14 +181,15 @@ export const Canvas = () => {
     if (d && d.kind !== "pan") {
       const s = useEditor.getState();
       const f = s.frames[d.screenId];
-      if (f)
+      if (f) {
         s.setFrame(d.screenId, {
           ...f,
+          height: Math.round(f.height),
+          width: Math.round(f.width),
           x: Math.round(f.x),
           y: Math.round(f.y),
-          width: Math.round(f.width),
-          height: Math.round(f.height),
         });
+      }
     }
   };
 
@@ -173,18 +210,19 @@ export const Canvas = () => {
 
   return (
     <div
-      ref={ref}
       className="relative h-full w-full overflow-hidden bg-background"
-      style={{
-        backgroundImage: "radial-gradient(circle, var(--border) 1px, transparent 1px)",
-        backgroundSize: `${Math.max(12, 24 * view.zoom)}px ${Math.max(12, 24 * view.zoom)}px`,
-        backgroundPosition: `${view.x}px ${view.y}px`,
-        cursor: mode === "pan" ? "grab" : undefined,
-      }}
+      onPointerCancel={onPointerUp}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
+      ref={ref}
+      style={{
+        backgroundImage:
+          "radial-gradient(circle, var(--border) 1px, transparent 1px)",
+        backgroundPosition: `${view.x}px ${view.y}px`,
+        backgroundSize: `${Math.max(12, 24 * view.zoom)}px ${Math.max(12, 24 * view.zoom)}px`,
+        cursor: mode === "pan" ? "grab" : undefined,
+      }}
     >
       <div
         className="absolute top-0 left-0"
@@ -195,23 +233,27 @@ export const Canvas = () => {
       >
         {screens.map((screen) => {
           const frame = frames[screen.id];
-          if (!frame) return null;
+          if (!frame) {
+            return null;
+          }
           return (
             <Frame
-              key={screen.id}
-              screen={screen}
               frame={frame}
               hostUrl={hostUrl}
-              zoom={view.zoom}
-              visible={isVisible(frame)}
+              key={screen.id}
               onDragStart={startFrameDrag(screen.id)}
+              screen={screen}
+              visible={isVisible(frame)}
+              zoom={view.zoom}
             />
           );
         })}
       </div>
       {screens.length === 0 && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-muted-foreground">
-          {flow === null ? "Open a flow from the Screens panel" : "This flow has no screens yet"}
+          {flow === null
+            ? "Open a flow from the Screens panel"
+            : "This flow has no screens yet"}
         </div>
       )}
     </div>
@@ -220,26 +262,43 @@ export const Canvas = () => {
 
 const isTyping = (e: KeyboardEvent) => {
   const t = e.target as HTMLElement | null;
-  return !!t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
+  return (
+    !!t &&
+    (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)
+  );
 };
 
 const snap = (
   f: FrameLayout,
   others: FrameLayout[],
   threshold: number,
-  disabled: boolean,
+  disabled: boolean
 ): FrameLayout => {
-  if (disabled) return f;
-  let x = f.x;
-  let y = f.y;
-  const xs = others.flatMap((o) => [o.x, o.x + o.width, o.x - f.width, o.x + o.width - f.width]);
+  if (disabled) {
+    return f;
+  }
+  let { x, y } = f;
+  const xs = others.flatMap((o) => [
+    o.x,
+    o.x + o.width,
+    o.x - f.width,
+    o.x + o.width - f.width,
+  ]);
   const ys = others.flatMap((o) => [
     o.y,
     o.y + o.height,
     o.y - f.height,
     o.y + o.height - f.height,
   ]);
-  for (const c of xs) if (Math.abs(c - x) < threshold) x = c;
-  for (const c of ys) if (Math.abs(c - y) < threshold) y = c;
+  for (const c of xs) {
+    if (Math.abs(c - x) < threshold) {
+      x = c;
+    }
+  }
+  for (const c of ys) {
+    if (Math.abs(c - y) < threshold) {
+      y = c;
+    }
+  }
   return { ...f, x, y };
 };

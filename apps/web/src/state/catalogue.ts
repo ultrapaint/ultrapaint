@@ -1,17 +1,16 @@
-import type { Catalogue } from "@ultrapaint/contracts";
+import type { Catalogue } from "@ultrapaint/contracts/catalogue";
 import { create } from "zustand";
 import { api } from "./connection.ts";
 import { reportError } from "./project.ts";
 
 interface CatalogueStore {
   catalogue: Catalogue | null;
-  loading: boolean;
   load: (refresh?: boolean) => Promise<void>;
+  loading: boolean;
 }
 
 export const useCatalogue = create<CatalogueStore>((set) => ({
   catalogue: null,
-  loading: false,
   load: async (refresh = false) => {
     set({ loading: true });
     try {
@@ -23,4 +22,5 @@ export const useCatalogue = create<CatalogueStore>((set) => ({
       set({ loading: false });
     }
   },
+  loading: false,
 }));

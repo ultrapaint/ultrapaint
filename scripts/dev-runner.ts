@@ -21,7 +21,11 @@ const env = {
 const children: ChildProcess[] = [];
 
 const run = (name: string, args: string[], cwd: string) => {
-  const child = spawn("pnpm", args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
+  const child = spawn("pnpm", args, {
+    cwd,
+    env,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
   children.push(child);
   child.stdout?.on("data", (d) => process.stdout.write(`[${name}] ${d}`));
   child.stderr?.on("data", (d) => process.stderr.write(`[${name}] ${d}`));
@@ -30,12 +34,18 @@ const run = (name: string, args: string[], cwd: string) => {
   });
 };
 
-console.log(`[dev-runner] server http://127.0.0.1:${serverPort}  web http://127.0.0.1:${webPort}`);
+console.log(
+  `[dev-runner] server http://127.0.0.1:${serverPort}  web http://127.0.0.1:${webPort}`
+);
 run("server", ["dev"], path.join(root, "apps/server"));
 run("web", ["dev"], path.join(root, "apps/web"));
 
 const stop = () => {
-  for (const c of children) if (c.pid) c.kill("SIGTERM");
+  for (const c of children) {
+    if (c.pid) {
+      c.kill("SIGTERM");
+    }
+  }
   setTimeout(() => process.exit(0), 300);
 };
 process.on("SIGINT", stop);

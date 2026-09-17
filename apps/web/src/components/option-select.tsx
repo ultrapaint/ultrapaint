@@ -1,4 +1,6 @@
+import { cn } from "cn";
 import type * as React from "react";
+import { useCallback } from "react";
 import {
   Select,
   SelectContent,
@@ -6,12 +8,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 
 export interface SelectOption {
-  value: string;
   label: string;
   preview?: React.ReactNode;
+  value: string;
 }
 
 /** Data-driven wrapper around the shadcn Select for flat option lists. */
@@ -31,24 +32,36 @@ export const OptionSelect = ({
   size?: "sm" | "default";
   className?: string;
   disabled?: boolean;
-}) => (
-  <Select<string>
-    value={value}
-    onValueChange={(v) => v !== null && onChange(v)}
-    disabled={disabled}
-  >
-    <SelectTrigger size={size} className={cn("w-full min-w-0", className)}>
-      <SelectValue placeholder={placeholder} className="truncate">
-        {(v: string | null) => options.find((o) => o.value === v)?.label ?? placeholder}
-      </SelectValue>
-    </SelectTrigger>
-    <SelectContent className="w-auto min-w-[max(8rem,var(--anchor-width))]">
-      {options.map((o) => (
-        <SelectItem key={o.value} value={o.value}>
-          {o.preview}
-          {o.label}
-        </SelectItem>
-      ))}
-    </SelectContent>
-  </Select>
-);
+}) => {
+  const onValueChange = useCallback(
+    (v: string | null) => {
+      if (v !== null) {
+        onChange(v);
+      }
+    },
+    [onChange]
+  );
+  return (
+    <Select<string>
+      disabled={disabled}
+      onValueChange={onValueChange}
+      value={value}
+    >
+      <SelectTrigger className={cn("w-full min-w-0", className)} size={size}>
+        <SelectValue className="truncate" placeholder={placeholder}>
+          {(v: string | null) =>
+            options.find((o) => o.value === v)?.label ?? placeholder
+          }
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent className="w-auto min-w-[max(8rem,var(--anchor-width))]">
+        {options.map((o) => (
+          <SelectItem key={o.value} value={o.value}>
+            {o.preview}
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+};

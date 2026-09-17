@@ -2,13 +2,13 @@ import {
   Connection,
   type ConnectionState,
   defaultServerUrl,
-  getPlatform,
-} from "@ultrapaint/client-runtime";
+} from "@ultrapaint/client-runtime/connection";
+import { getPlatform } from "@ultrapaint/client-runtime/platform";
 import { create } from "zustand";
 
 interface ConnectionStore {
-  state: ConnectionState;
   connection: Connection;
+  state: ConnectionState;
 }
 
 const platform = getPlatform();
@@ -17,8 +17,8 @@ const url = platform.serverUrl
   : defaultServerUrl();
 
 export const useConnection = create<ConnectionStore>((set) => ({
+  connection: new Connection({ onState: (state) => set({ state }), url }),
   state: "connecting",
-  connection: new Connection({ url, onState: (state) => set({ state }) }),
 }));
 
 export const api = () => useConnection.getState().connection;

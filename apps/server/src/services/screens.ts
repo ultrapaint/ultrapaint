@@ -13,60 +13,72 @@ import {
   CanvasLayout as CanvasLayoutSchema,
   emptyCanvasLayout,
   type Screen,
-} from "@ultrapaint/contracts";
-import { humanise } from "@ultrapaint/shared";
+} from "@ultrapaint/contracts/screens";
+import { humanise } from "@ultrapaint/shared/path";
 import chokidar, { type FSWatcher } from "chokidar";
-import * as S from "effect/Schema";
+import { Schema as S } from "effect";
 import { AppError } from "../router.ts";
 import { hashContent, toPosix, writeAtomic } from "../util.ts";
 import type { RepoPaths } from "./repo.ts";
 
 const IGNORED_DIRS = new Set(["node_modules", ".ultrapaint", "dist", ".vite"]);
 const CANVAS_FILE = "canvas.json";
+const TSX_EXT_RE = /\.tsx$/;
+const NON_SCREEN_TSX_RE = /\.(stories|test|spec)\.tsx$/;
+const LEADING_LETTER_RE = /^[A-Za-z]/;
 
 export interface ScreensEvents {
-  onScreens: (screens: Screen[]) => void;
-  onFileChanged: (file: string, hash: string) => void;
   onCanvas: (flow: string, layout: CanvasLayout) => void;
+  onFileChanged: (file: string, hash: string) => void;
+  onScreens: (screens: Screen[]) => void;
 }
 
 /** Discovers screens (TSX files) in the designs directory and watches them. */
 export class ScreensService {
   private watcher: FSWatcher | null = null;
   private debounce: NodeJS.Timeout | null = null;
+  private readonly paths: RepoPaths;
+  private readonly events: ScreensEvents;
 
-  constructor(
-    private readonly paths: RepoPaths,
-    private readonly events: ScreensEvents,
-  ) {}
+  constructor(paths: RepoPaths, events: ScreensEvents) {
+    this.paths = paths;
+    this.events = events;
+  }
 
   private isScreenFile(file: string) {
     return (
-      /\.tsx$/.test(file) &&
-      !/\.(stories|test|spec)\.tsx$/.test(file) &&
+      TSX_EXT_RE.test(file) &&
+      !NON_SCREEN_TSX_RE.test(file) &&
       !path.basename(file).startsWith("_")
     );
   }
 
   list(): Screen[] {
     const root = this.paths.designsDir;
-    if (!existsSync(root)) return [];
+    if (!existsSync(root)) {
+      return [];
+    }
     const out: Screen[] = [];
     const walk = (dir: string) => {
-      for (const entry of readdirSync(dir, { withFileTypes: true }).sort((a, b) =>
-        a.name.localeCompare(b.name),
+      for (const entry of readdirSync(dir, { withFileTypes: true }).sort(
+        (a, b) => a.name.localeCompare(b.name)
       )) {
         const abs = path.join(dir, entry.name);
         if (entry.isDirectory()) {
-          if (IGNORED_DIRS.has(entry.name) || entry.name.startsWith(".")) continue;
+          if (IGNORED_DIRS.has(entry.name) || entry.name.startsWith(".")) {
+            continue;
+          }
           walk(abs);
         } else if (entry.isFile() && this.isScreenFile(entry.name)) {
           const id = toPosix(path.relative(root, abs));
           out.push({
+            file: this.paths.relative(abs),
+            flow:
+              toPosix(path.dirname(id)) === "."
+                ? ""
+                : toPosix(path.dirname(id)),
             id,
             name: humanise(entry.name),
-            flow: toPosix(path.dirname(id)) === "." ? "" : toPosix(path.dirname(id)),
-            file: this.paths.relative(abs),
           });
         }
       }
@@ -81,31 +93,46 @@ export class ScreensService {
   }
 
   watch() {
-    if (this.watcher) return;
+    if (this.watcher) {
+      return;
+    }
     this.watcher = chokidar.watch(this.paths.designsDir, {
+      awaitWriteFinish: { pollInterval: 20, stabilityThreshold: 60 },
       ignored: (p) => p.split(path.sep).some((seg) => IGNORED_DIRS.has(seg)),
       ignoreInitial: true,
-      awaitWriteFinish: { stabilityThreshold: 60, pollInterval: 20 },
     });
     const emitScreens = () => {
-      if (this.debounce) clearTimeout(this.debounce);
+      if (this.debounce) {
+        clearTimeout(this.debounce);
+      }
       this.debounce = setTimeout(() => this.events.onScreens(this.list()), 80);
     };
     this.watcher.on("add", (p) => {
-      if (this.isScreenFile(p)) emitScreens();
+      if (this.isScreenFile(p)) {
+        emitScreens();
+      }
     });
     this.watcher.on("unlink", (p) => {
-      if (this.isScreenFile(p)) emitScreens();
+      if (this.isScreenFile(p)) {
+        emitScreens();
+      }
     });
     this.watcher.on("addDir", emitScreens);
     this.watcher.on("unlinkDir", emitScreens);
     this.watcher.on("change", (p) => {
       if (path.basename(p) === CANVAS_FILE) {
-        const flow = toPosix(path.relative(this.paths.designsDir, path.dirname(p)));
-        this.events.onCanvas(flow === "." ? "" : flow, this.readCanvas(flow === "." ? "" : flow));
+        const flow = toPosix(
+          path.relative(this.paths.designsDir, path.dirname(p))
+        );
+        this.events.onCanvas(
+          flow === "." ? "" : flow,
+          this.readCanvas(flow === "." ? "" : flow)
+        );
         return;
       }
-      if (!this.isScreenFile(p)) return;
+      if (!this.isScreenFile(p)) {
+        return;
+      }
       try {
         const content = readFileSync(p, "utf8");
         this.events.onFileChanged(this.paths.relative(p), hashContent(content));
@@ -127,24 +154,30 @@ export class ScreensService {
 
   readCanvas(flow: string): CanvasLayout {
     const file = this.canvasPath(flow);
-    if (!existsSync(file)) return emptyCanvasLayout();
+    if (!existsSync(file)) {
+      return emptyCanvasLayout();
+    }
     try {
-      return S.decodeUnknownSync(CanvasLayoutSchema)(JSON.parse(readFileSync(file, "utf8")));
-    } catch (error) {
-      throw new AppError(
-        "conflict",
-        `canvas.json in ${flow || "designs root"} is invalid: ${(error as Error).message}`,
+      return S.decodeUnknownSync(CanvasLayoutSchema)(
+        JSON.parse(readFileSync(file, "utf8"))
       );
+    } catch (error) {
+      const invalid = new AppError(
+        "conflict",
+        `canvas.json in ${flow || "designs root"} is invalid: ${(error as Error).message}`
+      );
+      invalid.cause = error;
+      throw invalid;
     }
   }
 
   writeCanvas(flow: string, layout: CanvasLayout) {
     const file = this.paths.resolve(this.canvasPath(flow));
     const sorted: CanvasLayout = {
-      version: 1,
       frames: Object.fromEntries(
-        Object.entries(layout.frames).sort(([a], [b]) => a.localeCompare(b)),
+        Object.entries(layout.frames).sort(([a], [b]) => a.localeCompare(b))
       ),
+      version: 1,
     };
     writeAtomic(file, `${JSON.stringify(sorted, null, 2)}\n`);
   }
@@ -152,14 +185,18 @@ export class ScreensService {
   // ---- lifecycle ----
   private screenById(id: string): Screen {
     const s = this.list().find((x) => x.id === id);
-    if (!s) throw new AppError("not_found", `screen not found: ${id}`);
+    if (!s) {
+      throw new AppError("not_found", `screen not found: ${id}`);
+    }
     return s;
   }
 
   private componentName(fileName: string) {
-    const base = fileName.replace(/\.tsx$/, "");
-    const pascal = base.replaceAll(/(^|[-_ ])(\w)/g, (_, __, c: string) => c.toUpperCase());
-    return /^[A-Za-z]/.test(pascal) ? pascal : `Screen${pascal}`;
+    const base = fileName.replace(TSX_EXT_RE, "");
+    const pascal = base.replaceAll(/(^|[-_ ])(\w)/g, (_, __, c: string) =>
+      c.toUpperCase()
+    );
+    return LEADING_LETTER_RE.test(pascal) ? pascal : `Screen${pascal}`;
   }
 
   templates(): { id: string; name: string }[] {
@@ -192,10 +229,17 @@ export class ScreensService {
     const dir = this.paths.resolve(path.join(this.paths.designsDir, flow));
     mkdirSync(dir, { recursive: true });
     const abs = path.join(dir, fileName);
-    if (existsSync(abs)) throw new AppError("conflict", `screen already exists: ${fileName}`);
+    if (existsSync(abs)) {
+      throw new AppError("conflict", `screen already exists: ${fileName}`);
+    }
     writeAtomic(abs, this.template(templateId, this.componentName(fileName)));
     const id = toPosix(path.relative(this.paths.designsDir, abs));
-    return { id, name: humanise(fileName), flow, file: this.paths.relative(abs) };
+    return {
+      file: this.paths.relative(abs),
+      flow,
+      id,
+      name: humanise(fileName),
+    };
   }
 
   rename(id: string, name: string): Screen {
@@ -209,19 +253,26 @@ export class ScreensService {
         .toLowerCase() || "screen"
     }.tsx`;
     const target = path.join(path.dirname(abs), fileName);
-    if (existsSync(target)) throw new AppError("conflict", `screen already exists: ${fileName}`);
+    if (existsSync(target)) {
+      throw new AppError("conflict", `screen already exists: ${fileName}`);
+    }
     renameSync(abs, target);
     const layout = this.readCanvas(s.flow);
     const old = path.basename(s.id);
     if (layout.frames[old]) {
       const { [old]: frame, ...rest } = layout.frames;
       this.writeCanvas(s.flow, {
-        version: 1,
         frames: { ...rest, [fileName]: frame as NonNullable<typeof frame> },
+        version: 1,
       });
     }
     const newId = toPosix(path.relative(this.paths.designsDir, target));
-    return { id: newId, name: humanise(fileName), flow: s.flow, file: this.paths.relative(target) };
+    return {
+      file: this.paths.relative(target),
+      flow: s.flow,
+      id: newId,
+      name: humanise(fileName),
+    };
   }
 
   duplicate(id: string): Screen {
@@ -235,40 +286,44 @@ export class ScreensService {
       target = path.join(path.dirname(abs), `${base}-${n}.tsx`);
     }
     const content = readFileSync(abs, "utf8").replace(
-      new RegExp(`export default function ${this.componentName(path.basename(abs))}\\b`),
-      `export default function ${this.componentName(path.basename(target))}`,
+      new RegExp(
+        `export default function ${this.componentName(path.basename(abs))}\\b`
+      ),
+      `export default function ${this.componentName(path.basename(target))}`
     );
     writeAtomic(target, content);
     const layout = this.readCanvas(s.flow);
     const frame = layout.frames[path.basename(s.id)];
     if (frame) {
       this.writeCanvas(s.flow, {
-        version: 1,
         frames: {
           ...layout.frames,
           [path.basename(target)]: { ...frame, x: frame.x + frame.width + 80 },
         },
+        version: 1,
       });
     }
     const newId = toPosix(path.relative(this.paths.designsDir, target));
     return {
+      file: this.paths.relative(target),
+      flow: s.flow,
       id: newId,
       name: humanise(path.basename(target)),
-      flow: s.flow,
-      file: this.paths.relative(target),
     };
   }
 
   delete(id: string) {
     const s = this.screenById(id);
     const abs = this.paths.resolve(path.join(this.paths.designsDir, s.id));
-    if (!statSync(abs).isFile()) throw new AppError("not_found", id);
+    if (!statSync(abs).isFile()) {
+      throw new AppError("not_found", id);
+    }
     rmSync(abs);
     const layout = this.readCanvas(s.flow);
     const key = path.basename(s.id);
     if (layout.frames[key]) {
       const { [key]: _removed, ...rest } = layout.frames;
-      this.writeCanvas(s.flow, { version: 1, frames: rest });
+      this.writeCanvas(s.flow, { frames: rest, version: 1 });
     }
   }
 }

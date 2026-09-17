@@ -3,17 +3,24 @@
  * defaults and `cva` variants from the configured design-system directories with the
  * TypeScript compiler API, and caches the result under the tool home.
  */
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import { parse } from "@babel/parser";
+import type { JsonValue } from "@ultrapaint/contracts/base";
 import type {
   Catalogue,
   ComponentMeta,
-  JsonValue,
   PropMeta,
   PropType,
-  Settings,
-} from "@ultrapaint/contracts";
+} from "@ultrapaint/contracts/catalogue";
+import type { Settings } from "@ultrapaint/contracts/settings";
 // TypeScript 7 (native) has no JS compiler API; the catalogue uses the 5.x API under an alias.
 import ts from "typescript-api";
 import { hashContent } from "../util.ts";
@@ -21,6 +28,18 @@ import type { RepoPaths } from "./repo.ts";
 
 /** Bump when the extraction logic changes so stale caches are rebuilt. */
 const CATALOGUE_VERSION = 2;
+
+const TSX_EXT_RE = /\.tsx$/;
+const NON_COMPONENT_TSX_RE = /\.(stories|test|spec)\.tsx$/;
+const TS_EXT_RE = /\.tsx?$/;
+const LEADING_DOT_SLASH_RE = /^\.\//;
+const LEADING_DOT_RE = /^\./;
+const TRAILING_SLASH_RE = /\/$/;
+const STORY_TITLE_RE = /title:\s*["'`]([^"'`]+)["'`]/;
+const COMPONENT_NAME_RE = /^[A-Z]/;
+const RENDERABLE_RETURN_RE = /Element|ReactNode|JSX|null/;
+const EVENT_HANDLER_RE = /^on[A-Z]/;
+const NODE_TYPE_RE = /ReactNode|ReactElement|Element|children/i;
 
 const HTML_PROP_ALLOWLIST = new Set([
   "disabled",
@@ -74,7 +93,10 @@ const CATEGORIES: [RegExp, string][] = [
     /^(card|separator|tabs|accordion|collapsible|scroll-area|resizable|aspect-ratio|sidebar|app-layout|app-page-layout|page|section|stack|grid|container|spacer|item|frame)/,
     "Layout",
   ],
-  [/^(alert|badge|progress|skeleton|spinner|empty|banner|callout|status)/, "Feedback"],
+  [
+    /^(alert|badge|progress|skeleton|spinner|empty|banner|callout|status)/,
+    "Feedback",
+  ],
   [/^(breadcrumb|pagination|stepper|steps)/, "Navigation"],
   [
     /^(avatar|table|data-table|chart|carousel|kbd|typography|heading|text|code|image|icon|logo)/,
@@ -89,106 +111,202 @@ const toStoryId = (s: string) =>
     .replaceAll(/^-+|-+$/g, "");
 
 interface CvaInfo {
-  variants: Record<string, string[]>;
   defaults: Record<string, string>;
+  variants: Record<string, string[]>;
 }
+
+interface AstNode {
+  type: string;
+  [k: string]: unknown;
+}
+
+const isAstNode = (v: unknown): v is AstNode =>
+  typeof v === "object" &&
+  v !== null &&
+  typeof (v as AstNode).type === "string";
+
+const keyName = (p: AstNode) => {
+  const k = p.key as AstNode;
+  if (k.type === "Identifier") {
+    return k.name as string;
+  }
+  return k.type === "StringLiteral" ? (k.value as string) : null;
+};
+
+const objectProperties = (obj: AstNode): AstNode[] =>
+  (obj.properties as AstNode[]).filter((p) => p.type === "ObjectProperty");
+
+const astChildren = (n: AstNode): AstNode[] => {
+  const out: AstNode[] = [];
+  for (const key of Object.keys(n)) {
+    if (key === "loc") {
+      continue;
+    }
+    const v = n[key];
+    if (Array.isArray(v)) {
+      for (const x of v) {
+        if (isAstNode(x)) {
+          out.push(x);
+        }
+      }
+    } else if (isAstNode(v)) {
+      out.push(v);
+    }
+  }
+  return out;
+};
+
+const isCvaCall = (n: AstNode): boolean =>
+  n.type === "CallExpression" &&
+  (n.callee as AstNode).type === "Identifier" &&
+  (n.callee as AstNode).name === "cva";
+
+const readVariants = (info: CvaInfo, variants: AstNode) => {
+  for (const vp of objectProperties(variants)) {
+    const vn = keyName(vp);
+    const vv = vp.value as AstNode;
+    if (vn && vv.type === "ObjectExpression") {
+      info.variants[vn] = (vv.properties as AstNode[])
+        .map((m) => (m.type === "ObjectProperty" ? keyName(m) : null))
+        .filter((x): x is string => !!x);
+    }
+  }
+};
+
+const readDefaultVariants = (info: CvaInfo, defaults: AstNode) => {
+  for (const dp of objectProperties(defaults)) {
+    const dn = keyName(dp);
+    const dv = dp.value as AstNode;
+    if (dn && dv.type === "StringLiteral") {
+      info.defaults[dn] = dv.value as string;
+    }
+  }
+};
+
+/** Reads `variants` and `defaultVariants` from the config argument of a `cva` call. */
+const readCvaConfig = (info: CvaInfo, call: AstNode) => {
+  const [, cfg] = call.arguments as AstNode[];
+  if (cfg?.type !== "ObjectExpression") {
+    return;
+  }
+  for (const p of objectProperties(cfg)) {
+    const name = keyName(p);
+    const v = p.value as AstNode;
+    if (v.type !== "ObjectExpression") {
+      continue;
+    }
+    if (name === "variants") {
+      readVariants(info, v);
+    }
+    if (name === "defaultVariants") {
+      readDefaultVariants(info, v);
+    }
+  }
+};
+
+/** Import specifier for `file` from the `exports` map of the package.json at `pj`. */
+const specifierFromPackage = (
+  pj: string,
+  pkgDir: string,
+  file: string
+): { pkg: string; specifier: string } | null => {
+  const pkg = JSON.parse(readFileSync(pj, "utf8")) as {
+    name?: string;
+    exports?: Record<string, unknown>;
+  };
+  if (!pkg.name) {
+    return null;
+  }
+  const relNoExt = path.relative(pkgDir, file).replace(TS_EXT_RE, "");
+  const exportsMap = pkg.exports ?? {};
+  for (const [sub, target] of Object.entries(exportsMap)) {
+    const targets =
+      typeof target === "string"
+        ? [target]
+        : Object.values((target ?? {}) as Record<string, unknown>).flat();
+    for (const t of targets) {
+      if (typeof t !== "string" || !t.includes("*")) {
+        continue;
+      }
+      const prefix = t.replace(LEADING_DOT_SLASH_RE, "").split("*")[0] ?? "";
+      if (relNoExt.startsWith(prefix)) {
+        const rest = relNoExt.slice(prefix.length);
+        return {
+          pkg: pkg.name,
+          specifier: `${pkg.name}${sub.replace(LEADING_DOT_RE, "").replace("*", rest)}`,
+        };
+      }
+    }
+  }
+  return { pkg: pkg.name, specifier: pkg.name };
+};
 
 /** Finds `cva(base, { variants, defaultVariants })` calls in a file with Babel. */
 export const cvaFromSource = (code: string): CvaInfo => {
-  const info: CvaInfo = { variants: {}, defaults: {} };
+  const info: CvaInfo = { defaults: {}, variants: {} };
   let ast: unknown;
   try {
     ast = parse(code, {
-      sourceType: "module",
-      plugins: ["jsx", "typescript"],
       errorRecovery: true,
+      plugins: ["jsx", "typescript"],
+      sourceType: "module",
     });
   } catch {
     return info;
   }
-  type N = { type: string; [k: string]: unknown };
-  const isNode = (v: unknown): v is N =>
-    typeof v === "object" && v !== null && typeof (v as N).type === "string";
-  const keyName = (p: N) => {
-    const k = p.key as N;
-    return k.type === "Identifier"
-      ? (k.name as string)
-      : k.type === "StringLiteral"
-        ? (k.value as string)
-        : null;
-  };
-  const visit = (n: N) => {
-    if (
-      n.type === "CallExpression" &&
-      (n.callee as N).type === "Identifier" &&
-      (n.callee as N).name === "cva"
-    ) {
-      const cfg = (n.arguments as N[])[1];
-      if (cfg?.type === "ObjectExpression") {
-        for (const p of cfg.properties as N[]) {
-          if (p.type !== "ObjectProperty") continue;
-          const name = keyName(p);
-          const v = p.value as N;
-          if (name === "variants" && v.type === "ObjectExpression") {
-            for (const vp of v.properties as N[]) {
-              if (vp.type !== "ObjectProperty") continue;
-              const vn = keyName(vp);
-              const vv = vp.value as N;
-              if (vn && vv.type === "ObjectExpression") {
-                info.variants[vn] = (vv.properties as N[])
-                  .map((m) => (m.type === "ObjectProperty" ? keyName(m) : null))
-                  .filter((x): x is string => !!x);
-              }
-            }
-          }
-          if (name === "defaultVariants" && v.type === "ObjectExpression") {
-            for (const dp of v.properties as N[]) {
-              if (dp.type !== "ObjectProperty") continue;
-              const dn = keyName(dp);
-              const dv = dp.value as N;
-              if (dn && dv.type === "StringLiteral") info.defaults[dn] = dv.value as string;
-            }
-          }
-        }
-      }
+  const visit = (n: AstNode) => {
+    if (isCvaCall(n)) {
+      readCvaConfig(info, n);
     }
-    for (const key of Object.keys(n)) {
-      if (key === "loc") continue;
-      const v = n[key];
-      if (Array.isArray(v)) {
-        for (const x of v) if (isNode(x)) visit(x);
-      } else if (isNode(v)) {
-        visit(v);
-      }
+    for (const child of astChildren(n)) {
+      visit(child);
     }
   };
-  visit(ast as N);
+  visit(ast as AstNode);
   return info;
 };
 
 export class CatalogueService {
   private cached: Catalogue | null = null;
 
+  readonly paths: RepoPaths;
+  readonly settings: Settings;
+  readonly home: string;
+  readonly log: (level: "info" | "warn" | "error", text: string) => void;
+
   constructor(
-    readonly paths: RepoPaths,
-    readonly settings: Settings,
-    readonly home: string,
-    readonly log: (level: "info" | "warn" | "error", text: string) => void,
-  ) {}
+    paths: RepoPaths,
+    settings: Settings,
+    home: string,
+    log: (level: "info" | "warn" | "error", text: string) => void
+  ) {
+    this.paths = paths;
+    this.settings = settings;
+    this.home = home;
+    this.log = log;
+  }
 
   private sourceFiles(): string[] {
     const files: string[] = [];
     for (const dir of this.settings.libraryDirs) {
       const abs = this.paths.resolve(dir);
-      if (!existsSync(abs)) continue;
+      if (!existsSync(abs)) {
+        continue;
+      }
       const walk = (d: string) => {
         for (const e of readdirSync(d, { withFileTypes: true })) {
           const p = path.join(d, e.name);
           if (e.isDirectory()) {
-            if (e.name === "node_modules" || e.name.startsWith(".")) continue;
+            if (e.name === "node_modules" || e.name.startsWith(".")) {
+              continue;
+            }
             walk(p);
-          } else if (/\.tsx$/.test(e.name) && !/\.(stories|test|spec)\.tsx$/.test(e.name))
+          } else if (
+            TSX_EXT_RE.test(e.name) &&
+            !NON_COMPONENT_TSX_RE.test(e.name)
+          ) {
             files.push(p);
+          }
         }
       };
       walk(abs);
@@ -198,7 +316,7 @@ export class CatalogueService {
 
   private cacheKey(files: string[]): string {
     return hashContent(
-      `v${CATALOGUE_VERSION}\n${files.map((f) => `${f}:${statSync(f).mtimeMs}`).join("\n")}${JSON.stringify(this.settings.componentPackages)}`,
+      `v${CATALOGUE_VERSION}\n${files.map((f) => `${f}:${statSync(f).mtimeMs}`).join("\n")}${JSON.stringify(this.settings.componentPackages)}`
     );
   }
 
@@ -208,11 +326,20 @@ export class CatalogueService {
     return path.join(dir, `${key}.json`);
   }
 
-  async get(refresh: boolean): Promise<Catalogue> {
+  get(refresh: boolean): Promise<Catalogue> {
+    // The executor runs synchronously and turns fs/JSON throws into rejections.
+    return new Promise((resolve) => {
+      resolve(this.load(refresh));
+    });
+  }
+
+  private load(refresh: boolean): Catalogue {
     const files = this.sourceFiles();
     const key = this.cacheKey(files);
     const cache = this.cacheFile(key);
-    if (!refresh && this.cached) return this.cached;
+    if (!refresh && this.cached) {
+      return this.cached;
+    }
     if (!refresh && existsSync(cache)) {
       this.cached = JSON.parse(readFileSync(cache, "utf8")) as Catalogue;
       return this.cached;
@@ -223,46 +350,26 @@ export class CatalogueService {
     this.cached = catalogue;
     this.log(
       "info",
-      `catalogue built: ${catalogue.components.length} components (${catalogue.coverage.usable} with metadata) in ${Date.now() - started} ms`,
+      `catalogue built: ${catalogue.components.length} components (${catalogue.coverage.usable} with metadata) in ${Date.now() - started} ms`
     );
     return catalogue;
   }
 
   /** Resolves the import specifier for a component file from the package's `exports` map. */
-  private importSpecifier(file: string): { pkg: string; specifier: string } | null {
+  private importSpecifier(
+    file: string
+  ): { pkg: string; specifier: string } | null {
     for (const dir of this.settings.libraryDirs) {
       const abs = this.paths.resolve(dir);
-      if (!file.startsWith(abs)) continue;
+      if (!file.startsWith(abs)) {
+        continue;
+      }
       // Find the nearest package.json above the library dir.
       let probe = abs;
       while (probe !== path.dirname(probe)) {
         const pj = path.join(probe, "package.json");
         if (existsSync(pj)) {
-          const pkg = JSON.parse(readFileSync(pj, "utf8")) as {
-            name?: string;
-            exports?: Record<string, unknown>;
-          };
-          if (!pkg.name) return null;
-          const relNoExt = path.relative(probe, file).replace(/\.tsx?$/, "");
-          const exportsMap = pkg.exports ?? {};
-          for (const [sub, target] of Object.entries(exportsMap)) {
-            const targets =
-              typeof target === "string"
-                ? [target]
-                : Object.values((target ?? {}) as Record<string, unknown>).flat();
-            for (const t of targets) {
-              if (typeof t !== "string" || !t.includes("*")) continue;
-              const prefix = t.replace(/^\.\//, "").split("*")[0] ?? "";
-              if (relNoExt.startsWith(prefix)) {
-                const rest = relNoExt.slice(prefix.length);
-                return {
-                  pkg: pkg.name,
-                  specifier: `${pkg.name}${sub.replace(/^\./, "").replace("*", rest)}`,
-                };
-              }
-            }
-          }
-          return { pkg: pkg.name, specifier: pkg.name };
+          return specifierFromPackage(pj, probe, file);
         }
         probe = path.dirname(probe);
       }
@@ -274,21 +381,31 @@ export class CatalogueService {
     const map = new Map<string, string[]>();
     for (const dir of this.settings.libraryDirs) {
       const abs = this.paths.resolve(dir);
-      const roots = [abs, path.dirname(abs), path.join(path.dirname(abs), "stories")];
+      const roots = [
+        abs,
+        path.dirname(abs),
+        path.join(path.dirname(abs), "stories"),
+      ];
       for (const r of roots) {
-        if (!existsSync(r) || !statSync(r).isDirectory()) continue;
+        if (!(existsSync(r) && statSync(r).isDirectory())) {
+          continue;
+        }
         for (const e of readdirSync(r)) {
-          if (!e.endsWith(".stories.tsx")) continue;
+          if (!e.endsWith(".stories.tsx")) {
+            continue;
+          }
           const code = readFileSync(path.join(r, e), "utf8");
-          const title = /title:\s*["'`]([^"'`]+)["'`]/.exec(code)?.[1];
-          if (!title) continue;
-          const exportsNames = Array.from(code.matchAll(/export const (\w+)\s*[:=]/g)).map(
-            (m) => m[1] as string,
-          );
+          const title = code.match(STORY_TITLE_RE)?.[1];
+          if (!title) {
+            continue;
+          }
+          const exportsNames = Array.from(
+            code.matchAll(/export const (\w+)\s*[:=]/g)
+          ).map((m) => m[1] as string);
           const base = e.replace(".stories.tsx", "");
           map.set(
             base,
-            exportsNames.map((n) => `${toStoryId(title)}--${toStoryId(n)}`),
+            exportsNames.map((n) => `${toStoryId(title)}--${toStoryId(n)}`)
           );
         }
       }
@@ -298,15 +415,15 @@ export class CatalogueService {
 
   private build(files: string[]): Catalogue {
     const program = ts.createProgram(files, {
+      allowImportingTsExtensions: true,
+      allowJs: true,
       jsx: ts.JsxEmit.Preserve,
       module: ts.ModuleKind.Preserve,
       moduleResolution: ts.ModuleResolutionKind.Bundler,
-      target: ts.ScriptTarget.ES2022,
-      strict: true,
-      skipLibCheck: true,
       noEmit: true,
-      allowJs: true,
-      allowImportingTsExtensions: true,
+      skipLibCheck: true,
+      strict: true,
+      target: ts.ScriptTarget.ES2022,
     });
     const checker = program.getTypeChecker();
     const stories = this.stories();
@@ -314,140 +431,278 @@ export class CatalogueService {
     let usable = 0;
 
     for (const file of files) {
-      const sf = program.getSourceFile(file);
-      if (!sf) continue;
-      const moduleSymbol = checker.getSymbolAtLocation(sf);
-      if (!moduleSymbol) continue;
-      const code = sf.getFullText();
-      const cva = cvaFromSource(code);
-      const spec = this.importSpecifier(file);
-      const base = path.basename(file, ".tsx");
-      const category = CATEGORIES.find(([re]) => re.test(base))?.[1] ?? "Other";
-      for (const exp of checker.getExportsOfModule(moduleSymbol)) {
-        const name = exp.getName();
-        if (!/^[A-Z]/.test(name)) continue;
-        const symbol = exp.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(exp) : exp;
-        const decl = symbol.valueDeclaration ?? symbol.declarations?.[0];
-        if (!decl) continue;
-        const type = checker.getTypeOfSymbolAtLocation(symbol, decl);
-        const sig = type.getCallSignatures()[0];
-        if (!sig) continue;
-        const ret = checker.typeToString(sig.getReturnType());
-        if (!/Element|ReactNode|JSX|null/.test(ret)) continue;
-        const param = sig.getParameters()[0];
-        const props: PropMeta[] = [];
-        const variants: Record<string, string[]> = {};
-        if (param) {
-          const propsType = checker.getTypeOfSymbolAtLocation(param, decl);
-          for (const p of propsType.getProperties()) {
-            const pname = p.getName();
-            const pdecl = p.declarations?.[0];
-            const fromNodeModules =
-              !!pdecl && pdecl.getSourceFile().fileName.includes("/node_modules/");
-            if (fromNodeModules && !HTML_PROP_ALLOWLIST.has(pname)) continue;
-            if (pname.startsWith("on") && /^on[A-Z]/.test(pname)) continue;
-            if (pname.startsWith("aria-") || pname.startsWith("data-")) continue;
-            const ptype = checker.getTypeOfSymbolAtLocation(p, decl);
-            const meta = classify(checker, ptype, pname);
-            if (!meta) continue;
-            const required = !(p.flags & ts.SymbolFlags.Optional);
-            const jsDoc = ts.displayPartsToString(p.getDocumentationComment(checker));
-            const prop: PropMeta = {
-              name: pname,
-              type: meta,
-              required,
-              ...(jsDoc ? { description: jsDoc.slice(0, 200) } : {}),
-              ...(cva.defaults[pname] !== undefined
-                ? { defaultValue: cva.defaults[pname] as JsonValue }
-                : {}),
-            };
-            if (meta.kind === "enum" && cva.variants[pname])
-              variants[pname] = [...(meta.members ?? cva.variants[pname] ?? [])];
-            props.push(prop);
-            if (props.length >= 48) break;
-          }
-        }
-        for (const [vn, members] of Object.entries(cva.variants)) {
-          if (!variants[vn] && props.some((p) => p.name === vn)) variants[vn] = members;
-        }
-        const requiredProps = props.filter((p) => p.required && p.name !== "children");
-        const attrs = requiredProps
-          .map((p) => {
-            if (p.type.kind === "enum") return `${p.name}="${p.type.members?.[0] ?? ""}"`;
-            if (p.type.kind === "string") return `${p.name}=""`;
-            if (p.type.kind === "number") return `${p.name}={0}`;
-            if (p.type.kind === "boolean") return p.name;
-            return null;
-          })
-          .filter(Boolean)
-          .join(" ");
-        const hasChildren = props.some((p) => p.name === "children");
-        const snippet = hasChildren
-          ? `<${name}${attrs ? ` ${attrs}` : ""}>${name}</${name}>`
-          : `<${name}${attrs ? ` ${attrs}` : ""} />`;
-        const description =
-          ts.displayPartsToString(symbol.getDocumentationComment(checker)).slice(0, 200) ||
-          undefined;
-        const meta: ComponentMeta = {
-          name,
-          importFrom: spec?.specifier ?? base,
-          file: this.paths.relative(file),
-          group: spec?.pkg ?? path.dirname(this.paths.relative(file)),
-          category,
-          props,
-          variants,
-          snippet,
-          storyIds: stories.get(base) ?? [],
-          ...(description ? { description } : {}),
-        };
+      for (const meta of this.fileComponents(program, checker, stories, file)) {
         components.push(meta);
-        if (props.length > 0 || Object.keys(variants).length > 0) usable += 1;
+        if (meta.props.length > 0 || Object.keys(meta.variants).length > 0) {
+          usable += 1;
+        }
       }
     }
     components.sort((a, b) => a.name.localeCompare(b.name));
-    return { builtAt: Date.now(), components, coverage: { total: components.length, usable } };
+    return {
+      builtAt: Date.now(),
+      components,
+      coverage: { total: components.length, usable },
+    };
   }
 
-  async storyUrl(storyId: string): Promise<string | null> {
+  /** Metadata for every exported component of one source file. */
+  private fileComponents(
+    program: ts.Program,
+    checker: ts.TypeChecker,
+    stories: Map<string, string[]>,
+    file: string
+  ): ComponentMeta[] {
+    const sf = program.getSourceFile(file);
+    if (!sf) {
+      return [];
+    }
+    const moduleSymbol = checker.getSymbolAtLocation(sf);
+    if (!moduleSymbol) {
+      return [];
+    }
+    const code = sf.getFullText();
+    const cva = cvaFromSource(code);
+    const spec = this.importSpecifier(file);
+    const base = path.basename(file, ".tsx");
+    const category = CATEGORIES.find(([re]) => re.test(base))?.[1] ?? "Other";
+    const out: ComponentMeta[] = [];
+    for (const exp of checker.getExportsOfModule(moduleSymbol)) {
+      const component = resolveComponent(checker, exp);
+      if (!component) {
+        continue;
+      }
+      const name = exp.getName();
+      const { props, variants } = collectProps(
+        checker,
+        component.sig,
+        component.decl,
+        cva
+      );
+      const description =
+        ts
+          .displayPartsToString(
+            component.symbol.getDocumentationComment(checker)
+          )
+          .slice(0, 200) || undefined;
+      out.push({
+        category,
+        file: this.paths.relative(file),
+        group: spec?.pkg ?? path.dirname(this.paths.relative(file)),
+        importFrom: spec?.specifier ?? base,
+        name,
+        props,
+        snippet: snippetFor(name, props),
+        storyIds: stories.get(base) ?? [],
+        variants,
+        ...(description ? { description } : {}),
+      });
+    }
+    return out;
+  }
+
+  storyUrl(storyId: string): Promise<string | null> {
     const base = this.settings.storybookUrl;
-    if (!base) return null;
-    return `${base.replace(/\/$/, "")}/iframe.html?id=${encodeURIComponent(storyId)}&viewMode=story`;
+    if (!base) {
+      return Promise.resolve(null);
+    }
+    return Promise.resolve(
+      `${base.replace(TRAILING_SLASH_RE, "")}/iframe.html?id=${encodeURIComponent(storyId)}&viewMode=story`
+    );
   }
 }
 
-const classify = (checker: ts.TypeChecker, type: ts.Type, name: string): PropType | null => {
-  const raw = checker.typeToString(type, undefined, ts.TypeFormatFlags.NoTruncation).slice(0, 200);
+const classify = (
+  checker: ts.TypeChecker,
+  type: ts.Type,
+  name: string
+): PropType | null => {
+  const raw = checker
+    .typeToString(type, undefined, ts.TypeFormatFlags.NoTruncation)
+    .slice(0, 200);
   const nonNull = type.getNonNullableType();
   const flags = nonNull.getFlags();
   if (nonNull.isUnion()) {
     const members = nonNull.types.filter(
-      (t) => !(t.getFlags() & (ts.TypeFlags.Undefined | ts.TypeFlags.Null)),
+      (t) => !(t.getFlags() & (ts.TypeFlags.Undefined | ts.TypeFlags.Null))
     );
     if (members.length > 0 && members.every((t) => t.isStringLiteral())) {
-      return { kind: "enum", members: members.map((t) => (t as ts.StringLiteralType).value), raw };
+      return {
+        kind: "enum",
+        members: members.map((t) => (t as ts.StringLiteralType).value),
+        raw,
+      };
     }
-    if (members.every((t) => t.getFlags() & ts.TypeFlags.BooleanLiteral))
+    if (members.every((t) => t.getFlags() & ts.TypeFlags.BooleanLiteral)) {
       return { kind: "boolean", raw };
-    if (members.every((t) => t.getFlags() & ts.TypeFlags.NumberLike))
+    }
+    if (members.every((t) => t.getFlags() & ts.TypeFlags.NumberLike)) {
       return { kind: "number", raw };
+    }
     if (
       members.some((t) => t.isStringLiteral()) &&
-      members.every((t) => t.isStringLiteral() || t.getFlags() & ts.TypeFlags.String)
+      members.every(
+        (t) => t.isStringLiteral() || t.getFlags() & ts.TypeFlags.String
+      )
     ) {
       return { kind: "string", raw };
     }
   }
-  if (flags & ts.TypeFlags.BooleanLike) return { kind: "boolean", raw };
-  if (flags & ts.TypeFlags.StringLike) return { kind: "string", raw };
-  if (flags & ts.TypeFlags.NumberLike) return { kind: "number", raw };
-  if (nonNull.getCallSignatures().length > 0) return { kind: "function", raw };
-  if (
-    /ReactNode|ReactElement|Element|children/i.test(raw) ||
-    name === "children" ||
-    name === "render"
-  )
+  if (flags & ts.TypeFlags.BooleanLike) {
+    return { kind: "boolean", raw };
+  }
+  if (flags & ts.TypeFlags.StringLike) {
+    return { kind: "string", raw };
+  }
+  if (flags & ts.TypeFlags.NumberLike) {
+    return { kind: "number", raw };
+  }
+  if (nonNull.getCallSignatures().length > 0) {
+    return { kind: "function", raw };
+  }
+  if (NODE_TYPE_RE.test(raw) || name === "children" || name === "render") {
     return { kind: "node", raw };
-  if (flags & ts.TypeFlags.Object) return { kind: "object", raw };
-  if (flags & ts.TypeFlags.Any || flags & ts.TypeFlags.Unknown) return { kind: "other", raw };
+  }
+  if (flags & ts.TypeFlags.Object) {
+    return { kind: "object", raw };
+  }
+  if (flags & ts.TypeFlags.Any || flags & ts.TypeFlags.Unknown) {
+    return { kind: "other", raw };
+  }
   return { kind: "other", raw };
+};
+
+/** Resolves an export to its component symbol and call signature, or null when it is not one. */
+const resolveComponent = (
+  checker: ts.TypeChecker,
+  exp: ts.Symbol
+): { decl: ts.Declaration; sig: ts.Signature; symbol: ts.Symbol } | null => {
+  if (!COMPONENT_NAME_RE.test(exp.getName())) {
+    return null;
+  }
+  const symbol =
+    exp.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(exp) : exp;
+  const decl = symbol.valueDeclaration ?? symbol.declarations?.[0];
+  if (!decl) {
+    return null;
+  }
+  const type = checker.getTypeOfSymbolAtLocation(symbol, decl);
+  const [sig] = type.getCallSignatures();
+  if (!sig) {
+    return null;
+  }
+  const ret = checker.typeToString(sig.getReturnType());
+  if (!RENDERABLE_RETURN_RE.test(ret)) {
+    return null;
+  }
+  return { decl, sig, symbol };
+};
+
+/** Inherited DOM noise: non-allowlisted library props, event handlers, aria-/data- attributes. */
+const isSkippedProp = (p: ts.Symbol, pname: string): boolean => {
+  const pdecl = p.declarations?.[0];
+  const fromNodeModules =
+    !!pdecl && pdecl.getSourceFile().fileName.includes("/node_modules/");
+  if (fromNodeModules && !HTML_PROP_ALLOWLIST.has(pname)) {
+    return true;
+  }
+  if (pname.startsWith("on") && EVENT_HANDLER_RE.test(pname)) {
+    return true;
+  }
+  return pname.startsWith("aria-") || pname.startsWith("data-");
+};
+
+const propMeta = (
+  checker: ts.TypeChecker,
+  p: ts.Symbol,
+  type: PropType,
+  cva: CvaInfo
+): PropMeta => {
+  const pname = p.getName();
+  const required = !(p.flags & ts.SymbolFlags.Optional);
+  const jsDoc = ts.displayPartsToString(p.getDocumentationComment(checker));
+  return {
+    name: pname,
+    required,
+    type,
+    ...(jsDoc ? { description: jsDoc.slice(0, 200) } : {}),
+    ...(cva.defaults[pname] === undefined
+      ? {}
+      : { defaultValue: cva.defaults[pname] as JsonValue }),
+  };
+};
+
+/** Variants declared in `cva` that the prop types did not already describe as enums. */
+const addCvaVariants = (
+  variants: Record<string, string[]>,
+  props: PropMeta[],
+  cva: CvaInfo
+) => {
+  for (const [vn, members] of Object.entries(cva.variants)) {
+    if (!variants[vn] && props.some((p) => p.name === vn)) {
+      variants[vn] = members;
+    }
+  }
+};
+
+const collectProps = (
+  checker: ts.TypeChecker,
+  sig: ts.Signature,
+  decl: ts.Declaration,
+  cva: CvaInfo
+): { props: PropMeta[]; variants: Record<string, string[]> } => {
+  const [param] = sig.getParameters();
+  const props: PropMeta[] = [];
+  const variants: Record<string, string[]> = {};
+  if (param) {
+    const propsType = checker.getTypeOfSymbolAtLocation(param, decl);
+    for (const p of propsType.getProperties()) {
+      const pname = p.getName();
+      if (isSkippedProp(p, pname)) {
+        continue;
+      }
+      const ptype = checker.getTypeOfSymbolAtLocation(p, decl);
+      const meta = classify(checker, ptype, pname);
+      if (!meta) {
+        continue;
+      }
+      if (meta.kind === "enum" && cva.variants[pname]) {
+        variants[pname] = [...(meta.members ?? cva.variants[pname] ?? [])];
+      }
+      props.push(propMeta(checker, p, meta, cva));
+      if (props.length >= 48) {
+        break;
+      }
+    }
+  }
+  addCvaVariants(variants, props, cva);
+  return { props, variants };
+};
+
+const placeholderAttr = (p: PropMeta): string | null => {
+  if (p.type.kind === "enum") {
+    return `${p.name}="${p.type.members?.[0] ?? ""}"`;
+  }
+  if (p.type.kind === "string") {
+    return `${p.name}=""`;
+  }
+  if (p.type.kind === "number") {
+    return `${p.name}={0}`;
+  }
+  if (p.type.kind === "boolean") {
+    return p.name;
+  }
+  return null;
+};
+
+/** Minimal JSX for inserting the component: required props get placeholder values. */
+const snippetFor = (name: string, props: PropMeta[]): string => {
+  const requiredProps = props.filter(
+    (p) => p.required && p.name !== "children"
+  );
+  const attrs = requiredProps.map(placeholderAttr).filter(Boolean).join(" ");
+  const hasChildren = props.some((p) => p.name === "children");
+  return hasChildren
+    ? `<${name}${attrs ? ` ${attrs}` : ""}>${name}</${name}>`
+    : `<${name}${attrs ? ` ${attrs}` : ""} />`;
 };

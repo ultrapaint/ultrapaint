@@ -2,30 +2,32 @@ import { parse } from "@babel/parser";
 import MagicString from "magic-string";
 
 export interface StampOptions {
-  /** Path written into the stamp, normally repository-relative with posix separators. */
-  file: string;
   /** Attribute name; defaults to `data-ed`. */
   attribute?: string;
+  /** Path written into the stamp, normally repository-relative with posix separators. */
+  file: string;
   /** Source name written into the map; defaults to `file`. Vite wants the absolute path. */
   mapSource?: string;
 }
 
 export interface StampResult {
   code: string;
-  map: ReturnType<MagicString["generateMap"]>;
   count: number;
+  map: ReturnType<MagicString["generateMap"]>;
 }
 
 interface AstNode {
-  type: string;
-  start?: number | null;
   end?: number | null;
   loc?: { start: { line: number; column: number } } | null;
+  start?: number | null;
+  type: string;
   [key: string]: unknown;
 }
 
 const isNode = (v: unknown): v is AstNode =>
-  typeof v === "object" && v !== null && typeof (v as AstNode).type === "string";
+  typeof v === "object" &&
+  v !== null &&
+  typeof (v as AstNode).type === "string";
 
 /**
  * Adds `data-ed="<file>:<line>:<col>"` to every JSX opening element (not fragments) so the
@@ -36,49 +38,73 @@ const isNode = (v: unknown): v is AstNode =>
 export const stampJsx = (code: string, options: StampOptions): StampResult => {
   const attribute = options.attribute ?? "data-ed";
   const ast = parse(code, {
-    sourceType: "module",
-    plugins: ["jsx", "typescript", "decorators-legacy"],
     errorRecovery: true,
+    plugins: ["jsx", "typescript", "decorators-legacy"],
     ranges: true,
+    sourceType: "module",
   });
   const ms = new MagicString(code);
   let count = 0;
 
+  const stampOpening = (node: AstNode) => {
+    const name = node.name as AstNode;
+    const attrs = (node.attributes as AstNode[] | undefined) ?? [];
+    const alreadyStamped = attrs.some(
+      (a) =>
+        a.type === "JSXAttribute" &&
+        ((a.name as AstNode | undefined)?.name as string) === attribute
+    );
+    if (!alreadyStamped && node.loc) {
+      // Insert after the tag name, or after type arguments when present.
+      const typeArgs = (node.typeParameters ?? node.typeArguments) as
+        | AstNode
+        | undefined;
+      const insertAt = (typeArgs?.end ?? name.end) as number;
+      const { line, column } = node.loc.start;
+      ms.appendLeft(
+        insertAt,
+        ` ${attribute}="${options.file}:${line}:${column}"`
+      );
+      count += 1;
+    }
+  };
+
+  const visitValue = (value: unknown) => {
+    if (Array.isArray(value)) {
+      for (const v of value) {
+        if (isNode(v)) {
+          visit(v);
+        }
+      }
+    } else if (isNode(value)) {
+      visit(value);
+    }
+  };
+
   const visit = (node: AstNode) => {
     if (node.type === "JSXOpeningElement") {
-      const name = node.name as AstNode;
-      const attrs = (node.attributes as AstNode[]) ?? [];
-      const alreadyStamped = attrs.some(
-        (a) => a.type === "JSXAttribute" && ((a.name as AstNode)?.name as string) === attribute,
-      );
-      if (!alreadyStamped && node.loc) {
-        // Insert after the tag name, or after type arguments when present.
-        const typeArgs = (node.typeParameters ?? node.typeArguments) as AstNode | undefined;
-        const insertAt = (typeArgs?.end ?? name.end) as number;
-        const { line, column } = node.loc.start;
-        ms.appendLeft(insertAt, ` ${attribute}="${options.file}:${line}:${column}"`);
-        count += 1;
-      }
+      stampOpening(node);
     }
     for (const key of Object.keys(node)) {
-      if (key === "loc" || key === "leadingComments" || key === "trailingComments") continue;
-      const value = node[key];
-      if (Array.isArray(value)) {
-        for (const v of value) if (isNode(v)) visit(v);
-      } else if (isNode(value)) {
-        visit(value);
+      if (
+        key === "loc" ||
+        key === "leadingComments" ||
+        key === "trailingComments"
+      ) {
+        continue;
       }
+      visitValue(node[key]);
     }
   };
   visit(ast as unknown as AstNode);
 
   return {
     code: ms.toString(),
+    count,
     map: ms.generateMap({
       hires: true,
-      source: options.mapSource ?? options.file,
       includeContent: true,
+      source: options.mapSource ?? options.file,
     }),
-    count,
   };
 };

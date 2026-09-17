@@ -2,9 +2,7 @@ import type {
   EditorMessage,
   HostMessage,
   InspectResult,
-  Rect,
-  TreeNode,
-} from "@ultrapaint/contracts";
+} from "@ultrapaint/contracts/preview";
 
 type Listener = (msg: HostMessage) => void;
 
@@ -15,11 +13,14 @@ type Listener = (msg: HostMessage) => void;
 export class FrameBridge {
   private iframe: HTMLIFrameElement | null = null;
   private nextId = 1;
-  private pending = new Map<number, (msg: HostMessage) => void>();
-  private listeners = new Set<Listener>();
+  private readonly pending = new Map<number, (msg: HostMessage) => void>();
+  private readonly listeners = new Set<Listener>();
   ready = false;
+  readonly screenId: string;
 
-  constructor(readonly screenId: string) {}
+  constructor(screenId: string) {
+    this.screenId = screenId;
+  }
 
   attach(iframe: HTMLIFrameElement) {
     this.iframe = iframe;
@@ -37,7 +38,9 @@ export class FrameBridge {
   }
 
   handle(msg: HostMessage) {
-    if (msg.type === "ed:ready") this.ready = true;
+    if (msg.type === "ed:ready") {
+      this.ready = true;
+    }
     if ("requestId" in msg) {
       const cb = this.pending.get(msg.requestId);
       if (cb) {
@@ -45,7 +48,9 @@ export class FrameBridge {
         cb(msg);
       }
     }
-    for (const l of this.listeners) l(msg);
+    for (const l of this.listeners) {
+      l(msg);
+    }
   }
 
   on(listener: Listener) {
@@ -59,9 +64,10 @@ export class FrameBridge {
 
   private request<T extends HostMessage>(
     build: (requestId: number) => EditorMessage,
-    timeoutMs = 4000,
+    timeoutMs = 4000
   ): Promise<T | null> {
-    const requestId = this.nextId++;
+    const requestId = this.nextId;
+    this.nextId += 1;
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
         this.pending.delete(requestId);
@@ -75,31 +81,38 @@ export class FrameBridge {
     });
   }
 
-  async hitTest(x: number, y: number, deepest: boolean): Promise<string | null> {
-    const r = await this.request<Extract<HostMessage, { type: "ed:hit" }>>((requestId) => ({
-      type: "ed:hitTest",
-      requestId,
-      x,
-      y,
-      deepest,
-    }));
+  async hitTest(
+    x: number,
+    y: number,
+    deepest: boolean
+  ): Promise<string | null> {
+    const r = await this.request<Extract<HostMessage, { type: "ed:hit" }>>(
+      (requestId) => ({
+        deepest,
+        requestId,
+        type: "ed:hitTest",
+        x,
+        y,
+      })
+    );
     return r?.nodeId ?? null;
   }
 
   async inspect(nodeId: string): Promise<InspectResult | null> {
-    const r = await this.request<Extract<HostMessage, { type: "ed:inspect" }>>((requestId) => ({
-      type: "ed:inspect",
-      requestId,
-      nodeId,
-    }));
+    const r = await this.request<Extract<HostMessage, { type: "ed:inspect" }>>(
+      (requestId) => ({
+        nodeId,
+        requestId,
+        type: "ed:inspect",
+      })
+    );
     return r?.result ?? null;
   }
 
   async screenshot(): Promise<string | null> {
-    const r = await this.request<Extract<HostMessage, { type: "ed:screenshot" }>>(
-      (requestId) => ({ type: "ed:screenshot", requestId }),
-      15000,
-    );
+    const r = await this.request<
+      Extract<HostMessage, { type: "ed:screenshot" }>
+    >((requestId) => ({ requestId, type: "ed:screenshot" }), 15_000);
     return r?.dataUrl ?? null;
   }
 
@@ -108,11 +121,11 @@ export class FrameBridge {
   }
 
   watchRects(nodeIds: string[]) {
-    this.send({ type: "ed:watchRects", nodeIds });
+    this.send({ nodeIds, type: "ed:watchRects" });
   }
 
   editText(nodeId: string) {
-    this.send({ type: "ed:editText", nodeId });
+    this.send({ nodeId, type: "ed:editText" });
   }
 
   requestTokens() {
@@ -138,13 +151,22 @@ export const removeBridge = (screenId: string) => {
 
 let routerInstalled = false;
 export const installBridgeRouter = () => {
-  if (routerInstalled) return;
+  if (routerInstalled) {
+    return;
+  }
   routerInstalled = true;
   window.addEventListener("message", (ev) => {
     const data = ev.data as (HostMessage & { screen?: string }) | undefined;
-    if (!data || typeof data.type !== "string" || !data.type.startsWith("ed:")) return;
+    if (
+      !data ||
+      typeof data.type !== "string" ||
+      !data.type.startsWith("ed:")
+    ) {
+      return;
+    }
     // Prefer the screen id the runtime stamps on every message; fall back to window identity.
-    const byScreen = typeof data.screen === "string" ? bridges.get(data.screen) : undefined;
+    const byScreen =
+      typeof data.screen === "string" ? bridges.get(data.screen) : undefined;
     if (byScreen) {
       byScreen.handle(data);
       return;
@@ -157,5 +179,3 @@ export const installBridgeRouter = () => {
     }
   });
 };
-
-export type { Rect, TreeNode };

@@ -7,11 +7,11 @@
     "ultrapaint": "./src/bin.ts"
   },
   "scripts": {
+    "build": "esbuild src/bin.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/bin.mjs --external:typescript-api --external:esbuild --external:ws --external:chokidar --external:@babel/parser --external:magic-string --external:tailwind-merge --external:effect --external:html-to-image --external:typescript",
     "dev": "tsx watch --clear-screen=false src/bin.ts",
     "start": "tsx src/bin.ts",
-    "build": "esbuild src/bin.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/bin.mjs --external:typescript-api --external:esbuild --external:ws --external:chokidar --external:@babel/parser --external:magic-string --external:tailwind-merge --external:effect --external:html-to-image --external:typescript",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@babel/parser": "^8.0.5",

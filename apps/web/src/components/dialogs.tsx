@@ -1,4 +1,10 @@
-import * as React from "react";
+import {
+  type ChangeEvent,
+  type FocusEvent,
+  type FormEvent,
+  useCallback,
+  useState,
+} from "react";
 import { create } from "zustand";
 import {
   AlertDialog,
@@ -22,49 +28,97 @@ import {
 import { Input } from "@/components/ui/input";
 
 interface ConfirmOptions {
-  title: string;
-  description?: string;
   confirmLabel?: string;
+  description?: string;
   destructive?: boolean;
+  title: string;
 }
 
 interface PromptOptions {
-  title: string;
-  description?: string;
-  defaultValue?: string;
-  placeholder?: string;
   confirmLabel?: string;
+  defaultValue?: string;
+  description?: string;
+  placeholder?: string;
+  title: string;
 }
 
 type Request =
-  | ({ kind: "confirm"; id: number; resolve: (ok: boolean) => void } & ConfirmOptions)
-  | ({ kind: "prompt"; id: number; resolve: (value: string | null) => void } & PromptOptions);
+  | ({
+      kind: "confirm";
+      id: number;
+      resolve: (ok: boolean) => void;
+    } & ConfirmOptions)
+  | ({
+      kind: "prompt";
+      id: number;
+      resolve: (value: string | null) => void;
+    } & PromptOptions);
 
 let nextId = 0;
 
+const takeId = () => {
+  const id = nextId;
+  nextId += 1;
+  return id;
+};
+
 // `open` is tracked apart from `request` so the content stays mounted while the exit animation runs.
 const useDialogs = create<{ request: Request | null; open: boolean }>(() => ({
-  request: null,
   open: false,
+  request: null,
 }));
 
 /** Promise-based replacement for `window.confirm`, rendered by `<DialogHost />`. */
 export const confirmDialog = (options: ConfirmOptions) =>
   new Promise<boolean>((resolve) =>
     useDialogs.setState({
-      request: { kind: "confirm", id: nextId++, resolve, ...options },
       open: true,
-    }),
+      request: { id: takeId(), kind: "confirm", resolve, ...options },
+    })
   );
 
 /** Promise-based replacement for `window.prompt`; resolves to null when dismissed. */
 export const promptDialog = (options: PromptOptions) =>
   new Promise<string | null>((resolve) =>
     useDialogs.setState({
-      request: { kind: "prompt", id: nextId++, resolve, ...options },
       open: true,
-    }),
+      request: { id: takeId(), kind: "prompt", resolve, ...options },
+    })
   );
+
+const settleConfirm = (ok: boolean) => {
+  const { open, request } = useDialogs.getState();
+  if (!open) {
+    return;
+  }
+  useDialogs.setState({ open: false });
+  if (request?.kind === "confirm") {
+    request.resolve(ok);
+  }
+};
+const settlePrompt = (value: string | null) => {
+  const { open, request } = useDialogs.getState();
+  if (!open) {
+    return;
+  }
+  useDialogs.setState({ open: false });
+  if (request?.kind === "prompt") {
+    request.resolve(value);
+  }
+};
+
+const onConfirmOpenChange = (o: boolean) => {
+  if (!o) {
+    settleConfirm(false);
+  }
+};
+const onPromptOpenChange = (o: boolean) => {
+  if (!o) {
+    settlePrompt(null);
+  }
+};
+const acceptConfirm = () => settleConfirm(true);
+const selectOnFocus = (e: FocusEvent<HTMLInputElement>) => e.target.select();
 
 export const DialogHost = () => {
   const request = useDialogs((s) => s.request);
@@ -72,41 +126,38 @@ export const DialogHost = () => {
   const confirm = request?.kind === "confirm" ? request : null;
   const prompt = request?.kind === "prompt" ? request : null;
 
-  const settleConfirm = (ok: boolean) => {
-    if (!open) return;
-    useDialogs.setState({ open: false });
-    confirm?.resolve(ok);
-  };
-  const settlePrompt = (value: string | null) => {
-    if (!open) return;
-    useDialogs.setState({ open: false });
-    prompt?.resolve(value);
-  };
-
   return (
     <>
-      <AlertDialog open={open && !!confirm} onOpenChange={(o) => !o && settleConfirm(false)}>
+      <AlertDialog onOpenChange={onConfirmOpenChange} open={open && !!confirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{confirm?.title}</AlertDialogTitle>
-            {confirm?.description && (
-              <AlertDialogDescription>{confirm.description}</AlertDialogDescription>
-            )}
+            {confirm?.description ? (
+              <AlertDialogDescription>
+                {confirm.description}
+              </AlertDialogDescription>
+            ) : null}
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
+              onClick={acceptConfirm}
               variant={confirm?.destructive ? "destructive" : "default"}
-              onClick={() => settleConfirm(true)}
             >
               {confirm?.confirmLabel ?? "Confirm"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <Dialog open={open && !!prompt} onOpenChange={(o) => !o && settlePrompt(null)}>
-        <DialogContent showCloseButton={false} className="sm:max-w-sm">
-          {prompt && <PromptForm key={prompt.id} request={prompt} onSettle={settlePrompt} />}
+      <Dialog onOpenChange={onPromptOpenChange} open={open && !!prompt}>
+        <DialogContent className="sm:max-w-sm" showCloseButton={false}>
+          {prompt ? (
+            <PromptForm
+              key={prompt.id}
+              onSettle={settlePrompt}
+              request={prompt}
+            />
+          ) : null}
         </DialogContent>
       </Dialog>
     </>
@@ -120,28 +171,36 @@ const PromptForm = ({
   request: PromptOptions;
   onSettle: (value: string | null) => void;
 }) => {
-  const [value, setValue] = React.useState(request.defaultValue ?? "");
+  const [value, setValue] = useState(request.defaultValue ?? "");
+  const onSubmit = useCallback(
+    (e: FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      onSettle(value.trim() === "" ? null : value);
+    },
+    [onSettle, value]
+  );
+  const onChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement>) => setValue(e.target.value),
+    []
+  );
+  const onCancel = useCallback(() => onSettle(null), [onSettle]);
   return (
-    <form
-      className="contents"
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSettle(value.trim() === "" ? null : value);
-      }}
-    >
+    <form className="contents" onSubmit={onSubmit}>
       <DialogHeader>
         <DialogTitle>{request.title}</DialogTitle>
-        {request.description && <DialogDescription>{request.description}</DialogDescription>}
+        {request.description ? (
+          <DialogDescription>{request.description}</DialogDescription>
+        ) : null}
       </DialogHeader>
       <Input
         autoFocus
-        value={value}
+        onChange={onChange}
+        onFocus={selectOnFocus}
         placeholder={request.placeholder}
-        onChange={(e) => setValue(e.target.value)}
-        onFocus={(e) => e.target.select()}
+        value={value}
       />
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={() => onSettle(null)}>
+        <Button onClick={onCancel} type="button" variant="outline">
           Cancel
         </Button>
         <Button type="submit">{request.confirmLabel ?? "Apply"}</Button>

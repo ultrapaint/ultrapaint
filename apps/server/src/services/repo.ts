@@ -1,6 +1,6 @@
 import { existsSync, realpathSync } from "node:fs";
 import path from "node:path";
-import type { Settings } from "@ultrapaint/contracts";
+import type { Settings } from "@ultrapaint/contracts/settings";
 import { AppError } from "../router.ts";
 import { toPosix } from "../util.ts";
 
@@ -13,8 +13,10 @@ export class RepoPaths {
   readonly root: string;
   readonly realRoot: string;
   readonly designsDir: string;
+  readonly settings: Settings;
 
-  constructor(readonly settings: Settings) {
+  constructor(settings: Settings) {
+    this.settings = settings;
     this.root = path.resolve(settings.repoPath);
     this.realRoot = realpathSync(this.root);
     this.designsDir = path.join(this.root, settings.designsDir);
@@ -22,17 +24,24 @@ export class RepoPaths {
 
   /** Resolves a repo-relative (or absolute) path and asserts it stays inside the repository. */
   resolve(p: string): string {
-    const abs = path.isAbsolute(p) ? path.resolve(p) : path.resolve(this.root, p);
+    const abs = path.isAbsolute(p)
+      ? path.resolve(p)
+      : path.resolve(this.root, p);
     // Walk up to the nearest existing ancestor so symlinked parents are followed.
     let probe = abs;
     while (!existsSync(probe)) {
       const parent = path.dirname(probe);
-      if (parent === probe) break;
+      if (parent === probe) {
+        break;
+      }
       probe = parent;
     }
     const real = existsSync(probe) ? realpathSync(probe) : probe;
-    const inside = real === this.realRoot || real.startsWith(this.realRoot + path.sep);
-    if (!inside) throw new AppError("forbidden_path", `path escapes the repository: ${p}`);
+    const inside =
+      real === this.realRoot || real.startsWith(this.realRoot + path.sep);
+    if (!inside) {
+      throw new AppError("forbidden_path", `path escapes the repository: ${p}`);
+    }
     return abs;
   }
 

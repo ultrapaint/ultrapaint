@@ -6,49 +6,62 @@
  */
 import { toPng } from "html-to-image";
 
-type Fiber = {
+interface Fiber {
+  alternate: Fiber | null;
+  child: Fiber | null;
+  elementType: unknown;
+  key: string | null;
+  memoizedProps: Record<string, unknown> | null;
+  return: Fiber | null;
+  sibling: Fiber | null;
+  stateNode: unknown;
   tag: number;
   type: unknown;
-  elementType: unknown;
-  stateNode: unknown;
-  memoizedProps: Record<string, unknown> | null;
-  child: Fiber | null;
-  sibling: Fiber | null;
-  return: Fiber | null;
-  alternate: Fiber | null;
-  key: string | null;
-};
+}
 
-type FiberRoot = { current: Fiber; containerInfo: Element };
+interface FiberRoot {
+  containerInfo: Element;
+  current: Fiber;
+}
 
 interface SourceLocation {
+  col: number;
   file: string;
   line: number;
-  col: number;
 }
 
 interface TreeNode {
+  children: TreeNode[];
+  editable: boolean;
   id: string;
   kind: "component" | "element" | "text";
   name: string;
-  summary: string;
   source: SourceLocation | null;
-  editable: boolean;
-  children: TreeNode[];
+  summary: string;
 }
 
 interface Config {
-  screen: string;
   designsDir: string;
+  screen: string;
 }
 
 const HOST_TAGS = new Set([5, 26, 27]);
 const TEXT_TAG = 6;
 const STAMP = "data-ed";
 
-const config: Config = (window as unknown as { __ED_CONFIG__?: Config }).__ED_CONFIG__ ?? {
-  screen: "",
+const WHITESPACE_RE = /\s+/;
+const WHITESPACE_OUTSIDE_PARENS_RE = /\s+(?![^(]*\))/;
+const COMMA_OUTSIDE_PARENS_RE = /,(?![^(]*\))/;
+const BORDER_WIDTH_RE = /^\d|^(thin|medium|thick)$/;
+const BORDER_STYLE_RE = /^(none|solid|dashed|dotted|double|hidden)$/;
+const ROOT_SELECTOR_RE = /^:root|^:host|^html/;
+const CLASS_SELECTOR_RE = /^\s*\.((?:\\.|[\w-])+)\s*$/;
+const VAR_TOKEN_RE = /var\((--[\w-]+)/;
+
+const config: Config = (window as unknown as { __ED_CONFIG__?: Config })
+  .__ED_CONFIG__ ?? {
   designsDir: "",
+  screen: "",
 };
 
 const roots = new Set<FiberRoot>();
@@ -57,31 +70,48 @@ let commitScheduled = false;
 // ---- React DevTools hook: the reliable way to learn about roots and commits. ----
 const installHook = () => {
   const w = window as unknown as { __REACT_DEVTOOLS_GLOBAL_HOOK__?: unknown };
-  if (w.__REACT_DEVTOOLS_GLOBAL_HOOK__) return;
+  if (w.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
+    return;
+  }
   const renderers = new Map<number, unknown>();
   let nextId = 1;
   const hook = {
-    renderers,
-    supportsFiber: true,
-    isDisabled: false,
-    checkDCE() {},
+    checkDCE() {
+      // Stub: React calls this to detect dead-code elimination; nothing to check here.
+    },
+    emit() {
+      // Stub: no DevTools frontend is listening.
+    },
     inject(renderer: unknown) {
-      const id = nextId++;
+      const id = nextId;
+      nextId += 1;
       renderers.set(id, renderer);
       return id;
     },
-    on() {},
-    off() {},
-    emit() {},
-    sub() {
-      return () => {};
+    isDisabled: false,
+    off() {
+      // Stub: no listeners are ever registered.
+    },
+    on() {
+      // Stub: no DevTools frontend is listening.
     },
     onCommitFiberRoot(_id: number, root: FiberRoot) {
       roots.add(root);
       scheduleAfterCommit();
     },
-    onCommitFiberUnmount() {},
-    onPostCommitFiberRoot() {},
+    onCommitFiberUnmount() {
+      // Stub: ids are tracked per fiber in a WeakMap, so unmounts need no bookkeeping.
+    },
+    onPostCommitFiberRoot() {
+      // Stub: `onCommitFiberRoot` already schedules the refresh.
+    },
+    renderers,
+    sub() {
+      return () => {
+        // Stub: nothing was subscribed, so there is nothing to unsubscribe.
+      };
+    },
+    supportsFiber: true,
   };
   w.__REACT_DEVTOOLS_GLOBAL_HOOK__ = hook;
 };
@@ -89,11 +119,15 @@ installHook();
 
 const findRootsFromDom = () => {
   const container = document.getElementById("root");
-  if (!container) return;
+  if (!container) {
+    return;
+  }
   for (const key of Object.keys(container)) {
     if (key.startsWith("__reactContainer$")) {
       const fiber = (container as unknown as Record<string, Fiber>)[key];
-      if (fiber?.stateNode) roots.add(fiber.stateNode as FiberRoot);
+      if (fiber?.stateNode) {
+        roots.add(fiber.stateNode as FiberRoot);
+      }
     }
   }
 };
@@ -104,13 +138,17 @@ const idToFiber = new Map<string, Fiber>();
 let idCounter = 0;
 
 const idFor = (fiber: Fiber): string => {
-  let id = fiberIds.get(fiber) ?? (fiber.alternate ? fiberIds.get(fiber.alternate) : undefined);
+  let id =
+    fiberIds.get(fiber) ??
+    (fiber.alternate ? fiberIds.get(fiber.alternate) : undefined);
   if (!id) {
     idCounter += 1;
     id = `n${idCounter}`;
   }
   fiberIds.set(fiber, id);
-  if (fiber.alternate) fiberIds.set(fiber.alternate, id);
+  if (fiber.alternate) {
+    fiberIds.set(fiber.alternate, id);
+  }
   idToFiber.set(id, fiber);
   return id;
 };
@@ -119,14 +157,20 @@ const fiberFor = (id: string): Fiber | null => idToFiber.get(id) ?? null;
 
 // ---- Source ----
 const parseStamp = (value: unknown): SourceLocation | null => {
-  if (typeof value !== "string") return null;
+  if (typeof value !== "string") {
+    return null;
+  }
   const idx = value.lastIndexOf(":");
   const idx2 = value.lastIndexOf(":", idx - 1);
-  if (idx < 0 || idx2 < 0) return null;
+  if (idx < 0 || idx2 < 0) {
+    return null;
+  }
   const line = Number(value.slice(idx2 + 1, idx));
   const col = Number(value.slice(idx + 1));
-  if (!Number.isInteger(line) || !Number.isInteger(col)) return null;
-  return { file: value.slice(0, idx2), line, col };
+  if (!(Number.isInteger(line) && Number.isInteger(col))) {
+    return null;
+  }
+  return { col, file: value.slice(0, idx2), line };
 };
 
 const stampOf = (fiber: Fiber): string | null => {
@@ -135,7 +179,9 @@ const stampOf = (fiber: Fiber): string | null => {
 };
 
 const isEditable = (source: SourceLocation | null): boolean =>
-  !!source && config.designsDir !== "" && source.file.startsWith(`${config.designsDir}/`);
+  !!source &&
+  config.designsDir !== "" &&
+  source.file.startsWith(`${config.designsDir}/`);
 
 const componentName = (fiber: Fiber): string => {
   const t = fiber.type as {
@@ -144,9 +190,15 @@ const componentName = (fiber: Fiber): string => {
     render?: { name?: string };
     type?: { name?: string };
   } | null;
-  if (!t) return "Anonymous";
-  if (typeof t === "string") return t;
-  return t.displayName || t.name || t.render?.name || t.type?.name || "Anonymous";
+  if (!t) {
+    return "Anonymous";
+  }
+  if (typeof t === "string") {
+    return t;
+  }
+  return (
+    t.displayName || t.name || t.render?.name || t.type?.name || "Anonymous"
+  );
 };
 
 const isHost = (f: Fiber) => HOST_TAGS.has(f.tag);
@@ -168,7 +220,8 @@ const directText = (el: Element): string | null => {
   return hasText ? text.trim() : null;
 };
 
-const shorten = (s: string, max = 24) => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
+const shorten = (s: string, max = 24) =>
+  s.length > max ? `${s.slice(0, max - 1)}…` : s;
 
 const summaryFor = (fiber: Fiber, name: string): string => {
   if (isHost(fiber)) {
@@ -176,34 +229,45 @@ const summaryFor = (fiber: Fiber, name: string): string => {
     const classes = Array.from(el.classList).slice(0, 2);
     const text = directText(el);
     let s = name;
-    if (classes.length) s += `.${classes.join(".")}`;
-    if (text) s += ` "${shorten(text)}"`;
+    if (classes.length) {
+      s += `.${classes.join(".")}`;
+    }
+    if (text) {
+      s += ` "${shorten(text)}"`;
+    }
     return s;
   }
   const props = fiber.memoizedProps ?? {};
-  const children = props.children;
-  if (typeof children === "string") return `${name} "${shorten(children)}"`;
+  const { children } = props;
+  if (typeof children === "string") {
+    return `${name} "${shorten(children)}"`;
+  }
   return name;
 };
 
-const buildNode = (fiber: Fiber, parentStamp: string | null = null): TreeNode[] => {
+const buildNode = (
+  fiber: Fiber,
+  parentStamp: string | null = null
+): TreeNode[] => {
   const stamp = stampOf(fiber);
   const source = parseStamp(stamp);
   const ownStamp = isComponent(fiber) && stamp ? stamp : parentStamp;
   const children: TreeNode[] = [];
-  for (let c = fiber.child; c; c = c.sibling) children.push(...buildNode(c, ownStamp));
+  for (let c = fiber.child; c; c = c.sibling) {
+    children.push(...buildNode(c, ownStamp));
+  }
 
   if (isHost(fiber)) {
     const name = String(fiber.type);
     return [
       {
+        children,
+        editable: isEditable(source),
         id: idFor(fiber),
         kind: "element",
         name,
-        summary: summaryFor(fiber, name),
         source,
-        editable: isEditable(source),
-        children,
+        summary: summaryFor(fiber, name),
       },
     ];
   }
@@ -213,50 +277,61 @@ const buildNode = (fiber: Fiber, parentStamp: string | null = null): TreeNode[] 
     const name = componentName(fiber);
     return [
       {
+        children,
+        editable: isEditable(source),
         id: idFor(fiber),
         kind: "component",
         name,
-        summary: summaryFor(fiber, name),
         source,
-        editable: isEditable(source),
-        children,
+        summary: summaryFor(fiber, name),
       },
     ];
   }
-  if (fiber.tag === TEXT_TAG) return [];
+  if (fiber.tag === TEXT_TAG) {
+    return [];
+  }
   // Transparent: fragments, providers, unstamped components.
   return children;
 };
 
 const buildTree = (): TreeNode | null => {
-  if (roots.size === 0) findRootsFromDom();
+  if (roots.size === 0) {
+    findRootsFromDom();
+  }
   const root = roots.values().next().value as FiberRoot | undefined;
-  if (!root) return null;
+  if (!root) {
+    return null;
+  }
   const nodes = buildNode(root.current);
   return {
+    children: nodes,
+    editable: false,
     id: "root",
     kind: "element",
     name: config.screen || "screen",
-    summary: config.screen || "screen",
     source: null,
-    editable: false,
-    children: nodes,
+    summary: config.screen || "screen",
   };
 };
 
 // ---- DOM helpers ----
 const fiberOfDom = (node: Node): Fiber | null => {
   for (const key of Object.keys(node)) {
-    if (key.startsWith("__reactFiber$"))
+    if (key.startsWith("__reactFiber$")) {
       return (node as unknown as Record<string, Fiber>)[key] ?? null;
+    }
   }
   return null;
 };
 
 const domNodesOf = (fiber: Fiber): Element[] => {
-  if (isHost(fiber)) return [fiber.stateNode as Element];
+  if (isHost(fiber)) {
+    return [fiber.stateNode as Element];
+  }
   const out: Element[] = [];
-  for (let c = fiber.child; c; c = c.sibling) out.push(...domNodesOf(c));
+  for (let c = fiber.child; c; c = c.sibling) {
+    out.push(...domNodesOf(c));
+  }
   return out;
 };
 
@@ -267,58 +342,118 @@ const unionRect = (els: Element[]) => {
   let y2 = Number.NEGATIVE_INFINITY;
   for (const el of els) {
     const r = el.getBoundingClientRect();
-    if (r.width === 0 && r.height === 0) continue;
+    if (r.width === 0 && r.height === 0) {
+      continue;
+    }
     x1 = Math.min(x1, r.left);
     y1 = Math.min(y1, r.top);
     x2 = Math.max(x2, r.right);
     y2 = Math.max(y2, r.bottom);
   }
-  if (!Number.isFinite(x1)) return { x: 0, y: 0, width: 0, height: 0 };
-  return { x: x1, y: y1, width: x2 - x1, height: y2 - y1 };
+  if (!Number.isFinite(x1)) {
+    return { height: 0, width: 0, x: 0, y: 0 };
+  }
+  return { height: y2 - y1, width: x2 - x1, x: x1, y: y1 };
 };
 
 /** Given a DOM element, pick the fiber the user most likely means. */
 const selectableFiber = (el: Element, deepest: boolean): Fiber | null => {
   let fiber = fiberOfDom(el);
   // Climb to the host fiber of this element (text fibers etc.).
-  while (fiber && !isHost(fiber)) fiber = fiber.return;
-  if (!fiber) return null;
-  if (deepest) return fiber;
+  while (fiber && !isHost(fiber)) {
+    fiber = fiber.return;
+  }
+  if (!fiber) {
+    return null;
+  }
+  if (deepest) {
+    return fiber;
+  }
   // Find the nearest ancestor with an editable stamp; then climb while the stamp is the same,
   // so a design-system instance is selected instead of the host element it forwards props to.
   let f: Fiber | null = fiber;
   while (f) {
     const s = stampOf(f);
-    if (s && isEditable(parseStamp(s)) && (isHost(f) || isComponent(f))) break;
+    if (s && isEditable(parseStamp(s)) && (isHost(f) || isComponent(f))) {
+      break;
+    }
     f = f.return;
   }
-  if (!f) return fiber;
+  if (!f) {
+    return fiber;
+  }
   const stamp = stampOf(f);
   let top = f;
   for (let p = f.return; p; p = p.return) {
-    if (stampOf(p) === stamp && isComponent(p)) top = p;
-    else if (isHost(p) || (isComponent(p) && stampOf(p))) break;
+    if (stampOf(p) === stamp && isComponent(p)) {
+      top = p;
+    } else if (isHost(p) || (isComponent(p) && stampOf(p))) {
+      break;
+    }
   }
   return top;
 };
 
 // ---- Styles and provenance ----
-type Decl = { order: number; props: Record<string, string> };
+interface Decl {
+  order: number;
+  props: Record<string, string>;
+}
 let classRules: Map<string, Decl[]> | null = null;
 let rootTokens: Map<string, string> | null = null;
 
-const expandShorthand = (prop: string, value: string, out: Record<string, string>) => {
-  const parts = value.trim().split(/\s+(?![^(]*\))/);
-  const four = (names: [string, string, string, string]) => {
-    const a = parts[0] ?? value;
-    const b = parts[1] ?? a;
-    const c = parts[2] ?? a;
-    const d = parts[3] ?? b;
-    out[names[0]] = a;
-    out[names[1]] = b;
-    out[names[2]] = c;
-    out[names[3]] = d;
-  };
+const expandFour = (
+  names: [string, string, string, string],
+  parts: string[],
+  value: string,
+  out: Record<string, string>
+) => {
+  const a = parts[0] ?? value;
+  const b = parts[1] ?? a;
+  const c = parts[2] ?? a;
+  const d = parts[3] ?? b;
+  out[names[0]] = a;
+  out[names[1]] = b;
+  out[names[2]] = c;
+  out[names[3]] = d;
+};
+
+const expandPair = (
+  names: [string, string],
+  parts: string[],
+  value: string,
+  out: Record<string, string>
+) => {
+  out[names[0]] = parts[0] ?? value;
+  out[names[1]] = parts[1] ?? parts[0] ?? value;
+};
+
+const expandBorder = (parts: string[], out: Record<string, string>) => {
+  for (const p of parts) {
+    if (
+      BORDER_WIDTH_RE.test(p) ||
+      p.startsWith("calc") ||
+      p.startsWith("var(--tw-border")
+    ) {
+      expandShorthand("border-width", p, out);
+    } else if (BORDER_STYLE_RE.test(p)) {
+      out["border-style"] = p;
+    } else {
+      expandShorthand("border-color", p, out);
+    }
+  }
+};
+
+const expandShorthand = (
+  prop: string,
+  value: string,
+  out: Record<string, string>
+) => {
+  const parts = value.trim().split(WHITESPACE_OUTSIDE_PARENS_RE);
+  const four = (names: [string, string, string, string]) =>
+    expandFour(names, parts, value, out);
+  const pair = (names: [string, string]) =>
+    expandPair(names, parts, value, out);
   switch (prop) {
     case "padding":
       four(["padding-top", "padding-right", "padding-bottom", "padding-left"]);
@@ -327,24 +462,19 @@ const expandShorthand = (prop: string, value: string, out: Record<string, string
       four(["margin-top", "margin-right", "margin-bottom", "margin-left"]);
       break;
     case "padding-inline":
-      out["padding-left"] = parts[0] ?? value;
-      out["padding-right"] = parts[1] ?? parts[0] ?? value;
+      pair(["padding-left", "padding-right"]);
       break;
     case "padding-block":
-      out["padding-top"] = parts[0] ?? value;
-      out["padding-bottom"] = parts[1] ?? parts[0] ?? value;
+      pair(["padding-top", "padding-bottom"]);
       break;
     case "margin-inline":
-      out["margin-left"] = parts[0] ?? value;
-      out["margin-right"] = parts[1] ?? parts[0] ?? value;
+      pair(["margin-left", "margin-right"]);
       break;
     case "margin-block":
-      out["margin-top"] = parts[0] ?? value;
-      out["margin-bottom"] = parts[1] ?? parts[0] ?? value;
+      pair(["margin-top", "margin-bottom"]);
       break;
     case "gap":
-      out["row-gap"] = parts[0] ?? value;
-      out["column-gap"] = parts[1] ?? parts[0] ?? value;
+      pair(["row-gap", "column-gap"]);
       break;
     case "border-radius":
       four([
@@ -355,25 +485,23 @@ const expandShorthand = (prop: string, value: string, out: Record<string, string
       ]);
       break;
     case "border-width":
-      four(["border-top-width", "border-right-width", "border-bottom-width", "border-left-width"]);
+      four([
+        "border-top-width",
+        "border-right-width",
+        "border-bottom-width",
+        "border-left-width",
+      ]);
       break;
     case "border-color":
-      four(["border-top-color", "border-right-color", "border-bottom-color", "border-left-color"]);
+      four([
+        "border-top-color",
+        "border-right-color",
+        "border-bottom-color",
+        "border-left-color",
+      ]);
       break;
     case "border":
-      for (const p of parts) {
-        if (
-          /^\d|^(thin|medium|thick)$/.test(p) ||
-          p.startsWith("calc") ||
-          p.startsWith("var(--tw-border")
-        ) {
-          expandShorthand("border-width", p, out);
-        } else if (/^(none|solid|dashed|dotted|double|hidden)$/.test(p)) {
-          out["border-style"] = p;
-        } else {
-          expandShorthand("border-color", p, out);
-        }
-      }
+      expandBorder(parts, out);
       break;
     case "inset":
       four(["top", "right", "bottom", "left"]);
@@ -385,69 +513,100 @@ const expandShorthand = (prop: string, value: string, out: Record<string, string
 
 /** Chrome enumerates logical longhands for `padding-block` and friends; map them to physical. */
 const LOGICAL: Record<string, string> = {
-  "padding-block-start": "padding-top",
-  "padding-block-end": "padding-bottom",
-  "padding-inline-start": "padding-left",
-  "padding-inline-end": "padding-right",
-  "margin-block-start": "margin-top",
-  "margin-block-end": "margin-bottom",
-  "margin-inline-start": "margin-left",
-  "margin-inline-end": "margin-right",
-  "border-block-start-width": "border-top-width",
+  "block-size": "height",
   "border-block-end-width": "border-bottom-width",
-  "border-inline-start-width": "border-left-width",
-  "border-inline-end-width": "border-right-width",
   "border-block-start-color": "border-top-color",
-  "border-inline-start-color": "border-left-color",
-  "border-start-start-radius": "border-top-left-radius",
-  "border-start-end-radius": "border-top-right-radius",
+  "border-block-start-width": "border-top-width",
   "border-end-end-radius": "border-bottom-right-radius",
   "border-end-start-radius": "border-bottom-left-radius",
+  "border-inline-end-width": "border-right-width",
+  "border-inline-start-color": "border-left-color",
+  "border-inline-start-width": "border-left-width",
+  "border-start-end-radius": "border-top-right-radius",
+  "border-start-start-radius": "border-top-left-radius",
   "inline-size": "width",
-  "block-size": "height",
-  "min-inline-size": "min-width",
-  "min-block-size": "min-height",
-  "max-inline-size": "max-width",
-  "max-block-size": "max-height",
-  "inset-inline-start": "left",
-  "inset-inline-end": "right",
-  "inset-block-start": "top",
   "inset-block-end": "bottom",
+  "inset-block-start": "top",
+  "inset-inline-end": "right",
+  "inset-inline-start": "left",
+  "margin-block-end": "margin-bottom",
+  "margin-block-start": "margin-top",
+  "margin-inline-end": "margin-right",
+  "margin-inline-start": "margin-left",
+  "max-block-size": "max-height",
+  "max-inline-size": "max-width",
+  "min-block-size": "min-height",
+  "min-inline-size": "min-width",
+  "padding-block-end": "padding-bottom",
+  "padding-block-start": "padding-top",
+  "padding-inline-end": "padding-right",
+  "padding-inline-start": "padding-left",
+};
+
+/** Reads a rule's declarations as physical longhands; root-level custom properties go to `tokens`. */
+const readDeclarations = (
+  rule: CSSStyleRule,
+  tokens: Map<string, string>
+): Record<string, string> => {
+  const selector = rule.selectorText;
+  const decls: Record<string, string> = {};
+  for (const p of rule.style) {
+    if (!p) {
+      continue;
+    }
+    const v = rule.style.getPropertyValue(p);
+    if (p.startsWith("--")) {
+      if (ROOT_SELECTOR_RE.test(selector) || selector.includes(":root")) {
+        tokens.set(p, v.trim());
+      }
+      continue;
+    }
+    expandShorthand(p, v, decls);
+  }
+  return decls;
+};
+
+const registerClassSelectors = (
+  selector: string,
+  order: number,
+  props: Record<string, string>,
+  into: Map<string, Decl[]>
+) => {
+  for (const single of selector.split(COMMA_OUTSIDE_PARENS_RE)) {
+    const m: RegExpExecArray | null = CLASS_SELECTOR_RE.exec(single);
+    if (!m?.[1]) {
+      continue;
+    }
+    const cls = m[1].replaceAll(/\\(.)/g, "$1");
+    const list = into.get(cls) ?? [];
+    list.push({ order, props });
+    into.set(cls, list);
+  }
+};
+
+const collectStyleRule = (
+  rule: CSSStyleRule,
+  order: { n: number },
+  into: Map<string, Decl[]>,
+  tokens: Map<string, string>
+) => {
+  const decls = readDeclarations(rule, tokens);
+  order.n += 1;
+  if (Object.keys(decls).length) {
+    registerClassSelectors(rule.selectorText, order.n, decls, into);
+  }
+  // Nested rules (CSS nesting) are variants; skipped for base provenance.
 };
 
 const collectRules = (
   rules: CSSRuleList,
   order: { n: number },
   into: Map<string, Decl[]>,
-  tokens: Map<string, string>,
+  tokens: Map<string, string>
 ) => {
   for (const rule of Array.from(rules)) {
     if (rule instanceof CSSStyleRule) {
-      const selector = rule.selectorText;
-      const decls: Record<string, string> = {};
-      for (let i = 0; i < rule.style.length; i += 1) {
-        const p = rule.style[i];
-        if (!p) continue;
-        const v = rule.style.getPropertyValue(p);
-        if (p.startsWith("--")) {
-          if (/^:root|^:host|^html/.test(selector) || selector.includes(":root"))
-            tokens.set(p, v.trim());
-          continue;
-        }
-        expandShorthand(p, v, decls);
-      }
-      order.n += 1;
-      if (Object.keys(decls).length) {
-        for (const single of selector.split(/,(?![^(]*\))/)) {
-          const m = /^\s*\.((?:\\.|[\w-])+)\s*$/.exec(single);
-          if (!m?.[1]) continue;
-          const cls = m[1].replaceAll(/\\(.)/g, "$1");
-          const list = into.get(cls) ?? [];
-          list.push({ order: order.n, props: decls });
-          into.set(cls, list);
-        }
-      }
-      // Nested rules (CSS nesting) are variants; skipped for base provenance.
+      collectStyleRule(rule, order, into, tokens);
     } else if ("cssRules" in rule) {
       try {
         collectRules((rule as CSSGroupingRule).cssRules, order, into, tokens);
@@ -459,7 +618,9 @@ const collectRules = (
 };
 
 const ensureRules = () => {
-  if (classRules && rootTokens) return;
+  if (classRules && rootTokens) {
+    return;
+  }
   classRules = new Map();
   rootTokens = new Map();
   const order = { n: 0 };
@@ -527,111 +688,175 @@ const INSPECTED = [
 ] as const;
 
 const tokenIn = (declared: string): string | undefined => {
-  const m = /var\((--[\w-]+)/.exec(declared);
+  const m: RegExpExecArray | null = VAR_TOKEN_RE.exec(declared);
   return m?.[1];
+};
+
+interface Winner {
+  cls: string;
+  declared: string;
+  order: number;
+}
+
+/** Which class sets which property: last declaration in stylesheet order wins. */
+const winnersFor = (
+  classes: string[],
+  rules: Map<string, Decl[]>
+): Record<string, Winner> => {
+  const winner: Record<string, Winner> = {};
+  for (const cls of classes) {
+    for (const decl of rules.get(cls) ?? []) {
+      for (const [p, v] of Object.entries(decl.props)) {
+        const cur = winner[p];
+        if (!cur || decl.order >= cur.order) {
+          winner[p] = { cls, declared: v, order: decl.order };
+        }
+      }
+    }
+  }
+  return winner;
+};
+
+const provenanceFor = (
+  prop: string,
+  inline: CSSStyleDeclaration,
+  w: Winner | undefined,
+  ownClasses: string[],
+  editable: boolean
+): Record<string, unknown> => {
+  if (inline.getPropertyValue(prop)) {
+    return { editable: false, kind: "inline" };
+  }
+  if (w) {
+    return {
+      className: w.cls,
+      editable,
+      kind: ownClasses.includes(w.cls) ? "utility" : "component",
+      token: tokenIn(w.declared),
+    };
+  }
+  if (INHERITED.has(prop)) {
+    return { editable, kind: "inherited" };
+  }
+  return { editable, kind: "default" };
+};
+
+const serialiseProps = (fiber: Fiber): Record<string, unknown> => {
+  const props: Record<string, unknown> = {};
+  if (isComponent(fiber)) {
+    for (const [k, v] of Object.entries(fiber.memoizedProps ?? {})) {
+      if (k === "children" || k === STAMP) {
+        continue;
+      }
+      props[k] = serialise(v);
+    }
+  }
+  return props;
+};
+
+const editableAncestorOf = (
+  fiber: Fiber
+): { nodeId: string; name: string; source: SourceLocation } | null => {
+  for (let p = fiber.return; p; p = p.return) {
+    const s = parseStamp(stampOf(p));
+    if (s && isEditable(s) && (isHost(p) || isComponent(p))) {
+      return {
+        name: isHost(p) ? String(p.type) : componentName(p),
+        nodeId: idFor(p),
+        source: s,
+      };
+    }
+  }
+  return null;
+};
+
+const textOf = (fiber: Fiber, el: Element): string | null => {
+  if (isHost(fiber)) {
+    return directText(el);
+  }
+  const children = fiber.memoizedProps?.children;
+  return typeof children === "string" ? children : null;
 };
 
 const inspectFiber = (fiber: Fiber, id: string) => {
   ensureRules();
   const rules = classRules as Map<string, Decl[]>;
   const els = domNodesOf(fiber);
-  const el = els[0];
-  if (!el) return null;
+  const [el] = els;
+  if (!el) {
+    return null;
+  }
   const stamp = stampOf(fiber);
   const source = parseStamp(stamp);
   const editable = isEditable(source);
   const ownClassName = fiber.memoizedProps?.className;
   const ownClasses =
-    typeof ownClassName === "string" ? ownClassName.split(/\s+/).filter(Boolean) : [];
+    typeof ownClassName === "string"
+      ? ownClassName.split(WHITESPACE_RE).filter(Boolean)
+      : [];
   const classes = Array.from(el.classList);
   const computed = getComputedStyle(el);
-  const styles: Record<string, { value: string; provenance: Record<string, unknown> }> = {};
+  const styles: Record<
+    string,
+    { value: string; provenance: Record<string, unknown> }
+  > = {};
 
-  // Which class sets which property: last declaration in stylesheet order wins.
-  const winner: Record<string, { cls: string; declared: string; order: number }> = {};
-  for (const cls of classes) {
-    for (const decl of rules.get(cls) ?? []) {
-      for (const [p, v] of Object.entries(decl.props)) {
-        const cur = winner[p];
-        if (!cur || decl.order >= cur.order) winner[p] = { cls, declared: v, order: decl.order };
-      }
-    }
-  }
+  const winner = winnersFor(classes, rules);
   const inline = (el as HTMLElement).style;
   for (const prop of INSPECTED) {
     const value = computed.getPropertyValue(prop);
-    const w = winner[prop];
-    let provenance: Record<string, unknown>;
-    if (inline.getPropertyValue(prop)) {
-      provenance = { kind: "inline", editable: false };
-    } else if (w) {
-      provenance = {
-        kind: ownClasses.includes(w.cls) ? "utility" : "component",
-        className: w.cls,
-        token: tokenIn(w.declared),
-        editable,
-      };
-    } else if (INHERITED.has(prop)) {
-      provenance = { kind: "inherited", editable };
-    } else {
-      provenance = { kind: "default", editable };
-    }
-    styles[prop] = { value, provenance };
-  }
-
-  const props: Record<string, unknown> = {};
-  if (isComponent(fiber)) {
-    for (const [k, v] of Object.entries(fiber.memoizedProps ?? {})) {
-      if (k === "children" || k === STAMP) continue;
-      props[k] = serialise(v);
-    }
-  }
-
-  let editableAncestor: { nodeId: string; name: string; source: SourceLocation } | null = null;
-  if (!editable) {
-    for (let p = fiber.return; p; p = p.return) {
-      const s = parseStamp(stampOf(p));
-      if (s && isEditable(s) && (isHost(p) || isComponent(p))) {
-        editableAncestor = {
-          nodeId: idFor(p),
-          name: isHost(p) ? String(p.type) : componentName(p),
-          source: s,
-        };
-        break;
-      }
-    }
+    const provenance = provenanceFor(
+      prop,
+      inline,
+      winner[prop],
+      ownClasses,
+      editable
+    );
+    styles[prop] = { provenance, value };
   }
 
   return {
-    nodeId: id,
+    classes,
+    editable,
+    editableAncestor: editable ? null : editableAncestorOf(fiber),
     kind: isHost(fiber) ? "element" : "component",
     name: isHost(fiber) ? String(fiber.type) : componentName(fiber),
-    source,
-    editable,
-    editableAncestor,
-    rect: unionRect(els),
-    classes,
+    nodeId: id,
     ownClasses,
+    props: serialiseProps(fiber),
+    rect: unionRect(els),
+    source,
     styles,
-    props,
-    text: isHost(fiber)
-      ? directText(el)
-      : typeof fiber.memoizedProps?.children === "string"
-        ? fiber.memoizedProps.children
-        : null,
+    text: textOf(fiber, el),
   };
 };
 
 const serialise = (v: unknown): unknown => {
-  if (v === null || v === undefined) return null;
-  if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") return v;
-  if (typeof v === "function") return "ƒ";
-  if (Array.isArray(v)) return v.map(serialise);
+  if (v === null || v === undefined) {
+    return null;
+  }
+  if (
+    typeof v === "string" ||
+    typeof v === "number" ||
+    typeof v === "boolean"
+  ) {
+    return v;
+  }
+  if (typeof v === "function") {
+    return "ƒ";
+  }
+  if (Array.isArray(v)) {
+    return v.map(serialise);
+  }
   if (typeof v === "object") {
     const o = v as Record<string, unknown>;
-    if ("$$typeof" in o) return "<element>";
+    if ("$$typeof" in o) {
+      return "<element>";
+    }
     const out: Record<string, unknown> = {};
-    for (const [k, val] of Object.entries(o)) out[k] = serialise(val);
+    for (const [k, val] of Object.entries(o)) {
+      out[k] = serialise(val);
+    }
     return out;
   }
   return String(v);
@@ -646,29 +871,42 @@ const post = (msg: Record<string, unknown>) => {
 
 const sendTree = () => {
   const tree = buildTree();
-  if (tree) post({ type: "ed:tree", tree });
+  if (tree) {
+    post({ tree, type: "ed:tree" });
+  }
 };
 
 let watched: string[] = [];
 let rectsScheduled = false;
 const sendRects = () => {
   rectsScheduled = false;
-  if (watched.length === 0) return;
-  const rects: Record<string, { x: number; y: number; width: number; height: number }> = {};
+  if (watched.length === 0) {
+    return;
+  }
+  const rects: Record<
+    string,
+    { x: number; y: number; width: number; height: number }
+  > = {};
   for (const id of watched) {
     const f = fiberFor(id);
-    if (f) rects[id] = unionRect(domNodesOf(f));
+    if (f) {
+      rects[id] = unionRect(domNodesOf(f));
+    }
   }
-  post({ type: "ed:rects", rects });
+  post({ rects, type: "ed:rects" });
 };
 const scheduleRects = () => {
-  if (rectsScheduled) return;
+  if (rectsScheduled) {
+    return;
+  }
   rectsScheduled = true;
   requestAnimationFrame(sendRects);
 };
 
 const scheduleAfterCommit = () => {
-  if (commitScheduled) return;
+  if (commitScheduled) {
+    return;
+  }
   commitScheduled = true;
   queueMicrotask(() => {
     commitScheduled = false;
@@ -678,13 +916,20 @@ const scheduleAfterCommit = () => {
 };
 
 // ---- Inline text editing ----
-let editing: { el: HTMLElement; nodeId: string; original: string } | null = null;
+let editing: { el: HTMLElement; nodeId: string; original: string } | null =
+  null;
 const startTextEdit = (nodeId: string) => {
   const f = fiberFor(nodeId);
-  if (!f) return;
+  if (!f) {
+    return;
+  }
   const el = domNodesOf(f)[0] as HTMLElement | undefined;
-  if (!el) return;
-  if (editing) finishTextEdit(false);
+  if (!el) {
+    return;
+  }
+  if (editing) {
+    finishTextEdit(false);
+  }
   editing = { el, nodeId, original: el.textContent ?? "" };
   el.contentEditable = "plaintext-only";
   el.focus();
@@ -710,21 +955,28 @@ const startTextEdit = (nodeId: string) => {
   };
 };
 const finishTextEdit = (commit: boolean) => {
-  if (!editing) return;
+  if (!editing) {
+    return;
+  }
   const { el, nodeId, original } = editing;
   (editing as { cleanup?: () => void }).cleanup?.();
   editing = null;
   el.contentEditable = "false";
   el.removeAttribute("contenteditable");
   const text = el.textContent ?? "";
-  if (commit && text !== original) post({ type: "ed:textCommit", nodeId, text });
-  else el.textContent = original;
+  if (commit && text !== original) {
+    post({ nodeId, text, type: "ed:textCommit" });
+  } else {
+    el.textContent = original;
+  }
 };
 
 // ---- Handlers ----
 window.addEventListener("message", (ev) => {
-  const msg = ev.data as { type?: string } & Record<string, unknown>;
-  if (!msg || typeof msg.type !== "string" || !msg.type.startsWith("ed:")) return;
+  const msg = ev.data as ({ type?: string } & Record<string, unknown>) | null;
+  if (!msg || typeof msg.type !== "string" || !msg.type.startsWith("ed:")) {
+    return;
+  }
   switch (msg.type) {
     case "ed:getTree":
       sendTree();
@@ -734,13 +986,17 @@ window.addEventListener("message", (ev) => {
       const y = msg.y as number;
       const el = document.elementFromPoint(x, y);
       const fiber = el ? selectableFiber(el, Boolean(msg.deepest)) : null;
-      post({ type: "ed:hit", requestId: msg.requestId, nodeId: fiber ? idFor(fiber) : null });
+      post({
+        nodeId: fiber ? idFor(fiber) : null,
+        requestId: msg.requestId,
+        type: "ed:hit",
+      });
       break;
     }
     case "ed:inspect": {
       const f = fiberFor(msg.nodeId as string);
       const result = f ? inspectFiber(f, msg.nodeId as string) : null;
-      post({ type: "ed:inspect", requestId: msg.requestId, result });
+      post({ requestId: msg.requestId, result, type: "ed:inspect" });
       break;
     }
     case "ed:watchRects":
@@ -760,8 +1016,16 @@ window.addEventListener("message", (ev) => {
     }
     case "ed:screenshot": {
       toPng(document.body, { cacheBust: true, pixelRatio: 1 })
-        .then((dataUrl) => post({ type: "ed:screenshot", requestId: msg.requestId, dataUrl }))
-        .catch(() => post({ type: "ed:screenshot", requestId: msg.requestId, dataUrl: null }));
+        .then((dataUrl) =>
+          post({ dataUrl, requestId: msg.requestId, type: "ed:screenshot" })
+        )
+        .catch(() =>
+          post({
+            dataUrl: null,
+            requestId: msg.requestId,
+            type: "ed:screenshot",
+          })
+        );
       break;
     }
     case "ed:getTokens": {
@@ -772,7 +1036,7 @@ window.addEventListener("message", (ev) => {
         const resolved = cs.getPropertyValue(name).trim();
         tokens[name] = resolved || raw;
       }
-      post({ type: "ed:tokens", tokens });
+      post({ tokens, type: "ed:tokens" });
       break;
     }
     default:
@@ -787,24 +1051,32 @@ const mo = new MutationObserver(() => {
 });
 const start = () => {
   mo.observe(document.documentElement, {
-    childList: true,
-    subtree: true,
     attributes: true,
     characterData: true,
+    childList: true,
+    subtree: true,
   });
   window.addEventListener("scroll", scheduleRects, true);
   window.addEventListener("resize", scheduleRects);
   new ResizeObserver(scheduleRects).observe(document.documentElement);
   window.addEventListener("error", (e) => {
     post({
+      error: {
+        file: e.filename,
+        line: e.lineno,
+        message: e.message,
+        stack: e.error?.stack,
+      },
       type: "ed:error",
-      error: { message: e.message, stack: e.error?.stack, file: e.filename, line: e.lineno },
     });
   });
-  post({ type: "ed:ready", screen: config.screen });
+  post({ screen: config.screen, type: "ed:ready" });
 };
-if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
-else start();
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", start);
+} else {
+  start();
+}
 
 // Public surface for the generated entry module (HMR notifications, render errors).
 (window as unknown as { __ED__: unknown }).__ED__ = {
@@ -813,7 +1085,12 @@ else start();
     post({ type: "ed:hmr" });
     scheduleAfterCommit();
   },
-  reportError(error: { message: string; stack?: string; file?: string; line?: number }) {
-    post({ type: "ed:error", error });
+  reportError(error: {
+    message: string;
+    stack?: string;
+    file?: string;
+    line?: number;
+  }) {
+    post({ error, type: "ed:error" });
   },
 };

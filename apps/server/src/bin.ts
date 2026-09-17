@@ -3,15 +3,15 @@ import { startServer } from "./server.ts";
 
 const { values } = parseArgs({
   options: {
-    port: { type: "string", default: process.env.ULTRAPAINT_PORT ?? "4770" },
-    home: { type: "string", default: process.env.ULTRAPAINT_HOME },
-    "web-dist": { type: "string", default: process.env.ULTRAPAINT_WEB_DIST },
+    home: { default: process.env.ULTRAPAINT_HOME, type: "string" },
+    port: { default: process.env.ULTRAPAINT_PORT ?? "4770", type: "string" },
+    "web-dist": { default: process.env.ULTRAPAINT_WEB_DIST, type: "string" },
   },
 });
 
 const server = await startServer({
-  port: Number(values.port),
   home: values.home,
+  port: Number(values.port),
   webDist: values["web-dist"],
 });
 

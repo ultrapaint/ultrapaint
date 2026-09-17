@@ -8,27 +8,31 @@ import {
   type RequestOutput,
   requests,
   type WireError,
-} from "@ultrapaint/contracts";
-import * as S from "effect/Schema";
+} from "@ultrapaint/contracts/ipc";
+import { Schema as S } from "effect";
 
 export type ConnectionState = "connecting" | "open" | "closed";
 
 export class RequestError extends Error {
-  constructor(
-    readonly code: WireError["code"],
-    message: string,
-  ) {
+  readonly code: WireError["code"];
+
+  constructor(code: WireError["code"], message: string) {
     super(message);
+    this.code = code;
     this.name = "RequestError";
   }
 }
 
-type Pending = { resolve: (v: unknown) => void; reject: (e: unknown) => void; method: string };
+interface Pending {
+  method: string;
+  reject: (e: unknown) => void;
+  resolve: (v: unknown) => void;
+}
 type Listener<E extends EventName> = (payload: EventPayload<E>) => void;
 
 export interface ConnectionOptions {
-  url: string;
   onState?: (state: ConnectionState) => void;
+  url: string;
   WebSocketImpl?: typeof WebSocket;
 }
 
@@ -40,13 +44,16 @@ export interface ConnectionOptions {
 export class Connection {
   private ws: WebSocket | null = null;
   private nextId = 1;
-  private pending = new Map<number, Pending>();
-  private listeners = new Map<EventName, Set<Listener<EventName>>>();
-  private closed = false;
+  private readonly pending = new Map<number, Pending>();
+  private readonly listeners = new Map<EventName, Set<Listener<EventName>>>();
+  private closed: boolean;
   private backoff = 250;
   state: ConnectionState = "connecting";
+  private readonly options: ConnectionOptions;
 
-  constructor(private readonly options: ConnectionOptions) {
+  constructor(options: ConnectionOptions) {
+    this.options = options;
+    this.closed = false;
     this.connect();
   }
 
@@ -56,7 +63,9 @@ export class Connection {
   }
 
   private connect() {
-    if (this.closed) return;
+    if (this.closed) {
+      return;
+    }
     const Impl = this.options.WebSocketImpl ?? WebSocket;
     const ws = new Impl(this.options.url);
     this.ws = ws;
@@ -69,7 +78,9 @@ export class Connection {
     ws.onclose = () => {
       this.setState("closed");
       for (const [id, p] of this.pending) {
-        p.reject(new RequestError("internal", `connection lost during ${p.method}`));
+        p.reject(
+          new RequestError("internal", `connection lost during ${p.method}`)
+        );
         this.pending.delete(id);
       }
       if (!this.closed) {
@@ -90,44 +101,68 @@ export class Connection {
       return;
     }
     const frame = decodeServerFrame(parsed);
-    if (frame._tag === "Left") return;
+    if (frame._tag === "Left") {
+      return;
+    }
     const f = frame.right;
     if ("event" in f) {
       const name = f.event as EventName;
       const schema = events[name];
-      if (!schema) return;
-      const payload = S.decodeUnknownEither(schema as S.Schema<unknown>)(f.payload);
-      if (payload._tag === "Left") {
-        console.warn(`[ultrapaint] bad event payload for ${name}`, payload.left.message);
+      if (!schema) {
         return;
       }
-      for (const l of this.listeners.get(name) ?? []) l(payload.right as never);
+      const payload = S.decodeUnknownEither(schema as S.Schema<unknown>)(
+        f.payload
+      );
+      if (payload._tag === "Left") {
+        console.warn(
+          `[ultrapaint] bad event payload for ${name}`,
+          payload.left.message
+        );
+        return;
+      }
+      for (const l of this.listeners.get(name) ?? []) {
+        l(payload.right as never);
+      }
       return;
     }
     const p = this.pending.get(f.id);
-    if (!p) return;
+    if (!p) {
+      return;
+    }
     this.pending.delete(f.id);
-    if (f.ok) p.resolve(f.output);
-    else p.reject(new RequestError(f.error.code, f.error.message));
+    if (f.ok) {
+      p.resolve(f.output);
+    } else {
+      p.reject(new RequestError(f.error.code, f.error.message));
+    }
   }
 
   async request<M extends RequestName>(
     method: M,
-    input: RequestInput<M>,
+    input: RequestInput<M>
   ): Promise<RequestOutput<M>> {
-    const ws = this.ws;
+    const { ws } = this;
     if (!ws || ws.readyState !== ws.OPEN) {
       throw new RequestError("internal", "not connected");
     }
-    const id = this.nextId++;
-    const encodedInput = S.encodeUnknownSync(requests[method].input as S.Schema<unknown>)(input);
+    const id = this.nextId;
+    this.nextId += 1;
+    const encodedInput = S.encodeUnknownSync(
+      requests[method].input as S.Schema<unknown>
+    )(input);
     const raw = await new Promise<unknown>((resolve, reject) => {
-      this.pending.set(id, { resolve, reject, method });
-      ws.send(JSON.stringify({ id, method, input: encodedInput }));
+      this.pending.set(id, { method, reject, resolve });
+      ws.send(JSON.stringify({ id, input: encodedInput, method }));
     });
-    const decoded = S.decodeUnknownEither(requests[method].output as S.Schema<unknown>)(raw);
+    const decoded = S.decodeUnknownEither(
+      requests[method].output as S.Schema<unknown>
+    )(raw);
     if (decoded._tag === "Left") {
-      throw new RequestError("internal", `bad response for ${method}: ${decoded.left.message}`);
+      throw new RequestError(
+        "internal",
+        `bad response for ${method}: ${decoded.left.message}`
+      );
     }
     return decoded.right as RequestOutput<M>;
   }

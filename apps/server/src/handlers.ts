@@ -1,4 +1,3 @@
-import path from "node:path";
 import type { AppContext } from "./context.ts";
 import { AppError, Router } from "./router.ts";
 import { elementSource } from "./services/source.ts";
@@ -7,7 +6,9 @@ export const registerHandlers = (ctx: AppContext): Router => {
   const router = new Router();
   const project = () => {
     const p = ctx.project.current;
-    if (!p) throw new AppError("not_configured", "no target repository configured");
+    if (!p) {
+      throw new AppError("not_configured", "no target repository configured");
+    }
     return p;
   };
 
@@ -17,10 +18,11 @@ export const registerHandlers = (ctx: AppContext): Router => {
     .on("settings.validate", (s) => ctx.settings.validate(s))
     .on("settings.set", async (s) => {
       const v = await ctx.settings.set(s);
-      if (v.ok)
+      if (v.ok) {
         await ctx.project.open(
-          ctx.settings.get() as NonNullable<ReturnType<typeof ctx.settings.get>>,
+          ctx.settings.get() as NonNullable<ReturnType<typeof ctx.settings.get>>
         );
+      }
       return v;
     })
     .on("project.info", () => ctx.project.info())
@@ -70,29 +72,42 @@ export const registerHandlers = (ctx: AppContext): Router => {
     .on("source.element", (loc) => {
       const p = project();
       const { content } = p.edit.read(loc.file);
-      return elementSource(content, loc.file, loc, p.paths.isEditable(loc.file));
+      return elementSource(
+        content,
+        loc.file,
+        loc,
+        p.paths.isEditable(loc.file)
+      );
     })
-    .on("edit.apply", ({ op, expectedHash }) => project().edit.apply(op, expectedHash))
+    .on("edit.apply", ({ op, expectedHash }) =>
+      project().edit.apply(op, expectedHash)
+    )
     .on("edit.undo", () => project().edit.undo())
     .on("edit.redo", () => project().edit.redo())
     .on("edit.state", () => project().edit.state())
 
     .on("catalogue.get", ({ refresh }) => project().catalogue.get(refresh))
-    .on("catalogue.storyUrl", ({ storyId }) => project().catalogue.storyUrl(storyId))
+    .on("catalogue.storyUrl", ({ storyId }) =>
+      project().catalogue.storyUrl(storyId)
+    )
 
     .on("agents.list", () => ctx.threads.agents())
     .on("threads.list", () => ctx.threads.list())
-    .on("threads.create", ({ agentId, title }) => ctx.threads.create(agentId, title))
+    .on("threads.create", ({ agentId, title }) =>
+      ctx.threads.create(agentId, title)
+    )
     .on("threads.items", ({ threadId }) => ctx.threads.items(threadId))
     .on("threads.prompt", (input) => ctx.threads.prompt(input))
     .on("threads.cancel", ({ threadId }) => ctx.threads.cancel(threadId))
     .on("threads.delete", ({ threadId }) => ctx.threads.delete(threadId))
     .on("threads.permission", ({ threadId, requestId, optionId, remember }) =>
-      ctx.threads.resolvePermission(threadId, requestId, optionId, remember),
+      ctx.threads.resolvePermission(threadId, requestId, optionId, remember)
     )
-    .on("threads.setMode", ({ threadId, modeId }) => ctx.threads.setMode(threadId, modeId))
+    .on("threads.setMode", ({ threadId, modeId }) =>
+      ctx.threads.setMode(threadId, modeId)
+    )
     .on("threads.setConfigOption", ({ threadId, optionId, value }) =>
-      ctx.threads.setConfigOption(threadId, optionId, value),
+      ctx.threads.setConfigOption(threadId, optionId, value)
     )
 
     .on("git.status", () => project().git.status())
@@ -106,6 +121,5 @@ export const registerHandlers = (ctx: AppContext): Router => {
     .on("checkpoints.diff", ({ id }) => ctx.threads.checkpointDiff(id))
     .on("checkpoints.revert", ({ id }) => ctx.threads.revertCheckpoint(id));
 
-  void path;
   return router;
 };

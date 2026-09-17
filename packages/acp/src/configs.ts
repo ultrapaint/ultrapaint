@@ -1,4 +1,4 @@
-import type { AgentConfig } from "@ultrapaint/contracts";
+import type { AgentConfig } from "@ultrapaint/contracts/threads";
 
 /**
  * Launch configurations are data. Adding an agent means adding an entry here or a JSON file
@@ -6,23 +6,25 @@ import type { AgentConfig } from "@ultrapaint/contracts";
  */
 export const builtInAgents: AgentConfig[] = [
   {
+    args: ["-y", "@agentclientprotocol/claude-agent-acp"],
+    authHint:
+      "Uses your Claude Code login (`claude` CLI). Run `claude` once to sign in.",
+    builtIn: true,
+    command: "npx",
+    env: {},
     id: "claude-code",
     name: "Claude Code",
-    command: "npx",
-    args: ["-y", "@agentclientprotocol/claude-agent-acp"],
-    env: {},
     package: "@agentclientprotocol/claude-agent-acp",
-    authHint: "Uses your Claude Code login (`claude` CLI). Run `claude` once to sign in.",
-    builtIn: true,
   },
   {
+    args: ["-y", "@agentclientprotocol/codex-acp"],
+    authHint:
+      "Uses your Codex login (`codex` CLI). Run `codex login` once to sign in.",
+    builtIn: true,
+    command: "npx",
+    env: {},
     id: "codex",
     name: "Codex",
-    command: "npx",
-    args: ["-y", "@agentclientprotocol/codex-acp"],
-    env: {},
     package: "@agentclientprotocol/codex-acp",
-    authHint: "Uses your Codex login (`codex` CLI). Run `codex login` once to sign in.",
-    builtIn: true,
   },
 ];

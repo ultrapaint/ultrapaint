@@ -1,3 +1,4 @@
+import { cn } from "cn";
 import {
   ChevronDown,
   GitBranch,
@@ -11,6 +12,7 @@ import {
   ZoomOut,
 } from "lucide-react";
 import type * as React from "react";
+import { useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,80 +27,119 @@ import {
 import { Kbd } from "@/components/ui/kbd";
 import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { IconButton } from "../components/icon-button.tsx";
 import { viewportSize, zoomBy } from "../lib/shortcuts.ts";
-import { cn } from "../lib/utils.ts";
 import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
 
 type Mode = ReturnType<typeof useEditor.getState>["mode"];
 
-const modes: { value: Mode; icon: React.ReactNode; tooltip: React.ReactNode }[] = [
+const modes: {
+  value: Mode;
+  icon: React.ReactNode;
+  tooltip: React.ReactNode;
+}[] = [
   {
-    value: "select",
     icon: <MousePointer2 />,
     tooltip: (
       <>
         Select <Kbd>V</Kbd>
       </>
     ),
+    value: "select",
   },
   {
-    value: "interact",
     icon: <Pointer />,
     tooltip: (
       <>
         Interact with the UI <Kbd>I</Kbd>
       </>
     ),
+    value: "interact",
   },
   {
-    value: "pan",
     icon: <Hand />,
     tooltip: (
       <>
         Pan <Kbd>H</Kbd> or hold <Kbd>Space</Kbd>
       </>
     ),
+    value: "pan",
   },
 ];
+
+const undoRedo = async (redo: boolean) => {
+  try {
+    const r = await api().request(redo ? "edit.redo" : "edit.undo", undefined);
+    const s = useEditor.getState();
+    if (r?.location && s.selection) {
+      s.select({ ...s.selection, source: r.location });
+    }
+  } catch (error) {
+    reportError(error);
+  }
+};
+
+const undoEdit = () => undoRedo(false);
+const redoEdit = () => undoRedo(true);
+
+const onModeChange = (next: readonly unknown[]) => {
+  const v = next[0] as Mode | undefined;
+  if (v) {
+    useEditor.getState().setMode(v);
+  }
+};
+
+const startPreview = () =>
+  api().request("host.start", undefined).catch(reportError);
+
+const zoomOut = () => zoomBy(0.8);
+const zoomIn = () => zoomBy(1.25);
+const zoomToFit = () => useEditor.getState().zoomToFit(viewportSize());
+const zoomToSelection = () =>
+  useEditor.getState().zoomToSelection(viewportSize());
+const openSettings = () => useProject.getState().openSettings(true);
+
+type HostInfo = ReturnType<typeof useProject.getState>["info"]["host"];
+
+const previewLabel = (host: HostInfo) => {
+  if (host.state === "running") {
+    return `preview :${host.port}`;
+  }
+  return host.state === "error" ? "preview failed" : `preview ${host.state}`;
+};
+
+const ZoomPresetItem = ({ pct }: { pct: number }) => {
+  const onClick = useCallback(
+    () => zoomBy(pct / 100 / useEditor.getState().view.zoom),
+    [pct]
+  );
+  return <DropdownMenuItem onClick={onClick}>{pct}%</DropdownMenuItem>;
+};
 
 export const TopBar = () => {
   const info = useProject((s) => s.info);
   const undo = useProject((s) => s.undo);
   const mode = useEditor((s) => s.mode);
   const zoom = useEditor((s) => s.view.zoom);
-  const host = info.host;
-
-  const undoRedo = async (redo: boolean) => {
-    try {
-      const r = await api().request(redo ? "edit.redo" : "edit.undo", undefined);
-      const s = useEditor.getState();
-      if (r?.location && s.selection) s.select({ ...s.selection, source: r.location });
-    } catch (error) {
-      reportError(error);
-    }
-  };
+  const { host } = info;
 
   return (
     <header className="flex h-10 shrink-0 items-center gap-2 border-b bg-sidebar px-2 text-sidebar-foreground">
       <span className="px-1 font-semibold">ultrapaint</span>
-      <Separator orientation="vertical" className="my-2" />
-      <ToggleGroup
-        value={[mode]}
-        onValueChange={(next) => {
-          const v = next[0] as Mode | undefined;
-          if (v) useEditor.getState().setMode(v);
-        }}
-        spacing={0.5}
-      >
+      <Separator className="my-2" orientation="vertical" />
+      <ToggleGroup onValueChange={onModeChange} spacing={0.5} value={[mode]}>
         {modes.map((m) => (
           <Tooltip key={m.value}>
             <TooltipTrigger
               render={
-                <ToggleGroupItem value={m.value} aria-label={m.value}>
+                <ToggleGroupItem aria-label={m.value} value={m.value}>
                   {m.icon}
                 </ToggleGroupItem>
               }
@@ -107,11 +148,11 @@ export const TopBar = () => {
           </Tooltip>
         ))}
       </ToggleGroup>
-      <Separator orientation="vertical" className="my-2" />
+      <Separator className="my-2" orientation="vertical" />
       <div className="flex items-center gap-0.5">
         <IconButton
           disabled={!undo.canUndo}
-          onClick={() => undoRedo(false)}
+          onClick={undoEdit}
           tooltip={
             <>
               Undo{undo.undoLabel ? ` · ${undo.undoLabel}` : ""} <Kbd>⌘Z</Kbd>
@@ -122,7 +163,7 @@ export const TopBar = () => {
         </IconButton>
         <IconButton
           disabled={!undo.canRedo}
-          onClick={() => undoRedo(true)}
+          onClick={redoEdit}
           tooltip={
             <>
               Redo <Kbd>⇧⌘Z</Kbd>
@@ -140,28 +181,20 @@ export const TopBar = () => {
             <GitBranch className="size-3" />
             {info.branch}
           </span>
-          <Badge variant="outline" title={host.error}>
+          <Badge title={host.error} variant="outline">
             <span
               className={cn(
                 "inline-block size-1.5 rounded-full",
                 host.state === "running" && "bg-success",
                 host.state === "starting" && "animate-pulse bg-brand",
                 host.state === "error" && "bg-destructive",
-                host.state === "stopped" && "bg-muted-foreground",
+                host.state === "stopped" && "bg-muted-foreground"
               )}
             />
-            {host.state === "running"
-              ? `preview :${host.port}`
-              : host.state === "error"
-                ? "preview failed"
-                : `preview ${host.state}`}
+            {previewLabel(host)}
           </Badge>
           {host.state !== "running" && host.state !== "starting" && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => api().request("host.start", undefined).catch(reportError)}
-            >
+            <Button onClick={startPreview} size="sm" variant="outline">
               Start preview
             </Button>
           )}
@@ -171,48 +204,49 @@ export const TopBar = () => {
       )}
       <div className="flex-1" />
       <div className="flex items-center gap-0.5">
-        <IconButton tooltip="Zoom out" onClick={() => zoomBy(0.8)}>
+        <IconButton onClick={zoomOut} tooltip="Zoom out">
           <ZoomOut />
         </IconButton>
         <DropdownMenu>
           <DropdownMenuTrigger
-            render={<Button variant="ghost" className="w-16 justify-between tabular-nums" />}
+            render={
+              <Button
+                className="w-16 justify-between tabular-nums"
+                variant="ghost"
+              />
+            }
           >
             {Math.round(zoom * 100)}%
-            <ChevronDown data-icon="inline-end" className="text-muted-foreground" />
+            <ChevronDown
+              className="text-muted-foreground"
+              data-icon="inline-end"
+            />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuGroup>
               {[50, 100, 200].map((pct) => (
-                <DropdownMenuItem
-                  key={pct}
-                  onClick={() => zoomBy(pct / 100 / useEditor.getState().view.zoom)}
-                >
-                  {pct}%
-                </DropdownMenuItem>
+                <ZoomPresetItem key={pct} pct={pct} />
               ))}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem onClick={() => useEditor.getState().zoomToFit(viewportSize())}>
+              <DropdownMenuItem onClick={zoomToFit}>
                 Zoom to fit
                 <DropdownMenuShortcut>⇧1</DropdownMenuShortcut>
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => useEditor.getState().zoomToSelection(viewportSize())}
-              >
+              <DropdownMenuItem onClick={zoomToSelection}>
                 Zoom to selection
                 <DropdownMenuShortcut>⇧2</DropdownMenuShortcut>
               </DropdownMenuItem>
             </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
-        <IconButton tooltip="Zoom in" onClick={() => zoomBy(1.25)}>
+        <IconButton onClick={zoomIn} tooltip="Zoom in">
           <ZoomIn />
         </IconButton>
       </div>
-      <Separator orientation="vertical" className="my-2" />
-      <IconButton tooltip="Settings" onClick={() => useProject.getState().openSettings(true)}>
+      <Separator className="my-2" orientation="vertical" />
+      <IconButton onClick={openSettings} tooltip="Settings">
         <Settings />
       </IconButton>
     </header>

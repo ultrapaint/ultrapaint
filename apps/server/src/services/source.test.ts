@@ -13,6 +13,9 @@ import {
   parseTsx,
 } from "./source.ts";
 
+const MOVED_INTO_MAIN_RE = /<main[^>]*>\s*<p>Text<\/p>\s*<Card>/;
+const INSERTED_BADGE_RE = /<Card>\s*<Badge>New<\/Badge>\s*<Button/;
+
 const file = "designs/a.tsx";
 const code = `import { Button } from "@ds/button";
 import { Card } from "@ds/card";
@@ -31,7 +34,7 @@ export default function A() {
 }
 `;
 
-const at = (line: number, col: number) => ({ file, line, col });
+const at = (line: number, col: number) => ({ col, file, line });
 
 describe("source engine", () => {
   it("reads an element", () => {
@@ -45,7 +48,9 @@ describe("source engine", () => {
   });
 
   it("merges tailwind classes replacing conflicts", () => {
-    expect(mergeClasses("flex p-4 text-sm", ["p-6"], [])).toBe("flex text-sm p-6");
+    expect(mergeClasses("flex p-4 text-sm", ["p-6"], [])).toBe(
+      "flex text-sm p-6"
+    );
     expect(mergeClasses("flex p-4", [], ["p-4"])).toBe("flex");
   });
 
@@ -57,7 +62,9 @@ describe("source engine", () => {
 
   it("adds className alphabetically when missing", () => {
     const out = applySetClasses(code, at(8, 8), ["mt-2"], []);
-    expect(out.code).toContain(`<Button className="mt-2" size="sm" variant="ghost">`);
+    expect(out.code).toContain(
+      `<Button className="mt-2" size="sm" variant="ghost">`
+    );
   });
 
   it("sets, changes and removes attributes", () => {
@@ -68,7 +75,7 @@ describe("source engine", () => {
     out = applySetAttribute(out, at(8, 8), "size", null).code;
     expect(out).toContain(`<Button disabled variant="outline">`);
     out = applySetAttribute(out, at(8, 8), "count", 3).code;
-    expect(out).toContain(`count={3}`);
+    expect(out).toContain("count={3}");
   });
 
   it("sets text", () => {
@@ -79,15 +86,17 @@ describe("source engine", () => {
   it("deletes and drops unused imports", () => {
     const out = applyDelete(code, at(8, 8)).code;
     expect(out).not.toContain("<Button");
-    expect(out).not.toContain(`import { Button }`);
-    expect(out).toContain(`import { Card }`);
+    expect(out).not.toContain("import { Button }");
+    expect(out).toContain("import { Card }");
   });
 
   it("duplicates after the element and tracks the copy", () => {
     const out = applyDuplicate(code, at(11, 8));
     expect(out.code.match(/<p>Text<\/p>/g)?.length).toBe(2);
     const els = collectElements(parseTsx(out.code));
-    expect(els[out.trackIndex as number]?.node.openingElement.loc.start.line).toBe(12);
+    expect(
+      els[out.trackIndex as number]?.node.openingElement.loc.start.line
+    ).toBe(12);
   });
 
   it("moves an element into another parent", () => {
@@ -95,21 +104,23 @@ describe("source engine", () => {
     const els = collectElements(parseTsx(out.code));
     const main = els[0]?.node;
     const firstChild = main?.children.find((c) => c.type === "JSXElement");
-    expect(out.code).toMatch(/<main[^>]*>\s*<p>Text<\/p>\s*<Card>/);
+    expect(out.code).toMatch(MOVED_INTO_MAIN_RE);
     expect(firstChild).toBeDefined();
     expect(out.trackIndex).not.toBeNull();
   });
 
   it("inserts with imports", () => {
-    const out = applyInsert(code, at(7, 6), 0, `<Badge>New</Badge>`, [
-      { name: "Badge", from: "@ds/badge" },
-      { name: "Card", from: "@ds/card" },
+    const out = applyInsert(code, at(7, 6), 0, "<Badge>New</Badge>", [
+      { from: "@ds/badge", name: "Badge" },
+      { from: "@ds/card", name: "Card" },
     ]);
     expect(out.code).toContain(`import { Badge } from "@ds/badge";`);
     expect(out.code.match(/import \{ Card \}/g)?.length).toBe(1);
-    expect(out.code).toMatch(/<Card>\s*<Badge>New<\/Badge>\s*<Button/);
+    expect(out.code).toMatch(INSERTED_BADGE_RE);
     const els = collectElements(parseTsx(out.code));
-    expect(els[out.trackIndex as number]?.node.openingElement.name).toMatchObject({
+    expect(
+      els[out.trackIndex as number]?.node.openingElement.name
+    ).toMatchObject({
       name: "Badge",
     });
   });

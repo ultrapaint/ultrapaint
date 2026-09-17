@@ -1,6 +1,10 @@
 import type * as React from "react";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 /** Ghost icon Button with an optional shadcn Tooltip. */
 export const IconButton = ({
@@ -11,13 +15,15 @@ export const IconButton = ({
 }: React.ComponentProps<typeof Button> & { tooltip?: React.ReactNode }) => {
   const button = (
     <Button
-      variant={variant}
-      size={size}
       aria-label={typeof tooltip === "string" ? tooltip : undefined}
+      size={size}
+      variant={variant}
       {...props}
     />
   );
-  if (!tooltip) return button;
+  if (!tooltip) {
+    return button;
+  }
   return (
     <Tooltip>
       <TooltipTrigger render={button} />

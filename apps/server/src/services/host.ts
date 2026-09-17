@@ -2,7 +2,8 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { createServer } from "node:net";
 import path from "node:path";
-import type { HostStatus, Settings } from "@ultrapaint/contracts";
+import type { HostStatus } from "@ultrapaint/contracts/project";
+import type { Settings } from "@ultrapaint/contracts/settings";
 import { buildHostPlugin } from "@ultrapaint/host-plugin/build";
 import { writeAtomic } from "../util.ts";
 import type { RepoPaths } from "./repo.ts";
@@ -20,6 +21,8 @@ const freePort = (): Promise<number> =>
 
 const toPosix = (p: string) => p.replaceAll("\\", "/");
 
+const LEADING_NON_DOT_RE = /^(?!\.)/;
+
 /**
  * Runs the preview host: the target repository's own Vite, started inside the designs
  * package with a generated configuration that adds the source stamping plugin, the runtime
@@ -28,20 +31,33 @@ const toPosix = (p: string) => p.replaceAll("\\", "/");
 export class HostManager {
   private child: ChildProcess | null = null;
   private status: HostStatus = { state: "stopped" };
-  private stopping = false;
+  private stopping: boolean;
+  private readonly paths: RepoPaths;
+  private readonly log: (
+    level: "info" | "warn" | "error",
+    text: string
+  ) => void;
+  private readonly onStatus: (status: HostStatus) => void;
 
   constructor(
-    private readonly paths: RepoPaths,
-    private readonly log: (level: "info" | "warn" | "error", text: string) => void,
-    private readonly onStatus: (status: HostStatus) => void,
-  ) {}
+    paths: RepoPaths,
+    log: (level: "info" | "warn" | "error", text: string) => void,
+    onStatus: (status: HostStatus) => void
+  ) {
+    this.paths = paths;
+    this.log = log;
+    this.onStatus = onStatus;
+    this.stopping = false;
+  }
 
   get current(): HostStatus {
     return this.status;
   }
 
   screenUrl(screenId: string): string | null {
-    if (this.status.state !== "running" || !this.status.url) return null;
+    if (this.status.state !== "running" || !this.status.url) {
+      return null;
+    }
     return `${this.status.url}/?screen=${encodeURIComponent(screenId)}`;
   }
 
@@ -59,7 +75,10 @@ export class HostManager {
     return candidates.find((c) => existsSync(c)) ?? null;
   }
 
-  private generate(settings: Settings, built: { plugin: string; runtime: string }) {
+  private generate(
+    settings: Settings,
+    built: { plugin: string; runtime: string }
+  ) {
     const dir = path.join(this.paths.designsDir, ".ultrapaint");
     mkdirSync(dir, { recursive: true });
     const include = [
@@ -110,7 +129,7 @@ export default defineConfig({
     ].join("\n");
 
     const providersImport = settings.providersModule
-      ? `import Providers from ${JSON.stringify(toPosix(path.relative(dir, path.join(this.paths.designsDir, settings.providersModule))).replace(/^(?!\.)/, "./"))};`
+      ? `import Providers from ${JSON.stringify(toPosix(path.relative(dir, path.join(this.paths.designsDir, settings.providersModule))).replace(LEADING_NON_DOT_RE, "./"))};`
       : "const Providers = ({ children }: { children: React.ReactNode }) => <>{children}</>;";
 
     const main = `import "./host.css";
@@ -221,17 +240,21 @@ process.on("SIGINT", stop);
     writeAtomic(path.join(dir, "host.css"), css);
     writeAtomic(path.join(dir, "main.tsx"), main);
     writeAtomic(path.join(dir, "index.html"), html);
-    if (!existsSync(path.join(dir, ".gitignore"))) writeAtomic(path.join(dir, ".gitignore"), "*\n");
+    if (!existsSync(path.join(dir, ".gitignore"))) {
+      writeAtomic(path.join(dir, ".gitignore"), "*\n");
+    }
     return dir;
   }
 
   async start(settings: Settings): Promise<HostStatus> {
-    if (this.child) return this.status;
+    if (this.child) {
+      return this.status;
+    }
     if (!this.viteModule()) {
       this.setStatus({
-        state: "error",
         error:
           "The designs package cannot resolve `vite`. Add `vite`, `@vitejs/plugin-react` and `@tailwindcss/vite` to its devDependencies and install.",
+        state: "error",
       });
       return this.status;
     }
@@ -241,18 +264,22 @@ process.on("SIGINT", stop);
       built = await buildHostPlugin();
     } catch (error) {
       this.setStatus({
-        state: "error",
         error: `host plugin build failed: ${(error as Error).message}`,
+        state: "error",
       });
       return this.status;
     }
     const dir = this.generate(settings, built);
     const port = await freePort();
-    const child = spawn(process.execPath, [path.join(dir, "serve.mjs"), String(port)], {
-      cwd: this.paths.designsDir,
-      env: { ...process.env, FORCE_COLOR: "0", NODE_ENV: "development" },
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    const child = spawn(
+      process.execPath,
+      [path.join(dir, "serve.mjs"), String(port)],
+      {
+        cwd: this.paths.designsDir,
+        env: { ...process.env, FORCE_COLOR: "0", NODE_ENV: "development" },
+        stdio: ["ignore", "pipe", "pipe"],
+      }
+    );
     this.child = child;
     this.stopping = false;
     const url = `http://127.0.0.1:${port}`;
@@ -260,19 +287,25 @@ process.on("SIGINT", stop);
     child.stderr?.on("data", (d) => this.log("warn", String(d).trimEnd()));
     child.on("exit", (code, signal) => {
       this.child = null;
-      if (this.stopping) this.setStatus({ state: "stopped" });
-      else this.setStatus({ state: "error", error: `vite exited (${signal ?? code})` });
+      if (this.stopping) {
+        this.setStatus({ state: "stopped" });
+      } else {
+        this.setStatus({
+          error: `vite exited (${signal ?? code})`,
+          state: "error",
+        });
+      }
     });
-    const ready = await this.waitForPort(port, 30000);
+    const ready = await this.waitForPort(port, 30_000);
     if (!ready) {
       this.setStatus({
-        state: "error",
-        pid: child.pid,
         error: "vite did not start listening within 30 s",
+        pid: child.pid,
+        state: "error",
       });
       return this.status;
     }
-    this.setStatus({ state: "running", port, url, pid: child.pid });
+    this.setStatus({ pid: child.pid, port, state: "running", url });
     return this.status;
   }
 
@@ -280,23 +313,33 @@ process.on("SIGINT", stop);
     const deadline = Date.now() + timeoutMs;
     return new Promise((resolve) => {
       const tryOnce = async () => {
-        if (!this.child) return resolve(false);
+        if (!this.child) {
+          return resolve(false);
+        }
         try {
-          const res = await fetch(`http://127.0.0.1:${port}/`, { method: "HEAD" });
-          if (res.ok || res.status < 500) return resolve(true);
+          const res = await fetch(`http://127.0.0.1:${port}/`, {
+            method: "HEAD",
+          });
+          if (res.ok || res.status < 500) {
+            return resolve(true);
+          }
         } catch {
           /* not yet */
         }
-        if (Date.now() > deadline) return resolve(false);
+        if (Date.now() > deadline) {
+          return resolve(false);
+        }
         setTimeout(tryOnce, 150);
       };
-      void tryOnce();
+      tryOnce();
     });
   }
 
   async stop(): Promise<HostStatus> {
-    const child = this.child;
-    if (!child) return this.status;
+    const { child } = this;
+    if (!child) {
+      return this.status;
+    }
     this.stopping = true;
     await new Promise<void>((resolve) => {
       const timer = setTimeout(() => {

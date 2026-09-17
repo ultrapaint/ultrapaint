@@ -17,4 +17,6 @@ declare global {
 }
 
 export const getPlatform = (): Platform =>
-  (typeof window !== "undefined" && window.ultrapaintPlatform) || { kind: "browser" };
+  (typeof window !== "undefined" && window.ultrapaintPlatform) || {
+    kind: "browser",
+  };

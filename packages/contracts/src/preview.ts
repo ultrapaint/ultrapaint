@@ -1,4 +1,4 @@
-import * as S from "effect/Schema";
+import { Schema as S } from "effect";
 import { Json, SourceLocation } from "./base.ts";
 
 /**
@@ -10,107 +10,145 @@ export const TreeNodeKind = S.Literal("component", "element", "text");
 export type TreeNodeKind = typeof TreeNodeKind.Type;
 
 export interface TreeNode {
+  readonly children: readonly TreeNode[];
+  readonly editable: boolean;
   readonly id: string;
   readonly kind: TreeNodeKind;
   readonly name: string;
-  readonly summary: string;
   readonly source: SourceLocation | null;
-  readonly editable: boolean;
-  readonly children: ReadonlyArray<TreeNode>;
+  readonly summary: string;
 }
 
 export const TreeNode: S.Schema<TreeNode> = S.suspend(() =>
   S.Struct({
+    children: S.Array(TreeNode),
+    editable: S.Boolean,
     id: S.String,
     kind: TreeNodeKind,
     name: S.String,
-    summary: S.String,
     source: S.NullOr(SourceLocation),
-    editable: S.Boolean,
-    children: S.Array(TreeNode),
-  }),
+    summary: S.String,
+  })
 );
 
-export const Rect = S.Struct({ x: S.Number, y: S.Number, width: S.Number, height: S.Number });
+export const Rect = S.Struct({
+  height: S.Number,
+  width: S.Number,
+  x: S.Number,
+  y: S.Number,
+});
 export type Rect = typeof Rect.Type;
 
 export const Provenance = S.Struct({
-  kind: S.Literal("utility", "component", "token", "inherited", "default", "inline"),
   /** Class that produced the value, when a utility or component class. */
   className: S.optional(S.String),
-  /** Design token behind the value, when known. */
-  token: S.optional(S.String),
   /** Whether an inspector edit can rewrite this value in the selected element's source. */
   editable: S.Boolean,
+  kind: S.Literal(
+    "utility",
+    "component",
+    "token",
+    "inherited",
+    "default",
+    "inline"
+  ),
+  /** Design token behind the value, when known. */
+  token: S.optional(S.String),
 });
 export type Provenance = typeof Provenance.Type;
 
-export const StyleValue = S.Struct({ value: S.String, provenance: Provenance });
+export const StyleValue = S.Struct({ provenance: Provenance, value: S.String });
 export type StyleValue = typeof StyleValue.Type;
 
 export const InspectResult = S.Struct({
-  nodeId: S.String,
-  kind: TreeNodeKind,
-  name: S.String,
-  source: S.NullOr(SourceLocation),
+  /** Class list on the DOM element. */
+  classes: S.Array(S.String),
   editable: S.Boolean,
   /** Source location of the nearest editable ancestor, when the node itself is not editable. */
   editableAncestor: S.NullOr(
-    S.Struct({ nodeId: S.String, name: S.String, source: SourceLocation }),
+    S.Struct({ name: S.String, nodeId: S.String, source: SourceLocation })
   ),
-  rect: Rect,
-  /** Class list on the DOM element. */
-  classes: S.Array(S.String),
+  kind: TreeNodeKind,
+  name: S.String,
+  nodeId: S.String,
   /** Classes the selected instance passed itself through its `className` prop. */
   ownClasses: S.Array(S.String),
-  styles: S.Record({ key: S.String, value: StyleValue }),
   /** Serialisable props of the component instance, when the node is a component. */
   props: S.Record({ key: S.String, value: Json }),
+  rect: Rect,
+  source: S.NullOr(SourceLocation),
+  styles: S.Record({ key: S.String, value: StyleValue }),
   text: S.NullOr(S.String),
 });
 export type InspectResult = typeof InspectResult.Type;
 
 export const HostError = S.Struct({
-  message: S.String,
-  stack: S.optional(S.String),
   file: S.optional(S.String),
   line: S.optional(S.Number),
+  message: S.String,
+  stack: S.optional(S.String),
 });
 export type HostError = typeof HostError.Type;
 
 /** Messages the host runtime sends to the editor. */
 export const HostMessage = S.Union(
-  S.Struct({ type: S.Literal("ed:ready"), screen: S.String }),
-  S.Struct({ type: S.Literal("ed:tree"), tree: TreeNode }),
+  S.Struct({ screen: S.String, type: S.Literal("ed:ready") }),
+  S.Struct({ tree: TreeNode, type: S.Literal("ed:tree") }),
   S.Struct({ type: S.Literal("ed:hmr") }),
-  S.Struct({ type: S.Literal("ed:error"), error: HostError }),
-  S.Struct({ type: S.Literal("ed:hit"), requestId: S.Number, nodeId: S.NullOr(S.String) }),
-  S.Struct({ type: S.Literal("ed:inspect"), requestId: S.Number, result: S.NullOr(InspectResult) }),
-  S.Struct({ type: S.Literal("ed:rects"), rects: S.Record({ key: S.String, value: Rect }) }),
-  S.Struct({ type: S.Literal("ed:textCommit"), nodeId: S.String, text: S.String }),
-  S.Struct({ type: S.Literal("ed:screenshot"), requestId: S.Number, dataUrl: S.NullOr(S.String) }),
-  S.Struct({ type: S.Literal("ed:tokens"), tokens: S.Record({ key: S.String, value: S.String }) }),
+  S.Struct({ error: HostError, type: S.Literal("ed:error") }),
+  S.Struct({
+    nodeId: S.NullOr(S.String),
+    requestId: S.Number,
+    type: S.Literal("ed:hit"),
+  }),
+  S.Struct({
+    requestId: S.Number,
+    result: S.NullOr(InspectResult),
+    type: S.Literal("ed:inspect"),
+  }),
+  S.Struct({
+    rects: S.Record({ key: S.String, value: Rect }),
+    type: S.Literal("ed:rects"),
+  }),
+  S.Struct({
+    nodeId: S.String,
+    text: S.String,
+    type: S.Literal("ed:textCommit"),
+  }),
+  S.Struct({
+    dataUrl: S.NullOr(S.String),
+    requestId: S.Number,
+    type: S.Literal("ed:screenshot"),
+  }),
+  S.Struct({
+    tokens: S.Record({ key: S.String, value: S.String }),
+    type: S.Literal("ed:tokens"),
+  })
 );
 export type HostMessage = typeof HostMessage.Type;
 
 /** Messages the editor sends to the host runtime. */
 export const EditorMessage = S.Union(
   S.Struct({ type: S.Literal("ed:getTree") }),
-  S.Struct({ type: S.Literal("ed:hover"), nodeId: S.NullOr(S.String) }),
-  S.Struct({ type: S.Literal("ed:select"), nodeId: S.NullOr(S.String) }),
+  S.Struct({ nodeId: S.NullOr(S.String), type: S.Literal("ed:hover") }),
+  S.Struct({ nodeId: S.NullOr(S.String), type: S.Literal("ed:select") }),
   S.Struct({
-    type: S.Literal("ed:hitTest"),
+    deepest: S.Boolean,
     requestId: S.Number,
+    type: S.Literal("ed:hitTest"),
     x: S.Number,
     y: S.Number,
-    deepest: S.Boolean,
   }),
-  S.Struct({ type: S.Literal("ed:inspect"), requestId: S.Number, nodeId: S.String }),
-  S.Struct({ type: S.Literal("ed:watchRects"), nodeIds: S.Array(S.String) }),
-  S.Struct({ type: S.Literal("ed:editText"), nodeId: S.String }),
-  S.Struct({ type: S.Literal("ed:screenshot"), requestId: S.Number }),
+  S.Struct({
+    nodeId: S.String,
+    requestId: S.Number,
+    type: S.Literal("ed:inspect"),
+  }),
+  S.Struct({ nodeIds: S.Array(S.String), type: S.Literal("ed:watchRects") }),
+  S.Struct({ nodeId: S.String, type: S.Literal("ed:editText") }),
+  S.Struct({ requestId: S.Number, type: S.Literal("ed:screenshot") }),
   S.Struct({ type: S.Literal("ed:getTokens") }),
-  S.Struct({ type: S.Literal("ed:scrollIntoView"), nodeId: S.String }),
+  S.Struct({ nodeId: S.String, type: S.Literal("ed:scrollIntoView") })
 );
 export type EditorMessage = typeof EditorMessage.Type;
 

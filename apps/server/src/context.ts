@@ -1,6 +1,7 @@
 import os from "node:os";
 import path from "node:path";
-import type { LogLine, ProjectInfo, Settings } from "@ultrapaint/contracts";
+import type { LogLine, ProjectInfo } from "@ultrapaint/contracts/project";
+import type { Settings } from "@ultrapaint/contracts/settings";
 import { EventBus } from "./events.ts";
 import { CatalogueService } from "./services/catalogue.ts";
 import { EditService } from "./services/edit.ts";
@@ -13,24 +14,33 @@ import { ThreadService } from "./services/threads.ts";
 
 /** Everything that exists once a target repository is configured. */
 export interface ProjectServices {
-  settings: Settings;
-  paths: RepoPaths;
-  host: HostManager;
-  screens: ScreensService;
+  catalogue: CatalogueService;
   edit: EditService;
   git: GitService;
-  catalogue: CatalogueService;
+  host: HostManager;
+  paths: RepoPaths;
+  screens: ScreensService;
+  settings: Settings;
 }
 
 export class ProjectRuntime {
   private services: ProjectServices | null = null;
+  private readonly settingsService: SettingsService;
+  private readonly events: EventBus;
+  private readonly log: AppContext["log"];
+  private readonly threads: ThreadService;
 
   constructor(
-    private readonly settingsService: SettingsService,
-    private readonly events: EventBus,
-    private readonly log: AppContext["log"],
-    private readonly threads: ThreadService,
-  ) {}
+    settingsService: SettingsService,
+    events: EventBus,
+    log: AppContext["log"],
+    threads: ThreadService
+  ) {
+    this.settingsService = settingsService;
+    this.events = events;
+    this.log = log;
+    this.threads = threads;
+  }
 
   get current(): ProjectServices | null {
     return this.services;
@@ -38,20 +48,24 @@ export class ProjectRuntime {
 
   async boot() {
     const settings = this.settingsService.get();
-    if (!settings) return;
+    if (!settings) {
+      return;
+    }
     await this.open(settings);
   }
 
   async info(): Promise<ProjectInfo> {
     const s = this.services;
-    if (!s) return { configured: false, host: { state: "stopped" } };
+    if (!s) {
+      return { configured: false, host: { state: "stopped" } };
+    }
     return {
-      configured: true,
-      name: path.basename(s.paths.root),
-      repoPath: s.paths.root,
       branch: await s.git.branch().catch(() => ""),
+      configured: true,
       designsDir: s.settings.designsDir,
       host: s.host.current,
+      name: path.basename(s.paths.root),
+      repoPath: s.paths.root,
     };
   }
 
@@ -66,35 +80,40 @@ export class ProjectRuntime {
     const host = new HostManager(
       paths,
       (level, text) => this.log("host", level, text),
-      () => void this.emitInfo(),
+      () => {
+        this.emitInfo();
+      }
     );
     const screens = new ScreensService(paths, {
-      onScreens: (list) => this.events.emit("screens", { screens: list }),
-      onFileChanged: (file, hash) => this.events.emit("file.changed", { file, hash }),
       onCanvas: (flow, layout) => this.events.emit("canvas", { flow, layout }),
+      onFileChanged: (file, hash) =>
+        this.events.emit("file.changed", { file, hash }),
+      onScreens: (list) => this.events.emit("screens", { screens: list }),
     });
     const edit = new EditService(
       paths,
       settings.formatCommand,
       (state) => this.events.emit("edit.state", state),
-      (file, hash) => this.events.emit("file.changed", { file, hash }),
+      (file, hash) => this.events.emit("file.changed", { file, hash })
     );
     const catalogue = new CatalogueService(
       paths,
       settings,
       this.settingsService.home,
-      (level, text) => this.log("server", level, text),
+      (level, text) => this.log("server", level, text)
     );
-    this.services = { settings, paths, host, screens, edit, git, catalogue };
+    this.services = { catalogue, edit, git, host, paths, screens, settings };
     screens.watch();
-    this.threads.attach({ paths, git });
+    this.threads.attach({ git, paths });
     await this.emitInfo();
-    void host.start(settings).then(() => this.emitInfo());
+    host.start(settings).then(() => this.emitInfo());
   }
 
   async close() {
     const s = this.services;
-    if (!s) return;
+    if (!s) {
+      return;
+    }
     this.services = null;
     await s.host.stop();
     await s.screens.close();
@@ -103,44 +122,58 @@ export class ProjectRuntime {
 }
 
 export interface AppContext {
-  version: string;
-  home: string;
   events: EventBus;
-  settings: SettingsService;
-  project: ProjectRuntime;
-  threads: ThreadService;
+  home: string;
+  log: (
+    source: LogLine["source"],
+    level: LogLine["level"],
+    text: string
+  ) => void;
   logs: LogLine[];
-  log: (source: LogLine["source"], level: LogLine["level"], text: string) => void;
+  project: ProjectRuntime;
+  settings: SettingsService;
   shutdown: () => Promise<void>;
+  threads: ThreadService;
+  version: string;
 }
 
-export const createContext = async (options: { home?: string }): Promise<AppContext> => {
+export const createContext = (options: {
+  home?: string;
+}): Promise<AppContext> => {
   const home =
-    options.home ?? process.env.ULTRAPAINT_HOME ?? path.join(os.homedir(), ".ultrapaint");
+    options.home ??
+    process.env.ULTRAPAINT_HOME ??
+    path.join(os.homedir(), ".ultrapaint");
   const events = new EventBus();
   const logs: LogLine[] = [];
   const log: AppContext["log"] = (source, level, text) => {
-    const line: LogLine = { source, level, text, at: Date.now() };
+    const line: LogLine = { at: Date.now(), level, source, text };
     logs.push(line);
-    if (logs.length > 500) logs.shift();
+    if (logs.length > 500) {
+      logs.shift();
+    }
     events.emit("log", line);
-    if (level !== "info" || source === "server") console.log(`[${source}] ${text}`);
+    if (level !== "info" || source === "server") {
+      console.log(`[${source}] ${text}`);
+    }
   };
   const settings = new SettingsService(home);
-  const threads = new ThreadService(home, events, (level, text) => log("agent", level, text));
+  const threads = new ThreadService(home, events, (level, text) =>
+    log("agent", level, text)
+  );
   const project = new ProjectRuntime(settings, events, log, threads);
-  return {
-    version: "0.1.0",
-    home,
+  return Promise.resolve({
     events,
-    settings,
-    project,
-    threads,
-    logs,
+    home,
     log,
+    logs,
+    project,
+    settings,
     shutdown: async () => {
       await threads.shutdown();
       await project.close();
     },
-  };
+    threads,
+    version: "0.1.0",
+  });
 };

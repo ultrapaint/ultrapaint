@@ -2,11 +2,11 @@ import { type ChildProcess, spawn } from "node:child_process";
 
 interface TerminalRecord {
   child: ChildProcess;
-  output: string;
-  truncated: boolean;
-  limit: number;
   exit: Promise<{ exitCode: number | null; signal: string | null }>;
   exited: { exitCode: number | null; signal: string | null } | null;
+  limit: number;
+  output: string;
+  truncated: boolean;
 }
 
 /**
@@ -14,7 +14,7 @@ interface TerminalRecord {
  * validated by the caller) and their output is buffered up to a byte limit.
  */
 export class TerminalManager {
-  private terminals = new Map<string, TerminalRecord>();
+  private readonly terminals = new Map<string, TerminalRecord>();
   private nextId = 1;
 
   create(
@@ -22,9 +22,10 @@ export class TerminalManager {
     args: string[],
     env: Record<string, string>,
     cwd: string,
-    outputByteLimit?: number | null,
+    outputByteLimit?: number | null
   ): string {
-    const id = `term_${this.nextId++}`;
+    const id = `term_${this.nextId}`;
+    this.nextId += 1;
     const child = spawn(command, args, {
       cwd,
       env: { ...process.env, ...env },
@@ -32,10 +33,6 @@ export class TerminalManager {
     });
     const record: TerminalRecord = {
       child,
-      output: "",
-      truncated: false,
-      limit: outputByteLimit ?? 1024 * 1024,
-      exited: null,
       exit: new Promise((resolve) => {
         child.on("exit", (code, signal) => {
           const r = { exitCode: code, signal: signal as string | null };
@@ -48,11 +45,17 @@ export class TerminalManager {
           resolve(r);
         });
       }),
+      exited: null,
+      limit: outputByteLimit ?? 1024 * 1024,
+      output: "",
+      truncated: false,
     };
     const append = (d: Buffer) => {
       record.output += d.toString();
       if (record.output.length > record.limit) {
-        record.output = record.output.slice(record.output.length - record.limit);
+        record.output = record.output.slice(
+          record.output.length - record.limit
+        );
         record.truncated = true;
       }
     };
@@ -64,13 +67,21 @@ export class TerminalManager {
 
   output(id: string) {
     const t = this.terminals.get(id);
-    if (!t) throw new Error(`unknown terminal ${id}`);
-    return { output: t.output, truncated: t.truncated, exitStatus: t.exited ?? null };
+    if (!t) {
+      throw new Error(`unknown terminal ${id}`);
+    }
+    return {
+      exitStatus: t.exited ?? null,
+      output: t.output,
+      truncated: t.truncated,
+    };
   }
 
   waitForExit(id: string) {
     const t = this.terminals.get(id);
-    if (!t) throw new Error(`unknown terminal ${id}`);
+    if (!t) {
+      throw new Error(`unknown terminal ${id}`);
+    }
     return t.exit;
   }
 
@@ -80,11 +91,15 @@ export class TerminalManager {
 
   release(id: string) {
     const t = this.terminals.get(id);
-    if (t && t.exited === null) t.child.kill("SIGKILL");
+    if (t && t.exited === null) {
+      t.child.kill("SIGKILL");
+    }
     this.terminals.delete(id);
   }
 
   releaseAll() {
-    for (const id of Array.from(this.terminals.keys())) this.release(id);
+    for (const id of Array.from(this.terminals.keys())) {
+      this.release(id);
+    }
   }
 }

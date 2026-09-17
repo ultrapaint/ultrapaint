@@ -30,7 +30,7 @@ import {
   type WaitForTerminalExitResponse,
   type WriteTextFileRequest,
 } from "@agentclientprotocol/sdk";
-import type { AgentConfig } from "@ultrapaint/contracts";
+import type { AgentConfig } from "@ultrapaint/contracts/threads";
 
 export type {
   ContentBlock,
@@ -47,33 +47,47 @@ export type {
 
 /** Everything the host (our server) does on behalf of the agent. */
 export interface AcpHostHandlers {
+  onExit: (code: number | null, signal: NodeJS.Signals | null) => void;
+  onLog: (level: "info" | "warn" | "error", text: string) => void;
+  onPermission: (
+    request: RequestPermissionRequest
+  ) => Promise<RequestPermissionResponse>;
   onUpdate: (notification: SessionNotification) => void;
-  onPermission: (request: RequestPermissionRequest) => Promise<RequestPermissionResponse>;
   readTextFile: (request: ReadTextFileRequest) => Promise<ReadTextFileResponse>;
-  writeTextFile: (request: WriteTextFileRequest) => Promise<void>;
   terminal: {
     create: (request: CreateTerminalRequest) => Promise<CreateTerminalResponse>;
     output: (request: TerminalOutputRequest) => Promise<TerminalOutputResponse>;
-    waitForExit: (request: WaitForTerminalExitRequest) => Promise<WaitForTerminalExitResponse>;
+    waitForExit: (
+      request: WaitForTerminalExitRequest
+    ) => Promise<WaitForTerminalExitResponse>;
     kill: (request: KillTerminalRequest) => Promise<void>;
     release: (request: ReleaseTerminalRequest) => Promise<void>;
   };
-  onExit: (code: number | null, signal: NodeJS.Signals | null) => void;
-  onLog: (level: "info" | "warn" | "error", text: string) => void;
+  writeTextFile: (request: WriteTextFileRequest) => Promise<void>;
 }
 
 export interface AcpAgentProcess {
-  readonly pid: number | undefined;
+  authenticate: (methodId: string) => Promise<void>;
+  cancel: (sessionId: string) => Promise<void>;
   readonly capabilities: InitializeResponse | null;
-  initialize(): Promise<InitializeResponse>;
-  authenticate(methodId: string): Promise<void>;
-  newSession(cwd: string): Promise<NewSessionResponse>;
-  loadSession(sessionId: string, cwd: string): Promise<LoadSessionResponse | undefined>;
-  prompt(sessionId: string, blocks: ContentBlock[]): Promise<PromptResponse>;
-  cancel(sessionId: string): Promise<void>;
-  setMode(sessionId: string, modeId: string): Promise<void>;
-  setConfigOption(sessionId: string, configId: string, value: string | boolean): Promise<unknown>;
-  close(): void;
+  close: () => void;
+  initialize: () => Promise<InitializeResponse>;
+  loadSession: (
+    sessionId: string,
+    cwd: string
+  ) => Promise<LoadSessionResponse | undefined>;
+  newSession: (cwd: string) => Promise<NewSessionResponse>;
+  readonly pid: number | undefined;
+  prompt: (
+    sessionId: string,
+    blocks: ContentBlock[]
+  ) => Promise<PromptResponse>;
+  setConfigOption: (
+    sessionId: string,
+    configId: string,
+    value: string | boolean
+  ) => Promise<unknown>;
+  setMode: (sessionId: string, modeId: string) => Promise<void>;
 }
 
 /**
@@ -82,7 +96,7 @@ export interface AcpAgentProcess {
  */
 export const spawnAgent = (
   config: AgentConfig,
-  options: { cwd: string; handlers: AcpHostHandlers },
+  options: { cwd: string; handlers: AcpHostHandlers }
 ): AcpAgentProcess => {
   const { handlers } = options;
   const child: ChildProcess = spawn(config.command, [...config.args], {
@@ -92,16 +106,20 @@ export const spawnAgent = (
   });
   child.stderr?.on("data", (d) => handlers.onLog("info", String(d).trimEnd()));
   child.on("exit", (code, signal) => handlers.onExit(code, signal));
-  child.on("error", (error) => handlers.onLog("error", `agent process error: ${error.message}`));
+  child.on("error", (error) =>
+    handlers.onLog("error", `agent process error: ${error.message}`)
+  );
 
   const stream = ndJsonStream(
     Writable.toWeb(child.stdin as Writable) as WritableStream<Uint8Array>,
-    Readable.toWeb(child.stdout as Readable) as ReadableStream<Uint8Array>,
+    Readable.toWeb(child.stdout as Readable) as ReadableStream<Uint8Array>
   );
 
   const app = client({ name: "ultrapaint" })
     .onNotification("session/update", (ctx) => handlers.onUpdate(ctx.params))
-    .onRequest("session/request_permission", (ctx) => handlers.onPermission(ctx.params))
+    .onRequest("session/request_permission", (ctx) =>
+      handlers.onPermission(ctx.params)
+    )
     .onRequest("fs/read_text_file", (ctx) => handlers.readTextFile(ctx.params))
     .onRequest("fs/write_text_file", async (ctx) => {
       await handlers.writeTextFile(ctx.params);
@@ -109,7 +127,9 @@ export const spawnAgent = (
     })
     .onRequest("terminal/create", (ctx) => handlers.terminal.create(ctx.params))
     .onRequest("terminal/output", (ctx) => handlers.terminal.output(ctx.params))
-    .onRequest("terminal/wait_for_exit", (ctx) => handlers.terminal.waitForExit(ctx.params))
+    .onRequest("terminal/wait_for_exit", (ctx) =>
+      handlers.terminal.waitForExit(ctx.params)
+    )
     .onRequest("terminal/kill", async (ctx) => {
       await handlers.terminal.kill(ctx.params);
       return {};
@@ -123,51 +143,62 @@ export const spawnAgent = (
   let capabilities: InitializeResponse | null = null;
 
   return {
-    get pid() {
-      return child.pid;
-    },
-    get capabilities() {
-      return capabilities;
-    },
-    async initialize() {
-      capabilities = await connection.agent.request("initialize", {
-        protocolVersion: PROTOCOL_VERSION,
-        clientCapabilities: { fs: { readTextFile: true, writeTextFile: true }, terminal: true },
-        clientInfo: { name: "ultrapaint", version: "0.1.0" },
-      });
-      return capabilities;
-    },
     async authenticate(methodId) {
       await connection.agent.request("authenticate", { methodId });
-    },
-    newSession(cwd) {
-      return connection.agent.request("session/new", { cwd, mcpServers: [] });
-    },
-    async loadSession(sessionId, cwd) {
-      return (
-        (await connection.agent.request("session/load", { sessionId, cwd, mcpServers: [] })) ??
-        undefined
-      );
-    },
-    prompt(sessionId, blocks) {
-      return connection.agent.request("session/prompt", { sessionId, prompt: blocks });
     },
     cancel(sessionId) {
       return connection.agent.notify("session/cancel", { sessionId });
     },
-    async setMode(sessionId, modeId) {
-      await connection.agent.request("session/set_mode", { sessionId, modeId });
+    get capabilities() {
+      return capabilities;
+    },
+    close() {
+      connection.close();
+      if (child.pid && child.exitCode === null) {
+        child.kill("SIGTERM");
+      }
+    },
+    async initialize() {
+      capabilities = await connection.agent.request("initialize", {
+        clientCapabilities: {
+          fs: { readTextFile: true, writeTextFile: true },
+          terminal: true,
+        },
+        clientInfo: { name: "ultrapaint", version: "0.1.0" },
+        protocolVersion: PROTOCOL_VERSION,
+      });
+      return capabilities;
+    },
+    async loadSession(sessionId, cwd) {
+      return (
+        (await connection.agent.request("session/load", {
+          cwd,
+          mcpServers: [],
+          sessionId,
+        })) ?? undefined
+      );
+    },
+    newSession(cwd) {
+      return connection.agent.request("session/new", { cwd, mcpServers: [] });
+    },
+    get pid() {
+      return child.pid;
+    },
+    prompt(sessionId, blocks) {
+      return connection.agent.request("session/prompt", {
+        prompt: blocks,
+        sessionId,
+      });
     },
     setConfigOption(sessionId, configId, value) {
       const params =
         typeof value === "boolean"
-          ? { sessionId, configId, type: "boolean" as const, value }
-          : { sessionId, configId, value };
+          ? { configId, sessionId, type: "boolean" as const, value }
+          : { configId, sessionId, value };
       return connection.agent.request("session/set_config_option", params);
     },
-    close() {
-      connection.close();
-      if (child.pid && child.exitCode === null) child.kill("SIGTERM");
+    async setMode(sessionId, modeId) {
+      await connection.agent.request("session/set_mode", { modeId, sessionId });
     },
   };
 };

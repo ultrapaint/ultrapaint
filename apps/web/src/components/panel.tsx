@@ -1,7 +1,12 @@
+import { cn } from "cn";
 import type * as React from "react";
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from "@/components/ui/empty";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+} from "@/components/ui/empty";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
 
 export const Section = ({
   title,
@@ -32,8 +37,13 @@ export const Row = ({
   children: React.ReactNode;
   className?: string;
 }) => (
-  <div className={cn("grid grid-cols-[64px_1fr] items-center gap-2", className)}>
-    <Label className="truncate font-normal text-[11px] text-muted-foreground" title={label}>
+  <div
+    className={cn("grid grid-cols-[64px_1fr] items-center gap-2", className)}
+  >
+    <Label
+      className="truncate font-normal text-[11px] text-muted-foreground"
+      title={label}
+    >
       {label}
     </Label>
     <div className="flex min-w-0 items-center gap-1">{children}</div>
@@ -49,7 +59,7 @@ export const PanelEmpty = ({
 }) => (
   <Empty className="h-full">
     <EmptyHeader>
-      {icon && <EmptyMedia variant="icon">{icon}</EmptyMedia>}
+      {icon ? <EmptyMedia variant="icon">{icon}</EmptyMedia> : null}
       <EmptyDescription>{children}</EmptyDescription>
     </EmptyHeader>
   </Empty>

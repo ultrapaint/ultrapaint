@@ -22,27 +22,43 @@ const freePort = (): Promise<number> =>
 
 const waitFor = async (url: string, timeoutMs: number) => {
   const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
+  const attempt = async (): Promise<void> => {
+    if (Date.now() >= deadline) {
+      throw new Error(`server did not start: ${url}`);
+    }
     try {
       const r = await fetch(url);
-      if (r.ok) return;
+      if (r.ok) {
+        return;
+      }
     } catch {
       /* not yet */
     }
     await new Promise((r) => setTimeout(r, 150));
-  }
-  throw new Error(`server did not start: ${url}`);
+    return attempt();
+  };
+  await attempt();
 };
 
 const startServer = async (): Promise<number> => {
   const port = await freePort();
-  const serverEntry = path.join(app.getAppPath(), "..", "server", "dist", "bin.mjs");
+  const serverEntry = path.join(
+    app.getAppPath(),
+    "..",
+    "server",
+    "dist",
+    "bin.mjs"
+  );
   const webDist = path.join(app.getAppPath(), "..", "web", "dist");
-  server = spawn(process.execPath, [serverEntry, "--port", String(port), "--web-dist", webDist], {
-    env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
-    stdio: ["ignore", "inherit", "inherit"],
-  });
-  await waitFor(`http://127.0.0.1:${port}/api/health`, 20000);
+  server = spawn(
+    process.execPath,
+    [serverEntry, "--port", String(port), "--web-dist", webDist],
+    {
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+      stdio: ["ignore", "inherit", "inherit"],
+    }
+  );
+  await waitFor(`http://127.0.0.1:${port}/api/health`, 20_000);
   return port;
 };
 
@@ -53,16 +69,21 @@ app.whenReady().then(async () => {
     return r.canceled ? null : (r.filePaths[0] ?? null);
   });
   const win = new BrowserWindow({
-    width: 1500,
+    backgroundColor: "#1a1a1d",
     height: 950,
     titleBarStyle: "hiddenInset",
-    backgroundColor: "#1a1a1d",
-    webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true },
+    webPreferences: {
+      contextIsolation: true,
+      preload: path.join(import.meta.dirname, "preload.cjs"),
+    },
+    width: 1500,
   });
   await win.loadURL(`http://127.0.0.1:${port}/`);
 });
 
 app.on("window-all-closed", () => app.quit());
 app.on("before-quit", () => {
-  if (server?.pid) server.kill("SIGTERM");
+  if (server?.pid) {
+    server.kill("SIGTERM");
+  }
 });

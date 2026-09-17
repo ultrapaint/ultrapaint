@@ -7,19 +7,19 @@ import { registerHandlers } from "./handlers.ts";
 import { attachWebSocket } from "./ws/socket.ts";
 
 export interface ServerOptions {
-  port: number;
   home?: string;
+  port: number;
   webDist?: string;
 }
 
 const MIME: Record<string, string> = {
+  ".css": "text/css; charset=utf-8",
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".svg": "image/svg+xml",
-  ".png": "image/png",
-  ".woff2": "font/woff2",
   ".json": "application/json",
+  ".png": "image/png",
+  ".svg": "image/svg+xml",
+  ".woff2": "font/woff2",
 };
 
 export const startServer = async (options: ServerOptions) => {
@@ -35,10 +35,13 @@ export const startServer = async (options: ServerOptions) => {
     }
     if (options.webDist) {
       let file = path.join(options.webDist, url.pathname);
-      if (!existsSync(file) || statSync(file).isDirectory())
+      if (!existsSync(file) || statSync(file).isDirectory()) {
         file = path.join(options.webDist, "index.html");
+      }
       const ext = path.extname(file);
-      res.writeHead(200, { "content-type": MIME[ext] ?? "application/octet-stream" });
+      res.writeHead(200, {
+        "content-type": MIME[ext] ?? "application/octet-stream",
+      });
       res.end(readFileSync(file));
       return;
     }
@@ -46,21 +49,23 @@ export const startServer = async (options: ServerOptions) => {
     res.end("not found");
   });
 
-  const wss = new WebSocketServer({ server: http, path: "/ws" });
+  const wss = new WebSocketServer({ path: "/ws", server: http });
   attachWebSocket(wss, router, ctx);
 
-  await new Promise<void>((resolve) => http.listen(options.port, "127.0.0.1", resolve));
+  await new Promise<void>((resolve) =>
+    http.listen(options.port, "127.0.0.1", resolve)
+  );
   ctx.log("server", "info", `listening on http://127.0.0.1:${options.port}`);
 
   // Bring the project up if settings already exist.
-  void ctx.project.boot();
+  ctx.project.boot();
 
   return {
-    port: options.port,
     close: async () => {
       await ctx.shutdown();
       wss.close();
       http.close();
     },
+    port: options.port,
   };
 };

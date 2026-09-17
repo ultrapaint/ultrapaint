@@ -15,14 +15,14 @@ export const writeAtomic = (file: string, content: string) => {
 
 /** Serialises async work per key so two writers never interleave on one file. */
 export class KeyedQueue {
-  private tails = new Map<string, Promise<unknown>>();
+  private readonly tails = new Map<string, Promise<unknown>>();
 
   run<T>(key: string, work: () => Promise<T>): Promise<T> {
     const prev = this.tails.get(key) ?? Promise.resolve();
     const next = prev.then(work, work);
     this.tails.set(
       key,
-      next.catch(() => undefined),
+      next.catch(() => undefined)
     );
     return next;
   }

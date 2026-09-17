@@ -1,28 +1,28 @@
-import * as S from "effect/Schema";
+import { Schema as S } from "effect";
 
 export const HostStatus = S.Struct({
-  state: S.Literal("stopped", "starting", "running", "error"),
-  port: S.optional(S.Number),
-  url: S.optional(S.String),
-  pid: S.optional(S.Number),
   error: S.optional(S.String),
+  pid: S.optional(S.Number),
+  port: S.optional(S.Number),
+  state: S.Literal("stopped", "starting", "running", "error"),
+  url: S.optional(S.String),
 });
 export type HostStatus = typeof HostStatus.Type;
 
 export const ProjectInfo = S.Struct({
-  configured: S.Boolean,
-  name: S.optional(S.String),
-  repoPath: S.optional(S.String),
   branch: S.optional(S.String),
+  configured: S.Boolean,
   designsDir: S.optional(S.String),
   host: HostStatus,
+  name: S.optional(S.String),
+  repoPath: S.optional(S.String),
 });
 export type ProjectInfo = typeof ProjectInfo.Type;
 
 export const LogLine = S.Struct({
-  source: S.Literal("host", "server", "agent"),
-  level: S.Literal("info", "warn", "error"),
-  text: S.String,
   at: S.Number,
+  level: S.Literal("info", "warn", "error"),
+  source: S.Literal("host", "server", "agent"),
+  text: S.String,
 });
 export type LogLine = typeof LogLine.Type;
