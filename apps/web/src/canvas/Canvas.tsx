@@ -1,0 +1,245 @@
+import type { FrameLayout } from "@ultrapaint/contracts";
+import * as React from "react";
+import { useEditor } from "../state/editor.ts";
+import { useProject } from "../state/project.ts";
+import { Frame, useHostUrl } from "./Frame.tsx";
+
+const clampZoom = (z: number) => Math.min(4, Math.max(0.05, z));
+
+export const Canvas = () => {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const view = useEditor((s) => s.view);
+  const frames = useEditor((s) => s.frames);
+  const flow = useEditor((s) => s.flow);
+  const mode = useEditor((s) => s.mode);
+  const allScreens = useProject((s) => s.screens);
+  const screens = React.useMemo(
+    () => allScreens.filter((x) => x.flow === flow),
+    [allScreens, flow],
+  );
+  const hostUrl = useHostUrl();
+  const [size, setSize] = React.useState({ width: 0, height: 0 });
+  const spaceDown = React.useRef(false);
+  const drag = React.useRef<
+    | { kind: "pan"; startX: number; startY: number; vx: number; vy: number }
+    | {
+        kind: "move" | "resize";
+        screenId: string;
+        startX: number;
+        startY: number;
+        frame: FrameLayout;
+      }
+    | null
+  >(null);
+
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() =>
+      setSize({ width: el.clientWidth, height: el.clientHeight }),
+    );
+    ro.observe(el);
+    setSize({ width: el.clientWidth, height: el.clientHeight });
+    return () => ro.disconnect();
+  }, []);
+
+  // Wheel: pan, or zoom with ctrl/meta (pinch gestures arrive with ctrlKey).
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const s = useEditor.getState();
+      const { x, y, zoom } = s.view;
+      if (e.ctrlKey || e.metaKey) {
+        const rect = el.getBoundingClientRect();
+        const cx = e.clientX - rect.left;
+        const cy = e.clientY - rect.top;
+        const next = clampZoom(zoom * Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.002)));
+        const k = next / zoom;
+        s.setView({ zoom: next, x: cx - (cx - x) * k, y: cy - (cy - y) * k });
+      } else {
+        s.setView({ x: x - e.deltaX, y: y - e.deltaY });
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
+  React.useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.code === "Space" && !isTyping(e)) {
+        spaceDown.current = true;
+        e.preventDefault();
+      }
+    };
+    const up = (e: KeyboardEvent) => {
+      if (e.code === "Space") spaceDown.current = false;
+    };
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+    };
+  }, []);
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    const panning = e.button === 1 || spaceDown.current || mode === "pan";
+    if (!panning) {
+      if (e.target === e.currentTarget) useEditor.getState().select(null);
+      return;
+    }
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    drag.current = { kind: "pan", startX: e.clientX, startY: e.clientY, vx: view.x, vy: view.y };
+  };
+
+  const startFrameDrag = (screenId: string) => (e: React.PointerEvent, kind: "move" | "resize") => {
+    e.preventDefault();
+    e.stopPropagation();
+    const frame = useEditor.getState().frames[screenId];
+    if (!frame) return;
+    ref.current?.setPointerCapture(e.pointerId);
+    drag.current = { kind, screenId, startX: e.clientX, startY: e.clientY, frame };
+    useEditor.getState().setActiveScreen(screenId);
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    const d = drag.current;
+    if (!d) return;
+    const s = useEditor.getState();
+    const zoom = s.view.zoom;
+    const dx = (e.clientX - d.startX) / zoom;
+    const dy = (e.clientY - d.startY) / zoom;
+    if (d.kind === "pan") {
+      s.setView({ x: d.vx + (e.clientX - d.startX), y: d.vy + (e.clientY - d.startY) });
+    } else if (d.kind === "move") {
+      const others = Object.entries(s.frames)
+        .filter(([id]) => id !== d.screenId)
+        .map(([, f]) => f);
+      const snapped = snap(
+        { ...d.frame, x: d.frame.x + dx, y: d.frame.y + dy },
+        others,
+        8 / zoom,
+        e.shiftKey,
+      );
+      s.setFrame(d.screenId, snapped, false);
+    } else {
+      s.setFrame(
+        d.screenId,
+        {
+          ...d.frame,
+          width: Math.max(120, d.frame.width + dx),
+          height: Math.max(120, d.frame.height + dy),
+          preset: "custom",
+        },
+        false,
+      );
+    }
+  };
+
+  const onPointerUp = () => {
+    const d = drag.current;
+    drag.current = null;
+    if (d && d.kind !== "pan") {
+      const s = useEditor.getState();
+      const f = s.frames[d.screenId];
+      if (f)
+        s.setFrame(d.screenId, {
+          ...f,
+          x: Math.round(f.x),
+          y: Math.round(f.y),
+          width: Math.round(f.width),
+          height: Math.round(f.height),
+        });
+    }
+  };
+
+  // Virtualisation: only mount iframes near the viewport.
+  const margin = 400;
+  const isVisible = (f: FrameLayout) => {
+    const left = f.x * view.zoom + view.x;
+    const top = f.y * view.zoom + view.y;
+    const right = left + f.width * view.zoom;
+    const bottom = top + f.height * view.zoom;
+    return (
+      right > -margin &&
+      bottom > -margin &&
+      left < size.width + margin &&
+      top < size.height + margin
+    );
+  };
+
+  return (
+    <div
+      ref={ref}
+      className="relative h-full w-full overflow-hidden bg-canvas"
+      style={{
+        backgroundImage: "radial-gradient(circle, oklch(30% 0.006 260) 1px, transparent 1px)",
+        backgroundSize: `${Math.max(12, 24 * view.zoom)}px ${Math.max(12, 24 * view.zoom)}px`,
+        backgroundPosition: `${view.x}px ${view.y}px`,
+        cursor: mode === "pan" ? "grab" : undefined,
+      }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+    >
+      <div
+        className="absolute top-0 left-0"
+        style={{
+          transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`,
+          transformOrigin: "0 0",
+        }}
+      >
+        {screens.map((screen) => {
+          const frame = frames[screen.id];
+          if (!frame) return null;
+          return (
+            <Frame
+              key={screen.id}
+              screen={screen}
+              frame={frame}
+              hostUrl={hostUrl}
+              zoom={view.zoom}
+              visible={isVisible(frame)}
+              onDragStart={startFrameDrag(screen.id)}
+            />
+          );
+        })}
+      </div>
+      {screens.length === 0 && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-ink-3">
+          {flow === null ? "Open a flow from the Screens panel" : "This flow has no screens yet"}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const isTyping = (e: KeyboardEvent) => {
+  const t = e.target as HTMLElement | null;
+  return !!t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
+};
+
+const snap = (
+  f: FrameLayout,
+  others: FrameLayout[],
+  threshold: number,
+  disabled: boolean,
+): FrameLayout => {
+  if (disabled) return f;
+  let x = f.x;
+  let y = f.y;
+  const xs = others.flatMap((o) => [o.x, o.x + o.width, o.x - f.width, o.x + o.width - f.width]);
+  const ys = others.flatMap((o) => [
+    o.y,
+    o.y + o.height,
+    o.y - f.height,
+    o.y + o.height - f.height,
+  ]);
+  for (const c of xs) if (Math.abs(c - x) < threshold) x = c;
+  for (const c of ys) if (Math.abs(c - y) < threshold) y = c;
+  return { ...f, x, y };
+};

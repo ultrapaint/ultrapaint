@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+@theme {
+  --color-panel: oklch(20% 0.005 260);
+  --color-panel-2: oklch(24% 0.005 260);
+  --color-panel-3: oklch(28% 0.006 260);
+  --color-line: oklch(32% 0.006 260);
+  --color-line-2: oklch(40% 0.006 260);
+  --color-ink: oklch(94% 0.005 260);
+  --color-ink-2: oklch(72% 0.01 260);
+  --color-ink-3: oklch(55% 0.01 260);
+  --color-accent: oklch(68% 0.17 255);
+  --color-accent-2: oklch(58% 0.18 255);
+  --color-canvas: oklch(15% 0.005 260);
+  --color-danger: oklch(65% 0.2 25);
+  --color-ok: oklch(70% 0.16 150);
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--color-panel);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+  color: inherit;
+}
+
+input[type="number"]::-webkit-inner-spin-button {
+  appearance: none;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-line-2);
+  border-radius: 4px;
+}

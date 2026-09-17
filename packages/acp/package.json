@@ -1,0 +1,23 @@
+{
+  "name": "@ultrapaint/acp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./configs": "./src/configs.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@agentclientprotocol/sdk": "^1.4.0",
+    "@ultrapaint/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "7.0.2",
+    "vitest": "^5.0.1"
+  }
+}

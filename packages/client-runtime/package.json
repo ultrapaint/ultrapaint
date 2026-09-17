@@ -1,0 +1,22 @@
+{
+  "name": "@ultrapaint/client-runtime",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@ultrapaint/contracts": "workspace:*",
+    "effect": "^3.22.2"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2",
+    "vitest": "^5.0.1"
+  }
+}
