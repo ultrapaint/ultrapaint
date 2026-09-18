@@ -179,6 +179,78 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
       })
     );
 
+    it.effect("keeps comments beside the canvas, resolved or not", () =>
+      Effect.gen(function* () {
+        const { client, repo } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        const { event, result: created } = yield* nextEvent(
+          client["events.comments"](),
+          client["comments.create"]({
+            element: "h1",
+            page: "home.tsx",
+            source: HEADING,
+            space: "",
+            text: "  Bigger heading  ",
+            x: 40.4,
+            y: 12.6,
+          })
+        );
+        assert.strictEqual(created.text, "Bigger heading");
+        assert.deepStrictEqual([created.x, created.y], [40, 13]);
+        assert.strictEqual(created.author, "Test");
+        assert.isFalse(created.resolved);
+        assert.strictEqual(
+          event._tag === "Some" ? event.value.list.comments.length : 0,
+          1
+        );
+        const resolved = yield* client["comments.update"]({
+          id: created.id,
+          resolved: true,
+          space: "",
+        });
+        assert.isTrue(resolved.resolved);
+        assert.strictEqual(resolved.text, "Bigger heading");
+        const saved = JSON.parse(
+          yield* fs.readFileString(path.join(repo, "designs/comments.json"))
+        );
+        assert.isTrue(saved.comments[0].resolved);
+        const answered = yield* client["comments.reply"]({
+          id: created.id,
+          space: "",
+          text: "Done in the last commit",
+        });
+        assert.deepStrictEqual(
+          answered.replies.map((r) => [r.text, r.author]),
+          [["Done in the last commit", "Test"]]
+        );
+        const [first] = answered.replies;
+        const cleared = yield* client["comments.deleteReply"]({
+          id: created.id,
+          replyId: first?.id ?? "",
+          space: "",
+        });
+        assert.deepStrictEqual(cleared.replies, []);
+        yield* client["comments.delete"]({ id: created.id, space: "" });
+        assert.deepStrictEqual(
+          (yield* client["comments.list"]({ space: "" })).comments,
+          []
+        );
+        const missing = yield* Effect.flip(
+          client["comments.delete"]({ id: created.id, space: "" })
+        );
+        assert.strictEqual(missing._tag, "NotFound");
+        // A file written before comments had threads reads as comments without replies.
+        const { replies: _, ...before } = created;
+        yield* fs.writeFileString(
+          path.join(repo, "designs/comments.json"),
+          JSON.stringify({ comments: [before], version: 1 })
+        );
+        const [old] = (yield* client["comments.list"]({ space: "" })).comments;
+        assert.deepStrictEqual(old?.replies, []);
+        yield* fs.remove(path.join(repo, "designs/comments.json"));
+      })
+    );
+
     it.effect(
       "pushes file.changed when a page is edited outside the editor",
       () =>

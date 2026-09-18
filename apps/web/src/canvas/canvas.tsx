@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useComments } from "../state/comments.ts";
 import { useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
 import { Frame, useHostUrl } from "./frame.tsx";
@@ -56,6 +57,13 @@ export const Canvas = () => {
       return;
     }
     const onWheel = (e: WheelEvent) => {
+      // A comment thread scrolls itself, unless it is a pinch, which still zooms.
+      if (
+        !(e.ctrlKey || e.metaKey) &&
+        (e.target as Element | null)?.closest("[data-canvas-scroll]")
+      ) {
+        return;
+      }
       e.preventDefault();
       const s = useEditor.getState();
       const { x, y, zoom } = s.view;
@@ -108,6 +116,8 @@ export const Canvas = () => {
     if (!pan) {
       if (e.target === e.currentTarget) {
         useEditor.getState().selectPage(null);
+        useComments.getState().setDraft(null);
+        useComments.getState().setOpen(null);
       }
       return;
     }

@@ -6,6 +6,7 @@ import { ServerConfig } from "./config.ts";
 import { EventBus } from "./events.ts";
 import { ProjectManager } from "./project.ts";
 import { CatalogueService } from "./services/catalogue.ts";
+import { CommentsService } from "./services/comments.ts";
 import { EditService } from "./services/edit.ts";
 import { ProjectFramework } from "./services/framework.ts";
 import { GitService } from "./services/git.ts";
@@ -38,6 +39,9 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const pages = <A, E>(
       f: (s: PagesService["Service"]) => Effect.Effect<A, E>
     ) => project.use(Effect.flatMap(PagesService, f));
+    const comments = <A, E>(
+      f: (s: CommentsService["Service"]) => Effect.Effect<A, E>
+    ) => project.use(Effect.flatMap(CommentsService, f));
     const edit = <A, E>(
       f: (s: EditService["Service"]) => Effect.Effect<A, E>
     ) => project.use(Effect.flatMap(EditService, f));
@@ -62,6 +66,14 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "checkpoints.diff": ({ id }) => checkpoints.diff(id),
       "checkpoints.list": () => checkpoints.list,
       "checkpoints.revert": ({ id }) => checkpoints.revert(id),
+      "comments.create": (input) => comments((c) => c.create(input)),
+      "comments.delete": ({ id, space }) =>
+        comments((c) => c.delete(space, id)),
+      "comments.deleteReply": ({ id, replyId, space }) =>
+        comments((c) => c.deleteReply(space, id, replyId)),
+      "comments.list": ({ space }) => comments((c) => c.list(space)),
+      "comments.reply": (input) => comments((c) => c.reply(input)),
+      "comments.update": (input) => comments((c) => c.update(input)),
       "edit.apply": ({ op, expectedHash }) =>
         edit((e) => e.apply(op, expectedHash)),
       "edit.redo": () => edit((e) => e.redo),
@@ -70,6 +82,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
 
       "events.agent": () => events.subscribe("agent"),
       "events.canvas": () => events.subscribe("canvas"),
+      "events.comments": () => events.subscribe("comments"),
       "events.edit.state": () => events.subscribe("edit.state"),
       "events.file.changed": () => events.subscribe("file.changed"),
       "events.git": () => events.subscribe("git"),

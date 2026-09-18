@@ -17,6 +17,7 @@ import type { ChildProcessSpawner } from "effect/unstable/process";
 import { AppLog } from "./app-log.ts";
 import { EventBus } from "./events.ts";
 import { CatalogueService } from "./services/catalogue.ts";
+import { CommentsService } from "./services/comments.ts";
 import { EditService } from "./services/edit.ts";
 import { ProjectFramework } from "./services/framework.ts";
 import { GitService } from "./services/git.ts";
@@ -28,6 +29,7 @@ import { Storage } from "./services/storage.ts";
 /** Everything that exists once a target repository is configured. */
 export type ProjectServices =
   | CatalogueService
+  | CommentsService
   | EditService
   | GitService
   | HostManager
@@ -46,6 +48,7 @@ type ProjectRequirements =
 const projectLayer = (settings: Settings) =>
   Layer.mergeAll(
     CatalogueService.layer,
+    CommentsService.layer,
     EditService.layer,
     GitService.layer,
     HostManager.layer,

@@ -16,11 +16,13 @@ import {
   useState,
 } from "react";
 import { OptionSelect } from "../components/option-select.tsx";
+import { useComments } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { findBySource, findNode, stepInto } from "../state/tree.ts";
 import { bridgeFor, removeBridge } from "./bridge.ts";
+import { commentCursor, FrameComments } from "./comments.tsx";
 
 const presets: { value: ViewportPreset; label: string }[] = [
   { label: "Mobile", value: "mobile" },
@@ -88,6 +90,12 @@ export const Frame = memo(
     const tree = useEditor((s) => s.trees[page.id]);
     const hostError = useEditor((s) => s.hostErrors[page.id]);
     const isActive = useEditor((s) => s.activePage === page.id);
+    const holdsCard = useComments(
+      (s) =>
+        s.draft?.pageId === page.id ||
+        (s.open !== null &&
+          s.comments.some((c) => c.id === s.open && c.page === page.path))
+    );
     // One frame, one page: the canvas shows every route of the space at once, so a frame stays
     // on its own route and a link pressed inside it moves the editor, not the frame.
     const url = hostUrl
@@ -275,6 +283,32 @@ export const Frame = memo(
       }
     };
 
+    /**
+     * Places a comment where the page was clicked. The element under the point is remembered
+     * with it: the innermost one that has a place in the source.
+     */
+    const onPlaceComment = async (e: ReactMouseEvent) => {
+      const { x, y } = toFrame(e);
+      const comments = useComments.getState();
+      if (!comments.visible) {
+        comments.toggleVisible();
+      }
+      const draft = { element: null, pageId: page.id, source: null, x, y };
+      comments.setDraft(draft);
+      const chain = await bridgeFor(page.id).hitTest(x, y);
+      const t = useEditor.getState().trees[page.id];
+      const nodes = t ? chain.map((id) => findNode(t, id)) : [];
+      const node = nodes.findLast((n) => n?.source) ?? nodes.at(-1) ?? null;
+      // Only if the draft is still this one: another click may have moved it meanwhile.
+      if (node && useComments.getState().draft === draft) {
+        comments.setDraft({
+          ...draft,
+          element: node.name,
+          source: node.source,
+        });
+      }
+    };
+
     const onPointerLeave = () => {
       const s = useEditor.getState();
       if (s.hover?.pageId === page.id) {
@@ -298,6 +332,8 @@ export const Frame = memo(
           left: frame.x,
           top: frame.y,
           width: frame.width,
+          // An open card reaches past the frame; the neighbours must not cover it.
+          zIndex: holdsCard ? 1 : undefined,
         }}
       >
         <FrameChrome
@@ -336,6 +372,15 @@ export const Frame = memo(
               type="button"
             />
           )}
+          {mode === "comment" && !spacePan && (
+            <button
+              aria-label={`Comment on ${page.name}`}
+              className="absolute inset-0 h-full w-full"
+              onClick={onPlaceComment}
+              style={{ cursor: commentCursor }}
+              type="button"
+            />
+          )}
           {hoverRect ? (
             <Outline inv={inv} kind="hover" rect={hoverRect} />
           ) : null}
@@ -352,6 +397,8 @@ export const Frame = memo(
             </div>
           )}
         </div>
+
+        <FrameComments inv={inv} page={page} />
 
         <div
           className="absolute cursor-nwse-resize rounded-sm bg-brand"

@@ -17,7 +17,7 @@ import { api } from "./connection.ts";
 import { reportError, useProject } from "./project.ts";
 import { writeUrl } from "./url.ts";
 
-export type Mode = "select" | "interact" | "pan";
+export type Mode = "select" | "interact" | "pan" | "comment";
 
 /** What the app is for right now: prompting an agent, editing the design, or clicking through it. */
 export type Workspace = "vibe" | "design" | "prototype";
@@ -29,13 +29,19 @@ export const workspaceOrder: readonly Workspace[] = [
   "prototype",
 ];
 
-export type LeftTab = "chat" | "layers" | "pages" | "palette" | "changes";
+export type LeftTab =
+  | "chat"
+  | "comments"
+  | "layers"
+  | "pages"
+  | "palette"
+  | "changes";
 
 /** Left panels each workspace offers, in rail order. The first is where a switch lands. */
 export const workspaceTabs: Record<Workspace, readonly LeftTab[]> = {
-  design: ["layers", "palette", "pages", "changes"],
+  design: ["layers", "palette", "pages", "comments", "changes"],
   prototype: ["pages", "chat", "changes"],
-  vibe: ["chat", "pages", "changes"],
+  vibe: ["chat", "pages", "comments", "changes"],
 };
 
 export interface Selection {

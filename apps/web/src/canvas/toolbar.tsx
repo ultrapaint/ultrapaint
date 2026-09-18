@@ -1,6 +1,7 @@
 import {
   ChevronDown,
   Hand,
+  MessageCircle,
   MousePointer2,
   Pointer,
   Redo2,
@@ -29,6 +30,7 @@ import {
 } from "@/components/ui/tooltip";
 import { IconButton } from "../components/icon-button.tsx";
 import { viewportSize, zoomBy } from "../lib/shortcuts.ts";
+import { useComments } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
 import { type Mode, useEditor } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
@@ -65,6 +67,15 @@ const modes: {
     ),
     value: "pan",
   },
+  {
+    icon: <MessageCircle />,
+    tooltip: (
+      <>
+        Comment <Kbd>C</Kbd> · show or hide comments <Kbd>⇧C</Kbd>
+      </>
+    ),
+    value: "comment",
+  },
 ];
 
 const undoRedo = async (redo: boolean) => {
@@ -86,6 +97,10 @@ const onModeChange = (next: readonly unknown[]) => {
   const v = next[0] as Mode | undefined;
   if (v) {
     useEditor.getState().setMode(v);
+  }
+  // Picking the comment tool is asking to see the comments.
+  if (v === "comment" && !useComments.getState().visible) {
+    useComments.getState().toggleVisible();
   }
 };
 

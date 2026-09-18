@@ -1,6 +1,7 @@
 import type { TreeNode } from "@ultrapaint/contracts/preview";
 import { useEffect } from "react";
 import { bridgeFor } from "../canvas/bridge.ts";
+import { useComments } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
 import { useEditor, type Viewport, workspaceOrder } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
@@ -101,6 +102,17 @@ const handleModeKey = (e: KeyboardEvent, s: EditorState, meta: boolean) => {
   }
   if (!meta && e.key.toLowerCase() === "h") {
     s.setMode("pan");
+  }
+  // Comments belong to the canvas, which the prototype does not show.
+  if (!meta && e.key.toLowerCase() === "c" && s.workspace !== "prototype") {
+    if (e.shiftKey) {
+      useComments.getState().toggleVisible();
+    } else {
+      s.setMode("comment");
+      if (!useComments.getState().visible) {
+        useComments.getState().toggleVisible();
+      }
+    }
   }
 };
 
@@ -209,6 +221,24 @@ const handleTreeNavigation = (e: KeyboardEvent, s: EditorState) => {
   }
 };
 
+/**
+ * Escape closes an open comment, or gives up on one being written, before it lets go of a
+ * selected page. Returns true when the key was consumed.
+ */
+const handleEscape = (s: EditorState) => {
+  const comments = useComments.getState();
+  if (comments.draft || comments.open) {
+    comments.setDraft(null);
+    comments.setOpen(null);
+    return true;
+  }
+  if (s.selectedPage) {
+    s.selectPage(null);
+    return true;
+  }
+  return false;
+};
+
 export const useShortcuts = () => {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -227,8 +257,7 @@ export const useShortcuts = () => {
       if (handleEditKey(e, s, meta)) {
         return;
       }
-      if (e.key === "Escape" && s.selectedPage) {
-        s.selectPage(null);
+      if (e.key === "Escape" && handleEscape(s)) {
         return;
       }
       handleModeKey(e, s, meta);

@@ -2,6 +2,13 @@ import { Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/unstable/rpc";
 import { SourceLocation } from "./base.ts";
 import { Catalogue } from "./catalogue.ts";
+import {
+  Comment,
+  CommentList,
+  CreateCommentInput,
+  ReplyInput,
+  UpdateCommentInput,
+} from "./comments.ts";
 import { EditRequest, EditResult, ElementSource, UndoState } from "./edit.ts";
 import {
   AgentFailure,
@@ -157,6 +164,40 @@ const requestRpcs = [
     payload: { layout: CanvasLayout, space: Schema.String },
   }),
 
+  Rpc.make("comments.list", {
+    error: PagesError,
+    payload: { space: Schema.String },
+    success: CommentList,
+  }),
+  Rpc.make("comments.create", {
+    error: PagesError,
+    payload: CreateCommentInput,
+    success: Comment,
+  }),
+  Rpc.make("comments.update", {
+    error: PagesError,
+    payload: UpdateCommentInput,
+    success: Comment,
+  }),
+  Rpc.make("comments.delete", {
+    error: PagesError,
+    payload: { id: Schema.String, space: Schema.String },
+  }),
+  Rpc.make("comments.reply", {
+    error: PagesError,
+    payload: ReplyInput,
+    success: Comment,
+  }),
+  Rpc.make("comments.deleteReply", {
+    error: PagesError,
+    payload: {
+      id: Schema.String,
+      replyId: Schema.String,
+      space: Schema.String,
+    },
+    success: Comment,
+  }),
+
   Rpc.make("source.read", {
     error: SourceError,
     payload: { file: Schema.String },
@@ -252,6 +293,7 @@ const requestRpcs = [
 export const eventSchemas = {
   agent: AgentEvent,
   canvas: Schema.Struct({ layout: CanvasLayout, space: Schema.String }),
+  comments: Schema.Struct({ list: CommentList, space: Schema.String }),
   "edit.state": UndoState,
   "file.changed": Schema.Struct({ file: Schema.String, hash: Schema.String }),
   git: GitStatus,
@@ -263,6 +305,10 @@ export const eventSchemas = {
 const eventRpcs = [
   Rpc.make("events.agent", { stream: true, success: eventSchemas.agent }),
   Rpc.make("events.canvas", { stream: true, success: eventSchemas.canvas }),
+  Rpc.make("events.comments", {
+    stream: true,
+    success: eventSchemas.comments,
+  }),
   Rpc.make("events.edit.state", {
     stream: true,
     success: eventSchemas["edit.state"],

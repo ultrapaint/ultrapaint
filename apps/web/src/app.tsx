@@ -4,6 +4,7 @@ import {
   GitCompareArrows,
   Layers as LayersIcon,
   type LucideIcon,
+  MessageCircle,
   MessageSquare,
   MonitorSmartphone,
   Settings,
@@ -31,6 +32,7 @@ import { IconButton } from "./components/icon-button.tsx";
 import { ResizeHandle, usePanelWidth } from "./components/resize-handle.tsx";
 import { useShortcuts } from "./lib/shortcuts.ts";
 import { Changes } from "./panels/changes.tsx";
+import { Comments } from "./panels/comments.tsx";
 import { Inspector } from "./panels/inspector.tsx";
 import { Layers } from "./panels/layers.tsx";
 import { Pages } from "./panels/pages.tsx";
@@ -40,6 +42,7 @@ import { SettingsDialog } from "./panels/settings.tsx";
 import { Threads } from "./panels/threads.tsx";
 import { useAgents } from "./state/agents.ts";
 import { useCatalogue } from "./state/catalogue.ts";
+import { useComments } from "./state/comments.ts";
 import { useConnection } from "./state/connection.ts";
 import { type LeftTab, useEditor, workspaceTabs } from "./state/editor.ts";
 import { bindProjectEvents, useProject } from "./state/project.ts";
@@ -53,6 +56,7 @@ const leftTabs: Record<
 > = {
   changes: { icon: GitCompareArrows, label: "Changes", panel: Changes },
   chat: { icon: MessageSquare, label: "Chat", panel: Threads },
+  comments: { icon: MessageCircle, label: "Comments", panel: Comments },
   layers: { icon: LayersIcon, label: "Layers", panel: Layers },
   pages: { icon: MonitorSmartphone, label: "Pages", panel: Pages },
   palette: { icon: Shapes, label: "Components", panel: Palette },
@@ -261,8 +265,16 @@ export const App = () => {
       // Agent events are followed from the start, not only while the chat is open: the badge
       // over the tool strip reports turns that changed files.
       useAgents.getState().bind();
+      useComments.getState().bind();
     }
   }, [configured]);
+
+  // Comments are kept per space: opening another space reads its own.
+  useEffect(() => {
+    if (configured && space !== null) {
+      useComments.getState().load(space);
+    }
+  }, [configured, space]);
 
   // Open the space and route the URL asks for, or the last one, or the first.
   useEffect(() => {
