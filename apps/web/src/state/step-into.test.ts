@@ -17,7 +17,7 @@ const component = (id: string, children: TreeNode[] = []): TreeNode => ({
   kind: "component",
 });
 
-/** A screen holding an open menu: one popup, a list, and two items of one row each. */
+/** A page holding an open menu: one popup, a list, and two items of one row each. */
 const tree = node("root", [
   node("card", [node("trigger")]),
   node("popup", [

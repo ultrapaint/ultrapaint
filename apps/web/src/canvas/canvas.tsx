@@ -1,4 +1,4 @@
-import type { FrameLayout } from "@ultrapaint/contracts/screens";
+import type { FrameLayout } from "@ultrapaint/contracts/pages";
 import { cn } from "cn";
 import {
   type PointerEvent as ReactPointerEvent,
@@ -16,11 +16,11 @@ export const Canvas = () => {
   const ref = useRef<HTMLDivElement>(null);
   const view = useEditor((s) => s.view);
   const frames = useEditor((s) => s.frames);
-  const flow = useEditor((s) => s.flow);
+  const space = useEditor((s) => s.space);
   const mode = useEditor((s) => s.mode);
   const spacePan = useEditor((s) => s.spacePan);
-  const allScreens = useProject((s) => s.screens);
-  const screens = allScreens.filter((x) => x.flow === flow);
+  const allPages = useProject((s) => s.pages);
+  const pages = allPages.filter((p) => p.space === space);
   const hostUrl = useHostUrl();
   const [size, setSize] = useState({ height: 0, width: 0 });
   const [panning, setPanning] = useState(false);
@@ -28,7 +28,7 @@ export const Canvas = () => {
     | { kind: "pan"; startX: number; startY: number; vx: number; vy: number }
     | {
         kind: "move" | "resize";
-        screenId: string;
+        pageId: string;
         startX: number;
         startY: number;
         frame: FrameLayout;
@@ -107,7 +107,7 @@ export const Canvas = () => {
     const pan = e.button === 1 || spacePan || mode === "pan";
     if (!pan) {
       if (e.target === e.currentTarget) {
-        useEditor.getState().selectScreen(null);
+        useEditor.getState().selectPage(null);
       }
       return;
     }
@@ -126,7 +126,7 @@ export const Canvas = () => {
   // Stable identity (only touches refs and the store) so memoized Frames skip re-rendering while panning.
   const startFrameDrag = (
     e: ReactPointerEvent,
-    screenId: string,
+    pageId: string,
     kind: "move" | "resize"
   ) => {
     const s = useEditor.getState();
@@ -136,7 +136,7 @@ export const Canvas = () => {
     }
     e.preventDefault();
     e.stopPropagation();
-    const frame = s.frames[screenId];
+    const frame = s.frames[pageId];
     if (!frame) {
       return;
     }
@@ -144,11 +144,11 @@ export const Canvas = () => {
     drag.current = {
       frame,
       kind,
-      screenId,
+      pageId,
       startX: e.clientX,
       startY: e.clientY,
     };
-    s.selectScreen(screenId);
+    s.selectPage(pageId);
   };
 
   const onPointerMove = (e: ReactPointerEvent) => {
@@ -167,7 +167,7 @@ export const Canvas = () => {
       });
     } else if (d.kind === "move") {
       const others = Object.entries(s.frames)
-        .filter(([id]) => id !== d.screenId)
+        .filter(([id]) => id !== d.pageId)
         .map(([, f]) => f);
       const snapped = snap(
         { ...d.frame, x: d.frame.x + dx, y: d.frame.y + dy },
@@ -175,10 +175,10 @@ export const Canvas = () => {
         8 / zoom,
         e.shiftKey
       );
-      s.setFrame(d.screenId, snapped, false);
+      s.setFrame(d.pageId, snapped, false);
     } else {
       s.setFrame(
-        d.screenId,
+        d.pageId,
         {
           ...d.frame,
           height: Math.max(120, d.frame.height + dy),
@@ -196,9 +196,9 @@ export const Canvas = () => {
     setPanning(false);
     if (d && d.kind !== "pan") {
       const s = useEditor.getState();
-      const f = s.frames[d.screenId];
+      const f = s.frames[d.pageId];
       if (f) {
-        s.setFrame(d.screenId, {
+        s.setFrame(d.pageId, {
           ...f,
           height: Math.round(f.height),
           width: Math.round(f.width),
@@ -252,8 +252,8 @@ export const Canvas = () => {
           transformOrigin: "0 0",
         }}
       >
-        {screens.map((screen) => {
-          const frame = frames[screen.id];
+        {pages.map((page) => {
+          const frame = frames[page.id];
           if (!frame) {
             return null;
           }
@@ -261,20 +261,20 @@ export const Canvas = () => {
             <Frame
               frame={frame}
               hostUrl={hostUrl}
-              key={screen.id}
+              key={page.id}
               onDragStart={startFrameDrag}
-              screen={screen}
+              page={page}
               visible={isVisible(frame)}
               zoom={view.zoom}
             />
           );
         })}
       </div>
-      {screens.length === 0 && (
+      {pages.length === 0 && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-muted-foreground">
-          {flow === null
-            ? "Open a flow from the Screens panel"
-            : "This flow has no screens yet"}
+          {space === null
+            ? "Open a space from the Pages panel"
+            : "This space has no pages yet"}
         </div>
       )}
     </div>

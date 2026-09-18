@@ -1,0 +1,554 @@
+import type { ForbiddenPath } from "@ultrapaint/contracts/errors";
+import { BadRequest, Conflict, NotFound } from "@ultrapaint/contracts/errors";
+import {
+  CanvasLayout,
+  emptyCanvasLayout,
+  emptySpaceConfig,
+  type FrameLayout,
+  type Page,
+  type PageList,
+  type Space,
+  SpaceConfig,
+} from "@ultrapaint/contracts/pages";
+import { basename, humanise } from "@ultrapaint/shared/path";
+import {
+  normaliseRoute,
+  pagePathOf,
+  routeLabel,
+  routeOf,
+} from "@ultrapaint/shared/route";
+import {
+  pathInSpace,
+  ROOT_SPACE,
+  SPACE_FILE,
+  spaceIdOf,
+  spaceIdsFrom,
+} from "@ultrapaint/shared/space";
+import {
+  Context,
+  Effect,
+  FileSystem,
+  Layer,
+  Path,
+  Schema,
+  Semaphore,
+  Stream,
+} from "effect";
+import { makeWriteAtomic } from "../atomic-write.ts";
+import { EventBus } from "../events.ts";
+import { makeWalk } from "../fs-walk.ts";
+import { hashContent, toPosix } from "../hash.ts";
+import { ProjectFramework } from "./framework.ts";
+import { RepoPaths } from "./repo-paths.ts";
+
+const IGNORED_DIRS = new Set(["node_modules", ".ultrapaint", "dist", ".vite"]);
+const CANVAS_FILE = "canvas.json";
+const SEGMENT_RE = /[\\/]/;
+
+const decodeCanvas = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(CanvasLayout)
+);
+const decodeSpace = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(SpaceConfig)
+);
+
+type PagesFailure = NotFound | Conflict | ForbiddenPath | BadRequest;
+
+/**
+ * The pages of the designs directory, grouped into the spaces that own them. A space is a
+ * directory with a `space.json`; while there is none the designs directory is itself the one
+ * space, so a repository written before spaces opens unchanged. Owns `canvas.json`, writes the
+ * navigation module pages import, and watches everything for the editor.
+ */
+export class PagesService extends Context.Service<
+  PagesService,
+  {
+    readonly create: (
+      space: string,
+      route: string,
+      templateId?: string
+    ) => Effect.Effect<Page, PagesFailure>;
+    readonly createSpace: (name: string) => Effect.Effect<Space, PagesFailure>;
+    readonly delete: (id: string) => Effect.Effect<void, PagesFailure>;
+    readonly duplicate: (id: string) => Effect.Effect<Page, PagesFailure>;
+    readonly list: Effect.Effect<PageList>;
+    /** Frames of a space, with the base-name keys of older layouts read as page paths. */
+    readonly readCanvas: (
+      space: string
+    ) => Effect.Effect<CanvasLayout, Conflict>;
+    /** Moves the page to the route it should serve from now on. */
+    readonly rename: (
+      id: string,
+      route: string
+    ) => Effect.Effect<Page, PagesFailure>;
+    readonly templates: readonly {
+      readonly id: string;
+      readonly name: string;
+    }[];
+    readonly writeCanvas: (
+      space: string,
+      layout: CanvasLayout
+    ) => Effect.Effect<void, ForbiddenPath>;
+  }
+>()("ultrapaint/server/PagesService") {
+  static readonly layer = Layer.effect(
+    PagesService,
+    Effect.gen(function* () {
+      const paths = yield* RepoPaths;
+      const { pages: pageFiles } = yield* ProjectFramework;
+      const { isPageFile } = pageFiles;
+      const events = yield* EventBus;
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const writeAtomic = makeWriteAtomic(fs, path);
+      const walk = makeWalk(fs, path);
+      const root = paths.designsDir;
+      // Renames, duplicates and deletes pick a file name and rewrite `canvas.json`; two at
+      // once would choose the same name or lose each other's frame.
+      const mutations = yield* Semaphore.make(1);
+      const exclusive = mutations.withPermits(1);
+
+      const exists = (p: string) =>
+        Effect.orElseSucceed(fs.exists(p), () => false);
+
+      const relativeToDesigns = (abs: string) =>
+        toPosix(path.relative(root, abs));
+
+      // ---- spaces and pages ----
+      const found = walk(root, {
+        includeFile: (name) => name === SPACE_FILE || isPageFile(name),
+        skipDir: (name) =>
+          IGNORED_DIRS.has(name) ||
+          name.startsWith(".") ||
+          name.startsWith("_"),
+      });
+
+      const readSpace = Effect.fnUntraced(function* (id: string) {
+        const fallback: Space = {
+          home: "/",
+          id,
+          name: id === ROOT_SPACE ? humanise(basename(root)) : humanise(id),
+        };
+        const file = path.join(root, id, SPACE_FILE);
+        if (!(yield* exists(file))) {
+          return fallback;
+        }
+        const config = yield* Effect.orElseSucceed(
+          Effect.flatMap(Effect.orDie(fs.readFileString(file)), (content) =>
+            decodeSpace(content)
+          ),
+          (): SpaceConfig => ({ version: 1 })
+        );
+        return {
+          home: normaliseRoute(config.home ?? "/"),
+          id,
+          name: config.name ?? fallback.name,
+        } satisfies Space;
+      });
+
+      const list: Effect.Effect<PageList> = Effect.gen(function* () {
+        const files = yield* found;
+        const spaceIds = spaceIdsFrom(
+          files
+            .filter((abs) => path.basename(abs) === SPACE_FILE)
+            .map(relativeToDesigns)
+        );
+        const spaces = yield* Effect.forEach(
+          spaceIds.length === 0 ? [ROOT_SPACE] : spaceIds,
+          readSpace
+        );
+        const pages: Page[] = [];
+        for (const abs of files) {
+          const name = path.basename(abs);
+          if (!isPageFile(name)) {
+            continue;
+          }
+          const id = relativeToDesigns(abs);
+          const space = spaceIdOf(spaceIds, id);
+          // A page file that no space holds is not a page: it sits beside the spaces.
+          if (space === null) {
+            continue;
+          }
+          const pagePath = pathInSpace(space, id);
+          const route = routeOf(pagePath);
+          pages.push({
+            file: paths.relative(abs),
+            id,
+            name: routeLabel(route),
+            path: pagePath,
+            route,
+            space,
+          });
+        }
+        return { pages, spaces };
+      }).pipe(Effect.withSpan("PagesService.list"));
+
+      const publishList = Effect.flatMap(list, (pageList) =>
+        events.publish("pages", pageList)
+      );
+
+      const pagesOf = (space: string) =>
+        Effect.map(list, ({ pages }) => pages.filter((p) => p.space === space));
+
+      // ---- canvas layout ----
+      const canvasPath = (space: string) => path.join(root, space, CANVAS_FILE);
+
+      /**
+       * Layouts written before pages were routed keyed a frame by the file's base name, which
+       * cannot tell `settings/billing.tsx` from `billing.tsx`. A key that names exactly one
+       * page of the space is read as that page.
+       */
+      const withPagePaths = (
+        frames: CanvasLayout["frames"],
+        pages: readonly Page[]
+      ): CanvasLayout["frames"] => {
+        const out: Record<string, FrameLayout> = {};
+        for (const [key, frame] of Object.entries(frames)) {
+          if (key.includes("/")) {
+            out[key] = frame;
+            continue;
+          }
+          const matches = pages.filter((p) => basename(p.path) === key);
+          out[matches.length === 1 ? (matches[0] as Page).path : key] = frame;
+        }
+        return out;
+      };
+
+      const readCanvas = Effect.fn("PagesService.readCanvas")(function* (
+        space: string
+      ) {
+        const file = canvasPath(space);
+        if (!(yield* exists(file))) {
+          return emptyCanvasLayout();
+        }
+        const layout = yield* Effect.orDie(fs.readFileString(file)).pipe(
+          Effect.flatMap(decodeCanvas),
+          Effect.mapError(
+            (error) =>
+              new Conflict({
+                message: `canvas.json in ${space || "designs root"} is invalid: ${error.message}`,
+              })
+          )
+        );
+        return {
+          frames: withPagePaths(layout.frames, yield* pagesOf(space)),
+          version: 1,
+        } satisfies CanvasLayout;
+      });
+
+      const writeCanvas = Effect.fn("PagesService.writeCanvas")(function* (
+        space: string,
+        layout: CanvasLayout
+      ) {
+        const file = yield* paths.resolve(canvasPath(space));
+        const sorted: CanvasLayout = {
+          frames: Object.fromEntries(
+            Object.entries(layout.frames).sort(([a], [b]) => a.localeCompare(b))
+          ),
+          version: 1,
+        };
+        yield* Effect.orDie(
+          writeAtomic(file, `${JSON.stringify(sorted, null, 2)}\n`)
+        );
+      });
+
+      /** Rewrites the frames of a space; a missing source frame means there is nothing to do. */
+      const updateFrames = Effect.fnUntraced(function* (
+        space: string,
+        update: (
+          frames: CanvasLayout["frames"]
+        ) => CanvasLayout["frames"] | null
+      ) {
+        const layout = yield* readCanvas(space);
+        const frames = update(layout.frames);
+        if (frames) {
+          yield* writeCanvas(space, { frames, version: 1 });
+        }
+      });
+
+      // ---- lifecycle ----
+      const byId = Effect.fnUntraced(function* (id: string) {
+        const page = (yield* list).pages.find((p) => p.id === id);
+        if (!page) {
+          return yield* new NotFound({ message: `page not found: ${id}` });
+        }
+        const abs = yield* paths.resolve(path.join(root, page.id));
+        return { abs, page };
+      });
+
+      const failIfExists = Effect.fnUntraced(function* (abs: string) {
+        if (yield* exists(abs)) {
+          return yield* new Conflict({
+            message: `a page already serves that route: ${path.basename(abs)}`,
+          });
+        }
+      });
+
+      /** The file a route is served from, with every segment made safe as a file name. */
+      const fileForRoute = Effect.fnUntraced(function* (route: string) {
+        const normalised = normaliseRoute(route);
+        const segments = pagePathOf(normalised)
+          .split("/")
+          .map((segment) =>
+            // `[id]` keeps its brackets; anything else is slugged the way a name is.
+            segment.startsWith("[")
+              ? segment
+              : pageFiles
+                  .fileName(segment)
+                  .slice(0, -pageFiles.extension.length)
+          );
+        if (segments.some((segment) => segment === "")) {
+          return yield* new BadRequest({ message: `invalid route: ${route}` });
+        }
+        return {
+          path: `${segments.join("/")}${pageFiles.extension}`,
+          route: normalised,
+        };
+      });
+
+      /** The navigation module pages import. Written once; never overwritten. */
+      const ensureRouterModule = Effect.fnUntraced(function* () {
+        const { content, fileName } = pageFiles.routerModule;
+        const file = yield* paths.resolve(path.join(root, fileName));
+        if (!(yield* exists(file))) {
+          yield* Effect.orDie(writeAtomic(file, content));
+        }
+      });
+
+      const toPage = (space: string, pagePath: string, abs: string): Page => {
+        const route = routeOf(pagePath);
+        return {
+          file: paths.relative(abs),
+          id: relativeToDesigns(abs),
+          name: routeLabel(route),
+          path: pagePath,
+          route,
+          space,
+        };
+      };
+
+      const create = Effect.fn("PagesService.create")(function* (
+        space: string,
+        route: string,
+        templateId = "blank"
+      ) {
+        const target = yield* fileForRoute(route);
+        const abs = yield* paths.resolve(path.join(root, space, target.path));
+        yield* failIfExists(abs);
+        yield* ensureRouterModule();
+        const routerImport = toPosix(
+          path.relative(
+            path.dirname(abs),
+            path.join(root, pageFiles.routerModule.fileName)
+          )
+        );
+        yield* Effect.orDie(
+          fs.makeDirectory(path.dirname(abs), { recursive: true })
+        );
+        yield* Effect.orDie(
+          writeAtomic(
+            abs,
+            pageFiles.render(templateId, {
+              fileName: path.basename(abs),
+              route: target.route,
+              routerImport: routerImport.startsWith(".")
+                ? routerImport
+                : `./${routerImport}`,
+            })
+          )
+        );
+        yield* publishList;
+        return toPage(space, target.path, abs);
+      });
+
+      const createSpace = Effect.fn("PagesService.createSpace")(function* (
+        name: string
+      ) {
+        const id = pageFiles
+          .fileName(name)
+          .slice(0, -pageFiles.extension.length);
+        const dir = yield* paths.resolve(path.join(root, id));
+        if (yield* exists(path.join(dir, SPACE_FILE))) {
+          return yield* new Conflict({
+            message: `space already exists: ${id}`,
+          });
+        }
+        const { pages, spaces } = yield* list;
+        // The first explicit space would otherwise orphan the pages of the implicit root one.
+        const rootIsImplicit =
+          spaces.length === 1 && (spaces[0] as Space).id === ROOT_SPACE;
+        if (rootIsImplicit && pages.length > 0) {
+          yield* Effect.orDie(
+            writeAtomic(
+              path.join(root, SPACE_FILE),
+              `${JSON.stringify(emptySpaceConfig((spaces[0] as Space).name), null, 2)}\n`
+            )
+          );
+        }
+        yield* Effect.orDie(fs.makeDirectory(dir, { recursive: true }));
+        yield* Effect.orDie(
+          writeAtomic(
+            path.join(dir, SPACE_FILE),
+            `${JSON.stringify(emptySpaceConfig(name), null, 2)}\n`
+          )
+        );
+        yield* publishList;
+        return { home: "/", id, name } satisfies Space;
+      });
+
+      const rename = Effect.fn("PagesService.rename")(function* (
+        id: string,
+        route: string
+      ) {
+        const { abs, page } = yield* byId(id);
+        const target = yield* fileForRoute(route);
+        if (target.path === page.path) {
+          return page;
+        }
+        const to = yield* paths.resolve(
+          path.join(root, page.space, target.path)
+        );
+        yield* failIfExists(to);
+        yield* Effect.orDie(
+          fs.makeDirectory(path.dirname(to), { recursive: true })
+        );
+        yield* Effect.orDie(fs.rename(abs, to));
+        yield* updateFrames(page.space, (frames) => {
+          const { [page.path]: frame, ...rest } = frames;
+          return frame ? { ...rest, [target.path]: frame } : null;
+        });
+        yield* publishList;
+        return toPage(page.space, target.path, to);
+      });
+
+      const duplicate = Effect.fn("PagesService.duplicate")(function* (
+        id: string
+      ) {
+        const { abs, page } = yield* byId(id);
+        const { extension } = pageFiles;
+        const base = path.basename(abs, extension);
+        let n = 2;
+        let target = path.join(path.dirname(abs), `${base}-${n}${extension}`);
+        while (yield* exists(target)) {
+          n += 1;
+          target = path.join(path.dirname(abs), `${base}-${n}${extension}`);
+        }
+        const source = yield* Effect.orDie(fs.readFileString(abs));
+        const content = pageFiles.duplicate(
+          source,
+          path.basename(abs),
+          path.basename(target)
+        );
+        yield* Effect.orDie(writeAtomic(target, content));
+        const copyPath = pathInSpace(page.space, relativeToDesigns(target));
+        yield* updateFrames(page.space, (frames) => {
+          const frame = frames[page.path];
+          return frame
+            ? {
+                ...frames,
+                [copyPath]: { ...frame, x: frame.x + frame.width + 80 },
+              }
+            : null;
+        });
+        yield* publishList;
+        return toPage(page.space, copyPath, target);
+      });
+
+      const remove = Effect.fn("PagesService.delete")(function* (id: string) {
+        const { abs, page } = yield* byId(id);
+        yield* Effect.orDie(fs.remove(abs));
+        yield* updateFrames(page.space, (frames) => {
+          const { [page.path]: removed, ...rest } = frames;
+          return removed ? rest : null;
+        });
+        yield* publishList;
+      });
+
+      // ---- watching ----
+      const lastHash = new Map<string, string>();
+
+      const onCanvasChanged = Effect.fnUntraced(function* (abs: string) {
+        const dir = relativeToDesigns(path.dirname(abs));
+        const space = dir === "." ? ROOT_SPACE : dir;
+        // An invalid or vanished canvas.json is reported when the editor asks for it. Here it
+        // must not end the watcher, so defects are caught along with failures.
+        const layout = yield* Effect.exit(readCanvas(space));
+        if (layout._tag === "Success") {
+          yield* events.publish("canvas", { layout: layout.value, space });
+        }
+      });
+
+      const onPageChanged = Effect.fnUntraced(function* (abs: string) {
+        // Give a non-atomic writer a moment to finish before hashing.
+        yield* Effect.sleep("60 millis");
+        const content = yield* Effect.option(fs.readFileString(abs));
+        if (content._tag === "None") {
+          lastHash.delete(abs);
+          return;
+        }
+        const hash = hashContent(content.value);
+        if (lastHash.get(abs) === hash) {
+          return;
+        }
+        lastHash.set(abs, hash);
+        yield* events.publish("file.changed", {
+          file: paths.relative(abs),
+          hash,
+        });
+      });
+
+      const watched = fs.watch(root, { recursive: true }).pipe(
+        Stream.filter(
+          (event) =>
+            !event.path.split(SEGMENT_RE).some((seg) => IGNORED_DIRS.has(seg))
+        ),
+        Stream.broadcast({ capacity: "unbounded", replay: 0 })
+      );
+
+      if (yield* exists(root)) {
+        const stream = yield* watched;
+        // Additions and removals, of pages or whole spaces, change the page list.
+        yield* stream.pipe(
+          Stream.filter((event) => event._tag !== "Update"),
+          Stream.debounce("80 millis"),
+          Stream.runForEach(() => publishList),
+          Effect.ignore({ log: true }),
+          Effect.forkScoped
+        );
+        yield* stream.pipe(
+          Stream.filter((event) => event._tag !== "Remove"),
+          Stream.mapEffect(
+            (event) => {
+              const abs = path.resolve(root, event.path);
+              const name = path.basename(abs);
+              if (name === CANVAS_FILE) {
+                return onCanvasChanged(abs);
+              }
+              if (name === SPACE_FILE) {
+                return publishList;
+              }
+              return isPageFile(name) ? onPageChanged(abs) : Effect.void;
+            },
+            { concurrency: "unbounded" }
+          ),
+          Stream.runDrain,
+          Effect.ignore({ log: true }),
+          Effect.forkScoped
+        );
+      }
+
+      return PagesService.of({
+        create: (space, route, templateId) =>
+          exclusive(create(space, route, templateId)),
+        createSpace: (name) => exclusive(createSpace(name)),
+        delete: (id) => exclusive(remove(id)),
+        duplicate: (id) => exclusive(duplicate(id)),
+        list,
+        readCanvas,
+        rename: (id, route) => exclusive(rename(id, route)),
+        templates: pageFiles.templates,
+        writeCanvas: (space, layout) => exclusive(writeCanvas(space, layout)),
+      });
+    })
+  );
+}

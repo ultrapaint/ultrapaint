@@ -1,6 +1,6 @@
 import type { UndoState } from "@ultrapaint/contracts/edit";
+import type { Page, Space } from "@ultrapaint/contracts/pages";
 import type { LogLine, ProjectInfo } from "@ultrapaint/contracts/project";
-import type { Screen } from "@ultrapaint/contracts/screens";
 import type { Settings } from "@ultrapaint/contracts/settings";
 import { create } from "zustand";
 import { api } from "./connection.ts";
@@ -12,12 +12,13 @@ interface ProjectStore {
   logs: readonly LogLine[];
   openSaveConfig: (open: boolean) => void;
   openSettings: (open: boolean) => void;
+  pages: readonly Page[];
   /** The dialog that turns an unsaved session into a configuration file. */
   saveConfigOpen: boolean;
-  screens: readonly Screen[];
   setError: (error: string | null) => void;
   settings: Settings | null;
   settingsOpen: boolean;
+  spaces: readonly Space[];
   undo: UndoState;
 }
 
@@ -37,12 +38,12 @@ export const useProject = create<ProjectStore>((set, get) => ({
       ]);
       set({ info, settings, settingsOpen: !info.configured });
       if (info.configured) {
-        const [{ screens }, logs, undo] = await Promise.all([
-          c.request("screens.list", undefined),
+        const [{ pages, spaces }, logs, undo] = await Promise.all([
+          c.request("pages.list", undefined),
           c.request("logs.recent", undefined),
           c.request("edit.state", undefined),
         ]);
-        set({ logs, screens, undo });
+        set({ logs, pages, spaces, undo });
       }
     } catch (error) {
       get().setError((error as Error).message);
@@ -51,11 +52,12 @@ export const useProject = create<ProjectStore>((set, get) => ({
   logs: [],
   openSaveConfig: (saveConfigOpen) => set({ saveConfigOpen }),
   openSettings: (settingsOpen) => set({ settingsOpen }),
+  pages: [],
   saveConfigOpen: false,
-  screens: [],
   setError: (error) => set({ error }),
   settings: null,
   settingsOpen: false,
+  spaces: [],
   undo: { canRedo: false, canUndo: false },
 }));
 
@@ -63,7 +65,7 @@ export const useProject = create<ProjectStore>((set, get) => ({
 export const bindProjectEvents = () => {
   const c = api();
   c.on("project", (info) => useProject.setState({ info }));
-  c.on("screens", ({ screens }) => useProject.setState({ screens }));
+  c.on("pages", ({ pages, spaces }) => useProject.setState({ pages, spaces }));
   c.on("log", (line) =>
     useProject.setState((s) => ({ logs: [...s.logs.slice(-499), line] }))
   );

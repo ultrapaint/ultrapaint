@@ -7,8 +7,9 @@ import type {
 type Listener = (msg: HostMessage) => void;
 
 /**
- * One bridge per screen iframe. Wraps `postMessage` with request/response correlation and
- * fans host messages out to subscribers (tree, rects, HMR, errors).
+ * One bridge per preview iframe: a page on the canvas, or the space in the prototype. Wraps
+ * `postMessage` with request/response correlation and fans host messages out to subscribers
+ * (tree, rects, HMR, errors, navigation).
  */
 export class FrameBridge {
   private iframe: HTMLIFrameElement | null = null;
@@ -16,10 +17,10 @@ export class FrameBridge {
   private readonly pending = new Map<number, (msg: HostMessage) => void>();
   private readonly listeners = new Set<Listener>();
   ready = false;
-  readonly screenId: string;
+  readonly frameId: string;
 
-  constructor(screenId: string) {
-    this.screenId = screenId;
+  constructor(frameId: string) {
+    this.frameId = frameId;
   }
 
   attach(iframe: HTMLIFrameElement) {
@@ -124,7 +125,12 @@ export class FrameBridge {
     this.send({ nodeId, type: "ed:editText" });
   }
 
-  /** Whether the screen may respond to input at all: true only in interact mode. */
+  /** Where the space's router should be. The editor holds it; this is how the preview hears. */
+  setRoute(route: string) {
+    this.send({ route, type: "ed:route" });
+  }
+
+  /** Whether the page may respond to input at all: true only in interact mode. */
   setInteractive(interactive: boolean) {
     this.send({ interactive, type: "ed:setInteractive" });
   }
@@ -136,18 +142,18 @@ export class FrameBridge {
 
 const bridges = new Map<string, FrameBridge>();
 
-export const bridgeFor = (screenId: string): FrameBridge => {
-  let b = bridges.get(screenId);
+export const bridgeFor = (frameId: string): FrameBridge => {
+  let b = bridges.get(frameId);
   if (!b) {
-    b = new FrameBridge(screenId);
-    bridges.set(screenId, b);
+    b = new FrameBridge(frameId);
+    bridges.set(frameId, b);
   }
   return b;
 };
 
-export const removeBridge = (screenId: string) => {
-  bridges.get(screenId)?.detach();
-  bridges.delete(screenId);
+export const removeBridge = (frameId: string) => {
+  bridges.get(frameId)?.detach();
+  bridges.delete(frameId);
 };
 
 let routerInstalled = false;
@@ -157,7 +163,7 @@ export const installBridgeRouter = () => {
   }
   routerInstalled = true;
   window.addEventListener("message", (ev) => {
-    const data = ev.data as (HostMessage & { screen?: string }) | undefined;
+    const data = ev.data as (HostMessage & { frame?: string }) | undefined;
     if (
       !data ||
       typeof data.type !== "string" ||
@@ -165,11 +171,11 @@ export const installBridgeRouter = () => {
     ) {
       return;
     }
-    // Prefer the screen id the runtime stamps on every message; fall back to window identity.
-    const byScreen =
-      typeof data.screen === "string" ? bridges.get(data.screen) : undefined;
-    if (byScreen) {
-      byScreen.handle(data);
+    // Prefer the frame id the runtime stamps on every message; fall back to window identity.
+    const byFrame =
+      typeof data.frame === "string" ? bridges.get(data.frame) : undefined;
+    if (byFrame) {
+      byFrame.handle(data);
       return;
     }
     for (const b of bridges.values()) {

@@ -33,9 +33,9 @@ import { useShortcuts } from "./lib/shortcuts.ts";
 import { Changes } from "./panels/changes.tsx";
 import { Inspector } from "./panels/inspector.tsx";
 import { Layers } from "./panels/layers.tsx";
+import { Pages } from "./panels/pages.tsx";
 import { Palette } from "./panels/palette.tsx";
 import { SaveConfigDialog } from "./panels/save-config.tsx";
-import { Screens } from "./panels/screens.tsx";
 import { SettingsDialog } from "./panels/settings.tsx";
 import { Threads } from "./panels/threads.tsx";
 import { useAgents } from "./state/agents.ts";
@@ -43,6 +43,7 @@ import { useCatalogue } from "./state/catalogue.ts";
 import { useConnection } from "./state/connection.ts";
 import { type LeftTab, useEditor, workspaceTabs } from "./state/editor.ts";
 import { bindProjectEvents, useProject } from "./state/project.ts";
+import { onUrlChange, readUrl } from "./state/url.ts";
 
 installBridgeRouter();
 
@@ -53,8 +54,8 @@ const leftTabs: Record<
   changes: { icon: GitCompareArrows, label: "Changes", panel: Changes },
   chat: { icon: MessageSquare, label: "Chat", panel: Threads },
   layers: { icon: LayersIcon, label: "Layers", panel: Layers },
+  pages: { icon: MonitorSmartphone, label: "Pages", panel: Pages },
   palette: { icon: Shapes, label: "Components", panel: Palette },
-  screens: { icon: MonitorSmartphone, label: "Screens", panel: Screens },
 };
 
 const leftBounds = { defaultWidth: 256, max: 480, min: 200 };
@@ -232,8 +233,9 @@ export const App = () => {
   const connState = useConnection((s) => s.state);
   const error = useProject((s) => s.error);
   const configured = useProject((s) => s.info.configured);
-  const screens = useProject((s) => s.screens);
-  const flow = useEditor((s) => s.flow);
+  const pages = useProject((s) => s.pages);
+  const spaces = useProject((s) => s.spaces);
+  const space = useEditor((s) => s.space);
   const workspace = useEditor((s) => s.workspace);
   const leftTab = useEditor((s) => s.leftTab);
   const leftPanel = leftTab === "chat" ? chatBounds : leftBounds;
@@ -262,35 +264,58 @@ export const App = () => {
     }
   }, [configured]);
 
-  // Open the last flow (or the first) once screens are known.
+  // Open the space and route the URL asks for, or the last one, or the first.
   useEffect(() => {
-    if (!configured || screens.length === 0 || flow !== null) {
+    if (!configured || spaces.length === 0 || space !== null) {
       return;
     }
-    const saved = localStorage.getItem("ultrapaint:flow");
-    const flows = Array.from(new Set(screens.map((s) => s.flow)));
-    const target =
-      saved !== null && flows.includes(saved) ? saved : (flows[0] ?? "");
-    useEditor.getState().openFlow(target);
+    const url = readUrl();
+    const saved = localStorage.getItem("ultrapaint:space");
+    const ids = spaces.map((s) => s.id);
+    let target = ids[0] ?? "";
+    if (url.space !== null && ids.includes(url.space)) {
+      target = url.space;
+    } else if (saved !== null && ids.includes(saved)) {
+      target = saved;
+    }
+    useEditor
+      .getState()
+      .openSpace(target, url.space === target ? url.route : undefined);
     // The canvas starts behind the panel, so the first view opens a margin past the panel's edge.
     useEditor.getState().setView({ x: leftWidth + 80 });
-  }, [configured, screens, flow, leftWidth]);
+  }, [configured, spaces, space, leftWidth]);
 
-  // Recompute frames when the screen list changes for the open flow.
+  // Recompute frames when the page list changes for the open space.
   useEffect(() => {
-    if (flow === null) {
+    if (space === null) {
       return;
     }
-    const inFlow = screens.filter((s) => s.flow === flow);
-    const { frames } = useEditor.getState();
-    const missing = inFlow.some((s) => !frames[s.id]);
+    const inSpace = pages.filter((p) => p.space === space);
+    const { frames, route } = useEditor.getState();
+    const missing = inSpace.some((p) => !frames[p.id]);
     const extra = Object.keys(frames).some(
-      (id) => !inFlow.find((s) => s.id === id)
+      (id) => !inSpace.find((p) => p.id === id)
     );
     if (missing || extra) {
-      useEditor.getState().openFlow(flow);
+      useEditor.getState().openSpace(space, route);
+    } else {
+      useEditor.getState().syncActivePage();
     }
-  }, [screens, flow]);
+  }, [pages, space]);
+
+  // The browser's back and forward buttons are the prototype's.
+  useEffect(
+    () =>
+      onUrlChange((url) => {
+        const editor = useEditor.getState();
+        if (url.space !== null && url.space !== editor.space) {
+          editor.openSpace(url.space, url.route);
+        } else {
+          editor.navigate(url.route, { push: false });
+        }
+      }),
+    []
+  );
 
   // Errors surface as toasts; the store slot is only a hand-off from non-React code.
   useEffect(() => {

@@ -1,6 +1,6 @@
 /**
  * Recognises a React repository for the first-run setup: which packages are component
- * libraries, which package the screens could resolve their imports from, and where the design
+ * libraries, which package the pages could resolve their imports from, and where the design
  * system's CSS starts. It reads manifests and file names only; everything it returns is a
  * suggestion the user confirms.
  */
@@ -214,7 +214,7 @@ export const detect: Detect = (root) => {
   const libraryNames = new Set(libraries.map((l) => l.name));
 
   // An anchor: a package that renders with React and already depends on the libraries, so a
-  // screen can import from it everything the real UI imports.
+  // page can import from it everything the real UI imports.
   const anchors = best(
     reactPackages
       .filter((pkg) => pkg.dependencies.has("react"))

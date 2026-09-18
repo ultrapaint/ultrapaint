@@ -21,8 +21,8 @@ import { EditService } from "./services/edit.ts";
 import { ProjectFramework } from "./services/framework.ts";
 import { GitService } from "./services/git.ts";
 import { HostManager } from "./services/host.ts";
+import { PagesService } from "./services/pages.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
-import { ScreensService } from "./services/screens.ts";
 import { Storage } from "./services/storage.ts";
 
 /** Everything that exists once a target repository is configured. */
@@ -33,7 +33,7 @@ export type ProjectServices =
   | HostManager
   | ProjectFramework
   | RepoPaths
-  | ScreensService;
+  | PagesService;
 
 type ProjectRequirements =
   | AppLog
@@ -49,7 +49,7 @@ const projectLayer = (settings: Settings) =>
     EditService.layer,
     GitService.layer,
     HostManager.layer,
-    ScreensService.layer
+    PagesService.layer
   ).pipe(
     Layer.provideMerge(ProjectFramework.layer),
     Layer.provideMerge(RepoPaths.layer(settings))

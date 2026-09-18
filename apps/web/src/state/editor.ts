@@ -1,19 +1,21 @@
 import type { SourceLocation } from "@ultrapaint/contracts/base";
 import type {
+  CanvasLayout,
+  FrameLayout,
+  Page,
+  ViewportPreset,
+} from "@ultrapaint/contracts/pages";
+import { presetSize } from "@ultrapaint/contracts/pages";
+import type {
   InspectResult,
   Rect,
   TreeNode,
 } from "@ultrapaint/contracts/preview";
-import type {
-  CanvasLayout,
-  FrameLayout,
-  Screen,
-  ViewportPreset,
-} from "@ultrapaint/contracts/screens";
-import { presetSize } from "@ultrapaint/contracts/screens";
+import { matchRoute, normaliseRoute } from "@ultrapaint/shared/route";
 import { create } from "zustand";
 import { api } from "./connection.ts";
 import { reportError, useProject } from "./project.ts";
+import { writeUrl } from "./url.ts";
 
 export type Mode = "select" | "interact" | "pan";
 
@@ -27,18 +29,18 @@ export const workspaceOrder: readonly Workspace[] = [
   "prototype",
 ];
 
-export type LeftTab = "chat" | "layers" | "screens" | "palette" | "changes";
+export type LeftTab = "chat" | "layers" | "pages" | "palette" | "changes";
 
 /** Left panels each workspace offers, in rail order. The first is where a switch lands. */
 export const workspaceTabs: Record<Workspace, readonly LeftTab[]> = {
-  design: ["layers", "palette", "screens", "changes"],
-  prototype: ["chat", "screens", "changes"],
-  vibe: ["chat", "screens", "changes"],
+  design: ["layers", "palette", "pages", "changes"],
+  prototype: ["pages", "chat", "changes"],
+  vibe: ["chat", "pages", "changes"],
 };
 
 export interface Selection {
   nodeId: string;
-  screenId: string;
+  pageId: string;
   source: SourceLocation | null;
 }
 
@@ -53,40 +55,45 @@ export interface Viewport {
 }
 
 interface EditorStore {
-  activeScreen: string | null;
-  flow: string | null;
-  /** Screens of the current flow that have no saved frame yet get a computed one. */
+  /** The page serving the current route, which is what the layers and the inspector are about. */
+  activePage: string | null;
+  /** Pages of the current space that have no saved frame yet get a computed one. */
   frames: Record<string, FrameLayout>;
   hostErrors: Record<string, string | null>;
-  hover: { screenId: string; nodeId: string } | null;
+  hover: { pageId: string; nodeId: string } | null;
   inspect: InspectResult | null;
   layout: CanvasLayout;
   leftTab: LeftTab;
   mode: Mode;
-
-  openFlow: (flow: string) => Promise<void>;
+  /** Goes to a route of the open space. Every navigation is an entry in the editor's history. */
+  navigate: (route: string, options?: { push?: boolean }) => void;
+  openSpace: (space: string, route?: string) => Promise<void>;
   rects: Record<string, Record<string, Rect>>;
+  /** Where the space's router is. The editor holds it; the preview is told. */
+  route: string;
   select: (selection: Selection | null) => void;
-  /** Screen selected as a whole (its frame), as opposed to an element inside it. */
-  selectedScreen: string | null;
+  /** Page selected as a whole (its frame), as opposed to an element inside it. */
+  selectedPage: string | null;
   selection: Selection | null;
-  selectScreen: (screenId: string | null) => void;
-  setActiveScreen: (screenId: string | null) => void;
-  setFrame: (screenId: string, frame: FrameLayout, persist?: boolean) => void;
-  setHostError: (screenId: string, error: string | null) => void;
+  selectPage: (pageId: string | null) => void;
+  setFrame: (pageId: string, frame: FrameLayout, persist?: boolean) => void;
+  setHostError: (pageId: string, error: string | null) => void;
   setHover: (hover: EditorStore["hover"]) => void;
   setInspect: (inspect: InspectResult | null) => void;
   setLeftTab: (tab: EditorStore["leftTab"]) => void;
   setMode: (mode: Mode) => void;
-  setPreset: (screenId: string, preset: ViewportPreset) => void;
-  setRects: (screenId: string, rects: Record<string, Rect>) => void;
+  setPreset: (pageId: string, preset: ViewportPreset) => void;
+  setRects: (pageId: string, rects: Record<string, Rect>) => void;
   setSpacePan: (spacePan: boolean) => void;
   setTokens: (tokens: Record<string, string>) => void;
-  setTree: (screenId: string, tree: TreeNode) => void;
+  setTree: (pageId: string, tree: TreeNode) => void;
   setView: (view: Partial<EditorStore["view"]>) => void;
   setWorkspace: (workspace: Workspace) => void;
+  space: string | null;
   /** Space is held: the canvas pans whatever the current mode. */
   spacePan: boolean;
+  /** Puts the page that serves the current route back in step with the page list. */
+  syncActivePage: () => void;
   tokens: Record<string, string>;
   trees: Record<string, TreeNode>;
   view: { x: number; y: number; zoom: number };
@@ -97,26 +104,34 @@ interface EditorStore {
 
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 
+export const pagesOfSpace = (space: string | null): readonly Page[] =>
+  space === null
+    ? []
+    : useProject.getState().pages.filter((p) => p.space === space);
+
+/** The page a route is served by, matched the way the preview's router matches it. */
+const pageAt = (space: string | null, route: string): Page | null =>
+  matchRoute(pagesOfSpace(space), route)?.entry ?? null;
+
 const computeFrames = (
-  screens: readonly Screen[],
+  pages: readonly Page[],
   layout: CanvasLayout
 ): Record<string, FrameLayout> => {
   const frames: Record<string, FrameLayout> = {};
   let cursorX = 0;
-  for (const s of screens) {
-    const key = s.id.split("/").pop() as string;
-    const saved = layout.frames[key];
+  for (const page of pages) {
+    const saved = layout.frames[page.path];
     if (saved) {
-      frames[s.id] = saved;
+      frames[page.id] = saved;
       cursorX = Math.max(cursorX, saved.x + saved.width + 120);
     }
   }
-  for (const s of screens) {
-    if (frames[s.id]) {
+  for (const page of pages) {
+    if (frames[page.id]) {
       continue;
     }
     const size = presetSize.desktop;
-    frames[s.id] = {
+    frames[page.id] = {
       height: size.height,
       preset: "desktop",
       width: size.width,
@@ -129,8 +144,7 @@ const computeFrames = (
 };
 
 export const useEditor = create<EditorStore>((set, get) => ({
-  activeScreen: null,
-  flow: null,
+  activePage: null,
   frames: {},
   hostErrors: {},
   hover: null,
@@ -139,50 +153,75 @@ export const useEditor = create<EditorStore>((set, get) => ({
   leftTab: "chat",
   mode: "select",
 
-  openFlow: async (flow) => {
+  navigate: (route, options) => {
+    const next = normaliseRoute(route);
+    const { space } = get();
+    set({
+      activePage: pageAt(space, next)?.id ?? null,
+      hover: null,
+      inspect: null,
+      route: next,
+      selectedPage: null,
+      selection: null,
+    });
+    writeUrl({ route: next, space }, options?.push ?? true);
+  },
+
+  openSpace: async (space, route) => {
     try {
-      const layout = await api().request("canvas.get", { flow });
-      const screens = useProject
+      const layout = await api().request("canvas.get", { space });
+      const pages = useProject
         .getState()
-        .screens.filter((s) => s.flow === flow);
-      const frames = computeFrames(screens, layout);
+        .pages.filter((p) => p.space === space);
+      const home =
+        useProject.getState().spaces.find((s) => s.id === space)?.home ?? "/";
+      const target = normaliseRoute(route ?? home);
+      // A space whose home route has no page opens on whatever page it does have.
+      const landing =
+        matchRoute(pages, target) === null
+          ? (pages[0]?.route ?? target)
+          : target;
       set({
-        activeScreen: screens[0]?.id ?? null,
-        flow,
-        frames,
+        activePage: matchRoute(pages, landing)?.entry.id ?? null,
+        frames: computeFrames(pages, layout),
         hover: null,
         inspect: null,
         layout,
         rects: {},
-        selectedScreen: null,
+        route: landing,
+        selectedPage: null,
         selection: null,
+        space,
         trees: {},
       });
-      localStorage.setItem("ultrapaint:flow", flow);
+      writeUrl({ route: landing, space }, false);
+      localStorage.setItem("ultrapaint:space", space);
     } catch (error) {
       reportError(error);
     }
   },
   rects: {},
-  select: (selection) =>
+  route: "/",
+  select: (selection) => {
     set({
-      activeScreen: selection?.screenId ?? get().activeScreen,
       inspect: selection ? get().inspect : null,
-      selectedScreen: null,
+      selectedPage: null,
       selection,
-    }),
-  selectedScreen: null,
+    });
+    if (selection) {
+      followFrame(get, set, selection.pageId);
+    }
+  },
+  selectedPage: null,
   selection: null,
-  selectScreen: (screenId) =>
-    set({
-      activeScreen: screenId ?? get().activeScreen,
-      inspect: null,
-      selectedScreen: screenId,
-      selection: null,
-    }),
-  setActiveScreen: (activeScreen) => set({ activeScreen }),
-  setFrame: (screenId, frame, persist = true) => {
-    set((s) => ({ frames: { ...s.frames, [screenId]: frame } }));
+  selectPage: (pageId) => {
+    set({ inspect: null, selectedPage: pageId, selection: null });
+    if (pageId) {
+      followFrame(get, set, pageId);
+    }
+  },
+  setFrame: (pageId, frame, persist = true) => {
+    set((s) => ({ frames: { ...s.frames, [pageId]: frame } }));
     if (!persist) {
       return;
     }
@@ -190,27 +229,31 @@ export const useEditor = create<EditorStore>((set, get) => ({
       clearTimeout(persistTimer);
     }
     persistTimer = setTimeout(() => {
-      const { flow, frames } = get();
-      if (flow === null) {
+      const { frames, space } = get();
+      if (space === null) {
         return;
       }
+      const pages = pagesOfSpace(space);
       const layoutFrames: Record<string, FrameLayout> = {};
       for (const [id, f] of Object.entries(frames)) {
-        layoutFrames[id.split("/").pop() as string] = f;
+        const page = pages.find((p) => p.id === id);
+        if (page) {
+          layoutFrames[page.path] = f;
+        }
       }
       const layout: CanvasLayout = { frames: layoutFrames, version: 1 };
       set({ layout });
-      api().request("canvas.set", { flow, layout }).catch(reportError);
+      api().request("canvas.set", { layout, space }).catch(reportError);
     }, 400);
   },
-  setHostError: (screenId, error) =>
-    set((s) => ({ hostErrors: { ...s.hostErrors, [screenId]: error } })),
+  setHostError: (pageId, error) =>
+    set((s) => ({ hostErrors: { ...s.hostErrors, [pageId]: error } })),
   setHover: (hover) => set({ hover }),
   setInspect: (inspect) => set({ inspect }),
   setLeftTab: (leftTab) => set({ leftTab }),
   setMode: (mode) => set({ mode }),
-  setPreset: (screenId, preset) => {
-    const f = get().frames[screenId];
+  setPreset: (pageId, preset) => {
+    const f = get().frames[pageId];
     if (!f) {
       return;
     }
@@ -218,14 +261,14 @@ export const useEditor = create<EditorStore>((set, get) => ({
       preset === "custom"
         ? { height: f.height, width: f.width }
         : presetSize[preset];
-    get().setFrame(screenId, { ...f, ...size, preset });
+    get().setFrame(pageId, { ...f, ...size, preset });
   },
-  setRects: (screenId, rects) =>
-    set((s) => ({ rects: { ...s.rects, [screenId]: rects } })),
+  setRects: (pageId, rects) =>
+    set((s) => ({ rects: { ...s.rects, [pageId]: rects } })),
   setSpacePan: (spacePan) => set({ spacePan }),
   setTokens: (tokens) => set({ tokens }),
-  setTree: (screenId, tree) =>
-    set((s) => ({ trees: { ...s.trees, [screenId]: tree } })),
+  setTree: (pageId, tree) =>
+    set((s) => ({ trees: { ...s.trees, [pageId]: tree } })),
   setView: (view) => set((s) => ({ view: { ...s.view, ...view } })),
   setWorkspace: (workspace) => {
     const tabs = workspaceTabs[workspace];
@@ -237,12 +280,20 @@ export const useEditor = create<EditorStore>((set, get) => ({
       ...(workspace === "prototype" && {
         hover: null,
         inspect: null,
-        selectedScreen: null,
+        selectedPage: null,
         selection: null,
       }),
     });
   },
+  space: null,
   spacePan: false,
+  syncActivePage: () => {
+    const { route, space } = get();
+    const id = pageAt(space, route)?.id ?? null;
+    if (id !== get().activePage) {
+      set({ activePage: id });
+    }
+  },
   tokens: {},
   trees: {},
   view: { x: 80, y: 80, zoom: 0.5 },
@@ -255,17 +306,17 @@ export const useEditor = create<EditorStore>((set, get) => ({
     fitTo(set, viewport, frames);
   },
   zoomToSelection: (viewport) => {
-    const { selection, selectedScreen, frames, rects } = get();
-    const screenFrame = selectedScreen ? frames[selectedScreen] : undefined;
-    if (screenFrame) {
-      fitTo(set, viewport, [screenFrame]);
+    const { selection, selectedPage, frames, rects } = get();
+    const pageFrame = selectedPage ? frames[selectedPage] : undefined;
+    if (pageFrame) {
+      fitTo(set, viewport, [pageFrame]);
       return;
     }
     if (!selection) {
       return;
     }
-    const frame = frames[selection.screenId];
-    const rect = rects[selection.screenId]?.[selection.nodeId];
+    const frame = frames[selection.pageId];
+    const rect = rects[selection.pageId]?.[selection.nodeId];
     if (!frame) {
       return;
     }
@@ -280,6 +331,25 @@ export const useEditor = create<EditorStore>((set, get) => ({
     fitTo(set, viewport, [target]);
   },
 }));
+
+/**
+ * Working inside a frame is being on its route: the editor is only ever at one place at a time,
+ * and the layers, the inspector and the prototype all read the route. It is not a navigation
+ * the user asked for, so it replaces the history entry instead of adding one.
+ */
+const followFrame = (
+  get: () => EditorStore,
+  set: (partial: Partial<EditorStore>) => void,
+  pageId: string
+) => {
+  const { route, space } = get();
+  const page = pagesOfSpace(space).find((p) => p.id === pageId);
+  if (!page || page.route === route) {
+    return;
+  }
+  set({ activePage: page.id, route: page.route });
+  writeUrl({ route: page.route, space }, false);
+};
 
 const fitTo = (
   set: (partial: Partial<EditorStore>) => void,

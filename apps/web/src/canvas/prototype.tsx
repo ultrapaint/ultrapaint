@@ -1,42 +1,47 @@
-import { presetSize } from "@ultrapaint/contracts/screens";
-import { ChevronLeft, ChevronRight, RotateCw } from "lucide-react";
+import { presetSize } from "@ultrapaint/contracts/pages";
+import type { HostMessage } from "@ultrapaint/contracts/preview";
+import { ArrowLeft, ArrowRight, RotateCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { IconButton } from "../components/icon-button.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
-import { useEditor } from "../state/editor.ts";
+import { pagesOfSpace, useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
+import { bridgeFor, removeBridge } from "./bridge.ts";
 import { useHostUrl } from "./frame.tsx";
 
-/** Room kept free around the screen for the workspace switcher and the bottom strip. */
+/** Room kept free around the page for the workspace switcher and the bottom strip. */
 const inset = { bottom: 72, side: 32, top: 64 };
 
-const useFlowScreens = () => {
-  const flow = useEditor((s) => s.flow);
-  const screens = useProject((s) => s.screens);
-  return screens.filter((s) => s.flow === flow);
-};
-
-/** The screen on show: the active one, or the flow's first. */
-const useCurrentScreen = () => {
-  const screens = useFlowScreens();
-  const active = useEditor((s) => s.activeScreen);
-  return screens.find((s) => s.id === active) ?? screens[0] ?? null;
-};
-
-/** Asks the prototype to reload its iframe, which restarts the screen's state. */
+/** Asks the prototype to reload its iframe, which restarts the space from its current route. */
 const RELOAD_EVENT = "ultrapaint:reload-prototype";
 
+/** The one iframe of a prototype. Navigating swaps the page inside it, it never reloads. */
+export const frameIdOf = (space: string) => `prototype:${space}`;
+
 /**
- * One screen at its frame's size, scaled down only when it does not fit, with clicks going to the
- * screen itself.
+ * The space at the size of the current page's frame, scaled down only when it does not fit,
+ * with clicks going to the page itself. The editor holds the route: what a link inside asks
+ * for comes back out as a navigation, and the iframe is told what to show.
  */
 export const Prototype = () => {
   const ref = useRef<HTMLDivElement>(null);
-  const screen = useCurrentScreen();
-  const frame = useEditor((s) => (screen ? s.frames[screen.id] : undefined));
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const space = useEditor((s) => s.space);
+  const route = useEditor((s) => s.route);
+  const activePage = useEditor((s) => s.activePage);
+  const frame = useEditor((s) =>
+    activePage ? s.frames[activePage] : undefined
+  );
+  const pages = useProject((s) => s.pages);
   const hostUrl = useHostUrl();
   const [area, setArea] = useState({ height: 0, width: 0 });
   const [reloads, setReloads] = useState(0);
+  const hasPages = space !== null && pages.some((p) => p.space === space);
+  // The iframe is loaded at the space's home and told where to go as soon as it reports in, so
+  // that navigating never changes its `src`: the page changes, the document stays.
+  const home = useProject(
+    (s) => s.spaces.find((sp) => sp.id === space)?.home ?? "/"
+  );
 
   useEffect(() => {
     const onReload = () => setReloads((n) => n + 1);
@@ -56,6 +61,11 @@ export const Prototype = () => {
     };
   }, []);
 
+  const url =
+    hostUrl && space !== null
+      ? `${hostUrl}/?space=${encodeURIComponent(space)}&route=${encodeURIComponent(home)}&frame=${encodeURIComponent(frameIdOf(space))}`
+      : null;
+
   const size = frame ?? presetSize.desktop;
   const scale = Math.min(
     1,
@@ -64,38 +74,71 @@ export const Prototype = () => {
   );
 
   let content: string | null = null;
-  if (!screen) {
-    content = "This flow has no screens yet";
+  if (!hasPages) {
+    content = "This space has no pages yet";
   } else if (!hostUrl) {
     content = "Preview host not running";
   }
+  // The iframe only exists once the area is measured, which is after the first render.
+  const shown = content === null && url !== null && scale > 0;
+
+  // `reloads` remounts the iframe, and `shown` mounts it in the first place: the bridge has to
+  // be attached to whichever iframe is there, or its `ed:ready` goes unheard.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the remount is the dependency.
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!(iframe && url && space !== null)) {
+      return;
+    }
+    const frameId = frameIdOf(space);
+    const bridge = bridgeFor(frameId);
+    bridge.attach(iframe);
+    const off = bridge.on((msg: HostMessage) => {
+      if (msg.type === "ed:ready") {
+        // Whatever the iframe started on, the editor says where it should be.
+        bridge.setRoute(useEditor.getState().route);
+      }
+      if (msg.type === "ed:navigateTo") {
+        useEditor.getState().navigate(msg.route, { push: !msg.replace });
+      }
+    });
+    return () => {
+      off();
+      removeBridge(frameId);
+    };
+  }, [space, url, reloads, shown]);
+
+  // The editor holds the route; the preview follows it, without reloading.
+  useEffect(() => {
+    if (space !== null && url) {
+      bridgeFor(frameIdOf(space)).setRoute(route);
+    }
+  }, [route, space, url]);
 
   return (
     <div
-      // Shown in the layer that floats over the canvas, which passes clicks through: the screen
+      // Shown in the layer that floats over the canvas, which passes clicks through: the page
       // itself takes them.
       className="pointer-events-auto relative flex h-full w-full items-center justify-center overflow-hidden bg-background"
       ref={ref}
       style={{ paddingBottom: inset.bottom, paddingTop: inset.top }}
     >
-      {content === null && screen && hostUrl && scale > 0 ? (
+      {shown ? (
         <div
           className="shrink-0 overflow-hidden rounded-md bg-white shadow-2xl"
-          style={{
-            height: size.height * scale,
-            width: size.width * scale,
-          }}
+          style={{ height: size.height * scale, width: size.width * scale }}
         >
           <iframe
             className="block origin-top-left border-0 bg-white"
-            key={`${screen.id}:${reloads}`}
-            src={`${hostUrl}/?screen=${encodeURIComponent(screen.id)}`}
+            key={`${space}:${reloads}`}
+            ref={iframeRef}
+            src={url}
             style={{
               height: size.height,
               transform: `scale(${scale})`,
               width: size.width,
             }}
-            title={screen.name}
+            title={route}
           />
         </div>
       ) : (
@@ -106,54 +149,47 @@ export const Prototype = () => {
 };
 
 const reload = () => window.dispatchEvent(new CustomEvent(RELOAD_EVENT));
+// The editor's own history is the prototype's: every navigation put an entry in it.
+const back = () => window.history.back();
+const forward = () => window.history.forward();
 
-/** Floating strip under the prototype: step through the flow's screens or restart the one shown. */
+/** Floating strip under the prototype: the space's history, where it is, and a restart. */
 export const PrototypeBar = () => {
-  const screens = useFlowScreens();
-  const screen = useCurrentScreen();
-  const index = screen ? screens.indexOf(screen) : -1;
-  const show = (id: string) => useEditor.getState().setActiveScreen(id);
-  const step = (by: number) => {
-    const next = screens[index + by];
-    if (next) {
-      show(next.id);
-    }
-  };
-  const previous = () => step(-1);
-  const next = () => step(1);
+  const space = useEditor((s) => s.space);
+  const route = useEditor((s) => s.route);
+  // Subscribed to so the routes follow a page being created or deleted.
+  useProject((s) => s.pages);
+  const routes = Array.from(
+    new Set(pagesOfSpace(space).map((p) => p.route))
+  ).sort();
+  const go = (next: string) => useEditor.getState().navigate(next);
 
   return (
     <div className="pointer-events-auto flex items-center gap-1 rounded-xl border bg-sidebar p-1 text-sidebar-foreground shadow-black/30 shadow-lg">
+      <IconButton className="size-8 rounded-lg" onClick={back} tooltip="Back">
+        <ArrowLeft />
+      </IconButton>
       <IconButton
         className="size-8 rounded-lg"
-        disabled={index <= 0}
-        onClick={previous}
-        tooltip="Previous screen"
+        onClick={forward}
+        tooltip="Forward"
       >
-        <ChevronLeft />
+        <ArrowRight />
       </IconButton>
-      <div className="w-48">
+      <div className="w-64">
         <OptionSelect
-          className="border-transparent bg-transparent dark:bg-transparent"
-          onChange={show}
-          options={screens.map((s) => ({ label: s.name, value: s.id }))}
-          placeholder="No screen"
-          value={screen?.id ?? null}
+          className="border-transparent bg-transparent font-mono dark:bg-transparent"
+          onChange={go}
+          options={routes.map((r) => ({ label: r, value: r }))}
+          placeholder="No route"
+          value={routes.includes(route) ? route : null}
         />
       </div>
       <IconButton
         className="size-8 rounded-lg"
-        disabled={index < 0 || index >= screens.length - 1}
-        onClick={next}
-        tooltip="Next screen"
-      >
-        <ChevronRight />
-      </IconButton>
-      <IconButton
-        className="size-8 rounded-lg"
-        disabled={!screen}
+        disabled={space === null}
         onClick={reload}
-        tooltip="Restart screen"
+        tooltip="Restart the prototype"
       >
         <RotateCw />
       </IconButton>

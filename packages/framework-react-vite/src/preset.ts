@@ -1,29 +1,44 @@
 /**
- * The React + Vite framework: TSX screens rendered with the repository's own React, served by
+ * The React + Vite framework: TSX pages rendered with the repository's own React, served by
  * Vite, edited as JSX and catalogued from TypeScript types. The server reaches all of it
  * through the `Framework` interface and never imports another module of this package.
  */
 import { existsSync } from "node:fs";
-import { createRequire } from "node:module";
 import path from "node:path";
 import type { Framework } from "@ultrapaint/framework-api/node";
 import { buildPreviewBundles } from "./build.ts";
 import { catalogue } from "./catalogue-extract.ts";
 import { detect } from "./detect.ts";
+import { pages } from "./pages.ts";
 import { OPTIONS_FILE, previewFiles } from "./preview-files.ts";
-import { screens } from "./screens.ts";
 import { source } from "./source.ts";
 
-/** Whether a package is installed where the anchor can reach it. */
-const resolvesFrom = (dir: string, id: string) =>
-  (createRequire(path.join(dir, "package.json")).resolve.paths(id) ?? []).some(
-    (modules) => existsSync(path.join(modules, id, "package.json"))
-  );
+/**
+ * Whether a package is installed where the anchor can reach it: in its own `node_modules` or
+ * an ancestor's. The directories are walked rather than asked of `require.resolve.paths`,
+ * which also answers with what `NODE_PATH` holds — under pnpm that is our own store, and the
+ * preview child, which runs with `NODE_PATH` cleared, would then be told to import a plugin
+ * the repository does not have.
+ */
+const resolvesFrom = (dir: string, id: string) => {
+  let current = path.resolve(dir);
+  for (;;) {
+    if (existsSync(path.join(current, "node_modules", id, "package.json"))) {
+      return true;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      return false;
+    }
+    current = parent;
+  }
+};
 
 export const framework: Framework = {
   catalogue,
   detect,
   id: "react-vite",
+  pages,
   preview: {
     generate: async (input) => {
       const bundles = await buildPreviewBundles();
@@ -39,6 +54,5 @@ export const framework: Framework = {
       };
     },
   },
-  screens,
   source,
 };

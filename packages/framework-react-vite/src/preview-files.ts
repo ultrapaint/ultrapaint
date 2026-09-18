@@ -71,29 +71,16 @@ export const previewFiles = (
 import { renderToCanvas } from ${JSON.stringify(fsUrl(bundles.render))};
 ${providersImport}
 
-// The preview core, injected ahead of this module, leaves its surface on the window.
+// The preview core, injected ahead of this module, leaves its surface on the window. It works
+// out which pages belong to the space this preview is for, and holds the route.
 const ed = window.__ED__;
 const canvas = document.getElementById("root") as HTMLElement;
-const screen = new URLSearchParams(location.search).get("screen") ?? "";
 
-const modules = import.meta.glob(["../**/*.tsx", "!../node_modules/**", "!../.ultrapaint/**", "!../**/*.stories.tsx", "!../**/*.test.tsx"]);
-const loader = modules["../" + screen];
+const modules = import.meta.glob(["../**/*.tsx", "!../node_modules/**", "!../.ultrapaint/**", "!../**/_*.tsx", "!../**/*.stories.tsx", "!../**/*.test.tsx", "!../**/*.spec.tsx"]);
+// A directory with a \`space.json\` is a space; the glob keeps up as spaces are added.
+const spaceFiles = Object.keys(import.meta.glob("../**/space.json"));
 
-if (!loader) {
-  ed.showMessage(canvas, "Screen not found: " + screen);
-} else {
-  loader().then((mod) => {
-    const component = (mod as { default?: unknown }).default;
-    if (!component) {
-      ed.showMessage(canvas, "Screen has no default export: " + screen);
-      return;
-    }
-    renderToCanvas({ component, providers: Providers, reportError: ed.reportError }, canvas);
-  }, (error: Error) => {
-    ed.reportError({ message: error.message, stack: error.stack });
-    ed.showMessage(canvas, String(error.stack ?? error.message));
-  });
-}
+ed.startRouter({ base: "../", canvas, modules, mount: renderToCanvas, providers: Providers, spaceFiles });
 
 if (import.meta.hot) {
   import.meta.hot.on("vite:afterUpdate", () => ed.notifyHmr());
@@ -110,7 +97,13 @@ if (import.meta.hot) {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ultrapaint preview</title>
   <script>
-    window.__ED_CONFIG__ = { screen: new URLSearchParams(location.search).get("screen") || "", designsDir: ${JSON.stringify(toPosix(settings.designsDir))} };
+    const params = new URLSearchParams(location.search);
+    window.__ED_CONFIG__ = {
+      designsDir: ${JSON.stringify(toPosix(settings.designsDir))},
+      frame: params.get("frame") || "",
+      route: params.get("route") || "/",
+      space: params.get("space") || "",
+    };
   </script>
   <script src="${fsUrl(bundles.runtime)}"></script>
 </head>

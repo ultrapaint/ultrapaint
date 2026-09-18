@@ -70,7 +70,7 @@ describe("Connection", () => {
 
         // A wire error keeps the lower-case code the editor has always seen.
         const failure = yield* Effect.promise(() =>
-          connection.request("screens.list", undefined).catch((e: unknown) => e)
+          connection.request("pages.list", undefined).catch((e: unknown) => e)
         );
         assert.instanceOf(failure, RequestError);
         assert.strictEqual((failure as RequestError).code, "not_configured");

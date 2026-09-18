@@ -20,7 +20,7 @@ import { ServerConfig, type StorageTarget } from "../config.ts";
 import { runCommand } from "../process.ts";
 import { ServerLive } from "../server.ts";
 
-const HOME_SCREEN = `export default function Home() {
+const HOME_PAGE = `export default function Home() {
   return (
     <main className="p-4">
       <h1 className="text-xl">Hello</h1>
@@ -50,7 +50,7 @@ export const freePort = Effect.callback<number>((resume) => {
   });
 });
 
-/** A throwaway git repository with a designs package and one committed screen. */
+/** A throwaway git repository with a designs package and one committed page. */
 export const makeRepository = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -63,7 +63,7 @@ export const makeRepository = Effect.gen(function* () {
     );
   yield* write("package.json", '{ "name": "fixture", "private": true }\n');
   yield* write("designs/package.json", '{ "name": "designs" }\n');
-  yield* write("designs/home.tsx", HOME_SCREEN);
+  yield* write("designs/home.tsx", HOME_PAGE);
   yield* write("ui/button.tsx", BUTTON_COMPONENT);
   const git = (...args: string[]) => runCommand("git", args, { cwd: repo });
   yield* git("init", "-q", "-b", "main");

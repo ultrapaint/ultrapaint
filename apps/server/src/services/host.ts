@@ -46,7 +46,7 @@ interface Running {
 
 /**
  * Runs the preview host: what the project's framework generates, served by the script it
- * names, run from the package the screens resolve their imports from. The child lives in its own scope, so stopping the
+ * names, run from the package the pages resolve their imports from. The child lives in its own scope, so stopping the
  * host, reopening the project and shutting the server down all end the same process.
  */
 export class HostManager extends Context.Service<

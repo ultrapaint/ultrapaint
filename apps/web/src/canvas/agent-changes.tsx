@@ -1,4 +1,4 @@
-import type { Screen } from "@ultrapaint/contracts/screens";
+import type { Page } from "@ultrapaint/contracts/pages";
 import { X } from "lucide-react";
 import { viewportSize } from "../lib/shortcuts.ts";
 import { useAgents } from "../state/agents.ts";
@@ -7,17 +7,17 @@ import { useProject } from "../state/project.ts";
 
 const dismiss = () => useAgents.getState().clearChanged();
 
-const goToScreen = async (screen: Screen) => {
+const goToPage = async (page: Page) => {
   const editor = useEditor.getState;
-  if (editor().flow !== screen.flow || !editor().frames[screen.id]) {
-    await editor().openFlow(screen.flow);
+  if (editor().space !== page.space || !editor().frames[page.id]) {
+    await editor().openSpace(page.space, page.route);
   }
-  useAgents.getState().clearChanged([screen.file]);
+  useAgents.getState().clearChanged([page.file]);
   if (editor().workspace === "prototype") {
-    editor().setActiveScreen(screen.id);
+    editor().navigate(page.route);
     return;
   }
-  editor().selectScreen(screen.id);
+  editor().selectPage(page.id);
   editor().zoomToSelection(viewportSize());
 };
 
@@ -28,26 +28,26 @@ const goToChanges = () => {
 
 /**
  * Badge above the bottom strip when an agent turn changed files. Nothing moves on its own: a click
- * goes to the next changed screen, and once none is left, to the Changes panel.
+ * goes to the next changed page, and once none is left, to the Changes panel.
  */
 export const AgentChanges = () => {
   const changed = useAgents((s) => s.changed);
-  const screens = useProject((s) => s.screens);
+  const pages = useProject((s) => s.pages);
   if (changed.length === 0) {
     return null;
   }
-  const changedScreens = screens.filter((s) => changed.includes(s.file));
-  const [first] = changedScreens;
+  const changedPages = pages.filter((p) => changed.includes(p.file));
+  const [first] = changedPages;
 
   let label: string;
-  if (first && changedScreens.length === 1) {
+  if (first && changedPages.length === 1) {
     label = `Agent updated ${first.name}`;
   } else if (first) {
-    label = `Agent updated ${changedScreens.length} screens`;
+    label = `Agent updated ${changedPages.length} pages`;
   } else {
     label = `Agent changed ${changed.length} ${changed.length === 1 ? "file" : "files"}`;
   }
-  const onClick = () => (first ? goToScreen(first) : goToChanges());
+  const onClick = () => (first ? goToPage(first) : goToChanges());
 
   return (
     <div className="pointer-events-auto flex h-7 items-center rounded-full border bg-sidebar text-sidebar-foreground text-xs shadow-black/30 shadow-lg">

@@ -86,7 +86,7 @@ const handleEditKey = (e: KeyboardEvent, s: EditorState, meta: boolean) => {
   }
   if (e.key === "Enter" && s.selection) {
     e.preventDefault();
-    bridgeFor(s.selection.screenId).editText(s.selection.nodeId);
+    bridgeFor(s.selection.pageId).editText(s.selection.nodeId);
     return true;
   }
   return false;
@@ -168,7 +168,7 @@ const handleTreeNavigation = (e: KeyboardEvent, s: EditorState) => {
   if (!(selection && NAV_KEYS.includes(e.key))) {
     return;
   }
-  const tree = s.trees[selection.screenId];
+  const tree = s.trees[selection.pageId];
   const path = findPath(tree, selection.nodeId);
   if (!path) {
     return;
@@ -184,7 +184,7 @@ const handleTreeNavigation = (e: KeyboardEvent, s: EditorState) => {
   ) =>
     s.select({
       nodeId: id,
-      screenId: selection.screenId,
+      pageId: selection.pageId,
       source,
     });
   if (e.key === "Escape" || e.key === "ArrowLeft") {
@@ -227,8 +227,8 @@ export const useShortcuts = () => {
       if (handleEditKey(e, s, meta)) {
         return;
       }
-      if (e.key === "Escape" && s.selectedScreen) {
-        s.selectScreen(null);
+      if (e.key === "Escape" && s.selectedPage) {
+        s.selectPage(null);
         return;
       }
       handleModeKey(e, s, meta);

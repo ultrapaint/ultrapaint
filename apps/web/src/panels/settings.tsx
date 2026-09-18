@@ -370,7 +370,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
                 <span className="text-muted-foreground text-xs">
                   Creates the directory with a tsconfig.json
                   {draft.resolveFrom
-                    ? `, and links the dependencies of ${draft.resolveFrom} (git-ignored) so editors resolve what the screens import`
+                    ? `, and links the dependencies of ${draft.resolveFrom} (git-ignored) so editors resolve what the pages import`
                     : ""}
                   . Nothing is installed.
                 </span>

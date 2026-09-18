@@ -1,7 +1,7 @@
 import path from "node:path";
 
 export interface ResolvePluginOptions {
-  /** Package whose dependencies the screens may import. Absolute. */
+  /** Package whose dependencies the pages may import. Absolute. */
   anchorDir: string;
   /** Directories whose files resolve bare imports from the anchor. Absolute. */
   from: string[];

@@ -31,7 +31,7 @@ export const locateFramework = Effect.fn("locateFramework")(function* (
 });
 
 /**
- * The framework of the open project: how its screens are written, edited, catalogued and
+ * The framework of the open project: how its pages are written, edited, catalogued and
  * previewed. Everything in the server that would otherwise know about React, JSX or Vite asks
  * this service instead.
  */

@@ -243,7 +243,7 @@ export class SettingsService extends Context.Service<
           const anchor = path.join(repo, settings.resolveFrom, "package.json");
           if (!(yield* exists(anchor))) {
             problems.push(
-              `The package screens resolve their imports from has no package.json: ${settings.resolveFrom}`
+              `The package pages resolve their imports from has no package.json: ${settings.resolveFrom}`
             );
           }
         }

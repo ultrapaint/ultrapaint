@@ -1,4 +1,4 @@
-import type { Screen } from "@ultrapaint/contracts/screens";
+import type { Page } from "@ultrapaint/contracts/pages";
 import type {
   PromptAttachment,
   Thread,
@@ -68,6 +68,7 @@ import {
 } from "@/components/ui/message-scroller";
 import { Spinner } from "@/components/ui/spinner";
 import { bridgeFor } from "../canvas/bridge.ts";
+import { frameIdOf } from "../canvas/prototype.tsx";
 import { confirmDialog } from "../components/dialogs.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { Markdown } from "../components/markdown.tsx";
@@ -75,7 +76,7 @@ import { OptionSelect } from "../components/option-select.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { useAgents } from "../state/agents.ts";
 import { api } from "../state/connection.ts";
-import { type Selection, useEditor } from "../state/editor.ts";
+import { type Selection, useEditor, type Workspace } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
 
 const openThread = (threadId: string) => useAgents.getState().open(threadId);
@@ -554,10 +555,11 @@ const collectAttachments = async ({
   selectionName,
   shotOf,
 }: {
-  fileOf: Screen | null;
+  fileOf: Page | null;
   selectionSource: Selection["source"];
   selectionName: string;
-  shotOf: Screen | null;
+  /** The page and the iframe showing it: the prototype has one for the whole space. */
+  shotOf: { frameId: string; name: string } | null;
 }) => {
   const attachments: PromptAttachment[] = [];
   if (fileOf) {
@@ -573,7 +575,7 @@ const collectAttachments = async ({
     });
   }
   if (shotOf) {
-    const dataUrl = await bridgeFor(shotOf.id).screenshot();
+    const dataUrl = await bridgeFor(shotOf.frameId).screenshot();
     if (dataUrl) {
       attachments.push({
         dataUrl,
@@ -866,19 +868,30 @@ const ModePicker = ({ thread }: { thread: Thread }) => {
   );
 };
 
+/** In the prototype the whole space is one iframe; on the canvas every page has its own. */
+const shotFrameOf = (
+  workspace: Workspace,
+  space: string | null,
+  page: Page | undefined
+) =>
+  workspace === "prototype" && space !== null
+    ? frameIdOf(space)
+    : (page?.id ?? "");
+
 const Composer = ({ thread }: { thread: Thread }) => {
   const [text, setText] = useState(() => takeDraft(thread.id));
-  const [attachScreen, setAttachScreen] = useState(true);
+  const [attachPage, setAttachPage] = useState(true);
   const [attachSelection, setAttachSelection] = useState(true);
   const [attachShot, setAttachShot] = useState(false);
   const [busy, setBusy] = useState(false);
   const selection = useEditor((s) => s.selection);
   const inspect = useEditor((s) => s.inspect);
-  const activeScreen = useEditor((s) => s.activeScreen);
-  const screens = useProject((s) => s.screens);
-  const screen = screens.find(
-    (s) => s.id === (selection?.screenId ?? activeScreen)
-  );
+  const activePage = useEditor((s) => s.activePage);
+  const pages = useProject((s) => s.pages);
+  const page = pages.find((p) => p.id === (selection?.pageId ?? activePage));
+  const workspace = useEditor((s) => s.workspace);
+  const space = useEditor((s) => s.space);
+  const shotFrame = shotFrameOf(workspace, space, page);
   const running = thread.status === "running" || thread.status === "cancelling";
 
   const send = async () => {
@@ -887,10 +900,11 @@ const Composer = ({ thread }: { thread: Thread }) => {
     }
     setBusy(true);
     const context = {
-      fileOf: attachScreen && screen ? screen : null,
+      fileOf: attachPage && page ? page : null,
       selectionName: inspect?.name ?? "element",
       selectionSource: attachSelection && selection ? selection.source : null,
-      shotOf: attachShot && screen ? screen : null,
+      shotOf:
+        attachShot && page ? { frameId: shotFrame, name: page.name } : null,
     };
     try {
       const attachments = await collectAttachments(context);
@@ -922,21 +936,21 @@ const Composer = ({ thread }: { thread: Thread }) => {
     "the agent";
 
   const selectionSource = selection?.source ?? null;
-  const showScreen = Boolean(screen && attachScreen);
+  const showPage = Boolean(page && attachPage);
   const showSelection = Boolean(selectionSource && attachSelection);
-  const showShot = Boolean(screen && attachShot);
+  const showShot = Boolean(page && attachShot);
 
   return (
     <div className="p-2">
       <div className="flex flex-col rounded-xl border bg-input/20 transition-colors focus-within:border-ring dark:bg-input/30">
-        {showScreen || showSelection || showShot ? (
+        {showPage || showSelection || showShot ? (
           <div className="flex flex-wrap gap-1 px-2 pt-2">
-            {showScreen && screen ? (
+            {showPage && page ? (
               <ContextChip
                 icon={<AppWindow />}
-                label={screen.name}
-                onRemove={() => setAttachScreen(false)}
-                title={`Screen file: ${screen.file}`}
+                label={page.name}
+                onRemove={() => setAttachPage(false)}
+                title={`Page file: ${page.file}`}
               />
             ) : null}
             {showSelection && selectionSource ? (
@@ -947,12 +961,12 @@ const Composer = ({ thread }: { thread: Thread }) => {
                 title={`Selected element: ${selectionSource.file}:${selectionSource.line}`}
               />
             ) : null}
-            {showShot && screen ? (
+            {showShot && page ? (
               <ContextChip
                 icon={<Camera />}
                 label="Screenshot"
                 onRemove={() => setAttachShot(false)}
-                title={`Screenshot of ${screen.name}`}
+                title={`Screenshot of ${page.name}`}
               />
             ) : null}
           </div>
@@ -985,12 +999,12 @@ const Composer = ({ thread }: { thread: Thread }) => {
                   Send along with the prompt
                 </DropdownMenuLabel>
                 <DropdownMenuCheckboxItem
-                  checked={attachScreen}
-                  disabled={!screen}
-                  onCheckedChange={setAttachScreen}
+                  checked={attachPage}
+                  disabled={!page}
+                  onCheckedChange={setAttachPage}
                 >
                   <AppWindow />
-                  Screen file
+                  Page file
                 </DropdownMenuCheckboxItem>
                 <DropdownMenuCheckboxItem
                   checked={attachSelection}
@@ -1002,11 +1016,11 @@ const Composer = ({ thread }: { thread: Thread }) => {
                 </DropdownMenuCheckboxItem>
                 <DropdownMenuCheckboxItem
                   checked={attachShot}
-                  disabled={!screen}
+                  disabled={!page}
                   onCheckedChange={setAttachShot}
                 >
                   <Camera />
-                  Screenshot of the screen
+                  Screenshot of the page
                 </DropdownMenuCheckboxItem>
               </DropdownMenuGroup>
             </DropdownMenuContent>

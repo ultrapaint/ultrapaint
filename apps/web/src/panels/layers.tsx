@@ -69,10 +69,8 @@ const dropPositionAt = (node: TreeNode, y: number): DropPosition => {
 const clearHover = () => useEditor.getState().setHover(null);
 
 export const Layers = () => {
-  const activeScreen = useEditor((s) => s.activeScreen);
-  const tree = useEditor((s) =>
-    activeScreen ? s.trees[activeScreen] : undefined
-  );
+  const activePage = useEditor((s) => s.activePage);
+  const tree = useEditor((s) => (activePage ? s.trees[activePage] : undefined));
   const selection = useEditor((s) => s.selection);
   const hover = useEditor((s) => s.hover);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -87,7 +85,7 @@ export const Layers = () => {
     tree: typeof tree;
   } | null>(null);
   const selectedHere =
-    selection && tree && selection.screenId === activeScreen ? selection : null;
+    selection && tree && selection.pageId === activePage ? selection : null;
   if (
     selectedHere &&
     tree &&
@@ -161,18 +159,18 @@ export const Layers = () => {
     }
   };
 
-  if (!(activeScreen && tree)) {
-    return <PanelEmpty>Select a screen to see its layers</PanelEmpty>;
+  if (!(activePage && tree)) {
+    return <PanelEmpty>Select a page to see its layers</PanelEmpty>;
   }
 
   const shared: LayerShared = {
-    activeScreen,
+    activePage,
     collapsed,
     drag,
     dropTarget,
-    hoveredId: hover?.screenId === activeScreen ? hover.nodeId : null,
+    hoveredId: hover?.pageId === activePage ? hover.nodeId : null,
     onDrop,
-    selectedId: selection?.screenId === activeScreen ? selection.nodeId : null,
+    selectedId: selection?.pageId === activePage ? selection.nodeId : null,
     setDrag,
     setDropTarget,
     toggle,
@@ -195,7 +193,7 @@ export const Layers = () => {
 
 /** Panel state every row of the tree reads, passed down unchanged. */
 interface LayerShared {
-  activeScreen: string;
+  activePage: string;
   collapsed: Set<string>;
   drag: { node: TreeNode } | null;
   dropTarget: DropTarget | null;
@@ -234,25 +232,25 @@ const DepthGuides = ({ ancestors }: { ancestors: readonly string[] }) => (
  */
 const RowMenu = ({
   node,
-  screenId,
+  pageId,
   canEditText,
 }: {
   node: TreeNode;
-  screenId: string;
+  pageId: string;
   canEditText: boolean;
 }) => {
   const { source } = node;
   if (!(source && node.editable)) {
     return null;
   }
-  const onEditText = () => bridgeFor(screenId).editText(node.id);
+  const onEditText = () => bridgeFor(pageId).editText(node.id);
   const onDuplicate = () => runEdit({ kind: "duplicate", target: source });
   const onDelete = () => runEdit({ kind: "delete", target: source });
   // Opening the menu selects the row, so the canvas shows what the actions — and the shortcuts
   // they name — are about to touch.
   const onOpenChange = (open: boolean) => {
     if (open) {
-      useEditor.getState().select({ nodeId: node.id, screenId, source });
+      useEditor.getState().select({ nodeId: node.id, pageId, source });
     }
   };
   return (
@@ -315,7 +313,7 @@ const LayerNode = ({
   shared: LayerShared;
 }) => {
   const {
-    activeScreen,
+    activePage,
     collapsed,
     drag,
     dropTarget,
@@ -340,7 +338,7 @@ const LayerNode = ({
   const select = () => {
     useEditor.getState().select({
       nodeId: node.id,
-      screenId: activeScreen,
+      pageId: activePage,
       source: node.source,
     });
   };
@@ -355,7 +353,7 @@ const LayerNode = ({
       select();
     }
   };
-  const editText = () => bridgeFor(activeScreen).editText(node.id);
+  const editText = () => bridgeFor(activePage).editText(node.id);
   const onDragLeave = () =>
     setDropTarget((d) => (d?.id === node.id ? null : d));
   const onDragOver = (e: DragEvent<HTMLDivElement>) => {
@@ -381,7 +379,7 @@ const LayerNode = ({
     }
   };
   const onMouseEnter = () =>
-    useEditor.getState().setHover({ nodeId: node.id, screenId: activeScreen });
+    useEditor.getState().setHover({ nodeId: node.id, pageId: activePage });
   const onToggle = (e: MouseEvent) => {
     e.stopPropagation();
     toggle(node);
@@ -448,11 +446,7 @@ const LayerNode = ({
             {hostLabel(node, host)}
           </span>
         ) : null}
-        <RowMenu
-          canEditText={!hasChildren}
-          node={node}
-          screenId={activeScreen}
-        />
+        <RowMenu canEditText={!hasChildren} node={node} pageId={activePage} />
       </div>
       {!isCollapsed && hasChildren
         ? children.map((c) => (

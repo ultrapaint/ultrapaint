@@ -34,7 +34,7 @@ const insert = async (c: ComponentMeta, target: SourceLocation | null) => {
   if (r?.location && s.selection) {
     s.select({
       nodeId: s.selection.nodeId,
-      screenId: s.selection.screenId,
+      pageId: s.selection.pageId,
       source: r.location,
     });
   }

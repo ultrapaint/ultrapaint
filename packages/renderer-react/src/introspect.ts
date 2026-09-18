@@ -1,5 +1,5 @@
 /**
- * Reads React's component tree for the preview core. It has no dependency on the screen's
+ * Reads React's component tree for the preview core. It has no dependency on the page's
  * React copy: it learns about roots and commits through the DevTools hook and reaches fibers
  * through the references React attaches to DOM nodes. Works with React 18 and 19.
  */

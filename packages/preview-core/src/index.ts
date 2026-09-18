@@ -1,5 +1,5 @@
 /**
- * The framework-neutral half of the preview runtime, injected into every screen iframe. It
+ * The framework-neutral half of the preview runtime, injected into every page iframe. It
  * speaks the editor's protocol (`@ultrapaint/contracts/preview`) over `postMessage` and works
  * on the DOM alone: hit-testing, rectangles, style provenance, inline text editing, tokens and
  * screenshots. Whatever needs the framework's component tree is asked of the renderer's
@@ -13,30 +13,44 @@ import { PREVIEW_PROTOCOL } from "@ultrapaint/framework-api/protocol";
 import { toPng } from "html-to-image";
 import { directText, parseStamp, STAMP, unionRect } from "./dom.ts";
 import { elementAt } from "./hit.ts";
+import { makeRouter } from "./router.ts";
 import { inspectStyles, invalidateRules, readTokens } from "./styles.ts";
 
 interface Config {
   designsDir: string;
-  screen: string;
+  /** What this iframe is to the editor: a page on the canvas, a space in the prototype. */
+  frame: string;
+  /** Route the editor opened the preview at. */
+  route: string;
+  /** Space whose pages this preview may show. */
+  space: string;
 }
 
 export const startPreview = (introspector: Introspector) => {
   const config: Config = (window as unknown as { __ED_CONFIG__?: Config })
-    .__ED_CONFIG__ ?? { designsDir: "", screen: "" };
+    .__ED_CONFIG__ ?? { designsDir: "", frame: "", route: "/", space: "" };
 
   // ---- Messaging ----
-  // Every message carries the screen id so the editor can route it without relying on window
+  // Every message carries the frame id so the editor can route it without relying on window
   // identity, which changes when the host restarts on another port.
   const post = (msg: Record<string, unknown>) => {
-    window.parent.postMessage({ ...msg, screen: config.screen }, "*");
+    window.parent.postMessage({ ...msg, frame: config.frame }, "*");
   };
+
+  const router = makeRouter({
+    post,
+    reportError: (error) => post({ error, type: "ed:error" }),
+    route: config.route,
+    space: config.space,
+    standalone: window.parent === window,
+  });
 
   const sendTree = () => {
     const children = introspector.tree();
     if (!children) {
       return;
     }
-    const name = config.screen || "screen";
+    const name = router.state().route;
     post({
       tree: {
         children,
@@ -328,6 +342,9 @@ export const startPreview = (introspector: Introspector) => {
             })
           );
         break;
+      case "ed:route":
+        router.setRoute(msg.route as string);
+        break;
       case "ed:getTokens":
         post({ tokens: readTokens(), type: "ed:tokens" });
         break;
@@ -348,7 +365,36 @@ export const startPreview = (introspector: Introspector) => {
       childList: true,
       subtree: true,
     });
+  /**
+   * A plain `<a href="/pricing">` is a navigation too. Left alone it would load the preview's
+   * own root into the iframe and take the runtime with it. The navigation module prevents the
+   * default itself, so this only ever sees links written without it. Bubble phase: in select
+   * mode the guard has already stopped the event in capture.
+   */
+  const interceptLinks = (e: MouseEvent) => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey) {
+      return;
+    }
+    const anchor = (e.target as Element | null)?.closest?.(
+      "a[href]"
+    ) as HTMLAnchorElement | null;
+    if (
+      !anchor ||
+      anchor.target === "_blank" ||
+      anchor.hasAttribute("download")
+    ) {
+      return;
+    }
+    const url = new URL(anchor.href, location.href);
+    if (url.origin !== location.origin || url.pathname === location.pathname) {
+      return;
+    }
+    e.preventDefault();
+    router.navigate(url.pathname);
+  };
+
   const start = () => {
+    window.addEventListener("click", interceptLinks);
     for (const type of GUARDED) {
       // Capture on the window: React listens on its root container, so this runs first and can
       // keep an event from ever reaching a component.
@@ -395,6 +441,9 @@ export const startPreview = (introspector: Introspector) => {
         "padding:16px;color:#b00020;white-space:pre-wrap;font:12px ui-monospace,monospace"
       );
       canvas.replaceChildren(box);
+    },
+    startRouter(input) {
+      router.start(input);
     },
   };
   (window as unknown as { __ED__: PreviewGlobal }).__ED__ = surface;

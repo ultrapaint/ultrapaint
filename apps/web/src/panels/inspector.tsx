@@ -475,7 +475,7 @@ export const Inspector = () => {
   const selection = useEditor((s) => s.selection);
   const inspect = useEditor((s) => s.inspect);
   const tree = useEditor((s) =>
-    selection ? s.trees[selection.screenId] : undefined
+    selection ? s.trees[selection.pageId] : undefined
   );
   const [loadedSource, setLoadedSource] = useState<ElementSource | null>(null);
   // Only meaningful while the selection points at source; derived instead of reset from the effect.
@@ -491,7 +491,7 @@ export const Inspector = () => {
     }
     requestSeq.current += 1;
     const seq = requestSeq.current;
-    const bridge = bridgeFor(selection.screenId);
+    const bridge = bridgeFor(selection.pageId);
     bridge.inspect(selection.nodeId).then((r) => {
       if (seq === requestSeq.current) {
         useEditor.getState().setInspect(r);
@@ -1270,7 +1270,7 @@ const NotEditable = ({ inspect }: { inspect: InspectResult }) => {
     }
     s.select({
       nodeId: ancestor.nodeId,
-      screenId: s.selection.screenId,
+      pageId: s.selection.pageId,
       source: ancestor.source,
     });
   };
@@ -1286,7 +1286,7 @@ const NotEditable = ({ inspect }: { inspect: InspectResult }) => {
                 ? inspect.source.file
                 : "code outside the stamped directories"}
             </span>
-            , not from a screen file, so its values are read-only here.
+            , not from a page file, so its values are read-only here.
           </span>
           {inspect.editableAncestor ? (
             <Button

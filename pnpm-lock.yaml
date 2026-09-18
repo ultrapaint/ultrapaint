@@ -372,6 +372,9 @@ importers:
 
   packages/preview-core:
     dependencies:
+      '@ultrapaint/shared':
+        specifier: workspace:*
+        version: link:../shared
       html-to-image:
         specifier: ^1.11.13
         version: 1.11.13

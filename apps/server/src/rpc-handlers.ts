@@ -10,8 +10,8 @@ import { EditService } from "./services/edit.ts";
 import { ProjectFramework } from "./services/framework.ts";
 import { GitService } from "./services/git.ts";
 import { HostManager } from "./services/host.ts";
+import { PagesService } from "./services/pages.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
-import { ScreensService } from "./services/screens.ts";
 import { SettingsService } from "./services/settings.ts";
 import { SetupService } from "./services/setup.ts";
 import { AgentConfigs } from "./services/threads/agent-configs.ts";
@@ -35,9 +35,9 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const threads = yield* ThreadService;
     const checkpoints = yield* Checkpoints;
 
-    const screens = <A, E>(
-      f: (s: ScreensService["Service"]) => Effect.Effect<A, E>
-    ) => project.use(Effect.flatMap(ScreensService, f));
+    const pages = <A, E>(
+      f: (s: PagesService["Service"]) => Effect.Effect<A, E>
+    ) => project.use(Effect.flatMap(PagesService, f));
     const edit = <A, E>(
       f: (s: EditService["Service"]) => Effect.Effect<A, E>
     ) => project.use(Effect.flatMap(EditService, f));
@@ -52,9 +52,9 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
 
     return UltrapaintRpcs.of({
       "agents.list": () => agents.list,
-      "canvas.get": ({ flow }) => screens((s) => s.readCanvas(flow)),
-      "canvas.set": ({ flow, layout }) =>
-        screens((s) => s.writeCanvas(flow, layout)),
+      "canvas.get": ({ space }) => pages((s) => s.readCanvas(space)),
+      "canvas.set": ({ layout, space }) =>
+        pages((s) => s.writeCanvas(space, layout)),
 
       "catalogue.get": ({ refresh }) => catalogue((c) => c.get(refresh)),
       "catalogue.storyUrl": ({ storyId }) =>
@@ -74,8 +74,8 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "events.file.changed": () => events.subscribe("file.changed"),
       "events.git": () => events.subscribe("git"),
       "events.log": () => events.subscribe("log"),
+      "events.pages": () => events.subscribe("pages"),
       "events.project": () => events.subscribe("project"),
-      "events.screens": () => events.subscribe("screens"),
       "git.commit": ({ message, paths }) =>
         git((g) =>
           Effect.gen(function* () {
@@ -91,17 +91,16 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "host.start": () => host((h) => h.start),
       "host.stop": () => host((h) => h.stop),
       "logs.recent": () => log.recent(RECENT_LOG_LINES),
+      "pages.create": ({ route, space, template }) =>
+        pages((s) => s.create(space, route, template)),
+      "pages.delete": ({ id }) => pages((s) => s.delete(id)),
+      "pages.duplicate": ({ id }) => pages((s) => s.duplicate(id)),
+
+      "pages.list": () => pages((s) => s.list),
+      "pages.rename": ({ id, route }) => pages((s) => s.rename(id, route)),
+      "pages.templates": () => pages((s) => Effect.succeed(s.templates)),
 
       "project.info": () => project.info,
-      "screens.create": ({ flow, name, template }) =>
-        screens((s) => s.create(flow, name, template)),
-      "screens.delete": ({ id }) => screens((s) => s.delete(id)),
-      "screens.duplicate": ({ id }) => screens((s) => s.duplicate(id)),
-
-      "screens.list": () =>
-        screens((s) => Effect.map(s.list, (list) => ({ screens: list }))),
-      "screens.rename": ({ id, name }) => screens((s) => s.rename(id, name)),
-      "screens.templates": () => screens((s) => Effect.succeed(s.templates)),
 
       "settings.get": () => settings.get,
       "settings.persist": Effect.fnUntraced(function* (input) {
@@ -156,6 +155,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
         edit((e) =>
           Effect.map(e.read(file), ({ content, hash }) => ({ content, hash }))
         ),
+      "spaces.create": ({ name }) => pages((s) => s.createSpace(name)),
       "threads.cancel": ({ threadId }) => threads.cancel(threadId),
       "threads.create": ({ agentId, title }) => threads.create(agentId, title),
       "threads.delete": ({ threadId }) => threads.delete(threadId),

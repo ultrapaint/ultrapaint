@@ -3,7 +3,7 @@ import { Json, SourceLocation } from "./base.ts";
 
 /**
  * Protocol between the editor (parent window) and the host runtime injected into every
- * screen iframe. Transported over `postMessage`.
+ * page iframe. Transported over `postMessage`.
  */
 
 export const TreeNodeKind = Schema.Literals(["component", "element", "text"]);
@@ -100,9 +100,10 @@ export type HostError = typeof HostError.Type;
 /** Messages the host runtime sends to the editor. */
 export const HostMessage = Schema.Union([
   Schema.Struct({
+    /** Identifies the iframe to the editor: a page id on the canvas, the space in a prototype. */
+    frame: Schema.String,
     /** Version of this protocol the preview speaks; absent from previews older than 1. */
     protocol: Schema.optional(Schema.Number),
-    screen: Schema.String,
     type: Schema.Literal("ed:ready"),
   }),
   Schema.Struct({ tree: TreeNode, type: Schema.Literal("ed:tree") }),
@@ -136,6 +137,21 @@ export const HostMessage = Schema.Union([
   Schema.Struct({
     tokens: Schema.Record(Schema.String, Schema.String),
     type: Schema.Literal("ed:tokens"),
+  }),
+  /**
+   * A link or a `navigate()` call inside the page asks to go somewhere. The preview does not
+   * move: the editor holds the route (in its own URL) and answers with `ed:route`.
+   */
+  Schema.Struct({
+    replace: Schema.Boolean,
+    route: Schema.String,
+    type: Schema.Literal("ed:navigateTo"),
+  }),
+  /** The route the preview is showing, and the page file serving it. */
+  Schema.Struct({
+    page: Schema.NullOr(Schema.String),
+    route: Schema.String,
+    type: Schema.Literal("ed:routeChanged"),
   }),
 ]);
 export type HostMessage = typeof HostMessage.Type;
@@ -181,6 +197,8 @@ export const EditorMessage = Schema.Union([
     nodeId: Schema.String,
     type: Schema.Literal("ed:scrollIntoView"),
   }),
+  /** Show this route. The only way the page inside a preview ever changes. */
+  Schema.Struct({ route: Schema.String, type: Schema.Literal("ed:route") }),
 ]);
 export type EditorMessage = typeof EditorMessage.Type;
 

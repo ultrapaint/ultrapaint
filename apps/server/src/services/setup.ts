@@ -37,7 +37,7 @@ const tsconfig = (anchorConfig: string | null) =>
 
 /**
  * The first-run setup: looks at a repository before anything is configured, and creates the
- * directory the screens will live in. It is the only part of the server that writes into a
+ * directory the pages will live in. It is the only part of the server that writes into a
  * repository no project is open for, so it checks every path itself.
  */
 export class SetupService extends Context.Service<
@@ -123,7 +123,7 @@ export class SetupService extends Context.Service<
 
       /**
        * Links the anchor's `node_modules` into the designs directory and keeps the link out of
-       * git. Editors and `tsc` then resolve what the screens import; the preview never needs it.
+       * git. Editors and `tsc` then resolve what the pages import; the preview never needs it.
        */
       const linkDependencies = Effect.fnUntraced(function* (
         root: string,

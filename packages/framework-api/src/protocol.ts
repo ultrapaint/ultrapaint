@@ -11,5 +11,9 @@
  * 3: `ed:hit` answers with the whole chain of nodes under the point instead of one, and
  * `ed:hitTest` no longer carries `deepest`. Which of them a click takes is the editor's to
  * decide: it is what holds the selection the drilling walks along.
+ *
+ * 4: pages and routes. Every message carries `page` where it carried `screen`, and the space's
+ * router is driven by the editor: the preview asks with `ed:navigateTo`, the editor answers
+ * with `ed:route` and hears `ed:routeChanged`.
  */
-export const PREVIEW_PROTOCOL = 3;
+export const PREVIEW_PROTOCOL = 4;

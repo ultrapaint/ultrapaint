@@ -12,7 +12,7 @@ export class RepoPaths extends Context.Service<
   RepoPaths,
   {
     /**
-     * Package the screens resolve their imports from: the one the settings name, or the
+     * Package the pages resolve their imports from: the one the settings name, or the
      * nearest package around the designs directory, which may be the designs directory itself.
      */
     readonly anchorDir: string;

@@ -1,9 +1,9 @@
-import type { HostError, HostMessage } from "@ultrapaint/contracts/preview";
 import type {
   FrameLayout,
-  Screen,
+  Page,
   ViewportPreset,
-} from "@ultrapaint/contracts/screens";
+} from "@ultrapaint/contracts/pages";
+import type { HostError, HostMessage } from "@ultrapaint/contracts/preview";
 import { PREVIEW_PROTOCOL } from "@ultrapaint/framework-api/protocol";
 import { cn } from "cn";
 import { AlertTriangle } from "lucide-react";
@@ -18,8 +18,8 @@ import {
 import { OptionSelect } from "../components/option-select.tsx";
 import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
-import { findBySource, findNode, stepInto } from "../state/tree.ts";
 import { reportError, useProject } from "../state/project.ts";
+import { findBySource, findNode, stepInto } from "../state/tree.ts";
 import { bridgeFor, removeBridge } from "./bridge.ts";
 
 const presets: { value: ViewportPreset; label: string }[] = [
@@ -38,12 +38,12 @@ const formatHostError = (error: HostError) => {
 };
 
 /** Writes an inline text edit from the host back to the source of the selected node. */
-const commitText = (screenId: string, text: string) => {
+const commitText = (pageId: string, text: string) => {
   const store = useEditor.getState;
   const sel = store().selection;
   const node =
-    sel?.screenId === screenId
-      ? findBySource(store().trees[screenId], sel.source as never)
+    sel?.pageId === pageId
+      ? findBySource(store().trees[pageId], sel.source as never)
       : null;
   const source = node?.source ?? sel?.source ?? null;
   if (!source) {
@@ -69,27 +69,29 @@ interface Props {
   hostUrl: string | null;
   onDragStart: (
     e: ReactPointerEvent,
-    screenId: string,
+    pageId: string,
     kind: "move" | "resize"
   ) => void;
-  screen: Screen;
+  page: Page;
   visible: boolean;
   zoom: number;
 }
 
 export const Frame = memo(
-  ({ screen, frame, hostUrl, zoom, visible, onDragStart }: Props) => {
+  ({ page, frame, hostUrl, zoom, visible, onDragStart }: Props) => {
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const mode = useEditor((s) => s.mode);
     const spacePan = useEditor((s) => s.spacePan);
     const selection = useEditor((s) => s.selection);
     const hover = useEditor((s) => s.hover);
-    const rects = useEditor((s) => s.rects[screen.id]);
-    const tree = useEditor((s) => s.trees[screen.id]);
-    const hostError = useEditor((s) => s.hostErrors[screen.id]);
-    const isActive = useEditor((s) => s.activeScreen === screen.id);
+    const rects = useEditor((s) => s.rects[page.id]);
+    const tree = useEditor((s) => s.trees[page.id]);
+    const hostError = useEditor((s) => s.hostErrors[page.id]);
+    const isActive = useEditor((s) => s.activePage === page.id);
+    // One frame, one page: the canvas shows every route of the space at once, so a frame stays
+    // on its own route and a link pressed inside it moves the editor, not the frame.
     const url = hostUrl
-      ? `${hostUrl}/?screen=${encodeURIComponent(screen.id)}`
+      ? `${hostUrl}/?space=${encodeURIComponent(page.space)}&route=${encodeURIComponent(page.route)}&frame=${encodeURIComponent(page.id)}`
       : null;
     const inv = 1 / zoom;
 
@@ -101,7 +103,7 @@ export const Frame = memo(
       if (!(iframe && visible && url)) {
         return;
       }
-      const bridge = bridgeFor(screen.id);
+      const bridge = bridgeFor(page.id);
       bridge.attach(iframe);
       const store = useEditor.getState;
       const off = bridge.on((msg: HostMessage) => {
@@ -111,7 +113,7 @@ export const Frame = memo(
             // would then misread what the editor sends.
             if ((msg.protocol ?? PREVIEW_PROTOCOL) !== PREVIEW_PROTOCOL) {
               store().setHostError(
-                screen.id,
+                page.id,
                 `The preview speaks protocol ${msg.protocol}, the editor ${PREVIEW_PROTOCOL}. Update the framework package installed in the repository.`
               );
               break;
@@ -120,31 +122,36 @@ export const Frame = memo(
             if (Object.keys(store().tokens).length === 0) {
               bridge.requestTokens();
             }
-            // A screen that reloads (or arrives late) has to be told the current mode: it starts
+            // A page that reloads (or arrives late) has to be told the current mode: it starts
             // out interactive so that a preview opened on its own still works.
             bridge.setInteractive(isInteractive(store()));
-            store().setHostError(screen.id, null);
+            store().setHostError(page.id, null);
             break;
           case "ed:tree":
-            store().setTree(screen.id, msg.tree);
+            store().setTree(page.id, msg.tree);
             break;
           case "ed:rects":
-            store().setRects(screen.id, msg.rects);
+            store().setRects(page.id, msg.rects);
             break;
           case "ed:hmr": {
-            store().setHostError(screen.id, null);
+            store().setHostError(page.id, null);
             bridge.requestTree();
             bridge.requestTokens();
             break;
           }
           case "ed:error":
-            store().setHostError(screen.id, formatHostError(msg.error));
+            store().setHostError(page.id, formatHostError(msg.error));
             break;
           case "ed:tokens":
             store().setTokens(msg.tokens);
             break;
           case "ed:textCommit":
-            commitText(screen.id, msg.text);
+            commitText(page.id, msg.text);
+            break;
+          case "ed:navigateTo":
+            // The frame keeps its page; the editor goes where the link pointed, which brings
+            // the target frame's own preview forward.
+            store().navigate(msg.route, { push: !msg.replace });
             break;
           default:
             break;
@@ -152,19 +159,19 @@ export const Frame = memo(
       });
       return () => {
         off();
-        removeBridge(screen.id);
+        removeBridge(page.id);
       };
-    }, [screen.id, visible, url]);
+    }, [page.id, visible, url]);
 
-    // Outside interact mode the screen is a picture: pointer events are off on the iframe, and
+    // Outside interact mode the page is a picture: pointer events are off on the iframe, and
     // the runtime swallows whatever else could reach a component (keys sent to an element that
     // still holds focus, the click Enter synthesises on it).
     useEffect(() => {
       if (!(visible && url)) {
         return;
       }
-      bridgeFor(screen.id).setInteractive(mode === "interact" && !spacePan);
-    }, [screen.id, visible, url, mode, spacePan]);
+      bridgeFor(page.id).setInteractive(mode === "interact" && !spacePan);
+    }, [page.id, visible, url, mode, spacePan]);
 
     // Keep the selection attached to the same source after HMR (ids can change on remount).
     // Only once the node it names is gone: a source does not name one node. Every item of a
@@ -175,7 +182,7 @@ export const Frame = memo(
     useEffect(() => {
       if (
         !(tree && selection) ||
-        selection.screenId !== screen.id ||
+        selection.pageId !== page.id ||
         !selection.source ||
         findNode(tree, selection.nodeId)
       ) {
@@ -187,7 +194,7 @@ export const Frame = memo(
       if (node && node.id !== selection.nodeId) {
         useEditor.getState().select({ ...selection, nodeId: node.id });
       }
-    }, [tree, selection, screen.id]);
+    }, [tree, selection, page.id]);
 
     // Rect watching for hover + selection; re-sent whenever the tree changes (HMR remounts).
     useEffect(() => {
@@ -195,14 +202,14 @@ export const Frame = memo(
         return;
       }
       const ids: string[] = [];
-      if (selection?.screenId === screen.id) {
+      if (selection?.pageId === page.id) {
         ids.push(selection.nodeId);
       }
-      if (hover?.screenId === screen.id) {
+      if (hover?.pageId === page.id) {
         ids.push(hover.nodeId);
       }
-      bridgeFor(screen.id).watchRects(ids);
-    }, [screen.id, selection, hover, tree]);
+      bridgeFor(page.id).watchRects(ids);
+    }, [page.id, selection, hover, tree]);
 
     // Pointer interaction in select mode.
     const lastHit = useRef(0);
@@ -213,13 +220,11 @@ export const Frame = memo(
     /** The node a pointer event at this position means, given what is selected. */
     const nodeAt = async (e: ReactPointerEvent | ReactMouseEvent) => {
       const { x, y } = toFrame(e);
-      const chain = await bridgeFor(screen.id).hitTest(x, y);
+      const chain = await bridgeFor(page.id).hitTest(x, y);
       const store = useEditor.getState();
       const selected =
-        store.selection?.screenId === screen.id
-          ? store.selection.nodeId
-          : null;
-      return stepInto(chain, store.trees[screen.id], selected, e.altKey);
+        store.selection?.pageId === page.id ? store.selection.nodeId : null;
+      return stepInto(chain, store.trees[page.id], selected, e.altKey);
     };
     const onMove = async (e: ReactPointerEvent) => {
       const now = performance.now();
@@ -230,38 +235,38 @@ export const Frame = memo(
       const id = await nodeAt(e);
       const store = useEditor.getState();
       if (id) {
-        store.setHover({ nodeId: id, screenId: screen.id });
-      } else if (store.hover?.screenId === screen.id) {
+        store.setHover({ nodeId: id, pageId: page.id });
+      } else if (store.hover?.pageId === page.id) {
         store.setHover(null);
       }
     };
     const select = (id: string) => {
       const store = useEditor.getState();
-      const t = store.trees[screen.id];
+      const t = store.trees[page.id];
       const node = t ? findNode(t, id) : null;
       store.select({
         nodeId: id,
-        screenId: screen.id,
+        pageId: page.id,
         source: node?.source ?? null,
       });
     };
     const onClick = async (e: ReactMouseEvent) => {
-      // Keyboard activation (Enter/Space) has no pointer position to hit-test: it only activates the screen.
+      // Keyboard activation (Enter/Space) has no pointer position to hit-test: it only picks
+      // the frame, which is also what a click on nothing inside it means.
       if (e.detail === 0) {
-        useEditor.getState().setActiveScreen(screen.id);
+        useEditor.getState().selectPage(page.id);
         return;
       }
       const id = await nodeAt(e);
-      useEditor.getState().setActiveScreen(screen.id);
       if (id) {
         select(id);
       } else {
-        useEditor.getState().select(null);
+        useEditor.getState().selectPage(page.id);
       }
     };
     const onDoubleClick = async (e: ReactMouseEvent) => {
       const { x, y } = toFrame(e);
-      const bridge = bridgeFor(screen.id);
+      const bridge = bridgeFor(page.id);
       // Text is edited where it is written, whatever the two clicks before this selected.
       const id = (await bridge.hitTest(x, y)).at(-1);
       if (id) {
@@ -272,22 +277,22 @@ export const Frame = memo(
 
     const onPointerLeave = () => {
       const s = useEditor.getState();
-      if (s.hover?.screenId === screen.id) {
+      if (s.hover?.pageId === page.id) {
         s.setHover(null);
       }
     };
 
     const selectedRect =
-      selection?.screenId === screen.id ? rects?.[selection.nodeId] : undefined;
+      selection?.pageId === page.id ? rects?.[selection.nodeId] : undefined;
     const hoverRect =
-      hover?.screenId === screen.id && hover.nodeId !== selection?.nodeId
+      hover?.pageId === page.id && hover.nodeId !== selection?.nodeId
         ? rects?.[hover.nodeId]
         : undefined;
 
     return (
       <div
         className="absolute"
-        data-screen={screen.id}
+        data-page={page.id}
         style={{
           height: frame.height,
           left: frame.x,
@@ -300,7 +305,7 @@ export const Frame = memo(
           inv={inv}
           isActive={isActive}
           onDragStart={onDragStart}
-          screen={screen}
+          page={page}
         />
 
         <div className="absolute inset-0 overflow-hidden bg-white shadow-2xl">
@@ -313,7 +318,7 @@ export const Frame = memo(
                 pointerEvents:
                   mode === "interact" && !spacePan ? "auto" : "none",
               }}
-              title={screen.name}
+              title={page.name}
             />
           ) : (
             <div className="flex h-full items-center justify-center text-zinc-500">
@@ -322,7 +327,7 @@ export const Frame = memo(
           )}
           {mode === "select" && !spacePan && (
             <button
-              aria-label={`Select elements in ${screen.name}`}
+              aria-label={`Select elements in ${page.name}`}
               className="absolute inset-0 h-full w-full cursor-default"
               onClick={onClick}
               onDoubleClick={onDoubleClick}
@@ -350,7 +355,7 @@ export const Frame = memo(
 
         <div
           className="absolute cursor-nwse-resize rounded-sm bg-brand"
-          onPointerDown={(e) => onDragStart(e, screen.id, "resize")}
+          onPointerDown={(e) => onDragStart(e, page.id, "resize")}
           style={{
             bottom: -6 * inv,
             height: 10 * inv,
@@ -364,23 +369,23 @@ export const Frame = memo(
 );
 Frame.displayName = "Frame";
 
-/** Screen name, viewport preset and size above the frame, plus the frame's selection outline. */
+/** Page name, viewport preset and size above the frame, plus the frame's selection outline. */
 const FrameChrome = ({
-  screen,
+  page,
   frame,
   inv,
   isActive,
   onDragStart,
-}: Pick<Props, "frame" | "onDragStart" | "screen"> & {
+}: Pick<Props, "frame" | "onDragStart" | "page"> & {
   inv: number;
   isActive: boolean;
 }) => {
-  const isSelected = useEditor((s) => s.selectedScreen === screen.id);
+  const isSelected = useEditor((s) => s.selectedPage === page.id);
   const [titleHover, setTitleHover] = useState(false);
-  const selectScreen = () => useEditor.getState().selectScreen(screen.id);
+  const selectPage = () => useEditor.getState().selectPage(page.id);
   return (
     <>
-      {/* Chrome: constant screen size and distance from the frame regardless of zoom. */}
+      {/* Chrome: constant page size and distance from the frame regardless of zoom. */}
       <div
         className={cn(
           "absolute left-0 flex items-center gap-2 whitespace-nowrap",
@@ -398,19 +403,19 @@ const FrameChrome = ({
             "cursor-pointer select-none font-medium text-[12px] hover:text-foreground",
             isSelected && "text-brand hover:text-brand"
           )}
-          onClick={selectScreen}
-          onPointerDown={(e) => onDragStart(e, screen.id, "move")}
+          onClick={selectPage}
+          onPointerDown={(e) => onDragStart(e, page.id, "move")}
           onPointerEnter={() => setTitleHover(true)}
           onPointerLeave={() => setTitleHover(false)}
           type="button"
         >
-          {screen.name}
+          {page.name}
         </button>
         <div className="w-24">
           <OptionSelect
             className="border-transparent bg-transparent text-[11px] text-muted-foreground hover:border-input dark:bg-transparent"
             onChange={(v) =>
-              useEditor.getState().setPreset(screen.id, v as ViewportPreset)
+              useEditor.getState().setPreset(page.id, v as ViewportPreset)
             }
             options={presets}
             size="sm"

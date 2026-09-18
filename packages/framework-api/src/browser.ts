@@ -58,10 +58,20 @@ export interface Introspector {
   readonly tree: () => TreeNode[] | null;
 }
 
-/** What the generated entry module passes to a renderer's `renderToCanvas`. */
+/** One page of a space, as the preview sees it. */
+export interface PageRoute {
+  /** Imports the page module. */
+  readonly load: () => Promise<unknown>;
+  /** Path of the page inside its space, `settings/billing.tsx`. */
+  readonly path: string;
+  /** Route it serves, `/settings/billing`. */
+  readonly route: string;
+}
+
+/** What the preview core passes to a renderer's `renderToCanvas`. */
 export interface RenderInput {
-  /** The screen module's default export. */
-  readonly component: unknown;
+  /** The page to show, or null when no page of the space serves the route. */
+  readonly page: PageRoute | null;
   /** Default export of the providers module from the settings, when there is one. */
   readonly providers: unknown;
   /** Reports a render error to the editor. */
@@ -69,13 +79,52 @@ export interface RenderInput {
     readonly message: string;
     readonly stack?: string | undefined;
   }) => void;
+  readonly route: string;
 }
 
-/** Mounts a screen into the canvas element and returns how to unmount it. */
+/** A mounted space: the providers stay put, the page under them is swapped on navigation. */
+export interface Mounted {
+  readonly unmount: () => void;
+  readonly update: (input: Pick<RenderInput, "page" | "route">) => void;
+}
+
+/** Mounts a space's router into the canvas element at the route the editor holds. */
 export type RenderToCanvas = (
   input: RenderInput,
   canvas: HTMLElement
-) => () => void;
+) => Mounted;
+
+/** What the generated entry module hands the preview core to start the space's router. */
+export interface RouterInput {
+  /** Prefix of every glob key, up to the designs directory (`"../"`). */
+  readonly base: string;
+  readonly canvas: HTMLElement;
+  /** Every candidate page module of the designs directory, keyed by glob key. */
+  readonly modules: Record<string, () => Promise<unknown>>;
+  readonly mount: RenderToCanvas;
+  readonly providers: unknown;
+  /** Glob keys of the `space.json` files, which is what marks a directory as a space. */
+  readonly spaceFiles: readonly string[];
+}
+
+/** Where the space's router is, as a page sees it. */
+export interface RouterState {
+  readonly params: Readonly<Record<string, string>>;
+  readonly route: string;
+}
+
+/**
+ * What the preview core leaves on `window.__ED_ROUTER__` for the navigation module generated
+ * next to the designs. A page that finds nothing there is running outside ultrapaint and
+ * falls back to the browser's own history.
+ */
+export interface RouterBridge {
+  /** A route (`/settings/billing`) or a page inside the space (`settings/billing.tsx`). */
+  readonly navigate: (to: string, options?: { replace?: boolean }) => void;
+  /** One frozen object per navigation, so it can be read as an external store. */
+  readonly state: () => RouterState;
+  readonly subscribe: (listener: () => void) => () => void;
+}
 
 /** The surface the preview core leaves on `window.__ED__` for the generated entry module. */
 export interface PreviewGlobal {
@@ -86,6 +135,11 @@ export interface PreviewGlobal {
     readonly message: string;
     readonly stack?: string | undefined;
   }) => void;
-  /** Shows a message in place of the screen, without any framework. */
+  /** Shows a message in place of the page, without any framework. */
   readonly showMessage: (canvas: HTMLElement, message: string) => void;
+  /**
+   * Starts the space's router: the core works out which pages belong to the space, matches the
+   * route the editor holds and mounts the renderer under it.
+   */
+  readonly startRouter: (input: RouterInput) => void;
 }

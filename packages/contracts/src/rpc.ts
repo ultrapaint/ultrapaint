@@ -20,8 +20,8 @@ import {
   GitDiff,
   GitStatus,
 } from "./git.ts";
+import { CanvasLayout, Page, PageList, Space } from "./pages.ts";
 import { HostStatus, LogLine, ProjectInfo } from "./project.ts";
-import { CanvasLayout, Screen, ScreenList } from "./screens.ts";
 import {
   PersistInput,
   PersistResult,
@@ -41,11 +41,12 @@ import {
   ThreadItem,
 } from "./threads.ts";
 
-const ScreensError = Schema.Union([
+const PagesError = Schema.Union([
   NotConfigured,
   NotFound,
   Conflict,
   ForbiddenPath,
+  BadRequest,
 ]);
 const SourceError = Schema.Union([
   NotConfigured,
@@ -109,44 +110,51 @@ const requestRpcs = [
   Rpc.make("host.stop", { error: NotConfigured, success: HostStatus }),
   Rpc.make("logs.recent", { success: Schema.Array(LogLine) }),
 
-  Rpc.make("screens.list", { error: NotConfigured, success: ScreenList }),
-  Rpc.make("screens.templates", {
+  Rpc.make("pages.list", { error: NotConfigured, success: PageList }),
+  Rpc.make("pages.templates", {
     error: NotConfigured,
     success: Schema.Array(
       Schema.Struct({ id: Schema.String, name: Schema.String })
     ),
   }),
-  Rpc.make("screens.create", {
-    error: ScreensError,
+  // The route is what the user typed: `/settings/billing`, or `billing` for a page beside it.
+  Rpc.make("pages.create", {
+    error: PagesError,
     payload: {
-      flow: Schema.String,
-      name: Schema.String,
+      route: Schema.String,
+      space: Schema.String,
       template: Schema.optional(Schema.String),
     },
-    success: Screen,
+    success: Page,
   }),
-  Rpc.make("screens.rename", {
-    error: ScreensError,
-    payload: { id: Schema.String, name: Schema.String },
-    success: Screen,
+  /** Moves the page to another route, creating the directories the route needs. */
+  Rpc.make("pages.rename", {
+    error: PagesError,
+    payload: { id: Schema.String, route: Schema.String },
+    success: Page,
   }),
-  Rpc.make("screens.duplicate", {
-    error: ScreensError,
+  Rpc.make("pages.duplicate", {
+    error: PagesError,
     payload: { id: Schema.String },
-    success: Screen,
+    success: Page,
   }),
-  Rpc.make("screens.delete", {
-    error: ScreensError,
+  Rpc.make("pages.delete", {
+    error: PagesError,
     payload: { id: Schema.String },
+  }),
+  Rpc.make("spaces.create", {
+    error: PagesError,
+    payload: { name: Schema.String },
+    success: Space,
   }),
   Rpc.make("canvas.get", {
-    error: ScreensError,
-    payload: { flow: Schema.String },
+    error: PagesError,
+    payload: { space: Schema.String },
     success: CanvasLayout,
   }),
   Rpc.make("canvas.set", {
-    error: ScreensError,
-    payload: { flow: Schema.String, layout: CanvasLayout },
+    error: PagesError,
+    payload: { layout: CanvasLayout, space: Schema.String },
   }),
 
   Rpc.make("source.read", {
@@ -243,13 +251,13 @@ const requestRpcs = [
 /** Everything the server pushes. Each is a stream that stays open for the life of the socket. */
 export const eventSchemas = {
   agent: AgentEvent,
-  canvas: Schema.Struct({ flow: Schema.String, layout: CanvasLayout }),
+  canvas: Schema.Struct({ layout: CanvasLayout, space: Schema.String }),
   "edit.state": UndoState,
   "file.changed": Schema.Struct({ file: Schema.String, hash: Schema.String }),
   git: GitStatus,
   log: LogLine,
+  pages: PageList,
   project: ProjectInfo,
-  screens: ScreenList,
 } as const;
 
 const eventRpcs = [
@@ -266,7 +274,7 @@ const eventRpcs = [
   Rpc.make("events.git", { stream: true, success: eventSchemas.git }),
   Rpc.make("events.log", { stream: true, success: eventSchemas.log }),
   Rpc.make("events.project", { stream: true, success: eventSchemas.project }),
-  Rpc.make("events.screens", { stream: true, success: eventSchemas.screens }),
+  Rpc.make("events.pages", { stream: true, success: eventSchemas.pages }),
 ] as const;
 
 export class UltrapaintRpcs extends RpcGroup.make(...requestRpcs, ...eventRpcs) {}

@@ -1,5 +1,5 @@
 /**
- * What a framework gives the server, on the Node side: how screens are written, how their
+ * What a framework gives the server, on the Node side: how pages are written, how their
  * source is edited, how components are catalogued and how the preview is built. The server
  * knows repositories, files and the editor's protocol; everything that depends on the UI
  * framework or its bundler comes through this interface, as a Storybook framework package
@@ -50,15 +50,33 @@ export interface SourceEditor {
   ) => SourceLocation | null;
 }
 
-export interface ScreenFiles {
-  /** A copy of a screen under a new file name: the component is renamed with the file. */
+/** What a page template is rendered against. */
+export interface PageTemplateInput {
+  /** File name of the page, with its extension. */
+  readonly fileName: string;
+  /** Route the page serves inside its space. */
+  readonly route: string;
+  /** Specifier the page imports the navigation module by, relative to itself. */
+  readonly routerImport: string;
+}
+
+export interface PageFiles {
+  /** A copy of a page under a new file name: the component is renamed with the file. */
   readonly duplicate: (content: string, from: string, to: string) => string;
-  /** File extension of a screen, with the dot. */
+  /** File extension of a page, with the dot. */
   readonly extension: string;
   /** File name for what the user typed: `Sign in` becomes `sign-in.tsx`. */
   readonly fileName: (name: string) => string;
-  readonly isScreenFile: (fileName: string) => boolean;
-  readonly render: (templateId: string, fileName: string) => string;
+  readonly isPageFile: (fileName: string) => boolean;
+  readonly render: (templateId: string, input: PageTemplateInput) => string;
+  /**
+   * The navigation module pages import: written into the designs directory once and never
+   * overwritten, so a page still compiles in the repository with no ultrapaint around it.
+   */
+  readonly routerModule: {
+    readonly content: string;
+    readonly fileName: string;
+  };
   readonly templates: readonly { readonly id: string; readonly name: string }[];
 }
 
@@ -86,7 +104,7 @@ export interface CatalogueBuilder {
 }
 
 export interface PreviewInput {
-  /** Package the screens resolve their imports from. Absolute. */
+  /** Package the pages resolve their imports from. Absolute. */
   readonly anchorDir: string;
   /** Absolute. */
   readonly designsDir: string;
@@ -121,8 +139,8 @@ export interface Framework {
   /** Synchronous and read-only: it looks at manifests and file names, never runs anything. */
   readonly detect: Detect;
   readonly id: string;
+  readonly pages: PageFiles;
   readonly preview: PreviewBuilder;
-  readonly screens: ScreenFiles;
   readonly source: SourceEditor;
 }
 

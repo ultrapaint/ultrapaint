@@ -17,8 +17,8 @@ const setup = (found: Record<string, string> = {}) => {
   return { call, resolve };
 };
 
-describe("resolving screens from the anchor package", () => {
-  it("resolves a screen's bare import as if the anchor imported it", async () => {
+describe("resolving pages from the anchor package", () => {
+  it("resolves a page's bare import as if the anchor imported it", async () => {
     const { call, resolve } = setup({
       "@acme/ui": "/repo/packages/ui/src/index.ts",
     });

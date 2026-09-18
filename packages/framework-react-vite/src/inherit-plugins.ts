@@ -1,10 +1,10 @@
-/** Which plugins of the anchor's own Vite config a preview of single screens can run. */
+/** Which plugins of the anchor's own Vite config a preview of a space's pages can run. */
 
 export interface NamedPlugin {
   name?: string;
 }
 
-// Plugins of an application's dev server that a preview of single screens must not run:
+// Plugins of an application's dev server that a preview of a space's pages must not run:
 // server frameworks and their routers, deployment adapters, error reporting, build reports.
 const DROPPED_PLUGIN_RE =
   /tanstack|react-router|remix|vike|vinxi|nitro|cloudflare|netlify|vercel|sentry|pwa|workbox|legacy|checker|inspect|visualizer|analyz|mkcert|basic-ssl|federation|storybook|vitest|devtools|validate-env|delete-source-?maps/i;

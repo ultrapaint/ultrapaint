@@ -6,7 +6,7 @@ source files, and agents such as Claude Code and Codex work on them next to you 
 [ACP](https://agentclientprotocol.com).
 
 Nothing is installed in your repository and nothing leaves your machine: the tool runs a local
-server, reads your components where they are, and writes screens as `.tsx` files you review and
+server, reads your components where they are, and writes pages as `.tsx` files you review and
 commit like any other code.
 
 ## Installation
@@ -67,11 +67,11 @@ It keeps its settings in `~/.ultrapaint`, whichever directory it is started from
 ## First run
 
 Start `ultrapaint` inside a repository and the setup looks at it for you: it proposes the
-component library, the package your screens will resolve their imports from, the stylesheet that
-sets up your design system, and a directory for the screens (`docs/designs` unless you already
+component library, the package your pages will resolve their imports from, the stylesheet that
+sets up your design system, and a directory for the designs (`docs/designs` unless you already
 have one). Confirm or change the proposals, let it create the directory, and the canvas opens.
 
-Screens need no package of their own and nothing is installed for them. They import what the
+Pages need no package of their own and nothing is installed for them. They import what the
 package you picked can import, and render with your repository's own React and Vite.
 
 Started like this, without a configuration file, the top bar says **Not saved**: your settings
@@ -85,7 +85,31 @@ person only runs `ultrapaint`.
 | neither | not saved until you save a configuration | a temporary directory |
 | `--home <dir>` (the desktop app) | `<dir>/settings.json` | `<dir>` |
 
-Your screens are files in your repository and are written there in every case.
+Your pages are files in your repository and are written there in every case.
+
+## Pages, routes and spaces
+
+A **page** is a `.tsx` file in the designs directory, and its path is its route, the way every
+React router does it: `index.tsx` is `/`, `settings/billing.tsx` is `/settings/billing`,
+`invoices/[id].tsx` is `/invoices/:id`. The **Pages** panel is that route tree.
+
+Pages navigate through `_router.tsx`, written next to them the first time you create a page and
+never overwritten:
+
+```tsx
+import { Link, useNavigate, useParams, useRoute } from "./_router.tsx";
+
+<Link to="/settings/billing">Billing</Link>;
+```
+
+It is plain React with nothing of ultrapaint in it, so the page still compiles in your
+repository. In the **prototype** workspace the whole thing is one iframe: pressing a link swaps
+the page inside it, provider and component state survives, and the route is in the editor's own
+URL — so the browser's back and forward buttons are the prototype's, and a prototype state can
+be reloaded or pasted to someone else.
+
+A **space** owns one router, one canvas and its own pages; a page of one space cannot navigate
+to a page of another. The designs directory is one space until a `space.json` says otherwise.
 
 ## Some notes
 
@@ -100,6 +124,7 @@ supported.
 - [What the project is for](docs/PROJECT-GOAL.md)
 - [Where settings and state are kept](docs/adr/0010-storage-modes.md)
 - [How the preview is built: editor, preview core, renderer, framework](docs/adr/0011-preview-split.md)
+- [Spaces, pages and the router](docs/adr/0012-spaces-pages-router.md)
 - [All architecture decisions](docs/adr/README.md)
 - [Work definition](docs/discuss/work-definition.md) and [implementation plan](docs/PLAN.md)
 
@@ -117,11 +142,11 @@ pnpm test && pnpm typecheck && pnpm lint
 `--config` or `--ephemeral`. Read [`AGENTS.md`](AGENTS.md) before writing server code.
 
 - `apps/web` — the editor (React, Tailwind, Base UI). No Electron imports.
-- `apps/server` — local backend on the Effect 4 runtime: settings, preview host, screens, source edits, git, ACP threads.
+- `apps/server` — local backend on the Effect 4 runtime: settings, preview host, pages and spaces, source edits, git, ACP threads.
 - `apps/desktop` — Electron shell: runs the server and loads the web bundle, adds a folder picker.
 - `packages/contracts` — Effect Schema for everything on the wire, and the `RpcGroup` that is the editor's API.
 - `packages/framework-api` — what a renderer gives the preview and what a framework gives the server.
-- `packages/preview-core` — the framework-neutral runtime injected into every screen iframe.
+- `packages/preview-core` — the framework-neutral runtime injected into every preview iframe, and the space's router.
 - `packages/renderer-react` — React's tree introspection and `renderToCanvas`, run with the repository's own React.
 - `packages/framework-react-vite` — the Node side for React + Vite: JSX stamping and editing, catalogue extraction, repository detection, the preview server.
 - `packages/acp` — the only module that imports the ACP SDK, behind an `AcpAgent` Effect interface; agent launch configs are data.

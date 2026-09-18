@@ -47,7 +47,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
     it.effect("fails project requests with a typed NotConfigured", () =>
       Effect.gen(function* () {
         const { client } = yield* TestEnv;
-        const error = yield* Effect.flip(client["screens.list"]());
+        const error = yield* Effect.flip(client["pages.list"]());
         assert.strictEqual(error._tag, "NotConfigured");
       })
     );
@@ -103,37 +103,57 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         })
     );
 
-    it.effect("lists screens and pushes the list when one is created", () =>
+    it.effect(
+      "lists the pages of the one space and pushes the list when one is created",
+      () =>
+        Effect.gen(function* () {
+          const { client } = yield* TestEnv;
+          const before = yield* client["pages.list"]();
+          assert.deepStrictEqual(
+            before.pages.map((p) => [p.id, p.route]),
+            [["home.tsx", "/home"]]
+          );
+          // No space.json anywhere: the designs directory is itself the one space.
+          assert.deepStrictEqual(
+            before.spaces.map((s) => s.id),
+            [""]
+          );
+          const { event, result } = yield* nextEvent(
+            client["events.pages"](),
+            client["pages.create"]({
+              route: "/onboarding/sign-in",
+              space: "",
+            })
+          );
+          assert.strictEqual(result.id, "onboarding/sign-in.tsx");
+          assert.strictEqual(result.route, "/onboarding/sign-in");
+          const ids =
+            event._tag === "Some" ? event.value.pages.map((p) => p.id) : [];
+          assert.include(ids, "onboarding/sign-in.tsx");
+        })
+    );
+
+    it.effect("writes the navigation module pages import, once", () =>
       Effect.gen(function* () {
-        const { client } = yield* TestEnv;
-        const before = yield* client["screens.list"]();
-        assert.deepStrictEqual(
-          before.screens.map((s) => s.id),
-          ["home.tsx"]
-        );
-        const { event, result } = yield* nextEvent(
-          client["events.screens"](),
-          client["screens.create"]({ flow: "onboarding", name: "Sign In" })
-        );
-        assert.strictEqual(result.id, "onboarding/sign-in.tsx");
-        assert.strictEqual(result.flow, "onboarding");
-        const ids =
-          event._tag === "Some" ? event.value.screens.map((s) => s.id) : [];
-        assert.include(ids, "onboarding/sign-in.tsx");
+        const { repo } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        const file = path.join(repo, "designs/_router.tsx");
+        assert.isTrue(yield* fs.exists(file));
+        assert.include(yield* fs.readFileString(file), "export function Link");
       })
     );
 
-    it.effect("refuses a second screen with the same name", () =>
+    it.effect("refuses a second page on the same route", () =>
       Effect.gen(function* () {
         const { client } = yield* TestEnv;
         const error = yield* Effect.flip(
-          client["screens.create"]({ flow: "onboarding", name: "Sign In" })
+          client["pages.create"]({ route: "onboarding/sign-in", space: "" })
         );
         assert.strictEqual(error._tag, "Conflict");
       })
     );
 
-    it.effect("moves the canvas frame with a renamed screen", () =>
+    it.effect("moves the canvas frame with a page sent to another route", () =>
       Effect.gen(function* () {
         const { client } = yield* TestEnv;
         const frame = {
@@ -144,21 +164,23 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           y: 20,
         } as const;
         yield* client["canvas.set"]({
-          flow: "onboarding",
-          layout: { frames: { "sign-in.tsx": frame }, version: 1 },
+          layout: { frames: { "onboarding/sign-in.tsx": frame }, version: 1 },
+          space: "",
         });
-        const renamed = yield* client["screens.rename"]({
+        const renamed = yield* client["pages.rename"]({
           id: "onboarding/sign-in.tsx",
-          name: "Log In",
+          route: "/onboarding/log-in",
         });
         assert.strictEqual(renamed.id, "onboarding/log-in.tsx");
-        const layout = yield* client["canvas.get"]({ flow: "onboarding" });
-        assert.deepStrictEqual(layout.frames, { "log-in.tsx": frame });
+        const layout = yield* client["canvas.get"]({ space: "" });
+        assert.deepStrictEqual(layout.frames, {
+          "onboarding/log-in.tsx": frame,
+        });
       })
     );
 
     it.effect(
-      "pushes file.changed when a screen is edited outside the editor",
+      "pushes file.changed when a page is edited outside the editor",
       () =>
         Effect.gen(function* () {
           const { client, repo } = yield* TestEnv;
@@ -293,22 +315,22 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         Effect.gen(function* () {
           const { client } = yield* TestEnv;
           const { event, result } = yield* nextEvent(
-            client["events.screens"](),
+            client["events.pages"](),
             Effect.gen(function* () {
               // Reading a directory is an I/O error no wire error describes: a defect.
               const broken = yield* Effect.exit(
                 client["source.read"]({ file: "designs" })
               );
-              yield* client["screens.create"]({
-                flow: "",
-                name: "After Defect",
+              yield* client["pages.create"]({
+                route: "/after-defect",
+                space: "",
               });
               return broken;
             })
           );
           assert.strictEqual(result._tag, "Failure");
           const ids =
-            event._tag === "Some" ? event.value.screens.map((s) => s.id) : [];
+            event._tag === "Some" ? event.value.pages.map((p) => p.id) : [];
           assert.include(ids, "after-defect.tsx");
           assert.isTrue((yield* client.health()).ok);
         })
@@ -356,6 +378,27 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           const state = yield* client["edit.state"]();
           assert.isUndefined(state.invalidated);
           assert.isTrue(state.canRedo);
+        })
+    );
+
+    it.effect(
+      "gives the implicit space a name of its own when a second one is created",
+      () =>
+        Effect.gen(function* () {
+          const { client, repo } = yield* TestEnv;
+          const fs = yield* FileSystem.FileSystem;
+          const space = yield* client["spaces.create"]({ name: "Marketing" });
+          assert.strictEqual(space.id, "marketing");
+          // The pages of the root would otherwise belong to no space at all.
+          assert.isTrue(
+            yield* fs.exists(path.join(repo, "designs/space.json"))
+          );
+          const { pages, spaces } = yield* client["pages.list"]();
+          assert.deepStrictEqual(spaces.map((sp) => sp.id).sort(), [
+            "",
+            "marketing",
+          ]);
+          assert.isTrue(pages.every((p) => p.space === ""));
         })
     );
 

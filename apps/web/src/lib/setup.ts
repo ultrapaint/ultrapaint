@@ -1,7 +1,7 @@
 import type { Settings } from "@ultrapaint/contracts/settings";
 import type { SetupSuggestions } from "@ultrapaint/contracts/setup";
 
-/** Where new screens go when the repository has no designs directory yet. */
+/** Where new pages go when the repository has no designs directory yet. */
 export const DEFAULT_DESIGNS_DIR = "docs/designs";
 
 /** Directory the preview is generated into; host CSS imports are written relative to it. */
@@ -34,7 +34,7 @@ export const applySuggestions = (
   const designsDir = found.designsDirs[0] ?? DEFAULT_DESIGNS_DIR;
   const [anchor] = found.anchors;
   const [library] = found.libraries;
-  // A stylesheet of the designs directory itself wins: it was written for the screens.
+  // A stylesheet of the designs directory itself wins: it was written for the pages.
   const css =
     found.cssEntries.find((file) => file.startsWith(`${designsDir}/`)) ??
     found.cssEntries[0];
@@ -61,7 +61,7 @@ export const describeSuggestions = (found: SetupSuggestions): string => {
     library ? `component library ${library.name}` : null,
     anchor ? `imports resolved from ${anchor.name} (${anchor.reason})` : null,
     found.designsDirs[0]
-      ? `screens in ${found.designsDirs[0]}`
+      ? `pages in ${found.designsDirs[0]}`
       : `no designs directory yet, proposing ${DEFAULT_DESIGNS_DIR}`,
   ].filter(Boolean);
   return `Found in ${found.repoName}: ${parts.join("; ")}.`;
