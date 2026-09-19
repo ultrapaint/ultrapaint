@@ -38,6 +38,11 @@ export interface ProjectionContext {
   readonly hasItem: (itemId: string) => boolean;
   readonly newId: () => string;
   readonly now: number;
+  /**
+   * Agents name the files they touch by absolute path; the editor knows its pages by their path
+   * in the repository. Everything that crosses the wire is repository-relative.
+   */
+  readonly relative: (path: string) => string;
   /** Mutated as chunks arrive. `null` outside a turn, where every chunk starts a new item. */
   readonly turn: TurnCursor | null;
 }
@@ -53,7 +58,10 @@ interface RawToolContent {
 }
 
 /** Keeps what the editor can show by itself: text, a file's diff, a terminal to follow. */
-export const toolContent = (c: RawToolContent): ToolContent => {
+export const toolContent = (
+  c: RawToolContent,
+  ctx: ProjectionContext
+): ToolContent => {
   switch (c.type) {
     case "content":
       return {
@@ -66,7 +74,7 @@ export const toolContent = (c: RawToolContent): ToolContent => {
     case "diff":
       return {
         newText: c.newText ?? "",
-        path: c.path ?? "",
+        path: ctx.relative(c.path ?? ""),
         type: "diff",
         ...(c.oldText === null || c.oldText === undefined
           ? {}
@@ -80,10 +88,14 @@ export const toolContent = (c: RawToolContent): ToolContent => {
 };
 
 const toolLocations = (
-  locations: readonly { readonly line?: number | null; readonly path: string }[]
+  locations: readonly {
+    readonly line?: number | null;
+    readonly path: string;
+  }[],
+  ctx: ProjectionContext
 ): ToolLocation[] =>
   locations.map((l) => ({
-    path: l.path,
+    path: ctx.relative(l.path),
     ...(l.line === null || l.line === undefined ? {} : { line: l.line }),
   }));
 
@@ -158,14 +170,16 @@ type ToolUpdate = Extract<
 
 const toolItem = (
   u: ToolUpdate,
-  now: number,
+  ctx: ProjectionContext,
   fallback: { status: "pending" | "in_progress"; title: string }
 ): ThreadItem => ({
-  at: now,
-  content: ((u.content ?? []) as RawToolContent[]).map(toolContent),
+  at: ctx.now,
+  content: ((u.content ?? []) as RawToolContent[]).map((c) =>
+    toolContent(c, ctx)
+  ),
   id: `tool_${u.toolCallId}`,
   kind: "tool",
-  locations: toolLocations(u.locations ?? []),
+  locations: toolLocations(u.locations ?? [], ctx),
   status: u.status ?? fallback.status,
   title: u.title ?? fallback.title,
   toolCallId: u.toolCallId,
@@ -178,7 +192,7 @@ const projectToolUpdate = (
 ): TranscriptAction[] => {
   const itemId = `tool_${u.toolCallId}`;
   if (!ctx.hasItem(itemId)) {
-    const item = toolItem(u, ctx.now, {
+    const item = toolItem(u, ctx, {
       status: "in_progress",
       title: "Tool call",
     });
@@ -192,9 +206,13 @@ const projectToolUpdate = (
           ? {
               ...i,
               content: u.content
-                ? (u.content as RawToolContent[]).map(toolContent)
+                ? (u.content as RawToolContent[]).map((c) =>
+                    toolContent(c, ctx)
+                  )
                 : i.content,
-              locations: u.locations ? toolLocations(u.locations) : i.locations,
+              locations: u.locations
+                ? toolLocations(u.locations, ctx)
+                : i.locations,
               status: u.status ?? i.status,
               title: u.title ?? i.title,
             }
@@ -262,7 +280,7 @@ export const projectUpdate = (
         ctx.turn.agentItemId = null;
         ctx.turn.thoughtItemId = null;
       }
-      const item = toolItem(u, ctx.now, { status: "pending", title: u.title });
+      const item = toolItem(u, ctx, { status: "pending", title: u.title });
       return [{ item, type: "push" }];
     }
     case "tool_call_update":

@@ -20,6 +20,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { AgentActivityStrip } from "./canvas/agent-activity-strip.tsx";
 import { AgentChanges } from "./canvas/agent-changes.tsx";
 import { installBridgeRouter } from "./canvas/bridge.ts";
 import { Canvas } from "./canvas/canvas.tsx";
@@ -363,6 +364,7 @@ export const App = () => {
               <WorkspaceSwitcher />
               <CanvasStatus />
               <div className="absolute inset-x-0 bottom-4 z-10 flex flex-col items-center gap-2">
+                <AgentActivityStrip />
                 <AgentChanges />
                 {workspace === "prototype" ? <PrototypeBar /> : <Toolbar />}
               </div>

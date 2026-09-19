@@ -9,11 +9,13 @@ import {
 import { useComments } from "../state/comments.ts";
 import { useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
+import { useFollowAgent } from "./agent-presence.tsx";
 import { Frame, useHostUrl } from "./frame.tsx";
 
 const clampZoom = (z: number) => Math.min(4, Math.max(0.05, z));
 
 export const Canvas = () => {
+  useFollowAgent();
   const ref = useRef<HTMLDivElement>(null);
   const view = useEditor((s) => s.view);
   const frames = useEditor((s) => s.frames);

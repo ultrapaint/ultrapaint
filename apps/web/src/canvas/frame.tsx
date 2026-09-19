@@ -21,6 +21,7 @@ import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { findBySource, findNode, stepInto } from "../state/tree.ts";
+import { FramePresence } from "./agent-presence.tsx";
 import { bridgeFor, removeBridge } from "./bridge.ts";
 import { commentCursor, FrameComments } from "./comments.tsx";
 
@@ -481,6 +482,7 @@ const FrameChrome = ({
           }}
         />
       ) : null}
+      <FramePresence inv={inv} pageId={page.id} />
     </>
   );
 };

@@ -174,7 +174,8 @@ export class ThreadService extends Context.Service<
       const onUpdate = Effect.fnUntraced(function* (
         threadId: string,
         session: Live,
-        update: Parameters<typeof projectUpdate>[0]
+        update: Parameters<typeof projectUpdate>[0],
+        relative: (file: string) => string
       ) {
         if (session.replaying) {
           return;
@@ -185,6 +186,7 @@ export class ThreadService extends Context.Service<
           hasItem: (itemId) => store.hasItem(threadId, itemId),
           newId: () => ids.pop() ?? `item_${ids.length}`,
           now: yield* Clock.currentTimeMillis,
+          relative,
           turn: session.turn,
         });
         for (const action of actions) {
@@ -439,9 +441,13 @@ export class ThreadService extends Context.Service<
             }
           })
         );
+        // An agent names a file by absolute path; the editor knows it by its path in the
+        // repository, and a path outside it is left as it came.
+        const relative = (file: string) =>
+          path.isAbsolute(file) ? paths.relative(file) : file;
         yield* Effect.forkIn(
           session.agent.consumeUpdates((n) =>
-            onUpdate(threadId, session, n.update)
+            onUpdate(threadId, session, n.update, relative)
           ),
           scope
         );

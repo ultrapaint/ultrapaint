@@ -14,9 +14,12 @@ interface AgentsStore {
   changed: readonly string[];
   clearChanged: (files?: readonly string[]) => void;
   current: string | null;
+  /** Thread whose agent the canvas follows while it works. Off unless asked for. */
+  following: string | null;
   items: Record<string, readonly ThreadItem[]>;
   load: () => Promise<void>;
   open: (threadId: string | null) => Promise<void>;
+  setFollowing: (threadId: string | null) => void;
   /** Output of the terminals agents are running, by terminal id, as it arrives. */
   terminals: Record<string, string>;
   threads: readonly Thread[];
@@ -81,6 +84,7 @@ export const useAgents = create<AgentsStore>((set, get) => ({
           return {
             current:
               s.current === ev.threadId ? (threads[0]?.id ?? null) : s.current,
+            following: s.following === ev.threadId ? null : s.following,
             items,
             threads,
           };
@@ -94,6 +98,7 @@ export const useAgents = create<AgentsStore>((set, get) => ({
       changed: files ? s.changed.filter((f) => !files.includes(f)) : [],
     })),
   current: null,
+  following: null,
   items: {},
   load: async () => {
     try {
@@ -122,6 +127,7 @@ export const useAgents = create<AgentsStore>((set, get) => ({
       reportError(error);
     }
   },
+  setFollowing: (threadId) => set({ following: threadId }),
   terminals: {},
   threads: [],
 }));

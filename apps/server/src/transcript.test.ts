@@ -2,15 +2,26 @@ import { describe, expect, it } from "@effect/vitest";
 import { migrateStored } from "./services/threads/thread-store.ts";
 import { projectUpdate, toolContent } from "./services/threads/transcript.ts";
 
+const ctx = {
+  hasItem: () => false,
+  newId: () => "item_1",
+  now: 1000,
+  relative: (file: string) => file.replace("/repo/", ""),
+  turn: null,
+};
+
 describe("toolContent", () => {
   it("keeps a diff as a diff, so the editor can show the change", () => {
     expect(
-      toolContent({
-        newText: "after",
-        oldText: "before",
-        path: "designs/index.tsx",
-        type: "diff",
-      })
+      toolContent(
+        {
+          newText: "after",
+          oldText: "before",
+          path: "/repo/designs/index.tsx",
+          type: "diff",
+        },
+        ctx
+      )
     ).toEqual({
       newText: "after",
       oldText: "before",
@@ -20,7 +31,9 @@ describe("toolContent", () => {
   });
 
   it("keeps a terminal's id, so its output can be followed while it runs", () => {
-    expect(toolContent({ terminalId: "term_1", type: "terminal" })).toEqual({
+    expect(
+      toolContent({ terminalId: "term_1", type: "terminal" }, ctx)
+    ).toEqual({
       terminalId: "term_1",
       type: "terminal",
     });
@@ -28,9 +41,12 @@ describe("toolContent", () => {
 
   it("reads text out of a content block and names anything else", () => {
     expect(
-      toolContent({ content: { text: "hello", type: "text" }, type: "content" })
+      toolContent(
+        { content: { text: "hello", type: "text" }, type: "content" },
+        ctx
+      )
     ).toEqual({ text: "hello", type: "text" });
-    expect(toolContent({ type: "audio" })).toEqual({
+    expect(toolContent({ type: "audio" }, ctx)).toEqual({
       text: "[audio]",
       type: "text",
     });
@@ -38,17 +54,10 @@ describe("toolContent", () => {
 });
 
 describe("projectUpdate", () => {
-  const ctx = {
-    hasItem: () => false,
-    newId: () => "item_1",
-    now: 1000,
-    turn: null,
-  };
-
-  it("keeps the line of a location, which is what the canvas follows", () => {
+  it("keeps the line of a location and makes its path repository-relative", () => {
     const [action] = projectUpdate(
       {
-        locations: [{ line: 42, path: "designs/index.tsx" }],
+        locations: [{ line: 42, path: "/repo/designs/index.tsx" }],
         sessionUpdate: "tool_call",
         title: "Edit",
         toolCallId: "call_1",
