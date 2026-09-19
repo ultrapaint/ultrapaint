@@ -81,6 +81,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "edit.undo": () => edit((e) => e.undo),
 
       "events.agent": () => events.subscribe("agent"),
+      "events.agent.terminal": () => events.subscribe("agent.terminal"),
       "events.canvas": () => events.subscribe("canvas"),
       "events.comments": () => events.subscribe("comments"),
       "events.edit.state": () => events.subscribe("edit.state"),

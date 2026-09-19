@@ -163,8 +163,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             title: tool.title,
           },
           {
-            content: ["file body"],
-            locations: ["designs/home.tsx"],
+            content: [{ text: "file body", type: "text" }],
+            locations: [{ path: "designs/home.tsx" }],
             status: "completed",
             title: "Read home",
           }

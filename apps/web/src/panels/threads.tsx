@@ -3,6 +3,7 @@ import type {
   PromptAttachment,
   Thread,
   ThreadItem,
+  ToolContent,
 } from "@ultrapaint/contracts/threads";
 import { cn } from "cn";
 import {
@@ -30,6 +31,8 @@ import {
   type KeyboardEvent,
   type ReactNode,
   useEffect,
+  useMemo,
+  useRef,
   useState,
 } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -76,6 +79,12 @@ import { IconButton } from "../components/icon-button.tsx";
 import { Markdown } from "../components/markdown.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
+import {
+  type DiffRow,
+  diffCounts,
+  diffHunks,
+  lineDiff,
+} from "../lib/line-diff.ts";
 import { useAgents } from "../state/agents.ts";
 import { api } from "../state/connection.ts";
 import { type Selection, useEditor, type Workspace } from "../state/editor.ts";
@@ -322,6 +331,89 @@ const ChangedFileButton = ({ file }: { file: string }) => {
   );
 };
 
+const DIFF_SIGNS = { added: "+", removed: "-", same: " " } as const;
+
+const keyOfContent = (content: ToolContent, index: number) =>
+  content.type === "diff"
+    ? `diff:${content.path}:${index}`
+    : `${content.type}:${index}`;
+
+/** A terminal the agent is running: its output arrives while the command is still going. */
+const TerminalView = ({ terminalId }: { terminalId: string }) => {
+  const output = useAgents((s) => s.terminals[terminalId]);
+  const end = useRef<HTMLDivElement>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: follow the tail as it grows
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: "nearest" });
+  }, [output]);
+  return (
+    <pre className="max-h-48 select-text overflow-auto whitespace-pre-wrap px-2 py-1 font-mono text-[10px] text-muted-foreground">
+      {output ?? "…"}
+      <div ref={end} />
+    </pre>
+  );
+};
+
+/** Rows repeat in a diff (a closing brace, a blank line): the count makes each key its own. */
+const withKeys = (rows: readonly DiffRow[]) => {
+  const seen = new Map<string, number>();
+  return rows.map((row) => {
+    const base = `${row.kind}:${row.text}`;
+    const n = (seen.get(base) ?? 0) + 1;
+    seen.set(base, n);
+    return { ...row, key: `${base}:${n}` };
+  });
+};
+
+/** What an agent's edit changes, worked out from the file before and after. */
+const DiffContentView = ({
+  content,
+}: {
+  content: Extract<ToolContent, { type: "diff" }>;
+}) => {
+  const { added, removed, rows } = useMemo(() => {
+    const all = lineDiff(content.oldText ?? "", content.newText);
+    return { ...diffCounts(all), rows: withKeys(diffHunks(all)) };
+  }, [content.oldText, content.newText]);
+  return (
+    <div>
+      <div className="flex items-center gap-2 px-2 pt-1 font-mono text-[10px] text-muted-foreground">
+        <span className="truncate">{content.path}</span>
+        <span className="ml-auto shrink-0 text-success">+{added}</span>
+        <span className="shrink-0 text-destructive">-{removed}</span>
+      </div>
+      <pre className="max-h-48 select-text overflow-auto px-2 py-1 font-mono text-[10px] leading-4">
+        {rows.map((row) => (
+          <div
+            className={cn(
+              row.kind === "added" && "bg-success/15 text-success",
+              row.kind === "removed" && "bg-destructive/15 text-destructive",
+              row.kind === "same" && "text-muted-foreground"
+            )}
+            key={row.key}
+          >
+            {`${DIFF_SIGNS[row.kind]}${row.text || " "}`}
+          </div>
+        ))}
+      </pre>
+    </div>
+  );
+};
+
+const ToolContentView = ({ content }: { content: ToolContent }) => {
+  if (content.type === "diff") {
+    return <DiffContentView content={content} />;
+  }
+  if (content.type === "terminal") {
+    return <TerminalView terminalId={content.terminalId} />;
+  }
+  return (
+    <pre className="max-h-48 select-text overflow-auto whitespace-pre-wrap px-2 py-1 font-mono text-[10px] text-muted-foreground">
+      {content.text}
+    </pre>
+  );
+};
+
 const Item = ({
   item,
   streaming,
@@ -382,13 +474,10 @@ const Item = ({
         </Collapsible>
       );
     case "tool": {
-      const details = [...item.locations, ...item.content];
+      const hasDetails = item.locations.length + item.content.length > 0;
       return (
         <Collapsible className="rounded-md border bg-muted/30">
-          <Disclosure
-            className="w-full gap-1.5"
-            disabled={details.length === 0}
-          >
+          <Disclosure className="w-full gap-1.5" disabled={!hasDetails}>
             <span
               className={cn(
                 "size-1.5 shrink-0 rounded-full",
@@ -406,9 +495,20 @@ const Item = ({
             ) : null}
           </Disclosure>
           <CollapsibleContent>
-            <pre className="max-h-48 select-text overflow-auto whitespace-pre-wrap border-t px-2 py-1 font-mono text-[10px] text-muted-foreground">
-              {details.join("\n")}
-            </pre>
+            <div className="border-t">
+              {item.locations.length > 0 && (
+                <div className="px-2 py-1 font-mono text-[10px] text-muted-foreground">
+                  {item.locations.map((l) => (
+                    <div key={`${l.path}:${l.line ?? ""}`}>
+                      {l.line === undefined ? l.path : `${l.path}:${l.line}`}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {item.content.map((c, index) => (
+                <ToolContentView content={c} key={keyOfContent(c, index)} />
+              ))}
+            </div>
           </CollapsibleContent>
         </Collapsible>
       );

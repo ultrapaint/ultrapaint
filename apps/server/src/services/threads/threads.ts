@@ -379,8 +379,12 @@ export class ThreadService extends Context.Service<
             root: paths.root,
             tmpDir,
           });
-          // A command we run for the agent must not reach further than one it runs itself.
-          const terminals = yield* makeTerminalManager(confined.confine);
+          const terminals = yield* makeTerminalManager({
+            // A command we run for the agent must not reach further than one it runs itself.
+            confine: confined.confine,
+            onOutput: (terminalId, chunk) =>
+              events.publish("agent.terminal", { chunk, terminalId, threadId }),
+          });
           const agent = yield* spawnAcpAgent(confined.launch, {
             cwd: paths.root,
             handlers: handlersFor(

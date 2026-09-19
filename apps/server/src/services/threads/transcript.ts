@@ -3,7 +3,12 @@
  * Pure: it returns what should happen and leaves persistence and publishing to the caller.
  */
 import type { SessionNotification } from "@ultrapaint/acp/acp-agent";
-import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
+import type {
+  Thread,
+  ThreadItem,
+  ToolContent,
+  ToolLocation,
+} from "@ultrapaint/contracts/threads";
 
 type SessionUpdate = SessionNotification["update"];
 
@@ -37,27 +42,50 @@ export interface ProjectionContext {
   readonly turn: TurnCursor | null;
 }
 
-interface ToolContent {
+/** A tool call's content as ACP sends it, before the editor's own shape. */
+interface RawToolContent {
   readonly content?: { readonly text?: string; readonly type: string };
+  readonly newText?: string;
+  readonly oldText?: string | null;
   readonly path?: string;
   readonly terminalId?: string;
   readonly type: string;
 }
 
-export const toolContentText = (c: ToolContent): string => {
+/** Keeps what the editor can show by itself: text, a file's diff, a terminal to follow. */
+export const toolContent = (c: RawToolContent): ToolContent => {
   switch (c.type) {
     case "content":
-      return c.content?.type === "text"
-        ? (c.content.text ?? "")
-        : `[${c.content?.type ?? "content"}]`;
+      return {
+        text:
+          c.content?.type === "text"
+            ? (c.content.text ?? "")
+            : `[${c.content?.type ?? "content"}]`,
+        type: "text",
+      };
     case "diff":
-      return `diff ${c.path ?? ""}`;
+      return {
+        newText: c.newText ?? "",
+        path: c.path ?? "",
+        type: "diff",
+        ...(c.oldText === null || c.oldText === undefined
+          ? {}
+          : { oldText: c.oldText }),
+      };
     case "terminal":
-      return `terminal ${c.terminalId ?? ""}`;
+      return { terminalId: c.terminalId ?? "", type: "terminal" };
     default:
-      return `[${c.type}]`;
+      return { text: `[${c.type}]`, type: "text" };
   }
 };
+
+const toolLocations = (
+  locations: readonly { readonly line?: number | null; readonly path: string }[]
+): ToolLocation[] =>
+  locations.map((l) => ({
+    path: l.path,
+    ...(l.line === null || l.line === undefined ? {} : { line: l.line }),
+  }));
 
 interface RawConfigOption {
   readonly category?: string | null;
@@ -134,10 +162,10 @@ const toolItem = (
   fallback: { status: "pending" | "in_progress"; title: string }
 ): ThreadItem => ({
   at: now,
-  content: ((u.content ?? []) as ToolContent[]).map(toolContentText),
+  content: ((u.content ?? []) as RawToolContent[]).map(toolContent),
   id: `tool_${u.toolCallId}`,
   kind: "tool",
-  locations: (u.locations ?? []).map((l) => l.path),
+  locations: toolLocations(u.locations ?? []),
   status: u.status ?? fallback.status,
   title: u.title ?? fallback.title,
   toolCallId: u.toolCallId,
@@ -164,11 +192,9 @@ const projectToolUpdate = (
           ? {
               ...i,
               content: u.content
-                ? (u.content as ToolContent[]).map(toolContentText)
+                ? (u.content as RawToolContent[]).map(toolContent)
                 : i.content,
-              locations: u.locations
-                ? u.locations.map((l) => l.path)
-                : i.locations,
+              locations: u.locations ? toolLocations(u.locations) : i.locations,
               status: u.status ?? i.status,
               title: u.title ?? i.title,
             }

@@ -17,8 +17,13 @@ interface AgentsStore {
   items: Record<string, readonly ThreadItem[]>;
   load: () => Promise<void>;
   open: (threadId: string | null) => Promise<void>;
+  /** Output of the terminals agents are running, by terminal id, as it arrives. */
+  terminals: Record<string, string>;
   threads: readonly Thread[];
 }
+
+/** What a terminal's tail is worth keeping in memory while it runs. */
+const TERMINAL_TAIL = 8000;
 
 let bound = false;
 
@@ -29,6 +34,16 @@ export const useAgents = create<AgentsStore>((set, get) => ({
       return;
     }
     bound = true;
+    api().on("agent.terminal", (ev) => {
+      set((s) => ({
+        terminals: {
+          ...s.terminals,
+          [ev.terminalId]: (
+            (s.terminals[ev.terminalId] ?? "") + ev.chunk
+          ).slice(-TERMINAL_TAIL),
+        },
+      }));
+    });
     api().on("agent", (ev) => {
       if (ev.type === "thread") {
         set((s) => {
@@ -107,5 +122,6 @@ export const useAgents = create<AgentsStore>((set, get) => ({
       reportError(error);
     }
   },
+  terminals: {},
   threads: [],
 }));

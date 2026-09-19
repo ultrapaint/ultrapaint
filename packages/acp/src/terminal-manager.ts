@@ -49,12 +49,17 @@ interface Terminal {
  * limit, oldest first out. Every terminal lives in a child of the calling scope, so the commands
  * end with the agent session that started them.
  */
-export const makeTerminalManager = (
-  confine: (launch: AgentLaunch) => AgentLaunch = (launch) => launch
-) =>
+export const makeTerminalManager = (options?: {
+  /** Puts a command the agent asked us to run in the same sandbox as the agent itself. */
+  readonly confine?: (launch: AgentLaunch) => AgentLaunch;
+  /** Every chunk as it arrives, so the editor can follow a command while it runs. */
+  readonly onOutput?: (id: string, chunk: string) => Effect.Effect<void>;
+}) =>
   Effect.gen(function* () {
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
     const parent = yield* Effect.scope;
+    const confine = options?.confine ?? ((launch: AgentLaunch) => launch);
+    const onOutput = options?.onOutput;
     const terminals = new Map<string, Terminal>();
     let nextId = 1;
 
@@ -70,17 +75,19 @@ export const makeTerminalManager = (
 
     const create: TerminalManager["create"] = Effect.fn(
       "TerminalManager.create"
-    )(function* (options) {
+    )(function* (request) {
       const scope = yield* Scope.fork(parent);
+      const id = `term_${nextId}`;
+      nextId += 1;
       const launch = confine({
-        args: options.args,
-        command: options.command,
-        env: options.env,
+        args: request.args,
+        command: request.command,
+        env: request.env,
       });
       const handle = yield* spawner
         .spawn(
           ChildProcess.make(launch.command, launch.args, {
-            cwd: options.cwd,
+            cwd: request.cwd,
             env: launch.env,
             extendEnv: true,
             forceKillAfter: "2 seconds",
@@ -93,11 +100,11 @@ export const makeTerminalManager = (
           Effect.mapError(
             (error) =>
               new TerminalError({
-                message: `could not run ${options.command}: ${error.message}`,
+                message: `could not run ${request.command}: ${error.message}`,
               })
           )
         );
-      const limit = options.outputByteLimit ?? DEFAULT_OUTPUT_LIMIT;
+      const limit = request.outputByteLimit ?? DEFAULT_OUTPUT_LIMIT;
       const terminal: Terminal = {
         // A command killed by a signal has no exit code to report.
         exit: handle.exitCode.pipe(
@@ -128,21 +135,23 @@ export const makeTerminalManager = (
       yield* handle.all.pipe(
         Stream.decodeText(),
         Stream.runForEach((chunk) =>
-          Effect.sync(() => {
-            terminal.output += chunk;
-            if (terminal.output.length > limit) {
-              terminal.output = terminal.output.slice(-limit);
-              terminal.truncated = true;
-            }
-          })
+          Effect.andThen(
+            Effect.sync(() => {
+              terminal.output += chunk;
+              if (terminal.output.length > limit) {
+                terminal.output = terminal.output.slice(-limit);
+                terminal.truncated = true;
+              }
+            }),
+            // The editor follows the command while it runs; the agent reads the output later.
+            onOutput ? onOutput(id, chunk) : Effect.void
+          )
         ),
         Effect.ignore,
         Effect.forkIn(scope)
       );
       // Records the exit status even if the agent never waits for it.
       yield* Effect.forkIn(terminal.exit, scope);
-      const id = `term_${nextId}`;
-      nextId += 1;
       terminals.set(id, terminal);
       return id;
     });

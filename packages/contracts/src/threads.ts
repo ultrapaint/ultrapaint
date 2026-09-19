@@ -79,6 +79,33 @@ export const Thread = Schema.Struct({
 });
 export type Thread = typeof Thread.Type;
 
+/**
+ * What a tool call produced. The agent sends text, a diff of a file it is changing, or the id of
+ * a terminal whose output arrives on its own; the editor shows each of them differently, so none
+ * of it is flattened into a string.
+ */
+export const ToolContent = Schema.Union([
+  Schema.Struct({ text: Schema.String, type: Schema.Literal("text") }),
+  Schema.Struct({
+    newText: Schema.String,
+    oldText: Schema.optional(Schema.String),
+    path: Schema.String,
+    type: Schema.Literal("diff"),
+  }),
+  Schema.Struct({
+    terminalId: Schema.String,
+    type: Schema.Literal("terminal"),
+  }),
+]);
+export type ToolContent = typeof ToolContent.Type;
+
+/** Where in the repository a tool call is working, to the line when the agent says so. */
+export const ToolLocation = Schema.Struct({
+  line: Schema.optional(Schema.Number),
+  path: Schema.String,
+});
+export type ToolLocation = typeof ToolLocation.Type;
+
 export const ToolCallStatus = Schema.Literals([
   "pending",
   "in_progress",
@@ -108,10 +135,10 @@ export const ThreadItem = Schema.Union([
   }),
   Schema.Struct({
     at: Schema.Number,
-    content: Schema.Array(Schema.String),
+    content: Schema.Array(ToolContent),
     id: Schema.String,
     kind: Schema.Literal("tool"),
-    locations: Schema.Array(Schema.String),
+    locations: Schema.Array(ToolLocation),
     status: ToolCallStatus,
     title: Schema.String,
     toolCallId: Schema.String,
@@ -185,6 +212,14 @@ export const PromptInput = Schema.Struct({
   threadId: Schema.String,
 });
 export type PromptInput = typeof PromptInput.Type;
+
+/** Output of a terminal the agent is running, as it arrives. */
+export const AgentTerminalOutput = Schema.Struct({
+  chunk: Schema.String,
+  terminalId: Schema.String,
+  threadId: Schema.String,
+});
+export type AgentTerminalOutput = typeof AgentTerminalOutput.Type;
 
 export const AgentEvent = Schema.Union([
   Schema.Struct({ thread: Thread, type: Schema.Literal("thread") }),
