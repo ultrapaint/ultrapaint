@@ -132,6 +132,8 @@ export const makeTestServer = (
             env,
             id,
             name: "Fake",
+            // The fake agent and its SDK live in this checkout, outside the fixture repository.
+            stateDirs: [path.resolve(import.meta.dirname, "../../../..")],
           })
         );
       }

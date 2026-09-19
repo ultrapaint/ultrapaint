@@ -51,6 +51,7 @@ import { ProjectManager } from "../../project.ts";
 import { GitService, type GitSnapshot } from "../git.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { AgentConfigs } from "./agent-configs.ts";
+import { AgentSandbox } from "./agent-sandbox.ts";
 import { Checkpoints } from "./checkpoints.ts";
 import { ThreadStore } from "./thread-store.ts";
 import {
@@ -142,6 +143,7 @@ export class ThreadService extends Context.Service<
     Effect.gen(function* () {
       const store = yield* ThreadStore;
       const agents = yield* AgentConfigs;
+      const sandbox = yield* AgentSandbox;
       const checkpoints = yield* Checkpoints;
       const project = yield* ProjectManager;
       const events = yield* EventBus;
@@ -313,7 +315,8 @@ export class ThreadService extends Context.Service<
         session: Live,
         storedSessionId: string | undefined,
         canLoad: boolean,
-        root: string
+        root: string,
+        meta: unknown
       ) {
         if (storedSessionId && canLoad) {
           session.replaying = true;
@@ -351,7 +354,7 @@ export class ThreadService extends Context.Service<
             return loaded;
           }
         }
-        return (yield* session.agent.newSession(root)) as SessionInfo;
+        return (yield* session.agent.newSession(root, meta)) as SessionInfo;
       });
 
       const start = Effect.fnUntraced(function* (threadId: string) {
@@ -367,8 +370,18 @@ export class ThreadService extends Context.Service<
         const scope = yield* Scope.fork(projectScope);
         const holder: { session: Live | null } = { session: null };
         const boot = Effect.gen(function* () {
-          const terminals = yield* makeTerminalManager;
-          const agent = yield* spawnAcpAgent(config, {
+          // The agent's only temporary directory, and it goes with the session.
+          const tmpDir = yield* Effect.orDie(
+            fs.makeTempDirectoryScoped({ prefix: "ultrapaint-agent-" })
+          );
+          const confined = yield* sandbox.session({
+            config,
+            root: paths.root,
+            tmpDir,
+          });
+          // A command we run for the agent must not reach further than one it runs itself.
+          const terminals = yield* makeTerminalManager(confined.confine);
+          const agent = yield* spawnAcpAgent(confined.launch, {
             cwd: paths.root,
             handlers: handlersFor(
               threadId,
@@ -455,7 +468,8 @@ export class ThreadService extends Context.Service<
             session,
             thread.sessionId,
             canLoad,
-            paths.root
+            paths.root,
+            sandbox.available ? config.sandboxMeta : undefined
           );
           const [firstAuth] = init.authMethods ?? [];
           // Some agents need authentication before a session can be created.
@@ -487,6 +501,7 @@ export class ThreadService extends Context.Service<
             name: m.name,
             ...(m.description ? { description: m.description } : {}),
           })),
+          sandboxed: sandbox.available,
           sessionId: info.sessionId,
           status: "idle",
         });

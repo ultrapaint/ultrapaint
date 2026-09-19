@@ -12,6 +12,18 @@ export const AgentConfig = Schema.Struct({
   name: Schema.String,
   /** npm package that provides the command, used for `npx` fallback and install hints. */
   package: Schema.optional(Schema.String),
+  /**
+   * Environment the agent needs when it runs inside the sandbox, typically to stop it from
+   * starting a sandbox of its own: one cannot start inside another.
+   */
+  sandboxEnv: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+  /** Sent as `session/new` `_meta` when the agent runs inside the sandbox, for the same reason. */
+  sandboxMeta: Schema.optional(Json),
+  /**
+   * Where the agent keeps its own login, sessions and caches. Readable and writable inside the
+   * sandbox, wherever they are. `~` is the user's home directory, `<uid>` their user id.
+   */
+  stateDirs: Schema.optional(Schema.Array(Schema.String)),
 });
 export type AgentConfig = typeof AgentConfig.Type;
 
@@ -58,6 +70,8 @@ export const Thread = Schema.Struct({
       })
     )
   ),
+  /** Whether the agent process is confined to the repository by the operating system. */
+  sandboxed: Schema.optional(Schema.Boolean),
   sessionId: Schema.optional(Schema.String),
   status: ThreadStatus,
   title: Schema.String,

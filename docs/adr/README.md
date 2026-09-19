@@ -16,3 +16,4 @@ One file per decision. Status is one of proposed, accepted, superseded.
 | [0010](0010-storage-modes.md) | Settings and state in one of three storage modes: the desktop's home, a configuration file in the repository, or nothing saved |
 | [0011](0011-preview-split.md) | Storybook's separation: editor, framework-neutral preview core, renderer, framework package; screens resolve from an anchor package instead of being one |
 | [0012](0012-spaces-pages-router.md) | Screens become pages of a space, routed by their file path, with the editor holding the router state in its own URL |
+| [0013](0013-agent-scope.md) | Agents are confined to the repository by an operating system sandbox around their process, the same for every ACP agent |

@@ -177,7 +177,7 @@ describe("AcpAgent", () => {
 describe("TerminalManager", () => {
   it.live("runs a command, keeps its output and reports the exit", () =>
     Effect.gen(function* () {
-      const terminals = yield* makeTerminalManager;
+      const terminals = yield* makeTerminalManager();
       const id = yield* terminals.create({
         args: ["-c", "echo out; echo err 1>&2; exit 3"],
         command: "/bin/sh",
@@ -195,7 +195,7 @@ describe("TerminalManager", () => {
 
   it.live("keeps only the newest bytes past the limit", () =>
     Effect.gen(function* () {
-      const terminals = yield* makeTerminalManager;
+      const terminals = yield* makeTerminalManager();
       const id = yield* terminals.create({
         args: ["-c", "printf 0123456789"],
         command: "/bin/sh",
@@ -212,7 +212,7 @@ describe("TerminalManager", () => {
 
   it.live("forgets a released terminal and kills what was still running", () =>
     Effect.gen(function* () {
-      const terminals = yield* makeTerminalManager;
+      const terminals = yield* makeTerminalManager();
       const id = yield* terminals.create({
         args: ["30"],
         command: "sleep",

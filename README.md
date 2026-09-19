@@ -87,6 +87,29 @@ person only runs `ultrapaint`.
 
 Your pages are files in your repository and are written there in every case.
 
+## Agents stay in the repository
+
+An agent you start here runs inside a sandbox: it reads the repository, its own files and the
+toolchain, and writes nothing but the repository, its own files, the package caches and the
+temporary directories. Your home directory is closed to it. That holds for the shell commands it
+runs too, and it does not depend on the agent — it is the operating system's doing. Network is
+open, because an agent has to reach its model.
+
+This works on macOS today. Elsewhere the thread says **Not scoped**: the agent runs with your own
+rights until the sandbox for that platform lands.
+
+An agent of your own, added as JSON under `~/.ultrapaint/agents/`, tells the sandbox where it
+keeps its login and sessions:
+
+```json
+{
+  "id": "my-agent",
+  "name": "My agent",
+  "command": "my-agent-acp",
+  "stateDirs": ["~/.my-agent"]
+}
+```
+
 ## Pages, routes and spaces
 
 A **page** is a `.tsx` file in the designs directory, and its path is its route, the way every

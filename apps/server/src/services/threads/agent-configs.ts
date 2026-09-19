@@ -1,4 +1,5 @@
 import { builtInAgents } from "@ultrapaint/acp/configs";
+import { Json } from "@ultrapaint/contracts/base";
 import { NotFound } from "@ultrapaint/contracts/errors";
 import type { AgentConfig } from "@ultrapaint/contracts/threads";
 import { Context, Effect, FileSystem, Layer, Path, Schema } from "effect";
@@ -14,6 +15,10 @@ const CustomAgent = Schema.fromJsonString(
     id: Schema.String,
     name: Schema.String,
     package: Schema.optional(Schema.String),
+    sandboxEnv: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+    sandboxMeta: Schema.optional(Json),
+    /** Where this agent keeps its own login, sessions and caches: `~` is the home directory. */
+    stateDirs: Schema.optional(Schema.Array(Schema.String)),
   })
 );
 const decodeCustomAgent = Schema.decodeUnknownEffect(CustomAgent);
@@ -51,6 +56,9 @@ export class AgentConfigs extends Context.Service<
               name: cfg.name,
               ...(cfg.package ? { package: cfg.package } : {}),
               ...(cfg.authHint ? { authHint: cfg.authHint } : {}),
+              ...(cfg.sandboxEnv ? { sandboxEnv: cfg.sandboxEnv } : {}),
+              ...(cfg.sandboxMeta ? { sandboxMeta: cfg.sandboxMeta } : {}),
+              ...(cfg.stateDirs ? { stateDirs: cfg.stateDirs } : {}),
             })
           ),
           // One malformed file must not hide the other agents.

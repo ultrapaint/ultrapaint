@@ -15,6 +15,11 @@ export const builtInAgents: AgentConfig[] = [
     id: "claude-code",
     name: "Claude Code",
     package: "@agentclientprotocol/claude-agent-acp",
+    // Claude Code sandboxes its own shell commands; one sandbox cannot start inside another.
+    sandboxMeta: {
+      claudeCode: { options: { settings: { sandbox: { enabled: false } } } },
+    },
+    stateDirs: ["~/.claude", "~/.claude.json", "~/.config/claude"],
   },
   {
     args: ["-y", "@agentclientprotocol/codex-acp"],
@@ -26,5 +31,8 @@ export const builtInAgents: AgentConfig[] = [
     id: "codex",
     name: "Codex",
     package: "@agentclientprotocol/codex-acp",
+    // Same: Codex runs every turn in a sandbox of its own unless it is told not to.
+    sandboxEnv: { INITIAL_AGENT_MODE: "agent-full-access" },
+    stateDirs: ["~/.codex"],
   },
 ];

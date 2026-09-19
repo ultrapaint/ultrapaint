@@ -32,7 +32,6 @@ import {
   type WaitForTerminalExitResponse,
   type WriteTextFileRequest,
 } from "@agentclientprotocol/sdk";
-import type { AgentConfig } from "@ultrapaint/contracts/threads";
 import { Deferred, Effect, Predicate, Queue, Result, type Scope } from "effect";
 import {
   type AcpError,
@@ -40,6 +39,7 @@ import {
   AcpRequestError,
   AcpSpawnError,
 } from "./errors.ts";
+import type { AgentLaunch } from "./sandbox.ts";
 
 export type {
   ContentBlock,
@@ -119,7 +119,8 @@ export interface AcpAgent {
     cwd: string
   ) => Effect.Effect<LoadSessionResponse | undefined, AcpError>;
   readonly newSession: (
-    cwd: string
+    cwd: string,
+    meta?: unknown
   ) => Effect.Effect<NewSessionResponse, AcpError>;
   readonly pid: number | undefined;
   readonly prompt: (
@@ -165,20 +166,20 @@ const nextMacrotask = Effect.callback<void>((resume) => {
   return Effect.sync(() => clearImmediate(handle));
 });
 
-const startProcess = (config: AgentConfig, cwd: string) =>
+const startProcess = (launch: AgentLaunch, cwd: string) =>
   Effect.callback<ChildProcess, AcpSpawnError>((resume) => {
-    const child = spawn(config.command, [...config.args], {
+    const child = spawn(launch.command, [...launch.args], {
       cwd,
       // Its own process group: `npx` wrappers start the real agent as a grandchild.
       detached: process.platform !== "win32",
-      env: { ...process.env, ...config.env },
+      env: { ...process.env, ...launch.env },
       stdio: ["pipe", "pipe", "pipe"],
     });
     child.once("spawn", () => resume(Effect.succeed(child)));
     child.once("error", (error) =>
       resume(
         Effect.fail(
-          new AcpSpawnError({ command: config.command, message: error.message })
+          new AcpSpawnError({ command: launch.command, message: error.message })
         )
       )
     );
@@ -201,11 +202,11 @@ const signalGroup = (child: ChildProcess, signal: NodeJS.Signals) =>
   });
 
 /**
- * Starts the agent described by a launch configuration. The configuration is data only:
- * command, args and env. The process and the connection end with the surrounding scope.
+ * Starts the agent described by a launch: command, args and env, already wrapped in whatever
+ * confines it. The process and the connection end with the surrounding scope.
  */
 export const spawnAcpAgent = (
-  config: AgentConfig,
+  launch: AgentLaunch,
   options: { readonly cwd: string; readonly handlers: AcpHandlers }
 ): Effect.Effect<AcpAgent, AcpSpawnError, Scope.Scope> =>
   Effect.gen(function* () {
@@ -216,7 +217,7 @@ export const spawnAcpAgent = (
     const inbox = yield* Queue.unbounded<Inbox>();
 
     const child = yield* Effect.acquireRelease(
-      startProcess(config, options.cwd),
+      startProcess(launch, options.cwd),
       (process) =>
         signalGroup(process, "SIGTERM").pipe(
           Effect.andThen(
@@ -367,9 +368,13 @@ export const spawnAcpAgent = (
           ),
           (loaded) => loaded ?? undefined
         ),
-      newSession: (cwd) =>
+      newSession: (cwd, meta) =>
         call("session/new", () =>
-          agent.request("session/new", { cwd, mcpServers: [] })
+          agent.request("session/new", {
+            cwd,
+            mcpServers: [],
+            ...(meta === undefined ? {} : { _meta: meta }),
+          })
         ),
       pid: child.pid,
       prompt: (sessionId, blocks) =>

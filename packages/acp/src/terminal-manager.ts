@@ -1,6 +1,7 @@
 import { Effect, Exit, Scope, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 import { TerminalError } from "./errors.ts";
+import type { AgentLaunch } from "./sandbox.ts";
 
 const DEFAULT_OUTPUT_LIMIT = 1024 * 1024;
 
@@ -42,32 +43,45 @@ interface Terminal {
 }
 
 /**
- * Terminals the agent asks the client to run. The caller validates `cwd`. Output is kept up to
- * a byte limit, oldest first out. Every terminal lives in a child of the calling scope, so the
- * commands end with the agent session that started them.
+ * Terminals the agent asks the client to run. The caller validates `cwd` and passes `confine`,
+ * which puts the command in the same sandbox as the agent's own process: a command we run on
+ * the agent's behalf must not reach further than one it runs itself. Output is kept up to a byte
+ * limit, oldest first out. Every terminal lives in a child of the calling scope, so the commands
+ * end with the agent session that started them.
  */
-export const makeTerminalManager = Effect.gen(function* () {
-  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-  const parent = yield* Effect.scope;
-  const terminals = new Map<string, Terminal>();
-  let nextId = 1;
+export const makeTerminalManager = (
+  confine: (launch: AgentLaunch) => AgentLaunch = (launch) => launch
+) =>
+  Effect.gen(function* () {
+    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+    const parent = yield* Effect.scope;
+    const terminals = new Map<string, Terminal>();
+    let nextId = 1;
 
-  const find = (id: string) =>
-    Effect.suspend(() => {
-      const terminal = terminals.get(id);
-      return terminal
-        ? Effect.succeed(terminal)
-        : Effect.fail(new TerminalError({ message: `unknown terminal ${id}` }));
-    });
+    const find = (id: string) =>
+      Effect.suspend(() => {
+        const terminal = terminals.get(id);
+        return terminal
+          ? Effect.succeed(terminal)
+          : Effect.fail(
+              new TerminalError({ message: `unknown terminal ${id}` })
+            );
+      });
 
-  const create: TerminalManager["create"] = Effect.fn("TerminalManager.create")(
-    function* (options) {
+    const create: TerminalManager["create"] = Effect.fn(
+      "TerminalManager.create"
+    )(function* (options) {
       const scope = yield* Scope.fork(parent);
+      const launch = confine({
+        args: options.args,
+        command: options.command,
+        env: options.env,
+      });
       const handle = yield* spawner
         .spawn(
-          ChildProcess.make(options.command, options.args, {
+          ChildProcess.make(launch.command, launch.args, {
             cwd: options.cwd,
-            env: options.env,
+            env: launch.env,
             extendEnv: true,
             forceKillAfter: "2 seconds",
             stdin: "ignore",
@@ -131,26 +145,26 @@ export const makeTerminalManager = Effect.gen(function* () {
       nextId += 1;
       terminals.set(id, terminal);
       return id;
-    }
-  );
-
-  const release = (id: string) =>
-    Effect.suspend(() => {
-      const terminal = terminals.get(id);
-      terminals.delete(id);
-      return terminal ? Scope.close(terminal.scope, Exit.void) : Effect.void;
     });
 
-  return {
-    create,
-    kill: (id) => Effect.suspend(() => terminals.get(id)?.kill ?? Effect.void),
-    output: (id) =>
-      Effect.map(find(id), (t) => ({
-        exitStatus: t.exited,
-        output: t.output,
-        truncated: t.truncated,
-      })),
-    release,
-    waitForExit: (id) => Effect.flatMap(find(id), (t) => t.exit),
-  } satisfies TerminalManager;
-});
+    const release = (id: string) =>
+      Effect.suspend(() => {
+        const terminal = terminals.get(id);
+        terminals.delete(id);
+        return terminal ? Scope.close(terminal.scope, Exit.void) : Effect.void;
+      });
+
+    return {
+      create,
+      kill: (id) =>
+        Effect.suspend(() => terminals.get(id)?.kill ?? Effect.void),
+      output: (id) =>
+        Effect.map(find(id), (t) => ({
+          exitStatus: t.exited,
+          output: t.output,
+          truncated: t.truncated,
+        })),
+      release,
+      waitForExit: (id) => Effect.flatMap(find(id), (t) => t.exit),
+    } satisfies TerminalManager;
+  });

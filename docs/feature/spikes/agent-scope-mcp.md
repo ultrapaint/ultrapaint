@@ -198,6 +198,24 @@ escalation prompts until then.
 - Codex is handed the same server the same way (http transport listed in codex-acp's
   features); not exercised because of the usage limit.
 
+## What the implementation then found
+
+Three things the harness could not show, caught by `apps/server/spike/verify-scope.ts`, which
+drives a real agent through the service and the launch configuration the server itself uses:
+
+- **A `PATH` entry of `$HOME/bin` opened the whole home directory.** Allowing the parent of a
+  `bin` directory (right for `~/.local/bin`) resolves to `~` for `~/bin`, and Claude Code's Read
+  tool then read a file in the home directory. The home directory is never allowed as a toolchain
+  path now.
+- **`/tmp` is a symlink to `/private/tmp`.** A rule written for one name does not match the other,
+  so every Bash command failed on its working directory. Each allowed path is resolved and listed
+  under both names.
+- **The Keychain is where the login is.** Without `~/Library/Keychains` the agent starts and then
+  answers "Authentication required".
+
+The caches and the temporary directories are writable: `npx` unpacks the agent into a cache and
+shell commands expect a writable `/tmp`. Neither holds any work of the user's.
+
 ## What changes in the plan
 
 - M1: the scope is an OS sandbox around every agent process, generated per session from the

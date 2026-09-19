@@ -8,6 +8,7 @@
  *   permission  asks for permission, then reports the chosen option as text
  *   write       writes `designs/agent.tsx` through `fs/write_text_file`
  *   terminal    runs `echo hi` through `terminal/*` and reports the output
+ *   escape      runs a terminal command writing to the path given after the scenario name
  *   fail        answers the prompt with a JSON-RPC error carrying `data.message`
  *   exit        ends the process in the middle of the turn
  *   wait        streams one chunk and then waits for `session/cancel`
@@ -35,6 +36,27 @@ const text = (cx, sessionId, value, kind = "agent_message_chunk") =>
   });
 
 const scenarios = {
+  /** Asks the host to run a command that writes outside the repository. */
+  async escape(cx, sessionId, _cwd, rest) {
+    const { terminalId } = await cx.request(methods.client.terminal.create, {
+      args: ["-c", `echo pwned > ${rest}`],
+      command: "sh",
+      sessionId,
+    });
+    await cx.request(methods.client.terminal.waitForExit, {
+      sessionId,
+      terminalId,
+    });
+    const { output } = await cx.request(methods.client.terminal.output, {
+      sessionId,
+      terminalId,
+    });
+    await cx.request(methods.client.terminal.release, {
+      sessionId,
+      terminalId,
+    });
+    await text(cx, sessionId, `escape:${output.trim()}`);
+  },
   exit() {
     process.exit(7);
   },
@@ -175,7 +197,8 @@ agent({ name: "fake-agent" })
     const stopReason = await scenario(
       ctx.client,
       sessionId,
-      cwds.get(sessionId)
+      cwds.get(sessionId),
+      first?.text.split(" ").slice(1).join(" ") ?? ""
     );
     return { stopReason: stopReason ?? "end_turn" };
   })

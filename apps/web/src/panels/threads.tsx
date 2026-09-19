@@ -17,6 +17,8 @@ import {
   ListTodo,
   Paperclip,
   Plus,
+  ShieldAlert,
+  ShieldCheck,
   ShieldQuestion,
   Square,
   SquareDashedMousePointer,
@@ -815,6 +817,35 @@ const ModelPicker = ({ thread, draft }: { thread: Thread; draft: string }) => {
   );
 };
 
+/**
+ * Whether the agent is confined to the repository. The scope is the operating system's, so it
+ * says which repository, and says so plainly where the platform has no sandbox to offer.
+ */
+const ScopeChip = ({ thread }: { thread: Thread }) => {
+  const repoPath = useProject((s) => s.info.repoPath);
+  if (thread.sandboxed === undefined) {
+    return null;
+  }
+  const repo = repoPath?.split("/").filter(Boolean).at(-1);
+  return thread.sandboxed ? (
+    <span
+      className="flex items-center gap-1 rounded-full px-2 text-muted-foreground text-xs [&_svg]:size-3"
+      title={`The agent can only read and write inside ${repoPath ?? "the repository"}, and its own files.`}
+    >
+      <ShieldCheck />
+      {repo ? `Scoped to ${repo}` : "Scoped to the repository"}
+    </span>
+  ) : (
+    <span
+      className="flex items-center gap-1 rounded-full px-2 text-warning text-xs [&_svg]:size-3"
+      title="This platform has no sandbox yet, so the agent reaches the whole machine. It is confined on macOS."
+    >
+      <ShieldAlert />
+      Not scoped
+    </span>
+  );
+};
+
 const ModePicker = ({ thread }: { thread: Thread }) => {
   const modes = thread.modes ?? [];
   if (modes.length === 0) {
@@ -1028,6 +1059,7 @@ const Composer = ({ thread }: { thread: Thread }) => {
           <ModePicker thread={thread} />
           <ModelPicker draft={text} thread={thread} />
           <div className="flex-1" />
+          <ScopeChip thread={thread} />
           {running ? (
             <Button onClick={cancel} size="sm" variant="outline">
               <Square data-icon="inline-start" /> Stop

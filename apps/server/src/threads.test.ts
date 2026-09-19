@@ -1,3 +1,4 @@
+import { homedir } from "node:os";
 import path from "node:path";
 import { assert, layer } from "@effect/vitest";
 import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
@@ -249,6 +250,31 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             path.join(repo, "designs/agent.tsx")
           );
           assert.include(written, "export default function Agent");
+        })
+    );
+
+    it.effect(
+      "keeps a terminal it runs for the agent inside the repository",
+      () =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const threadId = yield* startThread;
+          // The home directory is what the sandbox is there to protect. The temporary
+          // directories are writable on purpose, so an escape there would prove nothing.
+          const outside = path.join(homedir(), ".ultrapaint-test-escape.txt");
+          yield* prompt(threadId, `escape ${outside}`);
+          const { items, thread } = yield* waitForThread(threadId, turnEnded);
+          const escaped = yield* fs.exists(outside);
+          yield* Effect.ignore(fs.remove(outside));
+          // Without a sandbox on this platform the command runs; the thread says as much.
+          if (thread?.sandboxed !== true) {
+            return;
+          }
+          assert.isFalse(escaped);
+          assert.include(
+            items.map((i) => (i.kind === "agent" ? i.text : "")).join(" "),
+            "escape:"
+          );
         })
     );
 
