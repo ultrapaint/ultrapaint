@@ -15,15 +15,16 @@ const thread = (id: string, status: Thread["status"]): Thread => ({
 const toolCall = (
   status: "in_progress" | "completed",
   locations: { line?: number; path: string }[],
-  toolKind?: string
+  toolKind?: string,
+  title = "Edit file"
 ): ThreadItem => ({
   at: 0,
   content: [],
-  id: `tool_${status}_${locations[0]?.path ?? ""}`,
+  id: `tool_${status}_${locations[0]?.path ?? title}`,
   kind: "tool",
   locations,
   status,
-  title: "Edit file",
+  title,
   toolCallId: "call_1",
   ...(toolKind ? { toolKind } : {}),
 });
@@ -80,6 +81,33 @@ describe("agentActivity", () => {
       [page]
     );
     expect(activity?.action).toBe("thinking");
+  });
+
+  it("finds the page in a shell command, which names no location", () => {
+    const [activity] = agentActivity(
+      [thread("t1", "running")],
+      {
+        t1: [
+          toolCall(
+            "in_progress",
+            [],
+            "execute",
+            `sed -i '' 's|Index|Home|' ${page.file}`
+          ),
+        ],
+      },
+      [page]
+    );
+    expect(activity?.pageIds).toEqual(["index"]);
+  });
+
+  it("does not light up a page because its name appears in a sentence", () => {
+    const [activity] = agentActivity(
+      [thread("t1", "running")],
+      { t1: [toolCall("in_progress", [], "execute", "echo Home index")] },
+      [page]
+    );
+    expect(activity?.pageIds).toEqual([]);
   });
 
   it("gives each thread its own colour", () => {

@@ -69,6 +69,27 @@ const openToolCall = (items: readonly ThreadItem[]) => {
 };
 
 /**
+ * The pages a tool call is about. An agent that edits through its file tools says which file it
+ * is in; one that runs `sed` or `cat` says nothing, and all the editor has is the command it
+ * wrote — so a page named in that text counts too. Matching by file path only, never by name: a
+ * page called "index" must not light up because the word appears in a sentence.
+ */
+const pagesOfCall = (
+  places: readonly { readonly path: string }[],
+  title: string | undefined,
+  pages: readonly Page[]
+) => {
+  const named = places.flatMap((place) => {
+    const page = pages.find((p) => p.file === place.path);
+    return page ? [page.id] : [];
+  });
+  if (named.length > 0 || !title) {
+    return named;
+  }
+  return pages.filter((page) => title.includes(page.file)).map((p) => p.id);
+};
+
+/**
  * One entry per thread whose agent is working. A thread is left out the moment its turn ends, so
  * nothing lingers on the canvas after the agent has stopped.
  */
@@ -85,10 +106,7 @@ export const agentActivity = (
       return {
         action: tool ? actionOf(tool.toolKind) : "thinking",
         color: colorOfThread(threads, thread.id),
-        pageIds: places.flatMap((place) => {
-          const page = pages.find((p) => p.file === place.path);
-          return page ? [page.id] : [];
-        }),
+        pageIds: pagesOfCall(places, tool?.title, pages),
         places,
         threadId: thread.id,
         ...(tool?.title === undefined ? {} : { title: tool.title }),
