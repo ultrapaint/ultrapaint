@@ -141,6 +141,7 @@ export const makeTestServer = (
       const server = ServerLive.pipe(
         Layer.provide(
           Layer.succeed(ServerConfig, {
+            briefing: true,
             cwd: repo,
             port,
             storage,

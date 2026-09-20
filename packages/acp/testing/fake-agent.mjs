@@ -9,6 +9,7 @@
  *   write       writes `designs/agent.tsx` through `fs/write_text_file`
  *   terminal    runs `echo hi` through `terminal/*` and reports the output
  *   escape      runs a terminal command writing to the path given after the scenario name
+ *   blocks      reports how many project briefings came with the prompt
  *   fail        answers the prompt with a JSON-RPC error carrying `data.message`
  *   exit        ends the process in the middle of the turn
  *   wait        streams one chunk and then waits for `session/cancel`
@@ -36,6 +37,13 @@ const text = (cx, sessionId, value, kind = "agent_message_chunk") =>
   });
 
 const scenarios = {
+  /** Says how much of the prompt was the project briefing, which leads a session's first one. */
+  async blocks(cx, sessionId, _cwd, _rest, prompt) {
+    const briefings = prompt.filter(
+      (block) => block.type === "text" && block.text.startsWith("<ultrapaint>")
+    );
+    await text(cx, sessionId, `blocks:${briefings.length}`);
+  },
   /** Asks the host to run a command that writes outside the repository. */
   async escape(cx, sessionId, _cwd, rest) {
     const { terminalId } = await cx.request(methods.client.terminal.create, {
@@ -191,14 +199,19 @@ agent({ name: "fake-agent" })
   .onRequest("session/set_mode", () => ({}))
   .onRequest("session/prompt", async (ctx) => {
     const { sessionId, prompt } = ctx.params;
-    const first = prompt.find((block) => block.type === "text");
+    // The project briefing leads the first prompt of a session; the user's own text follows it.
+    const first = prompt.find(
+      (block) =>
+        block.type === "text" && !block.text.startsWith("<ultrapaint>")
+    );
     const name = first?.text.split(" ")[0] ?? "reply";
     const scenario = scenarios[name] ?? scenarios.reply;
     const stopReason = await scenario(
       ctx.client,
       sessionId,
       cwds.get(sessionId),
-      first?.text.split(" ").slice(1).join(" ") ?? ""
+      first?.text.split(" ").slice(1).join(" ") ?? "",
+      prompt
     );
     return { stopReason: stopReason ?? "end_turn" };
   })

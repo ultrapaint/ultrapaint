@@ -19,6 +19,7 @@ import { SetupService } from "./services/setup.ts";
 import { Storage } from "./services/storage.ts";
 import { AgentConfigs } from "./services/threads/agent-configs.ts";
 import { AgentSandbox } from "./services/threads/agent-sandbox.ts";
+import { ProjectBriefing } from "./services/threads/briefing.ts";
 import { Checkpoints } from "./services/threads/checkpoints.ts";
 import { ThreadStore } from "./services/threads/thread-store.ts";
 import { ThreadService } from "./services/threads/threads.ts";
@@ -121,7 +122,12 @@ const Boot = Layer.effectDiscard(
 const Threads = ThreadService.layer.pipe(
   Layer.provideMerge(Checkpoints.layer),
   Layer.provideMerge(
-    Layer.mergeAll(ThreadStore.layer, AgentConfigs.layer, AgentSandbox.layer)
+    Layer.mergeAll(
+      ThreadStore.layer,
+      AgentConfigs.layer,
+      AgentSandbox.layer,
+      ProjectBriefing.layer
+    )
   )
 );
 

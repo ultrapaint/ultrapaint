@@ -30,6 +30,11 @@ const serve = Command.make(
       Flag.withFallbackConfig(Config.String("ULTRAPAINT_HOME")),
       Flag.optional
     ),
+    noBriefing: Flag.Boolean("no-briefing").pipe(
+      Flag.withDescription(
+        "Do not tell agents about the project before their first prompt"
+      )
+    ),
     port: Flag.Int("port").pipe(
       Flag.withDescription("Port to listen on, loopback only"),
       Flag.withFallbackConfig(Config.Int("ULTRAPAINT_PORT")),
@@ -41,7 +46,7 @@ const serve = Command.make(
       Flag.optional
     ),
   },
-  Effect.fn(function* ({ config, ephemeral, home, port, webDist }) {
+  Effect.fn(function* ({ config, ephemeral, home, noBriefing, port, webDist }) {
     const cwd = process.cwd();
     const { storage, userDir } = yield* resolveStorage({
       config: Option.getOrUndefined(config),
@@ -51,6 +56,7 @@ const serve = Command.make(
       userHome: process.env.HOME ?? cwd,
     });
     const resolved = ServerConfig.of({
+      briefing: !noBriefing,
       cwd,
       port,
       storage,

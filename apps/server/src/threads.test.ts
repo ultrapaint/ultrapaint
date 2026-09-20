@@ -278,6 +278,30 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         })
     );
 
+    it.effect("tells the agent about the project, once per session", () =>
+      Effect.gen(function* () {
+        const threadId = yield* startThread;
+        yield* prompt(threadId, "blocks");
+        const first = yield* waitForThread(threadId, turnEnded);
+        assert.include(
+          first.items.map((i) => (i.kind === "agent" ? i.text : "")),
+          "blocks:1"
+        );
+        // The second prompt of the same session carries no briefing: the agent has it.
+        yield* prompt(threadId, "blocks");
+        const second = yield* waitForThread(
+          threadId,
+          (thread, items) =>
+            turnEnded(thread, items) &&
+            items.filter((i) => i.kind === "turn_end").length === 2
+        );
+        assert.include(
+          second.items.map((i) => (i.kind === "agent" ? i.text : "")),
+          "blocks:0"
+        );
+      })
+    );
+
     it.effect("runs a terminal command for the agent", () =>
       Effect.gen(function* () {
         const threadId = yield* startThread;

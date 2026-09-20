@@ -43,6 +43,7 @@ import {
 import { ChildProcessSpawner } from "effect/unstable/process";
 import { AppLog } from "../../app-log.ts";
 import { makeWriteAtomic } from "../../atomic-write.ts";
+import { ServerConfig } from "../../config.ts";
 import { EventBus } from "../../events.ts";
 import { hashContent } from "../../hash.ts";
 import { makeId } from "../../ids.ts";
@@ -52,6 +53,7 @@ import { GitService, type GitSnapshot } from "../git.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { AgentConfigs } from "./agent-configs.ts";
 import { AgentSandbox } from "./agent-sandbox.ts";
+import { ProjectBriefing } from "./briefing.ts";
 import { Checkpoints } from "./checkpoints.ts";
 import { ThreadStore } from "./thread-store.ts";
 import {
@@ -80,6 +82,8 @@ interface PendingPermission {
 
 interface Live {
   readonly agent: AcpAgent;
+  /** The briefing goes out once per session, with the first prompt. */
+  briefed: boolean;
   readonly pending: Map<string, PendingPermission>;
   readonly remembered: Map<string, string>;
   /** While a stored session is replayed by `session/load`, its updates are not new items. */
@@ -144,6 +148,8 @@ export class ThreadService extends Context.Service<
       const store = yield* ThreadStore;
       const agents = yield* AgentConfigs;
       const sandbox = yield* AgentSandbox;
+      const briefing = yield* ProjectBriefing;
+      const { briefing: briefingEnabled } = yield* ServerConfig;
       const checkpoints = yield* Checkpoints;
       const project = yield* ProjectManager;
       const events = yield* EventBus;
@@ -399,6 +405,7 @@ export class ThreadService extends Context.Service<
           });
           const session: Live = {
             agent,
+            briefed: false,
             pending: new Map(),
             remembered: new Map(),
             replaying: false,
@@ -653,6 +660,13 @@ export class ThreadService extends Context.Service<
         const paths = yield* currentPaths;
         const { session, sessionId } = yield* sessionOf(threadId);
         const { blocks, labels } = yield* attachmentBlocks(input, paths);
+        if (briefingEnabled && !session.briefed) {
+          session.briefed = true;
+          const text = yield* briefing.text;
+          if (text) {
+            blocks.unshift({ text, type: "text" });
+          }
+        }
         yield* store.push(threadId, {
           at: yield* Clock.currentTimeMillis,
           attachments: labels,

@@ -294,6 +294,7 @@ describe("a configuration file that cannot be read", () => {
           ServerLive.pipe(
             Layer.provide(
               Layer.succeed(ServerConfig, {
+                briefing: true,
                 cwd: dir,
                 port: yield* freePort,
                 storage: {

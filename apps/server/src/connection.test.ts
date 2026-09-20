@@ -19,6 +19,7 @@ const startServer = (home: string, port: number) =>
       ServerLive.pipe(
         Layer.provide(
           Layer.succeed(ServerConfig, {
+            briefing: true,
             cwd: home,
             port,
             storage: { home, mode: "managed" },
