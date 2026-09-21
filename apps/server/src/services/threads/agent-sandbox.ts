@@ -4,8 +4,9 @@
  * declares as data.
  *
  * This service knows the machine: the home directory, the toolchain the agent's shell needs, the
- * files git reads its configuration from. Those are read once — they do not change while the
- * server runs — and turned into a launch through `packages/acp`'s pure profile builder.
+ * files git reads its configuration from, and which sandbox this platform has. Those are read
+ * once — they do not change while the server runs — and turned into a launch through
+ * `packages/acp`'s pure profile builder.
  */
 
 import { tmpdir } from "node:os";
@@ -82,7 +83,25 @@ export class AgentSandbox extends Context.Service<
       const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
       const home = process.env.HOME ?? "";
       const uid = String(process.getuid?.() ?? "");
-      const available = sandboxAvailable(process.platform);
+      // Linux confines with bubblewrap, which is not always installed.
+      const bubblewrap =
+        process.platform === "linux"
+          ? yield* runCommand("sh", ["-c", "command -v bwrap"], {
+              cwd: home,
+              timeout: "5 seconds",
+            }).pipe(
+              Effect.map((result) =>
+                result.exitCode === 0 ? result.stdout.trim() : undefined
+              ),
+              Effect.provideService(
+                ChildProcessSpawner.ChildProcessSpawner,
+                spawner
+              ),
+              Effect.orElseSucceed(() => undefined)
+            )
+          : undefined;
+      const tools = { bubblewrap, platform: process.platform };
+      const available = sandboxAvailable(tools);
 
       const expand = (p: string) =>
         (p === "~" || p.startsWith("~/") ? path.join(home, p.slice(1)) : p)
@@ -166,7 +185,7 @@ export class AgentSandbox extends Context.Service<
             tmpDir,
           };
           const confine = (launch: AgentLaunch) =>
-            sandboxLaunch(launch, policy);
+            sandboxLaunch(launch, policy, tools);
           return {
             confine,
             launch: confine({

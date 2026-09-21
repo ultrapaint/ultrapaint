@@ -61,26 +61,75 @@ export const seatbeltProfile = (policy: SandboxPolicy): string => {
   ].join("\n");
 };
 
-/** Whether this platform can confine an agent process. macOS today; Linux is next. */
-export const sandboxAvailable = (platform: string): boolean =>
-  platform === "darwin";
+/**
+ * The same policy for bubblewrap: the filesystem read-only, the home directory blanked with an
+ * empty tmpfs, and then only what the policy allows bound back over it — read-only for the
+ * toolchain, read-write for the repository and the rest. Network is left alone.
+ *
+ * Order is the whole trick: every bind after the first covers what came before it.
+ */
+export const bubblewrapArgs = (policy: SandboxPolicy): string[] => {
+  const writable = [
+    policy.root,
+    policy.tmpDir,
+    ...policy.agentDirs,
+    ...policy.scratch,
+  ];
+  return [
+    "--ro-bind",
+    "/",
+    "/",
+    "--dev",
+    "/dev",
+    "--proc",
+    "/proc",
+    // Nothing of the home directory is there unless it is named below.
+    "--tmpfs",
+    policy.home,
+    ...policy.reads.flatMap((path) => ["--ro-bind-try", path, path]),
+    ...writable.flatMap((path) => ["--bind-try", path, path]),
+    // The agent goes when the server does, whatever happens to it.
+    "--die-with-parent",
+    "--",
+  ];
+};
+
+/** Where the sandbox of each platform comes from. */
+export interface SandboxTools {
+  /** `bwrap` on the PATH, when there is one. Linux only. */
+  readonly bubblewrap?: string | undefined;
+  readonly platform: string;
+}
+
+/** Whether these tools can confine an agent process. */
+export const sandboxAvailable = (tools: SandboxTools): boolean =>
+  tools.platform === "darwin" ||
+  (tools.platform === "linux" && tools.bubblewrap !== undefined);
 
 /**
- * Wraps the command that starts an agent so that it runs inside the sandbox. On a platform
- * without one the launch is returned unchanged; the caller tells the user.
+ * Wraps the command that starts an agent so that it runs inside the sandbox. Where there is
+ * none the launch is returned unchanged; the caller tells the user.
  */
 export const sandboxLaunch = (
   launch: AgentLaunch,
   policy: SandboxPolicy,
-  platform: string = process.platform
+  tools: SandboxTools = { platform: process.platform }
 ): AgentLaunch => {
-  if (!sandboxAvailable(platform)) {
-    return launch;
+  // Temporary files are written where the agent may write, and nowhere else.
+  const env = { ...launch.env, TMPDIR: policy.tmpDir };
+  if (tools.platform === "darwin") {
+    return {
+      args: ["-p", seatbeltProfile(policy), launch.command, ...launch.args],
+      command: "/usr/bin/sandbox-exec",
+      env,
+    };
   }
-  return {
-    args: ["-p", seatbeltProfile(policy), launch.command, ...launch.args],
-    command: "/usr/bin/sandbox-exec",
-    // Temporary files are written where the agent may write, and nowhere else.
-    env: { ...launch.env, TMPDIR: policy.tmpDir },
-  };
+  if (tools.platform === "linux" && tools.bubblewrap) {
+    return {
+      args: [...bubblewrapArgs(policy), launch.command, ...launch.args],
+      command: tools.bubblewrap,
+      env,
+    };
+  }
+  return launch;
 };

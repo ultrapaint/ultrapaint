@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import {
   type AgentLaunch,
+  bubblewrapArgs,
   sandboxAvailable,
   sandboxLaunch,
   seatbeltProfile,
@@ -58,9 +59,36 @@ describe("seatbeltProfile", () => {
   });
 });
 
+const DARWIN = { platform: "darwin" };
+const LINUX = { bubblewrap: "/usr/bin/bwrap", platform: "linux" };
+
+describe("bubblewrapArgs", () => {
+  const args = bubblewrapArgs(policy).join(" ");
+
+  it("blanks the home directory before anything is bound back over it", () => {
+    const tmpfs = args.indexOf(`--tmpfs ${policy.home}`);
+    const rebound = args.indexOf(`--ro-bind-try ${policy.reads[0]}`);
+    expect(tmpfs).toBeGreaterThan(-1);
+    // Later binds cover earlier ones: the toolchain has to come after the blanking.
+    expect(rebound).toBeGreaterThan(tmpfs);
+  });
+
+  it("binds the repository writable and the toolchain read-only", () => {
+    expect(args).toContain(`--bind-try ${policy.root} ${policy.root}`);
+    expect(args).toContain(
+      `--ro-bind-try ${policy.reads[0]} ${policy.reads[0]}`
+    );
+    expect(args).not.toContain(`--bind-try ${policy.reads[0]}`);
+  });
+
+  it("ends the sandbox with the server that started it", () => {
+    expect(args).toContain("--die-with-parent");
+  });
+});
+
 describe("sandboxLaunch", () => {
   it("starts the agent through sandbox-exec with its own temp directory", () => {
-    const wrapped = sandboxLaunch(launch, policy, "darwin");
+    const wrapped = sandboxLaunch(launch, policy, DARWIN);
     expect(wrapped.command).toBe("/usr/bin/sandbox-exec");
     expect(wrapped.args.slice(-3)).toEqual([
       "npx",
@@ -72,9 +100,23 @@ describe("sandboxLaunch", () => {
     expect(wrapped.env).toEqual({ FOO: "bar", TMPDIR: policy.tmpDir });
   });
 
+  it("starts the agent through bubblewrap on Linux", () => {
+    const wrapped = sandboxLaunch(launch, policy, LINUX);
+    expect(wrapped.command).toBe("/usr/bin/bwrap");
+    expect(wrapped.args.slice(-3)).toEqual([
+      "npx",
+      "-y",
+      "@agentclientprotocol/claude-agent-acp",
+    ]);
+    expect(wrapped.env).toEqual({ FOO: "bar", TMPDIR: policy.tmpDir });
+  });
+
   it("leaves the launch alone where there is no sandbox", () => {
-    expect(sandboxLaunch(launch, policy, "linux")).toEqual(launch);
-    expect(sandboxAvailable("linux")).toBe(false);
-    expect(sandboxAvailable("darwin")).toBe(true);
+    const noBwrap = { platform: "linux" };
+    expect(sandboxLaunch(launch, policy, noBwrap)).toEqual(launch);
+    expect(sandboxAvailable(noBwrap)).toBe(false);
+    expect(sandboxAvailable({ platform: "win32" })).toBe(false);
+    expect(sandboxAvailable(LINUX)).toBe(true);
+    expect(sandboxAvailable(DARWIN)).toBe(true);
   });
 });

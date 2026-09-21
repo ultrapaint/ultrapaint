@@ -95,8 +95,9 @@ temporary directories. Your home directory is closed to it. That holds for the s
 runs too, and it does not depend on the agent — it is the operating system's doing. Network is
 open, because an agent has to reach its model.
 
-This works on macOS today. Elsewhere the thread says **Not scoped**: the agent runs with your own
-rights until the sandbox for that platform lands.
+This works on macOS, and on Linux when [bubblewrap](https://github.com/containers/bubblewrap) is
+installed (`bwrap`). Elsewhere the thread says **Not scoped**: the agent runs with your own rights
+until the sandbox for that platform lands.
 
 An agent of your own, added as JSON under `~/.ultrapaint/agents/`, tells the sandbox where it
 keeps its login and sessions:

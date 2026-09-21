@@ -48,6 +48,9 @@ network policy and blocks the Keychain, so an agent inside it has no login.
 
 ## Where it works
 
-macOS, through `sandbox-exec`. Linux (bubblewrap) is next, and the thread carries `sandboxed` so
-the editor says plainly when the platform cannot confine the agent rather than implying a
-guarantee it does not have.
+macOS through `sandbox-exec`, Linux through bubblewrap when `bwrap` is installed: the filesystem
+read-only, the home directory blanked with a tmpfs, and only what the policy allows bound back
+over it. Windows has no equivalent.
+
+The thread carries `sandboxed`, so the editor says plainly when the platform cannot confine the
+agent rather than implying a guarantee it does not have.
