@@ -119,9 +119,10 @@ the pages and their routes, a component's props and variants, the comments left 
 can add and rename pages through it, answer a comment where it was left, and say which page it is
 working on so you can watch it.
 
-It saves the agent from reading the repository to find out what the editor already knows. How
-much it saves is still being measured: one run of a task varies by about twofold, so the early
-numbers are not to be trusted yet ([the measurements](docs/feature/benchmarks/)).
+It saves the agent from reading the repository to find out what the editor already knows. On four
+tasks, one run each with the model pinned, that was 32 tool calls on average without any of it,
+25 with the briefing and 17 with the tools as well — and roughly half the time per task
+([the measurements](docs/feature/benchmarks/), which say what they cannot yet tell apart).
 
 An agent outside the editor can use the same tools: **Settings** shows the line that adds it.
 

@@ -1,0 +1,185 @@
+[
+  {
+    "arm": "mcp",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 3,
+      "tool": 17,
+      "turn_end": 1
+    },
+    "seconds": 97.92,
+    "task": "new-page",
+    "tokens": {
+      "byModel": {
+        "claude-haiku-4-5-20251001": 2251,
+        "claude-opus-5[1m]": 598678
+      },
+      "cached": 561208,
+      "input": 30,
+      "output": 5027,
+      "total": 598678
+    },
+    "toolCalls": 17,
+    "toolKinds": {
+      "other": 7,
+      "execute": 10
+    },
+    "trace": [
+      "ToolSearch",
+      "mcp__ultrapaint__get_context",
+      "mcp__ultrapaint__list_components",
+      "mcp__ultrapaint__get_component",
+      "cat apps/web/src/components/ui/card.tsx 2>/dev/null | head -60; echo \"---BADGE--",
+      "ls apps/web/src/routes 2>/dev/null | head -20; echo \"---\"; grep -rl \"CardHeader\"",
+      "grep -rl \"CardHeader\" apps/web/src --include \"*.tsx\" | grep -v \"components/ui\" |",
+      "grep -rl \"font-heading\" apps/web/src --include \"*.tsx\" | grep -v \"/ui/\" | head -",
+      "ls apps/web/src && echo \"---\" && ls apps/web/src/components | head -30",
+      "sed -n '1,60p' apps/web/src/panels/$(ls apps/web/src/panels | head -1)",
+      "mcp__ultrapaint__create_page",
+      "mcp__ultrapaint__focus",
+      "cat > docs/bench-designs/pricing.tsx <<'EOF'\nimport {\n  Badge,\n  Button,\n  Card,",
+      "mcp__ultrapaint__list_components",
+      "grep -rn \"\\\"cn\\\"\" apps/web/package.json apps/web/tsconfig.json 2>/dev/null; echo",
+      "grep -n \"background\" apps/web/src/styles.css | head -12",
+      "grep -rn \"ultrapaint/web\" apps/web/package.json packages/*/package.json 2>/dev/"
+    ]
+  },
+  {
+    "arm": "mcp",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "tool": 5,
+      "agent": 1,
+      "turn_end": 1
+    },
+    "seconds": 26.394,
+    "task": "use-component",
+    "tokens": {
+      "byModel": {
+        "claude-haiku-4-5-20251001": 2276,
+        "claude-opus-5[1m]": 143283
+      },
+      "cached": 117512,
+      "input": 8,
+      "output": 1262,
+      "total": 143283
+    },
+    "toolCalls": 5,
+    "toolKinds": {
+      "execute": 2,
+      "other": 3
+    },
+    "trace": [
+      "cat /Users/alessandro.narciso/Code/ultrapaint/ultrapaint/docs/bench-designs/inde",
+      "ToolSearch",
+      "mcp__ultrapaint__focus",
+      "mcp__ultrapaint__get_component",
+      "cat > /Users/alessandro.narciso/Code/ultrapaint/ultrapaint/docs/bench-designs/in"
+    ]
+  },
+  {
+    "arm": "mcp",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 7,
+      "tool": 36,
+      "turn_end": 1
+    },
+    "seconds": 191.137,
+    "task": "form-from-catalogue",
+    "tokens": {
+      "byModel": {
+        "claude-haiku-4-5-20251001": 2268,
+        "claude-opus-5[1m]": 1671486
+      },
+      "cached": 1614074,
+      "input": 70,
+      "output": 9537,
+      "total": 1671486
+    },
+    "toolCalls": 36,
+    "toolKinds": {
+      "other": 8,
+      "execute": 28
+    },
+    "trace": [
+      "ToolSearch",
+      "mcp__ultrapaint__get_context",
+      "mcp__ultrapaint__list_components",
+      "mcp__ultrapaint__get_component",
+      "mcp__ultrapaint__get_component",
+      "sed -n 1,200p /Users/alessandro.narciso/Code/ultrapaint/ultrapaint/apps/web/src/",
+      "grep -rl \"FieldGroup\" apps/web/src --include=*.tsx | grep -v \"ui/field.tsx\" | he",
+      "grep -rl \"FieldGroup\" apps/web/src | grep -v \"ui/field\" | head -20; echo \"---CAR",
+      "sed -n 1,120p apps/web/src/panels/save-config.tsx",
+      "sed -n 120,200p apps/web/src/panels/save-config.tsx",
+      "mcp__ultrapaint__create_page",
+      "mcp__ultrapaint__focus",
+      "grep -rn \"background-100\" apps/web/src | head -5",
+      "cat > docs/bench-designs/settings/billing.tsx <<'EOF'\nimport {\n  Button,\n  Card,",
+      "for n in Button Card CardContent CardDescription CardFooter CardHeader CardTitle",
+      "node -e \"const p=require('./apps/web/package.json'); console.log(JSON.stringify(",
+      "grep -n '\"exports\"' -A 20 apps/web/package.json",
+      "ls apps/web/src | head -30; echo \"=== barrel ===\"; ls apps/web/src/index* apps/w",
+      "grep -rn \"@ultrapaint/web\" --exclude-dir=node_modules --exclude-dir=.git -l . |",
+      "grep -rn \"importFrom\" packages/framework-react-vite/src --include=*.ts | head -2",
+      "grep -rn \"importFrom\" packages --exclude-dir=node_modules | head -20",
+      "sed -n 600,660p packages/framework-react-vite/src/catalogue-extract.ts",
+      "grep -n \"importSpecifier\" -A 40 packages/framework-react-vite/src/catalogue-extr",
+      "grep -n \"specifierFromPackage\" -A 45 packages/framework-react-vite/src/catalogue",
+      "cat apps/web/vite.config.ts 2>/dev/null | head -60; echo \"=== tsconfig ===\"; cat",
+      "grep -nE '\"(main|module|types|exports)\"' apps/web/package.json; echo \"exit=$?\"",
+      "grep -rn \"resolveFrom\" packages apps --exclude-dir=node_modules | head -20",
+      "grep -rn \"resolveFrom\" packages/*/src apps/*/src scripts 2>/dev/null | head -20",
+      "ls apps/web/src/canvas; echo \"=== ===\"; grep -rn \"designs\\|import(\" apps/web/src",
+      "grep -rn \"createServer\\|vite\" packages/framework-react-vite/src/*.ts | grep -iv ",
+      "ls apps/web/ && echo \"=== link ===\" && ls -l node_modules/@ultrapaint/ 2>/dev/n",
+      "ls apps/web/src/components/ui/{card,field,input,button}.tsx && echo \"=== card ex",
+      "cat > docs/bench-designs/settings/billing.tsx <<'EOF'\nimport { Button } from \"@/",
+      "sed -n 60,90p apps/web/src/components/ui/card.tsx",
+      "sed -i '' 's|          <CardFooter>|          <CardFooter className=\"justify-end",
+      "mcp__ultrapaint__read_page"
+    ]
+  },
+  {
+    "arm": "mcp",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "tool": 9,
+      "agent": 1,
+      "turn_end": 1
+    },
+    "seconds": 54.309,
+    "task": "router-link",
+    "tokens": {
+      "byModel": {
+        "claude-haiku-4-5-20251001": 2265,
+        "claude-opus-5[1m]": 371060
+      },
+      "cached": 341627,
+      "input": 20,
+      "output": 2789,
+      "total": 371060
+    },
+    "toolCalls": 9,
+    "toolKinds": {
+      "execute": 7,
+      "other": 2
+    },
+    "trace": [
+      "ls docs/bench-designs/ && echo \"--- index.tsx ---\" && cat docs/bench-designs/ind",
+      "grep -rn \"underline-offset\\|hover:underline\" apps/web/src/components --include=*",
+      "grep -rn \"hover:underline\" apps/web/src | head -20; echo \"=== button link varian",
+      "cat > docs/bench-designs/index.tsx <<'EOF'\nimport { Link } from \"./_router.tsx\";",
+      "grep -rln \"_router\" --include=*.ts --include=*.tsx packages apps 2>/dev/null | h",
+      "grep -rln \"_router\" packages apps 2>/dev/null | grep -v node_modules | head -20",
+      "grep -n \"Link\\|to\\b\\|href\" packages/framework-react-vite/src/router-module.ts | ",
+      "ToolSearch",
+      "mcp__ultrapaint__focus"
+    ]
+  }
+]

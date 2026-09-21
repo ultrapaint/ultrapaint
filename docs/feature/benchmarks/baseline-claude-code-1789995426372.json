@@ -1,0 +1,244 @@
+[
+  {
+    "arm": "baseline",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "tool": 30,
+      "agent": 4,
+      "turn_end": 1
+    },
+    "seconds": 184.214,
+    "task": "new-page",
+    "tokens": {
+      "byModel": {
+        "claude-haiku-4-5-20251001": 926,
+        "claude-opus-5[1m]": 1043450
+      },
+      "cached": 983373,
+      "input": 42,
+      "output": 10225,
+      "total": 1043450
+    },
+    "toolCalls": 30,
+    "toolKinds": {
+      "execute": 29,
+      "other": 1
+    },
+    "trace": [
+      "ls && echo \"---\" && cat package.json | head -50 && echo \"---APPS---\" && ls apps ",
+      "git status && git log --oneline -5",
+      "cat README.md | head -80",
+      "find . -path ./node_modules -prune -o -type d -name \"routes\" -print 2>/dev/null ",
+      "ls docs/ && echo \"---designs---\" && ls -R docs/designs 2>/dev/null | head -40; e",
+      "ToolSearch",
+      "ls -R docs/bench-designs | head -60; echo \"=== any .tsx designs anywhere ===\"; f",
+      "ls packages/framework-react-vite/src packages/framework-api/src apps/server/src ",
+      "grep -rn \"route\" --include=*.ts --include=*.tsx packages/contracts/src | head -4",
+      "cat packages/framework-react-vite/src/pages.ts && echo \"=== router-module ===\" &",
+      "cat .gitignore; echo \"=== untracked ===\"; git status --porcelain --ignored | hea",
+      "grep -rn \"designs\" packages/framework-react-vite/src/detect.ts | head -30",
+      "ls -la docs/bench-designs/ 2>/dev/null | head -20; echo \"=== history of designs ",
+      "grep -rn \"bench-designs\" --include=\"*.ts\" --include=\"*.tsx\" --include=\"*.md\" --i",
+      "cat apps/server/bench/tasks.ts",
+      "sed -n 90,170p apps/server/bench/run.ts; echo \"=== .ultrapaint state ===\"; ls -",
+      "ls apps/web/src/components && echo \"=== pkg name ===\" && head -20 apps/web/packa",
+      "ls apps/web/src/components/ui && echo \"=== exports check ===\" && grep -n \"\\\"expo",
+      "cat docs/bench-designs/.ultrapaint/preview.json && echo \"=== host.css ===\" && c",
+      "grep -rn \"alias\\|paths\" apps/web/vite.config.* apps/web/tsconfig.json 2>/dev/nul",
+      "cat apps/web/src/components/ui/card.tsx; echo \"=== BUTTON ===\"; sed -n 1,60p app",
+      "grep -rn \"components/ui/card\" apps/web/src | head -5; echo \"=== cn module ===\"; ",
+      "grep -rn \"from \\\"@/components/ui\" apps/web/src/panels/pages.tsx | head -5; echo ",
+      "cat apps/web/tsconfig.json; echo \"=== vite config ===\"; cat apps/web/vite.config",
+      "grep -n \"background\\|muted-foreground\\|font-heading\\|--color-primary\\b\" apps/web",
+      "grep -n \"variant:\\|export {\" -A8 apps/web/src/components/ui/badge.tsx | head -30",
+      "cat > docs/bench-designs/pricing.tsx <<'TSX'\nimport { Badge } from \"@/components",
+      "pnpm exec biome check --vcs-enabled=false docs/bench-designs/pricing.tsx 2>&1 | ",
+      "cat > apps/web/tsconfig.pricing-check.json <<'JSON'\n{\n  \"extends\": \"./tsconfig.j",
+      "grep -rn \"routeOf\\|const route\" packages/shared/src/*.ts | head -10"
+    ]
+  },
+  {
+    "arm": "baseline",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 4,
+      "tool": 28,
+      "turn_end": 1
+    },
+    "seconds": 132.922,
+    "task": "use-component",
+    "tokens": {
+      "byModel": {
+        "claude-haiku-4-5-20251001": 945,
+        "claude-opus-5[1m]": 847082
+      },
+      "cached": 794955,
+      "input": 36,
+      "output": 7616,
+      "total": 847082
+    },
+    "toolCalls": 28,
+    "toolKinds": {
+      "execute": 28
+    },
+    "trace": [
+      "ls && cat package.json | head -40",
+      "find . -path ./node_modules -prune -o -type d -name \"*\" -print 2>/dev/null | gre",
+      "grep -rn \"Get started\" --include=\"*.tsx\" --include=\"*.ts\" --include=\"*.md\" --inc",
+      "find apps/web/src -type f | head -60 && echo \"---BUTTONS---\" && find . -path ./n",
+      "sed -n '1,120p' apps/server/bench/tasks.ts",
+      "grep -rniE \"home|landing\" --include=\"*.tsx\" apps/web/src | head -20; echo \"---\";",
+      "find docs/bench-designs -type f | head -30 && echo \"---INDEX---\" && cat docs/ben",
+      "sed -n '1,80p' apps/web/src/components/ui/button.tsx",
+      "ls apps/server/bench/ && grep -rn \"bench-designs\\|designs\" apps/server/bench/*.t",
+      "grep -rn \"designs\" apps/web/vite.config.ts apps/web/tsconfig*.json 2>/dev/null; ",
+      "ls packages/framework-react-vite/src && echo \"---\" && grep -rn \"designsDir\" pack",
+      "grep -rln \"import\" docs --include=\"*.tsx\" | head; echo \"---catalogue---\"; ls pac",
+      "cat packages/framework-react-vite/src/resolve-plugin.ts",
+      "sed -n '100,200p' apps/server/bench/run.ts",
+      "cat apps/web/package.json",
+      "grep -n \"importPath\\|specifier\\|import\\b\" packages/framework-react-vite/src/cata",
+      "sed -n '495,530p;620,660p' packages/framework-react-vite/src/catalogue-extract.t",
+      "grep -rn \"alias\\|tsconfig\\|paths\" packages/framework-react-vite/src/preset.ts pa",
+      "sed -n '200,250p' packages/framework-react-vite/src/catalogue-extract.ts",
+      "sed -n '160,190p' packages/framework-react-vite/src/serve.ts",
+      "grep -rln \"briefing\" apps/server/src packages/*/src | head -20",
+      "cat apps/server/src/services/threads/briefing.ts",
+      "grep -rn \"components/ui/button\\\"\" apps/web/src --include=\"*.tsx\" | head -8",
+      "cat apps/web/tsconfig.json 2>/dev/null",
+      "cat > docs/bench-designs/index.tsx <<'EOF'\nimport { Button } from \"@/components/",
+      "npx ultracite check docs/bench-designs/index.tsx 2>&1 | tail -20",
+      "./node_modules/.bin/biome check docs/bench-designs/index.tsx 2>&1 | tail -20",
+      "ls /usr/local/bin/node /opt/homebrew/bin/node ~/.local/share/mise/shims/node 2>&"
+    ]
+  },
+  {
+    "arm": "baseline",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 6,
+      "tool": 42,
+      "turn_end": 1
+    },
+    "seconds": 312.214,
+    "task": "form-from-catalogue",
+    "tokens": {
+      "byModel": {
+        "claude-haiku-4-5-20251001": 943,
+        "claude-opus-5[1m]": 2029427
+      },
+      "cached": 1948991,
+      "input": 66,
+      "output": 14395,
+      "total": 2029427
+    },
+    "toolCalls": 42,
+    "toolKinds": {
+      "execute": 42
+    },
+    "trace": [
+      "ls && echo \"---PKGS---\" && ls packages apps 2>/dev/null",
+      "cat package.json",
+      "find apps/web -type f -not -path \"*/node_modules/*\" -not -path \"*/dist/*\" | head",
+      "cat apps/web/src/app.tsx && echo \"===MAIN===\" && cat apps/web/src/main.tsx",
+      "grep -rln \"settings/billing\\|/settings\" --include=\"*.tsx\" --include=\"*.ts\" --inc",
+      "sed -n 1,80p docs/adr/0012-spaces-pages-router.md",
+      "find . -type d -name \"node_modules\" -prune -o -type d \\( -name \"*fixture*\" -o -n",
+      "find . -path ./node_modules -prune -o \\( -name \"space.json\" -o -name \"_router.ts",
+      "ls docs && echo \"===README head===\" && sed -n 1,70p README.md",
+      "ls -R docs/bench-designs | head -50 && echo \"===TASKS===\" && sed -n 1,120p apps/",
+      "grep -rn \"bench-designs\" --include=\"*.ts\" --include=\"*.json\" --include=\"*.md\" . ",
+      "sed -n 90,170p apps/server/bench/run.ts",
+      "ls apps/web/src/components/ui/",
+      "grep -rn \"importPath\\|importSpecifier\\|resolveFrom\" --include=\"*.ts\" packages/fr",
+      "grep -rn \"componentPackages\\|libraryDirs\" --include=\"*.md\" docs README.md | head",
+      "sed -n 490,540p packages/framework-react-vite/src/catalogue-extract.ts",
+      "cat apps/web/src/components/ui/field.tsx",
+      "grep -n \"specifierFromPackage\" -A 45 packages/framework-react-vite/src/catalogue",
+      "cat apps/web/vite.config.ts && echo \"===tsconfig===\" && cat apps/web/tsconfig.js",
+      "ls packages/framework-react-vite/src packages/preview-core/src && echo \"===\" && ",
+      "sed -n 120,215p packages/framework-react-vite/src/serve.ts",
+      "cat apps/web/src/components/ui/input.tsx apps/web/src/components/ui/label.tsx &&",
+      "cat apps/web/src/components/ui/card.tsx",
+      "cat packages/framework-react-vite/src/pages.ts",
+      "ls apps/web/src/components/ui/ | tail -12 && echo \"===field stories?===\" && find",
+      "ls -1 apps/web/src/components/ui/ | sed -n 50,80p && echo \"=== input-group expor",
+      "cat biome.json",
+      "find node_modules/@base-ui/react/dist/button -name \"*.d.ts\" -o -name \"*.js\" | he",
+      "ls apps/web/node_modules/@base-ui/react/ 2>/dev/null | head && find . -path \"*@b",
+      "f=$(find . -path \"*@base-ui/react/button/Button.js\" | head -1); echo \"$f\"; grep ",
+      "cat \"./node_modules/.pnpm/@base-ui+react@1.8.0_@types+react@19.3.0_react-dom@19.",
+      "grep -rn \"FieldLabel\\|FieldGroup\" --include=\"*.tsx\" apps/web/src --exclude-dir=u",
+      "sed -n 260,300p apps/web/src/panels/settings.tsx",
+      "grep -n \"background\\|--muted\\|font-heading\" apps/web/src/styles.css | head -30",
+      "mkdir -p /Users/alessandro.narciso/Code/ultrapaint/ultrapaint/docs/bench-designs",
+      "npx ultracite check docs/bench-designs/settings/billing.tsx 2>&1 | tail -30",
+      "./node_modules/.bin/biome check docs/bench-designs/settings/billing.tsx 2>&1 | t",
+      "echo \"PATH=$PATH\" && ls ~/.local/share/mise/installs/node 2>/dev/null; which -a ",
+      "ls -l /opt/homebrew/bin/node /usr/local/bin/node 2>/dev/null; ls ~/.vite-plus/bi",
+      "~/.nvm/versions/node/v24.13.0/bin/node ./node_modules/@biomejs/biome/bin/biome c",
+      "cat > apps/web/tsconfig.check-billing.json <<'JSON'\n{\n  \"extends\": \"./tsconfig.j",
+      "cp docs/bench-designs/settings/billing.tsx apps/web/src/zz-billing-check.tsx && "
+    ]
+  },
+  {
+    "arm": "baseline",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "tool": 29,
+      "agent": 4,
+      "turn_end": 1
+    },
+    "seconds": 176.971,
+    "task": "router-link",
+    "tokens": {
+      "byModel": {
+        "claude-haiku-4-5-20251001": 934,
+        "claude-opus-5[1m]": 1215895
+      },
+      "cached": 1159737,
+      "input": 48,
+      "output": 8992,
+      "total": 1215895
+    },
+    "toolCalls": 29,
+    "toolKinds": {
+      "execute": 29
+    },
+    "trace": [
+      "ls && echo \"---\" && cat package.json | head -40",
+      "find . -path ./node_modules -prune -o -type d -name \"*\" -print 2>/dev/null | gre",
+      "ls apps packages && echo \"--- bench-designs ---\" && ls docs/bench-designs | head",
+      "grep -ril \"pricing\" --include=\"*.ts\" --include=\"*.tsx\" --include=\"*.md\" --includ",
+      "cat docs/bench-designs/index.tsx && echo \"=== tasks.ts ===\" && cat apps/server/b",
+      "cat docs/adr/0012-spaces-pages-router.md",
+      "ls packages/preview-core/src && echo \"=== index.ts ===\" && cat packages/preview-",
+      "grep -rl \"_router\" --include=\"*.ts\" --include=\"*.tsx\" --include=\"*.md\" . 2>/dev/",
+      "cat packages/framework-react-vite/src/router-module.ts",
+      "grep -n \"_router\" -A 20 -B 10 apps/server/src/services/threads/briefing.ts | hea",
+      "grep -rn \"ROUTER_MODULE_FILE\\|routerModuleSource\" --include=\"*.ts\" . 2>/dev/null",
+      "ls -a | grep -i ultrapaint; find . -maxdepth 2 -name \"*.json\" -not -path \"./node_modul",
+      "sed -n 55,110p packages/framework-react-vite/src/pages.ts",
+      "sed -n 120,175p apps/server/bench/run.ts",
+      "grep -rn \"routerModule\" --include=\"*.ts\" . 2>/dev/null | grep -v node_modules | ",
+      "sed -n 295,355p apps/server/src/services/pages.ts",
+      "grep -n \"designsRel\\|rmSync\\|given\\|mkdtemp\\|repo =\" apps/server/bench/run.ts | ",
+      "grep -n \"ensureRouterModule\" apps/server/src/services/pages.ts",
+      "sed -n 1,55p packages/framework-react-vite/src/pages.ts",
+      "grep -n \"muted\" apps/web/src/styles.css | head -20",
+      "node --experimental-strip-types -e \"\nimport('./packages/framework-react-vite/src",
+      "NODE_BIN=$(ls -d $HOME/.local/share/mise/installs/node/*/bin/node 2>/dev/null | ",
+      "ls -la /Users/alessandro.narciso/.vite-plus/bin/ 2>/dev/null; ls /Users/alessand",
+      "/Users/alessandro.narciso/.nvm/versions/node/v24.13.0/bin/node --experimental-st",
+      "cat > docs/bench-designs/index.tsx <<'EOF'\nimport { Link } from \"./_router.tsx\";",
+      "npx --no-install biome check --write docs/bench-designs/index.tsx 2>&1 | tail -1",
+      "./node_modules/.bin/biome check --write docs/bench-designs/index.tsx 2>&1 | tail",
+      "PATH=\"/Users/alessandro.narciso/.nvm/versions/node/v24.13.0/bin:$PATH\" ./node_mo",
+      "ls -la docs/bench-designs/ && git status --short"
+    ]
+  }
+]

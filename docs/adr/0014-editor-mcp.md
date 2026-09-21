@@ -38,13 +38,13 @@ website the user has open could call these tools.
 
 ## What is measured, and what is not
 
-Four tasks, in `docs/feature/benchmarks/`. The first run of each arm read as 30.5 tool calls
-without the briefing, 21.0 with it and 10.8 with the read tools as well. Repeating the last arm
-nine times put it at 26.1 (10 to 37): one run of a task is a sample of a noisy thing, and those
-first numbers were a lucky one.
+Four tasks, in `docs/feature/benchmarks/`. Measured once per arm on a session left on "auto", the
+numbers moved by about twofold between repeats of the same task and could not be told apart.
+Pinned to Opus 5 and measured again, one run per arm: 32.3 tool calls on average as the tool was,
+25.5 with the briefing, 16.8 with the tools as well, and roughly half the wall time. Three tasks
+of four improved in step; building a form out of unfamiliar components did not.
 
-What the traces do show is agents asking rather than hunting — `get_context`, `list_pages`,
-`create_page`, `get_component` — and every run in every arm produced correct work. The tools cost
-little, are read-only but for the four that do what an agent cannot, and `focus` buys something
-no amount of file reading would. That is the case for keeping them; the size of the saving is
-still to be measured, with the same repetitions on every arm.
+One run per cell still cannot separate a small difference from luck, and the arms are not
+alternatives — the briefing is what makes an agent reach for the tools at all. What the traces
+show is agents asking instead of hunting: 128 shell calls in the baseline against 47 with the
+tools. Every run in every arm produced correct work.
