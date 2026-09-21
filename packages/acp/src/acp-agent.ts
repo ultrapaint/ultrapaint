@@ -91,6 +91,17 @@ export interface AcpHandlers {
   ) => Effect.Effect<void, { readonly message: string }>;
 }
 
+/** An MCP server the agent may call, as ACP describes one. */
+export interface McpServerConfig {
+  readonly headers: readonly {
+    readonly name: string;
+    readonly value: string;
+  }[];
+  readonly name: string;
+  readonly type: "http";
+  readonly url: string;
+}
+
 export interface AcpExit {
   readonly code: number | null;
   readonly signal: string | null;
@@ -116,11 +127,15 @@ export interface AcpAgent {
   readonly initialize: Effect.Effect<InitializeResponse, AcpError>;
   readonly loadSession: (
     sessionId: string,
-    cwd: string
+    cwd: string,
+    mcpServers?: readonly McpServerConfig[]
   ) => Effect.Effect<LoadSessionResponse | undefined, AcpError>;
   readonly newSession: (
     cwd: string,
-    meta?: unknown
+    options?: {
+      readonly mcpServers?: readonly McpServerConfig[];
+      readonly meta?: unknown;
+    }
   ) => Effect.Effect<NewSessionResponse, AcpError>;
   readonly pid: number | undefined;
   readonly prompt: (
@@ -361,19 +376,23 @@ export const spawnAcpAgent = (
           protocolVersion: PROTOCOL_VERSION,
         })
       ),
-      loadSession: (sessionId, cwd) =>
+      loadSession: (sessionId, cwd, mcpServers) =>
         Effect.map(
           call("session/load", () =>
-            agent.request("session/load", { cwd, mcpServers: [], sessionId })
+            agent.request("session/load", {
+              cwd,
+              mcpServers: [...(mcpServers ?? [])],
+              sessionId,
+            })
           ),
           (loaded) => loaded ?? undefined
         ),
-      newSession: (cwd, meta) =>
+      newSession: (cwd, session) =>
         call("session/new", () =>
           agent.request("session/new", {
             cwd,
-            mcpServers: [],
-            ...(meta === undefined ? {} : { _meta: meta }),
+            mcpServers: [...(session?.mcpServers ?? [])],
+            ...(session?.meta === undefined ? {} : { _meta: session.meta }),
           })
         ),
       pid: child.pid,

@@ -10,6 +10,7 @@
  *   terminal    runs `echo hi` through `terminal/*` and reports the output
  *   escape      runs a terminal command writing to the path given after the scenario name
  *   blocks      reports how many project briefings came with the prompt
+ *   mcp         reports the MCP server the client gave the session, with its token
  *   fail        answers the prompt with a JSON-RPC error carrying `data.message`
  *   exit        ends the process in the middle of the turn
  *   wait        streams one chunk and then waits for `session/cancel`
@@ -72,6 +73,18 @@ const scenarios = {
     throw new RequestError(-32_603, "Internal error", {
       message: "usage limit reached",
     });
+  },
+  /** Reports the editor's own MCP server as the client described it at session start. */
+  async mcp(cx, sessionId) {
+    const [server] = mcpServers.get(sessionId) ?? [];
+    const token = (server?.headers ?? []).find(
+      (header) => header.name === "x-ultrapaint-token"
+    );
+    await text(
+      cx,
+      sessionId,
+      `mcp:${server?.url ?? "none"}|${token?.value ?? "none"}`
+    );
   },
   async permission(cx, sessionId) {
     const response = await cx.request(
@@ -157,6 +170,7 @@ const scenarios = {
 };
 
 const cwds = new Map();
+const mcpServers = new Map();
 const stream = ndJsonStream(
   Writable.toWeb(process.stdout),
   Readable.toWeb(process.stdin)
@@ -179,6 +193,7 @@ agent({ name: "fake-agent" })
     sessions += 1;
     const sessionId = `session_${process.pid}_${sessions}`;
     cwds.set(sessionId, ctx.params.cwd);
+    mcpServers.set(sessionId, ctx.params.mcpServers ?? []);
     return {
       modes: {
         availableModes: [
@@ -192,6 +207,7 @@ agent({ name: "fake-agent" })
   })
   .onRequest("session/load", async (ctx) => {
     cwds.set(ctx.params.sessionId, ctx.params.cwd);
+    mcpServers.set(ctx.params.sessionId, ctx.params.mcpServers ?? []);
     // A real agent replays the stored conversation; the host must not show it twice.
     await text(ctx.client, ctx.params.sessionId, "replayed history");
     return {};

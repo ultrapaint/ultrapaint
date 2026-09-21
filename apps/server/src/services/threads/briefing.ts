@@ -12,6 +12,7 @@
 import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
 import type { PageList } from "@ultrapaint/contracts/pages";
 import { Context, Effect, Layer } from "effect";
+import { ServerConfig } from "../../config.ts";
 import { ProjectManager } from "../../project.ts";
 import { CatalogueService } from "../catalogue.ts";
 import { PagesService } from "../pages.ts";
@@ -43,6 +44,7 @@ export class ProjectBriefing extends Context.Service<
     ProjectBriefing,
     Effect.gen(function* () {
       const project = yield* ProjectManager;
+      const { mcp } = yield* ServerConfig;
 
       const build = Effect.gen(function* () {
         const paths = yield* RepoPaths;
@@ -86,7 +88,15 @@ ${components.map(componentLine).join("\n")}`
     : `Components live in ${settings.libraryDirs.join(", ") || "this repository"}.`
 }
 
-Work only inside ${paths.root}. Edits land on the canvas as you save them, so make them one at a
+${
+  mcp
+    ? `The "ultrapaint" MCP server answers about this project without reading files:
+get_context, list_pages, read_page, list_components and get_component. Ask it rather than
+searching the repository for what it already knows.
+
+`
+    : ""
+}Work only inside ${paths.root}. Edits land on the canvas as you save them, so make them one at a
 time rather than rewriting a page wholesale.
 </ultrapaint>`;
       });

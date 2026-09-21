@@ -27,6 +27,8 @@ export class ServerConfig extends Context.Service<
     readonly briefing: boolean;
     /** Directory the server was started from; the first-run setup proposes its repository. */
     readonly cwd: string;
+    /** Whether agents are given the editor's own MCP server to call. */
+    readonly mcp: boolean;
     readonly port: number;
     readonly storage: StorageTarget;
     /** User-level data that is only read, such as custom agents: `~/.ultrapaint`. */

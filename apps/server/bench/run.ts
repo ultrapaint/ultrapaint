@@ -97,6 +97,7 @@ const program = Effect.gen(function* () {
       Layer.succeed(ServerConfig, {
         briefing: arm !== "baseline",
         cwd: repo,
+        mcp: arm === "mcp",
         port,
         storage: { mode: "ephemeral" },
         userDir,

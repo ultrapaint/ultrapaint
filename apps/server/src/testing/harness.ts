@@ -143,6 +143,7 @@ export const makeTestServer = (
           Layer.succeed(ServerConfig, {
             briefing: true,
             cwd: repo,
+            mcp: true,
             port,
             storage,
             userDir: home,

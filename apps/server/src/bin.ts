@@ -35,6 +35,9 @@ const serve = Command.make(
         "Do not tell agents about the project before their first prompt"
       )
     ),
+    noMcp: Flag.Boolean("no-mcp").pipe(
+      Flag.withDescription("Do not offer agents the editor's own MCP server")
+    ),
     port: Flag.Int("port").pipe(
       Flag.withDescription("Port to listen on, loopback only"),
       Flag.withFallbackConfig(Config.Int("ULTRAPAINT_PORT")),
@@ -46,7 +49,15 @@ const serve = Command.make(
       Flag.optional
     ),
   },
-  Effect.fn(function* ({ config, ephemeral, home, noBriefing, port, webDist }) {
+  Effect.fn(function* ({
+    config,
+    ephemeral,
+    home,
+    noBriefing,
+    noMcp,
+    port,
+    webDist,
+  }) {
     const cwd = process.cwd();
     const { storage, userDir } = yield* resolveStorage({
       config: Option.getOrUndefined(config),
@@ -58,6 +69,7 @@ const serve = Command.make(
     const resolved = ServerConfig.of({
       briefing: !noBriefing,
       cwd,
+      mcp: !noMcp,
       port,
       storage,
       userDir,

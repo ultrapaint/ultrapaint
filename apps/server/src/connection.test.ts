@@ -21,6 +21,7 @@ const startServer = (home: string, port: number) =>
           Layer.succeed(ServerConfig, {
             briefing: true,
             cwd: home,
+            mcp: true,
             port,
             storage: { home, mode: "managed" },
             userDir: home,

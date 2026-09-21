@@ -11,6 +11,7 @@ import {
   type AcpAgent,
   type AcpHandlers,
   type ContentBlock,
+  type McpServerConfig,
   type RequestPermissionRequest,
   type RequestPermissionResponse,
   spawnAcpAgent,
@@ -50,6 +51,8 @@ import { makeId } from "../../ids.ts";
 import { makeKeyedLock } from "../../keyed-lock.ts";
 import { ProjectManager } from "../../project.ts";
 import { GitService, type GitSnapshot } from "../git.ts";
+import { McpAccess } from "../mcp/access.ts";
+import { MCP_PATH, MCP_TOKEN_HEADER } from "../mcp/route.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { AgentConfigs } from "./agent-configs.ts";
 import { AgentSandbox } from "./agent-sandbox.ts";
@@ -149,7 +152,12 @@ export class ThreadService extends Context.Service<
       const agents = yield* AgentConfigs;
       const sandbox = yield* AgentSandbox;
       const briefing = yield* ProjectBriefing;
-      const { briefing: briefingEnabled } = yield* ServerConfig;
+      const access = yield* McpAccess;
+      const {
+        briefing: briefingEnabled,
+        mcp: mcpEnabled,
+        port,
+      } = yield* ServerConfig;
       const checkpoints = yield* Checkpoints;
       const project = yield* ProjectManager;
       const events = yield* EventBus;
@@ -324,12 +332,13 @@ export class ThreadService extends Context.Service<
         storedSessionId: string | undefined,
         canLoad: boolean,
         root: string,
-        meta: unknown
+        meta: unknown,
+        mcpServers: readonly McpServerConfig[]
       ) {
         if (storedSessionId && canLoad) {
           session.replaying = true;
           const loaded = yield* session.agent
-            .loadSession(storedSessionId, root)
+            .loadSession(storedSessionId, root, mcpServers)
             .pipe(
               Effect.map(
                 (info): SessionInfo => ({
@@ -362,7 +371,10 @@ export class ThreadService extends Context.Service<
             return loaded;
           }
         }
-        return (yield* session.agent.newSession(root, meta)) as SessionInfo;
+        return (yield* session.agent.newSession(root, {
+          mcpServers,
+          meta,
+        })) as SessionInfo;
       });
 
       const start = Effect.fnUntraced(function* (threadId: string) {
@@ -478,6 +490,22 @@ export class ThreadService extends Context.Service<
           Effect.forkIn(projectScope)
         );
 
+        // The agent is told about the editor's own MCP server, with a token that dies with the
+        // session. `mcpCapabilities` is the agent saying it can reach one over http.
+        const mcpServers: McpServerConfig[] = [];
+        if (mcpEnabled) {
+          const token = yield* Scope.provide(
+            access.issue(threadId),
+            session.scope
+          );
+          mcpServers.push({
+            headers: [{ name: MCP_TOKEN_HEADER, value: token }],
+            name: "ultrapaint",
+            type: "http",
+            url: `http://127.0.0.1:${port}${MCP_PATH}`,
+          });
+        }
+
         const negotiate = Effect.gen(function* () {
           const init = yield* session.agent.initialize;
           const canLoad = init.agentCapabilities?.loadSession === true;
@@ -486,7 +514,8 @@ export class ThreadService extends Context.Service<
             thread.sessionId,
             canLoad,
             paths.root,
-            sandbox.available ? config.sandboxMeta : undefined
+            sandbox.available ? config.sandboxMeta : undefined,
+            mcpServers
           );
           const [firstAuth] = init.authMethods ?? [];
           // Some agents need authentication before a session can be created.

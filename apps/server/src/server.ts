@@ -14,6 +14,8 @@ import { ServerConfig } from "./config.ts";
 import { EventBus } from "./events.ts";
 import { ProjectManager } from "./project.ts";
 import { RpcHandlers } from "./rpc-handlers.ts";
+import { McpAccess } from "./services/mcp/access.ts";
+import { McpRoute } from "./services/mcp/route.ts";
 import { SettingsService } from "./services/settings.ts";
 import { SetupService } from "./services/setup.ts";
 import { Storage } from "./services/storage.ts";
@@ -126,7 +128,8 @@ const Threads = ThreadService.layer.pipe(
       ThreadStore.layer,
       AgentConfigs.layer,
       AgentSandbox.layer,
-      ProjectBriefing.layer
+      ProjectBriefing.layer,
+      McpAccess.layer
     )
   )
 );
@@ -141,7 +144,13 @@ const Services = Threads.pipe(
   Layer.provideMerge(EventBus.layer)
 );
 
-const Routes = Layer.mergeAll(RpcRoute, HealthRoute, StaticRoute, Boot);
+const Routes = Layer.mergeAll(
+  RpcRoute,
+  HealthRoute,
+  McpRoute,
+  StaticRoute,
+  Boot
+);
 
 /** Everything but the configuration and the platform: `bin.ts` provides those and launches. */
 export const ServerLive = HttpRouter.serve(Routes, {

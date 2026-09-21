@@ -296,6 +296,7 @@ describe("a configuration file that cannot be read", () => {
               Layer.succeed(ServerConfig, {
                 briefing: true,
                 cwd: dir,
+                mcp: true,
                 port: yield* freePort,
                 storage: {
                   configPath,

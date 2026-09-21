@@ -16,11 +16,15 @@ interface Measurement {
   readonly toolKinds: Record<string, number>;
 }
 
-const dir = path.resolve(import.meta.dirname, "../../../docs/feature/benchmarks");
+const dir = path.resolve(
+  import.meta.dirname,
+  "../../../docs/feature/benchmarks"
+);
 const runs = readdirSync(dir)
   .filter((name) => name.endsWith(".json"))
   .flatMap(
-    (name) => JSON.parse(readFileSync(path.join(dir, name), "utf8")) as Measurement[]
+    (name) =>
+      JSON.parse(readFileSync(path.join(dir, name), "utf8")) as Measurement[]
   );
 
 const arms = [...new Set(runs.map((r) => r.arm))];
@@ -43,8 +47,8 @@ const cell = (task: string, arm: string) => {
 };
 
 const lines = [
-  "| Task | " + arms.join(" | ") + " |",
-  "|---|" + arms.map(() => "---").join("|") + "|",
+  `| Task | ${arms.join(" | ")} |`,
+  `|---|${arms.map(() => "---").join("|")}|`,
   ...tasks.map(
     (task) => `| ${task} | ${arms.map((arm) => cell(task, arm)).join(" | ")} |`
   ),
