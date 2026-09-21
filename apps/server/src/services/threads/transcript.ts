@@ -8,6 +8,7 @@ import type {
   ThreadItem,
   ToolContent,
   ToolLocation,
+  TurnUsage,
 } from "@ultrapaint/contracts/threads";
 
 type SessionUpdate = SessionNotification["update"];
@@ -136,6 +137,41 @@ export const mapConfigOptions = (options: unknown): Thread["configOptions"] => {
             ...(x.description ? { description: x.description } : {}),
           })),
   }));
+};
+
+interface RawQuota {
+  readonly model_usage?: readonly {
+    readonly model: string;
+    readonly token_count?: { readonly totalTokens?: number };
+  }[];
+  readonly token_count?: {
+    readonly cachedInputTokens?: number;
+    readonly inputTokens?: number;
+    readonly outputTokens?: number;
+    readonly totalTokens?: number;
+  };
+}
+
+/**
+ * What a turn spent, as the agent reports it alongside the response. Agents that keep no
+ * accounting send nothing, and the turn simply has no cost to show.
+ */
+export const turnUsage = (meta: unknown): TurnUsage | undefined => {
+  const quota = (meta as { quota?: RawQuota } | undefined)?.quota;
+  const total = quota?.token_count;
+  if (!total) {
+    return;
+  }
+  return {
+    byModel: (quota.model_usage ?? []).map((entry) => ({
+      model: entry.model,
+      tokens: entry.token_count?.totalTokens ?? 0,
+    })),
+    cachedInputTokens: total.cachedInputTokens ?? 0,
+    inputTokens: total.inputTokens ?? 0,
+    outputTokens: total.outputTokens ?? 0,
+    totalTokens: total.totalTokens ?? 0,
+  };
 };
 
 const appendText =

@@ -64,6 +64,7 @@ import {
   mapConfigOptions,
   projectUpdate,
   type TurnCursor,
+  turnUsage,
 } from "./transcript.ts";
 
 const AUTH_ERROR_RE = /auth/i;
@@ -656,12 +657,16 @@ export class ThreadService extends Context.Service<
                   )
                   // Attribution is a nicety; a git failure must not fail the turn.
                   .pipe(Effect.orElseSucceed((): string[] => []));
+                const usage = turnUsage(
+                  (response as { _meta?: unknown })._meta
+                );
                 yield* store.push(threadId, {
                   at: yield* Clock.currentTimeMillis,
                   changedFiles,
                   id: yield* newItemId,
                   kind: "turn_end",
                   stopReason: response.stopReason,
+                  ...(usage ? { usage } : {}),
                 });
                 yield* store.update(threadId, { status: "idle" });
               }),

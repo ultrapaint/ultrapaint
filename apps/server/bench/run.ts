@@ -31,6 +31,8 @@ const flag = (name: string, fallback: string) => {
 
 const arm = flag("arm", "baseline");
 const agentId = flag("agent", "claude-code");
+/** Pinned, because a run left on "auto" is not the same measurement twice. */
+const model = flag("model", "Opus 5");
 const runs = Number(flag("runs", "1"));
 const only = flag("tasks", "")
   .split(",")
@@ -42,6 +44,11 @@ interface Measurement {
   readonly items: Record<string, number>;
   readonly seconds: number;
   readonly task: string;
+  /** What the run spent, as the agent accounts for it. */
+  readonly tokens: {
+    readonly byModel: Record<string, number>;
+    readonly total: number;
+  };
   readonly toolCalls: number;
   /** Tool calls by the kind the agent gave them: read, edit, execute, and so on. */
   readonly toolKinds: Record<string, number>;
@@ -66,6 +73,20 @@ const measure = (
   seconds: number,
   failure: string | null
 ): Measurement => {
+  const byModel: Record<string, number> = {};
+  const spent = { cached: 0, input: 0, output: 0, total: 0 };
+  for (const item of items) {
+    if (item.kind !== "turn_end" || !item.usage) {
+      continue;
+    }
+    spent.total += item.usage.totalTokens;
+    spent.input += item.usage.inputTokens;
+    spent.cached += item.usage.cachedInputTokens;
+    spent.output += item.usage.outputTokens;
+    for (const entry of item.usage.byModel) {
+      byModel[entry.model] = (byModel[entry.model] ?? 0) + entry.tokens;
+    }
+  }
   const byKind: Record<string, number> = {};
   for (const item of items) {
     byKind[item.kind] = (byKind[item.kind] ?? 0) + 1;
@@ -82,6 +103,7 @@ const measure = (
     items: byKind,
     seconds,
     task: task.id,
+    tokens: { byModel, ...spent },
     toolCalls: toolItems.length,
     toolKinds,
     trace: toolItems.map((item) =>
@@ -171,6 +193,28 @@ const program = Effect.gen(function* () {
         }
 
         const thread = yield* client["threads.create"]({ agentId });
+        // The model the agent runs on is a setting of its session; "auto" would pick its own.
+        const ready = yield* client["threads.list"]().pipe(
+          Effect.tap(() => Effect.sleep("100 millis")),
+          Effect.repeat({
+            until: (all) =>
+              all.some((t) => t.id === thread.id && !!t.sessionId),
+          }),
+          Effect.timeout("2 minutes")
+        );
+        const options = ready.find((t) => t.id === thread.id)?.configOptions;
+        const choice = options
+          ?.find((option) => option.id === "model")
+          ?.options.find((value) => value.name === model);
+        if (choice) {
+          yield* client["threads.setConfigOption"]({
+            optionId: "model",
+            threadId: thread.id,
+            value: choice.value,
+          });
+        } else {
+          yield* Effect.log(`no model named ${model}; the agent picks`);
+        }
         const started = Date.now();
         yield* client["threads.prompt"]({
           attachments: [],
@@ -181,8 +225,9 @@ const program = Effect.gen(function* () {
         const seconds = (Date.now() - started) / 1000;
         const failure = task.check({ designs, repo });
         measurements.push(measure(task, items, seconds, failure));
+        const last = measurements.at(-1);
         yield* Effect.log(
-          `${task.id} run ${run + 1}: ${measurements.at(-1)?.toolCalls} tool calls, ${seconds.toFixed(0)}s, ${failure ?? "ok"}`
+          `${task.id} run ${run + 1}: ${last?.toolCalls} tool calls, ${seconds.toFixed(0)}s, ${((last?.tokens.total ?? 0) / 1000).toFixed(0)}k tokens, ${failure ?? "ok"}`
         );
         yield* client["threads.delete"]({ threadId: thread.id });
       }

@@ -106,6 +106,18 @@ export const ToolLocation = Schema.Struct({
 });
 export type ToolLocation = typeof ToolLocation.Type;
 
+/** What a turn cost, in the agent's own accounting. Absent when it does not keep any. */
+export const TurnUsage = Schema.Struct({
+  byModel: Schema.Array(
+    Schema.Struct({ model: Schema.String, tokens: Schema.Number })
+  ),
+  cachedInputTokens: Schema.Number,
+  inputTokens: Schema.Number,
+  outputTokens: Schema.Number,
+  totalTokens: Schema.Number,
+});
+export type TurnUsage = typeof TurnUsage.Type;
+
 export const ToolCallStatus = Schema.Literals([
   "pending",
   "in_progress",
@@ -185,6 +197,8 @@ export const ThreadItem = Schema.Union([
     id: Schema.String,
     kind: Schema.Literal("turn_end"),
     stopReason: Schema.String,
+    /** What the turn spent, as the agent accounts for it, split by model. */
+    usage: Schema.optional(TurnUsage),
   }),
 ]);
 export type ThreadItem = typeof ThreadItem.Type;
