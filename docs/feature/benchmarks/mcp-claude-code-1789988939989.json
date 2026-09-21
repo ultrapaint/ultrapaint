@@ -1,0 +1,69 @@
+[
+  {
+    "arm": "mcp",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "tool": 18,
+      "agent": 2,
+      "turn_end": 1
+    },
+    "seconds": 103.41,
+    "task": "new-page",
+    "toolCalls": 18,
+    "toolKinds": {
+      "other": 4,
+      "execute": 14
+    }
+  },
+  {
+    "arm": "mcp",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 2,
+      "tool": 5,
+      "turn_end": 1
+    },
+    "seconds": 42.676,
+    "task": "use-component",
+    "toolCalls": 5,
+    "toolKinds": {
+      "execute": 3,
+      "other": 2
+    }
+  },
+  {
+    "arm": "mcp",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 4,
+      "tool": 13,
+      "turn_end": 1
+    },
+    "seconds": 75.208,
+    "task": "form-from-catalogue",
+    "toolCalls": 13,
+    "toolKinds": {
+      "other": 4,
+      "execute": 9
+    }
+  },
+  {
+    "arm": "mcp",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "tool": 7,
+      "agent": 1,
+      "turn_end": 1
+    },
+    "seconds": 73.375,
+    "task": "router-link",
+    "toolCalls": 7,
+    "toolKinds": {
+      "execute": 7
+    }
+  }
+]
