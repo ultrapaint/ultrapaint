@@ -83,6 +83,35 @@ const kinds = arms.map((arm) => {
   return `${arm}: ${total} tool calls — ${shown}`;
 });
 
+const millions = (n: number) => `${(n / 1_000_000).toFixed(2)}M`;
+
+/** What the measuring itself cost, since it is the user's own quota being spent. */
+const spend = () => {
+  const withTokens = runs.filter((r) => r.tokens);
+  if (withTokens.length === 0) {
+    return [];
+  }
+  const sum = (pick: (one: Measurement) => number) =>
+    withTokens.reduce((total, run) => total + pick(run), 0);
+  const byModel: Record<string, number> = {};
+  for (const run of withTokens) {
+    for (const [model, tokens] of Object.entries(run.tokens?.byModel ?? {})) {
+      byModel[model] = (byModel[model] ?? 0) + tokens;
+    }
+  }
+  return [
+    "## What the measuring cost",
+    "",
+    `- ${withTokens.length} runs, ${millions(sum((one) => one.tokens?.total ?? 0))} tokens in total`,
+    `- of which cache reads: ${millions(sum((one) => one.tokens?.cached ?? 0))}; fresh input: ${millions(sum((one) => one.tokens?.input ?? 0))}; output: ${millions(sum((one) => one.tokens?.output ?? 0))}`,
+    `- per run: ${millions(sum((one) => one.tokens?.total ?? 0) / withTokens.length)} on average`,
+    ...Object.entries(byModel)
+      .sort(([, a], [, b]) => b - a)
+      .map(([model, tokens]) => `- ${model}: ${millions(tokens)}`),
+    "",
+  ];
+};
+
 const report = [
   "# Benchmark: what a task costs an agent",
   "",
@@ -94,6 +123,7 @@ const report = [
   "",
   ...totals.map((line) => `- ${line}`),
   "",
+  ...spend(),
   "## Where the calls go",
   "",
   ...kinds.map((line) => `- ${line}`),
