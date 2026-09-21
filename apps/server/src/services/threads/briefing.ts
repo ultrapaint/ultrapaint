@@ -90,9 +90,11 @@ ${components.map(componentLine).join("\n")}`
 
 ${
   mcp
-    ? `The "ultrapaint" MCP server answers about this project without reading files:
-get_context, list_pages, read_page, list_components and get_component. Ask it rather than
-searching the repository for what it already knows.
+    ? `The "ultrapaint" MCP server is the editor itself. Ask it rather than searching the
+repository for what it already knows: get_context, list_pages, read_page, list_components,
+get_component, list_comments. Work through it where it offers to: create_page and rename_page
+put a page where its route says, reply_to_comment and resolve_comment answer the user where they
+asked, and focus tells the canvas which page you are on so the user can watch you work.
 
 `
     : ""

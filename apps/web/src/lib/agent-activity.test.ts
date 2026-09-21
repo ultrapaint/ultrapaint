@@ -123,6 +123,16 @@ describe("agentActivity", () => {
     expect(activity?.action).toBe("reading");
   });
 
+  it("falls back to the page the agent said it was working on", () => {
+    const [activity] = agentActivity(
+      [thread("t1", "running")],
+      { t1: [toolCall("in_progress", [], "execute", "pnpm typecheck")] },
+      [page],
+      { t1: "/" }
+    );
+    expect(activity?.pageIds).toEqual(["index"]);
+  });
+
   it("gives each thread its own colour", () => {
     const activity = agentActivity(
       [thread("t1", "running"), thread("t2", "running")],

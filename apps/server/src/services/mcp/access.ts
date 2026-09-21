@@ -9,6 +9,15 @@
 import { Context, Effect, Layer, type Scope } from "effect";
 import { makeId } from "../../ids.ts";
 
+/**
+ * The thread whose agent is making the call being served. The gate puts it there once it has
+ * recognised the token, so a tool knows who is asking without every tool taking a token.
+ */
+export const CallingThread: Context.Reference<string | undefined> =
+  Context.Reference<string | undefined>("ultrapaint/server/CallingThread", {
+    defaultValue: (): string | undefined => undefined,
+  });
+
 export class McpAccess extends Context.Service<
   McpAccess,
   {

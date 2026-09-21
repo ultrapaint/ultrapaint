@@ -8,11 +8,14 @@
  */
 import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/unstable/ai";
+import { EventBus } from "../../events.ts";
 import { ProjectManager } from "../../project.ts";
 import { CatalogueService } from "../catalogue.ts";
+import { CommentsService } from "../comments.ts";
 import { EditService } from "../edit.ts";
 import { PagesService } from "../pages.ts";
 import { RepoPaths } from "../repo-paths.ts";
+import { CallingThread } from "./access.ts";
 
 /** What a tool says when it cannot answer: the reason, in words the agent can act on. */
 const Failure = Schema.Struct({ message: Schema.String });
@@ -94,12 +97,95 @@ const GetComponent = Tool.make("get_component", {
   }),
 }).annotate(Tool.Readonly, true);
 
+const CommentSummary = Schema.Struct({
+  element: Schema.NullOr(Schema.String),
+  id: Schema.String,
+  page: Schema.String,
+  replies: Schema.Number,
+  resolved: Schema.Boolean,
+  text: Schema.String,
+});
+
+const ListComments = Tool.make("list_comments", {
+  description:
+    "The comments left on the designs, which is where the user asks for things. Open ones first.",
+  failure: Failure,
+  parameters: Schema.Struct({
+    /** Include the ones already dealt with. */
+    includeResolved: Schema.optional(Schema.Boolean),
+    space: Schema.optional(Schema.String),
+  }),
+  success: Schema.Struct({ comments: Schema.Array(CommentSummary) }),
+}).annotate(Tool.Readonly, true);
+
+const CreatePage = Tool.make("create_page", {
+  description:
+    "Add a page at a route. The file goes where the project keeps its designs, named so the route matches, and the space's router is written if it is the first page. Prefer this to creating the file yourself.",
+  failure: Failure,
+  parameters: Schema.Struct({
+    route: Schema.String,
+    space: Schema.optional(Schema.String),
+    /** One of the project's page templates; the plain one when left out. */
+    template: Schema.optional(Schema.String),
+  }),
+  success: Schema.Struct({
+    file: Schema.String,
+    route: Schema.String,
+    source: Schema.String,
+  }),
+});
+
+const RenamePage = Tool.make("rename_page", {
+  description:
+    "Move a page to another route. The file moves with it, which is what changes the route.",
+  failure: Failure,
+  parameters: Schema.Struct({ route: Schema.String, to: Schema.String }),
+  success: Schema.Struct({ file: Schema.String, route: Schema.String }),
+});
+
+const ReplyToComment = Tool.make("reply_to_comment", {
+  description:
+    "Answer a comment on the designs, in the thread under it, so the user reads it where they asked.",
+  failure: Failure,
+  parameters: Schema.Struct({
+    id: Schema.String,
+    space: Schema.optional(Schema.String),
+    text: Schema.String,
+  }),
+  success: Schema.Struct({ replies: Schema.Number }),
+});
+
+const ResolveComment = Tool.make("resolve_comment", {
+  description:
+    "Mark a comment as dealt with, once the work it asked for is done.",
+  failure: Failure,
+  parameters: Schema.Struct({
+    id: Schema.String,
+    space: Schema.optional(Schema.String),
+  }),
+  success: Schema.Struct({ resolved: Schema.Boolean }),
+});
+
+const Focus = Tool.make("focus", {
+  description:
+    "Say which page you are working on. The canvas shows it, and brings the user there if they asked to follow you. Call it when you move to another page.",
+  failure: Failure,
+  parameters: Schema.Struct({ route: Schema.String }),
+  success: Schema.Struct({ route: Schema.String }),
+}).annotate(Tool.Readonly, true);
+
 export const EditorTools = Toolkit.make(
   GetContext,
   ListPages,
   ReadPage,
   ListComponents,
-  GetComponent
+  GetComponent,
+  ListComments,
+  CreatePage,
+  RenamePage,
+  ReplyToComment,
+  ResolveComment,
+  Focus
 );
 
 /**
@@ -115,13 +201,61 @@ const missing = (message: string) => Effect.fail({ message });
 export const EditorToolsLive = EditorTools.toLayer(
   Effect.gen(function* () {
     const project = yield* ProjectManager;
+    const events = yield* EventBus;
 
     const pagesOf = project.use(Effect.flatMap(PagesService, (p) => p.list));
+
+    /** The space a tool was told to work in, or the only one there is. */
+    const spaceOf = Effect.fnUntraced(function* (space: string | undefined) {
+      if (space) {
+        return space;
+      }
+      const pages = yield* reported(pagesOf);
+      return pages.spaces[0]?.id ?? "";
+    });
+
+    const pageAt = Effect.fnUntraced(function* (route: string) {
+      const pages = yield* reported(pagesOf);
+      const page = pages.pages.find(
+        (p) => p.route === route || p.file === route
+      );
+      return page === undefined
+        ? yield* missing(
+            `no page at ${route}; call list_pages to see the routes`
+          )
+        : page;
+    });
     const catalogueOf = project.use(
       Effect.flatMap(CatalogueService, (c) => c.get(false))
     );
 
     return {
+      create_page: Effect.fnUntraced(function* ({ route, space, template }) {
+        const page = yield* reported(
+          project.use(
+            Effect.flatMap(PagesService, (pages) =>
+              Effect.flatMap(spaceOf(space), (id) =>
+                pages.create(id, route, template)
+              )
+            )
+          )
+        );
+        const { content } = yield* reported(
+          project.use(
+            Effect.flatMap(EditService, (edit) => edit.read(page.file))
+          )
+        );
+        return { file: page.file, route: page.route, source: content };
+      }),
+
+      focus: Effect.fnUntraced(function* ({ route }) {
+        const page = yield* pageAt(route);
+        const threadId = yield* Effect.service(CallingThread);
+        if (threadId) {
+          yield* events.publish("agent.focus", { route: page.route, threadId });
+        }
+        return { route: page.route };
+      }),
       get_component: Effect.fnUntraced(function* ({ name }) {
         const catalogue = yield* reported(catalogueOf);
         const component = catalogue.components.find((c) => c.name === name);
@@ -156,6 +290,27 @@ export const EditorToolsLive = EditorTools.toLayer(
         };
       }),
 
+      list_comments: Effect.fnUntraced(function* ({ includeResolved, space }) {
+        const id = yield* spaceOf(space);
+        const list = yield* reported(
+          project.use(
+            Effect.flatMap(CommentsService, (comments) => comments.list(id))
+          )
+        );
+        return {
+          comments: list.comments
+            .filter((comment) => includeResolved || !comment.resolved)
+            .map((comment) => ({
+              element: comment.element,
+              id: comment.id,
+              page: comment.page,
+              replies: comment.replies.length,
+              resolved: comment.resolved,
+              text: comment.text,
+            })),
+        };
+      }),
+
       list_components: Effect.fnUntraced(function* ({ match }) {
         const catalogue = yield* reported(catalogueOf);
         const needle = match?.toLowerCase();
@@ -187,21 +342,47 @@ export const EditorToolsLive = EditorTools.toLayer(
       }),
 
       read_page: Effect.fnUntraced(function* ({ route }) {
-        const pages = yield* reported(pagesOf);
-        const page = pages.pages.find(
-          (p) => p.route === route || p.file === route
-        );
-        if (!page) {
-          return yield* missing(
-            `no page at ${route}; call list_pages to see the routes`
-          );
-        }
+        const page = yield* pageAt(route);
         const { content } = yield* reported(
           project.use(
             Effect.flatMap(EditService, (edit) => edit.read(page.file))
           )
         );
         return { file: page.file, source: content };
+      }),
+
+      rename_page: Effect.fnUntraced(function* ({ route, to }) {
+        const page = yield* pageAt(route);
+        const moved = yield* reported(
+          project.use(
+            Effect.flatMap(PagesService, (pages) => pages.rename(page.id, to))
+          )
+        );
+        return { file: moved.file, route: moved.route };
+      }),
+
+      reply_to_comment: Effect.fnUntraced(function* ({ id, space, text }) {
+        const inSpace = yield* spaceOf(space);
+        const comment = yield* reported(
+          project.use(
+            Effect.flatMap(CommentsService, (comments) =>
+              comments.reply({ id, space: inSpace, text })
+            )
+          )
+        );
+        return { replies: comment.replies.length };
+      }),
+
+      resolve_comment: Effect.fnUntraced(function* ({ id, space }) {
+        const inSpace = yield* spaceOf(space);
+        const comment = yield* reported(
+          project.use(
+            Effect.flatMap(CommentsService, (comments) =>
+              comments.update({ id, resolved: true, space: inSpace })
+            )
+          )
+        );
+        return { resolved: comment.resolved };
       }),
     };
   })

@@ -213,6 +213,13 @@ export const PromptInput = Schema.Struct({
 });
 export type PromptInput = typeof PromptInput.Type;
 
+/** An agent saying which page it is working on, so the canvas can show and follow it. */
+export const AgentFocus = Schema.Struct({
+  route: Schema.String,
+  threadId: Schema.String,
+});
+export type AgentFocus = typeof AgentFocus.Type;
+
 /** Output of a terminal the agent is running, as it arrives. */
 export const AgentTerminalOutput = Schema.Struct({
   chunk: Schema.String,

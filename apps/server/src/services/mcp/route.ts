@@ -12,7 +12,7 @@ import {
   HttpServerRequest,
   HttpServerResponse,
 } from "effect/unstable/http";
-import { McpAccess } from "./access.ts";
+import { CallingThread, McpAccess } from "./access.ts";
 import { EditorTools, EditorToolsLive } from "./tools.ts";
 
 export const MCP_PATH = "/mcp";
@@ -29,10 +29,11 @@ const TokenGate = HttpRouter.use(
           return yield* handler;
         }
         const token = request.headers[MCP_TOKEN_HEADER];
-        if (access.threadOf(token) === undefined) {
+        const threadId = access.threadOf(token);
+        if (threadId === undefined) {
           return HttpServerResponse.text("unknown token", { status: 403 });
         }
-        return yield* handler;
+        return yield* Effect.provideService(handler, CallingThread, threadId);
       })
     );
   })

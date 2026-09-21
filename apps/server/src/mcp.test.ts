@@ -1,5 +1,5 @@
 import { assert, layer } from "@effect/vitest";
-import { Effect } from "effect";
+import { Effect, Fiber, Stream } from "effect";
 import { MCP_TOKEN_HEADER } from "./services/mcp/route.ts";
 import { TestEnv, TestServer } from "./testing/harness.ts";
 
@@ -117,11 +117,17 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           result: { tools: { name: string }[] };
         };
         assert.deepStrictEqual(tools.result.tools.map((t) => t.name).sort(), [
+          "create_page",
+          "focus",
           "get_component",
           "get_context",
+          "list_comments",
           "list_components",
           "list_pages",
           "read_page",
+          "rename_page",
+          "reply_to_comment",
+          "resolve_comment",
         ]);
 
         const called = yield* callMcp(
@@ -140,6 +146,74 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           pages.result.structuredContent.pages.map((p) => p.route),
           ["/home"]
         );
+
+        // A page the agent makes through the editor lands where the route says.
+        const created = yield* callMcp(
+          port,
+          token,
+          {
+            method: "tools/call",
+            params: {
+              arguments: { route: "/pricing" },
+              name: "create_page",
+            },
+          },
+          sessionId
+        );
+        const page = (yield* Effect.promise(() => created.json())) as {
+          result: { structuredContent: { file: string; route: string } };
+        };
+        assert.strictEqual(page.result.structuredContent.route, "/pricing");
+        assert.include(page.result.structuredContent.file, "pricing.tsx");
+        const listedAgain = yield* client["pages.list"]();
+        assert.include(
+          listedAgain.pages.map((p) => p.route),
+          "/pricing"
+        );
+      })
+    );
+
+    it.effect("says which thread is working on what, when it focuses", () =>
+      Effect.gen(function* () {
+        const { client, port, settings } = yield* TestEnv;
+        yield* client["settings.set"](settings);
+        const thread = yield* client["threads.create"]({ agentId: "fake" });
+        const focused = yield* Effect.forkScoped(
+          Stream.runHead(client["events.agent.focus"]())
+        );
+        // The subscription has to reach the server before the agent focuses.
+        yield* Effect.sleep("150 millis");
+        yield* client["threads.prompt"]({
+          attachments: [],
+          text: "mcp",
+          threadId: thread.id,
+        });
+        const items = yield* client["threads.items"]({
+          threadId: thread.id,
+        }).pipe(
+          Effect.tap(() => Effect.sleep("25 millis")),
+          Effect.repeat({ until: (all) => all.at(-1)?.kind === "turn_end" }),
+          Effect.timeout("20 seconds")
+        );
+        const said = items
+          .map((i) => (i.kind === "agent" ? i.text : ""))
+          .find((t) => t.startsWith("mcp:"));
+        const [, token] = (said ?? "").slice("mcp:".length).split("|");
+        const sessionId = yield* openMcp(port, token ?? "");
+        yield* callMcp(
+          port,
+          token,
+          {
+            method: "tools/call",
+            params: { arguments: { route: "/home" }, name: "focus" },
+          },
+          sessionId
+        );
+        const event = yield* Fiber.join(focused);
+        assert.deepStrictEqual(event._tag === "Some" ? event.value : null, {
+          route: "/home",
+          threadId: thread.id,
+        });
       })
     );
   }

@@ -14,6 +14,8 @@ interface AgentsStore {
   changed: readonly string[];
   clearChanged: (files?: readonly string[]) => void;
   current: string | null;
+  /** Routes agents have said they are working on, by thread. */
+  focused: Record<string, string>;
   /** Thread whose agent the canvas follows while it works. Off unless asked for. */
   following: string | null;
   items: Record<string, readonly ThreadItem[]>;
@@ -37,6 +39,9 @@ export const useAgents = create<AgentsStore>((set, get) => ({
       return;
     }
     bound = true;
+    api().on("agent.focus", (ev) => {
+      set((s) => ({ focused: { ...s.focused, [ev.threadId]: ev.route } }));
+    });
     api().on("agent.terminal", (ev) => {
       set((s) => ({
         terminals: {
@@ -98,6 +103,7 @@ export const useAgents = create<AgentsStore>((set, get) => ({
       changed: files ? s.changed.filter((f) => !files.includes(f)) : [],
     })),
   current: null,
+  focused: {},
   following: null,
   items: {},
   load: async () => {

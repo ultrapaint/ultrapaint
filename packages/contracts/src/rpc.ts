@@ -43,6 +43,7 @@ import {
 import {
   AgentConfig,
   AgentEvent,
+  AgentFocus,
   AgentTerminalOutput,
   PromptInput,
   Thread,
@@ -293,6 +294,7 @@ const requestRpcs = [
 /** Everything the server pushes. Each is a stream that stays open for the life of the socket. */
 export const eventSchemas = {
   agent: AgentEvent,
+  "agent.focus": AgentFocus,
   "agent.terminal": AgentTerminalOutput,
   canvas: Schema.Struct({ layout: CanvasLayout, space: Schema.String }),
   comments: Schema.Struct({ list: CommentList, space: Schema.String }),
@@ -306,6 +308,10 @@ export const eventSchemas = {
 
 const eventRpcs = [
   Rpc.make("events.agent", { stream: true, success: eventSchemas.agent }),
+  Rpc.make("events.agent.focus", {
+    stream: true,
+    success: eventSchemas["agent.focus"],
+  }),
   Rpc.make("events.agent.terminal", {
     stream: true,
     success: eventSchemas["agent.terminal"],

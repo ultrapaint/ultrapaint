@@ -10,8 +10,9 @@ export const useAgentActivity = () => {
   const threads = useAgents((s) => s.threads);
   const items = useAgents((s) => s.items);
   const pages = useProject((s) => s.pages);
+  const focused = useAgents((s) => s.focused);
   return useMemo(
-    () => agentActivity(threads, items, pages),
-    [threads, items, pages]
+    () => agentActivity(threads, items, pages, focused),
+    [threads, items, pages, focused]
   );
 };

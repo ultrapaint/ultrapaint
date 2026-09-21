@@ -86,16 +86,25 @@ const openToolCall = (items: readonly ThreadItem[]) => {
 const pagesOfCall = (
   places: readonly { readonly path: string }[],
   title: string | undefined,
-  pages: readonly Page[]
+  pages: readonly Page[],
+  focusedRoute: string | undefined
 ) => {
   const named = places.flatMap((place) => {
     const page = pages.find((p) => p.file === place.path);
     return page ? [page.id] : [];
   });
-  if (named.length > 0 || !title) {
+  if (named.length > 0) {
     return named;
   }
-  return pages.filter((page) => title.includes(page.file)).map((p) => p.id);
+  const inTitle = title
+    ? pages.filter((page) => title.includes(page.file)).map((p) => p.id)
+    : [];
+  if (inTitle.length > 0) {
+    return inTitle;
+  }
+  // Nothing in the call says where it is: the agent's own last word on it stands.
+  const focused = pages.find((page) => page.route === focusedRoute);
+  return focused ? [focused.id] : [];
 };
 
 /**
@@ -105,7 +114,9 @@ const pagesOfCall = (
 export const agentActivity = (
   threads: readonly Thread[],
   items: Record<string, readonly ThreadItem[]>,
-  pages: readonly Page[]
+  pages: readonly Page[],
+  /** The route each agent last said it was working on, by thread. */
+  focused: Record<string, string> = {}
 ): readonly AgentActivity[] =>
   threads
     .filter((thread) => thread.status === "running")
@@ -115,7 +126,7 @@ export const agentActivity = (
       return {
         action: tool ? actionOf(tool.toolKind, tool.title) : "thinking",
         color: colorOfThread(threads, thread.id),
-        pageIds: pagesOfCall(places, tool?.title, pages),
+        pageIds: pagesOfCall(places, tool?.title, pages, focused[thread.id]),
         places,
         threadId: thread.id,
         ...(tool?.title === undefined ? {} : { title: tool.title }),
