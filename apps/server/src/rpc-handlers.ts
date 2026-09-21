@@ -11,6 +11,8 @@ import { EditService } from "./services/edit.ts";
 import { ProjectFramework } from "./services/framework.ts";
 import { GitService } from "./services/git.ts";
 import { HostManager } from "./services/host.ts";
+import { McpAccess } from "./services/mcp/access.ts";
+import { MCP_PATH, MCP_TOKEN_HEADER } from "./services/mcp/route.ts";
 import { PagesService } from "./services/pages.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
 import { SettingsService } from "./services/settings.ts";
@@ -35,6 +37,8 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const store = yield* ThreadStore;
     const threads = yield* ThreadService;
     const checkpoints = yield* Checkpoints;
+    const access = yield* McpAccess;
+    const { mcp: mcpEnabled, port } = yield* ServerConfig;
 
     const pages = <A, E>(
       f: (s: PagesService["Service"]) => Effect.Effect<A, E>
@@ -106,6 +110,16 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "host.start": () => host((h) => h.start),
       "host.stop": () => host((h) => h.stop),
       "logs.recent": () => log.recent(RECENT_LOG_LINES),
+      "mcp.connection": () =>
+        Effect.map(
+          mcpEnabled ? access.external : Effect.succeed(""),
+          (token) => ({
+            enabled: mcpEnabled,
+            header: MCP_TOKEN_HEADER,
+            token,
+            url: `http://127.0.0.1:${port}${MCP_PATH}`,
+          })
+        ),
       "pages.create": ({ route, space, template }) =>
         pages((s) => s.create(space, route, template)),
       "pages.delete": ({ id }) => pages((s) => s.delete(id)),

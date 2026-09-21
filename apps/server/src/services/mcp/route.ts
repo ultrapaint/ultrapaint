@@ -29,11 +29,15 @@ const TokenGate = HttpRouter.use(
           return yield* handler;
         }
         const token = request.headers[MCP_TOKEN_HEADER];
-        const threadId = access.threadOf(token);
-        if (threadId === undefined) {
+        if (!(yield* access.allows(token))) {
           return HttpServerResponse.text("unknown token", { status: 403 });
         }
-        return yield* Effect.provideService(handler, CallingThread, threadId);
+        // An agent from outside the editor has no thread, and the tools that need one say so.
+        return yield* Effect.provideService(
+          handler,
+          CallingThread,
+          access.threadOf(token)
+        );
       })
     );
   })

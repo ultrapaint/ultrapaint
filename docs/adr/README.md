@@ -17,3 +17,4 @@ One file per decision. Status is one of proposed, accepted, superseded.
 | [0011](0011-preview-split.md) | Storybook's separation: editor, framework-neutral preview core, renderer, framework package; screens resolve from an anchor package instead of being one |
 | [0012](0012-spaces-pages-router.md) | Screens become pages of a space, routed by their file path, with the editor holding the router state in its own URL |
 | [0013](0013-agent-scope.md) | Agents are confined to the repository by an operating system sandbox around their process, the same for every ACP agent |
+| [0014](0014-editor-mcp.md) | The editor answers agents over MCP: what the project is and where they are working, not a second way to edit files |

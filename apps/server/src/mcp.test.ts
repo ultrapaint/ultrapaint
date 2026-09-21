@@ -173,6 +173,56 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
       })
     );
 
+    it.effect(
+      "lets an agent outside the editor in with the project's token",
+      () =>
+        Effect.gen(function* () {
+          const { client, port, settings } = yield* TestEnv;
+          yield* client["settings.set"](settings);
+          const connection = yield* client["mcp.connection"]();
+          assert.isTrue(connection.enabled);
+          assert.include(connection.url, `127.0.0.1:${port}/mcp`);
+
+          const sessionId = yield* openMcp(port, connection.token);
+          const called = yield* callMcp(
+            port,
+            connection.token,
+            {
+              method: "tools/call",
+              params: { arguments: {}, name: "list_pages" },
+            },
+            sessionId
+          );
+          const pages = (yield* Effect.promise(() => called.json())) as {
+            result: { structuredContent: { pages: { route: string }[] } };
+          };
+          assert.include(
+            pages.result.structuredContent.pages.map((p) => p.route),
+            "/home"
+          );
+
+          // It belongs to no thread, so nothing on the canvas is attributed to it.
+          const focused = yield* Effect.forkScoped(
+            Stream.runHead(client["events.agent.focus"]())
+          );
+          yield* Effect.sleep("150 millis");
+          yield* callMcp(
+            port,
+            connection.token,
+            {
+              method: "tools/call",
+              params: { arguments: { route: "/home" }, name: "focus" },
+            },
+            sessionId
+          );
+          const event = yield* Effect.timeoutOption(
+            Fiber.join(focused),
+            "500 millis"
+          );
+          assert.isTrue(event._tag === "None");
+        })
+    );
+
     it.effect("says which thread is working on what, when it focuses", () =>
       Effect.gen(function* () {
         const { client, port, settings } = yield* TestEnv;

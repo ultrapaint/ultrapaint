@@ -213,6 +213,16 @@ export const PromptInput = Schema.Struct({
 });
 export type PromptInput = typeof PromptInput.Type;
 
+/** What an agent outside the editor needs to reach its MCP server. */
+export const McpConnection = Schema.Struct({
+  /** Off when the server was started with `--no-mcp`. */
+  enabled: Schema.Boolean,
+  header: Schema.String,
+  token: Schema.String,
+  url: Schema.String,
+});
+export type McpConnection = typeof McpConnection.Type;
+
 /** An agent saying which page it is working on, so the canvas can show and follow it. */
 export const AgentFocus = Schema.Struct({
   route: Schema.String,

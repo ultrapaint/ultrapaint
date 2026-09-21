@@ -111,6 +111,20 @@ keeps its login and sessions:
 }
 ```
 
+## Agents ask the editor
+
+An agent in a thread is told about the project when it starts — where the designs are, how pages
+route, what the component palette is — and is given the editor's own MCP server to ask the rest:
+the pages and their routes, a component's props and variants, the comments left on the canvas. It
+can add and rename pages through it, answer a comment where it was left, and say which page it is
+working on so you can watch it.
+
+It saves the agent from reading the repository to find out what the editor already knows: on four
+tasks, agents went from 30 tool calls on average to 11
+([the measurements](docs/feature/benchmarks/)).
+
+An agent outside the editor can use the same tools: **Settings** shows the line that adds it.
+
 ## Pages, routes and spaces
 
 A **page** is a `.tsx` file in the designs directory, and its path is its route, the way every

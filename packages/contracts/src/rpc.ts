@@ -45,6 +45,7 @@ import {
   AgentEvent,
   AgentFocus,
   AgentTerminalOutput,
+  McpConnection,
   PromptInput,
   Thread,
   ThreadItem,
@@ -237,6 +238,8 @@ const requestRpcs = [
   }),
 
   Rpc.make("agents.list", { success: Schema.Array(AgentConfig) }),
+  /** What an agent outside the editor needs to reach the editor's own MCP server. */
+  Rpc.make("mcp.connection", { success: McpConnection }),
   Rpc.make("threads.list", { success: Schema.Array(Thread) }),
   Rpc.make("threads.create", {
     error: ThreadError,

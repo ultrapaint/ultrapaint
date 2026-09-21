@@ -2,6 +2,7 @@ import { getPlatform } from "@ultrapaint/client-runtime/platform";
 import type { Settings, StorageInfo } from "@ultrapaint/contracts/settings";
 import { defaultSettings } from "@ultrapaint/contracts/settings";
 import type { SetupSuggestions } from "@ultrapaint/contracts/setup";
+import type { McpConnection } from "@ultrapaint/contracts/threads";
 import { CircleAlert, FolderSearch } from "lucide-react";
 import type * as React from "react";
 import { useEffect, useState } from "react";
@@ -69,6 +70,52 @@ const storageLine = (storage: StorageInfo) => {
 };
 
 /** Mounted with the dialog, so every open starts from the saved settings. */
+/**
+ * How to point something else at this project: an agent in a terminal, another editor. The same
+ * tools the threads here use, over the same server, reached with the project's own token.
+ */
+const McpConnectionField = () => {
+  const [connection, setConnection] = useState<McpConnection | null>(null);
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    api()
+      .request("mcp.connection", undefined)
+      .then(setConnection)
+      .catch(reportError);
+  }, []);
+  if (!connection?.enabled) {
+    return null;
+  }
+  const command = `claude mcp add --transport http ultrapaint ${connection.url} --header "${connection.header}: ${connection.token}"`;
+  const copy = () => {
+    navigator.clipboard
+      .writeText(command)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      })
+      .catch(reportError);
+  };
+  return (
+    <Field>
+      <FieldLabel>Agents outside the editor</FieldLabel>
+      <div className="flex items-start gap-2">
+        <code className="min-w-0 flex-1 select-text overflow-x-auto whitespace-pre rounded-md bg-muted px-2 py-1.5 font-mono text-[10px] leading-relaxed">
+          {command}
+        </code>
+        <Button onClick={copy} size="sm" variant="outline">
+          {copied ? "Copied" : "Copy"}
+        </Button>
+      </div>
+      <FieldDescription>
+        Gives another agent the same tools the threads here use: the project's
+        pages, its components, and the comments left on the designs. The token
+        is this project's, and anyone who has it can use them.
+      </FieldDescription>
+    </Field>
+  );
+};
+
 const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const storage = useProject((s) => s.info.storage);
   const [draft, setDraft] = useState<Settings>(
@@ -379,6 +426,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           </AlertDescription>
         </Alert>
       )}
+      <McpConnectionField />
       <p
         className={
           unsaved ? "text-warning text-xs" : "text-muted-foreground text-xs"
