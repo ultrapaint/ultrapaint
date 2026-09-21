@@ -34,8 +34,17 @@ export const colorOfThread = (threads: readonly Thread[], threadId: string) =>
     ) % COLORS.length
   ] ?? COLORS[0];
 
+/** How agents name a tool of our MCP server: asking us about the project is reading. */
+const ASKING_US_RE = /(^|_)mcp__ultrapaint__/;
+
 /** ACP names a tool call's kind; the editor only cares what it means for the canvas. */
-const actionOf = (toolKind: string | undefined): AgentAction => {
+const actionOf = (
+  toolKind: string | undefined,
+  title: string | undefined
+): AgentAction => {
+  if (title && ASKING_US_RE.test(title)) {
+    return "reading";
+  }
   switch (toolKind) {
     case "edit":
     case "delete":
@@ -104,7 +113,7 @@ export const agentActivity = (
       const tool = openToolCall(items[thread.id] ?? []);
       const places = tool?.locations ?? [];
       return {
-        action: tool ? actionOf(tool.toolKind) : "thinking",
+        action: tool ? actionOf(tool.toolKind, tool.title) : "thinking",
         color: colorOfThread(threads, thread.id),
         pageIds: pagesOfCall(places, tool?.title, pages),
         places,

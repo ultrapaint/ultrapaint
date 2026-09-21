@@ -110,6 +110,19 @@ describe("agentActivity", () => {
     expect(activity?.pageIds).toEqual([]);
   });
 
+  it("counts asking the editor over MCP as reading", () => {
+    const [activity] = agentActivity(
+      [thread("t1", "running")],
+      {
+        t1: [
+          toolCall("in_progress", [], "other", "mcp__ultrapaint__list_pages"),
+        ],
+      },
+      [page]
+    );
+    expect(activity?.action).toBe("reading");
+  });
+
   it("gives each thread its own colour", () => {
     const activity = agentActivity(
       [thread("t1", "running"), thread("t2", "running")],
