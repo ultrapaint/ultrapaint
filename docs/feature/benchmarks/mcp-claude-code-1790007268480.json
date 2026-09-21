@@ -1,0 +1,39 @@
+[
+  {
+    "arm": "mcp",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 2,
+      "tool": 8,
+      "turn_end": 1
+    },
+    "seconds": 35.176,
+    "task": "use-component",
+    "tokens": {
+      "byModel": {
+        "claude-haiku-4-5-20251001": 2276,
+        "claude-opus-5[1m]": 217510
+      },
+      "cached": 189608,
+      "input": 12,
+      "output": 1580,
+      "total": 217510
+    },
+    "toolCalls": 8,
+    "toolKinds": {
+      "execute": 5,
+      "other": 3
+    },
+    "trace": [
+      "cat /Users/alessandro.narciso/Code/ultrapaint/ultrapaint/docs/bench-designs/inde",
+      "ls /Users/alessandro.narciso/Code/ultrapaint/ultrapaint/docs/bench-designs/",
+      "ToolSearch",
+      "grep -rl \"@ultrapaint/web\" apps/web/src --include=*.tsx | head -5",
+      "mcp__ultrapaint__get_component",
+      "mcp__ultrapaint__focus",
+      "cat > docs/bench-designs/index.tsx <<'EOF'\nimport { Button } from \"@ultrapaint/",
+      "sed -n '1,80p' apps/web/src/components/ui/button.tsx"
+    ]
+  }
+]

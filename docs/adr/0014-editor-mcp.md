@@ -38,13 +38,18 @@ website the user has open could call these tools.
 
 ## What is measured, and what is not
 
-Four tasks, in `docs/feature/benchmarks/`. Measured once per arm on a session left on "auto", the
-numbers moved by about twofold between repeats of the same task and could not be told apart.
-Pinned to Opus 5 and measured again, one run per arm: 32.3 tool calls on average as the tool was,
-25.5 with the briefing, 16.8 with the tools as well, and roughly half the wall time. Three tasks
-of four improved in step; building a form out of unfamiliar components did not.
+Four tasks, in `docs/feature/benchmarks/`. Measured first on a session left on "auto", the numbers
+moved by about twofold between repeats of the same task and could not be told apart. Pinned to
+Opus 5 and measured again, seven runs to an arm: 31.1 tool calls on average as the tool was, 22.9
+with the briefing, 13.9 with the tools as well, and roughly half the wall time.
 
-One run per cell still cannot separate a small difference from luck, and the arms are not
-alternatives — the briefing is what makes an agent reach for the tools at all. What the traces
-show is agents asking instead of hunting: 128 shell calls in the baseline against 47 with the
-tools. Every run in every arm produced correct work.
+The spread is the interesting part. Two of the tasks have two runs in every arm and the arms do
+not overlap — using a component known to the catalogue costs 28–34 calls bare, 15–19 briefed and
+5–8 with the tools; linking two routes, 29 and 29, then 18–25, then 8 and 9. Building a form out
+of unfamiliar components is wide in every arm (26–42, 18–32, 14–36): it is the task that varies,
+not the arm, and one run of it cannot be read as a result. The remaining task has one run per arm
+and is there to be repeated.
+
+The arms are not alternatives — the briefing is what makes an agent reach for the tools at all.
+What the traces show is agents asking instead of hunting: 217 shell calls across the baseline
+against 67 with the tools. Every run in every arm produced correct work.

@@ -1,0 +1,59 @@
+[
+  {
+    "arm": "baseline",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 5,
+      "tool": 29,
+      "turn_end": 1
+    },
+    "seconds": 150.856,
+    "task": "router-link",
+    "tokens": {
+      "byModel": {
+        "claude-haiku-4-5-20251001": 934,
+        "claude-opus-5[1m]": 1151377
+      },
+      "cached": 1086543,
+      "input": 44,
+      "output": 9500,
+      "total": 1151377
+    },
+    "toolCalls": 29,
+    "toolKinds": {
+      "execute": 29
+    },
+    "trace": [
+      "ls && cat package.json | head -40",
+      "ls apps packages 2>/dev/null",
+      "grep -ril \"pricing\" --include=\"*\" . 2>/dev/null | grep -v node_modules | grep -v",
+      "find . -path ./node_modules -prune -o -type d -name \"node_modules\" -prune -o -ty",
+      "sed -n 1,80p apps/server/bench/tasks.ts; echo ===; ls apps/server/bench/",
+      "find . -path ./node_modules -prune -o -type d -name node_modules -prune -o -type",
+      "find docs/bench-designs -type f | head -40; echo \"--- git tracked designs dirs -",
+      "sed -n 1,60p docs/adr/0012-spaces-pages-router.md",
+      "ls docs/bench-designs; echo \"=== index.tsx ===\"; cat docs/bench-designs/index.ts",
+      "sed -n 60,140p docs/adr/0012-spaces-pages-router.md",
+      "ls -la docs/bench-designs; echo \"=== router generator ===\"; grep -rl \"_router\" -",
+      "grep -rn \"designsDir\\|designs\" --include=\"*.ts\" apps/server/src/config* 2>/dev/n",
+      "cat packages/framework-react-vite/src/router-module.ts",
+      "find docs/bench-designs/.ultrapaint -type f | head; echo \"=== briefing ===\"; se",
+      "ls -a | head -20; echo \"=== root .ultrapaint ===\"; find . -maxdepth 2 -name \".e",
+      "find docs/bench-designs/.ultrapaint -maxdepth 3 -type f -exec echo {} \\; ; echo",
+      "sed -n 80,200p apps/server/bench/tasks.ts",
+      "git log --oneline -15 -- docs/bench-designs apps/server/bench | cat; echo \"=== g",
+      "grep -rn \"routerModuleSource\\|ROUTER_MODULE_FILE\" --include=\"*.ts\" --include=\"*.",
+      "sed -n 55,100p packages/framework-react-vite/src/pages.ts",
+      "cat > docs/bench-designs/index.tsx <<'EOF'\nimport { Link } from \"./_router.tsx\";",
+      "grep -rn \"routerModule\" --include=\"*.ts\" --include=\"*.tsx\" apps packages | grep ",
+      "sed -n 295,350p apps/server/src/services/pages.ts",
+      "ls docs/bench-designs/_router.tsx 2>/dev/null || node --experimental-strip-types",
+      "command -v -p node; ls ~/.local/share/mise/installs/node 2>/dev/null; echo $PATH",
+      "ls -l /opt/homebrew/bin/node /usr/local/bin/node 2>/dev/null; /opt/homebrew/bin/",
+      "ls /Users/alessandro.narciso/.local/share/mise/installs/node/*/bin/node /Users/a",
+      "python3 - <<'PY'\nimport re, pathlib\nsrc = pathlib.Path(\"packages/framework-react",
+      "sed -n 30,45p docs/bench-designs/_router.tsx; echo \"=== tail ===\"; tail -25 docs"
+    ]
+  }
+]

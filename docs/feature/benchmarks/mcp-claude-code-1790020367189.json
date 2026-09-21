@@ -1,0 +1,39 @@
+[
+  {
+    "arm": "mcp",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "tool": 8,
+      "agent": 2,
+      "turn_end": 1
+    },
+    "seconds": 52.932,
+    "task": "router-link",
+    "tokens": {
+      "byModel": {
+        "claude-haiku-4-5-20251001": 2265,
+        "claude-opus-5[1m]": 330695
+      },
+      "cached": 302289,
+      "input": 18,
+      "output": 2298,
+      "total": 330695
+    },
+    "toolCalls": 8,
+    "toolKinds": {
+      "execute": 6,
+      "other": 2
+    },
+    "trace": [
+      "ls docs/bench-designs/ && echo \"--- index.tsx ---\" && cat docs/bench-designs/ind",
+      "perl -0pi -e 's|export default function Home\\(\\) \\{|import { Link } from \"./_rou",
+      "rg -l \"_router\" --glob '!node_modules' -g '!docs/bench-designs' . | head -20",
+      "grep -rl \"_router\" --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=b",
+      "grep -n \"Link\\|to:\\|href\" packages/framework-react-vite/src/router-module.ts | h",
+      "ToolSearch",
+      "mcp__ultrapaint__create_page",
+      "cat > docs/bench-designs/pricing.tsx <<'EOF'\nexport default function Pricing() {"
+    ]
+  }
+]

@@ -1,0 +1,64 @@
+[
+  {
+    "arm": "baseline",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 8,
+      "tool": 34,
+      "turn_end": 1
+    },
+    "seconds": 176.012,
+    "task": "use-component",
+    "tokens": {
+      "byModel": {
+        "claude-haiku-4-5-20251001": 942,
+        "claude-opus-5[1m]": 1198988
+      },
+      "cached": 1130915,
+      "input": 46,
+      "output": 10983,
+      "total": 1198988
+    },
+    "toolCalls": 34,
+    "toolKinds": {
+      "execute": 34
+    },
+    "trace": [
+      "ls && echo \"---APPS---\" && ls apps packages 2>/dev/null",
+      "find . -path ./node_modules -prune -o -type f \\( -name \"*.tsx\" -o -name \"*.jsx\" ",
+      "grep -rniE \"get started\" --include=\"*.tsx\" --include=\"*.ts\" --include=\"*.html\" -",
+      "ls apps/web/src && echo \"---ROUTES---\" && find apps/web/src -type d | head -30",
+      "sed -n '1,120p' apps/server/bench/tasks.ts",
+      "ls apps/server/bench/ && echo \"---\" && ls docs/bench-designs/",
+      "cat docs/bench-designs/index.tsx && echo \"===RUN.TS===\" && grep -n \"bench-design",
+      "sed -n '1,60p' apps/web/src/components/ui/button.tsx",
+      "grep -rn \"designsDir\" --include=\"*.ts\" --include=\"*.tsx\" . 2>/dev/null | grep -v",
+      "find . -path ./node_modules -prune -o -type d -name \"*design*\" -print 2>/dev/nul",
+      "ls -a docs/bench-designs/.ultrapaint && cat docs/bench-designs/.ultrapaint/* 2",
+      "grep -rn \"componentPackages\" --include=\"*.ts\" packages apps 2>/dev/null | grep -",
+      "grep -n \"componentPackages\\|importPath\\|specifier\\|import\\b\" packages/framework-",
+      "grep -n \"exports\\|imports\" -A 20 apps/web/package.json | sed -n '1,40p'",
+      "sed -n '200,250p' packages/framework-react-vite/src/catalogue-extract.ts && echo",
+      "cat apps/web/package.json",
+      "grep -n \"alias\\|resolve\\|dedupe\\|preserveSymlinks\\|fs:\" -B2 -A12 packages/framew",
+      "cat packages/framework-react-vite/src/resolve-plugin.ts",
+      "cat apps/web/vite.config.ts 2>/dev/null; cat apps/web/tsconfig.json 2>/dev/null",
+      "sed -n '160,200p' packages/framework-react-vite/src/serve.ts",
+      "sed -n '230,270p' packages/framework-react-vite/src/serve.ts",
+      "grep -rhn \"from \\\"@/components/ui/button\\\"\\|components/ui/button\" --include=\"*.t",
+      "ls apps/web/node_modules/@ultrapaint/ 2>/dev/null; echo \"---\"; ls node_modules/",
+      "cat > docs/bench-designs/index.tsx <<'EOF'\nimport { Button } from \"@/components/",
+      "npx biome check docs/bench-designs/index.tsx 2>&1 | tail -20",
+      "ls packages/framework-react-vite/src/*.test.ts 2>/dev/null && grep -ln \"createSe",
+      "cat > /tmp/resolve-check.mjs <<'EOF'\nimport path from \"node:path\";\nimport { file",
+      "which -a node; ls ~/.local/share/mise/installs/node 2>/dev/null; command -v pnpm",
+      "ls ~/.vite-plus/ && cat ~/.vite-plus/bin/node 2>/dev/null | head -20",
+      "ls ~/.vite-plus/js_runtime/ 2>/dev/null; find ~/.vite-plus/js_runtime -maxdepth ",
+      "find ~/.vite-plus/js_runtime/node -maxdepth 4 2>/dev/null | head -20",
+      "NODE=$(ls -d ~/.vite-plus/js_runtime/node/*/bin/node 2>/dev/null | sort -V | tai",
+      "cp /tmp/resolve-check.mjs apps/web/resolve-check.mjs && sed -i '' 's|\"./packages",
+      "rm -f apps/web/resolve-check.mjs /tmp/resolve-check.mjs && git status --short"
+    ]
+  }
+]
