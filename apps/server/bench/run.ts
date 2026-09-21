@@ -45,6 +45,8 @@ interface Measurement {
   readonly toolCalls: number;
   /** Tool calls by the kind the agent gave them: read, edit, execute, and so on. */
   readonly toolKinds: Record<string, number>;
+  /** What each call was, in order, so a run can be read back rather than guessed at. */
+  readonly trace: readonly string[];
 }
 
 const freePort = Effect.callback<number>((resume) => {
@@ -82,6 +84,9 @@ const measure = (
     task: task.id,
     toolCalls: toolItems.length,
     toolKinds,
+    trace: toolItems.map((item) =>
+      item.kind === "tool" ? item.title.slice(0, 80) : ""
+    ),
   };
 };
 

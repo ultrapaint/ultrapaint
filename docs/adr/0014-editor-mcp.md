@@ -36,10 +36,15 @@ endpoint. Two kinds:
 The server listens on loopback, but so does every page in the browser: without a token any
 website the user has open could call these tools.
 
-## Why it was worth building
+## What is measured, and what is not
 
-Measured before writing the write tools, four tasks, one run each
-(`docs/feature/benchmarks/`): 30.5 tool calls on average as the tool was, 21.0 with the project
-briefing, 10.8 with the briefing and the read tools. Every run produced correct work in every
-arm, so what the tools removed is the looking around — a form built from the design system fell
-from 41 calls to 13.
+Four tasks, in `docs/feature/benchmarks/`. The first run of each arm read as 30.5 tool calls
+without the briefing, 21.0 with it and 10.8 with the read tools as well. Repeating the last arm
+nine times put it at 26.1 (10 to 37): one run of a task is a sample of a noisy thing, and those
+first numbers were a lucky one.
+
+What the traces do show is agents asking rather than hunting — `get_context`, `list_pages`,
+`create_page`, `get_component` — and every run in every arm produced correct work. The tools cost
+little, are read-only but for the four that do what an agent cannot, and `focus` buys something
+no amount of file reading would. That is the case for keeping them; the size of the saving is
+still to be measured, with the same repetitions on every arm.

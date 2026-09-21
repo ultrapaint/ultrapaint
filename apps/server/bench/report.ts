@@ -35,15 +35,23 @@ const mean = (values: readonly number[]) =>
     ? null
     : values.reduce((a, b) => a + b, 0) / values.length;
 
+/**
+ * One task in one arm. The spread is shown next to the mean because a single run of an agent is
+ * a sample of a noisy thing: on repeats the same task has come back anywhere from 19 to 36 calls.
+ * A mean with no spread behind it reads as a measurement when it is a coin toss.
+ */
 const cell = (task: string, arm: string) => {
   const mine = runs.filter((r) => r.task === task && r.arm === arm);
   const calls = mean(mine.map((r) => r.toolCalls));
   if (calls === null) {
     return "—";
   }
-  const seconds = mean(mine.map((r) => r.seconds)) ?? 0;
+  const all = mine.map((r) => r.toolCalls).sort((a, b) => a - b);
+  const low = all[0] ?? 0;
+  const high = all.at(-1) ?? 0;
+  const spread = low === high ? "" : `–${high}`;
   const failed = mine.filter((r) => r.failure !== null).length;
-  return `${calls.toFixed(0)} calls · ${seconds.toFixed(0)}s${failed > 0 ? ` · ${failed}/${mine.length} wrong` : ""}`;
+  return `${low}${spread} calls (n=${mine.length})${failed > 0 ? ` · ${failed} wrong` : ""}`;
 };
 
 const lines = [
@@ -56,7 +64,8 @@ const lines = [
 
 const totals = arms.map((arm) => {
   const mine = runs.filter((r) => r.arm === arm);
-  return `${arm}: ${(mean(mine.map((r) => r.toolCalls)) ?? 0).toFixed(1)} calls on average over ${mine.length} runs`;
+  const all = mine.map((r) => r.toolCalls).sort((a, b) => a - b);
+  return `${arm}: ${(mean(all) ?? 0).toFixed(1)} calls on average over ${mine.length} runs, ${all[0]} to ${all.at(-1)}`;
 });
 
 const kinds = arms.map((arm) => {

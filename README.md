@@ -119,9 +119,9 @@ the pages and their routes, a component's props and variants, the comments left 
 can add and rename pages through it, answer a comment where it was left, and say which page it is
 working on so you can watch it.
 
-It saves the agent from reading the repository to find out what the editor already knows: on four
-tasks, agents went from 30 tool calls on average to 11
-([the measurements](docs/feature/benchmarks/)).
+It saves the agent from reading the repository to find out what the editor already knows. How
+much it saves is still being measured: one run of a task varies by about twofold, so the early
+numbers are not to be trusted yet ([the measurements](docs/feature/benchmarks/)).
 
 An agent outside the editor can use the same tools: **Settings** shows the line that adds it.
 

@@ -4,33 +4,16 @@
     "failure": null,
     "items": {
       "user": 1,
-      "tool": 18,
-      "agent": 2,
+      "agent": 5,
+      "tool": 29,
       "turn_end": 1
     },
-    "seconds": 103.41,
+    "seconds": 169.575,
     "task": "new-page",
-    "toolCalls": 18,
+    "toolCalls": 29,
     "toolKinds": {
-      "other": 4,
-      "execute": 14
-    }
-  },
-  {
-    "arm": "mcp",
-    "failure": null,
-    "items": {
-      "user": 1,
-      "agent": 2,
-      "tool": 5,
-      "turn_end": 1
-    },
-    "seconds": 42.676,
-    "task": "use-component",
-    "toolCalls": 5,
-    "toolKinds": {
-      "execute": 3,
-      "other": 2
+      "other": 8,
+      "execute": 21
     }
   },
   {
@@ -39,15 +22,15 @@
     "items": {
       "user": 1,
       "agent": 4,
-      "tool": 13,
+      "tool": 10,
       "turn_end": 1
     },
-    "seconds": 75.208,
-    "task": "form-from-catalogue",
-    "toolCalls": 13,
+    "seconds": 62.581,
+    "task": "use-component",
+    "toolCalls": 10,
     "toolKinds": {
-      "other": 4,
-      "execute": 9
+      "execute": 8,
+      "other": 2
     }
   },
   {
@@ -55,15 +38,33 @@
     "failure": null,
     "items": {
       "user": 1,
-      "tool": 7,
-      "agent": 1,
+      "agent": 7,
+      "tool": 37,
       "turn_end": 1
     },
-    "seconds": 73.375,
-    "task": "router-link",
-    "toolCalls": 7,
+    "seconds": 150.102,
+    "task": "form-from-catalogue",
+    "toolCalls": 37,
     "toolKinds": {
-      "execute": 7
+      "other": 12,
+      "execute": 25
+    }
+  },
+  {
+    "arm": "mcp",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "tool": 14,
+      "agent": 2,
+      "turn_end": 1
+    },
+    "seconds": 85.551,
+    "task": "router-link",
+    "toolCalls": 14,
+    "toolKinds": {
+      "execute": 11,
+      "other": 3
     }
   }
 ]
