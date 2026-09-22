@@ -39,18 +39,38 @@ const subpaths = (paths: readonly string[]) =>
   paths.map((p) => `(subpath ${JSON.stringify(p)})`).join(" ");
 
 /**
+ * Drops every path an earlier one already contains. A rule nested inside another of the same kind
+ * grants nothing extra, and on Linux it is worse than useless: a `PATH` entry like fnm's
+ * `~/.local/state/fnm_multishells/<pid>` is a symlink, and bubblewrap cannot mount over a symlink
+ * that sits inside a mount it has already made — it fails, and with it the whole launch. Its
+ * parent (`~/.local`, from `~/.local/bin`) already covers it.
+ *
+ * Sorting puts a directory immediately before what it contains, and the trailing slash keeps
+ * `/a` from swallowing `/a-b`.
+ */
+export const outermost = (paths: readonly string[]): string[] => {
+  const kept: string[] = [];
+  for (const path of [...new Set(paths)].sort()) {
+    if (!kept.some((seen) => path === seen || path.startsWith(`${seen}/`))) {
+      kept.push(path);
+    }
+  }
+  return kept;
+};
+
+/**
  * A Seatbelt profile: reads are open except under the home directory, writes are closed except
  * the repository, the agent's own directories, the caches and the temporary directories.
  * Network is not restricted — an agent talks to its model.
  */
 export const seatbeltProfile = (policy: SandboxPolicy): string => {
-  const writable = [
+  const writable = outermost([
     policy.root,
     policy.tmpDir,
     ...policy.agentDirs,
     ...policy.scratch,
-  ];
-  const reads = [...writable, ...policy.reads];
+  ]);
+  const reads = outermost([...writable, ...policy.reads]);
   return [
     "(version 1)",
     "(allow default)",
@@ -69,12 +89,17 @@ export const seatbeltProfile = (policy: SandboxPolicy): string => {
  * Order is the whole trick: every bind after the first covers what came before it.
  */
 export const bubblewrapArgs = (policy: SandboxPolicy): string[] => {
-  const writable = [
+  const writable = outermost([
     policy.root,
     policy.tmpDir,
     ...policy.agentDirs,
     ...policy.scratch,
-  ];
+  ]);
+  // A read-only bind under a writable one says nothing new; the writable bind comes later and
+  // covers it either way.
+  const reads = outermost([...writable, ...policy.reads]).filter(
+    (path) => !writable.includes(path)
+  );
   return [
     "--ro-bind",
     "/",
@@ -86,8 +111,16 @@ export const bubblewrapArgs = (policy: SandboxPolicy): string[] => {
     // Nothing of the home directory is there unless it is named below.
     "--tmpfs",
     policy.home,
-    ...policy.reads.flatMap((path) => ["--ro-bind-try", path, path]),
+    ...reads.flatMap((path) => ["--ro-bind-try", path, path]),
     ...writable.flatMap((path) => ["--bind-try", path, path]),
+    /*
+     * The blank home is writable until this, and an agent writing `~/.npmrc` would be told it
+     * worked while the file went nowhere. Read-only says the truth, and matches Seatbelt. It
+     * comes last because the binds above have to make their mount points in it first, and it
+     * touches only the tmpfs itself — what is mounted over it stays writable.
+     */
+    "--remount-ro",
+    policy.home,
     // The agent goes when the server does, whatever happens to it.
     "--die-with-parent",
     "--",

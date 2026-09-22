@@ -49,8 +49,26 @@ network policy and blocks the Keychain, so an agent inside it has no login.
 ## Where it works
 
 macOS through `sandbox-exec`, Linux through bubblewrap when `bwrap` is installed: the filesystem
-read-only, the home directory blanked with a tmpfs, and only what the policy allows bound back
-over it. Windows has no equivalent.
+read-only, the home directory blanked with a tmpfs and then remounted read-only, and only what
+the policy allows bound back over it. Windows has no equivalent.
 
 The thread carries `sandboxed`, so the editor says plainly when the platform cannot confine the
 agent rather than implying a guarantee it does not have.
+
+A policy never names a path that another path in the same list already contains. That is tidiness
+on macOS and necessity on Linux: bubblewrap cannot mount over a symlink that sits inside a mount
+it has already made, and fnm puts one on `PATH` (`~/.local/state/fnm_multishells/<pid>`, under
+`~/.local`, which `~/.local/bin` had already allowed). It refused, and the agent did not start at
+all.
+
+## How it is checked
+
+`apps/server/spike/probe-sandbox.ts` runs shell commands through the real service and the real
+launch configuration, with no agent and no model. Eleven probes: the repository readable and
+writable, the toolchain and network working, and the home directory, the user's ssh keys and the
+next repository over refused. An agent can decline to try, or try in a way that proves nothing; a
+shell does what it is told, so this is the check that answers the question, and it costs nothing
+to run on a new machine.
+
+Verified on macOS 15 (Seatbelt) and Ubuntu with bubblewrap 0.11.1, for both built-in agents: all
+eleven as expected on each.

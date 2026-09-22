@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import {
   type AgentLaunch,
   bubblewrapArgs,
+  outermost,
   sandboxAvailable,
   sandboxLaunch,
   seatbeltProfile,
@@ -22,6 +23,13 @@ const launch: AgentLaunch = {
   env: { FOO: "bar" },
 };
 
+/** Whether a rule line reaches a path: by naming it, or by naming a directory above it. */
+const covers = (line: string, path: string) =>
+  line.includes(`(subpath ${JSON.stringify(path)})`) ||
+  [...line.matchAll(/\(subpath "([^"]+)"\)/g)].some(([, allowed]) =>
+    path.startsWith(`${allowed}/`)
+  );
+
 describe("seatbeltProfile", () => {
   const profile = seatbeltProfile(policy);
 
@@ -31,7 +39,7 @@ describe("seatbeltProfile", () => {
   });
 
   it("opens the repository, the agent's own directories and the toolchain", () => {
-    const [reads] = profile
+    const [reads = ""] = profile
       .split("\n")
       .filter((line) => line.startsWith("(allow file-read-data"));
     for (const allowed of [
@@ -41,7 +49,9 @@ describe("seatbeltProfile", () => {
       ...policy.scratch,
       ...policy.reads,
     ]) {
-      expect(reads).toContain(`(subpath "${allowed}")`);
+      // Named, or inside something named: `/tmp/claude-501` needs no rule of its own once
+      // `/tmp` has one.
+      expect(covers(reads, allowed)).toBe(true);
     }
   });
 
@@ -118,5 +128,63 @@ describe("sandboxLaunch", () => {
     expect(sandboxAvailable({ platform: "win32" })).toBe(false);
     expect(sandboxAvailable(LINUX)).toBe(true);
     expect(sandboxAvailable(DARWIN)).toBe(true);
+  });
+});
+
+describe("outermost", () => {
+  it("drops a path its parent already covers", () => {
+    expect(outermost(["/a/b/c", "/a", "/a/b"])).toEqual(["/a"]);
+  });
+
+  it("keeps a sibling whose name merely starts the same", () => {
+    expect(outermost(["/a", "/a-b", "/ab"])).toEqual(["/a", "/a-b", "/ab"]);
+  });
+
+  it("keeps unrelated paths and says each once", () => {
+    expect(outermost(["/b", "/a", "/b"])).toEqual(["/a", "/b"]);
+  });
+});
+
+describe("a toolchain nested inside another allowed path", () => {
+  /**
+   * fnm puts a per-shell symlink on `PATH`, so the policy ends up with `~/.local` (from
+   * `~/.local/bin`) and two paths underneath it. Bubblewrap cannot mount over a symlink inside a
+   * mount it has already made, and failed the whole launch: the agent never started on Linux.
+   */
+  const fnm = {
+    ...policy,
+    home: "/home/naf",
+    reads: [
+      "/home/naf/.local",
+      "/home/naf/.local/state/fnm_multishells/41288_1790097241191",
+      "/home/naf/.local/share/fnm/node-versions/v24.21.0/installation",
+      "/home/naf/.gitconfig",
+    ],
+    root: "/home/naf/code/app",
+  };
+
+  it("binds the parent alone, and never what it contains", () => {
+    const args = bubblewrapArgs(fnm);
+    expect(args).toContain("/home/naf/.local");
+    expect(args.some((arg) => arg.includes("fnm_multishells"))).toBe(false);
+    expect(args.some((arg) => arg.includes("node-versions"))).toBe(false);
+    expect(args).toContain("/home/naf/.gitconfig");
+  });
+
+  it("says the same thing to Seatbelt", () => {
+    const profile = seatbeltProfile(fnm);
+    expect(profile).toContain('(subpath "/home/naf/.local")');
+    expect(profile).not.toContain("fnm_multishells");
+  });
+
+  it("still binds a writable path that sits under a readable one", () => {
+    const args = bubblewrapArgs({
+      ...fnm,
+      scratch: ["/home/naf/.local/share/pnpm"],
+    });
+    const reads = args.indexOf("/home/naf/.local");
+    const writes = args.indexOf("/home/naf/.local/share/pnpm");
+    expect(writes).toBeGreaterThan(reads);
+    expect(args[writes - 1]).toBe("--bind-try");
   });
 });

@@ -228,3 +228,25 @@ shell commands expect a writable `/tmp`. Neither holds any work of the user's.
   toolchain. macOS first, Linux (bubblewrap) next, per-agent fallback elsewhere.
 - The Codex (i) compromise is no longer needed: its reads are confined like any other agent's.
 - M4: MCP auth via a per-thread header checked in front of `layerHttp`.
+
+## What Linux then found
+
+Run on Ubuntu (bubblewrap 0.11.1) against the implementation, with `probe-sandbox.ts`. The unit
+tests had only ever checked the argument list, and two things were wrong that no amount of
+reading them would have shown.
+
+- **The agent did not start at all.** `~/.local/bin` on `PATH` allows `~/.local`, and fnm puts a
+  per-shell symlink (`~/.local/state/fnm_multishells/<pid>`) on `PATH` too, which allows a second
+  path underneath the first. Bubblewrap mounts in order and cannot mount over a symlink inside a
+  mount it has already made: it refused the whole launch. Every containment probe "passed",
+  because nothing ran. A policy now drops any path an outer one already covers.
+- **The blank home was writable.** `--tmpfs $HOME` gives the agent a home it can write, and the
+  writes go nowhere — an agent writing `~/.npmrc` would be told it worked. Remounted read-only
+  after the binds, which is what Seatbelt already did.
+
+With those, all eleven probes behave the same on both platforms, for both agents.
+
+Unrelated, and only visible there: `waitForExit` returned as soon as the process exited, while
+the output was still being read by another fiber. On macOS the bytes happened to arrive first; on
+Linux the agent's own flow — wait for exit, then read the output — got an empty string. It waits
+for the output to drain now, bounded, since a grandchild can hold the pipes open.

@@ -1,4 +1,4 @@
-import { Effect, Exit, Scope, Stream } from "effect";
+import { Effect, Exit, Fiber, Scope, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 import { TerminalError } from "./errors.ts";
 import type { AgentLaunch } from "./sandbox.ts";
@@ -34,6 +34,11 @@ export interface TerminalManager {
 }
 
 interface Terminal {
+  /**
+   * Completes once the command's output has all been taken in. Exiting and being read are two
+   * different fibers, and a process can exit with bytes still in the pipe.
+   */
+  drained: Effect.Effect<void>;
   readonly exit: Effect.Effect<TerminalExit>;
   exited: TerminalExit | null;
   readonly kill: Effect.Effect<void>;
@@ -106,6 +111,7 @@ export const makeTerminalManager = (options?: {
         );
       const limit = request.outputByteLimit ?? DEFAULT_OUTPUT_LIMIT;
       const terminal: Terminal = {
+        drained: Effect.void,
         // A command killed by a signal has no exit code to report.
         exit: handle.exitCode.pipe(
           Effect.map(
@@ -132,7 +138,7 @@ export const makeTerminalManager = (options?: {
         scope,
         truncated: false,
       };
-      yield* handle.all.pipe(
+      const pump = yield* handle.all.pipe(
         Stream.decodeText(),
         Stream.runForEach((chunk) =>
           Effect.andThen(
@@ -149,6 +155,15 @@ export const makeTerminalManager = (options?: {
         ),
         Effect.ignore,
         Effect.forkIn(scope)
+      );
+      /*
+       * Bounded, because the stream ends when the pipes close and a grandchild the command left
+       * behind can hold them open for as long as it likes. The exit status is the answer that
+       * must not be late; the output is as complete as it can honestly be made.
+       */
+      terminal.drained = Fiber.join(pump).pipe(
+        Effect.timeoutOption("2 seconds"),
+        Effect.ignore
       );
       // Records the exit status even if the agent never waits for it.
       yield* Effect.forkIn(terminal.exit, scope);
@@ -174,6 +189,8 @@ export const makeTerminalManager = (options?: {
           truncated: t.truncated,
         })),
       release,
-      waitForExit: (id) => Effect.flatMap(find(id), (t) => t.exit),
+      // The output is read straight after this, so the bytes have to be in before it returns.
+      waitForExit: (id) =>
+        Effect.flatMap(find(id), (t) => Effect.tap(t.exit, () => t.drained)),
     } satisfies TerminalManager;
   });
