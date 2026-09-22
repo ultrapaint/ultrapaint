@@ -120,9 +120,9 @@ can add and rename pages through it, answer a comment where it was left, and say
 working on so you can watch it.
 
 It saves the agent from reading the repository to find out what the editor already knows. On four
-tasks with the model pinned, that was 31 tool calls on average without any of it, 23 with the
-briefing and 14 with the tools as well — and roughly half the time per task. On the two tasks
-repeated in every arm the three do not overlap at all; on the hardest one they still do
+tasks with the model pinned, two runs each, that was 32 tool calls on average without any of it,
+24 with the briefing and 15 with the tools as well — and roughly half the time per task. On two
+of the four the three arms do not overlap at all; on the hardest one they still do
 ([the measurements](docs/feature/benchmarks/), which say what they cannot yet tell apart).
 
 An agent outside the editor can use the same tools: **Settings** shows the line that adds it.

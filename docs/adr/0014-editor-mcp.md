@@ -40,16 +40,17 @@ website the user has open could call these tools.
 
 Four tasks, in `docs/feature/benchmarks/`. Measured first on a session left on "auto", the numbers
 moved by about twofold between repeats of the same task and could not be told apart. Pinned to
-Opus 5 and measured again, seven runs to an arm: 31.1 tool calls on average as the tool was, 22.9
-with the briefing, 13.9 with the tools as well, and roughly half the wall time.
+Opus 5 and measured again, two runs of every task in every arm: 32.4 tool calls on average as the
+tool was, 23.5 with the briefing, 15.1 with the tools as well, and roughly half the wall time.
 
-The spread is the interesting part. Two of the tasks have two runs in every arm and the arms do
-not overlap — using a component known to the catalogue costs 28–34 calls bare, 15–19 briefed and
-5–8 with the tools; linking two routes, 29 and 29, then 18–25, then 8 and 9. Building a form out
+The spread is the interesting part. On two of the tasks the three arms do not overlap at all —
+using a component known to the catalogue costs 28–34 calls bare, 15–19 briefed and 5–8 with the
+tools; linking two routes, 29 and 29, then 18–25, then 8 and 9. Making a page separates the tools
+from the rest but not the briefing from the baseline (30–41, 28–33, 17–24). Building a form out
 of unfamiliar components is wide in every arm (26–42, 18–32, 14–36): it is the task that varies,
-not the arm, and one run of it cannot be read as a result. The remaining task has one run per arm
-and is there to be repeated.
+not the arm, and no reading of two runs of it is worth much.
 
-The arms are not alternatives — the briefing is what makes an agent reach for the tools at all.
-What the traces show is agents asking instead of hunting: 217 shell calls across the baseline
-against 67 with the tools. Every run in every arm produced correct work.
+Two runs to a cell is still thin, and the arms are not alternatives — the briefing is what makes
+an agent reach for the tools at all. What the traces show is agents asking instead of hunting:
+257 shell calls across the baseline against 83 with the tools. Every run in every arm produced
+correct work.
