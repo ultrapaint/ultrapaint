@@ -56,7 +56,8 @@
       "pnpm exec biome check --vcs-enabled=false docs/bench-designs/pricing.tsx 2>&1 | ",
       "cat > apps/web/tsconfig.pricing-check.json <<'JSON'\n{\n  \"extends\": \"./tsconfig.j",
       "grep -rn \"routeOf\\|const route\" packages/shared/src/*.ts | head -10"
-    ]
+    ],
+    "agent": "claude-code"
   },
   {
     "arm": "baseline",
@@ -112,7 +113,8 @@
       "npx ultracite check docs/bench-designs/index.tsx 2>&1 | tail -20",
       "./node_modules/.bin/biome check docs/bench-designs/index.tsx 2>&1 | tail -20",
       "ls /usr/local/bin/node /opt/homebrew/bin/node ~/.local/share/mise/shims/node 2>&"
-    ]
+    ],
+    "agent": "claude-code"
   },
   {
     "arm": "baseline",
@@ -182,7 +184,8 @@
       "~/.nvm/versions/node/v24.13.0/bin/node ./node_modules/@biomejs/biome/bin/biome c",
       "cat > apps/web/tsconfig.check-billing.json <<'JSON'\n{\n  \"extends\": \"./tsconfig.j",
       "cp docs/bench-designs/settings/billing.tsx apps/web/src/zz-billing-check.tsx && "
-    ]
+    ],
+    "agent": "claude-code"
   },
   {
     "arm": "baseline",
@@ -239,6 +242,7 @@
       "./node_modules/.bin/biome check --write docs/bench-designs/index.tsx 2>&1 | tail",
       "PATH=\"/Users/alessandro.narciso/.nvm/versions/node/v24.13.0/bin:$PATH\" ./node_mo",
       "ls -la docs/bench-designs/ && git status --short"
-    ]
+    ],
+    "agent": "claude-code"
   }
 ]

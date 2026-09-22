@@ -43,6 +43,7 @@
       "cd /Users/alessandro.narciso/Code/ultrapaint/ultrapaint; tail -30 apps/web/src/c",
       "mkdir -p docs/bench-designs/settings && cat > docs/bench-designs/settings/billin",
       "python3 - <<'PY'\nfrom pathlib import Path\np = Path(\"docs/bench-designs/settings/"
-    ]
+    ],
+    "agent": "claude-code"
   }
 ]

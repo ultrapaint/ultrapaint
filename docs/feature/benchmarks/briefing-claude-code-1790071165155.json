@@ -53,6 +53,7 @@
       "pnpm exec tsc -p apps/web/tsconfig.pricing-check.json --noEmit 2>&1 | head -20; ",
       "cp docs/bench-designs/pricing.tsx apps/web/src/__pricing_check.tsx && pnpm exec ",
       "git status --short && echo \"---\" && sed -n 1,15p docs/bench-designs/pricing.tsx"
-    ]
+    ],
+    "agent": "claude-code"
   }
 ]

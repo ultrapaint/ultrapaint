@@ -34,6 +34,7 @@
       "ToolSearch",
       "mcp__ultrapaint__create_page",
       "cat > docs/bench-designs/pricing.tsx <<'EOF'\nexport default function Pricing() {"
-    ]
+    ],
+    "agent": "claude-code"
   }
 ]

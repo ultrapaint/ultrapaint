@@ -50,6 +50,7 @@
       "npx ultracite fix docs/bench-designs/pricing.tsx 2>&1 | tail -20",
       "pnpm exec ultracite fix docs/bench-designs/pricing.tsx 2>&1 | tail -20",
       "pnpm exec ultracite check docs/bench-designs/pricing.tsx 2>&1 | tail -30"
-    ]
+    ],
+    "agent": "claude-code"
   }
 ]

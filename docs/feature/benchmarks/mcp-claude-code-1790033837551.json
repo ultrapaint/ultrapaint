@@ -40,6 +40,7 @@
       "grep -rn \"background-100\" apps/web/src | head -5",
       "grep -rn -- \"--color-background\\|--background\" apps/web/src/*.css apps/web/src/*",
       "sed -i '' 's/bg-background-100/bg-background/' docs/bench-designs/settings/billi"
-    ]
+    ],
+    "agent": "claude-code"
   }
 ]

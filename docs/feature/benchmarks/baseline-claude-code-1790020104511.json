@@ -54,6 +54,7 @@
       "ls /Users/alessandro.narciso/.local/share/mise/installs/node/*/bin/node /Users/a",
       "python3 - <<'PY'\nimport re, pathlib\nsrc = pathlib.Path(\"packages/framework-react",
       "sed -n 30,45p docs/bench-designs/_router.tsx; echo \"=== tail ===\"; tail -25 docs"
-    ]
+    ],
+    "agent": "claude-code"
   }
 ]

@@ -51,6 +51,7 @@
       "export PATH=\"$HOME/.nvm/versions/node/v24.13.0/bin:$PATH\" && node -v && cat > ts",
       "cd /Users/alessandro.narciso/Code/ultrapaint/ultrapaint && export PATH=\"$HOME/.n",
       "cd /Users/alessandro.narciso/Code/ultrapaint/ultrapaint/apps/web && export PATH="
-    ]
+    ],
+    "agent": "claude-code"
   }
 ]

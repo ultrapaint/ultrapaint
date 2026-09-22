@@ -34,6 +34,7 @@
       "mcp__ultrapaint__focus",
       "cat > docs/bench-designs/index.tsx <<'EOF'\nimport { Button } from \"@ultrapaint/",
       "sed -n '1,80p' apps/web/src/components/ui/button.tsx"
-    ]
+    ],
+    "agent": "claude-code"
   }
 ]

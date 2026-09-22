@@ -50,6 +50,7 @@
       "cat > docs/bench-designs/index.tsx <<'EOF'\nimport { Link } from \"./_router.tsx\";",
       "ls docs/bench-designs/*.json docs/bench-designs/tsconfig* 2>/dev/null; grep -rn ",
       "git status --short docs/bench-designs/"
-    ]
+    ],
+    "agent": "claude-code"
   }
 ]

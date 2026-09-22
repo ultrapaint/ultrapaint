@@ -8,6 +8,7 @@ import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { spawnAcpAgent } from "@ultrapaint/acp/acp-agent";
 import { builtInAgents } from "@ultrapaint/acp/configs";
 import { Effect, FileSystem, Layer } from "effect";
+import { runCommand } from "../src/process.ts";
 import { AgentSandbox } from "../src/services/threads/agent-sandbox.ts";
 
 const agentId = process.argv[2] ?? "claude-code";
@@ -30,6 +31,9 @@ const program = Effect.gen(function* () {
     `${root}/designs/index.tsx`,
     "export default () => <p>Hi</p>;\n"
   );
+  // A repository, so that `git status` in the toolchain check answers about git rather than
+  // about the fixture.
+  yield* runCommand("git", ["init", "-q"], { cwd: root });
 
   const confined = yield* sandbox.session({ config, root, tmpDir });
   yield* Effect.log(`sandboxed: ${sandbox.available}`);

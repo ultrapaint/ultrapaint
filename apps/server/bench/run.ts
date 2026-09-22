@@ -39,6 +39,8 @@ const only = flag("tasks", "")
   .filter((id) => id.length > 0);
 
 interface Measurement {
+  /** Which agent was measured: the arms of one agent say nothing about another's. */
+  readonly agent: string;
   readonly arm: string;
   readonly failure: string | null;
   readonly items: Record<string, number>;
@@ -98,6 +100,7 @@ const measure = (
     toolKinds[kind] = (toolKinds[kind] ?? 0) + 1;
   }
   return {
+    agent: agentId,
     arm,
     failure,
     items: byKind,

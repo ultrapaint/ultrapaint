@@ -58,7 +58,8 @@
       "cd /Users/alessandro.narciso/Code/ultrapaint/ultrapaint; NODE=/Users/alessandro.",
       "cd /Users/alessandro.narciso/Code/ultrapaint/ultrapaint; PATH=\"/Users/alessandro",
       "cd /Users/alessandro.narciso/Code/ultrapaint/ultrapaint/apps/web; cp ../../docs/"
-    ]
+    ],
+    "agent": "claude-code"
   },
   {
     "arm": "briefing",
@@ -105,7 +106,8 @@
       "./node_modules/.bin/biome check --vcs-enabled=false docs/bench-designs/index.tsx",
       "N=$(ls ~/.local/share/mise/installs/node/*/bin/node 2>/dev/null | head -1); [ -z",
       "N=$(find /opt/homebrew/bin /usr/local/bin ~/.nvm ~/.volta ~/.fnm -maxdepth 4 -na"
-    ]
+    ],
+    "agent": "claude-code"
   },
   {
     "arm": "briefing",
@@ -165,7 +167,8 @@
       "python3 - <<'PY'\nimport json, pathlib\nroot=\"/Users/alessandro.narciso/Code/epicp",
       "python3 - <<'PY'\nimport json, pathlib\nroot=\"/Users/alessandro.narciso/Code/epicp",
       "rm -f /tmp/tsconfig.billing.json; cd /Users/alessandro.narciso/Code/epicparty/ep"
-    ]
+    ],
+    "agent": "claude-code"
   },
   {
     "arm": "briefing",
@@ -211,6 +214,7 @@
       "rtk proxy grep -rniE \"not.?found|no page|unknown route\" --include=\"*.tsx\" --incl",
       "rtk proxy sed -n '55,95p' apps/web/src/canvas/prototype.tsx",
       "rtk git status --short && echo \"---\" && cat docs/bench-designs/index.tsx"
-    ]
+    ],
+    "agent": "claude-code"
   }
 ]

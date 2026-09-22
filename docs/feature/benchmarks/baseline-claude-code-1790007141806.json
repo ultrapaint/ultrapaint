@@ -59,6 +59,7 @@
       "NODE=$(ls -d ~/.vite-plus/js_runtime/node/*/bin/node 2>/dev/null | sort -V | tai",
       "cp /tmp/resolve-check.mjs apps/web/resolve-check.mjs && sed -i '' 's|\"./packages",
       "rm -f apps/web/resolve-check.mjs /tmp/resolve-check.mjs && git status --short"
-    ]
+    ],
+    "agent": "claude-code"
   }
 ]

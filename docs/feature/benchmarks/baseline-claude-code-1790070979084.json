@@ -67,6 +67,7 @@
       "cat > tsconfig.pricing-check.json <<'EOF'\n{\n  \"extends\": \"./tsconfig.json\",\n  \"c",
       "cp ../../docs/bench-designs/pricing.tsx src/__pricing-check.tsx && cat > tsconfi",
       "cd /Users/alessandro.narciso/Code/ultrapaint/ultrapaint && pwd && git status --s"
-    ]
+    ],
+    "agent": "claude-code"
   }
 ]

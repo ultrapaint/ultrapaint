@@ -173,13 +173,16 @@ So under codex-acp 1.12, through ACP:
   reaches our permission UI; "remember" makes it once per thread, not "yes".
 - Full access must be refused by our `setMode` and hidden in the editor.
 
-The prompt-level Codex scenarios could not run: the account's usage limit is reached until
-2026-09-22. The session starts with the config, modes are listed, the rest is inferred from the
-adapter's code and the `codex sandbox` probes above. Rerun `agent-scope.mjs codex` after that.
+**Run since, against the implementation** (`verify-scope.ts codex`, 2026-09-22): none of that
+matters any more, because the OS sandbox is outside the agent. Codex reads inside the repository,
+and outside it gets `Operation not permitted` from both its file tool and its shell — for the
+home directory and for a temp directory alike. Writing outside fails the same way. Network works
+without any escalation prompt, because the sandbox does not restrict it and `agent-full-access`
+stops Codex starting a sandbox of its own. The toolchain runs inside the sandbox: `node
+--version` and `git --version` both answer.
 
-Options for Codex network: an upstream change so a session's `_meta` or `CODEX_CONFIG` can set
-the mode's `networkAccess` and tmp exclusions (small, and the right place), or accept the
-escalation prompts until then.
+The options for Codex network are moot: the sandbox it would have escalated out of is not the
+one confining it.
 
 ## MCP on Effect
 
@@ -195,8 +198,10 @@ escalation prompts until then.
   thread has to be checked in front of it (a header the agent sends from `mcpServers[].headers`,
   checked by middleware), and a tool that needs the calling thread reads it from there. That is
   the M4 design question, not a blocker.
-- Codex is handed the same server the same way (http transport listed in codex-acp's
-  features); not exercised because of the usage limit.
+- Codex is handed the same server the same way (http transport listed in codex-acp's features),
+  and uses it: one `use-component` run on the mcp arm went `get_context`, `read_page`,
+  `get_component`, `focus`, one edit, `read_page` — 8 calls, 33s, correct work. `focus` means its
+  presence reaches the canvas like any other agent's.
 
 ## What the implementation then found
 
