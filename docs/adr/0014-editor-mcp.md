@@ -21,7 +21,10 @@ itself, or cannot do at all: what the project is, and where it is working.
 
 Every agent of a thread is told about the server when its session opens, as an ACP `mcpServers`
 entry with a token of its own. The project briefing names the tools, because a tool nobody knows
-about is not used.
+about is not used — and says that what `get_context` and `list_pages` would return is already in
+it. Both agents otherwise opened every run by asking for what they had just been told; after the
+change, two Codex runs did not call `get_context` at all, where all nine before had. An agent
+outside the editor gets no briefing, and the tools are there for it.
 
 A tool that cannot answer says why, in words the agent can act on — "no page at /x; call
 list_pages to see the routes". The failure is an error class: Effect's MCP server passes a

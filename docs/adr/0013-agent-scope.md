@@ -42,8 +42,9 @@ and it does not. The routes are all the same shape — the agent writes somethin
 repository, or talks to something outside the sandbox, and a process that is not confined does
 the rest:
 
-- **git.** `.git` is part of the repository and writable. A hook, or `core.fsmonitor` in
-  `.git/config`, runs when the editor next runs git there, and it runs `git status` on every turn.
+- **Hooks kept in the tree.** A project that points `core.hooksPath` into its own files (husky's
+  `.husky/`) has hooks the agent can edit, and they run when the user commits. That is the
+  user running the project's code, as `npm test` would be.
 - **The preview.** The host runs Vite on the project's own configuration and restarts when it
   changes. The formatter is whatever `node_modules/.bin` holds.
 - **The editor itself.** Its API listens on loopback, and the network is open. A browser page from
@@ -52,11 +53,20 @@ the rest:
   application; anything with a socket in the shared temporary directory (a tmux server, say)
   answers whoever connects.
 
-The first three were read off the code, not tried; the fourth is the general shape of an
+The next two were read off the code, not tried; the fourth is the general shape of an
 allow-by-default Seatbelt profile. Closing them is a different project — a deny-by-default
-profile, `.git` read-only to the agent, the preview and the formatter in a sandbox of their own,
-an API that wants a token only the user's browser has — each with a cost to what an agent or the
-editor can do. It was deferred when the scope was chosen, and is still to be decided.
+profile, the preview and the formatter in a sandbox of their own, an API that wants a token only
+the user's browser has — each with a cost to what an agent or the editor can do. It was deferred
+when the scope was chosen, and is still to be decided.
+
+One route was closed here, because nothing had to be asked for it to be taken. The editor runs
+git in the repository on every turn, outside the sandbox, and a hook in `.git/hooks` or a
+`core.fsmonitor` in `.git/config` would have run with it — planted by an agent that was careless,
+or talked into it by something it read. `.git` is read-only inside the sandbox, under every name
+the repository has; `git status`, `diff` and `log` work, and an agent cannot commit, branch or
+stash. Everything the editor's own git commands could be made to run has to be written into
+`.git` first: hooks, `core.fsmonitor`, filter, textconv and diff drivers. The briefing tells a
+confined agent that commits are the user's, so it does not find out by failing.
 
 ## Why not the protocol or the agents' own settings
 
@@ -82,6 +92,13 @@ the policy allows bound back over it. Windows has no equivalent.
 The thread carries `sandboxed`, so the editor says plainly when the platform cannot confine the
 agent rather than implying a guarantee it does not have.
 
+A sandbox that is installed can still refuse to start: a kernel that restricts unprivileged user
+namespaces (Ubuntu 24.04's desktop default) stops bubblewrap, and a path it cannot mount stopped
+it once. So the sandbox is tried at startup, with this machine's policy around `true`. If it
+refuses, agents run unconfined as they would with no sandbox at all, the reason is logged, and
+the thread carries it as `sandboxProblem` for the scope chip to show — one reason, once, rather
+than every thread failing to start with whatever its agent made of the error.
+
 The repository is allowed under its real name as well as the one it was opened by: Seatbelt
 sees the resolved path, and a repository reached through a symlink (`/tmp` on macOS is one)
 could not otherwise be written, nor even entered.
@@ -101,7 +118,8 @@ next repository over refused. An agent can decline to try, or try in a way that 
 shell does what it is told, so this is the check that answers the question, and it costs nothing
 to run on a new machine.
 
-Thirteen probes now: the ones above, plus the same repository opened through a symlink, and — on
+Seventeen probes now: the ones above; `.git` readable by git but refused to a config write, a
+planted hook and an attempt to move it aside; the same repository opened through a symlink; and — on
 Linux — the home directory reached through another process's `/proc/<pid>/root`, which the user
 namespace bubblewrap makes refuses, along with that process's environment and working directory.
 Its command line stays visible, as it would to `ps` anywhere.

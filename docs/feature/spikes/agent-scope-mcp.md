@@ -270,7 +270,9 @@ that fails without the fix:
 - **The MCP token file was read on every call**, and could be written twice with two tokens.
 
 It also named routes by which an agent that wants to leave the sandbox can: git hooks, the
-preview's configuration, the editor's API on loopback, and other local processes. They are
-recorded in ADR 0013 as what the sandbox does not stop, and left for a decision. A route through
+preview's configuration, the editor's API on loopback, and other local processes. The git one
+needed nothing asked of the user — the editor runs git on every turn — so it was closed:
+`.git` is read-only inside the sandbox. The rest are recorded in ADR 0013 as what the sandbox
+does not stop, and left for a decision. A route through
 another process's `/proc/<pid>/root` on Linux, which would have been an escape a careless
 `find /` could take, turned out to be refused by the user namespace, and is a probe now.
