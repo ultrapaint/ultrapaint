@@ -146,9 +146,25 @@ describe("agentActivity", () => {
       [thread("t1", "running")],
       { t1: [toolCall("in_progress", [], "execute", "pnpm typecheck")] },
       [page],
-      { t1: "/" }
+      { t1: "index" }
     );
     expect(activity?.pageIds).toEqual(["index"]);
+  });
+
+  it("falls back to that page even when another space has the same route", () => {
+    const other: Page = {
+      ...page,
+      file: "docs/designs/site/index.tsx",
+      id: "site/index",
+      space: "site",
+    };
+    const [activity] = agentActivity(
+      [thread("t1", "running")],
+      { t1: [toolCall("in_progress", [], "execute", "pnpm typecheck")] },
+      [page, other],
+      { t1: "site/index" }
+    );
+    expect(activity?.pageIds).toEqual(["site/index"]);
   });
 
   it("gives each thread its own colour", () => {

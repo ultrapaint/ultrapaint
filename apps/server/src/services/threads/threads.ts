@@ -333,6 +333,7 @@ export class ThreadService extends Context.Service<
 
       /** Loads the stored session when the agent can, otherwise starts a new one. */
       const openSession = Effect.fnUntraced(function* (
+        threadId: string,
         session: Live,
         storedSessionId: string | undefined,
         canLoad: boolean,
@@ -373,6 +374,14 @@ export class ThreadService extends Context.Service<
               )
             );
           if (loaded) {
+            /*
+             * The agent has the conversation back, and with it the briefing if anything was
+             * ever asked: that is when it is sent. Sending it again would repeat the whole
+             * project to the agent on every restart.
+             */
+            session.briefed = (yield* store.items(threadId)).some(
+              (item) => item.kind === "user"
+            );
             return loaded;
           }
         }
@@ -515,6 +524,7 @@ export class ThreadService extends Context.Service<
           const init = yield* session.agent.initialize;
           const canLoad = init.agentCapabilities?.loadSession === true;
           const open = openSession(
+            threadId,
             session,
             thread.sessionId,
             canLoad,

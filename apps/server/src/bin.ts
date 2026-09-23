@@ -1,3 +1,4 @@
+import { homedir } from "node:os";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { Config, Effect, Layer, Option } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
@@ -69,6 +70,11 @@ const serve = Command.make(
     const resolved = ServerConfig.of({
       briefing: !noBriefing,
       cwd,
+      machine: {
+        // The password database answers when the environment has no HOME.
+        home: process.env.HOME || homedir(),
+        path: process.env.PATH ?? "",
+      },
       mcp: !noMcp,
       port,
       storage,

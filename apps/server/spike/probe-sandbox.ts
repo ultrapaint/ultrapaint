@@ -115,6 +115,13 @@ const program = Effect.gen(function* () {
       script: `echo x > "${outside}/pwn.txt"`,
     },
     {
+      // Linux: another process's `/proc/<pid>/root` is the whole filesystem as that process sees
+      // it, home directory included. `find /` walks straight into it. No `/proc` on macOS.
+      expect: "denied",
+      name: "read $HOME via /proc/<pid>/root",
+      script: `cat "/proc/${process.pid}/root${homeSecret}"`,
+    },
+    {
       expect: "denied",
       name: "read the user's ssh keys",
       script: `ls "${home}/.ssh"`,
@@ -159,6 +166,39 @@ const program = Effect.gen(function* () {
     );
   }
 
+  /*
+   * The same repository opened through a symlink, which is how `/tmp` is reached on macOS and
+   * how many people keep their code. Seatbelt sees the resolved path, so the rules must name it.
+   */
+  const linked = `${stem}/linked`;
+  yield* fs.symlink(root, linked);
+  const throughLink = (yield* sandbox.session({ config, root: linked, tmpDir }))
+    .confine;
+  {
+    const launch = throughLink({
+      args: ["-c", "echo x > via-link.txt && cat via-link.txt"],
+      command: "sh",
+      env: {},
+    });
+    const result = yield* runCommand(launch.command, [...launch.args], {
+      cwd: linked,
+      timeout: "30 seconds",
+    }).pipe(
+      Effect.orElseSucceed(() => ({
+        exitCode: -1,
+        stderr: "spawn failed",
+        stdout: "",
+      }))
+    );
+    const ok = result.exitCode === 0;
+    if (!ok) {
+      failures += 1;
+    }
+    yield* Effect.log(
+      `${ok ? "  ok " : "FAIL "} ${"write a symlinked repo".padEnd(26)} allowed → ${ok ? "worked" : "refused"}  ${`${result.stdout}${result.stderr}`.trim().slice(0, 70)}`
+    );
+  }
+
   // Nothing the probes may have leaked is left lying about.
   yield* fs.remove(homeSecret).pipe(Effect.ignore);
   yield* fs.remove(`${home}/.ultrapaint-probe-pwn.txt`).pipe(Effect.ignore);
@@ -175,6 +215,15 @@ const program = Effect.gen(function* () {
 
 program.pipe(
   Effect.scoped,
-  Effect.provide(Layer.provideMerge(AgentSandbox.layer, NodeServices.layer)),
+  Effect.provide(
+    Layer.provideMerge(
+      // A script at the edge reads the environment itself; the server resolves it in bin.ts.
+      AgentSandbox.layerFor({
+        home: process.env.HOME ?? "",
+        path: process.env.PATH ?? "",
+      }),
+      NodeServices.layer
+    )
+  ),
   NodeRuntime.runMain
 );

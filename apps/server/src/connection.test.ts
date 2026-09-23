@@ -1,3 +1,4 @@
+import { homedir } from "node:os";
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import {
@@ -21,6 +22,7 @@ const startServer = (home: string, port: number) =>
           Layer.succeed(ServerConfig, {
             briefing: true,
             cwd: home,
+            machine: { home: homedir(), path: process.env.PATH ?? "" },
             mcp: true,
             port,
             storage: { home, mode: "managed" },

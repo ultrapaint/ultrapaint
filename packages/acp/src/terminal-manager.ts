@@ -1,4 +1,4 @@
-import { Effect, Exit, Fiber, Scope, Stream } from "effect";
+import { Effect, Exit, Fiber, Random, Scope, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 import { TerminalError } from "./errors.ts";
 import type { AgentLaunch } from "./sandbox.ts";
@@ -66,6 +66,14 @@ export const makeTerminalManager = (options?: {
     const confine = options?.confine ?? ((launch: AgentLaunch) => launch);
     const onOutput = options?.onOutput;
     const terminals = new Map<string, Terminal>();
+    /*
+     * Every session numbers its terminals from 1, and the editor keeps output by id for as long
+     * as the page is open: across threads, and across a thread's restarted sessions. The salt
+     * keeps one session's `term_1` from being mistaken for another's.
+     */
+    const salt = (yield* Random.nextIntBetween(0, 36 ** 5))
+      .toString(36)
+      .padStart(5, "0");
     let nextId = 1;
 
     const find = (id: string) =>
@@ -82,7 +90,7 @@ export const makeTerminalManager = (options?: {
       "TerminalManager.create"
     )(function* (request) {
       const scope = yield* Scope.fork(parent);
-      const id = `term_${nextId}`;
+      const id = `term_${salt}_${nextId}`;
       nextId += 1;
       const launch = confine({
         args: request.args,

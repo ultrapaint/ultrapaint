@@ -19,7 +19,7 @@ export const builtInAgents: AgentConfig[] = [
     sandboxMeta: {
       claudeCode: { options: { settings: { sandbox: { enabled: false } } } },
     },
-    stateDirs: ["~/.claude", "~/.claude.json", "~/.config/claude"],
+    stateDirs: ["~/.claude/", "~/.claude.json", "~/.config/claude/"],
   },
   {
     args: ["-y", "@agentclientprotocol/codex-acp"],
@@ -33,6 +33,6 @@ export const builtInAgents: AgentConfig[] = [
     package: "@agentclientprotocol/codex-acp",
     // Same: Codex runs every turn in a sandbox of its own unless it is told not to.
     sandboxEnv: { INITIAL_AGENT_MODE: "agent-full-access" },
-    stateDirs: ["~/.codex"],
+    stateDirs: ["~/.codex/"],
   },
 ];

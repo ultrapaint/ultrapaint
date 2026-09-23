@@ -11,6 +11,7 @@
  * own, which is thrown away afterwards. Results land in `docs/feature/benchmarks/`.
  */
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import path from "node:path";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
@@ -35,7 +36,7 @@ const flag = (name: string, fallback: string) => {
 
 const arm = flag("arm", "baseline");
 const agentId = flag("agent", "claude-code");
-/** Pinned, because a run left on "auto" is not the same measurement twice. */
+/** Pinned, because a run left on "auto" is not the same measurement twice. `auto` opts out. */
 const model = flag("model", "Opus 5");
 const runs = Number(flag("runs", "1"));
 const only = flag("tasks", "")
@@ -73,6 +74,10 @@ const freePort = Effect.callback<number>((resume) => {
   });
 });
 
+/** Asking the editor is its own kind: agents file it under `other` or `execute`. */
+const kindOf = (item: Extract<ThreadItem, { kind: "tool" }>) =>
+  isEditorMcpCall(item.title) ? "mcp" : (item.toolKind ?? "unnamed");
+
 const measure = (
   task: BenchTask,
   items: readonly ThreadItem[],
@@ -100,13 +105,7 @@ const measure = (
   const toolItems = items.filter((i) => i.kind === "tool");
   const toolKinds: Record<string, number> = {};
   for (const item of toolItems) {
-    // Asking the editor is its own kind: agents file it under `other` or `execute`.
-    const kind =
-      item.kind === "tool"
-        ? isEditorMcpCall(item.title)
-          ? "mcp"
-          : (item.toolKind ?? "unnamed")
-        : "";
+    const kind = item.kind === "tool" ? kindOf(item) : "";
     toolKinds[kind] = (toolKinds[kind] ?? 0) + 1;
   }
   return {
@@ -137,6 +136,7 @@ const program = Effect.gen(function* () {
       Layer.succeed(ServerConfig, {
         briefing: arm !== "baseline",
         cwd: repo,
+        machine: { home: homedir(), path: process.env.PATH ?? "" },
         mcp: arm === "mcp",
         port,
         storage: { mode: "ephemeral" },
@@ -193,6 +193,39 @@ const program = Effect.gen(function* () {
         );
       });
 
+    /**
+     * The model the agent runs on is a setting of its session; "auto" would pick its own, and a
+     * run on whatever the agent picks is not the same measurement twice. Stopped before the
+     * prompt, so finding out the names costs nothing.
+     */
+    const pinModel = (threadId: string) =>
+      Effect.gen(function* () {
+        const ready = yield* client["threads.list"]().pipe(
+          Effect.tap(() => Effect.sleep("100 millis")),
+          Effect.repeat({
+            until: (all) => all.some((t) => t.id === threadId && !!t.sessionId),
+          }),
+          Effect.timeout("2 minutes")
+        );
+        const models =
+          ready
+            .find((t) => t.id === threadId)
+            ?.configOptions?.find((option) => option.id === "model")?.options ??
+          [];
+        const choice = models.find((value) => value.name === model);
+        if (choice) {
+          yield* client["threads.setConfigOption"]({
+            optionId: "model",
+            threadId,
+            value: choice.value,
+          });
+        } else if (model !== "auto") {
+          return yield* Effect.die(
+            `${agentId} has no model named "${model}"; it has: ${models.map((m) => `"${m.name}"`).join(", ")} (or pass --model auto)`
+          );
+        }
+      });
+
     for (const task of tasks.filter(
       (t) => only.length === 0 || only.includes(t.id)
     )) {
@@ -206,28 +239,7 @@ const program = Effect.gen(function* () {
         }
 
         const thread = yield* client["threads.create"]({ agentId });
-        // The model the agent runs on is a setting of its session; "auto" would pick its own.
-        const ready = yield* client["threads.list"]().pipe(
-          Effect.tap(() => Effect.sleep("100 millis")),
-          Effect.repeat({
-            until: (all) =>
-              all.some((t) => t.id === thread.id && !!t.sessionId),
-          }),
-          Effect.timeout("2 minutes")
-        );
-        const options = ready.find((t) => t.id === thread.id)?.configOptions;
-        const choice = options
-          ?.find((option) => option.id === "model")
-          ?.options.find((value) => value.name === model);
-        if (choice) {
-          yield* client["threads.setConfigOption"]({
-            optionId: "model",
-            threadId: thread.id,
-            value: choice.value,
-          });
-        } else {
-          yield* Effect.log(`no model named ${model}; the agent picks`);
-        }
+        yield* pinModel(thread.id);
         const started = Date.now();
         yield* client["threads.prompt"]({
           attachments: [],

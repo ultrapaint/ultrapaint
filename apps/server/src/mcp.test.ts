@@ -260,11 +260,57 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           sessionId
         );
         const event = yield* Fiber.join(focused);
+        const home = (yield* client["pages.list"]()).pages.find(
+          (p) => p.route === "/home"
+        );
         assert.deepStrictEqual(event._tag === "Some" ? event.value : null, {
+          pageId: home?.id ?? "",
           route: "/home",
           threadId: thread.id,
         });
       })
+    );
+
+    // Last: the space it adds would change what the tests above list.
+    it.effect(
+      "asks which space rather than guess, when a route is in two",
+      () =>
+        Effect.gen(function* () {
+          const { client, port, settings } = yield* TestEnv;
+          yield* client["settings.set"](settings);
+          const space = yield* client["spaces.create"]({ name: "Marketing" });
+          yield* client["pages.create"]({ route: "/home", space: space.id });
+          const connection = yield* client["mcp.connection"]();
+          const sessionId = yield* openMcp(port, connection.token);
+          const call = (name: string, args: Record<string, unknown>) =>
+            Effect.flatMap(
+              callMcp(
+                port,
+                connection.token,
+                { method: "tools/call", params: { arguments: args, name } },
+                sessionId
+              ),
+              (response) => Effect.promise(() => response.text())
+            );
+
+          assert.include(
+            yield* call("read_page", { route: "/home" }),
+            "several spaces"
+          );
+          assert.include(
+            yield* call("read_page", { route: "/home", space: space.id }),
+            `${space.id}/`
+          );
+          // The designs directory's own space is `""`, which is a name, not an absent one.
+          assert.notInclude(
+            yield* call("read_page", { route: "/home", space: "" }),
+            "several spaces"
+          );
+          assert.include(
+            yield* call("create_page", { route: "/nowhere" }),
+            "several spaces"
+          );
+        })
     );
   }
 );

@@ -21,7 +21,9 @@ export const AgentConfig = Schema.Struct({
   sandboxMeta: Schema.optional(Json),
   /**
    * Where the agent keeps its own login, sessions and caches. Readable and writable inside the
-   * sandbox, wherever they are. `~` is the user's home directory, `<uid>` their user id.
+   * sandbox, wherever they are. `~` is the user's home directory, `<uid>` their user id. A
+   * trailing `/` says the path is a directory, which is made if it is missing: on Linux nothing
+   * the agent may write can come into being inside the sandbox unless it exists beforehand.
    */
   stateDirs: Schema.optional(Schema.Array(Schema.String)),
 });
@@ -257,6 +259,8 @@ export type McpConnection = typeof McpConnection.Type;
 
 /** An agent saying which page it is working on, so the canvas can show and follow it. */
 export const AgentFocus = Schema.Struct({
+  /** The page itself: a route alone can be a page in more than one space. */
+  pageId: Schema.String,
   route: Schema.String,
   threadId: Schema.String,
 });

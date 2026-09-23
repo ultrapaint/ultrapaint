@@ -74,7 +74,7 @@ describe("projectUpdate", () => {
 
 describe("migrateStored", () => {
   it("reads a thread written before tool content was structured", () => {
-    const old = JSON.stringify({
+    const old = {
       items: [
         {
           at: 1,
@@ -88,13 +88,29 @@ describe("migrateStored", () => {
         },
       ],
       thread: { id: "thread_1" },
-    });
-    const [item] = JSON.parse(migrateStored(old)).items;
-    expect(item.content).toEqual([{ text: "file body", type: "text" }]);
-    expect(item.locations).toEqual([{ path: "designs/index.tsx" }]);
+    };
+    const [item] = (migrateStored(old) as typeof old).items as unknown as {
+      content: unknown;
+      locations: unknown;
+    }[];
+    expect(item?.content).toEqual([{ text: "file body", type: "text" }]);
+    expect(item?.locations).toEqual([{ path: "designs/index.tsx" }]);
   });
 
-  it("leaves a file it cannot read to the decoder", () => {
-    expect(migrateStored("not json")).toBe("not json");
+  it("leaves a current thread exactly as it was, rather than rebuild it", () => {
+    const current = {
+      items: [
+        {
+          content: [{ text: "file body", type: "text" }],
+          kind: "tool",
+          locations: [{ path: "designs/index.tsx" }],
+        },
+      ],
+    };
+    expect(migrateStored(current)).toBe(current);
+  });
+
+  it("leaves what is not a thread at all to the decoder", () => {
+    expect(migrateStored("not a thread")).toBe("not a thread");
   });
 });

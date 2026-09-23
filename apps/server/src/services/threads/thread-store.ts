@@ -19,42 +19,60 @@ const Stored = Schema.Struct({
   thread: Thread,
 });
 const StoredJson = Schema.fromJsonString(Stored);
-const decodeStored = Schema.decodeUnknownEffect(StoredJson);
+const parseJson = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(Schema.Unknown)
+);
+const decodeStored = Schema.decodeUnknownEffect(Stored);
 const encodeStored = Schema.encodeEffect(StoredJson);
+
+/** A tool call as threads wrote it before its content and locations were kept structured. */
+const isOldToolCall = (item: unknown): item is Record<string, unknown> => {
+  if (typeof item !== "object" || item === null) {
+    return false;
+  }
+  const { content, kind, locations } = item as Record<string, unknown>;
+  return (
+    kind === "tool" &&
+    ((Array.isArray(content) && content.some((c) => typeof c === "string")) ||
+      (Array.isArray(locations) &&
+        locations.some((l) => typeof l === "string")))
+  );
+};
 
 /**
  * Threads written before tool calls kept their content and locations structured: both were
  * flattened to strings. An old conversation is still worth reading, so the strings become text
- * and bare paths on the way in.
+ * and bare paths on the way in. Anything already current is returned as it came, so a thread
+ * written by this version is not rebuilt on every start.
  */
-export const migrateStored = (text: string): string => {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    // Not JSON at all: leave it to the decoder, whose job is to report a malformed file.
-    return text;
+export const migrateStored = (stored: unknown): unknown => {
+  const items =
+    typeof stored === "object" && stored !== null
+      ? (stored as { items?: unknown }).items
+      : undefined;
+  if (!(Array.isArray(items) && items.some(isOldToolCall))) {
+    return stored;
   }
-  const { items } = parsed as { items?: unknown };
-  if (!Array.isArray(items)) {
-    return text;
-  }
-  for (const item of items as Record<string, unknown>[]) {
-    if (item.kind !== "tool") {
-      continue;
-    }
-    if (Array.isArray(item.content)) {
-      item.content = item.content.map((c: unknown) =>
-        typeof c === "string" ? { text: c, type: "text" } : c
-      );
-    }
-    if (Array.isArray(item.locations)) {
-      item.locations = item.locations.map((l: unknown) =>
-        typeof l === "string" ? { path: l } : l
-      );
-    }
-  }
-  return JSON.stringify(parsed);
+  return {
+    ...(stored as object),
+    items: items.map((item: unknown) =>
+      isOldToolCall(item)
+        ? {
+            ...item,
+            content: Array.isArray(item.content)
+              ? item.content.map((c: unknown) =>
+                  typeof c === "string" ? { text: c, type: "text" } : c
+                )
+              : item.content,
+            locations: Array.isArray(item.locations)
+              ? item.locations.map((l: unknown) =>
+                  typeof l === "string" ? { path: l } : l
+                )
+              : item.locations,
+          }
+        : item
+    ),
+  };
 };
 
 interface Entry {
@@ -110,6 +128,7 @@ export class ThreadStore extends Context.Service<
       const names = yield* Effect.orDie(fs.readDirectory(dir));
       for (const name of names.filter((n) => n.endsWith(".json"))) {
         yield* fs.readFileString(path.join(dir, name)).pipe(
+          Effect.flatMap(parseJson),
           Effect.map(migrateStored),
           Effect.flatMap(decodeStored),
           Effect.tap((stored) =>

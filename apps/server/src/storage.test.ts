@@ -1,3 +1,4 @@
+import { homedir } from "node:os";
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it, layer } from "@effect/vitest";
 import { Effect, Fiber, FileSystem, Layer, Path, Scope, Stream } from "effect";
@@ -296,6 +297,7 @@ describe("a configuration file that cannot be read", () => {
               Layer.succeed(ServerConfig, {
                 briefing: true,
                 cwd: dir,
+                machine: { home: homedir(), path: process.env.PATH ?? "" },
                 mcp: true,
                 port: yield* freePort,
                 storage: {

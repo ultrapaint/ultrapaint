@@ -1,0 +1,181 @@
+[
+  {
+    "agent": "codex",
+    "arm": "baseline",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 3,
+      "tool": 17,
+      "thought": 3,
+      "turn_end": 1
+    },
+    "seconds": 124.301,
+    "task": "new-page",
+    "tokens": {
+      "byModel": {
+        "gpt-6-astra": 42923
+      },
+      "cached": 42496,
+      "input": 384,
+      "output": 43,
+      "total": 42923
+    },
+    "toolCalls": 17,
+    "toolKinds": {
+      "read": 1,
+      "execute": 14,
+      "edit": 2
+    },
+    "trace": [
+      "Read file '/Users/alessandro.narciso/.codex/RTK.md'",
+      "pwd; rg --files -g 'AGENTS.md' -g 'package.json' -g '*route*' -g '*page*' -g '*A",
+      "rtk proxy cat package.json apps/web/package.json README.md",
+      "rtk git status --short",
+      "rtk proxy sh -c 'rg --files -g \"*design*\" -g \"space.json\" -g \"*.tsx\" docs | head",
+      "rtk proxy sh -c 'rg --files apps/server/bench docs/designs apps/web/src | head -",
+      "rtk proxy sh -c 'cat apps/server/bench/tasks.ts | head -100; rg --files --hidden",
+      "rtk rg -n 'bench-designs|designs:|designs =|designsDir|mkdirSync' apps/server/be",
+      "rtk proxy ls docs",
+      "Editing files",
+      "rtk proxy pnpm exec biome check docs/bench-designs/pricing.tsx",
+      "Editing files",
+      "rtk proxy pnpm exec biome check --write docs/bench-designs/pricing.tsx",
+      "rtk proxy pnpm exec tsc --noEmit --ignoreConfig --jsx react-jsx --module nodenex",
+      "rtk git status --short",
+      "rtk proxy pnpm exec tsc --noEmit --ignoreConfig --jsx react-jsx --jsxImportSourc",
+      "rtk proxy sh -c 'tmpconfig=$(mktemp \"$PWD/apps/web/pricing-check.XXXXXX.json\"); "
+    ]
+  },
+  {
+    "agent": "codex",
+    "arm": "baseline",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 2,
+      "tool": 13,
+      "thought": 1,
+      "turn_end": 1
+    },
+    "seconds": 45.138,
+    "task": "use-component",
+    "tokens": {
+      "byModel": {
+        "gpt-6-astra": 30491
+      },
+      "cached": 29696,
+      "input": 760,
+      "output": 35,
+      "total": 30491
+    },
+    "toolCalls": 13,
+    "toolKinds": {
+      "read": 1,
+      "execute": 11,
+      "edit": 1
+    },
+    "trace": [
+      "Read file '/Users/alessandro.narciso/.codex/RTK.md'",
+      "pwd; rg --files -g 'AGENTS.md' -g '*button*' -g '*Button*' -g '*page*' -g '*home",
+      "rtk git status --short",
+      "rtk rg --files apps/web/src",
+      "rtk rg -n 'Get started|Home|home|<p' apps/web/src/routes apps/web/src/App.tsx ap",
+      "rtk cat package.json apps/web/package.json apps/web/src/components/ui/button.tsx",
+      "rtk cat apps/web/src/app.tsx docs/bench-designs/index.tsx",
+      "rtk rg -n 'function Home|HomePage|Welcome|Get started|<p' --glob '*.tsx' --glob ",
+      "rtk rg -n 'bench-designs|components/ui/button|alias' apps/server/bench/run.ts ap",
+      "rtk cat AGENTS.md",
+      "rtk proxy sed -n '125,160p' apps/server/bench/run.ts",
+      "Editing files",
+      "rtk proxy pnpm exec biome check docs/bench-designs/index.tsx"
+    ]
+  },
+  {
+    "agent": "codex",
+    "arm": "baseline",
+    "failure": "docs/bench-designs/settings/billing.tsx was not created",
+    "items": {
+      "user": 1,
+      "agent": 3,
+      "tool": 17,
+      "thought": 4,
+      "turn_end": 1
+    },
+    "seconds": 98.579,
+    "task": "form-from-catalogue",
+    "tokens": {
+      "byModel": {
+        "gpt-6-astra": 45692
+      },
+      "cached": 44672,
+      "input": 946,
+      "output": 74,
+      "total": 45692
+    },
+    "toolCalls": 17,
+    "toolKinds": {
+      "execute": 15,
+      "read": 1,
+      "edit": 1
+    },
+    "trace": [
+      "pwd && rg --files -g 'AGENTS.md' -g 'package.json' -g '*route*' -g '*settings*' ",
+      "Read file '/Users/alessandro.narciso/.codex/RTK.md'",
+      "rtk proxy cat AGENTS.md apps/web/package.json package.json",
+      "rtk --files apps/web/src",
+      "rtk git status --short",
+      "rtk proxy rg --files apps/web/src",
+      "rtk proxy cat apps/web/src/App.tsx apps/web/src/main.tsx apps/web/src/panels/set",
+      "rtk proxy rg --files -g '*ultrapaint*' -g '*page*' -g '*design*' -g '*config*' -g 'REA",
+      "rtk proxy cat apps/web/src/main.tsx apps/web/src/components/ui/card.tsx apps/web",
+      "rtk proxy ls -a",
+      "rtk proxy cat apps/web/src/components/ui/field.tsx apps/web/src/styles.css apps/",
+      "rtk proxy rg -n 'index.html|serveStatic|pathname|fallback' apps/server/src READM",
+      "Editing files",
+      "rtk proxy pnpm exec ultracite fix apps/web/src/pages/billing.tsx apps/web/src/ma",
+      "rtk proxy pnpm -F @ultrapaint/web build",
+      "rtk proxy pnpm -F @ultrapaint/web typecheck",
+      "rtk git diff --check"
+    ]
+  },
+  {
+    "agent": "codex",
+    "arm": "baseline",
+    "failure": "the link does not go through the space's router",
+    "items": {
+      "user": 1,
+      "agent": 2,
+      "tool": 8,
+      "thought": 1,
+      "turn_end": 1
+    },
+    "seconds": 46.547,
+    "task": "router-link",
+    "tokens": {
+      "byModel": {
+        "gpt-6-astra": 35610
+      },
+      "cached": 34688,
+      "input": 869,
+      "output": 53,
+      "total": 35610
+    },
+    "toolCalls": 8,
+    "toolKinds": {
+      "execute": 6,
+      "read": 1,
+      "edit": 1
+    },
+    "trace": [
+      "pwd; rg --files -g 'AGENTS.md' -g '*home*' -g '*index*' -g '*page*' -g 'package.",
+      "Read file '/Users/alessandro.narciso/.codex/RTK.md'",
+      "rtk proxy cat AGENTS.md package.json; rtk git status --short; rtk proxy ls -a",
+      "rtk proxy ls -R apps/web/src/pages; rtk proxy cat apps/web/src/main.tsx; rtk rg ",
+      "rtk proxy cat docs/bench-designs/index.tsx; rtk proxy ls -la docs/bench-designs;",
+      "rtk proxy cat packages/preview-core/src/router.ts; rtk proxy sed -n '120,170p' a",
+      "Editing files",
+      "rtk proxy sed -n '365,402p' packages/preview-core/src/index.ts; rtk proxy pnpm e"
+    ]
+  }
+]

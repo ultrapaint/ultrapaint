@@ -25,6 +25,11 @@ export class ServerConfig extends Context.Service<
      * pages route, what the palette is. On unless a measurement wants it off.
      */
     readonly briefing: boolean;
+    /**
+     * What confining an agent needs to know about this machine: the home directory it keeps
+     * closed, and the `PATH` its toolchain is found on.
+     */
+    readonly machine: { readonly home: string; readonly path: string };
     /** Directory the server was started from; the first-run setup proposes its repository. */
     readonly cwd: string;
     /** Whether agents are given the editor's own MCP server to call. */

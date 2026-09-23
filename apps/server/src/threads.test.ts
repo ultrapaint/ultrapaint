@@ -302,6 +302,38 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
       })
     );
 
+    it.effect(
+      "does not brief a resumed session again, since it has the briefing back",
+      () =>
+        Effect.gen(function* () {
+          const threadId = yield* startThreadWith("fake-load");
+          yield* waitForThread(threadId, () => true);
+          yield* prompt(threadId, "blocks");
+          const first = yield* waitForThread(threadId, turnEnded);
+          assert.include(
+            first.items.map((i) => (i.kind === "agent" ? i.text : "")),
+            "blocks:1"
+          );
+          // The agent goes away; the next prompt loads the stored session.
+          yield* prompt(threadId, "exit");
+          yield* waitForThread(threadId, (t) => t.status === "error");
+          yield* prompt(threadId, "blocks");
+          const answers = (items: readonly ThreadItem[]) =>
+            items.flatMap((i) =>
+              i.kind === "agent" && i.text.startsWith("blocks:") ? [i.text] : []
+            );
+          const resumed = yield* waitForThread(
+            threadId,
+            (thread, items) =>
+              turnEnded(thread, items) && answers(items).length === 2
+          );
+          assert.deepStrictEqual(answers(resumed.items), [
+            "blocks:1",
+            "blocks:0",
+          ]);
+        })
+    );
+
     it.effect("runs a terminal command for the agent", () =>
       Effect.gen(function* () {
         const threadId = yield* startThread;

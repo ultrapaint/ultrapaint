@@ -10,7 +10,15 @@
  * The server listens on loopback, but so does every page in the browser: without a token any
  * website the user has open could reach the editor's tools.
  */
-import { Context, Effect, FileSystem, Layer, Path, type Scope } from "effect";
+import {
+  Context,
+  Effect,
+  FileSystem,
+  Layer,
+  Path,
+  type Scope,
+  Semaphore,
+} from "effect";
 import { makeWriteAtomic } from "../../atomic-write.ts";
 import { makeId } from "../../ids.ts";
 import { Storage } from "../storage.ts";
@@ -49,37 +57,59 @@ export class McpAccess extends Context.Service<
       const writeAtomic = makeWriteAtomic(fs, path);
       const threads = new Map<string, string>();
       const newToken = makeId("mcp");
+      // Two first calls at once must not each invent a token and each write theirs.
+      const making = yield* Semaphore.make(1);
+      /** The project's token, as last read or made, and the state directory it belongs to. */
+      let known: { readonly file: string; readonly token: string } | null =
+        null;
 
       /**
-       * Read from the state directory, written the first time it is asked for. Asked for at the
-       * moment of use, like everything else that touches the state: saving an unsaved session
-       * moves the directory while the server runs.
+       * Read from the state directory the first time, written if it is not there, and kept. The
+       * file is asked for at the moment of use, like everything else that touches the state:
+       * saving an unsaved session moves the directory, and a token read from the old one is
+       * still the right token, so only a different file is read again.
        */
-      const external = Effect.gen(function* () {
-        const file = path.join(yield* storage.stateDir, "mcp-token");
-        const existing = yield* Effect.orElseSucceed(
-          Effect.map(fs.readFileString(file), (text) => text.trim()),
-          () => ""
-        );
-        if (existing) {
-          return existing;
-        }
-        const token = yield* newToken;
-        yield* Effect.orDie(writeAtomic(file, `${token}\n`));
-        return token;
-      });
+      const external = making.withPermits(1)(
+        Effect.gen(function* () {
+          const file = path.join(yield* storage.stateDir, "mcp-token");
+          if (known?.file === file) {
+            return known.token;
+          }
+          const existing = yield* Effect.orElseSucceed(
+            Effect.map(fs.readFileString(file), (text) => text.trim()),
+            () => ""
+          );
+          const token = existing || (yield* newToken);
+          if (!existing) {
+            // A state directory that cannot be written still gets a token; it lasts until the
+            // server stops, which is better than turning away every agent outside the editor.
+            yield* writeAtomic(file, `${token}\n`).pipe(
+              Effect.catch((error) =>
+                Effect.logWarning(
+                  `the MCP token could not be kept: ${error.message}`
+                )
+              )
+            );
+          }
+          known = { file, token };
+          return token;
+        })
+      );
 
       const threadOf = (token: string | undefined) =>
         token === undefined ? undefined : threads.get(token);
 
       return McpAccess.of({
-        allows: (token) =>
-          token === undefined
-            ? Effect.succeed(false)
-            : Effect.map(
-                external,
-                (project) => threadOf(token) !== undefined || token === project
-              ),
+        // A thread's token is answered from memory; only anything else is compared to the file.
+        allows: (token) => {
+          if (token === undefined) {
+            return Effect.succeed(false);
+          }
+          if (threadOf(token) !== undefined) {
+            return Effect.succeed(true);
+          }
+          return Effect.map(external, (project) => token === project);
+        },
         external,
         issue: (threadId) =>
           Effect.acquireRelease(

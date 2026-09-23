@@ -130,6 +130,15 @@ const program = Effect.gen(function* () {
 
 program.pipe(
   Effect.scoped,
-  Effect.provide(Layer.provideMerge(AgentSandbox.layer, NodeServices.layer)),
+  Effect.provide(
+    Layer.provideMerge(
+      // A script at the edge reads the environment itself; the server resolves it in bin.ts.
+      AgentSandbox.layerFor({
+        home: process.env.HOME ?? "",
+        path: process.env.PATH ?? "",
+      }),
+      NodeServices.layer
+    )
+  ),
   NodeRuntime.runMain
 );

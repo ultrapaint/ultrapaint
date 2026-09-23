@@ -85,7 +85,7 @@ import {
   diffHunks,
   lineDiff,
 } from "../lib/line-diff.ts";
-import { useAgents } from "../state/agents.ts";
+import { terminalKey, useAgents } from "../state/agents.ts";
 import { api } from "../state/connection.ts";
 import { type Selection, useEditor, type Workspace } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
@@ -339,8 +339,16 @@ const keyOfContent = (content: ToolContent, index: number) =>
     : `${content.type}:${index}`;
 
 /** A terminal the agent is running: its output arrives while the command is still going. */
-const TerminalView = ({ terminalId }: { terminalId: string }) => {
-  const output = useAgents((s) => s.terminals[terminalId]);
+const TerminalView = ({
+  terminalId,
+  threadId,
+}: {
+  terminalId: string;
+  threadId: string;
+}) => {
+  const output = useAgents(
+    (s) => s.terminals[terminalKey(threadId, terminalId)]
+  );
   const end = useRef<HTMLDivElement>(null);
   // biome-ignore lint/correctness/useExhaustiveDependencies: follow the tail as it grows
   useEffect(() => {
@@ -400,12 +408,18 @@ const DiffContentView = ({
   );
 };
 
-const ToolContentView = ({ content }: { content: ToolContent }) => {
+const ToolContentView = ({
+  content,
+  threadId,
+}: {
+  content: ToolContent;
+  threadId: string;
+}) => {
   if (content.type === "diff") {
     return <DiffContentView content={content} />;
   }
   if (content.type === "terminal") {
-    return <TerminalView terminalId={content.terminalId} />;
+    return <TerminalView terminalId={content.terminalId} threadId={threadId} />;
   }
   return (
     <pre className="max-h-48 select-text overflow-auto whitespace-pre-wrap px-2 py-1 font-mono text-[10px] text-muted-foreground">
@@ -506,7 +520,11 @@ const Item = ({
                 </div>
               )}
               {item.content.map((c, index) => (
-                <ToolContentView content={c} key={keyOfContent(c, index)} />
+                <ToolContentView
+                  content={c}
+                  key={keyOfContent(c, index)}
+                  threadId={threadId}
+                />
               ))}
             </div>
           </CollapsibleContent>

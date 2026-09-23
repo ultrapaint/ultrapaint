@@ -1,4 +1,5 @@
 import { createServer } from "node:net";
+import { homedir } from "node:os";
 import { NodeServices } from "@effect/platform-node";
 import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
 import type { Settings } from "@ultrapaint/contracts/settings";
@@ -143,6 +144,7 @@ export const makeTestServer = (
           Layer.succeed(ServerConfig, {
             briefing: true,
             cwd: repo,
+            machine: { home: homedir(), path: process.env.PATH ?? "" },
             mcp: true,
             port,
             storage,

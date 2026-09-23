@@ -17,8 +17,15 @@ import { PagesService } from "../pages.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { CallingThread } from "./access.ts";
 
-/** What a tool says when it cannot answer: the reason, in words the agent can act on. */
-const Failure = Schema.Struct({ message: Schema.String });
+/**
+ * What a tool says when it cannot answer: the reason, in words the agent can act on. An error
+ * class, not a plain struct: the MCP server passes a failure's message to the agent only when it
+ * is an `Error`, and says "internal server error" for anything else.
+ */
+class ToolFailure extends Schema.TaggedError<ToolFailure>()("ToolFailure", {
+  message: Schema.String,
+}) {}
+const Failure = ToolFailure;
 
 const PageSummary = Schema.Struct({
   file: Schema.String,
@@ -58,7 +65,11 @@ const ReadPage = Tool.make("read_page", {
   description:
     "The source of one page, found by its route (/settings/billing) or by its file.",
   failure: Failure,
-  parameters: Schema.Struct({ route: Schema.String }),
+  parameters: Schema.Struct({
+    route: Schema.String,
+    /** Needed only when the route is a page in more than one space. */
+    space: Schema.optional(Schema.String),
+  }),
   success: Schema.Struct({
     file: Schema.String,
     source: Schema.String,
@@ -139,7 +150,12 @@ const RenamePage = Tool.make("rename_page", {
   description:
     "Move a page to another route. The file moves with it, which is what changes the route.",
   failure: Failure,
-  parameters: Schema.Struct({ route: Schema.String, to: Schema.String }),
+  parameters: Schema.Struct({
+    route: Schema.String,
+    /** Needed only when the route is a page in more than one space. */
+    space: Schema.optional(Schema.String),
+    to: Schema.String,
+  }),
   success: Schema.Struct({ file: Schema.String, route: Schema.String }),
 });
 
@@ -170,7 +186,11 @@ const Focus = Tool.make("focus", {
   description:
     "Say which page you are working on. The canvas shows it, and brings the user there if they asked to follow you. Call it when you move to another page.",
   failure: Failure,
-  parameters: Schema.Struct({ route: Schema.String }),
+  parameters: Schema.Struct({
+    route: Schema.String,
+    /** Needed only when the route is a page in more than one space. */
+    space: Schema.optional(Schema.String),
+  }),
   success: Schema.Struct({ route: Schema.String }),
 }).annotate(Tool.Readonly, true);
 
@@ -194,9 +214,13 @@ export const EditorTools = Toolkit.make(
  */
 const reported = <A, E extends { readonly message: string }, R>(
   effect: Effect.Effect<A, E, R>
-) => Effect.mapError(effect, (error) => ({ message: error.message }));
+) =>
+  Effect.mapError(
+    effect,
+    (error) => new ToolFailure({ message: error.message })
+  );
 
-const missing = (message: string) => Effect.fail({ message });
+const missing = (message: string) => Effect.fail(new ToolFailure({ message }));
 
 export const EditorToolsLive = EditorTools.toLayer(
   Effect.gen(function* () {
@@ -205,25 +229,53 @@ export const EditorToolsLive = EditorTools.toLayer(
 
     const pagesOf = project.use(Effect.flatMap(PagesService, (p) => p.list));
 
-    /** The space a tool was told to work in, or the only one there is. */
+    /** A space's id as an agent would pass it back: the designs directory's own is `""`. */
+    const named = (id: string) => JSON.stringify(id);
+
+    /**
+     * The space a tool was told to work in, or the only one there is. With several and none
+     * named, the tool says so rather than pick one: the first is not what the agent meant.
+     */
     const spaceOf = Effect.fnUntraced(function* (space: string | undefined) {
-      if (space) {
-        return space;
+      const { spaces } = yield* reported(pagesOf);
+      const ids = spaces.map((s) => named(s.id)).join(", ");
+      if (space !== undefined) {
+        return spaces.some((s) => s.id === space)
+          ? space
+          : yield* missing(`no space ${named(space)}; the spaces are ${ids}`);
       }
-      const pages = yield* reported(pagesOf);
-      return pages.spaces[0]?.id ?? "";
+      if (spaces.length <= 1) {
+        return spaces[0]?.id ?? "";
+      }
+      return yield* missing(
+        `this project has several spaces (${ids}); say which with \`space\``
+      );
     });
 
-    const pageAt = Effect.fnUntraced(function* (route: string) {
-      const pages = yield* reported(pagesOf);
-      const page = pages.pages.find(
-        (p) => p.route === route || p.file === route
+    /** A page by route (or file), in the space named, or in the only space that has it. */
+    const pageAt = Effect.fnUntraced(function* (
+      route: string,
+      space: string | undefined
+    ) {
+      const { pages } = yield* reported(pagesOf);
+      const found = pages.filter(
+        (p) =>
+          (p.route === route || p.file === route) &&
+          (space === undefined || p.space === space)
       );
-      return page === undefined
-        ? yield* missing(
-            `no page at ${route}; call list_pages to see the routes`
-          )
-        : page;
+      const [only] = found;
+      if (only && found.length === 1) {
+        return only;
+      }
+      if (found.length === 0) {
+        const where = space === undefined ? "" : ` in space ${named(space)}`;
+        return yield* missing(
+          `no page at ${route}${where}; call list_pages to see the routes`
+        );
+      }
+      return yield* missing(
+        `${route} is a page in several spaces (${found.map((p) => named(p.space)).join(", ")}); say which with \`space\``
+      );
     });
     const catalogueOf = project.use(
       Effect.flatMap(CatalogueService, (c) => c.get(false))
@@ -248,11 +300,16 @@ export const EditorToolsLive = EditorTools.toLayer(
         return { file: page.file, route: page.route, source: content };
       }),
 
-      focus: Effect.fnUntraced(function* ({ route }) {
-        const page = yield* pageAt(route);
+      focus: Effect.fnUntraced(function* ({ route, space }) {
+        const page = yield* pageAt(route, space);
         const threadId = yield* Effect.service(CallingThread);
         if (threadId) {
-          yield* events.publish("agent.focus", { route: page.route, threadId });
+          // The page, not the route: the same route can be a page in two spaces.
+          yield* events.publish("agent.focus", {
+            pageId: page.id,
+            route: page.route,
+            threadId,
+          });
         }
         return { route: page.route };
       }),
@@ -341,8 +398,8 @@ export const EditorToolsLive = EditorTools.toLayer(
         };
       }),
 
-      read_page: Effect.fnUntraced(function* ({ route }) {
-        const page = yield* pageAt(route);
+      read_page: Effect.fnUntraced(function* ({ route, space }) {
+        const page = yield* pageAt(route, space);
         const { content } = yield* reported(
           project.use(
             Effect.flatMap(EditService, (edit) => edit.read(page.file))
@@ -351,8 +408,8 @@ export const EditorToolsLive = EditorTools.toLayer(
         return { file: page.file, source: content };
       }),
 
-      rename_page: Effect.fnUntraced(function* ({ route, to }) {
-        const page = yield* pageAt(route);
+      rename_page: Effect.fnUntraced(function* ({ route, space, to }) {
+        const page = yield* pageAt(route, space);
         const moved = yield* reported(
           project.use(
             Effect.flatMap(PagesService, (pages) => pages.rename(page.id, to))

@@ -14,7 +14,7 @@ interface AgentsStore {
   changed: readonly string[];
   clearChanged: (files?: readonly string[]) => void;
   current: string | null;
-  /** Routes agents have said they are working on, by thread. */
+  /** Pages agents have said they are working on, by thread. */
   focused: Record<string, string>;
   /** Thread whose agent the canvas follows while it works. Off unless asked for. */
   following: string | null;
@@ -22,13 +22,17 @@ interface AgentsStore {
   load: () => Promise<void>;
   open: (threadId: string | null) => Promise<void>;
   setFollowing: (threadId: string | null) => void;
-  /** Output of the terminals agents are running, by terminal id, as it arrives. */
+  /** Output of the terminals agents are running, by `terminalKey`, as it arrives. */
   terminals: Record<string, string>;
   threads: readonly Thread[];
 }
 
 /** What a terminal's tail is worth keeping in memory while it runs. */
 const TERMINAL_TAIL = 8000;
+
+/** A terminal id is the agent session's; the thread makes it the editor's. */
+export const terminalKey = (threadId: string, terminalId: string) =>
+  `${threadId}/${terminalId}`;
 
 let bound = false;
 
@@ -40,15 +44,14 @@ export const useAgents = create<AgentsStore>((set, get) => ({
     }
     bound = true;
     api().on("agent.focus", (ev) => {
-      set((s) => ({ focused: { ...s.focused, [ev.threadId]: ev.route } }));
+      set((s) => ({ focused: { ...s.focused, [ev.threadId]: ev.pageId } }));
     });
     api().on("agent.terminal", (ev) => {
+      const key = terminalKey(ev.threadId, ev.terminalId);
       set((s) => ({
         terminals: {
           ...s.terminals,
-          [ev.terminalId]: (
-            (s.terminals[ev.terminalId] ?? "") + ev.chunk
-          ).slice(-TERMINAL_TAIL),
+          [key]: ((s.terminals[key] ?? "") + ev.chunk).slice(-TERMINAL_TAIL),
         },
       }));
     });

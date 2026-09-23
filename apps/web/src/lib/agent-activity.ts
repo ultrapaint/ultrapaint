@@ -89,7 +89,7 @@ const pagesOfCall = (
   places: readonly { readonly path: string }[],
   title: string | undefined,
   pages: readonly Page[],
-  focusedRoute: string | undefined
+  focusedPage: string | undefined
 ) => {
   const named = places.flatMap((place) => {
     const page = pages.find((p) => p.file === place.path);
@@ -105,8 +105,9 @@ const pagesOfCall = (
     return inTitle;
   }
   // Nothing in the call says where it is: the agent's own last word on it stands.
-  const focused = pages.find((page) => page.route === focusedRoute);
-  return focused ? [focused.id] : [];
+  return pages.some((page) => page.id === focusedPage) && focusedPage
+    ? [focusedPage]
+    : [];
 };
 
 /**
@@ -117,7 +118,7 @@ export const agentActivity = (
   threads: readonly Thread[],
   items: Record<string, readonly ThreadItem[]>,
   pages: readonly Page[],
-  /** The route each agent last said it was working on, by thread. */
+  /** The page each agent last said it was working on, by thread. */
   focused: Record<string, string> = {}
 ): readonly AgentActivity[] =>
   threads
