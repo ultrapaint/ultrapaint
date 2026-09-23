@@ -6,7 +6,11 @@
  * Derived, never stored, and free of the editor's stores so it can be read on its own.
  */
 import type { Page } from "@ultrapaint/contracts/pages";
-import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
+import {
+  isEditorMcpCall,
+  type Thread,
+  type ThreadItem,
+} from "@ultrapaint/contracts/threads";
 
 export type AgentAction = "editing" | "reading" | "running" | "thinking";
 
@@ -34,15 +38,13 @@ export const colorOfThread = (threads: readonly Thread[], threadId: string) =>
     ) % COLORS.length
   ] ?? COLORS[0];
 
-/** How agents name a tool of our MCP server: asking us about the project is reading. */
-const ASKING_US_RE = /(^|_)mcp__ultrapaint__/;
-
 /** ACP names a tool call's kind; the editor only cares what it means for the canvas. */
 const actionOf = (
   toolKind: string | undefined,
   title: string | undefined
 ): AgentAction => {
-  if (title && ASKING_US_RE.test(title)) {
+  // Asking the editor about the project is reading, whatever kind the agent gave the call.
+  if (isEditorMcpCall(title)) {
     return "reading";
   }
   switch (toolKind) {

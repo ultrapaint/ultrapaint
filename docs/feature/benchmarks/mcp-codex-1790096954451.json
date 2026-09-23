@@ -23,8 +23,9 @@
     "toolCalls": 8,
     "toolKinds": {
       "read": 1,
-      "execute": 6,
-      "edit": 1
+      "execute": 1,
+      "edit": 1,
+      "mcp": 5
     },
     "trace": [
       "Read file '/Users/alessandro.narciso/.codex/RTK.md'",

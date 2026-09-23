@@ -23,7 +23,8 @@
     "toolCalls": 8,
     "toolKinds": {
       "execute": 6,
-      "other": 2
+      "other": 1,
+      "mcp": 1
     },
     "trace": [
       "ls docs/bench-designs/ && echo \"--- index.tsx ---\" && cat docs/bench-designs/ind",

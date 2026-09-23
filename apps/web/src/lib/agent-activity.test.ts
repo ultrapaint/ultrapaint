@@ -123,6 +123,24 @@ describe("agentActivity", () => {
     expect(activity?.action).toBe("reading");
   });
 
+  it("counts Codex asking the editor as reading too, though it calls it execute", () => {
+    const [activity] = agentActivity(
+      [thread("t1", "running")],
+      {
+        t1: [
+          toolCall(
+            "in_progress",
+            [],
+            "execute",
+            "mcp.ultrapaint.get_component"
+          ),
+        ],
+      },
+      [page]
+    );
+    expect(activity?.action).toBe("reading");
+  });
+
   it("falls back to the page the agent said it was working on", () => {
     const [activity] = agentActivity(
       [thread("t1", "running")],

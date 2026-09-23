@@ -5,6 +5,7 @@
  * listens on loopback, but a page in the browser is on loopback too, so without a token any
  * website the user has open could call the editor's tools.
  */
+import { EDITOR_MCP_SERVER } from "@ultrapaint/contracts/threads";
 import { Effect, Layer } from "effect";
 import { McpProtocol, McpServer } from "effect/unstable/ai";
 import {
@@ -52,7 +53,7 @@ export const McpRoute = Tools.pipe(
     McpServer.layerHttp({
       description:
         "The ultrapaint editor: the project's pages, routes and component palette.",
-      name: "ultrapaint",
+      name: EDITOR_MCP_SERVER,
       path: MCP_PATH,
       protocols: [
         McpProtocol.v2025_11_25,

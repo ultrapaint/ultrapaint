@@ -28,7 +28,11 @@ import {
   type NotConfigured,
   NotFound,
 } from "@ultrapaint/contracts/errors";
-import type { PromptInput, Thread } from "@ultrapaint/contracts/threads";
+import {
+  EDITOR_MCP_SERVER,
+  type PromptInput,
+  type Thread,
+} from "@ultrapaint/contracts/threads";
 import {
   Clock,
   Context,
@@ -501,7 +505,7 @@ export class ThreadService extends Context.Service<
           );
           mcpServers.push({
             headers: [{ name: MCP_TOKEN_HEADER, value: token }],
-            name: "ultrapaint",
+            name: EDITOR_MCP_SERVER,
             type: "http",
             url: `http://127.0.0.1:${port}${MCP_PATH}`,
           });

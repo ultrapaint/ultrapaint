@@ -22,8 +22,8 @@
     },
     "toolCalls": 14,
     "toolKinds": {
-      "other": 5,
-      "execute": 9
+      "execute": 9,
+      "mcp": 5
     },
     "trace": [
       "mcp__ultrapaint__get_context",

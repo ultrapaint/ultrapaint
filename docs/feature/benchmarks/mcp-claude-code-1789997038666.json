@@ -22,8 +22,9 @@
     },
     "toolCalls": 17,
     "toolKinds": {
-      "other": 7,
-      "execute": 10
+      "other": 1,
+      "execute": 10,
+      "mcp": 6
     },
     "trace": [
       "ToolSearch",
@@ -70,7 +71,8 @@
     "toolCalls": 5,
     "toolKinds": {
       "execute": 2,
-      "other": 3
+      "other": 1,
+      "mcp": 2
     },
     "trace": [
       "cat /Users/alessandro.narciso/Code/ultrapaint/ultrapaint/docs/bench-designs/inde",
@@ -104,8 +106,9 @@
     },
     "toolCalls": 36,
     "toolKinds": {
-      "other": 8,
-      "execute": 28
+      "other": 1,
+      "execute": 28,
+      "mcp": 7
     },
     "trace": [
       "ToolSearch",
@@ -171,7 +174,8 @@
     "toolCalls": 9,
     "toolKinds": {
       "execute": 7,
-      "other": 2
+      "other": 1,
+      "mcp": 1
     },
     "trace": [
       "ls docs/bench-designs/ && echo \"--- index.tsx ---\" && cat docs/bench-designs/ind",

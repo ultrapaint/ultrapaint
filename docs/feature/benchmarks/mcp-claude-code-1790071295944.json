@@ -22,8 +22,9 @@
     },
     "toolCalls": 24,
     "toolKinds": {
-      "other": 8,
-      "execute": 16
+      "other": 2,
+      "execute": 16,
+      "mcp": 6
     },
     "trace": [
       "ToolSearch",

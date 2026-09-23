@@ -23,7 +23,8 @@
     "toolCalls": 8,
     "toolKinds": {
       "execute": 5,
-      "other": 3
+      "other": 1,
+      "mcp": 2
     },
     "trace": [
       "cat /Users/alessandro.narciso/Code/ultrapaint/ultrapaint/docs/bench-designs/inde",

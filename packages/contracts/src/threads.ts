@@ -227,6 +227,24 @@ export const PromptInput = Schema.Struct({
 });
 export type PromptInput = typeof PromptInput.Type;
 
+/** The name the editor's MCP server goes by, to agents and in the tool calls they report. */
+export const EDITOR_MCP_SERVER = "ultrapaint";
+
+/**
+ * How each agent names a tool of a server: Claude Code `mcp__ultrapaint__list_pages`, Codex
+ * `mcp.ultrapaint.list_pages`. Other agents may use either, so both are recognised.
+ */
+const EDITOR_MCP_CALL_RE = new RegExp(
+  `(^|_)mcp__${EDITOR_MCP_SERVER}__|^mcp\\.${EDITOR_MCP_SERVER}\\.`
+);
+
+/**
+ * Whether a tool call's title is the agent asking the editor. The call's kind cannot say: Claude
+ * Code reports these as `other` and Codex as `execute`.
+ */
+export const isEditorMcpCall = (title: string | undefined): boolean =>
+  title !== undefined && EDITOR_MCP_CALL_RE.test(title);
+
 /** What an agent outside the editor needs to reach its MCP server. */
 export const McpConnection = Schema.Struct({
   /** Off when the server was started with `--no-mcp`. */

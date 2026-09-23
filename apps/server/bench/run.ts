@@ -14,7 +14,11 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
-import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
+import {
+  isEditorMcpCall,
+  type Thread,
+  type ThreadItem,
+} from "@ultrapaint/contracts/threads";
 import { Effect, FileSystem, Layer } from "effect";
 import { RpcClient, RpcSerialization } from "effect/unstable/rpc";
 import { Socket } from "effect/unstable/socket";
@@ -96,7 +100,13 @@ const measure = (
   const toolItems = items.filter((i) => i.kind === "tool");
   const toolKinds: Record<string, number> = {};
   for (const item of toolItems) {
-    const kind = item.kind === "tool" ? (item.toolKind ?? "unnamed") : "";
+    // Asking the editor is its own kind: agents file it under `other` or `execute`.
+    const kind =
+      item.kind === "tool"
+        ? isEditorMcpCall(item.title)
+          ? "mcp"
+          : (item.toolKind ?? "unnamed")
+        : "";
     toolKinds[kind] = (toolKinds[kind] ?? 0) + 1;
   }
   return {
