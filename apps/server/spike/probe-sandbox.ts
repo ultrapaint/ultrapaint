@@ -88,6 +88,28 @@ const program = Effect.gen(function* () {
         'curl -sS -o /dev/null -w "%{http_code}" https://registry.npmjs.org/',
     },
     {
+      // `.git` is read-only, and git's everyday reading commands must not notice.
+      expect: "allowed",
+      name: "git status and diff",
+      script: "git status --short && git diff --stat",
+    },
+    {
+      // The editor runs git here outside the sandbox: config it reads must not be the agent's.
+      expect: "denied",
+      name: "write .git/config",
+      script: "git config core.fsmonitor 'touch pwned'",
+    },
+    {
+      expect: "denied",
+      name: "plant a git hook",
+      script: "echo 'touch pwned' > .git/hooks/pre-commit",
+    },
+    {
+      expect: "denied",
+      name: "move .git out of the way",
+      script: "mv .git .git-moved",
+    },
+    {
       expect: "denied",
       name: "read a secret in $HOME",
       script: `cat "${homeSecret}"`,

@@ -956,7 +956,11 @@ const ScopeChip = ({ thread }: { thread: Thread }) => {
   ) : (
     <span
       className="flex items-center gap-1 rounded-full px-2 text-warning text-xs [&_svg]:size-3"
-      title="This machine has no sandbox for agents, so the agent reaches everything you can. Agents are confined on macOS, and on Linux once bubblewrap is installed."
+      title={
+        thread.sandboxProblem
+          ? `The sandbox on this machine did not start (${thread.sandboxProblem}), so the agent reaches everything you can.`
+          : "This machine has no sandbox for agents, so the agent reaches everything you can. Agents are confined on macOS, and on Linux once bubblewrap is installed."
+      }
     >
       <ShieldAlert />
       Not scoped

@@ -74,6 +74,8 @@ export const Thread = Schema.Struct({
   ),
   /** Whether the agent process is confined to the repository by the operating system. */
   sandboxed: Schema.optional(Schema.Boolean),
+  /** Why it is not, when this machine has a sandbox that refused to start. */
+  sandboxProblem: Schema.optional(Schema.String),
   sessionId: Schema.optional(Schema.String),
   status: ThreadStatus,
   title: Schema.String,

@@ -127,8 +127,8 @@ const Threads = ThreadService.layer.pipe(
     Layer.mergeAll(
       ThreadStore.layer,
       AgentConfigs.layer,
-      AgentSandbox.layer,
-      ProjectBriefing.layer,
+      // The briefing says what the sandbox allows, so it is built on it.
+      ProjectBriefing.layer.pipe(Layer.provideMerge(AgentSandbox.layer)),
       McpAccess.layer
     )
   )

@@ -21,6 +21,12 @@ export interface SandboxPolicy {
   readonly agentDirs: readonly string[];
   /** The user's home directory, everything of which is out of reach unless allowed. */
   readonly home: string;
+  /**
+   * Inside what is writable, what stays read-only: the repository's `.git`. The editor runs git
+   * there outside the sandbox, on every turn, and a hook or a `core.fsmonitor` written into it
+   * would run with it. Reading it is fine; `git status` and `git diff` still work.
+   */
+  readonly readOnly: readonly string[];
   /** The toolchain and configuration the agent's shell reads: read only. */
   readonly reads: readonly string[];
   /** The repository: the user's work, and the point of the exercise. Read and written. */
@@ -78,6 +84,10 @@ export const seatbeltProfile = (policy: SandboxPolicy): string => {
     `(allow file-read-data ${subpaths(reads)})`,
     '(deny file-write* (subpath "/"))',
     `(allow file-write* ${subpaths(writable)} (subpath "/dev"))`,
+    // Last, because the last rule that matches is the one Seatbelt applies.
+    ...(policy.readOnly.length > 0
+      ? [`(deny file-write* ${subpaths(outermost(policy.readOnly))})`]
+      : []),
   ].join("\n");
 };
 
@@ -113,6 +123,12 @@ export const bubblewrapArgs = (policy: SandboxPolicy): string[] => {
     policy.home,
     ...reads.flatMap((path) => ["--ro-bind-try", path, path]),
     ...writable.flatMap((path) => ["--bind-try", path, path]),
+    // Over the writable binds, so that what is under them and must not change cannot.
+    ...outermost(policy.readOnly).flatMap((path) => [
+      "--ro-bind-try",
+      path,
+      path,
+    ]),
     /*
      * The blank home is writable until this, and an agent writing `~/.npmrc` would be told it
      * worked while the file went nowhere. Read-only says the truth, and matches Seatbelt. It

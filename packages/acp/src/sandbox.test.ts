@@ -11,6 +11,7 @@ import {
 const policy = {
   agentDirs: ["/Users/me/.claude", "/tmp/claude-501"],
   home: "/Users/me",
+  readOnly: ["/Users/me/code/app/.git"],
   reads: ["/Users/me/.nvm", "/Users/me/.gitconfig"],
   root: "/Users/me/code/app",
   scratch: ["/Users/me/.npm", "/tmp"],
@@ -186,5 +187,26 @@ describe("a toolchain nested inside another allowed path", () => {
     const writes = args.indexOf("/home/naf/.local/share/pnpm");
     expect(writes).toBeGreaterThan(reads);
     expect(args[writes - 1]).toBe("--bind-try");
+  });
+});
+
+describe("the repository's .git", () => {
+  it("is closed to writes in Seatbelt, by a rule after the one that opens the repository", () => {
+    const lines = seatbeltProfile(policy).split("\n");
+    const opens = lines.findIndex((l) => l.startsWith("(allow file-write*"));
+    const closes = lines.findIndex(
+      (l) =>
+        l.startsWith("(deny file-write*") &&
+        l.includes('(subpath "/Users/me/code/app/.git")')
+    );
+    expect(closes).toBeGreaterThan(opens);
+  });
+
+  it("is bound read-only over the writable repository in bubblewrap", () => {
+    const args = bubblewrapArgs(policy);
+    const repo = args.lastIndexOf("/Users/me/code/app");
+    const git = args.indexOf("/Users/me/code/app/.git");
+    expect(git).toBeGreaterThan(repo);
+    expect(args[git - 1]).toBe("--ro-bind-try");
   });
 });

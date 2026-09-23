@@ -12,6 +12,7 @@
 import { tmpdir } from "node:os";
 import {
   type AgentLaunch,
+  type SandboxTools,
   sandboxAvailable,
   sandboxLaunch,
 } from "@ultrapaint/acp/sandbox";
@@ -72,8 +73,13 @@ export interface AgentSandboxSession {
 export class AgentSandbox extends Context.Service<
   AgentSandbox,
   {
-    /** Whether this platform can confine an agent. Elsewhere the agent runs unconfined. */
+    /** Whether this machine can confine an agent. Elsewhere the agent runs unconfined. */
     readonly available: boolean;
+    /**
+     * Why it cannot, when there is a sandbox that should have worked and did not: bubblewrap
+     * installed but refused, say, by a kernel that restricts user namespaces.
+     */
+    readonly problem: string | undefined;
     /**
      * The sandbox for one session: `config` confined to `root`, with `tmpDir` as the only
      * temporary directory it may write to. Where there is no sandbox, nothing is wrapped.
@@ -85,8 +91,14 @@ export class AgentSandbox extends Context.Service<
     }) => Effect.Effect<AgentSandboxSession>;
   }
 >()("ultrapaint/server/AgentSandbox") {
-  /** For a machine described directly, as a script at the edge does. */
-  static readonly layerFor = ({ home, path: searchPath }: Machine) =>
+  /**
+   * For a machine described directly, as a script at the edge does. `tools` says which sandbox
+   * to use; left out, it is whatever this platform has.
+   */
+  static readonly layerFor = (
+    { home, path: searchPath }: Machine,
+    options?: { readonly tools?: SandboxTools }
+  ) =>
     Layer.effect(
       AgentSandbox,
       Effect.gen(function* () {
@@ -96,7 +108,7 @@ export class AgentSandbox extends Context.Service<
         const uid = String(process.getuid?.() ?? "");
         // Linux confines with bubblewrap, which is not always installed.
         const bubblewrap =
-          process.platform === "linux"
+          options?.tools === undefined && process.platform === "linux"
             ? yield* runCommand("sh", ["-c", "command -v bwrap"], {
                 cwd: home,
                 timeout: "5 seconds",
@@ -111,9 +123,12 @@ export class AgentSandbox extends Context.Service<
                 Effect.orElseSucceed(() => undefined)
               )
             : undefined;
-        const tools = { bubblewrap, platform: process.platform };
+        const tools = options?.tools ?? {
+          bubblewrap,
+          platform: process.platform,
+        };
         // A home directory that is not a real path cannot be closed: `--tmpfs ""` is no sandbox.
-        const available = path.isAbsolute(home) && sandboxAvailable(tools);
+        const possible = path.isAbsolute(home) && sandboxAvailable(tools);
 
         const expand = (p: string) =>
           (p === "~" || p.startsWith("~/") ? path.join(home, p.slice(1)) : p)
@@ -182,8 +197,69 @@ export class AgentSandbox extends Context.Service<
           ...COMMON_TOOLCHAIN,
         ]);
 
+        /*
+         * A sandbox that is installed can still refuse to start: a kernel that restricts user
+         * namespaces, or a path in the policy bubblewrap cannot mount (it once could not, for
+         * fnm's). Tried once, with this machine's policy around `true`, so that a refusal is one
+         * clear reason at startup instead of every agent failing to start.
+         */
+        const problem = possible
+          ? yield* Effect.scoped(
+              Effect.gen(function* () {
+                const dir = yield* fs.realPath(
+                  yield* fs.makeTempDirectoryScoped({
+                    prefix: "ultrapaint-sandbox-check-",
+                  })
+                );
+                const launch = sandboxLaunch(
+                  { args: ["-c", "true"], command: "/bin/sh", env: {} },
+                  {
+                    agentDirs: [],
+                    home,
+                    readOnly: [],
+                    reads,
+                    root: dir,
+                    scratch,
+                    tmpDir: dir,
+                  },
+                  tools
+                );
+                const result = yield* runCommand(
+                  launch.command,
+                  [...launch.args],
+                  {
+                    cwd: dir,
+                    timeout: "10 seconds",
+                  }
+                ).pipe(
+                  Effect.provideService(
+                    ChildProcessSpawner.ChildProcessSpawner,
+                    spawner
+                  )
+                );
+                return result.exitCode === 0
+                  ? undefined
+                  : `${launch.command} refused to start: ${
+                      result.stderr.trim().split("\n").at(-1) ||
+                      `exit code ${result.exitCode}`
+                    }`;
+              })
+            ).pipe(
+              Effect.catch((error) =>
+                Effect.succeed(
+                  `the sandbox could not be tried: ${error.message}`
+                )
+              )
+            )
+          : undefined;
+        if (problem) {
+          yield* Effect.logWarning(`agents will not be confined: ${problem}`);
+        }
+        const available = possible && problem === undefined;
+
         return AgentSandbox.of({
           available,
+          problem,
           session: Effect.fnUntraced(function* ({ config, root, tmpDir }) {
             const base: AgentLaunch = {
               args: config.args,
@@ -214,6 +290,10 @@ export class AgentSandbox extends Context.Service<
                 ...rootAliases,
               ]),
               home,
+              // Under every name the repository goes by, like the repository itself.
+              readOnly: [root, ...rootAliases].map((name) =>
+                path.join(name, ".git")
+              ),
               reads,
               root,
               scratch,

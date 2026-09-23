@@ -17,6 +17,7 @@ import { ProjectManager } from "../../project.ts";
 import { CatalogueService } from "../catalogue.ts";
 import { PagesService } from "../pages.ts";
 import { RepoPaths } from "../repo-paths.ts";
+import { AgentSandbox } from "./agent-sandbox.ts";
 
 /** Enough of the palette to choose from; the agent reads the rest when it needs to. */
 const COMPONENT_LIMIT = 60;
@@ -45,6 +46,7 @@ export class ProjectBriefing extends Context.Service<
     Effect.gen(function* () {
       const project = yield* ProjectManager;
       const { mcp } = yield* ServerConfig;
+      const sandbox = yield* AgentSandbox;
 
       const build = Effect.gen(function* () {
         const paths = yield* RepoPaths;
@@ -91,15 +93,22 @@ ${components.map(componentLine).join("\n")}`
 ${
   mcp
     ? `The "ultrapaint" MCP server is the editor itself. Ask it rather than searching the
-repository for what it already knows: get_context, list_pages, read_page, list_components,
-get_component, list_comments. Work through it where it offers to: create_page and rename_page
+repository for what it already knows: read_page, list_components, get_component,
+list_comments. What get_context and list_pages would tell you is above; ask them only if the
+project may have changed since. Work through it where it offers to: create_page and rename_page
 put a page where its route says, reply_to_comment and resolve_comment answer the user where they
 asked, and focus tells the canvas which page you are on so the user can watch you work.
 
 `
     : ""
 }Work only inside ${paths.root}. Edits land on the canvas as you save them, so make them one at a
-time rather than rewriting a page wholesale.
+time rather than rewriting a page wholesale.${
+          sandbox.available
+            ? `
+The repository's .git is read-only to you: git status, diff and log work, but commits, branches
+and stashes are the user's, made from the editor.`
+            : ""
+        }
 </ultrapaint>`;
       });
 

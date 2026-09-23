@@ -563,6 +563,7 @@ export class ThreadService extends Context.Service<
             ...(m.description ? { description: m.description } : {}),
           })),
           sandboxed: sandbox.available,
+          sandboxProblem: sandbox.problem,
           sessionId: info.sessionId,
           status: "idle",
         });
