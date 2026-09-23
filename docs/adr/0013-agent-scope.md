@@ -23,13 +23,40 @@ agent must not reach further than one it runs itself.
 
 Two things stay per agent, as data in `AgentConfig`, because only the agent knows them:
 
-- `stateDirs`: where it keeps its login, sessions and caches (`~/.claude`, `~/.codex`, …).
-  Readable and writable inside the sandbox. `~` and `<uid>` are expanded.
+- `stateDirs`: where it keeps its login, sessions and caches (`~/.claude/`, `~/.codex/`, …).
+  Readable and writable inside the sandbox. `~` and `<uid>` are expanded, and a trailing `/`
+  marks a directory, which is made before the launch if it is missing: on Linux nothing can
+  come into being in the read-only home from inside.
 - `sandboxEnv` and `sandboxMeta`: what stops the agent from starting a sandbox of its own, sent
   as environment and as `session/new` `_meta`. One sandbox cannot start inside another.
 
 A JSON file under `~/.ultrapaint/agents/` carries the same three fields, so a new agent is still
 added without code changes.
+
+## What it is for, and what it does not stop
+
+The sandbox keeps an agent's own reads and writes inside the repository: a careless `cat
+~/.aws/credentials`, a `find /` that wanders into the home directory, a write meant for the
+repository that lands next to it. It is not built to hold an agent that is trying to get out,
+and it does not. The routes are all the same shape — the agent writes something into the
+repository, or talks to something outside the sandbox, and a process that is not confined does
+the rest:
+
+- **git.** `.git` is part of the repository and writable. A hook, or `core.fsmonitor` in
+  `.git/config`, runs when the editor next runs git there, and it runs `git status` on every turn.
+- **The preview.** The host runs Vite on the project's own configuration and restarts when it
+  changes. The formatter is whatever `node_modules/.bin` holds.
+- **The editor itself.** Its API listens on loopback, and the network is open. A browser page from
+  another site is turned away by its origin, but a process can send none.
+- **Other local processes.** macOS lets a sandboxed process ask Launch Services to open an
+  application; anything with a socket in the shared temporary directory (a tmux server, say)
+  answers whoever connects.
+
+The first three were read off the code, not tried; the fourth is the general shape of an
+allow-by-default Seatbelt profile. Closing them is a different project — a deny-by-default
+profile, `.git` read-only to the agent, the preview and the formatter in a sandbox of their own,
+an API that wants a token only the user's browser has — each with a cost to what an agent or the
+editor can do. It was deferred when the scope was chosen, and is still to be decided.
 
 ## Why not the protocol or the agents' own settings
 
@@ -55,6 +82,10 @@ the policy allows bound back over it. Windows has no equivalent.
 The thread carries `sandboxed`, so the editor says plainly when the platform cannot confine the
 agent rather than implying a guarantee it does not have.
 
+The repository is allowed under its real name as well as the one it was opened by: Seatbelt
+sees the resolved path, and a repository reached through a symlink (`/tmp` on macOS is one)
+could not otherwise be written, nor even entered.
+
 A policy never names a path that another path in the same list already contains. That is tidiness
 on macOS and necessity on Linux: bubblewrap cannot mount over a symlink that sits inside a mount
 it has already made, and fnm puts one on `PATH` (`~/.local/state/fnm_multishells/<pid>`, under
@@ -70,5 +101,13 @@ next repository over refused. An agent can decline to try, or try in a way that 
 shell does what it is told, so this is the check that answers the question, and it costs nothing
 to run on a new machine.
 
-Verified on macOS 15 (Seatbelt) and Ubuntu with bubblewrap 0.11.1, for both built-in agents: all
-eleven as expected on each.
+Thirteen probes now: the ones above, plus the same repository opened through a symlink, and — on
+Linux — the home directory reached through another process's `/proc/<pid>/root`, which the user
+namespace bubblewrap makes refuses, along with that process's environment and working directory.
+Its command line stays visible, as it would to `ps` anywhere.
+
+Verified on macOS 15 (Seatbelt) and Ubuntu with bubblewrap 0.11.1, for both built-in agents, and
+with a real session of each driven through `verify-scope.ts` on both: started, signed in, read and
+wrote the repository, ran git and node, reached the network, and could neither read nor write the
+home directory. On Linux a Codex thread also reached the editor's MCP server over loopback from
+inside the sandbox and finished a benchmark task with it.

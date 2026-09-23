@@ -948,7 +948,7 @@ const ScopeChip = ({ thread }: { thread: Thread }) => {
   return thread.sandboxed ? (
     <span
       className="flex items-center gap-1 rounded-full px-2 text-muted-foreground text-xs [&_svg]:size-3"
-      title={`The agent can only read and write inside ${repoPath ?? "the repository"}, and its own files.`}
+      title={`The agent reads and writes in ${repoPath ?? "the repository"}, its own files, caches and temporary files. The rest of your home directory is closed to it.`}
     >
       <ShieldCheck />
       {repo ? `Scoped to ${repo}` : "Scoped to the repository"}
@@ -956,7 +956,7 @@ const ScopeChip = ({ thread }: { thread: Thread }) => {
   ) : (
     <span
       className="flex items-center gap-1 rounded-full px-2 text-warning text-xs [&_svg]:size-3"
-      title="This platform has no sandbox yet, so the agent reaches the whole machine. It is confined on macOS."
+      title="This machine has no sandbox for agents, so the agent reaches everything you can. Agents are confined on macOS, and on Linux once bubblewrap is installed."
     >
       <ShieldAlert />
       Not scoped
