@@ -250,3 +250,27 @@ Unrelated, and only visible there: `waitForExit` returned as soon as the process
 the output was still being read by another fiber. On macOS the bytes happened to arrive first; on
 Linux the agent's own flow — wait for exit, then read the output — got an empty string. It waits
 for the output to drain now, bounded, since a grandchild can hold the pipes open.
+
+## What the review of the branch found
+
+Read as a whole before the pull request, the branch had these, all fixed with a test or a probe
+that fails without the fix:
+
+- **No tool failure ever reached an agent.** Effect's MCP server passes a failure's message on
+  only when it is an `Error`; the tools failed with a plain struct, so every "no page at /x"
+  arrived as "internal server error".
+- **Several spaces were not handled.** The tools took the first space and the first page with a
+  route; they ask which now.
+- **A symlinked repository could not be written on macOS**, because Seatbelt sees resolved paths.
+  The probe that opens one failed without the fix, with the agent unable even to find its own
+  working directory.
+- **An agent's missing state directory could not be made on Linux**, inside the read-only home.
+- **Terminal output mixed across threads**, since every session numbers its terminals from 1.
+- **A resumed session was briefed again** on every restart.
+- **The MCP token file was read on every call**, and could be written twice with two tokens.
+
+It also named routes by which an agent that wants to leave the sandbox can: git hooks, the
+preview's configuration, the editor's API on loopback, and other local processes. They are
+recorded in ADR 0013 as what the sandbox does not stop, and left for a decision. A route through
+another process's `/proc/<pid>/root` on Linux, which would have been an escape a careless
+`find /` could take, turned out to be refused by the user namespace, and is a probe now.

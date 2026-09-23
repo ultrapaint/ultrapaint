@@ -60,6 +60,19 @@ from the rest but not the briefing from the baseline (30–41, 28–33, 17–24)
 of unfamiliar components is wide in every arm (26–42, 18–32, 14–36): it is the task that varies,
 not the arm, and no reading of two runs of it is worth much.
 
+Codex, pinned to "6 Astra", tells a different story, and a useful one. It is frugal by habit —
+twelve calls on average with nothing, where Claude Code takes thirty-two — and the briefing is
+what it needs: without it, five runs of eight came out wrong (a page in the wrong place, a link
+that bypasses the space's router); with it, none did, in seven calls on average. The tools do
+not cut calls further for Codex: 10.4 on average, since it calls `get_context` for what the
+briefing already said, `focus` for the canvas, and `read_page` to check its own work. They cost
+it little and keep every run correct, and `focus` is what puts its presence on the canvas at
+all. So the briefing stays on for every agent, and the tools are there for the agents that
+use them to save work, and for the canvas.
+
+Codex's token counts, a few tens of thousands a run, are what codex-acp reports, which leaves out
+what Claude Code counts as cache reads; they are not comparable with Claude Code's.
+
 Two runs to a cell is still thin, and the arms are not alternatives — the briefing is what makes
 an agent reach for the tools at all. What the traces show is agents asking instead of hunting:
 257 shell calls across the baseline against 83 with the tools. Every run in every arm produced
