@@ -18,7 +18,7 @@ import {
 import { reportError, useProject } from "./project.ts";
 import { writeUrl } from "./url.ts";
 
-export type Mode = "select" | "interact" | "pan" | "comment";
+export type Mode = "select" | "group" | "text" | "interact" | "pan" | "comment";
 
 /** What the app is for right now: prompting an agent, editing the design, or clicking through it. */
 export type Workspace = "vibe" | "design" | "prototype";

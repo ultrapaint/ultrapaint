@@ -505,3 +505,38 @@ export const frameOfNode = (id: string) =>
     useEditor.getState().space,
     id
   ) ?? nodeFrameOf(id);
+
+// ---- Placing something new without a drag ----
+
+/** Where something new put at this canvas point would land. */
+export const placementAt = (x: number, y: number) =>
+  resolveDrop(x, y, { kind: "new", name: "" });
+
+/**
+ * Inserts a new node where `drop` says, `at` being its position when it lands on the canvas, and
+ * selects it. Resolves to its id, or null when nothing was inserted.
+ */
+export const insertAt = async (
+  drop: Drop,
+  node: DesignNode,
+  at: { x: number; y: number }
+): Promise<string | null> => {
+  const { space } = useEditor.getState();
+  if (space === null) {
+    return null;
+  }
+  const canvas = canvasDocOf(space);
+  const target = drop.kind === "into" ? docOfFrame(drop.frame, space) : canvas;
+  const { edits, label } = dropEdits(
+    drop,
+    node,
+    null,
+    target,
+    round(at),
+    false
+  );
+  const result = await applyEdits(edits, label);
+  const id = result?.created[0] ?? null;
+  selectLanded(drop, id ?? undefined);
+  return id;
+};

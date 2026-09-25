@@ -22,6 +22,15 @@ import { allFrames, nodeFrameLayout, useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
 import { useFollowAgent } from "./agent-presence.tsx";
 import {
+  beginCreate,
+  cancelCreate,
+  endCreate,
+  hoverCreate,
+  isCreateTool,
+  moveCreate,
+  useCreate,
+} from "./create-tool.ts";
+import {
   beginDrag,
   cancelDrag,
   canvasPoint,
@@ -30,7 +39,7 @@ import {
   PALETTE_MIME,
   useDrag,
 } from "./drag.ts";
-import { DragOverlay } from "./drag-overlay.tsx";
+import { CreateOverlay, DragOverlay } from "./drag-overlay.tsx";
 import { Frame, useHostUrl } from "./frame.tsx";
 import { addImages, imageFiles } from "./items.ts";
 
@@ -227,6 +236,13 @@ export const Canvas = () => {
     };
   }, []);
 
+  // Leaving the Group or Text tool leaves nothing of it on the canvas.
+  useEffect(() => {
+    if (!isCreateTool(mode)) {
+      cancelCreate();
+    }
+  }, [mode]);
+
   // Escape puts back whatever is being dragged.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -234,6 +250,12 @@ export const Canvas = () => {
         e.preventDefault();
         e.stopImmediatePropagation();
         cancelDrag();
+      }
+      // A group being drawn is dropped; the tool stays picked.
+      if (e.key === "Escape" && useCreate.getState().from) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        cancelCreate();
       }
     };
     window.addEventListener("keydown", onKey, true);
@@ -269,6 +291,12 @@ export const Canvas = () => {
 
   const onPointerDown = (e: ReactPointerEvent) => {
     const pan = e.button === 1 || spacePan || mode === "pan";
+    if (!pan && e.button === 0 && isCreateTool(mode)) {
+      e.preventDefault();
+      beginCreate(e.clientX, e.clientY);
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      return;
+    }
     if (!pan) {
       if (e.target === e.currentTarget) {
         useEditor.getState().selectPage(null);
@@ -361,6 +389,10 @@ export const Canvas = () => {
     lastPointer.current = canvasPoint(e.clientX, e.clientY);
     const d = drag.current;
     if (!d) {
+      if (isCreateTool(mode) && !spacePan) {
+        moveCreate(e.clientX, e.clientY);
+        hoverCreate(e.clientX, e.clientY);
+      }
       return;
     }
     const s = useEditor.getState();
@@ -408,6 +440,10 @@ export const Canvas = () => {
   };
 
   const onPointerUp = () => {
+    if (isCreateTool(mode) && useCreate.getState().from) {
+      endCreate(mode);
+      return;
+    }
     const d = drag.current;
     drag.current = null;
     setPanning(false);
@@ -445,6 +481,17 @@ export const Canvas = () => {
     }
   };
 
+  const onPointerCancel = () => {
+    cancelCreate();
+    onPointerUp();
+  };
+  // Where a tool would put something is shown only while the pointer is over the canvas.
+  const onPointerLeave = () => {
+    if (!useCreate.getState().from) {
+      cancelCreate();
+    }
+  };
+
   // Virtualisation: only mount iframes near the viewport.
   const margin = 400;
   const isVisible = (f: {
@@ -471,11 +518,16 @@ export const Canvas = () => {
         "relative h-full w-full overflow-hidden bg-background",
         // Frame chrome sets its own cursors; while panning the hand wins everywhere.
         (spacePan || mode === "pan") && "cursor-grab [&_*]:cursor-grab!",
+        !spacePan &&
+          mode === "group" &&
+          "cursor-crosshair [&_*]:cursor-crosshair!",
+        !spacePan && mode === "text" && "cursor-text [&_*]:cursor-text!",
         panning && "cursor-grabbing! [&_*]:cursor-grabbing!"
       )}
       data-canvas
-      onPointerCancel={onPointerUp}
+      onPointerCancel={onPointerCancel}
       onPointerDown={onPointerDown}
+      onPointerLeave={onPointerLeave}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       ref={ref}
@@ -541,6 +593,7 @@ export const Canvas = () => {
           );
         })}
         <DragOverlay zoom={view.zoom} />
+        <CreateOverlay zoom={view.zoom} />
       </div>
       {pages.length === 0 && nodes.length === 0 && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-muted-foreground">

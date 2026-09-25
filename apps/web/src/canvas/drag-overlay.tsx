@@ -1,6 +1,8 @@
 import type { Rect } from "@ultrapaint/contracts/preview";
 import { nodeLabel } from "@ultrapaint/design-document/tree";
 import type { ReactNode } from "react";
+import { useEditor } from "../state/editor.ts";
+import { boxOf, isCreateTool, useCreate } from "./create-tool.ts";
 import { useDrag } from "./drag.ts";
 
 const BRAND = "#4f8cff";
@@ -61,6 +63,47 @@ export const DragOverlay = ({ zoom }: { zoom: number }) => {
       {drop?.kind === "into" && drop.line && (
         <Line inv={inv} rect={drop.line} />
       )}
+    </div>
+  );
+};
+
+/**
+ * What the Group and Text tools will do: where a press would put the new node, and the group
+ * being drawn with its size.
+ */
+export const CreateOverlay = ({ zoom }: { zoom: number }) => {
+  const mode = useEditor((s) => s.mode);
+  const drop = useCreate((s) => s.drop);
+  const from = useCreate((s) => s.from);
+  const to = useCreate((s) => s.to);
+  if (!isCreateTool(mode)) {
+    return null;
+  }
+  const inv = 1 / zoom;
+  const drawn = mode === "group" && from && to ? boxOf(from, to) : null;
+  return (
+    <div className="pointer-events-none absolute top-0 left-0">
+      {drop?.kind === "into" && drop.box && <Box inv={inv} rect={drop.box} />}
+      {drop?.kind === "into" && drop.line && (
+        <Line inv={inv} rect={drop.line} />
+      )}
+      {drawn && drawn.width > 0 && drawn.height > 0 ? (
+        <div
+          className="absolute"
+          style={{
+            background: "rgba(79,140,255,0.08)",
+            height: drawn.height,
+            left: drawn.x,
+            outline: `${1.5 * inv}px solid ${BRAND}`,
+            top: drawn.y,
+            width: drawn.width,
+          }}
+        >
+          <Tag inv={inv}>
+            {Math.round(drawn.width)} × {Math.round(drawn.height)}
+          </Tag>
+        </div>
+      ) : null}
     </div>
   );
 };

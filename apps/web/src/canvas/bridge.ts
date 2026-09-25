@@ -29,11 +29,13 @@ export class FrameBridge {
   private nextId = 1;
   private readonly pending = new Map<number, (msg: HostMessage) => void>();
   private readonly listeners = new Set<Listener>();
-  ready = false;
+  /** The preview has loaded and answers. */
+  ready: boolean;
   readonly frameId: string;
 
   constructor(frameId: string) {
     this.frameId = frameId;
+    this.ready = false;
   }
 
   attach(iframe: HTMLIFrameElement) {

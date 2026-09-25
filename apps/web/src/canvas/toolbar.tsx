@@ -5,6 +5,8 @@ import {
   MousePointer2,
   Pointer,
   Redo2,
+  SquareDashed,
+  Type,
   Undo2,
   ZoomIn,
   ZoomOut,
@@ -47,6 +49,24 @@ const modes: {
       </>
     ),
     value: "select",
+  },
+  {
+    icon: <SquareDashed />,
+    tooltip: (
+      <>
+        Group <Kbd>G</Kbd> · draw one, or click for the default size
+      </>
+    ),
+    value: "group",
+  },
+  {
+    icon: <Type />,
+    tooltip: (
+      <>
+        Text <Kbd>T</Kbd>
+      </>
+    ),
+    value: "text",
   },
   {
     icon: <Pointer />,

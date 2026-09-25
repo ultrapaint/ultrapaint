@@ -105,6 +105,13 @@ const handleModeKey = (e: KeyboardEvent, s: EditorState, meta: boolean) => {
   if (!meta && e.key.toLowerCase() === "h") {
     s.setMode("pan");
   }
+  // Groups and texts are made on the canvas, which the prototype does not show.
+  if (!meta && e.key.toLowerCase() === "g" && s.workspace !== "prototype") {
+    s.setMode("group");
+  }
+  if (!meta && e.key.toLowerCase() === "t" && s.workspace !== "prototype") {
+    s.setMode("text");
+  }
   // Comments belong to the canvas, which the prototype does not show.
   if (!meta && e.key.toLowerCase() === "c" && s.workspace !== "prototype") {
     if (e.shiftKey) {
