@@ -45,15 +45,18 @@ const controls = {
 export const Markdown = ({
   children,
   className,
+  codeBlockMaxHeight = 240,
   streaming = false,
 }: {
   children: string;
   className?: string;
+  /** How tall a code block grows before it scrolls, as CSS; `"none"` lets it grow. */
+  codeBlockMaxHeight?: number | string;
   streaming?: boolean;
 }) => (
   <Streamdown
     className={cn(compact, className)}
-    codeBlockMaxHeight={240}
+    codeBlockMaxHeight={codeBlockMaxHeight}
     controls={controls}
     lineNumbers={false}
     mode={streaming ? "streaming" : "static"}

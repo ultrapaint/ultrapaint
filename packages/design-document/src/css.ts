@@ -211,7 +211,7 @@ const stackStyle = (
 };
 
 /** Type settings: the text style first, then what the node sets itself. */
-const typeSettingsOf = (node: TextNode, ctx: StyleContext) => {
+export const typeSettingsOf = (node: TextNode, ctx: StyleContext) => {
   const base = node.textStyle ? ctx.textStyles.get(node.textStyle) : undefined;
   return {
     font: node.font ?? base?.font,

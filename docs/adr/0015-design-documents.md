@@ -91,4 +91,9 @@ no code generator to keep in step with every repository's conventions.
   directory under a hash of the catalogue and the design system.
 - The Design system panel shows what was imported: colours, typography samples rendered with the
   repository's own stylesheet, spacing, radii and shadows, and `DESIGN.md`.
+- The right panel's **Code** tab shows the selected node, and everything in it, as JSX with the
+  design system's components and Tailwind v4 utilities (`@ultrapaint/design-document/code`). It
+  is the reference translation of the rules above, for reading a design as code and seeing why
+  it draws as it does; nothing is written to the repository, and the application's code is
+  still the agent's. The rules and the translation change together.
 - Breakpoints and rich text are not part of the format yet.

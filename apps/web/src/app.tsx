@@ -15,6 +15,7 @@ import {
 import { type ComponentType, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
   TooltipContent,
@@ -34,6 +35,7 @@ import { IconButton } from "./components/icon-button.tsx";
 import { ResizeHandle, usePanelWidth } from "./components/resize-handle.tsx";
 import { useShortcuts } from "./lib/shortcuts.ts";
 import { Changes } from "./panels/changes.tsx";
+import { CodePanel } from "./panels/code.tsx";
 import { Comments } from "./panels/comments.tsx";
 import { DesignSystemPanel } from "./panels/design-system.tsx";
 import { Inspector } from "./panels/inspector.tsx";
@@ -49,7 +51,12 @@ import { useComments } from "./state/comments.ts";
 import { useConnection } from "./state/connection.ts";
 import { useDesignSystem } from "./state/design-system.ts";
 import { bindDocuments } from "./state/documents.ts";
-import { type LeftTab, useEditor, workspaceTabs } from "./state/editor.ts";
+import {
+  type LeftTab,
+  type RightTab,
+  useEditor,
+  workspaceTabs,
+} from "./state/editor.ts";
 import { bindProjectEvents, useProject } from "./state/project.ts";
 import { onUrlChange, readUrl } from "./state/url.ts";
 
@@ -220,19 +227,40 @@ const LeftPanel = ({
   );
 };
 
+const onRightTabChange = (value: unknown) =>
+  useEditor.getState().setRightTab(value as RightTab);
+
 const RightPanel = () => {
   const [width, setWidth] = usePanelWidth("right", rightBounds);
+  const rightTab = useEditor((s) => s.rightTab);
   return (
     <aside
       className="relative flex shrink-0 flex-col border-l bg-sidebar text-sidebar-foreground"
       style={{ width }}
     >
-      <div className="flex h-10 shrink-0 items-center border-b px-3 font-medium text-[11px]">
-        Design
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto">
-        <Inspector />
-      </div>
+      <Tabs
+        className="min-h-0 flex-1 gap-0"
+        onValueChange={onRightTabChange}
+        value={rightTab}
+      >
+        <div className="flex h-10 shrink-0 items-center border-b px-2">
+          <TabsList variant="line">
+            <TabsTrigger className="text-[11px]" value="design">
+              Design
+            </TabsTrigger>
+            <TabsTrigger className="text-[11px]" value="code">
+              Code
+            </TabsTrigger>
+          </TabsList>
+        </div>
+        {/* Only the open tab is mounted: the code is written out only while it is read. */}
+        <TabsContent className="min-h-0 overflow-auto" value="design">
+          <Inspector />
+        </TabsContent>
+        <TabsContent className="min-h-0 overflow-auto" value="code">
+          <CodePanel />
+        </TabsContent>
+      </Tabs>
       <ResizeHandle
         defaultWidth={rightBounds.defaultWidth}
         onWidthChange={setWidth}

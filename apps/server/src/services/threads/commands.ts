@@ -45,7 +45,10 @@ export const designSystemSchema = () =>
 export const pageSchema = () =>
   JSON.stringify(Schema.toJsonSchemaDocument(PageDocument));
 
-/** How the format's tokens and nodes become Tailwind v4 and components. */
+/**
+ * How the format's tokens and nodes become Tailwind v4 and components. The editor's Code tab
+ * writes the same translation out (`@ultrapaint/design-document/code`): change both together.
+ */
 export const IMPLEMENTATION_RULES = `How the design maps to code (Tailwind v4):
 - A token "$name" is the theme variable --name. "$color-primary" is bg-primary, text-primary,
   border-primary; "$radius-lg" is rounded-lg; "$shadow-md" is shadow-md; "$text-lg" is text-lg;

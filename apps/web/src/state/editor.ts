@@ -46,6 +46,9 @@ export const workspaceTabs: Record<Workspace, readonly LeftTab[]> = {
   vibe: ["chat", "pages", "designSystem", "comments", "changes"],
 };
 
+/** What the right panel shows about the selection: its fields, or the code it stands for. */
+export type RightTab = "design" | "code";
+
 /**
  * A node of a design. `frame` is where it is shown: a page's id, or `node:<id>` for a node
  * placed on the canvas and everything inside it.
@@ -84,6 +87,7 @@ interface EditorStore {
   navigate: (route: string, options?: { push?: boolean }) => void;
   openSpace: (space: string, route?: string) => Promise<void>;
   rects: Record<string, Record<string, Rect>>;
+  rightTab: RightTab;
   /** Where the space's router is. The editor holds it; the preview is told. */
   route: string;
   select: (selection: Selection | null) => void;
@@ -98,6 +102,7 @@ interface EditorStore {
   setMode: (mode: Mode) => void;
   setPreset: (pageId: string, preset: ViewportPreset) => void;
   setRects: (frame: string, rects: Record<string, Rect>) => void;
+  setRightTab: (tab: RightTab) => void;
   /** The drawn size of a node on the canvas, as its preview measured it. */
   setSize: (frame: string, size: { height: number; width: number }) => void;
   setSpacePan: (spacePan: boolean) => void;
@@ -307,6 +312,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
     }
   },
   rects: {},
+  rightTab: "design",
   route: "/",
   select: (selection) => {
     set({ selectedPage: null, selection });
@@ -346,6 +352,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
   },
   setRects: (frame, rects) =>
     set((s) => ({ rects: { ...s.rects, [frame]: rects } })),
+  setRightTab: (rightTab) => set({ rightTab }),
   setSize: (frame, size) =>
     set((s) => {
       const known = s.sizes[frame];
