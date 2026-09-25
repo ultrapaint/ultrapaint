@@ -36,7 +36,7 @@ const send = async (
     return;
   }
   // A session started from here is the one the chat shows next.
-  if ("agentId" in target) {
+  if ("newThread" in target) {
     useAgents.getState().open(thread.id);
   }
   toast.success(`Sent to ${thread.title}`, {
@@ -44,16 +44,10 @@ const send = async (
   });
 };
 
-// The agents are only listed once the chat has been opened; the menu may come first.
-const loadAgents = (open: boolean) => {
-  if (open && useAgents.getState().agents.length === 0) {
-    useAgents.getState().load();
-  }
-};
-
 /**
  * Hands a comment to an agent: the whole thread, or with `reply` that one message. It goes to
- * the session in use, or starts a new one with whichever agent is picked.
+ * the session in use, or starts a new one with the chat's default agent, which the thread can
+ * switch in its composer.
  */
 export const SendToAgent = ({
   comment,
@@ -70,7 +64,6 @@ export const SendToAgent = ({
   /** The size of the per-message actions rather than the card's. */
   small?: boolean;
 }) => {
-  const agents = useAgents((s) => s.agents);
   const current = useAgents((s) => s.threads.find((t) => t.id === s.current));
   const busy =
     current?.status === "running" || current?.status === "cancelling";
@@ -79,7 +72,7 @@ export const SendToAgent = ({
   const sent = single ? { ...comment, replies: [] } : comment;
   const label = whole ? "Send the thread to an agent" : "Send to an agent";
   return (
-    <DropdownMenu onOpenChange={loadAgents}>
+    <DropdownMenu>
       <DropdownMenuTrigger
         render={
           <Button
@@ -122,20 +115,12 @@ export const SendToAgent = ({
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuLabel>New session with</DropdownMenuLabel>
-          {agents.length === 0 ? (
-            <DropdownMenuItem disabled>Loading agents…</DropdownMenuItem>
-          ) : (
-            agents.map((agent) => (
-              <DropdownMenuItem
-                key={agent.id}
-                onClick={() => send(sent, { agentId: agent.id }, reply)}
-              >
-                <Bot />
-                {agent.name}
-              </DropdownMenuItem>
-            ))
-          )}
+          <DropdownMenuItem
+            onClick={() => send(sent, { newThread: true }, reply)}
+          >
+            <Bot />
+            New thread
+          </DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -167,8 +167,8 @@ export const revealComment = (comment: Comment) => {
   useComments.getState().setOpen(comment.id);
 };
 
-/** Where a comment goes: the agent thread in use, or a new one with the agent named. */
-export type SendTarget = { threadId: string } | { agentId: string };
+/** Where a comment goes: the agent thread in use, or a new one with the chat's default agent. */
+export type SendTarget = { threadId: string } | { newThread: true };
 
 /**
  * Sends a comment's thread, or one message of it, to an agent as a prompt. The page file and
@@ -199,7 +199,6 @@ export const sendToAgent = async (
       "threadId" in target
         ? useAgents.getState().threads.find((t) => t.id === target.threadId)
         : await api().request("threads.create", {
-            agentId: target.agentId,
             title: commentThreadTitle((reply ?? comment).text),
           });
     if (!thread) {

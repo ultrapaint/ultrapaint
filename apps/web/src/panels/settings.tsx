@@ -2,7 +2,13 @@ import { getPlatform } from "@ultrapaint/client-runtime/platform";
 import type { Settings, StorageInfo } from "@ultrapaint/contracts/settings";
 import { defaultSettings } from "@ultrapaint/contracts/settings";
 import type { SetupSuggestions } from "@ultrapaint/contracts/setup";
-import type { McpConnection } from "@ultrapaint/contracts/threads";
+import {
+  type AgentConfig,
+  type AgentOptions,
+  type ChatDefaults,
+  isModelOption,
+  type McpConnection,
+} from "@ultrapaint/contracts/threads";
 import {
   ArrowLeft,
   CircleAlert,
@@ -31,7 +37,7 @@ import { applySuggestions, describeSuggestions } from "../lib/setup.ts";
 import { api } from "../state/connection.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useEditor } from "../state/editor.ts";
-import { useProject } from "../state/project.ts";
+import { reportError, useProject } from "../state/project.ts";
 import { startInit } from "./design-system.tsx";
 
 const themes = [
@@ -160,6 +166,82 @@ const McpConnectionField = () => {
         is this project's, and anyone who has it can use them.
       </FieldDescription>
     </Field>
+  );
+};
+
+/** Stands for "no choice": the first agent, or the agent's own model. */
+const AGENT_DEFAULT = "";
+
+/**
+ * The agent and model a new thread starts with. Saved as soon as it is picked: it is the
+ * user's, not the project's, and a thread can still switch both in its composer.
+ */
+const ChatDefaultsField = () => {
+  const [agents, setAgents] = useState<readonly AgentConfig[]>([]);
+  const [known, setKnown] = useState<readonly AgentOptions[]>([]);
+  const [defaults, setDefaults] = useState<ChatDefaults | null>(null);
+  useEffect(() => {
+    Promise.all([
+      api().request("agents.list", undefined),
+      api().request("agents.options", undefined),
+      api().request("chat.defaults", undefined),
+    ])
+      .then(([configs, options, stored]) => {
+        setAgents(configs);
+        setKnown(options);
+        setDefaults(stored);
+      })
+      .catch(reportError);
+  }, []);
+  if (!defaults || agents.length === 0) {
+    return null;
+  }
+  const agentId =
+    agents.find((a) => a.id === defaults.agentId)?.id ?? agents[0]?.id ?? "";
+  const models =
+    known.find((k) => k.agentId === agentId)?.configOptions.find(isModelOption)
+      ?.options ?? [];
+  const save = (next: ChatDefaults) => {
+    setDefaults(next);
+    api().request("chat.setDefaults", next).catch(reportError);
+  };
+  const onAgent = (id: string) => save({ agentId: id });
+  const onModel = (model: string) =>
+    save({ agentId, ...(model === AGENT_DEFAULT ? {} : { model }) });
+  return (
+    <>
+      <Field>
+        <FieldLabel>Default agent</FieldLabel>
+        <OptionSelect
+          className="max-w-64"
+          onChange={onAgent}
+          options={agents.map((a) => ({ label: a.name, value: a.id }))}
+          value={agentId}
+        />
+      </Field>
+      <Field>
+        <FieldLabel>Default model</FieldLabel>
+        <OptionSelect
+          className="max-w-64"
+          disabled={models.length === 0}
+          onChange={onModel}
+          options={[
+            { label: "The agent's own default", value: AGENT_DEFAULT },
+            ...models.map((m) => ({
+              description: m.description,
+              label: m.name,
+              value: m.value,
+            })),
+          ]}
+          value={defaults.model ?? AGENT_DEFAULT}
+        />
+        <FieldDescription>
+          {models.length === 0
+            ? "The models are listed once this agent has answered a prompt here."
+            : "New threads start with these. A thread switches agent or model in its composer."}
+        </FieldDescription>
+      </Field>
+    </>
   );
 };
 
@@ -551,6 +633,17 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
               </Field>
             </FieldGroup>
           </FieldSet>
+          {saved ? (
+            <>
+              <FieldSeparator />
+              <FieldSet>
+                <FieldLegend>Chat</FieldLegend>
+                <FieldGroup className="gap-4">
+                  <ChatDefaultsField />
+                </FieldGroup>
+              </FieldSet>
+            </>
+          ) : null}
           <McpConnectionField />
         </div>
       </div>

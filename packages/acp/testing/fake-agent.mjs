@@ -10,6 +10,8 @@
  *   terminal    runs `echo hi` through `terminal/*` and reports the output
  *   escape      runs a terminal command writing to the path given after the scenario name
  *   blocks      reports how many project briefings came with the prompt
+ *   history     reports whether the conversation so far came with the prompt, and its first line
+ *   model       reports the session's model
  *   mcp         reports the MCP server the client gave the session, with its token
  *   fail        answers the prompt with a JSON-RPC error carrying `data.message`
  *   exit        ends the process in the middle of the turn
@@ -17,6 +19,8 @@
  *
  * A prompt the host expanded from a slash command (`<ultrapaint-task command="…">`) is answered
  * with `task:<command>` and the task's first line of instructions, so a test sees what arrived.
+ *
+ * Sessions offer a `model` option, `fast` or `smart`, and the modes `ask` and `auto`.
  *
  * `FAKE_AGENT_LOAD=1` advertises `loadSession`; `FAKE_AGENT_AUTH=1` refuses `session/new` until
  * `authenticate` was called.
@@ -41,6 +45,28 @@ const text = (cx, sessionId, value, kind = "agent_message_chunk") =>
   });
 
 const TASK_RE = /^<ultrapaint-task command="([\w-]+)">\s*\n([^\n]*)/;
+
+/** The blocks the host adds before the user's own text: the project, the conversation so far. */
+const isContext = (block) =>
+  block.type === "text" &&
+  (block.text.startsWith("<ultrapaint>") ||
+    block.text.startsWith("<ultrapaint-history>"));
+
+const models = new Map();
+
+const configOptions = (sessionId) => [
+  {
+    category: "model",
+    currentValue: models.get(sessionId) ?? "fast",
+    id: "model",
+    name: "Model",
+    options: [
+      { name: "Fast", value: "fast" },
+      { name: "Smart", value: "smart" },
+    ],
+    type: "select",
+  },
+];
 
 const scenarios = {
   /** Says how much of the prompt was the project briefing, which leads a session's first one. */
@@ -79,6 +105,14 @@ const scenarios = {
       message: "usage limit reached",
     });
   },
+  async history(cx, sessionId, _cwd, _rest, prompt) {
+    const recap = prompt.find(
+      (block) =>
+        block.type === "text" && block.text.startsWith("<ultrapaint-history>")
+    );
+    const said = recap?.text.split("\n").find((l) => l.startsWith("User: "));
+    await text(cx, sessionId, recap ? `history:${said}` : "history:none");
+  },
   /** Reports the editor's own MCP server as the client described it at session start. */
   async mcp(cx, sessionId) {
     const [server] = mcpServers.get(sessionId) ?? [];
@@ -90,6 +124,9 @@ const scenarios = {
       sessionId,
       `mcp:${server?.url ?? "none"}|${token?.value ?? "none"}`
     );
+  },
+  async model(cx, sessionId) {
+    await text(cx, sessionId, `model:${models.get(sessionId) ?? "fast"}`);
   },
   async permission(cx, sessionId) {
     const response = await cx.request(
@@ -200,6 +237,7 @@ agent({ name: "fake-agent" })
     cwds.set(sessionId, ctx.params.cwd);
     mcpServers.set(sessionId, ctx.params.mcpServers ?? []);
     return {
+      configOptions: configOptions(sessionId),
       modes: {
         availableModes: [
           { id: "ask", name: "Ask" },
@@ -218,12 +256,18 @@ agent({ name: "fake-agent" })
     return {};
   })
   .onRequest("session/set_mode", () => ({}))
+  .onRequest("session/set_config_option", (ctx) => {
+    const { configId, sessionId, value } = ctx.params;
+    if (configId === "model") {
+      models.set(sessionId, value);
+    }
+    return { configOptions: configOptions(sessionId) };
+  })
   .onRequest("session/prompt", async (ctx) => {
     const { sessionId, prompt } = ctx.params;
     // The project briefing leads the first prompt of a session; the user's own text follows it.
     const first = prompt.find(
-      (block) =>
-        block.type === "text" && !block.text.startsWith("<ultrapaint>")
+      (block) => block.type === "text" && !isContext(block)
     );
     const task = first?.text.match(TASK_RE);
     if (task) {

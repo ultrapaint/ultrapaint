@@ -22,6 +22,8 @@ interface AgentsStore {
   load: () => Promise<void>;
   open: (threadId: string | null) => Promise<void>;
   setFollowing: (threadId: string | null) => void;
+  /** Opens a thread just created: it has no transcript to fetch. */
+  show: (thread: Thread) => void;
   /** Output of the terminals agents are running, by `terminalKey`, as it arrives. */
   terminals: Record<string, string>;
   threads: readonly Thread[];
@@ -137,6 +139,15 @@ export const useAgents = create<AgentsStore>((set, get) => ({
     }
   },
   setFollowing: (threadId) => set({ following: threadId }),
+  show: (thread) =>
+    set((s) => ({
+      current: thread.id,
+      items: { ...s.items, [thread.id]: s.items[thread.id] ?? [] },
+      // The server announces it too, usually first.
+      threads: s.threads.some((t) => t.id === thread.id)
+        ? s.threads
+        : [thread, ...s.threads],
+    })),
   terminals: {},
   threads: [],
 }));

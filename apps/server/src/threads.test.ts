@@ -32,18 +32,24 @@ const waitForThread = (
 const turnEnded = (thread: Thread, items: readonly ThreadItem[]) =>
   items.at(-1)?.kind === "turn_end" && thread.status === "idle";
 
+const turnsEnded =
+  (n: number) => (thread: Thread, items: readonly ThreadItem[]) =>
+    turnEnded(thread, items) &&
+    items.filter((i) => i.kind === "turn_end").length === n;
+
+const said = (items: readonly ThreadItem[]) =>
+  items.flatMap((i) => (i.kind === "agent" ? [i.text] : []));
+
 const kinds = (items: readonly ThreadItem[]) => items.map((i) => i.kind);
 
+/** A thread is there at once; its agent starts with the first prompt. */
 const startThreadWith = (agentId: string) =>
-  Effect.gen(function* () {
-    const { client } = yield* TestEnv;
-    const thread = yield* client["threads.create"]({ agentId });
-    yield* waitForThread(
-      thread.id,
-      (t) => t.status === "idle" && !!t.sessionId
-    );
-    return thread.id;
-  });
+  Effect.map(TestEnv, ({ client }) =>
+    client["threads.create"]({ agentId })
+  ).pipe(
+    Effect.flatten,
+    Effect.map((thread) => thread.id)
+  );
 
 const startThread = startThreadWith("fake");
 
@@ -72,38 +78,54 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
       })
     );
 
-    it.effect("cannot start a session before a repository is configured", () =>
+    it.effect("cannot prompt before a repository is configured", () =>
       Effect.gen(function* () {
         const { client } = yield* TestEnv;
         const thread = yield* client["threads.create"]({ agentId: "fake" });
-        const { thread: failed } = yield* waitForThread(
-          thread.id,
-          (t) => t.status === "error"
+        assert.strictEqual(thread.status, "idle");
+        const error = yield* Effect.flip(prompt(thread.id, "reply"));
+        assert.strictEqual(error._tag, "NotConfigured");
+        assert.lengthOf(
+          yield* client["threads.items"]({ threadId: thread.id }),
+          0
         );
-        assert.include(failed?.error ?? "", "no target repository");
         yield* client["threads.delete"]({ threadId: thread.id });
       })
     );
 
-    it.effect("starts a session and advertises its modes", () =>
-      Effect.gen(function* () {
-        const { client, settings } = yield* TestEnv;
-        yield* client["settings.set"](settings);
-        const threadId = yield* startThread;
-        const { thread } = yield* waitForThread(threadId, () => true);
-        assert.strictEqual(thread?.title, "Fake thread");
-        assert.strictEqual(thread?.currentModeId, "ask");
-        assert.deepStrictEqual(
-          thread?.modes?.map((m) => m.id),
-          ["ask", "auto"]
-        );
-      })
+    it.effect(
+      "creates a thread without starting an agent, and starts it with the first prompt",
+      () =>
+        Effect.gen(function* () {
+          const { client, settings } = yield* TestEnv;
+          yield* client["settings.set"](settings);
+          const created = yield* client["threads.create"]({ agentId: "fake" });
+          assert.strictEqual(created.status, "idle");
+          assert.strictEqual(created.title, "New thread");
+          assert.isUndefined(created.sessionId);
+
+          // The prompt is running as soon as it is sent; the agent boots inside the turn.
+          yield* prompt(created.id, "reply to this\nand more");
+          const sent = yield* waitForThread(created.id, () => true);
+          assert.strictEqual(sent.thread?.status, "running");
+          assert.deepStrictEqual(kinds(sent.items), ["user"]);
+
+          const { thread } = yield* waitForThread(created.id, turnEnded);
+          assert.strictEqual(thread?.title, "reply to this");
+          assert.isDefined(thread?.sessionId);
+          assert.strictEqual(thread?.currentModeId, "ask");
+          assert.deepStrictEqual(
+            thread?.modes?.map((m) => m.id),
+            ["ask", "auto"]
+          );
+        })
     );
 
     it.effect("authenticates and retries when the agent asks for it", () =>
       Effect.gen(function* () {
         const threadId = yield* startThreadWith("fake-auth");
-        const { thread } = yield* waitForThread(threadId, () => true);
+        yield* prompt(threadId, "reply");
+        const { thread } = yield* waitForThread(threadId, turnEnded);
         assert.isUndefined(thread?.error);
       })
     );
@@ -113,18 +135,110 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
       () =>
         Effect.gen(function* () {
           const threadId = yield* startThreadWith("fake-load");
-          const before = yield* waitForThread(threadId, () => true);
+          yield* prompt(threadId, "reply");
+          const before = yield* waitForThread(threadId, turnEnded);
           yield* prompt(threadId, "exit");
           yield* waitForThread(threadId, (t) => t.status === "error");
 
           yield* prompt(threadId, "reply");
           const { items, thread } = yield* waitForThread(threadId, turnEnded);
           assert.strictEqual(thread?.sessionId, before.thread?.sessionId);
-          assert.notInclude(
-            items.map((i) => (i.kind === "agent" ? i.text : "")),
-            "replayed history"
-          );
+          assert.notInclude(said(items), "replayed history");
         })
+    );
+
+    it.effect("cancels a turn whose agent is still starting", () =>
+      Effect.gen(function* () {
+        const { client } = yield* TestEnv;
+        const threadId = yield* startThread;
+        yield* prompt(threadId, "reply");
+        yield* client["threads.cancel"]({ threadId });
+        const { items } = yield* waitForThread(threadId, turnEnded);
+        const end = items.at(-1);
+        assert.strictEqual(
+          end?.kind === "turn_end" && end.stopReason,
+          "cancelled"
+        );
+        assert.notInclude(said(items), "Hello world");
+      })
+    );
+
+    it.effect(
+      "switches the agent of a thread and tells the next one what was said",
+      () =>
+        Effect.gen(function* () {
+          const { client } = yield* TestEnv;
+          const threadId = yield* startThread;
+          yield* prompt(threadId, "reply");
+          yield* waitForThread(threadId, turnEnded);
+
+          yield* client["threads.setAgent"]({ agentId: "fake-load", threadId });
+          const switched = yield* waitForThread(
+            threadId,
+            (t, transcript) =>
+              t.agentId === "fake-load" && transcript.at(-1)?.kind === "status"
+          );
+          assert.isUndefined(switched.thread?.sessionId);
+
+          // A change of mind before the next prompt leaves one note, naming the last choice.
+          yield* client["threads.setAgent"]({ agentId: "fake", threadId });
+          yield* client["threads.setAgent"]({ agentId: "fake-load", threadId });
+          const notes = (yield* client["threads.items"]({ threadId })).filter(
+            (i) => i.kind === "status"
+          );
+          assert.deepStrictEqual(
+            notes.map((i) => i.kind === "status" && i.text),
+            ["Switched to Fake"]
+          );
+
+          yield* prompt(threadId, "history");
+          const { items } = yield* waitForThread(threadId, turnsEnded(2));
+          assert.include(said(items), "history:User: reply");
+
+          // Only a session's first prompt carries it.
+          yield* prompt(threadId, "history");
+          const again = yield* waitForThread(threadId, turnsEnded(3));
+          assert.strictEqual(said(again.items).at(-1), "history:none");
+        })
+    );
+
+    it.effect(
+      "applies a model chosen before the session starts, from what earlier sessions offered",
+      () =>
+        Effect.gen(function* () {
+          const { client } = yield* TestEnv;
+          const known = yield* client["agents.options"]();
+          assert.deepStrictEqual(
+            known
+              .find((a) => a.agentId === "fake")
+              ?.configOptions.map((o) => [o.id, o.currentValue]),
+            [["model", "fast"]]
+          );
+          const threadId = yield* startThread;
+          yield* client["threads.setConfigOption"]({
+            optionId: "model",
+            threadId,
+            value: "smart",
+          });
+          yield* prompt(threadId, "model");
+          const { items, thread } = yield* waitForThread(threadId, turnEnded);
+          assert.include(said(items), "model:smart");
+          assert.strictEqual(thread?.configOptions?.[0]?.currentValue, "smart");
+        })
+    );
+
+    it.effect("starts a new thread with the default agent and model", () =>
+      Effect.gen(function* () {
+        const { client } = yield* TestEnv;
+        yield* client["chat.setDefaults"]({ agentId: "fake", model: "smart" });
+        const thread = yield* client["threads.create"]({});
+        yield* client["chat.setDefaults"]({});
+        assert.strictEqual(thread.agentId, "fake");
+        assert.strictEqual(thread.configOptions?.[0]?.currentValue, "smart");
+        yield* prompt(thread.id, "model");
+        const { items } = yield* waitForThread(thread.id, turnEnded);
+        assert.include(said(items), "model:smart");
+      })
     );
 
     it.effect(
@@ -315,8 +429,6 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           const threadId = yield* startThread;
           yield* prompt(threadId, "/init");
           const init = yield* waitForThread(threadId, turnEnded);
-          const said = (items: readonly ThreadItem[]) =>
-            items.flatMap((i) => (i.kind === "agent" ? [i.text] : []));
           assert.include(
             said(init.items).join("\n"),
             "task:init Import this repository's design system"
@@ -494,17 +606,19 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         Effect.gen(function* () {
           const { client, settings } = yield* TestEnv;
           const threadId = yield* startThread;
+          yield* prompt(threadId, "reply");
+          yield* waitForThread(threadId, turnEnded);
           // Saving settings closes the project scope and every agent with it.
           yield* client["settings.set"](settings);
           yield* waitForThread(threadId, (t) => t.status === "idle");
 
           yield* prompt(threadId, "reply");
-          const { items, thread } = yield* waitForThread(threadId, turnEnded);
-          assert.strictEqual(thread?.status, "idle");
-          assert.include(
-            items.map((i) => (i.kind === "agent" ? i.text : "")),
-            "Hello world"
+          const { items, thread } = yield* waitForThread(
+            threadId,
+            turnsEnded(2)
           );
+          assert.strictEqual(thread?.status, "idle");
+          assert.include(said(items), "Hello world");
         })
     );
 

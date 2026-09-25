@@ -52,7 +52,9 @@ import {
   AgentConfig,
   AgentEvent,
   AgentFocus,
+  AgentOptions,
   AgentTerminalOutput,
+  ChatDefaults,
   McpConnection,
   PromptInput,
   SlashCommand,
@@ -285,6 +287,10 @@ const requestRpcs = [
   }),
 
   Rpc.make("agents.list", { success: Schema.Array(AgentConfig) }),
+  /** The options each agent's sessions offer, for the agents that have run here before. */
+  Rpc.make("agents.options", { success: Schema.Array(AgentOptions) }),
+  Rpc.make("chat.defaults", { success: ChatDefaults }),
+  Rpc.make("chat.setDefaults", { payload: ChatDefaults }),
   /** The commands a prompt may start with, `/init`, which the server expands. */
   Rpc.make("commands.list", { success: Schema.Array(SlashCommand) }),
   /** What an agent outside the editor needs to reach the editor's own MCP server. */
@@ -292,7 +298,11 @@ const requestRpcs = [
   Rpc.make("threads.list", { success: Schema.Array(Thread) }),
   Rpc.make("threads.create", {
     error: ThreadError,
-    payload: { agentId: Schema.String, title: Schema.optional(Schema.String) },
+    /** Without an agent, the chat's default one. */
+    payload: {
+      agentId: Schema.optional(Schema.String),
+      title: Schema.optional(Schema.String),
+    },
     success: Thread,
   }),
   Rpc.make("threads.items", {
@@ -310,6 +320,11 @@ const requestRpcs = [
       remember: Schema.Boolean,
       requestId: Schema.String,
     },
+  }),
+  /** The agent the thread's next prompt goes to. Its session ends; the transcript stays. */
+  Rpc.make("threads.setAgent", {
+    error: ThreadError,
+    payload: { ...ThreadRef, agentId: Schema.String },
   }),
   Rpc.make("threads.setMode", {
     error: ThreadError,

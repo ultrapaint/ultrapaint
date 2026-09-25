@@ -39,39 +39,51 @@ export const ThreadStatus = Schema.Literals([
 ]);
 export type ThreadStatus = typeof ThreadStatus.Type;
 
+/** A setting the agent's session offers: its model, reasoning effort, and the like. */
+export const ConfigOption = Schema.Struct({
+  category: Schema.optional(Schema.String),
+  currentValue: Schema.String,
+  id: Schema.String,
+  name: Schema.String,
+  options: Schema.Array(
+    Schema.Struct({
+      description: Schema.optional(Schema.String),
+      name: Schema.String,
+      value: Schema.String,
+    })
+  ),
+});
+export type ConfigOption = typeof ConfigOption.Type;
+
+export const SessionMode = Schema.Struct({
+  description: Schema.optional(Schema.String),
+  id: Schema.String,
+  name: Schema.String,
+});
+export type SessionMode = typeof SessionMode.Type;
+
+/** Whether an option chooses the model. Agents say so by category; some only by its id. */
+export const isModelOption = (option: ConfigOption): boolean =>
+  option.category === "model" || option.id === "model";
+
+/**
+ * A thread is not tied to an agent: `agentId` is the one its next prompt goes to, and the user
+ * can switch it between prompts. Its session starts with the first prompt that needs it, so a
+ * thread exists before any agent does.
+ */
 export const Thread = Schema.Struct({
   agentId: Schema.String,
-  configOptions: Schema.optional(
-    Schema.Array(
-      Schema.Struct({
-        category: Schema.optional(Schema.String),
-        currentValue: Schema.String,
-        id: Schema.String,
-        name: Schema.String,
-        options: Schema.Array(
-          Schema.Struct({
-            description: Schema.optional(Schema.String),
-            name: Schema.String,
-            value: Schema.String,
-          })
-        ),
-      })
-    )
-  ),
+  /**
+   * The session's options. Before the session exists these are the agent's options as a
+   * previous session reported them, and what is chosen here is applied when it starts.
+   */
+  configOptions: Schema.optional(Schema.Array(ConfigOption)),
   createdAt: Schema.Number,
   currentModeId: Schema.optional(Schema.String),
   error: Schema.optional(Schema.String),
   id: Schema.String,
   /** Advertised session modes, generic. */
-  modes: Schema.optional(
-    Schema.Array(
-      Schema.Struct({
-        description: Schema.optional(Schema.String),
-        id: Schema.String,
-        name: Schema.String,
-      })
-    )
-  ),
+  modes: Schema.optional(Schema.Array(SessionMode)),
   /** Whether the agent process is confined to the repository by the operating system. */
   sandboxed: Schema.optional(Schema.Boolean),
   /** Why it is not, when this machine has a sandbox that refused to start. */
@@ -82,6 +94,23 @@ export const Thread = Schema.Struct({
   updatedAt: Schema.Number,
 });
 export type Thread = typeof Thread.Type;
+
+/** What an agent's sessions offer, as the last one it started reported it. */
+export const AgentOptions = Schema.Struct({
+  agentId: Schema.String,
+  configOptions: Schema.Array(ConfigOption),
+  currentModeId: Schema.optional(Schema.String),
+  modes: Schema.optional(Schema.Array(SessionMode)),
+});
+export type AgentOptions = typeof AgentOptions.Type;
+
+/** What a new thread starts with. Each is optional: absent is the first agent, its own model. */
+export const ChatDefaults = Schema.Struct({
+  agentId: Schema.optional(Schema.String),
+  /** A value of the default agent's model option. */
+  model: Schema.optional(Schema.String),
+});
+export type ChatDefaults = typeof ChatDefaults.Type;
 
 /**
  * What a tool call produced. The agent sends text, a diff of a file it is changing, or the id of

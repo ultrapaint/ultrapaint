@@ -9,6 +9,7 @@ import { runGit } from "./git.ts";
 /** What moves with the state when an unsaved session is saved. */
 const STATE_SUBDIRS = [
   "threads",
+  "chat",
   "checkpoints",
   "catalogue",
   "thumbnails",

@@ -17,6 +17,7 @@ import { PagesService } from "./services/pages.ts";
 import { SettingsService } from "./services/settings.ts";
 import { SetupService } from "./services/setup.ts";
 import { AgentConfigs } from "./services/threads/agent-configs.ts";
+import { ChatPreferences } from "./services/threads/chat-preferences.ts";
 import { Checkpoints } from "./services/threads/checkpoints.ts";
 import { SlashCommands } from "./services/threads/commands.ts";
 import { ThreadStore } from "./services/threads/thread-store.ts";
@@ -36,6 +37,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const log = yield* AppLog;
     const agents = yield* AgentConfigs;
     const store = yield* ThreadStore;
+    const preferences = yield* ChatPreferences;
     const threads = yield* ThreadService;
     const checkpoints = yield* Checkpoints;
     const access = yield* McpAccess;
@@ -71,6 +73,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
 
     return UltrapaintRpcs.of({
       "agents.list": () => agents.list,
+      "agents.options": () => preferences.options,
       "assets.upload": (input) => documents((d) => d.upload(input)),
       "canvas.get": ({ space }) => pages((s) => s.readCanvas(space)),
       "canvas.set": ({ frames, space }) =>
@@ -79,6 +82,8 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "catalogue.get": ({ refresh }) => catalogue((c) => c.get(refresh)),
       "catalogue.storyUrl": ({ storyId }) =>
         catalogue((c) => Effect.succeed(c.storyUrl(storyId))),
+      "chat.defaults": () => preferences.defaults,
+      "chat.setDefaults": (defaults) => preferences.setDefaults(defaults),
       "checkpoints.diff": ({ id }) => checkpoints.diff(id),
       "checkpoints.list": () => checkpoints.list,
       "checkpoints.revert": ({ id }) => checkpoints.revert(id),
@@ -184,6 +189,8 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "threads.permission": ({ threadId, requestId, optionId, remember }) =>
         threads.resolvePermission(threadId, requestId, optionId, remember),
       "threads.prompt": (input) => threads.prompt(input),
+      "threads.setAgent": ({ threadId, agentId }) =>
+        threads.setAgent(threadId, agentId),
       "threads.setConfigOption": ({ threadId, optionId, value }) =>
         threads.setConfigOption(threadId, optionId, value),
       "threads.setMode": ({ threadId, modeId }) =>

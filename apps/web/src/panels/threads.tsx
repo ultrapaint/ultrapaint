@@ -1,10 +1,12 @@
 import type { Page } from "@ultrapaint/contracts/pages";
-import type {
-  PromptAttachment,
-  SlashCommand,
-  Thread,
-  ThreadItem,
-  ToolContent,
+import {
+  type ConfigOption,
+  isModelOption,
+  type PromptAttachment,
+  type SlashCommand,
+  type Thread,
+  type ThreadItem,
+  type ToolContent,
 } from "@ultrapaint/contracts/threads";
 import { nodeLabel } from "@ultrapaint/design-document/tree";
 import { cn } from "cn";
@@ -52,7 +54,6 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
@@ -62,6 +63,13 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+} from "@/components/ui/empty";
 import { Label } from "@/components/ui/label";
 import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker";
 import { Message, MessageContent } from "@/components/ui/message";
@@ -95,10 +103,11 @@ import { useEditor, type Workspace } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
 
 const openThread = (threadId: string) => useAgents.getState().open(threadId);
+const newThread = () => createThread();
 
 export const Threads = () => {
   const configured = useProject((s) => s.info.configured);
-  const { agents, threads, current, items } = useAgents();
+  const { threads, current, items } = useAgents();
   const thread = threads.find((t) => t.id === current) ?? null;
 
   useEffect(() => {
@@ -119,64 +128,38 @@ export const Threads = () => {
         <div className="min-w-0 flex-1">
           <OptionSelect
             onChange={openThread}
-            options={threads.map((t) => ({
-              label: `${t.title} · ${agents.find((a) => a.id === t.agentId)?.name ?? t.agentId}`,
-              value: t.id,
-            }))}
+            options={threads.map((t) => ({ label: t.title, value: t.id }))}
             placeholder="No thread"
             value={current}
           />
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                aria-label="New thread"
-                size="icon"
-                title="New thread"
-                variant="ghost"
-              />
-            }
-          >
-            <Plus />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>Start a thread with</DropdownMenuLabel>
-              {agents.map((a) => (
-                <AgentMenuItem agent={a} key={a.id} />
-              ))}
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <IconButton onClick={newThread} tooltip="New thread">
+          <Plus />
+        </IconButton>
         {thread ? <DeleteThreadButton thread={thread} /> : null}
       </div>
       {thread ? (
         <ThreadView items={items[thread.id] ?? []} thread={thread} />
       ) : (
-        <PanelEmpty icon={<Bot />}>
-          Create a thread to work with an agent. Threads run in parallel, each
-          with its own agent.
-        </PanelEmpty>
+        <Empty className="h-full">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Bot />
+            </EmptyMedia>
+            <EmptyDescription>
+              Threads run in parallel. Each picks its agent and model in the
+              composer, and can switch between prompts.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button onClick={newThread} size="sm" variant="outline">
+              <Plus data-icon="inline-start" />
+              New thread
+            </Button>
+          </EmptyContent>
+        </Empty>
       )}
     </div>
-  );
-};
-
-type Agent = ReturnType<typeof useAgents.getState>["agents"][number];
-
-const AgentMenuItem = ({ agent }: { agent: Agent }) => {
-  const onClick = () => createThread(agent.id);
-  return (
-    <DropdownMenuItem onClick={onClick}>
-      <Bot />
-      {agent.name}
-      {agent.authHint ? (
-        <span className="ml-auto text-[10px] text-muted-foreground">
-          {agent.builtIn ? "built-in" : "custom"}
-        </span>
-      ) : null}
-    </DropdownMenuItem>
   );
 };
 
@@ -229,14 +212,13 @@ const ThreadView = ({
                 />
               </MessageScrollerItem>
             ))}
+            {/* Also while the agent is still starting: that is part of the turn. */}
             {(thread.status === "running" || thread.status === "starting") && (
               <Marker>
                 <MarkerIcon>
                   <Spinner />
                 </MarkerIcon>
-                <MarkerContent>
-                  {thread.status === "running" ? "working…" : "starting agent…"}
-                </MarkerContent>
+                <MarkerContent>working…</MarkerContent>
               </Marker>
             )}
             {thread.status === "error" && (
@@ -684,8 +666,6 @@ const collectAttachments = async ({
   return attachments;
 };
 
-type ConfigOption = NonNullable<Thread["configOptions"]>[number];
-
 const ON_OFF = [
   ["on", "off"],
   ["true", "false"],
@@ -714,8 +694,6 @@ const switchOnValue = (option: ConfigOption): string | null => {
 
 const EFFORT_RE = /effort|thought|thinking|reasoning/i;
 
-const isModelOption = (o: ConfigOption) =>
-  o.category === "model" || o.id === "model";
 const isEffortOption = (o: ConfigOption) =>
   o.category === "thought_level" || EFFORT_RE.test(o.id);
 
@@ -808,9 +786,10 @@ const SelectOptionSub = ({
 
 /**
  * Agent, model and session options in one menu below the prompt, Cursor-style: switches first,
- * then the other choices, the model last; the agent itself at the bottom.
+ * then the other choices, the model last; the agent itself at the bottom. Before the thread's
+ * session exists the options are the ones the agent offered last time, applied when it starts.
  */
-const ModelPicker = ({ thread, draft }: { thread: Thread; draft: string }) => {
+const ModelPicker = ({ thread }: { thread: Thread }) => {
   const agents = useAgents((s) => s.agents);
   const agent = agents.find((a) => a.id === thread.agentId);
   // Session modes have their own picker next to this one.
@@ -827,10 +806,15 @@ const ModelPicker = ({ thread, draft }: { thread: Thread; draft: string }) => {
   const selects = options.filter(
     (o) => !(switchOnValue(o) || isModelOption(o))
   );
+  const busy = thread.status === "running" || thread.status === "cancelling";
   const onAgentChange = (agentId: unknown) => {
     if (agentId !== thread.agentId) {
-      // A session belongs to one agent: another agent means another thread.
-      createThread(agentId as string, draft);
+      api()
+        .request("threads.setAgent", {
+          agentId: agentId as string,
+          threadId: thread.id,
+        })
+        .catch(reportError);
     }
   };
   const effortName =
@@ -847,9 +831,10 @@ const ModelPicker = ({ thread, draft }: { thread: Thread; draft: string }) => {
           />
         }
       >
-        <span className="truncate text-foreground">
-          {currentName(model) ?? agent?.name ?? thread.agentId}
-        </span>
+        <span className="shrink-0">{agent?.name ?? thread.agentId}</span>
+        {model ? (
+          <span className="truncate text-foreground">{currentName(model)}</span>
+        ) : null}
         {effortName ? (
           <span className="shrink-0 text-muted-foreground">{effortName}</span>
         ) : null}
@@ -881,32 +866,29 @@ const ModelPicker = ({ thread, draft }: { thread: Thread; draft: string }) => {
           </DropdownMenuGroup>
         ) : null}
         {options.length > 0 && <DropdownMenuSeparator />}
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger>
-            Agent
-            <span className="ml-auto max-w-32 truncate text-muted-foreground">
-              {agent?.name ?? thread.agentId}
-            </span>
-          </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="min-w-48">
-            <DropdownMenuGroup>
-              <DropdownMenuLabel className="text-[10px]">
-                Another agent starts a new thread
-              </DropdownMenuLabel>
-              <DropdownMenuRadioGroup
-                onValueChange={onAgentChange}
-                value={thread.agentId}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="text-[10px]">
+            {busy
+              ? "Agent · after this turn"
+              : "Agent · the conversation carries over"}
+          </DropdownMenuLabel>
+          <DropdownMenuRadioGroup
+            onValueChange={onAgentChange}
+            value={thread.agentId}
+          >
+            {agents.map((a) => (
+              <DropdownMenuRadioItem
+                closeOnClick
+                disabled={busy}
+                key={a.id}
+                value={a.id}
               >
-                {agents.map((a) => (
-                  <DropdownMenuRadioItem key={a.id} value={a.id}>
-                    <Bot />
-                    {a.name}
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuGroup>
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
+                <Bot />
+                {a.name}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -1274,7 +1256,7 @@ const Composer = ({ thread }: { thread: Thread }) => {
             </DropdownMenuContent>
           </DropdownMenu>
           <ModePicker thread={thread} />
-          <ModelPicker draft={text} thread={thread} />
+          <ModelPicker thread={thread} />
           <div className="flex-1" />
           {running ? (
             <Button onClick={cancel} size="sm" variant="outline">
@@ -1284,7 +1266,7 @@ const Composer = ({ thread }: { thread: Thread }) => {
             <Button
               aria-label="Send"
               className="rounded-full"
-              disabled={busy || !text.trim() || thread.status === "starting"}
+              disabled={busy || !text.trim()}
               onClick={send}
               size="icon-sm"
               title="Send (⌘↩)"

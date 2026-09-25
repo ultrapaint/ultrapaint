@@ -9,8 +9,6 @@ import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
 import { reportError } from "../state/project.ts";
 
-const LAST_AGENT_KEY = "ultrapaint:agent";
-
 /**
  * Prompt text carried into a thread's composer. A store, not a map read once: the thread's
  * composer can be on screen before the draft is known (the server announces the thread before
@@ -31,25 +29,17 @@ export const takeDraft = (threadId: string) => {
   return draft;
 };
 
-/** The agent a new thread starts with: the one used last, else the first there is. */
-export const defaultAgentId = async (): Promise<string | null> => {
-  if (useAgents.getState().agents.length === 0) {
-    await useAgents.getState().load();
-  }
-  const { agents } = useAgents.getState();
-  const last = localStorage.getItem(LAST_AGENT_KEY);
-  return agents.find((a) => a.id === last)?.id ?? agents[0]?.id ?? null;
-};
-
-/** Creates a thread with the agent, its composer holding `draft`, and opens it. */
-export const createThread = async (agentId: string, draft = "") => {
+/**
+ * Creates a thread and opens it, its composer holding `draft`. Without an agent the server picks
+ * the chat's default. Nothing waits on an agent: it starts with the thread's first prompt.
+ */
+export const createThread = async (draft = "", agentId?: string) => {
   try {
-    localStorage.setItem(LAST_AGENT_KEY, agentId);
-    const t = await api().request("threads.create", { agentId });
+    const t = await api().request("threads.create", agentId ? { agentId } : {});
     if (draft) {
       useDrafts.setState((s) => ({ drafts: { ...s.drafts, [t.id]: draft } }));
     }
-    await useAgents.getState().open(t.id);
+    useAgents.getState().show(t);
     return t;
   } catch (error) {
     reportError(error);
@@ -57,17 +47,12 @@ export const createThread = async (agentId: string, draft = "") => {
   }
 };
 
-/** Opens the chat on a new thread with the default agent and `text` in its composer. */
+/** Opens the chat on a new thread with `text` in its composer. */
 export const startCommand = async (text: string) => {
-  const agentId = await defaultAgentId();
-  if (!agentId) {
-    reportError(new Error("No agent is available to start a thread with"));
-    return;
-  }
   const editor = useEditor.getState();
   if (editor.workspace !== "vibe") {
     editor.setWorkspace("vibe");
   }
   editor.setLeftTab("chat");
-  await createThread(agentId, text.endsWith(" ") ? text : `${text} `);
+  await createThread(text.endsWith(" ") ? text : `${text} `);
 };

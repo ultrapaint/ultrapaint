@@ -1,6 +1,8 @@
 /**
- * Agent threads. Each thread owns one ACP session with the target repository as working
- * directory. Updates are projected into a transcript that the editor renders, permission
+ * Agent threads. A thread has at most one ACP session at a time, with the target repository as
+ * working directory, and starts it with the first prompt that needs one: creating a thread
+ * spawns nothing, and the agent boots while the prompt already shows as running. The agent is
+ * the thread's to change between prompts; the next session is then told what was said. Updates are projected into a transcript that the editor renders, permission
  * requests are routed to the UI, and every filesystem or terminal call the agent makes is
  * confined to the repository.
  *
@@ -29,9 +31,11 @@ import {
   NotFound,
 } from "@ultrapaint/contracts/errors";
 import {
+  type ConfigOption,
   EDITOR_MCP_SERVER,
   type PromptInput,
   type Thread,
+  type ThreadItem,
 } from "@ultrapaint/contracts/threads";
 import {
   Clock,
@@ -61,8 +65,10 @@ import { RepoPaths } from "../repo-paths.ts";
 import { AgentConfigs } from "./agent-configs.ts";
 import { AgentSandbox } from "./agent-sandbox.ts";
 import { ProjectBriefing } from "./briefing.ts";
+import { ChatPreferences } from "./chat-preferences.ts";
 import { Checkpoints } from "./checkpoints.ts";
 import { SlashCommands } from "./commands.ts";
+import { recapOf } from "./recap.ts";
 import { ThreadStore } from "./thread-store.ts";
 import {
   emptyCursor,
@@ -82,6 +88,19 @@ const BOOLEAN_VALUES: Record<string, boolean | undefined> = {
 const CANCELLED: RequestPermissionResponse = {
   outcome: { outcome: "cancelled" },
 };
+/** Until the first prompt names it. */
+const UNTITLED = "New thread";
+const SWITCHED = "Switched to";
+const TITLE_LIMIT = 48;
+
+/** A thread's title from its first prompt: the first line, cut to fit the thread menu. */
+const titleOf = (text: string) => {
+  const line = text.trim().split("\n")[0]?.trim() ?? "";
+  if (!line) {
+    return UNTITLED;
+  }
+  return line.length > TITLE_LIMIT ? `${line.slice(0, TITLE_LIMIT)}…` : line;
+};
 
 interface PendingPermission {
   readonly decision: Deferred.Deferred<RequestPermissionResponse>;
@@ -91,12 +110,14 @@ interface PendingPermission {
 
 interface Live {
   readonly agent: AcpAgent;
-  /** The briefing goes out once per session, with the first prompt. */
+  /** The briefing, and the recap of what came before, go out once, with the first prompt. */
   briefed: boolean;
   readonly pending: Map<string, PendingPermission>;
   readonly remembered: Map<string, string>;
   /** While a stored session is replayed by `session/load`, its updates are not new items. */
   replaying: boolean;
+  /** The session was loaded, so the agent has the conversation back. */
+  resumed: boolean;
   readonly scope: Scope.Closeable;
   turn: TurnCursor | null;
 }
@@ -128,8 +149,9 @@ export class ThreadService extends Context.Service<
   ThreadService,
   {
     readonly cancel: (threadId: string) => Effect.Effect<void, ThreadFailure>;
+    /** Without an agent, the chat's default one. */
     readonly create: (
-      agentId: string,
+      agentId?: string,
       title?: string
     ) => Effect.Effect<Thread, ThreadFailure>;
     readonly delete: (threadId: string) => Effect.Effect<void>;
@@ -139,6 +161,11 @@ export class ThreadService extends Context.Service<
       requestId: string,
       optionId: string,
       remember: boolean
+    ) => Effect.Effect<void, ThreadFailure>;
+    /** The agent the next prompt goes to. */
+    readonly setAgent: (
+      threadId: string,
+      agentId: string
     ) => Effect.Effect<void, ThreadFailure>;
     readonly setConfigOption: (
       threadId: string,
@@ -166,6 +193,7 @@ export class ThreadService extends Context.Service<
         port,
       } = yield* ServerConfig;
       const checkpoints = yield* Checkpoints;
+      const preferences = yield* ChatPreferences;
       const project = yield* ProjectManager;
       const events = yield* EventBus;
       const log = yield* AppLog;
@@ -335,7 +363,6 @@ export class ThreadService extends Context.Service<
 
       /** Loads the stored session when the agent can, otherwise starts a new one. */
       const openSession = Effect.fnUntraced(function* (
-        threadId: string,
         session: Live,
         storedSessionId: string | undefined,
         canLoad: boolean,
@@ -376,14 +403,7 @@ export class ThreadService extends Context.Service<
               )
             );
           if (loaded) {
-            /*
-             * The agent has the conversation back, and with it the briefing if anything was
-             * ever asked: that is when it is sent. Sending it again would repeat the whole
-             * project to the agent on every restart.
-             */
-            session.briefed = (yield* store.items(threadId)).some(
-              (item) => item.kind === "user"
-            );
+            session.resumed = true;
             return loaded;
           }
         }
@@ -391,6 +411,53 @@ export class ThreadService extends Context.Service<
           mcpServers,
           meta,
         })) as SessionInfo;
+      });
+
+      /** Sets on a fresh session the values the thread chose, where they differ and still exist. */
+      const applyOptions = Effect.fnUntraced(function* (
+        session: Live,
+        sessionId: string,
+        reported: readonly ConfigOption[],
+        wanted: readonly ConfigOption[]
+      ) {
+        let current = reported;
+        for (const want of wanted) {
+          const offered = current.find((o) => o.id === want.id);
+          if (
+            !offered ||
+            offered.currentValue === want.currentValue ||
+            !offered.options.some((o) => o.value === want.currentValue)
+          ) {
+            continue;
+          }
+          const value = want.currentValue;
+          current = yield* session.agent
+            .setConfigOption(sessionId, want.id, BOOLEAN_VALUES[value] ?? value)
+            .pipe(
+              Effect.map(
+                (response) =>
+                  mapConfigOptions(
+                    (response as { configOptions?: unknown } | undefined)
+                      ?.configOptions
+                  ) ??
+                  current.map((o) =>
+                    o.id === want.id ? { ...o, currentValue: value } : o
+                  )
+              ),
+              // The session works with the agent's own value; the menu shows which one.
+              Effect.catch((error) =>
+                Effect.as(
+                  log.log(
+                    "agent",
+                    "warn",
+                    `option ${want.id} not applied: ${error.message}`
+                  ),
+                  current
+                )
+              )
+            );
+        }
+        return current;
       });
 
       const start = Effect.fnUntraced(function* (threadId: string) {
@@ -401,7 +468,6 @@ export class ThreadService extends Context.Service<
         const projectScope = yield* project.scope;
         const paths = yield* currentPaths;
         const config = yield* agents.get(thread.agentId);
-        yield* store.update(threadId, { error: undefined, status: "starting" });
 
         const scope = yield* Scope.fork(projectScope);
         const holder: { session: Live | null } = { session: null };
@@ -437,6 +503,7 @@ export class ThreadService extends Context.Service<
             pending: new Map(),
             remembered: new Map(),
             replaying: false,
+            resumed: false,
             scope,
             turn: null,
           };
@@ -526,7 +593,6 @@ export class ThreadService extends Context.Service<
           const init = yield* session.agent.initialize;
           const canLoad = init.agentCapabilities?.loadSession === true;
           const open = openSession(
-            threadId,
             session,
             thread.sessionId,
             canLoad,
@@ -556,18 +622,59 @@ export class ThreadService extends Context.Service<
             )
           )
         );
+        const modes = info.modes?.availableModes.map((m) => ({
+          id: m.id,
+          name: m.name,
+          ...(m.description ? { description: m.description } : {}),
+        }));
+        const reported = mapConfigOptions(info.configOptions) ?? [];
+        // A new session offers the agent's own defaults: what the next thread starts from.
+        if (!session.resumed) {
+          yield* preferences.remember({
+            agentId: thread.agentId,
+            configOptions: reported,
+            currentModeId: info.modes?.currentModeId,
+            modes,
+          });
+        }
+        // Chosen before the session existed, or while it booted: the thread's, else the defaults.
+        const wanted =
+          (yield* store.get(threadId))?.configOptions ??
+          (yield* preferences.optionsFor(thread.agentId)).configOptions ??
+          [];
+        const configOptions = yield* applyOptions(
+          session,
+          info.sessionId,
+          reported,
+          wanted
+        );
+        const wantedMode = (yield* store.get(threadId))?.currentModeId;
+        const currentModeId =
+          wantedMode &&
+          wantedMode !== info.modes?.currentModeId &&
+          modes?.some((m) => m.id === wantedMode)
+            ? yield* session.agent.setMode(info.sessionId, wantedMode).pipe(
+                Effect.as(wantedMode),
+                Effect.catch((error) =>
+                  Effect.as(
+                    log.log(
+                      "agent",
+                      "warn",
+                      `mode ${wantedMode} not applied: ${error.message}`
+                    ),
+                    info.modes?.currentModeId
+                  )
+                )
+              )
+            : info.modes?.currentModeId;
+        // The status is the prompt's: the session starts inside its turn.
         yield* store.update(threadId, {
-          configOptions: mapConfigOptions(info.configOptions),
-          currentModeId: info.modes?.currentModeId,
-          modes: info.modes?.availableModes.map((m) => ({
-            id: m.id,
-            name: m.name,
-            ...(m.description ? { description: m.description } : {}),
-          })),
+          configOptions,
+          currentModeId,
+          modes,
           sandboxed: sandbox.available,
           sandboxProblem: sandbox.problem,
           sessionId: info.sessionId,
-          status: "idle",
         });
         return session;
       });
@@ -695,6 +802,57 @@ export class ThreadService extends Context.Service<
           )
         );
 
+      /**
+       * What leads a session's first prompt. A resumed session has the conversation back, and
+       * the briefing with it if anything was ever asked. A new one is told the project, then
+       * what was said before it.
+       */
+      const sessionContext = Effect.fnUntraced(function* (
+        session: Live,
+        earlier: readonly ThreadItem[]
+      ) {
+        if (session.resumed && earlier.some((i) => i.kind === "user")) {
+          return [];
+        }
+        const about = briefingEnabled ? yield* briefing.text : undefined;
+        const recap = session.resumed ? null : recapOf(earlier);
+        return [about, recap].flatMap((text): ContentBlock[] =>
+          text ? [{ text, type: "text" }] : []
+        );
+      });
+
+      /**
+       * A turn from the prompt to the agent: the session is started or resumed, told what it
+       * needs, and the designs are checkpointed. The thread already shows as running.
+       */
+      const openTurn = Effect.fnUntraced(function* (
+        input: PromptInput,
+        earlier: readonly ThreadItem[],
+        blocks: ContentBlock[]
+      ) {
+        const { threadId } = input;
+        const { session, sessionId } = yield* sessionOf(threadId);
+        if (!session.briefed) {
+          session.briefed = true;
+          blocks.unshift(...(yield* sessionContext(session, earlier)));
+        }
+        const snapshot = yield* project
+          .use(Effect.flatMap(GitService, (git) => git.snapshot))
+          .pipe(Effect.orElseSucceed((): GitSnapshot => new Map()));
+        // Not cut short by a cancel: a checkpoint half written is worse than a late cancel.
+        yield* Effect.uninterruptible(
+          checkpoints.create(threadId, `Before: ${input.text.slice(0, 60)}`)
+        );
+        session.turn = emptyCursor();
+        yield* Effect.forkIn(
+          runTurn(threadId, session, sessionId, blocks, snapshot),
+          session.scope
+        );
+      });
+
+      /** Turns still on their way to the agent, by thread: a cancel stops them there. */
+      const openings = new Map<string, Fiber.Fiber<void>>();
+
       const prompt = Effect.fn("ThreadService.prompt")(function* (
         input: PromptInput
       ) {
@@ -703,26 +861,21 @@ export class ThreadService extends Context.Service<
         if (!thread) {
           return yield* new NotFound({ message: `unknown thread ${threadId}` });
         }
-        if (thread.status === "running") {
+        if (thread.status === "running" || thread.status === "cancelling") {
           return yield* new Conflict({
             message: "the agent is still working on the previous prompt",
           });
         }
+        const projectScope = yield* project.scope;
         const paths = yield* currentPaths;
-        const { session, sessionId } = yield* sessionOf(threadId);
         const { blocks, labels } = yield* attachmentBlocks(input, paths);
         // `/init`, `/implement`: the agent is given the task, the transcript keeps what was typed.
         const task = yield* commands.expand(input.text);
         if (task !== null) {
           blocks[0] = { text: task, type: "text" };
         }
-        if (briefingEnabled && !session.briefed) {
-          session.briefed = true;
-          const text = yield* briefing.text;
-          if (text) {
-            blocks.unshift({ text, type: "text" });
-          }
-        }
+        // A copy: the store's own list grows with the prompt about to be pushed.
+        const earlier = [...(yield* store.items(threadId))];
         yield* store.push(threadId, {
           at: yield* Clock.currentTimeMillis,
           attachments: labels,
@@ -730,20 +883,43 @@ export class ThreadService extends Context.Service<
           kind: "user",
           text: input.text,
         });
-        const snapshot = yield* project
-          .use(Effect.flatMap(GitService, (git) => git.snapshot))
-          .pipe(Effect.orElseSucceed((): GitSnapshot => new Map()));
-        session.turn = emptyCursor();
-        yield* checkpoints.create(
-          threadId,
-          `Before: ${input.text.slice(0, 60)}`
+        yield* store.update(threadId, {
+          error: undefined,
+          status: "running",
+          ...(thread.title === UNTITLED &&
+          !earlier.some((i) => i.kind === "user")
+            ? { title: titleOf(input.text) }
+            : {}),
+        });
+        // The request returns now. Whatever the agent takes to start is part of the turn, and
+        // the turn reports through the transcript.
+        const turn = Effect.withFiber((self) =>
+          openTurn(input, earlier, blocks).pipe(
+            Effect.catch((error) =>
+              store.update(threadId, { error: error.message, status: "error" })
+            ),
+            Effect.onInterrupt(() =>
+              Effect.gen(function* () {
+                yield* store.push(threadId, {
+                  at: yield* Clock.currentTimeMillis,
+                  changedFiles: [],
+                  id: yield* newItemId,
+                  kind: "turn_end",
+                  stopReason: "cancelled",
+                });
+                yield* store.update(threadId, { status: "idle" });
+              })
+            ),
+            Effect.ensuring(
+              Effect.sync(() => {
+                if (openings.get(threadId) === self) {
+                  openings.delete(threadId);
+                }
+              })
+            )
+          )
         );
-        yield* store.update(threadId, { status: "running" });
-        // The request returns now; the turn reports through the transcript.
-        yield* Effect.forkIn(
-          runTurn(threadId, session, sessionId, blocks, snapshot),
-          session.scope
-        );
+        openings.set(threadId, yield* Effect.forkIn(turn, projectScope));
       });
 
       const resolvePermission = Effect.fn("ThreadService.resolvePermission")(
@@ -770,32 +946,96 @@ export class ThreadService extends Context.Service<
       );
 
       const create = Effect.fn("ThreadService.create")(function* (
-        agentId: string,
+        agentId?: string,
         title?: string
       ) {
-        const agent = yield* agents.get(agentId);
+        const known = yield* agents.list;
+        const defaults = yield* preferences.defaults;
+        const agent =
+          agentId === undefined
+            ? (known.find((a) => a.id === defaults.agentId) ?? known[0])
+            : yield* agents.get(agentId);
+        if (!agent) {
+          return yield* new NotFound({ message: "no agent is configured" });
+        }
         const now = yield* Clock.currentTimeMillis;
         const thread: Thread = {
-          agentId,
+          ...(yield* preferences.optionsFor(agent.id)),
+          agentId: agent.id,
           createdAt: now,
           id: yield* makeId("thread"),
-          status: "starting",
-          title: title ?? `${agent.name} thread`,
+          status: "idle",
+          title: title ?? UNTITLED,
           updatedAt: now,
         };
+        // Nothing is started: the first prompt brings the agent up.
         yield* store.add(thread);
-        // The editor gets the thread at once; the session comes up behind it.
-        yield* ensureLive(thread.id).pipe(
-          Effect.catch((error) =>
-            store.update(thread.id, { error: error.message, status: "error" })
-          ),
-          Effect.forkIn(serviceScope)
-        );
         return thread;
       });
 
+      const setAgent = Effect.fn("ThreadService.setAgent")(function* (
+        threadId: string,
+        agentId: string
+      ) {
+        const thread = yield* store.get(threadId);
+        if (!thread) {
+          return yield* new NotFound({ message: `unknown thread ${threadId}` });
+        }
+        if (thread.agentId === agentId) {
+          return;
+        }
+        if (thread.status === "running" || thread.status === "cancelling") {
+          return yield* new Conflict({
+            message: "the agent is still working on the previous prompt",
+          });
+        }
+        const agent = yield* agents.get(agentId);
+        // A session belongs to its agent. The next one starts with the next prompt, and is
+        // told what was said before it.
+        yield* stop(threadId);
+        yield* store.update(threadId, {
+          configOptions: undefined,
+          currentModeId: undefined,
+          modes: undefined,
+          sandboxed: undefined,
+          sandboxProblem: undefined,
+          ...(yield* preferences.optionsFor(agentId)),
+          agentId,
+          error: undefined,
+          sessionId: undefined,
+          status: "idle",
+        });
+        const last = (yield* store.items(threadId)).at(-1);
+        const text = `${SWITCHED} ${agent.name}`;
+        // Switching again before a prompt replaces the note rather than stacking another.
+        if (last?.kind === "status" && last.text.startsWith(SWITCHED)) {
+          yield* store.patchItem(threadId, last.id, (item) =>
+            item.kind === "status" ? { ...item, text } : item
+          );
+        } else if (last) {
+          yield* store.push(threadId, {
+            at: yield* Clock.currentTimeMillis,
+            id: yield* newItemId,
+            kind: "status",
+            text,
+          });
+        }
+      });
+
+      /** Stops a turn that has not reached the agent yet. Whether there was one. */
+      const stopOpening = (threadId: string) =>
+        Effect.suspend(() => {
+          const fiber = openings.get(threadId);
+          return fiber
+            ? Effect.as(Fiber.interrupt(fiber), true)
+            : Effect.succeed(false);
+        });
+
       return ThreadService.of({
         cancel: Effect.fn("ThreadService.cancel")(function* (threadId: string) {
+          if (yield* stopOpening(threadId)) {
+            return;
+          }
           const session = live.get(threadId);
           const sessionId = (yield* store.get(threadId))?.sessionId;
           if (!(session && sessionId)) {
@@ -807,39 +1047,51 @@ export class ThreadService extends Context.Service<
         }),
         create,
         delete: (threadId) =>
-          Effect.andThen(stop(threadId), store.remove(threadId)),
+          stopOpening(threadId).pipe(
+            Effect.andThen(stop(threadId)),
+            Effect.andThen(store.remove(threadId))
+          ),
         prompt: (input) =>
           detached(opening.withLock(input.threadId, prompt(input))),
         resolvePermission,
+        setAgent,
         setConfigOption: Effect.fn("ThreadService.setConfigOption")(function* (
           threadId: string,
           optionId: string,
           value: string
         ) {
-          const { session, sessionId } = yield* sessionOf(threadId);
+          const current = (yield* store.get(threadId))?.configOptions;
+          const chosen = current?.map((o) =>
+            o.id === optionId ? { ...o, currentValue: value } : o
+          );
+          const session = live.get(threadId);
+          const sessionId = (yield* store.get(threadId))?.sessionId;
+          // No session yet: the choice waits for the one the next prompt starts.
+          if (!(session && sessionId)) {
+            yield* store.update(threadId, { configOptions: chosen });
+            return;
+          }
           const parsed = BOOLEAN_VALUES[value] ?? value;
           const response = (yield* Effect.mapError(
             session.agent.setConfigOption(sessionId, optionId, parsed),
             agentFailure
           )) as { configOptions?: unknown } | undefined;
-          const current = (yield* store.get(threadId))?.configOptions;
           yield* store.update(threadId, {
-            configOptions:
-              mapConfigOptions(response?.configOptions) ??
-              current?.map((o) =>
-                o.id === optionId ? { ...o, currentValue: value } : o
-              ),
+            configOptions: mapConfigOptions(response?.configOptions) ?? chosen,
           });
         }),
         setMode: Effect.fn("ThreadService.setMode")(function* (
           threadId: string,
           modeId: string
         ) {
-          const { session, sessionId } = yield* sessionOf(threadId);
-          yield* Effect.mapError(
-            session.agent.setMode(sessionId, modeId),
-            agentFailure
-          );
+          const session = live.get(threadId);
+          const sessionId = (yield* store.get(threadId))?.sessionId;
+          if (session && sessionId) {
+            yield* Effect.mapError(
+              session.agent.setMode(sessionId, modeId),
+              agentFailure
+            );
+          }
           yield* store.update(threadId, { currentModeId: modeId });
         }),
       });
