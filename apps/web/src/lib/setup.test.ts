@@ -14,6 +14,7 @@ const found: SetupSuggestions = {
     { dir: "packages/ui", name: "@acme/ui", sourceDir: "packages/ui/src" },
   ],
   repoName: "acme",
+  tailwind: "v4",
 };
 
 describe("first-run suggestions", () => {

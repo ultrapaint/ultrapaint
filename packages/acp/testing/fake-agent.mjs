@@ -15,6 +15,9 @@
  *   exit        ends the process in the middle of the turn
  *   wait        streams one chunk and then waits for `session/cancel`
  *
+ * A prompt the host expanded from a slash command (`<ultrapaint-task command="…">`) is answered
+ * with `task:<command>` and the task's first line of instructions, so a test sees what arrived.
+ *
  * `FAKE_AGENT_LOAD=1` advertises `loadSession`; `FAKE_AGENT_AUTH=1` refuses `session/new` until
  * `authenticate` was called.
  */
@@ -36,6 +39,8 @@ const text = (cx, sessionId, value, kind = "agent_message_chunk") =>
     sessionId,
     update: { content: { text: value, type: "text" }, sessionUpdate: kind },
   });
+
+const TASK_RE = /^<ultrapaint-task command="([\w-]+)">\s*\n([^\n]*)/;
 
 const scenarios = {
   /** Says how much of the prompt was the project briefing, which leads a session's first one. */
@@ -220,6 +225,11 @@ agent({ name: "fake-agent" })
       (block) =>
         block.type === "text" && !block.text.startsWith("<ultrapaint>")
     );
+    const task = first?.text.match(TASK_RE);
+    if (task) {
+      await text(ctx.client, sessionId, `task:${task[1]} ${task[2]}`);
+      return { stopReason: "end_turn" };
+    }
     const name = first?.text.split(" ")[0] ?? "reply";
     const scenario = scenarios[name] ?? scenarios.reply;
     const stopReason = await scenario(

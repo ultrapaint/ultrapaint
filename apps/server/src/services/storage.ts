@@ -7,7 +7,12 @@ import { STATE_DIR_NAME } from "../storage-resolve.ts";
 import { runGit } from "./git.ts";
 
 /** What moves with the state when an unsaved session is saved. */
-const STATE_SUBDIRS = ["threads", "checkpoints", "catalogue"] as const;
+const STATE_SUBDIRS = [
+  "threads",
+  "checkpoints",
+  "catalogue",
+  "thumbnails",
+] as const;
 
 /**
  * Where the server keeps its state. The target is decided at startup, but an unsaved session

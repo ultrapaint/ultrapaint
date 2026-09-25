@@ -1,4 +1,3 @@
-import type { SourceLocation } from "@ultrapaint/contracts/base";
 import type { Comment, CommentReply } from "@ultrapaint/contracts/comments";
 import type { Page } from "@ultrapaint/contracts/pages";
 import { create } from "zustand";
@@ -12,8 +11,8 @@ import { reportError } from "./project.ts";
 /** A comment being written: where it was placed, before it has any text. */
 export interface CommentDraft {
   element: string | null;
+  nodeId: string | null;
   pageId: string;
-  source: SourceLocation | null;
   x: number;
   y: number;
 }
@@ -97,8 +96,8 @@ export const postDraft = async (text: string) => {
   try {
     const comment = await api().request("comments.create", {
       element: draft.element,
+      nodeId: draft.nodeId,
       page: page.path,
-      source: draft.source,
       space: currentSpace(),
       text: text.trim(),
       x: draft.x,
@@ -184,14 +183,13 @@ export const sendToAgent = async (
   const page = pageOfComment(comment);
   const attachments = [
     ...(page ? [{ kind: "file" as const, path: page.file }] : []),
-    ...(comment.source
+    ...(page && comment.nodeId
       ? [
           {
-            col: comment.source.col,
-            file: comment.source.file,
+            file: page.file,
             kind: "selection" as const,
-            line: comment.source.line,
-            name: comment.element ?? "element",
+            name: comment.element ?? "node",
+            nodeId: comment.nodeId,
           },
         ]
       : []),

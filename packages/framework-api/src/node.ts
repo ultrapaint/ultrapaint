@@ -1,133 +1,13 @@
 /**
- * What a framework gives the server, on the Node side: how pages are written, how their
- * source is edited, how components are catalogued and how the preview is built. The server
- * knows repositories, files and the editor's protocol; everything that depends on the UI
- * framework or its bundler comes through this interface, as a Storybook framework package
- * (`@storybook/react-vite`) does for Storybook's core.
+ * What a framework gives the server, on the Node side: how components are catalogued, how the
+ * repository's design system is read, and how the preview is built. The server knows
+ * repositories, files, design documents and the editor's protocol; everything that depends on
+ * the UI framework, its bundler or its styling comes through this interface, as a Storybook
+ * framework package (`@storybook/react-vite`) does for Storybook's core.
  */
-import type { SourceLocation } from "@ultrapaint/contracts/base";
-import type {
-  Declaration,
-  EditOp,
-  ElementSource,
-  ImportSpec,
-  OutlineElement,
-} from "@ultrapaint/contracts/edit";
+import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { Settings } from "@ultrapaint/contracts/settings";
 import type { SetupSuggestions } from "@ultrapaint/contracts/setup";
-
-/** Result of one source edit, before the target repository's formatter runs. */
-export interface EditOutcome {
-  code: string;
-  /** Pre-order index of the element to track after formatting, or null. */
-  trackIndex: number | null;
-  warnings: string[];
-}
-
-/**
- * A source edit that cannot be carried out: the element is gone (`not_found`) or the source
- * is in a shape the edit does not apply to (`conflict`). Anything else a framework throws means
- * the file could not be parsed.
- */
-export class SourceEditError extends Error {
-  readonly code: "not_found" | "conflict";
-
-  constructor(code: "not_found" | "conflict", message: string) {
-    super(message);
-    this.code = code;
-    this.name = "SourceEditError";
-  }
-}
-
-/** An element lifted out of its file, with what it needs to render somewhere else. */
-export interface ExtractedElement {
-  /** Top-level helpers of its file the element uses, and the helpers those use. */
-  readonly declarations: readonly Declaration[];
-  /** Imports of its file the element and those helpers use, rebased on the destination. */
-  readonly imports: readonly ImportSpec[];
-  readonly jsx: string;
-  /** A name for it: the component or tag it is. */
-  readonly name: string;
-  /**
-   * Names it uses that are neither imported nor top-level: the page component's state and
-   * props. The copy refers to them all the same, and may not render until they are replaced.
-   */
-  readonly unresolved: readonly string[];
-}
-
-/** Pure and synchronous: these throw, and the server turns that into wire errors. */
-export interface SourceEditor {
-  readonly apply: (op: EditOp, code: string) => EditOutcome;
-  readonly elementSource: (
-    code: string,
-    file: string,
-    location: SourceLocation,
-    editable: boolean
-  ) => ElementSource | null;
-  /**
-   * The element at `location`, ready to be inserted into the file `destination`: relative
-   * imports are rewritten against that file. Both paths are relative to the repository root.
-   */
-  readonly extract: (
-    code: string,
-    location: SourceLocation,
-    destination: string
-  ) => ExtractedElement;
-  /** Where the element with this pre-order index is, in the formatted code. */
-  readonly locate: (
-    code: string,
-    file: string,
-    trackIndex: number
-  ) => SourceLocation | null;
-  /** Every JSX element of the file with the element it is written inside of. */
-  readonly outline: (code: string) => readonly OutlineElement[];
-}
-
-/** What a page template is rendered against. */
-export interface PageTemplateInput {
-  /** File name of the page, with its extension. */
-  readonly fileName: string;
-  /** Route the page serves inside its space. */
-  readonly route: string;
-  /** Specifier the page imports the navigation module by, relative to itself. */
-  readonly routerImport: string;
-}
-
-/** What a canvas item module is rendered from. */
-export interface ItemTemplateInput {
-  readonly declarations: readonly Declaration[];
-  /** File name of the item, with its extension. */
-  readonly fileName: string;
-  readonly imports: readonly ImportSpec[];
-  readonly jsx: string;
-}
-
-export interface PageFiles {
-  /** A copy of a page under a new file name: the component is renamed with the file. */
-  readonly duplicate: (content: string, from: string, to: string) => string;
-  /** File extension of a page, with the dot. */
-  readonly extension: string;
-  /** File name for what the user typed: `Sign in` becomes `sign-in.tsx`. */
-  readonly fileName: (name: string) => string;
-  readonly isPageFile: (fileName: string) => boolean;
-  readonly render: (templateId: string, input: PageTemplateInput) => string;
-  /** A canvas item showing an image; `src` is the image's specifier relative to the item. */
-  readonly renderImageItem: (input: {
-    readonly fileName: string;
-    readonly src: string;
-  }) => string;
-  /** A canvas item: a module whose default export renders one element. */
-  readonly renderItem: (input: ItemTemplateInput) => string;
-  /**
-   * The navigation module pages import: written into the designs directory once and never
-   * overwritten, so a page still compiles in the repository with no ultrapaint around it.
-   */
-  readonly routerModule: {
-    readonly content: string;
-    readonly fileName: string;
-  };
-  readonly templates: readonly { readonly id: string; readonly name: string }[];
-}
 
 /** Plain data, so the whole context can be handed to a worker thread. */
 export interface CatalogueContext {
@@ -152,9 +32,35 @@ export interface CatalogueBuilder {
   readonly workerUrl: URL;
 }
 
+export interface DesignSystemContext {
+  /** Package the pages resolve their imports from. Absolute. */
+  readonly anchorDir: string;
+  /** Repository root. Absolute. */
+  readonly root: string;
+  readonly settings: Settings;
+}
+
+export interface DesignSystemScan {
+  readonly designSystem: DesignSystem;
+  /** The stylesheets that were read, repo-relative. */
+  readonly files: readonly string[];
+  /** What the scan could not make sense of, in words an agent can follow up on. */
+  readonly notes: readonly string[];
+}
+
+export interface DesignSystemReader {
+  /**
+   * Reads the tokens the repository's stylesheets define, by fixed rules: the `@theme` blocks
+   * of Tailwind v4 and the custom properties they refer to. Synchronous and read-only.
+   */
+  readonly scan: (ctx: DesignSystemContext) => DesignSystemScan;
+}
+
 export interface PreviewInput {
   /** Package the pages resolve their imports from. Absolute. */
   readonly anchorDir: string;
+  /** Specifiers of the component modules the preview must be able to import. */
+  readonly components: readonly string[];
   /** Absolute. */
   readonly designsDir: string;
   /** The generated, git-ignored directory the preview is served from. Absolute. */
@@ -165,6 +71,14 @@ export interface PreviewInput {
 }
 
 export interface PreviewBuilder {
+  /**
+   * The module listing the component modules instances import, rewritten into `input.dir`
+   * under `file` whenever the list grows; the preview picks it up without a reload.
+   */
+  readonly components: {
+    readonly file: string;
+    readonly render: (specifiers: readonly string[]) => string;
+  };
   /**
    * Files to write into `input.dir`, and the Node script that serves the preview: it is run
    * from the anchor package with `args` followed by the port to listen on.
@@ -185,12 +99,11 @@ export type Detect = (
 
 export interface Framework {
   readonly catalogue: CatalogueBuilder;
+  readonly designSystem: DesignSystemReader;
   /** Synchronous and read-only: it looks at manifests and file names, never runs anything. */
   readonly detect: Detect;
   readonly id: string;
-  readonly pages: PageFiles;
   readonly preview: PreviewBuilder;
-  readonly source: SourceEditor;
 }
 
 /** Where a framework implementation came from; a repository may pin its own later on. */

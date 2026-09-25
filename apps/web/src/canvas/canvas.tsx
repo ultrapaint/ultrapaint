@@ -1,4 +1,6 @@
+import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { FrameLayout } from "@ultrapaint/contracts/pages";
+import { canvasDocOf } from "@ultrapaint/design-document/tree";
 import { cn } from "cn";
 import {
   type PointerEvent as ReactPointerEvent,
@@ -8,7 +10,15 @@ import {
 } from "react";
 import { useComments } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
-import { useEditor } from "../state/editor.ts";
+import {
+  applyOps,
+  canvasNodes,
+  isNodeFrame,
+  NODE_FRAME_PREFIX,
+  nodeFrameOf,
+  useDocuments,
+} from "../state/documents.ts";
+import { allFrames, nodeFrameLayout, useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
 import { useFollowAgent } from "./agent-presence.tsx";
 import {
@@ -18,7 +28,6 @@ import {
   endDrag,
   moveDrag,
   PALETTE_MIME,
-  type PaletteComponent,
   useDrag,
 } from "./drag.ts";
 import { DragOverlay } from "./drag-overlay.tsx";
@@ -37,10 +46,26 @@ export const Canvas = () => {
   const spacePan = useEditor((s) => s.spacePan);
   const allPages = useProject((s) => s.pages);
   const pages = allPages.filter((p) => p.space === space);
-  const items = useEditor((s) => s.items);
+  const nodes = useDocuments((s) => canvasNodes(s.docs, space));
+  const sizes = useEditor((s) => s.sizes);
+  // A node on the canvas being dragged is drawn where the pointer holds it.
+  const dragged = useDrag((s) => s.dragged);
+  const pointer = useDrag((s) => s.pointer);
+  const grab = useDrag((s) => s.grab);
   const hostUrl = useHostUrl();
   const [size, setSize] = useState({ height: 0, width: 0 });
   const [panning, setPanning] = useState(false);
+  // The size a node on the canvas is being resized to, until the pointer lets go.
+  const [resizing, setResizingState] = useState<{
+    height: number;
+    id: string;
+    width: number;
+  } | null>(null);
+  const resizingRef = useRef<typeof resizing>(null);
+  const setResizing = (next: typeof resizing) => {
+    resizingRef.current = next;
+    setResizingState(next);
+  };
   const drag = useRef<
     | { kind: "pan"; startX: number; startY: number; vx: number; vy: number }
     | {
@@ -49,6 +74,14 @@ export const Canvas = () => {
         startX: number;
         startY: number;
         frame: FrameLayout;
+      }
+    | {
+        /** Resizing a node on the canvas gives it a fixed size. */
+        kind: "resize-node";
+        nodeId: string;
+        startX: number;
+        startY: number;
+        size: { height: number; width: number };
       }
     | null
   >(null);
@@ -156,7 +189,7 @@ export const Canvas = () => {
       e.dataTransfer.dropEffect = "copy";
       if (component) {
         if (!useDrag.getState().dragged) {
-          beginDrag({ kind: "component" }, e.clientX, e.clientY, false);
+          beginDrag({ kind: "new", name: "" }, e.clientX, e.clientY, false);
         }
         moveDrag(e.clientX, e.clientY, false);
       }
@@ -164,7 +197,7 @@ export const Canvas = () => {
     const onDragLeave = (e: DragEvent) => {
       if (
         !el.contains(e.relatedTarget as Node | null) &&
-        useDrag.getState().dragged?.kind === "component"
+        useDrag.getState().dragged?.kind === "new"
       ) {
         cancelDrag();
       }
@@ -179,7 +212,7 @@ export const Canvas = () => {
       }
       const raw = e.dataTransfer?.getData(PALETTE_MIME);
       if (raw) {
-        endDrag(JSON.parse(raw) as PaletteComponent);
+        endDrag(JSON.parse(raw) as DesignNode);
       } else {
         cancelDrag();
       }
@@ -269,6 +302,46 @@ export const Canvas = () => {
     }
     e.preventDefault();
     e.stopPropagation();
+    if (isNodeFrame(pageId)) {
+      const nodeId = pageId.slice(NODE_FRAME_PREFIX.length);
+      const box = allFrames()[pageId];
+      if (!box) {
+        return;
+      }
+      s.select({ frame: pageId, nodeId });
+      if (kind === "move") {
+        beginDrag(
+          {
+            frame: pageId,
+            kind: "loose",
+            nodeId,
+            origin: { x: box.x, y: box.y },
+          },
+          e.clientX,
+          e.clientY,
+          e.altKey
+        );
+        const move = (ev: PointerEvent) =>
+          moveDrag(ev.clientX, ev.clientY, ev.altKey);
+        const up = () => {
+          window.removeEventListener("pointermove", move);
+          window.removeEventListener("pointerup", up);
+          endDrag();
+        };
+        window.addEventListener("pointermove", move);
+        window.addEventListener("pointerup", up);
+        return;
+      }
+      ref.current?.setPointerCapture(e.pointerId);
+      drag.current = {
+        kind: "resize-node",
+        nodeId,
+        size: { height: box.height, width: box.width },
+        startX: e.clientX,
+        startY: e.clientY,
+      };
+      return;
+    }
     const frame = s.frames[pageId];
     if (!frame) {
       return;
@@ -299,6 +372,16 @@ export const Canvas = () => {
         x: d.vx + (e.clientX - d.startX),
         y: d.vy + (e.clientY - d.startY),
       });
+    } else if (d.kind === "resize-node") {
+      s.setSize(nodeFrameOf(d.nodeId), {
+        height: Math.max(8, d.size.height + dy),
+        width: Math.max(8, d.size.width + dx),
+      });
+      setResizing({
+        height: Math.max(8, Math.round(d.size.height + dy)),
+        id: d.nodeId,
+        width: Math.max(8, Math.round(d.size.width + dx)),
+      });
     } else if (d.kind === "move") {
       const others = Object.entries(s.frames)
         .filter(([id]) => id !== d.pageId)
@@ -328,6 +411,25 @@ export const Canvas = () => {
     const d = drag.current;
     drag.current = null;
     setPanning(false);
+    if (d?.kind === "resize-node") {
+      const resized = resizingRef.current;
+      setResizing(null);
+      const { space: current } = useEditor.getState();
+      if (resized && current !== null) {
+        applyOps(
+          canvasDocOf(current),
+          [
+            {
+              id: d.nodeId,
+              op: "update",
+              set: { height: resized.height, width: resized.width },
+            },
+          ],
+          "Resize"
+        );
+      }
+      return;
+    }
     if (d && d.kind !== "pan") {
       const s = useEditor.getState();
       const f = s.frames[d.pageId];
@@ -345,7 +447,12 @@ export const Canvas = () => {
 
   // Virtualisation: only mount iframes near the viewport.
   const margin = 400;
-  const isVisible = (f: FrameLayout) => {
+  const isVisible = (f: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }) => {
     const left = f.x * view.zoom + view.x;
     const top = f.y * view.zoom + view.y;
     const right = left + f.width * view.zoom;
@@ -394,8 +501,10 @@ export const Canvas = () => {
           return (
             <Frame
               frame={frame}
+              frameId={page.id}
               hostUrl={hostUrl}
               key={page.id}
+              kind="page"
               onDragStart={startFrameDrag}
               page={page}
               visible={isVisible(frame)}
@@ -403,27 +512,37 @@ export const Canvas = () => {
             />
           );
         })}
-        {Object.values(items).map((item) => {
-          const frame = frames[item.id];
-          if (!frame) {
-            return null;
-          }
+        {nodes.map((node) => {
+          const frameId = nodeFrameOf(node.id);
+          const layout = nodeFrameLayout(node, sizes[frameId]);
+          const moving =
+            dragged?.kind === "loose" && dragged.frame === frameId
+              ? { x: pointer.x - grab.x, y: pointer.y - grab.y }
+              : null;
+          const box = {
+            ...layout,
+            ...(resizing?.id === node.id && {
+              height: resizing.height,
+              width: resizing.width,
+            }),
+            ...moving,
+          };
           return (
             <Frame
-              frame={frame}
+              frame={box}
+              frameId={frameId}
               hostUrl={hostUrl}
-              item
-              key={item.id}
+              key={frameId}
+              kind="node"
               onDragStart={startFrameDrag}
-              page={item}
-              visible={isVisible(frame)}
+              visible={isVisible(box)}
               zoom={view.zoom}
             />
           );
         })}
         <DragOverlay zoom={view.zoom} />
       </div>
-      {pages.length === 0 && (
+      {pages.length === 0 && nodes.length === 0 && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-muted-foreground">
           {space === null
             ? "Open a space from the Pages panel"

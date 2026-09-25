@@ -117,17 +117,23 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           result: { tools: { name: string }[] };
         };
         assert.deepStrictEqual(tools.result.tools.map((t) => t.name).sort(), [
+          "apply_operations",
           "create_page",
           "focus",
           "get_component",
           "get_context",
+          "get_document_format",
           "list_comments",
           "list_components",
           "list_pages",
+          "read_canvas",
+          "read_design_system",
           "read_page",
           "rename_page",
           "reply_to_comment",
           "resolve_comment",
+          "scan_design_system",
+          "write_design_system",
         ]);
 
         const called = yield* callMcp(
@@ -164,12 +170,90 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           result: { structuredContent: { file: string; route: string } };
         };
         assert.strictEqual(page.result.structuredContent.route, "/pricing");
-        assert.include(page.result.structuredContent.file, "pricing.tsx");
+        assert.include(page.result.structuredContent.file, "pricing.page.json");
         const listedAgain = yield* client["pages.list"]();
         assert.include(
           listedAgain.pages.map((p) => p.route),
           "/pricing"
         );
+
+        const tool = (name: string, args: Record<string, unknown>) =>
+          Effect.flatMap(
+            callMcp(
+              port,
+              token,
+              { method: "tools/call", params: { arguments: args, name } },
+              sessionId
+            ),
+            (response) =>
+              Effect.promise(
+                () =>
+                  response.json() as Promise<{
+                    result: {
+                      isError?: boolean;
+                      content: { text: string }[];
+                      structuredContent: Record<string, unknown>;
+                    };
+                  }>
+              )
+          );
+
+        // The agent changes the page through the same operations the editor uses.
+        const applied = yield* tool("apply_operations", {
+          ops: [
+            {
+              node: { level: 1, role: "heading", text: "Plans", type: "text" },
+              op: "insert",
+              parent: null,
+            },
+          ],
+          route: "/pricing",
+        });
+        assert.isNotTrue(applied.result.isError);
+        const [heading] = applied.result.structuredContent.created as string[];
+        const read = yield* tool("read_page", { route: "/pricing" });
+        const document = read.result.structuredContent.document as {
+          root: { children: { id: string; text: string }[] };
+        };
+        assert.deepStrictEqual(
+          document.root.children.map((c) => [c.id, c.text]),
+          [[heading, "Plans"]]
+        );
+        const wrong = yield* tool("apply_operations", {
+          ops: [{ id: "nowhere", op: "remove" }],
+          route: "/pricing",
+        });
+        assert.isTrue(wrong.result.isError);
+        assert.include(wrong.result.content[0]?.text ?? "", "no node nowhere");
+
+        // The design system is validated before it is saved.
+        const invalid = yield* tool("write_design_system", {
+          designSystem: { version: 1 },
+        });
+        assert.isTrue(invalid.result.isError);
+        const saved = yield* tool("write_design_system", {
+          designSystem: {
+            colors: [
+              {
+                name: "Semantic",
+                tokens: [{ name: "color-primary", value: "#000" }],
+              },
+            ],
+            radius: [],
+            shadows: [],
+            spacing: { base: "0.25rem" },
+            typography: { fonts: [], sizes: [], styles: [], weights: [] },
+            version: 1,
+          },
+          notes: "# Acme\nUse the primary colour for one action per screen.",
+        });
+        assert.isNotTrue(saved.result.isError);
+        const system = yield* client["designSystem.get"]();
+        assert.strictEqual(
+          system.designSystem?.colors[0]?.tokens[0]?.name,
+          "color-primary"
+        );
+        assert.include(system.notes ?? "", "one action per screen");
       })
     );
 

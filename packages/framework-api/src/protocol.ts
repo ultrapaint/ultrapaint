@@ -15,5 +15,9 @@
  * 4: pages and routes. Every message carries `page` where it carried `screen`, and the space's
  * router is driven by the editor: the preview asks with `ed:navigateTo`, the editor answers
  * with `ed:route` and hears `ed:routeChanged`.
+ *
+ * 5: design documents (ADR 0015). The editor sends what to draw with `ed:render`; the preview
+ * no longer sends a tree, inspects styles or holds a router, and nodes are named by the
+ * document's ids.
  */
-export const PREVIEW_PROTOCOL = 4;
+export const PREVIEW_PROTOCOL = 5;

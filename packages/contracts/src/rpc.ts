@@ -1,6 +1,5 @@
 import { Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/unstable/rpc";
-import { SourceLocation } from "./base.ts";
 import { Catalogue } from "./catalogue.ts";
 import {
   Comment,
@@ -9,14 +8,9 @@ import {
   ReplyInput,
   UpdateCommentInput,
 } from "./comments.ts";
-import {
-  EditRequest,
-  EditResult,
-  ElementSource,
-  SourceOutline,
-  TransferRequest,
-  UndoState,
-} from "./edit.ts";
+import { DesignSystem, DesignSystemState } from "./design-system.ts";
+import { ApplyInput, ApplyResult, DocumentState } from "./document.ts";
+import { UndoResult, UndoState } from "./edit.ts";
 import {
   AgentFailure,
   BadRequest,
@@ -35,16 +29,12 @@ import {
   GitStatus,
 } from "./git.ts";
 import {
-  AddImageInput,
-  CanvasItemResult,
   CanvasLayout,
-  CreateItemInput,
-  ExtractItemInput,
+  FrameLayout,
   Page,
   PageList,
-  PlaceItemInput,
-  RemoveItemInput,
   Space,
+  UploadAssetInput,
 } from "./pages.ts";
 import { HostStatus, LogLine, ProjectInfo } from "./project.ts";
 import {
@@ -65,6 +55,7 @@ import {
   AgentTerminalOutput,
   McpConnection,
   PromptInput,
+  SlashCommand,
   Thread,
   ThreadItem,
 } from "./threads.ts";
@@ -77,12 +68,6 @@ const PagesError = Schema.Union([
   BadRequest,
   // Page changes go through the edit journal, which reports files changed behind its back.
   Stale,
-]);
-const SourceError = Schema.Union([
-  NotConfigured,
-  NotFound,
-  ForbiddenPath,
-  BadRequest,
 ]);
 const EditError = Schema.Union([
   NotConfigured,
@@ -182,37 +167,66 @@ const requestRpcs = [
     payload: { space: Schema.String },
     success: CanvasLayout,
   }),
+  /** Saves where the pages' frames sit; the canvas's nodes change through `documents.apply`. */
   Rpc.make("canvas.set", {
     error: PagesError,
-    payload: { layout: CanvasLayout, space: Schema.String },
+    payload: {
+      frames: Schema.Record(Schema.String, FrameLayout),
+      space: Schema.String,
+    },
   }),
-  /**
-   * The item calls below write and remove the item's files and its place in the layout, each
-   * as one undo step.
-   */
-  Rpc.make("canvas.createItem", {
+  /** Saves an image into the space's assets; the node that shows it is inserted separately. */
+  Rpc.make("assets.upload", {
     error: EditError,
-    payload: CreateItemInput,
-    success: CanvasItemResult,
+    payload: UploadAssetInput,
+    success: Schema.Struct({
+      /** Path inside the space, what an image node's `src` holds. */
+      src: Schema.String,
+    }),
   }),
-  Rpc.make("canvas.extractItem", {
-    error: EditError,
-    payload: ExtractItemInput,
-    success: CanvasItemResult,
+
+  /** Every document of a space: its pages and its canvas. */
+  Rpc.make("documents.list", {
+    error: PagesError,
+    payload: { space: Schema.String },
+    success: Schema.Array(DocumentState),
   }),
-  Rpc.make("canvas.addImage", {
-    error: EditError,
-    payload: AddImageInput,
-    success: CanvasItemResult,
+  Rpc.make("documents.get", {
+    error: PagesError,
+    payload: { doc: Schema.String },
+    success: DocumentState,
   }),
-  Rpc.make("canvas.removeItem", {
+  /** Operations on one or several documents, as one undo step. */
+  Rpc.make("documents.apply", {
     error: EditError,
-    payload: RemoveItemInput,
+    payload: ApplyInput,
+    success: ApplyResult,
   }),
-  Rpc.make("canvas.placeItem", {
+
+  Rpc.make("designSystem.get", {
+    error: NotConfigured,
+    success: DesignSystemState,
+  }),
+  /** Runs the fixed-rule scan and saves what it finds, without an agent. */
+  Rpc.make("designSystem.detect", {
     error: EditError,
-    payload: PlaceItemInput,
-    success: EditResult,
+    success: DesignSystem,
+  }),
+
+  /** Thumbnails of the palette drawn earlier, under the key of what they were drawn from. */
+  Rpc.make("thumbnails.get", {
+    error: NotConfigured,
+    payload: { key: Schema.String },
+    success: Schema.Record(Schema.String, Schema.String),
+  }),
+  Rpc.make("thumbnails.put", {
+    error: Schema.Union([NotConfigured, BadRequest]),
+    payload: {
+      /** PNG data URL. */
+      dataUrl: Schema.String,
+      key: Schema.String,
+      name: Schema.String,
+    },
   }),
 
   Rpc.make("comments.list", {
@@ -249,38 +263,13 @@ const requestRpcs = [
     success: Comment,
   }),
 
-  Rpc.make("source.read", {
-    error: SourceError,
-    payload: { file: Schema.String },
-    success: Schema.Struct({ content: Schema.String, hash: Schema.String }),
-  }),
-  Rpc.make("source.outline", {
-    error: SourceError,
-    payload: { file: Schema.String },
-    success: SourceOutline,
-  }),
-  Rpc.make("source.element", {
-    error: SourceError,
-    payload: SourceLocation,
-    success: Schema.NullOr(ElementSource),
-  }),
-  Rpc.make("edit.apply", {
-    error: EditError,
-    payload: EditRequest,
-    success: EditResult,
-  }),
-  Rpc.make("edit.transfer", {
-    error: EditError,
-    payload: TransferRequest,
-    success: EditResult,
-  }),
   Rpc.make("edit.undo", {
     error: EditError,
-    success: Schema.NullOr(EditResult),
+    success: Schema.NullOr(UndoResult),
   }),
   Rpc.make("edit.redo", {
     error: EditError,
-    success: Schema.NullOr(EditResult),
+    success: Schema.NullOr(UndoResult),
   }),
   Rpc.make("edit.state", { error: NotConfigured, success: UndoState }),
 
@@ -296,6 +285,8 @@ const requestRpcs = [
   }),
 
   Rpc.make("agents.list", { success: Schema.Array(AgentConfig) }),
+  /** The commands a prompt may start with, `/init`, which the server expands. */
+  Rpc.make("commands.list", { success: Schema.Array(SlashCommand) }),
   /** What an agent outside the editor needs to reach the editor's own MCP server. */
   Rpc.make("mcp.connection", { success: McpConnection }),
   Rpc.make("threads.list", { success: Schema.Array(Thread) }),
@@ -359,6 +350,9 @@ export const eventSchemas = {
   "agent.terminal": AgentTerminalOutput,
   canvas: Schema.Struct({ layout: CanvasLayout, space: Schema.String }),
   comments: Schema.Struct({ list: CommentList, space: Schema.String }),
+  designSystem: DesignSystemState,
+  /** A document changed: an edit, an undo, an agent, a branch switch. */
+  document: DocumentState,
   "edit.state": UndoState,
   "file.changed": Schema.Struct({ file: Schema.String, hash: Schema.String }),
   git: GitStatus,
@@ -378,6 +372,11 @@ const eventRpcs = [
     success: eventSchemas["agent.terminal"],
   }),
   Rpc.make("events.canvas", { stream: true, success: eventSchemas.canvas }),
+  Rpc.make("events.document", { stream: true, success: eventSchemas.document }),
+  Rpc.make("events.designSystem", {
+    stream: true,
+    success: eventSchemas.designSystem,
+  }),
   Rpc.make("events.comments", {
     stream: true,
     success: eventSchemas.comments,

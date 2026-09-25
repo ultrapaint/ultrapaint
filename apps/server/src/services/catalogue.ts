@@ -13,6 +13,7 @@ import {
 } from "effect";
 import { AppLog } from "../app-log.ts";
 import { makeWriteAtomic } from "../atomic-write.ts";
+import { ComponentRegistry } from "./component-registry.ts";
 import { ProjectFramework } from "./framework.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { Storage } from "./storage.ts";
@@ -61,6 +62,7 @@ export class CatalogueService extends Context.Service<
       const paths = yield* RepoPaths;
       const storage = yield* Storage;
       const { catalogue: builder } = yield* ProjectFramework;
+      const registry = yield* ComponentRegistry;
       const log = yield* AppLog;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -117,7 +119,13 @@ export class CatalogueService extends Context.Service<
         get: (refresh) =>
           building
             .withPermits(1)(load(refresh))
-            .pipe(Effect.withSpan("CatalogueService.get")),
+            .pipe(
+              // The preview can draw what the catalogue names as soon as it is known.
+              Effect.tap((catalogue) =>
+                registry.ensure(catalogue.components.map((c) => c.importFrom))
+              ),
+              Effect.withSpan("CatalogueService.get")
+            ),
         storyUrl: (storyId) => {
           const base = paths.settings.storybookUrl;
           return base

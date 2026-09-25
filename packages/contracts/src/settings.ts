@@ -9,8 +9,6 @@ export const defaultFramework: FrameworkId = "react-vite";
 export const Theme = Schema.Literals(["light", "dark"]);
 
 const common = {
-  /** Formatter command run on edited files, relative to repo root. `{file}` is substituted. */
-  formatCommand: Schema.optional(Schema.String),
   /** Renderer and builder for the preview; `react-vite` when absent. */
   framework: Schema.optional(FrameworkId),
   /** Optional module (relative to designsDir) whose default export wraps every screen. */

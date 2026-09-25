@@ -209,12 +209,13 @@ export type ThreadItem = typeof ThreadItem.Type;
 
 export const PromptAttachment = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("file"), path: Schema.String }),
+  /** A node of a design document the user has selected on the canvas. */
   Schema.Struct({
-    col: Schema.Number,
+    /** The page's file, or the space's `canvas.json` for a node beside the pages. */
     file: Schema.String,
     kind: Schema.Literal("selection"),
-    line: Schema.Number,
     name: Schema.String,
+    nodeId: Schema.String,
   }),
   Schema.Struct({
     dataUrl: Schema.String,
@@ -230,6 +231,16 @@ export const PromptInput = Schema.Struct({
   threadId: Schema.String,
 });
 export type PromptInput = typeof PromptInput.Type;
+
+/** A command a prompt may start with; the server expands it into the task it stands for. */
+export const SlashCommand = Schema.Struct({
+  /** What goes after the command, for the composer's hint: `<route>`. */
+  argument: Schema.optional(Schema.String),
+  description: Schema.String,
+  /** Without the slash: `init`. */
+  name: Schema.String,
+});
+export type SlashCommand = typeof SlashCommand.Type;
 
 /** The name the editor's MCP server goes by, to agents and in the tool calls they report. */
 export const EDITOR_MCP_SERVER = "ultrapaint";

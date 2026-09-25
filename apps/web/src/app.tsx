@@ -7,6 +7,7 @@ import {
   MessageCircle,
   MessageSquare,
   MonitorSmartphone,
+  Palette as PaletteIcon,
   Settings,
   Shapes,
   TriangleAlert,
@@ -34,6 +35,7 @@ import { ResizeHandle, usePanelWidth } from "./components/resize-handle.tsx";
 import { useShortcuts } from "./lib/shortcuts.ts";
 import { Changes } from "./panels/changes.tsx";
 import { Comments } from "./panels/comments.tsx";
+import { DesignSystemPanel } from "./panels/design-system.tsx";
 import { Inspector } from "./panels/inspector.tsx";
 import { Layers } from "./panels/layers.tsx";
 import { Pages } from "./panels/pages.tsx";
@@ -45,6 +47,8 @@ import { useAgents } from "./state/agents.ts";
 import { useCatalogue } from "./state/catalogue.ts";
 import { useComments } from "./state/comments.ts";
 import { useConnection } from "./state/connection.ts";
+import { useDesignSystem } from "./state/design-system.ts";
+import { bindDocuments } from "./state/documents.ts";
 import { type LeftTab, useEditor, workspaceTabs } from "./state/editor.ts";
 import { bindProjectEvents, useProject } from "./state/project.ts";
 import { onUrlChange, readUrl } from "./state/url.ts";
@@ -58,6 +62,11 @@ const leftTabs: Record<
   changes: { icon: GitCompareArrows, label: "Changes", panel: Changes },
   chat: { icon: MessageSquare, label: "Chat", panel: Threads },
   comments: { icon: MessageCircle, label: "Comments", panel: Comments },
+  designSystem: {
+    icon: PaletteIcon,
+    label: "Design system",
+    panel: DesignSystemPanel,
+  },
   layers: { icon: LayersIcon, label: "Layers", panel: Layers },
   pages: { icon: MonitorSmartphone, label: "Pages", panel: Pages },
   palette: { icon: Shapes, label: "Components", panel: Palette },
@@ -263,6 +272,8 @@ export const App = () => {
   // Index the design system in the background so prop controls are typed.
   useEffect(() => {
     if (configured) {
+      bindDocuments();
+      useDesignSystem.getState().load();
       useCatalogue.getState().load();
       // Agent events are followed from the start, not only while the chat is open: the badge
       // over the tool strip reports turns that changed files.
@@ -305,11 +316,10 @@ export const App = () => {
       return;
     }
     const inSpace = pages.filter((p) => p.space === space);
-    const { frames, items, route } = useEditor.getState();
+    const { frames, route } = useEditor.getState();
     const missing = inSpace.some((p) => !frames[p.id]);
-    // Canvas items have frames too, and are not pages.
     const extra = Object.keys(frames).some(
-      (id) => !(items[id] || inSpace.find((p) => p.id === id))
+      (id) => !inSpace.find((p) => p.id === id)
     );
     if (missing || extra) {
       useEditor.getState().openSpace(space, route);

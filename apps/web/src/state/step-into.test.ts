@@ -1,38 +1,40 @@
-import type { TreeNode } from "@ultrapaint/contracts/preview";
+import type { DesignNode } from "@ultrapaint/contracts/document";
 import { describe, expect, it } from "vitest";
 import { stepInto } from "./tree.ts";
 
-const node = (id: string, children: TreeNode[] = []): TreeNode => ({
-  children,
-  editable: false,
+const text = (id: string): DesignNode => ({
   id,
-  kind: "element",
-  name: id,
-  source: null,
-  summary: id,
+  role: "paragraph",
+  text: id,
+  type: "text",
 });
 
-const component = (id: string, children: TreeNode[] = []): TreeNode => ({
-  ...node(id, children),
-  kind: "component",
+const column = (id: string, children: DesignNode[]): DesignNode => ({
+  children,
+  id,
+  type: "column",
 });
 
-/** A page holding an open menu: one popup, a list, and two items of one row each. */
-const tree = node("root", [
-  node("card", [node("trigger")]),
-  node("popup", [
-    node("list", [
-      node("item1", [node("label1")]),
-      node("item2", [node("label2")]),
+/** A page with a card, and a list of two items of one label each. */
+const tree: DesignNode = {
+  children: [
+    column("card", [text("trigger")]),
+    column("popup", [
+      column("list", [
+        column("item1", [text("label1")]),
+        column("item2", [text("label2")]),
+      ]),
     ]),
-  ]),
-]);
+  ],
+  id: "root",
+  type: "page",
+};
 
-const chain1 = ["popup", "list", "item1", "label1"];
-const chain2 = ["popup", "list", "item2", "label2"];
+const chain1 = ["root", "popup", "list", "item1", "label1"];
+const chain2 = ["root", "popup", "list", "item2", "label2"];
 
 describe("what a click on the canvas takes", () => {
-  it("takes the outermost node the preview offers when nothing is selected", () => {
+  it("takes the outermost node under the page when nothing is selected", () => {
     expect(stepInto(chain1, tree, null, false)).toBe("popup");
   });
 
@@ -64,39 +66,14 @@ describe("what a click on the canvas takes", () => {
     expect(stepInto(chain1, tree, "popup", true)).toBe("label1");
   });
 
-  it("answers with nothing when the point is on nothing", () => {
+  it("answers with nothing when the point is on nothing but the page", () => {
+    expect(stepInto(["root"], tree, "popup", false)).toBeNull();
     expect(stepInto([], tree, "popup", false)).toBeNull();
   });
-});
 
-/** An icon inside an indicator: laid out exactly alike, and still two nodes of the tree. */
-const nested = node("root", [
-  component("indicator", [component("icon", [node("svg", [node("path")])])]),
-]);
-
-describe("nodes laid out exactly alike", () => {
-  it("still goes deeper, one of them at a time", () => {
-    const chain = ["indicator", "icon", "svg", "path"];
-    expect(stepInto(chain, nested, "indicator", false)).toBe("icon");
-    expect(stepInto(chain, nested, "icon", false)).toBe("path");
-  });
-
-  it("puts a component and the element it renders on one step, as the panel does", () => {
-    // `icon` renders `svg` as its only child, so the two are one row of the layers panel.
-    expect(
-      stepInto(["indicator", "icon", "svg"], nested, "indicator", false)
-    ).toBe("icon");
-    expect(stepInto(["indicator", "icon", "svg"], nested, "icon", false)).toBe(
-      "icon"
-    );
-  });
-
-  it("reaches the innermost row with alt held", () => {
-    expect(stepInto(["indicator", "icon", "svg"], nested, null, true)).toBe(
-      "icon"
-    );
-    expect(
-      stepInto(["indicator", "icon", "svg", "path"], nested, null, true)
-    ).toBe("path");
+  it("keeps the root of a node on the canvas, which is a node like any other", () => {
+    const free = column("free", [text("inside")]);
+    expect(stepInto(["free", "inside"], free, null, false)).toBe("free");
+    expect(stepInto(["free", "inside"], free, "free", false)).toBe("inside");
   });
 });

@@ -2,6 +2,10 @@
 
 Status: verdict, 2026-09-17. Reviewed after M5 against the epicparty repository.
 
+> Superseded by [ADR 0015](../adr/0015-design-documents.md), 2026-09-25: screens are now design
+> documents in a format of their own, and an agent turns a finished one into the application's
+> code. The evidence below is what TSX did well; ADR 0015 says why it was left anyway.
+
 ## Question
 
 Does TSX stay the canonical screen format, or do we define a text-based screen format with a

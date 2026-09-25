@@ -70,6 +70,7 @@ describe("recognising a React repository", () => {
           sourceDir: "packages/ui/src/components",
         },
       ],
+      tailwind: "v4",
     });
   });
 

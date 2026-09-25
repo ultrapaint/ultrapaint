@@ -62,6 +62,7 @@ import { AgentConfigs } from "./agent-configs.ts";
 import { AgentSandbox } from "./agent-sandbox.ts";
 import { ProjectBriefing } from "./briefing.ts";
 import { Checkpoints } from "./checkpoints.ts";
+import { SlashCommands } from "./commands.ts";
 import { ThreadStore } from "./thread-store.ts";
 import {
   emptyCursor,
@@ -157,6 +158,7 @@ export class ThreadService extends Context.Service<
       const agents = yield* AgentConfigs;
       const sandbox = yield* AgentSandbox;
       const briefing = yield* ProjectBriefing;
+      const commands = yield* SlashCommands;
       const access = yield* McpAccess;
       const {
         briefing: briefingEnabled,
@@ -614,12 +616,12 @@ export class ThreadService extends Context.Service<
             const abs = yield* paths.resolve(a.file);
             blocks.push(
               {
-                text: `The user has selected the <${a.name}> element at ${a.file}:${a.line}:${a.col} (line ${a.line}, column ${a.col}) on the design canvas. Edits should target this element unless told otherwise.`,
+                text: `The user has selected the node "${a.name}" (id ${a.nodeId}) in ${a.file} on the design canvas. Edits should target this node unless told otherwise.`,
                 type: "text",
               },
               { name: a.file, type: "resource_link", uri: `file://${abs}` }
             );
-            labels.push(`${a.name} @ ${a.file}:${a.line}`);
+            labels.push(`${a.name} @ ${a.file}`);
           } else {
             const match = a.dataUrl.match(DATA_URL_RE);
             if (match?.[1] && match[2] !== undefined) {
@@ -709,6 +711,11 @@ export class ThreadService extends Context.Service<
         const paths = yield* currentPaths;
         const { session, sessionId } = yield* sessionOf(threadId);
         const { blocks, labels } = yield* attachmentBlocks(input, paths);
+        // `/init`, `/implement`: the agent is given the task, the transcript keeps what was typed.
+        const task = yield* commands.expand(input.text);
+        if (task !== null) {
+          blocks[0] = { text: task, type: "text" };
+        }
         if (briefingEnabled && !session.briefed) {
           session.briefed = true;
           const text = yield* briefing.text;

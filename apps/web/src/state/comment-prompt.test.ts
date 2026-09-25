@@ -4,10 +4,10 @@ import { describe, expect, it } from "vitest";
 import { commentPrompt, commentThreadTitle } from "./comment-prompt.ts";
 
 const page: Page = {
-  file: "designs/onboarding/pick.tsx",
-  id: "onboarding/pick.tsx",
+  file: "designs/onboarding/pick.page.json",
+  id: "onboarding/pick.page.json",
   name: "Pick",
-  path: "onboarding/pick.tsx",
+  path: "onboarding/pick.page.json",
   route: "/onboarding/pick",
   space: "",
 };
@@ -15,14 +15,14 @@ const page: Page = {
 const comment: Comment = {
   author: "Ada",
   createdAt: 1,
-  element: "h1",
+  element: "Welcome",
   id: "comment_1",
-  page: "onboarding/pick.tsx",
+  nodeId: "t_title",
+  page: "onboarding/pick.page.json",
   replies: [
     { author: "Grace", createdAt: 2, id: "reply_1", text: "And larger" },
   ],
   resolved: false,
-  source: { col: 6, file: "designs/onboarding/pick.tsx", line: 4 },
   text: "Make this bolder",
   updatedAt: 2,
   x: 40,
@@ -35,8 +35,8 @@ describe("commentPrompt", () => {
       [
         "Address this comment thread left on the design canvas.",
         "",
-        "Page: /onboarding/pick (designs/onboarding/pick.tsx)",
-        "Element: <h1> at designs/onboarding/pick.tsx:4:6",
+        "Page: /onboarding/pick (designs/onboarding/pick.page.json)",
+        'Node: "Welcome" (id t_title)',
         "Pinned at 40, 12 px from the top-left corner of the page",
         "",
         "Ada: Make this bolder",
@@ -54,15 +54,15 @@ describe("commentPrompt", () => {
     expect(prompt.startsWith("Address this comment left")).toBe(true);
   });
 
-  it("names a page that is gone and an element with no source", () => {
+  it("names a page that is gone and a node with no id", () => {
     const prompt = commentPrompt(
-      { ...comment, replies: [], source: null },
+      { ...comment, nodeId: null, replies: [] },
       undefined
     );
     expect(prompt).toContain(
-      "Page: onboarding/pick.tsx (no longer in the designs)"
+      "Page: onboarding/pick.page.json (no longer in the designs)"
     );
-    expect(prompt).toContain("Element: <h1>\n");
+    expect(prompt).toContain('Node: "Welcome"\n');
   });
 });
 

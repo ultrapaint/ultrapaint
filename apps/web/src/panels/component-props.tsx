@@ -1,7 +1,6 @@
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { ComponentMeta, PropMeta } from "@ultrapaint/contracts/catalogue";
-import type { ElementSource } from "@ultrapaint/contracts/edit";
-import type { InspectResult } from "@ultrapaint/contracts/preview";
+import type { InstanceNode } from "@ultrapaint/contracts/document";
 import type * as React from "react";
 import { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -11,45 +10,35 @@ import { OptionSelect } from "../components/option-select.tsx";
 import { Row, Section } from "../components/panel.tsx";
 import { useCatalogue } from "../state/catalogue.ts";
 
-const HIDDEN = new Set([
-  "children",
-  "className",
-  "key",
-  "ref",
-  "data-ed",
-  "style",
-]);
+const HIDDEN = new Set(["children", "className", "key", "ref", "style"]);
+
+/** The catalogue's entry for an instance: the same export from the same module. */
+export const useComponentMeta = (node: InstanceNode) =>
+  useCatalogue(
+    (s) =>
+      s.catalogue?.components.find(
+        (c) => c.name === node.component && c.importFrom === node.from
+      ) ?? s.catalogue?.components.find((c) => c.name === node.component)
+  );
 
 /**
- * Editable props for a design-system component instance. Uses the catalogue for types when
- * available and falls back to the literal kinds found in the source.
+ * Editable props of an instance of the design system. The catalogue says what the component
+ * takes and of which types; what the node sets that the catalogue does not know is listed too.
  */
 export const ComponentProps = ({
-  inspect,
-  source,
+  node,
   onSet,
-  disabled,
 }: {
-  inspect: InspectResult;
-  source: ElementSource | null;
+  node: InstanceNode;
   onSet: (name: string, value: JsonValue) => void;
-  disabled: boolean;
 }) => {
-  const catalogue = useCatalogue((s) => s.catalogue);
-  const meta: ComponentMeta | undefined = catalogue?.components.find(
-    (c) => c.name === inspect.name
-  );
-  const sourceAttrs = new Map(
-    (source?.attributes ?? []).map((a) => [a.name, a])
-  );
+  const meta: ComponentMeta | undefined = useComponentMeta(node);
+  const props = node.props ?? {};
   const names = new Set<string>();
   for (const p of meta?.props ?? []) {
     names.add(p.name);
   }
-  for (const [k] of sourceAttrs) {
-    names.add(k);
-  }
-  for (const k of Object.keys(inspect.props)) {
+  for (const k of Object.keys(props)) {
     names.add(k);
   }
   const list = Array.from(names).filter(
@@ -58,17 +47,14 @@ export const ComponentProps = ({
   if (list.length === 0) {
     return null;
   }
+  const disabled = false;
 
   return (
-    <Section title={`${inspect.name} props`}>
+    <Section title="Props">
       {list.map((name) => {
         const propMeta = meta?.props.find((p) => p.name === name);
-        const attr = sourceAttrs.get(name);
-        const runtime = inspect.props[name];
-        const value: JsonValue = attr
-          ? attr.value
-          : ((runtime as JsonValue) ?? null);
-        const isSet = !!attr;
+        const value: JsonValue = props[name] ?? null;
+        const isSet = name in props;
         return (
           <Row className={isSet ? "" : "opacity-70"} key={name} label={name}>
             <PropControl
@@ -76,7 +62,6 @@ export const ComponentProps = ({
               meta={propMeta}
               name={name}
               onSet={onSet}
-              raw={attr?.raw}
               value={value}
               variants={meta?.variants[name]}
             />
@@ -263,7 +248,6 @@ const PropControl = ({
   name,
   meta,
   value,
-  raw,
   onSet,
   disabled,
   variants,
@@ -271,7 +255,6 @@ const PropControl = ({
   name: string;
   meta?: PropMeta;
   value: JsonValue;
-  raw?: string;
   onSet: SetProp;
   disabled: boolean;
   variants?: readonly string[];
@@ -311,18 +294,13 @@ const PropControl = ({
       />
     );
   }
-  if (
-    kind === "node" ||
-    kind === "function" ||
-    kind === "object" ||
-    (raw && value === null)
-  ) {
+  if (kind === "node" || kind === "function" || kind === "object") {
     return (
       <span
         className="truncate font-mono text-[10px] text-muted-foreground"
-        title={raw}
+        title={meta?.type.raw}
       >
-        {raw ?? (kind === "node" ? "<node>" : "ƒ")}
+        {value === null ? (meta?.type.raw ?? kind) : JSON.stringify(value)}
       </span>
     );
   }

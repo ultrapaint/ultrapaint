@@ -16,9 +16,11 @@ import {
 import type { ChildProcessSpawner } from "effect/unstable/process";
 import { AppLog } from "./app-log.ts";
 import { EventBus } from "./events.ts";
-import { CanvasItems } from "./services/canvas-items.ts";
 import { CatalogueService } from "./services/catalogue.ts";
 import { CommentsService } from "./services/comments.ts";
+import { ComponentRegistry } from "./services/component-registry.ts";
+import { DesignSystemService } from "./services/design-system.ts";
+import { DocumentService } from "./services/documents.ts";
 import { EditService } from "./services/edit.ts";
 import { ProjectFramework } from "./services/framework.ts";
 import { GitService } from "./services/git.ts";
@@ -26,18 +28,22 @@ import { HostManager } from "./services/host.ts";
 import { PagesService } from "./services/pages.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
 import { Storage } from "./services/storage.ts";
+import { Thumbnails } from "./services/thumbnails.ts";
 
 /** Everything that exists once a target repository is configured. */
 export type ProjectServices =
-  | CanvasItems
   | CatalogueService
   | CommentsService
+  | ComponentRegistry
+  | DesignSystemService
+  | DocumentService
   | EditService
   | GitService
   | HostManager
   | ProjectFramework
   | RepoPaths
-  | PagesService;
+  | PagesService
+  | Thumbnails;
 
 type ProjectRequirements =
   | AppLog
@@ -48,18 +54,20 @@ type ProjectRequirements =
   | Storage;
 
 const projectLayer = (settings: Settings) =>
-  CanvasItems.layer.pipe(
+  Layer.mergeAll(DocumentService.layer, DesignSystemService.layer).pipe(
     Layer.provideMerge(
       Layer.mergeAll(
         CatalogueService.layer,
         CommentsService.layer,
         GitService.layer,
         HostManager.layer,
-        PagesService.layer
+        PagesService.layer,
+        Thumbnails.layer
       )
     ),
-    // One journal for every change the editor makes, pages and canvas included.
+    // One journal for every change the editor makes, documents and canvas included.
     Layer.provideMerge(EditService.layer),
+    Layer.provideMerge(ComponentRegistry.layer),
     Layer.provideMerge(ProjectFramework.layer),
     Layer.provideMerge(RepoPaths.layer(settings))
   );

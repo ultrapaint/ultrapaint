@@ -4,6 +4,8 @@ import { ArrowLeft, ArrowRight, RotateCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { IconButton } from "../components/icon-button.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
+import { useDesignSystem } from "../state/design-system.ts";
+import { useDocuments } from "../state/documents.ts";
 import { pagesOfSpace, useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
 import { bridgeFor, removeBridge } from "./bridge.ts";
@@ -17,6 +19,26 @@ const RELOAD_EVENT = "ultrapaint:reload-prototype";
 
 /** The one iframe of a prototype. Navigating swaps the page inside it, it never reloads. */
 export const frameIdOf = (space: string) => `prototype:${space}`;
+
+/** Tells the prototype what the route shows: the page serving it, in the design system. */
+const renderRoute = (space: string) => {
+  const { activePage, route } = useEditor.getState();
+  const state = activePage
+    ? useDocuments.getState().docs[activePage]
+    : undefined;
+  let message: string | undefined;
+  if (!activePage) {
+    message = `No page for ${route}`;
+  } else if (state?.problem !== undefined) {
+    message = `This page cannot be read: ${state.problem}`;
+  }
+  bridgeFor(frameIdOf(space)).render({
+    designSystem: useDesignSystem.getState().designSystem,
+    mode: "page",
+    root: state?.root ?? null,
+    ...(message !== undefined && { message }),
+  });
+};
 
 /**
  * The space at the size of the current page's frame, scaled down only when it does not fit,
@@ -37,11 +59,6 @@ export const Prototype = () => {
   const [area, setArea] = useState({ height: 0, width: 0 });
   const [reloads, setReloads] = useState(0);
   const hasPages = space !== null && pages.some((p) => p.space === space);
-  // The iframe is loaded at the space's home and told where to go as soon as it reports in, so
-  // that navigating never changes its `src`: the page changes, the document stays.
-  const home = useProject(
-    (s) => s.spaces.find((sp) => sp.id === space)?.home ?? "/"
-  );
 
   useEffect(() => {
     const onReload = () => setReloads((n) => n + 1);
@@ -63,7 +80,7 @@ export const Prototype = () => {
 
   const url =
     hostUrl && space !== null
-      ? `${hostUrl}/?space=${encodeURIComponent(space)}&route=${encodeURIComponent(home)}&frame=${encodeURIComponent(frameIdOf(space))}`
+      ? `${hostUrl}/?space=${encodeURIComponent(space)}&frame=${encodeURIComponent(frameIdOf(space))}`
       : null;
 
   const size = frame ?? presetSize.desktop;
@@ -95,8 +112,9 @@ export const Prototype = () => {
     bridge.attach(iframe);
     const off = bridge.on((msg: HostMessage) => {
       if (msg.type === "ed:ready") {
-        // Whatever the iframe started on, the editor says where it should be.
-        bridge.setRoute(useEditor.getState().route);
+        // Whatever the iframe started on, the editor says what it shows; and it is for clicking.
+        renderRoute(space);
+        bridge.setInteractive(true);
       }
       if (msg.type === "ed:navigateTo") {
         useEditor.getState().navigate(msg.route, { push: !msg.replace });
@@ -108,12 +126,17 @@ export const Prototype = () => {
     };
   }, [space, url, reloads, shown]);
 
-  // The editor holds the route; the preview follows it, without reloading.
+  // The editor holds the route; the preview draws the page serving it, without reloading.
+  const document = useDocuments((s) =>
+    activePage ? s.docs[activePage] : undefined
+  );
+  const designSystem = useDesignSystem((s) => s.designSystem);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: what is drawn is the dependency.
   useEffect(() => {
-    if (space !== null && url) {
-      bridgeFor(frameIdOf(space)).setRoute(route);
+    if (space !== null && url && bridgeFor(frameIdOf(space)).ready) {
+      renderRoute(space);
     }
-  }, [route, space, url]);
+  }, [route, space, url, document, designSystem]);
 
   return (
     <div

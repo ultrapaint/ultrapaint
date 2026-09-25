@@ -1,9 +1,8 @@
 /**
- * Entry of the script injected into every page iframe ahead of the page itself: the
- * framework-neutral preview core, given React's introspector. It has to run before React
- * loads, because the DevTools hook must be in place when React initialises.
+ * Entry of the script injected into every preview iframe ahead of the page itself: the
+ * framework-neutral preview core. Drawing is the renderer's, loaded by the generated entry
+ * module with the repository's own React.
  */
 import { startPreview } from "@ultrapaint/preview-core/index";
-import { reactIntrospector } from "./introspect.ts";
 
-startPreview(reactIntrospector);
+startPreview();

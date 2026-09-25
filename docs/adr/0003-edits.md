@@ -1,6 +1,6 @@
 # ADR 0003: Edits
 
-Status: accepted, 2026-09-17. Confirms D5.
+Status: superseded by 0015, 2026-09-25. Accepted 2026-09-17, confirming D5.
 
 ## Decision
 

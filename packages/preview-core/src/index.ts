@@ -1,34 +1,38 @@
 /**
- * The framework-neutral half of the preview runtime, injected into every page iframe. It
- * speaks the editor's protocol (`@ultrapaint/contracts/preview`) over `postMessage` and works
- * on the DOM alone: hit-testing, rectangles, style provenance, inline text editing, tokens and
- * screenshots. Whatever needs the framework's component tree is asked of the renderer's
- * `Introspector`.
+ * The framework-neutral half of the preview runtime, injected into every preview iframe. It
+ * speaks the editor's protocol (`@ultrapaint/contracts/preview`) over `postMessage` and works on
+ * the DOM alone: what to draw comes from the editor as a document, the renderer draws it, and
+ * this answers where things are — hit tests, rectangles, sizes — and edits text in place.
  */
 import type {
-  Introspector,
+  Mounted,
   PreviewGlobal,
+  RenderRequest,
+  RenderSetup,
+  StartInput,
 } from "@ultrapaint/framework-api/browser";
 import { PREVIEW_PROTOCOL } from "@ultrapaint/framework-api/protocol";
 import { toPng } from "html-to-image";
-import { directText, parseStamp, STAMP, unionRect } from "./dom.ts";
+import { chainAt, directText, elementsOf, unionRect } from "./dom.ts";
 import { elementAt } from "./hit.ts";
-import { makeRouter } from "./router.ts";
-import { inspectStyles, invalidateRules, readTokens } from "./styles.ts";
+import { readTokens } from "./tokens.ts";
 
 interface Config {
-  designsDir: string;
-  /** What this iframe is to the editor: a page on the canvas, a space in the prototype. */
+  /** URL of the designs directory on the dev server, `/@fs/...`. */
+  designsRoot: string;
+  /** What this iframe is to the editor: a frame on the canvas, the prototype, a specimen. */
   frame: string;
-  /** Route the editor opened the preview at. */
-  route: string;
-  /** Space whose pages this preview may show. */
+  /** Space whose assets relative image paths are in. */
   space: string;
 }
 
-export const startPreview = (introspector: Introspector) => {
+const ABSOLUTE_URL_RE = /^(?:[a-z][a-z\d+.-]*:|\/)/i;
+const LEADING_DOT_SLASH_RE = /^\.\//;
+
+export const startPreview = () => {
   const config: Config = (window as unknown as { __ED_CONFIG__?: Config })
-    .__ED_CONFIG__ ?? { designsDir: "", frame: "", route: "/", space: "" };
+    .__ED_CONFIG__ ?? { designsRoot: "", frame: "", space: "" };
+  const standalone = window.parent === window;
 
   // ---- Messaging ----
   // Every message carries the frame id so the editor can route it without relying on window
@@ -37,49 +41,122 @@ export const startPreview = (introspector: Introspector) => {
     window.parent.postMessage({ ...msg, frame: config.frame }, "*");
   };
 
-  const router = makeRouter({
-    post,
-    reportError: (error) => post({ error, type: "ed:error" }),
-    route: config.route,
-    space: config.space,
-    standalone: window.parent === window,
-  });
+  // ---- Drawing ----
+  let canvas: HTMLElement | null = null;
+  let mounted: Mounted | null = null;
+  /** A render asked for before the renderer was loaded: drawn as soon as it is. */
+  let waiting: RenderRequest | null = null;
+  let mode: RenderRequest["mode"] = "page";
 
-  const sendTree = () => {
-    const children = introspector.tree();
-    if (!children) {
-      return;
+  const assetUrl = (src: string) => {
+    if (ABSOLUTE_URL_RE.test(src)) {
+      return src;
     }
-    const name = router.state().route;
-    post({
-      tree: {
-        children,
-        editable: false,
-        id: "root",
-        kind: "element",
-        name,
-        source: null,
-        summary: name,
-      },
-      type: "ed:tree",
-    });
+    const space = config.space ? `${config.space}/` : "";
+    return `${config.designsRoot}/${space}${src.replace(LEADING_DOT_SLASH_RE, "")}`;
   };
 
-  let watched: string[] = [];
-  let rectsScheduled = false;
-  const sendRects = () => {
-    rectsScheduled = false;
-    if (watched.length === 0) {
+  let lastSize = { height: -1, width: -1 };
+  const sendSize = () => {
+    if (!canvas || mode !== "fit") {
       return;
     }
+    const width = Math.ceil(canvas.offsetWidth);
+    const height = Math.ceil(canvas.offsetHeight);
+    if (width === lastSize.width && height === lastSize.height) {
+      return;
+    }
+    lastSize = { height, width };
+    post({ height, type: "ed:size", width });
+  };
+
+  /** Whether a `fit` render takes the iframe's width, and wraps in it, rather than its own. */
+  let fill = false;
+
+  /** `fit` draws at the content's own size, so the editor can size the frame around it. */
+  const applyMode = (next: RenderRequest["mode"]) => {
+    mode = next;
+    if (!canvas) {
+      return;
+    }
+    if (next === "fit") {
+      canvas.style.width = fill ? "100%" : "max-content";
+      canvas.style.minHeight = "0";
+      canvas.style.display = "block";
+      document.documentElement.style.background = "transparent";
+      document.body.style.background = "transparent";
+    } else {
+      canvas.style.width = "";
+      canvas.style.minHeight = "";
+      canvas.style.display = "";
+      document.documentElement.style.background = "";
+      document.body.style.background = "";
+    }
+  };
+
+  const render = (request: RenderRequest) => {
+    if (!mounted) {
+      waiting = request;
+      return;
+    }
+    if (editing) {
+      finishTextEdit(false);
+    }
+    fill = request.root?.width === "fill";
+    applyMode(request.mode);
+    mounted.render(request);
+  };
+
+  const setup: RenderSetup = {
+    assetUrl,
+    components: {},
+    navigate: (route) => {
+      if (!standalone) {
+        post({ replace: false, route, type: "ed:navigateTo" });
+      }
+    },
+    onRendered: (renderId) => {
+      post({ renderId, type: "ed:rendered" });
+      scheduleRects();
+      requestAnimationFrame(sendSize);
+    },
+    providers: undefined,
+    reportError: (error) => post({ error, type: "ed:error" }),
+  };
+
+  const start = (input: StartInput) => {
+    ({ canvas } = input);
+    mounted = input.mount(
+      { ...setup, components: input.components, providers: input.providers },
+      input.canvas
+    );
+    new ResizeObserver(sendSize).observe(input.canvas);
+    applyMode(mode);
+    if (waiting) {
+      const request = waiting;
+      waiting = null;
+      render(request);
+    }
+  };
+
+  // ---- Rectangles ----
+  let watched: string[] = [];
+  let rectsScheduled = false;
+  const measure = (ids: readonly string[]) => {
     const rects: Record<string, ReturnType<typeof unionRect>> = {};
-    for (const id of watched) {
-      const els = introspector.elementsOf(id);
+    for (const id of ids) {
+      const els = elementsOf(id);
       if (els.length > 0) {
         rects[id] = unionRect(els);
       }
     }
-    post({ rects, type: "ed:rects" });
+    return rects;
+  };
+  const sendRects = () => {
+    rectsScheduled = false;
+    if (watched.length > 0) {
+      post({ rects: measure(watched), type: "ed:rects" });
+    }
   };
   const scheduleRects = () => {
     if (rectsScheduled) {
@@ -89,61 +166,14 @@ export const startPreview = (introspector: Introspector) => {
     requestAnimationFrame(sendRects);
   };
 
-  let commitScheduled = false;
-  const scheduleAfterCommit = () => {
-    if (commitScheduled) {
-      return;
-    }
-    commitScheduled = true;
-    queueMicrotask(() => {
-      commitScheduled = false;
-      sendTree();
-      scheduleRects();
-    });
-  };
-
-  introspector.install({
-    isEditable: (source) =>
-      !!source &&
-      config.designsDir !== "" &&
-      source.file.startsWith(`${config.designsDir}/`),
-    onCommit: scheduleAfterCommit,
-    parseStamp,
-    stampAttribute: STAMP,
-  });
-
-  // ---- Inspection ----
-  const inspect = (nodeId: string) => {
-    const facts = introspector.describe(nodeId);
-    const els = introspector.elementsOf(nodeId);
-    const [el] = els;
-    if (!(facts && el)) {
-      return null;
-    }
-    return {
-      classes: Array.from(el.classList),
-      editable: facts.editable,
-      editableAncestor: facts.editableAncestor,
-      kind: facts.kind,
-      name: facts.name,
-      nodeId,
-      ownClasses: facts.ownClasses,
-      props: facts.props,
-      rect: unionRect(els),
-      source: facts.source,
-      styles: inspectStyles(el, facts.ownClasses, facts.editable),
-      text: facts.kind === "element" ? directText(el) : facts.text,
-    };
-  };
-
   // ---- Interaction guard ----
   // Select mode blocks pointer events on the iframe from the editor side, but that is only half
   // of it: an element focused earlier still answers the keyboard, and the click the browser
   // synthesises from Enter or Space still runs the component's handlers — enough to open a
-  // select and leave it hanging over a canvas that cannot close it. Everything the screen could
+  // select and leave it hanging over a canvas that cannot close it. Everything the page could
   // respond to is stopped here unless the editor put the canvas in interact mode. A preview
   // opened on its own (no editor around it) stays interactive.
-  let interactive = window.parent === window;
+  let interactive = standalone;
 
   const GUARDED = [
     "auxclick",
@@ -191,14 +221,6 @@ export const startPreview = (introspector: Introspector) => {
     }
   };
 
-  // Focus is deliberately left where it is when interact mode ends. A dropdown opened in
-  // interact mode should still be there to be measured and restyled after the switch back to
-  // select, and taking focus off it is one of the things that closes it. The guard above is
-  // what keeps it from answering, so nothing is gained by moving focus as well.
-  const setInteractive = (next: boolean) => {
-    interactive = next;
-  };
-
   // ---- Inline text editing ----
   let editing: {
     cleanup: () => void;
@@ -224,7 +246,7 @@ export const startPreview = (introspector: Introspector) => {
     }
   };
 
-  /** Enter commits, Escape reverts. Called from the guard, which owns the keyboard. */
+  /** Enter commits, Escape reverts; Shift+Enter is a new line. Called from the guard. */
   const editKey = (e: KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -236,14 +258,9 @@ export const startPreview = (introspector: Introspector) => {
   };
 
   const startTextEdit = (nodeId: string) => {
-    const el = introspector.elementsOf(nodeId)[0] as HTMLElement | undefined;
-    if (!el) {
-      return;
-    }
-    // Only an element that holds text and nothing else. Making one with element children
-    // editable lets a keystroke delete a child React still believes it owns — the chevron of a
-    // select, an icon inside a button — and the next render throws on the missing node.
-    if (directText(el) === null) {
+    const el = elementsOf(nodeId)[0] as HTMLElement | undefined;
+    // Only an element that holds text and nothing else: what a text node draws.
+    if (!el || directText(el) === null) {
       return;
     }
     if (editing) {
@@ -269,8 +286,8 @@ export const startPreview = (introspector: Introspector) => {
 
   /**
    * Runs something that changes the DOM and changes it back, without our observer reading the
-   * pair as the screen having moved. `disconnect` empties the record queue, and nothing else
-   * runs in between.
+   * pair as the page having moved. `disconnect` empties the record queue, and nothing else runs
+   * in between.
    */
   const unobserved = <T>(f: () => T): T => {
     mo.disconnect();
@@ -281,6 +298,16 @@ export const startPreview = (introspector: Introspector) => {
     }
   };
 
+  const screenshot = (requestId: unknown) => {
+    const target = mode === "fit" && canvas ? canvas : document.body;
+    toPng(target, {
+      cacheBust: true,
+      pixelRatio: mode === "fit" ? 2 : 1,
+    })
+      .then((dataUrl) => post({ dataUrl, requestId, type: "ed:screenshot" }))
+      .catch(() => post({ dataUrl: null, requestId, type: "ed:screenshot" }));
+  };
+
   // ---- Handlers ----
   window.addEventListener("message", (ev) => {
     const msg = ev.data as ({ type?: string } & Record<string, unknown>) | null;
@@ -288,44 +315,33 @@ export const startPreview = (introspector: Introspector) => {
       return;
     }
     switch (msg.type) {
-      case "ed:getTree":
-        sendTree();
+      case "ed:render":
+        render(msg as unknown as RenderRequest);
         break;
       case "ed:hitTest": {
         // The lookup lifts `inert` off the page for an instant; our own observer would read
-        // that as the screen changing and ask for rects on every hover.
+        // that as the page changing and ask for rects on every hover.
         const el = unobserved(() =>
           elementAt(msg.x as number, msg.y as number)
         );
         post({
-          nodeIds: el ? introspector.chainAt(el) : [],
+          nodeIds: chainAt(el),
           requestId: msg.requestId,
           type: "ed:hit",
         });
         break;
       }
-      case "ed:inspect":
-        post({
-          requestId: msg.requestId,
-          result: inspect(msg.nodeId as string),
-          type: "ed:inspect",
-        });
-        break;
       case "ed:watchRects":
         watched = msg.nodeIds as string[];
         scheduleRects();
         break;
-      case "ed:measure": {
-        const rects: Record<string, ReturnType<typeof unionRect>> = {};
-        for (const id of msg.nodeIds as string[]) {
-          const els = introspector.elementsOf(id);
-          if (els.length > 0) {
-            rects[id] = unionRect(els);
-          }
-        }
-        post({ rects, requestId: msg.requestId, type: "ed:measured" });
+      case "ed:measure":
+        post({
+          rects: measure(msg.nodeIds as string[]),
+          requestId: msg.requestId,
+          type: "ed:measured",
+        });
         break;
-      }
       case "ed:editText":
         startTextEdit(msg.nodeId as string);
         break;
@@ -333,31 +349,22 @@ export const startPreview = (introspector: Introspector) => {
         if (editing && !msg.interactive) {
           finishTextEdit(true);
         }
-        setInteractive(Boolean(msg.interactive));
+        interactive = Boolean(msg.interactive);
         break;
       case "ed:scrollIntoView":
-        introspector
-          .elementsOf(msg.nodeId as string)[0]
-          ?.scrollIntoView({ block: "nearest" });
+        elementsOf(msg.nodeId as string)[0]?.scrollIntoView({
+          block: "nearest",
+        });
         break;
       case "ed:screenshot":
-        toPng(document.body, { cacheBust: true, pixelRatio: 1 })
-          .then((dataUrl) =>
-            post({ dataUrl, requestId: msg.requestId, type: "ed:screenshot" })
-          )
-          .catch(() =>
-            post({
-              dataUrl: null,
-              requestId: msg.requestId,
-              type: "ed:screenshot",
-            })
-          );
-        break;
-      case "ed:route":
-        router.setRoute(msg.route as string);
+        screenshot(msg.requestId);
         break;
       case "ed:getTokens":
-        post({ tokens: readTokens(), type: "ed:tokens" });
+        post({
+          requestId: msg.requestId,
+          tokens: readTokens(msg.prefixes as string[] | undefined),
+          type: "ed:tokens",
+        });
         break;
       default:
         break;
@@ -365,10 +372,7 @@ export const startPreview = (introspector: Introspector) => {
   });
 
   // ---- Observers ----
-  const mo = new MutationObserver(() => {
-    invalidateRules();
-    scheduleRects();
-  });
+  const mo = new MutationObserver(scheduleRects);
   const observe = () =>
     mo.observe(document.documentElement, {
       attributes: true,
@@ -376,11 +380,11 @@ export const startPreview = (introspector: Introspector) => {
       childList: true,
       subtree: true,
     });
+
   /**
-   * A plain `<a href="/pricing">` is a navigation too. Left alone it would load the preview's
-   * own root into the iframe and take the runtime with it. The navigation module prevents the
-   * default itself, so this only ever sees links written without it. Bubble phase: in select
-   * mode the guard has already stopped the event in capture.
+   * A plain `<a href="/pricing">` a component renders is a navigation too. Left alone it would
+   * load the preview's own root into the iframe and take the runtime with it. Bubble phase: in
+   * select mode the guard has already stopped the event in capture.
    */
   const interceptLinks = (e: MouseEvent) => {
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey) {
@@ -397,14 +401,14 @@ export const startPreview = (introspector: Introspector) => {
       return;
     }
     const url = new URL(anchor.href, location.href);
-    if (url.origin !== location.origin || url.pathname === location.pathname) {
+    if (url.origin !== location.origin) {
       return;
     }
     e.preventDefault();
-    router.navigate(url.pathname);
+    setup.navigate(url.pathname);
   };
 
-  const start = () => {
+  const ready = () => {
     window.addEventListener("click", interceptLinks);
     for (const type of GUARDED) {
       // Capture on the window: React listens on its root container, so this runs first and can
@@ -429,33 +433,24 @@ export const startPreview = (introspector: Introspector) => {
     post({ protocol: PREVIEW_PROTOCOL, type: "ed:ready" });
   };
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", start);
+    document.addEventListener("DOMContentLoaded", ready);
   } else {
-    start();
+    ready();
   }
 
-  // Public surface for the generated entry module (HMR notifications, render errors).
+  // Public surface for the generated modules: start, the registry, HMR and errors.
   const surface: PreviewGlobal = {
     notifyHmr() {
-      invalidateRules();
       post({ type: "ed:hmr" });
-      scheduleAfterCommit();
+      scheduleRects();
     },
     reportError(error) {
       post({ error, type: "ed:error" });
     },
-    showMessage(canvas, message) {
-      const box = document.createElement("pre");
-      box.textContent = message;
-      box.setAttribute(
-        "style",
-        "padding:16px;color:#b00020;white-space:pre-wrap;font:12px ui-monospace,monospace"
-      );
-      canvas.replaceChildren(box);
+    setComponents(components) {
+      mounted?.setComponents(components);
     },
-    startRouter(input) {
-      router.start(input);
-    },
+    start,
   };
   (window as unknown as { __ED__: PreviewGlobal }).__ED__ = surface;
 };

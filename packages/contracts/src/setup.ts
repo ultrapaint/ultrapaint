@@ -33,16 +33,16 @@ export const SetupSuggestions = Schema.Struct({
   framework: FrameworkId,
   libraries: Schema.Array(LibrarySuggestion),
   repoName: Schema.String,
+  /**
+   * Which Tailwind the stylesheets set up. Only v4 is supported: its `@theme` is where the
+   * design system's tokens are read from.
+   */
+  tailwind: Schema.Literals(["v4", "v3", "none"]),
 });
 export type SetupSuggestions = typeof SetupSuggestions.Type;
 
 export const CreateDesignsInput = Schema.Struct({
   designsDir: RepoRelativePath,
-  /**
-   * Link the anchor's `node_modules` into the designs directory, so editors and `tsc` resolve
-   * what the screens import. The preview does not need it.
-   */
-  linkDependencies: Schema.Boolean,
   repoPath: Schema.String,
   resolveFrom: Schema.optional(RepoRelativePath),
 });

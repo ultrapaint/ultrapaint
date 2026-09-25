@@ -1,0 +1,109 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { defaultSettings } from "@ultrapaint/contracts/settings";
+import { afterAll, describe, expect, it } from "vitest";
+import { scanDesignSystem } from "./design-system-scan.ts";
+
+const roots: string[] = [];
+afterAll(() => {
+  for (const root of roots) {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+const repository = (files: Record<string, string>) => {
+  const root = mkdtempSync(path.join(tmpdir(), "ed-scan-"));
+  roots.push(root);
+  for (const [rel, content] of Object.entries(files)) {
+    const file = path.join(root, rel);
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, content);
+  }
+  return root;
+};
+
+describe("scanning a Tailwind v4 design system", () => {
+  it("reads the theme, follows imports and variables, and splits themes", () => {
+    const root = repository({
+      "node_modules/tailwindcss/package.json": '{"name":"tailwindcss"}',
+      "node_modules/tailwindcss/theme.css": `@theme default {
+  --color-red-500: oklch(63.7% 0.237 25.331);
+  --text-sm: 0.875rem;
+  --text-sm--line-height: calc(1.25 / 0.875);
+  --font-weight-bold: 700;
+  --radius-lg: 0.5rem;
+  --spacing: 0.25rem;
+}`,
+      "packages/ui/theme.css": `/* tokens */
+:root { --primary: #112233; --background: #ffffff; }
+.dark { --primary: #445566; --background: #000000; }
+@theme inline {
+  --color-primary: var(--primary);
+  --color-background: var(--background);
+  --color-brand-500: #ff0000;
+  --font-sans: "Inter", sans-serif;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.1);
+}`,
+      "packages/web/src/app.css": `@import "tailwindcss";\n@import "../../ui/theme.css";\n`,
+    });
+    const settings = {
+      ...defaultSettings(root),
+      designsDir: "designs",
+      hostCss: ["../../packages/web/src/app.css"],
+    };
+    const { designSystem, files, notes } = scanDesignSystem({
+      anchorDir: root,
+      root,
+      settings,
+    });
+    expect(files).toEqual([
+      "packages/web/src/app.css",
+      "packages/ui/theme.css",
+    ]);
+    const semantic = designSystem.colors.find((g) => g.name === "Semantic");
+    expect(semantic?.tokens).toEqual([
+      {
+        name: "color-background",
+        value: "#ffffff",
+        values: { dark: "#000000" },
+      },
+      { name: "color-primary", value: "#112233", values: { dark: "#445566" } },
+    ]);
+    // The repository's own colours replace Tailwind's palette.
+    expect(designSystem.colors.map((g) => g.name)).toEqual([
+      "Semantic",
+      "Brand",
+    ]);
+    expect(designSystem.themes).toEqual(["light", "dark"]);
+    expect(designSystem.typography.sizes).toEqual([
+      { lineHeight: "calc(1.25 / 0.875)", name: "text-sm", value: "0.875rem" },
+    ]);
+    expect(designSystem.typography.fonts[0]?.name).toBe("font-sans");
+    expect(designSystem.typography.weights[0]).toEqual({
+      name: "font-weight-bold",
+      value: "700",
+    });
+    expect(designSystem.radius).toEqual([
+      { name: "radius-lg", value: "0.5rem" },
+    ]);
+    expect(designSystem.shadows[0]?.name).toBe("shadow-card");
+    expect(designSystem.spacing.base).toBe("0.25rem");
+    expect(notes.some((n) => n.includes("Tailwind v4"))).toBe(false);
+  });
+
+  it("says so when there is no Tailwind", () => {
+    const root = repository({ "app.css": ":root { --x: 1px; }" });
+    const { designSystem, notes } = scanDesignSystem({
+      anchorDir: root,
+      root,
+      settings: {
+        ...defaultSettings(root),
+        designsDir: ".",
+        hostCss: ["../app.css"],
+      },
+    });
+    expect(designSystem.colors).toEqual([]);
+    expect(notes.some((n) => n.includes("Tailwind v4"))).toBe(true);
+  });
+});

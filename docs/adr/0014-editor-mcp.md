@@ -2,6 +2,11 @@
 
 Status: accepted, 2026-09-21.
 
+> Amended by [0015](0015-design-documents.md), 2026-09-25. Pages are no longer source, so the
+> editor does offer the way to edit them: `read_page`, `read_canvas`, `get_document_format` and
+> `apply_operations`, the same operations the inspector makes, validated and undoable. The design
+> system has `scan_design_system`, `read_design_system` and `write_design_system`, for `/init`.
+
 ## Decision
 
 The server hosts an MCP server on its own port at `/mcp`, built on Effect's `McpServer` over

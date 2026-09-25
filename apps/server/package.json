@@ -17,6 +17,7 @@
     "@effect/platform-node": "catalog:",
     "@ultrapaint/acp": "workspace:*",
     "@ultrapaint/contracts": "workspace:*",
+    "@ultrapaint/design-document": "workspace:*",
     "@ultrapaint/framework-api": "workspace:*",
     "@ultrapaint/framework-react-vite": "workspace:*",
     "@ultrapaint/shared": "workspace:*",

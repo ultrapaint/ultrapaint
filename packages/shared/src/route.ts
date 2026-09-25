@@ -5,15 +5,17 @@
  *
  * | file                  | route             |
  * |-----------------------|-------------------|
- * | `index.tsx`           | `/`               |
- * | `pricing.tsx`         | `/pricing`        |
- * | `settings/index.tsx`  | `/settings`       |
- * | `invoices/[id].tsx`   | `/invoices/:id`   |
- * | `docs/[...rest].tsx`  | `/docs/*`         |
+ * | `index.page.json`            | `/`             |
+ * | `pricing.page.json`          | `/pricing`      |
+ * | `settings/index.page.json`   | `/settings`     |
+ * | `invoices/[id].page.json`    | `/invoices/:id` |
+ * | `docs/[...rest].page.json`   | `/docs/*`       |
  */
-import { humanise, stripExtension, toPosix } from "./path.ts";
+import { humanise, toPosix } from "./path.ts";
 
 const TRAILING_SLASHES_RE = /\/+$/;
+/** A page file's extension: `.page.json`, or the one extension of any other file. */
+const PAGE_EXTENSION_RE = /\.page\.json$|\.[^./]+$/;
 
 /** `[id]` and `[...rest]` are the parameter forms; anything else is a literal segment. */
 const parameterOf = (segment: string): string | null =>
@@ -42,7 +44,8 @@ export const routeSegments = (route: string): string[] => {
 
 /** The route a page file serves, from its path inside the space. */
 export const routeOf = (pagePath: string): string => {
-  const segments = stripExtension(toPosix(pagePath))
+  const segments = toPosix(pagePath)
+    .replace(PAGE_EXTENSION_RE, "")
     .split("/")
     .filter((segment) => segment !== "");
   const last = segments.at(-1);
@@ -170,7 +173,7 @@ export const matchRoute = <T extends { readonly route: string }>(
 
 /**
  * What a `to` means: a route when it starts with a slash, otherwise the page file it names
- * inside the space (`settings/billing`, `settings/billing.tsx`).
+ * inside the space (`settings/billing`, `settings/billing.page.json`).
  */
 export const resolveTarget = (to: string): string => {
   const trimmed = toPosix(to).trim();

@@ -303,6 +303,44 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
     );
 
     it.effect(
+      "gives the agent the task a slash command stands for, and keeps what was typed",
+      () =>
+        Effect.gen(function* () {
+          const { client } = yield* TestEnv;
+          const commands = yield* client["commands.list"]();
+          assert.deepStrictEqual(
+            commands.map((c) => c.name),
+            ["init", "implement"]
+          );
+          const threadId = yield* startThread;
+          yield* prompt(threadId, "/init");
+          const init = yield* waitForThread(threadId, turnEnded);
+          const said = (items: readonly ThreadItem[]) =>
+            items.flatMap((i) => (i.kind === "agent" ? [i.text] : []));
+          assert.include(
+            said(init.items).join("\n"),
+            "task:init Import this repository's design system"
+          );
+          assert.include(
+            init.items.flatMap((i) => (i.kind === "user" ? [i.text] : [])),
+            "/init"
+          );
+
+          yield* prompt(threadId, "/implement /home");
+          const implement = yield* waitForThread(
+            threadId,
+            (thread, items) =>
+              turnEnded(thread, items) &&
+              items.filter((i) => i.kind === "turn_end").length === 2
+          );
+          assert.include(
+            said(implement.items).at(-1) ?? "",
+            "task:implement Implement the page /home of the design (designs/home.page.json)"
+          );
+        })
+    );
+
+    it.effect(
       "does not brief a resumed session again, since it has the briefing back",
       () =>
         Effect.gen(function* () {

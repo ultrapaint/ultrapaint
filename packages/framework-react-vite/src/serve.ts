@@ -19,7 +19,6 @@ import {
   TAILWIND_PLUGIN_RE,
 } from "./inherit-plugins.ts";
 import { ultrapaintResolve } from "./resolve-plugin.ts";
-import { ultrapaintStamp } from "./stamp-plugin.ts";
 
 export interface ServeOptions {
   anchorDir: string;
@@ -32,7 +31,7 @@ export interface ServeOptions {
   entries: string[];
   /** The generated page, served at `/`. */
   html: string;
-  /** Directories whose JSX is stamped. */
+  /** Directories the dev server watches beyond its root: the designs and the libraries. */
   include: string[];
   root: string;
   /** Packages there must be one copy of on the page: resolved from the anchor for everyone. */
@@ -238,8 +237,9 @@ const server = await vite.createServer(
     // A PostCSS setup (Tailwind 3) is looked for from the anchor, not from the generated root.
     css: inherited.css?.postcss ? {} : { postcss: options.anchorDir },
     logLevel: "info",
-    // Scan every screen and design-system file up front so Vite pre-bundles all dependencies
-    // once; discovering a new dependency later re-optimises and can load a second React copy.
+    // Scan the registry and every design-system file up front so Vite pre-bundles all
+    // dependencies once; discovering a new dependency later re-optimises and can load a second
+    // React copy.
     optimizeDeps: { entries: options.entries },
     plugins: [
       ultrapaintResolve({
@@ -247,7 +247,6 @@ const server = await vite.createServer(
         from: [options.designsDir, options.bundleDir],
       }),
       servePage,
-      ultrapaintStamp({ include: options.include, repoRoot: options.root }),
       ...extra,
     ],
     resolve: { dedupe: options.singletons },

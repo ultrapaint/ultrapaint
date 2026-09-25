@@ -8,6 +8,9 @@ Changed since: step 2.3 (settings under one tool home) is replaced by the storag
 [ADR 0010](adr/0010-storage-modes.md). D13, D14 and `packages/host-plugin` (D20, steps 3.x) are
 replaced by the editor / preview core / renderer / framework split of
 [ADR 0011](adr/0011-preview-split.md): the designs directory no longer has to be a package.
+The storage verdict of step 10.1 (keep TSX) is reversed by [ADR 0015](adr/0015-design-documents.md):
+pages are design documents, so JSX stamping and source edits (steps of M1 and M2), fiber-based
+layers and the formatter step are gone; see section 7.
 
 ---
 
@@ -451,7 +454,27 @@ behaviour and review readability, and a recommendation on TSX.
 
 ### Open items
 
-- Formatter latency: run Biome in-process or through a long-lived daemon to reach the 300 ms budget.
+- ~~Formatter latency~~: no longer applies; edits are document operations and nothing is formatted.
 - Desktop: package the Electron app (electron-builder or similar); today it runs from the checkout with `pnpm -F @ultrapaint/desktop dev`.
 - Canvas: align and distribute; scripted frame-rate measurement with 12 frames.
 - Deviations from D6: Biome recommended rules instead of ultracite; plain Vite instead of vite-plus for this repository.
+
+## 7. Design documents (2026-09-25)
+
+[ADR 0015](adr/0015-design-documents.md) replaced TSX pages with a format of the tool's own.
+
+| Part | Status | Notes |
+|------|--------|-------|
+| Format | done | `packages/contracts/src/document.ts` (page, row, column, group, text, image, instance) and `packages/design-document` (tree, ids, operations, tokens, CSS). |
+| Storage | done | `<route>.page.json` per page, loose nodes in `canvas.json`; ids a hand-written file leaves out are filled in and written back. |
+| Edits | done | `documents.apply`: operations on one or several documents as one undo step, through the existing journal. |
+| Preview | done | Protocol 5: the editor sends a document, the renderer draws it with the repository's components from a generated registry; rects, hit chain, text editing, screenshots. |
+| Editor | done | Whole-space layers, node frames on the canvas, drag within and between pages and the canvas, typed inspector with token pickers, palette of primitives and components as a list or a grid of thumbnails. |
+| Design system | done | Tailwind v4 `@theme` scan, `design-system.json` and `DESIGN.md`, the Design system panel, `/init` prefilled in a new thread from the panel or Settings. |
+| Agents | done | MCP tools for documents and the design system, `/init` and `/implement` expanded by the server, briefing rewritten for the format. |
+| Tailwind v3 and no Tailwind | not supported | Setup says so. |
+
+### Open items
+
+- Old `.tsx` pages are not converted; they are no longer read.
+- `/implement` is only as good as the agent: nothing checks that the code matches the design.

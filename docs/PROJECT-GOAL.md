@@ -10,9 +10,9 @@ Build a local-first design tool for teams that work with coding agents.
 
 - **A Figma-like editor whose canvas is the real web UI.** The layout is familiar from
   Figma: a toolbar, a layers panel on the left, a property inspector on the right, and a
-  canvas in the middle. But the canvas is not a vector document. It renders our actual
-  React screens, built from our own design system components, live and clickable. There
-  is no pixel-perfect drawing surface.
+  canvas in the middle. But the canvas is not a vector document. It renders our screens
+  with our own design system — its theme and its React components — live and clickable.
+  There is no pixel-perfect drawing surface.
 
 - **An infinite, navigable canvas with many screens at once.** The canvas pans and zooms
   like Figma. Multiple screens sit side by side on the same surface so a whole flow or
@@ -20,15 +20,16 @@ Build a local-first design tool for teams that work with coding agents.
   still the real React UI. Behind the scenes this is web rendering, with each screen
   positioned and scaled on the surface, not a pixel canvas.
 
-- **Layers are the DOM.** The layers panel shows the rendered element tree: components,
-  divs, paragraphs, buttons, exactly as they exist in the UI. Selecting a layer selects
-  the element on the canvas and in the code.
+- **Layers are the design.** The layers panel shows the whole space, as Figma does: every
+  page with its tree of rows, columns, groups, text, images and design-system components,
+  and the nodes placed on the canvas beside them. Selecting a layer selects the element
+  on the canvas.
 
 - **The inspector edits real values.** The right sidebar shows the selected element's
   actual properties with a Figma-quality UI: padding and margin fields, font family in a
-  dropdown, font size, weight, line height, colors, sizing, layout. Changing a value
-  changes the code, whether that is a component prop, a Tailwind class, or a style
-  token, and the canvas updates immediately.
+  dropdown, font size, weight, line height, colors, sizing, layout. Values are the
+  design system's tokens where it has them, component props are the component's own,
+  and the canvas updates immediately.
 
 - **Design with our real components.** Screens are composed from our design system, not
   generated HTML. Component props are editable in the inspector, and the design system
@@ -47,11 +48,12 @@ Build a local-first design tool for teams that work with coding agents.
 
 ## Storage format
 
-- **Start with TSX, but do not lock it in.** Screens are stored as React source files in
-  the repository at first, because that is what renders and what agents already know how
-  to edit. Whether TSX stays the canonical format is an open question to revisit once
-  the editor works end to end. A translation to a dedicated screen format is possible
-  later, as long as it stays text-based and lives in the repository.
+- **A design format of its own, not code.** Screens started as React source files; once
+  the editor worked end to end they moved to a dedicated, generic format: JSON documents
+  of pages, rows, columns, groups, text, images and design-system component instances,
+  styled with the design system's tokens. They are text and live in the repository. An
+  agent turns a finished design into the application's own code
+  ([ADR 0015](adr/0015-design-documents.md)).
 
 ## Architecture
 

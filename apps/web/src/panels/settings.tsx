@@ -3,9 +3,16 @@ import type { Settings, StorageInfo } from "@ultrapaint/contracts/settings";
 import { defaultSettings } from "@ultrapaint/contracts/settings";
 import type { SetupSuggestions } from "@ultrapaint/contracts/setup";
 import type { McpConnection } from "@ultrapaint/contracts/threads";
-import { ArrowLeft, CircleAlert, FolderSearch } from "lucide-react";
+import {
+  ArrowLeft,
+  CircleAlert,
+  FolderSearch,
+  TriangleAlert,
+  Wand2,
+} from "lucide-react";
 import type * as React from "react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,7 +29,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { OptionSelect } from "../components/option-select.tsx";
 import { applySuggestions, describeSuggestions } from "../lib/setup.ts";
 import { api } from "../state/connection.ts";
+import { useDesignSystem } from "../state/design-system.ts";
+import { useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
+import { startInit } from "./design-system.tsx";
 
 const themes = [
   { label: "light", value: "light" },
@@ -43,6 +53,56 @@ const list = (v: string) =>
  * Settings take the whole window rather than a dialog: the first run lands here, and the form is
  * longer than a dialog can hold. The editor is not mounted behind it.
  */
+/** Where `/init` is started from the settings, and where its result is said to be. */
+const DesignSystemField = () => {
+  const { designSystem, detecting, loaded } = useDesignSystem();
+  useEffect(() => {
+    if (!loaded) {
+      useDesignSystem.getState().load();
+    }
+  }, [loaded]);
+  const open = () => {
+    useProject.getState().openSettings(false);
+    useEditor.getState().setLeftTab("designSystem");
+  };
+  return (
+    <Field>
+      <FieldLabel>Tokens and conventions</FieldLabel>
+      <div className="flex flex-wrap gap-1">
+        <Button
+          onClick={() => {
+            useProject.getState().openSettings(false);
+            startInit();
+          }}
+          variant="outline"
+        >
+          <Wand2 />
+          {designSystem
+            ? "Update with an agent (/init)"
+            : "Initialise with an agent (/init)"}
+        </Button>
+        <Button
+          disabled={detecting}
+          onClick={() => useDesignSystem.getState().detect()}
+          variant="ghost"
+        >
+          Detect automatically
+        </Button>
+        {designSystem ? (
+          <Button onClick={open} variant="ghost">
+            Show
+          </Button>
+        ) : null}
+      </div>
+      <FieldDescription>
+        {designSystem
+          ? `Imported: ${designSystem.colors.reduce((n, g) => n + g.tokens.length, 0)} colours, ${designSystem.typography.styles.length} text styles. Kept in design-system.json and DESIGN.md in the designs directory.`
+          : "Not imported yet. An agent reads the Tailwind v4 theme and the components, asks you about the application, and writes design-system.json and DESIGN.md."}
+      </FieldDescription>
+    </Field>
+  );
+};
+
 export const SettingsPage = () => {
   const saved = useProject((s) => s.settings);
   // Mounted with the page, so every open starts from the saved settings.
@@ -158,6 +218,25 @@ const SaveProblems = ({
   );
 };
 
+/** Only Tailwind v4 is supported: anything else is said before it is saved. */
+const TailwindAlert = ({
+  tailwind,
+}: {
+  tailwind: SetupSuggestions["tailwind"];
+}) =>
+  tailwind === "v4" ? null : (
+    <Alert variant="destructive">
+      <TriangleAlert />
+      <AlertDescription>
+        {tailwind === "v3"
+          ? "The stylesheets set up Tailwind v3."
+          : "No Tailwind setup was found in the stylesheets."}{" "}
+        ultrapaint reads the design system from Tailwind v4's @theme, and only
+        supports Tailwind v4.
+      </AlertDescription>
+    </Alert>
+  );
+
 const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const storage = useProject((s) => s.info.storage);
   const [draft, setDraft] = useState<Settings>(
@@ -189,8 +268,17 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     setBusy(false);
     return ok;
   };
-  const save = () => {
-    apply();
+  const save = async () => {
+    const first = !saved;
+    if ((await apply()) && first) {
+      // A new project starts with its design system: offered, not imposed.
+      toast("Import the design system?", {
+        action: { label: "Initialise", onClick: startInit },
+        description:
+          "An agent reads the Tailwind v4 theme and the components, and asks you what it cannot find out.",
+        duration: 20_000,
+      });
+    }
   };
   const saveToFile = async () => {
     if (await apply()) {
@@ -234,7 +322,6 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     try {
       await api().request("setup.createDesigns", {
         designsDir: draft.designsDir,
-        linkDependencies: true,
         repoPath: draft.repoPath,
         resolveFrom: draft.resolveFrom,
       });
@@ -289,10 +376,6 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     const componentPackages = list(e.target.value);
     setDraft((d) => ({ ...d, componentPackages }));
   };
-  const onFormatCommand = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatCommand = e.target.value || undefined;
-    setDraft((d) => ({ ...d, formatCommand }));
-  };
   const onStorybookUrl = (e: React.ChangeEvent<HTMLInputElement>) => {
     const storybookUrl = e.target.value || undefined;
     setDraft((d) => ({ ...d, storybookUrl }));
@@ -330,6 +413,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
               <AlertDescription>{describeSuggestions(found)}</AlertDescription>
             </Alert>
           ) : null}
+          {found ? <TailwindAlert tailwind={found.tailwind} /> : null}
           <FieldSet>
             <FieldLegend>Repository</FieldLegend>
             <FieldGroup className="gap-4">
@@ -366,8 +450,8 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
                   value={draft.designsDir}
                 />
                 <FieldDescription>
-                  Relative to the repository. Screens are saved here as source
-                  files.
+                  Relative to the repository. Pages are saved here as design
+                  documents (.page.json), with the design system beside them.
                 </FieldDescription>
               </Field>
               <Field>
@@ -402,8 +486,9 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
                   value={draft.hostCss.join("\n")}
                 />
                 <FieldDescription>
-                  One per line, resolved from the designs directory. Include the
-                  design-system Tailwind entry and fonts.
+                  One per line, resolved from the directory the preview is
+                  generated into. Include the Tailwind v4 entry of the design
+                  system and its fonts: the design system is read from them.
                 </FieldDescription>
               </Field>
               <Field>
@@ -417,8 +502,8 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
                   value={draft.libraryDirs.join("\n")}
                 />
                 <FieldDescription>
-                  Stamped and catalogued. Relative to the repository, one per
-                  line.
+                  Catalogued for the palette. Relative to the repository, one
+                  per line.
                 </FieldDescription>
               </Field>
               <Field>
@@ -435,26 +520,13 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
                   Package names whose exports form the palette, one per line.
                 </FieldDescription>
               </Field>
+              {saved ? <DesignSystemField /> : null}
             </FieldGroup>
           </FieldSet>
           <FieldSeparator />
           <FieldSet>
             <FieldLegend>Editor</FieldLegend>
             <FieldGroup className="gap-4">
-              <Field>
-                <FieldLabel htmlFor="settings-format">
-                  Formatter command
-                </FieldLabel>
-                <Input
-                  id="settings-format"
-                  onChange={onFormatCommand}
-                  value={draft.formatCommand ?? ""}
-                />
-                <FieldDescription>
-                  Run from the repo root after each edit. {"{file}"} is
-                  replaced. Leave empty to auto-detect Biome or Prettier.
-                </FieldDescription>
-              </Field>
               <Field>
                 <FieldLabel htmlFor="settings-storybook">
                   Storybook URL

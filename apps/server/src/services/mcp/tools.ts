@@ -3,18 +3,30 @@
  *
  * What an agent otherwise has to piece together by reading the repository — where the designs
  * are, what routes exist, which components it may use and what props they take — the server
- * already knows. These answer it in one call. They only read: the file edits stay the agent's
- * own, through its file tools, so nothing here competes with what it is already good at.
+ * already knows. These answer it in one call. Pages are design documents the editor owns, so
+ * changing one goes through the same operations the editor uses (`apply_operations`), which
+ * validate every change and make it one undo step; the design system is written the same way.
  */
+import { Json, type JsonValue } from "@ultrapaint/contracts/base";
+import { DocOp } from "@ultrapaint/contracts/document";
+import { newInstance } from "@ultrapaint/design-document/factories";
+import { fillIds, makeIdGenerator } from "@ultrapaint/design-document/ids";
+import { canvasDocOf } from "@ultrapaint/design-document/tree";
 import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/unstable/ai";
 import { EventBus } from "../../events.ts";
 import { ProjectManager } from "../../project.ts";
 import { CatalogueService } from "../catalogue.ts";
 import { CommentsService } from "../comments.ts";
-import { EditService } from "../edit.ts";
+import { DesignSystemService } from "../design-system.ts";
+import { DocumentService } from "../documents.ts";
 import { PagesService } from "../pages.ts";
 import { RepoPaths } from "../repo-paths.ts";
+import {
+  designSystemSchema,
+  IMPLEMENTATION_RULES,
+  pageSchema,
+} from "../threads/commands.ts";
 import { CallingThread } from "./access.ts";
 
 /**
@@ -26,6 +38,8 @@ class ToolFailure extends Schema.TaggedError<ToolFailure>()("ToolFailure", {
   message: Schema.String,
 }) {}
 const Failure = ToolFailure;
+
+const decodeOps = Schema.decodeUnknownEffect(Schema.Array(DocOp));
 
 const PageSummary = Schema.Struct({
   file: Schema.String,
@@ -63,7 +77,7 @@ const ListPages = Tool.make("list_pages", {
 
 const ReadPage = Tool.make("read_page", {
   description:
-    "The source of one page, found by its route (/settings/billing) or by its file.",
+    "One page's design document, found by its route (/settings/billing) or by its file: a tree of nodes (page, group, row, column, text, image, instance) with their ids. Pass the hash to apply_operations to make sure nothing changed in between.",
   failure: Failure,
   parameters: Schema.Struct({
     route: Schema.String,
@@ -71,10 +85,90 @@ const ReadPage = Tool.make("read_page", {
     space: Schema.optional(Schema.String),
   }),
   success: Schema.Struct({
+    document: Json,
     file: Schema.String,
-    source: Schema.String,
+    hash: Schema.String,
   }),
 }).annotate(Tool.Readonly, true);
+
+const ReadCanvas = Tool.make("read_canvas", {
+  description:
+    "The nodes placed on a space's canvas beside the pages, each with its x and y. Change them with apply_operations and `canvas: true`.",
+  failure: Failure,
+  parameters: Schema.Struct({ space: Schema.optional(Schema.String) }),
+  success: Schema.Struct({ hash: Schema.String, nodes: Json }),
+}).annotate(Tool.Readonly, true);
+
+const GetDocumentFormat = Tool.make("get_document_format", {
+  description:
+    "The page format in full: the JSON Schema of a page document, and how its nodes and tokens map to code. Read it before writing a page or its operations by hand.",
+  failure: Failure,
+  success: Schema.Struct({ rules: Schema.String, schema: Json }),
+}).annotate(Tool.Readonly, true);
+
+const ApplyOperations = Tool.make("apply_operations", {
+  description: `Change a page, or the canvas, through the editor: the change is validated, shows on the canvas at once and is one undo step for the user. Operations, applied in order:
+- {op:"insert", parent, index?, node}: parent is a node id (the page's root id for its top level), or null for the top level; index defaults to the end. The node may leave out ids.
+- {op:"remove", id}
+- {op:"move", id, parent, index?}: the index counts the parent's children without the moved node.
+- {op:"update", id, set:{field: value}}: null removes a field. A group, row or column may change "type" to one of the others.
+- {op:"setProps", id, props:{name: value}}: an instance's props; null removes one.
+- {op:"wrap", ids:[...], type:"row"|"column"|"group"}: siblings into a new container.
+- {op:"unwrap", id}: a container replaced by its children.
+- {op:"duplicate", id}
+Values: numbers are pixels, "$name" is a design token (--name), anything else plain CSS.`,
+  failure: Failure,
+  parameters: Schema.Struct({
+    /** Work on the canvas of the space instead of a page. */
+    canvas: Schema.optional(Schema.Boolean),
+    /** The hash read_page answered with; the call is refused if the page changed since. */
+    expectedHash: Schema.optional(Schema.String),
+    /** What the undo menu calls it. */
+    label: Schema.optional(Schema.String),
+    /** Checked once the ids a new node leaves out are filled in. */
+    ops: Schema.Array(Json),
+    /** Route or file of the page; leave out with `canvas: true`. */
+    route: Schema.optional(Schema.String),
+    space: Schema.optional(Schema.String),
+  }),
+  success: Schema.Struct({
+    created: Schema.Array(Schema.String),
+    hash: Schema.String,
+  }),
+});
+
+const ScanDesignSystem = Tool.make("scan_design_system", {
+  description:
+    "Reads the design system by fixed rules: the Tailwind v4 @theme blocks of the stylesheets the preview imports, and the variables they refer to. Answers with a first design-system.json, the files read, and notes on what it could not interpret. The start of /init.",
+  failure: Failure,
+  success: Schema.Struct({
+    designSystem: Json,
+    files: Schema.Array(Schema.String),
+    notes: Schema.Array(Schema.String),
+  }),
+}).annotate(Tool.Readonly, true);
+
+const ReadDesignSystem = Tool.make("read_design_system", {
+  description:
+    "The design system as the project records it: design-system.json (tokens, text styles, component notes) and DESIGN.md (conventions). Null when it was never imported.",
+  failure: Failure,
+  success: Schema.Struct({
+    designSystem: Json,
+    notes: Schema.NullOr(Schema.String),
+    problem: Schema.optional(Schema.String),
+  }),
+}).annotate(Tool.Readonly, true);
+
+const WriteDesignSystem = Tool.make("write_design_system", {
+  description: `Saves the design system: design-system.json and, when given, DESIGN.md. Refused with the reason when it does not match the schema. Tokens are named after their Tailwind v4 variables without the dashes ("color-primary"); references to them in text styles start with "$". JSON Schema: ${designSystemSchema()}`,
+  failure: Failure,
+  parameters: Schema.Struct({
+    designSystem: Json,
+    /** The whole of DESIGN.md. */
+    notes: Schema.optional(Schema.String),
+  }),
+  success: Schema.Struct({ saved: Schema.Boolean }),
+});
 
 const ListComponents = Tool.make("list_components", {
   description:
@@ -89,10 +183,12 @@ const ListComponents = Tool.make("list_components", {
 
 const GetComponent = Tool.make("get_component", {
   description:
-    "One component in full: where to import it from, every prop with its type, its variants, and a snippet that uses it.",
+    "One component in full: where to import it from, every prop with its type, its variants, and an instance node that uses it.",
   failure: Failure,
   parameters: Schema.Struct({ name: Schema.String }),
   success: Schema.Struct({
+    /** An instance node that uses it, ready for apply_operations. */
+    example: Json,
     file: Schema.String,
     importFrom: Schema.String,
     name: Schema.String,
@@ -103,7 +199,6 @@ const GetComponent = Tool.make("get_component", {
         type: Schema.String,
       })
     ),
-    snippet: Schema.String,
     variants: Schema.Record(Schema.String, Schema.Array(Schema.String)),
   }),
 }).annotate(Tool.Readonly, true);
@@ -131,7 +226,7 @@ const ListComments = Tool.make("list_comments", {
 
 const CreatePage = Tool.make("create_page", {
   description:
-    "Add a page at a route. The file goes where the project keeps its designs, named so the route matches, and the space's router is written if it is the first page. Prefer this to creating the file yourself.",
+    "Add a page at a route. The file goes where the project keeps its designs, named so the route matches. Prefer this to creating the file yourself; then fill it with apply_operations.",
   failure: Failure,
   parameters: Schema.Struct({
     route: Schema.String,
@@ -140,9 +235,9 @@ const CreatePage = Tool.make("create_page", {
     template: Schema.optional(Schema.String),
   }),
   success: Schema.Struct({
+    document: Json,
     file: Schema.String,
     route: Schema.String,
-    source: Schema.String,
   }),
 });
 
@@ -198,6 +293,12 @@ export const EditorTools = Toolkit.make(
   GetContext,
   ListPages,
   ReadPage,
+  ReadCanvas,
+  GetDocumentFormat,
+  ApplyOperations,
+  ScanDesignSystem,
+  ReadDesignSystem,
+  WriteDesignSystem,
   ListComponents,
   GetComponent,
   ListComments,
@@ -221,6 +322,9 @@ const reported = <A, E extends { readonly message: string }, R>(
   );
 
 const missing = (message: string) => Effect.fail(new ToolFailure({ message }));
+
+/** Documents and the design system are JSON through and through; their types only say more. */
+const asJson = (value: unknown) => value as JsonValue;
 
 export const EditorToolsLive = EditorTools.toLayer(
   Effect.gen(function* () {
@@ -281,7 +385,65 @@ export const EditorToolsLive = EditorTools.toLayer(
       Effect.flatMap(CatalogueService, (c) => c.get(false))
     );
 
+    const documents = <A, E extends { readonly message: string }>(
+      f: (service: DocumentService["Service"]) => Effect.Effect<A, E>
+    ) => reported(project.use(Effect.flatMap(DocumentService, f)));
+    const designSystem = <A, E extends { readonly message: string }>(
+      f: (service: DesignSystemService["Service"]) => Effect.Effect<A, E>
+    ) => reported(project.use(Effect.flatMap(DesignSystemService, f)));
+
     return {
+      apply_operations: Effect.fnUntraced(function* ({
+        canvas,
+        expectedHash,
+        label,
+        ops,
+        route,
+        space,
+      }) {
+        let doc: string;
+        if (canvas) {
+          doc = canvasDocOf(yield* spaceOf(space));
+        } else if (route === undefined) {
+          return yield* missing(
+            "say which page with `route`, or pass `canvas: true` for the canvas"
+          );
+        } else {
+          doc = (yield* pageAt(route, space)).id;
+        }
+        // A node an agent writes may leave its ids out; they are made before the ops are read.
+        const raw = JSON.parse(JSON.stringify(ops)) as unknown[];
+        for (const op of raw) {
+          if (op && typeof op === "object" && "node" in op) {
+            fillIds({ nodes: [(op as { node: unknown }).node] });
+          }
+        }
+        const decoded = yield* decodeOps(raw).pipe(
+          Effect.mapError(
+            (error) =>
+              new ToolFailure({
+                message: `the operations are not valid: ${error.message}`,
+              })
+          )
+        );
+        const result = yield* documents((d) =>
+          d.apply({
+            edits: [
+              {
+                doc,
+                ops: decoded,
+                ...(expectedHash !== undefined && { expectedHash }),
+              },
+            ],
+            ...(label !== undefined && { label }),
+          })
+        );
+        return {
+          created: result.created,
+          hash: result.documents[0]?.hash ?? "",
+        };
+      }),
+
       create_page: Effect.fnUntraced(function* ({ route, space, template }) {
         const page = yield* reported(
           project.use(
@@ -292,12 +454,12 @@ export const EditorToolsLive = EditorTools.toLayer(
             )
           )
         );
-        const { content } = yield* reported(
-          project.use(
-            Effect.flatMap(EditService, (edit) => edit.read(page.file))
-          )
-        );
-        return { file: page.file, route: page.route, source: content };
+        const state = yield* documents((d) => d.get(page.id));
+        return {
+          document: asJson(state.root),
+          file: page.file,
+          route: page.route,
+        };
       }),
 
       focus: Effect.fnUntraced(function* ({ route, space }) {
@@ -321,7 +483,14 @@ export const EditorToolsLive = EditorTools.toLayer(
             `no component named ${name}; call list_components to see what there is`
           );
         }
+        const { designSystem: ds } = yield* designSystem((d) => d.get);
+        const example = newInstance(
+          component,
+          ds?.components?.[component.name],
+          makeIdGenerator()
+        );
         return {
+          example: asJson(example),
           file: component.file,
           importFrom: component.importFrom,
           name: component.name,
@@ -330,7 +499,6 @@ export const EditorToolsLive = EditorTools.toLayer(
             required: prop.required,
             type: prop.type.raw,
           })),
-          snippet: component.snippet,
           variants: component.variants,
         };
       }),
@@ -346,6 +514,12 @@ export const EditorToolsLive = EditorTools.toLayer(
           spaces: pages.spaces.map((space) => space.id),
         };
       }),
+
+      get_document_format: () =>
+        Effect.succeed({
+          rules: IMPLEMENTATION_RULES,
+          schema: asJson(JSON.parse(pageSchema())),
+        }),
 
       list_comments: Effect.fnUntraced(function* ({ includeResolved, space }) {
         const id = yield* spaceOf(space);
@@ -398,14 +572,44 @@ export const EditorToolsLive = EditorTools.toLayer(
         };
       }),
 
+      read_canvas: Effect.fnUntraced(function* ({ space }) {
+        const id = yield* spaceOf(space);
+        const state = yield* documents((d) => d.get(canvasDocOf(id)));
+        if (state.problem !== undefined) {
+          return yield* missing(state.problem);
+        }
+        return {
+          hash: state.hash,
+          nodes: asJson(
+            state.root && "children" in state.root
+              ? (state.root.children ?? [])
+              : []
+          ),
+        };
+      }),
+
+      read_design_system: Effect.fnUntraced(function* () {
+        const state = yield* designSystem((d) => d.get);
+        return {
+          designSystem: asJson(state.designSystem),
+          notes: state.notes,
+          ...(state.problem !== undefined && { problem: state.problem }),
+        };
+      }),
+
       read_page: Effect.fnUntraced(function* ({ route, space }) {
         const page = yield* pageAt(route, space);
-        const { content } = yield* reported(
-          project.use(
-            Effect.flatMap(EditService, (edit) => edit.read(page.file))
-          )
-        );
-        return { file: page.file, source: content };
+        const state = yield* documents((d) => d.get(page.id));
+        if (state.problem !== undefined) {
+          return yield* missing(
+            `${page.file} is not a valid page: ${state.problem}`
+          );
+        }
+        return {
+          document: asJson({ root: state.root, version: 1 }),
+          file: page.file,
+          hash: state.hash,
+        };
       }),
 
       rename_page: Effect.fnUntraced(function* ({ route, space, to }) {
@@ -440,6 +644,23 @@ export const EditorToolsLive = EditorTools.toLayer(
           )
         );
         return { resolved: comment.resolved };
+      }),
+
+      scan_design_system: Effect.fnUntraced(function* () {
+        const found = yield* designSystem((d) => d.scan);
+        return {
+          designSystem: asJson(found.designSystem),
+          files: found.files,
+          notes: found.notes,
+        };
+      }),
+
+      write_design_system: Effect.fnUntraced(function* ({
+        designSystem: input,
+        notes,
+      }) {
+        yield* designSystem((d) => d.write(input, notes));
+        return { saved: true };
       }),
     };
   })

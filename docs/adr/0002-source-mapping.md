@@ -1,6 +1,6 @@
 # ADR 0002: Element to source mapping
 
-Status: accepted, 2026-09-17. Confirms D4 and D17.
+Status: superseded by 0015, 2026-09-25. Accepted 2026-09-17, confirming D4 and D17.
 
 ## Context
 

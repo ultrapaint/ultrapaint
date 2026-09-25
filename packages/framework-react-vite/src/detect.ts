@@ -28,6 +28,8 @@ const DESIGNS_NAME_RE = /(^|[-/])designs?$/i;
 const TAILWIND_CSS_RE =
   /@import\s+["'][^"']*tailwind|@tailwind\s+base|@theme\b/;
 const CSS_FILE_RE = /\.css$/;
+const TAILWIND_V4_RE = /@import\s+["']tailwindcss|@theme\b/;
+const TAILWIND_V3_RE = /@tailwind\s+(base|components|utilities)/;
 
 const toPosix = (p: string) => p.replaceAll("\\", "/");
 
@@ -275,5 +277,19 @@ export const detect: Detect = (root) => {
     }
   }
 
-  return { anchors, cssEntries, designsDirs, libraries };
+  const stylesheets = cssEntries.map((rel) => {
+    try {
+      return readFileSync(path.join(root, rel), "utf8");
+    } catch {
+      return "";
+    }
+  });
+  let tailwind: "v4" | "v3" | "none" = "none";
+  if (stylesheets.some((css) => TAILWIND_V4_RE.test(css))) {
+    tailwind = "v4";
+  } else if (stylesheets.some((css) => TAILWIND_V3_RE.test(css))) {
+    tailwind = "v3";
+  }
+
+  return { anchors, cssEntries, designsDirs, libraries, tailwind };
 };

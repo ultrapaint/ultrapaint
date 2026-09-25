@@ -1,10 +1,12 @@
 import type { Page } from "@ultrapaint/contracts/pages";
 import type {
   PromptAttachment,
+  SlashCommand,
   Thread,
   ThreadItem,
   ToolContent,
 } from "@ultrapaint/contracts/threads";
+import { nodeLabel } from "@ultrapaint/design-document/tree";
 import { cn } from "cn";
 import {
   AppWindow,
@@ -85,32 +87,14 @@ import {
   diffHunks,
   lineDiff,
 } from "../lib/line-diff.ts";
+import { createThread, takeDraft, useDrafts } from "../lib/start-thread.ts";
 import { terminalKey, useAgents } from "../state/agents.ts";
 import { api } from "../state/connection.ts";
-import { type Selection, useEditor, type Workspace } from "../state/editor.ts";
+import { nodeIn, useDocuments } from "../state/documents.ts";
+import { useEditor, type Workspace } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
 
 const openThread = (threadId: string) => useAgents.getState().open(threadId);
-
-/** Prompt text carried into a thread created from another thread's composer. */
-const drafts = new Map<string, string>();
-const takeDraft = (threadId: string) => {
-  const draft = drafts.get(threadId) ?? "";
-  drafts.delete(threadId);
-  return draft;
-};
-
-const createThread = async (agentId: string, draft = "") => {
-  try {
-    const t = await api().request("threads.create", { agentId });
-    if (draft) {
-      drafts.set(t.id, draft);
-    }
-    await useAgents.getState().open(t.id);
-  } catch (error) {
-    reportError(error);
-  }
-};
 
 export const Threads = () => {
   const configured = useProject((s) => s.info.configured);
@@ -671,13 +655,12 @@ const Permission = ({
 /** Gathers the context the composer attaches to a prompt. */
 const collectAttachments = async ({
   fileOf,
-  selectionSource,
-  selectionName,
+  selected,
   shotOf,
 }: {
   fileOf: Page | null;
-  selectionSource: Selection["source"];
-  selectionName: string;
+  /** The selected node, and the file of the document it is in. */
+  selected: { file: string; name: string; nodeId: string } | null;
   /** The page and the iframe showing it: the prototype has one for the whole space. */
   shotOf: { frameId: string; name: string } | null;
 }) => {
@@ -685,14 +668,8 @@ const collectAttachments = async ({
   if (fileOf) {
     attachments.push({ kind: "file", path: fileOf.file });
   }
-  if (selectionSource) {
-    attachments.push({
-      col: selectionSource.col,
-      file: selectionSource.file,
-      kind: "selection",
-      line: selectionSource.line,
-      name: selectionName,
-    });
+  if (selected) {
+    attachments.push({ kind: "selection", ...selected });
   }
   if (shotOf) {
     const dataUrl = await bridgeFor(shotOf.frameId).screenshot();
@@ -1031,17 +1008,66 @@ const shotFrameOf = (
     ? frameIdOf(space)
     : (page?.id ?? "");
 
+const COMMAND_QUERY_RE = /^\/([a-z-]*)$/;
+
+let commandsCache: readonly SlashCommand[] | null = null;
+
+/** The commands a prompt may start with, asked of the server once. */
+const useCommands = () => {
+  const [commands, setCommands] = useState(commandsCache ?? []);
+  useEffect(() => {
+    if (commandsCache) {
+      return;
+    }
+    api()
+      .request("commands.list", undefined)
+      .then((list) => {
+        commandsCache = list;
+        setCommands(list);
+      })
+      .catch(() => undefined);
+  }, []);
+  return commands;
+};
+
 const Composer = ({ thread }: { thread: Thread }) => {
   const [text, setText] = useState(() => takeDraft(thread.id));
+  // A draft that arrives after the composer is on screen, from a thread started elsewhere.
+  useEffect(() => {
+    const take = () => {
+      const draft = takeDraft(thread.id);
+      if (draft) {
+        setText(draft);
+      }
+    };
+    take();
+    return useDrafts.subscribe((s) => {
+      if (s.drafts[thread.id]) {
+        take();
+      }
+    });
+  }, [thread.id]);
   const [attachPage, setAttachPage] = useState(true);
   const [attachSelection, setAttachSelection] = useState(true);
   const [attachShot, setAttachShot] = useState(false);
   const [busy, setBusy] = useState(false);
   const selection = useEditor((s) => s.selection);
-  const inspect = useEditor((s) => s.inspect);
   const activePage = useEditor((s) => s.activePage);
   const pages = useProject((s) => s.pages);
-  const page = pages.find((p) => p.id === (selection?.pageId ?? activePage));
+  const page = pages.find((p) => p.id === (selection?.frame ?? activePage));
+  const selectedNode = useDocuments((s) =>
+    selection
+      ? nodeIn(
+          s.docs,
+          useEditor.getState().space,
+          selection.frame,
+          selection.nodeId
+        )
+      : null
+  );
+  const commands = useCommands();
+  const [commandIndex, setCommandIndex] = useState(0);
+  const settingsFile = useProject((s) => s.settings?.designsDir ?? "");
   const workspace = useEditor((s) => s.workspace);
   const space = useEditor((s) => s.space);
   const shotFrame = shotFrameOf(workspace, space, page);
@@ -1052,10 +1078,19 @@ const Composer = ({ thread }: { thread: Thread }) => {
       return;
     }
     setBusy(true);
+    const selectedFile = selection
+      ? (page?.file ?? `${settingsFile}/${space ? `${space}/` : ""}canvas.json`)
+      : null;
     const context = {
       fileOf: attachPage && page ? page : null,
-      selectionName: inspect?.name ?? "element",
-      selectionSource: attachSelection && selection ? selection.source : null,
+      selected:
+        attachSelection && selection && selectedNode && selectedFile
+          ? {
+              file: selectedFile,
+              name: nodeLabel(selectedNode),
+              nodeId: selectedNode.id,
+            }
+          : null,
       shotOf:
         attachShot && page ? { frameId: shotFrame, name: page.name } : null,
     };
@@ -1073,9 +1108,36 @@ const Composer = ({ thread }: { thread: Thread }) => {
     setBusy(false);
   };
 
-  const onTextChange = (e: ChangeEvent<HTMLTextAreaElement>) =>
+  const onTextChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     setText(e.target.value);
+    setCommandIndex(0);
+  };
+  // A `/` at the start offers the commands the server expands, until the name is typed.
+  const commandMatch: RegExpExecArray | null = COMMAND_QUERY_RE.exec(text);
+  const commandQuery = commandMatch?.[1];
+  const offered =
+    commandQuery === undefined
+      ? []
+      : commands.filter((c) => c.name.startsWith(commandQuery.toLowerCase()));
+  const complete = (name: string) => setText(`/${name} `);
+  /** The command menu's keys: arrows move through it, Tab or Enter picks. Whether it took one. */
+  const onMenuKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      const step = e.key === "ArrowDown" ? 1 : -1;
+      setCommandIndex((i) => (i + step + offered.length) % offered.length);
+      return true;
+    }
+    if ((e.key === "Tab" || e.key === "Enter") && !(e.metaKey || e.ctrlKey)) {
+      complete((offered[commandIndex] ?? offered[0])?.name ?? "");
+      return true;
+    }
+    return false;
+  };
   const onTextKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (offered.length > 0 && onMenuKey(e)) {
+      e.preventDefault();
+      return;
+    }
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       send();
@@ -1088,9 +1150,8 @@ const Composer = ({ thread }: { thread: Thread }) => {
     useAgents((s) => s.agents.find((a) => a.id === thread.agentId)?.name) ??
     "the agent";
 
-  const selectionSource = selection?.source ?? null;
   const showPage = Boolean(page && attachPage);
-  const showSelection = Boolean(selectionSource && attachSelection);
+  const showSelection = Boolean(selectedNode && attachSelection);
   const showShot = Boolean(page && attachShot);
 
   return (
@@ -1107,12 +1168,12 @@ const Composer = ({ thread }: { thread: Thread }) => {
                 title={`Page file: ${page.file}`}
               />
             ) : null}
-            {showSelection && selectionSource ? (
+            {showSelection && selectedNode ? (
               <ContextChip
                 icon={<SquareDashedMousePointer />}
-                label={`${inspect?.name ?? "Selection"} :${selectionSource.line}`}
+                label={nodeLabel(selectedNode)}
                 onRemove={() => setAttachSelection(false)}
-                title={`Selected element: ${selectionSource.file}:${selectionSource.line}`}
+                title={`Selected node: ${selectedNode.id}`}
               />
             ) : null}
             {showShot && page ? (
@@ -1125,11 +1186,44 @@ const Composer = ({ thread }: { thread: Thread }) => {
             ) : null}
           </div>
         ) : null}
+        {offered.length > 0 ? (
+          <div
+            className="mx-2 mt-2 flex flex-col overflow-hidden rounded-md border bg-popover"
+            role="listbox"
+          >
+            {offered.map((command, i) => (
+              <button
+                aria-selected={i === commandIndex}
+                className={cn(
+                  "flex flex-col items-start gap-0.5 px-2 py-1.5 text-left text-[11px] hover:bg-muted",
+                  i === commandIndex && "bg-muted"
+                )}
+                key={command.name}
+                onClick={() => complete(command.name)}
+                onMouseDown={(e) => e.preventDefault()}
+                role="option"
+                type="button"
+              >
+                <span className="font-medium font-mono">
+                  /{command.name}
+                  {command.argument ? (
+                    <span className="ml-1 text-muted-foreground">
+                      {command.argument}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="text-muted-foreground">
+                  {command.description}
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : null}
         <textarea
           className="field-sizing-content max-h-60 min-h-24 w-full resize-none bg-transparent px-3 py-2 text-xs/relaxed outline-none placeholder:text-muted-foreground"
           onChange={onTextChange}
           onKeyDown={onTextKeyDown}
-          placeholder={`Ask ${agentName} to change the design…`}
+          placeholder={`Ask ${agentName} to change the design, or type / for commands…`}
           value={text}
         />
         <div className="flex items-center gap-1 px-1.5 pb-1.5">
@@ -1162,11 +1256,11 @@ const Composer = ({ thread }: { thread: Thread }) => {
                 </DropdownMenuCheckboxItem>
                 <DropdownMenuCheckboxItem
                   checked={attachSelection}
-                  disabled={!selectionSource}
+                  disabled={!selectedNode}
                   onCheckedChange={setAttachSelection}
                 >
                   <SquareDashedMousePointer />
-                  Selected element
+                  Selected node
                 </DropdownMenuCheckboxItem>
                 <DropdownMenuCheckboxItem
                   checked={attachShot}

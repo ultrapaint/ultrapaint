@@ -18,6 +18,7 @@ import {
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 import { AppLog } from "../app-log.ts";
 import { makeWriteAtomic } from "../atomic-write.ts";
+import { ComponentRegistry, PREVIEW_DIR } from "./component-registry.ts";
 import { ProjectFramework } from "./framework.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
@@ -64,6 +65,7 @@ export class HostManager extends Context.Service<
     Effect.gen(function* () {
       const paths = yield* RepoPaths;
       const framework = yield* ProjectFramework;
+      const registry = yield* ComponentRegistry;
       const log = yield* AppLog;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -84,10 +86,12 @@ export class HostManager extends Context.Service<
         Effect.orElseSucceed(fs.exists(p), () => false);
 
       const generate = Effect.gen(function* () {
-        const dir = path.join(paths.designsDir, ".ultrapaint");
+        const dir = path.join(paths.designsDir, PREVIEW_DIR);
+        const components = yield* registry.current;
         const generated = yield* Effect.tryPromise(() =>
           framework.preview.generate({
             anchorDir: paths.anchorDir,
+            components,
             designsDir: paths.designsDir,
             dir,
             root: paths.root,

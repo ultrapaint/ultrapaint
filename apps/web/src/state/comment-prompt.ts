@@ -18,7 +18,7 @@ export const commentPrompt = (
       ? `Page: ${page.route} (${page.file})`
       : `Page: ${comment.page} (no longer in the designs)`,
     comment.element
-      ? `Element: <${comment.element}>${comment.source ? ` at ${comment.source.file}:${comment.source.line}:${comment.source.col}` : ""}`
+      ? `Node: "${comment.element}"${comment.nodeId ? ` (id ${comment.nodeId})` : ""}`
       : null,
     `Pinned at ${comment.x}, ${comment.y} px from the top-left corner of the page`,
   ].filter((line) => line !== null);

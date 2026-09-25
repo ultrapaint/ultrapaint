@@ -23,6 +23,7 @@ import { AgentConfigs } from "./services/threads/agent-configs.ts";
 import { AgentSandbox } from "./services/threads/agent-sandbox.ts";
 import { ProjectBriefing } from "./services/threads/briefing.ts";
 import { Checkpoints } from "./services/threads/checkpoints.ts";
+import { SlashCommands } from "./services/threads/commands.ts";
 import { ThreadStore } from "./services/threads/thread-store.ts";
 import { ThreadService } from "./services/threads/threads.ts";
 
@@ -129,7 +130,8 @@ const Threads = ThreadService.layer.pipe(
       AgentConfigs.layer,
       // The briefing says what the sandbox allows, so it is built on it.
       ProjectBriefing.layer.pipe(Layer.provideMerge(AgentSandbox.layer)),
-      McpAccess.layer
+      McpAccess.layer,
+      SlashCommands.layer
     )
   )
 );

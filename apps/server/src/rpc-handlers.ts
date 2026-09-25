@@ -1,27 +1,27 @@
-import { BadRequest } from "@ultrapaint/contracts/errors";
 import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
 import { Effect } from "effect";
 import { AppLog } from "./app-log.ts";
 import { ServerConfig } from "./config.ts";
 import { EventBus } from "./events.ts";
 import { ProjectManager } from "./project.ts";
-import { CanvasItems } from "./services/canvas-items.ts";
 import { CatalogueService } from "./services/catalogue.ts";
 import { CommentsService } from "./services/comments.ts";
+import { DesignSystemService } from "./services/design-system.ts";
+import { DocumentService } from "./services/documents.ts";
 import { EditService } from "./services/edit.ts";
-import { ProjectFramework } from "./services/framework.ts";
 import { GitService } from "./services/git.ts";
 import { HostManager } from "./services/host.ts";
 import { McpAccess } from "./services/mcp/access.ts";
 import { MCP_PATH, MCP_TOKEN_HEADER } from "./services/mcp/route.ts";
 import { PagesService } from "./services/pages.ts";
-import { RepoPaths } from "./services/repo-paths.ts";
 import { SettingsService } from "./services/settings.ts";
 import { SetupService } from "./services/setup.ts";
 import { AgentConfigs } from "./services/threads/agent-configs.ts";
 import { Checkpoints } from "./services/threads/checkpoints.ts";
+import { SlashCommands } from "./services/threads/commands.ts";
 import { ThreadStore } from "./services/threads/thread-store.ts";
 import { ThreadService } from "./services/threads/threads.ts";
+import { Thumbnails } from "./services/thumbnails.ts";
 
 const RECENT_LOG_LINES = 200;
 
@@ -39,6 +39,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const threads = yield* ThreadService;
     const checkpoints = yield* Checkpoints;
     const access = yield* McpAccess;
+    const commands = yield* SlashCommands;
     const { mcp: mcpEnabled, port } = yield* ServerConfig;
 
     const pages = <A, E>(
@@ -55,23 +56,25 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const host = <A, E>(
       f: (s: HostManager["Service"]) => Effect.Effect<A, E>
     ) => project.use(Effect.flatMap(HostManager, f));
-    const items = <A, E>(
-      f: (s: CanvasItems["Service"]) => Effect.Effect<A, E>
-    ) => project.use(Effect.flatMap(CanvasItems, f));
+    const documents = <A, E>(
+      f: (s: DocumentService["Service"]) => Effect.Effect<A, E>
+    ) => project.use(Effect.flatMap(DocumentService, f));
+    const designSystem = <A, E>(
+      f: (s: DesignSystemService["Service"]) => Effect.Effect<A, E>
+    ) => project.use(Effect.flatMap(DesignSystemService, f));
+    const thumbnails = <A, E>(
+      f: (s: Thumbnails["Service"]) => Effect.Effect<A, E>
+    ) => project.use(Effect.flatMap(Thumbnails, f));
     const catalogue = <A, E>(
       f: (s: CatalogueService["Service"]) => Effect.Effect<A, E>
     ) => project.use(Effect.flatMap(CatalogueService, f));
 
     return UltrapaintRpcs.of({
       "agents.list": () => agents.list,
-      "canvas.addImage": (input) => items((i) => i.addImage(input)),
-      "canvas.createItem": (input) => items((i) => i.create(input)),
-      "canvas.extractItem": (input) => items((i) => i.extract(input)),
+      "assets.upload": (input) => documents((d) => d.upload(input)),
       "canvas.get": ({ space }) => pages((s) => s.readCanvas(space)),
-      "canvas.placeItem": (input) => items((i) => i.place(input)),
-      "canvas.removeItem": (input) => items((i) => i.remove(input)),
-      "canvas.set": ({ layout, space }) =>
-        pages((s) => s.writeCanvas(space, layout)),
+      "canvas.set": ({ frames, space }) =>
+        pages((s) => s.writeFrames(space, frames)),
 
       "catalogue.get": ({ refresh }) => catalogue((c) => c.get(refresh)),
       "catalogue.storyUrl": ({ storyId }) =>
@@ -79,6 +82,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "checkpoints.diff": ({ id }) => checkpoints.diff(id),
       "checkpoints.list": () => checkpoints.list,
       "checkpoints.revert": ({ id }) => checkpoints.revert(id),
+      "commands.list": () => Effect.succeed(commands.list),
       "comments.create": (input) => comments((c) => c.create(input)),
       "comments.delete": ({ id, space }) =>
         comments((c) => c.delete(space, id)),
@@ -87,11 +91,13 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "comments.list": ({ space }) => comments((c) => c.list(space)),
       "comments.reply": (input) => comments((c) => c.reply(input)),
       "comments.update": (input) => comments((c) => c.update(input)),
-      "edit.apply": ({ op, expectedHash }) =>
-        edit((e) => e.apply(op, expectedHash)),
+      "designSystem.detect": () => designSystem((d) => d.detect),
+      "designSystem.get": () => designSystem((d) => d.get),
+      "documents.apply": (input) => documents((d) => d.apply(input)),
+      "documents.get": ({ doc }) => documents((d) => d.get(doc)),
+      "documents.list": ({ space }) => documents((d) => d.list(space)),
       "edit.redo": () => edit((e) => e.redo),
       "edit.state": () => edit((e) => e.state),
-      "edit.transfer": (request) => edit((e) => e.transfer(request)),
       "edit.undo": () => edit((e) => e.undo),
 
       "events.agent": () => events.subscribe("agent"),
@@ -99,6 +105,8 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "events.agent.terminal": () => events.subscribe("agent.terminal"),
       "events.canvas": () => events.subscribe("canvas"),
       "events.comments": () => events.subscribe("comments"),
+      "events.designSystem": () => events.subscribe("designSystem"),
+      "events.document": () => events.subscribe("document"),
       "events.edit.state": () => events.subscribe("edit.state"),
       "events.file.changed": () => events.subscribe("file.changed"),
       "events.git": () => events.subscribe("git"),
@@ -167,48 +175,6 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "settings.validate": (input) => settings.validate(input),
       "setup.createDesigns": (input) => setup.createDesigns(input),
       "setup.detect": ({ repoPath }) => setup.detect(repoPath),
-      "source.element": (location) =>
-        project.use(
-          Effect.gen(function* () {
-            const paths = yield* RepoPaths;
-            const framework = yield* ProjectFramework;
-            const { content } = yield* (yield* EditService).read(location.file);
-            // The source editor is pure and throws on a file it cannot parse.
-            return yield* Effect.try({
-              catch: (error) =>
-                new BadRequest({
-                  message: `${location.file} cannot be parsed: ${String(error)}`,
-                }),
-              try: () =>
-                framework.source.elementSource(
-                  content,
-                  location.file,
-                  location,
-                  paths.isEditable(location.file)
-                ),
-            });
-          })
-        ),
-
-      "source.outline": ({ file }) =>
-        project.use(
-          Effect.gen(function* () {
-            const framework = yield* ProjectFramework;
-            const { content, hash } = yield* (yield* EditService).read(file);
-            const elements = yield* Effect.try({
-              catch: (error) =>
-                new BadRequest({
-                  message: `${file} cannot be parsed: ${String(error)}`,
-                }),
-              try: () => framework.source.outline(content),
-            });
-            return { elements, hash };
-          })
-        ),
-      "source.read": ({ file }) =>
-        edit((e) =>
-          Effect.map(e.read(file), ({ content, hash }) => ({ content, hash }))
-        ),
       "spaces.create": ({ name }) => pages((s) => s.createSpace(name)),
       "threads.cancel": ({ threadId }) => threads.cancel(threadId),
       "threads.create": ({ agentId, title }) => threads.create(agentId, title),
@@ -222,6 +188,9 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
         threads.setConfigOption(threadId, optionId, value),
       "threads.setMode": ({ threadId, modeId }) =>
         threads.setMode(threadId, modeId),
+      "thumbnails.get": ({ key }) => thumbnails((t) => t.get(key)),
+      "thumbnails.put": ({ dataUrl, key, name }) =>
+        thumbnails((t) => t.put(key, name, dataUrl)),
     });
   })
 );

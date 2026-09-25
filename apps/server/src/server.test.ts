@@ -1,19 +1,23 @@
 import { request } from "node:http";
 import path from "node:path";
 import { assert, layer } from "@effect/vitest";
-import type { EditOp } from "@ultrapaint/contracts/edit";
+import type { DesignNode } from "@ultrapaint/contracts/document";
 import { Effect, Fiber, FileSystem, Stream } from "effect";
 import { TestEnv, TestServer } from "./testing/harness.ts";
 
 const SHA_RE = /^[0-9a-f]{40}$/;
-const HEADING = { col: 6, file: "designs/home.tsx", line: 4 };
+const HOME = "home.page.json";
+const HOME_FILE = "designs/home.page.json";
 
-const setClasses = (add: string[], file = HEADING.file): EditOp => ({
-  add,
-  kind: "setClasses",
-  remove: [],
-  target: { ...HEADING, file },
+const paragraph = (id: string, text: string): DesignNode => ({
+  id,
+  role: "paragraph",
+  text,
+  type: "text",
 });
+
+const childIds = (node: DesignNode | null | undefined) =>
+  node && "children" in node ? (node.children ?? []).map((c) => c.id) : [];
 
 /** The first value of an event stream that arrives after `trigger` has run. */
 const nextEvent = <A, E, B, E2, R2>(
@@ -111,7 +115,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           const before = yield* client["pages.list"]();
           assert.deepStrictEqual(
             before.pages.map((p) => [p.id, p.route]),
-            [["home.tsx", "/home"]]
+            [[HOME, "/home"]]
           );
           // No space.json anywhere: the designs directory is itself the one space.
           assert.deepStrictEqual(
@@ -125,21 +129,30 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
               space: "",
             })
           );
-          assert.strictEqual(result.id, "onboarding/sign-in.tsx");
+          assert.strictEqual(result.id, "onboarding/sign-in.page.json");
           assert.strictEqual(result.route, "/onboarding/sign-in");
           const ids =
             event._tag === "Some" ? event.value.pages.map((p) => p.id) : [];
-          assert.include(ids, "onboarding/sign-in.tsx");
+          assert.include(ids, "onboarding/sign-in.page.json");
         })
     );
 
-    it.effect("writes the navigation module pages import, once", () =>
+    it.effect("starts a page from a template, titled after its route", () =>
       Effect.gen(function* () {
-        const { repo } = yield* TestEnv;
-        const fs = yield* FileSystem.FileSystem;
-        const file = path.join(repo, "designs/_router.tsx");
-        assert.isTrue(yield* fs.exists(file));
-        assert.include(yield* fs.readFileString(file), "export function Link");
+        const { client } = yield* TestEnv;
+        const page = yield* client["pages.create"]({
+          route: "/welcome-back",
+          space: "",
+          template: "centered",
+        });
+        const state = yield* client["documents.get"]({ doc: page.id });
+        assert.strictEqual(state.root?.type, "page");
+        const [title] =
+          state.root && "children" in state.root
+            ? (state.root.children ?? [])
+            : [];
+        assert.deepInclude(title, { role: "heading", text: "Welcome back" });
+        yield* client["pages.delete"]({ id: page.id });
       })
     );
 
@@ -164,17 +177,17 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           y: 20,
         } as const;
         yield* client["canvas.set"]({
-          layout: { frames: { "onboarding/sign-in.tsx": frame }, version: 1 },
+          frames: { "onboarding/sign-in.page.json": frame },
           space: "",
         });
         const renamed = yield* client["pages.rename"]({
-          id: "onboarding/sign-in.tsx",
+          id: "onboarding/sign-in.page.json",
           route: "/onboarding/log-in",
         });
-        assert.strictEqual(renamed.id, "onboarding/log-in.tsx");
+        assert.strictEqual(renamed.id, "onboarding/log-in.page.json");
         const layout = yield* client["canvas.get"]({ space: "" });
         assert.deepStrictEqual(layout.frames, {
-          "onboarding/log-in.tsx": frame,
+          "onboarding/log-in.page.json": frame,
         });
       })
     );
@@ -186,9 +199,9 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         const { event, result: created } = yield* nextEvent(
           client["events.comments"](),
           client["comments.create"]({
-            element: "h1",
-            page: "home.tsx",
-            source: HEADING,
+            element: "Hello",
+            nodeId: "heading",
+            page: HOME,
             space: "",
             text: "  Bigger heading  ",
             x: 40.4,
@@ -198,6 +211,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         assert.strictEqual(created.text, "Bigger heading");
         assert.deepStrictEqual([created.x, created.y], [40, 13]);
         assert.strictEqual(created.author, "Test");
+        assert.strictEqual(created.nodeId, "heading");
         assert.isFalse(created.resolved);
         assert.strictEqual(
           event._tag === "Some" ? event.value.list.comments.length : 0,
@@ -252,61 +266,242 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
     );
 
     it.effect(
-      "pushes file.changed when a page is edited outside the editor",
+      "pushes the document when a page is written outside the editor, ids filled in",
       () =>
         Effect.gen(function* () {
           const { client, repo } = yield* TestEnv;
           const fs = yield* FileSystem.FileSystem;
-          const file = path.join(repo, "designs/onboarding/log-in.tsx");
+          const file = path.join(repo, "designs/onboarding/log-in.page.json");
+          // What an agent might write: a node without an id.
+          const written = {
+            root: {
+              children: [{ role: "paragraph", text: "By hand", type: "text" }],
+              id: "root",
+              type: "page",
+            },
+            version: 1,
+          };
           const { event } = yield* nextEvent(
-            client["events.file.changed"](),
-            Effect.flatMap(fs.readFileString(file), (content) =>
-              fs.writeFileString(file, `${content}// touched\n`)
-            )
+            client["events.document"]().pipe(
+              Stream.filter((e) => e.doc === "onboarding/log-in.page.json")
+            ),
+            fs.writeFileString(file, JSON.stringify(written))
           );
           assert.strictEqual(
-            event._tag === "Some" ? event.value.file : "",
-            "designs/onboarding/log-in.tsx"
+            event._tag === "Some" ? event.value.doc : "",
+            "onboarding/log-in.page.json"
+          );
+          const [node] =
+            event._tag === "Some" &&
+            event.value.root &&
+            "children" in event.value.root
+              ? (event.value.root.children ?? [])
+              : [];
+          assert.isString(node?.id);
+          // The id is written back, so the file says what the editor calls the node.
+          const saved = JSON.parse(yield* fs.readFileString(file));
+          assert.strictEqual(saved.root.children[0].id, node?.id);
+        })
+    );
+
+    it.effect(
+      "reports a page that is not a valid document instead of failing",
+      () =>
+        Effect.gen(function* () {
+          const { client, repo } = yield* TestEnv;
+          const fs = yield* FileSystem.FileSystem;
+          yield* fs.writeFileString(
+            path.join(repo, "designs/broken.page.json"),
+            '{ "version": 1, "root": { "type": "row" } }'
+          );
+          const state = yield* client["documents.get"]({
+            doc: "broken.page.json",
+          });
+          assert.isNull(state.root);
+          assert.isString(state.problem);
+          const refused = yield* Effect.flip(
+            client["documents.apply"]({
+              edits: [
+                { doc: "broken.page.json", ops: [{ id: "x", op: "remove" }] },
+              ],
+            })
+          );
+          assert.strictEqual(refused._tag, "BadRequest");
+          yield* fs.remove(path.join(repo, "designs/broken.page.json"));
+        })
+    );
+
+    it.effect("applies operations, then undoes and redoes them", () =>
+      Effect.gen(function* () {
+        const { client, repo } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        const original = yield* client["documents.get"]({ doc: HOME });
+        const { event, result: applied } = yield* nextEvent(
+          client["events.document"]().pipe(
+            Stream.filter((e) => e.doc === HOME)
+          ),
+          client["documents.apply"]({
+            edits: [
+              {
+                doc: HOME,
+                expectedHash: original.hash,
+                ops: [
+                  { id: "heading", op: "update", set: { text: "Welcome" } },
+                  {
+                    node: {
+                      children: [paragraph("left", "Left")],
+                      gap: "$spacing-4",
+                      id: "row",
+                      type: "row",
+                    },
+                    op: "insert",
+                    parent: "root",
+                  },
+                ],
+              },
+            ],
+            label: "Build the header",
+          })
+        );
+        assert.deepStrictEqual(applied.created, ["row"]);
+        const [state] = applied.documents;
+        assert.deepStrictEqual(childIds(state?.root), ["heading", "row"]);
+        assert.strictEqual(
+          event._tag === "Some" ? event.value.hash : "",
+          state?.hash
+        );
+        const saved = JSON.parse(
+          yield* fs.readFileString(path.join(repo, HOME_FILE))
+        );
+        assert.strictEqual(saved.version, 1);
+        assert.strictEqual(saved.root.children[0].text, "Welcome");
+        assert.strictEqual(
+          (yield* client["edit.state"]()).undoLabel,
+          "Build the header"
+        );
+
+        const undone = yield* client["edit.undo"]();
+        assert.deepStrictEqual(undone?.files, [HOME_FILE]);
+        assert.strictEqual(
+          (yield* client["documents.get"]({ doc: HOME })).hash,
+          original.hash
+        );
+        const state2 = yield* client["edit.state"]();
+        assert.isTrue(state2.canRedo);
+        assert.strictEqual(state2.redoLabel, "Build the header");
+
+        yield* client["edit.redo"]();
+        assert.strictEqual(
+          (yield* client["documents.get"]({ doc: HOME })).hash,
+          state?.hash
+        );
+      })
+    );
+
+    it.effect("refuses operations made against an outdated hash", () =>
+      Effect.gen(function* () {
+        const { client } = yield* TestEnv;
+        const error = yield* Effect.flip(
+          client["documents.apply"]({
+            edits: [
+              {
+                doc: HOME,
+                expectedHash: "0000000000000000",
+                ops: [{ id: "heading", op: "remove" }],
+              },
+            ],
+          })
+        );
+        assert.strictEqual(error._tag, "Stale");
+      })
+    );
+
+    it.effect(
+      "refuses an operation that does not fit, and a result that is not a document",
+      () =>
+        Effect.gen(function* () {
+          const { client } = yield* TestEnv;
+          const before = yield* client["documents.get"]({ doc: HOME });
+          const missing = yield* Effect.flip(
+            client["documents.apply"]({
+              edits: [{ doc: HOME, ops: [{ id: "nope", op: "remove" }] }],
+            })
+          );
+          assert.strictEqual(missing._tag, "BadRequest");
+          const invalid = yield* Effect.flip(
+            client["documents.apply"]({
+              edits: [
+                {
+                  doc: HOME,
+                  ops: [
+                    { id: "heading", op: "update", set: { text: "Fine" } },
+                    { id: "heading", op: "update", set: { width: "wide" } },
+                  ],
+                },
+              ],
+            })
+          );
+          assert.strictEqual(invalid._tag, "BadRequest");
+          assert.include(invalid.message, "not a valid document");
+          // All or nothing: the first operation did not land either.
+          assert.strictEqual(
+            (yield* client["documents.get"]({ doc: HOME })).hash,
+            before.hash
           );
         })
     );
 
-    it.effect("applies an edit, then undoes and redoes it", () =>
+    it.effect("moves a node between a page and the canvas as one step", () =>
       Effect.gen(function* () {
         const { client } = yield* TestEnv;
-        const original = yield* client["source.read"]({ file: HEADING.file });
-        const applied = yield* client["edit.apply"]({
-          expectedHash: original.hash,
-          op: setClasses(["font-bold"]),
+        const home = yield* client["documents.get"]({ doc: HOME });
+        const row =
+          home.root && "children" in home.root
+            ? (home.root.children ?? []).find((c) => c.id === "row")
+            : undefined;
+        assert.isDefined(row);
+        const moved = yield* client["documents.apply"]({
+          edits: [
+            { doc: HOME, ops: [{ id: "row", op: "remove" }] },
+            {
+              doc: "canvas:",
+              ops: [
+                {
+                  node: { ...(row as DesignNode), x: 120.6, y: -40 },
+                  op: "insert",
+                  parent: null,
+                },
+              ],
+            },
+          ],
+          label: "Move onto the canvas",
         });
-        assert.isTrue(applied.changed);
-        const edited = yield* client["source.read"]({ file: HEADING.file });
-        assert.include(edited.content, "font-bold");
-        assert.strictEqual(edited.hash, applied.hash);
-        assert.isTrue((yield* client["edit.state"]()).canUndo);
-
-        const undone = yield* client["edit.undo"]();
-        assert.strictEqual(undone?.hash, original.hash);
-        const state = yield* client["edit.state"]();
-        assert.isTrue(state.canRedo);
-        // Pages created by the tests before are undoable too; the edit is what redo offers now.
-        assert.strictEqual(state.redoLabel, "Change classes (font-bold)");
-
-        const redone = yield* client["edit.redo"]();
-        assert.strictEqual(redone?.hash, applied.hash);
-      })
-    );
-
-    it.effect("rejects an edit made against an outdated hash", () =>
-      Effect.gen(function* () {
-        const { client } = yield* TestEnv;
-        const error = yield* Effect.flip(
-          client["edit.apply"]({
-            expectedHash: "0000000000000000",
-            op: setClasses(["underline"]),
-          })
+        assert.deepStrictEqual(moved.created, ["row"]);
+        const layout = yield* client["canvas.get"]({ space: "" });
+        assert.deepStrictEqual(
+          layout.nodes?.map((n) => [n.id, n.x, n.y]),
+          [["row", 121, -40]]
         );
-        assert.strictEqual(error._tag, "Stale");
+        assert.notInclude(
+          childIds((yield* client["documents.get"]({ doc: HOME })).root),
+          "row"
+        );
+        // Frames saved afterwards keep the canvas's nodes.
+        yield* client["canvas.set"]({ frames: layout.frames, space: "" });
+        assert.strictEqual(
+          (yield* client["canvas.get"]({ space: "" })).nodes?.length,
+          1
+        );
+        // Saving the same frames changed nothing: one undo puts the node back in the page.
+        yield* client["edit.undo"]();
+        assert.include(
+          childIds((yield* client["documents.get"]({ doc: HOME })).root),
+          "row"
+        );
+        assert.deepStrictEqual(
+          (yield* client["canvas.get"]({ space: "" })).nodes ?? [],
+          []
+        );
       })
     );
 
@@ -314,9 +509,9 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
       Effect.gen(function* () {
         const { client, repo } = yield* TestEnv;
         const fs = yield* FileSystem.FileSystem;
-        const file = path.join(repo, HEADING.file);
+        const file = path.join(repo, HOME_FILE);
         const content = yield* fs.readFileString(file);
-        yield* fs.writeFileString(file, `${content}// external\n`);
+        yield* fs.writeFileString(file, content.replace("Welcome", "External"));
         const error = yield* Effect.flip(client["edit.undo"]());
         assert.strictEqual(error._tag, "Stale");
         const state = yield* client["edit.state"]();
@@ -325,31 +520,17 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
       })
     );
 
-    it.effect(
-      "keeps edits inside the designs directory and the repository",
-      () =>
-        Effect.gen(function* () {
-          const { client } = yield* TestEnv;
-          const outside = yield* Effect.flip(
-            client["edit.apply"]({
-              op: setClasses(["p-2"], "package.json"),
-            })
-          );
-          assert.strictEqual(outside._tag, "ForbiddenPath");
-          const escaped = yield* Effect.flip(
-            client["source.read"]({ file: "/etc/hosts" })
-          );
-          assert.strictEqual(escaped._tag, "ForbiddenPath");
-        })
-    );
-
-    it.effect("describes the element at a source location", () =>
+    it.effect("keeps documents inside the designs directory", () =>
       Effect.gen(function* () {
         const { client } = yield* TestEnv;
-        const element = yield* client["source.element"](HEADING);
-        assert.strictEqual(element?.name, "h1");
-        assert.strictEqual(element?.text, "Hello");
-        assert.isTrue(element?.editable);
+        const notAPage = yield* Effect.flip(
+          client["documents.get"]({ doc: "../package.json" })
+        );
+        assert.strictEqual(notAPage._tag, "BadRequest");
+        const escaped = yield* Effect.flip(
+          client["documents.get"]({ doc: "../../../../etc/x.page.json" })
+        );
+        assert.strictEqual(escaped._tag, "ForbiddenPath");
       })
     );
 
@@ -359,16 +540,16 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         const status = yield* client["git.status"]();
         assert.strictEqual(status.branch, "main");
         const changed = status.files.map((f) => f.path);
-        assert.include(changed, "designs/home.tsx");
-        assert.include(changed, "designs/onboarding/log-in.tsx");
+        assert.include(changed, HOME_FILE);
+        assert.include(changed, "designs/onboarding/log-in.page.json");
         assert.isTrue(status.files.every((f) => f.design));
 
-        const tracked = yield* client["git.diff"]({ path: "designs/home.tsx" });
-        assert.include(tracked.diff, "+// external");
+        const tracked = yield* client["git.diff"]({ path: HOME_FILE });
+        assert.include(tracked.diff, "External");
         const untracked = yield* client["git.diff"]({
-          path: "designs/onboarding/log-in.tsx",
+          path: "designs/onboarding/log-in.page.json",
         });
-        assert.include(untracked.diff, "+export default function");
+        assert.include(untracked.diff, '+  "version": 1');
 
         const { event, result } = yield* nextEvent(
           client["events.git"](),
@@ -390,10 +571,16 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           const { event, result } = yield* nextEvent(
             client["events.pages"](),
             Effect.gen(function* () {
+              const fs = yield* FileSystem.FileSystem;
+              const { repo } = yield* TestEnv;
               // Reading a directory is an I/O error no wire error describes: a defect.
+              yield* fs.makeDirectory(path.join(repo, "designs/dir.page.json"));
               const broken = yield* Effect.exit(
-                client["source.read"]({ file: "designs" })
+                client["documents.get"]({ doc: "dir.page.json" })
               );
+              yield* fs.remove(path.join(repo, "designs/dir.page.json"), {
+                recursive: true,
+              });
               yield* client["pages.create"]({
                 route: "/after-defect",
                 space: "",
@@ -404,7 +591,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           assert.strictEqual(result._tag, "Failure");
           const ids =
             event._tag === "Some" ? event.value.pages.map((p) => p.id) : [];
-          assert.include(ids, "after-defect.tsx");
+          assert.include(ids, "after-defect.page.json");
           assert.isTrue((yield* client.health()).ok);
         })
     );
@@ -430,28 +617,77 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
       })
     );
 
-    it.effect(
-      "undoes the edit that is still being formatted, instead of dropping history",
-      () =>
-        Effect.gen(function* () {
-          const { client, settings } = yield* TestEnv;
-          // A slow formatter keeps the edit in flight while the undo arrives.
-          yield* client["settings.set"]({
-            ...settings,
-            formatCommand: "sleep 0.4",
-          });
-          const before = yield* client["source.read"]({ file: HEADING.file });
-          const edit = yield* Effect.forkScoped(
-            client["edit.apply"]({ op: setClasses(["italic"]) })
-          );
-          yield* Effect.sleep("100 millis");
-          const undone = yield* client["edit.undo"]();
-          yield* Fiber.join(edit);
-          assert.strictEqual(undone?.hash, before.hash);
-          const state = yield* client["edit.state"]();
-          assert.isUndefined(state.invalidated);
-          assert.isTrue(state.canRedo);
-        })
+    it.effect("imports the design system without an agent, and says so", () =>
+      Effect.gen(function* () {
+        const { client, repo } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        assert.isNull((yield* client["designSystem.get"]()).designSystem);
+        yield* fs.writeFileString(
+          path.join(repo, "designs/theme.css"),
+          '@import "tailwindcss";\n@theme { --color-brand: #ff0066; --radius-card: 12px; }\n'
+        );
+        const { settings } = yield* TestEnv;
+        yield* client["settings.set"]({
+          ...settings,
+          // Relative to the directory the preview is generated into, as the setup writes them.
+          hostCss: ["../theme.css"],
+          libraryDirs: ["ui"],
+        });
+        const { event, result } = yield* nextEvent(
+          client["events.designSystem"](),
+          client["designSystem.detect"]()
+        );
+        assert.deepStrictEqual(
+          result.colors.flatMap((g) => g.tokens.map((t) => [t.name, t.value])),
+          [["color-brand", "#ff0066"]]
+        );
+        assert.deepStrictEqual(result.radius, [
+          { name: "radius-card", value: "12px" },
+        ]);
+        // The catalogue gives every component a category.
+        assert.isString(result.components?.Button?.category);
+        assert.strictEqual(
+          event._tag === "Some" ? event.value.designSystem?.radius.length : 0,
+          1
+        );
+        assert.isTrue(
+          yield* fs.exists(path.join(repo, "designs/design-system.json"))
+        );
+        // One undo takes it back.
+        yield* client["edit.undo"]();
+        assert.isNull((yield* client["designSystem.get"]()).designSystem);
+      })
+    );
+
+    it.effect("keeps thumbnails under the key they were drawn for", () =>
+      Effect.gen(function* () {
+        const { client } = yield* TestEnv;
+        const png = `data:image/png;base64,${Buffer.from("png").toString("base64")}`;
+        yield* client["thumbnails.put"]({
+          dataUrl: png,
+          key: "k1",
+          name: "Button",
+        });
+        assert.deepStrictEqual(yield* client["thumbnails.get"]({ key: "k1" }), {
+          Button: png,
+        });
+        assert.deepStrictEqual(
+          yield* client["thumbnails.get"]({ key: "k2" }),
+          {}
+        );
+        const refused = yield* Effect.flip(
+          client["thumbnails.put"]({ dataUrl: "nope", key: "k1", name: "X" })
+        );
+        assert.strictEqual(refused._tag, "BadRequest");
+      })
+    );
+
+    it.effect("offers the commands a prompt may start with", () =>
+      Effect.gen(function* () {
+        const { client } = yield* TestEnv;
+        const names = (yield* client["commands.list"]()).map((c) => c.name);
+        assert.deepStrictEqual(names, ["init", "implement"]);
+      })
     );
 
     it.effect(
@@ -475,139 +711,27 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         })
     );
 
-    it.effect(
-      "lifts an element out of a page onto the canvas, and puts it back, one undo at a time",
-      () =>
-        Effect.gen(function* () {
-          const { client, repo } = yield* TestEnv;
-          const fs = yield* FileSystem.FileSystem;
-          const at = (content: string, tag: string, file: string) => {
-            const lines = content.split("\n");
-            const line = lines.findIndex((l) => l.includes(`<${tag}`));
-            return {
-              col: (lines[line] as string).indexOf(`<${tag}`),
-              file,
-              line: line + 1,
-            };
-          };
-          const frame = {
-            height: 40,
-            preset: "custom",
-            width: 200,
-            x: 0,
-            y: 0,
-          } as const;
-          const home = yield* client["source.read"]({ file: HEADING.file });
-          const { item } = yield* client["canvas.extractItem"]({
-            copy: false,
-            frame,
-            source: at(home.content, "h1", HEADING.file),
-            space: "",
-          });
-          assert.strictEqual(item.id, "_canvas/h1.tsx");
-          assert.strictEqual(item.route, "/_canvas/h1");
-          const lifted = yield* client["source.read"]({ file: item.file });
-          assert.include(lifted.content, "export default function H1()");
-          assert.include(lifted.content, ">Hello</h1>");
-          const left = yield* client["source.read"]({ file: HEADING.file });
-          assert.notInclude(left.content, "<h1");
-          assert.deepStrictEqual(
-            (yield* client["canvas.get"]({ space: "" })).items,
-            { [item.path]: frame }
-          );
-
-          // One undo puts the element back and takes the item away, module and place.
-          yield* client["edit.undo"]();
-          assert.strictEqual(
-            (yield* client["source.read"]({ file: HEADING.file })).content,
-            home.content
-          );
-          assert.isFalse(yield* fs.exists(path.join(repo, item.file)));
-          assert.deepStrictEqual(
-            (yield* client["canvas.get"]({ space: "" })).items,
-            {}
-          );
-          yield* client["edit.redo"]();
-          assert.isTrue(yield* fs.exists(path.join(repo, item.file)));
-          assert.deepStrictEqual(
-            (yield* client["canvas.get"]({ space: "" })).items,
-            { [item.path]: frame }
-          );
-
-          // Moving the item is a layout change, and undone like one.
-          const moved = { ...frame, x: 300 };
-          yield* client["canvas.set"]({
-            layout: { frames: {}, items: { [item.path]: moved }, version: 1 },
-            space: "",
-          });
-          yield* client["edit.undo"]();
-          assert.deepStrictEqual(
-            (yield* client["canvas.get"]({ space: "" })).items,
-            { [item.path]: frame }
-          );
-
-          // Into the page, the item goes; undone, it is back and the page as it was.
-          yield* client["canvas.placeItem"]({
-            copy: false,
-            id: item.id,
-            index: 0,
-            into: at(left.content, "main", HEADING.file),
-            root: at(lifted.content, "h1", item.file),
-            space: "",
-          });
-          const back = yield* client["source.read"]({ file: HEADING.file });
-          assert.include(back.content, "<h1");
-          assert.isFalse(yield* fs.exists(path.join(repo, item.file)));
-          yield* client["edit.undo"]();
-          assert.isTrue(yield* fs.exists(path.join(repo, item.file)));
-          assert.notInclude(
-            (yield* client["source.read"]({ file: HEADING.file })).content,
-            "<h1"
-          );
-
-          yield* client["canvas.removeItem"]({ id: item.id, space: "" });
-          assert.isFalse(yield* fs.exists(path.join(repo, item.file)));
-          assert.deepStrictEqual(
-            (yield* client["canvas.get"]({ space: "" })).items,
-            {}
-          );
-          yield* client["edit.undo"]();
-          assert.isTrue(yield* fs.exists(path.join(repo, item.file)));
-          yield* client["edit.redo"]();
-          assert.isFalse(yield* fs.exists(path.join(repo, item.file)));
-        })
-    );
-
-    it.effect("keeps a pasted image beside the item that shows it", () =>
+    it.effect("saves an image into the space's assets", () =>
       Effect.gen(function* () {
         const { client, repo } = yield* TestEnv;
         const fs = yield* FileSystem.FileSystem;
-        const frame = {
-          height: 40,
-          preset: "custom",
-          width: 40,
-          x: 0,
-          y: 0,
-        } as const;
-        const { item } = yield* client["canvas.addImage"]({
+        const first = yield* client["assets.upload"]({
           data: Buffer.from("not really a png").toString("base64"),
-          frame,
           name: "Screen Shot.png",
           space: "",
         });
-        assert.strictEqual(item.id, "_canvas/screen-shot.tsx");
+        assert.strictEqual(first.src, "assets/screen-shot.png");
         assert.isTrue(
           yield* fs.exists(path.join(repo, "designs/assets/screen-shot.png"))
         );
-        const module = yield* client["source.read"]({ file: item.file });
-        assert.include(module.content, '"../assets/screen-shot.png"');
+        const second = yield* client["assets.upload"]({
+          data: Buffer.from("again").toString("base64"),
+          name: "Screen Shot.png",
+          space: "",
+        });
+        assert.strictEqual(second.src, "assets/screen-shot-2.png");
         const refused = yield* Effect.flip(
-          client["canvas.addImage"]({
-            data: "",
-            frame,
-            name: "notes.txt",
-            space: "",
-          })
+          client["assets.upload"]({ data: "", name: "notes.txt", space: "" })
         );
         assert.strictEqual(refused._tag, "BadRequest");
       })
@@ -626,13 +750,13 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           page.id
         );
         yield* client["edit.undo"]();
-        assert.include(
-          (yield* client["source.read"]({ file: page.file })).content,
-          "export default function"
+        assert.strictEqual(
+          (yield* client["documents.get"]({ doc: page.id })).root?.type,
+          "page"
         );
         yield* client["edit.undo"]();
         const gone = yield* Effect.flip(
-          client["source.read"]({ file: page.file })
+          client["documents.get"]({ doc: page.id })
         );
         assert.strictEqual(gone._tag, "NotFound");
       })

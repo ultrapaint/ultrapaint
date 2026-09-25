@@ -1,9 +1,9 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
-import { parseSourceKey, sourceKey } from "./base.ts";
-import { EditOp } from "./edit.ts";
+import { DesignSystem, emptyDesignSystem } from "./design-system.ts";
+import { DocOp, PageDocument } from "./document.ts";
 import { errorCodes, NotFound } from "./errors.ts";
-import { HostMessage, TreeNode } from "./preview.ts";
+import { EditorMessage } from "./preview.ts";
 import { UltrapaintRpcs, eventNames } from "./rpc.ts";
 import { Settings } from "./settings.ts";
 import { ThreadItem } from "./threads.ts";
@@ -44,31 +44,74 @@ describe("contracts", () => {
     ).toThrow();
   });
 
-  it("round-trips every kind of edit", () => {
-    const target = { col: 4, file: "designs/a.tsx", line: 12 };
-    const ops: EditOp[] = [
-      { add: ["p-2"], kind: "setClasses", remove: ["p-1"], target },
+  it("round-trips every kind of document operation", () => {
+    const ops: DocOp[] = [
       {
-        kind: "setAttribute",
-        name: "variant",
-        target,
-        value: { nested: [1, null] },
+        index: 0,
+        node: { id: "t1", role: "paragraph", text: "Hi", type: "text" },
+        op: "insert",
+        parent: "root",
       },
-      { kind: "setText", target, text: "Hello" },
-      { kind: "delete", target },
-      { kind: "duplicate", target },
-      { index: 0, into: target, kind: "move", target },
-      {
-        imports: [{ from: "@ui/button", name: "Button" }],
-        index: 1,
-        into: target,
-        jsx: "<Button />",
-        kind: "insert",
-      },
+      { id: "t1", op: "remove" },
+      { id: "t1", index: 2, op: "move", parent: null },
+      { id: "t1", op: "update", set: { fill: "$color-primary", gap: null } },
+      { id: "b1", op: "setProps", props: { variant: "ghost" } },
+      { ids: ["a", "b"], op: "wrap", type: "row" },
+      { id: "r1", op: "unwrap" },
+      { id: "r1", op: "duplicate" },
     ];
     for (const op of ops) {
-      expect(overTheWire(EditOp, op)).toEqual(op);
+      expect(overTheWire(DocOp, op)).toEqual(op);
     }
+  });
+
+  it("reads a page and refuses one whose root is not a page", () => {
+    const page: PageDocument = {
+      root: {
+        children: [
+          {
+            children: [
+              {
+                component: "Button",
+                from: "@ui/button",
+                id: "b1",
+                props: { size: "sm" },
+                text: "Go",
+                type: "instance",
+              },
+            ],
+            gap: "$spacing-4",
+            id: "r1",
+            type: "row",
+            width: "fill",
+          },
+        ],
+        id: "root",
+        type: "page",
+      },
+      version: 1,
+    };
+    expect(overTheWire(PageDocument, page)).toEqual(page);
+    expect(() =>
+      Schema.decodeUnknownSync(PageDocument)({
+        root: { children: [], id: "g", type: "group" },
+        version: 1,
+      })
+    ).toThrow();
+  });
+
+  it("carries a document and the design system to the preview", () => {
+    const message: EditorMessage = {
+      designSystem: emptyDesignSystem(),
+      mode: "page",
+      renderId: 3,
+      root: { children: [], id: "root", type: "page" },
+      type: "ed:render",
+    };
+    expect(overTheWire(EditorMessage, message)).toEqual(message);
+    expect(overTheWire(DesignSystem, emptyDesignSystem())).toEqual(
+      emptyDesignSystem()
+    );
   });
 
   it("round-trips transcript items, including a permission still undecided", () => {
@@ -83,40 +126,13 @@ describe("contracts", () => {
     };
     const turnEnd: ThreadItem = {
       at: 2,
-      changedFiles: ["designs/a.tsx"],
+      changedFiles: ["designs/a.page.json"],
       id: "item_2",
       kind: "turn_end",
       stopReason: "end_turn",
     };
     expect(overTheWire(ThreadItem, permission)).toEqual(permission);
     expect(overTheWire(ThreadItem, turnEnd)).toEqual(turnEnd);
-  });
-
-  it("round-trips the recursive preview tree inside a host message", () => {
-    const leaf: TreeNode = {
-      children: [],
-      editable: false,
-      id: "n2",
-      kind: "text",
-      name: "#text",
-      source: null,
-      summary: "Hello",
-    };
-    const tree: TreeNode = {
-      ...leaf,
-      children: [leaf],
-      id: "n1",
-      kind: "element",
-      name: "div",
-    };
-    const message: HostMessage = { tree, type: "ed:tree" };
-    expect(overTheWire(TreeNode, tree)).toEqual(tree);
-    expect(overTheWire(HostMessage, message)).toEqual(message);
-  });
-
-  it("source keys round-trip", () => {
-    const loc = { col: 4, file: "products/prime/designs/a.tsx", line: 12 };
-    expect(parseSourceKey(sourceKey(loc))).toEqual(loc);
   });
 
   it("has one event stream per event and a code for every wire error", () => {

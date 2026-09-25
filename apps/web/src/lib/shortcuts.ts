@@ -1,18 +1,22 @@
-import type { TreeNode } from "@ultrapaint/contracts/preview";
+import { childrenOf } from "@ultrapaint/design-document/tree";
 import { useEffect } from "react";
 import { bridgeFor } from "../canvas/bridge.ts";
-import { deleteItem } from "../canvas/items.ts";
 import { useComments } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
+import { pathIn, useDocuments } from "../state/documents.ts";
 import {
   flushLayout,
-  isItemId,
   useEditor,
   type Viewport,
   workspaceOrder,
 } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
-import { findPath, hostOf, itemRoot, rowChildren } from "../state/tree.ts";
+import {
+  deleteSelection,
+  duplicateSelection,
+  selected,
+  wrapSelection,
+} from "./node-actions.ts";
 
 const isTyping = (e: KeyboardEvent) => {
   const t = e.target as HTMLElement | null;
@@ -35,29 +39,6 @@ const overlayOpen = () =>
     '[role="dialog"],[role="alertdialog"],[role="menu"],[role="listbox"]'
   ) !== null;
 
-export const runEdit = async (
-  op: import("@ultrapaint/contracts/edit").EditOp
-) => {
-  const s = useEditor.getState();
-  try {
-    const r = await api().request("edit.apply", { op });
-    const sel = s.selection;
-    if (sel && r.location && op.kind !== "delete") {
-      s.select({ ...sel, source: r.location });
-    }
-    if (op.kind === "delete") {
-      s.select(null);
-    }
-    if (r.warnings.length) {
-      console.warn(r.warnings.join("\n"));
-    }
-    return r;
-  } catch (error) {
-    reportError(error);
-    return null;
-  }
-};
-
 type EditorState = ReturnType<typeof useEditor.getState>;
 
 const NAV_KEYS = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Escape"];
@@ -66,27 +47,12 @@ const NAV_KEYS = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Escape"];
 export const undoOrRedo = async (redo: boolean) => {
   try {
     await flushLayout();
-    const s = useEditor.getState();
-    const r = redo
-      ? await api().request("edit.redo", undefined)
-      : await api().request("edit.undo", undefined);
-    if (r?.location && s.selection) {
-      s.select({ ...s.selection, source: r.location });
-    }
+    await (redo
+      ? api().request("edit.redo", undefined)
+      : api().request("edit.undo", undefined));
   } catch (error) {
     reportError(error);
   }
-};
-
-/** The item a delete takes away: one selected whole, or through the element it renders. */
-const itemOfSelection = (s: EditorState): string | null => {
-  if (s.selectedPage && isItemId(s.selectedPage)) {
-    return s.selectedPage;
-  }
-  const { selection } = s;
-  const item = selection ? s.items[selection.pageId] : undefined;
-  const root = item ? itemRoot(s.trees[item.id], item.file) : null;
-  return item && root?.id === selection?.nodeId ? item.id : null;
 };
 
 /** Editing shortcuts are exclusive: returns true when the key was consumed. */
@@ -96,29 +62,35 @@ const handleEditKey = (e: KeyboardEvent, s: EditorState, meta: boolean) => {
     undoOrRedo(e.shiftKey);
     return true;
   }
-  if (meta && e.key.toLowerCase() === "d" && s.selection?.source) {
+  if (meta && e.key.toLowerCase() === "d" && s.selection) {
     e.preventDefault();
-    runEdit({ kind: "duplicate", target: s.selection.source });
+    duplicateSelection();
     return true;
   }
-  if (e.key === "Backspace" || e.key === "Delete") {
-    // An item selected whole, or by the element it renders, leaves the canvas.
-    const item = itemOfSelection(s);
-    if (item) {
-      e.preventDefault();
-      deleteItem(item);
-      return true;
-    }
-  }
-  if ((e.key === "Backspace" || e.key === "Delete") && s.selection?.source) {
+  // ⌘G wraps in a group, ⌥⌘G in a row, ⇧⌘G in a column.
+  if (meta && e.key.toLowerCase() === "g" && s.selection) {
     e.preventDefault();
-    runEdit({ kind: "delete", target: s.selection.source });
+    let wrapper: "row" | "column" | "group" = "group";
+    if (e.altKey) {
+      wrapper = "row";
+    } else if (e.shiftKey) {
+      wrapper = "column";
+    }
+    wrapSelection(wrapper);
+    return true;
+  }
+  if ((e.key === "Backspace" || e.key === "Delete") && s.selection) {
+    e.preventDefault();
+    deleteSelection();
     return true;
   }
   if (e.key === "Enter" && s.selection) {
-    e.preventDefault();
-    bridgeFor(s.selection.pageId).editText(s.selection.nodeId);
-    return true;
+    const current = selected();
+    if (current?.node.type === "text") {
+      e.preventDefault();
+      bridgeFor(s.selection.frame).editText(s.selection.nodeId);
+      return true;
+    }
   }
   return false;
 };
@@ -184,69 +156,42 @@ const handleZoomKey = (e: KeyboardEvent, s: EditorState, meta: boolean) => {
   }
 };
 
-/**
- * The selected node and its parent as the layers panel shows them: a component and its host
- * element share a row, so navigation moves as if they were one node.
- */
-const rowPath = (path: readonly TreeNode[]) => {
-  let node = path.at(-1);
-  let parent = path.at(-2);
-  let depth = path.length - 2;
-  if (parent && hostOf(parent)?.id === node?.id) {
-    node = parent;
-    depth -= 1;
-    parent = path[depth];
-  }
-  const grand = path[depth - 1];
-  if (parent && grand && hostOf(grand)?.id === parent.id) {
-    parent = grand;
-  }
-  return { node, parent };
-};
-
-// Tree navigation.
+// Tree navigation: up and down through siblings, left to the parent, right into the children.
 const handleTreeNavigation = (e: KeyboardEvent, s: EditorState) => {
   const { selection } = s;
   if (!(selection && NAV_KEYS.includes(e.key))) {
     return;
   }
-  const tree = s.trees[selection.pageId];
-  const path = findPath(tree, selection.nodeId);
-  if (!path) {
-    return;
-  }
-  e.preventDefault();
-  const { node, parent } = rowPath(path);
+  const path = pathIn(
+    useDocuments.getState().docs,
+    s.space,
+    selection.frame,
+    selection.nodeId
+  );
+  const node = path?.at(-1);
   if (!node) {
     return;
   }
-  const go = (
-    id: string,
-    source: import("@ultrapaint/contracts/base").SourceLocation | null
-  ) =>
-    s.select({
-      nodeId: id,
-      pageId: selection.pageId,
-      source,
-    });
+  e.preventDefault();
+  const parent = path?.at(-2);
+  const go = (id: string) => s.select({ frame: selection.frame, nodeId: id });
   if (e.key === "Escape" || e.key === "ArrowLeft") {
-    if (parent && parent.id !== "root") {
-      go(parent.id, parent.source);
+    if (parent && parent.type !== "page") {
+      go(parent.id);
     } else if (e.key === "Escape") {
       s.select(null);
     }
   } else if (e.key === "ArrowRight") {
-    const [child] = rowChildren(node);
+    const [child] = childrenOf(node);
     if (child) {
-      go(child.id, child.source);
+      go(child.id);
     }
   } else if (parent) {
-    const siblings = rowChildren(parent);
-    const current = node;
-    const idx = siblings.findIndex((c) => c.id === current.id);
+    const siblings = childrenOf(parent);
+    const idx = siblings.findIndex((c) => c.id === node.id);
     const sib = siblings[idx + (e.key === "ArrowDown" ? 1 : -1)];
     if (sib) {
-      go(sib.id, sib.source);
+      go(sib.id);
     }
   }
 };

@@ -1,20 +1,20 @@
-import type { SourceLocation } from "@ultrapaint/contracts/base";
 import type {
   CanvasLayout,
   FrameLayout,
   Page,
   ViewportPreset,
 } from "@ultrapaint/contracts/pages";
-import { CANVAS_ITEMS_DIR, presetSize } from "@ultrapaint/contracts/pages";
-import type {
-  InspectResult,
-  Rect,
-  TreeNode,
-} from "@ultrapaint/contracts/preview";
-import { basename, humanise, stripExtension } from "@ultrapaint/shared/path";
-import { matchRoute, normaliseRoute, routeOf } from "@ultrapaint/shared/route";
+import { presetSize } from "@ultrapaint/contracts/pages";
+import type { Rect } from "@ultrapaint/contracts/preview";
+import { matchRoute, normaliseRoute } from "@ultrapaint/shared/route";
 import { create } from "zustand";
 import { api } from "./connection.ts";
+import {
+  canvasNodes,
+  isNodeFrame,
+  nodeFrameOf,
+  useDocuments,
+} from "./documents.ts";
 import { reportError, useProject } from "./project.ts";
 import { writeUrl } from "./url.ts";
 
@@ -36,19 +36,23 @@ export type LeftTab =
   | "layers"
   | "pages"
   | "palette"
+  | "designSystem"
   | "changes";
 
 /** Left panels each workspace offers, in rail order. The first is where a switch lands. */
 export const workspaceTabs: Record<Workspace, readonly LeftTab[]> = {
-  design: ["layers", "palette", "pages", "comments", "changes"],
+  design: ["layers", "palette", "designSystem", "pages", "comments", "changes"],
   prototype: ["pages", "chat", "changes"],
-  vibe: ["chat", "pages", "comments", "changes"],
+  vibe: ["chat", "pages", "designSystem", "comments", "changes"],
 };
 
+/**
+ * A node of a design. `frame` is where it is shown: a page's id, or `node:<id>` for a node
+ * placed on the canvas and everything inside it.
+ */
 export interface Selection {
+  frame: string;
   nodeId: string;
-  pageId: string;
-  source: SourceLocation | null;
 }
 
 /**
@@ -62,26 +66,17 @@ export interface Viewport {
 }
 
 interface EditorStore {
-  /** The page serving the current route, which is what the layers and the inspector are about. */
+  /** The page serving the current route, which is what the prototype and agents are about. */
   activePage: string | null;
-  /** Shows a canvas item the server just wrote, module and place both. */
-  addItem: (item: Page, frame: FrameLayout) => void;
   /**
    * Follows the layout as saved: an undo, an agent, a branch switch. Frames the editor is still
    * about to save are its own and stay.
    */
   applyLayout: (space: string, layout: CanvasLayout) => void;
-  /** Pages of the current space that have no saved frame yet get a computed one. */
+  /** Where the pages' frames are; pages with no saved frame yet get a computed one. */
   frames: Record<string, FrameLayout>;
   hostErrors: Record<string, string | null>;
-  hover: { pageId: string; nodeId: string } | null;
-  inspect: InspectResult | null;
-  /**
-   * Canvas items of the open space by id: components and images placed beside the pages. They
-   * are shaped as pages and framed like them, so everything that works inside a page frame
-   * works inside an item.
-   */
-  items: Record<string, Page>;
+  hover: Selection | null;
   layout: CanvasLayout;
   leftTab: LeftTab;
   mode: Mode;
@@ -89,35 +84,32 @@ interface EditorStore {
   navigate: (route: string, options?: { push?: boolean }) => void;
   openSpace: (space: string, route?: string) => Promise<void>;
   rects: Record<string, Record<string, Rect>>;
-  /** Stops showing an item the server has taken off the canvas. */
-  removeItem: (id: string) => void;
   /** Where the space's router is. The editor holds it; the preview is told. */
   route: string;
   select: (selection: Selection | null) => void;
-  /** Page selected as a whole (its frame), as opposed to an element inside it. */
+  /** Page selected as a whole (its frame), as opposed to a node inside it. */
   selectedPage: string | null;
   selection: Selection | null;
   selectPage: (pageId: string | null) => void;
   setFrame: (pageId: string, frame: FrameLayout, persist?: boolean) => void;
-  setHostError: (pageId: string, error: string | null) => void;
+  setHostError: (frame: string, error: string | null) => void;
   setHover: (hover: EditorStore["hover"]) => void;
-  setInspect: (inspect: InspectResult | null) => void;
   setLeftTab: (tab: EditorStore["leftTab"]) => void;
   setMode: (mode: Mode) => void;
   setPreset: (pageId: string, preset: ViewportPreset) => void;
-  setRects: (pageId: string, rects: Record<string, Rect>) => void;
+  setRects: (frame: string, rects: Record<string, Rect>) => void;
+  /** The drawn size of a node on the canvas, as its preview measured it. */
+  setSize: (frame: string, size: { height: number; width: number }) => void;
   setSpacePan: (spacePan: boolean) => void;
-  setTokens: (tokens: Record<string, string>) => void;
-  setTree: (pageId: string, tree: TreeNode) => void;
   setView: (view: Partial<EditorStore["view"]>) => void;
   setWorkspace: (workspace: Workspace) => void;
+  /** Measured sizes of the frames of nodes on the canvas. */
+  sizes: Record<string, { height: number; width: number }>;
   space: string | null;
   /** Space is held: the canvas pans whatever the current mode. */
   spacePan: boolean;
   /** Puts the page that serves the current route back in step with the page list. */
   syncActivePage: () => void;
-  tokens: Record<string, string>;
-  trees: Record<string, TreeNode>;
   view: { x: number; y: number; zoom: number };
   workspace: Workspace;
   zoomToFit: (viewport: Viewport) => void;
@@ -135,46 +127,40 @@ export const pagesOfSpace = (space: string | null): readonly Page[] =>
 const pageAt = (space: string | null, route: string): Page | null =>
   matchRoute(pagesOfSpace(space), route)?.entry ?? null;
 
-/** The item at a path inside the space, shaped as a page. */
-const itemAt = (space: string, path: string): Page => {
-  const id = space ? `${space}/${path}` : path;
-  const designsDir = useProject.getState().settings?.designsDir ?? "";
-  return {
-    file: designsDir ? `${designsDir}/${id}` : id,
-    id,
-    name: humanise(stripExtension(basename(path))),
-    path,
-    route: routeOf(path),
-    space,
+/** Where a node placed on the canvas is drawn: its own position, its measured or fixed size. */
+export const nodeFrameLayout = (
+  node: {
+    x?: number | undefined;
+    y?: number | undefined;
+    width?: unknown;
+    height?: unknown;
+  },
+  size: { height: number; width: number } | undefined
+): { height: number; width: number; x: number; y: number } => ({
+  height: typeof node.height === "number" ? node.height : (size?.height ?? 40),
+  width: typeof node.width === "number" ? node.width : (size?.width ?? 120),
+  x: node.x ?? 0,
+  y: node.y ?? 0,
+});
+
+/** Every frame of the canvas, pages and nodes alike: what fits, zooms and drops look at. */
+export const allFrames = (): Record<
+  string,
+  { height: number; width: number; x: number; y: number }
+> => {
+  const { frames, sizes, space } = useEditor.getState();
+  const out: Record<
+    string,
+    { height: number; width: number; x: number; y: number }
+  > = {
+    ...frames,
   };
-};
-
-const itemsOf = (space: string, layout: CanvasLayout) => {
-  const items: Record<string, Page> = {};
-  const frames: Record<string, FrameLayout> = {};
-  for (const [path, frame] of Object.entries(layout.items ?? {})) {
-    const item = itemAt(space, path);
-    items[item.id] = item;
-    frames[item.id] = frame;
+  for (const node of canvasNodes(useDocuments.getState().docs, space)) {
+    const frame = nodeFrameOf(node.id);
+    out[frame] = nodeFrameLayout(node, sizes[frame]);
   }
-  return { frames, items };
+  return out;
 };
-
-/** Whether a frame id names a canvas item rather than a page. */
-export const isItemId = (id: string) =>
-  id.split("/").at(-2) === CANVAS_ITEMS_DIR;
-
-/**
- * The frame the layers panel shows: the item the selection is in, when it is in one, and the
- * page serving the route otherwise.
- */
-export const layersFrameOf = (s: {
-  activePage: string | null;
-  selection: Selection | null;
-}) =>
-  s.selection && isItemId(s.selection.pageId)
-    ? s.selection.pageId
-    : s.activePage;
 
 const computeFrames = (
   pages: readonly Page[],
@@ -206,34 +192,27 @@ const computeFrames = (
   return frames;
 };
 
-/** Saves the frames and items as they are now: one undo step on the server. */
+/** Saves the frames as they are now: one undo step on the server. */
 const saveLayout = (
   get: () => EditorStore,
   set: (p: Partial<EditorStore>) => void
 ): Promise<void> => {
-  const { frames, items, space } = get();
+  const { frames, layout, space } = get();
   if (space === null) {
     return Promise.resolve();
   }
   const pages = pagesOfSpace(space);
   const layoutFrames: Record<string, FrameLayout> = {};
-  const layoutItems: Record<string, FrameLayout> = {};
   for (const [id, f] of Object.entries(frames)) {
     const page = pages.find((p) => p.id === id);
-    const item = items[id];
     if (page) {
       layoutFrames[page.path] = f;
-    } else if (item) {
-      layoutItems[item.path] = f;
     }
   }
-  const layout: CanvasLayout = {
-    frames: layoutFrames,
-    items: layoutItems,
-    version: 1,
-  };
-  set({ layout });
-  return api().request("canvas.set", { layout, space }).catch(reportError);
+  set({ layout: { ...layout, frames: layoutFrames } });
+  return api()
+    .request("canvas.set", { frames: layoutFrames, space })
+    .catch(reportError);
 };
 
 /** Saves the layout a moment after the last change, so a drag is one step and not fifty. */
@@ -265,36 +244,16 @@ export const flushLayout = (): Promise<void> => {
 
 export const useEditor = create<EditorStore>((set, get) => ({
   activePage: null,
-  addItem: (item, frame) =>
-    set((s) => ({
-      frames: { ...s.frames, [item.id]: frame },
-      items: { ...s.items, [item.id]: item },
-    })),
   applyLayout: (space, layout) => {
     const s = get();
     if (space !== s.space || persistTimer) {
       return;
     }
-    const next = itemsOf(space, layout);
-    for (const id of Object.keys(s.items)) {
-      if (!next.items[id]) {
-        get().removeItem(id);
-      }
-    }
-    set({
-      frames: {
-        ...computeFrames(pagesOfSpace(space), layout),
-        ...next.frames,
-      },
-      items: next.items,
-      layout,
-    });
+    set({ frames: computeFrames(pagesOfSpace(space), layout), layout });
   },
   frames: {},
   hostErrors: {},
   hover: null,
-  inspect: null,
-  items: {},
   layout: { frames: {}, version: 1 },
   leftTab: "chat",
   mode: "select",
@@ -305,7 +264,6 @@ export const useEditor = create<EditorStore>((set, get) => ({
     set({
       activePage: pageAt(space, next)?.id ?? null,
       hover: null,
-      inspect: null,
       route: next,
       selectedPage: null,
       selection: null,
@@ -327,20 +285,20 @@ export const useEditor = create<EditorStore>((set, get) => ({
         matchRoute(pages, target) === null
           ? (pages[0]?.route ?? target)
           : target;
-      const items = itemsOf(space, layout);
+      if (useDocuments.getState().space !== space) {
+        useDocuments.getState().load(space);
+      }
       set({
         activePage: matchRoute(pages, landing)?.entry.id ?? null,
-        frames: { ...computeFrames(pages, layout), ...items.frames },
+        frames: computeFrames(pages, layout),
         hover: null,
-        inspect: null,
-        items: items.items,
         layout,
         rects: {},
         route: landing,
         selectedPage: null,
         selection: null,
+        sizes: {},
         space,
-        trees: {},
       });
       writeUrl({ route: landing, space }, false);
       localStorage.setItem("ultrapaint:space", space);
@@ -349,40 +307,17 @@ export const useEditor = create<EditorStore>((set, get) => ({
     }
   },
   rects: {},
-  removeItem: (id) =>
-    set((s) => {
-      const { [id]: _frame, ...frames } = s.frames;
-      const { [id]: _item, ...items } = s.items;
-      const clear =
-        s.selection?.pageId === id ||
-        s.selectedPage === id ||
-        s.hover?.pageId === id;
-      return {
-        frames,
-        items,
-        ...(clear && {
-          hover: null,
-          inspect: null,
-          selectedPage: null,
-          selection: null,
-        }),
-      };
-    }),
   route: "/",
   select: (selection) => {
-    set({
-      inspect: selection ? get().inspect : null,
-      selectedPage: null,
-      selection,
-    });
+    set({ selectedPage: null, selection });
     if (selection) {
-      followFrame(get, set, selection.pageId);
+      followFrame(get, set, selection.frame);
     }
   },
   selectedPage: null,
   selection: null,
   selectPage: (pageId) => {
-    set({ inspect: null, selectedPage: pageId, selection: null });
+    set({ selectedPage: pageId, selection: null });
     if (pageId) {
       followFrame(get, set, pageId);
     }
@@ -396,7 +331,6 @@ export const useEditor = create<EditorStore>((set, get) => ({
   setHostError: (pageId, error) =>
     set((s) => ({ hostErrors: { ...s.hostErrors, [pageId]: error } })),
   setHover: (hover) => set({ hover }),
-  setInspect: (inspect) => set({ inspect }),
   setLeftTab: (leftTab) => set({ leftTab }),
   setMode: (mode) => set({ mode }),
   setPreset: (pageId, preset) => {
@@ -410,12 +344,16 @@ export const useEditor = create<EditorStore>((set, get) => ({
         : presetSize[preset];
     get().setFrame(pageId, { ...f, ...size, preset });
   },
-  setRects: (pageId, rects) =>
-    set((s) => ({ rects: { ...s.rects, [pageId]: rects } })),
+  setRects: (frame, rects) =>
+    set((s) => ({ rects: { ...s.rects, [frame]: rects } })),
+  setSize: (frame, size) =>
+    set((s) => {
+      const known = s.sizes[frame];
+      return known?.width === size.width && known.height === size.height
+        ? s
+        : { sizes: { ...s.sizes, [frame]: size } };
+    }),
   setSpacePan: (spacePan) => set({ spacePan }),
-  setTokens: (tokens) => set({ tokens }),
-  setTree: (pageId, tree) =>
-    set((s) => ({ trees: { ...s.trees, [pageId]: tree } })),
   setView: (view) => set((s) => ({ view: { ...s.view, ...view } })),
   setWorkspace: (workspace) => {
     const tabs = workspaceTabs[workspace];
@@ -426,12 +364,12 @@ export const useEditor = create<EditorStore>((set, get) => ({
       // Nothing shows the selection in the prototype, so no key may act on it there.
       ...(workspace === "prototype" && {
         hover: null,
-        inspect: null,
         selectedPage: null,
         selection: null,
       }),
     });
   },
+  sizes: {},
   space: null,
   spacePan: false,
   syncActivePage: () => {
@@ -441,19 +379,18 @@ export const useEditor = create<EditorStore>((set, get) => ({
       set({ activePage: id });
     }
   },
-  tokens: {},
-  trees: {},
   view: { x: 80, y: 80, zoom: 0.5 },
   workspace: "vibe",
   zoomToFit: (viewport) => {
-    const frames = Object.values(get().frames);
+    const frames = Object.values(allFrames());
     if (frames.length === 0) {
       return;
     }
     fitTo(set, viewport, frames);
   },
   zoomToSelection: (viewport) => {
-    const { selection, selectedPage, frames, rects } = get();
+    const { selection, selectedPage, rects } = get();
+    const frames = allFrames();
     const pageFrame = selectedPage ? frames[selectedPage] : undefined;
     if (pageFrame) {
       fitTo(set, viewport, [pageFrame]);
@@ -462,8 +399,8 @@ export const useEditor = create<EditorStore>((set, get) => ({
     if (!selection) {
       return;
     }
-    const frame = frames[selection.pageId];
-    const rect = rects[selection.pageId]?.[selection.nodeId];
+    const frame = frames[selection.frame];
+    const rect = rects[selection.frame]?.[selection.nodeId];
     if (!frame) {
       return;
     }
@@ -489,6 +426,9 @@ const followFrame = (
   set: (partial: Partial<EditorStore>) => void,
   pageId: string
 ) => {
+  if (isNodeFrame(pageId)) {
+    return;
+  }
   const { route, space } = get();
   const page = pagesOfSpace(space).find((p) => p.id === pageId);
   if (!page || page.route === route) {

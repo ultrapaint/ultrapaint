@@ -1,16 +1,28 @@
+import type { DesignSystem } from "@ultrapaint/contracts/design-system";
+import type { DesignNode } from "@ultrapaint/contracts/document";
 import type {
   EditorMessage,
   HostMessage,
-  InspectResult,
   Rect,
+  RenderMode,
 } from "@ultrapaint/contracts/preview";
 
 type Listener = (msg: HostMessage) => void;
 
+let renders = 0;
+
+/** What a preview was last told to draw, so a preview that reloads is told again. */
+export interface RenderRequest {
+  readonly designSystem: DesignSystem | null;
+  readonly message?: string;
+  readonly mode: RenderMode;
+  readonly root: DesignNode | null;
+}
+
 /**
- * One bridge per preview iframe: a page on the canvas, or the space in the prototype. Wraps
+ * One bridge per preview iframe: a frame on the canvas, the prototype, a specimen. Wraps
  * `postMessage` with request/response correlation and fans host messages out to subscribers
- * (tree, rects, HMR, errors, navigation).
+ * (rects, sizes, HMR, errors, navigation).
  */
 export class FrameBridge {
   private iframe: HTMLIFrameElement | null = null;
@@ -108,15 +120,30 @@ export class FrameBridge {
     return r?.rects ?? {};
   }
 
-  async inspect(nodeId: string): Promise<InspectResult | null> {
-    const r = await this.request<Extract<HostMessage, { type: "ed:inspect" }>>(
+  /** Tells the preview what to draw; answers the id its `ed:rendered` will carry. */
+  render(request: RenderRequest): number {
+    renders += 1;
+    this.send({
+      designSystem: request.designSystem,
+      mode: request.mode,
+      renderId: renders,
+      root: request.root,
+      type: "ed:render",
+      ...(request.message !== undefined && { message: request.message }),
+    });
+    return renders;
+  }
+
+  /** The CSS variables the preview's stylesheets define, resolved in its theme. */
+  async tokens(prefixes?: readonly string[]): Promise<Record<string, string>> {
+    const r = await this.request<Extract<HostMessage, { type: "ed:tokens" }>>(
       (requestId) => ({
-        nodeId,
         requestId,
-        type: "ed:inspect",
+        type: "ed:getTokens",
+        ...(prefixes && { prefixes }),
       })
     );
-    return r?.result ?? null;
+    return r?.tokens ?? {};
   }
 
   async screenshot(): Promise<string | null> {
@@ -124,10 +151,6 @@ export class FrameBridge {
       Extract<HostMessage, { type: "ed:screenshot" }>
     >((requestId) => ({ requestId, type: "ed:screenshot" }), 15_000);
     return r?.dataUrl ?? null;
-  }
-
-  requestTree() {
-    this.send({ type: "ed:getTree" });
   }
 
   watchRects(nodeIds: string[]) {
@@ -138,18 +161,9 @@ export class FrameBridge {
     this.send({ nodeId, type: "ed:editText" });
   }
 
-  /** Where the space's router should be. The editor holds it; this is how the preview hears. */
-  setRoute(route: string) {
-    this.send({ route, type: "ed:route" });
-  }
-
   /** Whether the page may respond to input at all: true only in interact mode. */
   setInteractive(interactive: boolean) {
     this.send({ interactive, type: "ed:setInteractive" });
-  }
-
-  requestTokens() {
-    this.send({ type: "ed:getTokens" });
   }
 }
 

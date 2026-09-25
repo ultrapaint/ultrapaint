@@ -1,13 +1,14 @@
 # ultrapaint
 
 ultrapaint is a local-first design tool for teams that work with coding agents. The canvas is
-your real React UI rendered with your real design system, the designs live in your repository as
-source files, and agents such as Claude Code and Codex work on them next to you over
-[ACP](https://agentclientprotocol.com).
+drawn with your real design system — its Tailwind v4 theme and its React components — the
+designs live in your repository as plain JSON documents, and agents such as Claude Code and Codex
+work on them next to you over [ACP](https://agentclientprotocol.com), then turn them into your
+application's own code.
 
 Nothing is installed in your repository and nothing leaves your machine: the tool runs a local
-server, reads your components where they are, and writes pages as `.tsx` files you review and
-commit like any other code.
+server, reads your components where they are, and writes pages as `.page.json` files you review
+and commit like any other file.
 
 ## Installation
 
@@ -67,12 +68,15 @@ It keeps its settings in `~/.ultrapaint`, whichever directory it is started from
 ## First run
 
 Start `ultrapaint` inside a repository and the setup looks at it for you: it proposes the
-component library, the package your pages will resolve their imports from, the stylesheet that
-sets up your design system, and a directory for the designs (`docs/designs` unless you already
-have one). Confirm or change the proposals, let it create the directory, and the canvas opens.
+component library, the package the components resolve from, the stylesheet that sets up your
+design system, and a directory for the designs (`docs/designs` unless you already have one).
+Confirm or change the proposals, let it create the directory, and the canvas opens.
 
-Pages need no package of their own and nothing is installed for them. They import what the
-package you picked can import, and render with your repository's own React and Vite.
+Only Tailwind v4 is supported: the design system is read from its `@theme`. The setup says so
+when the stylesheets set up Tailwind v3 or no Tailwind at all.
+
+Nothing is installed for the designs. Their components are imported the way the package you
+picked imports them, and render with your repository's own React and Vite.
 
 Started like this, without a configuration file, the top bar says **Not saved**: your settings
 and agent threads go away when the tool stops. Click it to save an `ultrapaint.json` in the
@@ -127,26 +131,61 @@ of the four the three arms do not overlap at all; on the hardest one they still 
 
 An agent outside the editor can use the same tools: **Settings** shows the line that adds it.
 
+## Design documents
+
+A design is not code. It is a small tree of nodes, the way a design tool sees it:
+
+| Node | What it is |
+|---|---|
+| `page` | A screen at a route; it lays its children out in a column |
+| `row`, `column` | A flex container, horizontal or vertical: gap, alignment, padding, wrap |
+| `group` | A plain container that only holds and styles its children |
+| `text` | A heading (level 1–6) or a paragraph |
+| `image` | A picture from the space's `assets/` directory |
+| `instance` | A component of your design system, with its props |
+
+Sizes are `fill`, `hug` or pixels, and every colour, radius, shadow, spacing and type setting can
+be a token of your design system (`"$color-primary"`, `"$text-lg"`, `"$spacing-4"`), so the
+design follows the theme when it changes. `get_document_format`, on the editor's MCP server,
+gives an agent the whole format as a JSON Schema.
+
+The **Layers** panel shows the whole space at once, as a design tool does: every page with its
+tree, and the nodes placed on the canvas beside them. A node inside a page follows the page's
+layout; a node on the canvas has its own position. Drag one from one to the other, in the layers
+or on the canvas.
+
+When a page is ready, **Implement** in the Pages panel (or `/implement <route>` in a thread) asks
+an agent to write it in your application with your own components and conventions: the tokens
+become the matching Tailwind v4 classes, instances become your components.
+
+## The design system
+
+**Initialise** (in the Design system panel or in Settings) opens a thread with `/init` in its
+composer and your default agent picked; nothing is sent until you press it. The agent reads the
+Tailwind v4 theme of your stylesheets, looks at your components, their docs and your screens,
+asks you what it cannot find out, and saves two files next to the designs:
+
+- `design-system.json` — colours by palette, type sizes and text styles, fonts, spacing, radius,
+  shadows, themes, and for each component a category, a description and the example props its
+  palette thumbnail is drawn with;
+- `DESIGN.md` — the conventions every agent is told about: what the product is, which colours
+  mean what, what to always or never do.
+
+The **Design system** panel shows them: swatches per theme, type specimens in your own fonts,
+spacing, radius and shadows. The **Components** panel lists your components or shows them as a
+grid of thumbnails, drawn with the example props.
+
 ## Pages, routes and spaces
 
-A **page** is a `.tsx` file in the designs directory, and its path is its route, the way every
-React router does it: `index.tsx` is `/`, `settings/billing.tsx` is `/settings/billing`,
-`invoices/[id].tsx` is `/invoices/:id`. The **Pages** panel is that route tree.
+A **page** is a `.page.json` file in the designs directory, and its path is its route, the way
+every React router does it: `index.page.json` is `/`, `settings/billing.page.json` is
+`/settings/billing`, `invoices/[id].page.json` is `/invoices/:id`. The **Pages** panel is that
+route tree. Nodes placed on the canvas outside any page are kept in the space's `canvas.json`.
 
-Pages navigate through `_router.tsx`, written next to them the first time you create a page and
-never overwritten:
-
-```tsx
-import { Link, useNavigate, useParams, useRoute } from "./_router.tsx";
-
-<Link to="/settings/billing">Billing</Link>;
-```
-
-It is plain React with nothing of ultrapaint in it, so the page still compiles in your
-repository. In the **prototype** workspace the whole thing is one iframe: pressing a link swaps
-the page inside it, provider and component state survives, and the route is in the editor's own
-URL — so the browser's back and forward buttons are the prototype's, and a prototype state can
-be reloaded or pasted to someone else.
+Any node can link to a route. In the **prototype** workspace the whole thing is one iframe:
+pressing a link swaps the page inside it, provider and component state survives, and the route
+is in the editor's own URL — so the browser's back and forward buttons are the prototype's, and
+a prototype state can be reloaded or pasted to someone else.
 
 A **space** owns one router, one canvas and its own pages; a page of one space cannot navigate
 to a page of another. The designs directory is one space until a `space.json` says otherwise.
@@ -155,7 +194,7 @@ to a page of another. The designs directory is one space until a `space.json` sa
 
 This project is very early. Expect bugs and breaking changes.
 
-It supports React with Vite today. The preview is split the way Storybook's is, so that another
+It supports React with Vite and Tailwind v4 today. The preview is split the way Storybook's is, so that another
 framework is a package rather than a rewrite, but none exists yet. Yarn Plug'n'Play is not
 supported.
 
@@ -165,6 +204,7 @@ supported.
 - [Where settings and state are kept](docs/adr/0010-storage-modes.md)
 - [How the preview is built: editor, preview core, renderer, framework](docs/adr/0011-preview-split.md)
 - [Spaces, pages and the router](docs/adr/0012-spaces-pages-router.md)
+- [Design documents instead of TSX pages](docs/adr/0015-design-documents.md)
 - [All architecture decisions](docs/adr/README.md)
 - [Work definition](docs/discuss/work-definition.md) and [implementation plan](docs/PLAN.md)
 
@@ -182,13 +222,14 @@ pnpm test && pnpm typecheck && pnpm lint
 `--config` or `--ephemeral`. Read [`AGENTS.md`](AGENTS.md) before writing server code.
 
 - `apps/web` — the editor (React, Tailwind, Base UI). No Electron imports.
-- `apps/server` — local backend on the Effect 4 runtime: settings, preview host, pages and spaces, source edits, git, ACP threads.
+- `apps/server` — local backend on the Effect 4 runtime: settings, preview host, pages and spaces, design documents and the design system, undo, git, ACP threads.
 - `apps/desktop` — Electron shell: runs the server and loads the web bundle, adds a folder picker.
-- `packages/contracts` — Effect Schema for everything on the wire, and the `RpcGroup` that is the editor's API.
+- `packages/contracts` — Effect Schema for everything on the wire, the document format included, and the `RpcGroup` that is the editor's API.
+- `packages/design-document` — the document format's pure code: tree walks, ids, the operations every edit is made of, tokens and the CSS a node is drawn with.
 - `packages/framework-api` — what a renderer gives the preview and what a framework gives the server.
-- `packages/preview-core` — the framework-neutral runtime injected into every preview iframe, and the space's router.
-- `packages/renderer-react` — React's tree introspection and `renderToCanvas`, run with the repository's own React.
-- `packages/framework-react-vite` — the Node side for React + Vite: JSX stamping and editing, catalogue extraction, repository detection, the preview server.
+- `packages/preview-core` — the framework-neutral runtime injected into every preview iframe: what to draw, measuring, hit-testing, text editing, the prototype's navigation.
+- `packages/renderer-react` — draws design documents with the repository's own React and components (`renderToCanvas`).
+- `packages/framework-react-vite` — the Node side for React + Vite: the Tailwind v4 theme scan, catalogue extraction, repository detection, the preview server and its component registry.
 - `packages/acp` — the only module that imports the ACP SDK, behind an `AcpAgent` Effect interface; agent launch configs are data.
 - `packages/client-runtime`, `packages/shared` — the editor's RPC connection (reconnects, typed requests, events) and small utilities.
 - `scripts/cli.ts` — the `ultrapaint` command of a checkout; `scripts/dev-runner.ts` — `pnpm dev`.

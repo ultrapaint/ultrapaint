@@ -1,4 +1,5 @@
 import type { Rect } from "@ultrapaint/contracts/preview";
+import { nodeLabel } from "@ultrapaint/design-document/tree";
 import type { ReactNode } from "react";
 import { useDrag } from "./drag.ts";
 
@@ -21,11 +22,16 @@ export const DragOverlay = ({ zoom }: { zoom: number }) => {
   const inv = 1 / zoom;
   let label: string | null = copy ? "Copy" : null;
   if (drop?.kind === "canvas") {
-    label = `${copy ? "Copy" : "Move"} onto the canvas`;
+    label =
+      dragged.kind === "new"
+        ? "Place on the canvas"
+        : `${copy ? "Copy" : "Move"} onto the canvas`;
+  } else if (dragged.kind === "new") {
+    label = `Insert ${dragged.name}`;
   }
   return (
     <div className="pointer-events-none absolute top-0 left-0">
-      {dragged.kind === "element" && (
+      {dragged.kind === "node" && (
         <div
           className="absolute rounded-sm"
           style={{
@@ -38,12 +44,12 @@ export const DragOverlay = ({ zoom }: { zoom: number }) => {
           }}
         >
           <Tag inv={inv}>
-            {dragged.name}
+            {nodeLabel(dragged.node)}
             {label ? ` · ${label}` : ""}
           </Tag>
         </div>
       )}
-      {dragged.kind !== "element" && label && (
+      {dragged.kind === "new" && label && (
         <div
           className="absolute"
           style={{ left: pointer.x, top: pointer.y + 16 * inv }}

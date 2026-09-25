@@ -2,6 +2,13 @@
 
 Status: accepted, 2026-09-17. Supersedes 0001 and 0006; builds on 0002, 0003 and 0007.
 
+> Amended by [0015](0015-design-documents.md), 2026-09-25. The split stands; what crosses it
+> changed. The preview no longer renders a page module and walks its fibers: the editor sends it
+> a design document, the renderer draws it with the repository's components (imported through a
+> generated registry), and hit-testing reads the node ids on the DOM. A framework package now
+> gives the design system scan, the catalogue and the preview server; it no longer stamps or
+> edits source.
+
 ## Context
 
 React, JSX and Vite were wired through the server and the iframe runtime: the generated entry

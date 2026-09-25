@@ -4,6 +4,7 @@ import { cn } from "cn";
 import {
   ChevronDown,
   ChevronRight,
+  Code,
   Copy,
   FilePlus2,
   House,
@@ -26,6 +27,7 @@ import { confirmDialog } from "../components/dialogs.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
+import { startCommand } from "../lib/start-thread.ts";
 import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
@@ -342,6 +344,16 @@ const Row = ({
             </IconButton>
             <IconButton onClick={duplicate} size="icon-xs" tooltip="Duplicate">
               <Copy className="size-3" />
+            </IconButton>
+            <IconButton
+              onClick={(e: MouseEvent) => {
+                e.stopPropagation();
+                startCommand(`/implement ${node.route}`);
+              }}
+              size="icon-xs"
+              tooltip="Implement in the application with an agent"
+            >
+              <Code className="size-3" />
             </IconButton>
             <IconButton onClick={remove} size="icon-xs" tooltip="Delete">
               <Trash2 className="size-3" />

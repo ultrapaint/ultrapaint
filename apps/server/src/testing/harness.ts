@@ -21,14 +21,27 @@ import { ServerConfig, type StorageTarget } from "../config.ts";
 import { runCommand } from "../process.ts";
 import { ServerLive } from "../server.ts";
 
-const HOME_PAGE = `export default function Home() {
-  return (
-    <main className="p-4">
-      <h1 className="text-xl">Hello</h1>
-    </main>
-  );
-}
-`;
+const HOME_PAGE = `${JSON.stringify(
+  {
+    root: {
+      children: [
+        {
+          id: "heading",
+          level: 1,
+          role: "heading",
+          text: "Hello",
+          type: "text",
+        },
+      ],
+      id: "root",
+      padding: 16,
+      type: "page",
+    },
+    version: 1,
+  },
+  null,
+  2
+)}\n`;
 
 const BUTTON_COMPONENT = `export interface ButtonProps {
   disabled?: boolean;
@@ -64,7 +77,7 @@ export const makeRepository = Effect.gen(function* () {
     );
   yield* write("package.json", '{ "name": "fixture", "private": true }\n');
   yield* write("designs/package.json", '{ "name": "designs" }\n');
-  yield* write("designs/home.tsx", HOME_PAGE);
+  yield* write("designs/home.page.json", HOME_PAGE);
   yield* write("ui/button.tsx", BUTTON_COMPONENT);
   const git = (...args: string[]) => runCommand("git", args, { cwd: repo });
   yield* git("init", "-q", "-b", "main");

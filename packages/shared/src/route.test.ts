@@ -16,6 +16,9 @@ describe("routes derived from page files", () => {
     expect(routeOf("settings/billing.tsx")).toBe("/settings/billing");
     expect(routeOf("invoices/[id].tsx")).toBe("/invoices/:id");
     expect(routeOf("docs/[...rest].tsx")).toBe("/docs/*");
+    expect(routeOf("index.page.json")).toBe("/");
+    expect(routeOf("settings/billing.page.json")).toBe("/settings/billing");
+    expect(routeOf("invoices/[id].page.json")).toBe("/invoices/:id");
   });
 
   it("names the file a route asks for, without an extension", () => {

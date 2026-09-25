@@ -10,11 +10,13 @@
  * rather than only those with a system prompt to append to.
  */
 import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
+import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { PageList } from "@ultrapaint/contracts/pages";
 import { Context, Effect, Layer } from "effect";
 import { ServerConfig } from "../../config.ts";
 import { ProjectManager } from "../../project.ts";
 import { CatalogueService } from "../catalogue.ts";
+import { DesignSystemService } from "../design-system.ts";
 import { PagesService } from "../pages.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { AgentSandbox } from "./agent-sandbox.ts";
@@ -27,6 +29,22 @@ const componentLine = (component: ComponentMeta) => {
     .map(([name, members]) => `${name}: ${members.join("|")}`)
     .join(", ");
   return `- ${component.name} (${component.importFrom})${variants ? ` — ${variants}` : ""}`;
+};
+
+/** Enough of the tokens to design with; `read_design_system` has the rest. */
+const TOKEN_LIMIT = 80;
+
+const tokensOf = (ds: DesignSystem) => {
+  const names = [
+    ...ds.colors.flatMap((g) => g.tokens.map((t) => t.name)),
+    ...ds.typography.sizes.map((t) => t.name),
+    ...ds.typography.weights.map((t) => t.name),
+    ...ds.typography.fonts.map((t) => t.name),
+    ...ds.radius.map((t) => t.name),
+    ...ds.shadows.map((t) => t.name),
+  ];
+  const shown = names.slice(0, TOKEN_LIMIT).map((n) => `$${n}`);
+  return `${shown.join(" ")}${names.length > shown.length ? ` (and ${names.length - shown.length} more)` : ""}`;
 };
 
 const routesOf = (pages: PageList) =>
@@ -64,45 +82,80 @@ export class ProjectBriefing extends Context.Service<
         );
         const more = (catalogue?.components.length ?? 0) - components.length;
 
+        const system = yield* Effect.orElseSucceed(
+          Effect.flatMap(DesignSystemService, (service) => service.get),
+          () => ({ designSystem: null, notes: null })
+        );
+        const ds = system.designSystem;
+        const styles = ds?.typography.styles ?? [];
+
         return `<ultrapaint>
-You are working in ultrapaint, a design tool whose canvas renders this repository's real React
-pages. The user sees the pages you edit, live, as you edit them.
+You are working in ultrapaint, a design tool. The user sees the designs you change, live, on
+its canvas, drawn with this repository's own design system.
 
-Designs live in ${settings.designsDir}. A page is a .tsx file there and its path is its route:
-index.tsx is /, settings/billing.tsx is /settings/billing, invoices/[id].tsx is /invoices/:id.
-A page is a default-exported React component and takes no props.
-
-Pages navigate through ./_router.tsx, written next to them: import { Link, useNavigate,
-useParams, useRoute } from "./_router.tsx" (from a subdirectory, "../_router.tsx"). Use it
-instead of an <a href> so the prototype navigates inside the canvas. Do not edit _router.tsx.
-
-Pages import what ${settings.resolveFrom ?? "the designs directory"} can import, and nothing is
-installed for them. Styling follows this repository's own conventions — read a neighbouring page
-or component rather than inventing one.
+Designs live in ${settings.designsDir}. A page is a design document, not code: a
+<route>.page.json file whose path is its route (index.page.json is /,
+settings/billing.page.json is /settings/billing, invoices/[id].page.json is /invoices/:id). It
+holds a tree of nodes, each with an id:
+- page: the root; lays its children out as a column.
+- row, column: flex containers with gap, align (start|center|end|between|around), crossAlign
+  (start|center|end|stretch|baseline), wrap, padding.
+- group: a plain container; its children stack.
+- text: role "heading" (with level 1-6) or "paragraph", its text, and optionally a textStyle of
+  the design system, size, weight, font, color, align.
+- image: src (a path in the space's assets/ or a URL), alt, fit.
+- instance: a component of the design system — component (export name), from (module), props,
+  and text or children.
+Every node may have width/height ("fill", "hug" or pixels), min/max sizes, padding, fill
+(background), border, radius, shadow, opacity, hidden, and link (a route the prototype follows).
+Numbers are pixels; "$name" is a design token, the Tailwind v4 variable --name.
 
 Routes that exist now:
 ${routesOf(pages)}
 
 ${
+  ds
+    ? `Design tokens: ${tokensOf(ds)}
+${
+  styles.length > 0
+    ? `Text styles: ${styles.map((s) => s.name).join(", ")}
+`
+    : ""
+}`
+    : `The design system has not been imported yet: the user can run /init.
+`
+}${
+  system.notes
+    ? `
+Conventions of this design system (DESIGN.md):
+${system.notes.trim()}
+`
+    : ""
+}
+${
   components.length > 0
-    ? `Components you can use${more > 0 ? ` (${more} more in ${settings.libraryDirs.join(", ")})` : ""}:
+    ? `Components you can place${more > 0 ? ` (${more} more in ${settings.libraryDirs.join(", ")})` : ""}:
 ${components.map(componentLine).join("\n")}`
     : `Components live in ${settings.libraryDirs.join(", ") || "this repository"}.`
 }
 
 ${
   mcp
-    ? `The "ultrapaint" MCP server is the editor itself. Ask it rather than searching the
-repository for what it already knows: read_page, list_components, get_component,
-list_comments. What get_context and list_pages would tell you is above; ask them only if the
-project may have changed since. Work through it where it offers to: create_page and rename_page
-put a page where its route says, reply_to_comment and resolve_comment answer the user where they
-asked, and focus tells the canvas which page you are on so the user can watch you work.
+    ? `The "ultrapaint" MCP server is the editor itself. Change designs through it: read_page
+and read_canvas return a document with its ids, apply_operations changes it (insert, remove,
+move, update, setProps, wrap, unwrap, duplicate) — validated, shown on the canvas at once and
+undoable by the user. create_page and rename_page put a page where its route says. Ask
+get_component for a component's props and an instance to start from, get_document_format for
+the whole format. list_comments, reply_to_comment and resolve_comment answer the user where
+they asked, and focus tells the canvas which page you are on so the user can watch you work.
+Prefer these to editing the JSON files yourself; if you do write a file, keep it valid.
 
 `
-    : ""
-}Work only inside ${paths.root}. Edits land on the canvas as you save them, so make them one at a
-time rather than rewriting a page wholesale.${
+    : `Edit the .page.json files directly and keep them valid; every node needs a unique id.
+
+`
+}Work only inside ${paths.root}. Changes land on the canvas as you make them, so make them one
+step at a time rather than rewriting a page wholesale.${
           sandbox.available
             ? `
 The repository's .git is read-only to you: git status, diff and log work, but commits, branches

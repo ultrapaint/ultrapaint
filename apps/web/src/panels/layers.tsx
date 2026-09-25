@@ -1,20 +1,42 @@
-import { sourceKey } from "@ultrapaint/contracts/base";
-import type { TreeNode } from "@ultrapaint/contracts/preview";
+/**
+ * The layers of the whole space, read off its documents: every page with its tree, then the
+ * nodes placed on the canvas beside the pages, the way Figma lists the frames of a page. A row
+ * selects what it names on the canvas, and rows are dragged to move nodes — inside a page,
+ * between pages, onto the canvas and back.
+ */
+import type { DesignNode, DocumentEdit } from "@ultrapaint/contracts/document";
+import type { Page } from "@ultrapaint/contracts/pages";
+import {
+  canvasDocOf,
+  childrenOf,
+  findPath,
+  isContainer,
+  nodeKind,
+  nodeLabel,
+} from "@ultrapaint/design-document/tree";
 import { cn } from "cn";
 import {
   ChevronDown,
   ChevronRight,
+  Columns3,
+  Component,
   Copy,
+  Eye,
+  EyeOff,
+  File,
+  Group,
+  Image,
   MoreVertical,
   Pencil,
+  Rows3,
   Trash2,
+  Type,
 } from "lucide-react";
 import {
-  type Dispatch,
   type DragEvent,
   type KeyboardEvent,
   type MouseEvent,
-  type SetStateAction,
+  type ReactNode,
   useEffect,
   useRef,
   useState,
@@ -30,37 +52,110 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { bridgeFor } from "../canvas/bridge.ts";
 import { PanelEmpty } from "../components/panel.tsx";
-import { runEdit } from "../lib/shortcuts.ts";
-import { layersFrameOf, useEditor } from "../state/editor.ts";
-import { findPath, hostOf } from "../state/tree.ts";
+import {
+  deleteSelection,
+  duplicateSelection,
+  setHidden,
+} from "../lib/node-actions.ts";
+import {
+  applyEdits,
+  canvasNodes,
+  docOfFrame,
+  frameOfCanvasNode,
+  nodeFrameOf,
+  useDocuments,
+} from "../state/documents.ts";
+import { type Selection, useEditor } from "../state/editor.ts";
+import { useProject } from "../state/project.ts";
 
 /** A row's own indent, and where its chevron sits inside it. */
 const ROW_PAD = 8;
 const INDENT = 12;
 const CHEVRON_CENTER = 8;
 
-const ROOT_ANCESTORS: readonly string[] = [];
-
-const keyOf = (n: TreeNode) =>
-  n.source ? `${sourceKey(n.source)}:${n.kind}` : n.id;
+const LAYERS_MIME = "application/ultrapaint-layer";
 
 type DropPosition = "before" | "inside" | "after";
 
 interface DropTarget {
-  id: string;
+  key: string;
   position: DropPosition;
 }
 
-const QUOTED_TEXT_RE = / ".*"$/;
+/** A row of the panel: a node of a frame, where it sits, and what may be done with it. */
+/** Where among its siblings a dropped layer goes, the dragged one left out. */
+const dropIndex = (
+  siblings: readonly DesignNode[],
+  dragged: string,
+  target: string,
+  position: DropPosition
+) => {
+  if (position === "inside") {
+    return 0;
+  }
+  const at = siblings
+    .filter((c) => c.id !== dragged)
+    .findIndex((c) => c.id === target);
+  return position === "before" ? at : at + 1;
+};
 
-/** The host element's summary, without the text the component's summary already quotes. */
-const hostLabel = (component: TreeNode, host: TreeNode) =>
-  QUOTED_TEXT_RE.test(component.summary)
-    ? host.summary.replace(QUOTED_TEXT_RE, "")
-    : host.summary;
+/** A move within one document, or out of one into another. */
+const layerMoveEdits = (move: {
+  destination: string;
+  index: number;
+  node: DesignNode;
+  /** The container it goes into; null for the top of the canvas. */
+  parent: string | null;
+  source: string;
+  /** The layer it was dropped at. */
+  target: DesignNode;
+}): DocumentEdit[] => {
+  const { destination, index, node, parent, source, target } = move;
+  if (source === destination) {
+    return [{ doc: source, ops: [{ id: node.id, index, op: "move", parent }] }];
+  }
+  // Onto the canvas beside another node on it: just below that one.
+  const placed =
+    parent === null
+      ? { ...node, x: target.x ?? 0, y: (target.y ?? 0) + 40 }
+      : node;
+  return [
+    { doc: source, ops: [{ id: node.id, op: "remove" }] },
+    { doc: destination, ops: [{ index, node: placed, op: "insert", parent }] },
+  ];
+};
 
-const dropPositionAt = (node: TreeNode, y: number): DropPosition => {
-  if (node.kind !== "text" && y > 0.3 && y < 0.7) {
+interface Row {
+  /** The frame the node is shown in. */
+  frame: string;
+  node: DesignNode;
+  /** The node it is inside, or null for the top of a page or of the canvas. */
+  parent: DesignNode | null;
+}
+
+const keyOf = (frame: string, nodeId: string) => `${frame}#${nodeId}`;
+
+const iconOf = (node: DesignNode): ReactNode => {
+  switch (node.type) {
+    case "page":
+      return <File className="size-3" />;
+    case "row":
+      return <Columns3 className="size-3" />;
+    case "column":
+      return <Rows3 className="size-3" />;
+    case "group":
+      return <Group className="size-3" />;
+    case "text":
+      return <Type className="size-3" />;
+    case "image":
+      return <Image className="size-3" />;
+    default:
+      return <Component className="size-3" />;
+  }
+};
+
+const dropPositionAt = (node: DesignNode, y: number): DropPosition => {
+  if (isContainer(node) && y > 0.3 && y < 0.7) {
     return "inside";
   }
   return y <= 0.5 ? "before" : "after";
@@ -69,109 +164,113 @@ const dropPositionAt = (node: TreeNode, y: number): DropPosition => {
 const clearHover = () => useEditor.getState().setHover(null);
 
 export const Layers = () => {
-  // Inside a canvas item, the layers are the item's.
-  const activePage = useEditor(layersFrameOf);
-  const tree = useEditor((s) => (activePage ? s.trees[activePage] : undefined));
+  const space = useEditor((s) => s.space);
+  const allPages = useProject((s) => s.pages);
+  const pages = allPages.filter((p) => p.space === space);
+  const docs = useDocuments((s) => s.docs);
+  const loaded = useDocuments((s) => s.loaded);
   const selection = useEditor((s) => s.selection);
-  const hover = useEditor((s) => s.hover);
+  const selectedPage = useEditor((s) => s.selectedPage);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const listRef = useRef<HTMLDivElement>(null);
-  const [drag, setDrag] = useState<{ node: TreeNode } | null>(null);
+  const [drag, setDrag] = useState<Row | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
+  const nodes = canvasNodes(docs, space);
 
-  // Auto-expand the path to the selection whenever the selection or tree changes (adjusted during
-  // render rather than in an effect, so the expanded tree paints in the same pass).
-  const [revealed, setRevealed] = useState<{
-    selection: typeof selection;
-    tree: typeof tree;
-  } | null>(null);
-  const selectedHere =
-    selection && tree && selection.pageId === activePage ? selection : null;
-  if (
-    selectedHere &&
-    tree &&
-    (revealed?.selection !== selectedHere || revealed.tree !== tree)
-  ) {
-    setRevealed({ selection: selectedHere, tree });
-    const path = findPath(tree, selectedHere.nodeId);
+  // Opens the way down to the selection whenever it changes (adjusted during render rather than
+  // in an effect, so the expanded tree paints in the same pass).
+  const [revealed, setRevealed] = useState<Selection | null>(null);
+  if (selection && selection !== revealed) {
+    setRevealed(selection);
+    const root =
+      docs[selection.frame]?.root ??
+      nodes.find((n) => nodeFrameOf(n.id) === selection.frame) ??
+      null;
+    const path = findPath(root, selection.nodeId);
     if (path) {
       const next = new Set(collapsed);
       for (const n of path) {
-        next.delete(keyOf(n));
+        next.delete(keyOf(selection.frame, n.id));
       }
-      setCollapsed(next);
+      if (next.size !== collapsed.size) {
+        setCollapsed(next);
+      }
     }
   }
 
   useEffect(() => {
-    if (!revealed?.selection) {
+    if (!revealed) {
       return;
     }
-    const { nodeId } = revealed.selection;
+    const key = keyOf(revealed.frame, revealed.nodeId);
     requestAnimationFrame(() => {
       listRef.current
-        ?.querySelector(`[data-node="${nodeId}"]`)
+        ?.querySelector(`[data-row="${CSS.escape(key)}"]`)
         ?.scrollIntoView({ block: "nearest" });
     });
   }, [revealed]);
 
-  const toggle = (n: TreeNode) =>
+  const toggle = (key: string) =>
     setCollapsed((prev) => {
       const next = new Set(prev);
-      const k = keyOf(n);
-      if (next.has(k)) {
-        next.delete(k);
+      if (next.has(key)) {
+        next.delete(key);
       } else {
-        next.add(k);
+        next.add(key);
       }
       return next;
     });
 
-  const onDrop = async (
-    target: TreeNode,
-    position: DropPosition,
-    parent: TreeNode | undefined
-  ) => {
-    if (!drag?.node.source) {
+  /** Moves the dragged row next to, or into, the target row: across documents too. */
+  const onDrop = async (target: Row, position: DropPosition) => {
+    if (!drag || space === null) {
       return;
     }
-    if (position === "inside") {
-      if (!target.source) {
-        return;
+    const into = position === "inside" ? target.node : target.parent;
+    const intoFrame = target.frame;
+    const siblings = into ? childrenOf(into) : nodes;
+    const source = docOfFrame(drag.frame, space);
+    const destination = into
+      ? docOfFrame(intoFrame, space)
+      : canvasDocOf(space);
+    const edits = layerMoveEdits({
+      destination,
+      index: dropIndex(siblings, drag.node.id, target.node.id, position),
+      node: drag.node,
+      parent: into?.id ?? null,
+      source,
+      target: target.node,
+    });
+    const result = await applyEdits(edits, "Move");
+    if (result) {
+      const { docs: after } = useDocuments.getState();
+      const frame =
+        destination === canvasDocOf(space)
+          ? frameOfCanvasNode(after, space, drag.node.id)
+          : intoFrame;
+      if (frame) {
+        useEditor.getState().select({ frame, nodeId: drag.node.id });
       }
-      await runEdit({
-        index: 0,
-        into: target.source,
-        kind: "move",
-        target: drag.node.source,
-      });
-    } else {
-      if (!parent?.source) {
-        return;
-      }
-      const siblings = parent.children.filter((c) => c.id !== drag.node.id);
-      const targetIdx = siblings.findIndex((c) => c.id === target.id);
-      await runEdit({
-        index: position === "before" ? targetIdx : targetIdx + 1,
-        into: parent.source,
-        kind: "move",
-        target: drag.node.source,
-      });
     }
   };
 
-  if (!(activePage && tree)) {
-    return <PanelEmpty>Select a page to see its layers</PanelEmpty>;
+  if (space === null) {
+    return <PanelEmpty>Open a space from the Pages panel</PanelEmpty>;
+  }
+  if (!loaded) {
+    return <PanelEmpty>Reading the designs…</PanelEmpty>;
+  }
+  if (pages.length === 0 && nodes.length === 0) {
+    return <PanelEmpty>This space has no pages yet</PanelEmpty>;
   }
 
-  const shared: LayerShared = {
-    activePage,
+  const shared: Shared = {
     collapsed,
     drag,
     dropTarget,
-    hoveredId: hover?.pageId === activePage ? hover.nodeId : null,
     onDrop,
-    selectedId: selection?.pageId === activePage ? selection.nodeId : null,
+    selectedPage,
+    selection,
     setDrag,
     setDropTarget,
     toggle,
@@ -179,12 +278,19 @@ export const Layers = () => {
 
   return (
     <div className="py-1" ref={listRef} role="tree">
-      {tree.children.map((c) => (
-        <LayerNode
-          ancestors={ROOT_ANCESTORS}
-          key={c.id}
-          node={c}
-          parent={tree}
+      {pages.map((page) => (
+        <PageRows key={page.id} page={page} shared={shared} />
+      ))}
+      {nodes.length > 0 && (
+        <div className="mt-2 px-3 pt-1 pb-0.5 font-medium text-[10px] text-muted-foreground uppercase">
+          On the canvas
+        </div>
+      )}
+      {nodes.map((node) => (
+        <LayerRow
+          ancestors={[]}
+          key={node.id}
+          row={{ frame: nodeFrameOf(node.id), node, parent: null }}
           shared={shared}
         />
       ))}
@@ -192,23 +298,134 @@ export const Layers = () => {
   );
 };
 
-/** Panel state every row of the tree reads, passed down unchanged. */
-interface LayerShared {
-  activePage: string;
+interface Shared {
   collapsed: Set<string>;
-  drag: { node: TreeNode } | null;
+  drag: Row | null;
   dropTarget: DropTarget | null;
-  hoveredId: string | null;
-  onDrop: (
-    target: TreeNode,
-    position: DropPosition,
-    parent: TreeNode | undefined
-  ) => Promise<void>;
-  selectedId: string | null;
-  setDrag: Dispatch<SetStateAction<{ node: TreeNode } | null>>;
-  setDropTarget: Dispatch<SetStateAction<DropTarget | null>>;
-  toggle: (n: TreeNode) => void;
+  onDrop: (target: Row, position: DropPosition) => Promise<void>;
+  selectedPage: string | null;
+  selection: Selection | null;
+  setDrag: (row: Row | null) => void;
+  setDropTarget: (
+    target: DropTarget | null | ((d: DropTarget | null) => DropTarget | null)
+  ) => void;
+  toggle: (key: string) => void;
 }
+
+/** A page's own row, and its tree under it. */
+const PageRows = ({ page, shared }: { page: Page; shared: Shared }) => {
+  const state = useDocuments((s) => s.docs[page.id]);
+  const root = state?.root ?? null;
+  const key = keyOf(page.id, "page");
+  const isCollapsed = shared.collapsed.has(key);
+  const selected = shared.selectedPage === page.id;
+  const select = () => {
+    useEditor.getState().selectPage(page.id);
+  };
+  const children = root ? childrenOf(root) : [];
+  const onDragOver = (e: DragEvent<HTMLDivElement>) => {
+    if (!(shared.drag && root)) {
+      return;
+    }
+    e.preventDefault();
+    shared.setDropTarget({ key, position: "inside" });
+  };
+  const onDropHere = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    shared.setDropTarget(null);
+    if (root) {
+      shared.onDrop({ frame: page.id, node: root, parent: null }, "inside");
+    }
+    shared.setDrag(null);
+  };
+  return (
+    <div>
+      <div
+        aria-expanded={!isCollapsed}
+        aria-selected={selected}
+        className={cn(
+          "group relative flex h-7 cursor-default items-center gap-1 pr-1 font-medium text-[11px]",
+          selected
+            ? "bg-brand/25 text-foreground"
+            : "text-foreground hover:bg-muted/50",
+          shared.dropTarget?.key === key && "ring-1 ring-brand ring-inset"
+        )}
+        data-row={keyOf(page.id, root?.id ?? "page")}
+        onClick={select}
+        onDragLeave={() => shared.setDropTarget(null)}
+        onDragOver={onDragOver}
+        onDrop={onDropHere}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            select();
+          }
+        }}
+        role="treeitem"
+        style={{ paddingLeft: ROW_PAD }}
+        tabIndex={0}
+      >
+        <Chevron
+          collapsed={isCollapsed}
+          hidden={children.length === 0}
+          onToggle={() => shared.toggle(key)}
+        />
+        <File className="size-3 shrink-0 text-muted-foreground" />
+        <span className="truncate">{page.name}</span>
+        <span className="ml-auto truncate pr-1 font-mono font-normal text-[10px] text-muted-foreground">
+          {page.route}
+        </span>
+      </div>
+      {state?.problem ? (
+        <div
+          className="truncate px-8 py-0.5 text-[10px] text-destructive"
+          title={state.problem}
+        >
+          Not a valid page: {state.problem}
+        </div>
+      ) : null}
+      {!isCollapsed &&
+        children.map((child) => (
+          <LayerRow
+            ancestors={[page.id]}
+            key={child.id}
+            row={{ frame: page.id, node: child, parent: root }}
+            shared={shared}
+          />
+        ))}
+    </div>
+  );
+};
+
+const Chevron = ({
+  collapsed,
+  hidden,
+  onToggle,
+}: {
+  collapsed: boolean;
+  hidden: boolean;
+  onToggle: () => void;
+}) => (
+  <Button
+    aria-label={collapsed ? "Expand" : "Collapse"}
+    className={cn(
+      "size-4 shrink-0 text-muted-foreground",
+      hidden && "invisible"
+    )}
+    onClick={(e: MouseEvent) => {
+      e.stopPropagation();
+      onToggle();
+    }}
+    size="icon-xs"
+    variant="ghost"
+  >
+    {collapsed ? (
+      <ChevronRight className="size-3" />
+    ) : (
+      <ChevronDown className="size-3" />
+    )}
+  </Button>
+);
 
 /**
  * One line per level the row is nested under, drawn where that level's chevron sits. The rows sit
@@ -227,31 +444,19 @@ const DepthGuides = ({ ancestors }: { ancestors: readonly string[] }) => (
   </>
 );
 
-/**
- * What can be done to the row without reaching for the canvas or a shortcut. Stays out of the way
- * until the row is pointed at, focused, or the menu it opens is on screen.
- */
-const RowMenu = ({
-  node,
-  pageId,
-  canEditText,
-}: {
-  node: TreeNode;
-  pageId: string;
-  canEditText: boolean;
-}) => {
-  const { source } = node;
-  if (!(source && node.editable)) {
-    return null;
-  }
-  const onEditText = () => bridgeFor(pageId).editText(node.id);
-  const onDuplicate = () => runEdit({ kind: "duplicate", target: source });
-  const onDelete = () => runEdit({ kind: "delete", target: source });
+/** What can be done to the row without reaching for the canvas or a shortcut. */
+const RowMenu = ({ row }: { row: Row }) => {
+  const { frame, node } = row;
+  const select = () => useEditor.getState().select({ frame, nodeId: node.id });
+  const onEditText = () => {
+    select();
+    bridgeFor(frame).editText(node.id);
+  };
   // Opening the menu selects the row, so the canvas shows what the actions — and the shortcuts
   // they name — are about to touch.
   const onOpenChange = (open: boolean) => {
     if (open) {
-      useEditor.getState().select({ nodeId: node.id, pageId, source });
+      select();
     }
   };
   return (
@@ -259,7 +464,7 @@ const RowMenu = ({
       <DropdownMenuTrigger
         render={
           <Button
-            aria-label={`Actions for ${node.summary}`}
+            aria-label={`Actions for ${nodeLabel(node)}`}
             className="invisible ml-auto size-5 shrink-0 text-muted-foreground group-focus-within:visible group-hover:visible aria-expanded:visible"
             size="icon-xs"
             variant="ghost"
@@ -269,20 +474,27 @@ const RowMenu = ({
         <MoreVertical className="size-3" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-44">
-        {canEditText ? (
+        {node.type === "text" ? (
           <DropdownMenuItem onClick={onEditText}>
             <Pencil />
             Edit text
             <DropdownMenuShortcut>⏎</DropdownMenuShortcut>
           </DropdownMenuItem>
         ) : null}
-        <DropdownMenuItem onClick={onDuplicate}>
+        <DropdownMenuItem onClick={() => setHidden(!node.hidden)}>
+          {node.hidden ? <Eye /> : <EyeOff />}
+          {node.hidden ? "Show" : "Hide"}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => duplicateSelection()}>
           <Copy />
           Duplicate
           <DropdownMenuShortcut>⌘D</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={onDelete} variant="destructive">
+        <DropdownMenuItem
+          onClick={() => deleteSelection()}
+          variant="destructive"
+        >
           <Trash2 />
           Delete
           <DropdownMenuShortcut>⌫</DropdownMenuShortcut>
@@ -301,90 +513,76 @@ const rowTone = (selected: boolean, hovered: boolean) => {
     : "text-muted-foreground hover:bg-muted/50";
 };
 
-const LayerNode = ({
-  node,
+const LayerRow = ({
+  row,
   ancestors,
-  parent,
   shared,
 }: {
-  node: TreeNode;
+  row: Row;
   /** The rows this one is written inside, outermost first: one guide line each. */
   ancestors: readonly string[];
-  parent?: TreeNode;
-  shared: LayerShared;
+  shared: Shared;
 }) => {
-  const {
-    activePage,
-    collapsed,
-    drag,
-    dropTarget,
-    onDrop,
-    setDrag,
-    setDropTarget,
-    toggle,
-  } = shared;
-  const isCollapsed = collapsed.has(keyOf(node));
-  const host = hostOf(node);
-  const children = host ? host.children : node.children;
-  const isRow = (id: string | null) =>
-    id !== null && (id === node.id || id === host?.id);
-  const selected = isRow(shared.selectedId);
-  const hovered = isRow(shared.hoveredId);
+  const { frame, node } = row;
+  const hover = useEditor((s) => s.hover);
+  const key = keyOf(frame, node.id);
+  const isCollapsed = shared.collapsed.has(key);
+  const children = childrenOf(node);
   const hasChildren = children.length > 0;
-  // In source the children are written inside the component's JSX, not its host element.
-  const rowParent = host ? { ...node, children } : node;
-  const rowAncestors = [...ancestors, node.id];
-  const dropHere = dropTarget?.id === node.id ? dropTarget.position : null;
+  const selected =
+    shared.selection?.frame === frame && shared.selection.nodeId === node.id;
+  const hovered = hover?.frame === frame && hover.nodeId === node.id;
+  const dropHere =
+    shared.dropTarget?.key === key ? shared.dropTarget.position : null;
 
-  const select = () => {
-    useEditor.getState().select({
-      nodeId: node.id,
-      pageId: activePage,
-      source: node.source,
-    });
-  };
+  const select = () => useEditor.getState().select({ frame, nodeId: node.id });
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.target !== e.currentTarget) {
       return;
     }
     if (e.key === "Enter" || e.key === " ") {
-      if (e.key === " ") {
-        e.preventDefault();
-      }
+      e.preventDefault();
       select();
     }
   };
-  const editText = () => bridgeFor(activePage).editText(node.id);
+  const editText = () => {
+    if (node.type === "text") {
+      select();
+      bridgeFor(frame).editText(node.id);
+    }
+  };
   const onDragLeave = () =>
-    setDropTarget((d) => (d?.id === node.id ? null : d));
+    shared.setDropTarget((d) => (d?.key === key ? null : d));
   const onDragOver = (e: DragEvent<HTMLDivElement>) => {
-    if (!drag || drag.node.id === node.id || !node.editable) {
+    const dragged = shared.drag;
+    if (!dragged || dragged.node.id === node.id) {
+      return;
+    }
+    // Not into itself or anything inside it.
+    if (dragged.frame === frame && findPath(dragged.node, node.id) !== null) {
       return;
     }
     e.preventDefault();
     const r = e.currentTarget.getBoundingClientRect();
     const y = (e.clientY - r.top) / r.height;
-    setDropTarget({ id: node.id, position: dropPositionAt(node, y) });
+    shared.setDropTarget({ key, position: dropPositionAt(node, y) });
   };
   const onDragStart = (e: DragEvent<HTMLDivElement>) => {
-    setDrag({ node });
+    shared.setDrag(row);
     e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData(LAYERS_MIME, node.id);
   };
   const onDropHere = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    const t = dropTarget;
-    setDropTarget(null);
-    setDrag(null);
-    if (t) {
-      onDrop(node, t.position, parent);
+    const t = shared.dropTarget;
+    shared.setDropTarget(null);
+    if (t?.key === key) {
+      shared.onDrop(row, t.position);
     }
+    shared.setDrag(null);
   };
   const onMouseEnter = () =>
-    useEditor.getState().setHover({ nodeId: node.id, pageId: activePage });
-  const onToggle = (e: MouseEvent) => {
-    e.stopPropagation();
-    toggle(node);
-  };
+    useEditor.getState().setHover({ frame, nodeId: node.id });
 
   return (
     <div>
@@ -394,16 +592,17 @@ const LayerNode = ({
         className={cn(
           "group relative flex h-6 cursor-default items-center gap-1 pr-1 text-[11px]",
           rowTone(selected, hovered),
-          !node.editable && node.id !== "root" && "text-muted-foreground/60",
+          node.hidden && "opacity-50",
           dropHere === "inside" && "ring-1 ring-brand ring-inset",
           dropHere === "before" &&
             "shadow-[inset_0_2px_0_0_var(--color-brand)]",
           dropHere === "after" && "shadow-[inset_0_-2px_0_0_var(--color-brand)]"
         )}
-        data-node={node.id}
-        draggable={node.editable && node.id !== "root"}
+        data-row={key}
+        draggable
         onClick={select}
         onDoubleClick={editText}
+        onDragEnd={() => shared.setDrag(null)}
         onDragLeave={onDragLeave}
         onDragOver={onDragOver}
         onDragStart={onDragStart}
@@ -414,48 +613,45 @@ const LayerNode = ({
         role="treeitem"
         style={{ paddingLeft: ROW_PAD + ancestors.length * INDENT }}
         tabIndex={0}
+        title={nodeKind(node)}
       >
         <DepthGuides ancestors={ancestors} />
-        <Button
-          aria-label={isCollapsed ? "Expand" : "Collapse"}
+        <Chevron
+          collapsed={isCollapsed}
+          hidden={!hasChildren}
+          onToggle={() => shared.toggle(key)}
+        />
+        <span
           className={cn(
-            "size-4 text-muted-foreground",
-            !hasChildren && "invisible"
+            "shrink-0 text-muted-foreground",
+            node.type === "instance" && "text-brand",
+            selected && "text-foreground"
           )}
-          onClick={onToggle}
-          size="icon-xs"
-          variant="ghost"
         >
-          {isCollapsed ? (
-            <ChevronRight className="size-3" />
-          ) : (
-            <ChevronDown className="size-3" />
-          )}
-        </Button>
+          {iconOf(node)}
+        </span>
         <span
           className={cn(
             "truncate",
-            host && "max-w-[70%] shrink-0",
-            node.kind === "component" && "font-medium text-brand",
-            selected && node.kind === "component" && "text-foreground"
+            node.type === "instance" && "font-medium text-brand",
+            selected && node.type === "instance" && "text-foreground"
           )}
         >
-          {node.summary}
+          {nodeLabel(node)}
         </span>
-        {host ? (
-          <span className="min-w-0 truncate text-muted-foreground/70">
-            {hostLabel(node, host)}
+        {node.link ? (
+          <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
+            → {node.link}
           </span>
         ) : null}
-        <RowMenu canEditText={!hasChildren} node={node} pageId={activePage} />
+        <RowMenu row={row} />
       </div>
       {!isCollapsed && hasChildren
-        ? children.map((c) => (
-            <LayerNode
-              ancestors={rowAncestors}
-              key={c.id}
-              node={c}
-              parent={rowParent}
+        ? children.map((child) => (
+            <LayerRow
+              ancestors={[...ancestors, node.id]}
+              key={child.id}
+              row={{ frame, node: child, parent: node }}
               shared={shared}
             />
           ))

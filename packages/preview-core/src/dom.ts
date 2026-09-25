@@ -1,25 +1,39 @@
 /** Small DOM helpers the core and the renderers share. */
-import type { SourceLocation } from "@ultrapaint/contracts/base";
 
-/** Attribute the stamping plugins write on every element of the source. */
-export const STAMP = "data-ed";
+/** Attribute the renderer writes on every node it draws: the node's id in the document. */
+export const NODE_ATTRIBUTE = "data-ed-node";
 
-/** Parses `<file>:<line>:<col>`; the file itself may contain colons. */
-export const parseStamp = (value: unknown): SourceLocation | null => {
-  if (typeof value !== "string") {
-    return null;
+const selectorFor = (id: string) => `[${NODE_ATTRIBUTE}="${CSS.escape(id)}"]`;
+
+/**
+ * The elements a node is drawn as. An instance without a box of its own is a wrapper with
+ * `display: contents`, which has no box to measure: what the component rendered inside it is.
+ */
+export const elementsOf = (id: string): Element[] => {
+  const found = document.querySelectorAll(selectorFor(id));
+  const out: Element[] = [];
+  for (const el of Array.from(found)) {
+    if (getComputedStyle(el).display === "contents") {
+      out.push(...Array.from(el.children));
+    } else {
+      out.push(el);
+    }
   }
-  const idx = value.lastIndexOf(":");
-  const idx2 = value.lastIndexOf(":", idx - 1);
-  if (idx < 0 || idx2 < 0) {
-    return null;
+  return out;
+};
+
+/** The nodes an element is part of, outermost first. */
+export const chainAt = (el: Element | null): string[] => {
+  const chain: string[] = [];
+  let current: Element | null = el;
+  while (current) {
+    const id = current.getAttribute(NODE_ATTRIBUTE);
+    if (id !== null) {
+      chain.unshift(id);
+    }
+    current = current.parentElement;
   }
-  const line = Number(value.slice(idx2 + 1, idx));
-  const col = Number(value.slice(idx + 1));
-  if (!(Number.isInteger(line) && Number.isInteger(col))) {
-    return null;
-  }
-  return { col, file: value.slice(0, idx2), line };
+  return chain;
 };
 
 /** Text of an element that holds only text; null as soon as it has element children. */
@@ -35,23 +49,6 @@ export const directText = (el: Element): string | null => {
     }
   }
   return hasText ? text.trim() : null;
-};
-
-export const shorten = (s: string, max = 24) =>
-  s.length > max ? `${s.slice(0, max - 1)}…` : s;
-
-/** One line for the layers panel: `div.flex.gap-2 "Sign in"`. */
-export const elementSummary = (el: Element, name: string): string => {
-  const classes = Array.from(el.classList).slice(0, 2);
-  const text = directText(el);
-  let s = name;
-  if (classes.length) {
-    s += `.${classes.join(".")}`;
-  }
-  if (text) {
-    s += ` "${shorten(text)}"`;
-  }
-  return s;
 };
 
 const TRANSPARENT =
