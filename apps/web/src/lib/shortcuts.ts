@@ -1,11 +1,18 @@
 import type { TreeNode } from "@ultrapaint/contracts/preview";
 import { useEffect } from "react";
 import { bridgeFor } from "../canvas/bridge.ts";
+import { deleteItem } from "../canvas/items.ts";
 import { useComments } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
-import { useEditor, type Viewport, workspaceOrder } from "../state/editor.ts";
+import {
+  flushLayout,
+  isItemId,
+  useEditor,
+  type Viewport,
+  workspaceOrder,
+} from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
-import { findPath, hostOf, rowChildren } from "../state/tree.ts";
+import { findPath, hostOf, itemRoot, rowChildren } from "../state/tree.ts";
 
 const isTyping = (e: KeyboardEvent) => {
   const t = e.target as HTMLElement | null;
@@ -55,8 +62,11 @@ type EditorState = ReturnType<typeof useEditor.getState>;
 
 const NAV_KEYS = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Escape"];
 
-const undoOrRedo = async (s: EditorState, redo: boolean) => {
+/** Steps back or forward through everything the editor changed, files and canvas alike. */
+export const undoOrRedo = async (redo: boolean) => {
   try {
+    await flushLayout();
+    const s = useEditor.getState();
     const r = redo
       ? await api().request("edit.redo", undefined)
       : await api().request("edit.undo", undefined);
@@ -68,17 +78,37 @@ const undoOrRedo = async (s: EditorState, redo: boolean) => {
   }
 };
 
+/** The item a delete takes away: one selected whole, or through the element it renders. */
+const itemOfSelection = (s: EditorState): string | null => {
+  if (s.selectedPage && isItemId(s.selectedPage)) {
+    return s.selectedPage;
+  }
+  const { selection } = s;
+  const item = selection ? s.items[selection.pageId] : undefined;
+  const root = item ? itemRoot(s.trees[item.id], item.file) : null;
+  return item && root?.id === selection?.nodeId ? item.id : null;
+};
+
 /** Editing shortcuts are exclusive: returns true when the key was consumed. */
 const handleEditKey = (e: KeyboardEvent, s: EditorState, meta: boolean) => {
   if (meta && e.key.toLowerCase() === "z") {
     e.preventDefault();
-    undoOrRedo(s, e.shiftKey);
+    undoOrRedo(e.shiftKey);
     return true;
   }
   if (meta && e.key.toLowerCase() === "d" && s.selection?.source) {
     e.preventDefault();
     runEdit({ kind: "duplicate", target: s.selection.source });
     return true;
+  }
+  if (e.key === "Backspace" || e.key === "Delete") {
+    // An item selected whole, or by the element it renders, leaves the canvas.
+    const item = itemOfSelection(s);
+    if (item) {
+      e.preventDefault();
+      deleteItem(item);
+      return true;
+    }
   }
   if ((e.key === "Backspace" || e.key === "Delete") && s.selection?.source) {
     e.preventDefault();
@@ -242,7 +272,8 @@ const handleEscape = (s: EditorState) => {
 export const useShortcuts = () => {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (overlayOpen()) {
+      // The settings page replaces the editor: nothing on it is there to be acted on.
+      if (overlayOpen() || useProject.getState().settingsOpen) {
         return;
       }
       const s = useEditor.getState();

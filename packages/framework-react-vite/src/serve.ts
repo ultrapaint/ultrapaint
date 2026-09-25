@@ -262,6 +262,10 @@ const server = await vite.createServer(
     },
   } satisfies InlineConfig)
 );
+// Vite watches its root, the anchor package. The pages and the design system's sources lie
+// outside it, so a page added after the start would never reach `import.meta.glob` in the entry
+// module: the canvas lists it and the preview answers that there is no page for its route.
+server.watcher.add(options.include);
 await server.listen();
 server.printUrls();
 

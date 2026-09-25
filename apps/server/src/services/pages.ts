@@ -1,4 +1,3 @@
-import type { ForbiddenPath } from "@ultrapaint/contracts/errors";
 import { BadRequest, Conflict, NotFound } from "@ultrapaint/contracts/errors";
 import {
   CanvasLayout,
@@ -38,6 +37,7 @@ import { makeWriteAtomic } from "../atomic-write.ts";
 import { EventBus } from "../events.ts";
 import { makeWalk } from "../fs-walk.ts";
 import { hashContent, toPosix } from "../hash.ts";
+import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
 import { ProjectFramework } from "./framework.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
@@ -52,7 +52,7 @@ const decodeSpace = Schema.decodeUnknownEffect(
   Schema.fromJsonString(SpaceConfig)
 );
 
-type PagesFailure = NotFound | Conflict | ForbiddenPath | BadRequest;
+type PagesFailure = EditFailure;
 
 /**
  * The pages of the designs directory, grouped into the spaces that own them. A space is a
@@ -85,16 +85,24 @@ export class PagesService extends Context.Service<
       readonly id: string;
       readonly name: string;
     }[];
+    /** Changes the layout inside an action, which the change becomes part of. */
+    readonly updateCanvas: (
+      tx: EditTransaction,
+      space: string,
+      update: (layout: CanvasLayout) => CanvasLayout
+    ) => Effect.Effect<void, PagesFailure>;
+    /** Saves the layout as the editor has it now: one undo step when anything moved. */
     readonly writeCanvas: (
       space: string,
       layout: CanvasLayout
-    ) => Effect.Effect<void, ForbiddenPath>;
+    ) => Effect.Effect<void, PagesFailure>;
   }
 >()("ultrapaint/server/PagesService") {
   static readonly layer = Layer.effect(
     PagesService,
     Effect.gen(function* () {
       const paths = yield* RepoPaths;
+      const edit = yield* EditService;
       const { pages: pageFiles } = yield* ProjectFramework;
       const { isPageFile } = pageFiles;
       const events = yield* EventBus;
@@ -230,30 +238,61 @@ export class PagesService extends Context.Service<
               })
           )
         );
+        // An item whose module was deleted (by hand, by an agent, by a branch switch) is gone.
+        const items: Record<string, FrameLayout> = {};
+        for (const [key, frame] of Object.entries(layout.items ?? {})) {
+          if (yield* exists(path.join(root, space, key))) {
+            items[key] = frame;
+          }
+        }
         return {
           frames: withPagePaths(layout.frames, yield* pagesOf(space)),
+          items,
           version: 1,
         } satisfies CanvasLayout;
+      });
+
+      const renderCanvas = (layout: CanvasLayout) => {
+        const sortedByKey = (record: Record<string, FrameLayout>) =>
+          Object.fromEntries(
+            Object.entries(record).sort(([a], [b]) => a.localeCompare(b))
+          );
+        const items = layout.items ?? {};
+        const sorted: CanvasLayout = {
+          frames: sortedByKey(layout.frames),
+          // Left out while there are none, so a layout without items reads as it always did.
+          ...(Object.keys(items).length > 0 && { items: sortedByKey(items) }),
+          version: 1,
+        };
+        return `${JSON.stringify(sorted, null, 2)}\n`;
+      };
+
+      const canvasRel = Effect.fnUntraced(function* (space: string) {
+        return paths.relative(yield* paths.resolve(canvasPath(space)));
+      });
+
+      const updateCanvas = Effect.fnUntraced(function* (
+        tx: EditTransaction,
+        space: string,
+        update: (layout: CanvasLayout) => CanvasLayout
+      ) {
+        const layout = yield* readCanvas(space);
+        yield* tx.write(yield* canvasRel(space), renderCanvas(update(layout)));
       });
 
       const writeCanvas = Effect.fn("PagesService.writeCanvas")(function* (
         space: string,
         layout: CanvasLayout
       ) {
-        const file = yield* paths.resolve(canvasPath(space));
-        const sorted: CanvasLayout = {
-          frames: Object.fromEntries(
-            Object.entries(layout.frames).sort(([a], [b]) => a.localeCompare(b))
-          ),
-          version: 1,
-        };
-        yield* Effect.orDie(
-          writeAtomic(file, `${JSON.stringify(sorted, null, 2)}\n`)
+        const rel = yield* canvasRel(space);
+        yield* edit.transaction("Arrange the canvas", (tx) =>
+          tx.write(rel, renderCanvas(layout))
         );
       });
 
       /** Rewrites the frames of a space; a missing source frame means there is nothing to do. */
       const updateFrames = Effect.fnUntraced(function* (
+        tx: EditTransaction,
         space: string,
         update: (
           frames: CanvasLayout["frames"]
@@ -262,7 +301,10 @@ export class PagesService extends Context.Service<
         const layout = yield* readCanvas(space);
         const frames = update(layout.frames);
         if (frames) {
-          yield* writeCanvas(space, { frames, version: 1 });
+          yield* tx.write(
+            yield* canvasRel(space),
+            renderCanvas({ ...layout, frames })
+          );
         }
       });
 
@@ -342,20 +384,15 @@ export class PagesService extends Context.Service<
             path.join(root, pageFiles.routerModule.fileName)
           )
         );
-        yield* Effect.orDie(
-          fs.makeDirectory(path.dirname(abs), { recursive: true })
-        );
-        yield* Effect.orDie(
-          writeAtomic(
-            abs,
-            pageFiles.render(templateId, {
-              fileName: path.basename(abs),
-              route: target.route,
-              routerImport: routerImport.startsWith(".")
-                ? routerImport
-                : `./${routerImport}`,
-            })
-          )
+        const content = pageFiles.render(templateId, {
+          fileName: path.basename(abs),
+          route: target.route,
+          routerImport: routerImport.startsWith(".")
+            ? routerImport
+            : `./${routerImport}`,
+        });
+        yield* edit.transaction(`Create ${target.route}`, (tx) =>
+          tx.create(paths.relative(abs), content, { format: false })
         );
         yield* publishList;
         return toPage(space, target.path, abs);
@@ -377,20 +414,22 @@ export class PagesService extends Context.Service<
         // The first explicit space would otherwise orphan the pages of the implicit root one.
         const rootIsImplicit =
           spaces.length === 1 && (spaces[0] as Space).id === ROOT_SPACE;
-        if (rootIsImplicit && pages.length > 0) {
-          yield* Effect.orDie(
-            writeAtomic(
-              path.join(root, SPACE_FILE),
-              `${JSON.stringify(emptySpaceConfig((spaces[0] as Space).name), null, 2)}\n`
-            )
-          );
-        }
-        yield* Effect.orDie(fs.makeDirectory(dir, { recursive: true }));
-        yield* Effect.orDie(
-          writeAtomic(
-            path.join(dir, SPACE_FILE),
-            `${JSON.stringify(emptySpaceConfig(name), null, 2)}\n`
-          )
+        const config = (spaceName: string) =>
+          `${JSON.stringify(emptySpaceConfig(spaceName), null, 2)}\n`;
+        yield* edit.transaction(`Create space ${name}`, (tx) =>
+          Effect.gen(function* () {
+            if (rootIsImplicit && pages.length > 0) {
+              yield* tx.write(
+                paths.relative(path.join(root, SPACE_FILE)),
+                config((spaces[0] as Space).name)
+              );
+            }
+            yield* tx.create(
+              paths.relative(path.join(dir, SPACE_FILE)),
+              config(name),
+              { format: false }
+            );
+          })
         );
         yield* publishList;
         return { home: "/", id, name } satisfies Space;
@@ -409,14 +448,18 @@ export class PagesService extends Context.Service<
           path.join(root, page.space, target.path)
         );
         yield* failIfExists(to);
-        yield* Effect.orDie(
-          fs.makeDirectory(path.dirname(to), { recursive: true })
+        const content = yield* Effect.orDie(fs.readFileString(abs));
+        // A move is the old file gone and the new one there, which is also how it is undone.
+        yield* edit.transaction(`Move ${page.route} to ${target.route}`, (tx) =>
+          Effect.gen(function* () {
+            yield* tx.create(paths.relative(to), content, { format: false });
+            yield* tx.remove(paths.relative(abs));
+            yield* updateFrames(tx, page.space, (frames) => {
+              const { [page.path]: frame, ...rest } = frames;
+              return frame ? { ...rest, [target.path]: frame } : null;
+            });
+          })
         );
-        yield* Effect.orDie(fs.rename(abs, to));
-        yield* updateFrames(page.space, (frames) => {
-          const { [page.path]: frame, ...rest } = frames;
-          return frame ? { ...rest, [target.path]: frame } : null;
-        });
         yield* publishList;
         return toPage(page.space, target.path, to);
       });
@@ -439,28 +482,38 @@ export class PagesService extends Context.Service<
           path.basename(abs),
           path.basename(target)
         );
-        yield* Effect.orDie(writeAtomic(target, content));
         const copyPath = pathInSpace(page.space, relativeToDesigns(target));
-        yield* updateFrames(page.space, (frames) => {
-          const frame = frames[page.path];
-          return frame
-            ? {
-                ...frames,
-                [copyPath]: { ...frame, x: frame.x + frame.width + 80 },
-              }
-            : null;
-        });
+        yield* edit.transaction(`Duplicate ${page.route}`, (tx) =>
+          Effect.gen(function* () {
+            yield* tx.create(paths.relative(target), content, {
+              format: false,
+            });
+            yield* updateFrames(tx, page.space, (frames) => {
+              const frame = frames[page.path];
+              return frame
+                ? {
+                    ...frames,
+                    [copyPath]: { ...frame, x: frame.x + frame.width + 80 },
+                  }
+                : null;
+            });
+          })
+        );
         yield* publishList;
         return toPage(page.space, copyPath, target);
       });
 
       const remove = Effect.fn("PagesService.delete")(function* (id: string) {
         const { abs, page } = yield* byId(id);
-        yield* Effect.orDie(fs.remove(abs));
-        yield* updateFrames(page.space, (frames) => {
-          const { [page.path]: removed, ...rest } = frames;
-          return removed ? rest : null;
-        });
+        yield* edit.transaction(`Delete ${page.route}`, (tx) =>
+          Effect.gen(function* () {
+            yield* tx.remove(paths.relative(abs));
+            yield* updateFrames(tx, page.space, (frames) => {
+              const { [page.path]: removed, ...rest } = frames;
+              return removed ? rest : null;
+            });
+          })
+        );
         yield* publishList;
       });
 
@@ -516,7 +569,12 @@ export class PagesService extends Context.Service<
           Effect.forkScoped
         );
         yield* stream.pipe(
-          Stream.filter((event) => event._tag !== "Remove"),
+          // A layout undone back to none is removed, and the editor has to hear that too.
+          Stream.filter(
+            (event) =>
+              event._tag !== "Remove" ||
+              path.basename(event.path) === CANVAS_FILE
+          ),
           Stream.mapEffect(
             (event) => {
               const abs = path.resolve(root, event.path);
@@ -547,6 +605,7 @@ export class PagesService extends Context.Service<
         readCanvas,
         rename: (id, route) => exclusive(rename(id, route)),
         templates: pageFiles.templates,
+        updateCanvas,
         writeCanvas: (space, layout) => exclusive(writeCanvas(space, layout)),
       });
     })

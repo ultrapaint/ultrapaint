@@ -5,6 +5,7 @@ import { AppLog } from "./app-log.ts";
 import { ServerConfig } from "./config.ts";
 import { EventBus } from "./events.ts";
 import { ProjectManager } from "./project.ts";
+import { CanvasItems } from "./services/canvas-items.ts";
 import { CatalogueService } from "./services/catalogue.ts";
 import { CommentsService } from "./services/comments.ts";
 import { EditService } from "./services/edit.ts";
@@ -54,13 +55,21 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const host = <A, E>(
       f: (s: HostManager["Service"]) => Effect.Effect<A, E>
     ) => project.use(Effect.flatMap(HostManager, f));
+    const items = <A, E>(
+      f: (s: CanvasItems["Service"]) => Effect.Effect<A, E>
+    ) => project.use(Effect.flatMap(CanvasItems, f));
     const catalogue = <A, E>(
       f: (s: CatalogueService["Service"]) => Effect.Effect<A, E>
     ) => project.use(Effect.flatMap(CatalogueService, f));
 
     return UltrapaintRpcs.of({
       "agents.list": () => agents.list,
+      "canvas.addImage": (input) => items((i) => i.addImage(input)),
+      "canvas.createItem": (input) => items((i) => i.create(input)),
+      "canvas.extractItem": (input) => items((i) => i.extract(input)),
       "canvas.get": ({ space }) => pages((s) => s.readCanvas(space)),
+      "canvas.placeItem": (input) => items((i) => i.place(input)),
+      "canvas.removeItem": (input) => items((i) => i.remove(input)),
       "canvas.set": ({ layout, space }) =>
         pages((s) => s.writeCanvas(space, layout)),
 
@@ -82,6 +91,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
         edit((e) => e.apply(op, expectedHash)),
       "edit.redo": () => edit((e) => e.redo),
       "edit.state": () => edit((e) => e.state),
+      "edit.transfer": (request) => edit((e) => e.transfer(request)),
       "edit.undo": () => edit((e) => e.undo),
 
       "events.agent": () => events.subscribe("agent"),
@@ -180,6 +190,21 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
           })
         ),
 
+      "source.outline": ({ file }) =>
+        project.use(
+          Effect.gen(function* () {
+            const framework = yield* ProjectFramework;
+            const { content, hash } = yield* (yield* EditService).read(file);
+            const elements = yield* Effect.try({
+              catch: (error) =>
+                new BadRequest({
+                  message: `${file} cannot be parsed: ${String(error)}`,
+                }),
+              try: () => framework.source.outline(content),
+            });
+            return { elements, hash };
+          })
+        ),
       "source.read": ({ file }) =>
         edit((e) =>
           Effect.map(e.read(file), ({ content, hash }) => ({ content, hash }))

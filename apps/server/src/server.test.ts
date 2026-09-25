@@ -289,7 +289,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         assert.strictEqual(undone?.hash, original.hash);
         const state = yield* client["edit.state"]();
         assert.isTrue(state.canRedo);
-        assert.isFalse(state.canUndo);
+        // Pages created by the tests before are undoable too; the edit is what redo offers now.
+        assert.strictEqual(state.redoLabel, "Change classes (font-bold)");
 
         const redone = yield* client["edit.redo"]();
         assert.strictEqual(redone?.hash, applied.hash);
@@ -472,6 +473,169 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           ]);
           assert.isTrue(pages.every((p) => p.space === ""));
         })
+    );
+
+    it.effect(
+      "lifts an element out of a page onto the canvas, and puts it back, one undo at a time",
+      () =>
+        Effect.gen(function* () {
+          const { client, repo } = yield* TestEnv;
+          const fs = yield* FileSystem.FileSystem;
+          const at = (content: string, tag: string, file: string) => {
+            const lines = content.split("\n");
+            const line = lines.findIndex((l) => l.includes(`<${tag}`));
+            return {
+              col: (lines[line] as string).indexOf(`<${tag}`),
+              file,
+              line: line + 1,
+            };
+          };
+          const frame = {
+            height: 40,
+            preset: "custom",
+            width: 200,
+            x: 0,
+            y: 0,
+          } as const;
+          const home = yield* client["source.read"]({ file: HEADING.file });
+          const { item } = yield* client["canvas.extractItem"]({
+            copy: false,
+            frame,
+            source: at(home.content, "h1", HEADING.file),
+            space: "",
+          });
+          assert.strictEqual(item.id, "_canvas/h1.tsx");
+          assert.strictEqual(item.route, "/_canvas/h1");
+          const lifted = yield* client["source.read"]({ file: item.file });
+          assert.include(lifted.content, "export default function H1()");
+          assert.include(lifted.content, ">Hello</h1>");
+          const left = yield* client["source.read"]({ file: HEADING.file });
+          assert.notInclude(left.content, "<h1");
+          assert.deepStrictEqual(
+            (yield* client["canvas.get"]({ space: "" })).items,
+            { [item.path]: frame }
+          );
+
+          // One undo puts the element back and takes the item away, module and place.
+          yield* client["edit.undo"]();
+          assert.strictEqual(
+            (yield* client["source.read"]({ file: HEADING.file })).content,
+            home.content
+          );
+          assert.isFalse(yield* fs.exists(path.join(repo, item.file)));
+          assert.deepStrictEqual(
+            (yield* client["canvas.get"]({ space: "" })).items,
+            {}
+          );
+          yield* client["edit.redo"]();
+          assert.isTrue(yield* fs.exists(path.join(repo, item.file)));
+          assert.deepStrictEqual(
+            (yield* client["canvas.get"]({ space: "" })).items,
+            { [item.path]: frame }
+          );
+
+          // Moving the item is a layout change, and undone like one.
+          const moved = { ...frame, x: 300 };
+          yield* client["canvas.set"]({
+            layout: { frames: {}, items: { [item.path]: moved }, version: 1 },
+            space: "",
+          });
+          yield* client["edit.undo"]();
+          assert.deepStrictEqual(
+            (yield* client["canvas.get"]({ space: "" })).items,
+            { [item.path]: frame }
+          );
+
+          // Into the page, the item goes; undone, it is back and the page as it was.
+          yield* client["canvas.placeItem"]({
+            copy: false,
+            id: item.id,
+            index: 0,
+            into: at(left.content, "main", HEADING.file),
+            root: at(lifted.content, "h1", item.file),
+            space: "",
+          });
+          const back = yield* client["source.read"]({ file: HEADING.file });
+          assert.include(back.content, "<h1");
+          assert.isFalse(yield* fs.exists(path.join(repo, item.file)));
+          yield* client["edit.undo"]();
+          assert.isTrue(yield* fs.exists(path.join(repo, item.file)));
+          assert.notInclude(
+            (yield* client["source.read"]({ file: HEADING.file })).content,
+            "<h1"
+          );
+
+          yield* client["canvas.removeItem"]({ id: item.id, space: "" });
+          assert.isFalse(yield* fs.exists(path.join(repo, item.file)));
+          assert.deepStrictEqual(
+            (yield* client["canvas.get"]({ space: "" })).items,
+            {}
+          );
+          yield* client["edit.undo"]();
+          assert.isTrue(yield* fs.exists(path.join(repo, item.file)));
+          yield* client["edit.redo"]();
+          assert.isFalse(yield* fs.exists(path.join(repo, item.file)));
+        })
+    );
+
+    it.effect("keeps a pasted image beside the item that shows it", () =>
+      Effect.gen(function* () {
+        const { client, repo } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        const frame = {
+          height: 40,
+          preset: "custom",
+          width: 40,
+          x: 0,
+          y: 0,
+        } as const;
+        const { item } = yield* client["canvas.addImage"]({
+          data: Buffer.from("not really a png").toString("base64"),
+          frame,
+          name: "Screen Shot.png",
+          space: "",
+        });
+        assert.strictEqual(item.id, "_canvas/screen-shot.tsx");
+        assert.isTrue(
+          yield* fs.exists(path.join(repo, "designs/assets/screen-shot.png"))
+        );
+        const module = yield* client["source.read"]({ file: item.file });
+        assert.include(module.content, '"../assets/screen-shot.png"');
+        const refused = yield* Effect.flip(
+          client["canvas.addImage"]({
+            data: "",
+            frame,
+            name: "notes.txt",
+            space: "",
+          })
+        );
+        assert.strictEqual(refused._tag, "BadRequest");
+      })
+    );
+
+    it.effect("undoes a page deleted, and its frame with it", () =>
+      Effect.gen(function* () {
+        const { client } = yield* TestEnv;
+        const page = yield* client["pages.create"]({
+          route: "/undo-me",
+          space: "",
+        });
+        yield* client["pages.delete"]({ id: page.id });
+        assert.notInclude(
+          (yield* client["pages.list"]()).pages.map((p) => p.id),
+          page.id
+        );
+        yield* client["edit.undo"]();
+        assert.include(
+          (yield* client["source.read"]({ file: page.file })).content,
+          "export default function"
+        );
+        yield* client["edit.undo"]();
+        const gone = yield* Effect.flip(
+          client["source.read"]({ file: page.file })
+        );
+        assert.strictEqual(gone._tag, "NotFound");
+      })
     );
 
     it.effect("turns away a browser page from another origin", () =>

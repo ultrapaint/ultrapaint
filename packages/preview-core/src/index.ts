@@ -315,6 +315,17 @@ export const startPreview = (introspector: Introspector) => {
         watched = msg.nodeIds as string[];
         scheduleRects();
         break;
+      case "ed:measure": {
+        const rects: Record<string, ReturnType<typeof unionRect>> = {};
+        for (const id of msg.nodeIds as string[]) {
+          const els = introspector.elementsOf(id);
+          if (els.length > 0) {
+            rects[id] = unionRect(els);
+          }
+        }
+        post({ rects, requestId: msg.requestId, type: "ed:measured" });
+        break;
+      }
       case "ed:editText":
         startTextEdit(msg.nodeId as string);
         break;

@@ -947,7 +947,7 @@ const ScopeChip = ({ thread }: { thread: Thread }) => {
   const repo = repoPath?.split("/").filter(Boolean).at(-1);
   return thread.sandboxed ? (
     <span
-      className="flex items-center gap-1 rounded-full px-2 text-muted-foreground text-xs [&_svg]:size-3"
+      className="flex items-center gap-1 self-start px-1 text-muted-foreground text-xs [&_svg]:size-3"
       title={`The agent reads and writes in ${repoPath ?? "the repository"}, its own files, caches and temporary files. The rest of your home directory is closed to it.`}
     >
       <ShieldCheck />
@@ -955,7 +955,7 @@ const ScopeChip = ({ thread }: { thread: Thread }) => {
     </span>
   ) : (
     <span
-      className="flex items-center gap-1 rounded-full px-2 text-warning text-xs [&_svg]:size-3"
+      className="flex items-center gap-1 self-start px-1 text-warning text-xs [&_svg]:size-3"
       title={
         thread.sandboxProblem
           ? `The sandbox on this machine did not start (${thread.sandboxProblem}), so the agent reaches everything you can.`
@@ -1094,7 +1094,8 @@ const Composer = ({ thread }: { thread: Thread }) => {
   const showShot = Boolean(page && attachShot);
 
   return (
-    <div className="p-2">
+    <div className="flex flex-col gap-1.5 p-2">
+      <ScopeChip thread={thread} />
       <div className="flex flex-col rounded-xl border bg-input/20 transition-colors focus-within:border-ring dark:bg-input/30">
         {showPage || showSelection || showShot ? (
           <div className="flex flex-wrap gap-1 px-2 pt-2">
@@ -1181,7 +1182,6 @@ const Composer = ({ thread }: { thread: Thread }) => {
           <ModePicker thread={thread} />
           <ModelPicker draft={text} thread={thread} />
           <div className="flex-1" />
-          <ScopeChip thread={thread} />
           {running ? (
             <Button onClick={cancel} size="sm" variant="outline">
               <Square data-icon="inline-start" /> Stop

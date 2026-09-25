@@ -29,11 +29,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { IconButton } from "../components/icon-button.tsx";
-import { viewportSize, zoomBy } from "../lib/shortcuts.ts";
+import { undoOrRedo, viewportSize, zoomBy } from "../lib/shortcuts.ts";
 import { useComments } from "../state/comments.ts";
-import { api } from "../state/connection.ts";
 import { type Mode, useEditor } from "../state/editor.ts";
-import { reportError, useProject } from "../state/project.ts";
+import { useProject } from "../state/project.ts";
 
 const modes: {
   value: Mode;
@@ -78,20 +77,8 @@ const modes: {
   },
 ];
 
-const undoRedo = async (redo: boolean) => {
-  try {
-    const r = await api().request(redo ? "edit.redo" : "edit.undo", undefined);
-    const s = useEditor.getState();
-    if (r?.location && s.selection) {
-      s.select({ ...s.selection, source: r.location });
-    }
-  } catch (error) {
-    reportError(error);
-  }
-};
-
-const undoEdit = () => undoRedo(false);
-const redoEdit = () => undoRedo(true);
+const undoEdit = () => undoOrRedo(false);
+const redoEdit = () => undoOrRedo(true);
 
 const onModeChange = (next: readonly unknown[]) => {
   const v = next[0] as Mode | undefined;

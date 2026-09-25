@@ -124,6 +124,12 @@ export const HostMessage = Schema.Union([
     rects: Schema.Record(Schema.String, Rect),
     type: Schema.Literal("ed:rects"),
   }),
+  /** Answers `ed:measure`; a node that renders nothing is left out. */
+  Schema.Struct({
+    rects: Schema.Record(Schema.String, Rect),
+    requestId: Schema.Number,
+    type: Schema.Literal("ed:measured"),
+  }),
   Schema.Struct({
     nodeId: Schema.String,
     text: Schema.String,
@@ -181,6 +187,12 @@ export const EditorMessage = Schema.Union([
   Schema.Struct({
     nodeIds: Schema.Array(Schema.String),
     type: Schema.Literal("ed:watchRects"),
+  }),
+  /** Where these nodes are, once: what a drag needs to show where it would land. */
+  Schema.Struct({
+    nodeIds: Schema.Array(Schema.String),
+    requestId: Schema.Number,
+    type: Schema.Literal("ed:measure"),
   }),
   Schema.Struct({ nodeId: Schema.String, type: Schema.Literal("ed:editText") }),
   /** Whether the screen may respond to input at all: true only in interact mode. */

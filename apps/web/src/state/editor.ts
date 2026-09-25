@@ -5,13 +5,14 @@ import type {
   Page,
   ViewportPreset,
 } from "@ultrapaint/contracts/pages";
-import { presetSize } from "@ultrapaint/contracts/pages";
+import { CANVAS_ITEMS_DIR, presetSize } from "@ultrapaint/contracts/pages";
 import type {
   InspectResult,
   Rect,
   TreeNode,
 } from "@ultrapaint/contracts/preview";
-import { matchRoute, normaliseRoute } from "@ultrapaint/shared/route";
+import { basename, humanise, stripExtension } from "@ultrapaint/shared/path";
+import { matchRoute, normaliseRoute, routeOf } from "@ultrapaint/shared/route";
 import { create } from "zustand";
 import { api } from "./connection.ts";
 import { reportError, useProject } from "./project.ts";
@@ -63,11 +64,24 @@ export interface Viewport {
 interface EditorStore {
   /** The page serving the current route, which is what the layers and the inspector are about. */
   activePage: string | null;
+  /** Shows a canvas item the server just wrote, module and place both. */
+  addItem: (item: Page, frame: FrameLayout) => void;
+  /**
+   * Follows the layout as saved: an undo, an agent, a branch switch. Frames the editor is still
+   * about to save are its own and stay.
+   */
+  applyLayout: (space: string, layout: CanvasLayout) => void;
   /** Pages of the current space that have no saved frame yet get a computed one. */
   frames: Record<string, FrameLayout>;
   hostErrors: Record<string, string | null>;
   hover: { pageId: string; nodeId: string } | null;
   inspect: InspectResult | null;
+  /**
+   * Canvas items of the open space by id: components and images placed beside the pages. They
+   * are shaped as pages and framed like them, so everything that works inside a page frame
+   * works inside an item.
+   */
+  items: Record<string, Page>;
   layout: CanvasLayout;
   leftTab: LeftTab;
   mode: Mode;
@@ -75,6 +89,8 @@ interface EditorStore {
   navigate: (route: string, options?: { push?: boolean }) => void;
   openSpace: (space: string, route?: string) => Promise<void>;
   rects: Record<string, Record<string, Rect>>;
+  /** Stops showing an item the server has taken off the canvas. */
+  removeItem: (id: string) => void;
   /** Where the space's router is. The editor holds it; the preview is told. */
   route: string;
   select: (selection: Selection | null) => void;
@@ -119,6 +135,47 @@ export const pagesOfSpace = (space: string | null): readonly Page[] =>
 const pageAt = (space: string | null, route: string): Page | null =>
   matchRoute(pagesOfSpace(space), route)?.entry ?? null;
 
+/** The item at a path inside the space, shaped as a page. */
+const itemAt = (space: string, path: string): Page => {
+  const id = space ? `${space}/${path}` : path;
+  const designsDir = useProject.getState().settings?.designsDir ?? "";
+  return {
+    file: designsDir ? `${designsDir}/${id}` : id,
+    id,
+    name: humanise(stripExtension(basename(path))),
+    path,
+    route: routeOf(path),
+    space,
+  };
+};
+
+const itemsOf = (space: string, layout: CanvasLayout) => {
+  const items: Record<string, Page> = {};
+  const frames: Record<string, FrameLayout> = {};
+  for (const [path, frame] of Object.entries(layout.items ?? {})) {
+    const item = itemAt(space, path);
+    items[item.id] = item;
+    frames[item.id] = frame;
+  }
+  return { frames, items };
+};
+
+/** Whether a frame id names a canvas item rather than a page. */
+export const isItemId = (id: string) =>
+  id.split("/").at(-2) === CANVAS_ITEMS_DIR;
+
+/**
+ * The frame the layers panel shows: the item the selection is in, when it is in one, and the
+ * page serving the route otherwise.
+ */
+export const layersFrameOf = (s: {
+  activePage: string | null;
+  selection: Selection | null;
+}) =>
+  s.selection && isItemId(s.selection.pageId)
+    ? s.selection.pageId
+    : s.activePage;
+
 const computeFrames = (
   pages: readonly Page[],
   layout: CanvasLayout
@@ -149,12 +206,95 @@ const computeFrames = (
   return frames;
 };
 
+/** Saves the frames and items as they are now: one undo step on the server. */
+const saveLayout = (
+  get: () => EditorStore,
+  set: (p: Partial<EditorStore>) => void
+): Promise<void> => {
+  const { frames, items, space } = get();
+  if (space === null) {
+    return Promise.resolve();
+  }
+  const pages = pagesOfSpace(space);
+  const layoutFrames: Record<string, FrameLayout> = {};
+  const layoutItems: Record<string, FrameLayout> = {};
+  for (const [id, f] of Object.entries(frames)) {
+    const page = pages.find((p) => p.id === id);
+    const item = items[id];
+    if (page) {
+      layoutFrames[page.path] = f;
+    } else if (item) {
+      layoutItems[item.path] = f;
+    }
+  }
+  const layout: CanvasLayout = {
+    frames: layoutFrames,
+    items: layoutItems,
+    version: 1,
+  };
+  set({ layout });
+  return api().request("canvas.set", { layout, space }).catch(reportError);
+};
+
+/** Saves the layout a moment after the last change, so a drag is one step and not fifty. */
+const persistLayout = (
+  get: () => EditorStore,
+  set: (p: Partial<EditorStore>) => void
+) => {
+  if (persistTimer) {
+    clearTimeout(persistTimer);
+  }
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    saveLayout(get, set);
+  }, 400);
+};
+
+/**
+ * Saves at once what is waiting to be saved. An undo right after a move has to find the move
+ * in the journal, not have it land after the undo.
+ */
+export const flushLayout = (): Promise<void> => {
+  if (!persistTimer) {
+    return Promise.resolve();
+  }
+  clearTimeout(persistTimer);
+  persistTimer = null;
+  return saveLayout(useEditor.getState, useEditor.setState);
+};
+
 export const useEditor = create<EditorStore>((set, get) => ({
   activePage: null,
+  addItem: (item, frame) =>
+    set((s) => ({
+      frames: { ...s.frames, [item.id]: frame },
+      items: { ...s.items, [item.id]: item },
+    })),
+  applyLayout: (space, layout) => {
+    const s = get();
+    if (space !== s.space || persistTimer) {
+      return;
+    }
+    const next = itemsOf(space, layout);
+    for (const id of Object.keys(s.items)) {
+      if (!next.items[id]) {
+        get().removeItem(id);
+      }
+    }
+    set({
+      frames: {
+        ...computeFrames(pagesOfSpace(space), layout),
+        ...next.frames,
+      },
+      items: next.items,
+      layout,
+    });
+  },
   frames: {},
   hostErrors: {},
   hover: null,
   inspect: null,
+  items: {},
   layout: { frames: {}, version: 1 },
   leftTab: "chat",
   mode: "select",
@@ -187,11 +327,13 @@ export const useEditor = create<EditorStore>((set, get) => ({
         matchRoute(pages, target) === null
           ? (pages[0]?.route ?? target)
           : target;
+      const items = itemsOf(space, layout);
       set({
         activePage: matchRoute(pages, landing)?.entry.id ?? null,
-        frames: computeFrames(pages, layout),
+        frames: { ...computeFrames(pages, layout), ...items.frames },
         hover: null,
         inspect: null,
+        items: items.items,
         layout,
         rects: {},
         route: landing,
@@ -207,6 +349,25 @@ export const useEditor = create<EditorStore>((set, get) => ({
     }
   },
   rects: {},
+  removeItem: (id) =>
+    set((s) => {
+      const { [id]: _frame, ...frames } = s.frames;
+      const { [id]: _item, ...items } = s.items;
+      const clear =
+        s.selection?.pageId === id ||
+        s.selectedPage === id ||
+        s.hover?.pageId === id;
+      return {
+        frames,
+        items,
+        ...(clear && {
+          hover: null,
+          inspect: null,
+          selectedPage: null,
+          selection: null,
+        }),
+      };
+    }),
   route: "/",
   select: (selection) => {
     set({
@@ -228,29 +389,9 @@ export const useEditor = create<EditorStore>((set, get) => ({
   },
   setFrame: (pageId, frame, persist = true) => {
     set((s) => ({ frames: { ...s.frames, [pageId]: frame } }));
-    if (!persist) {
-      return;
+    if (persist) {
+      persistLayout(get, set);
     }
-    if (persistTimer) {
-      clearTimeout(persistTimer);
-    }
-    persistTimer = setTimeout(() => {
-      const { frames, space } = get();
-      if (space === null) {
-        return;
-      }
-      const pages = pagesOfSpace(space);
-      const layoutFrames: Record<string, FrameLayout> = {};
-      for (const [id, f] of Object.entries(frames)) {
-        const page = pages.find((p) => p.id === id);
-        if (page) {
-          layoutFrames[page.path] = f;
-        }
-      }
-      const layout: CanvasLayout = { frames: layoutFrames, version: 1 };
-      set({ layout });
-      api().request("canvas.set", { layout, space }).catch(reportError);
-    }, 400);
   },
   setHostError: (pageId, error) =>
     set((s) => ({ hostErrors: { ...s.hostErrors, [pageId]: error } })),

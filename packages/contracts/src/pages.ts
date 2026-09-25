@@ -1,5 +1,6 @@
 import { Schema } from "effect";
-import { RepoRelativePath } from "./base.ts";
+import { RepoRelativePath, SourceLocation } from "./base.ts";
+import { ImportSpec } from "./edit.ts";
 
 /**
  * A space owns one router, one canvas and its own pages; a page of one space never navigates
@@ -79,9 +80,14 @@ export const FrameLayout = Schema.Struct({
 });
 export type FrameLayout = typeof FrameLayout.Type;
 
-/** Contents of `<space>/canvas.json`. Keys are page paths inside the space. */
+/**
+ * Contents of `<space>/canvas.json`. Keys are paths inside the space: of pages for `frames`, of
+ * canvas items for `items`.
+ */
 export const CanvasLayout = Schema.Struct({
   frames: Schema.Record(Schema.String, FrameLayout),
+  /** Where the canvas items sit. Absent from layouts written before there were any. */
+  items: Schema.optional(Schema.Record(Schema.String, FrameLayout)),
   version: Schema.Literal(1),
 });
 export type CanvasLayout = typeof CanvasLayout.Type;
@@ -90,3 +96,73 @@ export const emptyCanvasLayout = (): CanvasLayout => ({
   frames: {},
   version: 1,
 });
+
+/**
+ * Directory of a space that holds its canvas items: components and images placed on the canvas
+ * beside the pages rather than inside one. Each item is a module of its own, so it renders with
+ * the design system, is edited like a page and can be dragged into one. The leading underscore
+ * keeps it out of the page list.
+ */
+export const CANVAS_ITEMS_DIR = "_canvas";
+
+/** Directory of a space the images put on the canvas are saved in. */
+export const CANVAS_ASSETS_DIR = "assets";
+
+/** A new canvas item, from JSX the editor already has: a palette component dropped on the canvas. */
+export const CreateItemInput = Schema.Struct({
+  /** Where it goes on the canvas: placing it is part of the same undo step. */
+  frame: FrameLayout,
+  imports: Schema.Array(ImportSpec),
+  jsx: Schema.String,
+  /** Suggested name; the file is named after it. */
+  name: Schema.String,
+  space: Schema.String,
+});
+export type CreateItemInput = typeof CreateItemInput.Type;
+
+/** A canvas item made of an element of a page, which moves out of it unless `copy`. */
+export const ExtractItemInput = Schema.Struct({
+  copy: Schema.Boolean,
+  frame: FrameLayout,
+  source: SourceLocation,
+  space: Schema.String,
+});
+export type ExtractItemInput = typeof ExtractItemInput.Type;
+
+/** An image pasted or dropped on the canvas. */
+export const AddImageInput = Schema.Struct({
+  /** File contents, base64. */
+  data: Schema.String,
+  frame: FrameLayout,
+  /** Original file name, or a made-up one for a pasted image; the extension is kept. */
+  name: Schema.String,
+  space: Schema.String,
+});
+export type AddImageInput = typeof AddImageInput.Type;
+
+export const CanvasItemResult = Schema.Struct({
+  /** Shaped as a page: it is shown, selected and edited like one. */
+  item: Page,
+  /** What the item's code may not carry over: names the element used that stayed behind. */
+  warnings: Schema.Array(Schema.String),
+});
+export type CanvasItemResult = typeof CanvasItemResult.Type;
+
+/** Takes an item off the canvas: its module and its place in the layout, as one undo step. */
+export const RemoveItemInput = Schema.Struct({
+  id: Schema.String,
+  space: Schema.String,
+});
+export type RemoveItemInput = typeof RemoveItemInput.Type;
+
+/** Puts what an item renders into a page, and takes the item away unless `copy`. */
+export const PlaceItemInput = Schema.Struct({
+  copy: Schema.Boolean,
+  id: Schema.String,
+  index: Schema.Int,
+  into: SourceLocation,
+  /** The element the item renders. */
+  root: SourceLocation,
+  space: Schema.String,
+});
+export type PlaceItemInput = typeof PlaceItemInput.Type;

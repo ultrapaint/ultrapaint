@@ -11,6 +11,7 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@/components/ui/input-group";
+import { PALETTE_MIME, type PaletteComponent } from "../canvas/drag.ts";
 import { IconButton } from "../components/icon-button.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { runEdit } from "../lib/shortcuts.ts";
@@ -50,20 +51,23 @@ const PaletteItem = ({
   onPreview: (c: ComponentMeta) => void;
 }) => {
   const onClick = () => insert(c, target);
-  const onDragStart = (e: React.DragEvent) =>
+  const onDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.effectAllowed = "copy";
     e.dataTransfer.setData(
-      "application/ultrapaint-component",
+      PALETTE_MIME,
       JSON.stringify({
         importFrom: c.importFrom,
         name: c.name,
         snippet: c.snippet,
-      })
+      } satisfies PaletteComponent)
     );
+  };
   const onMouseEnter = () => onPreview(c);
   return (
     <Button
+      // Without a selection a click has nowhere to insert, but a drag picks its own place.
+      aria-disabled={!target}
       className="w-full justify-start gap-2 rounded-none font-normal text-[11px] text-muted-foreground active:translate-y-0"
-      disabled={!target}
       draggable
       onClick={onClick}
       onDragStart={onDragStart}

@@ -1,7 +1,7 @@
-import type { SourceLocation } from "@ultrapaint/contracts/base";
 import type {
   EditOp,
   EditResult,
+  TransferRequest,
   UndoState,
 } from "@ultrapaint/contracts/edit";
 import {
@@ -29,12 +29,19 @@ const BIOME_COMMAND =
   "node_modules/.bin/biome lint --write --unsafe --only=nursery/useSortedClasses --only=correctness/noUnusedImports {file}; node_modules/.bin/biome format --write {file}";
 const PRETTIER_COMMAND = "node_modules/.bin/prettier --write {file}";
 
-interface JournalEntry {
-  readonly after: string;
-  readonly before: string;
+/** One file as an action left it: `null` is a file that does not exist. */
+interface FileChange {
+  after: string | null;
+  before: string | null;
   readonly file: string;
+}
+
+/** One undo step: everything a single action changed, in every file it touched. */
+interface JournalEntry {
+  readonly changes: readonly FileChange[];
   readonly label: string;
-  readonly trackIndex: number | null;
+  /** The element to select again on redo. */
+  readonly track: { readonly file: string; readonly index: number } | null;
 }
 
 export interface SourceFile {
@@ -43,7 +50,12 @@ export interface SourceFile {
   readonly hash: string;
 }
 
-type EditFailure = NotFound | ForbiddenPath | Stale | Conflict | BadRequest;
+export type EditFailure =
+  | NotFound
+  | ForbiddenPath
+  | Stale
+  | Conflict
+  | BadRequest;
 
 const fileOf = (op: EditOp): string =>
   op.kind === "insert" ? op.into.file : op.target.file;
@@ -78,9 +90,45 @@ const sourceFailure = (file: string) => (error: unknown) => {
   return new BadRequest({ message: `${file} cannot be parsed: ${reason}` });
 };
 
+/** What an element moved to another file still refers to in the one it left. */
+export const unresolvedWarning = (
+  extracted: { readonly name: string; readonly unresolved: readonly string[] },
+  file: string
+): string[] =>
+  extracted.unresolved.length === 0
+    ? []
+    : [
+        `${extracted.name} uses ${extracted.unresolved.join(", ")} from ${file}; the copy may not render until they are replaced`,
+      ];
+
 /**
- * Applies edits to screen files: one writer per file, atomic writes, the target repository's
- * formatter, and an undo journal that is invalidated by external changes.
+ * What an action does to files inside a transaction. Every change is recorded, and the whole
+ * transaction becomes one undo step.
+ */
+export interface EditTransaction {
+  readonly apply: (
+    op: EditOp,
+    expectedHash?: string
+  ) => Effect.Effect<EditResult, EditFailure>;
+  /** A new file, formatted like an edit unless `format` is false. */
+  readonly create: (
+    rel: string,
+    content: string,
+    options?: { readonly format?: boolean }
+  ) => Effect.Effect<void, EditFailure>;
+  readonly remove: (rel: string) => Effect.Effect<void, EditFailure>;
+  /** Writes the file as given, whether it exists or not. Writing what is there changes nothing. */
+  readonly write: (
+    rel: string,
+    content: string
+  ) => Effect.Effect<void, EditFailure>;
+}
+
+/**
+ * Applies edits to design files: atomic writes, the target repository's formatter, and one
+ * undo journal for everything the editor changes — source edits, files created and deleted,
+ * the canvas layout. An action spanning several files is one step; the journal is invalidated
+ * by changes made outside the editor.
  */
 export class EditService extends Context.Service<
   EditService,
@@ -94,6 +142,22 @@ export class EditService extends Context.Service<
     ) => Effect.Effect<SourceFile, NotFound | ForbiddenPath>;
     readonly redo: Effect.Effect<EditResult | null, EditFailure>;
     readonly state: Effect.Effect<UndoState>;
+    /**
+     * Runs `body` as one undoable action. Nothing else touches the journal meanwhile, and a
+     * failure puts back what the body had already changed.
+     */
+    readonly transaction: <A, E>(
+      label: string,
+      body: (tx: EditTransaction) => Effect.Effect<A, E>
+    ) => Effect.Effect<A, E | EditFailure>;
+    /**
+     * Moves or copies an element, within its file or into another, with the imports and the
+     * helpers it needs. One undo step either way.
+     */
+    readonly transfer: (
+      request: TransferRequest,
+      tx?: EditTransaction
+    ) => Effect.Effect<EditResult, EditFailure>;
     readonly undo: Effect.Effect<EditResult | null, EditFailure>;
   }
 >()("ultrapaint/server/EditService") {
@@ -202,124 +266,310 @@ export class EditService extends Context.Service<
         return { abs, content, hash: hashContent(content) };
       });
 
+      /** The file as it is now; null when there is none. */
+      const current = Effect.fnUntraced(function* (rel: string) {
+        const abs = yield* paths.resolve(rel);
+        return (yield* exists(abs))
+          ? yield* Effect.orDie(fs.readFileString(abs))
+          : null;
+      });
+
+      /** Puts the file in the given state: its content, or gone. */
+      const restore = Effect.fnUntraced(function* (
+        rel: string,
+        content: string | null
+      ) {
+        const abs = yield* paths.resolve(rel);
+        if (content === null) {
+          yield* Effect.orDie(fs.remove(abs, { force: true }));
+        } else {
+          yield* Effect.orDie(writeAtomic(abs, content));
+        }
+        yield* fileChanged(rel, content === null ? "" : hashContent(content));
+      });
+
       const fileChanged = (file: string, hash: string) =>
         events.publish("file.changed", { file, hash });
 
-      const apply = Effect.fn("EditService.apply")(function* (
-        op: EditOp,
-        expectedHash?: string
-      ) {
-        const rel = fileOf(op);
-        if (!paths.isEditable(rel)) {
-          return yield* new ForbiddenPath({
-            message: `${rel} is outside the designs directory`,
-          });
-        }
-        return yield* exclusive(
-          Effect.gen(function* () {
-            const { abs, content, hash } = yield* read(rel);
-            if (expectedHash && expectedHash !== hash) {
-              return yield* new Stale({
-                message: "the file changed since you last saw it; reloading",
-              });
-            }
-            const outcome = yield* Effect.try({
-              catch: sourceFailure(rel),
-              try: () => framework.source.apply(op, content),
-            });
-            if (outcome.code === content) {
-              return {
-                changed: false,
-                file: rel,
-                formatted: false,
-                hash,
-                location: null,
-                warnings: outcome.warnings,
-              } satisfies EditResult;
-            }
-            yield* Effect.orDie(writeAtomic(abs, outcome.code));
-            const { formatted, warning } = yield* format(rel);
-            const after = yield* Effect.orDie(fs.readFileString(abs));
-            const afterHash = hashContent(after);
-            // Positions shift after formatting; an unparsable result just loses the location.
-            const location: SourceLocation | null = locate(
-              after,
-              rel,
-              outcome.trackIndex
+      const editable = (rel: string) =>
+        paths.isEditable(rel)
+          ? Effect.void
+          : Effect.fail(
+              new ForbiddenPath({
+                message: `${rel} is outside the designs directory`,
+              })
             );
 
-            // Drop redo entries beyond the cursor, then append.
-            journal = [
-              ...journal.slice(0, cursor),
-              {
-                after,
-                before: content,
-                file: rel,
-                label: labelOf(op),
-                trackIndex: outcome.trackIndex,
-              },
-            ].slice(-JOURNAL_LIMIT);
-            cursor = journal.length;
-            invalidated = undefined;
+      /** A recorder for one transaction; the caller holds the journal lock. */
+      const recorder = () => {
+        const changes: FileChange[] = [];
+        let track: JournalEntry["track"] = null;
+        const record = (
+          file: string,
+          before: string | null,
+          after: string | null
+        ) => {
+          const earlier = changes.find((c) => c.file === file);
+          if (earlier) {
+            earlier.after = after;
+          } else {
+            changes.push({ after, before, file });
+          }
+        };
 
-            yield* fileChanged(rel, afterHash);
-            yield* publishState;
+        const apply = Effect.fn("EditService.apply")(function* (
+          op: EditOp,
+          expectedHash?: string
+        ) {
+          const rel = fileOf(op);
+          yield* editable(rel);
+          const { abs, content, hash } = yield* read(rel);
+          if (expectedHash && expectedHash !== hash) {
+            return yield* new Stale({
+              message: "the file changed since you last saw it; reloading",
+            });
+          }
+          const outcome = yield* Effect.try({
+            catch: sourceFailure(rel),
+            try: () => framework.source.apply(op, content),
+          });
+          if (outcome.code === content) {
             return {
-              changed: true,
+              changed: false,
               file: rel,
-              formatted,
-              hash: afterHash,
-              location,
-              warnings: warning
-                ? [...outcome.warnings, warning]
-                : outcome.warnings,
+              formatted: false,
+              hash,
+              location: null,
+              warnings: outcome.warnings,
             } satisfies EditResult;
-          })
-        );
-      });
+          }
+          yield* Effect.orDie(writeAtomic(abs, outcome.code));
+          const { formatted, warning } = yield* format(rel);
+          const after = yield* Effect.orDie(fs.readFileString(abs));
+          const afterHash = hashContent(after);
+          record(rel, content, after);
+          if (outcome.trackIndex !== null) {
+            track = { file: rel, index: outcome.trackIndex };
+          }
+          yield* fileChanged(rel, afterHash);
+          return {
+            changed: true,
+            file: rel,
+            formatted,
+            hash: afterHash,
+            // Positions shift after formatting; an unparsable result just loses the location.
+            location: locate(after, rel, outcome.trackIndex),
+            warnings: warning
+              ? [...outcome.warnings, warning]
+              : outcome.warnings,
+          } satisfies EditResult;
+        });
 
-      /** Moves the cursor one step in either direction, refusing if the file drifted. */
-      const step = (direction: "undo" | "redo") =>
+        const create = Effect.fn("EditService.create")(function* (
+          rel: string,
+          content: string,
+          options?: { readonly format?: boolean }
+        ) {
+          yield* editable(rel);
+          const abs = yield* paths.resolve(rel);
+          if (yield* exists(abs)) {
+            return yield* new Conflict({ message: `${rel} already exists` });
+          }
+          yield* Effect.orDie(writeAtomic(abs, content));
+          if (options?.format !== false) {
+            yield* format(rel);
+          }
+          const after = yield* Effect.orDie(fs.readFileString(abs));
+          record(rel, null, after);
+          yield* fileChanged(rel, hashContent(after));
+        });
+
+        const remove = Effect.fn("EditService.remove")(function* (rel: string) {
+          yield* editable(rel);
+          const before = yield* current(rel);
+          if (before === null) {
+            return;
+          }
+          yield* restore(rel, null);
+          record(rel, before, null);
+        });
+
+        const write = Effect.fn("EditService.write")(function* (
+          rel: string,
+          content: string
+        ) {
+          yield* editable(rel);
+          const before = yield* current(rel);
+          if (before === content) {
+            return;
+          }
+          yield* restore(rel, content);
+          record(rel, before, content);
+        });
+
+        const tx: EditTransaction = { apply, create, remove, write };
+        return {
+          changes: () => changes.filter((c) => c.before !== c.after),
+          track: () => track,
+          tx,
+        };
+      };
+
+      const transaction = <A, E>(
+        label: string,
+        body: (tx: EditTransaction) => Effect.Effect<A, E>
+      ): Effect.Effect<A, E | EditFailure> =>
         exclusive(
           Effect.suspend(() => {
-            const entry =
-              direction === "undo" ? journal[cursor - 1] : journal[cursor];
-            if (!entry) {
-              return Effect.succeed(null);
-            }
-            const expected = direction === "undo" ? entry.after : entry.before;
-            const next = direction === "undo" ? entry.before : entry.after;
-            return Effect.gen(function* () {
-              const { abs, content } = yield* read(entry.file);
-              if (content !== expected) {
-                if (direction === "undo") {
-                  invalidated = `${entry.file} changed outside the editor since "${entry.label}"; older undo entries were dropped`;
-                  journal = journal.slice(cursor);
-                  cursor = 0;
-                } else {
-                  invalidated = `${entry.file} changed outside the editor; redo history was dropped`;
-                  journal = journal.slice(0, cursor);
+            const r = recorder();
+            return body(r.tx).pipe(
+              // What went through before the failure goes back: an action is all or nothing.
+              Effect.onError(() =>
+                Effect.forEach(r.changes().toReversed(), (c) =>
+                  restore(c.file, c.before).pipe(Effect.ignore)
+                )
+              ),
+              Effect.tap(() => {
+                const changes = r.changes();
+                if (changes.length === 0) {
+                  return Effect.void;
                 }
-                yield* publishState;
-                return yield* new Stale({ message: invalidated });
-              }
-              yield* Effect.orDie(writeAtomic(abs, next));
-              cursor += direction === "undo" ? -1 : 1;
-              const hash = hashContent(next);
-              yield* fileChanged(entry.file, hash);
+                // Drop redo entries beyond the cursor, then append.
+                journal = [
+                  ...journal.slice(0, cursor),
+                  { changes, label, track: r.track() },
+                ].slice(-JOURNAL_LIMIT);
+                cursor = journal.length;
+                invalidated = undefined;
+                return publishState;
+              })
+            );
+          })
+        ).pipe(
+          Effect.withSpan("EditService.transaction", { attributes: { label } })
+        );
+
+      const apply = (op: EditOp, expectedHash?: string) =>
+        transaction(labelOf(op), (tx) => tx.apply(op, expectedHash));
+
+      const transferIn = Effect.fn("EditService.transfer")(function* (
+        tx: EditTransaction,
+        { copy, index, into, target }: TransferRequest
+      ) {
+        if (target.file === into.file && !copy) {
+          return yield* tx.apply({ index, into, kind: "move", target });
+        }
+        yield* editable(target.file);
+        const { content } = yield* read(target.file);
+        const extracted = yield* Effect.try({
+          catch: sourceFailure(target.file),
+          try: () => framework.source.extract(content, target, into.file),
+        });
+        const inserted = yield* tx.apply({
+          declarations: extracted.declarations,
+          imports: extracted.imports,
+          index,
+          into,
+          jsx: extracted.jsx,
+          kind: "insert",
+        });
+        if (!copy) {
+          yield* tx.apply({ kind: "delete", target });
+        }
+        return {
+          ...inserted,
+          warnings: [
+            ...inserted.warnings,
+            ...unresolvedWarning(extracted, target.file),
+          ],
+        } satisfies EditResult;
+      });
+
+      const transfer = (request: TransferRequest, tx?: EditTransaction) =>
+        tx
+          ? transferIn(tx, request)
+          : transaction(request.copy ? "Copy element" : "Move element", (t) =>
+              transferIn(t, request)
+            );
+
+      /** The first file the entry touched that is no longer as the entry left it. */
+      const drifted = Effect.fnUntraced(function* (
+        entry: JournalEntry,
+        undoing: boolean
+      ) {
+        for (const change of entry.changes) {
+          const expected = undoing ? change.after : change.before;
+          if ((yield* current(change.file)) !== expected) {
+            return change.file;
+          }
+        }
+        return null;
+      });
+
+      /** Drops the history an outside change made impossible to walk. */
+      const invalidate = (
+        file: string,
+        entry: JournalEntry,
+        undoing: boolean
+      ) => {
+        if (undoing) {
+          invalidated = `${file} changed outside the editor since "${entry.label}"; older undo entries were dropped`;
+          journal = journal.slice(cursor);
+          cursor = 0;
+        } else {
+          invalidated = `${file} changed outside the editor; redo history was dropped`;
+          journal = journal.slice(0, cursor);
+        }
+        return invalidated;
+      };
+
+      /** What the step reports: the file the action was about, as the step left it. */
+      const resultOf = (entry: JournalEntry, undoing: boolean): EditResult => {
+        const primary =
+          entry.changes.find((c) => c.file === entry.track?.file) ??
+          (entry.changes[0] as FileChange);
+        const content = undoing ? primary.before : primary.after;
+        return {
+          changed: true,
+          file: primary.file,
+          formatted: true,
+          hash: content === null ? "" : hashContent(content),
+          location:
+            !undoing && entry.track && content !== null
+              ? locate(content, entry.track.file, entry.track.index)
+              : null,
+          warnings: [],
+        };
+      };
+
+      /** Puts every file the entry touched back as it was before, or forward as after. */
+      const walk = (entry: JournalEntry, undoing: boolean) =>
+        Effect.forEach(
+          undoing ? entry.changes.toReversed() : entry.changes,
+          (change) =>
+            restore(change.file, undoing ? change.before : change.after),
+          { discard: true }
+        );
+
+      /** Moves the cursor one step in either direction, refusing if a file drifted. */
+      const step = (direction: "undo" | "redo") =>
+        exclusive(
+          Effect.gen(function* () {
+            const undoing = direction === "undo";
+            const entry = undoing ? journal[cursor - 1] : journal[cursor];
+            if (!entry) {
+              return null;
+            }
+            const file = yield* drifted(entry, undoing);
+            if (file !== null) {
+              const message = invalidate(file, entry, undoing);
               yield* publishState;
-              return {
-                changed: true,
-                file: entry.file,
-                formatted: true,
-                hash,
-                location:
-                  direction === "redo"
-                    ? locate(next, entry.file, entry.trackIndex)
-                    : null,
-                warnings: [],
-              } satisfies EditResult;
-            });
+              return yield* new Stale({ message });
+            }
+            yield* walk(entry, undoing);
+            cursor += undoing ? -1 : 1;
+            yield* publishState;
+            return resultOf(entry, undoing);
           })
         ).pipe(Effect.withSpan(`EditService.${direction}`));
 
@@ -328,6 +578,8 @@ export class EditService extends Context.Service<
         read,
         redo: step("redo"),
         state: Effect.sync(snapshotState),
+        transaction,
+        transfer,
         undo: step("undo"),
       });
     })

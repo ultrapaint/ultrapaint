@@ -9,6 +9,8 @@ import {
   applySetText,
   collectElements,
   elementSource,
+  extractElement,
+  outlineOf,
   mergeClasses,
   parseTsx,
 } from "./source.ts";
@@ -123,5 +125,110 @@ describe("source engine", () => {
     ).toMatchObject({
       name: "Badge",
     });
+  });
+
+  it("inserts the helpers an element needs, once", () => {
+    const helper = {
+      code: "const Stat = () => <b>1</b>;",
+      name: "Stat",
+    };
+    const out = applyInsert(code, at(7, 6), 0, "<Stat />", [], [helper]);
+    expect(out.code).toContain(
+      `import { Card } from "@ds/card";\n\nconst Stat = () => <b>1</b>;`
+    );
+    const els = collectElements(parseTsx(out.code));
+    expect(
+      els[out.trackIndex as number]?.node.openingElement.name
+    ).toMatchObject({ name: "Stat" });
+    const again = applyInsert(out.code, at(9, 6), 0, "<Stat />", [], [helper]);
+    expect(again.code.match(/const Stat =/g)?.length).toBe(1);
+  });
+
+  it("adds aliased and namespace imports", () => {
+    const out = applyInsert(code, at(7, 6), 0, "<Icons.Star />", [
+      { from: "@ds/icons", isNamespace: true, name: "Icons" },
+      { alias: "Action", from: "@ds/button", name: "Button" },
+    ]);
+    expect(out.code).toContain(`import * as Icons from "@ds/icons";`);
+    expect(out.code).toContain("import { Button, Button as Action }");
+  });
+});
+
+describe("extracting an element", () => {
+  const page = `import { Card } from "@ds/card";
+import { Button as Action } from "@ds/button";
+import * as Icons from "@ds/icons";
+import logo from "../assets/logo.png";
+import { unused } from "./unused.ts";
+
+const label = (n: number) => \`\${n} items\`;
+
+export function Stat({ value }: { value: number }) {
+  return <strong>{label(value)}</strong>;
+}
+
+export default function Home() {
+  const [count] = useState(0);
+  return (
+    <main>
+      <Card>
+        <img src={logo} />
+        <Icons.Star />
+        <Action>{count}</Action>
+        {[1, 2].map((n) => (
+          <Stat key={n} value={n} />
+        ))}
+      </Card>
+    </main>
+  );
+}
+`;
+  const pageFile = "designs/shop/home.tsx";
+
+  it("carries imports, helpers and the names it cannot", () => {
+    const out = extractElement(
+      page,
+      { col: 6, file: pageFile, line: 17 },
+      "designs/shop/_canvas/card.tsx"
+    );
+    expect(out.name).toBe("Card");
+    expect(out.jsx.startsWith("<Card>\n  <img")).toBe(true);
+    expect(out.imports).toEqual([
+      { from: "@ds/card", name: "Card" },
+      { from: "../../assets/logo.png", isDefault: true, name: "logo" },
+      { from: "@ds/icons", isNamespace: true, name: "Icons" },
+      { alias: "Action", from: "@ds/button", name: "Button" },
+    ]);
+    expect(out.declarations.map((d) => d.name)).toEqual(["label", "Stat"]);
+    expect(out.declarations[1]?.code.startsWith("function Stat")).toBe(true);
+    expect(out.unresolved).toEqual(["count"]);
+  });
+});
+
+describe("outlining a file", () => {
+  it("tells a component's inside from what its instances are given", () => {
+    const code = `const Stat = () => (
+  <div>
+    <p>1</p>
+  </div>
+);
+
+export default function Home() {
+  return (
+    <main>
+      <Stat />
+      {[1].map((n) => <b key={n} />)}
+    </main>
+  );
+}
+`;
+    const out = outlineOf(code);
+    expect(out.map((e) => [e.line, e.parent, e.direct, e.scope])).toEqual([
+      [2, null, false, "Stat"],
+      [3, 0, true, "Stat"],
+      [9, null, false, "default"],
+      [10, 2, true, "default"],
+      [11, 2, false, "default"],
+    ]);
   });
 });

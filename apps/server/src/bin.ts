@@ -34,10 +34,12 @@ const serve = Command.make(
     noBriefing: Flag.Boolean("no-briefing").pipe(
       Flag.withDescription(
         "Do not tell agents about the project before their first prompt"
-      )
+      ),
+      Flag.withDefault(false)
     ),
     noMcp: Flag.Boolean("no-mcp").pipe(
-      Flag.withDescription("Do not offer agents the editor's own MCP server")
+      Flag.withDescription("Do not offer agents the editor's own MCP server"),
+      Flag.withDefault(false)
     ),
     port: Flag.Int("port").pipe(
       Flag.withDescription("Port to listen on, loopback only"),

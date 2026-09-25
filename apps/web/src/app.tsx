@@ -39,7 +39,7 @@ import { Layers } from "./panels/layers.tsx";
 import { Pages } from "./panels/pages.tsx";
 import { Palette } from "./panels/palette.tsx";
 import { SaveConfigDialog } from "./panels/save-config.tsx";
-import { SettingsDialog } from "./panels/settings.tsx";
+import { SettingsPage } from "./panels/settings.tsx";
 import { Threads } from "./panels/threads.tsx";
 import { useAgents } from "./state/agents.ts";
 import { useCatalogue } from "./state/catalogue.ts";
@@ -243,6 +243,7 @@ export const App = () => {
   const space = useEditor((s) => s.space);
   const workspace = useEditor((s) => s.workspace);
   const leftTab = useEditor((s) => s.leftTab);
+  const settingsOpen = useProject((s) => s.settingsOpen);
   const leftPanel = leftTab === "chat" ? chatBounds : leftBounds;
   const [leftWidth, setLeftWidth] = usePanelWidth("left", leftPanel);
   const bound = useRef<boolean>(false);
@@ -304,10 +305,11 @@ export const App = () => {
       return;
     }
     const inSpace = pages.filter((p) => p.space === space);
-    const { frames, route } = useEditor.getState();
+    const { frames, items, route } = useEditor.getState();
     const missing = inSpace.some((p) => !frames[p.id]);
+    // Canvas items have frames too, and are not pages.
     const extra = Object.keys(frames).some(
-      (id) => !inSpace.find((p) => p.id === id)
+      (id) => !(items[id] || inSpace.find((p) => p.id === id))
     );
     if (missing || extra) {
       useEditor.getState().openSpace(space, route);
@@ -345,34 +347,37 @@ export const App = () => {
   return (
     <TooltipProvider delay={300}>
       <div className="flex h-full flex-col">
-        <div className="relative flex min-h-0 flex-1">
-          <Rail />
-          <LeftPanel
-            defaultWidth={leftPanel.defaultWidth}
-            onWidthChange={setLeftWidth}
-            width={leftWidth}
-          />
-          <main className="relative min-w-0 flex-1">
-            {workspace !== "prototype" && <Canvas />}
-            {/* What floats over the canvas belongs in the part the panel leaves to be seen, and
+        {settingsOpen ? (
+          <SettingsPage />
+        ) : (
+          <div className="relative flex min-h-0 flex-1">
+            <Rail />
+            <LeftPanel
+              defaultWidth={leftPanel.defaultWidth}
+              onWidthChange={setLeftWidth}
+              width={leftWidth}
+            />
+            <main className="relative min-w-0 flex-1">
+              {workspace !== "prototype" && <Canvas />}
+              {/* What floats over the canvas belongs in the part the panel leaves to be seen, and
                 so does the prototype, which is centred rather than panned. */}
-            <div
-              className="pointer-events-none absolute inset-y-0 right-0"
-              style={{ left: leftWidth }}
-            >
-              {workspace === "prototype" && <Prototype />}
-              <WorkspaceSwitcher />
-              <CanvasStatus />
-              <div className="absolute inset-x-0 bottom-4 z-10 flex flex-col items-center gap-2">
-                <AgentActivityStrip />
-                <AgentChanges />
-                {workspace === "prototype" ? <PrototypeBar /> : <Toolbar />}
+              <div
+                className="pointer-events-none absolute inset-y-0 right-0"
+                style={{ left: leftWidth }}
+              >
+                {workspace === "prototype" && <Prototype />}
+                <WorkspaceSwitcher />
+                <CanvasStatus />
+                <div className="absolute inset-x-0 bottom-4 z-10 flex flex-col items-center gap-2">
+                  <AgentActivityStrip />
+                  <AgentChanges />
+                  {workspace === "prototype" ? <PrototypeBar /> : <Toolbar />}
+                </div>
               </div>
-            </div>
-          </main>
-          {workspace === "design" && <RightPanel />}
-        </div>
-        <SettingsDialog />
+            </main>
+            {workspace === "design" && <RightPanel />}
+          </div>
+        )}
         <SaveConfigDialog />
         <DialogHost />
         <Toaster

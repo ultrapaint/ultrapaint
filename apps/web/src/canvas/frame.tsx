@@ -20,10 +20,24 @@ import { useComments } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
-import { findBySource, findNode, stepInto } from "../state/tree.ts";
+import {
+  findBySource,
+  findNode,
+  findPath,
+  itemRoot,
+  stepInto,
+} from "../state/tree.ts";
 import { FramePresence } from "./agent-presence.tsx";
 import { bridgeFor, removeBridge } from "./bridge.ts";
 import { commentCursor, FrameComments } from "./comments.tsx";
+import {
+  beginDrag,
+  type Dragged,
+  endDrag,
+  isMovable,
+  moveDrag,
+  useDrag,
+} from "./drag.ts";
 
 const presets: { value: ViewportPreset; label: string }[] = [
   { label: "Mobile", value: "mobile" },
@@ -67,9 +81,14 @@ const commitText = (pageId: string, text: string) => {
 const isInteractive = (s: { mode: string; spacePan: boolean }) =>
   s.mode === "interact" && !s.spacePan;
 
+/** How far the pointer travels before a press becomes a drag, in screen pixels. */
+const DRAG_THRESHOLD = 4;
+
 interface Props {
   frame: FrameLayout;
   hostUrl: string | null;
+  /** A canvas item rather than a page: lighter chrome, and dragging it moves it. */
+  item?: boolean;
   onDragStart: (
     e: ReactPointerEvent,
     pageId: string,
@@ -81,7 +100,15 @@ interface Props {
 }
 
 export const Frame = memo(
-  ({ page, frame, hostUrl, zoom, visible, onDragStart }: Props) => {
+  ({
+    page,
+    frame,
+    hostUrl,
+    item = false,
+    zoom,
+    visible,
+    onDragStart,
+  }: Props) => {
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const mode = useEditor((s) => s.mode);
     const spacePan = useEditor((s) => s.spacePan);
@@ -285,6 +312,123 @@ export const Frame = memo(
     };
 
     /**
+     * What a press here picks up if it turns into a drag. Inside what is selected, that; else
+     * what a click would select. In an item, anything that is not an element inside it moves
+     * the item whole.
+     */
+    const dragTarget = async (
+      x: number,
+      y: number,
+      alt: boolean
+    ): Promise<Dragged | null> => {
+      const bridge = bridgeFor(page.id);
+      const chain = await bridge.hitTest(x, y);
+      const store = useEditor.getState();
+      const current = store.trees[page.id];
+      const selected =
+        store.selection?.pageId === page.id ? store.selection.nodeId : null;
+      // The chain holds only what a click can reach; the selection may be further out.
+      const insideSelection =
+        selected !== null &&
+        chain.some((c) => findPath(current, c)?.some((n) => n.id === selected));
+      const id = insideSelection
+        ? selected
+        : stepInto(chain, current, selected, alt);
+      const node = id ? findNode(current, id) : null;
+      if (!(id && node?.source && (await isMovable(page.id, id)))) {
+        return item
+          ? {
+              frame: store.frames[page.id] ?? frame,
+              itemId: page.id,
+              kind: "item",
+              root: itemRoot(current, page.file)?.source ?? null,
+            }
+          : null;
+      }
+      const rect = (await bridge.measure([id]))[id];
+      if (!rect) {
+        return null;
+      }
+      return {
+        kind: "element",
+        name: node.name,
+        nodeId: id,
+        pageId: page.id,
+        rect,
+        source: node.source,
+      };
+    };
+
+    // A press that travels becomes a drag; one that does not stays a click.
+    const press = useRef<{
+      x: number;
+      y: number;
+      last: { x: number; y: number; alt: boolean };
+      target: Promise<Dragged | null>;
+    } | null>(null);
+    const dragging = useRef<boolean>(false);
+    const onPointerDown = (e: ReactPointerEvent) => {
+      if (e.button !== 0) {
+        return;
+      }
+      dragging.current = false;
+      const { x, y } = toFrame(e);
+      press.current = {
+        last: { alt: e.altKey, x: e.clientX, y: e.clientY },
+        target: dragTarget(x, y, e.altKey),
+        x: e.clientX,
+        y: e.clientY,
+      };
+      // The drag goes on over other frames and the empty canvas; the moves must still come here.
+      e.currentTarget.setPointerCapture(e.pointerId);
+    };
+    const onPointerMove = (e: ReactPointerEvent) => {
+      const p = press.current;
+      if (!p) {
+        onMove(e);
+        return;
+      }
+      p.last = { alt: e.altKey, x: e.clientX, y: e.clientY };
+      if (dragging.current) {
+        moveDrag(e.clientX, e.clientY, e.altKey);
+        return;
+      }
+      if (Math.hypot(e.clientX - p.x, e.clientY - p.y) < DRAG_THRESHOLD) {
+        return;
+      }
+      dragging.current = true;
+      p.target.then((target) => {
+        // Released before the preview answered: it was a click after all.
+        if (!(target && press.current === p)) {
+          return;
+        }
+        // What is dragged is what is selected, as it would be after a click on it.
+        if (
+          target.kind === "element" &&
+          useEditor.getState().selection?.nodeId !== target.nodeId
+        ) {
+          select(target.nodeId);
+        }
+        beginDrag(target, p.x, p.y, p.last.alt);
+        moveDrag(p.last.x, p.last.y, p.last.alt);
+      });
+    };
+    const onPointerUp = () => {
+      press.current = null;
+      if (useDrag.getState().dragged) {
+        endDrag();
+      }
+    };
+    const onSelectClick = (e: ReactMouseEvent) => {
+      // The click that ends a drag is not a click.
+      if (dragging.current) {
+        dragging.current = false;
+        return;
+      }
+      onClick(e);
+    };
+
+    /**
      * Places a comment where the page was clicked. The element under the point is remembered
      * with it: the innermost one that has a place in the source.
      */
@@ -341,14 +485,23 @@ export const Frame = memo(
           frame={frame}
           inv={inv}
           isActive={isActive}
+          item={item}
           onDragStart={onDragStart}
           page={page}
         />
 
-        <div className="absolute inset-0 overflow-hidden bg-white shadow-2xl">
+        <div
+          className={cn(
+            "absolute inset-0 overflow-hidden",
+            item ? "shadow-lg" : "bg-white shadow-2xl"
+          )}
+        >
           {visible && url ? (
             <iframe
-              className="block h-full w-full border-0 bg-white"
+              className={cn(
+                "block h-full w-full border-0",
+                item ? "bg-transparent" : "bg-white"
+              )}
               ref={iframeRef}
               src={url}
               style={{
@@ -366,10 +519,13 @@ export const Frame = memo(
             <button
               aria-label={`Select elements in ${page.name}`}
               className="absolute inset-0 h-full w-full cursor-default"
-              onClick={onClick}
+              onClick={onSelectClick}
               onDoubleClick={onDoubleClick}
+              onPointerCancel={onPointerUp}
+              onPointerDown={onPointerDown}
               onPointerLeave={onPointerLeave}
-              onPointerMove={onMove}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
               type="button"
             />
           )}
@@ -423,10 +579,12 @@ const FrameChrome = ({
   frame,
   inv,
   isActive,
+  item,
   onDragStart,
 }: Pick<Props, "frame" | "onDragStart" | "page"> & {
   inv: number;
   isActive: boolean;
+  item: boolean;
 }) => {
   const isSelected = useEditor((s) => s.selectedPage === page.id);
   const [titleHover, setTitleHover] = useState(false);
@@ -459,20 +617,24 @@ const FrameChrome = ({
         >
           {page.name}
         </button>
-        <div className="w-24">
-          <OptionSelect
-            className="border-transparent bg-transparent text-[11px] text-muted-foreground hover:border-input dark:bg-transparent"
-            onChange={(v) =>
-              useEditor.getState().setPreset(page.id, v as ViewportPreset)
-            }
-            options={presets}
-            size="sm"
-            value={frame.preset}
-          />
-        </div>
-        <span className="text-[11px] text-muted-foreground">
-          {Math.round(frame.width)} × {Math.round(frame.height)}
-        </span>
+        {!item && (
+          <>
+            <div className="w-24">
+              <OptionSelect
+                className="border-transparent bg-transparent text-[11px] text-muted-foreground hover:border-input dark:bg-transparent"
+                onChange={(v) =>
+                  useEditor.getState().setPreset(page.id, v as ViewportPreset)
+                }
+                options={presets}
+                size="sm"
+                value={frame.preset}
+              />
+            </div>
+            <span className="text-[11px] text-muted-foreground">
+              {Math.round(frame.width)} × {Math.round(frame.height)}
+            </span>
+          </>
+        )}
       </div>
       {isSelected || titleHover ? (
         <div

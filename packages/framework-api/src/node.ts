@@ -6,7 +6,13 @@
  * (`@storybook/react-vite`) does for Storybook's core.
  */
 import type { SourceLocation } from "@ultrapaint/contracts/base";
-import type { EditOp, ElementSource } from "@ultrapaint/contracts/edit";
+import type {
+  Declaration,
+  EditOp,
+  ElementSource,
+  ImportSpec,
+  OutlineElement,
+} from "@ultrapaint/contracts/edit";
 import type { Settings } from "@ultrapaint/contracts/settings";
 import type { SetupSuggestions } from "@ultrapaint/contracts/setup";
 
@@ -33,6 +39,22 @@ export class SourceEditError extends Error {
   }
 }
 
+/** An element lifted out of its file, with what it needs to render somewhere else. */
+export interface ExtractedElement {
+  /** Top-level helpers of its file the element uses, and the helpers those use. */
+  readonly declarations: readonly Declaration[];
+  /** Imports of its file the element and those helpers use, rebased on the destination. */
+  readonly imports: readonly ImportSpec[];
+  readonly jsx: string;
+  /** A name for it: the component or tag it is. */
+  readonly name: string;
+  /**
+   * Names it uses that are neither imported nor top-level: the page component's state and
+   * props. The copy refers to them all the same, and may not render until they are replaced.
+   */
+  readonly unresolved: readonly string[];
+}
+
 /** Pure and synchronous: these throw, and the server turns that into wire errors. */
 export interface SourceEditor {
   readonly apply: (op: EditOp, code: string) => EditOutcome;
@@ -42,12 +64,23 @@ export interface SourceEditor {
     location: SourceLocation,
     editable: boolean
   ) => ElementSource | null;
+  /**
+   * The element at `location`, ready to be inserted into the file `destination`: relative
+   * imports are rewritten against that file. Both paths are relative to the repository root.
+   */
+  readonly extract: (
+    code: string,
+    location: SourceLocation,
+    destination: string
+  ) => ExtractedElement;
   /** Where the element with this pre-order index is, in the formatted code. */
   readonly locate: (
     code: string,
     file: string,
     trackIndex: number
   ) => SourceLocation | null;
+  /** Every JSX element of the file with the element it is written inside of. */
+  readonly outline: (code: string) => readonly OutlineElement[];
 }
 
 /** What a page template is rendered against. */
@@ -60,6 +93,15 @@ export interface PageTemplateInput {
   readonly routerImport: string;
 }
 
+/** What a canvas item module is rendered from. */
+export interface ItemTemplateInput {
+  readonly declarations: readonly Declaration[];
+  /** File name of the item, with its extension. */
+  readonly fileName: string;
+  readonly imports: readonly ImportSpec[];
+  readonly jsx: string;
+}
+
 export interface PageFiles {
   /** A copy of a page under a new file name: the component is renamed with the file. */
   readonly duplicate: (content: string, from: string, to: string) => string;
@@ -69,6 +111,13 @@ export interface PageFiles {
   readonly fileName: (name: string) => string;
   readonly isPageFile: (fileName: string) => boolean;
   readonly render: (templateId: string, input: PageTemplateInput) => string;
+  /** A canvas item showing an image; `src` is the image's specifier relative to the item. */
+  readonly renderImageItem: (input: {
+    readonly fileName: string;
+    readonly src: string;
+  }) => string;
+  /** A canvas item: a module whose default export renders one element. */
+  readonly renderItem: (input: ItemTemplateInput) => string;
   /**
    * The navigation module pages import: written into the designs directory once and never
    * overwritten, so a page still compiles in the repository with no ultrapaint around it.

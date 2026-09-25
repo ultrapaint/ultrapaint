@@ -2,15 +2,19 @@
  * TSX source engine. Locates JSX elements by the same line:column the stamping plugin writes,
  * and performs surgical edits with magic-string so untouched code keeps its formatting.
  */
+import { posix } from "node:path";
 import { parse } from "@babel/parser";
 import type { JsonValue, SourceLocation } from "@ultrapaint/contracts/base";
 import type {
+  Declaration,
   EditOp,
   ElementSource,
   ImportSpec,
+  OutlineElement,
 } from "@ultrapaint/contracts/edit";
 import {
   type EditOutcome,
+  type ExtractedElement,
   SourceEditError,
   type SourceEditor,
 } from "@ultrapaint/framework-api/node";
@@ -661,7 +665,8 @@ export const applyInsert = (
   into: SourceLocation,
   index: number,
   jsx: string,
-  imports: readonly ImportSpec[]
+  imports: readonly ImportSpec[],
+  declarations: readonly Declaration[] = []
 ): EditOutcome => {
   const ast = parseTsx(code);
   const elements = collectElements(ast);
@@ -669,17 +674,13 @@ export const applyInsert = (
   const ms = new MagicString(code);
   insertChild(ms, code, target.node, index, jsx.trim());
   addImports(ms, ast, imports);
+  const added = addDeclarations(ms, ast, declarations);
   const newCode = ms.toString();
+  // Everything added outside the parent lands above it: the parent moves down by the elements
+  // the new declarations hold, and the inserted child is the index-th of its children.
+  const shift = added ? collectElements(parseTsx(added)).length : 0;
   const newElements = collectElements(parseTsx(newCode));
-  const parentNode = newElements.find(
-    (e) =>
-      e.node.openingElement.loc.start.line >=
-        target.node.openingElement.loc.start.line &&
-      jsxName(e.node.openingElement.name) ===
-        jsxName(target.node.openingElement.name) &&
-      e.node.openingElement.attributes.length ===
-        target.node.openingElement.attributes.length
-  )?.node;
+  const parentNode = newElements[target.idx + shift]?.node;
   const kids = parentNode ? elementChildren(parentNode) : [];
   const child = kids[Math.min(index, kids.length - 1)];
   const trackIndex = child
@@ -704,7 +705,26 @@ const appendNamedImport = (ms: MagicString, decl: Node, name: string) => {
   }
 };
 
-/** Adds named imports, reusing an existing declaration for the same module when present. */
+/** The name an import binds in the file that holds it. */
+const localName = (spec: ImportSpec) =>
+  spec.isDefault || spec.isNamespace ? spec.name : (spec.alias ?? spec.name);
+
+const importClause = (spec: ImportSpec) => {
+  if (spec.isNamespace) {
+    return `* as ${spec.name}`;
+  }
+  if (spec.isDefault) {
+    return spec.name;
+  }
+  return `{ ${namedSpecifier(spec)} }`;
+};
+
+const namedSpecifier = (spec: ImportSpec) =>
+  spec.alias && spec.alias !== spec.name
+    ? `${spec.name} as ${spec.alias}`
+    : spec.name;
+
+/** Adds imports, reusing an existing declaration for the same module when present. */
 export const addImports = (
   ms: MagicString,
   ast: Node,
@@ -722,22 +742,24 @@ export const addImports = (
   const insertAt = lastImport ? lastImport.end : 0;
   const additions: string[] = [];
   for (const spec of imports) {
-    if (importedNames.has(spec.name)) {
+    const local = localName(spec);
+    if (importedNames.has(local)) {
       continue;
     }
     const existing = decls.find(
-      (d) => (d.source as Node).value === spec.from && d.importKind !== "type"
+      (d) =>
+        (d.source as Node).value === spec.from &&
+        d.importKind !== "type" &&
+        !(d.specifiers as Node[]).some(
+          (s) => s.type === "ImportNamespaceSpecifier"
+        )
     );
-    if (existing && !spec.isDefault) {
-      appendNamedImport(ms, existing, spec.name);
+    if (existing && !spec.isDefault && !spec.isNamespace) {
+      appendNamedImport(ms, existing, namedSpecifier(spec));
     } else {
-      additions.push(
-        spec.isDefault
-          ? `import ${spec.name} from "${spec.from}";`
-          : `import { ${spec.name} } from "${spec.from}";`
-      );
+      additions.push(`import ${importClause(spec)} from "${spec.from}";`);
     }
-    importedNames.add(spec.name);
+    importedNames.add(local);
   }
   if (additions.length) {
     ms.appendLeft(
@@ -745,6 +767,354 @@ export const addImports = (
       `${insertAt === 0 ? "" : "\n"}${additions.join("\n")}${insertAt === 0 ? "\n" : ""}`
     );
   }
+};
+
+/** Names a statement binds at the top level of its module. */
+const boundNames = (statement: Node): string[] => {
+  const inner =
+    statement.type === "ExportNamedDeclaration" ||
+    statement.type === "ExportDefaultDeclaration"
+      ? (statement.declaration as Node | null)
+      : statement;
+  if (!inner) {
+    return [];
+  }
+  switch (inner.type) {
+    case "ImportDeclaration":
+      return (inner.specifiers as Node[]).map(
+        (s) => (s.local as Node).name as string
+      );
+    case "VariableDeclaration":
+      return (inner.declarations as Node[]).flatMap((d) =>
+        patternNames(d.id as Node)
+      );
+    case "FunctionDeclaration":
+    case "ClassDeclaration":
+    case "TSTypeAliasDeclaration":
+    case "TSInterfaceDeclaration":
+    case "TSEnumDeclaration": {
+      const id = inner.id as Node | null;
+      return id ? [id.name as string] : [];
+    }
+    default:
+      return [];
+  }
+};
+
+/** Identifiers a binding pattern declares: `a`, `{ a, b: c }`, `[a, ...rest]`. */
+const patternNames = (pattern: Node | null | undefined): string[] => {
+  if (!pattern) {
+    return [];
+  }
+  switch (pattern.type) {
+    case "Identifier":
+      return [pattern.name as string];
+    case "ObjectPattern":
+      return (pattern.properties as Node[]).flatMap((p) =>
+        p.type === "RestElement"
+          ? patternNames(p.argument as Node)
+          : patternNames(p.value as Node)
+      );
+    case "ArrayPattern":
+      return (pattern.elements as (Node | null)[]).flatMap((e) =>
+        patternNames(e)
+      );
+    case "RestElement":
+      return patternNames(pattern.argument as Node);
+    case "AssignmentPattern":
+      return patternNames(pattern.left as Node);
+    default:
+      return [];
+  }
+};
+
+const topLevelNames = (ast: Node): Set<string> =>
+  new Set(((ast.program as Node).body as Node[]).flatMap(boundNames));
+
+/**
+ * Adds the declarations whose name the module does not bind yet, below its imports. Returns
+ * the text added, which is what shifts the elements after it.
+ */
+const addDeclarations = (
+  ms: MagicString,
+  ast: Node,
+  declarations: readonly Declaration[]
+): string => {
+  const taken = topLevelNames(ast);
+  const missing = declarations.filter((d) => !taken.has(d.name));
+  if (missing.length === 0) {
+    return "";
+  }
+  const body = (ast.program as Node).body as Node[];
+  const lastImport = body.filter((n) => n.type === "ImportDeclaration").at(-1);
+  const text = missing.map((d) => d.code).join("\n\n");
+  if (lastImport) {
+    ms.appendLeft(lastImport.end, `\n\n${text}`);
+  } else {
+    ms.appendLeft(0, `${text}\n\n`);
+  }
+  return text;
+};
+
+// ---- Extraction ----
+
+const FUNCTION_TYPES = new Set([
+  "ArrowFunctionExpression",
+  "FunctionDeclaration",
+  "FunctionExpression",
+  "ObjectMethod",
+  "ClassMethod",
+]);
+
+/**
+ * Names a piece of code refers to, and the names it binds itself (parameters, local variables)
+ * which are therefore not references to anything outside it. Over-inclusive on purpose: a name
+ * too many costs an import the formatter removes, a name too few a copy that does not render.
+ */
+const KEY_PARENTS = new Set([
+  "ClassMethod",
+  "ClassProperty",
+  "ObjectMethod",
+  "ObjectProperty",
+]);
+
+/** Whether an identifier names a property rather than a binding: `a.b`, `{ b: 1 }`. */
+const isPropertyName = (parent: Node | null, key: string | null) =>
+  !!parent &&
+  !parent.computed &&
+  (((parent.type === "MemberExpression" ||
+    parent.type === "OptionalMemberExpression") &&
+    key === "property") ||
+    (KEY_PARENTS.has(parent.type) && key === "key" && !parent.shorthand));
+
+/** The binding a JSX tag refers to: `Card` and `ui` of `<ui.Card>`, nothing for `<div>`. */
+const tagReference = (name: Node): string | null => {
+  let root = name;
+  while (root.type === "JSXMemberExpression") {
+    root = root.object as Node;
+  }
+  const n = root.name as string | undefined;
+  if (!n) {
+    return null;
+  }
+  return name.type === "JSXMemberExpression" || n[0] !== n[0]?.toLowerCase()
+    ? n
+    : null;
+};
+
+/** Names a node declares for the code inside it: parameters, variables, a function's own name. */
+const declaredBy = (node: Node): string[] => {
+  if (node.type === "VariableDeclarator") {
+    return patternNames(node.id as Node);
+  }
+  if (node.type === "CatchClause") {
+    return patternNames(node.param as Node);
+  }
+  if (!FUNCTION_TYPES.has(node.type)) {
+    return [];
+  }
+  const id = node.id as Node | null | undefined;
+  return [
+    ...(node.params as Node[]).flatMap((p) => patternNames(p)),
+    ...(id?.type === "Identifier" ? [id.name as string] : []),
+  ];
+};
+
+/** The children a walk looks into: an attribute's name and a tag's name are not references. */
+const walkedChildren = (node: Node): [Node, string][] => {
+  if (node.type === "JSXAttribute") {
+    return node.value ? [[node.value as Node, "value"]] : [];
+  }
+  if (node.type === "JSXOpeningElement" || node.type === "JSXClosingElement") {
+    return ((node.attributes as Node[] | undefined) ?? []).map((a) => [
+      a,
+      "attributes",
+    ]);
+  }
+  const out: [Node, string][] = [];
+  for (const k of Object.keys(node)) {
+    if (k === "loc" || k === "range") {
+      continue;
+    }
+    const value = node[k];
+    for (const v of Array.isArray(value) ? value : [value]) {
+      if (isNode(v)) {
+        out.push([v, k]);
+      }
+    }
+  }
+  return out;
+};
+
+/**
+ * Names a piece of code refers to, and the names it binds itself (parameters, local variables)
+ * which are therefore not references to anything outside it. Over-inclusive on purpose: a name
+ * too many costs an import the formatter removes, a name too few a copy that does not render.
+ */
+const namesIn = (root: Node): { bound: Set<string>; used: Set<string> } => {
+  const used = new Set<string>();
+  const bound = new Set<string>();
+  const visit = (node: Node, parent: Node | null, key: string | null) => {
+    if (node.type === "Identifier" && !isPropertyName(parent, key)) {
+      used.add(node.name as string);
+    }
+    if (
+      node.type === "JSXOpeningElement" ||
+      node.type === "JSXClosingElement"
+    ) {
+      const tag = tagReference(node.name as Node);
+      if (tag) {
+        used.add(tag);
+      }
+    }
+    for (const name of declaredBy(node)) {
+      bound.add(name);
+    }
+    for (const [child, k] of walkedChildren(node)) {
+      visit(child, node, k);
+    }
+  };
+  visit(root, null, null);
+  return { bound, used };
+};
+
+/** What an import specifier binds, as the spec that would import it again. */
+const specOf = (s: Node, from: string): ImportSpec => {
+  const local = (s.local as Node).name as string;
+  if (s.type === "ImportDefaultSpecifier") {
+    return { from, isDefault: true, name: local };
+  }
+  if (s.type === "ImportNamespaceSpecifier") {
+    return { from, isNamespace: true, name: local };
+  }
+  const imported = s.imported as Node;
+  const name = (imported.name ?? imported.value) as string;
+  return name === local ? { from, name } : { alias: local, from, name };
+};
+
+/** Every import binding of a module, keyed by the name it binds. Types stay behind. */
+const importBindings = (ast: Node): Map<string, ImportSpec> => {
+  const out = new Map<string, ImportSpec>();
+  for (const d of (ast.program as Node).body as Node[]) {
+    if (d.type !== "ImportDeclaration" || d.importKind === "type") {
+      continue;
+    }
+    const from = (d.source as Node).value as string;
+    for (const s of d.specifiers as Node[]) {
+      if (s.importKind !== "type") {
+        out.set((s.local as Node).name as string, specOf(s, from));
+      }
+    }
+  }
+  return out;
+};
+
+/** Top-level statements other than imports and the default export, by the names they bind. */
+const declarationBindings = (
+  ast: Node,
+  code: string
+): Map<string, { code: string; node: Node }> => {
+  const out = new Map<string, { code: string; node: Node }>();
+  for (const statement of (ast.program as Node).body as Node[]) {
+    if (
+      statement.type === "ImportDeclaration" ||
+      statement.type === "ExportDefaultDeclaration"
+    ) {
+      continue;
+    }
+    // A helper exported from a page is still a helper where it lands; the export stays behind.
+    const node =
+      statement.type === "ExportNamedDeclaration"
+        ? (statement.declaration as Node | null)
+        : statement;
+    if (!node) {
+      continue;
+    }
+    for (const name of boundNames(node)) {
+      out.set(name, { code: code.slice(node.start, node.end), node });
+    }
+  }
+  return out;
+};
+
+const RELATIVE_RE = /^\.\.?\//;
+const LEADING_DOT_RE = /^\./;
+
+/** A relative specifier written in `from`, rewritten to mean the same file from `to`. */
+const rebase = (specifier: string, from: string, to: string): string => {
+  if (!RELATIVE_RE.test(specifier)) {
+    return specifier;
+  }
+  const target = posix.join(posix.dirname(from), specifier);
+  const rel = posix.relative(posix.dirname(to), target);
+  return LEADING_DOT_RE.test(rel) ? rel : `./${rel}`;
+};
+
+/** Removes the indentation of the line the element starts on from every line but the first. */
+const dedent = (code: string, start: number, text: string): string => {
+  const indent = indentAt(code, start);
+  if (!indent) {
+    return text;
+  }
+  return text
+    .split("\n")
+    .map((line, i) =>
+      i > 0 && line.startsWith(indent) ? line.slice(indent.length) : line
+    )
+    .join("\n");
+};
+
+export const extractElement = (
+  code: string,
+  loc: SourceLocation,
+  destination: string
+): ExtractedElement => {
+  const ast = parseTsx(code);
+  const { node } = require(collectElements(ast), loc);
+  const imports = importBindings(ast);
+  const declarations = declarationBindings(ast, code);
+  const neededImports = new Map<string, ImportSpec>();
+  const neededDeclarations = new Set<{ code: string; node: Node }>();
+  const unresolved = new Set<string>();
+  const seen = new Set<string>();
+  const queue: Node[] = [node];
+  while (queue.length > 0) {
+    const current = queue.shift() as Node;
+    const { bound, used } = namesIn(current);
+    const fresh = [...used].filter((n) => !(bound.has(n) || seen.has(n)));
+    for (const name of fresh) {
+      seen.add(name);
+      const spec = imports.get(name);
+      const declaration = declarations.get(name);
+      if (spec) {
+        neededImports.set(name, {
+          ...spec,
+          from: rebase(spec.from, loc.file, destination),
+        });
+      } else if (!declaration) {
+        // A global of the platform is there wherever the element lands.
+        if (!(name in globalThis)) {
+          unresolved.add(name);
+        }
+      } else if (!neededDeclarations.has(declaration)) {
+        neededDeclarations.add(declaration);
+        queue.push(declaration.node);
+      }
+    }
+  }
+  const ordered = [...neededDeclarations].sort(
+    (a, b) => a.node.start - b.node.start
+  );
+  return {
+    declarations: ordered.map((d) => ({
+      code: d.code,
+      name: boundNames(d.node)[0] ?? "",
+    })),
+    imports: [...neededImports.values()],
+    jsx: dedent(code, node.start, code.slice(node.start, node.end)),
+    name: jsxName(node.openingElement.name),
+    unresolved: [...unresolved].sort(),
+  };
 };
 
 /** Removes import specifiers whose local binding is no longer referenced. Bare imports stay. */
@@ -814,16 +1184,63 @@ const applyOp = (op: EditOp, code: string): EditOutcome => {
     case "move":
       return applyMove(code, op.target, op.into, op.index);
     default:
-      return applyInsert(code, op.into, op.index, op.jsx, op.imports);
+      return applyInsert(
+        code,
+        op.into,
+        op.index,
+        op.jsx,
+        op.imports,
+        op.declarations
+      );
   }
+};
+
+/** Every JSX element with the element it is written inside of, and its declaration. */
+export const outlineOf = (code: string): OutlineElement[] => {
+  const out: OutlineElement[] = [];
+  const indexOf = new Map<Node, number>();
+  const visit = (
+    node: Node,
+    parent: Node | null,
+    element: Node | null,
+    scope: string
+  ) => {
+    let inside = element;
+    if (node.type === "JSXElement") {
+      const open = (node as JsxElement).openingElement.loc.start;
+      indexOf.set(node, out.length);
+      out.push({
+        col: open.column,
+        direct: !!element && parent === element,
+        line: open.line,
+        parent: element ? (indexOf.get(element) ?? null) : null,
+        scope,
+      });
+      inside = node;
+    }
+    for (const child of childNodes(node)) {
+      visit(child, node, inside, scope);
+    }
+  };
+  const program = parseTsx(code).program as Node;
+  for (const statement of program.body as Node[]) {
+    const scope =
+      statement.type === "ExportDefaultDeclaration"
+        ? "default"
+        : (boundNames(statement)[0] ?? "");
+    visit(statement, null, null, scope);
+  }
+  return out;
 };
 
 /** The JSX source editor, as the server uses it. */
 export const source: SourceEditor = {
   apply: applyOp,
   elementSource,
+  extract: extractElement,
   locate: (code, file, trackIndex) => {
     const element = collectElements(parseTsx(code))[trackIndex]?.node;
     return element ? locationOf(element, file) : null;
   },
+  outline: outlineOf,
 };

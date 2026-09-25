@@ -153,3 +153,23 @@ export const findBySource = (
   };
   return walk(tree) ?? fallback;
 };
+
+/** The element a canvas item renders: the first one written in the item's own module. */
+export const itemRoot = (
+  tree: TreeNode | undefined,
+  file: string
+): TreeNode | null => {
+  if (!tree) {
+    return null;
+  }
+  if (tree.editable && tree.source?.file === file) {
+    return tree;
+  }
+  for (const c of tree.children) {
+    const r = itemRoot(c, file);
+    if (r) {
+      return r;
+    }
+  }
+  return null;
+};

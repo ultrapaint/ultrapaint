@@ -1,4 +1,6 @@
+import type { ImportSpec } from "@ultrapaint/contracts/edit";
 import type {
+  ItemTemplateInput,
   PageFiles,
   PageTemplateInput,
 } from "@ultrapaint/framework-api/node";
@@ -60,6 +62,86 @@ export const renderTemplate = (
   }
 };
 
+/** Import lines for the specs, one declaration per module. */
+const importLines = (imports: readonly ImportSpec[]): string => {
+  const byModule = new Map<string, ImportSpec[]>();
+  for (const spec of imports) {
+    byModule.set(spec.from, [...(byModule.get(spec.from) ?? []), spec]);
+  }
+  const lines: string[] = [];
+  for (const [from, specs] of byModule) {
+    const source = JSON.stringify(from);
+    for (const spec of specs.filter((s) => s.isNamespace)) {
+      lines.push(`import * as ${spec.name} from ${source};`);
+    }
+    const defaults = specs.filter((s) => s.isDefault);
+    const named = specs
+      .filter((s) => !(s.isDefault || s.isNamespace))
+      .map((s) =>
+        s.alias && s.alias !== s.name ? `${s.name} as ${s.alias}` : s.name
+      );
+    const [first, ...others] = defaults;
+    const clause = [
+      first?.name,
+      named.length > 0 ? `{ ${named.join(", ")} }` : undefined,
+    ]
+      .filter(Boolean)
+      .join(", ");
+    if (clause) {
+      lines.push(`import ${clause} from ${source};`);
+    }
+    for (const d of others) {
+      lines.push(`import ${d.name} from ${source};`);
+    }
+  }
+  return lines.join("\n");
+};
+
+/** The item's component is named after its file, unless the code it holds took that name. */
+const itemComponentName = (fileName: string, taken: ReadonlySet<string>) => {
+  const base = componentName(fileName);
+  let name = taken.has(base) ? `${base}Item` : base;
+  let n = 2;
+  while (taken.has(name)) {
+    name = `${base}Item${n}`;
+    n += 1;
+  }
+  return name;
+};
+
+const indent = (text: string, by: string) =>
+  text
+    .split("\n")
+    .map((line, i) => (i === 0 || line === "" ? line : `${by}${line}`))
+    .join("\n");
+
+export const renderItem = ({
+  declarations,
+  fileName,
+  imports,
+  jsx,
+}: ItemTemplateInput): string => {
+  const taken = new Set([
+    ...imports.map((i) => i.alias ?? i.name),
+    ...declarations.map((d) => d.name),
+  ]);
+  const name = itemComponentName(fileName, taken);
+  const head = [importLines(imports), ...declarations.map((d) => d.code)]
+    .filter((part) => part !== "")
+    .join("\n\n");
+  const body = `export default function ${name}() {\n  return (\n    ${indent(jsx.trim(), "    ")}\n  );\n}\n`;
+  return head ? `${head}\n\n${body}` : body;
+};
+
+export const renderImageItem = ({
+  fileName,
+  src,
+}: {
+  fileName: string;
+  src: string;
+}): string =>
+  `import image from ${JSON.stringify(src)};\n\nexport default function ${itemComponentName(fileName, new Set(["image"]))}() {\n  return <img alt="" src={image} style={{ display: "block", width: "100%" }} />;\n}\n`;
+
 /** Pages are TSX modules whose default export is the page component. */
 export const pages: PageFiles = {
   // The component is named after the file, so a copy is renamed with it.
@@ -75,6 +157,8 @@ export const pages: PageFiles = {
     !NON_PAGE_TSX_RE.test(name) &&
     !name.startsWith("_"),
   render: renderTemplate,
+  renderImageItem,
+  renderItem,
   routerModule: {
     content: routerModuleSource,
     fileName: ROUTER_MODULE_FILE,

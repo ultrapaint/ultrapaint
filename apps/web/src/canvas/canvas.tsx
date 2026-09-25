@@ -7,10 +7,23 @@ import {
   useState,
 } from "react";
 import { useComments } from "../state/comments.ts";
+import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
 import { useFollowAgent } from "./agent-presence.tsx";
+import {
+  beginDrag,
+  cancelDrag,
+  canvasPoint,
+  endDrag,
+  moveDrag,
+  PALETTE_MIME,
+  type PaletteComponent,
+  useDrag,
+} from "./drag.ts";
+import { DragOverlay } from "./drag-overlay.tsx";
 import { Frame, useHostUrl } from "./frame.tsx";
+import { addImages, imageFiles } from "./items.ts";
 
 const clampZoom = (z: number) => Math.min(4, Math.max(0.05, z));
 
@@ -24,6 +37,7 @@ export const Canvas = () => {
   const spacePan = useEditor((s) => s.spacePan);
   const allPages = useProject((s) => s.pages);
   const pages = allPages.filter((p) => p.space === space);
+  const items = useEditor((s) => s.items);
   const hostUrl = useHostUrl();
   const [size, setSize] = useState({ height: 0, width: 0 });
   const [panning, setPanning] = useState(false);
@@ -84,6 +98,113 @@ export const Canvas = () => {
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
+  // The layout as saved: what an undo put back, what an agent or a branch switch changed.
+  useEffect(
+    () =>
+      api().on("canvas", ({ layout, space: changed }) =>
+        useEditor.getState().applyLayout(changed, layout)
+      ),
+    []
+  );
+
+  // Where the pointer last was over the canvas: a pasted image lands there.
+  const lastPointer = useRef<{ x: number; y: number } | null>(null);
+
+  // A pasted image goes on the canvas, unless something that takes text has the focus.
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const images = imageFiles(e.clipboardData?.files ?? null);
+      if (
+        images.length === 0 ||
+        isTyping(e) ||
+        useProject.getState().settingsOpen ||
+        useEditor.getState().workspace === "prototype"
+      ) {
+        return;
+      }
+      e.preventDefault();
+      const el = ref.current;
+      const at =
+        lastPointer.current ??
+        (el
+          ? canvasPoint(
+              el.getBoundingClientRect().left + el.clientWidth / 2,
+              el.getBoundingClientRect().top + el.clientHeight / 2
+            )
+          : { x: 0, y: 0 });
+      addImages(images, at);
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, []);
+
+  // A component from the palette, or image files from the desktop.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) {
+      return;
+    }
+    const onDragOver = (e: DragEvent) => {
+      const types = e.dataTransfer?.types ?? [];
+      const component = types.includes(PALETTE_MIME);
+      if (!(e.dataTransfer && (component || types.includes("Files")))) {
+        return;
+      }
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+      if (component) {
+        if (!useDrag.getState().dragged) {
+          beginDrag({ kind: "component" }, e.clientX, e.clientY, false);
+        }
+        moveDrag(e.clientX, e.clientY, false);
+      }
+    };
+    const onDragLeave = (e: DragEvent) => {
+      if (
+        !el.contains(e.relatedTarget as Node | null) &&
+        useDrag.getState().dragged?.kind === "component"
+      ) {
+        cancelDrag();
+      }
+    };
+    const onDrop = (e: DragEvent) => {
+      e.preventDefault();
+      const images = imageFiles(e.dataTransfer?.files ?? null);
+      if (images.length > 0) {
+        cancelDrag();
+        addImages(images, canvasPoint(e.clientX, e.clientY));
+        return;
+      }
+      const raw = e.dataTransfer?.getData(PALETTE_MIME);
+      if (raw) {
+        endDrag(JSON.parse(raw) as PaletteComponent);
+      } else {
+        cancelDrag();
+      }
+    };
+    el.addEventListener("dragover", onDragOver);
+    el.addEventListener("dragleave", onDragLeave);
+    el.addEventListener("drop", onDrop);
+    return () => {
+      el.removeEventListener("dragover", onDragOver);
+      el.removeEventListener("dragleave", onDragLeave);
+      el.removeEventListener("drop", onDrop);
+    };
+  }, []);
+
+  // Escape puts back whatever is being dragged.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && useDrag.getState().dragged) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        cancelDrag();
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, []);
 
   useEffect(() => {
@@ -164,6 +285,7 @@ export const Canvas = () => {
   };
 
   const onPointerMove = (e: ReactPointerEvent) => {
+    lastPointer.current = canvasPoint(e.clientX, e.clientY);
     const d = drag.current;
     if (!d) {
       return;
@@ -281,6 +403,25 @@ export const Canvas = () => {
             />
           );
         })}
+        {Object.values(items).map((item) => {
+          const frame = frames[item.id];
+          if (!frame) {
+            return null;
+          }
+          return (
+            <Frame
+              frame={frame}
+              hostUrl={hostUrl}
+              item
+              key={item.id}
+              onDragStart={startFrameDrag}
+              page={item}
+              visible={isVisible(frame)}
+              zoom={view.zoom}
+            />
+          );
+        })}
+        <DragOverlay zoom={view.zoom} />
       </div>
       {pages.length === 0 && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-muted-foreground">
@@ -293,7 +434,7 @@ export const Canvas = () => {
   );
 };
 
-const isTyping = (e: KeyboardEvent) => {
+const isTyping = (e: Event) => {
   const t = e.target as HTMLElement | null;
   return (
     !!t &&

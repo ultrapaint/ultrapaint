@@ -39,6 +39,9 @@ export const previewFiles = (
     entries: [
       toPosix(path.join(dir, "main.ts")),
       ...include.map((d) => `${toPosix(d)}/**/*.tsx`),
+      // The designs directory links the anchor's dependencies in as its own `node_modules`, so
+      // that editors resolve what the pages import; the scan must not walk into them.
+      ...include.map((d) => `!${toPosix(d)}/**/node_modules/**`),
     ],
     html: path.join(dir, "index.html"),
     include,

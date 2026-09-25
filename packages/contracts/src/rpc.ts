@@ -9,7 +9,14 @@ import {
   ReplyInput,
   UpdateCommentInput,
 } from "./comments.ts";
-import { EditRequest, EditResult, ElementSource, UndoState } from "./edit.ts";
+import {
+  EditRequest,
+  EditResult,
+  ElementSource,
+  SourceOutline,
+  TransferRequest,
+  UndoState,
+} from "./edit.ts";
 import {
   AgentFailure,
   BadRequest,
@@ -27,7 +34,18 @@ import {
   GitDiff,
   GitStatus,
 } from "./git.ts";
-import { CanvasLayout, Page, PageList, Space } from "./pages.ts";
+import {
+  AddImageInput,
+  CanvasItemResult,
+  CanvasLayout,
+  CreateItemInput,
+  ExtractItemInput,
+  Page,
+  PageList,
+  PlaceItemInput,
+  RemoveItemInput,
+  Space,
+} from "./pages.ts";
 import { HostStatus, LogLine, ProjectInfo } from "./project.ts";
 import {
   PersistInput,
@@ -57,6 +75,8 @@ const PagesError = Schema.Union([
   Conflict,
   ForbiddenPath,
   BadRequest,
+  // Page changes go through the edit journal, which reports files changed behind its back.
+  Stale,
 ]);
 const SourceError = Schema.Union([
   NotConfigured,
@@ -166,6 +186,34 @@ const requestRpcs = [
     error: PagesError,
     payload: { layout: CanvasLayout, space: Schema.String },
   }),
+  /**
+   * The item calls below write and remove the item's files and its place in the layout, each
+   * as one undo step.
+   */
+  Rpc.make("canvas.createItem", {
+    error: EditError,
+    payload: CreateItemInput,
+    success: CanvasItemResult,
+  }),
+  Rpc.make("canvas.extractItem", {
+    error: EditError,
+    payload: ExtractItemInput,
+    success: CanvasItemResult,
+  }),
+  Rpc.make("canvas.addImage", {
+    error: EditError,
+    payload: AddImageInput,
+    success: CanvasItemResult,
+  }),
+  Rpc.make("canvas.removeItem", {
+    error: EditError,
+    payload: RemoveItemInput,
+  }),
+  Rpc.make("canvas.placeItem", {
+    error: EditError,
+    payload: PlaceItemInput,
+    success: EditResult,
+  }),
 
   Rpc.make("comments.list", {
     error: PagesError,
@@ -206,6 +254,11 @@ const requestRpcs = [
     payload: { file: Schema.String },
     success: Schema.Struct({ content: Schema.String, hash: Schema.String }),
   }),
+  Rpc.make("source.outline", {
+    error: SourceError,
+    payload: { file: Schema.String },
+    success: SourceOutline,
+  }),
   Rpc.make("source.element", {
     error: SourceError,
     payload: SourceLocation,
@@ -214,6 +267,11 @@ const requestRpcs = [
   Rpc.make("edit.apply", {
     error: EditError,
     payload: EditRequest,
+    success: EditResult,
+  }),
+  Rpc.make("edit.transfer", {
+    error: EditError,
+    payload: TransferRequest,
     success: EditResult,
   }),
   Rpc.make("edit.undo", {

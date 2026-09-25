@@ -31,7 +31,7 @@ import {
 import { bridgeFor } from "../canvas/bridge.ts";
 import { PanelEmpty } from "../components/panel.tsx";
 import { runEdit } from "../lib/shortcuts.ts";
-import { useEditor } from "../state/editor.ts";
+import { layersFrameOf, useEditor } from "../state/editor.ts";
 import { findPath, hostOf } from "../state/tree.ts";
 
 /** A row's own indent, and where its chevron sits inside it. */
@@ -69,7 +69,8 @@ const dropPositionAt = (node: TreeNode, y: number): DropPosition => {
 const clearHover = () => useEditor.getState().setHover(null);
 
 export const Layers = () => {
-  const activePage = useEditor((s) => s.activePage);
+  // Inside a canvas item, the layers are the item's.
+  const activePage = useEditor(layersFrameOf);
   const tree = useEditor((s) => (activePage ? s.trees[activePage] : undefined));
   const selection = useEditor((s) => s.selection);
   const hover = useEditor((s) => s.hover);

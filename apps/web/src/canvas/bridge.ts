@@ -2,6 +2,7 @@ import type {
   EditorMessage,
   HostMessage,
   InspectResult,
+  Rect,
 } from "@ultrapaint/contracts/preview";
 
 type Listener = (msg: HostMessage) => void;
@@ -93,6 +94,18 @@ export class FrameBridge {
       })
     );
     return r?.nodeIds ?? [];
+  }
+
+  /** Where these nodes are right now, in the page's own coordinates. */
+  async measure(nodeIds: readonly string[]): Promise<Record<string, Rect>> {
+    const r = await this.request<Extract<HostMessage, { type: "ed:measured" }>>(
+      (requestId) => ({
+        nodeIds,
+        requestId,
+        type: "ed:measure",
+      })
+    );
+    return r?.rects ?? {};
   }
 
   async inspect(nodeId: string): Promise<InspectResult | null> {
