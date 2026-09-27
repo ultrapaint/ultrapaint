@@ -13,6 +13,7 @@ import {
   type Space,
   SpaceConfig,
 } from "@ultrapaint/contracts/pages";
+import { SKILL_EXTENSION, SKILLS_DIR } from "@ultrapaint/contracts/skills";
 import {
   pageTemplates,
   renderTemplate,
@@ -533,7 +534,10 @@ export class PagesService extends Context.Service<
               const watchedFile =
                 isPageFile(name) ||
                 (path.dirname(abs) === root &&
-                  (name === DESIGN_SYSTEM_FILE || name === DESIGN_NOTES_FILE));
+                  (name === DESIGN_SYSTEM_FILE ||
+                    name === DESIGN_NOTES_FILE)) ||
+                (path.dirname(abs) === path.join(root, SKILLS_DIR) &&
+                  name.endsWith(SKILL_EXTENSION));
               return watchedFile ? onFileChanged(abs) : Effect.void;
             },
             { concurrency: "unbounded" }

@@ -2,6 +2,7 @@ import { getPlatform } from "@ultrapaint/client-runtime/platform";
 import type { Settings, StorageInfo } from "@ultrapaint/contracts/settings";
 import { defaultSettings } from "@ultrapaint/contracts/settings";
 import type { SetupSuggestions } from "@ultrapaint/contracts/setup";
+import type { CustomiseMode, Skill } from "@ultrapaint/contracts/skills";
 import {
   type AgentConfig,
   type AgentOptions,
@@ -29,13 +30,16 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Markdown } from "../components/markdown.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { applySuggestions, describeSuggestions } from "../lib/setup.ts";
 import { api } from "../state/connection.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useEditor } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
+import { useSkills } from "../state/skills.ts";
 import { startInit } from "./design-system.tsx";
 
 const themes = [
@@ -241,6 +245,130 @@ const McpConnectionGroup = () => {
           </Button>
         </div>
       </Row>
+    </Group>
+  );
+};
+
+const sourceLabel = (skill: Skill) => {
+  if (skill.source === "built-in") {
+    return "Built-in";
+  }
+  return skill.extends
+    ? `Extends the built-in, in ${skill.file}`
+    : `Replaced by ${skill.file}`;
+};
+
+/** One skill: on or off, what it says, and how the project takes it over. */
+const SkillRow = ({
+  enabled,
+  onToggle,
+  skill,
+}: {
+  enabled: boolean;
+  onToggle: (enabled: boolean) => void;
+  skill: Skill;
+}) => {
+  const [shown, setShown] = useState(false);
+  const id = `settings-skill-${skill.name}`;
+  const customise = (mode: CustomiseMode) => {
+    useSkills
+      .getState()
+      .customise(skill.name, mode)
+      .then((result) => {
+        if (result?.file) {
+          toast(`${result.file} is yours to edit.`, {
+            description:
+              mode === "extend"
+                ? `What you write there is told after the built-in ${skill.title} skill.`
+                : `It replaces the built-in ${skill.title} skill.`,
+          });
+        }
+      });
+  };
+  return (
+    <Row
+      description={
+        <>
+          {skill.summary}
+          <span className="mt-1 block text-[11px]">{sourceLabel(skill)}</span>
+          {shown ? (
+            <span className="mt-2 block rounded-md bg-muted/40 p-3 text-foreground">
+              <Markdown>{skill.text}</Markdown>
+            </span>
+          ) : null}
+        </>
+      }
+      htmlFor={id}
+      title={skill.title}
+      wide
+    >
+      <div className="flex flex-wrap items-center justify-end gap-1">
+        <Button onClick={() => setShown((v) => !v)} size="sm" variant="ghost">
+          {shown ? "Hide" : "Show"}
+        </Button>
+        {skill.source === "built-in" ? (
+          <>
+            <Button
+              onClick={() => customise("extend")}
+              size="sm"
+              variant="outline"
+            >
+              Extend…
+            </Button>
+            <Button
+              onClick={() => customise("replace")}
+              size="sm"
+              variant="outline"
+            >
+              Replace…
+            </Button>
+          </>
+        ) : null}
+        <Switch
+          checked={enabled}
+          className="ml-2"
+          id={id}
+          onCheckedChange={onToggle}
+        />
+      </div>
+    </Row>
+  );
+};
+
+/**
+ * The design skills every agent is told before it designs. The set is the tool's; a project
+ * replaces or extends one with a file, adds its own, and turns any off here.
+ */
+const SkillsGroup = ({
+  disabled,
+  onToggle,
+}: {
+  disabled: readonly string[];
+  onToggle: (name: string, enabled: boolean) => void;
+}) => {
+  const { dir, loaded, skills } = useSkills();
+  useEffect(() => {
+    if (!loaded) {
+      useSkills.getState().load();
+    }
+  }, [loaded]);
+  if (skills.length === 0) {
+    return null;
+  }
+  const off = new Set(disabled);
+  return (
+    <Group
+      description={`Told to every agent before it designs, ahead of DESIGN.md. A file in ${dir} with a built-in's name replaces it, or extends it when the file opens with the front matter "extends: true"; a file with any other name is a skill of its own. A switch turned off is saved with the settings.`}
+      title="Design skills"
+    >
+      {skills.map((skill) => (
+        <SkillRow
+          enabled={!off.has(skill.name)}
+          key={skill.name}
+          onToggle={(enabled) => onToggle(skill.name, enabled)}
+          skill={skill}
+        />
+      ))}
     </Group>
   );
 };
@@ -597,6 +725,14 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   };
   const onTheme = (v: string) =>
     setDraft((d) => ({ ...d, theme: v as Settings["theme"] }));
+  const onSkill = (name: string, enabled: boolean) =>
+    setDraft((d) => {
+      const current = d.skills?.disabled ?? [];
+      const disabled = enabled
+        ? current.filter((n) => n !== name)
+        : [...current.filter((n) => n !== name), name];
+      return { ...d, skills: disabled.length === 0 ? undefined : { disabled } };
+    });
 
   const label = sections.find((s) => s.id === section)?.label ?? "";
 
@@ -767,6 +903,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const agents = (
     <>
       <ChatDefaultsGroup />
+      <SkillsGroup disabled={draft.skills?.disabled ?? []} onToggle={onSkill} />
       <McpConnectionGroup />
     </>
   );

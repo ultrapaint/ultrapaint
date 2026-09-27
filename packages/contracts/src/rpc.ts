@@ -49,6 +49,7 @@ import {
   CreateDesignsResult,
   SetupSuggestions,
 } from "./setup.ts";
+import { CustomiseMode, Skill, SkillList } from "./skills.ts";
 import {
   AgentConfig,
   AgentEvent,
@@ -216,6 +217,21 @@ const requestRpcs = [
     success: DesignSystem,
   }),
 
+  /** The design skills agents are told, built-in and the project's own, with what is off. */
+  Rpc.make("skills.list", {
+    error: NotConfigured,
+    success: SkillList,
+  }),
+  /**
+   * Starts a project file for a built-in skill: a copy of its text to replace it, or a stub
+   * that extends it. A skill the project already has is returned as it is.
+   */
+  Rpc.make("skills.customise", {
+    error: EditError,
+    payload: { mode: CustomiseMode, name: Schema.String },
+    success: Skill,
+  }),
+
   /** Thumbnails of the palette drawn earlier, under the key of what they were drawn from. */
   Rpc.make("thumbnails.get", {
     error: NotConfigured,
@@ -380,6 +396,8 @@ export const eventSchemas = {
   project: ProjectInfo,
   /** An agent wants a picture of a node: an editor that can draw it answers with `screenshots.deliver`. */
   screenshot: ScreenshotRequest,
+  /** A skill file changed, or the settings turned one on or off. */
+  skills: SkillList,
 } as const;
 
 const eventRpcs = [
@@ -418,6 +436,7 @@ const eventRpcs = [
     stream: true,
     success: eventSchemas.screenshot,
   }),
+  Rpc.make("events.skills", { stream: true, success: eventSchemas.skills }),
 ] as const;
 
 export class UltrapaintRpcs extends RpcGroup.make(...requestRpcs, ...eventRpcs) {}

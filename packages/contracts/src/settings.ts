@@ -1,5 +1,6 @@
 import { Schema } from "effect";
 import { RepoRelativePath } from "./base.ts";
+import { SkillsConfig } from "./skills.ts";
 
 /** Which renderer, builder and source tooling the target repository is driven with. */
 export const FrameworkId = Schema.Literals(["react-vite"]);
@@ -18,6 +19,8 @@ const common = {
    * were files of it. Absent means the designs directory is itself a package.
    */
   resolveFrom: Schema.optional(RepoRelativePath),
+  /** Which design skills agents are not told; all of them apply when absent. */
+  skills: Schema.optional(SkillsConfig),
   /** Running Storybook for the design system, used for palette previews. */
   storybookUrl: Schema.optional(Schema.String),
 };

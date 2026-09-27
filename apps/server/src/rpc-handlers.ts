@@ -17,6 +17,7 @@ import { PagesService } from "./services/pages.ts";
 import { Screenshots } from "./services/screenshots.ts";
 import { SettingsService } from "./services/settings.ts";
 import { SetupService } from "./services/setup.ts";
+import { SkillsService } from "./services/skills.ts";
 import { AgentConfigs } from "./services/threads/agent-configs.ts";
 import { ChatPreferences } from "./services/threads/chat-preferences.ts";
 import { Checkpoints } from "./services/threads/checkpoints.ts";
@@ -69,6 +70,9 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const thumbnails = <A, E>(
       f: (s: Thumbnails["Service"]) => Effect.Effect<A, E>
     ) => project.use(Effect.flatMap(Thumbnails, f));
+    const skills = <A, E>(
+      f: (s: SkillsService["Service"]) => Effect.Effect<A, E>
+    ) => project.use(Effect.flatMap(SkillsService, f));
     const catalogue = <A, E>(
       f: (s: CatalogueService["Service"]) => Effect.Effect<A, E>
     ) => project.use(Effect.flatMap(CatalogueService, f));
@@ -121,6 +125,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "events.pages": () => events.subscribe("pages"),
       "events.project": () => events.subscribe("project"),
       "events.screenshot": () => screenshots.requests,
+      "events.skills": () => events.subscribe("skills"),
       "git.commit": ({ message, paths }) =>
         git((g) =>
           Effect.gen(function* () {
@@ -185,6 +190,9 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "settings.validate": (input) => settings.validate(input),
       "setup.createDesigns": (input) => setup.createDesigns(input),
       "setup.detect": ({ repoPath }) => setup.detect(repoPath),
+      "skills.customise": ({ mode, name }) =>
+        skills((s) => s.customise(name, mode)),
+      "skills.list": () => skills((s) => s.list),
       "spaces.create": ({ name }) => pages((s) => s.createSpace(name)),
       "threads.cancel": ({ threadId }) => threads.cancel(threadId),
       "threads.create": ({ agentId, title }) => threads.create(agentId, title),

@@ -27,6 +27,7 @@ import { GitService } from "./services/git.ts";
 import { HostManager } from "./services/host.ts";
 import { PagesService } from "./services/pages.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
+import { SkillsService } from "./services/skills.ts";
 import { Storage } from "./services/storage.ts";
 import { Thumbnails } from "./services/thumbnails.ts";
 
@@ -43,6 +44,7 @@ export type ProjectServices =
   | ProjectFramework
   | RepoPaths
   | PagesService
+  | SkillsService
   | Thumbnails;
 
 type ProjectRequirements =
@@ -54,7 +56,11 @@ type ProjectRequirements =
   | Storage;
 
 const projectLayer = (settings: Settings) =>
-  Layer.mergeAll(DocumentService.layer, DesignSystemService.layer).pipe(
+  Layer.mergeAll(
+    DocumentService.layer,
+    DesignSystemService.layer,
+    SkillsService.layer
+  ).pipe(
     Layer.provideMerge(
       Layer.mergeAll(
         CatalogueService.layer,

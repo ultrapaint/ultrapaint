@@ -10,8 +10,13 @@
  * rather than only those with a system prompt to append to.
  */
 import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
-import type { DesignSystem } from "@ultrapaint/contracts/design-system";
+import {
+  type DesignSystem,
+  TEXT_STYLE_GROUPS,
+  type TextStyle,
+} from "@ultrapaint/contracts/design-system";
 import type { PageList } from "@ultrapaint/contracts/pages";
+import { groupTextStyles } from "@ultrapaint/design-document/text-styles";
 import { Context, Effect, Layer } from "effect";
 import { ServerConfig } from "../../config.ts";
 import { ProjectManager } from "../../project.ts";
@@ -19,7 +24,18 @@ import { CatalogueService } from "../catalogue.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { PagesService } from "../pages.ts";
 import { RepoPaths } from "../repo-paths.ts";
+import { SkillsService } from "../skills.ts";
 import { AgentSandbox } from "./agent-sandbox.ts";
+
+/** The styles under their groups: `headings: Heading xl, Heading lg; body: Body`. */
+const textStylesByGroup = (styles: readonly TextStyle[]) =>
+  [...groupTextStyles(styles)]
+    .filter(([, list]) => list.length > 0)
+    .map(
+      ([group, list]) =>
+        `${TEXT_STYLE_GROUPS.find((g) => g.group === group)?.label.toLowerCase() ?? group}: ${list.map((s) => s.name).join(", ")}`
+    )
+    .join("; ");
 
 /** Enough of the palette to choose from; the agent reads the rest when it needs to. */
 const COMPONENT_LIMIT = 60;
@@ -46,6 +62,25 @@ const tokensOf = (ds: DesignSystem) => {
   const shown = names.slice(0, TOKEN_LIMIT).map((n) => `$${n}`);
   return `${shown.join(" ")}${names.length > shown.length ? ` (and ${names.length - shown.length} more)` : ""}`;
 };
+
+/** The shipped and project skills that are on, ahead of the project's own conventions. */
+const craftOf = (skills: string) =>
+  skills
+    ? `
+How to design well, whatever the product. The conventions of this design system, below, come
+first where they disagree.
+
+${skills}
+`
+    : "";
+
+const conventionsOf = (notes: string | null) =>
+  notes
+    ? `
+Conventions of this design system (DESIGN.md):
+${notes.trim()}
+`
+    : "";
 
 const routesOf = (pages: PageList) =>
   pages.pages.length === 0
@@ -88,6 +123,12 @@ export class ProjectBriefing extends Context.Service<
         );
         const ds = system.designSystem;
         const styles = ds?.typography.styles ?? [];
+        const skills = yield* Effect.orElseSucceed(
+          Effect.flatMap(SkillsService, (service) => service.briefing),
+          () => ""
+        );
+        const craft = craftOf(skills);
+        const conventions = conventionsOf(system.notes);
 
         return `<ultrapaint>
 You are working in ultrapaint, a design tool. The user sees the designs you change, live, on
@@ -101,8 +142,9 @@ holds a tree of nodes, each with an id:
 - row, column: flex containers with gap, align (start|center|end|between|around), crossAlign
   (start|center|end|stretch|baseline), wrap, padding.
 - group: a plain container; its children stack.
-- text: role "heading" (with level 1-6) or "paragraph", its text, and optionally a textStyle of
-  the design system, size, weight, font, color, align.
+- text: role "heading" (with level 1-6) or "paragraph", its text, and either a textStyle of the
+  design system (its size, weight and line height as one thing: prefer this) or its own size,
+  weight, lineHeight, font, tracking; and color, align.
 - image: src (a path in the space's assets/ or a URL), alt, fit.
 - instance: a component of the design system — component (export name), from (module), props,
   and text or children.
@@ -118,20 +160,13 @@ ${
     ? `Design tokens: ${tokensOf(ds)}
 ${
   styles.length > 0
-    ? `Text styles: ${styles.map((s) => s.name).join(", ")}
+    ? `Text styles: ${textStylesByGroup(styles)}
 `
     : ""
 }`
     : `The design system has not been imported yet: the user can run /init.
 `
-}${
-  system.notes
-    ? `
-Conventions of this design system (DESIGN.md):
-${system.notes.trim()}
-`
-    : ""
-}
+}${craft}${conventions}
 ${
   components.length > 0
     ? `Components you can place${more > 0 ? ` (${more} more in ${settings.libraryDirs.join(", ")})` : ""}:

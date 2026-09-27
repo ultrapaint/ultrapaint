@@ -76,6 +76,13 @@ const scenarios = {
     );
     await text(cx, sessionId, `blocks:${briefings.length}`);
   },
+  /** Repeats the project briefing, for a test that asks what the agent was told. */
+  async briefing(cx, sessionId, _cwd, _rest, prompt) {
+    const about = prompt.find(
+      (block) => block.type === "text" && block.text.startsWith("<ultrapaint>")
+    );
+    await text(cx, sessionId, about ? about.text : "briefing:none");
+  },
   /** Asks the host to run a command that writes outside the repository. */
   async escape(cx, sessionId, _cwd, rest) {
     const { terminalId } = await cx.request(methods.client.terminal.create, {

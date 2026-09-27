@@ -172,6 +172,22 @@ asks you what it cannot find out, and saves two files next to the designs:
 - `DESIGN.md` — the conventions every agent is told about: what the product is, which colours
   mean what, what to always or never do.
 
+### Design skills
+
+Before it designs, every agent is also told how to design well, whatever the product: hierarchy,
+spacing, typography, colour, content and states, and how to compose with components. These
+skills ship with the tool and come before `DESIGN.md`, which wins where they disagree. **Settings**
+lists them, with a switch to turn any off (saved in `ultrapaint.json` as `skills.disabled`).
+
+A project takes a skill over with a markdown file in `skills/` inside the designs directory:
+
+- a file with a built-in's name (`skills/spacing.md`) replaces it;
+- the same file opening with the front matter `extends: true` is told after the built-in instead;
+- a file with any other name is a skill of its own.
+
+**Replace…** and **Extend…** in Settings start that file for you, as one undo step. The file's
+first heading is its title and the paragraph after it the summary Settings show.
+
 The **Design system** panel shows them: swatches per theme, type specimens in your own fonts,
 spacing, radius and shadows. The **Components** panel lists your components or shows them as a
 grid of thumbnails, drawn with the example props.
