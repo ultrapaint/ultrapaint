@@ -9,10 +9,16 @@ import {
   isModelOption,
   type McpConnection,
 } from "@ultrapaint/contracts/threads";
+import { cn } from "cn";
 import {
   ArrowLeft,
+  Bot,
   CircleAlert,
+  FolderGit2,
   FolderSearch,
+  type LucideIcon,
+  SlidersHorizontal,
+  SwatchBook,
   TriangleAlert,
   Wand2,
 } from "lucide-react";
@@ -21,16 +27,8 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-  FieldLegend,
-  FieldSeparator,
-  FieldSet,
-} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { OptionSelect } from "../components/option-select.tsx";
 import { applySuggestions, describeSuggestions } from "../lib/setup.ts";
@@ -41,8 +39,8 @@ import { reportError, useProject } from "../state/project.ts";
 import { startInit } from "./design-system.tsx";
 
 const themes = [
-  { label: "light", value: "light" },
-  { label: "dark", value: "dark" },
+  { label: "Light", value: "light" },
+  { label: "Dark", value: "dark" },
 ];
 
 const LIST_SEPARATOR_RE = /[\n,]/;
@@ -57,10 +55,85 @@ const list = (v: string) =>
 
 /**
  * Settings take the whole window rather than a dialog: the first run lands here, and the form is
- * longer than a dialog can hold. The editor is not mounted behind it.
+ * longer than a dialog can hold. The editor is not mounted behind it. A sidebar picks a section;
+ * the section is groups of rows, one setting per row, its control on the right.
  */
+type SectionId = "repository" | "designSystem" | "editor" | "agents";
+
+const sections: readonly {
+  icon: LucideIcon;
+  id: SectionId;
+  label: string;
+  /** Sections that only make sense once there are settings to work against. */
+  needsSaved?: boolean;
+}[] = [
+  { icon: FolderGit2, id: "repository", label: "Repository" },
+  { icon: SwatchBook, id: "designSystem", label: "Design system" },
+  { icon: SlidersHorizontal, id: "editor", label: "Editor" },
+  { icon: Bot, id: "agents", label: "Agents", needsSaved: true },
+];
+
+/** A titled card of rows; the rows are separated by hairlines. */
+const Group = ({
+  children,
+  description,
+  title,
+}: {
+  children: React.ReactNode;
+  description?: React.ReactNode;
+  title: string;
+}) => (
+  <section className="flex flex-col gap-2">
+    <div className="flex flex-col gap-0.5 px-1">
+      <h3 className="font-medium text-sm">{title}</h3>
+      {description ? (
+        <p className="text-muted-foreground text-xs/relaxed">{description}</p>
+      ) : null}
+    </div>
+    <div className="divide-y rounded-lg border bg-card">{children}</div>
+  </section>
+);
+
+/**
+ * One setting: what it is on the left, its control on the right. Below the container's width the
+ * control drops under the words instead of squeezing them.
+ */
+const Row = ({
+  children,
+  description,
+  htmlFor,
+  title,
+  wide,
+}: {
+  children: React.ReactNode;
+  description?: React.ReactNode;
+  htmlFor?: string;
+  title: string;
+  /** Room for a list or a command rather than a single value. */
+  wide?: boolean;
+}) => (
+  <div className="flex @2xl:flex-row flex-col @2xl:items-start @2xl:justify-between @2xl:gap-8 gap-3 px-4 py-3.5">
+    <div className="flex min-w-0 flex-1 flex-col gap-1 @2xl:pt-1">
+      <Label className="text-sm" htmlFor={htmlFor}>
+        {title}
+      </Label>
+      {description ? (
+        <p className="text-muted-foreground text-xs/relaxed">{description}</p>
+      ) : null}
+    </div>
+    <div
+      className={cn(
+        "flex shrink-0 flex-col gap-1",
+        wide ? "@2xl:w-96" : "@2xl:w-72"
+      )}
+    >
+      {children}
+    </div>
+  </div>
+);
+
 /** Where `/init` is started from the settings, and where its result is said to be. */
-const DesignSystemField = () => {
+const DesignSystemGroup = () => {
   const { designSystem, detecting, loaded } = useDesignSystem();
   useEffect(() => {
     if (!loaded) {
@@ -71,41 +144,44 @@ const DesignSystemField = () => {
     useProject.getState().openSettings(false);
     useEditor.getState().setLeftTab("designSystem");
   };
+  const init = () => {
+    useProject.getState().openSettings(false);
+    startInit();
+  };
   return (
-    <Field>
-      <FieldLabel>Tokens and conventions</FieldLabel>
-      <div className="flex flex-wrap gap-1">
-        <Button
-          onClick={() => {
-            useProject.getState().openSettings(false);
-            startInit();
-          }}
-          variant="outline"
-        >
-          <Wand2 />
-          {designSystem
-            ? "Update with an agent (/init)"
-            : "Initialise with an agent (/init)"}
-        </Button>
-        <Button
-          disabled={detecting}
-          onClick={() => useDesignSystem.getState().detect()}
-          variant="ghost"
-        >
-          Detect automatically
-        </Button>
-        {designSystem ? (
-          <Button onClick={open} variant="ghost">
-            Show
+    <Group
+      description="What the agents and the inspector know about the design system: its tokens, its text styles, and how it is meant to be used."
+      title="Tokens and conventions"
+    >
+      <Row
+        description={
+          designSystem
+            ? `Imported: ${designSystem.colors.reduce((n, g) => n + g.tokens.length, 0)} colours, ${designSystem.typography.styles.length} text styles. Kept in design-system.json and DESIGN.md in the designs directory.`
+            : "Not imported yet. An agent reads the Tailwind v4 theme and the components, asks you about the application, and writes design-system.json and DESIGN.md."
+        }
+        title={designSystem ? "Imported design system" : "Design system"}
+        wide
+      >
+        <div className="flex flex-wrap justify-end gap-1">
+          {designSystem ? (
+            <Button onClick={open} variant="ghost">
+              Show
+            </Button>
+          ) : null}
+          <Button
+            disabled={detecting}
+            onClick={() => useDesignSystem.getState().detect()}
+            variant="ghost"
+          >
+            Detect automatically
           </Button>
-        ) : null}
-      </div>
-      <FieldDescription>
-        {designSystem
-          ? `Imported: ${designSystem.colors.reduce((n, g) => n + g.tokens.length, 0)} colours, ${designSystem.typography.styles.length} text styles. Kept in design-system.json and DESIGN.md in the designs directory.`
-          : "Not imported yet. An agent reads the Tailwind v4 theme and the components, asks you about the application, and writes design-system.json and DESIGN.md."}
-      </FieldDescription>
-    </Field>
+          <Button onClick={init} variant="outline">
+            <Wand2 />
+            {designSystem ? "Update with an agent" : "Initialise with an agent"}
+          </Button>
+        </div>
+      </Row>
+    </Group>
   );
 };
 
@@ -127,7 +203,7 @@ const storageLine = (storage: StorageInfo) => {
  * How to point something else at this project: an agent in a terminal, another editor. The same
  * tools the threads here use, over the same server, reached with the project's own token.
  */
-const McpConnectionField = () => {
+const McpConnectionGroup = () => {
   const [connection, setConnection] = useState<McpConnection | null>(null);
   const [copied, setCopied] = useState(false);
   useEffect(() => {
@@ -150,22 +226,22 @@ const McpConnectionField = () => {
       .catch(reportError);
   };
   return (
-    <Field>
-      <FieldLabel>Agents outside the editor</FieldLabel>
-      <div className="flex items-start gap-2">
-        <code className="min-w-0 flex-1 select-text overflow-x-auto whitespace-pre rounded-md bg-muted px-2 py-1.5 font-mono text-[10px] leading-relaxed">
-          {command}
-        </code>
-        <Button onClick={copy} size="sm" variant="outline">
-          {copied ? "Copied" : "Copy"}
-        </Button>
-      </div>
-      <FieldDescription>
-        Gives another agent the same tools the threads here use: the project's
-        pages, its components, and the comments left on the designs. The token
-        is this project's, and anyone who has it can use them.
-      </FieldDescription>
-    </Field>
+    <Group title="Outside the editor">
+      <Row
+        description="Gives another agent the same tools the threads here use: the project's pages, its components, and the comments left on the designs. The token is this project's, and anyone who has it can use them."
+        title="Connect an agent over MCP"
+        wide
+      >
+        <div className="flex items-start gap-2">
+          <code className="min-w-0 flex-1 select-text overflow-x-auto whitespace-pre rounded-md bg-muted px-2 py-1.5 font-mono text-[10px] leading-relaxed">
+            {command}
+          </code>
+          <Button onClick={copy} size="sm" variant="outline">
+            {copied ? "Copied" : "Copy"}
+          </Button>
+        </div>
+      </Row>
+    </Group>
   );
 };
 
@@ -176,7 +252,7 @@ const AGENT_DEFAULT = "";
  * The agent and model a new thread starts with. Saved as soon as it is picked: it is the
  * user's, not the project's, and a thread can still switch both in its composer.
  */
-const ChatDefaultsField = () => {
+const ChatDefaultsGroup = () => {
   const [agents, setAgents] = useState<readonly AgentConfig[]>([]);
   const [known, setKnown] = useState<readonly AgentOptions[]>([]);
   const [defaults, setDefaults] = useState<ChatDefaults | null>(null);
@@ -209,20 +285,26 @@ const ChatDefaultsField = () => {
   const onModel = (model: string) =>
     save({ agentId, ...(model === AGENT_DEFAULT ? {} : { model }) });
   return (
-    <>
-      <Field>
-        <FieldLabel>Default agent</FieldLabel>
+    <Group
+      description="Applied as soon as they are picked. A thread switches agent or model in its composer."
+      title="New threads"
+    >
+      <Row description="The agent a new thread starts with." title="Agent">
         <OptionSelect
-          className="max-w-64"
           onChange={onAgent}
           options={agents.map((a) => ({ label: a.name, value: a.id }))}
           value={agentId}
         />
-      </Field>
-      <Field>
-        <FieldLabel>Default model</FieldLabel>
+      </Row>
+      <Row
+        description={
+          models.length === 0
+            ? "The models are listed once this agent has answered a prompt here."
+            : "The model the agent answers with, unless the thread picks another."
+        }
+        title="Model"
+      >
         <OptionSelect
-          className="max-w-64"
           disabled={models.length === 0}
           onChange={onModel}
           options={[
@@ -235,13 +317,8 @@ const ChatDefaultsField = () => {
           ]}
           value={defaults.model ?? AGENT_DEFAULT}
         />
-        <FieldDescription>
-          {models.length === 0
-            ? "The models are listed once this agent has answered a prompt here."
-            : "New threads start with these. A thread switches agent or model in its composer."}
-        </FieldDescription>
-      </Field>
-    </>
+      </Row>
+    </Group>
   );
 };
 
@@ -319,11 +396,67 @@ const TailwindAlert = ({
     </Alert>
   );
 
+/** The sections on the left. The first run has nothing saved, so it hides what needs a project. */
+const Sidebar = ({
+  onBack,
+  onSelect,
+  section,
+  showAll,
+}: {
+  onBack: (() => void) | null;
+  onSelect: (id: SectionId) => void;
+  section: SectionId;
+  showAll: boolean;
+}) => (
+  <aside className="flex w-56 shrink-0 flex-col border-r bg-sidebar">
+    <div className="flex h-12 shrink-0 items-center px-4">
+      <h1 className="font-semibold">Settings</h1>
+    </div>
+    <nav aria-label="Settings sections" className="flex flex-col gap-0.5 p-2">
+      {sections
+        .filter((s) => showAll || !s.needsSaved)
+        .map(({ icon: Icon, id, label }) => {
+          const active = id === section;
+          return (
+            <button
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "flex h-8 items-center gap-2.5 rounded-md px-2.5 text-left text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/30",
+                active
+                  ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                  : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground"
+              )}
+              key={id}
+              onClick={() => onSelect(id)}
+              type="button"
+            >
+              <Icon className="size-4 shrink-0" />
+              {label}
+            </button>
+          );
+        })}
+    </nav>
+    {onBack ? (
+      <div className="mt-auto p-2">
+        <Button
+          className="w-full justify-start text-muted-foreground"
+          onClick={onBack}
+          variant="ghost"
+        >
+          <ArrowLeft />
+          Back to the editor
+        </Button>
+      </div>
+    ) : null}
+  </aside>
+);
+
 const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const storage = useProject((s) => s.info.storage);
   const [draft, setDraft] = useState<Settings>(
     saved ?? defaultSettings(storage.defaultRepoPath ?? "")
   );
+  const [section, setSection] = useState<SectionId>("repository");
   const unsaved = storage.mode === "ephemeral";
   // A configuration file in the repository says where the repository is by where it lies.
   const repoFromFile = storage.mode === "file";
@@ -465,226 +598,247 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const onTheme = (v: string) =>
     setDraft((d) => ({ ...d, theme: v as Settings["theme"] }));
 
-  return (
-    <div className="flex h-full flex-col bg-background">
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
-        {saved ? (
-          <Button
-            aria-label="Back to the editor"
-            onClick={cancel}
-            size="icon-sm"
-            variant="ghost"
-          >
-            <ArrowLeft />
-          </Button>
-        ) : null}
-        <h1 className="font-semibold">Settings</h1>
-      </header>
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto flex max-w-2xl flex-col gap-6 px-6 py-8">
-          <div className="flex flex-col gap-1">
-            <h2 className="font-semibold text-lg">Target repository</h2>
-            <p className="text-muted-foreground text-sm">
-              The tool runs against a local repository. Design files live inside
-              it and are versioned with the code.
-            </p>
-          </div>
-          {found ? (
-            <Alert>
-              <FolderSearch />
-              <AlertDescription>{describeSuggestions(found)}</AlertDescription>
-            </Alert>
-          ) : null}
-          {found ? <TailwindAlert tailwind={found.tailwind} /> : null}
-          <FieldSet>
-            <FieldLegend>Repository</FieldLegend>
-            <FieldGroup className="gap-4">
-              <Field>
-                <FieldLabel htmlFor="settings-repo">Repository path</FieldLabel>
-                <div className="flex gap-1">
-                  <Input
-                    id="settings-repo"
-                    onChange={onRepoPath}
-                    placeholder="/Users/you/code/repo"
-                    readOnly={repoFromFile}
-                    value={draft.repoPath}
-                  />
-                  {platform.pickFolder && !repoFromFile ? (
-                    <Button onClick={browse} variant="outline">
-                      Browse…
-                    </Button>
-                  ) : null}
-                </div>
-                <FieldDescription>
-                  {repoFromFile
-                    ? "Given by where the configuration file is."
-                    : "Absolute path to a git repository with a package.json."}
-                </FieldDescription>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="settings-designs">
-                  Designs directory
-                </FieldLabel>
-                <Input
-                  id="settings-designs"
-                  onChange={onDesignsDir}
-                  placeholder="products/prime/designs"
-                  value={draft.designsDir}
-                />
-                <FieldDescription>
-                  Relative to the repository. Pages are saved here as design
-                  documents (.page.json), with the design system beside them.
-                </FieldDescription>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="settings-resolve">
-                  Resolve imports from
-                </FieldLabel>
-                <Input
-                  id="settings-resolve"
-                  onChange={onResolveFrom}
-                  placeholder="apps/web"
-                  value={draft.resolveFrom ?? ""}
-                />
-                <FieldDescription>
-                  A package of the repository that already depends on React and
-                  the design system. Screens import what that package can
-                  import, so nothing has to be installed for them. Leave empty
-                  when the designs directory is a package of its own.
-                </FieldDescription>
-              </Field>
-            </FieldGroup>
-          </FieldSet>
-          <FieldSeparator />
-          <FieldSet>
-            <FieldLegend>Design system</FieldLegend>
-            <FieldGroup className="gap-4">
-              <Field>
-                <FieldLabel htmlFor="settings-css">Host CSS imports</FieldLabel>
-                <Textarea
-                  className="min-h-14 font-mono text-xs"
-                  id="settings-css"
-                  onChange={onHostCss}
-                  value={draft.hostCss.join("\n")}
-                />
-                <FieldDescription>
-                  One per line, resolved from the directory the preview is
-                  generated into. Include the Tailwind v4 entry of the design
-                  system and its fonts: the design system is read from them.
-                </FieldDescription>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="settings-libs">
-                  Design-system source dirs
-                </FieldLabel>
-                <Textarea
-                  className="min-h-14 font-mono text-xs"
-                  id="settings-libs"
-                  onChange={onLibraryDirs}
-                  value={draft.libraryDirs.join("\n")}
-                />
-                <FieldDescription>
-                  Catalogued for the palette. Relative to the repository, one
-                  per line.
-                </FieldDescription>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="settings-packages">
-                  Component packages
-                </FieldLabel>
-                <Textarea
-                  className="min-h-14 font-mono text-xs"
-                  id="settings-packages"
-                  onChange={onComponentPackages}
-                  value={draft.componentPackages.join("\n")}
-                />
-                <FieldDescription>
-                  Package names whose exports form the palette, one per line.
-                </FieldDescription>
-              </Field>
-              {saved ? <DesignSystemField /> : null}
-            </FieldGroup>
-          </FieldSet>
-          <FieldSeparator />
-          <FieldSet>
-            <FieldLegend>Editor</FieldLegend>
-            <FieldGroup className="gap-4">
-              <Field>
-                <FieldLabel htmlFor="settings-storybook">
-                  Storybook URL
-                </FieldLabel>
-                <Input
-                  id="settings-storybook"
-                  onChange={onStorybookUrl}
-                  placeholder="http://localhost:6006"
-                  value={draft.storybookUrl ?? ""}
-                />
-                <FieldDescription>
-                  Optional. Palette previews use running stories.
-                </FieldDescription>
-              </Field>
-              <Field className="max-w-48">
-                <FieldLabel>Theme</FieldLabel>
-                <OptionSelect
-                  onChange={onTheme}
-                  options={themes}
-                  value={draft.theme}
-                />
-              </Field>
-            </FieldGroup>
-          </FieldSet>
-          {saved ? (
-            <>
-              <FieldSeparator />
-              <FieldSet>
-                <FieldLegend>Chat</FieldLegend>
-                <FieldGroup className="gap-4">
-                  <ChatDefaultsField />
-                </FieldGroup>
-              </FieldSet>
-            </>
-          ) : null}
-          <McpConnectionField />
-        </div>
-      </div>
-      <footer className="shrink-0 border-t">
-        <div className="mx-auto flex max-w-2xl flex-col gap-3 px-6 py-4">
-          <SaveProblems
-            busy={busy}
-            designsDir={draft.designsDir}
-            onCreateDesigns={createDesigns}
-            problems={problems}
-            resolveFrom={draft.resolveFrom}
-          />
-          <p
-            className={
-              unsaved ? "text-warning text-xs" : "text-muted-foreground text-xs"
-            }
-          >
-            {storageLine(storage)}
-          </p>
-          <div className="flex items-center justify-between gap-2">
-            <Button onClick={detectNow} variant="ghost">
-              Detect from repository
-            </Button>
-            <div className="flex gap-1">
-              {saved ? (
-                <Button onClick={cancel} variant="outline">
-                  Cancel
-                </Button>
-              ) : null}
-              {unsaved ? (
-                <Button disabled={busy} onClick={saveToFile} variant="outline">
-                  Save to file…
-                </Button>
-              ) : null}
-              <Button disabled={busy} onClick={save}>
-                {saveLabel}
+  const label = sections.find((s) => s.id === section)?.label ?? "";
+
+  const repository = (
+    <>
+      {found ? (
+        <Alert>
+          <FolderSearch />
+          <AlertDescription>{describeSuggestions(found)}</AlertDescription>
+        </Alert>
+      ) : null}
+      {found ? <TailwindAlert tailwind={found.tailwind} /> : null}
+      <Group
+        description="The tool runs against a local repository. Design files live inside it and are versioned with the code."
+        title="Location"
+      >
+        <Row
+          description={
+            repoFromFile
+              ? "Given by where the configuration file is."
+              : "Absolute path to a git repository with a package.json."
+          }
+          htmlFor="settings-repo"
+          title="Repository path"
+          wide
+        >
+          <div className="flex gap-1">
+            <Input
+              id="settings-repo"
+              onChange={onRepoPath}
+              placeholder="/Users/you/code/repo"
+              readOnly={repoFromFile}
+              value={draft.repoPath}
+            />
+            {platform.pickFolder && !repoFromFile ? (
+              <Button onClick={browse} variant="outline">
+                Browse…
               </Button>
+            ) : null}
+          </div>
+        </Row>
+        <Row
+          description="Relative to the repository. Pages are saved here as design documents (.page.json), with the design system beside them."
+          htmlFor="settings-designs"
+          title="Designs directory"
+        >
+          <Input
+            id="settings-designs"
+            onChange={onDesignsDir}
+            placeholder="products/prime/designs"
+            value={draft.designsDir}
+          />
+        </Row>
+        <Row
+          description="A package of the repository that already depends on React and the design system. Screens import what that package can import, so nothing has to be installed for them. Leave empty when the designs directory is a package of its own."
+          htmlFor="settings-resolve"
+          title="Resolve imports from"
+        >
+          <Input
+            id="settings-resolve"
+            onChange={onResolveFrom}
+            placeholder="apps/web"
+            value={draft.resolveFrom ?? ""}
+          />
+        </Row>
+      </Group>
+      <Group title="Detection">
+        <Row
+          description="Reads the repository and fills in the designs directory, the stylesheets and the component packages it finds. What you typed is replaced."
+          title="Detect from repository"
+        >
+          <div className="flex justify-end">
+            <Button
+              disabled={!draft.repoPath}
+              onClick={detectNow}
+              variant="outline"
+            >
+              <FolderSearch />
+              Detect
+            </Button>
+          </div>
+        </Row>
+      </Group>
+    </>
+  );
+
+  const designSystem = (
+    <>
+      <Group
+        description="Where the design system is read from: the preview loads these, and the palette is catalogued from them."
+        title="Sources"
+      >
+        <Row
+          description="One per line, resolved from the directory the preview is generated into. Include the Tailwind v4 entry of the design system and its fonts: the design system is read from them."
+          htmlFor="settings-css"
+          title="Host CSS imports"
+          wide
+        >
+          <Textarea
+            className="min-h-14 font-mono text-xs"
+            id="settings-css"
+            onChange={onHostCss}
+            value={draft.hostCss.join("\n")}
+          />
+        </Row>
+        <Row
+          description="Catalogued for the palette. Relative to the repository, one per line."
+          htmlFor="settings-libs"
+          title="Source directories"
+          wide
+        >
+          <Textarea
+            className="min-h-14 font-mono text-xs"
+            id="settings-libs"
+            onChange={onLibraryDirs}
+            value={draft.libraryDirs.join("\n")}
+          />
+        </Row>
+        <Row
+          description="Package names whose exports form the palette, one per line."
+          htmlFor="settings-packages"
+          title="Component packages"
+          wide
+        >
+          <Textarea
+            className="min-h-14 font-mono text-xs"
+            id="settings-packages"
+            onChange={onComponentPackages}
+            value={draft.componentPackages.join("\n")}
+          />
+        </Row>
+      </Group>
+      {saved ? <DesignSystemGroup /> : null}
+    </>
+  );
+
+  const editor = (
+    <>
+      <Group title="Appearance">
+        <Row
+          description="The theme the editor and the preview are drawn in."
+          title="Theme"
+        >
+          <OptionSelect
+            onChange={onTheme}
+            options={themes}
+            value={draft.theme}
+          />
+        </Row>
+      </Group>
+      <Group title="Previews">
+        <Row
+          description="Optional. Palette previews use running stories."
+          htmlFor="settings-storybook"
+          title="Storybook URL"
+        >
+          <Input
+            id="settings-storybook"
+            onChange={onStorybookUrl}
+            placeholder="http://localhost:6006"
+            value={draft.storybookUrl ?? ""}
+          />
+        </Row>
+      </Group>
+    </>
+  );
+
+  const agents = (
+    <>
+      <ChatDefaultsGroup />
+      <McpConnectionGroup />
+    </>
+  );
+
+  const body = {
+    agents,
+    designSystem,
+    editor,
+    repository,
+  }[section];
+
+  return (
+    <div className="flex h-full bg-background">
+      <Sidebar
+        onBack={saved ? cancel : null}
+        onSelect={setSection}
+        section={section}
+        showAll={saved !== null}
+      />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex h-12 shrink-0 items-center gap-1.5 border-b px-6 text-sm">
+          <span className="text-muted-foreground">Settings</span>
+          <span className="text-muted-foreground">/</span>
+          <span className="font-medium">{label}</span>
+        </header>
+        <div className="@container min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto flex max-w-3xl flex-col gap-8 px-6 py-8">
+            {body}
+          </div>
+        </div>
+        <footer className="shrink-0 border-t">
+          <div className="mx-auto flex max-w-3xl flex-col gap-3 px-6 py-4">
+            <SaveProblems
+              busy={busy}
+              designsDir={draft.designsDir}
+              onCreateDesigns={createDesigns}
+              problems={problems}
+              resolveFrom={draft.resolveFrom}
+            />
+            <div className="flex items-center justify-between gap-4">
+              <p
+                className={cn(
+                  "min-w-0 truncate text-xs",
+                  unsaved ? "text-warning" : "text-muted-foreground"
+                )}
+                title={storageLine(storage)}
+              >
+                {storageLine(storage)}
+              </p>
+              <div className="flex shrink-0 gap-1">
+                {saved ? (
+                  <Button onClick={cancel} variant="outline">
+                    Cancel
+                  </Button>
+                ) : null}
+                {unsaved ? (
+                  <Button
+                    disabled={busy}
+                    onClick={saveToFile}
+                    variant="outline"
+                  >
+                    Save to file…
+                  </Button>
+                ) : null}
+                <Button disabled={busy} onClick={save}>
+                  {saveLabel}
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      </footer>
+        </footer>
+      </div>
     </div>
   );
 };
