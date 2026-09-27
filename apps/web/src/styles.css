@@ -11,6 +11,46 @@
 
 @theme {
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --animate-ray: ray 1s ease-in-out infinite;
+
+  @keyframes ray {
+    0%,
+    100% {
+      opacity: 0.2;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+  @keyframes shimmer {
+    from {
+      background-position: 100% 0;
+    }
+    to {
+      background-position: 0 0;
+    }
+  }
+}
+
+/* Text with a light passing through it: something is in progress. */
+@utility text-shimmer {
+  color: transparent;
+  background:
+    linear-gradient(
+      90deg,
+      var(--color-muted-foreground) 40%,
+      var(--color-foreground) 50%,
+      var(--color-muted-foreground) 60%
+    )
+    0 0 / 300% 100%;
+  background-clip: text;
+  animation: shimmer 2.4s linear infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    color: var(--color-muted-foreground);
+    background: none;
+    animation: none;
+  }
 }
 
 html,

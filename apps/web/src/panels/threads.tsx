@@ -29,6 +29,7 @@ import {
   SquareDashedMousePointer,
   Trash2,
   X,
+  Zap,
 } from "lucide-react";
 import {
   type ChangeEvent,
@@ -81,7 +82,6 @@ import {
   MessageScrollerProvider,
   MessageScrollerViewport,
 } from "@/components/ui/message-scroller";
-import { Spinner } from "@/components/ui/spinner";
 import { bridgeFor } from "../canvas/bridge.ts";
 import { frameIdOf } from "../canvas/prototype.tsx";
 import { confirmDialog } from "../components/dialogs.tsx";
@@ -96,11 +96,20 @@ import {
   lineDiff,
 } from "../lib/line-diff.ts";
 import { createThread, takeDraft, useDrafts } from "../lib/start-thread.ts";
+import {
+  formatDuration,
+  groupWork,
+  hasOpenCall,
+  stopNote,
+  type ThreadEntry,
+  workSummary,
+} from "../lib/thread-work.ts";
 import { terminalKey, useAgents } from "../state/agents.ts";
 import { api } from "../state/connection.ts";
 import { nodeIn, useDocuments } from "../state/documents.ts";
 import { useEditor, type Workspace } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
+import { WorkingIndicator, WorkingMark } from "./thread-work.tsx";
 
 const openThread = (threadId: string) => useAgents.getState().open(threadId);
 const newThread = () => createThread();
@@ -190,54 +199,147 @@ const ThreadView = ({
 }: {
   thread: Thread;
   items: readonly ThreadItem[];
-}) => (
-  <>
-    {/* Keyed by thread so each one opens scrolled to its latest message. */}
-    <MessageScrollerProvider
-      autoScroll
-      defaultScrollPosition="end"
-      key={`scroller:${thread.id}`}
-    >
-      <MessageScroller className="flex-1">
-        <MessageScrollerViewport>
-          <MessageScrollerContent className="gap-2 p-2">
-            {items.map((item, index) => (
-              <MessageScrollerItem key={item.id} messageId={item.id}>
-                <Item
-                  item={item}
-                  streaming={
-                    thread.status === "running" && index === items.length - 1
-                  }
-                  threadId={thread.id}
+}) => {
+  const entries = useMemo(() => groupWork(items), [items]);
+  const running = thread.status === "running";
+  const last = items.at(-1);
+  const since = items.findLast((i) => i.kind === "user")?.at;
+  return (
+    <>
+      {/* Keyed by thread so each one opens scrolled to its latest message. */}
+      <MessageScrollerProvider
+        autoScroll
+        defaultScrollPosition="end"
+        key={`scroller:${thread.id}`}
+      >
+        <MessageScroller className="flex-1">
+          <MessageScrollerViewport>
+            <MessageScrollerContent className="gap-2 p-2">
+              {entries.map((entry) => (
+                <MessageScrollerItem
+                  key={keyOfEntry(entry)}
+                  messageId={keyOfEntry(entry)}
+                >
+                  <Entry
+                    entry={entry}
+                    last={last}
+                    running={running}
+                    threadId={thread.id}
+                  />
+                </MessageScrollerItem>
+              ))}
+              {/* Also while the agent is still starting: that is part of the turn. */}
+              {(running || thread.status === "starting") && (
+                <WorkingIndicator
+                  since={since}
+                  starting={thread.status === "starting"}
                 />
-              </MessageScrollerItem>
-            ))}
-            {/* Also while the agent is still starting: that is part of the turn. */}
-            {(thread.status === "running" || thread.status === "starting") && (
-              <Marker>
-                <MarkerIcon>
-                  <Spinner />
-                </MarkerIcon>
-                <MarkerContent>working…</MarkerContent>
-              </Marker>
-            )}
-            {thread.status === "error" && (
-              <Alert variant="destructive">
-                <CircleAlert />
-                <AlertTitle>The agent stopped</AlertTitle>
-                <AlertDescription className="whitespace-pre-wrap">
-                  {thread.error}
-                </AlertDescription>
-              </Alert>
-            )}
-          </MessageScrollerContent>
-        </MessageScrollerViewport>
-        <MessageScrollerButton />
-      </MessageScroller>
-    </MessageScrollerProvider>
-    <Composer key={`composer:${thread.id}`} thread={thread} />
-  </>
-);
+              )}
+              {thread.status === "error" && (
+                <Alert variant="destructive">
+                  <CircleAlert />
+                  <AlertTitle>The agent stopped</AlertTitle>
+                  <AlertDescription className="whitespace-pre-wrap">
+                    {thread.error}
+                  </AlertDescription>
+                </Alert>
+              )}
+            </MessageScrollerContent>
+          </MessageScrollerViewport>
+          <MessageScrollerButton />
+        </MessageScroller>
+      </MessageScrollerProvider>
+      <Composer key={`composer:${thread.id}`} thread={thread} />
+    </>
+  );
+};
+
+const keyOfEntry = (entry: ThreadEntry) =>
+  entry.kind === "work" ? entry.id : entry.item.id;
+
+const Entry = ({
+  entry,
+  last,
+  running,
+  threadId,
+}: {
+  entry: ThreadEntry;
+  /** The last item of the thread, the one the agent is appending to while it runs. */
+  last: ThreadItem | undefined;
+  running: boolean;
+  threadId: string;
+}) => {
+  switch (entry.kind) {
+    case "work":
+      return (
+        <WorkGroup
+          items={entry.items}
+          running={running}
+          streamingId={running ? last?.id : undefined}
+          threadId={threadId}
+        />
+      );
+    case "turn":
+      return <TurnEnd item={entry.item} since={entry.since} />;
+    default:
+      return (
+        <Item
+          item={entry.item}
+          streaming={running && entry.item === last}
+          threadId={threadId}
+        />
+      );
+  }
+};
+
+/**
+ * A run of tool calls and thoughts, folded into one line that counts what they were. It lights up
+ * while the agent is still in it; opening it shows each call as before.
+ */
+const WorkGroup = ({
+  items,
+  running,
+  streamingId,
+  threadId,
+}: {
+  items: readonly ThreadItem[];
+  running: boolean;
+  /** The item the agent is still appending to, if it is in this run. */
+  streamingId: string | undefined;
+  threadId: string;
+}) => {
+  const active =
+    running && (hasOpenCall(items) || items.some((i) => i.id === streamingId));
+  const { failed, text } = workSummary(items, active);
+  return (
+    <Collapsible>
+      <Disclosure className="w-full gap-1.5 border bg-muted/30">
+        {active ? (
+          <WorkingMark className="size-3.5" />
+        ) : (
+          <Zap className="text-muted-foreground" />
+        )}
+        <span className={cn("truncate", active && "text-shimmer")}>{text}</span>
+        {failed > 0 && (
+          <span className="shrink-0 text-destructive">· {failed} failed</span>
+        )}
+        <ChevronDown className="ml-auto transition-transform group-data-panel-open/button:rotate-180" />
+      </Disclosure>
+      <CollapsibleContent className="h-(--collapsible-panel-height) overflow-hidden transition-[height] duration-200 ease-out data-ending-style:h-0 data-starting-style:h-0">
+        <div className="mt-1 ml-2 flex flex-col gap-1 border-l pl-2">
+          {items.map((item) => (
+            <Item
+              item={item}
+              key={item.id}
+              streaming={item.id === streamingId}
+              threadId={threadId}
+            />
+          ))}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+};
 
 const Disclosure = ({
   className,
@@ -278,22 +380,58 @@ const keyedEntries = <T extends { content: string }>(entries: readonly T[]) => {
   });
 };
 
-const ChangedFileButton = ({ file }: { file: string }) => {
-  const onClick = () => {
-    useEditor.getState().setLeftTab("changes");
+/** Opens the changes panel on the first of the files, where all of them are listed. */
+const openChanges = (files: readonly string[]) => {
+  useEditor.getState().setLeftTab("changes");
+  const [first] = files;
+  if (first) {
     window.dispatchEvent(
-      new CustomEvent("ultrapaint:show-diff", { detail: file })
+      new CustomEvent("ultrapaint:show-diff", { detail: first })
     );
-  };
+  }
+};
+
+/**
+ * The end of a turn, in a quiet line: how long it took and, when it changed files, a way to the
+ * changes panel where they are listed. It speaks up only when the agent did not finish on its own.
+ */
+const TurnEnd = ({
+  item,
+  since,
+}: {
+  item: Extract<ThreadItem, { kind: "turn_end" }>;
+  since: number | undefined;
+}) => {
+  const note = stopNote(item.stopReason);
+  const count = item.changedFiles.length;
   return (
-    <Button
-      className="max-w-full justify-start px-0 font-mono text-brand"
-      onClick={onClick}
-      size="xs"
-      variant="link"
-    >
-      <span className="truncate">{file}</span>
-    </Button>
+    <div className="flex items-center gap-1 text-[10px] text-muted-foreground/70">
+      {note ? (
+        <span className="flex items-center gap-1 text-warning">
+          <Square className="size-2.5 fill-current" />
+          {note}
+        </span>
+      ) : (
+        <span className="flex items-center gap-1">
+          <Check className="size-3" />
+          Done
+          {since === undefined ? "" : ` in ${formatDuration(item.at - since)}`}
+        </span>
+      )}
+      {count > 0 && (
+        <>
+          <span>·</span>
+          <Button
+            className="h-auto p-0 text-[10px] text-muted-foreground/70 hover:text-foreground"
+            onClick={() => openChanges(item.changedFiles)}
+            size="xs"
+            variant="link"
+          >
+            {count} file{count === 1 ? "" : "s"} changed
+          </Button>
+        </>
+      )}
+    </div>
   );
 };
 
@@ -529,21 +667,9 @@ const Item = ({
           <MarkerContent>{item.text}</MarkerContent>
         </Marker>
       );
+    // The end of a turn is laid out by the thread, which knows when the turn began.
     case "turn_end":
-      return (
-        <div className="flex flex-col items-start">
-          <Marker variant="separator">
-            <MarkerContent>
-              Turn ended · {item.stopReason}
-              {item.changedFiles.length > 0 &&
-                ` · ${item.changedFiles.length} file${item.changedFiles.length === 1 ? "" : "s"} changed`}
-            </MarkerContent>
-          </Marker>
-          {item.changedFiles.map((f) => (
-            <ChangedFileButton file={f} key={f} />
-          ))}
-        </div>
-      );
+      return null;
     default:
       return null;
   }
