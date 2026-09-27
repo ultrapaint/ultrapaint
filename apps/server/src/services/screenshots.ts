@@ -1,0 +1,126 @@
+/**
+ * Pictures of nodes, for agents that want to see what they made.
+ *
+ * The server has no browser to draw with; the editor has one, and a preview in it that draws with
+ * the repository's own stylesheet and components. So a picture is asked of every editor that is
+ * open, and the first to draw it answers. An editor that cannot (its preview is not running)
+ * says why, and the request fails only once every editor asked has said so.
+ */
+import type {
+  ScreenshotRequest,
+  ScreenshotResult,
+} from "@ultrapaint/contracts/screenshots";
+import { Context, Deferred, Effect, Layer, Schema, Stream } from "effect";
+import { EventBus } from "../events.ts";
+import { makeId } from "../ids.ts";
+
+const PNG_DATA_URL = "data:image/png;base64,";
+
+export class ScreenshotFailure extends Schema.TaggedError<ScreenshotFailure>()(
+  "ScreenshotFailure",
+  { message: Schema.String }
+) {}
+
+interface Pending {
+  readonly deferred: Deferred.Deferred<Uint8Array, ScreenshotFailure>;
+  readonly problems: string[];
+  /** Editors asked that have not answered yet. */
+  waiting: number;
+}
+
+export class Screenshots extends Context.Service<
+  Screenshots,
+  {
+    /** A PNG of the node, drawn by one of the open editors. */
+    readonly capture: (
+      request: Omit<ScreenshotRequest, "requestId">
+    ) => Effect.Effect<Uint8Array, ScreenshotFailure>;
+    /** An editor's answer to a request. One that nobody waits for any more is dropped. */
+    readonly deliver: (result: ScreenshotResult) => Effect.Effect<void>;
+    /** The requests, for one editor: while it listens, it counts as able to answer. */
+    readonly requests: Stream.Stream<ScreenshotRequest>;
+  }
+>()("ultrapaint/server/Screenshots") {
+  static readonly layer = Layer.effect(
+    Screenshots,
+    Effect.gen(function* () {
+      const events = yield* EventBus;
+      const pending = new Map<string, Pending>();
+      let editors = 0;
+
+      const requests = Stream.unwrap(
+        Effect.as(
+          Effect.acquireRelease(
+            Effect.sync(() => {
+              editors += 1;
+            }),
+            () =>
+              Effect.sync(() => {
+                editors -= 1;
+              })
+          ),
+          events.subscribe("screenshot")
+        )
+      );
+
+      const capture = Effect.fn("Screenshots.capture")(function* (
+        request: Omit<ScreenshotRequest, "requestId">
+      ) {
+        if (editors === 0) {
+          return yield* new ScreenshotFailure({
+            message:
+              "no editor is open to draw it: pictures are drawn by the editor's preview in the browser, so open the editor and ask again",
+          });
+        }
+        const requestId = yield* makeId("shot");
+        const deferred = yield* Deferred.make<Uint8Array, ScreenshotFailure>();
+        pending.set(requestId, { deferred, problems: [], waiting: editors });
+        yield* events.publish("screenshot", { ...request, requestId });
+        return yield* Deferred.await(deferred).pipe(
+          Effect.timeoutOrElse({
+            duration: "30 seconds",
+            orElse: () =>
+              Effect.fail(
+                new ScreenshotFailure({
+                  message:
+                    "the editor did not draw it in 30 seconds; its preview may still be starting",
+                })
+              ),
+          }),
+          Effect.ensuring(Effect.sync(() => pending.delete(requestId)))
+        );
+      });
+
+      const deliver = Effect.fn("Screenshots.deliver")(function* ({
+        dataUrl,
+        problem,
+        requestId,
+      }: ScreenshotResult) {
+        const entry = pending.get(requestId);
+        if (!entry) {
+          return;
+        }
+        if (dataUrl?.startsWith(PNG_DATA_URL)) {
+          const bytes = Buffer.from(
+            dataUrl.slice(PNG_DATA_URL.length),
+            "base64"
+          );
+          yield* Deferred.succeed(entry.deferred, new Uint8Array(bytes));
+          return;
+        }
+        entry.problems.push(problem ?? "the editor answered without a picture");
+        entry.waiting -= 1;
+        if (entry.waiting <= 0) {
+          yield* Deferred.fail(
+            entry.deferred,
+            new ScreenshotFailure({
+              message: [...new Set(entry.problems)].join("; "),
+            })
+          );
+        }
+      });
+
+      return Screenshots.of({ capture, deliver, requests });
+    })
+  );
+}

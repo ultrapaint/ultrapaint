@@ -12,7 +12,7 @@ import type {
   StartInput,
 } from "@ultrapaint/framework-api/browser";
 import { PREVIEW_PROTOCOL } from "@ultrapaint/framework-api/protocol";
-import { toPng } from "html-to-image";
+import { toCanvas, toPng } from "html-to-image";
 import { chainAt, directText, elementsOf, unionRect } from "./dom.ts";
 import { elementAt } from "./hit.ts";
 import { readTokens } from "./tokens.ts";
@@ -298,12 +298,50 @@ export const startPreview = () => {
     }
   };
 
-  const screenshot = (requestId: unknown) => {
+  /** Wider than this, a crop is drawn at the page's own resolution rather than doubled. */
+  const SHARP_CROP_WIDTH = 800;
+
+  /**
+   * A picture of what is drawn, or of one node of it in place: the whole is drawn, then cut to
+   * the node, so what is behind the node and around it is as the page shows it.
+   */
+  const capture = async (nodeId: string | undefined) => {
     const target = mode === "fit" && canvas ? canvas : document.body;
-    toPng(target, {
-      cacheBust: true,
-      pixelRatio: mode === "fit" ? 2 : 1,
-    })
+    if (nodeId === undefined) {
+      return await toPng(target, {
+        cacheBust: true,
+        pixelRatio: mode === "fit" ? 2 : 1,
+      });
+    }
+    const els = elementsOf(nodeId);
+    if (els.length === 0) {
+      return null;
+    }
+    const node = unionRect(els);
+    const origin = target.getBoundingClientRect();
+    const pixelRatio = mode === "fit" || node.width <= SHARP_CROP_WIDTH ? 2 : 1;
+    const whole = await toCanvas(target, { cacheBust: true, pixelRatio });
+    const x = Math.max(0, Math.floor((node.x - origin.left) * pixelRatio));
+    const y = Math.max(0, Math.floor((node.y - origin.top) * pixelRatio));
+    const width = Math.min(whole.width - x, Math.ceil(node.width * pixelRatio));
+    const height = Math.min(
+      whole.height - y,
+      Math.ceil(node.height * pixelRatio)
+    );
+    if (width <= 0 || height <= 0) {
+      return null;
+    }
+    const cut = document.createElement("canvas");
+    cut.width = width;
+    cut.height = height;
+    cut
+      .getContext("2d")
+      ?.drawImage(whole, x, y, width, height, 0, 0, width, height);
+    return cut.toDataURL("image/png");
+  };
+
+  const screenshot = (requestId: unknown, nodeId: string | undefined) => {
+    capture(nodeId)
       .then((dataUrl) => post({ dataUrl, requestId, type: "ed:screenshot" }))
       .catch(() => post({ dataUrl: null, requestId, type: "ed:screenshot" }));
   };
@@ -357,7 +395,7 @@ export const startPreview = () => {
         });
         break;
       case "ed:screenshot":
-        screenshot(msg.requestId);
+        screenshot(msg.requestId, msg.nodeId as string | undefined);
         break;
       case "ed:getTokens":
         post({

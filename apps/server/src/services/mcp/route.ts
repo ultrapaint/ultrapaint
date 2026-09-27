@@ -14,6 +14,7 @@ import {
   HttpServerResponse,
 } from "effect/unstable/http";
 import { CallingThread, McpAccess } from "./access.ts";
+import { ScreenshotToolLive } from "./screenshot.ts";
 import { EditorTools, EditorToolsLive } from "./tools.ts";
 
 export const MCP_PATH = "/mcp";
@@ -44,8 +45,9 @@ const TokenGate = HttpRouter.use(
   })
 );
 
-const Tools = McpServer.toolkit(EditorTools).pipe(
-  Layer.provide(EditorToolsLive)
+const Tools = Layer.merge(
+  McpServer.toolkit(EditorTools).pipe(Layer.provide(EditorToolsLive)),
+  ScreenshotToolLive
 );
 
 export const McpRoute = Tools.pipe(

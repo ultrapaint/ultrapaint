@@ -16,6 +16,7 @@ import { ProjectManager } from "./project.ts";
 import { RpcHandlers } from "./rpc-handlers.ts";
 import { McpAccess } from "./services/mcp/access.ts";
 import { McpRoute } from "./services/mcp/route.ts";
+import { Screenshots } from "./services/screenshots.ts";
 import { SettingsService } from "./services/settings.ts";
 import { SetupService } from "./services/setup.ts";
 import { Storage } from "./services/storage.ts";
@@ -141,6 +142,7 @@ const Threads = ThreadService.layer.pipe(
 /** Application services. Each is built once and shared by every route. */
 const Services = Threads.pipe(
   Layer.provideMerge(ProjectManager.layer),
+  Layer.provideMerge(Screenshots.layer),
   Layer.provideMerge(SettingsService.layer),
   Layer.provideMerge(SetupService.layer),
   Layer.provideMerge(Storage.layer),

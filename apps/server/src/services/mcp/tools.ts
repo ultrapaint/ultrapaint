@@ -34,9 +34,12 @@ import { CallingThread } from "./access.ts";
  * class, not a plain struct: the MCP server passes a failure's message to the agent only when it
  * is an `Error`, and says "internal server error" for anything else.
  */
-class ToolFailure extends Schema.TaggedError<ToolFailure>()("ToolFailure", {
-  message: Schema.String,
-}) {}
+export class ToolFailure extends Schema.TaggedError<ToolFailure>()(
+  "ToolFailure",
+  {
+    message: Schema.String,
+  }
+) {}
 const Failure = ToolFailure;
 
 const decodeOps = Schema.decodeUnknownEffect(Schema.Array(DocOp));
@@ -313,7 +316,7 @@ export const EditorTools = Toolkit.make(
  * Every failure reaches the agent as a sentence it can do something about: no project open, a
  * route that does not exist, a component that is not in the palette.
  */
-const reported = <A, E extends { readonly message: string }, R>(
+export const reported = <A, E extends { readonly message: string }, R>(
   effect: Effect.Effect<A, E, R>
 ) =>
   Effect.mapError(
@@ -321,73 +324,85 @@ const reported = <A, E extends { readonly message: string }, R>(
     (error) => new ToolFailure({ message: error.message })
   );
 
-const missing = (message: string) => Effect.fail(new ToolFailure({ message }));
+export const missing = (message: string) =>
+  Effect.fail(new ToolFailure({ message }));
 
 /** Documents and the design system are JSON through and through; their types only say more. */
 const asJson = (value: unknown) => value as JsonValue;
 
+/**
+ * How a tool finds what an agent names: a space, a page by route or file, a document. Every
+ * miss is a sentence that says what there is instead.
+ */
+export const makeLookup = Effect.gen(function* () {
+  const project = yield* ProjectManager;
+
+  const pagesOf = project.use(Effect.flatMap(PagesService, (p) => p.list));
+
+  /** A space's id as an agent would pass it back: the designs directory's own is `""`. */
+  const named = (id: string) => JSON.stringify(id);
+
+  /**
+   * The space a tool was told to work in, or the only one there is. With several and none
+   * named, the tool says so rather than pick one: the first is not what the agent meant.
+   */
+  const spaceOf = Effect.fnUntraced(function* (space: string | undefined) {
+    const { spaces } = yield* reported(pagesOf);
+    const ids = spaces.map((s) => named(s.id)).join(", ");
+    if (space !== undefined) {
+      return spaces.some((s) => s.id === space)
+        ? space
+        : yield* missing(`no space ${named(space)}; the spaces are ${ids}`);
+    }
+    if (spaces.length <= 1) {
+      return spaces[0]?.id ?? "";
+    }
+    return yield* missing(
+      `this project has several spaces (${ids}); say which with \`space\``
+    );
+  });
+
+  /** A page by route (or file), in the space named, or in the only space that has it. */
+  const pageAt = Effect.fnUntraced(function* (
+    route: string,
+    space: string | undefined
+  ) {
+    const { pages } = yield* reported(pagesOf);
+    const found = pages.filter(
+      (p) =>
+        (p.route === route || p.file === route) &&
+        (space === undefined || p.space === space)
+    );
+    const [only] = found;
+    if (only && found.length === 1) {
+      return only;
+    }
+    if (found.length === 0) {
+      const where = space === undefined ? "" : ` in space ${named(space)}`;
+      return yield* missing(
+        `no page at ${route}${where}; call list_pages to see the routes`
+      );
+    }
+    return yield* missing(
+      `${route} is a page in several spaces (${found.map((p) => named(p.space)).join(", ")}); say which with \`space\``
+    );
+  });
+
+  const documents = <A, E extends { readonly message: string }>(
+    f: (service: DocumentService["Service"]) => Effect.Effect<A, E>
+  ) => reported(project.use(Effect.flatMap(DocumentService, f)));
+
+  return { documents, pageAt, pagesOf, project, spaceOf };
+});
+
 export const EditorToolsLive = EditorTools.toLayer(
   Effect.gen(function* () {
-    const project = yield* ProjectManager;
     const events = yield* EventBus;
-
-    const pagesOf = project.use(Effect.flatMap(PagesService, (p) => p.list));
-
-    /** A space's id as an agent would pass it back: the designs directory's own is `""`. */
-    const named = (id: string) => JSON.stringify(id);
-
-    /**
-     * The space a tool was told to work in, or the only one there is. With several and none
-     * named, the tool says so rather than pick one: the first is not what the agent meant.
-     */
-    const spaceOf = Effect.fnUntraced(function* (space: string | undefined) {
-      const { spaces } = yield* reported(pagesOf);
-      const ids = spaces.map((s) => named(s.id)).join(", ");
-      if (space !== undefined) {
-        return spaces.some((s) => s.id === space)
-          ? space
-          : yield* missing(`no space ${named(space)}; the spaces are ${ids}`);
-      }
-      if (spaces.length <= 1) {
-        return spaces[0]?.id ?? "";
-      }
-      return yield* missing(
-        `this project has several spaces (${ids}); say which with \`space\``
-      );
-    });
-
-    /** A page by route (or file), in the space named, or in the only space that has it. */
-    const pageAt = Effect.fnUntraced(function* (
-      route: string,
-      space: string | undefined
-    ) {
-      const { pages } = yield* reported(pagesOf);
-      const found = pages.filter(
-        (p) =>
-          (p.route === route || p.file === route) &&
-          (space === undefined || p.space === space)
-      );
-      const [only] = found;
-      if (only && found.length === 1) {
-        return only;
-      }
-      if (found.length === 0) {
-        const where = space === undefined ? "" : ` in space ${named(space)}`;
-        return yield* missing(
-          `no page at ${route}${where}; call list_pages to see the routes`
-        );
-      }
-      return yield* missing(
-        `${route} is a page in several spaces (${found.map((p) => named(p.space)).join(", ")}); say which with \`space\``
-      );
-    });
+    const { documents, pageAt, pagesOf, project, spaceOf } = yield* makeLookup;
     const catalogueOf = project.use(
       Effect.flatMap(CatalogueService, (c) => c.get(false))
     );
 
-    const documents = <A, E extends { readonly message: string }>(
-      f: (service: DocumentService["Service"]) => Effect.Effect<A, E>
-    ) => reported(project.use(Effect.flatMap(DocumentService, f)));
     const designSystem = <A, E extends { readonly message: string }>(
       f: (service: DesignSystemService["Service"]) => Effect.Effect<A, E>
     ) => reported(project.use(Effect.flatMap(DesignSystemService, f)));

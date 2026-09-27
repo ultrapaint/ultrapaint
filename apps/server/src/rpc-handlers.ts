@@ -14,6 +14,7 @@ import { HostManager } from "./services/host.ts";
 import { McpAccess } from "./services/mcp/access.ts";
 import { MCP_PATH, MCP_TOKEN_HEADER } from "./services/mcp/route.ts";
 import { PagesService } from "./services/pages.ts";
+import { Screenshots } from "./services/screenshots.ts";
 import { SettingsService } from "./services/settings.ts";
 import { SetupService } from "./services/setup.ts";
 import { AgentConfigs } from "./services/threads/agent-configs.ts";
@@ -42,6 +43,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const checkpoints = yield* Checkpoints;
     const access = yield* McpAccess;
     const commands = yield* SlashCommands;
+    const screenshots = yield* Screenshots;
     const { mcp: mcpEnabled, port } = yield* ServerConfig;
 
     const pages = <A, E>(
@@ -118,6 +120,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "events.log": () => events.subscribe("log"),
       "events.pages": () => events.subscribe("pages"),
       "events.project": () => events.subscribe("project"),
+      "events.screenshot": () => screenshots.requests,
       "git.commit": ({ message, paths }) =>
         git((g) =>
           Effect.gen(function* () {
@@ -153,6 +156,8 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "pages.templates": () => pages((s) => Effect.succeed(s.templates)),
 
       "project.info": () => project.info,
+
+      "screenshots.deliver": (result) => screenshots.deliver(result),
 
       "settings.get": () => settings.get,
       "settings.persist": Effect.fnUntraced(function* (input) {

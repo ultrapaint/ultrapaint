@@ -148,10 +148,18 @@ export class FrameBridge {
     return r?.tokens ?? {};
   }
 
-  async screenshot(): Promise<string | null> {
+  /** A PNG of what the preview draws, or of one node of it in place. */
+  async screenshot(nodeId?: string): Promise<string | null> {
     const r = await this.request<
       Extract<HostMessage, { type: "ed:screenshot" }>
-    >((requestId) => ({ requestId, type: "ed:screenshot" }), 15_000);
+    >(
+      (requestId) => ({
+        requestId,
+        type: "ed:screenshot",
+        ...(nodeId !== undefined && { nodeId }),
+      }),
+      15_000
+    );
     return r?.dataUrl ?? null;
   }
 

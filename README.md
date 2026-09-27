@@ -120,8 +120,9 @@ keeps its login and sessions:
 An agent in a thread is told about the project when it starts — where the designs are, how pages
 route, what the component palette is — and is given the editor's own MCP server to ask the rest:
 the pages and their routes, a component's props and variants, the comments left on the canvas. It
-can add and rename pages through it, answer a comment where it was left, and say which page it is
-working on so you can watch it.
+can add and rename pages through it, answer a comment where it was left, say which page it is
+working on so you can watch it, and take a screenshot of a page or a node to check its own work.
+Screenshots are drawn by the editor's preview, so the editor has to be open in a browser.
 
 It saves the agent from reading the repository to find out what the editor already knows. On four
 tasks with the model pinned, two runs each, that was 32 tool calls on average without any of it,

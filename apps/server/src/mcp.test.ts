@@ -123,6 +123,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           "get_component",
           "get_context",
           "get_document_format",
+          "get_screenshot",
           "list_comments",
           "list_components",
           "list_pages",
@@ -353,6 +354,87 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           threadId: thread.id,
         });
       })
+    );
+
+    it.effect(
+      "asks the open editor for a picture, and hands it on as an image",
+      () =>
+        Effect.gen(function* () {
+          const { client, port, settings } = yield* TestEnv;
+          yield* client["settings.set"](settings);
+          const connection = yield* client["mcp.connection"]();
+          const sessionId = yield* openMcp(port, connection.token);
+          const shoot = (args: Record<string, unknown>) =>
+            Effect.flatMap(
+              callMcp(
+                port,
+                connection.token,
+                {
+                  method: "tools/call",
+                  params: { arguments: args, name: "get_screenshot" },
+                },
+                sessionId
+              ),
+              (response) =>
+                Effect.promise(
+                  () =>
+                    response.json() as Promise<{
+                      result: {
+                        isError?: boolean;
+                        content: {
+                          data?: string;
+                          mimeType?: string;
+                          text?: string;
+                          type: string;
+                        }[];
+                      };
+                    }>
+                )
+            );
+
+          // No editor open: nothing can draw it, and the agent is told so at once.
+          const alone = yield* shoot({ route: "/home" });
+          assert.isTrue(alone.result.isError);
+          assert.include(
+            alone.result.content[0]?.text ?? "",
+            "no editor is open"
+          );
+
+          const missingNode = yield* shoot({ node: "nowhere", route: "/home" });
+          assert.include(
+            missingNode.result.content[0]?.text ?? "",
+            "no node nowhere"
+          );
+
+          // This test is the editor: it takes the request and draws a (very small) picture.
+          const png =
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+          const requested = yield* Effect.forkScoped(
+            client["events.screenshot"]().pipe(
+              Stream.tap((asked) =>
+                client["screenshots.deliver"]({
+                  dataUrl: `data:image/png;base64,${png}`,
+                  requestId: asked.requestId,
+                })
+              ),
+              Stream.runHead
+            )
+          );
+          yield* Effect.sleep("150 millis");
+          const shot = yield* shoot({ route: "/home", width: 390 });
+          assert.isNotTrue(shot.result.isError);
+          const [image] = shot.result.content;
+          assert.strictEqual(image?.type, "image");
+          assert.strictEqual(image?.mimeType, "image/png");
+          assert.strictEqual(image?.data, png);
+          const request = yield* Fiber.join(requested);
+          assert.isTrue(request._tag === "Some");
+          if (request._tag === "Some") {
+            assert.strictEqual(request.value.mode, "page");
+            assert.strictEqual(request.value.width, 390);
+            assert.strictEqual(request.value.root.type, "page");
+          }
+        })
     );
 
     // Last: the space it adds would change what the tests above list.

@@ -58,6 +58,7 @@ import {
   workspaceTabs,
 } from "./state/editor.ts";
 import { bindProjectEvents, useProject } from "./state/project.ts";
+import { bindScreenshots } from "./state/screenshots.ts";
 import { onUrlChange, readUrl } from "./state/url.ts";
 
 installBridgeRouter();
@@ -292,6 +293,7 @@ export const App = () => {
     }
     if (!bound.current) {
       bindProjectEvents();
+      bindScreenshots();
       bound.current = true;
     }
     useProject.getState().load();

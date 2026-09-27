@@ -1,40 +1,52 @@
 /**
  * Pictures of single nodes, drawn by an iframe of the preview nobody sees: the palette's
- * thumbnails. One node at a time, at its own size (`fit`), with the repository's stylesheet and
- * its real components, then captured.
+ * thumbnails, and the screenshots agents ask for. One node at a time, with the repository's
+ * stylesheet and its real components, then captured.
  */
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import type { HostMessage } from "@ultrapaint/contracts/preview";
+import type { HostMessage, RenderMode } from "@ultrapaint/contracts/preview";
 import { bridgeFor } from "./bridge.ts";
 
 const FRAME = "specimen";
+const WIDTH = 1200;
+const HEIGHT = 900;
 
 let iframe: HTMLIFrameElement | null = null;
 let ready: Promise<void> | null = null;
 let queue: Promise<unknown> = Promise.resolve();
-let hostOf: string | null = null;
+let srcOf: string | null = null;
 
+/**
+ * Two frames for layout to settle, or a moment when the tab is in the background: frames are not
+ * drawn there at all, and an agent asking for a picture must not wait for the user to look.
+ */
 const settle = () =>
-  new Promise((resolve) =>
-    requestAnimationFrame(() => requestAnimationFrame(resolve))
-  );
+  Promise.race([
+    new Promise((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve))
+    ),
+    new Promise((resolve) => setTimeout(resolve, 100)),
+  ]);
 
-/** The hidden iframe, loaded from the preview at `host`, made once and kept. */
-const open = (host: string) => {
-  if (iframe && ready && hostOf === host) {
+/**
+ * The hidden iframe, loaded from the preview at `host`, made once and kept; made again for
+ * another space, whose images are found elsewhere.
+ */
+const open = (host: string, space: string) => {
+  const src = `${host}/?space=${encodeURIComponent(space)}&frame=${FRAME}`;
+  if (iframe && ready && srcOf === src) {
     return ready;
   }
   iframe?.remove();
-  hostOf = host;
+  srcOf = src;
   const el = document.createElement("iframe");
   el.setAttribute("aria-hidden", "true");
   el.tabIndex = -1;
   // Inside the viewport, under everything and transparent: the browser throttles an iframe
   // from another origin that is out of view, and it would never answer.
-  el.style.cssText =
-    "position:fixed;left:0;top:0;width:1200px;height:900px;border:0;pointer-events:none;background:transparent;opacity:0;z-index:-1";
-  el.src = `${host}/?frame=${FRAME}`;
+  el.style.cssText = `position:fixed;left:0;top:0;width:${WIDTH}px;height:${HEIGHT}px;border:0;pointer-events:none;background:transparent;opacity:0;z-index:-1`;
+  el.src = src;
   iframe = el;
   const bridge = bridgeFor(FRAME);
   ready = new Promise<void>((resolve) => {
@@ -67,21 +79,40 @@ const rendered = (renderId: number, timeoutMs: number) =>
     });
   });
 
+export interface SpecimenOptions {
+  readonly height?: number;
+  /** `fit` draws the node at its own size; `page` as a window of `width` shows it. */
+  readonly mode?: RenderMode;
+  /** Crop to this node inside the one drawn; all of it when absent. */
+  readonly nodeId?: string;
+  readonly space?: string;
+  readonly width?: number;
+}
+
 /** A PNG of the node as the preview draws it, or null when it could not be drawn. */
 export const drawSpecimen = (
   host: string,
   node: DesignNode,
-  designSystem: DesignSystem | null
+  designSystem: DesignSystem | null,
+  options: SpecimenOptions = {}
 ): Promise<string | null> => {
   const task = queue.then(async () => {
-    await open(host);
+    await open(host, options.space ?? "");
+    if (iframe) {
+      iframe.style.width = `${options.width ?? WIDTH}px`;
+      iframe.style.height = `${options.height ?? HEIGHT}px`;
+    }
     const bridge = bridgeFor(FRAME);
-    const id = bridge.render({ designSystem, mode: "fit", root: node });
+    const id = bridge.render({
+      designSystem,
+      mode: options.mode ?? "fit",
+      root: node,
+    });
     if (!(await rendered(id, 8000))) {
       return null;
     }
     await settle();
-    return await bridge.screenshot();
+    return await bridge.screenshot(options.nodeId);
   });
   queue = task.catch(() => null);
   return task;

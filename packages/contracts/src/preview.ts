@@ -133,6 +133,8 @@ export const EditorMessage = Schema.Union([
     type: Schema.Literal("ed:setInteractive"),
   }),
   Schema.Struct({
+    /** Crop the picture to this node, drawn in place; all of it when absent. */
+    nodeId: Schema.optional(Schema.String),
     requestId: Schema.Number,
     type: Schema.Literal("ed:screenshot"),
   }),

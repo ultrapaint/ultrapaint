@@ -37,6 +37,7 @@ import {
   UploadAssetInput,
 } from "./pages.ts";
 import { HostStatus, LogLine, ProjectInfo } from "./project.ts";
+import { ScreenshotRequest, ScreenshotResult } from "./screenshots.ts";
 import {
   PersistInput,
   PersistResult,
@@ -231,6 +232,9 @@ const requestRpcs = [
     },
   }),
 
+  /** An editor's answer to a `screenshot` event. */
+  Rpc.make("screenshots.deliver", { payload: ScreenshotResult }),
+
   Rpc.make("comments.list", {
     error: PagesError,
     payload: { space: Schema.String },
@@ -374,6 +378,8 @@ export const eventSchemas = {
   log: LogLine,
   pages: PageList,
   project: ProjectInfo,
+  /** An agent wants a picture of a node: an editor that can draw it answers with `screenshots.deliver`. */
+  screenshot: ScreenshotRequest,
 } as const;
 
 const eventRpcs = [
@@ -408,6 +414,10 @@ const eventRpcs = [
   Rpc.make("events.log", { stream: true, success: eventSchemas.log }),
   Rpc.make("events.project", { stream: true, success: eventSchemas.project }),
   Rpc.make("events.pages", { stream: true, success: eventSchemas.pages }),
+  Rpc.make("events.screenshot", {
+    stream: true,
+    success: eventSchemas.screenshot,
+  }),
 ] as const;
 
 export class UltrapaintRpcs extends RpcGroup.make(...requestRpcs, ...eventRpcs) {}
