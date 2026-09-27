@@ -4,13 +4,16 @@
  * with the repository's stylesheet, because the editor does not load the design system's fonts.
  * With nothing imported yet, this is where init starts.
  */
-import type {
-  DesignSystem,
-  FontSizeToken,
-  Token,
-  TokenGroup,
+import {
+  type DesignSystem,
+  type FontSizeToken,
+  TEXT_STYLE_GROUPS,
+  type TextStyle,
+  type Token,
+  type TokenGroup,
 } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
+import { groupTextStyles } from "@ultrapaint/design-document/text-styles";
 import { tokenRef, toPixels } from "@ultrapaint/design-document/tokens";
 import { Check, RefreshCw, Search, Sparkles, Wand2 } from "lucide-react";
 import type * as React from "react";
@@ -104,31 +107,53 @@ const typeSpecimen = (ds: DesignSystem, q: string): DesignNode => {
     matches({ name: s.name, value: "" }, q)
   );
   const sizes = ds.typography.sizes.filter((s) => matches(s, q));
+  const sample = (style: TextStyle, i: number): DesignNode => ({
+    children: [
+      {
+        color: "#71717a",
+        id: `label-${i}`,
+        role: "paragraph" as const,
+        size: 11,
+        text: `${style.name}${style.level ? ` · h${style.level}` : ""}`,
+        type: "text" as const,
+      },
+      {
+        id: `sample-${i}`,
+        level: style.level,
+        role: style.role,
+        text: "The quick brown fox jumps over the lazy dog",
+        textStyle: style.name,
+        type: "text" as const,
+      },
+    ],
+    gap: 2,
+    id: `style-${i}`,
+    type: "column" as const,
+  });
+  // The styles under their groups: a small heading, then each style set in itself.
   const children: DesignNode[] =
     styles.length > 0
-      ? styles.map((style, i) => ({
-          children: [
-            {
-              color: "#71717a",
-              id: `label-${i}`,
-              role: "paragraph" as const,
-              size: 11,
-              text: `${style.name}${style.level ? ` · h${style.level}` : ""}`,
-              type: "text" as const,
-            },
-            {
-              id: `sample-${i}`,
-              level: style.level,
-              role: style.role,
-              text: "The quick brown fox jumps over the lazy dog",
-              textStyle: style.name,
-              type: "text" as const,
-            },
-          ],
-          gap: 2,
-          id: `style-${i}`,
-          type: "column" as const,
-        }))
+      ? [...groupTextStyles(styles)]
+          .filter(([, list]) => list.length > 0)
+          .map(([group, list]) => ({
+            children: [
+              {
+                color: "#71717a",
+                id: `group-${group}`,
+                role: "paragraph" as const,
+                size: 10,
+                text: (
+                  TEXT_STYLE_GROUPS.find((g) => g.group === group)?.label ??
+                  group
+                ).toUpperCase(),
+                type: "text" as const,
+              },
+              ...list.map((style) => sample(style, styles.indexOf(style))),
+            ],
+            gap: 10,
+            id: `styles-${group}`,
+            type: "column" as const,
+          }))
       : sizes.map((size: FontSizeToken, i) => ({
           children: [
             {

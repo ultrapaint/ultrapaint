@@ -3,7 +3,9 @@ import type * as React from "react";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -11,12 +13,40 @@ import {
 export interface SelectOption {
   /** Muted second line in the list, e.g. the class the option writes. */
   description?: string;
+  /** Options with the same group are listed together under its name, in first-seen order. */
+  group?: string;
   label: string;
   preview?: React.ReactNode;
   value: string;
 }
 
-/** Data-driven wrapper around the shadcn Select for flat option lists. */
+/** The options under their groups, the groups in the order they first appear. */
+const groupsOf = (options: readonly SelectOption[]) => {
+  const groups = new Map<string, SelectOption[]>();
+  for (const o of options) {
+    const key = o.group ?? "";
+    groups.set(key, [...(groups.get(key) ?? []), o]);
+  }
+  return [...groups];
+};
+
+const Item = ({ option: o }: { option: SelectOption }) => (
+  <SelectItem value={o.value}>
+    {o.preview}
+    {o.description ? (
+      <span className="flex flex-col">
+        <span>{o.label}</span>
+        <span className="font-mono text-[10px] text-muted-foreground leading-tight">
+          {o.description}
+        </span>
+      </span>
+    ) : (
+      o.label
+    )}
+  </SelectItem>
+);
+
+/** Data-driven wrapper around the shadcn Select for flat or grouped option lists. */
 export const OptionSelect = ({
   value,
   onChange,
@@ -64,21 +94,16 @@ export const OptionSelect = ({
         ) : null}
       </SelectTrigger>
       <SelectContent className="w-auto min-w-[max(8rem,var(--anchor-width))]">
-        {options.map((o) => (
-          <SelectItem key={o.value} value={o.value}>
-            {o.preview}
-            {o.description ? (
-              <span className="flex flex-col">
-                <span>{o.label}</span>
-                <span className="font-mono text-[10px] text-muted-foreground leading-tight">
-                  {o.description}
-                </span>
-              </span>
-            ) : (
-              o.label
-            )}
-          </SelectItem>
-        ))}
+        {options.some((o) => o.group)
+          ? groupsOf(options).map(([name, items]) => (
+              <SelectGroup key={name}>
+                {name ? <SelectLabel>{name}</SelectLabel> : null}
+                {items.map((o) => (
+                  <Item key={o.value} option={o} />
+                ))}
+              </SelectGroup>
+            ))
+          : options.map((o) => <Item key={o.value} option={o} />)}
       </SelectContent>
     </Select>
   );

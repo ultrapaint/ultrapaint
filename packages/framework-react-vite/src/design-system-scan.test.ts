@@ -80,6 +80,18 @@ describe("scanning a Tailwind v4 design system", () => {
       { lineHeight: "calc(1.25 / 0.875)", name: "text-sm", value: "0.875rem" },
     ]);
     expect(designSystem.typography.fonts[0]?.name).toBe("font-sans");
+    // Only text-sm is in this theme, so only the styles set in it are started.
+    expect(designSystem.typography.styles.map((s) => s.name)).toEqual([
+      "Body sm",
+      "Label",
+      "Code",
+    ]);
+    expect(designSystem.typography.styles[0]).toEqual({
+      group: "body",
+      name: "Body sm",
+      role: "paragraph",
+      size: "$text-sm",
+    });
     expect(designSystem.typography.weights[0]).toEqual({
       name: "font-weight-bold",
       value: "700",

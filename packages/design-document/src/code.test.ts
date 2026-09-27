@@ -15,6 +15,14 @@ const ds = {
         size: "$text-lg",
         weight: 700,
       },
+      {
+        group: "body" as const,
+        lineHeight: "$leading-relaxed",
+        name: "Body lg",
+        role: "paragraph" as const,
+        size: "$text-lg",
+        weight: "$font-weight-normal",
+      },
     ],
     weights: [],
   },
@@ -101,6 +109,32 @@ describe("classesOf", () => {
       "font-medium",
       "text-muted-foreground",
     ]);
+  });
+
+  it("writes a text style as its size, weight and line height classes", () => {
+    const node: DesignNode = {
+      id: "p",
+      role: "paragraph",
+      text: "Body",
+      textStyle: "Body lg",
+      type: "text",
+    };
+    expect(classesOf(node, ds)).toEqual([
+      "text-lg",
+      "font-normal",
+      "leading-relaxed",
+    ]);
+    // Detached, the same settings on the node itself write the same classes.
+    const detached: DesignNode = {
+      id: "p",
+      lineHeight: "$leading-relaxed",
+      role: "paragraph",
+      size: "$text-lg",
+      text: "Body",
+      type: "text",
+      weight: "$font-weight-normal",
+    };
+    expect(classesOf(detached, ds)).toEqual(classesOf(node, ds));
   });
 
   it("keeps a token of another namespace as its variable", () => {

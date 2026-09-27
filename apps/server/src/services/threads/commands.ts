@@ -65,7 +65,8 @@ export const IMPLEMENTATION_RULES = `How the design maps to code (Tailwind v4):
   opacity: opacity-*. hidden: leave the node out.
 - text: role heading with level n is <hN>, paragraph is <p>; size, weight, font, lineHeight,
   tracking, color and align are the matching utilities; textStyle names a text style of the
-  design system — use the classes that style stands for.
+  design system — write all of the classes that style stands for (its size, weight and line
+  height, and its font and tracking when it sets them), then the node's own fields over them.
 - instance: the component \`component\` imported from \`from\`, with \`props\` as its props and
   \`text\` or \`children\` as its children.
 - image: <img>; an "assets/..." src is a file in the space's assets directory — copy it to where
@@ -150,9 +151,13 @@ ${tools}
 ${write}
    - colors: groups of tokens, the semantic colours first ("Semantic"), then one group per
      palette. Keep only what the product uses; say in \`description\` what a colour is for.
-   - typography.styles: the named text styles the product uses (Display, Heading 1, Body,
-     Caption…), each with role heading or paragraph, a level for headings, and tokens such as
-     "$text-4xl" and "$font-weight-bold".
+   - typography.styles: the named text styles the product uses, each one a size, a weight and
+     a line height (and a font and tracking when it sets them) that a text is set in as one
+     thing, in three groups: \`group\` heading (Heading xxl… Heading xs, with role heading and
+     a level), body (Body lg, Body, Body sm, role paragraph) and other (Caption, Label, Code).
+     Use tokens such as "$text-4xl", "$font-weight-bold" and "$leading-tight". The scan starts
+     you off with a scale built from the theme: keep what the product uses, rename and fix the
+     rest, drop what it does not have.
    - components: for each component a designer would place, by export name: \`category\`,
      \`description\`, \`exampleProps\` that make it render something meaningful on its own (a
      dialog open, a select with options, a badge with a variant) and \`exampleText\` for one

@@ -7,11 +7,12 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import type {
-  DesignSystem,
-  FontSizeToken,
-  Token,
-  TokenGroup,
+import {
+  type DesignSystem,
+  type FontSizeToken,
+  starterTextStyles,
+  type Token,
+  type TokenGroup,
 } from "@ultrapaint/contracts/design-system";
 import type {
   DesignSystemContext,
@@ -464,8 +465,11 @@ export const scanDesignSystem = (
   if (colors.length === 0) {
     notes.push("No colour tokens were found in the @theme blocks.");
   }
+  const styles = starterTextStyles({ fonts, leading, sizes, weights });
   notes.push(
-    "Text styles, component categories and example props cannot be read from CSS; ask the user or read the components."
+    styles.length > 0
+      ? "The text styles are a starter scale built from the theme's sizes, weights and leading; the product's own styles, component categories and example props cannot be read from CSS: ask the user or read the components."
+      : "Text styles, component categories and example props cannot be read from CSS; ask the user or read the components."
   );
 
   const designSystem: DesignSystem = {
@@ -484,7 +488,7 @@ export const scanDesignSystem = (
       sizes: sizes.sort(
         (a, b) => Number.parseFloat(a.value) - Number.parseFloat(b.value)
       ),
-      styles: [],
+      styles,
       ...(tracking.length > 0 && { tracking: tracking.sort(byName) }),
       weights: weights.sort(
         (a, b) => Number.parseFloat(a.value) - Number.parseFloat(b.value)

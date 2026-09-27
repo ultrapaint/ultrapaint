@@ -4,6 +4,11 @@
  * plain CSS otherwise, and every change is one operation on the node's document.
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
+import {
+  TEXT_STYLE_GROUPS,
+  type TextStyle,
+  type TextStyleSetting,
+} from "@ultrapaint/contracts/design-system";
 import type {
   DesignNode,
   ImageNode,
@@ -13,6 +18,12 @@ import type {
   TextNode,
 } from "@ultrapaint/contracts/document";
 import type { ViewportPreset } from "@ultrapaint/contracts/pages";
+import {
+  attachTextStyle,
+  detachTextStyle,
+  groupTextStyles,
+  matchTextStyle,
+} from "@ultrapaint/design-document/text-styles";
 import { nodeKind, nodeLabel } from "@ultrapaint/design-document/tree";
 import { cn } from "cn";
 import {
@@ -33,9 +44,11 @@ import {
   Eye,
   EyeOff,
   Group,
+  Link2,
   StretchHorizontal,
   Trash2,
   Ungroup,
+  Unlink2,
   Upload,
 } from "lucide-react";
 import { useRef, useState } from "react";
@@ -377,20 +390,29 @@ const TokenField = ({
   value,
   placeholder,
   numeric = true,
+  onChange,
+  className,
+  title,
 }: {
   field: string;
   kind: TokenKind;
   value: JsonValue | undefined;
   placeholder?: string;
   numeric?: boolean;
+  /** Instead of setting the field on the node directly. */
+  onChange?: (value: JsonValue) => void;
+  className?: string;
+  title?: string;
 }) => {
   const options = useTokenOptions(kind);
   return (
     <ValueField
       accept={(q) => !numeric || CSS.supports("width", q)}
-      onChange={(v) => set(field, v)}
+      className={className}
+      onChange={(v) => (onChange ? onChange(v) : set(field, v))}
       options={options}
       placeholder={placeholder ?? "Default"}
+      title={title}
       value={value}
     />
   );
@@ -419,9 +441,83 @@ const ColorField = ({
   );
 };
 
+/**
+ * A text style is size, weight and line height (and family and tracking) as one thing. Set in
+ * one, the fields below show what the style gives; changing any of them, or the broken chain,
+ * detaches the style and leaves the same settings on the text to change one by one. The chain
+ * sets it back in the style the settings match, or the one for its role.
+ */
+const TextStyleRow = ({
+  node,
+  style,
+  styles,
+}: {
+  node: TextNode;
+  style: TextStyle | undefined;
+  styles: readonly TextStyle[];
+}) => {
+  const options = [
+    { label: "None", value: "" },
+    ...[...groupTextStyles(styles)].flatMap(([group, list]) =>
+      list.map((s) => ({
+        description: s.description,
+        group: TEXT_STYLE_GROUPS.find((g) => g.group === group)?.label,
+        label: s.name,
+        value: s.name,
+      }))
+    ),
+  ];
+  const attach = (next: TextStyle) =>
+    updateSelection(attachTextStyle(next), `Set the text in ${next.name}`);
+  const detach = () =>
+    updateSelection(detachTextStyle(node, style), "Detach the text style");
+  const onStyle = (v: string) => {
+    const next = styles.find((s) => s.name === v);
+    return next ? attach(next) : detach();
+  };
+  const relink = () => {
+    const next = matchTextStyle(node, styles);
+    return next ? attach(next) : undefined;
+  };
+  const stale = node.textStyle !== undefined && style === undefined;
+  const none = styles.length === 0 ? "No text styles" : "None";
+  return (
+    <Row label="Style">
+      <OptionSelect
+        onChange={onStyle}
+        options={options}
+        placeholder={stale ? `${node.textStyle} (missing)` : none}
+        size="sm"
+        value={style ? style.name : ""}
+      />
+      {style || stale ? (
+        <IconButton
+          onClick={detach}
+          size="icon-sm"
+          tooltip="Detach the style: change the size, weight and line height on their own"
+        >
+          <Unlink2 />
+        </IconButton>
+      ) : (
+        <IconButton
+          disabled={styles.length === 0}
+          onClick={relink}
+          size="icon-sm"
+          tooltip="Set the text in one style again"
+        >
+          <Link2 />
+        </IconButton>
+      )}
+    </Row>
+  );
+};
+
 const TextSection = ({ node }: { node: TextNode }) => {
   const ds = useDesignSystem((s) => s.designSystem);
   const styles = ds?.typography.styles ?? [];
+  const style = node.textStyle
+    ? styles.find((s) => s.name === node.textStyle)
+    : undefined;
   const role = node.role === "heading" ? `h${node.level ?? 1}` : "p";
   const onRole = (v: string) =>
     updateSelection(
@@ -430,6 +526,32 @@ const TextSection = ({ node }: { node: TextNode }) => {
         : { level: Number(v.slice(1)), role: "heading" },
       "Change the text's role"
     );
+  // What the text is set in: its own field where it has one, the style's otherwise.
+  const settingOf = (key: TextStyleSetting): JsonValue | undefined =>
+    node[key] ?? style?.[key];
+  /** Editing a setting the style gives detaches the style, so the other settings stay. */
+  const onSetting = (key: TextStyleSetting) => (value: JsonValue) =>
+    style
+      ? updateSelection(
+          { ...detachTextStyle(node, style), [key]: value },
+          "Detach the text style"
+        )
+      : set(key, value);
+  const setting = (key: TextStyleSetting, kind: TokenKind, numeric = true) => (
+    <TokenField
+      className={style ? "text-muted-foreground" : undefined}
+      field={key}
+      kind={kind}
+      numeric={numeric}
+      onChange={onSetting(key)}
+      title={
+        style
+          ? `From the text style ${style.name}. Changing it detaches the style.`
+          : undefined
+      }
+      value={settingOf(key)}
+    />
+  );
   return (
     <Section title="Text">
       <TextInput multiline onChange={(v) => set("text", v)} value={node.text} />
@@ -441,38 +563,12 @@ const TextSection = ({ node }: { node: TextNode }) => {
           value={role}
         />
       </Row>
-      <Row label="Style">
-        <OptionSelect
-          onChange={(v) => set("textStyle", v === "" ? null : v)}
-          options={[
-            { label: "None", value: "" },
-            ...styles.map((s) => ({ label: s.name, value: s.name })),
-          ]}
-          placeholder={styles.length === 0 ? "No text styles" : "None"}
-          size="sm"
-          value={node.textStyle ?? ""}
-        />
-      </Row>
-      <Row label="Size">
-        <TokenField field="size" kind="size" value={node.size} />
-      </Row>
-      <Row label="Weight">
-        <TokenField field="weight" kind="weight" value={node.weight} />
-      </Row>
-      <Row label="Font">
-        <TokenField
-          field="font"
-          kind="font"
-          numeric={false}
-          value={node.font}
-        />
-      </Row>
-      <Row label="Line">
-        <TokenField field="lineHeight" kind="leading" value={node.lineHeight} />
-      </Row>
-      <Row label="Tracking">
-        <TokenField field="tracking" kind="tracking" value={node.tracking} />
-      </Row>
+      <TextStyleRow node={node} style={style} styles={styles} />
+      <Row label="Size">{setting("size", "size")}</Row>
+      <Row label="Weight">{setting("weight", "weight")}</Row>
+      <Row label="Font">{setting("font", "font", false)}</Row>
+      <Row label="Line">{setting("lineHeight", "leading")}</Row>
+      <Row label="Tracking">{setting("tracking", "tracking")}</Row>
       <Row label="Colour">
         <ColorField field="color" placeholder="Inherited" value={node.color} />
       </Row>
