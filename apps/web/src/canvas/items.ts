@@ -8,6 +8,7 @@ import { api } from "../state/connection.ts";
 import { applyOps } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { reportError } from "../state/project.ts";
+import { ensureEditable } from "../state/setup.ts";
 import { frameOfNode } from "./drag.ts";
 
 /** Widest an image lands at, in canvas units; a screenshot would otherwise cover everything. */
@@ -46,7 +47,7 @@ export const addImages = async (
   at: { x: number; y: number }
 ) => {
   const { space } = useEditor.getState();
-  if (space === null) {
+  if (!ensureEditable() || space === null) {
     return;
   }
   let { x } = at;

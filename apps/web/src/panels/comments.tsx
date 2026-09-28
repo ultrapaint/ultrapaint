@@ -13,6 +13,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { initialOf, relativeTime, repliesLabel } from "../canvas/comments.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
+import { SetupEmpty } from "../components/setup-dialog.tsx";
 import {
   revealComment,
   updateComment,
@@ -35,7 +36,7 @@ export const Comments = () => {
   const showResolved = useComments((s) => s.showResolved);
 
   if (!configured) {
-    return <PanelEmpty>Configure a repository in settings</PanelEmpty>;
+    return <SetupEmpty />;
   }
 
   const resolvedCount = comments.filter((c) => c.resolved).length;

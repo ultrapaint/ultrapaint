@@ -48,15 +48,26 @@ const sortKeys = (value: object) =>
     Object.entries(value).sort(([a], [b]) => (a < b ? -1 : Number(a > b)))
   );
 
+/** File an unsaved session keeps its settings in, inside the directory the command lends it. */
+const SESSION_FILE = "session.json";
+
 /**
  * The settings, wherever the storage target keeps them: a home directory's `settings.json`, an
- * `ultrapaint.json` in the repository, or only memory when the session is unsaved.
+ * `ultrapaint.json` in the repository, the `session.json` of an unsaved session the command
+ * keeps across restarts, or only memory.
  */
 export class SettingsService extends Context.Service<
   SettingsService,
   {
+    /**
+     * Takes settings detected in the repository the server was started in. They are kept in
+     * memory only, so the next start detects again; saving them makes them the user's.
+     */
+    readonly adopt: (settings: Settings) => Effect.Effect<SettingsValidation>;
     /** Settings that arrived because someone else changed the configuration file. */
     readonly changes: Stream.Stream<Settings>;
+    /** Whether the settings in force are detected ones nobody has saved. */
+    readonly detected: Effect.Effect<boolean>;
     readonly get: Effect.Effect<Settings | null>;
     /** Saves an unsaved session to a new configuration file and keeps saving from then on. */
     readonly persist: (
@@ -99,6 +110,13 @@ export class SettingsService extends Context.Service<
               baseDir: path.dirname(target.configPath),
               path: target.configPath,
               relative: true,
+            };
+          }
+          if (target.sessionDir) {
+            return {
+              baseDir: target.sessionDir,
+              path: path.join(target.sessionDir, SESSION_FILE),
+              relative: false,
             };
           }
           return null;
@@ -159,6 +177,7 @@ export class SettingsService extends Context.Service<
       });
 
       const current = yield* Ref.make<Settings | null>(yield* load);
+      let detected = false;
 
       // ---- changes made to the file by someone else (an editor, `git pull`) ----
       const reload = Effect.fnUntraced(function* (file: SettingsFile) {
@@ -168,6 +187,7 @@ export class SettingsService extends Context.Service<
         }
         const settings = yield* read(file);
         yield* Ref.set(current, settings);
+        detected = false;
         yield* log.log("server", "info", `reloaded ${file.path}`);
         yield* PubSub.publish(external, settings);
       });
@@ -270,6 +290,7 @@ export class SettingsService extends Context.Service<
           yield* write(file, next);
         }
         yield* Ref.set(current, next);
+        detected = false;
       });
 
       const set = Effect.fn("SettingsService.set")(function* (
@@ -279,6 +300,28 @@ export class SettingsService extends Context.Service<
         if (validation.ok) {
           yield* store(settings);
         }
+        return validation;
+      });
+
+      const adopt = Effect.fn("SettingsService.adopt")(function* (
+        settings: Settings
+      ) {
+        const validation = yield* validate(settings);
+        if (!validation.ok) {
+          return validation;
+        }
+        const next = { ...settings, repoPath: path.resolve(settings.repoPath) };
+        // Settings someone set while the repository was being read win over detected ones.
+        const taken = yield* Ref.modify(current, (now) =>
+          now === null ? [true, next] : [false, now]
+        );
+        if (!taken) {
+          return {
+            ok: false,
+            problems: ["Settings were set in the meantime."],
+          } satisfies SettingsValidation;
+        }
+        detected = true;
         return validation;
       });
 
@@ -334,7 +377,9 @@ export class SettingsService extends Context.Service<
       });
 
       return SettingsService.of({
+        adopt,
         changes: Stream.fromPubSub(external),
+        detected: Effect.sync(() => detected),
         get: Ref.get(current),
         persist,
         set,

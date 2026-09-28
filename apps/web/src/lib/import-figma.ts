@@ -7,6 +7,7 @@
 import { getPlatform } from "@ultrapaint/client-runtime/platform";
 import type { FigmaImport } from "@ultrapaint/contracts/figma";
 import { toast } from "sonner";
+import { ensureEditable } from "../state/setup.ts";
 import { startCommand } from "./start-thread.ts";
 
 const messageOf = (error: unknown) =>
@@ -31,6 +32,9 @@ const upload = async (file: File): Promise<FigmaImport> => {
 
 /** Reads the file on the server, then opens a thread to convert it. */
 export const importFigma = async (file: File) => {
+  if (!ensureEditable()) {
+    return;
+  }
   const id = toast.loading(`Reading ${file.name}…`);
   try {
     const imported = await upload(file);

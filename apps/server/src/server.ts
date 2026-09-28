@@ -2,6 +2,8 @@ import { createServer } from "node:http";
 import { NodeHttpServer } from "@effect/platform-node";
 import { MAX_FIG_BYTES } from "@ultrapaint/contracts/figma";
 import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
+import { defaultSettings } from "@ultrapaint/contracts/settings";
+import { applySuggestions } from "@ultrapaint/contracts/setup";
 import { Effect, Layer, Stream } from "effect";
 import {
   HttpRouter,
@@ -161,11 +163,16 @@ const HttpServerLive = Layer.unwrap(
   )
 );
 
-/** Opens the configured project, if there is one, once everything else is up. */
+/**
+ * Opens the configured project, if there is one, once everything else is up. An unsaved session
+ * started inside a repository opens it with what detection finds there, when that is enough to
+ * run: nothing has to be configured to look at a repository that already holds its pages.
+ */
 const Boot = Layer.effectDiscard(
   Effect.gen(function* () {
     const { host, port } = yield* ServerConfig;
     const settings = yield* SettingsService;
+    const setup = yield* SetupService;
     const project = yield* ProjectManager;
     const log = yield* AppLog;
     yield* log.log(
@@ -185,14 +192,53 @@ const Boot = Layer.effectDiscard(
       yield* log.log(
         "server",
         "warn",
-        "started without a configuration: settings and agent threads are not saved"
+        storage.session
+          ? "started without a configuration: settings and agent threads are kept until the command stops"
+          : "started without a configuration: settings and agent threads are not saved"
       );
     } else {
       yield* log.log("server", "info", `configuration: ${storage.configPath}`);
     }
     const saved = yield* settings.get;
+    const repo =
+      storage.mode === "ephemeral" ? storage.defaultRepoPath : undefined;
     if (saved) {
       yield* Effect.forkScoped(project.open(saved));
+    } else if (repo) {
+      const openDetected = Effect.gen(function* () {
+        const found = yield* setup.detect(repo);
+        const candidate = applySuggestions(defaultSettings(repo), found);
+        const validation = yield* settings.adopt(candidate);
+        if (!validation.ok) {
+          yield* log.log(
+            "server",
+            "info",
+            `${repo} needs setting up: ${validation.problems.join(" ")}`
+          );
+          return;
+        }
+        const adopted = yield* settings.get;
+        // Settings the user applied while the repository was read are already open.
+        if (!(adopted && (yield* settings.detected))) {
+          return;
+        }
+        yield* log.log(
+          "server",
+          "info",
+          `opened ${repo} with detected settings; save them to keep them`
+        );
+        yield* project.open(adopted);
+      }).pipe(
+        // A repository that cannot be read is left for the setup to ask about.
+        Effect.catchTag("BadRequest", (error) =>
+          log.log(
+            "server",
+            "warn",
+            `could not detect ${repo}: ${error.message}`
+          )
+        )
+      );
+      yield* Effect.forkScoped(openDetected);
     }
     // The configuration file changed under us (an editor, a branch switch): follow it.
     yield* settings.changes.pipe(

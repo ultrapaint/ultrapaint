@@ -9,6 +9,8 @@ import {
   useRef,
   useState,
 } from "react";
+import { Button } from "@/components/ui/button";
+import { openSetup } from "../components/setup-dialog.tsx";
 import { useComments } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
 import { openMenuAt } from "../state/context-menu.ts";
@@ -22,6 +24,7 @@ import {
 } from "../state/documents.ts";
 import { allFrames, nodeFrameLayout, useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
+import { ensureEditable } from "../state/setup.ts";
 import { useFollowAgent } from "./agent-presence.tsx";
 import {
   beginCreate,
@@ -56,6 +59,7 @@ export const Canvas = () => {
   const mode = useEditor((s) => s.mode);
   const spacePan = useEditor((s) => s.spacePan);
   const allPages = useProject((s) => s.pages);
+  const configured = useProject((s) => s.info.configured);
   const pages = allPages.filter((p) => p.space === space);
   const nodes = useDocuments((s) => canvasNodes(s.docs, space));
   const sizes = useEditor((s) => s.sizes);
@@ -295,6 +299,9 @@ export const Canvas = () => {
     const pan = e.button === 1 || spacePan || mode === "pan";
     if (!pan && e.button === 0 && isCreateTool(mode)) {
       e.preventDefault();
+      if (!ensureEditable()) {
+        return;
+      }
       beginCreate(e.clientX, e.clientY);
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
       return;
@@ -616,9 +623,20 @@ export const Canvas = () => {
       </div>
       {pages.length === 0 && nodes.length === 0 && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-muted-foreground">
-          {space === null
-            ? "Open a space from the Pages panel"
-            : "This space has no pages yet"}
+          {configured ? (
+            <span>
+              {space === null
+                ? "Open a space from the Pages panel"
+                : "This space has no pages yet"}
+            </span>
+          ) : (
+            <span className="pointer-events-auto flex items-center gap-2">
+              No repository set up yet.
+              <Button onClick={openSetup} size="sm" variant="outline">
+                Set up…
+              </Button>
+            </span>
+          )}
         </div>
       )}
     </div>

@@ -7,6 +7,7 @@ import { confirmDialog, promptDialog } from "../components/dialogs.tsx";
 import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
+import { ensureEditable } from "../state/setup.ts";
 import { viewportSize } from "./shortcuts.ts";
 import { startCommand } from "./start-thread.ts";
 
@@ -83,6 +84,9 @@ const TRAILING_SLASH_RE = /\/$/;
 
 /** Asks for a route and makes a page there, in the open space. */
 export const newPage = async (under?: string) => {
+  if (!ensureEditable()) {
+    return;
+  }
   const route = await promptDialog({
     confirmLabel: "Create",
     defaultValue: under ? `${under.replace(TRAILING_SLASH_RE, "")}/` : "/",

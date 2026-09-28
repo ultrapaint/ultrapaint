@@ -1,6 +1,10 @@
 import type { Settings, StorageInfo } from "@ultrapaint/contracts/settings";
 import { defaultSettings } from "@ultrapaint/contracts/settings";
-import type { SetupSuggestions } from "@ultrapaint/contracts/setup";
+import {
+  applySuggestions,
+  describeSuggestions,
+  type SetupSuggestions,
+} from "@ultrapaint/contracts/setup";
 import type { CustomiseMode, Skill } from "@ultrapaint/contracts/skills";
 import {
   type AgentConfig,
@@ -34,7 +38,6 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Markdown } from "../components/markdown.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
-import { applySuggestions, describeSuggestions } from "../lib/setup.ts";
 import { api } from "../state/connection.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useEditor } from "../state/editor.ts";
@@ -64,8 +67,8 @@ const list = (v: string) =>
     .filter(Boolean);
 
 /**
- * Settings take the whole window rather than a dialog: the first run lands here, and the form is
- * longer than a dialog can hold. The editor is not mounted behind it. A sidebar picks a section;
+ * Settings take the whole window rather than a dialog: the form is longer than a dialog can
+ * hold. The editor is not mounted behind it. A sidebar picks a section;
  * the section is groups of rows, one setting per row, its control on the right.
  */
 type SectionId = "repository" | "designSystem" | "editor" | "agents";
@@ -197,14 +200,21 @@ const DesignSystemGroup = () => {
 
 export const SettingsPage = () => {
   const saved = useProject((s) => s.settings);
-  // Mounted with the page, so every open starts from the saved settings.
-  return <SettingsForm saved={saved} />;
+  const loaded = useProject((s) => s.loaded);
+  // Mounted with the page, so every open starts from the saved settings. A reload that lands
+  // here waits for them, and for the repository the server proposes.
+  return loaded ? <SettingsForm saved={saved} /> : null;
 };
 
 /** Where a save goes, in the words of the storage mode the server runs in. */
-const storageLine = (storage: StorageInfo) => {
+const storageLine = (storage: StorageInfo, detected: boolean) => {
+  if (detected) {
+    return "Detected in the repository and not saved: Apply keeps them while the tool runs, Save to file… for good.";
+  }
   if (storage.mode === "ephemeral") {
-    return "Started without a configuration file: these settings are not saved.";
+    return storage.session
+      ? "Started without a configuration file: these settings are kept until the command stops."
+      : "Started without a configuration file: these settings are not saved.";
   }
   return `Saved to ${storage.configPath}`;
 };
@@ -588,7 +598,7 @@ const Sidebar = ({
   section,
   showAll,
 }: {
-  onBack: (() => void) | null;
+  onBack: () => void;
   onSelect: (id: SectionId) => void;
   section: SectionId;
   showAll: boolean;
@@ -621,27 +631,32 @@ const Sidebar = ({
           );
         })}
     </nav>
-    {onBack ? (
-      <div className="mt-auto p-2">
-        <Button
-          className="w-full justify-start text-muted-foreground"
-          onClick={onBack}
-          variant="ghost"
-        >
-          <ArrowLeft />
-          Back to the editor
-        </Button>
-      </div>
-    ) : null}
+    <div className="mt-auto p-2">
+      <Button
+        className="w-full justify-start text-muted-foreground"
+        onClick={onBack}
+        variant="ghost"
+      >
+        <ArrowLeft />
+        Back to the editor
+      </Button>
+    </div>
   </aside>
 );
 
 const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const storage = useProject((s) => s.info.storage);
+  const detected = useProject((s) => s.info.setup === "detected");
   const [draft, setDraft] = useState<Settings>(
     saved ?? defaultSettings(storage.defaultRepoPath ?? "")
   );
-  const [section, setSection] = useState<SectionId>("repository");
+  const wanted = useProject((s) => s.settingsSection);
+  // The URL may name a section that does not exist, or one the first run hides.
+  const section: SectionId =
+    sections.find((s) => s.id === wanted && (saved || !s.needsSaved))?.id ??
+    "repository";
+  const setSection = (id: SectionId) =>
+    useProject.getState().openSettings(true, id);
   const unsaved = storage.mode === "ephemeral";
   // A configuration file in the repository says where the repository is by where it lies.
   const repoFromFile = storage.mode === "file";
@@ -667,17 +682,9 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     setBusy(false);
     return ok;
   };
+  // The design system is offered at the first edit, by the setup dialog.
   const save = async () => {
-    const first = !saved;
-    if ((await apply()) && first) {
-      // A new project starts with its design system: offered, not imposed.
-      toast("Import the design system?", {
-        action: { label: "Initialise", onClick: startInit },
-        description:
-          "An agent reads the Tailwind v4 theme and the components, and asks you what it cannot find out.",
-        duration: 20_000,
-      });
-    }
+    await apply();
   };
   const saveToFile = async () => {
     if (await apply()) {
@@ -732,11 +739,8 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   };
 
   const cancel = () => useProject.getState().openSettings(false);
-  // Escape leaves the page, as it closed the dialog, once there are settings to go back to.
+  // Escape leaves the page, as it closed the dialog. The editor opens without settings too.
   useEffect(() => {
-    if (!saved) {
-      return;
-    }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !e.defaultPrevented) {
         useProject.getState().openSettings(false);
@@ -744,7 +748,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [saved]);
+  }, []);
   const onRepoPath = (e: React.ChangeEvent<HTMLInputElement>) => {
     const repoPath = e.target.value;
     setDraft((d) => ({ ...d, repoPath }));
@@ -818,7 +822,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           />
         </Row>
         <Row
-          description="Relative to the repository. Pages are saved here as design documents (.page.json), with the design system beside them."
+          description="Relative to the repository. Pages are saved here as design documents (.page.json), with the design system beside them. Changing it opens the project there; the pages already written stay where they are."
           htmlFor="settings-designs"
           title="Designs directory"
         >
@@ -962,7 +966,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   return (
     <div className="flex h-full bg-background">
       <Sidebar
-        onBack={saved ? cancel : null}
+        onBack={cancel}
         onSelect={setSection}
         section={section}
         showAll={saved !== null}
@@ -993,16 +997,14 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
                   "min-w-0 truncate text-xs",
                   unsaved ? "text-warning" : "text-muted-foreground"
                 )}
-                title={storageLine(storage)}
+                title={storageLine(storage, detected)}
               >
-                {storageLine(storage)}
+                {storageLine(storage, detected)}
               </p>
               <div className="flex shrink-0 gap-1">
-                {saved ? (
-                  <Button onClick={cancel} variant="outline">
-                    Cancel
-                  </Button>
-                ) : null}
+                <Button onClick={cancel} variant="outline">
+                  Cancel
+                </Button>
                 {unsaved ? (
                   <Button
                     disabled={busy}

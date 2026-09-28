@@ -19,6 +19,7 @@ import {
 import { create } from "zustand";
 import { api } from "./connection.ts";
 import { reportError } from "./project.ts";
+import { ensureEditable } from "./setup.ts";
 
 interface DocumentsStore {
   docs: Record<string, DocumentState>;
@@ -94,6 +95,9 @@ export const applyEdits = async (
   edits: readonly DocumentEdit[],
   label?: string
 ) => {
+  if (!ensureEditable()) {
+    return null;
+  }
   try {
     const result = await api().request("documents.apply", {
       edits,

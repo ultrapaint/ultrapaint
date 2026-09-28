@@ -28,6 +28,7 @@ import { Input } from "@/components/ui/input";
 import { IconButton } from "../components/icon-button.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
+import { SetupEmpty } from "../components/setup-dialog.tsx";
 import { importFigma } from "../lib/import-figma.ts";
 import {
   deletePage,
@@ -39,6 +40,7 @@ import { api } from "../state/connection.ts";
 import { openMenuAt } from "../state/context-menu.ts";
 import { useEditor } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
+import { ensureEditable } from "../state/setup.ts";
 
 /** A row's own indent, and where its chevron sits inside it, as in the layers tree. */
 const ROW_PAD = 8;
@@ -159,7 +161,7 @@ export const Pages = () => {
     });
 
   if (!configured) {
-    return <PanelEmpty>Configure a repository in settings</PanelEmpty>;
+    return <SetupEmpty />;
   }
 
   const tree = routeTree(inSpace);
@@ -450,6 +452,9 @@ const NewPage = ({ onDone }: { onDone: () => void }) => {
   }, [configured]);
 
   const create = async () => {
+    if (!ensureEditable()) {
+      return;
+    }
     try {
       const page = await api().request("pages.create", {
         route: value,

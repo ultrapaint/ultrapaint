@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { confirmDialog } from "../components/dialogs.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
+import { SetupEmpty } from "../components/setup-dialog.tsx";
 import { api } from "../state/connection.ts";
 import { reportError, useProject } from "../state/project.ts";
 
@@ -129,7 +130,7 @@ export const Changes = () => {
   };
 
   if (!configured) {
-    return <PanelEmpty>Configure a repository first</PanelEmpty>;
+    return <SetupEmpty />;
   }
   if (!status) {
     return <PanelEmpty>Loading…</PanelEmpty>;

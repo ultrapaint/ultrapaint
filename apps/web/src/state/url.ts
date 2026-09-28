@@ -10,14 +10,32 @@ export interface UrlState {
   space: string | null;
 }
 
-export const readUrl = (): UrlState => {
+export const readUrl = (): UrlState & { settings: string | null } => {
   const params = new URLSearchParams(window.location.search);
   const space = params.get("space");
   const route = params.get("route");
   return {
     route: route === null ? "/" : normaliseRoute(route),
+    // The section of the settings page when it is open: `?settings=repository`.
+    settings: params.get("settings"),
     space,
   };
+};
+
+/** Records whether the settings are open, and on which section; nothing to go back through. */
+export const writeSettingsSection = (section: string | null) => {
+  const params = new URLSearchParams(window.location.search);
+  if (section === null) {
+    params.delete("settings");
+  } else {
+    params.set("settings", section);
+  }
+  const query = params.toString();
+  window.history.replaceState(
+    null,
+    "",
+    `${window.location.pathname}${query ? `?${query}` : ""}`
+  );
 };
 
 /**

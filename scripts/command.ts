@@ -7,9 +7,11 @@
  *
  * `--dev` runs the checkout's sources instead of a build: the server under `tsx watch`, which
  * restarts it when a file changes, and the editor under Vite, which reloads it. The browser
- * opens on Vite's port, and Vite proxies the API and the socket to the server. `pnpm dev` in
- * the checkout is this mode with development's ports and settings; a project that links the
- * checkout gets it as `ultrapaint --dev`.
+ * opens on Vite's port, and Vite proxies the API and the socket to the server. A session
+ * started without a configuration is kept in a directory the command owns, so the server's
+ * restarts keep it and quitting the command still throws it away. `pnpm dev` in the checkout
+ * is this mode with development's ports and settings; a project that links the checkout gets
+ * it as `ultrapaint --dev`.
  *
  * `scripts/cli.ts` is the command on the PATH (`pnpm install:cli`) and in a project's
  * `node_modules/.bin` (`ultrapaint@link:<checkout>`); `scripts/dev-runner.ts` is `pnpm dev`.
@@ -21,7 +23,7 @@ import { createRequire } from "node:module";
 import { networkInterfaces } from "node:os";
 import path from "node:path";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
-import { Console, Effect, Schedule, Stream } from "effect";
+import { Console, Effect, FileSystem, Schedule, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -219,38 +221,55 @@ export const main = (args: readonly string[]): void => {
     cwd
   );
 
-  /** The server under `tsx watch` and the editor under Vite, side by side in one scope. */
-  const develop = Effect.all(
-    [
-      run(
-        process.execPath,
-        [
-          tsx,
-          "watch",
-          "--clear-screen=false",
-          "--tsconfig",
-          serverTsconfig,
-          serverBin,
-          "--host",
-          host,
-          "--port",
-          String(serverPort),
-          ...serverArgs,
-        ],
-        cwd,
-        { name: "server" }
-      ),
-      run(process.execPath, [vite], webDir, {
-        env: {
-          ULTRAPAINT_HOST: host,
-          ULTRAPAINT_PORT: String(serverPort),
-          ULTRAPAINT_WEB_PORT: String(webPort),
-        },
-        name: "web",
-      }),
-    ],
-    { concurrency: "unbounded" }
-  );
+  /**
+   * The server under `tsx watch` and the editor under Vite, side by side in one scope. `tsx
+   * watch` restarts the server whenever a source changes; an unsaved session lives in a
+   * directory of the command's scope so that it survives those restarts.
+   */
+  const develop = Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const session =
+      flagValue(serverArgs, "--session-dir") === undefined
+        ? [
+            "--session-dir",
+            yield* fs.makeTempDirectoryScoped({
+              prefix: "ultrapaint-session-",
+            }),
+          ]
+        : [];
+    return yield* Effect.all(
+      [
+        run(
+          process.execPath,
+          [
+            tsx,
+            "watch",
+            "--clear-screen=false",
+            "--tsconfig",
+            serverTsconfig,
+            serverBin,
+            "--host",
+            host,
+            "--port",
+            String(serverPort),
+            ...session,
+            ...serverArgs,
+          ],
+          cwd,
+          { name: "server" }
+        ),
+        run(process.execPath, [vite], webDir, {
+          env: {
+            ULTRAPAINT_HOST: host,
+            ULTRAPAINT_PORT: String(serverPort),
+            ULTRAPAINT_WEB_PORT: String(webPort),
+          },
+          name: "web",
+        }),
+      ],
+      { concurrency: "unbounded" }
+    );
+  });
 
   const program = Effect.gen(function* () {
     if (informational) {

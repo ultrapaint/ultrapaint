@@ -13,6 +13,8 @@ export interface StorageFlags {
   readonly ephemeral: boolean;
   /** `--home`: a directory that keeps settings and state; with `--config` it only relocates the state. */
   readonly home: string | undefined;
+  /** `--session-dir`: where an unsaved session keeps what it has, across restarts of the server. */
+  readonly sessionDir?: string | undefined;
   /** The user's home directory. */
   readonly userHome: string;
 }
@@ -44,11 +46,21 @@ export const resolveStorage = Effect.fn("resolveStorage")(function* (
     userDir,
   });
 
+  const ephemeral: ResolvedStorage = {
+    storage: flags.sessionDir
+      ? {
+          mode: "ephemeral",
+          sessionDir: path.resolve(flags.cwd, flags.sessionDir),
+        }
+      : { mode: "ephemeral" },
+    userDir,
+  };
+
   if (flags.config) {
     return fileTarget(path.resolve(flags.cwd, flags.config));
   }
   if (flags.ephemeral) {
-    return { storage: { mode: "ephemeral" }, userDir } as ResolvedStorage;
+    return ephemeral;
   }
   if (flags.home) {
     return {
@@ -73,5 +85,5 @@ export const resolveStorage = Effect.fn("resolveStorage")(function* (
       return fileTarget(candidate);
     }
   }
-  return { storage: { mode: "ephemeral" }, userDir } as ResolvedStorage;
+  return ephemeral;
 });

@@ -5,7 +5,9 @@ import { Context } from "effect";
  * - `managed`: `--home <dir>`, as `pnpm dev` passes it. `settings.json` and all state live in `home`.
  * - `file`: a configuration file in (or near) the repository; state sits in `stateDir`.
  * - `ephemeral`: no configuration was given or found. Nothing is written outside a temporary
- *   directory that goes away with the process, until the user saves a configuration.
+ *   directory that goes away with the process, until the user saves a configuration. The
+ *   `ultrapaint` command lends a `sessionDir` that outlives the server, so a restart under
+ *   `--dev` keeps the session; the command removes it when it exits.
  */
 export type StorageTarget =
   | { readonly mode: "managed"; readonly home: string }
@@ -14,7 +16,7 @@ export type StorageTarget =
       readonly configPath: string;
       readonly stateDir: string;
     }
-  | { readonly mode: "ephemeral" };
+  | { readonly mode: "ephemeral"; readonly sessionDir?: string };
 
 /** `0.0.0.0` and `::` bind every interface; they are not addresses a client connects to. */
 const WILDCARDS = new Set(["0.0.0.0", "::"]);

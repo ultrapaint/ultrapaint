@@ -64,9 +64,12 @@ export type ProjectConfig = typeof ProjectConfig.Type;
 /** File name looked for from the working directory upwards when no `--config` is given. */
 export const CONFIG_FILE_NAME = "ultrapaint.json";
 
+/** Where pages go when the repository has no designs directory yet. */
+export const DEFAULT_DESIGNS_DIR = "docs/designs";
+
 export const defaultSettings = (repoPath: string): Settings => ({
   componentPackages: [],
-  designsDir: "designs",
+  designsDir: DEFAULT_DESIGNS_DIR,
   hostCss: [],
   libraryDirs: [],
   repoPath,
@@ -97,6 +100,8 @@ export const StorageInfo = Schema.Struct({
   /** Repository the first-run setup should propose: the config's directory or the git root. */
   defaultRepoPath: Schema.optional(Schema.String),
   mode: StorageMode,
+  /** An unsaved session the command keeps across restarts of the server, until it stops. */
+  session: Schema.optional(Schema.Boolean),
 });
 export type StorageInfo = typeof StorageInfo.Type;
 

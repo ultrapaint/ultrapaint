@@ -35,6 +35,7 @@ import { ContextMenuHost } from "./components/context-menu-host.tsx";
 import { DialogHost } from "./components/dialogs.tsx";
 import { IconButton } from "./components/icon-button.tsx";
 import { ResizeHandle, usePanelWidth } from "./components/resize-handle.tsx";
+import { openSetup, SetupDialog } from "./components/setup-dialog.tsx";
 import { useShortcuts } from "./lib/shortcuts.ts";
 import { Changes } from "./panels/changes.tsx";
 import { CodePanel } from "./panels/code.tsx";
@@ -151,7 +152,7 @@ const openSaveConfig = () => {
   if (settings) {
     open(true);
   } else {
-    openSettings();
+    openSetup();
   }
 };
 
@@ -170,9 +171,13 @@ const ProjectHeader = () => {
           ) : null}
         </div>
       ) : (
-        <span className="min-w-0 flex-1 truncate text-muted-foreground">
-          No repository configured
-        </span>
+        <button
+          className="min-w-0 flex-1 truncate text-left text-muted-foreground outline-none hover:text-foreground focus-visible:underline"
+          onClick={openSetup}
+          type="button"
+        >
+          No repository set up
+        </button>
       )}
       {info.storage.mode === "ephemeral" && (
         <IconButton
@@ -180,9 +185,9 @@ const ProjectHeader = () => {
           onClick={openSaveConfig}
           tooltip={
             <span className="block max-w-64">
-              Not saved. Started without a configuration file, so settings and
-              agent threads are lost when the tool stops. Click to save a
-              configuration.
+              {info.setup === "detected"
+                ? "Not saved. The settings were detected in the repository, and agent threads are lost when the tool stops. Click to save a configuration."
+                : "Not saved. Started without a configuration file, so settings and agent threads are lost when the tool stops. Click to save a configuration."}
             </span>
           }
         >
@@ -428,6 +433,7 @@ export const App = () => {
           </div>
         )}
         <SaveConfigDialog />
+        <SetupDialog />
         <DialogHost />
         <ContextMenuHost />
         <Toaster

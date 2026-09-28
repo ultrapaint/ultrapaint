@@ -64,6 +64,10 @@ export class Storage extends Context.Service<
       } else if (target.mode === "file") {
         ({ stateDir } = target);
         yield* prepare(stateDir, true);
+      } else if (target.sessionDir) {
+        // Lent by the command, which removes it: a restart of the server finds it as it was.
+        stateDir = target.sessionDir;
+        yield* prepare(stateDir, false);
       } else {
         // Scoped to the layer: the directory goes away when the server shuts down.
         stateDir = yield* Effect.orDie(
@@ -94,7 +98,11 @@ export class Storage extends Context.Service<
             mode: "managed",
           };
         }
-        return { defaultRepoPath: cwdRepo, mode: "ephemeral" };
+        return {
+          defaultRepoPath: cwdRepo,
+          mode: "ephemeral",
+          ...(target.sessionDir ? { session: true } : {}),
+        };
       });
 
       const promote = Effect.fn("Storage.promote")(function* (

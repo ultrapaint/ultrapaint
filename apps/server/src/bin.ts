@@ -59,6 +59,13 @@ const serve = Command.make(
       Flag.withFallbackConfig(Config.Int("ULTRAPAINT_PORT")),
       Flag.withDefault(4770)
     ),
+    sessionDir: Flag.String("session-dir").pipe(
+      Flag.withDescription(
+        "Directory an unsaved session keeps its settings and state in, so they survive a restart; the caller removes it"
+      ),
+      Flag.withFallbackConfig(Config.String("ULTRAPAINT_SESSION_DIR")),
+      Flag.optional
+    ),
     webDist: Flag.String("web-dist").pipe(
       Flag.withDescription("Built editor bundle to serve"),
       Flag.withFallbackConfig(Config.String("ULTRAPAINT_WEB_DIST")),
@@ -74,6 +81,7 @@ const serve = Command.make(
     noDiscovery,
     noMcp,
     port,
+    sessionDir,
     webDist,
   }) {
     const cwd = process.cwd();
@@ -82,6 +90,7 @@ const serve = Command.make(
       cwd,
       ephemeral,
       home: Option.getOrUndefined(home),
+      sessionDir: Option.getOrUndefined(sessionDir),
       userHome: process.env.HOME ?? cwd,
     });
     const resolved = ServerConfig.of({

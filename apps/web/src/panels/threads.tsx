@@ -103,7 +103,7 @@ import { AgentIcon } from "../components/agent-icon.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { Markdown } from "../components/markdown.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
-import { PanelEmpty } from "../components/panel.tsx";
+import { SetupEmpty } from "../components/setup-dialog.tsx";
 import {
   type DiffRow,
   diffCounts,
@@ -146,7 +146,7 @@ export const Threads = () => {
   }, [configured]);
 
   if (!configured) {
-    return <PanelEmpty>Configure a repository first</PanelEmpty>;
+    return <SetupEmpty />;
   }
 
   return (

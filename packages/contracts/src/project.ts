@@ -17,6 +17,11 @@ export const ProjectInfo = Schema.Struct({
   host: HostStatus,
   name: Schema.optional(Schema.String),
   repoPath: Schema.optional(Schema.String),
+  /**
+   * Where the open project's settings came from: `saved` by someone, or `detected` from the
+   * repository the server was started in, because nothing was saved.
+   */
+  setup: Schema.optional(Schema.Literals(["saved", "detected"])),
   /** Where settings and tool state are kept; drives the "not saved" warning. */
   storage: StorageInfo,
 });

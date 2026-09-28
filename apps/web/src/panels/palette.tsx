@@ -41,8 +41,8 @@ import {
 import { useHostUrl } from "../canvas/frame.tsx";
 import { drawSpecimen, hashOf } from "../canvas/specimens.ts";
 import { IconButton } from "../components/icon-button.tsx";
-import { PanelEmpty } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";
+import { SetupEmpty } from "../components/setup-dialog.tsx";
 import { insertNode, insertTarget } from "../lib/node-actions.ts";
 import { useCatalogue } from "../state/catalogue.ts";
 import { api } from "../state/connection.ts";
@@ -51,6 +51,7 @@ import { useDesignSystem } from "../state/design-system.ts";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
+import { ensureEditable } from "../state/setup.ts";
 
 type View = "list" | "grid";
 const VIEW_KEY = "ultrapaint:palette-view";
@@ -100,6 +101,10 @@ const entryHandlers = (
     }
   },
   onDragStart: (e: React.DragEvent) => {
+    if (!ensureEditable()) {
+      e.preventDefault();
+      return;
+    }
     e.dataTransfer.effectAllowed = "copy";
     e.dataTransfer.setData(PALETTE_MIME, JSON.stringify(make()));
     beginDrag({ kind: "new", name }, e.clientX, e.clientY, false);
@@ -288,7 +293,7 @@ export const Palette = () => {
   };
 
   if (!configured) {
-    return <PanelEmpty>Configure a repository first</PanelEmpty>;
+    return <SetupEmpty />;
   }
 
   const byCategory = new Map<string, ComponentMeta[]>();

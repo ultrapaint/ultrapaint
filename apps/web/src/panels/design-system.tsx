@@ -31,6 +31,7 @@ import { IconButton } from "../components/icon-button.tsx";
 import { Markdown } from "../components/markdown.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";
+import { SetupEmpty } from "../components/setup-dialog.tsx";
 import { startCommand } from "../lib/start-thread.ts";
 import {
   holdMenu,
@@ -492,7 +493,7 @@ export const DesignSystemPanel = () => {
   }, [configured, loaded]);
 
   if (!configured) {
-    return <PanelEmpty>Configure a repository first</PanelEmpty>;
+    return <SetupEmpty />;
   }
   if (!loaded) {
     return <PanelEmpty>Reading the design system…</PanelEmpty>;

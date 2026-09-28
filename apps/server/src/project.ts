@@ -29,6 +29,7 @@ import { GitService } from "./services/git.ts";
 import { HostManager } from "./services/host.ts";
 import { PagesService } from "./services/pages.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
+import { SettingsService } from "./services/settings.ts";
 import { SkillsService } from "./services/skills.ts";
 import { Storage } from "./services/storage.ts";
 import { Thumbnails } from "./services/thumbnails.ts";
@@ -119,6 +120,7 @@ export class ProjectManager extends Context.Service<
       const events = yield* EventBus;
       const log = yield* AppLog;
       const storage = yield* Storage;
+      const settingsService = yield* SettingsService;
       const managerScope = yield* Effect.scope;
       // open and close never interleave.
       const lifecycle = yield* Semaphore.make(1);
@@ -147,6 +149,9 @@ export class ProjectManager extends Context.Service<
             host: yield* host.status,
             name: path.basename(paths.root),
             repoPath: paths.root,
+            setup: (yield* settingsService.detected)
+              ? ("detected" as const)
+              : ("saved" as const),
           };
         })
       ).pipe(

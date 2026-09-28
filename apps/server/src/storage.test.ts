@@ -2,10 +2,19 @@ import { homedir } from "node:os";
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it, layer } from "@effect/vitest";
 import { Effect, Fiber, FileSystem, Layer, Path, Scope, Stream } from "effect";
-import { ServerConfig } from "./config.ts";
+import { AppLog } from "./app-log.ts";
+import { ServerConfig, type StorageTarget } from "./config.ts";
+import { EventBus } from "./events.ts";
 import { ServerLive } from "./server.ts";
+import { SettingsService } from "./services/settings.ts";
+import { Storage } from "./services/storage.ts";
 import { resolveStorage } from "./storage-resolve.ts";
-import { freePort, makeTestServer, TestEnv } from "./testing/harness.ts";
+import {
+  freePort,
+  makeRepository,
+  makeTestServer,
+  TestEnv,
+} from "./testing/harness.ts";
 
 const tempDir = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
@@ -52,6 +61,30 @@ describe("resolveStorage", () => {
         });
         assert.deepStrictEqual(forced.storage, { mode: "ephemeral" });
       }).pipe(Effect.provide(NodeServices.layer))
+  );
+
+  it.effect("keeps an unsaved session in the directory the command lends", () =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const cwd = yield* tempDir;
+      const resolved = yield* resolveStorage({
+        ...flags,
+        cwd,
+        sessionDir: "session",
+      });
+      assert.deepStrictEqual(resolved.storage, {
+        mode: "ephemeral",
+        sessionDir: path.join(cwd, "session"),
+      });
+      // A configuration, when there is one, is still where things are saved.
+      const saved = yield* resolveStorage({
+        ...flags,
+        cwd,
+        home: "/h",
+        sessionDir: "session",
+      });
+      assert.strictEqual(saved.storage.mode, "managed");
+    }).pipe(Effect.provide(NodeServices.layer))
   );
 
   it.effect(
@@ -326,3 +359,158 @@ describe("a configuration file that cannot be read", () => {
     }).pipe(Effect.provide(NodeServices.layer))
   );
 });
+
+/** The settings of an unsaved session alone, as one start of the server builds them. */
+const settingsOf = (cwd: string, storage: StorageTarget) =>
+  SettingsService.layer.pipe(
+    Layer.provideMerge(Storage.layer),
+    Layer.provide(AppLog.layer),
+    Layer.provide(EventBus.layer),
+    Layer.provide(
+      Layer.succeed(ServerConfig, {
+        briefing: true,
+        cwd,
+        discovery: false,
+        host: "127.0.0.1",
+        machine: { home: homedir(), path: process.env.PATH ?? "" },
+        mcp: false,
+        port: 0,
+        storage,
+        userDir: cwd,
+        version: "test",
+        webDist: undefined,
+      })
+    )
+  );
+
+describe("an unsaved session in a directory the command lends", () => {
+  it.effect("keeps its settings across restarts of the server", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const repo = yield* makeRepository;
+      const sessionDir = yield* tempDir;
+      const storage: StorageTarget = { mode: "ephemeral", sessionDir };
+      const settings = {
+        componentPackages: [],
+        designsDir: "designs",
+        hostCss: [],
+        libraryDirs: [],
+        repoPath: repo,
+        theme: "dark" as const,
+      };
+
+      const first = yield* Effect.scoped(
+        Effect.gen(function* () {
+          const service = yield* SettingsService;
+          assert.isNull(yield* service.get);
+          assert.isTrue((yield* service.set(settings)).ok);
+          assert.isFalse(yield* service.detected);
+          return yield* (yield* Storage).stateDir;
+        }).pipe(Effect.provide(settingsOf(repo, storage)))
+      );
+      assert.strictEqual(first, sessionDir);
+      assert.isTrue(yield* fs.exists(path.join(sessionDir, "session.json")));
+      assert.isFalse(yield* fs.exists(path.join(repo, "ultrapaint.json")));
+
+      // The restart: the server is built again on the same directory.
+      const again = yield* Effect.scoped(
+        Effect.flatMap(SettingsService, (service) => service.get).pipe(
+          Effect.provide(settingsOf(repo, storage))
+        )
+      );
+      assert.deepStrictEqual(again, settings);
+      // The directory is the command's: stopping the server leaves it.
+      assert.isTrue(yield* fs.exists(sessionDir));
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+
+  it.effect("holds detected settings in memory only", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const repo = yield* makeRepository;
+      const sessionDir = yield* tempDir;
+      const services = settingsOf(repo, { mode: "ephemeral", sessionDir });
+      const settings = {
+        componentPackages: [],
+        designsDir: "designs",
+        hostCss: [],
+        libraryDirs: [],
+        repoPath: repo,
+        theme: "light" as const,
+      };
+      yield* Effect.scoped(
+        Effect.gen(function* () {
+          const service = yield* SettingsService;
+          const missing = yield* service.adopt({
+            ...settings,
+            designsDir: "docs/designs",
+          });
+          assert.isFalse(missing.ok);
+          assert.isNull(yield* service.get);
+
+          assert.isTrue((yield* service.adopt(settings)).ok);
+          assert.isTrue(yield* service.detected);
+          assert.deepStrictEqual(yield* service.get, settings);
+          assert.isFalse(
+            yield* fs.exists(path.join(sessionDir, "session.json"))
+          );
+          // Once something is in force, detection does not replace it.
+          assert.isFalse((yield* service.adopt(settings)).ok);
+
+          // Applying them makes them the user's, and saved.
+          assert.isTrue((yield* service.set(settings)).ok);
+          assert.isFalse(yield* service.detected);
+          assert.isTrue(
+            yield* fs.exists(path.join(sessionDir, "session.json"))
+          );
+        }).pipe(Effect.provide(services))
+      );
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+});
+
+const DETECTED_PACKAGE = `${JSON.stringify({
+  dependencies: { react: "^19.0.0" },
+  name: "designs",
+})}\n`;
+
+/** Unsaved, started in a repository whose designs package detection recognises. */
+const Detected = makeTestServer(({ repo }) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    yield* fs.writeFileString(`${repo}/designs/package.json`, DETECTED_PACKAGE);
+    return { mode: "ephemeral" } as const;
+  })
+);
+
+layer(Detected, { excludeTestServices: true, timeout: "60 seconds" })(
+  "an unsaved session started in a repository that holds its pages",
+  (test) => {
+    test.effect("opens the repository with what detection finds", () =>
+      Effect.gen(function* () {
+        const { client, repo } = yield* TestEnv;
+        const opened = yield* Effect.gen(function* () {
+          while (!(yield* client["project.info"]()).configured) {
+            yield* Effect.sleep("100 millis");
+          }
+          return yield* client["project.info"]();
+        }).pipe(Effect.timeoutOption("20 seconds"));
+        assert.strictEqual(opened._tag, "Some");
+        const info = opened._tag === "Some" ? opened.value : null;
+        assert.strictEqual(info?.setup, "detected");
+        assert.strictEqual(info?.designsDir, "designs");
+        assert.strictEqual(info?.repoPath, repo);
+
+        // Applying settings makes them the saved ones.
+        const settings = yield* client["settings.get"]();
+        assert.isNotNull(settings);
+        if (settings) {
+          assert.isTrue((yield* client["settings.set"](settings)).ok);
+        }
+        assert.strictEqual((yield* client["project.info"]()).setup, "saved");
+      })
+    );
+  }
+);

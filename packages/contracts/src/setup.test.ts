@@ -1,7 +1,10 @@
-import { defaultSettings } from "@ultrapaint/contracts/settings";
-import type { SetupSuggestions } from "@ultrapaint/contracts/setup";
 import { describe, expect, it } from "vitest";
-import { applySuggestions, relativePosix } from "./setup.ts";
+import { defaultSettings } from "./settings.ts";
+import {
+  applySuggestions,
+  relativePosix,
+  type SetupSuggestions,
+} from "./setup.ts";
 
 const found: SetupSuggestions = {
   anchors: [
