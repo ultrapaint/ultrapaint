@@ -30,9 +30,9 @@ const isWork = (item: ThreadItem) =>
   item.kind === "tool" || item.kind === "thought";
 
 /**
- * Folds each run of tool calls and thoughts into one entry. A run with no tool call is only
- * thinking, and a lone tool call is already one line: both stay as they are. The end of a turn
- * carries the time of the prompt that started it, so the chat can say how long it took.
+ * Folds each run of tool calls and thoughts into one entry, a lone tool call included, so every
+ * call sits behind the same fold. A run with no tool call is only thinking and stays as it is. The
+ * end of a turn carries the time of the prompt that started it, so the chat can say how long it took.
  */
 export const groupWork = (
   items: readonly ThreadItem[]
@@ -42,7 +42,7 @@ export const groupWork = (
   let since: number | undefined;
   const flush = () => {
     const [first] = run;
-    if (first && run.length > 1 && run.some((i) => i.kind === "tool")) {
+    if (first && run.some((i) => i.kind === "tool")) {
       // Keyed by its first item, so the entry keeps its identity as the run grows.
       entries.push({ id: first.id, items: run, kind: "work" });
     } else {

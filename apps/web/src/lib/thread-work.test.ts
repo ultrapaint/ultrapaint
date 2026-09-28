@@ -66,14 +66,14 @@ describe("groupWork", () => {
     ]);
   });
 
-  it("leaves a lone tool call and a run of only thinking as they are", () => {
+  it("folds a lone tool call too, and leaves a run of only thinking as it is", () => {
     const items = [
       tool("a", "read"),
       text("answer", "agent"),
       text("t1", "thought"),
       text("t2", "thought"),
     ];
-    expect(shape(items)).toEqual(["a", "answer", "t1", "t2"]);
+    expect(shape(items)).toEqual([["a"], "answer", "t1", "t2"]);
   });
 
   it("keys a run by its first item, so it stays the same entry as it grows", () => {
@@ -90,7 +90,7 @@ describe("groupWork", () => {
     ]);
     expect(entries.map((e) => (e.kind === "turn" ? e.since : e.kind))).toEqual([
       "item",
-      "item",
+      "work",
       1000,
       undefined,
     ]);
