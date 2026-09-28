@@ -66,6 +66,69 @@ export type SessionMode = typeof SessionMode.Type;
 export const isModelOption = (option: ConfigOption): boolean =>
   option.category === "model" || option.id === "model";
 
+type Choice = ConfigOption["options"][number];
+
+const DEFAULT_CHOICE_RE = /^default\b/i;
+
+/** A choice that leaves the pick to the agent ("Default (recommended)"): it names nothing. */
+const isUnnamed = (choice: Choice) =>
+  choice.value === "default" || DEFAULT_CHOICE_RE.test(choice.name);
+
+const EFFORT_RE = /effort|thought|thinking|reasoning/i;
+
+/** Whether an option sets how hard the model thinks. */
+export const isEffortOption = (option: ConfigOption): boolean =>
+  option.category === "thought_level" || EFFORT_RE.test(option.id);
+
+/** The choices an option offers by name, without the agent's unnamed default. */
+export const namedChoices = (option: ConfigOption): readonly Choice[] => {
+  const named = option.options.filter((c) => !isUnnamed(c));
+  return named.length > 0 ? named : option.options;
+};
+
+/**
+ * The named choice the agent's unnamed default stands for, where it offers one: the first model
+ * it names; for effort, medium, the level the Claude adapter itself recommends.
+ */
+export const defaultChoice = (option: ConfigOption): string | undefined => {
+  if (!option.options.some(isUnnamed)) {
+    return undefined;
+  }
+  const named = namedChoices(option);
+  const medium = isEffortOption(option)
+    ? named.find((c) => c.value === "medium")
+    : undefined;
+  return (medium ?? named[0])?.value;
+};
+
+/**
+ * The options with named choices for the model and the effort: where the agent's own default is
+ * current, the choice it stands for. A thread always says what it answers with.
+ */
+export const withNamedChoices = (
+  options: readonly ConfigOption[]
+): readonly ConfigOption[] =>
+  options.map((o) => {
+    if (!(isModelOption(o) || isEffortOption(o))) {
+      return o;
+    }
+    const fallback = defaultChoice(o);
+    return fallback === undefined ||
+      namedChoices(o).some((c) => c.value === o.currentValue)
+      ? o
+      : { ...o, currentValue: fallback };
+  });
+
+const AUTO_MODE_RE = /^auto\b/i;
+
+/** The mode a thread starts in: the agent's automatic one where it has it, else its current one. */
+export const startingMode = (
+  modes: readonly SessionMode[] | undefined,
+  current: string | undefined
+) =>
+  modes?.find((m) => m.id === "auto" || AUTO_MODE_RE.test(m.name))?.id ??
+  current;
+
 /**
  * A thread is not tied to an agent: `agentId` is the one its next prompt goes to, and the user
  * can switch it between prompts. Its session starts with the first prompt that needs it, so a

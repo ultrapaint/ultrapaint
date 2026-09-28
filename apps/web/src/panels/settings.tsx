@@ -8,6 +8,7 @@ import {
   type ChatDefaults,
   isModelOption,
   type McpConnection,
+  namedChoices,
 } from "@ultrapaint/contracts/threads";
 import { cn } from "cn";
 import {
@@ -373,7 +374,6 @@ const SkillsGroup = ({
 };
 
 /** Stands for "no choice": the first agent, or the agent's own model. */
-const AGENT_DEFAULT = "";
 
 /**
  * The agent and model a new thread starts with. Saved as soon as it is picked: it is the
@@ -430,7 +430,8 @@ const ChatDefaultsGroup = () => {
     return null;
   }
   const listed = known.find((k) => k.agentId === agentId);
-  const models = listed?.configOptions.find(isModelOption)?.options ?? [];
+  const modelOption = listed?.configOptions.find(isModelOption);
+  const models = modelOption ? namedChoices(modelOption) : [];
   const save = (next: ChatDefaults) => {
     setDefaults(next);
     api().request("chat.setDefaults", next).catch(reportError);
@@ -446,8 +447,7 @@ const ChatDefaultsGroup = () => {
   } else if (models.length === 0) {
     modelDescription = "This agent offers no choice of model.";
   }
-  const onModel = (model: string) =>
-    save({ agentId, ...(model === AGENT_DEFAULT ? {} : { model }) });
+  const onModel = (model: string) => save({ agentId, model });
   return (
     <Group
       description="Applied as soon as they are picked. A thread switches agent or model in its composer."
@@ -464,15 +464,13 @@ const ChatDefaultsGroup = () => {
         <OptionSelect
           disabled={models.length === 0}
           onChange={onModel}
-          options={[
-            { label: "The agent's own default", value: AGENT_DEFAULT },
-            ...models.map((m) => ({
-              description: m.description,
-              label: m.name,
-              value: m.value,
-            })),
-          ]}
-          value={defaults.model ?? AGENT_DEFAULT}
+          options={models.map((m) => ({
+            description: m.description,
+            label: m.name,
+            value: m.value,
+          }))}
+          // Unset, a thread starts with the first model the agent names.
+          value={defaults.model ?? models[0]?.value ?? null}
         />
       </Row>
     </Group>

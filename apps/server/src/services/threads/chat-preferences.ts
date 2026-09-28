@@ -2,7 +2,9 @@ import {
   AgentOptions,
   ChatDefaults,
   isModelOption,
+  startingMode,
   type Thread,
+  withNamedChoices,
 } from "@ultrapaint/contracts/threads";
 import { Context, Effect, FileSystem, Layer, Path, Schema } from "effect";
 import { AppLog } from "../../app-log.ts";
@@ -104,8 +106,8 @@ export class ChatPreferences extends Context.Service<
                 )
               : known.configOptions;
           return {
-            configOptions,
-            currentModeId: known.currentModeId,
+            configOptions: withNamedChoices(configOptions),
+            currentModeId: startingMode(known.modes, known.currentModeId),
             modes: known.modes,
           };
         });

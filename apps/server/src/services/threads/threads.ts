@@ -37,6 +37,7 @@ import {
   type Question,
   type Thread,
   type ThreadItem,
+  withNamedChoices,
 } from "@ultrapaint/contracts/threads";
 import {
   Clock,
@@ -677,10 +678,11 @@ export class ThreadService extends Context.Service<
           });
         }
         // Chosen before the session existed, or while it booted: the thread's, else the defaults.
-        const wanted =
+        const wanted = withNamedChoices(
           (yield* store.get(threadId))?.configOptions ??
-          (yield* preferences.optionsFor(thread.agentId)).configOptions ??
-          [];
+            (yield* preferences.optionsFor(thread.agentId)).configOptions ??
+            []
+        );
         const configOptions = yield* applyOptions(
           session,
           info.sessionId,

@@ -1,12 +1,16 @@
 import type { Page } from "@ultrapaint/contracts/pages";
 import {
   type ConfigOption,
+  defaultChoice,
+  isEffortOption,
   isModelOption,
+  namedChoices,
   type PromptAttachment,
   type SlashCommand,
   type Thread,
   type ThreadItem,
   type ToolContent,
+  withNamedChoices,
 } from "@ultrapaint/contracts/threads";
 import { nodeLabel } from "@ultrapaint/design-document/tree";
 import { cn } from "cn";
@@ -20,12 +24,21 @@ import {
   ChevronRight,
   CircleAlert,
   CircleHelp,
+  Eye,
+  FilePen,
+  FolderPen,
+  Hand,
   ListTodo,
+  type LucideIcon,
+  NotebookPen,
   Paperclip,
   Plus,
+  Shield,
   ShieldAlert,
   ShieldCheck,
+  ShieldOff,
   ShieldQuestion,
+  Sparkles,
   Square,
   SquareDashedMousePointer,
   Trash2,
@@ -86,6 +99,7 @@ import {
 } from "@/components/ui/message-scroller";
 import { bridgeFor } from "../canvas/bridge.ts";
 import { frameIdOf } from "../canvas/prototype.tsx";
+import { AgentIcon } from "../components/agent-icon.tsx";
 import { confirmDialog } from "../components/dialogs.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { Markdown } from "../components/markdown.tsx";
@@ -967,11 +981,6 @@ const switchOnValue = (option: ConfigOption): string | null => {
   return null;
 };
 
-const EFFORT_RE = /effort|thought|thinking|reasoning/i;
-
-const isEffortOption = (o: ConfigOption) =>
-  o.category === "thought_level" || EFFORT_RE.test(o.id);
-
 const setConfigOption = (threadId: string, optionId: string, value: string) =>
   api()
     .request("threads.setConfigOption", { optionId, threadId, value })
@@ -1019,6 +1028,10 @@ const SwitchOptionItem = ({
   );
 };
 
+/**
+ * A choice among an option's values, in a submenu. The agent's unnamed default is not offered:
+ * the value it stands for carries a badge instead.
+ */
 const SelectOptionSub = ({
   option,
   threadId,
@@ -1028,20 +1041,21 @@ const SelectOptionSub = ({
 }) => {
   const onValueChange = (value: unknown) =>
     setConfigOption(threadId, option.id, value as string);
+  const fallback = defaultChoice(option);
   return (
     <DropdownMenuSub>
       <DropdownMenuSubTrigger>
-        {option.name}
-        <span className="ml-auto max-w-32 truncate text-muted-foreground">
+        <span className="shrink-0">{option.name}</span>
+        <span className="min-w-0 flex-1 truncate text-right text-muted-foreground">
           {currentName(option)}
         </span>
       </DropdownMenuSubTrigger>
-      <DropdownMenuSubContent className="max-h-80 min-w-48">
+      <DropdownMenuSubContent className={cn("max-h-80 min-w-48", roomyItems)}>
         <DropdownMenuRadioGroup
           onValueChange={onValueChange}
           value={option.currentValue}
         >
-          {option.options.map((o) => (
+          {namedChoices(option).map((o) => (
             <DropdownMenuRadioItem key={o.value} value={o.value}>
               <span className="flex min-w-0 flex-col">
                 <span>{o.name}</span>
@@ -1051,6 +1065,11 @@ const SelectOptionSub = ({
                   </span>
                 ) : null}
               </span>
+              {o.value === fallback ? (
+                <Badge className="ml-auto" variant="secondary">
+                  Default
+                </Badge>
+              ) : null}
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
@@ -1059,28 +1078,10 @@ const SelectOptionSub = ({
   );
 };
 
-/**
- * Agent, model and session options in one menu below the prompt, Cursor-style: switches first,
- * then the other choices, the model last; the agent itself at the bottom. Before the thread's
- * session exists the options are the ones the agent offered last time, applied when it starts.
- */
-const ModelPicker = ({ thread }: { thread: Thread }) => {
+/** The agent a thread's next prompt goes to, with its mark by each one. */
+const AgentSub = ({ thread }: { thread: Thread }) => {
   const agents = useAgents((s) => s.agents);
   const agent = agents.find((a) => a.id === thread.agentId);
-  // Session modes have their own picker next to this one.
-  const hasModePicker = (thread.modes?.length ?? 0) > 0;
-  const options = (thread.configOptions ?? []).filter(
-    (o) => !(hasModePicker && o.category === "mode")
-  );
-  const model = options.find(isModelOption);
-  const effort = options.find(isEffortOption);
-  const switches = options.flatMap((o) => {
-    const onValue = switchOnValue(o);
-    return onValue ? [{ onValue, option: o }] : [];
-  });
-  const selects = options.filter(
-    (o) => !(switchOnValue(o) || isModelOption(o))
-  );
   const busy = thread.status === "running" || thread.status === "cancelling";
   const onAgentChange = (agentId: unknown) => {
     if (agentId !== thread.agentId) {
@@ -1092,61 +1093,17 @@ const ModelPicker = ({ thread }: { thread: Thread }) => {
         .catch(reportError);
     }
   };
-  const effortName =
-    effort && !switchOnValue(effort) ? currentName(effort) : null;
-
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            className="min-w-0 gap-1 px-1.5 font-normal text-muted-foreground hover:text-foreground"
-            size="sm"
-            variant="ghost"
-          />
-        }
-      >
-        <span className="shrink-0">{agent?.name ?? thread.agentId}</span>
-        {model ? (
-          <span className="truncate text-foreground">{currentName(model)}</span>
-        ) : null}
-        {effortName ? (
-          <span className="shrink-0 text-muted-foreground">{effortName}</span>
-        ) : null}
-        <ChevronDown className="shrink-0" data-icon="inline-end" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-60" side="top">
-        {switches.length > 0 && (
-          <DropdownMenuGroup>
-            {switches.map(({ option, onValue }) => (
-              <SwitchOptionItem
-                key={option.id}
-                onValue={onValue}
-                option={option}
-                threadId={thread.id}
-              />
-            ))}
-          </DropdownMenuGroup>
-        )}
-        {selects.length > 0 && (
-          <DropdownMenuGroup>
-            {selects.map((o) => (
-              <SelectOptionSub key={o.id} option={o} threadId={thread.id} />
-            ))}
-          </DropdownMenuGroup>
-        )}
-        {model ? (
-          <DropdownMenuGroup>
-            <SelectOptionSub option={model} threadId={thread.id} />
-          </DropdownMenuGroup>
-        ) : null}
-        {options.length > 0 && <DropdownMenuSeparator />}
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger>
+        <span className="shrink-0">Provider</span>
+        <span className="flex min-w-0 flex-1 items-center justify-end gap-1.5 text-muted-foreground">
+          <AgentIcon agentId={thread.agentId} className="size-3" />
+          <span className="truncate">{agent?.name ?? thread.agentId}</span>
+        </span>
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className={cn("min-w-48", roomyItems)}>
         <DropdownMenuGroup>
-          <DropdownMenuLabel className="text-[10px]">
-            {busy
-              ? "Agent · after this turn"
-              : "Agent · the conversation carries over"}
-          </DropdownMenuLabel>
           <DropdownMenuRadioGroup
             onValueChange={onAgentChange}
             value={thread.agentId}
@@ -1158,12 +1115,104 @@ const ModelPicker = ({ thread }: { thread: Thread }) => {
                 key={a.id}
                 value={a.id}
               >
-                <Bot />
+                <AgentIcon agentId={a.id} />
                 {a.name}
               </DropdownMenuRadioItem>
             ))}
           </DropdownMenuRadioGroup>
         </DropdownMenuGroup>
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  );
+};
+
+/**
+ * Agent, model and session options in one menu below the prompt: the provider first, then the
+ * model, the effort and the agent's other choices; its switches below a divider. Before the
+ * thread's session exists the options are the ones the agent offered last time, applied when it
+ * starts.
+ */
+const ModelPicker = ({ thread }: { thread: Thread }) => {
+  const agents = useAgents((s) => s.agents);
+  const agent = agents.find((a) => a.id === thread.agentId);
+  // Session modes have their own picker next to this one.
+  const hasModePicker = (thread.modes?.length ?? 0) > 0;
+  // The agent's unnamed default is never shown: the thread starts on the first model it names.
+  const options = withNamedChoices(thread.configOptions ?? []).filter(
+    (o) => !(hasModePicker && o.category === "mode")
+  );
+  const model = options.find(isModelOption);
+  const effort = options.find(isEffortOption);
+  const switches = options.flatMap((o) => {
+    const onValue = switchOnValue(o);
+    return onValue ? [{ onValue, option: o }] : [];
+  });
+  const selects = options.filter(
+    (o) => !(switchOnValue(o) || isModelOption(o) || o === effort)
+  );
+  const effortName =
+    effort && !switchOnValue(effort) ? currentName(effort) : null;
+  const agentName = agent?.name ?? thread.agentId;
+  const modelName = model ? currentName(model) : undefined;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            className={cn(pickerTrigger, "min-w-0")}
+            size="sm"
+            title={
+              modelName ? `${agentName} · ${modelName}` : `Agent: ${agentName}`
+            }
+            variant="ghost"
+          />
+        }
+      >
+        <AgentIcon agentId={thread.agentId} className="size-3.5" />
+        <span className="truncate">{modelName ?? agentName}</span>
+        {effortName ? (
+          <span className="@max-sm:hidden shrink-0 text-muted-foreground">
+            {effortName}
+          </span>
+        ) : null}
+        <ChevronDown
+          className="shrink-0 text-muted-foreground"
+          data-icon="inline-end"
+        />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        className={cn("w-64", roomyItems)}
+        side="top"
+      >
+        <DropdownMenuGroup>
+          <AgentSub thread={thread} />
+          {model ? (
+            <SelectOptionSub option={model} threadId={thread.id} />
+          ) : null}
+          {effort && !switchOnValue(effort) ? (
+            <SelectOptionSub option={effort} threadId={thread.id} />
+          ) : null}
+          {selects.map((o) => (
+            <SelectOptionSub key={o.id} option={o} threadId={thread.id} />
+          ))}
+        </DropdownMenuGroup>
+        {switches.length > 0 && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              {switches.map(({ option, onValue }) => (
+                <SwitchOptionItem
+                  key={option.id}
+                  onValue={onValue}
+                  option={option}
+                  threadId={thread.id}
+                />
+              ))}
+            </DropdownMenuGroup>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -1202,6 +1251,32 @@ const ScopeChip = ({ thread }: { thread: Thread }) => {
   );
 };
 
+/** The composer's menus have roomier rows than the editor's. */
+const roomyItems =
+  "[&_[role^=menuitem]]:min-h-8 [&_[role^=menuitem]]:text-[13px]";
+
+/** The composer's pickers: plain at rest, on the secondary surface while hovered or open. */
+const pickerTrigger =
+  "shrink gap-1 px-1.5 font-normal hover:bg-secondary aria-expanded:bg-secondary dark:hover:bg-secondary";
+
+/** What each agent's modes let it do, drawn small enough to stand for the mode alone. */
+const MODE_ICONS: Record<string, LucideIcon> = {
+  acceptEdits: FilePen,
+  agent: Sparkles,
+  "agent-full-access": ShieldOff,
+  auto: Sparkles,
+  bypassPermissions: ShieldOff,
+  default: Hand,
+  plan: NotebookPen,
+  "read-only": Eye,
+  "workspace-write": FolderPen,
+};
+
+const ModeIcon = ({ modeId }: { modeId: string | undefined }) => {
+  const Icon = (modeId && MODE_ICONS[modeId]) || Shield;
+  return <Icon className="size-3.5" />;
+};
+
 const ModePicker = ({ thread }: { thread: Thread }) => {
   const modes = thread.modes ?? [];
   if (modes.length === 0) {
@@ -1220,25 +1295,34 @@ const ModePicker = ({ thread }: { thread: Thread }) => {
       <DropdownMenuTrigger
         render={
           <Button
-            className="min-w-0 gap-1 rounded-full bg-muted px-2 font-normal"
+            className={cn(pickerTrigger, "min-w-7 shrink-0")}
             size="sm"
+            title={current ? `Mode: ${current.name}` : "Mode"}
             variant="ghost"
           />
         }
       >
-        <span className="truncate">{current?.name ?? "Mode"}</span>
+        <ModeIcon modeId={current?.id} />
+        <span className="@max-sm:hidden truncate">
+          {current?.name ?? "Mode"}
+        </span>
         <ChevronDown
-          className="shrink-0 text-muted-foreground"
+          className="@max-sm:hidden shrink-0 text-muted-foreground"
           data-icon="inline-end"
         />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56" side="top">
+      <DropdownMenuContent
+        align="start"
+        className={cn("w-60", roomyItems)}
+        side="top"
+      >
         <DropdownMenuRadioGroup
           onValueChange={onValueChange}
           value={thread.currentModeId ?? null}
         >
           {modes.map((m) => (
             <DropdownMenuRadioItem key={m.id} value={m.id}>
+              <ModeIcon modeId={m.id} />
               <span className="flex min-w-0 flex-col">
                 <span>{m.name}</span>
                 {m.description ? (
@@ -1483,7 +1567,7 @@ const Composer = ({ thread }: { thread: Thread }) => {
           placeholder={`Ask ${agentName} to change the design, or type / for commands…`}
           value={text}
         />
-        <div className="flex items-center gap-1 px-1.5 pb-1.5">
+        <div className="@container flex min-w-0 items-center gap-1 px-1.5 pb-1.5">
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
@@ -1498,7 +1582,11 @@ const Composer = ({ thread }: { thread: Thread }) => {
             >
               <Plus />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56" side="top">
+            <DropdownMenuContent
+              align="start"
+              className={cn("w-60", roomyItems)}
+              side="top"
+            >
               <DropdownMenuGroup>
                 <DropdownMenuLabel>
                   Send along with the prompt
