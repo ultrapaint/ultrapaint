@@ -49,7 +49,7 @@ const sortKeys = (value: object) =>
   );
 
 /**
- * The settings, wherever the storage target keeps them: the desktop app's `settings.json`, an
+ * The settings, wherever the storage target keeps them: a home directory's `settings.json`, an
  * `ultrapaint.json` in the repository, or only memory when the session is unsaved.
  */
 export class SettingsService extends Context.Service<
@@ -145,7 +145,7 @@ export class SettingsService extends Context.Service<
               new ConfigInvalid({ file: file.path, message: error.message })
           );
         }
-        // The desktop app's own file: an outdated one must not stop the app from starting.
+        // The home directory's own file: an outdated one must not stop the app from starting.
         return yield* Effect.catch(loaded, (error) =>
           Effect.as(
             log.log(

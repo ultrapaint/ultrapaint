@@ -26,7 +26,7 @@ const serve = Command.make(
     ),
     home: Flag.String("home").pipe(
       Flag.withDescription(
-        "Directory for settings and state, as the desktop app uses it"
+        "Directory that keeps settings and state across runs, wherever the command is started"
       ),
       Flag.withFallbackConfig(Config.String("ULTRAPAINT_HOME")),
       Flag.optional

@@ -1,11 +1,9 @@
 /**
- * Host platform integration. The browser build has none; the desktop shell installs its own
- * implementation before the app boots. The editor never imports Electron directly.
+ * Host platform integration. The browser build has none: the editor is served by the backend
+ * and talks to the origin it came from. A host that serves the editor from elsewhere sets
+ * `window.ultrapaintPlatform` before the app boots.
  */
 export interface Platform {
-  readonly kind: "browser" | "desktop";
-  /** Opens a native folder picker and resolves with the chosen absolute path, or null. */
-  pickFolder?: () => Promise<string | null>;
   /** Base URL of the backend; undefined means same origin. */
   serverUrl?: string;
 }
@@ -17,6 +15,4 @@ declare global {
 }
 
 export const getPlatform = (): Platform =>
-  (typeof window !== "undefined" && window.ultrapaintPlatform) || {
-    kind: "browser",
-  };
+  (typeof window !== "undefined" && window.ultrapaintPlatform) || {};

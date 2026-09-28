@@ -449,13 +449,12 @@ behaviour and review readability, and a recommendation on TSX.
 | 6 M4 Real components | done | Catalogue (325/327), palette with click-to-insert, typed prop controls, extra source dirs via settings. |
 | 7 M5 Agents | done | ACP package, data-only launch configs, threads, streaming, permissions, context attachments, parallel threads, edits reach the canvas, persistence and `session/load`, generic modes/options. Codex verified to the model boundary (usage limit on the account). |
 | 8 M6 Versioning | done | Per-file lease, git status/diff/commit panel, agent turn checkpoints with diff and revert. |
-| 9 M7 Desktop shell | done (dev boot) | Electron runs the bundled server and loads the built web bundle; folder picker through the preload bridge. Packaging into an installer is not done. |
+| 9 M7 Desktop shell | removed | Electron ran the bundled server and loaded the built web bundle; removed on 2026-09-28, the tool is a command run in the repository (ADR 0017). |
 | 10 Checkpoint | done | `docs/decisions/storage-format.md`: keep TSX. |
 
 ### Open items
 
 - ~~Formatter latency~~: no longer applies; edits are document operations and nothing is formatted.
-- Desktop: package the Electron app (electron-builder or similar); today it runs from the checkout with `pnpm -F @ultrapaint/desktop dev`.
 - Canvas: align and distribute; scripted frame-rate measurement with 12 frames.
 - Deviations from D6: Biome recommended rules instead of ultracite; plain Vite instead of vite-plus for this repository.
 

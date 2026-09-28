@@ -74,7 +74,7 @@ describe("resolveStorage", () => {
   );
 
   it.effect(
-    "uses --home as the desktop app does, and as the state directory of a --config",
+    "uses --home as a home of its own, and as the state directory of a --config",
     () =>
       Effect.gen(function* () {
         const cwd = yield* tempDir;

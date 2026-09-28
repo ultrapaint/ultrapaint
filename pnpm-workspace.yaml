@@ -12,7 +12,7 @@ overrides:
   effect: 'catalog:'
 
 allowBuilds:
-  electron: true
+  electron: set this to true or false
   esbuild: true
 
 minimumReleaseAgeExclude:

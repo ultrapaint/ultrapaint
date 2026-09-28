@@ -1,4 +1,3 @@
-import { getPlatform } from "@ultrapaint/client-runtime/platform";
 import type { Settings, StorageInfo } from "@ultrapaint/contracts/settings";
 import { defaultSettings } from "@ultrapaint/contracts/settings";
 import type { SetupSuggestions } from "@ultrapaint/contracts/setup";
@@ -592,7 +591,6 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const [busy, setBusy] = useState(false);
   const idleLabel = unsaved ? "Apply" : "Save and open";
   const saveLabel = busy ? "Validating…" : idleLabel;
-  const platform = getPlatform();
 
   const apply = async (): Promise<boolean> => {
     setBusy(true);
@@ -689,12 +687,6 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [saved]);
-  const browse = async () => {
-    const p = await platform.pickFolder?.();
-    if (p) {
-      setDraft((d) => ({ ...d, repoPath: p }));
-    }
-  };
   const onRepoPath = (e: React.ChangeEvent<HTMLInputElement>) => {
     const repoPath = e.target.value;
     setDraft((d) => ({ ...d, repoPath }));
@@ -759,20 +751,13 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           title="Repository path"
           wide
         >
-          <div className="flex gap-1">
-            <Input
-              id="settings-repo"
-              onChange={onRepoPath}
-              placeholder="/Users/you/code/repo"
-              readOnly={repoFromFile}
-              value={draft.repoPath}
-            />
-            {platform.pickFolder && !repoFromFile ? (
-              <Button onClick={browse} variant="outline">
-                Browse…
-              </Button>
-            ) : null}
-          </div>
+          <Input
+            id="settings-repo"
+            onChange={onRepoPath}
+            placeholder="/Users/you/code/repo"
+            readOnly={repoFromFile}
+            value={draft.repoPath}
+          />
         </Row>
         <Row
           description="Relative to the repository. Pages are saved here as design documents (.page.json), with the design system beside them."

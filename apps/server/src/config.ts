@@ -2,7 +2,7 @@ import { Context } from "effect";
 
 /**
  * Where settings and tool state go, decided once at startup.
- * - `managed`: the desktop app. `settings.json` and all state live in `home`.
+ * - `managed`: `--home <dir>`, as `pnpm dev` passes it. `settings.json` and all state live in `home`.
  * - `file`: a configuration file in (or near) the repository; state sits in `stateDir`.
  * - `ephemeral`: no configuration was given or found. Nothing is written outside a temporary
  *   directory that goes away with the process, until the user saves a configuration.

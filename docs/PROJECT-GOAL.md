@@ -64,14 +64,15 @@ Build a local-first design tool for teams that work with coding agents.
   accesses these directly.
 
 - **Follow the T3 Code repository structure.** T3 Code already solves this split for a
-  local agent tool: a web app, a local server, and a desktop shell sharing one codebase.
-  During implementation, study how that repo divides packages, defines the API between
-  web and server, and shares types, and use the same structure and conventions here.
+  local agent tool: a web app and a local server sharing one codebase. During
+  implementation, study how that repo divides packages, defines the API between web and
+  server, and shares types, and use the same structure and conventions here.
 
-- **One web app, multiple shells.** Because the UI is a plain web app, it can run in a
-  browser against the local backend today and be wrapped in Electron later without
-  changes to the editor itself. The desktop shell adds native integration only, not
-  features.
+- **A command run in the repository, and the browser.** The tool is started where the
+  repository is, the way a dev server is, and serves the editor to the browser. Because the
+  UI is a plain web app, another shell could serve it later without changes to the editor
+  itself; a shell would add native integration only, not features. The Electron shell that
+  once existed was removed ([ADR 0017](adr/0017-a-command-in-the-repository.md)).
 
 - **ACP is the only agent interface.** The backend hosts agents as ACP sessions: it
   spawns the agent process, relays prompts, streams updates and tool activity to the

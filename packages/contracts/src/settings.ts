@@ -45,7 +45,7 @@ export type Settings = typeof Settings.Type;
 
 /**
  * The same settings as they are written to disk: `ultrapaint.json` in a repository, or the
- * desktop app's own `settings.json`. A file that lives in the repository is shared, so its
+ * `settings.json` of a home directory. A file that lives in the repository is shared, so its
  * `repoPath` is relative to the file's directory and may be left out when it is that directory.
  * Everything with an obvious default may be left out of a hand-written file.
  */
@@ -83,7 +83,7 @@ export type SettingsValidation = typeof SettingsValidation.Type;
 
 /**
  * Where the server keeps what it knows.
- * - `managed`: the desktop app's own settings file and state directory.
+ * - `managed`: a home directory (`--home`) with its own settings file and state.
  * - `file`: a configuration file the user passed or that was found in the repository; the
  *   other state sits in a `.ultrapaint` directory next to it.
  * - `ephemeral`: started without a configuration; nothing outlives the process.

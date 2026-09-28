@@ -54,16 +54,27 @@ reference; the flags you are most likely to want:
 
 To update, pull and install again: `git pull && pnpm install`.
 
-### Desktop app
+### As a devDependency of your project
 
-The desktop app is the same editor in an Electron window, with a native folder picker. It is
-run from the checkout for now:
+A project can depend on the checkout instead, so the command is pinned to it and everyone on
+the project runs the same one. Nothing is published: the dependency is a link to the checkout
+on disk, and it follows every change made there.
 
 ```bash
-pnpm -F @ultrapaint/desktop dev
+cd ~/code/your-repo
+pnpm add -D ultrapaint@link:../ultrapaint
 ```
 
-It keeps its settings in `~/.ultrapaint`, whichever directory it is started from.
+That puts `ultrapaint` in `node_modules/.bin`, so `pnpm ultrapaint` starts it, or a script
+does:
+
+```json
+{ "scripts": { "design": "ultrapaint" } }
+```
+
+The checkout has to be installed (`pnpm install` in it) for the link to work, and the link is
+a path on disk, so everyone on the project needs the checkout at that relative path. When there
+are packaged releases the link becomes a version.
 
 ## First run
 
@@ -87,7 +98,7 @@ person only runs `ultrapaint`.
 |---|---|---|
 | an `ultrapaint.json` found from the working directory up, or `--config <file>` | that file | `.ultrapaint/` next to it, git-ignored |
 | neither | not saved until you save a configuration | a temporary directory |
-| `--home <dir>` (the desktop app) | `<dir>/settings.json` | `<dir>` |
+| `--home <dir>` (what `pnpm dev` uses) | `<dir>/settings.json` | `<dir>` |
 
 Your pages are files in your repository and are written there in every case.
 
@@ -234,6 +245,7 @@ supported.
 
 - [What the project is for](docs/PROJECT-GOAL.md)
 - [Where settings and state are kept](docs/adr/0010-storage-modes.md)
+- [A command run in the repository, no desktop app](docs/adr/0017-a-command-in-the-repository.md)
 - [How the preview is built: editor, preview core, renderer, framework](docs/adr/0011-preview-split.md)
 - [Spaces, pages and the router](docs/adr/0012-spaces-pages-router.md)
 - [Design documents instead of TSX pages](docs/adr/0015-design-documents.md)
@@ -251,12 +263,11 @@ pnpm dev -- --ephemeral                         # save nothing
 pnpm test && pnpm typecheck && pnpm lint
 ```
 
-`pnpm dev` keeps its settings in `~/.ultrapaint`, as the desktop app does, unless it is given
-`--config` or `--ephemeral`. Read [`AGENTS.md`](AGENTS.md) before writing server code.
+`pnpm dev` keeps its settings in `~/.ultrapaint` unless it is given `--config` or
+`--ephemeral`. Read [`AGENTS.md`](AGENTS.md) before writing server code.
 
-- `apps/web` — the editor (React, Tailwind, Base UI). No Electron imports.
+- `apps/web` — the editor (React, Tailwind, Base UI). It talks to the origin it is served from and touches nothing of the machine.
 - `apps/server` — local backend on the Effect 4 runtime: settings, preview host, pages and spaces, design documents and the design system, undo, git, ACP threads.
-- `apps/desktop` — Electron shell: runs the server and loads the web bundle, adds a folder picker.
 - `packages/contracts` — Effect Schema for everything on the wire, the document format included, and the `RpcGroup` that is the editor's API.
 - `packages/design-document` — the document format's pure code: tree walks, ids, the operations every edit is made of, tokens and the CSS a node is drawn with.
 - `packages/framework-api` — what a renderer gives the preview and what a framework gives the server.

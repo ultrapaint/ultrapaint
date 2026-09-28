@@ -11,7 +11,7 @@ export interface StorageFlags {
   readonly cwd: string;
   /** `--ephemeral`: save nothing, even when a configuration file could be found. */
   readonly ephemeral: boolean;
-  /** `--home`: the desktop app's directory; with `--config` it only relocates the state. */
+  /** `--home`: a directory that keeps settings and state; with `--config` it only relocates the state. */
   readonly home: string | undefined;
   /** The user's home directory. */
   readonly userHome: string;

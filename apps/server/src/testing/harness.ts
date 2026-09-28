@@ -194,7 +194,7 @@ export const makeTestServer = (
     })
   ).pipe(Layer.provideMerge(NodeServices.layer));
 
-/** The desktop app's arrangement: settings and state in one home directory. */
+/** The `--home` arrangement: settings and state in one home directory. */
 export const TestServer = makeTestServer(({ home }) =>
   Effect.succeed({ home, mode: "managed" })
 );

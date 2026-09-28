@@ -17,7 +17,7 @@ const webPort = Number(process.env.ULTRAPAINT_WEB_PORT ?? base + 1);
 
 // Everything after `pnpm dev --` goes to the server: `--config <file>` to work from a
 // configuration file, `--ephemeral` to try the unsaved mode. Without either, development keeps
-// its settings the way the desktop app does, in `~/.ultrapaint`.
+// its settings across runs in `~/.ultrapaint`.
 // The server runs from `apps/server`, so a relative `--config` is resolved here, against the
 // directory `pnpm dev` was typed in.
 const invokedFrom = process.env.INIT_CWD ?? process.cwd();

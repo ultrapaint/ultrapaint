@@ -20,3 +20,4 @@ One file per decision. Status is one of proposed, accepted, superseded.
 | [0014](0014-editor-mcp.md) | The editor answers agents over MCP: what the project is and where they are working, not a second way to edit files |
 | [0015](0015-design-documents.md) | Pages are design documents (`.page.json`) the tool owns; the design system is imported by an agent; an agent turns a page into code |
 | [0016](0016-figma-import.md) | A Figma file is read by rules into pages; which component is which is an agent's decision, or the user's, asked in the thread |
+| [0017](0017-a-command-in-the-repository.md) | The tool is a command run in the repository, served to the browser; the desktop shell is removed and a checkout is tried on a project as a linked devDependency |
