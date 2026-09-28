@@ -136,6 +136,7 @@ const program = Effect.gen(function* () {
       Layer.succeed(ServerConfig, {
         briefing: arm !== "baseline",
         cwd: repo,
+        discovery: false,
         machine: { home: homedir(), path: process.env.PATH ?? "" },
         mcp: arm === "mcp",
         port,

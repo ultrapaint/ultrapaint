@@ -20,6 +20,7 @@ import { SettingsService } from "./services/settings.ts";
 import { SetupService } from "./services/setup.ts";
 import { SkillsService } from "./services/skills.ts";
 import { AgentConfigs } from "./services/threads/agent-configs.ts";
+import { AgentDiscovery } from "./services/threads/agent-discovery.ts";
 import { ChatPreferences } from "./services/threads/chat-preferences.ts";
 import { Checkpoints } from "./services/threads/checkpoints.ts";
 import { SlashCommands } from "./services/threads/commands.ts";
@@ -41,6 +42,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const agents = yield* AgentConfigs;
     const store = yield* ThreadStore;
     const preferences = yield* ChatPreferences;
+    const discovery = yield* AgentDiscovery;
     const threads = yield* ThreadService;
     const checkpoints = yield* Checkpoints;
     const access = yield* McpAccess;
@@ -82,6 +84,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     ) => project.use(Effect.flatMap(FigmaImportService, f));
 
     return UltrapaintRpcs.of({
+      "agents.discover": ({ agentId }) => discovery.discover(agentId),
       "agents.list": () => agents.list,
       "agents.options": () => preferences.options,
       "assets.upload": (input) => documents((d) => d.upload(input)),

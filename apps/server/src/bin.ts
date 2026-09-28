@@ -44,6 +44,12 @@ const serve = Command.make(
       ),
       Flag.withDefault(false)
     ),
+    noDiscovery: Flag.Boolean("no-discovery").pipe(
+      Flag.withDescription(
+        "Do not start agents at launch to list their models; they are listed once one has run"
+      ),
+      Flag.withDefault(false)
+    ),
     noMcp: Flag.Boolean("no-mcp").pipe(
       Flag.withDescription("Do not offer agents the editor's own MCP server"),
       Flag.withDefault(false)
@@ -65,6 +71,7 @@ const serve = Command.make(
     home,
     host,
     noBriefing,
+    noDiscovery,
     noMcp,
     port,
     webDist,
@@ -80,6 +87,7 @@ const serve = Command.make(
     const resolved = ServerConfig.of({
       briefing: !noBriefing,
       cwd,
+      discovery: !noDiscovery,
       host,
       machine: {
         // The password database answers when the environment has no HOME.

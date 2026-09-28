@@ -48,6 +48,11 @@ export class ServerConfig extends Context.Service<
     /** Directory the server was started from; the first-run setup proposes its repository. */
     readonly cwd: string;
     /**
+     * Whether each agent is started once, with no prompt, to learn the models it offers before
+     * a thread needs them. Off where agents must not start on their own: tests, measurements.
+     */
+    readonly discovery: boolean;
+    /**
      * Address the server listens on: loopback unless the editor is to be reached from another
      * machine, over a private network.
      */

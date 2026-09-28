@@ -64,6 +64,7 @@ import { McpAccess } from "../mcp/access.ts";
 import { MCP_PATH, MCP_TOKEN_HEADER } from "../mcp/route.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { AgentConfigs } from "./agent-configs.ts";
+import { AgentDiscovery } from "./agent-discovery.ts";
 import { AgentSandbox } from "./agent-sandbox.ts";
 import { ProjectBriefing } from "./briefing.ts";
 import { ChatPreferences } from "./chat-preferences.ts";
@@ -231,6 +232,7 @@ export class ThreadService extends Context.Service<
       } = yield* ServerConfig;
       const checkpoints = yield* Checkpoints;
       const preferences = yield* ChatPreferences;
+      const discovery = yield* AgentDiscovery;
       const project = yield* ProjectManager;
       const events = yield* EventBus;
       const log = yield* AppLog;
@@ -1041,8 +1043,13 @@ export class ThreadService extends Context.Service<
           return yield* new NotFound({ message: "no agent is configured" });
         }
         const now = yield* Clock.currentTimeMillis;
+        const options = yield* preferences.optionsFor(agent.id);
+        // Its models are not known yet: they reach the thread when the agent has said.
+        if (options.configOptions === undefined) {
+          yield* discovery.discoverInBackground(agent.id);
+        }
         const thread: Thread = {
-          ...(yield* preferences.optionsFor(agent.id)),
+          ...options,
           agentId: agent.id,
           createdAt: now,
           id: yield* makeId("thread"),
@@ -1072,6 +1079,7 @@ export class ThreadService extends Context.Service<
           });
         }
         const agent = yield* agents.get(agentId);
+        const options = yield* preferences.optionsFor(agentId);
         // A session belongs to its agent. The next one starts with the next prompt, and is
         // told what was said before it.
         yield* stop(threadId);
@@ -1081,12 +1089,15 @@ export class ThreadService extends Context.Service<
           modes: undefined,
           sandboxed: undefined,
           sandboxProblem: undefined,
-          ...(yield* preferences.optionsFor(agentId)),
+          ...options,
           agentId,
           error: undefined,
           sessionId: undefined,
           status: "idle",
         });
+        if (options.configOptions === undefined) {
+          yield* discovery.discoverInBackground(agentId);
+        }
         const last = (yield* store.items(threadId)).at(-1);
         const text = `${SWITCHED} ${agent.name}`;
         // Switching again before a prompt replaces the note rather than stacking another.

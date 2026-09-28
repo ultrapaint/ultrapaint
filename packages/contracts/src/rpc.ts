@@ -310,6 +310,12 @@ const requestRpcs = [
   Rpc.make("agents.list", { success: Schema.Array(AgentConfig) }),
   /** The options each agent's sessions offer, for the agents that have run here before. */
   Rpc.make("agents.options", { success: Schema.Array(AgentOptions) }),
+  /** What an agent's sessions offer, starting one to ask when it has not answered this run. */
+  Rpc.make("agents.discover", {
+    error: ThreadError,
+    payload: { agentId: Schema.String },
+    success: AgentOptions,
+  }),
   Rpc.make("chat.defaults", { success: ChatDefaults }),
   Rpc.make("chat.setDefaults", { payload: ChatDefaults }),
   /** The commands a prompt may start with, `/init`, which the server expands. */

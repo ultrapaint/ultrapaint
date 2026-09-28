@@ -383,6 +383,8 @@ const ChatDefaultsGroup = () => {
   const [agents, setAgents] = useState<readonly AgentConfig[]>([]);
   const [known, setKnown] = useState<readonly AgentOptions[]>([]);
   const [defaults, setDefaults] = useState<ChatDefaults | null>(null);
+  /** Why the chosen agent could not list its models, once it has been asked. */
+  const [unlisted, setUnlisted] = useState<Record<string, string>>({});
   useEffect(() => {
     Promise.all([
       api().request("agents.list", undefined),
@@ -396,19 +398,54 @@ const ChatDefaultsGroup = () => {
       })
       .catch(reportError);
   }, []);
+  const agentId =
+    agents.find((a) => a.id === defaults?.agentId)?.id ?? agents[0]?.id ?? "";
+  const asked = !defaults || known.some((k) => k.agentId === agentId);
+  // An agent never run here is asked now; the server shares the answer with its own asking.
+  useEffect(() => {
+    if (asked || !agentId) {
+      return;
+    }
+    let live = true;
+    api()
+      .request("agents.discover", { agentId })
+      .then((options) => {
+        if (live) {
+          setKnown((k) => [...k.filter((x) => x.agentId !== agentId), options]);
+        }
+      })
+      .catch((error: { message?: string }) => {
+        if (live) {
+          setUnlisted((u) => ({
+            ...u,
+            [agentId]: error.message ?? String(error),
+          }));
+        }
+      });
+    return () => {
+      live = false;
+    };
+  }, [agentId, asked]);
   if (!defaults || agents.length === 0) {
     return null;
   }
-  const agentId =
-    agents.find((a) => a.id === defaults.agentId)?.id ?? agents[0]?.id ?? "";
-  const models =
-    known.find((k) => k.agentId === agentId)?.configOptions.find(isModelOption)
-      ?.options ?? [];
+  const listed = known.find((k) => k.agentId === agentId);
+  const models = listed?.configOptions.find(isModelOption)?.options ?? [];
   const save = (next: ChatDefaults) => {
     setDefaults(next);
     api().request("chat.setDefaults", next).catch(reportError);
   };
   const onAgent = (id: string) => save({ agentId: id });
+  const problem = unlisted[agentId];
+  let modelDescription =
+    "The model the agent answers with, unless the thread picks another.";
+  if (problem !== undefined) {
+    modelDescription = problem;
+  } else if (!listed) {
+    modelDescription = "Asking the agent which models it offers…";
+  } else if (models.length === 0) {
+    modelDescription = "This agent offers no choice of model.";
+  }
   const onModel = (model: string) =>
     save({ agentId, ...(model === AGENT_DEFAULT ? {} : { model }) });
   return (
@@ -423,14 +460,7 @@ const ChatDefaultsGroup = () => {
           value={agentId}
         />
       </Row>
-      <Row
-        description={
-          models.length === 0
-            ? "The models are listed once this agent has answered a prompt here."
-            : "The model the agent answers with, unless the thread picks another."
-        }
-        title="Model"
-      >
+      <Row description={modelDescription} title="Model">
         <OptionSelect
           disabled={models.length === 0}
           onChange={onModel}
