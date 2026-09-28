@@ -10,7 +10,6 @@ import {
   canvasDocOf,
   childrenOf,
   findPath,
-  isContainer,
   nodeKind,
   nodeLabel,
 } from "@ultrapaint/design-document/tree";
@@ -57,6 +56,7 @@ import {
   duplicateSelection,
   setHidden,
 } from "../lib/node-actions.ts";
+import { holdsChildren } from "../state/catalogue.ts";
 import {
   applyEdits,
   canvasNodes,
@@ -155,7 +155,7 @@ const iconOf = (node: DesignNode): ReactNode => {
 };
 
 const dropPositionAt = (node: DesignNode, y: number): DropPosition => {
-  if (isContainer(node) && y > 0.3 && y < 0.7) {
+  if (holdsChildren(node) && y > 0.3 && y < 0.7) {
     return "inside";
   }
   return y <= 0.5 ? "before" : "after";

@@ -64,6 +64,26 @@ const slotOf = (node: Draft): Draft[] => {
   return node.children;
 };
 
+/** The fields of a text node that says nothing but its words: what an instance's text becomes. */
+const PLAIN_TEXT = new Set(["id", "role", "text", "type"]);
+
+const isPlainText = (node: Draft | undefined): node is Draft =>
+  node?.type === "text" &&
+  node.role === "paragraph" &&
+  Object.keys(node).every((key) => PLAIN_TEXT.has(key));
+
+/**
+ * What `arrival` does, undone: an instance left holding a plain text node alone shows those
+ * words as its text again. Only on the way out, so a text node put in on purpose stays a node.
+ */
+const foldText = (parent: Draft) => {
+  const [only, ...rest] = parent.children ?? [];
+  if (parent.type === "instance" && rest.length === 0 && isPlainText(only)) {
+    parent.text = only.text;
+    parent.children = undefined;
+  }
+};
+
 const clampIndex = (index: number | undefined, length: number) =>
   index === undefined || index < 0 || index > length ? length : index;
 
@@ -100,6 +120,30 @@ export const applyOps = (
     return { index, node: siblings[index] as Draft, parent, siblings };
   };
 
+  /**
+   * The list a node arriving in `parent` joins, and where in it. An instance that shows text and
+   * holds nothing would stop showing the text once it holds a node, so the text becomes its first
+   * child, and what arrives goes after it: the index counted children that were not there.
+   */
+  const arrival = (parent: Draft, index: number | undefined) => {
+    const slot = slotOf(parent);
+    if (
+      parent.type === "instance" &&
+      slot.length === 0 &&
+      typeof parent.text === "string"
+    ) {
+      slot.push({
+        id: next(idPrefix("text")),
+        role: "paragraph",
+        text: parent.text,
+        type: "text",
+      });
+      parent.text = undefined;
+      return { at: slot.length, slot };
+    }
+    return { at: clampIndex(index, slot.length), slot };
+  };
+
   /** The inserted tree keeps its ids unless one is already taken in the document. */
   const fresh = (node: DesignNode): Draft => {
     const taken = idsOf(draft as unknown as DesignNode);
@@ -110,29 +154,33 @@ export const applyOps = (
 
   const insertOp = (op: Extract<DocOp, { op: "insert" }>) => {
     const [parent] = pathTo(draft, parentId(op.parent)).slice(-1) as [Draft];
-    const slot = slotOf(parent);
+    const { at, slot } = arrival(parent, op.index);
     const node = fresh(op.node);
     place(node, parent);
-    slot.splice(clampIndex(op.index, slot.length), 0, node);
+    slot.splice(at, 0, node);
     created.push(node.id);
   };
 
   const removeOp = (op: Extract<DocOp, { op: "remove" }>) => {
-    const { siblings, index } = locate(op.id);
+    const { parent, siblings, index } = locate(op.id);
     siblings.splice(index, 1);
+    foldText(parent);
   };
 
   const moveOp = (op: Extract<DocOp, { op: "move" }>) => {
-    const { node, siblings, index } = locate(op.id);
+    const { node, parent, siblings, index } = locate(op.id);
     const targetPath = pathTo(draft, parentId(op.parent));
     if (targetPath.some((n) => n.id === op.id)) {
       fail("a node cannot be moved into itself");
     }
     const target = targetPath.at(-1) as Draft;
-    const slot = slotOf(target);
+    const { at, slot } = arrival(target, op.index);
     siblings.splice(index, 1);
     place(node, target);
-    slot.splice(clampIndex(op.index, slot.length), 0, node);
+    slot.splice(at, 0, node);
+    if (parent !== target) {
+      foldText(parent);
+    }
   };
 
   const updateOp = (op: Extract<DocOp, { op: "update" }>) => {

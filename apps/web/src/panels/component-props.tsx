@@ -8,18 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { OptionSelect } from "../components/option-select.tsx";
 import { Row, Section } from "../components/panel.tsx";
-import { useCatalogue } from "../state/catalogue.ts";
+import { componentMetaOf, useCatalogue } from "../state/catalogue.ts";
 
 const HIDDEN = new Set(["children", "className", "key", "ref", "style"]);
 
 /** The catalogue's entry for an instance: the same export from the same module. */
 export const useComponentMeta = (node: InstanceNode) =>
-  useCatalogue(
-    (s) =>
-      s.catalogue?.components.find(
-        (c) => c.name === node.component && c.importFrom === node.from
-      ) ?? s.catalogue?.components.find((c) => c.name === node.component)
-  );
+  useCatalogue((s) => componentMetaOf(s.catalogue, node));
 
 /**
  * Editable props of an instance of the design system. The catalogue says what the component

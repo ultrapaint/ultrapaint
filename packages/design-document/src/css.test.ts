@@ -1,7 +1,7 @@
 import { emptyDesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { describe, expect, it } from "vitest";
-import { makeStyleContext, nodeStyle, tagOf } from "./css.ts";
+import { makeStyleContext, nodeStyle, runsInRow, tagOf } from "./css.ts";
 
 const ds = {
   ...emptyDesignSystem(),
@@ -79,5 +79,27 @@ describe("nodeStyle", () => {
       margin: "0",
     });
     expect(tagOf(node)).toBe("h2");
+  });
+});
+
+describe("runsInRow", () => {
+  const group: DesignNode = { children: [], id: "g", type: "group" };
+  const box = (x: number, y: number) => ({ height: 20, width: 40, x, y });
+
+  it("takes a row's and a column's word for it", () => {
+    expect(runsInRow({ ...group, type: "row" }, [])).toBe(true);
+    expect(
+      runsInRow({ ...group, type: "column" }, [box(0, 0), box(50, 0)])
+    ).toBe(false);
+  });
+
+  it("reads the rest off where the children are drawn", () => {
+    expect(runsInRow(group, [box(0, 0), box(50, 0)])).toBe(true);
+    expect(runsInRow(group, [box(0, 0), box(0, 30)])).toBe(false);
+    expect(runsInRow(group, [null, box(0, 0), box(50, 2)])).toBe(true);
+  });
+
+  it("stacks what it cannot tell", () => {
+    expect(runsInRow(group, [box(0, 0)])).toBe(false);
   });
 });

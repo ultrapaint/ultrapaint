@@ -79,6 +79,30 @@ export const layoutOf = (node: DesignNode): ParentLayout => {
   }
 };
 
+interface Box {
+  readonly height: number;
+  readonly width: number;
+  readonly x: number;
+  readonly y: number;
+}
+
+/**
+ * Whether a node's children run side by side. A row and a column say so; a group or an
+ * instance leaves it to its content (inline components flow in a line, a component lays out
+ * what it is given as it likes), so it is read off where the first two children are drawn.
+ */
+export const runsInRow = (
+  node: DesignNode,
+  boxes: readonly (Box | null | undefined)[]
+): boolean => {
+  const layout = layoutOf(node);
+  if (layout !== "block") {
+    return layout === "row";
+  }
+  const [a, b] = boxes.filter((r): r is Box => Boolean(r));
+  return a && b ? b.x >= a.x + a.width / 2 && b.y < a.y + a.height / 2 : false;
+};
+
 const paddingStyle = (padding: Padding, css: (v: Length) => string): Style => {
   if (typeof padding === "number" || typeof padding === "string") {
     return { padding: css(padding) };

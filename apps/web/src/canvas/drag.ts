@@ -10,15 +10,15 @@
  */
 import type { DesignNode, DocumentEdit } from "@ultrapaint/contracts/document";
 import type { Rect } from "@ultrapaint/contracts/preview";
-import { layoutOf } from "@ultrapaint/design-document/css";
+import { runsInRow } from "@ultrapaint/design-document/css";
 import {
   canvasDocOf,
   childrenOf,
   findNode,
   findPath,
-  isContainer,
 } from "@ultrapaint/design-document/tree";
 import { create } from "zustand";
+import { holdsChildren } from "../state/catalogue.ts";
 import {
   applyEdits,
   docOfFrame,
@@ -157,11 +157,11 @@ const dropInside = (
   px: number,
   py: number
 ): Drop => {
-  const row = layoutOf(container) === "row";
   const boxes = children.map((c) => {
     const r = rects[c.id];
     return r ? offset(r, frame) : null;
   });
+  const row = runsInRow(container, boxes);
   let index = children.length;
   for (const [i, r] of boxes.entries()) {
     const mid = r && (row ? r.x + r.width / 2 : r.y + r.height / 2);
@@ -198,6 +198,17 @@ interface Spot {
   readonly parent: DesignNode | null;
 }
 
+/**
+ * How much of a node, from each end, means beside it rather than inside it: all of it when it
+ * cannot hold anything. A component is often small and sits among others, so more of it does.
+ */
+const edgeOf = (node: DesignNode, holds: boolean) => {
+  if (!holds) {
+    return 0.5;
+  }
+  return node.type === "instance" ? 0.3 : 0.2;
+};
+
 /** The drop one node offers: beside it near its edges, else inside it when it holds others. */
 const dropAt = async (
   spot: Spot,
@@ -205,26 +216,29 @@ const dropAt = async (
   py: number
 ): Promise<Drop | null> => {
   const { exclude, frame, frameId, node, parent } = spot;
-  const container = isContainer(node);
-  const inner = container
-    ? childrenOf(node).filter((c) => c.id !== exclude)
+  const holds = holdsChildren(node);
+  const inner = holds ? childrenOf(node).filter((c) => c.id !== exclude) : [];
+  const siblings = parent
+    ? childrenOf(parent).filter((c) => c.id !== exclude)
     : [];
-  const rects = await bridgeFor(frameId).measure(
-    [node, ...inner].map((n) => n.id)
-  );
+  // The siblings too: which way they run is read off where they are drawn.
+  const ids = new Set([node, ...inner, ...siblings].map((n) => n.id));
+  const rects = await bridgeFor(frameId).measure([...ids]);
   const own = rects[node.id];
   if (!own) {
     return null;
   }
   const r = offset(own, frame);
-  const row = parent ? layoutOf(parent) === "row" : false;
+  const row = parent
+    ? runsInRow(
+        parent,
+        siblings.map((c) => rects[c.id])
+      )
+    : false;
   const t = row ? (px - r.x) / r.width : (py - r.y) / r.height;
-  const edge = container ? 0.2 : 0.5;
-  const siblings = parent
-    ? childrenOf(parent).filter((c) => c.id !== exclude)
-    : [];
+  const edge = edgeOf(node, holds);
   const at = siblings.findIndex((c) => c.id === node.id);
-  if (parent && at >= 0 && (!container || t < edge || t > 1 - edge)) {
+  if (parent && at >= 0 && (!holds || t < edge || t > 1 - edge)) {
     const after = t >= 0.5;
     return {
       box: null,
@@ -235,7 +249,7 @@ const dropAt = async (
       parent: parent.id,
     };
   }
-  return container
+  return holds
     ? dropInside(frameId, node, r, inner, rects, frame, px, py)
     : null;
 };

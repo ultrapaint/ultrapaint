@@ -8,6 +8,13 @@ import { useDrag } from "./drag.ts";
 const BRAND = "#4f8cff";
 
 /**
+ * Above every frame: a node placed on the canvas is lifted over the pages (and an open comment
+ * card over its neighbours), and the line saying where a drop lands inside it must not be
+ * drawn underneath it.
+ */
+const OVER_FRAMES = { zIndex: 2 };
+
+/**
  * What a drag looks like: the element following the pointer as an outline, and where it would
  * land. Drawn in the canvas's own coordinates, so it zooms with the frames; strokes and labels
  * keep their size on screen.
@@ -32,7 +39,10 @@ export const DragOverlay = ({ zoom }: { zoom: number }) => {
     label = `Insert ${dragged.name}`;
   }
   return (
-    <div className="pointer-events-none absolute top-0 left-0">
+    <div
+      className="pointer-events-none absolute top-0 left-0"
+      style={OVER_FRAMES}
+    >
       {dragged.kind === "node" && (
         <div
           className="absolute rounded-sm"
@@ -82,7 +92,10 @@ export const CreateOverlay = ({ zoom }: { zoom: number }) => {
   const inv = 1 / zoom;
   const drawn = mode === "group" && from && to ? boxOf(from, to) : null;
   return (
-    <div className="pointer-events-none absolute top-0 left-0">
+    <div
+      className="pointer-events-none absolute top-0 left-0"
+      style={OVER_FRAMES}
+    >
       {drop?.kind === "into" && drop.box && <Box inv={inv} rect={drop.box} />}
       {drop?.kind === "into" && drop.line && (
         <Line inv={inv} rect={drop.line} />

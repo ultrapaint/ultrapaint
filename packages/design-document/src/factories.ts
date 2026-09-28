@@ -12,7 +12,7 @@ import type {
   PageNode,
 } from "@ultrapaint/contracts/document";
 import { type IdGenerator, idPrefix, makeIdGenerator } from "./ids.ts";
-import { DOCUMENT_VERSION } from "./tree.ts";
+import { componentTakesChildren, DOCUMENT_VERSION } from "./tree.ts";
 
 /** The primitives the palette offers above the design system's components. */
 export const PRIMITIVES = [
@@ -135,11 +135,9 @@ export const newInstance = (
   const props = (notes?.exampleProps ?? requiredProps(component)) as {
     readonly [name: string]: JsonValue;
   };
-  const takesChildren = (component.props ?? []).some(
-    (p) => p.name === "children"
-  );
   const text =
-    notes?.exampleText ?? (takesChildren ? component.name : undefined);
+    notes?.exampleText ??
+    (componentTakesChildren(component) ? component.name : undefined);
   return {
     component: component.name,
     from: notes?.from ?? component.importFrom,

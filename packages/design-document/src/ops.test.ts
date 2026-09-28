@@ -1,4 +1,9 @@
-import type { DesignNode, PageNode } from "@ultrapaint/contracts/document";
+import type {
+  DesignNode,
+  InstanceNode,
+  PageNode,
+  TextNode,
+} from "@ultrapaint/contracts/document";
 import { describe, expect, it } from "vitest";
 import { fillIds, makeIdGenerator } from "./ids.ts";
 import { applyOps, cloneJson, DocumentOpError } from "./ops.ts";
@@ -26,6 +31,19 @@ const page = (): PageNode => ({
 
 const ids = (node: DesignNode | null) =>
   node && "children" in node ? (node.children ?? []).map((c) => c.id) : [];
+
+const card = (
+  children?: DesignNode[],
+  id = "card",
+  words?: string
+): InstanceNode => ({
+  component: "Card",
+  from: "@ui/card",
+  id,
+  type: "instance",
+  ...(children && { children }),
+  ...(words !== undefined && { text: words }),
+});
 
 const options = () => ({ canvas: false, next: makeIdGenerator(["root"]) });
 
@@ -176,6 +194,120 @@ describe("applyOps", () => {
     const group = parentOf(root, "free");
     expect(group).toMatchObject({ type: "group", x: 10, y: 20 });
     expect(findNode(root, "free")).not.toHaveProperty("x");
+  });
+
+  it("moves a node into an instance and back out", () => {
+    const withCard: PageNode = {
+      ...page(),
+      children: [...page().children, card([text("title")])],
+    };
+    const into = applyOps(
+      withCard,
+      [{ id: "d", index: 0, op: "move", parent: "card" }],
+      options()
+    ).root;
+    expect(ids(findNode(into, "card"))).toEqual(["d", "title"]);
+    const out = applyOps(
+      into,
+      [{ id: "d", op: "move", parent: "root" }],
+      options()
+    ).root;
+    // Left with its one plain text, the card shows it as its own text again.
+    expect(findNode(out, "card")).toEqual(card(undefined, "card", "title"));
+    expect(ids(out)).toEqual(["row", "card", "d"]);
+  });
+
+  it("turns an instance's text into its first child when a node arrives", () => {
+    const withCard: PageNode = {
+      ...page(),
+      children: [...page().children, card(undefined, "card", "Card")],
+    };
+    const { created, root } = applyOps(
+      withCard,
+      [{ id: "d", index: 0, op: "move", parent: "card" }],
+      options()
+    );
+    const node = findNode(root, "card");
+    const [first, second] =
+      node?.type === "instance" ? (node.children ?? []) : [];
+    expect(node && "text" in node).toBe(false);
+    expect(first).toMatchObject({
+      role: "paragraph",
+      text: "Card",
+      type: "text",
+    });
+    expect(second?.id).toBe("d");
+    expect(created).toEqual([]);
+  });
+
+  it("keeps an instance's text as a child when something is inserted into it", () => {
+    const withCard: PageNode = {
+      ...page(),
+      children: [card(undefined, "card", "Save")],
+    };
+    const { created, root } = applyOps(
+      withCard,
+      [{ node: text("icon"), op: "insert", parent: "card" }],
+      options()
+    );
+    const node = findNode(root, "card");
+    expect(ids(node).at(-1)).toBe("icon");
+    expect(ids(node)).toHaveLength(2);
+    expect(created).toEqual(["icon"]);
+  });
+
+  it("gives an instance its text back when what came in goes out again", () => {
+    const withCard: PageNode = {
+      ...page(),
+      children: [...page().children, card(undefined, "card", "Card")],
+    };
+    const into = applyOps(
+      withCard,
+      [{ id: "d", op: "move", parent: "card" }],
+      options()
+    ).root;
+    const out = applyOps(
+      into,
+      [{ id: "d", op: "move", parent: "root" }],
+      options()
+    ).root;
+    expect(findNode(out, "card")).toEqual(card(undefined, "card", "Card"));
+    const removed = applyOps(into, [{ id: "d", op: "remove" }], options());
+    expect(findNode(removed.root, "card")).toEqual(
+      card(undefined, "card", "Card")
+    );
+  });
+
+  it("keeps a text node that was styled, or that stays among others", () => {
+    const styled: PageNode = {
+      ...page(),
+      children: [
+        card([{ ...(text("words") as TextNode), weight: 600 }, text("icon")]),
+        text("d"),
+      ],
+    };
+    const { root } = applyOps(
+      styled,
+      [{ id: "icon", op: "remove" }],
+      options()
+    );
+    expect(ids(findNode(root, "card"))).toEqual(["words"]);
+    const reordered = applyOps(
+      { ...page(), children: [card([text("words"), text("icon")])] },
+      [{ id: "icon", index: 0, op: "move", parent: "card" }],
+      options()
+    ).root;
+    expect(ids(findNode(reordered, "card"))).toEqual(["icon", "words"]);
+  });
+
+  it("refuses to move an instance into what it holds", () => {
+    const nested: PageNode = {
+      ...page(),
+      children: [card([card([], "inner")])],
+    };
+    expect(() =>
+      applyOps(nested, [{ id: "card", op: "move", parent: "inner" }], options())
+    ).toThrow(DocumentOpError);
   });
 
   it("leaves the input untouched", () => {

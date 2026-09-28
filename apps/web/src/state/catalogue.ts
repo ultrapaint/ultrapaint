@@ -1,4 +1,9 @@
-import type { Catalogue } from "@ultrapaint/contracts/catalogue";
+import type {
+  Catalogue,
+  ComponentMeta,
+} from "@ultrapaint/contracts/catalogue";
+import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
+import { takesChildren } from "@ultrapaint/design-document/tree";
 import { create } from "zustand";
 import { api } from "./connection.ts";
 import { reportError } from "./project.ts";
@@ -24,3 +29,21 @@ export const useCatalogue = create<CatalogueStore>((set) => ({
   },
   loading: false,
 }));
+
+/** The catalogue's entry for an instance: the same export from the same module, else by name. */
+export const componentMetaOf = (
+  catalogue: Catalogue | null,
+  node: InstanceNode
+): ComponentMeta | undefined =>
+  catalogue?.components.find(
+    (c) => c.name === node.component && c.importFrom === node.from
+  ) ?? catalogue?.components.find((c) => c.name === node.component);
+
+/** Whether the editor may put something inside a node: a container, or a component that takes children. */
+export const holdsChildren = (node: DesignNode): boolean =>
+  takesChildren(
+    node,
+    node.type === "instance"
+      ? componentMetaOf(useCatalogue.getState().catalogue, node)
+      : undefined
+  );

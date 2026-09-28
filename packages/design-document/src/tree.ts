@@ -56,6 +56,35 @@ export const childrenOf = (node: DesignNode): readonly DesignNode[] => {
 export const acceptsChildren = (node: DesignNode) =>
   isContainer(node) || node.type === "instance";
 
+/** What the catalogue says of a component that decides whether it takes children. */
+export interface ChildrenShape {
+  readonly props?: readonly { readonly name: string }[];
+}
+
+/** Whether a component renders what it is given as children: it declares a `children` prop. */
+export const componentTakesChildren = (component: ChildrenShape) =>
+  (component.props ?? []).some((p) => p.name === "children");
+
+/**
+ * Whether something may be put inside a node in the editor: a container always, an instance
+ * when its component takes children. Without the component's entry, an instance that already
+ * holds nodes is taken at its word.
+ */
+export const takesChildren = (
+  node: DesignNode,
+  component: ChildrenShape | undefined
+): boolean => {
+  if (isContainer(node)) {
+    return true;
+  }
+  if (node.type !== "instance") {
+    return false;
+  }
+  return component
+    ? componentTakesChildren(component)
+    : (node.children?.length ?? 0) > 0;
+};
+
 export const findNode = (
   root: DesignNode | null | undefined,
   id: string

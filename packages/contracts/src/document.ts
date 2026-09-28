@@ -314,7 +314,10 @@ export type DocRef = string;
 /**
  * One change to a document. `parent: null` is the top level of the canvas; in a page the
  * top level is the page node, named by its id. Indices count the parent's children as they are
- * before the operation, with the moved node itself left out.
+ * before the operation, with the moved node itself left out. A node put into an instance that
+ * shows `text` and holds nothing turns that text into the instance's first child, a text node,
+ * and goes after it. Moving or removing the last other node out of an instance turns a plain
+ * text node it is left holding back into its `text`.
  */
 export const DocOp = Schema.Union([
   Schema.Struct({

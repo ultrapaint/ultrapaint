@@ -114,6 +114,7 @@ const ApplyOperations = Tool.make("apply_operations", {
 - {op:"insert", parent, index?, node}: parent is a node id (the page's root id for its top level), or null for the top level; index defaults to the end. The node may leave out ids.
 - {op:"remove", id}
 - {op:"move", id, parent, index?}: the index counts the parent's children without the moved node.
+A node inserted or moved into an instance that shows "text" and has no children turns that text into the instance's first child, a text node, and goes after it. Moving or removing the last other node out of an instance turns a plain paragraph it is left holding back into its "text".
 - {op:"update", id, set:{field: value}}: null removes a field. A group, row or column may change "type" to one of the others.
 - {op:"setProps", id, props:{name: value}}: an instance's props; null removes one.
 - {op:"wrap", ids:[...], type:"row"|"column"|"group"}: siblings into a new container.

@@ -5,11 +5,8 @@
 
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { DesignNode, DocOp } from "@ultrapaint/contracts/document";
-import {
-  acceptsChildren,
-  canvasDocOf,
-  isContainer,
-} from "@ultrapaint/design-document/tree";
+import { canvasDocOf, isContainer } from "@ultrapaint/design-document/tree";
+import { holdsChildren } from "../state/catalogue.ts";
 import {
   applyOps,
   docOfFrame,
@@ -162,8 +159,9 @@ const selectCreated = (doc: string, frame: string, id: string) => {
 };
 
 /**
- * Where a node inserted from the palette goes: into the selected container at its end, next to
- * the selected node otherwise, and at the end of the page on screen when nothing is selected.
+ * Where a node inserted from the palette goes: into the selected container, or component that
+ * takes children, at its end; next to the selected node otherwise; and at the end of the page on
+ * screen when nothing is selected.
  */
 export const insertTarget = (
   ctx: Context = liveContext()
@@ -177,11 +175,15 @@ export const insertTarget = (
   const { activePage, docs, space } = ctx;
   const node = selected(ctx);
   if (node) {
-    if (acceptsChildren(node.node) && node.node.type !== "instance") {
+    if (holdsChildren(node.node)) {
       return {
         doc: node.doc,
         frame: node.frame,
-        name: node.node.name ?? node.node.type,
+        name:
+          node.node.name ??
+          (node.node.type === "instance"
+            ? node.node.component
+            : node.node.type),
         parent: node.node.id,
       };
     }
