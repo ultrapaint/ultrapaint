@@ -125,6 +125,7 @@ import { api } from "../state/connection.ts";
 import { nodeIn, useDocuments } from "../state/documents.ts";
 import { useEditor, type Workspace } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
+import { isSendKey, useSendKey } from "../state/send-key.ts";
 import { WorkingIndicator, WorkingMark } from "./thread-work.tsx";
 
 const openThread = (threadId: string) => useAgents.getState().open(threadId);
@@ -1373,6 +1374,7 @@ const useCommands = () => {
 
 const Composer = ({ thread }: { thread: Thread }) => {
   const [text, setText] = useState(() => takeDraft(thread.id));
+  const sendKey = useSendKey((s) => s.sendKey);
   // A draft that arrives after the composer is on screen, from a thread started elsewhere.
   useEffect(() => {
     const take = () => {
@@ -1479,7 +1481,7 @@ const Composer = ({ thread }: { thread: Thread }) => {
       e.preventDefault();
       return;
     }
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+    if (isSendKey(e, sendKey)) {
       e.preventDefault();
       send();
     }

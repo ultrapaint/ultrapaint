@@ -39,12 +39,18 @@ import { api } from "../state/connection.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useEditor } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
+import { type SendKey, useSendKey } from "../state/send-key.ts";
 import { useSkills } from "../state/skills.ts";
 import { startInit } from "./design-system.tsx";
 
 const themes = [
   { label: "Light", value: "light" },
   { label: "Dark", value: "dark" },
+];
+
+const sendKeys = [
+  { label: "Enter", value: "enter" },
+  { label: "⌘/Ctrl+Enter", value: "modEnter" },
 ];
 
 const LIST_SEPARATOR_RE = /[\n,]/;
@@ -379,6 +385,30 @@ const SkillsGroup = ({
  * The agent and model a new thread starts with. Saved as soon as it is picked: it is the
  * user's, not the project's, and a thread can still switch both in its composer.
  */
+/** Kept in this browser rather than the settings file, so it applies at once and to every project. */
+const SendKeyGroup = () => {
+  const sendKey = useSendKey((s) => s.sendKey);
+  const setSendKey = useSendKey((s) => s.setSendKey);
+  return (
+    <Group title="Chat">
+      <Row
+        description={
+          sendKey === "enter"
+            ? "Enter sends the message; Shift+Enter starts a new line."
+            : "Enter starts a new line; ⌘/Ctrl+Enter sends the message."
+        }
+        title="Send with"
+      >
+        <OptionSelect
+          onChange={(v) => setSendKey(v as SendKey)}
+          options={sendKeys}
+          value={sendKey}
+        />
+      </Row>
+    </Group>
+  );
+};
+
 const ChatDefaultsGroup = () => {
   const [agents, setAgents] = useState<readonly AgentConfig[]>([]);
   const [known, setKnown] = useState<readonly AgentOptions[]>([]);
@@ -896,6 +926,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           />
         </Row>
       </Group>
+      <SendKeyGroup />
       <Group title="Previews">
         <Row
           description="Optional. Palette previews use running stories."
