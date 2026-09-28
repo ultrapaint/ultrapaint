@@ -39,11 +39,20 @@ export type LeftTab =
   | "designSystem"
   | "changes";
 
-/** Left panels each workspace offers, in rail order. The first is where a switch lands. */
+/** Left panels every workspace offers, in rail order. */
+export const sharedTabs: readonly LeftTab[] = [
+  "chat",
+  "pages",
+  "designSystem",
+  "comments",
+  "changes",
+];
+
+/** Left panels only a workspace offers, shown above the shared ones on the rail. */
 export const workspaceTabs: Record<Workspace, readonly LeftTab[]> = {
-  design: ["layers", "palette", "designSystem", "pages", "comments", "changes"],
-  prototype: ["pages", "chat", "changes"],
-  vibe: ["chat", "pages", "designSystem", "comments", "changes"],
+  design: ["layers", "palette"],
+  prototype: [],
+  vibe: [],
 };
 
 /** What the right panel shows about the selection: its fields, or the code it stands for. */
@@ -363,10 +372,12 @@ export const useEditor = create<EditorStore>((set, get) => ({
   setSpacePan: (spacePan) => set({ spacePan }),
   setView: (view) => set((s) => ({ view: { ...s.view, ...view } })),
   setWorkspace: (workspace) => {
-    const tabs = workspaceTabs[workspace];
     const { leftTab } = get();
+    const kept =
+      sharedTabs.includes(leftTab) ||
+      workspaceTabs[workspace].includes(leftTab);
     set({
-      leftTab: tabs.includes(leftTab) ? leftTab : (tabs[0] ?? "chat"),
+      leftTab: kept ? leftTab : "chat",
       workspace,
       // Nothing shows the selection in the prototype, so no key may act on it there.
       ...(workspace === "prototype" && {

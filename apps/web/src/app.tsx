@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { type ComponentType, useEffect, useRef } from "react";
 import { toast } from "sonner";
+import { Separator } from "@/components/ui/separator";
 import { Toaster } from "@/components/ui/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -54,6 +55,7 @@ import { bindDocuments } from "./state/documents.ts";
 import {
   type LeftTab,
   type RightTab,
+  sharedTabs,
   useEditor,
   workspaceTabs,
 } from "./state/editor.ts";
@@ -129,6 +131,12 @@ const Rail = () => {
         UP
       </span>
       {workspaceTabs[workspace].map((value) => (
+        <RailButton key={value} value={value} />
+      ))}
+      {workspaceTabs[workspace].length > 0 && (
+        <Separator className="my-1 w-6" />
+      )}
+      {sharedTabs.map((value) => (
         <RailButton key={value} value={value} />
       ))}
     </nav>
