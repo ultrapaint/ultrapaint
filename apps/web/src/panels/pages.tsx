@@ -7,6 +7,7 @@ import {
   Code,
   Copy,
   FilePlus2,
+  FileUp,
   House,
   List,
   ListTree,
@@ -19,6 +20,7 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import { Button } from "@/components/ui/button";
@@ -27,6 +29,7 @@ import { confirmDialog } from "../components/dialogs.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
+import { importFigma } from "../lib/import-figma.ts";
 import { startCommand } from "../lib/start-thread.ts";
 import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
@@ -100,6 +103,14 @@ export const Pages = () => {
   const space = useEditor((s) => s.space);
   const inSpace = pages.filter((p) => p.space === space);
   const [creating, setCreating] = useState(false);
+  const figmaInput = useRef<HTMLInputElement>(null);
+  const onFigmaPicked = (e: ChangeEvent<HTMLInputElement>) => {
+    const [file] = e.target.files ?? [];
+    e.target.value = "";
+    if (file) {
+      importFigma(file);
+    }
+  };
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [view, setView] = useState<View>(readView);
   const activeRoute = useEditor((s) =>
@@ -177,6 +188,19 @@ export const Pages = () => {
         >
           {view === "flat" ? <ListTree /> : <List />}
         </IconButton>
+        <IconButton
+          onClick={() => figmaInput.current?.click()}
+          tooltip="Import a Figma file (.fig): an agent turns its frames into pages"
+        >
+          <FileUp />
+        </IconButton>
+        <input
+          accept=".fig"
+          className="hidden"
+          onChange={onFigmaPicked}
+          ref={figmaInput}
+          type="file"
+        />
         <IconButton onClick={toggleCreating} tooltip="New page">
           <FilePlus2 />
         </IconButton>

@@ -1,0 +1,361 @@
+/**
+ * The tools of a Figma import, and `ask_user`, offered to agents over MCP.
+ *
+ * Importing a Figma file is a conversation: the file is read by rules, but which component of
+ * this repository stands in for a Figma one is a judgement, and sometimes the user's. These
+ * tools let an agent see what the file holds, decide component by component, put a question
+ * to the user where it cannot decide, and write frames as pages once the mapping is settled.
+ */
+import { Json, type JsonValue } from "@ultrapaint/contracts/base";
+import {
+  ComponentCandidate,
+  ComponentMapping,
+  FigmaComponent,
+  FigmaFrame,
+  FigmaPage,
+} from "@ultrapaint/contracts/figma";
+import { Question } from "@ultrapaint/contracts/threads";
+import { Effect, Schema } from "effect";
+import { Tool, Toolkit } from "effect/unstable/ai";
+import { CatalogueService } from "../catalogue.ts";
+import { DesignSystemService } from "../design-system.ts";
+import { FigmaImportService } from "../figma-import.ts";
+import { ThreadService } from "../threads/threads.ts";
+import { CallingThread } from "./access.ts";
+import { makeLookup, missing, reported, ToolFailure } from "./tools.ts";
+
+const Failure = ToolFailure;
+
+const decodeMapping = Schema.decodeUnknownEffect(ComponentMapping);
+
+/** Which import a tool works on; the latest when left out, which is nearly always the one. */
+const importRef = {
+  import: Schema.optional(Schema.String),
+};
+
+const ListFigmaImports = Tool.make("list_figma_imports", {
+  description:
+    "The Figma files brought into this project, newest first, with their id, name and what they hold. The other figma tools take the newest when not told which.",
+  failure: Failure,
+  success: Schema.Struct({
+    imports: Schema.Array(
+      Schema.Struct({
+        components: Schema.Number,
+        createdAt: Schema.Number,
+        frames: Schema.Number,
+        id: Schema.String,
+        mapped: Schema.Number,
+        name: Schema.String,
+      })
+    ),
+  }),
+}).annotate(Tool.Readonly, true);
+
+const ReadFigmaImport = Tool.make("read_figma_import", {
+  description:
+    "What a Figma file holds: its pages with their frames (the screens to turn into pages), its components with their variants and properties, how often each is used, which components of this repository they might be (candidates, from the names), and the mapping decided so far. Start here.",
+  failure: Failure,
+  parameters: Schema.Struct(importRef),
+  success: Schema.Struct({
+    components: Schema.Array(FigmaComponent),
+    id: Schema.String,
+    mapping: Schema.Record(Schema.String, ComponentMapping),
+    name: Schema.String,
+    pages: Schema.Array(FigmaPage),
+    warnings: Schema.Array(Schema.String),
+  }),
+}).annotate(Tool.Readonly, true);
+
+const ReadFigmaFrame = Tool.make("read_figma_frame", {
+  description:
+    "One frame of the Figma file, by its id or name: its layers as an outline (rows, columns, text, images, and every instance of a Figma component with whether it is mapped), and the page document it converts to with the mapping as it stands. Instances of unmapped components are expanded into the layers they are made of.",
+  failure: Failure,
+  parameters: Schema.Struct({
+    ...importRef,
+    /** The frame's id (12:345) or its name. */
+    frame: Schema.String,
+  }),
+  success: Schema.Struct({
+    document: Json,
+    frame: FigmaFrame,
+    outline: Schema.String,
+    /** Component key → instances expanded because nothing was decided for them yet. */
+    unmapped: Schema.Record(Schema.String, Schema.Number),
+    warnings: Schema.Array(Schema.String),
+  }),
+}).annotate(Tool.Readonly, true);
+
+const ReadFigmaComponent = Tool.make("read_figma_component", {
+  description:
+    "One Figma component in full: its variants and properties, its candidates in this repository, the frames that use it, its layers as an outline, and what it converts to when kept as it is (custom). Read it before deciding what the component becomes.",
+  failure: Failure,
+  parameters: Schema.Struct({
+    ...importRef,
+    /** The component's key, as read_figma_import lists it. */
+    component: Schema.String,
+  }),
+  success: Schema.Struct({
+    candidates: Schema.Array(ComponentCandidate),
+    component: FigmaComponent,
+    document: Json,
+    outline: Schema.String,
+    usedIn: Schema.Array(Schema.String),
+  }),
+}).annotate(Tool.Readonly, true);
+
+const MapFigmaComponent = Tool.make("map_figma_component", {
+  description: `Decides what every instance of a Figma component becomes. \`mapping\` is one of:
+- {kind:"component", component, from?, props?, propMap?, text?}: replaced by a component of this repository. \`component\` is its export name (list_components); \`from\` defaults to where the catalogue imports it from. \`props\` are given to every instance. \`propMap\` says what each Figma property becomes: {"Size": {prop:"size", values:{"Large":"lg","Small":"sm"}}} maps a variant, {"Label": {text:true}} makes a text property the instance's text, {"Disabled": {prop:"disabled"}} passes a boolean through. \`text\` is "children" to use the text the Figma instance shows, or the name of a text property.
+- {kind:"expand"}: kept as it is, built from plain rows, columns, text and images (a custom component, or one this repository does not have).
+- {kind:"skip"}: left out of every page.
+Pass null to forget a decision. Refused when the repository has no such component.`,
+  failure: Failure,
+  parameters: Schema.Struct({
+    ...importRef,
+    component: Schema.String,
+    mapping: Schema.NullOr(Json),
+  }),
+  success: Schema.Struct({
+    mapping: Schema.NullOr(ComponentMapping),
+    /** Props named in the mapping that the catalogue does not know; they still pass through. */
+    notes: Schema.Array(Schema.String),
+    /** Components still without a decision, by key. */
+    undecided: Schema.Array(Schema.String),
+  }),
+});
+
+const WriteFigmaFrame = Tool.make("write_figma_frame", {
+  description:
+    "Writes a frame of the Figma file as a page at a route, converted with the mapping as it stands, its images copied into the space's assets, and its frame on the canvas sized as in Figma. Refused when a page already serves the route. Map the components first; what is still unmapped is expanded and reported.",
+  failure: Failure,
+  parameters: Schema.Struct({
+    ...importRef,
+    frame: Schema.String,
+    route: Schema.String,
+    space: Schema.optional(Schema.String),
+  }),
+  success: Schema.Struct({
+    file: Schema.String,
+    route: Schema.String,
+    unmapped: Schema.Record(Schema.String, Schema.Number),
+    warnings: Schema.Array(Schema.String),
+  }),
+});
+
+const AskUser = Tool.make("ask_user", {
+  description: `Puts one to four questions to the user, each with the answers to pick from, as a card in the thread. The tool returns at once: end your turn after calling it, and the user's answers arrive as the next message, one line per question ("1. <question> — <answer>"). Ask when a decision is the user's to make — which component of theirs a Figma component is, whether something is custom — and put what you can decide yourself in the question as the first option. Give options short labels and, where it helps, a description; allowOther lets the user type an answer instead.`,
+  failure: Failure,
+  parameters: Schema.Struct({
+    questions: Schema.Array(Question).check(
+      Schema.isMinLength(1),
+      Schema.isMaxLength(4)
+    ),
+  }),
+  success: Schema.Struct({
+    /** What to do now. */
+    note: Schema.String,
+  }),
+});
+
+export const FigmaTools = Toolkit.make(
+  ListFigmaImports,
+  ReadFigmaImport,
+  ReadFigmaFrame,
+  ReadFigmaComponent,
+  MapFigmaComponent,
+  WriteFigmaFrame,
+  AskUser
+);
+
+const asJson = (value: unknown) => value as JsonValue;
+
+export const FigmaToolsLive = FigmaTools.toLayer(
+  Effect.gen(function* () {
+    const { project, spaceOf } = yield* makeLookup;
+    const threads = yield* ThreadService;
+
+    const imports = <A, E extends { readonly message: string }>(
+      f: (service: FigmaImportService["Service"]) => Effect.Effect<A, E>
+    ) => reported(project.use(Effect.flatMap(FigmaImportService, f)));
+
+    /** The import named, or the newest one; a project with none is told to import first. */
+    const importOf = Effect.fnUntraced(function* (id: string | undefined) {
+      if (id !== undefined) {
+        return yield* imports((s) => s.get(id));
+      }
+      const latest = yield* imports((s) => s.latest);
+      return (
+        latest ??
+        (yield* missing(
+          "no Figma file has been imported; the user imports one from the Pages panel"
+        ))
+      );
+    });
+
+    /** The catalogue entry a mapping names, and what it does not know about the mapping's props. */
+    const checkMapping = Effect.fnUntraced(function* (
+      mapping: ComponentMapping
+    ) {
+      if (mapping.kind !== "component") {
+        return { mapping, notes: [] as string[] };
+      }
+      const catalogue = yield* reported(
+        project.use(Effect.flatMap(CatalogueService, (c) => c.get(false)))
+      );
+      const component = catalogue.components.find(
+        (c) => c.name === mapping.component
+      );
+      if (!component) {
+        const close = catalogue.components
+          .filter((c) =>
+            c.name.toLowerCase().includes(mapping.component.toLowerCase())
+          )
+          .map((c) => c.name)
+          .slice(0, 5);
+        return yield* missing(
+          `no component named ${mapping.component} in this repository${close.length > 0 ? `; close: ${close.join(", ")}` : ""}. list_components has them all, or map it as {kind:"expand"} to keep the Figma layers.`
+        );
+      }
+      const { designSystem } = yield* reported(
+        project.use(Effect.flatMap(DesignSystemService, (d) => d.get))
+      );
+      const from =
+        mapping.from ??
+        designSystem?.components?.[component.name]?.from ??
+        component.importFrom;
+      const known = new Set(component.props.map((p) => p.name));
+      const named = [
+        ...Object.keys(mapping.props ?? {}),
+        ...Object.values(mapping.propMap ?? {}).flatMap((rule) =>
+          rule.prop === undefined ? [] : [rule.prop]
+        ),
+      ];
+      const notes = named
+        .filter((prop) => !known.has(prop))
+        .map(
+          (prop) =>
+            `${component.name} does not declare a prop ${prop}; it is passed on anyway`
+        );
+      return { mapping: { ...mapping, from }, notes };
+    });
+
+    return {
+      ask_user: Effect.fnUntraced(function* ({ questions }) {
+        const threadId = yield* Effect.service(CallingThread);
+        if (threadId === undefined) {
+          return yield* missing(
+            "ask_user works from a thread of the editor; outside one, ask in your own conversation"
+          );
+        }
+        yield* reported(threads.ask(threadId, questions));
+        return {
+          note: "The questions are shown to the user. End your turn now; the answers come as the next message.",
+        };
+      }),
+
+      list_figma_imports: Effect.fnUntraced(function* () {
+        const all = yield* imports((s) => s.list);
+        return {
+          imports: all.map((entry) => ({
+            components: entry.components.length,
+            createdAt: entry.createdAt,
+            frames: entry.pages.reduce(
+              (sum, page) => sum + page.frames.length,
+              0
+            ),
+            id: entry.id,
+            mapped: Object.keys(entry.mapping).length,
+            name: entry.name,
+          })),
+        };
+      }),
+
+      map_figma_component: Effect.fnUntraced(function* ({
+        component,
+        import: id,
+        mapping,
+      }) {
+        const entry = yield* importOf(id);
+        let decided: ComponentMapping | null = null;
+        let notes: string[] = [];
+        if (mapping !== null) {
+          const raw = yield* decodeMapping(mapping).pipe(
+            Effect.mapError(
+              (error) =>
+                new ToolFailure({
+                  message: `the mapping is not valid: ${error.message}`,
+                })
+            )
+          );
+          ({ mapping: decided, notes } = yield* checkMapping(raw));
+        }
+        const next = yield* imports((s) => s.map(entry.id, component, decided));
+        return {
+          mapping: decided,
+          notes,
+          undecided: next.components
+            .filter((c) => !(c.key in next.mapping))
+            .map((c) => c.key),
+        };
+      }),
+
+      read_figma_component: Effect.fnUntraced(function* ({
+        component,
+        import: id,
+      }) {
+        const entry = yield* importOf(id);
+        const preview = yield* imports((s) => s.component(entry.id, component));
+        return {
+          candidates: preview.component.candidates,
+          component: preview.component,
+          document: asJson(preview.document),
+          outline: preview.outline,
+          usedIn: preview.usedIn,
+        };
+      }),
+
+      read_figma_frame: Effect.fnUntraced(function* ({ frame, import: id }) {
+        const entry = yield* importOf(id);
+        const preview = yield* imports((s) => s.frame(entry.id, frame));
+        return {
+          document: asJson(preview.document),
+          frame: preview.frame,
+          outline: preview.outline,
+          unmapped: preview.unmapped,
+          warnings: preview.warnings,
+        };
+      }),
+
+      read_figma_import: Effect.fnUntraced(function* ({ import: id }) {
+        const entry = yield* importOf(id);
+        return {
+          components: entry.components,
+          id: entry.id,
+          mapping: entry.mapping,
+          name: entry.name,
+          pages: entry.pages,
+          warnings: entry.warnings,
+        };
+      }),
+
+      write_figma_frame: Effect.fnUntraced(function* ({
+        frame,
+        import: id,
+        route,
+        space,
+      }) {
+        const entry = yield* importOf(id);
+        const inSpace = yield* spaceOf(space);
+        const written = yield* imports((s) =>
+          s.writeFrame(entry.id, frame, inSpace, route)
+        );
+        return {
+          file: written.page.file,
+          route: written.page.route,
+          unmapped: written.unmapped,
+          warnings: written.warnings,
+        };
+      }),
+    };
+  })
+);

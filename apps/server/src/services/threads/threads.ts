@@ -34,6 +34,7 @@ import {
   type ConfigOption,
   EDITOR_MCP_SERVER,
   type PromptInput,
+  type Question,
   type Thread,
   type ThreadItem,
 } from "@ultrapaint/contracts/threads";
@@ -91,6 +92,27 @@ const CANCELLED: RequestPermissionResponse = {
 /** Until the first prompt names it. */
 const UNTITLED = "New thread";
 const SWITCHED = "Switched to";
+
+/** The answers as the agent reads them: one line per question, the option's label and its id. */
+const answersText = (
+  questions: readonly Question[],
+  answers: Readonly<Record<string, string>>
+) =>
+  [
+    "Answers to your questions:",
+    ...questions.map((question, index) => {
+      const answer = answers[question.id] ?? "(no answer)";
+      const option = question.options.find((o) => o.id === answer);
+      let shown = answer;
+      if (option !== undefined) {
+        shown =
+          option.label === option.id
+            ? option.label
+            : `${option.label} [${option.id}]`;
+      }
+      return `${index + 1}. ${question.question} — ${shown}`;
+    }),
+  ].join("\n");
 const TITLE_LIMIT = 48;
 
 /** A thread's title from its first prompt: the first line, cut to fit the thread menu. */
@@ -148,6 +170,20 @@ const agentFailure = (error: AcpError) =>
 export class ThreadService extends Context.Service<
   ThreadService,
   {
+    /**
+     * The user's answers to a question card: recorded on the card, then sent to the agent as a
+     * prompt of their own, which is how any ACP agent hears them.
+     */
+    readonly answer: (
+      threadId: string,
+      itemId: string,
+      answers: Readonly<Record<string, string>>
+    ) => Effect.Effect<void, ThreadFailure>;
+    /** Puts an agent's questions to the user as a card in the thread. */
+    readonly ask: (
+      threadId: string,
+      questions: readonly Question[]
+    ) => Effect.Effect<void, NotFound>;
     readonly cancel: (threadId: string) => Effect.Effect<void, ThreadFailure>;
     /** Without an agent, the chat's default one. */
     readonly create: (
@@ -922,6 +958,51 @@ export class ThreadService extends Context.Service<
         openings.set(threadId, yield* Effect.forkIn(turn, projectScope));
       });
 
+      // ---- questions ----
+      const ask = Effect.fn("ThreadService.ask")(function* (
+        threadId: string,
+        questions: readonly Question[]
+      ) {
+        if (!(yield* store.get(threadId))) {
+          return yield* new NotFound({ message: `unknown thread ${threadId}` });
+        }
+        yield* store.push(threadId, {
+          answers: null,
+          at: yield* Clock.currentTimeMillis,
+          id: yield* newItemId,
+          kind: "question",
+          questions,
+        });
+      });
+
+      const answer = Effect.fn("ThreadService.answer")(function* (
+        threadId: string,
+        itemId: string,
+        answers: Readonly<Record<string, string>>
+      ) {
+        const card = (yield* store.items(threadId)).find(
+          (item) => item.id === itemId
+        );
+        if (card?.kind !== "question") {
+          return yield* new NotFound({
+            message: "the question is no longer in the thread",
+          });
+        }
+        if (card.answers !== null) {
+          return yield* new Conflict({
+            message: "the questions were already answered",
+          });
+        }
+        yield* store.patchItem(threadId, itemId, (item) =>
+          item.kind === "question" ? { ...item, answers } : item
+        );
+        yield* prompt({
+          attachments: [],
+          text: answersText(card.questions, answers),
+          threadId,
+        });
+      });
+
       const resolvePermission = Effect.fn("ThreadService.resolvePermission")(
         function* (
           threadId: string,
@@ -1032,6 +1113,11 @@ export class ThreadService extends Context.Service<
         });
 
       return ThreadService.of({
+        answer: (threadId, itemId, answers) =>
+          detached(
+            opening.withLock(threadId, answer(threadId, itemId, answers))
+          ),
+        ask,
         cancel: Effect.fn("ThreadService.cancel")(function* (threadId: string) {
           if (yield* stopOpening(threadId)) {
             return;

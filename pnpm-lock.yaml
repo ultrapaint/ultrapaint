@@ -86,6 +86,9 @@ importers:
       '@ultrapaint/design-document':
         specifier: workspace:*
         version: link:../../packages/design-document
+      '@ultrapaint/figma-import':
+        specifier: workspace:*
+        version: link:../../packages/figma-import
       '@ultrapaint/framework-api':
         specifier: workspace:*
         version: link:../../packages/framework-api
@@ -317,6 +320,28 @@ importers:
         specifier: workspace:*
         version: link:../contracts
     devDependencies:
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: ^5.0.1
+        version: 5.0.1(@types/node@24.13.5)(vite@8.3.0(@types/node@24.13.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.1))
+
+  packages/figma-import:
+    dependencies:
+      '@ultrapaint/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@ultrapaint/design-document':
+        specifier: workspace:*
+        version: link:../design-document
+      openfig-core:
+        specifier: ^0.4.1
+        version: 0.4.1
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.5
       typescript:
         specifier: 7.0.2
         version: 7.0.2
@@ -2158,6 +2183,9 @@ packages:
       picomatch:
         optional: true
 
+  fflate@0.8.3:
+    resolution: {integrity: sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA==}
+
   figures@6.1.0:
     resolution: {integrity: sha512-d+l3qxjSesT4V7v2fh+QnmFnUWv9lSpjarhShNTgBOfA0ttejbQUAlHLitbjkoRiDulW0OPoQPYIGhIC8ohejg==}
     engines: {node: '>=18'}
@@ -2199,6 +2227,9 @@ packages:
 
   fuzzysort@3.1.0:
     resolution: {integrity: sha512-sR9BNCjBg6LNgwvxlBd0sBABvQitkLzoVY9MYYROQVX/FvfJ4Mai9LsGhDgd8qYdds0bY77VzYd5iuB+v5rwQQ==}
+
+  fzstd@0.1.1:
+    resolution: {integrity: sha512-dkuVSOKKwh3eas5VkJy1AW1vFpet8TA/fGmVA5krThl8YcOVE/8ZIoEA1+U1vEn5ckxxhLirSdY837azmbaNHA==}
 
   gensync@1.0.0-beta.2:
     resolution: {integrity: sha512-3hN7NaskYvMDLQY55gnW3NQ+mesEAepTqlg+VEbj7zzqEMBVNhzcGYYeqFo/TlYz6eQiFcp1HcsCZO+nGgS8zg==}
@@ -2477,6 +2508,10 @@ packages:
 
   jsonfile@6.2.1:
     resolution: {integrity: sha512-zwOTdL3rFQ/lRdBnntKVOX6k5cKJwEc1HdilT71BWEu7J41gXIB2MRp+vxduPSwZJPWBxEzv4yH1wYLJGUHX4Q==}
+
+  kiwi-schema@0.5.0:
+    resolution: {integrity: sha512-X+FpfU0yTEtc6aTHS7VwbOpvQwRt70+pXXWRI5fd6CvWhe7pSVC854TVo4Zo0x5/wwcWj+/9KUlXpdcP0dY9AA==}
+    hasBin: true
 
   kleur@3.0.3:
     resolution: {integrity: sha512-eTIzlVOSUR+JxdDFepEYcBMtZ9Qqdef+rnzWdRZuMbOywu5tO2w2N7rqjoANZ5k9vywhL6Br1VRjUIgTQx4E8w==}
@@ -2932,6 +2967,9 @@ packages:
   open@8.4.2:
     resolution: {integrity: sha512-7x81NCL719oNbsq/3mh+hVrAWmFuEYUqrq/Iw3kUzH8ReypT9QQ0BLoJS7/G9k6N81XjW4qHWtjWwe/9eLy1EQ==}
     engines: {node: '>=12'}
+
+  openfig-core@0.4.1:
+    resolution: {integrity: sha512-R1lYAVDlveKxXq4O2LcvWMWANk8FskzJAx1eHiXlqakVGzQ/UkLlwxoOBpMOv7cPEmOLfLSD3Vd3D3bvGE1vwQ==}
 
   ora@8.2.0:
     resolution: {integrity: sha512-weP+BZ8MVNnlCm8c0Qdc1WSWq4Qn7I+9CJGm7Qali6g44e/PUzbjNqJX5NJ9ljlNMosfJvg1fKEGILklK9cwnw==}
@@ -5200,6 +5238,8 @@ snapshots:
     optionalDependencies:
       picomatch: 4.0.7
 
+  fflate@0.8.3: {}
+
   figures@6.1.0:
     dependencies:
       is-unicode-supported: 2.1.0
@@ -5245,6 +5285,8 @@ snapshots:
   function-bind@1.1.2: {}
 
   fuzzysort@3.1.0: {}
+
+  fzstd@0.1.1: {}
 
   gensync@1.0.0-beta.2: {}
 
@@ -5512,6 +5554,8 @@ snapshots:
       universalify: 2.0.1
     optionalDependencies:
       graceful-fs: 4.2.11
+
+  kiwi-schema@0.5.0: {}
 
   kleur@3.0.3: {}
 
@@ -6116,6 +6160,12 @@ snapshots:
       define-lazy-prop: 2.0.0
       is-docker: 2.2.1
       is-wsl: 2.2.0
+
+  openfig-core@0.4.1:
+    dependencies:
+      fflate: 0.8.3
+      fzstd: 0.1.1
+      kiwi-schema: 0.5.0
 
   ora@8.2.0:
     dependencies:

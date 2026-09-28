@@ -21,6 +21,7 @@ import {
   NotFound,
   Stale,
 } from "./errors.ts";
+import { FigmaImport } from "./figma.ts";
 import {
   Checkpoint,
   GitCommitInput,
@@ -332,6 +333,15 @@ const requestRpcs = [
   Rpc.make("threads.prompt", { error: ThreadError, payload: PromptInput }),
   Rpc.make("threads.cancel", { error: ThreadError, payload: ThreadRef }),
   Rpc.make("threads.delete", { payload: ThreadRef }),
+  /** The user's answers to a question card; they reach the agent as the next prompt. */
+  Rpc.make("threads.answer", {
+    error: ThreadError,
+    payload: {
+      ...ThreadRef,
+      answers: Schema.Record(Schema.String, Schema.String),
+      itemId: Schema.String,
+    },
+  }),
   Rpc.make("threads.permission", {
     error: ThreadError,
     payload: {
@@ -356,6 +366,16 @@ const requestRpcs = [
   }),
 
   Rpc.make("git.status", { error: GitError, success: GitStatus }),
+
+  /** The Figma files imported so far, newest first. The file itself arrives over HTTP. */
+  Rpc.make("figma.list", {
+    error: NotConfigured,
+    success: Schema.Array(FigmaImport),
+  }),
+  Rpc.make("figma.delete", {
+    error: Schema.Union([NotConfigured, NotFound]),
+    payload: { id: Schema.String },
+  }),
   Rpc.make("git.diff", {
     error: GitError,
     payload: { path: Schema.String },

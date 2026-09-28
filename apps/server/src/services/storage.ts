@@ -13,6 +13,7 @@ const STATE_SUBDIRS = [
   "checkpoints",
   "catalogue",
   "thumbnails",
+  "imports",
 ] as const;
 
 /**

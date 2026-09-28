@@ -18,6 +18,7 @@
     "@ultrapaint/acp": "workspace:*",
     "@ultrapaint/contracts": "workspace:*",
     "@ultrapaint/design-document": "workspace:*",
+    "@ultrapaint/figma-import": "workspace:*",
     "@ultrapaint/framework-api": "workspace:*",
     "@ultrapaint/framework-react-vite": "workspace:*",
     "@ultrapaint/shared": "workspace:*",

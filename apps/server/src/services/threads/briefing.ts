@@ -184,6 +184,8 @@ get_component for a component's props and an instance to start from, get_documen
 the whole format. list_comments, reply_to_comment and resolve_comment answer the user where
 they asked, and focus tells the canvas which page you are on so the user can watch you work.
 After a change, get_screenshot shows you the page or a node as it draws: look, and fix what is off.
+When a decision is the user's, ask_user puts your questions to them as a card with answers to
+pick; end your turn after it, and the answers come as the next message.
 Prefer these to editing the JSON files yourself; if you do write a file, keep it valid.
 
 `

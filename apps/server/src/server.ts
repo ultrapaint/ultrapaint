@@ -1,5 +1,6 @@
 import { createServer } from "node:http";
 import { NodeHttpServer } from "@effect/platform-node";
+import { MAX_FIG_BYTES } from "@ultrapaint/contracts/figma";
 import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
 import { Effect, Layer, Stream } from "effect";
 import {
@@ -14,6 +15,7 @@ import { ServerConfig } from "./config.ts";
 import { EventBus } from "./events.ts";
 import { ProjectManager } from "./project.ts";
 import { RpcHandlers } from "./rpc-handlers.ts";
+import { FigmaImportService } from "./services/figma-import.ts";
 import { McpAccess } from "./services/mcp/access.ts";
 import { McpRoute } from "./services/mcp/route.ts";
 import { Screenshots } from "./services/screenshots.ts";
@@ -62,6 +64,58 @@ const RpcRoute = Layer.effectDiscard(
     );
   })
 ).pipe(Layer.provide(RpcHandlers), Layer.provide(RpcSerialization.layerJson));
+
+const FIG_HEADER = "x-file-name";
+
+/**
+ * A Figma file arrives here, as its bytes: the editor's API is one WebSocket carrying JSON, and
+ * a design file runs to tens of megabytes. The reply is the import, as `figma.list` shows it.
+ * The same origin rule as the socket: a page from anywhere else on loopback is turned away.
+ */
+const FigmaImportRoute = HttpRouter.use(
+  Effect.fnUntraced(function* (router) {
+    const project = yield* ProjectManager;
+    yield* router.add(
+      "POST",
+      "/api/figma/import",
+      Effect.gen(function* () {
+        const request = yield* HttpServerRequest.HttpServerRequest;
+        const { origin } = request.headers;
+        if (origin && !LOCAL_ORIGIN_RE.test(origin)) {
+          return HttpServerResponse.text("origin not allowed", { status: 403 });
+        }
+        const declared = Number(request.headers["content-length"] ?? 0);
+        if (declared > MAX_FIG_BYTES) {
+          return HttpServerResponse.jsonUnsafe(
+            { message: "the file is larger than the import accepts" },
+            { status: 413 }
+          );
+        }
+        const name = decodeURIComponent(
+          request.headers[FIG_HEADER] ?? "design.fig"
+        );
+        const bytes = new Uint8Array(yield* request.arrayBuffer);
+        return yield* project
+          .use(
+            Effect.flatMap(FigmaImportService, (figma) =>
+              figma.create(name, bytes)
+            )
+          )
+          .pipe(
+            Effect.map((imported) => HttpServerResponse.jsonUnsafe(imported)),
+            Effect.catchTag(["BadRequest", "NotConfigured"], (error) =>
+              Effect.succeed(
+                HttpServerResponse.jsonUnsafe(
+                  { message: error.message },
+                  { status: 400 }
+                )
+              )
+            )
+          );
+      })
+    );
+  })
+);
 
 const HealthRoute = HttpRouter.use(
   Effect.fnUntraced(function* (router) {
@@ -153,6 +207,7 @@ const Services = Threads.pipe(
 const Routes = Layer.mergeAll(
   RpcRoute,
   HealthRoute,
+  FigmaImportRoute,
   McpRoute,
   StaticRoute,
   Boot

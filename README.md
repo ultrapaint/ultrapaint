@@ -192,6 +192,21 @@ The **Design system** panel shows them: swatches per theme, type specimens in yo
 spacing, radius and shadows. The **Components** panel lists your components or shows them as a
 grid of thumbnails, drawn with the example props.
 
+## Importing a Figma file
+
+**Import Figma…** in the Pages panel takes a `.fig` file (File → Save local copy in Figma).
+The server reads it by fixed rules — the frames of each page, the components and where they are
+used, the images — and opens a thread with `/import-figma` in its composer. The agent then
+decides, component by component, what each Figma component becomes: one of your components,
+with its variants and text properties mapped to props; a custom one, kept as the layers it is
+made of; or left out. Where the names do not settle it, the agent asks you in the thread, with
+the likely candidates to pick from, and carries on with your answers. Each frame is then written
+as a page at a route that fits its name, with its pictures in the space's `assets/`, and the
+agent looks at it and mends what the rules could not carry over.
+
+Auto-layout becomes rows and columns, text keeps its font, image fills become images, icons
+become SVG files. Free-positioned layers are stacked in reading order, and the import says so.
+
 ## Pages, routes and spaces
 
 A **page** is a `.page.json` file in the designs directory, and its path is its route, the way
@@ -222,6 +237,7 @@ supported.
 - [How the preview is built: editor, preview core, renderer, framework](docs/adr/0011-preview-split.md)
 - [Spaces, pages and the router](docs/adr/0012-spaces-pages-router.md)
 - [Design documents instead of TSX pages](docs/adr/0015-design-documents.md)
+- [Importing a Figma file](docs/adr/0016-figma-import.md)
 - [All architecture decisions](docs/adr/README.md)
 - [Work definition](docs/discuss/work-definition.md) and [implementation plan](docs/PLAN.md)
 
@@ -246,6 +262,7 @@ pnpm test && pnpm typecheck && pnpm lint
 - `packages/framework-api` — what a renderer gives the preview and what a framework gives the server.
 - `packages/preview-core` — the framework-neutral runtime injected into every preview iframe: what to draw, measuring, hit-testing, text editing, the prototype's navigation.
 - `packages/renderer-react` — draws design documents with the repository's own React and components (`renderToCanvas`).
+- `packages/figma-import` — reads a `.fig` file and converts its frames to design documents by fixed rules, with a mapping that says what each Figma component becomes.
 - `packages/framework-react-vite` — the Node side for React + Vite: the Tailwind v4 theme scan, catalogue extraction, repository detection, the preview server and its component registry.
 - `packages/acp` — the only module that imports the ACP SDK, behind an `AcpAgent` Effect interface; agent launch configs are data.
 - `packages/client-runtime`, `packages/shared` — the editor's RPC connection (reconnects, typed requests, events) and small utilities.

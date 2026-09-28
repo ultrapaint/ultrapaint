@@ -9,6 +9,7 @@ import { CommentsService } from "./services/comments.ts";
 import { DesignSystemService } from "./services/design-system.ts";
 import { DocumentService } from "./services/documents.ts";
 import { EditService } from "./services/edit.ts";
+import { FigmaImportService } from "./services/figma-import.ts";
 import { GitService } from "./services/git.ts";
 import { HostManager } from "./services/host.ts";
 import { McpAccess } from "./services/mcp/access.ts";
@@ -76,6 +77,9 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const catalogue = <A, E>(
       f: (s: CatalogueService["Service"]) => Effect.Effect<A, E>
     ) => project.use(Effect.flatMap(CatalogueService, f));
+    const figma = <A, E>(
+      f: (s: FigmaImportService["Service"]) => Effect.Effect<A, E>
+    ) => project.use(Effect.flatMap(FigmaImportService, f));
 
     return UltrapaintRpcs.of({
       "agents.list": () => agents.list,
@@ -126,6 +130,8 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "events.project": () => events.subscribe("project"),
       "events.screenshot": () => screenshots.requests,
       "events.skills": () => events.subscribe("skills"),
+      "figma.delete": ({ id }) => figma((f) => f.delete(id)),
+      "figma.list": () => figma((f) => f.list),
       "git.commit": ({ message, paths }) =>
         git((g) =>
           Effect.gen(function* () {
@@ -194,6 +200,8 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
         skills((s) => s.customise(name, mode)),
       "skills.list": () => skills((s) => s.list),
       "spaces.create": ({ name }) => pages((s) => s.createSpace(name)),
+      "threads.answer": ({ threadId, itemId, answers }) =>
+        threads.answer(threadId, itemId, answers),
       "threads.cancel": ({ threadId }) => threads.cancel(threadId),
       "threads.create": ({ agentId, title }) => threads.create(agentId, title),
       "threads.delete": ({ threadId }) => threads.delete(threadId),

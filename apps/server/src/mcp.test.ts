@@ -118,6 +118,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         };
         assert.deepStrictEqual(tools.result.tools.map((t) => t.name).sort(), [
           "apply_operations",
+          "ask_user",
           "create_page",
           "focus",
           "get_component",
@@ -126,15 +127,21 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           "get_screenshot",
           "list_comments",
           "list_components",
+          "list_figma_imports",
           "list_pages",
+          "map_figma_component",
           "read_canvas",
           "read_design_system",
+          "read_figma_component",
+          "read_figma_frame",
+          "read_figma_import",
           "read_page",
           "rename_page",
           "reply_to_comment",
           "resolve_comment",
           "scan_design_system",
           "write_design_system",
+          "write_figma_frame",
         ]);
 
         const called = yield* callMcp(

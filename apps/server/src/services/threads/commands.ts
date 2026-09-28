@@ -18,6 +18,7 @@ import { ServerConfig } from "../../config.ts";
 import { ProjectManager } from "../../project.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { DocumentService } from "../documents.ts";
+import { FigmaImportService } from "../figma-import.ts";
 import { PagesService } from "../pages.ts";
 import { RepoPaths } from "../repo-paths.ts";
 
@@ -34,6 +35,11 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     argument: "<route>",
     description: "Turn a page of the design into the application's own code",
     name: "implement",
+  },
+  {
+    description:
+      "Turn an imported Figma file into pages, with its components replaced by the repository's",
+    name: "import-figma",
   },
 ];
 
@@ -210,6 +216,93 @@ ${userAdds(extra)}</ultrapaint-task>`;
           })
         );
 
+      const importFigma = (argument: string) =>
+        project.use(
+          Effect.gen(function* () {
+            const [target = "", ...rest] = argument.trim().split(WHITESPACE_RE);
+            const extra = rest.join(" ");
+            const figma = yield* FigmaImportService;
+            const imports = yield* figma.list;
+            const chosen =
+              imports.find((i) => i.id === target || i.name === target) ??
+              imports[0];
+            if (!chosen) {
+              return `<ultrapaint-task command="import-figma">
+The user asked to import a Figma file, but none has been uploaded. Tell them to use "Import Figma…" in the Pages panel, which takes a .fig file, and stop.
+</ultrapaint-task>`;
+            }
+            const { designSystem } = yield* (yield* DesignSystemService).get;
+            const frames = chosen.pages.flatMap((page) =>
+              page.frames.map(
+                (f) => `${f.name} (${f.id}, ${f.width}×${f.height})`
+              )
+            );
+            const components = chosen.components
+              .filter((c) => c.uses > 0)
+              .sort((a, b) => b.uses - a.uses)
+              .map(
+                (c) =>
+                  `- ${c.key}: used ${c.uses}×${
+                    Object.keys(c.variants).length > 0
+                      ? `, variants ${Object.entries(c.variants)
+                          .map(
+                            ([name, values]) => `${name}=${values.join("|")}`
+                          )
+                          .join(" ")}`
+                      : ""
+                  }${
+                    c.candidates.length > 0
+                      ? `; might be ${c.candidates.map((k) => k.name).join(" or ")}`
+                      : "; no component of a similar name here"
+                  }`
+              );
+            const tools = mcp
+              ? `Through the ultrapaint MCP server: read_figma_import (the file: frames, components, candidates, the
+mapping so far), read_figma_component and read_figma_frame (one of them, with an outline of its layers),
+map_figma_component (what a Figma component becomes), write_figma_frame (a frame as a page), ask_user
+(a question card for the user), list_components and get_component (this repository's components).`
+              : `The import's file is in the state directory under imports/${chosen.id}; without the MCP server the
+mapping cannot be written, so tell the user to start the server with MCP on and stop.`;
+            return `<ultrapaint-task command="import-figma">
+Turn the Figma file "${chosen.name}" (import ${chosen.id}) into pages of this project, drawn with this
+repository's own components where it has them.
+
+${tools}
+
+The file has ${frames.length} frame${frames.length === 1 ? "" : "s"}: ${frames.join(", ") || "none"}.
+Its components, most used first:
+${components.join("\n") || "- none"}
+${chosen.warnings.length > 0 ? `\nWhat the reading could not carry over:\n${chosen.warnings.map((w) => `- ${w}`).join("\n")}\n` : ""}
+${
+  designSystem
+    ? "The design system is imported: read_design_system has its tokens and each component's notes."
+    : "The design system has not been imported yet; components come from list_components. Suggest /init afterwards."
+}
+
+1. Read the import (read_figma_import) and the repository's components (list_components). For each Figma
+   component, most used first, decide what it becomes:
+   - It is one of this repository's components when the name and the variants say so (a Button with
+     Size and Type variants is the repository's Button). Read the repository component with
+     get_component for its props, then map it with map_figma_component: the variants and text
+     properties to its props (propMap), constants to props, the label to text.
+   - It is custom when nothing here does the job: map it as {kind:"expand"} and its layers are kept.
+   - Decorative ones (a status bar, a cursor, a placeholder image) are {kind:"skip"}.
+   Where you cannot tell — a candidate that only looks alike, two candidates, a component this
+   repository may have under another name — ask the user with ask_user, up to four components per
+   card, each with the candidates as options, "Custom: keep its layers" and "Skip" among them, and
+   allowOther for a name you did not think of. End your turn after asking; carry on when the answers
+   come. Do not ask about what the names settle.
+2. Once every used component is decided, write each frame with write_figma_frame at a route that
+   fits its name ("Login" is /login, "Home" is /), in the space the user works in; ask when a frame
+   is not a screen (a component sheet, a style guide) whether to import it at all.
+3. Look at each page with get_screenshot and mend what the rules got wrong with apply_operations:
+   colours the design system has a token for that came through as hex, sizes that should be "fill"
+   or "hug", texts that should be set in a text style. Keep the page close to the Figma frame.
+4. End with a short summary: the pages written, the mapping, and what to look at by hand.
+${userAdds(extra)}</ultrapaint-task>`;
+          })
+        );
+
       const expand = (text: string) => {
         const match: RegExpExecArray | null = COMMAND_RE.exec(text.trim());
         const name = match?.[1];
@@ -219,6 +312,9 @@ ${userAdds(extra)}</ultrapaint-task>`;
         }
         if (name === "implement") {
           return implement(argument).pipe(Effect.orElseSucceed(() => null));
+        }
+        if (name === "import-figma") {
+          return importFigma(argument).pipe(Effect.orElseSucceed(() => null));
         }
         return Effect.succeed(null);
       };

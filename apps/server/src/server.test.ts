@@ -686,7 +686,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
       Effect.gen(function* () {
         const { client } = yield* TestEnv;
         const names = (yield* client["commands.list"]()).map((c) => c.name);
-        assert.deepStrictEqual(names, ["init", "implement"]);
+        assert.deepStrictEqual(names, ["init", "implement", "import-figma"]);
       })
     );
 

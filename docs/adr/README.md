@@ -19,3 +19,4 @@ One file per decision. Status is one of proposed, accepted, superseded.
 | [0013](0013-agent-scope.md) | Agents are confined to the repository by an operating system sandbox around their process, the same for every ACP agent |
 | [0014](0014-editor-mcp.md) | The editor answers agents over MCP: what the project is and where they are working, not a second way to edit files |
 | [0015](0015-design-documents.md) | Pages are design documents (`.page.json`) the tool owns; the design system is imported by an agent; an agent turns a page into code |
+| [0016](0016-figma-import.md) | A Figma file is read by rules into pages; which component is which is an agent's decision, or the user's, asked in the thread |

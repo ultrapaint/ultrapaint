@@ -151,6 +151,23 @@ export const TurnUsage = Schema.Struct({
 });
 export type TurnUsage = typeof TurnUsage.Type;
 
+export const QuestionOption = Schema.Struct({
+  description: Schema.optional(Schema.String),
+  id: Schema.String,
+  label: Schema.String,
+});
+export type QuestionOption = typeof QuestionOption.Type;
+
+/** One question an agent puts to the user, with the answers it offers. */
+export const Question = Schema.Struct({
+  /** The user may type an answer of their own instead of picking one. */
+  allowOther: Schema.optional(Schema.Boolean),
+  id: Schema.String,
+  options: Schema.Array(QuestionOption),
+  question: Schema.String,
+});
+export type Question = typeof Question.Type;
+
 export const ToolCallStatus = Schema.Literals([
   "pending",
   "in_progress",
@@ -217,6 +234,19 @@ export const ThreadItem = Schema.Union([
     requestId: Schema.String,
     title: Schema.String,
     toolCallId: Schema.optional(Schema.String),
+  }),
+  /**
+   * Questions the agent asked with `ask_user`. The answers, once given, are also sent to the
+   * agent as the next prompt: the card is where the user answers, the prompt is how the agent
+   * hears it.
+   */
+  Schema.Struct({
+    /** Question id → the option chosen, or the text typed. Null while unanswered. */
+    answers: Schema.NullOr(Schema.Record(Schema.String, Schema.String)),
+    at: Schema.Number,
+    id: Schema.String,
+    kind: Schema.Literal("question"),
+    questions: Schema.Array(Question),
   }),
   Schema.Struct({
     at: Schema.Number,

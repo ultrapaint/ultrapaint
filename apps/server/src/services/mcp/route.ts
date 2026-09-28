@@ -14,6 +14,7 @@ import {
   HttpServerResponse,
 } from "effect/unstable/http";
 import { CallingThread, McpAccess } from "./access.ts";
+import { FigmaTools, FigmaToolsLive } from "./figma-tools.ts";
 import { ScreenshotToolLive } from "./screenshot.ts";
 import { EditorTools, EditorToolsLive } from "./tools.ts";
 
@@ -45,8 +46,9 @@ const TokenGate = HttpRouter.use(
   })
 );
 
-const Tools = Layer.merge(
+const Tools = Layer.mergeAll(
   McpServer.toolkit(EditorTools).pipe(Layer.provide(EditorToolsLive)),
+  McpServer.toolkit(FigmaTools).pipe(Layer.provide(FigmaToolsLive)),
   ScreenshotToolLive
 );
 

@@ -22,6 +22,7 @@ import { ComponentRegistry } from "./services/component-registry.ts";
 import { DesignSystemService } from "./services/design-system.ts";
 import { DocumentService } from "./services/documents.ts";
 import { EditService } from "./services/edit.ts";
+import { FigmaImportService } from "./services/figma-import.ts";
 import { ProjectFramework } from "./services/framework.ts";
 import { GitService } from "./services/git.ts";
 import { HostManager } from "./services/host.ts";
@@ -39,6 +40,7 @@ export type ProjectServices =
   | DesignSystemService
   | DocumentService
   | EditService
+  | FigmaImportService
   | GitService
   | HostManager
   | ProjectFramework
@@ -56,11 +58,10 @@ type ProjectRequirements =
   | Storage;
 
 const projectLayer = (settings: Settings) =>
-  Layer.mergeAll(
-    DocumentService.layer,
-    DesignSystemService.layer,
-    SkillsService.layer
-  ).pipe(
+  Layer.mergeAll(DocumentService.layer, FigmaImportService.layer).pipe(
+    Layer.provideMerge(
+      Layer.mergeAll(DesignSystemService.layer, SkillsService.layer)
+    ),
     Layer.provideMerge(
       Layer.mergeAll(
         CatalogueService.layer,

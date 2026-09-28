@@ -2,6 +2,7 @@ import {
   DESIGN_NOTES_FILE,
   DESIGN_SYSTEM_FILE,
 } from "@ultrapaint/contracts/design-system";
+import type { PageDocument } from "@ultrapaint/contracts/document";
 import { BadRequest, Conflict, NotFound } from "@ultrapaint/contracts/errors";
 import {
   CanvasLayout,
@@ -52,6 +53,8 @@ import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
 const IGNORED_DIRS = new Set(["node_modules", ".ultrapaint", "dist", ".vite"]);
+/** Room left between a new frame and the one it is placed after. */
+const FRAME_GAP = 80;
 export const CANVAS_FILE = "canvas.json";
 const SEGMENT_RE = /[\\/]/;
 const UNSAFE_NAME_RE = /[^A-Za-z0-9-_]+/g;
@@ -119,6 +122,13 @@ export class PagesService extends Context.Service<
       space: string,
       route: string,
       templateId?: string
+    ) => Effect.Effect<Page, PagesFailure>;
+    /** A page from a document made elsewhere, with its frame sized as given. */
+    readonly createWith: (
+      space: string,
+      route: string,
+      document: PageDocument,
+      frame?: { readonly height: number; readonly width: number }
     ) => Effect.Effect<Page, PagesFailure>;
     readonly createSpace: (name: string) => Effect.Effect<Space, PagesFailure>;
     readonly delete: (id: string) => Effect.Effect<void, PagesFailure>;
@@ -345,21 +355,51 @@ export class PagesService extends Context.Service<
         };
       });
 
-      const create = Effect.fn("PagesService.create")(function* (
+      /** Beside the rightmost frame of the space, so a new page never lands on another. */
+      const placeFrame = (
+        frames: CanvasLayout["frames"],
+        size: { readonly height: number; readonly width: number }
+      ): FrameLayout => {
+        const placed = Object.values(frames);
+        const x =
+          placed.length === 0
+            ? 0
+            : Math.max(...placed.map((f) => f.x + f.width)) + FRAME_GAP;
+        return { ...size, preset: "custom", x, y: 0 };
+      };
+
+      const createWith = Effect.fn("PagesService.createWith")(function* (
         space: string,
         route: string,
-        templateId = "blank"
+        document: PageDocument,
+        frame?: { readonly height: number; readonly width: number }
       ) {
         const target = yield* fileForRoute(route);
         const abs = yield* paths.resolve(path.join(root, space, target.path));
         yield* failIfExists(abs);
-        const document = renderTemplate(templateId, routeLabel(target.route));
         yield* edit.transaction(`Create ${target.route}`, (tx) =>
-          tx.create(paths.relative(abs), serialise(document))
+          Effect.gen(function* () {
+            yield* tx.create(paths.relative(abs), serialise(document));
+            if (frame) {
+              yield* updateFrames(tx, space, (frames) => ({
+                ...frames,
+                [target.path]: placeFrame(frames, frame),
+              }));
+            }
+          })
         );
         yield* publishList;
         return toPage(space, target.path, abs);
       });
+
+      const create = (space: string, route: string, templateId = "blank") =>
+        Effect.flatMap(fileForRoute(route), (target) =>
+          createWith(
+            space,
+            route,
+            renderTemplate(templateId, routeLabel(target.route))
+          )
+        ).pipe(Effect.withSpan("PagesService.create"));
 
       const createSpace = Effect.fn("PagesService.createSpace")(function* (
         name: string
@@ -553,6 +593,8 @@ export class PagesService extends Context.Service<
         create: (space, route, templateId) =>
           exclusive(create(space, route, templateId)),
         createSpace: (name) => exclusive(createSpace(name)),
+        createWith: (space, route, document, frame) =>
+          exclusive(createWith(space, route, document, frame)),
         delete: (id) => exclusive(remove(id)),
         duplicate: (id) => exclusive(duplicate(id)),
         list,

@@ -22,6 +22,10 @@ const lineOf = (item: ThreadItem): string | null => {
         : `User: ${clip(item.text)}`;
     case "agent":
       return `Assistant: ${clip(item.text)}`;
+    case "question":
+      return item.answers === null
+        ? `(Assistant asked: ${item.questions.map((q) => q.question).join(" / ")}; not answered)`
+        : null;
     case "status":
       return `(${item.text})`;
     case "turn_end":

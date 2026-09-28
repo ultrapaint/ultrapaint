@@ -19,6 +19,7 @@ import {
   ChevronDown,
   ChevronRight,
   CircleAlert,
+  CircleHelp,
   ListTodo,
   Paperclip,
   Plus,
@@ -71,6 +72,7 @@ import {
   EmptyHeader,
   EmptyMedia,
 } from "@/components/ui/empty";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker";
 import { Message, MessageContent } from "@/components/ui/message";
@@ -661,6 +663,8 @@ const Item = ({
       );
     case "permission":
       return <Permission item={item} threadId={threadId} />;
+    case "question":
+      return <QuestionCard item={item} threadId={threadId} />;
     case "status":
       return (
         <Marker>
@@ -754,6 +758,151 @@ const Permission = ({
               remember for this thread
             </Label>
           </>
+        )}
+      </AlertDescription>
+    </Alert>
+  );
+};
+
+type QuestionItem = Extract<ThreadItem, { kind: "question" }>;
+type QuestionOf = QuestionItem["questions"][number];
+
+/** What an answer reads as once given: the option's label, or the text typed. */
+const answerLabel = (question: QuestionOf, answer: string | undefined) =>
+  question.options.find((o) => o.id === answer)?.label ?? answer ?? "";
+
+const QuestionChoices = ({
+  onPick,
+  other,
+  picked,
+  question,
+  setOther,
+}: {
+  onPick: (id: string) => void;
+  other: string;
+  picked: string | undefined;
+  question: QuestionOf;
+  setOther: (text: string) => void;
+}) => {
+  const chosen = other ? undefined : picked;
+  const description = question.options.find(
+    (o) => o.id === chosen
+  )?.description;
+  return (
+    <>
+      <div className="flex flex-wrap gap-1">
+        {question.options.map((o) => (
+          <Button
+            key={o.id}
+            onClick={() => onPick(o.id)}
+            size="sm"
+            title={o.description}
+            variant={chosen === o.id ? "default" : "outline"}
+          >
+            {o.label}
+          </Button>
+        ))}
+      </div>
+      {description ? (
+        <span className="text-muted-foreground">{description}</span>
+      ) : null}
+      {question.allowOther ? (
+        <Input
+          className="h-7 text-xs"
+          onChange={(e: ChangeEvent<HTMLInputElement>) =>
+            setOther(e.target.value)
+          }
+          placeholder="Or type an answer"
+          value={other}
+        />
+      ) : null}
+    </>
+  );
+};
+
+/**
+ * Questions an agent put to the user with `ask_user`. The answers are sent as the next prompt,
+ * so they wait until the agent's turn has ended.
+ */
+const QuestionCard = ({
+  item,
+  threadId,
+}: {
+  item: QuestionItem;
+  threadId: string;
+}) => {
+  const running = useAgents((s) => {
+    const status = s.threads.find((t) => t.id === threadId)?.status;
+    return status === "running" || status === "cancelling";
+  });
+  const [picked, setPicked] = useState<Record<string, string>>({});
+  const [other, setOther] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState(false);
+  const answerOf = (question: QuestionOf) =>
+    other[question.id]?.trim() || picked[question.id];
+  const complete = item.questions.every((q) => answerOf(q));
+  const send = async () => {
+    setBusy(true);
+    try {
+      await api().request("threads.answer", {
+        answers: Object.fromEntries(
+          item.questions.map((q) => [q.id, answerOf(q) ?? ""])
+        ),
+        itemId: item.id,
+        threadId,
+      });
+    } catch (error) {
+      reportError(error);
+    }
+    setBusy(false);
+  };
+  const answered = item.answers;
+  return (
+    <Alert className={cn(!answered && "border-brand bg-brand/10")}>
+      <CircleHelp />
+      <AlertTitle>{answered ? "Answered" : "The agent asks"}</AlertTitle>
+      <AlertDescription className="flex flex-col gap-3">
+        {item.questions.map((question) => (
+          <div className="flex flex-col gap-1.5" key={question.id}>
+            <span className="font-medium text-foreground">
+              {question.question}
+            </span>
+            {answered ? (
+              <span className="flex items-center gap-1">
+                <Check className="size-3" />
+                {answerLabel(question, answered[question.id])}
+              </span>
+            ) : (
+              <QuestionChoices
+                onPick={(id) => {
+                  setPicked((p) => ({ ...p, [question.id]: id }));
+                  setOther((p) => ({ ...p, [question.id]: "" }));
+                }}
+                other={other[question.id] ?? ""}
+                picked={picked[question.id]}
+                question={question}
+                setOther={(text) =>
+                  setOther((p) => ({ ...p, [question.id]: text }))
+                }
+              />
+            )}
+          </div>
+        ))}
+        {answered ? null : (
+          <div className="flex items-center gap-2">
+            <Button
+              disabled={!complete || running || busy}
+              onClick={send}
+              size="sm"
+            >
+              Send answers
+            </Button>
+            {running ? (
+              <span className="text-muted-foreground">
+                once the agent has finished its turn
+              </span>
+            ) : null}
+          </div>
         )}
       </AlertDescription>
     </Alert>
