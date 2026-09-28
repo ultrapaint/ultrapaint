@@ -29,6 +29,7 @@ import {
   updateComment,
   useComments,
 } from "../state/comments.ts";
+import { openMenuAt } from "../state/context-menu.ts";
 import { SendToAgent } from "./send-to-agent.tsx";
 
 /** The pin's shape as a cursor: its point, bottom left, is where the comment lands. */
@@ -144,6 +145,9 @@ const Pin = ({ comment, open }: { comment: Comment; open: boolean }) => {
         comment.resolved && "opacity-60"
       )}
       onClick={toggle}
+      onContextMenu={(e) =>
+        openMenuAt(e, { commentId: comment.id, kind: "comment" })
+      }
       onPointerDown={stop}
       type="button"
     >

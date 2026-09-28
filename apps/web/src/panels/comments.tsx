@@ -18,6 +18,7 @@ import {
   updateComment,
   useComments,
 } from "../state/comments.ts";
+import { openMenuAt } from "../state/context-menu.ts";
 import { pagesOfSpace, useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
 
@@ -123,6 +124,9 @@ const Item = ({ comment }: { comment: Comment }) => {
         aria-label={`Open comment: ${comment.text}`}
         className="absolute inset-0"
         onClick={reveal}
+        onContextMenu={(e) =>
+          openMenuAt(e, { commentId: comment.id, kind: "comment" })
+        }
         type="button"
       />
       <span className="flex size-5 shrink-0 items-center justify-center rounded-full rounded-bl-none bg-brand font-semibold text-[10px] text-brand-foreground">

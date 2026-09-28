@@ -32,6 +32,13 @@ import { Markdown } from "../components/markdown.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import { startCommand } from "../lib/start-thread.ts";
+import {
+  holdMenu,
+  type MenuTarget,
+  openMenuAt,
+  showMenu,
+  type TokenKind,
+} from "../state/context-menu.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useProject } from "../state/project.ts";
 
@@ -84,6 +91,14 @@ const Swatches = ({
             className="group flex min-w-0 flex-col overflow-hidden rounded-md border text-left hover:border-ring"
             key={token.name}
             onClick={() => copy(tokenRef(token.name))}
+            onContextMenu={(e) =>
+              openMenuAt(e, {
+                kind: "token",
+                name: token.name,
+                tokenKind: "color",
+                value,
+              })
+            }
             title={`${token.name}: ${value}${token.description ? `\n${token.description}` : ""}\nbg-${token.name.replace(COLOR_PREFIX_RE, "")}`}
             type="button"
           >
@@ -101,12 +116,43 @@ const Swatches = ({
   </div>
 );
 
+/** The text styles the search leaves, in the order the samples number them. */
+const stylesMatching = (ds: DesignSystem, q: string) =>
+  ds.typography.styles.filter((s) => matches({ name: s.name, value: "" }, q));
+
+const sizesMatching = (ds: DesignSystem, q: string) =>
+  ds.typography.sizes.filter((s) => matches(s, q));
+
+const SAMPLE_ID_RE = /^(?:style|size|sample|label)-(\d+)$/;
+
+/** The menu of the sample a node of the type specimen belongs to: a style's, or a size's. */
+const sampleTarget = (
+  ds: DesignSystem,
+  q: string,
+  chain: readonly string[]
+): MenuTarget | null => {
+  const match = chain
+    .map((id) => SAMPLE_ID_RE.exec(id))
+    .findLast((m) => m !== null);
+  const index = match?.[1];
+  if (index === undefined) {
+    return null;
+  }
+  const styles = stylesMatching(ds, q);
+  const style = styles[Number(index)];
+  if (styles.length > 0) {
+    return style ? { kind: "textStyle", name: style.name } : null;
+  }
+  const size = sizesMatching(ds, q)[Number(index)];
+  return size
+    ? { kind: "token", name: size.name, tokenKind: "size", value: size.value }
+    : null;
+};
+
 /** The type samples, drawn by the preview with the repository's own fonts. */
 const typeSpecimen = (ds: DesignSystem, q: string): DesignNode => {
-  const styles = ds.typography.styles.filter((s) =>
-    matches({ name: s.name, value: "" }, q)
-  );
-  const sizes = ds.typography.sizes.filter((s) => matches(s, q));
+  const styles = stylesMatching(ds, q);
+  const sizes = sizesMatching(ds, q);
   const sample = (style: TextStyle, i: number): DesignNode => ({
     children: [
       {
@@ -222,6 +268,22 @@ const TypeSpecimen = ({ ds, q }: { ds: DesignSystem; q: string }) => {
       });
     }
   }, [ready, ds, q]);
+  // The samples are one picture: which one was right-clicked is asked of the preview.
+  const onContextMenu = async (e: React.MouseEvent) => {
+    const anchor = holdMenu(e);
+    const r = ref.current?.getBoundingClientRect();
+    if (!r) {
+      return;
+    }
+    const chain = await bridgeFor(frame).hitTest(
+      e.clientX - r.left,
+      e.clientY - r.top
+    );
+    const target = sampleTarget(ds, q, chain);
+    if (target) {
+      showMenu(target, anchor);
+    }
+  };
   if (!host) {
     return (
       <div className="px-3 py-2 text-[11px] text-muted-foreground">
@@ -231,7 +293,11 @@ const TypeSpecimen = ({ ds, q }: { ds: DesignSystem; q: string }) => {
   }
   return (
     <div className="overflow-hidden px-3 py-2">
-      <div className="overflow-hidden rounded-md border bg-white">
+      {/* biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: the samples are one picture; the inspector sets the same styles. */}
+      <div
+        className="overflow-hidden rounded-md border bg-white"
+        onContextMenu={onContextMenu}
+      >
         <iframe
           className="pointer-events-none block w-full origin-top-left border-0"
           ref={ref}
@@ -246,9 +312,12 @@ const TypeSpecimen = ({ ds, q }: { ds: DesignSystem; q: string }) => {
 
 const TokenRows = ({
   tokens,
+  kind,
   preview,
 }: {
   tokens: readonly Token[];
+  /** What the tokens can be applied to, from their menu. */
+  kind: TokenKind;
   preview: (token: Token) => React.ReactNode;
 }) => (
   <div className="flex flex-col py-1">
@@ -257,6 +326,14 @@ const TokenRows = ({
         className="flex items-center gap-2 px-3 py-1 text-left hover:bg-muted/50"
         key={token.name}
         onClick={() => copy(tokenRef(token.name))}
+        onContextMenu={(e) =>
+          openMenuAt(e, {
+            kind: "token",
+            name: token.name,
+            tokenKind: kind,
+            value: token.value,
+          })
+        }
         title={`Copy $${token.name}`}
         type="button"
       >
@@ -324,6 +401,7 @@ const Contents = ({
       <TypeSpecimen ds={ds} q={q} />
       {fonts.length > 0 && (
         <TokenRows
+          kind="font"
           preview={() => <span className="text-muted-foreground">Aa</span>}
           tokens={fonts}
         />
@@ -342,7 +420,19 @@ const Contents = ({
           </div>
         ))}
         {(ds.spacing.tokens ?? []).map((t) => (
-          <div className="flex items-center gap-2" key={t.name}>
+          // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: a shortcut for the pointer; the inspector's fields take the same tokens.
+          <div
+            className="flex items-center gap-2"
+            key={t.name}
+            onContextMenu={(e) =>
+              openMenuAt(e, {
+                kind: "token",
+                name: t.name,
+                tokenKind: "spacing",
+                value: t.value,
+              })
+            }
+          >
             <span className="w-14 shrink-0 truncate font-mono text-[10px] text-muted-foreground">
               {t.name}
             </span>
@@ -357,6 +447,7 @@ const Contents = ({
         <>
           <Heading>Radius</Heading>
           <TokenRows
+            kind="radius"
             preview={(t) => (
               <span
                 className="size-7 border-2 border-foreground/40 bg-muted"
@@ -371,6 +462,7 @@ const Contents = ({
         <>
           <Heading>Shadows</Heading>
           <TokenRows
+            kind="shadow"
             preview={(t) => (
               <span
                 className="size-7 rounded-md bg-white"

@@ -1,0 +1,380 @@
+/**
+ * What each context menu holds, as data: the items a target offers, which are there at all and
+ * which are only greyed out. Pure, over the facts the host reads off the stores, so a menu can
+ * be read — and tested — without an editor. What an item does is `menu-actions.ts`'s.
+ */
+import type { DesignNode } from "@ultrapaint/contracts/document";
+import type { ViewportPreset } from "@ultrapaint/contracts/pages";
+import {
+  isContainer,
+  nodeKind,
+  nodeLabel,
+} from "@ultrapaint/design-document/tree";
+import type { TokenKind } from "../state/context-menu.ts";
+
+export type Entry =
+  | {
+      kind: "item";
+      /** What the item does; `wrap:row`, `apply:fill` and the like carry their argument. */
+      id: string;
+      label: string;
+      shortcut?: string;
+      disabled?: boolean;
+      destructive?: boolean;
+      /** Marked as the current choice among its neighbours. */
+      checked?: boolean;
+    }
+  | { kind: "separator" }
+  | { kind: "label"; label: string }
+  | {
+      kind: "submenu";
+      id: string;
+      label: string;
+      disabled?: boolean;
+      entries: readonly Entry[];
+    };
+
+const item = (
+  id: string,
+  label: string,
+  more: Omit<Extract<Entry, { kind: "item" }>, "kind" | "id" | "label"> = {}
+): Entry => ({ id, kind: "item", label, ...more });
+
+const separator: Entry = { kind: "separator" };
+
+/** No separator at either end, and never two in a row: optional items leave gaps. */
+export const tidy = (entries: readonly (Entry | false | null)[]): Entry[] => {
+  const out: Entry[] = [];
+  for (const e of entries) {
+    if (!e) {
+      continue;
+    }
+    if (
+      e.kind === "separator" &&
+      (out.length === 0 || out.at(-1)?.kind === "separator")
+    ) {
+      continue;
+    }
+    out.push(e);
+  }
+  if (out.at(-1)?.kind === "separator") {
+    out.pop();
+  }
+  return out;
+};
+
+// ---- Nodes ----
+
+export interface NodeFacts {
+  /** Something copied that can be pasted. */
+  canPaste: boolean;
+  /** Where it sits among its siblings. */
+  index: number;
+  node: DesignNode;
+  /** The frame is a page, which is what comments are pinned on. */
+  onPage: boolean;
+  /** It is inside something other than a page's root, which Select parent goes to. */
+  parentSelectable: boolean;
+  siblings: number;
+}
+
+/** The node's name and what it is, once when they are the same. */
+const headingOf = (node: DesignNode) => {
+  const label = nodeLabel(node);
+  const kind = nodeKind(node);
+  return label === kind ? label : `${label} · ${kind}`;
+};
+
+/** A page's root is the page: it is not copied, moved or deleted as a node. */
+const isPageRoot = (node: DesignNode) => node.type === "page";
+
+export const nodeEntries = (f: NodeFacts): Entry[] => {
+  const { node } = f;
+  const root = isPageRoot(node);
+  const first = f.index <= 0;
+  const last = f.index >= f.siblings - 1;
+  return tidy([
+    { kind: "label", label: headingOf(node) },
+    item("ask", "Ask an agent about this"),
+    node.type === "text" && item("editText", "Edit text", { shortcut: "⏎" }),
+    item("rename", "Rename…"),
+    item("viewCode", "View code"),
+    f.onPage && item("comment", "Comment on this"),
+    f.parentSelectable &&
+      item("selectParent", "Select parent", { shortcut: "Esc" }),
+    separator,
+    !root && item("copy", "Copy", { shortcut: "⌘C" }),
+    !root && item("cut", "Cut", { shortcut: "⌘X" }),
+    item("paste", "Paste", { disabled: !f.canPaste, shortcut: "⌘V" }),
+    !root && item("duplicate", "Duplicate", { shortcut: "⌘D" }),
+    separator,
+    !root && {
+      entries: [
+        item("wrap:group", "Group", { shortcut: "⌘G" }),
+        item("wrap:row", "Row", { shortcut: "⌥⌘G" }),
+        item("wrap:column", "Column", { shortcut: "⇧⌘G" }),
+      ],
+      id: "wrap",
+      kind: "submenu",
+      label: "Wrap in",
+    },
+    !root && isContainer(node) && item("unwrap", "Unwrap"),
+    !root && {
+      disabled: f.siblings < 2,
+      entries: [
+        item("arrange:up", "Move up", { disabled: first }),
+        item("arrange:down", "Move down", { disabled: last }),
+        item("arrange:top", "Move to the top", { disabled: first }),
+        item("arrange:bottom", "Move to the bottom", { disabled: last }),
+      ],
+      id: "arrange",
+      kind: "submenu",
+      label: "Arrange",
+    },
+    item("toggleHidden", node.hidden ? "Show" : "Hide"),
+    item("zoomTo", "Zoom to selection", { shortcut: "⇧2" }),
+    separator,
+    !root && item("delete", "Delete", { destructive: true, shortcut: "⌫" }),
+  ]);
+};
+
+// ---- Pages ----
+
+export interface PageFacts {
+  canPaste: boolean;
+  name: string;
+  /** The canvas is on screen: the prototype has no frames to zoom to. */
+  onCanvas: boolean;
+  preset: ViewportPreset | null;
+  route: string;
+}
+
+export const PRESETS: readonly { label: string; value: ViewportPreset }[] = [
+  { label: "Mobile", value: "mobile" },
+  { label: "Tablet", value: "tablet" },
+  { label: "Desktop", value: "desktop" },
+];
+
+export const pageEntries = (f: PageFacts): Entry[] =>
+  tidy([
+    { kind: "label", label: `${f.name} · ${f.route}` },
+    item("goTo", `Go to ${f.route}`),
+    f.onCanvas && item("zoomTo", "Zoom to page"),
+    f.onCanvas &&
+      item("paste", "Paste into page", {
+        disabled: !f.canPaste,
+        shortcut: "⌘V",
+      }),
+    f.onCanvas && {
+      entries: PRESETS.map((p) =>
+        item(`preset:${p.value}`, p.label, { checked: f.preset === p.value })
+      ),
+      id: "preset",
+      kind: "submenu",
+      label: "Viewport",
+    },
+    separator,
+    item("rename", "Change route…"),
+    item("duplicate", "Duplicate page"),
+    item("implement", "Implement with an agent"),
+    f.onCanvas && item("comment", "Add a comment"),
+    separator,
+    item("delete", "Delete page…", { destructive: true }),
+  ]);
+
+// ---- The canvas ----
+
+export interface CanvasFacts {
+  canPaste: boolean;
+  commentsVisible: boolean;
+}
+
+export const canvasEntries = (f: CanvasFacts): Entry[] =>
+  tidy([
+    item("paste", "Paste here", { disabled: !f.canPaste, shortcut: "⌘V" }),
+    separator,
+    item("newPage", "New page…"),
+    separator,
+    item("zoomFit", "Zoom to fit", { shortcut: "⇧1" }),
+    item("zoom100", "Zoom to 100%", { shortcut: "⇧0" }),
+    separator,
+    item(
+      "toggleComments",
+      f.commentsVisible ? "Hide comments" : "Show comments",
+      { shortcut: "⇧C" }
+    ),
+    item("tool:text", "Text tool", { shortcut: "T" }),
+    item("tool:group", "Group tool", { shortcut: "G" }),
+  ]);
+
+export const routeEntries = (route: string): Entry[] => [
+  item("newPage", `New page under ${route}…`),
+  item("copyRoute", "Copy route"),
+];
+
+// ---- Comments ----
+
+export interface CommentFacts {
+  /** The session in use, when there is one; `busy` while its agent works. */
+  current: { busy: boolean; title: string } | null;
+  /** It is pinned on an element, which can be selected. */
+  hasElement: boolean;
+  resolved: boolean;
+}
+
+export const commentEntries = (f: CommentFacts): Entry[] =>
+  tidy([
+    item("open", "Open"),
+    f.hasElement && item("selectElement", "Select the element"),
+    item("resolve", f.resolved ? "Reopen" : "Resolve"),
+    {
+      entries: [
+        item(
+          "send:current",
+          f.current
+            ? `Current session · ${f.current.title}`
+            : "Current session",
+          { disabled: !f.current || f.current.busy }
+        ),
+        item("send:new", "New thread"),
+      ],
+      id: "send",
+      kind: "submenu",
+      label: "Send to an agent",
+    },
+    item("copyText", "Copy text"),
+    separator,
+    item("delete", "Delete…", { destructive: true }),
+  ]);
+
+// ---- Tokens ----
+
+/** A field of a node a token can go in, and what the item says. */
+export interface TokenField {
+  field:
+    | "border.color"
+    | "color"
+    | "fill"
+    | "font"
+    | "gap"
+    | "padding"
+    | "radius"
+    | "shadow"
+    | "size";
+  label: string;
+}
+
+const hasGap = (node: DesignNode) =>
+  node.type === "page" || node.type === "row" || node.type === "column";
+
+/** The fields of this node a token of this kind fits. */
+export const tokenFields = (
+  kind: TokenKind,
+  node: DesignNode | null
+): TokenField[] => {
+  if (!node) {
+    return [];
+  }
+  const text = node.type === "text";
+  switch (kind) {
+    case "color":
+      return [
+        { field: "fill", label: "Fill" },
+        ...(text ? [{ field: "color", label: "Text colour" } as const] : []),
+        { field: "border.color", label: "Border colour" },
+      ];
+    case "font":
+      return text ? [{ field: "font", label: "Font" }] : [];
+    case "radius":
+      return [{ field: "radius", label: "Radius" }];
+    case "shadow":
+      return [{ field: "shadow", label: "Shadow" }];
+    case "size":
+      return text ? [{ field: "size", label: "Font size" }] : [];
+    case "spacing":
+      return [
+        ...(hasGap(node) ? [{ field: "gap", label: "Gap" } as const] : []),
+        { field: "padding", label: "Padding" },
+      ];
+    default:
+      return [];
+  }
+};
+
+export interface TokenFacts {
+  kind: TokenKind;
+  name: string;
+  /** What is selected, which is what the token is applied to. */
+  selected: DesignNode | null;
+  value: string;
+}
+
+export const tokenEntries = (f: TokenFacts): Entry[] => {
+  const fields = tokenFields(f.kind, f.selected);
+  return tidy([
+    item("copyRef", `Copy $${f.name}`),
+    item("copyValue", `Copy ${f.value}`),
+    separator,
+    {
+      disabled: fields.length === 0,
+      entries: fields.map((t) => item(`apply:${t.field}`, t.label)),
+      id: "apply",
+      kind: "submenu",
+      label: f.selected
+        ? `Apply to ${nodeLabel(f.selected)}`
+        : "Apply to the selection",
+    },
+  ]);
+};
+
+export const textStyleEntries = (f: {
+  name: string;
+  selected: DesignNode | null;
+}): Entry[] => [
+  item(
+    "apply:textStyle",
+    f.selected?.type === "text"
+      ? `Apply to ${nodeLabel(f.selected)}`
+      : "Apply to the selected text",
+    { disabled: f.selected?.type !== "text" }
+  ),
+  item("copyName", `Copy ${f.name}`),
+];
+
+// ---- The palette ----
+
+export interface ComponentFacts {
+  isComponent: boolean;
+  name: string;
+  onCanvas: boolean;
+  /** Where Insert puts it, as the palette says it: `the page`, `Card`; null when nowhere. */
+  target: string | null;
+}
+
+export const componentEntries = (f: ComponentFacts): Entry[] =>
+  tidy([
+    item("insert", f.target ? `Insert into ${f.target}` : "Insert", {
+      disabled: f.target === null,
+    }),
+    f.onCanvas && item("insertCanvas", "Insert on the canvas"),
+    f.isComponent && separator,
+    f.isComponent && item("copyName", `Copy ${f.name}`),
+  ]);
+
+// ---- Threads ----
+
+export interface ThreadFacts {
+  following: boolean;
+  running: boolean;
+  title: string;
+}
+
+export const threadEntries = (f: ThreadFacts): Entry[] =>
+  tidy([
+    { kind: "label", label: f.title },
+    item("open", "Open in chat"),
+    item("follow", f.following ? "Stop following" : "Follow on the canvas"),
+    f.running && item("stop", "Stop the turn"),
+    separator,
+    item("delete", "Delete thread…", { destructive: true }),
+  ]);

@@ -46,6 +46,7 @@ import { Segmented } from "../components/segmented.tsx";
 import { insertNode, insertTarget } from "../lib/node-actions.ts";
 import { useCatalogue } from "../state/catalogue.ts";
 import { api } from "../state/connection.ts";
+import { openMenuAt } from "../state/context-menu.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
@@ -79,10 +80,19 @@ const instanceOf = (c: ComponentMeta) =>
     nextId()
   );
 
-/** Everything an entry of the palette does: a click inserts, a drag carries the node. */
-const entryHandlers = (make: () => DesignNode, name: string) => ({
+/**
+ * Everything an entry of the palette does: a click inserts, a drag carries the node, a
+ * right-click offers where else it can go.
+ */
+const entryHandlers = (
+  make: () => DesignNode,
+  name: string,
+  isComponent: boolean
+) => ({
   draggable: true,
   onClick: () => insertNode(make()),
+  onContextMenu: (e: React.MouseEvent) =>
+    openMenuAt(e, { isComponent, kind: "component", make, name }),
   // Dropped somewhere that is not the canvas: nothing lands.
   onDragEnd: () => {
     if (useDrag.getState().dragged?.kind === "new") {
@@ -104,7 +114,7 @@ const Primitives = () => (
         key={p.id}
         title={`Insert ${articled(p.name.toLowerCase())}`}
         type="button"
-        {...entryHandlers(() => newPrimitive(p.id, nextId()), p.name)}
+        {...entryHandlers(() => newPrimitive(p.id, nextId()), p.name, false)}
       >
         {PRIMITIVE_ICONS[p.id]}
         {p.name}
@@ -118,7 +128,7 @@ const ListItem = ({ component: c }: { component: ComponentMeta }) => (
     className="flex h-7 w-full items-center gap-2 px-3 text-left text-[11px] text-muted-foreground hover:bg-muted/60 hover:text-foreground"
     title={c.description ?? c.importFrom}
     type="button"
-    {...entryHandlers(() => instanceOf(c), c.name)}
+    {...entryHandlers(() => instanceOf(c), c.name, true)}
   >
     <span className="truncate font-medium text-foreground/90">{c.name}</span>
     <span className="ml-auto truncate text-[10px] text-muted-foreground/70">
@@ -138,7 +148,7 @@ const GridItem = ({
     className="group flex min-w-0 flex-col overflow-hidden rounded-md border bg-background/40 text-left hover:border-ring"
     title={c.description ?? c.importFrom}
     type="button"
-    {...entryHandlers(() => instanceOf(c), c.name)}
+    {...entryHandlers(() => instanceOf(c), c.name, true)}
   >
     <span className="flex h-20 items-center justify-center overflow-hidden bg-white p-2">
       {thumbnail ? (

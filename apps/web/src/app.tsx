@@ -31,6 +31,7 @@ import { Prototype, PrototypeBar } from "./canvas/prototype.tsx";
 import { CanvasStatus } from "./canvas/status.tsx";
 import { Toolbar } from "./canvas/toolbar.tsx";
 import { WorkspaceSwitcher } from "./canvas/workspace-switcher.tsx";
+import { ContextMenuHost } from "./components/context-menu-host.tsx";
 import { DialogHost } from "./components/dialogs.tsx";
 import { IconButton } from "./components/icon-button.tsx";
 import { ResizeHandle, usePanelWidth } from "./components/resize-handle.tsx";
@@ -428,6 +429,7 @@ export const App = () => {
         )}
         <SaveConfigDialog />
         <DialogHost />
+        <ContextMenuHost />
         <Toaster
           closeButton
           position="bottom-right"

@@ -11,6 +11,7 @@ import type { AgentActivity } from "../lib/agent-activity.ts";
 import { useAgentActivity } from "../state/agent-activity.ts";
 import { useAgents } from "../state/agents.ts";
 import { api } from "../state/connection.ts";
+import { openMenuAt } from "../state/context-menu.ts";
 import { useEditor } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
 
@@ -64,7 +65,13 @@ const Row = ({ activity }: { activity: AgentActivity }) => {
   };
 
   return (
-    <div className="pointer-events-auto flex h-7 items-center gap-1 rounded-full border bg-sidebar pr-1 pl-2.5 text-sidebar-foreground text-xs shadow-black/30 shadow-lg">
+    // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: the pill's buttons raise the menu from the keyboard, and it bubbles here.
+    <div
+      className="pointer-events-auto flex h-7 items-center gap-1 rounded-full border bg-sidebar pr-1 pl-2.5 text-sidebar-foreground text-xs shadow-black/30 shadow-lg"
+      onContextMenu={(e) =>
+        openMenuAt(e, { kind: "thread", threadId: activity.threadId })
+      }
+    >
       <span
         className="size-1.5 shrink-0 animate-pulse rounded-full"
         style={{ backgroundColor: activity.color }}

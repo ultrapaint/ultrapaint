@@ -70,7 +70,7 @@ import {
   updateSelection,
   wrapSelection,
 } from "../lib/node-actions.ts";
-import { startCommand } from "../lib/start-thread.ts";
+import { implementPage } from "../lib/page-actions.ts";
 import {
   Swatch,
   type TokenKind,
@@ -280,7 +280,7 @@ const PageSection = ({ frame }: { frame: string }) => {
       </Row>
       <Button
         className="mt-1 justify-start"
-        onClick={() => startCommand(`/implement ${page.route}`)}
+        onClick={() => implementPage(page)}
         size="sm"
         variant="outline"
       >

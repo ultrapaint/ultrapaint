@@ -15,6 +15,7 @@ import {
 } from "react";
 import { OptionSelect } from "../components/option-select.tsx";
 import { useComments } from "../state/comments.ts";
+import { holdMenu, openMenuAt, showMenu } from "../state/context-menu.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import {
   applyOps,
@@ -323,9 +324,22 @@ export const Frame = memo(
     };
 
     /**
-     * What a press here picks up if it turns into a drag: what is selected, when the press is
-     * inside it, else what a click would select. On a node placed on the canvas, its root is the
-     * node itself, and dragging it moves it around the canvas.
+     * What a press or a right-click here is about: what is selected, when the point is inside
+     * it, else what a click would select.
+     */
+    const pickAt = async (x: number, y: number, alt: boolean) => {
+      const chain = await bridgeFor(frameId).hitTest(x, y);
+      const store = useEditor.getState();
+      const selected =
+        store.selection?.frame === frameId ? store.selection.nodeId : null;
+      return selected !== null && chain.includes(selected)
+        ? selected
+        : stepInto(chain, currentRoot(), selected, alt);
+    };
+
+    /**
+     * What a press here picks up if it turns into a drag: what `pickAt` says. On a node placed on
+     * the canvas, its root is the node itself, and dragging it moves it around the canvas.
      */
     const dragTarget = async (
       x: number,
@@ -333,15 +347,9 @@ export const Frame = memo(
       alt: boolean
     ): Promise<Dragged | null> => {
       const bridge = bridgeFor(frameId);
-      const chain = await bridge.hitTest(x, y);
+      const id = await pickAt(x, y, alt);
       const store = useEditor.getState();
       const current = currentRoot();
-      const selected =
-        store.selection?.frame === frameId ? store.selection.nodeId : null;
-      const id =
-        selected !== null && chain.includes(selected)
-          ? selected
-          : stepInto(chain, current, selected, alt);
       if (!(id && current)) {
         return null;
       }
@@ -467,6 +475,35 @@ export const Frame = memo(
       }
     };
 
+    /**
+     * A right-click selects what it is on, as a click would, and opens that node's menu; on
+     * nothing but the page, the page's. What is selected stays selected when it is clicked in.
+     */
+    const onContextMenu = async (e: ReactMouseEvent) => {
+      const anchor = holdMenu(e);
+      const at = toFrame(e);
+      const id = await pickAt(at.x, at.y, e.altKey);
+      const current = currentRoot();
+      const store = useEditor.getState();
+      if (id && current && (kind === "node" || id !== current.id)) {
+        store.select({ frame: frameId, nodeId: id });
+        showMenu({ at, frame: frameId, kind: "node", nodeId: id }, anchor);
+      } else if (kind === "page") {
+        store.selectPage(frameId);
+        showMenu({ at, kind: "page", pageId: frameId }, anchor);
+      } else if (current) {
+        store.select({ frame: frameId, nodeId: current.id });
+        showMenu(
+          { at, frame: frameId, kind: "node", nodeId: current.id },
+          anchor
+        );
+      }
+    };
+    const onCommentContextMenu = (e: ReactMouseEvent) => {
+      useEditor.getState().selectPage(frameId);
+      openMenuAt(e, { at: toFrame(e), kind: "page", pageId: frameId });
+    };
+
     const onPointerLeave = () => {
       const s = useEditor.getState();
       if (s.hover?.frame === frameId) {
@@ -530,6 +567,7 @@ export const Frame = memo(
               aria-label={`Select in ${name}`}
               className="absolute inset-0 h-full w-full cursor-default"
               onClick={onSelectClick}
+              onContextMenu={onContextMenu}
               onDoubleClick={onDoubleClick}
               onPointerCancel={onPointerUp}
               onPointerDown={onPointerDown}
@@ -544,6 +582,7 @@ export const Frame = memo(
               aria-label={`Comment on ${name}`}
               className="absolute inset-0 h-full w-full"
               onClick={onPlaceComment}
+              onContextMenu={onCommentContextMenu}
               style={{ cursor: commentCursor }}
               type="button"
             />
@@ -601,6 +640,14 @@ const FrameChrome = ({
       store.select({ frame: frameId, nodeId: root.id });
     }
   };
+  const onContextMenu = (e: ReactMouseEvent) => {
+    selectFrame();
+    if (kind === "page") {
+      openMenuAt(e, { kind: "page", pageId: frameId });
+    } else if (root) {
+      openMenuAt(e, { frame: frameId, kind: "node", nodeId: root.id });
+    }
+  };
   return (
     <>
       {/* Chrome: constant size and distance from the frame regardless of zoom. */}
@@ -622,6 +669,7 @@ const FrameChrome = ({
             isSelected && "text-brand hover:text-brand"
           )}
           onClick={selectFrame}
+          onContextMenu={onContextMenu}
           onPointerDown={(e) => onDragStart(e, frameId, "move")}
           onPointerEnter={() => setTitleHover(true)}
           onPointerLeave={() => setTitleHover(false)}

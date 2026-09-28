@@ -3,6 +3,7 @@ import type { FrameLayout } from "@ultrapaint/contracts/pages";
 import { canvasDocOf } from "@ultrapaint/design-document/tree";
 import { cn } from "cn";
 import {
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   useEffect,
   useRef,
@@ -10,6 +11,7 @@ import {
 } from "react";
 import { useComments } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
+import { openMenuAt } from "../state/context-menu.ts";
 import {
   applyOps,
   canvasNodes,
@@ -481,6 +483,21 @@ export const Canvas = () => {
     }
   };
 
+  /**
+   * The empty canvas has a menu of its own. Anywhere else the browser's is kept away too — the
+   * frames and pins open theirs before this — but not from a field, where it pastes and spells.
+   */
+  const onContextMenu = (e: ReactMouseEvent) => {
+    if (isTyping(e.nativeEvent)) {
+      return;
+    }
+    if (e.target === e.currentTarget && !spacePan && mode !== "pan") {
+      openMenuAt(e, { at: canvasPoint(e.clientX, e.clientY), kind: "canvas" });
+    } else {
+      e.preventDefault();
+    }
+  };
+
   const onPointerCancel = () => {
     cancelCreate();
     onPointerUp();
@@ -513,6 +530,7 @@ export const Canvas = () => {
   };
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: the canvas is the pointer's; its menu is on the context menu key too.
     <div
       className={cn(
         "relative h-full w-full overflow-hidden bg-background",
@@ -525,6 +543,7 @@ export const Canvas = () => {
         panning && "cursor-grabbing! [&_*]:cursor-grabbing!"
       )}
       data-canvas
+      onContextMenu={onContextMenu}
       onPointerCancel={onPointerCancel}
       onPointerDown={onPointerDown}
       onPointerLeave={onPointerLeave}

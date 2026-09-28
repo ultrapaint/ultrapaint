@@ -1,22 +1,31 @@
 /**
- * What the editor does to the selected node, from the keyboard, the layers panel, the inspector
- * and the palette alike. Each is one request to the server and one undo step.
+ * What the editor does to the selected node, from the keyboard, the layers panel, the inspector,
+ * the palette and the context menu alike. Each is one request to the server and one undo step.
+ * An action takes the node it is for, or the selection when it is not given one.
  */
 
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { DesignNode, DocOp } from "@ultrapaint/contracts/document";
-import { canvasDocOf, isContainer } from "@ultrapaint/design-document/tree";
+import {
+  canvasDocOf,
+  childrenOf,
+  isContainer,
+  nodeLabel,
+} from "@ultrapaint/design-document/tree";
+import { promptDialog } from "../components/dialogs.tsx";
 import { holdsChildren } from "../state/catalogue.ts";
 import {
   applyOps,
+  canvasNodes,
   docOfFrame,
   frameOfCanvasNode,
+  isNodeFrame,
   nodeIn,
   pathIn,
   rootOfFrame,
   useDocuments,
 } from "../state/documents.ts";
-import { useEditor } from "../state/editor.ts";
+import { type Selection, useEditor } from "../state/editor.ts";
 
 interface Context {
   readonly activePage: string | null;
@@ -29,6 +38,19 @@ interface Context {
 const liveContext = (): Context => ({
   ...useEditor.getState(),
   docs: useDocuments.getState().docs,
+});
+
+/** The editor as it is, with `target` standing in for the selection when there is one. */
+export const nodeContext = (target?: Selection): Context => {
+  const ctx = liveContext();
+  return target ? { ...ctx, selectedPage: null, selection: target } : ctx;
+};
+
+/** The editor as it is, with a page selected as a whole. */
+export const pageContext = (pageId: string): Context => ({
+  ...liveContext(),
+  selectedPage: pageId,
+  selection: null,
 });
 
 /** The selected node, its frame and its document, or null when nothing is selected. */
@@ -54,9 +76,10 @@ export const selected = (ctx: Context = liveContext()) => {
 /** Sets fields of the selected node; `null` removes one. */
 export const updateSelection = (
   set: Record<string, JsonValue>,
-  label = "Change"
+  label = "Change",
+  target?: Selection
 ) => {
-  const current = selected();
+  const current = selected(nodeContext(target));
   if (!current) {
     return Promise.resolve(null);
   }
@@ -79,14 +102,18 @@ export const setPropsOfSelection = (props: Record<string, JsonValue>) => {
   );
 };
 
-export const setHidden = (hidden: boolean) =>
-  updateSelection({ hidden: hidden ? true : null }, hidden ? "Hide" : "Show");
+export const setHidden = (hidden: boolean, target?: Selection) =>
+  updateSelection(
+    { hidden: hidden ? true : null },
+    hidden ? "Hide" : "Show",
+    target
+  );
 
 /** The root of a page cannot be deleted or duplicated: the page can. */
 const isPageRoot = (node: DesignNode) => node.type === "page";
 
-export const deleteSelection = async () => {
-  const current = selected();
+export const deleteSelection = async (target?: Selection) => {
+  const current = selected(nodeContext(target));
   if (!current || isPageRoot(current.node)) {
     return;
   }
@@ -100,8 +127,8 @@ export const deleteSelection = async () => {
   }
 };
 
-export const duplicateSelection = async () => {
-  const current = selected();
+export const duplicateSelection = async (target?: Selection) => {
+  const current = selected(nodeContext(target));
   if (!current || isPageRoot(current.node)) {
     return;
   }
@@ -117,8 +144,11 @@ export const duplicateSelection = async () => {
 };
 
 /** Puts the selected node in a new row, column or group, where it was. */
-export const wrapSelection = async (type: "row" | "column" | "group") => {
-  const current = selected();
+export const wrapSelection = async (
+  type: "row" | "column" | "group",
+  target?: Selection
+) => {
+  const current = selected(nodeContext(target));
   if (!current || isPageRoot(current.node)) {
     return;
   }
@@ -133,8 +163,8 @@ export const wrapSelection = async (type: "row" | "column" | "group") => {
   }
 };
 
-export const unwrapSelection = async () => {
-  const current = selected();
+export const unwrapSelection = async (target?: Selection) => {
+  const current = selected(nodeContext(target));
   if (!(current && isContainer(current.node)) || isPageRoot(current.node)) {
     return;
   }
@@ -147,7 +177,7 @@ export const unwrapSelection = async () => {
 };
 
 /** Selects a node the server just made, in whichever frame now shows it. */
-const selectCreated = (doc: string, frame: string, id: string) => {
+export const selectCreated = (doc: string, frame: string, id: string) => {
   const { space } = useEditor.getState();
   const target =
     space !== null && doc === canvasDocOf(space)
@@ -206,21 +236,112 @@ export const insertTarget = (
     : null;
 };
 
-/** Inserts a node where `insertTarget` says, and selects it. */
-export const insertNode = async (node: DesignNode) => {
-  const target = insertTarget();
+/**
+ * Inserts a node where `insertTarget` says, and selects it. In a page it is laid out with the
+ * others: where it stood on the canvas, if it was there, no longer means anything.
+ */
+export const insertNode = async (
+  node: DesignNode,
+  ctx: Context = liveContext(),
+  label = "Insert"
+) => {
+  const target = insertTarget(ctx);
   if (!target) {
     return;
   }
+  const { x: _x, y: _y, ...unplaced } = node;
   const op: DocOp = {
     ...(target.index !== undefined && { index: target.index }),
-    node,
+    node: unplaced as DesignNode,
     op: "insert",
     parent: target.parent,
   };
-  const result = await applyOps(target.doc, [op], "Insert");
+  const result = await applyOps(target.doc, [op], label);
   const id = result?.created[0];
   if (id) {
     selectCreated(target.doc, target.frame, id);
   }
+};
+
+/**
+ * Where a node sits: the node it is inside (null for the top of the canvas) and its siblings,
+ * itself among them.
+ */
+export const placeOf = (ctx: Context = liveContext()) => {
+  const current = selected(ctx);
+  if (!current) {
+    return null;
+  }
+  const { docs, space } = ctx;
+  const path = pathIn(docs, space, current.frame, current.node.id);
+  const parent = path?.at(-2) ?? null;
+  if (parent) {
+    return { current, parent, siblings: childrenOf(parent) };
+  }
+  // A node on the canvas is the root of its own frame; its siblings are the canvas's.
+  if (isNodeFrame(current.frame)) {
+    return { current, parent: null, siblings: canvasNodes(docs, space) };
+  }
+  return null;
+};
+
+export type Arrangement = "up" | "down" | "top" | "bottom";
+
+/** Moves the node among its siblings, in the order the layers list them. */
+export const arrangeNode = async (to: Arrangement, target?: Selection) => {
+  const place = placeOf(nodeContext(target));
+  if (!place || isPageRoot(place.current.node)) {
+    return;
+  }
+  const { current, parent, siblings } = place;
+  const at = siblings.findIndex((c) => c.id === current.node.id);
+  // Indices leave the moved node out, so the last place is one less than the count.
+  const last = siblings.length - 1;
+  const index = {
+    bottom: last,
+    down: Math.min(at + 1, last),
+    top: 0,
+    up: Math.max(at - 1, 0),
+  }[to];
+  if (index === at) {
+    return;
+  }
+  await applyOps(
+    current.doc,
+    [{ id: current.node.id, index, op: "move", parent: parent?.id ?? null }],
+    "Arrange"
+  );
+};
+
+/** Selects what the node is inside, short of the page itself. */
+export const selectParent = (target?: Selection) => {
+  const place = placeOf(nodeContext(target));
+  if (place?.parent && place.parent.type !== "page") {
+    useEditor
+      .getState()
+      .select({ frame: place.current.frame, nodeId: place.parent.id });
+  }
+};
+
+/** Names the node, which is what the layers call it. */
+export const renameNode = async (target?: Selection) => {
+  const current = selected(nodeContext(target));
+  if (!current || isPageRoot(current.node)) {
+    return;
+  }
+  const name = (
+    await promptDialog({
+      confirmLabel: "Rename",
+      defaultValue: current.node.name ?? nodeLabel(current.node),
+      title: "Rename layer",
+    })
+  )?.trim();
+  if (!name || name === current.node.name) {
+    return;
+  }
+  await applyOps(
+    current.doc,
+    [{ id: current.node.id, op: "update", set: { name } }],
+    "Rename"
+  );
 };

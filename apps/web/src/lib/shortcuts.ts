@@ -3,14 +3,17 @@ import { useEffect } from "react";
 import { bridgeFor } from "../canvas/bridge.ts";
 import { useComments } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
+import { showMenu } from "../state/context-menu.ts";
 import { pathIn, useDocuments } from "../state/documents.ts";
 import {
+  allFrames,
   flushLayout,
   useEditor,
   type Viewport,
   workspaceOrder,
 } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
+import { onCopyEvent, onPasteEvent } from "./clipboard.ts";
 import {
   deleteSelection,
   duplicateSelection,
@@ -18,7 +21,7 @@ import {
   wrapSelection,
 } from "./node-actions.ts";
 
-const isTyping = (e: KeyboardEvent) => {
+const isTyping = (e: Event) => {
   const t = e.target as HTMLElement | null;
   return (
     !!t &&
@@ -221,7 +224,97 @@ const handleEscape = (s: EditorState) => {
   return false;
 };
 
+/** Where on screen a point of the canvas is. */
+const screenOf = (x: number, y: number) => {
+  const r = document.querySelector("[data-canvas]")?.getBoundingClientRect();
+  const { view } = useEditor.getState();
+  return {
+    x: (r?.left ?? 0) + view.x + x * view.zoom,
+    y: (r?.top ?? 0) + view.y + y * view.zoom,
+  };
+};
+
+/**
+ * The context menu key, or ⇧F10, opens the menu of what is selected on the canvas, against it.
+ * A focused row of a panel gets the browser's own contextmenu event instead, and opens its own.
+ */
+const openSelectionMenu = (s: EditorState) => {
+  const frames = allFrames();
+  if (s.selection) {
+    const { frame, nodeId } = s.selection;
+    const box = frames[frame];
+    const rect = s.rects[frame]?.[nodeId];
+    if (!box) {
+      return false;
+    }
+    const at = rect
+      ? screenOf(
+          box.x + rect.x + rect.width / 2,
+          box.y + rect.y + rect.height / 2
+        )
+      : screenOf(box.x, box.y);
+    showMenu({ frame, kind: "node", nodeId }, at);
+    return true;
+  }
+  const box = s.selectedPage ? frames[s.selectedPage] : undefined;
+  if (s.selectedPage && box) {
+    showMenu({ kind: "page", pageId: s.selectedPage }, screenOf(box.x, box.y));
+    return true;
+  }
+  return false;
+};
+
+/** Nothing but the canvas has the focus: a panel's row or a button keeps its own keys. */
+const onCanvasFocus = () =>
+  document.activeElement === document.body ||
+  document.activeElement?.closest("[data-canvas]") !== null;
+
+/** Exclusive: returns true when the key opened a menu. */
+const handleMenuKey = (e: KeyboardEvent, s: EditorState) => {
+  const menuKey = e.key === "ContextMenu" || (e.shiftKey && e.key === "F10");
+  if (menuKey && onCanvasFocus() && openSelectionMenu(s)) {
+    e.preventDefault();
+    return true;
+  }
+  return false;
+};
+
+/** A clipboard event the editor may take: nothing typed in, no text selected, no overlay. */
+const clipboardIsOurs = (e: ClipboardEvent) =>
+  !(
+    isTyping(e) ||
+    overlayOpen() ||
+    useProject.getState().settingsOpen ||
+    useEditor.getState().workspace === "prototype" ||
+    !(window.getSelection()?.isCollapsed ?? true)
+  );
+
+/** ⌘C, ⌘X and ⌘V copy, cut and paste nodes, through the system clipboard. */
+const useClipboardEvents = () => {
+  useEffect(() => {
+    const onCopy = (e: ClipboardEvent) => {
+      if (clipboardIsOurs(e)) {
+        onCopyEvent(e, e.type === "cut");
+      }
+    };
+    const onPaste = (e: ClipboardEvent) => {
+      if (clipboardIsOurs(e)) {
+        onPasteEvent(e);
+      }
+    };
+    window.addEventListener("copy", onCopy);
+    window.addEventListener("cut", onCopy);
+    window.addEventListener("paste", onPaste);
+    return () => {
+      window.removeEventListener("copy", onCopy);
+      window.removeEventListener("cut", onCopy);
+      window.removeEventListener("paste", onPaste);
+    };
+  }, []);
+};
+
 export const useShortcuts = () => {
+  useClipboardEvents();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // The settings page replaces the editor: nothing on it is there to be acted on.
@@ -229,8 +322,9 @@ export const useShortcuts = () => {
         return;
       }
       const s = useEditor.getState();
-      // A workspace switch carries no meaning for a text field, so it works while typing too.
-      if (handleWorkspaceKey(e, s)) {
+      // Neither a menu nor a workspace switch means anything to a text field: both work while
+      // typing too (the menu key only on the canvas, which has no field).
+      if (handleMenuKey(e, s) || handleWorkspaceKey(e, s)) {
         return;
       }
       if (isTyping(e)) {

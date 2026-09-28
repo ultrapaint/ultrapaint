@@ -100,7 +100,6 @@ import {
 import { bridgeFor } from "../canvas/bridge.ts";
 import { frameIdOf } from "../canvas/prototype.tsx";
 import { AgentIcon } from "../components/agent-icon.tsx";
-import { confirmDialog } from "../components/dialogs.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { Markdown } from "../components/markdown.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
@@ -112,6 +111,7 @@ import {
   lineDiff,
 } from "../lib/line-diff.ts";
 import { createThread, takeDraft, useDrafts } from "../lib/start-thread.ts";
+import { deleteThread } from "../lib/thread-actions.ts";
 import {
   formatDuration,
   groupWork,
@@ -122,6 +122,7 @@ import {
 } from "../lib/thread-work.ts";
 import { terminalKey, useAgents } from "../state/agents.ts";
 import { api } from "../state/connection.ts";
+import { openMenuAt } from "../state/context-menu.ts";
 import { nodeIn, useDocuments } from "../state/documents.ts";
 import { useEditor, type Workspace } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
@@ -151,7 +152,15 @@ export const Threads = () => {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-1 border-b px-2 py-1.5">
-        <div className="min-w-0 flex-1">
+        {/* biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: the picker's trigger raises the menu from the keyboard, and it bubbles here. */}
+        <div
+          className="min-w-0 flex-1"
+          onContextMenu={(e) => {
+            if (current) {
+              openMenuAt(e, { kind: "thread", threadId: current });
+            }
+          }}
+        >
           <OptionSelect
             onChange={openThread}
             options={threads.map((t) => ({ label: t.title, value: t.id }))}
@@ -190,19 +199,7 @@ export const Threads = () => {
 };
 
 const DeleteThreadButton = ({ thread }: { thread: Thread }) => {
-  const onClick = async () => {
-    const ok = await confirmDialog({
-      confirmLabel: "Delete",
-      description: `“${thread.title}” and its history are removed.`,
-      destructive: true,
-      title: "Delete this thread?",
-    });
-    if (ok) {
-      api()
-        .request("threads.delete", { threadId: thread.id })
-        .catch(reportError);
-    }
-  };
+  const onClick = () => deleteThread(thread.id);
   return (
     <IconButton onClick={onClick} tooltip="Delete thread">
       <Trash2 />

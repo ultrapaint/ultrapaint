@@ -26,7 +26,8 @@ const openChat = (threadId: string) => {
   useAgents.getState().open(threadId);
 };
 
-const send = async (
+/** Sends a comment, or one message of it, and says where it went. */
+export const sendComment = async (
   comment: Comment,
   target: SendTarget,
   reply: CommentReply | undefined
@@ -94,7 +95,7 @@ export const SendToAgent = ({
           <DropdownMenuItem
             disabled={!current || busy}
             onClick={() =>
-              current && send(sent, { threadId: current.id }, reply)
+              current && sendComment(sent, { threadId: current.id }, reply)
             }
           >
             <MessageSquarePlus />
@@ -116,7 +117,7 @@ export const SendToAgent = ({
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem
-            onClick={() => send(sent, { newThread: true }, reply)}
+            onClick={() => sendComment(sent, { newThread: true }, reply)}
           >
             <Bot />
             New thread

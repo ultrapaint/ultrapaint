@@ -25,13 +25,18 @@ import {
 } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { confirmDialog } from "../components/dialogs.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { importFigma } from "../lib/import-figma.ts";
-import { startCommand } from "../lib/start-thread.ts";
+import {
+  deletePage,
+  duplicatePage,
+  implementPage,
+  moveRoute,
+} from "../lib/page-actions.ts";
 import { api } from "../state/connection.ts";
+import { openMenuAt } from "../state/context-menu.ts";
 import { useEditor } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
 
@@ -268,44 +273,34 @@ const Row = ({
   const duplicate = (e: MouseEvent) => {
     e.stopPropagation();
     if (page) {
-      api().request("pages.duplicate", { id: page.id }).catch(reportError);
+      duplicatePage(page);
     }
   };
-  const remove = async (e: MouseEvent) => {
+  const remove = (e: MouseEvent) => {
     e.stopPropagation();
-    if (!page) {
-      return;
-    }
-    const ok = await confirmDialog({
-      confirmLabel: "Delete",
-      description: "The page file is removed from the designs directory.",
-      destructive: true,
-      title: `Delete ${node.route}?`,
-    });
-    if (ok) {
-      api().request("pages.delete", { id: page.id }).catch(reportError);
+    if (page) {
+      deletePage(page);
     }
   };
-  const rename = async (to: string) => {
+  const rename = (to: string) => {
     setRenaming(null);
-    if (!page || to === node.route) {
-      return;
-    }
-    try {
-      const moved = await api().request("pages.rename", {
-        id: page.id,
-        route: to,
-      });
-      useEditor.getState().navigate(moved.route, { push: false });
-    } catch (error) {
-      reportError(error);
+    if (page) {
+      moveRoute(page, to);
     }
   };
+  const onContextMenu = (e: MouseEvent) =>
+    openMenuAt(
+      e,
+      page
+        ? { kind: "page", pageId: page.id }
+        : { kind: "route", route: node.route }
+    );
 
   const Icon = node.route === "/" ? House : SquareDashed;
 
   return (
     <>
+      {/* biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: the row's buttons raise the menu from the keyboard, and it bubbles here. */}
       <div
         className={cn(
           "group flex h-6 items-center gap-1 pr-1 text-[11px]",
@@ -314,6 +309,7 @@ const Row = ({
             : "text-muted-foreground hover:bg-muted/50",
           !page && "italic"
         )}
+        onContextMenu={onContextMenu}
         style={{ paddingLeft: ROW_PAD + depth * INDENT }}
       >
         {!flat && hasChildren ? (
@@ -372,7 +368,7 @@ const Row = ({
             <IconButton
               onClick={(e: MouseEvent) => {
                 e.stopPropagation();
-                startCommand(`/implement ${node.route}`);
+                implementPage(page);
               }}
               size="icon-xs"
               tooltip="Implement in the application with an agent"

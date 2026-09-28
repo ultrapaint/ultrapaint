@@ -8,6 +8,7 @@ import { type AgentActivity, activityOnPage } from "../lib/agent-activity.ts";
 import { viewportSize } from "../lib/shortcuts.ts";
 import { useAgentActivity } from "../state/agent-activity.ts";
 import { useAgents } from "../state/agents.ts";
+import { openMenuAt } from "../state/context-menu.ts";
 import { useEditor } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
 
@@ -42,8 +43,12 @@ export const FramePresence = ({
         className="pointer-events-none absolute inset-0"
         style={{ outline: `${2 * inv}px solid ${here.color}` }}
       />
+      {/* biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: a shortcut for the pointer; the strip under the canvas has the same menu. */}
       <div
         className="absolute right-0 flex items-center gap-1.5 whitespace-nowrap rounded px-1.5 py-0.5 font-medium text-[11px] text-white"
+        onContextMenu={(e) =>
+          openMenuAt(e, { kind: "thread", threadId: here.threadId })
+        }
         style={{
           backgroundColor: here.color,
           bottom: `calc(100% + ${6 * inv}px)`,

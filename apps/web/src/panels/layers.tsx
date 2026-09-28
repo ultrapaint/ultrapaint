@@ -19,16 +19,11 @@ import {
   ChevronRight,
   Columns3,
   Component,
-  Copy,
-  Eye,
-  EyeOff,
   File,
   Group,
   Image,
   MoreVertical,
-  Pencil,
   Rows3,
-  Trash2,
   Type,
 } from "lucide-react";
 import {
@@ -41,22 +36,10 @@ import {
   useState,
 } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuShortcut,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { bridgeFor } from "../canvas/bridge.ts";
 import { PanelEmpty } from "../components/panel.tsx";
-import {
-  deleteSelection,
-  duplicateSelection,
-  setHidden,
-} from "../lib/node-actions.ts";
 import { holdsChildren } from "../state/catalogue.ts";
+import { openMenuAt, showMenu, useContextMenu } from "../state/context-menu.ts";
 import {
   applyEdits,
   canvasNodes,
@@ -322,6 +305,10 @@ const PageRows = ({ page, shared }: { page: Page; shared: Shared }) => {
   const select = () => {
     useEditor.getState().selectPage(page.id);
   };
+  const onContextMenu = (e: MouseEvent) => {
+    select();
+    openMenuAt(e, { kind: "page", pageId: page.id });
+  };
   const children = root ? childrenOf(root) : [];
   const onDragOver = (e: DragEvent<HTMLDivElement>) => {
     if (!(shared.drag && root)) {
@@ -352,6 +339,7 @@ const PageRows = ({ page, shared }: { page: Page; shared: Shared }) => {
         )}
         data-row={keyOf(page.id, root?.id ?? "page")}
         onClick={select}
+        onContextMenu={onContextMenu}
         onDragLeave={() => shared.setDropTarget(null)}
         onDragOver={onDragOver}
         onDrop={onDropHere}
@@ -444,63 +432,36 @@ const DepthGuides = ({ ancestors }: { ancestors: readonly string[] }) => (
   </>
 );
 
-/** What can be done to the row without reaching for the canvas or a shortcut. */
+/**
+ * The row's context menu, for a pointer that does not right-click. Opening it selects the row, so
+ * the canvas shows what the actions — and the shortcuts they name — are about to touch.
+ */
 const RowMenu = ({ row }: { row: Row }) => {
   const { frame, node } = row;
-  const select = () => useEditor.getState().select({ frame, nodeId: node.id });
-  const onEditText = () => {
-    select();
-    bridgeFor(frame).editText(node.id);
-  };
-  // Opening the menu selects the row, so the canvas shows what the actions — and the shortcuts
-  // they name — are about to touch.
-  const onOpenChange = (open: boolean) => {
-    if (open) {
-      select();
-    }
+  const open = useContextMenu(
+    (s) =>
+      s.open &&
+      s.request?.target.kind === "node" &&
+      s.request.target.frame === frame &&
+      s.request.target.nodeId === node.id
+  );
+  const onClick = (e: MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    useEditor.getState().select({ frame, nodeId: node.id });
+    showMenu({ frame, kind: "node", nodeId: node.id }, e.currentTarget);
   };
   return (
-    <DropdownMenu onOpenChange={onOpenChange}>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            aria-label={`Actions for ${nodeLabel(node)}`}
-            className="invisible ml-auto size-5 shrink-0 text-muted-foreground group-focus-within:visible group-hover:visible aria-expanded:visible"
-            size="icon-xs"
-            variant="ghost"
-          />
-        }
-      >
-        <MoreVertical className="size-3" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-44">
-        {node.type === "text" ? (
-          <DropdownMenuItem onClick={onEditText}>
-            <Pencil />
-            Edit text
-            <DropdownMenuShortcut>⏎</DropdownMenuShortcut>
-          </DropdownMenuItem>
-        ) : null}
-        <DropdownMenuItem onClick={() => setHidden(!node.hidden)}>
-          {node.hidden ? <Eye /> : <EyeOff />}
-          {node.hidden ? "Show" : "Hide"}
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => duplicateSelection()}>
-          <Copy />
-          Duplicate
-          <DropdownMenuShortcut>⌘D</DropdownMenuShortcut>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={() => deleteSelection()}
-          variant="destructive"
-        >
-          <Trash2 />
-          Delete
-          <DropdownMenuShortcut>⌫</DropdownMenuShortcut>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Button
+      aria-expanded={open}
+      aria-haspopup="menu"
+      aria-label={`Actions for ${nodeLabel(node)}`}
+      className="invisible ml-auto size-5 shrink-0 text-muted-foreground group-focus-within:visible group-hover:visible aria-expanded:visible"
+      onClick={onClick}
+      size="icon-xs"
+      variant="ghost"
+    >
+      <MoreVertical className="size-3" />
+    </Button>
   );
 };
 
@@ -583,6 +544,10 @@ const LayerRow = ({
   };
   const onMouseEnter = () =>
     useEditor.getState().setHover({ frame, nodeId: node.id });
+  const onContextMenu = (e: MouseEvent) => {
+    select();
+    openMenuAt(e, { frame, kind: "node", nodeId: node.id });
+  };
 
   return (
     <div>
@@ -601,6 +566,7 @@ const LayerRow = ({
         data-row={key}
         draggable
         onClick={select}
+        onContextMenu={onContextMenu}
         onDoubleClick={editText}
         onDragEnd={() => shared.setDrag(null)}
         onDragLeave={onDragLeave}
