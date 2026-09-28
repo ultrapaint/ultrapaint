@@ -16,6 +16,21 @@ export type StorageTarget =
     }
   | { readonly mode: "ephemeral" };
 
+/** `0.0.0.0` and `::` bind every interface; they are not addresses a client connects to. */
+const WILDCARDS = new Set(["0.0.0.0", "::"]);
+
+/** The address in a URL a client on this machine reaches a server bound to `host` at. */
+export const connectHost = (host: string): string => {
+  if (WILDCARDS.has(host)) {
+    return "127.0.0.1";
+  }
+  return host.includes(":") ? `[${host}]` : host;
+};
+
+/** Whether `host` keeps the server to this machine. */
+export const isLoopback = (host: string): boolean =>
+  host === "127.0.0.1" || host === "localhost" || host === "::1";
+
 /** Resolved once in `bin.ts` from flags and environment; nothing deeper reads `process.env`. */
 export class ServerConfig extends Context.Service<
   ServerConfig,
@@ -32,6 +47,11 @@ export class ServerConfig extends Context.Service<
     readonly machine: { readonly home: string; readonly path: string };
     /** Directory the server was started from; the first-run setup proposes its repository. */
     readonly cwd: string;
+    /**
+     * Address the server listens on: loopback unless the editor is to be reached from another
+     * machine, over a private network.
+     */
+    readonly host: string;
     /** Whether agents are given the editor's own MCP server to call. */
     readonly mcp: boolean;
     readonly port: number;

@@ -31,6 +31,13 @@ const serve = Command.make(
       Flag.withFallbackConfig(Config.String("ULTRAPAINT_HOME")),
       Flag.optional
     ),
+    host: Flag.String("host").pipe(
+      Flag.withDescription(
+        "Address to listen on: 127.0.0.1 keeps the editor to this machine; the machine's address on a private network, or 0.0.0.0 for every interface, reaches it from another"
+      ),
+      Flag.withFallbackConfig(Config.String("ULTRAPAINT_HOST")),
+      Flag.withDefault("127.0.0.1")
+    ),
     noBriefing: Flag.Boolean("no-briefing").pipe(
       Flag.withDescription(
         "Do not tell agents about the project before their first prompt"
@@ -42,7 +49,7 @@ const serve = Command.make(
       Flag.withDefault(false)
     ),
     port: Flag.Int("port").pipe(
-      Flag.withDescription("Port to listen on, loopback only"),
+      Flag.withDescription("Port to listen on"),
       Flag.withFallbackConfig(Config.Int("ULTRAPAINT_PORT")),
       Flag.withDefault(4770)
     ),
@@ -56,6 +63,7 @@ const serve = Command.make(
     config,
     ephemeral,
     home,
+    host,
     noBriefing,
     noMcp,
     port,
@@ -72,6 +80,7 @@ const serve = Command.make(
     const resolved = ServerConfig.of({
       briefing: !noBriefing,
       cwd,
+      host,
       machine: {
         // The password database answers when the environment has no HOME.
         home: process.env.HOME || homedir(),

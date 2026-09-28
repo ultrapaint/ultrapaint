@@ -50,7 +50,9 @@ reference; the flags you are most likely to want:
 | `--config <file>` | Use this configuration file instead of looking for `ultrapaint.json` |
 | `--ephemeral` | Save nothing, even when a configuration file exists |
 | `--port <number>` | Listen on another port |
+| `--host <address>` | Listen on this address instead of loopback, to reach the editor from another machine (see below) |
 | `--no-open` | Do not open the browser |
+| `--dev` | Run the checkout's sources with hot reload instead of its build: the server restarts and the editor reloads as the checkout changes. Listens on every interface unless `--host` says otherwise |
 
 To update, pull and install again: `git pull && pnpm install`.
 
@@ -75,6 +77,14 @@ does:
 The checkout has to be installed (`pnpm install` in it) for the link to work, and the link is
 a path on disk, so everyone on the project needs the checkout at that relative path. When there
 are packaged releases the link becomes a version.
+
+The link follows the checkout: the server runs from its sources on every start, and only the
+editor is a build, made once. While changing ultrapaint itself, start it with `--dev` instead
+and nothing is built: the server restarts and the editor reloads as the checkout changes.
+
+```bash
+pnpm ultrapaint --dev
+```
 
 ## First run
 
@@ -101,6 +111,18 @@ person only runs `ultrapaint`.
 | `--home <dir>` (what `pnpm dev` uses) | `<dir>/settings.json` | `<dir>` |
 
 Your pages are files in your repository and are written there in every case.
+
+## From another machine
+
+`ultrapaint --host <address>` listens on that address instead of loopback: this machine's
+address on a private network such as Tailscale, or `0.0.0.0` for every interface. The command
+prints the addresses the editor is reachable at, and the preview is served on the same address.
+`--dev` listens on every interface by default, the editor's dev server included, since
+development is looked at from other machines as a matter of course; `--host 127.0.0.1` keeps it
+to this machine.
+
+There is no login. Whoever reaches that port can run agents in the repository with your rights,
+so keep it to a private network and prefer the network's own address over `0.0.0.0`.
 
 ## Agents stay in the repository
 
@@ -263,8 +285,9 @@ pnpm dev -- --ephemeral                         # save nothing
 pnpm test && pnpm typecheck && pnpm lint
 ```
 
-`pnpm dev` keeps its settings in `~/.ultrapaint` unless it is given `--config` or
-`--ephemeral`. Read [`AGENTS.md`](AGENTS.md) before writing server code.
+`pnpm dev` is `ultrapaint --dev` run from the checkout, with ports derived from the checkout's
+path so several worktrees run side by side. It keeps its settings in `~/.ultrapaint` unless it
+is given `--config` or `--ephemeral`. Read [`AGENTS.md`](AGENTS.md) before writing server code.
 
 - `apps/web` — the editor (React, Tailwind, Base UI). It talks to the origin it is served from and touches nothing of the machine.
 - `apps/server` — local backend on the Effect 4 runtime: settings, preview host, pages and spaces, design documents and the design system, undo, git, ACP threads.
@@ -277,7 +300,7 @@ pnpm test && pnpm typecheck && pnpm lint
 - `packages/framework-react-vite` — the Node side for React + Vite: the Tailwind v4 theme scan, catalogue extraction, repository detection, the preview server and its component registry.
 - `packages/acp` — the only module that imports the ACP SDK, behind an `AcpAgent` Effect interface; agent launch configs are data.
 - `packages/client-runtime`, `packages/shared` — the editor's RPC connection (reconnects, typed requests, events) and small utilities.
-- `scripts/cli.ts` — the `ultrapaint` command of a checkout; `scripts/dev-runner.ts` — `pnpm dev`.
+- `scripts/command.ts` — the `ultrapaint` command of a checkout, with its `--dev` mode; `scripts/cli.ts` is it on the PATH and `scripts/dev-runner.ts` is `pnpm dev`, that mode with development's ports and settings.
 
 Storage verdict: [`docs/decisions/storage-format.md`](docs/decisions/storage-format.md).
 Spike results: [`docs/feature/spikes/findings.md`](docs/feature/spikes/findings.md).

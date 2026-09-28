@@ -39,6 +39,11 @@ does not care where the backend is. Nothing about that needs a desktop shell eit
   pinned adds `ultrapaint@link:../ultrapaint` as a devDependency; pnpm puts the checkout's
   `bin` in `node_modules/.bin`, and the command runs the checkout's sources in the project's
   working directory, as `pnpm install:cli` does globally.
+- **`--dev` is development's way to run, from any project.** The command's `--dev` starts the
+  server under `tsx watch` and the editor under Vite, side by side in one scope, from the
+  directory it is run in; nothing is built. `pnpm dev` in the checkout is that mode with
+  ports derived from the checkout's path and a home directory for the settings, so there is
+  one way to run in development and the linked command has it too.
 
 ## Consequences
 

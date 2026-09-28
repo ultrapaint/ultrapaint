@@ -1,6 +1,7 @@
 /**
  * Serves the preview. Run by the server as a child process from the anchor package:
- * `node serve.mjs <options.json> <port>`.
+ * `node serve.mjs <options.json> <port> [host]`. The host is loopback unless given; `0.0.0.0`
+ * or `::` listen on every interface.
  *
  * Like Storybook's Vite builder it uses the repository's own Vite and the anchor's
  * `vite.config`, so aliases, CSS tooling and the React plugin's options are the ones the
@@ -40,7 +41,10 @@ export interface ServeOptions {
   tailwind: boolean;
 }
 
-const [optionsFile, portArg] = process.argv.slice(2);
+const [optionsFile, portArg, hostArg] = process.argv.slice(2);
+const host = hostArg || "127.0.0.1";
+// Bound to every interface, the HMR client is left to use the address the page was loaded at.
+const hmr = host === "0.0.0.0" || host === "::" ? {} : { host };
 const given = JSON.parse(
   readFileSync(optionsFile as string, "utf8")
 ) as ServeOptions;
@@ -253,8 +257,8 @@ const server = await vite.createServer(
     root: options.anchorDir,
     server: {
       fs: { allow: [options.root, options.bundleDir] },
-      hmr: { host: "127.0.0.1" },
-      host: "127.0.0.1",
+      hmr,
+      host,
       port,
       strictPort: true,
       watch: { ignored: ["**/.ultrapaint/.vite/**"] },

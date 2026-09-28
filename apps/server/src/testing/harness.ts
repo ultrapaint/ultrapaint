@@ -157,6 +157,7 @@ export const makeTestServer = (
           Layer.succeed(ServerConfig, {
             briefing: true,
             cwd: repo,
+            host: "127.0.0.1",
             machine: { home: homedir(), path: process.env.PATH ?? "" },
             mcp: true,
             port,

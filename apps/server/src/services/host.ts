@@ -18,25 +18,25 @@ import {
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 import { AppLog } from "../app-log.ts";
 import { makeWriteAtomic } from "../atomic-write.ts";
+import { connectHost, ServerConfig } from "../config.ts";
 import { ComponentRegistry, PREVIEW_DIR } from "./component-registry.ts";
 import { ProjectFramework } from "./framework.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
-const freePort = Effect.callback<number, Error>((resume) => {
-  const server = createServer();
-  server.on("error", (error) => resume(Effect.fail(error)));
-  server.listen(0, "127.0.0.1", () => {
-    const address = server.address();
-    const port = typeof address === "object" && address ? address.port : 0;
-    server.close(() => resume(Effect.succeed(port)));
+const freePort = (host: string) =>
+  Effect.callback<number, Error>((resume) => {
+    const server = createServer();
+    server.on("error", (error) => resume(Effect.fail(error)));
+    server.listen(0, host, () => {
+      const address = server.address();
+      const port = typeof address === "object" && address ? address.port : 0;
+      server.close(() => resume(Effect.succeed(port)));
+    });
   });
-});
 
 /** True once anything answers on the port; Vite replies before its first build finishes. */
-const probe = (port: number) =>
-  Effect.tryPromise(() =>
-    fetch(`http://127.0.0.1:${port}/`, { method: "HEAD" })
-  ).pipe(
+const probe = (url: string) =>
+  Effect.tryPromise(() => fetch(url, { method: "HEAD" })).pipe(
     Effect.filterOrFail((res) => res.status < 500),
     Effect.asVoid
   );
@@ -64,6 +64,7 @@ export class HostManager extends Context.Service<
     HostManager,
     Effect.gen(function* () {
       const paths = yield* RepoPaths;
+      const { host } = yield* ServerConfig;
       const framework = yield* ProjectFramework;
       const registry = yield* ComponentRegistry;
       const log = yield* AppLog;
@@ -149,7 +150,8 @@ export class HostManager extends Context.Service<
         lastError = "";
         yield* setStatus({ state: "starting" });
         const serve = yield* generate;
-        const port = yield* Effect.orDie(freePort);
+        const port = yield* Effect.orDie(freePort(host));
+        const url = `http://${connectHost(host)}:${port}`;
 
         const scope = yield* Scope.fork(layerScope);
         const stopped = yield* Deferred.make<void>();
@@ -157,7 +159,7 @@ export class HostManager extends Context.Service<
           .spawn(
             ChildProcess.make(
               process.execPath,
-              [serve.script, ...serve.args, String(port)],
+              [serve.script, ...serve.args, String(port), host],
               {
                 cwd: paths.anchorDir,
                 // `pnpm` puts its own store on NODE_PATH; the preview must only see what the
@@ -206,7 +208,7 @@ export class HostManager extends Context.Service<
           layerScope
         );
 
-        const outcome = yield* probe(port).pipe(
+        const outcome = yield* probe(url).pipe(
           Effect.retry(Schedule.spaced("150 millis")),
           Effect.timeoutOption("30 seconds"),
           Effect.map((ready) =>
@@ -232,7 +234,7 @@ export class HostManager extends Context.Service<
           pid: Number(handle.pid),
           port,
           state: "running",
-          url: `http://127.0.0.1:${port}`,
+          url,
         });
       }).pipe(
         Effect.catch((error: string) => setStatus({ error, state: "error" }))

@@ -53,7 +53,7 @@ import {
 import { ChildProcessSpawner } from "effect/unstable/process";
 import { AppLog } from "../../app-log.ts";
 import { makeWriteAtomic } from "../../atomic-write.ts";
-import { ServerConfig } from "../../config.ts";
+import { connectHost, ServerConfig } from "../../config.ts";
 import { EventBus } from "../../events.ts";
 import { hashContent } from "../../hash.ts";
 import { makeId } from "../../ids.ts";
@@ -225,6 +225,7 @@ export class ThreadService extends Context.Service<
       const access = yield* McpAccess;
       const {
         briefing: briefingEnabled,
+        host,
         mcp: mcpEnabled,
         port,
       } = yield* ServerConfig;
@@ -621,7 +622,7 @@ export class ThreadService extends Context.Service<
             headers: [{ name: MCP_TOKEN_HEADER, value: token }],
             name: EDITOR_MCP_SERVER,
             type: "http",
-            url: `http://127.0.0.1:${port}${MCP_PATH}`,
+            url: `http://${connectHost(host)}:${port}${MCP_PATH}`,
           });
         }
 

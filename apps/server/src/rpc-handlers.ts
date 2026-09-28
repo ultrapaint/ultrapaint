@@ -1,7 +1,7 @@
 import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
 import { Effect } from "effect";
 import { AppLog } from "./app-log.ts";
-import { ServerConfig } from "./config.ts";
+import { connectHost, ServerConfig } from "./config.ts";
 import { EventBus } from "./events.ts";
 import { ProjectManager } from "./project.ts";
 import { CatalogueService } from "./services/catalogue.ts";
@@ -46,7 +46,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const access = yield* McpAccess;
     const commands = yield* SlashCommands;
     const screenshots = yield* Screenshots;
-    const { mcp: mcpEnabled, port } = yield* ServerConfig;
+    const { host: listenHost, mcp: mcpEnabled, port } = yield* ServerConfig;
 
     const pages = <A, E>(
       f: (s: PagesService["Service"]) => Effect.Effect<A, E>
@@ -154,7 +154,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
             enabled: mcpEnabled,
             header: MCP_TOKEN_HEADER,
             token,
-            url: `http://127.0.0.1:${port}${MCP_PATH}`,
+            url: `http://${connectHost(listenHost)}:${port}${MCP_PATH}`,
           })
         ),
       "pages.create": ({ route, space, template }) =>

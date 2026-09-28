@@ -1,6 +1,10 @@
 import type { UndoState } from "@ultrapaint/contracts/edit";
 import type { Page, Space } from "@ultrapaint/contracts/pages";
-import type { LogLine, ProjectInfo } from "@ultrapaint/contracts/project";
+import type {
+  HostStatus,
+  LogLine,
+  ProjectInfo,
+} from "@ultrapaint/contracts/project";
 import type { Settings } from "@ultrapaint/contracts/settings";
 import { create } from "zustand";
 import { api } from "./connection.ts";
@@ -21,6 +25,26 @@ interface ProjectStore {
   spaces: readonly Space[];
   undo: UndoState;
 }
+
+const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/**
+ * Where the preview is loaded from. The server names it by the address it reaches it at on
+ * its own machine; a page opened from another machine reaches the same machine by the address
+ * it was opened at, so that one is used instead. On this machine the server's is kept: it says
+ * `127.0.0.1` where the page may say `localhost`, which can resolve elsewhere.
+ */
+export const previewUrl = (host: HostStatus): string | null => {
+  if (host.state !== "running" || !host.url) {
+    return null;
+  }
+  if (LOOPBACK.has(window.location.hostname)) {
+    return host.url;
+  }
+  const url = new URL(host.url);
+  url.hostname = window.location.hostname;
+  return url.origin;
+};
 
 export const useProject = create<ProjectStore>((set, get) => ({
   error: null,

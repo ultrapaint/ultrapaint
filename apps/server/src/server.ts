@@ -11,7 +11,7 @@ import {
 } from "effect/unstable/http";
 import { RpcSerialization, RpcServer } from "effect/unstable/rpc";
 import { AppLog } from "./app-log.ts";
-import { ServerConfig } from "./config.ts";
+import { connectHost, isLoopback, ServerConfig } from "./config.ts";
 import { EventBus } from "./events.ts";
 import { ProjectManager } from "./project.ts";
 import { RpcHandlers } from "./rpc-handlers.ts";
@@ -33,10 +33,14 @@ import { ThreadService } from "./services/threads/threads.ts";
 
 const LOCAL_ORIGIN_RE = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
 
+/** The page came from this server, whatever address it was reached at. */
+const sameOrigin = (origin: string, host: string | undefined) =>
+  host !== undefined && URL.canParse(origin) && new URL(origin).host === host;
+
 /**
- * The editor's API: one WebSocket that carries every RPC and every event stream. The server
- * only listens on loopback, and a browser page from any other origin is turned away before
- * the upgrade; native clients send no origin.
+ * The editor's API: one WebSocket that carries every RPC and every event stream. A browser
+ * page is let in when it came from this machine or from this server's own address, and any
+ * other origin is turned away before the upgrade; native clients send no origin.
  */
 const RpcRoute = Layer.effectDiscard(
   Effect.gen(function* () {
@@ -48,8 +52,12 @@ const RpcRoute = Layer.effectDiscard(
       "/ws",
       Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest;
-        const { origin } = request.headers;
-        if (origin && !LOCAL_ORIGIN_RE.test(origin)) {
+        const { host, origin } = request.headers;
+        if (
+          origin &&
+          !LOCAL_ORIGIN_RE.test(origin) &&
+          !sameOrigin(origin, host)
+        ) {
           return HttpServerResponse.text("origin not allowed", { status: 403 });
         }
         return yield* httpEffect;
@@ -80,8 +88,12 @@ const FigmaImportRoute = HttpRouter.use(
       "/api/figma/import",
       Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest;
-        const { origin } = request.headers;
-        if (origin && !LOCAL_ORIGIN_RE.test(origin)) {
+        const { host, origin } = request.headers;
+        if (
+          origin &&
+          !LOCAL_ORIGIN_RE.test(origin) &&
+          !sameOrigin(origin, host)
+        ) {
           return HttpServerResponse.text("origin not allowed", { status: 403 });
         }
         const declared = Number(request.headers["content-length"] ?? 0);
@@ -139,10 +151,10 @@ const StaticRoute = Layer.unwrap(
 // (20 s) for connections to drain, which a live socket never does. Closing the request scopes is
 // what ends those sockets, so the wait is skipped.
 const HttpServerLive = Layer.unwrap(
-  Effect.map(ServerConfig, ({ port }) =>
+  Effect.map(ServerConfig, ({ host, port }) =>
     NodeHttpServer.layer(createServer, {
       disablePreemptiveShutdown: true,
-      host: "127.0.0.1",
+      host,
       port,
     })
   )
@@ -151,11 +163,22 @@ const HttpServerLive = Layer.unwrap(
 /** Opens the configured project, if there is one, once everything else is up. */
 const Boot = Layer.effectDiscard(
   Effect.gen(function* () {
-    const { port } = yield* ServerConfig;
+    const { host, port } = yield* ServerConfig;
     const settings = yield* SettingsService;
     const project = yield* ProjectManager;
     const log = yield* AppLog;
-    yield* log.log("server", "info", `listening on http://127.0.0.1:${port}`);
+    yield* log.log(
+      "server",
+      "info",
+      `listening on http://${connectHost(host)}:${port}`
+    );
+    if (!isLoopback(host)) {
+      yield* log.log(
+        "server",
+        "warn",
+        `listening on ${host}: whoever reaches this port can run agents in the repository with your rights; keep it to a private network`
+      );
+    }
     const storage = yield* (yield* Storage).info;
     if (storage.mode === "ephemeral") {
       yield* log.log(
@@ -213,8 +236,15 @@ const Routes = Layer.mergeAll(
   Boot
 );
 
-/** Everything but the configuration and the platform: `bin.ts` provides those and launches. */
+/**
+ * Everything but the configuration and the platform: `bin.ts` provides those and launches.
+ *
+ * The services are built before the port is opened. The HTTP server listens as soon as its
+ * layer is built and only answers once `serve` has attached the handler; a request accepted in
+ * between is dropped by Node and its client waits forever. Built the other way round, that gap
+ * was the whole start of the services, and the command's health check fell into it.
+ */
 export const ServerLive = HttpRouter.serve(Routes, {
   disableListenLog: true,
   disableLogger: true,
-}).pipe(Layer.provide(Services), Layer.provide(HttpServerLive));
+}).pipe(Layer.provide(HttpServerLive), Layer.provide(Services));

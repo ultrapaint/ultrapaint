@@ -25,7 +25,7 @@ import {
   useDocuments,
 } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
-import { useProject } from "../state/project.ts";
+import { previewUrl, useProject } from "../state/project.ts";
 import { stepInto } from "../state/tree.ts";
 import { FramePresence } from "./agent-presence.tsx";
 import { bridgeFor, removeBridge } from "./bridge.ts";
@@ -728,7 +728,4 @@ const Outline = ({
   </div>
 );
 
-export const useHostUrl = () =>
-  useProject((s) =>
-    s.info.host.state === "running" ? (s.info.host.url ?? null) : null
-  );
+export const useHostUrl = () => useProject((s) => previewUrl(s.info.host));

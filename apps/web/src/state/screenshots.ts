@@ -7,15 +7,15 @@ import type { ScreenshotRequest } from "@ultrapaint/contracts/screenshots";
 import { drawSpecimen } from "../canvas/specimens.ts";
 import { api } from "./connection.ts";
 import { useDesignSystem } from "./design-system.ts";
-import { useProject } from "./project.ts";
+import { previewUrl, useProject } from "./project.ts";
 
 const draw = async (request: ScreenshotRequest) => {
-  const { host } = useProject.getState().info;
-  if (host.state !== "running" || !host.url) {
+  const url = previewUrl(useProject.getState().info.host);
+  if (!url) {
     return { problem: "the editor's preview is not running" };
   }
   const dataUrl = await drawSpecimen(
-    host.url,
+    url,
     request.root,
     useDesignSystem.getState().designSystem,
     {

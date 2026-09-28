@@ -15,6 +15,7 @@ import {
 } from "effect";
 import type { ChildProcessSpawner } from "effect/unstable/process";
 import { AppLog } from "./app-log.ts";
+import type { ServerConfig } from "./config.ts";
 import { EventBus } from "./events.ts";
 import { CatalogueService } from "./services/catalogue.ts";
 import { CommentsService } from "./services/comments.ts";
@@ -55,6 +56,7 @@ type ProjectRequirements =
   | EventBus
   | FileSystem.FileSystem
   | Path.Path
+  | ServerConfig
   | Storage;
 
 const projectLayer = (settings: Settings) =>
