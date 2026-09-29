@@ -15,9 +15,12 @@ import {
 import { reportError, useProject } from "../state/project.ts";
 import { onCopyEvent, onPasteEvent } from "./clipboard.ts";
 import {
+  allSelected,
+  deleteNodes,
   deleteSelection,
   duplicateSelection,
   selected,
+  wrapNodes,
   wrapSelection,
 } from "./node-actions.ts";
 
@@ -58,6 +61,23 @@ export const undoOrRedo = async (redo: boolean) => {
   }
 };
 
+const wrapperOf = (e: KeyboardEvent): "row" | "column" | "group" => {
+  if (e.altKey) {
+    return "row";
+  }
+  return e.shiftKey ? "column" : "group";
+};
+
+/** Every node selected goes into the new container, or the one selected alone. */
+const wrapSelected = (wrapper: "row" | "column" | "group", s: EditorState) =>
+  s.also.length > 0
+    ? wrapNodes(allSelected(), wrapper)
+    : wrapSelection(wrapper);
+
+/** Every node selected goes, as one undo step. */
+const deleteSelected = (s: EditorState) =>
+  s.also.length > 0 ? deleteNodes(allSelected()) : deleteSelection();
+
 /** Editing shortcuts are exclusive: returns true when the key was consumed. */
 const handleEditKey = (e: KeyboardEvent, s: EditorState, meta: boolean) => {
   if (meta && e.key.toLowerCase() === "z") {
@@ -73,18 +93,12 @@ const handleEditKey = (e: KeyboardEvent, s: EditorState, meta: boolean) => {
   // ⌘G wraps in a group, ⌥⌘G in a row, ⇧⌘G in a column.
   if (meta && e.key.toLowerCase() === "g" && s.selection) {
     e.preventDefault();
-    let wrapper: "row" | "column" | "group" = "group";
-    if (e.altKey) {
-      wrapper = "row";
-    } else if (e.shiftKey) {
-      wrapper = "column";
-    }
-    wrapSelection(wrapper);
+    wrapSelected(wrapperOf(e), s);
     return true;
   }
   if ((e.key === "Backspace" || e.key === "Delete") && s.selection) {
     e.preventDefault();
-    deleteSelection();
+    deleteSelected(s);
     return true;
   }
   if (e.key === "Enter" && s.selection) {

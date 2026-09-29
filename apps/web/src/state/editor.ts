@@ -85,6 +85,11 @@ interface EditorStore {
   /** The page serving the current route, which is what the prototype and agents are about. */
   activePage: string | null;
   /**
+   * The other nodes selected with `selection`, in the same frame: Shift-click and the marquee add
+   * them. `selection` is the one the inspector shows and the menus act on first.
+   */
+  also: readonly Selection[];
+  /**
    * Follows the layout as saved: an undo, an agent, a branch switch. Frames the editor is still
    * about to save are its own and stay.
    */
@@ -107,6 +112,8 @@ interface EditorStore {
   /** Page selected as a whole (its frame), as opposed to a node inside it. */
   selectedPage: string | null;
   selection: Selection | null;
+  /** Several nodes of one frame at once, the first of them the one the inspector shows. */
+  selectMany: (selections: readonly Selection[]) => void;
   selectPage: (pageId: string | null) => void;
   setFrame: (pageId: string, frame: FrameLayout, persist?: boolean) => void;
   setHostError: (frame: string, error: string | null) => void;
@@ -128,6 +135,8 @@ interface EditorStore {
   spacePan: boolean;
   /** Puts the page that serves the current route back in step with the page list. */
   syncActivePage: () => void;
+  /** Adds a node to the selection, or takes it out when it is in it: Shift-click. */
+  toggleSelected: (selection: Selection) => void;
   view: { x: number; y: number; zoom: number };
   workspace: Workspace;
   zoomToFit: (viewport: Viewport) => void;
@@ -262,6 +271,7 @@ export const flushLayout = (): Promise<void> => {
 
 export const useEditor = create<EditorStore>((set, get) => ({
   activePage: null,
+  also: [],
   applyLayout: (space, layout) => {
     const s = get();
     if (space !== s.space || persistTimer) {
@@ -281,6 +291,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
     const { space } = get();
     set({
       activePage: pageAt(space, next)?.id ?? null,
+      also: [],
       hover: null,
       route: next,
       selectedPage: null,
@@ -308,6 +319,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
       }
       set({
         activePage: matchRoute(pages, landing)?.entry.id ?? null,
+        also: [],
         frames: computeFrames(pages, layout),
         hover: null,
         layout,
@@ -328,15 +340,24 @@ export const useEditor = create<EditorStore>((set, get) => ({
   rightTab: "design",
   route: "/",
   select: (selection) => {
-    set({ selectedPage: null, selection });
+    set({ also: [], selectedPage: null, selection });
     if (selection) {
       followFrame(get, set, selection.frame);
     }
   },
   selectedPage: null,
   selection: null,
+  selectMany: (selections) => {
+    const [first, ...rest] = selections;
+    if (!first) {
+      get().select(null);
+      return;
+    }
+    get().select(first);
+    set({ also: rest.filter((s) => s.frame === first.frame) });
+  },
   selectPage: (pageId) => {
-    set({ selectedPage: pageId, selection: null });
+    set({ also: [], selectedPage: pageId, selection: null });
     if (pageId) {
       followFrame(get, set, pageId);
     }
@@ -386,6 +407,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
       workspace,
       // Nothing shows the selection in the prototype, so no key may act on it there.
       ...(workspace === "prototype" && {
+        also: [],
         hover: null,
         selectedPage: null,
         selection: null,
@@ -401,6 +423,26 @@ export const useEditor = create<EditorStore>((set, get) => ({
     if (id !== get().activePage) {
       set({ activePage: id });
     }
+  },
+  toggleSelected: (target) => {
+    const { also, selection } = get();
+    if (!selection || selection.frame !== target.frame) {
+      get().select(target);
+      return;
+    }
+    const same = (a: Selection) => a.nodeId === target.nodeId;
+    if (same(selection)) {
+      // The last one added before it takes its place.
+      const next = also.at(-1) ?? null;
+      set({ also: also.slice(0, -1), selection: next });
+      return;
+    }
+    set({
+      also: also.some(same)
+        ? also.filter((a) => !same(a))
+        : [...also, selection],
+      selection: also.some(same) ? selection : target,
+    });
   },
   view: { x: 80, y: 80, zoom: 0.5 },
   workspace: workspaceInUrl(),

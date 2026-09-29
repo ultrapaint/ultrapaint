@@ -164,7 +164,9 @@ it is done. A selection is blue, or purple when it is a component of your librar
 **Chats** lists your threads, each with a picture of what it works on, its last line, and whether it
 is working or waiting for you. In **Vibe**, the element you select has a toolbar over it with what
 your design system offers for it — a component's own variants, the text styles, the colour,
-radius and spacing tokens — and a button that adds it to the chat. Right-click an element to copy
+radius and spacing tokens — and a button that adds it to the chat. Shift-click or draw a marquee to
+select several, and set what they share at once. What you send while an agent works waits in the
+thread and goes when its turn ends. Right-click an element to copy
 a link that opens the editor on it, or its ID (`/orders#c_8x2k1q`), which an agent takes to find
 it.
 

@@ -1,7 +1,11 @@
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page, ViewportPreset } from "@ultrapaint/contracts/pages";
 import type { HostError, HostMessage } from "@ultrapaint/contracts/preview";
-import { nodeLabel } from "@ultrapaint/design-document/tree";
+import {
+  childrenOf,
+  isContainer,
+  nodeLabel,
+} from "@ultrapaint/design-document/tree";
 import { PREVIEW_PROTOCOL } from "@ultrapaint/framework-api/protocol";
 import { cn } from "cn";
 import { AlertTriangle } from "lucide-react";
@@ -30,7 +34,7 @@ import {
   rootOfFrame,
   useDocuments,
 } from "../state/documents.ts";
-import { useEditor, type Workspace } from "../state/editor.ts";
+import { type Selection, useEditor, type Workspace } from "../state/editor.ts";
 import { useInstances } from "../state/instances.ts";
 import { previewUrl, useProject } from "../state/project.ts";
 import { stepInto } from "../state/tree.ts";
@@ -39,7 +43,11 @@ import { AgentWorkOverlay, useFrameWork, useSkeletons } from "./agent-work.tsx";
 import { bridgeFor, removeBridge } from "./bridge.ts";
 import { commentCursor, FrameComments } from "./comments.tsx";
 import { beginDrag, type Dragged, endDrag, moveDrag, useDrag } from "./drag.ts";
-import { ElementToolbar, TAG_HEIGHT } from "./element-toolbar.tsx";
+import {
+  ElementToolbar,
+  GroupToolbar,
+  TAG_HEIGHT,
+} from "./element-toolbar.tsx";
 import { SelectionTag } from "./selection-tag.tsx";
 
 const presets: { value: ViewportPreset; label: string }[] = [
@@ -138,6 +146,7 @@ export const Frame = memo(
     const mode = useEditor((s) => s.mode);
     const spacePan = useEditor((s) => s.spacePan);
     const selection = useEditor((s) => s.selection);
+    const also = useEditor((s) => s.also);
     const hover = useEditor((s) => s.hover);
     const isActive = useEditor((s) => s.activePage === frameId);
     const space = useEditor((s) => s.space);
@@ -261,6 +270,7 @@ export const Frame = memo(
       const ids: string[] = [];
       if (selection?.frame === frameId) {
         ids.push(selection.nodeId);
+        ids.push(...also.map((a) => a.nodeId));
       }
       if (hover?.frame === frameId) {
         ids.push(hover.nodeId);
@@ -269,7 +279,7 @@ export const Frame = memo(
         ids.push(...workIds.split(" "));
       }
       bridgeFor(frameId).watchRects(ids);
-    }, [frameId, selection, hover, root, workIds]);
+    }, [frameId, selection, also, hover, root, workIds]);
 
     // Pointer interaction in select mode.
     const lastHit = useRef(0);
@@ -324,7 +334,9 @@ export const Frame = memo(
         return;
       }
       const id = await nodeAt(e);
-      if (id) {
+      if (id && e.shiftKey) {
+        useEditor.getState().toggleSelected({ frame: frameId, nodeId: id });
+      } else if (id) {
         select(id);
       } else {
         selectFrame();
@@ -402,9 +414,25 @@ export const Frame = memo(
     const press = useRef<{
       x: number;
       y: number;
+      /** Where it began in the frame, for a marquee. */
+      at: { x: number; y: number };
       last: { x: number; y: number; alt: boolean };
       target: Promise<Dragged | null>;
     } | null>(null);
+    /**
+     * A drag from the page itself, or from a container that is not selected, draws a marquee in
+     * it, as in Figma: a selected node, or a text, a picture or a component, is dragged instead.
+     */
+    const [marquee, setMarquee] = useState<Rect | null>(null);
+    const marqueeFrom = useRef<{ x: number; y: number } | null>(null);
+    const marqueeIn = useRef<DesignNode | null>(null);
+    const isSelected = (id: string) => {
+      const { also: others, selection: primary } = useEditor.getState();
+      return (
+        (primary?.frame === frameId && primary.nodeId === id) ||
+        others.some((a) => a.frame === frameId && a.nodeId === id)
+      );
+    };
     const dragging = useRef<boolean>(false);
     const onPointerDown = (e: ReactPointerEvent) => {
       if (e.button !== 0) {
@@ -413,6 +441,7 @@ export const Frame = memo(
       dragging.current = false;
       const { x, y } = toFrame(e);
       press.current = {
+        at: { x, y },
         last: { alt: e.altKey, x: e.clientX, y: e.clientY },
         target: dragTarget(x, y, e.altKey),
         x: e.clientX,
@@ -428,6 +457,17 @@ export const Frame = memo(
         return;
       }
       p.last = { alt: e.altKey, x: e.clientX, y: e.clientY };
+      const from = marqueeFrom.current;
+      if (from) {
+        const to = toFrame(e);
+        setMarquee({
+          height: Math.abs(to.y - from.y),
+          width: Math.abs(to.x - from.x),
+          x: Math.min(from.x, to.x),
+          y: Math.min(from.y, to.y),
+        });
+        return;
+      }
       if (dragging.current) {
         moveDrag(e.clientX, e.clientY, e.altKey);
         return;
@@ -438,7 +478,23 @@ export const Frame = memo(
       dragging.current = true;
       p.target.then((target) => {
         // Released before the preview answered: it was a click after all.
-        if (!(target && press.current === p)) {
+        if (press.current !== p) {
+          return;
+        }
+        if (!target) {
+          if (kind === "page") {
+            marqueeIn.current = currentRoot();
+            marqueeFrom.current = p.at;
+          }
+          return;
+        }
+        if (
+          target.kind === "node" &&
+          isContainer(target.node) &&
+          !isSelected(target.node.id)
+        ) {
+          marqueeIn.current = target.node;
+          marqueeFrom.current = p.at;
           return;
         }
         // What is dragged is what is selected, as it would be after a click on it.
@@ -452,8 +508,58 @@ export const Frame = memo(
     };
     const onPointerUp = () => {
       press.current = null;
+      if (marqueeFrom.current) {
+        marqueeFrom.current = null;
+        const drawn = marquee;
+        setMarquee(null);
+        if (drawn) {
+          selectInMarquee(drawn).catch(() => undefined);
+        }
+        return;
+      }
       if (useDrag.getState().dragged) {
         endDrag();
+      }
+    };
+
+    /**
+     * What a marquee selects: the children of the container it was drawn in that it touches. When
+     * it touches only one and does not cover it whole, that one's children instead: the way a
+     * designer means the nodes the rectangle is drawn across.
+     */
+    const selectInMarquee = async (area: Rect) => {
+      const within = marqueeIn.current ?? currentRoot();
+      marqueeIn.current = null;
+      if (!within) {
+        return;
+      }
+      let level = childrenOf(within);
+      for (;;) {
+        // biome-ignore lint/performance/noAwaitInLoops: each level is measured once the one above is known.
+        const measured = await bridgeFor(frameId).measure(
+          level.map((n) => n.id)
+        );
+        const hits = level.filter((n) => {
+          const r = measured[n.id];
+          return r !== undefined && intersects(r, area);
+        });
+        const [only] = hits;
+        const box = only ? measured[only.id] : undefined;
+        // One child touched and not covered whole: what the rectangle is about is inside it.
+        if (
+          hits.length === 1 &&
+          only &&
+          box &&
+          !contains(area, box) &&
+          childrenOf(only).length > 0
+        ) {
+          level = childrenOf(only);
+          continue;
+        }
+        useEditor
+          .getState()
+          .selectMany(hits.map((n) => ({ frame: frameId, nodeId: n.id })));
+        return;
       }
     };
     const onSelectClick = (e: ReactMouseEvent) => {
@@ -609,6 +715,18 @@ export const Frame = memo(
             />
           )}
           <AgentWorkOverlay frameId={frameId} inv={inv} pieces={work.pieces} />
+          {marquee ? (
+            <div
+              className="pointer-events-none absolute border border-selection bg-selection/10"
+              style={{
+                borderWidth: inv,
+                height: marquee.height,
+                left: marquee.x,
+                top: marquee.y,
+                width: marquee.width,
+              }}
+            />
+          ) : null}
           <Highlights frameId={frameId} inv={inv} />
         </div>
 
@@ -731,30 +849,83 @@ const FrameChrome = ({
   );
 };
 
-/** The outlines of the hovered and the selected node, and an error the preview reported. */
+interface Rect {
+  height: number;
+  width: number;
+  x: number;
+  y: number;
+}
+
+const intersects = (a: Rect, b: Rect) =>
+  a.x < b.x + b.width &&
+  b.x < a.x + a.width &&
+  a.y < b.y + b.height &&
+  b.y < a.y + a.height;
+
+const contains = (outer: Rect, inner: Rect) =>
+  inner.x >= outer.x &&
+  inner.y >= outer.y &&
+  inner.x + inner.width <= outer.x + outer.width &&
+  inner.y + inner.height <= outer.y + outer.height;
+
+/** The box around several rects. */
+const unionOf = (rects: readonly Rect[]): Rect | null => {
+  if (rects.length === 0) {
+    return null;
+  }
+  const left = Math.min(...rects.map((r) => r.x));
+  const top = Math.min(...rects.map((r) => r.y));
+  const right = Math.max(...rects.map((r) => r.x + r.width));
+  const bottom = Math.max(...rects.map((r) => r.y + r.height));
+  return { height: bottom - top, width: right - left, x: left, y: top };
+};
+
+/** The outlines of the hovered and the selected nodes, and an error the preview reported. */
 const Highlights = ({ frameId, inv }: { frameId: string; inv: number }) => {
   const selection = useEditor((s) => s.selection);
+  const also = useEditor((s) => s.also);
   const hover = useEditor((s) => s.hover);
   const rects = useEditor((s) => s.rects[frameId]);
   const hostError = useEditor((s) => s.hostErrors[frameId]);
   const space = useEditor((s) => s.space);
   const workspace = useEditor((s) => s.workspace);
-  const selectedNode = useDocuments((s) =>
-    selection?.frame === frameId
-      ? nodeIn(s.docs, space, frameId, selection.nodeId)
-      : null
+  const frameWidth = useEditor(
+    (s) =>
+      s.frames[frameId]?.width ??
+      s.sizes[frameId]?.width ??
+      Number.POSITIVE_INFINITY
   );
-  const hoverNode = useDocuments((s) =>
+  const docs = useDocuments((s) => s.docs);
+  const here = selection?.frame === frameId;
+  const selectedNode = here
+    ? nodeIn(docs, space, frameId, selection.nodeId)
+    : null;
+  const hoverNode =
     hover?.frame === frameId
-      ? nodeIn(s.docs, space, frameId, hover.nodeId)
-      : null
-  );
-  const selectedRect =
-    selection?.frame === frameId ? rects?.[selection.nodeId] : undefined;
+      ? nodeIn(docs, space, frameId, hover.nodeId)
+      : null;
+  const selectedRect = here ? rects?.[selection.nodeId] : undefined;
   const hoverRect =
     hover?.frame === frameId && hover.nodeId !== selection?.nodeId
       ? rects?.[hover.nodeId]
       : undefined;
+  // Several selected: each is outlined, and what they share hangs over the box around them.
+  const others = here
+    ? also.flatMap((a) => {
+        const node = nodeIn(docs, space, frameId, a.nodeId);
+        const rect = rects?.[a.nodeId];
+        return node && rect ? [{ node, rect, target: a }] : [];
+      })
+    : [];
+  const many = others.length > 0;
+  const group =
+    many && selectedRect && selectedNode && selection
+      ? {
+          nodes: [selectedNode, ...others.map((o) => o.node)],
+          rect: unionOf([selectedRect, ...others.map((o) => o.rect)]),
+          targets: [selection, ...others.map((o) => o.target)],
+        }
+      : null;
   return (
     <>
       {hoverRect ? (
@@ -768,10 +939,33 @@ const Highlights = ({ frameId, inv }: { frameId: string; inv: number }) => {
       ) : null}
       {selectedRect ? (
         <Outline
+          bare={many}
+          frameWidth={frameWidth}
           inv={inv}
           kind="selection"
           node={selectedNode}
           rect={selectedRect}
+          workspace={workspace}
+        />
+      ) : null}
+      {others.map((o) => (
+        <Outline
+          bare
+          inv={inv}
+          key={o.target.nodeId}
+          kind="selection"
+          node={o.node}
+          rect={o.rect}
+          workspace={workspace}
+        />
+      ))}
+      {group?.rect ? (
+        <GroupOutline
+          frameWidth={frameWidth}
+          inv={inv}
+          nodes={group.nodes}
+          rect={group.rect}
+          targets={group.targets}
           workspace={workspace}
         />
       ) : null}
@@ -789,17 +983,94 @@ const Highlights = ({ frameId, inv }: { frameId: string; inv: number }) => {
 };
 
 /**
+ * The box around several selected nodes: their count on its edge and, in Vibe, the toolbar of
+ * what they share; in Design, the box's size under it.
+ */
+const GroupOutline = ({
+  frameWidth,
+  inv,
+  nodes,
+  rect,
+  targets,
+  workspace,
+}: {
+  frameWidth: number;
+  inv: number;
+  nodes: readonly DesignNode[];
+  rect: Rect;
+  targets: readonly Selection[];
+  workspace: Workspace;
+}) => {
+  const color = kindColor("element");
+  return (
+    <div
+      className="pointer-events-none absolute"
+      style={{
+        height: rect.height,
+        left: rect.x,
+        outline: `${1 * inv}px dashed ${color}`,
+        outlineOffset: 3 * inv,
+        top: rect.y,
+        width: rect.width,
+      }}
+    >
+      {workspace === "vibe" ? (
+        <>
+          <span
+            className="absolute left-0 flex h-5 items-center rounded-t-[5px] px-1.5 font-semibold text-[11px] text-white"
+            style={{
+              background: color,
+              bottom: "100%",
+              transform: `translate(${-1 * inv}px, ${-4 * inv}px) scale(${inv})`,
+              transformOrigin: "bottom left",
+            }}
+          >
+            {nodes.length} selected
+          </span>
+          <GroupToolbar
+            frameWidth={frameWidth}
+            inv={inv}
+            nodes={nodes}
+            rect={rect}
+            targets={targets}
+          />
+        </>
+      ) : (
+        <span
+          className="absolute left-1/2 rounded-sm px-1 py-0.5 font-medium text-[10px] text-white"
+          style={{
+            background: color,
+            top: "100%",
+            transform: `translate(-50%, ${6 * inv}px) scale(${inv})`,
+            transformOrigin: "top center",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {nodes.length} · {Math.round(rect.width)} × {Math.round(rect.height)}
+        </span>
+      )}
+    </div>
+  );
+};
+
+/**
  * A node's outline, in the colour of what it is: blue for an element, purple for a component. In
  * Design the selection's size sits under it; in Vibe its name sits on its top-left edge, where the
  * element toolbar hangs its controls from.
  */
 const Outline = ({
+  bare = false,
+  frameWidth = Number.POSITIVE_INFINITY,
   rect,
   inv,
   kind,
   node,
   workspace,
 }: {
+  /** One of several selected: outlined only, the group carries the name and the toolbar. */
+  bare?: boolean;
+  /** How wide the frame is, which the toolbar stays inside. */
+  frameWidth?: number;
   rect: { x: number; y: number; width: number; height: number };
   inv: number;
   kind: "hover" | "selection";
@@ -820,7 +1091,7 @@ const Outline = ({
         width: rect.width,
       }}
     >
-      {kind === "selection" && workspace !== "vibe" && (
+      {kind === "selection" && !bare && workspace !== "vibe" && (
         <span
           className="absolute left-1/2 rounded-sm px-1 py-0.5 font-medium text-[10px] text-white"
           style={{
@@ -834,7 +1105,7 @@ const Outline = ({
           {Math.round(rect.width)} × {Math.round(rect.height)}
         </span>
       )}
-      {kind === "selection" && workspace === "vibe" && node ? (
+      {kind === "selection" && !bare && workspace === "vibe" && node ? (
         <>
           <SelectionTag
             color={color}
@@ -842,7 +1113,12 @@ const Outline = ({
             inv={inv}
             node={node}
           />
-          <ElementToolbar inv={inv} node={node} rectY={rect.y} />
+          <ElementToolbar
+            frameWidth={frameWidth}
+            inv={inv}
+            node={node}
+            rect={rect}
+          />
         </>
       ) : null}
     </div>

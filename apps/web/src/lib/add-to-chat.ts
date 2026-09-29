@@ -24,16 +24,25 @@ const openThread = (): Thread | null => {
     : null;
 };
 
-export const addToChat = async (selection: Selection) => {
-  const chip = chipOfSelection(selection);
-  if (!chip) {
+export const addToChat = async (
+  selection: Selection | readonly Selection[]
+) => {
+  const chips = (Array.isArray(selection) ? selection : [selection]).flatMap(
+    (s: Selection) => {
+      const chip = chipOfSelection(s);
+      return chip ? [chip] : [];
+    }
+  );
+  if (chips.length === 0) {
     return;
   }
   const thread = openThread() ?? (await createThread());
   if (!thread) {
     return;
   }
-  addChip(thread.id, chip);
+  for (const chip of chips) {
+    addChip(thread.id, chip);
+  }
   useEditor.getState().setLeftTab("chat");
   await useAgents.getState().open(thread.id);
 };

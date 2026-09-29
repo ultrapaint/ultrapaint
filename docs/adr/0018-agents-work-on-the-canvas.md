@@ -62,5 +62,12 @@ take a route or a node id.
 - Tailwind's `@theme inline` variables are declared again on every element in the preview, so a
   design drawn in a theme's scope (a `.dark` wrapper) reads that theme.
 - `set_frame` sizes a page's frame, so an agent can see a long page whole.
-- Selection is still one node; the toolbar for several elements waits for multi-selection. A
-  thread cannot yet float over the canvas.
+- Several nodes of one frame can be selected: Shift-click on the canvas or in the layers, or a
+  marquee drawn from the page or from a container that is not selected (a selected node, a text, a
+  picture or a component is dragged instead, as in Figma). The toolbar over them offers what they
+  share when they are of one kind, set on all of them, "mixed" where they differ, wrapping
+  siblings, and all of them to the chat. Delete and ⌘G act on all of them.
+- A prompt sent while the agent works waits in the thread's `queued` list and goes when the turn
+  ends by itself; after a turn that was stopped or failed it waits for the user's Send now. A queued
+  prompt can be taken back to be edited or dropped.
+- A thread does not float over the canvas: the panel is where it lives.

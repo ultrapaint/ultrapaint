@@ -15,6 +15,7 @@ import {
 import { promptDialog } from "../components/dialogs.tsx";
 import { holdsChildren } from "../state/catalogue.ts";
 import {
+  applyEdits,
   applyOps,
   canvasNodes,
   docOfFrame,
@@ -344,4 +345,103 @@ export const renameNode = async (target?: Selection) => {
     [{ id: current.node.id, op: "update", set: { name } }],
     "Rename"
   );
+};
+
+// ---- Several nodes at once ----
+
+/** Every node selected: the one the inspector shows first, then the others, in one frame. */
+export const allSelected = (): Selection[] => {
+  const { also, selection } = useEditor.getState();
+  return selection ? [selection, ...also] : [];
+};
+
+/** The nodes of these selections that still exist, with their document. */
+const nodesOf = (targets: readonly Selection[]) => {
+  const { docs } = useDocuments.getState();
+  const { space } = useEditor.getState();
+  return targets.flatMap((t) => {
+    const node = nodeIn(docs, space, t.frame, t.nodeId);
+    return node
+      ? [{ doc: docOfFrame(t.frame, space), frame: t.frame, node }]
+      : [];
+  });
+};
+
+/** The same operations for each node, one undo step for all of them. */
+const applyToEach = (
+  targets: readonly Selection[],
+  opsOf: (node: DesignNode) => DocOp[],
+  label: string
+) => {
+  const byDoc = new Map<string, DocOp[]>();
+  for (const { doc, node } of nodesOf(targets)) {
+    byDoc.set(doc, [...(byDoc.get(doc) ?? []), ...opsOf(node)]);
+  }
+  const edits = [...byDoc].flatMap(([doc, ops]) =>
+    ops.length > 0 ? [{ doc, ops }] : []
+  );
+  return edits.length > 0 ? applyEdits(edits, label) : Promise.resolve(null);
+};
+
+/** Sets fields of every one of these nodes; `null` removes one. */
+export const updateNodes = (
+  targets: readonly Selection[],
+  set: Record<string, JsonValue>,
+  label = "Change"
+) =>
+  applyToEach(targets, (node) => [{ id: node.id, op: "update", set }], label);
+
+/** Sets props of every instance among these nodes. */
+export const setPropsOfNodes = (
+  targets: readonly Selection[],
+  props: Record<string, JsonValue>
+) =>
+  applyToEach(
+    targets,
+    (node) =>
+      node.type === "instance" ? [{ id: node.id, op: "setProps", props }] : [],
+    "Change a prop"
+  );
+
+export const deleteNodes = async (targets: readonly Selection[]) => {
+  const result = await applyToEach(
+    targets,
+    (node) => (isPageRoot(node) ? [] : [{ id: node.id, op: "remove" }]),
+    targets.length > 1 ? `Delete ${targets.length} elements` : "Delete"
+  );
+  if (result) {
+    useEditor.getState().select(null);
+  }
+};
+
+/** Whether these nodes are siblings, as wrapping them together needs. */
+export const areSiblings = (targets: readonly Selection[]) => {
+  const { docs } = useDocuments.getState();
+  const { space } = useEditor.getState();
+  const parents = new Set(
+    targets.map((t) => pathIn(docs, space, t.frame, t.nodeId)?.at(-2)?.id)
+  );
+  const [parent] = parents;
+  return parents.size === 1 && parent !== undefined && targets.length > 0;
+};
+
+/** Puts sibling nodes into a new row, column or group, where the first of them was. */
+export const wrapNodes = async (
+  targets: readonly Selection[],
+  type: "row" | "column" | "group"
+) => {
+  const found = nodesOf(targets);
+  const [first] = found;
+  if (!first || found.some((f) => f.doc !== first.doc)) {
+    return;
+  }
+  const result = await applyOps(
+    first.doc,
+    [{ ids: found.map((f) => f.node.id), op: "wrap", type }],
+    `Wrap in a ${type}`
+  );
+  const id = result?.created[0];
+  if (id) {
+    selectCreated(first.doc, first.frame, id);
+  }
 };

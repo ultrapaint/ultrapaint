@@ -463,13 +463,23 @@ const LayerRow = ({
   const isCollapsed = shared.collapsed.has(key);
   const children = childrenOf(node);
   const hasChildren = children.length > 0;
+  const alsoSelected = useEditor((s) =>
+    s.also.some((a) => a.frame === frame && a.nodeId === node.id)
+  );
   const selected =
-    shared.selection?.frame === frame && shared.selection.nodeId === node.id;
+    (shared.selection?.frame === frame &&
+      shared.selection.nodeId === node.id) ||
+    alsoSelected;
   const hovered = hover?.frame === frame && hover.nodeId === node.id;
   const dropHere =
     shared.dropTarget?.key === key ? shared.dropTarget.position : null;
 
   const select = () => useEditor.getState().select({ frame, nodeId: node.id });
+  /** Shift-click adds the row to the selection, or takes it out. */
+  const onClick = (e: MouseEvent) =>
+    e.shiftKey
+      ? useEditor.getState().toggleSelected({ frame, nodeId: node.id })
+      : select();
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.target !== e.currentTarget) {
       return;
@@ -538,7 +548,7 @@ const LayerRow = ({
         )}
         data-row={key}
         draggable
-        onClick={select}
+        onClick={onClick}
         onContextMenu={onContextMenu}
         onDoubleClick={editText}
         onDragEnd={() => shared.setDrag(null)}

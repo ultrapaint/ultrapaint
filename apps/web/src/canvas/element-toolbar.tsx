@@ -28,6 +28,7 @@ import {
   ChevronDown,
   Copy,
   Ellipsis,
+  Group,
   type LucideIcon,
   MessageSquareText,
   SlidersHorizontal,
@@ -40,15 +41,20 @@ import {
   TextAlignStart,
 } from "lucide-react";
 import {
+  type CSSProperties,
+  createContext,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
+  useContext,
   useEffect,
+  useLayoutEffect,
   useState,
 } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
@@ -74,13 +80,20 @@ import {
   type TokenField,
   tokenLabel,
 } from "../lib/element-controls.ts";
-import { setPropsOfSelection, updateSelection } from "../lib/node-actions.ts";
+import {
+  areSiblings,
+  deleteNodes,
+  setPropsOfNodes,
+  updateNodes,
+  wrapNodes,
+} from "../lib/node-actions.ts";
 import { openChat, stopThread } from "../lib/thread-actions.ts";
 import { ComponentProps } from "../panels/component-props.tsx";
 import { useAgents } from "../state/agents.ts";
 import { componentMetaOf, useCatalogue } from "../state/catalogue.ts";
 import { showMenu } from "../state/context-menu.ts";
 import { useDesignSystem } from "../state/design-system.ts";
+import { nodeIn, useDocuments } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
 import { previewUrl, useProject } from "../state/project.ts";
 import { useDrag } from "./drag.ts";
@@ -89,6 +102,27 @@ import { drawSpecimen } from "./specimens.ts";
 
 const COLOR_PREFIX_RE = /^color-/;
 const NO_STYLES: readonly TextStyle[] = [];
+
+/** The nodes the toolbar's controls change: the selection, one node or several. */
+const Targets = createContext<readonly Selection[]>([]);
+
+/** The nodes the toolbar changes, as the documents have them now. */
+const useTargetNodes = (): readonly DesignNode[] => {
+  const targets = useContext(Targets);
+  const docs = useDocuments((s) => s.docs);
+  const space = useEditor((s) => s.space);
+  return targets.flatMap((t) => {
+    const node = nodeIn(docs, space, t.frame, t.nodeId);
+    return node ? [node] : [];
+  });
+};
+
+/** One value when every node has it, `mixed` when they differ. */
+const MIXED = "mixed";
+const shared = (values: readonly string[], fallback: string) => {
+  const [first = fallback] = values;
+  return values.every((v) => v === first) ? first : MIXED;
+};
 
 /** Steps of the spacing scale the toolbar offers; the inspector has every value. */
 const SPACING_STEPS = [0, 1, 2, 3, 4, 5, 6, 8, 10, 12];
@@ -242,8 +276,17 @@ const PropSelect = ({
   node: InstanceNode;
   source: string;
 }) => {
+  const targets = useContext(Targets);
   const [open, setOpen] = useState(false);
-  const value = propValue(node.props, control.name, control.options);
+  const nodes = useTargetNodes();
+  const value = shared(
+    nodes.map((n) =>
+      n.type === "instance"
+        ? propValue(n.props, control.name, control.options)
+        : ""
+    ),
+    propValue(node.props, control.name, control.options)
+  );
   const previewOf = useVariantPreviews(
     node,
     control.name,
@@ -251,7 +294,7 @@ const PropSelect = ({
     open
   );
   const onValue = (v: unknown) =>
-    setPropsOfSelection({ [control.name]: String(v) });
+    setPropsOfNodes(targets, { [control.name]: String(v) });
   return (
     <DropdownMenu onOpenChange={setOpen} open={open}>
       <ValueTrigger tooltip={control.name}>{value}</ValueTrigger>
@@ -286,19 +329,31 @@ const PropSelect = ({
 };
 
 const TextStyleSelect = ({ node }: { node: TextNode }) => {
+  const targets = useContext(Targets);
   const styles =
     useDesignSystem((s) => s.designSystem?.typography.styles) ?? NO_STYLES;
   const style = styles.find((s) => s.name === node.textStyle);
+  const mixedStyles =
+    shared(
+      useTargetNodes().map((n) =>
+        n.type === "text" ? (n.textStyle ?? "") : ""
+      ),
+      ""
+    ) === MIXED;
   const onValue = (v: unknown) => {
     const next = styles.find((s) => s.name === v);
     if (next) {
-      updateSelection(attachTextStyle(next), `Set the text in ${next.name}`);
+      updateNodes(
+        targets,
+        attachTextStyle(next),
+        `Set the text in ${next.name}`
+      );
     }
   };
   return (
     <DropdownMenu>
       <ValueTrigger icon={ALargeSmall} tooltip="Text style">
-        {style?.name ?? node.textStyle ?? "No style"}
+        {mixedStyles ? MIXED : (style?.name ?? node.textStyle ?? "No style")}
       </ValueTrigger>
       <DropdownMenuContent className="w-60">
         <MenuHead name="Text style" source="text styles" />
@@ -345,9 +400,16 @@ const ALIGNS: readonly [string, LucideIcon, string][] = [
 ];
 
 const AlignSelect = ({ node }: { node: TextNode }) => {
-  const value = node.align ?? "start";
-  const [, icon, label] = ALIGNS.find(([v]) => v === value) ??
-    ALIGNS[0] ?? ["start", TextAlignStart, "Left"];
+  const targets = useContext(Targets);
+  const value = shared(
+    useTargetNodes().map((n) =>
+      n.type === "text" ? (n.align ?? "start") : "start"
+    ),
+    node.align ?? "start"
+  );
+  const found = ALIGNS.find(([v]) => v === value);
+  const icon = found?.[1] ?? TextAlignStart;
+  const label = found?.[2] ?? MIXED;
   return (
     <DropdownMenu>
       <ValueTrigger icon={icon} tooltip="Alignment">
@@ -357,7 +419,8 @@ const AlignSelect = ({ node }: { node: TextNode }) => {
         <MenuHead name="align" />
         <DropdownMenuRadioGroup
           onValueChange={(v) =>
-            updateSelection(
+            updateNodes(
+              targets,
               { align: v === "start" ? null : String(v) },
               "Align the text"
             )
@@ -383,15 +446,29 @@ const TokenSelect = ({
   control: Extract<Control, { kind: "token" }>;
   node: DesignNode;
 }) => {
+  const targets = useContext(Targets);
   const ds = useDesignSystem((s) => s.designSystem);
   const base = spacingBaseOf(ds);
   const field = FIELD[control.field];
   const raw = (node as unknown as Record<string, JsonValue | undefined>)[
     control.field
   ];
-  const label = tokenLabel(control.field, raw, base);
+  const label = shared(
+    useTargetNodes().map((n) =>
+      tokenLabel(
+        control.field,
+        (n as unknown as Record<string, JsonValue | undefined>)[control.field],
+        base
+      )
+    ),
+    tokenLabel(control.field, raw, base)
+  );
   const set = (value: JsonValue) =>
-    updateSelection({ [control.field]: value }, `Change the ${field.name}`);
+    updateNodes(
+      targets,
+      { [control.field]: value },
+      `Change the ${field.name}`
+    );
   const colors = control.token === "color" ? colorTokens(ds) : [];
   const swatch =
     control.token === "color"
@@ -493,33 +570,36 @@ const TokenSelect = ({
 };
 
 /** The props the toolbar leaves out, all of them, as the inspector shows them. */
-const MoreProps = ({ count, node }: { count: number; node: InstanceNode }) => (
-  <Popover>
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <PopoverTrigger
-            render={
-              <button
-                className="flex h-7 items-center gap-1 rounded-md bg-muted px-2 font-medium text-[12px] outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50"
-                type="button"
-              />
-            }
-          />
-        }
-      >
-        <SlidersHorizontal className="size-3.5" />+{count}
-      </TooltipTrigger>
-      <TooltipContent>Every prop</TooltipContent>
-    </Tooltip>
-    <PopoverContent className="w-72 gap-0 p-0">
-      <ComponentProps
-        node={node}
-        onSet={(name, value) => setPropsOfSelection({ [name]: value })}
-      />
-    </PopoverContent>
-  </Popover>
-);
+const MoreProps = ({ count, node }: { count: number; node: InstanceNode }) => {
+  const targets = useContext(Targets);
+  return (
+    <Popover>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <PopoverTrigger
+              render={
+                <button
+                  className="flex h-7 items-center gap-1 rounded-md bg-muted px-2 font-medium text-[12px] outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50"
+                  type="button"
+                />
+              }
+            />
+          }
+        >
+          <SlidersHorizontal className="size-3.5" />+{count}
+        </TooltipTrigger>
+        <TooltipContent>Every prop</TooltipContent>
+      </Tooltip>
+      <PopoverContent className="w-72 gap-0 p-0">
+        <ComponentProps
+          node={node}
+          onSet={(name, value) => setPropsOfNodes(targets, { [name]: value })}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 const Divider = () => <span className="mx-0.5 h-5 w-px shrink-0 bg-border" />;
 
@@ -660,16 +740,75 @@ const GAP = 8;
 export const roomAbove = (rectY: number, inv: number) =>
   rectY >= (TAG_HEIGHT + GAP + TOOLBAR_HEIGHT) * inv;
 
+interface Box {
+  readonly height: number;
+  readonly width: number;
+  readonly x: number;
+  readonly y: number;
+}
+
+/**
+ * Where the toolbar goes: centred over the element, or under it when the frame's top would clip
+ * it, and moved sideways to stay inside the frame, which clips what is drawn outside it. The
+ * toolbar's width is only known once it is drawn; until then it is centred.
+ */
+const usePlacement = (rect: Box, inv: number, frameWidth: number) => {
+  // A callback ref: the toolbar can be drawn later than the hook first runs.
+  const [el, placeAt] = useState<HTMLDivElement | null>(null);
+  const [width, setWidth] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (!el) {
+      return;
+    }
+    const measure = () => setWidth(el.offsetWidth);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [el]);
+  const above = roomAbove(rect.y, inv);
+  const vertical: CSSProperties = above
+    ? { bottom: `calc(100% + ${(TAG_HEIGHT + GAP) * inv}px)` }
+    : { top: `calc(100% + ${GAP * inv}px)` };
+  if (width === null) {
+    return [
+      placeAt,
+      {
+        ...vertical,
+        left: "50%",
+        transform: `scale(${inv}) translateX(-50%)`,
+        transformOrigin: above ? "bottom left" : "top left",
+      } satisfies CSSProperties,
+    ] as const;
+  }
+  const drawn = width * inv;
+  const centred = rect.x + rect.width / 2 - drawn / 2;
+  const left = Math.max(0, Math.min(centred, frameWidth - drawn));
+  return [
+    placeAt,
+    {
+      ...vertical,
+      left: left - rect.x,
+      transform: `scale(${inv})`,
+      transformOrigin: above ? "bottom left" : "top left",
+    } satisfies CSSProperties,
+  ] as const;
+};
+
 export const ElementToolbar = ({
+  frameWidth,
   inv,
   node,
-  rectY,
+  rect,
 }: {
+  /** How wide the frame is, which clips what is drawn outside it. */
+  frameWidth: number;
   inv: number;
   node: DesignNode;
-  /** Where the element's top is in the frame, which decides where the toolbar can go. */
-  rectY: number;
+  /** Where the element is in the frame, which decides where the toolbar can go. */
+  rect: Box;
 }) => {
+  const [placeAt, placement] = usePlacement(rect, inv, frameWidth);
   const selection = useEditor((s) => s.selection);
   const dragging = useDrag((s) => s.dragged !== null);
   const workedOnBy = useWorkOn(selection);
@@ -689,29 +828,18 @@ export const ElementToolbar = ({
       className="pointer-events-auto absolute left-1/2 flex items-center gap-0.5 whitespace-nowrap rounded-[10px] border bg-popover p-0.5 text-popover-foreground shadow-lg"
       data-element-toolbar
       onPointerDown={(e) => e.stopPropagation()}
+      ref={placeAt}
       role="toolbar"
-      style={
-        roomAbove(rectY, inv)
-          ? {
-              bottom: `calc(100% + ${(TAG_HEIGHT + GAP) * inv}px)`,
-              transform: `scale(${inv}) translateX(-50%)`,
-              transformOrigin: "bottom left",
-            }
-          : {
-              top: `calc(100% + ${GAP * inv}px)`,
-              transform: `scale(${inv}) translateX(-50%)`,
-              transformOrigin: "top left",
-            }
-      }
+      style={placement}
     >
       {workedOnBy ? (
         <AgentAtWork thread={workedOnBy} />
       ) : (
-        <>
+        <Targets.Provider value={[selection]}>
           <Controls node={node} />
           <Divider />
           <ChatButton selection={selection} />
-        </>
+        </Targets.Provider>
       )}
       <Tooltip>
         <TooltipTrigger
@@ -728,6 +856,129 @@ export const ElementToolbar = ({
         </TooltipTrigger>
         <TooltipContent>More</TooltipContent>
       </Tooltip>
+    </div>
+  );
+};
+
+/** Whether nodes are of one kind, so the controls of one of them fit all: one component, or one type. */
+const sameKind = (nodes: readonly DesignNode[]) => {
+  const [first] = nodes;
+  return nodes.every((n) =>
+    n.type === "instance" && first?.type === "instance"
+      ? n.component === first.component && n.from === first.from
+      : n.type === first?.type
+  );
+};
+
+const WRAPS = [
+  ["row", "Row"],
+  ["column", "Column"],
+  ["group", "Group"],
+] as const;
+
+/**
+ * The toolbar over several selected elements: what they share when they are of one kind, set on
+ * all of them at once; wrapping siblings in a row, a column or a group; all of them to the chat.
+ */
+export const GroupToolbar = ({
+  frameWidth,
+  inv,
+  nodes,
+  rect,
+  targets,
+}: {
+  frameWidth: number;
+  inv: number;
+  nodes: readonly DesignNode[];
+  rect: Box;
+  targets: readonly Selection[];
+}) => {
+  const [placeAt, placement] = usePlacement(rect, inv, frameWidth);
+  const dragging = useDrag((s) => s.dragged !== null);
+  const [first] = nodes;
+  if (dragging || !first) {
+    return null;
+  }
+  const siblings = areSiblings(targets);
+  return (
+    <div
+      aria-label={`Style of ${nodes.length} elements`}
+      className="pointer-events-auto absolute left-1/2 flex items-center gap-0.5 whitespace-nowrap rounded-[10px] border bg-popover p-0.5 text-popover-foreground shadow-lg"
+      data-element-toolbar
+      onPointerDown={(e) => e.stopPropagation()}
+      ref={placeAt}
+      role="toolbar"
+      style={placement}
+    >
+      <Targets.Provider value={targets}>
+        {sameKind(nodes) ? (
+          <>
+            <Controls node={first} />
+            <Divider />
+          </>
+        ) : null}
+        <DropdownMenu>
+          <ValueTrigger
+            icon={Group}
+            tooltip={
+              siblings
+                ? "Wrap them in"
+                : "Only siblings can be wrapped together"
+            }
+          >
+            Wrap in
+          </ValueTrigger>
+          <DropdownMenuContent className="w-40">
+            <MenuHead name="wrap in" />
+            {WRAPS.map(([type, label]) => (
+              <DropdownMenuItem
+                disabled={!siblings}
+                key={type}
+                onClick={() => wrapNodes(targets, type)}
+              >
+                {label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <Divider />
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                className="flex h-7 shrink-0 items-center gap-1.5 rounded-md bg-agent px-2 font-medium text-[12px] text-agent-foreground outline-none transition-colors hover:bg-agent/85 focus-visible:ring-2 focus-visible:ring-ring/50"
+                onClick={() => addToChat(targets)}
+                type="button"
+              />
+            }
+          >
+            <Sparkles className="size-3.5" />
+            {nodes.length}
+          </TooltipTrigger>
+          <TooltipContent>Add {nodes.length} to chat</TooltipContent>
+        </Tooltip>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <button
+                aria-label="More"
+                className="flex size-7 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+                type="button"
+              />
+            }
+          >
+            <Ellipsis className="size-3.5" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem
+              onClick={() => deleteNodes(targets)}
+              variant="destructive"
+            >
+              Delete {nodes.length} elements
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </Targets.Provider>
     </div>
   );
 };
