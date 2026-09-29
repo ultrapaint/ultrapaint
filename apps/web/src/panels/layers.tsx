@@ -14,29 +14,18 @@ import {
   nodeLabel,
 } from "@ultrapaint/design-document/tree";
 import { cn } from "cn";
-import {
-  ChevronDown,
-  ChevronRight,
-  Columns3,
-  Component,
-  File,
-  Group,
-  Image,
-  MoreVertical,
-  Rows3,
-  Type,
-} from "lucide-react";
+import { ChevronDown, ChevronRight, File, MoreVertical } from "lucide-react";
 import {
   type DragEvent,
   type KeyboardEvent,
   type MouseEvent,
-  type ReactNode,
   useEffect,
   useRef,
   useState,
 } from "react";
 import { Button } from "@/components/ui/button";
 import { bridgeFor } from "../canvas/bridge.ts";
+import { NodeIcon } from "../components/node-icon.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { holdsChildren } from "../state/catalogue.ts";
 import { openMenuAt, showMenu, useContextMenu } from "../state/context-menu.ts";
@@ -117,25 +106,6 @@ interface Row {
 }
 
 const keyOf = (frame: string, nodeId: string) => `${frame}#${nodeId}`;
-
-const iconOf = (node: DesignNode): ReactNode => {
-  switch (node.type) {
-    case "page":
-      return <File className="size-3" />;
-    case "row":
-      return <Columns3 className="size-3" />;
-    case "column":
-      return <Rows3 className="size-3" />;
-    case "group":
-      return <Group className="size-3" />;
-    case "text":
-      return <Type className="size-3" />;
-    case "image":
-      return <Image className="size-3" />;
-    default:
-      return <Component className="size-3" />;
-  }
-};
 
 const dropPositionAt = (node: DesignNode, y: number): DropPosition => {
   if (holdsChildren(node) && y > 0.3 && y < 0.7) {
@@ -333,7 +303,7 @@ const PageRows = ({ page, shared }: { page: Page; shared: Shared }) => {
         className={cn(
           "group relative flex h-7 cursor-default items-center gap-1 pr-1 font-medium text-[11px]",
           selected
-            ? "bg-brand/25 text-foreground"
+            ? "bg-selection/25 text-foreground"
             : "text-foreground hover:bg-muted/50",
           shared.dropTarget?.key === key && "ring-1 ring-brand ring-inset"
         )}
@@ -465,9 +435,12 @@ const RowMenu = ({ row }: { row: Row }) => {
   );
 };
 
-const rowTone = (selected: boolean, hovered: boolean) => {
+/** A component's row takes the component colour when selected, as its selection on the canvas does. */
+const rowTone = (selected: boolean, hovered: boolean, component = false) => {
   if (selected) {
-    return "bg-brand/25 text-foreground";
+    return component
+      ? "bg-component/30 text-foreground"
+      : "bg-selection/25 text-foreground";
   }
   return hovered
     ? "bg-muted text-foreground"
@@ -556,7 +529,7 @@ const LayerRow = ({
         aria-selected={selected}
         className={cn(
           "group relative flex h-6 cursor-default items-center gap-1 pr-1 text-[11px]",
-          rowTone(selected, hovered),
+          rowTone(selected, hovered, node.type === "instance"),
           node.hidden && "opacity-50",
           dropHere === "inside" && "ring-1 ring-brand ring-inset",
           dropHere === "before" &&
@@ -590,16 +563,16 @@ const LayerRow = ({
         <span
           className={cn(
             "shrink-0 text-muted-foreground",
-            node.type === "instance" && "text-brand",
+            node.type === "instance" && "text-component",
             selected && "text-foreground"
           )}
         >
-          {iconOf(node)}
+          <NodeIcon node={node} />
         </span>
         <span
           className={cn(
             "truncate",
-            node.type === "instance" && "font-medium text-brand",
+            node.type === "instance" && "font-medium text-component",
             selected && node.type === "instance" && "text-foreground"
           )}
         >

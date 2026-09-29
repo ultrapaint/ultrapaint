@@ -29,6 +29,12 @@ export class FrameBridge {
   private nextId = 1;
   private readonly pending = new Map<number, (msg: HostMessage) => void>();
   private readonly listeners = new Set<Listener>();
+  /**
+   * What the preview is to keep up to date, told again whenever it (re)loads: a message sent
+   * before it answers is lost, and a frame's preview loads after the frame is on the canvas.
+   */
+  private watched: string[] = [];
+  private skeletons: string[] = [];
   /** The preview has loaded and answers. */
   ready: boolean;
   readonly frameId: string;
@@ -56,6 +62,12 @@ export class FrameBridge {
   handle(msg: HostMessage) {
     if (msg.type === "ed:ready") {
       this.ready = true;
+      if (this.watched.length > 0) {
+        this.send({ nodeIds: this.watched, type: "ed:watchRects" });
+      }
+      if (this.skeletons.length > 0) {
+        this.send({ nodeIds: this.skeletons, type: "ed:skeleton" });
+      }
     }
     if ("requestId" in msg) {
       const cb = this.pending.get(msg.requestId);
@@ -164,7 +176,14 @@ export class FrameBridge {
   }
 
   watchRects(nodeIds: string[]) {
+    this.watched = nodeIds;
     this.send({ nodeIds, type: "ed:watchRects" });
+  }
+
+  /** Nodes an agent is rewriting, drawn as placeholders until it is done. */
+  skeleton(nodeIds: readonly string[]) {
+    this.skeletons = [...nodeIds];
+    this.send({ nodeIds: this.skeletons, type: "ed:skeleton" });
   }
 
   editText(nodeId: string) {

@@ -14,6 +14,11 @@ import {
   useState,
 } from "react";
 import { OptionSelect } from "../components/option-select.tsx";
+import {
+  kindColor,
+  kindHoverColor,
+  selectionKindOf,
+} from "../lib/selection-kind.ts";
 import { useComments } from "../state/comments.ts";
 import { holdMenu, openMenuAt, showMenu } from "../state/context-menu.ts";
 import { useDesignSystem } from "../state/design-system.ts";
@@ -25,14 +30,17 @@ import {
   rootOfFrame,
   useDocuments,
 } from "../state/documents.ts";
-import { useEditor } from "../state/editor.ts";
+import { useEditor, type Workspace } from "../state/editor.ts";
 import { useInstances } from "../state/instances.ts";
 import { previewUrl, useProject } from "../state/project.ts";
 import { stepInto } from "../state/tree.ts";
 import { FramePresence } from "./agent-presence.tsx";
+import { AgentWorkOverlay, useFrameWork, useSkeletons } from "./agent-work.tsx";
 import { bridgeFor, removeBridge } from "./bridge.ts";
 import { commentCursor, FrameComments } from "./comments.tsx";
 import { beginDrag, type Dragged, endDrag, moveDrag, useDrag } from "./drag.ts";
+import { ElementToolbar, TAG_HEIGHT } from "./element-toolbar.tsx";
+import { SelectionTag } from "./selection-tag.tsx";
 
 const presets: { value: ViewportPreset; label: string }[] = [
   { label: "Mobile", value: "mobile" },
@@ -241,7 +249,13 @@ export const Frame = memo(
       }
     }, [selection, root, frameId, space]);
 
-    // Rect watching for hover and selection; sent again whenever the document changes.
+    // What agents are changing here: outlined on the canvas, skeletons in the preview.
+    const work = useFrameWork(frameId);
+    useSkeletons(frameId, work.skeletons);
+    const workIds = work.pieces.flatMap((p) => p.nodeIds).join(" ");
+
+    // Rect watching for hover, selection and agents' work; sent again whenever the document
+    // changes.
     // biome-ignore lint/correctness/useExhaustiveDependencies: `root` is there to send it again.
     useEffect(() => {
       const ids: string[] = [];
@@ -251,8 +265,11 @@ export const Frame = memo(
       if (hover?.frame === frameId) {
         ids.push(hover.nodeId);
       }
+      if (workIds) {
+        ids.push(...workIds.split(" "));
+      }
       bridgeFor(frameId).watchRects(ids);
-    }, [frameId, selection, hover, root]);
+    }, [frameId, selection, hover, root, workIds]);
 
     // Pointer interaction in select mode.
     const lastHit = useRef(0);
@@ -591,6 +608,7 @@ export const Frame = memo(
               type="button"
             />
           )}
+          <AgentWorkOverlay frameId={frameId} inv={inv} pieces={work.pieces} />
           <Highlights frameId={frameId} inv={inv} />
         </div>
 
@@ -704,7 +722,7 @@ const FrameChrome = ({
         <div
           className="pointer-events-none absolute inset-0"
           style={{
-            outline: `${(isSelected ? 2 : 1) * inv}px solid ${isSelected ? "#4f8cff" : "rgba(79,140,255,0.6)"}`,
+            outline: `${(isSelected ? 2 : 1) * inv}px solid ${isSelected ? kindColor("element") : kindHoverColor("element")}`,
           }}
         />
       ) : null}
@@ -719,6 +737,18 @@ const Highlights = ({ frameId, inv }: { frameId: string; inv: number }) => {
   const hover = useEditor((s) => s.hover);
   const rects = useEditor((s) => s.rects[frameId]);
   const hostError = useEditor((s) => s.hostErrors[frameId]);
+  const space = useEditor((s) => s.space);
+  const workspace = useEditor((s) => s.workspace);
+  const selectedNode = useDocuments((s) =>
+    selection?.frame === frameId
+      ? nodeIn(s.docs, space, frameId, selection.nodeId)
+      : null
+  );
+  const hoverNode = useDocuments((s) =>
+    hover?.frame === frameId
+      ? nodeIn(s.docs, space, frameId, hover.nodeId)
+      : null
+  );
   const selectedRect =
     selection?.frame === frameId ? rects?.[selection.nodeId] : undefined;
   const hoverRect =
@@ -727,9 +757,23 @@ const Highlights = ({ frameId, inv }: { frameId: string; inv: number }) => {
       : undefined;
   return (
     <>
-      {hoverRect ? <Outline inv={inv} kind="hover" rect={hoverRect} /> : null}
+      {hoverRect ? (
+        <Outline
+          inv={inv}
+          kind="hover"
+          node={hoverNode}
+          rect={hoverRect}
+          workspace={workspace}
+        />
+      ) : null}
       {selectedRect ? (
-        <Outline inv={inv} kind="selection" rect={selectedRect} />
+        <Outline
+          inv={inv}
+          kind="selection"
+          node={selectedNode}
+          rect={selectedRect}
+          workspace={workspace}
+        />
       ) : null}
       {hostError ? (
         <div
@@ -744,40 +788,65 @@ const Highlights = ({ frameId, inv }: { frameId: string; inv: number }) => {
   );
 };
 
+/**
+ * A node's outline, in the colour of what it is: blue for an element, purple for a component. In
+ * Design the selection's size sits under it; in Vibe its name sits on its top-left edge, where the
+ * element toolbar hangs its controls from.
+ */
 const Outline = ({
   rect,
   inv,
   kind,
+  node,
+  workspace,
 }: {
   rect: { x: number; y: number; width: number; height: number };
   inv: number;
   kind: "hover" | "selection";
-}) => (
-  <div
-    className="pointer-events-none absolute"
-    style={{
-      height: rect.height,
-      left: rect.x,
-      outline: `${(kind === "selection" ? 2 : 1) * inv}px solid ${kind === "selection" ? "#4f8cff" : "rgba(79,140,255,0.6)"}`,
-      outlineOffset: -1 * inv,
-      top: rect.y,
-      width: rect.width,
-    }}
-  >
-    {kind === "selection" && (
-      <span
-        className="absolute left-1/2 rounded-sm bg-brand px-1 py-0.5 font-medium text-[10px] text-brand-foreground"
-        style={{
-          top: "100%",
-          transform: `translate(-50%, ${4 * inv}px) scale(${inv})`,
-          transformOrigin: "top center",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {Math.round(rect.width)} × {Math.round(rect.height)}
-      </span>
-    )}
-  </div>
-);
+  node: DesignNode | null;
+  workspace: Workspace;
+}) => {
+  const tone = selectionKindOf(node);
+  const color = kind === "selection" ? kindColor(tone) : kindHoverColor(tone);
+  return (
+    <div
+      className="pointer-events-none absolute"
+      style={{
+        height: rect.height,
+        left: rect.x,
+        outline: `${(kind === "selection" ? 2 : 1) * inv}px solid ${color}`,
+        outlineOffset: -1 * inv,
+        top: rect.y,
+        width: rect.width,
+      }}
+    >
+      {kind === "selection" && workspace !== "vibe" && (
+        <span
+          className="absolute left-1/2 rounded-sm px-1 py-0.5 font-medium text-[10px] text-white"
+          style={{
+            background: color,
+            top: "100%",
+            transform: `translate(-50%, ${4 * inv}px) scale(${inv})`,
+            transformOrigin: "top center",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {Math.round(rect.width)} × {Math.round(rect.height)}
+        </span>
+      )}
+      {kind === "selection" && workspace === "vibe" && node ? (
+        <>
+          <SelectionTag
+            color={color}
+            inside={rect.y < TAG_HEIGHT * inv}
+            inv={inv}
+            node={node}
+          />
+          <ElementToolbar inv={inv} node={node} rectY={rect.y} />
+        </>
+      ) : null}
+    </div>
+  );
+};
 
 export const useHostUrl = () => useProject((s) => previewUrl(s.info.host));

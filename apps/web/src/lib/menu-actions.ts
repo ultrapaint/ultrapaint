@@ -26,6 +26,7 @@ import type { MenuTarget, Point } from "../state/context-menu.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { isNodeFrame, nodeIn, useDocuments } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
+import { addToChat } from "./add-to-chat.ts";
 import {
   copyNode,
   cutNode,
@@ -64,6 +65,7 @@ import {
   updateSelection,
   wrapSelection,
 } from "./node-actions.ts";
+import { copyNodeLink, copyNodeRef } from "./node-links.ts";
 import {
   deletePage,
   duplicatePage,
@@ -76,7 +78,6 @@ import {
   zoomToPage,
 } from "./page-actions.ts";
 import { viewportSize } from "./shortcuts.ts";
-import { createThread } from "./start-thread.ts";
 import {
   deleteThread,
   openChat,
@@ -201,13 +202,6 @@ export const entriesFor = (target: MenuTarget): Entry[] | null => {
 
 const select = (target: Selection) => useEditor.getState().select(target);
 
-/** Opens a new thread about the node: its composer attaches the selection by itself. */
-const askAbout = async (target: Selection) => {
-  select(target);
-  useEditor.getState().setLeftTab("chat");
-  await createThread();
-};
-
 /** The code the node stands for is in the right panel, which only the design workspace has. */
 const viewCode = (target: Selection) => {
   const editor = useEditor.getState();
@@ -286,9 +280,11 @@ const runNode = (target: Selection & { at?: Point }, id: string) => {
     return;
   }
   const actions: Record<string, () => unknown> = {
-    ask: () => askAbout(sel),
+    ask: () => addToChat(sel),
     comment: () => commentOn(sel, target.at),
     copy: () => copyNode(sel),
+    copyLink: () => copyNodeLink(sel),
+    copyRef: () => copyNodeRef(sel),
     cut: () => cutNode(sel),
     delete: () => deleteSelection(sel),
     duplicate: () => duplicateSelection(sel),

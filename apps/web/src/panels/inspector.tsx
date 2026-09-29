@@ -191,7 +191,7 @@ const Header = ({ frame, node }: { frame: string; node: DesignNode }) => {
         )}
       </div>
       <div className="flex items-center gap-2 px-1 text-[11px] text-muted-foreground">
-        <span className={cn(node.type === "instance" && "text-brand")}>
+        <span className={cn(node.type === "instance" && "text-component")}>
           {nodeKind(node)}
         </span>
         {rect ? (
@@ -357,7 +357,7 @@ const InstanceSection = ({ node }: { node: InstanceNode }) => (
     <Section title="Component">
       <WrappedWarning node={node} />
       <Row label="Name">
-        <span className="truncate font-medium text-brand">
+        <span className="truncate font-medium text-component">
           {node.component}
         </span>
       </Row>

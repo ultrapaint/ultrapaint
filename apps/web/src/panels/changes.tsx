@@ -22,6 +22,7 @@ import { confirmDialog } from "../components/dialogs.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { SetupEmpty } from "../components/setup-dialog.tsx";
+import { useAgents } from "../state/agents.ts";
 import { api } from "../state/connection.ts";
 import { reportError, useProject } from "../state/project.ts";
 
@@ -34,6 +35,10 @@ interface CheckpointDiff {
 
 export const Changes = () => {
   const configured = useProject((s) => s.info.configured);
+  // Looked at: the rail stops saying an agent changed something.
+  useEffect(() => {
+    useAgents.getState().clearChanged();
+  }, []);
   const [status, setStatus] = useState<GitStatus | null>(null);
   const [diff, setDiff] = useState<GitDiff | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());

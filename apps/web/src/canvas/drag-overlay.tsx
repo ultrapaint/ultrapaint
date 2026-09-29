@@ -5,7 +5,7 @@ import { useEditor } from "../state/editor.ts";
 import { boxOf, isCreateTool, useCreate } from "./create-tool.ts";
 import { useDrag } from "./drag.ts";
 
-const BRAND = "#4f8cff";
+const BRAND = "var(--selection)";
 
 /**
  * Above every frame: a node placed on the canvas is lifted over the pages (and an open comment
@@ -47,7 +47,7 @@ export const DragOverlay = ({ zoom }: { zoom: number }) => {
         <div
           className="absolute rounded-sm"
           style={{
-            background: "rgba(79,140,255,0.08)",
+            background: "color-mix(in srgb, var(--selection) 8%, transparent)",
             height: dragged.rect.height,
             left: pointer.x - grab.x,
             outline: `${1.5 * inv}px dashed ${BRAND}`,
@@ -104,7 +104,7 @@ export const CreateOverlay = ({ zoom }: { zoom: number }) => {
         <div
           className="absolute"
           style={{
-            background: "rgba(79,140,255,0.08)",
+            background: "color-mix(in srgb, var(--selection) 8%, transparent)",
             height: drawn.height,
             left: drawn.x,
             outline: `${1.5 * inv}px solid ${BRAND}`,
@@ -137,7 +137,7 @@ const Box = ({ rect, inv }: { rect: Rect; inv: number }) => (
   <div
     className="absolute"
     style={{
-      background: "rgba(79,140,255,0.06)",
+      background: "color-mix(in srgb, var(--selection) 6%, transparent)",
       height: rect.height,
       left: rect.x,
       outline: `${2 * inv}px solid ${BRAND}`,

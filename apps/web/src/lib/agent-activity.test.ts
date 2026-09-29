@@ -1,7 +1,7 @@
 import type { Page } from "@ultrapaint/contracts/pages";
 import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
 import { describe, expect, it } from "vitest";
-import { agentActivity } from "./agent-activity.ts";
+import { AGENT_COLOR, agentActivity } from "./agent-activity.ts";
 
 const thread = (id: string, status: Thread["status"]): Thread => ({
   agentId: "claude-code",
@@ -167,13 +167,13 @@ describe("agentActivity", () => {
     expect(activity?.pageIds).toEqual(["site/index"]);
   });
 
-  it("gives each thread its own colour", () => {
+  it("draws every agent in the agents' colour", () => {
     const activity = agentActivity(
       [thread("t1", "running"), thread("t2", "running")],
       {},
       []
     );
-    expect(activity[0]?.color).not.toBe(activity[1]?.color);
+    expect(activity.map((a) => a.color)).toEqual([AGENT_COLOR, AGENT_COLOR]);
   });
 
   it("keeps a file that is not a page, so the strip can still name it", () => {

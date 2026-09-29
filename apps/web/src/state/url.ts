@@ -16,6 +16,8 @@ const defaults: Record<string, string> = { mode: "vibe", route: "/" };
 
 export const readUrl = (): UrlState & {
   mode: string | null;
+  /** A node to open on, selected and in view: a link copied from its menu. */
+  node: string | null;
   settings: string | null;
 } => {
   const params = new URLSearchParams(window.location.search);
@@ -23,6 +25,7 @@ export const readUrl = (): UrlState & {
   const route = params.get("route");
   return {
     mode: params.get("mode"),
+    node: params.get("node"),
     route: route === null ? "/" : normaliseRoute(route),
     // The section of the settings page when it is open: `?settings=repository`.
     settings: params.get("settings"),
@@ -60,6 +63,35 @@ export const tidyUrl = () => writeQuery(() => undefined, false);
 /** Records whether the settings are open, and on which section; nothing to go back through. */
 export const writeSettingsSection = (section: string | null) =>
   writeQuery((params) => params.set("settings", section ?? ""), false);
+
+/** The node a link opened on is selected now; the link is not the editor's state. */
+export const clearNodeParam = () =>
+  writeQuery((params) => params.delete("node"), false);
+
+/**
+ * A link to a node, as the editor's own URL: its space, its page's route (none for a node on the
+ * canvas beside the pages), and the node, which the editor selects and brings into view.
+ */
+export const linkToNode = (target: {
+  nodeId: string;
+  route: string | null;
+  space: string;
+}): string => {
+  const url = new URL(window.location.href);
+  const params = new URLSearchParams();
+  const mode = url.searchParams.get("mode");
+  if (target.space) {
+    params.set("space", target.space);
+  }
+  if (target.route && target.route !== "/") {
+    params.set("route", target.route);
+  }
+  if (mode) {
+    params.set("mode", mode);
+  }
+  params.set("node", target.nodeId);
+  return `${url.origin}${url.pathname}?${params.toString()}`;
+};
 
 /** Records the workspace; switching it is not a navigation, so back does not undo it. */
 export const writeMode = (mode: string) =>

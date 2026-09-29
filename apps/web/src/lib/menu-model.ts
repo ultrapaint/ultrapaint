@@ -95,13 +95,16 @@ export const nodeEntries = (f: NodeFacts): Entry[] => {
   const last = f.index >= f.siblings - 1;
   return tidy([
     { kind: "label", label: headingOf(node) },
-    item("ask", "Ask an agent about this"),
+    item("ask", "Add to chat"),
     node.type === "text" && item("editText", "Edit text", { shortcut: "⏎" }),
     item("rename", "Rename…"),
     item("viewCode", "View code"),
     f.onPage && item("comment", "Comment on this"),
     f.parentSelectable &&
       item("selectParent", "Select parent", { shortcut: "Esc" }),
+    separator,
+    item("copyLink", "Copy link to element"),
+    item("copyRef", "Copy element ID"),
     separator,
     !root && item("copy", "Copy", { shortcut: "⌘C" }),
     !root && item("cut", "Cut", { shortcut: "⌘X" }),

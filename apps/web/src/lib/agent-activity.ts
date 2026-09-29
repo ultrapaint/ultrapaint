@@ -1,7 +1,7 @@
 /**
  * What each agent is doing right now, worked out from the transcript it is already streaming: the
- * last tool call it has not finished. The canvas uses it to show where an agent is working, the
- * strip under the canvas to say it in words.
+ * last tool call it has not finished. The canvas uses it to show on which page an agent is working
+ * and to follow it there.
  *
  * Derived, never stored, and free of the editor's stores so it can be read on its own.
  */
@@ -16,7 +16,7 @@ export type AgentAction = "editing" | "reading" | "running" | "thinking";
 
 export interface AgentActivity {
   readonly action: AgentAction;
-  /** Colour of this thread on the canvas, so two agents are told apart at a glance. */
+  /** Colour of the work on the canvas: the agents' own, the same for every agent. */
   readonly color: string;
   /** Pages of the open project the agent is touching, by page id. */
   readonly pageIds: readonly string[];
@@ -27,16 +27,11 @@ export interface AgentActivity {
   readonly title?: string;
 }
 
-/** Enough colours to tell a few agents apart; after that they repeat. */
-const COLORS = ["#4f8cff", "#f0883e", "#b180ff", "#3fb950"] as const;
-
-export const colorOfThread = (threads: readonly Thread[], threadId: string) =>
-  COLORS[
-    Math.max(
-      0,
-      threads.findIndex((t) => t.id === threadId)
-    ) % COLORS.length
-  ] ?? COLORS[0];
+/**
+ * Every agent's work is the agents' colour, whichever agent it is: the name on its tag tells two
+ * apart, not the colour.
+ */
+export const AGENT_COLOR = "var(--agent)";
 
 /** ACP names a tool call's kind; the editor only cares what it means for the canvas. */
 const actionOf = (
@@ -128,7 +123,7 @@ export const agentActivity = (
       const places = tool?.locations ?? [];
       return {
         action: tool ? actionOf(tool.toolKind, tool.title) : "thinking",
-        color: colorOfThread(threads, thread.id),
+        color: AGENT_COLOR,
         pageIds: pagesOfCall(places, tool?.title, pages, focused[thread.id]),
         places,
         threadId: thread.id,

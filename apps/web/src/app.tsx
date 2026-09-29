@@ -1,15 +1,14 @@
-import { cn } from "cn";
 import {
   GitBranch,
   GitCompareArrows,
   Layers as LayersIcon,
   type LucideIcon,
   MessageCircle,
-  MessageSquare,
   MonitorSmartphone,
   Palette as PaletteIcon,
   Settings,
   Shapes,
+  Sparkles,
   TriangleAlert,
 } from "lucide-react";
 import { type ComponentType, useEffect, useRef } from "react";
@@ -17,14 +16,7 @@ import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 import { Toaster } from "@/components/ui/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { AgentActivityStrip } from "./canvas/agent-activity-strip.tsx";
-import { AgentChanges } from "./canvas/agent-changes.tsx";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { installBridgeRouter } from "./canvas/bridge.ts";
 import { Canvas } from "./canvas/canvas.tsx";
 import { Prototype, PrototypeBar } from "./canvas/prototype.tsx";
@@ -33,9 +25,11 @@ import { Toolbar } from "./canvas/toolbar.tsx";
 import { WorkspaceSwitcher } from "./canvas/workspace-switcher.tsx";
 import { ContextMenuHost } from "./components/context-menu-host.tsx";
 import { DialogHost } from "./components/dialogs.tsx";
+import { GitUserButton } from "./components/git-user.tsx";
 import { IconButton } from "./components/icon-button.tsx";
 import { ResizeHandle, usePanelWidth } from "./components/resize-handle.tsx";
 import { openSetup, SetupDialog } from "./components/setup-dialog.tsx";
+import { useOpenNodeLink } from "./lib/open-node-link.ts";
 import { useShortcuts } from "./lib/shortcuts.ts";
 import { Changes } from "./panels/changes.tsx";
 import { CodePanel } from "./panels/code.tsx";
@@ -67,63 +61,124 @@ import { onUrlChange, readUrl, tidyUrl, writeMode } from "./state/url.ts";
 
 installBridgeRouter();
 
+/** `rail` is the word under the icon, `label` the panel's title and the button's name. */
 const leftTabs: Record<
   LeftTab,
-  { label: string; icon: LucideIcon; panel: ComponentType }
+  { label: string; rail: string; icon: LucideIcon; panel: ComponentType }
 > = {
-  changes: { icon: GitCompareArrows, label: "Changes", panel: Changes },
-  chat: { icon: MessageSquare, label: "Chat", panel: Threads },
-  comments: { icon: MessageCircle, label: "Comments", panel: Comments },
+  changes: {
+    icon: GitCompareArrows,
+    label: "Changes",
+    panel: Changes,
+    rail: "Changes",
+  },
+  chat: { icon: Sparkles, label: "Chats", panel: Threads, rail: "Chats" },
+  comments: {
+    icon: MessageCircle,
+    label: "Comments",
+    panel: Comments,
+    rail: "Comments",
+  },
   designSystem: {
     icon: PaletteIcon,
     label: "Design system",
     panel: DesignSystemPanel,
+    rail: "System",
   },
-  layers: { icon: LayersIcon, label: "Layers", panel: Layers },
-  pages: { icon: MonitorSmartphone, label: "Pages", panel: Pages },
-  palette: { icon: Shapes, label: "Components", panel: Palette },
+  layers: { icon: LayersIcon, label: "Layers", panel: Layers, rail: "Layers" },
+  pages: {
+    icon: MonitorSmartphone,
+    label: "Pages",
+    panel: Pages,
+    rail: "Pages",
+  },
+  palette: {
+    icon: Shapes,
+    label: "Components",
+    panel: Palette,
+    rail: "Assets",
+  },
 };
 
 const leftBounds = { defaultWidth: 256, max: 480, min: 200 };
 /** A conversation reads better wide; switching to any other panel caps the width again. */
-const chatBounds = { ...leftBounds, max: 960 };
+const chatBounds = { ...leftBounds, defaultWidth: 340, max: 960 };
 const rightBounds = { defaultWidth: 288, max: 560, min: 240 };
+
+const openSettings = () => useProject.getState().openSettings(true);
+
+/**
+ * One place on the rail: the icon in its tile, the word under it. `dot` says an agent is working;
+ * it sits in the icon's own top-right corner, over it, so nothing moves when it comes and goes.
+ */
+const RailItem = ({
+  active = false,
+  dot = false,
+  icon: Icon,
+  label,
+  name,
+  onClick,
+}: {
+  active?: boolean;
+  dot?: boolean;
+  icon: LucideIcon;
+  label: string;
+  name: string;
+  onClick: () => void;
+}) => (
+  <button
+    aria-label={name}
+    aria-pressed={active}
+    className="group flex w-15 flex-col items-center gap-0.5 rounded-lg py-1 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 aria-pressed:text-foreground"
+    onClick={onClick}
+    title={name === label ? undefined : name}
+    type="button"
+  >
+    <span className="flex h-7.5 w-9 items-center justify-center rounded-lg transition-colors group-hover:bg-muted group-aria-pressed:bg-muted">
+      <span className="relative flex">
+        <Icon className="size-4.5" />
+        {dot ? (
+          <span
+            aria-label="An agent is working"
+            className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-agent ring-2 ring-sidebar group-hover:ring-muted group-aria-pressed:ring-muted"
+            role="status"
+          />
+        ) : null}
+      </span>
+    </span>
+    <span className="font-medium text-[10px] leading-tight">{label}</span>
+  </button>
+);
 
 const RailButton = ({ value }: { value: LeftTab }) => {
   const active = useEditor((s) => s.leftTab === value);
-  const onClick = () => useEditor.getState().setLeftTab(value);
+  // Chats: an agent is working. Changes: an agent's turn changed files nobody looked at yet.
+  const dot = useAgents((s) => {
+    if (value === "chat") {
+      return s.threads.some((t) => t.status === "running");
+    }
+    return value === "changes" && s.changed.length > 0;
+  });
   const tab = leftTabs[value];
-  const Icon = tab.icon;
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <button
-            aria-label={tab.label}
-            aria-pressed={active}
-            className={cn(
-              "flex size-10 items-center justify-center rounded-lg text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50",
-              active && "bg-muted text-foreground"
-            )}
-            onClick={onClick}
-            type="button"
-          />
-        }
-      >
-        <Icon className="size-4" />
-      </TooltipTrigger>
-      <TooltipContent side="right">{tab.label}</TooltipContent>
-    </Tooltip>
+    <RailItem
+      active={active}
+      dot={dot}
+      icon={tab.icon}
+      label={tab.rail}
+      name={tab.label}
+      onClick={() => useEditor.getState().setLeftTab(value)}
+    />
   );
 };
 
-/** Icon navigation between the left panels the workspace offers, Figma-style. */
+/** Navigation between the left panels the workspace offers, each named under its icon. */
 const Rail = () => {
   const workspace = useEditor((s) => s.workspace);
   return (
     <nav
       aria-label="Panels"
-      className="flex w-14 shrink-0 flex-col items-center gap-1 border-r bg-sidebar py-2"
+      className="flex w-16 shrink-0 flex-col items-center gap-0.5 border-r bg-sidebar pt-2.5 pb-3"
     >
       <span
         aria-label="ultrapaint"
@@ -136,16 +191,24 @@ const Rail = () => {
         <RailButton key={value} value={value} />
       ))}
       {workspaceTabs[workspace].length > 0 && (
-        <Separator className="my-1 w-6" />
+        <Separator className="my-1.5 w-7" />
       )}
       {sharedTabs.map((value) => (
         <RailButton key={value} value={value} />
       ))}
+      <div className="flex-1" />
+      <RailItem
+        icon={Settings}
+        label="Settings"
+        name="Settings"
+        onClick={openSettings}
+      />
+      <Separator className="mt-2.5 mb-3 w-7" />
+      <GitUserButton />
     </nav>
   );
 };
 
-const openSettings = () => useProject.getState().openSettings(true);
 // Saving needs settings to save; before the first ones exist the setup dialog is the way in.
 const openSaveConfig = () => {
   const { openSaveConfig: open, settings } = useProject.getState();
@@ -194,9 +257,6 @@ const ProjectHeader = () => {
           <TriangleAlert />
         </IconButton>
       )}
-      <IconButton onClick={openSettings} tooltip="Settings">
-        <Settings />
-      </IconButton>
     </div>
   );
 };
@@ -204,7 +264,7 @@ const ProjectHeader = () => {
 /**
  * The panel floats over the canvas instead of pushing it: the canvas keeps its left edge against
  * the rail, so widening the panel covers more of it and never moves what is drawn on it.
- * `left-14` is the rail's own width.
+ * `left-16` is the rail's own width.
  */
 const LeftPanel = ({
   defaultWidth,
@@ -221,14 +281,17 @@ const LeftPanel = ({
   const Active = tab.panel;
   return (
     <aside
-      className="absolute inset-y-0 left-14 z-30 flex flex-col border-r bg-sidebar text-sidebar-foreground"
+      className="absolute inset-y-0 left-16 z-30 flex flex-col border-r bg-sidebar text-sidebar-foreground"
       data-canvas-cover
       style={{ width }}
     >
       <ProjectHeader />
-      <div className="flex h-9 shrink-0 items-center px-3 font-medium text-[11px]">
-        {tab.label}
-      </div>
+      {/* The chat heads itself: its list and each thread have their own header. */}
+      {leftTab === "chat" ? null : (
+        <div className="flex h-9 shrink-0 items-center px-3 font-medium text-[11px]">
+          {tab.label}
+        </div>
+      )}
       <div className="min-h-0 flex-1 overflow-auto">
         <Active />
       </div>
@@ -300,6 +363,7 @@ export const App = () => {
   const [leftWidth, setLeftWidth] = usePanelWidth("left", leftPanel);
   const bound = useRef<boolean>(false);
   useShortcuts();
+  useOpenNodeLink();
 
   useEffect(() => {
     if (connState !== "open") {
@@ -341,15 +405,19 @@ export const App = () => {
     const url = readUrl();
     const saved = localStorage.getItem("ultrapaint:space");
     const ids = spaces.map((s) => s.id);
+    // The designs directory's own space is named "", which the URL leaves out: a link with a
+    // route and no space is a route of that space.
+    const urlSpace =
+      url.space ?? (ids.includes("") && url.route !== "/" ? "" : null);
     let target = ids[0] ?? "";
-    if (url.space !== null && ids.includes(url.space)) {
-      target = url.space;
+    if (urlSpace !== null && ids.includes(urlSpace)) {
+      target = urlSpace;
     } else if (saved !== null && ids.includes(saved)) {
       target = saved;
     }
     useEditor
       .getState()
-      .openSpace(target, url.space === target ? url.route : undefined);
+      .openSpace(target, urlSpace === target ? url.route : undefined);
     // The canvas starts behind the panel, so the first view opens a margin past the panel's edge.
     useEditor.getState().setView({ x: leftWidth + 80 });
   }, [configured, spaces, space, leftWidth]);
@@ -424,8 +492,6 @@ export const App = () => {
                 <WorkspaceSwitcher />
                 <CanvasStatus />
                 <div className="absolute inset-x-0 bottom-4 z-10 flex flex-col items-center gap-2">
-                  <AgentActivityStrip />
-                  <AgentChanges />
                   {workspace === "prototype" ? <PrototypeBar /> : <Toolbar />}
                 </div>
               </div>

@@ -17,18 +17,20 @@ import { cn } from "cn";
 import {
   AppWindow,
   ArrowUp,
-  Bot,
   Camera,
   Check,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   CircleAlert,
   CircleHelp,
+  Ellipsis,
   Eye,
   FilePen,
   FolderPen,
   Hand,
   ListTodo,
+  LocateFixed,
   type LucideIcon,
   NotebookPen,
   Paperclip,
@@ -41,7 +43,6 @@ import {
   Sparkles,
   Square,
   SquareDashedMousePointer,
-  Trash2,
   X,
   Zap,
 } from "lucide-react";
@@ -69,6 +70,7 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
@@ -78,13 +80,6 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-} from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker";
@@ -102,16 +97,16 @@ import { frameIdOf } from "../canvas/prototype.tsx";
 import { AgentIcon } from "../components/agent-icon.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { Markdown } from "../components/markdown.tsx";
-import { OptionSelect } from "../components/option-select.tsx";
 import { SetupEmpty } from "../components/setup-dialog.tsx";
+import { showScope } from "../lib/add-to-chat.ts";
 import {
   type DiffRow,
   diffCounts,
   diffHunks,
   lineDiff,
 } from "../lib/line-diff.ts";
-import { createThread, takeDraft, useDrafts } from "../lib/start-thread.ts";
-import { deleteThread } from "../lib/thread-actions.ts";
+import { takeDraft, useDrafts } from "../lib/start-thread.ts";
+import { toggleFollowing } from "../lib/thread-actions.ts";
 import {
   formatDuration,
   groupWork,
@@ -121,21 +116,33 @@ import {
   workSummary,
 } from "../lib/thread-work.ts";
 import { terminalKey, useAgents } from "../state/agents.ts";
+import {
+  addChip,
+  type Chip,
+  chipKey,
+  clearChips,
+  nodeChip,
+  pageChip,
+  removeChip,
+  useChips,
+} from "../state/attachments.ts";
 import { api } from "../state/connection.ts";
 import { openMenuAt } from "../state/context-menu.ts";
 import { nodeIn, useDocuments } from "../state/documents.ts";
 import { useEditor, type Workspace } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { isSendKey, useSendKey } from "../state/send-key.ts";
+import { ScopePicture, ThreadList } from "./chat-list.tsx";
+import { ChatStarters } from "./chat-starters.tsx";
 import { WorkingIndicator, WorkingMark } from "./thread-work.tsx";
-
-const openThread = (threadId: string) => useAgents.getState().open(threadId);
-const newThread = () => createThread();
 
 export const Threads = () => {
   const configured = useProject((s) => s.info.configured);
-  const { threads, current, items } = useAgents();
-  const thread = threads.find((t) => t.id === current) ?? null;
+  const view = useAgents((s) => s.view);
+  const thread = useAgents(
+    (s) => s.threads.find((t) => t.id === s.current) ?? null
+  );
+  const items = useAgents((s) => (thread ? s.items[thread.id] : undefined));
 
   useEffect(() => {
     if (!configured) {
@@ -148,62 +155,103 @@ export const Threads = () => {
   if (!configured) {
     return <SetupEmpty />;
   }
-
+  if (view === "list" || !thread) {
+    return <ThreadList />;
+  }
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-1 border-b px-2 py-1.5">
-        {/* biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: the picker's trigger raises the menu from the keyboard, and it bubbles here. */}
-        <div
-          className="min-w-0 flex-1"
-          onContextMenu={(e) => {
-            if (current) {
-              openMenuAt(e, { kind: "thread", threadId: current });
-            }
-          }}
-        >
-          <OptionSelect
-            onChange={openThread}
-            options={threads.map((t) => ({ label: t.title, value: t.id }))}
-            placeholder="No thread"
-            value={current}
-          />
-        </div>
-        <IconButton onClick={newThread} tooltip="New thread">
-          <Plus />
-        </IconButton>
-        {thread ? <DeleteThreadButton thread={thread} /> : null}
-      </div>
-      {thread ? (
-        <ThreadView items={items[thread.id] ?? []} thread={thread} />
-      ) : (
-        <Empty className="h-full">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <Bot />
-            </EmptyMedia>
-            <EmptyDescription>
-              Threads run in parallel. Each picks its agent and model in the
-              composer, and can switch between prompts.
-            </EmptyDescription>
-          </EmptyHeader>
-          <EmptyContent>
-            <Button onClick={newThread} size="sm" variant="outline">
-              <Plus data-icon="inline-start" />
-              New thread
-            </Button>
-          </EmptyContent>
-        </Empty>
-      )}
+      <ThreadHeader thread={thread} />
+      <ScopeBar thread={thread} />
+      <ThreadView items={items ?? []} thread={thread} />
     </div>
   );
 };
 
-const DeleteThreadButton = ({ thread }: { thread: Thread }) => {
-  const onClick = () => deleteThread(thread.id);
+/** Back to the list, the thread's name, who works on it and where it may write. */
+const ThreadHeader = ({ thread }: { thread: Thread }) => {
+  const agentName = useAgents(
+    (s) => s.agents.find((a) => a.id === thread.agentId)?.name
+  );
+  const model = currentName(thread.configOptions?.find(isModelOption));
+  const following = useAgents((s) => s.following === thread.id);
   return (
-    <IconButton onClick={onClick} tooltip="Delete thread">
-      <Trash2 />
-    </IconButton>
+    // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: the header's menu is the thread's; its buttons raise it from the keyboard.
+    <div
+      className="flex h-13 shrink-0 items-center gap-1 border-b px-1.5"
+      onContextMenu={(e) =>
+        openMenuAt(e, { kind: "thread", threadId: thread.id })
+      }
+    >
+      <IconButton
+        onClick={() => useAgents.getState().back()}
+        tooltip="All chats"
+      >
+        <ChevronLeft />
+      </IconButton>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate font-semibold text-[13px]">
+          {thread.title}
+        </span>
+        <span className="flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground">
+          <AgentIcon agentId={thread.agentId} className="size-3 shrink-0" />
+          <span className="truncate">
+            {[agentName, model].filter(Boolean).join(" · ")}
+          </span>
+          <SandboxBadge thread={thread} />
+        </span>
+      </div>
+      <IconButton
+        aria-pressed={following}
+        className={cn(following && "text-agent hover:text-agent")}
+        onClick={() => toggleFollowing(thread.id)}
+        tooltip={following ? "Stop following" : "Follow on the canvas"}
+      >
+        <Eye />
+      </IconButton>
+      <IconButton
+        onClick={(e) => openMenuAt(e, { kind: "thread", threadId: thread.id })}
+        tooltip="More"
+      >
+        <Ellipsis />
+      </IconButton>
+    </div>
+  );
+};
+
+/** What the thread works on, pinned under its header, with the way to it on the canvas. */
+const ScopeBar = ({ thread }: { thread: Thread }) => {
+  const { scope } = thread;
+  const route = useProject(
+    (s) => s.pages.find((p) => p.file === scope?.file)?.route
+  );
+  if (!scope) {
+    return null;
+  }
+  return (
+    <div className="flex shrink-0 items-center gap-2.5 border-b bg-muted/30 py-2 pr-2 pl-3">
+      <ScopePicture className="size-9" thread={thread} />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="text-[10.5px] text-muted-foreground">Working on</span>
+        <span className="flex min-w-0 items-baseline gap-1.5">
+          <span
+            className={cn(
+              "truncate font-semibold",
+              scope.component && "text-component"
+            )}
+          >
+            {scope.name}
+            {scope.count ? ` +${scope.count - 1}` : ""}
+          </span>
+          <span className="truncate font-mono text-[11px] text-muted-foreground">
+            {route ?? "canvas"}
+          </span>
+        </span>
+      </div>
+      <Button onClick={() => showScope(thread)} size="sm" variant="outline">
+        <LocateFixed data-icon="inline-start" />
+        Show
+      </Button>
+    </div>
   );
 };
 
@@ -218,51 +266,55 @@ const ThreadView = ({
   const running = thread.status === "running";
   const last = items.at(-1);
   const since = items.findLast((i) => i.kind === "user")?.at;
+  const fresh = items.length === 0 && thread.status === "idle";
   return (
     <>
+      {fresh ? <ChatStarters thread={thread} /> : null}
       {/* Keyed by thread so each one opens scrolled to its latest message. */}
-      <MessageScrollerProvider
-        autoScroll
-        defaultScrollPosition="end"
-        key={`scroller:${thread.id}`}
-      >
-        <MessageScroller className="flex-1">
-          <MessageScrollerViewport>
-            <MessageScrollerContent className="gap-2 p-2">
-              {entries.map((entry) => (
-                <MessageScrollerItem
-                  key={keyOfEntry(entry)}
-                  messageId={keyOfEntry(entry)}
-                >
-                  <Entry
-                    entry={entry}
-                    last={last}
-                    running={running}
-                    threadId={thread.id}
+      {fresh ? null : (
+        <MessageScrollerProvider
+          autoScroll
+          defaultScrollPosition="end"
+          key={`scroller:${thread.id}`}
+        >
+          <MessageScroller className="flex-1">
+            <MessageScrollerViewport>
+              <MessageScrollerContent className="gap-2 p-2">
+                {entries.map((entry) => (
+                  <MessageScrollerItem
+                    key={keyOfEntry(entry)}
+                    messageId={keyOfEntry(entry)}
+                  >
+                    <Entry
+                      entry={entry}
+                      last={last}
+                      running={running}
+                      threadId={thread.id}
+                    />
+                  </MessageScrollerItem>
+                ))}
+                {/* Also while the agent is still starting: that is part of the turn. */}
+                {(running || thread.status === "starting") && (
+                  <WorkingIndicator
+                    since={since}
+                    starting={thread.status === "starting"}
                   />
-                </MessageScrollerItem>
-              ))}
-              {/* Also while the agent is still starting: that is part of the turn. */}
-              {(running || thread.status === "starting") && (
-                <WorkingIndicator
-                  since={since}
-                  starting={thread.status === "starting"}
-                />
-              )}
-              {thread.status === "error" && (
-                <Alert variant="destructive">
-                  <CircleAlert />
-                  <AlertTitle>The agent stopped</AlertTitle>
-                  <AlertDescription className="whitespace-pre-wrap">
-                    {thread.error}
-                  </AlertDescription>
-                </Alert>
-              )}
-            </MessageScrollerContent>
-          </MessageScrollerViewport>
-          <MessageScrollerButton />
-        </MessageScroller>
-      </MessageScrollerProvider>
+                )}
+                {thread.status === "error" && (
+                  <Alert variant="destructive">
+                    <CircleAlert />
+                    <AlertTitle>The agent stopped</AlertTitle>
+                    <AlertDescription className="whitespace-pre-wrap">
+                      {thread.error}
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </MessageScrollerContent>
+            </MessageScrollerViewport>
+            <MessageScrollerButton />
+          </MessageScroller>
+        </MessageScrollerProvider>
+      )}
       <Composer key={`composer:${thread.id}`} thread={thread} />
     </>
   );
@@ -921,24 +973,35 @@ const QuestionCard = ({
   );
 };
 
-/** Gathers the context the composer attaches to a prompt. */
-const collectAttachments = async ({
-  fileOf,
-  selected,
-  shotOf,
-}: {
-  fileOf: Page | null;
-  /** The selected node, and the file of the document it is in. */
-  selected: { file: string; name: string; nodeId: string } | null;
-  /** The page and the iframe showing it: the prototype has one for the whole space. */
-  shotOf: { frameId: string; name: string } | null;
-}) => {
+/**
+ * What a prompt carries, from the composer's chips: each node with the file it lives in, each page,
+ * and a screenshot when one was asked for.
+ */
+const collectAttachments = async (
+  chips: readonly Chip[],
+  shotOf: { frameId: string; name: string } | null
+) => {
   const attachments: PromptAttachment[] = [];
-  if (fileOf) {
-    attachments.push({ kind: "file", path: fileOf.file });
-  }
-  if (selected) {
-    attachments.push({ kind: "selection", ...selected });
+  const files = new Set<string>();
+  const addFile = (path: string) => {
+    if (!files.has(path)) {
+      files.add(path);
+      attachments.push({ kind: "file", path });
+    }
+  };
+  for (const chip of chips) {
+    if (chip.kind === "page") {
+      addFile(chip.file);
+    } else if (chip.kind === "node") {
+      addFile(chip.file);
+      attachments.push({
+        file: chip.file,
+        kind: "selection",
+        name: chip.name,
+        nodeId: chip.nodeId,
+        ...(chip.component ? { component: true } : {}),
+      });
+    }
   }
   if (shotOf) {
     const dataUrl = await bridgeFor(shotOf.frameId).screenshot();
@@ -1220,7 +1283,7 @@ const ModelPicker = ({ thread }: { thread: Thread }) => {
  * Whether the agent is confined to the repository. The scope is the operating system's, so it
  * says which repository, and says so plainly where the platform has no sandbox to offer.
  */
-const ScopeChip = ({ thread }: { thread: Thread }) => {
+const SandboxBadge = ({ thread }: { thread: Thread }) => {
   const repoPath = useProject((s) => s.info.repoPath);
   if (thread.sandboxed === undefined) {
     return null;
@@ -1387,8 +1450,9 @@ const Composer = ({ thread }: { thread: Thread }) => {
       }
     });
   }, [thread.id]);
-  const [attachPage, setAttachPage] = useState(true);
-  const [attachSelection, setAttachSelection] = useState(true);
+  const chips = useChips(thread.id);
+  /** Implicit context the user took out of this prompt, by chip key. */
+  const [dismissed, setDismissed] = useState<readonly string[]>([]);
   const [attachShot, setAttachShot] = useState(false);
   const [busy, setBusy] = useState(false);
   const selection = useEditor((s) => s.selection);
@@ -1405,9 +1469,17 @@ const Composer = ({ thread }: { thread: Thread }) => {
         )
       : null
   );
+  // Nothing attached: the selection and its page go along, as they always have, shown dashed.
+  const selectedChip =
+    selection && selectedNode ? nodeChip(selection, selectedNode) : null;
+  const implicit =
+    chips.length > 0
+      ? []
+      : [page ? pageChip(page) : null, selectedChip].filter(
+          (c): c is Chip => c !== null && !dismissed.includes(chipKey(c))
+        );
   const commands = useCommands();
   const [commandIndex, setCommandIndex] = useState(0);
-  const settingsFile = useProject((s) => s.settings?.designsDir ?? "");
   const workspace = useEditor((s) => s.workspace);
   const space = useEditor((s) => s.space);
   const shotFrame = shotFrameOf(workspace, space, page);
@@ -1418,30 +1490,19 @@ const Composer = ({ thread }: { thread: Thread }) => {
       return;
     }
     setBusy(true);
-    const selectedFile = selection
-      ? (page?.file ?? `${settingsFile}/${space ? `${space}/` : ""}canvas.json`)
-      : null;
-    const context = {
-      fileOf: attachPage && page ? page : null,
-      selected:
-        attachSelection && selection && selectedNode && selectedFile
-          ? {
-              file: selectedFile,
-              name: nodeLabel(selectedNode),
-              nodeId: selectedNode.id,
-            }
-          : null,
-      shotOf:
-        attachShot && page ? { frameId: shotFrame, name: page.name } : null,
-    };
     try {
-      const attachments = await collectAttachments(context);
+      const attachments = await collectAttachments(
+        chips.length > 0 ? chips : implicit,
+        attachShot && page ? { frameId: shotFrame, name: page.name } : null
+      );
       await api().request("threads.prompt", {
         attachments,
         text,
         threadId: thread.id,
       });
       setText("");
+      clearChips(thread.id);
+      setDismissed([]);
     } catch (error) {
       reportError(error);
     }
@@ -1490,32 +1551,39 @@ const Composer = ({ thread }: { thread: Thread }) => {
     useAgents((s) => s.agents.find((a) => a.id === thread.agentId)?.name) ??
     "the agent";
 
-  const showPage = Boolean(page && attachPage);
-  const showSelection = Boolean(selectedNode && attachSelection);
   const showShot = Boolean(page && attachShot);
+  const attachSelection = () => {
+    if (selectedChip) {
+      addChip(thread.id, selectedChip);
+    }
+  };
+  const attachPage = () => {
+    if (page) {
+      addChip(thread.id, pageChip(page));
+    }
+  };
 
   return (
     <div className="flex flex-col gap-1.5 p-2">
-      <ScopeChip thread={thread} />
+      <SandboxBadge thread={thread} />
       <div className="flex flex-col rounded-xl border bg-input/20 transition-colors focus-within:border-ring dark:bg-input/30">
-        {showPage || showSelection || showShot ? (
+        {chips.length > 0 || implicit.length > 0 || showShot ? (
           <div className="flex flex-wrap gap-1 px-2 pt-2">
-            {showPage && page ? (
-              <ContextChip
-                icon={<AppWindow />}
-                label={page.name}
-                onRemove={() => setAttachPage(false)}
-                title={`Page file: ${page.file}`}
+            {chips.map((chip) => (
+              <AttachmentChip
+                chip={chip}
+                key={chipKey(chip)}
+                onRemove={() => removeChip(thread.id, chipKey(chip))}
               />
-            ) : null}
-            {showSelection && selectedNode ? (
-              <ContextChip
-                icon={<SquareDashedMousePointer />}
-                label={nodeLabel(selectedNode)}
-                onRemove={() => setAttachSelection(false)}
-                title={`Selected node: ${selectedNode.id}`}
+            ))}
+            {implicit.map((chip) => (
+              <AttachmentChip
+                chip={chip}
+                implicit
+                key={chipKey(chip)}
+                onRemove={() => setDismissed((d) => [...d, chipKey(chip)])}
               />
-            ) : null}
+            ))}
             {showShot && page ? (
               <ContextChip
                 icon={<Camera />}
@@ -1590,22 +1658,19 @@ const Composer = ({ thread }: { thread: Thread }) => {
                 <DropdownMenuLabel>
                   Send along with the prompt
                 </DropdownMenuLabel>
-                <DropdownMenuCheckboxItem
-                  checked={attachPage}
-                  disabled={!page}
-                  onCheckedChange={setAttachPage}
-                >
-                  <AppWindow />
-                  Page file
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem
-                  checked={attachSelection}
-                  disabled={!selectedNode}
-                  onCheckedChange={setAttachSelection}
+                <DropdownMenuItem
+                  disabled={!selectedChip}
+                  onClick={attachSelection}
                 >
                   <SquareDashedMousePointer />
-                  Selected node
-                </DropdownMenuCheckboxItem>
+                  {selectedNode
+                    ? `Attach ${nodeLabel(selectedNode)}`
+                    : "Attach the selection"}
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled={!page} onClick={attachPage}>
+                  <AppWindow />
+                  {page ? `Attach the page ${page.name}` : "Attach the page"}
+                </DropdownMenuItem>
                 <DropdownMenuCheckboxItem
                   checked={attachShot}
                   disabled={!page}
@@ -1639,6 +1704,67 @@ const Composer = ({ thread }: { thread: Thread }) => {
         </div>
       </div>
     </div>
+  );
+};
+
+const chipTitle = (chip: Chip) => {
+  if (chip.kind === "node") {
+    return `${chip.name} in ${chip.file}`;
+  }
+  return chip.kind === "page" ? `Page file: ${chip.file}` : chip.name;
+};
+
+/**
+ * An attachment of the next prompt. A node takes its selection colour, purple for a component;
+ * the context sent because nothing was attached is dashed, and removing it keeps it out of this
+ * prompt.
+ */
+const AttachmentChip = ({
+  chip,
+  implicit = false,
+  onRemove,
+}: {
+  chip: Chip;
+  implicit?: boolean;
+  onRemove: () => void;
+}) => {
+  const component = chip.kind === "node" && chip.component;
+  const element = chip.kind === "node" && !chip.component;
+  return (
+    <span
+      className={cn(
+        "flex h-5.5 min-w-0 items-center gap-1 rounded-md border pr-0.5 pl-1.5 text-[11px] [&_svg]:size-3 [&_svg]:shrink-0",
+        implicit && "border-dashed text-muted-foreground",
+        !implicit && component && "border-component/60 bg-component/15",
+        !implicit && element && "border-selection/60 bg-selection/10",
+        !(implicit || component || element) && "bg-background/40"
+      )}
+      title={
+        implicit
+          ? "Sent with the prompt because nothing else is attached"
+          : chipTitle(chip)
+      }
+    >
+      {chip.kind === "page" ? (
+        <AppWindow className="text-muted-foreground" />
+      ) : (
+        <SquareDashedMousePointer
+          className={cn(
+            component && "text-component",
+            element && "text-selection"
+          )}
+        />
+      )}
+      <span className="max-w-32 truncate">{chip.name}</span>
+      <button
+        aria-label={`Remove ${chip.name}`}
+        className="flex size-4 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+        onClick={onRemove}
+        type="button"
+      >
+        <X />
+      </button>
+    </span>
   );
 };
 

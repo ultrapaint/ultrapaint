@@ -1,0 +1,733 @@
+/**
+ * The Vibe toolbar over the selection: only what the design system has — a component's own
+ * variants, a text's styles, the colour, radius, spacing and shadow tokens of a container — then
+ * Add to chat and the element's menu. Every control is a select that shows its value alone; the
+ * menu it opens says which prop or token it sets. Design keeps the plain selection and the
+ * inspector instead.
+ */
+import type { JsonValue } from "@ultrapaint/contracts/base";
+import type {
+  DesignSystem,
+  TextStyle,
+} from "@ultrapaint/contracts/design-system";
+import type {
+  DesignNode,
+  InstanceNode,
+  TextNode,
+} from "@ultrapaint/contracts/document";
+import type { Thread } from "@ultrapaint/contracts/threads";
+import {
+  attachTextStyle,
+  groupTextStyles,
+} from "@ultrapaint/design-document/text-styles";
+import { tokenRef, toPixels } from "@ultrapaint/design-document/tokens";
+import { cn } from "cn";
+import {
+  ALargeSmall,
+  BetweenHorizontalStart,
+  ChevronDown,
+  Copy,
+  Ellipsis,
+  type LucideIcon,
+  MessageSquareText,
+  SlidersHorizontal,
+  Sparkles,
+  Square,
+  SquareDashed,
+  SquareRoundCorner,
+  TextAlignCenter,
+  TextAlignEnd,
+  TextAlignStart,
+} from "lucide-react";
+import {
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+  useEffect,
+  useState,
+} from "react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Spinner } from "@/components/ui/spinner";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { AgentIcon } from "../components/agent-icon.tsx";
+import { addToChat } from "../lib/add-to-chat.ts";
+import {
+  type Control,
+  controlsOf,
+  propValue,
+  type TokenField,
+  tokenLabel,
+} from "../lib/element-controls.ts";
+import { setPropsOfSelection, updateSelection } from "../lib/node-actions.ts";
+import { openChat, stopThread } from "../lib/thread-actions.ts";
+import { ComponentProps } from "../panels/component-props.tsx";
+import { useAgents } from "../state/agents.ts";
+import { componentMetaOf, useCatalogue } from "../state/catalogue.ts";
+import { showMenu } from "../state/context-menu.ts";
+import { useDesignSystem } from "../state/design-system.ts";
+import { type Selection, useEditor } from "../state/editor.ts";
+import { previewUrl, useProject } from "../state/project.ts";
+import { useDrag } from "./drag.ts";
+import { useThreadOfSelection } from "./selection-tag.tsx";
+import { drawSpecimen } from "./specimens.ts";
+
+const COLOR_PREFIX_RE = /^color-/;
+const NO_STYLES: readonly TextStyle[] = [];
+
+/** Steps of the spacing scale the toolbar offers; the inspector has every value. */
+const SPACING_STEPS = [0, 1, 2, 3, 4, 5, 6, 8, 10, 12];
+
+const FIELD: Record<
+  TokenField,
+  { icon: LucideIcon; name: string; utility: string }
+> = {
+  color: { icon: ALargeSmall, name: "color", utility: "text" },
+  fill: { icon: SquareDashed, name: "fill", utility: "bg" },
+  gap: { icon: BetweenHorizontalStart, name: "gap", utility: "gap" },
+  padding: { icon: SquareDashed, name: "padding", utility: "p" },
+  radius: { icon: SquareRoundCorner, name: "radius", utility: "rounded" },
+  shadow: { icon: Copy, name: "shadow", utility: "shadow" },
+};
+
+const spacingBaseOf = (ds: DesignSystem | null) =>
+  toPixels(ds?.spacing.base ?? "0.25rem") ?? 4;
+
+const colorTokens = (ds: DesignSystem | null) =>
+  (ds?.colors ?? []).map((group) => ({
+    name: group.name,
+    tokens: group.tokens.map((t) => ({
+      label: t.name.replace(COLOR_PREFIX_RE, ""),
+      swatch: t.value,
+      value: tokenRef(t.name),
+    })),
+  }));
+
+/** The trigger of every select: an icon or a swatch, the value, a chevron. */
+const ValueTrigger = ({
+  children,
+  icon: Icon,
+  swatch,
+  tooltip,
+}: {
+  children: ReactNode;
+  icon?: LucideIcon;
+  swatch?: string | undefined;
+  tooltip: string;
+}) => (
+  <Tooltip>
+    <TooltipTrigger
+      render={
+        <DropdownMenuTrigger
+          render={
+            <button
+              className="flex h-7 max-w-40 items-center gap-1.5 rounded-md px-2 text-[12px] outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 data-popup-open:bg-muted"
+              type="button"
+            />
+          }
+        />
+      }
+    >
+      {Icon ? (
+        <Icon className="size-3.5 shrink-0 text-muted-foreground" />
+      ) : null}
+      {swatch === undefined ? null : (
+        <span
+          className="size-3 shrink-0 rounded-full border border-foreground/20"
+          style={{ background: swatch }}
+        />
+      )}
+      <span className="truncate font-medium">{children}</span>
+      <ChevronDown className="size-3 shrink-0 text-muted-foreground" />
+    </TooltipTrigger>
+    <TooltipContent>{tooltip}</TooltipContent>
+  </Tooltip>
+);
+
+const MenuHead = ({ name, source }: { name: string; source?: string }) => (
+  <DropdownMenuLabel className="flex items-center gap-2">
+    <span className="flex-1">{name}</span>
+    {source ? (
+      <span className="font-mono font-normal text-[10px] text-muted-foreground/70">
+        {source}
+      </span>
+    ) : null}
+  </DropdownMenuLabel>
+);
+
+/** Pictures of an instance drawn in each value of one of its props, kept for the session. */
+const previewCache = new Map<string, string | null>();
+
+/**
+ * The pictures of an instance in each value of one of its props, drawn while its menu is open.
+ * They are held in state as well as in the cache: what a render reads has to be what changes, or
+ * the compiler keeps the first answer.
+ */
+const useVariantPreviews = (
+  node: InstanceNode,
+  name: string,
+  options: readonly string[],
+  open: boolean
+) => {
+  const ds = useDesignSystem((s) => s.designSystem);
+  const host = useProject((s) => previewUrl(s.info.host));
+  const space = useEditor((s) => s.space) ?? "";
+  const [pictures, setPictures] = useState<Record<string, string | null>>({});
+  const optionsKey = options.join("|");
+  useEffect(() => {
+    if (!(open && host)) {
+      return;
+    }
+    let live = true;
+    const keyOf = (option: string) =>
+      JSON.stringify([
+        node.component,
+        node.from,
+        node.props,
+        node.text,
+        name,
+        option,
+      ]);
+    (async () => {
+      for (const option of optionsKey.split("|")) {
+        const key = keyOf(option);
+        if (!previewCache.has(key)) {
+          const root: InstanceNode = {
+            ...node,
+            props: { ...node.props, [name]: option },
+          };
+          // Cropped to the instance: what wraps it may take the whole preview. One at a time,
+          // as the frame that draws them draws one thing.
+          // biome-ignore lint/performance/noAwaitInLoops: the pictures are drawn one after the other.
+          const picture = await drawSpecimen(host, root, ds, {
+            nodeId: root.id,
+            space,
+          });
+          previewCache.set(key, picture);
+        }
+        if (live) {
+          const picture = previewCache.get(key) ?? null;
+          setPictures((p) => ({ ...p, [option]: picture }));
+        }
+      }
+    })().catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [open, host, ds, space, optionsKey, node, name]);
+  return (option: string) => pictures[option] ?? null;
+};
+
+const PropSelect = ({
+  control,
+  node,
+  source,
+}: {
+  control: Extract<Control, { kind: "prop" }>;
+  node: InstanceNode;
+  source: string;
+}) => {
+  const [open, setOpen] = useState(false);
+  const value = propValue(node.props, control.name, control.options);
+  const previewOf = useVariantPreviews(
+    node,
+    control.name,
+    control.options,
+    open
+  );
+  const onValue = (v: unknown) =>
+    setPropsOfSelection({ [control.name]: String(v) });
+  return (
+    <DropdownMenu onOpenChange={setOpen} open={open}>
+      <ValueTrigger tooltip={control.name}>{value}</ValueTrigger>
+      <DropdownMenuContent className="w-60">
+        <DropdownMenuGroup>
+          <MenuHead name={control.name} source={source} />
+          <DropdownMenuRadioGroup onValueChange={onValue} value={value}>
+            {control.options.map((option) => {
+              const picture = previewOf(option);
+              return (
+                <DropdownMenuRadioItem key={option} value={option}>
+                  <span className="flex h-8 w-20 shrink-0 items-center justify-center overflow-hidden rounded bg-white">
+                    {picture ? (
+                      <img
+                        alt=""
+                        className="max-h-full max-w-full object-contain"
+                        height={32}
+                        src={picture}
+                        width={80}
+                      />
+                    ) : null}
+                  </span>
+                  {option}
+                </DropdownMenuRadioItem>
+              );
+            })}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
+const TextStyleSelect = ({ node }: { node: TextNode }) => {
+  const styles =
+    useDesignSystem((s) => s.designSystem?.typography.styles) ?? NO_STYLES;
+  const style = styles.find((s) => s.name === node.textStyle);
+  const onValue = (v: unknown) => {
+    const next = styles.find((s) => s.name === v);
+    if (next) {
+      updateSelection(attachTextStyle(next), `Set the text in ${next.name}`);
+    }
+  };
+  return (
+    <DropdownMenu>
+      <ValueTrigger icon={ALargeSmall} tooltip="Text style">
+        {style?.name ?? node.textStyle ?? "No style"}
+      </ValueTrigger>
+      <DropdownMenuContent className="w-60">
+        <MenuHead name="Text style" source="text styles" />
+        {styles.length === 0 ? (
+          <DropdownMenuLabel className="font-normal">
+            The design system has no text styles yet.
+          </DropdownMenuLabel>
+        ) : null}
+        <DropdownMenuRadioGroup
+          onValueChange={onValue}
+          value={node.textStyle ?? ""}
+        >
+          {[...groupTextStyles(styles)].map(([group, list]) => (
+            <DropdownMenuGroup key={group}>
+              {list.map((s) => (
+                <DropdownMenuRadioItem key={s.name} value={s.name}>
+                  <span
+                    className="truncate"
+                    style={{
+                      fontSize:
+                        typeof s.size === "number"
+                          ? Math.min(s.size, 22)
+                          : undefined,
+                      fontWeight:
+                        typeof s.weight === "number" ? s.weight : undefined,
+                    }}
+                  >
+                    {s.name}
+                  </span>
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuGroup>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
+const ALIGNS: readonly [string, LucideIcon, string][] = [
+  ["start", TextAlignStart, "Left"],
+  ["center", TextAlignCenter, "Centre"],
+  ["end", TextAlignEnd, "Right"],
+];
+
+const AlignSelect = ({ node }: { node: TextNode }) => {
+  const value = node.align ?? "start";
+  const [, icon, label] = ALIGNS.find(([v]) => v === value) ??
+    ALIGNS[0] ?? ["start", TextAlignStart, "Left"];
+  return (
+    <DropdownMenu>
+      <ValueTrigger icon={icon} tooltip="Alignment">
+        {label}
+      </ValueTrigger>
+      <DropdownMenuContent className="w-40">
+        <MenuHead name="align" />
+        <DropdownMenuRadioGroup
+          onValueChange={(v) =>
+            updateSelection(
+              { align: v === "start" ? null : String(v) },
+              "Align the text"
+            )
+          }
+          value={value}
+        >
+          {ALIGNS.map(([v, Icon, l]) => (
+            <DropdownMenuRadioItem key={v} value={v}>
+              <Icon />
+              {l}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
+const TokenSelect = ({
+  control,
+  node,
+}: {
+  control: Extract<Control, { kind: "token" }>;
+  node: DesignNode;
+}) => {
+  const ds = useDesignSystem((s) => s.designSystem);
+  const base = spacingBaseOf(ds);
+  const field = FIELD[control.field];
+  const raw = (node as unknown as Record<string, JsonValue | undefined>)[
+    control.field
+  ];
+  const label = tokenLabel(control.field, raw, base);
+  const set = (value: JsonValue) =>
+    updateSelection({ [control.field]: value }, `Change the ${field.name}`);
+  const colors = control.token === "color" ? colorTokens(ds) : [];
+  const swatch =
+    control.token === "color"
+      ? (colors.flatMap((g) => g.tokens).find((t) => t.value === raw)?.swatch ??
+        (typeof raw === "string" ? raw : "transparent"))
+      : undefined;
+  const current = raw === undefined || raw === null ? "" : String(raw);
+
+  let items: ReactNode;
+  if (control.token === "color") {
+    items = colors.map((group) => (
+      <DropdownMenuGroup key={group.name}>
+        <DropdownMenuLabel className="font-normal text-[10.5px]">
+          {group.name}
+        </DropdownMenuLabel>
+        {group.tokens.map((t) => (
+          <DropdownMenuRadioItem key={t.value} value={t.value}>
+            <span
+              className="size-3.5 shrink-0 rounded-full border border-foreground/20"
+              style={{ background: t.swatch }}
+            />
+            <span className="flex-1 truncate">{t.label}</span>
+            <span className="font-mono text-[10px] text-muted-foreground">
+              {field.utility}-{t.label}
+            </span>
+          </DropdownMenuRadioItem>
+        ))}
+      </DropdownMenuGroup>
+    ));
+  } else if (control.token === "spacing") {
+    items = SPACING_STEPS.map((step) => (
+      <DropdownMenuRadioItem key={step} value={String(step * base)}>
+        <span
+          className="h-2.5 shrink-0 rounded-sm bg-muted-foreground/40"
+          style={{ width: Math.max(2, step * 3) }}
+        />
+        <span className="flex-1 font-mono">
+          {field.utility}-{step}
+        </span>
+        <span className="text-[10.5px] text-muted-foreground">
+          {step * base}px
+        </span>
+      </DropdownMenuRadioItem>
+    ));
+  } else {
+    const tokens =
+      control.token === "radius" ? (ds?.radius ?? []) : (ds?.shadows ?? []);
+    const prefix = control.token === "radius" ? "radius-" : "shadow-";
+    items = tokens.map((t) => {
+      const short = t.name.replace(prefix, "");
+      return (
+        <DropdownMenuRadioItem key={t.name} value={tokenRef(t.name)}>
+          <span className="flex-1 font-mono">
+            {field.utility}-{short}
+          </span>
+          <span className="max-w-24 truncate text-[10.5px] text-muted-foreground">
+            {t.value}
+          </span>
+        </DropdownMenuRadioItem>
+      );
+    });
+  }
+
+  return (
+    <DropdownMenu>
+      <ValueTrigger
+        icon={control.token === "color" ? undefined : field.icon}
+        swatch={swatch}
+        tooltip={field.name}
+      >
+        {label}
+      </ValueTrigger>
+      <DropdownMenuContent className="max-h-80 w-60">
+        <MenuHead
+          name={field.name}
+          source={
+            control.token === "color" ? "--color-*" : `--${control.token}`
+          }
+        />
+        <DropdownMenuRadioGroup
+          onValueChange={(v) => {
+            const text = String(v);
+            if (text === "") {
+              set(null);
+            } else {
+              set(control.token === "spacing" ? Number(text) : text);
+            }
+          }}
+          value={current}
+        >
+          <DropdownMenuRadioItem value="">
+            <span className="flex-1 text-muted-foreground">none</span>
+          </DropdownMenuRadioItem>
+          {items}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
+/** The props the toolbar leaves out, all of them, as the inspector shows them. */
+const MoreProps = ({ count, node }: { count: number; node: InstanceNode }) => (
+  <Popover>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <PopoverTrigger
+            render={
+              <button
+                className="flex h-7 items-center gap-1 rounded-md bg-muted px-2 font-medium text-[12px] outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50"
+                type="button"
+              />
+            }
+          />
+        }
+      >
+        <SlidersHorizontal className="size-3.5" />+{count}
+      </TooltipTrigger>
+      <TooltipContent>Every prop</TooltipContent>
+    </Tooltip>
+    <PopoverContent className="w-72 gap-0 p-0">
+      <ComponentProps
+        node={node}
+        onSet={(name, value) => setPropsOfSelection({ [name]: value })}
+      />
+    </PopoverContent>
+  </Popover>
+);
+
+const Divider = () => <span className="mx-0.5 h-5 w-px shrink-0 bg-border" />;
+
+/** Add to chat, in the agents' colour; once attached, the way to its thread. */
+const ChatButton = ({ selection }: { selection: Selection }) => {
+  const thread = useThreadOfSelection();
+  const onClick = () => {
+    if (thread) {
+      useEditor.getState().setLeftTab("chat");
+      useAgents.getState().open(thread.id);
+    } else {
+      addToChat(selection);
+    }
+  };
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            aria-label={thread ? `Open “${thread.title}”` : "Add to chat"}
+            className={cn(
+              "flex size-7 shrink-0 items-center justify-center rounded-md outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50",
+              thread
+                ? "border border-agent bg-agent/15 text-agent hover:bg-agent/25"
+                : "bg-agent text-agent-foreground hover:bg-agent/85"
+            )}
+            onClick={onClick}
+            type="button"
+          />
+        }
+      >
+        {thread ? (
+          <MessageSquareText className="size-3.5" />
+        ) : (
+          <Sparkles className="size-3.5" />
+        )}
+      </TooltipTrigger>
+      <TooltipContent>
+        {thread ? `In “${thread.title}”` : "Add to chat"}
+      </TooltipContent>
+    </Tooltip>
+  );
+};
+
+const Controls = ({ node }: { node: DesignNode }) => {
+  const meta = useCatalogue((s) =>
+    node.type === "instance" ? componentMetaOf(s.catalogue, node) : undefined
+  );
+  const { more, shown } = controlsOf(node, meta?.variants);
+  const source = meta?.file.split("/").at(-1) ?? "props";
+  return (
+    <>
+      {shown.map((control) => {
+        switch (control.kind) {
+          case "prop":
+            return node.type === "instance" ? (
+              <PropSelect
+                control={control}
+                key={control.name}
+                node={node}
+                source={source}
+              />
+            ) : null;
+          case "textStyle":
+            return node.type === "text" ? (
+              <TextStyleSelect key="style" node={node} />
+            ) : null;
+          case "align":
+            return node.type === "text" ? (
+              <AlignSelect key="align" node={node} />
+            ) : null;
+          default:
+            return (
+              <TokenSelect control={control} key={control.field} node={node} />
+            );
+        }
+      })}
+      {node.type === "instance" && more.length > 0 ? (
+        <MoreProps count={more.length} node={node} />
+      ) : null}
+    </>
+  );
+};
+
+/** The thread whose agent is changing this node right now, if one is. */
+const useWorkOn = (selection: Selection | null) =>
+  useAgents((s) => {
+    if (!selection) {
+      return null;
+    }
+    const entry = Object.entries(s.working).find(
+      ([, w]) => !w.done && w.nodeIds.includes(selection.nodeId)
+    );
+    return entry ? (s.threads.find((t) => t.id === entry[0]) ?? null) : null;
+  });
+
+/** While an agent changes the element: who, the way to its thread, and the way to stop it. */
+const AgentAtWork = ({ thread }: { thread: Thread }) => {
+  const agent = useAgents((s) => s.agents.find((a) => a.id === thread.agentId));
+  return (
+    <>
+      <span className="flex h-7 items-center gap-1.5 px-2 text-[12px]">
+        <AgentIcon agentId={thread.agentId} className="size-3.5" />
+        {agent?.name ?? "An agent"} is changing this
+        <Spinner className="size-3 text-agent" />
+      </span>
+      <Divider />
+      <button
+        className="flex h-7 items-center gap-1.5 rounded-md px-2 text-[12px] outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50"
+        onClick={() => openChat(thread.id)}
+        type="button"
+      >
+        <MessageSquareText className="size-3.5" />
+        Open chat
+      </button>
+      <button
+        className="flex h-7 items-center gap-1.5 rounded-md px-2 text-[12px] outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50"
+        onClick={() => stopThread(thread.id)}
+        type="button"
+      >
+        <Square className="size-3" />
+        Stop
+      </button>
+    </>
+  );
+};
+
+/** Height of the selection's tag, which the toolbar sits above. */
+export const TAG_HEIGHT = 20;
+/** The toolbar's own height and the room it keeps from what it hangs from, on screen. */
+const TOOLBAR_HEIGHT = 34;
+const GAP = 8;
+
+/**
+ * The frame clips what is drawn outside it: close to its top, the toolbar hangs under the element
+ * instead of over it.
+ */
+export const roomAbove = (rectY: number, inv: number) =>
+  rectY >= (TAG_HEIGHT + GAP + TOOLBAR_HEIGHT) * inv;
+
+export const ElementToolbar = ({
+  inv,
+  node,
+  rectY,
+}: {
+  inv: number;
+  node: DesignNode;
+  /** Where the element's top is in the frame, which decides where the toolbar can go. */
+  rectY: number;
+}) => {
+  const selection = useEditor((s) => s.selection);
+  const dragging = useDrag((s) => s.dragged !== null);
+  const workedOnBy = useWorkOn(selection);
+  if (!selection || dragging) {
+    return null;
+  }
+  const openMore = (e: ReactMouseEvent) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    showMenu(
+      { frame: selection.frame, kind: "node", nodeId: selection.nodeId },
+      { x: r.left, y: r.bottom + 4 }
+    );
+  };
+  return (
+    <div
+      aria-label={`Style of ${node.type}`}
+      className="pointer-events-auto absolute left-1/2 flex items-center gap-0.5 whitespace-nowrap rounded-[10px] border bg-popover p-0.5 text-popover-foreground shadow-lg"
+      data-element-toolbar
+      onPointerDown={(e) => e.stopPropagation()}
+      role="toolbar"
+      style={
+        roomAbove(rectY, inv)
+          ? {
+              bottom: `calc(100% + ${(TAG_HEIGHT + GAP) * inv}px)`,
+              transform: `scale(${inv}) translateX(-50%)`,
+              transformOrigin: "bottom left",
+            }
+          : {
+              top: `calc(100% + ${GAP * inv}px)`,
+              transform: `scale(${inv}) translateX(-50%)`,
+              transformOrigin: "top left",
+            }
+      }
+    >
+      {workedOnBy ? (
+        <AgentAtWork thread={workedOnBy} />
+      ) : (
+        <>
+          <Controls node={node} />
+          <Divider />
+          <ChatButton selection={selection} />
+        </>
+      )}
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <button
+              aria-label="More"
+              className="flex size-7 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+              onClick={openMore}
+              type="button"
+            />
+          }
+        >
+          <Ellipsis className="size-3.5" />
+        </TooltipTrigger>
+        <TooltipContent>More</TooltipContent>
+      </Tooltip>
+    </div>
+  );
+};
