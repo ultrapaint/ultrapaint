@@ -9,10 +9,13 @@
  */
 import { Json, type JsonValue } from "@ultrapaint/contracts/base";
 import { DocOp } from "@ultrapaint/contracts/document";
+import { presetSize } from "@ultrapaint/contracts/pages";
 import { newInstance } from "@ultrapaint/design-document/factories";
 import { fillIds, makeIdGenerator } from "@ultrapaint/design-document/ids";
+import { touchedBy } from "@ultrapaint/design-document/ops";
 import { fillWarnings } from "@ultrapaint/design-document/sizing";
 import { canvasDocOf } from "@ultrapaint/design-document/tree";
+import { parseNodeRef } from "@ultrapaint/shared/node-ref";
 import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/unstable/ai";
 import { EventBus } from "../../events.ts";
@@ -84,7 +87,7 @@ const ListPages = Tool.make("list_pages", {
 
 const ReadPage = Tool.make("read_page", {
   description:
-    "One page's design document, found by its route (/settings/billing) or by its file: a tree of nodes (page, group, row, column, text, image, instance) with their ids. Pass the hash to apply_operations to make sure nothing changed in between.",
+    "One page's design document, found by its route (/settings/billing), by its file, or by a node reference the user copied from the editor (/settings/billing#c_8x2k1q): a tree of nodes (page, group, row, column, text, image, instance) with their ids. Pass the hash to apply_operations to make sure nothing changed in between.",
   failure: Failure,
   parameters: Schema.Struct({
     route: Schema.String,
@@ -115,6 +118,7 @@ const GetDocumentFormat = Tool.make("get_document_format", {
 
 const ApplyOperations = Tool.make("apply_operations", {
   description: `Change a page, or the canvas, through the editor: the change is validated, shows on the canvas at once and is one undo step for the user. Operations, applied in order:
+Nodes are named by their id; a node reference the user copied (/orders#c_8x2k1q) works as an id, and as \`route\`.
 - {op:"insert", parent, index?, node}: parent is a node id (the page's root id for its top level), or null for the top level; index defaults to the end. The node may leave out ids.
 - {op:"remove", id}
 - {op:"move", id, parent, index?}: the index counts the parent's children without the moved node.
@@ -235,6 +239,28 @@ const ListComments = Tool.make("list_comments", {
   success: Schema.Struct({ comments: Schema.Array(CommentSummary) }),
 }).annotate(Tool.Readonly, true);
 
+const SetFrame = Tool.make("set_frame", {
+  description:
+    "Size a page's frame on the canvas: a preset (mobile, tablet, desktop) or a width and height in pixels. The frame is the window the page is drawn in, on the canvas and in get_screenshot; a long page needs a tall frame to be seen whole. One undo step for the user.",
+  failure: Failure,
+  parameters: Schema.Struct({
+    height: Schema.optional(
+      Schema.Number.check(Schema.isBetween({ maximum: 20_000, minimum: 100 }))
+    ),
+    preset: Schema.optional(Schema.Literals(["mobile", "tablet", "desktop"])),
+    route: Schema.String,
+    space: Schema.optional(Schema.String),
+    width: Schema.optional(
+      Schema.Number.check(Schema.isBetween({ maximum: 8000, minimum: 200 }))
+    ),
+  }),
+  success: Schema.Struct({
+    height: Schema.Number,
+    route: Schema.String,
+    width: Schema.Number,
+  }),
+});
+
 const CreatePage = Tool.make("create_page", {
   description:
     "Add a page at a route. The file goes where the project keeps its designs, named so the route matches. Prefer this to creating the file yourself; then fill it with apply_operations.",
@@ -290,9 +316,13 @@ const ResolveComment = Tool.make("resolve_comment", {
 
 const Focus = Tool.make("focus", {
   description:
-    "Say which page you are working on. The canvas shows it, and brings the user there if they asked to follow you. Call it when you move to another page.",
+    'Say which page you are working on, and which of its nodes you are about to change and how. The canvas shows it, and brings the user there if they asked to follow you. Call it when you move to another page, and before changing nodes the user is looking at: pass their ids as `nodes` and a few words as `action` ("formatting the dates"), and they show your work until your turn ends.',
   failure: Failure,
   parameters: Schema.Struct({
+    /** A few words on what you are doing to the nodes. */
+    action: Schema.optional(Schema.String),
+    /** Ids of the nodes of the page you are about to change. */
+    nodes: Schema.optional(Schema.Array(Schema.String)),
     route: Schema.String,
     /** Needed only when the route is a page in more than one space. */
     space: Schema.optional(Schema.String),
@@ -314,6 +344,7 @@ export const EditorTools = Toolkit.make(
   GetComponent,
   ListComments,
   CreatePage,
+  SetFrame,
   RenamePage,
   ReplyToComment,
   ResolveComment,
@@ -370,11 +401,22 @@ export const makeLookup = Effect.gen(function* () {
     );
   });
 
-  /** A page by route (or file), in the space named, or in the only space that has it. */
+  /**
+   * A page by route (or file), in the space named, or in the only space that has it. A node
+   * reference (`/orders#c_1`, `marketing:/pricing#c_1`) names its page as well.
+   */
   const pageAt = Effect.fnUntraced(function* (
-    route: string,
-    space: string | undefined
+    given: string,
+    givenSpace: string | undefined
   ) {
+    const ref = parseNodeRef(given);
+    if (ref && ref.route === null) {
+      return yield* missing(
+        `${given} is a node on the canvas beside the pages; pass \`canvas: true\` instead of a route`
+      );
+    }
+    const route = ref?.route ?? given;
+    const space = givenSpace ?? ref?.space;
     const { pages } = yield* reported(pagesOf);
     const found = pages.filter(
       (p) =>
@@ -435,7 +477,12 @@ export const EditorToolsLive = EditorTools.toLayer(
           doc = (yield* pageAt(route, space)).id;
         }
         // A node an agent writes may leave its ids out; they are made before the ops are read.
-        const raw = JSON.parse(JSON.stringify(ops)) as unknown[];
+        // Node references the user pasted stand for their node ids.
+        const raw = JSON.parse(JSON.stringify(ops), (_key, value: unknown) =>
+          typeof value === "string"
+            ? (parseNodeRef(value)?.nodeId ?? value)
+            : value
+        ) as unknown[];
         for (const op of raw) {
           if (op && typeof op === "object" && "node" in op) {
             fillIds({ nodes: [(op as { node: unknown }).node] });
@@ -462,6 +509,16 @@ export const EditorToolsLive = EditorTools.toLayer(
           })
         );
         const after = yield* documents((d) => d.get(doc));
+        // The work is the calling thread's: the canvas shows it on the nodes it changed.
+        const threadId = yield* Effect.service(CallingThread);
+        if (threadId && after.root) {
+          yield* events.publish("agent.edited", {
+            doc,
+            nodeIds: touchedBy(decoded, result.created, after.root),
+            threadId,
+            ...(label !== undefined && { label }),
+          });
+        }
         const warnings = after.root
           ? fillWarnings(after.root).map((w) => `${w.nodeId}: ${w.message}`)
           : [];
@@ -498,7 +555,7 @@ export const EditorToolsLive = EditorTools.toLayer(
         };
       }),
 
-      focus: Effect.fnUntraced(function* ({ route, space }) {
+      focus: Effect.fnUntraced(function* ({ action, nodes, route, space }) {
         const page = yield* pageAt(route, space);
         const threadId = yield* Effect.service(CallingThread);
         if (threadId) {
@@ -507,6 +564,8 @@ export const EditorToolsLive = EditorTools.toLayer(
             pageId: page.id,
             route: page.route,
             threadId,
+            ...(nodes !== undefined && { nodeIds: nodes }),
+            ...(action !== undefined && { action }),
           });
         }
         return { route: page.route };
@@ -689,6 +748,52 @@ export const EditorToolsLive = EditorTools.toLayer(
           files: found.files,
           notes: found.notes,
         };
+      }),
+
+      set_frame: Effect.fnUntraced(function* ({
+        height,
+        preset,
+        route,
+        space,
+        width,
+      }) {
+        const page = yield* pageAt(route, space);
+        const frame = yield* reported(
+          project.use(
+            Effect.flatMap(PagesService, (pages) =>
+              Effect.gen(function* () {
+                const layout = yield* pages.readCanvas(page.space);
+                const before = layout.frames[page.path];
+                const size = preset
+                  ? presetSize[preset]
+                  : (before ?? presetSize.desktop);
+                // A page with no frame saved yet goes to the right of the others.
+                const right = Math.max(
+                  0,
+                  ...Object.values(layout.frames).map(
+                    (f) => f.x + f.width + 120
+                  )
+                );
+                const next = {
+                  height: height ?? size.height,
+                  preset:
+                    width === undefined && height === undefined && preset
+                      ? preset
+                      : ("custom" as const),
+                  width: width ?? size.width,
+                  x: before?.x ?? right,
+                  y: before?.y ?? 0,
+                };
+                yield* pages.writeFrames(page.space, {
+                  ...layout.frames,
+                  [page.path]: next,
+                });
+                return next;
+              })
+            )
+          )
+        );
+        return { height: frame.height, route: page.route, width: frame.width };
       }),
 
       write_design_system: Effect.fnUntraced(function* ({

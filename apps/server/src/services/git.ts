@@ -69,6 +69,11 @@ export class GitService extends Context.Service<
   GitService,
   {
     readonly branch: Effect.Effect<string, CommandFailed>;
+    /** `user.name` and `user.email` as git resolves them for the repository; unset ones are absent. */
+    readonly user: Effect.Effect<{
+      readonly email?: string;
+      readonly name?: string;
+    }>;
     readonly changedSince: (
       snapshot: GitSnapshot
     ) => Effect.Effect<string[], CommandFailed>;
@@ -167,6 +172,24 @@ export class GitService extends Context.Service<
         return (yield* run(["rev-parse", "HEAD"])).trim();
       });
 
+      // An unset key exits 1, which only means the value is absent.
+      const configValue = (key: string) =>
+        provide(runGit(paths.root, ["config", key])).pipe(
+          Effect.map((r) =>
+            r.exitCode === 0 ? r.stdout.trim() || undefined : undefined
+          ),
+          Effect.orElseSucceed(() => undefined)
+        );
+
+      const user = Effect.gen(function* () {
+        const name = yield* configValue("user.name");
+        const email = yield* configValue("user.email");
+        return {
+          ...(name === undefined ? {} : { name }),
+          ...(email === undefined ? {} : { email }),
+        };
+      });
+
       return GitService.of({
         branch: Effect.map(run(["rev-parse", "--abbrev-ref", "HEAD"]), (out) =>
           out.trim()
@@ -176,6 +199,7 @@ export class GitService extends Context.Service<
         diff,
         snapshot,
         status,
+        user,
       });
     })
   );

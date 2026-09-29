@@ -1,4 +1,4 @@
-import { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
+import { summarise, Thread, ThreadItem } from "@ultrapaint/contracts/threads";
 import {
   Clock,
   Context,
@@ -230,9 +230,10 @@ export class ThreadStore extends Context.Service<
           threads.get(id)?.items.some((i) => i.id === itemId) ?? false,
         items: (id) => Effect.sync(() => threads.get(id)?.items ?? []),
         list: Effect.sync(() =>
-          Array.from(threads.values(), (e) => e.thread).sort(
-            (a, b) => b.updatedAt - a.updatedAt
-          )
+          Array.from(threads.values(), (e) => ({
+            ...e.thread,
+            summary: summarise(e.items),
+          })).sort((a, b) => b.updatedAt - a.updatedAt)
         ),
         patchItem,
         push,

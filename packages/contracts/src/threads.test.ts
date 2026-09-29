@@ -4,6 +4,7 @@ import {
   defaultChoice,
   namedChoices,
   startingMode,
+  summarise,
   withNamedChoices,
 } from "./threads.ts";
 
@@ -98,5 +99,32 @@ describe("startingMode", () => {
 
   it("keeps the agent's own mode when it has no automatic one", () => {
     expect(startingMode([{ id: "plan", name: "Plan" }], "plan")).toBe("plan");
+  });
+});
+
+describe("summarise", () => {
+  const at = 0;
+  it("is the last thing said, on one line and without markdown", () => {
+    expect(
+      summarise([
+        { at, attachments: [], id: "1", kind: "user", text: "Reorder it" },
+        { at, id: "2", kind: "agent", text: "**Done.** The table\nnow reads" },
+      ])
+    ).toEqual({ text: "Done. The table", waiting: false });
+  });
+
+  it("waits on the user while a question is unanswered", () => {
+    expect(
+      summarise([
+        { at, id: "1", kind: "agent", text: "One thing first" },
+        {
+          answers: null,
+          at,
+          id: "2",
+          kind: "question",
+          questions: [{ id: "q", options: [], question: "Which alarm types?" }],
+        },
+      ])
+    ).toEqual({ text: "Which alarm types?", waiting: true });
   });
 });

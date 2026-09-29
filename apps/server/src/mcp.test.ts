@@ -2,6 +2,7 @@ import { assert, layer } from "@effect/vitest";
 import { Effect, Fiber, Stream } from "effect";
 import { MCP_TOKEN_HEADER } from "./services/mcp/route.ts";
 import { TestEnv, TestServer } from "./testing/harness.ts";
+import { toolCaller } from "./testing/mcp.ts";
 
 const PROTOCOL = "2025-06-18";
 const JSON_RPC = { "content-type": "application/json" };
@@ -140,6 +141,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           "reply_to_comment",
           "resolve_comment",
           "scan_design_system",
+          "set_frame",
           "write_design_system",
           "write_figma_frame",
         ]);
@@ -361,6 +363,105 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           threadId: thread.id,
         });
       })
+    );
+
+    it.effect(
+      "shows the nodes a thread is about to change and has changed, named by reference",
+      () =>
+        Effect.gen(function* () {
+          const { client, port, settings } = yield* TestEnv;
+          yield* client["settings.set"](settings);
+          const thread = yield* client["threads.create"]({ agentId: "fake" });
+          yield* client["threads.prompt"]({
+            attachments: [],
+            text: "mcp",
+            threadId: thread.id,
+          });
+          const items = yield* client["threads.items"]({
+            threadId: thread.id,
+          }).pipe(
+            Effect.tap(() => Effect.sleep("25 millis")),
+            Effect.repeat({ until: (all) => all.at(-1)?.kind === "turn_end" }),
+            Effect.timeout("20 seconds")
+          );
+          const said = items
+            .map((i) => (i.kind === "agent" ? i.text : ""))
+            .find((t) => t.startsWith("mcp:"));
+          const [, token] = (said ?? "").slice("mcp:".length).split("|");
+          const sessionId = yield* openMcp(port, token ?? "");
+          const call = toolCaller(port, token ?? "", sessionId);
+
+          const inserted = yield* call("apply_operations", {
+            ops: [
+              {
+                node: { role: "paragraph", text: "Hi", type: "text" },
+                op: "insert",
+                parent: null,
+              },
+            ],
+            route: "/home",
+          });
+          const [textId = ""] = inserted.result.structuredContent
+            .created as string[];
+
+          const focused = yield* Effect.forkScoped(
+            Stream.runHead(client["events.agent.focus"]())
+          );
+          const edited = yield* Effect.forkScoped(
+            Stream.runHead(client["events.agent.edited"]())
+          );
+          yield* Effect.sleep("150 millis");
+          yield* call("focus", {
+            action: "rewording",
+            nodes: [textId],
+            route: "/home",
+          });
+          // The user pasted a reference: it stands for the page and for the node.
+          yield* call("apply_operations", {
+            ops: [
+              { id: `/home#${textId}`, op: "update", set: { text: "Hello" } },
+            ],
+            route: `/home#${textId}`,
+          });
+          const focus = yield* Fiber.join(focused);
+          assert.deepStrictEqual(
+            focus._tag === "Some"
+              ? { action: focus.value.action, nodeIds: focus.value.nodeIds }
+              : null,
+            { action: "rewording", nodeIds: [textId] }
+          );
+          const change = yield* Fiber.join(edited);
+          assert.deepStrictEqual(
+            change._tag === "Some"
+              ? {
+                  nodeIds: change.value.nodeIds,
+                  threadId: change.value.threadId,
+                }
+              : null,
+            { nodeIds: [textId], threadId: thread.id }
+          );
+          const page = yield* call("read_page", { route: `/home#${textId}` });
+          assert.include(
+            JSON.stringify(page.result.structuredContent),
+            "Hello"
+          );
+
+          // A frame is sized as the agent asks, a preset or pixels.
+          const framed = yield* call("set_frame", {
+            height: 2400,
+            route: "/home",
+          });
+          assert.deepStrictEqual(framed.result.structuredContent, {
+            height: 2400,
+            route: "/home",
+            width: 1440,
+          });
+          const layout = yield* client["canvas.get"]({ space: "" });
+          assert.strictEqual(
+            Object.values(layout.frames).find((f) => f.height === 2400)?.preset,
+            "custom"
+          );
+        })
     );
 
     it.effect(

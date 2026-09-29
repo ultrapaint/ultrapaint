@@ -1,12 +1,13 @@
 import type {
   DesignNode,
+  DocOp,
   InstanceNode,
   PageNode,
   TextNode,
 } from "@ultrapaint/contracts/document";
 import { describe, expect, it } from "vitest";
 import { fillIds, makeIdGenerator } from "./ids.ts";
-import { applyOps, cloneJson, DocumentOpError } from "./ops.ts";
+import { applyOps, cloneJson, DocumentOpError, touchedBy } from "./ops.ts";
 import { canvasRoot, findNode, parentOf } from "./tree.ts";
 
 const text = (id: string, value = id): DesignNode => ({
@@ -337,5 +338,30 @@ describe("fillIds", () => {
     expect(new Set(got).size).toBe(3);
     expect(got[1]).toBe("same");
     expect(fillIds(raw)).toBe(false);
+  });
+});
+
+describe("touchedBy", () => {
+  it("names what was set, moved or made, not what was removed or the root", () => {
+    const before: DesignNode = {
+      children: [
+        { id: "a", role: "paragraph", text: "A", type: "text" },
+        { id: "b", role: "paragraph", text: "B", type: "text" },
+        { id: "c", role: "paragraph", text: "C", type: "text" },
+      ],
+      id: "root",
+      type: "page",
+    };
+    const ops: DocOp[] = [
+      { id: "a", op: "update", set: { text: "A!" } },
+      { id: "b", op: "remove" },
+      { id: "c", index: 0, op: "move", parent: null },
+      { id: "root", op: "update", set: { gap: 8 } },
+    ];
+    const { root } = applyOps(before, ops, {
+      canvas: false,
+      next: () => "x_1",
+    });
+    expect(touchedBy(ops, [], root).sort()).toEqual(["a", "c"]);
   });
 });

@@ -330,3 +330,24 @@ export const applyOps = (
   // Through JSON once more: a field an operation cleared is gone, not `undefined`.
   return { created, root: cloneJson(draft) as unknown as DesignNode };
 };
+
+/**
+ * The nodes a batch of operations left changed: what it set, moved or made, not what it removed,
+ * nor the document's root. What the canvas shows as an agent's work.
+ */
+export const touchedBy = (
+  ops: readonly DocOp[],
+  created: readonly string[],
+  after: DesignNode
+): string[] => {
+  const ids = new Set(created);
+  for (const op of ops) {
+    if (op.op === "update" || op.op === "setProps" || op.op === "move") {
+      ids.add(op.id);
+    } else if (op.op === "insert") {
+      ids.add(op.node.id);
+    }
+  }
+  const present = idsOf(after);
+  return [...ids].filter((id) => id !== after.id && present.has(id));
+};

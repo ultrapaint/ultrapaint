@@ -37,6 +37,7 @@ import {
   type Question,
   type Thread,
   type ThreadItem,
+  type ThreadScope,
   withNamedChoices,
 } from "@ultrapaint/contracts/threads";
 import {
@@ -116,6 +117,38 @@ const answersText = (
     }),
   ].join("\n");
 const TITLE_LIMIT = 48;
+
+const PAGE_FILE_RE = /\.page\.json$/;
+const SEPARATORS_RE = /[-_]+/g;
+
+/** `settings/billing.page.json` reads as "Billing". */
+const pageNameOf = (file: string): string => {
+  const base = file.split("/").at(-1)?.replace(PAGE_FILE_RE, "") ?? file;
+  const words = (base === "index" ? "home" : base).replace(SEPARATORS_RE, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+};
+
+/**
+ * What a thread works on, from the attachments of its first prompt: the first node, or else the
+ * first file, which is a page. Null when the prompt attached neither.
+ */
+export const scopeOf = (
+  attachments: PromptInput["attachments"]
+): ThreadScope | null => {
+  const nodes = attachments.filter((a) => a.kind === "selection");
+  const [first] = nodes;
+  if (first) {
+    return {
+      file: first.file,
+      name: first.name,
+      nodeId: first.nodeId,
+      ...(first.component ? { component: true } : {}),
+      ...(nodes.length > 1 ? { count: nodes.length } : {}),
+    };
+  }
+  const file = attachments.find((a) => a.kind === "file");
+  return file ? { file: file.path, name: pageNameOf(file.path) } : null;
+};
 
 /** A thread's title from its first prompt: the first line, cut to fit the thread menu. */
 const titleOf = (text: string) => {
@@ -924,13 +957,16 @@ export class ThreadService extends Context.Service<
           kind: "user",
           text: input.text,
         });
+        const first = !earlier.some((i) => i.kind === "user");
+        const scope =
+          first && !thread.scope ? scopeOf(input.attachments) : null;
         yield* store.update(threadId, {
           error: undefined,
           status: "running",
-          ...(thread.title === UNTITLED &&
-          !earlier.some((i) => i.kind === "user")
+          ...(thread.title === UNTITLED && first
             ? { title: titleOf(input.text) }
             : {}),
+          ...(scope ? { scope } : {}),
         });
         // The request returns now. Whatever the agent takes to start is part of the turn, and
         // the turn reports through the transcript.

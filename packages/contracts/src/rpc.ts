@@ -53,6 +53,7 @@ import {
 import { CustomiseMode, Skill, SkillList } from "./skills.ts";
 import {
   AgentConfig,
+  AgentEdited,
   AgentEvent,
   AgentFocus,
   AgentOptions,
@@ -407,6 +408,7 @@ const requestRpcs = [
 /** Everything the server pushes. Each is a stream that stays open for the life of the socket. */
 export const eventSchemas = {
   agent: AgentEvent,
+  "agent.edited": AgentEdited,
   "agent.focus": AgentFocus,
   "agent.terminal": AgentTerminalOutput,
   canvas: Schema.Struct({ layout: CanvasLayout, space: Schema.String }),
@@ -428,6 +430,10 @@ export const eventSchemas = {
 
 const eventRpcs = [
   Rpc.make("events.agent", { stream: true, success: eventSchemas.agent }),
+  Rpc.make("events.agent.edited", {
+    stream: true,
+    success: eventSchemas["agent.edited"],
+  }),
   Rpc.make("events.agent.focus", {
     stream: true,
     success: eventSchemas["agent.focus"],

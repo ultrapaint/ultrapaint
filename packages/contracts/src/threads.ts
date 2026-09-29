@@ -134,6 +134,23 @@ export const startingMode = (
  * can switch it between prompts. Its session starts with the first prompt that needs it, so a
  * thread exists before any agent does.
  */
+/**
+ * What a thread works on, from its first prompt: the node attached to it, or the page when no node
+ * was. The chat shows a picture of it, so the thread is found by sight.
+ */
+export const ThreadScope = Schema.Struct({
+  /** Whether the node is a component of the library, which gives it the component colour. */
+  component: Schema.optional(Schema.Boolean),
+  /** How many nodes the first prompt attached, when more than one. */
+  count: Schema.optional(Schema.Number),
+  /** The page's file, or the space's `canvas.json` for a node beside the pages. */
+  file: Schema.String,
+  name: Schema.String,
+  /** Absent when the scope is a whole page. */
+  nodeId: Schema.optional(Schema.String),
+});
+export type ThreadScope = typeof ThreadScope.Type;
+
 export const Thread = Schema.Struct({
   agentId: Schema.String,
   /**
@@ -151,8 +168,16 @@ export const Thread = Schema.Struct({
   sandboxed: Schema.optional(Schema.Boolean),
   /** Why it is not, when this machine has a sandbox that refused to start. */
   sandboxProblem: Schema.optional(Schema.String),
+  scope: Schema.optional(ThreadScope),
   sessionId: Schema.optional(Schema.String),
   status: ThreadStatus,
+  /**
+   * The thread's last line and whether it waits on the user, for the list of threads. Derived
+   * from the transcript when the list is read; not stored.
+   */
+  summary: Schema.optional(
+    Schema.Struct({ text: Schema.String, waiting: Schema.Boolean })
+  ),
   title: Schema.String,
   updatedAt: Schema.Number,
 });
@@ -333,6 +358,8 @@ export const PromptAttachment = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("file"), path: Schema.String }),
   /** A node of a design document the user has selected on the canvas. */
   Schema.Struct({
+    /** Whether the node is a component of the library. */
+    component: Schema.optional(Schema.Boolean),
     /** The page's file, or the space's `canvas.json` for a node beside the pages. */
     file: Schema.String,
     kind: Schema.Literal("selection"),
@@ -392,14 +419,31 @@ export const McpConnection = Schema.Struct({
 });
 export type McpConnection = typeof McpConnection.Type;
 
-/** An agent saying which page it is working on, so the canvas can show and follow it. */
+/**
+ * An agent saying which page it is working on, so the canvas can show and follow it, and which of
+ * its nodes it is about to change and how, so they show its work while it is under way.
+ */
 export const AgentFocus = Schema.Struct({
+  /** What the agent is doing to them, in a few words: "formatting the dates". */
+  action: Schema.optional(Schema.String),
+  /** The nodes of the page it is about to change; none means the page as a whole. */
+  nodeIds: Schema.optional(Schema.Array(Schema.String)),
   /** The page itself: a route alone can be a page in more than one space. */
   pageId: Schema.String,
   route: Schema.String,
   threadId: Schema.String,
 });
 export type AgentFocus = typeof AgentFocus.Type;
+
+/** Nodes an agent's operations changed, and in which document: its work, shown where it lands. */
+export const AgentEdited = Schema.Struct({
+  /** The page's id, or the space's canvas document. */
+  doc: Schema.String,
+  label: Schema.optional(Schema.String),
+  nodeIds: Schema.Array(Schema.String),
+  threadId: Schema.String,
+});
+export type AgentEdited = typeof AgentEdited.Type;
 
 /** Output of a terminal the agent is running, as it arrives. */
 export const AgentTerminalOutput = Schema.Struct({
@@ -426,3 +470,43 @@ export const AgentEvent = Schema.Union([
 export type AgentEvent = typeof AgentEvent.Type;
 
 export const _json = Json;
+
+const MARKDOWN_RE = /[*_`#>[\]]+/g;
+const SPACES_RE = /\s+/g;
+
+/** What an item says, as the list of threads quotes it. */
+const textOf = (item: ThreadItem | undefined): string => {
+  switch (item?.kind) {
+    case "question":
+      return item.questions[0]?.question ?? "";
+    case "permission":
+      return item.title;
+    case "agent":
+    case "user":
+      return item.text;
+    default:
+      return "";
+  }
+};
+
+/**
+ * A thread's last line, and whether it waits on the user: a question unanswered or a permission
+ * undecided. What the list of threads shows under each title.
+ */
+export const summarise = (
+  items: readonly ThreadItem[]
+): { text: string; waiting: boolean } => {
+  const pending = items.findLast(
+    (i) =>
+      (i.kind === "question" && i.answers === null) ||
+      (i.kind === "permission" && i.decision === null)
+  );
+  const said = items.findLast((i) => i.kind === "agent" || i.kind === "user");
+  const text = textOf(pending ?? said);
+  const line =
+    text
+      .split("\n")
+      .map((l) => l.replace(MARKDOWN_RE, "").replace(SPACES_RE, " ").trim())
+      .find(Boolean) ?? "";
+  return { text: line, waiting: pending !== undefined };
+};

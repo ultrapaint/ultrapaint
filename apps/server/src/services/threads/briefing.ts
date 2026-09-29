@@ -182,10 +182,14 @@ ${
     ? `The "ultrapaint" MCP server is the editor itself. Change designs through it: read_page
 and read_canvas return a document with its ids, apply_operations changes it (insert, remove,
 move, update, setProps, wrap, unwrap, duplicate) — validated, shown on the canvas at once and
-undoable by the user. create_page and rename_page put a page where its route says. Ask
+undoable by the user. create_page and rename_page put a page where its route says, and
+set_frame sizes its frame on the canvas (a long page needs a tall one to be seen whole). Ask
 get_component for a component's props and an instance to start from, get_document_format for
 the whole format. list_comments, reply_to_comment and resolve_comment answer the user where
-they asked, and focus tells the canvas which page you are on so the user can watch you work.
+they asked, and focus tells the canvas which page you are on so the user can watch you work;
+before changing nodes, pass their ids to focus as nodes with a few words as action, and the
+canvas shows your work on them. A node reference such as /orders#c_8x2k1q, which the user may
+paste, is a route and a node id.
 After a change, get_screenshot shows you the page or a node as it draws: look, and fix what is off.
 When a decision is the user's, ask_user puts your questions to them as a card with answers to
 pick; end your turn after it, and the answers come as the next message.

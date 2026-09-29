@@ -29,6 +29,38 @@ interface Config {
 const ABSOLUTE_URL_RE = /^(?:[a-z][a-z\d+.-]*:|\/)/i;
 const LEADING_DOT_SLASH_RE = /^\.\//;
 
+/** The frame the editor draws pictures in, out of sight. */
+const SPECIMEN_FRAME = "specimen";
+const STILL_CSS =
+  "*, *::before, *::after { transition: none !important; animation-duration: 0s !important; animation-delay: 0s !important; }";
+
+const SKELETON_ATTRIBUTE = "data-ed-skeleton";
+
+/** The placeholder's look: grey on any page, light passing through it unless motion is reduced. */
+const SKELETON_CSS = `
+[${SKELETON_ATTRIBUTE}] {
+  color: transparent !important;
+  background: linear-gradient(90deg, rgba(128,128,128,.16) 0%, rgba(128,128,128,.34) 50%, rgba(128,128,128,.16) 100%) 0 0 / 200% 100% !important;
+  border-color: transparent !important;
+  border-radius: 6px;
+  animation: ed-skeleton 1.4s linear infinite;
+}
+[${SKELETON_ATTRIBUTE}] * { visibility: hidden !important; }
+img[${SKELETON_ATTRIBUTE}] { opacity: 0.35; }
+@keyframes ed-skeleton { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { [${SKELETON_ATTRIBUTE}] { animation: none; } }
+`;
+
+const ensureSkeletonStyle = () => {
+  if (document.getElementById("ed-skeleton-style")) {
+    return;
+  }
+  const style = document.createElement("style");
+  style.id = "ed-skeleton-style";
+  style.textContent = SKELETON_CSS;
+  document.head.append(style);
+};
+
 export const startPreview = () => {
   const config: Config = (window as unknown as { __ED_CONFIG__?: Config })
     .__ED_CONFIG__ ?? { designsRoot: "", frame: "", space: "" };
@@ -40,6 +72,14 @@ export const startPreview = () => {
   const post = (msg: Record<string, unknown>) => {
     window.parent.postMessage({ ...msg, frame: config.frame }, "*");
   };
+
+  // The frame that draws pictures (thumbnails, screenshots) draws each state at once: a
+  // component that animates between states would be captured half way.
+  if (config.frame === SPECIMEN_FRAME) {
+    const still = document.createElement("style");
+    still.textContent = STILL_CSS;
+    document.head.append(still);
+  }
 
   // ---- Drawing ----
   let canvas: HTMLElement | null = null;
@@ -116,6 +156,7 @@ export const startPreview = () => {
       }
     },
     onRendered: (renderId) => {
+      applySkeletons();
       post({ renderId, type: "ed:rendered" });
       scheduleRects();
       requestAnimationFrame(sendSize);
@@ -139,6 +180,25 @@ export const startPreview = () => {
       render(request);
     }
   };
+
+  // ---- Skeletons ----
+  // What an agent is rewriting shows as a placeholder, drawn over the node's own box so the page
+  // keeps its layout. Put back on every render, which draws the elements anew.
+  let skeletons: string[] = [];
+  const applySkeletons = () =>
+    unobserved(() => {
+      ensureSkeletonStyle();
+      for (const el of Array.from(
+        document.querySelectorAll(`[${SKELETON_ATTRIBUTE}]`)
+      )) {
+        el.removeAttribute(SKELETON_ATTRIBUTE);
+      }
+      for (const id of skeletons) {
+        for (const el of elementsOf(id)) {
+          el.setAttribute(SKELETON_ATTRIBUTE, "");
+        }
+      }
+    });
 
   // ---- Rectangles ----
   let watched: string[] = [];
@@ -373,6 +433,10 @@ export const startPreview = () => {
       case "ed:watchRects":
         watched = msg.nodeIds as string[];
         scheduleRects();
+        break;
+      case "ed:skeleton":
+        skeletons = msg.nodeIds as string[];
+        applySkeletons();
         break;
       case "ed:measure":
         post({

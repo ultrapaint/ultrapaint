@@ -10,10 +10,19 @@ export const HostStatus = Schema.Struct({
 });
 export type HostStatus = typeof HostStatus.Type;
 
+/** Who git says the user is in the repository: not an account, only its configuration. */
+export const GitUser = Schema.Struct({
+  email: Schema.optional(Schema.String),
+  name: Schema.optional(Schema.String),
+});
+export type GitUser = typeof GitUser.Type;
+
 export const ProjectInfo = Schema.Struct({
   branch: Schema.optional(Schema.String),
   configured: Schema.Boolean,
   designsDir: Schema.optional(Schema.String),
+  /** `user.name` and `user.email` from the repository's git configuration, when set. */
+  gitUser: Schema.optional(GitUser),
   host: HostStatus,
   name: Schema.optional(Schema.String),
   repoPath: Schema.optional(Schema.String),

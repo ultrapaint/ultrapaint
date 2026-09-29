@@ -138,6 +138,11 @@ export const EditorMessage = Schema.Union([
     nodeIds: Schema.Array(Schema.String),
     type: Schema.Literal("ed:watchRects"),
   }),
+  /** Nodes an agent is rewriting: drawn as shimmering placeholders until it is done. */
+  Schema.Struct({
+    nodeIds: Schema.Array(Schema.String),
+    type: Schema.Literal("ed:skeleton"),
+  }),
   /** Where these nodes are, once: what a drag needs to show where it would land. */
   Schema.Struct({
     nodeIds: Schema.Array(Schema.String),

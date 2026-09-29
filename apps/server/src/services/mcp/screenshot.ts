@@ -10,6 +10,7 @@ import {
   findNode,
   findPath,
 } from "@ultrapaint/design-document/tree";
+import { parseNodeRef } from "@ultrapaint/shared/node-ref";
 import { Effect, Layer, Schema } from "effect";
 import { McpSchema, McpServer, Tool } from "effect/unstable/ai";
 import { PagesService } from "../pages.ts";
@@ -22,7 +23,7 @@ const CANVAS_HEIGHT = 900;
 
 const GetScreenshot = Tool.make("get_screenshot", {
   description:
-    "A picture of a page, or of one node of it, drawn by the editor's preview with the repository's own stylesheet and components: look at it after changing a design to check spacing, alignment, overflow and contrast, then fix what is off. A page is drawn at the size of its frame on the canvas, or at `width`; with `node` the picture is cropped to that node, drawn in place. For a node on the canvas beside the pages, pass `canvas: true` and its id. Needs the editor open in a browser.",
+    "A picture of a page, or of one node of it, drawn by the editor's preview with the repository's own stylesheet and components: look at it after changing a design to check spacing, alignment, overflow and contrast, then fix what is off. A page is drawn at the size of its frame on the canvas, or at `width`; with `node` the picture is cropped to that node, drawn in place. For a node on the canvas beside the pages, pass `canvas: true` and its id. A node reference the user copied from the editor (/orders#c_8x2k1q, canvas#g_1) can be passed as `node` alone. Needs the editor open in a browser.",
   parameters: Schema.Struct({
     /** Picture a node placed on the canvas beside the pages; `node` says which. */
     canvas: Schema.optional(Schema.Boolean),
@@ -129,7 +130,21 @@ export const ScreenshotToolLive = Layer.effectDiscard(
       };
     });
 
-    const draw = (parameters: Parameters) => {
+    const draw = (given: Parameters) => {
+      // A node reference says the page, or the canvas, and the node at once.
+      const ref = given.node === undefined ? null : parseNodeRef(given.node);
+      const parameters: Parameters = ref
+        ? {
+            ...given,
+            node: ref.nodeId,
+            ...(ref.route === null
+              ? { canvas: true }
+              : { route: given.route ?? ref.route }),
+            ...(ref.space === undefined || given.space !== undefined
+              ? {}
+              : { space: ref.space }),
+          }
+        : given;
       if (parameters.canvas) {
         return drawOnCanvas(parameters);
       }

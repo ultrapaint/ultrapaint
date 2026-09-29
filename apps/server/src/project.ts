@@ -146,6 +146,7 @@ export class ProjectManager extends Context.Service<
             branch: yield* Effect.orElseSucceed(git.branch, () => ""),
             configured: true,
             designsDir: paths.settings.designsDir,
+            gitUser: yield* git.user,
             host: yield* host.status,
             name: path.basename(paths.root),
             repoPath: paths.root,
