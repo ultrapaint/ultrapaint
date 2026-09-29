@@ -1,5 +1,12 @@
 {
   "frames": {
+    "redesign/box-model.page.json": {
+      "height": 2600,
+      "preset": "custom",
+      "width": 1440,
+      "x": 7380,
+      "y": 0
+    },
     "redesign/components.page.json": {
       "height": 2000,
       "preset": "custom",
@@ -20,6 +27,20 @@
       "width": 1514,
       "x": 0,
       "y": 1140
+    },
+    "redesign/spacing-options.page.json": {
+      "height": 3000,
+      "preset": "custom",
+      "width": 1440,
+      "x": 8940,
+      "y": 0
+    },
+    "redesign/spacing-popover.page.json": {
+      "height": 1800,
+      "preset": "custom",
+      "width": 1440,
+      "x": 10500,
+      "y": 0
     },
     "redesign/vibe-new-chat.page.json": {
       "height": 900,
