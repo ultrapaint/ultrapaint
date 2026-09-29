@@ -42,7 +42,6 @@ import {
 } from "lucide-react";
 import {
   type CSSProperties,
-  createContext,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
   useContext,
@@ -93,29 +92,16 @@ import { useAgents } from "../state/agents.ts";
 import { componentMetaOf, useCatalogue } from "../state/catalogue.ts";
 import { showMenu } from "../state/context-menu.ts";
 import { useDesignSystem } from "../state/design-system.ts";
-import { nodeIn, useDocuments } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
 import { previewUrl, useProject } from "../state/project.ts";
 import { useDrag } from "./drag.ts";
 import { useThreadOfSelection } from "./selection-tag.tsx";
+import { SpacingSelect } from "./spacing-select.tsx";
 import { drawSpecimen } from "./specimens.ts";
+import { Targets, useTargetNodes } from "./toolbar-targets.ts";
 
 const COLOR_PREFIX_RE = /^color-/;
 const NO_STYLES: readonly TextStyle[] = [];
-
-/** The nodes the toolbar's controls change: the selection, one node or several. */
-const Targets = createContext<readonly Selection[]>([]);
-
-/** The nodes the toolbar changes, as the documents have them now. */
-const useTargetNodes = (): readonly DesignNode[] => {
-  const targets = useContext(Targets);
-  const docs = useDocuments((s) => s.docs);
-  const space = useEditor((s) => s.space);
-  return targets.flatMap((t) => {
-    const node = nodeIn(docs, space, t.frame, t.nodeId);
-    return node ? [node] : [];
-  });
-};
 
 /** One value when every node has it, `mixed` when they differ. */
 const MIXED = "mixed";
@@ -134,7 +120,6 @@ const FIELD: Record<
   color: { icon: ALargeSmall, name: "color", utility: "text" },
   fill: { icon: SquareDashed, name: "fill", utility: "bg" },
   gap: { icon: BetweenHorizontalStart, name: "gap", utility: "gap" },
-  padding: { icon: SquareDashed, name: "padding", utility: "p" },
   radius: { icon: SquareRoundCorner, name: "radius", utility: "rounded" },
   shadow: { icon: Copy, name: "shadow", utility: "shadow" },
 };
@@ -677,6 +662,8 @@ const Controls = ({ node }: { node: DesignNode }) => {
             return node.type === "text" ? (
               <AlignSelect key="align" node={node} />
             ) : null;
+          case "spacing":
+            return <SpacingSelect key="spacing" />;
           default:
             return (
               <TokenSelect control={control} key={control.field} node={node} />

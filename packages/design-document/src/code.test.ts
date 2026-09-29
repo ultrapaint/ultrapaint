@@ -70,6 +70,17 @@ describe("classesOf", () => {
     expect(classesOf({ ...node, gap: 13 }, ds)).toContain("gap-[13px]");
   });
 
+  it("writes margin as padding is written, below zero with a minus", () => {
+    const node: DesignNode = {
+      children: [],
+      id: "r",
+      margin: { bottom: 16, left: 8, right: 8, top: -4 },
+      type: "row",
+    };
+    expect(classesOf(node, ds)).toEqual(["flex", "mx-2", "-mt-1", "mb-4"]);
+    expect(classesOf({ ...node, margin: 24 }, ds)).toContain("m-6");
+  });
+
   it("sizes fill and hug relative to the parent's layout", () => {
     const node: DesignNode = {
       height: "hug",

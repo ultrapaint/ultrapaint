@@ -64,7 +64,8 @@ export const IMPLEMENTATION_RULES = `How the design maps to code (Tailwind v4):
   usually 4px: 16 is p-4) and use an arbitrary value only when it is off the scale.
 - page: the route's page component. row: flex flex-row. column: flex flex-col. group: a plain
   div. gap: gap-*. align start/center/end/between/around: justify-start/center/end/between/around.
-  crossAlign: items-*. wrap: flex-wrap. padding: p-*, or px/py/pt/pr/pb/pl for sides.
+  crossAlign: items-*. wrap: flex-wrap. padding: p-*, or px/py/pt/pr/pb/pl for sides. margin: the
+  same with m (m-*, mx-*, -mt-*).
 - width or height "fill": flex-1 along the parent's direction, self-stretch across it, w-full
   or h-full in a group. "hug": w-fit or h-fit. A number: a fixed size (w-80 or w-[320px]).
   Inside an instance, "the parent" is the element of the component that holds its children:

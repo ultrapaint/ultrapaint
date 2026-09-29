@@ -391,6 +391,18 @@ export const updateNodes = (
 ) =>
   applyToEach(targets, (node) => [{ id: node.id, op: "update", set }], label);
 
+/** Sets fields of each of these nodes, worked out from the node itself. */
+export const updateNodesWith = (
+  targets: readonly Selection[],
+  setOf: (node: DesignNode) => Record<string, JsonValue>,
+  label = "Change"
+) =>
+  applyToEach(
+    targets,
+    (node) => [{ id: node.id, op: "update", set: setOf(node) }],
+    label
+  );
+
 /** Sets props of every instance among these nodes. */
 export const setPropsOfNodes = (
   targets: readonly Selection[],

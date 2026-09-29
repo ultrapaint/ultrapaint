@@ -260,6 +260,7 @@ export interface TokenField {
     | "fill"
     | "font"
     | "gap"
+    | "margin"
     | "padding"
     | "radius"
     | "shadow"
@@ -298,6 +299,7 @@ export const tokenFields = (
       return [
         ...(hasGap(node) ? [{ field: "gap", label: "Gap" } as const] : []),
         { field: "padding", label: "Padding" },
+        { field: "margin", label: "Margin" },
       ];
     default:
       return [];

@@ -43,6 +43,22 @@ describe("nodeStyle", () => {
     });
   });
 
+  it("puts margin outside the node, side by side as padding", () => {
+    const node: DesignNode = {
+      children: [],
+      id: "r",
+      margin: { left: 8, top: "$spacing-2" },
+      type: "row",
+    };
+    expect(nodeStyle(node, makeStyleContext(ds))).toMatchObject({
+      marginLeft: "8px",
+      marginTop: "calc(var(--spacing, 0.25rem) * 2)",
+    });
+    expect(
+      nodeStyle({ ...node, margin: 12 }, makeStyleContext(ds))
+    ).toMatchObject({ margin: "12px" });
+  });
+
   it("fills along the main axis and stretches across it", () => {
     const node: DesignNode = {
       children: [],

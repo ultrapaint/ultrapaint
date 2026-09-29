@@ -1,19 +1,14 @@
 /**
  * What the Vibe toolbar offers for a node, and in which order. Only what the design system has:
  * a component's own variants, a text's styles, and the colour, radius, spacing and shadow tokens
- * of a container. At most two props of a component show; the rest wait behind "+ n".
+ * of a container, whose padding and margin share one popover. At most two props of a component
+ * show; the rest wait behind "+ n".
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { TokenKind } from "./token-options.tsx";
 
-export type TokenField =
-  | "color"
-  | "fill"
-  | "gap"
-  | "padding"
-  | "radius"
-  | "shadow";
+export type TokenField = "color" | "fill" | "gap" | "radius" | "shadow";
 
 export type Control =
   | {
@@ -23,6 +18,7 @@ export type Control =
     }
   | { readonly kind: "textStyle" }
   | { readonly kind: "align" }
+  | { readonly kind: "spacing" }
   | {
       readonly field: TokenField;
       readonly kind: "token";
@@ -72,7 +68,7 @@ export const controlsOf = (
         shown: [
           token("fill", "color"),
           token("radius", "radius"),
-          token("padding", "spacing"),
+          { kind: "spacing" },
           token("shadow", "shadow"),
         ],
       };
@@ -82,7 +78,7 @@ export const controlsOf = (
         shown: [
           token("fill", "color"),
           token("radius", "radius"),
-          token("padding", "spacing"),
+          { kind: "spacing" },
           token("gap", "spacing"),
           token("shadow", "shadow"),
         ],
@@ -110,15 +106,13 @@ const PREFIX: Record<TokenField, string> = {
   color: "color-",
   fill: "color-",
   gap: "spacing-",
-  padding: "spacing-",
   radius: "radius-",
   shadow: "shadow-",
 };
 
 /**
  * A field's value as the toolbar shows it: a token by its short name (`card`, `lg`), pixels on the
- * spacing scale as its step (`4` for 16px on a 4px base), `mixed` for per-side padding, `none`
- * when unset.
+ * spacing scale as its step (`4` for 16px on a 4px base), `none` when unset.
  */
 export const tokenLabel = (
   field: TokenField,
@@ -132,7 +126,7 @@ export const tokenLabel = (
     return "mixed";
   }
   if (typeof value === "number") {
-    if (field === "gap" || field === "padding") {
+    if (field === "gap") {
       const step = value / spacingBase;
       return Number.isInteger(step * 2) ? String(step) : `${value}px`;
     }

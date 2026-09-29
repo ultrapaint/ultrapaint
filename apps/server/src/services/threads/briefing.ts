@@ -148,8 +148,10 @@ holds a tree of nodes, each with an id:
 - image: src (a path in the space's assets/ or a URL), alt, fit.
 - instance: a component of the design system — component (export name), from (module), props,
   and text or children.
-Every node may have width/height ("fill", "hug" or pixels), min/max sizes, padding, fill
+Every node may have width/height ("fill", "hug" or pixels), min/max sizes, padding, margin, fill
 (background), border, radius, shadow, opacity, hidden, and link (a route the prototype follows).
+Padding and margin are one value for every side or { top, right, bottom, left }; space between
+siblings is the parent's gap, and margin is for the one child that stands apart.
 Numbers are pixels; "$name" is a design token, the Tailwind v4 variable --name.
 An instance's width, height, padding and fill are the component's own, on the canvas as in the
 code: size a component with them, not with a className prop. "fill" takes the room the parent

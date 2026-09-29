@@ -48,6 +48,13 @@ export type Sides = typeof Sides.Type;
 export const Padding = Schema.Union([Length, Sides]);
 export type Padding = typeof Padding.Type;
 
+/** Room outside the node, the same on every side or side by side, as padding is inside it. */
+export const Margin = Padding.annotate({
+  description:
+    "Room outside the node, the same on every side or side by side. Space between siblings is the parent's gap; margin is for the one child that stands apart.",
+});
+export type Margin = typeof Margin.Type;
+
 export const Border = Schema.Struct({
   color: Schema.optional(Color),
   style: Schema.optional(Schema.Literals(["solid", "dashed", "dotted"])),
@@ -100,6 +107,7 @@ export interface BoxFields {
   readonly id: string;
   /** Route the prototype goes to when the node is pressed. */
   readonly link?: string | undefined;
+  readonly margin?: Margin | undefined;
   readonly maxHeight?: Length | undefined;
   readonly maxWidth?: Length | undefined;
   readonly minHeight?: Length | undefined;
@@ -198,6 +206,7 @@ const boxFields = {
   hidden: Schema.optional(Schema.Boolean),
   id: Schema.String.check(Schema.isMinLength(1)),
   link: Schema.optional(Schema.String),
+  margin: Schema.optional(Margin),
   maxHeight: Schema.optional(Length),
   maxWidth: Schema.optional(Length),
   minHeight: Schema.optional(Length),

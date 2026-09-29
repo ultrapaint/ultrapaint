@@ -185,9 +185,11 @@ describe("tokens", () => {
     expect(tokenFields("spacing", row).map((f) => f.field)).toEqual([
       "gap",
       "padding",
+      "margin",
     ]);
     expect(tokenFields("spacing", text).map((f) => f.field)).toEqual([
       "padding",
+      "margin",
     ]);
     expect(tokenFields("font", row)).toEqual([]);
     expect(tokenFields("size", text).map((f) => f.field)).toEqual(["size"]);

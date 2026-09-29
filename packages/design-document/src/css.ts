@@ -103,22 +103,27 @@ export const runsInRow = (
   return a && b ? b.x >= a.x + a.width / 2 && b.y < a.y + a.height / 2 : false;
 };
 
-const paddingStyle = (padding: Padding, css: (v: Length) => string): Style => {
-  if (typeof padding === "number" || typeof padding === "string") {
-    return { padding: css(padding) };
+/** Padding or margin, on every side at once or side by side. */
+const sidesStyle = (
+  property: "padding" | "margin",
+  value: Padding,
+  css: (v: Length) => string
+): Style => {
+  if (typeof value === "number" || typeof value === "string") {
+    return { [property]: css(value) };
   }
   const out: Style = {};
-  if (padding.top !== undefined) {
-    out.paddingTop = css(padding.top);
+  if (value.top !== undefined) {
+    out[`${property}Top`] = css(value.top);
   }
-  if (padding.right !== undefined) {
-    out.paddingRight = css(padding.right);
+  if (value.right !== undefined) {
+    out[`${property}Right`] = css(value.right);
   }
-  if (padding.bottom !== undefined) {
-    out.paddingBottom = css(padding.bottom);
+  if (value.bottom !== undefined) {
+    out[`${property}Bottom`] = css(value.bottom);
   }
-  if (padding.left !== undefined) {
-    out.paddingLeft = css(padding.left);
+  if (value.left !== undefined) {
+    out[`${property}Left`] = css(value.left);
   }
   return out;
 };
@@ -182,7 +187,10 @@ const boxStyle = (node: DesignNode, ctx: StyleContext): Style => {
     style.maxHeight = css(node.maxHeight);
   }
   if (node.padding !== undefined) {
-    Object.assign(style, paddingStyle(node.padding, css));
+    Object.assign(style, sidesStyle("padding", node.padding, css));
+  }
+  if (node.margin !== undefined) {
+    Object.assign(style, sidesStyle("margin", node.margin, css));
   }
   if (node.fill !== undefined) {
     style.background = css(node.fill);

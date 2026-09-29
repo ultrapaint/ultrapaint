@@ -190,33 +190,46 @@ const shadow = (value: string): string => {
     : arbitrary("shadow", value);
 };
 
-const paddingClasses = (padding: Padding, scale: Scale): string[] => {
-  if (typeof padding === "number" || typeof padding === "string") {
-    return [spacing("p", padding, scale)];
+/** A spacing class that may go below zero, as a margin can: `-mt-2`. */
+const signedSpacing = (prefix: string, value: Length, scale: Scale): string =>
+  typeof value === "number" && value < 0
+    ? `-${spacing(prefix, -value, scale)}`
+    : spacing(prefix, value, scale);
+
+/** Padding (`p`) or margin (`m`): one class for every side, one per axis, else one per side. */
+const sidesClasses = (
+  letter: "p" | "m",
+  value: Padding,
+  scale: Scale
+): string[] => {
+  const cls = (suffix: string, v: Length) =>
+    signedSpacing(`${letter}${suffix}`, v, scale);
+  if (typeof value === "number" || typeof value === "string") {
+    return [cls("", value)];
   }
-  const { bottom, left, right, top } = padding;
+  const { bottom, left, right, top } = value;
   const out: string[] = [];
   if (top !== undefined && top === bottom && left === top && right === top) {
-    return [spacing("p", top, scale)];
+    return [cls("", top)];
   }
   if (left !== undefined && left === right) {
-    out.push(spacing("px", left, scale));
+    out.push(cls("x", left));
   } else {
     if (left !== undefined) {
-      out.push(spacing("pl", left, scale));
+      out.push(cls("l", left));
     }
     if (right !== undefined) {
-      out.push(spacing("pr", right, scale));
+      out.push(cls("r", right));
     }
   }
   if (top !== undefined && top === bottom) {
-    out.push(spacing("py", top, scale));
+    out.push(cls("y", top));
   } else {
     if (top !== undefined) {
-      out.push(spacing("pt", top, scale));
+      out.push(cls("t", top));
     }
     if (bottom !== undefined) {
-      out.push(spacing("pb", bottom, scale));
+      out.push(cls("b", bottom));
     }
   }
   return out;
@@ -411,7 +424,10 @@ const boxClasses = (
     out.push(spacing("max-h", node.maxHeight, scale));
   }
   if (node.padding !== undefined) {
-    out.push(...paddingClasses(node.padding, scale));
+    out.push(...sidesClasses("p", node.padding, scale));
+  }
+  if (node.margin !== undefined) {
+    out.push(...sidesClasses("m", node.margin, scale));
   }
   return out;
 };

@@ -54,7 +54,8 @@ describe("controlsOf", () => {
       controlsOf(n, undefined).shown.map((c) =>
         c.kind === "token" ? c.field : c.kind
       );
-    expect(fields(row)).toEqual(["fill", "radius", "padding", "gap", "shadow"]);
+    expect(fields(row)).toEqual(["fill", "radius", "spacing", "gap", "shadow"]);
+    expect(fields(group)).toContain("spacing");
     expect(fields(group)).not.toContain("gap");
   });
 });
@@ -71,10 +72,9 @@ describe("tokenLabel", () => {
   it("names tokens briefly and spacing by its step", () => {
     expect(tokenLabel("fill", "$color-card", 4)).toBe("card");
     expect(tokenLabel("radius", "$radius-lg", 4)).toBe("lg");
-    expect(tokenLabel("padding", 16, 4)).toBe("4");
+    expect(tokenLabel("gap", 16, 4)).toBe("4");
     expect(tokenLabel("gap", 6, 4)).toBe("1.5");
     expect(tokenLabel("gap", 7, 4)).toBe("7px");
-    expect(tokenLabel("padding", { top: 4 }, 4)).toBe("mixed");
     expect(tokenLabel("shadow", undefined, 4)).toBe("none");
   });
 });

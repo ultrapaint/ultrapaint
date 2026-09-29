@@ -13,8 +13,6 @@ import type {
   DesignNode,
   ImageNode,
   InstanceNode,
-  Padding,
-  Sides,
   TextNode,
 } from "@ultrapaint/contracts/document";
 import type { ViewportPreset } from "@ultrapaint/contracts/pages";
@@ -61,6 +59,7 @@ import { IconButton } from "../components/icon-button.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { PanelEmpty, Row, Section } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";
+import { SidesIcon } from "../components/sides-icon.tsx";
 import type { StyleOption } from "../components/style-combobox.tsx";
 import { ValueField } from "../components/value-field.tsx";
 import {
@@ -73,6 +72,7 @@ import {
   wrapSelection,
 } from "../lib/node-actions.ts";
 import { implementPage } from "../lib/page-actions.ts";
+import { type Side, sidesOf, withSides } from "../lib/sides.ts";
 import {
   Swatch,
   type TokenKind,
@@ -129,7 +129,8 @@ export const Inspector = () => {
         node.type === "column" ||
         node.type === "group") && <LayoutSection node={node} />}
       <SizeSection frame={frame} node={node} />
-      <PaddingSection node={node} />
+      <SidesSection field="padding" node={node} title="Padding" />
+      <SidesSection field="margin" node={node} title="Margin" />
       <AppearanceSection node={node} />
       {node.type !== "page" && <LinkSection node={node} />}
     </div>
@@ -890,57 +891,40 @@ const FillWarnings = ({ frame, node }: { frame: string; node: DesignNode }) =>
     <Warning key={w.axis}>{w.message}</Warning>
   ));
 
-// ---- Padding ----
+// ---- Padding and margin ----
 
-const sidesOf = (padding: Padding | undefined): Sides => {
-  if (padding === undefined) {
-    return {};
-  }
-  return typeof padding === "object"
-    ? padding
-    : { bottom: padding, left: padding, right: padding, top: padding };
-};
-
-/** The padding for these sides: none, one value when all four agree, else the sides. */
-const paddingOf = (sides: Record<string, JsonValue>): JsonValue => {
-  if (Object.keys(sides).length === 0) {
-    return null;
-  }
-  const values = ["top", "right", "bottom", "left"].map((k) => sides[k]);
-  const same = values.every((v) => v !== undefined && v === values[0]);
-  return same ? (values[0] as JsonValue) : sides;
-};
-
-const PaddingSection = ({ node }: { node: DesignNode }) => {
+/** Padding or margin, side by side, each field lit on the side it sets. */
+const SidesSection = ({
+  field,
+  node,
+  title,
+}: {
+  field: "padding" | "margin";
+  node: DesignNode;
+  title: string;
+}) => {
   const spacing = useTokenOptions("spacing");
-  const sides = sidesOf(node.padding);
-  const onSide = (key: keyof Sides) => (value: JsonValue) => {
-    const next: Record<string, JsonValue> = { ...sides };
-    if (value === null) {
-      delete next[key];
-    } else {
-      next[key] = value;
-    }
-    set("padding", paddingOf(next));
-  };
-  const side = (key: keyof Sides, short: string) => (
+  const value = node[field];
+  const sides = sidesOf(value);
+  const side = (key: Side) => (
     <ValueField
-      leading={<span className="w-2.5">{short}</span>}
-      onChange={onSide(key)}
+      leading={<SidesIcon className="text-foreground" lit={[key]} />}
+      onChange={(v) => set(field, withSides(value, [key], v))}
       options={spacing}
       placeholder="0"
+      title={`${title}, ${key}`}
       value={sides[key]}
     />
   );
   return (
-    <Section title="Padding">
+    <Section title={title}>
       <Row label="">
-        {side("top", "T")}
-        {side("right", "R")}
+        {side("top")}
+        {side("right")}
       </Row>
       <Row label="">
-        {side("bottom", "B")}
-        {side("left", "L")}
+        {side("bottom")}
+        {side("left")}
       </Row>
     </Section>
   );
