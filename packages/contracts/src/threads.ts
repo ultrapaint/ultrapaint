@@ -134,6 +134,35 @@ export const startingMode = (
  * can switch it between prompts. Its session starts with the first prompt that needs it, so a
  * thread exists before any agent does.
  */
+export const PromptAttachment = Schema.Union([
+  Schema.Struct({ kind: Schema.Literal("file"), path: Schema.String }),
+  /** A node of a design document the user has selected on the canvas. */
+  Schema.Struct({
+    /** Whether the node is a component of the library. */
+    component: Schema.optional(Schema.Boolean),
+    /** The page's file, or the space's `canvas.json` for a node beside the pages. */
+    file: Schema.String,
+    kind: Schema.Literal("selection"),
+    name: Schema.String,
+    nodeId: Schema.String,
+  }),
+  Schema.Struct({
+    dataUrl: Schema.String,
+    kind: Schema.Literal("image"),
+    name: Schema.String,
+  }),
+]);
+export type PromptAttachment = typeof PromptAttachment.Type;
+
+/** A prompt waiting for the agent's turn to end. */
+export const QueuedPrompt = Schema.Struct({
+  at: Schema.Number,
+  attachments: Schema.Array(PromptAttachment),
+  id: Schema.String,
+  text: Schema.String,
+});
+export type QueuedPrompt = typeof QueuedPrompt.Type;
+
 /**
  * What a thread works on, from its first prompt: the node attached to it, or the page when no node
  * was. The chat shows a picture of it, so the thread is found by sight.
@@ -164,6 +193,11 @@ export const Thread = Schema.Struct({
   id: Schema.String,
   /** Advertised session modes, generic. */
   modes: Schema.optional(Schema.Array(SessionMode)),
+  /**
+   * Prompts sent while the agent was working, oldest first: each is sent when a turn ends, and
+   * waits after a turn that was stopped or failed until the user sends it.
+   */
+  queued: Schema.optional(Schema.Array(QueuedPrompt)),
   /** Whether the agent process is confined to the repository by the operating system. */
   sandboxed: Schema.optional(Schema.Boolean),
   /** Why it is not, when this machine has a sandbox that refused to start. */
@@ -353,26 +387,6 @@ export const ThreadItem = Schema.Union([
   }),
 ]);
 export type ThreadItem = typeof ThreadItem.Type;
-
-export const PromptAttachment = Schema.Union([
-  Schema.Struct({ kind: Schema.Literal("file"), path: Schema.String }),
-  /** A node of a design document the user has selected on the canvas. */
-  Schema.Struct({
-    /** Whether the node is a component of the library. */
-    component: Schema.optional(Schema.Boolean),
-    /** The page's file, or the space's `canvas.json` for a node beside the pages. */
-    file: Schema.String,
-    kind: Schema.Literal("selection"),
-    name: Schema.String,
-    nodeId: Schema.String,
-  }),
-  Schema.Struct({
-    dataUrl: Schema.String,
-    kind: Schema.Literal("image"),
-    name: Schema.String,
-  }),
-]);
-export type PromptAttachment = typeof PromptAttachment.Type;
 
 export const PromptInput = Schema.Struct({
   attachments: Schema.Array(PromptAttachment),

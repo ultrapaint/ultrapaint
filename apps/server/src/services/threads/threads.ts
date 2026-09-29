@@ -35,6 +35,7 @@ import {
   EDITOR_MCP_SERVER,
   type PromptInput,
   type Question,
+  type QueuedPrompt,
   type Thread,
   type ThreadItem,
   type ThreadScope,
@@ -226,7 +227,17 @@ export class ThreadService extends Context.Service<
       title?: string
     ) => Effect.Effect<Thread, ThreadFailure>;
     readonly delete: (threadId: string) => Effect.Effect<void>;
+    /** Sends a prompt; while the agent works, it waits in the thread's queue instead. */
     readonly prompt: (input: PromptInput) => Effect.Effect<void, ThreadFailure>;
+    /** Takes a queued prompt back out, to drop it or to edit it; null when it was already sent. */
+    readonly unqueue: (
+      threadId: string,
+      id: string
+    ) => Effect.Effect<QueuedPrompt | null, ThreadFailure>;
+    /** Sends the oldest queued prompt now: after a stopped or failed turn, nothing sends it. */
+    readonly sendQueued: (
+      threadId: string
+    ) => Effect.Effect<void, ThreadFailure>;
     readonly resolvePermission: (
       threadId: string,
       requestId: string,
@@ -280,6 +291,8 @@ export class ThreadService extends Context.Service<
       const starting = makeKeyedLock();
       // One prompt at a time per thread, so two cannot both find the thread idle.
       const opening = makeKeyedLock();
+      /** Taking from a thread's queue, one at a time: a prompt is sent once. */
+      const queueLock = makeKeyedLock();
 
       /**
        * Runs work to completion even if the caller goes away. RPC handlers are interrupted when
@@ -867,6 +880,16 @@ export class ThreadService extends Context.Service<
                   ...(usage ? { usage } : {}),
                 });
                 yield* store.update(threadId, { status: "idle" });
+                // A turn the user stopped leaves the queue for them to send or drop.
+                if (response.stopReason !== "cancelled") {
+                  yield* Effect.forkIn(
+                    Effect.ignore(
+                      Effect.suspend(() => sendQueued(threadId)),
+                      { log: true }
+                    ),
+                    serviceScope
+                  );
+                }
               }),
           }),
           Effect.ensuring(
@@ -936,9 +959,17 @@ export class ThreadService extends Context.Service<
           return yield* new NotFound({ message: `unknown thread ${threadId}` });
         }
         if (thread.status === "running" || thread.status === "cancelling") {
-          return yield* new Conflict({
-            message: "the agent is still working on the previous prompt",
+          // Sent when the turn ends: the user need not wait to say what comes next.
+          const queued: QueuedPrompt = {
+            at: yield* Clock.currentTimeMillis,
+            attachments: input.attachments,
+            id: yield* newItemId,
+            text: input.text,
+          };
+          yield* store.update(threadId, {
+            queued: [...(thread.queued ?? []), queued],
           });
+          return;
         }
         const projectScope = yield* project.scope;
         const paths = yield* currentPaths;
@@ -998,6 +1029,56 @@ export class ThreadService extends Context.Service<
         );
         openings.set(threadId, yield* Effect.forkIn(turn, projectScope));
       });
+
+      const takeQueued = Effect.fnUntraced(function* (
+        threadId: string,
+        id: string | null
+      ) {
+        const thread = yield* store.get(threadId);
+        if (!thread) {
+          return yield* new NotFound({ message: `unknown thread ${threadId}` });
+        }
+        const queue = thread.queued ?? [];
+        const taken = id === null ? queue[0] : queue.find((q) => q.id === id);
+        if (!taken) {
+          return null;
+        }
+        yield* store.update(threadId, {
+          queued: queue.filter((q) => q.id !== taken.id),
+        });
+        return taken;
+      });
+
+      const unqueue = (threadId: string, id: string) =>
+        queueLock.withLock(threadId, takeQueued(threadId, id));
+
+      // Typed: a turn that ends sends the next prompt, which opens a turn.
+      const sendQueued = (
+        threadId: string
+      ): Effect.Effect<void, ThreadFailure> =>
+        queueLock.withLock(
+          threadId,
+          Effect.gen(function* () {
+            const thread = yield* store.get(threadId);
+            if (
+              thread?.status === "running" ||
+              thread?.status === "cancelling"
+            ) {
+              return;
+            }
+            const next = yield* takeQueued(threadId, null);
+            if (next) {
+              yield* opening.withLock(
+                threadId,
+                prompt({
+                  attachments: next.attachments,
+                  text: next.text,
+                  threadId,
+                })
+              );
+            }
+          })
+        );
 
       // ---- questions ----
       const ask = Effect.fn("ThreadService.ask")(function* (
@@ -1190,6 +1271,7 @@ export class ThreadService extends Context.Service<
         prompt: (input) =>
           detached(opening.withLock(input.threadId, prompt(input))),
         resolvePermission,
+        sendQueued: (threadId) => detached(sendQueued(threadId)),
         setAgent,
         setConfigOption: Effect.fn("ThreadService.setConfigOption")(function* (
           threadId: string,
@@ -1230,6 +1312,7 @@ export class ThreadService extends Context.Service<
           }
           yield* store.update(threadId, { currentModeId: modeId });
         }),
+        unqueue: (threadId, id) => detached(unqueue(threadId, id)),
       });
     })
   );

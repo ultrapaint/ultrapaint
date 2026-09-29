@@ -5,9 +5,10 @@
  */
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page } from "@ultrapaint/contracts/pages";
+import type { PromptAttachment } from "@ultrapaint/contracts/threads";
 import { nodeLabel } from "@ultrapaint/design-document/tree";
 import { create } from "zustand";
-import { nodeIn, useDocuments } from "./documents.ts";
+import { frameOfCanvasNode, nodeIn, useDocuments } from "./documents.ts";
 import { type Selection, useEditor } from "./editor.ts";
 import { useProject } from "./project.ts";
 
@@ -129,6 +130,39 @@ export const pageChip = (page: Page): Chip => ({
   name: page.name,
   pageId: page.id,
 });
+
+/**
+ * The chip a prompt's attachment came from, to put a queued prompt back in the composer: a node
+ * found again where it is, or a page. A picture is not kept.
+ */
+export const chipOfAttachment = (attachment: PromptAttachment): Chip | null => {
+  const { pages } = useProject.getState();
+  if (attachment.kind === "file") {
+    const page = pages.find((p) => p.file === attachment.path);
+    return page ? pageChip(page) : null;
+  }
+  if (attachment.kind !== "selection") {
+    return null;
+  }
+  const page = pages.find((p) => p.file === attachment.file);
+  const frame =
+    page?.id ??
+    frameOfCanvasNode(
+      useDocuments.getState().docs,
+      useEditor.getState().space,
+      attachment.nodeId
+    );
+  return frame
+    ? {
+        component: attachment.component === true,
+        file: attachment.file,
+        frame,
+        kind: "node",
+        name: attachment.name,
+        nodeId: attachment.nodeId,
+      }
+    : null;
+};
 
 /** Whether a node is attached to a thread's next prompt. */
 export const isAttached = (

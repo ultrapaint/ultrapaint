@@ -6,6 +6,7 @@ import {
   isModelOption,
   namedChoices,
   type PromptAttachment,
+  type QueuedPrompt,
   type SlashCommand,
   type Thread,
   type ThreadItem,
@@ -24,16 +25,19 @@ import {
   ChevronRight,
   CircleAlert,
   CircleHelp,
+  Clock,
   Ellipsis,
   Eye,
   FilePen,
   FolderPen,
   Hand,
+  ListPlus,
   ListTodo,
   LocateFixed,
   type LucideIcon,
   NotebookPen,
   Paperclip,
+  Pencil,
   Plus,
   Shield,
   ShieldAlert,
@@ -120,6 +124,7 @@ import {
   addChip,
   type Chip,
   chipKey,
+  chipOfAttachment,
   clearChips,
   nodeChip,
   pageChip,
@@ -1485,8 +1490,9 @@ const Composer = ({ thread }: { thread: Thread }) => {
   const shotFrame = shotFrameOf(workspace, space, page);
   const running = thread.status === "running" || thread.status === "cancelling";
 
+  // While the agent works, what is sent waits in the thread's queue.
   const send = async () => {
-    if (!text.trim() || running) {
+    if (!text.trim()) {
       return;
     }
     setBusy(true);
@@ -1565,7 +1571,11 @@ const Composer = ({ thread }: { thread: Thread }) => {
 
   return (
     <div className="flex flex-col gap-1.5 p-2">
-      <SandboxBadge thread={thread} />
+      <QueuedPrompts
+        onEdit={(queued) => setText(queued.text)}
+        running={running}
+        thread={thread}
+      />
       <div className="flex flex-col rounded-xl border bg-input/20 transition-colors focus-within:border-ring dark:bg-input/30">
         {chips.length > 0 || implicit.length > 0 || showShot ? (
           <div className="flex flex-wrap gap-1 px-2 pt-2">
@@ -1631,7 +1641,7 @@ const Composer = ({ thread }: { thread: Thread }) => {
           className="field-sizing-content max-h-60 min-h-24 w-full resize-none bg-transparent px-3 py-2 text-xs/relaxed outline-none placeholder:text-muted-foreground"
           onChange={onTextChange}
           onKeyDown={onTextKeyDown}
-          placeholder={`Ask ${agentName} to change the design, or type / for commands…`}
+          placeholder={placeholderOf(running, agentName)}
           value={text}
         />
         <div className="@container flex min-w-0 items-center gap-1 px-1.5 pb-1.5">
@@ -1685,27 +1695,144 @@ const Composer = ({ thread }: { thread: Thread }) => {
           <ModePicker thread={thread} />
           <ModelPicker thread={thread} />
           <div className="flex-1" />
-          {running ? (
-            <Button onClick={cancel} size="sm" variant="outline">
-              <Square data-icon="inline-start" /> Stop
-            </Button>
-          ) : (
-            <Button
-              aria-label="Send"
-              className="rounded-full"
-              disabled={busy || !text.trim()}
-              onClick={send}
-              size="icon-sm"
-              title="Send (⌘↩)"
-            >
-              <ArrowUp />
-            </Button>
-          )}
+          <SendButtons
+            canSend={!busy && Boolean(text.trim())}
+            onSend={send}
+            onStop={cancel}
+            running={running}
+          />
         </div>
       </div>
     </div>
   );
 };
+
+/**
+ * What was sent while the agent worked, waiting for its turn to end, oldest first. Each goes when
+ * a turn ends by itself; after one that was stopped or failed they wait for Send now. Edit puts
+ * one back in the composer, with its attachments.
+ */
+const QueuedPrompts = ({
+  onEdit,
+  running,
+  thread,
+}: {
+  onEdit: (queued: QueuedPrompt) => void;
+  running: boolean;
+  thread: Thread;
+}) => {
+  const queued = thread.queued ?? [];
+  if (queued.length === 0) {
+    return null;
+  }
+  const unqueue = (id: string) =>
+    api().request("threads.unqueue", { id, threadId: thread.id });
+  const edit = async (id: string) => {
+    try {
+      const taken = await unqueue(id);
+      if (!taken) {
+        return;
+      }
+      for (const attachment of taken.attachments) {
+        const chip = chipOfAttachment(attachment);
+        if (chip) {
+          addChip(thread.id, chip);
+        }
+      }
+      onEdit(taken);
+    } catch (error) {
+      reportError(error);
+    }
+  };
+  const sendNow = () =>
+    api()
+      .request("threads.sendQueued", { threadId: thread.id })
+      .catch(reportError);
+  return (
+    <div className="flex flex-col gap-1 rounded-lg border border-dashed px-2 py-1.5">
+      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        <Clock className="size-3" />
+        <span className="flex-1">
+          {running
+            ? `${queued.length} waiting for the turn to end`
+            : `${queued.length} waiting: the last turn did not finish`}
+        </span>
+        {running ? null : (
+          <Button
+            className="h-6 px-2"
+            onClick={sendNow}
+            size="sm"
+            variant="secondary"
+          >
+            Send now
+          </Button>
+        )}
+      </div>
+      {queued.map((q) => (
+        <div className="group flex items-start gap-1.5" key={q.id}>
+          <span className="line-clamp-2 min-w-0 flex-1 text-[12px]">
+            {q.text}
+            {q.attachments.length > 0 ? (
+              <span className="ml-1 text-muted-foreground">
+                · {q.attachments.length} attached
+              </span>
+            ) : null}
+          </span>
+          <IconButton
+            className="size-6"
+            onClick={() => edit(q.id)}
+            tooltip="Edit"
+          >
+            <Pencil />
+          </IconButton>
+          <IconButton
+            className="size-6"
+            onClick={() => unqueue(q.id).catch(reportError)}
+            tooltip="Remove"
+          >
+            <X />
+          </IconButton>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const placeholderOf = (running: boolean, agentName: string) =>
+  running
+    ? "Queue a follow-up…"
+    : `Ask ${agentName} to change the design, or type / for commands…`;
+
+/** Send, or queue while the agent works, next to Stop. */
+const SendButtons = ({
+  canSend,
+  onSend,
+  onStop,
+  running,
+}: {
+  canSend: boolean;
+  onSend: () => void;
+  onStop: () => void;
+  running: boolean;
+}) => (
+  <>
+    {running ? (
+      <Button onClick={onStop} size="sm" variant="outline">
+        <Square data-icon="inline-start" /> Stop
+      </Button>
+    ) : null}
+    <Button
+      aria-label={running ? "Queue" : "Send"}
+      className="rounded-full"
+      disabled={!canSend}
+      onClick={onSend}
+      size="icon-sm"
+      title={running ? "Queue for when the turn ends (⌘↩)" : "Send (⌘↩)"}
+    >
+      {running ? <ListPlus /> : <ArrowUp />}
+    </Button>
+  </>
+);
 
 const chipTitle = (chip: Chip) => {
   if (chip.kind === "node") {

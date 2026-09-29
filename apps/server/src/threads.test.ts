@@ -532,7 +532,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
     );
 
     it.effect(
-      "refuses a second prompt while a turn is running, then cancels it",
+      "queues a prompt sent while a turn runs, and keeps it when the turn is stopped",
       () =>
         Effect.gen(function* () {
           const { client } = yield* TestEnv;
@@ -541,17 +541,58 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           yield* waitForThread(threadId, (_, transcript) =>
             transcript.some((i) => i.kind === "agent" && i.text === "waiting")
           );
-          const busy = yield* Effect.flip(prompt(threadId, "reply"));
-          assert.strictEqual(busy._tag, "Conflict");
+          yield* prompt(threadId, "reply");
+          yield* prompt(threadId, "model");
+          const { thread: busy } = yield* waitForThread(
+            threadId,
+            (t) => (t.queued?.length ?? 0) === 2
+          );
+          assert.deepStrictEqual(
+            busy?.queued?.map((q) => q.text),
+            ["reply", "model"]
+          );
+
+          // Taken back out to be edited: it is no longer sent.
+          const second = busy?.queued?.[1];
+          const taken = yield* client["threads.unqueue"]({
+            id: second?.id ?? "",
+            threadId,
+          });
+          assert.strictEqual(taken?.text, "model");
 
           yield* client["threads.cancel"]({ threadId });
-          const { items } = yield* waitForThread(threadId, turnEnded);
+          const { items, thread } = yield* waitForThread(threadId, turnEnded);
           const end = items.at(-1);
           assert.strictEqual(
             end?.kind === "turn_end" && end.stopReason,
             "cancelled"
           );
+          // A stopped turn sends nothing on its own; the user does.
+          assert.deepStrictEqual(
+            thread?.queued?.map((q) => q.text),
+            ["reply"]
+          );
+          yield* client["threads.sendQueued"]({ threadId });
+          const after = yield* waitForThread(threadId, turnsEnded(2));
+          assert.include(said(after.items), "Hello world");
+          assert.deepStrictEqual(after.thread?.queued ?? [], []);
         })
+    );
+
+    it.effect("sends a queued prompt when the turn ends by itself", () =>
+      Effect.gen(function* () {
+        const threadId = yield* startThread;
+        yield* prompt(threadId, "slow");
+        yield* waitForThread(threadId, (_, transcript) =>
+          transcript.some((i) => i.kind === "agent" && i.text === "slow:start")
+        );
+        yield* prompt(threadId, "reply");
+        const { items, thread } = yield* waitForThread(threadId, turnsEnded(2));
+        const users = items.filter((i) => i.kind === "user").map((i) => i.text);
+        assert.deepStrictEqual(users, ["slow", "reply"]);
+        assert.include(said(items), "Hello world");
+        assert.deepStrictEqual(thread?.queued ?? [], []);
+      })
     );
 
     it.effect(

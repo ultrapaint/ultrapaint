@@ -61,6 +61,7 @@ import {
   ChatDefaults,
   McpConnection,
   PromptInput,
+  QueuedPrompt,
   SlashCommand,
   Thread,
   ThreadItem,
@@ -337,7 +338,16 @@ const requestRpcs = [
     payload: ThreadRef,
     success: Schema.Array(ThreadItem),
   }),
+  /** Sends a prompt; while the agent works, it waits in the thread's queue instead. */
   Rpc.make("threads.prompt", { error: ThreadError, payload: PromptInput }),
+  /** Takes a queued prompt back out, to drop it or to edit it in the composer. */
+  Rpc.make("threads.unqueue", {
+    error: ThreadError,
+    payload: { id: Schema.String, threadId: Schema.String },
+    success: Schema.NullOr(QueuedPrompt),
+  }),
+  /** Sends the oldest queued prompt now, after a turn that was stopped or failed. */
+  Rpc.make("threads.sendQueued", { error: ThreadError, payload: ThreadRef }),
   Rpc.make("threads.cancel", { error: ThreadError, payload: ThreadRef }),
   Rpc.make("threads.delete", { payload: ThreadRef }),
   /** The user's answers to a question card; they reach the agent as the next prompt. */

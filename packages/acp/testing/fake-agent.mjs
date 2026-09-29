@@ -158,6 +158,12 @@ const scenarios = {
     await text(cx, sessionId, "Hello ");
     await text(cx, sessionId, "world");
   },
+  /** A turn that takes a moment and then ends by itself, answering with the prompt's number. */
+  async slow(cx, sessionId) {
+    await text(cx, sessionId, "slow:start");
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    await text(cx, sessionId, "slow:done");
+  },
   async terminal(cx, sessionId) {
     const { terminalId } = await cx.request(methods.client.terminal.create, {
       args: ["hi"],

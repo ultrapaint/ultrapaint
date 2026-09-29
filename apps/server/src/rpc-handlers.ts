@@ -214,12 +214,14 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "threads.permission": ({ threadId, requestId, optionId, remember }) =>
         threads.resolvePermission(threadId, requestId, optionId, remember),
       "threads.prompt": (input) => threads.prompt(input),
+      "threads.sendQueued": ({ threadId }) => threads.sendQueued(threadId),
       "threads.setAgent": ({ threadId, agentId }) =>
         threads.setAgent(threadId, agentId),
       "threads.setConfigOption": ({ threadId, optionId, value }) =>
         threads.setConfigOption(threadId, optionId, value),
       "threads.setMode": ({ threadId, modeId }) =>
         threads.setMode(threadId, modeId),
+      "threads.unqueue": ({ id, threadId }) => threads.unqueue(threadId, id),
       "thumbnails.get": ({ key }) => thumbnails((t) => t.get(key)),
       "thumbnails.put": ({ dataUrl, key, name }) =>
         thumbnails((t) => t.put(key, name, dataUrl)),
