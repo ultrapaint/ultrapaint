@@ -28,12 +28,14 @@ const hashContent = (content: string): string =>
 const toPosix = (p: string) => p.replaceAll("\\", "/");
 
 /** Bump when the extraction logic changes so stale caches are rebuilt. */
-const CATALOGUE_VERSION = 2;
+const CATALOGUE_VERSION = 3;
 
 const TSX_EXT_RE = /\.tsx$/;
 const NON_COMPONENT_TSX_RE = /\.(stories|test|spec)\.tsx$/;
 const TS_EXT_RE = /\.tsx?$/;
 const LEADING_DOT_SLASH_RE = /^\.\//;
+const INDEX_RE = /\/index$/;
+const TRAILING_COMMA_RE = /,(\s*[}\]])/g;
 const LEADING_DOT_RE = /^\./;
 const STORY_TITLE_RE = /title:\s*["'`]([^"'`]+)["'`]/;
 const COMPONENT_NAME_RE = /^[A-Z]/;
@@ -204,21 +206,19 @@ const readCvaConfig = (info: CvaInfo, call: AstNode) => {
   }
 };
 
-/** Import specifier for `file` from the `exports` map of the package.json at `pj`. */
-const specifierFromPackage = (
-  pj: string,
-  pkgDir: string,
-  file: string
-): { pkg: string; specifier: string } | null => {
-  const pkg = JSON.parse(readFileSync(pj, "utf8")) as {
-    name?: string;
-    exports?: Record<string, unknown>;
-  };
-  if (!pkg.name) {
-    return null;
-  }
-  const relNoExt = path.relative(pkgDir, file).replace(TS_EXT_RE, "");
-  const exportsMap = pkg.exports ?? {};
+interface PackageJson {
+  exports?: Record<string, unknown> | string;
+  main?: string;
+  module?: string;
+  name?: string;
+}
+
+/** The subpath of an `exports` map whose wildcard target holds the file, as an import. */
+const fromExportsMap = (
+  name: string,
+  exportsMap: Record<string, unknown>,
+  relNoExt: string
+): string | null => {
   for (const [sub, target] of Object.entries(exportsMap)) {
     const targets =
       typeof target === "string"
@@ -231,14 +231,121 @@ const specifierFromPackage = (
       const prefix = t.replace(LEADING_DOT_SLASH_RE, "").split("*")[0] ?? "";
       if (relNoExt.startsWith(prefix)) {
         const rest = relNoExt.slice(prefix.length);
-        return {
-          pkg: pkg.name,
-          specifier: `${pkg.name}${sub.replace(LEADING_DOT_RE, "").replace("*", rest)}`,
-        };
+        return `${name}${sub.replace(LEADING_DOT_RE, "").replace("*", rest)}`;
       }
     }
   }
-  return { pkg: pkg.name, specifier: pkg.name };
+  return null;
+};
+
+/** Whether the package's name alone imports something: it has an entry. */
+const hasEntry = (pkg: PackageJson) => {
+  if (pkg.exports === undefined) {
+    return (pkg.main ?? pkg.module) !== undefined;
+  }
+  return typeof pkg.exports === "string" || "." in pkg.exports;
+};
+
+/**
+ * Import specifier for `file`: through the `exports` map of the package.json at `pj`, else the
+ * package's own path aliases, else the package's name when it has an entry. Null when nothing
+ * would resolve: an import that does not resolve would break every page.
+ */
+export const specifierFromPackage = (
+  pj: string,
+  pkgDir: string,
+  file: string
+): { pkg: string; specifier: string } | null => {
+  const pkg = JSON.parse(readFileSync(pj, "utf8")) as PackageJson;
+  if (!pkg.name) {
+    return null;
+  }
+  const relNoExt = path.relative(pkgDir, file).replace(TS_EXT_RE, "");
+  const specifier =
+    fromExportsMap(
+      pkg.name,
+      typeof pkg.exports === "object" ? pkg.exports : {},
+      relNoExt
+    ) ??
+    specifierFromAlias(pkgDir, file) ??
+    (hasEntry(pkg) ? pkg.name : null);
+  return specifier ? { pkg: pkg.name, specifier } : null;
+};
+
+/** Where the token at `i` ends: a string, a comment, or one character. */
+const tokenEnd = (text: string, i: number): number => {
+  const c = text[i];
+  const next = text[i + 1];
+  if (c === '"') {
+    let j = i + 1;
+    while (j < text.length && text[j] !== '"') {
+      j += text[j] === "\\" ? 2 : 1;
+    }
+    return j + 1;
+  }
+  if (c === "/" && next === "/") {
+    const end = text.indexOf("\n", i);
+    return end < 0 ? text.length : end;
+  }
+  if (c === "/" && next === "*") {
+    const end = text.indexOf("*/", i + 2);
+    return end < 0 ? text.length : end + 2;
+  }
+  return i + 1;
+};
+
+/** JSON with comments and trailing commas, as tsconfig files are written. */
+export const parseJsonc = (text: string): unknown => {
+  let out = "";
+  let i = 0;
+  while (i < text.length) {
+    const end = tokenEnd(text, i);
+    const comment =
+      text[i] === "/" && (text[i + 1] === "/" || text[i + 1] === "*");
+    if (!comment) {
+      out += text.slice(i, end);
+    }
+    i = end;
+  }
+  return JSON.parse(out.replace(TRAILING_COMMA_RE, "$1"));
+};
+
+/**
+ * Import specifier for `file` through the package's own path aliases, the way its code imports
+ * it (`@/components/ui/button`): the tsconfig's `paths`, which the package's Vite config usually
+ * mirrors, and which the preview inherits with it.
+ */
+const specifierFromAlias = (pkgDir: string, file: string): string | null => {
+  const tsconfig = path.join(pkgDir, "tsconfig.json");
+  if (!existsSync(tsconfig)) {
+    return null;
+  }
+  let options: { baseUrl?: string; paths?: Record<string, string[]> } = {};
+  try {
+    const parsed = parseJsonc(readFileSync(tsconfig, "utf8")) as {
+      compilerOptions?: typeof options;
+    };
+    options = parsed.compilerOptions ?? {};
+  } catch {
+    // An unreadable tsconfig only means no alias is known.
+    return null;
+  }
+  const base = path.resolve(pkgDir, options.baseUrl ?? ".");
+  const relNoExt = toPosix(path.relative(base, file)).replace(TS_EXT_RE, "");
+  for (const [alias, targets] of Object.entries(options.paths ?? {})) {
+    if (!alias.endsWith("/*")) {
+      continue;
+    }
+    for (const target of targets) {
+      const prefix =
+        target.replace(LEADING_DOT_SLASH_RE, "").split("*")[0] ?? "";
+      if (target.endsWith("*") && relNoExt.startsWith(prefix)) {
+        const rest = relNoExt.slice(prefix.length).replace(INDEX_RE, "");
+        return `${alias.slice(0, -1)}${rest}`;
+      }
+    }
+  }
+  return null;
 };
 
 /** Finds `cva(base, { variants, defaultVariants })` calls in a file with Babel. */
@@ -640,7 +747,8 @@ const fileComponents = (
       category,
       file: relativeTo(ctx.root, file),
       group: spec?.pkg ?? path.dirname(relativeTo(ctx.root, file)),
-      importFrom: spec?.specifier ?? base,
+      // No import that resolves: listed, but no page imports it until the package says how.
+      importFrom: spec?.specifier ?? "",
       name,
       props,
       snippet: snippetFor(name, props),

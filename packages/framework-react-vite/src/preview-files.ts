@@ -1,6 +1,7 @@
 import path from "node:path";
 import type { PreviewInput } from "@ultrapaint/framework-api/node";
 import type { PreviewBundles } from "./build.ts";
+import { inlineThemeAliases } from "./design-system-scan.ts";
 import type { ServeOptions } from "./serve.ts";
 
 const LEADING_NON_DOT_RE = /^(?!\.)/;
@@ -38,6 +39,28 @@ if (import.meta.hot) {
   });
 }
 `;
+};
+
+/**
+ * The `@theme inline` variables, declared again on every element: a design drawn inside a
+ * theme's scope (`.dark`) reads the scope's values, not the root's.
+ */
+const themeAliasesCss = (input: PreviewInput, tailwind: boolean): string[] => {
+  if (!tailwind) {
+    return [];
+  }
+  const aliases = inlineThemeAliases(
+    input.settings.hostCss,
+    path.join(input.dir, "host.css"),
+    input.anchorDir
+  );
+  if (aliases.size === 0) {
+    return [];
+  }
+  const declarations = [...aliases]
+    .map(([name, value]) => `  ${name}: ${value};`)
+    .join("\n");
+  return [`*, ::before, ::after {\n${declarations}\n}`];
 };
 
 /**
@@ -90,6 +113,7 @@ export const previewFiles = (
             `@source ${JSON.stringify(toPosix(path.relative(dir, path.join(input.root, d))))};`
         )
       : []),
+    ...themeAliasesCss(input, tailwind),
     // The page is drawn from documents; its body is the design's, edge to edge.
     "html, body { margin: 0; }",
     "html, body, #root { min-height: 100%; }",

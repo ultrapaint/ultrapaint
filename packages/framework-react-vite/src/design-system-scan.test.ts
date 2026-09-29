@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { defaultSettings } from "@ultrapaint/contracts/settings";
 import { afterAll, describe, expect, it } from "vitest";
-import { scanDesignSystem } from "./design-system-scan.ts";
+import { inlineThemeAliases, scanDesignSystem } from "./design-system-scan.ts";
 
 const roots: string[] = [];
 afterAll(() => {
@@ -117,5 +117,27 @@ describe("scanning a Tailwind v4 design system", () => {
     });
     expect(designSystem.colors).toEqual([]);
     expect(notes.some((n) => n.includes("Tailwind v4"))).toBe(true);
+  });
+});
+
+describe("inline theme aliases", () => {
+  it("are the @theme inline variables that stand for another variable", () => {
+    const root = repository({
+      "node_modules/tailwindcss/package.json": '{"name":"tailwindcss"}',
+      "web/app.css": `@import "tailwindcss";
+:root { --foreground: #111; }
+.dark { --foreground: #eee; }
+@theme inline {
+  --color-foreground: var(--foreground);
+  --color-brand: #ff0000;
+  --radius-lg: calc(var(--radius) * 1.2);
+}`,
+    });
+    const aliases = inlineThemeAliases(
+      ["../web/app.css"],
+      path.join(root, "designs", "host.css"),
+      path.join(root, "web")
+    );
+    expect([...aliases]).toEqual([["--color-foreground", "var(--foreground)"]]);
   });
 });

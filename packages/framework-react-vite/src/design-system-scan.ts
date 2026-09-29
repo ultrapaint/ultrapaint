@@ -374,6 +374,36 @@ const classify = (
   return { ...buckets, palettes, semantic, sizes, spacingBase };
 };
 
+const VAR_ONLY_RE = /^var\(\s*--[\w-]+\s*\)$/;
+
+/**
+ * The variables `@theme inline` defines as another variable (`--color-foreground:
+ * var(--foreground)`). Tailwind resolves them once, at the root, so a design drawn inside a
+ * theme's scope — a `.dark` wrapper, a `[data-theme]` — still gets the root's values; declared
+ * again on every element, they follow the scope they are used in.
+ */
+export const inlineThemeAliases = (
+  hostCss: readonly string[],
+  hostFile: string,
+  anchorDir: string
+): Map<string, string> => {
+  const entries = hostCss
+    .map((spec) => resolveImport(spec, hostFile, anchorDir))
+    .filter((file): file is string => file !== null);
+  const aliases = new Map<string, string>();
+  for (const scope of collect(entries, anchorDir).scopes) {
+    if (!scope.prelude.includes("@theme inline")) {
+      continue;
+    }
+    for (const [name, value] of scope.vars) {
+      if (VAR_ONLY_RE.test(value)) {
+        aliases.set(name, value);
+      }
+    }
+  }
+  return aliases;
+};
+
 export const scanDesignSystem = (
   ctx: DesignSystemContext
 ): DesignSystemScan => {

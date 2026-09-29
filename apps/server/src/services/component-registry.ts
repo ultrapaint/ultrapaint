@@ -11,15 +11,16 @@ const SPECIFIER_RE = /^[\w@][\w@./-]*$/;
 /**
  * The component modules the preview can import, which is what an instance is drawn from. The
  * catalogue names them; the registry keeps the generated module that lists them in step, so a
- * component catalogued while the preview runs is there without a restart. Only specifiers the
- * catalogue found get in: a module the dev server cannot resolve would break every page.
+ * component catalogued while the preview runs is there without a restart, and one the catalogue
+ * no longer names is gone without one. Only specifiers the catalogue found get in: a module the
+ * dev server cannot resolve would break every page.
  */
 export class ComponentRegistry extends Context.Service<
   ComponentRegistry,
   {
     readonly current: Effect.Effect<readonly string[]>;
-    /** Adds these modules, rewriting the registry when any of them is new. */
-    readonly ensure: (specifiers: Iterable<string>) => Effect.Effect<void>;
+    /** The modules are these, as the catalogue last read them; rewritten when that changed. */
+    readonly sync: (specifiers: Iterable<string>) => Effect.Effect<void>;
   }
 >()("ultrapaint/server/ComponentRegistry") {
   static readonly layer = Layer.effect(
@@ -37,17 +38,18 @@ export class ComponentRegistry extends Context.Service<
         framework.preview.components.file
       );
 
-      const ensure = Effect.fnUntraced(function* (
-        specifiers: Iterable<string>
-      ) {
+      const sync = Effect.fnUntraced(function* (specifiers: Iterable<string>) {
         const before = yield* Ref.get(known);
-        const next = new Set(before);
+        const next = new Set<string>();
         for (const specifier of specifiers) {
           if (SPECIFIER_RE.test(specifier)) {
             next.add(specifier);
           }
         }
-        if (next.size === before.size) {
+        if (
+          next.size === before.size &&
+          [...next].every((specifier) => before.has(specifier))
+        ) {
           return;
         }
         yield* Ref.set(known, next);
@@ -59,7 +61,7 @@ export class ComponentRegistry extends Context.Service<
 
       return ComponentRegistry.of({
         current: Effect.map(Ref.get(known), (set) => [...set].sort()),
-        ensure,
+        sync,
       });
     })
   );

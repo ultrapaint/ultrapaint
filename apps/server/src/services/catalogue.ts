@@ -122,7 +122,7 @@ export class CatalogueService extends Context.Service<
             .pipe(
               // The preview can draw what the catalogue names as soon as it is known.
               Effect.tap((catalogue) =>
-                registry.ensure(catalogue.components.map((c) => c.importFrom))
+                registry.sync(catalogue.components.map((c) => c.importFrom))
               ),
               Effect.withSpan("CatalogueService.get")
             ),
