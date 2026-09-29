@@ -16,7 +16,7 @@ import {
   useDocuments,
 } from "./documents.ts";
 import { reportError, useProject } from "./project.ts";
-import { writeUrl } from "./url.ts";
+import { readUrl, writeMode, writeUrl } from "./url.ts";
 
 export type Mode = "select" | "group" | "text" | "interact" | "pan" | "comment";
 
@@ -38,6 +38,10 @@ export type LeftTab =
   | "palette"
   | "designSystem"
   | "changes";
+
+/** The workspace a reload or a shared link asks for, or the first one. */
+const workspaceInUrl = (): Workspace =>
+  workspaceOrder.find((w) => w === readUrl().mode) ?? "vibe";
 
 /** Left panels every workspace offers, in rail order. */
 export const sharedTabs: readonly LeftTab[] = [
@@ -376,6 +380,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
     const kept =
       sharedTabs.includes(leftTab) ||
       workspaceTabs[workspace].includes(leftTab);
+    writeMode(workspace);
     set({
       leftTab: kept ? leftTab : "chat",
       workspace,
@@ -398,7 +403,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
     }
   },
   view: { x: 80, y: 80, zoom: 0.5 },
-  workspace: "vibe",
+  workspace: workspaceInUrl(),
   zoomToFit: (viewport) => {
     const frames = Object.values(allFrames());
     if (frames.length === 0) {

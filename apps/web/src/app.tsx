@@ -63,7 +63,7 @@ import {
 } from "./state/editor.ts";
 import { bindProjectEvents, useProject } from "./state/project.ts";
 import { bindScreenshots } from "./state/screenshots.ts";
-import { onUrlChange, readUrl } from "./state/url.ts";
+import { onUrlChange, readUrl, tidyUrl, writeMode } from "./state/url.ts";
 
 installBridgeRouter();
 
@@ -373,18 +373,19 @@ export const App = () => {
   }, [pages, space]);
 
   // The browser's back and forward buttons are the prototype's.
-  useEffect(
-    () =>
-      onUrlChange((url) => {
-        const editor = useEditor.getState();
-        if (url.space !== null && url.space !== editor.space) {
-          editor.openSpace(url.space, url.route);
-        } else {
-          editor.navigate(url.route, { push: false });
-        }
-      }),
-    []
-  );
+  useEffect(() => {
+    tidyUrl();
+    return onUrlChange((url) => {
+      const editor = useEditor.getState();
+      if (url.space !== null && url.space !== editor.space) {
+        editor.openSpace(url.space, url.route);
+      } else {
+        editor.navigate(url.route, { push: false });
+      }
+      // Back and forward walk the routes, not the workspace: an older entry may name another.
+      writeMode(editor.workspace);
+    });
+  }, []);
 
   // Errors surface as toasts; the store slot is only a hand-off from non-React code.
   useEffect(() => {
