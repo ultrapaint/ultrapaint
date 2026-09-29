@@ -356,38 +356,40 @@ const TextStyleSelect = ({ node }: { node: TextNode }) => {
         {mixedStyles ? MIXED : (style?.name ?? node.textStyle ?? "No style")}
       </ValueTrigger>
       <DropdownMenuContent className="w-60">
-        <MenuHead name="Text style" source="text styles" />
-        {styles.length === 0 ? (
-          <DropdownMenuLabel className="font-normal">
-            The design system has no text styles yet.
-          </DropdownMenuLabel>
-        ) : null}
-        <DropdownMenuRadioGroup
-          onValueChange={onValue}
-          value={node.textStyle ?? ""}
-        >
-          {[...groupTextStyles(styles)].map(([group, list]) => (
-            <DropdownMenuGroup key={group}>
-              {list.map((s) => (
-                <DropdownMenuRadioItem key={s.name} value={s.name}>
-                  <span
-                    className="truncate"
-                    style={{
-                      fontSize:
-                        typeof s.size === "number"
-                          ? Math.min(s.size, 22)
-                          : undefined,
-                      fontWeight:
-                        typeof s.weight === "number" ? s.weight : undefined,
-                    }}
-                  >
-                    {s.name}
-                  </span>
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuGroup>
-          ))}
-        </DropdownMenuRadioGroup>
+        <DropdownMenuGroup>
+          <MenuHead name="Text style" source="text styles" />
+          {styles.length === 0 ? (
+            <DropdownMenuLabel className="font-normal">
+              The design system has no text styles yet.
+            </DropdownMenuLabel>
+          ) : null}
+          <DropdownMenuRadioGroup
+            onValueChange={onValue}
+            value={node.textStyle ?? ""}
+          >
+            {[...groupTextStyles(styles)].map(([group, list]) => (
+              <DropdownMenuGroup key={group}>
+                {list.map((s) => (
+                  <DropdownMenuRadioItem key={s.name} value={s.name}>
+                    <span
+                      className="truncate"
+                      style={{
+                        fontSize:
+                          typeof s.size === "number"
+                            ? Math.min(s.size, 22)
+                            : undefined,
+                        fontWeight:
+                          typeof s.weight === "number" ? s.weight : undefined,
+                      }}
+                    >
+                      {s.name}
+                    </span>
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuGroup>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -416,24 +418,26 @@ const AlignSelect = ({ node }: { node: TextNode }) => {
         {label}
       </ValueTrigger>
       <DropdownMenuContent className="w-40">
-        <MenuHead name="align" />
-        <DropdownMenuRadioGroup
-          onValueChange={(v) =>
-            updateNodes(
-              targets,
-              { align: v === "start" ? null : String(v) },
-              "Align the text"
-            )
-          }
-          value={value}
-        >
-          {ALIGNS.map(([v, Icon, l]) => (
-            <DropdownMenuRadioItem key={v} value={v}>
-              <Icon />
-              {l}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
+        <DropdownMenuGroup>
+          <MenuHead name="align" />
+          <DropdownMenuRadioGroup
+            onValueChange={(v) =>
+              updateNodes(
+                targets,
+                { align: v === "start" ? null : String(v) },
+                "Align the text"
+              )
+            }
+            value={value}
+          >
+            {ALIGNS.map(([v, Icon, l]) => (
+              <DropdownMenuRadioItem key={v} value={v}>
+                <Icon />
+                {l}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -542,28 +546,30 @@ const TokenSelect = ({
         {label}
       </ValueTrigger>
       <DropdownMenuContent className="max-h-80 w-60">
-        <MenuHead
-          name={field.name}
-          source={
-            control.token === "color" ? "--color-*" : `--${control.token}`
-          }
-        />
-        <DropdownMenuRadioGroup
-          onValueChange={(v) => {
-            const text = String(v);
-            if (text === "") {
-              set(null);
-            } else {
-              set(control.token === "spacing" ? Number(text) : text);
+        <DropdownMenuGroup>
+          <MenuHead
+            name={field.name}
+            source={
+              control.token === "color" ? "--color-*" : `--${control.token}`
             }
-          }}
-          value={current}
-        >
-          <DropdownMenuRadioItem value="">
-            <span className="flex-1 text-muted-foreground">none</span>
-          </DropdownMenuRadioItem>
-          {items}
-        </DropdownMenuRadioGroup>
+          />
+          <DropdownMenuRadioGroup
+            onValueChange={(v) => {
+              const text = String(v);
+              if (text === "") {
+                set(null);
+              } else {
+                set(control.token === "spacing" ? Number(text) : text);
+              }
+            }}
+            value={current}
+          >
+            <DropdownMenuRadioItem value="">
+              <span className="flex-1 text-muted-foreground">none</span>
+            </DropdownMenuRadioItem>
+            {items}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -929,16 +935,18 @@ export const GroupToolbar = ({
             Wrap in
           </ValueTrigger>
           <DropdownMenuContent className="w-40">
-            <MenuHead name="wrap in" />
-            {WRAPS.map(([type, label]) => (
-              <DropdownMenuItem
-                disabled={!siblings}
-                key={type}
-                onClick={() => wrapNodes(targets, type)}
-              >
-                {label}
-              </DropdownMenuItem>
-            ))}
+            <DropdownMenuGroup>
+              <MenuHead name="wrap in" />
+              {WRAPS.map(([type, label]) => (
+                <DropdownMenuItem
+                  disabled={!siblings}
+                  key={type}
+                  onClick={() => wrapNodes(targets, type)}
+                >
+                  {label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
         <Divider />
