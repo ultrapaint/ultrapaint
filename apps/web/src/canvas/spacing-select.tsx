@@ -202,9 +202,6 @@ export const SpacingSelect = () => {
       <PopoverContent align="start" className="w-60 gap-3">
         <SidesRow field="padding" nodes={nodes} title="Padding" />
         <SidesRow field="margin" nodes={nodes} title="Margin" />
-        <p className="text-[10.5px] text-muted-foreground">
-          ⌘-click fields to set several at once
-        </p>
       </PopoverContent>
     </Popover>
   );
