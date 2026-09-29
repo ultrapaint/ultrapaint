@@ -1,0 +1,667 @@
+{
+  "root": {
+    "fill": "$color-background",
+    "id": "root",
+    "gap": 0,
+    "children": [
+      {
+        "fill": "#d4d4d8",
+        "height": "fill",
+        "id": "r_6aqa6f",
+        "padding": 40,
+        "width": "fill",
+        "crossAlign": "start",
+        "gap": 40,
+        "children": [
+          {
+            "fill": "#fafafa",
+            "id": "r_1mwc0f",
+            "name": "Pricing",
+            "padding": 24,
+            "width": 560,
+            "crossAlign": "center",
+            "gap": 12,
+            "children": [
+              {
+                "border": {
+                  "color": "#e4e4e7",
+                  "style": "solid",
+                  "width": 1
+                },
+                "fill": "#ffffff",
+                "id": "c_smqgsq",
+                "padding": 16,
+                "radius": 10,
+                "width": "fill",
+                "gap": 8,
+                "children": [
+                  {
+                    "id": "t_d4kmd5",
+                    "color": "#18181b",
+                    "role": "paragraph",
+                    "size": 12,
+                    "text": "Starter",
+                    "type": "text",
+                    "weight": 600
+                  },
+                  {
+                    "id": "t_tlener",
+                    "color": "#18181b",
+                    "role": "paragraph",
+                    "size": 24,
+                    "text": "$0",
+                    "type": "text",
+                    "weight": 700
+                  },
+                  {
+                    "id": "r_x4pf89",
+                    "crossAlign": "center",
+                    "gap": 6,
+                    "children": [
+                      {
+                        "height": 12,
+                        "id": "img_wchbbq",
+                        "name": "check",
+                        "width": 12,
+                        "src": "assets/icons/check-dark.svg",
+                        "type": "image"
+                      },
+                      {
+                        "id": "t_q7ssw8",
+                        "color": "#71717a",
+                        "role": "paragraph",
+                        "size": 11,
+                        "text": "Unlimited devices",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "r_fw4ny0",
+                    "crossAlign": "center",
+                    "gap": 6,
+                    "children": [
+                      {
+                        "height": 12,
+                        "id": "img_k87ze8",
+                        "name": "check",
+                        "width": 12,
+                        "src": "assets/icons/check-dark.svg",
+                        "type": "image"
+                      },
+                      {
+                        "id": "t_qmr0jd",
+                        "color": "#71717a",
+                        "role": "paragraph",
+                        "size": 11,
+                        "text": "Unlimited devices",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "r_xtgo8w",
+                    "crossAlign": "center",
+                    "gap": 6,
+                    "children": [
+                      {
+                        "height": 12,
+                        "id": "img_hw7sb9",
+                        "name": "check",
+                        "width": 12,
+                        "src": "assets/icons/check-dark.svg",
+                        "type": "image"
+                      },
+                      {
+                        "id": "t_gcleiy",
+                        "color": "#71717a",
+                        "role": "paragraph",
+                        "size": 11,
+                        "text": "Unlimited devices",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "fill": "#f4f4f5",
+                    "id": "r_z0b4rf",
+                    "padding": 7,
+                    "radius": 6,
+                    "width": "fill",
+                    "align": "center",
+                    "crossAlign": "center",
+                    "children": [
+                      {
+                        "id": "t_ppomh5",
+                        "color": "#18181b",
+                        "role": "paragraph",
+                        "size": 11,
+                        "text": "Choose",
+                        "type": "text",
+                        "weight": 600
+                      }
+                    ],
+                    "type": "row"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "border": {
+                  "color": "#18181b",
+                  "style": "solid",
+                  "width": 1
+                },
+                "fill": "#18181b",
+                "id": "c_kncw6h",
+                "padding": 16,
+                "radius": 10,
+                "width": "fill",
+                "gap": 8,
+                "children": [
+                  {
+                    "id": "t_31l096",
+                    "color": "#ffffff",
+                    "role": "paragraph",
+                    "size": 12,
+                    "text": "Pro",
+                    "type": "text",
+                    "weight": 600
+                  },
+                  {
+                    "id": "t_dhxor8",
+                    "color": "#ffffff",
+                    "role": "paragraph",
+                    "size": 24,
+                    "text": "$24",
+                    "type": "text",
+                    "weight": 700
+                  },
+                  {
+                    "id": "r_g9d3uj",
+                    "crossAlign": "center",
+                    "gap": 6,
+                    "children": [
+                      {
+                        "height": 12,
+                        "id": "img_2eogvi",
+                        "name": "check",
+                        "width": 12,
+                        "src": "assets/icons/check-white.svg",
+                        "type": "image"
+                      },
+                      {
+                        "id": "t_aseqg4",
+                        "color": "#d4d4d8",
+                        "role": "paragraph",
+                        "size": 11,
+                        "text": "Unlimited devices",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "r_femvlt",
+                    "crossAlign": "center",
+                    "gap": 6,
+                    "children": [
+                      {
+                        "height": 12,
+                        "id": "img_09e8q0",
+                        "name": "check",
+                        "width": 12,
+                        "src": "assets/icons/check-white.svg",
+                        "type": "image"
+                      },
+                      {
+                        "id": "t_2o6bn3",
+                        "color": "#d4d4d8",
+                        "role": "paragraph",
+                        "size": 11,
+                        "text": "Unlimited devices",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "r_zizvsr",
+                    "crossAlign": "center",
+                    "gap": 6,
+                    "children": [
+                      {
+                        "height": 12,
+                        "id": "img_wm8zpo",
+                        "name": "check",
+                        "width": 12,
+                        "src": "assets/icons/check-white.svg",
+                        "type": "image"
+                      },
+                      {
+                        "id": "t_2szcht",
+                        "color": "#d4d4d8",
+                        "role": "paragraph",
+                        "size": 11,
+                        "text": "Unlimited devices",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "fill": "#ffffff",
+                    "id": "r_fgfpmf",
+                    "padding": 7,
+                    "radius": 6,
+                    "width": "fill",
+                    "align": "center",
+                    "crossAlign": "center",
+                    "children": [
+                      {
+                        "id": "t_awjtlc",
+                        "color": "#18181b",
+                        "role": "paragraph",
+                        "size": 11,
+                        "text": "Choose",
+                        "type": "text",
+                        "weight": 600
+                      }
+                    ],
+                    "type": "row"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "border": {
+                  "color": "#e4e4e7",
+                  "style": "solid",
+                  "width": 1
+                },
+                "fill": "#ffffff",
+                "id": "c_v42m77",
+                "padding": 16,
+                "radius": 10,
+                "width": "fill",
+                "gap": 8,
+                "children": [
+                  {
+                    "id": "t_jms90y",
+                    "color": "#18181b",
+                    "role": "paragraph",
+                    "size": 12,
+                    "text": "Enterprise",
+                    "type": "text",
+                    "weight": 600
+                  },
+                  {
+                    "id": "t_xw9w37",
+                    "color": "#18181b",
+                    "role": "paragraph",
+                    "size": 24,
+                    "text": "Custom",
+                    "type": "text",
+                    "weight": 700
+                  },
+                  {
+                    "id": "r_yamgfq",
+                    "crossAlign": "center",
+                    "gap": 6,
+                    "children": [
+                      {
+                        "height": 12,
+                        "id": "img_np2mgy",
+                        "name": "check",
+                        "width": 12,
+                        "src": "assets/icons/check-dark.svg",
+                        "type": "image"
+                      },
+                      {
+                        "id": "t_xqzp8d",
+                        "color": "#71717a",
+                        "role": "paragraph",
+                        "size": 11,
+                        "text": "Unlimited devices",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "r_8t67md",
+                    "crossAlign": "center",
+                    "gap": 6,
+                    "children": [
+                      {
+                        "height": 12,
+                        "id": "img_8b5xj3",
+                        "name": "check",
+                        "width": 12,
+                        "src": "assets/icons/check-dark.svg",
+                        "type": "image"
+                      },
+                      {
+                        "id": "t_e02sd7",
+                        "color": "#71717a",
+                        "role": "paragraph",
+                        "size": 11,
+                        "text": "Unlimited devices",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "r_ptke66",
+                    "crossAlign": "center",
+                    "gap": 6,
+                    "children": [
+                      {
+                        "height": 12,
+                        "id": "img_z8jbzj",
+                        "name": "check",
+                        "width": 12,
+                        "src": "assets/icons/check-dark.svg",
+                        "type": "image"
+                      },
+                      {
+                        "id": "t_w3kww1",
+                        "color": "#71717a",
+                        "role": "paragraph",
+                        "size": 11,
+                        "text": "Unlimited devices",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "fill": "#f4f4f5",
+                    "id": "r_itlmc0",
+                    "padding": 7,
+                    "radius": 6,
+                    "width": "fill",
+                    "align": "center",
+                    "crossAlign": "center",
+                    "children": [
+                      {
+                        "id": "t_w9rl7v",
+                        "color": "#18181b",
+                        "role": "paragraph",
+                        "size": 11,
+                        "text": "Choose",
+                        "type": "text",
+                        "weight": 600
+                      }
+                    ],
+                    "type": "row"
+                  }
+                ],
+                "type": "column"
+              }
+            ],
+            "type": "row"
+          },
+          {
+            "border": {
+              "color": "#e4e4e7",
+              "style": "solid",
+              "width": 1
+            },
+            "fill": "#ffffff",
+            "id": "c_4e3i50",
+            "name": "Alarm modal",
+            "padding": 20,
+            "radius": 12,
+            "width": 360,
+            "gap": 12,
+            "children": [
+              {
+                "id": "r_cohzq7",
+                "width": "fill",
+                "align": "between",
+                "crossAlign": "center",
+                "children": [
+                  {
+                    "id": "t_igz0mu",
+                    "color": "#18181b",
+                    "role": "paragraph",
+                    "size": 15,
+                    "text": "Configure alarm",
+                    "type": "text",
+                    "weight": 700
+                  },
+                  {
+                    "height": 16,
+                    "id": "img_oxh97w",
+                    "name": "x",
+                    "width": 16,
+                    "src": "assets/icons/x-gray.svg",
+                    "type": "image"
+                  }
+                ],
+                "type": "row"
+              },
+              {
+                "id": "c_xmdw6t",
+                "width": "fill",
+                "gap": 4,
+                "children": [
+                  {
+                    "id": "t_ejat9w",
+                    "color": "#71717a",
+                    "role": "paragraph",
+                    "size": 11,
+                    "text": "Alarm type",
+                    "type": "text",
+                    "weight": 500
+                  },
+                  {
+                    "border": {
+                      "color": "#e4e4e7",
+                      "style": "solid",
+                      "width": 1
+                    },
+                    "id": "r_te9q7z",
+                    "padding": 8,
+                    "radius": 6,
+                    "width": "fill",
+                    "align": "between",
+                    "crossAlign": "center",
+                    "children": [
+                      {
+                        "id": "t_yjkafz",
+                        "color": "#18181b",
+                        "role": "paragraph",
+                        "size": 12,
+                        "text": "Temperature",
+                        "type": "text"
+                      },
+                      {
+                        "height": 14,
+                        "id": "img_2cqvuh",
+                        "name": "chevron-down",
+                        "width": 14,
+                        "src": "assets/icons/chevron-down-gray.svg",
+                        "type": "image"
+                      }
+                    ],
+                    "type": "row"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "id": "c_b78mdn",
+                "width": "fill",
+                "gap": 4,
+                "children": [
+                  {
+                    "id": "t_wm1tri",
+                    "color": "#71717a",
+                    "role": "paragraph",
+                    "size": 11,
+                    "text": "Threshold",
+                    "type": "text",
+                    "weight": 500
+                  },
+                  {
+                    "border": {
+                      "color": "#e4e4e7",
+                      "style": "solid",
+                      "width": 1
+                    },
+                    "id": "r_jig293",
+                    "padding": 8,
+                    "radius": 6,
+                    "width": "fill",
+                    "align": "between",
+                    "crossAlign": "center",
+                    "children": [
+                      {
+                        "id": "t_07luu8",
+                        "color": "#18181b",
+                        "role": "paragraph",
+                        "size": 12,
+                        "text": "Above 75 °C",
+                        "type": "text"
+                      },
+                      {
+                        "height": 14,
+                        "id": "img_jshkvx",
+                        "name": "chevron-down",
+                        "width": 14,
+                        "src": "assets/icons/chevron-down-gray.svg",
+                        "type": "image"
+                      }
+                    ],
+                    "type": "row"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "id": "c_ytytt9",
+                "width": "fill",
+                "gap": 4,
+                "children": [
+                  {
+                    "id": "t_l8p41e",
+                    "color": "#71717a",
+                    "role": "paragraph",
+                    "size": 11,
+                    "text": "Notify",
+                    "type": "text",
+                    "weight": 500
+                  },
+                  {
+                    "border": {
+                      "color": "#e4e4e7",
+                      "style": "solid",
+                      "width": 1
+                    },
+                    "id": "r_0fu6xf",
+                    "padding": 8,
+                    "radius": 6,
+                    "width": "fill",
+                    "align": "between",
+                    "crossAlign": "center",
+                    "children": [
+                      {
+                        "id": "t_ah2huq",
+                        "color": "#18181b",
+                        "role": "paragraph",
+                        "size": 12,
+                        "text": "On-call team",
+                        "type": "text"
+                      },
+                      {
+                        "height": 14,
+                        "id": "img_ebyzg7",
+                        "name": "chevron-down",
+                        "width": 14,
+                        "src": "assets/icons/chevron-down-gray.svg",
+                        "type": "image"
+                      }
+                    ],
+                    "type": "row"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "id": "r_rs751a",
+                "width": "fill",
+                "align": "end",
+                "crossAlign": "center",
+                "gap": 8,
+                "children": [
+                  {
+                    "border": {
+                      "color": "#e4e4e7",
+                      "style": "solid",
+                      "width": 1
+                    },
+                    "id": "r_eyqckf",
+                    "padding": {
+                      "bottom": 7,
+                      "left": 12,
+                      "right": 12,
+                      "top": 7
+                    },
+                    "radius": 6,
+                    "crossAlign": "center",
+                    "children": [
+                      {
+                        "id": "t_n608o1",
+                        "color": "#18181b",
+                        "role": "paragraph",
+                        "size": 12,
+                        "text": "Cancel",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "fill": "#2563eb",
+                    "id": "r_mr54ia",
+                    "padding": {
+                      "bottom": 7,
+                      "left": 12,
+                      "right": 12,
+                      "top": 7
+                    },
+                    "radius": 6,
+                    "crossAlign": "center",
+                    "children": [
+                      {
+                        "id": "t_nxwz7e",
+                        "color": "#ffffff",
+                        "role": "paragraph",
+                        "size": 12,
+                        "text": "Save alarm",
+                        "type": "text",
+                        "weight": 500
+                      }
+                    ],
+                    "type": "row"
+                  }
+                ],
+                "type": "row"
+              }
+            ],
+            "type": "column"
+          }
+        ],
+        "type": "row"
+      }
+    ],
+    "type": "page"
+  },
+  "version": 1
+}

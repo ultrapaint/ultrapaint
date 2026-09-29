@@ -7,6 +7,11 @@ Status: accepted, 2026-09-21.
 > `apply_operations`, the same operations the inspector makes, validated and undoable. The design
 > system has `scan_design_system`, `read_design_system` and `write_design_system`, for `/init`.
 
+> Amended by [0018](0018-agents-work-on-the-canvas.md), 2026-09-29. `focus` also takes the
+> `nodes` about to change and the `action`; `apply_operations` from a thread publishes the nodes it
+> touched, which the canvas draws as the agent's work. `set_frame` sizes a page's frame. A node
+> reference (`/orders#c_8x2k1q`) is taken wherever a route or a node id is.
+
 ## Decision
 
 The server hosts an MCP server on its own port at `/mcp`, built on Effect's `McpServer` over

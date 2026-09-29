@@ -21,3 +21,4 @@ One file per decision. Status is one of proposed, accepted, superseded.
 | [0015](0015-design-documents.md) | Pages are design documents (`.page.json`) the tool owns; the design system is imported by an agent; an agent turns a page into code |
 | [0016](0016-figma-import.md) | A Figma file is read by rules into pages; which component is which is an agent's decision, or the user's, asked in the thread |
 | [0017](0017-a-command-in-the-repository.md) | The tool is a command run in the repository, served to the browser; the desktop shell is removed and a checkout is tried on a project as a linked devDependency |
+| [0018](0018-agents-work-on-the-canvas.md) | Three selection colours (element, component, agent); chats found by a picture of their scope; a Vibe toolbar of design-system values; agents' work drawn on the elements; nodes linked by reference |

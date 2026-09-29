@@ -157,6 +157,17 @@ can add and rename pages through it, answer a comment where it was left, say whi
 working on so you can watch it, and take a screenshot of a page or a node to check its own work.
 Screenshots are drawn by the editor's preview, so the editor has to be open in a browser.
 
+While it works, what it changes shows on the canvas: the elements take the agents' pink, with its
+name and what it is doing on their edge, and the text it is rewriting turns to placeholders until
+it is done. A selection is blue, or purple when it is a component of your library.
+
+**Chats** lists your threads, each with a picture of what it works on, its last line, and whether it
+is working or waiting for you. In **Vibe**, the element you select has a toolbar over it with what
+your design system offers for it — a component's own variants, the text styles, the colour,
+radius and spacing tokens — and a button that adds it to the chat. Right-click an element to copy
+a link that opens the editor on it, or its ID (`/orders#c_8x2k1q`), which an agent takes to find
+it.
+
 It saves the agent from reading the repository to find out what the editor already knows. On four
 tasks with the model pinned, two runs each, that was 32 tool calls on average without any of it,
 24 with the briefing and 15 with the tools as well — and roughly half the time per task. On two

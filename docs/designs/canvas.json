@@ -1,0 +1,75 @@
+{
+  "frames": {
+    "redesign/components.page.json": {
+      "height": 2000,
+      "preset": "custom",
+      "width": 1440,
+      "x": 1600,
+      "y": 1140
+    },
+    "redesign/design.page.json": {
+      "height": 900,
+      "preset": "desktop",
+      "width": 1440,
+      "x": 4800,
+      "y": 0
+    },
+    "redesign/element-toolbar.page.json": {
+      "height": 2893,
+      "preset": "custom",
+      "width": 1514,
+      "x": 0,
+      "y": 1140
+    },
+    "redesign/vibe-new-chat.page.json": {
+      "height": 900,
+      "preset": "desktop",
+      "width": 1440,
+      "x": 3200,
+      "y": 0
+    },
+    "redesign/vibe-thread.page.json": {
+      "height": 900,
+      "preset": "desktop",
+      "width": 1440,
+      "x": 1600,
+      "y": 0
+    },
+    "redesign/vibe.page.json": {
+      "height": 900,
+      "preset": "desktop",
+      "width": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "samples.page.json": {
+      "height": 560,
+      "preset": "custom",
+      "width": 900,
+      "x": 0,
+      "y": 5020
+    },
+    "samples/components.page.json": {
+      "height": 400,
+      "preset": "custom",
+      "width": 900,
+      "x": 6360,
+      "y": 0
+    },
+    "samples/extra.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 1440,
+      "x": 2234,
+      "y": 5020
+    },
+    "samples/more.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 1100,
+      "x": 1006,
+      "y": 5020
+    }
+  },
+  "version": 1
+}
