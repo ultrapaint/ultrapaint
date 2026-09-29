@@ -5,7 +5,7 @@
  * application's code is still written by an agent, in the repository's conventions.
  */
 import { pageComponentName, toCode } from "@ultrapaint/design-document/code";
-import { layoutOf } from "@ultrapaint/design-document/css";
+import { layoutOf, type ParentLayout } from "@ultrapaint/design-document/css";
 import {
   findPath,
   nodeKind,
@@ -16,6 +16,7 @@ import { PanelEmpty } from "../components/panel.tsx";
 import { useDesignSystem } from "../state/design-system.ts";
 import { rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { useInstances } from "../state/instances.ts";
 import { useProject } from "../state/project.ts";
 
 const BACKTICKS_RE = /`+/g;
@@ -52,12 +53,13 @@ const useSubject = () => {
     return null;
   }
   const parent = path?.at(-2);
-  return { node, parent: parent ? layoutOf(parent) : "free", route } as const;
+  return { node, parent, route } as const;
 };
 
 export const CodePanel = () => {
   const subject = useSubject();
   const designSystem = useDesignSystem((s) => s.designSystem);
+  const instances = useInstances((s) => s.drawn);
   if (!subject) {
     return (
       <PanelEmpty>
@@ -70,7 +72,18 @@ export const CodePanel = () => {
     node.type === "page" && route !== undefined
       ? pageComponentName(route)
       : undefined;
-  const code = toCode(node, designSystem, { component, parent });
+  // Inside an instance, a node is sized against the layout its component was drawn with.
+  let parentLayout: ParentLayout = "free";
+  if (parent?.type === "instance") {
+    parentLayout = instances[parent.id]?.layout ?? "block";
+  } else if (parent) {
+    parentLayout = layoutOf(parent);
+  }
+  const code = toCode(node, designSystem, {
+    component,
+    instances,
+    parent: parentLayout,
+  });
   return (
     <div className="flex flex-col gap-2 px-3 py-2.5">
       <div className="flex min-w-0 items-baseline gap-2">

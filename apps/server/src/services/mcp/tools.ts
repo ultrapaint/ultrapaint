@@ -11,6 +11,7 @@ import { Json, type JsonValue } from "@ultrapaint/contracts/base";
 import { DocOp } from "@ultrapaint/contracts/document";
 import { newInstance } from "@ultrapaint/design-document/factories";
 import { fillIds, makeIdGenerator } from "@ultrapaint/design-document/ids";
+import { fillWarnings } from "@ultrapaint/design-document/sizing";
 import { canvasDocOf } from "@ultrapaint/design-document/tree";
 import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/unstable/ai";
@@ -43,6 +44,9 @@ export class ToolFailure extends Schema.TaggedError<ToolFailure>()(
 const Failure = ToolFailure;
 
 const decodeOps = Schema.decodeUnknownEffect(Schema.Array(DocOp));
+
+/** Past this many, `apply_operations` says how many more warnings there are. */
+const MAX_WARNINGS = 12;
 
 const PageSummary = Schema.Struct({
   file: Schema.String,
@@ -120,7 +124,8 @@ A node inserted or moved into an instance that shows "text" and has no children 
 - {op:"wrap", ids:[...], type:"row"|"column"|"group"}: siblings into a new container.
 - {op:"unwrap", id}: a container replaced by its children.
 - {op:"duplicate", id}
-Values: numbers are pixels, "$name" is a design token (--name), anything else plain CSS.`,
+Values: numbers are pixels, "$name" is a design token (--name), anything else plain CSS.
+Size an instance with width, height, padding and the other box fields, never with a className prop: the canvas puts them on the component itself, as the code will. The answer's "warnings" name the nodes whose "fill" has no room to take, because their parent's size follows its content.`,
   failure: Failure,
   parameters: Schema.Struct({
     /** Work on the canvas of the space instead of a page. */
@@ -138,6 +143,8 @@ Values: numbers are pixels, "$name" is a design token (--name), anything else pl
   success: Schema.Struct({
     created: Schema.Array(Schema.String),
     hash: Schema.String,
+    /** Nodes of the document whose fill has no room to take, and why. */
+    warnings: Schema.optional(Schema.Array(Schema.String)),
   }),
 });
 
@@ -454,9 +461,22 @@ export const EditorToolsLive = EditorTools.toLayer(
             ...(label !== undefined && { label }),
           })
         );
+        const after = yield* documents((d) => d.get(doc));
+        const warnings = after.root
+          ? fillWarnings(after.root).map((w) => `${w.nodeId}: ${w.message}`)
+          : [];
         return {
           created: result.created,
           hash: result.documents[0]?.hash ?? "",
+          ...(warnings.length > 0 && {
+            warnings:
+              warnings.length > MAX_WARNINGS
+                ? [
+                    ...warnings.slice(0, MAX_WARNINGS),
+                    `and ${warnings.length - MAX_WARNINGS} more`,
+                  ]
+                : warnings,
+          }),
         };
       }),
 

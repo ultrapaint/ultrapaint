@@ -26,6 +26,7 @@ import {
   useDocuments,
 } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { useInstances } from "../state/instances.ts";
 import { previewUrl, useProject } from "../state/project.ts";
 import { stepInto } from "../state/tree.ts";
 import { FramePresence } from "./agent-presence.tsx";
@@ -184,6 +185,9 @@ export const Frame = memo(
             break;
           case "ed:size":
             store().setSize(frameId, { height: msg.height, width: msg.width });
+            break;
+          case "ed:instances":
+            useInstances.getState().report(msg.instances);
             break;
           case "ed:hmr":
             store().setHostError(frameId, null);

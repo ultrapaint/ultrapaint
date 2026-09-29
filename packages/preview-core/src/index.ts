@@ -122,6 +122,7 @@ export const startPreview = () => {
     },
     providers: undefined,
     reportError: (error) => post({ error, type: "ed:error" }),
+    reportInstances: (instances) => post({ instances, type: "ed:instances" }),
   };
 
   const start = (input: StartInput) => {

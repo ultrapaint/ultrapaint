@@ -15,6 +15,7 @@ import type {
   Size,
   TextNode,
 } from "@ultrapaint/contracts/document";
+import type { InstanceDrawn } from "@ultrapaint/contracts/preview";
 import {
   layoutOf,
   makeStyleContext,
@@ -91,8 +92,21 @@ export interface CodeOptions {
    * Left out, the page is written as its markup alone.
    */
   readonly component?: string | undefined;
+  /**
+   * How the preview drew the instances, by node id (`ed:instances`): how each lays out its
+   * children, and whether its component keeps its props, so that its box goes on a `div` around
+   * it. An instance left out is taken to pass its props on and to lay its children out as a
+   * block.
+   */
+  readonly instances?: Readonly<Record<string, InstanceDrawn>> | undefined;
   /** How the node's parent lays it out, which `fill` and `hug` are relative to. */
   readonly parent?: ParentLayout | undefined;
+}
+
+/** What writing every node of one call needs. */
+interface Writing {
+  readonly ds: DesignSystem | null | undefined;
+  readonly instances: Readonly<Record<string, InstanceDrawn>>;
 }
 
 // ---- Values as utilities ----
@@ -563,23 +577,22 @@ const propAttributes = (
   return out;
 };
 
-const childrenFor = (
-  node: DesignNode,
-  ds: DesignSystem | null | undefined
-): Child[] => {
-  const parent = layoutOf(node);
-  return childrenOf(node).map((child) => childFor(child, ds, parent));
+/** How a node lays out its children: an instance as the preview saw its component do it. */
+const childLayoutOf = (node: DesignNode, w: Writing): ParentLayout =>
+  node.type === "instance"
+    ? (w.instances[node.id]?.layout ?? "block")
+    : layoutOf(node);
+
+const childrenFor = (node: DesignNode, w: Writing): Child[] => {
+  const parent = childLayoutOf(node, w);
+  return childrenOf(node).map((child) => childFor(child, w, parent));
 };
 
 /** A node below the one written: hidden ones are left out, and say so. */
-const childFor = (
-  node: DesignNode,
-  ds: DesignSystem | null | undefined,
-  parent: ParentLayout
-): Child =>
+const childFor = (node: DesignNode, w: Writing, parent: ParentLayout): Child =>
   node.hidden
     ? { kind: "comment", text: `Hidden: ${nodeLabel(node)}` }
-    : jsxOf(node, ds, parent);
+    : jsxOf(node, w, parent);
 
 /** A link is a plain anchor here: in the application it is its router's own link. */
 const linked = (node: DesignNode, child: Child): Child =>
@@ -587,12 +600,8 @@ const linked = (node: DesignNode, child: Child): Child =>
     ? element("a", [stringAttribute("href", node.link)], [child])
     : child;
 
-const jsxOf = (
-  node: DesignNode,
-  ds: DesignSystem | null | undefined,
-  parent: ParentLayout
-): Child => {
-  const classes = classesOf(node, ds, parent);
+const jsxOf = (node: DesignNode, w: Writing, parent: ParentLayout): Child => {
+  const classes = classesOf(node, w.ds, parent);
   switch (node.type) {
     case "text":
       return linked(
@@ -614,9 +623,23 @@ const jsxOf = (
       const children = childrenOf(node);
       let content: Child[] = [];
       if (children.length > 0) {
-        content = childrenFor(node, ds);
+        content = childrenFor(node, w);
       } else if (node.text) {
         content = [{ kind: "text", text: jsxText(node.text) }];
+      }
+      // A component that keeps its props to itself cannot take the classes: they go on a div
+      // around it, which stretches it across, as the canvas draws it.
+      if (w.instances[node.id]?.wrapped && classes.length > 0) {
+        return linked(
+          node,
+          element("div", classAttribute(["flex", "flex-col", ...classes]), [
+            element(
+              tagOfInstance(node),
+              propAttributes(node.props, []),
+              content
+            ),
+          ])
+        );
       }
       return linked(
         node,
@@ -632,11 +655,7 @@ const jsxOf = (
       const attributes = node.link
         ? [stringAttribute("href", node.link), ...classAttribute(classes)]
         : classAttribute(classes);
-      return element(
-        node.link ? "a" : "div",
-        attributes,
-        childrenFor(node, ds)
-      );
+      return element(node.link ? "a" : "div", attributes, childrenFor(node, w));
     }
   }
 };
@@ -705,7 +724,8 @@ export const toCode = (
     ? ["// Hidden in the design: the application leaves it out."]
     : [];
   const asComponent = node.type === "page" && options.component !== undefined;
-  const markup = printChild(jsxOf(node, ds, parent), asComponent ? 2 : 0);
+  const writing = { ds, instances: options.instances ?? {} };
+  const markup = printChild(jsxOf(node, writing, parent), asComponent ? 2 : 0);
   const body = asComponent
     ? [
         `export default function ${options.component}() {`,

@@ -6,7 +6,7 @@
  */
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import type { RenderMode } from "@ultrapaint/contracts/preview";
+import type { InstanceDrawn, RenderMode } from "@ultrapaint/contracts/preview";
 
 /** The modules instances import, by the specifier a node's `from` names. */
 export type ComponentRegistry = Readonly<
@@ -29,6 +29,10 @@ export interface RenderSetup {
     readonly message: string;
     readonly stack?: string | undefined;
   }) => void;
+  /** How instances were drawn, by node id: the ones that changed since the last report. */
+  readonly reportInstances?: (
+    instances: Readonly<Record<string, InstanceDrawn>>
+  ) => void;
 }
 
 /** One thing to draw. */

@@ -151,6 +151,9 @@ holds a tree of nodes, each with an id:
 Every node may have width/height ("fill", "hug" or pixels), min/max sizes, padding, fill
 (background), border, radius, shadow, opacity, hidden, and link (a route the prototype follows).
 Numbers are pixels; "$name" is a design token, the Tailwind v4 variable --name.
+An instance's width, height, padding and fill are the component's own, on the canvas as in the
+code: size a component with them, not with a className prop. "fill" takes the room the parent
+leaves, so a parent whose size follows its content has none to give; apply_operations warns.
 
 Routes that exist now:
 ${routesOf(pages)}

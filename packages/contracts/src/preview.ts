@@ -25,6 +25,19 @@ export const HostError = Schema.Struct({
 export type HostError = typeof HostError.Type;
 
 /**
+ * How the preview drew an instance. `layout` is how the element holding the instance's children
+ * lays them out, which their `fill` and `hug` are relative to: a component that is a flex column
+ * grows a child that fills its height. `wrapped` says the component does not pass the props it
+ * is given on to its root element, so its box is drawn on a wrapper around it instead of on the
+ * component, and the code has to do the same.
+ */
+export const InstanceDrawn = Schema.Struct({
+  layout: Schema.Literals(["row", "column", "block"]),
+  wrapped: Schema.Boolean,
+});
+export type InstanceDrawn = typeof InstanceDrawn.Type;
+
+/**
  * How a render is laid out: `page` fills the iframe as a page fills a window; `fit` draws the
  * node at its own size and reports that size, for a node placed on the canvas and for specimens
  * (thumbnails, type samples).
@@ -63,6 +76,11 @@ export const HostMessage = Schema.Union([
   Schema.Struct({
     rects: Schema.Record(Schema.String, Rect),
     type: Schema.Literal("ed:rects"),
+  }),
+  /** How instances were drawn, by node id: sent for the ones that changed since the last. */
+  Schema.Struct({
+    instances: Schema.Record(Schema.String, InstanceDrawn),
+    type: Schema.Literal("ed:instances"),
   }),
   /** Answers `ed:measure`; a node that renders nothing is left out. */
   Schema.Struct({

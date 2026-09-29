@@ -18,6 +18,7 @@ import type {
   TextNode,
 } from "@ultrapaint/contracts/document";
 import type { ViewportPreset } from "@ultrapaint/contracts/pages";
+import { fillWarnings } from "@ultrapaint/design-document/sizing";
 import {
   attachTextStyle,
   detachTextStyle,
@@ -47,11 +48,12 @@ import {
   Link2,
   StretchHorizontal,
   Trash2,
+  TriangleAlert,
   Ungroup,
   Unlink2,
   Upload,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -81,6 +83,7 @@ import { api } from "../state/connection.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { nodeIn, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { useInstances } from "../state/instances.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { ComponentProps } from "./component-props.tsx";
 
@@ -125,7 +128,7 @@ export const Inspector = () => {
         node.type === "row" ||
         node.type === "column" ||
         node.type === "group") && <LayoutSection node={node} />}
-      <SizeSection node={node} />
+      <SizeSection frame={frame} node={node} />
       <PaddingSection node={node} />
       <AppearanceSection node={node} />
       {node.type !== "page" && <LinkSection node={node} />}
@@ -341,9 +344,18 @@ const TextInput = ({
   );
 };
 
+/** A line under a section's fields about why what they say is not what is drawn. */
+const Warning = ({ children }: { children: ReactNode }) => (
+  <p className="flex gap-1.5 text-[11px] text-warning [&_svg]:mt-px [&_svg]:size-3 [&_svg]:shrink-0">
+    <TriangleAlert />
+    <span>{children}</span>
+  </p>
+);
+
 const InstanceSection = ({ node }: { node: InstanceNode }) => (
   <>
     <Section title="Component">
+      <WrappedWarning node={node} />
       <Row label="Name">
         <span className="truncate font-medium text-brand">
           {node.component}
@@ -373,6 +385,20 @@ const InstanceSection = ({ node }: { node: InstanceNode }) => (
     />
   </>
 );
+
+/**
+ * A component that keeps its props to itself cannot take the node's size, padding or fill: the
+ * canvas draws them on a box around it, and the code has to do the same.
+ */
+const WrappedWarning = ({ node }: { node: InstanceNode }) => {
+  const wrapped = useInstances((s) => s.drawn[node.id]?.wrapped ?? false);
+  return wrapped ? (
+    <Warning>
+      {node.component} does not pass its props on to what it draws, so its size,
+      padding and fill are drawn on a box around it.
+    </Warning>
+  ) : null;
+};
 
 // ---- Text ----
 
@@ -831,12 +857,23 @@ const LengthField = ({
   />
 );
 
-const SizeSection = ({ node }: { node: DesignNode }) => (
+/** Why a `fill` of the node has no room to take, from its parent's size. */
+const useFillWarnings = (frame: string, node: DesignNode) => {
+  const space = useEditor((s) => s.space);
+  const root = useDocuments((s) => rootOfFrame(s.docs, space, frame));
+  const instances = useInstances((s) => s.drawn);
+  return root
+    ? fillWarnings(root, instances).filter((w) => w.nodeId === node.id)
+    : [];
+};
+
+const SizeSection = ({ frame, node }: { frame: string; node: DesignNode }) => (
   <Section title="Size">
     <Row label="Size">
       <SizeField field="width" value={node.width} />
       <SizeField field="height" value={node.height} />
     </Row>
+    <FillWarnings frame={frame} node={node} />
     <Row label="Min">
       <LengthField field="minWidth" short="W" value={node.minWidth} />
       <LengthField field="minHeight" short="H" value={node.minHeight} />
@@ -847,6 +884,11 @@ const SizeSection = ({ node }: { node: DesignNode }) => (
     </Row>
   </Section>
 );
+
+const FillWarnings = ({ frame, node }: { frame: string; node: DesignNode }) =>
+  useFillWarnings(frame, node).map((w) => (
+    <Warning key={w.axis}>{w.message}</Warning>
+  ));
 
 // ---- Padding ----
 

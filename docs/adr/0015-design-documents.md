@@ -74,6 +74,18 @@ imported from a generated registry of the component modules the catalogue and th
 name. There is no stamping, no fiber walk and no source editing. Every rendered node carries
 `data-ed-node`, which is all hit testing and measuring need. `PREVIEW_PROTOCOL` goes to 5.
 
+An instance's box fields (size, padding, fill, border…) are the component's own, as they are in
+the code, where they are classes in its `className`. The renderer gives them to the component as
+`style`, with `data-ed-node`, and a component that passes its props on to its root element puts
+them there: nothing of ours stands between the component and its parent, so its own selectors
+(`*:`, `has-[>…]`, grid placement) see the page as the application would. A component that keeps
+its props to itself is found out after the first commit and drawn inside a wrapper that carries
+the box; the Code tab then writes the same wrapper, and the inspector says so. An instance's
+children are sized against the element of the component that holds them, read off the DOM:
+`fill` inside a Card that is a flex column grows, as `flex-1` would. The preview reports both
+with `ed:instances`. Where a `fill` has no room to take — its parent's size follows its content —
+the inspector and `apply_operations` say so (`@ultrapaint/design-document/sizing`).
+
 **Code is written by an agent.** `/implement` (or **Implement** on a page) starts a thread whose
 prompt carries the document, the design system and the rules that turn one into the other:
 nodes into the design system's components and elements, tokens into Tailwind utilities. There is

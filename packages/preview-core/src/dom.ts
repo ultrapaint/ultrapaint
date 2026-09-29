@@ -6,8 +6,10 @@ export const NODE_ATTRIBUTE = "data-ed-node";
 const selectorFor = (id: string) => `[${NODE_ATTRIBUTE}="${CSS.escape(id)}"]`;
 
 /**
- * The elements a node is drawn as. An instance without a box of its own is a wrapper with
- * `display: contents`, which has no box to measure: what the component rendered inside it is.
+ * The elements a node is drawn as. An instance is usually the component's own root element,
+ * which the id is passed on to. A component that keeps its props to itself is drawn inside a
+ * wrapper, and one without a box of its own is `display: contents`, which has no box to
+ * measure: what the component rendered inside it is.
  */
 export const elementsOf = (id: string): Element[] => {
   const found = document.querySelectorAll(selectorFor(id));
