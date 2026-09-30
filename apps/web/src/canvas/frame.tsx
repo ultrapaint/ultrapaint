@@ -92,7 +92,11 @@ const frameName = (page: Page | undefined, root: DesignNode | null) => {
   return root ? nodeLabel(root) : "";
 };
 
-const renderFrame = (frameId: string, kind: "page" | "node") => {
+const renderFrame = (
+  frameId: string,
+  kind: "page" | "node",
+  size?: { height: number; width: number }
+) => {
   const { canvas } = useEditor.getState();
   const state = isNodeFrame(frameId)
     ? null
@@ -102,12 +106,30 @@ const renderFrame = (frameId: string, kind: "page" | "node") => {
   bridgeFor(frameId).render({
     designSystem,
     mode: kind === "page" ? "page" : "fit",
-    root,
+    root: root && size ? ({ ...root, ...size } as DesignNode) : root,
     ...(state?.problem !== undefined && {
       message: `This page cannot be read: ${state.problem}`,
     }),
   });
 };
+
+/**
+ * Draws a node on the canvas at the size it is being resized to, which the document has only once
+ * the pointer lets go; without a size, at the document's.
+ */
+export const drawResized = (
+  frameId: string,
+  size?: { height: number; width: number }
+) => {
+  if (bridgeFor(frameId).ready) {
+    renderFrame(frameId, "node", size);
+  }
+};
+
+/** A frame's corner, which resizing it drags while the opposite one stays put. */
+export type Corner = "nw" | "ne" | "sw" | "se";
+
+const CORNERS: readonly Corner[] = ["nw", "ne", "sw", "se"];
 
 export interface FrameBox {
   height: number;
@@ -125,7 +147,8 @@ interface Props {
   onDragStart: (
     e: ReactPointerEvent,
     frameId: string,
-    kind: "move" | "resize"
+    kind: "move" | "resize",
+    corner?: Corner
   ) => void;
   /** The page a page frame shows. */
   page?: Page;
@@ -652,7 +675,7 @@ export const Frame = memo(
 
     return (
       <div
-        className="absolute"
+        className="group/frame absolute"
         data-frame={frameId}
         style={{
           height: frame.height,
@@ -742,21 +765,65 @@ export const Frame = memo(
 
         {page ? <FrameComments inv={inv} page={page} /> : null}
 
-        <div
-          className="absolute cursor-nwse-resize rounded-sm bg-brand"
-          onPointerDown={(e) => onDragStart(e, frameId, "resize")}
-          style={{
-            bottom: -6 * inv,
-            height: 10 * inv,
-            right: -6 * inv,
-            width: 10 * inv,
-          }}
+        <ResizeHandles
+          frameId={frameId}
+          inv={inv}
+          kind={kind}
+          onDragStart={onDragStart}
+          root={root}
         />
       </div>
     );
   }
 );
 Frame.displayName = "Frame";
+
+/** Whether the frame itself is selected: the page, or the node on the canvas it shows. */
+const useFrameSelected = (
+  frameId: string,
+  kind: "page" | "node",
+  root: DesignNode | null
+) =>
+  useEditor(
+    (s) =>
+      s.selectedPage === frameId ||
+      (kind === "node" &&
+        s.selection?.frame === frameId &&
+        s.selection.nodeId === root?.id)
+  );
+
+/** A handle on each corner, shown while the frame is selected or the pointer is over it. */
+const ResizeHandles = ({
+  frameId,
+  inv,
+  kind,
+  onDragStart,
+  root,
+}: Pick<Props, "frameId" | "kind" | "onDragStart"> & {
+  inv: number;
+  root: DesignNode | null;
+}) => {
+  const isSelected = useFrameSelected(frameId, kind, root);
+  return CORNERS.map((corner) => (
+    <div
+      className={cn(
+        "absolute rounded-sm bg-brand",
+        corner === "nw" || corner === "se"
+          ? "cursor-nwse-resize"
+          : "cursor-nesw-resize",
+        !isSelected && "opacity-0 group-hover/frame:opacity-100"
+      )}
+      key={corner}
+      onPointerDown={(e) => onDragStart(e, frameId, "resize", corner)}
+      style={{
+        [corner[0] === "n" ? "top" : "bottom"]: -6 * inv,
+        [corner[1] === "w" ? "left" : "right"]: -6 * inv,
+        height: 10 * inv,
+        width: 10 * inv,
+      }}
+    />
+  ));
+};
 
 /** Name, viewport preset and size above the frame, plus the frame's selection outline. */
 const FrameChrome = ({
@@ -774,13 +841,7 @@ const FrameChrome = ({
   name: string;
   root: DesignNode | null;
 }) => {
-  const isSelected = useEditor(
-    (s) =>
-      s.selectedPage === frameId ||
-      (kind === "node" &&
-        s.selection?.frame === frameId &&
-        s.selection.nodeId === root?.id)
-  );
+  const isSelected = useFrameSelected(frameId, kind, root);
   const [titleHover, setTitleHover] = useState(false);
   const selectFrame = () => {
     const store = useEditor.getState();

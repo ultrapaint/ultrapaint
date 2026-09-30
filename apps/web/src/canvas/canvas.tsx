@@ -45,7 +45,7 @@ import {
   useDrag,
 } from "./drag.ts";
 import { CreateOverlay, DragOverlay } from "./drag-overlay.tsx";
-import { Frame, useHostUrl } from "./frame.tsx";
+import { type Corner, drawResized, Frame, useHostUrl } from "./frame.tsx";
 import { addImages, imageFiles } from "./items.ts";
 
 const clampZoom = (z: number) => Math.min(4, Math.max(0.05, z));
@@ -70,11 +70,13 @@ export const Canvas = () => {
   const hostUrl = useHostUrl();
   const [size, setSize] = useState({ height: 0, width: 0 });
   const [panning, setPanning] = useState(false);
-  // The size a node on the canvas is being resized to, until the pointer lets go.
+  // The box a node on the canvas is being resized to, until the document has it.
   const [resizing, setResizingState] = useState<{
     height: number;
     id: string;
     width: number;
+    x: number;
+    y: number;
   } | null>(null);
   const resizingRef = useRef<typeof resizing>(null);
   const setResizing = (next: typeof resizing) => {
@@ -85,6 +87,7 @@ export const Canvas = () => {
     | { kind: "pan"; startX: number; startY: number; vx: number; vy: number }
     | {
         kind: "move" | "resize";
+        corner: Corner;
         pageId: string;
         startX: number;
         startY: number;
@@ -93,10 +96,11 @@ export const Canvas = () => {
     | {
         /** Resizing a node on the canvas gives it a fixed size. */
         kind: "resize-node";
+        corner: Corner;
         nodeId: string;
         startX: number;
         startY: number;
-        size: { height: number; width: number };
+        box: Box;
       }
     | null
   >(null);
@@ -330,7 +334,8 @@ export const Canvas = () => {
   const startFrameDrag = (
     e: ReactPointerEvent,
     pageId: string,
-    kind: "move" | "resize"
+    kind: "move" | "resize",
+    corner: Corner = "se"
   ) => {
     const s = useEditor.getState();
     // Let the event reach the canvas, which pans.
@@ -371,9 +376,10 @@ export const Canvas = () => {
       }
       ref.current?.setPointerCapture(e.pointerId);
       drag.current = {
+        box,
+        corner,
         kind: "resize-node",
         nodeId,
-        size: { height: box.height, width: box.width },
         startX: e.clientX,
         startY: e.clientY,
       };
@@ -385,6 +391,7 @@ export const Canvas = () => {
     }
     ref.current?.setPointerCapture(e.pointerId);
     drag.current = {
+      corner,
       frame,
       kind,
       pageId,
@@ -414,14 +421,16 @@ export const Canvas = () => {
         y: d.vy + (e.clientY - d.startY),
       });
     } else if (d.kind === "resize-node") {
+      const next = roundBox(resizeFrom(d.box, d.corner, dx, dy, 8, e.shiftKey));
       s.setSize(nodeFrameOf(d.nodeId), {
-        height: Math.max(8, d.size.height + dy),
-        width: Math.max(8, d.size.width + dx),
+        height: next.height,
+        width: next.width,
       });
-      setResizing({
-        height: Math.max(8, Math.round(d.size.height + dy)),
-        id: d.nodeId,
-        width: Math.max(8, Math.round(d.size.width + dx)),
+      setResizing({ ...next, id: d.nodeId });
+      // The preview draws it at that size too, or it would be cropped by its frame.
+      drawResized(nodeFrameOf(d.nodeId), {
+        height: next.height,
+        width: next.width,
       });
     } else if (d.kind === "move") {
       const others = Object.entries(s.frames)
@@ -439,9 +448,8 @@ export const Canvas = () => {
         d.pageId,
         {
           ...d.frame,
-          height: Math.max(120, d.frame.height + dy),
+          ...resizeFrom(d.frame, d.corner, dx, dy, 120, e.shiftKey),
           preset: "custom",
-          width: Math.max(120, d.frame.width + dx),
         },
         false
       );
@@ -458,21 +466,23 @@ export const Canvas = () => {
     setPanning(false);
     if (d?.kind === "resize-node") {
       const resized = resizingRef.current;
-      setResizing(null);
       const { canvas: current } = useEditor.getState();
-      if (resized && current !== null) {
-        applyOps(
-          canvasDocOf(current),
-          [
-            {
-              id: d.nodeId,
-              op: "update",
-              set: { height: resized.height, width: resized.width },
-            },
-          ],
-          "Resize"
-        );
+      if (!resized || current === null) {
+        setResizing(null);
+        return;
       }
+      const { id, ...set } = resized;
+      // The box stays where it was let go until the document has it, then the document draws it.
+      applyOps(
+        canvasDocOf(current),
+        [{ id, op: "update", set }],
+        "Resize"
+      ).then(() => {
+        if (resizingRef.current === resized) {
+          setResizing(null);
+        }
+        drawResized(nodeFrameOf(id));
+      });
       return;
     }
     if (d && d.kind !== "pan") {
@@ -602,6 +612,8 @@ export const Canvas = () => {
             ...(resizing?.id === node.id && {
               height: resizing.height,
               width: resizing.width,
+              x: resizing.x,
+              y: resizing.y,
             }),
             ...moving,
           };
@@ -650,6 +662,55 @@ const isTyping = (e: Event) => {
     (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)
   );
 };
+
+interface Box {
+  height: number;
+  width: number;
+  x: number;
+  y: number;
+}
+
+/**
+ * The box left once `corner` is dragged by (dx, dy): the opposite corner stays where it was, and
+ * neither side goes under `min`. Keeping the ratio (Shift), the side the pointer moved further
+ * decides.
+ */
+const resizeFrom = (
+  box: Box,
+  corner: Corner,
+  dx: number,
+  dy: number,
+  min: number,
+  keepRatio: boolean
+): Box => {
+  const west = corner.endsWith("w");
+  const north = corner.startsWith("n");
+  let width = Math.max(min, box.width + (west ? -dx : dx));
+  let height = Math.max(min, box.height + (north ? -dy : dy));
+  if (keepRatio) {
+    const sx = width / box.width;
+    const sy = height / box.height;
+    const k = Math.max(
+      Math.abs(sx - 1) > Math.abs(sy - 1) ? sx : sy,
+      min / Math.min(box.width, box.height)
+    );
+    width = box.width * k;
+    height = box.height * k;
+  }
+  return {
+    height,
+    width,
+    x: west ? box.x + box.width - width : box.x,
+    y: north ? box.y + box.height - height : box.y,
+  };
+};
+
+const roundBox = (b: Box): Box => ({
+  height: Math.round(b.height),
+  width: Math.round(b.width),
+  x: Math.round(b.x),
+  y: Math.round(b.y),
+});
 
 const snap = (
   f: FrameLayout,

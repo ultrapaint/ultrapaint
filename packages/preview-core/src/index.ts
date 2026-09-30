@@ -138,12 +138,15 @@ export const startPreview = () => {
       canvas.style.display = "block";
       document.documentElement.style.background = "transparent";
       document.body.style.background = "transparent";
+      // The frame is sized around the content: for a moment, while it is resized, it is not.
+      document.documentElement.style.overflow = "hidden";
     } else {
       canvas.style.width = "";
       canvas.style.minHeight = "";
       canvas.style.display = "";
       document.documentElement.style.background = "";
       document.body.style.background = "";
+      document.documentElement.style.overflow = "";
     }
   };
 
