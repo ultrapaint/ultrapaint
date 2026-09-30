@@ -11,7 +11,8 @@ export const builtInAgents: AgentConfig[] = [
       "Uses your Claude Code login (`claude` CLI). Run `claude` once to sign in.",
     builtIn: true,
     command: "npx",
-    env: {},
+    // Its shell goes back to the repository after every command, so it never has to `cd` there.
+    env: { CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR: "1" },
     id: "claude-code",
     name: "Claude Code",
     package: "@agentclientprotocol/claude-agent-acp",

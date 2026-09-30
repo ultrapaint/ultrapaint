@@ -222,7 +222,8 @@ Prefer these to editing the JSON files yourself; if you do write a file, keep it
     : `Edit the .page.json files directly and keep them valid; every node needs a unique id.
 
 `
-}Work only inside ${paths.root}. Changes land on the canvas as you make them, so make them one
+}Your shell already starts in ${paths.root}, the repository: use paths relative to it, and
+stay inside it. Changes land on the canvas as you make them, so make them one
 step at a time rather than rewriting a page wholesale.${
           sandbox.available
             ? `

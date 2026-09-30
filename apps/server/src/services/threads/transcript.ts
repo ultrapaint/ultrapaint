@@ -100,6 +100,22 @@ const toolLocations = (
     ...(l.line === null || l.line === undefined ? {} : { line: l.line }),
   }));
 
+const LEADING_CD_RE = /^cd\s+("[^"]+"|'[^']+'|\S+)\s*(?:&&|;)\s*(?=\S)/;
+const QUOTES_RE = /^["']|["']$/g;
+
+/**
+ * A command's title is the command, and an agent often opens it with a `cd` into the repository
+ * its shell is already in: `cd /home/me/app && pnpm test`. That `cd` does nothing and pushes the
+ * command itself out of the row, so it is left out. A `cd` anywhere else stays.
+ */
+const withoutCdToRoot = (title: string, ctx: ProjectionContext) => {
+  const match: RegExpExecArray | null = LEADING_CD_RE.exec(title);
+  const dir = match?.[1]?.replace(QUOTES_RE, "");
+  return match && dir?.startsWith("/") && ctx.relative(dir) === ""
+    ? title.slice(match[0].length)
+    : title;
+};
+
 interface RawConfigOption {
   readonly category?: string | null;
   readonly currentValue: unknown;
@@ -217,7 +233,7 @@ const toolItem = (
   kind: "tool",
   locations: toolLocations(u.locations ?? [], ctx),
   status: u.status ?? fallback.status,
-  title: u.title ?? fallback.title,
+  title: withoutCdToRoot(u.title ?? fallback.title, ctx),
   toolCallId: u.toolCallId,
   ...(u.kind ? { toolKind: u.kind } : {}),
 });
@@ -250,7 +266,7 @@ const projectToolUpdate = (
                 ? toolLocations(u.locations, ctx)
                 : i.locations,
               status: u.status ?? i.status,
-              title: u.title ?? i.title,
+              title: u.title ? withoutCdToRoot(u.title, ctx) : i.title,
             }
           : i,
       type: "patch",

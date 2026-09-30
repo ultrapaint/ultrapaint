@@ -2,6 +2,8 @@ import { describe, expect, it } from "@effect/vitest";
 import { migrateStored } from "./services/threads/thread-store.ts";
 import { projectUpdate, toolContent } from "./services/threads/transcript.ts";
 
+const REPO_RE = /^\/repo\/?/;
+
 const ctx = {
   hasItem: () => false,
   newId: () => "item_1",
@@ -69,6 +71,30 @@ describe("projectUpdate", () => {
         action.item.kind === "tool" &&
         action.item.locations
     ).toEqual([{ line: 42, path: "designs/index.tsx" }]);
+  });
+
+  it("leaves out a command's cd into the repository, and keeps one anywhere else", () => {
+    const titleOf = (title: string) => {
+      const [action] = projectUpdate(
+        {
+          kind: "execute",
+          sessionUpdate: "tool_call",
+          title,
+          toolCallId: "call_1",
+        } as Parameters<typeof projectUpdate>[0],
+        { ...ctx, relative: (file) => file.replace(REPO_RE, "") }
+      );
+      return action?.type === "push" && action.item.kind === "tool"
+        ? action.item.title
+        : undefined;
+    };
+    expect(titleOf("cd /repo && pnpm test")).toBe("pnpm test");
+    expect(titleOf("cd '/repo/'; git status")).toBe("git status");
+    expect(titleOf("cd /repo/apps/web && pnpm test")).toBe(
+      "cd /repo/apps/web && pnpm test"
+    );
+    expect(titleOf("cd /tmp && ls")).toBe("cd /tmp && ls");
+    expect(titleOf("cd /repo")).toBe("cd /repo");
   });
 });
 
