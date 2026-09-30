@@ -30,9 +30,11 @@ interface Starter {
 
 const useStarters = (): readonly Starter[] => {
   const activePage = useEditor((s) => s.activePage);
-  const route = useProject(
-    (s) => s.pages.find((p) => p.id === activePage)?.route
-  );
+  // The command names a page by its URL, or by its file when it has none.
+  const target = useProject((s) => {
+    const page = s.pages.find((p) => p.id === activePage);
+    return page ? (page.route ?? page.id) : undefined;
+  });
   return [
     {
       description: "Bring what is attached back onto the design system",
@@ -58,7 +60,7 @@ const useStarters = (): readonly Starter[] => {
       description: "Write the page with your components",
       icon: Code,
       prompts: [
-        route ? `/implement ${route}` : "/implement ",
+        target ? `/implement ${target}` : "/implement ",
         "Implement the attached element as a component",
       ],
       title: "Implement in code",

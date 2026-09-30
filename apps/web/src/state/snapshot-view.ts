@@ -10,7 +10,8 @@ interface SnapshotViewStore {
   /** Where the editor was when the snapshot was opened, to go back to. */
   live: {
     canvas: string | null;
-    route: string;
+    page: string | null;
+    route: string | null;
     variant: string | null;
   } | null;
   view: SnapshotView | null;

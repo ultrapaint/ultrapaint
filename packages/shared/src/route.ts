@@ -1,7 +1,10 @@
 /**
- * Routes of a canvas, derived from the page files inside it. The server, the editor and the
- * generated preview entry all need the same answers, so the derivation and the matching live
- * here: pure, synchronous, no dependency on a framework or on a file system.
+ * Routes of a canvas. A page is named by its file and serves the URL the canvas's `routes`
+ * give it, or none. The server and the editor need the same answers, so the lookup and the
+ * matching live here: pure, synchronous, no dependency on a framework or on a file system.
+ *
+ * A canvas written before pages had optional URLs has no `routes`, and each of its pages serves
+ * the route its path names:
  *
  * | file                  | route             |
  * |-----------------------|-------------------|
@@ -20,6 +23,7 @@ const PAGE_EXTENSION_RE = /\.page\.json$|\.[^./]+$/;
 /** The variant a page file is written for: `pricing@bold.page.json`. */
 const VARIANT_RE = /@([a-z0-9][a-z0-9-]*)(?=\.page\.json$|\.[^./]+$|$)/;
 const VARIANT_NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
+const REST_RE = /^\.\.\./;
 
 /** `[id]` and `[...rest]` are the parameter forms; anything else is a literal segment. */
 const parameterOf = (segment: string): string | null =>
@@ -92,6 +96,58 @@ export const routeLabel = (route: string): string => {
   return last.startsWith(":") ? humanise(last.slice(1)) : humanise(last);
 };
 
+/**
+ * What a page file is called: its name made readable, `billing-settings.page.json` is "Billing
+ * settings". An `index` file is named after its directory, and the canvas's own is "Home"; a
+ * parameter file (`invoices/[id]`) after its directory and the parameter.
+ */
+export const pageNameOf = (pagePath: string): string => {
+  const segments = basePathOf(pagePath)
+    .replace(PAGE_EXTENSION_RE, "")
+    .split("/")
+    .filter((segment) => segment !== "");
+  const last = segments.at(-1) ?? "index";
+  const parent = segments.at(-2);
+  if (last === "index") {
+    return parent === undefined ? "Home" : humanise(parent);
+  }
+  const parameter = parameterOf(last);
+  if (parameter === null) {
+    return humanise(last);
+  }
+  const name = humanise(parameter.replace(REST_RE, ""));
+  return parent === undefined
+    ? name
+    : `${humanise(parent)} ${name.toLowerCase()}`;
+};
+
+/**
+ * The URL a page serves, from the canvas's `routes`: its own entry, or its base page's for a
+ * variant. A canvas without `routes` serves each page at the route its path names.
+ */
+export const pageRouteOf = (
+  routes: Readonly<Record<string, string>> | undefined,
+  pagePath: string
+): string | undefined => {
+  if (routes === undefined) {
+    return routeOf(pagePath);
+  }
+  const route = routes[basePathOf(pagePath)];
+  return route === undefined ? undefined : normaliseRoute(route);
+};
+
+/**
+ * The canvas's `routes` written out: as they are, or, for a canvas that has none yet, the
+ * route each of these base pages' paths names.
+ */
+export const routesOf = (
+  routes: Readonly<Record<string, string>> | undefined,
+  basePaths: readonly string[]
+): Record<string, string> =>
+  routes === undefined
+    ? Object.fromEntries(basePaths.map((p) => [p, routeOf(p)]))
+    : { ...routes };
+
 export interface RouteMatch<T> {
   readonly entry: T;
   readonly params: Record<string, string>;
@@ -155,8 +211,8 @@ const better = (a: number[], b: number[]) => {
   return a.length > b.length;
 };
 
-/** The entry that serves this route, with the parameters it binds. */
-export const matchRoute = <T extends { readonly route: string }>(
+/** The entry that serves this route, with the parameters it binds. An entry without one never does. */
+export const matchRoute = <T extends { readonly route?: string | undefined }>(
   entries: readonly T[],
   route: string
 ): RouteMatch<T> | null => {
@@ -167,6 +223,9 @@ export const matchRoute = <T extends { readonly route: string }>(
     score: number[];
   } | null = null;
   for (const entry of entries) {
+    if (entry.route === undefined) {
+      continue;
+    }
     const hit = scoreOf(patternOf(entry.route), path);
     if (hit && (best === null || better(hit.score, best.score))) {
       best = { entry, params: hit.params, score: hit.score };

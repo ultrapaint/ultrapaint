@@ -126,25 +126,43 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             client["events.pages"](),
             client["pages.create"]({
               canvas: "",
+              name: "Sign in",
               route: "/onboarding/sign-in",
             })
           );
-          assert.strictEqual(result.id, "onboarding/sign-in.page.json");
+          // The file is the name's; the URL is the canvas's to say.
+          assert.strictEqual(result.id, "sign-in.page.json");
+          assert.strictEqual(result.name, "Sign in");
           assert.strictEqual(result.route, "/onboarding/sign-in");
-          const ids =
-            event._tag === "Some" ? event.value.pages.map((p) => p.id) : [];
-          assert.include(ids, "onboarding/sign-in.page.json");
+          const listed =
+            event._tag === "Some"
+              ? event.value.pages.map((p) => [p.id, p.route])
+              : [];
+          assert.deepInclude(listed, [
+            "sign-in.page.json",
+            "/onboarding/sign-in",
+          ]);
+          // The page that was there keeps the URL its path gave it once the routes are written.
+          assert.deepInclude(listed, [HOME, "/home"]);
+          const layout = yield* client["canvas.get"]({ canvas: "" });
+          assert.deepStrictEqual(layout.routes, {
+            [HOME]: "/home",
+            "sign-in.page.json": "/onboarding/sign-in",
+          });
         })
     );
 
-    it.effect("starts a page from a template, titled after its route", () =>
+    it.effect("starts a page from a template, titled after its name", () =>
       Effect.gen(function* () {
         const { client } = yield* TestEnv;
         const page = yield* client["pages.create"]({
           canvas: "",
-          route: "/welcome-back",
+          name: "Welcome back",
           template: "centered",
         });
+        // Without a URL: drawn like any other page, reached by nothing.
+        assert.strictEqual(page.id, "welcome-back.page.json");
+        assert.isUndefined(page.route);
         const state = yield* client["documents.get"]({ doc: page.id });
         assert.strictEqual(state.root?.type, "page");
         const [title] =
@@ -156,17 +174,48 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
       })
     );
 
-    it.effect("refuses a second page on the same route", () =>
+    it.effect("refuses a second page on the same URL", () =>
       Effect.gen(function* () {
         const { client } = yield* TestEnv;
         const error = yield* Effect.flip(
-          client["pages.create"]({ canvas: "", route: "onboarding/sign-in" })
+          client["pages.create"]({
+            canvas: "",
+            name: "Log in",
+            route: "onboarding/sign-in",
+          })
         );
         assert.strictEqual(error._tag, "Conflict");
+        const taken = yield* Effect.flip(
+          client["pages.setRoute"]({ id: HOME, route: "/onboarding/sign-in/" })
+        );
+        assert.strictEqual(taken._tag, "Conflict");
       })
     );
 
-    it.effect("moves the canvas frame with a page sent to another route", () =>
+    it.effect("gives a page a URL, changes it and takes it off", () =>
+      Effect.gen(function* () {
+        const { client } = yield* TestEnv;
+        const page = yield* client["pages.create"]({
+          canvas: "",
+          name: "Draft",
+        });
+        const served = yield* client["pages.setRoute"]({
+          id: page.id,
+          route: "drafts/one",
+        });
+        assert.strictEqual(served.route, "/drafts/one");
+        const none = yield* client["pages.setRoute"]({
+          id: page.id,
+          route: null,
+        });
+        assert.isUndefined(none.route);
+        yield* client["pages.delete"]({ id: page.id });
+        const layout = yield* client["canvas.get"]({ canvas: "" });
+        assert.notProperty(layout.routes ?? {}, page.path);
+      })
+    );
+
+    it.effect("renames a page: its frame goes along, its URL stays", () =>
       Effect.gen(function* () {
         const { client } = yield* TestEnv;
         const frame = {
@@ -178,17 +227,20 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         } as const;
         yield* client["canvas.set"]({
           canvas: "",
-          frames: { "onboarding/sign-in.page.json": frame },
+          frames: { "sign-in.page.json": frame },
         });
         const renamed = yield* client["pages.rename"]({
-          id: "onboarding/sign-in.page.json",
-          route: "/onboarding/log-in",
+          id: "sign-in.page.json",
+          name: "Log in",
         });
-        assert.strictEqual(renamed.id, "onboarding/log-in.page.json");
+        assert.strictEqual(renamed.id, "log-in.page.json");
+        assert.strictEqual(renamed.route, "/onboarding/sign-in");
         const layout = yield* client["canvas.get"]({ canvas: "" });
-        assert.deepStrictEqual(layout.frames, {
-          "onboarding/log-in.page.json": frame,
-        });
+        assert.deepStrictEqual(layout.frames, { "log-in.page.json": frame });
+        assert.strictEqual(
+          layout.routes?.["log-in.page.json"],
+          "/onboarding/sign-in"
+        );
       })
     );
 
@@ -271,7 +323,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         Effect.gen(function* () {
           const { client, repo } = yield* TestEnv;
           const fs = yield* FileSystem.FileSystem;
-          const file = path.join(repo, "designs/onboarding/log-in.page.json");
+          const file = path.join(repo, "designs/log-in.page.json");
           // What an agent might write: a node without an id.
           const written = {
             root: {
@@ -283,13 +335,13 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           };
           const { event } = yield* nextEvent(
             client["events.document"]().pipe(
-              Stream.filter((e) => e.doc === "onboarding/log-in.page.json")
+              Stream.filter((e) => e.doc === "log-in.page.json")
             ),
             fs.writeFileString(file, JSON.stringify(written))
           );
           assert.strictEqual(
             event._tag === "Some" ? event.value.doc : "",
-            "onboarding/log-in.page.json"
+            "log-in.page.json"
           );
           const [node] =
             event._tag === "Some" &&
@@ -541,13 +593,13 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         assert.strictEqual(status.branch, "main");
         const changed = status.files.map((f) => f.path);
         assert.include(changed, HOME_FILE);
-        assert.include(changed, "designs/onboarding/log-in.page.json");
+        assert.include(changed, "designs/log-in.page.json");
         assert.isTrue(status.files.every((f) => f.design));
 
         const tracked = yield* client["git.diff"]({ path: HOME_FILE });
         assert.include(tracked.diff, "External");
         const untracked = yield* client["git.diff"]({
-          path: "designs/onboarding/log-in.page.json",
+          path: "designs/log-in.page.json",
         });
         assert.include(untracked.diff, '+  "version": 1');
 
@@ -583,7 +635,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
               });
               yield* client["pages.create"]({
                 canvas: "",
-                route: "/after-defect",
+                name: "After defect",
               });
               return broken;
             })
@@ -748,6 +800,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         const { client } = yield* TestEnv;
         const page = yield* client["pages.create"]({
           canvas: "",
+          name: "Undo me",
           route: "/undo-me",
         });
         yield* client["pages.delete"]({ id: page.id });
@@ -792,6 +845,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           // The same route is a page in two canvases.
           const page = yield* client["pages.create"]({
             canvas: "wireframes",
+            name: "Home",
             route: "/home",
           });
           assert.strictEqual(page.id, "wireframes/home.page.json");
@@ -880,6 +934,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
 
           const leaving = yield* client["pages.create"]({
             canvas: "",
+            name: "Leaving",
             route: "/leaving",
           });
           yield* client["pages.copyTo"]({
@@ -889,9 +944,13 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           });
           const after = (yield* client["pages.list"]()).pages;
           assert.isFalse(after.some((p) => p.id === leaving.id));
-          assert.isTrue(
-            after.some((p) => p.id === "marketing/leaving.page.json")
+          // It serves its URL in the canvas it moved to, and none in the one it left.
+          assert.deepInclude(
+            after.map((p) => [p.id, p.route]),
+            ["marketing/leaving.page.json", "/leaving"]
           );
+          const left = yield* client["canvas.get"]({ canvas: "" });
+          assert.notProperty(left.routes ?? {}, "leaving.page.json");
         })
     );
 
@@ -921,15 +980,31 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             client["pages.createVariant"]({ id: HOME, variant: "bold" })
           );
           assert.strictEqual(again._tag, "Conflict");
-          // The variant goes with the page to its new route, and with its copy.
-          const moved = yield* client["pages.rename"]({
-            id: variant.id,
-            route: "/start",
+          // A variant is named after its page: it is renamed with it, and keeps its URL.
+          const refused = yield* Effect.flip(
+            client["pages.rename"]({ id: variant.id, name: "Start" })
+          );
+          assert.strictEqual(refused._tag, "BadRequest");
+          yield* client["pages.rename"]({ id: HOME, name: "Start" });
+          const renamed = (yield* client["pages.list"]()).pages.find(
+            (p) => p.id === "start@bold.page.json"
+          );
+          assert.strictEqual(renamed?.route, "/home");
+          const copy = yield* client["pages.duplicate"]({
+            id: renamed?.id ?? "",
           });
-          assert.strictEqual(moved.id, "start@bold.page.json");
-          const copy = yield* client["pages.duplicate"]({ id: moved.id });
           assert.strictEqual(copy.id, "start-2@bold.page.json");
           assert.strictEqual(copy.variant, "bold");
+          yield* client["pages.delete"]({ id: copy.id });
+          yield* client["pages.rename"]({
+            id: "start.page.json",
+            name: "Home",
+          });
+          assert.strictEqual(
+            (yield* client["pages.list"]()).pages.find((p) => p.id === HOME)
+              ?.route,
+            "/home"
+          );
         })
     );
 

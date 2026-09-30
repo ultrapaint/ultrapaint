@@ -31,7 +31,7 @@ const GetScreenshot = Tool.make("get_screenshot", {
     loose: Schema.optional(Schema.Boolean),
     /** Id of the node to crop to; the whole page when left out. */
     node: Schema.optional(Schema.String),
-    /** Route or file of the page; leave out with `loose: true`. */
+    /** URL or file of the page; leave out with `loose: true`. */
     route: Schema.optional(Schema.String),
     /** Viewport width in CSS pixels, for a page: 390 for a phone, 1440 for a desktop. */
     width: Schema.optional(
@@ -104,7 +104,7 @@ export const ScreenshotToolLive = Layer.effectDiscard(
       }
       if (node !== undefined && !findNode(state.root, node)) {
         return yield* missing(
-          `no node ${node} on ${page.route}; read_page lists them`
+          `no node ${node} on ${page.route ?? page.file}; read_page lists them`
         );
       }
       const layout = yield* reported(
@@ -124,7 +124,7 @@ export const ScreenshotToolLive = Layer.effectDiscard(
           ...(node !== undefined && { nodeId: node }),
         })
       );
-      const where = `${page.route} at ${viewport}px wide`;
+      const where = `${page.route ?? page.file} at ${viewport}px wide`;
       return {
         bytes,
         what: node === undefined ? where : `node ${node} of ${where}`,
@@ -138,9 +138,9 @@ export const ScreenshotToolLive = Layer.effectDiscard(
         ? {
             ...given,
             node: ref.nodeId,
-            ...(ref.route === null
+            ...(ref.page === null
               ? { loose: true }
-              : { route: given.route ?? ref.route }),
+              : { route: given.route ?? ref.page }),
             ...(ref.canvas === undefined || given.canvas !== undefined
               ? {}
               : { canvas: ref.canvas }),

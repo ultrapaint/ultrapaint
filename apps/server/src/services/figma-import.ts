@@ -191,12 +191,15 @@ export class FigmaImportService extends Context.Service<
       key: string,
       mapping: ComponentMapping | null
     ) => Effect.Effect<FigmaImport, ImportFailure>;
-    /** Writes a frame as a page of the canvas, with its images in the shared assets. */
+    /**
+     * Writes a frame as a page of the canvas, named after the frame and serving `route` when one
+     * is given, with its images in the shared assets.
+     */
     readonly writeFrame: (
       id: string,
       frame: string,
       canvas: string,
-      route: string
+      route?: string
     ) => Effect.Effect<WrittenFrame, ImportFailure | EditFailure | Conflict>;
   }
 >()("ultrapaint/server/FigmaImportService") {
@@ -503,7 +506,7 @@ export class FigmaImportService extends Context.Service<
         id: string,
         ref: string,
         canvas: string,
-        route: string
+        route?: string
       ) {
         const summary = yield* readSummary(id);
         const file = yield* load(id);
@@ -526,10 +529,15 @@ export class FigmaImportService extends Context.Service<
           Effect.map((decoded) => decoded as unknown as PageDocument)
         );
         yield* writeImages(conversion);
-        const page = yield* pages.createWith(canvas, route, document, {
-          height: found.summary.height,
-          width: found.summary.width,
-        });
+        const page = yield* pages.createWith(
+          canvas,
+          { name: found.node.name, route },
+          document,
+          {
+            height: found.summary.height,
+            width: found.summary.width,
+          }
+        );
         return {
           page,
           unmapped: conversion.unmapped,

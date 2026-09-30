@@ -29,8 +29,6 @@ export type MenuTarget =
   | { kind: "page"; pageId: string; at?: Point }
   /** The empty canvas, at a point of the canvas. */
   | { kind: "canvas"; at: Point }
-  /** A route of the Pages panel that only has pages under it. */
-  | { kind: "route"; route: string }
   /** A canvas of the list in the Pages panel. */
   | { kind: "canvasEntry"; canvasId: string }
   | { kind: "comment"; commentId: string }

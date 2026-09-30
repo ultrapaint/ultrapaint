@@ -226,9 +226,10 @@ const ThreadHeader = ({ thread }: { thread: Thread }) => {
 /** What the thread works on, pinned under its header, with the way to it on the canvas. */
 const ScopeBar = ({ thread }: { thread: Thread }) => {
   const { scope } = thread;
-  const route = useProject(
-    (s) => s.pages.find((p) => p.file === scope?.file)?.route
-  );
+  const route = useProject((s) => {
+    const page = s.pages.find((p) => p.file === scope?.file);
+    return page ? (page.route ?? page.name) : undefined;
+  });
   if (!scope) {
     return null;
   }

@@ -201,7 +201,7 @@ tree, and the nodes placed on the canvas beside them. A node inside a page follo
 layout; a node on the canvas has its own position. Drag one from one to the other, in the layers
 or on the canvas.
 
-When a page is ready, **Implement** in the Pages panel (or `/implement <route>` in a thread) asks
+When a page is ready, **Implement** in the Pages panel (or `/implement <url or file>` in a thread) asks
 an agent to write it in your application with your own components and conventions: the tokens
 become the matching Tailwind v4 classes, instances become your components.
 
@@ -240,7 +240,7 @@ grid of thumbnails, drawn with the example props.
 
 ## Importing a Figma file
 
-**Import Figma…** in the Pages panel takes a `.fig` file (File → Save local copy in Figma).
+**Import a Figma file…** in the canvas list (or the canvas's right-click menu) takes a `.fig` file (File → Save local copy in Figma).
 The server reads it by fixed rules — the frames of each page, the components and where they are
 used, the images — and opens a thread with `/import-figma` in its composer. The agent then
 decides, component by component, what each Figma component becomes: one of your components,
@@ -253,20 +253,27 @@ agent looks at it and mends what the rules could not carry over.
 Auto-layout becomes rows and columns, text keeps its font, image fills become images, icons
 become SVG files. Free-positioned layers are stacked in reading order, and the import says so.
 
-## Pages, routes and spaces
+## Pages, URLs and canvases
 
-A **page** is a `.page.json` file in the designs directory, and its path is its route, the way
-every React router does it: `index.page.json` is `/`, `settings/billing.page.json` is
-`/settings/billing`, `invoices/[id].page.json` is `/invoices/:id`. The **Pages** panel is that
-route tree. Nodes placed on the canvas outside any page are kept in the space's `canvas.json`.
+A **page** is a `.page.json` file in a canvas, named after its file: "Billing settings" is
+`billing-settings.page.json`. Renaming a page moves the file and keeps everything that points to
+it. Nodes placed on the canvas outside any page are kept in the canvas's `canvas.json`.
 
-Any node can link to a route. In the **prototype** workspace the whole thing is one iframe:
-pressing a link swaps the page inside it, provider and component state survives, and the route
-is in the editor's own URL — so the browser's back and forward buttons are the prototype's, and
-a prototype state can be reloaded or pasted to someone else.
+A page may serve a **URL** in the prototype (`/settings/billing`, `/invoices/:id`), which
+`canvas.json` keeps. A screen of the application has one; a sketch or a sheet of components needs
+none. A page without a URL is drawn and edited like any other, but no link reaches it, and the
+prototype warns when it shows one. A canvas made before URLs were optional serves each page at
+the route its path names until its pages next change.
 
-A **space** owns one router, one canvas and its own pages; a page of one space cannot navigate
-to a page of another. The designs directory is one space until a `space.json` says otherwise.
+The **Pages** panel belongs to the **prototype** workspace: every page of the canvas with its URL,
+or a warning when it has none, where URLs are given, changed and taken off. Any node can link to a
+URL. In the prototype the whole thing is one iframe: pressing a link swaps the page inside it,
+provider and component state survives, and the route is in the editor's own URL — so the
+browser's back and forward buttons are the prototype's, and a prototype state can be reloaded or
+pasted to someone else.
+
+A **canvas** owns one router and its own pages; a page of one canvas cannot navigate to a page of
+another. The canvas's name under the project, in every workspace, opens the list of canvases.
 
 ## Some notes
 
@@ -282,7 +289,7 @@ supported.
 - [Where settings and state are kept](docs/adr/0010-storage-modes.md)
 - [A command run in the repository, no desktop app](docs/adr/0017-a-command-in-the-repository.md)
 - [How the preview is built: editor, preview core, renderer, framework](docs/adr/0011-preview-split.md)
-- [Spaces, pages and the router](docs/adr/0012-spaces-pages-router.md)
+- [Spaces, pages and the router](docs/adr/0012-spaces-pages-router.md), and [pages with optional URLs](docs/adr/0020-pages-have-optional-urls.md)
 - [Design documents instead of TSX pages](docs/adr/0015-design-documents.md)
 - [Importing a Figma file](docs/adr/0016-figma-import.md)
 - [All architecture decisions](docs/adr/README.md)

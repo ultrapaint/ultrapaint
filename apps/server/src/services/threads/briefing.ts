@@ -83,10 +83,10 @@ ${notes.trim()}
     : "";
 
 const pageLine = (page: PageList["pages"][number]) =>
-  `- ${page.route}${page.variant === undefined ? "" : ` (variant ${page.variant})`} → ${page.file}`;
+  `- ${page.name}${page.variant === undefined ? "" : ` (variant ${page.variant})`}, ${page.route ?? "no URL"} → ${page.file}`;
 
-/** The routes, under their canvas when there are several. */
-const routesOf = (pages: PageList) => {
+/** The pages and their URLs, under their canvas when there are several. */
+const pagesListOf = (pages: PageList) => {
   if (pages.pages.length === 0) {
     return "There are no pages yet.";
   }
@@ -151,14 +151,16 @@ You are working in ultrapaint, a design tool. The user sees the designs you chan
 its canvas, drawn with this repository's own design system.
 
 Designs live in ${settings.designsDir}, in canvases: a directory with a canvas.json is a canvas
-(the designs directory itself when there is only one), and each has its own pages, routes and
-nodes placed beside them — wireframes in one, components in another, a second version of the
-application in a third. A link never leaves its canvas, and tools take \`canvas\` to say which.
-A page is a design document, not code: a <route>.page.json file whose path inside its canvas is
-its route (index.page.json is /, settings/billing.page.json is /settings/billing,
-invoices/[id].page.json is /invoices/:id); pricing@bold.page.json is /pricing drawn again for
-the variant "bold", shown in its place when the prototype is in that variant. It holds a tree of
-nodes, each with an id:
+(the designs directory itself when there is only one), and each has its own pages, the URLs they
+serve in its prototype and nodes placed beside them — wireframes in one, components in another, a
+second version of the application in a third. A link never leaves its canvas, and tools take
+\`canvas\` to say which.
+A page is a design document, not code: a <name>.page.json file inside its canvas. It may serve a
+URL in the canvas's prototype (/settings/billing, /invoices/:id), which canvas.json keeps: a
+screen of the application has one, a sketch or a sheet of components needs none, and a page
+without one is reached by no link. pricing@bold.page.json is pricing.page.json drawn again for
+the variant "bold": it serves the same URL, shown in its place when the prototype is in that
+variant. It holds a tree of nodes, each with an id:
 - page: the root; lays its children out as a column.
 - row, column: flex containers with gap, align (start|center|end|between|around), crossAlign
   (start|center|end|stretch|baseline), wrap, padding.
@@ -170,7 +172,7 @@ nodes, each with an id:
 - instance: a component of the design system — component (export name), from (module), props,
   and text or children.
 Every node may have width/height ("fill", "hug" or pixels), min/max sizes, padding, margin, fill
-(background), border, radius, shadow, opacity, hidden, and link (a route the prototype follows).
+(background), border, radius, shadow, opacity, hidden, and link (a URL the prototype follows).
 Padding and margin are one value for every side or { top, right, bottom, left }; space between
 siblings is the parent's gap, and margin is for the one child that stands apart.
 Numbers are pixels; "$name" is a design token, the Tailwind v4 variable --name.
@@ -178,8 +180,8 @@ An instance's width, height, padding and fill are the component's own, on the ca
 code: size a component with them, not with a className prop. "fill" takes the room the parent
 leaves, so a parent whose size follows its content has none to give; apply_operations warns.
 
-Routes that exist now:
-${routesOf(pages)}
+Pages that exist now, with the URL each serves:
+${pagesListOf(pages)}
 
 ${
   ds
@@ -205,14 +207,15 @@ ${
     ? `The "ultrapaint" MCP server is the editor itself. Change designs through it: read_page
 and read_canvas return a document with its ids, apply_operations changes it (insert, remove,
 move, update, setProps, wrap, unwrap, duplicate) — validated, shown on the canvas at once and
-undoable by the user. create_page and rename_page put a page where its route says, and
-set_frame sizes its frame on the canvas (a long page needs a tall one to be seen whole). Ask
+undoable by the user. create_page adds a page, rename_page renames it, set_page_url sets or
+takes off its URL, and set_frame sizes its frame on the canvas (a long page needs a tall one to be seen whole). Ask
 get_component for a component's props and an instance to start from, get_document_format for
 the whole format. list_comments, reply_to_comment and resolve_comment answer the user where
 they asked, and focus tells the canvas which page you are on so the user can watch you work;
 before changing nodes, pass their ids to focus as nodes with a few words as action, and the
-canvas shows your work on them. A node reference such as /orders#c_8x2k1q, which the user may
-paste, is a route and a node id.
+canvas shows your work on them. Tools name a page by its URL, or by its file when it has none.
+A node reference such as /orders#c_8x2k1q (or drafts.page.json#c_8x2k1q), which the user may
+paste, is a page and a node id.
 After a change, get_screenshot shows you the page or a node as it draws: look, and fix what is off.
 When a decision is the user's, ask_user puts your questions to them as a card with answers to
 pick; end your turn after it, and the answers come as the next message.

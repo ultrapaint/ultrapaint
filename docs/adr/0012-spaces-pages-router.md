@@ -2,6 +2,10 @@
 
 Status: accepted, 2026-09-17. Replaces the screen-and-flow model of D2 in the work definition.
 
+> Amended by [0020](0020-pages-have-optional-urls.md), 2026-09-30: a page is named by its file
+> and its URL is optional, kept in `canvas.json`; routes come from the file system only for a
+> canvas written before that.
+>
 > Amended by [0019](0019-canvases.md), 2026-09-30: a space is a canvas, marked by its
 > `canvas.json` (which takes over `space.json`), and the variants below are built.
 >

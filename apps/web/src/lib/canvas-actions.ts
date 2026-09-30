@@ -6,7 +6,7 @@ import type { Canvas, Page } from "@ultrapaint/contracts/pages";
 import { toast } from "sonner";
 import { confirmDialog, promptDialog } from "../components/dialogs.tsx";
 import { api } from "../state/connection.ts";
-import { useEditor } from "../state/editor.ts";
+import { type OpenAt, useEditor } from "../state/editor.ts";
 import { usePagePicks } from "../state/page-picks.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { ensureEditable } from "../state/setup.ts";
@@ -28,17 +28,13 @@ const views = new Map<string, { x: number; y: number; zoom: number }>();
  * Opens a canvas the way the list does: at the view it was left at, or fitted to what is on it
  * the first time, as Figma keeps a view per page.
  */
-export const showCanvas = async (
-  id: string,
-  route?: string,
-  variant?: string | null
-) => {
+export const showCanvas = async (id: string, at?: OpenAt) => {
   const editor = useEditor.getState();
   if (editor.canvas !== null) {
     views.set(editor.canvas, editor.view);
   }
   usePagePicks.getState().clear();
-  await editor.openCanvas(id, route, variant);
+  await editor.openCanvas(id, at);
   const kept = views.get(id);
   if (kept) {
     useEditor.getState().setView(kept);
@@ -282,7 +278,10 @@ export const copyPagesTo = async (
     usePagePicks.getState().clear();
     const [first] = copied;
     if (first) {
-      await showCanvas(first.canvas, first.route);
+      await showCanvas(first.canvas, {
+        page: first.id,
+        route: first.route ?? null,
+      });
     }
   } catch (error) {
     reportError(error);
@@ -307,7 +306,7 @@ export const newVariant = async (page: Page, variant?: string) => {
           ? `The page again, to draw another way; the canvas's other pages stay as they are in it. Variants so far: ${known.join(", ")}.`
           : "The page again, to draw another way; the canvas's other pages stay as they are in it, so the prototype clicks through the whole variant.",
       placeholder: "bold",
-      title: `New variant of ${page.route}`,
+      title: `New variant of ${page.name}`,
     }));
   if (name === null) {
     return;
@@ -319,7 +318,7 @@ export const newVariant = async (page: Page, variant?: string) => {
     });
     const editor = useEditor.getState();
     editor.setVariant(created.variant ?? null);
-    editor.navigate(created.route, { push: false });
+    editor.openPage(created.id, { push: false });
   } catch (error) {
     reportError(error);
   }

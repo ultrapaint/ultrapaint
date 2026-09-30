@@ -7,6 +7,7 @@ import type {
 import { presetSize } from "@ultrapaint/contracts/pages";
 import type { Rect } from "@ultrapaint/contracts/preview";
 import {
+  basePathOf,
   matchRoute,
   normaliseRoute,
   pagesInVariant,
@@ -51,18 +52,30 @@ const workspaceInUrl = (): Workspace =>
 /** Left panels every workspace offers, in rail order. */
 export const sharedTabs: readonly LeftTab[] = [
   "chat",
-  "pages",
   "designSystem",
   "comments",
   "changes",
 ];
 
-/** Left panels only a workspace offers, shown above the shared ones on the rail. */
+/**
+ * Left panels only a workspace offers, shown above the shared ones on the rail. The pages and
+ * the URLs they serve are the prototype's business; the canvas shows the pages everywhere else.
+ */
 export const workspaceTabs: Record<Workspace, readonly LeftTab[]> = {
   design: ["layers", "palette"],
-  prototype: [],
+  prototype: ["pages"],
   vibe: [],
 };
+
+/**
+ * Where to open a canvas: at a URL of its router, or on a page (its id) that serves none, in a
+ * variant. Left out, the canvas opens on its home.
+ */
+export interface OpenAt {
+  page?: string | null;
+  route?: string | null;
+  variant?: string | null;
+}
 
 /** What the right panel shows about the selection: its fields, or the code it stands for. */
 export type RightTab = "design" | "code";
@@ -87,7 +100,10 @@ export interface Viewport {
 }
 
 interface EditorStore {
-  /** The page serving the current route, which is what the prototype and agents are about. */
+  /**
+   * The page serving the current route, or the page without a URL the editor was opened on:
+   * what the prototype shows and agents are about.
+   */
   activePage: string | null;
   /**
    * The other nodes selected with `selection`, in the same frame: Shift-click and the marquee add
@@ -109,15 +125,19 @@ interface EditorStore {
   mode: Mode;
   /** Goes to a route of the open canvas. Every navigation is an entry in the editor's history. */
   navigate: (route: string, options?: { push?: boolean }) => void;
-  openCanvas: (
-    canvas: string,
-    route?: string,
-    variant?: string | null
-  ) => Promise<void>;
+  openCanvas: (canvas: string, at?: OpenAt) => Promise<void>;
+  /**
+   * Goes to a page of the open canvas: to its URL when it has one, which is a navigation like any
+   * other, or to the page itself, which no link could have led to.
+   */
+  openPage: (pageId: string, options?: { push?: boolean }) => void;
   rects: Record<string, Record<string, Rect>>;
   rightTab: RightTab;
-  /** Where the canvas's router is. The editor holds it; the preview is told. */
-  route: string;
+  /**
+   * Where the canvas's router is. The editor holds it; the preview is told. Null while the
+   * editor is on a page that serves no URL.
+   */
+  route: string | null;
   select: (selection: Selection | null) => void;
   /** Page selected as a whole (its frame), as opposed to a node inside it. */
   selectedPage: string | null;
@@ -158,6 +178,35 @@ interface EditorStore {
 
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 
+/**
+ * Where a canvas opens: the page without a URL it was asked for, as it is, or the page serving
+ * the route. A canvas whose route has no page opens on whatever page it does have: one with a
+ * URL first, as the prototype can go on from it.
+ */
+const landingOf = (
+  all: readonly Page[],
+  served: readonly Page[],
+  target: string,
+  pageId: string | null
+): { landing: string | null; shown: string | null } => {
+  const asked = pageId === null ? undefined : all.find((p) => p.id === pageId);
+  if (asked && asked.route === undefined) {
+    return { landing: null, shown: asked.id };
+  }
+  const match = matchRoute(served, target);
+  if (match) {
+    return { landing: target, shown: match.entry.id };
+  }
+  const routed = served.find((p) => p.route !== undefined);
+  if (routed?.route !== undefined) {
+    return { landing: routed.route, shown: routed.id };
+  }
+  const [first] = served;
+  return first
+    ? { landing: null, shown: first.id }
+    : { landing: target, shown: null };
+};
+
 export const pagesOfCanvas = (canvas: string | null): readonly Page[] =>
   canvas === null
     ? []
@@ -169,11 +218,13 @@ export const pagesOfCanvas = (canvas: string | null): readonly Page[] =>
  */
 export const pageAt = (
   canvas: string | null,
-  route: string,
+  route: string | null,
   variant: string | null
 ): Page | null =>
-  matchRoute(pagesInVariant(pagesOfCanvas(canvas), variant), route)?.entry ??
-  null;
+  route === null
+    ? null
+    : (matchRoute(pagesInVariant(pagesOfCanvas(canvas), variant), route)
+        ?.entry ?? null);
 
 /** Where a node placed on the canvas is drawn: its own position, its measured or fixed size. */
 export const nodeFrameLayout = (
@@ -320,10 +371,14 @@ export const useEditor = create<EditorStore>((set, get) => ({
       selectedPage: null,
       selection: null,
     });
-    writeUrl({ canvas, route: next, variant }, options?.push ?? true);
+    writeUrl(
+      { canvas, page: null, route: next, variant },
+      options?.push ?? true
+    );
   },
 
-  openCanvas: async (canvas, route, variant = null) => {
+  openCanvas: async (canvas, at = {}) => {
+    const { page, route, variant = null } = at;
     try {
       const snapshot = viewedSnapshot();
       const layout = snapshot
@@ -336,18 +391,17 @@ export const useEditor = create<EditorStore>((set, get) => ({
       // A variant the canvas no longer has is the base.
       const kept =
         variant !== null && info?.variants.includes(variant) ? variant : null;
-      const pages = pagesInVariant(all, kept);
-      const target = normaliseRoute(route ?? info?.home ?? "/");
-      // A canvas whose home route has no page opens on whatever page it does have.
-      const landing =
-        matchRoute(pages, target) === null
-          ? (pages[0]?.route ?? target)
-          : target;
+      const { landing, shown } = landingOf(
+        all,
+        pagesInVariant(all, kept),
+        normaliseRoute(route ?? info?.home ?? "/"),
+        page ?? null
+      );
       if (useDocuments.getState().canvas !== canvas) {
         useDocuments.getState().load(canvas);
       }
       set({
-        activePage: matchRoute(pages, landing)?.entry.id ?? null,
+        activePage: shown,
         also: [],
         canvas,
         frames: computeFrames(all, layout),
@@ -360,11 +414,50 @@ export const useEditor = create<EditorStore>((set, get) => ({
         sizes: {},
         variant: kept,
       });
-      writeUrl({ canvas, route: landing, variant: kept }, false);
+      writeUrl(
+        {
+          canvas,
+          page: landing === null ? shown : null,
+          route: landing,
+          variant: kept,
+        },
+        false
+      );
       localStorage.setItem("ultrapaint:canvas", canvas);
     } catch (error) {
       reportError(error);
     }
+  },
+  openPage: (pageId, options) => {
+    const { activePage, canvas, route, variant } = get();
+    const page = pagesOfCanvas(canvas).find((p) => p.id === pageId);
+    if (!page) {
+      return;
+    }
+    const pageVariant = page.variant ?? null;
+    if (page.route !== undefined) {
+      if (variant !== pageVariant) {
+        set({ variant: pageVariant });
+      }
+      // Already there: stay on the route, and on the parameters it was reached with.
+      if (activePage !== page.id || route === null) {
+        get().navigate(page.route, options);
+      }
+      return;
+    }
+    set({
+      activePage: page.id,
+      also: [],
+      hover: null,
+      route: null,
+      selectedPage: null,
+      selection: null,
+      variant: pageVariant,
+    });
+    writeUrl(
+      { canvas, page: page.id, route: null, variant: pageVariant },
+      options?.push ?? true
+    );
   },
   rects: {},
   rightTab: "design",
@@ -426,9 +519,26 @@ export const useEditor = create<EditorStore>((set, get) => ({
     }),
   setSpacePan: (spacePan) => set({ spacePan }),
   setVariant: (variant) => {
-    const { canvas, route } = get();
+    const { activePage, canvas, route } = get();
+    if (route === null) {
+      // On a page without a URL: the same page, drawn for the variant when it is.
+      const pages = pagesOfCanvas(canvas);
+      const base = basePathOf(
+        pages.find((p) => p.id === activePage)?.path ?? ""
+      );
+      const own = pages.filter((p) => basePathOf(p.path) === base);
+      const shown =
+        own.find((p) => (p.variant ?? null) === variant) ??
+        own.find((p) => p.variant === undefined);
+      set({ activePage: shown?.id ?? activePage, variant });
+      writeUrl(
+        { canvas, page: shown?.id ?? activePage, route: null, variant },
+        true
+      );
+      return;
+    }
     set({ activePage: pageAt(canvas, route, variant)?.id ?? null, variant });
-    writeUrl({ canvas, route, variant }, true);
+    writeUrl({ canvas, page: null, route, variant }, true);
   },
   setView: (view) => set((s) => ({ view: { ...s.view, ...view } })),
   setWorkspace: (workspace) => {
@@ -452,7 +562,18 @@ export const useEditor = create<EditorStore>((set, get) => ({
   sizes: {},
   spacePan: false,
   syncActivePage: () => {
-    const { canvas, route, variant } = get();
+    const { activePage, canvas, route, variant } = get();
+    if (route === null) {
+      const page = pagesOfCanvas(canvas).find((p) => p.id === activePage);
+      if (page?.route !== undefined) {
+        // The page was given a URL: the editor is at it now.
+        set({ route: page.route });
+        writeUrl({ canvas, page: null, route: page.route, variant }, false);
+      } else if (!page) {
+        set({ activePage: null });
+      }
+      return;
+    }
     const id = pageAt(canvas, route, variant)?.id ?? null;
     if (id !== get().activePage) {
       set({ activePage: id });
@@ -529,14 +650,31 @@ const followFrame = (
   if (isNodeFrame(pageId)) {
     return;
   }
-  const { canvas, route, variant } = get();
+  const { activePage, canvas, route, variant } = get();
   const page = pagesOfCanvas(canvas).find((p) => p.id === pageId);
   const pageVariant = page?.variant ?? null;
-  if (!page || (page.route === route && pageVariant === variant)) {
+  if (!page) {
+    return;
+  }
+  if (page.route === undefined) {
+    if (activePage === page.id && route === null) {
+      return;
+    }
+    set({ activePage: page.id, route: null, variant: pageVariant });
+    writeUrl(
+      { canvas, page: page.id, route: null, variant: pageVariant },
+      false
+    );
+    return;
+  }
+  if (page.route === route && pageVariant === variant) {
     return;
   }
   set({ activePage: page.id, route: page.route, variant: pageVariant });
-  writeUrl({ canvas, route: page.route, variant: pageVariant }, false);
+  writeUrl(
+    { canvas, page: null, route: page.route, variant: pageVariant },
+    false
+  );
 };
 
 const fitTo = (

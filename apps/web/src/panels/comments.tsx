@@ -92,7 +92,9 @@ export const Comments = () => {
           return (
             <div className="border-b py-1" key={pagePath}>
               <div className="truncate px-3 py-1 font-medium text-[11px] text-muted-foreground">
-                {page?.route ?? `${pagePath} (removed)`}
+                {page
+                  ? `${page.name}${page.route ? ` · ${page.route}` : ""}`
+                  : `${pagePath} (removed)`}
               </div>
               {items.map((comment) => (
                 <Item comment={comment} key={comment.id} />

@@ -32,6 +32,7 @@ import { ResizeHandle, usePanelWidth } from "./components/resize-handle.tsx";
 import { openSetup, SetupDialog } from "./components/setup-dialog.tsx";
 import { useOpenNodeLink } from "./lib/open-node-link.ts";
 import { useShortcuts } from "./lib/shortcuts.ts";
+import { CanvasSwitcher } from "./panels/canvases.tsx";
 import { Changes } from "./panels/changes.tsx";
 import { CodePanel } from "./panels/code.tsx";
 import { Comments } from "./panels/comments.tsx";
@@ -287,8 +288,9 @@ const LeftPanel = ({
       style={{ width }}
     >
       <ProjectHeader />
-      {/* The chat heads itself, its list and each thread; the pages panel has a heading for its
-        canvases and one for their pages. */}
+      <CanvasSwitcher />
+      {/* The chat heads itself, its list and each thread; the pages panel has its own actions in
+        its heading. */}
       {leftTab === "chat" || leftTab === "pages" ? null : (
         <div className="flex h-9 shrink-0 items-center px-3 font-medium text-[11px]">
           {tab.label}
@@ -410,7 +412,10 @@ export const App = () => {
     // The designs directory's own canvas is named "", which the URL leaves out: a link with a
     // route and no canvas is a route of that canvas.
     const urlCanvas =
-      url.canvas ?? (ids.includes("") && url.route !== "/" ? "" : null);
+      url.canvas ??
+      (ids.includes("") && (url.route !== "/" || url.page !== null)
+        ? ""
+        : null);
     let target = ids[0] ?? "";
     if (urlCanvas !== null && ids.includes(urlCanvas)) {
       target = urlCanvas;
@@ -421,8 +426,9 @@ export const App = () => {
       .getState()
       .openCanvas(
         target,
-        urlCanvas === target ? url.route : undefined,
-        urlCanvas === target ? url.variant : null
+        urlCanvas === target
+          ? { page: url.page, route: url.route, variant: url.variant }
+          : {}
       );
     // The canvas starts behind the panel, so the first view opens a margin past the panel's edge.
     useEditor.getState().setView({ x: leftWidth + 80 });
@@ -434,7 +440,7 @@ export const App = () => {
     if (canvas === null) {
       return;
     }
-    const { frames, route, variant } = useEditor.getState();
+    const { activePage, frames, route, variant } = useEditor.getState();
     if (canvases.length > 0 && !canvases.some((c) => c.id === canvas)) {
       useEditor.getState().openCanvas(canvases[0]?.id ?? "");
       return;
@@ -445,7 +451,9 @@ export const App = () => {
       (id) => !inCanvas.find((p) => p.id === id)
     );
     if (missing || extra) {
-      useEditor.getState().openCanvas(canvas, route, variant);
+      useEditor
+        .getState()
+        .openCanvas(canvas, { page: activePage, route, variant });
     } else {
       useEditor.getState().syncActivePage();
     }
@@ -457,12 +465,22 @@ export const App = () => {
     return onUrlChange((url) => {
       const editor = useEditor.getState();
       if (url.canvas !== null && url.canvas !== editor.canvas) {
-        editor.openCanvas(url.canvas, url.route, url.variant);
+        editor.openCanvas(url.canvas, {
+          page: url.page,
+          route: url.route,
+          variant: url.variant,
+        });
       } else {
         if (url.variant !== editor.variant) {
           useEditor.setState({ variant: url.variant });
         }
-        editor.navigate(url.route, { push: false });
+        if (url.route === null) {
+          if (url.page !== null) {
+            editor.openPage(url.page, { push: false });
+          }
+        } else {
+          editor.navigate(url.route, { push: false });
+        }
       }
       // Back and forward walk the routes, not the workspace: an older entry may name another.
       writeMode(editor.workspace);

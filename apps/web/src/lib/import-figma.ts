@@ -48,3 +48,17 @@ export const importFigma = async (file: File) => {
     toast.error(messageOf(error), { id });
   }
 };
+
+/** Asks for a `.fig` file, from wherever the import is offered, and imports it. */
+export const pickFigmaFile = () => {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".fig";
+  input.addEventListener("change", () => {
+    const [file] = input.files ?? [];
+    if (file) {
+      importFigma(file);
+    }
+  });
+  input.click();
+};

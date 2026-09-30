@@ -2,7 +2,7 @@
  * The editor's own tools, offered to agents over MCP.
  *
  * What an agent otherwise has to piece together by reading the repository — where the designs
- * are, what routes exist, which components it may use and what props they take — the server
+ * are, what pages exist, which components it may use and what props they take — the server
  * already knows. These answer it in one call. Pages are design documents the editor owns, so
  * changing one goes through the same operations the editor uses (`apply_operations`), which
  * validate every change and make it one undo step; the design system is written the same way.
@@ -16,6 +16,7 @@ import { touchedBy } from "@ultrapaint/design-document/ops";
 import { fillWarnings } from "@ultrapaint/design-document/sizing";
 import { canvasDocOf } from "@ultrapaint/design-document/tree";
 import { parseNodeRef } from "@ultrapaint/shared/node-ref";
+import { normaliseRoute } from "@ultrapaint/shared/route";
 import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/unstable/ai";
 import { EventBus } from "../../events.ts";
@@ -55,10 +56,15 @@ const PageSummary = Schema.Struct({
   canvas: Schema.String,
   file: Schema.String,
   name: Schema.String,
-  route: Schema.String,
+  /** The URL the prototype serves it at; absent when it has none. */
+  route: Schema.optional(Schema.String),
   /** The variant the page is drawn for; a route alone names the base page, its file this one. */
   variant: Schema.optional(Schema.String),
 });
+
+/** How a tool takes a page: its URL, or its file when it has none. */
+const PAGE_PARAMETER =
+  "The page: its URL (/settings/billing), or its file (drafts/billing.page.json), which is the only way to name a page without a URL or a variant's page.";
 
 const CanvasSummary = Schema.Struct({
   /** What `canvas` takes: the designs directory's own is `""`. */
@@ -77,7 +83,7 @@ const ComponentSummary = Schema.Struct({
 
 const GetContext = Tool.make("get_context", {
   description:
-    "Where this project keeps its designs and what is in it: the repository root, the designs directory, the package pages import from, the canvases, and how many pages and components there are. Call this first. A canvas owns its pages and their routes, as a Figma file's pages each hold their own frames: the same route can be a page in two canvases, and tools take `canvas` to say which. Images are in the designs directory's assets/, shared by every canvas; a canvas's own assets/ takes the place of a shared file of the same name.",
+    "Where this project keeps its designs and what is in it: the repository root, the designs directory, the package pages import from, the canvases, and how many pages and components there are. Call this first. A canvas owns its pages and the URLs they serve in its prototype, as a Figma file's pages each hold their own frames: the same URL can be a page in two canvases, and tools take `canvas` to say which. Images are in the designs directory's assets/, shared by every canvas; a canvas's own assets/ takes the place of a shared file of the same name.",
   failure: Failure,
   success: Schema.Struct({
     canvases: Schema.Array(CanvasSummary),
@@ -90,19 +96,19 @@ const GetContext = Tool.make("get_context", {
 
 const ListPages = Tool.make("list_pages", {
   description:
-    "Every page in the project with its canvas, its route and the file it lives in. A page's path is its route; `pricing@bold.page.json` is /pricing drawn again for the variant `bold`, which the prototype shows in place of the base page when it is in that variant. A route names the base page; name a variant's page by its file.",
+    "Every page in the project with its canvas, its name, the file it lives in and the URL it serves in the prototype. A page is named by its file, and its URL is optional: one without a URL is drawn like any other, but no link and no prototype reaches it; give it one with set_page_url. `pricing@bold.page.json` is pricing.page.json drawn again for the variant `bold`: it serves its base page's URL, and the prototype shows it in place of the base page when it is in that variant. A URL names the base page; name a variant's page by its file.",
   failure: Failure,
   success: Schema.Struct({ pages: Schema.Array(PageSummary) }),
 }).annotate(Tool.Readonly, true);
 
 const ReadPage = Tool.make("read_page", {
   description:
-    "One page's design document, found by its route (/settings/billing), by its file, or by a node reference the user copied from the editor (/settings/billing#c_8x2k1q): a tree of nodes (page, group, row, column, text, image, instance) with their ids. Pass the hash to apply_operations to make sure nothing changed in between.",
+    "One page's design document, found by its URL (/settings/billing), by its file, or by a node reference the user copied from the editor (/settings/billing#c_8x2k1q): a tree of nodes (page, group, row, column, text, image, instance) with their ids. Pass the hash to apply_operations to make sure nothing changed in between.",
   failure: Failure,
   parameters: Schema.Struct({
-    /** Needed only when the route is a page in more than one canvas. */
+    /** Needed only when the URL is a page in more than one canvas. */
     canvas: Schema.optional(Schema.String),
-    route: Schema.String,
+    route: Schema.String.annotate({ description: PAGE_PARAMETER }),
   }),
   success: Schema.Struct({
     document: Json,
@@ -152,8 +158,10 @@ Size an instance with width, height, padding and the other box fields, never wit
     loose: Schema.optional(Schema.Boolean),
     /** Checked once the ids a new node leaves out are filled in. */
     ops: Schema.Array(Json),
-    /** Route or file of the page; leave out with `loose: true`. */
-    route: Schema.optional(Schema.String),
+    /** URL or file of the page; leave out with `loose: true`. */
+    route: Schema.optional(
+      Schema.String.annotate({ description: PAGE_PARAMETER })
+    ),
   }),
   success: Schema.Struct({
     created: Schema.Array(Schema.String),
@@ -260,46 +268,66 @@ const SetFrame = Tool.make("set_frame", {
       Schema.Number.check(Schema.isBetween({ maximum: 20_000, minimum: 100 }))
     ),
     preset: Schema.optional(Schema.Literals(["mobile", "tablet", "desktop"])),
-    route: Schema.String,
+    route: Schema.String.annotate({ description: PAGE_PARAMETER }),
     width: Schema.optional(
       Schema.Number.check(Schema.isBetween({ maximum: 8000, minimum: 200 }))
     ),
   }),
   success: Schema.Struct({
+    file: Schema.String,
     height: Schema.Number,
-    route: Schema.String,
     width: Schema.Number,
   }),
 });
 
 const CreatePage = Tool.make("create_page", {
   description:
-    "Add a page at a route. The file goes where the project keeps its designs, named so the route matches. Prefer this to creating the file yourself; then fill it with apply_operations.",
+    "Add a page to a canvas. Its file is its name made safe (Billing settings is billing-settings.page.json). Give it a URL when the prototype should reach it or a link lead to it: a page of the application has one, a sketch or a sheet of components needs none. Prefer this to creating the file yourself; then fill it with apply_operations.",
   failure: Failure,
   parameters: Schema.Struct({
     canvas: Schema.optional(Schema.String),
-    route: Schema.String,
+    /** What the page is called: "Billing settings". */
+    name: Schema.String,
+    /** The URL it serves in the prototype, `/settings/billing`; none when left out. */
+    route: Schema.optional(Schema.String),
     /** One of the project's page templates; the plain one when left out. */
     template: Schema.optional(Schema.String),
   }),
   success: Schema.Struct({
     document: Json,
     file: Schema.String,
-    route: Schema.String,
+    route: Schema.optional(Schema.String),
   }),
 });
 
 const RenamePage = Tool.make("rename_page", {
   description:
-    "Move a page to another route. The file moves with it, which is what changes the route.",
+    "Rename a page. Its file, and its variants' files, move to the new name; its URL, and every link to it, stay.",
   failure: Failure,
   parameters: Schema.Struct({
-    /** Needed only when the route is a page in more than one canvas. */
+    /** Needed only when the URL is a page in more than one canvas. */
     canvas: Schema.optional(Schema.String),
-    route: Schema.String,
-    to: Schema.String,
+    name: Schema.String,
+    route: Schema.String.annotate({ description: PAGE_PARAMETER }),
   }),
-  success: Schema.Struct({ file: Schema.String, route: Schema.String }),
+  success: Schema.Struct({ file: Schema.String }),
+});
+
+const SetPageUrl = Tool.make("set_page_url", {
+  description:
+    "Set the URL a page serves in its canvas's prototype, or take it off with null. A link names a URL, so links to the old one lead nowhere afterwards. A variant's page serves its base page's URL: setting it sets the base page's.",
+  failure: Failure,
+  parameters: Schema.Struct({
+    /** Needed only when the URL is a page in more than one canvas. */
+    canvas: Schema.optional(Schema.String),
+    route: Schema.String.annotate({ description: PAGE_PARAMETER }),
+    /** The new URL, `/settings/billing`; null for none. */
+    url: Schema.NullOr(Schema.String),
+  }),
+  success: Schema.Struct({
+    file: Schema.String,
+    route: Schema.optional(Schema.String),
+  }),
 });
 
 const ReplyToComment = Tool.make("reply_to_comment", {
@@ -332,13 +360,13 @@ const Focus = Tool.make("focus", {
   parameters: Schema.Struct({
     /** A few words on what you are doing to the nodes. */
     action: Schema.optional(Schema.String),
-    /** Needed only when the route is a page in more than one canvas. */
+    /** Needed only when the URL is a page in more than one canvas. */
     canvas: Schema.optional(Schema.String),
     /** Ids of the nodes of the page you are about to change. */
     nodes: Schema.optional(Schema.Array(Schema.String)),
-    route: Schema.String,
+    route: Schema.String.annotate({ description: PAGE_PARAMETER }),
   }),
-  success: Schema.Struct({ route: Schema.String }),
+  success: Schema.Struct({ file: Schema.String }),
 }).annotate(Tool.Readonly, true);
 
 export const EditorTools = Toolkit.make(
@@ -357,6 +385,7 @@ export const EditorTools = Toolkit.make(
   CreatePage,
   SetFrame,
   RenamePage,
+  SetPageUrl,
   ReplyToComment,
   ResolveComment,
   Focus
@@ -413,28 +442,30 @@ export const makeLookup = Effect.gen(function* () {
   });
 
   /**
-   * A page by route (or file), in the canvas named, or in the only canvas that has it. A node
-   * reference (`/orders#c_1`, `marketing:/pricing#c_1`) names its page as well.
+   * A page by URL or by file (repository-relative, designs-relative or inside its canvas), in the
+   * canvas named, or in the only canvas that has it. A node reference (`/orders#c_1`,
+   * `marketing:/pricing#c_1`, `drafts.page.json#c_1`) names its page as well.
    */
   const pageAt = Effect.fnUntraced(function* (
     given: string,
     givenCanvas: string | undefined
   ) {
     const ref = parseNodeRef(given);
-    if (ref && ref.route === null) {
+    if (ref && ref.page === null) {
       return yield* missing(
-        `${given} is a node on the canvas beside the pages; pass \`loose: true\` instead of a route`
+        `${given} is a node on the canvas beside the pages; pass \`loose: true\` instead of a page`
       );
     }
-    const route = ref?.route ?? given;
+    const where = (ref?.page ?? given).trim();
+    const route = where.startsWith("/") ? normaliseRoute(where) : null;
     const canvas = givenCanvas ?? ref?.canvas;
     const { pages } = yield* reported(pagesOf);
-    // A route names the base page; a variant's page is named by its file.
+    // A URL names the base page; a variant's page is named by its file.
     const found = pages.filter(
       (p) =>
-        ((p.route === route && p.variant === undefined) ||
-          p.file === route ||
-          p.id === route) &&
+        (route === null
+          ? p.file === where || p.id === where || p.path === where
+          : p.route === route && p.variant === undefined) &&
         (canvas === undefined || p.canvas === canvas)
     );
     const [only] = found;
@@ -442,13 +473,16 @@ export const makeLookup = Effect.gen(function* () {
       return only;
     }
     if (found.length === 0) {
-      const where = canvas === undefined ? "" : ` in canvas ${named(canvas)}`;
+      const inCanvas =
+        canvas === undefined ? "" : ` in canvas ${named(canvas)}`;
       return yield* missing(
-        `no page at ${route}${where}; call list_pages to see the routes`
+        route === null
+          ? `no page file ${where}${inCanvas}; call list_pages to see the pages`
+          : `no page serves ${route}${inCanvas}; call list_pages to see the pages and their URLs (a page without a URL is named by its file)`
       );
     }
     return yield* missing(
-      `${route} is a page in several canvases (${found.map((p) => named(p.canvas)).join(", ")}); say which with \`canvas\``
+      `${where} is a page in several canvases (${found.map((p) => named(p.canvas)).join(", ")}); say which with \`canvas\``
     );
   });
 
@@ -551,12 +585,17 @@ export const EditorToolsLive = EditorTools.toLayer(
         };
       }),
 
-      create_page: Effect.fnUntraced(function* ({ route, canvas, template }) {
+      create_page: Effect.fnUntraced(function* ({
+        canvas,
+        name,
+        route,
+        template,
+      }) {
         const page = yield* reported(
           project.use(
             Effect.flatMap(PagesService, (pages) =>
               Effect.flatMap(canvasOf(canvas), (id) =>
-                pages.create(id, route, template)
+                pages.create(id, { name, route }, template)
               )
             )
           )
@@ -565,7 +604,7 @@ export const EditorToolsLive = EditorTools.toLayer(
         return {
           document: asJson(state.root),
           file: page.file,
-          route: page.route,
+          ...(page.route !== undefined && { route: page.route }),
         };
       }),
 
@@ -576,13 +615,13 @@ export const EditorToolsLive = EditorTools.toLayer(
           // The page, not the route: the same route can be a page in two canvases.
           yield* events.publish("agent.focus", {
             pageId: page.id,
-            route: page.route,
             threadId,
+            ...(page.route !== undefined && { route: page.route }),
             ...(nodes !== undefined && { nodeIds: nodes }),
             ...(action !== undefined && { action }),
           });
         }
-        return { route: page.route };
+        return { file: page.file };
       }),
       get_component: Effect.fnUntraced(function* ({ name }) {
         const catalogue = yield* reported(catalogueOf);
@@ -681,7 +720,7 @@ export const EditorToolsLive = EditorTools.toLayer(
             canvas: page.canvas,
             file: page.file,
             name: page.name,
-            route: page.route,
+            ...(page.route !== undefined && { route: page.route }),
             ...(page.variant !== undefined && { variant: page.variant }),
           })),
         };
@@ -727,14 +766,14 @@ export const EditorToolsLive = EditorTools.toLayer(
         };
       }),
 
-      rename_page: Effect.fnUntraced(function* ({ route, canvas, to }) {
+      rename_page: Effect.fnUntraced(function* ({ route, canvas, name }) {
         const page = yield* pageAt(route, canvas);
         const moved = yield* reported(
           project.use(
-            Effect.flatMap(PagesService, (pages) => pages.rename(page.id, to))
+            Effect.flatMap(PagesService, (pages) => pages.rename(page.id, name))
           )
         );
-        return { file: moved.file, route: moved.route };
+        return { file: moved.file };
       }),
 
       reply_to_comment: Effect.fnUntraced(function* ({ id, canvas, text }) {
@@ -813,7 +852,22 @@ export const EditorToolsLive = EditorTools.toLayer(
             )
           )
         );
-        return { height: frame.height, route: page.route, width: frame.width };
+        return { file: page.file, height: frame.height, width: frame.width };
+      }),
+
+      set_page_url: Effect.fnUntraced(function* ({ route, canvas, url }) {
+        const page = yield* pageAt(route, canvas);
+        const changed = yield* reported(
+          project.use(
+            Effect.flatMap(PagesService, (pages) =>
+              pages.setRoute(page.id, url)
+            )
+          )
+        );
+        return {
+          file: changed.file,
+          ...(changed.route !== undefined && { route: changed.route }),
+        };
       }),
 
       write_design_system: Effect.fnUntraced(function* ({

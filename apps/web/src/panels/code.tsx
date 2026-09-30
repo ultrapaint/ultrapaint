@@ -11,6 +11,7 @@ import {
   nodeKind,
   nodeLabel,
 } from "@ultrapaint/design-document/tree";
+import { routeOf } from "@ultrapaint/shared/route";
 import { Markdown } from "../components/markdown.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { useDesignSystem } from "../state/design-system.ts";
@@ -44,9 +45,11 @@ const useSubject = () => {
   const root = useDocuments((s) =>
     frame ? rootOfFrame(s.docs, canvas, frame) : null
   );
-  const route = useProject(
-    (s) => s.pages.find((page) => page.id === frame)?.route
-  );
+  // A page without a URL is named after its file, as its URL would be.
+  const route = useProject((s) => {
+    const page = s.pages.find((p) => p.id === frame);
+    return page ? (page.route ?? routeOf(page.path)) : undefined;
+  });
   const path = root ? findPath(root, selection?.nodeId ?? root.id) : null;
   const node = path?.at(-1);
   if (!node) {

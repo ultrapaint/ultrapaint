@@ -1,6 +1,7 @@
 /**
  * The editor's own URL is where the router state lives:
- * `?canvas=marketing&route=/settings&variant=bold`.
+ * `?canvas=marketing&route=/settings&variant=bold`, or `?page=marketing/draft.page.json` for a
+ * page that serves no URL.
  * A prototype can be reloaded, bookmarked and handed to someone else, and the browser's back
  * and forward buttons are the prototype's, because every navigation is a history entry.
  * The workspace rides along as `?mode=design`, so a reload comes back to the same one.
@@ -9,7 +10,10 @@ import { normaliseRoute } from "@ultrapaint/shared/route";
 
 export interface UrlState {
   canvas: string | null;
-  route: string;
+  /** The page the editor is on when it serves no URL (its id); null otherwise. */
+  page: string | null;
+  /** Null while the editor is on a page that serves no URL. */
+  route: string | null;
   /** The variant the router serves its routes in; absent for the base. */
   variant: string | null;
 }
@@ -26,12 +30,15 @@ export const readUrl = (): UrlState & {
   const params = new URLSearchParams(window.location.search);
   const canvas = params.get("canvas");
   const route = params.get("route");
+  const page = params.get("page");
   const variant = params.get("variant");
+  const onPage = page !== null && page !== "";
   return {
     canvas: canvas === "" ? null : canvas,
     mode: params.get("mode"),
     node: params.get("node"),
-    route: route === null ? "/" : normaliseRoute(route),
+    page: onPage ? page : null,
+    route: onPage ? null : normaliseRoute(route ?? "/"),
     // The section of the settings page when it is open: `?settings=repository`.
     settings: params.get("settings"),
     variant: variant === "" ? null : variant,
@@ -74,11 +81,13 @@ export const clearNodeParam = () =>
   writeQuery((params) => params.delete("node"), false);
 
 /**
- * A link to a node, as the editor's own URL: its canvas, its page's route (none for a node on the
- * canvas beside the pages), and the node, which the editor selects and brings into view.
+ * A link to a node, as the editor's own URL: its canvas, its page's route or the page itself when
+ * it has none (neither for a node on the canvas beside the pages), and the node, which the editor
+ * selects and brings into view.
  */
 export const linkToNode = (target: {
   nodeId: string;
+  page?: string | null;
   route: string | null;
   canvas: string;
 }): string => {
@@ -90,6 +99,8 @@ export const linkToNode = (target: {
   }
   if (target.route && target.route !== "/") {
     params.set("route", target.route);
+  } else if (!target.route && target.page) {
+    params.set("page", target.page);
   }
   if (mode) {
     params.set("mode", mode);
@@ -109,7 +120,8 @@ export const writeMode = (mode: string) =>
 export const writeUrl = (state: UrlState, push: boolean) =>
   writeQuery((params) => {
     params.set("canvas", state.canvas ?? "");
-    params.set("route", state.route);
+    params.set("route", state.route ?? "");
+    params.set("page", state.route === null ? (state.page ?? "") : "");
     params.set("variant", state.variant ?? "");
   }, push);
 

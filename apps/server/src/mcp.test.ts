@@ -142,6 +142,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           "resolve_comment",
           "scan_design_system",
           "set_frame",
+          "set_page_url",
           "write_design_system",
           "write_figma_frame",
         ]);
@@ -163,14 +164,14 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           ["/home"]
         );
 
-        // A page the agent makes through the editor lands where the route says.
+        // A page the agent makes through the editor is named as asked and serves the URL given.
         const created = yield* callMcp(
           port,
           token,
           {
             method: "tools/call",
             params: {
-              arguments: { route: "/pricing" },
+              arguments: { name: "Pricing", route: "/pricing" },
               name: "create_page",
             },
           },
@@ -181,6 +182,36 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         };
         assert.strictEqual(page.result.structuredContent.route, "/pricing");
         assert.include(page.result.structuredContent.file, "pricing.page.json");
+        // A page without a URL is named by its file, and given one afterwards.
+        const sketch = yield* callMcp(
+          port,
+          token,
+          {
+            method: "tools/call",
+            params: { arguments: { name: "Sketch" }, name: "create_page" },
+          },
+          sessionId
+        );
+        const sketched = (yield* Effect.promise(() => sketch.json())) as {
+          result: { structuredContent: { file: string; route?: string } };
+        };
+        assert.isUndefined(sketched.result.structuredContent.route);
+        const served = yield* callMcp(
+          port,
+          token,
+          {
+            method: "tools/call",
+            params: {
+              arguments: { route: "sketch.page.json", url: "/sketch" },
+              name: "set_page_url",
+            },
+          },
+          sessionId
+        );
+        const servedAt = (yield* Effect.promise(() => served.json())) as {
+          result: { structuredContent: { route?: string } };
+        };
+        assert.strictEqual(servedAt.result.structuredContent.route, "/sketch");
         const listedAgain = yield* client["pages.list"]();
         assert.include(
           listedAgain.pages.map((p) => p.route),
@@ -452,8 +483,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             route: "/home",
           });
           assert.deepStrictEqual(framed.result.structuredContent, {
+            file: "designs/home.page.json",
             height: 2400,
-            route: "/home",
             width: 1440,
           });
           const layout = yield* client["canvas.get"]({ canvas: "" });
@@ -546,47 +577,49 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
     );
 
     // Last: the canvas it adds would change what the tests above list.
-    it.effect(
-      "asks which canvas rather than guess, when a route is in two",
-      () =>
-        Effect.gen(function* () {
-          const { client, port, settings } = yield* TestEnv;
-          yield* client["settings.set"](settings);
-          const canvas = yield* client["canvases.create"]({
-            name: "Marketing",
-          });
-          yield* client["pages.create"]({ canvas: canvas.id, route: "/home" });
-          const connection = yield* client["mcp.connection"]();
-          const sessionId = yield* openMcp(port, connection.token);
-          const call = (name: string, args: Record<string, unknown>) =>
-            Effect.flatMap(
-              callMcp(
-                port,
-                connection.token,
-                { method: "tools/call", params: { arguments: args, name } },
-                sessionId
-              ),
-              (response) => Effect.promise(() => response.text())
-            );
+    it.effect("asks which canvas rather than guess, when a URL is in two", () =>
+      Effect.gen(function* () {
+        const { client, port, settings } = yield* TestEnv;
+        yield* client["settings.set"](settings);
+        const canvas = yield* client["canvases.create"]({
+          name: "Marketing",
+        });
+        yield* client["pages.create"]({
+          canvas: canvas.id,
+          name: "Home",
+          route: "/home",
+        });
+        const connection = yield* client["mcp.connection"]();
+        const sessionId = yield* openMcp(port, connection.token);
+        const call = (name: string, args: Record<string, unknown>) =>
+          Effect.flatMap(
+            callMcp(
+              port,
+              connection.token,
+              { method: "tools/call", params: { arguments: args, name } },
+              sessionId
+            ),
+            (response) => Effect.promise(() => response.text())
+          );
 
-          assert.include(
-            yield* call("read_page", { route: "/home" }),
-            "several canvases"
-          );
-          assert.include(
-            yield* call("read_page", { canvas: canvas.id, route: "/home" }),
-            `${canvas.id}/`
-          );
-          // The designs directory's own canvas is `""`, which is a name, not an absent one.
-          assert.notInclude(
-            yield* call("read_page", { canvas: "", route: "/home" }),
-            "several canvases"
-          );
-          assert.include(
-            yield* call("create_page", { route: "/nowhere" }),
-            "several canvases"
-          );
-        })
+        assert.include(
+          yield* call("read_page", { route: "/home" }),
+          "several canvases"
+        );
+        assert.include(
+          yield* call("read_page", { canvas: canvas.id, route: "/home" }),
+          `${canvas.id}/`
+        );
+        // The designs directory's own canvas is `""`, which is a name, not an absent one.
+        assert.notInclude(
+          yield* call("read_page", { canvas: "", route: "/home" }),
+          "several canvases"
+        );
+        assert.include(
+          yield* call("create_page", { name: "Nowhere" }),
+          "several canvases"
+        );
+      })
     );
   }
 );

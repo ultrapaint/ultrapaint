@@ -140,20 +140,27 @@ const requestRpcs = [
       Schema.Struct({ id: Schema.String, name: Schema.String })
     ),
   }),
-  // The route is what the user typed: `/settings/billing`, or `billing` for a page beside it.
+  /** A page named as typed, its file that name made safe, serving a URL when one is given. */
   Rpc.make("pages.create", {
     error: PagesError,
     payload: {
       canvas: Schema.String,
-      route: Schema.String,
+      name: Schema.String,
+      route: Schema.optional(Schema.String),
       template: Schema.optional(Schema.String),
     },
     success: Page,
   }),
-  /** Moves the page to another route, creating the directories the route needs. */
+  /** Renames the page: its file and its variants' move, its URL stays. */
   Rpc.make("pages.rename", {
     error: PagesError,
-    payload: { id: Schema.String, route: Schema.String },
+    payload: { id: Schema.String, name: Schema.String },
+    success: Page,
+  }),
+  /** The URL the page serves in the prototype from now on; null takes it off. */
+  Rpc.make("pages.setRoute", {
+    error: PagesError,
+    payload: { id: Schema.String, route: Schema.NullOr(Schema.String) },
     success: Page,
   }),
   Rpc.make("pages.duplicate", {
@@ -166,7 +173,7 @@ const requestRpcs = [
     payload: { id: Schema.String },
   }),
   /**
-   * The page drawn again for a variant: a copy of it at the same route, in the file of the
+   * The page drawn again for a variant: a copy of it serving the same URL, in the file of the
    * variant (`pricing@bold.page.json`), with its frame under the page's.
    */
   Rpc.make("pages.createVariant", {
@@ -175,9 +182,9 @@ const requestRpcs = [
     success: Page,
   }),
   /**
-   * Pages copied, or moved, into another canvas at the same routes, their frames where they
+   * Pages copied, or moved, into another canvas with the same URLs, their frames where they
    * were. The target is a canvas, or one to create with that name. Refused when the target has a
-   * page at one of the routes already.
+   * page of the same file, or serving one of the URLs, already.
    */
   Rpc.make("pages.copyTo", {
     error: PagesError,

@@ -33,7 +33,7 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     name: "init",
   },
   {
-    argument: "<route>",
+    argument: "<page>",
     description: "Turn a page of the design into the application's own code",
     name: "implement",
   },
@@ -75,7 +75,7 @@ export const IMPLEMENTATION_RULES = `How the design maps to code (Tailwind v4):
   leading-tight; "$tracking-wide" is tracking-wide; "$spacing-4" is the 4 step (p-4, gap-4).
 - A number is pixels. Put it on the spacing scale (one step is the design system's spacing base,
   usually 4px: 16 is p-4) and use an arbitrary value only when it is off the scale.
-- page: the route's page component. row: flex flex-row. column: flex flex-col. group: a plain
+- page: the page component of the URL it serves. row: flex flex-row. column: flex flex-col. group: a plain
   div. gap: gap-*. align start/center/end/between/around: justify-start/center/end/between/around.
   crossAlign: items-*. wrap: flex-wrap. padding: p-*, or px/py/pt/pr/pb/pl for sides. margin: the
   same with m (m-*, mx-*, -mt-*).
@@ -96,7 +96,7 @@ export const IMPLEMENTATION_RULES = `How the design maps to code (Tailwind v4):
 - image: <img>; an "assets/..." src is a file of the canvas's own assets/ directory when it has
   one, and of the shared assets/ at the root of the designs directory otherwise — copy it to
   where the application keeps images.
-- link: the application's own router link to that route.`;
+- link: the application's own router link to that URL.`;
 
 /** What the user typed after the command's argument, passed on as it is. */
 const userAdds = (extra: string) =>
@@ -128,10 +128,52 @@ ${styles.map((style) => `- ${style.name}: ${JSON.stringify(style)}`).join("\n")}
 `
     : "";
 
-const unknownPage = (target: string, routes: readonly string[]) => {
-  const which = target ? `no page serves ${target}` : "did not say which";
+/**
+ * The page a command names: by its URL, which names the base page, or by its file, which names
+ * a variant's page or one without a URL. Named by nothing, the only page there is.
+ */
+const pageNamed = <
+  T extends {
+    readonly file: string;
+    readonly id: string;
+    readonly path: string;
+    readonly route?: string | undefined;
+    readonly variant?: string | undefined;
+  },
+>(
+  pages: readonly T[],
+  target: string
+): T | undefined => {
+  if (!target) {
+    return pages.length === 1 ? pages[0] : undefined;
+  }
+  if (target.startsWith("/")) {
+    const route = normaliseRoute(target);
+    return pages.find((p) => p.route === route && p.variant === undefined);
+  }
+  return pages.find(
+    (p) => p.id === target || p.file === target || p.path === target
+  );
+};
+
+/** A page as a list shows it to an agent: its name, its URL or that it has none, its file. */
+const pageEntry = (page: {
+  readonly file: string;
+  readonly name: string;
+  readonly route?: string | undefined;
+  readonly variant?: string | undefined;
+}) =>
+  `${page.name}${page.variant ? ` (variant ${page.variant})` : ""}, ${page.route ?? "no URL"}: ${page.file}`;
+
+const unknownPage = (
+  target: string,
+  pages: readonly Parameters<typeof pageEntry>[0][]
+) => {
+  const which = target ? `no page is ${target}` : "did not say which";
   return `<ultrapaint-task command="implement">
-The user asked to implement a page of the design, but ${which}. The routes are: ${routes.join(", ") || "none"}. Ask which one.
+The user asked to implement a page of the design, but ${which}. The pages are:
+${pages.map((p) => `- ${pageEntry(p)}`).join("\n") || "- none"}
+Ask which one.
 </ultrapaint-task>`;
 };
 
@@ -218,19 +260,9 @@ ${userAdds(extra)}</ultrapaint-task>`;
             const [target = "", ...rest] = argument.trim().split(WHITESPACE_RE);
             const extra = rest.join(" ");
             const { pages } = yield* (yield* PagesService).list;
-            const route = target ? normaliseRoute(target) : "";
-            // A route names its base page; a variant's is named by its file.
-            const page =
-              pages.find(
-                (p) =>
-                  (p.route === route && p.variant === undefined) ||
-                  p.id === target
-              ) ?? (pages.length === 1 ? pages[0] : undefined);
+            const page = pageNamed(pages, target);
             if (!page) {
-              return unknownPage(
-                target,
-                pages.map((p) => p.route)
-              );
+              return unknownPage(target, pages);
             }
             const state = yield* Effect.orElseSucceed(
               (yield* DocumentService).get(page.id),
@@ -239,8 +271,12 @@ ${userAdds(extra)}</ultrapaint-task>`;
             const { designSystem } = yield* (yield* DesignSystemService).get;
             const styles = designSystem?.typography.styles ?? [];
             return `<ultrapaint-task command="implement">
-Implement the page ${page.route} of the design (${page.file}) in this repository's application,
-in its own conventions.
+Implement the page ${page.name} of the design (${page.file}) in this repository's application,
+in its own conventions. ${
+              page.route === undefined
+                ? "It has no URL in the design: ask the user where it belongs before writing anything."
+                : `It serves ${page.route} in the design's prototype.`
+            }
 
 The design, as the editor holds it:
 ${JSON.stringify(state?.root ?? null, null, 2)}
@@ -333,9 +369,10 @@ ${
    card, each with the candidates as options, "Custom: keep its layers" and "Skip" among them, and
    allowOther for a name you did not think of. End your turn after asking; carry on when the answers
    come. Do not ask about what the names settle.
-2. Once every used component is decided, write each frame with write_figma_frame at a route that
-   fits its name ("Login" is /login, "Home" is /), in the canvas the user works in; ask when a frame
-   is not a screen (a component sheet, a style guide) whether to import it at all.
+2. Once every used component is decided, write each frame with write_figma_frame, in the canvas the
+   user works in. A screen of the application gets a URL that fits its name ("Login" is /login,
+   "Home" is /); a frame that is not a screen (a component sheet, a style guide) gets none, and ask
+   whether to import it at all.
 3. Look at each page with get_screenshot and mend what the rules got wrong with apply_operations:
    colours the design system has a token for that came through as hex, sizes that should be "fill"
    or "hug", texts that should be set in a text style. Keep the page close to the Figma frame.
@@ -354,12 +391,7 @@ ${userAdds(extra)}</ultrapaint-task>`;
               return unknownCanvas("redraw", id, canvases);
             }
             const own = pages.filter((p) => p.canvas === id);
-            const list = own
-              .map(
-                (p) =>
-                  `- ${p.route}${p.variant ? ` (variant ${p.variant})` : ""}: ${p.file}`
-              )
-              .join("\n");
+            const list = own.map((p) => `- ${pageEntry(p)}`).join("\n");
             const tools = mcp
               ? `Through the ultrapaint MCP server, always passing canvas: ${named(id)}: read_page and
 get_screenshot to see a page, apply_operations to change it, focus to show the user where you are,
@@ -377,7 +409,7 @@ ${list || "- none"}
 ${tools}
 
 1. Work page by page. Read the page and look at it before changing it.
-2. Change it in place: keep its route, the links between the pages, and the ids of the nodes you
+2. Change it in place: keep its URL, the links between the pages, and the ids of the nodes you
    keep. Draw with the design system's components and tokens.
 3. Look at the page again when it is done and fix what is off: overlaps, clipped text, empty
    instances.
@@ -410,9 +442,12 @@ ${tools}
             });
             const sheets = pages
               .filter(
-                (p) => p.canvas === id && p.route.startsWith("/components")
+                (p) =>
+                  p.canvas === id &&
+                  (p.name.toLowerCase().startsWith("components") ||
+                    p.route?.startsWith("/components") === true)
               )
-              .map((p) => p.route);
+              .map((p) => p.file);
             return `<ultrapaint-task command="components">
 Draw a sheet of this repository's design system into the canvas "${canvas.name}" (${named(id)}): every component a
 designer would place, in each of its variants, so the canvas shows what there is to design with.
@@ -427,9 +462,9 @@ add what is missing, take out what the design system no longer has.\n`
 }
 1. Read the design system (read_design_system) for each component's category, description and
    example props, and get_component for its props and variants.
-2. One page per category at /components/<category> (/components/forms), or one page at
-   /components when there are fewer than a dozen components. Create them with create_page and
-   canvas: ${named(id)}.
+2. One page per category named "Components <category>" ("Components forms"), or one page named
+   "Components" when there are fewer than a dozen components. Create them with create_page and
+   canvas: ${named(id)}, without a URL: a sheet is not a screen of the application.
 3. In a page, per component: its name as a heading and one line on what it is for, in the design
    system's text styles; under them a row that wraps, with one instance for each value of each
    variant prop (a Button in each variant; for two variant props, one row per value of the first).

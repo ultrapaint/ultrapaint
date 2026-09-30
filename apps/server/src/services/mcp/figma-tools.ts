@@ -126,17 +126,18 @@ Pass null to forget a decision. Refused when the repository has no such componen
 
 const WriteFigmaFrame = Tool.make("write_figma_frame", {
   description:
-    "Writes a frame of the Figma file as a page at a route, converted with the mapping as it stands, its images copied into the shared assets, and its frame on the canvas sized as in Figma. Refused when a page already serves the route. Map the components first; what is still unmapped is expanded and reported.",
+    "Writes a frame of the Figma file as a page named after the frame, converted with the mapping as it stands, its images copied into the shared assets, and its frame on the canvas sized as in Figma. Give it the URL it serves in the prototype when it is a screen of the application; refused when another page serves that URL. Map the components first; what is still unmapped is expanded and reported.",
   failure: Failure,
   parameters: Schema.Struct({
     ...importRef,
     canvas: Schema.optional(Schema.String),
     frame: Schema.String,
-    route: Schema.String,
+    /** The URL the page serves, `/settings/billing`; none when left out. */
+    route: Schema.optional(Schema.String),
   }),
   success: Schema.Struct({
     file: Schema.String,
-    route: Schema.String,
+    route: Schema.optional(Schema.String),
     unmapped: Schema.Record(Schema.String, Schema.Number),
     warnings: Schema.Array(Schema.String),
   }),
@@ -351,7 +352,9 @@ export const FigmaToolsLive = FigmaTools.toLayer(
         );
         return {
           file: written.page.file,
-          route: written.page.route,
+          ...(written.page.route !== undefined && {
+            route: written.page.route,
+          }),
           unmapped: written.unmapped,
           warnings: written.warnings,
         };

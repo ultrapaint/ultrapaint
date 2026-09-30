@@ -447,7 +447,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           );
           assert.include(
             said(implement.items).at(-1) ?? "",
-            "task:implement Implement the page /home of the design (designs/home.page.json)"
+            "task:implement Implement the page Home of the design (designs/home.page.json)"
           );
 
           yield* prompt(threadId, '/components ""');

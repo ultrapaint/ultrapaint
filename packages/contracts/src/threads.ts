@@ -444,7 +444,7 @@ export const AgentFocus = Schema.Struct({
   nodeIds: Schema.optional(Schema.Array(Schema.String)),
   /** The page itself: a route alone can be a page in more than one canvas. */
   pageId: Schema.String,
-  route: Schema.String,
+  route: Schema.optional(Schema.String),
   threadId: Schema.String,
 });
 export type AgentFocus = typeof AgentFocus.Type;

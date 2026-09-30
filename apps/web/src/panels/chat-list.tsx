@@ -60,7 +60,7 @@ const isToday = (at: number, now: number) =>
 const isRunning = (t: Thread) =>
   t.status === "running" || t.status === "starting";
 
-/** Where a thread's scope is: its page's route, or the canvas. */
+/** Where a thread's scope is: its page's URL, or its name when it has none, or the canvas. */
 const useScopeLabel = (thread: Thread) =>
   useProject((s) => {
     const { scope } = thread;
@@ -68,7 +68,7 @@ const useScopeLabel = (thread: Thread) =>
       return null;
     }
     const page = s.pages.find((p) => p.file === scope.file);
-    const where = page ? page.route : "canvas";
+    const where = page ? (page.route ?? page.name) : "canvas";
     return scope.nodeId === undefined ? where : `${scope.name} · ${where}`;
   });
 

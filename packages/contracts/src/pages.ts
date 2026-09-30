@@ -19,16 +19,24 @@ export const Canvas = Schema.Struct({
 });
 export type Canvas = typeof Canvas.Type;
 
-/** A page is a file inside a canvas. `id` is its path relative to the designs directory. */
+/**
+ * A page is a file inside a canvas, named by its file. `id` is its path relative to the designs
+ * directory. Its URL is optional: a page without one is drawn and edited like any other, but
+ * the prototype has no way to reach it and a link cannot lead to it.
+ */
 export const Page = Schema.Struct({
   canvas: Schema.String,
   file: RepoRelativePath,
   id: Schema.String,
+  /** What the page is called, from its file name: `billing-settings.page.json` is "Billing settings". */
   name: Schema.String,
   /** Path inside the canvas, which is what the canvas layout is keyed by. */
   path: Schema.String,
-  /** Route the page serves inside its canvas, derived from `path`. */
-  route: Schema.String,
+  /**
+   * The URL the page serves in its canvas's prototype, from the canvas's `routes`. A variant's
+   * page serves its base page's URL. Absent when the page has none.
+   */
+  route: Schema.optional(Schema.String),
   /** The variant the page is drawn for (`pricing@bold.page.json`); absent for the base. */
   variant: Schema.optional(Schema.String),
 });
@@ -69,8 +77,8 @@ export type FrameLayout = typeof FrameLayout.Type;
 
 /**
  * Contents of `<canvas>/canvas.json`, the file that makes a directory a canvas: its name, where
- * the pages' frames sit, keyed by the page's path inside the canvas, and the nodes placed on the
- * canvas beside the pages, each at its own `x` and `y`.
+ * the pages' frames sit and which URL each page serves, both keyed by the page's path inside the
+ * canvas, and the nodes placed on the canvas beside the pages, each at its own `x` and `y`.
  */
 export const CanvasLayout = Schema.Struct({
   frames: Schema.Record(Schema.String, FrameLayout),
@@ -80,6 +88,13 @@ export const CanvasLayout = Schema.Struct({
   name: Schema.optional(Schema.String),
   /** Nodes on the canvas outside any page. Absent from layouts written before there were any. */
   nodes: Schema.optional(Schema.Array(DesignNode)),
+  /**
+   * The URL each base page serves in the prototype, keyed by its path inside the canvas; a page
+   * it does not name has none. Absent from layouts written before pages had optional URLs: each
+   * page then serves the route its path names (`settings/billing.page.json` is
+   * `/settings/billing`), until the first change writes them out.
+   */
+  routes: Schema.optional(Schema.Record(Schema.String, Schema.String)),
   /** Names of the variants its pages may be drawn in, in the order they are offered. */
   variants: Schema.optional(Schema.Array(Schema.String)),
   version: Schema.Literal(1),

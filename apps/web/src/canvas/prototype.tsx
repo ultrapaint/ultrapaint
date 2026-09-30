@@ -1,9 +1,12 @@
 import { presetSize } from "@ultrapaint/contracts/pages";
 import type { HostMessage } from "@ultrapaint/contracts/preview";
-import { ArrowLeft, ArrowRight, RotateCw } from "lucide-react";
+import { basePathOf } from "@ultrapaint/shared/route";
+import { ArrowLeft, ArrowRight, RotateCw, TriangleAlert } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { IconButton } from "../components/icon-button.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
+import { editPageUrl, NO_URL_HINT } from "../lib/page-actions.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useDocuments } from "../state/documents.ts";
 import { pagesOfCanvas, useEditor } from "../state/editor.ts";
@@ -28,7 +31,7 @@ const renderRoute = (canvas: string) => {
     : undefined;
   let message: string | undefined;
   if (!activePage) {
-    message = `No page for ${route}`;
+    message = route === null ? "No page" : `No page serves ${route}`;
   } else if (state?.problem !== undefined) {
     message = `This page cannot be read: ${state.problem}`;
   }
@@ -55,6 +58,8 @@ export const Prototype = () => {
     activePage ? s.frames[activePage] : undefined
   );
   const pages = useProject((s) => s.pages);
+  const title =
+    route ?? pages.find((p) => p.id === activePage)?.name ?? "Prototype";
   const hostUrl = useHostUrl();
   const [area, setArea] = useState({ height: 0, width: 0 });
   const [reloads, setReloads] = useState(0);
@@ -161,7 +166,7 @@ export const Prototype = () => {
               transform: `scale(${scale})`,
               width: size.width,
             }}
-            title={route}
+            title={title}
           />
         </div>
       ) : (
@@ -177,69 +182,140 @@ const back = () => window.history.back();
 const forward = () => window.history.forward();
 
 const BASE = "";
+/** A canvas's variants before the canvas is known: one list, so the store's answer is stable. */
+const NO_VARIANTS: readonly string[] = [];
 
 /**
- * Floating strip under the prototype: the canvas's history, where it is, the variant it clicks
- * through when the canvas has variants, and a restart.
+ * Said over the bar while the prototype shows a page that serves no URL: it can be looked at, but
+ * nothing in the click-through leads to it.
+ */
+const NoUrlWarning = () => {
+  const activePage = useEditor((s) => s.activePage);
+  const route = useEditor((s) => s.route);
+  const page = useProject((s) => s.pages.find((p) => p.id === activePage));
+  if (route !== null || !page || page.route !== undefined) {
+    return null;
+  }
+  const base =
+    pagesOfCanvas(page.canvas).find(
+      (p) => p.variant === undefined && p.path === basePathOf(page.path)
+    ) ?? page;
+  return (
+    <div
+      className="pointer-events-auto flex max-w-xl items-center gap-2 rounded-xl border border-warning/40 bg-sidebar py-1 pr-1 pl-3 text-sidebar-foreground text-xs shadow-black/30 shadow-lg"
+      role="status"
+      title={NO_URL_HINT}
+    >
+      <TriangleAlert className="size-3.5 shrink-0 text-warning" />
+      <span className="min-w-0 truncate">
+        <span className="font-medium">{base.name}</span> has no URL: no link
+        leads here.
+      </span>
+      <Button
+        className="shrink-0"
+        onClick={() => editPageUrl(base)}
+        size="sm"
+        variant="outline"
+      >
+        Set URL
+      </Button>
+    </div>
+  );
+};
+
+/** How the bar names a page: where it is served, then what it is called. */
+const pageOption = (page: {
+  readonly id: string;
+  readonly name: string;
+  readonly route?: string | undefined;
+}) => ({
+  label:
+    page.route === undefined
+      ? `${page.name} · no URL`
+      : `${page.route} · ${page.name}`,
+  value: page.id,
+});
+
+/**
+ * Floating strip under the prototype: the canvas's history, the page it is on, the variant it
+ * clicks through when the canvas has variants, and a restart. A page without a URL is on the list
+ * too, and says so over the bar when it is shown.
  */
 export const PrototypeBar = () => {
   const canvas = useEditor((s) => s.canvas);
-  const route = useEditor((s) => s.route);
+  const activePage = useEditor((s) => s.activePage);
   const variant = useEditor((s) => s.variant);
   const variants = useProject(
-    (s) => s.canvases.find((c) => c.id === canvas)?.variants ?? []
+    (s) => s.canvases.find((c) => c.id === canvas)?.variants ?? NO_VARIANTS
   );
-  // Subscribed to so the routes follow a page being created or deleted.
+  // Subscribed to so the list follows a page being created, renamed or given a URL.
   useProject((s) => s.pages);
-  const routes = Array.from(
-    new Set(pagesOfCanvas(canvas).map((p) => p.route))
-  ).sort();
-  const go = (next: string) => useEditor.getState().navigate(next);
+  const all = pagesOfCanvas(canvas);
+  const bases = all
+    .filter((p) => p.variant === undefined)
+    .sort((a, b) => {
+      if (a.route !== undefined && b.route !== undefined) {
+        return a.route.localeCompare(b.route);
+      }
+      if (a.route !== undefined || b.route !== undefined) {
+        return a.route === undefined ? 1 : -1;
+      }
+      return a.name.localeCompare(b.name);
+    });
+  // A variant's page is shown as its base page, the one the list names.
+  const shown = all.find((p) => p.id === activePage);
+  const current = shown
+    ? (bases.find((p) => p.path === basePathOf(shown.path))?.id ?? null)
+    : null;
+  const go = (id: string) => useEditor.getState().openPage(id);
   const pickVariant = (next: string) =>
     useEditor.getState().setVariant(next === BASE ? null : next);
 
   return (
-    <div className="pointer-events-auto flex items-center gap-1 rounded-xl border bg-sidebar p-1 text-sidebar-foreground shadow-black/30 shadow-lg">
-      <IconButton className="size-8 rounded-lg" onClick={back} tooltip="Back">
-        <ArrowLeft />
-      </IconButton>
-      <IconButton
-        className="size-8 rounded-lg"
-        onClick={forward}
-        tooltip="Forward"
-      >
-        <ArrowRight />
-      </IconButton>
-      {variants.length > 0 ? (
-        <div className="w-32">
+    <>
+      <NoUrlWarning />
+      <div className="pointer-events-auto flex items-center gap-1 rounded-xl border bg-sidebar p-1 text-sidebar-foreground shadow-black/30 shadow-lg">
+        <IconButton className="size-8 rounded-lg" onClick={back} tooltip="Back">
+          <ArrowLeft />
+        </IconButton>
+        <IconButton
+          className="size-8 rounded-lg"
+          onClick={forward}
+          tooltip="Forward"
+        >
+          <ArrowRight />
+        </IconButton>
+        {variants.length > 0 ? (
+          <div className="w-32">
+            <OptionSelect
+              className="border-transparent bg-transparent dark:bg-transparent"
+              onChange={pickVariant}
+              options={[
+                { label: "Base", value: BASE },
+                ...variants.map((v) => ({ label: v, value: v })),
+              ]}
+              value={variant ?? BASE}
+            />
+          </div>
+        ) : null}
+        <div className="w-72">
           <OptionSelect
             className="border-transparent bg-transparent dark:bg-transparent"
-            onChange={pickVariant}
-            options={[
-              { label: "Base", value: BASE },
-              ...variants.map((v) => ({ label: v, value: v })),
-            ]}
-            value={variant ?? BASE}
+            onChange={go}
+            options={bases.map(pageOption)}
+            placeholder="No page"
+            value={current}
           />
         </div>
-      ) : null}
-      <div className="w-64">
-        <OptionSelect
-          className="border-transparent bg-transparent font-mono dark:bg-transparent"
-          onChange={go}
-          options={routes.map((r) => ({ label: r, value: r }))}
-          placeholder="No route"
-          value={routes.includes(route) ? route : null}
-        />
+        <IconButton
+          className="size-8 rounded-lg"
+          disabled={canvas === null}
+          onClick={reload}
+          tooltip="Restart the prototype"
+        >
+          <RotateCw />
+        </IconButton>
       </div>
-      <IconButton
-        className="size-8 rounded-lg"
-        disabled={canvas === null}
-        onClick={reload}
-        tooltip="Restart the prototype"
-      >
-        <RotateCw />
-      </IconButton>
-    </div>
+    </>
   );
 };

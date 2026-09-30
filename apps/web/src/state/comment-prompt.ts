@@ -15,7 +15,7 @@ export const commentPrompt = (
 ) => {
   const where = [
     page
-      ? `Page: ${page.route} (${page.file})`
+      ? `Page: ${page.name}, ${page.route ?? "no URL"} (${page.file})`
       : `Page: ${comment.page} (no longer in the designs)`,
     comment.element
       ? `Node: "${comment.element}"${comment.nodeId ? ` (id ${comment.nodeId})` : ""}`

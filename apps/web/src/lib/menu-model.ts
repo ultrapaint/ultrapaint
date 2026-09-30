@@ -153,7 +153,8 @@ export interface PageFacts {
   /** The canvas is on screen: the prototype has no frames to zoom to. */
   onCanvas: boolean;
   preset: ViewportPreset | null;
-  route: string;
+  /** The URL it serves in the prototype; absent when it has none. */
+  route?: string;
   /** The page's own variant; absent for a base page. */
   variant?: string;
   /** The canvas's variants the page has no drawing for yet. */
@@ -182,9 +183,9 @@ export const pageEntries = (f: PageFacts): Entry[] => {
   return tidy([
     {
       kind: "label",
-      label: `${f.name} · ${f.route}${f.variant ? ` · ${f.variant}` : ""}`,
+      label: `${f.name}${f.variant ? ` · ${f.variant}` : ""} · ${f.route ?? "no URL"}`,
     },
-    item("goTo", `Go to ${f.route}`),
+    item("goTo", f.route ? `Go to ${f.route}` : "Go to page"),
     f.onCanvas && item("zoomTo", "Zoom to page"),
     f.onCanvas &&
       item("paste", "Paste into page", {
@@ -200,7 +201,9 @@ export const pageEntries = (f: PageFacts): Entry[] => {
       label: "Viewport",
     },
     separator,
-    item("rename", "Change route…"),
+    f.variant === undefined && item("rename", "Rename…"),
+    item("setUrl", f.route ? "Change URL…" : "Set URL…"),
+    f.route !== undefined && item("removeUrl", "Remove URL"),
     item("duplicate", "Duplicate page"),
     f.variant === undefined && {
       entries: tidy([
@@ -271,6 +274,7 @@ export const canvasEntries = (f: CanvasFacts): Entry[] =>
     item("paste", "Paste here", { disabled: !f.canPaste, shortcut: "⌘V" }),
     separator,
     item("newPage", "New page…"),
+    item("importFigma", "Import a Figma file…"),
     separator,
     item("zoomFit", "Zoom to fit", { shortcut: "⇧1" }),
     item("zoom100", "Zoom to 100%", { shortcut: "⇧0" }),
@@ -283,11 +287,6 @@ export const canvasEntries = (f: CanvasFacts): Entry[] =>
     item("tool:text", "Text tool", { shortcut: "T" }),
     item("tool:group", "Group tool", { shortcut: "G" }),
   ]);
-
-export const routeEntries = (route: string): Entry[] => [
-  item("newPage", `New page under ${route}…`),
-  item("copyRoute", "Copy route"),
-];
 
 // ---- Comments ----
 

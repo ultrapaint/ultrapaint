@@ -22,7 +22,8 @@ export const refOfSelection = (
   return {
     canvas,
     nodeId: target.nodeId,
-    route: page?.route ?? null,
+    // A page without a URL is named by its file inside the canvas.
+    page: page ? (page.route ?? page.path) : null,
   };
 };
 
@@ -34,7 +35,7 @@ export const copyNodeRef = async (target: Selection) => {
   const ref = refOfSelection(target);
   const several = useProject.getState().canvases.length > 1;
   const text = formatNodeRef(
-    several ? ref : { nodeId: ref.nodeId, route: ref.route }
+    several ? ref : { nodeId: ref.nodeId, page: ref.page }
   );
   try {
     await writeClipboard(text);
@@ -47,7 +48,13 @@ export const copyNodeRef = async (target: Selection) => {
 };
 
 export const copyNodeLink = async (target: Selection) => {
-  const link = linkToNode(refOfSelection(target));
+  const page = useProject.getState().pages.find((p) => p.id === target.frame);
+  const link = linkToNode({
+    canvas: refOfSelection(target).canvas,
+    nodeId: target.nodeId,
+    page: page?.route === undefined ? (page?.id ?? null) : null,
+    route: page?.route ?? null,
+  });
   try {
     await writeClipboard(link);
     toast.success("Link copied", {

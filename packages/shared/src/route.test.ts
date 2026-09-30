@@ -4,14 +4,50 @@ import {
   isVariantName,
   matchRoute,
   normaliseRoute,
+  pageNameOf,
   pagePathOf,
+  pageRouteOf,
   pagesInVariant,
   resolveTarget,
   routeLabel,
   routeOf,
+  routesOf,
   variantOf,
   variantPathOf,
 } from "./route.ts";
+
+describe("a page's name and URL", () => {
+  it("names a page after its file", () => {
+    expect(pageNameOf("billing-settings.page.json")).toBe("Billing settings");
+    expect(pageNameOf("index.page.json")).toBe("Home");
+    expect(pageNameOf("settings/index.page.json")).toBe("Settings");
+    expect(pageNameOf("invoices/[id].page.json")).toBe("Invoices id");
+    expect(pageNameOf("pricing@bold.page.json")).toBe("Pricing");
+  });
+
+  it("serves the URL the canvas gives it, or none", () => {
+    const routes = { "pricing.page.json": "/plans" };
+    expect(pageRouteOf(routes, "pricing.page.json")).toBe("/plans");
+    expect(pageRouteOf(routes, "pricing@bold.page.json")).toBe("/plans");
+    expect(pageRouteOf(routes, "draft.page.json")).toBeUndefined();
+  });
+
+  it("serves the route its path names in a canvas written before URLs were optional", () => {
+    expect(pageRouteOf(undefined, "settings/billing.page.json")).toBe(
+      "/settings/billing"
+    );
+    expect(
+      routesOf(undefined, ["index.page.json", "pricing.page.json"])
+    ).toEqual({ "index.page.json": "/", "pricing.page.json": "/pricing" });
+    expect(routesOf({}, ["index.page.json"])).toEqual({});
+  });
+
+  it("never matches a page without a URL", () => {
+    const pages = [{ id: "draft" }, { id: "home", route: "/" }];
+    expect(matchRoute(pages, "/")?.entry.id).toBe("home");
+    expect(matchRoute(pages, "/draft")).toBeNull();
+  });
+});
 
 describe("variants of a page", () => {
   it("reads the variant off the file, and serves the base's route", () => {

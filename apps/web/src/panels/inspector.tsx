@@ -24,6 +24,7 @@ import {
   matchTextStyle,
 } from "@ultrapaint/design-document/text-styles";
 import { nodeKind, nodeLabel } from "@ultrapaint/design-document/tree";
+import { normaliseRoute } from "@ultrapaint/shared/route";
 import { cn } from "cn";
 import {
   AlignCenter,
@@ -71,7 +72,7 @@ import {
   updateSelection,
   wrapSelection,
 } from "../lib/node-actions.ts";
-import { implementPage } from "../lib/page-actions.ts";
+import { editPageUrl, implementPage } from "../lib/page-actions.ts";
 import { type Side, sidesOf, withSides } from "../lib/sides.ts";
 import {
   Swatch,
@@ -264,8 +265,22 @@ const PageSection = ({ frame }: { frame: string }) => {
   }
   return (
     <Section title="Page">
-      <Row label="Route">
-        <span className="truncate font-mono text-[11px]">{page.route}</span>
+      <Row label="URL">
+        <button
+          className={cn(
+            "truncate text-left text-[11px] hover:underline",
+            page.route === undefined ? "text-muted-foreground" : "font-mono"
+          )}
+          onClick={() => editPageUrl(page)}
+          title={
+            page.route === undefined
+              ? "No link or prototype reaches it: click to give it a URL"
+              : "Change the URL"
+          }
+          type="button"
+        >
+          {page.route ?? "None"}
+        </button>
       </Row>
       <Row label="Viewport">
         <OptionSelect
@@ -1039,9 +1054,16 @@ const AppearanceSection = ({ node }: { node: DesignNode }) => {
 const LinkSection = ({ node }: { node: DesignNode }) => {
   const canvas = useEditor((s) => s.canvas);
   const pages = useProject((s) => s.pages);
-  const routes = Array.from(
-    new Set(pages.filter((p) => p.canvas === canvas).map((p) => p.route))
-  ).sort();
+  // A link names a URL: the pages that serve one, as their name and URL.
+  const targets = pages
+    .filter(
+      (p) =>
+        p.canvas === canvas && p.variant === undefined && p.route !== undefined
+    )
+    .sort((a, b) => (a.route ?? "").localeCompare(b.route ?? ""));
+  const link = node.link ?? "";
+  const broken =
+    link !== "" && !targets.some((p) => p.route === normaliseRoute(link));
   return (
     <Section title="Prototype">
       <Row label="Goes to">
@@ -1049,10 +1071,14 @@ const LinkSection = ({ node }: { node: DesignNode }) => {
           onChange={(v) => set("link", v === "" ? null : v)}
           options={[
             { label: "Nowhere", value: "" },
-            ...routes.map((r) => ({ label: r, value: r })),
+            ...targets.map((p) => ({
+              label: `${p.name} · ${p.route}`,
+              value: p.route ?? "",
+            })),
+            ...(broken ? [{ label: `${link} (no page)`, value: link }] : []),
           ]}
           size="sm"
-          value={node.link ?? ""}
+          value={link}
         />
       </Row>
     </Section>

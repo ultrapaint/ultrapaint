@@ -9,6 +9,7 @@ import type { ViewportPreset } from "@ultrapaint/contracts/pages";
 import { attachTextStyle } from "@ultrapaint/design-document/text-styles";
 import { tokenRef } from "@ultrapaint/design-document/tokens";
 import { nodeLabel } from "@ultrapaint/design-document/tree";
+import { basePathOf } from "@ultrapaint/shared/route";
 import { toast } from "sonner";
 import { bridgeFor } from "../canvas/bridge.ts";
 import { canvasPoint, insertAt } from "../canvas/drag.ts";
@@ -49,6 +50,7 @@ import {
   pasteIntoPage,
   useClipboard,
 } from "./clipboard.ts";
+import { pickFigmaFile } from "./import-figma.ts";
 import {
   canvasEntries,
   canvasListEntries,
@@ -57,7 +59,6 @@ import {
   type Entry,
   nodeEntries,
   pageEntries,
-  routeEntries,
   type TokenField,
   textStyleEntries,
   threadEntries,
@@ -84,12 +85,14 @@ import { copyNodeLink, copyNodeRef } from "./node-links.ts";
 import {
   deletePage,
   duplicatePage,
+  editPageUrl,
   goToPage,
   implementPage,
   newPage,
   pageById,
   renamePage,
   setPagePreset,
+  setPageUrl,
   zoomToPage,
 } from "./page-actions.ts";
 import { viewportSize } from "./shortcuts.ts";
@@ -141,7 +144,11 @@ const pageMenu = (pageId: string): Entry[] | null => {
   const { canvases, pages } = useProject.getState();
   const drawn = new Set(
     pages
-      .filter((p) => p.canvas === page.canvas && p.route === page.route)
+      .filter(
+        (p) =>
+          p.canvas === page.canvas &&
+          basePathOf(p.path) === basePathOf(page.path)
+      )
       .flatMap((p) => (p.variant === undefined ? [] : [p.variant]))
   );
   return pageEntries({
@@ -153,7 +160,7 @@ const pageMenu = (pageId: string): Entry[] | null => {
     name: page.name,
     onCanvas: onCanvas(),
     preset: useEditor.getState().frames[page.id]?.preset ?? null,
-    route: page.route,
+    ...(page.route !== undefined && { route: page.route }),
     ...(page.variant !== undefined && { variant: page.variant }),
     variantsFree: (
       canvases.find((c) => c.id === page.canvas)?.variants ?? []
@@ -185,8 +192,6 @@ export const entriesFor = (target: MenuTarget): Entry[] | null => {
         canPaste: canPaste(),
         commentsVisible: useComments.getState().visible,
       });
-    case "route":
-      return routeEntries(target.route);
     case "comment": {
       const comment = commentById(target.commentId);
       if (!comment) {
@@ -377,7 +382,9 @@ const runPage = (pageId: string, id: string, at?: Point) => {
     goTo: () => goToPage(page),
     implement: () => implementPage(page),
     paste: () => pasteIntoPage(page.id),
+    removeUrl: () => setPageUrl(page, ""),
     rename: () => renamePage(page),
+    setUrl: () => editPageUrl(page),
     zoomTo: () => zoomToPage(page),
   };
   actions[id]?.();
@@ -404,6 +411,7 @@ const runCanvasEntry = (canvasId: string, id: string) => {
 const runCanvas = (at: Point, id: string) => {
   const editor = useEditor.getState();
   const actions: Record<string, () => unknown> = {
+    importFigma: () => pickFigmaFile(),
     newPage: () => newPage(),
     paste: () => pasteAt(at),
     toggleComments: () => useComments.getState().toggleVisible(),
@@ -547,13 +555,6 @@ export const runEntry = (target: MenuTarget, id: string) => {
       break;
     case "canvasEntry":
       runCanvasEntry(target.canvasId, id);
-      break;
-    case "route":
-      if (id === "newPage") {
-        newPage(target.route);
-      } else if (id === "copyRoute") {
-        copyText(target.route);
-      }
       break;
     case "comment":
       runComment(target.commentId, id);

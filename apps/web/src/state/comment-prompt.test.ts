@@ -35,7 +35,7 @@ describe("commentPrompt", () => {
       [
         "Address this comment thread left on the design canvas.",
         "",
-        "Page: /onboarding/pick (designs/onboarding/pick.page.json)",
+        "Page: Pick, /onboarding/pick (designs/onboarding/pick.page.json)",
         'Node: "Welcome" (id t_title)',
         "Pinned at 40, 12 px from the top-left corner of the page",
         "",

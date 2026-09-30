@@ -172,15 +172,16 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
         ),
       "pages.copyTo": ({ ids, move, target }) =>
         pages((s) => s.copyTo(ids, target, move)),
-      "pages.create": ({ canvas, route, template }) =>
-        pages((s) => s.create(canvas, route, template)),
+      "pages.create": ({ canvas, name, route, template }) =>
+        pages((s) => s.create(canvas, { name, route }, template)),
       "pages.createVariant": ({ id, variant }) =>
         pages((s) => s.createVariant(id, variant)),
       "pages.delete": ({ id }) => pages((s) => s.delete(id)),
       "pages.duplicate": ({ id }) => pages((s) => s.duplicate(id)),
 
       "pages.list": () => pages((s) => s.list),
-      "pages.rename": ({ id, route }) => pages((s) => s.rename(id, route)),
+      "pages.rename": ({ id, name }) => pages((s) => s.rename(id, name)),
+      "pages.setRoute": ({ id, route }) => pages((s) => s.setRoute(id, route)),
       "pages.templates": () => pages((s) => Effect.succeed(s.templates)),
 
       "project.info": () => project.info,

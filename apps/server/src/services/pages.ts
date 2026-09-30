@@ -31,14 +31,14 @@ import {
   pathInCanvas,
   ROOT_CANVAS,
 } from "@ultrapaint/shared/canvas";
-import { basename, humanise } from "@ultrapaint/shared/path";
+import { basename, dirname, humanise, slugOf } from "@ultrapaint/shared/path";
 import {
   basePathOf,
   isVariantName,
   normaliseRoute,
-  pagePathOf,
-  routeLabel,
-  routeOf,
+  pageNameOf,
+  pageRouteOf,
+  routesOf,
   variantOf,
   variantPathOf,
 } from "@ultrapaint/shared/route";
@@ -63,8 +63,6 @@ const IGNORED_DIRS = new Set(["node_modules", ".ultrapaint", "dist", ".vite"]);
 /** Room left between a new frame and the one it is placed after. */
 const FRAME_GAP = 80;
 const SEGMENT_RE = /[\\/]/;
-const UNSAFE_NAME_RE = /[^A-Za-z0-9-_]+/g;
-const EDGE_DASHES_RE = /^-+|-+$/g;
 
 const decodeCanvas = Schema.decodeUnknownEffect(CanvasLayout);
 const decodeOrder = Schema.decodeUnknownEffect(
@@ -92,26 +90,25 @@ export const parseCanvas = (text: string) =>
     return { filled, layout };
   });
 
-/** A name made safe for a file: `Sign in` becomes `sign-in`. */
-export const slugOf = (name: string) =>
-  name
-    .trim()
-    .replaceAll(UNSAFE_NAME_RE, "-")
-    .replaceAll(EDGE_DASHES_RE, "")
-    .toLowerCase() || "page";
-
-/** `canvas.json` as it is written: what it is called first, keys sorted, and no empty list. */
-export const renderCanvas = (layout: CanvasLayout) => {
-  const frames = Object.fromEntries(
-    Object.entries(layout.frames).sort(([a], [b]) => a.localeCompare(b))
+const sortedKeys = <T>(record: Readonly<Record<string, T>>) =>
+  Object.fromEntries(
+    Object.entries(record).sort(([a], [b]) => a.localeCompare(b))
   );
+
+/**
+ * `canvas.json` as it is written: what it is called first, keys sorted, and no empty list. The
+ * routes are written even when there are none, since their absence means a canvas from before
+ * pages had optional URLs.
+ */
+export const renderCanvas = (layout: CanvasLayout) => {
   const nodes = layout.nodes ?? [];
   const variants = layout.variants ?? [];
   return serialise({
     ...(layout.name !== undefined && { name: layout.name }),
     ...(layout.home !== undefined && { home: layout.home }),
     ...(variants.length > 0 && { variants }),
-    frames,
+    ...(layout.routes !== undefined && { routes: sortedKeys(layout.routes) }),
+    frames: sortedKeys(layout.frames),
     ...(nodes.length > 0 && { nodes }),
     version: 1,
   });
@@ -125,22 +122,23 @@ export const canvasIdsIn = (files: readonly string[]): string[] => {
   return ids.length === 0 ? [ROOT_CANVAS] : ids;
 };
 
-/** A page from its canvas and its path inside it. */
+/** A page from its canvas, its path inside it and the canvas's routes. */
 export const pageOf = (
   canvas: string,
   pagePath: string,
   id: string,
-  file: string
+  file: string,
+  routes: CanvasLayout["routes"]
 ): Page => {
-  const route = routeOf(pagePath);
+  const route = pageRouteOf(routes, pagePath);
   const variant = variantOf(pagePath);
   return {
     canvas,
     file,
     id,
-    name: routeLabel(route),
+    name: pageNameOf(pagePath),
     path: pagePath,
-    route,
+    ...(route !== undefined && { route }),
     ...(variant !== null && { variant }),
   };
 };
@@ -169,7 +167,13 @@ export const pageListOf = (input: {
     // A page file that no canvas holds is not a page: it sits beside the canvases.
     if (canvas !== null) {
       pages.push(
-        pageOf(canvas, pathInCanvas(canvas, rel), rel, input.fileOf(rel))
+        pageOf(
+          canvas,
+          pathInCanvas(canvas, rel),
+          rel,
+          input.fileOf(rel),
+          input.layouts[canvas]?.routes
+        )
       );
     }
   }
@@ -199,24 +203,31 @@ export type CopyTarget =
   | { readonly canvas: string }
   | { readonly name: string };
 
+/** What a new page is called, and the URL it serves if any. */
+export interface NewPage {
+  readonly name: string;
+  readonly route?: string | undefined;
+}
+
 /**
  * The pages of the designs directory, grouped into the canvases that own them. A canvas is a
  * directory with a `canvas.json`; while there is none the designs directory is itself the one
- * canvas. A page is a `<route>.page.json` design document, or `<route>@<variant>.page.json` for a
- * variant of it. Owns `canvas.json` and `canvases.json`, and watches everything for the editor.
+ * canvas. A page is a `<name>.page.json` design document, or `<name>@<variant>.page.json` for a
+ * variant of it, and serves the URL its canvas's `routes` give it, if any. Owns `canvas.json`
+ * and `canvases.json`, and watches everything for the editor.
  */
 export class PagesService extends Context.Service<
   PagesService,
   {
     readonly create: (
       canvas: string,
-      route: string,
+      page: NewPage,
       templateId?: string
     ) => Effect.Effect<Page, PagesFailure>;
     /** A page from a document made elsewhere, with its frame sized as given. */
     readonly createWith: (
       canvas: string,
-      route: string,
+      page: NewPage,
       document: PageDocument,
       frame?: { readonly height: number; readonly width: number }
     ) => Effect.Effect<Page, PagesFailure>;
@@ -225,7 +236,7 @@ export class PagesService extends Context.Service<
       id: string,
       variant: string
     ) => Effect.Effect<Page, PagesFailure>;
-    /** Pages copied or moved into another canvas, at the same routes. */
+    /** Pages copied or moved into another canvas, with the same URLs. */
     readonly copyTo: (
       ids: readonly string[],
       target: CopyTarget,
@@ -255,10 +266,15 @@ export class PagesService extends Context.Service<
     ) => Effect.Effect<CanvasLayout, Conflict>;
     /** Repo-relative path of a canvas's `canvas.json`. */
     readonly canvasFile: (canvas: string) => Effect.Effect<string, EditFailure>;
-    /** Moves the page to the route it should serve from now on. */
+    /** Renames the page, which moves its file and its variants'; its URL stays. */
     readonly rename: (
       id: string,
-      route: string
+      name: string
+    ) => Effect.Effect<Page, PagesFailure>;
+    /** The URL the page serves from now on, or none; a variant's is its base page's. */
+    readonly setRoute: (
+      id: string,
+      route: string | null
     ) => Effect.Effect<Page, PagesFailure>;
     readonly templates: readonly {
       readonly id: string;
@@ -398,8 +414,23 @@ export class PagesService extends Context.Service<
       const fallbackName = (id: string) =>
         id === ROOT_CANVAS ? humanise(basename(root)) : humanise(id);
 
-      const toPage = (canvas: string, pagePath: string, abs: string): Page =>
-        pageOf(canvas, pagePath, relativeToDesigns(abs), paths.relative(abs));
+      /** The page a file of a canvas is, as the canvas's routes have it now. */
+      const toPage = Effect.fnUntraced(function* (
+        canvas: string,
+        pagePath: string,
+        abs: string
+      ) {
+        const layout = yield* Effect.orElseSucceed(readCanvas(canvas), () =>
+          emptyCanvasLayout()
+        );
+        return pageOf(
+          canvas,
+          pagePath,
+          relativeToDesigns(abs),
+          paths.relative(abs),
+          layout.routes
+        );
+      });
 
       const list: Effect.Effect<PageList> = Effect.gen(function* () {
         const files = (yield* found).map(relativeToDesigns);
@@ -446,28 +477,90 @@ export class PagesService extends Context.Service<
       const failIfExists = Effect.fnUntraced(function* (abs: string) {
         if (yield* exists(abs)) {
           return yield* new Conflict({
-            message: `a page already serves that route: ${path.basename(abs)}`,
+            message: `a page with that name exists already: ${path.basename(abs)}`,
           });
         }
       });
 
-      /** The file a route is served from, with every segment made safe as a file name. */
-      const fileForRoute = Effect.fnUntraced(function* (route: string) {
-        const normalised = normaliseRoute(route);
-        const segments = pagePathOf(normalised)
-          .split("/")
-          .map((segment) =>
-            // `[id]` keeps its brackets; anything else is slugged the way a name is.
-            segment.startsWith("[") ? segment : slugOf(segment)
-          );
-        if (segments.some((segment) => segment === "")) {
-          return yield* new BadRequest({ message: `invalid route: ${route}` });
-        }
-        return {
-          path: `${segments.join("/")}${PAGE_EXTENSION}`,
-          route: normalised,
+      /**
+       * The file a new page of that name goes in, in `dir` inside the canvas: its name made safe,
+       * numbered past the files there are. `taken` are paths the same action is about to use.
+       */
+      const freePagePath = Effect.fnUntraced(function* (
+        canvas: string,
+        dir: string,
+        name: string,
+        variant?: string,
+        taken: readonly string[] = []
+      ) {
+        const stem = `${dir === "" ? "" : `${dir}/`}${slugOf(name)}`;
+        const fileFor = (count: number) => {
+          const file = `${count === 1 ? stem : `${stem}-${count}`}${PAGE_EXTENSION}`;
+          return variant === undefined ? file : variantPathOf(file, variant);
         };
+        let n = 1;
+        while (
+          taken.includes(fileFor(n)) ||
+          (yield* exists(path.join(root, canvas, fileFor(n))))
+        ) {
+          n += 1;
+        }
+        return fileFor(n);
       });
+
+      /**
+       * A URL a page may serve in its canvas: written the way routes are, and served by no other
+       * page there. `except` is the page taking it, which may have it already.
+       */
+      const checkRoute = Effect.fnUntraced(function* (
+        all: PageList,
+        canvas: string,
+        route: string,
+        except?: string
+      ) {
+        const trimmed = route.trim();
+        if (trimmed === "") {
+          return yield* new BadRequest({ message: "a URL cannot be empty" });
+        }
+        const normalised = normaliseRoute(
+          trimmed.startsWith("/") ? trimmed : `/${trimmed}`
+        );
+        const holder = all.pages.find(
+          (p) =>
+            p.canvas === canvas &&
+            p.variant === undefined &&
+            p.path !== except &&
+            p.route === normalised
+        );
+        if (holder) {
+          return yield* new Conflict({
+            message: `${holder.name} serves ${normalised} already`,
+          });
+        }
+        return normalised;
+      });
+
+      /**
+       * Changes the canvas's routes inside an action. A canvas that has none yet has them written
+       * out first, from its pages' paths, so its other pages keep the URLs they serve.
+       */
+      const updateRoutes = (
+        tx: EditTransaction,
+        all: PageList,
+        canvas: string,
+        update: (routes: Record<string, string>) => Record<string, string>
+      ) =>
+        updateCanvas(tx, canvas, (layout) => ({
+          ...layout,
+          routes: update(
+            routesOf(
+              layout.routes,
+              all.pages
+                .filter((p) => p.canvas === canvas && p.variant === undefined)
+                .map((p) => p.path)
+            )
+          ),
+        }));
 
       /** Beside the rightmost frame of the canvas, so a new page never lands on another. */
       const placeFrame = (
@@ -484,35 +577,46 @@ export class PagesService extends Context.Service<
 
       const createWith = Effect.fn("PagesService.createWith")(function* (
         canvas: string,
-        route: string,
+        page: NewPage,
         document: PageDocument,
         frame?: { readonly height: number; readonly width: number }
       ) {
-        const target = yield* fileForRoute(route);
-        const abs = yield* paths.resolve(path.join(root, canvas, target.path));
-        yield* failIfExists(abs);
-        yield* edit.transaction(`Create ${target.route}`, (tx) =>
+        const name = page.name.trim();
+        if (name === "") {
+          return yield* new BadRequest({ message: "a page needs a name" });
+        }
+        const all = yield* list;
+        const route =
+          page.route === undefined || page.route.trim() === ""
+            ? undefined
+            : yield* checkRoute(all, canvas, page.route);
+        const pagePath = yield* freePagePath(canvas, "", name);
+        const abs = yield* paths.resolve(path.join(root, canvas, pagePath));
+        yield* edit.transaction(`Create ${name}`, (tx) =>
           Effect.gen(function* () {
             yield* tx.create(paths.relative(abs), serialise(document));
+            // Written even without a URL: the page is one, and a canvas without routes would
+            // give it the one its path names.
+            yield* updateRoutes(tx, all, canvas, (routes) =>
+              route === undefined ? routes : { ...routes, [pagePath]: route }
+            );
             if (frame) {
               yield* updateFrames(tx, canvas, (frames) => ({
                 ...frames,
-                [target.path]: placeFrame(frames, frame),
+                [pagePath]: placeFrame(frames, frame),
               }));
             }
           })
         );
         yield* publishList;
-        return toPage(canvas, target.path, abs);
+        return yield* toPage(canvas, pagePath, abs);
       });
 
-      const create = (canvas: string, route: string, templateId = "blank") =>
-        Effect.flatMap(fileForRoute(route), (target) =>
-          createWith(
-            canvas,
-            route,
-            renderTemplate(templateId, routeLabel(target.route))
-          )
+      const create = (canvas: string, page: NewPage, templateId = "blank") =>
+        createWith(
+          canvas,
+          page,
+          renderTemplate(templateId, page.name.trim())
         ).pipe(Effect.withSpan("PagesService.create"));
 
       // ---- canvases ----
@@ -577,7 +681,11 @@ export class PagesService extends Context.Service<
         const id = yield* freeCanvasId(trimmed);
         const all = yield* list;
         yield* edit.transaction(`Create the canvas ${trimmed}`, (tx) =>
-          addCanvas(tx, all, id, { ...emptyCanvasLayout(), name: trimmed })
+          addCanvas(tx, all, id, {
+            ...emptyCanvasLayout(),
+            name: trimmed,
+            routes: {},
+          })
         );
         yield* publishList;
         return { home: "/", id, name: trimmed, variants: [] } satisfies Canvas;
@@ -702,6 +810,27 @@ export class PagesService extends Context.Service<
         yield* publishList;
       });
 
+      /**
+       * The URLs pages copied into a canvas take along: none may be one the target serves
+       * already. A new canvas (`null`) serves none yet.
+       */
+      const carriedRoutes = Effect.fnUntraced(function* (
+        all: PageList,
+        chosen: readonly Page[],
+        target: string | null
+      ) {
+        const carried: Record<string, string> = {};
+        for (const page of chosen) {
+          if (page.variant === undefined && page.route !== undefined) {
+            carried[page.path] =
+              target === null
+                ? page.route
+                : yield* checkRoute(all, target, page.route);
+          }
+        }
+        return carried;
+      });
+
       const copyTo = Effect.fn("PagesService.copyTo")(function* (
         ids: readonly string[],
         target: CopyTarget,
@@ -742,6 +871,7 @@ export class PagesService extends Context.Service<
           })
         );
         const source = yield* readCanvas(from);
+        const carried = yield* carriedRoutes(all, chosen, creating ? null : to);
         const variants = [
           ...new Set(
             chosen.flatMap((p) => (p.variant === undefined ? [] : [p.variant]))
@@ -749,7 +879,7 @@ export class PagesService extends Context.Service<
         ];
         const verb = move ? "Move" : "Copy";
         const what =
-          chosen.length === 1 ? first.route : `${chosen.length} pages`;
+          chosen.length === 1 ? first.name : `${chosen.length} pages`;
         yield* edit.transaction(`${verb} ${what} to ${targetName}`, (tx) =>
           Effect.gen(function* () {
             const withFrames = (frames: CanvasLayout["frames"]) => ({
@@ -774,13 +904,21 @@ export class PagesService extends Context.Service<
                 tx,
                 all,
                 to,
-                withVariants({ ...fresh, frames: withFrames({}) }),
+                withVariants({
+                  ...fresh,
+                  frames: withFrames({}),
+                  routes: carried,
+                }),
                 from
               );
             } else {
               yield* updateCanvas(tx, to, (layout) =>
                 withVariants({ ...layout, frames: withFrames(layout.frames) })
               );
+              yield* updateRoutes(tx, all, to, (routes) => ({
+                ...routes,
+                ...carried,
+              }));
             }
             for (const { abs, content } of entries) {
               yield* tx.create(paths.relative(abs), content);
@@ -789,80 +927,161 @@ export class PagesService extends Context.Service<
               for (const { page } of entries) {
                 yield* tx.remove(page.file);
               }
+              const gone = (key: string) => chosen.some((p) => p.path === key);
               yield* updateFrames(tx, from, (left) =>
                 Object.fromEntries(
-                  Object.entries(left).filter(
-                    ([key]) => !chosen.some((p) => p.path === key)
-                  )
+                  Object.entries(left).filter(([key]) => !gone(key))
+                )
+              );
+              yield* updateRoutes(tx, all, from, (routes) =>
+                Object.fromEntries(
+                  Object.entries(routes).filter(([key]) => !gone(key))
                 )
               );
             }
           })
         );
         yield* publishList;
-        return entries.map(({ abs, page }) => toPage(to, page.path, abs));
+        return yield* Effect.forEach(entries, ({ abs, page }) =>
+          toPage(to, page.path, abs)
+        );
       });
 
       // ---- pages ----
+      /** Moves a key of a record to another, or leaves the record as it is when it has none. */
+      const moveKey = <T>(
+        record: Readonly<Record<string, T>>,
+        moves: ReadonlyMap<string, string>
+      ): Record<string, T> =>
+        Object.fromEntries(
+          Object.entries(record).map(([key, value]) => [
+            moves.get(key) ?? key,
+            value,
+          ])
+        );
+
       const rename = Effect.fn("PagesService.rename")(function* (
         id: string,
-        route: string
+        name: string
       ) {
-        const { abs, page } = yield* byId(id);
-        const routed = yield* fileForRoute(route);
-        // A variant's page moves with its variant: the route changes, the variant stays.
-        const targetPath =
-          page.variant === undefined
-            ? routed.path
-            : variantPathOf(routed.path, page.variant);
-        if (targetPath === page.path) {
+        const trimmed = name.trim();
+        if (trimmed === "") {
+          return yield* new BadRequest({ message: "a page needs a name" });
+        }
+        const all = yield* list;
+        const { page } = yield* byId(id);
+        if (page.variant !== undefined) {
+          return yield* new BadRequest({
+            message: `a variant's page is named after its base page: rename ${pageNameOf(page.path)}`,
+          });
+        }
+        const dir = dirname(page.path);
+        const stem = `${dir === "" ? "" : `${dir}/`}${slugOf(trimmed)}`;
+        if (`${stem}${PAGE_EXTENSION}` === page.path) {
           return page;
         }
-        const to = yield* paths.resolve(
-          path.join(root, page.canvas, targetPath)
+        const targetPath = yield* freePagePath(page.canvas, dir, trimmed);
+        // The page's variants are named after it, and go with it.
+        const moving = all.pages.filter(
+          (p) => p.canvas === page.canvas && basePathOf(p.path) === page.path
         );
-        yield* failIfExists(to);
-        const content = yield* Effect.orDie(fs.readFileString(abs));
-        // A move is the old file gone and the new one there, which is also how it is undone.
-        yield* edit.transaction(`Move ${page.route} to ${routed.route}`, (tx) =>
+        const moves = new Map(
+          moving.map((p) => [
+            p.path,
+            p.variant === undefined
+              ? targetPath
+              : variantPathOf(targetPath, p.variant),
+          ])
+        );
+        const files = yield* Effect.forEach(moving, (p) =>
           Effect.gen(function* () {
-            yield* tx.create(paths.relative(to), content);
-            yield* tx.remove(paths.relative(abs));
-            yield* updateFrames(tx, page.canvas, (frames) => {
-              const { [page.path]: frame, ...rest } = frames;
-              return frame ? { ...rest, [targetPath]: frame } : null;
-            });
+            const from = yield* paths.resolve(path.join(root, p.id));
+            const to = yield* paths.resolve(
+              path.join(root, p.canvas, moves.get(p.path) ?? p.path)
+            );
+            yield* failIfExists(to);
+            const content = yield* Effect.orDie(fs.readFileString(from));
+            return { content, from, to };
+          })
+        );
+        // A move is the old file gone and the new one there, which is also how it is undone.
+        yield* edit.transaction(`Rename ${page.name} to ${trimmed}`, (tx) =>
+          Effect.gen(function* () {
+            for (const { content, from, to } of files) {
+              yield* tx.create(paths.relative(to), content);
+              yield* tx.remove(paths.relative(from));
+            }
+            yield* updateCanvas(tx, page.canvas, (layout) => ({
+              ...layout,
+              frames: moveKey(layout.frames, moves),
+            }));
+            yield* updateRoutes(tx, all, page.canvas, (routes) =>
+              moveKey(routes, moves)
+            );
           })
         );
         yield* publishList;
-        return toPage(page.canvas, targetPath, to);
+        return yield* toPage(
+          page.canvas,
+          targetPath,
+          yield* paths.resolve(path.join(root, page.canvas, targetPath))
+        );
+      });
+
+      const setRoute = Effect.fn("PagesService.setRoute")(function* (
+        id: string,
+        route: string | null
+      ) {
+        const all = yield* list;
+        const { abs, page } = yield* byId(id);
+        const basePath = basePathOf(page.path);
+        const next =
+          route === null || route.trim() === ""
+            ? undefined
+            : yield* checkRoute(all, page.canvas, route, basePath);
+        const base = all.pages.find(
+          (p) => p.canvas === page.canvas && p.path === basePath
+        );
+        if (next === page.route) {
+          return page;
+        }
+        const label = base?.name ?? page.name;
+        yield* edit.transaction(
+          next === undefined
+            ? `Take the URL off ${label}`
+            : `Serve ${label} at ${next}`,
+          (tx) =>
+            updateRoutes(tx, all, page.canvas, (routes) => {
+              const { [basePath]: _, ...rest } = routes;
+              return next === undefined ? rest : { ...rest, [basePath]: next };
+            })
+        );
+        yield* publishList;
+        return yield* toPage(page.canvas, page.path, abs);
       });
 
       const duplicate = Effect.fn("PagesService.duplicate")(function* (
         id: string
       ) {
+        const all = yield* list;
         const { abs, page } = yield* byId(id);
-        // `pricing@bold` is copied as `pricing-2@bold`: the number goes to the route.
-        const base = basePathOf(page.path).slice(0, -PAGE_EXTENSION.length);
-        const named = (i: number) => {
-          const copy = `${base}-${i}${PAGE_EXTENSION}`;
-          return page.variant === undefined
-            ? copy
-            : variantPathOf(copy, page.variant);
-        };
-        let n = 2;
-        while (yield* exists(path.join(root, page.canvas, named(n)))) {
-          n += 1;
-        }
-        const copyPath = named(n);
+        // `pricing@bold` is copied as `pricing-2@bold`: the number goes to the name.
+        const copyPath = yield* freePagePath(
+          page.canvas,
+          dirname(page.path),
+          pageNameOf(page.path),
+          page.variant
+        );
         const target = yield* paths.resolve(
           path.join(root, page.canvas, copyPath)
         );
         // Ids are unique within a document; a copy in a file of its own keeps them.
         const content = yield* Effect.orDie(fs.readFileString(abs));
-        yield* edit.transaction(`Duplicate ${page.route}`, (tx) =>
+        yield* edit.transaction(`Duplicate ${page.name}`, (tx) =>
           Effect.gen(function* () {
             yield* tx.create(paths.relative(target), content);
+            // The copy serves no URL: two pages cannot serve one.
+            yield* updateRoutes(tx, all, page.canvas, (routes) => routes);
             yield* updateFrames(tx, page.canvas, (frames) => {
               const frame = frames[page.path];
               return frame
@@ -878,7 +1097,7 @@ export class PagesService extends Context.Service<
           })
         );
         yield* publishList;
-        return toPage(page.canvas, copyPath, target);
+        return yield* toPage(page.canvas, copyPath, target);
       });
 
       const createVariant = Effect.fn("PagesService.createVariant")(function* (
@@ -899,11 +1118,11 @@ export class PagesService extends Context.Service<
         );
         if (yield* exists(target)) {
           return yield* new Conflict({
-            message: `${page.route} has a ${name} variant already`,
+            message: `${page.name} has a ${name} variant already`,
           });
         }
         const content = yield* Effect.orDie(fs.readFileString(abs));
-        yield* edit.transaction(`Draw ${page.route} for ${name}`, (tx) =>
+        yield* edit.transaction(`Draw ${page.name} for ${name}`, (tx) =>
           Effect.gen(function* () {
             yield* tx.create(paths.relative(target), content);
             yield* updateCanvas(tx, page.canvas, (layout) => {
@@ -928,18 +1147,25 @@ export class PagesService extends Context.Service<
           })
         );
         yield* publishList;
-        return toPage(page.canvas, variantPath, target);
+        return yield* toPage(page.canvas, variantPath, target);
       });
 
       const remove = Effect.fn("PagesService.delete")(function* (id: string) {
+        const all = yield* list;
         const { abs, page } = yield* byId(id);
-        yield* edit.transaction(`Delete ${page.route}`, (tx) =>
+        yield* edit.transaction(`Delete ${page.name}`, (tx) =>
           Effect.gen(function* () {
             yield* tx.remove(paths.relative(abs));
             yield* updateFrames(tx, page.canvas, (frames) => {
               const { [page.path]: removed, ...rest } = frames;
               return removed ? rest : null;
             });
+            if (page.variant === undefined) {
+              yield* updateRoutes(tx, all, page.canvas, (routes) => {
+                const { [page.path]: _, ...rest } = routes;
+                return rest;
+              });
+            }
           })
         );
         yield* publishList;
@@ -958,8 +1184,8 @@ export class PagesService extends Context.Service<
         const layout = yield* Effect.exit(readCanvas(canvas));
         if (layout._tag === "Success") {
           yield* events.publish("canvas", { canvas, layout: layout.value });
-          const { home, name, variants } = layout.value;
-          const info = JSON.stringify({ home, name, variants });
+          const { home, name, routes, variants } = layout.value;
+          const info = JSON.stringify({ home, name, routes, variants });
           if (lastInfo.get(canvas) !== info) {
             lastInfo.set(canvas, info);
             yield* publishList;
@@ -1032,21 +1258,22 @@ export class PagesService extends Context.Service<
       return PagesService.of({
         canvasFile,
         copyTo: (ids, target, move) => exclusive(copyTo(ids, target, move)),
-        create: (canvas, route, templateId) =>
-          exclusive(create(canvas, route, templateId)),
+        create: (canvas, page, templateId) =>
+          exclusive(create(canvas, page, templateId)),
         createCanvas: (name) => exclusive(createCanvas(name)),
         createVariant: (id, variant) => exclusive(createVariant(id, variant)),
-        createWith: (canvas, route, document, frame) =>
-          exclusive(createWith(canvas, route, document, frame)),
+        createWith: (canvas, page, document, frame) =>
+          exclusive(createWith(canvas, page, document, frame)),
         delete: (id) => exclusive(remove(id)),
         deleteCanvas: (id) => exclusive(deleteCanvas(id)),
         duplicate: (id) => exclusive(duplicate(id)),
         duplicateCanvas: (id, name) => exclusive(duplicateCanvas(id, name)),
         list,
         readCanvas,
-        rename: (id, route) => exclusive(rename(id, route)),
+        rename: (id, name) => exclusive(rename(id, name)),
         renameCanvas: (id, name) => exclusive(renameCanvas(id, name)),
         reorderCanvases: (order) => exclusive(reorderCanvases(order)),
+        setRoute: (id, route) => exclusive(setRoute(id, route)),
         templates: pageTemplates,
         updateCanvas,
         writeFrames: (canvas, frames) => exclusive(writeFrames(canvas, frames)),

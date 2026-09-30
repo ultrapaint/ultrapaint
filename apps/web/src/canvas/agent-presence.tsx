@@ -86,11 +86,13 @@ export const useFollowAgent = () => {
       return;
     }
     if (editor.canvas !== page.canvas) {
-      editor.openCanvas(page.canvas, page.route).catch(reportError);
+      editor
+        .openCanvas(page.canvas, { page: page.id, route: page.route ?? null })
+        .catch(reportError);
       return;
     }
     if (editor.workspace === "prototype") {
-      editor.navigate(page.route);
+      editor.openPage(page.id);
       return;
     }
     editor.selectPage(page.id);

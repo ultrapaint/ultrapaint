@@ -331,9 +331,7 @@ const PageRows = ({ page, shared }: { page: Page; shared: Shared }) => {
         <File className="size-3 shrink-0 text-muted-foreground" />
         <span className="truncate">{page.name}</span>
         <span className="ml-auto truncate pr-1 font-mono font-normal text-[10px] text-muted-foreground">
-          {page.variant === undefined
-            ? page.route
-            : `${page.route} · ${page.variant}`}
+          {[page.route, page.variant].filter(Boolean).join(" · ")}
         </span>
       </div>
       {state?.problem ? (

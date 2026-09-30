@@ -28,6 +28,7 @@ import {
   isPageFile,
 } from "@ultrapaint/design-document/tree";
 import { CANVAS_FILE, ROOT_CANVAS } from "@ultrapaint/shared/canvas";
+import { slugOf } from "@ultrapaint/shared/path";
 import {
   Context,
   Effect,
@@ -41,7 +42,7 @@ import {
 import { EventBus } from "../events.ts";
 import { hashContent, toPosix } from "../hash.ts";
 import { type EditFailure, EditService } from "./edit.ts";
-import { PagesService, parseCanvas, slugOf } from "./pages.ts";
+import { PagesService, parseCanvas } from "./pages.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
 const decodePage = Schema.decodeUnknownEffect(PageDocument);
