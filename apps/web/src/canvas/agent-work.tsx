@@ -44,9 +44,9 @@ const outermost = (
 export const useFrameWork = (frameId: string) => {
   const working = useAgents((s) => s.working);
   const docs = useDocuments((s) => s.docs);
-  const space = useEditor((s) => s.space);
+  const canvas = useEditor((s) => s.canvas);
   return useMemo(() => {
-    const canvasDoc = space === null ? null : canvasDocOf(space);
+    const canvasDoc = canvas === null ? null : canvasDocOf(canvas);
     const onFrame = (w: AgentWork) =>
       w.doc === frameId || (isNodeFrame(frameId) && w.doc === canvasDoc);
     const pieces: FrameWork[] = [];
@@ -55,9 +55,9 @@ export const useFrameWork = (frameId: string) => {
       if (!onFrame(work)) {
         continue;
       }
-      const here = (id: string) => nodeIn(docs, space, frameId, id);
+      const here = (id: string) => nodeIn(docs, canvas, frameId, id);
       const ids = work.nodeIds.filter((id) => here(id));
-      const pathOf = (id: string) => pathIn(docs, space, frameId, id);
+      const pathOf = (id: string) => pathIn(docs, canvas, frameId, id);
       pieces.push({
         nodeIds: outermost(ids, pathOf).slice(0, MAX_OUTLINES),
         threadId,
@@ -71,7 +71,7 @@ export const useFrameWork = (frameId: string) => {
       }
     }
     return { pieces, skeletons };
-  }, [working, docs, space, frameId]);
+  }, [working, docs, canvas, frameId]);
 };
 
 /** Tells the preview which nodes are skeletons now; none once the work is done. */

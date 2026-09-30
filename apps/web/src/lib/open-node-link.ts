@@ -1,5 +1,5 @@
 /**
- * A link to a node opens the editor on it: once the space's documents are read, the node is
+ * A link to a node opens the editor on it: once the canvas's documents are read, the node is
  * selected in the page the URL's route serves, or on the canvas beside the pages, and brought
  * into view. The parameter is then dropped: the selection is the editor's state, not the link's.
  */
@@ -13,18 +13,18 @@ export const useOpenNodeLink = () => {
   const wanted = useRef(readUrl().node);
   const loaded = useDocuments((s) => s.loaded);
   const activePage = useEditor((s) => s.activePage);
-  const space = useEditor((s) => s.space);
+  const canvas = useEditor((s) => s.canvas);
   useEffect(() => {
     const nodeId = wanted.current;
-    if (!(nodeId && loaded) || space === null) {
+    if (!(nodeId && loaded) || canvas === null) {
       return;
     }
     const { docs } = useDocuments.getState();
     const inPage =
-      activePage !== null && nodeIn(docs, space, activePage, nodeId)
+      activePage !== null && nodeIn(docs, canvas, activePage, nodeId)
         ? activePage
         : null;
-    const frame = inPage ?? frameOfCanvasNode(docs, space, nodeId);
+    const frame = inPage ?? frameOfCanvasNode(docs, canvas, nodeId);
     wanted.current = null;
     clearNodeParam();
     if (!frame) {
@@ -36,5 +36,5 @@ export const useOpenNodeLink = () => {
     requestAnimationFrame(() =>
       useEditor.getState().zoomToSelection(viewportSize())
     );
-  }, [loaded, activePage, space]);
+  }, [loaded, activePage, canvas]);
 };

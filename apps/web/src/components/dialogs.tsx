@@ -2,6 +2,7 @@ import {
   type ChangeEvent,
   type FocusEvent,
   type FormEvent,
+  type KeyboardEvent,
   useState,
 } from "react";
 import { create } from "zustand";
@@ -25,6 +26,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 interface ConfirmOptions {
   confirmLabel?: string;
@@ -37,7 +39,11 @@ interface PromptOptions {
   confirmLabel?: string;
   defaultValue?: string;
   description?: string;
+  /** Several lines of text rather than one: Enter is a new line, ⌘Enter confirms. */
+  multiline?: boolean;
   placeholder?: string;
+  /** Answers offered over the field: picking one puts its text in the field. */
+  presets?: readonly { label: string; value: string }[];
   title: string;
 }
 
@@ -164,8 +170,8 @@ export const DialogHost = () => {
 };
 
 const PromptForm = ({
-  request,
   onSettle,
+  request,
 }: {
   request: PromptOptions;
   onSettle: (value: string | null) => void;
@@ -175,9 +181,15 @@ const PromptForm = ({
     e.preventDefault();
     onSettle(value.trim() === "" ? null : value);
   };
-  const onChange = (e: ChangeEvent<HTMLInputElement>) =>
+  const onChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setValue(e.target.value);
   const onCancel = () => onSettle(null);
+  const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      onSettle(value.trim() === "" ? null : value);
+    }
+  };
   return (
     <form className="contents" onSubmit={onSubmit}>
       <DialogHeader>
@@ -186,13 +198,39 @@ const PromptForm = ({
           <DialogDescription>{request.description}</DialogDescription>
         ) : null}
       </DialogHeader>
-      <Input
-        autoFocus
-        onChange={onChange}
-        onFocus={selectOnFocus}
-        placeholder={request.placeholder}
-        value={value}
-      />
+      {request.presets && request.presets.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {request.presets.map((preset) => (
+            <Button
+              key={preset.label}
+              onClick={() => setValue(preset.value)}
+              size="sm"
+              type="button"
+              variant={value === preset.value ? "secondary" : "outline"}
+            >
+              {preset.label}
+            </Button>
+          ))}
+        </div>
+      ) : null}
+      {request.multiline ? (
+        <Textarea
+          autoFocus
+          className="min-h-24"
+          onChange={onChange}
+          onKeyDown={onKeyDown}
+          placeholder={request.placeholder}
+          value={value}
+        />
+      ) : (
+        <Input
+          autoFocus
+          onChange={onChange}
+          onFocus={selectOnFocus}
+          placeholder={request.placeholder}
+          value={value}
+        />
+      )}
       <DialogFooter>
         <Button onClick={onCancel} type="button" variant="outline">
           Cancel

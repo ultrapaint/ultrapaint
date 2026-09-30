@@ -82,10 +82,26 @@ ${notes.trim()}
 `
     : "";
 
-const routesOf = (pages: PageList) =>
-  pages.pages.length === 0
-    ? "There are no pages yet."
-    : pages.pages.map((page) => `- ${page.route} → ${page.file}`).join("\n");
+const pageLine = (page: PageList["pages"][number]) =>
+  `- ${page.route}${page.variant === undefined ? "" : ` (variant ${page.variant})`} → ${page.file}`;
+
+/** The routes, under their canvas when there are several. */
+const routesOf = (pages: PageList) => {
+  if (pages.pages.length === 0) {
+    return "There are no pages yet.";
+  }
+  if (pages.canvases.length <= 1) {
+    return pages.pages.map(pageLine).join("\n");
+  }
+  return pages.canvases
+    .map((canvas) => {
+      const own = pages.pages.filter((p) => p.canvas === canvas.id);
+      return `${canvas.name} (canvas ${JSON.stringify(canvas.id)}):\n${
+        own.length === 0 ? "- no pages yet" : own.map(pageLine).join("\n")
+      }`;
+    })
+    .join("\n");
+};
 
 export class ProjectBriefing extends Context.Service<
   ProjectBriefing,
@@ -134,10 +150,15 @@ export class ProjectBriefing extends Context.Service<
 You are working in ultrapaint, a design tool. The user sees the designs you change, live, on
 its canvas, drawn with this repository's own design system.
 
-Designs live in ${settings.designsDir}. A page is a design document, not code: a
-<route>.page.json file whose path is its route (index.page.json is /,
-settings/billing.page.json is /settings/billing, invoices/[id].page.json is /invoices/:id). It
-holds a tree of nodes, each with an id:
+Designs live in ${settings.designsDir}, in canvases: a directory with a canvas.json is a canvas
+(the designs directory itself when there is only one), and each has its own pages, routes and
+nodes placed beside them — wireframes in one, components in another, a second version of the
+application in a third. A link never leaves its canvas, and tools take \`canvas\` to say which.
+A page is a design document, not code: a <route>.page.json file whose path inside its canvas is
+its route (index.page.json is /, settings/billing.page.json is /settings/billing,
+invoices/[id].page.json is /invoices/:id); pricing@bold.page.json is /pricing drawn again for
+the variant "bold", shown in its place when the prototype is in that variant. It holds a tree of
+nodes, each with an id:
 - page: the root; lays its children out as a column.
 - row, column: flex containers with gap, align (start|center|end|between|around), crossAlign
   (start|center|end|stretch|baseline), wrap, padding.
@@ -145,7 +166,7 @@ holds a tree of nodes, each with an id:
 - text: role "heading" (with level 1-6) or "paragraph", its text, and either a textStyle of the
   design system (its size, weight and line height as one thing: prefer this) or its own size,
   weight, lineHeight, font, tracking; and color, align.
-- image: src (a path in the space's assets/ or a URL), alt, fit.
+- image: src (assets/<file>: the canvas's own assets/ when it has that file, the shared assets/ at the root of the designs directory otherwise; or a URL), alt, fit.
 - instance: a component of the design system — component (export name), from (module), props,
   and text or children.
 Every node may have width/height ("fill", "hug" or pixels), min/max sizes, padding, margin, fill

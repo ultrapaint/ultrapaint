@@ -1,5 +1,5 @@
 /**
- * The layers of the whole space, read off its documents: every page with its tree, then the
+ * The layers of the whole canvas, read off its documents: every page with its tree, then the
  * nodes placed on the canvas beside the pages, the way Figma lists the frames of a page. A row
  * selects what it names on the canvas, and rows are dragged to move nodes — inside a page,
  * between pages, onto the canvas and back.
@@ -117,9 +117,9 @@ const dropPositionAt = (node: DesignNode, y: number): DropPosition => {
 const clearHover = () => useEditor.getState().setHover(null);
 
 export const Layers = () => {
-  const space = useEditor((s) => s.space);
+  const canvas = useEditor((s) => s.canvas);
   const allPages = useProject((s) => s.pages);
-  const pages = allPages.filter((p) => p.space === space);
+  const pages = allPages.filter((p) => p.canvas === canvas);
   const docs = useDocuments((s) => s.docs);
   const loaded = useDocuments((s) => s.loaded);
   const selection = useEditor((s) => s.selection);
@@ -128,7 +128,7 @@ export const Layers = () => {
   const listRef = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<Row | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
-  const nodes = canvasNodes(docs, space);
+  const nodes = canvasNodes(docs, canvas);
 
   // Opens the way down to the selection whenever it changes (adjusted during render rather than
   // in an effect, so the expanded tree paints in the same pass).
@@ -176,16 +176,16 @@ export const Layers = () => {
 
   /** Moves the dragged row next to, or into, the target row: across documents too. */
   const onDrop = async (target: Row, position: DropPosition) => {
-    if (!drag || space === null) {
+    if (!drag || canvas === null) {
       return;
     }
     const into = position === "inside" ? target.node : target.parent;
     const intoFrame = target.frame;
     const siblings = into ? childrenOf(into) : nodes;
-    const source = docOfFrame(drag.frame, space);
+    const source = docOfFrame(drag.frame, canvas);
     const destination = into
-      ? docOfFrame(intoFrame, space)
-      : canvasDocOf(space);
+      ? docOfFrame(intoFrame, canvas)
+      : canvasDocOf(canvas);
     const edits = layerMoveEdits({
       destination,
       index: dropIndex(siblings, drag.node.id, target.node.id, position),
@@ -198,8 +198,8 @@ export const Layers = () => {
     if (result) {
       const { docs: after } = useDocuments.getState();
       const frame =
-        destination === canvasDocOf(space)
-          ? frameOfCanvasNode(after, space, drag.node.id)
+        destination === canvasDocOf(canvas)
+          ? frameOfCanvasNode(after, canvas, drag.node.id)
           : intoFrame;
       if (frame) {
         useEditor.getState().select({ frame, nodeId: drag.node.id });
@@ -207,14 +207,14 @@ export const Layers = () => {
     }
   };
 
-  if (space === null) {
-    return <PanelEmpty>Open a space from the Pages panel</PanelEmpty>;
+  if (canvas === null) {
+    return <PanelEmpty>Open a canvas from the Pages panel</PanelEmpty>;
   }
   if (!loaded) {
     return <PanelEmpty>Reading the designs…</PanelEmpty>;
   }
   if (pages.length === 0 && nodes.length === 0) {
-    return <PanelEmpty>This space has no pages yet</PanelEmpty>;
+    return <PanelEmpty>Nothing on this canvas yet</PanelEmpty>;
   }
 
   const shared: Shared = {
@@ -331,7 +331,9 @@ const PageRows = ({ page, shared }: { page: Page; shared: Shared }) => {
         <File className="size-3 shrink-0 text-muted-foreground" />
         <span className="truncate">{page.name}</span>
         <span className="ml-auto truncate pr-1 font-mono font-normal text-[10px] text-muted-foreground">
-          {page.route}
+          {page.variant === undefined
+            ? page.route
+            : `${page.route} · ${page.variant}`}
         </span>
       </div>
       {state?.problem ? (

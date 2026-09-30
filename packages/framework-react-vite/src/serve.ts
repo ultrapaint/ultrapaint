@@ -12,6 +12,7 @@ import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { ASSET_PATH, resolveAsset } from "./asset-route.ts";
 import {
   flattenPlugins,
   has,
@@ -64,6 +65,7 @@ const port = Number(portArg);
 const fromAnchor = createRequire(path.join(options.anchorDir, "package.json"));
 
 const log = (text: string) => console.log(`[ultrapaint] ${text}`);
+const LEADING_NON_SLASH_RE = /^(?!\/)/;
 
 /**
  * Root directory of a package as the anchor resolves it, or null. Looked up by folder instead
@@ -232,6 +234,33 @@ const servePage = {
   name: "ultrapaint:page",
 };
 
+/** An image of a canvas, found where it is and handed to Vite's own file serving. */
+const serveAsset = {
+  configureServer(dev: import("vite").ViteDevServer) {
+    dev.middlewares.use(ASSET_PATH, (req, res) => {
+      const params = new URL(req.url ?? "/", "http://preview").searchParams;
+      const file = resolveAsset(
+        options.designsDir,
+        params.get("canvas") ?? "",
+        params.get("src") ?? "",
+        existsSync
+      );
+      if (file === null) {
+        res.statusCode = 404;
+        res.end();
+        return;
+      }
+      res.statusCode = 302;
+      res.setHeader(
+        "location",
+        `/@fs${file.replaceAll("\\", "/").replace(LEADING_NON_SLASH_RE, "/")}`
+      );
+      res.end();
+    });
+  },
+  name: "ultrapaint:assets",
+};
+
 const server = await vite.createServer(
   vite.mergeConfig(inherited, {
     appType: "spa",
@@ -251,6 +280,7 @@ const server = await vite.createServer(
         from: [options.designsDir, options.bundleDir],
       }),
       servePage,
+      serveAsset,
       ...extra,
     ],
     resolve: { dedupe: options.singletons },

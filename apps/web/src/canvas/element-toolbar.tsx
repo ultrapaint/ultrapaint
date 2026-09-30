@@ -205,7 +205,7 @@ const useVariantPreviews = (
 ) => {
   const ds = useDesignSystem((s) => s.designSystem);
   const host = useProject((s) => previewUrl(s.info.host));
-  const space = useEditor((s) => s.space) ?? "";
+  const canvas = useEditor((s) => s.canvas) ?? "";
   const [pictures, setPictures] = useState<Record<string, string | null>>({});
   const optionsKey = options.join("|");
   useEffect(() => {
@@ -234,8 +234,8 @@ const useVariantPreviews = (
           // as the frame that draws them draws one thing.
           // biome-ignore lint/performance/noAwaitInLoops: the pictures are drawn one after the other.
           const picture = await drawSpecimen(host, root, ds, {
+            canvas,
             nodeId: root.id,
-            space,
           });
           previewCache.set(key, picture);
         }
@@ -248,7 +248,7 @@ const useVariantPreviews = (
     return () => {
       live = false;
     };
-  }, [open, host, ds, space, optionsKey, node, name]);
+  }, [open, host, ds, canvas, optionsKey, node, name]);
   return (option: string) => pictures[option] ?? null;
 };
 

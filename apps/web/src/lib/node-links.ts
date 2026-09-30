@@ -9,17 +9,20 @@ import type { Selection } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { linkToNode } from "../state/url.ts";
 
-/** Where a node of a frame is: its page's route, or the canvas; the space when there are several. */
+/**
+ * Where a node of a frame is: its page's route, or the canvas beside the pages; and which canvas,
+ * when there are several.
+ */
 export const refOfSelection = (
   target: Selection
-): NodeRef & { space: string } => {
+): NodeRef & { canvas: string } => {
   const { pages } = useProject.getState();
   const page = pages.find((p) => p.id === target.frame);
-  const space = page?.space ?? "";
+  const canvas = page?.canvas ?? "";
   return {
+    canvas,
     nodeId: target.nodeId,
     route: page?.route ?? null,
-    space,
   };
 };
 
@@ -29,7 +32,7 @@ const writeClipboard = async (text: string) => {
 
 export const copyNodeRef = async (target: Selection) => {
   const ref = refOfSelection(target);
-  const several = useProject.getState().spaces.length > 1;
+  const several = useProject.getState().canvases.length > 1;
   const text = formatNodeRef(
     several ? ref : { nodeId: ref.nodeId, route: ref.route }
   );

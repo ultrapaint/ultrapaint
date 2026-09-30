@@ -41,7 +41,8 @@ list_pages to see the routes". The failure is an error class: Effect's MCP serve
 failure's message on only when it is an `Error`, and until the review of this branch every one
 of them reached the agent as "internal server error".
 
-A project can have several spaces, and a route can be a page in more than one. A tool that
+A project can have several spaces (canvases since [0019](0019-canvases.md), and the tools
+take `canvas`), and a route can be a page in more than one. A tool that
 needs a space and is not told one works in the only space there is, or asks which; one that is
 given a route two spaces share asks which as well. It does not pick the first. The designs
 directory's own space is called `""`, which is a name like any other.

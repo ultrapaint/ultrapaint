@@ -15,7 +15,7 @@ export type ComponentRegistry = Readonly<
 
 /** What the core hands a renderer once, when it mounts it. */
 export interface RenderSetup {
-  /** URL of an image a node shows: a path inside the space, or a URL as it is. */
+  /** URL of an image a node shows: a path inside the canvas, or a URL as it is. */
   readonly assetUrl: (src: string) => string;
   readonly components: ComponentRegistry;
   /** A node with a link was pressed. */

@@ -85,7 +85,7 @@ const sourceOf = (thread: Thread) => {
     return null;
   }
   const { docs } = useDocuments.getState();
-  const { frames, space } = useEditor.getState();
+  const { frames, canvas } = useEditor.getState();
   const page = useProject.getState().pages.find((p) => p.file === scope.file);
   if (page) {
     const doc = docs[page.id];
@@ -94,9 +94,9 @@ const sourceOf = (thread: Thread) => {
       ? {
           from: `${doc.hash}-${scope.nodeId ?? "page"}`,
           options: {
+            canvas: page.canvas,
             height: frame?.height ?? 900,
             mode: "page" as const,
-            space: page.space,
             width: frame?.width ?? 1440,
             ...(scope.nodeId === undefined ? {} : { nodeId: scope.nodeId }),
           },
@@ -105,16 +105,16 @@ const sourceOf = (thread: Thread) => {
       : null;
   }
   // A node beside the pages: drawn on its own, at its own size.
-  if (scope.nodeId === undefined || space === null) {
+  if (scope.nodeId === undefined || canvas === null) {
     return null;
   }
-  const frame = frameOfCanvasNode(docs, space, scope.nodeId);
-  const root = frame ? rootOfFrame(docs, space, frame) : null;
-  const hash = docs[canvasDocOf(space)]?.hash;
+  const frame = frameOfCanvasNode(docs, canvas, scope.nodeId);
+  const root = frame ? rootOfFrame(docs, canvas, frame) : null;
+  const hash = docs[canvasDocOf(canvas)]?.hash;
   return root
     ? {
         from: `${hash}-${scope.nodeId}`,
-        options: { mode: "fit" as const, nodeId: scope.nodeId, space },
+        options: { canvas, mode: "fit" as const, nodeId: scope.nodeId },
         root,
       }
     : null;

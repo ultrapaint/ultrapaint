@@ -20,14 +20,14 @@ import { fillIds, makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { applyOps, DocumentOpError } from "@ultrapaint/design-document/ops";
 import {
   canvasDocOf,
+  canvasOfDoc,
   canvasRoot,
   childrenOf,
   DOCUMENT_VERSION,
   idsOf,
   isPageFile,
-  spaceOfCanvasDoc,
 } from "@ultrapaint/design-document/tree";
-import { ROOT_SPACE } from "@ultrapaint/shared/space";
+import { CANVAS_FILE, ROOT_CANVAS } from "@ultrapaint/shared/canvas";
 import {
   Context,
   Effect,
@@ -41,14 +41,14 @@ import {
 import { EventBus } from "../events.ts";
 import { hashContent, toPosix } from "../hash.ts";
 import { type EditFailure, EditService } from "./edit.ts";
-import { CANVAS_FILE, PagesService, parseCanvas, slugOf } from "./pages.ts";
+import { PagesService, parseCanvas, slugOf } from "./pages.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
 const decodePage = Schema.decodeUnknownEffect(PageDocument);
 const decodeNodes = Schema.decodeUnknownEffect(Schema.Array(DesignNode));
 
 /** What a document's text holds, with whether ids had to be filled in, or what is wrong with it. */
-const parseDocument = (
+export const parseDocument = (
   text: string,
   canvas: boolean
 ): Effect.Effect<
@@ -100,7 +100,7 @@ const problemOf = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
 /**
- * The design documents of the open project: every page (`<route>.page.json`) and every space's
+ * The design documents of the open project: every page (`<route>.page.json`) and every canvas's
  * canvas (the nodes of `canvas.json`). Reads them, applies operations to them as one undo step
  * per request, and tells the editor whenever one changes — from an edit, an undo, an agent or a
  * checkout. A file that cannot be read as a document is reported, never overwritten.
@@ -115,9 +115,9 @@ export class DocumentService extends Context.Service<
       doc: string
     ) => Effect.Effect<DocumentState, NotFound | EditFailure>;
     readonly list: (
-      space: string
+      canvas: string
     ) => Effect.Effect<readonly DocumentState[], EditFailure>;
-    /** Saves an image into the space's assets; answers with the path a node shows it by. */
+    /** Saves an image into the shared assets; answers with the path a node shows it by. */
     readonly upload: (
       input: UploadAssetInput
     ) => Effect.Effect<{ readonly src: string }, EditFailure>;
@@ -141,9 +141,9 @@ export class DocumentService extends Context.Service<
 
       /** The file behind a document, repo-relative. */
       const fileOf = Effect.fnUntraced(function* (doc: string) {
-        const space = spaceOfCanvasDoc(doc);
-        if (space !== null) {
-          return yield* pages.canvasFile(space);
+        const canvas = canvasOfDoc(doc);
+        if (canvas !== null) {
+          return yield* pages.canvasFile(canvas);
         }
         if (!isPageFile(doc)) {
           return yield* new BadRequest({
@@ -165,17 +165,17 @@ export class DocumentService extends Context.Service<
         const text = (yield* exists(abs))
           ? yield* Effect.orDie(fs.readFileString(abs))
           : null;
-        const space = spaceOfCanvasDoc(doc);
+        const canvas = canvasOfDoc(doc);
         if (text === null) {
           const missing: Loaded = {
             hash: "",
-            root: space === null ? null : canvasRoot([]),
+            root: canvas === null ? null : canvasRoot([]),
             text,
           };
           return missing;
         }
         const hash = hashContent(text);
-        const parsed = yield* parseDocument(text, space !== null);
+        const parsed = yield* parseDocument(text, canvas !== null);
         if ("problem" in parsed) {
           return {
             hash,
@@ -213,17 +213,19 @@ export class DocumentService extends Context.Service<
 
       const get = Effect.fn("DocumentService.get")(function* (doc: string) {
         const loaded = yield* load(doc);
-        if (loaded.text === null && spaceOfCanvasDoc(doc) === null) {
+        if (loaded.text === null && canvasOfDoc(doc) === null) {
           return yield* new NotFound({ message: `no page ${doc}` });
         }
         return stateOf(doc, loaded);
       });
 
-      const list = Effect.fn("DocumentService.list")(function* (space: string) {
+      const list = Effect.fn("DocumentService.list")(function* (
+        canvas: string
+      ) {
         const { pages: all } = yield* pages.list;
         const docs = [
-          ...all.filter((p) => p.space === space).map((p) => p.id),
-          canvasDocOf(space),
+          ...all.filter((p) => p.canvas === canvas).map((p) => p.id),
+          canvasDocOf(canvas),
         ];
         return yield* Effect.forEach(
           docs,
@@ -271,7 +273,7 @@ export class DocumentService extends Context.Service<
                   message: `${change.doc} changed since you last saw it; reloading`,
                 });
               }
-              const space = spaceOfCanvasDoc(change.doc);
+              const canvas = canvasOfDoc(change.doc);
               const result = yield* Effect.try({
                 catch: (error) =>
                   new BadRequest({
@@ -282,7 +284,7 @@ export class DocumentService extends Context.Service<
                   }),
                 try: () =>
                   applyOps(loaded.root as DesignNode, change.ops, {
-                    canvas: space !== null,
+                    canvas: canvas !== null,
                     next: makeIdGenerator(idsOf(loaded.root as DesignNode)),
                   }),
               });
@@ -290,7 +292,7 @@ export class DocumentService extends Context.Service<
                 new BadRequest({
                   message: `the result is not a valid document: ${error.message}`,
                 });
-              if (space === null) {
+              if (canvas === null) {
                 const document = yield* decodePage({
                   root: result.root,
                   version: DOCUMENT_VERSION,
@@ -300,7 +302,7 @@ export class DocumentService extends Context.Service<
                 const nodes = yield* decodeNodes(childrenOf(result.root)).pipe(
                   Effect.mapError(invalid)
                 );
-                yield* pages.updateCanvas(tx, space, (layout) => ({
+                yield* pages.updateCanvas(tx, canvas, (layout) => ({
                   ...layout,
                   nodes,
                 }));
@@ -332,9 +334,9 @@ export class DocumentService extends Context.Service<
             message: `${input.name} is larger than 20 MB`,
           });
         }
-        const dir = yield* paths.resolve(
-          path.join(root, input.space, ASSETS_DIR)
-        );
+        // Into the shared assets, which every canvas can show; a canvas's own are for images
+        // it draws differently from the others, and come with it when it is duplicated.
+        const dir = yield* paths.resolve(path.join(root, ASSETS_DIR));
         const base = slugOf(
           path.basename(input.name, path.extname(input.name))
         );
@@ -365,7 +367,7 @@ export class DocumentService extends Context.Service<
         }
         if (path.basename(abs) === CANVAS_FILE) {
           const dir = toPosix(path.dirname(rel));
-          return canvasDocOf(dir === "." ? ROOT_SPACE : dir);
+          return canvasDocOf(dir === "." ? ROOT_CANVAS : dir);
         }
         return isPageFile(rel) ? rel : null;
       };

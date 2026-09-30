@@ -31,6 +31,8 @@ export type MenuTarget =
   | { kind: "canvas"; at: Point }
   /** A route of the Pages panel that only has pages under it. */
   | { kind: "route"; route: string }
+  /** A canvas of the list in the Pages panel. */
+  | { kind: "canvasEntry"; canvasId: string }
   | { kind: "comment"; commentId: string }
   | { kind: "token"; name: string; value: string; tokenKind: TokenKind }
   | { kind: "textStyle"; name: string }

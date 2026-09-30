@@ -80,7 +80,7 @@ export const showScope = (thread: Thread) => {
       page?.id ??
       frameOfCanvasNode(
         useDocuments.getState().docs,
-        editor.space,
+        editor.canvas,
         scope.nodeId
       );
     if (!frame) {

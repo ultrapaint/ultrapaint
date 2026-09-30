@@ -26,7 +26,21 @@ import type { MenuTarget, Point } from "../state/context-menu.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { isNodeFrame, nodeIn, useDocuments } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
+import { pagesActedOn } from "../state/page-picks.ts";
+import { useProject } from "../state/project.ts";
 import { addToChat } from "./add-to-chat.ts";
+import {
+  canvasById,
+  componentSheet,
+  copyPagesTo,
+  deleteCanvas,
+  duplicateCanvas,
+  duplicateCanvasWithAgent,
+  moveCanvas,
+  newVariant,
+  openCanvas,
+  renameCanvas,
+} from "./canvas-actions.ts";
 import {
   copyNode,
   cutNode,
@@ -37,6 +51,7 @@ import {
 } from "./clipboard.ts";
 import {
   canvasEntries,
+  canvasListEntries,
   commentEntries,
   componentEntries,
   type Entry,
@@ -118,22 +133,52 @@ const nodeMenu = (target: Selection): Entry[] | null => {
   });
 };
 
+const pageMenu = (pageId: string): Entry[] | null => {
+  const page = pageById(pageId);
+  if (!page) {
+    return null;
+  }
+  const { canvases, pages } = useProject.getState();
+  const drawn = new Set(
+    pages
+      .filter((p) => p.canvas === page.canvas && p.route === page.route)
+      .flatMap((p) => (p.variant === undefined ? [] : [p.variant]))
+  );
+  return pageEntries({
+    canPaste: canPaste(),
+    canvases: canvases
+      .filter((c) => c.id !== page.canvas)
+      .map((c) => ({ id: c.id, name: c.name })),
+    count: pagesActedOn(page.id).length,
+    name: page.name,
+    onCanvas: onCanvas(),
+    preset: useEditor.getState().frames[page.id]?.preset ?? null,
+    route: page.route,
+    ...(page.variant !== undefined && { variant: page.variant }),
+    variantsFree: (
+      canvases.find((c) => c.id === page.canvas)?.variants ?? []
+    ).filter((v) => !drawn.has(v)),
+  });
+};
+
 /** The entries of a target's menu; null when what it was for is gone. */
 export const entriesFor = (target: MenuTarget): Entry[] | null => {
   switch (target.kind) {
     case "node":
       return nodeMenu(target);
-    case "page": {
-      const page = pageById(target.pageId);
-      return page
-        ? pageEntries({
-            canPaste: canPaste(),
-            name: page.name,
-            onCanvas: onCanvas(),
-            preset: useEditor.getState().frames[page.id]?.preset ?? null,
-            route: page.route,
-          })
-        : null;
+    case "page":
+      return pageMenu(target.pageId);
+    case "canvasEntry": {
+      const { canvases } = useProject.getState();
+      const index = canvases.findIndex((c) => c.id === target.canvasId);
+      return index === -1
+        ? null
+        : canvasListEntries({
+            current: useEditor.getState().canvas === target.canvasId,
+            first: index === 0,
+            last: index === canvases.length - 1,
+            only: canvases.length === 1,
+          });
     }
     case "canvas":
       return canvasEntries({
@@ -177,7 +222,7 @@ export const entriesFor = (target: MenuTarget): Entry[] | null => {
       return componentEntries({
         isComponent: target.isComponent,
         name: target.name,
-        onCanvas: onCanvas() && useEditor.getState().space !== null,
+        onCanvas: onCanvas() && useEditor.getState().canvas !== null,
         target: insertTarget()?.name ?? null,
       });
     case "thread": {
@@ -220,7 +265,7 @@ const commentOn = async (target: Selection, at?: Point) => {
   const { docs } = useDocuments.getState();
   const node = nodeIn(
     docs,
-    useEditor.getState().space,
+    useEditor.getState().canvas,
     target.frame,
     target.nodeId
   );
@@ -309,6 +354,22 @@ const runPage = (pageId: string, id: string, at?: Point) => {
     setPagePreset(page, argOf(id) as ViewportPreset);
     return;
   }
+  if (id.startsWith("variant:")) {
+    const variant = argOf(id);
+    newVariant(page, variant === "new" ? undefined : variant);
+    return;
+  }
+  if (id.startsWith("copyTo:") || id.startsWith("moveTo:")) {
+    const where = argOf(id);
+    const { pages } = useProject.getState();
+    const ids = pagesActedOn(page.id);
+    copyPagesTo(
+      pages.filter((p) => ids.includes(p.id)),
+      where === "new" ? null : where.slice(1),
+      id.startsWith("moveTo:")
+    );
+    return;
+  }
   const actions: Record<string, () => unknown> = {
     comment: () => startComment(page.id, at ?? { x: 40, y: 40 }),
     delete: () => deletePage(page),
@@ -318,6 +379,24 @@ const runPage = (pageId: string, id: string, at?: Point) => {
     paste: () => pasteIntoPage(page.id),
     rename: () => renamePage(page),
     zoomTo: () => zoomToPage(page),
+  };
+  actions[id]?.();
+};
+
+const runCanvasEntry = (canvasId: string, id: string) => {
+  const canvas = canvasById(canvasId);
+  if (!canvas) {
+    return;
+  }
+  const actions: Record<string, () => unknown> = {
+    componentSheet: () => componentSheet(canvas),
+    delete: () => deleteCanvas(canvas),
+    duplicate: () => duplicateCanvas(canvas),
+    duplicateWithAgent: () => duplicateCanvasWithAgent(canvas),
+    moveDown: () => moveCanvas(canvas, 1),
+    moveUp: () => moveCanvas(canvas, -1),
+    openCanvas: () => openCanvas(canvas.id),
+    rename: () => renameCanvas(canvas),
   };
   actions[id]?.();
 };
@@ -465,6 +544,9 @@ export const runEntry = (target: MenuTarget, id: string) => {
       break;
     case "canvas":
       runCanvas(target.at, id);
+      break;
+    case "canvasEntry":
+      runCanvasEntry(target.canvasId, id);
       break;
     case "route":
       if (id === "newPage") {

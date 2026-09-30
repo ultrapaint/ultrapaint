@@ -136,11 +136,11 @@ const lineAt = (r: Rect, row: boolean, after: boolean): Rect =>
 
 /** The dragged node, when it lives in the document being dropped into. */
 const draggedIn = (dragged: Dragged, doc: string): string | null => {
-  const { space } = useEditor.getState();
-  if (dragged.kind === "node" && docOfFrame(dragged.frame, space) === doc) {
+  const { canvas } = useEditor.getState();
+  if (dragged.kind === "node" && docOfFrame(dragged.frame, canvas) === doc) {
     return dragged.node.id;
   }
-  if (dragged.kind === "loose" && doc === canvasDocOf(space ?? "")) {
+  if (dragged.kind === "loose" && doc === canvasDocOf(canvas ?? "")) {
     return dragged.nodeId;
   }
   return null;
@@ -266,11 +266,11 @@ const placementIn = async (
 ): Promise<Drop | null> => {
   const s = useEditor.getState();
   const frame = allFrames()[frameId];
-  const root = rootOfFrame(useDocuments.getState().docs, s.space, frameId);
+  const root = rootOfFrame(useDocuments.getState().docs, s.canvas, frameId);
   if (!(frame && root)) {
     return null;
   }
-  const doc = docOfFrame(frameId, s.space);
+  const doc = docOfFrame(frameId, s.canvas);
   const exclude = draggedIn(dragged, doc);
   const chain = await bridgeFor(frameId).hitTest(px - frame.x, py - frame.y);
   const innermost = chain.at(-1) ?? root.id;
@@ -382,11 +382,11 @@ const selectLanded = (drop: Drop, id: string | undefined) => {
     return;
   }
   const { docs } = useDocuments.getState();
-  const { space } = useEditor.getState();
+  const { canvas } = useEditor.getState();
   const frame =
     drop.kind === "into" && !isNodeFrame(drop.frame)
       ? drop.frame
-      : frameOfCanvasNode(docs, space, id);
+      : frameOfCanvasNode(docs, canvas, id);
   if (frame) {
     useEditor.getState().select({ frame, nodeId: id });
   }
@@ -422,17 +422,17 @@ const moveLoose = async (
 const carried = (
   dragged: Dragged,
   created: DesignNode | undefined,
-  canvas: string,
-  space: string
+  canvasDoc: string,
+  canvas: string
 ): { node: DesignNode | null; source: string | null } => {
   if (dragged.kind === "node") {
-    return { node: dragged.node, source: docOfFrame(dragged.frame, space) };
+    return { node: dragged.node, source: docOfFrame(dragged.frame, canvas) };
   }
   if (dragged.kind === "loose") {
     const { docs } = useDocuments.getState();
     return {
-      node: findNode(docs[canvas]?.root, dragged.nodeId),
-      source: canvas,
+      node: findNode(docs[canvasDoc]?.root, dragged.nodeId),
+      source: canvasDoc,
     };
   }
   return { node: created ?? null, source: null };
@@ -484,27 +484,28 @@ const dropEdits = (
 export const endDrag = async (created?: DesignNode) => {
   const { copy, dragged, drop, grab, pointer } = useDrag.getState();
   useDrag.setState({ dragged: null, drop: null });
-  const { space } = useEditor.getState();
-  if (!dragged || space === null) {
+  const { canvas } = useEditor.getState();
+  if (!dragged || canvas === null) {
     return;
   }
-  const canvas = canvasDocOf(space);
+  const canvasDoc = canvasDocOf(canvas);
   const at = round({ x: pointer.x - grab.x, y: pointer.y - grab.y });
 
   if (dragged.kind === "loose" && drop?.kind !== "into") {
     const { docs } = useDocuments.getState();
-    const node = findNode(docs[canvas]?.root, dragged.nodeId);
+    const node = findNode(docs[canvasDoc]?.root, dragged.nodeId);
     if (node) {
-      await moveLoose(canvas, node, at, copy);
+      await moveLoose(canvasDoc, node, at, copy);
     }
     return;
   }
 
-  const { node, source } = carried(dragged, created, canvas, space);
+  const { node, source } = carried(dragged, created, canvasDoc, canvas);
   if (!(node && drop)) {
     return;
   }
-  const target = drop.kind === "into" ? docOfFrame(drop.frame, space) : canvas;
+  const target =
+    drop.kind === "into" ? docOfFrame(drop.frame, canvas) : canvasDoc;
   const { edits, label } = dropEdits(drop, node, source, target, at, copy);
   const result = await applyEdits(edits, label);
   if (result) {
@@ -516,7 +517,7 @@ export const endDrag = async (created?: DesignNode) => {
 export const frameOfNode = (id: string) =>
   frameOfCanvasNode(
     useDocuments.getState().docs,
-    useEditor.getState().space,
+    useEditor.getState().canvas,
     id
   ) ?? nodeFrameOf(id);
 
@@ -535,12 +536,13 @@ export const insertAt = async (
   node: DesignNode,
   at: { x: number; y: number }
 ): Promise<string | null> => {
-  const { space } = useEditor.getState();
-  if (space === null) {
+  const { canvas } = useEditor.getState();
+  if (canvas === null) {
     return null;
   }
-  const canvas = canvasDocOf(space);
-  const target = drop.kind === "into" ? docOfFrame(drop.frame, space) : canvas;
+  const canvasDoc = canvasDocOf(canvas);
+  const target =
+    drop.kind === "into" ? docOfFrame(drop.frame, canvas) : canvasDoc;
   const { edits, label } = dropEdits(
     drop,
     node,

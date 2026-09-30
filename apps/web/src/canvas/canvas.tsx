@@ -55,13 +55,13 @@ export const Canvas = () => {
   const ref = useRef<HTMLDivElement>(null);
   const view = useEditor((s) => s.view);
   const frames = useEditor((s) => s.frames);
-  const space = useEditor((s) => s.space);
+  const canvas = useEditor((s) => s.canvas);
   const mode = useEditor((s) => s.mode);
   const spacePan = useEditor((s) => s.spacePan);
   const allPages = useProject((s) => s.pages);
   const configured = useProject((s) => s.info.configured);
-  const pages = allPages.filter((p) => p.space === space);
-  const nodes = useDocuments((s) => canvasNodes(s.docs, space));
+  const pages = allPages.filter((p) => p.canvas === canvas);
+  const nodes = useDocuments((s) => canvasNodes(s.docs, canvas));
   const sizes = useEditor((s) => s.sizes);
   // A node on the canvas being dragged is drawn where the pointer holds it.
   const dragged = useDrag((s) => s.dragged);
@@ -151,7 +151,7 @@ export const Canvas = () => {
   // The layout as saved: what an undo put back, what an agent or a branch switch changed.
   useEffect(
     () =>
-      api().on("canvas", ({ layout, space: changed }) =>
+      api().on("canvas", ({ layout, canvas: changed }) =>
         useEditor.getState().applyLayout(changed, layout)
       ),
     []
@@ -459,7 +459,7 @@ export const Canvas = () => {
     if (d?.kind === "resize-node") {
       const resized = resizingRef.current;
       setResizing(null);
-      const { space: current } = useEditor.getState();
+      const { canvas: current } = useEditor.getState();
       if (resized && current !== null) {
         applyOps(
           canvasDocOf(current),
@@ -625,9 +625,9 @@ export const Canvas = () => {
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-muted-foreground">
           {configured ? (
             <span>
-              {space === null
-                ? "Open a space from the Pages panel"
-                : "This space has no pages yet"}
+              {canvas === null
+                ? "Open a canvas from the Pages panel"
+                : "Nothing on this canvas yet: add a page, or place a component or an image on it"}
             </span>
           ) : (
             <span className="pointer-events-auto flex items-center gap-2">

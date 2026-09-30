@@ -93,12 +93,12 @@ type Set = (field: string, value: JsonValue) => void;
 const useInspected = () => {
   const selection = useEditor((s) => s.selection);
   const selectedPage = useEditor((s) => s.selectedPage);
-  const space = useEditor((s) => s.space);
+  const canvas = useEditor((s) => s.canvas);
   const node = useDocuments((s) => {
     if (selection) {
-      return nodeIn(s.docs, space, selection.frame, selection.nodeId);
+      return nodeIn(s.docs, canvas, selection.frame, selection.nodeId);
     }
-    return selectedPage ? rootOfFrame(s.docs, space, selectedPage) : null;
+    return selectedPage ? rootOfFrame(s.docs, canvas, selectedPage) : null;
   });
   const frame = selection?.frame ?? selectedPage;
   return node && frame ? { frame, node } : null;
@@ -630,9 +630,9 @@ const TextSection = ({ node }: { node: TextNode }) => {
 
 const ImageSection = ({ node }: { node: ImageNode }) => {
   const input = useRef<HTMLInputElement>(null);
-  const space = useEditor((s) => s.space);
+  const canvas = useEditor((s) => s.canvas);
   const upload = async (file: File | undefined) => {
-    if (!file || space === null) {
+    if (!file || canvas === null) {
       return;
     }
     const data = await new Promise<string>((resolve, reject) => {
@@ -648,7 +648,6 @@ const ImageSection = ({ node }: { node: ImageNode }) => {
       const { src } = await api().request("assets.upload", {
         data,
         name: file.name,
-        space,
       });
       set("src", src);
     } catch (error) {
@@ -860,8 +859,8 @@ const LengthField = ({
 
 /** Why a `fill` of the node has no room to take, from its parent's size. */
 const useFillWarnings = (frame: string, node: DesignNode) => {
-  const space = useEditor((s) => s.space);
-  const root = useDocuments((s) => rootOfFrame(s.docs, space, frame));
+  const canvas = useEditor((s) => s.canvas);
+  const root = useDocuments((s) => rootOfFrame(s.docs, canvas, frame));
   const instances = useInstances((s) => s.drawn);
   return root
     ? fillWarnings(root, instances).filter((w) => w.nodeId === node.id)
@@ -1038,10 +1037,10 @@ const AppearanceSection = ({ node }: { node: DesignNode }) => {
 // ---- Prototype ----
 
 const LinkSection = ({ node }: { node: DesignNode }) => {
-  const space = useEditor((s) => s.space);
+  const canvas = useEditor((s) => s.canvas);
   const pages = useProject((s) => s.pages);
   const routes = Array.from(
-    new Set(pages.filter((p) => p.space === space).map((p) => p.route))
+    new Set(pages.filter((p) => p.canvas === canvas).map((p) => p.route))
   ).sort();
   return (
     <Section title="Prototype">

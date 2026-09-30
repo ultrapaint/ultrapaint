@@ -5,7 +5,7 @@ import { viewportSize } from "../lib/shortcuts.ts";
 import { useAgents } from "./agents.ts";
 import { commentPrompt, commentThreadTitle } from "./comment-prompt.ts";
 import { api } from "./connection.ts";
-import { pagesOfSpace, useEditor } from "./editor.ts";
+import { pagesOfCanvas, useEditor } from "./editor.ts";
 import { reportError } from "./project.ts";
 
 /** A comment being written: where it was placed, before it has any text. */
@@ -21,10 +21,11 @@ const VISIBLE_KEY = "ultrapaint:comments-visible";
 
 interface CommentsStore {
   bind: () => void;
-  /** Comments of the open space, resolved ones included. */
+  canvas: string | null;
+  /** Comments of the open canvas, resolved ones included. */
   comments: readonly Comment[];
   draft: CommentDraft | null;
-  load: (space: string) => Promise<void>;
+  load: (canvas: string) => Promise<void>;
   /** The comment whose card is open on the canvas. */
   open: string | null;
   setDraft: (draft: CommentDraft | null) => void;
@@ -32,7 +33,6 @@ interface CommentsStore {
   setShowResolved: (show: boolean) => void;
   /** Whether the panel lists resolved comments too. The canvas never shows them. */
   showResolved: boolean;
-  space: string | null;
   toggleVisible: () => void;
   /** Whether the pins are drawn on the canvas at all. */
   visible: boolean;
@@ -46,19 +46,20 @@ export const useComments = create<CommentsStore>((set, get) => ({
       return;
     }
     bound = true;
-    api().on("comments", ({ list, space }) => {
-      if (space === get().space) {
+    api().on("comments", ({ list, canvas }) => {
+      if (canvas === get().canvas) {
         set({ comments: list.comments });
       }
     });
   },
+  canvas: null,
   comments: [],
   draft: null,
-  load: async (space) => {
-    set({ comments: [], draft: null, open: null, space });
+  load: async (canvas) => {
+    set({ canvas, comments: [], draft: null, open: null });
     try {
-      const { comments } = await api().request("comments.list", { space });
-      if (get().space === space) {
+      const { comments } = await api().request("comments.list", { canvas });
+      if (get().canvas === canvas) {
         set({ comments });
       }
     } catch (error) {
@@ -70,7 +71,6 @@ export const useComments = create<CommentsStore>((set, get) => ({
   setOpen: (open) => set({ open, ...(open && { draft: null }) }),
   setShowResolved: (showResolved) => set({ showResolved }),
   showResolved: false,
-  space: null,
   toggleVisible: () => {
     const visible = !get().visible;
     localStorage.setItem(VISIBLE_KEY, String(visible));
@@ -79,15 +79,17 @@ export const useComments = create<CommentsStore>((set, get) => ({
   visible: localStorage.getItem(VISIBLE_KEY) !== "false",
 }));
 
-/** The page a comment is on, among the pages of the open space. */
+/** The page a comment is on, among the pages of the open canvas. */
 export const pageOfComment = (comment: Comment): Page | undefined =>
-  pagesOfSpace(useEditor.getState().space).find((p) => p.path === comment.page);
+  pagesOfCanvas(useEditor.getState().canvas).find(
+    (p) => p.path === comment.page
+  );
 
-const currentSpace = () => useComments.getState().space ?? "";
+const currentCanvas = () => useComments.getState().canvas ?? "";
 
 export const postDraft = async (text: string) => {
   const { draft } = useComments.getState();
-  const page = pagesOfSpace(useEditor.getState().space).find(
+  const page = pagesOfCanvas(useEditor.getState().canvas).find(
     (p) => p.id === draft?.pageId
   );
   if (!(draft && page && text.trim())) {
@@ -95,10 +97,10 @@ export const postDraft = async (text: string) => {
   }
   try {
     const comment = await api().request("comments.create", {
+      canvas: currentCanvas(),
       element: draft.element,
       nodeId: draft.nodeId,
       page: page.path,
-      space: currentSpace(),
       text: text.trim(),
       x: draft.x,
       y: draft.y,
@@ -115,7 +117,7 @@ export const updateComment = (
   change: { resolved?: boolean; text?: string }
 ) =>
   api()
-    .request("comments.update", { id, space: currentSpace(), ...change })
+    .request("comments.update", { canvas: currentCanvas(), id, ...change })
     .then((comment) => {
       // A resolved comment leaves the canvas, and its card with it.
       if (comment.resolved && useComments.getState().open === id) {
@@ -126,7 +128,11 @@ export const updateComment = (
 
 export const replyTo = (id: string, text: string) =>
   api()
-    .request("comments.reply", { id, space: currentSpace(), text: text.trim() })
+    .request("comments.reply", {
+      canvas: currentCanvas(),
+      id,
+      text: text.trim(),
+    })
     .then(() => true)
     .catch((error) => {
       reportError(error);
@@ -135,7 +141,7 @@ export const replyTo = (id: string, text: string) =>
 
 export const deleteReply = (id: string, replyId: string) =>
   api()
-    .request("comments.deleteReply", { id, replyId, space: currentSpace() })
+    .request("comments.deleteReply", { canvas: currentCanvas(), id, replyId })
     .catch(reportError);
 
 export const deleteComment = (id: string) => {
@@ -143,7 +149,7 @@ export const deleteComment = (id: string) => {
     useComments.getState().setOpen(null);
   }
   api()
-    .request("comments.delete", { id, space: currentSpace() })
+    .request("comments.delete", { canvas: currentCanvas(), id })
     .catch(reportError);
 };
 

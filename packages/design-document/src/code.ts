@@ -111,7 +111,7 @@ interface Writing {
 
 // ---- Values as utilities ----
 
-/** CSS in an arbitrary value: Tailwind reads an underscore as the space a class cannot hold. */
+/** CSS in an arbitrary value: Tailwind reads an underscore as the canvas a class cannot hold. */
 const arbitrary = (prefix: string, value: string) =>
   `${prefix}-[${value.trim().replace(WHITESPACE_RE, "_")}]`;
 

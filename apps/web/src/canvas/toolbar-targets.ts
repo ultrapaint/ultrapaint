@@ -11,9 +11,9 @@ export const Targets = createContext<readonly Selection[]>([]);
 export const useTargetNodes = (): readonly DesignNode[] => {
   const targets = useContext(Targets);
   const docs = useDocuments((s) => s.docs);
-  const space = useEditor((s) => s.space);
+  const canvas = useEditor((s) => s.canvas);
   return targets.flatMap((t) => {
-    const node = nodeIn(docs, space, t.frame, t.nodeId);
+    const node = nodeIn(docs, canvas, t.frame, t.nodeId);
     return node ? [node] : [];
   });
 };

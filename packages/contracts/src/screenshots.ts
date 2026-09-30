@@ -7,6 +7,8 @@ import { RenderMode } from "./preview.ts";
  * to draw the node with the preview, and the first that manages answers.
  */
 export const ScreenshotRequest = Schema.Struct({
+  /** Canvas whose own assets relative image paths are looked for in first. */
+  canvas: Schema.String,
   /** The viewport, in CSS pixels: a page is drawn at its frame's size. */
   height: Schema.Number,
   /** `page` draws a page as a window shows it; `fit` a node on the canvas at its own size. */
@@ -15,8 +17,6 @@ export const ScreenshotRequest = Schema.Struct({
   nodeId: Schema.optional(Schema.String),
   requestId: Schema.String,
   root: DesignNode,
-  /** Space whose assets relative image paths are in. */
-  space: Schema.String,
   width: Schema.Number,
 });
 export type ScreenshotRequest = typeof ScreenshotRequest.Type;

@@ -6,7 +6,7 @@ import { IconButton } from "../components/icon-button.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useDocuments } from "../state/documents.ts";
-import { pagesOfSpace, useEditor } from "../state/editor.ts";
+import { pagesOfCanvas, useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
 import { bridgeFor, removeBridge } from "./bridge.ts";
 import { useHostUrl } from "./frame.tsx";
@@ -14,14 +14,14 @@ import { useHostUrl } from "./frame.tsx";
 /** Room kept free around the page for the workspace switcher and the bottom strip. */
 const inset = { bottom: 72, side: 32, top: 64 };
 
-/** Asks the prototype to reload its iframe, which restarts the space from its current route. */
+/** Asks the prototype to reload its iframe, which restarts the canvas from its current route. */
 const RELOAD_EVENT = "ultrapaint:reload-prototype";
 
 /** The one iframe of a prototype. Navigating swaps the page inside it, it never reloads. */
-export const frameIdOf = (space: string) => `prototype:${space}`;
+export const frameIdOf = (canvas: string) => `prototype:${canvas}`;
 
 /** Tells the prototype what the route shows: the page serving it, in the design system. */
-const renderRoute = (space: string) => {
+const renderRoute = (canvas: string) => {
   const { activePage, route } = useEditor.getState();
   const state = activePage
     ? useDocuments.getState().docs[activePage]
@@ -32,7 +32,7 @@ const renderRoute = (space: string) => {
   } else if (state?.problem !== undefined) {
     message = `This page cannot be read: ${state.problem}`;
   }
-  bridgeFor(frameIdOf(space)).render({
+  bridgeFor(frameIdOf(canvas)).render({
     designSystem: useDesignSystem.getState().designSystem,
     mode: "page",
     root: state?.root ?? null,
@@ -41,14 +41,14 @@ const renderRoute = (space: string) => {
 };
 
 /**
- * The space at the size of the current page's frame, scaled down only when it does not fit,
+ * The canvas at the size of the current page's frame, scaled down only when it does not fit,
  * with clicks going to the page itself. The editor holds the route: what a link inside asks
  * for comes back out as a navigation, and the iframe is told what to show.
  */
 export const Prototype = () => {
   const ref = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const space = useEditor((s) => s.space);
+  const canvas = useEditor((s) => s.canvas);
   const route = useEditor((s) => s.route);
   const activePage = useEditor((s) => s.activePage);
   const frame = useEditor((s) =>
@@ -58,7 +58,7 @@ export const Prototype = () => {
   const hostUrl = useHostUrl();
   const [area, setArea] = useState({ height: 0, width: 0 });
   const [reloads, setReloads] = useState(0);
-  const hasPages = space !== null && pages.some((p) => p.space === space);
+  const hasPages = canvas !== null && pages.some((p) => p.canvas === canvas);
 
   useEffect(() => {
     const onReload = () => setReloads((n) => n + 1);
@@ -79,8 +79,8 @@ export const Prototype = () => {
   }, []);
 
   const url =
-    hostUrl && space !== null
-      ? `${hostUrl}/?space=${encodeURIComponent(space)}&frame=${encodeURIComponent(frameIdOf(space))}`
+    hostUrl && canvas !== null
+      ? `${hostUrl}/?canvas=${encodeURIComponent(canvas)}&frame=${encodeURIComponent(frameIdOf(canvas))}`
       : null;
 
   const size = frame ?? presetSize.desktop;
@@ -92,7 +92,7 @@ export const Prototype = () => {
 
   let content: string | null = null;
   if (!hasPages) {
-    content = "This space has no pages yet";
+    content = "This canvas has no pages yet";
   } else if (!hostUrl) {
     content = "Preview host not running";
   }
@@ -104,16 +104,16 @@ export const Prototype = () => {
   // biome-ignore lint/correctness/useExhaustiveDependencies: the remount is the dependency.
   useEffect(() => {
     const iframe = iframeRef.current;
-    if (!(iframe && url && space !== null)) {
+    if (!(iframe && url && canvas !== null)) {
       return;
     }
-    const frameId = frameIdOf(space);
+    const frameId = frameIdOf(canvas);
     const bridge = bridgeFor(frameId);
     bridge.attach(iframe);
     const off = bridge.on((msg: HostMessage) => {
       if (msg.type === "ed:ready") {
         // Whatever the iframe started on, the editor says what it shows; and it is for clicking.
-        renderRoute(space);
+        renderRoute(canvas);
         bridge.setInteractive(true);
       }
       if (msg.type === "ed:navigateTo") {
@@ -124,7 +124,7 @@ export const Prototype = () => {
       off();
       removeBridge(frameId);
     };
-  }, [space, url, reloads, shown]);
+  }, [canvas, url, reloads, shown]);
 
   // The editor holds the route; the preview draws the page serving it, without reloading.
   const document = useDocuments((s) =>
@@ -133,10 +133,10 @@ export const Prototype = () => {
   const designSystem = useDesignSystem((s) => s.designSystem);
   // biome-ignore lint/correctness/useExhaustiveDependencies: what is drawn is the dependency.
   useEffect(() => {
-    if (space !== null && url && bridgeFor(frameIdOf(space)).ready) {
-      renderRoute(space);
+    if (canvas !== null && url && bridgeFor(frameIdOf(canvas)).ready) {
+      renderRoute(canvas);
     }
-  }, [route, space, url, document, designSystem]);
+  }, [route, canvas, url, document, designSystem]);
 
   return (
     <div
@@ -153,7 +153,7 @@ export const Prototype = () => {
         >
           <iframe
             className="block origin-top-left border-0 bg-white"
-            key={`${space}:${reloads}`}
+            key={`${canvas}:${reloads}`}
             ref={iframeRef}
             src={url}
             style={{
@@ -176,16 +176,27 @@ const reload = () => window.dispatchEvent(new CustomEvent(RELOAD_EVENT));
 const back = () => window.history.back();
 const forward = () => window.history.forward();
 
-/** Floating strip under the prototype: the space's history, where it is, and a restart. */
+const BASE = "";
+
+/**
+ * Floating strip under the prototype: the canvas's history, where it is, the variant it clicks
+ * through when the canvas has variants, and a restart.
+ */
 export const PrototypeBar = () => {
-  const space = useEditor((s) => s.space);
+  const canvas = useEditor((s) => s.canvas);
   const route = useEditor((s) => s.route);
+  const variant = useEditor((s) => s.variant);
+  const variants = useProject(
+    (s) => s.canvases.find((c) => c.id === canvas)?.variants ?? []
+  );
   // Subscribed to so the routes follow a page being created or deleted.
   useProject((s) => s.pages);
   const routes = Array.from(
-    new Set(pagesOfSpace(space).map((p) => p.route))
+    new Set(pagesOfCanvas(canvas).map((p) => p.route))
   ).sort();
   const go = (next: string) => useEditor.getState().navigate(next);
+  const pickVariant = (next: string) =>
+    useEditor.getState().setVariant(next === BASE ? null : next);
 
   return (
     <div className="pointer-events-auto flex items-center gap-1 rounded-xl border bg-sidebar p-1 text-sidebar-foreground shadow-black/30 shadow-lg">
@@ -199,6 +210,19 @@ export const PrototypeBar = () => {
       >
         <ArrowRight />
       </IconButton>
+      {variants.length > 0 ? (
+        <div className="w-32">
+          <OptionSelect
+            className="border-transparent bg-transparent dark:bg-transparent"
+            onChange={pickVariant}
+            options={[
+              { label: "Base", value: BASE },
+              ...variants.map((v) => ({ label: v, value: v })),
+            ]}
+            value={variant ?? BASE}
+          />
+        </div>
+      ) : null}
       <div className="w-64">
         <OptionSelect
           className="border-transparent bg-transparent font-mono dark:bg-transparent"
@@ -210,7 +234,7 @@ export const PrototypeBar = () => {
       </div>
       <IconButton
         className="size-8 rounded-lg"
-        disabled={space === null}
+        disabled={canvas === null}
         onClick={reload}
         tooltip="Restart the prototype"
       >

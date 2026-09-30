@@ -95,7 +95,7 @@ export const tasks: readonly BenchTask[] = [
       }
       return page.includes("_router")
         ? null
-        : "the link does not go through the space's router";
+        : "the link does not go through the canvas's router";
     },
     given: { "index.tsx": HOME_PAGE },
     id: "router-link",

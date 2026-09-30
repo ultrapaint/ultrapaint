@@ -1,6 +1,6 @@
 /**
  * Design documents: what a page is, and what sits on the canvas beside the pages. A page file
- * (`<route>.page.json`) holds one tree of nodes; the canvas's loose nodes live in the space's
+ * (`<route>.page.json`) holds one tree of nodes; the canvas's loose nodes live in the canvas's
  * `canvas.json`. The editor, the preview, the server and agents all read and write this shape,
  * and every change to it is one of the operations at the end of this file (ADR 0015).
  */
@@ -172,7 +172,7 @@ export interface TextNode extends BoxFields {
 export interface ImageNode extends BoxFields {
   readonly alt?: string | undefined;
   readonly fit?: ImageFit | undefined;
-  /** Path inside the space, `assets/hero.png`, or a URL. */
+  /** Path inside the canvas, `assets/hero.png`, or a URL. */
   readonly src: string;
   readonly type: "image";
 }
@@ -315,7 +315,7 @@ export const PageDocument: Schema.Codec<PageDocument> = Schema.Struct({
 
 /**
  * Which document an operation is about: a page by its id (its path inside the designs
- * directory), or a space's canvas, `canvas:<space>`.
+ * directory), or a canvas's loose nodes, `canvas:<canvas>`.
  */
 export const DocRef = Schema.String;
 export type DocRef = string;

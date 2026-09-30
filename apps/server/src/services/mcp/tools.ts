@@ -52,10 +52,20 @@ const decodeOps = Schema.decodeUnknownEffect(Schema.Array(DocOp));
 const MAX_WARNINGS = 12;
 
 const PageSummary = Schema.Struct({
+  canvas: Schema.String,
   file: Schema.String,
   name: Schema.String,
   route: Schema.String,
-  space: Schema.String,
+  /** The variant the page is drawn for; a route alone names the base page, its file this one. */
+  variant: Schema.optional(Schema.String),
+});
+
+const CanvasSummary = Schema.Struct({
+  /** What `canvas` takes: the designs directory's own is `""`. */
+  id: Schema.String,
+  name: Schema.String,
+  pages: Schema.Number,
+  variants: Schema.Array(Schema.String),
 });
 
 const ComponentSummary = Schema.Struct({
@@ -67,20 +77,20 @@ const ComponentSummary = Schema.Struct({
 
 const GetContext = Tool.make("get_context", {
   description:
-    "Where this project keeps its designs and what is in it: the repository root, the designs directory, the package pages import from, the spaces, and how many pages and components there are. Call this first.",
+    "Where this project keeps its designs and what is in it: the repository root, the designs directory, the package pages import from, the canvases, and how many pages and components there are. Call this first. A canvas owns its pages and their routes, as a Figma file's pages each hold their own frames: the same route can be a page in two canvases, and tools take `canvas` to say which. Images are in the designs directory's assets/, shared by every canvas; a canvas's own assets/ takes the place of a shared file of the same name.",
   failure: Failure,
   success: Schema.Struct({
+    canvases: Schema.Array(CanvasSummary),
     designsDir: Schema.String,
     pageCount: Schema.Number,
     resolveFrom: Schema.String,
     root: Schema.String,
-    spaces: Schema.Array(Schema.String),
   }),
 }).annotate(Tool.Readonly, true);
 
 const ListPages = Tool.make("list_pages", {
   description:
-    "Every page in the project with its route and the file it lives in. A page's path is its route.",
+    "Every page in the project with its canvas, its route and the file it lives in. A page's path is its route; `pricing@bold.page.json` is /pricing drawn again for the variant `bold`, which the prototype shows in place of the base page when it is in that variant. A route names the base page; name a variant's page by its file.",
   failure: Failure,
   success: Schema.Struct({ pages: Schema.Array(PageSummary) }),
 }).annotate(Tool.Readonly, true);
@@ -90,9 +100,9 @@ const ReadPage = Tool.make("read_page", {
     "One page's design document, found by its route (/settings/billing), by its file, or by a node reference the user copied from the editor (/settings/billing#c_8x2k1q): a tree of nodes (page, group, row, column, text, image, instance) with their ids. Pass the hash to apply_operations to make sure nothing changed in between.",
   failure: Failure,
   parameters: Schema.Struct({
+    /** Needed only when the route is a page in more than one canvas. */
+    canvas: Schema.optional(Schema.String),
     route: Schema.String,
-    /** Needed only when the route is a page in more than one space. */
-    space: Schema.optional(Schema.String),
   }),
   success: Schema.Struct({
     document: Json,
@@ -103,9 +113,9 @@ const ReadPage = Tool.make("read_page", {
 
 const ReadCanvas = Tool.make("read_canvas", {
   description:
-    "The nodes placed on a space's canvas beside the pages, each with its x and y. Change them with apply_operations and `canvas: true`.",
+    "The loose nodes placed on a canvas beside its pages, each with its x and y. Change them with apply_operations and `loose: true`.",
   failure: Failure,
-  parameters: Schema.Struct({ space: Schema.optional(Schema.String) }),
+  parameters: Schema.Struct({ canvas: Schema.optional(Schema.String) }),
   success: Schema.Struct({ hash: Schema.String, nodes: Json }),
 }).annotate(Tool.Readonly, true);
 
@@ -132,17 +142,18 @@ Values: numbers are pixels, "$name" is a design token (--name), anything else pl
 Size an instance with width, height, padding and the other box fields, never with a className prop: the canvas puts them on the component itself, as the code will. The answer's "warnings" name the nodes whose "fill" has no room to take, because their parent's size follows its content.`,
   failure: Failure,
   parameters: Schema.Struct({
-    /** Work on the canvas of the space instead of a page. */
-    canvas: Schema.optional(Schema.Boolean),
+    /** Needed only when the project has several canvases. */
+    canvas: Schema.optional(Schema.String),
     /** The hash read_page answered with; the call is refused if the page changed since. */
     expectedHash: Schema.optional(Schema.String),
     /** What the undo menu calls it. */
     label: Schema.optional(Schema.String),
+    /** Work on the loose nodes placed on the canvas beside the pages, instead of a page. */
+    loose: Schema.optional(Schema.Boolean),
     /** Checked once the ids a new node leaves out are filled in. */
     ops: Schema.Array(Json),
-    /** Route or file of the page; leave out with `canvas: true`. */
+    /** Route or file of the page; leave out with `loose: true`. */
     route: Schema.optional(Schema.String),
-    space: Schema.optional(Schema.String),
   }),
   success: Schema.Struct({
     created: Schema.Array(Schema.String),
@@ -232,9 +243,9 @@ const ListComments = Tool.make("list_comments", {
     "The comments left on the designs, which is where the user asks for things. Open ones first.",
   failure: Failure,
   parameters: Schema.Struct({
+    canvas: Schema.optional(Schema.String),
     /** Include the ones already dealt with. */
     includeResolved: Schema.optional(Schema.Boolean),
-    space: Schema.optional(Schema.String),
   }),
   success: Schema.Struct({ comments: Schema.Array(CommentSummary) }),
 }).annotate(Tool.Readonly, true);
@@ -244,12 +255,12 @@ const SetFrame = Tool.make("set_frame", {
     "Size a page's frame on the canvas: a preset (mobile, tablet, desktop) or a width and height in pixels. The frame is the window the page is drawn in, on the canvas and in get_screenshot; a long page needs a tall frame to be seen whole. One undo step for the user.",
   failure: Failure,
   parameters: Schema.Struct({
+    canvas: Schema.optional(Schema.String),
     height: Schema.optional(
       Schema.Number.check(Schema.isBetween({ maximum: 20_000, minimum: 100 }))
     ),
     preset: Schema.optional(Schema.Literals(["mobile", "tablet", "desktop"])),
     route: Schema.String,
-    space: Schema.optional(Schema.String),
     width: Schema.optional(
       Schema.Number.check(Schema.isBetween({ maximum: 8000, minimum: 200 }))
     ),
@@ -266,8 +277,8 @@ const CreatePage = Tool.make("create_page", {
     "Add a page at a route. The file goes where the project keeps its designs, named so the route matches. Prefer this to creating the file yourself; then fill it with apply_operations.",
   failure: Failure,
   parameters: Schema.Struct({
+    canvas: Schema.optional(Schema.String),
     route: Schema.String,
-    space: Schema.optional(Schema.String),
     /** One of the project's page templates; the plain one when left out. */
     template: Schema.optional(Schema.String),
   }),
@@ -283,9 +294,9 @@ const RenamePage = Tool.make("rename_page", {
     "Move a page to another route. The file moves with it, which is what changes the route.",
   failure: Failure,
   parameters: Schema.Struct({
+    /** Needed only when the route is a page in more than one canvas. */
+    canvas: Schema.optional(Schema.String),
     route: Schema.String,
-    /** Needed only when the route is a page in more than one space. */
-    space: Schema.optional(Schema.String),
     to: Schema.String,
   }),
   success: Schema.Struct({ file: Schema.String, route: Schema.String }),
@@ -296,8 +307,8 @@ const ReplyToComment = Tool.make("reply_to_comment", {
     "Answer a comment on the designs, in the thread under it, so the user reads it where they asked.",
   failure: Failure,
   parameters: Schema.Struct({
+    canvas: Schema.optional(Schema.String),
     id: Schema.String,
-    space: Schema.optional(Schema.String),
     text: Schema.String,
   }),
   success: Schema.Struct({ replies: Schema.Number }),
@@ -308,8 +319,8 @@ const ResolveComment = Tool.make("resolve_comment", {
     "Mark a comment as dealt with, once the work it asked for is done.",
   failure: Failure,
   parameters: Schema.Struct({
+    canvas: Schema.optional(Schema.String),
     id: Schema.String,
-    space: Schema.optional(Schema.String),
   }),
   success: Schema.Struct({ resolved: Schema.Boolean }),
 });
@@ -321,11 +332,11 @@ const Focus = Tool.make("focus", {
   parameters: Schema.Struct({
     /** A few words on what you are doing to the nodes. */
     action: Schema.optional(Schema.String),
+    /** Needed only when the route is a page in more than one canvas. */
+    canvas: Schema.optional(Schema.String),
     /** Ids of the nodes of the page you are about to change. */
     nodes: Schema.optional(Schema.Array(Schema.String)),
     route: Schema.String,
-    /** Needed only when the route is a page in more than one space. */
-    space: Schema.optional(Schema.String),
   }),
   success: Schema.Struct({ route: Schema.String }),
 }).annotate(Tool.Readonly, true);
@@ -370,7 +381,7 @@ export const missing = (message: string) =>
 const asJson = (value: unknown) => value as JsonValue;
 
 /**
- * How a tool finds what an agent names: a space, a page by route or file, a document. Every
+ * How a tool finds what an agent names: a canvas, a page by route or file, a document. Every
  * miss is a sentence that says what there is instead.
  */
 export const makeLookup = Effect.gen(function* () {
@@ -378,63 +389,66 @@ export const makeLookup = Effect.gen(function* () {
 
   const pagesOf = project.use(Effect.flatMap(PagesService, (p) => p.list));
 
-  /** A space's id as an agent would pass it back: the designs directory's own is `""`. */
+  /** A canvas's id as an agent would pass it back: the designs directory's own is `""`. */
   const named = (id: string) => JSON.stringify(id);
 
   /**
-   * The space a tool was told to work in, or the only one there is. With several and none
+   * The canvas a tool was told to work in, or the only one there is. With several and none
    * named, the tool says so rather than pick one: the first is not what the agent meant.
    */
-  const spaceOf = Effect.fnUntraced(function* (space: string | undefined) {
-    const { spaces } = yield* reported(pagesOf);
-    const ids = spaces.map((s) => named(s.id)).join(", ");
-    if (space !== undefined) {
-      return spaces.some((s) => s.id === space)
-        ? space
-        : yield* missing(`no space ${named(space)}; the spaces are ${ids}`);
+  const canvasOf = Effect.fnUntraced(function* (canvas: string | undefined) {
+    const { canvases } = yield* reported(pagesOf);
+    const ids = canvases.map((s) => named(s.id)).join(", ");
+    if (canvas !== undefined) {
+      return canvases.some((s) => s.id === canvas)
+        ? canvas
+        : yield* missing(`no canvas ${named(canvas)}; the canvases are ${ids}`);
     }
-    if (spaces.length <= 1) {
-      return spaces[0]?.id ?? "";
+    if (canvases.length <= 1) {
+      return canvases[0]?.id ?? "";
     }
     return yield* missing(
-      `this project has several spaces (${ids}); say which with \`space\``
+      `this project has several canvases (${ids}); say which with \`canvas\``
     );
   });
 
   /**
-   * A page by route (or file), in the space named, or in the only space that has it. A node
+   * A page by route (or file), in the canvas named, or in the only canvas that has it. A node
    * reference (`/orders#c_1`, `marketing:/pricing#c_1`) names its page as well.
    */
   const pageAt = Effect.fnUntraced(function* (
     given: string,
-    givenSpace: string | undefined
+    givenCanvas: string | undefined
   ) {
     const ref = parseNodeRef(given);
     if (ref && ref.route === null) {
       return yield* missing(
-        `${given} is a node on the canvas beside the pages; pass \`canvas: true\` instead of a route`
+        `${given} is a node on the canvas beside the pages; pass \`loose: true\` instead of a route`
       );
     }
     const route = ref?.route ?? given;
-    const space = givenSpace ?? ref?.space;
+    const canvas = givenCanvas ?? ref?.canvas;
     const { pages } = yield* reported(pagesOf);
+    // A route names the base page; a variant's page is named by its file.
     const found = pages.filter(
       (p) =>
-        (p.route === route || p.file === route) &&
-        (space === undefined || p.space === space)
+        ((p.route === route && p.variant === undefined) ||
+          p.file === route ||
+          p.id === route) &&
+        (canvas === undefined || p.canvas === canvas)
     );
     const [only] = found;
     if (only && found.length === 1) {
       return only;
     }
     if (found.length === 0) {
-      const where = space === undefined ? "" : ` in space ${named(space)}`;
+      const where = canvas === undefined ? "" : ` in canvas ${named(canvas)}`;
       return yield* missing(
         `no page at ${route}${where}; call list_pages to see the routes`
       );
     }
     return yield* missing(
-      `${route} is a page in several spaces (${found.map((p) => named(p.space)).join(", ")}); say which with \`space\``
+      `${route} is a page in several canvases (${found.map((p) => named(p.canvas)).join(", ")}); say which with \`canvas\``
     );
   });
 
@@ -442,13 +456,13 @@ export const makeLookup = Effect.gen(function* () {
     f: (service: DocumentService["Service"]) => Effect.Effect<A, E>
   ) => reported(project.use(Effect.flatMap(DocumentService, f)));
 
-  return { documents, pageAt, pagesOf, project, spaceOf };
+  return { canvasOf, documents, pageAt, pagesOf, project };
 });
 
 export const EditorToolsLive = EditorTools.toLayer(
   Effect.gen(function* () {
     const events = yield* EventBus;
-    const { documents, pageAt, pagesOf, project, spaceOf } = yield* makeLookup;
+    const { documents, pageAt, pagesOf, project, canvasOf } = yield* makeLookup;
     const catalogueOf = project.use(
       Effect.flatMap(CatalogueService, (c) => c.get(false))
     );
@@ -462,19 +476,19 @@ export const EditorToolsLive = EditorTools.toLayer(
         canvas,
         expectedHash,
         label,
+        loose,
         ops,
         route,
-        space,
       }) {
         let doc: string;
-        if (canvas) {
-          doc = canvasDocOf(yield* spaceOf(space));
+        if (loose) {
+          doc = canvasDocOf(yield* canvasOf(canvas));
         } else if (route === undefined) {
           return yield* missing(
-            "say which page with `route`, or pass `canvas: true` for the canvas"
+            "say which page with `route`, or pass `loose: true` for the nodes beside the pages"
           );
         } else {
-          doc = (yield* pageAt(route, space)).id;
+          doc = (yield* pageAt(route, canvas)).id;
         }
         // A node an agent writes may leave its ids out; they are made before the ops are read.
         // Node references the user pasted stand for their node ids.
@@ -537,11 +551,11 @@ export const EditorToolsLive = EditorTools.toLayer(
         };
       }),
 
-      create_page: Effect.fnUntraced(function* ({ route, space, template }) {
+      create_page: Effect.fnUntraced(function* ({ route, canvas, template }) {
         const page = yield* reported(
           project.use(
             Effect.flatMap(PagesService, (pages) =>
-              Effect.flatMap(spaceOf(space), (id) =>
+              Effect.flatMap(canvasOf(canvas), (id) =>
                 pages.create(id, route, template)
               )
             )
@@ -555,11 +569,11 @@ export const EditorToolsLive = EditorTools.toLayer(
         };
       }),
 
-      focus: Effect.fnUntraced(function* ({ action, nodes, route, space }) {
-        const page = yield* pageAt(route, space);
+      focus: Effect.fnUntraced(function* ({ action, nodes, route, canvas }) {
+        const page = yield* pageAt(route, canvas);
         const threadId = yield* Effect.service(CallingThread);
         if (threadId) {
-          // The page, not the route: the same route can be a page in two spaces.
+          // The page, not the route: the same route can be a page in two canvases.
           yield* events.publish("agent.focus", {
             pageId: page.id,
             route: page.route,
@@ -602,11 +616,16 @@ export const EditorToolsLive = EditorTools.toLayer(
         const paths = yield* reported(project.use(RepoPaths));
         const pages = yield* reported(pagesOf);
         return {
+          canvases: pages.canvases.map((canvas) => ({
+            id: canvas.id,
+            name: canvas.name,
+            pages: pages.pages.filter((p) => p.canvas === canvas.id).length,
+            variants: canvas.variants,
+          })),
           designsDir: paths.settings.designsDir,
           pageCount: pages.pages.length,
           resolveFrom: paths.settings.resolveFrom ?? paths.settings.designsDir,
           root: paths.root,
-          spaces: pages.spaces.map((space) => space.id),
         };
       }),
 
@@ -616,8 +635,8 @@ export const EditorToolsLive = EditorTools.toLayer(
           schema: asJson(JSON.parse(pageSchema())),
         }),
 
-      list_comments: Effect.fnUntraced(function* ({ includeResolved, space }) {
-        const id = yield* spaceOf(space);
+      list_comments: Effect.fnUntraced(function* ({ includeResolved, canvas }) {
+        const id = yield* canvasOf(canvas);
         const list = yield* reported(
           project.use(
             Effect.flatMap(CommentsService, (comments) => comments.list(id))
@@ -659,16 +678,17 @@ export const EditorToolsLive = EditorTools.toLayer(
         const pages = yield* reported(pagesOf);
         return {
           pages: pages.pages.map((page) => ({
+            canvas: page.canvas,
             file: page.file,
             name: page.name,
             route: page.route,
-            space: page.space,
+            ...(page.variant !== undefined && { variant: page.variant }),
           })),
         };
       }),
 
-      read_canvas: Effect.fnUntraced(function* ({ space }) {
-        const id = yield* spaceOf(space);
+      read_canvas: Effect.fnUntraced(function* ({ canvas }) {
+        const id = yield* canvasOf(canvas);
         const state = yield* documents((d) => d.get(canvasDocOf(id)));
         if (state.problem !== undefined) {
           return yield* missing(state.problem);
@@ -692,8 +712,8 @@ export const EditorToolsLive = EditorTools.toLayer(
         };
       }),
 
-      read_page: Effect.fnUntraced(function* ({ route, space }) {
-        const page = yield* pageAt(route, space);
+      read_page: Effect.fnUntraced(function* ({ route, canvas }) {
+        const page = yield* pageAt(route, canvas);
         const state = yield* documents((d) => d.get(page.id));
         if (state.problem !== undefined) {
           return yield* missing(
@@ -707,8 +727,8 @@ export const EditorToolsLive = EditorTools.toLayer(
         };
       }),
 
-      rename_page: Effect.fnUntraced(function* ({ route, space, to }) {
-        const page = yield* pageAt(route, space);
+      rename_page: Effect.fnUntraced(function* ({ route, canvas, to }) {
+        const page = yield* pageAt(route, canvas);
         const moved = yield* reported(
           project.use(
             Effect.flatMap(PagesService, (pages) => pages.rename(page.id, to))
@@ -717,24 +737,24 @@ export const EditorToolsLive = EditorTools.toLayer(
         return { file: moved.file, route: moved.route };
       }),
 
-      reply_to_comment: Effect.fnUntraced(function* ({ id, space, text }) {
-        const inSpace = yield* spaceOf(space);
+      reply_to_comment: Effect.fnUntraced(function* ({ id, canvas, text }) {
+        const inCanvas = yield* canvasOf(canvas);
         const comment = yield* reported(
           project.use(
             Effect.flatMap(CommentsService, (comments) =>
-              comments.reply({ id, space: inSpace, text })
+              comments.reply({ canvas: inCanvas, id, text })
             )
           )
         );
         return { replies: comment.replies.length };
       }),
 
-      resolve_comment: Effect.fnUntraced(function* ({ id, space }) {
-        const inSpace = yield* spaceOf(space);
+      resolve_comment: Effect.fnUntraced(function* ({ id, canvas }) {
+        const inCanvas = yield* canvasOf(canvas);
         const comment = yield* reported(
           project.use(
             Effect.flatMap(CommentsService, (comments) =>
-              comments.update({ id, resolved: true, space: inSpace })
+              comments.update({ canvas: inCanvas, id, resolved: true })
             )
           )
         );
@@ -754,15 +774,15 @@ export const EditorToolsLive = EditorTools.toLayer(
         height,
         preset,
         route,
-        space,
+        canvas,
         width,
       }) {
-        const page = yield* pageAt(route, space);
+        const page = yield* pageAt(route, canvas);
         const frame = yield* reported(
           project.use(
             Effect.flatMap(PagesService, (pages) =>
               Effect.gen(function* () {
-                const layout = yield* pages.readCanvas(page.space);
+                const layout = yield* pages.readCanvas(page.canvas);
                 const before = layout.frames[page.path];
                 const size = preset
                   ? presetSize[preset]
@@ -784,7 +804,7 @@ export const EditorToolsLive = EditorTools.toLayer(
                   x: before?.x ?? right,
                   y: before?.y ?? 0,
                 };
-                yield* pages.writeFrames(page.space, {
+                yield* pages.writeFrames(page.canvas, {
                   ...layout.frames,
                   [page.path]: next,
                 });

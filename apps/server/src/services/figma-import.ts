@@ -191,11 +191,11 @@ export class FigmaImportService extends Context.Service<
       key: string,
       mapping: ComponentMapping | null
     ) => Effect.Effect<FigmaImport, ImportFailure>;
-    /** Writes a frame as a page of the space, with its images in the space's assets. */
+    /** Writes a frame as a page of the canvas, with its images in the shared assets. */
     readonly writeFrame: (
       id: string,
       frame: string,
-      space: string,
+      canvas: string,
       route: string
     ) => Effect.Effect<WrittenFrame, ImportFailure | EditFailure | Conflict>;
   }
@@ -480,14 +480,14 @@ export class FigmaImportService extends Context.Service<
         } satisfies ComponentPreview;
       });
 
-      /** The pictures a page shows, written once each; a file already there is the same picture. */
-      const writeImages = Effect.fnUntraced(function* (
-        space: string,
-        conversion: Conversion
-      ) {
+      /**
+       * The pictures a page shows, written once each into the shared assets; a file already
+       * there is the same picture, since its name is its content's.
+       */
+      const writeImages = Effect.fnUntraced(function* (conversion: Conversion) {
         for (const image of conversion.images) {
           const abs = yield* paths.resolve(
-            path.join(paths.designsDir, space, image.src)
+            path.join(paths.designsDir, image.src)
           );
           if (yield* Effect.orElseSucceed(fs.exists(abs), () => false)) {
             continue;
@@ -502,7 +502,7 @@ export class FigmaImportService extends Context.Service<
       const writeFrame = Effect.fn("FigmaImportService.writeFrame")(function* (
         id: string,
         ref: string,
-        space: string,
+        canvas: string,
         route: string
       ) {
         const summary = yield* readSummary(id);
@@ -525,8 +525,8 @@ export class FigmaImportService extends Context.Service<
           ),
           Effect.map((decoded) => decoded as unknown as PageDocument)
         );
-        yield* writeImages(space, conversion);
-        const page = yield* pages.createWith(space, route, document, {
+        yield* writeImages(conversion);
+        const page = yield* pages.createWith(canvas, route, document, {
           height: found.summary.height,
           width: found.summary.width,
         });

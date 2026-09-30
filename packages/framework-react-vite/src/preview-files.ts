@@ -1,5 +1,6 @@
 import path from "node:path";
 import type { PreviewInput } from "@ultrapaint/framework-api/node";
+import { ASSET_PATH } from "./asset-route.ts";
 import type { PreviewBundles } from "./build.ts";
 import { inlineThemeAliases } from "./design-system-scan.ts";
 import type { ServeOptions } from "./serve.ts";
@@ -153,9 +154,10 @@ if (import.meta.hot) {
   <script>
     const params = new URLSearchParams(location.search);
     window.__ED_CONFIG__ = {
+      assets: ${JSON.stringify(ASSET_PATH)},
       designsRoot: ${JSON.stringify(fsUrl(designsDir))},
       frame: params.get("frame") || "",
-      space: params.get("space") || "",
+      canvas: params.get("canvas") || "",
     };
   </script>
   <script src="${fsUrl(bundles.runtime)}"></script>

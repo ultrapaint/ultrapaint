@@ -1,5 +1,5 @@
 /**
- * Images pasted or dropped on the canvas: saved into the space's assets, and shown by an image
+ * Images pasted or dropped on the canvas: saved into the shared assets, and shown by an image
  * node placed where they were dropped, the next one to the right of the one before.
  */
 
@@ -41,13 +41,13 @@ const sizeOf = async (file: File) => {
 export const imageFiles = (files: FileList | readonly File[] | null) =>
   Array.from(files ?? []).filter((f) => f.type.startsWith("image/"));
 
-/** Saves each image into the space and puts an image node on the canvas at `at`. */
+/** Saves each image into the shared assets and puts an image node on the canvas at `at`. */
 export const addImages = async (
   files: readonly File[],
   at: { x: number; y: number }
 ) => {
-  const { space } = useEditor.getState();
-  if (!ensureEditable() || space === null) {
+  const { canvas } = useEditor.getState();
+  if (!ensureEditable() || canvas === null) {
     return;
   }
   let { x } = at;
@@ -61,10 +61,9 @@ export const addImages = async (
       const { src } = await api().request("assets.upload", {
         data,
         name: file.name || `image.${file.type.split("/")[1] ?? "png"}`,
-        space,
       });
       const result = await applyOps(
-        canvasDocOf(space),
+        canvasDocOf(canvas),
         [
           {
             node: {

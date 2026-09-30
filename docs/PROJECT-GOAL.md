@@ -20,7 +20,13 @@ Build a local-first design tool for teams that work with coding agents.
   still the real React UI. Behind the scenes this is web rendering, with each screen
   positioned and scaled on the surface, not a pixel canvas.
 
-- **Layers are the design.** The layers panel shows the whole space, as Figma does: every
+- **Canvases, as Figma has pages.** Wireframes, components, logos, a second version of the
+  application: each is a canvas of its own, with its own pages and routes, listed above the
+  pages and opened one at a time. Canvases and pages are copied between them, by hand or by an
+  agent that changes the copy, and a snapshot names a point in the designs' history
+  ([ADR 0019](adr/0019-canvases.md)).
+
+- **Layers are the design.** The layers panel shows the whole canvas, as Figma does: every
   page with its tree of rows, columns, groups, text, images and design-system components,
   and the nodes placed on the canvas beside them. Selecting a layer selects the element
   on the canvas.

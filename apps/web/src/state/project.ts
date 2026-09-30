@@ -1,6 +1,6 @@
 import { RequestError } from "@ultrapaint/client-runtime/connection";
 import type { UndoState } from "@ultrapaint/contracts/edit";
-import type { Page, Space } from "@ultrapaint/contracts/pages";
+import type { Canvas, Page } from "@ultrapaint/contracts/pages";
 import type {
   HostStatus,
   LogLine,
@@ -9,9 +9,11 @@ import type {
 import type { Settings } from "@ultrapaint/contracts/settings";
 import { create } from "zustand";
 import { api } from "./connection.ts";
+import { viewedSnapshot } from "./snapshot-view.ts";
 import { readUrl, writeSettingsSection } from "./url.ts";
 
 interface ProjectStore {
+  canvases: readonly Canvas[];
   error: string | null;
   info: ProjectInfo;
   load: () => Promise<void>;
@@ -29,7 +31,6 @@ interface ProjectStore {
   /** Kept in the URL, so a reload returns to the settings only when they were open. */
   settingsOpen: boolean;
   settingsSection: string;
-  spaces: readonly Space[];
   undo: UndoState;
 }
 
@@ -54,6 +55,7 @@ export const previewUrl = (host: HostStatus): string | null => {
 };
 
 export const useProject = create<ProjectStore>((set, get) => ({
+  canvases: [],
   error: null,
   info: {
     configured: false,
@@ -69,12 +71,14 @@ export const useProject = create<ProjectStore>((set, get) => ({
       ]);
       set({ info, loaded: true, settings });
       if (info.configured) {
-        const [{ pages, spaces }, logs, undo] = await Promise.all([
+        const [{ pages, canvases }, logs, undo] = await Promise.all([
           c.request("pages.list", undefined),
           c.request("logs.recent", undefined),
           c.request("edit.state", undefined),
         ]);
-        set({ logs, pages, spaces, undo });
+        set(
+          viewedSnapshot() ? { logs, undo } : { canvases, logs, pages, undo }
+        );
       }
     } catch (error) {
       get().setError((error as Error).message);
@@ -94,7 +98,6 @@ export const useProject = create<ProjectStore>((set, get) => ({
   settings: null,
   settingsOpen: readUrl().settings !== null,
   settingsSection: readUrl().settings || "repository",
-  spaces: [],
   undo: { canRedo: false, canUndo: false },
 }));
 
@@ -115,7 +118,12 @@ export const bindProjectEvents = () => {
       useProject.getState().load();
     }
   });
-  c.on("pages", ({ pages, spaces }) => useProject.setState({ pages, spaces }));
+  // A snapshot on screen keeps its own list; the files' is read again on going back to now.
+  c.on("pages", ({ canvases, pages }) => {
+    if (!viewedSnapshot()) {
+      useProject.setState({ canvases, pages });
+    }
+  });
   c.on("log", (line) =>
     useProject.setState((s) => ({ logs: [...s.logs.slice(-499), line] }))
   );

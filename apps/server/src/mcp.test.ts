@@ -456,7 +456,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             route: "/home",
             width: 1440,
           });
-          const layout = yield* client["canvas.get"]({ space: "" });
+          const layout = yield* client["canvas.get"]({ canvas: "" });
           assert.strictEqual(
             Object.values(layout.frames).find((f) => f.height === 2400)?.preset,
             "custom"
@@ -545,15 +545,17 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         })
     );
 
-    // Last: the space it adds would change what the tests above list.
+    // Last: the canvas it adds would change what the tests above list.
     it.effect(
-      "asks which space rather than guess, when a route is in two",
+      "asks which canvas rather than guess, when a route is in two",
       () =>
         Effect.gen(function* () {
           const { client, port, settings } = yield* TestEnv;
           yield* client["settings.set"](settings);
-          const space = yield* client["spaces.create"]({ name: "Marketing" });
-          yield* client["pages.create"]({ route: "/home", space: space.id });
+          const canvas = yield* client["canvases.create"]({
+            name: "Marketing",
+          });
+          yield* client["pages.create"]({ canvas: canvas.id, route: "/home" });
           const connection = yield* client["mcp.connection"]();
           const sessionId = yield* openMcp(port, connection.token);
           const call = (name: string, args: Record<string, unknown>) =>
@@ -569,20 +571,20 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
 
           assert.include(
             yield* call("read_page", { route: "/home" }),
-            "several spaces"
+            "several canvases"
           );
           assert.include(
-            yield* call("read_page", { route: "/home", space: space.id }),
-            `${space.id}/`
+            yield* call("read_page", { canvas: canvas.id, route: "/home" }),
+            `${canvas.id}/`
           );
-          // The designs directory's own space is `""`, which is a name, not an absent one.
+          // The designs directory's own canvas is `""`, which is a name, not an absent one.
           assert.notInclude(
-            yield* call("read_page", { route: "/home", space: "" }),
-            "several spaces"
+            yield* call("read_page", { canvas: "", route: "/home" }),
+            "several canvases"
           );
           assert.include(
             yield* call("create_page", { route: "/nowhere" }),
-            "several spaces"
+            "several canvases"
           );
         })
     );

@@ -20,6 +20,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { installBridgeRouter } from "./canvas/bridge.ts";
 import { Canvas } from "./canvas/canvas.tsx";
 import { Prototype, PrototypeBar } from "./canvas/prototype.tsx";
+import { SnapshotBanner } from "./canvas/snapshot-banner.tsx";
 import { CanvasStatus } from "./canvas/status.tsx";
 import { Toolbar } from "./canvas/toolbar.tsx";
 import { WorkspaceSwitcher } from "./canvas/workspace-switcher.tsx";
@@ -286,8 +287,9 @@ const LeftPanel = ({
       style={{ width }}
     >
       <ProjectHeader />
-      {/* The chat heads itself: its list and each thread have their own header. */}
-      {leftTab === "chat" ? null : (
+      {/* The chat heads itself, its list and each thread; the pages panel has a heading for its
+        canvases and one for their pages. */}
+      {leftTab === "chat" || leftTab === "pages" ? null : (
         <div className="flex h-9 shrink-0 items-center px-3 font-medium text-[11px]">
           {tab.label}
         </div>
@@ -354,8 +356,8 @@ export const App = () => {
   const error = useProject((s) => s.error);
   const configured = useProject((s) => s.info.configured);
   const pages = useProject((s) => s.pages);
-  const spaces = useProject((s) => s.spaces);
-  const space = useEditor((s) => s.space);
+  const canvases = useProject((s) => s.canvases);
+  const canvas = useEditor((s) => s.canvas);
   const workspace = useEditor((s) => s.workspace);
   const leftTab = useEditor((s) => s.leftTab);
   const settingsOpen = useProject((s) => s.settingsOpen);
@@ -390,64 +392,76 @@ export const App = () => {
     }
   }, [configured]);
 
-  // Comments are kept per space: opening another space reads its own.
+  // Comments are kept per canvas: opening another canvas reads its own.
   useEffect(() => {
-    if (configured && space !== null) {
-      useComments.getState().load(space);
+    if (configured && canvas !== null) {
+      useComments.getState().load(canvas);
     }
-  }, [configured, space]);
+  }, [configured, canvas]);
 
-  // Open the space and route the URL asks for, or the last one, or the first.
+  // Open the canvas and route the URL asks for, or the last one, or the first.
   useEffect(() => {
-    if (!configured || spaces.length === 0 || space !== null) {
+    if (!configured || canvases.length === 0 || canvas !== null) {
       return;
     }
     const url = readUrl();
-    const saved = localStorage.getItem("ultrapaint:space");
-    const ids = spaces.map((s) => s.id);
-    // The designs directory's own space is named "", which the URL leaves out: a link with a
-    // route and no space is a route of that space.
-    const urlSpace =
-      url.space ?? (ids.includes("") && url.route !== "/" ? "" : null);
+    const saved = localStorage.getItem("ultrapaint:canvas");
+    const ids = canvases.map((s) => s.id);
+    // The designs directory's own canvas is named "", which the URL leaves out: a link with a
+    // route and no canvas is a route of that canvas.
+    const urlCanvas =
+      url.canvas ?? (ids.includes("") && url.route !== "/" ? "" : null);
     let target = ids[0] ?? "";
-    if (urlSpace !== null && ids.includes(urlSpace)) {
-      target = urlSpace;
+    if (urlCanvas !== null && ids.includes(urlCanvas)) {
+      target = urlCanvas;
     } else if (saved !== null && ids.includes(saved)) {
       target = saved;
     }
     useEditor
       .getState()
-      .openSpace(target, urlSpace === target ? url.route : undefined);
+      .openCanvas(
+        target,
+        urlCanvas === target ? url.route : undefined,
+        urlCanvas === target ? url.variant : null
+      );
     // The canvas starts behind the panel, so the first view opens a margin past the panel's edge.
     useEditor.getState().setView({ x: leftWidth + 80 });
-  }, [configured, spaces, space, leftWidth]);
+  }, [configured, canvases, canvas, leftWidth]);
 
-  // Recompute frames when the page list changes for the open space.
+  // Recompute frames when the page list changes for the open canvas; a canvas deleted while
+  // open gives way to the first one left.
   useEffect(() => {
-    if (space === null) {
+    if (canvas === null) {
       return;
     }
-    const inSpace = pages.filter((p) => p.space === space);
-    const { frames, route } = useEditor.getState();
-    const missing = inSpace.some((p) => !frames[p.id]);
+    const { frames, route, variant } = useEditor.getState();
+    if (canvases.length > 0 && !canvases.some((c) => c.id === canvas)) {
+      useEditor.getState().openCanvas(canvases[0]?.id ?? "");
+      return;
+    }
+    const inCanvas = pages.filter((p) => p.canvas === canvas);
+    const missing = inCanvas.some((p) => !frames[p.id]);
     const extra = Object.keys(frames).some(
-      (id) => !inSpace.find((p) => p.id === id)
+      (id) => !inCanvas.find((p) => p.id === id)
     );
     if (missing || extra) {
-      useEditor.getState().openSpace(space, route);
+      useEditor.getState().openCanvas(canvas, route, variant);
     } else {
       useEditor.getState().syncActivePage();
     }
-  }, [pages, space]);
+  }, [pages, canvases, canvas]);
 
   // The browser's back and forward buttons are the prototype's.
   useEffect(() => {
     tidyUrl();
     return onUrlChange((url) => {
       const editor = useEditor.getState();
-      if (url.space !== null && url.space !== editor.space) {
-        editor.openSpace(url.space, url.route);
+      if (url.canvas !== null && url.canvas !== editor.canvas) {
+        editor.openCanvas(url.canvas, url.route, url.variant);
       } else {
+        if (url.variant !== editor.variant) {
+          useEditor.setState({ variant: url.variant });
+        }
         editor.navigate(url.route, { push: false });
       }
       // Back and forward walk the routes, not the workspace: an older entry may name another.
@@ -491,6 +505,7 @@ export const App = () => {
                 {workspace === "prototype" && <Prototype />}
                 <WorkspaceSwitcher />
                 <CanvasStatus />
+                <SnapshotBanner />
                 <div className="absolute inset-x-0 bottom-4 z-10 flex flex-col items-center gap-2">
                   {workspace === "prototype" ? <PrototypeBar /> : <Toolbar />}
                 </div>

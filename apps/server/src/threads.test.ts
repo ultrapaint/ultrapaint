@@ -424,7 +424,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           const commands = yield* client["commands.list"]();
           assert.deepStrictEqual(
             commands.map((c) => c.name),
-            ["init", "implement", "import-figma"]
+            ["init", "implement", "import-figma", "redraw", "components"]
           );
           const threadId = yield* startThread;
           yield* prompt(threadId, "/init");
@@ -448,6 +448,19 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           assert.include(
             said(implement.items).at(-1) ?? "",
             "task:implement Implement the page /home of the design (designs/home.page.json)"
+          );
+
+          yield* prompt(threadId, '/components ""');
+          const components = yield* waitForThread(threadId, turnsEnded(3));
+          assert.include(
+            said(components.items).at(-1) ?? "",
+            "task:components Draw a sheet of this repository's design system into the canvas"
+          );
+          yield* prompt(threadId, "/redraw nowhere to wireframes");
+          const redraw = yield* waitForThread(threadId, turnsEnded(4));
+          assert.include(
+            said(redraw.items).at(-1) ?? "",
+            'task:redraw The user ran /redraw, but there is no canvas "nowhere".'
           );
         })
     );

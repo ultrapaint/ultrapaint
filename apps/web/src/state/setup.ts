@@ -2,10 +2,12 @@
  * What stands between the user and an edit: a repository nobody has set up yet, or a design
  * system not yet imported. The editor opens either way; the first edit is where it asks.
  */
+import { toast } from "sonner";
 import { create } from "zustand";
 import { useDesignSystem } from "./design-system.ts";
 import { onNotConfigured, useProject } from "./project.ts";
 import { type SetupNeed, setupNeedOf } from "./setup-need.ts";
+import { viewedSnapshot } from "./snapshot-view.ts";
 
 interface SetupStore {
   close: () => void;
@@ -58,6 +60,14 @@ export const setupNeed = (): SetupNeed | null => {
  * instead, and the edit is dropped.
  */
 export const ensureEditable = (): boolean => {
+  const snapshot = viewedSnapshot();
+  if (snapshot) {
+    toast.info(`The snapshot ${snapshot.snapshot.name} is open`, {
+      description:
+        "It is there to look at. Go back to now to change the designs, or restore it.",
+    });
+    return false;
+  }
   const need = setupNeed();
   if (need === null) {
     return true;

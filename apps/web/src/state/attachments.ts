@@ -15,7 +15,7 @@ import { useProject } from "./project.ts";
 export type Chip =
   | {
       readonly component: boolean;
-      /** The page's file, or the space's `canvas.json` for a node beside the pages. */
+      /** The page's file, or the canvas's `canvas.json` for a node beside the pages. */
       readonly file: string;
       readonly frame: string;
       readonly kind: "node";
@@ -82,18 +82,18 @@ export const clearChips = (threadId: string) =>
     return { byThread: rest };
   });
 
-/** The file a node of a frame lives in: its page's, or the space's canvas. */
+/** The file a node of a frame lives in: its page's, or the canvas's own for a loose node. */
 export const fileOfFrame = (frame: string): string | null => {
   const page = useProject.getState().pages.find((p) => p.id === frame);
   if (page) {
     return page.file;
   }
   const designsDir = useProject.getState().settings?.designsDir;
-  const { space } = useEditor.getState();
-  if (designsDir === undefined || space === null) {
+  const { canvas } = useEditor.getState();
+  if (designsDir === undefined || canvas === null) {
     return null;
   }
-  return `${designsDir}/${space ? `${space}/` : ""}canvas.json`;
+  return `${designsDir}/${canvas ? `${canvas}/` : ""}canvas.json`;
 };
 
 export const nodeChip = (
@@ -117,7 +117,7 @@ export const nodeChip = (
 export const chipOfSelection = (selection: Selection): Chip | null => {
   const node = nodeIn(
     useDocuments.getState().docs,
-    useEditor.getState().space,
+    useEditor.getState().canvas,
     selection.frame,
     selection.nodeId
   );
@@ -149,7 +149,7 @@ export const chipOfAttachment = (attachment: PromptAttachment): Chip | null => {
     page?.id ??
     frameOfCanvasNode(
       useDocuments.getState().docs,
-      useEditor.getState().space,
+      useEditor.getState().canvas,
       attachment.nodeId
     );
   return frame

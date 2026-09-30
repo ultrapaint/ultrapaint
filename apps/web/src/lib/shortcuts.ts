@@ -188,7 +188,7 @@ const handleTreeNavigation = (e: KeyboardEvent, s: EditorState) => {
   }
   const path = pathIn(
     useDocuments.getState().docs,
-    s.space,
+    s.canvas,
     selection.frame,
     selection.nodeId
   );

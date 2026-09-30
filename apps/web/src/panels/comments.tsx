@@ -20,15 +20,15 @@ import {
   useComments,
 } from "../state/comments.ts";
 import { openMenuAt } from "../state/context-menu.ts";
-import { pagesOfSpace, useEditor } from "../state/editor.ts";
+import { pagesOfCanvas, useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
 
 const toggleVisible = () => useComments.getState().toggleVisible();
 
-/** Every comment of the open space, page by page, newest first. */
+/** Every comment of the open canvas, page by page, newest first. */
 export const Comments = () => {
   const configured = useProject((s) => s.info.configured);
-  const space = useEditor((s) => s.space);
+  const canvas = useEditor((s) => s.canvas);
   // Subscribed to so the page names follow a page being renamed.
   useProject((s) => s.pages);
   const comments = useComments((s) => s.comments);
@@ -41,7 +41,7 @@ export const Comments = () => {
 
   const resolvedCount = comments.filter((c) => c.resolved).length;
   const listed = comments.filter((c) => showResolved || !c.resolved);
-  const pages = pagesOfSpace(space);
+  const pages = pagesOfCanvas(canvas);
   const groups = new Map<string, Comment[]>();
   for (const comment of [...listed].sort((a, b) => b.createdAt - a.createdAt)) {
     groups.set(comment.page, [...(groups.get(comment.page) ?? []), comment]);

@@ -85,8 +85,8 @@ export const useFollowAgent = () => {
     if (!page) {
       return;
     }
-    if (editor.space !== page.space) {
-      editor.openSpace(page.space, page.route).catch(reportError);
+    if (editor.canvas !== page.canvas) {
+      editor.openCanvas(page.canvas, page.route).catch(reportError);
       return;
     }
     if (editor.workspace === "prototype") {

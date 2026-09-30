@@ -13,11 +13,11 @@ describe("node references", () => {
     });
   });
 
-  it("read a space and the canvas", () => {
+  it("read a canvas and the canvas", () => {
     expect(parseNodeRef("marketing:/pricing#r_2")).toEqual({
+      canvas: "marketing",
       nodeId: "r_2",
       route: "/pricing",
-      space: "marketing",
     });
     expect(parseNodeRef("canvas#g_3")).toEqual({ nodeId: "g_3", route: null });
   });

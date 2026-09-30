@@ -3,54 +3,41 @@ import { RepoRelativePath } from "./base.ts";
 import { DesignNode } from "./document.ts";
 
 /**
- * A space owns one router, one canvas and its own pages; a page of one space never navigates
- * to a page of another. A directory with a `space.json` is a space, and the designs directory
- * is one itself while no `space.json` exists below it.
+ * A canvas owns one router, one surface and its own pages; a page of one canvas never navigates
+ * to a page of another. A directory with a `canvas.json` is a canvas, and the designs directory
+ * is one itself while no `canvas.json` exists below it. Canvases share the design system and
+ * the assets at the root of the designs directory.
  */
-export const Space = Schema.Struct({
-  /** Route the space opens on. */
+export const Canvas = Schema.Struct({
+  /** Route the canvas opens on. */
   home: Schema.String,
   /** Path relative to the designs directory; `""` is the designs directory itself. */
   id: Schema.String,
   name: Schema.String,
+  /** Variants its pages may be drawn in, in the order they are offered (ADR 0019). */
+  variants: Schema.Array(Schema.String),
 });
-export type Space = typeof Space.Type;
+export type Canvas = typeof Canvas.Type;
 
-/** Contents of `<space>/space.json`. */
-export const SpaceConfig = Schema.Struct({
-  home: Schema.optional(Schema.String),
-  name: Schema.optional(Schema.String),
-  /**
-   * Names of the variants a page of this space may be written for, in the order they are
-   * offered. Reserved: nothing writes or reads a variant yet (ADR 0012).
-   */
-  variants: Schema.optional(Schema.Array(Schema.String)),
-  version: Schema.Literal(1),
-});
-export type SpaceConfig = typeof SpaceConfig.Type;
-
-export const emptySpaceConfig = (name: string): SpaceConfig => ({
-  home: "/",
-  name,
-  version: 1,
-});
-
-/** A page is a file inside a space. `id` is its path relative to the designs directory. */
+/** A page is a file inside a canvas. `id` is its path relative to the designs directory. */
 export const Page = Schema.Struct({
+  canvas: Schema.String,
   file: RepoRelativePath,
   id: Schema.String,
   name: Schema.String,
-  /** Path inside the space, which is what the canvas layout is keyed by. */
+  /** Path inside the canvas, which is what the canvas layout is keyed by. */
   path: Schema.String,
-  /** Route the page serves inside its space, derived from `path`. */
+  /** Route the page serves inside its canvas, derived from `path`. */
   route: Schema.String,
-  space: Schema.String,
+  /** The variant the page is drawn for (`pricing@bold.page.json`); absent for the base. */
+  variant: Schema.optional(Schema.String),
 });
 export type Page = typeof Page.Type;
 
 export const PageList = Schema.Struct({
+  /** In the order they are listed. */
+  canvases: Schema.Array(Canvas),
   pages: Schema.Array(Page),
-  spaces: Schema.Array(Space),
 });
 export type PageList = typeof PageList.Type;
 
@@ -81,31 +68,49 @@ export const FrameLayout = Schema.Struct({
 export type FrameLayout = typeof FrameLayout.Type;
 
 /**
- * Contents of `<space>/canvas.json`: where the pages' frames sit, keyed by the page's path inside
- * the space, and the nodes placed on the canvas beside the pages, each at its own `x` and `y`.
+ * Contents of `<canvas>/canvas.json`, the file that makes a directory a canvas: its name, where
+ * the pages' frames sit, keyed by the page's path inside the canvas, and the nodes placed on the
+ * canvas beside the pages, each at its own `x` and `y`.
  */
 export const CanvasLayout = Schema.Struct({
   frames: Schema.Record(Schema.String, FrameLayout),
+  /** Route the canvas opens on; `/` when absent. */
+  home: Schema.optional(Schema.String),
+  /** What the canvas is called in the list; its directory's name made readable when absent. */
+  name: Schema.optional(Schema.String),
   /** Nodes on the canvas outside any page. Absent from layouts written before there were any. */
   nodes: Schema.optional(Schema.Array(DesignNode)),
+  /** Names of the variants its pages may be drawn in, in the order they are offered. */
+  variants: Schema.optional(Schema.Array(Schema.String)),
   version: Schema.Literal(1),
 });
 export type CanvasLayout = typeof CanvasLayout.Type;
+
+/** Contents of `canvases.json` at the root of the designs directory: the order of the list. */
+export const CanvasOrder = Schema.Struct({
+  /** Canvas ids, first to last. A canvas it does not name comes after, by id. */
+  order: Schema.Array(Schema.String),
+  version: Schema.Literal(1),
+});
+export type CanvasOrder = typeof CanvasOrder.Type;
 
 export const emptyCanvasLayout = (): CanvasLayout => ({
   frames: {},
   version: 1,
 });
 
-/** Directory of a space the images put on the canvas or into a page are saved in. */
+/**
+ * Directory the images are kept in. The one at the root of the designs directory is shared by
+ * every canvas, and a canvas may have its own, whose files take the place of the shared ones of
+ * the same name: an image node's `assets/logo.png` is the canvas's own when it has one.
+ */
 export const ASSETS_DIR = "assets";
 
-/** An image pasted or dropped on the canvas, saved into the space. */
+/** An image pasted or dropped on the canvas, saved into the shared assets. */
 export const UploadAssetInput = Schema.Struct({
   /** File contents, base64. */
   data: Schema.String,
   /** Original file name, or a made-up one for a pasted image; the extension is kept. */
   name: Schema.String,
-  space: Schema.String,
 });
 export type UploadAssetInput = typeof UploadAssetInput.Type;

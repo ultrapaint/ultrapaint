@@ -23,15 +23,16 @@ const CANVAS_HEIGHT = 900;
 
 const GetScreenshot = Tool.make("get_screenshot", {
   description:
-    "A picture of a page, or of one node of it, drawn by the editor's preview with the repository's own stylesheet and components: look at it after changing a design to check spacing, alignment, overflow and contrast, then fix what is off. A page is drawn at the size of its frame on the canvas, or at `width`; with `node` the picture is cropped to that node, drawn in place. For a node on the canvas beside the pages, pass `canvas: true` and its id. A node reference the user copied from the editor (/orders#c_8x2k1q, canvas#g_1) can be passed as `node` alone. Needs the editor open in a browser.",
+    "A picture of a page, or of one node of it, drawn by the editor's preview with the repository's own stylesheet and components: look at it after changing a design to check spacing, alignment, overflow and contrast, then fix what is off. A page is drawn at the size of its frame on the canvas, or at `width`; with `node` the picture is cropped to that node, drawn in place. For a node placed on the canvas beside the pages, pass `loose: true` and its id. A node reference the user copied from the editor (/orders#c_8x2k1q, canvas#g_1) can be passed as `node` alone. `canvas` says which canvas, when the project has several. Needs the editor open in a browser.",
   parameters: Schema.Struct({
+    /** Needed only when the project has several canvases. */
+    canvas: Schema.optional(Schema.String),
     /** Picture a node placed on the canvas beside the pages; `node` says which. */
-    canvas: Schema.optional(Schema.Boolean),
+    loose: Schema.optional(Schema.Boolean),
     /** Id of the node to crop to; the whole page when left out. */
     node: Schema.optional(Schema.String),
-    /** Route or file of the page; leave out with `canvas: true`. */
+    /** Route or file of the page; leave out with `loose: true`. */
     route: Schema.optional(Schema.String),
-    space: Schema.optional(Schema.String),
     /** Viewport width in CSS pixels, for a page: 390 for a phone, 1440 for a desktop. */
     width: Schema.optional(
       Schema.Number.check(Schema.isBetween({ maximum: 4000, minimum: 200 }))
@@ -53,14 +54,14 @@ export const ScreenshotToolLive = Layer.effectDiscard(
   Effect.gen(function* () {
     const server = yield* McpServer.McpServer;
     const screenshots = yield* Screenshots;
-    const { documents, pageAt, project, spaceOf } = yield* makeLookup;
+    const { documents, pageAt, project, canvasOf } = yield* makeLookup;
 
     type Parameters = typeof GetScreenshot.parametersSchema.Type;
 
     /** A node on the canvas, drawn inside the one placed there that holds it, at its own size. */
     const drawOnCanvas = Effect.fnUntraced(function* ({
       node,
-      space,
+      canvas,
       width,
     }: Parameters) {
       if (node === undefined) {
@@ -68,8 +69,8 @@ export const ScreenshotToolLive = Layer.effectDiscard(
           "say which node on the canvas with `node`; read_canvas lists them"
         );
       }
-      const inSpace = yield* spaceOf(space);
-      const state = yield* documents((d) => d.get(canvasDocOf(inSpace)));
+      const inCanvas = yield* canvasOf(canvas);
+      const state = yield* documents((d) => d.get(canvasDocOf(inCanvas)));
       const placed = findPath(state.root, node)?.[1];
       if (!placed) {
         return yield* missing(
@@ -78,10 +79,10 @@ export const ScreenshotToolLive = Layer.effectDiscard(
       }
       const bytes = yield* reported(
         screenshots.capture({
+          canvas: inCanvas,
           height: CANVAS_HEIGHT,
           mode: "fit",
           root: placed,
-          space: inSpace,
           width: width ?? CANVAS_WIDTH,
           ...(placed.id !== node && { nodeId: node }),
         })
@@ -92,9 +93,9 @@ export const ScreenshotToolLive = Layer.effectDiscard(
     /** A page as a window of its frame's size shows it, or one node of it in place. */
     const drawPage = Effect.fnUntraced(function* (
       route: string,
-      { node, space, width }: Parameters
+      { node, canvas, width }: Parameters
     ) {
-      const page = yield* pageAt(route, space);
+      const page = yield* pageAt(route, canvas);
       const state = yield* documents((d) => d.get(page.id));
       if (state.problem !== undefined || !state.root) {
         return yield* missing(
@@ -108,17 +109,17 @@ export const ScreenshotToolLive = Layer.effectDiscard(
       }
       const layout = yield* reported(
         project.use(
-          Effect.flatMap(PagesService, (pages) => pages.readCanvas(page.space))
+          Effect.flatMap(PagesService, (pages) => pages.readCanvas(page.canvas))
         )
       );
       const frame = layout.frames[page.path] ?? presetSize.desktop;
       const viewport = width ?? frame.width;
       const bytes = yield* reported(
         screenshots.capture({
+          canvas: page.canvas,
           height: frame.height,
           mode: "page",
           root: state.root,
-          space: page.space,
           width: viewport,
           ...(node !== undefined && { nodeId: node }),
         })
@@ -138,19 +139,19 @@ export const ScreenshotToolLive = Layer.effectDiscard(
             ...given,
             node: ref.nodeId,
             ...(ref.route === null
-              ? { canvas: true }
+              ? { loose: true }
               : { route: given.route ?? ref.route }),
-            ...(ref.space === undefined || given.space !== undefined
+            ...(ref.canvas === undefined || given.canvas !== undefined
               ? {}
-              : { space: ref.space }),
+              : { canvas: ref.canvas }),
           }
         : given;
-      if (parameters.canvas) {
+      if (parameters.loose) {
         return drawOnCanvas(parameters);
       }
       if (parameters.route === undefined) {
         return missing(
-          "say which page with `route`, or pass `canvas: true` and a `node` for the canvas"
+          "say which page with `route`, or pass `loose: true` and a `node` for a node beside the pages"
         );
       }
       return drawPage(parameters.route, parameters);

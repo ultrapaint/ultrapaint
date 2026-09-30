@@ -11,7 +11,7 @@ import {
   type ForbiddenPath,
   NotFound,
 } from "@ultrapaint/contracts/errors";
-import { ROOT_SPACE } from "@ultrapaint/shared/space";
+import { ROOT_CANVAS } from "@ultrapaint/shared/canvas";
 import {
   Clock,
   Context,
@@ -30,7 +30,7 @@ import { makeId } from "../ids.ts";
 import { runGit } from "./git.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
-const COMMENTS_FILE = "comments.json";
+export const COMMENTS_FILE = "comments.json";
 
 const decodeComments = Schema.decodeUnknownEffect(
   Schema.fromJsonString(CommentListSchema)
@@ -41,7 +41,7 @@ const emptyList = (): CommentList => ({ comments: [], version: 1 });
 type CommentsFailure = NotFound | Conflict | ForbiddenPath;
 
 /**
- * Comments pinned on the pages of a space. They live in `<space>/comments.json`, beside the
+ * Comments pinned on the pages of a canvas. They live in `<canvas>/comments.json`, beside the
  * canvas layout, so they are committed and read by whoever opens the repository next.
  */
 export class CommentsService extends Context.Service<
@@ -51,15 +51,15 @@ export class CommentsService extends Context.Service<
       input: CreateCommentInput
     ) => Effect.Effect<Comment, CommentsFailure>;
     readonly delete: (
-      space: string,
+      canvas: string,
       id: string
     ) => Effect.Effect<void, CommentsFailure>;
     readonly deleteReply: (
-      space: string,
+      canvas: string,
       id: string,
       replyId: string
     ) => Effect.Effect<Comment, CommentsFailure>;
-    readonly list: (space: string) => Effect.Effect<CommentList, Conflict>;
+    readonly list: (canvas: string) => Effect.Effect<CommentList, Conflict>;
     /** Adds an answer to the thread under a comment. */
     readonly reply: (
       input: ReplyInput
@@ -85,7 +85,7 @@ export class CommentsService extends Context.Service<
       const exists = (p: string) =>
         Effect.orElseSucceed(fs.exists(p), () => false);
 
-      const fileOf = (space: string) => path.join(root, space, COMMENTS_FILE);
+      const fileOf = (canvas: string) => path.join(root, canvas, COMMENTS_FILE);
 
       // The name comments are signed with. A repository without one leaves them unsigned.
       const author = yield* runGit(paths.root, ["config", "user.name"]).pipe(
@@ -93,8 +93,10 @@ export class CommentsService extends Context.Service<
         Effect.orElseSucceed(() => null)
       );
 
-      const list = Effect.fn("CommentsService.list")(function* (space: string) {
-        const file = fileOf(space);
+      const list = Effect.fn("CommentsService.list")(function* (
+        canvas: string
+      ) {
+        const file = fileOf(canvas);
         if (!(yield* exists(file))) {
           return emptyList();
         }
@@ -103,28 +105,28 @@ export class CommentsService extends Context.Service<
           Effect.mapError(
             (error) =>
               new Conflict({
-                message: `comments.json in ${space || "designs root"} is invalid: ${error.message}`,
+                message: `comments.json in ${canvas || "designs root"} is invalid: ${error.message}`,
               })
           )
         );
       });
 
       const write = Effect.fnUntraced(function* (
-        space: string,
+        canvas: string,
         comments: readonly Comment[]
       ) {
-        const file = yield* paths.resolve(fileOf(space));
+        const file = yield* paths.resolve(fileOf(canvas));
         const next: CommentList = { comments, version: 1 };
         yield* Effect.orDie(
           writeAtomic(file, `${JSON.stringify(next, null, 2)}\n`)
         );
-        yield* events.publish("comments", { list: next, space });
+        yield* events.publish("comments", { canvas, list: next });
       });
 
       const create = Effect.fn("CommentsService.create")(function* (
         input: CreateCommentInput
       ) {
-        const { comments } = yield* list(input.space);
+        const { comments } = yield* list(input.canvas);
         const now = yield* Clock.currentTimeMillis;
         const comment: Comment = {
           author,
@@ -140,12 +142,12 @@ export class CommentsService extends Context.Service<
           x: Math.round(input.x),
           y: Math.round(input.y),
         };
-        yield* write(input.space, [...comments, comment]);
+        yield* write(input.canvas, [...comments, comment]);
         return comment;
       });
 
-      const byId = Effect.fnUntraced(function* (space: string, id: string) {
-        const { comments } = yield* list(space);
+      const byId = Effect.fnUntraced(function* (canvas: string, id: string) {
+        const { comments } = yield* list(canvas);
         const found = comments.find((c) => c.id === id);
         if (!found) {
           return yield* new NotFound({ message: `comment not found: ${id}` });
@@ -156,7 +158,7 @@ export class CommentsService extends Context.Service<
       const update = Effect.fn("CommentsService.update")(function* (
         input: UpdateCommentInput
       ) {
-        return yield* change(input.space, input.id, (comment, now) => ({
+        return yield* change(input.canvas, input.id, (comment, now) => ({
           ...comment,
           resolved: input.resolved ?? comment.resolved,
           text: input.text?.trim() ?? comment.text,
@@ -166,14 +168,14 @@ export class CommentsService extends Context.Service<
 
       /** Replaces one comment with what `change` makes of it, and saves. */
       const change = Effect.fnUntraced(function* (
-        space: string,
+        canvas: string,
         id: string,
         f: (comment: Comment, now: number) => Comment
       ) {
-        const { comments, found } = yield* byId(space, id);
+        const { comments, found } = yield* byId(canvas, id);
         const updated = f(found, yield* Clock.currentTimeMillis);
         yield* write(
-          space,
+          canvas,
           comments.map((c) => (c.id === id ? updated : c))
         );
         return updated;
@@ -183,7 +185,7 @@ export class CommentsService extends Context.Service<
         input: ReplyInput
       ) {
         const replyId = yield* makeId("reply");
-        return yield* change(input.space, input.id, (comment, now) => ({
+        return yield* change(input.canvas, input.id, (comment, now) => ({
           ...comment,
           replies: [
             ...comment.replies,
@@ -194,17 +196,17 @@ export class CommentsService extends Context.Service<
       });
 
       const deleteReply = Effect.fn("CommentsService.deleteReply")(function* (
-        space: string,
+        canvas: string,
         id: string,
         replyId: string
       ) {
-        const { found } = yield* byId(space, id);
+        const { found } = yield* byId(canvas, id);
         if (!found.replies.some((r) => r.id === replyId)) {
           return yield* new NotFound({
             message: `reply not found: ${replyId}`,
           });
         }
-        return yield* change(space, id, (comment, now) => ({
+        return yield* change(canvas, id, (comment, now) => ({
           ...comment,
           replies: comment.replies.filter((r) => r.id !== replyId),
           updatedAt: now,
@@ -212,12 +214,12 @@ export class CommentsService extends Context.Service<
       });
 
       const remove = Effect.fn("CommentsService.delete")(function* (
-        space: string,
+        canvas: string,
         id: string
       ) {
-        const { comments } = yield* byId(space, id);
+        const { comments } = yield* byId(canvas, id);
         yield* write(
-          space,
+          canvas,
           comments.filter((c) => c.id !== id)
         );
       });
@@ -234,12 +236,12 @@ export class CommentsService extends Context.Service<
             const dir = toPosix(
               path.relative(root, path.dirname(path.resolve(root, event.path)))
             );
-            const space = dir === "" || dir === "." ? ROOT_SPACE : dir;
+            const canvas = dir === "" || dir === "." ? ROOT_CANVAS : dir;
             // An invalid file is reported when the editor asks for it; the watcher lives on.
-            return Effect.exit(list(space)).pipe(
+            return Effect.exit(list(canvas)).pipe(
               Effect.flatMap((exit) =>
                 exit._tag === "Success"
-                  ? events.publish("comments", { list: exit.value, space })
+                  ? events.publish("comments", { canvas, list: exit.value })
                   : Effect.void
               )
             );
@@ -252,9 +254,9 @@ export class CommentsService extends Context.Service<
 
       return CommentsService.of({
         create: (input) => exclusive(create(input)),
-        delete: (space, id) => exclusive(remove(space, id)),
-        deleteReply: (space, id, replyId) =>
-          exclusive(deleteReply(space, id, replyId)),
+        delete: (canvas, id) => exclusive(remove(canvas, id)),
+        deleteReply: (canvas, id, replyId) =>
+          exclusive(deleteReply(canvas, id, replyId)),
         list,
         reply: (input) => exclusive(reply(input)),
         update: (input) => exclusive(update(input)),

@@ -15,10 +15,11 @@ One file per decision. Status is one of proposed, accepted, superseded.
 | [0009](0009-effect-runtime.md) | Effect 4 runtime, `RpcGroup` over WebSocket, SDK-backed `AcpAgent` service |
 | [0010](0010-storage-modes.md) | Settings and state in one of three storage modes: the desktop's home, a configuration file in the repository, or nothing saved |
 | [0011](0011-preview-split.md) | Storybook's separation: editor, framework-neutral preview core, renderer, framework package; screens resolve from an anchor package instead of being one |
-| [0012](0012-spaces-pages-router.md) | Screens become pages of a space, routed by their file path, with the editor holding the router state in its own URL |
+| [0012](0012-spaces-pages-router.md) | Screens become pages of a space (a canvas since 0019), routed by their file path, with the editor holding the router state in its own URL |
 | [0013](0013-agent-scope.md) | Agents are confined to the repository by an operating system sandbox around their process, the same for every ACP agent |
 | [0014](0014-editor-mcp.md) | The editor answers agents over MCP: what the project is and where they are working, not a second way to edit files |
 | [0015](0015-design-documents.md) | Pages are design documents (`.page.json`) the tool owns; the design system is imported by an agent; an agent turns a page into code |
 | [0016](0016-figma-import.md) | A Figma file is read by rules into pages; which component is which is an agent's decision, or the user's, asked in the thread |
 | [0017](0017-a-command-in-the-repository.md) | The tool is a command run in the repository, served to the browser; the desktop shell is removed and a checkout is tried on a project as a linked devDependency |
 | [0018](0018-agents-work-on-the-canvas.md) | Three selection colours (element, component, agent); chats found by a picture of their scope; a Vibe toolbar of design-system values; agents' work drawn on the elements; nodes linked by reference |
+| [0019](0019-canvases.md) | Spaces become canvases, listed above the pages as Figma lists a file's pages; canvases and pages are copied, with or without an agent; variants are built; assets are shared; snapshots are named points in history |

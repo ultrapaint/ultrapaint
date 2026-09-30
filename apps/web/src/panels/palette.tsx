@@ -264,7 +264,7 @@ export const Palette = () => {
   const selection = useEditor((s) => s.selection);
   const selectedPage = useEditor((s) => s.selectedPage);
   const activePage = useEditor((s) => s.activePage);
-  const space = useEditor((s) => s.space);
+  const canvas = useEditor((s) => s.canvas);
   const docs = useDocuments((s) => s.docs);
   const designSystem = useDesignSystem((s) => s.designSystem);
   const [query, setQuery] = useState("");
@@ -303,10 +303,10 @@ export const Palette = () => {
   }
   const target = insertTarget({
     activePage,
+    canvas,
     docs,
     selectedPage,
     selection,
-    space,
   });
 
   return (

@@ -53,12 +53,14 @@ export const SelectionTag = ({
   node: DesignNode;
 }) => {
   const selection = useEditor((s) => s.selection);
-  const space = useEditor((s) => s.space);
+  const canvas = useEditor((s) => s.canvas);
   const docs = useDocuments((s) => s.docs);
   const path = useMemo(
     () =>
-      selection ? pathIn(docs, space, selection.frame, selection.nodeId) : null,
-    [docs, space, selection]
+      selection
+        ? pathIn(docs, canvas, selection.frame, selection.nodeId)
+        : null,
+    [docs, canvas, selection]
   );
   const thread = useThreadOfSelection();
   const parents = (path ?? []).slice(0, -1).reverse();

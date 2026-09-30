@@ -232,7 +232,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
               path.join(repo, "designs", "assets", "figma-abababababab.png")
             )
           );
-          const canvas = yield* client["canvas.get"]({ space: "" });
+          const canvas = yield* client["canvas.get"]({ canvas: "" });
           assert.deepStrictEqual(canvas.frames["login.page.json"], {
             height: 600,
             preset: "custom",

@@ -4,12 +4,12 @@ import { describe, expect, it } from "vitest";
 import { commentPrompt, commentThreadTitle } from "./comment-prompt.ts";
 
 const page: Page = {
+  canvas: "",
   file: "designs/onboarding/pick.page.json",
   id: "onboarding/pick.page.json",
   name: "Pick",
   path: "onboarding/pick.page.json",
   route: "/onboarding/pick",
-  space: "",
 };
 
 const comment: Comment = {

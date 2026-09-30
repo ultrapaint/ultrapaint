@@ -108,7 +108,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
     );
 
     it.effect(
-      "lists the pages of the one space and pushes the list when one is created",
+      "lists the pages of the one canvas and pushes the list when one is created",
       () =>
         Effect.gen(function* () {
           const { client } = yield* TestEnv;
@@ -117,16 +117,16 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             before.pages.map((p) => [p.id, p.route]),
             [[HOME, "/home"]]
           );
-          // No space.json anywhere: the designs directory is itself the one space.
+          // No canvas.json anywhere: the designs directory is itself the one canvas.
           assert.deepStrictEqual(
-            before.spaces.map((s) => s.id),
+            before.canvases.map((s) => s.id),
             [""]
           );
           const { event, result } = yield* nextEvent(
             client["events.pages"](),
             client["pages.create"]({
+              canvas: "",
               route: "/onboarding/sign-in",
-              space: "",
             })
           );
           assert.strictEqual(result.id, "onboarding/sign-in.page.json");
@@ -141,8 +141,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
       Effect.gen(function* () {
         const { client } = yield* TestEnv;
         const page = yield* client["pages.create"]({
+          canvas: "",
           route: "/welcome-back",
-          space: "",
           template: "centered",
         });
         const state = yield* client["documents.get"]({ doc: page.id });
@@ -160,7 +160,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
       Effect.gen(function* () {
         const { client } = yield* TestEnv;
         const error = yield* Effect.flip(
-          client["pages.create"]({ route: "onboarding/sign-in", space: "" })
+          client["pages.create"]({ canvas: "", route: "onboarding/sign-in" })
         );
         assert.strictEqual(error._tag, "Conflict");
       })
@@ -177,15 +177,15 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           y: 20,
         } as const;
         yield* client["canvas.set"]({
+          canvas: "",
           frames: { "onboarding/sign-in.page.json": frame },
-          space: "",
         });
         const renamed = yield* client["pages.rename"]({
           id: "onboarding/sign-in.page.json",
           route: "/onboarding/log-in",
         });
         assert.strictEqual(renamed.id, "onboarding/log-in.page.json");
-        const layout = yield* client["canvas.get"]({ space: "" });
+        const layout = yield* client["canvas.get"]({ canvas: "" });
         assert.deepStrictEqual(layout.frames, {
           "onboarding/log-in.page.json": frame,
         });
@@ -199,10 +199,10 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         const { event, result: created } = yield* nextEvent(
           client["events.comments"](),
           client["comments.create"]({
+            canvas: "",
             element: "Hello",
             nodeId: "heading",
             page: HOME,
-            space: "",
             text: "  Bigger heading  ",
             x: 40.4,
             y: 12.6,
@@ -218,9 +218,9 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           1
         );
         const resolved = yield* client["comments.update"]({
+          canvas: "",
           id: created.id,
           resolved: true,
-          space: "",
         });
         assert.isTrue(resolved.resolved);
         assert.strictEqual(resolved.text, "Bigger heading");
@@ -229,8 +229,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         );
         assert.isTrue(saved.comments[0].resolved);
         const answered = yield* client["comments.reply"]({
+          canvas: "",
           id: created.id,
-          space: "",
           text: "Done in the last commit",
         });
         assert.deepStrictEqual(
@@ -239,18 +239,18 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         );
         const [first] = answered.replies;
         const cleared = yield* client["comments.deleteReply"]({
+          canvas: "",
           id: created.id,
           replyId: first?.id ?? "",
-          space: "",
         });
         assert.deepStrictEqual(cleared.replies, []);
-        yield* client["comments.delete"]({ id: created.id, space: "" });
+        yield* client["comments.delete"]({ canvas: "", id: created.id });
         assert.deepStrictEqual(
-          (yield* client["comments.list"]({ space: "" })).comments,
+          (yield* client["comments.list"]({ canvas: "" })).comments,
           []
         );
         const missing = yield* Effect.flip(
-          client["comments.delete"]({ id: created.id, space: "" })
+          client["comments.delete"]({ canvas: "", id: created.id })
         );
         assert.strictEqual(missing._tag, "NotFound");
         // A file written before comments had threads reads as comments without replies.
@@ -259,7 +259,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           path.join(repo, "designs/comments.json"),
           JSON.stringify({ comments: [before], version: 1 })
         );
-        const [old] = (yield* client["comments.list"]({ space: "" })).comments;
+        const [old] = (yield* client["comments.list"]({ canvas: "" })).comments;
         assert.deepStrictEqual(old?.replies, []);
         yield* fs.remove(path.join(repo, "designs/comments.json"));
       })
@@ -477,7 +477,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           label: "Move onto the canvas",
         });
         assert.deepStrictEqual(moved.created, ["row"]);
-        const layout = yield* client["canvas.get"]({ space: "" });
+        const layout = yield* client["canvas.get"]({ canvas: "" });
         assert.deepStrictEqual(
           layout.nodes?.map((n) => [n.id, n.x, n.y]),
           [["row", 121, -40]]
@@ -487,9 +487,9 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           "row"
         );
         // Frames saved afterwards keep the canvas's nodes.
-        yield* client["canvas.set"]({ frames: layout.frames, space: "" });
+        yield* client["canvas.set"]({ canvas: "", frames: layout.frames });
         assert.strictEqual(
-          (yield* client["canvas.get"]({ space: "" })).nodes?.length,
+          (yield* client["canvas.get"]({ canvas: "" })).nodes?.length,
           1
         );
         // Saving the same frames changed nothing: one undo puts the node back in the page.
@@ -499,7 +499,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           "row"
         );
         assert.deepStrictEqual(
-          (yield* client["canvas.get"]({ space: "" })).nodes ?? [],
+          (yield* client["canvas.get"]({ canvas: "" })).nodes ?? [],
           []
         );
       })
@@ -582,8 +582,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
                 recursive: true,
               });
               yield* client["pages.create"]({
+                canvas: "",
                 route: "/after-defect",
-                space: "",
               });
               return broken;
             })
@@ -686,39 +686,46 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
       Effect.gen(function* () {
         const { client } = yield* TestEnv;
         const names = (yield* client["commands.list"]()).map((c) => c.name);
-        assert.deepStrictEqual(names, ["init", "implement", "import-figma"]);
+        assert.deepStrictEqual(names, [
+          "init",
+          "implement",
+          "import-figma",
+          "redraw",
+          "components",
+        ]);
       })
     );
 
     it.effect(
-      "gives the implicit space a name of its own when a second one is created",
+      "gives the implicit canvas a name of its own when a second one is created",
       () =>
         Effect.gen(function* () {
           const { client, repo } = yield* TestEnv;
           const fs = yield* FileSystem.FileSystem;
-          const space = yield* client["spaces.create"]({ name: "Marketing" });
-          assert.strictEqual(space.id, "marketing");
-          // The pages of the root would otherwise belong to no space at all.
+          const canvas = yield* client["canvases.create"]({
+            name: "Marketing",
+          });
+          assert.strictEqual(canvas.id, "marketing");
+          // The pages of the root would otherwise belong to no canvas at all.
           assert.isTrue(
-            yield* fs.exists(path.join(repo, "designs/space.json"))
+            yield* fs.exists(path.join(repo, "designs/canvas.json"))
           );
-          const { pages, spaces } = yield* client["pages.list"]();
-          assert.deepStrictEqual(spaces.map((sp) => sp.id).sort(), [
+          const { pages, canvases } = yield* client["pages.list"]();
+          assert.deepStrictEqual(canvases.map((sp) => sp.id).sort(), [
             "",
             "marketing",
           ]);
-          assert.isTrue(pages.every((p) => p.space === ""));
+          assert.isTrue(pages.every((p) => p.canvas === ""));
         })
     );
 
-    it.effect("saves an image into the space's assets", () =>
+    it.effect("saves an image into the shared assets", () =>
       Effect.gen(function* () {
         const { client, repo } = yield* TestEnv;
         const fs = yield* FileSystem.FileSystem;
         const first = yield* client["assets.upload"]({
           data: Buffer.from("not really a png").toString("base64"),
           name: "Screen Shot.png",
-          space: "",
         });
         assert.strictEqual(first.src, "assets/screen-shot.png");
         assert.isTrue(
@@ -727,11 +734,10 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         const second = yield* client["assets.upload"]({
           data: Buffer.from("again").toString("base64"),
           name: "Screen Shot.png",
-          space: "",
         });
         assert.strictEqual(second.src, "assets/screen-shot-2.png");
         const refused = yield* Effect.flip(
-          client["assets.upload"]({ data: "", name: "notes.txt", space: "" })
+          client["assets.upload"]({ data: "", name: "notes.txt" })
         );
         assert.strictEqual(refused._tag, "BadRequest");
       })
@@ -741,8 +747,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
       Effect.gen(function* () {
         const { client } = yield* TestEnv;
         const page = yield* client["pages.create"]({
+          canvas: "",
           route: "/undo-me",
-          space: "",
         });
         yield* client["pages.delete"]({ id: page.id });
         assert.notInclude(
@@ -760,6 +766,221 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         );
         assert.strictEqual(gone._tag, "NotFound");
       })
+    );
+
+    it.effect(
+      "lists canvases in the order given, renames one, and deletes it with its pages",
+      () =>
+        Effect.gen(function* () {
+          const { client, repo } = yield* TestEnv;
+          const fs = yield* FileSystem.FileSystem;
+          const ids = Effect.map(client["pages.list"](), (list) =>
+            list.canvases.map((c) => c.id)
+          );
+          const created = yield* client["canvases.create"]({
+            name: "Wireframes",
+          });
+          assert.strictEqual(created.id, "wireframes");
+          assert.deepStrictEqual(yield* ids, ["", "marketing", "wireframes"]);
+          yield* client["canvases.reorder"]({ order: ["wireframes"] });
+          assert.deepStrictEqual(yield* ids, ["wireframes", "", "marketing"]);
+          const renamed = yield* client["canvases.rename"]({
+            id: "wireframes",
+            name: "Lo-fi",
+          });
+          assert.strictEqual(renamed.name, "Lo-fi");
+          // The same route is a page in two canvases.
+          const page = yield* client["pages.create"]({
+            canvas: "wireframes",
+            route: "/home",
+          });
+          assert.strictEqual(page.id, "wireframes/home.page.json");
+          const homes = (yield* client["pages.list"]()).pages.filter(
+            (p) => p.route === "/home"
+          );
+          assert.deepStrictEqual(homes.map((p) => p.canvas).sort(), [
+            "",
+            "wireframes",
+          ]);
+
+          yield* client["canvases.delete"]({ id: "wireframes" });
+          assert.notInclude(yield* ids, "wireframes");
+          assert.isFalse(
+            yield* fs.exists(
+              path.join(repo, "designs/wireframes/home.page.json")
+            )
+          );
+          yield* client["edit.undo"]();
+          assert.deepStrictEqual(yield* ids, ["wireframes", "", "marketing"]);
+          assert.strictEqual(
+            (yield* client["pages.list"]()).canvases[0]?.name,
+            "Lo-fi"
+          );
+        })
+    );
+
+    it.effect(
+      "duplicates a canvas with its pages and layout, and copies pages into another",
+      () =>
+        Effect.gen(function* () {
+          const { client } = yield* TestEnv;
+          const frame = {
+            height: 600,
+            preset: "custom",
+            width: 800,
+            x: 40,
+            y: 60,
+          } as const;
+          const layout = yield* client["canvas.get"]({ canvas: "" });
+          yield* client["canvas.set"]({
+            canvas: "",
+            frames: { ...layout.frames, [HOME]: frame },
+          });
+          const copy = yield* client["canvases.duplicate"]({
+            id: "",
+            name: "App v2",
+          });
+          assert.strictEqual(copy.id, "app-v2");
+          const { canvases, pages } = yield* client["pages.list"]();
+          // Placed after the canvas it was copied from.
+          const order = canvases.map((c) => c.id);
+          assert.strictEqual(order.indexOf("app-v2"), order.indexOf("") + 1);
+          assert.deepStrictEqual(
+            pages
+              .filter((p) => p.canvas === "app-v2")
+              .map((p) => p.path)
+              .sort(),
+            pages
+              .filter((p) => p.canvas === "")
+              .map((p) => p.path)
+              .sort()
+          );
+          const copied = yield* client["canvas.get"]({ canvas: "app-v2" });
+          assert.deepStrictEqual(copied.frames[HOME], frame);
+          assert.strictEqual(copied.name, "App v2");
+
+          const [moved] = yield* client["pages.copyTo"]({
+            ids: [HOME],
+            move: false,
+            target: { name: "Checkout" },
+          });
+          assert.strictEqual(moved?.id, "checkout/home.page.json");
+          assert.deepStrictEqual(
+            (yield* client["canvas.get"]({ canvas: "checkout" })).frames[HOME],
+            frame
+          );
+          const twice = yield* Effect.flip(
+            client["pages.copyTo"]({
+              ids: [HOME],
+              move: false,
+              target: { canvas: "checkout" },
+            })
+          );
+          assert.strictEqual(twice._tag, "Conflict");
+
+          const leaving = yield* client["pages.create"]({
+            canvas: "",
+            route: "/leaving",
+          });
+          yield* client["pages.copyTo"]({
+            ids: [leaving.id],
+            move: true,
+            target: { canvas: "marketing" },
+          });
+          const after = (yield* client["pages.list"]()).pages;
+          assert.isFalse(after.some((p) => p.id === leaving.id));
+          assert.isTrue(
+            after.some((p) => p.id === "marketing/leaving.page.json")
+          );
+        })
+    );
+
+    it.effect(
+      "draws a page for a variant, at the page's route and under its frame",
+      () =>
+        Effect.gen(function* () {
+          const { client } = yield* TestEnv;
+          const variant = yield* client["pages.createVariant"]({
+            id: HOME,
+            variant: "Bold",
+          });
+          assert.strictEqual(variant.id, "home@bold.page.json");
+          assert.strictEqual(variant.route, "/home");
+          assert.strictEqual(variant.variant, "bold");
+          const { canvases } = yield* client["pages.list"]();
+          assert.deepStrictEqual(canvases.find((c) => c.id === "")?.variants, [
+            "bold",
+          ]);
+          const layout = yield* client["canvas.get"]({ canvas: "" });
+          const base = layout.frames[HOME];
+          const below = layout.frames["home@bold.page.json"];
+          assert.strictEqual(below?.x, base?.x);
+          assert.isAbove(below?.y ?? 0, (base?.y ?? 0) + (base?.height ?? 0));
+
+          const again = yield* Effect.flip(
+            client["pages.createVariant"]({ id: HOME, variant: "bold" })
+          );
+          assert.strictEqual(again._tag, "Conflict");
+          // The variant goes with the page to its new route, and with its copy.
+          const moved = yield* client["pages.rename"]({
+            id: variant.id,
+            route: "/start",
+          });
+          assert.strictEqual(moved.id, "start@bold.page.json");
+          const copy = yield* client["pages.duplicate"]({ id: moved.id });
+          assert.strictEqual(copy.id, "start-2@bold.page.json");
+          assert.strictEqual(copy.variant, "bold");
+        })
+    );
+
+    it.effect(
+      "keeps a named snapshot, shows it as it was, and restores it in one step",
+      () =>
+        Effect.gen(function* () {
+          const { client } = yield* TestEnv;
+          const snapshot = yield* client["snapshots.create"]({
+            name: "Shown to the client",
+          });
+          assert.strictEqual(snapshot.name, "Shown to the client");
+          assert.deepStrictEqual(
+            (yield* client["snapshots.list"]()).map((s) => s.id),
+            [snapshot.id]
+          );
+          const before = yield* client["documents.get"]({ doc: HOME });
+          yield* client["documents.apply"]({
+            edits: [
+              {
+                doc: HOME,
+                ops: [
+                  {
+                    node: paragraph("later", "Added later"),
+                    op: "insert",
+                    parent: before.root?.id ?? null,
+                  },
+                ],
+              },
+            ],
+          });
+          const diffs = yield* client["snapshots.diff"]({ id: snapshot.id });
+          assert.deepStrictEqual(
+            diffs.map((d) => d.path),
+            [HOME_FILE]
+          );
+          const view = yield* client["snapshots.view"]({ id: snapshot.id });
+          const kept = view.documents.find((d) => d.doc === HOME);
+          assert.notInclude(childIds(kept?.root), "later");
+          assert.isTrue(view.pages.some((p) => p.id === HOME));
+
+          yield* client["snapshots.restore"]({ id: snapshot.id });
+          const restored = yield* client["documents.get"]({ doc: HOME });
+          assert.notInclude(childIds(restored.root), "later");
+          yield* client["edit.undo"]();
+          const undone = yield* client["documents.get"]({ doc: HOME });
+          assert.include(childIds(undone.root), "later");
+
+          yield* client["snapshots.delete"]({ id: snapshot.id });
+          assert.deepStrictEqual(yield* client["snapshots.list"](), []);
+        })
     );
 
     it.effect("turns away a browser page from another origin", () =>

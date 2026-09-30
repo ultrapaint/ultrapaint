@@ -67,9 +67,9 @@ const formatHostError = (error: HostError) => {
 
 /** Writes an inline text edit from the preview back into the document. */
 const commitText = (frame: string, nodeId: string, text: string) => {
-  const { space } = useEditor.getState();
+  const { canvas } = useEditor.getState();
   applyOps(
-    docOfFrame(frame, space),
+    docOfFrame(frame, canvas),
     [{ id: nodeId, op: "update", set: { text } }],
     "Edit text"
   );
@@ -82,12 +82,22 @@ const isInteractive = (s: { mode: string; spacePan: boolean }) =>
 const DRAG_THRESHOLD = 4;
 
 /** Tells a preview what its frame shows now: the document as it is, in the design system. */
+/** What a frame is called over its top edge: the page, in its variant, or the node on the canvas. */
+const frameName = (page: Page | undefined, root: DesignNode | null) => {
+  if (page) {
+    return page.variant === undefined
+      ? page.name
+      : `${page.name} · ${page.variant}`;
+  }
+  return root ? nodeLabel(root) : "";
+};
+
 const renderFrame = (frameId: string, kind: "page" | "node") => {
-  const { space } = useEditor.getState();
+  const { canvas } = useEditor.getState();
   const state = isNodeFrame(frameId)
     ? null
     : useDocuments.getState().docs[frameId];
-  const root = rootOfFrame(useDocuments.getState().docs, space, frameId);
+  const root = rootOfFrame(useDocuments.getState().docs, canvas, frameId);
   const { designSystem } = useDesignSystem.getState();
   bridgeFor(frameId).render({
     designSystem,
@@ -149,8 +159,8 @@ export const Frame = memo(
     const also = useEditor((s) => s.also);
     const hover = useEditor((s) => s.hover);
     const isActive = useEditor((s) => s.activePage === frameId);
-    const space = useEditor((s) => s.space);
-    const root = useDocuments((s) => rootOfFrame(s.docs, space, frameId));
+    const canvas = useEditor((s) => s.canvas);
+    const root = useDocuments((s) => rootOfFrame(s.docs, canvas, frameId));
     const problem = useDocuments((s) =>
       isNodeFrame(frameId) ? undefined : s.docs[frameId]?.problem
     );
@@ -163,10 +173,10 @@ export const Frame = memo(
           s.comments.some((c) => c.id === s.open && c.page === page.path))
     );
     const url = hostUrl
-      ? `${hostUrl}/?space=${encodeURIComponent(space ?? "")}&frame=${encodeURIComponent(frameId)}`
+      ? `${hostUrl}/?canvas=${encodeURIComponent(canvas ?? "")}&frame=${encodeURIComponent(frameId)}`
       : null;
     const inv = 1 / zoom;
-    const name = page?.name ?? (root ? nodeLabel(root) : "");
+    const name = frameName(page, root);
 
     // Bridge lifecycle. The bridge is looked up here and in handlers, never during render: the
     // registry is mutable (cleanup removes the entry), so a render-time lookup would be cached by
@@ -252,11 +262,11 @@ export const Frame = memo(
       if (
         selection?.frame === frameId &&
         root &&
-        !nodeIn(useDocuments.getState().docs, space, frameId, selection.nodeId)
+        !nodeIn(useDocuments.getState().docs, canvas, frameId, selection.nodeId)
       ) {
         useEditor.getState().select(null);
       }
-    }, [selection, root, frameId, space]);
+    }, [selection, root, frameId, canvas]);
 
     // What agents are changing here: outlined on the canvas, skeletons in the preview.
     const work = useFrameWork(frameId);
@@ -290,7 +300,7 @@ export const Frame = memo(
     const currentRoot = () =>
       rootOfFrame(
         useDocuments.getState().docs,
-        useEditor.getState().space,
+        useEditor.getState().canvas,
         frameId
       );
     /** The node a pointer event at this position means, given what is selected. */
@@ -348,7 +358,7 @@ export const Frame = memo(
       // Text is edited where it is written, whatever the two clicks before this selected.
       const id = (await bridge.hitTest(x, y)).at(-1);
       const node = id
-        ? nodeIn(useDocuments.getState().docs, space, frameId, id)
+        ? nodeIn(useDocuments.getState().docs, canvas, frameId, id)
         : null;
       if (id && node?.type === "text") {
         select(id);
@@ -400,7 +410,7 @@ export const Frame = memo(
       const rect = (await bridge.measure([id]))[id];
       const node = nodeIn(
         useDocuments.getState().docs,
-        store.space,
+        store.canvas,
         frameId,
         id
       );
@@ -586,7 +596,7 @@ export const Frame = memo(
       const chain = await bridgeFor(frameId).hitTest(x, y);
       const id = chain.at(-1);
       const node = id
-        ? nodeIn(useDocuments.getState().docs, space, frameId, id)
+        ? nodeIn(useDocuments.getState().docs, canvas, frameId, id)
         : null;
       // Only if the draft is still this one: another click may have moved it meanwhile.
       if (
@@ -887,7 +897,7 @@ const Highlights = ({ frameId, inv }: { frameId: string; inv: number }) => {
   const hover = useEditor((s) => s.hover);
   const rects = useEditor((s) => s.rects[frameId]);
   const hostError = useEditor((s) => s.hostErrors[frameId]);
-  const space = useEditor((s) => s.space);
+  const canvas = useEditor((s) => s.canvas);
   const workspace = useEditor((s) => s.workspace);
   const frameWidth = useEditor(
     (s) =>
@@ -898,11 +908,11 @@ const Highlights = ({ frameId, inv }: { frameId: string; inv: number }) => {
   const docs = useDocuments((s) => s.docs);
   const here = selection?.frame === frameId;
   const selectedNode = here
-    ? nodeIn(docs, space, frameId, selection.nodeId)
+    ? nodeIn(docs, canvas, frameId, selection.nodeId)
     : null;
   const hoverNode =
     hover?.frame === frameId
-      ? nodeIn(docs, space, frameId, hover.nodeId)
+      ? nodeIn(docs, canvas, frameId, hover.nodeId)
       : null;
   const selectedRect = here ? rects?.[selection.nodeId] : undefined;
   const hoverRect =
@@ -912,7 +922,7 @@ const Highlights = ({ frameId, inv }: { frameId: string; inv: number }) => {
   // Several selected: each is outlined, and what they share hangs over the box around them.
   const others = here
     ? also.flatMap((a) => {
-        const node = nodeIn(docs, space, frameId, a.nodeId);
+        const node = nodeIn(docs, canvas, frameId, a.nodeId);
         const rect = rects?.[a.nodeId];
         return node && rect ? [{ node, rect, target: a }] : [];
       })

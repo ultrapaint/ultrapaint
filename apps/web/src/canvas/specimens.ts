@@ -31,10 +31,10 @@ const settle = () =>
 
 /**
  * The hidden iframe, loaded from the preview at `host`, made once and kept; made again for
- * another space, whose images are found elsewhere.
+ * another canvas, whose images are found elsewhere.
  */
-const open = (host: string, space: string) => {
-  const src = `${host}/?space=${encodeURIComponent(space)}&frame=${FRAME}`;
+const open = (host: string, canvas: string) => {
+  const src = `${host}/?canvas=${encodeURIComponent(canvas)}&frame=${FRAME}`;
   if (iframe && ready && srcOf === src) {
     return ready;
   }
@@ -80,12 +80,12 @@ const rendered = (renderId: number, timeoutMs: number) =>
   });
 
 export interface SpecimenOptions {
+  readonly canvas?: string;
   readonly height?: number;
   /** `fit` draws the node at its own size; `page` as a window of `width` shows it. */
   readonly mode?: RenderMode;
   /** Crop to this node inside the one drawn; all of it when absent. */
   readonly nodeId?: string;
-  readonly space?: string;
   readonly width?: number;
 }
 
@@ -97,7 +97,7 @@ export const drawSpecimen = (
   options: SpecimenOptions = {}
 ): Promise<string | null> => {
   const task = queue.then(async () => {
-    await open(host, options.space ?? "");
+    await open(host, options.canvas ?? "");
     if (iframe) {
       iframe.style.width = `${options.width ?? WIDTH}px`;
       iframe.style.height = `${options.height ?? HEIGHT}px`;

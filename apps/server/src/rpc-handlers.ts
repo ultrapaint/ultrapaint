@@ -19,6 +19,7 @@ import { Screenshots } from "./services/screenshots.ts";
 import { SettingsService } from "./services/settings.ts";
 import { SetupService } from "./services/setup.ts";
 import { SkillsService } from "./services/skills.ts";
+import { Snapshots } from "./services/snapshots.ts";
 import { AgentConfigs } from "./services/threads/agent-configs.ts";
 import { AgentDiscovery } from "./services/threads/agent-discovery.ts";
 import { ChatPreferences } from "./services/threads/chat-preferences.ts";
@@ -45,6 +46,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const discovery = yield* AgentDiscovery;
     const threads = yield* ThreadService;
     const checkpoints = yield* Checkpoints;
+    const snapshots = yield* Snapshots;
     const access = yield* McpAccess;
     const commands = yield* SlashCommands;
     const screenshots = yield* Screenshots;
@@ -88,9 +90,16 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "agents.list": () => agents.list,
       "agents.options": () => preferences.options,
       "assets.upload": (input) => documents((d) => d.upload(input)),
-      "canvas.get": ({ space }) => pages((s) => s.readCanvas(space)),
-      "canvas.set": ({ frames, space }) =>
-        pages((s) => s.writeFrames(space, frames)),
+      "canvas.get": ({ canvas }) => pages((s) => s.readCanvas(canvas)),
+      "canvas.set": ({ canvas, frames }) =>
+        pages((s) => s.writeFrames(canvas, frames)),
+      "canvases.create": ({ name }) => pages((s) => s.createCanvas(name)),
+      "canvases.delete": ({ id }) => pages((s) => s.deleteCanvas(id)),
+      "canvases.duplicate": ({ id, name }) =>
+        pages((s) => s.duplicateCanvas(id, name)),
+      "canvases.rename": ({ id, name }) =>
+        pages((s) => s.renameCanvas(id, name)),
+      "canvases.reorder": ({ order }) => pages((s) => s.reorderCanvases(order)),
 
       "catalogue.get": ({ refresh }) => catalogue((c) => c.get(refresh)),
       "catalogue.storyUrl": ({ storyId }) =>
@@ -102,18 +111,18 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "checkpoints.revert": ({ id }) => checkpoints.revert(id),
       "commands.list": () => Effect.succeed(commands.list),
       "comments.create": (input) => comments((c) => c.create(input)),
-      "comments.delete": ({ id, space }) =>
-        comments((c) => c.delete(space, id)),
-      "comments.deleteReply": ({ id, replyId, space }) =>
-        comments((c) => c.deleteReply(space, id, replyId)),
-      "comments.list": ({ space }) => comments((c) => c.list(space)),
+      "comments.delete": ({ id, canvas }) =>
+        comments((c) => c.delete(canvas, id)),
+      "comments.deleteReply": ({ id, replyId, canvas }) =>
+        comments((c) => c.deleteReply(canvas, id, replyId)),
+      "comments.list": ({ canvas }) => comments((c) => c.list(canvas)),
       "comments.reply": (input) => comments((c) => c.reply(input)),
       "comments.update": (input) => comments((c) => c.update(input)),
       "designSystem.detect": () => designSystem((d) => d.detect),
       "designSystem.get": () => designSystem((d) => d.get),
       "documents.apply": (input) => documents((d) => d.apply(input)),
       "documents.get": ({ doc }) => documents((d) => d.get(doc)),
-      "documents.list": ({ space }) => documents((d) => d.list(space)),
+      "documents.list": ({ canvas }) => documents((d) => d.list(canvas)),
       "edit.redo": () => edit((e) => e.redo),
       "edit.state": () => edit((e) => e.state),
       "edit.undo": () => edit((e) => e.undo),
@@ -161,8 +170,12 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
             url: `http://${connectHost(listenHost)}:${port}${MCP_PATH}`,
           })
         ),
-      "pages.create": ({ route, space, template }) =>
-        pages((s) => s.create(space, route, template)),
+      "pages.copyTo": ({ ids, move, target }) =>
+        pages((s) => s.copyTo(ids, target, move)),
+      "pages.create": ({ canvas, route, template }) =>
+        pages((s) => s.create(canvas, route, template)),
+      "pages.createVariant": ({ id, variant }) =>
+        pages((s) => s.createVariant(id, variant)),
       "pages.delete": ({ id }) => pages((s) => s.delete(id)),
       "pages.duplicate": ({ id }) => pages((s) => s.duplicate(id)),
 
@@ -203,7 +216,13 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "skills.customise": ({ mode, name }) =>
         skills((s) => s.customise(name, mode)),
       "skills.list": () => skills((s) => s.list),
-      "spaces.create": ({ name }) => pages((s) => s.createSpace(name)),
+      "snapshots.create": ({ checkpoint, name }) =>
+        snapshots.create(name, checkpoint),
+      "snapshots.delete": ({ id }) => snapshots.delete(id),
+      "snapshots.diff": ({ id }) => snapshots.diff(id),
+      "snapshots.list": () => snapshots.list,
+      "snapshots.restore": ({ id }) => snapshots.restore(id),
+      "snapshots.view": ({ id }) => snapshots.view(id),
       "threads.answer": ({ threadId, itemId, answers }) =>
         threads.answer(threadId, itemId, answers),
       "threads.cancel": ({ threadId }) => threads.cancel(threadId),

@@ -26,7 +26,7 @@ export const Comment = Schema.Struct({
   nodeId: Schema.NullOr(Schema.String).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed(null))
   ),
-  /** Path of the page inside its space, the key the canvas layout uses as well. */
+  /** Path of the page inside its canvas, the key the canvas layout uses as well. */
   page: Schema.String,
   /** The thread under the comment, oldest first. Files written before threads have none. */
   replies: Schema.Array(CommentReply).pipe(
@@ -40,7 +40,7 @@ export const Comment = Schema.Struct({
 });
 export type Comment = typeof Comment.Type;
 
-/** Contents of `<space>/comments.json`. */
+/** Contents of `<canvas>/comments.json`. */
 export const CommentList = Schema.Struct({
   comments: Schema.Array(Comment),
   version: Schema.Literal(1),
@@ -48,10 +48,10 @@ export const CommentList = Schema.Struct({
 export type CommentList = typeof CommentList.Type;
 
 export const CreateCommentInput = Schema.Struct({
+  canvas: Schema.String,
   element: Schema.NullOr(Schema.String),
   nodeId: Schema.NullOr(Schema.String),
   page: Schema.String,
-  space: Schema.String,
   text: NonEmptyString,
   x: Schema.Number,
   y: Schema.Number,
@@ -60,16 +60,16 @@ export type CreateCommentInput = typeof CreateCommentInput.Type;
 
 /** Only what is given changes. */
 export const UpdateCommentInput = Schema.Struct({
+  canvas: Schema.String,
   id: Schema.String,
   resolved: Schema.optional(Schema.Boolean),
-  space: Schema.String,
   text: Schema.optional(NonEmptyString),
 });
 export type UpdateCommentInput = typeof UpdateCommentInput.Type;
 
 export const ReplyInput = Schema.Struct({
+  canvas: Schema.String,
   id: Schema.String,
-  space: Schema.String,
   text: NonEmptyString,
 });
 export type ReplyInput = typeof ReplyInput.Type;

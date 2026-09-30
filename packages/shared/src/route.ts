@@ -1,5 +1,5 @@
 /**
- * Routes of a space, derived from the page files inside it. The server, the editor and the
+ * Routes of a canvas, derived from the page files inside it. The server, the editor and the
  * generated preview entry all need the same answers, so the derivation and the matching live
  * here: pure, synchronous, no dependency on a framework or on a file system.
  *
@@ -10,12 +10,16 @@
  * | `settings/index.page.json`   | `/settings`     |
  * | `invoices/[id].page.json`    | `/invoices/:id` |
  * | `docs/[...rest].page.json`   | `/docs/*`       |
+ * | `pricing@bold.page.json`     | `/pricing`, in the variant `bold` |
  */
 import { humanise, toPosix } from "./path.ts";
 
 const TRAILING_SLASHES_RE = /\/+$/;
 /** A page file's extension: `.page.json`, or the one extension of any other file. */
 const PAGE_EXTENSION_RE = /\.page\.json$|\.[^./]+$/;
+/** The variant a page file is written for: `pricing@bold.page.json`. */
+const VARIANT_RE = /@([a-z0-9][a-z0-9-]*)(?=\.page\.json$|\.[^./]+$|$)/;
+const VARIANT_NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
 
 /** `[id]` and `[...rest]` are the parameter forms; anything else is a literal segment. */
 const parameterOf = (segment: string): string | null =>
@@ -42,9 +46,9 @@ export const routeSegments = (route: string): string[] => {
   return normalised === ROOT_ROUTE ? [] : normalised.slice(1).split("/");
 };
 
-/** The route a page file serves, from its path inside the space. */
+/** The route a page file serves, from its path inside the canvas. */
 export const routeOf = (pagePath: string): string => {
-  const segments = toPosix(pagePath)
+  const segments = basePathOf(pagePath)
     .replace(PAGE_EXTENSION_RE, "")
     .split("/")
     .filter((segment) => segment !== "");
@@ -173,9 +177,66 @@ export const matchRoute = <T extends { readonly route: string }>(
 
 /**
  * What a `to` means: a route when it starts with a slash, otherwise the page file it names
- * inside the space (`settings/billing`, `settings/billing.page.json`).
+ * inside the canvas (`settings/billing`, `settings/billing.page.json`).
  */
 export const resolveTarget = (to: string): string => {
   const trimmed = toPosix(to).trim();
   return trimmed.startsWith("/") ? normaliseRoute(trimmed) : routeOf(trimmed);
+};
+
+/** Whether a name can be a variant's: lowercase letters, digits and dashes. */
+export const isVariantName = (name: string): boolean =>
+  VARIANT_NAME_RE.test(name);
+
+/** The variant a page file is written for, or null for the base: `pricing@bold.page.json` is `bold`. */
+export const variantOf = (pagePath: string): string | null => {
+  const last = toPosix(pagePath).split("/").at(-1) ?? "";
+  const match: RegExpExecArray | null = VARIANT_RE.exec(last);
+  return match ? (match[1] ?? null) : null;
+};
+
+/** The file of the base page a variant's file stands in for: `pricing.page.json`. */
+export const basePathOf = (pagePath: string): string => {
+  const posix = toPosix(pagePath);
+  const cut = posix.lastIndexOf("/") + 1;
+  return posix.slice(0, cut) + posix.slice(cut).replace(VARIANT_RE, "");
+};
+
+/** The file a base page's variant is written in: `pricing.page.json` and `bold` give `pricing@bold.page.json`. */
+export const variantPathOf = (basePath: string, variant: string): string => {
+  const base = basePathOf(basePath);
+  const cut = base.lastIndexOf("/") + 1;
+  const name = base.slice(cut);
+  const match: RegExpExecArray | null = PAGE_EXTENSION_RE.exec(name);
+  const extension = match ? match[0] : "";
+  return `${base.slice(0, cut)}${name.slice(0, name.length - extension.length)}@${variant}${extension}`;
+};
+
+/**
+ * The pages a router serves in a variant: each base page, or the variant's own file for its route
+ * when the variant has one. `null` is the base alone. A variant's page without a base still
+ * serves its route in that variant.
+ */
+export const pagesInVariant = <
+  T extends { readonly path: string; readonly variant?: string | undefined },
+>(
+  pages: readonly T[],
+  variant: string | null
+): T[] => {
+  const base = pages.filter((p) => p.variant === undefined);
+  if (variant === null) {
+    return base;
+  }
+  const own = new Map(
+    pages
+      .filter((p) => p.variant === variant)
+      .map((p) => [basePathOf(p.path), p] as const)
+  );
+  const served = base.map((p) => own.get(p.path) ?? p);
+  for (const [path, page] of own) {
+    if (!base.some((b) => b.path === path)) {
+      served.push(page);
+    }
+  }
+  return served;
 };

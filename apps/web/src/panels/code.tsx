@@ -38,11 +38,11 @@ const fenced = (code: string, language: string) => {
 const useSubject = () => {
   const selection = useEditor((s) => s.selection);
   const selectedPage = useEditor((s) => s.selectedPage);
-  const space = useEditor((s) => s.space);
+  const canvas = useEditor((s) => s.canvas);
   const frame = selection?.frame ?? selectedPage;
   // The root is the stored document's own object, so the selector stays stable between renders.
   const root = useDocuments((s) =>
-    frame ? rootOfFrame(s.docs, space, frame) : null
+    frame ? rootOfFrame(s.docs, canvas, frame) : null
   );
   const route = useProject(
     (s) => s.pages.find((page) => page.id === frame)?.route

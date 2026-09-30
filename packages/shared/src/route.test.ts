@@ -1,15 +1,68 @@
 import { describe, expect, it } from "vitest";
 import {
+  basePathOf,
+  isVariantName,
   matchRoute,
   normaliseRoute,
   pagePathOf,
+  pagesInVariant,
   resolveTarget,
   routeLabel,
   routeOf,
+  variantOf,
+  variantPathOf,
 } from "./route.ts";
 
+describe("variants of a page", () => {
+  it("reads the variant off the file, and serves the base's route", () => {
+    expect(variantOf("pricing@bold.page.json")).toBe("bold");
+    expect(variantOf("settings/billing@dark-2.page.json")).toBe("dark-2");
+    expect(variantOf("pricing.page.json")).toBeNull();
+    expect(routeOf("pricing@bold.page.json")).toBe("/pricing");
+    expect(routeOf("index@bold.page.json")).toBe("/");
+    expect(routeOf("invoices/[id]@bold.page.json")).toBe("/invoices/:id");
+  });
+
+  it("goes between a base page's file and its variant's", () => {
+    expect(basePathOf("settings/billing@bold.page.json")).toBe(
+      "settings/billing.page.json"
+    );
+    expect(variantPathOf("settings/billing.page.json", "bold")).toBe(
+      "settings/billing@bold.page.json"
+    );
+    expect(variantPathOf("pricing@calm.page.json", "bold")).toBe(
+      "pricing@bold.page.json"
+    );
+  });
+
+  it("names a variant with lowercase letters, digits and dashes", () => {
+    expect(isVariantName("bold-2")).toBe(true);
+    expect(isVariantName("Bold")).toBe(false);
+    expect(isVariantName("")).toBe(false);
+  });
+
+  it("serves the variant's page where it has one, the base's elsewhere", () => {
+    const pages = [
+      { path: "index.page.json" },
+      { path: "pricing.page.json" },
+      { path: "pricing@bold.page.json", variant: "bold" },
+      { path: "promo@bold.page.json", variant: "bold" },
+      { path: "pricing@calm.page.json", variant: "calm" },
+    ];
+    expect(pagesInVariant(pages, null).map((p) => p.path)).toEqual([
+      "index.page.json",
+      "pricing.page.json",
+    ]);
+    expect(pagesInVariant(pages, "bold").map((p) => p.path)).toEqual([
+      "index.page.json",
+      "pricing@bold.page.json",
+      "promo@bold.page.json",
+    ]);
+  });
+});
+
 describe("routes derived from page files", () => {
-  it("reads a route off the path a page has inside its space", () => {
+  it("reads a route off the path a page has inside its canvas", () => {
     expect(routeOf("index.tsx")).toBe("/");
     expect(routeOf("pricing.tsx")).toBe("/pricing");
     expect(routeOf("settings/index.tsx")).toBe("/settings");
@@ -77,7 +130,7 @@ describe("what a link points at", () => {
     expect(resolveTarget("/settings/billing")).toBe("/settings/billing");
   });
 
-  it("takes anything else as a page file inside the space", () => {
+  it("takes anything else as a page file inside the canvas", () => {
     expect(resolveTarget("settings/billing.tsx")).toBe("/settings/billing");
     expect(resolveTarget("index.tsx")).toBe("/");
   });

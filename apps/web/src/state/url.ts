@@ -1,5 +1,6 @@
 /**
- * The editor's own URL is where the router state lives: `?space=marketing&route=/settings`.
+ * The editor's own URL is where the router state lives:
+ * `?canvas=marketing&route=/settings&variant=bold`.
  * A prototype can be reloaded, bookmarked and handed to someone else, and the browser's back
  * and forward buttons are the prototype's, because every navigation is a history entry.
  * The workspace rides along as `?mode=design`, so a reload comes back to the same one.
@@ -7,8 +8,10 @@
 import { normaliseRoute } from "@ultrapaint/shared/route";
 
 export interface UrlState {
+  canvas: string | null;
   route: string;
-  space: string | null;
+  /** The variant the router serves its routes in; absent for the base. */
+  variant: string | null;
 }
 
 /** What a parameter means when it is absent, so it is left out rather than written. */
@@ -21,15 +24,17 @@ export const readUrl = (): UrlState & {
   settings: string | null;
 } => {
   const params = new URLSearchParams(window.location.search);
-  const space = params.get("space");
+  const canvas = params.get("canvas");
   const route = params.get("route");
+  const variant = params.get("variant");
   return {
+    canvas: canvas === "" ? null : canvas,
     mode: params.get("mode"),
     node: params.get("node"),
     route: route === null ? "/" : normaliseRoute(route),
     // The section of the settings page when it is open: `?settings=repository`.
     settings: params.get("settings"),
-    space: space === "" ? null : space,
+    variant: variant === "" ? null : variant,
   };
 };
 
@@ -69,19 +74,19 @@ export const clearNodeParam = () =>
   writeQuery((params) => params.delete("node"), false);
 
 /**
- * A link to a node, as the editor's own URL: its space, its page's route (none for a node on the
+ * A link to a node, as the editor's own URL: its canvas, its page's route (none for a node on the
  * canvas beside the pages), and the node, which the editor selects and brings into view.
  */
 export const linkToNode = (target: {
   nodeId: string;
   route: string | null;
-  space: string;
+  canvas: string;
 }): string => {
   const url = new URL(window.location.href);
   const params = new URLSearchParams();
   const mode = url.searchParams.get("mode");
-  if (target.space) {
-    params.set("space", target.space);
+  if (target.canvas) {
+    params.set("canvas", target.canvas);
   }
   if (target.route && target.route !== "/") {
     params.set("route", target.route);
@@ -103,8 +108,9 @@ export const writeMode = (mode: string) =>
  */
 export const writeUrl = (state: UrlState, push: boolean) =>
   writeQuery((params) => {
-    params.set("space", state.space ?? "");
+    params.set("canvas", state.canvas ?? "");
     params.set("route", state.route);
+    params.set("variant", state.variant ?? "");
   }, push);
 
 export const onUrlChange = (listener: (state: UrlState) => void) => {

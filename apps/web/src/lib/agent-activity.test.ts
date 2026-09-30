@@ -38,12 +38,12 @@ const turnEnd: ThreadItem = {
 };
 
 const page: Page = {
+  canvas: "docs/designs",
   file: "docs/designs/index.tsx",
   id: "index",
   name: "Home",
   path: "index.tsx",
   route: "/",
-  space: "docs/designs",
 };
 
 describe("agentActivity", () => {
@@ -151,12 +151,12 @@ describe("agentActivity", () => {
     expect(activity?.pageIds).toEqual(["index"]);
   });
 
-  it("falls back to that page even when another space has the same route", () => {
+  it("falls back to that page even when another canvas has the same route", () => {
     const other: Page = {
       ...page,
+      canvas: "site",
       file: "docs/designs/site/index.tsx",
       id: "site/index",
-      space: "site",
     };
     const [activity] = agentActivity(
       [thread("t1", "running")],

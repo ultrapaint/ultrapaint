@@ -3,8 +3,19 @@ import type {
   GitDiff,
   GitStatus,
 } from "@ultrapaint/contracts/git";
+import type { Snapshot } from "@ultrapaint/contracts/snapshots";
 import { cn } from "cn";
-import { GitCommitHorizontal, History, RefreshCw, Undo2 } from "lucide-react";
+import {
+  Bookmark,
+  BookmarkPlus,
+  Eye,
+  GitCommitHorizontal,
+  GitCompareArrows,
+  History,
+  RefreshCw,
+  Trash2,
+  Undo2,
+} from "lucide-react";
 import {
   type ChangeEvent,
   type Dispatch,
@@ -22,9 +33,16 @@ import { confirmDialog } from "../components/dialogs.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { SetupEmpty } from "../components/setup-dialog.tsx";
+import {
+  deleteSnapshot,
+  openSnapshot,
+  restoreSnapshot,
+  saveSnapshot,
+} from "../lib/snapshot-actions.ts";
 import { useAgents } from "../state/agents.ts";
 import { api } from "../state/connection.ts";
 import { reportError, useProject } from "../state/project.ts";
+import { useSnapshotView } from "../state/snapshot-view.ts";
 
 const DIFF_MARKER_RE = /^[+\-@]/;
 
@@ -44,17 +62,20 @@ export const Changes = () => {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState("");
   const [checkpoints, setCheckpoints] = useState<readonly Checkpoint[]>([]);
+  const [snapshots, setSnapshots] = useState<readonly Snapshot[]>([]);
   const [cpDiff, setCpDiff] = useState<CheckpointDiff | null>(null);
   const [busy, setBusy] = useState(false);
 
   const refresh = async () => {
     try {
-      const [s, cps] = await Promise.all([
+      const [s, cps, sns] = await Promise.all([
         api().request("git.status", undefined),
         api().request("checkpoints.list", undefined),
+        api().request("snapshots.list", undefined),
       ]);
       setStatus(s);
       setCheckpoints(cps);
+      setSnapshots(sns);
       setSelected(
         (prev) =>
           new Set(
@@ -196,11 +217,19 @@ export const Changes = () => {
         {openDiffs ? (
           <DiffView diffs={openDiffs} />
         ) : (
-          <Checkpoints
-            checkpoints={checkpoints}
-            onRevert={refresh}
-            onShowDiff={setCpDiff}
-          />
+          <>
+            <Snapshots
+              onChange={refresh}
+              onShowDiff={setCpDiff}
+              snapshots={snapshots}
+            />
+            <Checkpoints
+              checkpoints={checkpoints}
+              onKeep={refresh}
+              onRevert={refresh}
+              onShowDiff={setCpDiff}
+            />
+          </>
         )}
       </div>
       {diff || cpDiff ? (
@@ -214,12 +243,124 @@ export const Changes = () => {
   );
 };
 
+/**
+ * Named points in the history of the designs, kept until deleted: opened to look at as they
+ * were, compared with now, restored.
+ */
+const Snapshots = ({
+  onChange,
+  onShowDiff,
+  snapshots,
+}: {
+  onChange: () => Promise<void>;
+  onShowDiff: (diff: CheckpointDiff) => void;
+  snapshots: readonly Snapshot[];
+}) => {
+  const save = async () => {
+    if (await saveSnapshot()) {
+      await onChange();
+    }
+  };
+  return (
+    <div className="border-b p-2">
+      <div className="mb-1 flex items-center gap-1 text-[10px] text-muted-foreground uppercase">
+        <Bookmark className="size-3" />
+        <span className="flex-1">Snapshots</span>
+        <IconButton onClick={save} size="icon-xs" tooltip="Save a snapshot">
+          <BookmarkPlus className="size-3" />
+        </IconButton>
+      </div>
+      {snapshots.length === 0 && (
+        <div className="text-muted-foreground">
+          None yet. Save one to keep the designs as they are under a name, to
+          come back to.
+        </div>
+      )}
+      {snapshots.map((snapshot) => (
+        <SnapshotRow
+          key={snapshot.id}
+          onChange={onChange}
+          onShowDiff={onShowDiff}
+          snapshot={snapshot}
+        />
+      ))}
+    </div>
+  );
+};
+
+const SnapshotRow = ({
+  onChange,
+  onShowDiff,
+  snapshot,
+}: {
+  onChange: () => Promise<void>;
+  onShowDiff: (diff: CheckpointDiff) => void;
+  snapshot: Snapshot;
+}) => {
+  const open = useSnapshotView((s) => s.view?.snapshot.id === snapshot.id);
+  const { id } = snapshot;
+  const compare = () =>
+    api()
+      .request("snapshots.diff", { id })
+      .then((diffs) => onShowDiff({ diffs, id }))
+      .catch(reportError);
+  const remove = async () => {
+    if (await deleteSnapshot(snapshot)) {
+      await onChange();
+    }
+  };
+  return (
+    <div className="group flex items-center gap-0.5 py-0.5">
+      <Button
+        className={cn(
+          "-ml-2 min-w-0 flex-1 justify-start font-normal",
+          open ? "text-foreground" : "text-muted-foreground"
+        )}
+        onClick={() => openSnapshot(snapshot)}
+        size="sm"
+        title="Open it, to look at the designs as they were"
+        variant="ghost"
+      >
+        <span className="truncate">
+          {snapshot.name}
+          <span className="text-muted-foreground">
+            {" "}
+            · {new Date(snapshot.at).toLocaleDateString()}
+          </span>
+        </span>
+      </Button>
+      <IconButton
+        onClick={() => openSnapshot(snapshot)}
+        size="icon-sm"
+        tooltip="Open to look at"
+      >
+        <Eye />
+      </IconButton>
+      <IconButton onClick={compare} size="icon-sm" tooltip="What changed since">
+        <GitCompareArrows />
+      </IconButton>
+      <IconButton
+        onClick={() => restoreSnapshot(snapshot).then(onChange)}
+        size="icon-sm"
+        tooltip="Restore the designs to it"
+      >
+        <Undo2 />
+      </IconButton>
+      <IconButton onClick={remove} size="icon-sm" tooltip="Delete the snapshot">
+        <Trash2 />
+      </IconButton>
+    </div>
+  );
+};
+
 const Checkpoints = ({
   checkpoints,
+  onKeep,
   onShowDiff,
   onRevert,
 }: {
   checkpoints: readonly Checkpoint[];
+  onKeep: () => Promise<void>;
   onShowDiff: (diff: CheckpointDiff) => void;
   onRevert: () => Promise<void>;
 }) => (
@@ -236,6 +377,7 @@ const Checkpoints = ({
       <CheckpointRow
         checkpoint={c}
         key={c.id}
+        onKeep={onKeep}
         onRevert={onRevert}
         onShowDiff={onShowDiff}
       />
@@ -245,13 +387,20 @@ const Checkpoints = ({
 
 const CheckpointRow = ({
   checkpoint,
+  onKeep,
   onShowDiff,
   onRevert,
 }: {
   checkpoint: Checkpoint;
+  onKeep: () => Promise<void>;
   onShowDiff: (diff: CheckpointDiff) => void;
   onRevert: () => Promise<void>;
 }) => {
+  const keep = async () => {
+    if (await saveSnapshot(checkpoint)) {
+      await onKeep();
+    }
+  };
   const { id } = checkpoint;
   const show = () =>
     api()
@@ -285,6 +434,13 @@ const CheckpointRow = ({
           {new Date(checkpoint.at).toLocaleTimeString()} · {checkpoint.label}
         </span>
       </Button>
+      <IconButton
+        onClick={keep}
+        size="icon-sm"
+        tooltip="Keep as a snapshot, under a name"
+      >
+        <BookmarkPlus />
+      </IconButton>
       <IconButton
         onClick={revert}
         size="icon-sm"

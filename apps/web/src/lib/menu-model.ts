@@ -145,11 +145,19 @@ export const nodeEntries = (f: NodeFacts): Entry[] => {
 
 export interface PageFacts {
   canPaste: boolean;
+  /** The other canvases, which the page can be copied or moved into. */
+  canvases: readonly { id: string; name: string }[];
+  /** How many pages the menu acts on: the picked ones, when the page is one of them. */
+  count: number;
   name: string;
   /** The canvas is on screen: the prototype has no frames to zoom to. */
   onCanvas: boolean;
   preset: ViewportPreset | null;
   route: string;
+  /** The page's own variant; absent for a base page. */
+  variant?: string;
+  /** The canvas's variants the page has no drawing for yet. */
+  variantsFree: readonly string[];
 }
 
 export const PRESETS: readonly { label: string; value: ViewportPreset }[] = [
@@ -158,9 +166,24 @@ export const PRESETS: readonly { label: string; value: ViewportPreset }[] = [
   { label: "Desktop", value: "desktop" },
 ];
 
-export const pageEntries = (f: PageFacts): Entry[] =>
+/**
+ * Into another canvas, or a new one: `copyTo:@<id>` (the root canvas is `copyTo:@`),
+ * `copyTo:new`, and the same for a move.
+ */
+const canvasTargets = (verb: "copyTo" | "moveTo", f: PageFacts): Entry[] =>
   tidy([
-    { kind: "label", label: `${f.name} · ${f.route}` },
+    ...f.canvases.map((c) => item(`${verb}:@${c.id}`, c.name)),
+    f.canvases.length > 0 && separator,
+    item(`${verb}:new`, "New canvas…"),
+  ]);
+
+export const pageEntries = (f: PageFacts): Entry[] => {
+  const pages = f.count === 1 ? "page" : `${f.count} pages`;
+  return tidy([
+    {
+      kind: "label",
+      label: `${f.name} · ${f.route}${f.variant ? ` · ${f.variant}` : ""}`,
+    },
     item("goTo", `Go to ${f.route}`),
     f.onCanvas && item("zoomTo", "Zoom to page"),
     f.onCanvas &&
@@ -179,10 +202,61 @@ export const pageEntries = (f: PageFacts): Entry[] =>
     separator,
     item("rename", "Change route…"),
     item("duplicate", "Duplicate page"),
+    f.variant === undefined && {
+      entries: tidy([
+        ...f.variantsFree.map((v) => item(`variant:${v}`, v)),
+        f.variantsFree.length > 0 && separator,
+        item("variant:new", "New variant…"),
+      ]),
+      id: "variant",
+      kind: "submenu",
+      label: "Draw a variant",
+    },
+    {
+      entries: canvasTargets("copyTo", f),
+      id: "copyTo",
+      kind: "submenu",
+      label: `Copy ${pages} to canvas`,
+    },
+    {
+      entries: canvasTargets("moveTo", f),
+      id: "moveTo",
+      kind: "submenu",
+      label: `Move ${pages} to canvas`,
+    },
     item("implement", "Implement with an agent"),
     f.onCanvas && item("comment", "Add a comment"),
     separator,
     item("delete", "Delete page…", { destructive: true }),
+  ]);
+};
+
+// ---- Canvases ----
+
+export interface CanvasEntryFacts {
+  /** It is the one on screen. */
+  current: boolean;
+  first: boolean;
+  last: boolean;
+  /** The only canvas there is, which cannot be deleted. */
+  only: boolean;
+}
+
+export const canvasListEntries = (f: CanvasEntryFacts): Entry[] =>
+  tidy([
+    !f.current && item("openCanvas", "Open"),
+    item("rename", "Rename…"),
+    item("duplicate", "Duplicate…"),
+    item("duplicateWithAgent", "Duplicate with an agent…"),
+    item("componentSheet", "Draw the components with an agent"),
+    separator,
+    item("moveUp", "Move up", { disabled: f.first }),
+    item("moveDown", "Move down", { disabled: f.last }),
+    separator,
+    item("delete", "Delete canvas…", {
+      destructive: true,
+      disabled: f.only,
+    }),
   ]);
 
 // ---- The canvas ----

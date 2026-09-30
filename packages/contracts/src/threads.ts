@@ -140,7 +140,7 @@ export const PromptAttachment = Schema.Union([
   Schema.Struct({
     /** Whether the node is a component of the library. */
     component: Schema.optional(Schema.Boolean),
-    /** The page's file, or the space's `canvas.json` for a node beside the pages. */
+    /** The page's file, or the canvas's `canvas.json` for a node beside the pages. */
     file: Schema.String,
     kind: Schema.Literal("selection"),
     name: Schema.String,
@@ -172,7 +172,7 @@ export const ThreadScope = Schema.Struct({
   component: Schema.optional(Schema.Boolean),
   /** How many nodes the first prompt attached, when more than one. */
   count: Schema.optional(Schema.Number),
-  /** The page's file, or the space's `canvas.json` for a node beside the pages. */
+  /** The page's file, or the canvas's `canvas.json` for a node beside the pages. */
   file: Schema.String,
   name: Schema.String,
   /** Absent when the scope is a whole page. */
@@ -442,7 +442,7 @@ export const AgentFocus = Schema.Struct({
   action: Schema.optional(Schema.String),
   /** The nodes of the page it is about to change; none means the page as a whole. */
   nodeIds: Schema.optional(Schema.Array(Schema.String)),
-  /** The page itself: a route alone can be a page in more than one space. */
+  /** The page itself: a route alone can be a page in more than one canvas. */
   pageId: Schema.String,
   route: Schema.String,
   threadId: Schema.String,
@@ -451,7 +451,7 @@ export type AgentFocus = typeof AgentFocus.Type;
 
 /** Nodes an agent's operations changed, and in which document: its work, shown where it lands. */
 export const AgentEdited = Schema.Struct({
-  /** The page's id, or the space's canvas document. */
+  /** The page's id, or the document of the canvas's loose nodes. */
   doc: Schema.String,
   label: Schema.optional(Schema.String),
   nodeIds: Schema.Array(Schema.String),

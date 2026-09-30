@@ -1405,14 +1405,14 @@ const ModePicker = ({ thread }: { thread: Thread }) => {
   );
 };
 
-/** In the prototype the whole space is one iframe; on the canvas every page has its own. */
+/** In the prototype the whole canvas is one iframe; on the canvas every page has its own. */
 const shotFrameOf = (
   workspace: Workspace,
-  space: string | null,
+  canvas: string | null,
   page: Page | undefined
 ) =>
-  workspace === "prototype" && space !== null
-    ? frameIdOf(space)
+  workspace === "prototype" && canvas !== null
+    ? frameIdOf(canvas)
     : (page?.id ?? "");
 
 const COMMAND_QUERY_RE = /^\/([a-z-]*)$/;
@@ -1468,7 +1468,7 @@ const Composer = ({ thread }: { thread: Thread }) => {
     selection
       ? nodeIn(
           s.docs,
-          useEditor.getState().space,
+          useEditor.getState().canvas,
           selection.frame,
           selection.nodeId
         )
@@ -1486,8 +1486,8 @@ const Composer = ({ thread }: { thread: Thread }) => {
   const commands = useCommands();
   const [commandIndex, setCommandIndex] = useState(0);
   const workspace = useEditor((s) => s.workspace);
-  const space = useEditor((s) => s.space);
-  const shotFrame = shotFrameOf(workspace, space, page);
+  const canvas = useEditor((s) => s.canvas);
+  const shotFrame = shotFrameOf(workspace, canvas, page);
   const running = thread.status === "running" || thread.status === "cancelling";
 
   // While the agent works, what is sent waits in the thread's queue.

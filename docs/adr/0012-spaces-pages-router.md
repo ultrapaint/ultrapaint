@@ -2,6 +2,9 @@
 
 Status: accepted, 2026-09-17. Replaces the screen-and-flow model of D2 in the work definition.
 
+> Amended by [0019](0019-canvases.md), 2026-09-30: a space is a canvas, marked by its
+> `canvas.json` (which takes over `space.json`), and the variants below are built.
+>
 > Amended by [0015](0015-design-documents.md), 2026-09-25. Spaces, routes from the file system and
 > the router state in the editor's URL stand, with `.page.json` in place of `.tsx`
 > (`pricing.page.json` is `/pricing`). The generated `_router.tsx` is gone: a node's `link` names

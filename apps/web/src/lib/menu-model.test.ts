@@ -2,6 +2,7 @@ import type { DesignNode } from "@ultrapaint/contracts/document";
 import { describe, expect, it } from "vitest";
 import {
   canvasEntries,
+  canvasListEntries,
   commentEntries,
   componentEntries,
   type Entry,
@@ -117,10 +118,13 @@ describe("the node menu", () => {
 describe("the page menu", () => {
   const base = {
     canPaste: false,
+    canvases: [{ id: "", name: "App" }],
+    count: 1,
     name: "Home",
     onCanvas: true,
     preset: "mobile" as const,
     route: "/",
+    variantsFree: ["bold"],
   };
 
   it("marks the current viewport", () => {
@@ -138,6 +142,60 @@ describe("the page menu", () => {
     expect(got).not.toContain("preset");
     expect(got).toContain("rename");
     expect(got).toContain("delete");
+  });
+
+  it("copies and moves into the other canvases, the root one among them", () => {
+    const copy = find(pageEntries(base), "copyTo");
+    expect(copy).toMatchObject({ label: "Copy page to canvas" });
+    const into =
+      copy?.kind === "submenu"
+        ? copy.entries.map((e) => ("id" in e ? e.id : e.kind))
+        : [];
+    expect(into).toEqual(["copyTo:@", "separator", "copyTo:new"]);
+    expect(find(pageEntries({ ...base, count: 3 }), "moveTo")).toMatchObject({
+      label: "Move 3 pages to canvas",
+    });
+  });
+
+  it("draws a base page for a variant, and a variant's page for none", () => {
+    const variants = find(pageEntries(base), "variant");
+    expect(
+      variants?.kind === "submenu"
+        ? variants.entries.map((e) => ("id" in e ? e.id : e.kind))
+        : []
+    ).toEqual(["variant:bold", "separator", "variant:new"]);
+    expect(ids(pageEntries({ ...base, variant: "bold" }))).not.toContain(
+      "variant"
+    );
+  });
+});
+
+describe("the menu of a canvas in the list", () => {
+  const base = { current: false, first: false, last: false, only: false };
+
+  it("opens another canvas, and keeps the last one from being deleted", () => {
+    expect(ids(canvasListEntries(base))).toContain("openCanvas");
+    expect(ids(canvasListEntries({ ...base, current: true }))).not.toContain(
+      "openCanvas"
+    );
+    expect(
+      find(canvasListEntries({ ...base, only: true }), "delete")
+    ).toMatchObject({
+      disabled: true,
+    });
+  });
+
+  it("moves only where there is room", () => {
+    expect(
+      find(canvasListEntries({ ...base, first: true }), "moveUp")
+    ).toMatchObject({
+      disabled: true,
+    });
+    expect(
+      find(canvasListEntries({ ...base, last: true }), "moveDown")
+    ).toMatchObject({
+      disabled: true,
+    });
   });
 });
 

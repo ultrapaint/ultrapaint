@@ -23,6 +23,7 @@ import { McpRoute } from "./services/mcp/route.ts";
 import { Screenshots } from "./services/screenshots.ts";
 import { SettingsService } from "./services/settings.ts";
 import { SetupService } from "./services/setup.ts";
+import { Snapshots } from "./services/snapshots.ts";
 import { Storage } from "./services/storage.ts";
 import { AgentConfigs } from "./services/threads/agent-configs.ts";
 import { AgentDiscovery } from "./services/threads/agent-discovery.ts";
@@ -249,6 +250,7 @@ const Boot = Layer.effectDiscard(
 );
 
 const Threads = ThreadService.layer.pipe(
+  Layer.provideMerge(Snapshots.layer),
   Layer.provideMerge(Checkpoints.layer),
   Layer.provideMerge(AgentDiscovery.layer),
   Layer.provideMerge(

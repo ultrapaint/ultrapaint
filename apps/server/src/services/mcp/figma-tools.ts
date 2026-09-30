@@ -126,13 +126,13 @@ Pass null to forget a decision. Refused when the repository has no such componen
 
 const WriteFigmaFrame = Tool.make("write_figma_frame", {
   description:
-    "Writes a frame of the Figma file as a page at a route, converted with the mapping as it stands, its images copied into the space's assets, and its frame on the canvas sized as in Figma. Refused when a page already serves the route. Map the components first; what is still unmapped is expanded and reported.",
+    "Writes a frame of the Figma file as a page at a route, converted with the mapping as it stands, its images copied into the shared assets, and its frame on the canvas sized as in Figma. Refused when a page already serves the route. Map the components first; what is still unmapped is expanded and reported.",
   failure: Failure,
   parameters: Schema.Struct({
     ...importRef,
+    canvas: Schema.optional(Schema.String),
     frame: Schema.String,
     route: Schema.String,
-    space: Schema.optional(Schema.String),
   }),
   success: Schema.Struct({
     file: Schema.String,
@@ -171,7 +171,7 @@ const asJson = (value: unknown) => value as JsonValue;
 
 export const FigmaToolsLive = FigmaTools.toLayer(
   Effect.gen(function* () {
-    const { project, spaceOf } = yield* makeLookup;
+    const { project, canvasOf } = yield* makeLookup;
     const threads = yield* ThreadService;
 
     const imports = <A, E extends { readonly message: string }>(
@@ -342,12 +342,12 @@ export const FigmaToolsLive = FigmaTools.toLayer(
         frame,
         import: id,
         route,
-        space,
+        canvas,
       }) {
         const entry = yield* importOf(id);
-        const inSpace = yield* spaceOf(space);
+        const inCanvas = yield* canvasOf(canvas);
         const written = yield* imports((s) =>
-          s.writeFrame(entry.id, frame, inSpace, route)
+          s.writeFrame(entry.id, frame, inCanvas, route)
         );
         return {
           file: written.page.file,

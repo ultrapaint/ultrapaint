@@ -19,9 +19,9 @@ const draw = async (request: ScreenshotRequest) => {
     request.root,
     useDesignSystem.getState().designSystem,
     {
+      canvas: request.canvas,
       height: request.height,
       mode: request.mode,
-      space: request.space,
       width: request.width,
       ...(request.nodeId !== undefined && { nodeId: request.nodeId }),
     }

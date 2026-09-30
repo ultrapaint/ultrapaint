@@ -21,12 +21,12 @@ export const CANVAS_ROOT_ID = "canvas";
 
 const CANVAS_DOC_PREFIX = "canvas:";
 
-/** The document of a space's canvas, as operations and events name it. */
-export const canvasDocOf = (space: string): string =>
-  `${CANVAS_DOC_PREFIX}${space}`;
+/** The document of a canvas's loose nodes, as operations and events name it. */
+export const canvasDocOf = (canvas: string): string =>
+  `${CANVAS_DOC_PREFIX}${canvas}`;
 
-/** The space whose canvas a document is, or null for a page. */
-export const spaceOfCanvasDoc = (doc: string): string | null =>
+/** The canvas whose canvas a document is, or null for a page. */
+export const canvasOfDoc = (doc: string): string | null =>
   doc.startsWith(CANVAS_DOC_PREFIX)
     ? doc.slice(CANVAS_DOC_PREFIX.length)
     : null;

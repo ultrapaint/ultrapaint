@@ -16,6 +16,7 @@ import { normaliseRoute } from "@ultrapaint/shared/route";
 import { Context, Effect, Layer, Schema } from "effect";
 import { ServerConfig } from "../../config.ts";
 import { ProjectManager } from "../../project.ts";
+import { CatalogueService } from "../catalogue.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { DocumentService } from "../documents.ts";
 import { FigmaImportService } from "../figma-import.ts";
@@ -40,6 +41,18 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     description:
       "Turn an imported Figma file into pages, with its components replaced by the repository's",
     name: "import-figma",
+  },
+  {
+    argument: "<canvas> <what to change>",
+    description:
+      "Change every page of a canvas, a copy made to take another way: to wireframes, to finished screens",
+    name: "redraw",
+  },
+  {
+    argument: "<canvas>",
+    description:
+      "Draw a sheet of the design system's components, in each of their variants, into a canvas",
+    name: "components",
   },
 ];
 
@@ -80,13 +93,32 @@ export const IMPLEMENTATION_RULES = `How the design maps to code (Tailwind v4):
   \`text\` or \`children\` as its children. Its size, padding, fill, border, radius and shadow
   are classes in the component's own className, as the canvas draws them; a component that
   does not take a className gets them on a div around it (flex flex-col, then the classes).
-- image: <img>; an "assets/..." src is a file in the space's assets directory — copy it to where
-  the application keeps images.
+- image: <img>; an "assets/..." src is a file of the canvas's own assets/ directory when it has
+  one, and of the shared assets/ at the root of the designs directory otherwise — copy it to
+  where the application keeps images.
 - link: the application's own router link to that route.`;
 
 /** What the user typed after the command's argument, passed on as it is. */
 const userAdds = (extra: string) =>
   extra ? `\nThe user adds:\n${extra}\n` : "";
+
+const QUOTED_ROOT = '""';
+
+/** A canvas as a command names it: its id, `""` for the designs directory's own. */
+const canvasArgument = (argument: string) => {
+  const [target = "", ...rest] = argument.trim().split(WHITESPACE_RE);
+  return { extra: rest.join(" "), id: target === QUOTED_ROOT ? "" : target };
+};
+
+const named = (id: string) => JSON.stringify(id);
+
+const unknownCanvas = (
+  command: string,
+  id: string,
+  canvases: readonly { readonly id: string; readonly name: string }[]
+) => `<ultrapaint-task command="${command}">
+The user ran /${command}, but there is no canvas ${named(id)}. The canvases are: ${canvases.map((c) => `${c.name} (${named(c.id)})`).join(", ") || "none"}. Ask which one.
+</ultrapaint-task>`;
 
 const textStyles = (styles: readonly TextStyle[]) =>
   styles.length > 0
@@ -187,9 +219,13 @@ ${userAdds(extra)}</ultrapaint-task>`;
             const extra = rest.join(" ");
             const { pages } = yield* (yield* PagesService).list;
             const route = target ? normaliseRoute(target) : "";
+            // A route names its base page; a variant's is named by its file.
             const page =
-              pages.find((p) => p.route === route || p.id === target) ??
-              (pages.length === 1 ? pages[0] : undefined);
+              pages.find(
+                (p) =>
+                  (p.route === route && p.variant === undefined) ||
+                  p.id === target
+              ) ?? (pages.length === 1 ? pages[0] : undefined);
             if (!page) {
               return unknownPage(
                 target,
@@ -298,12 +334,111 @@ ${
    allowOther for a name you did not think of. End your turn after asking; carry on when the answers
    come. Do not ask about what the names settle.
 2. Once every used component is decided, write each frame with write_figma_frame at a route that
-   fits its name ("Login" is /login, "Home" is /), in the space the user works in; ask when a frame
+   fits its name ("Login" is /login, "Home" is /), in the canvas the user works in; ask when a frame
    is not a screen (a component sheet, a style guide) whether to import it at all.
 3. Look at each page with get_screenshot and mend what the rules got wrong with apply_operations:
    colours the design system has a token for that came through as hex, sizes that should be "fill"
    or "hug", texts that should be set in a text style. Keep the page close to the Figma frame.
 4. End with a short summary: the pages written, the mapping, and what to look at by hand.
+${userAdds(extra)}</ultrapaint-task>`;
+          })
+        );
+
+      const redraw = (argument: string) =>
+        project.use(
+          Effect.gen(function* () {
+            const { extra, id } = canvasArgument(argument);
+            const { canvases, pages } = yield* (yield* PagesService).list;
+            const canvas = canvases.find((c) => c.id === id);
+            if (!canvas) {
+              return unknownCanvas("redraw", id, canvases);
+            }
+            const own = pages.filter((p) => p.canvas === id);
+            const list = own
+              .map(
+                (p) =>
+                  `- ${p.route}${p.variant ? ` (variant ${p.variant})` : ""}: ${p.file}`
+              )
+              .join("\n");
+            const tools = mcp
+              ? `Through the ultrapaint MCP server, always passing canvas: ${named(id)}: read_page and
+get_screenshot to see a page, apply_operations to change it, focus to show the user where you are,
+read_design_system, list_components and get_component for what the design system offers.`
+              : `Edit the files above directly; the editor validates each one and reports what is wrong. The
+page format: ${pageSchema()}`;
+            return `<ultrapaint-task command="redraw">
+The canvas "${canvas.name}" (${named(id)}) is a copy the user made to take another way. Change every page of it as
+the user asks:
+${extra || "(the user did not say what to change: ask before changing anything)"}
+
+Its pages:
+${list || "- none"}
+
+${tools}
+
+1. Work page by page. Read the page and look at it before changing it.
+2. Change it in place: keep its route, the links between the pages, and the ids of the nodes you
+   keep. Draw with the design system's components and tokens.
+3. Look at the page again when it is done and fix what is off: overlaps, clipped text, empty
+   instances.
+4. Change nothing outside this canvas: the canvas it was copied from stays as it is.
+5. End with a short summary: what you changed, and what you left for the user to decide.
+</ultrapaint-task>`;
+          })
+        );
+
+      const components = (argument: string) =>
+        project.use(
+          Effect.gen(function* () {
+            const { extra, id } = canvasArgument(argument);
+            const { canvases, pages } = yield* (yield* PagesService).list;
+            const canvas = canvases.find((c) => c.id === id);
+            if (!canvas) {
+              return unknownCanvas("components", id, canvases);
+            }
+            const { designSystem } = yield* (yield* DesignSystemService).get;
+            const catalogue = yield* Effect.orElseSucceed(
+              (yield* CatalogueService).get(false),
+              () => null
+            );
+            const known = (catalogue?.components ?? []).map((c) => {
+              const notes = designSystem?.components?.[c.name];
+              const variants = Object.entries(c.variants)
+                .map(([name, values]) => `${name}=${values.join("|")}`)
+                .join(" ");
+              return `- ${c.name} (${notes?.category ?? c.category})${variants ? `: ${variants}` : ""}`;
+            });
+            const sheets = pages
+              .filter(
+                (p) => p.canvas === id && p.route.startsWith("/components")
+              )
+              .map((p) => p.route);
+            return `<ultrapaint-task command="components">
+Draw a sheet of this repository's design system into the canvas "${canvas.name}" (${named(id)}): every component a
+designer would place, in each of its variants, so the canvas shows what there is to design with.
+
+The components, with their category and variants:
+${known.join("\n") || "- none found: call list_components"}
+${
+  sheets.length > 0
+    ? `\nThe canvas has sheets already (${sheets.join(", ")}): bring them up to date rather than drawing them again —
+add what is missing, take out what the design system no longer has.\n`
+    : ""
+}
+1. Read the design system (read_design_system) for each component's category, description and
+   example props, and get_component for its props and variants.
+2. One page per category at /components/<category> (/components/forms), or one page at
+   /components when there are fewer than a dozen components. Create them with create_page and
+   canvas: ${named(id)}.
+3. In a page, per component: its name as a heading and one line on what it is for, in the design
+   system's text styles; under them a row that wraps, with one instance for each value of each
+   variant prop (a Button in each variant; for two variant props, one row per value of the first).
+   Give every instance its example props and text so it draws something, and show the states it
+   has (disabled, loading, invalid) where they change how it looks.
+4. Size each page's frame with set_frame, 1440 wide and tall enough to show the whole sheet.
+5. Look at every page with get_screenshot and fix what is off: overlaps, clipped content,
+   instances that draw nothing.
+6. End with a short summary: the pages written, and the components you could not draw and why.
 ${userAdds(extra)}</ultrapaint-task>`;
           })
         );
@@ -320,6 +455,12 @@ ${userAdds(extra)}</ultrapaint-task>`;
         }
         if (name === "import-figma") {
           return importFigma(argument).pipe(Effect.orElseSucceed(() => null));
+        }
+        if (name === "redraw") {
+          return redraw(argument).pipe(Effect.orElseSucceed(() => null));
+        }
+        if (name === "components") {
+          return components(argument).pipe(Effect.orElseSucceed(() => null));
         }
         return Effect.succeed(null);
       };

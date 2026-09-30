@@ -30,10 +30,10 @@ import { type Selection, useEditor } from "../state/editor.ts";
 
 interface Context {
   readonly activePage: string | null;
+  readonly canvas: string | null;
   readonly docs: ReturnType<typeof useDocuments.getState>["docs"];
   readonly selectedPage: string | null;
   readonly selection: ReturnType<typeof useEditor.getState>["selection"];
-  readonly space: string | null;
 }
 
 const liveContext = (): Context => ({
@@ -56,19 +56,19 @@ export const pageContext = (pageId: string): Context => ({
 
 /** The selected node, its frame and its document, or null when nothing is selected. */
 export const selected = (ctx: Context = liveContext()) => {
-  const { docs, selection, selectedPage, space } = ctx;
+  const { docs, selection, selectedPage, canvas } = ctx;
   if (selection) {
-    const node = nodeIn(docs, space, selection.frame, selection.nodeId);
+    const node = nodeIn(docs, canvas, selection.frame, selection.nodeId);
     return node
       ? {
-          doc: docOfFrame(selection.frame, space),
+          doc: docOfFrame(selection.frame, canvas),
           frame: selection.frame,
           node,
         }
       : null;
   }
   if (selectedPage) {
-    const node = rootOfFrame(docs, space, selectedPage);
+    const node = rootOfFrame(docs, canvas, selectedPage);
     return node ? { doc: selectedPage, frame: selectedPage, node } : null;
   }
   return null;
@@ -179,10 +179,10 @@ export const unwrapSelection = async (target?: Selection) => {
 
 /** Selects a node the server just made, in whichever frame now shows it. */
 export const selectCreated = (doc: string, frame: string, id: string) => {
-  const { space } = useEditor.getState();
+  const { canvas } = useEditor.getState();
   const target =
-    space !== null && doc === canvasDocOf(space)
-      ? frameOfCanvasNode(useDocuments.getState().docs, space, id)
+    canvas !== null && doc === canvasDocOf(canvas)
+      ? frameOfCanvasNode(useDocuments.getState().docs, canvas, id)
       : frame;
   if (target) {
     useEditor.getState().select({ frame: target, nodeId: id });
@@ -203,7 +203,7 @@ export const insertTarget = (
   parent: string;
   name: string;
 } | null => {
-  const { activePage, docs, space } = ctx;
+  const { activePage, docs, canvas } = ctx;
   const node = selected(ctx);
   if (node) {
     if (holdsChildren(node.node)) {
@@ -218,7 +218,7 @@ export const insertTarget = (
         parent: node.node.id,
       };
     }
-    const path = pathIn(docs, space, node.frame, node.node.id);
+    const path = pathIn(docs, canvas, node.frame, node.node.id);
     const parent = path?.at(-2);
     if (parent) {
       const siblings = "children" in parent ? (parent.children ?? []) : [];
@@ -273,15 +273,15 @@ export const placeOf = (ctx: Context = liveContext()) => {
   if (!current) {
     return null;
   }
-  const { docs, space } = ctx;
-  const path = pathIn(docs, space, current.frame, current.node.id);
+  const { docs, canvas } = ctx;
+  const path = pathIn(docs, canvas, current.frame, current.node.id);
   const parent = path?.at(-2) ?? null;
   if (parent) {
     return { current, parent, siblings: childrenOf(parent) };
   }
   // A node on the canvas is the root of its own frame; its siblings are the canvas's.
   if (isNodeFrame(current.frame)) {
-    return { current, parent: null, siblings: canvasNodes(docs, space) };
+    return { current, parent: null, siblings: canvasNodes(docs, canvas) };
   }
   return null;
 };
@@ -358,11 +358,11 @@ export const allSelected = (): Selection[] => {
 /** The nodes of these selections that still exist, with their document. */
 const nodesOf = (targets: readonly Selection[]) => {
   const { docs } = useDocuments.getState();
-  const { space } = useEditor.getState();
+  const { canvas } = useEditor.getState();
   return targets.flatMap((t) => {
-    const node = nodeIn(docs, space, t.frame, t.nodeId);
+    const node = nodeIn(docs, canvas, t.frame, t.nodeId);
     return node
-      ? [{ doc: docOfFrame(t.frame, space), frame: t.frame, node }]
+      ? [{ doc: docOfFrame(t.frame, canvas), frame: t.frame, node }]
       : [];
   });
 };
@@ -429,9 +429,9 @@ export const deleteNodes = async (targets: readonly Selection[]) => {
 /** Whether these nodes are siblings, as wrapping them together needs. */
 export const areSiblings = (targets: readonly Selection[]) => {
   const { docs } = useDocuments.getState();
-  const { space } = useEditor.getState();
+  const { canvas } = useEditor.getState();
   const parents = new Set(
-    targets.map((t) => pathIn(docs, space, t.frame, t.nodeId)?.at(-2)?.id)
+    targets.map((t) => pathIn(docs, canvas, t.frame, t.nodeId)?.at(-2)?.id)
   );
   const [parent] = parents;
   return parents.size === 1 && parent !== undefined && targets.length > 0;

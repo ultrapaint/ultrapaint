@@ -33,7 +33,7 @@ export const setPagePreset = (page: Page, preset: ViewportPreset) =>
 
 /** Serves the page at another route; the router follows it there. */
 export const moveRoute = async (page: Page, to: string) => {
-  if (to === page.route) {
+  if (to === page.route || !ensureEditable()) {
     return;
   }
   try {
@@ -59,10 +59,16 @@ export const renamePage = async (page: Page) => {
   }
 };
 
-export const duplicatePage = (page: Page) =>
-  api().request("pages.duplicate", { id: page.id }).catch(reportError);
+export const duplicatePage = (page: Page) => {
+  if (ensureEditable()) {
+    api().request("pages.duplicate", { id: page.id }).catch(reportError);
+  }
+};
 
 export const deletePage = async (page: Page) => {
+  if (!ensureEditable()) {
+    return;
+  }
   const ok = await confirmDialog({
     confirmLabel: "Delete",
     description: "The page file is removed from the designs directory.",
@@ -82,7 +88,7 @@ const DEFAULT_TEMPLATE = "centered";
 
 const TRAILING_SLASH_RE = /\/$/;
 
-/** Asks for a route and makes a page there, in the open space. */
+/** Asks for a route and makes a page there, in the open canvas. */
 export const newPage = async (under?: string) => {
   if (!ensureEditable()) {
     return;
@@ -98,8 +104,8 @@ export const newPage = async (under?: string) => {
   }
   try {
     const page = await api().request("pages.create", {
+      canvas: useEditor.getState().canvas ?? "",
       route: route.trim(),
-      space: useEditor.getState().space ?? "",
       template: DEFAULT_TEMPLATE,
     });
     useEditor.getState().navigate(page.route);

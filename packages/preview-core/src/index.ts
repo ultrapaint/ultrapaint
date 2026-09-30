@@ -18,12 +18,17 @@ import { elementAt } from "./hit.ts";
 import { readTokens } from "./tokens.ts";
 
 interface Config {
+  /**
+   * Where the dev server answers which file an image of a canvas is (`?canvas=&src=`), when it
+   * does. Without it every relative image is a shared one.
+   */
+  assets?: string;
+  /** Canvas whose own assets relative image paths are looked for in first. */
+  canvas: string;
   /** URL of the designs directory on the dev server, `/@fs/...`. */
   designsRoot: string;
   /** What this iframe is to the editor: a frame on the canvas, the prototype, a specimen. */
   frame: string;
-  /** Space whose assets relative image paths are in. */
-  space: string;
 }
 
 const ABSOLUTE_URL_RE = /^(?:[a-z][a-z\d+.-]*:|\/)/i;
@@ -63,7 +68,7 @@ const ensureSkeletonStyle = () => {
 
 export const startPreview = () => {
   const config: Config = (window as unknown as { __ED_CONFIG__?: Config })
-    .__ED_CONFIG__ ?? { designsRoot: "", frame: "", space: "" };
+    .__ED_CONFIG__ ?? { canvas: "", designsRoot: "", frame: "" };
   const standalone = window.parent === window;
 
   // ---- Messaging ----
@@ -88,12 +93,20 @@ export const startPreview = () => {
   let waiting: RenderRequest | null = null;
   let mode: RenderRequest["mode"] = "page";
 
+  /**
+   * An image's URL. `assets/logo.png` is the canvas's own file when it has one and the shared
+   * one otherwise, which only the preview's server can tell: it is asked, when it offers that.
+   */
   const assetUrl = (src: string) => {
     if (ABSOLUTE_URL_RE.test(src)) {
       return src;
     }
-    const space = config.space ? `${config.space}/` : "";
-    return `${config.designsRoot}/${space}${src.replace(LEADING_DOT_SLASH_RE, "")}`;
+    const file = src.replace(LEADING_DOT_SLASH_RE, "");
+    if (config.canvas && config.assets) {
+      const query = new URLSearchParams({ canvas: config.canvas, src: file });
+      return `${config.assets}?${query.toString()}`;
+    }
+    return `${config.designsRoot}/${file}`;
   };
 
   let lastSize = { height: -1, width: -1 };

@@ -23,6 +23,34 @@ import { simpleDiff } from "./diff.ts";
 const KEEP = 30;
 const DESIGN_FILE_RE = /\.(tsx?|json|css|md)$/;
 
+/**
+ * Repo-relative path to content for every text file of the designs directory: what a checkpoint
+ * and a snapshot keep. Images are left out; they are not in the undo journal either.
+ */
+export const makeDesignFiles = (
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+  project: ProjectManager["Service"]
+) => {
+  const walk = makeWalk(fs, path);
+  return project.use(
+    Effect.gen(function* () {
+      const paths = yield* RepoPaths;
+      const files = yield* walk(paths.designsDir, {
+        includeFile: (name) => DESIGN_FILE_RE.test(name),
+        skipDir: (name) => name === "node_modules" || name.startsWith("."),
+      });
+      const entries = yield* Effect.forEach(files, (abs) =>
+        Effect.map(
+          Effect.orElseSucceed(fs.readFileString(abs), () => ""),
+          (content) => [paths.relative(abs), content] as const
+        )
+      );
+      return Object.fromEntries(entries) as { [file: string]: string };
+    })
+  );
+};
+
 const Record = Schema.Struct({
   checkpoint: Checkpoint,
   files: Schema.Record(Schema.String, Schema.String),
@@ -43,6 +71,10 @@ export class Checkpoints extends Context.Service<
     readonly diff: (
       id: string
     ) => Effect.Effect<GitDiff[], NotFound | NotConfigured>;
+    /** What the checkpoint kept: repo-relative path to content. */
+    readonly files: (
+      id: string
+    ) => Effect.Effect<{ readonly [file: string]: string }, NotFound>;
     readonly list: Effect.Effect<Checkpoint[]>;
     readonly revert: (
       id: string
@@ -58,7 +90,6 @@ export class Checkpoints extends Context.Service<
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const writeAtomic = makeWriteAtomic(fs, path);
-      const walk = makeWalk(fs, path);
       // Asked for on every write: saving an unsaved session moves the state directory.
       const fileOf = (id: string) =>
         Effect.map(storage.stateDir, (state) =>
@@ -79,23 +110,7 @@ export class Checkpoints extends Context.Service<
         }
       }
 
-      /** Repo-relative path to content for every text file of the designs directory. */
-      const designFiles = project.use(
-        Effect.gen(function* () {
-          const paths = yield* RepoPaths;
-          const files = yield* walk(paths.designsDir, {
-            includeFile: (name) => DESIGN_FILE_RE.test(name),
-            skipDir: (name) => name === "node_modules" || name.startsWith("."),
-          });
-          const entries = yield* Effect.forEach(files, (abs) =>
-            Effect.map(
-              Effect.orElseSucceed(fs.readFileString(abs), () => ""),
-              (content) => [paths.relative(abs), content] as const
-            )
-          );
-          return Object.fromEntries(entries);
-        })
-      );
+      const designFiles = makeDesignFiles(fs, path, project);
 
       const find = (id: string) =>
         Effect.suspend(() => {
@@ -191,6 +206,7 @@ export class Checkpoints extends Context.Service<
       return Checkpoints.of({
         create,
         diff,
+        files: (id) => Effect.map(find(id), (record) => record.files),
         list: Effect.sync(() =>
           Array.from(store.values(), (r) => r.checkpoint).sort(
             (a, b) => b.at - a.at

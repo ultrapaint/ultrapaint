@@ -48,10 +48,10 @@ export interface ConvertOptions {
   readonly tokens?: TokenMatcher;
 }
 
-/** A file an image node of the result shows; written into the space's assets. */
+/** A file an image node of the result shows; written into the shared assets. */
 export interface ImageFile {
   readonly bytes: Uint8Array;
-  /** Inside the space: `assets/figma-….png`. */
+  /** Inside the designs directory: `assets/figma-….png`. */
   readonly src: string;
 }
 

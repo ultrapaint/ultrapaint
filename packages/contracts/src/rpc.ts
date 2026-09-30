@@ -30,11 +30,11 @@ import {
   GitStatus,
 } from "./git.ts";
 import {
+  Canvas,
   CanvasLayout,
   FrameLayout,
   Page,
   PageList,
-  Space,
   UploadAssetInput,
 } from "./pages.ts";
 import { HostStatus, LogLine, ProjectInfo } from "./project.ts";
@@ -51,6 +51,7 @@ import {
   SetupSuggestions,
 } from "./setup.ts";
 import { CustomiseMode, Skill, SkillList } from "./skills.ts";
+import { Snapshot, SnapshotView } from "./snapshots.ts";
 import {
   AgentConfig,
   AgentEdited,
@@ -143,8 +144,8 @@ const requestRpcs = [
   Rpc.make("pages.create", {
     error: PagesError,
     payload: {
+      canvas: Schema.String,
       route: Schema.String,
-      space: Schema.String,
       template: Schema.optional(Schema.String),
     },
     success: Page,
@@ -164,38 +165,86 @@ const requestRpcs = [
     error: PagesError,
     payload: { id: Schema.String },
   }),
-  Rpc.make("spaces.create", {
+  /**
+   * The page drawn again for a variant: a copy of it at the same route, in the file of the
+   * variant (`pricing@bold.page.json`), with its frame under the page's.
+   */
+  Rpc.make("pages.createVariant", {
+    error: PagesError,
+    payload: { id: Schema.String, variant: Schema.String },
+    success: Page,
+  }),
+  /**
+   * Pages copied, or moved, into another canvas at the same routes, their frames where they
+   * were. The target is a canvas, or one to create with that name. Refused when the target has a
+   * page at one of the routes already.
+   */
+  Rpc.make("pages.copyTo", {
+    error: PagesError,
+    payload: {
+      ids: Schema.Array(Schema.String),
+      move: Schema.Boolean,
+      target: Schema.Union([
+        Schema.Struct({ canvas: Schema.String }),
+        Schema.Struct({ name: Schema.String }),
+      ]),
+    },
+    success: Schema.Array(Page),
+  }),
+
+  Rpc.make("canvases.create", {
     error: PagesError,
     payload: { name: Schema.String },
-    success: Space,
+    success: Canvas,
+  }),
+  /** What the canvas is called; its directory, and every link into it, stay. */
+  Rpc.make("canvases.rename", {
+    error: PagesError,
+    payload: { id: Schema.String, name: Schema.String },
+    success: Canvas,
+  }),
+  /** A copy of everything the canvas holds, pages, layout and own assets, under a new name. */
+  Rpc.make("canvases.duplicate", {
+    error: PagesError,
+    payload: { id: Schema.String, name: Schema.String },
+    success: Canvas,
+  }),
+  /** The canvas's pages, layout and comments; the last canvas stays. */
+  Rpc.make("canvases.delete", {
+    error: PagesError,
+    payload: { id: Schema.String },
+  }),
+  Rpc.make("canvases.reorder", {
+    error: PagesError,
+    payload: { order: Schema.Array(Schema.String) },
   }),
   Rpc.make("canvas.get", {
     error: PagesError,
-    payload: { space: Schema.String },
+    payload: { canvas: Schema.String },
     success: CanvasLayout,
   }),
   /** Saves where the pages' frames sit; the canvas's nodes change through `documents.apply`. */
   Rpc.make("canvas.set", {
     error: PagesError,
     payload: {
+      canvas: Schema.String,
       frames: Schema.Record(Schema.String, FrameLayout),
-      space: Schema.String,
     },
   }),
-  /** Saves an image into the space's assets; the node that shows it is inserted separately. */
+  /** Saves an image into the shared assets; the node that shows it is inserted separately. */
   Rpc.make("assets.upload", {
     error: EditError,
     payload: UploadAssetInput,
     success: Schema.Struct({
-      /** Path inside the space, what an image node's `src` holds. */
+      /** What an image node's `src` holds: `assets/<file>`. */
       src: Schema.String,
     }),
   }),
 
-  /** Every document of a space: its pages and its canvas. */
+  /** Every document of a canvas: its pages and its loose nodes. */
   Rpc.make("documents.list", {
     error: PagesError,
-    payload: { space: Schema.String },
+    payload: { canvas: Schema.String },
     success: Schema.Array(DocumentState),
   }),
   Rpc.make("documents.get", {
@@ -256,7 +305,7 @@ const requestRpcs = [
 
   Rpc.make("comments.list", {
     error: PagesError,
-    payload: { space: Schema.String },
+    payload: { canvas: Schema.String },
     success: CommentList,
   }),
   Rpc.make("comments.create", {
@@ -271,7 +320,7 @@ const requestRpcs = [
   }),
   Rpc.make("comments.delete", {
     error: PagesError,
-    payload: { id: Schema.String, space: Schema.String },
+    payload: { canvas: Schema.String, id: Schema.String },
   }),
   Rpc.make("comments.reply", {
     error: PagesError,
@@ -281,9 +330,9 @@ const requestRpcs = [
   Rpc.make("comments.deleteReply", {
     error: PagesError,
     payload: {
+      canvas: Schema.String,
       id: Schema.String,
       replyId: Schema.String,
-      space: Schema.String,
     },
     success: Comment,
   }),
@@ -413,6 +462,43 @@ const requestRpcs = [
     error: CheckpointError,
     payload: { id: Schema.String },
   }),
+
+  /** Named points in the history of the designs, newest first. */
+  Rpc.make("snapshots.list", {
+    error: NotConfigured,
+    success: Schema.Array(Snapshot),
+  }),
+  /** The designs as they are now, or as an agent turn's checkpoint kept them, under a name. */
+  Rpc.make("snapshots.create", {
+    error: CheckpointError,
+    payload: {
+      /** Name that checkpoint instead of the designs as they are now. */
+      checkpoint: Schema.optional(Schema.String),
+      name: Schema.String,
+    },
+    success: Snapshot,
+  }),
+  Rpc.make("snapshots.delete", {
+    error: CheckpointError,
+    payload: { id: Schema.String },
+  }),
+  /** What changed since: one diff per design file that is not as the snapshot kept it. */
+  Rpc.make("snapshots.diff", {
+    error: CheckpointError,
+    payload: { id: Schema.String },
+    success: Schema.Array(GitDiff),
+  }),
+  /** The snapshot to look at, without touching a file. */
+  Rpc.make("snapshots.view", {
+    error: CheckpointError,
+    payload: { id: Schema.String },
+    success: SnapshotView,
+  }),
+  /** The design files put back as the snapshot kept them: one undo step. */
+  Rpc.make("snapshots.restore", {
+    error: EditError,
+    payload: { id: Schema.String },
+  }),
 ] as const;
 
 /** Everything the server pushes. Each is a stream that stays open for the life of the socket. */
@@ -421,8 +507,8 @@ export const eventSchemas = {
   "agent.edited": AgentEdited,
   "agent.focus": AgentFocus,
   "agent.terminal": AgentTerminalOutput,
-  canvas: Schema.Struct({ layout: CanvasLayout, space: Schema.String }),
-  comments: Schema.Struct({ list: CommentList, space: Schema.String }),
+  canvas: Schema.Struct({ canvas: Schema.String, layout: CanvasLayout }),
+  comments: Schema.Struct({ canvas: Schema.String, list: CommentList }),
   designSystem: DesignSystemState,
   /** A document changed: an edit, an undo, an agent, a branch switch. */
   document: DocumentState,
