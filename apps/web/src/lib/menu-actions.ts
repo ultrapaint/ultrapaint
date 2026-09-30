@@ -331,6 +331,7 @@ const runNode = (target: Selection & { at?: Point }, id: string) => {
   }
   const actions: Record<string, () => unknown> = {
     ask: () => addToChat(sel),
+    askNew: () => addToChat(sel, { newThread: true }),
     comment: () => commentOn(sel, target.at),
     copy: () => copyNode(sel),
     copyLink: () => copyNodeLink(sel),

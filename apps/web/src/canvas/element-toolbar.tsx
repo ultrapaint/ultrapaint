@@ -31,6 +31,8 @@ import {
   Group,
   type LucideIcon,
   MessageSquareText,
+  MessageSquareX,
+  Plus,
   SlidersHorizontal,
   Sparkles,
   Square,
@@ -44,6 +46,7 @@ import {
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
+  type PointerEvent as ReactPointerEvent,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -71,7 +74,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { AgentIcon } from "../components/agent-icon.tsx";
-import { addToChat } from "../lib/add-to-chat.ts";
+import { addToChat, removeFromChat } from "../lib/add-to-chat.ts";
+import { isAttached } from "../lib/chat-link.ts";
 import {
   type Control,
   controlsOf,
@@ -89,13 +93,14 @@ import {
 import { openChat, stopThread } from "../lib/thread-actions.ts";
 import { ComponentProps } from "../panels/component-props.tsx";
 import { useAgents } from "../state/agents.ts";
+import { useAttachments } from "../state/attachments.ts";
 import { componentMetaOf, useCatalogue } from "../state/catalogue.ts";
 import { showMenu } from "../state/context-menu.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
 import { previewUrl, useProject } from "../state/project.ts";
 import { useDrag } from "./drag.ts";
-import { useThreadOfSelection } from "./selection-tag.tsx";
+import { useChatLink } from "./selection-tag.tsx";
 import { SpacingSelect } from "./spacing-select.tsx";
 import { drawSpecimen } from "./specimens.ts";
 import { Targets, useTargetNodes } from "./toolbar-targets.ts";
@@ -594,43 +599,202 @@ const MoreProps = ({ count, node }: { count: number; node: InstanceNode }) => {
 
 const Divider = () => <span className="mx-0.5 h-5 w-px shrink-0 bg-border" />;
 
-/** Add to chat, in the agents' colour; once attached, the way to its thread. */
+/** ⌘ on a Mac, Ctrl elsewhere: the key that sends an element to a new chat. */
+const withMod = (e: { ctrlKey: boolean; metaKey: boolean }) =>
+  e.metaKey || e.ctrlKey;
+
+/**
+ * Whether the pointer is over an agent button, and whether ⌘ is held while it is: the moment the
+ * button offers a new chat. The pointer says which keys were down when it arrived; the keyboard
+ * follows them while it stays.
+ */
+const useNewChatHover = () => {
+  const [hovered, setHovered] = useState(false);
+  const [mod, setMod] = useState(false);
+  useEffect(() => {
+    if (!hovered) {
+      return;
+    }
+    const onKey = (e: KeyboardEvent) => setMod(withMod(e));
+    // A key released while the window is in the background never reaches keyup.
+    const blur = () => setMod(false);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("keyup", onKey);
+    window.addEventListener("blur", blur);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keyup", onKey);
+      window.removeEventListener("blur", blur);
+    };
+  }, [hovered]);
+  const onPointer = (e: ReactPointerEvent) => {
+    setHovered(true);
+    setMod(withMod(e));
+  };
+  return {
+    handlers: {
+      onPointerEnter: onPointer,
+      onPointerLeave: () => setHovered(false),
+      onPointerMove: onPointer,
+    },
+    hovered,
+    newChat: hovered && mod,
+  };
+};
+
+/** The plus on an agent button while ⌘ is held, in its corner so the toolbar keeps its width. */
+const NewChatBadge = () => (
+  <span className="absolute -top-0.5 -right-0.5 flex size-3.5 items-center justify-center rounded-full bg-agent text-agent-foreground ring-2 ring-popover">
+    <Plus className="size-2.5" strokeWidth={3} />
+  </span>
+);
+
+/** What a click on an agent button does, which is also how the button looks. */
+type ChatAction = "add" | "new" | "open" | "remove";
+
+const chatAction = (
+  newChat: boolean,
+  attached: boolean,
+  started: boolean
+): ChatAction => {
+  if (newChat) {
+    return "new";
+  }
+  if (attached) {
+    return "remove";
+  }
+  return started ? "open" : "add";
+};
+
+const AGENT_BUTTON =
+  "relative flex h-7 shrink-0 items-center justify-center rounded-md outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50";
+
+/**
+ * Solid to add, to the open thread or a new one; outlined when attached to the open thread, which a
+ * click undoes; tinted when a thread was started on it, which a click opens.
+ */
+const LOOK: Record<ChatAction, string> = {
+  add: "bg-agent text-agent-foreground hover:bg-agent/85",
+  new: "bg-agent text-agent-foreground hover:bg-agent/85",
+  open: "bg-agent/10 text-agent hover:bg-agent/20",
+  remove: "border border-agent bg-agent/15 text-agent hover:bg-agent/25",
+};
+
+/** The icon says what a click does: the cross only once the pointer is on a button that removes. */
+const ChatIcon = ({
+  action,
+  hovered,
+}: {
+  action: ChatAction;
+  hovered: boolean;
+}) => {
+  if (action === "remove" && hovered) {
+    return <MessageSquareX className="size-3.5" />;
+  }
+  if (action === "remove" || action === "open") {
+    return <MessageSquareText className="size-3.5" />;
+  }
+  return <Sparkles className="size-3.5" />;
+};
+
+/**
+ * Add to chat, in the agents' colour. Once attached to the open thread, a click takes the element
+ * back out; once a thread was started on it, a click opens that thread. With ⌘ held it goes to a
+ * new thread, whatever it is in already.
+ */
 const ChatButton = ({ selection }: { selection: Selection }) => {
-  const thread = useThreadOfSelection();
-  const onClick = () => {
-    if (thread) {
+  const link = useChatLink();
+  const { handlers, hovered, newChat } = useNewChatHover();
+  const action = chatAction(newChat, link?.attached ?? false, link !== null);
+  const onClick = (e: ReactMouseEvent) => {
+    if (withMod(e)) {
+      addToChat(selection, { newThread: true });
+    } else if (link?.attached) {
+      removeFromChat(selection);
+    } else if (link) {
       useEditor.getState().setLeftTab("chat");
-      useAgents.getState().open(thread.id);
+      useAgents.getState().open(link.thread.id);
     } else {
       addToChat(selection);
     }
   };
+  const title = link?.thread.title ?? "";
+  const label = {
+    add: "Add to chat",
+    new: "Add to a new chat",
+    open: `Open “${title}”`,
+    remove: `Remove from “${title}”`,
+  }[action];
   return (
     <Tooltip>
       <TooltipTrigger
         render={
           <button
-            aria-label={thread ? `Open “${thread.title}”` : "Add to chat"}
-            className={cn(
-              "flex size-7 shrink-0 items-center justify-center rounded-md outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50",
-              thread
-                ? "border border-agent bg-agent/15 text-agent hover:bg-agent/25"
-                : "bg-agent text-agent-foreground hover:bg-agent/85"
-            )}
+            aria-label={label}
+            className={cn(AGENT_BUTTON, "w-7", LOOK[action])}
             onClick={onClick}
             type="button"
+            {...handlers}
           />
         }
       >
-        {thread ? (
-          <MessageSquareText className="size-3.5" />
-        ) : (
-          <Sparkles className="size-3.5" />
-        )}
+        <ChatIcon action={action} hovered={hovered} />
+        {action === "new" ? <NewChatBadge /> : null}
       </TooltipTrigger>
-      <TooltipContent>
-        {thread ? `In “${thread.title}”` : "Add to chat"}
-      </TooltipContent>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+};
+
+/**
+ * All the selected elements to the chat, or back out of it once every one is attached to the
+ * open thread; with ⌘ held, all of them to a new thread.
+ */
+const GroupChatButton = ({ targets }: { targets: readonly Selection[] }) => {
+  const current = useAgents((s) => s.current);
+  const allAttached = useAttachments((s) =>
+    targets.every((t) => isAttached(s.byThread, current, t))
+  );
+  const { handlers, hovered, newChat } = useNewChatHover();
+  const action = chatAction(newChat, allAttached, false);
+  const onClick = (e: ReactMouseEvent) => {
+    if (withMod(e)) {
+      addToChat(targets, { newThread: true });
+    } else if (allAttached) {
+      removeFromChat(targets);
+    } else {
+      addToChat(targets);
+    }
+  };
+  const count = targets.length;
+  const label = {
+    add: `Add ${count} to chat`,
+    new: `Add ${count} to a new chat`,
+    open: `Add ${count} to chat`,
+    remove: `Remove ${count} from chat`,
+  }[action];
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            aria-label={label}
+            className={cn(
+              AGENT_BUTTON,
+              "gap-1.5 px-2 font-medium text-[12px]",
+              LOOK[action]
+            )}
+            onClick={onClick}
+            type="button"
+            {...handlers}
+          />
+        }
+      >
+        <ChatIcon action={action} hovered={hovered} />
+        {count}
+        {action === "new" ? <NewChatBadge /> : null}
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
     </Tooltip>
   );
 };
@@ -937,21 +1101,7 @@ export const GroupToolbar = ({
           </DropdownMenuContent>
         </DropdownMenu>
         <Divider />
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <button
-                className="flex h-7 shrink-0 items-center gap-1.5 rounded-md bg-agent px-2 font-medium text-[12px] text-agent-foreground outline-none transition-colors hover:bg-agent/85 focus-visible:ring-2 focus-visible:ring-ring/50"
-                onClick={() => addToChat(targets)}
-                type="button"
-              />
-            }
-          >
-            <Sparkles className="size-3.5" />
-            {nodes.length}
-          </TooltipTrigger>
-          <TooltipContent>Add {nodes.length} to chat</TooltipContent>
-        </Tooltip>
+        <GroupChatButton targets={targets} />
         <DropdownMenu>
           <DropdownMenuTrigger
             render={

@@ -1,14 +1,15 @@
 /**
  * Add to chat: the element goes to the open thread's composer as a chip, or to a new thread when
- * the chat shows the list. The chat opens on it; nothing is sent.
+ * the chat shows the list or one is asked for. The chat opens on it; nothing is sent. Taking it
+ * back out removes the chip.
  */
 import type { Thread } from "@ultrapaint/contracts/threads";
 import { useAgents } from "../state/agents.ts";
 import {
   addChip,
-  type Chip,
   chipOfSelection,
-  isAttached,
+  nodeKey,
+  removeChip,
 } from "../state/attachments.ts";
 import { frameOfCanvasNode, useDocuments } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
@@ -24,19 +25,21 @@ const openThread = (): Thread | null => {
     : null;
 };
 
+const listOf = (selection: Selection | readonly Selection[]) =>
+  Array.isArray(selection) ? selection : [selection as Selection];
+
 export const addToChat = async (
-  selection: Selection | readonly Selection[]
+  selection: Selection | readonly Selection[],
+  { newThread = false }: { readonly newThread?: boolean } = {}
 ) => {
-  const chips = (Array.isArray(selection) ? selection : [selection]).flatMap(
-    (s: Selection) => {
-      const chip = chipOfSelection(s);
-      return chip ? [chip] : [];
-    }
-  );
+  const chips = listOf(selection).flatMap((s) => {
+    const chip = chipOfSelection(s);
+    return chip ? [chip] : [];
+  });
   if (chips.length === 0) {
     return;
   }
-  const thread = openThread() ?? (await createThread());
+  const thread = (newThread ? null : openThread()) ?? (await createThread());
   if (!thread) {
     return;
   }
@@ -47,22 +50,15 @@ export const addToChat = async (
   await useAgents.getState().open(thread.id);
 };
 
-/** The thread an element is in: attached to its next prompt, or what it was started on. */
-export const threadOfNode = (
-  threads: readonly Thread[],
-  byThread: Record<string, readonly Chip[]>,
-  current: string | null,
-  selection: Selection,
-  file: string | null
-): Thread | null => {
-  if (isAttached(byThread, current, selection)) {
-    return threads.find((t) => t.id === current) ?? null;
+/** Takes elements back out of the open thread's composer. */
+export const removeFromChat = (selection: Selection | readonly Selection[]) => {
+  const { current } = useAgents.getState();
+  if (current === null) {
+    return;
   }
-  return (
-    threads.find(
-      (t) => t.scope?.nodeId === selection.nodeId && t.scope.file === file
-    ) ?? null
-  );
+  for (const s of listOf(selection)) {
+    removeChip(current, nodeKey(s.frame, s.nodeId));
+  }
 };
 
 /** Brings a thread's scope into view on the canvas, selected. */

@@ -96,6 +96,7 @@ export const nodeEntries = (f: NodeFacts): Entry[] => {
   return tidy([
     { kind: "label", label: headingOf(node) },
     item("ask", "Add to chat"),
+    item("askNew", "Add to a new chat"),
     node.type === "text" && item("editText", "Edit text", { shortcut: "⏎" }),
     item("rename", "Rename…"),
     item("viewCode", "View code"),

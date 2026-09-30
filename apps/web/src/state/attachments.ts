@@ -30,10 +30,14 @@ export type Chip =
     }
   | { readonly frameId: string; readonly kind: "shot"; readonly name: string };
 
+/** The key of a node's chip, known from where the node is without the node itself. */
+export const nodeKey = (frame: string, nodeId: string) =>
+  `node:${frame}#${nodeId}`;
+
 export const chipKey = (chip: Chip): string => {
   switch (chip.kind) {
     case "node":
-      return `node:${chip.frame}#${chip.nodeId}`;
+      return nodeKey(chip.frame, chip.nodeId);
     case "page":
       return `page:${chip.pageId}`;
     default:
@@ -163,17 +167,3 @@ export const chipOfAttachment = (attachment: PromptAttachment): Chip | null => {
       }
     : null;
 };
-
-/** Whether a node is attached to a thread's next prompt. */
-export const isAttached = (
-  byThread: AttachmentsStore["byThread"],
-  threadId: string | null,
-  selection: Selection
-) =>
-  threadId !== null &&
-  (byThread[threadId] ?? []).some(
-    (c) =>
-      c.kind === "node" &&
-      c.frame === selection.frame &&
-      c.nodeId === selection.nodeId
-  );

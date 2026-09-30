@@ -17,20 +17,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { NodeIcon } from "../components/node-icon.tsx";
-import { threadOfNode } from "../lib/add-to-chat.ts";
+import { chatLinkOf } from "../lib/chat-link.ts";
 import { useAgents } from "../state/agents.ts";
 import { fileOfFrame, useAttachments } from "../state/attachments.ts";
 import { pathIn, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 
-/** The thread this node is in, if any: attached to the open one, or what one was started on. */
-export const useThreadOfSelection = () => {
+/** How the selected node is in a chat, if it is: attached to the open thread, or what one was started on. */
+export const useChatLink = () => {
   const selection = useEditor((s) => s.selection);
   const threads = useAgents((s) => s.threads);
   const current = useAgents((s) => s.current);
   const byThread = useAttachments((s) => s.byThread);
   return selection
-    ? threadOfNode(
+    ? chatLinkOf(
         threads,
         byThread,
         current,
@@ -62,7 +62,7 @@ export const SelectionTag = ({
         : null,
     [docs, canvas, selection]
   );
-  const thread = useThreadOfSelection();
+  const thread = useChatLink()?.thread ?? null;
   const parents = (path ?? []).slice(0, -1).reverse();
   const children = childrenOf(node);
   const select = (target: DesignNode) => {
