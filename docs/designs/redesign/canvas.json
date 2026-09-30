@@ -1,0 +1,69 @@
+{
+  "name": "Redesign",
+  "frames": {
+    "box-model.page.json": {
+      "height": 2600,
+      "preset": "custom",
+      "width": 1440,
+      "x": 7380,
+      "y": 0
+    },
+    "components.page.json": {
+      "height": 2000,
+      "preset": "custom",
+      "width": 1440,
+      "x": 1600,
+      "y": 1140
+    },
+    "design.page.json": {
+      "height": 900,
+      "preset": "desktop",
+      "width": 1440,
+      "x": 4800,
+      "y": 0
+    },
+    "element-toolbar.page.json": {
+      "height": 2893,
+      "preset": "custom",
+      "width": 1514,
+      "x": 0,
+      "y": 1140
+    },
+    "spacing-options.page.json": {
+      "height": 3000,
+      "preset": "custom",
+      "width": 1440,
+      "x": 8940,
+      "y": 0
+    },
+    "spacing-popover.page.json": {
+      "height": 1800,
+      "preset": "custom",
+      "width": 1440,
+      "x": 10500,
+      "y": 0
+    },
+    "vibe-new-chat.page.json": {
+      "height": 900,
+      "preset": "desktop",
+      "width": 1440,
+      "x": 3200,
+      "y": 0
+    },
+    "vibe-thread.page.json": {
+      "height": 900,
+      "preset": "desktop",
+      "width": 1440,
+      "x": 1600,
+      "y": 0
+    },
+    "vibe.page.json": {
+      "height": 900,
+      "preset": "desktop",
+      "width": 1440,
+      "x": 0,
+      "y": 0
+    }
+  },
+  "version": 1
+}

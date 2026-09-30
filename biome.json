@@ -23,6 +23,12 @@
       }
     },
     {
+      "includes": ["docs/designs/**/*.json"],
+      "formatter": {
+        "enabled": false
+      }
+    },
+    {
       "includes": ["apps/web/**"],
       "linter": {
         "rules": {

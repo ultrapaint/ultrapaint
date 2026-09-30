@@ -1,0 +1,34 @@
+{
+  "name": "Samples",
+  "frames": {
+    "components.page.json": {
+      "height": 400,
+      "preset": "custom",
+      "width": 900,
+      "x": 3680,
+      "y": 0
+    },
+    "extra.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 1440,
+      "x": 2160,
+      "y": 0
+    },
+    "index.page.json": {
+      "height": 560,
+      "preset": "custom",
+      "width": 900,
+      "x": 0,
+      "y": 0
+    },
+    "more.page.json": {
+      "height": 900,
+      "preset": "custom",
+      "width": 1100,
+      "x": 980,
+      "y": 0
+    }
+  },
+  "version": 1
+}
