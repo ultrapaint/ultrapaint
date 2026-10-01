@@ -120,7 +120,11 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         assert.deepStrictEqual(tools.result.tools.map((t) => t.name).sort(), [
           "apply_operations",
           "ask_user",
+          "copy_pages",
+          "create_canvas",
           "create_page",
+          "delete_page",
+          "duplicate_page",
           "focus",
           "get_component",
           "get_context",
@@ -129,7 +133,9 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           "list_comments",
           "list_components",
           "list_figma_imports",
+          "list_links",
           "list_pages",
+          "list_templates",
           "map_figma_component",
           "read_canvas",
           "read_design_system",
@@ -142,6 +148,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           "resolve_comment",
           "scan_design_system",
           "set_frame",
+          "set_home",
           "set_page_url",
           "write_design_system",
           "write_figma_frame",
@@ -618,6 +625,232 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         assert.include(
           yield* call("create_page", { name: "Nowhere" }),
           "several canvases"
+        );
+      })
+    );
+  }
+);
+
+layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
+  "the editor's MCP tools for pages and canvases",
+  (it) => {
+    /** A caller of the tools on a session opened with the project's token. */
+    const session = Effect.gen(function* () {
+      const { client, port, settings } = yield* TestEnv;
+      yield* client["settings.set"](settings);
+      const connection = yield* client["mcp.connection"]();
+      const sessionId = yield* openMcp(port, connection.token);
+      return toolCaller(port, connection.token, sessionId);
+    });
+
+    it.effect(
+      "starts pages from the templates it lists, and refuses one it does not",
+      () =>
+        Effect.gen(function* () {
+          const call = yield* session;
+          const listed = yield* call("list_templates", {});
+          assert.deepStrictEqual(
+            (listed.result.structuredContent.templates as { id: string }[]).map(
+              (t) => t.id
+            ),
+            ["blank", "centered", "page"]
+          );
+          const unknown = yield* call("create_page", {
+            name: "Fancy",
+            template: "fancy",
+          });
+          assert.isTrue(unknown.result.isError);
+          assert.include(
+            unknown.result.content[0]?.text ?? "",
+            "blank, centered, page"
+          );
+          const plans = yield* call("create_page", {
+            name: "Plans",
+            route: "/plans",
+            template: "page",
+          });
+          assert.isNotTrue(plans.result.isError);
+          assert.notInclude(
+            JSON.stringify(plans.result.structuredContent.document),
+            '"link"'
+          );
+        })
+    );
+
+    it.effect(
+      "says where a canvas opens, and opens it on a page that serves a URL",
+      () =>
+        Effect.gen(function* () {
+          const call = yield* session;
+          const homeNow = Effect.map(
+            call("get_context", {}),
+            (context) =>
+              (
+                context.result.structuredContent.canvases as {
+                  home: string;
+                }[]
+              )[0]?.home
+          );
+          // No page serves `/`: the canvas opens on the first URL one serves.
+          assert.strictEqual(yield* homeNow, "/home");
+          const set = yield* call("set_home", { route: "/plans" });
+          assert.deepStrictEqual(set.result.structuredContent, {
+            canvas: "",
+            home: "/plans",
+          });
+          assert.strictEqual(yield* homeNow, "/plans");
+          yield* call("create_page", { name: "Sketch" });
+          const unserved = yield* call("set_home", {
+            route: "sketch.page.json",
+          });
+          assert.isTrue(unserved.result.isError);
+          assert.include(
+            unserved.result.content[0]?.text ?? "",
+            "set_page_url"
+          );
+        })
+    );
+
+    it.effect("sizes one frame and leaves the others where they are", () =>
+      Effect.gen(function* () {
+        const { client } = yield* TestEnv;
+        const call = yield* session;
+        yield* call("set_frame", { preset: "mobile", route: "/home" });
+        yield* call("set_frame", { height: 2000, route: "/plans" });
+        const { frames } = yield* client["canvas.get"]({ canvas: "" });
+        assert.strictEqual(frames["home.page.json"]?.preset, "mobile");
+        assert.strictEqual(frames["plans.page.json"]?.height, 2000);
+      })
+    );
+
+    it.effect("finds the links that lead nowhere", () =>
+      Effect.gen(function* () {
+        const call = yield* session;
+        const linked = (id: string, link: string) => ({
+          node: { id, link, role: "paragraph", text: link, type: "text" },
+          op: "insert",
+          parent: null,
+        });
+        yield* call("apply_operations", {
+          ops: [
+            linked("to-plans", "/plans"),
+            linked("to-nowhere", "/gone"),
+            linked("to-file", "plans.page.json"),
+            linked("to-back", "back"),
+            linked("to-site", "https://example.com"),
+            linked("to-mail", "mailto:someone@example.com"),
+          ],
+          route: "/home",
+        });
+        const all = yield* call("list_links", {});
+        const links = all.result.structuredContent.links as {
+          broken?: string;
+          kind: string;
+          link: string;
+          node: string;
+          page: string | null;
+          target?: string;
+        }[];
+        assert.strictEqual(all.result.structuredContent.broken, 2);
+        assert.deepStrictEqual(
+          links.find((l) => l.node === "to-plans"),
+          {
+            kind: "url",
+            link: "/plans",
+            node: "to-plans",
+            page: "designs/home.page.json",
+            target: "designs/plans.page.json",
+          }
+        );
+        assert.deepStrictEqual(
+          links.map((l) => [l.node, l.kind]),
+          [
+            ["to-plans", "url"],
+            ["to-nowhere", "url"],
+            ["to-file", "page"],
+            ["to-back", "back"],
+            ["to-site", "external"],
+            ["to-mail", "unknown"],
+          ]
+        );
+        const broken = yield* call("list_links", { brokenOnly: true });
+        assert.deepStrictEqual(
+          (broken.result.structuredContent.links as { node: string }[]).map(
+            (l) => l.node
+          ),
+          ["to-nowhere", "to-mail"]
+        );
+      })
+    );
+
+    it.effect(
+      "duplicates a page, and deletes one with its variants, the canvas opening elsewhere",
+      () =>
+        Effect.gen(function* () {
+          const { client } = yield* TestEnv;
+          const call = yield* session;
+          const copy = yield* call("duplicate_page", { route: "/plans" });
+          assert.strictEqual(
+            copy.result.structuredContent.file,
+            "designs/plans-2.page.json"
+          );
+          yield* client["pages.createVariant"]({
+            id: "plans.page.json",
+            variant: "bold",
+          });
+          const deleted = yield* call("delete_page", { route: "/plans" });
+          assert.deepStrictEqual(deleted.result.structuredContent.deleted, [
+            "designs/plans.page.json",
+            "designs/plans@bold.page.json",
+          ]);
+          const context = yield* call("get_context", {});
+          assert.strictEqual(
+            (context.result.structuredContent.canvases as { home: string }[])[0]
+              ?.home,
+            "/home"
+          );
+          // The links to it lead nowhere now, and say so.
+          const links = yield* call("list_links", { brokenOnly: true });
+          assert.strictEqual(links.result.structuredContent.broken, 4);
+        })
+    );
+
+    it.effect("makes canvases and copies or moves pages into them", () =>
+      Effect.gen(function* () {
+        const { client } = yield* TestEnv;
+        const call = yield* session;
+        const made = yield* call("create_canvas", { name: "Archive" });
+        assert.deepStrictEqual(made.result.structuredContent, {
+          id: "archive",
+          name: "Archive",
+        });
+        const nowhere = yield* call("copy_pages", {
+          canvas: "",
+          pages: ["/home"],
+        });
+        assert.isTrue(nowhere.result.isError);
+        const copied = yield* call("copy_pages", {
+          canvas: "",
+          pages: ["/home"],
+          to: "archive",
+        });
+        assert.deepStrictEqual(copied.result.structuredContent, {
+          canvas: "archive",
+          pages: [{ file: "designs/archive/home.page.json", route: "/home" }],
+        });
+        const moved = yield* call("copy_pages", {
+          canvas: "",
+          move: true,
+          newCanvas: "Later",
+          pages: ["plans-2.page.json"],
+        });
+        assert.deepStrictEqual(moved.result.structuredContent, {
+          canvas: "later",
+          pages: [{ file: "designs/later/plans-2.page.json" }],
+        });
+        assert.notInclude(
+          (yield* client["pages.list"]()).pages.map((p) => p.id),
+          "plans-2.page.json"
         );
       })
     );

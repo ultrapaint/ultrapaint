@@ -210,8 +210,12 @@ ${
     ? `The "ultrapaint" MCP server is the editor itself. Change designs through it: read_page
 and read_canvas return a document with its ids, apply_operations changes it (insert, remove,
 move, update, setProps, wrap, unwrap, duplicate) — validated, shown on the canvas at once and
-undoable by the user. create_page adds a page, rename_page renames it, set_page_url sets or
-takes off its URL, and set_frame sizes its frame on the canvas (a long page needs a tall one to be seen whole). Ask
+undoable by the user. create_page adds a page (from a template of list_templates), rename_page
+renames it, duplicate_page copies it, delete_page deletes it with its variants, set_page_url sets
+or takes off its URL, and set_frame sizes its frame on the canvas (a long page needs a tall one to
+be seen whole). create_canvas makes a canvas, copy_pages copies or moves pages into another,
+set_home says which URL its prototype opens on, and list_links finds the links that lead
+nowhere — run it after changing URLs or deleting pages. Ask
 get_component for a component's props and an instance to start from, get_document_format for
 the whole format. list_comments, reply_to_comment and resolve_comment answer the user where
 they asked, and focus tells the canvas which page you are on so the user can watch you work;

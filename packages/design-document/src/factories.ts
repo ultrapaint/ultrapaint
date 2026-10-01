@@ -188,10 +188,11 @@ export const renderTemplate = (
         ],
         { align: "center", crossAlign: "center", gap: 24, padding: 32 }
       );
+    // The header links nowhere: a canvas need not serve `/`, and a link to a URL no page serves
+    // is a broken one from the start.
     case "page":
       return root([
         {
-          align: "between",
           children: [
             {
               id: next("t"),
@@ -199,13 +200,6 @@ export const renderTemplate = (
               role: "heading",
               size: 18,
               text: title,
-              type: "text",
-            },
-            {
-              id: next("t"),
-              link: "/",
-              role: "paragraph",
-              text: "Home",
               type: "text",
             },
           ],

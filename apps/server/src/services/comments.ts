@@ -27,6 +27,7 @@ import { makeWriteAtomic } from "../atomic-write.ts";
 import { EventBus } from "../events.ts";
 import { toPosix } from "../hash.ts";
 import { makeId } from "../ids.ts";
+import type { EditFailure, EditTransaction } from "./edit.ts";
 import { runGit } from "./git.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
@@ -37,6 +38,10 @@ const decodeComments = Schema.decodeUnknownEffect(
 );
 
 const emptyList = (): CommentList => ({ comments: [], version: 1 });
+
+/** The text of `comments.json`, the same whoever writes it. */
+const renderComments = (list: CommentList) =>
+  `${JSON.stringify(list, null, 2)}\n`;
 
 type CommentsFailure = NotFound | Conflict | ForbiddenPath;
 
@@ -64,6 +69,17 @@ export class CommentsService extends Context.Service<
     readonly reply: (
       input: ReplyInput
     ) => Effect.Effect<Comment, CommentsFailure>;
+    /**
+     * Changes a canvas's comments inside an action on its pages, which the change becomes part
+     * of: a page renamed, moved or deleted takes its comments along, and undo brings them back.
+     * Answers with the comments as they were. Nothing is written when `revise` leaves them as
+     * they are, nor when the file cannot be read: a broken comments.json stays as it is.
+     */
+    readonly rewrite: (
+      tx: EditTransaction,
+      canvas: string,
+      revise: (comments: readonly Comment[]) => readonly Comment[]
+    ) => Effect.Effect<readonly Comment[], EditFailure>;
     readonly update: (
       input: UpdateCommentInput
     ) => Effect.Effect<Comment, CommentsFailure>;
@@ -117,9 +133,7 @@ export class CommentsService extends Context.Service<
       ) {
         const file = yield* paths.resolve(fileOf(canvas));
         const next: CommentList = { comments, version: 1 };
-        yield* Effect.orDie(
-          writeAtomic(file, `${JSON.stringify(next, null, 2)}\n`)
-        );
+        yield* Effect.orDie(writeAtomic(file, renderComments(next)));
         yield* events.publish("comments", { canvas, list: next });
       });
 
@@ -224,6 +238,32 @@ export class CommentsService extends Context.Service<
         );
       });
 
+      const rewrite = Effect.fnUntraced(function* (
+        tx: EditTransaction,
+        canvas: string,
+        revise: (comments: readonly Comment[]) => readonly Comment[]
+      ) {
+        // Comments that cannot be read are reported when the editor asks for them; a page's
+        // rename or deletion is no reason to refuse, nor to write over what is there.
+        const before = yield* list(canvas).pipe(
+          Effect.catchTag("Conflict", () => Effect.succeed(null))
+        );
+        if (before === null) {
+          return [];
+        }
+        const next = revise(before.comments);
+        const same =
+          next.length === before.comments.length &&
+          next.every((comment, i) => comment === before.comments[i]);
+        if (!same) {
+          const file = yield* paths.resolve(fileOf(canvas));
+          const written: CommentList = { comments: next, version: 1 };
+          yield* tx.write(paths.relative(file), renderComments(written));
+          yield* events.publish("comments", { canvas, list: written });
+        }
+        return before.comments;
+      });
+
       // A pull or a checkout changes the file behind the editor's back.
       if (yield* exists(root)) {
         yield* fs.watch(root, { recursive: true }).pipe(
@@ -259,6 +299,7 @@ export class CommentsService extends Context.Service<
           exclusive(deleteReply(canvas, id, replyId)),
         list,
         reply: (input) => exclusive(reply(input)),
+        rewrite: (tx, canvas, revise) => exclusive(rewrite(tx, canvas, revise)),
         update: (input) => exclusive(update(input)),
       });
     })

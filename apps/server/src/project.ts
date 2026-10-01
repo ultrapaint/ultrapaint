@@ -68,13 +68,14 @@ const projectLayer = (settings: Settings) =>
     Layer.provideMerge(
       Layer.mergeAll(
         CatalogueService.layer,
-        CommentsService.layer,
         GitService.layer,
         HostManager.layer,
         PagesService.layer,
         Thumbnails.layer
       )
     ),
+    // A page renamed, moved or deleted takes its comments along, in the same undo step.
+    Layer.provideMerge(CommentsService.layer),
     // One journal for every change the editor makes, documents and canvas included.
     Layer.provideMerge(EditService.layer),
     Layer.provideMerge(ComponentRegistry.layer),

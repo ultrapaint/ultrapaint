@@ -9,7 +9,10 @@ import { DesignNode } from "./document.ts";
  * the assets at the root of the designs directory.
  */
 export const Canvas = Schema.Struct({
-  /** Route the canvas opens on. */
+  /**
+   * URL the canvas's prototype opens on: the one `canvas.json` names while a page serves it,
+   * otherwise `/` while a page serves that, or the first URL a page serves.
+   */
   home: Schema.String,
   /** Path relative to the designs directory; `""` is the designs directory itself. */
   id: Schema.String,
@@ -82,7 +85,7 @@ export type FrameLayout = typeof FrameLayout.Type;
  */
 export const CanvasLayout = Schema.Struct({
   frames: Schema.Record(Schema.String, FrameLayout),
-  /** Route the canvas opens on; `/` when absent. */
+  /** URL the canvas opens on, which a page of it serves; `/`, or the first URL served, when absent. */
   home: Schema.optional(Schema.String),
   /** What the canvas is called in the list; its directory's name made readable when absent. */
   name: Schema.optional(Schema.String),

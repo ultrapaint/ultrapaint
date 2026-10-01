@@ -1,3 +1,4 @@
+import type { Comment } from "@ultrapaint/contracts/comments";
 import {
   DESIGN_NOTES_FILE,
   DESIGN_SYSTEM_FILE,
@@ -35,6 +36,7 @@ import { basename, dirname, humanise, slugOf } from "@ultrapaint/shared/path";
 import {
   basePathOf,
   isVariantName,
+  matchRoute,
   normaliseRoute,
   pageNameOf,
   pageRouteOf,
@@ -55,7 +57,7 @@ import {
 import { EventBus } from "../events.ts";
 import { makeWalk } from "../fs-walk.ts";
 import { hashContent, toPosix } from "../hash.ts";
-import { COMMENTS_FILE } from "./comments.ts";
+import { COMMENTS_FILE, CommentsService } from "./comments.ts";
 import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
@@ -112,6 +114,53 @@ export const renderCanvas = (layout: CanvasLayout) => {
     ...(nodes.length > 0 && { nodes }),
     version: 1,
   });
+};
+
+const byRoute = (a: string, b: string) => a.localeCompare(b);
+
+/** Routes keyed by page path, as entries a route can be matched against. */
+const routeEntries = (routes: Readonly<Record<string, string>>) =>
+  Object.entries(routes).map(([path, route]) => ({ path, route }));
+
+/**
+ * The URL a canvas's prototype opens on: the one its `canvas.json` names while a page serves
+ * it, `/` while one does, or else the first URL a page serves. A canvas that serves none opens
+ * on `/`, which is where it would open whatever it said.
+ */
+export const homeOf = (
+  home: string | undefined,
+  served: readonly string[]
+): string => {
+  const entries = served.map((route) => ({ route }));
+  if (home !== undefined && matchRoute(entries, home)) {
+    return normaliseRoute(home);
+  }
+  if (served.length === 0 || matchRoute(entries, "/")) {
+    return "/";
+  }
+  return normaliseRoute([...served].sort(byRoute)[0] ?? "/");
+};
+
+/**
+ * Where a canvas opens once its routes change: where it did while a page still serves that
+ * URL, the new URL of the page that served it, or else the first URL a page serves. Absent when
+ * the canvas never said, or when no page serves a URL any more.
+ */
+export const followHome = (
+  home: string | undefined,
+  before: Readonly<Record<string, string>>,
+  after: Readonly<Record<string, string>>
+): string | undefined => {
+  if (home === undefined || matchRoute(routeEntries(after), home)) {
+    return home;
+  }
+  const holder = matchRoute(routeEntries(before), home)?.entry.path;
+  const moved = holder === undefined ? undefined : after[holder];
+  if (moved !== undefined) {
+    return normaliseRoute(moved);
+  }
+  const [first] = Object.values(after).map(normaliseRoute).sort(byRoute);
+  return first;
 };
 
 /** The canvases a set of designs-relative files makes: one per `canvas.json`, or the root. */
@@ -186,8 +235,13 @@ export const pageListOf = (input: {
       )
       .filter((v) => !listed.includes(v))
       .sort((a, b) => a.localeCompare(b));
+    const served = pages.flatMap((p) =>
+      p.canvas === id && p.variant === undefined && p.route !== undefined
+        ? [p.route]
+        : []
+    );
     return {
-      home: normaliseRoute(layout.home ?? "/"),
+      home: homeOf(layout.home, served),
       id,
       name: layout.name ?? (id === ROOT_CANVAS ? input.rootName : humanise(id)),
       variants: [...new Set([...listed, ...drawn])],
@@ -267,7 +321,10 @@ export class PagesService extends Context.Service<
       id: string,
       variant: string
     ) => Effect.Effect<Page, PagesFailure>;
-    /** Pages copied or moved into another canvas, with the same URLs. */
+    /**
+     * Pages copied or moved into another canvas, with the same URLs; a base page takes its
+     * variants along. Moved pages take their comments too; copies start without any.
+     */
     readonly copyTo: (
       ids: readonly string[],
       target: CopyTarget,
@@ -288,6 +345,7 @@ export class PagesService extends Context.Service<
     readonly reorderCanvases: (
       order: readonly string[]
     ) => Effect.Effect<void, PagesFailure>;
+    /** Deletes the page, with its comments and, for a base page, its variants: one undo step. */
     readonly delete: (id: string) => Effect.Effect<void, PagesFailure>;
     readonly duplicate: (id: string) => Effect.Effect<Page, PagesFailure>;
     readonly list: Effect.Effect<PageList>;
@@ -297,11 +355,28 @@ export class PagesService extends Context.Service<
     ) => Effect.Effect<CanvasLayout, Conflict>;
     /** Repo-relative path of a canvas's `canvas.json`. */
     readonly canvasFile: (canvas: string) => Effect.Effect<string, EditFailure>;
-    /** Renames the page, which moves its file and its variants'; its URL stays. */
+    /** Renames the page, which moves its file and its variants', and its comments; its URL stays. */
     readonly rename: (
       id: string,
       name: string
     ) => Effect.Effect<Page, PagesFailure>;
+    /**
+     * Sets one page's frame from the one it has, if any, and the others; every other frame,
+     * and whatever else the layout holds, stays as it is at that moment. Answers with the frame.
+     */
+    readonly setFrame: (
+      canvas: string,
+      pagePath: string,
+      frame: (
+        before: FrameLayout | undefined,
+        frames: CanvasLayout["frames"]
+      ) => FrameLayout
+    ) => Effect.Effect<FrameLayout, PagesFailure>;
+    /** The URL the canvas's prototype opens on, which a page of it must serve. */
+    readonly setHome: (
+      id: string,
+      route: string
+    ) => Effect.Effect<Canvas, PagesFailure>;
     /** The URL the page serves from now on, or none; a variant's is its base page's. */
     readonly setRoute: (
       id: string,
@@ -317,7 +392,10 @@ export class PagesService extends Context.Service<
       canvas: string,
       update: (layout: CanvasLayout) => CanvasLayout
     ) => Effect.Effect<void, PagesFailure | Conflict>;
-    /** Saves where the frames are as the editor has them: one undo step when anything moved. */
+    /**
+     * Saves where the frames are as the editor has them, over the ones saved: one undo step when
+     * anything moved. A frame the editor does not mention stays, and one whose page is gone goes.
+     */
     readonly writeFrames: (
       canvas: string,
       frames: Record<string, FrameLayout>
@@ -329,6 +407,7 @@ export class PagesService extends Context.Service<
     Effect.gen(function* () {
       const paths = yield* RepoPaths;
       const edit = yield* EditService;
+      const comments = yield* CommentsService;
       const events = yield* EventBus;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -384,14 +463,12 @@ export class PagesService extends Context.Service<
         );
       });
 
-      const writeFrames = Effect.fn("PagesService.writeFrames")(function* (
-        canvas: string,
-        frames: Record<string, FrameLayout>
-      ) {
-        yield* edit.transaction("Arrange the canvas", (tx) =>
-          updateCanvas(tx, canvas, (layout) => ({ ...layout, frames }))
-        );
-      });
+      /**
+       * A page's text as the journal has it now. Read inside the action that writes from it, so
+       * an edit to the page cannot land between the reading and the writing and be lost.
+       */
+      const contentOf = (file: string) =>
+        Effect.map(edit.read(file), (source) => source.content);
 
       /** Rewrites the frames of a canvas; a missing source frame means there is nothing to do. */
       const updateFrames = Effect.fnUntraced(function* (
@@ -573,7 +650,8 @@ export class PagesService extends Context.Service<
 
       /**
        * Changes the canvas's routes inside an action. A canvas that has none yet has them written
-       * out first, from its pages' paths, so its other pages keep the URLs they serve.
+       * out first, from its pages' paths, so its other pages keep the URLs they serve. The URL
+       * the canvas opens on follows its page to a new one, or falls back to another page's.
        */
       const updateRoutes = (
         tx: EditTransaction,
@@ -581,17 +659,18 @@ export class PagesService extends Context.Service<
         canvas: string,
         update: (routes: Record<string, string>) => Record<string, string>
       ) =>
-        updateCanvas(tx, canvas, (layout) => ({
-          ...layout,
-          routes: update(
-            routesOf(
-              layout.routes,
-              all.pages
-                .filter((p) => p.canvas === canvas && p.variant === undefined)
-                .map((p) => p.path)
-            )
-          ),
-        }));
+        updateCanvas(tx, canvas, (layout) => {
+          const before = routesOf(
+            layout.routes,
+            all.pages
+              .filter((p) => p.canvas === canvas && p.variant === undefined)
+              .map((p) => p.path)
+          );
+          const routes = update(before);
+          const { home: _, ...rest } = layout;
+          const home = followHome(layout.home, before, routes);
+          return { ...rest, ...(home !== undefined && { home }), routes };
+        });
 
       /** Beside the rightmost frame of the canvas, so a new page never lands on another. */
       const placeFrame = (
@@ -643,12 +722,23 @@ export class PagesService extends Context.Service<
         return yield* toPage(canvas, pagePath, abs);
       });
 
-      const create = (canvas: string, page: NewPage, templateId = "blank") =>
-        createWith(
+      const create = Effect.fn("PagesService.create")(function* (
+        canvas: string,
+        page: NewPage,
+        templateId = "blank"
+      ) {
+        // A template that is not there is a mistake to report, not a blank page to hand back.
+        if (!pageTemplates.some((t) => t.id === templateId)) {
+          return yield* new BadRequest({
+            message: `no page template ${templateId}; the templates are ${pageTemplates.map((t) => t.id).join(", ")}`,
+          });
+        }
+        return yield* createWith(
           canvas,
           page,
           renderTemplate(templateId, page.name.trim())
-        ).pipe(Effect.withSpan("PagesService.create"));
+        );
+      });
 
       // ---- canvases ----
       /**
@@ -762,18 +852,13 @@ export class PagesService extends Context.Service<
           }
           const { all, canvas } = yield* canvasById(id);
           const copyId = yield* freeCanvasId(trimmed);
-          const layout = yield* readCanvas(id);
           const pages = all.pages.filter((p) => p.canvas === id);
-          const contents = yield* Effect.forEach(pages, (page) =>
-            Effect.map(
-              Effect.orDie(fs.readFileString(path.join(root, page.id))),
-              (content) => ({ content, page })
-            )
-          );
           yield* edit.transaction(
             `Duplicate ${canvas.name} as ${trimmed}`,
             (tx) =>
               Effect.gen(function* () {
+                // Read in the action, so an edit made meanwhile is copied rather than lost.
+                const layout = yield* readCanvas(id);
                 // Ids are unique within a document; a copy in a canvas of its own keeps them.
                 yield* addCanvas(
                   tx,
@@ -782,10 +867,10 @@ export class PagesService extends Context.Service<
                   { ...layout, name: trimmed },
                   id
                 );
-                for (const { content, page } of contents) {
+                for (const page of pages) {
                   yield* tx.create(
                     paths.relative(path.join(root, copyId, page.path)),
-                    content
+                    yield* contentOf(page.file)
                   );
                 }
               })
@@ -811,6 +896,28 @@ export class PagesService extends Context.Service<
           );
         }
       );
+
+      /**
+       * Removes a directory once nothing is left in it, its empty subdirectories first. One that
+       * cannot be read or removed is left: an empty directory is untidy, not wrong.
+       */
+      const removeEmptyDirs: (dir: string) => Effect.Effect<void> =
+        Effect.fnUntraced(
+          function* (dir: string) {
+            const info = yield* fs.stat(dir);
+            if (info.type !== "Directory") {
+              return;
+            }
+            for (const name of yield* fs.readDirectory(dir)) {
+              yield* removeEmptyDirs(path.join(dir, name));
+            }
+            // Removing a directory takes `recursive` even when it is empty, as this one just was.
+            if ((yield* fs.readDirectory(dir)).length === 0) {
+              yield* fs.remove(dir, { recursive: true });
+            }
+          },
+          (effect) => Effect.ignore(effect)
+        );
 
       const deleteCanvas = Effect.fn("PagesService.deleteCanvas")(function* (
         id: string
@@ -838,6 +945,19 @@ export class PagesService extends Context.Service<
             );
           })
         );
+        // The designs directory's own canvas leaves the directory and the shared assets to the
+        // others. Another's own assets go with it, outside the journal as they came in: undo
+        // brings the pages back, and their images stay gone, as an uploaded image would.
+        if (id !== ROOT_CANVAS) {
+          const dir = yield* paths.resolve(path.join(root, id));
+          yield* Effect.orDie(
+            fs.remove(path.join(dir, ASSETS_DIR), {
+              force: true,
+              recursive: true,
+            })
+          );
+          yield* removeEmptyDirs(dir);
+        }
         yield* publishList;
       });
 
@@ -868,40 +988,49 @@ export class PagesService extends Context.Service<
         move: boolean
       ) {
         const all = yield* list;
-        const chosen = all.pages.filter((p) => ids.includes(p.id));
-        const [first] = chosen;
+        const picked = all.pages.filter((p) => ids.includes(p.id));
+        const [first] = picked;
         if (!first) {
           return yield* new BadRequest({ message: "no pages to copy" });
         }
         const from = first.canvas;
-        if (chosen.some((p) => p.canvas !== from)) {
+        if (picked.some((p) => p.canvas !== from)) {
           return yield* new BadRequest({
             message: "the pages to copy are in more than one canvas",
           });
         }
+        // A base page's variants are drawings of it, and go wherever it goes.
+        const bases = new Set(
+          picked.filter((p) => p.variant === undefined).map((p) => p.path)
+        );
+        const chosen = all.pages.filter(
+          (p) =>
+            p.canvas === from &&
+            (ids.includes(p.id) || bases.has(basePathOf(p.path)))
+        );
         const creating = "name" in target;
+        const targetName = creating
+          ? target.name.trim()
+          : (all.canvases.find((c) => c.id === target.canvas)?.name ??
+            target.canvas);
+        if (creating && targetName === "") {
+          return yield* new BadRequest({ message: "a canvas needs a name" });
+        }
         const to = creating
-          ? yield* freeCanvasId(target.name)
+          ? yield* freeCanvasId(targetName)
           : (yield* canvasById(target.canvas)).canvas.id;
         if (to === from) {
           return yield* new BadRequest({
             message: "the pages are in that canvas already",
           });
         }
-        const targetName = creating
-          ? target.name.trim()
-          : (all.canvases.find((c) => c.id === to)?.name ?? to);
         const entries = yield* Effect.forEach(chosen, (page) =>
           Effect.gen(function* () {
             const abs = yield* paths.resolve(path.join(root, to, page.path));
             yield* failIfExists(abs);
-            const content = yield* Effect.orDie(
-              fs.readFileString(path.join(root, page.id))
-            );
-            return { abs, content, page };
+            return { abs, page };
           })
         );
-        const source = yield* readCanvas(from);
         const carried = yield* carriedRoutes(all, chosen, creating ? null : to);
         const variants = [
           ...new Set(
@@ -910,9 +1039,12 @@ export class PagesService extends Context.Service<
         ];
         const verb = move ? "Move" : "Copy";
         const what =
-          chosen.length === 1 ? first.name : `${chosen.length} pages`;
+          picked.length === 1 ? first.name : `${picked.length} pages`;
+        const gone = (key: string) => chosen.some((p) => p.path === key);
         yield* edit.transaction(`${verb} ${what} to ${targetName}`, (tx) =>
           Effect.gen(function* () {
+            // Read in the action, so an edit made meanwhile is carried rather than lost.
+            const source = yield* readCanvas(from);
             const withFrames = (frames: CanvasLayout["frames"]) => ({
               ...frames,
               ...Object.fromEntries(
@@ -951,14 +1083,27 @@ export class PagesService extends Context.Service<
                 ...carried,
               }));
             }
-            for (const { abs, content } of entries) {
-              yield* tx.create(paths.relative(abs), content);
+            for (const { abs, page } of entries) {
+              yield* tx.create(
+                paths.relative(abs),
+                yield* contentOf(page.file)
+              );
             }
             if (move) {
               for (const { page } of entries) {
                 yield* tx.remove(page.file);
               }
-              const gone = (key: string) => chosen.some((p) => p.path === key);
+              // The conversation about a page goes where the page goes; a copy starts without.
+              const before = yield* comments.rewrite(tx, from, (left) =>
+                left.filter((c) => !gone(c.page))
+              );
+              const carriedComments = before.filter((c) => gone(c.page));
+              if (carriedComments.length > 0) {
+                yield* comments.rewrite(tx, to, (there) => [
+                  ...there,
+                  ...carriedComments,
+                ]);
+              }
               yield* updateFrames(tx, from, (left) =>
                 Object.fromEntries(
                   Object.entries(left).filter(([key]) => !gone(key))
@@ -1062,22 +1207,32 @@ export class PagesService extends Context.Service<
         );
         const files = yield* Effect.forEach(moving, (p) =>
           Effect.gen(function* () {
-            const from = yield* paths.resolve(path.join(root, p.id));
+            const from = paths.relative(
+              yield* paths.resolve(path.join(root, p.id))
+            );
             const to = yield* paths.resolve(
               path.join(root, p.canvas, moves.get(p.path) ?? p.path)
             );
             yield* failIfExists(to);
-            const content = yield* Effect.orDie(fs.readFileString(from));
-            return { content, from, to };
+            return { from, to: paths.relative(to) };
           })
         );
         // A move is the old file gone and the new one there, which is also how it is undone.
         yield* edit.transaction(`Rename ${page.name} to ${trimmed}`, (tx) =>
           Effect.gen(function* () {
-            for (const { content, from, to } of files) {
-              yield* tx.create(paths.relative(to), content);
-              yield* tx.remove(paths.relative(from));
+            for (const { from, to } of files) {
+              // Read in the action, so an edit made meanwhile moves with the page.
+              yield* tx.create(to, yield* contentOf(from));
+              yield* tx.remove(from);
             }
+            yield* comments.rewrite(tx, page.canvas, (pinned) =>
+              pinned.some((c) => moves.has(c.page))
+                ? pinned.map((c): Comment => {
+                    const moved = moves.get(c.page);
+                    return moved === undefined ? c : { ...c, page: moved };
+                  })
+                : pinned
+            );
             yield* updateCanvas(tx, page.canvas, (layout) => ({
               ...layout,
               frames: moveKey(layout.frames, moves),
@@ -1147,7 +1302,7 @@ export class PagesService extends Context.Service<
         id: string
       ) {
         const all = yield* list;
-        const { abs, page } = yield* byId(id);
+        const { page } = yield* byId(id);
         // `pricing@bold` is copied as `pricing-2@bold`: the number goes to the name.
         const copyPath = yield* freePagePath(
           page.canvas,
@@ -1158,11 +1313,14 @@ export class PagesService extends Context.Service<
         const target = yield* paths.resolve(
           path.join(root, page.canvas, copyPath)
         );
-        // Ids are unique within a document; a copy in a file of its own keeps them.
-        const content = yield* Effect.orDie(fs.readFileString(abs));
         yield* edit.transaction(`Duplicate ${page.name}`, (tx) =>
           Effect.gen(function* () {
-            yield* tx.create(paths.relative(target), content);
+            // Ids are unique within a document; a copy in a file of its own keeps them. Read in
+            // the action, so an edit made meanwhile is copied rather than lost.
+            yield* tx.create(
+              paths.relative(target),
+              yield* contentOf(page.file)
+            );
             // The copy serves no URL: two pages cannot serve one.
             yield* updateRoutes(tx, all, page.canvas, (routes) => routes);
             yield* updateFrames(tx, page.canvas, (frames) => {
@@ -1193,7 +1351,7 @@ export class PagesService extends Context.Service<
             message: `a variant is named with letters, digits and dashes: ${variant}`,
           });
         }
-        const { abs, page } = yield* byId(id);
+        const { page } = yield* byId(id);
         const basePath = basePathOf(page.path);
         const variantPath = variantPathOf(basePath, name);
         const target = yield* paths.resolve(
@@ -1204,10 +1362,13 @@ export class PagesService extends Context.Service<
             message: `${page.name} has a ${name} variant already`,
           });
         }
-        const content = yield* Effect.orDie(fs.readFileString(abs));
         yield* edit.transaction(`Draw ${page.name} for ${name}`, (tx) =>
           Effect.gen(function* () {
-            yield* tx.create(paths.relative(target), content);
+            // Read in the action, so an edit made meanwhile is drawn again too.
+            yield* tx.create(
+              paths.relative(target),
+              yield* contentOf(page.file)
+            );
             yield* updateCanvas(tx, page.canvas, (layout) => {
               const listed = layout.variants ?? [];
               const frame = layout.frames[page.path] ?? layout.frames[basePath];
@@ -1235,23 +1396,133 @@ export class PagesService extends Context.Service<
 
       const remove = Effect.fn("PagesService.delete")(function* (id: string) {
         const all = yield* list;
-        const { abs, page } = yield* byId(id);
-        yield* edit.transaction(`Delete ${page.name}`, (tx) =>
+        const { page } = yield* byId(id);
+        // A base page's variants are drawings of it: they would be left serving nothing.
+        const going =
+          page.variant === undefined
+            ? all.pages.filter(
+                (p) =>
+                  p.canvas === page.canvas && basePathOf(p.path) === page.path
+              )
+            : [page];
+        const gone = new Set(going.map((p) => p.path));
+        const label =
+          going.length > 1
+            ? `Delete ${page.name} and its variants`
+            : `Delete ${page.name}`;
+        yield* edit.transaction(label, (tx) =>
           Effect.gen(function* () {
-            yield* tx.remove(paths.relative(abs));
-            yield* updateFrames(tx, page.canvas, (frames) => {
-              const { [page.path]: removed, ...rest } = frames;
-              return removed ? rest : null;
-            });
+            for (const p of going) {
+              yield* tx.remove(p.file);
+            }
+            yield* updateFrames(tx, page.canvas, (frames) =>
+              Object.keys(frames).some((key) => gone.has(key))
+                ? Object.fromEntries(
+                    Object.entries(frames).filter(([key]) => !gone.has(key))
+                  )
+                : null
+            );
             if (page.variant === undefined) {
               yield* updateRoutes(tx, all, page.canvas, (routes) => {
                 const { [page.path]: _, ...rest } = routes;
                 return rest;
               });
             }
+            // Its comments go with it, and come back with it on undo.
+            yield* comments.rewrite(tx, page.canvas, (pinned) =>
+              pinned.some((c) => gone.has(c.page))
+                ? pinned.filter((c) => !gone.has(c.page))
+                : pinned
+            );
           })
         );
         yield* publishList;
+      });
+
+      const setHome = Effect.fn("PagesService.setHome")(function* (
+        id: string,
+        route: string
+      ) {
+        const { all, canvas } = yield* canvasById(id);
+        const trimmed = route.trim();
+        if (trimmed === "") {
+          return yield* new BadRequest({
+            message: "a canvas opens on a URL; name one",
+          });
+        }
+        const home = normaliseRoute(
+          trimmed.startsWith("/") ? trimmed : `/${trimmed}`
+        );
+        // A home no page serves would open the prototype on nothing.
+        const served = all.pages.filter(
+          (p) => p.canvas === id && p.variant === undefined
+        );
+        if (!matchRoute(served, home)) {
+          return yield* new BadRequest({
+            message: `no page of ${canvas.name} serves ${home}; give a page that URL first`,
+          });
+        }
+        yield* edit.transaction(`Open ${canvas.name} on ${home}`, (tx) =>
+          updateCanvas(tx, id, (layout) => ({ ...layout, home }))
+        );
+        yield* publishList;
+        return { ...canvas, home } satisfies Canvas;
+      });
+
+      const writeFrames = Effect.fn("PagesService.writeFrames")(function* (
+        canvas: string,
+        frames: Record<string, FrameLayout>
+      ) {
+        // The editor's frames may be older than a page renamed, moved or deleted since: a frame
+        // of a page that is gone would be brought back under its old name.
+        const present = new Set(
+          (yield* list).pages
+            .filter((p) => p.canvas === canvas)
+            .map((p) => p.path)
+        );
+        yield* edit.transaction("Arrange the canvas", (tx) =>
+          updateCanvas(tx, canvas, (layout) => ({
+            ...layout,
+            frames: Object.fromEntries(
+              Object.entries({ ...layout.frames, ...frames }).filter(([key]) =>
+                present.has(key)
+              )
+            ),
+          }))
+        );
+      });
+
+      const setFrame = Effect.fn("PagesService.setFrame")(function* (
+        canvas: string,
+        pagePath: string,
+        frame: (
+          before: FrameLayout | undefined,
+          frames: CanvasLayout["frames"]
+        ) => FrameLayout
+      ) {
+        const page = (yield* list).pages.find(
+          (p) => p.canvas === canvas && p.path === pagePath
+        );
+        if (!page) {
+          return yield* new NotFound({
+            message: `page not found: ${pagePath}`,
+          });
+        }
+        return yield* edit.transaction(`Size ${page.name}`, (tx) =>
+          Effect.gen(function* () {
+            // The layout as it is now, so nothing written since is put back.
+            const layout = yield* readCanvas(canvas);
+            const next = frame(layout.frames[pagePath], layout.frames);
+            yield* tx.write(
+              yield* canvasFile(canvas),
+              renderCanvas({
+                ...layout,
+                frames: { ...layout.frames, [pagePath]: next },
+              })
+            );
+            return next;
+          })
+        );
       });
 
       // ---- watching ----
@@ -1356,6 +1627,9 @@ export class PagesService extends Context.Service<
         rename: (id, name) => exclusive(rename(id, name)),
         renameCanvas: (id, name) => exclusive(renameCanvas(id, name)),
         reorderCanvases: (order) => exclusive(reorderCanvases(order)),
+        setFrame: (canvas, pagePath, frame) =>
+          exclusive(setFrame(canvas, pagePath, frame)),
+        setHome: (id, route) => exclusive(setHome(id, route)),
         setRoute: (id, route) => exclusive(setRoute(id, route)),
         templates: pageTemplates,
         updateCanvas,
