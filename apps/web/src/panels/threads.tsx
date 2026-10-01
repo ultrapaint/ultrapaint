@@ -103,6 +103,7 @@ import { IconButton } from "../components/icon-button.tsx";
 import { Markdown } from "../components/markdown.tsx";
 import { SetupEmpty } from "../components/setup-dialog.tsx";
 import { showScope } from "../lib/add-to-chat.ts";
+import { shortcutLabel } from "../lib/keys.ts";
 import {
   type DiffRow,
   diffCounts,
@@ -1828,7 +1829,11 @@ const SendButtons = ({
       disabled={!canSend}
       onClick={onSend}
       size="icon-sm"
-      title={running ? "Queue for when the turn ends (⌘↩)" : "Send (⌘↩)"}
+      title={
+        running
+          ? `Queue for when the turn ends (${shortcutLabel("⌘↩")})`
+          : `Send (${shortcutLabel("⌘↩")})`
+      }
     >
       {running ? <ListPlus /> : <ArrowUp />}
     </Button>

@@ -2,6 +2,7 @@
  * Draws the context menu `state/context-menu.ts` asks for: the entries of its target, at the
  * pointer or against the element it was opened from. Mounted once, beside the dialogs.
  */
+
 import {
   ArrowDown,
   ArrowDownToLine,
@@ -67,6 +68,7 @@ import {
   ContextMenuSubContent,
   ContextMenuSubTrigger,
 } from "@/components/ui/context-menu";
+import { shortcutLabel } from "../lib/keys.ts";
 import { entriesFor, runEntry } from "../lib/menu-actions.ts";
 import type { Entry } from "../lib/menu-model.ts";
 import { useAgents } from "../state/agents.ts";
@@ -226,7 +228,9 @@ const Entries = ({
             <span className="truncate">{entry.label}</span>
             {entry.checked ? <Check className="ml-auto" /> : null}
             {entry.shortcut ? (
-              <ContextMenuShortcut>{entry.shortcut}</ContextMenuShortcut>
+              <ContextMenuShortcut>
+                {shortcutLabel(entry.shortcut)}
+              </ContextMenuShortcut>
             ) : null}
           </ContextMenuItem>
         );

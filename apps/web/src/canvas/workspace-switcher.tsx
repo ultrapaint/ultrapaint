@@ -3,6 +3,11 @@ import { type LucideIcon, PenTool, Play, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Kbd } from "@/components/ui/kbd";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import {
+  holdsWorkspaceModifier,
+  workspaceKeyLabel,
+  workspaceModifier,
+} from "../lib/keys.ts";
 import { useEditor, type Workspace, workspaceOrder } from "../state/editor.ts";
 
 const look: Record<
@@ -50,11 +55,11 @@ const onValueChange = (next: readonly unknown[]) => {
   }
 };
 
-/** True while Ctrl is held: the moment to show which key reaches which workspace. */
+/** True while the workspace modifier is held: the moment to show which key reaches which workspace. */
 const useCtrlHeld = () => {
   const [held, setHeld] = useState(false);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => setHeld(e.ctrlKey);
+    const onKey = (e: KeyboardEvent) => setHeld(holdsWorkspaceModifier(e));
     // A key released while the window is in the background never reaches keyup.
     const blur = () => setHeld(false);
     window.addEventListener("keydown", onKey);
@@ -96,7 +101,7 @@ export const WorkspaceSwitcher = () => {
           const Icon = w.icon;
           return (
             <ToggleGroupItem
-              aria-keyshortcuts={`Control+${w.digit}`}
+              aria-keyshortcuts={`${workspaceModifier}+${w.digit}`}
               className={cn(
                 "relative h-8 gap-2 rounded-full px-3 font-medium text-muted-foreground text-sm transition-[color,background-color,width] duration-200 hover:bg-transparent hover:text-foreground aria-pressed:bg-transparent data-pressed:bg-transparent data-pressed:text-foreground [&_svg]:transition-colors [&_svg]:duration-150",
                 w.tint
@@ -109,7 +114,7 @@ export const WorkspaceSwitcher = () => {
               {w.label}
               {held && (
                 <Kbd aria-hidden className="fade-in-0 animate-in duration-150">
-                  ⌃{w.digit}
+                  {workspaceKeyLabel(w.digit)}
                 </Kbd>
               )}
             </ToggleGroupItem>

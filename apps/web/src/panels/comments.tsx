@@ -14,6 +14,7 @@ import { initialOf, relativeTime, repliesLabel } from "../canvas/comments.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { SetupEmpty } from "../components/setup-dialog.tsx";
+import { shortcutLabel } from "../lib/keys.ts";
 import {
   revealComment,
   updateComment,
@@ -86,7 +87,8 @@ export const Comments = () => {
           onClick={toggleVisible}
           tooltip={
             <>
-              {visible ? "Hide comments" : "Show comments"} <Kbd>⇧C</Kbd>
+              {visible ? "Hide comments" : "Show comments"}{" "}
+              <Kbd>{shortcutLabel("⇧C")}</Kbd>
             </>
           }
         >

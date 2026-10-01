@@ -1,6 +1,7 @@
 import { childrenOf } from "@ultrapaint/design-document/tree";
 import { useEffect } from "react";
 import { bridgeFor } from "../canvas/bridge.ts";
+import { openShortcutSheet } from "../components/shortcut-sheet.tsx";
 import { toggleCommenting, useComments } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
 import { showMenu } from "../state/context-menu.ts";
@@ -15,6 +16,7 @@ import {
 } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { onCopyEvent, onPasteEvent } from "./clipboard.ts";
+import { holdsWorkspaceModifier } from "./keys.ts";
 import {
   allSelected,
   deleteNodes,
@@ -155,15 +157,29 @@ const handleModeKey = (e: KeyboardEvent, s: EditorState, meta: boolean) => {
   }
 };
 
-/**
- * Ctrl+1..3 jump to a workspace. Ctrl and not ⌘, which the browser keeps for its tabs, and
- * exclusive: returns true when the key was consumed.
- */
-const handleWorkspaceKey = (e: KeyboardEvent, s: EditorState) => {
-  if (!e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) {
+/** `?` opens the sheet of every shortcut. Exclusive: returns true when the key was consumed. */
+const handleHelpKey = (e: KeyboardEvent) => {
+  if (e.key !== "?") {
     return false;
   }
-  const next = workspaceOrder[Number(e.key) - 1];
+  e.preventDefault();
+  openShortcutSheet();
+  return true;
+};
+
+/** The digit a key event is, by where it sits: Alt turns `1` into another character on some layouts. */
+const DIGIT_RE = /^Digit([1-9])$/;
+
+/**
+ * ⌃1–3 on a Mac, Alt+1–3 elsewhere, jump to a workspace: the browser keeps ⌘ on a Mac and Ctrl
+ * elsewhere for its tabs. Exclusive: returns true when the key was consumed.
+ */
+const handleWorkspaceKey = (e: KeyboardEvent, s: EditorState) => {
+  if (!holdsWorkspaceModifier(e)) {
+    return false;
+  }
+  const match: RegExpExecArray | null = DIGIT_RE.exec(e.code);
+  const next = match ? workspaceOrder[Number(match[1]) - 1] : undefined;
   if (!next) {
     return false;
   }
@@ -371,7 +387,7 @@ export const useShortcuts = () => {
       if (handleMenuKey(e, s) || handleWorkspaceKey(e, s)) {
         return;
       }
-      if (isTyping(e)) {
+      if (isTyping(e) || handleHelpKey(e)) {
         return;
       }
       const meta = e.metaKey || e.ctrlKey;

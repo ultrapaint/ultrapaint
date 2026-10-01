@@ -31,6 +31,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { IconButton } from "../components/icon-button.tsx";
+import { shortcutLabel } from "../lib/keys.ts";
 import { undoOrRedo, viewportSize, zoomBy } from "../lib/shortcuts.ts";
 import { useComments } from "../state/comments.ts";
 import { type Mode, useEditor } from "../state/editor.ts";
@@ -90,7 +91,8 @@ const modes: {
     icon: <MessageCircle />,
     tooltip: (
       <>
-        Comment <Kbd>C</Kbd> · show or hide comments <Kbd>⇧C</Kbd>
+        Comment <Kbd>C</Kbd> · show or hide comments{" "}
+        <Kbd>{shortcutLabel("⇧C")}</Kbd>
       </>
     ),
     value: "comment",
@@ -158,11 +160,11 @@ const Zoom = () => {
           <DropdownMenuGroup>
             <DropdownMenuItem onClick={zoomToFit}>
               Zoom to fit
-              <DropdownMenuShortcut>⇧1</DropdownMenuShortcut>
+              <DropdownMenuShortcut>{shortcutLabel("⇧1")}</DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={zoomToSelection}>
               Zoom to selection
-              <DropdownMenuShortcut>⇧2</DropdownMenuShortcut>
+              <DropdownMenuShortcut>{shortcutLabel("⇧2")}</DropdownMenuShortcut>
             </DropdownMenuItem>
           </DropdownMenuGroup>
         </DropdownMenuContent>
@@ -215,7 +217,8 @@ export const Toolbar = () => {
         onClick={undoEdit}
         tooltip={
           <>
-            Undo{undo.undoLabel ? ` · ${undo.undoLabel}` : ""} <Kbd>⌘Z</Kbd>
+            Undo{undo.undoLabel ? ` · ${undo.undoLabel}` : ""}{" "}
+            <Kbd>{shortcutLabel("⌘Z")}</Kbd>
           </>
         }
       >
@@ -227,7 +230,7 @@ export const Toolbar = () => {
         onClick={redoEdit}
         tooltip={
           <>
-            Redo <Kbd>⇧⌘Z</Kbd>
+            Redo <Kbd>{shortcutLabel("⇧⌘Z")}</Kbd>
           </>
         }
       >

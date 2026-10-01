@@ -30,6 +30,7 @@ import { GitUserButton } from "./components/git-user.tsx";
 import { IconButton } from "./components/icon-button.tsx";
 import { ResizeHandle, usePanelWidth } from "./components/resize-handle.tsx";
 import { openSetup, SetupDialog } from "./components/setup-dialog.tsx";
+import { ShortcutSheet } from "./components/shortcut-sheet.tsx";
 import { useOpenNodeLink } from "./lib/open-node-link.ts";
 import { useShortcuts } from "./lib/shortcuts.ts";
 import { CanvasSwitcher } from "./panels/canvases.tsx";
@@ -535,6 +536,7 @@ export const App = () => {
         <SaveConfigDialog />
         <SetupDialog />
         <DialogHost />
+        <ShortcutSheet />
         <ContextMenuHost />
         <Toaster
           closeButton
