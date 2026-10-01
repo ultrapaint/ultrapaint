@@ -334,7 +334,7 @@ export const renameNode = async (target?: Selection) => {
     await promptDialog({
       confirmLabel: "Rename",
       defaultValue: current.node.name ?? nodeLabel(current.node),
-      title: "Rename layer",
+      title: "Rename element",
     })
   )?.trim();
   if (!name || name === current.node.name) {

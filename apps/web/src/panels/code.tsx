@@ -66,7 +66,7 @@ export const CodePanel = () => {
   if (!subject) {
     return (
       <PanelEmpty>
-        Select a node on the canvas or in the layers panel to see its code
+        Select an element on the canvas or in the layers to see its code
       </PanelEmpty>
     );
   }

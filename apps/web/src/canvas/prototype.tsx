@@ -419,7 +419,7 @@ export const PrototypeBar = () => {
               className="border-transparent bg-transparent dark:bg-transparent"
               onChange={pickVariant}
               options={[
-                { label: "Base", value: BASE },
+                { label: "No variant", value: BASE },
                 ...variants.map((v) => ({ label: v, value: v })),
               ]}
               value={variant ?? BASE}
