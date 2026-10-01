@@ -1058,6 +1058,69 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         })
     );
 
+    it.effect(
+      "keeps links leading to a page when it is renamed or its URL changes",
+      () =>
+        Effect.gen(function* () {
+          const { client } = yield* TestEnv;
+          const canvas = yield* client["canvases.create"]({ name: "Links" });
+          const target = yield* client["pages.create"]({
+            canvas: canvas.id,
+            name: "Target",
+            route: "/target",
+          });
+          const source = yield* client["pages.create"]({
+            canvas: canvas.id,
+            name: "Source",
+          });
+          const before = yield* client["documents.get"]({ doc: source.id });
+          const link = (id: string, to: string): DesignNode => ({
+            ...paragraph(id, id),
+            link: to,
+          });
+          yield* client["documents.apply"]({
+            edits: [
+              {
+                doc: source.id,
+                ops: [
+                  {
+                    node: link("byUrl", "/target"),
+                    op: "insert",
+                    parent: before.root?.id ?? null,
+                  },
+                  {
+                    node: link("byFile", "target.page.json"),
+                    op: "insert",
+                    parent: before.root?.id ?? null,
+                  },
+                ],
+              },
+            ],
+          });
+          const linksOf = Effect.map(
+            client["documents.get"]({ doc: source.id }),
+            (state) =>
+              Object.fromEntries(
+                (state.root && "children" in state.root
+                  ? (state.root.children ?? [])
+                  : []
+                ).map((c) => [c.id, c.link])
+              )
+          );
+          yield* client["pages.setRoute"]({ id: target.id, route: "/moved" });
+          assert.deepInclude(yield* linksOf, {
+            byFile: "target.page.json",
+            byUrl: "target.page.json",
+          });
+          yield* client["pages.rename"]({ id: target.id, name: "Goal" });
+          assert.deepInclude(yield* linksOf, {
+            byFile: "goal.page.json",
+            byUrl: "goal.page.json",
+          });
+          yield* client["canvases.delete"]({ id: canvas.id });
+        })
+    );
+
     it.effect("turns away a browser page from another origin", () =>
       Effect.gen(function* () {
         const { port } = yield* TestEnv;

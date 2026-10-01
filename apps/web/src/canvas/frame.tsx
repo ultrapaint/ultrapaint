@@ -18,6 +18,7 @@ import {
   useState,
 } from "react";
 import { OptionSelect } from "../components/option-select.tsx";
+import { focusLink } from "../lib/links.ts";
 import {
   kindColor,
   kindHoverColor,
@@ -249,8 +250,8 @@ export const Frame = memo(
             commitText(frameId, msg.nodeId, msg.text);
             break;
           case "ed:navigateTo":
-            // The frame keeps its page; the editor goes where the link pointed.
-            store().navigate(msg.route, { push: !msg.replace });
+            // The frame keeps its page; the canvas brings the page the link leads to into view.
+            focusLink(msg.route);
             break;
           default:
             break;

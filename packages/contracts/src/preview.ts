@@ -105,8 +105,17 @@ export const HostMessage = Schema.Union([
     type: Schema.Literal("ed:tokens"),
   }),
   /**
+   * A click while the preview takes input: the nodes under it, outermost first, empty when it
+   * landed on none. The editor shows what can be pressed when it led nowhere.
+   */
+  Schema.Struct({
+    nodeIds: Schema.Array(Schema.String),
+    type: Schema.Literal("ed:pressed"),
+  }),
+  /**
    * A node with a link was pressed. The preview does not move: the editor holds the route and
-   * sends the page it leads to.
+   * sends the page it leads to. `route` is the link as the node has it: a page file, a URL,
+   * `back` or another site.
    */
   Schema.Struct({
     replace: Schema.Boolean,

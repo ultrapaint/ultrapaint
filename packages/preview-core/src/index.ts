@@ -274,6 +274,19 @@ export const startPreview = () => {
     "submit",
   ] as const;
 
+  /**
+   * What a click lands on, so the editor can tell a press that leads nowhere and show what would
+   * have: the prototype flashes its hotspots then, as Figma's does.
+   */
+  const reportPress = (e: Event) => {
+    if (e.type === "click" && !standalone) {
+      post({
+        nodeIds: chainAt(e.target instanceof Element ? e.target : null),
+        type: "ed:pressed",
+      });
+    }
+  };
+
   const guard = (e: Event) => {
     if (editing) {
       if (e.type === "keydown") {
@@ -288,6 +301,7 @@ export const startPreview = () => {
       }
     }
     if (interactive) {
+      reportPress(e);
       return;
     }
     e.stopImmediatePropagation();

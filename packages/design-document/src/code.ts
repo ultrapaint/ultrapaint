@@ -93,6 +93,11 @@ export interface CodeOptions {
    */
   readonly component?: string | undefined;
   /**
+   * The `href` a link is written with: a link naming a page file is the URL that page serves.
+   * Left out, the link is written as it is.
+   */
+  readonly hrefOf?: ((link: string) => string) | undefined;
+  /**
    * How the preview drew the instances, by node id (`ed:instances`): how each lays out its
    * children, and whether its component keeps its props, so that its box goes on a `div` around
    * it. An instance left out is taken to pass its props on and to lay its children out as a
@@ -106,6 +111,7 @@ export interface CodeOptions {
 /** What writing every node of one call needs. */
 interface Writing {
   readonly ds: DesignSystem | null | undefined;
+  readonly hrefOf: (link: string) => string;
   readonly instances: Readonly<Record<string, InstanceDrawn>>;
 }
 
@@ -611,9 +617,9 @@ const childFor = (node: DesignNode, w: Writing, parent: ParentLayout): Child =>
     : jsxOf(node, w, parent);
 
 /** A link is a plain anchor here: in the application it is its router's own link. */
-const linked = (node: DesignNode, child: Child): Child =>
+const linked = (node: DesignNode, w: Writing, child: Child): Child =>
   node.link
-    ? element("a", [stringAttribute("href", node.link)], [child])
+    ? element("a", [stringAttribute("href", w.hrefOf(node.link))], [child])
     : child;
 
 const jsxOf = (node: DesignNode, w: Writing, parent: ParentLayout): Child => {
@@ -622,6 +628,7 @@ const jsxOf = (node: DesignNode, w: Writing, parent: ParentLayout): Child => {
     case "text":
       return linked(
         node,
+        w,
         element(tagOf(node), classAttribute(classes), [
           { kind: "text", text: jsxText(node.text) },
         ])
@@ -629,6 +636,7 @@ const jsxOf = (node: DesignNode, w: Writing, parent: ParentLayout): Child => {
     case "image":
       return linked(
         node,
+        w,
         element("img", [
           stringAttribute("alt", node.alt ?? ""),
           ...classAttribute(classes),
@@ -648,6 +656,7 @@ const jsxOf = (node: DesignNode, w: Writing, parent: ParentLayout): Child => {
       if (w.instances[node.id]?.wrapped && classes.length > 0) {
         return linked(
           node,
+          w,
           element("div", classAttribute(["flex", "flex-col", ...classes]), [
             element(
               tagOfInstance(node),
@@ -659,6 +668,7 @@ const jsxOf = (node: DesignNode, w: Writing, parent: ParentLayout): Child => {
       }
       return linked(
         node,
+        w,
         element(
           tagOfInstance(node),
           propAttributes(node.props, classes),
@@ -669,7 +679,10 @@ const jsxOf = (node: DesignNode, w: Writing, parent: ParentLayout): Child => {
     default: {
       // A container that is a link is the anchor itself, so it keeps its place in the layout.
       const attributes = node.link
-        ? [stringAttribute("href", node.link), ...classAttribute(classes)]
+        ? [
+            stringAttribute("href", w.hrefOf(node.link)),
+            ...classAttribute(classes),
+          ]
         : classAttribute(classes);
       return element(node.link ? "a" : "div", attributes, childrenFor(node, w));
     }
@@ -740,7 +753,11 @@ export const toCode = (
     ? ["// Hidden in the design: the application leaves it out."]
     : [];
   const asComponent = node.type === "page" && options.component !== undefined;
-  const writing = { ds, instances: options.instances ?? {} };
+  const writing = {
+    ds,
+    hrefOf: options.hrefOf ?? ((link: string) => link),
+    instances: options.instances ?? {},
+  };
   const markup = printChild(jsxOf(node, writing, parent), asComponent ? 2 : 0);
   const body = asComponent
     ? [

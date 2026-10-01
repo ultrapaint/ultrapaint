@@ -56,6 +56,21 @@ describe("tidy", () => {
 });
 
 describe("the node menu", () => {
+  it("offers a link to a page, back or a URL, only in a page", () => {
+    const linked = { ...text, link: "pricing.page.json" };
+    const entries = nodeEntries(
+      facts({
+        linkTargets: [{ name: "Pricing", path: "pricing.page.json" }],
+        node: linked,
+      })
+    );
+    expect(find(entries, "link:pricing.page.json")).toMatchObject({
+      checked: true,
+    });
+    expect(ids(entries)).toContain("link:none");
+    expect(ids(nodeEntries(facts({ onPage: false })))).not.toContain("link");
+  });
+
   it("offers text editing on text only, and unwrapping on containers only", () => {
     expect(ids(nodeEntries(facts({ node: text })))).toContain("editText");
     expect(ids(nodeEntries(facts({ node: text })))).not.toContain("unwrap");

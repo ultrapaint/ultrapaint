@@ -5,7 +5,7 @@
  */
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { childrenOf, nodeLabel } from "@ultrapaint/design-document/tree";
-import { ChevronDown, CornerLeftUp, MessageSquare } from "lucide-react";
+import { ChevronDown, CornerLeftUp, Link2, MessageSquare } from "lucide-react";
 import { useMemo } from "react";
 import {
   DropdownMenu,
@@ -18,10 +18,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { NodeIcon } from "../components/node-icon.tsx";
 import { chatLinkOf } from "../lib/chat-link.ts";
+import { describeLink } from "../lib/links.ts";
 import { useAgents } from "../state/agents.ts";
 import { fileOfFrame, useAttachments } from "../state/attachments.ts";
 import { pathIn, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { useProject } from "../state/project.ts";
 
 /** How the selected node is in a chat, if it is: attached to the open thread, or what one was started on. */
 export const useChatLink = () => {
@@ -55,6 +57,14 @@ export const SelectionTag = ({
   const selection = useEditor((s) => s.selection);
   const canvas = useEditor((s) => s.canvas);
   const docs = useDocuments((s) => s.docs);
+  // Subscribed to so the label follows a page renamed or removed.
+  const pages = useProject((s) => s.pages);
+  const linked = node.link
+    ? describeLink(
+        pages.filter((p) => p.canvas === canvas),
+        node.link
+      )
+    : null;
   const path = useMemo(
     () =>
       selection
@@ -101,6 +111,23 @@ export const SelectionTag = ({
         >
           <NodeIcon className="size-3 shrink-0" node={node} />
           <span className="truncate">{nodeLabel(node)}</span>
+          {linked ? (
+            <span
+              className="flex min-w-0 items-center gap-1 border-white/40 border-l pl-1 font-normal text-white/90"
+              title={
+                linked.broken
+                  ? "Leads to a page that is not there"
+                  : "Where it leads in the prototype"
+              }
+            >
+              <Link2 className="size-2.5 shrink-0" />
+              <span
+                className={linked.broken ? "truncate line-through" : "truncate"}
+              >
+                {linked.label}
+              </span>
+            </span>
+          ) : null}
           {thread ? (
             <span className="flex shrink-0 items-center gap-1 border-white/40 border-l pl-1 font-normal text-white/90">
               <MessageSquare className="size-2.5" />

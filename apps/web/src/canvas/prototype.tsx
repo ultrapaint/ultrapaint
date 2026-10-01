@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "../components/icon-button.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
+import { followLink } from "../lib/links.ts";
 import { editPageUrl, NO_URL_HINT } from "../lib/page-actions.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useDocuments } from "../state/documents.ts";
@@ -13,6 +14,7 @@ import { pagesOfCanvas, useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
 import { bridgeFor, removeBridge } from "./bridge.ts";
 import { useHostUrl } from "./frame.tsx";
+import { HotspotLayer, HotspotsToggle, onPrototypePress } from "./hotspots.tsx";
 
 /** Room kept free around the page for the workspace switcher and the bottom strip. */
 const inset = { bottom: 72, side: 32, top: 64 };
@@ -122,8 +124,9 @@ export const Prototype = () => {
         bridge.setInteractive(true);
       }
       if (msg.type === "ed:navigateTo") {
-        useEditor.getState().navigate(msg.route, { push: !msg.replace });
+        followLink(msg.route, { push: !msg.replace });
       }
+      onPrototypePress(msg, useEditor.getState().activePage);
     });
     return () => {
       off();
@@ -153,7 +156,7 @@ export const Prototype = () => {
     >
       {shown ? (
         <div
-          className="shrink-0 overflow-hidden rounded-md bg-white shadow-2xl"
+          className="relative shrink-0 overflow-hidden rounded-md bg-white shadow-2xl"
           style={{ height: size.height * scale, width: size.width * scale }}
         >
           <iframe
@@ -168,6 +171,15 @@ export const Prototype = () => {
             }}
             title={title}
           />
+          {canvas === null ? null : (
+            <HotspotLayer
+              frameId={frameIdOf(canvas)}
+              // A reloaded iframe has a bridge of its own, which the layer has to listen to.
+              key={`${canvas}:${reloads}`}
+              page={activePage}
+              scale={scale}
+            />
+          )}
         </div>
       ) : (
         <span className="text-muted-foreground">{content}</span>
@@ -307,6 +319,7 @@ export const PrototypeBar = () => {
             value={current}
           />
         </div>
+        <HotspotsToggle />
         <IconButton
           className="size-8 rounded-lg"
           disabled={canvas === null}

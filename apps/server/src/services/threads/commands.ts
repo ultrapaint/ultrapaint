@@ -96,7 +96,9 @@ export const IMPLEMENTATION_RULES = `How the design maps to code (Tailwind v4):
 - image: <img>; an "assets/..." src is a file of the canvas's own assets/ directory when it has
   one, and of the shared assets/ at the root of the designs directory otherwise — copy it to
   where the application keeps images.
-- link: the application's own router link to that URL.`;
+- link: the application's own router link. A page file (pricing.page.json) links to the URL that
+  page serves (list_pages says which); a URL links to itself; "back" goes back in the router's
+  history; another site is a plain anchor. A link to a page without a URL: ask where it goes.`;
 
 /** What the user typed after the command's argument, passed on as it is. */
 const userAdds = (extra: string) =>

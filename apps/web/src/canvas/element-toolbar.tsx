@@ -100,6 +100,7 @@ import { useDesignSystem } from "../state/design-system.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
 import { previewUrl, useProject } from "../state/project.ts";
 import { useDrag } from "./drag.ts";
+import { LinkControl } from "./link-control.tsx";
 import { useChatLink } from "./selection-tag.tsx";
 import { SpacingSelect } from "./spacing-select.tsx";
 import { drawSpecimen } from "./specimens.ts";
@@ -837,6 +838,7 @@ const Controls = ({ node }: { node: DesignNode }) => {
       {node.type === "instance" && more.length > 0 ? (
         <MoreProps count={more.length} node={node} />
       ) : null}
+      <LinkControl node={node} />
     </>
   );
 };

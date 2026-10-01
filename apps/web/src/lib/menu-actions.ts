@@ -15,6 +15,7 @@ import { bridgeFor } from "../canvas/bridge.ts";
 import { canvasPoint, insertAt } from "../canvas/drag.ts";
 import { sendComment } from "../canvas/send-to-agent.tsx";
 import { confirmDialog } from "../components/dialogs.tsx";
+import { askLinkUrl } from "../components/link-field.tsx";
 import { useAgents } from "../state/agents.ts";
 import {
   deleteComment,
@@ -26,7 +27,7 @@ import {
 import type { MenuTarget, Point } from "../state/context-menu.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { isNodeFrame, nodeIn, useDocuments } from "../state/documents.ts";
-import { type Selection, useEditor } from "../state/editor.ts";
+import { pagesOfCanvas, type Selection, useEditor } from "../state/editor.ts";
 import { pagesActedOn } from "../state/page-picks.ts";
 import { useProject } from "../state/project.ts";
 import { addToChat } from "./add-to-chat.ts";
@@ -51,6 +52,7 @@ import {
   useClipboard,
 } from "./clipboard.ts";
 import { pickFigmaFile } from "./import-figma.ts";
+import { linkToPage } from "./links.ts";
 import {
   canvasEntries,
   canvasListEntries,
@@ -129,6 +131,12 @@ const nodeMenu = (target: Selection): Entry[] | null => {
   return nodeEntries({
     canPaste: canPaste(),
     index: place?.siblings.findIndex((c) => c.id === current.node.id) ?? 0,
+    linkTargets: isNodeFrame(target.frame)
+      ? []
+      : pagesOfCanvas(useEditor.getState().canvas)
+          .filter((p) => p.variant === undefined)
+          .map((p) => ({ name: p.name, path: linkToPage(p) }))
+          .sort((a, b) => a.name.localeCompare(b.name)),
     node: current.node,
     onPage: !isNodeFrame(target.frame),
     parentSelectable: !!place?.parent && place.parent.type !== "page",
@@ -315,6 +323,20 @@ const editText = (target: Selection) => {
 /** Items whose id carries an argument: `wrap:row`, `arrange:up`. */
 const argOf = (id: string) => id.slice(id.indexOf(":") + 1);
 
+/** Sets where a node leads: a page's file, back, a URL asked for, or nowhere. */
+const linkNode = async (sel: Selection, choice: string, current?: string) => {
+  let link: string | null = choice;
+  if (choice === "none") {
+    link = null;
+  } else if (choice === "url") {
+    link = await askLinkUrl(current);
+    if (link === null) {
+      return;
+    }
+  }
+  updateSelection({ link }, link === null ? "Remove the link" : "Link", sel);
+};
+
 const runNode = (target: Selection & { at?: Point }, id: string) => {
   const sel = { frame: target.frame, nodeId: target.nodeId };
   const node = selected(nodeContext(sel))?.node;
@@ -327,6 +349,10 @@ const runNode = (target: Selection & { at?: Point }, id: string) => {
   }
   if (id.startsWith("arrange:")) {
     arrangeNode(argOf(id) as Arrangement, sel);
+    return;
+  }
+  if (id.startsWith("link:")) {
+    linkNode(sel, argOf(id), node.link);
     return;
   }
   const actions: Record<string, () => unknown> = {

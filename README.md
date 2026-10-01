@@ -266,8 +266,10 @@ prototype warns when it shows one. A canvas made before URLs were optional serve
 the route its path names until its pages next change.
 
 The **Pages** panel belongs to the **prototype** workspace: every page of the canvas with its URL,
-or a warning when it has none, where URLs are given, changed and taken off. Any node can link to a
-URL. In the prototype the whole thing is one iframe: pressing a link swaps the page inside it,
+or a warning when it has none, where URLs are given, changed and taken off. Any node in a page can
+link to another page (it keeps leading there when the page is renamed or its URL changes), to a
+URL with its parameters, back, or to another site: in the inspector, its right-click menu or the
+Vibe toolbar. The prototype's bar shows what can be pressed, and a press on nothing flashes it. In the prototype the whole thing is one iframe: pressing a link swaps the page inside it,
 provider and component state survives, and the route is in the editor's own URL — so the
 browser's back and forward buttons are the prototype's, and a prototype state can be reloaded or
 pasted to someone else.

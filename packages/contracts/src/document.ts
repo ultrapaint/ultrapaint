@@ -205,7 +205,12 @@ const boxFields = {
   height: Schema.optional(Size),
   hidden: Schema.optional(Schema.Boolean),
   id: Schema.String.check(Schema.isMinLength(1)),
-  link: Schema.optional(Schema.String),
+  link: Schema.optional(
+    Schema.String.annotate({
+      description:
+        'Where the node leads when pressed in the prototype: a page file of the canvas ("pricing.page.json", which keeps working when its URL changes and reaches a page without one), a URL ("/invoices/42"), "back", or another site ("https://…").',
+    })
+  ),
   margin: Schema.optional(Margin),
   maxHeight: Schema.optional(Length),
   maxWidth: Schema.optional(Length),

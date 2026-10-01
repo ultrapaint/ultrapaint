@@ -70,6 +70,8 @@ export interface NodeFacts {
   canPaste: boolean;
   /** Where it sits among its siblings. */
   index: number;
+  /** The canvas's pages a link can lead to, by file; empty for a node beside the pages. */
+  linkTargets?: readonly { name: string; path: string }[];
   node: DesignNode;
   /** The frame is a page, which is what comments are pinned on. */
   onPage: boolean;
@@ -77,6 +79,32 @@ export interface NodeFacts {
   parentSelectable: boolean;
   siblings: number;
 }
+
+/**
+ * Where a node can lead in the prototype: a page (`link:<file>`), back, a URL or another site,
+ * or nowhere. Only a node in a page has one: one beside the pages is never in the prototype.
+ */
+const linkEntries = (f: NodeFacts): Entry | false => {
+  if (!f.onPage || f.node.type === "page") {
+    return false;
+  }
+  const { link } = f.node;
+  return {
+    entries: tidy([
+      ...(f.linkTargets ?? []).map((p) =>
+        item(`link:${p.path}`, p.name, { checked: link === p.path })
+      ),
+      (f.linkTargets ?? []).length > 0 && separator,
+      item("link:back", "Back", { checked: link === "back" }),
+      item("link:url", "A URL or another site…"),
+      link !== undefined && separator,
+      link !== undefined && item("link:none", "Remove link"),
+    ]),
+    id: "link",
+    kind: "submenu",
+    label: link === undefined ? "Link to" : "Links to",
+  };
+};
 
 /** The node's name and what it is, once when they are the same. */
 const headingOf = (node: DesignNode) => {
@@ -101,6 +129,7 @@ export const nodeEntries = (f: NodeFacts): Entry[] => {
     item("rename", "Rename…"),
     item("viewCode", "View code"),
     f.onPage && item("comment", "Comment on this"),
+    linkEntries(f),
     f.parentSelectable &&
       item("selectParent", "Select parent", { shortcut: "Esc" }),
     separator,

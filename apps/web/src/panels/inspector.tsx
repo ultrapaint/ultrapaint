@@ -24,7 +24,6 @@ import {
   matchTextStyle,
 } from "@ultrapaint/design-document/text-styles";
 import { nodeKind, nodeLabel } from "@ultrapaint/design-document/tree";
-import { normaliseRoute } from "@ultrapaint/shared/route";
 import { cn } from "cn";
 import {
   AlignCenter,
@@ -57,6 +56,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { IconButton } from "../components/icon-button.tsx";
+import { LinkField } from "../components/link-field.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { PanelEmpty, Row, Section } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";
@@ -82,7 +82,12 @@ import {
 } from "../lib/token-options.tsx";
 import { api } from "../state/connection.ts";
 import { useDesignSystem } from "../state/design-system.ts";
-import { nodeIn, rootOfFrame, useDocuments } from "../state/documents.ts";
+import {
+  isNodeFrame,
+  nodeIn,
+  rootOfFrame,
+  useDocuments,
+} from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { useInstances } from "../state/instances.ts";
 import { reportError, useProject } from "../state/project.ts";
@@ -133,7 +138,10 @@ export const Inspector = () => {
       <SidesSection field="padding" node={node} title="Padding" />
       <SidesSection field="margin" node={node} title="Margin" />
       <AppearanceSection node={node} />
-      {node.type !== "page" && <LinkSection node={node} />}
+      {/* A node placed beside the pages is never in the prototype: nothing would follow it. */}
+      {node.type !== "page" && !isNodeFrame(frame) && (
+        <LinkSection node={node} />
+      )}
     </div>
   );
 };
@@ -1051,36 +1059,11 @@ const AppearanceSection = ({ node }: { node: DesignNode }) => {
 
 // ---- Prototype ----
 
-const LinkSection = ({ node }: { node: DesignNode }) => {
-  const canvas = useEditor((s) => s.canvas);
-  const pages = useProject((s) => s.pages);
-  // A link names a URL: the pages that serve one, as their name and URL.
-  const targets = pages
-    .filter(
-      (p) =>
-        p.canvas === canvas && p.variant === undefined && p.route !== undefined
-    )
-    .sort((a, b) => (a.route ?? "").localeCompare(b.route ?? ""));
-  const link = node.link ?? "";
-  const broken =
-    link !== "" && !targets.some((p) => p.route === normaliseRoute(link));
-  return (
-    <Section title="Prototype">
-      <Row label="Goes to">
-        <OptionSelect
-          onChange={(v) => set("link", v === "" ? null : v)}
-          options={[
-            { label: "Nowhere", value: "" },
-            ...targets.map((p) => ({
-              label: `${p.name} · ${p.route}`,
-              value: p.route ?? "",
-            })),
-            ...(broken ? [{ label: `${link} (no page)`, value: link }] : []),
-          ]}
-          size="sm"
-          value={link}
-        />
-      </Row>
-    </Section>
-  );
-};
+/** Where the node leads when pressed in the prototype. */
+const LinkSection = ({ node }: { node: DesignNode }) => (
+  <Section title="Prototype">
+    <Row label="Goes to">
+      <LinkField link={node.link} onChange={(link) => set("link", link)} />
+    </Row>
+  </Section>
+);

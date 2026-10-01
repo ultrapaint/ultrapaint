@@ -203,6 +203,37 @@ export type CopyTarget =
   | { readonly canvas: string }
   | { readonly name: string };
 
+/**
+ * Rewrites, in place, the `link` of every node of a JSON tree (a page document, a canvas's
+ * nodes): `map` answers what a link becomes, or undefined to leave it. True when one changed.
+ */
+export const mapLinks = (
+  value: unknown,
+  map: (link: string) => string | undefined
+): boolean => {
+  if (Array.isArray(value)) {
+    return value.map((item) => mapLinks(item, map)).some(Boolean);
+  }
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  let changed = false;
+  if (typeof record.link === "string") {
+    const next = map(record.link);
+    if (next !== undefined && next !== record.link) {
+      record.link = next;
+      changed = true;
+    }
+  }
+  for (const key of ["children", "root"]) {
+    if (key in record && mapLinks(record[key], map)) {
+      changed = true;
+    }
+  }
+  return changed;
+};
+
 /** What a new page is called, and the URL it serves if any. */
 export interface NewPage {
   readonly name: string;
@@ -960,6 +991,42 @@ export class PagesService extends Context.Service<
           ])
         );
 
+      /**
+       * Rewrites the links of a canvas, in its pages and its loose nodes, inside an action:
+       * `map` answers what a link becomes, or undefined to leave it.
+       */
+      const rewriteLinks = Effect.fnUntraced(function* (
+        tx: EditTransaction,
+        canvas: string,
+        map: (link: string) => string | undefined
+      ) {
+        const visit = (value: unknown) => mapLinks(value, map);
+        // The pages as they are now, inside the action: a rename has already moved its files.
+        const { pages } = yield* list;
+        for (const page of pages.filter((p) => p.canvas === canvas)) {
+          const text = yield* Effect.option(
+            fs.readFileString(path.join(root, page.id))
+          );
+          if (text._tag === "None") {
+            continue;
+          }
+          // A page that is not JSON keeps its links; the editor reports it when it is opened.
+          const json = yield* Effect.option(
+            Effect.try(() => JSON.parse(text.value) as unknown)
+          );
+          if (json._tag === "Some" && visit(json.value)) {
+            yield* tx.write(page.file, serialise(json.value));
+          }
+        }
+        const layout = yield* Effect.orElseSucceed(readCanvas(canvas), () =>
+          emptyCanvasLayout()
+        );
+        const nodes = structuredClone(layout.nodes ?? []);
+        if (visit(nodes)) {
+          yield* updateCanvas(tx, canvas, (current) => ({ ...current, nodes }));
+        }
+      });
+
       const rename = Effect.fn("PagesService.rename")(function* (
         id: string,
         name: string
@@ -1018,6 +1085,8 @@ export class PagesService extends Context.Service<
             yield* updateRoutes(tx, all, page.canvas, (routes) =>
               moveKey(routes, moves)
             );
+            // Links name a page by its file: they follow it to its new one.
+            yield* rewriteLinks(tx, page.canvas, (link) => moves.get(link));
           })
         );
         yield* publishList;
@@ -1051,9 +1120,23 @@ export class PagesService extends Context.Service<
             ? `Take the URL off ${label}`
             : `Serve ${label} at ${next}`,
           (tx) =>
-            updateRoutes(tx, all, page.canvas, (routes) => {
-              const { [basePath]: _, ...rest } = routes;
-              return next === undefined ? rest : { ...rest, [basePath]: next };
+            Effect.gen(function* () {
+              yield* updateRoutes(tx, all, page.canvas, (routes) => {
+                const { [basePath]: _, ...rest } = routes;
+                return next === undefined
+                  ? rest
+                  : { ...rest, [basePath]: next };
+              });
+              // Links that named the old URL would lead nowhere: they name the page itself now,
+              // which no change of URL can break.
+              const old = page.route;
+              if (old !== undefined) {
+                yield* rewriteLinks(tx, page.canvas, (link) =>
+                  link.startsWith("/") && normaliseRoute(link) === old
+                    ? basePath
+                    : undefined
+                );
+              }
             })
         );
         yield* publishList;

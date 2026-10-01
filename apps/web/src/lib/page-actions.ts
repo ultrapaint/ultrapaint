@@ -9,6 +9,7 @@ import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { ensureEditable } from "../state/setup.ts";
+import { linksToPage } from "./links.ts";
 import { viewportSize } from "./shortcuts.ts";
 import { startCommand } from "./start-thread.ts";
 
@@ -75,7 +76,7 @@ export const editPageUrl = async (page: Page) => {
     description:
       page.route === undefined
         ? "Where the prototype serves the page, and where a link leads to reach it."
-        : "Links name the URL: those to the old one lead nowhere afterwards. Leave it empty for no URL.",
+        : "Links to the page keep leading to it: those that named the old URL name the page itself afterwards. Leave it empty for no URL.",
     placeholder: "/settings/billing",
     title:
       page.route === undefined
@@ -130,13 +131,23 @@ export const duplicatePage = (page: Page) => {
   }
 };
 
+/** What deleting a page takes with it: its file, and where the links to it lead. */
+const deleteDescription = (page: Page) => {
+  const links = linksToPage(page);
+  const file = "The page file is removed from the designs directory.";
+  if (links === 0) {
+    return file;
+  }
+  return `${file} ${links === 1 ? "One link leads" : `${links} links lead`} to it, and will lead nowhere.`;
+};
+
 export const deletePage = async (page: Page) => {
   if (!ensureEditable()) {
     return;
   }
   const ok = await confirmDialog({
     confirmLabel: "Delete",
-    description: "The page file is removed from the designs directory.",
+    description: deleteDescription(page),
     destructive: true,
     title: `Delete ${page.name}?`,
   });
