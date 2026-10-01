@@ -364,8 +364,8 @@ const pageOption = (page: {
 /**
  * Floating strip under the prototype: the canvas's history, the page it is on, the variant it
  * clicks through when the canvas has variants, the device it is tried on, commenting on the page,
- * and a restart. A page
- * without a URL is on the list too, and says so over the bar when it is shown.
+ * what can be pressed, and a restart. A page without a URL is on the list too, and says so over
+ * the bar when it is shown.
  */
 export const PrototypeBar = () => {
   const canvas = useEditor((s) => s.canvas);
