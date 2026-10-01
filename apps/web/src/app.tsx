@@ -301,8 +301,8 @@ const ProjectHeader = () => {
           tooltip={
             <span className="block max-w-64">
               {info.setup === "detected"
-                ? "Not saved. The settings were detected in the repository, and agent threads are lost when the tool stops. Click to save a configuration."
-                : "Not saved. Started without a configuration file, so settings and agent threads are lost when the tool stops. Click to save a configuration."}
+                ? "Not saved. The settings were detected in the repository, and chats are lost when the tool stops. Click to save a configuration."
+                : "Not saved. Started without a configuration file, so settings and chats are lost when the tool stops. Click to save a configuration."}
             </span>
           }
         >

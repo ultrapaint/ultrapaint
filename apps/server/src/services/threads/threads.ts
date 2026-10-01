@@ -94,7 +94,7 @@ const CANCELLED: RequestPermissionResponse = {
   outcome: { outcome: "cancelled" },
 };
 /** Until the first prompt names it. */
-const UNTITLED = "New thread";
+const UNTITLED = "New chat";
 const SWITCHED = "Switched to";
 
 /** The answers as the agent reads them: one line per question, the option's label and its id. */

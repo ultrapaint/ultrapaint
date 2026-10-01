@@ -30,7 +30,7 @@ export const commentPrompt = (
   return [
     reply || comment.replies.length === 0
       ? "Address this comment left on the design canvas."
-      : "Address this comment thread left on the design canvas.",
+      : "Address this comment and its replies, left on the design canvas.",
     "",
     ...where,
     "",

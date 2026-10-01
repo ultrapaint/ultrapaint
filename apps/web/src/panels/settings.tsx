@@ -248,7 +248,7 @@ const McpConnectionGroup = () => {
   return (
     <Group title="Outside the editor">
       <Row
-        description="Gives another agent the same tools the threads here use: the project's pages, its components, and the comments left on the designs. The token is this project's, and anyone who has it can use them."
+        description="Gives another agent the same tools the chats here use: the project's pages, its components, and the comments left on the designs. The token is this project's, and anyone who has it can use them."
         title="Connect an agent over MCP"
         wide
       >
@@ -479,7 +479,7 @@ const ChatDefaultsGroup = () => {
   const onAgent = (id: string) => save({ agentId: id });
   const problem = unlisted[agentId];
   let modelDescription =
-    "The model the agent answers with, unless the thread picks another.";
+    "The model the agent answers with, unless the chat picks another.";
   if (problem !== undefined) {
     modelDescription = problem;
   } else if (!listed) {
@@ -490,10 +490,10 @@ const ChatDefaultsGroup = () => {
   const onModel = (model: string) => save({ agentId, model });
   return (
     <Group
-      description="Applied as soon as they are picked. A thread switches agent or model in its composer."
-      title="New threads"
+      description="Applied as soon as they are picked. A chat switches agent or model in its composer."
+      title="New chats"
     >
-      <Row description="The agent a new thread starts with." title="Agent">
+      <Row description="The agent a new chat starts with." title="Agent">
         <OptionSelect
           onChange={onAgent}
           options={agents.map((a) => ({ label: a.name, value: a.id }))}

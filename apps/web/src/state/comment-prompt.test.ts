@@ -33,7 +33,7 @@ describe("commentPrompt", () => {
   it("sends the whole thread with where it was left", () => {
     expect(commentPrompt(comment, page)).toBe(
       [
-        "Address this comment thread left on the design canvas.",
+        "Address this comment and its replies, left on the design canvas.",
         "",
         "Page: Pick, /onboarding/pick (designs/onboarding/pick.page.json)",
         'Node: "Welcome" (id t_title)',

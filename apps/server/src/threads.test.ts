@@ -101,7 +101,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           yield* client["settings.set"](settings);
           const created = yield* client["threads.create"]({ agentId: "fake" });
           assert.strictEqual(created.status, "idle");
-          assert.strictEqual(created.title, "New thread");
+          assert.strictEqual(created.title, "New chat");
           assert.isUndefined(created.sessionId);
 
           // The prompt is running as soon as it is sent; the agent boots inside the turn.

@@ -316,7 +316,7 @@ export const canvasEntries = (f: CanvasFacts): Entry[] =>
 // ---- Comments ----
 
 export interface CommentFacts {
-  /** The session in use, when there is one; `busy` while its agent works. */
+  /** The chat in use, when there is one; `busy` while its agent works. */
   current: { busy: boolean; title: string } | null;
   /** It is pinned on an element, which can be selected. */
   hasElement: boolean;
@@ -332,12 +332,10 @@ export const commentEntries = (f: CommentFacts): Entry[] =>
       entries: [
         item(
           "send:current",
-          f.current
-            ? `Current session · ${f.current.title}`
-            : "Current session",
+          f.current ? `Current chat · ${f.current.title}` : "Current chat",
           { disabled: !f.current || f.current.busy }
         ),
-        item("send:new", "New thread"),
+        item("send:new", "New chat"),
       ],
       id: "send",
       kind: "submenu",

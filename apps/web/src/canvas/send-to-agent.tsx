@@ -61,7 +61,9 @@ export const SendToAgent = ({
   const whole = !(reply || single) && comment.replies.length > 0;
   // The first comment alone is the comment without the thread under it.
   const sent = single ? { ...comment, replies: [] } : comment;
-  const label = whole ? "Send the thread to an agent" : "Send to an agent";
+  const label = whole
+    ? "Send the comment and its replies to an agent"
+    : "Send to an agent";
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -80,7 +82,9 @@ export const SendToAgent = ({
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuGroup>
           <DropdownMenuLabel>
-            {whole ? "Send the whole thread to" : "Send this comment to"}
+            {whole
+              ? "Send the comment and its replies to"
+              : "Send this comment to"}
           </DropdownMenuLabel>
           <DropdownMenuItem
             disabled={!current || busy}
@@ -90,7 +94,7 @@ export const SendToAgent = ({
           >
             <MessageSquarePlus />
             <span className="flex min-w-0 flex-col">
-              <span>Current session</span>
+              <span>Current chat</span>
               <span
                 className={cn(
                   "truncate text-[10px] text-muted-foreground",
@@ -99,7 +103,7 @@ export const SendToAgent = ({
               >
                 {current
                   ? `${current.title}${busy ? " · still working" : ""}`
-                  : "No session yet"}
+                  : "No chat yet"}
               </span>
             </span>
           </DropdownMenuItem>
@@ -110,7 +114,7 @@ export const SendToAgent = ({
             onClick={() => sendComment(sent, { newThread: true }, reply)}
           >
             <Bot />
-            New thread
+            New chat
           </DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>

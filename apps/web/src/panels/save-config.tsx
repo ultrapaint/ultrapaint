@@ -121,8 +121,7 @@ const SaveConfigForm = ({ settings }: { settings: Settings }) => {
         <DialogTitle>Save this configuration</DialogTitle>
         <DialogDescription>
           The tool was started without a configuration file, so nothing about
-          this session is kept. Save one to keep the settings and the agent
-          threads.
+          this run is kept. Save one to keep the settings and the chats.
         </DialogDescription>
       </DialogHeader>
       <FieldGroup className="gap-4">
