@@ -47,6 +47,7 @@ import {
   Eye,
   EyeOff,
   Group,
+  Hash,
   Link2,
   StretchHorizontal,
   Trash2,
@@ -80,6 +81,7 @@ import {
   updateSelectionWith,
   wrapSelection,
 } from "../lib/node-actions.ts";
+import { copyNodeRef } from "../lib/node-links.ts";
 import { editPageUrl, implementPage } from "../lib/page-actions.ts";
 import { presetOf, viewportPresets } from "../lib/presets.ts";
 import {
@@ -291,9 +293,15 @@ const Kinds = ({
           {Math.round(rect.width)} × {Math.round(rect.height)}
         </span>
       ) : null}
-      <span className="ml-auto truncate font-mono text-[10px]" title="Id">
-        {node.id}
-      </span>
+      {/* The id is for agents, not for reading: copied, it finds the element. */}
+      <IconButton
+        className="ml-auto size-5"
+        onClick={() => copyNodeRef({ frame, nodeId: node.id })}
+        size="icon-xs"
+        tooltip="Copy element ID, which an agent finds it by"
+      >
+        <Hash className="size-3" />
+      </IconButton>
     </div>
   );
 };

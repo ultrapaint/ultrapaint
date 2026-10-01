@@ -21,6 +21,7 @@ import {
   groupTextStyles,
 } from "@ultrapaint/design-document/text-styles";
 import { tokenRef, toPixels } from "@ultrapaint/design-document/tokens";
+import { nodeLabel } from "@ultrapaint/design-document/tree";
 import { cn } from "cn";
 import {
   ALargeSmall,
@@ -975,7 +976,7 @@ export const ElementToolbar = ({
   }
   return (
     <div
-      aria-label={`Style of ${node.type}`}
+      aria-label={`Toolbar of ${nodeLabel(node)}`}
       className="pointer-events-auto absolute left-1/2 flex items-center gap-0.5 whitespace-nowrap rounded-[10px] border bg-popover p-0.5 text-popover-foreground shadow-lg"
       data-element-toolbar
       onPointerDown={(e) => e.stopPropagation()}
@@ -1070,7 +1071,7 @@ export const GroupToolbar = ({
   const siblings = areSiblings(targets);
   return (
     <div
-      aria-label={`Style of ${nodes.length} elements`}
+      aria-label={`Toolbar of ${nodes.length} elements`}
       className="pointer-events-auto absolute left-1/2 flex items-center gap-0.5 whitespace-nowrap rounded-[10px] border bg-popover p-0.5 text-popover-foreground shadow-lg"
       data-element-toolbar
       onPointerDown={(e) => e.stopPropagation()}
