@@ -279,7 +279,7 @@ export const Prototype = () => {
               <HotspotLayer
                 frameId={frameIdOf(canvas)}
                 // A reloaded iframe has a bridge of its own, which the layer has to listen to.
-                key={`${canvas}:${reloads}`}
+                key={`hotspots:${canvas}:${reloads}`}
                 page={activePage}
                 scale={scale}
               />
