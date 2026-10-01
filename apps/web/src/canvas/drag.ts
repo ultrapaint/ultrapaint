@@ -28,7 +28,7 @@ import {
   rootOfFrame,
   useDocuments,
 } from "../state/documents.ts";
-import { allFrames, useEditor } from "../state/editor.ts";
+import { allFrames, holdUntil, useEditor } from "../state/editor.ts";
 import { bridgeFor } from "./bridge.ts";
 
 /** Type of the data a palette entry's drag carries: the node it inserts, as JSON. */
@@ -483,13 +483,31 @@ const dropEdits = (
 /** Carries the drop out. `created` is the node a palette drag inserts. */
 export const endDrag = async (created?: DesignNode) => {
   const { copy, dragged, drop, grab, pointer } = useDrag.getState();
+  const at = round({ x: pointer.x - grab.x, y: pointer.y - grab.y });
+  const land = () => carryOut(dragged, drop, at, copy, created);
+  // A node on the canvas that moves is held where it was let go before the drag lets go of it:
+  // drawn from its document alone, it would jump back until the server answers.
+  const landing =
+    dragged?.kind === "loose" && !copy
+      ? holdUntil(dragged.frame, at, land)
+      : null;
   useDrag.setState({ dragged: null, drop: null });
+  await (landing ?? land());
+};
+
+/** The edits a drop makes, and the selection it leaves. */
+const carryOut = async (
+  dragged: Dragged | null,
+  drop: Drop | null,
+  at: { x: number; y: number },
+  copy: boolean,
+  created: DesignNode | undefined
+) => {
   const { canvas } = useEditor.getState();
   if (!dragged || canvas === null) {
     return;
   }
   const canvasDoc = canvasDocOf(canvas);
-  const at = round({ x: pointer.x - grab.x, y: pointer.y - grab.y });
 
   if (dragged.kind === "loose" && drop?.kind !== "into") {
     const { docs } = useDocuments.getState();

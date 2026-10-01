@@ -22,7 +22,14 @@ import {
   nodeFrameOf,
   useDocuments,
 } from "../state/documents.ts";
-import { allFrames, nodeFrameLayout, useEditor } from "../state/editor.ts";
+import {
+  allFrames,
+  type Box,
+  hold,
+  holdUntil,
+  nodeFrameLayout,
+  useEditor,
+} from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
 import { ensureEditable } from "../state/setup.ts";
 import { useFollowAgent } from "./agent-presence.tsx";
@@ -70,19 +77,8 @@ export const Canvas = () => {
   const hostUrl = useHostUrl();
   const [size, setSize] = useState({ height: 0, width: 0 });
   const [panning, setPanning] = useState(false);
-  // The box a node on the canvas is being resized to, until the document has it.
-  const [resizing, setResizingState] = useState<{
-    height: number;
-    id: string;
-    width: number;
-    x: number;
-    y: number;
-  } | null>(null);
-  const resizingRef = useRef<typeof resizing>(null);
-  const setResizing = (next: typeof resizing) => {
-    resizingRef.current = next;
-    setResizingState(next);
-  };
+  // Nodes drawn where they are being resized to, or were let go of, until the document has them.
+  const held = useEditor((s) => s.held);
   const drag = useRef<
     | { kind: "pan"; startX: number; startY: number; vx: number; vy: number }
     | {
@@ -101,6 +97,8 @@ export const Canvas = () => {
         startX: number;
         startY: number;
         box: Box;
+        /** The box it is resized to, once the pointer has moved. */
+        to: Box | null;
       }
     | null
   >(null);
@@ -382,6 +380,7 @@ export const Canvas = () => {
         nodeId,
         startX: e.clientX,
         startY: e.clientY,
+        to: null,
       };
       return;
     }
@@ -426,7 +425,8 @@ export const Canvas = () => {
         height: next.height,
         width: next.width,
       });
-      setResizing({ ...next, id: d.nodeId });
+      d.to = next;
+      hold(nodeFrameOf(d.nodeId), next);
       // The preview draws it at that size too, or it would be cropped by its frame.
       drawResized(nodeFrameOf(d.nodeId), {
         height: next.height,
@@ -465,24 +465,22 @@ export const Canvas = () => {
     drag.current = null;
     setPanning(false);
     if (d?.kind === "resize-node") {
-      const resized = resizingRef.current;
+      const frame = nodeFrameOf(d.nodeId);
       const { canvas: current } = useEditor.getState();
+      const resized = d.to;
       if (!resized || current === null) {
-        setResizing(null);
+        hold(frame, null);
         return;
       }
-      const { id, ...set } = resized;
+      const { height, width, x, y } = resized;
       // The box stays where it was let go until the document has it, then the document draws it.
-      applyOps(
-        canvasDocOf(current),
-        [{ id, op: "update", set }],
-        "Resize"
-      ).then(() => {
-        if (resizingRef.current === resized) {
-          setResizing(null);
-        }
-        drawResized(nodeFrameOf(id));
-      });
+      holdUntil(frame, resized, () =>
+        applyOps(
+          canvasDocOf(current),
+          [{ id: d.nodeId, op: "update", set: { height, width, x, y } }],
+          "Resize"
+        )
+      ).then(() => drawResized(frame));
       return;
     }
     if (d && d.kind !== "pan") {
@@ -602,19 +600,13 @@ export const Canvas = () => {
         })}
         {nodes.map((node) => {
           const frameId = nodeFrameOf(node.id);
-          const layout = nodeFrameLayout(node, sizes[frameId]);
           const moving =
             dragged?.kind === "loose" && dragged.frame === frameId
               ? { x: pointer.x - grab.x, y: pointer.y - grab.y }
               : null;
           const box = {
-            ...layout,
-            ...(resizing?.id === node.id && {
-              height: resizing.height,
-              width: resizing.width,
-              x: resizing.x,
-              y: resizing.y,
-            }),
+            ...nodeFrameLayout(node, sizes[frameId]),
+            ...held[frameId],
             ...moving,
           };
           return (
@@ -662,13 +654,6 @@ const isTyping = (e: Event) => {
     (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)
   );
 };
-
-interface Box {
-  height: number;
-  width: number;
-  x: number;
-  y: number;
-}
 
 /**
  * The box left once `corner` is dragged by (dx, dy): the opposite corner stays where it was, and

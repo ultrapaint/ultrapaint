@@ -118,6 +118,11 @@ interface EditorStore {
   canvas: string | null;
   /** Where the pages' frames are; pages with no saved frame yet get a computed one. */
   frames: Record<string, FrameLayout>;
+  /**
+   * Nodes on the canvas drawn where the pointer put them rather than where their document has
+   * them: while one is resized, and once one is let go, until the document has it.
+   */
+  held: Record<string, Partial<Box>>;
   hostErrors: Record<string, string | null>;
   hover: Selection | null;
   layout: CanvasLayout;
@@ -242,21 +247,56 @@ export const nodeFrameLayout = (
   y: node.y ?? 0,
 });
 
+/** A box on the canvas, in the canvas's own coordinates. */
+export interface Box {
+  height: number;
+  width: number;
+  x: number;
+  y: number;
+}
+
+/** Draws a node on the canvas at `box` whatever its document says; without one, as it says. */
+export const hold = (frame: string, box: Partial<Box> | null) =>
+  useEditor.setState((s) => {
+    if (box) {
+      return { held: { ...s.held, [frame]: box } };
+    }
+    if (!(frame in s.held)) {
+      return s;
+    }
+    const { [frame]: _released, ...held } = s.held;
+    return { held };
+  });
+
+/**
+ * Keeps a node on the canvas at `box` while `commit` takes it to its document, then leaves it to
+ * the document: drawn from the document alone, it would jump back to where it was for as long as
+ * the server takes to answer. A commit that fails leaves it where the document still has it. A
+ * later hold of the same node outlives this one.
+ */
+export const holdUntil = async <T>(
+  frame: string,
+  box: Partial<Box>,
+  commit: () => Promise<T>
+): Promise<T> => {
+  const held = { ...box };
+  hold(frame, held);
+  try {
+    return await commit();
+  } finally {
+    if (useEditor.getState().held[frame] === held) {
+      hold(frame, null);
+    }
+  }
+};
+
 /** Every frame of the canvas, pages and nodes alike: what fits, zooms and drops look at. */
-export const allFrames = (): Record<
-  string,
-  { height: number; width: number; x: number; y: number }
-> => {
-  const { frames, sizes, canvas } = useEditor.getState();
-  const out: Record<
-    string,
-    { height: number; width: number; x: number; y: number }
-  > = {
-    ...frames,
-  };
+export const allFrames = (): Record<string, Box> => {
+  const { frames, held, sizes, canvas } = useEditor.getState();
+  const out: Record<string, Box> = { ...frames };
   for (const node of canvasNodes(useDocuments.getState().docs, canvas)) {
     const frame = nodeFrameOf(node.id);
-    out[frame] = nodeFrameLayout(node, sizes[frame]);
+    out[frame] = { ...nodeFrameLayout(node, sizes[frame]), ...held[frame] };
   }
   return out;
 };
@@ -354,6 +394,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
   },
   canvas: null,
   frames: {},
+  held: {},
   hostErrors: {},
   hover: null,
   layout: { frames: {}, version: 1 },
@@ -405,6 +446,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
         also: [],
         canvas,
         frames: computeFrames(all, layout),
+        held: {},
         hover: null,
         layout,
         rects: {},
