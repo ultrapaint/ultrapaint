@@ -1,5 +1,7 @@
 import type { Comment, CommentReply } from "@ultrapaint/contracts/comments";
+import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page } from "@ultrapaint/contracts/pages";
+import { nodeLabel } from "@ultrapaint/design-document/tree";
 import { create } from "zustand";
 import { viewportSize } from "../lib/shortcuts.ts";
 import { useAgents } from "./agents.ts";
@@ -153,17 +155,67 @@ export const deleteComment = (id: string) => {
     .catch(reportError);
 };
 
-/** Brings a comment to the middle of what can be seen of the canvas, and opens it. */
+/** Comments are asked to be seen whenever one is opened or started. */
+const showComments = () => {
+  if (!useComments.getState().visible) {
+    useComments.getState().toggleVisible();
+  }
+};
+
+/**
+ * Starts writing a comment at a point of a page, pinned on `node` when it is one of the page's
+ * elements. Returns the draft, which a later call replaces.
+ */
+export const startComment = (
+  pageId: string,
+  at: { x: number; y: number },
+  node?: DesignNode | null
+): CommentDraft => {
+  showComments();
+  const pinned = node && node.type !== "page" ? node : null;
+  const draft = {
+    element: pinned ? nodeLabel(pinned) : null,
+    nodeId: pinned?.id ?? null,
+    pageId,
+    x: Math.round(at.x),
+    y: Math.round(at.y),
+  };
+  useComments.getState().setDraft(draft);
+  return draft;
+};
+
+/**
+ * The prototype's comment mode, on or off: on, a click on the page drops a comment instead of
+ * reaching the page.
+ */
+export const toggleCommenting = () => {
+  const editor = useEditor.getState();
+  if (editor.mode === "comment") {
+    editor.setMode("interact");
+    return;
+  }
+  editor.setMode("comment");
+  showComments();
+};
+
+/**
+ * Brings a comment into view and opens it: in the middle of what can be seen of the canvas, or,
+ * in the prototype, on its page, which the prototype goes to.
+ */
 export const revealComment = (comment: Comment) => {
   const page = pageOfComment(comment);
   const editor = useEditor.getState();
+  if (page && editor.workspace === "prototype") {
+    editor.openPage(page.id);
+    showComments();
+    useComments.getState().setOpen(comment.id);
+    return;
+  }
   const frame = page ? editor.frames[page.id] : undefined;
   if (!(page && frame)) {
     return;
   }
-  if (!useComments.getState().visible) {
-    useComments.getState().toggleVisible();
-  }
+  showComments();
   const viewport = viewportSize();
   const { zoom } = editor.view;
   editor.setView({

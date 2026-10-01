@@ -26,10 +26,14 @@ import {
   deleteReply,
   postDraft,
   replyTo,
+  startComment,
   updateComment,
   useComments,
 } from "../state/comments.ts";
 import { openMenuAt } from "../state/context-menu.ts";
+import { nodeIn, useDocuments } from "../state/documents.ts";
+import { useEditor } from "../state/editor.ts";
+import { bridgeFor } from "./bridge.ts";
 import { SendToAgent } from "./send-to-agent.tsx";
 
 /** The pin's shape as a cursor: its point, bottom left, is where the comment lands. */
@@ -62,6 +66,31 @@ export const relativeTime = (at: number, now = Date.now()) => {
     }
   }
   return "just now";
+};
+
+/**
+ * Starts a comment where a page was clicked, then pins it on the innermost element there once
+ * the preview has said which that is. `frame` is the preview the page is drawn in.
+ */
+export const placeComment = async (
+  frame: string,
+  pageId: string,
+  at: { x: number; y: number }
+) => {
+  const draft = startComment(pageId, at);
+  const id = (await bridgeFor(frame).hitTest(draft.x, draft.y)).at(-1);
+  const node = id
+    ? nodeIn(
+        useDocuments.getState().docs,
+        useEditor.getState().canvas,
+        pageId,
+        id
+      )
+    : null;
+  // Only if the draft is still this one: another click may have moved it meanwhile.
+  if (node && useComments.getState().draft === draft) {
+    startComment(pageId, at, node);
+  }
 };
 
 // The card and the pins take their own pointer events: the canvas must not start a drag, and

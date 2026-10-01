@@ -8,7 +8,6 @@ import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { ViewportPreset } from "@ultrapaint/contracts/pages";
 import { attachTextStyle } from "@ultrapaint/design-document/text-styles";
 import { tokenRef } from "@ultrapaint/design-document/tokens";
-import { nodeLabel } from "@ultrapaint/design-document/tree";
 import { basePathOf } from "@ultrapaint/shared/route";
 import { toast } from "sonner";
 import { bridgeFor } from "../canvas/bridge.ts";
@@ -21,6 +20,7 @@ import {
   deleteComment,
   pageOfComment,
   revealComment,
+  startComment,
   updateComment,
   useComments,
 } from "../state/comments.ts";
@@ -295,19 +295,22 @@ const commentOn = async (target: Selection, at?: Point) => {
   startComment(target.frame, point, node);
 };
 
-const startComment = (pageId: string, at: Point, node?: DesignNode) => {
-  const comments = useComments.getState();
-  if (!comments.visible) {
-    comments.toggleVisible();
+/**
+ * Selects the element a comment is pinned on. The prototype shows no selection, so from there it
+ * is selected on the canvas, in the design workspace, and brought into view.
+ */
+const selectCommented = (pageId: string, nodeId: string) => {
+  const editor = useEditor.getState();
+  if (editor.workspace !== "prototype") {
+    select({ frame: pageId, nodeId });
+    return;
   }
-  const pinned = node && node.type !== "page" ? node : null;
-  comments.setDraft({
-    element: pinned ? nodeLabel(pinned) : null,
-    nodeId: pinned?.id ?? null,
-    pageId,
-    x: Math.round(at.x),
-    y: Math.round(at.y),
-  });
+  editor.setWorkspace("design");
+  select({ frame: pageId, nodeId });
+  // The canvas is laid out the frame after it is shown.
+  requestAnimationFrame(() =>
+    useEditor.getState().zoomToSelection(viewportSize())
+  );
 };
 
 const zoomToNode = (target: Selection) => {
@@ -462,7 +465,7 @@ const runComment = async (commentId: string, id: string) => {
     case "selectElement": {
       const page = pageOfComment(comment);
       if (page && comment.nodeId) {
-        select({ frame: page.id, nodeId: comment.nodeId });
+        selectCommented(page.id, comment.nodeId);
       }
       break;
     }

@@ -12,19 +12,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { openChat } from "../lib/thread-actions.ts";
 import { useAgents } from "../state/agents.ts";
 import { type SendTarget, sendToAgent } from "../state/comments.ts";
-import { useEditor } from "../state/editor.ts";
-
-/** The chat lives in the vibe workspace; this is the way there from a toast. */
-const openChat = (threadId: string) => {
-  const editor = useEditor.getState();
-  if (editor.workspace !== "vibe") {
-    editor.setWorkspace("vibe");
-  }
-  editor.setLeftTab("chat");
-  useAgents.getState().open(threadId);
-};
 
 /** Sends a comment, or one message of it, and says where it went. */
 export const sendComment = async (

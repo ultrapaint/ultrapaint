@@ -18,11 +18,18 @@ import {
   canvasNodes,
   isNodeFrame,
   nodeFrameOf,
+  nodeIn,
   useDocuments,
 } from "./documents.ts";
 import { reportError, useProject } from "./project.ts";
 import { viewedSnapshot } from "./snapshot-view.ts";
 import { readUrl, writeMode, writeUrl } from "./url.ts";
+import {
+  emptyMemory,
+  modeFor,
+  switchWorkspace,
+  type WorkspaceMemory,
+} from "./workspace-memory.ts";
 
 export type Mode = "select" | "group" | "text" | "interact" | "pan" | "comment";
 
@@ -127,6 +134,8 @@ interface EditorStore {
   hover: Selection | null;
   layout: CanvasLayout;
   leftTab: LeftTab;
+  /** What the workspaces not shown were left with: their tools, the canvas's selection. */
+  memory: WorkspaceMemory;
   mode: Mode;
   /** Goes to a route of the open canvas. Every navigation is an entry in the editor's history. */
   navigate: (route: string, options?: { push?: boolean }) => void;
@@ -399,7 +408,8 @@ export const useEditor = create<EditorStore>((set, get) => ({
   hover: null,
   layout: { frames: {}, version: 1 },
   leftTab: "chat",
-  mode: "select",
+  memory: emptyMemory,
+  mode: modeFor(workspaceInUrl(), undefined),
 
   navigate: (route, options) => {
     const next = normaliseRoute(route);
@@ -441,6 +451,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
       if (useDocuments.getState().canvas !== canvas) {
         useDocuments.getState().load(canvas);
       }
+      const { memory } = get();
       set({
         activePage: shown,
         also: [],
@@ -449,6 +460,9 @@ export const useEditor = create<EditorStore>((set, get) => ({
         held: {},
         hover: null,
         layout,
+        // What was put aside of another canvas is nothing this one has.
+        memory:
+          canvas === get().canvas ? memory : { ...memory, putAside: null },
         rects: {},
         route: landing,
         selectedPage: null,
@@ -505,6 +519,9 @@ export const useEditor = create<EditorStore>((set, get) => ({
   rightTab: "design",
   route: "/",
   select: (selection) => {
+    if (selection && hidesSelection(get)) {
+      return;
+    }
     set({ also: [], selectedPage: null, selection });
     if (selection) {
       followFrame(get, set, selection.frame);
@@ -514,7 +531,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
   selection: null,
   selectMany: (selections) => {
     const [first, ...rest] = selections;
-    if (!first) {
+    if (!first || hidesSelection(get)) {
       get().select(null);
       return;
     }
@@ -522,6 +539,9 @@ export const useEditor = create<EditorStore>((set, get) => ({
     set({ also: rest.filter((s) => s.frame === first.frame) });
   },
   selectPage: (pageId) => {
+    if (pageId && hidesSelection(get)) {
+      return;
+    }
     set({ also: [], selectedPage: pageId, selection: null });
     if (pageId) {
       followFrame(get, set, pageId);
@@ -584,21 +604,42 @@ export const useEditor = create<EditorStore>((set, get) => ({
   },
   setView: (view) => set((s) => ({ view: { ...s.view, ...view } })),
   setWorkspace: (workspace) => {
-    const { leftTab } = get();
+    const s = get();
+    if (workspace === s.workspace) {
+      return;
+    }
     const kept =
-      sharedTabs.includes(leftTab) ||
-      workspaceTabs[workspace].includes(leftTab);
+      sharedTabs.includes(s.leftTab) ||
+      workspaceTabs[workspace].includes(s.leftTab);
+    const { docs } = useDocuments.getState();
+    const pages = pagesOfCanvas(s.canvas);
+    // Nothing shows the selection in the prototype, so no key may act on it there: it is put
+    // aside, and found again on the canvas, less what was deleted meanwhile.
+    const next = switchWorkspace(
+      {
+        mode: s.mode,
+        picked: {
+          also: s.also,
+          selectedPage: s.selectedPage,
+          selection: s.selection,
+        },
+        workspace: s.workspace,
+      },
+      workspace,
+      s.memory,
+      {
+        node: (n) => nodeIn(docs, s.canvas, n.frame, n.nodeId) !== null,
+        page: (id) => pages.some((p) => p.id === id),
+      }
+    );
     writeMode(workspace);
     set({
-      leftTab: kept ? leftTab : "chat",
+      ...next.picked,
+      hover: null,
+      leftTab: kept ? s.leftTab : "chat",
+      memory: next.memory,
+      mode: next.mode,
       workspace,
-      // Nothing shows the selection in the prototype, so no key may act on it there.
-      ...(workspace === "prototype" && {
-        also: [],
-        hover: null,
-        selectedPage: null,
-        selection: null,
-      }),
     });
   },
   sizes: {},
@@ -622,6 +663,9 @@ export const useEditor = create<EditorStore>((set, get) => ({
     }
   },
   toggleSelected: (target) => {
+    if (hidesSelection(get)) {
+      return;
+    }
     const { also, selection } = get();
     if (!selection || selection.frame !== target.frame) {
       get().select(target);
@@ -678,6 +722,10 @@ export const useEditor = create<EditorStore>((set, get) => ({
     fitTo(set, viewport, [target]);
   },
 }));
+
+/** Nothing shows a selection in the prototype, so nothing may be selected there. */
+const hidesSelection = (get: () => EditorStore) =>
+  get().workspace === "prototype";
 
 /**
  * Working inside a frame is being on its route, in its variant: the editor is only ever at one

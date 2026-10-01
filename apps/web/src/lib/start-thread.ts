@@ -47,12 +47,11 @@ export const createThread = async (draft = "", agentId?: string) => {
   }
 };
 
-/** Opens the chat on a new thread with `text` in its composer. */
+/**
+ * Opens the chat on a new thread with `text` in its composer. Every workspace has the chat on its
+ * rail, so the workspace stays the one the command was started from.
+ */
 export const startCommand = async (text: string) => {
-  const editor = useEditor.getState();
-  if (editor.workspace !== "vibe") {
-    editor.setWorkspace("vibe");
-  }
-  editor.setLeftTab("chat");
+  useEditor.getState().setLeftTab("chat");
   await createThread(text.endsWith(" ") ? text : `${text} `);
 };
