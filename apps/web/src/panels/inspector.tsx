@@ -2,6 +2,10 @@
  * The selected node's fields, the way a design tool shows them: layout, size, spacing, type,
  * colour, border, effects. Values are the design system's tokens where it has them, pixels or
  * plain CSS otherwise, and every change is one operation on the node's document.
+ *
+ * With several nodes selected it shows what they have in common: the fields of their kind when
+ * they are of one kind, the value of a field when they agree on it and "Mixed" when they do not.
+ * A change sets every one of them, as one undo step.
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import {
@@ -53,6 +57,7 @@ import {
   Upload,
 } from "lucide-react";
 import { type ReactNode, useRef, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -64,16 +69,25 @@ import { SidesIcon } from "../components/sides-icon.tsx";
 import type { StyleOption } from "../components/style-combobox.tsx";
 import { ValueField } from "../components/value-field.tsx";
 import {
+  allSelected,
+  areSiblings,
   deleteSelection,
   duplicateSelection,
   setHidden,
   setPropsOfSelection,
   unwrapSelection,
   updateSelection,
+  updateSelectionWith,
   wrapSelection,
 } from "../lib/node-actions.ts";
 import { editPageUrl, implementPage } from "../lib/page-actions.ts";
-import { type Side, sidesOf, withSides } from "../lib/sides.ts";
+import {
+  MIXED,
+  type Shared,
+  sharedValue,
+  shownAs,
+} from "../lib/shared-value.ts";
+import { type Side, sharedSide, withSides } from "../lib/sides.ts";
 import {
   Swatch,
   type TokenKind,
@@ -90,23 +104,87 @@ import { ComponentProps } from "./component-props.tsx";
 
 type Set = (field: string, value: JsonValue) => void;
 
-/** The node the inspector is about: the one selected, or the root of the selected page. */
+/**
+ * The nodes the inspector is about: every one selected, the one it shows first leading; or the
+ * root of the selected page.
+ */
 const useInspected = () => {
   const selection = useEditor((s) => s.selection);
+  const also = useEditor((s) => s.also);
   const selectedPage = useEditor((s) => s.selectedPage);
   const canvas = useEditor((s) => s.canvas);
-  const node = useDocuments((s) => {
-    if (selection) {
-      return nodeIn(s.docs, canvas, selection.frame, selection.nodeId);
-    }
-    return selectedPage ? rootOfFrame(s.docs, canvas, selectedPage) : null;
-  });
+  const nodes = useDocuments(
+    useShallow((s): DesignNode[] => {
+      if (selection) {
+        return [selection, ...also].flatMap((t) => {
+          const node = nodeIn(s.docs, canvas, t.frame, t.nodeId);
+          return node ? [node] : [];
+        });
+      }
+      const root = selectedPage
+        ? rootOfFrame(s.docs, canvas, selectedPage)
+        : null;
+      return root ? [root] : [];
+    })
+  );
   const frame = selection?.frame ?? selectedPage;
-  return node && frame ? { frame, node } : null;
+  const [node] = nodes;
+  return node && frame ? { frame, node, nodes } : null;
 };
 
+/** Sets a field of every node inspected. */
 const set: Set = (field, value) =>
   updateSelection({ [field]: value }, `Change ${field}`);
+
+/** Sets fields of every node inspected, worked out from each: the rest of its border, its sides. */
+const setEach = (
+  label: string,
+  setOf: (node: DesignNode) => Record<string, JsonValue>
+) => updateSelectionWith(setOf, label);
+
+/** What the nodes have in a field: the value they share, or `MIXED`. */
+const sharedOf = <N extends DesignNode, T extends JsonValue>(
+  nodes: readonly N[],
+  read: (node: N) => T | undefined
+): Shared<T> => sharedValue(nodes.map(read));
+
+/** A choice's value for a segmented control or a select: none pressed when the nodes differ. */
+const nullIfMixed = <T extends JsonValue>(shared: Shared<T>): T | null =>
+  shared === MIXED || shared === undefined ? null : shared;
+
+/** Whether every node is of one type, so that the fields of the type fit them all. */
+const allOf = <T extends DesignNode["type"]>(
+  nodes: readonly DesignNode[],
+  type: T
+): nodes is readonly Extract<DesignNode, { type: T }>[] =>
+  nodes.every((n) => n.type === type);
+
+type Stack = Extract<DesignNode, { type: "page" | "row" | "column" | "group" }>;
+
+const isStack = (node: DesignNode): node is Stack =>
+  node.type === "page" ||
+  node.type === "row" ||
+  node.type === "column" ||
+  node.type === "group";
+
+const allStacks = (nodes: readonly DesignNode[]): nodes is readonly Stack[] =>
+  nodes.every(isStack);
+
+/** Instances of one component, whose props are the same props. */
+const oneComponent = (
+  nodes: readonly DesignNode[]
+): nodes is readonly InstanceNode[] => {
+  const [first] = nodes;
+  return (
+    first?.type === "instance" &&
+    nodes.every(
+      (n) =>
+        n.type === "instance" &&
+        n.component === first.component &&
+        n.from === first.from
+    )
+  );
+};
 
 export const Inspector = () => {
   const inspected = useInspected();
@@ -117,23 +195,25 @@ export const Inspector = () => {
       </PanelEmpty>
     );
   }
-  const { frame, node } = inspected;
+  const { frame, node, nodes } = inspected;
   return (
-    <div className="flex flex-col pb-8" key={`${frame}#${node.id}`}>
-      <Header frame={frame} node={node} />
-      {node.type === "page" && <PageSection frame={frame} />}
-      {node.type === "instance" && <InstanceSection node={node} />}
-      {node.type === "text" && <TextSection node={node} />}
-      {node.type === "image" && <ImageSection node={node} />}
-      {(node.type === "page" ||
-        node.type === "row" ||
-        node.type === "column" ||
-        node.type === "group") && <LayoutSection node={node} />}
-      <SizeSection frame={frame} node={node} />
-      <SidesSection field="padding" node={node} title="Padding" />
-      <SidesSection field="margin" node={node} title="Margin" />
-      <AppearanceSection node={node} />
-      {node.type !== "page" && <LinkSection node={node} />}
+    <div
+      className="flex flex-col pb-8"
+      key={`${frame}#${nodes.map((n) => n.id).join(",")}`}
+    >
+      <Header frame={frame} node={node} nodes={nodes} />
+      {node.type === "page" && nodes.length === 1 && (
+        <PageSection frame={frame} />
+      )}
+      {oneComponent(nodes) && <InstanceSection nodes={nodes} />}
+      {allOf(nodes, "text") && <TextSection nodes={nodes} />}
+      {allOf(nodes, "image") && <ImageSection nodes={nodes} />}
+      {allStacks(nodes) && <LayoutSection nodes={nodes} />}
+      <SizeSection frame={frame} nodes={nodes} />
+      <SidesSection field="padding" nodes={nodes} title="Padding" />
+      <SidesSection field="margin" nodes={nodes} title="Margin" />
+      <AppearanceSection nodes={nodes} />
+      {node.type !== "page" && <LinkSection nodes={nodes} />}
     </div>
   );
 };
@@ -172,62 +252,107 @@ const NameInput = ({ node }: { node: DesignNode }) => {
   );
 };
 
-const Header = ({ frame, node }: { frame: string; node: DesignNode }) => {
+/** One node by its kind; several by how many they are, and of which kinds. */
+const Kinds = ({
+  frame,
+  node,
+  nodes,
+}: {
+  frame: string;
+  node: DesignNode;
+  nodes: readonly DesignNode[];
+}) => {
   const rect = useEditor((s) =>
     s.selection ? s.rects[frame]?.[s.selection.nodeId] : undefined
   );
+  if (nodes.length > 1) {
+    return (
+      <div className="truncate px-1 text-[11px] text-muted-foreground">
+        {[...new Set(nodes.map(nodeKind))].join(", ")}
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-2 px-1 text-[11px] text-muted-foreground">
+      <span className={cn(node.type === "instance" && "text-component")}>
+        {nodeKind(node)}
+      </span>
+      {rect ? (
+        <span>
+          {Math.round(rect.width)} × {Math.round(rect.height)}
+        </span>
+      ) : null}
+      <span className="ml-auto truncate font-mono text-[10px]" title="Id">
+        {node.id}
+      </span>
+    </div>
+  );
+};
+
+const Header = ({
+  frame,
+  node,
+  nodes,
+}: {
+  frame: string;
+  node: DesignNode;
+  nodes: readonly DesignNode[];
+}) => {
   const isRoot = node.type === "page";
+  const several = nodes.length > 1;
+  const hidden = nodes.every((n) => n.hidden === true);
+  // Several nodes go into one container only from one parent.
+  const wrappable = !several || areSiblings(allSelected());
+  const wrapTip = (tip: string) =>
+    wrappable ? tip : "Only siblings can be wrapped together";
   return (
     <div className="flex flex-col gap-1 border-b px-2 py-2">
       <div className="flex items-center gap-1">
         <div className="min-w-0 flex-1">
-          <NameInput node={node} />
+          {several ? (
+            <div className="truncate px-1 font-semibold text-sm leading-7">
+              {nodes.length} selected
+            </div>
+          ) : (
+            <NameInput node={node} />
+          )}
         </div>
         {!isRoot && (
           <IconButton
-            onClick={() => setHidden(!node.hidden)}
-            tooltip={node.hidden ? "Show" : "Hide"}
+            onClick={() => setHidden(!hidden)}
+            tooltip={hidden ? "Show" : "Hide"}
           >
-            {node.hidden ? <EyeOff /> : <Eye />}
+            {hidden ? <EyeOff /> : <Eye />}
           </IconButton>
         )}
       </div>
-      <div className="flex items-center gap-2 px-1 text-[11px] text-muted-foreground">
-        <span className={cn(node.type === "instance" && "text-component")}>
-          {nodeKind(node)}
-        </span>
-        {rect ? (
-          <span>
-            {Math.round(rect.width)} × {Math.round(rect.height)}
-          </span>
-        ) : null}
-        <span className="ml-auto truncate font-mono text-[10px]" title="Id">
-          {node.id}
-        </span>
-      </div>
+      <Kinds frame={frame} node={node} nodes={nodes} />
       {!isRoot && (
         <div className="flex items-center gap-0.5">
           <IconButton
+            disabled={!wrappable}
             onClick={() => wrapSelection("group")}
-            tooltip="Wrap in a group (⌘G)"
+            tooltip={wrapTip("Wrap in a group (⌘G)")}
           >
             <Group />
           </IconButton>
           <IconButton
+            disabled={!wrappable}
             onClick={() => wrapSelection("row")}
-            tooltip="Wrap in a row (⌥⌘G)"
+            tooltip={wrapTip("Wrap in a row (⌥⌘G)")}
           >
             <ArrowRight />
           </IconButton>
           <IconButton
+            disabled={!wrappable}
             onClick={() => wrapSelection("column")}
-            tooltip="Wrap in a column (⇧⌘G)"
+            tooltip={wrapTip("Wrap in a column (⇧⌘G)")}
           >
             <ArrowDown />
           </IconButton>
-          {(node.type === "row" ||
-            node.type === "column" ||
-            node.type === "group") && (
+          {nodes.every(
+            (n) => n.type === "row" || n.type === "column" || n.type === "group"
+          ) && (
             <IconButton onClick={() => unwrapSelection()} tooltip="Unwrap">
               <Ungroup />
             </IconButton>
@@ -368,39 +493,66 @@ const Warning = ({ children }: { children: ReactNode }) => (
   </p>
 );
 
-const InstanceSection = ({ node }: { node: InstanceNode }) => (
-  <>
-    <Section title="Component">
-      <WrappedWarning node={node} />
-      <Row label="Name">
-        <span className="truncate font-medium text-component">
-          {node.component}
-        </span>
-      </Row>
-      <Row label="From">
-        <span
-          className="truncate font-mono text-[10px] text-muted-foreground"
-          title={node.from}
-        >
-          {node.from}
-        </span>
-      </Row>
-      {(node.children?.length ?? 0) === 0 && (
-        <Row label="Text">
-          <TextInput
-            onChange={(v) => set("text", v === "" ? null : v)}
-            placeholder="No text"
-            value={node.text}
-          />
+/** The props instances of one component share, and the ones they set differently. */
+const sharedProps = (nodes: readonly InstanceNode[]) => {
+  const props: Record<string, JsonValue> = {};
+  const mixed = new Set<string>();
+  for (const name of new Set(
+    nodes.flatMap((n) => Object.keys(n.props ?? {}))
+  )) {
+    const value = sharedValue(nodes.map((n) => n.props?.[name]));
+    if (value === MIXED) {
+      mixed.add(name);
+    } else if (value !== undefined && value !== null) {
+      props[name] = value;
+    }
+  }
+  return { mixed, props };
+};
+
+const InstanceSection = ({ nodes }: { nodes: readonly InstanceNode[] }) => {
+  const [node] = nodes;
+  if (!node) {
+    return null;
+  }
+  const { mixed, props } = sharedProps(nodes);
+  return (
+    <>
+      <Section title="Component">
+        {nodes.length === 1 && <WrappedWarning node={node} />}
+        <Row label="Name">
+          <span className="truncate font-medium text-component">
+            {node.component}
+          </span>
         </Row>
-      )}
-    </Section>
-    <ComponentProps
-      node={node}
-      onSet={(name, value) => setPropsOfSelection({ [name]: value })}
-    />
-  </>
-);
+        <Row label="From">
+          <span
+            className="truncate font-mono text-[10px] text-muted-foreground"
+            title={node.from}
+          >
+            {node.from}
+          </span>
+        </Row>
+        {nodes.every((n) => (n.children?.length ?? 0) === 0) && (
+          <Row label="Text">
+            <TextInput
+              onChange={(v) => set("text", v === "" ? null : v)}
+              {...shownAs(
+                sharedOf(nodes, (n) => n.text),
+                "No text"
+              )}
+            />
+          </Row>
+        )}
+      </Section>
+      <ComponentProps
+        mixed={mixed}
+        node={{ ...node, props }}
+        onSet={(name, value) => setPropsOfSelection({ [name]: value })}
+      />
+    </>
+  );
+};
 
 /**
  * A component that keeps its props to itself cannot take the node's size, padding or fill: the
@@ -483,6 +635,16 @@ const ColorField = ({
   );
 };
 
+/** The style a text is set in, when the design system still has it. */
+const styleOf = (styles: readonly TextStyle[], node: TextNode) =>
+  node.textStyle ? styles.find((s) => s.name === node.textStyle) : undefined;
+
+/** Sets fields of every text inspected, worked out from each. */
+const setTexts = (
+  label: string,
+  setOf: (node: TextNode) => Record<string, JsonValue>
+) => setEach(label, (node) => (node.type === "text" ? setOf(node) : {}));
+
 /**
  * A text style is size, weight and line height (and family and tracking) as one thing. Set in
  * one, the fields below show what the style gives; changing any of them, or the broken chain,
@@ -490,11 +652,14 @@ const ColorField = ({
  * sets it back in the style the settings match, or the one for its role.
  */
 const TextStyleRow = ({
-  node,
+  named,
+  nodes,
   style,
   styles,
 }: {
-  node: TextNode;
+  /** The style the texts share by name, or `MIXED`. */
+  named: Shared<string>;
+  nodes: readonly TextNode[];
   style: TextStyle | undefined;
   styles: readonly TextStyle[];
 }) => {
@@ -512,27 +677,38 @@ const TextStyleRow = ({
   const attach = (next: TextStyle) =>
     updateSelection(attachTextStyle(next), `Set the text in ${next.name}`);
   const detach = () =>
-    updateSelection(detachTextStyle(node, style), "Detach the text style");
+    setTexts("Detach the text style", (n) =>
+      detachTextStyle(n, styleOf(styles, n))
+    );
   const onStyle = (v: string) => {
     const next = styles.find((s) => s.name === v);
     return next ? attach(next) : detach();
   };
+  // Each text goes back into the style its settings match, or the one for its role.
   const relink = () => {
-    const next = matchTextStyle(node, styles);
-    return next ? attach(next) : undefined;
+    const [only] = nodes;
+    if (nodes.length === 1 && only) {
+      const next = matchTextStyle(only, styles);
+      return next ? attach(next) : undefined;
+    }
+    return setTexts("Set the texts in their styles", (n) => {
+      const next = matchTextStyle(n, styles);
+      return next ? attachTextStyle(next) : {};
+    });
   };
-  const stale = node.textStyle !== undefined && style === undefined;
+  const stale = typeof named === "string" && style === undefined;
   const none = styles.length === 0 ? "No text styles" : "None";
+  const placeholder = stale ? `${named} (missing)` : none;
   return (
     <Row label="Style">
       <OptionSelect
         onChange={onStyle}
         options={options}
-        placeholder={stale ? `${node.textStyle} (missing)` : none}
+        placeholder={named === MIXED ? "Mixed" : placeholder}
         size="sm"
-        value={style ? style.name : ""}
+        value={named === MIXED ? null : (style?.name ?? "")}
       />
-      {style || stale ? (
+      {nodes.some((n) => n.textStyle !== undefined) ? (
         <IconButton
           onClick={detach}
           size="icon-sm"
@@ -554,13 +730,17 @@ const TextStyleRow = ({
   );
 };
 
-const TextSection = ({ node }: { node: TextNode }) => {
+const TextSection = ({ nodes }: { nodes: readonly TextNode[] }) => {
   const ds = useDesignSystem((s) => s.designSystem);
   const styles = ds?.typography.styles ?? [];
-  const style = node.textStyle
-    ? styles.find((s) => s.name === node.textStyle)
-    : undefined;
-  const role = node.role === "heading" ? `h${node.level ?? 1}` : "p";
+  const named = sharedValue(nodes.map((n) => n.textStyle));
+  const style =
+    typeof named === "string"
+      ? styles.find((s) => s.name === named)
+      : undefined;
+  const role = sharedValue(
+    nodes.map((n) => (n.role === "heading" ? `h${n.level ?? 1}` : "p"))
+  );
   const onRole = (v: string) =>
     updateSelection(
       v === "p"
@@ -568,16 +748,22 @@ const TextSection = ({ node }: { node: TextNode }) => {
         : { level: Number(v.slice(1)), role: "heading" },
       "Change the text's role"
     );
-  // What the text is set in: its own field where it has one, the style's otherwise.
-  const settingOf = (key: TextStyleSetting): JsonValue | undefined =>
-    node[key] ?? style?.[key];
-  /** Editing a setting the style gives detaches the style, so the other settings stay. */
+  // What a text is set in: its own field where it has one, its style's otherwise.
+  const settingOf = (key: TextStyleSetting) =>
+    sharedValue(
+      nodes.map(
+        (n): JsonValue | undefined => n[key] ?? styleOf(styles, n)?.[key]
+      )
+    );
+  /** Editing a setting a style gives detaches the style, so the other settings stay. */
   const onSetting = (key: TextStyleSetting) => (value: JsonValue) =>
-    style
-      ? updateSelection(
-          { ...detachTextStyle(node, style), [key]: value },
-          "Detach the text style"
-        )
+    nodes.some((n) => styleOf(styles, n))
+      ? setTexts("Detach the text style", (n) => {
+          const own = styleOf(styles, n);
+          return own
+            ? { ...detachTextStyle(n, own), [key]: value }
+            : { [key]: value };
+        })
       : set(key, value);
   const setting = (key: TextStyleSetting, kind: TokenKind, numeric = true) => (
     <TokenField
@@ -591,28 +777,39 @@ const TextSection = ({ node }: { node: TextNode }) => {
           ? `From the text style ${style.name}. Changing it detaches the style.`
           : undefined
       }
-      value={settingOf(key)}
+      {...shownAs(settingOf(key))}
     />
   );
   return (
     <Section title="Text">
-      <TextInput multiline onChange={(v) => set("text", v)} value={node.text} />
+      <TextInput
+        multiline
+        onChange={(v) => set("text", v)}
+        {...shownAs(sharedOf(nodes, (n) => n.text))}
+      />
       <Row label="Role">
         <OptionSelect
           onChange={onRole}
           options={ROLE_OPTIONS}
+          placeholder="Mixed"
           size="sm"
-          value={role}
+          value={role === MIXED ? null : (role ?? "p")}
         />
       </Row>
-      <TextStyleRow node={node} style={style} styles={styles} />
+      <TextStyleRow named={named} nodes={nodes} style={style} styles={styles} />
       <Row label="Size">{setting("size", "size")}</Row>
       <Row label="Weight">{setting("weight", "weight")}</Row>
       <Row label="Font">{setting("font", "font", false)}</Row>
       <Row label="Line">{setting("lineHeight", "leading")}</Row>
       <Row label="Tracking">{setting("tracking", "tracking")}</Row>
       <Row label="Colour">
-        <ColorField field="color" placeholder="Inherited" value={node.color} />
+        <ColorField
+          field="color"
+          {...shownAs(
+            sharedOf(nodes, (n) => n.color),
+            "Inherited"
+          )}
+        />
       </Row>
       <Row label="Align">
         <Segmented
@@ -634,7 +831,7 @@ const TextSection = ({ node }: { node: TextNode }) => {
               value: "end",
             },
           ]}
-          value={node.align ?? null}
+          value={nullIfMixed(sharedOf(nodes, (n) => n.align))}
         />
       </Row>
     </Section>
@@ -643,7 +840,7 @@ const TextSection = ({ node }: { node: TextNode }) => {
 
 // ---- Image ----
 
-const ImageSection = ({ node }: { node: ImageNode }) => {
+const ImageSection = ({ nodes }: { nodes: readonly ImageNode[] }) => {
   const input = useRef<HTMLInputElement>(null);
   const canvas = useEditor((s) => s.canvas);
   const upload = async (file: File | undefined) => {
@@ -669,12 +866,17 @@ const ImageSection = ({ node }: { node: ImageNode }) => {
       reportError(error);
     }
   };
+  const src = sharedOf(nodes, (n) => n.src);
   return (
     <Section title="Image">
       <Row label="Source">
         <TextInput
           onChange={(v) => set("src", v)}
-          value={node.src.startsWith("data:") ? "placeholder" : node.src}
+          {...shownAs(
+            typeof src === "string" && src.startsWith("data:")
+              ? "placeholder"
+              : src
+          )}
         />
         <IconButton
           onClick={() => input.current?.click()}
@@ -691,7 +893,10 @@ const ImageSection = ({ node }: { node: ImageNode }) => {
         />
       </Row>
       <Row label="Alt text">
-        <TextInput onChange={(v) => set("alt", v)} value={node.alt} />
+        <TextInput
+          onChange={(v) => set("alt", v)}
+          {...shownAs(sharedOf(nodes, (n) => n.alt))}
+        />
       </Row>
       <Row label="Fit">
         <Segmented
@@ -701,7 +906,7 @@ const ImageSection = ({ node }: { node: ImageNode }) => {
             { label: "Contain", value: "contain" },
             { label: "Fill", value: "fill" },
           ]}
-          value={node.fit ?? "cover"}
+          value={nullIfMixed(sharedOf(nodes, (n) => n.fit ?? "cover"))}
         />
       </Row>
     </Section>
@@ -710,12 +915,21 @@ const ImageSection = ({ node }: { node: ImageNode }) => {
 
 // ---- Layout ----
 
-type Stack = Extract<DesignNode, { type: "page" | "row" | "column" | "group" }>;
+/** A field of a page, a row or a column, which a group does not have. */
+const flexField = <K extends "gap" | "align" | "crossAlign" | "wrap">(
+  node: Stack,
+  field: K
+) => (node.type === "group" ? undefined : node[field]);
 
-const LayoutSection = ({ node }: { node: Stack }) => {
+const LayoutSection = ({ nodes }: { nodes: readonly Stack[] }) => {
   const spacing = useTokenOptions("spacing");
+  const [node] = nodes;
+  if (!node) {
+    return null;
+  }
+  // The icons are drawn the way the first one runs.
   const row = node.type === "row";
-  const flex = node.type !== "group";
+  const flex = nodes.every((n) => n.type !== "group");
   const MainStart = row
     ? AlignHorizontalJustifyStart
     : AlignVerticalJustifyStart;
@@ -746,7 +960,7 @@ const LayoutSection = ({ node }: { node: Stack }) => {
                 value: "column",
               },
             ]}
-            value={node.type}
+            value={nullIfMixed(sharedOf(nodes, (n) => n.type))}
           />
         </Row>
       )}
@@ -756,8 +970,10 @@ const LayoutSection = ({ node }: { node: Stack }) => {
             <ValueField
               onChange={(v) => set("gap", v)}
               options={spacing}
-              placeholder="0"
-              value={(node as { gap?: JsonValue }).gap}
+              {...shownAs(
+                sharedOf(nodes, (n) => flexField(n, "gap")),
+                "0"
+              )}
             />
           </Row>
           <Row label="Align">
@@ -789,7 +1005,9 @@ const LayoutSection = ({ node }: { node: Stack }) => {
                   value: "between",
                 },
               ]}
-              value={(node as { align?: string }).align ?? "start"}
+              value={nullIfMixed(
+                sharedOf(nodes, (n) => flexField(n, "align") ?? "start")
+              )}
             />
           </Row>
           <Row label="Across">
@@ -809,10 +1027,12 @@ const LayoutSection = ({ node }: { node: Stack }) => {
                   value: "stretch",
                 },
               ]}
-              value={(node as { crossAlign?: string }).crossAlign ?? "stretch"}
+              value={nullIfMixed(
+                sharedOf(nodes, (n) => flexField(n, "crossAlign") ?? "stretch")
+              )}
             />
           </Row>
-          {row && (
+          {nodes.every((n) => n.type === "row") && (
             <Row label="Wrap">
               <Segmented
                 onChange={(v) => set("wrap", v === "wrap" ? true : null)}
@@ -820,7 +1040,11 @@ const LayoutSection = ({ node }: { node: Stack }) => {
                   { label: "No wrap", value: "nowrap" },
                   { label: "Wrap", value: "wrap" },
                 ]}
-                value={(node as { wrap?: boolean }).wrap ? "wrap" : "nowrap"}
+                value={nullIfMixed(
+                  sharedOf(nodes, (n) =>
+                    flexField(n, "wrap") ? "wrap" : "nowrap"
+                  )
+                )}
               />
             </Row>
           )}
@@ -842,14 +1066,13 @@ const SizeField = ({
   value,
 }: {
   field: "width" | "height";
-  value: JsonValue | undefined;
+  value: Shared<JsonValue>;
 }) => (
   <ValueField
     leading={<span className="w-2.5">{field === "width" ? "W" : "H"}</span>}
     onChange={(v) => set(field, v)}
     options={SIZE_OPTIONS}
-    placeholder="Auto"
-    value={value}
+    {...shownAs(value, "Auto")}
   />
 );
 
@@ -860,15 +1083,14 @@ const LengthField = ({
 }: {
   field: string;
   short: string;
-  value: JsonValue | undefined;
+  value: Shared<JsonValue>;
 }) => (
   <ValueField
     accept={(q) => CSS.supports("width", q)}
     leading={<span className="w-2.5">{short}</span>}
     onChange={(v) => set(field, v)}
     options={[]}
-    placeholder="–"
-    value={value}
+    {...shownAs(value, "–")}
   />
 );
 
@@ -882,23 +1104,35 @@ const useFillWarnings = (frame: string, node: DesignNode) => {
     : [];
 };
 
-const SizeSection = ({ frame, node }: { frame: string; node: DesignNode }) => (
-  <Section title="Size">
-    <Row label="Size">
-      <SizeField field="width" value={node.width} />
-      <SizeField field="height" value={node.height} />
-    </Row>
-    <FillWarnings frame={frame} node={node} />
-    <Row label="Min">
-      <LengthField field="minWidth" short="W" value={node.minWidth} />
-      <LengthField field="minHeight" short="H" value={node.minHeight} />
-    </Row>
-    <Row label="Max">
-      <LengthField field="maxWidth" short="W" value={node.maxWidth} />
-      <LengthField field="maxHeight" short="H" value={node.maxHeight} />
-    </Row>
-  </Section>
-);
+const SizeSection = ({
+  frame,
+  nodes,
+}: {
+  frame: string;
+  nodes: readonly DesignNode[];
+}) => {
+  const [only] = nodes;
+  const of = (
+    field: "width" | "height" | `${"min" | "max"}${"Width" | "Height"}`
+  ) => sharedOf(nodes, (n) => n[field]);
+  return (
+    <Section title="Size">
+      <Row label="Size">
+        <SizeField field="width" value={of("width")} />
+        <SizeField field="height" value={of("height")} />
+      </Row>
+      {nodes.length === 1 && only && <FillWarnings frame={frame} node={only} />}
+      <Row label="Min">
+        <LengthField field="minWidth" short="W" value={of("minWidth")} />
+        <LengthField field="minHeight" short="H" value={of("minHeight")} />
+      </Row>
+      <Row label="Max">
+        <LengthField field="maxWidth" short="W" value={of("maxWidth")} />
+        <LengthField field="maxHeight" short="H" value={of("maxHeight")} />
+      </Row>
+    </Section>
+  );
+};
 
 const FillWarnings = ({ frame, node }: { frame: string; node: DesignNode }) =>
   useFillWarnings(frame, node).map((w) => (
@@ -910,26 +1144,34 @@ const FillWarnings = ({ frame, node }: { frame: string; node: DesignNode }) =>
 /** Padding or margin, side by side, each field lit on the side it sets. */
 const SidesSection = ({
   field,
-  node,
+  nodes,
   title,
 }: {
   field: "padding" | "margin";
-  node: DesignNode;
+  nodes: readonly DesignNode[];
   title: string;
 }) => {
   const spacing = useTokenOptions("spacing");
-  const value = node[field];
-  const sides = sidesOf(value);
-  const side = (key: Side) => (
-    <ValueField
-      leading={<SidesIcon className="text-foreground" lit={[key]} />}
-      onChange={(v) => set(field, withSides(value, [key], v))}
-      options={spacing}
-      placeholder="0"
-      title={`${title}, ${key}`}
-      value={sides[key]}
-    />
-  );
+  const side = (key: Side) => {
+    const shared = sharedSide(
+      nodes.map((n) => n[field]),
+      [key]
+    );
+    return (
+      <ValueField
+        leading={<SidesIcon className="text-foreground" lit={[key]} />}
+        // Each node keeps its own other sides.
+        onChange={(v) =>
+          setEach(`Change ${field}`, (n) => ({
+            [field]: withSides(n[field], [key], v),
+          }))
+        }
+        options={spacing}
+        title={`${title}, ${key}`}
+        {...shownAs(shared.mixed ? MIXED : shared.value, "0")}
+      />
+    );
+  };
   return (
     <Section title={title}>
       <Row label="">
@@ -953,26 +1195,43 @@ const OPACITY_OPTIONS: StyleOption[] = [1, 0.9, 0.75, 0.5, 0.25, 0.1, 0].map(
   })
 );
 
-const AppearanceSection = ({ node }: { node: DesignNode }) => {
+/** A border with one of its fields set, or taken off with `null`; none when nothing is left. */
+const withBorder = (
+  border: DesignNode["border"],
+  field: "width" | "color" | "style",
+  value: JsonValue
+): JsonValue => {
+  const next: Record<string, JsonValue> = { ...border };
+  if (value === null) {
+    delete next[field];
+  } else {
+    next[field] = value;
+  }
+  return Object.keys(next).length === 0 ? null : next;
+};
+
+const AppearanceSection = ({ nodes }: { nodes: readonly DesignNode[] }) => {
   const radius = useTokenOptions("radius");
   const shadows = useTokenOptions("shadow");
-  const border = node.border ?? {};
-  const setBorder = (field: string) => (value: JsonValue) => {
-    const next: Record<string, JsonValue> = { ...border };
-    if (value === null) {
-      delete next[field];
-    } else {
-      next[field] = value;
-    }
-    set("border", Object.keys(next).length === 0 ? null : next);
-  };
-  const borderColor = useColorOf(border.color);
+  const border = (field: "width" | "color" | "style") =>
+    sharedOf(nodes, (n) => n.border?.[field]);
+  // Each node keeps the rest of its own border.
+  const setBorder =
+    (field: "width" | "color" | "style") => (value: JsonValue) =>
+      setEach("Change border", (n) => ({
+        border: withBorder(n.border, field, value),
+      }));
+  const borderColor = border("color");
+  const swatch = useColorOf(borderColor === MIXED ? undefined : borderColor);
   const borderColors = useTokenOptions("color");
   return (
     <>
       <Section title="Fill">
         <Row label="Background">
-          <ColorField field="fill" value={node.fill} />
+          <ColorField
+            field="fill"
+            {...shownAs(sharedOf(nodes, (n) => n.fill))}
+          />
         </Row>
       </Section>
       <Section title="Border">
@@ -983,18 +1242,16 @@ const AppearanceSection = ({ node }: { node: DesignNode }) => {
               label: String(w),
               value: String(w),
             }))}
-            placeholder="None"
-            value={border.width}
+            {...shownAs(border("width"), "None")}
           />
         </Row>
         <Row label="Colour">
           <ValueField
             accept={(q) => CSS.supports("color", q)}
-            leading={<Swatch color={borderColor} />}
+            leading={<Swatch color={swatch} />}
             onChange={setBorder("color")}
             options={borderColors}
-            placeholder="Current colour"
-            value={border.color}
+            {...shownAs(borderColor, "Current colour")}
           />
         </Row>
         <Row label="Style">
@@ -1005,15 +1262,19 @@ const AppearanceSection = ({ node }: { node: DesignNode }) => {
               { label: "Dashed", value: "dashed" },
               { label: "Dotted", value: "dotted" },
             ]}
-            value={border.style ?? "solid"}
+            value={nullIfMixed(
+              sharedOf(nodes, (n) => n.border?.style ?? "solid")
+            )}
           />
         </Row>
         <Row label="Radius">
           <ValueField
             onChange={(v) => set("radius", v)}
             options={radius}
-            placeholder="0"
-            value={node.radius}
+            {...shownAs(
+              sharedOf(nodes, (n) => n.radius),
+              "0"
+            )}
           />
         </Row>
       </Section>
@@ -1023,8 +1284,10 @@ const AppearanceSection = ({ node }: { node: DesignNode }) => {
             accept={(q) => CSS.supports("box-shadow", q)}
             onChange={(v) => set("shadow", v)}
             options={shadows}
-            placeholder="None"
-            value={node.shadow}
+            {...shownAs(
+              sharedOf(nodes, (n) => n.shadow),
+              "None"
+            )}
           />
         </Row>
         <Row label="Opacity">
@@ -1040,8 +1303,10 @@ const AppearanceSection = ({ node }: { node: DesignNode }) => {
               );
             }}
             options={OPACITY_OPTIONS}
-            placeholder="100%"
-            value={node.opacity}
+            {...shownAs(
+              sharedOf(nodes, (n) => n.opacity),
+              "100%"
+            )}
           />
         </Row>
       </Section>
@@ -1051,7 +1316,7 @@ const AppearanceSection = ({ node }: { node: DesignNode }) => {
 
 // ---- Prototype ----
 
-const LinkSection = ({ node }: { node: DesignNode }) => {
+const LinkSection = ({ nodes }: { nodes: readonly DesignNode[] }) => {
   const canvas = useEditor((s) => s.canvas);
   const pages = useProject((s) => s.pages);
   // A link names a URL: the pages that serve one, as their name and URL.
@@ -1061,7 +1326,8 @@ const LinkSection = ({ node }: { node: DesignNode }) => {
         p.canvas === canvas && p.variant === undefined && p.route !== undefined
     )
     .sort((a, b) => (a.route ?? "").localeCompare(b.route ?? ""));
-  const link = node.link ?? "";
+  const shared = sharedOf(nodes, (n) => n.link);
+  const link = shared === MIXED ? "" : (shared ?? "");
   const broken =
     link !== "" && !targets.some((p) => p.route === normaliseRoute(link));
   return (
@@ -1077,8 +1343,9 @@ const LinkSection = ({ node }: { node: DesignNode }) => {
             })),
             ...(broken ? [{ label: `${link} (no page)`, value: link }] : []),
           ]}
+          placeholder="Mixed"
           size="sm"
-          value={link}
+          value={shared === MIXED ? null : link}
         />
       </Row>
     </Section>

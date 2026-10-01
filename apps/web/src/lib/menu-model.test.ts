@@ -9,6 +9,8 @@ import {
   type NodeFacts,
   nodeEntries,
   pageEntries,
+  sharedTokenFields,
+  textStyleEntries,
   tidy,
   tokenEntries,
   tokenFields,
@@ -25,11 +27,14 @@ const page: DesignNode = { children: [row], id: "home", type: "page" };
 
 const facts = (over: Partial<NodeFacts> = {}): NodeFacts => ({
   canPaste: false,
+  count: 1,
+  hidden: false,
   index: 1,
   node: row,
   onPage: true,
   parentSelectable: true,
   siblings: 3,
+  wrappable: true,
   ...over,
 });
 
@@ -105,13 +110,69 @@ describe("the node menu", () => {
     expect(loose).not.toContain("selectParent");
   });
 
-  it("says Show for a hidden node", () => {
+  it("says Show when every node it acts on is hidden", () => {
     expect(
-      find(
-        nodeEntries(facts({ node: { ...row, hidden: true } })),
-        "toggleHidden"
-      )
+      find(nodeEntries(facts({ hidden: true })), "toggleHidden")
     ).toMatchObject({ label: "Show" });
+    expect(find(nodeEntries(facts()), "toggleHidden")).toMatchObject({
+      label: "Hide",
+    });
+  });
+});
+
+describe("the node menu, several selected", () => {
+  const several = nodeEntries(facts({ count: 3, node: text }));
+
+  it("says how many it acts on", () => {
+    expect(several[0]).toEqual({ kind: "label", label: "3 selected" });
+    expect(find(several, "delete")).toMatchObject({
+      destructive: true,
+      label: "Delete 3 elements",
+    });
+  });
+
+  it("greys out what is about one node only", () => {
+    for (const id of [
+      "editText",
+      "rename",
+      "viewCode",
+      "comment",
+      "selectParent",
+      "copyLink",
+      "copyRef",
+      "arrange",
+    ]) {
+      expect(find(several, id)).toMatchObject({ disabled: true });
+    }
+  });
+
+  it("keeps what acts on all of them", () => {
+    for (const id of [
+      "ask",
+      "askNew",
+      "copy",
+      "cut",
+      "duplicate",
+      "wrap",
+      "toggleHidden",
+      "delete",
+    ]) {
+      expect(find(several, id)).not.toMatchObject({ disabled: true });
+    }
+  });
+
+  it("wraps them together only when they are siblings", () => {
+    expect(
+      find(nodeEntries(facts({ count: 2, wrappable: false })), "wrap")
+    ).toMatchObject({ disabled: true });
+  });
+
+  it("is the menu it was for one node", () => {
+    const one = nodeEntries(facts());
+    expect(one[0]).toMatchObject({ kind: "label" });
+    expect(one[0]).not.toMatchObject({ label: "1 selected" });
+    expect(find(one, "rename")).toMatchObject({ disabled: false });
+    expect(find(one, "delete")).toMatchObject({ label: "Delete" });
   });
 });
 
@@ -257,11 +318,42 @@ describe("tokens", () => {
     const got = tokenEntries({
       kind: "radius",
       name: "radius-lg",
-      selected: null,
+      selected: [],
       value: "0.5rem",
     });
     expect(find(got, "apply")).toMatchObject({ disabled: true });
     expect(ids(got)).toContain("copyRef");
+  });
+
+  it("fit only the fields every selected node has", () => {
+    expect(sharedTokenFields("color", [text, row]).map((f) => f.field)).toEqual(
+      ["fill", "border.color"]
+    );
+    expect(sharedTokenFields("font", [text, row])).toEqual([]);
+    expect(sharedTokenFields("color", [])).toEqual([]);
+    const got = tokenEntries({
+      kind: "color",
+      name: "primary",
+      selected: [text, row],
+      value: "#000",
+    });
+    expect(find(got, "apply")).toMatchObject({
+      disabled: false,
+      label: "Apply to 2 elements",
+    });
+  });
+});
+
+describe("text styles", () => {
+  it("apply when every selected node is text", () => {
+    const other: DesignNode = { ...text, id: "t2" };
+    const texts = textStyleEntries({ name: "Body", selected: [text, other] });
+    expect(find(texts, "apply:textStyle")).toMatchObject({
+      disabled: false,
+      label: "Apply to 2 elements",
+    });
+    const mixed = textStyleEntries({ name: "Body", selected: [text, row] });
+    expect(find(mixed, "apply:textStyle")).toMatchObject({ disabled: true });
   });
 });
 

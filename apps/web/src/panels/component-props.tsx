@@ -11,6 +11,7 @@ import { Row, Section } from "../components/panel.tsx";
 import { componentMetaOf, useCatalogue } from "../state/catalogue.ts";
 
 const HIDDEN = new Set(["children", "className", "key", "ref", "style"]);
+const NONE: ReadonlySet<string> = new Set();
 
 /** The catalogue's entry for an instance: the same export from the same module. */
 export const useComponentMeta = (node: InstanceNode) =>
@@ -19,12 +20,16 @@ export const useComponentMeta = (node: InstanceNode) =>
 /**
  * Editable props of an instance of the design system. The catalogue says what the component
  * takes and of which types; what the node sets that the catalogue does not know is listed too.
+ * For several instances of one component, `node` holds the props they share and `mixed` names
+ * the ones they set differently, which read as mixed until one value is set on all of them.
  */
 export const ComponentProps = ({
   node,
+  mixed = NONE,
   onSet,
 }: {
   node: InstanceNode;
+  mixed?: ReadonlySet<string>;
   onSet: (name: string, value: JsonValue) => void;
 }) => {
   const meta: ComponentMeta | undefined = useComponentMeta(node);
@@ -33,7 +38,7 @@ export const ComponentProps = ({
   for (const p of meta?.props ?? []) {
     names.add(p.name);
   }
-  for (const k of Object.keys(props)) {
+  for (const k of [...Object.keys(props), ...mixed]) {
     names.add(k);
   }
   const list = Array.from(names).filter(
@@ -49,12 +54,13 @@ export const ComponentProps = ({
       {list.map((name) => {
         const propMeta = meta?.props.find((p) => p.name === name);
         const value: JsonValue = props[name] ?? null;
-        const isSet = name in props;
+        const isSet = name in props || mixed.has(name);
         return (
           <Row className={isSet ? "" : "opacity-70"} key={name} label={name}>
             <PropControl
               disabled={disabled}
               meta={propMeta}
+              mixed={mixed.has(name)}
               name={name}
               onSet={onSet}
               value={value}
@@ -68,6 +74,21 @@ export const ComponentProps = ({
 };
 
 type SetProp = (name: string, value: JsonValue) => void;
+
+/** What a control shows for a prop the instances set differently. */
+const MIXED = "Mixed";
+
+/** What a control shows while nothing is set: mixed, or the default the component falls to. */
+const placeholderOf = (
+  mixed: boolean,
+  meta: PropMeta | undefined,
+  show: (value: unknown) => string
+) => {
+  if (mixed) {
+    return MIXED;
+  }
+  return meta?.defaultValue === undefined ? "unset" : show(meta.defaultValue);
+};
 
 const inferKind = (value: JsonValue, variants?: readonly string[]) => {
   if (typeof value === "boolean") {
@@ -95,11 +116,13 @@ const blurOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
 const BooleanControl = ({
   name,
   value,
+  mixed,
   onSet,
   disabled,
 }: {
   name: string;
   value: JsonValue;
+  mixed: boolean;
   onSet: SetProp;
   disabled: boolean;
 }) => {
@@ -112,7 +135,7 @@ const BooleanControl = ({
         disabled={disabled}
         onCheckedChange={onCheckedChange}
       />
-      {booleanLabel(value)}
+      {mixed ? MIXED : booleanLabel(value)}
     </Label>
   );
 };
@@ -121,6 +144,7 @@ const EnumControl = ({
   name,
   meta,
   value,
+  mixed,
   members,
   onSet,
   disabled,
@@ -128,6 +152,7 @@ const EnumControl = ({
   name: string;
   meta?: PropMeta;
   value: JsonValue;
+  mixed: boolean;
   members: readonly string[];
   onSet: SetProp;
   disabled: boolean;
@@ -142,11 +167,11 @@ const EnumControl = ({
           ...members.map((m) => ({ label: m, value: m })),
           { label: "unset (default)", value: "__unset" },
         ]}
-        placeholder={
-          meta?.defaultValue === undefined
-            ? "unset"
-            : `default (${String(meta.defaultValue)})`
-        }
+        placeholder={placeholderOf(
+          mixed,
+          meta,
+          (d) => `default (${String(d)})`
+        )}
         size="sm"
         value={typeof value === "string" ? value : null}
       />
@@ -157,11 +182,13 @@ const EnumControl = ({
 const NumberControl = ({
   name,
   value,
+  mixed,
   onSet,
   disabled,
 }: {
   name: string;
   value: JsonValue;
+  mixed: boolean;
   onSet: SetProp;
   disabled: boolean;
 }) => {
@@ -187,6 +214,7 @@ const NumberControl = ({
       onBlur={onBlur}
       onChange={onChange}
       onKeyDown={blurOnEnter}
+      placeholder={mixed ? MIXED : undefined}
       type="number"
       value={draft ?? (typeof value === "number" ? String(value) : "")}
     />
@@ -197,12 +225,14 @@ const TextControl = ({
   name,
   meta,
   value,
+  mixed,
   onSet,
   disabled,
 }: {
   name: string;
   meta?: PropMeta;
   value: JsonValue;
+  mixed: boolean;
   onSet: SetProp;
   disabled: boolean;
 }) => {
@@ -231,9 +261,7 @@ const TextControl = ({
       onBlur={onBlur}
       onChange={onChange}
       onKeyDown={onKeyDown}
-      placeholder={
-        meta?.defaultValue === undefined ? "unset" : String(meta.defaultValue)
-      }
+      placeholder={placeholderOf(mixed, meta, String)}
       value={draft ?? (typeof value === "string" ? value : "")}
     />
   );
@@ -243,6 +271,7 @@ const PropControl = ({
   name,
   meta,
   value,
+  mixed,
   onSet,
   disabled,
   variants,
@@ -250,6 +279,7 @@ const PropControl = ({
   name: string;
   meta?: PropMeta;
   value: JsonValue;
+  mixed: boolean;
   onSet: SetProp;
   disabled: boolean;
   variants?: readonly string[];
@@ -261,6 +291,7 @@ const PropControl = ({
     return (
       <BooleanControl
         disabled={disabled}
+        mixed={mixed}
         name={name}
         onSet={onSet}
         value={value}
@@ -273,6 +304,7 @@ const PropControl = ({
         disabled={disabled}
         members={members}
         meta={meta}
+        mixed={mixed}
         name={name}
         onSet={onSet}
         value={value}
@@ -283,6 +315,7 @@ const PropControl = ({
     return (
       <NumberControl
         disabled={disabled}
+        mixed={mixed}
         name={name}
         onSet={onSet}
         value={value}
@@ -290,12 +323,17 @@ const PropControl = ({
     );
   }
   if (kind === "node" || kind === "function" || kind === "object") {
+    let shown =
+      value === null ? (meta?.type.raw ?? kind) : JSON.stringify(value);
+    if (mixed) {
+      shown = MIXED;
+    }
     return (
       <span
         className="truncate font-mono text-[10px] text-muted-foreground"
         title={meta?.type.raw}
       >
-        {value === null ? (meta?.type.raw ?? kind) : JSON.stringify(value)}
+        {shown}
       </span>
     );
   }
@@ -303,6 +341,7 @@ const PropControl = ({
     <TextControl
       disabled={disabled}
       meta={meta}
+      mixed={mixed}
       name={name}
       onSet={onSet}
       value={value}
