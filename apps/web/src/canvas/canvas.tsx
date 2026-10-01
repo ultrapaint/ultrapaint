@@ -9,8 +9,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { Button } from "@/components/ui/button";
-import { openSetup } from "../components/setup-dialog.tsx";
 import { useComments } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
 import { openMenuAt } from "../state/context-menu.ts";
@@ -52,6 +50,7 @@ import {
   useDrag,
 } from "./drag.ts";
 import { CreateOverlay, DragOverlay } from "./drag-overlay.tsx";
+import { EmptyState } from "./empty-state.tsx";
 import { type Corner, drawResized, Frame, useHostUrl } from "./frame.tsx";
 import { addImages, imageFiles } from "./items.ts";
 
@@ -66,7 +65,6 @@ export const Canvas = () => {
   const mode = useEditor((s) => s.mode);
   const spacePan = useEditor((s) => s.spacePan);
   const allPages = useProject((s) => s.pages);
-  const configured = useProject((s) => s.info.configured);
   const pages = allPages.filter((p) => p.canvas === canvas);
   const nodes = useDocuments((s) => canvasNodes(s.docs, canvas));
   const sizes = useEditor((s) => s.sizes);
@@ -625,24 +623,7 @@ export const Canvas = () => {
         <DragOverlay zoom={view.zoom} />
         <CreateOverlay zoom={view.zoom} />
       </div>
-      {pages.length === 0 && nodes.length === 0 && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-muted-foreground">
-          {configured ? (
-            <span>
-              {canvas === null
-                ? "Open a canvas from the Pages panel"
-                : "Nothing on this canvas yet: add a page, or place a component or an image on it"}
-            </span>
-          ) : (
-            <span className="pointer-events-auto flex items-center gap-2">
-              No repository set up yet.
-              <Button onClick={openSetup} size="sm" variant="outline">
-                Set up…
-              </Button>
-            </span>
-          )}
-        </div>
-      )}
+      {pages.length === 0 && nodes.length === 0 && <EmptyState />}
     </div>
   );
 };

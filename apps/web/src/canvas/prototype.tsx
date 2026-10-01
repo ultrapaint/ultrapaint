@@ -1,4 +1,3 @@
-import { presetSize } from "@ultrapaint/contracts/pages";
 import type { HostMessage } from "@ultrapaint/contracts/preview";
 import { basePathOf } from "@ultrapaint/shared/route";
 import { cn } from "cn";
@@ -16,12 +15,19 @@ import {
   useRef,
   useState,
 } from "react";
+import { create } from "zustand";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { IconButton } from "../components/icon-button.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { followLink } from "../lib/links.ts";
 import { editPageUrl, NO_URL_HINT } from "../lib/page-actions.ts";
+import {
+  deviceSize,
+  type PrototypeDevice,
+  parseDevice,
+  prototypeDevices,
+} from "../lib/presets.ts";
 import { toggleCommenting, useComments } from "../state/comments.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useDocuments } from "../state/documents.ts";
@@ -37,6 +43,27 @@ const inset = { bottom: 72, side: 32, top: 64 };
 
 /** Asks the prototype to reload its iframe, which restarts the canvas from its current route. */
 const RELOAD_EVENT = "ultrapaint:reload-prototype";
+
+const DEVICE_KEY = "ultrapaint:prototype-device";
+
+/**
+ * The device the prototype is tried on. It sizes the preview alone, never the page's frame: a
+ * design drawn for the desktop can be clicked through on a phone without being redrawn. A
+ * preference of this browser, kept across reloads.
+ */
+const useDevice = create<{
+  device: PrototypeDevice;
+  setDevice: (device: PrototypeDevice) => void;
+}>((set) => ({
+  device: parseDevice(localStorage.getItem(DEVICE_KEY)),
+  setDevice: (device) => {
+    localStorage.setItem(DEVICE_KEY, device);
+    set({ device });
+  },
+}));
+
+const pickDevice = (value: string) =>
+  useDevice.getState().setDevice(parseDevice(value));
 
 /** The one iframe of a prototype. Navigating swaps the page inside it, it never reloads. */
 export const frameIdOf = (canvas: string) => `prototype:${canvas}`;
@@ -119,9 +146,10 @@ const PageComments = ({
 };
 
 /**
- * The canvas at the size of the current page's frame, scaled down only when it does not fit,
- * with clicks going to the page itself. The editor holds the route: what a link inside asks
- * for comes back out as a navigation, and the iframe is told what to show.
+ * The canvas at the size of the current page's frame, or of the device picked under it, scaled
+ * down only when it does not fit, with clicks going to the page itself. The editor holds the
+ * route: what a link inside asks for comes back out as a navigation, and the iframe is told what
+ * to show.
  */
 export const Prototype = () => {
   const ref = useRef<HTMLDivElement>(null);
@@ -136,6 +164,7 @@ export const Prototype = () => {
   const title =
     route ?? pages.find((p) => p.id === activePage)?.name ?? "Prototype";
   const hostUrl = useHostUrl();
+  const device = useDevice((s) => s.device);
   const [area, setArea] = useState({ height: 0, width: 0 });
   const [reloads, setReloads] = useState(0);
   const hasPages = canvas !== null && pages.some((p) => p.canvas === canvas);
@@ -163,7 +192,7 @@ export const Prototype = () => {
       ? `${hostUrl}/?canvas=${encodeURIComponent(canvas)}&frame=${encodeURIComponent(frameIdOf(canvas))}`
       : null;
 
-  const size = frame ?? presetSize.desktop;
+  const size = deviceSize(device, frame);
   const scale = Math.min(
     1,
     (area.width - inset.side * 2) / size.width,
@@ -334,7 +363,8 @@ const pageOption = (page: {
 
 /**
  * Floating strip under the prototype: the canvas's history, the page it is on, the variant it
- * clicks through when the canvas has variants, commenting on the page, and a restart. A page
+ * clicks through when the canvas has variants, the device it is tried on, commenting on the page,
+ * and a restart. A page
  * without a URL is on the list too, and says so over the bar when it is shown.
  */
 export const PrototypeBar = () => {
@@ -342,6 +372,7 @@ export const PrototypeBar = () => {
   const activePage = useEditor((s) => s.activePage);
   const variant = useEditor((s) => s.variant);
   const commenting = useEditor((s) => s.mode === "comment");
+  const device = useDevice((s) => s.device);
   const variants = useProject(
     (s) => s.canvases.find((c) => c.id === canvas)?.variants ?? NO_VARIANTS
   );
@@ -422,6 +453,14 @@ export const PrototypeBar = () => {
         >
           <MessageCircle />
         </IconButton>
+        <div className="w-28">
+          <OptionSelect
+            className="border-transparent bg-transparent dark:bg-transparent"
+            onChange={pickDevice}
+            options={prototypeDevices}
+            value={device}
+          />
+        </div>
         <IconButton
           className="size-8 rounded-lg"
           disabled={canvas === null}
