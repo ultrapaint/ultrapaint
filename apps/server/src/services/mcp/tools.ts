@@ -9,14 +9,26 @@
  */
 import { Json, type JsonValue } from "@ultrapaint/contracts/base";
 import { DocOp } from "@ultrapaint/contracts/document";
-import { presetSize } from "@ultrapaint/contracts/pages";
+import {
+  type FrameLayout,
+  type Page,
+  presetSize,
+} from "@ultrapaint/contracts/pages";
 import { newInstance } from "@ultrapaint/design-document/factories";
 import { fillIds, makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { touchedBy } from "@ultrapaint/design-document/ops";
 import { fillWarnings } from "@ultrapaint/design-document/sizing";
-import { canvasDocOf } from "@ultrapaint/design-document/tree";
+import {
+  canvasDocOf,
+  isPageFile,
+  walk,
+} from "@ultrapaint/design-document/tree";
 import { parseNodeRef } from "@ultrapaint/shared/node-ref";
-import { normaliseRoute } from "@ultrapaint/shared/route";
+import {
+  basePathOf,
+  matchRoute,
+  normaliseRoute,
+} from "@ultrapaint/shared/route";
 import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/unstable/ai";
 import { EventBus } from "../../events.ts";
@@ -25,7 +37,7 @@ import { CatalogueService } from "../catalogue.ts";
 import { CommentsService } from "../comments.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { DocumentService } from "../documents.ts";
-import { PagesService } from "../pages.ts";
+import { type CopyTarget, PagesService } from "../pages.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import {
   designSystemSchema,
@@ -67,6 +79,8 @@ const PAGE_PARAMETER =
   "The page: its URL (/settings/billing), or its file (drafts/billing.page.json), which is the only way to name a page without a URL or a variant's page.";
 
 const CanvasSummary = Schema.Struct({
+  /** The URL its prototype opens on; set it with set_home. */
+  home: Schema.String,
   /** What `canvas` takes: the designs directory's own is `""`. */
   id: Schema.String,
   name: Schema.String,
@@ -290,7 +304,7 @@ const CreatePage = Tool.make("create_page", {
     name: Schema.String,
     /** The URL it serves in the prototype, `/settings/billing`; none when left out. */
     route: Schema.optional(Schema.String),
-    /** One of the project's page templates; the plain one when left out. */
+    /** One of the ids list_templates gives; the blank one when left out. */
     template: Schema.optional(Schema.String),
   }),
   success: Schema.Struct({
@@ -329,6 +343,122 @@ const SetPageUrl = Tool.make("set_page_url", {
     route: Schema.optional(Schema.String),
   }),
 });
+
+const DeletePage = Tool.make("delete_page", {
+  description:
+    "Delete a page. A base page takes its variants' pages with it; the comments left on them go too. One undo step for the user, which brings all of it back. Links to its URL lead nowhere afterwards: list_links finds them.",
+  failure: Failure,
+  parameters: Schema.Struct({
+    /** Needed only when the URL is a page in more than one canvas. */
+    canvas: Schema.optional(Schema.String),
+    route: Schema.String.annotate({ description: PAGE_PARAMETER }),
+  }),
+  success: Schema.Struct({
+    /** Every file deleted: the page's, then its variants'. */
+    deleted: Schema.Array(Schema.String),
+  }),
+});
+
+const DuplicatePage = Tool.make("duplicate_page", {
+  description:
+    "Copy a page into a new file beside it, numbered after its name (pricing-2.page.json), with its frame to the right of the original's. The copy serves no URL, since two pages never serve one: give it one with set_page_url. Node ids are kept.",
+  failure: Failure,
+  parameters: Schema.Struct({
+    /** Needed only when the URL is a page in more than one canvas. */
+    canvas: Schema.optional(Schema.String),
+    route: Schema.String.annotate({ description: PAGE_PARAMETER }),
+  }),
+  success: Schema.Struct({ file: Schema.String }),
+});
+
+const CopyPages = Tool.make("copy_pages", {
+  description:
+    "Copy or move pages into another canvas, or into a new canvas made for them, at the same files and URLs and with their frames where they were. A base page takes its variants along. A move takes the pages' comments too; a copy starts without. Refused when the target has a page of the same file, or serving one of the URLs, already. Links to URLs that did not come along lead nowhere there.",
+  failure: Failure,
+  parameters: Schema.Struct({
+    /** The canvas the pages are in; needed only when the project has several. */
+    canvas: Schema.optional(Schema.String),
+    /** Move them instead of copying: they leave the canvas they are in. */
+    move: Schema.optional(Schema.Boolean),
+    /** Name of a new canvas to put them in; give this or `to`. */
+    newCanvas: Schema.optional(Schema.String),
+    /** The pages, each by its URL or its file, all from one canvas. */
+    pages: Schema.Array(Schema.String),
+    /** Id of the canvas to put them in; give this or `newCanvas`. */
+    to: Schema.optional(Schema.String),
+  }),
+  success: Schema.Struct({
+    /** Id of the canvas they are in now. */
+    canvas: Schema.String,
+    pages: Schema.Array(
+      Schema.Struct({
+        file: Schema.String,
+        route: Schema.optional(Schema.String),
+      })
+    ),
+  }),
+});
+
+const CreateCanvas = Tool.make("create_canvas", {
+  description:
+    "Make a new, empty canvas: a directory of its own with its own pages, URLs and prototype, listed after the others. Its id, which `canvas` takes, is its name made safe.",
+  failure: Failure,
+  parameters: Schema.Struct({ name: Schema.String }),
+  success: Schema.Struct({ id: Schema.String, name: Schema.String }),
+});
+
+const SetHome = Tool.make("set_home", {
+  description:
+    "Choose where the canvas's prototype opens: the URL of one of its pages. The page must serve a URL (set_page_url gives it one). The canvas keeps opening there when the page's URL changes, and falls back to another page's when the page goes.",
+  failure: Failure,
+  parameters: Schema.Struct({
+    /** Needed only when the URL is a page in more than one canvas. */
+    canvas: Schema.optional(Schema.String),
+    route: Schema.String.annotate({ description: PAGE_PARAMETER }),
+  }),
+  success: Schema.Struct({ canvas: Schema.String, home: Schema.String }),
+});
+
+const ListTemplates = Tool.make("list_templates", {
+  description:
+    "The templates create_page can start a page from, by id and name. The blank one is used when create_page is given none.",
+  failure: Failure,
+  success: Schema.Struct({
+    templates: Schema.Array(
+      Schema.Struct({ id: Schema.String, name: Schema.String })
+    ),
+  }),
+}).annotate(Tool.Readonly, true);
+
+const LinkSummary = Schema.Struct({
+  /** Why the link leads nowhere; absent when it leads somewhere. */
+  broken: Schema.optional(Schema.String),
+  /** What it is: a URL of the canvas, a page file, "back", or an address outside. */
+  kind: Schema.Literals(["url", "page", "back", "external", "unknown"]),
+  link: Schema.String,
+  node: Schema.String,
+  /** The page the node is in, or null for a node placed on the canvas beside the pages. */
+  page: Schema.NullOr(Schema.String),
+  /** The file of the page it leads to, when it leads to one. */
+  target: Schema.optional(Schema.String),
+});
+
+const ListLinks = Tool.make("list_links", {
+  description:
+    'Every node of a canvas that links somewhere in the prototype, with the page it is in and where it leads, and the broken ones said so. A link is a URL a page of the canvas serves (/settings/billing, /invoices/42), a page file of the canvas (drafts/billing.page.json), "back", or an http(s) address outside. Run it after renaming URLs, deleting or moving pages, and fix what it reports with apply_operations (update the node\'s "link").',
+  failure: Failure,
+  parameters: Schema.Struct({
+    /** Only the links that lead nowhere. */
+    brokenOnly: Schema.optional(Schema.Boolean),
+    /** Needed only when the project has several canvases. */
+    canvas: Schema.optional(Schema.String),
+  }),
+  success: Schema.Struct({
+    /** How many of all of them lead nowhere. */
+    broken: Schema.Number,
+    links: Schema.Array(LinkSummary),
+  }),
+}).annotate(Tool.Readonly, true);
 
 const ReplyToComment = Tool.make("reply_to_comment", {
   description:
@@ -382,10 +512,17 @@ export const EditorTools = Toolkit.make(
   ListComponents,
   GetComponent,
   ListComments,
+  ListTemplates,
   CreatePage,
   SetFrame,
   RenamePage,
   SetPageUrl,
+  DeletePage,
+  DuplicatePage,
+  CopyPages,
+  CreateCanvas,
+  SetHome,
+  ListLinks,
   ReplyToComment,
   ResolveComment,
   Focus
@@ -405,6 +542,52 @@ export const reported = <A, E extends { readonly message: string }, R>(
 
 export const missing = (message: string) =>
   Effect.fail(new ToolFailure({ message }));
+
+const EXTERNAL_LINK_RE = /^https?:\/\//i;
+
+/**
+ * Where a link leads in a canvas whose pages are these: a URL one of them serves, one of their
+ * files, back to where the prototype was, or an address outside, which is not followed here.
+ * Anything else, and a URL or a file no page answers to, leads nowhere, and says why.
+ */
+export const linkTargetOf = (
+  link: string,
+  pages: readonly Page[]
+): {
+  readonly broken?: string;
+  readonly kind: "url" | "page" | "back" | "external" | "unknown";
+  readonly target?: string;
+} => {
+  const trimmed = link.trim();
+  if (trimmed === "back") {
+    return { kind: "back" };
+  }
+  if (EXTERNAL_LINK_RE.test(trimmed)) {
+    return { kind: "external" };
+  }
+  if (trimmed.startsWith("/")) {
+    const served = matchRoute(
+      pages.filter((p) => p.variant === undefined),
+      trimmed
+    );
+    return served
+      ? { kind: "url", target: served.entry.file }
+      : {
+          broken: `no page of the canvas serves ${normaliseRoute(trimmed)}`,
+          kind: "url",
+        };
+  }
+  if (isPageFile(trimmed)) {
+    const page = pages.find((p) => p.path === trimmed);
+    return page
+      ? { kind: "page", target: page.file }
+      : { broken: `no page file ${trimmed} in the canvas`, kind: "page" };
+  }
+  return {
+    broken: `${trimmed} is neither a URL starting with /, a page file, "back" nor an http(s) address`,
+    kind: "unknown",
+  };
+};
 
 /** Documents and the design system are JSON through and through; their types only say more. */
 const asJson = (value: unknown) => value as JsonValue;
@@ -505,6 +688,10 @@ export const EditorToolsLive = EditorTools.toLayer(
       f: (service: DesignSystemService["Service"]) => Effect.Effect<A, E>
     ) => reported(project.use(Effect.flatMap(DesignSystemService, f)));
 
+    const pagesService = <A, E extends { readonly message: string }>(
+      f: (service: PagesService["Service"]) => Effect.Effect<A, E>
+    ) => reported(project.use(Effect.flatMap(PagesService, f)));
+
     return {
       apply_operations: Effect.fnUntraced(function* ({
         canvas,
@@ -585,6 +772,47 @@ export const EditorToolsLive = EditorTools.toLayer(
         };
       }),
 
+      copy_pages: Effect.fnUntraced(function* ({
+        canvas,
+        move,
+        newCanvas,
+        pages: given,
+        to,
+      }) {
+        if ((to === undefined) === (newCanvas === undefined)) {
+          return yield* missing(
+            "say where the pages go: `to` with the id of a canvas there is, or `newCanvas` with the name of one to make"
+          );
+        }
+        if (given.length === 0) {
+          return yield* missing("name the pages to copy in `pages`");
+        }
+        const chosen = yield* Effect.forEach(given, (p) => pageAt(p, canvas));
+        const target: CopyTarget =
+          newCanvas === undefined
+            ? { canvas: yield* canvasOf(to) }
+            : { name: newCanvas };
+        const copied = yield* pagesService((pages) =>
+          pages.copyTo(
+            chosen.map((p) => p.id),
+            target,
+            move ?? false
+          )
+        );
+        return {
+          canvas: copied[0]?.canvas ?? "",
+          pages: copied.map((page) => ({
+            file: page.file,
+            ...(page.route !== undefined && { route: page.route }),
+          })),
+        };
+      }),
+
+      create_canvas: Effect.fnUntraced(function* ({ name }) {
+        const made = yield* pagesService((pages) => pages.createCanvas(name));
+        return { id: made.id, name: made.name };
+      }),
+
       create_page: Effect.fnUntraced(function* ({
         canvas,
         name,
@@ -606,6 +834,29 @@ export const EditorToolsLive = EditorTools.toLayer(
           file: page.file,
           ...(page.route !== undefined && { route: page.route }),
         };
+      }),
+
+      delete_page: Effect.fnUntraced(function* ({ route, canvas }) {
+        const page = yield* pageAt(route, canvas);
+        const { pages } = yield* reported(pagesOf);
+        // What goes with it, as the editor deletes it: a base page's variants.
+        const variants =
+          page.variant === undefined
+            ? pages.filter(
+                (p) =>
+                  p.canvas === page.canvas &&
+                  p.id !== page.id &&
+                  basePathOf(p.path) === page.path
+              )
+            : [];
+        yield* pagesService((service) => service.delete(page.id));
+        return { deleted: [page.file, ...variants.map((p) => p.file)] };
+      }),
+
+      duplicate_page: Effect.fnUntraced(function* ({ route, canvas }) {
+        const page = yield* pageAt(route, canvas);
+        const copy = yield* pagesService((pages) => pages.duplicate(page.id));
+        return { file: copy.file };
       }),
 
       focus: Effect.fnUntraced(function* ({ action, nodes, route, canvas }) {
@@ -656,6 +907,7 @@ export const EditorToolsLive = EditorTools.toLayer(
         const pages = yield* reported(pagesOf);
         return {
           canvases: pages.canvases.map((canvas) => ({
+            home: canvas.home,
             id: canvas.id,
             name: canvas.name,
             pages: pages.pages.filter((p) => p.canvas === canvas.id).length,
@@ -713,6 +965,41 @@ export const EditorToolsLive = EditorTools.toLayer(
         };
       }),
 
+      list_links: Effect.fnUntraced(function* ({ brokenOnly, canvas }) {
+        const id = yield* canvasOf(canvas);
+        const inCanvas = (yield* reported(pagesOf)).pages.filter(
+          (p) => p.canvas === id
+        );
+        const states = yield* documents((d) => d.list(id));
+        const links = states.flatMap((state) => {
+          if (!state.root) {
+            return [];
+          }
+          // The canvas's own document holds the nodes placed beside the pages.
+          const page =
+            state.doc === canvasDocOf(id)
+              ? null
+              : (inCanvas.find((p) => p.id === state.doc)?.file ?? state.doc);
+          return [...walk(state.root)].flatMap((node) =>
+            node.link === undefined || node.link.trim() === ""
+              ? []
+              : [
+                  {
+                    link: node.link,
+                    node: node.id,
+                    page,
+                    ...linkTargetOf(node.link, inCanvas),
+                  },
+                ]
+          );
+        });
+        const broken = links.filter((l) => l.broken !== undefined);
+        return {
+          broken: broken.length,
+          links: brokenOnly ? broken : links,
+        };
+      }),
+
       list_pages: Effect.fnUntraced(function* () {
         const pages = yield* reported(pagesOf);
         return {
@@ -725,6 +1012,13 @@ export const EditorToolsLive = EditorTools.toLayer(
           })),
         };
       }),
+
+      list_templates: () =>
+        pagesService((pages) =>
+          Effect.succeed({
+            templates: pages.templates.map((t) => ({ id: t.id, name: t.name })),
+          })
+        ),
 
       read_canvas: Effect.fnUntraced(function* ({ canvas }) {
         const id = yield* canvasOf(canvas);
@@ -817,42 +1111,53 @@ export const EditorToolsLive = EditorTools.toLayer(
         width,
       }) {
         const page = yield* pageAt(route, canvas);
+        // Worked out from the layout as it is when the frame is written, and that frame alone
+        // written: the others may have moved since the agent last looked.
+        const sized = (
+          before: FrameLayout | undefined,
+          frames: Readonly<Record<string, FrameLayout>>
+        ): FrameLayout => {
+          const size = preset
+            ? presetSize[preset]
+            : (before ?? presetSize.desktop);
+          // A page with no frame saved yet goes to the right of the others.
+          const right = Math.max(
+            0,
+            ...Object.values(frames).map((f) => f.x + f.width + 120)
+          );
+          return {
+            height: height ?? size.height,
+            preset:
+              width === undefined && height === undefined && preset
+                ? preset
+                : "custom",
+            width: width ?? size.width,
+            x: before?.x ?? right,
+            y: before?.y ?? 0,
+          };
+        };
         const frame = yield* reported(
           project.use(
             Effect.flatMap(PagesService, (pages) =>
-              Effect.gen(function* () {
-                const layout = yield* pages.readCanvas(page.canvas);
-                const before = layout.frames[page.path];
-                const size = preset
-                  ? presetSize[preset]
-                  : (before ?? presetSize.desktop);
-                // A page with no frame saved yet goes to the right of the others.
-                const right = Math.max(
-                  0,
-                  ...Object.values(layout.frames).map(
-                    (f) => f.x + f.width + 120
-                  )
-                );
-                const next = {
-                  height: height ?? size.height,
-                  preset:
-                    width === undefined && height === undefined && preset
-                      ? preset
-                      : ("custom" as const),
-                  width: width ?? size.width,
-                  x: before?.x ?? right,
-                  y: before?.y ?? 0,
-                };
-                yield* pages.writeFrames(page.canvas, {
-                  ...layout.frames,
-                  [page.path]: next,
-                });
-                return next;
-              })
+              pages.setFrame(page.canvas, page.path, sized)
             )
           )
         );
         return { file: page.file, height: frame.height, width: frame.width };
+      }),
+
+      set_home: Effect.fnUntraced(function* ({ route, canvas }) {
+        const page = yield* pageAt(route, canvas);
+        if (page.route === undefined) {
+          return yield* missing(
+            `${page.file} serves no URL, and a prototype opens on one; give it one with set_page_url first`
+          );
+        }
+        const home = page.route;
+        const changed = yield* pagesService((pages) =>
+          pages.setHome(page.canvas, home)
+        );
+        return { canvas: changed.id, home: changed.home };
       }),
 
       set_page_url: Effect.fnUntraced(function* ({ route, canvas, url }) {
