@@ -35,11 +35,14 @@ export const askLinkUrl = async (current?: string) => {
 export const LinkField = ({
   className,
   link,
+  mixed = false,
   onChange,
   size = "sm",
 }: {
   className?: string;
   link: string | undefined;
+  /** Several elements are set at once and lead to different places. */
+  mixed?: boolean;
   onChange: (link: string | null) => void;
   size?: "sm" | "default";
 }) => {
@@ -90,8 +93,9 @@ export const LinkField = ({
       <OptionSelect
         onChange={choose}
         options={options}
+        placeholder="Mixed"
         size={size}
-        value={current}
+        value={mixed ? null : current}
       />
       {described?.broken ? (
         <span className="flex items-center gap-1 text-[10px] text-destructive">

@@ -68,12 +68,15 @@ import {
 } from "./menu-model.ts";
 import {
   type Arrangement,
+  actedOn,
+  areSiblings,
   arrangeNode,
   deleteSelection,
   duplicateSelection,
   insertNode,
   insertTarget,
   nodeContext,
+  nodesOf,
   placeOf,
   renameNode,
   selected,
@@ -81,6 +84,7 @@ import {
   setHidden,
   unwrapSelection,
   updateSelection,
+  updateSelectionWith,
   wrapSelection,
 } from "./node-actions.ts";
 import { copyNodeLink, copyNodeRef } from "./node-links.ts";
@@ -112,7 +116,7 @@ export const copyText = (text: string, what = text) => {
   );
 };
 
-const canPaste = () => useClipboard.getState().node !== null;
+const canPaste = () => useClipboard.getState().nodes.length > 0;
 
 const onCanvas = () => useEditor.getState().workspace !== "prototype";
 
@@ -121,6 +125,16 @@ const commentById = (id: string) =>
 
 // ---- What a menu holds ----
 
+/** The nodes of these selections, as the documents have them now. */
+const nodesAt = (targets: readonly Selection[]) =>
+  nodesOf(targets).map((n) => n.node);
+
+/** Every one of these nodes is hidden: showing them is what toggling does. */
+const allHidden = (targets: readonly Selection[]) => {
+  const nodes = nodesAt(targets);
+  return nodes.length > 0 && nodes.every((n) => n.hidden === true);
+};
+
 const nodeMenu = (target: Selection): Entry[] | null => {
   const ctx = nodeContext(target);
   const current = selected(ctx);
@@ -128,8 +142,11 @@ const nodeMenu = (target: Selection): Entry[] | null => {
     return null;
   }
   const place = placeOf(ctx);
+  const targets = actedOn(target);
   return nodeEntries({
     canPaste: canPaste(),
+    count: targets.length,
+    hidden: allHidden(targets),
     index: place?.siblings.findIndex((c) => c.id === current.node.id) ?? 0,
     linkTargets: isNodeFrame(target.frame)
       ? []
@@ -141,6 +158,7 @@ const nodeMenu = (target: Selection): Entry[] | null => {
     onPage: !isNodeFrame(target.frame),
     parentSelectable: !!place?.parent && place.parent.type !== "page",
     siblings: place?.siblings.length ?? 1,
+    wrappable: targets.length === 1 || areSiblings(targets),
   });
 };
 
@@ -223,13 +241,13 @@ export const entriesFor = (target: MenuTarget): Entry[] | null => {
       return tokenEntries({
         kind: target.tokenKind,
         name: target.name,
-        selected: selected()?.node ?? null,
+        selected: nodesAt(actedOn()),
         value: target.value,
       });
     case "textStyle":
       return textStyleEntries({
         name: target.name,
-        selected: selected()?.node ?? null,
+        selected: nodesAt(actedOn()),
       });
     case "component":
       return componentEntries({
@@ -340,10 +358,14 @@ const linkNode = async (sel: Selection, choice: string, current?: string) => {
   updateSelection({ link }, link === null ? "Remove the link" : "Link", sel);
 };
 
+/**
+ * What a node's menu item does. Most act on the whole selection when the node is one of it (the
+ * actions find it through `actedOn`); renaming, editing text, selecting the parent, commenting,
+ * the links and arranging are about the node itself.
+ */
 const runNode = (target: Selection & { at?: Point }, id: string) => {
   const sel = { frame: target.frame, nodeId: target.nodeId };
-  const node = selected(nodeContext(sel))?.node;
-  if (!node) {
+  if (!selected(nodeContext(sel))) {
     return;
   }
   if (id.startsWith("wrap:")) {
@@ -355,12 +377,12 @@ const runNode = (target: Selection & { at?: Point }, id: string) => {
     return;
   }
   if (id.startsWith("link:")) {
-    linkNode(sel, argOf(id), node.link);
+    linkNode(sel, argOf(id), selected(nodeContext(sel))?.node.link);
     return;
   }
   const actions: Record<string, () => unknown> = {
-    ask: () => addToChat(sel),
-    askNew: () => addToChat(sel, { newThread: true }),
+    ask: () => addToChat(actedOn(sel)),
+    askNew: () => addToChat(actedOn(sel), { newThread: true }),
     comment: () => commentOn(sel, target.at),
     copy: () => copyNode(sel),
     copyLink: () => copyNodeLink(sel),
@@ -372,7 +394,7 @@ const runNode = (target: Selection & { at?: Point }, id: string) => {
     paste: () => pasteInto(sel),
     rename: () => renameNode(sel),
     selectParent: () => selectParent(sel),
-    toggleHidden: () => setHidden(!node.hidden, sel),
+    toggleHidden: () => setHidden(!allHidden(actedOn(sel)), sel),
     unwrap: () => unwrapSelection(sel),
     viewCode: () => viewCode(sel),
     zoomTo: () => zoomToNode(sel),
@@ -521,10 +543,12 @@ const runToken = (name: string, value: string, id: string) => {
     copyText(value);
     return;
   }
-  const node = selected()?.node;
-  if (node && id.startsWith("apply:")) {
+  if (id.startsWith("apply:")) {
     const field = argOf(id) as TokenField["field"];
-    updateSelection(tokenSet(field, tokenRef(name), node), `Apply ${name}`);
+    updateSelectionWith(
+      (node) => tokenSet(field, tokenRef(name), node),
+      `Apply ${name}`
+    );
   }
 };
 
@@ -536,7 +560,8 @@ const runTextStyle = (name: string, id: string) => {
   const style = useDesignSystem
     .getState()
     .designSystem?.typography.styles.find((s) => s.name === name);
-  if (style && selected()?.node.type === "text") {
+  const nodes = nodesAt(actedOn());
+  if (style && nodes.length > 0 && nodes.every((n) => n.type === "text")) {
     updateSelection(attachTextStyle(style), `Set the text in ${name}`);
   }
 };

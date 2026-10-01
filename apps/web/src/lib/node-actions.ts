@@ -1,7 +1,9 @@
 /**
- * What the editor does to the selected node, from the keyboard, the layers panel, the inspector,
- * the palette and the context menu alike. Each is one request to the server and one undo step.
- * An action takes the node it is for, or the selection when it is not given one.
+ * What the editor does to the selected nodes, from the keyboard, the layers panel, the inspector,
+ * the palette and the context menu alike. Each is one request to the server and one undo step,
+ * however many nodes it changes. An action takes the node it is for, and the rest of the
+ * selection with it when the node is selected; the selection when it is not given one. Renaming,
+ * selecting a parent and arranging are about one node: the one the inspector shows.
  */
 
 import type { JsonValue } from "@ultrapaint/contracts/base";
@@ -74,34 +76,42 @@ export const selected = (ctx: Context = liveContext()) => {
   return null;
 };
 
-/** Sets fields of the selected node; `null` removes one. */
+/**
+ * The nodes an action on `target` is for: the whole selection when the target is one of it, the
+ * target alone when it is not. Without a target, every node selected, or the root of the page
+ * selected as a whole.
+ */
+export const actedOn = (target?: Selection): Selection[] => {
+  const all = allSelected();
+  if (target) {
+    const among = all.some(
+      (s) => s.frame === target.frame && s.nodeId === target.nodeId
+    );
+    return among ? all : [target];
+  }
+  if (all.length > 0) {
+    return all;
+  }
+  const page = selected();
+  return page ? [{ frame: page.frame, nodeId: page.node.id }] : [];
+};
+
+/** Sets fields of the selected nodes, or of `target`'s; `null` removes one. */
 export const updateSelection = (
   set: Record<string, JsonValue>,
   label = "Change",
   target?: Selection
-) => {
-  const current = selected(nodeContext(target));
-  if (!current) {
-    return Promise.resolve(null);
-  }
-  return applyOps(
-    current.doc,
-    [{ id: current.node.id, op: "update", set }],
-    label
-  );
-};
+) => updateNodes(actedOn(target), set, label);
 
-export const setPropsOfSelection = (props: Record<string, JsonValue>) => {
-  const current = selected();
-  if (current?.node.type !== "instance") {
-    return Promise.resolve(null);
-  }
-  return applyOps(
-    current.doc,
-    [{ id: current.node.id, op: "setProps", props }],
-    "Change a prop"
-  );
-};
+/** Sets fields of each selected node, worked out from the node itself. */
+export const updateSelectionWith = (
+  setOf: (node: DesignNode) => Record<string, JsonValue>,
+  label = "Change",
+  target?: Selection
+) => updateNodesWith(actedOn(target), setOf, label);
+
+export const setPropsOfSelection = (props: Record<string, JsonValue>) =>
+  setPropsOfNodes(actedOn(), props);
 
 export const setHidden = (hidden: boolean, target?: Selection) =>
   updateSelection(
@@ -113,69 +123,20 @@ export const setHidden = (hidden: boolean, target?: Selection) =>
 /** The root of a page cannot be deleted or duplicated: the page can. */
 const isPageRoot = (node: DesignNode) => node.type === "page";
 
-export const deleteSelection = async (target?: Selection) => {
-  const current = selected(nodeContext(target));
-  if (!current || isPageRoot(current.node)) {
-    return;
-  }
-  const result = await applyOps(
-    current.doc,
-    [{ id: current.node.id, op: "remove" }],
-    "Delete"
-  );
-  if (result) {
-    useEditor.getState().select(null);
-  }
-};
+export const deleteSelection = (target?: Selection) =>
+  deleteNodes(actedOn(target));
 
-export const duplicateSelection = async (target?: Selection) => {
-  const current = selected(nodeContext(target));
-  if (!current || isPageRoot(current.node)) {
-    return;
-  }
-  const result = await applyOps(
-    current.doc,
-    [{ id: current.node.id, op: "duplicate" }],
-    "Duplicate"
-  );
-  const id = result?.created[0];
-  if (id) {
-    selectCreated(current.doc, current.frame, id);
-  }
-};
+export const duplicateSelection = (target?: Selection) =>
+  duplicateNodes(actedOn(target));
 
-/** Puts the selected node in a new row, column or group, where it was. */
-export const wrapSelection = async (
+/** Puts the selected nodes in a new row, column or group, where the first of them was. */
+export const wrapSelection = (
   type: "row" | "column" | "group",
   target?: Selection
-) => {
-  const current = selected(nodeContext(target));
-  if (!current || isPageRoot(current.node)) {
-    return;
-  }
-  const result = await applyOps(
-    current.doc,
-    [{ ids: [current.node.id], op: "wrap", type }],
-    `Wrap in a ${type}`
-  );
-  const id = result?.created[0];
-  if (id) {
-    selectCreated(current.doc, current.frame, id);
-  }
-};
+) => wrapNodes(actedOn(target), type);
 
-export const unwrapSelection = async (target?: Selection) => {
-  const current = selected(nodeContext(target));
-  if (!(current && isContainer(current.node)) || isPageRoot(current.node)) {
-    return;
-  }
-  await applyOps(
-    current.doc,
-    [{ id: current.node.id, op: "unwrap" }],
-    "Unwrap"
-  );
-  useEditor.getState().select(null);
-};
+export const unwrapSelection = (target?: Selection) =>
+  unwrapNodes(actedOn(target));
 
 /** Selects a node the server just made, in whichever frame now shows it. */
 export const selectCreated = (doc: string, frame: string, id: string) => {
@@ -187,6 +148,23 @@ export const selectCreated = (doc: string, frame: string, id: string) => {
   if (target) {
     useEditor.getState().select({ frame: target, nodeId: id });
   }
+};
+
+/** Selects the nodes the server just made, as many of them as one frame shows. */
+const selectAllCreated = (
+  doc: string,
+  frame: string,
+  ids: readonly string[]
+) => {
+  const { canvas } = useEditor.getState();
+  const { docs } = useDocuments.getState();
+  const loose = canvas !== null && doc === canvasDocOf(canvas);
+  useEditor.getState().selectMany(
+    ids.flatMap((id) => {
+      const shown = loose ? frameOfCanvasNode(docs, canvas, id) : frame;
+      return shown ? [{ frame: shown, nodeId: id }] : [];
+    })
+  );
 };
 
 /**
@@ -238,31 +216,40 @@ export const insertTarget = (
 };
 
 /**
- * Inserts a node where `insertTarget` says, and selects it. In a page it is laid out with the
- * others: where it stood on the canvas, if it was there, no longer means anything.
+ * Inserts nodes where `insertTarget` says, one after the other, and selects them. In a page they
+ * are laid out with the others: where they stood on the canvas, if they were there, no longer
+ * means anything.
  */
-export const insertNode = async (
-  node: DesignNode,
+export const insertNodes = async (
+  nodes: readonly DesignNode[],
   ctx: Context = liveContext(),
   label = "Insert"
 ) => {
   const target = insertTarget(ctx);
-  if (!target) {
+  if (!target || nodes.length === 0) {
     return;
   }
-  const { x: _x, y: _y, ...unplaced } = node;
-  const op: DocOp = {
-    ...(target.index !== undefined && { index: target.index }),
-    node: unplaced as DesignNode,
-    op: "insert",
-    parent: target.parent,
-  };
-  const result = await applyOps(target.doc, [op], label);
-  const id = result?.created[0];
-  if (id) {
-    selectCreated(target.doc, target.frame, id);
+  const ops = nodes.map((node, i): DocOp => {
+    const { x: _x, y: _y, ...unplaced } = node;
+    return {
+      ...(target.index !== undefined && { index: target.index + i }),
+      node: unplaced as DesignNode,
+      op: "insert",
+      parent: target.parent,
+    };
+  });
+  const result = await applyOps(target.doc, ops, label);
+  if (result && result.created.length > 0) {
+    selectAllCreated(target.doc, target.frame, result.created);
   }
 };
+
+/** Inserts a node where `insertTarget` says, and selects it. */
+export const insertNode = (
+  node: DesignNode,
+  ctx: Context = liveContext(),
+  label = "Insert"
+) => insertNodes([node], ctx, label);
 
 /**
  * Where a node sits: the node it is inside (null for the top of the canvas) and its siblings,
@@ -356,7 +343,7 @@ export const allSelected = (): Selection[] => {
 };
 
 /** The nodes of these selections that still exist, with their document. */
-const nodesOf = (targets: readonly Selection[]) => {
+export const nodesOf = (targets: readonly Selection[]) => {
   const { docs } = useDocuments.getState();
   const { canvas } = useEditor.getState();
   return targets.flatMap((t) => {
@@ -383,6 +370,20 @@ const applyToEach = (
   return edits.length > 0 ? applyEdits(edits, label) : Promise.resolve(null);
 };
 
+/**
+ * These selections less those inside another of them: what goes with its container is not
+ * removed, copied or duplicated a second time.
+ */
+export const outermost = (targets: readonly Selection[]): Selection[] => {
+  const { docs } = useDocuments.getState();
+  const { canvas } = useEditor.getState();
+  const ids = new Set(targets.map((t) => t.nodeId));
+  return targets.filter((t) => {
+    const path = pathIn(docs, canvas, t.frame, t.nodeId) ?? [];
+    return !path.slice(0, -1).some((n) => ids.has(n.id));
+  });
+};
+
 /** Sets fields of every one of these nodes; `null` removes one. */
 export const updateNodes = (
   targets: readonly Selection[],
@@ -391,7 +392,10 @@ export const updateNodes = (
 ) =>
   applyToEach(targets, (node) => [{ id: node.id, op: "update", set }], label);
 
-/** Sets fields of each of these nodes, worked out from the node itself. */
+/**
+ * Sets fields of each of these nodes, worked out from the node itself. A node given nothing to
+ * set is left alone.
+ */
 export const updateNodesWith = (
   targets: readonly Selection[],
   setOf: (node: DesignNode) => Record<string, JsonValue>,
@@ -399,7 +403,12 @@ export const updateNodesWith = (
 ) =>
   applyToEach(
     targets,
-    (node) => [{ id: node.id, op: "update", set: setOf(node) }],
+    (node) => {
+      const set = setOf(node);
+      return Object.keys(set).length > 0
+        ? [{ id: node.id, op: "update", set }]
+        : [];
+    },
     label
   );
 
@@ -415,11 +424,45 @@ export const setPropsOfNodes = (
     "Change a prop"
   );
 
+/** How an undo step that acts on several nodes is named. */
+const labelFor = (verb: string, count: number) =>
+  count > 1 ? `${verb} ${count} elements` : verb;
+
 export const deleteNodes = async (targets: readonly Selection[]) => {
+  const gone = outermost(targets);
+  const result = await applyToEach(
+    gone,
+    (node) => (isPageRoot(node) ? [] : [{ id: node.id, op: "remove" }]),
+    labelFor("Delete", gone.length)
+  );
+  if (result) {
+    useEditor.getState().select(null);
+  }
+};
+
+/** Copies of these nodes, each beside its original, selected in their place. */
+export const duplicateNodes = async (targets: readonly Selection[]) => {
+  const copied = outermost(targets);
+  const [first] = nodesOf(copied);
+  const result = await applyToEach(
+    copied,
+    (node) => (isPageRoot(node) ? [] : [{ id: node.id, op: "duplicate" }]),
+    labelFor("Duplicate", copied.length)
+  );
+  if (first && result && result.created.length > 0) {
+    selectAllCreated(first.doc, first.frame, result.created);
+  }
+};
+
+/** Takes the children of every container among these nodes out of it, where it was. */
+export const unwrapNodes = async (targets: readonly Selection[]) => {
   const result = await applyToEach(
     targets,
-    (node) => (isPageRoot(node) ? [] : [{ id: node.id, op: "remove" }]),
-    targets.length > 1 ? `Delete ${targets.length} elements` : "Delete"
+    (node) =>
+      isContainer(node) && !isPageRoot(node)
+        ? [{ id: node.id, op: "unwrap" }]
+        : [],
+    "Unwrap"
   );
   if (result) {
     useEditor.getState().select(null);
@@ -442,7 +485,7 @@ export const wrapNodes = async (
   targets: readonly Selection[],
   type: "row" | "column" | "group"
 ) => {
-  const found = nodesOf(targets);
+  const found = nodesOf(targets).filter((f) => !isPageRoot(f.node));
   const [first] = found;
   if (!first || found.some((f) => f.doc !== first.doc)) {
     return;

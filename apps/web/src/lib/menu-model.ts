@@ -69,16 +69,26 @@ export const tidy = (entries: readonly (Entry | false | null)[]): Entry[] => {
 export interface NodeFacts {
   /** Something copied that can be pasted. */
   canPaste: boolean;
+  /**
+   * How many nodes the menu acts on: the whole selection when the node is one of it, the node
+   * alone otherwise. What is about one node only is greyed out for several.
+   */
+  count: number;
+  /** Every node it acts on is hidden, so the item shows them; else it hides them all. */
+  hidden: boolean;
   /** Where it sits among its siblings. */
   index: number;
   /** The canvas's pages a link can lead to, by file; empty for a node beside the pages. */
   linkTargets?: readonly { name: string; path: string }[];
+  /** The node clicked, or the one of the selection the inspector shows. */
   node: DesignNode;
   /** The frame is a page, which is what comments are pinned on. */
   onPage: boolean;
   /** It is inside something other than a page's root, which Select parent goes to. */
   parentSelectable: boolean;
   siblings: number;
+  /** The nodes can go into one new container: one node, or siblings. */
+  wrappable: boolean;
 }
 
 /**
@@ -120,22 +130,26 @@ const isPageRoot = (node: DesignNode) => node.type === "page";
 export const nodeEntries = (f: NodeFacts): Entry[] => {
   const { node } = f;
   const root = isPageRoot(node);
+  const several = f.count > 1;
+  // About one node only: greyed out when the menu acts on several.
+  const one = { disabled: several };
   const first = f.index <= 0;
   const last = f.index >= f.siblings - 1;
   return tidy([
-    { kind: "label", label: headingOf(node) },
+    { kind: "label", label: several ? `${f.count} selected` : headingOf(node) },
     item("ask", "Add to chat"),
     item("askNew", "Add to a new chat"),
-    node.type === "text" && item("editText", "Edit text", { shortcut: "⏎" }),
-    item("rename", "Rename…"),
-    item("viewCode", "View code"),
-    f.onPage && item("comment", "Comment on this"),
+    node.type === "text" &&
+      item("editText", "Edit text", { ...one, shortcut: "⏎" }),
+    item("rename", "Rename…", one),
+    item("viewCode", "View code", one),
+    f.onPage && item("comment", "Comment on this", one),
     linkEntries(f),
     f.parentSelectable &&
-      item("selectParent", "Select parent", { shortcut: "Esc" }),
+      item("selectParent", "Select parent", { ...one, shortcut: "Esc" }),
     separator,
-    item("copyLink", "Copy link to element"),
-    item("copyRef", "Copy element ID"),
+    item("copyLink", "Copy link to element", one),
+    item("copyRef", "Copy element ID", one),
     separator,
     !root && item("copy", "Copy", { shortcut: "⌘C" }),
     !root && item("cut", "Cut", { shortcut: "⌘X" }),
@@ -143,6 +157,7 @@ export const nodeEntries = (f: NodeFacts): Entry[] => {
     !root && item("duplicate", "Duplicate", { shortcut: "⌘D" }),
     separator,
     !root && {
+      disabled: !f.wrappable,
       entries: [
         item("wrap:group", "Group", { shortcut: "⌘G" }),
         item("wrap:row", "Row", { shortcut: "⌥⌘G" }),
@@ -154,7 +169,7 @@ export const nodeEntries = (f: NodeFacts): Entry[] => {
     },
     !root && isContainer(node) && item("unwrap", "Unwrap"),
     !root && {
-      disabled: f.siblings < 2,
+      disabled: several || f.siblings < 2,
       entries: [
         item("arrange:up", "Move up", { disabled: first }),
         item("arrange:down", "Move down", { disabled: last }),
@@ -165,10 +180,14 @@ export const nodeEntries = (f: NodeFacts): Entry[] => {
       kind: "submenu",
       label: "Arrange",
     },
-    item("toggleHidden", node.hidden ? "Show" : "Hide"),
+    item("toggleHidden", f.hidden ? "Show" : "Hide"),
     item("zoomTo", "Zoom to selection", { shortcut: "⇧2" }),
     separator,
-    !root && item("delete", "Delete", { destructive: true, shortcut: "⌫" }),
+    !root &&
+      item("delete", several ? `Delete ${f.count} elements` : "Delete", {
+        destructive: true,
+        shortcut: "⌫",
+      }),
   ]);
 };
 
@@ -402,16 +421,39 @@ export const tokenFields = (
   }
 };
 
+/** The fields every one of these nodes has that a token of this kind fits. */
+export const sharedTokenFields = (
+  kind: TokenKind,
+  nodes: readonly DesignNode[]
+): TokenField[] => {
+  const [first, ...rest] = nodes;
+  const others = rest.map((n) => tokenFields(kind, n).map((t) => t.field));
+  return tokenFields(kind, first ?? null).filter((t) =>
+    others.every((fields) => fields.includes(t.field))
+  );
+};
+
+/** What a token or a text style is applied to: the node selected, or how many are. */
+const appliedTo = (selected: readonly DesignNode[], none: string) => {
+  const [first] = selected;
+  if (!first) {
+    return none;
+  }
+  return selected.length === 1
+    ? `Apply to ${nodeLabel(first)}`
+    : `Apply to ${selected.length} elements`;
+};
+
 export interface TokenFacts {
   kind: TokenKind;
   name: string;
   /** What is selected, which is what the token is applied to. */
-  selected: DesignNode | null;
+  selected: readonly DesignNode[];
   value: string;
 }
 
 export const tokenEntries = (f: TokenFacts): Entry[] => {
-  const fields = tokenFields(f.kind, f.selected);
+  const fields = sharedTokenFields(f.kind, f.selected);
   return tidy([
     item("copyRef", `Copy $${f.name}`),
     item("copyValue", `Copy ${f.value}`),
@@ -421,26 +463,27 @@ export const tokenEntries = (f: TokenFacts): Entry[] => {
       entries: fields.map((t) => item(`apply:${t.field}`, t.label)),
       id: "apply",
       kind: "submenu",
-      label: f.selected
-        ? `Apply to ${nodeLabel(f.selected)}`
-        : "Apply to the selection",
+      label: appliedTo(f.selected, "Apply to the selection"),
     },
   ]);
 };
 
 export const textStyleEntries = (f: {
   name: string;
-  selected: DesignNode | null;
-}): Entry[] => [
-  item(
-    "apply:textStyle",
-    f.selected?.type === "text"
-      ? `Apply to ${nodeLabel(f.selected)}`
-      : "Apply to the selected text",
-    { disabled: f.selected?.type !== "text" }
-  ),
-  item("copyName", `Copy ${f.name}`),
-];
+  /** What is selected, which the style is applied to when every one of it is text. */
+  selected: readonly DesignNode[];
+}): Entry[] => {
+  const texts =
+    f.selected.length > 0 && f.selected.every((n) => n.type === "text");
+  return [
+    item(
+      "apply:textStyle",
+      appliedTo(texts ? f.selected : [], "Apply to the selected text"),
+      { disabled: !texts }
+    ),
+    item("copyName", `Copy ${f.name}`),
+  ];
+};
 
 // ---- The palette ----
 

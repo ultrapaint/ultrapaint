@@ -85,7 +85,6 @@ import {
 } from "../lib/element-controls.ts";
 import {
   areSiblings,
-  deleteNodes,
   setPropsOfNodes,
   updateNodes,
   wrapNodes,
@@ -974,13 +973,6 @@ export const ElementToolbar = ({
   if (!selection || dragging) {
     return null;
   }
-  const openMore = (e: ReactMouseEvent) => {
-    const r = e.currentTarget.getBoundingClientRect();
-    showMenu(
-      { frame: selection.frame, kind: "node", nodeId: selection.nodeId },
-      { x: r.left, y: r.bottom + 4 }
-    );
-  };
   return (
     <div
       aria-label={`Style of ${node.type}`}
@@ -1000,22 +992,39 @@ export const ElementToolbar = ({
           <ChatButton selection={selection} />
         </Targets.Provider>
       )}
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <button
-              aria-label="More"
-              className="flex size-7 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-              onClick={openMore}
-              type="button"
-            />
-          }
-        >
-          <Ellipsis className="size-3.5" />
-        </TooltipTrigger>
-        <TooltipContent>More</TooltipContent>
-      </Tooltip>
+      <MoreButton target={selection} />
     </div>
+  );
+};
+
+/**
+ * The node's context menu, under the button. Opened on a node of the selection, it acts on the
+ * whole selection, as a right-click on it does.
+ */
+const MoreButton = ({ target }: { target: Selection }) => {
+  const openMore = (e: ReactMouseEvent) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    showMenu(
+      { frame: target.frame, kind: "node", nodeId: target.nodeId },
+      { x: r.left, y: r.bottom + 4 }
+    );
+  };
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            aria-label="More"
+            className="flex size-7 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+            onClick={openMore}
+            type="button"
+          />
+        }
+      >
+        <Ellipsis className="size-3.5" />
+      </TooltipTrigger>
+      <TooltipContent>More</TooltipContent>
+    </Tooltip>
   );
 };
 
@@ -1104,27 +1113,7 @@ export const GroupToolbar = ({
         </DropdownMenu>
         <Divider />
         <GroupChatButton targets={targets} />
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <button
-                aria-label="More"
-                className="flex size-7 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-                type="button"
-              />
-            }
-          >
-            <Ellipsis className="size-3.5" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem
-              onClick={() => deleteNodes(targets)}
-              variant="destructive"
-            >
-              Delete {nodes.length} elements
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {targets[0] ? <MoreButton target={targets[0]} /> : null}
       </Targets.Provider>
     </div>
   );
