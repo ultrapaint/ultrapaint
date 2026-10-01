@@ -161,7 +161,7 @@ While it works, what it changes shows on the canvas: the elements take the agent
 name and what it is doing on their edge, and the text it is rewriting turns to placeholders until
 it is done. A selection is blue, or purple when it is a component of your library.
 
-**Chats** lists your threads, each with a picture of what it works on, its last line, and whether it
+**Chats** lists your chats, each with a picture of what it works on, its last line, and whether it
 is working or waiting for you. In **Vibe**, the element you select has a toolbar over it with what
 your design system offers for it — a component's own variants, the text styles, the colour,
 radius and spacing tokens — and a button that adds it to the chat. Shift-click or draw a marquee to
@@ -199,7 +199,14 @@ gives an agent the whole format as a JSON Schema.
 The **Layers** panel shows the whole space at once, as a design tool does: every page with its
 tree, and the nodes placed on the canvas beside them. A node inside a page follows the page's
 layout; a node on the canvas has its own position. Drag one from one to the other, in the layers
-or on the canvas.
+or on the canvas. The tree is walked with the arrow keys, a layer is renamed with a double-click or
+F2, hidden with its eye and locked with its lock, so a click on the canvas passes it by; the field
+at the top finds layers by name, text or component.
+
+Several elements selected at once are changed together everywhere, in the inspector (where the
+fields they differ on say "Mixed"), the menus, the toolbar and the keys, as one undo step. ⌘\
+(Ctrl+\) puts the panels away, and `?` lists every shortcut, written as your platform writes
+them. The workspaces are ⌃1–3 on a Mac and Alt+1–3 elsewhere.
 
 When a page is ready, **Implement** in the Pages panel (or `/implement <url or file>` in a thread) asks
 an agent to write it in your application with your own components and conventions: the tokens
@@ -269,7 +276,9 @@ The **Pages** panel belongs to the **prototype** workspace: every page of the ca
 or a warning when it has none, where URLs are given, changed and taken off. Any node in a page can
 link to another page (it keeps leading there when the page is renamed or its URL changes), to a
 URL with its parameters, back, or to another site: in the inspector, its right-click menu or the
-Vibe toolbar. The prototype's bar shows what can be pressed, and a press on nothing flashes it. In the prototype the whole thing is one iframe: pressing a link swaps the page inside it,
+Vibe toolbar. The prototype's bar shows what can be pressed, and a press on nothing flashes it. It also tries the
+prototype on a phone, a tablet or a desktop without changing the design, and takes comments on the
+page you are on. In the prototype the whole thing is one iframe: pressing a link swaps the page inside it,
 provider and component state survives, and the route is in the editor's own URL — so the
 browser's back and forward buttons are the prototype's, and a prototype state can be reloaded or
 pasted to someone else.
