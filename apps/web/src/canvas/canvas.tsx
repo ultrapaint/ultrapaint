@@ -53,6 +53,7 @@ import {
 } from "./drag.ts";
 import { CreateOverlay, DragOverlay } from "./drag-overlay.tsx";
 import { type Corner, drawResized, Frame, useHostUrl } from "./frame.tsx";
+import { isFrameLocked } from "./hit-test.ts";
 import { addImages, imageFiles } from "./items.ts";
 
 const clampZoom = (z: number) => Math.min(4, Math.max(0.05, z));
@@ -349,6 +350,10 @@ export const Canvas = () => {
         return;
       }
       s.select({ frame: pageId, nodeId });
+      // A locked node is picked up by its name, and stays where it is and the size it is.
+      if (isFrameLocked(pageId)) {
+        return;
+      }
       if (kind === "move") {
         beginDrag(
           {

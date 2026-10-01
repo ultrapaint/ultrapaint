@@ -105,6 +105,21 @@ describe("the node menu", () => {
     expect(loose).not.toContain("selectParent");
   });
 
+  it("locks a node, and unlocks a locked one, but not a page", () => {
+    expect(find(nodeEntries(facts()), "toggleLocked")).toMatchObject({
+      label: "Lock",
+    });
+    expect(
+      find(
+        nodeEntries(facts({ node: { ...row, locked: true } })),
+        "toggleLocked"
+      )
+    ).toMatchObject({ label: "Unlock" });
+    expect(
+      find(nodeEntries(facts({ node: page })), "toggleLocked")
+    ).toBeUndefined();
+  });
+
   it("says Show for a hidden node", () => {
     expect(
       find(

@@ -27,6 +27,7 @@ import {
   useDocuments,
 } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
+import { requestInlineRename } from "../state/layer-rename.ts";
 
 interface Context {
   readonly activePage: string | null;
@@ -107,6 +108,14 @@ export const setHidden = (hidden: boolean, target?: Selection) =>
   updateSelection(
     { hidden: hidden ? true : null },
     hidden ? "Hide" : "Show",
+    target
+  );
+
+/** Locks the node on the canvas, or lets it go again: the layers panel still selects it. */
+export const setLocked = (locked: boolean, target?: Selection) =>
+  updateSelection(
+    { locked: locked ? true : null },
+    locked ? "Lock" : "Unlock",
     target
   );
 
@@ -324,27 +333,56 @@ export const selectParent = (target?: Selection) => {
   }
 };
 
-/** Names the node, which is what the layers call it. */
+/**
+ * Gives the node a name, which is what the layers call it. A name left empty, or the one the
+ * node already goes by, changes nothing.
+ */
+export const renameNodeTo = async (name: string, target?: Selection) => {
+  const current = selected(nodeContext(target));
+  const trimmed = name.trim();
+  if (
+    !current ||
+    isPageRoot(current.node) ||
+    trimmed === "" ||
+    trimmed === nodeLabel(current.node)
+  ) {
+    return;
+  }
+  await applyOps(
+    current.doc,
+    [{ id: current.node.id, op: "update", set: { name: trimmed } }],
+    "Rename"
+  );
+};
+
+/**
+ * Names the node: in its row of the layers panel when the panel is open, the way Figma does, and
+ * in a dialog when it is not.
+ */
 export const renameNode = async (target?: Selection) => {
   const current = selected(nodeContext(target));
   if (!current || isPageRoot(current.node)) {
     return;
   }
-  const name = (
-    await promptDialog({
-      confirmLabel: "Rename",
-      defaultValue: current.node.name ?? nodeLabel(current.node),
-      title: "Rename layer",
-    })
-  )?.trim();
-  if (!name || name === current.node.name) {
+  const at = { frame: current.frame, nodeId: current.node.id };
+  const editor = useEditor.getState();
+  if (
+    editor.selection?.frame !== at.frame ||
+    editor.selection.nodeId !== at.nodeId
+  ) {
+    editor.select(at);
+  }
+  if (requestInlineRename(at)) {
     return;
   }
-  await applyOps(
-    current.doc,
-    [{ id: current.node.id, op: "update", set: { name } }],
-    "Rename"
-  );
+  const name = await promptDialog({
+    confirmLabel: "Rename",
+    defaultValue: nodeLabel(current.node),
+    title: "Rename layer",
+  });
+  if (name !== null) {
+    await renameNodeTo(name, at);
+  }
 };
 
 // ---- Several nodes at once ----

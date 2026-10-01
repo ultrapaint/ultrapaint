@@ -27,6 +27,8 @@ import {
   FolderInput,
   Group,
   Link,
+  Lock,
+  LockOpen,
   type LucideIcon,
   Maximize,
   MessageSquare,
@@ -146,6 +148,9 @@ const ICONS: Record<string, LucideIcon> = {
 const iconOf = (id: string, label: string): LucideIcon | undefined => {
   if (id === "toggleHidden" || id === "follow") {
     return label === "Show" || label.startsWith("Follow") ? Eye : EyeOff;
+  }
+  if (id === "toggleLocked") {
+    return label === "Lock" ? Lock : LockOpen;
   }
   if (id === "resolve") {
     return label === "Reopen" ? Undo2 : CircleCheck;

@@ -48,6 +48,7 @@ import {
   GroupToolbar,
   TAG_HEIGHT,
 } from "./element-toolbar.tsx";
+import { hitUnlocked } from "./hit-test.ts";
 import { SelectionTag } from "./selection-tag.tsx";
 
 const presets: { value: ViewportPreset; label: string }[] = [
@@ -329,7 +330,7 @@ export const Frame = memo(
     /** The node a pointer event at this position means, given what is selected. */
     const nodeAt = async (e: ReactPointerEvent | ReactMouseEvent) => {
       const { x, y } = toFrame(e);
-      const chain = await bridgeFor(frameId).hitTest(x, y);
+      const chain = await hitUnlocked(frameId, x, y);
       const store = useEditor.getState();
       const selected =
         store.selection?.frame === frameId ? store.selection.nodeId : null;
@@ -355,8 +356,10 @@ export const Frame = memo(
       const store = useEditor.getState();
       if (kind === "page") {
         store.selectPage(frameId);
-      } else if (root) {
+      } else if (root && !root.locked) {
         store.select({ frame: frameId, nodeId: root.id });
+      } else {
+        store.select(null);
       }
     };
     const onClick = async (e: ReactMouseEvent) => {
@@ -379,7 +382,7 @@ export const Frame = memo(
       const { x, y } = toFrame(e);
       const bridge = bridgeFor(frameId);
       // Text is edited where it is written, whatever the two clicks before this selected.
-      const id = (await bridge.hitTest(x, y)).at(-1);
+      const id = (await hitUnlocked(frameId, x, y)).at(-1);
       const node = id
         ? nodeIn(useDocuments.getState().docs, canvas, frameId, id)
         : null;
@@ -394,7 +397,7 @@ export const Frame = memo(
      * it, else what a click would select.
      */
     const pickAt = async (x: number, y: number, alt: boolean) => {
-      const chain = await bridgeFor(frameId).hitTest(x, y);
+      const chain = await hitUnlocked(frameId, x, y);
       const store = useEditor.getState();
       const selected =
         store.selection?.frame === frameId ? store.selection.nodeId : null;
@@ -574,7 +577,7 @@ export const Frame = memo(
         );
         const hits = level.filter((n) => {
           const r = measured[n.id];
-          return r !== undefined && intersects(r, area);
+          return r !== undefined && !n.locked && intersects(r, area);
         });
         const [only] = hits;
         const box = only ? measured[only.id] : undefined;

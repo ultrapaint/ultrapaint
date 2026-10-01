@@ -107,6 +107,11 @@ export interface BoxFields {
   readonly id: string;
   /** Route the prototype goes to when the node is pressed. */
   readonly link?: string | undefined;
+  /**
+   * Locked in the editor: a click, a drag or a marquee on the canvas passes it by, and whatever
+   * is inside it, while the layers panel still selects it. It changes nothing in the design.
+   */
+  readonly locked?: boolean | undefined;
   readonly margin?: Margin | undefined;
   readonly maxHeight?: Length | undefined;
   readonly maxWidth?: Length | undefined;
@@ -206,6 +211,12 @@ const boxFields = {
   hidden: Schema.optional(Schema.Boolean),
   id: Schema.String.check(Schema.isMinLength(1)),
   link: Schema.optional(Schema.String),
+  locked: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        "Locked in the editor, so that a click or a drag on the canvas passes it and what is inside it by. It does not change the design.",
+    })
+  ),
   margin: Schema.optional(Margin),
   maxHeight: Schema.optional(Length),
   maxWidth: Schema.optional(Length),
