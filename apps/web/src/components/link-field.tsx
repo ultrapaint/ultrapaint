@@ -89,7 +89,7 @@ export const LinkField = ({
   };
 
   return (
-    <div className={cn("flex min-w-0 flex-col gap-1", className)}>
+    <div className={cn("flex w-full min-w-0 flex-col gap-1", className)}>
       <OptionSelect
         onChange={choose}
         options={options}

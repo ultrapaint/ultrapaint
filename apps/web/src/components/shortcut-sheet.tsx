@@ -69,7 +69,7 @@ const GROUPS: readonly {
       ["⇧1", "Zoom to fit"],
       ["⇧2", "Zoom to the selection"],
       ["⇧0", "Zoom to 100%"],
-      ["⌘+", "Zoom in"],
+      ["⌘=", "Zoom in"],
       ["⌘-", "Zoom out"],
     ],
     title: "View",

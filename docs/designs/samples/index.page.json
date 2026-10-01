@@ -99,6 +99,7 @@
                       {
                         "fill": "#2563eb",
                         "id": "r_mj9chm",
+                        "link": "extra.page.json",
                         "name": "New order",
                         "padding": {
                           "bottom": 7,
