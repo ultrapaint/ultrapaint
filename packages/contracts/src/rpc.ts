@@ -221,6 +221,15 @@ const requestRpcs = [
     error: PagesError,
     payload: { id: Schema.String },
   }),
+  /**
+   * The URL the canvas's prototype opens on. A page of the canvas must serve it; when that page
+   * later serves another URL the canvas follows it, and when it goes another page's URL is taken.
+   */
+  Rpc.make("canvases.setHome", {
+    error: PagesError,
+    payload: { id: Schema.String, route: Schema.String },
+    success: Canvas,
+  }),
   Rpc.make("canvases.reorder", {
     error: PagesError,
     payload: { order: Schema.Array(Schema.String) },

@@ -1086,3 +1086,356 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
     );
   }
 );
+
+/** A comment pinned on a page of a canvas, as the editor leaves one. */
+const commentOn = (canvas: string, page: string, text: string) => ({
+  canvas,
+  element: null,
+  nodeId: null,
+  page,
+  text,
+  x: 10,
+  y: 10,
+});
+
+const commentedPages = (comments: readonly { readonly page: string }[]) =>
+  comments.map((c) => c.page).sort();
+
+const frameAt = (x: number) =>
+  ({ height: 600, preset: "custom", width: 800, x, y: 0 }) as const;
+
+layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
+  "pages, their variants and what goes with them",
+  (it) => {
+    it.effect("opens the fixture", () =>
+      Effect.gen(function* () {
+        const { client, settings } = yield* TestEnv;
+        const validation = yield* client["settings.set"](settings);
+        assert.deepStrictEqual(validation.problems, []);
+      })
+    );
+
+    it.effect(
+      "deletes a base page with its variants and their comments, and undo brings all of it back",
+      () =>
+        Effect.gen(function* () {
+          const { client } = yield* TestEnv;
+          const page = yield* client["pages.create"]({
+            canvas: "",
+            name: "Pricing",
+            route: "/pricing",
+          });
+          yield* client["canvas.set"]({
+            canvas: "",
+            frames: { [page.path]: frameAt(0) },
+          });
+          const variant = yield* client["pages.createVariant"]({
+            id: page.id,
+            variant: "bold",
+          });
+          yield* client["comments.create"](commentOn("", page.path, "Cheaper"));
+          yield* client["comments.create"](
+            commentOn("", variant.path, "Bolder")
+          );
+          yield* client["comments.create"](commentOn("", HOME, "Stays"));
+
+          yield* client["pages.delete"]({ id: page.id });
+          const ids = (yield* client["pages.list"]()).pages.map((p) => p.id);
+          assert.notInclude(ids, page.id);
+          assert.notInclude(ids, variant.id);
+          const layout = yield* client["canvas.get"]({ canvas: "" });
+          assert.notProperty(layout.frames, page.path);
+          assert.notProperty(layout.frames, variant.path);
+          assert.deepStrictEqual(
+            commentedPages(
+              (yield* client["comments.list"]({ canvas: "" })).comments
+            ),
+            [HOME]
+          );
+          assert.strictEqual(
+            (yield* client["edit.state"]()).undoLabel,
+            "Delete Pricing and its variants"
+          );
+
+          yield* client["edit.undo"]();
+          const back = (yield* client["pages.list"]()).pages.map((p) => p.id);
+          assert.include(back, page.id);
+          assert.include(back, variant.id);
+          assert.deepStrictEqual(
+            commentedPages(
+              (yield* client["comments.list"]({ canvas: "" })).comments
+            ),
+            [HOME, page.path, variant.path].sort()
+          );
+        })
+    );
+
+    it.effect("renames a page's comments, and its variant's, with it", () =>
+      Effect.gen(function* () {
+        const { client } = yield* TestEnv;
+        const renamed = yield* client["pages.rename"]({
+          id: "pricing.page.json",
+          name: "Plans",
+        });
+        assert.strictEqual(renamed.path, "plans.page.json");
+        assert.deepStrictEqual(
+          commentedPages(
+            (yield* client["comments.list"]({ canvas: "" })).comments
+          ),
+          [HOME, "plans.page.json", "plans@bold.page.json"]
+        );
+        yield* client["edit.undo"]();
+        assert.deepStrictEqual(
+          commentedPages(
+            (yield* client["comments.list"]({ canvas: "" })).comments
+          ),
+          [HOME, "pricing.page.json", "pricing@bold.page.json"]
+        );
+      })
+    );
+
+    it.effect(
+      "copies a page with its variants and no comments, and moves one with both",
+      () =>
+        Effect.gen(function* () {
+          const { client } = yield* TestEnv;
+          const copied = yield* client["pages.copyTo"]({
+            ids: ["pricing.page.json"],
+            move: false,
+            target: { name: "Wireframes" },
+          });
+          assert.deepStrictEqual(copied.map((p) => p.id).sort(), [
+            "wireframes/pricing.page.json",
+            "wireframes/pricing@bold.page.json",
+          ]);
+          assert.deepStrictEqual(
+            (yield* client["comments.list"]({ canvas: "wireframes" })).comments,
+            []
+          );
+          assert.strictEqual(
+            (yield* client["comments.list"]({ canvas: "" })).comments.length,
+            3
+          );
+
+          const moved = yield* client["pages.copyTo"]({
+            ids: ["pricing.page.json"],
+            move: true,
+            target: { name: "Final" },
+          });
+          assert.deepStrictEqual(moved.map((p) => p.id).sort(), [
+            "final/pricing.page.json",
+            "final/pricing@bold.page.json",
+          ]);
+          assert.strictEqual(
+            moved.find((p) => p.variant === undefined)?.route,
+            "/pricing"
+          );
+          assert.deepStrictEqual(
+            commentedPages(
+              (yield* client["comments.list"]({ canvas: "" })).comments
+            ),
+            [HOME]
+          );
+          assert.deepStrictEqual(
+            commentedPages(
+              (yield* client["comments.list"]({ canvas: "final" })).comments
+            ),
+            ["pricing.page.json", "pricing@bold.page.json"]
+          );
+          assert.deepStrictEqual(
+            (yield* client["canvas.get"]({ canvas: "final" })).variants,
+            ["bold"]
+          );
+          // One step: undo puts the pages and the comments back where they were.
+          yield* client["edit.undo"]();
+          assert.strictEqual(
+            (yield* client["comments.list"]({ canvas: "" })).comments.length,
+            3
+          );
+          assert.include(
+            (yield* client["pages.list"]()).pages.map((p) => p.id),
+            "pricing@bold.page.json"
+          );
+        })
+    );
+
+    it.effect(
+      "refuses a new canvas without a name, and a template that is not there",
+      () =>
+        Effect.gen(function* () {
+          const { client } = yield* TestEnv;
+          const unnamed = yield* Effect.flip(
+            client["pages.copyTo"]({
+              ids: [HOME],
+              move: false,
+              target: { name: "  " },
+            })
+          );
+          assert.strictEqual(unnamed._tag, "BadRequest");
+          const template = yield* Effect.flip(
+            client["pages.create"]({
+              canvas: "",
+              name: "Fancy",
+              template: "fancy",
+            })
+          );
+          assert.strictEqual(template._tag, "BadRequest");
+          assert.include(template.message, "blank, centered, page");
+          // The template with a header links nowhere: a canvas need not serve `/`.
+          const headed = yield* client["pages.create"]({
+            canvas: "",
+            name: "Headed",
+            template: "page",
+          });
+          const state = yield* client["documents.get"]({ doc: headed.id });
+          assert.notInclude(JSON.stringify(state.root), '"link"');
+          yield* client["pages.delete"]({ id: headed.id });
+        })
+    );
+
+    it.effect(
+      "opens a canvas on a URL one of its pages serves, and keeps it there",
+      () =>
+        Effect.gen(function* () {
+          const { client } = yield* TestEnv;
+          const homeOf = (canvas: string) =>
+            Effect.map(
+              client["pages.list"](),
+              (list) => list.canvases.find((c) => c.id === canvas)?.home
+            );
+          const nowhere = yield* Effect.flip(
+            client["canvases.setHome"]({ id: "", route: "/nowhere" })
+          );
+          assert.strictEqual(nowhere._tag, "BadRequest");
+          const set = yield* client["canvases.setHome"]({
+            id: "",
+            route: "pricing",
+          });
+          assert.strictEqual(set.home, "/pricing");
+          assert.strictEqual(
+            (yield* client["canvas.get"]({ canvas: "" })).home,
+            "/pricing"
+          );
+          // The page serves another URL: the canvas follows it there.
+          yield* client["pages.setRoute"]({
+            id: "pricing.page.json",
+            route: "/plans",
+          });
+          assert.strictEqual(yield* homeOf(""), "/plans");
+          // The page goes: the canvas opens on the first URL another page serves.
+          yield* client["pages.delete"]({ id: "pricing.page.json" });
+          assert.strictEqual(yield* homeOf(""), "/home");
+          assert.strictEqual(
+            (yield* client["canvas.get"]({ canvas: "" })).home,
+            "/home"
+          );
+        })
+    );
+
+    it.effect(
+      "saves the editor's frames over the saved ones, and drops the frames of pages that are gone",
+      () =>
+        Effect.gen(function* () {
+          const { client } = yield* TestEnv;
+          const draft = yield* client["pages.create"]({
+            canvas: "",
+            name: "Draft",
+          });
+          yield* client["canvas.set"]({
+            canvas: "",
+            frames: { [draft.path]: frameAt(900) },
+          });
+          // A frame the editor does not mention stays where it is.
+          yield* client["canvas.set"]({
+            canvas: "",
+            frames: { [HOME]: frameAt(0) },
+          });
+          const both = yield* client["canvas.get"]({ canvas: "" });
+          assert.deepStrictEqual(both.frames[draft.path], frameAt(900));
+          assert.deepStrictEqual(both.frames[HOME], frameAt(0));
+          // An editor that has not heard of the rename yet does not bring the old name back.
+          const renamed = yield* client["pages.rename"]({
+            id: draft.id,
+            name: "Sketch",
+          });
+          yield* client["canvas.set"]({
+            canvas: "",
+            frames: { [draft.path]: frameAt(1800), [HOME]: frameAt(0) },
+          });
+          const after = yield* client["canvas.get"]({ canvas: "" });
+          assert.notProperty(after.frames, draft.path);
+          assert.deepStrictEqual(after.frames[renamed.path], frameAt(900));
+        })
+    );
+
+    it.effect("keeps an edit made while the page is renamed", () =>
+      Effect.gen(function* () {
+        const { client } = yield* TestEnv;
+        // Each round sends an edit just after a rename: whichever lands first, an edit that was
+        // accepted is in the page that is left. The window it guards is narrow, so this is a
+        // check of the outcome more than a reproduction of the race.
+        for (const round of [1, 2, 3, 4, 5]) {
+          const page = yield* client["pages.create"]({
+            canvas: "",
+            name: `Race ${round}`,
+          });
+          const id = `raced-${round}`;
+          const [renamed, edited] = yield* Effect.all(
+            [
+              client["pages.rename"]({
+                id: page.id,
+                name: `Renamed ${round}`,
+              }),
+              Effect.exit(
+                client["documents.apply"]({
+                  edits: [
+                    {
+                      doc: page.id,
+                      ops: [
+                        {
+                          node: paragraph(id, "Raced"),
+                          op: "insert",
+                          parent: "root",
+                        },
+                      ],
+                    },
+                  ],
+                }).pipe(Effect.delay(`${round} millis`))
+              ),
+            ],
+            { concurrency: "unbounded" }
+          );
+          if (edited._tag === "Success") {
+            assert.include(
+              childIds(
+                (yield* client["documents.get"]({ doc: renamed.id })).root
+              ),
+              id
+            );
+          }
+        }
+      })
+    );
+
+    it.effect("deletes a canvas with its own assets and its directory", () =>
+      Effect.gen(function* () {
+        const { client, repo } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        const dir = path.join(repo, "designs/wireframes");
+        const shared = path.join(repo, "designs/assets/logo.svg");
+        yield* fs.makeDirectory(path.join(dir, "assets"), { recursive: true });
+        yield* fs.writeFileString(path.join(dir, "assets/logo.svg"), "<svg/>");
+        yield* fs.makeDirectory(path.dirname(shared), { recursive: true });
+        yield* fs.writeFileString(shared, "<svg/>");
+        yield* client["canvases.delete"]({ id: "wireframes" });
+        assert.isFalse(yield* fs.exists(dir));
+        // The shared assets are every canvas's, and stay.
+        assert.isTrue(yield* fs.exists(shared));
+        assert.notInclude(
+          (yield* client["pages.list"]()).canvases.map((c) => c.id),
+          "wireframes"
+        );
+      })
+    );
+  }
+);

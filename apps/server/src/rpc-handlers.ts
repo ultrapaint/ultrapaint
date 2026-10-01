@@ -100,6 +100,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "canvases.rename": ({ id, name }) =>
         pages((s) => s.renameCanvas(id, name)),
       "canvases.reorder": ({ order }) => pages((s) => s.reorderCanvases(order)),
+      "canvases.setHome": ({ id, route }) => pages((s) => s.setHome(id, route)),
 
       "catalogue.get": ({ refresh }) => catalogue((c) => c.get(refresh)),
       "catalogue.storyUrl": ({ storyId }) =>
