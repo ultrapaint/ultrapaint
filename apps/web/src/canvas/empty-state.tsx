@@ -96,12 +96,12 @@ export const EmptyState = () => {
     >
       {configured ? (
         <div
-          className="pointer-events-auto flex max-w-sm flex-col items-center gap-4 p-6 text-center"
+          className="pointer-events-auto flex max-w-xl flex-col items-center gap-4 p-6 text-center"
           onPointerDown={keepFromCanvas}
         >
           <div className="flex flex-col items-center gap-1">
             <span className="font-medium">{title}</span>
-            <span className="text-balance text-muted-foreground text-xs/relaxed">
+            <span className="max-w-xs text-balance text-muted-foreground text-xs/relaxed">
               {text}
             </span>
           </div>
