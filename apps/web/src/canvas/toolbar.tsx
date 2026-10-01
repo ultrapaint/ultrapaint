@@ -37,13 +37,16 @@ import { useComments } from "../state/comments.ts";
 import { type Mode, useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
 
+/** `label` names the tool for a screen reader, as the tooltip names it on screen. */
 const modes: {
   value: Mode;
   icon: React.ReactNode;
+  label: string;
   tooltip: React.ReactNode;
 }[] = [
   {
     icon: <MousePointer2 />,
+    label: "Select",
     tooltip: (
       <>
         Select <Kbd>V</Kbd>
@@ -53,6 +56,7 @@ const modes: {
   },
   {
     icon: <SquareDashed />,
+    label: "Group",
     tooltip: (
       <>
         Group <Kbd>G</Kbd> · draw one, or click for the default size
@@ -62,6 +66,7 @@ const modes: {
   },
   {
     icon: <Type />,
+    label: "Text",
     tooltip: (
       <>
         Text <Kbd>T</Kbd>
@@ -71,15 +76,18 @@ const modes: {
   },
   {
     icon: <Pointer />,
+    label: "Use components",
     tooltip: (
       <>
-        Interact with the UI <Kbd>I</Kbd>
+        Use components <Kbd>I</Kbd> · press their buttons, open their menus.
+        Links are followed in Prototype.
       </>
     ),
     value: "interact",
   },
   {
     icon: <Hand />,
+    label: "Pan",
     tooltip: (
       <>
         Pan <Kbd>H</Kbd> or hold <Kbd>Space</Kbd>
@@ -89,6 +97,7 @@ const modes: {
   },
   {
     icon: <MessageCircle />,
+    label: "Comment",
     tooltip: (
       <>
         Comment <Kbd>C</Kbd> · show or hide comments{" "}
@@ -198,7 +207,7 @@ export const Toolbar = () => {
             <TooltipTrigger
               render={
                 <ToggleGroupItem
-                  aria-label={m.value}
+                  aria-label={m.label}
                   className="size-8 rounded-lg aria-pressed:bg-brand aria-pressed:text-brand-foreground data-pressed:bg-brand data-pressed:text-brand-foreground"
                   value={m.value}
                 >

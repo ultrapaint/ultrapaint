@@ -114,7 +114,7 @@ const leftTabs: Record<
     icon: Shapes,
     label: "Components",
     panel: Palette,
-    rail: "Assets",
+    rail: "Components",
   },
 };
 
