@@ -18,7 +18,8 @@ import { pagesOfCanvas, useEditor } from "../state/editor.ts";
 
 /**
  * Where the element leads in the prototype, from the Vibe toolbar: the inspector's own field in a
- * popover. A page's root and a node beside the pages have no link to set.
+ * popover. Only an icon, lit when the element leads somewhere, as the toolbar has to fit inside
+ * the frame. A page's root and a node beside the pages have no link to set.
  */
 export const LinkControl = ({ node }: { node: DesignNode }) => {
   const frame = useEditor((s) => s.selection?.frame ?? null);
@@ -37,7 +38,7 @@ export const LinkControl = ({ node }: { node: DesignNode }) => {
             <PopoverTrigger
               render={
                 <button
-                  className="flex h-7 max-w-40 items-center gap-1 rounded-md px-2 font-medium text-[12px] outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 data-[linked=true]:bg-muted data-[broken=true]:text-destructive"
+                  className="flex h-7 items-center rounded-md px-2 font-medium text-[12px] outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 data-[linked=true]:bg-muted data-[broken=true]:text-destructive data-[linked=true]:text-sky-500"
                   data-broken={described?.broken ?? false}
                   data-linked={described !== null}
                   type="button"
@@ -47,12 +48,11 @@ export const LinkControl = ({ node }: { node: DesignNode }) => {
           }
         >
           <Link2 className="size-3.5 shrink-0" />
-          {described ? (
-            <span className="truncate">{described.label}</span>
-          ) : null}
         </TooltipTrigger>
         <TooltipContent>
-          {described ? "Where it leads in the prototype" : "Link to a page"}
+          {described
+            ? `Leads to ${described.label}${described.broken ? ", which is not there" : ""}`
+            : "Link to a page"}
         </TooltipContent>
       </Tooltip>
       <PopoverContent className="w-64 gap-2 p-2.5">
