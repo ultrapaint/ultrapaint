@@ -1,13 +1,14 @@
 import { childrenOf } from "@ultrapaint/design-document/tree";
 import { useEffect } from "react";
 import { bridgeFor } from "../canvas/bridge.ts";
-import { useComments } from "../state/comments.ts";
+import { toggleCommenting, useComments } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
 import { showMenu } from "../state/context-menu.ts";
 import { pathIn, useDocuments } from "../state/documents.ts";
 import {
   allFrames,
   flushLayout,
+  type Mode,
   useEditor,
   type Viewport,
   workspaceOrder,
@@ -85,6 +86,10 @@ const handleEditKey = (e: KeyboardEvent, s: EditorState, meta: boolean) => {
     undoOrRedo(e.shiftKey);
     return true;
   }
+  // The prototype shows no selection, so nothing may be done to one there.
+  if (s.workspace === "prototype") {
+    return false;
+  }
   if (meta && e.key.toLowerCase() === "d" && s.selection) {
     e.preventDefault();
     duplicateSelection();
@@ -112,32 +117,40 @@ const handleEditKey = (e: KeyboardEvent, s: EditorState, meta: boolean) => {
   return false;
 };
 
+/** The canvas's tools, by the key that picks them. */
+const toolKeys: Record<string, Mode> = {
+  g: "group",
+  h: "pan",
+  i: "interact",
+  t: "text",
+  v: "select",
+};
+
 const handleModeKey = (e: KeyboardEvent, s: EditorState, meta: boolean) => {
-  if (!meta && e.key.toLowerCase() === "v") {
-    s.setMode("select");
+  const key = e.key.toLowerCase();
+  if (meta) {
+    return;
   }
-  if (!meta && e.key.toLowerCase() === "i") {
-    s.setMode("interact");
+  if (key === "c" && e.shiftKey) {
+    useComments.getState().toggleVisible();
+    return;
   }
-  if (!meta && e.key.toLowerCase() === "h") {
-    s.setMode("pan");
+  // The prototype is clicked through, or commented on: the canvas's tools mean nothing there,
+  // and C goes in and out of commenting, as its button in the bar does.
+  if (s.workspace === "prototype") {
+    if (key === "c") {
+      toggleCommenting();
+    }
+    return;
   }
-  // Groups and texts are made on the canvas, which the prototype does not show.
-  if (!meta && e.key.toLowerCase() === "g" && s.workspace !== "prototype") {
-    s.setMode("group");
+  const tool = toolKeys[key];
+  if (tool) {
+    s.setMode(tool);
   }
-  if (!meta && e.key.toLowerCase() === "t" && s.workspace !== "prototype") {
-    s.setMode("text");
-  }
-  // Comments belong to the canvas, which the prototype does not show.
-  if (!meta && e.key.toLowerCase() === "c" && s.workspace !== "prototype") {
-    if (e.shiftKey) {
+  if (key === "c") {
+    s.setMode("comment");
+    if (!useComments.getState().visible) {
       useComments.getState().toggleVisible();
-    } else {
-      s.setMode("comment");
-      if (!useComments.getState().visible) {
-        useComments.getState().toggleVisible();
-      }
     }
   }
 };
@@ -221,6 +234,18 @@ const handleTreeNavigation = (e: KeyboardEvent, s: EditorState) => {
 };
 
 /**
+ * Zooming and walking the tree are the canvas's. The prototype is drawn at its own size and
+ * shows no selection; the browser keeps its own zoom keys there.
+ */
+const handleCanvasKey = (e: KeyboardEvent, s: EditorState, meta: boolean) => {
+  if (s.workspace === "prototype") {
+    return;
+  }
+  handleZoomKey(e, s, meta);
+  handleTreeNavigation(e, s);
+};
+
+/**
  * Escape closes an open comment, or gives up on one being written, before it lets go of a
  * selected page. Returns true when the key was consumed.
  */
@@ -229,6 +254,11 @@ const handleEscape = (s: EditorState) => {
   if (comments.draft || comments.open) {
     comments.setDraft(null);
     comments.setOpen(null);
+    return true;
+  }
+  // The prototype has no other tool to pick in place of commenting: Escape puts it down.
+  if (s.workspace === "prototype" && s.mode === "comment") {
+    s.setMode("interact");
     return true;
   }
   if (s.selectedPage) {
@@ -352,8 +382,7 @@ export const useShortcuts = () => {
         return;
       }
       handleModeKey(e, s, meta);
-      handleZoomKey(e, s, meta);
-      handleTreeNavigation(e, s);
+      handleCanvasKey(e, s, meta);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

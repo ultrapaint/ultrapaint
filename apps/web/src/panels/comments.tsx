@@ -25,6 +25,23 @@ import { useProject } from "../state/project.ts";
 
 const toggleVisible = () => useComments.getState().toggleVisible();
 
+/**
+ * How a comment is placed, said where there is none yet: the canvas has a tool for it, the
+ * prototype a mode of its bar.
+ */
+const NoComments = ({ prototype }: { prototype: boolean }) =>
+  prototype ? (
+    <>
+      No comments yet. Turn on commenting <Kbd>C</Kbd> in the bar under the
+      prototype and click anywhere on the page.
+    </>
+  ) : (
+    <>
+      No comments yet. Pick the comment tool <Kbd>C</Kbd> and click anywhere on
+      a page.
+    </>
+  );
+
 /** Every comment of the open canvas, page by page, newest first. */
 export const Comments = () => {
   const configured = useProject((s) => s.info.configured);
@@ -34,6 +51,7 @@ export const Comments = () => {
   const comments = useComments((s) => s.comments);
   const visible = useComments((s) => s.visible);
   const showResolved = useComments((s) => s.showResolved);
+  const prototype = useEditor((s) => s.workspace === "prototype");
 
   if (!configured) {
     return <SetupEmpty />;
@@ -78,10 +96,7 @@ export const Comments = () => {
       {listed.length === 0 ? (
         <PanelEmpty icon={<MessageCircle />}>
           {comments.length === 0 ? (
-            <>
-              No comments yet. Pick the comment tool <Kbd>C</Kbd> and click
-              anywhere on a page.
-            </>
+            <NoComments prototype={prototype} />
           ) : (
             "Every comment is resolved."
           )}

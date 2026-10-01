@@ -61,7 +61,10 @@ export const removeFromChat = (selection: Selection | readonly Selection[]) => {
   }
 };
 
-/** Brings a thread's scope into view on the canvas, selected. */
+/**
+ * Brings a thread's scope into view on the canvas, selected. The prototype selects nothing: it
+ * goes to the scope's page.
+ */
 export const showScope = (thread: Thread) => {
   const { scope } = thread;
   if (!scope) {
@@ -69,6 +72,12 @@ export const showScope = (thread: Thread) => {
   }
   const editor = useEditor.getState();
   const page = useProject.getState().pages.find((p) => p.file === scope.file);
+  if (editor.workspace === "prototype") {
+    if (page) {
+      editor.openPage(page.id);
+    }
+    return;
+  }
   if (page && scope.nodeId === undefined) {
     editor.selectPage(page.id);
   } else if (scope.nodeId !== undefined) {

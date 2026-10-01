@@ -1,17 +1,33 @@
 import { presetSize } from "@ultrapaint/contracts/pages";
 import type { HostMessage } from "@ultrapaint/contracts/preview";
 import { basePathOf } from "@ultrapaint/shared/route";
-import { ArrowLeft, ArrowRight, RotateCw, TriangleAlert } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { cn } from "cn";
+import {
+  ArrowLeft,
+  ArrowRight,
+  MessageCircle,
+  RotateCw,
+  TriangleAlert,
+} from "lucide-react";
+import {
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { Button } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/kbd";
 import { IconButton } from "../components/icon-button.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { editPageUrl, NO_URL_HINT } from "../lib/page-actions.ts";
+import { toggleCommenting, useComments } from "../state/comments.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useDocuments } from "../state/documents.ts";
 import { pagesOfCanvas, useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
 import { bridgeFor, removeBridge } from "./bridge.ts";
+import { commentCursor, FrameComments, placeComment } from "./comments.tsx";
 import { useHostUrl } from "./frame.tsx";
 
 /** Room kept free around the page for the workspace switcher and the bottom strip. */
@@ -41,6 +57,63 @@ const renderRoute = (canvas: string) => {
     root: state?.root ?? null,
     ...(message !== undefined && { message }),
   });
+};
+
+/** A press beside the page lets go of the comment open on it, or of the one being written. */
+const closeComments = (e: ReactPointerEvent) => {
+  if (e.target === e.currentTarget) {
+    useComments.getState().setDraft(null);
+    useComments.getState().setOpen(null);
+  }
+};
+
+/**
+ * The comments of the page the prototype shows, pinned where they were placed, and in comment
+ * mode the sheet a click drops a new one on. Laid over the iframe in the page's own pixels and
+ * scaled as it is; the pins and cards are scaled back to keep their size, and are not clipped
+ * by the page's edge, so a card near it can still be read.
+ */
+const PageComments = ({
+  frame,
+  height,
+  scale,
+  width,
+}: {
+  frame: string;
+  height: number;
+  scale: number;
+  width: number;
+}) => {
+  const activePage = useEditor((s) => s.activePage);
+  const commenting = useEditor((s) => s.mode === "comment");
+  const page = useProject((s) => s.pages.find((p) => p.id === activePage));
+  if (!page) {
+    return null;
+  }
+  const place = (e: ReactMouseEvent<HTMLButtonElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    placeComment(frame, page.id, {
+      x: (e.clientX - r.left) / scale,
+      y: (e.clientY - r.top) / scale,
+    });
+  };
+  return (
+    <div
+      className="pointer-events-none absolute top-0 left-0 origin-top-left *:pointer-events-auto"
+      style={{ height, transform: `scale(${scale})`, width }}
+    >
+      {commenting ? (
+        <button
+          aria-label={`Comment on ${page.name}`}
+          className="absolute inset-0 h-full w-full"
+          onClick={place}
+          style={{ cursor: commentCursor }}
+          type="button"
+        />
+      ) : null}
+      <FrameComments inv={1 / scale} page={page} />
+    </div>
+  );
 };
 
 /**
@@ -148,26 +221,37 @@ export const Prototype = () => {
       // Shown in the layer that floats over the canvas, which passes clicks through: the page
       // itself takes them.
       className="pointer-events-auto relative flex h-full w-full items-center justify-center overflow-hidden bg-background"
+      onPointerDown={closeComments}
       ref={ref}
       style={{ paddingBottom: inset.bottom, paddingTop: inset.top }}
     >
       {shown ? (
         <div
-          className="shrink-0 overflow-hidden rounded-md bg-white shadow-2xl"
+          className="relative shrink-0"
           style={{ height: size.height * scale, width: size.width * scale }}
         >
-          <iframe
-            className="block origin-top-left border-0 bg-white"
-            key={`${canvas}:${reloads}`}
-            ref={iframeRef}
-            src={url}
-            style={{
-              height: size.height,
-              transform: `scale(${scale})`,
-              width: size.width,
-            }}
-            title={title}
-          />
+          <div className="h-full w-full overflow-hidden rounded-md bg-white shadow-2xl">
+            <iframe
+              className="block origin-top-left border-0 bg-white"
+              key={`${canvas}:${reloads}`}
+              ref={iframeRef}
+              src={url}
+              style={{
+                height: size.height,
+                transform: `scale(${scale})`,
+                width: size.width,
+              }}
+              title={title}
+            />
+          </div>
+          {canvas === null ? null : (
+            <PageComments
+              frame={frameIdOf(canvas)}
+              height={size.height}
+              scale={scale}
+              width={size.width}
+            />
+          )}
         </div>
       ) : (
         <span className="text-muted-foreground">{content}</span>
@@ -238,13 +322,14 @@ const pageOption = (page: {
 
 /**
  * Floating strip under the prototype: the canvas's history, the page it is on, the variant it
- * clicks through when the canvas has variants, and a restart. A page without a URL is on the list
- * too, and says so over the bar when it is shown.
+ * clicks through when the canvas has variants, commenting on the page, and a restart. A page
+ * without a URL is on the list too, and says so over the bar when it is shown.
  */
 export const PrototypeBar = () => {
   const canvas = useEditor((s) => s.canvas);
   const activePage = useEditor((s) => s.activePage);
   const variant = useEditor((s) => s.variant);
+  const commenting = useEditor((s) => s.mode === "comment");
   const variants = useProject(
     (s) => s.canvases.find((c) => c.id === canvas)?.variants ?? NO_VARIANTS
   );
@@ -307,6 +392,23 @@ export const PrototypeBar = () => {
             value={current}
           />
         </div>
+        <IconButton
+          aria-label="Comment"
+          aria-pressed={commenting}
+          className={cn(
+            "size-8 rounded-lg",
+            commenting && "bg-brand text-brand-foreground hover:bg-brand/90"
+          )}
+          disabled={canvas === null}
+          onClick={toggleCommenting}
+          tooltip={
+            <>
+              {commenting ? "Stop commenting" : "Comment"} <Kbd>C</Kbd>
+            </>
+          }
+        >
+          <MessageCircle />
+        </IconButton>
         <IconButton
           className="size-8 rounded-lg"
           disabled={canvas === null}
