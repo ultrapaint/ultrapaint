@@ -12,6 +12,7 @@ import {
   type Viewport,
   workspaceOrder,
 } from "../state/editor.ts";
+import { usePanels } from "../state/panels.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { onCopyEvent, onPasteEvent } from "./clipboard.ts";
 import {
@@ -156,6 +157,23 @@ const handleWorkspaceKey = (e: KeyboardEvent, s: EditorState) => {
   }
   e.preventDefault();
   s.setWorkspace(next);
+  return true;
+};
+
+/**
+ * ⌘\ (Ctrl+\) puts the side panels away, or brings them back, as in Figma. Nothing is typed with
+ * it, so it works in a text field too; exclusive: returns true when the key was consumed.
+ */
+const handlePanelsKey = (e: KeyboardEvent) => {
+  const meta = e.metaKey || e.ctrlKey;
+  if (!meta || e.altKey || e.shiftKey) {
+    return false;
+  }
+  if (e.key !== "\\" && e.code !== "Backslash") {
+    return false;
+  }
+  e.preventDefault();
+  usePanels.getState().toggleAll();
   return true;
 };
 
@@ -336,9 +354,13 @@ export const useShortcuts = () => {
         return;
       }
       const s = useEditor.getState();
-      // Neither a menu nor a workspace switch means anything to a text field: both work while
-      // typing too (the menu key only on the canvas, which has no field).
-      if (handleMenuKey(e, s) || handleWorkspaceKey(e, s)) {
+      // Neither a menu, a workspace switch nor the panels mean anything to a text field: they
+      // work while typing too (the menu key only on the canvas, which has no field).
+      if (
+        handleMenuKey(e, s) ||
+        handleWorkspaceKey(e, s) ||
+        handlePanelsKey(e)
+      ) {
         return;
       }
       if (isTyping(e)) {
@@ -360,9 +382,23 @@ export const useShortcuts = () => {
   }, []);
 };
 
+/** How far a panel floating over one edge of the canvas reaches into it; a hidden one, not at all. */
+const coverOf = (rect: DOMRect, side: "left" | "right") => {
+  const panel = document
+    .querySelector(`[data-canvas-cover="${side}"]`)
+    ?.getBoundingClientRect();
+  if (!panel || panel.width === 0) {
+    return 0;
+  }
+  return Math.max(
+    0,
+    side === "left" ? panel.right - rect.left : rect.right - panel.left
+  );
+};
+
 /**
- * The part of the canvas that can be seen, in the canvas's own coordinates: the left panel floats
- * over the canvas's left edge, and what is fitted or zoomed into belongs in what is left of it.
+ * The part of the canvas that can be seen, in the canvas's own coordinates: the side panels float
+ * over the canvas's edges, and what is fitted or zoomed into belongs in what is left between them.
  */
 export const viewportSize = (): Viewport => {
   const el = document.querySelector("[data-canvas]");
@@ -370,11 +406,9 @@ export const viewportSize = (): Viewport => {
     return { height: window.innerHeight, width: window.innerWidth - 544, x: 0 };
   }
   const rect = el.getBoundingClientRect();
-  const panel = document
-    .querySelector("[data-canvas-cover]")
-    ?.getBoundingClientRect();
-  const covered = panel ? Math.max(0, panel.right - rect.left) : 0;
-  return { height: rect.height, width: rect.width - covered, x: covered };
+  const left = coverOf(rect, "left");
+  const right = coverOf(rect, "right");
+  return { height: rect.height, width: rect.width - left - right, x: left };
 };
 
 export const zoomBy = (k: number) => {

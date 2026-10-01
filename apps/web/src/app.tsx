@@ -1,3 +1,4 @@
+import { cn } from "cn";
 import {
   GitBranch,
   GitCompareArrows,
@@ -6,17 +7,30 @@ import {
   MessageCircle,
   MonitorSmartphone,
   Palette as PaletteIcon,
+  PanelLeftClose,
+  PanelLeftOpen,
   Settings,
   Shapes,
   Sparkles,
   TriangleAlert,
 } from "lucide-react";
-import { type ComponentType, useEffect, useRef } from "react";
+import {
+  type ComponentType,
+  type CSSProperties,
+  useEffect,
+  useRef,
+} from "react";
 import { toast } from "sonner";
+import { Kbd } from "@/components/ui/kbd";
 import { Separator } from "@/components/ui/separator";
 import { Toaster } from "@/components/ui/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { installBridgeRouter } from "./canvas/bridge.ts";
 import { Canvas } from "./canvas/canvas.tsx";
 import { Prototype, PrototypeBar } from "./canvas/prototype.tsx";
@@ -57,6 +71,7 @@ import {
   useEditor,
   workspaceTabs,
 } from "./state/editor.ts";
+import { openLeftPanel, usePanels } from "./state/panels.ts";
 import { bindProjectEvents, useProject } from "./state/project.ts";
 import { bindScreenshots } from "./state/screenshots.ts";
 import { onUrlChange, readUrl, tidyUrl, writeMode } from "./state/url.ts";
@@ -153,7 +168,9 @@ const RailItem = ({
 );
 
 const RailButton = ({ value }: { value: LeftTab }) => {
-  const active = useEditor((s) => s.leftTab === value);
+  // A panel put away is not the one open: nothing on the rail says it is.
+  const hidden = usePanels((s) => s.left);
+  const active = useEditor((s) => s.leftTab === value) && !hidden;
   // Chats: an agent is working. Changes: an agent's turn changed files nobody looked at yet.
   const dot = useAgents((s) => {
     if (value === "chat") {
@@ -169,8 +186,39 @@ const RailButton = ({ value }: { value: LeftTab }) => {
       icon={tab.icon}
       label={tab.rail}
       name={tab.label}
-      onClick={() => useEditor.getState().setLeftTab(value)}
+      onClick={() => openLeftPanel(value)}
     />
+  );
+};
+
+const toggleLeft = () => usePanels.getState().toggleLeft();
+
+/** Puts the left panel away for a clear canvas, or brings it back; the rail itself stays. */
+const PanelToggle = () => {
+  const hidden = usePanels((s) => s.left);
+  const Icon = hidden ? PanelLeftOpen : PanelLeftClose;
+  const name = hidden ? "Show the panel" : "Hide the panel";
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            aria-label={name}
+            aria-pressed={hidden}
+            className="mb-1 flex size-7 items-center justify-center rounded-lg text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+            onClick={toggleLeft}
+            type="button"
+          />
+        }
+      >
+        <Icon className="size-4" />
+      </TooltipTrigger>
+      <TooltipContent side="right">
+        {name}
+        <span className="text-background/60">· every panel</span>
+        <Kbd>⌘\</Kbd>
+      </TooltipContent>
+    </Tooltip>
   );
 };
 
@@ -199,6 +247,7 @@ const Rail = () => {
         <RailButton key={value} value={value} />
       ))}
       <div className="flex-1" />
+      <PanelToggle />
       <RailItem
         icon={Settings}
         label="Settings"
@@ -266,7 +315,8 @@ const ProjectHeader = () => {
 /**
  * The panel floats over the canvas instead of pushing it: the canvas keeps its left edge against
  * the rail, so widening the panel covers more of it and never moves what is drawn on it.
- * `left-16` is the rail's own width.
+ * `left-16` is the rail's own width. Put away, it stays mounted and hidden: the chat it holds
+ * keeps its place and what was being written in it.
  */
 const LeftPanel = ({
   defaultWidth,
@@ -278,13 +328,17 @@ const LeftPanel = ({
   onWidthChange: (width: number) => void;
 }) => {
   const leftTab = useEditor((s) => s.leftTab);
+  const hidden = usePanels((s) => s.left);
   const tab = leftTabs[leftTab];
   // Only the active panel is mounted: panels subscribe to server events while visible.
   const Active = tab.panel;
   return (
     <aside
-      className="absolute inset-y-0 left-16 z-30 flex flex-col border-r bg-sidebar text-sidebar-foreground"
-      data-canvas-cover
+      className={cn(
+        "absolute inset-y-0 left-16 z-30 flex-col border-r bg-sidebar text-sidebar-foreground",
+        hidden ? "hidden" : "flex"
+      )}
+      data-canvas-cover="left"
       style={{ width }}
     >
       <ProjectHeader />
@@ -312,12 +366,22 @@ const LeftPanel = ({
 const onRightTabChange = (value: unknown) =>
   useEditor.getState().setRightTab(value as RightTab);
 
-const RightPanel = () => {
-  const [width, setWidth] = usePanelWidth("right", rightBounds);
+/**
+ * Floats over the canvas's right edge, as the left panel does over its left one: the canvas is
+ * the same size in every workspace, and switching to Design never moves what is drawn on it.
+ */
+const RightPanel = ({
+  width,
+  onWidthChange,
+}: {
+  width: number;
+  onWidthChange: (width: number) => void;
+}) => {
   const rightTab = useEditor((s) => s.rightTab);
   return (
     <aside
-      className="relative flex shrink-0 flex-col border-l bg-sidebar text-sidebar-foreground"
+      className="absolute inset-y-0 right-0 z-30 flex flex-col border-l bg-sidebar text-sidebar-foreground"
+      data-canvas-cover="right"
       style={{ width }}
     >
       <Tabs
@@ -345,7 +409,7 @@ const RightPanel = () => {
       </Tabs>
       <ResizeHandle
         defaultWidth={rightBounds.defaultWidth}
-        onWidthChange={setWidth}
+        onWidthChange={onWidthChange}
         side="right"
         width={width}
       />
@@ -365,6 +429,13 @@ export const App = () => {
   const settingsOpen = useProject((s) => s.settingsOpen);
   const leftPanel = leftTab === "chat" ? chatBounds : leftBounds;
   const [leftWidth, setLeftWidth] = usePanelWidth("left", leftPanel);
+  const [rightWidth, setRightWidth] = usePanelWidth("right", rightBounds);
+  const leftHidden = usePanels((s) => s.left);
+  const rightHidden = usePanels((s) => s.right);
+  const hasRight = workspace === "design" && !rightHidden;
+  // How much of the canvas each panel covers: what floats over it keeps to the rest.
+  const leftCover = leftHidden ? 0 : leftWidth;
+  const rightCover = hasRight ? rightWidth : 0;
   const bound = useRef<boolean>(false);
   useShortcuts();
   useOpenNodeLink();
@@ -431,8 +502,8 @@ export const App = () => {
           : {}
       );
     // The canvas starts behind the panel, so the first view opens a margin past the panel's edge.
-    useEditor.getState().setView({ x: leftWidth + 80 });
-  }, [configured, canvases, canvas, leftWidth]);
+    useEditor.getState().setView({ x: leftCover + 80 });
+  }, [configured, canvases, canvas, leftCover]);
 
   // Recompute frames when the page list changes for the open canvas; a canvas deleted while
   // open gives way to the first one left.
@@ -512,13 +583,22 @@ export const App = () => {
               onWidthChange={setLeftWidth}
               width={leftWidth}
             />
-            <main className="relative min-w-0 flex-1">
+            {/* The covers are handed down as variables, for what centres itself on the canvas. */}
+            <main
+              className="relative min-w-0 flex-1"
+              style={
+                {
+                  "--cover-left": `${leftCover}px`,
+                  "--cover-right": `${rightCover}px`,
+                } as CSSProperties
+              }
+            >
               {workspace !== "prototype" && <Canvas />}
-              {/* What floats over the canvas belongs in the part the panel leaves to be seen, and
+              {/* What floats over the canvas belongs in the part the panels leave to be seen, and
                 so does the prototype, which is centred rather than panned. */}
               <div
-                className="pointer-events-none absolute inset-y-0 right-0"
-                style={{ left: leftWidth }}
+                className="pointer-events-none absolute inset-y-0"
+                style={{ left: leftCover, right: rightCover }}
               >
                 {workspace === "prototype" && <Prototype />}
                 <WorkspaceSwitcher />
@@ -529,7 +609,9 @@ export const App = () => {
                 </div>
               </div>
             </main>
-            {workspace === "design" && <RightPanel />}
+            {hasRight ? (
+              <RightPanel onWidthChange={setRightWidth} width={rightWidth} />
+            ) : null}
           </div>
         )}
         <SaveConfigDialog />
