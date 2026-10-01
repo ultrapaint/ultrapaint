@@ -18,17 +18,13 @@ import { newInstance } from "@ultrapaint/design-document/factories";
 import { fillIds, makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { touchedBy } from "@ultrapaint/design-document/ops";
 import { fillWarnings } from "@ultrapaint/design-document/sizing";
+import { canvasDocOf, walk } from "@ultrapaint/design-document/tree";
 import {
-  canvasDocOf,
-  isPageFile,
-  walk,
-} from "@ultrapaint/design-document/tree";
+  pageOfLink,
+  linkTargetOf as parseLink,
+} from "@ultrapaint/shared/link";
 import { parseNodeRef } from "@ultrapaint/shared/node-ref";
-import {
-  basePathOf,
-  matchRoute,
-  normaliseRoute,
-} from "@ultrapaint/shared/route";
+import { basePathOf, normaliseRoute } from "@ultrapaint/shared/route";
 import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/unstable/ai";
 import { EventBus } from "../../events.ts";
@@ -543,12 +539,11 @@ export const reported = <A, E extends { readonly message: string }, R>(
 export const missing = (message: string) =>
   Effect.fail(new ToolFailure({ message }));
 
-const EXTERNAL_LINK_RE = /^https?:\/\//i;
-
 /**
- * Where a link leads in a canvas whose pages are these: a URL one of them serves, one of their
- * files, back to where the prototype was, or an address outside, which is not followed here.
- * Anything else, and a URL or a file no page answers to, leads nowhere, and says why.
+ * Where a link leads in a canvas whose pages are these, read as the editor reads it
+ * (`@ultrapaint/shared/link`): a URL one of them serves, one of their files, back to where the
+ * prototype was, or an address outside, which is not followed here. Anything else, and a URL or
+ * a file no page answers to, leads nowhere, and says why.
  */
 export const linkTargetOf = (
   link: string,
@@ -558,34 +553,26 @@ export const linkTargetOf = (
   readonly kind: "url" | "page" | "back" | "external" | "unknown";
   readonly target?: string;
 } => {
-  const trimmed = link.trim();
-  if (trimmed === "back") {
-    return { kind: "back" };
+  const target = parseLink(link);
+  if (target === null) {
+    return {
+      broken: `${link.trim()} is neither a URL starting with /, a page file, "back" nor an outside address`,
+      kind: "unknown",
+    };
   }
-  if (EXTERNAL_LINK_RE.test(trimmed)) {
-    return { kind: "external" };
+  if (target.kind === "back" || target.kind === "external") {
+    return { kind: target.kind };
   }
-  if (trimmed.startsWith("/")) {
-    const served = matchRoute(
-      pages.filter((p) => p.variant === undefined),
-      trimmed
-    );
-    return served
-      ? { kind: "url", target: served.entry.file }
-      : {
-          broken: `no page of the canvas serves ${normaliseRoute(trimmed)}`,
-          kind: "url",
-        };
-  }
-  if (isPageFile(trimmed)) {
-    const page = pages.find((p) => p.path === trimmed);
-    return page
-      ? { kind: "page", target: page.file }
-      : { broken: `no page file ${trimmed} in the canvas`, kind: "page" };
+  const page = pageOfLink(pages, link);
+  if (page) {
+    return { kind: target.kind, target: page.file };
   }
   return {
-    broken: `${trimmed} is neither a URL starting with /, a page file, "back" nor an http(s) address`,
-    kind: "unknown",
+    broken:
+      target.kind === "url"
+        ? `no page of the canvas serves ${target.route}`
+        : `no page file ${target.path} in the canvas`,
+    kind: target.kind,
   };
 };
 

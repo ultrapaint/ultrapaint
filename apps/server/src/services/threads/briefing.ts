@@ -172,7 +172,8 @@ variant. It holds a tree of nodes, each with an id:
 - instance: a component of the design system — component (export name), from (module), props,
   and text or children.
 Every node may have width/height ("fill", "hug" or pixels), min/max sizes, padding, margin, fill
-(background), border, radius, shadow, opacity, hidden, and link: where the prototype goes when
+(background), border, radius, shadow, opacity, hidden, locked (only the editor reads it: the
+user locked it against stray clicks; leave it), and link: where the prototype goes when
 it is pressed, a page file of the canvas ("pricing.page.json", preferred: it survives a change of
 URL and reaches a page without one), a URL with its parameters ("/invoices/42"), "back", or
 another site ("https://…").

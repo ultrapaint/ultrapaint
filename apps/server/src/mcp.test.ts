@@ -751,7 +751,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           page: string | null;
           target?: string;
         }[];
-        assert.strictEqual(all.result.structuredContent.broken, 2);
+        assert.strictEqual(all.result.structuredContent.broken, 1);
         assert.deepStrictEqual(
           links.find((l) => l.node === "to-plans"),
           {
@@ -770,7 +770,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             ["to-file", "page"],
             ["to-back", "back"],
             ["to-site", "external"],
-            ["to-mail", "unknown"],
+            ["to-mail", "external"],
           ]
         );
         const broken = yield* call("list_links", { brokenOnly: true });
@@ -778,7 +778,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           (broken.result.structuredContent.links as { node: string }[]).map(
             (l) => l.node
           ),
-          ["to-nowhere", "to-mail"]
+          ["to-nowhere"]
         );
       })
     );
@@ -811,7 +811,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           );
           // The links to it lead nowhere now, and say so.
           const links = yield* call("list_links", { brokenOnly: true });
-          assert.strictEqual(links.result.structuredContent.broken, 4);
+          // The mail link was never broken: three lead to the deleted page.
+          assert.strictEqual(links.result.structuredContent.broken, 3);
         })
     );
 
