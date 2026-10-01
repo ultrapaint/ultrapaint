@@ -1,9 +1,10 @@
 /**
- * Which node a click on the canvas takes, given what is selected. Pure, over the ids the
- * preview answers a hit test with, so that it can be read — and tested — without a preview.
+ * Which node a click on the canvas takes, given what is selected and what is locked. Pure, over
+ * the ids the preview answers a hit test with, so that it can be read — and tested — without a
+ * preview.
  */
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import { findPath } from "@ultrapaint/design-document/tree";
+import { findPath, walk } from "@ultrapaint/design-document/tree";
 
 /**
  * The first of the chain is the outermost node under the pointer, the root of the frame left
@@ -38,4 +39,26 @@ export const stepInto = (
     }
   });
   return rows[Math.min(depth + 1, rows.length - 1)] ?? last;
+};
+
+/**
+ * The chain a hit test answered with, cut short at the first locked node: a locked node, and
+ * everything inside it, is not there for the pointer, which reaches the nearest ancestor that is
+ * not locked instead, or nothing at all when the frame's own root is locked.
+ */
+export const unlockedChain = (
+  chain: readonly string[],
+  root: DesignNode | null | undefined
+): readonly string[] => {
+  if (!root) {
+    return chain;
+  }
+  const locked = new Set<string>();
+  for (const node of walk(root)) {
+    if (node.locked) {
+      locked.add(node.id);
+    }
+  }
+  const at = chain.findIndex((id) => locked.has(id));
+  return at === -1 ? chain : chain.slice(0, at);
 };

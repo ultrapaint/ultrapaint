@@ -2,7 +2,9 @@
  * The layers of the whole canvas, read off its documents: every page with its tree, then the
  * nodes placed on the canvas beside the pages, the way Figma lists the frames of a page. A row
  * selects what it names on the canvas, and rows are dragged to move nodes — inside a page,
- * between pages, onto the canvas and back.
+ * between pages, onto the canvas and back. A layer is renamed in its row, hidden and locked from
+ * it, and found by typing into the filter above the tree. The tree answers the keyboard as the
+ * WAI-ARIA tree pattern has it: the arrows walk and fold it, Enter selects, F2 renames.
  */
 import type { DesignNode, DocumentEdit } from "@ultrapaint/contracts/document";
 import type { Page } from "@ultrapaint/contracts/pages";
@@ -14,19 +16,41 @@ import {
   nodeLabel,
 } from "@ultrapaint/design-document/tree";
 import { cn } from "cn";
-import { ChevronDown, ChevronRight, File, MoreVertical } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  EyeOff,
+  File,
+  Lock,
+  LockOpen,
+  MoreVertical,
+  Search,
+  X,
+} from "lucide-react";
 import {
   type DragEvent,
+  type FocusEvent,
   type KeyboardEvent,
   type MouseEvent,
+  type ReactNode,
+  type RefObject,
   useEffect,
   useRef,
   useState,
 } from "react";
 import { Button } from "@/components/ui/button";
-import { bridgeFor } from "../canvas/bridge.ts";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import { NodeIcon } from "../components/node-icon.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
+import { describeLink } from "../lib/links.ts";
+import { renameNodeTo, setHidden, setLocked } from "../lib/node-actions.ts";
+import { renamePageTo } from "../lib/page-actions.ts";
 import { holdsChildren } from "../state/catalogue.ts";
 import { openMenuAt, showMenu, useContextMenu } from "../state/context-menu.ts";
 import {
@@ -37,8 +61,27 @@ import {
   nodeFrameOf,
   useDocuments,
 } from "../state/documents.ts";
-import { type Selection, useEditor } from "../state/editor.ts";
+import { type Selection, selectForMenu, useEditor } from "../state/editor.ts";
+import {
+  openLayersPanel,
+  takeRenameRequest,
+  useLayerRename,
+} from "../state/layer-rename.ts";
 import { useProject } from "../state/project.ts";
+import { InlineInput } from "./canvases.tsx";
+import {
+  filterLayers,
+  isExpanded,
+  type LayerItem,
+  layerKey,
+  looseItem,
+  pageItem,
+  pageKey,
+  TREE_KEYS,
+  treeMove,
+  type VisibleRow,
+  visibleRows,
+} from "./layer-tree.ts";
 
 /** A row's own indent, and where its chevron sits inside it. */
 const ROW_PAD = 8;
@@ -54,7 +97,6 @@ interface DropTarget {
   position: DropPosition;
 }
 
-/** A row of the panel: a node of a frame, where it sits, and what may be done with it. */
 /** Where among its siblings a dropped layer goes, the dragged one left out. */
 const dropIndex = (
   siblings: readonly DesignNode[],
@@ -97,6 +139,7 @@ const layerMoveEdits = (move: {
   ];
 };
 
+/** A row of the panel that names a node: the node, where it sits, and what may be done with it. */
 interface Row {
   /** The frame the node is shown in. */
   frame: string;
@@ -104,8 +147,6 @@ interface Row {
   /** The node it is inside, or null for the top of a page or of the canvas. */
   parent: DesignNode | null;
 }
-
-const keyOf = (frame: string, nodeId: string) => `${frame}#${nodeId}`;
 
 const dropPositionAt = (node: DesignNode, y: number): DropPosition => {
   if (holdsChildren(node) && y > 0.3 && y < 0.7) {
@@ -116,34 +157,146 @@ const dropPositionAt = (node: DesignNode, y: number): DropPosition => {
 
 const clearHover = () => useEditor.getState().setHover(null);
 
-export const Layers = () => {
-  const canvas = useEditor((s) => s.canvas);
-  const allPages = useProject((s) => s.pages);
-  const pages = allPages.filter((p) => p.canvas === canvas);
-  const docs = useDocuments((s) => s.docs);
-  const loaded = useDocuments((s) => s.loaded);
-  const selection = useEditor((s) => s.selection);
-  const selectedPage = useEditor((s) => s.selectedPage);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const listRef = useRef<HTMLDivElement>(null);
-  const [drag, setDrag] = useState<Row | null>(null);
-  const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
-  const nodes = canvasNodes(docs, canvas);
+/** The item a key names, wherever it is in the tree. */
+const findItem = (
+  items: readonly LayerItem[],
+  key: string
+): LayerItem | null => {
+  for (const item of items) {
+    if (item.key === key) {
+      return item;
+    }
+    const found = findItem(item.children, key);
+    if (found) {
+      return found;
+    }
+  }
+  return null;
+};
 
-  // Opens the way down to the selection whenever it changes (adjusted during render rather than
-  // in an effect, so the expanded tree paints in the same pass).
+/** The row a key names, once it is drawn. */
+const rowElement = (list: HTMLElement | null, key: string) =>
+  list?.querySelector<HTMLElement>(`[data-key="${CSS.escape(key)}"]`) ?? null;
+
+/** Selects what a row names: the page as a whole, or the node, Shift adding it to the rest. */
+const selectItem = (item: LayerItem, add: boolean) => {
+  const editor = useEditor.getState();
+  if (item.page) {
+    editor.selectPage(item.page.id);
+    return;
+  }
+  if (!item.node) {
+    return;
+  }
+  const at = { frame: item.frame, nodeId: item.node.id };
+  if (add) {
+    editor.toggleSelected(at);
+  } else {
+    editor.select(at);
+  }
+};
+
+/** The row that stands for what is selected: the node, or the page as a whole. */
+const selectedKeyOf = (
+  selection: Selection | null,
+  selectedPage: string | null
+) => {
+  if (selection) {
+    return layerKey(selection.frame, selection.nodeId);
+  }
+  return selectedPage ? pageKey(selectedPage) : null;
+};
+
+/**
+ * The one row Tab reaches, the tree's focus roving among the others: the first of these that can
+ * be seen, else the first row.
+ */
+const tabStopOf = (
+  rows: readonly VisibleRow[],
+  wanted: readonly (string | null)[]
+) =>
+  wanted.find((key) => key !== null && rows.some((r) => r.key === key)) ??
+  rows[0]?.key ??
+  null;
+
+/** A set with the key in it, or out of it. */
+const withKey = (set: ReadonlySet<string>, key: string, present: boolean) => {
+  const next = new Set(set);
+  if (present) {
+    next.add(key);
+  } else {
+    next.delete(key);
+  }
+  return next;
+};
+
+/** The node a row names, as the selection would. */
+const at = (item: LayerItem): Selection | undefined =>
+  item.node ? { frame: item.frame, nodeId: item.node.id } : undefined;
+
+/**
+ * Keys that do something to the focused row itself, past walking the tree: Enter and Space select
+ * it, Shift adding it to the rest; F2 renames it; ⇧⌘H and ⇧⌘L hide and lock it, as in Figma.
+ * Returns whether the key was one of them.
+ */
+const rowAction = (
+  e: KeyboardEvent<HTMLDivElement>,
+  item: LayerItem,
+  rename: (key: string) => void
+) => {
+  const command = (e.metaKey || e.ctrlKey) && e.shiftKey && !item.page;
+  const letter = e.key.toLowerCase();
+  if (e.key === "Enter" || e.key === " ") {
+    selectItem(item, e.shiftKey);
+  } else if (e.key === "F2") {
+    rename(item.key);
+  } else if (command && letter === "h") {
+    setHidden(!item.node?.hidden, at(item));
+  } else if (command && letter === "l") {
+    setLocked(!item.node?.locked, at(item));
+  } else {
+    return false;
+  }
+  return true;
+};
+
+/** The treeitem a key was pressed on, or the focus went to; null for a field or a button in it. */
+const treeItemKey = (target: EventTarget) => {
+  const element = target as HTMLElement;
+  return element.getAttribute("role") === "treeitem"
+    ? (element.dataset.key ?? null)
+    : null;
+};
+
+/**
+ * Opens the way down to the selection whenever it changes, and scrolls to it. It is adjusted
+ * during render rather than in an effect, so the expanded tree paints in the same pass; `onReveal`
+ * hears of the row, which takes the tree's focus.
+ */
+const useRevealSelection = ({
+  collapsed,
+  list,
+  onReveal,
+  rootOf,
+  setCollapsed,
+}: {
+  collapsed: ReadonlySet<string>;
+  list: RefObject<HTMLDivElement | null>;
+  onReveal: (key: string) => void;
+  rootOf: (frame: string) => DesignNode | null;
+  setCollapsed: (next: ReadonlySet<string>) => void;
+}) => {
+  const selection = useEditor((s) => s.selection);
   const [revealed, setRevealed] = useState<Selection | null>(null);
   if (selection && selection !== revealed) {
     setRevealed(selection);
-    const root =
-      docs[selection.frame]?.root ??
-      nodes.find((n) => nodeFrameOf(n.id) === selection.frame) ??
-      null;
-    const path = findPath(root, selection.nodeId);
+    onReveal(layerKey(selection.frame, selection.nodeId));
+    const path = findPath(rootOf(selection.frame), selection.nodeId);
     if (path) {
       const next = new Set(collapsed);
+      next.delete(pageKey(selection.frame));
       for (const n of path) {
-        next.delete(keyOf(selection.frame, n.id));
+        next.delete(layerKey(selection.frame, n.id));
       }
       if (next.size !== collapsed.size) {
         setCollapsed(next);
@@ -155,24 +308,156 @@ export const Layers = () => {
     if (!revealed) {
       return;
     }
-    const key = keyOf(revealed.frame, revealed.nodeId);
+    const key = layerKey(revealed.frame, revealed.nodeId);
     requestAnimationFrame(() => {
-      listRef.current
+      list.current
         ?.querySelector(`[data-row="${CSS.escape(key)}"]`)
         ?.scrollIntoView({ block: "nearest" });
     });
-  }, [revealed]);
+  }, [revealed, list]);
+};
+
+/**
+ * While the panel is open, Rename from a menu types the new name into the row: `onRequest` hears
+ * of the node, once for each time it is asked.
+ */
+const useRenameRequests = (onRequest: (target: Selection) => void) => {
+  const request = useLayerRename((s) => s.request);
+  const [taken, setTaken] = useState<Selection | null>(null);
+  if (request && request !== taken) {
+    setTaken(request);
+    onRequest(request);
+  }
+  useEffect(() => {
+    if (request) {
+      takeRenameRequest();
+    }
+  }, [request]);
+  useEffect(() => openLayersPanel(), []);
+};
+
+/** The field above the tree that narrows it to the layers whose name holds what is typed. */
+const LayerFilter = ({
+  onDown,
+  onQuery,
+  query,
+}: {
+  /** Down from the filter goes into what it found. */
+  onDown: () => void;
+  onQuery: (query: string) => void;
+  query: string;
+}) => {
+  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Escape" && query !== "") {
+      e.stopPropagation();
+      onQuery("");
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      onDown();
+    }
+  };
+  return (
+    <div className="flex items-center border-b px-2 py-1.5">
+      <InputGroup>
+        <InputGroupAddon>
+          <Search />
+        </InputGroupAddon>
+        <InputGroupInput
+          aria-label="Find layers"
+          onChange={(e) => onQuery(e.target.value)}
+          onKeyDown={onKeyDown}
+          placeholder="Find layers…"
+          value={query}
+        />
+        {query === "" ? null : (
+          <InputGroupAddon align="inline-end">
+            <InputGroupButton
+              aria-label="Clear the filter"
+              onClick={() => onQuery("")}
+              size="icon-xs"
+            >
+              <X />
+            </InputGroupButton>
+          </InputGroupAddon>
+        )}
+      </InputGroup>
+    </div>
+  );
+};
+
+export const Layers = () => {
+  const canvas = useEditor((s) => s.canvas);
+  const allPages = useProject((s) => s.pages);
+  const pages = allPages.filter((p) => p.canvas === canvas);
+  const docs = useDocuments((s) => s.docs);
+  const loaded = useDocuments((s) => s.loaded);
+  const selection = useEditor((s) => s.selection);
+  const selectedPage = useEditor((s) => s.selectedPage);
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  /** What is folded while a filter is typed: everything it finds starts out open. */
+  const [foldedInFilter, setFoldedInFilter] = useState<ReadonlySet<string>>(
+    new Set()
+  );
+  const [query, setQuery] = useState("");
+  const [focusKey, setFocusKey] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const [drag, setDrag] = useState<Row | null>(null);
+  const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
+  const nodes = canvasNodes(docs, canvas);
+
+  const filtering = query.trim() !== "";
+  const folded = filtering ? foldedInFilter : collapsed;
+  const setFolded = filtering ? setFoldedInFilter : setCollapsed;
+  const items = [
+    ...pages.map((page) => pageItem(page, docs[page.id]?.root ?? null)),
+    ...nodes.map((node) => looseItem(nodeFrameOf(node.id), node)),
+  ];
+  const shown = filterLayers(items, query);
+  const shownPages = shown.filter((item) => item.page);
+  const shownLoose = shown.filter((item) => !item.page);
+  const rows = visibleRows(shown, folded);
+  const tabStop = tabStopOf(rows, [
+    focusKey,
+    selectedKeyOf(selection, selectedPage),
+  ]);
+
+  useRevealSelection({
+    collapsed,
+    list: listRef,
+    onReveal: setFocusKey,
+    rootOf: (frame) =>
+      docs[frame]?.root ??
+      nodes.find((n) => nodeFrameOf(n.id) === frame) ??
+      null,
+    setCollapsed,
+  });
+
+  // A row the filter hides is shown again to be renamed.
+  useRenameRequests((target) => {
+    const key = layerKey(target.frame, target.nodeId);
+    if (findItem(shown, key) === null) {
+      setQuery("");
+    }
+    setRenaming(key);
+  });
 
   const toggle = (key: string) =>
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
+    setFolded((prev) => withKey(prev, key, !prev.has(key)));
+
+  const focusRow = (key: string) => {
+    setFocusKey(key);
+    rowElement(listRef.current, key)?.focus();
+  };
+
+  /** The name is kept or dropped; a row that had the focus while it was typed gets it back. */
+  const endRename = (key: string) => {
+    const typing = listRef.current?.contains(document.activeElement) ?? false;
+    setRenaming(null);
+    if (typing) {
+      requestAnimationFrame(() => focusRow(key));
+    }
+  };
 
   /** Moves the dragged row next to, or into, the target row: across documents too. */
   const onDrop = async (target: Row, position: DropPosition) => {
@@ -207,6 +492,59 @@ export const Layers = () => {
     }
   };
 
+  /** Walks the tree from a row: the focus moves, or a row opens or folds. */
+  const walkFrom = (key: string, pressed: string) => {
+    const move = treeMove(rows, key, pressed);
+    if (move && "focus" in move) {
+      focusRow(move.focus);
+    } else if (move && "expand" in move) {
+      setFolded((prev) => withKey(prev, move.expand, false));
+    } else if (move) {
+      setFolded((prev) => withKey(prev, move.collapse, true));
+    }
+    return true;
+  };
+
+  /**
+   * The tree's keys, for whichever row has the focus. They are kept from the canvas, whose own
+   * arrows walk the selection and whose Enter edits text.
+   */
+  const onTreeKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const key = treeItemKey(e.target);
+    const item = key === null ? null : findItem(shown, key);
+    if (!item) {
+      return;
+    }
+    const plain = !(e.metaKey || e.ctrlKey || e.altKey || e.shiftKey);
+    const handled =
+      plain && TREE_KEYS.has(e.key)
+        ? walkFrom(item.key, e.key)
+        : rowAction(e, item, setRenaming);
+    if (handled) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  };
+
+  const onTreeFocus = (e: FocusEvent<HTMLDivElement>) => {
+    const key = treeItemKey(e.target);
+    if (key !== null) {
+      setFocusKey(key);
+    }
+  };
+
+  const onQuery = (next: string) => {
+    setQuery(next);
+    setFoldedInFilter(new Set());
+  };
+
+  const onFilterDown = () => {
+    const [first] = rows;
+    if (first) {
+      focusRow(first.key);
+    }
+  };
+
   if (canvas === null) {
     return <PanelEmpty>Open a canvas from the Pages panel</PanelEmpty>;
   }
@@ -218,59 +556,196 @@ export const Layers = () => {
   }
 
   const shared: Shared = {
-    collapsed,
     drag,
     dropTarget,
+    endRename,
+    folded,
     onDrop,
+    renaming,
     selectedPage,
     selection,
     setDrag,
     setDropTarget,
+    setRenaming,
+    tabStop,
     toggle,
   };
 
   return (
-    <div className="py-1" ref={listRef} role="tree">
-      {pages.map((page) => (
-        <PageRows key={page.id} page={page} shared={shared} />
-      ))}
-      {nodes.length > 0 && (
-        <div className="mt-2 px-3 pt-1 pb-0.5 font-medium text-[10px] text-muted-foreground uppercase">
-          On the canvas
-        </div>
-      )}
-      {nodes.map((node) => (
-        <LayerRow
-          ancestors={[]}
-          key={node.id}
-          row={{ frame: nodeFrameOf(node.id), node, parent: null }}
-          shared={shared}
-        />
-      ))}
+    <div className="flex h-full flex-col">
+      <LayerFilter onDown={onFilterDown} onQuery={onQuery} query={query} />
+      <div
+        aria-label="Layers"
+        aria-multiselectable="true"
+        className="min-h-0 flex-1 overflow-auto py-1"
+        onFocus={onTreeFocus}
+        onKeyDown={onTreeKeyDown}
+        ref={listRef}
+        role="tree"
+      >
+        {shownPages.map((item) => (
+          <PageRow item={item} key={item.key} shared={shared} />
+        ))}
+        {shownLoose.length > 0 && (
+          <div
+            className="mt-2 px-3 pt-1 pb-0.5 font-medium text-[10px] text-muted-foreground uppercase"
+            role="presentation"
+          >
+            On the canvas
+          </div>
+        )}
+        {shownLoose.map((item) => (
+          <LayerRow
+            ancestors={[]}
+            item={item}
+            key={item.key}
+            level={1}
+            shared={shared}
+          />
+        ))}
+        {shown.length === 0 ? (
+          <div className="px-3 py-2 text-[11px] text-muted-foreground">
+            No layer goes by that name
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 };
 
 interface Shared {
-  collapsed: Set<string>;
   drag: Row | null;
   dropTarget: DropTarget | null;
+  endRename: (key: string) => void;
+  folded: ReadonlySet<string>;
   onDrop: (target: Row, position: DropPosition) => Promise<void>;
+  /** The row whose name is being typed. */
+  renaming: string | null;
   selectedPage: string | null;
   selection: Selection | null;
   setDrag: (row: Row | null) => void;
   setDropTarget: (
     target: DropTarget | null | ((d: DropTarget | null) => DropTarget | null)
   ) => void;
+  setRenaming: (key: string | null) => void;
+  /** The one row Tab reaches. */
+  tabStop: string | null;
   toggle: (key: string) => void;
 }
 
+/**
+ * A row's name, or the field its new name is typed into. The field opens with the name selected,
+ * as a rename does in Figma; Enter keeps what is typed, Escape or a click elsewhere drops it.
+ */
+const RowName = ({
+  className,
+  item,
+  label,
+  onRename,
+  shared,
+}: {
+  className?: string;
+  item: LayerItem;
+  label: string;
+  onRename: (name: string) => void;
+  shared: Shared;
+}) => {
+  if (shared.renaming === item.key) {
+    return (
+      // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: it only selects the name the field opens with.
+      <span
+        className="min-w-0 flex-1"
+        onFocus={(e) => (e.target as HTMLInputElement).select()}
+      >
+        <InlineInput
+          className="h-5 px-1 text-[11px] md:text-[11px]"
+          onCancel={() => shared.endRename(item.key)}
+          onSubmit={(name) => {
+            shared.endRename(item.key);
+            onRename(name);
+          }}
+          value={label}
+        />
+      </span>
+    );
+  }
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: F2 renames from the keyboard.
+    <span
+      className={cn("truncate", className)}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        shared.setRenaming(item.key);
+      }}
+    >
+      {label}
+    </span>
+  );
+};
+
+/**
+ * The element of a row that is its treeitem: what the keyboard focuses, and what holds the rows
+ * under it in a group. What the row shows is its first child, so that the focus ring and the
+ * selection colour are the row's alone.
+ */
+const TreeItem = ({
+  children,
+  expanded,
+  item,
+  label,
+  level,
+  onContextMenu,
+  row,
+  selected,
+  shared,
+}: {
+  children: ReactNode;
+  expanded: boolean | undefined;
+  item: LayerItem;
+  label: string;
+  level: number;
+  onContextMenu: (e: MouseEvent) => void;
+  row: ReactNode;
+  selected: boolean;
+  shared: Shared;
+}) => (
+  <div
+    aria-expanded={expanded}
+    aria-label={label}
+    aria-level={level}
+    aria-selected={selected}
+    className="outline-none"
+    data-key={item.key}
+    onContextMenu={(e) => {
+      // A row under this one has its own menu.
+      if (
+        (e.target as Element).closest('[role="treeitem"]') === e.currentTarget
+      ) {
+        onContextMenu(e);
+      }
+    }}
+    role="treeitem"
+    tabIndex={shared.tabStop === item.key ? 0 : -1}
+  >
+    {row}
+    {expanded ? (
+      // biome-ignore lint/a11y/useSemanticElements: a tree's rows are grouped by role; a fieldset is for a form.
+      <div role="group">{children}</div>
+    ) : null}
+  </div>
+);
+
+/** The focus ring of a row, drawn when its treeitem has the keyboard's focus. */
+const FOCUS_RING =
+  "[:focus-visible>&]:outline-1 [:focus-visible>&]:outline-ring [:focus-visible>&]:-outline-offset-1";
+
 /** A page's own row, and its tree under it. */
-const PageRows = ({ page, shared }: { page: Page; shared: Shared }) => {
-  const state = useDocuments((s) => s.docs[page.id]);
-  const root = state?.root ?? null;
-  const key = keyOf(page.id, "page");
-  const isCollapsed = shared.collapsed.has(key);
+const PageRow = ({ item, shared }: { item: LayerItem; shared: Shared }) => {
+  const page = item.page as Page;
+  const problem = useDocuments((s) => s.docs[page.id]?.problem);
+  const root = item.node;
+  const { key } = item;
+  const expanded = isExpanded(item, shared.folded);
   const selected = shared.selectedPage === page.id;
   const select = () => {
     useEditor.getState().selectPage(page.id);
@@ -279,7 +754,6 @@ const PageRows = ({ page, shared }: { page: Page; shared: Shared }) => {
     select();
     openMenuAt(e, { kind: "page", pageId: page.id });
   };
-  const children = root ? childrenOf(root) : [];
   const onDragOver = (e: DragEvent<HTMLDivElement>) => {
     if (!(shared.drag && root)) {
       return;
@@ -295,63 +769,76 @@ const PageRows = ({ page, shared }: { page: Page; shared: Shared }) => {
     }
     shared.setDrag(null);
   };
-  return (
-    <div>
-      <div
-        aria-expanded={!isCollapsed}
-        aria-selected={selected}
-        className={cn(
-          "group relative flex h-7 cursor-default items-center gap-1 pr-1 font-medium text-[11px]",
-          selected
-            ? "bg-selection/25 text-foreground"
-            : "text-foreground hover:bg-muted/50",
-          shared.dropTarget?.key === key && "ring-1 ring-brand ring-inset"
-        )}
-        data-row={keyOf(page.id, root?.id ?? "page")}
-        onClick={select}
-        onContextMenu={onContextMenu}
-        onDragLeave={() => shared.setDropTarget(null)}
-        onDragOver={onDragOver}
-        onDrop={onDropHere}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            select();
-          }
-        }}
-        role="treeitem"
-        style={{ paddingLeft: ROW_PAD }}
-        tabIndex={0}
-      >
-        <Chevron
-          collapsed={isCollapsed}
-          hidden={children.length === 0}
-          onToggle={() => shared.toggle(key)}
-        />
-        <File className="size-3 shrink-0 text-muted-foreground" />
-        <span className="truncate">{page.name}</span>
+  const row = (
+    // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions lint/a11y/useKeyWithClickEvents: the treeitem around it takes the keys, through the tree.
+    <div
+      className={cn(
+        "group relative flex h-7 cursor-default items-center gap-1 pr-1 font-medium text-[11px]",
+        selected
+          ? "bg-selection/25 text-foreground"
+          : "text-foreground hover:bg-muted/50",
+        shared.dropTarget?.key === key && "ring-1 ring-brand ring-inset",
+        FOCUS_RING
+      )}
+      data-row={key}
+      onClick={select}
+      onDragLeave={() => shared.setDropTarget(null)}
+      onDragOver={onDragOver}
+      onDrop={onDropHere}
+      style={{ paddingLeft: ROW_PAD }}
+    >
+      <Chevron
+        collapsed={!expanded}
+        hidden={item.children.length === 0}
+        onToggle={() => shared.toggle(key)}
+      />
+      <File className="size-3 shrink-0 text-muted-foreground" />
+      <RowName
+        item={item}
+        label={page.name}
+        onRename={(name) => renamePageTo(page, name)}
+        shared={shared}
+      />
+      {shared.renaming === key ? null : (
         <span className="ml-auto truncate pr-1 font-mono font-normal text-[10px] text-muted-foreground">
           {[page.route, page.variant].filter(Boolean).join(" · ")}
         </span>
-      </div>
-      {state?.problem ? (
-        <div
-          className="truncate px-8 py-0.5 text-[10px] text-destructive"
-          title={state.problem}
-        >
-          Not a valid page: {state.problem}
-        </div>
-      ) : null}
-      {!isCollapsed &&
-        children.map((child) => (
-          <LayerRow
-            ancestors={[page.id]}
-            key={child.id}
-            row={{ frame: page.id, node: child, parent: root }}
-            shared={shared}
-          />
-        ))}
+      )}
     </div>
+  );
+  return (
+    <TreeItem
+      expanded={item.children.length > 0 ? expanded : undefined}
+      item={item}
+      label={page.name}
+      level={1}
+      onContextMenu={onContextMenu}
+      row={
+        <>
+          {row}
+          {problem ? (
+            <div
+              className="truncate px-8 py-0.5 text-[10px] text-destructive"
+              title={problem}
+            >
+              Not a valid page: {problem}
+            </div>
+          ) : null}
+        </>
+      }
+      selected={selected}
+      shared={shared}
+    >
+      {item.children.map((child) => (
+        <LayerRow
+          ancestors={[page.id]}
+          item={child}
+          key={child.key}
+          level={2}
+          shared={shared}
+        />
+      ))}
+    </TreeItem>
   );
 };
 
@@ -375,6 +862,7 @@ const Chevron = ({
       onToggle();
     }}
     size="icon-xs"
+    tabIndex={-1}
     variant="ghost"
   >
     {collapsed ? (
@@ -425,9 +913,10 @@ const RowMenu = ({ row }: { row: Row }) => {
       aria-expanded={open}
       aria-haspopup="menu"
       aria-label={`Actions for ${nodeLabel(node)}`}
-      className="invisible ml-auto size-5 shrink-0 text-muted-foreground group-focus-within:visible group-hover:visible aria-expanded:visible"
+      className="invisible size-5 shrink-0 text-muted-foreground group-focus-within:visible group-hover:visible aria-expanded:visible"
       onClick={onClick}
       size="icon-xs"
+      tabIndex={-1}
       variant="ghost"
     >
       <MoreVertical className="size-3" />
@@ -435,68 +924,80 @@ const RowMenu = ({ row }: { row: Row }) => {
   );
 };
 
-/** A component's row takes the component colour when selected, as its selection on the canvas does. */
-const rowTone = (selected: boolean, hovered: boolean, component = false) => {
-  if (selected) {
-    return component
-      ? "bg-component/30 text-foreground"
-      : "bg-selection/25 text-foreground";
-  }
-  return hovered
-    ? "bg-muted text-foreground"
-    : "text-muted-foreground hover:bg-muted/50";
+/**
+ * The eye or the lock of a row, as in Figma: shown while the pointer is over the row, and for
+ * good while it is on, so that a hidden or a locked layer is seen to be one at a glance.
+ */
+const RowToggle = ({
+  children,
+  label,
+  on,
+  onToggle,
+}: {
+  children: ReactNode;
+  label: string;
+  on: boolean;
+  onToggle: () => void;
+}) => (
+  <Button
+    aria-label={label}
+    aria-pressed={on}
+    className={cn(
+      "size-5 shrink-0 text-muted-foreground",
+      !on && "invisible group-focus-within:visible group-hover:visible"
+    )}
+    onClick={(e: MouseEvent) => {
+      e.stopPropagation();
+      onToggle();
+    }}
+    size="icon-xs"
+    tabIndex={-1}
+    title={label}
+    variant="ghost"
+  >
+    {children}
+  </Button>
+);
+
+/** The lock, the eye and the menu at the end of a node's row. */
+const RowControls = ({ row }: { row: Row }) => {
+  const { frame, node } = row;
+  const target = { frame, nodeId: node.id };
+  return (
+    <>
+      <RowToggle
+        label={node.locked ? "Unlock" : "Lock"}
+        on={node.locked === true}
+        onToggle={() => setLocked(!node.locked, target)}
+      >
+        {node.locked ? (
+          <Lock className="size-3" />
+        ) : (
+          <LockOpen className="size-3" />
+        )}
+      </RowToggle>
+      <RowToggle
+        label={node.hidden ? "Show" : "Hide"}
+        on={node.hidden === true}
+        onToggle={() => setHidden(!node.hidden, target)}
+      >
+        {node.hidden ? (
+          <EyeOff className="size-3" />
+        ) : (
+          <Eye className="size-3" />
+        )}
+      </RowToggle>
+      <RowMenu row={row} />
+    </>
+  );
 };
 
-const LayerRow = ({
-  row,
-  ancestors,
-  shared,
-}: {
-  row: Row;
-  /** The rows this one is written inside, outermost first: one guide line each. */
-  ancestors: readonly string[];
-  shared: Shared;
-}) => {
+/**
+ * What a node's row does while a row is dragged: it is picked up, and the dragged one is dropped
+ * before it, after it or into it. `dropHere` says which, while one hovers over it.
+ */
+const rowDrag = (row: Row, key: string, shared: Shared) => {
   const { frame, node } = row;
-  const hover = useEditor((s) => s.hover);
-  const key = keyOf(frame, node.id);
-  const isCollapsed = shared.collapsed.has(key);
-  const children = childrenOf(node);
-  const hasChildren = children.length > 0;
-  const alsoSelected = useEditor((s) =>
-    s.also.some((a) => a.frame === frame && a.nodeId === node.id)
-  );
-  const selected =
-    (shared.selection?.frame === frame &&
-      shared.selection.nodeId === node.id) ||
-    alsoSelected;
-  const hovered = hover?.frame === frame && hover.nodeId === node.id;
-  const dropHere =
-    shared.dropTarget?.key === key ? shared.dropTarget.position : null;
-
-  const select = () => useEditor.getState().select({ frame, nodeId: node.id });
-  /** Shift-click adds the row to the selection, or takes it out. */
-  const onClick = (e: MouseEvent) =>
-    e.shiftKey
-      ? useEditor.getState().toggleSelected({ frame, nodeId: node.id })
-      : select();
-  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.target !== e.currentTarget) {
-      return;
-    }
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      select();
-    }
-  };
-  const editText = () => {
-    if (node.type === "text") {
-      select();
-      bridgeFor(frame).editText(node.id);
-    }
-  };
-  const onDragLeave = () =>
-    shared.setDropTarget((d) => (d?.key === key ? null : d));
   const onDragOver = (e: DragEvent<HTMLDivElement>) => {
     const dragged = shared.drag;
     if (!dragged || dragged.node.id === node.id) {
@@ -516,7 +1017,7 @@ const LayerRow = ({
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData(LAYERS_MIME, node.id);
   };
-  const onDropHere = (e: DragEvent<HTMLDivElement>) => {
+  const onDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const t = shared.dropTarget;
     shared.setDropTarget(null);
@@ -525,51 +1026,103 @@ const LayerRow = ({
     }
     shared.setDrag(null);
   };
-  const onMouseEnter = () =>
-    useEditor.getState().setHover({ frame, nodeId: node.id });
+  return {
+    dropHere:
+      shared.dropTarget?.key === key ? shared.dropTarget.position : null,
+    onDragEnd: () => shared.setDrag(null),
+    onDragLeave: () => shared.setDropTarget((d) => (d?.key === key ? null : d)),
+    onDragOver,
+    onDragStart,
+    onDrop,
+  };
+};
+
+/** A component's row takes the component colour when selected, as its selection on the canvas does. */
+const rowTone = (selected: boolean, hovered: boolean, component = false) => {
+  if (selected) {
+    return component
+      ? "bg-component/30 text-foreground"
+      : "bg-selection/25 text-foreground";
+  }
+  return hovered
+    ? "bg-muted text-foreground"
+    : "text-muted-foreground hover:bg-muted/50";
+};
+
+const LayerRow = ({
+  item,
+  ancestors,
+  hiddenAbove = false,
+  level,
+  shared,
+}: {
+  item: LayerItem;
+  /** The rows this one is written inside, outermost first: one guide line each. */
+  ancestors: readonly string[];
+  /** A row it is written under is hidden, and this one with it. */
+  hiddenAbove?: boolean;
+  level: number;
+  shared: Shared;
+}) => {
+  const { frame, key } = item;
+  const node = item.node as DesignNode;
+  const row: Row = { frame, node, parent: item.parent };
+  const hover = useEditor((s) => s.hover);
+  const expanded = isExpanded(item, shared.folded);
+  const hasChildren = item.children.length > 0;
+  const alsoSelected = useEditor((s) =>
+    s.also.some((a) => a.frame === frame && a.nodeId === node.id)
+  );
+  const selected =
+    (shared.selection?.frame === frame &&
+      shared.selection.nodeId === node.id) ||
+    alsoSelected;
+  const hovered = hover?.frame === frame && hover.nodeId === node.id;
+  const { dropHere, ...dragHandlers } = rowDrag(row, key, shared);
+  const renaming = shared.renaming === key;
+  const label = nodeLabel(node);
+  const target = { frame, nodeId: node.id };
+
+  /** Shift-click adds the row to the selection, or takes it out. */
+  const onClick = (e: MouseEvent) => selectItem(item, e.shiftKey);
+  const onMouseEnter = () => useEditor.getState().setHover(target);
   const onContextMenu = (e: MouseEvent) => {
-    select();
+    selectForMenu(target);
     openMenuAt(e, { frame, kind: "node", nodeId: node.id });
   };
 
-  return (
-    <div>
-      <div
-        aria-expanded={hasChildren ? !isCollapsed : undefined}
-        aria-selected={selected}
+  const line = (
+    // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions lint/a11y/useKeyWithClickEvents: the treeitem around it takes the keys, through the tree.
+    <div
+      className={cn(
+        "group relative flex h-6 cursor-default items-center gap-1 pr-1 text-[11px]",
+        rowTone(selected, hovered, node.type === "instance"),
+        dropHere === "inside" && "ring-1 ring-brand ring-inset",
+        dropHere === "before" && "shadow-[inset_0_2px_0_0_var(--color-brand)]",
+        dropHere === "after" && "shadow-[inset_0_-2px_0_0_var(--color-brand)]",
+        FOCUS_RING
+      )}
+      data-row={key}
+      draggable={!renaming}
+      onClick={onClick}
+      {...dragHandlers}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={clearHover}
+      style={{ paddingLeft: ROW_PAD + ancestors.length * INDENT }}
+      title={nodeKind(node)}
+    >
+      <DepthGuides ancestors={ancestors} />
+      <Chevron
+        collapsed={!expanded}
+        hidden={!hasChildren}
+        onToggle={() => shared.toggle(key)}
+      />
+      <span
         className={cn(
-          "group relative flex h-6 cursor-default items-center gap-1 pr-1 text-[11px]",
-          rowTone(selected, hovered, node.type === "instance"),
-          node.hidden && "opacity-50",
-          dropHere === "inside" && "ring-1 ring-brand ring-inset",
-          dropHere === "before" &&
-            "shadow-[inset_0_2px_0_0_var(--color-brand)]",
-          dropHere === "after" && "shadow-[inset_0_-2px_0_0_var(--color-brand)]"
+          "flex min-w-0 flex-1 items-center gap-1",
+          (node.hidden || hiddenAbove) && "opacity-50"
         )}
-        data-row={key}
-        draggable
-        onClick={onClick}
-        onContextMenu={onContextMenu}
-        onDoubleClick={editText}
-        onDragEnd={() => shared.setDrag(null)}
-        onDragLeave={onDragLeave}
-        onDragOver={onDragOver}
-        onDragStart={onDragStart}
-        onDrop={onDropHere}
-        onKeyDown={onKeyDown}
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={clearHover}
-        role="treeitem"
-        style={{ paddingLeft: ROW_PAD + ancestors.length * INDENT }}
-        tabIndex={0}
-        title={nodeKind(node)}
       >
-        <DepthGuides ancestors={ancestors} />
-        <Chevron
-          collapsed={isCollapsed}
-          hidden={!hasChildren}
-          onToggle={() => shared.toggle(key)}
-        />
         <span
           className={cn(
             "shrink-0 text-muted-foreground",
@@ -579,32 +1132,64 @@ const LayerRow = ({
         >
           <NodeIcon node={node} />
         </span>
-        <span
+        <RowName
           className={cn(
-            "truncate",
             node.type === "instance" && "font-medium text-component",
             selected && node.type === "instance" && "text-foreground"
           )}
-        >
-          {nodeLabel(node)}
-        </span>
-        {node.link ? (
-          <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
-            → {node.link}
-          </span>
-        ) : null}
-        <RowMenu row={row} />
-      </div>
-      {!isCollapsed && hasChildren
-        ? children.map((child) => (
-            <LayerRow
-              ancestors={[...ancestors, node.id]}
-              key={child.id}
-              row={{ frame, node: child, parent: node }}
-              shared={shared}
-            />
-          ))
-        : null}
+          item={item}
+          label={label}
+          onRename={(name) => renameNodeTo(name, target)}
+          shared={shared}
+        />
+        {node.link && !renaming ? <LinkTag link={node.link} /> : null}
+      </span>
+      {renaming ? null : <RowControls row={row} />}
     </div>
+  );
+
+  return (
+    <TreeItem
+      expanded={hasChildren ? expanded : undefined}
+      item={item}
+      label={label}
+      level={level}
+      onContextMenu={onContextMenu}
+      row={line}
+      selected={selected}
+      shared={shared}
+    >
+      {item.children.map((child) => (
+        <LayerRow
+          ancestors={[...ancestors, node.id]}
+          hiddenAbove={hiddenAbove || node.hidden === true}
+          item={child}
+          key={child.key}
+          level={level + 1}
+          shared={shared}
+        />
+      ))}
+    </TreeItem>
+  );
+};
+
+/** Where a layer leads in the prototype, after its name; in red when it leads to no page. */
+const LinkTag = ({ link }: { link: string }) => {
+  const canvas = useEditor((s) => s.canvas);
+  const pages = useProject((s) => s.pages);
+  const { broken, label } = describeLink(
+    pages.filter((p) => p.canvas === canvas),
+    link
+  );
+  return (
+    <span
+      className={cn(
+        "min-w-0 shrink truncate text-[10px]",
+        broken ? "text-destructive" : "text-muted-foreground/70"
+      )}
+      title={broken ? `${link} leads to a page that is not there` : link}
+    >
+      → {label}
+    </span>
   );
 };

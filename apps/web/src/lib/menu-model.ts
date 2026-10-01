@@ -181,6 +181,7 @@ export const nodeEntries = (f: NodeFacts): Entry[] => {
       label: "Arrange",
     },
     item("toggleHidden", f.hidden ? "Show" : "Hide"),
+    !root && item("toggleLocked", node.locked ? "Unlock" : "Lock"),
     item("zoomTo", "Zoom to selection", { shortcut: "⇧2" }),
     separator,
     !root &&

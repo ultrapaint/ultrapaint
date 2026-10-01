@@ -107,6 +107,11 @@ export interface BoxFields {
   readonly id: string;
   /** Route the prototype goes to when the node is pressed. */
   readonly link?: string | undefined;
+  /**
+   * Locked in the editor: a click, a drag or a marquee on the canvas passes it by, and whatever
+   * is inside it, while the layers panel still selects it. It changes nothing in the design.
+   */
+  readonly locked?: boolean | undefined;
   readonly margin?: Margin | undefined;
   readonly maxHeight?: Length | undefined;
   readonly maxWidth?: Length | undefined;
@@ -209,6 +214,12 @@ const boxFields = {
     Schema.String.annotate({
       description:
         'Where the node leads when pressed in the prototype: a page file of the canvas ("pricing.page.json", which keeps working when its URL changes and reaches a page without one), a URL ("/invoices/42"), "back", or another site ("https://…").',
+    })
+  ),
+  locked: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        "Locked in the editor, so that a click or a drag on the canvas passes it and what is inside it by. It does not change the design.",
     })
   ),
   margin: Schema.optional(Margin),

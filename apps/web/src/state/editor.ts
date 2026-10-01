@@ -792,3 +792,17 @@ const fitTo = (
     },
   });
 };
+
+/**
+ * Selects a node for a right-click. One that is already selected keeps the selection as it is:
+ * the menu then acts on all of it, as a menu does in Figma.
+ */
+export const selectForMenu = (target: Selection) => {
+  const { also, select, selection } = useEditor.getState();
+  const same = (s: Selection) =>
+    s.frame === target.frame && s.nodeId === target.nodeId;
+  if (selection && (same(selection) || also.some(same))) {
+    return;
+  }
+  select(target);
+};

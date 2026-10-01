@@ -82,6 +82,7 @@ import {
   selected,
   selectParent,
   setHidden,
+  setLocked,
   unwrapSelection,
   updateSelection,
   updateSelectionWith,
@@ -395,6 +396,10 @@ const runNode = (target: Selection & { at?: Point }, id: string) => {
     rename: () => renameNode(sel),
     selectParent: () => selectParent(sel),
     toggleHidden: () => setHidden(!allHidden(actedOn(sel)), sel),
+    toggleLocked: () => {
+      const node = selected(nodeContext(sel))?.node;
+      return setLocked(!node?.locked, sel);
+    },
     unwrap: () => unwrapSelection(sel),
     viewCode: () => viewCode(sel),
     zoomTo: () => zoomToNode(sel),
