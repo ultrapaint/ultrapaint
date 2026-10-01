@@ -73,6 +73,7 @@ import {
   wrapSelection,
 } from "../lib/node-actions.ts";
 import { editPageUrl, implementPage } from "../lib/page-actions.ts";
+import { presetOf, viewportPresets } from "../lib/presets.ts";
 import { type Side, sidesOf, withSides } from "../lib/sides.ts";
 import {
   Swatch,
@@ -250,13 +251,6 @@ const Header = ({ frame, node }: { frame: string; node: DesignNode }) => {
 
 // ---- Page ----
 
-const presets: { value: ViewportPreset; label: string }[] = [
-  { label: "Mobile", value: "mobile" },
-  { label: "Tablet", value: "tablet" },
-  { label: "Desktop", value: "desktop" },
-  { label: "Custom", value: "custom" },
-];
-
 const PageSection = ({ frame }: { frame: string }) => {
   const layout = useEditor((s) => s.frames[frame]);
   const page = useProject((s) => s.pages.find((p) => p.id === frame));
@@ -287,9 +281,9 @@ const PageSection = ({ frame }: { frame: string }) => {
           onChange={(v) =>
             useEditor.getState().setPreset(frame, v as ViewportPreset)
           }
-          options={presets}
+          options={viewportPresets}
           size="sm"
-          value={layout.preset}
+          value={presetOf(layout)}
         />
       </Row>
       <Row label="Frame">

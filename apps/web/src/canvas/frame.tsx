@@ -18,6 +18,7 @@ import {
   useState,
 } from "react";
 import { OptionSelect } from "../components/option-select.tsx";
+import { presetOf, viewportPresets } from "../lib/presets.ts";
 import {
   kindColor,
   kindHoverColor,
@@ -49,13 +50,6 @@ import {
   TAG_HEIGHT,
 } from "./element-toolbar.tsx";
 import { SelectionTag } from "./selection-tag.tsx";
-
-const presets: { value: ViewportPreset; label: string }[] = [
-  { label: "Mobile", value: "mobile" },
-  { label: "Tablet", value: "tablet" },
-  { label: "Desktop", value: "desktop" },
-  { label: "Custom", value: "custom" },
-];
 
 const formatHostError = (error: HostError) => {
   if (!error.file) {
@@ -896,9 +890,9 @@ const FrameChrome = ({
                 onChange={(v) =>
                   useEditor.getState().setPreset(frameId, v as ViewportPreset)
                 }
-                options={presets}
+                options={viewportPresets}
                 size="sm"
-                value={frame.preset ?? "custom"}
+                value={presetOf(frame)}
               />
             </div>
             <span className="text-[11px] text-muted-foreground">

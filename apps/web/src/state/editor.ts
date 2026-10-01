@@ -13,6 +13,7 @@ import {
   pagesInVariant,
 } from "@ultrapaint/shared/route";
 import { create } from "zustand";
+import { sizeForPreset } from "../lib/presets.ts";
 import { api } from "./connection.ts";
 import {
   canvasNodes,
@@ -543,11 +544,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
     if (!f) {
       return;
     }
-    const size =
-      preset === "custom"
-        ? { height: f.height, width: f.width }
-        : presetSize[preset];
-    get().setFrame(pageId, { ...f, ...size, preset });
+    get().setFrame(pageId, { ...f, ...sizeForPreset(preset, f), preset });
   },
   setRects: (frame, rects) =>
     set((s) => ({ rects: { ...s.rects, [frame]: rects } })),

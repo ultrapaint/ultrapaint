@@ -11,6 +11,7 @@ import {
   nodeLabel,
 } from "@ultrapaint/design-document/tree";
 import type { TokenKind } from "../state/context-menu.ts";
+import { viewportPresets } from "./presets.ts";
 
 export type Entry =
   | {
@@ -162,12 +163,6 @@ export interface PageFacts {
   variantsFree: readonly string[];
 }
 
-export const PRESETS: readonly { label: string; value: ViewportPreset }[] = [
-  { label: "Mobile", value: "mobile" },
-  { label: "Tablet", value: "tablet" },
-  { label: "Desktop", value: "desktop" },
-];
-
 /**
  * Into another canvas, or a new one: `copyTo:@<id>` (the root canvas is `copyTo:@`),
  * `copyTo:new`, and the same for a move.
@@ -194,7 +189,7 @@ export const pageEntries = (f: PageFacts): Entry[] => {
         shortcut: "⌘V",
       }),
     f.onCanvas && {
-      entries: PRESETS.map((p) =>
+      entries: viewportPresets.map((p) =>
         item(`preset:${p.value}`, p.label, { checked: f.preset === p.value })
       ),
       id: "preset",
