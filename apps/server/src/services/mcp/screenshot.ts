@@ -12,7 +12,7 @@ import {
 } from "@ultrapaint/design-document/tree";
 import { parseNodeRef } from "@ultrapaint/shared/node-ref";
 import { Effect, Layer, Schema } from "effect";
-import { McpSchema, McpServer, Tool } from "effect/unstable/ai";
+import { McpSchema, McpServer, Tool } from "effect/ai";
 import { PagesService } from "../pages.ts";
 import { Screenshots } from "../screenshots.ts";
 import { makeLookup, missing, reported } from "./tools.ts";
@@ -185,9 +185,7 @@ export const ScreenshotToolLive = Layer.effectDiscard(
       tool: new McpSchema.Tool({
         annotations: { readOnlyHint: true },
         description: Tool.getDescription(GetScreenshot),
-        inputSchema: Tool.getJsonSchema(
-          GetScreenshot
-        ) as McpSchema.ToolJson,
+        inputSchema: Tool.getJsonSchema(GetScreenshot) as McpSchema.ToolJson,
         name: GetScreenshot.name,
       }),
     });

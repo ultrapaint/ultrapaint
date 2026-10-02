@@ -8,8 +8,8 @@
 import { createServer } from "node:http";
 import { NodeHttpServer, NodeRuntime } from "@effect/platform-node";
 import { Effect, Layer, Schema } from "effect";
-import { McpProtocol, McpServer, Tool, Toolkit } from "effect/unstable/ai";
-import { HttpRouter } from "effect/unstable/http";
+import { McpProtocol, McpServer, Tool, Toolkit } from "effect/ai";
+import { HttpRouter } from "effect/http";
 
 const [portArg, root = process.cwd()] = process.argv.slice(2);
 const port = Number(portArg ?? 4799);

@@ -11,12 +11,8 @@ import {
   Path,
   type PlatformError,
 } from "effect";
-import {
-  RpcClient,
-  type RpcClientError,
-  RpcSerialization,
-} from "effect/unstable/rpc";
-import { Socket } from "effect/unstable/socket";
+import { RpcClient, type RpcClientError, RpcSerialization } from "effect/rpc";
+import { Socket } from "effect/socket";
 import { ServerConfig, type StorageTarget } from "../config.ts";
 import { runCommand } from "../process.ts";
 import { ServerLive } from "../server.ts";

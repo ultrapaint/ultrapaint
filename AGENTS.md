@@ -13,8 +13,9 @@ guide doesn't cover, search through the source code in `node_modules/effect/src`
 Effect 4 (release candidate) is pinned through the pnpm catalog. Bump every `effect` package
 together, one RC at a time, and never patch `effect`.
 
-- Imports: `import { Effect, Layer, Schema } from "effect"` and named imports from
-  `effect/unstable/*`. No namespace imports, no `Schema as S` alias.
+- Imports: `import { Effect, Layer, Schema } from "effect"` and named imports from the module
+  paths (`effect/ai`, `effect/http`, `effect/rpc`, …; there is no `effect/unstable/*` since
+  4.0.0-rc.118). No namespace imports, no `Schema as S` alias.
 - One file per service, kebab-case. The file holds the `Context.Service` class with a namespaced
   tag (`"ultrapaint/server/GitService"`), `static readonly layer`, and `static readonly layerTest`
   when a fake is useful. Service shapes use property signatures

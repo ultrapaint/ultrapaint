@@ -7,12 +7,8 @@
  */
 import { EDITOR_MCP_SERVER } from "@ultrapaint/contracts/threads";
 import { Effect, Layer } from "effect";
-import { McpProtocol, McpServer } from "effect/unstable/ai";
-import {
-  HttpRouter,
-  HttpServerRequest,
-  HttpServerResponse,
-} from "effect/unstable/http";
+import { McpProtocol, McpServer } from "effect/ai";
+import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 import { CallingThread, McpAccess } from "./access.ts";
 import { FigmaTools, FigmaToolsLive } from "./figma-tools.ts";
 import { ScreenshotToolLive } from "./screenshot.ts";

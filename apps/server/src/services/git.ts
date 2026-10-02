@@ -5,7 +5,7 @@ import type {
   GitStatus,
 } from "@ultrapaint/contracts/git";
 import { Context, Effect, Layer, Semaphore } from "effect";
-import { ChildProcessSpawner } from "effect/unstable/process";
+import { ChildProcessSpawner } from "effect/process";
 import { runCommand } from "../process.ts";
 import { RepoPaths } from "./repo-paths.ts";
 

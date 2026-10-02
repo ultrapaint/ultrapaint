@@ -1,7 +1,7 @@
 import { homedir } from "node:os";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { Config, Effect, Layer, Option } from "effect";
-import { Command, Flag } from "effect/unstable/cli";
+import { Command, Flag } from "effect/cli";
 import { ServerConfig } from "./config.ts";
 import { ServerLive } from "./server.ts";
 import { resolveStorage } from "./storage-resolve.ts";

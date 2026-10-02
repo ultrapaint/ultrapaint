@@ -24,7 +24,7 @@ import { networkInterfaces } from "node:os";
 import path from "node:path";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Schedule, Stream } from "effect";
-import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 const root = path.resolve(import.meta.dirname, "..");
 const serverDir = path.join(root, "apps", "server");

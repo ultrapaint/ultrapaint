@@ -10,8 +10,8 @@ import {
   HttpServerRequest,
   HttpServerResponse,
   HttpStaticServer,
-} from "effect/unstable/http";
-import { RpcSerialization, RpcServer } from "effect/unstable/rpc";
+} from "effect/http";
+import { RpcSerialization, RpcServer } from "effect/rpc";
 import { AppLog } from "./app-log.ts";
 import { connectHost, isLoopback, ServerConfig } from "./config.ts";
 import { EventBus } from "./events.ts";

@@ -26,7 +26,7 @@ import {
 import { parseNodeRef } from "@ultrapaint/shared/node-ref";
 import { basePathOf, normaliseRoute } from "@ultrapaint/shared/route";
 import { Effect, Schema } from "effect";
-import { Tool, Toolkit } from "effect/unstable/ai";
+import { Tool, Toolkit } from "effect/ai";
 import { EventBus } from "../../events.ts";
 import { ProjectManager } from "../../project.ts";
 import { CatalogueService } from "../catalogue.ts";

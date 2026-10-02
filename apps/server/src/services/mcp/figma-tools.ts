@@ -16,7 +16,7 @@ import {
 } from "@ultrapaint/contracts/figma";
 import { Question } from "@ultrapaint/contracts/threads";
 import { Effect, Schema } from "effect";
-import { Tool, Toolkit } from "effect/unstable/ai";
+import { Tool, Toolkit } from "effect/ai";
 import { CatalogueService } from "../catalogue.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { FigmaImportService } from "../figma-import.ts";

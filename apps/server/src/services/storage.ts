@@ -1,6 +1,6 @@
 import type { StorageInfo } from "@ultrapaint/contracts/settings";
 import { Context, Effect, FileSystem, Layer, Path } from "effect";
-import { ChildProcessSpawner } from "effect/unstable/process";
+import { ChildProcessSpawner } from "effect/process";
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { ServerConfig, type StorageTarget } from "../config.ts";
 import { STATE_DIR_NAME } from "../storage-resolve.ts";

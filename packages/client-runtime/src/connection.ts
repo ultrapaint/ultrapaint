@@ -18,8 +18,8 @@ import {
   Schedule,
   Stream,
 } from "effect";
-import { RpcClient, RpcSerialization } from "effect/unstable/rpc";
-import { Socket } from "effect/unstable/socket";
+import { RpcClient, RpcSerialization } from "effect/rpc";
+import { Socket } from "effect/socket";
 
 export type ConnectionState = "connecting" | "open" | "closed";
 

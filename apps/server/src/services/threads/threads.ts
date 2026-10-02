@@ -53,7 +53,7 @@ import {
   Path,
   Scope,
 } from "effect";
-import { ChildProcessSpawner } from "effect/unstable/process";
+import { ChildProcessSpawner } from "effect/process";
 import { AppLog } from "../../app-log.ts";
 import { makeWriteAtomic } from "../../atomic-write.ts";
 import { connectHost, ServerConfig } from "../../config.ts";

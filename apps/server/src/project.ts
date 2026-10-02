@@ -13,7 +13,7 @@ import {
   Semaphore,
   Stream,
 } from "effect";
-import type { ChildProcessSpawner } from "effect/unstable/process";
+import type { ChildProcessSpawner } from "effect/process";
 import { AppLog } from "./app-log.ts";
 import type { ServerConfig } from "./config.ts";
 import { EventBus } from "./events.ts";

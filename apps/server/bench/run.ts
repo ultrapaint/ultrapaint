@@ -21,8 +21,8 @@ import {
   type ThreadItem,
 } from "@ultrapaint/contracts/threads";
 import { Effect, FileSystem, Layer } from "effect";
-import { RpcClient, RpcSerialization } from "effect/unstable/rpc";
-import { Socket } from "effect/unstable/socket";
+import { RpcClient, RpcSerialization } from "effect/rpc";
+import { Socket } from "effect/socket";
 import { ServerConfig } from "../src/config.ts";
 import { ServerLive } from "../src/server.ts";
 import { type BenchTask, tasks } from "./tasks.ts";

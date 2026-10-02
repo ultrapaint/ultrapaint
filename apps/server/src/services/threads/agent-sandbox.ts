@@ -18,7 +18,7 @@ import {
 } from "@ultrapaint/acp/sandbox";
 import type { AgentConfig } from "@ultrapaint/contracts/threads";
 import { Context, Effect, FileSystem, Layer, Path } from "effect";
-import { ChildProcessSpawner } from "effect/unstable/process";
+import { ChildProcessSpawner } from "effect/process";
 import { ServerConfig } from "../../config.ts";
 import { runCommand } from "../../process.ts";
 
