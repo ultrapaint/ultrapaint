@@ -95,7 +95,7 @@ import { ComponentProps } from "../panels/component-props.tsx";
 import { useAgents } from "../state/agents.ts";
 import { useAttachments } from "../state/attachments.ts";
 import { componentMetaOf, useCatalogue } from "../state/catalogue.ts";
-import { showMenu } from "../state/context-menu.ts";
+import { type MenuTarget, showMenu } from "../state/context-menu.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
 import { previewUrl, useProject } from "../state/project.ts";
@@ -144,7 +144,7 @@ const colorTokens = (ds: DesignSystem | null) =>
   }));
 
 /** The trigger of every select: an icon or a swatch, the value, a chevron. */
-const ValueTrigger = ({
+export const ValueTrigger = ({
   children,
   icon: Icon,
   swatch,
@@ -184,7 +184,7 @@ const ValueTrigger = ({
   </Tooltip>
 );
 
-const MenuHead = ({ name, source }: { name: string; source?: string }) => (
+export const MenuHead = ({ name, source }: { name: string; source?: string }) => (
   <DropdownMenuLabel className="flex items-center gap-2">
     <span className="flex-1">{name}</span>
     {source ? (
@@ -598,7 +598,7 @@ const MoreProps = ({ count, node }: { count: number; node: InstanceNode }) => {
   );
 };
 
-const Divider = () => <span className="mx-0.5 h-5 w-px shrink-0 bg-border" />;
+export const Divider = () => <span className="mx-0.5 h-5 w-px shrink-0 bg-border" />;
 
 /** ⌘ on a Mac, Ctrl elsewhere: the key that sends an element to a new chat. */
 const withMod = (e: { ctrlKey: boolean; metaKey: boolean }) =>
@@ -993,22 +993,25 @@ export const ElementToolbar = ({
           <ChatButton selection={selection} />
         </Targets.Provider>
       )}
-      <MoreButton target={selection} />
+      <MoreButton
+        menu={{
+          frame: selection.frame,
+          kind: "node",
+          nodeId: selection.nodeId,
+        }}
+      />
     </div>
   );
 };
 
 /**
- * The node's context menu, under the button. Opened on a node of the selection, it acts on the
- * whole selection, as a right-click on it does.
+ * The context menu of what the toolbar is over, under the button. Opened on a node of the
+ * selection, it acts on the whole selection, as a right-click on it does.
  */
-const MoreButton = ({ target }: { target: Selection }) => {
+export const MoreButton = ({ menu }: { menu: MenuTarget }) => {
   const openMore = (e: ReactMouseEvent) => {
     const r = e.currentTarget.getBoundingClientRect();
-    showMenu(
-      { frame: target.frame, kind: "node", nodeId: target.nodeId },
-      { x: r.left, y: r.bottom + 4 }
-    );
+    showMenu(menu, { x: r.left, y: r.bottom + 4 });
   };
   return (
     <Tooltip>
@@ -1114,7 +1117,15 @@ export const GroupToolbar = ({
         </DropdownMenu>
         <Divider />
         <GroupChatButton targets={targets} />
-        {targets[0] ? <MoreButton target={targets[0]} /> : null}
+        {targets[0] ? (
+          <MoreButton
+            menu={{
+              frame: targets[0].frame,
+              kind: "node",
+              nodeId: targets[0].nodeId,
+            }}
+          />
+        ) : null}
       </Targets.Provider>
     </div>
   );

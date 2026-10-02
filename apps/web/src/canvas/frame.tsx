@@ -17,9 +17,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { OptionSelect } from "../components/option-select.tsx";
 import { focusLink } from "../lib/links.ts";
-import { presetOf, viewportPresets } from "../lib/presets.ts";
 import {
   kindColor,
   kindHoverColor,
@@ -56,6 +54,7 @@ import {
   TAG_HEIGHT,
 } from "./element-toolbar.tsx";
 import { hitUnlocked } from "./hit-test.ts";
+import { PageToolbar } from "./page-toolbar.tsx";
 import { SelectionTag } from "./selection-tag.tsx";
 
 const formatHostError = (error: HostError) => {
@@ -828,7 +827,14 @@ const ResizeHandles = ({
   ));
 };
 
-/** Name, viewport preset and size above the frame, plus the frame's selection outline. */
+/** The header's height and its distance from the frame, on screen. */
+const HEADER_HEIGHT = 26;
+const HEADER_GAP = 6;
+
+/**
+ * Name and size above the frame, the frame's selection outline and, in Vibe, the toolbar of the
+ * selected page.
+ */
 const FrameChrome = ({
   frameId,
   frame,
@@ -845,6 +851,7 @@ const FrameChrome = ({
   root: DesignNode | null;
 }) => {
   const isSelected = useFrameSelected(frameId, kind, root);
+  const workspace = useEditor((s) => s.workspace);
   const [titleHover, setTitleHover] = useState(false);
   const selectFrame = () => {
     const store = useEditor.getState();
@@ -871,8 +878,8 @@ const FrameChrome = ({
           isSelected || isActive ? "text-foreground" : "text-muted-foreground"
         )}
         style={{
-          bottom: `calc(100% + ${6 * inv}px)`,
-          height: 26,
+          bottom: `calc(100% + ${HEADER_GAP * inv}px)`,
+          height: HEADER_HEIGHT,
           transform: `scale(${inv})`,
           transformOrigin: "bottom left",
         }}
@@ -892,24 +899,14 @@ const FrameChrome = ({
           {name}
         </button>
         {kind === "page" && (
-          <>
-            <div className="w-24">
-              <OptionSelect
-                className="border-transparent bg-transparent text-[11px] text-muted-foreground hover:border-input dark:bg-transparent"
-                onChange={(v) =>
-                  useEditor.getState().setPreset(frameId, v as ViewportPreset)
-                }
-                options={viewportPresets}
-                size="sm"
-                value={presetOf(frame)}
-              />
-            </div>
-            <span className="text-[11px] text-muted-foreground">
-              {Math.round(frame.width)} × {Math.round(frame.height)}
-            </span>
-          </>
+          <span className="text-[11px] text-muted-foreground">
+            {Math.round(frame.width)} × {Math.round(frame.height)}
+          </span>
         )}
       </div>
+      {kind === "page" && isSelected && workspace === "vibe" ? (
+        <PageToolbar headerHeight={HEADER_GAP + HEADER_HEIGHT} inv={inv} pageId={frameId} />
+      ) : null}
       {isSelected || titleHover ? (
         <div
           className="pointer-events-none absolute inset-0"
