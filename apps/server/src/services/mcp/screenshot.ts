@@ -187,7 +187,7 @@ export const ScreenshotToolLive = Layer.effectDiscard(
         description: Tool.getDescription(GetScreenshot),
         inputSchema: Tool.getJsonSchema(
           GetScreenshot
-        ) as McpSchema.ToolJsonSchema,
+        ) as McpSchema.ToolJson,
         name: GetScreenshot.name,
       }),
     });
