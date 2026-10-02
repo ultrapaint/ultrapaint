@@ -977,6 +977,10 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
               if (!schema.required?.includes(name)) {
                 assert.notInclude(encoded, '"null"', `${tool.name}.${name}`);
               }
+              // Codex fills in a missing `items` as strings: every array says what it holds.
+              if ((property as { type?: string }).type === "array") {
+                assert.property(property, "items", `${tool.name}.${name}`);
+              }
               assert.notInclude(encoded, "Infinity", `${tool.name}.${name}`);
             }
           }

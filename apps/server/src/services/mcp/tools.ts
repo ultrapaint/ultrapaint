@@ -101,6 +101,12 @@ export const finite = (minimum: number, maximum: number) =>
  */
 export const AnyJson = Schema.Unknown;
 
+/**
+ * One JSON object an agent passes, the handler validating it. An array of `AnyJson` would say
+ * nothing of its items, and Codex reads an array without `items` as an array of strings.
+ */
+const AnyObject = Schema.Record(Schema.String, Schema.Unknown);
+
 const CanvasSummary = Schema.Struct({
   /** The URL its prototype opens on; set it with set_home. */
   home: Schema.String,
@@ -197,7 +203,7 @@ Values: numbers are pixels, "$name" a design token, anything else CSS. Size an i
     /** Work on the loose nodes placed on the canvas beside the pages, instead of a page. */
     loose: opt(Schema.Boolean),
     /** Checked once the ids a new node leaves out are filled in. */
-    ops: Schema.Array(AnyJson),
+    ops: Schema.Array(AnyObject),
     /** URL or file of the page; leave out with `loose: true`. */
     route: opt(Schema.String.annotate({ description: PAGE_PARAMETER })),
   }),
