@@ -1476,15 +1476,15 @@ const Composer = ({ thread }: { thread: Thread }) => {
         )
       : null
   );
-  // Nothing attached: the selection and its page go along, as they always have, shown dashed.
+  // Nothing attached: the selection goes along, shown dashed. The page only when attached.
   const selectedChip =
     selection && selectedNode ? nodeChip(selection, selectedNode) : null;
   const implicit =
-    chips.length > 0
+    chips.length > 0 ||
+    selectedChip === null ||
+    dismissed.includes(chipKey(selectedChip))
       ? []
-      : [page ? pageChip(page) : null, selectedChip].filter(
-          (c): c is Chip => c !== null && !dismissed.includes(chipKey(c))
-        );
+      : [selectedChip];
   const commands = useCommands();
   const [commandIndex, setCommandIndex] = useState(0);
   const workspace = useEditor((s) => s.workspace);

@@ -27,7 +27,7 @@ scope pinned under its header.
 
 **The composer's context is chips.** Elements added from the canvas (Add to chat, the toolbar, the
 right-click menu) are chips in their selection colour, removable one by one. When nothing was
-attached, the selection and its page go along as before, shown dashed.
+attached, the selection goes along, shown dashed; the page goes only when it is attached.
 
 **A Vibe toolbar over the selection, not in Design.** It offers only what the design system has:
 a component's own `cva` variants, a text's styles, the colour, radius, spacing and shadow tokens
