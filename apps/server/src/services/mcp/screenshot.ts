@@ -15,7 +15,14 @@ import { Effect, Layer, Schema } from "effect";
 import { McpSchema, McpServer, Tool } from "effect/ai";
 import { PagesService } from "../pages.ts";
 import { Screenshots } from "../screenshots.ts";
-import { makeLookup, missing, reported } from "./tools.ts";
+import {
+  finite,
+  makeLookup,
+  missing,
+  opt,
+  PAGE_PARAMETER,
+  reported,
+} from "./tools.ts";
 
 /** The width a node on the canvas is drawn in, when it fills its parent. */
 const CANVAS_WIDTH = 1200;
@@ -23,20 +30,18 @@ const CANVAS_HEIGHT = 900;
 
 const GetScreenshot = Tool.make("get_screenshot", {
   description:
-    "A picture of a page, or of one node of it, drawn by the editor's preview with the repository's own stylesheet and components: look at it after changing a design to check spacing, alignment, overflow and contrast, then fix what is off. A page is drawn at the size of its frame on the canvas, or at `width`; with `node` the picture is cropped to that node, drawn in place. For a node placed on the canvas beside the pages, pass `loose: true` and its id. A node reference the user copied from the editor (/orders#c_8x2k1q, canvas#g_1) can be passed as `node` alone. `canvas` says which canvas, when the project has several. Needs the editor open in a browser.",
+    "A picture of a page, or cropped to one node, drawn with the repository's own styles and components: look after a change and fix spacing, alignment, overflow and contrast. A page is drawn at its frame's size, or at width. A node reference (/orders#c_8x2k1q) can go in node alone; a loose node needs loose: true. Needs the editor open in a browser.",
   parameters: Schema.Struct({
     /** Needed only when the project has several canvases. */
-    canvas: Schema.optional(Schema.String),
+    canvas: opt(Schema.String),
     /** Picture a node placed on the canvas beside the pages; `node` says which. */
-    loose: Schema.optional(Schema.Boolean),
+    loose: opt(Schema.Boolean),
     /** Id of the node to crop to; the whole page when left out. */
-    node: Schema.optional(Schema.String),
+    node: opt(Schema.String),
     /** URL or file of the page; leave out with `loose: true`. */
-    route: Schema.optional(Schema.String),
+    route: opt(Schema.String.annotate({ description: PAGE_PARAMETER })),
     /** Viewport width in CSS pixels, for a page: 390 for a phone, 1440 for a desktop. */
-    width: Schema.optional(
-      Schema.Number.check(Schema.isBetween({ maximum: 4000, minimum: 200 }))
-    ),
+    width: opt(finite(200, 4000)),
   }),
 }).annotate(Tool.Readonly, true);
 

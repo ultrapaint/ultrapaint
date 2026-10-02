@@ -777,5 +777,126 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         );
       })
     );
+
+    it.effect(
+      "keeps what an agent reads of the tools under its budget, and says no more than it needs",
+      () =>
+        Effect.gen(function* () {
+          const { client, port } = yield* TestEnv;
+          const { token } = yield* client["mcp.connection"]();
+          const listed = yield* callMcp(port, token, {
+            method: "tools/list",
+          }).pipe(
+            Effect.flatMap((response) =>
+              Effect.promise(
+                () =>
+                  response.json() as Promise<{
+                    result: {
+                      tools: {
+                        description: string;
+                        inputSchema: unknown;
+                        name: string;
+                      }[];
+                    };
+                  }>
+              )
+            )
+          );
+          // What reaches the model: the name, the description and the input schema. Output
+          // schemas stay on the wire (Claude Code and Codex both leave them out). The tools
+          // cost about 7,900 tokens before the descriptions were cut down; raise this only
+          // for a tool that earns it.
+          const visible = listed.result.tools.map((tool) =>
+            JSON.stringify({
+              description: tool.description,
+              inputSchema: tool.inputSchema,
+              name: tool.name,
+            })
+          );
+          const total = visible.join("").length;
+          assert.isBelow(total, 16_000, `the tools take ${total} characters`);
+          // An optional parameter is a plain property, not a union with null, and a number is a
+          // number, not also the strings "NaN" and "Infinity".
+          for (const tool of listed.result.tools) {
+            const schema = tool.inputSchema as {
+              properties?: Record<string, unknown>;
+              required?: string[];
+            };
+            for (const [name, property] of Object.entries(
+              schema.properties ?? {}
+            )) {
+              const encoded = JSON.stringify(property);
+              if (!schema.required?.includes(name)) {
+                assert.notInclude(encoded, '"null"', `${tool.name}.${name}`);
+              }
+              assert.notInclude(encoded, "Infinity", `${tool.name}.${name}`);
+            }
+          }
+        })
+    );
+
+    it.effect(
+      "reads one node of a page, and the design system's schema on request",
+      () =>
+        Effect.gen(function* () {
+          const call = yield* session;
+          // A page of its own: the tests before this one move pages between canvases.
+          yield* call("create_page", {
+            canvas: "",
+            name: "Parts",
+            route: "/parts",
+          });
+          yield* call("apply_operations", {
+            canvas: "",
+            ops: [
+              {
+                node: {
+                  children: [
+                    {
+                      id: "hello",
+                      role: "paragraph",
+                      text: "Hi",
+                      type: "text",
+                    },
+                  ],
+                  id: "box",
+                  type: "row",
+                },
+                op: "insert",
+                parent: null,
+              },
+            ],
+            route: "/parts",
+          });
+          const part = yield* call("read_page", {
+            canvas: "",
+            node: "/parts#box",
+            route: "/parts",
+          });
+          assert.isFalse(part.result.isError, part.result.content[0]?.text);
+          assert.strictEqual(
+            (part.result.structuredContent.document as { id: string }).id,
+            "box"
+          );
+          const gone = yield* call("read_page", {
+            canvas: "",
+            node: "nope",
+            route: "/parts",
+          });
+          assert.isTrue(gone.result.isError);
+          assert.include(gone.result.content[0]?.text ?? "", "no node nope");
+
+          const format = yield* call("get_document_format", {
+            kind: "design-system",
+          });
+          const schema = JSON.stringify(format.result.structuredContent.schema);
+          assert.include(schema, "typography");
+          const context = yield* call("get_context", {});
+          assert.include(
+            context.result.structuredContent.guide as string,
+            "canvases"
+          );
+        })
+    );
   }
 );

@@ -22,7 +22,14 @@ import { DesignSystemService } from "../design-system.ts";
 import { FigmaImportService } from "../figma-import.ts";
 import { ThreadService } from "../threads/threads.ts";
 import { CallingThread } from "./access.ts";
-import { makeLookup, missing, reported, ToolFailure } from "./tools.ts";
+import {
+  AnyJson,
+  makeLookup,
+  missing,
+  opt,
+  reported,
+  ToolFailure,
+} from "./tools.ts";
 
 const Failure = ToolFailure;
 
@@ -30,12 +37,12 @@ const decodeMapping = Schema.decodeUnknownEffect(ComponentMapping);
 
 /** Which import a tool works on; the latest when left out, which is nearly always the one. */
 const importRef = {
-  import: Schema.optional(Schema.String),
+  import: opt(Schema.String),
 };
 
 const ListFigmaImports = Tool.make("list_figma_imports", {
   description:
-    "The Figma files brought into this project, newest first, with their id, name and what they hold. The other figma tools take the newest when not told which.",
+    "The Figma files brought into the project, newest first; the other figma tools take the newest unless given import.",
   failure: Failure,
   success: Schema.Struct({
     imports: Schema.Array(
@@ -53,7 +60,7 @@ const ListFigmaImports = Tool.make("list_figma_imports", {
 
 const ReadFigmaImport = Tool.make("read_figma_import", {
   description:
-    "What a Figma file holds: its pages with their frames (the screens to turn into pages), its components with their variants and properties, how often each is used, which components of this repository they might be (candidates, from the names), and the mapping decided so far. Start here.",
+    "A Figma file: its pages and frames (the screens to turn into pages), its components with variants, properties, uses and candidate components of this repository, and the mapping decided so far. Start here.",
   failure: Failure,
   parameters: Schema.Struct(importRef),
   success: Schema.Struct({
@@ -68,7 +75,7 @@ const ReadFigmaImport = Tool.make("read_figma_import", {
 
 const ReadFigmaFrame = Tool.make("read_figma_frame", {
   description:
-    "One frame of the Figma file, by its id or name: its layers as an outline (rows, columns, text, images, and every instance of a Figma component with whether it is mapped), and the page document it converts to with the mapping as it stands. Instances of unmapped components are expanded into the layers they are made of.",
+    "One frame, by id (12:345) or name: its layers as an outline, with each component instance and whether it is mapped, and the page document it converts to now; unmapped instances are expanded into their layers.",
   failure: Failure,
   parameters: Schema.Struct({
     ...importRef,
@@ -87,7 +94,7 @@ const ReadFigmaFrame = Tool.make("read_figma_frame", {
 
 const ReadFigmaComponent = Tool.make("read_figma_component", {
   description:
-    "One Figma component in full: its variants and properties, its candidates in this repository, the frames that use it, its layers as an outline, and what it converts to when kept as it is (custom). Read it before deciding what the component becomes.",
+    "One Figma component, by key: its variants and properties, candidates, the frames using it, its layers, and what it converts to when kept as it is. Read it before mapping it.",
   failure: Failure,
   parameters: Schema.Struct({
     ...importRef,
@@ -104,16 +111,16 @@ const ReadFigmaComponent = Tool.make("read_figma_component", {
 }).annotate(Tool.Readonly, true);
 
 const MapFigmaComponent = Tool.make("map_figma_component", {
-  description: `Decides what every instance of a Figma component becomes. \`mapping\` is one of:
-- {kind:"component", component, from?, props?, propMap?, text?}: replaced by a component of this repository. \`component\` is its export name (list_components); \`from\` defaults to where the catalogue imports it from. \`props\` are given to every instance. \`propMap\` says what each Figma property becomes: {"Size": {prop:"size", values:{"Large":"lg","Small":"sm"}}} maps a variant, {"Label": {text:true}} makes a text property the instance's text, {"Disabled": {prop:"disabled"}} passes a boolean through. \`text\` is "children" to use the text the Figma instance shows, or the name of a text property.
-- {kind:"expand"}: kept as it is, built from plain rows, columns, text and images (a custom component, or one this repository does not have).
-- {kind:"skip"}: left out of every page.
-Pass null to forget a decision. Refused when the repository has no such component.`,
+  description: `Decide what every instance of a Figma component becomes; mapping is one of:
+- {kind:"component", component, from?, props?, propMap?, text?}: a component of this repository by export name. props go to every instance. propMap maps Figma properties: {"Size":{prop:"size",values:{"Large":"lg"}}}, {"Label":{text:true}}, {"Disabled":{prop:"disabled"}}. text is "children" for the text the instance shows, or a text property's name.
+- {kind:"expand"}: kept as it is, built from rows, columns, text and images.
+- {kind:"skip"}: left out.
+null forgets the decision.`,
   failure: Failure,
   parameters: Schema.Struct({
     ...importRef,
     component: Schema.String,
-    mapping: Schema.NullOr(Json),
+    mapping: AnyJson,
   }),
   success: Schema.Struct({
     mapping: Schema.NullOr(ComponentMapping),
@@ -126,14 +133,14 @@ Pass null to forget a decision. Refused when the repository has no such componen
 
 const WriteFigmaFrame = Tool.make("write_figma_frame", {
   description:
-    "Writes a frame of the Figma file as a page named after the frame, converted with the mapping as it stands, its images copied into the shared assets, and its frame on the canvas sized as in Figma. Give it the URL it serves in the prototype when it is a screen of the application; refused when another page serves that URL. Map the components first; what is still unmapped is expanded and reported.",
+    "Write a frame as a page named after it, converted with the mapping as it stands, its images copied to assets and sized as in Figma. Give it a URL when it is a screen of the application. Map the components first; what is unmapped is expanded and reported.",
   failure: Failure,
   parameters: Schema.Struct({
     ...importRef,
-    canvas: Schema.optional(Schema.String),
+    canvas: opt(Schema.String),
     frame: Schema.String,
     /** The URL the page serves, `/settings/billing`; none when left out. */
-    route: Schema.optional(Schema.String),
+    route: opt(Schema.String),
   }),
   success: Schema.Struct({
     file: Schema.String,

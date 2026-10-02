@@ -218,8 +218,9 @@ export class SlashCommands extends Context.Service<
    their @theme blocks.`;
             const write = mcp
               ? `4. Save it with write_design_system: \`designSystem\` is the design-system.json object and
-   \`notes\` the whole of DESIGN.md. The tool validates it and tells you what is wrong; fix it
-   and call it again. Do not write the two files by hand.`
+   \`notes\` the whole of DESIGN.md. get_document_format with kind "design-system" has its JSON
+   Schema. The tool validates it and tells you what is wrong; fix it and call it again. Do not
+   write the two files by hand.`
               : `4. Write ${settings.designsDir}/${DESIGN_SYSTEM_FILE}, valid against this JSON Schema:
    ${designSystemSchema()}
    and ${settings.designsDir}/${DESIGN_NOTES_FILE}.`;

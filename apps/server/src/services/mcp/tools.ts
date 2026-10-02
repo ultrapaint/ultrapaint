@@ -18,7 +18,7 @@ import { newInstance } from "@ultrapaint/design-document/factories";
 import { fillIds, makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { touchedBy } from "@ultrapaint/design-document/ops";
 import { fillWarnings } from "@ultrapaint/design-document/sizing";
-import { canvasDocOf, walk } from "@ultrapaint/design-document/tree";
+import { canvasDocOf, findNode, walk } from "@ultrapaint/design-document/tree";
 import {
   pageOfLink,
   linkTargetOf as parseLink,
@@ -57,6 +57,13 @@ const Failure = ToolFailure;
 
 const decodeOps = Schema.decodeUnknownEffect(Schema.Array(DocOp));
 
+/**
+ * What a thread's briefing explains and the tools' descriptions therefore leave out, for an agent
+ * outside the editor, which has no briefing. `get_context` answers with it, once, rather than
+ * every tool carrying a share of it on every turn.
+ */
+const GUIDE = `Designs are kept in canvases. Each has its own pages, the URLs they serve in its prototype, and loose nodes placed beside the pages; when there are several, tools take canvas (an id from canvases; the designs directory's own is ""). A page is a <name>.page.json design document, not code: a tree of nodes (page, row, column, group, text, image, and instance of one of the repository's components), each with an id. Its URL is optional, and a page without one is reached by no link. pricing@bold.page.json is pricing.page.json drawn again for the variant bold, shown in its place when the prototype is in that variant. Images live in the designs directory's assets/, or a canvas's own assets/ to replace a shared file. Change pages through these tools (read_page, then apply_operations), not by editing the files: get_document_format has the whole format and get_component an instance to start from. Call focus before changing nodes, so the user sees where you work, and get_screenshot to look at the result.`;
+
 /** Past this many, `apply_operations` says how many more warnings there are. */
 const MAX_WARNINGS = 12;
 
@@ -70,9 +77,29 @@ const PageSummary = Schema.Struct({
   variant: Schema.optional(Schema.String),
 });
 
-/** How a tool takes a page: its URL, or its file when it has none. */
-const PAGE_PARAMETER =
-  "The page: its URL (/settings/billing), or its file (drafts/billing.page.json), which is the only way to name a page without a URL or a variant's page.";
+/**
+ * How a tool takes a page: its URL, or its file when it has none. Every tool repeats it, and an
+ * agent reads every tool's schema, so it is kept short; the briefing says the rest.
+ */
+export const PAGE_PARAMETER =
+  "URL (/settings/billing) or file (drafts/billing.page.json) of the page";
+
+/**
+ * A parameter an agent may leave out. `optionalKey`, not `optional`: the latter also takes
+ * `undefined`, which JSON Schema can only say as `null`, and every optional field of every
+ * tool would carry an `anyOf` the agent pays for and never needs.
+ */
+export const opt = Schema.optionalKey;
+
+/** A number an agent passes. Plain `Number` also admits "NaN" and "Infinity" as strings. */
+export const finite = (minimum: number, maximum: number) =>
+  Schema.Finite.check(Schema.isBetween({ maximum, minimum }));
+
+/**
+ * JSON an agent passes, which the handler validates itself and says what is wrong. `Json`
+ * would describe itself to the agent as a recursive schema of every JSON value.
+ */
+export const AnyJson = Schema.Unknown;
 
 const CanvasSummary = Schema.Struct({
   /** The URL its prototype opens on; set it with set_home. */
@@ -93,11 +120,13 @@ const ComponentSummary = Schema.Struct({
 
 const GetContext = Tool.make("get_context", {
   description:
-    "Where this project keeps its designs and what is in it: the repository root, the designs directory, the package pages import from, the canvases, and how many pages and components there are. Call this first. A canvas owns its pages and the URLs they serve in its prototype, as a Figma file's pages each hold their own frames: the same URL can be a page in two canvases, and tools take `canvas` to say which. Images are in the designs directory's assets/, shared by every canvas; a canvas's own assets/ takes the place of a shared file of the same name.",
+    "The project: repository root, designs directory, the package pages import from, its canvases and how many pages there are, and a short guide to how designs are kept. Call it first, unless you were already told the pages.",
   failure: Failure,
   success: Schema.Struct({
     canvases: Schema.Array(CanvasSummary),
     designsDir: Schema.String,
+    /** What the tools' descriptions leave to the briefing, for an agent that has none. */
+    guide: Schema.String,
     pageCount: Schema.Number,
     resolveFrom: Schema.String,
     root: Schema.String,
@@ -106,18 +135,20 @@ const GetContext = Tool.make("get_context", {
 
 const ListPages = Tool.make("list_pages", {
   description:
-    "Every page in the project with its canvas, its name, the file it lives in and the URL it serves in the prototype. A page is named by its file, and its URL is optional: one without a URL is drawn like any other, but no link and no prototype reaches it; give it one with set_page_url. `pricing@bold.page.json` is pricing.page.json drawn again for the variant `bold`: it serves its base page's URL, and the prototype shows it in place of the base page when it is in that variant. A URL names the base page; name a variant's page by its file.",
+    "Every page: its canvas, name, file, and the URL it serves in the prototype (none when it has none). A variant's page (pricing@bold.page.json) serves its base page's URL, so name it by its file.",
   failure: Failure,
   success: Schema.Struct({ pages: Schema.Array(PageSummary) }),
 }).annotate(Tool.Readonly, true);
 
 const ReadPage = Tool.make("read_page", {
   description:
-    "One page's design document, found by its URL (/settings/billing), by its file, or by a node reference the user copied from the editor (/settings/billing#c_8x2k1q): a tree of nodes (page, group, row, column, text, image, instance) with their ids. Pass the hash to apply_operations to make sure nothing changed in between.",
+    "A page's design document: its tree of nodes with their ids, or with node only that node's subtree, and a hash to pass to apply_operations as expectedHash. A node reference the user copied (/orders#c_8x2k1q) names the page too.",
   failure: Failure,
   parameters: Schema.Struct({
     /** Needed only when the URL is a page in more than one canvas. */
-    canvas: Schema.optional(Schema.String),
+    canvas: opt(Schema.String),
+    /** Only this node and what is inside it: a big page costs less to read in parts. */
+    node: opt(Schema.String),
     route: Schema.String.annotate({ description: PAGE_PARAMETER }),
   }),
   success: Schema.Struct({
@@ -129,49 +160,46 @@ const ReadPage = Tool.make("read_page", {
 
 const ReadCanvas = Tool.make("read_canvas", {
   description:
-    "The loose nodes placed on a canvas beside its pages, each with its x and y. Change them with apply_operations and `loose: true`.",
+    "The loose nodes placed on a canvas beside its pages, with their x and y. Change them with apply_operations and loose: true.",
   failure: Failure,
-  parameters: Schema.Struct({ canvas: Schema.optional(Schema.String) }),
+  parameters: Schema.Struct({ canvas: opt(Schema.String) }),
   success: Schema.Struct({ hash: Schema.String, nodes: Json }),
 }).annotate(Tool.Readonly, true);
 
 const GetDocumentFormat = Tool.make("get_document_format", {
   description:
-    "The page format in full: the JSON Schema of a page document, and how its nodes and tokens map to code. Read it before writing a page or its operations by hand.",
+    'The JSON Schema of a page document, or with kind "design-system" of design-system.json, and how the format maps to code. Read it before writing either by hand.',
   failure: Failure,
+  parameters: Schema.Struct({
+    kind: opt(Schema.Literals(["page", "design-system"])),
+  }),
   success: Schema.Struct({ rules: Schema.String, schema: Json }),
 }).annotate(Tool.Readonly, true);
 
 const ApplyOperations = Tool.make("apply_operations", {
-  description: `Change a page, or the canvas, through the editor: the change is validated, shows on the canvas at once and is one undo step for the user. Operations, applied in order:
-Nodes are named by their id; a node reference the user copied (/orders#c_8x2k1q) works as an id, and as \`route\`.
-- {op:"insert", parent, index?, node}: parent is a node id (the page's root id for its top level), or null for the top level; index defaults to the end. The node may leave out ids.
+  description: `Change a page, or with loose: true the nodes beside the pages: validated, shown at once, one undo step. ops, in order (an id may be a node reference, /orders#c_8x2k1q):
+- {op:"insert", parent, index?, node}: parent a node id, or null for the top level; node may leave out ids
 - {op:"remove", id}
-- {op:"move", id, parent, index?}: the index counts the parent's children without the moved node.
-A node inserted or moved into an instance that shows "text" and has no children turns that text into the instance's first child, a text node, and goes after it. Moving or removing the last other node out of an instance turns a plain paragraph it is left holding back into its "text".
-- {op:"update", id, set:{field: value}}: null removes a field. A group, row or column may change "type" to one of the others.
-- {op:"setProps", id, props:{name: value}}: an instance's props; null removes one.
-- {op:"wrap", ids:[...], type:"row"|"column"|"group"}: siblings into a new container.
-- {op:"unwrap", id}: a container replaced by its children.
-- {op:"duplicate", id}
-Values: numbers are pixels, "$name" is a design token (--name), anything else plain CSS.
-Size an instance with width, height, padding and the other box fields, never with a className prop: the canvas puts them on the component itself, as the code will. The answer's "warnings" name the nodes whose "fill" has no room to take, because their parent's size follows its content.`,
+- {op:"move", id, parent, index?}: index among the siblings without the moved node
+- {op:"update", id, set:{field: value}}: null removes a field; a group, row or column may change "type"
+- {op:"setProps", id, props:{name: value}}: null removes a prop
+- {op:"wrap", ids:[...], type:"row"|"column"|"group"}, {op:"unwrap", id}, {op:"duplicate", id}
+Inserting into an instance that shows "text" makes that text its first child.
+Values: numbers are pixels, "$name" a design token, anything else CSS. Size an instance with width, height and padding, never a className prop. expectedHash (from read_page) refuses the call if the page changed since. "warnings" names fills that have no room to take.`,
   failure: Failure,
   parameters: Schema.Struct({
     /** Needed only when the project has several canvases. */
-    canvas: Schema.optional(Schema.String),
+    canvas: opt(Schema.String),
     /** The hash read_page answered with; the call is refused if the page changed since. */
-    expectedHash: Schema.optional(Schema.String),
+    expectedHash: opt(Schema.String),
     /** What the undo menu calls it. */
-    label: Schema.optional(Schema.String),
+    label: opt(Schema.String),
     /** Work on the loose nodes placed on the canvas beside the pages, instead of a page. */
-    loose: Schema.optional(Schema.Boolean),
+    loose: opt(Schema.Boolean),
     /** Checked once the ids a new node leaves out are filled in. */
-    ops: Schema.Array(Json),
+    ops: Schema.Array(AnyJson),
     /** URL or file of the page; leave out with `loose: true`. */
-    route: Schema.optional(
-      Schema.String.annotate({ description: PAGE_PARAMETER })
-    ),
+    route: opt(Schema.String.annotate({ description: PAGE_PARAMETER })),
   }),
   success: Schema.Struct({
     created: Schema.Array(Schema.String),
@@ -183,7 +211,7 @@ Size an instance with width, height, padding and the other box fields, never wit
 
 const ScanDesignSystem = Tool.make("scan_design_system", {
   description:
-    "Reads the design system by fixed rules: the Tailwind v4 @theme blocks of the stylesheets the preview imports, and the variables they refer to. Answers with a first design-system.json, the files read, and notes on what it could not interpret. The start of /init.",
+    "A first design-system.json, read by fixed rules from the Tailwind v4 @theme blocks of the stylesheets the preview imports, with the files read and notes on what could not be interpreted. The start of /init.",
   failure: Failure,
   success: Schema.Struct({
     designSystem: Json,
@@ -194,7 +222,7 @@ const ScanDesignSystem = Tool.make("scan_design_system", {
 
 const ReadDesignSystem = Tool.make("read_design_system", {
   description:
-    "The design system as the project records it: design-system.json (tokens, text styles, component notes) and DESIGN.md (conventions). Null when it was never imported.",
+    "The design system as recorded: design-system.json (tokens, text styles, component notes) and DESIGN.md (conventions); null when never imported.",
   failure: Failure,
   success: Schema.Struct({
     designSystem: Json,
@@ -204,30 +232,31 @@ const ReadDesignSystem = Tool.make("read_design_system", {
 }).annotate(Tool.Readonly, true);
 
 const WriteDesignSystem = Tool.make("write_design_system", {
-  description: `Saves the design system: design-system.json and, when given, DESIGN.md. Refused with the reason when it does not match the schema. Tokens are named after their Tailwind v4 variables without the dashes ("color-primary"); references to them in text styles start with "$". JSON Schema: ${designSystemSchema()}`,
+  description:
+    'Save design-system.json, and DESIGN.md when notes is given; refused with the reason when it does not match its schema (get_document_format, kind "design-system"). A token is named after its Tailwind v4 variable without the dashes ("color-primary"); a text style refers to it as "$color-primary".',
   failure: Failure,
   parameters: Schema.Struct({
-    designSystem: Json,
+    designSystem: AnyJson,
     /** The whole of DESIGN.md. */
-    notes: Schema.optional(Schema.String),
+    notes: opt(Schema.String),
   }),
   success: Schema.Struct({ saved: Schema.Boolean }),
 });
 
 const ListComponents = Tool.make("list_components", {
   description:
-    "The components this repository's design system offers, with the import to use and the variants each takes. Prefer these to writing plain HTML.",
+    "The repository's components, with their import and variants; match narrows the list. Prefer them to plain HTML.",
   failure: Failure,
   parameters: Schema.Struct({
     /** Narrows the list; leave empty for all of them. */
-    match: Schema.optional(Schema.String),
+    match: opt(Schema.String),
   }),
   success: Schema.Struct({ components: Schema.Array(ComponentSummary) }),
 }).annotate(Tool.Readonly, true);
 
 const GetComponent = Tool.make("get_component", {
   description:
-    "One component in full: where to import it from, every prop with its type, its variants, and an instance node that uses it.",
+    "One component in full: its import, every prop with its type, its variants, and an instance node to start from.",
   failure: Failure,
   parameters: Schema.Struct({ name: Schema.String }),
   success: Schema.Struct({
@@ -258,30 +287,26 @@ const CommentSummary = Schema.Struct({
 
 const ListComments = Tool.make("list_comments", {
   description:
-    "The comments left on the designs, which is where the user asks for things. Open ones first.",
+    "The comments on the designs, where the user asks for things; open ones only, unless includeResolved.",
   failure: Failure,
   parameters: Schema.Struct({
-    canvas: Schema.optional(Schema.String),
+    canvas: opt(Schema.String),
     /** Include the ones already dealt with. */
-    includeResolved: Schema.optional(Schema.Boolean),
+    includeResolved: opt(Schema.Boolean),
   }),
   success: Schema.Struct({ comments: Schema.Array(CommentSummary) }),
 }).annotate(Tool.Readonly, true);
 
 const SetFrame = Tool.make("set_frame", {
   description:
-    "Size a page's frame on the canvas: a preset (mobile, tablet, desktop) or a width and height in pixels. The frame is the window the page is drawn in, on the canvas and in get_screenshot; a long page needs a tall frame to be seen whole. One undo step for the user.",
+    "Size a page's frame, the window it is drawn in on the canvas and in get_screenshot: a preset or a width and height in pixels. A long page needs a tall frame to be seen whole.",
   failure: Failure,
   parameters: Schema.Struct({
-    canvas: Schema.optional(Schema.String),
-    height: Schema.optional(
-      Schema.Number.check(Schema.isBetween({ maximum: 20_000, minimum: 100 }))
-    ),
-    preset: Schema.optional(Schema.Literals(["mobile", "tablet", "desktop"])),
+    canvas: opt(Schema.String),
+    height: opt(finite(100, 20_000)),
+    preset: opt(Schema.Literals(["mobile", "tablet", "desktop"])),
     route: Schema.String.annotate({ description: PAGE_PARAMETER }),
-    width: Schema.optional(
-      Schema.Number.check(Schema.isBetween({ maximum: 8000, minimum: 200 }))
-    ),
+    width: opt(finite(200, 8000)),
   }),
   success: Schema.Struct({
     file: Schema.String,
@@ -292,16 +317,16 @@ const SetFrame = Tool.make("set_frame", {
 
 const CreatePage = Tool.make("create_page", {
   description:
-    "Add a page to a canvas. Its file is its name made safe (Billing settings is billing-settings.page.json). Give it a URL when the prototype should reach it or a link lead to it: a page of the application has one, a sketch or a sheet of components needs none. Prefer this to creating the file yourself; then fill it with apply_operations.",
+    "Add a page; its file is its name made safe (Billing settings: billing-settings.page.json). Give it a URL when the prototype or a link should reach it: a screen of the application has one, a sketch needs none. Then fill it with apply_operations.",
   failure: Failure,
   parameters: Schema.Struct({
-    canvas: Schema.optional(Schema.String),
+    canvas: opt(Schema.String),
     /** What the page is called: "Billing settings". */
     name: Schema.String,
     /** The URL it serves in the prototype, `/settings/billing`; none when left out. */
-    route: Schema.optional(Schema.String),
+    route: opt(Schema.String),
     /** One of the ids list_templates gives; the blank one when left out. */
-    template: Schema.optional(Schema.String),
+    template: opt(Schema.String),
   }),
   success: Schema.Struct({
     document: Json,
@@ -312,11 +337,11 @@ const CreatePage = Tool.make("create_page", {
 
 const RenamePage = Tool.make("rename_page", {
   description:
-    "Rename a page. Its file, and its variants' files, move to the new name; its URL, and every link to it, stay.",
+    "Rename a page: its file and its variants' files move; its URL and the links to it stay.",
   failure: Failure,
   parameters: Schema.Struct({
     /** Needed only when the URL is a page in more than one canvas. */
-    canvas: Schema.optional(Schema.String),
+    canvas: opt(Schema.String),
     name: Schema.String,
     route: Schema.String.annotate({ description: PAGE_PARAMETER }),
   }),
@@ -325,11 +350,11 @@ const RenamePage = Tool.make("rename_page", {
 
 const SetPageUrl = Tool.make("set_page_url", {
   description:
-    "Set the URL a page serves in its canvas's prototype, or take it off with null. A link names a URL, so links to the old one lead nowhere afterwards. A variant's page serves its base page's URL: setting it sets the base page's.",
+    "Set the URL a page serves in its canvas's prototype, or null for none. Links to the old URL lead nowhere afterwards. A variant's page sets its base page's.",
   failure: Failure,
   parameters: Schema.Struct({
     /** Needed only when the URL is a page in more than one canvas. */
-    canvas: Schema.optional(Schema.String),
+    canvas: opt(Schema.String),
     route: Schema.String.annotate({ description: PAGE_PARAMETER }),
     /** The new URL, `/settings/billing`; null for none. */
     url: Schema.NullOr(Schema.String),
@@ -342,11 +367,11 @@ const SetPageUrl = Tool.make("set_page_url", {
 
 const DeletePage = Tool.make("delete_page", {
   description:
-    "Delete a page. A base page takes its variants' pages with it; the comments left on them go too. One undo step for the user, which brings all of it back. Links to its URL lead nowhere afterwards: list_links finds them.",
+    "Delete a page, with its variants' pages and its comments; one undo step brings them back. Links to its URL lead nowhere afterwards (list_links).",
   failure: Failure,
   parameters: Schema.Struct({
     /** Needed only when the URL is a page in more than one canvas. */
-    canvas: Schema.optional(Schema.String),
+    canvas: opt(Schema.String),
     route: Schema.String.annotate({ description: PAGE_PARAMETER }),
   }),
   success: Schema.Struct({
@@ -357,11 +382,11 @@ const DeletePage = Tool.make("delete_page", {
 
 const DuplicatePage = Tool.make("duplicate_page", {
   description:
-    "Copy a page into a new file beside it, numbered after its name (pricing-2.page.json), with its frame to the right of the original's. The copy serves no URL, since two pages never serve one: give it one with set_page_url. Node ids are kept.",
+    "Copy a page into a new file beside it (pricing-2.page.json), keeping its node ids. The copy serves no URL until set_page_url gives it one.",
   failure: Failure,
   parameters: Schema.Struct({
     /** Needed only when the URL is a page in more than one canvas. */
-    canvas: Schema.optional(Schema.String),
+    canvas: opt(Schema.String),
     route: Schema.String.annotate({ description: PAGE_PARAMETER }),
   }),
   success: Schema.Struct({ file: Schema.String }),
@@ -369,19 +394,19 @@ const DuplicatePage = Tool.make("duplicate_page", {
 
 const CopyPages = Tool.make("copy_pages", {
   description:
-    "Copy or move pages into another canvas, or into a new canvas made for them, at the same files and URLs and with their frames where they were. A base page takes its variants along. A move takes the pages' comments too; a copy starts without. Refused when the target has a page of the same file, or serving one of the URLs, already. Links to URLs that did not come along lead nowhere there.",
+    "Copy or move pages, with their variants, into another canvas (to) or a new one (newCanvas), keeping files, URLs and frames; a move takes their comments along. Refused when the target already has one of the files or URLs.",
   failure: Failure,
   parameters: Schema.Struct({
     /** The canvas the pages are in; needed only when the project has several. */
-    canvas: Schema.optional(Schema.String),
+    canvas: opt(Schema.String),
     /** Move them instead of copying: they leave the canvas they are in. */
-    move: Schema.optional(Schema.Boolean),
+    move: opt(Schema.Boolean),
     /** Name of a new canvas to put them in; give this or `to`. */
-    newCanvas: Schema.optional(Schema.String),
+    newCanvas: opt(Schema.String),
     /** The pages, each by its URL or its file, all from one canvas. */
     pages: Schema.Array(Schema.String),
     /** Id of the canvas to put them in; give this or `newCanvas`. */
-    to: Schema.optional(Schema.String),
+    to: opt(Schema.String),
   }),
   success: Schema.Struct({
     /** Id of the canvas they are in now. */
@@ -397,7 +422,7 @@ const CopyPages = Tool.make("copy_pages", {
 
 const CreateCanvas = Tool.make("create_canvas", {
   description:
-    "Make a new, empty canvas: a directory of its own with its own pages, URLs and prototype, listed after the others. Its id, which `canvas` takes, is its name made safe.",
+    "Make an empty canvas, with its own pages, URLs and prototype. Its id, which canvas takes, is its name made safe.",
   failure: Failure,
   parameters: Schema.Struct({ name: Schema.String }),
   success: Schema.Struct({ id: Schema.String, name: Schema.String }),
@@ -405,19 +430,18 @@ const CreateCanvas = Tool.make("create_canvas", {
 
 const SetHome = Tool.make("set_home", {
   description:
-    "Choose where the canvas's prototype opens: the URL of one of its pages. The page must serve a URL (set_page_url gives it one). The canvas keeps opening there when the page's URL changes, and falls back to another page's when the page goes.",
+    "Choose the page the canvas's prototype opens on; it must serve a URL.",
   failure: Failure,
   parameters: Schema.Struct({
     /** Needed only when the URL is a page in more than one canvas. */
-    canvas: Schema.optional(Schema.String),
+    canvas: opt(Schema.String),
     route: Schema.String.annotate({ description: PAGE_PARAMETER }),
   }),
   success: Schema.Struct({ canvas: Schema.String, home: Schema.String }),
 });
 
 const ListTemplates = Tool.make("list_templates", {
-  description:
-    "The templates create_page can start a page from, by id and name. The blank one is used when create_page is given none.",
+  description: "The templates create_page can start from, by id and name.",
   failure: Failure,
   success: Schema.Struct({
     templates: Schema.Array(
@@ -441,13 +465,13 @@ const LinkSummary = Schema.Struct({
 
 const ListLinks = Tool.make("list_links", {
   description:
-    'Every node of a canvas that links somewhere in the prototype, with the page it is in and where it leads, and the broken ones said so. A link is a URL a page of the canvas serves (/settings/billing, /invoices/42), a page file of the canvas (drafts/billing.page.json), "back", or an http(s) address outside. Run it after renaming URLs, deleting or moving pages, and fix what it reports with apply_operations (update the node\'s "link").',
+    'Every node of a canvas that links somewhere, with its page and where it leads, broken ones said so. Run it after changing URLs or deleting or moving pages; fix a link by updating the node\'s "link".',
   failure: Failure,
   parameters: Schema.Struct({
     /** Only the links that lead nowhere. */
-    brokenOnly: Schema.optional(Schema.Boolean),
+    brokenOnly: opt(Schema.Boolean),
     /** Needed only when the project has several canvases. */
-    canvas: Schema.optional(Schema.String),
+    canvas: opt(Schema.String),
   }),
   success: Schema.Struct({
     /** How many of all of them lead nowhere. */
@@ -457,11 +481,10 @@ const ListLinks = Tool.make("list_links", {
 }).annotate(Tool.Readonly, true);
 
 const ReplyToComment = Tool.make("reply_to_comment", {
-  description:
-    "Answer a comment on the designs, in the thread under it, so the user reads it where they asked.",
+  description: "Answer a comment in the thread under it, where the user asked.",
   failure: Failure,
   parameters: Schema.Struct({
-    canvas: Schema.optional(Schema.String),
+    canvas: opt(Schema.String),
     id: Schema.String,
     text: Schema.String,
   }),
@@ -469,11 +492,10 @@ const ReplyToComment = Tool.make("reply_to_comment", {
 });
 
 const ResolveComment = Tool.make("resolve_comment", {
-  description:
-    "Mark a comment as dealt with, once the work it asked for is done.",
+  description: "Mark a comment done, once its work is.",
   failure: Failure,
   parameters: Schema.Struct({
-    canvas: Schema.optional(Schema.String),
+    canvas: opt(Schema.String),
     id: Schema.String,
   }),
   success: Schema.Struct({ resolved: Schema.Boolean }),
@@ -481,15 +503,15 @@ const ResolveComment = Tool.make("resolve_comment", {
 
 const Focus = Tool.make("focus", {
   description:
-    'Say which page you are working on, and which of its nodes you are about to change and how. The canvas shows it, and brings the user there if they asked to follow you. Call it when you move to another page, and before changing nodes the user is looking at: pass their ids as `nodes` and a few words as `action` ("formatting the dates"), and they show your work until your turn ends.',
+    'Show the user which page you are on, and before changing nodes, which ones and how: their ids as nodes and a few words as action ("formatting the dates"). Call it when you move to another page.',
   failure: Failure,
   parameters: Schema.Struct({
     /** A few words on what you are doing to the nodes. */
-    action: Schema.optional(Schema.String),
+    action: opt(Schema.String),
     /** Needed only when the URL is a page in more than one canvas. */
-    canvas: Schema.optional(Schema.String),
+    canvas: opt(Schema.String),
     /** Ids of the nodes of the page you are about to change. */
-    nodes: Schema.optional(Schema.Array(Schema.String)),
+    nodes: opt(Schema.Array(Schema.String)),
     route: Schema.String.annotate({ description: PAGE_PARAMETER }),
   }),
   success: Schema.Struct({ file: Schema.String }),
@@ -901,16 +923,21 @@ export const EditorToolsLive = EditorTools.toLayer(
             variants: canvas.variants,
           })),
           designsDir: paths.settings.designsDir,
+          guide: GUIDE,
           pageCount: pages.pages.length,
           resolveFrom: paths.settings.resolveFrom ?? paths.settings.designsDir,
           root: paths.root,
         };
       }),
 
-      get_document_format: () =>
+      get_document_format: ({ kind }) =>
         Effect.succeed({
           rules: IMPLEMENTATION_RULES,
-          schema: asJson(JSON.parse(pageSchema())),
+          schema: asJson(
+            JSON.parse(
+              kind === "design-system" ? designSystemSchema() : pageSchema()
+            )
+          ),
         }),
 
       list_comments: Effect.fnUntraced(function* ({ includeResolved, canvas }) {
@@ -1032,13 +1059,23 @@ export const EditorToolsLive = EditorTools.toLayer(
         };
       }),
 
-      read_page: Effect.fnUntraced(function* ({ route, canvas }) {
+      read_page: Effect.fnUntraced(function* ({ route, canvas, node }) {
         const page = yield* pageAt(route, canvas);
         const state = yield* documents((d) => d.get(page.id));
         if (state.problem !== undefined) {
           return yield* missing(
             `${page.file} is not a valid page: ${state.problem}`
           );
+        }
+        if (node !== undefined) {
+          const id = parseNodeRef(node)?.nodeId ?? node;
+          const found = findNode(state.root, id);
+          if (found === null) {
+            return yield* missing(
+              `no node ${id} in ${page.file}; read the page without node to see its ids`
+            );
+          }
+          return { document: asJson(found), file: page.file, hash: state.hash };
         }
         return {
           document: asJson({ root: state.root, version: 1 }),
