@@ -28,7 +28,8 @@
           "missingReturnYieldStar": "error",
           "unsafeEffectTypeAssertion": "error",
           "schemaNumber": "off",
-          "preferTypedSchemaDecoder": "off"
+          "preferTypedSchemaDecoder": "off",
+          "unstableApiUsage": "off"
         }
       }
     ]

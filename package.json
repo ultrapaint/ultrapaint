@@ -21,7 +21,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.5.14",
     "@effect/platform-node": "catalog:",
-    "@effect/tsgo": "^0.45.0",
+    "@effect/tsgo": "^0.47.2",
     "@types/node": "^24.0.0",
     "effect": "catalog:",
     "typescript": "7.0.2",
