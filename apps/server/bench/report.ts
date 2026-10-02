@@ -1,11 +1,11 @@
 /**
- * Turns the runs in `docs/feature/benchmarks/` into the table the decision is made from: what a
+ * Turns the runs of one comparison, a directory under `docs/feature/benchmarks/`, into the table the decision is made from: what a
  * task costs an agent in each arm, and whether it still came out right.
  *
  * One section per agent. The arms of one agent say nothing about another's — a different model
  * behind a different harness — so the runs are never pooled across them.
  *
- * Usage: node --experimental-strip-types apps/server/bench/report.ts [directory of runs]
+ * Usage: node --experimental-strip-types apps/server/bench/report.ts <directory of runs>
  */
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -27,11 +27,14 @@ interface Measurement {
   readonly toolKinds: Record<string, number>;
 }
 
-const dir = path.resolve(
-  import.meta.dirname,
-  "../../..",
-  process.argv[2] ?? "docs/feature/benchmarks"
-);
+const [given] = process.argv.slice(2);
+if (given === undefined) {
+  console.error(
+    "say which comparison: report.ts docs/feature/benchmarks/<directory>"
+  );
+  process.exit(2);
+}
+const dir = path.resolve(import.meta.dirname, "../../..", given);
 const runs = readdirSync(dir)
   .filter((name) => name.endsWith(".json"))
   .flatMap(

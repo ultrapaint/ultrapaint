@@ -67,7 +67,7 @@ website the user has open could call these tools.
 
 ## What is measured, and what is not
 
-Four tasks, in `docs/feature/benchmarks/`. Measured first on a session left on "auto", the numbers
+Four tasks, in `docs/feature/benchmarks/2026-09-source-pages/`. Measured first on a session left on "auto", the numbers
 moved by about twofold between repeats of the same task and could not be told apart. Pinned to
 Opus 5 and measured again, two runs of every task in every arm: 32.4 tool calls on average as the
 tool was, 23.5 with the briefing, 15.1 with the tools as well, and roughly half the wall time.

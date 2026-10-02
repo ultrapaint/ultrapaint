@@ -6,10 +6,10 @@
  * Usage:
  *   node --experimental-strip-types apps/server/bench/run.ts [--arm baseline]
  *       [--agent claude-code] [--tasks new-page,router-link] [--runs 1]
- *       [--label name-in-the-report] [--out docs/feature/benchmarks/<comparison>]
+ *       [--label name-in-the-report] --out docs/feature/benchmarks/<comparison>
  *
  * Each task runs in its own thread (a fresh agent session) against a designs directory of its
- * own, which is thrown away afterwards. Results land in `docs/feature/benchmarks/`.
+ * own, which is thrown away afterwards. Results land in the comparison's directory, `--out`.
  */
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -39,7 +39,14 @@ const arm = flag("arm", "baseline");
 /** What the runs are called in the report; the arm, unless two builds of one arm are compared. */
 const label = flag("label", arm);
 /** Where the runs are written: a directory of their own keeps one comparison from another. */
-const outDir = path.resolve(repo, flag("out", "docs/feature/benchmarks"));
+const outFlag = flag("out", "");
+if (outFlag === "") {
+  console.error(
+    "say where the runs go: --out docs/feature/benchmarks/<comparison>, one directory per comparison"
+  );
+  process.exit(2);
+}
+const outDir = path.resolve(repo, outFlag);
 const agentId = flag("agent", "claude-code");
 /** Pinned, because a run left on "auto" is not the same measurement twice. `auto` opts out. */
 const model = flag("model", "Opus 5");
