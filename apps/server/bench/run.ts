@@ -10,11 +10,22 @@
  *
  * Each task runs in its own thread (a fresh agent session) against a designs directory of its
  * own, which is thrown away afterwards. Results land in the comparison's directory, `--out`.
+ *
+ * The editor is built and opened in headless Chrome for the length of the run: pictures are
+ * drawn by an open editor's preview, and without one every `get_screenshot` fails. `--browser`
+ * names a Chrome or Chromium where none is found in the usual places.
  */
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
+import type { ProjectInfo } from "@ultrapaint/contracts/project";
 import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
 import {
   isEditorMcpCall,
@@ -22,6 +33,7 @@ import {
   type ThreadItem,
 } from "@ultrapaint/contracts/threads";
 import { Effect, FileSystem, Layer } from "effect";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { RpcClient, RpcSerialization } from "effect/rpc";
 import { Socket } from "effect/socket";
 import { ServerConfig } from "../src/config.ts";
@@ -29,6 +41,17 @@ import { ServerLive } from "../src/server.ts";
 import { type BenchTask, tasks } from "./tasks.ts";
 
 const repo = path.resolve(import.meta.dirname, "../../..");
+const webDist = path.join(repo, "apps/web/dist");
+/** Where the preview keeps what it generates inside the designs directory. */
+const PREVIEW_FILES = ".ultrapaint";
+/** Where Chrome usually is, when `--browser` does not say. */
+const BROWSERS = [
+  "/usr/bin/google-chrome",
+  "/usr/bin/google-chrome-stable",
+  "/usr/bin/chromium",
+  "/usr/bin/chromium-browser",
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+];
 
 const flag = (name: string, fallback: string) => {
   const index = process.argv.indexOf(`--${name}`);
@@ -148,8 +171,118 @@ const measure = (
   };
 };
 
+/** The editor as the server serves it, built from the checkout as it is now. */
+const buildEditor = Effect.gen(function* () {
+  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+  const child = yield* spawner.spawn(
+    ChildProcess.make("pnpm", ["-F", "@ultrapaint/web", "build"], {
+      cwd: repo,
+      stdin: "ignore",
+      stdout: "ignore",
+    })
+  );
+  if (Number(yield* child.exitCode) !== 0) {
+    return yield* Effect.die("the editor could not be built");
+  }
+}).pipe(Effect.scoped);
+
+/** The editor open in headless Chrome until the run ends, so get_screenshot has one to ask. */
+const openEditor = (url: string) =>
+  Effect.gen(function* () {
+    const browser = flag("browser", "") || BROWSERS.find((p) => existsSync(p));
+    if (!browser) {
+      yield* Effect.logWarning(
+        "no Chrome found (--browser names one): every get_screenshot will fail"
+      );
+      return;
+    }
+    const fs = yield* FileSystem.FileSystem;
+    const profile = yield* fs.makeTempDirectoryScoped({
+      prefix: "bench-browser-",
+    });
+    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+    yield* spawner.spawn(
+      ChildProcess.make(
+        browser,
+        [
+          "--headless=new",
+          "--disable-gpu",
+          "--no-first-run",
+          "--no-default-browser-check",
+          `--user-data-dir=${profile}`,
+          "--window-size=1440,900",
+          url,
+        ],
+        {
+          forceKillAfter: "3 seconds",
+          stderr: "ignore",
+          stdin: "ignore",
+          stdout: "ignore",
+        }
+      )
+    );
+    yield* Effect.log(`the editor is open in ${path.basename(browser)}`);
+  });
+
+/**
+ * Each run starts from the same designs directory, and leaves nothing behind but the preview's
+ * own files (.ultrapaint), which it wrote when the project opened and needs to keep drawing.
+ */
+const resetDesigns = (designs: string, task: BenchTask) => {
+  mkdirSync(designs, { recursive: true });
+  for (const entry of readdirSync(designs)) {
+    if (entry !== PREVIEW_FILES) {
+      rmSync(path.join(designs, entry), { force: true, recursive: true });
+    }
+  }
+  for (const [rel, content] of Object.entries(task.given ?? {})) {
+    mkdirSync(path.dirname(path.join(designs, rel)), { recursive: true });
+    writeFileSync(path.join(designs, rel), content);
+  }
+};
+
+type QuestionCard = Extract<ThreadItem, { kind: "question" }>;
+
+/** Question cards nobody has answered or let go of yet. */
+const openCards = (items: readonly ThreadItem[]) =>
+  items.filter(
+    (i): i is QuestionCard =>
+      i.kind === "question" && i.answers === null && i.outcome === undefined
+  );
+
+/** Each question's first option, which ask_user tells the agent to make its own choice. */
+const firstOptions = (card: QuestionCard) =>
+  Object.fromEntries(
+    card.questions.map((q) => [q.id, q.options[0]?.id ?? "yes"])
+  );
+
+/** Pictures are drawn by the preview, which starts with the project and takes a moment. */
+const waitForPreview = <E, R>(info: Effect.Effect<ProjectInfo, E, R>) =>
+  Effect.gen(function* () {
+    const host = yield* info.pipe(
+      Effect.map((project) => project.host),
+      Effect.tap(() => Effect.sleep("500 millis")),
+      Effect.repeat({
+        until: (status) =>
+          status.state === "running" || status.state === "error",
+      }),
+      Effect.timeoutOption("2 minutes")
+    );
+    if (host._tag === "Some" && host.value.state === "running") {
+      return;
+    }
+    const why =
+      host._tag === "None"
+        ? "still starting after two minutes"
+        : (host.value.error ?? host.value.state);
+    yield* Effect.logWarning(
+      `the preview is not running (${why}): every get_screenshot will fail`
+    );
+  });
+
 const program = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
+  yield* buildEditor;
   const port = yield* freePort;
   const userDir = yield* fs.makeTempDirectoryScoped({ prefix: "bench-home-" });
   const designsRel = "docs/bench-designs";
@@ -169,7 +302,7 @@ const program = Effect.gen(function* () {
         storage: { mode: "ephemeral" },
         userDir,
         version: "bench",
-        webDist: undefined,
+        webDist,
       })
     )
   );
@@ -196,6 +329,8 @@ const program = Effect.gen(function* () {
       theme: "light",
     });
     yield* Effect.log(`settings: ${JSON.stringify(validation)}`);
+    yield* waitForPreview(client["project.info"]());
+    yield* openEditor(`http://127.0.0.1:${port}/`);
 
     /** Polls until the thread is done with the turn it was given. */
     const waitForTurn = (threadId: string) =>
@@ -208,22 +343,13 @@ const program = Effect.gen(function* () {
           // Nobody is there to answer a question card, so the bench picks each question's first
           // option, which ask_user tells the agent to make its own choice. The run goes on
           // either within the turn or with the answers as the next prompt.
-          const open = items.filter(
-            (i) =>
-              i.kind === "question" &&
-              i.answers === null &&
-              i.outcome === undefined
-          );
+          const open = openCards(items);
           for (const card of open) {
-            if (card.kind === "question") {
-              yield* client["threads.answer"]({
-                answers: Object.fromEntries(
-                  card.questions.map((q) => [q.id, q.options[0]?.id ?? "yes"])
-                ),
-                itemId: card.id,
-                threadId,
-              });
-            }
+            yield* client["threads.answer"]({
+              answers: firstOptions(card),
+              itemId: card.id,
+              threadId,
+            });
           }
           return { answered: open.length > 0, items, thread };
         });
@@ -279,13 +405,7 @@ const program = Effect.gen(function* () {
       (t) => only.length === 0 || only.includes(t.id)
     )) {
       for (let run = 0; run < runs; run += 1) {
-        // Each run starts from the same designs directory, and leaves nothing behind.
-        rmSync(designs, { force: true, recursive: true });
-        mkdirSync(designs, { recursive: true });
-        for (const [rel, content] of Object.entries(task.given ?? {})) {
-          mkdirSync(path.dirname(path.join(designs, rel)), { recursive: true });
-          writeFileSync(path.join(designs, rel), content);
-        }
+        resetDesigns(designs, task);
 
         const thread = yield* client["threads.create"]({ agentId });
         yield* pinModel(thread.id);

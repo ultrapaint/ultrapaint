@@ -13,6 +13,10 @@ The tasks of `2026-09-source-pages` asked for `.tsx` pages, which no run can pro
 became design documents ([ADR 0015](../../adr/0015-design-documents.md)); its numbers stand for
 what they measured then and cannot be run again.
 
+Neither had an editor open while it ran, so every `get_screenshot` failed, in every arm alike.
+The bench now builds the editor and opens it in headless Chrome for the length of the run
+(`--browser` names one where none is found), and waits for the preview to be running first.
+
 A new comparison goes in a directory of its own:
 
 ```sh
