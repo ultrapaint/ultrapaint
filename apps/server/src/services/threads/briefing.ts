@@ -69,8 +69,11 @@ const tokensOf = (ds: DesignSystem) => {
 const craftOf = (skills: string) =>
   skills
     ? `
-How to design well, whatever the product. The conventions of this design system, below, come
-first where they disagree.
+How to design well, whatever the product. The design system's tokens and its conventions,
+below, come first where they disagree: a number given here is for what the design system does
+not name. Before ending a turn, run each skill's "Before you finish" checks against what you
+changed and fix what you find. Tell the user only what you could not fix, or what needs their
+decision.
 
 ${skills}
 `

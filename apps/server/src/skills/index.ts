@@ -4,6 +4,11 @@
  *
  * A project replaces one with `<designsDir>/skills/<name>.md`, and the settings turn any off
  * (`SkillsService`).
+ *
+ * Agents are told them all at once, so each rule lives in one skill and the others leave it
+ * there: grouping by space is spacing's, contrast thresholds accessibility's, the measure
+ * typography's, reduced motion motion's. Each skill names principles under headings, with exact
+ * values, and ends on a "Before you finish" table of what to look for and what fixes it.
  */
 import { accessibility } from "./accessibility.ts";
 import { borders } from "./borders.ts";

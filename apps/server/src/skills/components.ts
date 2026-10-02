@@ -3,19 +3,48 @@ export const components = {
   name: "components",
   text: `# Components
 
-The design system's components are the vocabulary. Compose with them before drawing anything
-of your own, and use them the way they were meant.
+The design system's components are the vocabulary. Compose with them before drawing anything of
+your own, and use them the way they were meant.
 
-- Look for a component before building one from rows, texts and fills. A button, a field, a
-  badge, a dialog exist; a drawn copy will not match them and will not be implemented as them.
-- Use variants for what they are for. A destructive button is the destructive variant, not the
-  default one filled red; a secondary action is the secondary variant, not a smaller primary.
-- Do not override a component's own spacing, radius or colour with node styles. If a component
-  does not fit, the answer is another component, a different variant, or a question to the user.
-- Text inside a component is the component's text, not a text node laid over it.
-- Forms are fields with labels, in one column unless there is a reason, with the primary action
-  at the end. Every field has a label; placeholders do not replace them.
-- Take a screenshot of what you made and compare it with what you meant. Fix misalignment,
-  clipped text and uneven spacing before saying it is done.
+## Look before you draw
+
+For a button, a field, a badge, a dialog or tabs, find the component in the palette and ask
+\`get_component\` for its props and variants. A copy drawn from rows and text matches nothing, and
+gets implemented as nothing.
+
+## Variants carry the meaning
+
+A destructive action is the destructive variant, a secondary action the secondary variant, a
+small button the size prop. A default button filled red, or a primary shrunk, says something the
+system does not.
+
+## The component owns its look
+
+Size an instance with \`width\` and \`height\`; restyle it only through its props and variants. When
+none fits, choose another component or ask the user. Text inside a component is its \`text\` or
+its children.
+
+## Forms are fields
+
+A form is labelled field components in one column, with the primary action at the end. Two
+fields share a row only when they are one thing: a city and its postcode.
+
+## Real props
+
+Start from \`get_component\`'s example and replace every placeholder in it with real content.
+
+## New pieces are named
+
+What the system truly lacks is built from rows, text and tokens, named for what it is ("Plan
+card"). Tell the user it is new: it will need building as a component.
+
+## Before you finish
+
+| You see | Fix |
+| --- | --- |
+| A row with a fill, a radius and a text that looks like a button | A Button instance |
+| \`fill\`, \`radius\` or \`border\` set on an instance to restyle it | A variant or a prop |
+| A text node laid over an instance | The instance's own text |
+| "Button" or "Label" left from an example | A real label |
 `,
 } as const;

@@ -6,22 +6,63 @@ export const states = {
 A screen is not one picture. Show the states it will actually be in, and design each of them,
 not only the one where everything is loaded and tidy.
 
-- Every screen with data has an empty state: what the user sees before there is anything, with
-  a sentence on what will be here and one action that gets them started. Design it, do not
-  leave a blank.
-- Loading is a state too. When a screen waits, keep its layout and say what it waits for:
-  skeletons in the shape of what is coming for a page, a spinner in the control for an action.
-  Do not redesign the screen around a spinner.
-- Errors sit where they happened: a field's under the field, a section's in the section, the
-  page's at the top. The rest of the screen stays usable.
-- A list or table shows enough rows to look like data, and not so many that the screen is
-  nothing but the table. Show what a full one does too: it scrolls, pages or truncates.
-- Controls have their states: default, hover, pressed, focused, selected, disabled. A disabled
-  control says why when it is not obvious, and is rare: prefer letting the user try and
-  explaining what is missing.
-- Success is quiet: the change shows where it was made, with a short confirmation for what is
-  not visible. A toast is for what happened elsewhere or can be undone.
-- Destructive actions ask before they act, or let the user undo after. The confirmation names
-  what will be lost: "Delete 3 invoices?", not "Are you sure?".
+Draw each state as its own frame beside the loaded one, a copy of the page or the region named
+for its state. What the screen holds decides which; a static page has none to draw.
+
+## The states follow from the content
+
+| When the screen | Draw |
+| --- | --- |
+| Shows text it does not author | Empty, one word, typical, several sentences, one unbreakable string |
+| Lists items | None, one, the realistic count, ten times it |
+| Waits on the network | Loading, and the error |
+| Takes input | Errors on the fields, submitting |
+| Changes or deletes something | Success, and the confirmation or the undo |
+
+## Empty states start something
+
+Before there is anything, the region keeps its place and says what will be there, with one
+action that fills it. The words are content's.
+
+## Loading keeps the layout
+
+For a page or a region, skeletons in the shape of what is coming. For an action, a spinner
+inside the control, which keeps its label and its width. The screen is the same screen, waiting.
+
+## Errors sit where they happened
+
+A field's error under the field, a section's in the section, the page's at the top. The rest of
+the screen stays usable.
+
+## Lists show their edge
+
+Enough varied rows to look like data, then what happens past them: it scrolls, pages or offers
+"Show 12 more".
+
+## Controls show their states
+
+Default, hover, pressed, focused, selected and disabled, through the component's own props where
+it has them. Disabled is rare and says why; letting the user try and saying what is missing is
+usually better.
+
+## Success is quiet
+
+The change shows where it was made. A toast is for what happened elsewhere, or for an undo.
+
+## Destructive actions confirm or undo
+
+Ask first, naming what will be lost, or act at once and offer an undo that stays until
+dismissed.
+
+## Before you finish
+
+| You see | Fix |
+| --- | --- |
+| Only the loaded state of a screen with data | Draw empty, loading and error |
+| Ten identical rows | Varied, realistic rows |
+| A spinner in place of the whole page | Skeletons in the page's layout |
+| A banner at the top for one field's error | The error under the field |
+| A disabled submit with no reason given | Enabled; say what is missing on submit |
+| A name that only ever fits | One that wraps or truncates, drawn |
 `,
 } as const;

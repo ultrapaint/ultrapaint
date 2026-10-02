@@ -6,23 +6,66 @@ export const color = {
 Colour is meaning first. Use the design system's semantic tokens for what a thing is, and reach
 into a palette only when the semantic set has nothing for it.
 
-- Surfaces, text and borders come from their semantic tokens (background, foreground, muted,
-  border, primary, destructive and their pairs). A named palette colour on a screen is a
-  decision the design system did not make; avoid it unless DESIGN.md says otherwise.
-- One accent. The primary colour marks the primary action and the current selection; spreading
-  it over icons, headings and borders makes nothing stand out.
-- Status colours mean status: success, warning, destructive tell the user something happened
-  or will. Do not use them to decorate.
-- Text on a colour uses that colour's foreground pair, so it reads in every theme.
-- Interaction states are colour steps of the same role: hover and pressed are a shade of the
-  fill (the design system's hover tokens when it has them, the fill at a lower opacity when it
-  does not), selected is the accent's subtle fill, focus is the ring colour. Do not invent a
-  new colour for a state.
-- Charts use the design system's chart colours, in their order, and never the status colours
-  for series. Sequential data is one hue from light to dark, not a rainbow.
-- Contrast is not optional: body text on its background, and small text most of all, must be
-  readable. When it looks light, it is too light.
-- Every theme the design system has must work: a fill that is fine on light may vanish on dark.
-  Check the other theme before calling a screen done.
+Colour has exact answers, so compute them: \`read_design_system\` gives every token's value in
+every theme. A contrast you did not compute is a guess.
+
+## Tokens by role
+
+Surfaces, text and borders come from semantic tokens: background, foreground, muted, border,
+primary, destructive and their pairs. A palette colour (\`"$color-blue-500"\`) on a screen is a
+decision the design system did not make; use one only where DESIGN.md does.
+
+## A token only in its role
+
+Pick a token for the job its name says, never for the value it has today. The border token used
+as a text colour fades the day borders get lighter. When a role has no token, tell the user
+rather than borrowing one.
+
+## One accent
+
+The primary colour marks the primary action and the current selection. On a button it is the
+fill, with its foreground pair for the label; accent text on a neutral button reads as a link.
+Headings, icons and borders stay neutral.
+
+## One colour, one meaning
+
+A hue means one thing across the product, and hues within about \`15°\` of each other count as the
+same one. If the accent means interactive, static text in it invites clicks.
+
+## Status colours report status
+
+Success, warning and destructive say that something happened or will. They stay off decoration
+and off chart series.
+
+## Text on a colour takes its pair
+
+Text on primary takes primary-foreground, on destructive destructive-foreground: that pair is
+what reads in every theme. Text over a photograph sits on a scrim or a solid surface.
+
+## States are steps of one role
+
+Hover and pressed are a shade of the same fill: the hover tokens when the system has them, the
+fill at \`90%\` opacity when it has not. Selected is the accent's subtle fill, focus is the ring
+colour, disabled is \`50%\` opacity. A state brings no new hue.
+
+## Charts
+
+The chart colours, in their order. Sequential data is one hue from light to dark; diverging data
+is two hues around a neutral midpoint.
+
+## Every theme
+
+A fill that works on light may vanish on dark. For every pair you set, compare the two tokens'
+values in each theme the design system has.
+
+## Before you finish
+
+| You see | Fix |
+| --- | --- |
+| A hex or \`rgb()\` value in \`fill\`, \`color\` or \`border\` | The semantic token for that role |
+| A palette token in a component's colours | The semantic token it stands for |
+| The accent on headings, icons or dividers | Neutral; the accent stays on the action and the selection |
+| A status colour as decoration or a chart series | Neutral, or the chart colours |
+| Hard-coded white or grey text on a coloured fill | The fill's foreground pair |
 `,
 } as const;
