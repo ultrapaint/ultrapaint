@@ -529,15 +529,21 @@ const runComment = async (commentId: string, id: string) => {
   }
 };
 
-/** What setting a field to a token writes: a border keeps its width and style. */
+/** What setting a field to a token writes: a border keeps the rest of itself. */
 const tokenSet = (
   field: TokenField["field"],
   ref: string,
   node: DesignNode
-): Record<string, JsonValue> =>
-  field === "border.color"
-    ? { border: { ...node.border, color: ref } }
-    : { [field]: ref };
+): Record<string, JsonValue> => {
+  switch (field) {
+    case "border.color":
+      return { border: { ...node.border, color: ref } };
+    case "border.width":
+      return { border: { ...node.border, width: ref } };
+    default:
+      return { [field]: ref };
+  }
+};
 
 const runToken = (name: string, value: string, id: string) => {
   if (id === "copyRef") {

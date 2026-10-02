@@ -9,11 +9,18 @@ const EXTENDED_COLOUR_RE =
 
 const SHIPPED = [
   "hierarchy",
+  "layout",
   "spacing",
   "typography",
   "color",
+  "elevation",
+  "borders",
+  "iconography",
+  "motion",
   "content",
+  "states",
   "components",
+  "accessibility",
 ];
 
 /** Polls the thread until `done` holds. */
@@ -72,8 +79,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             "# Our spacing\n\nEight pixels, everywhere.\n"
           );
           yield* fs.writeFileString(
-            path.join(dir, "motion.md"),
-            "# Motion\n\nNothing moves unless it must.\n"
+            path.join(dir, "brand.md"),
+            "# Brand\n\nThe logo never sits on a photograph.\n"
           );
           yield* fs.writeFileString(
             path.join(dir, "color.md"),
@@ -92,7 +99,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
                 sources[name] ?? "built-in",
                 name === "color",
               ]),
-              ["motion", "project", false],
+              ["brand", "project", false],
             ]
           );
           // A file of a built-in's name replaces it...
@@ -110,12 +117,12 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
 
           yield* client["settings.set"]({
             ...settings,
-            skills: { disabled: ["color", "motion"] },
+            skills: { disabled: ["color", "brand"] },
           });
           const off = yield* client["skills.list"]();
           assert.deepStrictEqual(
             off.skills.filter((s) => !s.enabled).map((s) => s.name),
-            ["color", "motion"]
+            ["color", "brand"]
           );
         })
     );

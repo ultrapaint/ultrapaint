@@ -1,11 +1,13 @@
 /**
  * What the project's design system is, as `/init` imported it: colours, typography, spacing,
- * radii and shadows, and the conventions in DESIGN.md. Typography is drawn by the preview itself,
+ * radii, shadows, elevation, border widths, layout, motion and icons, and the conventions in
+ * DESIGN.md. Typography is drawn by the preview itself,
  * with the repository's stylesheet, because the editor does not load the design system's fonts.
  * With nothing imported yet, this is where init starts.
  */
 import {
   type DesignSystem,
+  type ElevationLevel,
   type FontSizeToken,
   TEXT_STYLE_GROUPS,
   type TextStyle,
@@ -14,7 +16,12 @@ import {
 } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { groupTextStyles } from "@ultrapaint/design-document/text-styles";
-import { tokenRef, toPixels } from "@ultrapaint/design-document/tokens";
+import {
+  isToken,
+  tokenName,
+  tokenRef,
+  toPixels,
+} from "@ultrapaint/design-document/tokens";
 import { Check, RefreshCw, Search, Sparkles, Wand2 } from "lucide-react";
 import type * as React from "react";
 import { useEffect, useRef, useState } from "react";
@@ -354,6 +361,73 @@ const TokenRows = ({
 
 const SPACING_SAMPLE = [1, 2, 3, 4, 6, 8, 12, 16];
 
+/** CSS for a level's token or value, in the theme the panel shows. */
+const resolveIn = (
+  ds: DesignSystem,
+  value: string | undefined,
+  theme: string
+): string | undefined => {
+  if (value === undefined || !isToken(value)) {
+    return value;
+  }
+  const name = tokenName(value);
+  const themes = ds.themes ?? ["light"];
+  const token = [...ds.colors.flatMap((g) => g.tokens), ...ds.shadows].find(
+    (t) => t.name === name
+  );
+  return token ? valueIn(token, theme, themes) : undefined;
+};
+
+const ElevationRows = ({
+  ds,
+  levels,
+  theme,
+}: {
+  ds: DesignSystem;
+  levels: readonly ElevationLevel[];
+  theme: string;
+}) => (
+  <div className="flex flex-col gap-1 bg-muted/40 py-2">
+    {levels.map((level) => (
+      <div className="flex items-center gap-2 px-3 py-1" key={level.name}>
+        <span className="flex w-14 shrink-0 justify-center">
+          <span
+            className="size-7 rounded-md border border-foreground/10"
+            style={{
+              background: resolveIn(ds, level.surface, theme),
+              boxShadow: resolveIn(ds, level.shadow, theme),
+            }}
+          />
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate text-[11px]">{level.name}</span>
+          {level.description !== undefined && (
+            <span className="truncate text-[10px] text-muted-foreground">
+              {level.description}
+            </span>
+          )}
+        </span>
+        <span className="truncate font-mono text-[10px] text-muted-foreground">
+          {[level.surface, level.shadow, level.layer && `z-${level.layer}`]
+            .filter(Boolean)
+            .join(" · ")}
+        </span>
+      </div>
+    ))}
+  </div>
+);
+
+/** A length as a bar, its widest at the panel's preview column. */
+const LengthBar = ({ max, value }: { max: number; value: string }) => (
+  <span
+    className="h-2 rounded-sm bg-brand/60"
+    style={{ width: Math.max(2, ((toPixels(value) ?? 0) / max) * 56) }}
+  />
+);
+
+const widest = (tokens: readonly Token[]) =>
+  Math.max(1, ...tokens.map((t) => toPixels(t.value) ?? 0));
+
 const Notes = ({ notes }: { notes: string | null }) =>
   notes ? (
     <div className="px-3 py-2">
@@ -472,6 +546,109 @@ const Contents = ({
             )}
             tokens={shadows}
           />
+        </>
+      )}
+      <MoreFoundations ds={ds} q={q} theme={theme} />
+    </>
+  );
+};
+
+/** Elevation, border widths, layout, motion and icons: what a design system may also name. */
+const MoreFoundations = ({
+  ds,
+  q,
+  theme,
+}: {
+  ds: DesignSystem;
+  q: string;
+  theme: string;
+}) => {
+  const filter = (tokens: readonly Token[] | undefined) =>
+    (tokens ?? []).filter((t) => matches(t, q));
+  const levels = (ds.elevation ?? []).filter(
+    (l) => !q || l.name.toLowerCase().includes(q)
+  );
+  const borderWidths = filter(ds.borderWidths);
+  const breakpoints = filter(ds.layout?.breakpoints);
+  const containers = filter(ds.layout?.containers);
+  const easings = filter(ds.motion?.easings);
+  const durations = filter(ds.motion?.durations);
+  const animations = filter(ds.motion?.animations);
+  const motion = [...easings, ...durations, ...animations];
+  return (
+    <>
+      {levels.length > 0 && (
+        <>
+          <Heading>Elevation</Heading>
+          <ElevationRows ds={ds} levels={levels} theme={theme} />
+        </>
+      )}
+      {borderWidths.length > 0 && (
+        <>
+          <Heading>Border widths</Heading>
+          <TokenRows
+            kind="borderWidth"
+            preview={(t) => (
+              <span
+                className="size-7 rounded-md border-foreground/60 bg-muted"
+                style={{ borderStyle: "solid", borderWidth: t.value }}
+              />
+            )}
+            tokens={borderWidths}
+          />
+        </>
+      )}
+      {breakpoints.length + containers.length > 0 && (
+        <>
+          <Heading>Layout</Heading>
+          {breakpoints.length > 0 && (
+            <TokenRows
+              kind="other"
+              preview={(t) => (
+                <LengthBar max={widest(breakpoints)} value={t.value} />
+              )}
+              tokens={breakpoints}
+            />
+          )}
+          {containers.length > 0 && (
+            <TokenRows
+              kind="container"
+              preview={(t) => (
+                <LengthBar max={widest(containers)} value={t.value} />
+              )}
+              tokens={containers}
+            />
+          )}
+        </>
+      )}
+      {motion.length > 0 && (
+        <>
+          <Heading>Motion</Heading>
+          <TokenRows
+            kind="other"
+            preview={() => <span className="text-muted-foreground">~</span>}
+            tokens={motion}
+          />
+        </>
+      )}
+      {ds.icons && !q && (
+        <>
+          <Heading>Icons</Heading>
+          <div className="flex flex-col gap-0.5 px-3 py-2 text-[11px]">
+            {ds.icons.from !== undefined && (
+              <span className="font-mono">{ds.icons.from}</span>
+            )}
+            {ds.icons.sizes && ds.icons.sizes.length > 0 && (
+              <span className="text-muted-foreground">
+                {ds.icons.sizes.map((s) => `${s}px`).join(" · ")}
+              </span>
+            )}
+            {ds.icons.description !== undefined && (
+              <span className="text-muted-foreground">
+                {ds.icons.description}
+              </span>
+            )}
+          </div>
         </>
       )}
     </>

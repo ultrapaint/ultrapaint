@@ -10,6 +10,8 @@ import path from "node:path";
 import {
   type DesignSystem,
   type FontSizeToken,
+  type IconSet,
+  starterElevation,
   starterTextStyles,
   type Token,
   type TokenGroup,
@@ -234,6 +236,65 @@ const resolver = (vars: ReadonlyMap<string, string>) => {
 const byName = (a: { name: string }, b: { name: string }) =>
   a.name.localeCompare(b.name, undefined, { numeric: true });
 
+/** Smallest first, for scales whose names do not sort: `sm`, `md`, `lg`, `xl`, `2xl`. */
+const byLength = (a: Token, b: Token) =>
+  lengthOf(a.value) - lengthOf(b.value) || byName(a, b);
+
+const MS_RE = /^([\d.]+)ms$/;
+const S_RE = /^([\d.]+)s$/;
+
+/** A length or a duration as one number to sort by: rem as 16px, seconds as 1000ms. */
+const lengthOf = (value: string) => {
+  const v = value.trim();
+  const ms: RegExpExecArray | null = MS_RE.exec(v);
+  if (ms) {
+    return Number(ms[1]);
+  }
+  const s: RegExpExecArray | null = S_RE.exec(v);
+  if (s) {
+    return Number(s[1]) * 1000;
+  }
+  const n = Number.parseFloat(v);
+  if (!Number.isFinite(n)) {
+    return 0;
+  }
+  return v.endsWith("rem") ? n * 16 : n;
+};
+
+/** Icon packages a React project draws with, the most common first, and the sizes they default to. */
+const ICON_PACKAGES: readonly (readonly [string, readonly number[]])[] = [
+  ["lucide-react", [16, 20, 24]],
+  ["@heroicons/react", [16, 20, 24]],
+  ["@tabler/icons-react", [16, 20, 24]],
+  ["@phosphor-icons/react", [16, 20, 24]],
+  ["@radix-ui/react-icons", [15]],
+  ["react-icons", [16, 20, 24]],
+];
+
+/** The icon package the project depends on, from the first manifest that names one. */
+const iconSetOf = (dirs: readonly string[]): IconSet | null => {
+  for (const dir of dirs) {
+    let manifest: {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+    try {
+      manifest = JSON.parse(
+        readFileSync(path.join(dir, "package.json"), "utf8")
+      );
+    } catch {
+      // No manifest here, or not one we can read: look in the next directory.
+      continue;
+    }
+    const deps = { ...manifest.devDependencies, ...manifest.dependencies };
+    const found = ICON_PACKAGES.find(([pkg]) => pkg in deps);
+    if (found) {
+      return { from: found[0], sizes: [...found[1]] };
+    }
+  }
+  return null;
+};
+
 interface Variables {
   /** Tailwind's own `@theme`. */
   readonly defaultThemeVars: Map<string, string>;
@@ -317,6 +378,14 @@ const NAMESPACES = [
   ["radius-", "radius"],
   ["shadow-", "shadows"],
   ["spacing-", "spacing"],
+  ["border-width-", "borderWidths"],
+  ["breakpoint-", "breakpoints"],
+  ["container-", "containers"],
+  ["ease-", "easings"],
+  ["animate-", "animations"],
+  ["duration-", "durations"],
+  // Tailwind's own duration for `transition`, when nothing else says how long.
+  ["default-transition-duration", "durations"],
 ] as const;
 
 type Bucket = (typeof NAMESPACES)[number][1];
@@ -328,6 +397,12 @@ const classify = (
   resolveDefault: (value: string) => string
 ) => {
   const buckets: Record<Bucket, Token[]> = {
+    animations: [],
+    borderWidths: [],
+    breakpoints: [],
+    containers: [],
+    durations: [],
+    easings: [],
     fonts: [],
     leading: [],
     radius: [],
@@ -404,6 +479,51 @@ export const inlineThemeAliases = (
   return aliases;
 };
 
+/** Border widths, elevation, icons, layout and motion: each left out when the theme has none. */
+const moreFoundations = (found: {
+  readonly animations: Token[];
+  readonly borderWidths: Token[];
+  readonly breakpoints: Token[];
+  readonly colors: readonly TokenGroup[];
+  readonly containers: Token[];
+  readonly durations: Token[];
+  readonly easings: Token[];
+  readonly iconDirs: readonly string[];
+  readonly shadows: readonly Token[];
+}): Pick<
+  DesignSystem,
+  "borderWidths" | "elevation" | "icons" | "layout" | "motion"
+> => {
+  const sorted = (tokens: Token[], order: (a: Token, b: Token) => number) =>
+    tokens.length > 0 ? tokens.sort(order) : undefined;
+  const borderWidths = sorted(found.borderWidths, byLength);
+  const breakpoints = sorted(found.breakpoints, byLength);
+  const containers = sorted(found.containers, byLength);
+  const animations = sorted(found.animations, byName);
+  const durations = sorted(found.durations, byLength);
+  const easings = sorted(found.easings, byName);
+  const elevation = starterElevation(found);
+  const icons = iconSetOf(found.iconDirs);
+  return {
+    ...(borderWidths && { borderWidths }),
+    ...(elevation.length > 0 && { elevation }),
+    ...(icons && { icons }),
+    ...((breakpoints || containers) && {
+      layout: {
+        ...(breakpoints && { breakpoints }),
+        ...(containers && { containers }),
+      },
+    }),
+    ...((animations || durations || easings) && {
+      motion: {
+        ...(animations && { animations }),
+        ...(durations && { durations }),
+        ...(easings && { easings }),
+      },
+    }),
+  };
+};
+
 export const scanDesignSystem = (
   ctx: DesignSystemContext
 ): DesignSystemScan => {
@@ -468,6 +588,12 @@ export const scanDesignSystem = (
   };
 
   const {
+    animations,
+    borderWidths,
+    breakpoints,
+    containers,
+    durations,
+    easings,
     fonts,
     leading,
     palettes,
@@ -502,10 +628,29 @@ export const scanDesignSystem = (
       : "Text styles, component categories and example props cannot be read from CSS; ask the user or read the components."
   );
 
+  const sorted = shadows.sort(byName);
+  const more = moreFoundations({
+    animations,
+    borderWidths,
+    breakpoints,
+    colors,
+    containers,
+    durations,
+    easings,
+    iconDirs: [ctx.anchorDir, ctx.root],
+    shadows: sorted,
+  });
+  if (more.elevation) {
+    notes.push(
+      "The elevation levels are a starter built from the surface colours and shadows the theme has; ask the user which surfaces and shadows the product pairs, and the z-index of each layer."
+    );
+  }
+
   const designSystem: DesignSystem = {
+    ...more,
     colors,
     radius: radius.sort(byName),
-    shadows: shadows.sort(byName),
+    shadows: sorted,
     source: `Tailwind v4 theme in ${found.files.map((f) => path.relative(ctx.root, f)).join(", ") || "no stylesheet"}`,
     spacing: {
       base: spacingBase,

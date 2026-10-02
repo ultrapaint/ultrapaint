@@ -36,7 +36,9 @@ export type TokenKind =
   | "font"
   | "leading"
   | "tracking"
-  | "spacing";
+  | "spacing"
+  | "borderWidth"
+  | "container";
 
 export const tokenOptions = (
   ds: DesignSystem | null,
@@ -69,6 +71,14 @@ export const tokenOptions = (
       return ds.radius.map((t) => tokenOption(t, "radius-"));
     case "shadow":
       return ds.shadows.map((t) => tokenOption(t, "shadow-"));
+    case "borderWidth":
+      return (ds.borderWidths ?? []).map((t) =>
+        tokenOption(t, "border-width-")
+      );
+    case "container":
+      return (ds.layout?.containers ?? []).map((t) =>
+        tokenOption(t, "container-")
+      );
     case "size":
       return ds.typography.sizes.map((t) => tokenOption(t, "text-"));
     case "weight":

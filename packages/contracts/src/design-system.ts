@@ -109,10 +109,63 @@ export const ComponentNotes = Schema.Struct({
 });
 export type ComponentNotes = typeof ComponentNotes.Type;
 
+/**
+ * A level of elevation: the surface colour a layer is drawn in, the shadow that goes with it, and
+ * where it sits in the stacking order. Most design systems have four: sunken, default, raised
+ * (a card that moves) and overlay (a menu, a dialog, a tooltip).
+ */
+export const ElevationLevel = Schema.Struct({
+  description: Schema.optional(Schema.String),
+  /** The z-index the level is implemented with; left out for levels that never overlap. */
+  layer: Schema.optional(Schema.Int),
+  name: Schema.String,
+  /** A shadow token (`"$shadow-lg"`) or a CSS box-shadow. */
+  shadow: Schema.optional(Schema.String),
+  /** A colour token (`"$color-popover"`) or CSS. */
+  surface: Schema.optional(Schema.String),
+});
+export type ElevationLevel = typeof ElevationLevel.Type;
+
+/** Breakpoints and container widths: `--breakpoint-*` and `--container-*`. */
+export const LayoutTokens = Schema.Struct({
+  breakpoints: Schema.optional(Schema.Array(Token)),
+  /** `$container-md` is max-w-md. */
+  containers: Schema.optional(Schema.Array(Token)),
+});
+export type LayoutTokens = typeof LayoutTokens.Type;
+
+/**
+ * How things move: `--ease-*` and `--animate-*`, and the durations a project names as
+ * `--duration-*` (Tailwind has no namespace for them; agents write them into code).
+ */
+export const MotionTokens = Schema.Struct({
+  animations: Schema.optional(Schema.Array(Token)),
+  durations: Schema.optional(Schema.Array(Token)),
+  easings: Schema.optional(Schema.Array(Token)),
+});
+export type MotionTokens = typeof MotionTokens.Type;
+
+/** The icon set the product draws with, and the sizes it uses. */
+export const IconSet = Schema.Struct({
+  description: Schema.optional(Schema.String),
+  /** The package the icons are imported from: `lucide-react`. */
+  from: Schema.optional(Schema.String),
+  /** Sizes in pixels, smallest first. */
+  sizes: Schema.optional(Schema.Array(Schema.Number)),
+});
+export type IconSet = typeof IconSet.Type;
+
 export const DesignSystem = Schema.Struct({
+  /** `--border-width-*`: Tailwind has no namespace for them, so `$border-width-thin` is a variable. */
+  borderWidths: Schema.optional(Schema.Array(Token)),
   colors: Schema.Array(TokenGroup),
   /** Notes by component export name. */
   components: Schema.optional(Schema.Record(Schema.String, ComponentNotes)),
+  /** Elevation levels, lowest first. */
+  elevation: Schema.optional(Schema.Array(ElevationLevel)),
+  icons: Schema.optional(IconSet),
+  layout: Schema.optional(LayoutTokens),
+  motion: Schema.optional(MotionTokens),
   radius: Schema.Array(Token),
   shadows: Schema.Array(Token),
   /** Where it was read from, for the panel: the stylesheet, the scan, the agent. */
@@ -201,6 +254,62 @@ export const starterTextStyles = (
       mono ? { font: mono } : {}
     ),
   ].filter((s): s is TextStyle => s !== undefined);
+};
+
+/**
+ * The elevation a design system starts with when nothing has named its levels: sunken, default,
+ * raised and overlay, from the semantic surfaces shadcn-style themes have (`color-muted`,
+ * `color-background`, `color-card`, `color-popover`) and the theme's own shadows. A level whose
+ * surface the theme does not have is left out.
+ */
+export const starterElevation = (
+  ds: Pick<DesignSystem, "colors" | "shadows">
+): ElevationLevel[] => {
+  const colors = new Set(ds.colors.flatMap((g) => g.tokens.map((t) => t.name)));
+  const shadows = new Set(ds.shadows.map((t) => t.name));
+  const surface = (...names: string[]) => {
+    const found = names.find((n) => colors.has(`color-${n}`));
+    return found === undefined ? undefined : `$color-${found}`;
+  };
+  const shadow = (...names: string[]) => {
+    const found = names.find((n) => shadows.has(`shadow-${n}`));
+    return found === undefined ? undefined : `$shadow-${found}`;
+  };
+  const level = (
+    name: string,
+    description: string,
+    surfaceOf: string | undefined,
+    extra: Partial<ElevationLevel> = {}
+  ): ElevationLevel | undefined =>
+    surfaceOf === undefined
+      ? undefined
+      : { description, name, surface: surfaceOf, ...extra };
+  const raised = shadow("sm", "xs");
+  const overlay = shadow("lg", "md");
+  return [
+    level(
+      "Sunken",
+      "Below the page: a well that groups content, a code block, a track.",
+      surface("muted")
+    ),
+    level(
+      "Default",
+      "The page itself; flat cards on it take a border, not a shadow.",
+      surface("background")
+    ),
+    level(
+      "Raised",
+      "A card that stands off the page or can be moved.",
+      surface("card", "background"),
+      raised ? { shadow: raised } : {}
+    ),
+    level(
+      "Overlay",
+      "Above everything else: menus, popovers, dialogs, tooltips.",
+      surface("popover", "card", "background"),
+      { layer: 50, ...(overlay && { shadow: overlay }) }
+    ),
+  ].filter((l): l is ElevationLevel => l !== undefined);
 };
 
 export const emptyDesignSystem = (): DesignSystem => ({

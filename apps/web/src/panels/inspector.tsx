@@ -1088,10 +1088,13 @@ const SizeField = ({
 
 const LengthField = ({
   field,
+  options = [],
   short,
   value,
 }: {
   field: string;
+  /** The design system's tokens for it: container widths for a width. */
+  options?: StyleOption[];
   short: string;
   value: Shared<JsonValue>;
 }) => (
@@ -1099,7 +1102,7 @@ const LengthField = ({
     accept={(q) => CSS.supports("width", q)}
     leading={<span className="w-2.5">{short}</span>}
     onChange={(v) => set(field, v)}
-    options={[]}
+    options={options}
     {...shownAs(value, "–")}
   />
 );
@@ -1122,6 +1125,7 @@ const SizeSection = ({
   nodes: readonly DesignNode[];
 }) => {
   const [only] = nodes;
+  const containers = useTokenOptions("container");
   const of = (
     field: "width" | "height" | `${"min" | "max"}${"Width" | "Height"}`
   ) => sharedOf(nodes, (n) => n[field]);
@@ -1133,11 +1137,21 @@ const SizeSection = ({
       </Row>
       {nodes.length === 1 && only && <FillWarnings frame={frame} node={only} />}
       <Row label="Min">
-        <LengthField field="minWidth" short="W" value={of("minWidth")} />
+        <LengthField
+          field="minWidth"
+          options={containers}
+          short="W"
+          value={of("minWidth")}
+        />
         <LengthField field="minHeight" short="H" value={of("minHeight")} />
       </Row>
       <Row label="Max">
-        <LengthField field="maxWidth" short="W" value={of("maxWidth")} />
+        <LengthField
+          field="maxWidth"
+          options={containers}
+          short="W"
+          value={of("maxWidth")}
+        />
         <LengthField field="maxHeight" short="H" value={of("maxHeight")} />
       </Row>
     </Section>
@@ -1223,6 +1237,7 @@ const withBorder = (
 const AppearanceSection = ({ nodes }: { nodes: readonly DesignNode[] }) => {
   const radius = useTokenOptions("radius");
   const shadows = useTokenOptions("shadow");
+  const borderWidths = useTokenOptions("borderWidth");
   const border = (field: "width" | "color" | "style") =>
     sharedOf(nodes, (n) => n.border?.[field]);
   // Each node keeps the rest of its own border.
@@ -1248,10 +1263,13 @@ const AppearanceSection = ({ nodes }: { nodes: readonly DesignNode[] }) => {
         <Row label="Width">
           <ValueField
             onChange={setBorder("width")}
-            options={[0, 1, 2, 4].map((w) => ({
-              label: String(w),
-              value: String(w),
-            }))}
+            options={[
+              ...[0, 1, 2, 4].map((w) => ({
+                label: String(w),
+                value: String(w),
+              })),
+              ...borderWidths,
+            ]}
             {...shownAs(border("width"), "None")}
           />
         </Row>

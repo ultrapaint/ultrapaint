@@ -104,6 +104,88 @@ describe("scanning a Tailwind v4 design system", () => {
     expect(notes.some((n) => n.includes("Tailwind v4"))).toBe(false);
   });
 
+  it("reads border widths, layout, motion and icons, and starts the elevation", () => {
+    const root = repository({
+      "app.css": `@import "tailwindcss";
+@theme {
+  --color-background: #fff;
+  --color-card: #fff;
+  --color-popover: #fff;
+  --border-width-thick: 2px;
+  --border-width-thin: 1px;
+  --duration-slow: 0.3s;
+}`,
+      "node_modules/tailwindcss/package.json": '{"name":"tailwindcss"}',
+      "node_modules/tailwindcss/theme.css": `@theme default {
+  --breakpoint-lg: 64rem;
+  --breakpoint-sm: 40rem;
+  --container-md: 28rem;
+  --container-3xl: 48rem;
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --animate-spin: spin 1s linear infinite;
+  --default-transition-duration: 150ms;
+  --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px rgb(0 0 0 / 0.1);
+}`,
+      "package.json": '{"dependencies":{"lucide-react":"^1.0.0"}}',
+    });
+    const { designSystem } = scanDesignSystem({
+      anchorDir: root,
+      root,
+      settings: {
+        ...defaultSettings(root),
+        designsDir: ".",
+        hostCss: ["../app.css"],
+      },
+    });
+    expect(designSystem.borderWidths?.map((t) => t.name)).toEqual([
+      "border-width-thin",
+      "border-width-thick",
+    ]);
+    // Smallest first, not by name.
+    expect(designSystem.layout?.breakpoints?.map((t) => t.name)).toEqual([
+      "breakpoint-sm",
+      "breakpoint-lg",
+    ]);
+    expect(designSystem.layout?.containers?.map((t) => t.name)).toEqual([
+      "container-md",
+      "container-3xl",
+    ]);
+    expect(designSystem.motion).toEqual({
+      animations: [{ name: "animate-spin", value: "spin 1s linear infinite" }],
+      durations: [
+        { name: "default-transition-duration", value: "150ms" },
+        { name: "duration-slow", value: "0.3s" },
+      ],
+      easings: [{ name: "ease-out", value: "cubic-bezier(0, 0, 0.2, 1)" }],
+    });
+    expect(designSystem.icons).toEqual({
+      from: "lucide-react",
+      sizes: [16, 20, 24],
+    });
+    // No muted surface: no sunken level.
+    expect(designSystem.elevation).toEqual([
+      {
+        description: expect.any(String),
+        name: "Default",
+        surface: "$color-background",
+      },
+      {
+        description: expect.any(String),
+        name: "Raised",
+        shadow: "$shadow-sm",
+        surface: "$color-card",
+      },
+      {
+        description: expect.any(String),
+        layer: 50,
+        name: "Overlay",
+        shadow: "$shadow-lg",
+        surface: "$color-popover",
+      },
+    ]);
+  });
+
   it("says so when there is no Tailwind", () => {
     const root = repository({ "app.css": ":root { --x: 1px; }" });
     const { designSystem, notes } = scanDesignSystem({

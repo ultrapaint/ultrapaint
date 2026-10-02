@@ -15,12 +15,16 @@ export interface Point {
 
 /** What a design token can be applied to, by the kind of value it holds. */
 export type TokenKind =
+  | "borderWidth"
   | "color"
+  | "container"
   | "font"
   | "radius"
   | "shadow"
   | "size"
-  | "spacing";
+  | "spacing"
+  /** Breakpoints, easings, durations: copied into code, not applied to a node. */
+  | "other";
 
 export type MenuTarget =
   /** A node of a frame; `at` is where in the frame it was clicked. */

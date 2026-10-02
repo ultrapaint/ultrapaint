@@ -83,7 +83,9 @@ export const IMPLEMENTATION_RULES = `How the design maps to code (Tailwind v4):
   or h-full in a group. "hug": w-fit or h-fit. A number: a fixed size (w-80 or w-[320px]).
   Inside an instance, "the parent" is the element of the component that holds its children:
   read the component to see whether it is a flex row, a flex column or a block.
-- fill: bg-*. border: border, border-* and the colour. radius: rounded-*. shadow: shadow-*.
+- fill: bg-*. border: border, border-* and the colour; "$border-width-*" is
+  border-(length:--border-width-*). radius: rounded-*. shadow: shadow-*. "$container-md" in
+  maxWidth or minWidth is max-w-md or min-w-md.
   opacity: opacity-*. hidden: leave the node out.
 - text: role heading with level n is <hN>, paragraph is <p>; size, weight, font, lineHeight,
   tracking, color and align are the matching utilities; textStyle names a text style of the
@@ -250,8 +252,18 @@ ${write}
      \`description\`, \`exampleProps\` that make it render something meaningful on its own (a
      dialog open, a select with options, a badge with a variant) and \`exampleText\` for one
      that takes text as children.
-   - DESIGN.md: what the application is and for whom, the voice, layout conventions, which
-     component to use for what, and what to avoid. Short and specific.
+   - elevation: the levels, lowest first (Sunken, Default, Raised, Overlay), each a \`surface\`
+     colour token, the \`shadow\` that goes with it, and the z-index \`layer\` of those that
+     overlap. The scan starts you off from the semantic surfaces; fix it from how the product's
+     cards, menus and dialogs are styled.
+   - borderWidths, layout (breakpoints, containers) and motion (easings, durations,
+     animations): the scan reads them from the theme; keep what the product uses and say in
+     \`description\` what each is for. A project that hard-codes durations or border widths in
+     its components has them read from there.
+   - icons: the package the product's icons come from, the sizes it uses, and in
+     \`description\` how they are used (stroke width, with or without labels).
+   - DESIGN.md: what the application is and for whom, the voice and tone, layout conventions,
+     which component to use for what, and what to avoid. Short and specific.
 5. End with a short summary: what you wrote, and what you were unsure of.
 ${userAdds(extra)}</ultrapaint-task>`;
           })

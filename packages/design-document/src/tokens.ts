@@ -40,6 +40,12 @@ export const tokenValues = (
   }
   add(ds.radius);
   add(ds.shadows);
+  add(ds.borderWidths);
+  add(ds.layout?.breakpoints);
+  add(ds.layout?.containers);
+  add(ds.motion?.durations);
+  add(ds.motion?.easings);
+  add(ds.motion?.animations);
   add(ds.spacing.tokens);
   add(ds.typography.fonts);
   add(ds.typography.weights);

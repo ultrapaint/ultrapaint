@@ -58,6 +58,8 @@ const tokensOf = (ds: DesignSystem) => {
     ...ds.typography.fonts.map((t) => t.name),
     ...ds.radius.map((t) => t.name),
     ...ds.shadows.map((t) => t.name),
+    ...(ds.borderWidths ?? []).map((t) => t.name),
+    ...(ds.layout?.containers ?? []).map((t) => t.name),
   ];
   const shown = names.slice(0, TOKEN_LIMIT).map((n) => `$${n}`);
   return `${shown.join(" ")}${names.length > shown.length ? ` (and ${names.length - shown.length} more)` : ""}`;

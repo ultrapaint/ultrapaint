@@ -222,15 +222,18 @@ Tailwind v4 theme of your stylesheets, looks at your components, their docs and 
 asks you what it cannot find out, and saves two files next to the designs:
 
 - `design-system.json` — colours by palette, type sizes and text styles, fonts, spacing, radius,
-  shadows, themes, and for each component a category, a description and the example props its
-  palette thumbnail is drawn with;
+  shadows, border widths, elevation levels (a surface, its shadow and its z-index), breakpoints
+  and container widths, motion (easings, durations, animations), the icon set and its sizes,
+  themes, and for each component a category, a description and the example props its palette
+  thumbnail is drawn with;
 - `DESIGN.md` — the conventions every agent is told about: what the product is, which colours
   mean what, what to always or never do.
 
 ### Design skills
 
 Before it designs, every agent is also told how to design well, whatever the product: hierarchy,
-spacing, typography, colour, content and states, and how to compose with components. These
+layout, spacing, typography, colour, elevation, borders and radius, iconography, motion,
+content, states, how to compose with components, and accessibility. These
 skills ship with the tool and come before `DESIGN.md`, which wins where they disagree. **Settings**
 lists them, with a switch to turn any off (saved in `ultrapaint.json` as `skills.disabled`).
 
@@ -244,7 +247,7 @@ A project takes a skill over with a markdown file in `skills/` inside the design
 first heading is its title and the paragraph after it the summary Settings show.
 
 The **Design system** panel shows them: swatches per theme, type specimens in your own fonts,
-spacing, radius and shadows. The **Components** panel lists your components or shows them as a
+spacing, radius, shadows, elevation, border widths, layout and motion tokens, and the icon set. The **Components** panel lists your components or shows them as a
 grid of thumbnails, drawn with the example props.
 
 ## Importing a Figma file

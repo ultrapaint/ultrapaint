@@ -15,8 +15,6 @@ of your own, and use them the way they were meant.
 - Text inside a component is the component's text, not a text node laid over it.
 - Forms are fields with labels, in one column unless there is a reason, with the primary action
   at the end. Every field has a label; placeholders do not replace them.
-- A page is built from a few large pieces: a header, a main column, maybe a sidebar. Compose
-  those from rows and columns of the format, then fill them with components.
 - Take a screenshot of what you made and compare it with what you meant. Fix misalignment,
   clipped text and uneven spacing before saying it is done.
 `,

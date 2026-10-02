@@ -342,6 +342,14 @@ describe("tokens", () => {
     ]);
     expect(tokenFields("font", row)).toEqual([]);
     expect(tokenFields("size", text).map((f) => f.field)).toEqual(["size"]);
+    expect(tokenFields("borderWidth", row).map((f) => f.field)).toEqual([
+      "border.width",
+    ]);
+    expect(tokenFields("container", row).map((f) => f.field)).toEqual([
+      "maxWidth",
+      "minWidth",
+    ]);
+    expect(tokenFields("other", row)).toEqual([]);
   });
 
   it("cannot be applied with nothing selected", () => {

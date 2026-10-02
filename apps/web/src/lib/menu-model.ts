@@ -372,11 +372,14 @@ export const commentEntries = (f: CommentFacts): Entry[] =>
 export interface TokenField {
   field:
     | "border.color"
+    | "border.width"
     | "color"
     | "fill"
     | "font"
     | "gap"
     | "margin"
+    | "maxWidth"
+    | "minWidth"
     | "padding"
     | "radius"
     | "shadow"
@@ -409,6 +412,13 @@ export const tokenFields = (
       return [{ field: "radius", label: "Radius" }];
     case "shadow":
       return [{ field: "shadow", label: "Shadow" }];
+    case "borderWidth":
+      return [{ field: "border.width", label: "Border width" }];
+    case "container":
+      return [
+        { field: "maxWidth", label: "Max width" },
+        { field: "minWidth", label: "Min width" },
+      ];
     case "size":
       return text ? [{ field: "size", label: "Font size" }] : [];
     case "spacing":

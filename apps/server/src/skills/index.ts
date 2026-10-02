@@ -5,11 +5,18 @@
  * A project replaces one with `<designsDir>/skills/<name>.md`, and the settings turn any off
  * (`SkillsService`).
  */
+import { accessibility } from "./accessibility.ts";
+import { borders } from "./borders.ts";
 import { color } from "./color.ts";
 import { components } from "./components.ts";
 import { content } from "./content.ts";
+import { elevation } from "./elevation.ts";
 import { hierarchy } from "./hierarchy.ts";
+import { iconography } from "./iconography.ts";
+import { layout } from "./layout.ts";
+import { motion } from "./motion.ts";
 import { spacing } from "./spacing.ts";
+import { states } from "./states.ts";
 import { typography } from "./typography.ts";
 
 export interface BuiltInSkill {
@@ -19,9 +26,16 @@ export interface BuiltInSkill {
 
 export const builtInSkills: readonly BuiltInSkill[] = [
   hierarchy,
+  layout,
   spacing,
   typography,
   color,
+  elevation,
+  borders,
+  iconography,
+  motion,
   content,
+  states,
   components,
+  accessibility,
 ];
