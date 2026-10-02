@@ -184,7 +184,13 @@ export const ValueTrigger = ({
   </Tooltip>
 );
 
-export const MenuHead = ({ name, source }: { name: string; source?: string }) => (
+export const MenuHead = ({
+  name,
+  source,
+}: {
+  name: string;
+  source?: string;
+}) => (
   <DropdownMenuLabel className="flex items-center gap-2">
     <span className="flex-1">{name}</span>
     {source ? (
@@ -598,7 +604,9 @@ const MoreProps = ({ count, node }: { count: number; node: InstanceNode }) => {
   );
 };
 
-export const Divider = () => <span className="mx-0.5 h-5 w-px shrink-0 bg-border" />;
+export const Divider = () => (
+  <span className="mx-0.5 h-5 w-px shrink-0 bg-border" />
+);
 
 /** ⌘ on a Mac, Ctrl elsewhere: the key that sends an element to a new chat. */
 const withMod = (e: { ctrlKey: boolean; metaKey: boolean }) =>

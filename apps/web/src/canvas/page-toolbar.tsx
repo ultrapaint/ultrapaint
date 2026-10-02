@@ -20,7 +20,12 @@ import {
 import { presetOf, viewportPresets } from "../lib/presets.ts";
 import { useEditor } from "../state/editor.ts";
 import { useDrag } from "./drag.ts";
-import { Divider, MenuHead, MoreButton, ValueTrigger } from "./element-toolbar.tsx";
+import {
+  Divider,
+  MenuHead,
+  MoreButton,
+  ValueTrigger,
+} from "./element-toolbar.tsx";
 
 const PRESET_ICON: Record<ViewportPreset, LucideIcon> = {
   custom: Scaling,

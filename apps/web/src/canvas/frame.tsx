@@ -905,7 +905,11 @@ const FrameChrome = ({
         )}
       </div>
       {kind === "page" && isSelected && workspace === "vibe" ? (
-        <PageToolbar headerHeight={HEADER_GAP + HEADER_HEIGHT} inv={inv} pageId={frameId} />
+        <PageToolbar
+          headerHeight={HEADER_GAP + HEADER_HEIGHT}
+          inv={inv}
+          pageId={frameId}
+        />
       ) : null}
       {isSelected || titleHover ? (
         <div
