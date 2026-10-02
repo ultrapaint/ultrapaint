@@ -4,7 +4,9 @@
  * answers next has not seen what was said. It goes out once, with the session's first prompt.
  * Pure.
  */
+
 import type { ThreadItem } from "@ultrapaint/contracts/threads";
+import { answersText } from "./elicitation.ts";
 
 /** Past this a message is cut: the agent needs the thread of the conversation, not every word. */
 const MESSAGE_LIMIT = 4000;
@@ -23,9 +25,14 @@ const lineOf = (item: ThreadItem): string | null => {
     case "agent":
       return `Assistant: ${clip(item.text)}`;
     case "question":
-      return item.answers === null
-        ? `(Assistant asked: ${item.questions.map((q) => q.question).join(" / ")}; not answered)`
-        : null;
+      if (item.answers === null) {
+        return `(Assistant asked: ${item.questions.map((q) => q.question).join(" / ")}; ${item.outcome === "declined" ? "the user declined" : "not answered"})`;
+      }
+      // Answers sent as a prompt are in the transcript already; answers to a card the agent
+      // waited on went back through the tool, and only the recap can carry them.
+      return item.elicitation === undefined
+        ? null
+        : `(${answersText(item.questions, item.answers)})`;
     case "status":
       return `(${item.text})`;
     case "turn_end":

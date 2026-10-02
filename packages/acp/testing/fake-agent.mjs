@@ -6,6 +6,8 @@
  *   reply       streams two text chunks and ends the turn
  *   tool        a tool call that goes pending, then completed, around a text chunk
  *   permission  asks for permission, then reports the chosen option as text
+ *   elicit      asks the user a form (a choice and a number) and reports the answer as text;
+ *               `elicit link` asks them to follow a link instead
  *   write       writes `designs/agent.tsx` through `fs/write_text_file`
  *   terminal    runs `echo hi` through `terminal/*` and reports the output
  *   escape      runs a terminal command writing to the path given after the scenario name
@@ -82,6 +84,44 @@ const scenarios = {
       (block) => block.type === "text" && block.text.startsWith("<ultrapaint>")
     );
     await text(cx, sessionId, about ? about.text : "briefing:none");
+  },
+  async elicit(cx, sessionId, _cwd, rest) {
+    const response = await cx.request(
+      methods.client.elicitation.create,
+      rest === "link"
+        ? {
+            elicitationId: "el_1",
+            message: "Sign in",
+            mode: "url",
+            sessionId,
+            url: "https://example.com/sign-in",
+          }
+        : {
+            message: "Pick a plan",
+            mode: "form",
+            requestedSchema: {
+              properties: {
+                plan: {
+                  oneOf: [
+                    { const: "free", title: "Free" },
+                    { const: "pro", title: "Pro" },
+                  ],
+                  title: "Which plan?",
+                  type: "string",
+                },
+                seats: { title: "How many seats?", type: "integer" },
+              },
+              required: ["plan"],
+              type: "object",
+            },
+            sessionId,
+          }
+    );
+    await text(
+      cx,
+      sessionId,
+      `elicit:${response.action}:${JSON.stringify(response.content ?? null)}`
+    );
   },
   /** Asks the host to run a command that writes outside the repository. */
   async escape(cx, sessionId, _cwd, rest) {

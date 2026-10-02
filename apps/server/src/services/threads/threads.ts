@@ -13,6 +13,8 @@ import {
   type AcpAgent,
   type AcpHandlers,
   type ContentBlock,
+  type CreateElicitationRequest,
+  type CreateElicitationResponse,
   type McpServerConfig,
   type RequestPermissionRequest,
   type RequestPermissionResponse,
@@ -31,6 +33,7 @@ import {
   NotFound,
 } from "@ultrapaint/contracts/errors";
 import {
+  type Answers,
   type ConfigOption,
   EDITOR_MCP_SERVER,
   type PromptInput,
@@ -73,6 +76,7 @@ import { ProjectBriefing } from "./briefing.ts";
 import { ChatPreferences } from "./chat-preferences.ts";
 import { Checkpoints } from "./checkpoints.ts";
 import { SlashCommands } from "./commands.ts";
+import { answersText, contentOf, questionsOf } from "./elicitation.ts";
 import { recapOf } from "./recap.ts";
 import { ThreadStore } from "./thread-store.ts";
 import {
@@ -97,26 +101,6 @@ const CANCELLED: RequestPermissionResponse = {
 const UNTITLED = "New chat";
 const SWITCHED = "Switched to";
 
-/** The answers as the agent reads them: one line per question, the option's label and its id. */
-const answersText = (
-  questions: readonly Question[],
-  answers: Readonly<Record<string, string>>
-) =>
-  [
-    "Answers to your questions:",
-    ...questions.map((question, index) => {
-      const answer = answers[question.id] ?? "(no answer)";
-      const option = question.options.find((o) => o.id === answer);
-      let shown = answer;
-      if (option !== undefined) {
-        shown =
-          option.label === option.id
-            ? option.label
-            : `${option.label} [${option.id}]`;
-      }
-      return `${index + 1}. ${question.question} — ${shown}`;
-    }),
-  ].join("\n");
 const TITLE_LIMIT = 48;
 
 const PAGE_FILE_RE = /\.page\.json$/;
@@ -166,8 +150,16 @@ interface PendingPermission {
   readonly rememberKey: string;
 }
 
+/** A question card the agent waits on, by the card's item id. */
+interface PendingQuestions {
+  readonly questions: readonly Question[];
+  readonly reply: Deferred.Deferred<CreateElicitationResponse>;
+}
+
 interface Live {
   readonly agent: AcpAgent;
+  /** Question cards the agent is waiting on, until they are answered, declined or let go. */
+  readonly asking: Map<string, PendingQuestions>;
   /** The briefing, and the recap of what came before, go out once, with the first prompt. */
   briefed: boolean;
   readonly pending: Map<string, PendingPermission>;
@@ -213,7 +205,18 @@ export class ThreadService extends Context.Service<
     readonly answer: (
       threadId: string,
       itemId: string,
-      answers: Readonly<Record<string, string>>
+      answers: Answers
+    ) => Effect.Effect<void, ThreadFailure>;
+    /**
+     * How many cards the thread's agent has waited on so far. A tool that asked and hears
+     * "declined" without this moving knows the user never saw its questions: the agent's own
+     * client turned them down.
+     */
+    readonly cardsShown: (threadId: string) => Effect.Effect<number>;
+    /** The user will not answer a card the agent waits on. */
+    readonly decline: (
+      threadId: string,
+      itemId: string
     ) => Effect.Effect<void, ThreadFailure>;
     /** Puts an agent's questions to the user as a card in the thread. */
     readonly ask: (
@@ -335,6 +338,65 @@ export class ThreadService extends Context.Service<
         }
       });
 
+      // ---- questions an MCP server asks through the agent ----
+      const DECLINE: CreateElicitationResponse = { action: "decline" };
+      const shown = new Map<string, number>();
+      const CANCEL: CreateElicitationResponse = { action: "cancel" };
+
+      /**
+       * A form the agent waits on: drawn as a question card, answered when the user sends it.
+       * A link to follow, or a field the card has no input for, is declined at once.
+       */
+      const onElicitation = Effect.fnUntraced(function* (
+        threadId: string,
+        session: Live,
+        request: CreateElicitationRequest
+      ) {
+        const questions =
+          request.mode === "form" && "requestedSchema" in request
+            ? questionsOf(request.requestedSchema)
+            : null;
+        if (questions === null || questions.length === 0) {
+          yield* log.log(
+            "agent",
+            "info",
+            `declined a question the editor cannot show: ${request.message}`
+          );
+          return DECLINE;
+        }
+        const itemId = yield* newItemId;
+        const reply = yield* Deferred.make<CreateElicitationResponse>();
+        session.asking.set(itemId, { questions, reply });
+        shown.set(threadId, (shown.get(threadId) ?? 0) + 1);
+        yield* store.push(threadId, {
+          answers: null,
+          at: yield* Clock.currentTimeMillis,
+          elicitation: { message: request.message },
+          id: itemId,
+          kind: "question",
+          questions,
+        });
+        return yield* Deferred.await(reply).pipe(
+          Effect.ensuring(Effect.sync(() => session.asking.delete(itemId)))
+        );
+      });
+
+      /** The agent stops waiting: its open cards say so, and it hears `cancel` for each. */
+      const letGo = Effect.fnUntraced(function* (
+        threadId: string,
+        session: Live
+      ) {
+        for (const [itemId, pending] of session.asking) {
+          yield* store.patchItem(threadId, itemId, (item) =>
+            item.kind === "question" && item.answers === null
+              ? { ...item, outcome: "cancelled" as const }
+              : item
+          );
+          yield* Deferred.succeed(pending.reply, CANCEL);
+        }
+        session.asking.clear();
+      });
+
       // ---- permissions ----
       const onPermission = Effect.fnUntraced(function* (
         threadId: string,
@@ -396,6 +458,7 @@ export class ThreadService extends Context.Service<
         terminals: TerminalManager,
         session: () => Live
       ): AcpHandlers => ({
+        onElicitation: (request) => onElicitation(threadId, session(), request),
         onPermission: (request) => onPermission(threadId, session(), request),
         onStderr: (text) => log.log("agent", "info", `[${agentName}] ${text}`),
         readTextFile: Effect.fnUntraced(function* (request) {
@@ -585,6 +648,7 @@ export class ThreadService extends Context.Service<
           });
           const session: Live = {
             agent,
+            asking: new Map(),
             briefed: false,
             pending: new Map(),
             remembered: new Map(),
@@ -623,6 +687,7 @@ export class ThreadService extends Context.Service<
             for (const pending of session.pending.values()) {
               yield* Deferred.succeed(pending.decision, CANCELLED);
             }
+            yield* letGo(threadId, session);
             const current = yield* store.get(threadId);
             if (current && current.status !== "error") {
               yield* store.update(threadId, { status: "idle" });
@@ -1100,7 +1165,7 @@ export class ThreadService extends Context.Service<
       const answer = Effect.fn("ThreadService.answer")(function* (
         threadId: string,
         itemId: string,
-        answers: Readonly<Record<string, string>>
+        answers: Answers
       ) {
         const card = (yield* store.items(threadId)).find(
           (item) => item.id === itemId
@@ -1110,10 +1175,27 @@ export class ThreadService extends Context.Service<
             message: "the question is no longer in the thread",
           });
         }
-        if (card.answers !== null) {
+        if (card.answers !== null || card.outcome !== undefined) {
           return yield* new Conflict({
             message: "the questions were already answered",
           });
+        }
+        if (card.elicitation !== undefined) {
+          // The agent waits within its turn: the answers go back to it, not as a prompt.
+          const waiting = live.get(threadId)?.asking.get(itemId);
+          if (waiting === undefined) {
+            return yield* new Conflict({
+              message: "the agent no longer waits for these answers",
+            });
+          }
+          yield* store.patchItem(threadId, itemId, (item) =>
+            item.kind === "question" ? { ...item, answers } : item
+          );
+          yield* Deferred.succeed(waiting.reply, {
+            action: "accept",
+            content: contentOf(waiting.questions, answers),
+          });
+          return;
         }
         yield* store.patchItem(threadId, itemId, (item) =>
           item.kind === "question" ? { ...item, answers } : item
@@ -1123,6 +1205,24 @@ export class ThreadService extends Context.Service<
           text: answersText(card.questions, answers),
           threadId,
         });
+      });
+
+      const decline = Effect.fn("ThreadService.decline")(function* (
+        threadId: string,
+        itemId: string
+      ) {
+        const waiting = live.get(threadId)?.asking.get(itemId);
+        if (waiting === undefined) {
+          return yield* new NotFound({
+            message: "the agent no longer waits for these answers",
+          });
+        }
+        yield* store.patchItem(threadId, itemId, (item) =>
+          item.kind === "question"
+            ? { ...item, outcome: "declined" as const }
+            : item
+        );
+        yield* Deferred.succeed(waiting.reply, DECLINE);
       });
 
       const resolvePermission = Effect.fn("ThreadService.resolvePermission")(
@@ -1259,10 +1359,14 @@ export class ThreadService extends Context.Service<
             return;
           }
           yield* store.update(threadId, { status: "cancelling" });
+          // It will not wait for the cards it asked with either.
+          yield* letGo(threadId, session);
           // The agent ends the turn itself and answers the prompt with `cancelled`.
           yield* Effect.mapError(session.agent.cancel(sessionId), agentFailure);
         }),
+        cardsShown: (threadId) => Effect.sync(() => shown.get(threadId) ?? 0),
         create,
+        decline,
         delete: (threadId) =>
           stopOpening(threadId).pipe(
             Effect.andThen(stop(threadId)),

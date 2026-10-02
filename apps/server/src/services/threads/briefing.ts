@@ -226,7 +226,8 @@ A node reference such as /orders#c_8x2k1q (or drafts.page.json#c_8x2k1q), which 
 paste, is a page and a node id.
 After a change, get_screenshot shows you the page or a node as it draws: look, and fix what is off.
 When a decision is the user's, ask_user puts your questions to them as a card with answers to
-pick; end your turn after it, and the answers come as the next message.
+pick, and its result is their answers. Only if it says the questions were shown instead, end your
+turn: the answers come as the next message.
 Prefer these to editing the JSON files yourself; if you do write a file, keep it valid.
 
 `

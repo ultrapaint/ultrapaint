@@ -19,6 +19,7 @@ const refuse = Effect.fail(
   new AgentFailure({ message: "the editor is only listing models" })
 );
 const refusing: AcpHandlers = {
+  onElicitation: () => Effect.succeed({ action: "decline" }),
   onPermission: () => Effect.succeed({ outcome: { outcome: "cancelled" } }),
   onStderr: () => Effect.void,
   readTextFile: () => refuse,

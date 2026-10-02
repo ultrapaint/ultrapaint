@@ -42,6 +42,7 @@ const program = Effect.gen(function* () {
   const agent = yield* spawnAcpAgent(confined.launch, {
     cwd: root,
     handlers: {
+      onElicitation: () => Effect.succeed({ action: "decline" }),
       onPermission: (request) =>
         Effect.succeed({
           outcome: {

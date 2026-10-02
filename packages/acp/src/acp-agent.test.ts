@@ -27,6 +27,7 @@ const config = (env: Record<string, string> = {}): AgentConfig => ({
 const refuse = () => Effect.fail({ message: "not used in this test" });
 
 const handlers = (overrides: Partial<AcpHandlers> = {}): AcpHandlers => ({
+  onElicitation: () => Effect.succeed({ action: "decline" }),
   onPermission: () => Effect.succeed({ outcome: { outcome: "cancelled" } }),
   onStderr: () => Effect.void,
   readTextFile: refuse,

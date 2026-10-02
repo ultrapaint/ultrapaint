@@ -57,6 +57,154 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
       })
     );
 
+    /** A thread of the fake agent, and the token its session was given for the editor. */
+    const threadToken = Effect.gen(function* () {
+      const { client, settings } = yield* TestEnv;
+      yield* client["settings.set"](settings);
+      const thread = yield* client["threads.create"]({ agentId: "fake" });
+      yield* client["threads.prompt"]({
+        attachments: [],
+        text: "mcp",
+        threadId: thread.id,
+      });
+      const items = yield* client["threads.items"]({
+        threadId: thread.id,
+      }).pipe(
+        Effect.tap(() => Effect.sleep("25 millis")),
+        Effect.repeat({ until: (all) => all.at(-1)?.kind === "turn_end" }),
+        Effect.timeout("20 seconds")
+      );
+      const said = items
+        .map((i) => (i.kind === "agent" ? i.text : ""))
+        .find((t) => t.startsWith("mcp:"));
+      return {
+        threadId: thread.id,
+        token: (said ?? "").split("|")[1] ?? "",
+      };
+    });
+
+    const QUESTIONS = [
+      {
+        allowOther: true,
+        id: "plan",
+        options: [
+          { id: "free", label: "Free" },
+          { id: "pro", label: "Pro" },
+        ],
+        question: "Which plan?",
+      },
+    ];
+    const FORMS = { elicitation: { form: {} } };
+
+    interface AskResult {
+      readonly result: {
+        readonly content?: readonly { readonly text: string }[];
+        readonly inputRequests?: Record<
+          string,
+          { method: string; params: Record<string, unknown> }
+        >;
+        readonly isError?: boolean;
+        readonly requestState?: string;
+        readonly resultType: string;
+      };
+    }
+
+    const askUser = (
+      port: number,
+      token: string,
+      capabilities: Record<string, unknown>,
+      retry: Record<string, unknown> = {}
+    ) =>
+      callMcp(
+        port,
+        token,
+        {
+          method: "tools/call",
+          params: {
+            arguments: { questions: QUESTIONS },
+            name: "ask_user",
+            ...retry,
+          },
+        },
+        capabilities
+      ).pipe(
+        Effect.flatMap((response) =>
+          Effect.promise(() => response.json() as Promise<AskResult>)
+        )
+      );
+
+    it.effect(
+      "asks the user through a client that shows forms, and answers with what they said",
+      () =>
+        Effect.gen(function* () {
+          const { client, port } = yield* TestEnv;
+          const { token } = yield* client["mcp.connection"]();
+          const first = yield* askUser(port, token, FORMS);
+          assert.strictEqual(first.result.resultType, "input_required");
+          const request = first.result.inputRequests?.answers;
+          assert.strictEqual(request?.method, "elicitation/create");
+          assert.deepStrictEqual(
+            Object.keys(
+              (
+                request?.params.requestedSchema as
+                  | { properties: object }
+                  | undefined
+              )?.properties ?? {}
+            ),
+            ["plan", "plan:other"]
+          );
+          const second = yield* askUser(port, token, FORMS, {
+            inputResponses: {
+              answers: { action: "accept", content: { plan: "pro" } },
+            },
+            requestState: first.result.requestState,
+          });
+          assert.strictEqual(second.result.resultType, "complete");
+          assert.include(
+            second.result.content?.[0]?.text ?? "",
+            "1. Which plan? — Pro [pro]"
+          );
+          const declined = yield* askUser(port, token, FORMS, {
+            inputResponses: { answers: { action: "decline" } },
+            requestState: first.result.requestState,
+          });
+          assert.include(declined.result.content?.[0]?.text ?? "", "declined");
+          // A client that cannot show forms, outside a thread: nowhere to ask.
+          const nowhere = yield* askUser(port, token, {});
+          assert.isTrue(nowhere.result.isError);
+        })
+    );
+
+    it.effect(
+      "puts the questions in the thread when the agent's client turns the form down unseen",
+      () =>
+        Effect.gen(function* () {
+          const { client, port } = yield* TestEnv;
+          const { threadId, token } = yield* threadToken;
+          const first = yield* askUser(port, token, FORMS);
+          assert.strictEqual(first.result.resultType, "input_required");
+          // No card came to the editor, yet the answer is "decline": the client's own doing.
+          const fallback = yield* askUser(port, token, FORMS, {
+            inputResponses: { answers: { action: "decline" } },
+            requestState: first.result.requestState,
+          });
+          assert.include(
+            fallback.result.content?.[0]?.text ?? "",
+            "End your turn"
+          );
+          const items = yield* client["threads.items"]({ threadId });
+          const card = items.find((i) => i.kind === "question");
+          assert.isTrue(card?.kind === "question" && !card.elicitation);
+          // And it does not try the form again for this thread.
+          const again = yield* askUser(port, token, FORMS);
+          assert.strictEqual(again.result.resultType, "complete");
+          assert.include(
+            again.result.content?.[0]?.text ?? "",
+            "End your turn"
+          );
+        })
+    );
+
     it.effect("answers an agent's session token with the project's pages", () =>
       Effect.gen(function* () {
         const { client, port, settings } = yield* TestEnv;

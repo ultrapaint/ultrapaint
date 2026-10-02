@@ -329,6 +329,112 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
       })
     );
 
+    /** A question card the agent waits on, once it is in the thread. */
+    const waitingCard = (threadId: string) =>
+      Effect.map(
+        waitForThread(threadId, (_, items) =>
+          items.some((i) => i.kind === "question")
+        ),
+        ({ items }) => {
+          const card = items.find((i) => i.kind === "question");
+          return card?.kind === "question" ? card : undefined;
+        }
+      );
+
+    it.effect(
+      "draws a form the agent waits on as a card, and hands back the answers typed",
+      () =>
+        Effect.gen(function* () {
+          const { client } = yield* TestEnv;
+          const threadId = yield* startThread;
+          yield* prompt(threadId, "elicit");
+          const card = yield* waitingCard(threadId);
+          assert.deepStrictEqual(card?.elicitation, { message: "Pick a plan" });
+          assert.deepStrictEqual(card?.questions, [
+            {
+              id: "plan",
+              options: [
+                { id: "free", label: "Free" },
+                { id: "pro", label: "Pro" },
+              ],
+              question: "Which plan?",
+            },
+            {
+              id: "seats",
+              optional: true,
+              options: [],
+              question: "How many seats?",
+              value: "integer",
+            },
+          ]);
+          // Answered while the agent is still in its turn: it is waiting for exactly this.
+          yield* client["threads.answer"]({
+            answers: { plan: "pro", seats: "3" },
+            itemId: card?.id ?? "",
+            threadId,
+          });
+          const { items } = yield* waitForThread(threadId, turnEnded);
+          assert.include(said(items), 'elicit:accept:{"plan":"pro","seats":3}');
+          // No prompt of their own: the answers went back through the agent's tool.
+          assert.lengthOf(
+            items.filter((i) => i.kind === "user"),
+            1
+          );
+        })
+    );
+
+    it.effect("lets the user decline a form, and the agent hears so", () =>
+      Effect.gen(function* () {
+        const { client } = yield* TestEnv;
+        const threadId = yield* startThread;
+        yield* prompt(threadId, "elicit");
+        const card = yield* waitingCard(threadId);
+        yield* client["threads.decline"]({ itemId: card?.id ?? "", threadId });
+        const { items } = yield* waitForThread(threadId, turnEnded);
+        assert.include(said(items), "elicit:decline:null");
+        const declined = items.find((i) => i.kind === "question");
+        assert.strictEqual(
+          declined?.kind === "question" && declined.outcome,
+          "declined"
+        );
+      })
+    );
+
+    it.effect("lets a form go when the turn is stopped", () =>
+      Effect.gen(function* () {
+        const { client } = yield* TestEnv;
+        const threadId = yield* startThread;
+        yield* prompt(threadId, "elicit");
+        const card = yield* waitingCard(threadId);
+        yield* client["threads.cancel"]({ threadId });
+        const { items } = yield* waitForThread(threadId, turnEnded);
+        assert.include(said(items), "elicit:cancel:null");
+        const left = items.find((i) => i.kind === "question");
+        assert.strictEqual(
+          left?.kind === "question" && left.outcome,
+          "cancelled"
+        );
+        const late = yield* Effect.flip(
+          client["threads.answer"]({
+            answers: { plan: "free" },
+            itemId: card?.id ?? "",
+            threadId,
+          })
+        );
+        assert.include(late.message, "already answered");
+      })
+    );
+
+    it.effect("declines what it cannot draw, without a card", () =>
+      Effect.gen(function* () {
+        const threadId = yield* startThread;
+        yield* prompt(threadId, "elicit link");
+        const { items } = yield* waitForThread(threadId, turnEnded);
+        assert.include(said(items), "elicit:decline:null");
+        assert.notInclude(kinds(items), "question");
+      })
+    );
+
     it.effect(
       "refuses to answer a permission request that is not pending",
       () =>

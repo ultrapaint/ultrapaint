@@ -284,11 +284,35 @@ export type QuestionOption = typeof QuestionOption.Type;
 export const Question = Schema.Struct({
   /** The user may type an answer of their own instead of picking one. */
   allowOther: Schema.optional(Schema.Boolean),
+  /** More on what is asked, shown under the question. */
+  description: Schema.optional(Schema.String),
   id: Schema.String,
+  /** Several options may be picked; the answer is all of them. */
+  multiple: Schema.optional(Schema.Boolean),
+  /** The question may be left unanswered. */
+  optional: Schema.optional(Schema.Boolean),
   options: Schema.Array(QuestionOption),
   question: Schema.String,
+  /**
+   * With no options, the answer is typed; this says what it must be. The user picks yes or no
+   * for a `boolean`, which comes with its two options.
+   */
+  value: Schema.optional(
+    Schema.Literals(["text", "number", "integer", "boolean"])
+  ),
 });
 export type Question = typeof Question.Type;
+
+/** An answer: the option picked or the text typed, or every option picked of a `multiple` one. */
+export const Answer = Schema.Union([
+  Schema.String,
+  Schema.Array(Schema.String),
+]);
+export type Answer = typeof Answer.Type;
+
+/** The answers to a card, by question id. */
+export const Answers = Schema.Record(Schema.String, Answer);
+export type Answers = typeof Answers.Type;
 
 export const ToolCallStatus = Schema.Literals([
   "pending",
@@ -358,16 +382,23 @@ export const ThreadItem = Schema.Union([
     toolCallId: Schema.optional(Schema.String),
   }),
   /**
-   * Questions the agent asked with `ask_user`. The answers, once given, are also sent to the
-   * agent as the next prompt: the card is where the user answers, the prompt is how the agent
-   * hears it.
+   * Questions put to the user. Two ways they come:
+   * - The agent waits for the answers within its turn (`elicitation`): an MCP server, the
+   *   editor's `ask_user` among them, asked through the agent, and the answers go back the same
+   *   way. The user may also decline.
+   * - The agent asked with `ask_user` and ended its turn, because it cannot wait: the answers
+   *   are sent as the next prompt.
    */
   Schema.Struct({
-    /** Question id → the option chosen, or the text typed. Null while unanswered. */
-    answers: Schema.NullOr(Schema.Record(Schema.String, Schema.String)),
+    /** Question id → the answer. Null while unanswered. */
+    answers: Schema.NullOr(Answers),
     at: Schema.Number,
+    /** Present when the agent waits for the answers: what it says it needs them for. */
+    elicitation: Schema.optional(Schema.Struct({ message: Schema.String })),
     id: Schema.String,
     kind: Schema.Literal("question"),
+    /** Why there are no answers: the user declined, or the agent stopped waiting. */
+    outcome: Schema.optional(Schema.Literals(["declined", "cancelled"])),
     questions: Schema.Array(Question),
   }),
   Schema.Struct({

@@ -59,6 +59,7 @@ import {
   AgentFocus,
   AgentOptions,
   AgentTerminalOutput,
+  Answers,
   ChatDefaults,
   McpConnection,
   PromptInput,
@@ -415,14 +416,22 @@ const requestRpcs = [
   Rpc.make("threads.sendQueued", { error: ThreadError, payload: ThreadRef }),
   Rpc.make("threads.cancel", { error: ThreadError, payload: ThreadRef }),
   Rpc.make("threads.delete", { payload: ThreadRef }),
-  /** The user's answers to a question card; they reach the agent as the next prompt. */
+  /**
+   * The user's answers to a question card: back to the agent that waits for them, or as the
+   * next prompt.
+   */
   Rpc.make("threads.answer", {
     error: ThreadError,
     payload: {
       ...ThreadRef,
-      answers: Schema.Record(Schema.String, Schema.String),
+      answers: Answers,
       itemId: Schema.String,
     },
+  }),
+  /** The user will not answer a card the agent waits on; the agent hears that they declined. */
+  Rpc.make("threads.decline", {
+    error: ThreadError,
+    payload: { ...ThreadRef, itemId: Schema.String },
   }),
   Rpc.make("threads.permission", {
     error: ThreadError,

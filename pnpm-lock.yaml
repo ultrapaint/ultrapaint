@@ -222,8 +222,8 @@ importers:
   packages/acp:
     dependencies:
       '@agentclientprotocol/sdk':
-        specifier: ^1.4.0
-        version: 1.4.0(zod@4.6.5)
+        specifier: ^1.6.0
+        version: 1.6.0(zod@4.6.5)
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0(effect@4.0.0)(redis@6.2.1)
@@ -455,8 +455,8 @@ importers:
 
 packages:
 
-  '@agentclientprotocol/sdk@1.4.0':
-    resolution: {integrity: sha512-/eufudw+aFY1LKLolT6yFE6UMmYRl7fMJ/DEONSIyR6wI3slHWITBsANRGqXEY8FRzqUxwh7QEaGiZHcJPVThg==}
+  '@agentclientprotocol/sdk@1.6.0':
+    resolution: {integrity: sha512-XxXrmX7aZkDgOB0Rg9cu+ZFyiUUc5lF2n9seO3Gc4OR+MTdfZOwIqF6m3LvsmmM8K3qgPmXkDH8/IFM2u9vdcQ==}
     peerDependencies:
       zod: ^3.25.0 || ^4.0.0
 
@@ -3726,7 +3726,7 @@ packages:
 
 snapshots:
 
-  '@agentclientprotocol/sdk@1.4.0(zod@4.6.5)':
+  '@agentclientprotocol/sdk@1.6.0(zod@4.6.5)':
     dependencies:
       zod: 4.6.5
 

@@ -370,8 +370,9 @@ ${
    Where you cannot tell — a candidate that only looks alike, two candidates, a component this
    repository may have under another name — ask the user with ask_user, up to four components per
    card, each with the candidates as options, "Custom: keep its layers" and "Skip" among them, and
-   allowOther for a name you did not think of. End your turn after asking; carry on when the answers
-   come. Do not ask about what the names settle.
+   allowOther for a name you did not think of. Carry on with the answers it returns (if it says the
+   questions were shown instead, end your turn; they come as the next message). Do not ask about
+   what the names settle.
 2. Once every used component is decided, write each frame with write_figma_frame, in the canvas the
    user works in. A screen of the application gets a URL that fits its name ("Login" is /login,
    "Home" is /); a frame that is not a screen (a component sheet, a style guide) gets none, and ask

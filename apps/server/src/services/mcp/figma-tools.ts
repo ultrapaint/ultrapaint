@@ -1,10 +1,10 @@
 /**
- * The tools of a Figma import, and `ask_user`, offered to agents over MCP.
+ * The tools of a Figma import, offered to agents over MCP.
  *
  * Importing a Figma file is a conversation: the file is read by rules, but which component of
  * this repository stands in for a Figma one is a judgement, and sometimes the user's. These
  * tools let an agent see what the file holds, decide component by component, put a question
- * to the user where it cannot decide, and write frames as pages once the mapping is settled.
+ * to the user (with ask_user) where it cannot decide, and write frames as pages once the mapping is settled.
  */
 import { Json, type JsonValue } from "@ultrapaint/contracts/base";
 import {
@@ -14,14 +14,11 @@ import {
   FigmaFrame,
   FigmaPage,
 } from "@ultrapaint/contracts/figma";
-import { Question } from "@ultrapaint/contracts/threads";
 import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
 import { CatalogueService } from "../catalogue.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { FigmaImportService } from "../figma-import.ts";
-import { ThreadService } from "../threads/threads.ts";
-import { CallingThread } from "./access.ts";
 import {
   AnyJson,
   makeLookup,
@@ -150,29 +147,13 @@ const WriteFigmaFrame = Tool.make("write_figma_frame", {
   }),
 });
 
-const AskUser = Tool.make("ask_user", {
-  description: `Puts one to four questions to the user, each with the answers to pick from, as a card in the thread. The tool returns at once: end your turn after calling it, and the user's answers arrive as the next message, one line per question ("1. <question> — <answer>"). Ask when a decision is the user's to make — which component of theirs a Figma component is, whether something is custom — and put what you can decide yourself in the question as the first option. Give options short labels and, where it helps, a description; allowOther lets the user type an answer instead.`,
-  failure: Failure,
-  parameters: Schema.Struct({
-    questions: Schema.Array(Question).check(
-      Schema.isMinLength(1),
-      Schema.isMaxLength(4)
-    ),
-  }),
-  success: Schema.Struct({
-    /** What to do now. */
-    note: Schema.String,
-  }),
-});
-
 export const FigmaTools = Toolkit.make(
   ListFigmaImports,
   ReadFigmaImport,
   ReadFigmaFrame,
   ReadFigmaComponent,
   MapFigmaComponent,
-  WriteFigmaFrame,
-  AskUser
+  WriteFigmaFrame
 );
 
 const asJson = (value: unknown) => value as JsonValue;
@@ -180,7 +161,6 @@ const asJson = (value: unknown) => value as JsonValue;
 export const FigmaToolsLive = FigmaTools.toLayer(
   Effect.gen(function* () {
     const { project, canvasOf } = yield* makeLookup;
-    const threads = yield* ThreadService;
 
     const imports = <A, E extends { readonly message: string }>(
       f: (service: FigmaImportService["Service"]) => Effect.Effect<A, E>
@@ -248,19 +228,6 @@ export const FigmaToolsLive = FigmaTools.toLayer(
     });
 
     return {
-      ask_user: Effect.fnUntraced(function* ({ questions }) {
-        const threadId = yield* Effect.service(CallingThread);
-        if (threadId === undefined) {
-          return yield* missing(
-            "ask_user works from a thread of the editor; outside one, ask in your own conversation"
-          );
-        }
-        yield* reported(threads.ask(threadId, questions));
-        return {
-          note: "The questions are shown to the user. End your turn now; the answers come as the next message.",
-        };
-      }),
-
       list_figma_imports: Effect.fnUntraced(function* () {
         const all = yield* imports((s) => s.list);
         return {

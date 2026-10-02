@@ -1,5 +1,6 @@
 import type { Page } from "@ultrapaint/contracts/pages";
 import {
+  type Answer,
   type ConfigOption,
   defaultChoice,
   isEffortOption,
@@ -838,9 +839,29 @@ const Permission = ({
 type QuestionItem = Extract<ThreadItem, { kind: "question" }>;
 type QuestionOf = QuestionItem["questions"][number];
 
-/** What an answer reads as once given: the option's label, or the text typed. */
-const answerLabel = (question: QuestionOf, answer: string | undefined) =>
-  question.options.find((o) => o.id === answer)?.label ?? answer ?? "";
+/** What an answer reads as once given: each option's label, or the text typed. */
+const answerLabel = (question: QuestionOf, answer: Answer | undefined) => {
+  const label = (one: string) =>
+    question.options.find((o) => o.id === one)?.label ?? one;
+  if (answer === undefined || answer.length === 0) {
+    return "—";
+  }
+  return typeof answer === "string"
+    ? label(answer)
+    : answer.map(label).join(", ");
+};
+
+/** An answer typed for a number question that is not one. */
+const notANumber = (question: QuestionOf, typed: string) => {
+  if (question.value !== "number" && question.value !== "integer") {
+    return false;
+  }
+  const value = Number(typed);
+  return (
+    !Number.isFinite(value) ||
+    (question.value === "integer" && !Number.isInteger(value))
+  );
+};
 
 const QuestionChoices = ({
   onPick,
@@ -851,39 +872,49 @@ const QuestionChoices = ({
 }: {
   onPick: (id: string) => void;
   other: string;
-  picked: string | undefined;
+  picked: Answer | undefined;
   question: QuestionOf;
   setOther: (text: string) => void;
 }) => {
-  const chosen = other ? undefined : picked;
-  const description = question.options.find(
-    (o) => o.id === chosen
-  )?.description;
+  const chosen = other ? [] : [picked ?? []].flat();
+  const description =
+    chosen.length === 1
+      ? question.options.find((o) => o.id === chosen[0])?.description
+      : undefined;
+  const typed = question.options.length === 0;
   return (
     <>
-      <div className="flex flex-wrap gap-1">
-        {question.options.map((o) => (
-          <Button
-            key={o.id}
-            onClick={() => onPick(o.id)}
-            size="sm"
-            title={o.description}
-            variant={chosen === o.id ? "default" : "outline"}
-          >
-            {o.label}
-          </Button>
-        ))}
-      </div>
+      {typed ? null : (
+        <div className="flex flex-wrap gap-1">
+          {question.options.map((o) => (
+            <Button
+              key={o.id}
+              onClick={() => onPick(o.id)}
+              size="sm"
+              title={o.description}
+              variant={chosen.includes(o.id) ? "default" : "outline"}
+            >
+              {o.label}
+            </Button>
+          ))}
+        </div>
+      )}
       {description ? (
         <span className="text-muted-foreground">{description}</span>
       ) : null}
-      {question.allowOther ? (
+      {typed || question.allowOther ? (
         <Input
+          aria-invalid={notANumber(question, other) || undefined}
           className="h-7 text-xs"
+          inputMode={
+            question.value === "number" || question.value === "integer"
+              ? "decimal"
+              : undefined
+          }
           onChange={(e: ChangeEvent<HTMLInputElement>) =>
             setOther(e.target.value)
           }
-          placeholder="Or type an answer"
+          placeholder={typed ? "Type an answer" : "Or type an answer"}
           value={other}
         />
       ) : null}
@@ -891,9 +922,24 @@ const QuestionChoices = ({
   );
 };
 
+/** What the card says it is, from asked to answered. */
+const cardTitle = (item: QuestionItem) => {
+  if (item.answers !== null) {
+    return "Answered";
+  }
+  if (item.outcome === "declined") {
+    return "Declined";
+  }
+  if (item.outcome === "cancelled") {
+    return "No longer asked";
+  }
+  return item.elicitation?.message ?? "The agent asks";
+};
+
 /**
- * Questions an agent put to the user with `ask_user`. The answers are sent as the next prompt,
- * so they wait until the agent's turn has ended.
+ * Questions put to the user. When the agent waits for them within its turn they are answered
+ * (or declined) at once; otherwise the answers are sent as the next prompt, so they wait until
+ * the agent's turn has ended.
  */
 const QuestionCard = ({
   item,
@@ -906,49 +952,91 @@ const QuestionCard = ({
     const status = s.threads.find((t) => t.id === threadId)?.status;
     return status === "running" || status === "cancelling";
   });
-  const [picked, setPicked] = useState<Record<string, string>>({});
+  const [picked, setPicked] = useState<Record<string, Answer>>({});
   const [other, setOther] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
-  const answerOf = (question: QuestionOf) =>
-    other[question.id]?.trim() || picked[question.id];
-  const complete = item.questions.every((q) => answerOf(q));
-  const send = async () => {
+  const waiting = item.elicitation !== undefined;
+  const answerOf = (question: QuestionOf): Answer | undefined => {
+    const typed = other[question.id]?.trim();
+    return typed ? typed : picked[question.id];
+  };
+  const answeredWell = (question: QuestionOf) => {
+    const answer = answerOf(question);
+    if (answer === undefined || answer.length === 0) {
+      return question.optional === true;
+    }
+    return typeof answer !== "string" || !notANumber(question, answer);
+  };
+  const complete = item.questions.every(answeredWell);
+  const run = async (request: () => Promise<unknown>) => {
     setBusy(true);
     try {
-      await api().request("threads.answer", {
-        answers: Object.fromEntries(
-          item.questions.map((q) => [q.id, answerOf(q) ?? ""])
-        ),
-        itemId: item.id,
-        threadId,
-      });
+      await request();
     } catch (error) {
       reportError(error);
     }
     setBusy(false);
   };
+  const send = () =>
+    run(() =>
+      api().request("threads.answer", {
+        answers: Object.fromEntries(
+          item.questions.flatMap((q) => {
+            const answer = answerOf(q);
+            return answer === undefined ? [] : [[q.id, answer]];
+          })
+        ),
+        itemId: item.id,
+        threadId,
+      })
+    );
+  const decline = () =>
+    run(() => api().request("threads.decline", { itemId: item.id, threadId }));
+  const pick = (question: QuestionOf, id: string) => {
+    setPicked((p) => {
+      if (!question.multiple) {
+        return { ...p, [question.id]: id };
+      }
+      const now = [p[question.id] ?? []].flat();
+      return {
+        ...p,
+        [question.id]: now.includes(id)
+          ? now.filter((one) => one !== id)
+          : [...now, id],
+      };
+    });
+    if (!question.multiple) {
+      setOther((p) => ({ ...p, [question.id]: "" }));
+    }
+  };
   const answered = item.answers;
+  const open = answered === null && item.outcome === undefined;
+  // An agent that waits for the answers is mid-turn; one that does not hears them as a prompt.
+  const blocked = running && !waiting;
   return (
-    <Alert className={cn(!answered && "border-brand bg-brand/10")}>
+    <Alert className={cn(open && "border-brand bg-brand/10")}>
       <CircleHelp />
-      <AlertTitle>{answered ? "Answered" : "The agent asks"}</AlertTitle>
+      <AlertTitle>{cardTitle(item)}</AlertTitle>
       <AlertDescription className="flex flex-col gap-3">
         {item.questions.map((question) => (
           <div className="flex flex-col gap-1.5" key={question.id}>
             <span className="font-medium text-foreground">
               {question.question}
+              {question.optional ? (
+                <span className="font-normal text-muted-foreground">
+                  {" "}
+                  (optional)
+                </span>
+              ) : null}
             </span>
-            {answered ? (
-              <span className="flex items-center gap-1">
-                <Check className="size-3" />
-                {answerLabel(question, answered[question.id])}
+            {question.description ? (
+              <span className="text-muted-foreground">
+                {question.description}
               </span>
-            ) : (
+            ) : null}
+            {open ? (
               <QuestionChoices
-                onPick={(id) => {
-                  setPicked((p) => ({ ...p, [question.id]: id }));
-                  setOther((p) => ({ ...p, [question.id]: "" }));
-                }}
+                onPick={(id) => pick(question, id)}
                 other={other[question.id] ?? ""}
                 picked={picked[question.id]}
                 question={question}
@@ -956,25 +1044,40 @@ const QuestionCard = ({
                   setOther((p) => ({ ...p, [question.id]: text }))
                 }
               />
+            ) : (
+              <span className="flex items-center gap-1">
+                {answered ? <Check className="size-3" /> : null}
+                {answerLabel(question, answered?.[question.id])}
+              </span>
             )}
           </div>
         ))}
-        {answered ? null : (
+        {open ? (
           <div className="flex items-center gap-2">
             <Button
-              disabled={!complete || running || busy}
+              disabled={!complete || blocked || busy}
               onClick={send}
               size="sm"
             >
               Send answers
             </Button>
-            {running ? (
+            {waiting ? (
+              <Button
+                disabled={busy}
+                onClick={decline}
+                size="sm"
+                variant="ghost"
+              >
+                Decline
+              </Button>
+            ) : null}
+            {blocked ? (
               <span className="text-muted-foreground">
                 once the agent has finished its turn
               </span>
             ) : null}
           </div>
-        )}
+        ) : null}
       </AlertDescription>
     </Alert>
   );

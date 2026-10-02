@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@agentclientprotocol/sdk": "^1.4.0",
+    "@agentclientprotocol/sdk": "^1.6.0",
     "@effect/platform-node": "catalog:",
     "@ultrapaint/contracts": "workspace:*",
     "effect": "catalog:"

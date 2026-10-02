@@ -10,6 +10,8 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { Readable, Writable } from "node:stream";
 import {
   type ContentBlock,
+  type CreateElicitationRequest,
+  type CreateElicitationResponse,
   type CreateTerminalRequest,
   type CreateTerminalResponse,
   client,
@@ -43,6 +45,8 @@ import type { AgentLaunch } from "./sandbox.ts";
 
 export type {
   ContentBlock,
+  CreateElicitationRequest,
+  CreateElicitationResponse,
   CreateTerminalRequest,
   InitializeResponse,
   LoadSessionResponse,
@@ -63,6 +67,13 @@ export type {
  * JSON-RPC error carrying the failure's message.
  */
 export interface AcpHandlers {
+  /**
+   * Questions for the user from an MCP server the agent called, waited on within the turn. The
+   * editor says it draws forms; anything it cannot draw it declines.
+   */
+  readonly onElicitation: (
+    request: CreateElicitationRequest
+  ) => Effect.Effect<CreateElicitationResponse>;
   readonly onPermission: (
     request: RequestPermissionRequest
   ) => Effect.Effect<RequestPermissionResponse>;
@@ -271,6 +282,9 @@ export const spawnAcpAgent = (
       .onRequest("session/request_permission", (ctx) =>
         serve(handlers.onPermission(ctx.params))
       )
+      .onRequest("elicitation/create", (ctx) =>
+        serve(handlers.onElicitation(ctx.params))
+      )
       .onRequest("fs/read_text_file", (ctx) =>
         serve(handlers.readTextFile(ctx.params))
       )
@@ -369,6 +383,7 @@ export const spawnAcpAgent = (
       initialize: call("initialize", () =>
         agent.request("initialize", {
           clientCapabilities: {
+            elicitation: { form: {} },
             fs: { readTextFile: true, writeTextFile: true },
             terminal: true,
           },

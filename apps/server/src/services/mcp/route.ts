@@ -10,6 +10,7 @@ import { Effect, Layer } from "effect";
 import { McpProtocol, McpServer } from "effect/ai";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 import { CallingThread, McpAccess } from "./access.ts";
+import { AskUserToolLive } from "./ask-user.ts";
 import { FigmaTools, FigmaToolsLive } from "./figma-tools.ts";
 import { ScreenshotToolLive } from "./screenshot.ts";
 import { EditorTools, EditorToolsLive } from "./tools.ts";
@@ -56,7 +57,8 @@ const TokenGate = HttpRouter.use(
 const Tools = Layer.mergeAll(
   McpServer.toolkit(EditorTools).pipe(Layer.provide(EditorToolsLive)),
   McpServer.toolkit(FigmaTools).pipe(Layer.provide(FigmaToolsLive)),
-  ScreenshotToolLive
+  ScreenshotToolLive,
+  AskUserToolLive
 );
 
 export const McpRoute = Tools.pipe(

@@ -229,6 +229,8 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
         threads.answer(threadId, itemId, answers),
       "threads.cancel": ({ threadId }) => threads.cancel(threadId),
       "threads.create": ({ agentId, title }) => threads.create(agentId, title),
+      "threads.decline": ({ threadId, itemId }) =>
+        threads.decline(threadId, itemId),
       "threads.delete": ({ threadId }) => threads.delete(threadId),
       "threads.items": ({ threadId }) => store.items(threadId),
       "threads.list": () => store.list,
