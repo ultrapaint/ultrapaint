@@ -5,7 +5,7 @@
  * One section per agent. The arms of one agent say nothing about another's — a different model
  * behind a different harness — so the runs are never pooled across them.
  *
- * Usage: node --experimental-strip-types apps/server/bench/report.ts
+ * Usage: node --experimental-strip-types apps/server/bench/report.ts [directory of runs]
  */
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -29,7 +29,8 @@ interface Measurement {
 
 const dir = path.resolve(
   import.meta.dirname,
-  "../../../docs/feature/benchmarks"
+  "../../..",
+  process.argv[2] ?? "docs/feature/benchmarks"
 );
 const runs = readdirSync(dir)
   .filter((name) => name.endsWith(".json"))
@@ -88,6 +89,19 @@ const section = (agent: string, mine: readonly Measurement[]) => {
         .map((r) => r.toolCalls)
         .sort((a, b) => a - b);
       return `- ${arm}: ${(mean(all) ?? 0).toFixed(1)} calls on average over ${all.length} runs, ${all[0]} to ${all.at(-1)}`;
+    }),
+    "",
+    "### Tokens per run",
+    "",
+    ...arms.map((arm) => {
+      const measured = inArm(arm).filter((r) => r.tokens);
+      const per = (pick: (t: NonNullable<Measurement["tokens"]>) => number) =>
+        millions(
+          mean(measured.map((r) => (r.tokens ? pick(r.tokens) : 0))) ?? 0
+        );
+      return measured.length === 0
+        ? `- ${arm}: not counted`
+        : `- ${arm}: ${per((t) => t.total)} on average (cache reads ${per((t) => t.cached)}, fresh input ${per((t) => t.input)}, output ${per((t) => t.output)})`;
     }),
     "",
     "### Where the calls go",

@@ -1,0 +1,82 @@
+[
+  {
+    "agent": "claude-code",
+    "arm": "untrimmed",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "tool": 9,
+      "agent": 1,
+      "turn_end": 1
+    },
+    "seconds": 50.258,
+    "task": "router-link",
+    "tokens": {
+      "byModel": {
+        "claude-haiku-4-5-20251001": 4989,
+        "claude-opus-5": 269591
+      },
+      "cached": 261759,
+      "input": 16,
+      "output": 2110,
+      "total": 269591
+    },
+    "toolCalls": 9,
+    "toolKinds": {
+      "other": 2,
+      "execute": 1,
+      "mcp": 6
+    },
+    "trace": [
+      "ToolSearch",
+      "cat docs/bench-designs/index.page.json; echo ---; cat docs/bench-designs/canvas.",
+      "ToolSearch",
+      "mcp__ultrapaint__focus",
+      "mcp__ultrapaint__create_page",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__get_screenshot",
+      "mcp__ultrapaint__list_links"
+    ]
+  },
+  {
+    "agent": "claude-code",
+    "arm": "untrimmed",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 3,
+      "tool": 10,
+      "turn_end": 1
+    },
+    "seconds": 51.26,
+    "task": "router-link",
+    "tokens": {
+      "byModel": {
+        "claude-haiku-4-5-20251001": 4989,
+        "claude-opus-5": 301237
+      },
+      "cached": 293081,
+      "input": 18,
+      "output": 2342,
+      "total": 301237
+    },
+    "toolCalls": 10,
+    "toolKinds": {
+      "other": 2,
+      "mcp": 8
+    },
+    "trace": [
+      "ToolSearch",
+      "mcp__ultrapaint__read_page",
+      "mcp__ultrapaint__list_pages",
+      "ToolSearch",
+      "mcp__ultrapaint__create_page",
+      "mcp__ultrapaint__focus",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__get_screenshot",
+      "mcp__ultrapaint__list_links"
+    ]
+  }
+]

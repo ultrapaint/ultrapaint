@@ -24,8 +24,16 @@ export interface BenchTask {
   readonly prompt: string;
 }
 
-const DEFAULT_EXPORT_RE = /export default/;
 const FORM_COMPONENT_RE = /Input|Field|Label/;
+const BUTTON_RE = /Button/;
+
+interface Node {
+  readonly children?: readonly Node[];
+  readonly component?: string;
+  readonly link?: string;
+  readonly role?: string;
+  readonly type?: string;
+}
 
 const read = (ctx: TaskContext, rel: string) => {
   try {
@@ -35,24 +43,80 @@ const read = (ctx: TaskContext, rel: string) => {
   }
 };
 
-const HOME_PAGE = `export default function Home() {
-  return (
-    <main className="p-8">
-      <h1 className="font-semibold text-2xl">Acme</h1>
-      <p className="text-muted-foreground">Everything in one place.</p>
-    </main>
-  );
-}
-`;
+/**
+ * The page that serves a URL in the designs directory's own canvas: the one `canvas.json` routes
+ * there, or, before it names any, the one whose path the URL is.
+ */
+const pageServing = (ctx: TaskContext, url: string): Node | null => {
+  const layout = read(ctx, "canvas.json");
+  const routes = layout
+    ? ((JSON.parse(layout) as { routes?: Record<string, string> }).routes ??
+      null)
+    : null;
+  const file =
+    (routes
+      ? Object.entries(routes).find(([, route]) => route === url)?.[0]
+      : undefined) ??
+    (routes ? undefined : `${url === "/" ? "index" : url.slice(1)}.page.json`);
+  const text = file ? read(ctx, file) : null;
+  return text ? (JSON.parse(text) as { root: Node }).root : null;
+};
+
+/** The file of the page that serves /pricing, when one does. */
+const pricingFile = (ctx: TaskContext) => {
+  const layout = read(ctx, "canvas.json");
+  const routes = layout
+    ? (JSON.parse(layout) as { routes?: Record<string, string> }).routes
+    : undefined;
+  return routes
+    ? Object.entries(routes).find(([, route]) => route === "/pricing")?.[0]
+    : undefined;
+};
+
+const nodesOf = (root: Node): Node[] => [
+  root,
+  ...(root.children ?? []).flatMap(nodesOf),
+];
+
+const HOME_PAGE = `${JSON.stringify(
+  {
+    root: {
+      children: [
+        {
+          id: "t_title",
+          level: 1,
+          role: "heading",
+          text: "Acme",
+          type: "text",
+        },
+        {
+          id: "t_sub",
+          role: "paragraph",
+          text: "Everything in one place.",
+          type: "text",
+        },
+      ],
+      gap: 8,
+      id: "root",
+      padding: 32,
+      type: "page",
+    },
+    version: 1,
+  },
+  null,
+  2
+)}\n`;
 
 export const tasks: readonly BenchTask[] = [
   {
     check: (ctx) => {
-      const page = read(ctx, "pricing.tsx");
+      const page = pageServing(ctx, "/pricing");
       if (!page) {
-        return "docs/bench-designs/pricing.tsx was not created";
+        return "no page serves /pricing";
       }
-      return DEFAULT_EXPORT_RE.test(page) ? null : "no default export";
+      return nodesOf(page).some((n) => n.role === "heading")
+        ? null
+        : "the pricing page has no heading";
     },
     id: "new-page",
     prompt:
@@ -60,26 +124,31 @@ export const tasks: readonly BenchTask[] = [
   },
   {
     check: (ctx) => {
-      const page = read(ctx, "index.tsx");
+      const page = pageServing(ctx, "/");
       if (!page) {
-        return "index.tsx is gone";
+        return "the home page is gone";
       }
-      return page.includes("Button")
+      return nodesOf(page).some(
+        (n) => n.type === "instance" && BUTTON_RE.test(n.component ?? "")
+      )
         ? null
         : "the page does not use the Button component";
     },
-    given: { "index.tsx": HOME_PAGE },
+    given: { "index.page.json": HOME_PAGE },
     id: "use-component",
     prompt:
       "On the home page, add a call-to-action button under the paragraph that says 'Get started'. Use the repository's own button component, not a plain <button>.",
   },
   {
     check: (ctx) => {
-      const page = read(ctx, "settings/billing.tsx");
+      const page = pageServing(ctx, "/settings/billing");
       if (!page) {
-        return "docs/bench-designs/settings/billing.tsx was not created";
+        return "no page serves /settings/billing";
       }
-      return FORM_COMPONENT_RE.test(page)
+      return nodesOf(page).some(
+        (n) =>
+          n.type === "instance" && FORM_COMPONENT_RE.test(n.component ?? "")
+      )
         ? null
         : "the form does not use the repository's form components";
     },
@@ -89,15 +158,19 @@ export const tasks: readonly BenchTask[] = [
   },
   {
     check: (ctx) => {
-      const page = read(ctx, "index.tsx");
+      const page = pageServing(ctx, "/");
       if (!page) {
-        return "index.tsx is gone";
+        return "the home page is gone";
       }
-      return page.includes("_router")
+      // A link names the URL, or the page file that serves it (ADR 0021).
+      const target = pricingFile(ctx);
+      return nodesOf(page).some(
+        (n) => n.link === "/pricing" || (!!target && n.link === target)
+      )
         ? null
-        : "the link does not go through the canvas's router";
+        : "no node links to /pricing";
     },
-    given: { "index.tsx": HOME_PAGE },
+    given: { "index.page.json": HOME_PAGE },
     id: "router-link",
     prompt:
       "On the home page, add a link under the heading that goes to the /pricing page, so that clicking it in the prototype navigates there.",

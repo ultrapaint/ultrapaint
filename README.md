@@ -155,7 +155,9 @@ route, what the component palette is — and is given the editor's own MCP serve
 the pages and their routes, a component's props and variants, the comments left on the canvas. It
 can add and rename pages through it, answer a comment where it was left, say which page it is
 working on so you can watch it, and take a screenshot of a page or a node to check its own work.
-Screenshots are drawn by the editor's preview, so the editor has to be open in a browser.
+Screenshots are drawn by the editor's preview, so the editor has to be open in a browser. When a
+decision is yours it asks you on a card in the chat, and waits for your answers in the same turn;
+you can also decline. Any MCP server the agent uses can ask you the same way.
 
 While it works, what it changes shows on the canvas: the elements take the agents' pink, with its
 name and what it is doing on their edge, and the text it is rewriting turns to placeholders until

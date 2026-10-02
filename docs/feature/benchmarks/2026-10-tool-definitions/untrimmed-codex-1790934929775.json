@@ -1,0 +1,327 @@
+[
+  {
+    "agent": "codex",
+    "arm": "untrimmed",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 2,
+      "tool": 21,
+      "turn_end": 1
+    },
+    "seconds": 108.101,
+    "task": "new-page",
+    "tokens": {
+      "byModel": {
+        "gpt-6-astra": 40743
+      },
+      "cached": 39424,
+      "input": 1277,
+      "output": 42,
+      "total": 40743
+    },
+    "toolCalls": 21,
+    "toolKinds": {
+      "read": 1,
+      "mcp": 8,
+      "think": 10,
+      "execute": 2
+    },
+    "trace": [
+      "Read file '/home/naf/.codex/RTK.md'",
+      "mcp.ultrapaint.get_document_format",
+      "mcp.ultrapaint.get_component",
+      "mcp.ultrapaint.get_component",
+      "Guardian Review",
+      "Guardian Review",
+      "Guardian Review",
+      "cat /home/naf/.codex/RTK.md",
+      "Guardian Review",
+      "mcp.ultrapaint.create_page",
+      "Guardian Review",
+      "rtk cat apps/web/src/components/ui/card.tsx",
+      "Guardian Review",
+      "mcp.ultrapaint.focus",
+      "Guardian Review",
+      "mcp.ultrapaint.apply_operations",
+      "Guardian Review",
+      "mcp.ultrapaint.apply_operations",
+      "Guardian Review",
+      "mcp.ultrapaint.get_screenshot",
+      "Guardian Review"
+    ]
+  },
+  {
+    "agent": "codex",
+    "arm": "untrimmed",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 3,
+      "tool": 31,
+      "thought": 1,
+      "turn_end": 1
+    },
+    "seconds": 289.308,
+    "task": "new-page",
+    "tokens": {
+      "byModel": {
+        "gpt-6-astra": 41211
+      },
+      "cached": 40192,
+      "input": 982,
+      "output": 37,
+      "total": 41211
+    },
+    "toolCalls": 31,
+    "toolKinds": {
+      "read": 1,
+      "mcp": 13,
+      "think": 15,
+      "execute": 2
+    },
+    "trace": [
+      "Read file '/home/naf/.codex/RTK.md'",
+      "mcp.ultrapaint.get_document_format",
+      "Guardian Review",
+      "mcp.ultrapaint.get_component",
+      "Guardian Review",
+      "mcp.ultrapaint.get_component",
+      "Guardian Review",
+      "mcp.ultrapaint.get_context",
+      "mcp.ultrapaint.read_design_system",
+      "mcp.ultrapaint.get_document_format",
+      "cat /home/naf/.codex/RTK.md",
+      "Guardian Review",
+      "Guardian Review",
+      "Guardian Review",
+      "Guardian Review",
+      "mcp.ultrapaint.create_page",
+      "Guardian Review",
+      "rtk cat apps/web/src/components/ui/card.tsx",
+      "Guardian Review",
+      "mcp.ultrapaint.focus",
+      "Guardian Review",
+      "mcp.ultrapaint.apply_operations",
+      "Guardian Review",
+      "mcp.ultrapaint.set_frame",
+      "Guardian Review",
+      "mcp.ultrapaint.get_screenshot",
+      "Guardian Review",
+      "mcp.ultrapaint.apply_operations",
+      "Guardian Review",
+      "mcp.ultrapaint.list_links",
+      "Guardian Review"
+    ]
+  },
+  {
+    "agent": "codex",
+    "arm": "untrimmed",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 2,
+      "tool": 13,
+      "turn_end": 1
+    },
+    "seconds": 66.771,
+    "task": "use-component",
+    "tokens": {
+      "byModel": {
+        "gpt-6-astra": 27945
+      },
+      "cached": 27392,
+      "input": 519,
+      "output": 34,
+      "total": 27945
+    },
+    "toolCalls": 13,
+    "toolKinds": {
+      "read": 1,
+      "mcp": 5,
+      "execute": 1,
+      "think": 6
+    },
+    "trace": [
+      "Read file '/home/naf/.codex/RTK.md'",
+      "mcp.ultrapaint.get_component",
+      "mcp.ultrapaint.read_page",
+      "cat /home/naf/.codex/RTK.md",
+      "Guardian Review",
+      "Guardian Review",
+      "Guardian Review",
+      "mcp.ultrapaint.focus",
+      "Guardian Review",
+      "mcp.ultrapaint.apply_operations",
+      "Guardian Review",
+      "mcp.ultrapaint.get_screenshot",
+      "Guardian Review"
+    ]
+  },
+  {
+    "agent": "codex",
+    "arm": "untrimmed",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 2,
+      "tool": 13,
+      "turn_end": 1
+    },
+    "seconds": 51.2,
+    "task": "use-component",
+    "tokens": {
+      "byModel": {
+        "gpt-6-astra": 27991
+      },
+      "cached": 27648,
+      "input": 304,
+      "output": 39,
+      "total": 27991
+    },
+    "toolCalls": 13,
+    "toolKinds": {
+      "read": 1,
+      "mcp": 5,
+      "execute": 1,
+      "think": 6
+    },
+    "trace": [
+      "Read file '/home/naf/.codex/RTK.md'",
+      "mcp.ultrapaint.read_page",
+      "mcp.ultrapaint.get_component",
+      "cat /home/naf/.codex/RTK.md",
+      "Guardian Review",
+      "Guardian Review",
+      "Guardian Review",
+      "mcp.ultrapaint.focus",
+      "Guardian Review",
+      "mcp.ultrapaint.apply_operations",
+      "Guardian Review",
+      "mcp.ultrapaint.get_screenshot",
+      "Guardian Review"
+    ]
+  },
+  {
+    "agent": "codex",
+    "arm": "untrimmed",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 2,
+      "tool": 29,
+      "thought": 1,
+      "turn_end": 1
+    },
+    "seconds": 111.978,
+    "task": "form-from-catalogue",
+    "tokens": {
+      "byModel": {
+        "gpt-6-astra": 43350
+      },
+      "cached": 42112,
+      "input": 1192,
+      "output": 46,
+      "total": 43350
+    },
+    "toolCalls": 29,
+    "toolKinds": {
+      "read": 1,
+      "mcp": 12,
+      "execute": 2,
+      "think": 14
+    },
+    "trace": [
+      "Read file '/home/naf/.codex/RTK.md'",
+      "mcp.ultrapaint.get_document_format",
+      "mcp.ultrapaint.get_component",
+      "mcp.ultrapaint.get_component",
+      "mcp.ultrapaint.get_component",
+      "cat /home/naf/.codex/RTK.md",
+      "Guardian Review",
+      "Guardian Review",
+      "Guardian Review",
+      "Guardian Review",
+      "Guardian Review",
+      "mcp.ultrapaint.get_component",
+      "mcp.ultrapaint.read_design_system",
+      "rtk cat apps/web/src/components/ui/field.tsx apps/web/src/components/ui/input.ts",
+      "Guardian Review",
+      "Guardian Review",
+      "Guardian Review",
+      "mcp.ultrapaint.create_page",
+      "Guardian Review",
+      "mcp.ultrapaint.focus",
+      "Guardian Review",
+      "mcp.ultrapaint.apply_operations",
+      "Guardian Review",
+      "mcp.ultrapaint.get_screenshot",
+      "Guardian Review",
+      "mcp.ultrapaint.apply_operations",
+      "Guardian Review",
+      "mcp.ultrapaint.read_page",
+      "Guardian Review"
+    ]
+  },
+  {
+    "agent": "codex",
+    "arm": "untrimmed",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 2,
+      "tool": 29,
+      "thought": 1,
+      "turn_end": 1
+    },
+    "seconds": 129.109,
+    "task": "form-from-catalogue",
+    "tokens": {
+      "byModel": {
+        "gpt-6-astra": 43758
+      },
+      "cached": 41856,
+      "input": 1860,
+      "output": 42,
+      "total": 43758
+    },
+    "toolCalls": 29,
+    "toolKinds": {
+      "read": 1,
+      "mcp": 12,
+      "execute": 2,
+      "think": 14
+    },
+    "trace": [
+      "Read file '/home/naf/.codex/RTK.md'",
+      "mcp.ultrapaint.get_component",
+      "mcp.ultrapaint.get_component",
+      "mcp.ultrapaint.get_component",
+      "mcp.ultrapaint.get_component",
+      "mcp.ultrapaint.get_document_format",
+      "cat /home/naf/.codex/RTK.md",
+      "Guardian Review",
+      "Guardian Review",
+      "Guardian Review",
+      "Guardian Review",
+      "Guardian Review",
+      "Guardian Review",
+      "mcp.ultrapaint.read_design_system",
+      "rtk cat apps/web/src/components/ui/field.tsx apps/web/src/components/ui/input.ts",
+      "Guardian Review",
+      "Guardian Review",
+      "mcp.ultrapaint.create_page",
+      "Guardian Review",
+      "mcp.ultrapaint.focus",
+      "Guardian Review",
+      "mcp.ultrapaint.apply_operations",
+      "Guardian Review",
+      "mcp.ultrapaint.get_screenshot",
+      "Guardian Review",
+      "mcp.ultrapaint.apply_operations",
+      "Guardian Review",
+      "mcp.ultrapaint.read_page",
+      "Guardian Review"
+    ]
+  }
+]

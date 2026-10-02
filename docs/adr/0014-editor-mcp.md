@@ -12,6 +12,11 @@ Status: accepted, 2026-09-21.
 > touched, which the canvas draws as the agent's work. `set_frame` sizes a page's frame. A node
 > reference (`/orders#c_8x2k1q`) is taken wherever a route or a node id is.
 
+> Amended by [0022](0022-mcp-2026-and-asking-the-user.md), 2026-10-02. The server speaks MCP
+> 2026-07-28 first; the tools' definitions are cut to about half of what an agent carries;
+> `ask_user` answers "input required" with a form, which the editor draws as a card the agent
+> waits on within its turn.
+
 ## Decision
 
 The server hosts an MCP server on its own port at `/mcp`, built on Effect's `McpServer` over

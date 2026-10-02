@@ -1,0 +1,110 @@
+[
+  {
+    "agent": "codex",
+    "arm": "untrimmed",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 3,
+      "tool": 23,
+      "thought": 1,
+      "turn_end": 1
+    },
+    "seconds": 96.507,
+    "task": "router-link",
+    "tokens": {
+      "byModel": {
+        "gpt-6-astra": 29871
+      },
+      "cached": 29440,
+      "input": 388,
+      "output": 43,
+      "total": 29871
+    },
+    "toolCalls": 23,
+    "toolKinds": {
+      "read": 1,
+      "mcp": 10,
+      "think": 11,
+      "execute": 1
+    },
+    "trace": [
+      "Read file '/home/naf/.codex/RTK.md'",
+      "mcp.ultrapaint.read_page",
+      "Guardian Review",
+      "cat /home/naf/.codex/RTK.md",
+      "Guardian Review",
+      "mcp.ultrapaint.get_component",
+      "Guardian Review",
+      "mcp.ultrapaint.list_pages",
+      "Guardian Review",
+      "mcp.ultrapaint.create_page",
+      "Guardian Review",
+      "mcp.ultrapaint.focus",
+      "Guardian Review",
+      "mcp.ultrapaint.apply_operations",
+      "Guardian Review",
+      "mcp.ultrapaint.focus",
+      "Guardian Review",
+      "mcp.ultrapaint.apply_operations",
+      "Guardian Review",
+      "mcp.ultrapaint.list_links",
+      "mcp.ultrapaint.get_screenshot",
+      "Guardian Review",
+      "Guardian Review"
+    ]
+  },
+  {
+    "agent": "codex",
+    "arm": "untrimmed",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 3,
+      "tool": 21,
+      "thought": 1,
+      "turn_end": 1
+    },
+    "seconds": 77.884,
+    "task": "router-link",
+    "tokens": {
+      "byModel": {
+        "gpt-6-astra": 27862
+      },
+      "cached": 27136,
+      "input": 681,
+      "output": 45,
+      "total": 27862
+    },
+    "toolCalls": 21,
+    "toolKinds": {
+      "read": 1,
+      "mcp": 9,
+      "execute": 1,
+      "think": 10
+    },
+    "trace": [
+      "Read file '/home/naf/.codex/RTK.md'",
+      "mcp.ultrapaint.read_page",
+      "mcp.ultrapaint.list_pages",
+      "cat /home/naf/.codex/RTK.md",
+      "Guardian Review",
+      "Guardian Review",
+      "Guardian Review",
+      "mcp.ultrapaint.create_page",
+      "Guardian Review",
+      "mcp.ultrapaint.focus",
+      "Guardian Review",
+      "mcp.ultrapaint.apply_operations",
+      "Guardian Review",
+      "mcp.ultrapaint.focus",
+      "Guardian Review",
+      "mcp.ultrapaint.apply_operations",
+      "Guardian Review",
+      "mcp.ultrapaint.list_links",
+      "Guardian Review",
+      "mcp.ultrapaint.get_screenshot",
+      "Guardian Review"
+    ]
+  }
+]

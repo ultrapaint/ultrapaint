@@ -6,6 +6,7 @@
  * Usage:
  *   node --experimental-strip-types apps/server/bench/run.ts [--arm baseline]
  *       [--agent claude-code] [--tasks new-page,router-link] [--runs 1]
+ *       [--label name-in-the-report] [--out docs/feature/benchmarks/<comparison>]
  *
  * Each task runs in its own thread (a fresh agent session) against a designs directory of its
  * own, which is thrown away afterwards. Results land in `docs/feature/benchmarks/`.
@@ -35,6 +36,10 @@ const flag = (name: string, fallback: string) => {
 };
 
 const arm = flag("arm", "baseline");
+/** What the runs are called in the report; the arm, unless two builds of one arm are compared. */
+const label = flag("label", arm);
+/** Where the runs are written: a directory of their own keeps one comparison from another. */
+const outDir = path.resolve(repo, flag("out", "docs/feature/benchmarks"));
 const agentId = flag("agent", "claude-code");
 /** Pinned, because a run left on "auto" is not the same measurement twice. `auto` opts out. */
 const model = flag("model", "Opus 5");
@@ -47,6 +52,8 @@ interface Measurement {
   /** Which agent was measured: the arms of one agent say nothing about another's. */
   readonly agent: string;
   readonly arm: string;
+  /** The calls that failed, with what they said: a retry costs a call, and this says why. */
+  readonly failed: readonly string[];
   readonly failure: string | null;
   readonly items: Record<string, number>;
   readonly seconds: number;
@@ -110,7 +117,17 @@ const measure = (
   }
   return {
     agent: agentId,
-    arm,
+    arm: label,
+    failed: toolItems.flatMap((item) =>
+      item.kind === "tool" && item.status === "failed"
+        ? [
+            `${item.title.slice(0, 60)}: ${item.content
+              .map((c) => ("text" in c ? c.text : ""))
+              .join(" ")
+              .slice(0, 300)}`,
+          ]
+        : []
+    ),
     failure,
     items: byKind,
     seconds,
@@ -136,7 +153,8 @@ const program = Effect.gen(function* () {
       Layer.succeed(ServerConfig, {
         briefing: arm !== "baseline",
         cwd: repo,
-        discovery: false,
+        // Model options are known from discovery, before the first prompt starts a session.
+        discovery: true,
         host: "127.0.0.1",
         machine: { home: homedir(), path: process.env.PATH ?? "" },
         mcp: arm === "mcp",
@@ -180,12 +198,33 @@ const program = Effect.gen(function* () {
             (t: Thread) => t.id === threadId
           );
           const items = yield* client["threads.items"]({ threadId });
-          return { items, thread };
+          // Nobody is there to answer a question card, so the bench picks each question's first
+          // option, which ask_user tells the agent to make its own choice. The run goes on
+          // either within the turn or with the answers as the next prompt.
+          const open = items.filter(
+            (i) =>
+              i.kind === "question" &&
+              i.answers === null &&
+              i.outcome === undefined
+          );
+          for (const card of open) {
+            if (card.kind === "question") {
+              yield* client["threads.answer"]({
+                answers: Object.fromEntries(
+                  card.questions.map((q) => [q.id, q.options[0]?.id ?? "yes"])
+                ),
+                itemId: card.id,
+                threadId,
+              });
+            }
+          }
+          return { answered: open.length > 0, items, thread };
         });
         return yield* read.pipe(
           Effect.tap(() => Effect.sleep("500 millis")),
           Effect.repeat({
-            until: ({ items, thread }) =>
+            until: ({ answered, items, thread }) =>
+              !answered &&
               !!thread &&
               (thread.status === "error" ||
                 (thread.status === "idle" &&
@@ -205,7 +244,8 @@ const program = Effect.gen(function* () {
         const ready = yield* client["threads.list"]().pipe(
           Effect.tap(() => Effect.sleep("100 millis")),
           Effect.repeat({
-            until: (all) => all.some((t) => t.id === threadId && !!t.sessionId),
+            until: (all) =>
+              all.some((t) => t.id === threadId && !!t.configOptions),
           }),
           Effect.timeout("2 minutes")
         );
@@ -267,9 +307,9 @@ const program = Effect.gen(function* () {
   );
 
   rmSync(designs, { force: true, recursive: true });
-  const out = path.join(repo, "docs/feature/benchmarks");
+  const out = outDir;
   mkdirSync(out, { recursive: true });
-  const file = path.join(out, `${arm}-${agentId}-${Date.now()}.json`);
+  const file = path.join(out, `${label}-${agentId}-${Date.now()}.json`);
   writeFileSync(file, `${JSON.stringify(measurements, null, 2)}\n`);
   yield* Effect.log(`wrote ${path.relative(repo, file)}`);
 });

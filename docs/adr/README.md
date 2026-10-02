@@ -25,3 +25,4 @@ One file per decision. Status is one of proposed, accepted, superseded.
 | [0019](0019-canvases.md) | Spaces become canvases, listed above the pages as Figma lists a file's pages; canvases and pages are copied, with or without an agent; variants are built; assets are shared; snapshots are named points in history |
 | [0020](0020-pages-have-optional-urls.md) | A page is named by its file and serves an optional URL kept in `canvas.json`; the Pages panel is the prototype's, and canvases are switched from under the project |
 | [0021](0021-links-name-pages.md) | A link names a page file (or a URL, back, another site) and follows the page through renames and URL changes; links are set from the element; the prototype shows its hotspots |
+| [0022](0022-mcp-2026-and-asking-the-user.md) | The editor speaks MCP 2026-07-28; the tools' definitions an agent carries are halved; `ask_user` waits for the answers within the turn, on a card any MCP server's form is drawn as |

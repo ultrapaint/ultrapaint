@@ -1,0 +1,380 @@
+[
+  {
+    "agent": "claude-code",
+    "arm": "trimmed",
+    "failed": [
+      "mcp__ultrapaint__get_screenshot: ```\nno editor is open to draw it: pictures are drawn by the editor's preview in the browser, so open the editor and ask again\n```"
+    ],
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 2,
+      "tool": 19,
+      "turn_end": 1
+    },
+    "seconds": 130.175,
+    "task": "new-page",
+    "tokens": {
+      "byModel": {
+        "claude-haiku-4-5-20251001": 4984,
+        "claude-opus-5": 632741
+      },
+      "cached": 593050,
+      "input": 32,
+      "output": 8202,
+      "total": 632741
+    },
+    "toolCalls": 19,
+    "toolKinds": {
+      "other": 2,
+      "mcp": 15,
+      "execute": 2
+    },
+    "trace": [
+      "ToolSearch",
+      "mcp__ultrapaint__get_context",
+      "mcp__ultrapaint__list_templates",
+      "ToolSearch",
+      "mcp__ultrapaint__get_component",
+      "mcp__ultrapaint__get_component",
+      "mcp__ultrapaint__get_component",
+      "mcp__ultrapaint__create_page",
+      "mcp__ultrapaint__set_frame",
+      "mcp__ultrapaint__focus",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__get_screenshot",
+      "mcp__ultrapaint__read_page",
+      "mcp__ultrapaint__apply_operations",
+      "python3 -c \"\nimport json\nd=json.load(open('docs/bench-designs/pricing.page.json'",
+      "python3 -c \"\nimport json\nd=json.load(open('docs/bench-designs/pricing.page.json'",
+      "mcp__ultrapaint__apply_operations"
+    ]
+  },
+  {
+    "agent": "claude-code",
+    "arm": "trimmed",
+    "failed": [
+      "mcp__ultrapaint__apply_operations: ```\nthe operations are not valid: Expected object | undefined\n  at [3][\"node\"][\"children\"][1][\"border\"]\nExpected object | undefined\n  at [3][\"node\"][\"children\"][1][\"border\"]\n```",
+      "mcp__ultrapaint__get_screenshot: ```\nno editor is open to draw it: pictures are drawn by the editor's preview in the browser, so open the editor and ask again\n```"
+    ],
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 5,
+      "tool": 17,
+      "turn_end": 1
+    },
+    "seconds": 502.002,
+    "task": "new-page",
+    "tokens": {
+      "byModel": {
+        "claude-haiku-4-5-20251001": 4988,
+        "claude-opus-5": 589774
+      },
+      "cached": 550359,
+      "input": 30,
+      "output": 7213,
+      "total": 589774
+    },
+    "toolCalls": 17,
+    "toolKinds": {
+      "other": 2,
+      "mcp": 13,
+      "execute": 2
+    },
+    "trace": [
+      "ToolSearch",
+      "mcp__ultrapaint__get_context",
+      "mcp__ultrapaint__read_design_system",
+      "mcp__ultrapaint__list_templates",
+      "mcp__ultrapaint__get_component",
+      "mcp__ultrapaint__get_component",
+      "mcp__ultrapaint__create_page",
+      "mcp__ultrapaint__focus",
+      "mcp__ultrapaint__apply_operations",
+      "ToolSearch",
+      "grep -rn \"border\" /home/naf/Code/ultrapaint/packages/contracts/src/*.ts | grep ",
+      "grep -n \"Border\" -A 14 packages/contracts/src/document.ts | sed -n '1,60p'",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__set_frame",
+      "mcp__ultrapaint__get_screenshot",
+      "mcp__ultrapaint__read_page",
+      "mcp__ultrapaint__apply_operations"
+    ]
+  },
+  {
+    "agent": "claude-code",
+    "arm": "trimmed",
+    "failed": [
+      "mcp__ultrapaint__get_screenshot: ```\nno editor is open to draw it: pictures are drawn by the editor's preview in the browser, so open the editor and ask again\n```"
+    ],
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 2,
+      "tool": 6,
+      "turn_end": 1
+    },
+    "seconds": 40.321,
+    "task": "use-component",
+    "tokens": {
+      "byModel": {
+        "claude-haiku-4-5-20251001": 5013,
+        "claude-opus-5": 235923
+      },
+      "cached": 213510,
+      "input": 14,
+      "output": 1220,
+      "total": 235923
+    },
+    "toolCalls": 6,
+    "toolKinds": {
+      "other": 1,
+      "mcp": 5
+    },
+    "trace": [
+      "ToolSearch",
+      "mcp__ultrapaint__read_page",
+      "mcp__ultrapaint__get_component",
+      "mcp__ultrapaint__focus",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__get_screenshot"
+    ]
+  },
+  {
+    "agent": "claude-code",
+    "arm": "trimmed",
+    "failed": [
+      "mcp__ultrapaint__get_screenshot: ```\nno editor is open to draw it: pictures are drawn by the editor's preview in the browser, so open the editor and ask again\n```"
+    ],
+    "failure": null,
+    "items": {
+      "user": 1,
+      "tool": 6,
+      "agent": 1,
+      "turn_end": 1
+    },
+    "seconds": 29.182,
+    "task": "use-component",
+    "tokens": {
+      "byModel": {
+        "claude-haiku-4-5-20251001": 5013,
+        "claude-opus-5": 203000
+      },
+      "cached": 198405,
+      "input": 12,
+      "output": 1202,
+      "total": 203000
+    },
+    "toolCalls": 6,
+    "toolKinds": {
+      "other": 1,
+      "mcp": 5
+    },
+    "trace": [
+      "ToolSearch",
+      "mcp__ultrapaint__read_page",
+      "mcp__ultrapaint__get_component",
+      "mcp__ultrapaint__focus",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__get_screenshot"
+    ]
+  },
+  {
+    "agent": "claude-code",
+    "arm": "trimmed",
+    "failed": [
+      "mcp__ultrapaint__get_screenshot: ```\nno editor is open to draw it: pictures are drawn by the editor's preview in the browser, so open the editor and ask again\n```"
+    ],
+    "failure": null,
+    "items": {
+      "user": 1,
+      "tool": 15,
+      "agent": 2,
+      "turn_end": 1
+    },
+    "seconds": 73.308,
+    "task": "form-from-catalogue",
+    "tokens": {
+      "byModel": {
+        "claude-haiku-4-5-20251001": 5001,
+        "claude-opus-5": 534011
+      },
+      "cached": 503516,
+      "input": 28,
+      "output": 2980,
+      "total": 534011
+    },
+    "toolCalls": 15,
+    "toolKinds": {
+      "other": 2,
+      "mcp": 12,
+      "execute": 1
+    },
+    "trace": [
+      "ToolSearch",
+      "mcp__ultrapaint__get_context",
+      "mcp__ultrapaint__list_components",
+      "mcp__ultrapaint__list_components",
+      "mcp__ultrapaint__get_component",
+      "mcp__ultrapaint__get_component",
+      "sed -n 1,80p apps/web/src/components/ui/card.tsx; echo ===; grep -n \"function Fi",
+      "mcp__ultrapaint__create_page",
+      "mcp__ultrapaint__focus",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__set_frame",
+      "mcp__ultrapaint__get_screenshot",
+      "ToolSearch",
+      "mcp__ultrapaint__read_design_system",
+      "mcp__ultrapaint__apply_operations"
+    ]
+  },
+  {
+    "agent": "claude-code",
+    "arm": "trimmed",
+    "failed": [
+      "mcp__ultrapaint__apply_operations: ```\n<tool_use_error>InputValidationError: mcp__ultrapaint__apply_operations was called with input that could not be parsed as JSON.\nYou sent (first 200 of 2367 bytes): {\"route\": \"/settings/billing\", \"label\": \"Billing settings form\", \"ops\": [{\"op\":\"insert\",\"parent\":null,\"node\":{\"type\":\"column\",\"id\":",
+      "mcp__ultrapaint__get_screenshot: ```\nno editor is open to draw it: pictures are drawn by the editor's preview in the browser, so open the editor and ask again\n```"
+    ],
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 4,
+      "tool": 15,
+      "turn_end": 1
+    },
+    "seconds": 81.421,
+    "task": "form-from-catalogue",
+    "tokens": {
+      "byModel": {
+        "claude-haiku-4-5-20251001": 5001,
+        "claude-opus-5": 546291
+      },
+      "cached": 533003,
+      "input": 30,
+      "output": 4611,
+      "total": 546291
+    },
+    "toolCalls": 15,
+    "toolKinds": {
+      "other": 2,
+      "mcp": 11,
+      "execute": 2
+    },
+    "trace": [
+      "ToolSearch",
+      "mcp__ultrapaint__get_context",
+      "mcp__ultrapaint__list_templates",
+      "mcp__ultrapaint__get_component",
+      "grep -nE \"^(export|function|const) \" apps/web/src/components/ui/field.tsx | head",
+      "mcp__ultrapaint__create_page",
+      "ToolSearch",
+      "mcp__ultrapaint__focus",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__set_frame",
+      "mcp__ultrapaint__get_screenshot",
+      "python3 -m json.tool docs/bench-designs/billing-settings.page.json > /dev/null &"
+    ]
+  },
+  {
+    "agent": "claude-code",
+    "arm": "trimmed",
+    "failed": [
+      "mcp__ultrapaint__get_screenshot: ```\nno editor is open to draw it: pictures are drawn by the editor's preview in the browser, so open the editor and ask again\n```"
+    ],
+    "failure": null,
+    "items": {
+      "user": 1,
+      "tool": 15,
+      "question": 1,
+      "agent": 1,
+      "turn_end": 1
+    },
+    "seconds": 70.819,
+    "task": "router-link",
+    "tokens": {
+      "byModel": {
+        "claude-haiku-4-5-20251001": 5002,
+        "claude-opus-5": 562814
+      },
+      "cached": 536414,
+      "input": 32,
+      "output": 2630,
+      "total": 562814
+    },
+    "toolCalls": 15,
+    "toolKinds": {
+      "other": 4,
+      "mcp": 11
+    },
+    "trace": [
+      "ToolSearch",
+      "mcp__ultrapaint__list_pages",
+      "mcp__ultrapaint__read_page",
+      "ToolSearch",
+      "mcp__ultrapaint__ask_user",
+      "ToolSearch",
+      "mcp__ultrapaint__list_templates",
+      "mcp__ultrapaint__create_page",
+      "mcp__ultrapaint__focus",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__get_screenshot",
+      "mcp__ultrapaint__apply_operations",
+      "ToolSearch",
+      "mcp__ultrapaint__list_links"
+    ]
+  },
+  {
+    "agent": "claude-code",
+    "arm": "trimmed",
+    "failed": [
+      "mcp__ultrapaint__get_screenshot: ```\nno editor is open to draw it: pictures are drawn by the editor's preview in the browser, so open the editor and ask again\n```"
+    ],
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 4,
+      "tool": 13,
+      "turn_end": 1
+    },
+    "seconds": 58.636,
+    "task": "router-link",
+    "tokens": {
+      "byModel": {
+        "claude-haiku-4-5-20251001": 5002,
+        "claude-opus-5": 457889
+      },
+      "cached": 448924,
+      "input": 26,
+      "output": 2450,
+      "total": 457889
+    },
+    "toolCalls": 13,
+    "toolKinds": {
+      "other": 2,
+      "mcp": 9,
+      "execute": 2
+    },
+    "trace": [
+      "ToolSearch",
+      "mcp__ultrapaint__read_page",
+      "mcp__ultrapaint__list_pages",
+      "ToolSearch",
+      "mcp__ultrapaint__create_page",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__focus",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__get_screenshot",
+      "grep -n \"link\" apps/web/src/components/ui/button.tsx | head -20",
+      "sed -n 1,60p apps/web/src/components/ui/button.tsx",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__list_links"
+    ]
+  }
+]

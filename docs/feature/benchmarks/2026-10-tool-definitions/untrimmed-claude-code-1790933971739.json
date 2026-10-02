@@ -1,0 +1,271 @@
+[
+  {
+    "agent": "claude-code",
+    "arm": "untrimmed",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 3,
+      "tool": 16,
+      "turn_end": 1
+    },
+    "seconds": 102.569,
+    "task": "new-page",
+    "tokens": {
+      "byModel": {
+        "claude-haiku-4-5-20251001": 4971,
+        "claude-opus-5": 629126
+      },
+      "cached": 567139,
+      "input": 28,
+      "output": 6700,
+      "total": 629126
+    },
+    "toolCalls": 16,
+    "toolKinds": {
+      "other": 1,
+      "mcp": 15
+    },
+    "trace": [
+      "ToolSearch",
+      "mcp__ultrapaint__get_context",
+      "mcp__ultrapaint__get_component",
+      "mcp__ultrapaint__list_templates",
+      "mcp__ultrapaint__get_component",
+      "mcp__ultrapaint__get_component",
+      "mcp__ultrapaint__create_page",
+      "mcp__ultrapaint__focus",
+      "mcp__ultrapaint__set_frame",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__get_document_format",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__get_screenshot",
+      "mcp__ultrapaint__read_page",
+      "mcp__ultrapaint__apply_operations"
+    ]
+  },
+  {
+    "agent": "claude-code",
+    "arm": "untrimmed",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 4,
+      "tool": 21,
+      "turn_end": 1
+    },
+    "seconds": 150.825,
+    "task": "new-page",
+    "tokens": {
+      "byModel": {
+        "claude-haiku-4-5-20251001": 4971,
+        "claude-opus-5": 986750
+      },
+      "cached": 934453,
+      "input": 38,
+      "output": 10332,
+      "total": 986750
+    },
+    "toolCalls": 21,
+    "toolKinds": {
+      "other": 2,
+      "mcp": 16,
+      "execute": 3
+    },
+    "trace": [
+      "ToolSearch",
+      "mcp__ultrapaint__get_context",
+      "mcp__ultrapaint__read_design_system",
+      "mcp__ultrapaint__get_component",
+      "mcp__ultrapaint__get_component",
+      "mcp__ultrapaint__list_templates",
+      "mcp__ultrapaint__create_page",
+      "mcp__ultrapaint__focus",
+      "mcp__ultrapaint__apply_operations",
+      "ToolSearch",
+      "grep -rn '\"border\"' /home/naf/Code/ultrapaint-before/packages/contracts/src/*.t",
+      "mcp__ultrapaint__get_document_format",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__set_frame",
+      "mcp__ultrapaint__get_screenshot",
+      "sed -n 1,80p /home/naf/Code/ultrapaint-before/apps/web/src/components/ui/card.t",
+      "sed -n 78,110p /home/naf/Code/ultrapaint-before/apps/web/src/components/ui/card",
+      "mcp__ultrapaint__read_page",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__get_screenshot"
+    ]
+  },
+  {
+    "agent": "claude-code",
+    "arm": "untrimmed",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 2,
+      "tool": 7,
+      "turn_end": 1
+    },
+    "seconds": 29.124,
+    "task": "use-component",
+    "tokens": {
+      "byModel": {
+        "claude-haiku-4-5-20251001": 5000,
+        "claude-opus-5": 259639
+      },
+      "cached": 236782,
+      "input": 16,
+      "output": 1127,
+      "total": 259639
+    },
+    "toolCalls": 7,
+    "toolKinds": {
+      "other": 1,
+      "mcp": 5,
+      "execute": 1
+    },
+    "trace": [
+      "ToolSearch",
+      "mcp__ultrapaint__read_page",
+      "mcp__ultrapaint__get_component",
+      "mcp__ultrapaint__focus",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__get_screenshot",
+      "cat docs/bench-designs/index.page.json"
+    ]
+  },
+  {
+    "agent": "claude-code",
+    "arm": "untrimmed",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 2,
+      "tool": 6,
+      "turn_end": 1
+    },
+    "seconds": 36.647,
+    "task": "use-component",
+    "tokens": {
+      "byModel": {
+        "claude-haiku-4-5-20251001": 5000,
+        "claude-opus-5": 226449
+      },
+      "cached": 220916,
+      "input": 14,
+      "output": 1293,
+      "total": 226449
+    },
+    "toolCalls": 6,
+    "toolKinds": {
+      "other": 1,
+      "mcp": 5
+    },
+    "trace": [
+      "ToolSearch",
+      "mcp__ultrapaint__read_page",
+      "mcp__ultrapaint__get_component",
+      "mcp__ultrapaint__focus",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__get_screenshot"
+    ]
+  },
+  {
+    "agent": "claude-code",
+    "arm": "untrimmed",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 5,
+      "tool": 21,
+      "turn_end": 1
+    },
+    "seconds": 104.989,
+    "task": "form-from-catalogue",
+    "tokens": {
+      "byModel": {
+        "claude-haiku-4-5-20251001": 4988,
+        "claude-opus-5": 796670
+      },
+      "cached": 739364,
+      "input": 38,
+      "output": 4505,
+      "total": 796670
+    },
+    "toolCalls": 21,
+    "toolKinds": {
+      "other": 2,
+      "mcp": 15,
+      "execute": 4
+    },
+    "trace": [
+      "ToolSearch",
+      "mcp__ultrapaint__get_context",
+      "mcp__ultrapaint__list_components",
+      "mcp__ultrapaint__list_components",
+      "mcp__ultrapaint__list_templates",
+      "mcp__ultrapaint__list_components",
+      "mcp__ultrapaint__get_component",
+      "grep -rn \"FieldLabel\" /home/naf/Code/ultrapaint-before/apps/web/src --include=*",
+      "cat /home/naf/Code/ultrapaint-before/apps/web/src/pages/billing.tsx",
+      "mcp__ultrapaint__create_page",
+      "mcp__ultrapaint__focus",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__set_frame",
+      "mcp__ultrapaint__get_screenshot",
+      "python3 -c \"\nimport json;d=json.load(open('docs/bench-designs/billing.page.json'",
+      "grep -o '\"border\":{[^]]*' docs/bench-designs/billing.page.json | head -c 300",
+      "mcp__ultrapaint__read_page",
+      "ToolSearch",
+      "mcp__ultrapaint__get_document_format",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__get_screenshot"
+    ]
+  },
+  {
+    "agent": "claude-code",
+    "arm": "untrimmed",
+    "failure": null,
+    "items": {
+      "user": 1,
+      "agent": 2,
+      "tool": 14,
+      "turn_end": 1
+    },
+    "seconds": 79.823,
+    "task": "form-from-catalogue",
+    "tokens": {
+      "byModel": {
+        "claude-haiku-4-5-20251001": 4988,
+        "claude-opus-5": 496665
+      },
+      "cached": 478926,
+      "input": 26,
+      "output": 3825,
+      "total": 496665
+    },
+    "toolCalls": 14,
+    "toolKinds": {
+      "other": 1,
+      "mcp": 10,
+      "execute": 3
+    },
+    "trace": [
+      "ToolSearch",
+      "mcp__ultrapaint__get_context",
+      "ls apps/web/src/components/ui/ | head -80",
+      "mcp__ultrapaint__list_templates",
+      "cat apps/web/src/components/ui/field.tsx",
+      "mcp__ultrapaint__get_component",
+      "cat apps/web/src/components/ui/card.tsx apps/web/src/components/ui/input.tsx",
+      "mcp__ultrapaint__create_page",
+      "mcp__ultrapaint__focus",
+      "mcp__ultrapaint__apply_operations",
+      "mcp__ultrapaint__set_frame",
+      "mcp__ultrapaint__get_screenshot",
+      "mcp__ultrapaint__read_page",
+      "mcp__ultrapaint__apply_operations"
+    ]
+  }
+]
