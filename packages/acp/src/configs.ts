@@ -6,7 +6,8 @@ import type { AgentConfig } from "@ultrapaint/contracts/threads";
  */
 export const builtInAgents: AgentConfig[] = [
   {
-    args: ["-y", "@agentclientprotocol/claude-agent-acp"],
+    // 0.79 is the first to speak MCP 2026-07-28 by default; npx fetches it when the cache is older.
+    args: ["-y", "@agentclientprotocol/claude-agent-acp@^0.85.0"],
     authHint:
       "Uses your Claude Code login (`claude` CLI). Run `claude` once to sign in.",
     builtIn: true,
@@ -23,12 +24,17 @@ export const builtInAgents: AgentConfig[] = [
     stateDirs: ["~/.claude/", "~/.claude.json", "~/.config/claude/"],
   },
   {
-    args: ["-y", "@agentclientprotocol/codex-acp"],
+    // 1.1.14 is the first on a Codex that can speak MCP 2026-07-28.
+    args: ["-y", "@agentclientprotocol/codex-acp@^2.1.1"],
     authHint:
       "Uses your Codex login (`codex` CLI). Run `codex login` once to sign in.",
     builtIn: true,
     command: "npx",
-    env: {},
+    // Merged into every session's configuration. MCP 2026-07-28 is behind a flag Codex has not
+    // turned on yet; without it Codex asks the editor for 2025-06-18.
+    env: {
+      CODEX_CONFIG: JSON.stringify({ features: { mcp_2026_07_28: true } }),
+    },
     id: "codex",
     name: "Codex",
     package: "@agentclientprotocol/codex-acp",

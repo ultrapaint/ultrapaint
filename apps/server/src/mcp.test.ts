@@ -1,55 +1,7 @@
 import { assert, layer } from "@effect/vitest";
 import { Effect, Fiber, Stream } from "effect";
-import { MCP_TOKEN_HEADER } from "./services/mcp/route.ts";
 import { TestEnv, TestServer } from "./testing/harness.ts";
-import { toolCaller } from "./testing/mcp.ts";
-
-const PROTOCOL = "2025-06-18";
-const JSON_RPC = { "content-type": "application/json" };
-const ACCEPT = { accept: "application/json, text/event-stream" };
-
-/** One JSON-RPC call against the editor's MCP endpoint, as an agent would make it. */
-const callMcp = (
-  port: number,
-  token: string | undefined,
-  body: Record<string, unknown>,
-  sessionId?: string
-) =>
-  Effect.promise(() =>
-    fetch(`http://127.0.0.1:${port}/mcp`, {
-      body: JSON.stringify({ id: 1, jsonrpc: "2.0", ...body }),
-      headers: {
-        ...JSON_RPC,
-        ...ACCEPT,
-        ...(token ? { [MCP_TOKEN_HEADER]: token } : {}),
-        ...(sessionId
-          ? { "mcp-protocol-version": PROTOCOL, "mcp-session-id": sessionId }
-          : {}),
-      },
-      method: "POST",
-    })
-  );
-
-/** Initializes a session and returns its id, so tools can be called on it. */
-const openMcp = (port: number, token: string) =>
-  Effect.gen(function* () {
-    const response = yield* callMcp(port, token, {
-      method: "initialize",
-      params: {
-        capabilities: {},
-        clientInfo: { name: "test", version: "1" },
-        protocolVersion: PROTOCOL,
-      },
-    });
-    const sessionId = response.headers.get("mcp-session-id") ?? undefined;
-    yield* callMcp(
-      port,
-      token,
-      { method: "notifications/initialized" },
-      sessionId
-    );
-    return sessionId;
-  });
+import { callMcp, initializeLegacy, toolCaller } from "./testing/mcp.ts";
 
 layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
   "the editor's MCP server",
@@ -58,15 +10,41 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
       Effect.gen(function* () {
         const { port } = yield* TestEnv;
         const response = yield* callMcp(port, undefined, {
-          method: "initialize",
-          params: {
-            capabilities: {},
-            clientInfo: { name: "test", version: "1" },
-            protocolVersion: PROTOCOL,
-          },
+          method: "tools/list",
         });
         assert.strictEqual(response.status, 403);
       })
+    );
+
+    it.effect(
+      "speaks 2026-07-28 without a handshake, and the revision Codex asks for without its flag",
+      () =>
+        Effect.gen(function* () {
+          const { client, port } = yield* TestEnv;
+          const { token } = yield* client["mcp.connection"]();
+          const discovered = yield* callMcp(port, token, {
+            method: "server/discover",
+          }).pipe(
+            Effect.flatMap((response) =>
+              Effect.promise(
+                () =>
+                  response.json() as Promise<{
+                    result: { supportedVersions: string[] };
+                  }>
+              )
+            )
+          );
+          assert.deepStrictEqual(discovered.result.supportedVersions, [
+            "2026-07-28",
+            "2025-11-25",
+            "2025-06-18",
+          ]);
+          const legacy = yield* initializeLegacy(port, token, "2025-06-18");
+          assert.strictEqual(legacy.result.protocolVersion, "2025-06-18");
+          // A revision no longer offered is answered with the newest of the older ones.
+          const old = yield* initializeLegacy(port, token, "2025-03-26");
+          assert.strictEqual(old.result.protocolVersion, "2025-11-25");
+        })
     );
 
     it.effect("turns away a token that belongs to no session", () =>
@@ -105,14 +83,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         const [url, token] = (said ?? "").slice("mcp:".length).split("|");
         assert.include(url ?? "", `127.0.0.1:${port}/mcp`);
         assert.isTrue((token ?? "").startsWith("mcp_"));
-        const sessionId = yield* openMcp(port, token ?? "");
 
-        const listed = yield* callMcp(
-          port,
-          token,
-          { method: "tools/list" },
-          sessionId
-        );
+        const listed = yield* callMcp(port, token, { method: "tools/list" });
         assert.strictEqual(listed.status, 200);
         const tools = (yield* Effect.promise(() => listed.json())) as {
           result: { tools: { name: string }[] };
@@ -154,15 +126,10 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           "write_figma_frame",
         ]);
 
-        const called = yield* callMcp(
-          port,
-          token,
-          {
-            method: "tools/call",
-            params: { arguments: {}, name: "list_pages" },
-          },
-          sessionId
-        );
+        const called = yield* callMcp(port, token, {
+          method: "tools/call",
+          params: { arguments: {}, name: "list_pages" },
+        });
         const pages = (yield* Effect.promise(() => called.json())) as {
           result: { structuredContent: { pages: { route: string }[] } };
         };
@@ -172,49 +139,34 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         );
 
         // A page the agent makes through the editor is named as asked and serves the URL given.
-        const created = yield* callMcp(
-          port,
-          token,
-          {
-            method: "tools/call",
-            params: {
-              arguments: { name: "Pricing", route: "/pricing" },
-              name: "create_page",
-            },
+        const created = yield* callMcp(port, token, {
+          method: "tools/call",
+          params: {
+            arguments: { name: "Pricing", route: "/pricing" },
+            name: "create_page",
           },
-          sessionId
-        );
+        });
         const page = (yield* Effect.promise(() => created.json())) as {
           result: { structuredContent: { file: string; route: string } };
         };
         assert.strictEqual(page.result.structuredContent.route, "/pricing");
         assert.include(page.result.structuredContent.file, "pricing.page.json");
         // A page without a URL is named by its file, and given one afterwards.
-        const sketch = yield* callMcp(
-          port,
-          token,
-          {
-            method: "tools/call",
-            params: { arguments: { name: "Sketch" }, name: "create_page" },
-          },
-          sessionId
-        );
+        const sketch = yield* callMcp(port, token, {
+          method: "tools/call",
+          params: { arguments: { name: "Sketch" }, name: "create_page" },
+        });
         const sketched = (yield* Effect.promise(() => sketch.json())) as {
           result: { structuredContent: { file: string; route?: string } };
         };
         assert.isUndefined(sketched.result.structuredContent.route);
-        const served = yield* callMcp(
-          port,
-          token,
-          {
-            method: "tools/call",
-            params: {
-              arguments: { route: "sketch.page.json", url: "/sketch" },
-              name: "set_page_url",
-            },
+        const served = yield* callMcp(port, token, {
+          method: "tools/call",
+          params: {
+            arguments: { route: "sketch.page.json", url: "/sketch" },
+            name: "set_page_url",
           },
-          sessionId
-        );
+        });
         const servedAt = (yield* Effect.promise(() => served.json())) as {
           result: { structuredContent: { route?: string } };
         };
@@ -227,12 +179,10 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
 
         const tool = (name: string, args: Record<string, unknown>) =>
           Effect.flatMap(
-            callMcp(
-              port,
-              token,
-              { method: "tools/call", params: { arguments: args, name } },
-              sessionId
-            ),
+            callMcp(port, token, {
+              method: "tools/call",
+              params: { arguments: args, name },
+            }),
             (response) =>
               Effect.promise(
                 () =>
@@ -315,16 +265,10 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           assert.isTrue(connection.enabled);
           assert.include(connection.url, `127.0.0.1:${port}/mcp`);
 
-          const sessionId = yield* openMcp(port, connection.token);
-          const called = yield* callMcp(
-            port,
-            connection.token,
-            {
-              method: "tools/call",
-              params: { arguments: {}, name: "list_pages" },
-            },
-            sessionId
-          );
+          const called = yield* callMcp(port, connection.token, {
+            method: "tools/call",
+            params: { arguments: {}, name: "list_pages" },
+          });
           const pages = (yield* Effect.promise(() => called.json())) as {
             result: { structuredContent: { pages: { route: string }[] } };
           };
@@ -338,15 +282,10 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             Stream.runHead(client["events.agent.focus"]())
           );
           yield* Effect.sleep("150 millis");
-          yield* callMcp(
-            port,
-            connection.token,
-            {
-              method: "tools/call",
-              params: { arguments: { route: "/home" }, name: "focus" },
-            },
-            sessionId
-          );
+          yield* callMcp(port, connection.token, {
+            method: "tools/call",
+            params: { arguments: { route: "/home" }, name: "focus" },
+          });
           const event = yield* Effect.timeoutOption(
             Fiber.join(focused),
             "500 millis"
@@ -381,16 +320,10 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           .map((i) => (i.kind === "agent" ? i.text : ""))
           .find((t) => t.startsWith("mcp:"));
         const [, token] = (said ?? "").slice("mcp:".length).split("|");
-        const sessionId = yield* openMcp(port, token ?? "");
-        yield* callMcp(
-          port,
-          token,
-          {
-            method: "tools/call",
-            params: { arguments: { route: "/home" }, name: "focus" },
-          },
-          sessionId
-        );
+        yield* callMcp(port, token, {
+          method: "tools/call",
+          params: { arguments: { route: "/home" }, name: "focus" },
+        });
         const event = yield* Fiber.join(focused);
         const home = (yield* client["pages.list"]()).pages.find(
           (p) => p.route === "/home"
@@ -426,8 +359,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             .map((i) => (i.kind === "agent" ? i.text : ""))
             .find((t) => t.startsWith("mcp:"));
           const [, token] = (said ?? "").slice("mcp:".length).split("|");
-          const sessionId = yield* openMcp(port, token ?? "");
-          const call = toolCaller(port, token ?? "", sessionId);
+          const call = toolCaller(port, token ?? "");
 
           const inserted = yield* call("apply_operations", {
             ops: [
@@ -509,18 +441,12 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           const { client, port, settings } = yield* TestEnv;
           yield* client["settings.set"](settings);
           const connection = yield* client["mcp.connection"]();
-          const sessionId = yield* openMcp(port, connection.token);
           const shoot = (args: Record<string, unknown>) =>
             Effect.flatMap(
-              callMcp(
-                port,
-                connection.token,
-                {
-                  method: "tools/call",
-                  params: { arguments: args, name: "get_screenshot" },
-                },
-                sessionId
-              ),
+              callMcp(port, connection.token, {
+                method: "tools/call",
+                params: { arguments: args, name: "get_screenshot" },
+              }),
               (response) =>
                 Effect.promise(
                   () =>
@@ -597,15 +523,12 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           route: "/home",
         });
         const connection = yield* client["mcp.connection"]();
-        const sessionId = yield* openMcp(port, connection.token);
         const call = (name: string, args: Record<string, unknown>) =>
           Effect.flatMap(
-            callMcp(
-              port,
-              connection.token,
-              { method: "tools/call", params: { arguments: args, name } },
-              sessionId
-            ),
+            callMcp(port, connection.token, {
+              method: "tools/call",
+              params: { arguments: args, name },
+            }),
             (response) => Effect.promise(() => response.text())
           );
 
@@ -639,8 +562,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
       const { client, port, settings } = yield* TestEnv;
       yield* client["settings.set"](settings);
       const connection = yield* client["mcp.connection"]();
-      const sessionId = yield* openMcp(port, connection.token);
-      return toolCaller(port, connection.token, sessionId);
+      return toolCaller(port, connection.token);
     });
 
     it.effect(

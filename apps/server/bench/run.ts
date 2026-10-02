@@ -137,6 +137,7 @@ const program = Effect.gen(function* () {
         briefing: arm !== "baseline",
         cwd: repo,
         discovery: false,
+        host: "127.0.0.1",
         machine: { home: homedir(), path: process.env.PATH ?? "" },
         mcp: arm === "mcp",
         port,
@@ -260,7 +261,10 @@ const program = Effect.gen(function* () {
     }
   });
 
-  yield* work.pipe(Effect.provide(protocol), Effect.provide(server));
+  yield* work.pipe(
+    // The server first: the protocol connects to it.
+    Effect.provide(protocol.pipe(Layer.provide(server)))
+  );
 
   rmSync(designs, { force: true, recursive: true });
   const out = path.join(repo, "docs/feature/benchmarks");

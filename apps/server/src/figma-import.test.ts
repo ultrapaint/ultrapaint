@@ -10,7 +10,7 @@ import {
 } from "@ultrapaint/figma-import/testing/fixture";
 import { Effect, FileSystem, Path } from "effect";
 import { TestEnv, TestServer } from "./testing/harness.ts";
-import { openMcp, toolCaller } from "./testing/mcp.ts";
+import { toolCaller } from "./testing/mcp.ts";
 
 /** A login frame using a Button component set with a Label property, and a picture. */
 const loginFile = () => {
@@ -154,8 +154,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
 
           // The agent decides through the editor's tools, with the project's token.
           const { token } = yield* client["mcp.connection"]();
-          const sessionId = yield* openMcp(port, token);
-          const tool = toolCaller(port, token, sessionId);
+          const tool = toolCaller(port, token);
 
           const read = yield* tool("read_figma_import", {});
           assert.isNotTrue(read.result.isError);
@@ -275,8 +274,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
             .map((i) => (i.kind === "agent" ? i.text : ""))
             .find((t) => t.startsWith("mcp:"));
           const [, token = ""] = (said ?? "").slice("mcp:".length).split("|");
-          const sessionId = yield* openMcp(port, token);
-          const tool = toolCaller(port, token, sessionId);
+          const tool = toolCaller(port, token);
 
           const asked = yield* tool("ask_user", {
             questions: [

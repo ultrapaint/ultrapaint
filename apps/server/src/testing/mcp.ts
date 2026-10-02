@@ -1,55 +1,87 @@
 /**
  * Calling the editor's MCP server the way an agent does, for tests: one JSON-RPC request at a
- * time over Streamable HTTP, on a session opened with `initialize`.
+ * time over Streamable HTTP, in the stateless revision both built-in agents speak. There is no
+ * session to open: every request says which revision it is and what the client can do.
  */
 import { Effect } from "effect";
 import { MCP_TOKEN_HEADER } from "../services/mcp/route.ts";
 
-const PROTOCOL = "2025-06-18";
+export const PROTOCOL = "2026-07-28";
 const JSON_RPC = { "content-type": "application/json" };
 const ACCEPT = { accept: "application/json, text/event-stream" };
+
+/** What the client says it can do; a test of asking the user says it can answer forms. */
+export type ClientCapabilities = Record<string, unknown>;
 
 export const callMcp = (
   port: number,
   token: string | undefined,
-  body: Record<string, unknown>,
-  sessionId?: string
-) =>
-  Effect.promise(() =>
+  body: { readonly method: string; readonly params?: Record<string, unknown> },
+  capabilities: ClientCapabilities = {}
+) => {
+  const params = body.params ?? {};
+  const meta = (params._meta ?? {}) as Record<string, unknown>;
+  const name =
+    typeof params.name === "string" ? { "mcp-name": params.name } : {};
+  return Effect.promise(() =>
     fetch(`http://127.0.0.1:${port}/mcp`, {
-      body: JSON.stringify({ id: 1, jsonrpc: "2.0", ...body }),
+      body: JSON.stringify({
+        id: 1,
+        jsonrpc: "2.0",
+        method: body.method,
+        params: {
+          ...params,
+          _meta: {
+            ...meta,
+            "io.modelcontextprotocol/clientCapabilities": capabilities,
+            "io.modelcontextprotocol/clientInfo": {
+              name: "test",
+              version: "1",
+            },
+            "io.modelcontextprotocol/protocolVersion": PROTOCOL,
+          },
+        },
+      }),
       headers: {
         ...JSON_RPC,
         ...ACCEPT,
         ...(token ? { [MCP_TOKEN_HEADER]: token } : {}),
-        ...(sessionId
-          ? { "mcp-protocol-version": PROTOCOL, "mcp-session-id": sessionId }
-          : {}),
+        "mcp-method": body.method,
+        "mcp-protocol-version": PROTOCOL,
+        ...name,
       },
       method: "POST",
     })
   );
+};
 
-/** Initializes a session and returns its id, so tools can be called on it. */
-export const openMcp = (port: number, token: string) =>
-  Effect.gen(function* () {
-    const response = yield* callMcp(port, token, {
-      method: "initialize",
-      params: {
-        capabilities: {},
-        clientInfo: { name: "test", version: "1" },
-        protocolVersion: PROTOCOL,
-      },
-    });
-    const sessionId = response.headers.get("mcp-session-id") ?? undefined;
-    yield* callMcp(
-      port,
-      token,
-      { method: "notifications/initialized" },
-      sessionId
-    );
-    return sessionId;
-  });
+/** An agent that asks for an older revision opens a session with `initialize`, as Codex does without its flag. */
+export const initializeLegacy = (
+  port: number,
+  token: string,
+  protocolVersion: string
+) =>
+  Effect.promise(() =>
+    fetch(`http://127.0.0.1:${port}/mcp`, {
+      body: JSON.stringify({
+        id: 1,
+        jsonrpc: "2.0",
+        method: "initialize",
+        params: {
+          capabilities: {},
+          clientInfo: { name: "test", version: "1" },
+          protocolVersion,
+        },
+      }),
+      headers: { ...JSON_RPC, ...ACCEPT, [MCP_TOKEN_HEADER]: token },
+      method: "POST",
+    }).then((response) => response.json() as Promise<JsonRpcResult>)
+  );
+
+export interface JsonRpcResult {
+  readonly error?: { readonly code: number; readonly message: string };
+  readonly result: Record<string, unknown>;
+}
 
 export interface ToolResult {
   readonly result: {
@@ -59,16 +91,14 @@ export interface ToolResult {
   };
 }
 
-/** A caller of the session's tools: the name and its arguments, the parsed result back. */
+/** A caller of the editor's tools: the name and its arguments, the parsed result back. */
 export const toolCaller =
-  (port: number, token: string, sessionId: string | undefined) =>
+  (port: number, token: string) =>
   (name: string, args: Record<string, unknown>) =>
     Effect.flatMap(
-      callMcp(
-        port,
-        token,
-        { method: "tools/call", params: { arguments: args, name } },
-        sessionId
-      ),
+      callMcp(port, token, {
+        method: "tools/call",
+        params: { arguments: args, name },
+      }),
       (response) => Effect.promise(() => response.json() as Promise<ToolResult>)
     );

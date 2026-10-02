@@ -86,7 +86,7 @@ const program = Effect.gen(function* () {
   yield* agent.initialize;
   const session = yield* agent.newSession(
     root,
-    sandbox.available ? config.sandboxMeta : undefined
+    sandbox.available ? { meta: config.sandboxMeta } : undefined
   );
 
   const ask = Effect.fnUntraced(function* (label: string, text: string) {

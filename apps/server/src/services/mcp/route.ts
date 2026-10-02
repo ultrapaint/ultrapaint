@@ -16,11 +16,14 @@ import { EditorTools, EditorToolsLive } from "./tools.ts";
 
 export const MCP_PATH = "/mcp";
 export const MCP_TOKEN_HEADER = "x-ultrapaint-token";
+const MCP_VERSION_HEADER = "mcp-protocol-version";
 
 /** Turns away anything reaching the MCP endpoint without a token of a live session. */
 const TokenGate = HttpRouter.use(
   Effect.fnUntraced(function* (router) {
     const access = yield* McpAccess;
+    /** Who has been heard speaking which protocol revision, so each is logged once. */
+    const heard = new Set<string>();
     yield* router.addGlobalMiddleware((handler) =>
       Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest;
@@ -31,12 +34,20 @@ const TokenGate = HttpRouter.use(
         if (!(yield* access.allows(token))) {
           return HttpServerResponse.text("unknown token", { status: 403 });
         }
+        const thread = access.threadOf(token);
+        // Which revision an agent negotiated is otherwise invisible, and it decides what the
+        // agent can do: only 2026-07-28 asks the user without holding a request open.
+        const version = request.headers[MCP_VERSION_HEADER];
+        const caller =
+          thread === undefined
+            ? "an agent outside the editor"
+            : `thread ${thread}`;
+        if (version !== undefined && !heard.has(`${caller} ${version}`)) {
+          heard.add(`${caller} ${version}`);
+          yield* Effect.logInfo(`MCP: ${caller} speaks ${version}`);
+        }
         // An agent from outside the editor has no thread, and the tools that need one say so.
-        return yield* Effect.provideService(
-          handler,
-          CallingThread,
-          access.threadOf(token)
-        );
+        return yield* Effect.provideService(handler, CallingThread, thread);
       })
     );
   })
@@ -55,10 +66,12 @@ export const McpRoute = Tools.pipe(
         "The ultrapaint editor: the project's pages, routes and component palette.",
       name: EDITOR_MCP_SERVER,
       path: MCP_PATH,
+      // The stateless revision first. Codex speaks it only behind a flag that is off by default
+      // and otherwise asks for 2025-06-18, so the two before it stay until that changes.
       protocols: [
+        McpProtocol.v2026_07_28,
         McpProtocol.v2025_11_25,
         McpProtocol.v2025_06_18,
-        McpProtocol.v2025_03_26,
       ],
       version: "0.1.0",
     })
