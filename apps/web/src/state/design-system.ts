@@ -1,6 +1,6 @@
 /**
  * The design system the project imported, and its conventions. The inspector's pickers, the
- * Design system panel, the palette and every preview read it from here.
+ * Design system panel, the Assets panel and every preview read it from here.
  */
 import type {
   DesignSystem,

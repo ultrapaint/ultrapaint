@@ -183,7 +183,7 @@ const CanvasRow = ({
     // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: the row's buttons raise the menu from the keyboard, and it bubbles here.
     <div
       className={cn(
-        "group relative flex h-7 items-center gap-1.5 rounded-md pr-1 pl-1.5 text-xs",
+        "group relative flex h-7 items-center gap-1.5 rounded-md pr-1 pl-1.5 font-body",
         current ? "text-foreground" : "text-muted-foreground hover:bg-muted/50"
       )}
       draggable={!renaming}
@@ -223,7 +223,7 @@ const CanvasRow = ({
       )}
       {renaming ? null : (
         <>
-          <span className="shrink-0 text-[10px] text-muted-foreground group-hover:hidden">
+          <span className="shrink-0 font-body text-muted-foreground group-hover:hidden">
             {count} {count === 1 ? "page" : "pages"}
           </span>
           <IconButton
@@ -265,7 +265,7 @@ export const CanvasSwitcher = () => {
   return (
     <Popover onOpenChange={setOpen} open={open}>
       <PopoverTrigger
-        className="flex h-9 shrink-0 items-center gap-2 border-b px-3 text-left text-xs outline-none hover:bg-muted/40 focus-visible:bg-muted/40 data-popup-open:bg-muted/40"
+        className="flex h-9 shrink-0 items-center gap-2 border-b px-3 text-left font-body outline-none hover:bg-muted/40 focus-visible:bg-muted/40 data-popup-open:bg-muted/40"
         title="Canvases"
       >
         <Frame className="size-3.5 shrink-0 text-muted-foreground" />
@@ -277,13 +277,13 @@ export const CanvasSwitcher = () => {
         className="w-(--anchor-width) min-w-60 gap-1 p-1"
         sideOffset={2}
       >
-        <div className="px-2 pt-1 pb-0.5 font-medium text-[11px] text-muted-foreground">
+        <div className="px-2 pt-1 pb-0.5 font-heading-xsmall text-muted-foreground">
           Canvases
         </div>
         <CanvasList canvases={canvases} current={current} onOpened={close} />
         <div className="my-0.5 h-px bg-border" />
         <button
-          className="flex h-7 items-center gap-2 rounded-md px-1.5 text-left text-muted-foreground text-xs hover:bg-muted/50 hover:text-foreground"
+          className="flex h-7 items-center gap-2 rounded-md px-1.5 text-left font-body text-muted-foreground hover:bg-muted/50 hover:text-foreground"
           onClick={create}
           type="button"
         >
@@ -291,7 +291,7 @@ export const CanvasSwitcher = () => {
           New canvas
         </button>
         <button
-          className="flex h-7 items-center gap-2 rounded-md px-1.5 text-left text-muted-foreground text-xs hover:bg-muted/50 hover:text-foreground"
+          className="flex h-7 items-center gap-2 rounded-md px-1.5 text-left font-body text-muted-foreground hover:bg-muted/50 hover:text-foreground"
           onClick={importFile}
           title="An agent turns the frames of a .fig file into pages of this canvas"
           type="button"

@@ -140,12 +140,12 @@ export const StyleCombobox = ({
         title={title}
       >
         {leading ? (
-          <InputGroupAddon className="py-0 pl-1.5 font-normal text-[10px]">
+          <InputGroupAddon className="py-0 pl-1.5 font-body font-normal">
             {leading}
           </InputGroupAddon>
         ) : null}
         <ComboboxPrimitive.Input
-          className="h-full min-w-0 flex-1 bg-transparent px-1.5 text-[11px] outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
+          className="h-full min-w-0 flex-1 bg-transparent px-1.5 font-body outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
           data-slot="input-group-control"
           onFocus={selectAll}
           placeholder={selected?.label ?? display}
@@ -156,7 +156,7 @@ export const StyleCombobox = ({
         >
           {hint && !selected ? (
             <span
-              className="min-w-0 max-w-24 truncate font-mono font-normal text-[10px]"
+              className="min-w-0 max-w-24 truncate font-code font-normal"
               title={hint}
             >
               {hint}
@@ -202,7 +202,7 @@ const Option = ({ item }: { item: StyleOption }) => (
   <>
     {item.preview}
     <span className="truncate">{item.label}</span>
-    <span className="ml-auto flex items-center gap-1.5 pl-3 font-mono text-[10px] text-muted-foreground">
+    <span className="ml-auto flex items-center gap-1.5 pl-3 font-code text-muted-foreground">
       {item.description ? <span>{item.description}</span> : null}
       {item.description === item.value ? null : <span>{item.value}</span>}
       {isArbitraryClass(item.value) ? <ArbitraryDot /> : null}
@@ -218,7 +218,7 @@ const ArbitraryItem = ({ item }: { item: Item }) => {
       <span className={cn("truncate", arbitrary && "text-warning")}>
         {arbitrary ? "Use arbitrary" : "Use"}
       </span>
-      <span className="ml-auto pl-3 font-mono text-[10px] text-muted-foreground">
+      <span className="ml-auto pl-3 font-code text-muted-foreground">
         {item.value}
       </span>
     </>

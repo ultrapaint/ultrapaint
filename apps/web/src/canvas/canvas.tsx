@@ -41,12 +41,12 @@ import {
   useCreate,
 } from "./create-tool.ts";
 import {
+  ASSET_MIME,
   beginDrag,
   cancelDrag,
   canvasPoint,
   endDrag,
   moveDrag,
-  PALETTE_MIME,
   useDrag,
 } from "./drag.ts";
 import { CreateOverlay, DragOverlay } from "./drag-overlay.tsx";
@@ -189,7 +189,7 @@ export const Canvas = () => {
     return () => window.removeEventListener("paste", onPaste);
   }, []);
 
-  // A component from the palette, or image files from the desktop.
+  // A component from the Assets panel, or image files from the desktop.
   useEffect(() => {
     const el = ref.current;
     if (!el) {
@@ -197,7 +197,7 @@ export const Canvas = () => {
     }
     const onDragOver = (e: DragEvent) => {
       const types = e.dataTransfer?.types ?? [];
-      const component = types.includes(PALETTE_MIME);
+      const component = types.includes(ASSET_MIME);
       if (!(e.dataTransfer && (component || types.includes("Files")))) {
         return;
       }
@@ -226,7 +226,7 @@ export const Canvas = () => {
         addImages(images, canvasPoint(e.clientX, e.clientY));
         return;
       }
-      const raw = e.dataTransfer?.getData(PALETTE_MIME);
+      const raw = e.dataTransfer?.getData(ASSET_MIME);
       if (raw) {
         endDrag(JSON.parse(raw) as DesignNode);
       } else {

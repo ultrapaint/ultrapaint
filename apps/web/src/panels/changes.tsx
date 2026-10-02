@@ -263,7 +263,7 @@ const Snapshots = ({
   };
   return (
     <div className="border-b p-2">
-      <div className="mb-1 flex items-center gap-1 text-[10px] text-muted-foreground uppercase">
+      <div className="mb-1 flex items-center gap-1 font-heading-xsmall text-muted-foreground uppercase">
         <Bookmark className="size-3" />
         <span className="flex-1">Snapshots</span>
         <IconButton onClick={save} size="icon-xs" tooltip="Save a snapshot">
@@ -365,7 +365,7 @@ const Checkpoints = ({
   onRevert: () => Promise<void>;
 }) => (
   <div className="p-2">
-    <div className="mb-1 flex items-center gap-1 text-[10px] text-muted-foreground uppercase">
+    <div className="mb-1 flex items-center gap-1 font-heading-xsmall text-muted-foreground uppercase">
       <History className="size-3" /> Agent turn checkpoints
     </div>
     {checkpoints.length === 0 && (
@@ -485,7 +485,7 @@ const FileGroup = ({
   }
   return (
     <div>
-      <Label className="gap-2 px-2 py-1 font-normal text-[10px] text-muted-foreground uppercase">
+      <Label className="gap-2 px-2 py-1 font-heading-xsmall text-muted-foreground uppercase">
         <Checkbox checked={all} onCheckedChange={toggleAll} />
         {title} ({files.length})
       </Label>
@@ -531,7 +531,7 @@ const FileRow = ({
   return (
     <div
       className={cn(
-        "flex h-6 items-center gap-2 px-2 text-[11px]",
+        "flex h-6 items-center gap-2 px-2 font-body",
         current
           ? "bg-brand/20 text-foreground"
           : "text-muted-foreground hover:bg-muted/50"
@@ -550,7 +550,7 @@ const FileRow = ({
       >
         {path.split("/").slice(-2).join("/")}
       </button>
-      <span className="font-mono text-[10px] text-muted-foreground">
+      <span className="font-code text-muted-foreground">
         {file.code.trim() || "M"}
       </span>
     </div>
@@ -571,10 +571,10 @@ const DiffView = ({ diffs }: { diffs: readonly GitDiff[] }) => (
   <div className="p-2">
     {diffs.map((d) => (
       <div className="mb-2" key={d.path}>
-        <div className="mb-1 truncate font-mono text-[10px] text-muted-foreground">
+        <div className="mb-1 truncate font-code text-muted-foreground">
           {d.path}
         </div>
-        <pre className="overflow-auto rounded-md bg-muted/50 p-1.5 font-mono text-[10px] leading-4">
+        <pre className="overflow-auto rounded-md bg-muted/50 p-1.5 font-code leading-4">
           {diffLines(d.diff).map(({ offset, text: line }) => (
             <div
               className={cn(

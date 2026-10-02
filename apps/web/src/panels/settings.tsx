@@ -98,9 +98,9 @@ const Group = ({
 }) => (
   <section className="flex flex-col gap-2">
     <div className="flex flex-col gap-0.5 px-1">
-      <h3 className="font-medium text-sm">{title}</h3>
+      <h3 className="font-heading-xsmall">{title}</h3>
       {description ? (
-        <p className="text-muted-foreground text-xs/relaxed">{description}</p>
+        <p className="font-body text-muted-foreground">{description}</p>
       ) : null}
     </div>
     <div className="divide-y rounded-lg border bg-card">{children}</div>
@@ -127,11 +127,11 @@ const Row = ({
 }) => (
   <div className="flex @2xl:flex-row flex-col @2xl:items-start @2xl:justify-between @2xl:gap-8 gap-3 px-4 py-3.5">
     <div className="flex min-w-0 flex-1 flex-col gap-1 @2xl:pt-1">
-      <Label className="text-sm" htmlFor={htmlFor}>
+      <Label className="font-body" htmlFor={htmlFor}>
         {title}
       </Label>
       {description ? (
-        <p className="text-muted-foreground text-xs/relaxed">{description}</p>
+        <p className="font-body text-muted-foreground">{description}</p>
       ) : null}
     </div>
     <div
@@ -253,7 +253,7 @@ const McpConnectionGroup = () => {
         wide
       >
         <div className="flex items-start gap-2">
-          <code className="min-w-0 flex-1 select-text overflow-x-auto whitespace-pre rounded-md bg-muted px-2 py-1.5 font-mono text-[10px] leading-relaxed">
+          <code className="min-w-0 flex-1 select-text overflow-x-auto whitespace-pre rounded-md bg-muted px-2 py-1.5 font-code">
             {command}
           </code>
           <Button onClick={copy} size="sm" variant="outline">
@@ -306,7 +306,7 @@ const SkillRow = ({
       description={
         <>
           {skill.summary}
-          <span className="mt-1 block text-[11px]">{sourceLabel(skill)}</span>
+          <span className="mt-1 block font-body">{sourceLabel(skill)}</span>
           {shown ? (
             <span className="mt-2 block rounded-md bg-muted/40 p-3 text-foreground">
               <Markdown>{skill.text}</Markdown>
@@ -558,7 +558,7 @@ const SaveProblems = ({
             >
               Create {designsDir}
             </Button>
-            <span className="text-muted-foreground text-xs">
+            <span className="font-body text-muted-foreground">
               Creates the directory with a tsconfig.json
               {resolveFrom
                 ? `, and links the dependencies of ${resolveFrom} (git-ignored) so editors resolve what the pages import`
@@ -616,7 +616,7 @@ const Sidebar = ({
             <button
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex h-8 items-center gap-2.5 rounded-md px-2.5 text-left text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/30",
+                "flex h-8 items-center gap-2.5 rounded-md px-2.5 text-left font-body outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/30",
                 active
                   ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
                   : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground"
@@ -869,7 +869,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const designSystem = (
     <>
       <Group
-        description="Where the design system is read from: the preview loads these, and the palette is catalogued from them."
+        description="Where the design system is read from: the preview loads these, and the Assets panel is catalogued from them."
         title="Sources"
       >
         <Row
@@ -879,33 +879,33 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           wide
         >
           <Textarea
-            className="min-h-14 font-mono text-xs"
+            className="min-h-14 font-code"
             id="settings-css"
             onChange={onHostCss}
             value={draft.hostCss.join("\n")}
           />
         </Row>
         <Row
-          description="Catalogued for the palette. Relative to the repository, one per line."
+          description="Catalogued for the Assets panel. Relative to the repository, one per line."
           htmlFor="settings-libs"
           title="Source directories"
           wide
         >
           <Textarea
-            className="min-h-14 font-mono text-xs"
+            className="min-h-14 font-code"
             id="settings-libs"
             onChange={onLibraryDirs}
             value={draft.libraryDirs.join("\n")}
           />
         </Row>
         <Row
-          description="Package names whose exports form the palette, one per line."
+          description="Package names whose exports form the Assets panel, one per line."
           htmlFor="settings-packages"
           title="Component packages"
           wide
         >
           <Textarea
-            className="min-h-14 font-mono text-xs"
+            className="min-h-14 font-code"
             id="settings-packages"
             onChange={onComponentPackages}
             value={draft.componentPackages.join("\n")}
@@ -933,7 +933,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
       <SendKeyGroup />
       <Group title="Previews">
         <Row
-          description="Optional. Palette previews use running stories."
+          description="Optional. The Assets panel's previews use running stories."
           htmlFor="settings-storybook"
           title="Storybook URL"
         >
@@ -972,7 +972,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
         showAll={saved !== null}
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-12 shrink-0 items-center gap-1.5 border-b px-6 text-sm">
+        <header className="flex h-12 shrink-0 items-center gap-1.5 border-b px-6 font-body">
           <span className="text-muted-foreground">Settings</span>
           <span className="text-muted-foreground">/</span>
           <span className="font-medium">{label}</span>
@@ -994,7 +994,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
             <div className="flex items-center justify-between gap-4">
               <p
                 className={cn(
-                  "min-w-0 truncate text-xs",
+                  "min-w-0 truncate font-body",
                   unsaved ? "text-warning" : "text-muted-foreground"
                 )}
                 title={storageLine(storage, detected)}

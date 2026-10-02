@@ -301,7 +301,7 @@ const requestRpcs = [
     success: Skill,
   }),
 
-  /** Thumbnails of the palette drawn earlier, under the key of what they were drawn from. */
+  /** Thumbnails of the Assets panel drawn earlier, under the key of what they were drawn from. */
   Rpc.make("thumbnails.get", {
     error: NotConfigured,
     payload: { key: Schema.String },

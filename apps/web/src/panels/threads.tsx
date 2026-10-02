@@ -196,10 +196,8 @@ const ThreadHeader = ({ thread }: { thread: Thread }) => {
         <ChevronLeft />
       </IconButton>
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate font-semibold text-[13px]">
-          {thread.title}
-        </span>
-        <span className="flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground">
+        <span className="truncate font-heading-xsmall">{thread.title}</span>
+        <span className="flex min-w-0 items-center gap-1 font-body text-muted-foreground">
           <AgentIcon agentId={thread.agentId} className="size-3 shrink-0" />
           <span className="truncate">
             {[agentName, model].filter(Boolean).join(" · ")}
@@ -239,7 +237,7 @@ const ScopeBar = ({ thread }: { thread: Thread }) => {
     <div className="flex shrink-0 items-center gap-2.5 border-b bg-muted/30 py-2 pr-2 pl-3">
       <ScopePicture className="size-9" thread={thread} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="text-[10.5px] text-muted-foreground">Working on</span>
+        <span className="font-body text-muted-foreground">Working on</span>
         <span className="flex min-w-0 items-baseline gap-1.5">
           <span
             className={cn(
@@ -250,7 +248,7 @@ const ScopeBar = ({ thread }: { thread: Thread }) => {
             {scope.name}
             {scope.count ? ` +${scope.count - 1}` : ""}
           </span>
-          <span className="truncate font-mono text-[11px] text-muted-foreground">
+          <span className="truncate font-code text-muted-foreground">
             {route ?? "canvas"}
           </span>
         </span>
@@ -479,7 +477,7 @@ const TurnEnd = ({
   const note = stopNote(item.stopReason);
   const count = item.changedFiles.length;
   return (
-    <div className="flex items-center gap-1 text-[10px] text-muted-foreground/70">
+    <div className="flex items-center gap-1 font-body text-muted-foreground/70">
       {note ? (
         <span className="flex items-center gap-1 text-warning">
           <Square className="size-2.5 fill-current" />
@@ -496,7 +494,7 @@ const TurnEnd = ({
         <>
           <span>·</span>
           <Button
-            className="h-auto p-0 text-[10px] text-muted-foreground/70 hover:text-foreground"
+            className="h-auto p-0 font-body text-muted-foreground/70 hover:text-foreground"
             onClick={() => openChanges(item.changedFiles)}
             size="xs"
             variant="link"
@@ -533,7 +531,7 @@ const TerminalView = ({
     end.current?.scrollIntoView({ block: "nearest" });
   }, [output]);
   return (
-    <pre className="max-h-48 select-text overflow-auto whitespace-pre-wrap px-2 py-1 font-mono text-[10px] text-muted-foreground">
+    <pre className="max-h-48 select-text overflow-auto whitespace-pre-wrap px-2 py-1 font-code text-muted-foreground">
       {output ?? "…"}
       <div ref={end} />
     </pre>
@@ -563,12 +561,12 @@ const DiffContentView = ({
   }, [content.oldText, content.newText]);
   return (
     <div>
-      <div className="flex items-center gap-2 px-2 pt-1 font-mono text-[10px] text-muted-foreground">
+      <div className="flex items-center gap-2 px-2 pt-1 font-code text-muted-foreground">
         <span className="truncate">{content.path}</span>
         <span className="ml-auto shrink-0 text-success">+{added}</span>
         <span className="shrink-0 text-destructive">-{removed}</span>
       </div>
-      <pre className="max-h-48 select-text overflow-auto px-2 py-1 font-mono text-[10px] leading-4">
+      <pre className="max-h-48 select-text overflow-auto px-2 py-1 font-code leading-4">
         {rows.map((row) => (
           <div
             className={cn(
@@ -600,7 +598,7 @@ const ToolContentView = ({
     return <TerminalView terminalId={content.terminalId} threadId={threadId} />;
   }
   return (
-    <pre className="max-h-48 select-text overflow-auto whitespace-pre-wrap px-2 py-1 font-mono text-[10px] text-muted-foreground">
+    <pre className="max-h-48 select-text overflow-auto whitespace-pre-wrap px-2 py-1 font-code text-muted-foreground">
       {content.text}
     </pre>
   );
@@ -659,7 +657,7 @@ const Item = ({
             thinking
           </Disclosure>
           <CollapsibleContent className="mt-1 select-text border-l pl-2 text-muted-foreground">
-            <Markdown className="text-[11px]/relaxed" streaming={streaming}>
+            <Markdown className="font-body" streaming={streaming}>
               {item.text}
             </Markdown>
           </CollapsibleContent>
@@ -681,7 +679,7 @@ const Item = ({
             />
             <span className="truncate">{item.title}</span>
             {item.toolKind ? (
-              <span className="ml-auto text-[10px] text-muted-foreground/70">
+              <span className="ml-auto font-body text-muted-foreground/70">
                 {item.toolKind}
               </span>
             ) : null}
@@ -689,7 +687,7 @@ const Item = ({
           <CollapsibleContent>
             <div className="border-t">
               {item.locations.length > 0 && (
-                <div className="px-2 py-1 font-mono text-[10px] text-muted-foreground">
+                <div className="px-2 py-1 font-code text-muted-foreground">
                   {item.locations.map((l) => (
                     <div key={`${l.path}:${l.line ?? ""}`}>
                       {l.line === undefined ? l.path : `${l.path}:${l.line}`}
@@ -712,7 +710,7 @@ const Item = ({
     case "plan":
       return (
         <div className="rounded-md border px-2 py-1.5">
-          <Marker className="mb-1 text-[10px] uppercase">
+          <Marker className="mb-1 font-heading-xsmall uppercase">
             <MarkerIcon>
               <ListTodo />
             </MarkerIcon>
@@ -802,7 +800,7 @@ const Permission = ({
       <AlertDescription className="flex flex-col gap-1.5">
         <span>{item.title}</span>
         {item.detail ? (
-          <pre className="max-h-24 select-text overflow-auto whitespace-pre-wrap font-mono text-[10px]">
+          <pre className="max-h-24 select-text overflow-auto whitespace-pre-wrap font-code">
             {item.detail}
           </pre>
         ) : null}
@@ -905,7 +903,7 @@ const QuestionChoices = ({
       {typed || question.allowOther ? (
         <Input
           aria-invalid={notANumber(question, other) || undefined}
-          className="h-7 text-xs"
+          className="h-7 font-body"
           inputMode={
             question.value === "number" || question.value === "integer"
               ? "decimal"
@@ -1231,7 +1229,7 @@ const SelectOptionSub = ({
               <span className="flex min-w-0 flex-col">
                 <span>{o.name}</span>
                 {o.description ? (
-                  <span className="max-w-64 whitespace-normal text-[10px] text-muted-foreground leading-snug">
+                  <span className="max-w-64 whitespace-normal font-body text-muted-foreground">
                     {o.description}
                   </span>
                 ) : null}
@@ -1401,7 +1399,7 @@ const SandboxBadge = ({ thread }: { thread: Thread }) => {
   const repo = repoPath?.split("/").filter(Boolean).at(-1);
   return thread.sandboxed ? (
     <span
-      className="flex items-center gap-1 self-start px-1 text-muted-foreground text-xs [&_svg]:size-3"
+      className="flex items-center gap-1 self-start px-1 font-body text-muted-foreground [&_svg]:size-3"
       title={`The agent reads and writes in ${repoPath ?? "the repository"}, its own files, caches and temporary files. The rest of your home directory is closed to it.`}
     >
       <ShieldCheck />
@@ -1409,7 +1407,7 @@ const SandboxBadge = ({ thread }: { thread: Thread }) => {
     </span>
   ) : (
     <span
-      className="flex items-center gap-1 self-start px-1 text-warning text-xs [&_svg]:size-3"
+      className="flex items-center gap-1 self-start px-1 font-body text-warning [&_svg]:size-3"
       title={
         thread.sandboxProblem
           ? `The sandbox on this machine did not start (${thread.sandboxProblem}), so the agent reaches everything you can.`
@@ -1424,7 +1422,7 @@ const SandboxBadge = ({ thread }: { thread: Thread }) => {
 
 /** The composer's menus have roomier rows than the editor's. */
 const roomyItems =
-  "[&_[role^=menuitem]]:min-h-8 [&_[role^=menuitem]]:text-[13px]";
+  "[&_[role^=menuitem]]:min-h-8 [&_[role^=menuitem]]:font-body";
 
 /** The composer's pickers: plain at rest, on the secondary surface while hovered or open. */
 const pickerTrigger =
@@ -1497,7 +1495,7 @@ const ModePicker = ({ thread }: { thread: Thread }) => {
               <span className="flex min-w-0 flex-col">
                 <span>{m.name}</span>
                 {m.description ? (
-                  <span className="whitespace-normal text-[10px] text-muted-foreground leading-snug">
+                  <span className="whitespace-normal font-body text-muted-foreground">
                     {m.description}
                   </span>
                 ) : null}
@@ -1718,7 +1716,7 @@ const Composer = ({ thread }: { thread: Thread }) => {
               <button
                 aria-selected={i === commandIndex}
                 className={cn(
-                  "flex flex-col items-start gap-0.5 px-2 py-1.5 text-left text-[11px] hover:bg-muted",
+                  "flex flex-col items-start gap-0.5 px-2 py-1.5 text-left font-body hover:bg-muted",
                   i === commandIndex && "bg-muted"
                 )}
                 key={command.name}
@@ -1743,7 +1741,7 @@ const Composer = ({ thread }: { thread: Thread }) => {
           </div>
         ) : null}
         <textarea
-          className="field-sizing-content max-h-60 min-h-24 w-full resize-none bg-transparent px-3 py-2 text-xs/relaxed outline-none placeholder:text-muted-foreground"
+          className="field-sizing-content max-h-60 min-h-24 w-full resize-none bg-transparent px-3 py-2 font-body outline-none placeholder:text-muted-foreground"
           onChange={onTextChange}
           onKeyDown={onTextKeyDown}
           placeholder={placeholderOf(running, agentName)}
@@ -1855,7 +1853,7 @@ const QueuedPrompts = ({
       .catch(reportError);
   return (
     <div className="flex flex-col gap-1 rounded-lg border border-dashed px-2 py-1.5">
-      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+      <div className="flex items-center gap-1.5 font-body text-muted-foreground">
         <Clock className="size-3" />
         <span className="flex-1">
           {running
@@ -1875,7 +1873,7 @@ const QueuedPrompts = ({
       </div>
       {queued.map((q) => (
         <div className="group flex items-start gap-1.5" key={q.id}>
-          <span className="line-clamp-2 min-w-0 flex-1 text-[12px]">
+          <span className="line-clamp-2 min-w-0 flex-1 font-body">
             {q.text}
             {q.attachments.length > 0 ? (
               <span className="ml-1 text-muted-foreground">
@@ -1969,7 +1967,7 @@ const AttachmentChip = ({
   return (
     <span
       className={cn(
-        "flex h-5.5 min-w-0 items-center gap-1 rounded-md border pr-0.5 pl-1.5 text-[11px] [&_svg]:size-3 [&_svg]:shrink-0",
+        "flex h-5.5 min-w-0 items-center gap-1 rounded-md border pr-0.5 pl-1.5 font-body leading-4 [&_svg]:size-3 [&_svg]:shrink-0",
         implicit && "border-dashed text-muted-foreground",
         !implicit && component && "border-component/60 bg-component/15",
         !implicit && element && "border-selection/60 bg-selection/10",
@@ -2017,7 +2015,7 @@ const ContextChip = ({
   onRemove: () => void;
 }) => (
   <span
-    className="flex h-5 min-w-0 items-center gap-1 rounded-md border bg-background/40 pr-0.5 pl-1.5 text-[11px] [&_svg]:size-3 [&_svg]:shrink-0 [&_svg]:text-muted-foreground"
+    className="flex h-5 min-w-0 items-center gap-1 rounded-md border bg-background/40 pr-0.5 pl-1.5 font-body leading-4 [&_svg]:size-3 [&_svg]:shrink-0 [&_svg]:text-muted-foreground"
     title={title}
   >
     {icon}

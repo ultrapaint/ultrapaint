@@ -38,7 +38,7 @@ export const LinkControl = ({ node }: { node: DesignNode }) => {
             <PopoverTrigger
               render={
                 <button
-                  className="flex h-7 items-center rounded-md px-2 font-medium text-[12px] outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 data-[linked=true]:bg-muted data-[broken=true]:text-destructive data-[linked=true]:text-sky-500"
+                  className="flex h-7 items-center rounded-md px-2 font-body font-medium outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 data-[linked=true]:bg-muted data-[broken=true]:text-destructive data-[linked=true]:text-sky-500"
                   data-broken={described?.broken ?? false}
                   data-linked={described !== null}
                   type="button"
@@ -56,7 +56,7 @@ export const LinkControl = ({ node }: { node: DesignNode }) => {
         </TooltipContent>
       </Tooltip>
       <PopoverContent className="w-64 gap-2 p-2.5">
-        <span className="font-medium text-[11px]">Goes to</span>
+        <span className="font-heading-xsmall">Goes to</span>
         <LinkField
           link={node.link}
           onChange={(link) =>

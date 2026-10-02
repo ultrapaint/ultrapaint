@@ -1,5 +1,5 @@
 /**
- * New nodes: what the palette inserts and what a new page starts as. Ids come from the caller's
+ * New nodes: what the Assets panel inserts and what a new page starts as. Ids come from the caller's
  * generator, so a node made in the editor can be selected as soon as the server has it.
  */
 
@@ -14,7 +14,7 @@ import type {
 import { type IdGenerator, idPrefix, makeIdGenerator } from "./ids.ts";
 import { componentTakesChildren, DOCUMENT_VERSION } from "./tree.ts";
 
-/** The primitives the palette offers above the design system's components. */
+/** The primitives the Assets panel offers above the design system's components. */
 export const PRIMITIVES = [
   { id: "column", name: "Column" },
   { id: "row", name: "Row" },

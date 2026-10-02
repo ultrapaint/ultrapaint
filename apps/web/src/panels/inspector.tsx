@@ -246,7 +246,7 @@ const NameInput = ({ node }: { node: DesignNode }) => {
   return (
     <Input
       aria-label="Name"
-      className="h-7 border-transparent bg-transparent px-1 font-semibold text-sm shadow-none hover:border-input dark:bg-transparent"
+      className="h-7 border-transparent bg-transparent px-1 font-heading-xsmall shadow-none hover:border-input dark:bg-transparent"
       onBlur={commit}
       onChange={(e) => setDraft(e.target.value)}
       onKeyDown={(e) => {
@@ -278,13 +278,13 @@ const Kinds = ({
   );
   if (nodes.length > 1) {
     return (
-      <div className="truncate px-1 text-[11px] text-muted-foreground">
+      <div className="truncate px-1 font-body text-muted-foreground">
         {[...new Set(nodes.map(nodeKind))].join(", ")}
       </div>
     );
   }
   return (
-    <div className="flex items-center gap-2 px-1 text-[11px] text-muted-foreground">
+    <div className="flex items-center gap-2 px-1 font-body text-muted-foreground">
       <span className={cn(node.type === "instance" && "text-component")}>
         {nodeKind(node)}
       </span>
@@ -327,7 +327,7 @@ const Header = ({
       <div className="flex items-center gap-1">
         <div className="min-w-0 flex-1">
           {several ? (
-            <div className="truncate px-1 font-semibold text-sm leading-7">
+            <div className="truncate px-1 font-heading-xsmall leading-7">
               {nodes.length} selected
             </div>
           ) : (
@@ -403,8 +403,10 @@ const PageSection = ({ frame }: { frame: string }) => {
       <Row label="URL">
         <button
           className={cn(
-            "truncate text-left text-[11px] hover:underline",
-            page.route === undefined ? "text-muted-foreground" : "font-mono"
+            "truncate text-left hover:underline",
+            page.route === undefined
+              ? "font-body text-muted-foreground"
+              : "font-code"
           )}
           onClick={() => editPageUrl(page)}
           title={
@@ -428,7 +430,7 @@ const PageSection = ({ frame }: { frame: string }) => {
         />
       </Row>
       <Row label="Frame">
-        <span className="text-[11px] text-muted-foreground">
+        <span className="font-body text-muted-foreground">
           {Math.round(layout.width)} × {Math.round(layout.height)}
         </span>
       </Row>
@@ -473,7 +475,7 @@ const TextInput = ({
   return multiline ? (
     <Textarea
       {...common}
-      className="min-h-16 text-[11px] md:text-[11px]"
+      className="min-h-16 font-body"
       onChange={(e) => setDraft(e.target.value)}
       onKeyDown={(e) => {
         if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -484,7 +486,7 @@ const TextInput = ({
   ) : (
     <Input
       {...common}
-      className="h-6 md:text-[11px]"
+      className="h-6 font-body"
       onChange={(e) => setDraft(e.target.value)}
       onKeyDown={(e) => {
         if (e.key === "Enter") {
@@ -497,7 +499,7 @@ const TextInput = ({
 
 /** A line under a section's fields about why what they say is not what is drawn. */
 const Warning = ({ children }: { children: ReactNode }) => (
-  <p className="flex gap-1.5 text-[11px] text-warning [&_svg]:mt-px [&_svg]:size-3 [&_svg]:shrink-0">
+  <p className="flex gap-1.5 font-body text-warning [&_svg]:mt-px [&_svg]:size-3 [&_svg]:shrink-0">
     <TriangleAlert />
     <span>{children}</span>
   </p>
@@ -537,7 +539,7 @@ const InstanceSection = ({ nodes }: { nodes: readonly InstanceNode[] }) => {
         </Row>
         <Row label="From">
           <span
-            className="truncate font-mono text-[10px] text-muted-foreground"
+            className="truncate font-code text-muted-foreground"
             title={node.from}
           >
             {node.from}

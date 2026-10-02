@@ -209,7 +209,7 @@ const NumberControl = ({
     setDraft(e.target.value);
   return (
     <Input
-      className="h-6 md:text-[11px]"
+      className="h-6 font-body"
       disabled={disabled}
       onBlur={onBlur}
       onChange={onChange}
@@ -256,7 +256,7 @@ const TextControl = ({
   };
   return (
     <Input
-      className="h-6 md:text-[11px]"
+      className="h-6 font-body"
       disabled={disabled}
       onBlur={onBlur}
       onChange={onChange}
@@ -330,7 +330,7 @@ const PropControl = ({
     }
     return (
       <span
-        className="truncate font-mono text-[10px] text-muted-foreground"
+        className="truncate font-code text-muted-foreground"
         title={meta?.type.raw}
       >
         {shown}

@@ -71,7 +71,7 @@ export const Comments = () => {
   return (
     <div className="flex flex-col">
       <div className="flex items-center gap-1 border-b px-2 py-1.5">
-        <span className="flex-1 truncate text-[11px] text-muted-foreground">
+        <span className="flex-1 truncate font-body text-muted-foreground">
           {comments.length - resolvedCount} open
           {resolvedCount > 0 ? ` · ${resolvedCount} resolved` : ""}
         </span>
@@ -108,7 +108,7 @@ export const Comments = () => {
           const page = pages.find((p) => p.path === pagePath);
           return (
             <div className="border-b py-1" key={pagePath}>
-              <div className="truncate px-3 py-1 font-medium text-[11px] text-muted-foreground">
+              <div className="truncate px-3 py-1 font-heading-xsmall text-muted-foreground">
                 {page
                   ? `${page.name}${page.route ? ` · ${page.route}` : ""}`
                   : `${pagePath} (removed)`}
@@ -134,7 +134,7 @@ const Item = ({ comment }: { comment: Comment }) => {
   return (
     <div
       className={cn(
-        "group relative flex gap-2 px-3 py-1.5 text-[11px] hover:bg-muted/50",
+        "group relative flex gap-2 px-3 py-1.5 font-body hover:bg-muted/50",
         open && "bg-brand/20 hover:bg-brand/20",
         comment.resolved && "opacity-60"
       )}
@@ -149,7 +149,7 @@ const Item = ({ comment }: { comment: Comment }) => {
         }
         type="button"
       />
-      <span className="flex size-5 shrink-0 items-center justify-center rounded-full rounded-bl-none bg-brand font-semibold text-[10px] text-brand-foreground">
+      <span className="flex size-5 shrink-0 items-center justify-center rounded-full rounded-bl-none bg-brand font-body font-semibold text-brand-foreground leading-4">
         {initialOf(comment.author)}
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -157,7 +157,7 @@ const Item = ({ comment }: { comment: Comment }) => {
           <span className="truncate font-medium text-foreground">
             {comment.author ?? "Someone"}
           </span>
-          <span className="shrink-0 text-[10px] text-muted-foreground">
+          <span className="shrink-0 font-body text-muted-foreground">
             {relativeTime(comment.createdAt)}
           </span>
         </div>
@@ -165,7 +165,7 @@ const Item = ({ comment }: { comment: Comment }) => {
           {comment.text}
         </p>
         {comment.element || comment.replies.length > 0 ? (
-          <span className="flex min-w-0 gap-2 text-[10px] text-muted-foreground">
+          <span className="flex min-w-0 gap-2 font-body text-muted-foreground">
             {comment.replies.length > 0 ? (
               <span className="shrink-0">
                 {repliesLabel(comment.replies.length)}

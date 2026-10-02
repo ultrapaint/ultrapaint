@@ -33,7 +33,7 @@ export const GitUserButton = () => {
         render={
           <button
             aria-label={`Git user: ${name}`}
-            className="flex size-7 items-center justify-center rounded-full border bg-muted font-semibold text-[10px] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 data-popup-open:border-foreground data-popup-open:text-foreground"
+            className="flex size-7 items-center justify-center rounded-full border bg-muted font-body font-semibold text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 data-popup-open:border-foreground data-popup-open:text-foreground"
             type="button"
           />
         }
@@ -42,7 +42,7 @@ export const GitUserButton = () => {
       </PopoverTrigger>
       <PopoverContent align="end" className="w-64 gap-3" side="right">
         <div className="flex items-center gap-2.5">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full border bg-muted font-semibold text-[11px]">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full border bg-muted font-body font-semibold">
             {initials}
           </span>
           <div className="flex min-w-0 flex-col">
@@ -56,7 +56,7 @@ export const GitUserButton = () => {
             ) : null}
           </div>
         </div>
-        <div className="flex flex-col gap-1.5 border-t pt-2.5 text-[11px] text-muted-foreground">
+        <div className="flex flex-col gap-1.5 border-t pt-2.5 font-body text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <GitBranch className="size-3" />
             From git config in this repository

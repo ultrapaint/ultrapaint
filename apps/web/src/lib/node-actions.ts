@@ -1,6 +1,6 @@
 /**
  * What the editor does to the selected nodes, from the keyboard, the layers panel, the inspector,
- * the palette and the context menu alike. Each is one request to the server and one undo step,
+ * the Assets panel and the context menu alike. Each is one request to the server and one undo step,
  * however many nodes it changes. An action takes the node it is for, and the rest of the
  * selection with it when the node is selected; the selection when it is not given one. Renaming,
  * selecting a parent and arranging are about one node: the one the inspector shows.
@@ -177,7 +177,7 @@ const selectAllCreated = (
 };
 
 /**
- * Where a node inserted from the palette goes: into the selected container, or component that
+ * Where a node inserted from the Assets panel goes: into the selected container, or component that
  * takes children, at its end; next to the selected node otherwise; and at the end of the page on
  * screen when nothing is selected.
  */

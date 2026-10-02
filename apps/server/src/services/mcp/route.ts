@@ -65,7 +65,7 @@ export const McpRoute = Tools.pipe(
   Layer.provide(
     McpServer.layerHttp({
       description:
-        "The ultrapaint editor: the project's pages, routes and component palette.",
+        "The ultrapaint editor: the project's pages, routes and components.",
       name: EDITOR_MCP_SERVER,
       path: MCP_PATH,
       // The stateless revision first. Codex speaks it only behind a flag that is off by default

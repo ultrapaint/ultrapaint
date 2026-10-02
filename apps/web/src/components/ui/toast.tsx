@@ -79,7 +79,7 @@ function ToastContent({ className, ...props }: ToastPrimitive.Content.Props) {
 function ToastTitle({ className, ...props }: ToastPrimitive.Title.Props) {
   return (
     <ToastPrimitive.Title
-      className={cn("font-medium text-sm", className)}
+      className={cn("font-heading-xsmall", className)}
       data-slot="toast-title"
       {...props}
     />
@@ -92,7 +92,7 @@ function ToastDescription({
 }: ToastPrimitive.Description.Props) {
   return (
     <ToastPrimitive.Description
-      className={cn("text-muted-foreground text-sm", className)}
+      className={cn("font-body text-muted-foreground", className)}
       data-slot="toast-description"
       {...props}
     />

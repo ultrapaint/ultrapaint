@@ -21,14 +21,14 @@ const common = {
   resolveFrom: Schema.optional(RepoRelativePath),
   /** Which design skills agents are not told; all of them apply when absent. */
   skills: Schema.optional(SkillsConfig),
-  /** Running Storybook for the design system, used for palette previews. */
+  /** Running Storybook for the design system, used for the Assets panel's previews. */
   storybookUrl: Schema.optional(Schema.String),
 };
 
 /** The settings the server runs with and the editor edits. Every path is resolved. */
 export const Settings = Schema.Struct({
   ...common,
-  /** Package names whose exports form the component palette. */
+  /** Package names whose exports form the Assets panel. */
   componentPackages: Schema.Array(Schema.String),
   /** Directory holding the screens, relative to the repository. */
   designsDir: RepoRelativePath,

@@ -97,8 +97,8 @@ const StarterGroup = ({
           <Icon className="size-3.5" />
         </span>
         <span className="flex min-w-0 flex-1 flex-col">
-          <span className="font-semibold text-[12.5px]">{starter.title}</span>
-          <span className="truncate text-[11.5px] text-muted-foreground">
+          <span className="font-heading-xsmall">{starter.title}</span>
+          <span className="truncate font-body text-muted-foreground">
             {starter.description}
           </span>
         </span>
@@ -139,7 +139,7 @@ export const ChatStarters = ({ thread }: { thread: Thread }) => {
         <Sparkles className="size-5" />
       </span>
       <div className="flex flex-col items-center gap-1 text-center">
-        <span className="font-semibold text-[15px]">What's next?</span>
+        <span className="font-heading-small">What's next?</span>
         <span className="max-w-72 text-muted-foreground">
           The chat works on what you attach. Pick a starting point or just ask.
         </span>
@@ -165,10 +165,8 @@ export const ChatStarters = ({ thread }: { thread: Thread }) => {
             <FileInput className="size-3.5" />
           </span>
           <span className="flex min-w-0 flex-1 flex-col">
-            <span className="font-semibold text-[12.5px]">
-              Import from Figma
-            </span>
-            <span className="truncate text-[11.5px] text-muted-foreground">
+            <span className="font-heading-xsmall">Import from Figma</span>
+            <span className="truncate font-body text-muted-foreground">
               Turn a .fig file into pages
             </span>
           </span>

@@ -395,7 +395,7 @@ describe("text styles", () => {
   });
 });
 
-describe("the palette menu", () => {
+describe("the Assets menu", () => {
   it("inserts only where there is somewhere to insert", () => {
     const got = componentEntries({
       isComponent: false,

@@ -247,7 +247,7 @@ A project takes a skill over with a markdown file in `skills/` inside the design
 first heading is its title and the paragraph after it the summary Settings show.
 
 The **Design system** panel shows them: swatches per theme, type specimens in your own fonts,
-spacing, radius, shadows, elevation, border widths, layout and motion tokens, and the icon set. The **Components** panel lists your components or shows them as a
+spacing, radius, shadows, elevation, border widths, layout and motion tokens, and the icon set. The **Assets** panel lists your components or shows them as a
 grid of thumbnails, drawn with the example props.
 
 ## Importing a Figma file

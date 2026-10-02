@@ -60,13 +60,13 @@ export const WorkingIndicator = ({
   return (
     <div
       aria-live="polite"
-      className="motion-safe:fade-in flex items-center gap-2 py-1 text-xs motion-safe:animate-in"
+      className="motion-safe:fade-in flex items-center gap-2 py-1 font-body motion-safe:animate-in"
       role="status"
     >
       <WorkingMark />
       <span className="min-w-0 truncate text-shimmer">{label}…</span>
       {elapsed ? (
-        <span className="ml-auto shrink-0 text-[10px] text-muted-foreground/70 tabular-nums">
+        <span className="ml-auto shrink-0 font-body text-muted-foreground/70 tabular-nums">
           {elapsed}
         </span>
       ) : null}

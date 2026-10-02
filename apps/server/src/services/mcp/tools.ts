@@ -554,7 +554,7 @@ export const EditorTools = Toolkit.make(
 
 /**
  * Every failure reaches the agent as a sentence it can do something about: no project open, a
- * route that does not exist, a component that is not in the palette.
+ * route that does not exist, a component that is not in the catalogue.
  */
 export const reported = <A, E extends { readonly message: string }, R>(
   effect: Effect.Effect<A, E, R>

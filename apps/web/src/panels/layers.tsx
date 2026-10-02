@@ -588,7 +588,7 @@ export const Layers = () => {
         ))}
         {shownLoose.length > 0 && (
           <div
-            className="mt-2 px-3 pt-1 pb-0.5 font-medium text-[10px] text-muted-foreground uppercase"
+            className="mt-2 px-3 pt-1 pb-0.5 font-heading-xsmall text-muted-foreground uppercase"
             role="presentation"
           >
             On the canvas
@@ -604,7 +604,7 @@ export const Layers = () => {
           />
         ))}
         {shown.length === 0 ? (
-          <div className="px-3 py-2 text-[11px] text-muted-foreground">
+          <div className="px-3 py-2 font-body text-muted-foreground">
             No layer goes by that name
           </div>
         ) : null}
@@ -658,7 +658,7 @@ const RowName = ({
         onFocus={(e) => (e.target as HTMLInputElement).select()}
       >
         <InlineInput
-          className="h-5 px-1 text-[11px] md:text-[11px]"
+          className="h-5 px-1 font-body leading-4"
           onCancel={() => shared.endRename(item.key)}
           onSubmit={(name) => {
             shared.endRename(item.key);
@@ -773,7 +773,7 @@ const PageRow = ({ item, shared }: { item: LayerItem; shared: Shared }) => {
     // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions lint/a11y/useKeyWithClickEvents: the treeitem around it takes the keys, through the tree.
     <div
       className={cn(
-        "group relative flex h-7 cursor-default items-center gap-1 pr-1 font-medium text-[11px]",
+        "group relative flex h-7 cursor-default items-center gap-1 pr-1 font-body font-medium",
         selected
           ? "bg-selection/25 text-foreground"
           : "text-foreground hover:bg-muted/50",
@@ -800,7 +800,7 @@ const PageRow = ({ item, shared }: { item: LayerItem; shared: Shared }) => {
         shared={shared}
       />
       {shared.renaming === key ? null : (
-        <span className="ml-auto truncate pr-1 font-mono font-normal text-[10px] text-muted-foreground">
+        <span className="ml-auto truncate pr-1 font-code text-muted-foreground">
           {[page.route, page.variant].filter(Boolean).join(" · ")}
         </span>
       )}
@@ -818,7 +818,7 @@ const PageRow = ({ item, shared }: { item: LayerItem; shared: Shared }) => {
           {row}
           {problem ? (
             <div
-              className="truncate px-8 py-0.5 text-[10px] text-destructive"
+              className="truncate px-8 py-0.5 font-body text-destructive"
               title={problem}
             >
               Not a valid page: {problem}
@@ -1095,7 +1095,7 @@ const LayerRow = ({
     // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions lint/a11y/useKeyWithClickEvents: the treeitem around it takes the keys, through the tree.
     <div
       className={cn(
-        "group relative flex h-6 cursor-default items-center gap-1 pr-1 text-[11px]",
+        "group relative flex h-6 cursor-default items-center gap-1 pr-1 font-body",
         rowTone(selected, hovered, node.type === "instance"),
         dropHere === "inside" && "ring-1 ring-brand ring-inset",
         dropHere === "before" && "shadow-[inset_0_2px_0_0_var(--color-brand)]",
@@ -1184,7 +1184,7 @@ const LinkTag = ({ link }: { link: string }) => {
   return (
     <span
       className={cn(
-        "min-w-0 shrink truncate text-[10px]",
+        "min-w-0 shrink truncate font-body",
         broken ? "text-destructive" : "text-muted-foreground/70"
       )}
       title={broken ? `${link} leads to a page that is not there` : link}

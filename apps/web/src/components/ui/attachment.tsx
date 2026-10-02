@@ -16,9 +16,9 @@ const attachmentVariants = cva(
       },
       size: {
         default:
-          "gap-2 text-xs has-data-[slot=attachment-media]:p-1.5 has-data-[slot=attachment-content]:px-2 has-data-[slot=attachment-content]:py-1.5",
-        sm: "gap-2.5 text-xs has-data-[slot=attachment-media]:p-1 has-data-[slot=attachment-content]:px-1.5 has-data-[slot=attachment-content]:py-1",
-        xs: "gap-1.5 rounded-md text-xs has-data-[slot=attachment-media]:p-1 has-data-[slot=attachment-content]:px-1.5 has-data-[slot=attachment-content]:py-1",
+          "gap-2 font-body has-data-[slot=attachment-media]:p-1.5 has-data-[slot=attachment-content]:px-2 has-data-[slot=attachment-content]:py-1.5",
+        sm: "gap-2.5 font-body has-data-[slot=attachment-media]:p-1 has-data-[slot=attachment-content]:px-1.5 has-data-[slot=attachment-content]:py-1",
+        xs: "gap-1.5 rounded-md font-body has-data-[slot=attachment-media]:p-1 has-data-[slot=attachment-content]:px-1.5 has-data-[slot=attachment-content]:py-1",
       },
     },
   }
@@ -116,7 +116,7 @@ function AttachmentDescription({
   return (
     <span
       className={cn(
-        "mt-0.5 block min-w-0 truncate text-muted-foreground text-xs group-data-[state=error]/attachment:text-destructive/80",
+        "mt-0.5 block min-w-0 truncate font-body text-muted-foreground group-data-[state=error]/attachment:text-destructive/80",
         "max-w-full",
         className
       )}

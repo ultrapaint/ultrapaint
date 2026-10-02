@@ -42,7 +42,8 @@ export const Segmented = <T extends string>({
         const item = (
           <ToggleGroupItem
             aria-label={o.title}
-            className="flex-1"
+            // Equal while the labels fit; a longer one takes the room it needs from the others.
+            className="min-w-fit flex-1"
             key={o.value}
             value={o.value}
           >

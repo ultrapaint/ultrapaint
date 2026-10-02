@@ -45,6 +45,57 @@
   }
 }
 
+/* Typography roles, after the Atlassian foundation and epicparty's design system. A role is one
+   `font-<role>` utility carrying the family, size, line height, weight and letter spacing
+   together, in rem (px / 16) so it follows the browser's base size and zoom. `text-` stays
+   colour: the app's own text never takes a stock size (`text-xs`, `text-[11px]`); Tailwind's
+   scale is left defined for Streamdown's renderers and the designs drawn on our own canvases.
+   The editor reads at 14px throughout, with 16px for the titles of dialogs and pages; the one
+   smaller role is the rail's, whose labels have to fit its width. A box too short for a 20px line takes `leading-4` rather than a
+   smaller role. A weight class (`font-medium`) on the same element still wins over the role's
+   weight, and `font-code` is the one role in the mono family. */
+@utility font-heading-small {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  letter-spacing: 0;
+}
+
+@utility font-heading-xsmall {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  letter-spacing: 0;
+}
+
+@utility font-body {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.25rem;
+  letter-spacing: 0;
+}
+
+/* The rail's labels only: 10px, so a word fits under its icon, and a label of two words, such as
+   "Design system", wraps onto a second line. */
+@utility font-rail {
+  font-family: var(--font-sans);
+  font-size: 0.625rem;
+  font-weight: 500;
+  line-height: 0.75rem;
+  letter-spacing: 0;
+}
+
+@utility font-code {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.25rem;
+  letter-spacing: 0;
+}
+
 /* Text with a light passing through it: something is in progress. */
 @utility text-shimmer {
   color: transparent;
@@ -233,7 +284,7 @@ input[type="number"]::-webkit-inner-spin-button {
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground text-xs/relaxed;
+    @apply bg-background font-body text-foreground;
   }
   html {
     @apply font-sans;

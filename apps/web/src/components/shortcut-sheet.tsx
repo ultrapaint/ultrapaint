@@ -97,12 +97,12 @@ export const ShortcutSheet = () => {
         <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
           {GROUPS.map((group) => (
             <section className="flex flex-col gap-1.5" key={group.title}>
-              <h3 className="font-medium text-muted-foreground text-xs">
+              <h3 className="font-heading-xsmall text-muted-foreground">
                 {group.title}
               </h3>
               {group.keys.map(([keys, what]) => (
                 <div
-                  className="flex items-center justify-between gap-3 text-xs"
+                  className="flex items-center justify-between gap-3 font-body"
                   key={what}
                 >
                   <span>{what}</span>

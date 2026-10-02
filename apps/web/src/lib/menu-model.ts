@@ -496,13 +496,13 @@ export const textStyleEntries = (f: {
   ];
 };
 
-// ---- The palette ----
+// ---- The Assets panel ----
 
 export interface ComponentFacts {
   isComponent: boolean;
   name: string;
   onCanvas: boolean;
-  /** Where Insert puts it, as the palette says it: `the page`, `Card`; null when nowhere. */
+  /** Where Insert puts it, as the Assets panel says it: `the page`, `Card`; null when nowhere. */
   target: string | null;
 }
 

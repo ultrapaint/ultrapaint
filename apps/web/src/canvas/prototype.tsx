@@ -327,7 +327,7 @@ const NoUrlWarning = () => {
     ) ?? page;
   return (
     <div
-      className="pointer-events-auto flex max-w-xl items-center gap-2 rounded-xl border border-warning/40 bg-sidebar py-1 pr-1 pl-3 text-sidebar-foreground text-xs shadow-black/30 shadow-lg"
+      className="pointer-events-auto flex max-w-xl items-center gap-2 rounded-xl border border-warning/40 bg-sidebar py-1 pr-1 pl-3 font-body text-sidebar-foreground shadow-black/30 shadow-lg"
       role="status"
       title={NO_URL_HINT}
     >

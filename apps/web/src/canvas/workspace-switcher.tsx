@@ -103,7 +103,7 @@ export const WorkspaceSwitcher = () => {
             <ToggleGroupItem
               aria-keyshortcuts={`${workspaceModifier}+${w.digit}`}
               className={cn(
-                "relative h-8 gap-2 rounded-full px-3 font-medium text-muted-foreground text-sm transition-[color,background-color,width] duration-200 hover:bg-transparent hover:text-foreground aria-pressed:bg-transparent data-pressed:bg-transparent data-pressed:text-foreground [&_svg]:transition-colors [&_svg]:duration-150",
+                "relative h-8 gap-2 rounded-full px-3 font-body font-medium text-muted-foreground transition-[color,background-color,width] duration-200 hover:bg-transparent hover:text-foreground aria-pressed:bg-transparent data-pressed:bg-transparent data-pressed:text-foreground [&_svg]:transition-colors [&_svg]:duration-150",
                 w.tint
               )}
               key={w.value}

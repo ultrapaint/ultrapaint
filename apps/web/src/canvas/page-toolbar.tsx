@@ -65,7 +65,7 @@ const ViewportSelect = ({
               <DropdownMenuRadioItem key={d.value} value={d.value}>
                 <Icon />
                 <span className="flex-1">{d.label}</span>
-                <span className="text-[10.5px] text-muted-foreground">
+                <span className="font-body text-muted-foreground">
                   {d.size.width} × {d.size.height}
                 </span>
               </DropdownMenuRadioItem>

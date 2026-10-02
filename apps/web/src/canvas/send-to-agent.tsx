@@ -97,7 +97,7 @@ export const SendToAgent = ({
               <span>Current chat</span>
               <span
                 className={cn(
-                  "truncate text-[10px] text-muted-foreground",
+                  "truncate font-body text-muted-foreground",
                   busy && "text-warning"
                 )}
               >

@@ -33,10 +33,10 @@ const importFigma: Action = {
   label: "Import a Figma file…",
   run: pickFigmaFile,
 };
-const openComponents: Action = {
+const openAssets: Action = {
   icon: Shapes,
-  label: "Open components",
-  run: () => openLeftPanel("palette"),
+  label: "Open assets",
+  run: () => openLeftPanel("assets"),
 };
 const addCanvas: Action = {
   icon: Frame,
@@ -62,7 +62,7 @@ const contentFor = (
   }
   if (workspace === "design") {
     return {
-      actions: [addPage, openComponents, importFigma, askAgent],
+      actions: [addPage, openAssets, importFigma, askAgent],
       text: "Add a page, or drag a component or an image onto the canvas.",
       title: "Nothing on this canvas yet",
     };
@@ -101,7 +101,7 @@ export const EmptyState = () => {
         >
           <div className="flex flex-col items-center gap-1">
             <span className="font-medium">{title}</span>
-            <span className="max-w-xs text-balance text-muted-foreground text-xs/relaxed">
+            <span className="max-w-xs text-balance font-body text-muted-foreground">
               {text}
             </span>
           </div>

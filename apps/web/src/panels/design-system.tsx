@@ -73,7 +73,7 @@ const valueIn = (token: Token, theme: string, themes: readonly string[]) =>
     : (token.values?.[theme] ?? token.value);
 
 const Heading = ({ children }: { children: React.ReactNode }) => (
-  <div className="sticky top-0 z-10 flex items-center border-b bg-sidebar px-3 py-1.5 font-medium text-[11px]">
+  <div className="sticky top-0 z-10 flex items-center border-b bg-sidebar px-3 py-1.5 font-heading-xsmall">
     {children}
   </div>
 );
@@ -88,7 +88,7 @@ const Swatches = ({
   themes: readonly string[];
 }) => (
   <div className="px-3 py-2">
-    <div className="mb-1.5 text-[10px] text-muted-foreground uppercase">
+    <div className="mb-1.5 font-heading-xsmall text-muted-foreground uppercase">
       {group.name}
     </div>
     <div className="grid grid-cols-[repeat(auto-fill,minmax(64px,1fr))] gap-1.5">
@@ -111,10 +111,10 @@ const Swatches = ({
             type="button"
           >
             <span className="h-9 w-full" style={{ background: value }} />
-            <span className="truncate px-1 pt-0.5 text-[10px] text-foreground/90">
+            <span className="truncate px-1 pt-0.5 font-body text-foreground/90">
               {token.name.replace(COLOR_PREFIX_RE, "")}
             </span>
-            <span className="truncate px-1 pb-0.5 font-mono text-[9px] text-muted-foreground">
+            <span className="truncate px-1 pb-0.5 font-code text-muted-foreground leading-4">
               {value}
             </span>
           </button>
@@ -294,7 +294,7 @@ const TypeSpecimen = ({ ds, q }: { ds: DesignSystem; q: string }) => {
   };
   if (!host) {
     return (
-      <div className="px-3 py-2 text-[11px] text-muted-foreground">
+      <div className="px-3 py-2 font-body text-muted-foreground">
         The preview is not running; type samples are drawn by it.
       </div>
     );
@@ -348,10 +348,8 @@ const TokenRows = ({
         <span className="flex w-14 shrink-0 justify-center">
           {preview(token)}
         </span>
-        <span className="min-w-0 flex-1 truncate text-[11px]">
-          {token.name}
-        </span>
-        <span className="truncate font-mono text-[10px] text-muted-foreground">
+        <span className="min-w-0 flex-1 truncate font-body">{token.name}</span>
+        <span className="truncate font-code text-muted-foreground">
           {token.value}
         </span>
       </button>
@@ -400,14 +398,14 @@ const ElevationRows = ({
           />
         </span>
         <span className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-[11px]">{level.name}</span>
+          <span className="truncate font-body">{level.name}</span>
           {level.description !== undefined && (
-            <span className="truncate text-[10px] text-muted-foreground">
+            <span className="truncate font-body text-muted-foreground">
               {level.description}
             </span>
           )}
         </span>
-        <span className="truncate font-mono text-[10px] text-muted-foreground">
+        <span className="truncate font-code text-muted-foreground">
           {[level.surface, level.shadow, level.layer && `z-${level.layer}`]
             .filter(Boolean)
             .join(" · ")}
@@ -434,7 +432,7 @@ const Notes = ({ notes }: { notes: string | null }) =>
       <Markdown>{notes}</Markdown>
     </div>
   ) : (
-    <div className="flex flex-col items-start gap-2 p-3 text-[11px] text-muted-foreground">
+    <div className="flex flex-col items-start gap-2 p-3 font-body text-muted-foreground">
       No DESIGN.md yet: the conventions an agent writes during /init.
       <Button onClick={startInit} size="sm" variant="outline">
         <Wand2 />
@@ -464,7 +462,7 @@ const Contents = ({
     <>
       <Heading>Colours</Heading>
       {groups.length === 0 ? (
-        <div className="px-3 py-2 text-[11px] text-muted-foreground">
+        <div className="px-3 py-2 font-body text-muted-foreground">
           No colours
         </div>
       ) : (
@@ -485,7 +483,7 @@ const Contents = ({
       <div className="flex flex-col gap-1 px-3 py-2">
         {SPACING_SAMPLE.map((step) => (
           <div className="flex items-center gap-2" key={step}>
-            <span className="w-14 shrink-0 font-mono text-[10px] text-muted-foreground">
+            <span className="w-14 shrink-0 font-code text-muted-foreground">
               {step} · {step * base}px
             </span>
             <span
@@ -508,7 +506,7 @@ const Contents = ({
               })
             }
           >
-            <span className="w-14 shrink-0 truncate font-mono text-[10px] text-muted-foreground">
+            <span className="w-14 shrink-0 truncate font-code text-muted-foreground">
               {t.name}
             </span>
             <span
@@ -634,7 +632,7 @@ const MoreFoundations = ({
       {ds.icons && !q && (
         <>
           <Heading>Icons</Heading>
-          <div className="flex flex-col gap-0.5 px-3 py-2 text-[11px]">
+          <div className="flex flex-col gap-0.5 px-3 py-2 font-body">
             {ds.icons.from !== undefined && (
               <span className="font-mono">{ds.icons.from}</span>
             )}
@@ -681,7 +679,7 @@ export const DesignSystemPanel = () => {
         <Sparkles className="size-6 text-brand" />
         <div className="flex flex-col gap-1">
           <span className="font-medium">No design system imported yet</span>
-          <span className="text-[11px] text-muted-foreground">
+          <span className="font-body text-muted-foreground">
             {problem ??
               "An agent reads the repository's Tailwind v4 theme and components, asks you what it cannot find out, and writes design-system.json and DESIGN.md."}
           </span>
@@ -742,7 +740,7 @@ export const DesignSystemPanel = () => {
         )}
       </div>
       {problem ? (
-        <div className="border-b px-3 py-1.5 text-[11px] text-destructive">
+        <div className="border-b px-3 py-1.5 font-body text-destructive">
           {problem}
         </div>
       ) : null}
@@ -755,7 +753,7 @@ export const DesignSystemPanel = () => {
       </div>
       {designSystem.source ? (
         <div
-          className="flex items-center gap-1 truncate border-t px-3 py-1 text-[10px] text-muted-foreground"
+          className="flex items-center gap-1 truncate border-t px-3 py-1 font-body text-muted-foreground"
           title={designSystem.source}
         >
           <Check className="size-3 shrink-0" />

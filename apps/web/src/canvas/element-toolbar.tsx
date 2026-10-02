@@ -161,7 +161,7 @@ export const ValueTrigger = ({
         <DropdownMenuTrigger
           render={
             <button
-              className="flex h-7 max-w-40 items-center gap-1.5 rounded-md px-2 text-[12px] outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 data-popup-open:bg-muted"
+              className="flex h-7 max-w-40 items-center gap-1.5 rounded-md px-2 font-body outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 data-popup-open:bg-muted"
               type="button"
             />
           }
@@ -194,7 +194,7 @@ export const MenuHead = ({
   <DropdownMenuLabel className="flex items-center gap-2">
     <span className="flex-1">{name}</span>
     {source ? (
-      <span className="font-mono font-normal text-[10px] text-muted-foreground/70">
+      <span className="font-code font-normal text-muted-foreground/70">
         {source}
       </span>
     ) : null}
@@ -482,7 +482,7 @@ const TokenSelect = ({
   if (control.token === "color") {
     items = colors.map((group) => (
       <DropdownMenuGroup key={group.name}>
-        <DropdownMenuLabel className="font-normal text-[10.5px]">
+        <DropdownMenuLabel className="font-body font-normal">
           {group.name}
         </DropdownMenuLabel>
         {group.tokens.map((t) => (
@@ -492,7 +492,7 @@ const TokenSelect = ({
               style={{ background: t.swatch }}
             />
             <span className="flex-1 truncate">{t.label}</span>
-            <span className="font-mono text-[10px] text-muted-foreground">
+            <span className="font-code text-muted-foreground">
               {field.utility}-{t.label}
             </span>
           </DropdownMenuRadioItem>
@@ -509,9 +509,7 @@ const TokenSelect = ({
         <span className="flex-1 font-mono">
           {field.utility}-{step}
         </span>
-        <span className="text-[10.5px] text-muted-foreground">
-          {step * base}px
-        </span>
+        <span className="font-body text-muted-foreground">{step * base}px</span>
       </DropdownMenuRadioItem>
     ));
   } else {
@@ -525,7 +523,7 @@ const TokenSelect = ({
           <span className="flex-1 font-mono">
             {field.utility}-{short}
           </span>
-          <span className="max-w-24 truncate text-[10.5px] text-muted-foreground">
+          <span className="max-w-24 truncate font-body text-muted-foreground">
             {t.value}
           </span>
         </DropdownMenuRadioItem>
@@ -583,7 +581,7 @@ const MoreProps = ({ count, node }: { count: number; node: InstanceNode }) => {
             <PopoverTrigger
               render={
                 <button
-                  className="flex h-7 items-center gap-1 rounded-md bg-muted px-2 font-medium text-[12px] outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50"
+                  className="flex h-7 items-center gap-1 rounded-md bg-muted px-2 font-body font-medium outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50"
                   type="button"
                 />
               }
@@ -790,7 +788,7 @@ const GroupChatButton = ({ targets }: { targets: readonly Selection[] }) => {
             aria-label={label}
             className={cn(
               AGENT_BUTTON,
-              "gap-1.5 px-2 font-medium text-[12px]",
+              "gap-1.5 px-2 font-body font-medium",
               LOOK[action]
             )}
             onClick={onClick}
@@ -868,14 +866,14 @@ const AgentAtWork = ({ thread }: { thread: Thread }) => {
   const agent = useAgents((s) => s.agents.find((a) => a.id === thread.agentId));
   return (
     <>
-      <span className="flex h-7 items-center gap-1.5 px-2 text-[12px]">
+      <span className="flex h-7 items-center gap-1.5 px-2 font-body">
         <AgentIcon agentId={thread.agentId} className="size-3.5" />
         {agent?.name ?? "An agent"} is changing this
         <Spinner className="size-3 text-agent" />
       </span>
       <Divider />
       <button
-        className="flex h-7 items-center gap-1.5 rounded-md px-2 text-[12px] outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50"
+        className="flex h-7 items-center gap-1.5 rounded-md px-2 font-body outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50"
         onClick={() => openChat(thread.id)}
         type="button"
       >
@@ -883,7 +881,7 @@ const AgentAtWork = ({ thread }: { thread: Thread }) => {
         Open chat
       </button>
       <button
-        className="flex h-7 items-center gap-1.5 rounded-md px-2 text-[12px] outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50"
+        className="flex h-7 items-center gap-1.5 rounded-md px-2 font-body outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50"
         onClick={() => stopThread(thread.id)}
         type="button"
       >

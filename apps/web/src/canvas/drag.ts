@@ -1,7 +1,7 @@
 /**
  * Dragging things across the canvas: a node to another place in its page, into another page or
  * out onto the canvas; a node on the canvas around it or into a page; something new from the
- * palette into a page or onto the canvas. One controller for all of them, because they share the
+ * Assets panel into a page or onto the canvas. One controller for all of them, because they share the
  * question that matters — where would this land — and the line that answers it. The documents
  * say what is a container and which way it lays out its children, so the answer is read off
  * them, and only the rectangles are asked of the preview.
@@ -31,8 +31,8 @@ import {
 import { allFrames, holdUntil, useEditor } from "../state/editor.ts";
 import { bridgeFor } from "./bridge.ts";
 
-/** Type of the data a palette entry's drag carries: the node it inserts, as JSON. */
-export const PALETTE_MIME = "application/ultrapaint-node";
+/** Type of the data an Assets entry's drag carries: the node it inserts, as JSON. */
+export const ASSET_MIME = "application/ultrapaint-node";
 
 export type Dragged =
   | {
@@ -480,7 +480,7 @@ const dropEdits = (
   };
 };
 
-/** Carries the drop out. `created` is the node a palette drag inserts. */
+/** Carries the drop out. `created` is the node an Assets drag inserts. */
 export const endDrag = async (created?: DesignNode) => {
   const { copy, dragged, drop, grab, pointer } = useDrag.getState();
   const at = round({ x: pointer.x - grab.x, y: pointer.y - grab.y });

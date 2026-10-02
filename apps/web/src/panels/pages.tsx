@@ -112,10 +112,10 @@ export const Pages = () => {
   return (
     <div className="flex flex-col">
       <div className="flex h-9 shrink-0 items-center gap-1 pr-1.5 pl-3">
-        <span className="flex-1 truncate font-medium text-[11px]">Pages</span>
+        <span className="flex-1 truncate font-heading-xsmall">Pages</span>
         {unreachable > 0 ? (
           <span
-            className="flex items-center gap-1 text-[10px] text-warning"
+            className="flex items-center gap-1 font-body text-warning"
             title={`${unreachable} ${unreachable === 1 ? "page has" : "pages have"} no URL: the prototype cannot reach ${unreachable === 1 ? "it" : "them"}`}
           >
             <TriangleAlert className="size-3" />
@@ -147,7 +147,7 @@ export const Pages = () => {
 /** A page's row: the one the prototype is on, one picked with others, or neither. */
 const rowClass = (active: boolean, picked: boolean) =>
   cn(
-    "group flex h-7 items-center gap-1.5 pr-1 text-[11px]",
+    "group flex h-7 items-center gap-1.5 pr-1 font-body",
     active && "bg-brand/20 text-foreground",
     !active && picked && "bg-muted text-foreground",
     !(active || picked) && "text-muted-foreground hover:bg-muted/50"
@@ -182,7 +182,7 @@ const UrlLabel = ({
 }) =>
   route === undefined ? (
     <button
-      className="flex shrink-0 items-center gap-1 rounded px-1 text-[10px] text-warning hover:bg-warning/10"
+      className="flex shrink-0 items-center gap-1 rounded px-1 font-body text-warning hover:bg-warning/10"
       onClick={stop(onEdit)}
       title={NO_URL_HINT}
       type="button"
@@ -192,7 +192,7 @@ const UrlLabel = ({
     </button>
   ) : (
     <button
-      className="min-w-0 truncate rounded px-1 font-mono text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground"
+      className="min-w-0 truncate rounded px-1 font-code text-muted-foreground hover:bg-muted hover:text-foreground"
       onClick={stop(onEdit)}
       title={`Served at ${route}. Click to change the URL`}
       type="button"

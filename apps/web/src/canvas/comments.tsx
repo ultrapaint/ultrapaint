@@ -182,7 +182,7 @@ const Pin = ({ comment, open }: { comment: Comment; open: boolean }) => {
     >
       <span
         className={cn(
-          "flex size-5 shrink-0 items-center justify-center rounded-full bg-brand font-semibold text-[10px] text-brand-foreground",
+          "flex size-5 shrink-0 items-center justify-center rounded-full bg-brand font-body font-semibold text-brand-foreground leading-4",
           open && "bg-brand-foreground text-brand"
         )}
       >
@@ -193,7 +193,7 @@ const Pin = ({ comment, open }: { comment: Comment; open: boolean }) => {
         )}
       </span>
       {open ? null : (
-        <span className="hidden max-w-56 flex-col items-start gap-0.5 text-left text-[11px] leading-4 group-hover:flex">
+        <span className="hidden max-w-56 flex-col items-start gap-0.5 text-left font-body leading-4 group-hover:flex">
           <span className="font-medium">
             {comment.author ?? "Comment"}
             <span className="ml-1.5 font-normal text-muted-foreground">
@@ -213,7 +213,7 @@ const Pin = ({ comment, open }: { comment: Comment; open: boolean }) => {
 };
 
 const cardClass =
-  "absolute top-[-28px] left-9 flex w-80 cursor-default flex-col gap-2 rounded-lg border bg-popover p-2.5 text-popover-foreground text-xs shadow-black/40 shadow-xl";
+  "absolute top-[-28px] left-9 flex w-80 cursor-default flex-col gap-2 rounded-lg border bg-popover p-2.5 text-popover-foreground font-body shadow-black/40 shadow-xl";
 
 /** The open comment, beside its pin: read, edit, resolve or delete it without leaving the page. */
 const Card = ({ comment }: { comment: Comment }) => {
@@ -241,14 +241,14 @@ const Card = ({ comment }: { comment: Comment }) => {
   return (
     <div className={cardClass} onPointerDown={stop}>
       <div className="flex items-center gap-2">
-        <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand font-semibold text-[11px] text-brand-foreground">
+        <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand font-body font-semibold text-brand-foreground leading-4">
           {initialOf(comment.author)}
         </span>
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="truncate font-medium">
             {comment.author ?? "Someone"}
           </span>
-          <span className="text-[10px] text-muted-foreground">
+          <span className="font-body text-muted-foreground">
             {relativeTime(comment.createdAt)}
           </span>
         </div>
@@ -275,7 +275,7 @@ const Card = ({ comment }: { comment: Comment }) => {
         </IconButton>
       </div>
       {comment.element ? (
-        <span className="self-start rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+        <span className="self-start rounded bg-muted px-1.5 py-0.5 font-code text-muted-foreground">
           {`<${comment.element}>`}
         </span>
       ) : null}
@@ -332,7 +332,7 @@ const Reply = ({
   reply: CommentReply;
 }) => (
   <div className="group/reply flex gap-2">
-    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted font-semibold text-[11px] text-foreground">
+    <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted font-body font-semibold text-foreground leading-4">
       {initialOf(reply.author)}
     </span>
     <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -340,7 +340,7 @@ const Reply = ({
         <span className="truncate font-medium">
           {reply.author ?? "Someone"}
         </span>
-        <span className="flex-1 truncate text-[10px] text-muted-foreground">
+        <span className="flex-1 truncate font-body text-muted-foreground">
           {relativeTime(reply.createdAt)}
         </span>
         <SendToAgent

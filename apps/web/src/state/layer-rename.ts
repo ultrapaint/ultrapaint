@@ -1,5 +1,5 @@
 /**
- * A layer named in place. While the layers panel is open, Rename from a menu or the palette types
+ * A layer named in place. While the layers panel is open, Rename from a menu or the Assets panel types
  * the new name into the layer's own row, as Figma does; with the panel closed it asks in a dialog.
  */
 import { create } from "zustand";

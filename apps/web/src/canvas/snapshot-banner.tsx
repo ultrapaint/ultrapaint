@@ -16,7 +16,7 @@ export const SnapshotBanner = () => {
   return (
     <div className="pointer-events-none absolute inset-x-0 top-16 z-20 flex justify-center">
       <div
-        className="pointer-events-auto flex h-9 items-center gap-2 rounded-lg border border-warning/40 bg-sidebar pr-1 pl-2.5 text-[11px] text-sidebar-foreground shadow-black/30 shadow-lg"
+        className="pointer-events-auto flex h-9 items-center gap-2 rounded-lg border border-warning/40 bg-sidebar pr-1 pl-2.5 font-body text-sidebar-foreground shadow-black/30 shadow-lg"
         role="status"
       >
         <History className="size-3.5 text-warning" />

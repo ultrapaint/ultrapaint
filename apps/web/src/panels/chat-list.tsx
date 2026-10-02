@@ -103,7 +103,7 @@ export const ScopePicture = ({
         <Sparkles className="size-4 text-zinc-400" />
       )}
       {several ? (
-        <span className="absolute right-0.5 bottom-0.5 rounded bg-foreground/80 px-1 font-semibold text-[9px] text-background">
+        <span className="absolute right-0.5 bottom-0.5 rounded bg-foreground/80 px-1 font-body font-semibold text-background">
           {thread.scope?.count}
         </span>
       ) : null}
@@ -162,7 +162,7 @@ const ThreadRow = ({
       <ScopePicture thread={thread} />
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="flex min-w-0 items-center gap-1.5">
-          <span className="min-w-0 flex-1 truncate font-semibold text-[12px] text-foreground">
+          <span className="min-w-0 flex-1 truncate font-heading-xsmall text-foreground">
             {thread.title}
           </span>
           {unread ? (
@@ -172,14 +172,14 @@ const ThreadRow = ({
               role="img"
             />
           ) : null}
-          <span className="shrink-0 text-[11px] text-muted-foreground">
+          <span className="shrink-0 font-body text-muted-foreground">
             {ago(thread.updatedAt, now)}
           </span>
         </span>
-        <span className="truncate text-[11.5px] text-muted-foreground">
+        <span className="truncate font-body text-muted-foreground">
           {thread.summary?.text || "Nothing sent yet"}
         </span>
-        <span className="flex min-w-0 items-center gap-1.5 pt-0.5 text-[11px]">
+        <span className="flex min-w-0 items-center gap-1.5 pt-0.5 font-body">
           <AgentIcon agentId={thread.agentId} className="size-3 shrink-0" />
           <span className="min-w-0 flex-1 truncate text-muted-foreground/80">
             {scopeLabel ?? "No scope"}
@@ -204,7 +204,7 @@ const FilterChip = ({
 }) => (
   <button
     aria-pressed={active}
-    className="flex items-center gap-1 rounded-full border px-2.5 py-0.5 font-medium text-[11px] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 aria-pressed:border-transparent aria-pressed:bg-muted aria-pressed:text-foreground"
+    className="flex items-center gap-1 rounded-full border px-2.5 py-0.5 font-body font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 aria-pressed:border-transparent aria-pressed:bg-muted aria-pressed:text-foreground"
     onClick={onClick}
     type="button"
   >
@@ -243,7 +243,7 @@ const Section = ({
 }) =>
   threads.length > 0 ? (
     <section className="flex flex-col">
-      <h3 className="px-2 pt-3 pb-1 font-semibold text-[11px] text-muted-foreground">
+      <h3 className="px-2 pt-3 pb-1 font-heading-xsmall text-muted-foreground">
         {label}
       </h3>
       {threads.map((t) => (
@@ -295,9 +295,9 @@ export const ThreadList = () => {
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-11 shrink-0 items-center gap-1 pr-2 pl-3">
-        <span className="flex-1 font-semibold text-[13px]">Chats</span>
+        <span className="flex-1 font-heading-xsmall">Chats</span>
         <Button
-          className="h-7 gap-1 px-2 text-[12px]"
+          className="h-7 gap-1 px-2 font-body"
           onClick={() => createThread()}
           size="sm"
           variant="secondary"
@@ -311,7 +311,7 @@ export const ThreadList = () => {
           <Search className="size-3.5 shrink-0" />
           <input
             aria-label="Search chats"
-            className="min-w-0 flex-1 bg-transparent text-[12px] text-foreground outline-none placeholder:text-muted-foreground"
+            className="min-w-0 flex-1 bg-transparent font-body text-foreground outline-none placeholder:text-muted-foreground"
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search chats"
             value={query}

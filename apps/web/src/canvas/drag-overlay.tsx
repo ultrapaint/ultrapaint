@@ -123,7 +123,7 @@ export const CreateOverlay = ({ zoom }: { zoom: number }) => {
 
 const Tag = ({ children, inv }: { children: ReactNode; inv: number }) => (
   <span
-    className="absolute top-0 left-0 whitespace-nowrap rounded-sm bg-brand px-1 py-0.5 font-medium text-[10px] text-brand-foreground"
+    className="absolute top-0 left-0 whitespace-nowrap rounded-sm bg-brand px-1 py-0.5 font-body font-medium text-brand-foreground"
     style={{
       transform: `translateY(calc(-100% - ${4 * inv}px)) scale(${inv})`,
       transformOrigin: "bottom left",

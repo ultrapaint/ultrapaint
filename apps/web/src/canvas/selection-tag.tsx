@@ -103,7 +103,7 @@ export const SelectionTag = ({
         <DropdownMenuTrigger
           render={
             <button
-              className="flex h-5 max-w-64 items-center gap-1 rounded-t-[5px] px-1.5 font-semibold text-[11px] text-white outline-none"
+              className="flex h-5 max-w-64 items-center gap-1 rounded-t-[5px] px-1.5 font-body font-semibold text-white leading-4 outline-none"
               style={{ background: color }}
               type="button"
             />

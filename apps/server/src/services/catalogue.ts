@@ -44,7 +44,7 @@ const buildInWorker = (
   });
 
 /**
- * Component catalogue for the palette and the props inspector. The extraction is the synchronous
+ * Component catalogue for the Assets panel and the props inspector. The extraction is the synchronous
  * TypeScript 5 compiler pass in `catalogue-extract.ts`, run on a worker thread; this service
  * resolves the library directories, caches the result in memory and on disk, and keeps builds
  * from overlapping.

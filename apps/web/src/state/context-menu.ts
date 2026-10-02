@@ -38,7 +38,7 @@ export type MenuTarget =
   | { kind: "comment"; commentId: string }
   | { kind: "token"; name: string; value: string; tokenKind: TokenKind }
   | { kind: "textStyle"; name: string }
-  /** An entry of the palette: a primitive, or a component of the design system. */
+  /** An entry of the Assets panel: a primitive, or a component of the design system. */
   | {
       kind: "component";
       name: string;

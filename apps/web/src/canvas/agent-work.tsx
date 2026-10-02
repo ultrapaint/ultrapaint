@@ -111,7 +111,7 @@ const Tag = ({
   }
   return (
     <button
-      className="pointer-events-auto absolute left-0 flex h-5 max-w-72 cursor-pointer items-center gap-1 whitespace-nowrap rounded-t-[5px] bg-agent px-1.5 font-semibold text-[11px] text-agent-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+      className="pointer-events-auto absolute left-0 flex h-5 max-w-72 cursor-pointer items-center gap-1 whitespace-nowrap rounded-t-[5px] bg-agent px-1.5 font-body font-semibold text-agent-foreground leading-4 outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
       onClick={() => {
         useEditor.getState().setLeftTab("chat");
         useAgents.getState().open(threadId);

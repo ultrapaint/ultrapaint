@@ -98,7 +98,7 @@ export const LinkField = ({
         value={mixed ? null : current}
       />
       {described?.broken ? (
-        <span className="flex items-center gap-1 text-[10px] text-destructive">
+        <span className="flex items-center gap-1 font-body text-destructive">
           <TriangleAlert className="size-3 shrink-0" />
           Leads to a page that is not there
         </span>

@@ -90,16 +90,14 @@ export const CodePanel = () => {
   return (
     <div className="flex flex-col gap-2 px-3 py-2.5">
       <div className="flex min-w-0 items-baseline gap-2">
-        <span className="truncate font-semibold text-sm">
-          {nodeLabel(node)}
-        </span>
+        <span className="truncate font-heading-xsmall">{nodeLabel(node)}</span>
         {nodeKind(node) === nodeLabel(node) ? null : (
-          <span className="shrink-0 text-[11px] text-muted-foreground">
+          <span className="shrink-0 font-body text-muted-foreground">
             {nodeKind(node)}
           </span>
         )}
       </div>
-      <p className="text-[11px] text-muted-foreground">
+      <p className="font-body text-muted-foreground">
         The node and everything in it, as Tailwind and your components, by the
         rules agents implement a design with. Links are written as plain
         anchors; the application uses its router's.

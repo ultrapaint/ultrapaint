@@ -45,7 +45,7 @@ export const FramePresence = ({
       />
       {/* biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: a shortcut for the pointer; the strip under the canvas has the same menu. */}
       <div
-        className="absolute right-0 flex items-center gap-1.5 whitespace-nowrap rounded px-1.5 py-0.5 font-medium text-[11px] text-white"
+        className="absolute right-0 flex items-center gap-1.5 whitespace-nowrap rounded px-1.5 py-0.5 font-body font-medium text-white"
         onContextMenu={(e) =>
           openMenuAt(e, { kind: "thread", threadId: here.threadId })
         }

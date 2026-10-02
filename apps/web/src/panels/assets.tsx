@@ -32,12 +32,7 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@/components/ui/input-group";
-import {
-  beginDrag,
-  cancelDrag,
-  PALETTE_MIME,
-  useDrag,
-} from "../canvas/drag.ts";
+import { ASSET_MIME, beginDrag, cancelDrag, useDrag } from "../canvas/drag.ts";
 import { useHostUrl } from "../canvas/frame.tsx";
 import { drawSpecimen, hashOf } from "../canvas/specimens.ts";
 import { IconButton } from "../components/icon-button.tsx";
@@ -54,7 +49,7 @@ import { useProject } from "../state/project.ts";
 import { ensureEditable } from "../state/setup.ts";
 
 type View = "list" | "grid";
-const VIEW_KEY = "ultrapaint:palette-view";
+const VIEW_KEY = "ultrapaint:assets-view";
 
 const PRIMITIVE_ICONS: Record<PrimitiveId, React.ReactNode> = {
   column: <ArrowDown className="size-3.5" />,
@@ -82,7 +77,7 @@ const instanceOf = (c: ComponentMeta) =>
   );
 
 /**
- * Everything an entry of the palette does: a click inserts, a drag carries the node, a
+ * Everything an entry of the Assets panel does: a click inserts, a drag carries the node, a
  * right-click offers where else it can go.
  */
 const entryHandlers = (
@@ -106,7 +101,7 @@ const entryHandlers = (
       return;
     }
     e.dataTransfer.effectAllowed = "copy";
-    e.dataTransfer.setData(PALETTE_MIME, JSON.stringify(make()));
+    e.dataTransfer.setData(ASSET_MIME, JSON.stringify(make()));
     beginDrag({ kind: "new", name }, e.clientX, e.clientY, false);
   },
 });
@@ -115,7 +110,7 @@ const Primitives = () => (
   <div className="grid grid-cols-3 gap-1 border-b p-2">
     {PRIMITIVES.map((p) => (
       <button
-        className="flex flex-col items-center gap-1 rounded-md border bg-background/40 px-1 py-2 text-[10px] text-muted-foreground hover:border-ring hover:text-foreground"
+        className="flex flex-col items-center gap-1 rounded-md border bg-background/40 px-1 py-2 font-body text-muted-foreground hover:border-ring hover:text-foreground"
         key={p.id}
         title={`Insert ${articled(p.name.toLowerCase())}`}
         type="button"
@@ -130,13 +125,13 @@ const Primitives = () => (
 
 const ListItem = ({ component: c }: { component: ComponentMeta }) => (
   <button
-    className="flex h-7 w-full items-center gap-2 px-3 text-left text-[11px] text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+    className="flex h-7 w-full items-center gap-2 px-3 text-left font-body text-muted-foreground hover:bg-muted/60 hover:text-foreground"
     title={c.description ?? c.importFrom}
     type="button"
     {...entryHandlers(() => instanceOf(c), c.name, true)}
   >
     <span className="truncate font-medium text-foreground/90">{c.name}</span>
-    <span className="ml-auto truncate text-[10px] text-muted-foreground/70">
+    <span className="ml-auto truncate font-body text-muted-foreground/70">
       {Object.keys(c.variants).join(" · ")}
     </span>
   </button>
@@ -169,7 +164,7 @@ const GridItem = ({
         <span className="size-full animate-pulse rounded bg-zinc-100" />
       )}
     </span>
-    <span className="truncate border-t px-2 py-1 text-[11px] text-foreground/90">
+    <span className="truncate border-t px-2 py-1 font-body text-foreground/90">
       {c.name}
     </span>
   </button>
@@ -257,7 +252,7 @@ const categoryOf = (
   ds: ReturnType<typeof useDesignSystem.getState>["designSystem"]
 ) => ds?.components?.[c.name]?.category ?? c.category;
 
-export const Palette = () => {
+export const Assets = () => {
   const configured = useProject((s) => s.info.configured);
   const { catalogue, loading, load } = useCatalogue();
   // The target is worked out from the selection and the documents.
@@ -318,7 +313,7 @@ export const Palette = () => {
           </InputGroupAddon>
           <InputGroupInput
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search components…"
+            placeholder="Search assets…"
             value={query}
           />
         </InputGroup>
@@ -348,7 +343,7 @@ export const Palette = () => {
           <RefreshCw className={cn(loading && "animate-spin")} />
         </IconButton>
       </div>
-      <div className="border-b px-2 py-1 text-[10px] text-muted-foreground">
+      <div className="border-b px-2 py-1 font-body text-muted-foreground">
         {target ? (
           <>
             Click to insert into{" "}
@@ -362,7 +357,7 @@ export const Palette = () => {
       <div className="min-h-0 flex-1 overflow-auto">
         {!q && <Primitives />}
         {catalogue ? null : (
-          <div className="p-3 text-[11px] text-muted-foreground">
+          <div className="p-3 font-body text-muted-foreground">
             {loading
               ? "Indexing the design system…"
               : "No components catalogued"}
@@ -370,7 +365,7 @@ export const Palette = () => {
         )}
         {Array.from(byCategory.entries()).map(([category, items]) => (
           <div key={category}>
-            <div className="sticky top-0 z-10 bg-sidebar px-2 py-1 font-medium text-[10px] text-muted-foreground uppercase">
+            <div className="sticky top-0 z-10 bg-sidebar px-2 py-1 font-heading-xsmall text-muted-foreground uppercase">
               {category}
             </div>
             {view === "list" ? (

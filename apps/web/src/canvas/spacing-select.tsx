@@ -108,9 +108,7 @@ const SidesRow = ({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="font-medium text-[11px] text-muted-foreground">
-        {title}
-      </span>
+      <span className="font-heading-xsmall text-muted-foreground">{title}</span>
       <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-1.5">
         {parts.map((part, i) => {
           const shared = sharedSide(values, part.sides);
@@ -186,7 +184,7 @@ export const SpacingSelect = () => {
             <PopoverTrigger
               render={
                 <button
-                  className="flex h-7 max-w-44 items-center gap-1.5 rounded-md px-2 text-[12px] outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 data-popup-open:bg-muted"
+                  className="flex h-7 max-w-44 items-center gap-1.5 rounded-md px-2 font-body outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 data-popup-open:bg-muted"
                   type="button"
                 />
               }

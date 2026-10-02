@@ -113,7 +113,7 @@ function DrawerContent({
         <DrawerPrimitive.Popup
           className={cn(
             // Base.
-            "group/drawer-popup transform-[translate3d(var(--translate-x,0px),var(--translate-y,0px),0)_scale(var(--stack-scale))] pointer-events-auto fixed z-50 m-(--drawer-inset,0px) flex h-(--drawer-content-height) max-h-(--drawer-content-max-height,none) min-h-0 w-(--drawer-content-width,auto) select-none flex-col rounded-xl border border-popover bg-popover text-popover-foreground text-xs/relaxed outline-none transition-[transform,height,opacity,filter] duration-450 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform [--drawer-bleed-background:transparent] [--drawer-inset:--spacing(2)] [interpolate-size:allow-keywords] dark:border-border",
+            "group/drawer-popup transform-[translate3d(var(--translate-x,0px),var(--translate-y,0px),0)_scale(var(--stack-scale))] pointer-events-auto fixed z-50 m-(--drawer-inset,0px) flex h-(--drawer-content-height) max-h-(--drawer-content-max-height,none) min-h-0 w-(--drawer-content-width,auto) select-none flex-col rounded-xl border border-popover bg-popover font-body text-popover-foreground outline-none transition-[transform,height,opacity,filter] duration-450 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform [--drawer-bleed-background:transparent] [--drawer-inset:--spacing(2)] [interpolate-size:allow-keywords] dark:border-border",
             // Nested.
             "data-nested-drawer-open:overflow-hidden data-nested-drawer-open:brightness-95",
             // Bleed.
@@ -184,10 +184,7 @@ function DrawerFooter({ className, ...props }: ComponentProps<"div">) {
 function DrawerTitle({ className, ...props }: DrawerPrimitive.Title.Props) {
   return (
     <DrawerPrimitive.Title
-      className={cn(
-        "font-heading font-medium text-foreground text-sm",
-        className
-      )}
+      className={cn("font-heading-small text-foreground", className)}
       data-slot="drawer-title"
       {...props}
     />
@@ -200,10 +197,7 @@ function DrawerDescription({
 }: DrawerPrimitive.Description.Props) {
   return (
     <DrawerPrimitive.Description
-      className={cn(
-        "text-balance text-muted-foreground text-xs/relaxed",
-        className
-      )}
+      className={cn("text-balance font-body text-muted-foreground", className)}
       data-slot="drawer-description"
       {...props}
     />

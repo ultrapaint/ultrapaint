@@ -87,7 +87,7 @@ export const cutNode = (target?: Selection, write = true) => {
   return nodes;
 };
 
-/** Pastes into the node, or after it when it holds nothing: where the palette inserts. */
+/** Pastes into the node, or after it when it holds nothing: where the Assets panel inserts. */
 export const pasteInto = (
   target?: Selection,
   nodes = useClipboard.getState().nodes
@@ -181,7 +181,7 @@ export const onCopyEvent = (e: ClipboardEvent, cut: boolean) => {
   return true;
 };
 
-/** A paste event: nodes of ours on the clipboard go where the palette would insert. */
+/** A paste event: nodes of ours on the clipboard go where the Assets panel would insert. */
 export const onPasteEvent = (e: ClipboardEvent) => {
   const nodes = nodesFromText(e.clipboardData?.getData("text/plain") ?? "");
   if (!nodes) {

@@ -49,7 +49,7 @@ export type LeftTab =
   | "comments"
   | "layers"
   | "pages"
-  | "palette"
+  | "assets"
   | "designSystem"
   | "changes";
 
@@ -70,7 +70,7 @@ export const sharedTabs: readonly LeftTab[] = [
  * the URLs they serve are the prototype's business; the canvas shows the pages everywhere else.
  */
 export const workspaceTabs: Record<Workspace, readonly LeftTab[]> = {
-  design: ["layers", "palette"],
+  design: ["layers", "assets"],
   prototype: ["pages"],
   vibe: [],
 };

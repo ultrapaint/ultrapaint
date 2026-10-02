@@ -37,7 +37,7 @@ const textStylesByGroup = (styles: readonly TextStyle[]) =>
     )
     .join("; ");
 
-/** Enough of the palette to choose from; the agent reads the rest when it needs to. */
+/** Enough of the components to choose from; the agent reads the rest when it needs to. */
 const COMPONENT_LIMIT = 60;
 
 const componentLine = (component: ComponentMeta) => {

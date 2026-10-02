@@ -47,6 +47,7 @@ import { openSetup, SetupDialog } from "./components/setup-dialog.tsx";
 import { ShortcutSheet } from "./components/shortcut-sheet.tsx";
 import { useOpenNodeLink } from "./lib/open-node-link.ts";
 import { useShortcuts } from "./lib/shortcuts.ts";
+import { Assets } from "./panels/assets.tsx";
 import { CanvasSwitcher } from "./panels/canvases.tsx";
 import { Changes } from "./panels/changes.tsx";
 import { CodePanel } from "./panels/code.tsx";
@@ -55,7 +56,6 @@ import { DesignSystemPanel } from "./panels/design-system.tsx";
 import { Inspector } from "./panels/inspector.tsx";
 import { Layers } from "./panels/layers.tsx";
 import { Pages } from "./panels/pages.tsx";
-import { Palette } from "./panels/palette.tsx";
 import { SaveConfigDialog } from "./panels/save-config.tsx";
 import { SettingsPage } from "./panels/settings.tsx";
 import { Threads } from "./panels/threads.tsx";
@@ -84,6 +84,12 @@ const leftTabs: Record<
   LeftTab,
   { label: string; rail: string; icon: LucideIcon; panel: ComponentType }
 > = {
+  assets: {
+    icon: Shapes,
+    label: "Assets",
+    panel: Assets,
+    rail: "Assets",
+  },
   changes: {
     icon: GitCompareArrows,
     label: "Changes",
@@ -101,7 +107,7 @@ const leftTabs: Record<
     icon: PaletteIcon,
     label: "Design system",
     panel: DesignSystemPanel,
-    rail: "System",
+    rail: "Design system",
   },
   layers: { icon: LayersIcon, label: "Layers", panel: Layers, rail: "Layers" },
   pages: {
@@ -110,18 +116,12 @@ const leftTabs: Record<
     panel: Pages,
     rail: "Pages",
   },
-  palette: {
-    icon: Shapes,
-    label: "Components",
-    panel: Palette,
-    rail: "Components",
-  },
 };
 
-const leftBounds = { defaultWidth: 256, max: 480, min: 200 };
+const leftBounds = { defaultWidth: 288, max: 480, min: 200 };
 /** A conversation reads better wide; switching to any other panel caps the width again. */
 const chatBounds = { ...leftBounds, defaultWidth: 340, max: 960 };
-const rightBounds = { defaultWidth: 288, max: 560, min: 240 };
+const rightBounds = { defaultWidth: 320, max: 560, min: 240 };
 
 const openSettings = () => useProject.getState().openSettings(true);
 
@@ -164,7 +164,7 @@ const RailItem = ({
         ) : null}
       </span>
     </span>
-    <span className="font-medium text-[10px] leading-tight">{label}</span>
+    <span className="line-clamp-2 w-full text-center font-rail">{label}</span>
   </button>
 );
 
@@ -233,7 +233,7 @@ const Rail = () => {
     >
       <span
         aria-label="ultrapaint"
-        className="mb-2 flex size-8 items-center justify-center rounded-lg bg-brand font-bold text-[11px] text-brand-foreground tracking-tight"
+        className="mb-2 flex size-8 items-center justify-center rounded-lg bg-brand font-body font-bold text-brand-foreground tracking-tight"
         role="img"
       >
         UP
@@ -279,7 +279,7 @@ const ProjectHeader = () => {
         <div className="flex min-w-0 flex-1 flex-col" title={info.repoPath}>
           <span className="truncate font-semibold">{info.name}</span>
           {info.branch ? (
-            <span className="flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground">
+            <span className="flex min-w-0 items-center gap-1 font-body text-muted-foreground">
               <GitBranch className="size-3 shrink-0" />
               <span className="truncate">{info.branch}</span>
             </span>
@@ -347,7 +347,7 @@ const LeftPanel = ({
       {/* The chat heads itself, its list and each thread; the pages panel has its own actions in
         its heading. */}
       {leftTab === "chat" || leftTab === "pages" ? null : (
-        <div className="flex h-9 shrink-0 items-center px-3 font-medium text-[11px]">
+        <div className="flex h-9 shrink-0 items-center px-3 font-heading-xsmall">
           {tab.label}
         </div>
       )}
@@ -392,10 +392,10 @@ const RightPanel = ({
       >
         <div className="flex h-10 shrink-0 items-center border-b px-2">
           <TabsList variant="line">
-            <TabsTrigger className="text-[11px]" value="design">
+            <TabsTrigger className="font-body" value="design">
               Design
             </TabsTrigger>
-            <TabsTrigger className="text-[11px]" value="code">
+            <TabsTrigger className="font-body" value="code">
               Code
             </TabsTrigger>
           </TabsList>

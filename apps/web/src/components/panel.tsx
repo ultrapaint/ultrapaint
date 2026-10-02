@@ -21,7 +21,7 @@ export const Section = ({
 }) => (
   <div className={cn("border-b px-3 py-2.5", className)}>
     <div className="mb-2 flex items-center justify-between">
-      <span className="font-medium text-[11px]">{title}</span>
+      <span className="font-heading-xsmall">{title}</span>
       {actions}
     </div>
     <div className="flex flex-col gap-1.5">{children}</div>
@@ -38,10 +38,10 @@ export const Row = ({
   className?: string;
 }) => (
   <div
-    className={cn("grid grid-cols-[64px_1fr] items-center gap-2", className)}
+    className={cn("grid grid-cols-[80px_1fr] items-center gap-2", className)}
   >
     <Label
-      className="truncate font-normal text-[11px] text-muted-foreground"
+      className="truncate font-body font-normal text-muted-foreground"
       title={label}
     >
       {label}

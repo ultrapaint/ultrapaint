@@ -886,7 +886,7 @@ const FrameChrome = ({
       >
         <button
           className={cn(
-            "cursor-pointer select-none font-medium text-[12px] hover:text-foreground",
+            "cursor-pointer select-none font-body font-medium hover:text-foreground",
             isSelected && "text-brand hover:text-brand"
           )}
           onClick={selectFrame}
@@ -899,7 +899,7 @@ const FrameChrome = ({
           {name}
         </button>
         {kind === "page" && (
-          <span className="text-[11px] text-muted-foreground">
+          <span className="font-body text-muted-foreground">
             {Math.round(frame.width)} × {Math.round(frame.height)}
           </span>
         )}
@@ -1046,8 +1046,8 @@ const Highlights = ({ frameId, inv }: { frameId: string; inv: number }) => {
       ) : null}
       {hostError ? (
         <div
-          className="absolute inset-x-0 bottom-0 flex items-start gap-2 bg-destructive/90 p-3 font-mono text-[11px] text-white"
-          style={{ fontSize: 11 * inv, padding: 12 * inv }}
+          className="absolute inset-x-0 bottom-0 flex items-start gap-2 bg-destructive/90 p-3 font-code text-white"
+          style={{ fontSize: 14 * inv, padding: 12 * inv }}
         >
           <AlertTriangle className="size-4 shrink-0" />
           <pre className="whitespace-pre-wrap">{hostError}</pre>
@@ -1092,7 +1092,7 @@ const GroupOutline = ({
       {workspace === "vibe" ? (
         <>
           <span
-            className="absolute left-0 flex h-5 items-center rounded-t-[5px] px-1.5 font-semibold text-[11px] text-white"
+            className="absolute left-0 flex h-5 items-center rounded-t-[5px] px-1.5 font-body font-semibold text-white leading-4"
             style={{
               background: color,
               bottom: "100%",
@@ -1112,7 +1112,7 @@ const GroupOutline = ({
         </>
       ) : (
         <span
-          className="absolute left-1/2 rounded-sm px-1 py-0.5 font-medium text-[10px] text-white"
+          className="absolute left-1/2 rounded-sm px-1 py-0.5 font-body font-medium text-white"
           style={{
             background: color,
             top: "100%",
@@ -1168,7 +1168,7 @@ const Outline = ({
     >
       {kind === "selection" && !bare && workspace !== "vibe" && (
         <span
-          className="absolute left-1/2 rounded-sm px-1 py-0.5 font-medium text-[10px] text-white"
+          className="absolute left-1/2 rounded-sm px-1 py-0.5 font-body font-medium text-white"
           style={{
             background: color,
             top: "100%",

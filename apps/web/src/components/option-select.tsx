@@ -36,9 +36,7 @@ const Item = ({ option: o }: { option: SelectOption }) => (
     {o.description ? (
       <span className="flex flex-col">
         <span>{o.label}</span>
-        <span className="font-mono text-[10px] text-muted-foreground leading-tight">
-          {o.description}
-        </span>
+        <span className="font-code text-muted-foreground">{o.description}</span>
       </span>
     ) : (
       o.label
@@ -86,7 +84,7 @@ export const OptionSelect = ({
         </SelectValue>
         {hint ? (
           <span
-            className="min-w-0 max-w-[55%] shrink truncate font-mono text-[10px] text-muted-foreground"
+            className="min-w-0 max-w-[55%] shrink truncate font-code text-muted-foreground"
             title={hint}
           >
             {hint}

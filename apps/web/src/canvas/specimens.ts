@@ -1,5 +1,5 @@
 /**
- * Pictures of single nodes, drawn by an iframe of the preview nobody sees: the palette's
+ * Pictures of single nodes, drawn by an iframe of the preview nobody sees: the Assets panel's
  * thumbnails, and the screenshots agents ask for. One node at a time, with the repository's
  * stylesheet and its real components, then captured.
  */
