@@ -167,7 +167,36 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
             "color-muted": "figma-behind",
             "radius-card": "same",
           });
-        })
+        }),
+      30_000
+    );
+
+    it.effect(
+      "keeps every match saved at the same time",
+      () =>
+        Effect.gen(function* () {
+          const { client } = yield* TestEnv;
+          const matches = [
+            ["Tokens/Color/Accent", "color-one"],
+            ["Tokens/Color/Brand", "color-two"],
+            ["Tokens/Color/Muted", "color-three"],
+          ] as const;
+          yield* Effect.forEach(
+            matches,
+            ([variable, to]) =>
+              client["sync.matchFigma"]({ entries: [{ to, variable }] }),
+            { concurrency: "unbounded" }
+          );
+          const named = yield* client["sync.figmaTokens"]();
+          const names = new Map(
+            (named?.diffs ?? []).map((d) => [d.variable, d.name])
+          );
+          assert.deepStrictEqual(
+            matches.map(([variable]) => [variable, names.get(variable)]),
+            matches
+          );
+        }),
+      30_000
     );
   }
 );

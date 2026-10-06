@@ -149,6 +149,9 @@ export class DesignSystemSyncService extends Context.Service<
       const path = yield* Path.Path;
       // One reading at a time: they read the catalogue and the code.
       const lock = yield* Semaphore.make(1);
+      // Taking from Figma and saving matches read the baseline and write it back whole: two at
+      // once would lose one's matches.
+      const baselineLock = yield* Semaphore.make(1);
 
       /** Whether the package the pages resolve from renders with React. */
       const hasApp = (anchorDir: string) =>
@@ -459,7 +462,8 @@ export class DesignSystemSyncService extends Context.Service<
           );
           yield* Effect.ignore(plan);
           return result;
-        }
+        },
+        (effect) => baselineLock.withPermits(1)(effect)
       );
 
       const saveMatches = Effect.fn("DesignSystemSyncService.matchFigma")(
@@ -534,7 +538,8 @@ export class DesignSystemSyncService extends Context.Service<
               .map((d) => d.variable)
           ).size;
           return { problems, saved, unmatched };
-        }
+        },
+        (effect) => baselineLock.withPermits(1)(effect)
       );
 
       return DesignSystemSyncService.of({
