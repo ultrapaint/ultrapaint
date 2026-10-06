@@ -215,6 +215,45 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         })
     );
 
+    it.effect(
+      "sends the page list again when it changes, not when a page is edited",
+      () =>
+        Effect.gen(function* () {
+          const { client } = yield* TestEnv;
+          yield* client["pages.create"]({ canvas: "", name: "Listed once" });
+          const { event } = yield* nextEvent(
+            client["events.pages"](),
+            Effect.gen(function* () {
+              for (const text of ["One", "Two", "Three"]) {
+                yield* client["documents.apply"]({
+                  edits: [
+                    {
+                      doc: HOME,
+                      ops: [{ id: "heading", op: "update", set: { text } }],
+                    },
+                  ],
+                });
+              }
+              // Time for the watcher to see the edits' writes, which change no list.
+              yield* Effect.sleep("300 millis");
+              yield* client["pages.create"]({
+                canvas: "",
+                name: "Listed twice",
+              });
+            })
+          );
+          const ids =
+            event._tag === "Some" ? event.value.pages.map((p) => p.id) : [];
+          assert.include(ids, "listed-twice.page.json");
+          for (const id of [
+            "listed-once.page.json",
+            "listed-twice.page.json",
+          ]) {
+            yield* client["pages.delete"]({ id });
+          }
+        })
+    );
+
     it.effect("starts a page from a template, titled after its name", () =>
       Effect.gen(function* () {
         const { client } = yield* TestEnv;

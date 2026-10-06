@@ -555,7 +555,8 @@ export class PagesService extends Context.Service<
         );
       });
 
-      const list: Effect.Effect<PageList> = Effect.gen(function* () {
+      /** The list, and the files under the designs directory it was made from. */
+      const scan = Effect.gen(function* () {
         const files = (yield* found).map(relativeToDesigns);
         const ids = canvasIdsIn(files);
         // A canvas.json that cannot be read is reported when it is opened; the list still has it.
@@ -565,22 +566,44 @@ export class PagesService extends Context.Service<
             (layout) => [id, layout] as const
           )
         );
-        return pageListOf({
+        const pageList = pageListOf({
           fileOf: (rel) => paths.relative(path.join(root, rel)),
           files,
           layouts: Object.fromEntries(layouts),
           order: yield* readOrder,
           rootName: fallbackName(ROOT_CANVAS),
         });
+        return { files, pageList };
       }).pipe(Effect.withSpan("PagesService.list"));
 
-      const publishList = Effect.flatMap(list, (pageList) =>
-        events.publish("pages", pageList)
+      const list: Effect.Effect<PageList> = Effect.map(
+        scan,
+        ({ pageList }) => pageList
       );
 
+      /**
+       * What the editors were last sent: the files it was made from, so the watcher can tell a
+       * change that may alter it from one that cannot, and the list itself, so the same list is
+       * not sent twice (a page PNG pass, for one, runs on every list that arrives).
+       */
+      let published: { files: Set<string>; json: string } | null = null;
+
+      /** The list as it is now, sent to the editors if it is not what they have. */
+      const publishList = Effect.gen(function* () {
+        const { files, pageList } = yield* scan;
+        const json = JSON.stringify(pageList);
+        const changed = json !== published?.json;
+        published = { files: new Set(files), json };
+        if (changed) {
+          yield* events.publish("pages", pageList);
+        }
+        return pageList;
+      });
+
       // ---- lifecycle ----
-      const byId = Effect.fnUntraced(function* (id: string) {
-        const page = (yield* list).pages.find((p) => p.id === id);
+      /** The page of that id, in `all` when the caller has just listed the pages. */
+      const byId = Effect.fnUntraced(function* (id: string, all?: PageList) {
+        const page = (all ?? (yield* list)).pages.find((p) => p.id === id);
         if (!page) {
           return yield* new NotFound({ message: `page not found: ${id}` });
         }
@@ -906,8 +929,9 @@ export class PagesService extends Context.Service<
               );
             }
           }
-          yield* publishList;
-          const copied = (yield* list).canvases.find((c) => c.id === copyId);
+          const copied = (yield* publishList).canvases.find(
+            (c) => c.id === copyId
+          );
           return (
             copied ?? {
               ...canvas,
@@ -1202,7 +1226,7 @@ export class PagesService extends Context.Service<
           return yield* new BadRequest({ message: "a page needs a name" });
         }
         const all = yield* list;
-        const { page } = yield* byId(id);
+        const { page } = yield* byId(id, all);
         if (page.variant !== undefined) {
           return yield* new BadRequest({
             message: `a variant's page is named after its base page: rename ${pageNameOf(page.path)}`,
@@ -1278,7 +1302,7 @@ export class PagesService extends Context.Service<
         route: string | null
       ) {
         const all = yield* list;
-        const { abs, page } = yield* byId(id);
+        const { abs, page } = yield* byId(id, all);
         const basePath = basePathOf(page.path);
         const next =
           route === null || route.trim() === ""
@@ -1323,7 +1347,7 @@ export class PagesService extends Context.Service<
         id: string
       ) {
         const all = yield* list;
-        const { page } = yield* byId(id);
+        const { page } = yield* byId(id, all);
         // `pricing@bold` is copied as `pricing-2@bold`: the number goes to the name.
         const copyPath = yield* freePagePath(
           page.canvas,
@@ -1417,7 +1441,7 @@ export class PagesService extends Context.Service<
 
       const remove = Effect.fn("PagesService.delete")(function* (id: string) {
         const all = yield* list;
-        const { page } = yield* byId(id);
+        const { page } = yield* byId(id, all);
         // A base page's variants are drawings of it: they would be left serving nothing.
         const going =
           page.variant === undefined
@@ -1601,6 +1625,42 @@ export class PagesService extends Context.Service<
           )
         );
 
+      /**
+       * Whether a file appearing or going may change the page list. Writes through a temporary
+       * file and a rename, the server's own and an editor's, make a file appear that was there
+       * all along and a temporary one come and go, and a PNG drawn beside a page is no page:
+       * none of them is worth a walk of the designs. Anything unsure of is a change.
+       */
+      const changesList = Effect.fnUntraced(function* (
+        event: FileSystem.WatchEvent
+      ) {
+        if (published === null) {
+          return true;
+        }
+        const rel = toPosix(event.path);
+        const name = path.basename(rel);
+        const listed = name === CANVAS_FILE || isPageFile(name);
+        if (event._tag === "Remove") {
+          // What is gone cannot be asked what it was: only a file that is surely no page and
+          // no directory of pages is let go.
+          const passing = name.endsWith(".tmp") || name.endsWith(".page.png");
+          return (
+            listed ||
+            !passing ||
+            [...published.files].some((file) => file.startsWith(`${rel}/`))
+          );
+        }
+        if (published.files.has(rel)) {
+          return false;
+        }
+        const info = yield* Effect.option(fs.stat(path.resolve(root, rel)));
+        // Gone again already, like a temporary file: its removal is judged on its own.
+        if (info._tag === "None") {
+          return false;
+        }
+        return info.value.type === "Directory" || listed;
+      });
+
       const watched = fs.watch(root, { recursive: true }).pipe(
         Stream.filter(
           (event) =>
@@ -1611,11 +1671,26 @@ export class PagesService extends Context.Service<
 
       if (yield* exists(root)) {
         const stream = yield* watched;
-        // Additions and removals, of pages or whole canvases, change the page list.
+        // Additions and removals, of pages or whole canvases, change the page list. They are
+        // gathered while they keep coming and judged once they stop, against the list sent
+        // last: by then the server's own change has usually sent its list already.
+        const arrived: FileSystem.WatchEvent[] = [];
         yield* stream.pipe(
           Stream.filter((event) => event._tag !== "Update"),
+          Stream.tap((event) => Effect.sync(() => arrived.push(event))),
           Stream.debounce("80 millis"),
-          Stream.runForEach(() => survive(publishList)),
+          Stream.runForEach(() =>
+            survive(
+              Effect.gen(function* () {
+                for (const event of arrived.splice(0)) {
+                  if (yield* changesList(event)) {
+                    yield* publishList;
+                    return;
+                  }
+                }
+              })
+            )
+          ),
           Effect.ignore({ log: true }),
           Effect.forkScoped
         );
