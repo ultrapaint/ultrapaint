@@ -233,7 +233,7 @@ export const pagesOfCanvas = (canvas: string | null): readonly Page[] =>
  * The page a route is served by in a variant, matched the way the preview's router matches it:
  * the variant's own page for the route when it has one, the base page otherwise.
  */
-export const pageAt = (
+const pageAt = (
   canvas: string | null,
   route: string | null,
   variant: string | null

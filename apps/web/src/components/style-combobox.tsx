@@ -32,10 +32,10 @@ const VARIANTS_RE = /^(?:[^:[\]]*(?:\[[^\]]*\])?[^:[\]]*:)+/;
  * `p-[13px]`, `hover:bg-[#ff0000]`, `[mask-type:alpha]`: a value outside the design system's
  * scale. Brackets in a variant alone (`group-data-[size=sm]:px-4`) don't count.
  */
-export const isArbitraryClass = (cls: string | undefined): boolean =>
+const isArbitraryClass = (cls: string | undefined): boolean =>
   cls ? cls.replace(VARIANTS_RE, "").includes("[") : false;
 
-export const ArbitraryDot = ({ className }: { className?: string }) => (
+const ArbitraryDot = ({ className }: { className?: string }) => (
   <span
     className={cn("size-1.5 shrink-0 rounded-full bg-warning", className)}
     title="Arbitrary value, outside the design system. Prefer a value from the list."

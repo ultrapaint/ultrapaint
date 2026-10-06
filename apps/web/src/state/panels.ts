@@ -18,7 +18,7 @@ export interface Hidden {
  * What ⌘\ leaves hidden: while any panel can be seen, every panel goes; once none can, every one
  * comes back. A right panel the workspace does not show counts as out of sight already.
  */
-export const toggledAll = (hidden: Hidden, hasRight: boolean): Hidden => {
+const toggledAll = (hidden: Hidden, hasRight: boolean): Hidden => {
   const anyShown = !hidden.left || (hasRight && !hidden.right);
   return { left: anyShown, right: anyShown };
 };

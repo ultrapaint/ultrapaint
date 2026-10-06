@@ -12,7 +12,7 @@ import {
   type ThreadItem,
 } from "@ultrapaint/contracts/threads";
 
-export type AgentAction = "editing" | "reading" | "running" | "thinking";
+type AgentAction = "editing" | "reading" | "running" | "thinking";
 
 export interface AgentActivity {
   readonly action: AgentAction;

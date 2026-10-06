@@ -910,7 +910,7 @@ const GAP = 8;
  * The frame clips what is drawn outside it: close to its top, the toolbar hangs under the element
  * instead of over it.
  */
-export const roomAbove = (rectY: number, inv: number) =>
+const roomAbove = (rectY: number, inv: number) =>
   rectY >= (TAG_HEIGHT + GAP + TOOLBAR_HEIGHT) * inv;
 
 interface Box {

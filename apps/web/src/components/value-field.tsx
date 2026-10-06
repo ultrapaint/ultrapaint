@@ -12,10 +12,10 @@ import { StyleCombobox, type StyleOption } from "./style-combobox.tsx";
 const NUMBER_RE = /^-?\d*\.?\d+$/;
 const PX_RE = /^(-?\d*\.?\d+)px$/;
 /** What the option list offers to take the value off the node. */
-export const UNSET = "__unset";
+const UNSET = "__unset";
 
 /** The option string a value is shown and picked as. */
-export const optionOf = (value: JsonValue | undefined): string => {
+const optionOf = (value: JsonValue | undefined): string => {
   if (value === undefined || value === null) {
     return "";
   }
@@ -23,7 +23,7 @@ export const optionOf = (value: JsonValue | undefined): string => {
 };
 
 /** The value an option string or a typed query stands for. */
-export const parseValue = (option: string): JsonValue => {
+const parseValue = (option: string): JsonValue => {
   const trimmed = option.trim();
   if (trimmed === UNSET || trimmed === "") {
     return null;

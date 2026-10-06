@@ -8,7 +8,7 @@ import type { Length, Padding, Sides } from "@ultrapaint/contracts/document";
 export type Side = keyof Sides;
 
 /** In CSS order, which is the order the fields and the labels follow. */
-export const SIDES: readonly Side[] = ["top", "right", "bottom", "left"];
+const SIDES: readonly Side[] = ["top", "right", "bottom", "left"];
 
 /** Every side of a padding or margin, each set or not. */
 export const sidesOf = (value: Padding | undefined): Sides => {

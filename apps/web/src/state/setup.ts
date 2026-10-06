@@ -37,7 +37,7 @@ export const dismissInit = () => {
 };
 
 /** What the next edit would be asked about, if anything. */
-export const setupNeed = (): SetupNeed | null => {
+const setupNeed = (): SetupNeed | null => {
   const { configured, repoPath } = useProject.getState().info;
   const { designSystem, loaded } = useDesignSystem.getState();
   let state: "loading" | "imported" | "missing" = "missing";

@@ -55,9 +55,6 @@ export const useAttachments = create<AttachmentsStore>(() => ({
 
 const NONE: readonly Chip[] = [];
 
-export const chipsOf = (threadId: string | null) =>
-  (threadId ? useAttachments.getState().byThread[threadId] : undefined) ?? NONE;
-
 export const useChips = (threadId: string | null) =>
   useAttachments((s) => (threadId ? s.byThread[threadId] : undefined) ?? NONE);
 

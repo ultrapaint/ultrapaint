@@ -148,7 +148,7 @@ export const unwrapSelection = (target?: Selection) =>
   unwrapNodes(actedOn(target));
 
 /** Selects a node the server just made, in whichever frame now shows it. */
-export const selectCreated = (doc: string, frame: string, id: string) => {
+const selectCreated = (doc: string, frame: string, id: string) => {
   const { canvas } = useEditor.getState();
   const target =
     canvas !== null && doc === canvasDocOf(canvas)
@@ -479,7 +479,7 @@ export const deleteNodes = async (targets: readonly Selection[]) => {
 };
 
 /** Copies of these nodes, each beside its original, selected in their place. */
-export const duplicateNodes = async (targets: readonly Selection[]) => {
+const duplicateNodes = async (targets: readonly Selection[]) => {
   const copied = outermost(targets);
   const [first] = nodesOf(copied);
   const result = await applyToEach(
@@ -493,7 +493,7 @@ export const duplicateNodes = async (targets: readonly Selection[]) => {
 };
 
 /** Takes the children of every container among these nodes out of it, where it was. */
-export const unwrapNodes = async (targets: readonly Selection[]) => {
+const unwrapNodes = async (targets: readonly Selection[]) => {
   const result = await applyToEach(
     targets,
     (node) =>

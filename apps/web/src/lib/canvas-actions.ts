@@ -28,7 +28,7 @@ const views = new Map<string, { x: number; y: number; zoom: number }>();
  * Opens a canvas the way the list does: at the view it was left at, or fitted to what is on it
  * the first time, as Figma keeps a view per page.
  */
-export const showCanvas = async (id: string, at?: OpenAt) => {
+const showCanvas = async (id: string, at?: OpenAt) => {
   const editor = useEditor.getState();
   if (editor.canvas !== null) {
     views.set(editor.canvas, editor.view);
@@ -124,7 +124,7 @@ export const duplicateCanvas = async (canvas: Canvas) => {
 };
 
 /** What an agent is asked to make of a copy, as the dialog offers it. */
-export const REDRAW_PRESETS = [
+const REDRAW_PRESETS = [
   {
     id: "fidelity",
     instruction:
@@ -184,7 +184,7 @@ export const duplicateCanvasWithAgent = async (canvas: Canvas) => {
 };
 
 /** The command that asks an agent to change every page of a canvas. */
-export const redrawCommand = (canvasId: string, instruction: string) =>
+const redrawCommand = (canvasId: string, instruction: string) =>
   `/redraw ${canvasId === "" ? '""' : canvasId} ${instruction}`;
 
 /** Asks an agent to draw a sheet of the design system's components into the canvas. */

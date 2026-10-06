@@ -40,7 +40,7 @@ export type TokenKind =
   | "borderWidth"
   | "container";
 
-export const tokenOptions = (
+const tokenOptions = (
   ds: DesignSystem | null,
   kind: TokenKind
 ): StyleOption[] => {

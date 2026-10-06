@@ -21,7 +21,7 @@ interface HotspotsStore {
 
 let flashTimer: ReturnType<typeof setTimeout> | null = null;
 
-export const useHotspots = create<HotspotsStore>((set, get) => ({
+const useHotspots = create<HotspotsStore>((set, get) => ({
   flashing: false,
   shown: localStorage.getItem(SHOWN_KEY) === "true",
   toggle: () => {

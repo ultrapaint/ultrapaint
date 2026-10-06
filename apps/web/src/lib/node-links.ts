@@ -13,9 +13,7 @@ import { linkToNode } from "../state/url.ts";
  * Where a node of a frame is: its page's route, or the canvas beside the pages; and which canvas,
  * when there are several.
  */
-export const refOfSelection = (
-  target: Selection
-): NodeRef & { canvas: string } => {
+const refOfSelection = (target: Selection): NodeRef & { canvas: string } => {
   const { pages } = useProject.getState();
   const page = pages.find((p) => p.id === target.frame);
   const canvas = page?.canvas ?? "";

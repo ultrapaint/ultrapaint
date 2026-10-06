@@ -29,7 +29,7 @@ export const nothingPicked: Picked = {
 export const emptyMemory: WorkspaceMemory = { modes: {}, putAside: null };
 
 /** Whether a workspace shows the canvas, and so the selection on it. */
-export const showsCanvas = (workspace: Workspace) => workspace !== "prototype";
+const showsCanvas = (workspace: Workspace) => workspace !== "prototype";
 
 /** The prototype is clicked through, or commented on: no other tool means anything there. */
 const prototypeModes: readonly Mode[] = ["interact", "comment"];

@@ -463,5 +463,3 @@ export const zoomBy = (k: number) => {
     zoom: next,
   });
 };
-
-export const useProjectName = () => useProject((s) => s.info.name);

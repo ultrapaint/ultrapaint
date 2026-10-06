@@ -10,7 +10,7 @@ import { formatDuration } from "../lib/thread-work.ts";
 /** Eight rays that light up in turn, the whole mark turning slowly. */
 const RAYS = Array.from({ length: 8 }, (_, i) => i * 45);
 
-export const WorkingMark = ({ className }: { className?: string }) => (
+const WorkingMark = ({ className }: { className?: string }) => (
   <svg
     aria-hidden="true"
     className={cn(

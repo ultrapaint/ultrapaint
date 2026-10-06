@@ -133,7 +133,7 @@ export type Corner = "nw" | "ne" | "sw" | "se";
 
 const CORNERS: readonly Corner[] = ["nw", "ne", "sw", "se"];
 
-export interface FrameBox {
+interface FrameBox {
   height: number;
   preset?: ViewportPreset;
   width: number;

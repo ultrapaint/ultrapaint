@@ -9,7 +9,7 @@ import { useProject } from "../state/project.ts";
 const SPACES_RE = /\s+/;
 
 /** Up to two letters of a name: the first of its first and last words. */
-export const initialsOf = (name: string): string => {
+const initialsOf = (name: string): string => {
   const words = name.trim().split(SPACES_RE).filter(Boolean);
   const first = words[0]?.[0] ?? "";
   const last = words.length > 1 ? (words.at(-1)?.[0] ?? "") : "";

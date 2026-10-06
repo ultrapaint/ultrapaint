@@ -10,7 +10,7 @@ import { shortcutLabel, workspaceKeyLabel } from "../lib/keys.ts";
 
 const WORKSPACE_KEY_RE = /^⌃([1-9])$/;
 
-export const useShortcutSheet = create<{ open: boolean }>(() => ({
+const useShortcutSheet = create<{ open: boolean }>(() => ({
   open: false,
 }));
 

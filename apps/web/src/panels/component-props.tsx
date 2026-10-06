@@ -14,7 +14,7 @@ const HIDDEN = new Set(["children", "className", "key", "ref", "style"]);
 const NONE: ReadonlySet<string> = new Set();
 
 /** The catalogue's entry for an instance: the same export from the same module. */
-export const useComponentMeta = (node: InstanceNode) =>
+const useComponentMeta = (node: InstanceNode) =>
   useCatalogue((s) => componentMetaOf(s.catalogue, node));
 
 /**

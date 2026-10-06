@@ -34,7 +34,7 @@ const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
 /** How long ago, in the fewest characters: now, 12m, 3h, 2d, 3w, 4mo. */
-export const ago = (at: number, now: number): string => {
+const ago = (at: number, now: number): string => {
   const d = Math.max(0, now - at);
   if (d < MINUTE) {
     return "now";

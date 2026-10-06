@@ -112,7 +112,7 @@ import {
 } from "./thread-actions.ts";
 import { editTokenValue } from "./token-edit.ts";
 
-export const copyText = (text: string, what = text) => {
+const copyText = (text: string, what = text) => {
   navigator.clipboard?.writeText(text).then(
     () => toast(`Copied ${what}`),
     () => undefined
