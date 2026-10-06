@@ -106,7 +106,34 @@ const libraries = (files: Record<string, string>) => {
 
 const PRELUDE = `declare namespace JSX { interface Element {} }
 declare const cva: (base: string, config?: unknown) => (props?: unknown) => JSX.Element;
+declare const forwardRef: <P>(render: (props: P, ref: unknown) => JSX.Element) => (props: P) => JSX.Element;
+declare const memo: <P>(component: (props: P) => JSX.Element) => (props: P) => JSX.Element;
+type VariantProps<T> = { variant?: string; size?: string };
 `;
+
+const UI_PACKAGE = JSON.stringify({
+  exports: { "./*": "./src/*.tsx" },
+  name: "@acme/ui",
+});
+
+const BUTTON_CVA = `const buttonVariants = cva("btn", {
+  variants: { variant: { default: "", outline: "" }, size: { sm: "", lg: "" } },
+  defaultVariants: { variant: "default", size: "sm" },
+});`;
+
+const BUTTON_VARIANTS = {
+  size: ["sm", "lg"],
+  variant: ["default", "outline"],
+};
+
+/** The variants of each component the library's files make, by name. */
+const variantsOf = (files: Record<string, string>) =>
+  Object.fromEntries(
+    libraries({
+      "packages/ui/package.json": UI_PACKAGE,
+      ...files,
+    }).components.map((c) => [c.name, c.variants])
+  );
 
 // Building a TypeScript program takes seconds, and longer on a loaded machine.
 describe("building the catalogue", { timeout: 30_000 }, () => {
@@ -169,5 +196,113 @@ export const Chip = (props: { label: string }): JSX.Element => cva(props.label)(
     expect(
       catalogue.components.map((c) => [c.name, c.group, c.importFrom])
     ).toEqual([["Chip", "@acme/ui-extra", "@acme/ui-extra/chip"]]);
+  });
+
+  it("follows a component made by a call to the function it is made from", () => {
+    expect(
+      variantsOf({
+        "packages/ui/src/button.tsx": `${PRELUDE}
+${BUTTON_CVA}
+const badgeVariants = cva("badge", { variants: { tone: { info: "" } } });
+interface Props { variant?: string; size?: string }
+function ButtonImpl(props: Props, ref: unknown): JSX.Element {
+  return buttonVariants(props);
+}
+function ChipImpl(props: Props): JSX.Element {
+  return buttonVariants(props);
+}
+const Root = (props: Props): JSX.Element => buttonVariants(props);
+const Item = (props: { tone?: string }): JSX.Element => badgeVariants(props);
+export const Button = forwardRef(ButtonImpl);
+export const Chip = memo(ChipImpl);
+export const Group = Object.assign(Root, { Item });
+`,
+      })
+    ).toEqual({
+      Button: BUTTON_VARIANTS,
+      Chip: BUTTON_VARIANTS,
+      Group: BUTTON_VARIANTS,
+    });
+  });
+
+  it("follows a helper that calls the cva, and a props type naming it in a typeof", () => {
+    expect(
+      variantsOf({
+        "packages/ui/src/button.tsx": `${PRELUDE}
+${BUTTON_CVA}
+const tagVariants = cva("tag", { variants: { tone: { info: "" } } });
+const classes = (p: unknown) => buttonVariants(p);
+export interface ButtonProps extends VariantProps<typeof buttonVariants> {
+  label?: string;
+}
+export const Button = (p: { variant?: string; size?: string }): JSX.Element =>
+  classes(p);
+export function IconButton(p: ButtonProps): JSX.Element {
+  return tagVariants(p);
+}
+`,
+      })
+    ).toEqual({
+      Button: BUTTON_VARIANTS,
+      IconButton: BUTTON_VARIANTS,
+    });
+  });
+
+  it("takes the one cva of a file when nothing leads to it", () => {
+    expect(
+      variantsOf({
+        "packages/ui/src/button.tsx": `${PRELUDE}
+${BUTTON_CVA}
+declare const classesFor: (name: string) => (props: unknown) => JSX.Element;
+const styled = classesFor("button");
+export const Button = (p: { variant?: string; size?: string }): JSX.Element =>
+  styled(p);
+`,
+      })
+    ).toEqual({ Button: BUTTON_VARIANTS });
+  });
+
+  it("finds the cva in another file, through a barrel, an alias and an inline forwardRef", () => {
+    expect(
+      variantsOf({
+        "packages/ui/src/button-variants.ts": `${PRELUDE}
+export ${BUTTON_CVA}
+`,
+        "packages/ui/src/button.tsx": `${PRELUDE}
+import { buttonVariants as variants } from "./button-variants";
+export const Button = forwardRef(
+  (props: { variant?: string; size?: string }, ref: unknown): JSX.Element =>
+    variants(props)
+);
+`,
+        "packages/ui/src/index.tsx": `export * from "./button";
+export { Button as PrimaryButton } from "./button";
+`,
+      })
+    ).toEqual({
+      Button: BUTTON_VARIANTS,
+      PrimaryButton: BUTTON_VARIANTS,
+    });
+  });
+
+  it("reads the shadcn v4 shape, a function component with VariantProps in its props", () => {
+    expect(
+      variantsOf({
+        "packages/ui/src/button.tsx": `${PRELUDE}
+${BUTTON_CVA}
+declare const cn: (...c: unknown[]) => string;
+type ComponentProps<T extends string> = { className?: string };
+function Button({
+  className,
+  variant,
+  size,
+  ...props
+}: ComponentProps<"button"> & VariantProps<typeof buttonVariants>): JSX.Element {
+  return buttonVariants({ variant, size, className });
+}
+export { Button, buttonVariants };
+`,
+      })
+    ).toEqual({ Button: BUTTON_VARIANTS });
   });
 });

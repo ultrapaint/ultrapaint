@@ -26,7 +26,7 @@ const hashContent = (content: string): string =>
   createHash("sha1").update(content).digest("hex").slice(0, 16);
 
 /** Bump when the extraction logic changes so stale caches are rebuilt. */
-const CATALOGUE_VERSION = 4;
+const CATALOGUE_VERSION = 5;
 
 const TSX_EXT_RE = /\.tsx$/;
 const NON_COMPONENT_TSX_RE = /\.(stories|test|spec)\.tsx$/;
@@ -160,41 +160,95 @@ const mergeCva = (into: CvaInfo, from: CvaInfo) => {
   Object.assign(into.defaults, from.defaults);
 };
 
+/** Whether a declaration is the repository's own code, which is followed, rather than a library's. */
+const isOwnSource = (n: ts.Node) => {
+  const sf = n.getSourceFile();
+  return !(sf.isDeclarationFile || sf.fileName.includes("/node_modules/"));
+};
+
+/** The declarations a name refers to, through imports and re-exports. */
+const declarationsOf = (checker: ts.TypeChecker, id: ts.Node) => {
+  const symbol = checker.getSymbolAtLocation(id);
+  const target =
+    symbol && symbol.flags & ts.SymbolFlags.Alias
+      ? checker.getAliasedSymbol(symbol)
+      : symbol;
+  return target?.declarations ?? [];
+};
+
 /**
- * The `cva` variants a component uses: the `cva()` calls written inside it, and those of the
- * variables it calls or names in a `typeof` (`buttonVariants({ variant })`,
- * `VariantProps<typeof buttonVariants>`), wherever they are declared. A file's other `cva()`s
- * belong to its other components.
+ * The names a component's code leads on to: what it calls or passes to a call
+ * (`forwardRef(ButtonImpl)`, `memo(Chip)`, `Object.assign(Root, …)`, `classes(props)`), what it
+ * is set to, what it names in a `typeof`, and the types it is written with (`ButtonProps`,
+ * `extends VariantProps<typeof buttonVariants>`).
+ */
+const referencesOf = (n: ts.Node): ts.Node[] => {
+  if (ts.isCallExpression(n)) {
+    return [n.expression, ...n.arguments].filter(ts.isIdentifier);
+  }
+  if (ts.isVariableDeclaration(n) && n.initializer) {
+    return ts.isIdentifier(n.initializer) ? [n.initializer] : [];
+  }
+  if (ts.isTypeQueryNode(n) || ts.isTypeReferenceNode(n)) {
+    const name = ts.isTypeQueryNode(n) ? n.exprName : n.typeName;
+    return ts.isIdentifier(name) ? [name] : [];
+  }
+  if (ts.isExpressionWithTypeArguments(n)) {
+    return ts.isIdentifier(n.expression) ? [n.expression] : [];
+  }
+  return [];
+};
+
+/** Every `cva()` call written in a source file. */
+const cvaCallsIn = (sf: ts.SourceFile): ts.CallExpression[] => {
+  const calls: ts.CallExpression[] = [];
+  const visit = (n: ts.Node) => {
+    if (isCvaCall(n)) {
+      calls.push(n);
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(sf);
+  return calls;
+};
+
+/**
+ * The `cva` variants a component uses: the `cva()` calls written inside it, and those its code
+ * leads on to (`referencesOf`) through the repository's own sources, wherever they are declared:
+ * `buttonVariants({ variant })`, `forwardRef(ButtonImpl)`, a helper that calls the cva, a props
+ * type that `extends VariantProps<typeof buttonVariants>`. A file's other `cva()`s belong to its
+ * other components; when nothing leads to one and the file has a single `cva()`, it is that.
  */
 const cvaOfComponent = (checker: ts.TypeChecker, decl: ts.Node): CvaInfo => {
   const info: CvaInfo = { defaults: {}, variants: {} };
-  const named = (id: ts.Identifier) => {
-    const symbol = checker.getSymbolAtLocation(id);
-    const target =
-      symbol && symbol.flags & ts.SymbolFlags.Alias
-        ? checker.getAliasedSymbol(symbol)
-        : symbol;
-    const declared = target?.valueDeclaration;
-    if (
-      declared &&
-      ts.isVariableDeclaration(declared) &&
-      declared.initializer &&
-      isCvaCall(declared.initializer)
-    ) {
-      mergeCva(info, cvaOfCall(declared.initializer));
+  const visited = new Set<ts.Node>([decl]);
+  let found = false;
+  const follow = (id: ts.Node) => {
+    for (const declared of declarationsOf(checker, id)) {
+      if (visited.has(declared) || !isOwnSource(declared)) {
+        continue;
+      }
+      visited.add(declared);
+      visit(declared);
     }
   };
   const visit = (n: ts.Node) => {
     if (isCvaCall(n)) {
+      found = true;
       mergeCva(info, cvaOfCall(n));
-    } else if (ts.isCallExpression(n) && ts.isIdentifier(n.expression)) {
-      named(n.expression);
-    } else if (ts.isTypeQueryNode(n) && ts.isIdentifier(n.exprName)) {
-      named(n.exprName);
+    }
+    for (const id of referencesOf(n)) {
+      follow(id);
     }
     ts.forEachChild(n, visit);
   };
   visit(decl);
+  if (!found) {
+    const [only, ...others] = cvaCallsIn(decl.getSourceFile());
+    if (only && others.length === 0) {
+      mergeCva(info, cvaOfCall(only));
+    }
+  }
   return info;
 };
 
