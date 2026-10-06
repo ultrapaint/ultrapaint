@@ -34,6 +34,8 @@ const DARK_RE =
   /\.dark(?![\w-])|\[data-theme=["']?dark["']?\]|prefers-color-scheme:\s*dark|@(?:custom-)?variant\s+dark(?![\w-])/;
 const OTHER_THEME_RE = /\[data-theme=["']?([\w-]+)["']?\]/;
 const TAILWIND_IMPORT_RE = /^tailwindcss(\/.*)?$/;
+/** A scope whose variables hold for the whole document: the default theme's. */
+const ROOT_SCOPE_RE = /(^|[\s,])(:root|html|:host)\b/;
 
 /** A block of declarations and where it was written. */
 interface Scope {
@@ -86,6 +88,13 @@ export const themeOf = (prelude: string): string | null => {
   const named: RegExpExecArray | null = OTHER_THEME_RE.exec(applies);
   return named?.[1] && named[1] !== "light" ? named[1] : null;
 };
+
+/**
+ * Whether a block that is no theme's gives the default theme its values: `:root`, `html` or
+ * `:host`, not a class such as `.dark-blue` that only some of the page has.
+ */
+export const isRootScope = (prelude: string): boolean =>
+  ROOT_SCOPE_RE.test(prelude);
 
 /** The stylesheet a package exports under `sub` (its main one when `sub` is empty). */
 const packageEntry = (root: string, sub: readonly string[]): string | null => {
@@ -305,6 +314,18 @@ const setAll = (
   }
 };
 
+/** One of the repository's `@theme` blocks, applied over what is declared before it. */
+const applyRepositoryTheme = (out: Variables, scope: Scope) => {
+  for (const [k, v] of scope.vars) {
+    // Tailwind's defaults come before anything the repository writes, so a reset anywhere in
+    // its theme takes them out.
+    applyThemeDeclaration(out.themeVars, k, v);
+    if (isReset(v)) {
+      applyThemeDeclaration(out.defaultThemeVars, k, v);
+    }
+  }
+};
+
 const variablesOf = (
   defaults: readonly Scope[],
   scopes: readonly Scope[]
@@ -329,15 +350,8 @@ const variablesOf = (
       setAll(vars, scope.vars);
       out.themed.set(theme, vars);
     } else if (scope.prelude.startsWith("@theme")) {
-      for (const [k, v] of scope.vars) {
-        // Tailwind's defaults come before anything the repository writes, so a reset
-        // anywhere in its theme takes them out.
-        applyThemeDeclaration(out.themeVars, k, v);
-        if (isReset(v)) {
-          applyThemeDeclaration(out.defaultThemeVars, k, v);
-        }
-      }
-    } else {
+      applyRepositoryTheme(out, scope);
+    } else if (isRootScope(scope.prelude)) {
       setAll(out.rootVars, scope.vars);
     }
   }

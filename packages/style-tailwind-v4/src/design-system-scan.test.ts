@@ -217,6 +217,28 @@ describe("scanning a Tailwind v4 design system", () => {
     ]);
   });
 
+  it("takes the default values from the root, not from a class only part of the page has", () => {
+    const root = repository({
+      "app.css": `@import "tailwindcss";
+:root { --background: #ffffff; }
+.dark-blue { --background: #000011; }
+@theme inline { --color-background: var(--background); }`,
+      "node_modules/tailwindcss/package.json": '{"name":"tailwindcss"}',
+    });
+    const { designSystem } = scanDesignSystem({
+      anchorDir: root,
+      root,
+      settings: {
+        ...defaultSettings(root),
+        designsDir: ".",
+        hostCss: ["../app.css"],
+      },
+    });
+    expect(designSystem.colors.flatMap((g) => g.tokens)).toEqual([
+      { name: "color-background", value: "#ffffff" },
+    ]);
+  });
+
   it("drops the defaults a theme resets, by namespace, multi-word ones included", () => {
     const scan = (theme: string) => {
       const root = repository({

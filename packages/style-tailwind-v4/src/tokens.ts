@@ -20,7 +20,12 @@ import {
 } from "@ultrapaint/contracts/tokens";
 import type { DesignSystemContext } from "@ultrapaint/framework-api/node";
 import { toPosix } from "@ultrapaint/shared/path";
-import { collect, hostEntries, themeOf } from "./design-system-scan.ts";
+import {
+  collect,
+  hostEntries,
+  isRootScope,
+  themeOf,
+} from "./design-system-scan.ts";
 import {
   applyThemeDeclaration,
   type Block,
@@ -32,8 +37,6 @@ import {
 } from "./stylesheet.ts";
 
 const ALIAS_RE = /^var\(\s*(--[\w-]+)\s*\)$/;
-/** A scope whose variables hold for the whole document: the default theme's. */
-const ROOT_SCOPE_RE = /(^|[\s,])(:root|html|:host)\b/;
 const NODE_MODULES_RE = /[\\/]node_modules[\\/]/;
 
 /** The variable a value is an alias of, `var(--primary)`; undefined for anything else. */
@@ -59,7 +62,7 @@ const themeKeyOf = (prelude: string): string | null => {
   if (named) {
     return named;
   }
-  return ROOT_SCOPE_RE.test(prelude) ? "" : null;
+  return isRootScope(prelude) ? "" : null;
 };
 
 /** A token's name from its variable; null for what is not a token of its own. */
