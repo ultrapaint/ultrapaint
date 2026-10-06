@@ -1,19 +1,20 @@
 packages:
   - apps/*
   - packages/*
-  - spikes/*
 
 catalog:
   '@effect/platform-node': 4.0.0
+  # Not a dependency of any package: @effect/platform-node's own, held to the same release by the
+  # override below.
+  '@effect/platform-node-shared': 4.0.0
   '@effect/vitest': 4.0.0
   effect: 4.0.0
 
 overrides:
-  '@effect/platform-node-shared': 4.0.0
+  '@effect/platform-node-shared': 'catalog:'
   effect: 'catalog:'
 
 allowBuilds:
-  electron: set this to true or false
   esbuild: true
 
 minimumReleaseAgeExclude:
