@@ -13,6 +13,7 @@ import {
   freePort,
   makeRepository,
   makeTestServer,
+  subscribed,
   TestEnv,
 } from "./testing/harness.ts";
 
@@ -232,13 +233,12 @@ layer(Unsaved, { excludeTestServices: true, timeout: "60 seconds" })(
           const snapshot = yield* client["snapshots.create"]({ name: "kept" });
           const configPath = path.join(repo, "ultrapaint.json");
 
-          const events = yield* Effect.forkScoped(
+          const events = yield* subscribed(
             client["events.project"]().pipe(
               Stream.filter((info) => info.storage.mode === "file"),
               Stream.runHead
             )
           );
-          yield* Effect.sleep("150 millis");
           const result = yield* client["settings.persist"]({
             configPath,
             settings,

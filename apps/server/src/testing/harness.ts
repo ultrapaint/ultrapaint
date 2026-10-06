@@ -5,11 +5,14 @@ import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
 import type { Settings } from "@ultrapaint/contracts/settings";
 import {
   Context,
+  type Duration,
   Effect,
+  Fiber,
   FileSystem,
   Layer,
   Path,
   type PlatformError,
+  Stream,
 } from "effect";
 import { RpcClient, type RpcClientError, RpcSerialization } from "effect/rpc";
 import { Socket } from "effect/socket";
@@ -202,3 +205,41 @@ export const makeTestServer = (
 export const TestServer = makeTestServer(({ home }) =>
   Effect.succeed({ home, mode: "managed" })
 );
+
+/**
+ * Consumes an event stream in the background once the server has the subscription. The
+ * request goes out at once, and an answer to one sent after it on the same socket means the
+ * server has started the stream's handler: no wait for a subscription to arrive.
+ */
+export const subscribed = <A, E, R>(consume: Effect.Effect<A, E, R>) =>
+  Effect.gen(function* () {
+    const { client } = yield* TestEnv;
+    const fiber = yield* Effect.forkScoped(consume, { startImmediately: true });
+    yield* client.health();
+    return fiber;
+  });
+
+/** The first value of an event stream that arrives after `trigger` has run. */
+export const nextEvent = <A, E, B, E2, R2>(
+  stream: Stream.Stream<A, E>,
+  trigger: Effect.Effect<B, E2, R2>
+) =>
+  Effect.gen(function* () {
+    const first = yield* subscribed(
+      Stream.runHead(stream).pipe(Effect.timeout("20 seconds"))
+    );
+    const result = yield* trigger;
+    const event = yield* Fiber.join(first);
+    return { event, result };
+  });
+
+/** Waits until `condition` holds, asking again every 20 ms, and fails after `within`. */
+export const until = <E, R>(
+  condition: Effect.Effect<boolean, E, R>,
+  within: Duration.Input = "15 seconds"
+) =>
+  Effect.gen(function* () {
+    while (!(yield* condition)) {
+      yield* Effect.sleep("20 millis");
+    }
+  }).pipe(Effect.timeout(within));

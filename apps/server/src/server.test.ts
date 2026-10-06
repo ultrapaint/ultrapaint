@@ -2,8 +2,14 @@ import { request } from "node:http";
 import path from "node:path";
 import { assert, layer } from "@effect/vitest";
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import { Effect, Fiber, FileSystem, Stream } from "effect";
-import { TestEnv, TestServer } from "./testing/harness.ts";
+import { Effect, FileSystem, Stream } from "effect";
+import {
+  nextEvent,
+  subscribed,
+  TestEnv,
+  TestServer,
+  until,
+} from "./testing/harness.ts";
 import { toolCaller } from "./testing/mcp.ts";
 
 const SHA_RE = /^[0-9a-f]{40}$/;
@@ -56,20 +62,6 @@ const statusOf = (
 
 const childIds = (node: DesignNode | null | undefined) =>
   node && "children" in node ? (node.children ?? []).map((c) => c.id) : [];
-
-/** The first value of an event stream that arrives after `trigger` has run. */
-const nextEvent = <A, E, B, E2, R2>(
-  stream: Stream.Stream<A, E>,
-  trigger: Effect.Effect<B, E2, R2>
-) =>
-  Effect.gen(function* () {
-    const first = yield* Effect.forkScoped(Stream.runHead(stream));
-    // The subscription has to reach the server before the change happens.
-    yield* Effect.sleep("150 millis");
-    const result = yield* trigger;
-    const event = yield* Fiber.join(first);
-    return { event, result };
-  });
 
 layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
   "server over WebSocket RPC",
@@ -221,6 +213,16 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         Effect.gen(function* () {
           const { client } = yield* TestEnv;
           yield* client["pages.create"]({ canvas: "", name: "Listed once" });
+          const seen: string[] = [];
+          yield* subscribed(
+            Stream.runForEach(client["events.file.changed"](), (changed) =>
+              Effect.sync(() => {
+                if (changed.file === HOME_FILE) {
+                  seen.push(changed.hash);
+                }
+              })
+            )
+          );
           const { event } = yield* nextEvent(
             client["events.pages"](),
             Effect.gen(function* () {
@@ -234,8 +236,9 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
                   ],
                 });
               }
-              // Time for the watcher to see the edits' writes, which change no list.
-              yield* Effect.sleep("300 millis");
+              // The watcher has seen the edits' writes, which change no list.
+              const { hash } = yield* client["documents.get"]({ doc: HOME });
+              yield* until(Effect.sync(() => seen.includes(hash)));
               yield* client["pages.create"]({
                 canvas: "",
                 name: "Listed twice",

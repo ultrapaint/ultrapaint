@@ -1,6 +1,6 @@
 import { assert, layer } from "@effect/vitest";
 import { Effect, Fiber, Stream } from "effect";
-import { TestEnv, TestServer } from "./testing/harness.ts";
+import { subscribed, TestEnv, TestServer } from "./testing/harness.ts";
 import { callMcp, initializeLegacy, toolCaller } from "./testing/mcp.ts";
 
 layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
@@ -476,10 +476,9 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           );
 
           // It belongs to no thread, so nothing on the canvas is attributed to it.
-          const focused = yield* Effect.forkScoped(
+          const focused = yield* subscribed(
             Stream.runHead(client["events.agent.focus"]())
           );
-          yield* Effect.sleep("150 millis");
           yield* callMcp(port, connection.token, {
             method: "tools/call",
             params: { arguments: { route: "/home" }, name: "focus" },
@@ -497,11 +496,9 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         const { client, port, settings } = yield* TestEnv;
         yield* client["settings.set"](settings);
         const thread = yield* client["threads.create"]({ agentId: "fake" });
-        const focused = yield* Effect.forkScoped(
+        const focused = yield* subscribed(
           Stream.runHead(client["events.agent.focus"]())
         );
-        // The subscription has to reach the server before the agent focuses.
-        yield* Effect.sleep("150 millis");
         yield* client["threads.prompt"]({
           attachments: [],
           text: "mcp",
@@ -572,13 +569,12 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           const [textId = ""] = inserted.result.structuredContent
             .created as string[];
 
-          const focused = yield* Effect.forkScoped(
+          const focused = yield* subscribed(
             Stream.runHead(client["events.agent.focus"]())
           );
-          const edited = yield* Effect.forkScoped(
+          const edited = yield* subscribed(
             Stream.runHead(client["events.agent.edited"]())
           );
-          yield* Effect.sleep("150 millis");
           yield* call("focus", {
             action: "rewording",
             nodes: [textId],
@@ -707,7 +703,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           // This test is the editor: it takes the request and draws a (very small) picture.
           const png =
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
-          const requested = yield* Effect.forkScoped(
+          const requested = yield* subscribed(
             client["events.screenshot"]().pipe(
               Stream.tap((asked) =>
                 client["screenshots.deliver"]({
@@ -718,7 +714,6 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
               Stream.runHead
             )
           );
-          yield* Effect.sleep("150 millis");
           const shot = yield* shoot({ route: "/home", width: 390 });
           assert.isNotTrue(shot.result.isError);
           const [image] = shot.result.content;

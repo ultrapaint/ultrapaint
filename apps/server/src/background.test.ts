@@ -1,27 +1,12 @@
 import path from "node:path";
 import { assert, layer } from "@effect/vitest";
-import { Effect, Fiber, FileSystem, Stream } from "effect";
-import { TestEnv, TestServer } from "./testing/harness.ts";
+import { Effect, FileSystem, Stream } from "effect";
+import { nextEvent, TestEnv, TestServer } from "./testing/harness.ts";
 
 const PAGE = `${JSON.stringify({
   root: { children: [], id: "root", type: "page" },
   version: 1,
 })}\n`;
-
-/** The first value of an event stream that arrives after `trigger` has run. */
-const nextEvent = <A, E, B, E2, R2>(
-  stream: Stream.Stream<A, E>,
-  trigger: Effect.Effect<B, E2, R2>
-) =>
-  Effect.gen(function* () {
-    const first = yield* Effect.forkScoped(
-      Stream.runHead(stream).pipe(Effect.timeout("20 seconds"))
-    );
-    // The subscription has to reach the server before the change happens.
-    yield* Effect.sleep("150 millis");
-    yield* trigger;
-    return yield* Fiber.join(first);
-  });
 
 layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
   "the server's background work",
@@ -34,17 +19,27 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           const fs = yield* FileSystem.FileSystem;
           yield* client["settings.set"](settings);
           const designs = path.join(repo, "designs");
-          // A canvas.json and a page that are directories: reading either is an I/O error.
-          yield* fs.makeDirectory(path.join(designs, "broken/canvas.json"), {
-            recursive: true,
-          });
-          yield* fs.writeFileString(
-            path.join(designs, "broken/a.page.json"),
-            PAGE
+          // A canvas.json and a page that are directories: reading either is an I/O error. The
+          // watchers have seen all of it once the list they send has the page.
+          const seen = yield* nextEvent(
+            client["events.pages"]().pipe(
+              Stream.filter((list) =>
+                list.pages.some((p) => p.id === "broken/a.page.json")
+              )
+            ),
+            Effect.gen(function* () {
+              yield* fs.makeDirectory(
+                path.join(designs, "broken/canvas.json"),
+                { recursive: true }
+              );
+              yield* fs.writeFileString(
+                path.join(designs, "broken/a.page.json"),
+                PAGE
+              );
+              yield* fs.makeDirectory(path.join(designs, "odd.page.json"));
+            })
           );
-          yield* fs.makeDirectory(path.join(designs, "odd.page.json"));
-          // The watchers see all of it.
-          yield* Effect.sleep("500 millis");
+          assert.isTrue(seen.event._tag === "Some");
 
           const listed = yield* client["pages.list"]();
           assert.include(
@@ -52,7 +47,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             "broken/a.page.json"
           );
 
-          const pages = yield* nextEvent(
+          const { event: pages } = yield* nextEvent(
             client["events.pages"](),
             fs.writeFileString(path.join(designs, "later.page.json"), PAGE)
           );
@@ -61,7 +56,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             "later.page.json"
           );
 
-          const document = yield* nextEvent(
+          const { event: document } = yield* nextEvent(
             client["events.document"]().pipe(
               Stream.filter((d) => d.doc === "home.page.json")
             ),
@@ -88,9 +83,12 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           const fs = yield* FileSystem.FileSystem;
           const manifest = path.join(repo, "designs/package.json");
           yield* fs.writeFileString(manifest, '{ "name": "designs", ');
-          yield* client["settings.set"]({ ...settings, libraryDirs: [] });
           // The plan that runs on the project opening reads the broken manifest.
-          yield* Effect.sleep("1 second");
+          const { event: opened } = yield* nextEvent(
+            client["events.syncPlan"](),
+            client["settings.set"]({ ...settings, libraryDirs: [] })
+          );
+          assert.isTrue(opened._tag === "Some" && !opened.value.facts.app);
           const plan = yield* client["sync.plan"]();
           assert.isFalse(plan.facts.app);
 
@@ -98,7 +96,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             manifest,
             '{ "name": "designs", "dependencies": { "react": "19" } }\n'
           );
-          const next = yield* nextEvent(
+          const { event: next } = yield* nextEvent(
             client["events.syncPlan"](),
             client["settings.set"]({ ...settings, libraryDirs: ["ui"] })
           );

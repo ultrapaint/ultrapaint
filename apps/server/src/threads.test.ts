@@ -764,7 +764,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
 
           // A page reload interrupts the request while the agent is still booting.
           const request = yield* Effect.forkScoped(prompt(threadId, "reply"));
-          yield* Effect.sleep("30 millis");
+          // The prompt has reached the server once the thread is out of its error.
+          yield* waitForThread(threadId, (t) => t.status !== "error");
           yield* Fiber.interrupt(request);
 
           const { thread } = yield* waitForThread(threadId, turnEnded);

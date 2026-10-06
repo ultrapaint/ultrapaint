@@ -1,7 +1,7 @@
 import { assert, layer } from "@effect/vitest";
 import { Effect, FileSystem, Path, Ref, Schedule, Stream } from "effect";
 import { readPngText } from "./png-text.ts";
-import { TestEnv, TestServer } from "./testing/harness.ts";
+import { TestEnv, TestServer, until } from "./testing/harness.ts";
 
 /** A 1×1 PNG, as an editor would deliver it. */
 const PNG =
@@ -68,9 +68,12 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
 
           // A change to the canvas that is not this page's frame leaves the PNG as it is.
           yield* client["pages.create"]({ canvas: "", name: "Other" });
-          yield* Effect.sleep("2500 millis");
+          // The pass that draws the new page has looked at this one before it.
+          yield* until(
+            fs.exists(path.join(designs, "other.page.png")),
+            "20 seconds"
+          );
           assert.strictEqual(yield* keyOf, first);
-          assert.isTrue(yield* fs.exists(path.join(designs, "other.page.png")));
           assert.strictEqual((yield* Ref.get(asked)).length, drawnOnce + 1);
 
           // The page changes: it is drawn again.
