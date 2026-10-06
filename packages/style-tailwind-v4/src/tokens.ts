@@ -20,15 +20,17 @@ import {
 } from "@ultrapaint/contracts/tokens";
 import type { DesignSystemContext } from "@ultrapaint/framework-api/node";
 import { collect, hostEntries, themeOf } from "./design-system-scan.ts";
+import {
+  type Block,
+  type Declaration,
+  parseStylesheet,
+  resolveVars,
+} from "./stylesheet.ts";
 
-const COMMENT_RE = /\/\*[\s\S]*?\*\//g;
-const NAME_RE = /^\s*(--[\w-]+)\s*:/;
 const ALIAS_RE = /^var\(\s*(--[\w-]+)\s*\)$/;
-const VAR_RE = /var\(\s*(--[\w-]+)\s*(?:,\s*([^()]*))?\)/;
 /** A scope whose variables hold for the whole document: the default theme's. */
 const ROOT_SCOPE_RE = /(^|[\s,])(:root|html|:host)\b/;
 const NODE_MODULES_RE = /[\\/]node_modules[\\/]/;
-const MAX_ALIAS_DEPTH = 8;
 
 const toPosix = (p: string) => p.replaceAll("\\", "/");
 
@@ -38,130 +40,13 @@ const aliasOf = (value: string): string | undefined => {
   return match?.[1];
 };
 
-/** One `--name: value` of a stylesheet, with where its value and the whole of it are written. */
-interface Declaration {
-  /** Where the declaration starts and ends, its `;` included. */
-  readonly declEnd: number;
-  readonly declStart: number;
-  /** Absolute. */
-  readonly file: string;
-  readonly name: string;
-  readonly prelude: string;
-  readonly value: string;
-  readonly valueEnd: number;
-  readonly valueStart: number;
-}
-
-/** A block of a stylesheet: where its `}` is, to add a declaration before it. */
-interface Block {
-  readonly close: number;
-  /** Absolute. */
-  readonly file: string;
-  readonly prelude: string;
-}
-
-interface Parsed {
-  readonly blocks: Block[];
-  readonly declarations: Declaration[];
-}
-
-/** Comments blanked out, so offsets in the result are offsets in the text. */
-const masked = (text: string) =>
-  text.replace(COMMENT_RE, (comment) => " ".repeat(comment.length));
-
-/** The declaration written between `start` and `end`, if it is a custom property. */
-const declarationAt = (
-  file: string,
-  text: string,
-  css: string,
-  span: { readonly end: number; readonly start: number; readonly stop: number },
-  prelude: string
-): Declaration | null => {
-  const chunk = css.slice(span.start, span.end);
-  const named: RegExpExecArray | null = NAME_RE.exec(chunk);
-  if (!named?.[1]) {
-    return null;
-  }
-  const colon = span.start + named[0].length;
-  const raw = css.slice(colon, span.end);
-  const valueStart = colon + (raw.length - raw.trimStart().length);
-  const valueEnd = colon + raw.trimEnd().length;
-  if (valueEnd <= valueStart) {
-    return null;
-  }
+/** The custom properties a stylesheet declares, with their offsets, and its blocks. */
+const customPropertiesOf = (file: string, text: string) => {
+  const parsed = parseStylesheet(file, text);
   return {
-    declEnd: span.stop,
-    declStart: span.start + (chunk.length - chunk.trimStart().length),
-    file,
-    name: named[1],
-    prelude,
-    value: text.slice(valueStart, valueEnd),
-    valueEnd,
-    valueStart,
+    blocks: parsed.blocks,
+    declarations: parsed.declarations.filter((d) => d.name.startsWith("--")),
   };
-};
-
-/** Where a quoted string that opens at `i` ends: the index of its closing quote. */
-const stringEnd = (css: string, i: number): number => {
-  const quote = css[i];
-  let j = i + 1;
-  while (j < css.length && css[j] !== quote) {
-    j += css[j] === "\\" ? 2 : 1;
-  }
-  return j;
-};
-
-/** Every custom property declaration and block of a stylesheet, with their offsets. */
-export const parseStylesheet = (file: string, text: string): Parsed => {
-  const css = masked(text);
-  const blocks: Block[] = [];
-  const declarations: Declaration[] = [];
-  const stack: string[] = [];
-  let start = 0;
-  let parens = 0;
-
-  /** What sits between the last boundary and `end`, when it ends a declaration. */
-  const end = (at: number, stop: number) => {
-    const prelude = stack.at(-1);
-    const found =
-      prelude === undefined
-        ? null
-        : declarationAt(file, text, css, { end: at, start, stop }, prelude);
-    if (found) {
-      declarations.push(found);
-    }
-    start = at + 1;
-  };
-
-  /** A `{`, `;` or `}` outside any parentheses: a block opens, a declaration or a block ends. */
-  const boundary = (char: string | undefined, at: number) => {
-    if (char === "{") {
-      stack.push(`${stack.at(-1) ?? ""} ${css.slice(start, at).trim()}`.trim());
-      start = at + 1;
-    } else if (char === ";") {
-      end(at, at + 1);
-    } else if (char === "}") {
-      end(at, at);
-      const prelude = stack.pop();
-      if (prelude !== undefined) {
-        blocks.push({ close: at, file, prelude });
-      }
-    }
-  };
-
-  let i = 0;
-  while (i < css.length) {
-    const char = css[i];
-    if (char === '"' || char === "'") {
-      i = stringEnd(css, i);
-    } else if (char === "(" || char === ")") {
-      parens = Math.max(0, parens + (char === "(" ? 1 : -1));
-    } else if (parens === 0) {
-      boundary(char, i);
-    }
-    i += 1;
-  }
-  return { blocks, declarations };
 };
 
 const isTheme = (prelude: string) => prelude.includes("@theme");
@@ -214,7 +99,7 @@ const declarationsOf = (files: readonly string[]): Declared => {
     if (text === null) {
       continue;
     }
-    const parsed = parseStylesheet(file, text);
+    const parsed = customPropertiesOf(file, text);
     out.blocks.push(...parsed.blocks);
     for (const decl of parsed.declarations) {
       const name = tokenNameOf(decl.name);
@@ -240,7 +125,7 @@ const defaultsOf = (file: string | null): Map<string, string> => {
   if (!(file && text)) {
     return defaults;
   }
-  for (const decl of parseStylesheet(file, text).declarations) {
+  for (const decl of customPropertiesOf(file, text).declarations) {
     const name = tokenNameOf(decl.name);
     if (name && isTheme(decl.prelude)) {
       defaults.set(name, decl.value);
@@ -259,28 +144,16 @@ interface Reading extends Declared {
 /** Follows the `var()`s of a value through one theme's variables, then the default's. */
 const resolverOf =
   (found: Declared, defaults: ReadonlyMap<string, string>) =>
-  (value: string, theme: string): string => {
-    let out = value;
-    for (let depth = 0; depth < MAX_ALIAS_DEPTH; depth += 1) {
-      const match: RegExpExecArray | null = VAR_RE.exec(out);
-      if (!match) {
-        return out;
-      }
-      const [whole, variable = "", fallback] = match;
+  (value: string, theme: string): string =>
+    resolveVars(value, (variable) => {
       const name = tokenNameOf(variable) ?? "";
-      const next =
+      return (
         found.scoped.get(theme)?.get(variable)?.value ??
         found.scoped.get("")?.get(variable)?.value ??
         found.declared.get(name)?.value ??
-        defaults.get(name) ??
-        fallback?.trim();
-      if (next === undefined) {
-        return out;
-      }
-      out = out.replace(whole, next);
-    }
-    return out;
-  };
+        defaults.get(name)
+      );
+    });
 
 const read = (ctx: DesignSystemContext): Reading => {
   const entries = hostEntries(ctx);

@@ -186,6 +186,33 @@ describe("scanning a Tailwind v4 design system", () => {
     ]);
   });
 
+  it("keeps a quoted `;` in a value, and follows every var() of it on its own", () => {
+    const root = repository({
+      "app.css": `@import "tailwindcss";
+:root { --icon: url("data:image/svg+xml;utf8,<svg/>"); --shadow-color: rgb(0 0 0 / 0.1); }
+@theme {
+  --font-display: "Foo;Bar", sans-serif;
+  --shadow-card: 0 1px var(--blur) var(--shadow-color);
+}`,
+      "node_modules/tailwindcss/package.json": '{"name":"tailwindcss"}',
+    });
+    const { designSystem } = scanDesignSystem({
+      anchorDir: root,
+      root,
+      settings: {
+        ...defaultSettings(root),
+        designsDir: ".",
+        hostCss: ["../app.css"],
+      },
+    });
+    expect(designSystem.typography.fonts).toEqual([
+      { name: "font-display", value: '"Foo;Bar", sans-serif' },
+    ]);
+    expect(designSystem.shadows).toEqual([
+      { name: "shadow-card", value: "0 1px var(--blur) rgb(0 0 0 / 0.1)" },
+    ]);
+  });
+
   it("says so when there is no Tailwind", () => {
     const root = repository({ "app.css": ":root { --x: 1px; }" });
     const { designSystem, notes } = scanDesignSystem({

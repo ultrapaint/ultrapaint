@@ -143,6 +143,22 @@ describe("the inventory of a project's code", () => {
     expect(values.some((v) => v.includes("#ffffff"))).toBe(false);
   });
 
+  it("reads a stylesheet's quoted values whole, and where each declaration is", () => {
+    const css = `.icon {
+  background: url("data:image/svg+xml;utf8,<svg fill='%23fff'/>");
+  margin-top: 13px;
+}
+a:hover { color: #abcdef; }`;
+    const uses = usage.scanFile("src/a.css", css);
+    expect(uses.map((u) => `${u.line} ${u.raw}`)).toEqual([
+      `2 background: url("data:image/svg+xml;utf8,<svg fill='%23fff'/>")`,
+      "3 margin-top: 13px",
+      "5 color: #abcdef",
+    ]);
+    const [, margin] = uses;
+    expect(css.slice(margin?.start, margin?.end)).toBe("13px");
+  });
+
   it("reports plain elements where the library has a component, outside the library", () => {
     const values = valuesOf({
       "src/components/ui/button.tsx": "export const Button = () => <button />;",

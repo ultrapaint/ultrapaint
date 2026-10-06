@@ -1,0 +1,115 @@
+import { describe, expect, it } from "vitest";
+import {
+  applyThemeDeclaration,
+  masked,
+  parseStylesheet,
+  resolveVars,
+} from "./stylesheet.ts";
+
+const declared = (css: string) =>
+  parseStylesheet("a.css", css).declarations.map(
+    (d) => `${d.prelude} | ${d.name}: ${d.value}`
+  );
+
+describe("reading a stylesheet", () => {
+  it("keeps a quoted `;` or `}` inside its value", () => {
+    const css = `:root {
+  --icon: url("data:image/svg+xml;utf8,<svg fill='%23fff'>}</svg>");
+  --after: 1px;
+}`;
+    expect(declared(css)).toEqual([
+      `:root | --icon: url("data:image/svg+xml;utf8,<svg fill='%23fff'>}</svg>")`,
+      ":root | --after: 1px",
+    ]);
+  });
+
+  it("reads resets, plain properties, `!important` and nested blocks with their outer prelude", () => {
+    const css = `@theme { --color-*: initial; --*: initial; }
+@layer base { .card { margin-top: -16px !important; &:hover { color: red } } }`;
+    expect(declared(css)).toEqual([
+      "@theme | --color-*: initial",
+      "@theme | --*: initial",
+      "@layer base .card | margin-top: -16px !important",
+      "@layer base .card &:hover | color: red",
+    ]);
+  });
+
+  it("tells at-rule statements from declarations, and skips comments", () => {
+    const css = `.a { /* color: blue; */ @apply px-4 text-sm; color: "/* not a comment */"; }`;
+    const parsed = parseStylesheet("a.css", css);
+    expect(parsed.statements).toEqual([
+      expect.objectContaining({ name: "apply", params: "px-4 text-sm" }),
+    ]);
+    const [apply] = parsed.statements;
+    expect(css.slice(apply?.paramsStart, (apply?.paramsStart ?? 0) + 12)).toBe(
+      "px-4 text-sm"
+    );
+    expect(parsed.declarations.map((d) => d.value)).toEqual([
+      '"/* not a comment */"',
+    ]);
+    expect(masked("a /* b\nc */ d")).toBe("a     \n     d");
+  });
+});
+
+describe("following var()", () => {
+  const vars = new Map([
+    ["--known", "1px"],
+    ["--alias", "var(--known)"],
+    ["--a", "var(--b)"],
+    ["--b", "var(--a, 2px)"],
+  ]);
+  const resolve = (value: string) => resolveVars(value, (n) => vars.get(n));
+
+  it("resolves each reference on its own, an unknown one included", () => {
+    expect(resolve("var(--unknown) var(--known)")).toBe("var(--unknown) 1px");
+    expect(resolve("var(--alias) var(--alias) var(--alias)")).toBe(
+      "1px 1px 1px"
+    );
+    expect(resolve("var(--unknown, var(--alias))")).toBe("1px");
+    expect(resolve("var(--unknown, rgb(0 0 0 / 0.5))")).toBe(
+      "rgb(0 0 0 / 0.5)"
+    );
+  });
+
+  it("ends a cycle at the fallback, or leaves the reference as written", () => {
+    expect(resolve("var(--a)")).toBe("2px");
+    const loop = new Map([
+      ["--x", "var(--y)"],
+      ["--y", "var(--x)"],
+    ]);
+    expect(resolveVars("var(--x)", (n) => loop.get(n))).toBe("var(--x)");
+  });
+
+  it("goes deeper than a fixed number of steps", () => {
+    const chain = new Map(
+      Array.from({ length: 30 }, (_, i) => [`--v${i}`, `var(--v${i + 1})`])
+    );
+    chain.set("--v30", "end");
+    expect(resolveVars("var(--v0)", (n) => chain.get(n))).toBe("end");
+  });
+});
+
+describe("a theme's resets", () => {
+  it("clear a namespace as Tailwind does, keeping the namespaces it keeps", () => {
+    const vars = new Map([
+      ["--color-red-500", "red"],
+      ["--font-sans", "Inter"],
+      ["--font-weight-bold", "700"],
+      ["--inset-shadow-sm", "x"],
+      ["--inset-1", "4px"],
+      ["--radius-lg", "8px"],
+    ]);
+    applyThemeDeclaration(vars, "--color-*", "initial");
+    applyThemeDeclaration(vars, "--font-*", "initial");
+    applyThemeDeclaration(vars, "--inset-*", "initial");
+    applyThemeDeclaration(vars, "--radius-lg", "initial");
+    applyThemeDeclaration(vars, "--color-brand", "#123456");
+    expect([...vars.keys()]).toEqual([
+      "--font-weight-bold",
+      "--inset-shadow-sm",
+      "--color-brand",
+    ]);
+    applyThemeDeclaration(vars, "--*", "initial");
+    expect(vars.size).toBe(0);
+  });
+});

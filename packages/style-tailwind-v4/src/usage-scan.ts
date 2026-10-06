@@ -24,6 +24,7 @@ import type {
   UsageOccurrence,
   UsageReader,
 } from "@ultrapaint/framework-api/node";
+import { parseStylesheet } from "./stylesheet.ts";
 
 const SOURCE_RE = /\.(tsx|jsx|ts|js|mjs|css)$/;
 const SKIPPED_FILE_RE =
@@ -43,13 +44,9 @@ const NUMBER_RE = /^-?\d+(\.\d+)?$/;
 const LENGTH_RE = /^-?\d*\.?\d+(px|rem|em)$/;
 const LENGTH_IN_RE = /-?\d*\.?\d+(px|rem|em)\b/g;
 const TYPE_HINT_RE = /^([a-z-]+):(.+)$/;
-const COMMENT_RE = /\/\*[\s\S]*?\*\//g;
-const APPLY_RE = /@apply\s+([^;}]+)/g;
-const DECLARATION_RE = /(^|[;{\s])([a-z-]+)\s*:\s*([^;{}]+)/g;
 const UNDERSCORE_RE = /_/g;
 const SPACES_RE = /\s+/g;
 const DASHED_RE = /-([a-z])/g;
-const NON_NEWLINE_RE = /[^\n]/g;
 
 /** Tailwind's own scales, which a design system has unless it says otherwise. */
 const DEFAULT_SIZES = new Set([
@@ -393,8 +390,26 @@ export const readClass = (
   return parts ? { use: parts.use, value: parts.value } : null;
 };
 
-const lineAt = (text: string, index: number) =>
-  text.slice(0, index).split("\n").length;
+/** The line of each offset of a text, found by halving the list of where its lines start. */
+const lineIndex = (text: string) => {
+  const starts = [0];
+  for (let i = text.indexOf("\n"); i !== -1; i = text.indexOf("\n", i + 1)) {
+    starts.push(i + 1);
+  }
+  return (offset: number) => {
+    let low = 0;
+    let high = starts.length - 1;
+    while (low < high) {
+      const mid = Math.ceil((low + high) / 2);
+      if ((starts[mid] ?? 0) <= offset) {
+        low = mid;
+      } else {
+        high = mid - 1;
+      }
+    }
+    return low + 1;
+  };
+};
 
 /** Where a piece of a string is in the file, when the string is written there as it reads. */
 const spanIn = (base: number | null, index: number, length: number) =>
@@ -650,71 +665,35 @@ const fromScript = (text: string): UsageOccurrence[] => {
  * A stylesheet's declarations and `@apply`, outside the `@theme` blocks, and not the custom
  * properties: those define the design system rather than use it.
  */
-/** Where each `@theme` block of a stylesheet starts and ends. */
-const themeBlocks = (css: string) => {
-  const blocks: [number, number][] = [];
-  let at = css.indexOf("@theme");
-  while (at !== -1) {
-    const open = css.indexOf("{", at);
-    if (open === -1) {
-      break;
-    }
-    let depth = 0;
-    let end = open;
-    while (end < css.length) {
-      depth += css[end] === "{" ? 1 : 0;
-      depth -= css[end] === "}" ? 1 : 0;
-      if (depth === 0) {
-        break;
-      }
-      end += 1;
-    }
-    blocks.push([at, end]);
-    at = css.indexOf("@theme", end);
-  }
-  return blocks;
-};
-
 const fromStylesheet = (text: string): UsageOccurrence[] => {
-  // Comments blanked to spaces, so the offsets still count the lines.
-  const css = text.replace(COMMENT_RE, (c) => c.replace(NON_NEWLINE_RE, " "));
-  const theme = themeBlocks(css);
-  const inTheme = (index: number) =>
-    theme.some(([from, to]) => index >= from && index <= to);
+  const parsed = parseStylesheet("", text);
+  const lineAt = lineIndex(text);
   const out: UsageOccurrence[] = [];
-  APPLY_RE.lastIndex = 0;
-  for (const match of css.matchAll(APPLY_RE)) {
-    if (match.index === undefined || inTheme(match.index)) {
-      continue;
+  for (const statement of parsed.statements) {
+    if (statement.name === "apply" && !statement.prelude.includes("@theme")) {
+      fromString(
+        statement.params,
+        lineAt(statement.paramsStart),
+        out,
+        statement.paramsStart
+      );
     }
-    const classes = match[1] ?? "";
-    fromString(
-      classes,
-      lineAt(css, match.index),
-      out,
-      match.index + match[0].length - classes.length
-    );
   }
-  for (const match of css.matchAll(DECLARATION_RE)) {
-    const property = match[2] ?? "";
-    const written = match[3] ?? "";
-    const value = written.trim();
-    const index = match.index + (match[1]?.length ?? 0);
-    if (property.startsWith("--") || inTheme(index) || value.startsWith("@")) {
+  for (const decl of parsed.declarations) {
+    if (
+      decl.name.startsWith("--") ||
+      decl.prelude.includes("@theme") ||
+      decl.value.startsWith("@")
+    ) {
       continue;
     }
-    const start =
-      match.index +
-      match[0].length -
-      written.length +
-      (written.length - written.trimStart().length);
     out.push({
-      end: start + value.length,
-      line: lineAt(css, index),
-      raw: `${property}: ${value}`,
-      start,
-      use: `css:${property}`,
-      value,
+      end: decl.valueEnd,
+      line: lineAt(decl.declStart),
+      raw: `${decl.name}: ${decl.value}`,
+      start: decl.valueStart,
+      use: `css:${decl.name}`,
+      value: decl.value,
     });
   }
   return out;

@@ -20,11 +20,9 @@ import type {
   DesignSystemContext,
   DesignSystemScan,
 } from "@ultrapaint/framework-api/node";
+import { masked, parseStylesheet, resolveVars } from "./stylesheet.ts";
 
-const COMMENT_RE = /\/\*[\s\S]*?\*\//g;
 const IMPORT_RE = /@import\s+(?:url\()?\s*["']([^"']+)["']/g;
-const DECLARATION_RE = /(--[\w-]+)\s*:\s*([^;]+);?/;
-const VAR_RE = /var\(\s*(--[\w-]+)\s*(?:,\s*([^()]*(?:\([^()]*\)[^()]*)*))?\)/;
 const PALETTE_RE = /^color-([a-z]+)-(\d{2,3})$/;
 const DARK_RE =
   /\.dark\b|\[data-theme=["']?dark["']?\]|prefers-color-scheme:\s*dark|@variant\s+dark|@custom-variant\s+dark/;
@@ -38,44 +36,21 @@ interface Scope {
   readonly vars: Map<string, string>;
 }
 
-/** Splits a stylesheet into the declaration blocks it has, nested ones with their outer prelude. */
+/** The blocks of a stylesheet that declare custom properties, nested ones with their outer prelude. */
 const scopesOf = (css: string): Scope[] => {
-  const scopes: Scope[] = [];
-  const text = css.replace(COMMENT_RE, "");
-  const stack: { prelude: string; vars: Map<string, string> }[] = [];
-  let buffer = "";
-  for (const char of text) {
-    if (char === "{") {
-      const outer = stack.map((s) => s.prelude).join(" ");
-      stack.push({
-        prelude: `${outer} ${buffer.trim()}`.trim(),
-        vars: new Map(),
-      });
-      buffer = "";
-    } else if (char === "}") {
-      const top = stack.pop();
-      const tail: RegExpExecArray | null = DECLARATION_RE.exec(buffer.trim());
-      if (top && tail?.[1] && tail[2]) {
-        top.vars.set(tail[1], tail[2].trim());
-      }
-      if (top && top.vars.size > 0) {
-        scopes.push(top);
-      }
-      buffer = "";
-    } else if (char === ";") {
-      const decl: RegExpExecArray | null = DECLARATION_RE.exec(
-        `${buffer.trim()};`
-      );
-      const top = stack.at(-1);
-      if (decl?.[1] && decl[2] && top) {
-        top.vars.set(decl[1], decl[2].trim());
-      }
-      buffer = "";
-    } else {
-      buffer += char;
+  const scopes = new Map<number, Scope>();
+  for (const decl of parseStylesheet("", css).declarations) {
+    if (!decl.name.startsWith("--")) {
+      continue;
     }
+    const scope = scopes.get(decl.block) ?? {
+      prelude: decl.prelude,
+      vars: new Map<string, string>(),
+    };
+    scope.vars.set(decl.name, decl.value);
+    scopes.set(decl.block, scope);
   }
-  return scopes;
+  return [...scopes.values()];
 };
 
 /** Which theme a block's values belong to: the default, `dark`, or a named one. */
@@ -192,7 +167,7 @@ export const collect = (
       return;
     }
     out.files.push(file);
-    for (const match of css.replace(COMMENT_RE, "").matchAll(IMPORT_RE)) {
+    for (const match of masked(css).matchAll(IMPORT_RE)) {
       const specifier = match[1] as string;
       if (TAILWIND_IMPORT_RE.test(specifier)) {
         out.tailwind = true;
@@ -217,24 +192,8 @@ export const collect = (
 };
 
 /** Follows `var(--x)` through the custom properties of one theme, to the value it ends at. */
-const resolver = (vars: ReadonlyMap<string, string>) => {
-  const resolve = (value: string, depth = 0): string => {
-    if (depth > 10) {
-      return value;
-    }
-    const match: RegExpExecArray | null = VAR_RE.exec(value);
-    if (!match) {
-      return value;
-    }
-    const [whole, name, fallback] = match;
-    const replacement = vars.get(name as string) ?? fallback?.trim() ?? whole;
-    if (replacement === whole) {
-      return value;
-    }
-    return resolve(value.replace(whole, replacement), depth + 1);
-  };
-  return resolve;
-};
+const resolver = (vars: ReadonlyMap<string, string>) => (value: string) =>
+  resolveVars(value, (name) => vars.get(name));
 
 const byName = (a: { name: string }, b: { name: string }) =>
   a.name.localeCompare(b.name, undefined, { numeric: true });
