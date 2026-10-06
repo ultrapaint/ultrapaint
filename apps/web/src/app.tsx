@@ -333,6 +333,7 @@ const ProjectHeader = () => {
       {info.storage.mode === "ephemeral" && (
         <IconButton
           className="text-warning hover:text-warning"
+          label="Not saved: save a configuration"
           onClick={openSaveConfig}
           tooltip={
             <span className="block max-w-64">

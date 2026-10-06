@@ -437,13 +437,13 @@ export const PrototypeBar = () => {
         </div>
         <HotspotsToggle />
         <IconButton
-          aria-label="Comment"
           aria-pressed={commenting}
           className={cn(
             "size-8 rounded-lg",
             commenting && "bg-brand text-brand-foreground hover:bg-brand/90"
           )}
           disabled={canvas === null}
+          label={commenting ? "Stop commenting" : "Comment"}
           onClick={toggleCommenting}
           tooltip={
             <>

@@ -233,6 +233,7 @@ export const Toolbar = () => {
       <IconButton
         className="size-8 rounded-lg"
         disabled={!undo.canUndo}
+        label={undo.undoLabel ? `Undo ${undo.undoLabel}` : "Undo"}
         onClick={undoEdit}
         tooltip={
           <>
@@ -246,6 +247,7 @@ export const Toolbar = () => {
       <IconButton
         className="size-8 rounded-lg"
         disabled={!undo.canRedo}
+        label="Redo"
         onClick={redoEdit}
         tooltip={
           <>

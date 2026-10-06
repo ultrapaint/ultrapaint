@@ -84,6 +84,7 @@ export const Comments = () => {
           <CheckCheck />
         </IconButton>
         <IconButton
+          label={visible ? "Hide comments" : "Show comments"}
           onClick={toggleVisible}
           tooltip={
             <>
