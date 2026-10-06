@@ -107,6 +107,7 @@ import { showScope } from "../lib/add-to-chat.ts";
 import {
   type AnswerDraft,
   answeredWell,
+  isOpenQuestion,
   notANumber,
   openQuestionOf,
   type QuestionItem,
@@ -165,7 +166,7 @@ import { useSync } from "../state/sync.ts";
 import { ScopePicture, ThreadList } from "./chat-list.tsx";
 import { ChatStarters } from "./chat-starters.tsx";
 import { SetupStepBar, SetupStepIntro } from "./design-system-setup.tsx";
-import { WorkingIndicator, WorkingMark } from "./thread-work.tsx";
+import { WorkingIndicator } from "./thread-work.tsx";
 
 export const Threads = () => {
   const configured = useProject((s) => s.info.configured);
@@ -418,11 +419,8 @@ const WorkGroup = ({
   return (
     <Collapsible>
       <Disclosure className="w-full gap-1.5 border bg-muted/30">
-        {active ? (
-          <WorkingMark className="size-3.5" />
-        ) : (
-          <Zap className="text-muted-foreground" />
-        )}
+        {/* The working line under the thread spins for the turn; the group only shimmers. */}
+        <Zap className="text-muted-foreground" />
         <span className={cn("truncate", active && "text-shimmer")}>{text}</span>
         {failed > 0 && (
           <span className="shrink-0 text-destructive">· {failed} failed</span>
@@ -765,8 +763,9 @@ const Item = ({
       );
     case "permission":
       return <Permission item={item} threadId={threadId} />;
+    // A question still waiting sits over the composer; the thread keeps what came of it.
     case "question":
-      return <QuestionCard item={item} threadId={threadId} />;
+      return isOpenQuestion(item) ? null : <QuestionRecord item={item} />;
     case "status":
       return (
         <Marker>
@@ -991,11 +990,34 @@ const useRunning = (threadId: string) =>
     return status === "running" || status === "cancelling";
   });
 
+/** Questions no longer waiting, as the thread keeps them: each with what came of it. */
+const QuestionRecord = ({ item }: { item: QuestionItem }) => {
+  const answered = item.answers;
+  return (
+    <AskCard
+      icon={answered ? Check : CircleHelp}
+      open={false}
+      title={cardTitle(item)}
+    >
+      {item.questions.map((q) => (
+        <div className="flex flex-col gap-1" key={q.id}>
+          <span className="text-muted-foreground">{q.question}</span>
+          <span className="flex items-center gap-2 font-medium text-foreground">
+            {answered ? <Check className="size-3.5 shrink-0" /> : null}
+            {answerLabel(q, answered?.[q.id])}
+          </span>
+        </div>
+      ))}
+    </AskCard>
+  );
+};
+
 /**
- * Questions put to the user, one at a time: the card shows the question and its choices, and the
- * composer below takes an answer of one's own and steps to the next question, then sends them.
- * When the agent waits for the answers within its turn they are answered (or declined) at once;
- * otherwise they are sent as the next prompt, so they wait until the agent's turn has ended.
+ * Questions put to the user, one at a time, on a card over the composer so they stay in sight
+ * while the thread scrolls on: the card shows the question and its choices, and the composer
+ * takes an answer of one's own and steps to the next question, then sends them. When the agent
+ * waits for the answers within its turn they are answered (or declined) at once; otherwise they
+ * are sent as the next prompt, so they wait until the agent's turn has ended.
  */
 const QuestionCard = ({
   item,
@@ -1007,27 +1029,6 @@ const QuestionCard = ({
   const running = useRunning(threadId);
   const draft = useAnswers((s) => draftOf(s.drafts, item.id));
   const [collapsed, setCollapsed] = useState(false);
-  const open = item.answers === null && item.outcome === undefined;
-  if (!open) {
-    const answered = item.answers;
-    return (
-      <AskCard
-        icon={answered ? Check : CircleHelp}
-        open={false}
-        title={cardTitle(item)}
-      >
-        {item.questions.map((q) => (
-          <div className="flex flex-col gap-1" key={q.id}>
-            <span className="text-muted-foreground">{q.question}</span>
-            <span className="flex items-center gap-2 font-medium text-foreground">
-              {answered ? <Check className="size-3.5 shrink-0" /> : null}
-              {answerLabel(q, answered?.[q.id])}
-            </span>
-          </div>
-        ))}
-      </AskCard>
-    );
-  }
   const question = item.questions[draft.step] ?? item.questions[0];
   if (!question) {
     return null;
@@ -1082,8 +1083,15 @@ const QuestionCard = ({
           <span className="text-muted-foreground">{hint}</span>
         ) : null}
       </div>
+      {/* Many choices scroll within the card rather than squeeze the thread above it. */}
       {collapsed ? null : (
-        <QuestionChoices draft={draft} itemId={item.id} question={question} />
+        <div className="max-h-[40vh] overflow-y-auto">
+          <QuestionChoices
+            draft={draft}
+            itemId={item.id}
+            question={question}
+          />
+        </div>
       )}
       {running && !waiting ? (
         <span className="text-muted-foreground">
@@ -1704,6 +1712,7 @@ const Composer = ({ thread }: { thread: Thread }) => {
         running={running}
         thread={thread}
       />
+      <OpenQuestion answering={answering} threadId={thread.id} />
       <div className="flex flex-col rounded-xl border bg-input/20 transition-colors focus-within:border-ring dark:bg-input/30">
         {chips.length > 0 || implicit.length > 0 || showShot ? (
           <div className="flex flex-wrap gap-1 px-2 pt-2">
@@ -1955,6 +1964,22 @@ const useAnswering = (threadId: string): Answering | null => {
   const question = asking?.questions[draft?.step ?? 0] ?? asking?.questions[0];
   return asking && draft && question ? { asking, draft, question } : null;
 };
+
+/** The card of the questions the composer answers, over it; keyed so each card opens anew. */
+const OpenQuestion = ({
+  answering,
+  threadId,
+}: {
+  answering: Answering | null;
+  threadId: string;
+}) =>
+  answering ? (
+    <QuestionCard
+      item={answering.asking}
+      key={answering.asking.id}
+      threadId={threadId}
+    />
+  ) : null;
 
 /** The answers can go: all given, and nothing in the way of sending them. */
 const canSendAnswers = ({ asking, draft }: Answering, running: boolean) =>

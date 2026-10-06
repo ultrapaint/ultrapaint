@@ -19,11 +19,14 @@ export interface AnswerDraft {
   readonly step: number;
 }
 
+/** A card still waiting: neither answered, declined, nor withdrawn by the agent. */
+export const isOpenQuestion = (item: QuestionItem) =>
+  item.answers === null && item.outcome === undefined;
+
 /** The card the composer answers: the oldest one still waiting for answers. */
 export const openQuestionOf = (items: readonly ThreadItem[]) =>
   items.find(
-    (i): i is QuestionItem =>
-      i.kind === "question" && i.answers === null && i.outcome === undefined
+    (i): i is QuestionItem => i.kind === "question" && isOpenQuestion(i)
   ) ?? null;
 
 /** An answer typed for a number question that is not one. */
