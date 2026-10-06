@@ -1,7 +1,7 @@
 /**
- * The design-system setup (ADR 0023), as the Design system panel's Setup view: the five steps in
- * order, what each one found or wrote, the thread an agent works on it in, and the gate at its end.
- * A step stops for the user before the next one; any step can be stopped, resumed or redone.
+ * The design-system setup's steps (ADR 0023), drawn in the Sync view (ADR 0025): what each one
+ * found or wrote, the thread an agent works on it in, and the gate at its end. A step stops for
+ * the user before the next one; any step can be stopped, resumed or redone.
  */
 import {
   type DefineMode,
@@ -13,7 +13,6 @@ import {
   ArrowRight,
   Check,
   ChevronDown,
-  ChevronLeft,
   ListChecks,
   MessageSquare,
   Play,
@@ -25,8 +24,6 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { IconButton } from "../components/icon-button.tsx";
-import { PanelEmpty } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import { useAgents } from "../state/agents.ts";
 import {
@@ -278,7 +275,7 @@ const DefineNote = ({ step }: { step: SetupStep }) => {
   );
 };
 
-const StepCard = ({
+export const StepCard = ({
   index,
   open,
   step,
@@ -341,59 +338,6 @@ const StepCard = ({
         {started ? <StepResult step={step} /> : null}
       </div>
     </li>
-  );
-};
-
-export const DesignSystemSetupView = ({
-  onBack,
-}: {
-  /** Back to the tokens, when there are any to go back to. */
-  onBack?: () => void;
-}) => {
-  const { loaded, setup } = useDesignSystemSetup();
-
-  useEffect(() => {
-    if (!loaded) {
-      useDesignSystemSetup.getState().load();
-    }
-    // The badges follow the steps' threads.
-    useAgents.getState().bind();
-    if (useAgents.getState().threads.length === 0) {
-      useAgents.getState().load();
-    }
-  }, [loaded]);
-
-  if (!(loaded && setup)) {
-    return <PanelEmpty>Reading the setup…</PanelEmpty>;
-  }
-  const firstOpen = setup.steps.findIndex((s) => s.status !== "done");
-  return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center gap-1 border-b px-1.5 py-1.5">
-        {onBack ? (
-          <IconButton onClick={onBack} tooltip="Tokens">
-            <ChevronLeft />
-          </IconButton>
-        ) : null}
-        <div className="flex min-w-0 flex-col px-1.5">
-          <span className="font-heading-xsmall">Set up the design system</span>
-          <span className="font-body text-muted-foreground">
-            Each step stops for you before the next. Redo one to start again
-            from there.
-          </span>
-        </div>
-      </div>
-      <ol className="min-h-0 flex-1 overflow-auto">
-        {setup.steps.map((step, index) => (
-          <StepCard
-            index={index}
-            key={step.id}
-            open={firstOpen === -1 || index <= firstOpen}
-            step={step}
-          />
-        ))}
-      </ol>
-    </div>
   );
 };
 

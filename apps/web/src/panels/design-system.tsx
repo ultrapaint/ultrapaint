@@ -24,7 +24,7 @@ import {
 } from "@ultrapaint/design-document/tokens";
 import {
   Check,
-  ListChecks,
+  FileUp,
   RefreshCw,
   Search,
   Sparkles,
@@ -46,6 +46,7 @@ import { Markdown } from "../components/markdown.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import { SetupEmpty } from "../components/setup-dialog.tsx";
+import { pickFigmaFile } from "../lib/import-figma.ts";
 import { startCommand } from "../lib/start-thread.ts";
 import {
   holdMenu,
@@ -57,7 +58,7 @@ import {
 import { useDesignSystem } from "../state/design-system.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
 import { useProject } from "../state/project.ts";
-import { DesignSystemSetupView } from "./design-system-setup.tsx";
+import { SyncView } from "./sync.tsx";
 
 /** Opens a thread with `/init` in its composer, for the user to send. */
 export const startInit = () => startCommand("/init");
@@ -685,26 +686,28 @@ export const DesignSystemPanel = () => {
     return <PanelEmpty>Reading the design system…</PanelEmpty>;
   }
   if (setupShown) {
-    return <DesignSystemSetupView onBack={() => showSetup(false)} />;
+    return (
+      <SyncView onBack={designSystem ? () => showSetup(false) : undefined} />
+    );
   }
   if (!designSystem) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
         <Sparkles className="size-6 text-brand" />
         <div className="flex flex-col gap-1">
-          <span className="font-medium">No design system imported yet</span>
+          <span className="font-medium">No design system yet</span>
           <span className="font-body text-muted-foreground">
             {problem ??
-              "An agent reads the repository's Tailwind v4 theme and components, asks you what it cannot find out, and writes design-system.json and DESIGN.md."}
+              "Start from a Figma file, and its variables and styles become your tokens. Or sync from the code: it reads your theme and components, and makes one from what the code uses."}
           </span>
         </div>
-        <Button onClick={startInit} size="sm">
-          <Wand2 />
-          Initialise with an agent
+        <Button onClick={pickFigmaFile} size="sm">
+          <FileUp />
+          Import a Figma file…
         </Button>
         <Button onClick={() => showSetup(true)} size="sm" variant="outline">
-          <ListChecks />
-          Set up step by step
+          <RefreshCw />
+          Sync from the code
         </Button>
         <Button
           disabled={detecting}
@@ -734,12 +737,12 @@ export const DesignSystemPanel = () => {
         </InputGroup>
         <IconButton
           onClick={() => showSetup(true)}
-          tooltip="Set up step by step: inventory, define, map, migrate, verify"
+          tooltip="Sync the design system and the code"
         >
-          <ListChecks />
+          <RefreshCw />
         </IconButton>
         <IconButton onClick={startInit} tooltip="Re-run /init with an agent">
-          <RefreshCw />
+          <Wand2 />
         </IconButton>
       </div>
       <div className="flex items-center gap-2 border-b px-2 py-1.5">

@@ -1,14 +1,15 @@
 /**
  * Bringing a Figma file in: the bytes go to the server over HTTP (the RPC socket carries JSON,
- * and a design file runs to tens of megabytes), and the chat opens on a new thread with
- * `/import-figma` ready to send, which is where the agent takes over.
+ * and a design file runs to tens of megabytes), and the Sync view opens on it: Figma's tokens
+ * are compared with the code's first, then an agent turns the frames into pages (ADR 0025).
  */
 
 import { getPlatform } from "@ultrapaint/client-runtime/platform";
 import type { FigmaImport } from "@ultrapaint/contracts/figma";
 import { toast } from "sonner";
+import { showSetup } from "../state/design-system-setup.ts";
 import { ensureEditable } from "../state/setup.ts";
-import { startCommand } from "./start-thread.ts";
+import { useSync } from "../state/sync.ts";
 
 const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
@@ -40,10 +41,11 @@ export const importFigma = async (file: File) => {
     const imported = await upload(file);
     const frames = imported.pages.reduce((n, p) => n + p.frames.length, 0);
     toast.success(
-      `${file.name}: ${frames} frame${frames === 1 ? "" : "s"}, ${imported.components.length} component${imported.components.length === 1 ? "" : "s"}. An agent turns them into pages.`,
+      `${file.name}: ${frames} frame${frames === 1 ? "" : "s"}, ${imported.components.length} component${imported.components.length === 1 ? "" : "s"}. Sync takes its tokens, then its frames.`,
       { id }
     );
-    await startCommand(`/import-figma ${imported.id}`);
+    showSetup();
+    await useSync.getState().load();
   } catch (error) {
     toast.error(messageOf(error), { id });
   }

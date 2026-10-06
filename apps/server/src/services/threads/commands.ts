@@ -30,6 +30,7 @@ import {
   mappingCounts,
   plural,
 } from "../design-system-setup-rules.ts";
+import { DesignSystemSyncService } from "../design-system-sync.ts";
 import { DocumentService } from "../documents.ts";
 import { FigmaImportService } from "../figma-import.ts";
 import { PagesService } from "../pages.ts";
@@ -72,6 +73,12 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     description:
       "Run a step of the design-system setup (Design system → Setup): define, map or migrate",
     name: "design-system",
+  },
+  {
+    argument: "[describe]",
+    description:
+      "Bring the design system and the code together: opens Sync; `describe` has an agent describe what changed",
+    name: "sync",
   },
 ];
 
@@ -183,6 +190,7 @@ export class SlashCommands extends Context.Service<
     Effect.gen(function* () {
       const project = yield* ProjectManager;
       const setup = yield* DesignSystemSetupService;
+      const sync = yield* DesignSystemSyncService;
       const { mcp } = yield* ServerConfig;
 
       /** What `/init` asks for, which Define asks for too when it adopts the theme. */
@@ -731,6 +739,83 @@ user so, and stop.
 </ultrapaint-task>`);
       };
 
+      /** `/sync describe`: the design system brought up to the code's tokens and components. */
+      const syncDescribe = (extra: string) =>
+        Effect.gen(function* () {
+          const plan = yield* sync.plan;
+          const { drift } = plan;
+          const tokens = yield* project.use(
+            Effect.gen(function* () {
+              const paths = yield* RepoPaths;
+              return (yield* ProjectStyleSystem).readTokens({
+                anchorDir: paths.anchorDir,
+                root: paths.root,
+                settings: paths.settings,
+              }).tokens;
+            })
+          );
+          const declaredValue = (name: string) =>
+            tokens.find((t) => t.name === name)?.value ?? "";
+          const list = (title: string, items: readonly string[]) =>
+            items.length > 0
+              ? `${title}\n${items.map((i) => `- ${i}`).join("\n")}\n`
+              : "";
+          if (!plan.facts.designSystem) {
+            return `<ultrapaint-task command="sync">
+The user ran /sync describe, but there is no design system yet to describe the code in. Tell them
+to open the Design system panel and press Sync, which starts one, and stop.
+</ultrapaint-task>`;
+          }
+          const nothing =
+            drift.tokensUndescribed.length +
+              drift.tokensGone.length +
+              drift.componentsUndescribed.length +
+              drift.componentsGone.length ===
+            0;
+          return `<ultrapaint-task command="sync">
+Bring the design system up to the code as it is now. Its values are the code's: they are read from
+the code every time, so only what each token and component is for is yours to write.
+${nothing ? "\nThe design system already lists every token and component of the code: say so, and stop.\n" : ""}
+${list(
+  "Tokens the code declares that the design system does not list:",
+  drift.tokensUndescribed.map((n) => `${n}: ${declaredValue(n)}`)
+)}${list(
+  "Tokens the design system lists that the code no longer declares:",
+  drift.tokensGone
+)}${list(
+  "Components of the code it says nothing about:",
+  drift.componentsUndescribed
+)}${list("Components it notes that the code no longer has:", drift.componentsGone)}
+1. read_design_system for the design system and DESIGN.md.
+2. Each new token: find where the code uses it, put it in the group it belongs to and say in
+   \`description\` what it is for. A token the product has on purpose but designers should not
+   reach for goes into \`omitted\` instead.
+3. Each token gone: take it out. If pages still use it (read_page), tell the user which, and ask
+   whether the code should declare it again.
+4. Each new component: get_component for its props; give it a \`category\`, a \`description\` and
+   \`exampleProps\` that make it render something meaningful. Take out the notes of a component gone.
+5. Where what something is for is the user's to say, ask with ask_user, a few at a time.
+6. Save with write_design_system; then a short summary of what changed.
+${userAdds(extra)}</ultrapaint-task>`;
+        });
+
+      const syncCommand = (argument: string) => {
+        const [target = "", ...rest] = argument.trim().split(WHITESPACE_RE);
+        if (target === "describe") {
+          return syncDescribe(rest.join(" "));
+        }
+        return Effect.map(
+          sync.plan,
+          (plan) => `<ultrapaint-task command="sync">
+The user ran /sync. The sync is the editor's: its steps are in the Design system panel, where the
+user starts each one. Where it stands: ${plan.summary}
+Its steps: ${plan.steps.map((s) => `${s.title} (${s.state})`).join("; ")}.
+Tell the user, in a sentence or two, what the next step is and that they start it from the panel;
+do not do the steps yourself, and stop.
+</ultrapaint-task>`
+        );
+      };
+
       const expand = (text: string) => {
         const match: RegExpExecArray | null = COMMAND_RE.exec(text.trim());
         const name = match?.[1];
@@ -754,6 +839,9 @@ user so, and stop.
           return designSystemStep(argument).pipe(
             Effect.orElseSucceed(() => null)
           );
+        }
+        if (name === "sync") {
+          return syncCommand(argument).pipe(Effect.orElseSucceed(() => null));
         }
         return Effect.succeed(null);
       };

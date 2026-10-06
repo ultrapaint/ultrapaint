@@ -153,11 +153,15 @@ import {
 } from "../state/attachments.ts";
 import { api } from "../state/connection.ts";
 import { openMenuAt } from "../state/context-menu.ts";
-import { useDesignSystemSetup } from "../state/design-system-setup.ts";
+import {
+  showSetup,
+  useDesignSystemSetup,
+} from "../state/design-system-setup.ts";
 import { nodeIn, useDocuments } from "../state/documents.ts";
 import { useEditor, type Workspace } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { isSendKey, type SendKey, useSendKey } from "../state/send-key.ts";
+import { useSync } from "../state/sync.ts";
 import { ScopePicture, ThreadList } from "./chat-list.tsx";
 import { ChatStarters } from "./chat-starters.tsx";
 import { SetupStepBar, SetupStepIntro } from "./design-system-setup.tsx";
@@ -1606,6 +1610,13 @@ const Composer = ({ thread }: { thread: Thread }) => {
   // While the agent works, what is sent waits in the thread's queue.
   const send = async () => {
     if (!text.trim()) {
+      return;
+    }
+    // `/sync` alone is the editor's: it opens the Sync view rather than starting a turn.
+    if (text.trim() === "/sync") {
+      setText("");
+      showSetup();
+      useSync.getState().load();
       return;
     }
     setBusy(true);

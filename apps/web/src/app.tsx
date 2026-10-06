@@ -75,6 +75,7 @@ import {
 import { openLeftPanel, usePanels } from "./state/panels.ts";
 import { bindProjectEvents, useProject } from "./state/project.ts";
 import { bindScreenshots } from "./state/screenshots.ts";
+import { syncWaiting, useSync } from "./state/sync.ts";
 import { onUrlChange, readUrl, tidyUrl, writeMode } from "./state/url.ts";
 
 installBridgeRouter();
@@ -126,19 +127,21 @@ const rightBounds = { defaultWidth: 320, max: 560, min: 240 };
 const openSettings = () => useProject.getState().openSettings(true);
 
 /**
- * One place on the rail: the icon in its tile, the word under it. `dot` says an agent is working;
- * it sits in the icon's own top-right corner, over it, so nothing moves when it comes and goes.
+ * One place on the rail: the icon in its tile, the word under it. `dot` says what is going on
+ * there (an agent is working, the sync has something waiting); it sits in the icon's own
+ * top-right corner, over it, so nothing moves when it comes and goes.
  */
 const RailItem = ({
   active = false,
-  dot = false,
+  dot = null,
   icon: Icon,
   label,
   name,
   onClick,
 }: {
   active?: boolean;
-  dot?: boolean;
+  /** What the dot says, for a screen reader; no dot when null. */
+  dot?: string | null;
   icon: LucideIcon;
   label: string;
   name: string;
@@ -157,7 +160,7 @@ const RailItem = ({
         <Icon className="size-4.5" />
         {dot ? (
           <span
-            aria-label="An agent is working"
+            aria-label={dot}
             className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-agent ring-2 ring-sidebar group-hover:ring-muted group-aria-pressed:ring-muted"
             role="status"
           />
@@ -173,12 +176,22 @@ const RailButton = ({ value }: { value: LeftTab }) => {
   const hidden = usePanels((s) => s.left);
   const active = useEditor((s) => s.leftTab === value) && !hidden;
   // Chats: an agent is working. Changes: an agent's turn changed files nobody looked at yet.
-  const dot = useAgents((s) => {
+  const agentDot = useAgents((s) => {
     if (value === "chat") {
       return s.threads.some((t) => t.status === "running");
     }
     return value === "changes" && s.changed.length > 0;
   });
+  // Design system: the sync has something waiting, a drift or settings to fix (ADR 0025).
+  const syncDot = useSync(
+    (s) => value === "designSystem" && syncWaiting(s.plan)
+  );
+  let dot: string | null = null;
+  if (agentDot) {
+    dot = value === "chat" ? "An agent is working" : "Changes to look at";
+  } else if (syncDot) {
+    dot = "The design system and the code need syncing";
+  }
   const tab = leftTabs[value];
   return (
     <RailItem
@@ -463,6 +476,8 @@ export const App = () => {
       // over the tool strip reports turns that changed files.
       useAgents.getState().bind();
       useComments.getState().bind();
+      // The rail's Design system button says when the sync has something waiting.
+      useSync.getState().load();
     }
   }, [configured]);
 

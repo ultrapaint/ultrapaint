@@ -61,6 +61,7 @@ import {
 } from "./setup.ts";
 import { CustomiseMode, Skill, SkillList } from "./skills.ts";
 import { Snapshot, SnapshotView } from "./snapshots.ts";
+import { SyncPlan } from "./sync.ts";
 import {
   AgentConfig,
   AgentEdited,
@@ -394,6 +395,9 @@ const requestRpcs = [
     success: DesignSystemSetup,
   }),
 
+  /** The design-system sync's plan for the project as it is now (ADR 0025). */
+  Rpc.make("sync.plan", { error: NotConfigured, success: SyncPlan }),
+
   /** The design skills agents are told, built-in and the project's own, with what is off. */
   Rpc.make("skills.list", {
     error: NotConfigured,
@@ -659,6 +663,8 @@ export const eventSchemas = {
   screenshot: ScreenshotRequest,
   /** A skill file changed, or the settings turned one on or off. */
   skills: SkillList,
+  /** The sync's plan, worked out again because something it reads changed. */
+  syncPlan: SyncPlan,
 } as const;
 
 const eventRpcs = [
@@ -710,6 +716,10 @@ const eventRpcs = [
     success: eventSchemas.screenshot,
   }),
   Rpc.make("events.skills", { stream: true, success: eventSchemas.skills }),
+  Rpc.make("events.syncPlan", {
+    stream: true,
+    success: eventSchemas.syncPlan,
+  }),
 ] as const;
 
 export class UltrapaintRpcs extends RpcGroup.make(...requestRpcs, ...eventRpcs) {}

@@ -537,6 +537,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
               "redraw",
               "components",
               "design-system",
+              "sync",
             ]
           );
           const threadId = yield* startThread;

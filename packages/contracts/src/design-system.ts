@@ -7,6 +7,7 @@
  */
 import { Schema } from "effect";
 import { Json } from "./base.ts";
+import { SyncBaseline } from "./sync.ts";
 
 export const DESIGN_SYSTEM_FILE = "design-system.json";
 export const DESIGN_NOTES_FILE = "DESIGN.md";
@@ -15,7 +16,11 @@ export const Token = Schema.Struct({
   description: Schema.optional(Schema.String),
   /** The `@theme` variable without its dashes: `color-primary`, `radius-lg`, `text-sm`. */
   name: Schema.String,
-  /** The value in the default theme, resolved to CSS the browser understands. */
+  /**
+   * The value in the default theme, resolved to CSS the browser understands. The code holds it
+   * (ADR 0025): the file leaves it out for a token the code declares, and it is read from the
+   * code every time.
+   */
   value: Schema.String,
   /** Values in other themes, by theme name. */
   values: Schema.optional(Schema.Record(Schema.String, Schema.String)),
@@ -166,6 +171,11 @@ export const DesignSystem = Schema.Struct({
   icons: Schema.optional(IconSet),
   layout: Schema.optional(LayoutTokens),
   motion: Schema.optional(MotionTokens),
+  /**
+   * Tokens and components of the code the design system leaves out on purpose, by name: the
+   * sync does not ask for them to be described.
+   */
+  omitted: Schema.optional(Schema.Array(Schema.String)),
   radius: Schema.Array(Token),
   shadows: Schema.Array(Token),
   /** Where it was read from, for the panel: the stylesheet, the scan, the agent. */
@@ -176,6 +186,8 @@ export const DesignSystem = Schema.Struct({
     /** Named spacing tokens beyond the multiples of the base. */
     tokens: Schema.optional(Schema.Array(Token)),
   }),
+  /** What the last sync with Figma agreed on (ADR 0025). */
+  sync: Schema.optional(SyncBaseline),
   /** Names of the themes the values are given in, the default first. */
   themes: Schema.optional(Schema.Array(Schema.String)),
   typography: Schema.Struct({
@@ -330,3 +342,72 @@ export const DesignSystemState = Schema.Struct({
   problem: Schema.optional(Schema.String),
 });
 export type DesignSystemState = typeof DesignSystemState.Type;
+
+/**
+ * Where a design system keeps lists of tokens, as paths of its JSON: `colors` is a list of
+ * groups, each with its `tokens`. Everything that walks every token goes through this.
+ */
+export const TOKEN_LISTS: readonly (readonly string[])[] = [
+  ["colors", "*", "tokens"],
+  ["radius"],
+  ["shadows"],
+  ["borderWidths"],
+  ["layout", "breakpoints"],
+  ["layout", "containers"],
+  ["motion", "durations"],
+  ["motion", "easings"],
+  ["motion", "animations"],
+  ["spacing", "tokens"],
+  ["typography", "fonts"],
+  ["typography", "sizes"],
+  ["typography", "weights"],
+  ["typography", "leading"],
+  ["typography", "tracking"],
+];
+
+type Rec = Record<string, unknown>;
+const isRec = (v: unknown): v is Rec =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
+
+/**
+ * Every token of a design system's JSON, mapped by `f`, the rest as it is. Works on what the
+ * file holds before it is decoded, a token's value left out included.
+ */
+export const mapTokenRecords = (
+  json: unknown,
+  f: (token: Rec) => Rec
+): unknown => {
+  const walk = (node: unknown, rest: readonly string[]): unknown => {
+    const [key, ...more] = rest;
+    if (key === undefined) {
+      return Array.isArray(node)
+        ? node.map((t) => (isRec(t) ? f(t) : t))
+        : node;
+    }
+    if (key === "*") {
+      return Array.isArray(node) ? node.map((n) => walk(n, more)) : node;
+    }
+    if (!(isRec(node) && key in node)) {
+      return node;
+    }
+    return { ...node, [key]: walk(node[key], more) };
+  };
+  return TOKEN_LISTS.reduce((acc, list) => walk(acc, list), json);
+};
+
+/** Every token of a design system, mapped by `f`. */
+export const mapTokens = (
+  ds: DesignSystem,
+  f: (token: Token) => Token
+): DesignSystem =>
+  mapTokenRecords(ds, (t) => f(t as Token) as Rec) as DesignSystem;
+
+/** The names of every token a design system lists. */
+export const designSystemTokenNames = (ds: DesignSystem): string[] => {
+  const names: string[] = [];
+  mapTokens(ds, (t) => {
+    names.push(t.name);
+    return t;
+  });
+  return names;
+};

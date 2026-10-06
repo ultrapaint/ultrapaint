@@ -12,6 +12,7 @@ import { CatalogueService } from "./services/catalogue.ts";
 import { CommentsService } from "./services/comments.ts";
 import { DesignSystemService } from "./services/design-system.ts";
 import { DesignSystemSetupService } from "./services/design-system-setup.ts";
+import { DesignSystemSyncService } from "./services/design-system-sync.ts";
 import { DocumentService } from "./services/documents.ts";
 import { EditService } from "./services/edit.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
@@ -56,6 +57,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const commands = yield* SlashCommands;
     const screenshots = yield* Screenshots;
     const dsSetup = yield* DesignSystemSetupService;
+    const sync = yield* DesignSystemSyncService;
     const { host: listenHost, mcp: mcpEnabled, port } = yield* ServerConfig;
 
     const pages = <A, E>(
@@ -207,6 +209,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "events.project": () => events.subscribe("project"),
       "events.screenshot": () => screenshots.requests,
       "events.skills": () => events.subscribe("skills"),
+      "events.syncPlan": () => events.subscribe("syncPlan"),
       "figma.delete": ({ id }) => figma((f) => f.delete(id)),
       "figma.list": () => figma((f) => f.list),
       "git.commit": ({ message, paths }) =>
@@ -290,6 +293,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "snapshots.list": () => snapshots.list,
       "snapshots.restore": ({ id }) => snapshots.restore(id),
       "snapshots.view": ({ id }) => snapshots.view(id),
+      "sync.plan": () => sync.plan,
       "threads.answer": ({ threadId, itemId, answers }) =>
         threads.answer(threadId, itemId, answers),
       "threads.cancel": ({ threadId }) => threads.cancel(threadId),
