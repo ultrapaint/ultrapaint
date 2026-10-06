@@ -10,7 +10,9 @@ import { main } from "./command.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 const hash = createHash("sha1").update(root).digest();
-const base = 4700 + ((hash[0] as number) % 40) * 2;
+// 4600–4679: below the installed command's 4770 and 4771, so `pnpm dev` and `ultrapaint` run
+// side by side.
+const base = 4600 + ((hash[0] as number) % 40) * 2;
 
 const invokedFrom = process.env.INIT_CWD ?? process.cwd();
 const args = process.argv
