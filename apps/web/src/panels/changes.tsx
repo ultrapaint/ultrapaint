@@ -56,6 +56,18 @@ interface CheckpointDiff {
   id: string;
 }
 
+/** The files still ticked after a commit: those ticked while it was on its way stay ticked. */
+export const tickedAfterCommit = (
+  ticked: ReadonlySet<string>,
+  committed: readonly string[]
+): Set<string> => {
+  const left = new Set(ticked);
+  for (const path of committed) {
+    left.delete(path);
+  }
+  return left;
+};
+
 export const Changes = () => {
   const configured = useProject((s) => s.info.configured);
   // Looked at: the rail stops saying an agent changed something.
@@ -166,14 +178,12 @@ export const Changes = () => {
       return;
     }
     const sent = message;
+    const paths = Array.from(selected);
     setBusy(true);
     try {
-      await api().request("git.commit", {
-        message: sent,
-        paths: Array.from(selected),
-      });
+      await api().request("git.commit", { message: sent, paths });
       setMessage((current) => (current === sent ? "" : current));
-      setSelected(new Set());
+      setSelected((current) => tickedAfterCommit(current, paths));
       setDiff(null);
       await refresh();
     } catch (error) {
