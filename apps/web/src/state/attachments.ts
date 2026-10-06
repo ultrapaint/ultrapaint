@@ -77,10 +77,18 @@ export const removeChip = (threadId: string, key: string) =>
     },
   }));
 
-export const clearChips = (threadId: string) =>
+/**
+ * Takes off the chips a prompt was sent with. One attached while it was on its way goes with
+ * the next prompt instead, and stays.
+ */
+export const clearChips = (threadId: string, sent: readonly Chip[]) =>
   useAttachments.setState((s) => {
-    const { [threadId]: _sent, ...rest } = s.byThread;
-    return { byThread: rest };
+    const gone = new Set(sent.map(chipKey));
+    const { [threadId]: chips = [], ...rest } = s.byThread;
+    const left = chips.filter((c) => !gone.has(chipKey(c)));
+    return {
+      byThread: left.length > 0 ? { ...rest, [threadId]: left } : rest,
+    };
   });
 
 /** The file a node of a frame lives in: its page's, or the canvas's own for a loose node. */

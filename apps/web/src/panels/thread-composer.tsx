@@ -217,6 +217,7 @@ export const Composer = ({ thread }: { thread: Thread }) => {
       return;
     }
     setBusy(true);
+    const sentChips = chips;
     try {
       const attachments = await collectAttachments(
         chips.length > 0 ? chips : implicit,
@@ -229,7 +230,7 @@ export const Composer = ({ thread }: { thread: Thread }) => {
       });
       // What was typed while it went is the next prompt, and stays.
       setText((current) => (current === sent ? "" : current));
-      clearChips(thread.id);
+      clearChips(thread.id, sentChips);
       setDismissed([]);
     } catch (error) {
       reportError(error);
