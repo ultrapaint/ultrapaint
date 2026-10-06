@@ -5,9 +5,11 @@ import type {
   CreateDesignsResult,
   SetupSuggestions,
 } from "@ultrapaint/contracts/setup";
+import { defaultStyleSystem } from "@ultrapaint/contracts/tokens";
 import { Context, Effect, FileSystem, Layer, Path } from "effect";
 import { toPosix } from "../hash.ts";
 import { locateFramework } from "./framework.ts";
+import { locateStyleSystem } from "./style-system.ts";
 
 /**
  * The first-run setup: looks at a repository before anything is configured, and creates the
@@ -51,14 +53,27 @@ export class SetupService extends Context.Service<
         // Reads manifests and directory listings, a few hundred milliseconds on a large
         // monorepo, and only when the setup asks for it.
         const found = yield* Effect.sync(() => framework.detect(root));
+        // The stylesheets are looked for in the packages the framework proposed: the best
+        // anchors, and the libraries (ADR 0024).
+        const styleSystem = yield* Effect.orDie(
+          locateStyleSystem(defaultStyleSystem)
+        );
+        const dirs = [
+          ...(found?.anchors ?? []).slice(0, 2).map((a) => a.dir),
+          ...(found?.libraries ?? []).map((l) => l.dir),
+        ].map((dir) => path.resolve(root, dir));
+        const styles = yield* Effect.sync(() =>
+          styleSystem.detect(root, [...new Set(dirs)])
+        );
         return {
           anchors: found?.anchors ?? [],
-          cssEntries: found?.cssEntries ?? [],
+          cssEntries: [...styles.cssEntries],
           designsDirs: found?.designsDirs ?? [],
           framework: defaultFramework,
           libraries: found?.libraries ?? [],
           repoName: path.basename(root),
-          tailwind: found?.tailwind ?? "none",
+          ...(styles.tailwind === "v4" && { styleSystem: styleSystem.id }),
+          tailwind: styles.tailwind,
         } satisfies SetupSuggestions;
       });
 

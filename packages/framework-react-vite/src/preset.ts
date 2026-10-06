@@ -1,15 +1,14 @@
 /**
  * The React + Vite framework: design documents drawn with the repository's own React and its
- * design system's components, served by Vite, catalogued from TypeScript types, with the design
- * system read from its Tailwind v4 theme. The server reaches all of it through the `Framework`
- * interface and never imports another module of this package.
+ * design system's components, served by Vite, catalogued from TypeScript types. How the tokens
+ * and classes are written is the style system's (ADR 0024). The server reaches all of it through
+ * the `Framework` interface and never imports another module of this package.
  */
 import { existsSync } from "node:fs";
 import path from "node:path";
 import type { Framework } from "@ultrapaint/framework-api/node";
 import { buildPreviewBundles } from "./build.ts";
 import { catalogue } from "./catalogue-extract.ts";
-import { scanDesignSystem } from "./design-system-scan.ts";
 import { detect } from "./detect.ts";
 import {
   COMPONENTS_FILE,
@@ -17,7 +16,6 @@ import {
   OPTIONS_FILE,
   previewFiles,
 } from "./preview-files.ts";
-import { usage } from "./usage-rewrite.ts";
 
 /**
  * Whether a package is installed where the anchor can reach it: in its own `node_modules` or
@@ -42,14 +40,13 @@ const resolvesFrom = (dir: string, id: string) => {
 
 export const framework: Framework = {
   catalogue,
-  designSystem: { scan: scanDesignSystem },
   detect,
   id: "react-vite",
   preview: {
     components: { file: COMPONENTS_FILE, render: componentsModule },
     generate: async (input) => {
       const bundles = await buildPreviewBundles();
-      // Tailwind 4 is a Vite plugin the anchor has or has not.
+      // Tailwind 4 is a Vite plugin the anchor has or has not; the preview inherits it.
       const tailwind = resolvesFrom(input.anchorDir, "@tailwindcss/vite");
       return {
         files: previewFiles(input, bundles, tailwind),
@@ -60,5 +57,4 @@ export const framework: Framework = {
       };
     },
   },
-  usage,
 };

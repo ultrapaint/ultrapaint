@@ -79,7 +79,7 @@ const scopesOf = (css: string): Scope[] => {
 };
 
 /** Which theme a block's values belong to: the default, `dark`, or a named one. */
-const themeOf = (prelude: string): string | null => {
+export const themeOf = (prelude: string): string | null => {
   if (DARK_RE.test(prelude)) {
     return "dark";
   }
@@ -134,7 +134,7 @@ const packageRoot = (pkg: string, start: string): string | null => {
 };
 
 /** The file a stylesheet import names: relative to the importer, or a package's. */
-const resolveImport = (
+export const resolveImport = (
   specifier: string,
   from: string,
   anchorDir: string
@@ -159,7 +159,7 @@ const resolveImport = (
   return null;
 };
 
-interface Collected {
+export interface Collected {
   /** Files read, in order. */
   readonly files: string[];
   readonly scopes: Scope[];
@@ -169,7 +169,10 @@ interface Collected {
   tailwindTheme: string | null;
 }
 
-const collect = (entries: readonly string[], anchorDir: string): Collected => {
+export const collect = (
+  entries: readonly string[],
+  anchorDir: string
+): Collected => {
   const out: Collected = {
     files: [],
     scopes: [],
@@ -524,20 +527,27 @@ const moreFoundations = (found: {
   };
 };
 
-export const scanDesignSystem = (
-  ctx: DesignSystemContext
-): DesignSystemScan => {
-  // The preview's stylesheet imports them from the generated directory, and so they resolve.
+/**
+ * The stylesheets the settings name, as files. The preview's stylesheet imports them from the
+ * generated directory, and so they resolve from there.
+ */
+export const hostEntries = (ctx: DesignSystemContext): string[] => {
   const generated = path.join(
     ctx.root,
     ctx.settings.designsDir,
     ".ultrapaint"
   );
-  const entries = ctx.settings.hostCss
+  return ctx.settings.hostCss
     .map((spec) =>
       resolveImport(spec, path.join(generated, "host.css"), ctx.anchorDir)
     )
     .filter((file): file is string => file !== null);
+};
+
+export const scanDesignSystem = (
+  ctx: DesignSystemContext
+): DesignSystemScan => {
+  const entries = hostEntries(ctx);
   const found = collect(entries, ctx.anchorDir);
   const notes: string[] = [];
   if (entries.length === 0) {

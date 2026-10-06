@@ -35,11 +35,8 @@ import { DesignSystemService } from "../design-system.ts";
 import { DocumentService } from "../documents.ts";
 import { type CopyTarget, PagesService } from "../pages.ts";
 import { RepoPaths } from "../repo-paths.ts";
-import {
-  designSystemSchema,
-  IMPLEMENTATION_RULES,
-  pageSchema,
-} from "../threads/commands.ts";
+import { ProjectStyleSystem } from "../style-system.ts";
+import { designSystemSchema, pageSchema } from "../threads/commands.ts";
 import { CallingThread } from "./access.ts";
 
 /**
@@ -699,6 +696,11 @@ export const EditorToolsLive = EditorTools.toLayer(
       Effect.flatMap(CatalogueService, (c) => c.get(false))
     );
 
+    /** How the design maps to code, in the open project's style system. */
+    const codeRulesOf = reported(
+      project.use(Effect.map(ProjectStyleSystem, (s) => s.codeRules))
+    );
+
     const designSystem = <A, E extends { readonly message: string }>(
       f: (service: DesignSystemService["Service"]) => Effect.Effect<A, E>
     ) => reported(project.use(Effect.flatMap(DesignSystemService, f)));
@@ -937,14 +939,14 @@ export const EditorToolsLive = EditorTools.toLayer(
       }),
 
       get_document_format: ({ kind }) =>
-        Effect.succeed({
-          rules: IMPLEMENTATION_RULES,
+        Effect.map(codeRulesOf, (rules) => ({
+          rules,
           schema: asJson(
             JSON.parse(
               kind === "design-system" ? designSystemSchema() : pageSchema()
             )
           ),
-        }),
+        })),
 
       list_comments: Effect.fnUntraced(function* ({ includeResolved, canvas }) {
         const id = yield* canvasOf(canvas);

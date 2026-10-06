@@ -27,3 +27,4 @@ One file per decision. Status is one of proposed, accepted, superseded.
 | [0021](0021-links-name-pages.md) | A link names a page file (or a URL, back, another site) and follows the page through renames and URL changes; links are set from the element; the prototype shows its hotspots |
 | [0022](0022-mcp-2026-and-asking-the-user.md) | The editor speaks MCP 2026-07-28; the tools' definitions an agent carries are halved; `ask_user` waits for the answers within the turn, on a card any MCP server's form is drawn as |
 | [0023](0023-design-system-setup.md) | A design system is set up in five steps (inventory, define, map, migrate, verify) the user sees, stops and redoes; each step is a pair of git snapshots of the working tree |
+| [0024](0024-style-systems.md) | Tokens are read and written by a style system adapter beside the framework (Tailwind v4 today), in a neutral model the server speaks; the preview draws every token as a custom property |

@@ -22,6 +22,7 @@
     "@ultrapaint/framework-api": "workspace:*",
     "@ultrapaint/framework-react-vite": "workspace:*",
     "@ultrapaint/shared": "workspace:*",
+    "@ultrapaint/style-tailwind-v4": "workspace:*",
     "@vitejs/plugin-react": "^6.1.1",
     "effect": "catalog:",
     "typescript-api": "npm:typescript@^5.9.3",

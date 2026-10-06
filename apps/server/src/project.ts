@@ -32,6 +32,7 @@ import { RepoPaths } from "./services/repo-paths.ts";
 import { SettingsService } from "./services/settings.ts";
 import { SkillsService } from "./services/skills.ts";
 import { Storage } from "./services/storage.ts";
+import { ProjectStyleSystem } from "./services/style-system.ts";
 import { Thumbnails } from "./services/thumbnails.ts";
 
 /** Everything that exists once a target repository is configured. */
@@ -46,6 +47,7 @@ export type ProjectServices =
   | GitService
   | HostManager
   | ProjectFramework
+  | ProjectStyleSystem
   | RepoPaths
   | PagesService
   | SkillsService
@@ -79,7 +81,9 @@ const projectLayer = (settings: Settings) =>
     // One journal for every change the editor makes, documents and canvas included.
     Layer.provideMerge(EditService.layer),
     Layer.provideMerge(ComponentRegistry.layer),
-    Layer.provideMerge(ProjectFramework.layer),
+    Layer.provideMerge(
+      Layer.mergeAll(ProjectFramework.layer, ProjectStyleSystem.layer)
+    ),
     Layer.provideMerge(RepoPaths.layer(settings))
   );
 

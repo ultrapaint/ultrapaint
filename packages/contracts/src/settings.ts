@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 import { RepoRelativePath } from "./base.ts";
 import { SkillsConfig } from "./skills.ts";
+import { StyleSystemId } from "./tokens.ts";
 
 /** Which renderer, builder and source tooling the target repository is driven with. */
 export const FrameworkId = Schema.Literals(["react-vite"]);
@@ -23,6 +24,8 @@ const common = {
   skills: Schema.optional(SkillsConfig),
   /** Running Storybook for the design system, used for the Assets panel's previews. */
   storybookUrl: Schema.optional(Schema.String),
+  /** What the tokens and classes are written in; `tailwind-v4` when absent (ADR 0024). */
+  styleSystem: Schema.optional(StyleSystemId),
 };
 
 /** The settings the server runs with and the editor edits. Every path is resolved. */

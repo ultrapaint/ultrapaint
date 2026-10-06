@@ -2,7 +2,6 @@ import path from "node:path";
 import type { PreviewInput } from "@ultrapaint/framework-api/node";
 import { ASSET_PATH } from "./asset-route.ts";
 import type { PreviewBundles } from "./build.ts";
-import { inlineThemeAliases } from "./design-system-scan.ts";
 import type { ServeOptions } from "./serve.ts";
 
 const LEADING_NON_DOT_RE = /^(?!\.)/;
@@ -43,28 +42,6 @@ if (import.meta.hot) {
 };
 
 /**
- * The `@theme inline` variables, declared again on every element: a design drawn inside a
- * theme's scope (`.dark`) reads the scope's values, not the root's.
- */
-const themeAliasesCss = (input: PreviewInput, tailwind: boolean): string[] => {
-  if (!tailwind) {
-    return [];
-  }
-  const aliases = inlineThemeAliases(
-    input.settings.hostCss,
-    path.join(input.dir, "host.css"),
-    input.anchorDir
-  );
-  if (aliases.size === 0) {
-    return [];
-  }
-  const declarations = [...aliases]
-    .map(([name, value]) => `  ${name}: ${value};`)
-    .join("\n");
-  return [`*, ::before, ::after {\n${declarations}\n}`];
-};
-
-/**
  * Contents of the generated directory the preview is served from: the page, its entry module
  * and the options of the serve script. No Vite config is written; the serve script builds it
  * from the anchor's own and from these options.
@@ -72,6 +49,7 @@ const themeAliasesCss = (input: PreviewInput, tailwind: boolean): string[] => {
 export const previewFiles = (
   input: PreviewInput,
   bundles: PreviewBundles,
+  /** The anchor has Tailwind's Vite plugin, which the preview then inherits. */
   tailwind: boolean
 ): Record<string, string> => {
   const { designsDir, dir, settings } = input;
@@ -105,16 +83,9 @@ export const previewFiles = (
   };
 
   const css = [
-    ...settings.hostCss.map((c) => `@import ${JSON.stringify(c)};`),
-    // Tailwind 4 scans what these point at; without Tailwind they would only be noise. The
-    // designs are documents with no classes in them, so only the components are scanned.
-    ...(tailwind
-      ? settings.libraryDirs.map(
-          (d) =>
-            `@source ${JSON.stringify(toPosix(path.relative(dir, path.join(input.root, d))))};`
-        )
-      : []),
-    ...themeAliasesCss(input, tailwind),
+    // The repository's stylesheets and what makes every token a custom property: the style
+    // system's (ADR 0024).
+    ...input.styles,
     // The page is drawn from documents; its body is the design's, edge to edge.
     "html, body { margin: 0; }",
     "html, body, #root { min-height: 100%; }",

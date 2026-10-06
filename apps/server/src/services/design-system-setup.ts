@@ -28,7 +28,10 @@ import {
   type ForbiddenPath,
   type NotConfigured,
 } from "@ultrapaint/contracts/errors";
-import type { Framework, UsageContext } from "@ultrapaint/framework-api/node";
+import type {
+  UsageContext,
+  UsageReader,
+} from "@ultrapaint/framework-api/node";
 import {
   Clock,
   Context,
@@ -56,10 +59,10 @@ import {
   targetProblem,
   verifySummary,
 } from "./design-system-setup-rules.ts";
-import { ProjectFramework } from "./framework.ts";
 import { GitService } from "./git.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { Storage } from "./storage.ts";
+import { ProjectStyleSystem } from "./style-system.ts";
 
 export type SetupFailure =
   | NotConfigured
@@ -133,13 +136,14 @@ const treesOf = (step: SetupStep): string[] =>
     ...(step.batches ?? []).flatMap((b) => [b.before, b.after]),
   ].filter((t) => t !== undefined);
 
-/** What the code is read with: the design system, the framework's reader, and the files. */
+/** What the code is read with: the design system, the style system's reader, and the files. */
 interface Codebase {
   readonly ctx: UsageContext;
   /** Application source files, repo-relative. */
   readonly files: readonly string[];
-  readonly framework: Framework;
   readonly read: (file: string) => Effect.Effect<string | null>;
+  /** The style system's reader of the code (ADR 0024). */
+  readonly usage: UsageReader;
   readonly write: (file: string, text: string) => Effect.Effect<void>;
 }
 
@@ -340,7 +344,7 @@ export class DesignSystemSetupService extends Context.Service<
             Effect.gen(function* () {
               const paths = yield* RepoPaths;
               const repo = yield* GitService;
-              const framework = yield* ProjectFramework;
+              const { usage } = yield* ProjectStyleSystem;
               const designSystem = yield* DesignSystemService;
               const catalogue = yield* CatalogueService;
               const saved = (yield* designSystem.get).designSystem;
@@ -360,7 +364,7 @@ export class DesignSystemSetupService extends Context.Service<
               const designs = paths.relative(paths.designsDir);
               const files = (yield* repo.files).filter(
                 (file) =>
-                  framework.usage.includes(file) &&
+                  usage.includes(file) &&
                   file !== designs &&
                   !file.startsWith(`${designs}/`)
               );
@@ -383,7 +387,7 @@ export class DesignSystemSetupService extends Context.Service<
                 );
               const write = (file: string, text: string) =>
                 Effect.orDie(writeAtomic(path.join(paths.root, file), text));
-              return { ctx, files, framework, read, write } satisfies Codebase;
+              return { ctx, files, read, usage, write } satisfies Codebase;
             })
           )
           .pipe(
@@ -419,9 +423,9 @@ export class DesignSystemSetupService extends Context.Service<
       const readCode = Effect.fnUntraced(function* (code: Codebase) {
         const scanned = yield* eachSource(code, (file, text) => ({
           file,
-          uses: code.framework.usage.scanFile(file, text),
+          uses: code.usage.scanFile(file, text),
         }));
-        return code.framework.usage.summarise(
+        return code.usage.summarise(
           scanned,
           code.ctx,
           yield* Clock.currentTimeMillis
@@ -466,7 +470,7 @@ export class DesignSystemSetupService extends Context.Service<
           yield* auditFile.write(audit);
           const mapping = mappingOf(
             audit,
-            code.framework.usage.suggest(audit.values, code.ctx.designSystem),
+            code.usage.suggest(audit.values, code.ctx.designSystem),
             audit.at
           );
           yield* saveMapping(mapping);
@@ -483,12 +487,7 @@ export class DesignSystemSetupService extends Context.Service<
           const code = yield* codebase(true);
           const table = mappingTable(mapping);
           const touched = yield* eachSource(code, (file, text) => {
-            const out = code.framework.usage.rewrite(
-              file,
-              text,
-              code.ctx,
-              table
-            );
+            const out = code.usage.rewrite(file, text, code.ctx, table);
             const settled =
               out.changes > 0 || out.left.some((l) => l.target !== undefined);
             return settled ? file : null;
@@ -808,7 +807,7 @@ export class DesignSystemSetupService extends Context.Service<
           if (text === null) {
             continue;
           }
-          const out = code.framework.usage.rewrite(file, text, code.ctx, table);
+          const out = code.usage.rewrite(file, text, code.ctx, table);
           if (write && out.changes > 0) {
             yield* code.write(file, out.text);
           }

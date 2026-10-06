@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 import { RepoRelativePath } from "./base.ts";
 import { DEFAULT_DESIGNS_DIR, FrameworkId, type Settings } from "./settings.ts";
+import { StyleSystemId } from "./tokens.ts";
 
 /** A package of the repository the screens could resolve their imports from. */
 export const AnchorSuggestion = Schema.Struct({
@@ -38,6 +39,8 @@ export const SetupSuggestions = Schema.Struct({
   framework: FrameworkId,
   libraries: Schema.Array(LibrarySuggestion),
   repoName: Schema.String,
+  /** The style system the stylesheets are written for, when one the tool reads is found. */
+  styleSystem: Schema.optional(StyleSystemId),
   /**
    * Which Tailwind the stylesheets set up. Only v4 is supported: its `@theme` is where the
    * design system's tokens are read from.
@@ -98,6 +101,7 @@ export const applySuggestions = (
     componentPackages: library && !library.inApp ? [library.name] : [],
     designsDir,
     framework: found.framework,
+    ...(found.styleSystem && { styleSystem: found.styleSystem }),
     hostCss: css ? [relativePosix(`${designsDir}/${GENERATED_DIR}`, css)] : [],
     libraryDirs: library ? [library.sourceDir] : [],
     // A designs directory that is a package resolves its own imports.

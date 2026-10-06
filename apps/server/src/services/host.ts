@@ -22,6 +22,7 @@ import { connectHost, ServerConfig } from "../config.ts";
 import { ComponentRegistry, PREVIEW_DIR } from "./component-registry.ts";
 import { ProjectFramework } from "./framework.ts";
 import { RepoPaths } from "./repo-paths.ts";
+import { ProjectStyleSystem } from "./style-system.ts";
 
 const freePort = (host: string) =>
   Effect.callback<number, Error>((resume) => {
@@ -66,6 +67,7 @@ export class HostManager extends Context.Service<
       const paths = yield* RepoPaths;
       const { host } = yield* ServerConfig;
       const framework = yield* ProjectFramework;
+      const styleSystem = yield* ProjectStyleSystem;
       const registry = yield* ComponentRegistry;
       const log = yield* AppLog;
       const fs = yield* FileSystem.FileSystem;
@@ -97,6 +99,12 @@ export class HostManager extends Context.Service<
             dir,
             root: paths.root,
             settings: paths.settings,
+            styles: styleSystem.previewCss({
+              anchorDir: paths.anchorDir,
+              dir,
+              root: paths.root,
+              settings: paths.settings,
+            }),
           })
         ).pipe(
           Effect.mapError(

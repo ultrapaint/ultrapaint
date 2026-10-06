@@ -1,9 +1,11 @@
 /**
- * What a framework gives the server, on the Node side: how components are catalogued, how the
- * repository's design system is read, and how the preview is built. The server knows
- * repositories, files, design documents and the editor's protocol; everything that depends on
- * the UI framework, its bundler or its styling comes through this interface, as a Storybook
- * framework package (`@storybook/react-vite`) does for Storybook's core.
+ * What a framework and a style system give the server, on the Node side. A framework is the UI
+ * library and its bundler: how components are catalogued and how the preview is built. A style
+ * system is what the tokens and classes are written in (ADR 0024): how the tokens are read and
+ * written back, what the code uses, and what the preview's stylesheet needs. The server knows
+ * repositories, files, design documents and the editor's protocol; everything else comes
+ * through these two interfaces, as a Storybook framework package (`@storybook/react-vite`)
+ * does for Storybook's core.
  */
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type {
@@ -14,6 +16,12 @@ import type {
 } from "@ultrapaint/contracts/design-system-setup";
 import type { Settings } from "@ultrapaint/contracts/settings";
 import type { SetupSuggestions } from "@ultrapaint/contracts/setup";
+import type {
+  FileEdit,
+  StyleSystemId,
+  TokenChange,
+  TokenSource,
+} from "@ultrapaint/contracts/tokens";
 
 /** Plain data, so the whole context can be handed to a worker thread. */
 export interface CatalogueContext {
@@ -54,14 +62,6 @@ export interface DesignSystemScan {
   readonly notes: readonly string[];
   /** The tokens the repository's own theme declares, as opposed to the framework's defaults. */
   readonly ownTokens: readonly string[];
-}
-
-export interface DesignSystemReader {
-  /**
-   * Reads the tokens the repository's stylesheets define, by fixed rules: the `@theme` blocks
-   * of Tailwind v4 and the custom properties they refer to. Synchronous and read-only.
-   */
-  readonly scan: (ctx: DesignSystemContext) => DesignSystemScan;
 }
 
 /** One use of a value in a source file, as written, before it is held against a design system. */
@@ -156,6 +156,8 @@ export interface PreviewInput {
   /** Repository root. Absolute. */
   readonly root: string;
   readonly settings: Settings;
+  /** What the style system puts in the preview's stylesheet, line by line. */
+  readonly styles: readonly string[];
 }
 
 export interface PreviewBuilder {
@@ -183,18 +185,90 @@ export interface PreviewBuilder {
 /** What a framework recognises in a repository; null when the repository is not its kind. */
 export type Detect = (
   root: string
-) => Omit<SetupSuggestions, "framework" | "repoName"> | null;
+) => Omit<
+  SetupSuggestions,
+  "cssEntries" | "framework" | "repoName" | "styleSystem" | "tailwind"
+> | null;
 
 export interface Framework {
   readonly catalogue: CatalogueBuilder;
-  readonly designSystem: DesignSystemReader;
   /** Synchronous and read-only: it looks at manifests and file names, never runs anything. */
   readonly detect: Detect;
   readonly id: string;
   readonly preview: PreviewBuilder;
+  /** A new application to start from, for a repository that has none (phase 6 of the sync). */
+  readonly scaffold?: Scaffold;
+}
+
+/** What a style system recognises: the stylesheets that set it up, and whether it is its kind. */
+export interface StyleSuggestions {
+  readonly cssEntries: readonly string[];
+  /** Which Tailwind the stylesheets set up; only v4 is read. */
+  readonly tailwind: "v4" | "v3" | "none";
+}
+
+/** The preview's stylesheet is written into `dir`; its imports are relative to it. */
+export interface PreviewStyleContext extends DesignSystemContext {
+  /** The generated directory the preview is served from. Absolute. */
+  readonly dir: string;
+}
+
+/**
+ * A style system (ADR 0024): Tailwind v4 today, StyleX or Emotion later. Synchronous and pure
+ * apart from reading the repository's files; the server writes what it returns.
+ */
+export interface StyleSystem {
+  /**
+   * How a token and a page's fields become code in this style system, told to the agents that
+   * implement a page.
+   */
+  readonly codeRules: string;
+  /** The stylesheets of the packages in `dirs` (absolute) that set the style system up. */
+  readonly detect: (root: string, dirs: readonly string[]) => StyleSuggestions;
+  readonly id: StyleSystemId;
+  /**
+   * Lines of the preview's stylesheet: the repository's own stylesheets imported, and whatever
+   * makes every token a custom property the preview can draw with.
+   */
+  readonly previewCss: (ctx: PreviewStyleContext) => readonly string[];
+  /** Every token the code declares, with where each value is written. */
+  readonly readTokens: (ctx: DesignSystemContext) => TokenSource;
+  /**
+   * A first design system from the tokens, by fixed rules: the starting point `/init` hands an
+   * agent, and all there is when no agent is used.
+   */
+  readonly scan: (ctx: DesignSystemContext) => DesignSystemScan;
   /** What the application's code uses, for the design-system setup (ADR 0023). */
   readonly usage: UsageReader;
+  /**
+   * The files as the changes leave them, only those that change. A change to a token that is
+   * not declared adds it where new tokens go.
+   */
+  readonly writeTokens: (
+    ctx: DesignSystemContext,
+    changes: readonly TokenChange[]
+  ) => readonly FileEdit[];
 }
+
+/** A new application's files, repo-relative, and what it needs installed. */
+export interface ScaffoldResult {
+  readonly files: Readonly<Record<string, string>>;
+  /** The settings that point the tool at it, relative to the repository. */
+  readonly settings: {
+    readonly hostCss: string;
+    readonly libraryDir: string;
+    readonly resolveFrom: string;
+  };
+}
+
+export type Scaffold = (input: {
+  /** Repo-relative directory the application goes in; `.` for the root. */
+  readonly dir: string;
+  /** The application's name, for its package.json. */
+  readonly name: string;
+  /** Tokens to start the theme with, by name; the template's own when empty. */
+  readonly tokens: Readonly<Record<string, string>>;
+}) => ScaffoldResult;
 
 /** Where a framework implementation came from; a repository may pin its own later on. */
 export interface LocatedFramework {

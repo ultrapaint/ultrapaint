@@ -61,7 +61,6 @@ describe("recognising a React repository", () => {
           reason: "depends on @acme/ui, has Vite",
         },
       ],
-      cssEntries: ["apps/web/src/app.css"],
       designsDirs: [],
       libraries: [
         {
@@ -70,7 +69,6 @@ describe("recognising a React repository", () => {
           sourceDir: "packages/ui/src/components",
         },
       ],
-      tailwind: "v4",
     });
   });
 
@@ -146,7 +144,5 @@ describe("recognising a React repository", () => {
         sourceDir: "front/src/components",
       },
     ]);
-    expect(found?.cssEntries).toContain("front/src/index.css");
-    expect(found?.tailwind).toBe("v4");
   });
 });

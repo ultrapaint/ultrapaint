@@ -1,0 +1,146 @@
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { defaultSettings } from "@ultrapaint/contracts/settings";
+import type { DesignSystemContext } from "@ultrapaint/framework-api/node";
+import { afterAll, describe, expect, it } from "vitest";
+import { readTokens, writeTokens } from "./tokens.ts";
+
+const roots: string[] = [];
+afterAll(() => {
+  for (const root of roots) {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+const APP_CSS = `@import "tailwindcss";
+
+@theme {
+  --color-brand: #2563eb;
+  --radius-lg: 0.75rem;
+  --text-xs--line-height: 1rem;
+}
+
+@theme inline {
+  --color-primary: var(--primary);
+  --color-background: var(--background);
+}
+
+:root {
+  --primary: oklch(0.6 0.2 260); /* the brand */
+  --background: #ffffff;
+}
+
+.dark {
+  --primary: oklch(0.8 0.1 260);
+}
+`;
+
+/** A repository whose preview imports `src/app.css`, as the settings name it. */
+const project = (css = APP_CSS): DesignSystemContext => {
+  const root = mkdtempSync(path.join(tmpdir(), "ed-tokens-"));
+  roots.push(root);
+  mkdirSync(path.join(root, "src"), { recursive: true });
+  mkdirSync(path.join(root, "designs"), { recursive: true });
+  writeFileSync(path.join(root, "src/app.css"), css);
+  return {
+    anchorDir: root,
+    root,
+    settings: {
+      ...defaultSettings(root),
+      designsDir: "designs",
+      hostCss: ["../../src/app.css"],
+    },
+  };
+};
+
+const byName = (ctx: DesignSystemContext, name: string) =>
+  readTokens(ctx).tokens.find((t) => t.name === name);
+
+describe("reading Tailwind v4 tokens", () => {
+  it("reads each @theme variable with where its value is written", () => {
+    const ctx = project();
+    const source = readTokens(ctx);
+    expect(source.files).toEqual(["src/app.css"]);
+    expect(source.themes).toEqual(["dark"]);
+    const brand = byName(ctx, "color-brand");
+    expect(brand).toMatchObject({ kind: "color", own: true, value: "#2563eb" });
+    const at = brand?.origins?.[""];
+    expect(at?.file).toBe("src/app.css");
+    expect(APP_CSS.slice(at?.start, at?.end)).toBe("#2563eb");
+    expect(byName(ctx, "radius-lg")?.kind).toBe("radius");
+    // A sub-property of a token is not a token of its own.
+    expect(byName(ctx, "text-xs--line-height")).toBeUndefined();
+  });
+
+  it("follows an alias to the variable that holds the value, theme by theme", () => {
+    const ctx = project();
+    const primary = byName(ctx, "color-primary");
+    expect(primary?.value).toBe("oklch(0.6 0.2 260)");
+    expect(primary?.values).toEqual({ dark: "oklch(0.8 0.1 260)" });
+    const light = primary?.origins?.[""];
+    const dark = primary?.origins?.dark;
+    expect(APP_CSS.slice(light?.start, light?.end)).toBe("oklch(0.6 0.2 260)");
+    expect(APP_CSS.slice(dark?.start, dark?.end)).toBe("oklch(0.8 0.1 260)");
+  });
+});
+
+describe("writing Tailwind v4 tokens back", () => {
+  it("changes a value where it is written, in each theme", () => {
+    const ctx = project();
+    const edits = writeTokens(ctx, [
+      { name: "color-primary", value: "#ff0000" },
+      { name: "color-primary", theme: "dark", value: "#ff8888" },
+      { name: "color-brand", value: "#111111" },
+    ]);
+    expect(edits.map((e) => e.file)).toEqual(["src/app.css"]);
+    const text = edits[0]?.text ?? "";
+    expect(text).toContain("--primary: #ff0000; /* the brand */");
+    expect(text).toContain(".dark {\n  --primary: #ff8888;\n}");
+    expect(text).toContain("--color-brand: #111111;");
+    // Only the values moved.
+    expect(text.length).toBe(
+      APP_CSS.length -
+        "oklch(0.6 0.2 260)".length * 1 +
+        "#ff0000".length -
+        "oklch(0.8 0.1 260)".length +
+        "#ff8888".length
+    );
+  });
+
+  it("adds a token to the theme, a theme's value to its block, and takes one out", () => {
+    const ctx = project();
+    const edits = writeTokens(ctx, [
+      { name: "color-accent", value: "#f59e0b" },
+      { name: "color-brand", theme: "dark", value: "#60a5fa" },
+      { name: "radius-lg", remove: true },
+    ]);
+    const file = path.join(ctx.root, "src/app.css");
+    writeFileSync(file, edits[0]?.text ?? "");
+    const text = readFileSync(file, "utf8");
+    expect(text).toContain(
+      "@theme {\n  --color-brand: #2563eb;\n  --text-xs--line-height: 1rem;\n  --color-accent: #f59e0b;\n}"
+    );
+    expect(text).not.toContain("--radius-lg");
+    expect(byName(ctx, "color-accent")?.value).toBe("#f59e0b");
+    expect(byName(ctx, "color-brand")?.values).toEqual({ dark: "#60a5fa" });
+    expect(byName(ctx, "radius-lg")).toBeUndefined();
+  });
+
+  it("starts a theme block in a stylesheet that has none", () => {
+    const ctx = project('@import "tailwindcss";\n');
+    const edits = writeTokens(ctx, [
+      { name: "color-brand", value: "#2563eb" },
+      { name: "color-brand", theme: "dark", value: "#60a5fa" },
+    ]);
+    const text = edits[0]?.text ?? "";
+    expect(text).toContain("@theme {\n  --color-brand: #2563eb;\n}");
+    expect(text).toContain(".dark {\n  --color-brand: #60a5fa;\n}");
+  });
+});

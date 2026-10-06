@@ -1,8 +1,9 @@
 /**
  * Recognises a React repository for the first-run setup: which packages are component
- * libraries, which package the pages could resolve their imports from, and where the design
- * system's CSS starts. It reads manifests and file names only; everything it returns is a
- * suggestion the user confirms.
+ * libraries, or which directory of the application holds its components, and which package the
+ * pages could resolve their imports from. It reads manifests and file names only; everything it
+ * returns is a suggestion the user confirms. The stylesheets are the style system's to find
+ * (ADR 0024).
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -25,12 +26,6 @@ const LIBRARY_NAME_RE =
 const APP_NAME_RE =
   /(^|[-/@])(app|web|site|client|frontend|storybook)([-/]|$)/i;
 const DESIGNS_NAME_RE = /(^|[-/])designs?$/i;
-// A stylesheet that sets Tailwind up, directly or through a theme package.
-const TAILWIND_CSS_RE =
-  /@import\s+["'][^"']*tailwind|@tailwind\s+base|@theme\b/;
-const CSS_FILE_RE = /\.css$/;
-const TAILWIND_V4_RE = /@import\s+["']tailwindcss|@theme\b/;
-const TAILWIND_V3_RE = /@tailwind\s+(base|components|utilities)/;
 
 const toPosix = (p: string) => p.replaceAll("\\", "/");
 
@@ -165,39 +160,6 @@ const best = <T>(items: Scored<T>[]): T[] =>
     .slice(0, MAX_SUGGESTIONS)
     .map((i) => i.value);
 
-const cssEntriesOf = (pkg: Package, root: string): string[] => {
-  const found: string[] = [];
-  const visit = (dir: string, depth: number) => {
-    let entries: import("node:fs").Dirent[];
-    try {
-      entries = readdirSync(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const entry of entries) {
-      const file = path.join(dir, entry.name);
-      if (entry.isFile() && CSS_FILE_RE.test(entry.name)) {
-        try {
-          if (TAILWIND_CSS_RE.test(readFileSync(file, "utf8"))) {
-            found.push(toPosix(path.relative(root, file)));
-          }
-        } catch {
-          // An unreadable stylesheet is simply not suggested.
-        }
-      } else if (
-        entry.isDirectory() &&
-        depth < 3 &&
-        !SKIPPED_DIRS.has(entry.name) &&
-        !entry.name.startsWith(".")
-      ) {
-        visit(file, depth + 1);
-      }
-    }
-  };
-  visit(pkg.dir, 0);
-  return found;
-};
-
 export const detect: Detect = (root) => {
   const packages = findPackages(root);
   const reactPackages = packages.filter(usesReact);
@@ -293,14 +255,6 @@ export const detect: Detect = (root) => {
       }
     }
   }
-  const cssEntries = [
-    ...new Set(
-      [
-        ...anchorPackages.slice(0, 2),
-        ...packages.filter((p) => libraryNames.has(p.name)),
-      ].flatMap((pkg) => cssEntriesOf(pkg, root))
-    ),
-  ].slice(0, MAX_SUGGESTIONS);
 
   const designsDirs = packages
     .map((p) => p.rel)
@@ -314,19 +268,5 @@ export const detect: Detect = (root) => {
     }
   }
 
-  const stylesheets = cssEntries.map((rel) => {
-    try {
-      return readFileSync(path.join(root, rel), "utf8");
-    } catch {
-      return "";
-    }
-  });
-  let tailwind: "v4" | "v3" | "none" = "none";
-  if (stylesheets.some((css) => TAILWIND_V4_RE.test(css))) {
-    tailwind = "v4";
-  } else if (stylesheets.some((css) => TAILWIND_V3_RE.test(css))) {
-    tailwind = "v3";
-  }
-
-  return { anchors, cssEntries, designsDirs, libraries, tailwind };
+  return { anchors, designsDirs, libraries };
 };

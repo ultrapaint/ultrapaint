@@ -19,8 +19,8 @@ import {
 import { EventBus } from "../events.ts";
 import { CatalogueService } from "./catalogue.ts";
 import { type EditFailure, EditService } from "./edit.ts";
-import { ProjectFramework } from "./framework.ts";
 import { RepoPaths } from "./repo-paths.ts";
+import { ProjectStyleSystem } from "./style-system.ts";
 
 const decodeDesignSystem = Schema.decodeUnknownEffect(DesignSystem);
 
@@ -49,7 +49,7 @@ export class DesignSystemService extends Context.Service<
     Effect.gen(function* () {
       const paths = yield* RepoPaths;
       const edit = yield* EditService;
-      const framework = yield* ProjectFramework;
+      const styleSystem = yield* ProjectStyleSystem;
       const catalogue = yield* CatalogueService;
       const events = yield* EventBus;
       const fs = yield* FileSystem.FileSystem;
@@ -92,7 +92,7 @@ export class DesignSystemService extends Context.Service<
 
       const scan = Effect.gen(function* () {
         const found = yield* Effect.sync(() =>
-          framework.designSystem.scan({
+          styleSystem.scan({
             anchorDir: paths.anchorDir,
             root: paths.root,
             settings: paths.settings,
