@@ -113,10 +113,10 @@ export interface CodeOptions {
 
 /** What writing every node of one call needs. */
 interface Writing {
-  /** The name each module's default export is imported as, unique in the file. */
-  readonly defaultNames: ReadonlyMap<string, string>;
   readonly hrefOf: (link: string) => string;
   readonly instances: Readonly<Record<string, InstanceDrawn>>;
+  /** The name each instance's component is imported as (`importKey`), unique in the file. */
+  readonly localNames: ReadonlyMap<string, string>;
   readonly scale: Scale;
   /** The design system's styles, made once for every node. */
   readonly styles: Omit<StyleContext, "parent">;
@@ -514,19 +514,34 @@ const defaultImportName = (from: string) => {
   return IDENTIFIER_RE.test(name) ? name : `Component${name}`;
 };
 
+/** An imported component: its module and its export, `default` for the default one. */
+const importKey = (from: string, component: string) => `${from}\0${component}`;
+
 const tagOfInstance = (node: InstanceNode, w: Writing) =>
-  node.component === "default"
-    ? (w.defaultNames.get(node.from) ?? defaultImportName(node.from))
-    : node.component;
+  w.localNames.get(importKey(node.from, node.component)) ??
+  (node.component === "default"
+    ? defaultImportName(node.from)
+    : node.component);
+
+/** `base`, or `base2`, `base3`…: the first that `free` allows. */
+const firstFree = (base: string, free: (name: string) => boolean) => {
+  let name = base;
+  for (let n = 2; !free(name); n += 1) {
+    name = `${base}${n}`;
+  }
+  return name;
+};
 
 /**
  * The imports the visible instances under a node need, one statement per module, and the name
- * each module's default export is imported as: two `…/button` modules are `Button` and `Button2`,
- * and neither takes the name of a component imported by name.
+ * each component is imported as. Names in `reserved` (the page's own component) are taken. A
+ * component imported by name keeps it unless an earlier module's took it (`{ Card as Card2 }`);
+ * a default export takes its module's name (`Button`, `Button2`), never one imported by name.
  */
 const importsFor = (
-  root: DesignNode
-): { defaultNames: Map<string, string>; lines: string[] } => {
+  root: DesignNode,
+  reserved: readonly string[]
+): { localNames: Map<string, string>; lines: string[] } => {
   const modules = new Map<string, { named: Set<string>; fallback: boolean }>();
   const visit = (node: DesignNode) => {
     if (node.hidden) {
@@ -550,29 +565,43 @@ const importsFor = (
   };
   visit(root);
   const sorted = [...modules.entries()].sort(([a], [b]) => a.localeCompare(b));
-  const taken = new Set(sorted.flatMap(([, { named }]) => [...named]));
-  const defaultNames = new Map<string, string>();
-  for (const [from, { fallback }] of sorted) {
-    if (fallback) {
-      const base = defaultImportName(from);
-      let name = base;
-      for (let n = 2; taken.has(name); n += 1) {
-        name = `${base}${n}`;
-      }
+  const byName = (a: string, b: string) => a.localeCompare(b);
+  /** The names imported by name, which an alias or a default export's name does not take. */
+  const wanted = new Set(sorted.flatMap(([, { named }]) => [...named]));
+  const taken = new Set(reserved);
+  const localNames = new Map<string, string>();
+  for (const [from, { named }] of sorted) {
+    for (const component of [...named].sort(byName)) {
+      const name = firstFree(
+        component,
+        (n) => !taken.has(n) && (n === component || !wanted.has(n))
+      );
       taken.add(name);
-      defaultNames.set(from, name);
+      localNames.set(importKey(from, component), name);
     }
   }
-  const lines = sorted.map(([from, { named }]) => {
-    const names = [...named].sort((a, b) => a.localeCompare(b));
-    const fallback = defaultNames.get(from);
+  for (const [from, { fallback }] of sorted) {
+    if (fallback) {
+      const name = firstFree(
+        defaultImportName(from),
+        (n) => !(taken.has(n) || wanted.has(n))
+      );
+      taken.add(name);
+      localNames.set(importKey(from, "default"), name);
+    }
+  }
+  const lines = sorted.map(([from, { fallback, named }]) => {
+    const names = [...named].sort(byName).map((component) => {
+      const local = localNames.get(importKey(from, component));
+      return local === component ? component : `${component} as ${local}`;
+    });
     const parts = [
-      ...(fallback ? [fallback] : []),
+      ...(fallback ? [localNames.get(importKey(from, "default"))] : []),
       ...(names.length > 0 ? [`{ ${names.join(", ")} }`] : []),
     ];
     return `import ${parts.join(", ")} from ${JSON.stringify(from)};`;
   });
-  return { defaultNames, lines };
+  return { lines, localNames };
 };
 
 // ---- JSX ----
@@ -797,17 +826,19 @@ export const toCode = (
   options: CodeOptions = {}
 ): string => {
   const parent = options.parent ?? "free";
-  const { defaultNames, lines: imports } = importsFor(
-    node.hidden ? { ...node, hidden: false } : node
+  const asComponent = node.type === "page" && options.component !== undefined;
+  // The page's own function is a name in the file too: an import does not take it.
+  const { localNames, lines: imports } = importsFor(
+    node.hidden ? { ...node, hidden: false } : node,
+    asComponent && options.component ? [options.component] : []
   );
   const notes = node.hidden
     ? ["// Hidden in the design: the application leaves it out."]
     : [];
-  const asComponent = node.type === "page" && options.component !== undefined;
   const writing: Writing = {
-    defaultNames,
     hrefOf: options.hrefOf ?? ((link: string) => link),
     instances: options.instances ?? {},
+    localNames,
     scale: { step: spacingStep(ds) },
     styles: makeStyleContext(ds),
   };

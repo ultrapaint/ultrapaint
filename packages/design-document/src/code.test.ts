@@ -380,6 +380,58 @@ import { Button } from "@gamma/ui";
 </div>`);
   });
 
+  it("leaves the page's own name to the page", () => {
+    const settings: DesignNode = {
+      children: [
+        {
+          component: "default",
+          from: "@/components/settings-page",
+          id: "a",
+          type: "instance",
+        },
+        {
+          component: "SettingsPage",
+          from: "@acme/ui",
+          id: "b",
+          type: "instance",
+        },
+      ],
+      id: "root",
+      type: "page",
+    };
+    const code = toCode(settings, ds, { component: "SettingsPage" });
+    expect(code).toContain(
+      'import SettingsPage3 from "@/components/settings-page";'
+    );
+    expect(code).toContain(
+      'import { SettingsPage as SettingsPage2 } from "@acme/ui";'
+    );
+    expect(code).toContain("export default function SettingsPage() {");
+    expect(code).toContain("<SettingsPage3 />");
+    expect(code).toContain("<SettingsPage2 />");
+  });
+
+  it("gives a component imported by name from two modules a name each", () => {
+    const row: DesignNode = {
+      children: [
+        { component: "Card", from: "@acme/ui/card", id: "a", type: "instance" },
+        { component: "Card", from: "@beta/ui", id: "b", type: "instance" },
+        { component: "Card2", from: "@gamma/ui", id: "c", type: "instance" },
+      ],
+      id: "row",
+      type: "row",
+    };
+    expect(toCode(row, ds)).toBe(`import { Card } from "@acme/ui/card";
+import { Card as Card3 } from "@beta/ui";
+import { Card2 } from "@gamma/ui";
+
+<div className="flex">
+  <Card />
+  <Card3 />
+  <Card2 />
+</div>`);
+  });
+
   it("writes text JSX would read otherwise as a string", () => {
     const text = (value: string): DesignNode => ({
       id: "t",
