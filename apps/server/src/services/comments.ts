@@ -20,14 +20,12 @@ import {
   Layer,
   Path,
   Schema,
-  Semaphore,
   Stream,
 } from "effect";
-import { makeWriteAtomic } from "../atomic-write.ts";
 import { EventBus } from "../events.ts";
 import { toPosix } from "../hash.ts";
 import { makeId, safeCanvasId } from "../ids.ts";
-import type { EditFailure, EditTransaction } from "./edit.ts";
+import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
 import { runGit } from "./git.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
@@ -91,14 +89,11 @@ export class CommentsService extends Context.Service<
     CommentsService,
     Effect.gen(function* () {
       const paths = yield* RepoPaths;
+      const edit = yield* EditService;
       const events = yield* EventBus;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const writeAtomic = makeWriteAtomic(fs, path);
       const root = paths.designsDir;
-      // Every change reads the file and writes it back whole; two at once would lose one.
-      const mutations = yield* Semaphore.make(1);
-      const exclusive = mutations.withPermits(1);
 
       const exists = (p: string) =>
         Effect.orElseSucceed(fs.exists(p), () => false);
@@ -138,7 +133,7 @@ export class CommentsService extends Context.Service<
         if (!(yield* exists(file))) {
           return emptyList();
         }
-        return yield* Effect.orDie(fs.readFileString(file)).pipe(
+        return yield* fs.readFileString(file).pipe(
           Effect.flatMap(decodeComments),
           Effect.mapError(
             (error) =>
@@ -149,20 +144,57 @@ export class CommentsService extends Context.Service<
         );
       });
 
-      const write = Effect.fnUntraced(function* (
+      /**
+       * Changes a canvas's comments. Comments are not undone with the designs, so this is no
+       * undo step; it goes through the journal all the same, which reads and writes the file
+       * one change at a time and carries the change into the steps that recorded the file.
+       * `revise` answers with the comments to save and what the change gave; it is pure, and is
+       * also run on the comments as those steps had them.
+       */
+      const write = <A>(
         canvas: string,
-        comments: readonly Comment[]
-      ) {
-        const file = yield* fileToWrite(canvas);
-        const next: CommentList = { comments, version: 1 };
-        yield* Effect.orDie(writeAtomic(file, renderComments(next)));
-        yield* events.publish("comments", { canvas, list: next });
-      });
+        revise: (
+          comments: readonly Comment[]
+        ) => Effect.Effect<readonly [readonly Comment[], A], CommentsFailure>
+      ) =>
+        Effect.gen(function* () {
+          const file = paths.relative(yield* fileToWrite(canvas));
+          const [saved, result] = yield* edit.amend(file, (content) =>
+            Effect.gen(function* () {
+              const before =
+                content === null
+                  ? emptyList()
+                  : yield* decodeComments(content).pipe(
+                      Effect.mapError(
+                        (error) =>
+                          new Conflict({
+                            message: `comments.json in ${canvas || "designs root"} is invalid: ${error.message}`,
+                          })
+                      )
+                    );
+              const [comments, given] = yield* revise(before.comments);
+              const next: CommentList = { comments, version: 1 };
+              return [renderComments(next), [next, given] as const] as const;
+            })
+          );
+          yield* events.publish("comments", { canvas, list: saved });
+          return result;
+        });
+
+      /** Finds a comment among them; a comment gone by now is not found. */
+      const findIn = (
+        comments: readonly Comment[],
+        id: string
+      ): Effect.Effect<Comment, NotFound> => {
+        const found = comments.find((c) => c.id === id);
+        return found
+          ? Effect.succeed(found)
+          : Effect.fail(new NotFound({ message: `comment not found: ${id}` }));
+      };
 
       const create = Effect.fn("CommentsService.create")(function* (
         input: CreateCommentInput
       ) {
-        const { comments } = yield* list(input.canvas);
         const now = yield* Clock.currentTimeMillis;
         const comment: Comment = {
           author,
@@ -178,57 +210,59 @@ export class CommentsService extends Context.Service<
           x: Math.round(input.x),
           y: Math.round(input.y),
         };
-        yield* write(input.canvas, [...comments, comment]);
-        return comment;
-      });
-
-      const byId = Effect.fnUntraced(function* (canvas: string, id: string) {
-        const { comments } = yield* list(canvas);
-        const found = comments.find((c) => c.id === id);
-        if (!found) {
-          return yield* new NotFound({ message: `comment not found: ${id}` });
-        }
-        return { comments, found };
+        return yield* write(input.canvas, (comments) =>
+          Effect.succeed([[...comments, comment], comment] as const)
+        );
       });
 
       const update = Effect.fn("CommentsService.update")(function* (
         input: UpdateCommentInput
       ) {
-        return yield* change(input.canvas, input.id, (comment, now) => ({
-          ...comment,
-          resolved: input.resolved ?? comment.resolved,
-          text: input.text?.trim() ?? comment.text,
-          updatedAt: now,
-        }));
+        return yield* change(input.canvas, input.id, (comment, now) =>
+          Effect.succeed({
+            ...comment,
+            resolved: input.resolved ?? comment.resolved,
+            text: input.text?.trim() ?? comment.text,
+            updatedAt: now,
+          })
+        );
       });
 
-      /** Replaces one comment with what `change` makes of it, and saves. */
+      /** Replaces one comment with what `f` makes of it, and saves. */
       const change = Effect.fnUntraced(function* (
         canvas: string,
         id: string,
-        f: (comment: Comment, now: number) => Comment
-      ) {
-        const { comments, found } = yield* byId(canvas, id);
-        const updated = f(found, yield* Clock.currentTimeMillis);
-        yield* write(
-          canvas,
-          comments.map((c) => (c.id === id ? updated : c))
+        f: (comment: Comment, now: number) => Effect.Effect<Comment, NotFound>
+      ): Effect.fn.Return<Comment, CommentsFailure> {
+        const now = yield* Clock.currentTimeMillis;
+        return yield* write(canvas, (comments) =>
+          findIn(comments, id).pipe(
+            Effect.flatMap((found) => f(found, now)),
+            Effect.map(
+              (updated) =>
+                [
+                  comments.map((c) => (c.id === id ? updated : c)),
+                  updated,
+                ] as const
+            )
+          )
         );
-        return updated;
       });
 
       const reply = Effect.fn("CommentsService.reply")(function* (
         input: ReplyInput
       ) {
         const replyId = yield* makeId("reply");
-        return yield* change(input.canvas, input.id, (comment, now) => ({
-          ...comment,
-          replies: [
-            ...comment.replies,
-            { author, createdAt: now, id: replyId, text: input.text.trim() },
-          ],
-          updatedAt: now,
-        }));
+        return yield* change(input.canvas, input.id, (comment, now) =>
+          Effect.succeed({
+            ...comment,
+            replies: [
+              ...comment.replies,
+              { author, createdAt: now, id: replyId, text: input.text.trim() },
+            ],
+            updatedAt: now,
+          })
+        );
       });
 
       const deleteReply = Effect.fn("CommentsService.deleteReply")(function* (
@@ -236,27 +270,31 @@ export class CommentsService extends Context.Service<
         id: string,
         replyId: string
       ) {
-        const { found } = yield* byId(canvas, id);
-        if (!found.replies.some((r) => r.id === replyId)) {
-          return yield* new NotFound({
-            message: `reply not found: ${replyId}`,
-          });
-        }
-        return yield* change(canvas, id, (comment, now) => ({
-          ...comment,
-          replies: comment.replies.filter((r) => r.id !== replyId),
-          updatedAt: now,
-        }));
+        return yield* change(
+          canvas,
+          id,
+          (comment, now): Effect.Effect<Comment, NotFound> =>
+            comment.replies.some((r) => r.id === replyId)
+              ? Effect.succeed({
+                  ...comment,
+                  replies: comment.replies.filter((r) => r.id !== replyId),
+                  updatedAt: now,
+                })
+              : Effect.fail(
+                  new NotFound({ message: `reply not found: ${replyId}` })
+                )
+        );
       });
 
       const remove = Effect.fn("CommentsService.delete")(function* (
         canvas: string,
         id: string
       ) {
-        const { comments } = yield* byId(canvas, id);
-        yield* write(
-          canvas,
-          comments.filter((c) => c.id !== id)
+        yield* write(canvas, (comments) =>
+          Effect.as(findIn(comments, id), [
+            comments.filter((c) => c.id !== id),
+            undefined,
+          ] as const)
         );
       });
 
@@ -314,15 +352,15 @@ export class CommentsService extends Context.Service<
         );
       }
 
+      // Every change, these and a page's, is made under the journal's lock, one at a time.
       return CommentsService.of({
-        create: (input) => exclusive(create(input)),
-        delete: (canvas, id) => exclusive(remove(canvas, id)),
-        deleteReply: (canvas, id, replyId) =>
-          exclusive(deleteReply(canvas, id, replyId)),
+        create,
+        delete: remove,
+        deleteReply,
         list,
-        reply: (input) => exclusive(reply(input)),
-        rewrite: (tx, canvas, revise) => exclusive(rewrite(tx, canvas, revise)),
-        update: (input) => exclusive(update(input)),
+        reply,
+        rewrite,
+        update,
       });
     })
   );

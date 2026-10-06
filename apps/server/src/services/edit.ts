@@ -80,6 +80,20 @@ export class EditService extends Context.Service<
       body: (tx: EditTransaction) => Effect.Effect<A, E>
     ) => Effect.Effect<A, E | EditFailure>;
     readonly undo: Effect.Effect<UndoResult | null, EditFailure>;
+    /**
+     * Changes a file outside the undo history, as comments are changed: no step of its own,
+     * and undo does not take it back. `update` makes the file's next content from its content
+     * now (null when there is none) and says what the change gave. It runs under the journal's
+     * lock, and is applied as well to the file as every recorded step left it and found it, so
+     * that undoing or redoing a step that touched the file (a page renamed takes its comments
+     * along) carries the change and is not refused as an outside edit.
+     */
+    readonly amend: <A, E>(
+      rel: string,
+      update: (
+        content: string | null
+      ) => Effect.Effect<readonly [next: string, result: A], E>
+    ) => Effect.Effect<A, E | ForbiddenPath | Conflict>;
   }
 >()("ultrapaint/server/EditService") {
   static readonly layer = Layer.effect(
@@ -130,9 +144,17 @@ export class EditService extends Context.Service<
       /** The file as it is now; null when there is none. */
       const current = Effect.fnUntraced(function* (rel: string) {
         const abs = yield* paths.resolve(rel);
-        return (yield* exists(abs))
-          ? yield* Effect.orDie(fs.readFileString(abs))
-          : null;
+        return yield* fs.readFileString(abs).pipe(
+          Effect.catchReason("PlatformError", "NotFound", () =>
+            Effect.succeed(null)
+          ),
+          Effect.mapError(
+            (error) =>
+              new Conflict({
+                message: `${rel} cannot be read: ${error.message}`,
+              })
+          )
+        );
       });
 
       /** Puts the file in the given state: its content, or gone. */
@@ -141,12 +163,44 @@ export class EditService extends Context.Service<
         content: string | null
       ) {
         const abs = yield* paths.resolve(rel);
-        if (content === null) {
-          yield* Effect.orDie(fs.remove(abs, { force: true }));
-        } else {
-          yield* Effect.orDie(writeAtomic(abs, content));
-        }
+        yield* (
+          content === null
+            ? fs.remove(abs, { force: true })
+            : writeAtomic(abs, content)
+        ).pipe(
+          Effect.mapError(
+            (error) =>
+              new Conflict({
+                message: `${rel} cannot be written: ${error.message}`,
+              })
+          )
+        );
         yield* fileChanged(rel, content === null ? "" : hashContent(content));
+      });
+
+      /**
+       * Puts every file in its state, going on past one that cannot be: a step half put back
+       * is worse than one with a file left over. Fails with the files that could not be.
+       */
+      const restoreAll = Effect.fnUntraced(function* (
+        states: readonly {
+          readonly content: string | null;
+          readonly file: string;
+        }[]
+      ) {
+        const failed: string[] = [];
+        for (const { content, file } of states) {
+          const exit = yield* Effect.exit(restore(file, content));
+          if (exit._tag === "Failure") {
+            failed.push(file);
+            yield* Effect.logError(`${file} could not be put back`, exit.cause);
+          }
+        }
+        if (failed.length > 0) {
+          return yield* new Conflict({
+            message: `${failed.join(", ")} could not be put back`,
+          });
+        }
       });
 
       const fileChanged = (file: string, hash: string) =>
@@ -186,9 +240,8 @@ export class EditService extends Context.Service<
           if (yield* exists(abs)) {
             return yield* new Conflict({ message: `${rel} already exists` });
           }
-          yield* Effect.orDie(writeAtomic(abs, content));
+          yield* restore(rel, content);
           record(rel, null, content);
-          yield* fileChanged(rel, hashContent(content));
         });
 
         const remove = Effect.fn("EditService.remove")(function* (rel: string) {
@@ -230,10 +283,15 @@ export class EditService extends Context.Service<
             const r = recorder();
             return body(r.tx).pipe(
               // What went through before the failure goes back: an action is all or nothing.
+              // A file that cannot be is logged; the action's own failure is what the caller
+              // hears.
               Effect.onError(() =>
-                Effect.forEach(r.changes().toReversed(), (c) =>
-                  restore(c.file, c.before).pipe(Effect.ignore)
-                )
+                restoreAll(
+                  r
+                    .changes()
+                    .toReversed()
+                    .map((c) => ({ content: c.before, file: c.file }))
+                ).pipe(Effect.ignore)
               ),
               Effect.tap(() => {
                 const changes = r.changes();
@@ -294,12 +352,46 @@ export class EditService extends Context.Service<
 
       /** Puts every file the entry touched back as it was before, or forward as after. */
       const walk = (entry: JournalEntry, undoing: boolean) =>
-        Effect.forEach(
-          undoing ? entry.changes.toReversed() : entry.changes,
-          (change) =>
-            restore(change.file, undoing ? change.before : change.after),
-          { discard: true }
+        restoreAll(
+          (undoing ? entry.changes.toReversed() : entry.changes).map(
+            (change) => ({
+              content: undoing ? change.before : change.after,
+              file: change.file,
+            })
+          )
         );
+
+      const amend = <A, E>(
+        rel: string,
+        update: (
+          content: string | null
+        ) => Effect.Effect<readonly [next: string, result: A], E>
+      ): Effect.Effect<A, E | ForbiddenPath | Conflict> =>
+        exclusive(
+          Effect.gen(function* () {
+            yield* editable(rel);
+            const [next, result] = yield* update(yield* current(rel));
+            yield* restore(rel, next);
+            // The steps that recorded the file see it changed the same way. A state where it
+            // did not exist stays so, and one the change cannot be made to stays as it was.
+            const rebase = (content: string | null) =>
+              content === null
+                ? Effect.succeed(null)
+                : update(content).pipe(
+                    Effect.map(([rebased]) => rebased),
+                    Effect.orElseSucceed(() => content)
+                  );
+            for (const entry of journal) {
+              for (const change of entry.changes) {
+                if (change.file === rel) {
+                  change.before = yield* rebase(change.before);
+                  change.after = yield* rebase(change.after);
+                }
+              }
+            }
+            return result;
+          })
+        ).pipe(Effect.withSpan("EditService.amend"));
 
       /** Moves the cursor one step in either direction, refusing if a file drifted. */
       const step = (direction: "undo" | "redo") =>
@@ -324,6 +416,7 @@ export class EditService extends Context.Service<
         ).pipe(Effect.withSpan(`EditService.${direction}`));
 
       return EditService.of({
+        amend,
         read,
         redo: step("redo"),
         state: Effect.sync(snapshotState),
