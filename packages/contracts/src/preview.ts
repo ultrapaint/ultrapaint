@@ -184,6 +184,3 @@ export const EditorMessage = Schema.Union([
 export type EditorMessage = typeof EditorMessage.Type;
 
 export const HOST_MESSAGE_PREFIX = "ed:";
-
-/** Attribute every rendered node carries: its id in the document. */
-export const NODE_ATTRIBUTE = "data-ed-node";

@@ -8,6 +8,13 @@ import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { InstanceDrawn, RenderMode } from "@ultrapaint/contracts/preview";
 
+/** Attribute the renderer writes on every node it draws: the node's id in the document. */
+export const NODE_ATTRIBUTE = "data-ed-node";
+
+/** The selector for the elements drawn for a node. */
+export const nodeSelector = (id: string) =>
+  `[${NODE_ATTRIBUTE}="${CSS.escape(id)}"]`;
+
 /** The modules instances import, by the specifier a node's `from` names. */
 export type ComponentRegistry = Readonly<
   Record<string, () => Promise<unknown>>

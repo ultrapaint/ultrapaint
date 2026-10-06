@@ -19,12 +19,14 @@ import {
   tagOf,
 } from "@ultrapaint/design-document/css";
 import { childrenOf } from "@ultrapaint/design-document/tree";
-import type {
-  ComponentRegistry,
-  Mounted,
-  RenderRequest,
-  RenderSetup,
-  RenderToCanvas,
+import {
+  type ComponentRegistry,
+  type Mounted,
+  NODE_ATTRIBUTE,
+  nodeSelector,
+  type RenderRequest,
+  type RenderSetup,
+  type RenderToCanvas,
 } from "@ultrapaint/framework-api/browser";
 import {
   Component,
@@ -41,8 +43,6 @@ import {
   useSyncExternalStore,
 } from "react";
 import { createRoot } from "react-dom/client";
-
-const NODE_ATTRIBUTE = "data-ed-node";
 
 const ERROR_STYLE = {
   background: "#fef2f2",
@@ -205,8 +205,6 @@ const setsAnything = (style: Style) =>
 /** How an instance's children are laid out; never `free`, which is the root of a render's. */
 type ChildLayout = InstanceDrawn["layout"];
 
-const selectorOf = (id: string) => `[${NODE_ATTRIBUTE}="${CSS.escape(id)}"]`;
-
 /** The box an element's children are laid out in: past any `display: contents` in between. */
 const containerOf = (el: Element): Element | null => {
   let parent = el.parentElement;
@@ -320,7 +318,7 @@ const InstanceView = ({
   const firstChild = children[0]?.id;
 
   useLayoutEffect(() => {
-    const own = document.querySelector(selectorOf(node.id));
+    const own = document.querySelector(nodeSelector(node.id));
     if (!(wrapped || own)) {
       // The id went nowhere: the component does not pass its props on.
       instances.set(node.id, { component: Resolved, layout, wrapped: true });
@@ -334,7 +332,7 @@ const InstanceView = ({
     const child =
       firstChild === undefined
         ? null
-        : document.querySelector(selectorOf(firstChild));
+        : document.querySelector(nodeSelector(firstChild));
     const container = child ? containerOf(child) : null;
     const next = container ? layoutOfElement(container) : layout;
     if (container) {

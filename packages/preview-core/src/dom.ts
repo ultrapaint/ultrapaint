@@ -1,9 +1,9 @@
 /** Small DOM helpers the core and the renderers share. */
 
-/** Attribute the renderer writes on every node it draws: the node's id in the document. */
-export const NODE_ATTRIBUTE = "data-ed-node";
-
-const selectorFor = (id: string) => `[${NODE_ATTRIBUTE}="${CSS.escape(id)}"]`;
+import {
+  NODE_ATTRIBUTE,
+  nodeSelector,
+} from "@ultrapaint/framework-api/browser";
 
 /**
  * The elements a node is drawn as. An instance is usually the component's own root element,
@@ -12,7 +12,7 @@ const selectorFor = (id: string) => `[${NODE_ATTRIBUTE}="${CSS.escape(id)}"]`;
  * measure: what the component rendered inside it is.
  */
 export const elementsOf = (id: string): Element[] => {
-  const found = document.querySelectorAll(selectorFor(id));
+  const found = document.querySelectorAll(nodeSelector(id));
   const out: Element[] = [];
   for (const el of Array.from(found)) {
     if (getComputedStyle(el).display === "contents") {
