@@ -156,6 +156,7 @@ import {
   showSetup,
   useDesignSystemSetup,
 } from "../state/design-system-setup.ts";
+import { requestDiff } from "../state/diff-request.ts";
 import { nodeIn, useDocuments } from "../state/documents.ts";
 import { useEditor, type Workspace } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
@@ -481,13 +482,11 @@ const keyedEntries = <T extends { content: string }>(entries: readonly T[]) => {
 
 /** Opens the changes panel on the first of the files, where all of them are listed. */
 const openChanges = (files: readonly string[]) => {
-  useEditor.getState().setLeftTab("changes");
   const [first] = files;
   if (first) {
-    window.dispatchEvent(
-      new CustomEvent("ultrapaint:show-diff", { detail: first })
-    );
+    requestDiff(first);
   }
+  useEditor.getState().setLeftTab("changes");
 };
 
 /**
@@ -1083,11 +1082,7 @@ const QuestionCard = ({
       {/* Many choices scroll within the card rather than squeeze the thread above it. */}
       {collapsed ? null : (
         <div className="max-h-[40vh] overflow-y-auto">
-          <QuestionChoices
-            draft={draft}
-            itemId={item.id}
-            question={question}
-          />
+          <QuestionChoices draft={draft} itemId={item.id} question={question} />
         </div>
       )}
       {running && !waiting ? (

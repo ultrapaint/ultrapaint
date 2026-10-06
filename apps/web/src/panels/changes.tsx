@@ -41,6 +41,7 @@ import {
 } from "../lib/snapshot-actions.ts";
 import { useAgents } from "../state/agents.ts";
 import { api } from "../state/connection.ts";
+import { takeDiffRequest, useDiffRequest } from "../state/diff-request.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { useSnapshotView } from "../state/snapshot-view.ts";
 
@@ -99,6 +100,15 @@ export const Changes = () => {
   const onFilesChanged = useEffectEvent(refresh);
   const onShowDiffRequest = useEffectEvent(showDiff);
 
+  // A file asked for from elsewhere, before the panel was open or while it is.
+  const requested = useDiffRequest((s) => s.path);
+  useEffect(() => {
+    if (configured && requested !== null) {
+      takeDiffRequest();
+      onShowDiffRequest(requested);
+    }
+  }, [configured, requested]);
+
   useEffect(() => {
     if (!configured) {
       return;
@@ -111,15 +121,9 @@ export const Changes = () => {
     const offFile = api().on("file.changed", () => {
       onFilesChanged();
     });
-    const onShow = (e: Event) => {
-      const path = (e as CustomEvent<string>).detail;
-      onShowDiffRequest(path);
-    };
-    window.addEventListener("ultrapaint:show-diff", onShow);
     return () => {
       offGit();
       offFile();
-      window.removeEventListener("ultrapaint:show-diff", onShow);
     };
   }, [configured]);
 
