@@ -1,8 +1,9 @@
 import "../testing/fake-browser.ts";
 import type { FrameLayout } from "@ultrapaint/contracts/pages";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useEditor } from "../state/editor.ts";
-import { placeFrame, resizeFrom } from "./canvas.tsx";
+import { followLooseDrag, placeFrame, resizeFrom } from "./canvas.tsx";
+import { useDrag } from "./drag.ts";
 
 vi.mock(
   "../state/connection.ts",
@@ -85,5 +86,53 @@ describe("placeFrame", () => {
     expect(
       placeFrame(frame(1444, 3), "b", false, { ...plain, metaKey: true })
     ).toMatchObject({ x: 1444, y: 3 });
+  });
+});
+
+describe("followLooseDrag", () => {
+  const listeners = new Map<string, EventListener>();
+  const pointer = {
+    altKey: false,
+    clientX: 0,
+    clientY: 0,
+    ctrlKey: false,
+    metaKey: false,
+  };
+  const node = (id: string) => ({
+    frame: `node:${id}`,
+    nodeId: id,
+    origin: { x: 0, y: 0 },
+  });
+
+  beforeEach(() => {
+    listeners.clear();
+    vi.stubGlobal("document", { querySelector: () => null });
+    vi.stubGlobal("window", {
+      ...window,
+      addEventListener: (type: string, fn: EventListener) =>
+        listeners.set(type, fn),
+      removeEventListener: (type: string, fn: EventListener) => {
+        if (listeners.get(type) === fn) {
+          listeners.delete(type);
+        }
+      },
+    });
+    useDrag.setState({ dragged: null, drop: null });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("puts back a drag whose pointerup never came before beginning the next", () => {
+    const following = { current: null as (() => void) | null };
+    followLooseDrag(following, node("a"), pointer);
+    followLooseDrag(following, node("b"), pointer);
+    expect(useDrag.getState().dragged).toMatchObject({ nodeId: "b" });
+    // Only the new drag is listened to, and the browser taking the pointer puts it back.
+    listeners.get("pointercancel")?.(new Event("pointercancel"));
+    expect(useDrag.getState().dragged).toBeNull();
+    expect(listeners.size).toBe(0);
+    expect(following.current).toBeNull();
   });
 });

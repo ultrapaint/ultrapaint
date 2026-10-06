@@ -66,6 +66,55 @@ import { holdsFree, snapBox, snapPoint, snapToEdges } from "./snap.ts";
 
 const clampZoom = (z: number) => Math.min(4, Math.max(0.05, z));
 
+interface PointerAt {
+  altKey: boolean;
+  clientX: number;
+  clientY: number;
+  ctrlKey: boolean;
+  metaKey: boolean;
+}
+
+/**
+ * Drags a node on the canvas by its name, following the pointer on the window. A drag still
+ * followed (its pointerup never came) is put back before this one begins: put back after, it
+ * would take the new drag with it. `following` holds what puts the drag back.
+ */
+export const followLooseDrag = (
+  following: { current: (() => void) | null },
+  node: { frame: string; nodeId: string; origin: { x: number; y: number } },
+  e: PointerAt
+) => {
+  following.current?.();
+  beginDrag(
+    { ...node, kind: "loose" },
+    e.clientX,
+    e.clientY,
+    e.altKey,
+    holdsFree(e)
+  );
+  const move = (ev: PointerEvent) =>
+    moveDrag(ev.clientX, ev.clientY, ev.altKey, holdsFree(ev));
+  const stop = () => {
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", up);
+    window.removeEventListener("pointercancel", cancel);
+    following.current = null;
+  };
+  const up = () => {
+    stop();
+    endDrag();
+  };
+  // The browser took the pointer away: the node goes back where it was.
+  const cancel = () => {
+    stop();
+    cancelDrag();
+  };
+  following.current = cancel;
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", up);
+  window.addEventListener("pointercancel", cancel);
+};
+
 export const Canvas = () => {
   useFollowAgent();
   const ref = useRef<HTMLDivElement>(null);
@@ -370,40 +419,11 @@ export const Canvas = () => {
         return;
       }
       if (kind === "move") {
-        beginDrag(
-          {
-            frame: pageId,
-            kind: "loose",
-            nodeId,
-            origin: { x: box.x, y: box.y },
-          },
-          e.clientX,
-          e.clientY,
-          e.altKey,
-          holdsFree(e)
+        followLooseDrag(
+          looseDrag,
+          { frame: pageId, nodeId, origin: { x: box.x, y: box.y } },
+          e
         );
-        const move = (ev: PointerEvent) =>
-          moveDrag(ev.clientX, ev.clientY, ev.altKey, holdsFree(ev));
-        const stop = () => {
-          window.removeEventListener("pointermove", move);
-          window.removeEventListener("pointerup", up);
-          window.removeEventListener("pointercancel", cancel);
-          looseDrag.current = null;
-        };
-        const up = () => {
-          stop();
-          endDrag();
-        };
-        // The browser took the pointer away: the node goes back where it was.
-        const cancel = () => {
-          stop();
-          cancelDrag();
-        };
-        looseDrag.current?.();
-        looseDrag.current = cancel;
-        window.addEventListener("pointermove", move);
-        window.addEventListener("pointerup", up);
-        window.addEventListener("pointercancel", cancel);
         return;
       }
       ref.current?.setPointerCapture(e.pointerId);
