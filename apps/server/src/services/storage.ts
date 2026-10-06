@@ -31,6 +31,8 @@ export class Storage extends Context.Service<
      * next to that file, and what the session collected so far is moved there.
      */
     readonly promote: (configPath: string) => Effect.Effect<void>;
+    /** The configuration file of a saved session took another name in the same directory. */
+    readonly rename: (configPath: string) => Effect.Effect<void>;
     /** Directory for threads, checkpoints and caches. It exists. */
     readonly stateDir: Effect.Effect<string>;
     readonly target: Effect.Effect<StorageTarget>;
@@ -127,9 +129,17 @@ export class Storage extends Context.Service<
         }
       });
 
+      const rename = (configPath: string) =>
+        Effect.sync(() => {
+          if (target.mode === "file") {
+            target = { ...target, configPath };
+          }
+        });
+
       return Storage.of({
         info,
         promote,
+        rename,
         stateDir: Effect.sync(() => stateDir),
         target: Effect.sync(() => target),
       });

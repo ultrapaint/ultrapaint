@@ -85,4 +85,27 @@ describe("resolving pages from the anchor package", () => {
       await plugin.resolveId.call(context, "react", importer, { scan: true })
     ).toEqual({ id: `${file}?v=abc` });
   });
+
+  it("resolves a path from the anchor's root, the way an app's own component is named", async () => {
+    const { call, resolve } = setup({
+      [`${ANCHOR}/src/components/header`]: `${ANCHOR}/src/components/header.tsx`,
+    });
+    expect(
+      await call(
+        "/src/components/header",
+        "/repo/docs/designs/.ultrapaint/c.ts"
+      )
+    ).toEqual({ id: `${ANCHOR}/src/components/header.tsx` });
+    // Someone else's importer, or what the anchor does not have, is Vite's as usual.
+    expect(
+      await call("/src/components/header", "/repo/packages/ui/src/a.tsx")
+    ).toBeNull();
+    expect(
+      await call("/src/missing", "/repo/docs/designs/home.tsx")
+    ).toBeNull();
+    expect(
+      await call("/@fs/repo/x.ts", "/repo/docs/designs/home.tsx")
+    ).toBeNull();
+    expect(resolve).toHaveBeenCalledTimes(2);
+  });
 });

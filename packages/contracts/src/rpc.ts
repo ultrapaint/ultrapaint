@@ -135,6 +135,12 @@ const requestRpcs = [
     success: PersistResult,
   }),
 
+  // A configuration file still under its earlier name takes the current one; returns its path.
+  Rpc.make("settings.renameConfig", {
+    error: Schema.Union([BadRequest, Conflict]),
+    success: Schema.String,
+  }),
+
   // First-run setup: what the repository looks like, and a designs directory to start in.
   Rpc.make("setup.detect", {
     error: BadRequest,

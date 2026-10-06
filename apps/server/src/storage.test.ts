@@ -63,6 +63,34 @@ describe("resolveStorage", () => {
       }).pipe(Effect.provide(NodeServices.layer))
   );
 
+  it.effect(
+    "finds ultrapaint.config.json, and prefers it to the old name in the same directory",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const repo = yield* tempDir;
+        const cwd = path.join(repo, "front");
+        yield* fs.makeDirectory(cwd, { recursive: true });
+        yield* fs.writeFileString(
+          path.join(repo, "ultrapaint.config.json"),
+          "{}"
+        );
+        const found = yield* resolveStorage({ ...flags, cwd });
+        assert.deepStrictEqual(found.storage, {
+          configPath: path.join(repo, "ultrapaint.config.json"),
+          mode: "file",
+          stateDir: path.join(repo, ".ultrapaint"),
+        });
+        yield* fs.writeFileString(path.join(repo, "ultrapaint.json"), "{}");
+        const both = yield* resolveStorage({ ...flags, cwd });
+        assert.strictEqual(
+          both.storage.mode === "file" && both.storage.configPath,
+          path.join(repo, "ultrapaint.config.json")
+        );
+      }).pipe(Effect.provide(NodeServices.layer))
+  );
+
   it.effect("keeps an unsaved session in the directory the command lends", () =>
     Effect.gen(function* () {
       const path = yield* Path.Path;
@@ -311,6 +339,57 @@ layer(Shared, { excludeTestServices: true, timeout: "60 seconds" })(
           "screens"
         );
       })
+    );
+  }
+);
+
+const Appearing = makeTestServer(() => Effect.succeed({ mode: "ephemeral" }));
+
+layer(Appearing, { excludeTestServices: true, timeout: "60 seconds" })(
+  "an unsaved session whose repository gets a configuration file",
+  (test) => {
+    test.effect(
+      "takes the file without a restart, and renames the old name to the new one",
+      () =>
+        Effect.gen(function* () {
+          const { client, repo } = yield* TestEnv;
+          const fs = yield* FileSystem.FileSystem;
+          const legacy = `${repo}/ultrapaint.json`;
+          yield* fs.writeFileString(
+            legacy,
+            JSON.stringify({ designsDir: "designs" })
+          );
+          const followed = yield* Effect.gen(function* () {
+            for (;;) {
+              const info = yield* client["project.info"]();
+              if (info.storage.mode === "file" && info.configured) {
+                return info;
+              }
+              yield* Effect.sleep("100 millis");
+            }
+          }).pipe(Effect.timeoutOption("10 seconds"));
+          assert.strictEqual(followed._tag, "Some");
+          assert.strictEqual(
+            followed._tag === "Some" && followed.value.storage.configPath,
+            legacy
+          );
+
+          const renamed = yield* client["settings.renameConfig"]();
+          assert.strictEqual(renamed, `${repo}/ultrapaint.config.json`);
+          assert.isFalse(yield* fs.exists(legacy));
+          const info = yield* client["project.info"]();
+          assert.strictEqual(info.storage.configPath, renamed);
+          const settings = yield* client["settings.get"]();
+          if (settings) {
+            yield* client["settings.set"]({ ...settings, theme: "dark" });
+          }
+          assert.strictEqual(
+            JSON.parse(yield* fs.readFileString(renamed)).theme,
+            "dark"
+          );
+          const again = yield* Effect.flip(client["settings.renameConfig"]());
+          assert.strictEqual(again._tag, "BadRequest");
+        })
     );
   }
 );

@@ -15,7 +15,7 @@ const serve = Command.make(
   {
     config: Flag.String("config").pipe(
       Flag.withDescription(
-        "Configuration file (default: the nearest ultrapaint.json from the working directory up)"
+        "Configuration file (default: the nearest ultrapaint.config.json, or ultrapaint.json, from the working directory up)"
       ),
       Flag.withFallbackConfig(Config.String("ULTRAPAINT_CONFIG")),
       Flag.optional

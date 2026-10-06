@@ -2,7 +2,11 @@ import { createServer } from "node:http";
 import { NodeHttpServer } from "@effect/platform-node";
 import { MAX_FIG_BYTES } from "@ultrapaint/contracts/figma";
 import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
-import { defaultSettings } from "@ultrapaint/contracts/settings";
+import {
+  CONFIG_FILE_NAME,
+  defaultSettings,
+  LEGACY_CONFIG_FILE_NAME,
+} from "@ultrapaint/contracts/settings";
 import { applySuggestions } from "@ultrapaint/contracts/setup";
 import { Effect, Layer, Stream } from "effect";
 import {
@@ -200,6 +204,13 @@ const Boot = Layer.effectDiscard(
       );
     } else {
       yield* log.log("server", "info", `configuration: ${storage.configPath}`);
+      if (storage.configPath?.endsWith(`/${LEGACY_CONFIG_FILE_NAME}`)) {
+        yield* log.log(
+          "server",
+          "warn",
+          `${LEGACY_CONFIG_FILE_NAME} is the old name of the configuration file: rename it to ${CONFIG_FILE_NAME} (Settings does it for you)`
+        );
+      }
     }
     const saved = yield* settings.get;
     const repo =
@@ -229,6 +240,13 @@ const Boot = Layer.effectDiscard(
           "info",
           `opened ${repo} with detected settings; save them to keep them`
         );
+        if (adopted.libraryDirs.length === 0) {
+          yield* log.log(
+            "server",
+            "warn",
+            "no components were found: Sync in the Design system panel asks where they are"
+          );
+        }
         yield* project.open(adopted);
       }).pipe(
         // A repository that cannot be read is left for the setup to ask about.

@@ -51,4 +51,26 @@ describe("first-run suggestions", () => {
     expect(settings.designsDir).toBe("packages/designs");
     expect(settings.hostCss).toEqual(["../host.css"]);
   });
+
+  it("points at an application's own components, with no package to import them by", () => {
+    const settings = applySuggestions(defaultSettings("/repo"), {
+      ...found,
+      anchors: [{ dir: "front", name: "front", reason: "depends on react" }],
+      cssEntries: ["front/src/index.css"],
+      libraries: [
+        {
+          dir: "front",
+          inApp: true,
+          name: "front",
+          sourceDir: "front/src/components",
+        },
+      ],
+    });
+    expect(settings).toMatchObject({
+      componentPackages: [],
+      hostCss: ["../../../front/src/index.css"],
+      libraryDirs: ["front/src/components"],
+      resolveFrom: "front",
+    });
+  });
 });

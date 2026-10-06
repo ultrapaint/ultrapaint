@@ -8,6 +8,8 @@ export interface ResolvePluginOptions {
 }
 
 const BARE_RE = /^(?![./\\]|[A-Za-z]:[\\/])[^\0]/;
+/** `/src/x`, not `//cdn` and not a path Vite already made absolute (`/@fs/`, `/@id/`). */
+const ROOT_RELATIVE_RE = /^\/(?![/@])/;
 const NODE_MODULES_RE = /[\\/]node_modules[\\/]/;
 
 /** A file that need not exist: only its directory matters to the resolver. */
@@ -77,6 +79,30 @@ const prebundled = (
 export const ultrapaintResolve = (options: ResolvePluginOptions) => {
   const anchorImporter = path.join(options.anchorDir, ANCHOR_FILE);
   const from = options.from.map((dir) => path.resolve(dir) + path.sep);
+  const fileOf = (importer: string | undefined) =>
+    importer ? path.resolve(importer.split("?")[0] ?? importer) : null;
+  const inside = (file: string) => from.some((dir) => file.startsWith(dir));
+
+  /**
+   * `/src/components/header`: a file of the anchor, the way the catalogue names an
+   * application's own component that no alias reaches. Only for our own importers, and only
+   * when the anchor has it; otherwise Vite resolves it as it would.
+   */
+  const fromAnchorRoot = (
+    context: ResolveContext,
+    source: string,
+    importer: string | undefined,
+    resolveOptions: Record<string, unknown>
+  ) => {
+    const at = fileOf(importer);
+    if (!(at && inside(at))) {
+      return null;
+    }
+    return context.resolve(path.join(options.anchorDir, source), at, {
+      ...resolveOptions,
+      skipSelf: true,
+    });
+  };
 
   return {
     enforce: "pre" as const,
@@ -87,18 +113,20 @@ export const ultrapaintResolve = (options: ResolvePluginOptions) => {
       importer: string | undefined,
       resolveOptions: Record<string, unknown>
     ) {
-      if (!BARE_RE.test(source) || source.startsWith("\0")) {
+      if (source.startsWith("\0")) {
+        return null;
+      }
+      if (ROOT_RELATIVE_RE.test(source)) {
+        return await fromAnchorRoot(this, source, importer, resolveOptions);
+      }
+      if (!BARE_RE.test(source)) {
         return null;
       }
       // No importer: an entry, or a dependency named in `optimizeDeps.include`. Vite would
       // look for it from the generated root, where nothing is installed.
-      const file = importer
-        ? path.resolve(importer.split("?")[0] ?? importer)
-        : null;
+      const file = fileOf(importer);
       const ours =
-        file === null ||
-        (!NODE_MODULES_RE.test(file) &&
-          from.some((dir) => file.startsWith(dir)));
+        file === null || !(NODE_MODULES_RE.test(file) || !inside(file));
       if (!ours || file === anchorImporter) {
         return null;
       }

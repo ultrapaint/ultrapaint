@@ -287,11 +287,45 @@ ${write}
         })
       );
 
+      /**
+       * What a task says when the editor sees no components: the settings point nowhere. The
+       * agent must not try to fix them itself (it has guessed paths before); the user does, in
+       * the Sync view, which detects them.
+       */
+      const componentsMissing = project
+        .use(
+          Effect.gen(function* () {
+            const { settings } = yield* RepoPaths;
+            const count =
+              settings.libraryDirs.length === 0
+                ? 0
+                : yield* (yield* CatalogueService).get(false).pipe(
+                    Effect.map((c) => c.components.length),
+                    Effect.orElseSucceed(() => 0)
+                  );
+            if (count > 0) {
+              return "";
+            }
+            const where =
+              settings.libraryDirs.length === 0
+                ? "no component directory is configured"
+                : `${settings.libraryDirs.join(", ")} has no components the editor can read`;
+            return `Before anything else: the editor sees no components (${where}). Do not write or edit
+ultrapaint.config.json or any other configuration to fix it. Tell the user to open the Design
+system panel and press Sync, which finds the components and asks them to confirm, then stop.
+Go on without components only if the user says the project has none.
+
+`;
+          })
+        )
+        .pipe(Effect.orElseSucceed(() => ""));
+
       const init = (extra: string) =>
-        Effect.map(
+        Effect.zipWith(
           importSteps,
-          (steps) => `<ultrapaint-task command="init">
-Import this repository's design system into ultrapaint, so that designs are drawn with its
+          componentsMissing,
+          (steps, missing) => `<ultrapaint-task command="init">
+${missing}Import this repository's design system into ultrapaint, so that designs are drawn with its
 tokens and components and every agent knows its conventions. Only Tailwind v4 is supported.
 
 ${steps}
@@ -385,8 +419,9 @@ map_figma_component (what a Figma component becomes), write_figma_frame (a frame
 (a question card for the user), list_components and get_component (this repository's components).`
               : `The import's file is in the state directory under imports/${chosen.id}; without the MCP server the
 mapping cannot be written, so tell the user to start the server with MCP on and stop.`;
+            const missing = yield* componentsMissing;
             return `<ultrapaint-task command="import-figma">
-Turn the Figma file "${chosen.name}" (import ${chosen.id}) into pages of this project, drawn with this
+${missing}Turn the Figma file "${chosen.name}" (import ${chosen.id}) into pages of this project, drawn with this
 repository's own components where it has them.
 
 ${tools}

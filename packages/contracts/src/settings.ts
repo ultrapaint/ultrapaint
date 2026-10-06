@@ -44,7 +44,7 @@ export const Settings = Schema.Struct({
 export type Settings = typeof Settings.Type;
 
 /**
- * The same settings as they are written to disk: `ultrapaint.json` in a repository, or the
+ * The same settings as they are written to disk: `ultrapaint.config.json` in a repository, or the
  * `settings.json` of a home directory. A file that lives in the repository is shared, so its
  * `repoPath` is relative to the file's directory and may be left out when it is that directory.
  * Everything with an obvious default may be left out of a hand-written file.
@@ -62,7 +62,16 @@ export const ProjectConfig = Schema.Struct({
 export type ProjectConfig = typeof ProjectConfig.Type;
 
 /** File name looked for from the working directory upwards when no `--config` is given. */
-export const CONFIG_FILE_NAME = "ultrapaint.json";
+export const CONFIG_FILE_NAME = "ultrapaint.config.json";
+
+/** What the file was called before: still read, never written by a new save. */
+export const LEGACY_CONFIG_FILE_NAME = "ultrapaint.json";
+
+/** The names looked for in each directory, the one that wins first. */
+export const CONFIG_FILE_NAMES = [
+  CONFIG_FILE_NAME,
+  LEGACY_CONFIG_FILE_NAME,
+] as const;
 
 /** Where pages go when the repository has no designs directory yet. */
 export const DEFAULT_DESIGNS_DIR = "docs/designs";

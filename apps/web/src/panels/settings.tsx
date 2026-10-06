@@ -1,5 +1,9 @@
 import type { Settings, StorageInfo } from "@ultrapaint/contracts/settings";
-import { defaultSettings } from "@ultrapaint/contracts/settings";
+import {
+  CONFIG_FILE_NAME,
+  defaultSettings,
+  LEGACY_CONFIG_FILE_NAME,
+} from "@ultrapaint/contracts/settings";
 import {
   applySuggestions,
   describeSuggestions,
@@ -218,6 +222,13 @@ const storageLine = (storage: StorageInfo, detected: boolean) => {
   }
   return `Saved to ${storage.configPath}`;
 };
+
+/** Moves a configuration file still under its earlier name to the current one. */
+const renameConfig = () =>
+  api()
+    .request("settings.renameConfig", undefined)
+    .then((path) => toast.success(`Renamed to ${path}`))
+    .catch(reportError);
 
 /**
  * How to point something else at this project: an agent in a terminal, another editor. The same
@@ -1002,6 +1013,15 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
                 {storageLine(storage, detected)}
               </p>
               <div className="flex shrink-0 gap-1">
+                {storage.configPath?.endsWith(`/${LEGACY_CONFIG_FILE_NAME}`) ? (
+                  <Button
+                    onClick={renameConfig}
+                    title={`${LEGACY_CONFIG_FILE_NAME} is the file's old name`}
+                    variant="ghost"
+                  >
+                    Rename to {CONFIG_FILE_NAME}
+                  </Button>
+                ) : null}
                 <Button onClick={cancel} variant="outline">
                   Cancel
                 </Button>

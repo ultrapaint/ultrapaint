@@ -542,9 +542,11 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           const threadId = yield* startThread;
           yield* prompt(threadId, "/init");
           const init = yield* waitForThread(threadId, turnEnded);
+          // The fixture configures no components: the task says so first, and that the
+          // configuration is not the agent's to fix.
           assert.include(
             said(init.items).join("\n"),
-            "task:init Import this repository's design system"
+            "task:init Before anything else: the editor sees no components"
           );
           assert.include(
             init.items.flatMap((i) => (i.kind === "user" ? [i.text] : [])),

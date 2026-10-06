@@ -1,7 +1,7 @@
 /**
  * The `ultrapaint` command: serves the built editor and the backend on one port, from the
  * directory it is run in, and opens the browser. The working directory matters: the server
- * looks for an `ultrapaint.json` from there upwards and proposes the repository around it.
+ * looks for an `ultrapaint.config.json` from there upwards and proposes the repository around it.
  * Everything the command does not know (`--config`, `--port`, `--help`…) goes to the server as
  * it is.
  *

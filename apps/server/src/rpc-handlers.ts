@@ -267,6 +267,8 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
         }
         return result;
       }),
+      "settings.renameConfig": () =>
+        Effect.tap(settings.renameConfig, () => project.publishInfo),
       "settings.set": Effect.fnUntraced(function* (input) {
         const validation = yield* settings.set(input);
         const saved = yield* settings.get;

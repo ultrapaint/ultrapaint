@@ -14,6 +14,11 @@ export type AnchorSuggestion = typeof AnchorSuggestion.Type;
 /** A package of the repository that looks like a component library. */
 export const LibrarySuggestion = Schema.Struct({
   dir: RepoRelativePath,
+  /**
+   * The components are a directory of the application itself (`front/src/components`), not a
+   * package of their own: nothing imports them by a package name.
+   */
+  inApp: Schema.optional(Schema.Boolean),
   name: Schema.String,
   /** Directory with the component sources, to stamp and catalogue. */
   sourceDir: RepoRelativePath,
@@ -90,7 +95,7 @@ export const applySuggestions = (
     found.cssEntries[0];
   return {
     ...settings,
-    componentPackages: library ? [library.name] : [],
+    componentPackages: library && !library.inApp ? [library.name] : [],
     designsDir,
     framework: found.framework,
     hostCss: css ? [relativePosix(`${designsDir}/${GENERATED_DIR}`, css)] : [],
@@ -108,7 +113,8 @@ export const describeSuggestions = (found: SetupSuggestions): string => {
     return `Nothing in ${found.repoName} looks like a React package. Fill the fields in by hand.`;
   }
   const parts = [
-    library ? `component library ${library.name}` : null,
+    library?.inApp ? `components in ${library.sourceDir}` : null,
+    library && !library.inApp ? `component library ${library.name}` : null,
     anchor ? `imports resolved from ${anchor.name} (${anchor.reason})` : null,
     found.designsDirs[0]
       ? `pages in ${found.designsDirs[0]}`

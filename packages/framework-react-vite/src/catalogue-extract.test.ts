@@ -47,8 +47,28 @@ describe("a component's import", () => {
     expect(
       specifierOf(pkgWith({ main: "index.js", name: "@acme/lib" }), "src/x.tsx")
     ).toBe("@acme/lib");
-    // Nothing would resolve: better no import than one that breaks every page.
-    expect(specifierOf(pkgWith({ name: "@acme/app" }), "src/x.tsx")).toBeNull();
+  });
+
+  it("is a path from the package's root for an application's own component", () => {
+    // No exports, no alias, no entry: the preview resolves it against the anchor.
+    const dir = pkgWith({ name: "front" });
+    expect(specifierOf(dir, "src/components/header.tsx")).toBe(
+      "/src/components/header"
+    );
+    expect(specifierOf(dir, "src/components/ui/index.tsx")).toBe(
+      "/src/components/ui"
+    );
+  });
+
+  it("reads the alias from tsconfig.app.json, as Vite's template keeps it", () => {
+    const dir = pkgWith({ name: "front" }, '{ "files": [] }');
+    writeFileSync(
+      path.join(dir, "tsconfig.app.json"),
+      '{ "compilerOptions": { "paths": { "@/*": ["./src/*"] } } }'
+    );
+    expect(specifierOf(dir, "src/components/ui/button.tsx")).toBe(
+      "@/components/ui/button"
+    );
   });
 });
 

@@ -248,8 +248,10 @@ const hasEntry = (pkg: PackageJson) => {
 
 /**
  * Import specifier for `file`: through the `exports` map of the package.json at `pj`, else the
- * package's own path aliases, else the package's name when it has an entry. Null when nothing
- * would resolve: an import that does not resolve would break every page.
+ * package's own path aliases, else the package's name when it has an entry, else a path from
+ * the package's root (`/src/components/header`), which the preview resolves against the anchor:
+ * right for an application's own components, the anchor being that application. Null for a
+ * package without a name.
  */
 export const specifierFromPackage = (
   pj: string,
@@ -268,8 +270,11 @@ export const specifierFromPackage = (
       relNoExt
     ) ??
     specifierFromAlias(pkgDir, file) ??
-    (hasEntry(pkg) ? pkg.name : null);
-  return specifier ? { pkg: pkg.name, specifier } : null;
+    (hasEntry(pkg) ? pkg.name : null) ??
+    // An application's own component that no export or alias reaches: a path from the
+    // package's root, which the preview resolves against the anchor.
+    `/${toPosix(relNoExt).replace(INDEX_RE, "")}`;
+  return { pkg: pkg.name, specifier };
 };
 
 /** Where the token at `i` ends: a string, a comment, or one character. */
@@ -316,7 +321,26 @@ export const parseJsonc = (text: string): unknown => {
  * mirrors, and which the preview inherits with it.
  */
 const specifierFromAlias = (pkgDir: string, file: string): string | null => {
-  const tsconfig = path.join(pkgDir, "tsconfig.json");
+  for (const name of TSCONFIG_NAMES) {
+    const found = aliasIn(path.join(pkgDir, name), pkgDir, file);
+    if (found) {
+      return found;
+    }
+  }
+  return null;
+};
+
+/**
+ * Where a package declares its aliases: `tsconfig.json`, or, in Vite's own template, the
+ * `tsconfig.app.json` it references.
+ */
+const TSCONFIG_NAMES = ["tsconfig.json", "tsconfig.app.json"];
+
+const aliasIn = (
+  tsconfig: string,
+  pkgDir: string,
+  file: string
+): string | null => {
   if (!existsSync(tsconfig)) {
     return null;
   }

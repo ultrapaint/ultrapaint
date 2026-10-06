@@ -1,6 +1,8 @@
 import { BadRequest, Conflict } from "@ultrapaint/contracts/errors";
 import {
   CONFIG_FILE_NAME,
+  CONFIG_FILE_NAMES,
+  LEGACY_CONFIG_FILE_NAME,
   type PersistInput,
   type PersistResult,
   ProjectConfig,
@@ -53,7 +55,7 @@ const SESSION_FILE = "session.json";
 
 /**
  * The settings, wherever the storage target keeps them: a home directory's `settings.json`, an
- * `ultrapaint.json` in the repository, the `session.json` of an unsaved session the command
+ * `ultrapaint.config.json` in the repository, the `session.json` of an unsaved session the command
  * keeps across restarts, or only memory.
  */
 export class SettingsService extends Context.Service<
@@ -73,6 +75,11 @@ export class SettingsService extends Context.Service<
     readonly persist: (
       input: PersistInput
     ) => Effect.Effect<PersistResult, BadRequest | Conflict>;
+    /**
+     * Renames a configuration file still called `ultrapaint.json` to `ultrapaint.config.json`,
+     * and goes on saving to it. Returns the new path.
+     */
+    readonly renameConfig: Effect.Effect<string, BadRequest | Conflict>;
     /** Validates and, when valid, persists. Returns the validation either way. */
     readonly set: (settings: Settings) => Effect.Effect<SettingsValidation>;
     readonly validate: (
@@ -218,6 +225,66 @@ export class SettingsService extends Context.Service<
       const initialFile = yield* settingsFile;
       if (initialFile?.relative) {
         yield* watch(initialFile);
+      }
+
+      // ---- a configuration file that appears while nothing is saved ----
+      // Someone wrote one (a teammate's pull, an editor, a script): the session takes it as if
+      // it had been started with it, rather than waiting for a restart nobody knows to do.
+      const follow = Effect.fnUntraced(function* (configPath: string) {
+        const target = yield* storage.target;
+        if (target.mode !== "ephemeral") {
+          return;
+        }
+        const file: SettingsFile = {
+          baseDir: path.dirname(configPath),
+          path: configPath,
+          relative: true,
+        };
+        const settings = yield* read(file);
+        yield* storage.promote(configPath);
+        yield* Ref.set(current, settings);
+        detected = false;
+        yield* watch(file);
+        yield* log.log(
+          "server",
+          "info",
+          `${configPath} appeared: the session now saves to it`
+        );
+        yield* PubSub.publish(external, settings);
+      });
+
+      const startInfo = yield* storage.info;
+      if (startInfo.mode === "ephemeral" && startInfo.defaultRepoPath) {
+        const repo = startInfo.defaultRepoPath;
+        yield* fs.watch(repo).pipe(
+          Stream.map((event) => path.basename(event.path)),
+          Stream.filter((name) =>
+            (CONFIG_FILE_NAMES as readonly string[]).includes(name)
+          ),
+          Stream.debounce("200 millis"),
+          Stream.runForEach(() =>
+            Effect.gen(function* () {
+              for (const name of CONFIG_FILE_NAMES) {
+                const candidate = path.join(repo, name);
+                if (yield* exists(candidate)) {
+                  return yield* follow(candidate);
+                }
+              }
+            }).pipe(
+              // A half-written or invalid file is left alone until it reads.
+              Effect.catch((error) =>
+                log.log(
+                  "server",
+                  "warn",
+                  `ignoring the configuration file in ${repo}: ${error.message}`
+                )
+              )
+            )
+          ),
+          // A directory that cannot be watched only means the file needs a restart.
+          Effect.ignore({ log: true }),
+          Effect.forkIn(layerScope)
+        );
       }
 
       // ---- validation ----
@@ -367,14 +434,42 @@ export class SettingsService extends Context.Service<
           `configuration saved to ${configPath}`
         );
         return {
-          command:
-            path.basename(configPath) === CONFIG_FILE_NAME
-              ? `cd ${path.dirname(configPath)} && ultrapaint`
-              : `ultrapaint --config ${configPath}`,
+          command: (CONFIG_FILE_NAMES as readonly string[]).includes(
+            path.basename(configPath)
+          )
+            ? `cd ${path.dirname(configPath)} && ultrapaint`
+            : `ultrapaint --config ${configPath}`,
           configPath,
           validation,
         } satisfies PersistResult;
       });
+
+      const renameConfig = Effect.gen(function* () {
+        const target = yield* storage.target;
+        if (
+          target.mode !== "file" ||
+          path.basename(target.configPath) !== LEGACY_CONFIG_FILE_NAME
+        ) {
+          return yield* new BadRequest({
+            message: `Only a configuration file named ${LEGACY_CONFIG_FILE_NAME} is renamed.`,
+          });
+        }
+        const next = path.join(
+          path.dirname(target.configPath),
+          CONFIG_FILE_NAME
+        );
+        if (yield* exists(next)) {
+          return yield* new Conflict({ message: `${next} already exists` });
+        }
+        yield* Effect.orDie(fs.rename(target.configPath, next));
+        yield* storage.rename(next);
+        const file = yield* settingsFile;
+        if (file) {
+          yield* watch(file);
+        }
+        yield* log.log("server", "info", `configuration renamed to ${next}`);
+        return next;
+      }).pipe(Effect.withSpan("SettingsService.renameConfig"));
 
       return SettingsService.of({
         adopt,
@@ -382,6 +477,7 @@ export class SettingsService extends Context.Service<
         detected: Effect.sync(() => detected),
         get: Ref.get(current),
         persist,
+        renameConfig,
         set,
         validate,
       });

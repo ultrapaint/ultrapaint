@@ -120,4 +120,33 @@ describe("recognising a React repository", () => {
       detect(repository({ "package.json": { name: "plain" } }))
     ).toBeNull();
   });
+
+  it("proposes an application's own components when no package is a library", () => {
+    // A repository with its one app in front/, the way many products start.
+    const root = repository({
+      "front/package.json": {
+        dependencies: { react: "19", "react-dom": "19" },
+        devDependencies: { "@tailwindcss/vite": "4", vite: "8" },
+        name: "front",
+      },
+      "front/src/components/header.tsx": component,
+      "front/src/components/ui/button.tsx": component,
+      "front/src/components/ui/card.tsx": component,
+      "front/src/index.css": '@import "tailwindcss";\n',
+      "front/src/main.tsx": component,
+      "README.md": "# product\n",
+    });
+    const found = detect(root);
+    expect(found?.anchors[0]?.dir).toBe("front");
+    expect(found?.libraries).toEqual([
+      {
+        dir: "front",
+        inApp: true,
+        name: "front",
+        sourceDir: "front/src/components",
+      },
+    ]);
+    expect(found?.cssEntries).toContain("front/src/index.css");
+    expect(found?.tailwind).toBe("v4");
+  });
 });

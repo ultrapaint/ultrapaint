@@ -6,6 +6,7 @@
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
+import type { LibrarySuggestion } from "@ultrapaint/contracts/setup";
 import type { Detect } from "@ultrapaint/framework-api/node";
 
 const MAX_DEPTH = 5;
@@ -130,6 +131,25 @@ const sourceDirOf = (pkg: Package): string => {
   return found ? path.join(pkg.dir, found) : pkg.dir;
 };
 
+/**
+ * Where an application keeps its own components when they are not a package: the first of
+ * these that holds component files.
+ */
+const IN_APP_COMPONENT_DIRS = [
+  "src/components",
+  "components",
+  "src/ui",
+  "app/components",
+  "src/lib/components",
+];
+
+const inAppComponentsOf = (pkg: Package): string | null => {
+  const found = IN_APP_COMPONENT_DIRS.find(
+    (dir) => countComponents(path.join(pkg.dir, dir)) > 0
+  );
+  return found === undefined ? null : path.join(pkg.dir, found);
+};
+
 const usesReact = (pkg: Package) =>
   pkg.dependencies.has("react") || pkg.peers.has("react");
 
@@ -189,7 +209,7 @@ export const detect: Detect = (root) => {
 
   // A component library: React is a peer (it is rendered by someone else's React), it holds
   // components, and other packages of the repository depend on it.
-  const libraries = best(
+  const libraries: LibrarySuggestion[] = best(
     reactPackages
       .filter((pkg) => pkg.rel !== "" && !DESIGNS_NAME_RE.test(pkg.rel))
       .map((pkg) => {
@@ -256,6 +276,23 @@ export const detect: Detect = (root) => {
   const anchorPackages = anchors
     .map((a) => packages.find((p) => (p.rel === "" ? "." : p.rel) === a.dir))
     .filter((p): p is Package => p !== undefined);
+
+  // No package of the repository is a library: the components are the application's own,
+  // in a directory of it (a single app in `front/` with `front/src/components`).
+  if (libraries.length === 0) {
+    for (const pkg of anchorPackages) {
+      const sourceDir = inAppComponentsOf(pkg);
+      if (sourceDir) {
+        libraries.push({
+          dir: pkg.rel === "" ? "." : pkg.rel,
+          inApp: true,
+          name: pkg.name,
+          sourceDir: toPosix(path.relative(root, sourceDir)),
+        });
+        break;
+      }
+    }
+  }
   const cssEntries = [
     ...new Set(
       [

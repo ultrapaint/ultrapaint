@@ -241,7 +241,9 @@ Prefer these to editing the JSON files yourself; if you do write a file, keep it
 `
 }Your shell already starts in ${paths.root}, the repository: use paths relative to it, and
 stay inside it. Changes land on the canvas as you make them, so make them one
-step at a time rather than rewriting a page wholesale.${
+step at a time rather than rewriting a page wholesale. ultrapaint.config.json is the user's:
+never write it; when components or styles are missing, send the user to Sync in the Design
+system panel.${
           sandbox.available
             ? `
 The repository's .git is read-only to you: git status, diff and log work, but commits, branches

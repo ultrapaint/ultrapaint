@@ -1,4 +1,4 @@
-import { CONFIG_FILE_NAME } from "@ultrapaint/contracts/settings";
+import { CONFIG_FILE_NAMES } from "@ultrapaint/contracts/settings";
 import { Effect, FileSystem, Path } from "effect";
 import type { StorageTarget } from "./config.ts";
 
@@ -26,7 +26,8 @@ export interface ResolvedStorage {
 
 /**
  * Picks the storage mode. An explicit `--config` wins, then `--ephemeral`, then `--home`;
- * with none of them the nearest `ultrapaint.json` from the working directory upwards is used,
+ * with none of them the nearest `ultrapaint.config.json` (or, from before v0.2,
+ * `ultrapaint.json`) from the working directory upwards is used,
  * and when there is none nothing is saved.
  */
 export const resolveStorage = Effect.fn("resolveStorage")(function* (
@@ -79,10 +80,13 @@ export const resolveStorage = Effect.fn("resolveStorage")(function* (
     ancestors.push(dir);
   }
   for (const dir of ancestors) {
-    const candidate = path.join(dir, CONFIG_FILE_NAME);
-    // A directory that cannot be read is simply not where the configuration is.
-    if (yield* Effect.orElseSucceed(fs.exists(candidate), () => false)) {
-      return fileTarget(candidate);
+    // The current name wins over the old one in the same directory.
+    for (const name of CONFIG_FILE_NAMES) {
+      const candidate = path.join(dir, name);
+      // A directory that cannot be read is simply not where the configuration is.
+      if (yield* Effect.orElseSucceed(fs.exists(candidate), () => false)) {
+        return fileTarget(candidate);
+      }
     }
   }
   return ephemeral;
