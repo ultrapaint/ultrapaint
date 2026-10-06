@@ -1,5 +1,6 @@
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
+import { childrenOf } from "@ultrapaint/design-document/tree";
 import type { FigGuid } from "openfig-core";
 import { describe, expect, it } from "vitest";
 import { candidatesFor } from "./candidates.ts";
@@ -458,7 +459,7 @@ describe("reading order", () => {
       if (node.type === "text") {
         texts.push(node.text);
       }
-      for (const child of "children" in node ? node.children : []) {
+      for (const child of childrenOf(node)) {
         visit(child);
       }
     };
