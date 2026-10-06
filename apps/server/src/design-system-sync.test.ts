@@ -109,7 +109,28 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             brand(yield* client["designSystem.get"]()),
             "#1d4ed8"
           );
-        })
+
+          // Two edits at once to the same stylesheet: each is written, neither over the other.
+          yield* Effect.all(
+            [
+              client["designSystem.setToken"]({
+                name: "color-brand",
+                value: "#1e40af",
+              }),
+              client["designSystem.setToken"]({
+                name: "radius-card",
+                value: "1rem",
+              }),
+            ],
+            { concurrency: "unbounded" }
+          );
+          const both = yield* fs.readFileString(
+            path.join(repo, "styles/app.css")
+          );
+          assert.include(both, "--color-brand: #1e40af;");
+          assert.include(both, "--radius-card: 1rem;");
+        }),
+      30_000
     );
 
     it.effect(

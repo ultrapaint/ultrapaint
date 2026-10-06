@@ -18,6 +18,7 @@ import {
   Layer,
   Path,
   Schema,
+  Semaphore,
   Stream,
 } from "effect";
 import { makeWriteAtomic } from "../atomic-write.ts";
@@ -97,6 +98,7 @@ export class DesignSystemService extends Context.Service<
       const writeAtomic = makeWriteAtomic(fs, path);
       const systemFile = path.join(paths.designsDir, DESIGN_SYSTEM_FILE);
       const notesFile = path.join(paths.designsDir, DESIGN_NOTES_FILE);
+      const tokenWrites = yield* Semaphore.make(1);
 
       const readOptional = (file: string) =>
         Effect.orElseSucceed(
@@ -289,7 +291,13 @@ export class DesignSystemService extends Context.Service<
 
       const detect = Effect.flatMap(scan, (found) => write(found.designSystem));
 
-      /** Writes the files a list of token changes comes to, all inside the repository. */
+      /**
+       * Writes the files a list of token changes comes to, all inside the repository: all of
+       * them or, when one cannot be written, none. The stylesheets are the code's, outside the
+       * designs directory and its undo journal; a token change is taken back by setting the
+       * value it replaced. Changes run one at a time, each reading the stylesheets the one
+       * before it wrote.
+       */
       const writeChanges = Effect.fnUntraced(function* (
         changes: readonly TokenChange[]
       ) {
@@ -309,15 +317,51 @@ export class DesignSystemService extends Context.Service<
             ),
         });
         const root = path.resolve(paths.root);
+        const files: { readonly abs: string; readonly text: string }[] = [];
         for (const written of edits) {
-          const file = path.resolve(root, written.file);
-          if (!file.startsWith(root + path.sep)) {
+          const abs = path.resolve(root, written.file);
+          if (!abs.startsWith(root + path.sep)) {
             return yield* new BadRequest({
               message: `${written.file} is outside the repository`,
             });
           }
-          yield* Effect.orDie(writeAtomic(file, written.text));
+          files.push({ abs, text: written.text });
         }
+        const before = yield* Effect.forEach(files, ({ abs }) =>
+          readOptional(abs)
+        );
+        const done: number[] = [];
+        yield* Effect.forEach(files, ({ abs, text }, i) =>
+          writeAtomic(abs, text).pipe(
+            Effect.tap(() =>
+              Effect.sync(() => {
+                done.push(i);
+              })
+            )
+          )
+        ).pipe(
+          Effect.mapError(
+            (error) =>
+              new BadRequest({
+                message: `the stylesheets could not be written: ${error.message}`,
+              })
+          ),
+          // What was written already goes back, file by file, as far as it can.
+          Effect.onError(() =>
+            Effect.forEach(done.toReversed(), (i) => {
+              const file = files[i];
+              const content = before[i];
+              if (file === undefined || content === undefined) {
+                return Effect.void;
+              }
+              return (
+                content === null
+                  ? fs.remove(file.abs, { force: true })
+                  : writeAtomic(file.abs, content)
+              ).pipe(Effect.ignore({ log: true }));
+            })
+          )
+        );
         if (edits.length > 0) {
           yield* Effect.flatMap(get, (state) =>
             events.publish("designSystem", state)
@@ -327,17 +371,26 @@ export class DesignSystemService extends Context.Service<
       });
 
       const setTokens = Effect.fn("DesignSystemService.setTokens")(
-        (changes: readonly TokenChange[]) => writeChanges(changes)
+        (changes: readonly TokenChange[]) =>
+          tokenWrites.withPermits(1)(writeChanges(changes))
       );
 
       const setToken = Effect.fn("DesignSystemService.setToken")(function* (
         change: TokenChange
       ) {
-        const before = (yield* codeTokens).get(change.name);
-        const previous =
-          (change.theme ? before?.values?.[change.theme] : before?.value) ??
-          null;
-        const { files } = yield* writeChanges([change]);
+        const { files, previous } = yield* tokenWrites.withPermits(1)(
+          Effect.gen(function* () {
+            const before = (yield* codeTokens).get(change.name);
+            const written = yield* writeChanges([change]);
+            return {
+              files: written.files,
+              previous:
+                (change.theme
+                  ? before?.values?.[change.theme]
+                  : before?.value) ?? null,
+            };
+          })
+        );
         if (files.length === 0) {
           return yield* new BadRequest({
             message: `${change.name} is not declared in a stylesheet of the repository, and there is none to add it to.`,
