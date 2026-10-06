@@ -1,15 +1,9 @@
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page, ViewportPreset } from "@ultrapaint/contracts/pages";
-import type { HostError, Rect } from "@ultrapaint/contracts/preview";
-import {
-  childrenOf,
-  findNode,
-  isContainer,
-  nodeLabel,
-} from "@ultrapaint/design-document/tree";
+import type { HostError } from "@ultrapaint/contracts/preview";
+import { findNode, nodeLabel } from "@ultrapaint/design-document/tree";
 import { PREVIEW_PROTOCOL } from "@ultrapaint/framework-api/protocol";
 import { cn } from "cn";
-import { AlertTriangle } from "lucide-react";
 import {
   memo,
   type MouseEvent as ReactMouseEvent,
@@ -19,45 +13,33 @@ import {
   useState,
 } from "react";
 import { focusLink } from "../lib/links.ts";
-import {
-  kindColor,
-  kindHoverColor,
-  selectionKindOf,
-} from "../lib/selection-kind.ts";
+import { kindColor, kindHoverColor } from "../lib/selection-kind.ts";
 import { useComments } from "../state/comments.ts";
-import { holdMenu, openMenuAt, showMenu } from "../state/context-menu.ts";
+import { openMenuAt } from "../state/context-menu.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import {
   applyOps,
   docOfFrame,
   isNodeFrame,
-  nodeIn,
   rootOfFrame,
   useDocuments,
 } from "../state/documents.ts";
-import {
-  type Selection,
-  selectForMenu,
-  useEditor,
-  type Workspace,
-} from "../state/editor.ts";
+import { useEditor } from "../state/editor.ts";
 import { useInstances } from "../state/instances.ts";
 import { previewUrl, useProject } from "../state/project.ts";
-import { stepInto } from "../state/tree.ts";
 import { FramePresence } from "./agent-presence.tsx";
 import { AgentWorkOverlay, useFrameWork, useSkeletons } from "./agent-work.tsx";
 import { bridgeFor } from "./bridge.ts";
 import { commentCursor, FrameComments } from "./comments.tsx";
-import { beginDrag, type Dragged, endDrag, moveDrag, useDrag } from "./drag.ts";
 import {
-  ElementToolbar,
-  GroupToolbar,
-  TAG_HEIGHT,
-} from "./element-toolbar.tsx";
-import { hitUnlocked } from "./hit-test.ts";
+  Highlights,
+  idsOf,
+  useAlsoIn,
+  useHoverIn,
+  useSelectedIn,
+} from "./frame-highlights.tsx";
 import { PageToolbar } from "./page-toolbar.tsx";
-import { SelectionTag } from "./selection-tag.tsx";
-import { holdsFree } from "./snap.ts";
+import { useFramePointer } from "./use-frame-pointer.ts";
 import { usePreviewBridge } from "./use-preview-bridge.ts";
 
 const formatHostError = (error: HostError) => {
@@ -80,9 +62,6 @@ const commitText = (frame: string, nodeId: string, text: string) => {
 
 const isInteractive = (s: { mode: string; spacePan: boolean }) =>
   s.mode === "interact" && !s.spacePan;
-
-/** How far the pointer travels before a press becomes a drag, in screen pixels. */
-const DRAG_THRESHOLD = 4;
 
 /** What a frame is called over its top edge: the page, in its variant, or the node on the canvas. */
 const frameName = (page: Page | undefined, root: DesignNode | null) => {
@@ -158,14 +137,6 @@ interface Props {
   visible: boolean;
   zoom: number;
 }
-
-/** The node a drag carries, when it carries one that is already in a document. */
-const draggedId = (target: Dragged): string | null => {
-  if (target.kind === "node") {
-    return target.node.id;
-  }
-  return target.kind === "loose" ? target.nodeId : null;
-};
 
 export const Frame = memo(
   ({
@@ -302,396 +273,18 @@ export const Frame = memo(
       bridgeFor(frameId).watchRects(ids);
     }, [frameId, selectedHere, alsoHere, hoverHere, root, workIds]);
 
-    // Pointer interaction in select mode.
-    const lastHit = useRef(0);
-    /** Counts the hover lookups: only the latest one's answer counts, and none after a leave. */
-    const hoverAsked = useRef(0);
-    const toFrame = (e: ReactPointerEvent | ReactMouseEvent) => {
-      const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      return { x: (e.clientX - r.left) / zoom, y: (e.clientY - r.top) / zoom };
-    };
-    const currentRoot = () =>
-      rootOfFrame(
-        useDocuments.getState().docs,
-        useEditor.getState().canvas,
-        frameId
-      );
-    /** The node a pointer event at this position means, given what is selected. */
-    const nodeAt = async (e: ReactPointerEvent | ReactMouseEvent) => {
-      const { x, y } = toFrame(e);
-      const chain = await hitUnlocked(frameId, x, y);
-      const store = useEditor.getState();
-      const selected =
-        store.selection?.frame === frameId ? store.selection.nodeId : null;
-      return stepInto(chain, currentRoot(), selected, e.altKey);
-    };
-    const onMove = async (e: ReactPointerEvent) => {
-      const now = performance.now();
-      if (now - lastHit.current < 40) {
-        return;
-      }
-      lastHit.current = now;
-      hoverAsked.current += 1;
-      const asked = hoverAsked.current;
-      const id = await nodeAt(e);
-      // A later move was answered first, or the pointer has left the frame since.
-      if (asked !== hoverAsked.current) {
-        return;
-      }
-      const store = useEditor.getState();
-      if (id) {
-        store.setHover({ frame: frameId, nodeId: id });
-      } else if (store.hover?.frame === frameId) {
-        store.setHover(null);
-      }
-    };
-    const select = (id: string) =>
-      useEditor.getState().select({ frame: frameId, nodeId: id });
-    const selectFrame = () => {
-      const store = useEditor.getState();
-      if (kind === "page") {
-        store.selectPage(frameId);
-      } else if (root && !root.locked) {
-        store.select({ frame: frameId, nodeId: root.id });
-      } else {
-        store.select(null);
-      }
-    };
-    const onClick = async (e: ReactMouseEvent) => {
-      // Keyboard activation (Enter/Space) has no pointer position to hit-test: it only picks
-      // the frame, which is also what a click on nothing inside it means.
-      if (e.detail === 0) {
-        selectFrame();
-        return;
-      }
-      const id = await nodeAt(e);
-      if (id && e.shiftKey) {
-        useEditor.getState().toggleSelected({ frame: frameId, nodeId: id });
-      } else if (id) {
-        select(id);
-      } else {
-        selectFrame();
-      }
-    };
-    const onDoubleClick = async (e: ReactMouseEvent) => {
-      const { x, y } = toFrame(e);
-      const bridge = bridgeFor(frameId);
-      // Text is edited where it is written, whatever the two clicks before this selected.
-      const id = (await hitUnlocked(frameId, x, y)).at(-1);
-      const node = id
-        ? nodeIn(useDocuments.getState().docs, canvas, frameId, id)
-        : null;
-      if (id && node?.type === "text") {
-        select(id);
-        bridge.editText(id);
-      }
-    };
-
-    /**
-     * What a press or a right-click here is about: what is selected, when the point is inside
-     * it, else what a click would select.
-     */
-    const pickAt = async (x: number, y: number, alt: boolean) => {
-      const chain = await hitUnlocked(frameId, x, y);
-      const store = useEditor.getState();
-      const selected =
-        store.selection?.frame === frameId ? store.selection.nodeId : null;
-      return selected !== null && chain.includes(selected)
-        ? selected
-        : stepInto(chain, currentRoot(), selected, alt);
-    };
-
-    /**
-     * What a press here picks up if it turns into a drag: what `pickAt` says. On a node placed on
-     * the canvas, its root is the node itself, and dragging it moves it around the canvas.
-     */
-    const dragTarget = async (
-      x: number,
-      y: number,
-      alt: boolean
-    ): Promise<Dragged | null> => {
-      const bridge = bridgeFor(frameId);
-      const id = await pickAt(x, y, alt);
-      const store = useEditor.getState();
-      const current = currentRoot();
-      if (!(id && current)) {
-        return null;
-      }
-      if (kind === "node" && id === current.id) {
-        return {
-          frame: frameId,
-          kind: "loose",
-          nodeId: id,
-          origin: { x: frame.x, y: frame.y },
-        };
-      }
-      if (id === current.id) {
-        return null;
-      }
-      const rect = (await bridge.measure([id]))[id];
-      const node = nodeIn(
-        useDocuments.getState().docs,
-        store.canvas,
-        frameId,
-        id
-      );
-      if (!(rect && node)) {
-        return null;
-      }
-      return { frame: frameId, kind: "node", node, rect };
-    };
-
-    // A press that travels becomes a drag; one that does not stays a click.
-    const press = useRef<{
-      x: number;
-      y: number;
-      /** Where it began in the frame, for a marquee. */
-      at: { x: number; y: number };
-      last: { x: number; y: number; alt: boolean; free: boolean };
-      target: Promise<Dragged | null>;
-    } | null>(null);
-    /**
-     * A drag from the page itself, or from a container that is not selected, draws a marquee in
-     * it, as in Figma: a selected node, or a text, a picture or a component, is dragged instead.
-     */
-    const [marquee, setMarquee] = useState<Rect | null>(null);
-    /** The marquee as the pointer last drew it, which the next frame shows. */
-    const marqueeTo = useRef<{ request: number; rect: Rect } | null>(null);
-    const marqueeFrom = useRef<{ x: number; y: number } | null>(null);
-    const marqueeIn = useRef<DesignNode | null>(null);
-    const isSelected = (id: string) => {
-      const { also: others, selection: primary } = useEditor.getState();
-      return (
-        (primary?.frame === frameId && primary.nodeId === id) ||
-        others.some((a) => a.frame === frameId && a.nodeId === id)
-      );
-    };
-    const dragging = useRef<boolean>(false);
-    const onPointerDown = (e: ReactPointerEvent) => {
-      if (e.button !== 0) {
-        return;
-      }
-      dragging.current = false;
-      const { x, y } = toFrame(e);
-      press.current = {
-        at: { x, y },
-        last: { alt: e.altKey, free: holdsFree(e), x: e.clientX, y: e.clientY },
-        target: dragTarget(x, y, e.altKey),
-        x: e.clientX,
-        y: e.clientY,
-      };
-      // The drag goes on over other frames and the empty canvas; the moves must still come here.
-      e.currentTarget.setPointerCapture(e.pointerId);
-    };
-    const onPointerMove = (e: ReactPointerEvent) => {
-      const p = press.current;
-      if (!p) {
-        onMove(e);
-        return;
-      }
-      p.last = {
-        alt: e.altKey,
-        free: holdsFree(e),
-        x: e.clientX,
-        y: e.clientY,
-      };
-      const from = marqueeFrom.current;
-      if (from) {
-        const to = toFrame(e);
-        const rect = {
-          height: Math.abs(to.y - from.y),
-          width: Math.abs(to.x - from.x),
-          x: Math.min(from.x, to.x),
-          y: Math.min(from.y, to.y),
-        };
-        // Drawn once a frame, however often the pointer reports.
-        const request =
-          marqueeTo.current?.request ??
-          requestAnimationFrame(() => {
-            const drawn = marqueeTo.current;
-            marqueeTo.current = null;
-            if (drawn) {
-              setMarquee(drawn.rect);
-            }
-          });
-        marqueeTo.current = { rect, request };
-        return;
-      }
-      if (dragging.current) {
-        moveDrag(e.clientX, e.clientY, e.altKey, holdsFree(e));
-        return;
-      }
-      if (Math.hypot(e.clientX - p.x, e.clientY - p.y) < DRAG_THRESHOLD) {
-        return;
-      }
-      dragging.current = true;
-      p.target.then((target) => {
-        // Released before the preview answered: it was a click after all.
-        if (press.current !== p) {
-          return;
-        }
-        if (!target) {
-          if (kind === "page") {
-            marqueeIn.current = currentRoot();
-            marqueeFrom.current = p.at;
-          }
-          return;
-        }
-        if (
-          target.kind === "node" &&
-          isContainer(target.node) &&
-          !isSelected(target.node.id)
-        ) {
-          marqueeIn.current = target.node;
-          marqueeFrom.current = p.at;
-          return;
-        }
-        // What is dragged is what is selected, as it would be after a click on it.
-        const id = draggedId(target);
-        if (id && useEditor.getState().selection?.nodeId !== id) {
-          select(id);
-        }
-        beginDrag(target, p.x, p.y, p.last.alt, p.last.free);
-        moveDrag(p.last.x, p.last.y, p.last.alt, p.last.free);
-      });
-    };
-    const onPointerUp = () => {
-      press.current = null;
-      if (marqueeFrom.current) {
-        marqueeFrom.current = null;
-        const waiting = marqueeTo.current;
-        marqueeTo.current = null;
-        if (waiting) {
-          cancelAnimationFrame(waiting.request);
-        }
-        const drawn = waiting?.rect ?? marquee;
-        setMarquee(null);
-        if (drawn) {
-          selectInMarquee(drawn).catch(() => undefined);
-        }
-        return;
-      }
-      if (useDrag.getState().dragged) {
-        endDrag();
-      }
-    };
-
-    /**
-     * What a marquee selects: the children of the container it was drawn in that it touches. When
-     * it touches only one and does not cover it whole, that one's children instead: the way a
-     * designer means the nodes the rectangle is drawn across.
-     */
-    const selectInMarquee = async (area: Rect) => {
-      const within = marqueeIn.current ?? currentRoot();
-      marqueeIn.current = null;
-      if (!within) {
-        return;
-      }
-      let level = childrenOf(within);
-      for (;;) {
-        // biome-ignore lint/performance/noAwaitInLoops: each level is measured once the one above is known.
-        const measured = await bridgeFor(frameId).measure(
-          level.map((n) => n.id)
-        );
-        const hits = level.filter((n) => {
-          const r = measured[n.id];
-          return r !== undefined && !n.locked && intersects(r, area);
-        });
-        const [only] = hits;
-        const box = only ? measured[only.id] : undefined;
-        // One child touched and not covered whole: what the rectangle is about is inside it.
-        if (
-          hits.length === 1 &&
-          only &&
-          box &&
-          !contains(area, box) &&
-          childrenOf(only).length > 0
-        ) {
-          level = childrenOf(only);
-          continue;
-        }
-        useEditor
-          .getState()
-          .selectMany(hits.map((n) => ({ frame: frameId, nodeId: n.id })));
-        return;
-      }
-    };
-    const onSelectClick = (e: ReactMouseEvent) => {
-      // The click that ends a drag is not a click.
-      if (dragging.current) {
-        dragging.current = false;
-        return;
-      }
-      onClick(e);
-    };
-
-    /** Places a comment where the page was clicked, on the innermost node there. */
-    const onPlaceComment = async (e: ReactMouseEvent) => {
-      if (kind !== "page") {
-        return;
-      }
-      const { x, y } = toFrame(e);
-      const comments = useComments.getState();
-      if (!comments.visible) {
-        comments.toggleVisible();
-      }
-      const draft = { element: null, nodeId: null, pageId: frameId, x, y };
-      comments.setDraft(draft);
-      const chain = await bridgeFor(frameId).hitTest(x, y);
-      const id = chain.at(-1);
-      const node = id
-        ? nodeIn(useDocuments.getState().docs, canvas, frameId, id)
-        : null;
-      // Only if the draft is still this one: another click may have moved it meanwhile.
-      if (
-        node &&
-        node.type !== "page" &&
-        useComments.getState().draft === draft
-      ) {
-        comments.setDraft({
-          ...draft,
-          element: nodeLabel(node),
-          nodeId: node.id,
-        });
-      }
-    };
-
-    /**
-     * A right-click selects what it is on, as a click would, and opens that node's menu; on
-     * nothing but the page, the page's. What is selected stays selected when it is clicked in.
-     */
-    const onContextMenu = async (e: ReactMouseEvent) => {
-      const anchor = holdMenu(e);
-      const at = toFrame(e);
-      const id = await pickAt(at.x, at.y, e.altKey);
-      const current = currentRoot();
-      const store = useEditor.getState();
-      if (id && current && (kind === "node" || id !== current.id)) {
-        selectForMenu({ frame: frameId, nodeId: id });
-        showMenu({ at, frame: frameId, kind: "node", nodeId: id }, anchor);
-      } else if (kind === "page") {
-        store.selectPage(frameId);
-        showMenu({ at, kind: "page", pageId: frameId }, anchor);
-      } else if (current) {
-        selectForMenu({ frame: frameId, nodeId: current.id });
-        showMenu(
-          { at, frame: frameId, kind: "node", nodeId: current.id },
-          anchor
-        );
-      }
-    };
-    const onCommentContextMenu = (e: ReactMouseEvent) => {
-      useEditor.getState().selectPage(frameId);
-      openMenuAt(e, { at: toFrame(e), kind: "page", pageId: frameId });
-    };
-
-    const onPointerLeave = () => {
-      hoverAsked.current += 1;
-      const s = useEditor.getState();
-      if (s.hover?.frame === frameId) {
-        s.setHover(null);
-      }
-    };
+    const {
+      marquee,
+      onCommentContextMenu,
+      onContextMenu,
+      onDoubleClick,
+      onPlaceComment,
+      onPointerDown,
+      onPointerLeave,
+      onPointerMove,
+      onPointerUp,
+      onSelectClick,
+    } = useFramePointer({ canvas, frame, frameId, kind, root, zoom });
 
     const isNode = kind === "node";
 
@@ -799,28 +392,6 @@ export const Frame = memo(
   }
 );
 Frame.displayName = "Frame";
-
-/** The node selected in this frame, if the selection is here. */
-const useSelectedIn = (frameId: string) =>
-  useEditor((s) =>
-    s.selection?.frame === frameId ? s.selection.nodeId : null
-  );
-
-/**
- * The others selected with it in this frame, as their ids joined by spaces: a string, so the
- * frames the selection is not in see nothing change.
- */
-const useAlsoIn = (frameId: string) =>
-  useEditor((s) =>
-    s.selection?.frame === frameId ? s.also.map((a) => a.nodeId).join(" ") : ""
-  );
-
-/** The node hovered in this frame, if the pointer is over one here. */
-const useHoverIn = (frameId: string) =>
-  useEditor((s) => (s.hover?.frame === frameId ? s.hover.nodeId : null));
-
-const idsOf = (joined: string): string[] =>
-  joined === "" ? [] : joined.split(" ");
 
 /** Whether the frame itself is selected: the page, or the node on the canvas it shows. */
 const useFrameSelected = (
@@ -963,271 +534,6 @@ const FrameChrome = ({
       ) : null}
       {kind === "page" && <FramePresence inv={inv} pageId={frameId} />}
     </>
-  );
-};
-
-const intersects = (a: Rect, b: Rect) =>
-  a.x < b.x + b.width &&
-  b.x < a.x + a.width &&
-  a.y < b.y + b.height &&
-  b.y < a.y + a.height;
-
-const contains = (outer: Rect, inner: Rect) =>
-  inner.x >= outer.x &&
-  inner.y >= outer.y &&
-  inner.x + inner.width <= outer.x + outer.width &&
-  inner.y + inner.height <= outer.y + outer.height;
-
-/** The box around several rects. */
-const unionOf = (rects: readonly Rect[]): Rect | null => {
-  if (rects.length === 0) {
-    return null;
-  }
-  const left = Math.min(...rects.map((r) => r.x));
-  const top = Math.min(...rects.map((r) => r.y));
-  const right = Math.max(...rects.map((r) => r.x + r.width));
-  const bottom = Math.max(...rects.map((r) => r.y + r.height));
-  return { height: bottom - top, width: right - left, x: left, y: top };
-};
-
-/** The outlines of the hovered and the selected nodes, and an error the preview reported. */
-const Highlights = ({ frameId, inv }: { frameId: string; inv: number }) => {
-  const selectedId = useSelectedIn(frameId);
-  const alsoIds = useAlsoIn(frameId);
-  const hoverId = useHoverIn(frameId);
-  const rects = useEditor((s) => s.rects[frameId]);
-  const hostError = useEditor((s) => s.hostErrors[frameId]);
-  const canvas = useEditor((s) => s.canvas);
-  const workspace = useEditor((s) => s.workspace);
-  const frameWidth = useEditor(
-    (s) =>
-      s.frames[frameId]?.width ??
-      s.sizes[frameId]?.width ??
-      Number.POSITIVE_INFINITY
-  );
-  // This frame's document only: an edit elsewhere has nothing to outline here.
-  const root = useDocuments((s) => rootOfFrame(s.docs, canvas, frameId));
-  const selectedNode = selectedId === null ? null : findNode(root, selectedId);
-  const hoverNode = hoverId === null ? null : findNode(root, hoverId);
-  const selectedRect = selectedId === null ? undefined : rects?.[selectedId];
-  const hoverRect =
-    hoverId !== null && hoverId !== selectedId ? rects?.[hoverId] : undefined;
-  // Several selected: each is outlined, and what they share hangs over the box around them.
-  const others = idsOf(alsoIds).flatMap((nodeId) => {
-    const node = findNode(root, nodeId);
-    const rect = rects?.[nodeId];
-    return node && rect
-      ? [{ node, rect, target: { frame: frameId, nodeId } }]
-      : [];
-  });
-  const many = others.length > 0;
-  const group =
-    many && selectedRect && selectedNode && selectedId !== null
-      ? {
-          nodes: [selectedNode, ...others.map((o) => o.node)],
-          rect: unionOf([selectedRect, ...others.map((o) => o.rect)]),
-          targets: [
-            { frame: frameId, nodeId: selectedId },
-            ...others.map((o) => o.target),
-          ],
-        }
-      : null;
-  return (
-    <>
-      {hoverRect ? (
-        <Outline
-          inv={inv}
-          kind="hover"
-          node={hoverNode}
-          rect={hoverRect}
-          workspace={workspace}
-        />
-      ) : null}
-      {selectedRect ? (
-        <Outline
-          bare={many}
-          frameWidth={frameWidth}
-          inv={inv}
-          kind="selection"
-          node={selectedNode}
-          rect={selectedRect}
-          workspace={workspace}
-        />
-      ) : null}
-      {others.map((o) => (
-        <Outline
-          bare
-          inv={inv}
-          key={o.target.nodeId}
-          kind="selection"
-          node={o.node}
-          rect={o.rect}
-          workspace={workspace}
-        />
-      ))}
-      {group?.rect ? (
-        <GroupOutline
-          frameWidth={frameWidth}
-          inv={inv}
-          nodes={group.nodes}
-          rect={group.rect}
-          targets={group.targets}
-          workspace={workspace}
-        />
-      ) : null}
-      {hostError ? (
-        <div
-          className="absolute inset-x-0 bottom-0 flex items-start gap-2 bg-destructive/90 p-3 font-code text-white"
-          style={{ fontSize: 14 * inv, padding: 12 * inv }}
-        >
-          <AlertTriangle className="size-4 shrink-0" />
-          <pre className="whitespace-pre-wrap">{hostError}</pre>
-        </div>
-      ) : null}
-    </>
-  );
-};
-
-/**
- * The box around several selected nodes: their count on its edge and, in Vibe, the toolbar of
- * what they share; in Design, the box's size under it.
- */
-const GroupOutline = ({
-  frameWidth,
-  inv,
-  nodes,
-  rect,
-  targets,
-  workspace,
-}: {
-  frameWidth: number;
-  inv: number;
-  nodes: readonly DesignNode[];
-  rect: Rect;
-  targets: readonly Selection[];
-  workspace: Workspace;
-}) => {
-  const color = kindColor("element");
-  return (
-    <div
-      className="pointer-events-none absolute"
-      style={{
-        height: rect.height,
-        left: rect.x,
-        outline: `${1 * inv}px dashed ${color}`,
-        outlineOffset: 3 * inv,
-        top: rect.y,
-        width: rect.width,
-      }}
-    >
-      {workspace === "vibe" ? (
-        <>
-          <span
-            className="absolute left-0 flex h-5 items-center rounded-t-[5px] px-1.5 font-body font-semibold text-white leading-4"
-            style={{
-              background: color,
-              bottom: "100%",
-              transform: `translate(${-1 * inv}px, ${-4 * inv}px) scale(${inv})`,
-              transformOrigin: "bottom left",
-            }}
-          >
-            {nodes.length} selected
-          </span>
-          <GroupToolbar
-            frameWidth={frameWidth}
-            inv={inv}
-            nodes={nodes}
-            rect={rect}
-            targets={targets}
-          />
-        </>
-      ) : (
-        <span
-          className="absolute left-1/2 rounded-sm px-1 py-0.5 font-body font-medium text-white"
-          style={{
-            background: color,
-            top: "100%",
-            transform: `translate(-50%, ${6 * inv}px) scale(${inv})`,
-            transformOrigin: "top center",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {nodes.length} · {Math.round(rect.width)} × {Math.round(rect.height)}
-        </span>
-      )}
-    </div>
-  );
-};
-
-/**
- * A node's outline, in the colour of what it is: blue for an element, purple for a component. In
- * Design the selection's size sits under it; in Vibe its name sits on its top-left edge, where the
- * element toolbar hangs its controls from.
- */
-const Outline = ({
-  bare = false,
-  frameWidth = Number.POSITIVE_INFINITY,
-  rect,
-  inv,
-  kind,
-  node,
-  workspace,
-}: {
-  /** One of several selected: outlined only, the group carries the name and the toolbar. */
-  bare?: boolean;
-  /** How wide the frame is, which the toolbar stays inside. */
-  frameWidth?: number;
-  rect: { x: number; y: number; width: number; height: number };
-  inv: number;
-  kind: "hover" | "selection";
-  node: DesignNode | null;
-  workspace: Workspace;
-}) => {
-  const tone = selectionKindOf(node);
-  const color = kind === "selection" ? kindColor(tone) : kindHoverColor(tone);
-  return (
-    <div
-      className="pointer-events-none absolute"
-      style={{
-        height: rect.height,
-        left: rect.x,
-        outline: `${(kind === "selection" ? 2 : 1) * inv}px solid ${color}`,
-        outlineOffset: -1 * inv,
-        top: rect.y,
-        width: rect.width,
-      }}
-    >
-      {kind === "selection" && !bare && workspace !== "vibe" && (
-        <span
-          className="absolute left-1/2 rounded-sm px-1 py-0.5 font-body font-medium text-white"
-          style={{
-            background: color,
-            top: "100%",
-            transform: `translate(-50%, ${4 * inv}px) scale(${inv})`,
-            transformOrigin: "top center",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {Math.round(rect.width)} × {Math.round(rect.height)}
-        </span>
-      )}
-      {kind === "selection" && !bare && workspace === "vibe" && node ? (
-        <>
-          <SelectionTag
-            color={color}
-            inside={rect.y < TAG_HEIGHT * inv}
-            inv={inv}
-            node={node}
-          />
-          <ElementToolbar
-            frameWidth={frameWidth}
-            inv={inv}
-            node={node}
-            rect={rect}
-          />
-        </>
-      ) : null}
-    </div>
   );
 };
 
