@@ -1,3 +1,4 @@
+import type { DesignNode } from "@ultrapaint/contracts/document";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import type { FigGuid } from "openfig-core";
 import { describe, expect, it } from "vitest";
@@ -419,6 +420,50 @@ describe("shapes and free layout", () => {
     expect(warnings).toEqual([
       '"Card" places its layers freely; they were stacked in reading order',
     ]);
+  });
+});
+
+describe("reading order", () => {
+  it("puts free layers in rows, then reads each row left to right, whatever order they come in", () => {
+    const f = makeFixture();
+    const frame = f.add(f.page, {
+      name: "Loose",
+      size: { x: 200, y: 100 },
+      type: "FRAME",
+    });
+    // A and B share a row, B and C are a few pixels apart too, but C is below A's row.
+    for (const [name, x, y] of [
+      ["C", 0, 6],
+      ["B", 10, 3],
+      ["A", 20, 0],
+      ["D", 5, 40],
+    ] as const) {
+      f.add(frame, {
+        fontSize: 12,
+        name,
+        size: { x: 8, y: 2 },
+        textData: { characters: name },
+        transform: identity(x, y),
+        type: "TEXT",
+      });
+    }
+    const file = readFig(f.build());
+    const loose = file.pages[0]?.frames[0];
+    if (!loose) {
+      throw new Error("no frame");
+    }
+    const { root } = convertFrame(file, loose, options());
+    const texts: string[] = [];
+    const visit = (node: DesignNode) => {
+      if (node.type === "text") {
+        texts.push(node.text);
+      }
+      for (const child of "children" in node ? node.children : []) {
+        visit(child);
+      }
+    };
+    visit(root);
+    expect(texts).toEqual(["B", "A", "C", "D"]);
   });
 });
 

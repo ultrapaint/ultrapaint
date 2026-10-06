@@ -153,13 +153,29 @@ const withBackdrop = (node: FigNode, backdrop: FigNode): FigNode => ({
 
 const ROW_TOLERANCE = 4;
 
-/** Free layout has no order but the stacking one; reading order is the better guess. */
-const readingOrder = (nodes: readonly FigNode[]) =>
-  [...nodes].sort((a, b) => {
-    const pa = positionOf(a);
-    const pb = positionOf(b);
-    return Math.abs(pa.y - pb.y) < ROW_TOLERANCE ? pa.x - pb.x : pa.y - pb.y;
-  });
+/**
+ * Free layout has no order but the stacking one; reading order is the better guess. Layers are
+ * put in rows first, each starting at the highest layer left and taking those within a few
+ * pixels of its top, then read left to right: one order, whatever order they come in.
+ */
+const readingOrder = (nodes: readonly FigNode[]) => {
+  const byTop = [...nodes].sort((a, b) => positionOf(a).y - positionOf(b).y);
+  const rows: FigNode[][] = [];
+  let top = Number.NEGATIVE_INFINITY;
+  for (const node of byTop) {
+    const { y } = positionOf(node);
+    const row = rows.at(-1);
+    if (row && y - top < ROW_TOLERANCE) {
+      row.push(node);
+    } else {
+      rows.push([node]);
+      top = y;
+    }
+  }
+  return rows.flatMap((row) =>
+    row.sort((a, b) => positionOf(a).x - positionOf(b).x)
+  );
+};
 
 const directionOf = (node: FigNode): Direction => {
   switch (node.stackMode) {
