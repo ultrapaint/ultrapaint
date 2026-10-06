@@ -68,6 +68,7 @@ import {
   useLayerRename,
 } from "../state/layer-rename.ts";
 import { useProject } from "../state/project.ts";
+import { create } from "zustand";
 import { InlineInput } from "./canvases.tsx";
 import {
   filterLayers,
@@ -96,6 +97,29 @@ interface DropTarget {
   key: string;
   position: DropPosition;
 }
+
+/**
+ * The row a dragged layer would land on, and where. Kept out of the panel's state: a drag-over
+ * fires many times a second, and only the rows it leaves and reaches have anything to redraw.
+ */
+const useLayerDrop = create<{ target: DropTarget | null }>(() => ({
+  target: null,
+}));
+
+const setDropTarget = (
+  next: DropTarget | null | ((d: DropTarget | null) => DropTarget | null)
+) =>
+  useLayerDrop.setState((s) => {
+    const target = typeof next === "function" ? next(s.target) : next;
+    return target?.key === s.target?.key &&
+      target?.position === s.target?.position
+      ? s
+      : { target };
+  });
+
+/** Where a dragged layer would land on this row, if it is the one. */
+const useDropHere = (key: string) =>
+  useLayerDrop((s) => (s.target?.key === key ? s.target.position : null));
 
 /** Where among its siblings a dropped layer goes, the dragged one left out. */
 const dropIndex = (
@@ -403,7 +427,6 @@ export const Layers = () => {
   const [renaming, setRenaming] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<Row | null>(null);
-  const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const nodes = canvasNodes(docs, canvas);
 
   const filtering = query.trim() !== "";
@@ -557,15 +580,11 @@ export const Layers = () => {
 
   const shared: Shared = {
     drag,
-    dropTarget,
     endRename,
     folded,
     onDrop,
     renaming,
-    selectedPage,
-    selection,
     setDrag,
-    setDropTarget,
     setRenaming,
     tabStop,
     toggle,
@@ -615,18 +634,12 @@ export const Layers = () => {
 
 interface Shared {
   drag: Row | null;
-  dropTarget: DropTarget | null;
   endRename: (key: string) => void;
   folded: ReadonlySet<string>;
   onDrop: (target: Row, position: DropPosition) => Promise<void>;
   /** The row whose name is being typed. */
   renaming: string | null;
-  selectedPage: string | null;
-  selection: Selection | null;
   setDrag: (row: Row | null) => void;
-  setDropTarget: (
-    target: DropTarget | null | ((d: DropTarget | null) => DropTarget | null)
-  ) => void;
   setRenaming: (key: string | null) => void;
   /** The one row Tab reaches. */
   tabStop: string | null;
@@ -746,7 +759,8 @@ const PageRow = ({ item, shared }: { item: LayerItem; shared: Shared }) => {
   const root = item.node;
   const { key } = item;
   const expanded = isExpanded(item, shared.folded);
-  const selected = shared.selectedPage === page.id;
+  const selected = useEditor((s) => s.selectedPage === page.id);
+  const dropHere = useDropHere(key);
   const select = () => {
     useEditor.getState().selectPage(page.id);
   };
@@ -759,11 +773,11 @@ const PageRow = ({ item, shared }: { item: LayerItem; shared: Shared }) => {
       return;
     }
     e.preventDefault();
-    shared.setDropTarget({ key, position: "inside" });
+    setDropTarget({ key, position: "inside" });
   };
   const onDropHere = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    shared.setDropTarget(null);
+    setDropTarget(null);
     if (root) {
       shared.onDrop({ frame: page.id, node: root, parent: null }, "inside");
     }
@@ -777,12 +791,12 @@ const PageRow = ({ item, shared }: { item: LayerItem; shared: Shared }) => {
         selected
           ? "bg-selection/25 text-foreground"
           : "text-foreground hover:bg-muted/50",
-        shared.dropTarget?.key === key && "ring-1 ring-brand ring-inset",
+        dropHere !== null && "ring-1 ring-brand ring-inset",
         FOCUS_RING
       )}
       data-row={key}
       onClick={select}
-      onDragLeave={() => shared.setDropTarget(null)}
+      onDragLeave={() => setDropTarget(null)}
       onDragOver={onDragOver}
       onDrop={onDropHere}
       style={{ paddingLeft: ROW_PAD }}
@@ -994,7 +1008,7 @@ const RowControls = ({ row }: { row: Row }) => {
 
 /**
  * What a node's row does while a row is dragged: it is picked up, and the dragged one is dropped
- * before it, after it or into it. `dropHere` says which, while one hovers over it.
+ * before it, after it or into it.
  */
 const rowDrag = (row: Row, key: string, shared: Shared) => {
   const { frame, node } = row;
@@ -1010,7 +1024,7 @@ const rowDrag = (row: Row, key: string, shared: Shared) => {
     e.preventDefault();
     const r = e.currentTarget.getBoundingClientRect();
     const y = (e.clientY - r.top) / r.height;
-    shared.setDropTarget({ key, position: dropPositionAt(node, y) });
+    setDropTarget({ key, position: dropPositionAt(node, y) });
   };
   const onDragStart = (e: DragEvent<HTMLDivElement>) => {
     shared.setDrag(row);
@@ -1019,18 +1033,19 @@ const rowDrag = (row: Row, key: string, shared: Shared) => {
   };
   const onDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    const t = shared.dropTarget;
-    shared.setDropTarget(null);
+    const t = useLayerDrop.getState().target;
+    setDropTarget(null);
     if (t?.key === key) {
       shared.onDrop(row, t.position);
     }
     shared.setDrag(null);
   };
   return {
-    dropHere:
-      shared.dropTarget?.key === key ? shared.dropTarget.position : null,
-    onDragEnd: () => shared.setDrag(null),
-    onDragLeave: () => shared.setDropTarget((d) => (d?.key === key ? null : d)),
+    onDragEnd: () => {
+      shared.setDrag(null);
+      setDropTarget(null);
+    },
+    onDragLeave: () => setDropTarget((d) => (d?.key === key ? null : d)),
     onDragOver,
     onDragStart,
     onDrop,
@@ -1067,18 +1082,18 @@ const LayerRow = ({
   const { frame, key } = item;
   const node = item.node as DesignNode;
   const row: Row = { frame, node, parent: item.parent };
-  const hover = useEditor((s) => s.hover);
   const expanded = isExpanded(item, shared.folded);
   const hasChildren = item.children.length > 0;
-  const alsoSelected = useEditor((s) =>
-    s.also.some((a) => a.frame === frame && a.nodeId === node.id)
+  const selected = useEditor(
+    (s) =>
+      (s.selection?.frame === frame && s.selection.nodeId === node.id) ||
+      s.also.some((a) => a.frame === frame && a.nodeId === node.id)
   );
-  const selected =
-    (shared.selection?.frame === frame &&
-      shared.selection.nodeId === node.id) ||
-    alsoSelected;
-  const hovered = hover?.frame === frame && hover.nodeId === node.id;
-  const { dropHere, ...dragHandlers } = rowDrag(row, key, shared);
+  const hovered = useEditor(
+    (s) => s.hover?.frame === frame && s.hover.nodeId === node.id
+  );
+  const dropHere = useDropHere(key);
+  const dragHandlers = rowDrag(row, key, shared);
   const renaming = shared.renaming === key;
   const label = nodeLabel(node);
   const target = { frame, nodeId: node.id };

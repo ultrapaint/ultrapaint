@@ -556,7 +556,13 @@ export const useEditor = create<EditorStore>((set, get) => ({
   },
   setHostError: (pageId, error) =>
     set((s) => ({ hostErrors: { ...s.hostErrors, [pageId]: error } })),
-  setHover: (hover) => set({ hover }),
+  // The pointer reports the same node many times a second; only a change is news.
+  setHover: (hover) =>
+    set((s) =>
+      s.hover?.frame === hover?.frame && s.hover?.nodeId === hover?.nodeId
+        ? s
+        : { hover }
+    ),
   setLeftTab: (leftTab) => set({ leftTab }),
   setMode: (mode) => set({ mode }),
   setPreset: (pageId, preset) => {

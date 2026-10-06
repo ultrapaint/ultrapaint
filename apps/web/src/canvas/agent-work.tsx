@@ -5,19 +5,19 @@
  * This is where an agent's work shows; nothing about it sits at the bottom of the canvas.
  */
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import { canvasDocOf } from "@ultrapaint/design-document/tree";
+import {
+  canvasDocOf,
+  findNode,
+  findPath,
+} from "@ultrapaint/design-document/tree";
 import { Check } from "lucide-react";
 import { type ReactNode, useEffect, useMemo } from "react";
 import { AgentIcon } from "../components/agent-icon.tsx";
 import { type AgentWork, useAgents } from "../state/agents.ts";
 import { openMenuAt } from "../state/context-menu.ts";
-import {
-  isNodeFrame,
-  nodeIn,
-  pathIn,
-  useDocuments,
-} from "../state/documents.ts";
+import { isNodeFrame, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { useShallow } from "zustand/react/shallow";
 import { bridgeFor } from "./bridge.ts";
 
 /** Enough outlines to see where the work is; past that they only add noise. */
@@ -40,24 +40,37 @@ const outermost = (
   );
 };
 
+/** The work of each agent on this frame's document, by thread; the same entries until one changes. */
+const useWorkOn = (frameId: string, canvas: string | null) =>
+  useAgents(
+    useShallow((s) => {
+      const canvasDoc = canvas === null ? null : canvasDocOf(canvas);
+      const here: Record<string, AgentWork> = {};
+      for (const [threadId, work] of Object.entries(s.working)) {
+        if (
+          work.doc === frameId ||
+          (isNodeFrame(frameId) && work.doc === canvasDoc)
+        ) {
+          here[threadId] = work;
+        }
+      }
+      return here;
+    })
+  );
+
 /** The agents' work on this frame, and the ids the preview has to measure or skeleton. */
 export const useFrameWork = (frameId: string) => {
-  const working = useAgents((s) => s.working);
-  const docs = useDocuments((s) => s.docs);
   const canvas = useEditor((s) => s.canvas);
+  const working = useWorkOn(frameId, canvas);
+  // Only what this frame draws: an edit to another page changes nothing here.
+  const root = useDocuments((s) => rootOfFrame(s.docs, canvas, frameId));
   return useMemo(() => {
-    const canvasDoc = canvas === null ? null : canvasDocOf(canvas);
-    const onFrame = (w: AgentWork) =>
-      w.doc === frameId || (isNodeFrame(frameId) && w.doc === canvasDoc);
     const pieces: FrameWork[] = [];
     const skeletons: string[] = [];
     for (const [threadId, work] of Object.entries(working)) {
-      if (!onFrame(work)) {
-        continue;
-      }
-      const here = (id: string) => nodeIn(docs, canvas, frameId, id);
+      const here = (id: string) => findNode(root, id);
       const ids = work.nodeIds.filter((id) => here(id));
-      const pathOf = (id: string) => pathIn(docs, canvas, frameId, id);
+      const pathOf = (id: string) => findPath(root, id);
       pieces.push({
         nodeIds: outermost(ids, pathOf).slice(0, MAX_OUTLINES),
         threadId,
@@ -71,7 +84,7 @@ export const useFrameWork = (frameId: string) => {
       }
     }
     return { pieces, skeletons };
-  }, [working, docs, canvas, frameId]);
+  }, [working, root]);
 };
 
 /** Tells the preview which nodes are skeletons now; none once the work is done. */

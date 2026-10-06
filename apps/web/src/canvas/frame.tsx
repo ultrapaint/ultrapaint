@@ -3,6 +3,7 @@ import type { Page, ViewportPreset } from "@ultrapaint/contracts/pages";
 import type { HostError, HostMessage } from "@ultrapaint/contracts/preview";
 import {
   childrenOf,
+  findNode,
   isContainer,
   nodeLabel,
 } from "@ultrapaint/design-document/tree";
@@ -179,9 +180,10 @@ export const Frame = memo(
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const mode = useEditor((s) => s.mode);
     const spacePan = useEditor((s) => s.spacePan);
-    const selection = useEditor((s) => s.selection);
-    const also = useEditor((s) => s.also);
-    const hover = useEditor((s) => s.hover);
+    // Only what is selected or hovered in this frame: elsewhere it is no business of this one.
+    const selectedHere = useSelectedIn(frameId);
+    const alsoHere = useAlsoIn(frameId);
+    const hoverHere = useHoverIn(frameId);
     const isActive = useEditor((s) => s.activePage === frameId);
     const canvas = useEditor((s) => s.canvas);
     const root = useDocuments((s) => rootOfFrame(s.docs, canvas, frameId));
@@ -283,14 +285,10 @@ export const Frame = memo(
 
     // A selection whose node is gone (an undo, an agent) is let go of.
     useEffect(() => {
-      if (
-        selection?.frame === frameId &&
-        root &&
-        !nodeIn(useDocuments.getState().docs, canvas, frameId, selection.nodeId)
-      ) {
+      if (selectedHere !== null && root && !findNode(root, selectedHere)) {
         useEditor.getState().select(null);
       }
-    }, [selection, root, frameId, canvas]);
+    }, [selectedHere, root]);
 
     // What agents are changing here: outlined on the canvas, skeletons in the preview.
     const work = useFrameWork(frameId);
@@ -302,18 +300,15 @@ export const Frame = memo(
     // biome-ignore lint/correctness/useExhaustiveDependencies: `root` is there to send it again.
     useEffect(() => {
       const ids: string[] = [];
-      if (selection?.frame === frameId) {
-        ids.push(selection.nodeId);
-        ids.push(...also.map((a) => a.nodeId));
+      if (selectedHere !== null) {
+        ids.push(selectedHere, ...idsOf(alsoHere));
       }
-      if (hover?.frame === frameId) {
-        ids.push(hover.nodeId);
+      if (hoverHere !== null) {
+        ids.push(hoverHere);
       }
-      if (workIds) {
-        ids.push(...workIds.split(" "));
-      }
+      ids.push(...idsOf(workIds));
       bridgeFor(frameId).watchRects(ids);
-    }, [frameId, selection, also, hover, root, workIds]);
+    }, [frameId, selectedHere, alsoHere, hoverHere, root, workIds]);
 
     // Pointer interaction in select mode.
     const lastHit = useRef(0);
@@ -786,6 +781,30 @@ export const Frame = memo(
 );
 Frame.displayName = "Frame";
 
+/** The node selected in this frame, if the selection is here. */
+const useSelectedIn = (frameId: string) =>
+  useEditor((s) =>
+    s.selection?.frame === frameId ? s.selection.nodeId : null
+  );
+
+/**
+ * The others selected with it in this frame, as their ids joined by spaces: a string, so the
+ * frames the selection is not in see nothing change.
+ */
+const useAlsoIn = (frameId: string) =>
+  useEditor((s) =>
+    s.selection?.frame === frameId
+      ? s.also.map((a) => a.nodeId).join(" ")
+      : ""
+  );
+
+/** The node hovered in this frame, if the pointer is over one here. */
+const useHoverIn = (frameId: string) =>
+  useEditor((s) => (s.hover?.frame === frameId ? s.hover.nodeId : null));
+
+const idsOf = (joined: string): string[] =>
+  joined === "" ? [] : joined.split(" ");
+
 /** Whether the frame itself is selected: the page, or the node on the canvas it shows. */
 const useFrameSelected = (
   frameId: string,
@@ -963,9 +982,9 @@ const unionOf = (rects: readonly Rect[]): Rect | null => {
 
 /** The outlines of the hovered and the selected nodes, and an error the preview reported. */
 const Highlights = ({ frameId, inv }: { frameId: string; inv: number }) => {
-  const selection = useEditor((s) => s.selection);
-  const also = useEditor((s) => s.also);
-  const hover = useEditor((s) => s.hover);
+  const selectedId = useSelectedIn(frameId);
+  const alsoIds = useAlsoIn(frameId);
+  const hoverId = useHoverIn(frameId);
   const rects = useEditor((s) => s.rects[frameId]);
   const hostError = useEditor((s) => s.hostErrors[frameId]);
   const canvas = useEditor((s) => s.canvas);
@@ -976,35 +995,33 @@ const Highlights = ({ frameId, inv }: { frameId: string; inv: number }) => {
       s.sizes[frameId]?.width ??
       Number.POSITIVE_INFINITY
   );
-  const docs = useDocuments((s) => s.docs);
-  const here = selection?.frame === frameId;
-  const selectedNode = here
-    ? nodeIn(docs, canvas, frameId, selection.nodeId)
-    : null;
-  const hoverNode =
-    hover?.frame === frameId
-      ? nodeIn(docs, canvas, frameId, hover.nodeId)
-      : null;
-  const selectedRect = here ? rects?.[selection.nodeId] : undefined;
+  // This frame's document only: an edit elsewhere has nothing to outline here.
+  const root = useDocuments((s) => rootOfFrame(s.docs, canvas, frameId));
+  const selectedNode =
+    selectedId === null ? null : findNode(root, selectedId);
+  const hoverNode = hoverId === null ? null : findNode(root, hoverId);
+  const selectedRect =
+    selectedId === null ? undefined : rects?.[selectedId];
   const hoverRect =
-    hover?.frame === frameId && hover.nodeId !== selection?.nodeId
-      ? rects?.[hover.nodeId]
-      : undefined;
+    hoverId !== null && hoverId !== selectedId ? rects?.[hoverId] : undefined;
   // Several selected: each is outlined, and what they share hangs over the box around them.
-  const others = here
-    ? also.flatMap((a) => {
-        const node = nodeIn(docs, canvas, frameId, a.nodeId);
-        const rect = rects?.[a.nodeId];
-        return node && rect ? [{ node, rect, target: a }] : [];
-      })
-    : [];
+  const others = idsOf(alsoIds).flatMap((nodeId) => {
+    const node = findNode(root, nodeId);
+    const rect = rects?.[nodeId];
+    return node && rect
+      ? [{ node, rect, target: { frame: frameId, nodeId } }]
+      : [];
+  });
   const many = others.length > 0;
   const group =
-    many && selectedRect && selectedNode && selection
+    many && selectedRect && selectedNode && selectedId !== null
       ? {
           nodes: [selectedNode, ...others.map((o) => o.node)],
           rect: unionOf([selectedRect, ...others.map((o) => o.rect)]),
-          targets: [selection, ...others.map((o) => o.target)],
+          targets: [
+            { frame: frameId, nodeId: selectedId },
+            ...others.map((o) => o.target),
+          ],
         }
       : null;
   return (
