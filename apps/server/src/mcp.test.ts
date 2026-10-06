@@ -595,6 +595,34 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             "Hello"
           );
 
+          // Only the fields that name a node are read as references: a link or a text with a
+          // `#` in it is the user's own and is saved as it was given.
+          yield* call("apply_operations", {
+            ops: [
+              {
+                id: `/home#${textId}`,
+                op: "update",
+                set: {
+                  link: "https://example.com/docs#intro",
+                  text: "/pricing#faq",
+                },
+              },
+            ],
+            route: "/home",
+          });
+          const kept = yield* call("read_page", {
+            node: textId,
+            route: "/home",
+          });
+          const node = kept.result.structuredContent.document as {
+            link?: string;
+            text?: string;
+          };
+          assert.deepStrictEqual(
+            { link: node.link, text: node.text },
+            { link: "https://example.com/docs#intro", text: "/pricing#faq" }
+          );
+
           // A frame is sized as the agent asks, a preset or pixels.
           const framed = yield* call("set_frame", {
             height: 2400,

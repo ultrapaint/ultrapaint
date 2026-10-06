@@ -25,7 +25,7 @@ import {
 } from "@ultrapaint/shared/link";
 import { parseNodeRef } from "@ultrapaint/shared/node-ref";
 import { basePathOf, normaliseRoute } from "@ultrapaint/shared/route";
-import { Effect, Schema } from "effect";
+import { Effect, Predicate, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
 import { EventBus } from "../../events.ts";
 import { ProjectManager } from "../../project.ts";
@@ -53,6 +53,31 @@ export class ToolFailure extends Schema.TaggedError<ToolFailure>()(
 const Failure = ToolFailure;
 
 const decodeOps = Schema.decodeUnknownEffect(Schema.Array(DocOp));
+
+/** The node id a reference such as `/home#c_1` stands for; any other value as it is. */
+const nodeIdOf = (value: unknown): unknown =>
+  typeof value === "string" ? (parseNodeRef(value)?.nodeId ?? value) : value;
+
+/**
+ * An operation with the node references in the fields that name a node (`id`, `parent`, `ids`)
+ * read as their ids. Only those: a link, a text or a prop may hold a `#` that is the user's
+ * content, `https://example.com/docs#intro` or `/pricing#faq`, and is kept as it is.
+ */
+const nodeRefsToIds = (op: unknown): unknown => {
+  if (!Predicate.isObject(op)) {
+    return op;
+  }
+  const fields = { ...op };
+  for (const key of ["id", "parent"] as const) {
+    if (key in fields) {
+      fields[key] = nodeIdOf(fields[key]);
+    }
+  }
+  if (Array.isArray(fields.ids)) {
+    fields.ids = fields.ids.map(nodeIdOf);
+  }
+  return fields;
+};
 
 /**
  * What a thread's briefing explains and the tools' descriptions therefore leave out, for an agent
@@ -730,11 +755,9 @@ export const EditorToolsLive = EditorTools.toLayer(
         }
         // A node an agent writes may leave its ids out; they are made before the ops are read.
         // Node references the user pasted stand for their node ids.
-        const raw = JSON.parse(JSON.stringify(ops), (_key, value: unknown) =>
-          typeof value === "string"
-            ? (parseNodeRef(value)?.nodeId ?? value)
-            : value
-        ) as unknown[];
+        const raw = (JSON.parse(JSON.stringify(ops)) as unknown[]).map(
+          nodeRefsToIds
+        );
         for (const op of raw) {
           if (op && typeof op === "object" && "node" in op) {
             fillIds({ nodes: [(op as { node: unknown }).node] });
