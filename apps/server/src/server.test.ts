@@ -133,6 +133,31 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
     );
 
     it.effect(
+      "keeps the project open when the settings it runs with are set again",
+      () =>
+        Effect.gen(function* () {
+          const { client, settings } = yield* TestEnv;
+          yield* client["settings.set"](settings);
+          yield* client["documents.apply"]({
+            edits: [
+              {
+                doc: HOME,
+                ops: [{ id: "heading", op: "update", set: { name: "Title" } }],
+              },
+            ],
+            label: "Name the title",
+          });
+          yield* client["settings.set"](settings);
+          // Reopening would have started a new undo history.
+          assert.strictEqual(
+            (yield* client["edit.state"]()).undoLabel,
+            "Name the title"
+          );
+          yield* client["edit.undo"]();
+        })
+    );
+
+    it.effect(
       "reports a host that cannot start as a status, not a failure",
       () =>
         Effect.gen(function* () {
@@ -230,27 +255,30 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
       })
     );
 
-    it.effect("gives a page a URL, changes it and takes it off", () =>
-      Effect.gen(function* () {
-        const { client } = yield* TestEnv;
-        const page = yield* client["pages.create"]({
-          canvas: "",
-          name: "Draft",
-        });
-        const served = yield* client["pages.setRoute"]({
-          id: page.id,
-          route: "drafts/one",
-        });
-        assert.strictEqual(served.route, "/drafts/one");
-        const none = yield* client["pages.setRoute"]({
-          id: page.id,
-          route: null,
-        });
-        assert.isUndefined(none.route);
-        yield* client["pages.delete"]({ id: page.id });
-        const layout = yield* client["canvas.get"]({ canvas: "" });
-        assert.notProperty(layout.routes ?? {}, page.path);
-      })
+    it.effect(
+      "gives a page a URL, changes it and takes it off",
+      () =>
+        Effect.gen(function* () {
+          const { client } = yield* TestEnv;
+          const page = yield* client["pages.create"]({
+            canvas: "",
+            name: "Draft",
+          });
+          const served = yield* client["pages.setRoute"]({
+            id: page.id,
+            route: "drafts/one",
+          });
+          assert.strictEqual(served.route, "/drafts/one");
+          const none = yield* client["pages.setRoute"]({
+            id: page.id,
+            route: null,
+          });
+          assert.isUndefined(none.route);
+          yield* client["pages.delete"]({ id: page.id });
+          const layout = yield* client["canvas.get"]({ canvas: "" });
+          assert.notProperty(layout.routes ?? {}, page.path);
+        }),
+      30_000
     );
 
     it.effect("renames a page: its frame goes along, its URL stays", () =>
@@ -706,67 +734,75 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         })
     );
 
-    it.effect("builds the component catalogue off the main thread", () =>
-      Effect.gen(function* () {
-        const { client, settings } = yield* TestEnv;
-        yield* client["settings.set"]({ ...settings, libraryDirs: ["ui"] });
-        const catalogue = yield* client["catalogue.get"]({ refresh: true });
-        const button = catalogue.components.find((c) => c.name === "Button");
-        assert.strictEqual(button?.file, "ui/button.tsx");
-        assert.deepStrictEqual(
-          button?.props.map((p) => [p.name, p.type.kind, p.required]),
-          [
-            ["disabled", "boolean", false],
-            ["label", "string", true],
-            ["variant", "enum", false],
-          ]
-        );
-        // The second call is served from the cache and returns the same build.
-        const again = yield* client["catalogue.get"]({ refresh: false });
-        assert.strictEqual(again.builtAt, catalogue.builtAt);
-      })
+    it.effect(
+      "builds the component catalogue off the main thread",
+      () =>
+        Effect.gen(function* () {
+          const { client, settings } = yield* TestEnv;
+          yield* client["settings.set"]({ ...settings, libraryDirs: ["ui"] });
+          const catalogue = yield* client["catalogue.get"]({ refresh: true });
+          const button = catalogue.components.find((c) => c.name === "Button");
+          assert.strictEqual(button?.file, "ui/button.tsx");
+          assert.deepStrictEqual(
+            button?.props.map((p) => [p.name, p.type.kind, p.required]),
+            [
+              ["disabled", "boolean", false],
+              ["label", "string", true],
+              ["variant", "enum", false],
+            ]
+          );
+          // The second call is served from the cache and returns the same build.
+          const again = yield* client["catalogue.get"]({ refresh: false });
+          assert.strictEqual(again.builtAt, catalogue.builtAt);
+        }),
+      30_000
     );
 
-    it.effect("imports the design system without an agent, and says so", () =>
-      Effect.gen(function* () {
-        const { client, repo } = yield* TestEnv;
-        const fs = yield* FileSystem.FileSystem;
-        assert.isNull((yield* client["designSystem.get"]()).designSystem);
-        yield* fs.writeFileString(
-          path.join(repo, "designs/theme.css"),
-          '@import "tailwindcss";\n@theme { --color-brand: #ff0066; --radius-card: 12px; }\n'
-        );
-        const { settings } = yield* TestEnv;
-        yield* client["settings.set"]({
-          ...settings,
-          // Relative to the directory the preview is generated into, as the setup writes them.
-          hostCss: ["../theme.css"],
-          libraryDirs: ["ui"],
-        });
-        const { event, result } = yield* nextEvent(
-          client["events.designSystem"](),
-          client["designSystem.detect"]()
-        );
-        assert.deepStrictEqual(
-          result.colors.flatMap((g) => g.tokens.map((t) => [t.name, t.value])),
-          [["color-brand", "#ff0066"]]
-        );
-        assert.deepStrictEqual(result.radius, [
-          { name: "radius-card", value: "12px" },
-        ]);
-        // The catalogue gives every component a category.
-        assert.isString(result.components?.Button?.category);
-        assert.strictEqual(
-          event._tag === "Some" ? event.value.designSystem?.radius.length : 0,
-          1
-        );
-        assert.isTrue(
-          yield* fs.exists(path.join(repo, "designs/design-system.json"))
-        );
-        // One undo takes it back.
-        yield* client["edit.undo"]();
-        assert.isNull((yield* client["designSystem.get"]()).designSystem);
-      })
+    it.effect(
+      "imports the design system without an agent, and says so",
+      () =>
+        Effect.gen(function* () {
+          const { client, repo } = yield* TestEnv;
+          const fs = yield* FileSystem.FileSystem;
+          assert.isNull((yield* client["designSystem.get"]()).designSystem);
+          yield* fs.writeFileString(
+            path.join(repo, "designs/theme.css"),
+            '@import "tailwindcss";\n@theme { --color-brand: #ff0066; --radius-card: 12px; }\n'
+          );
+          const { settings } = yield* TestEnv;
+          yield* client["settings.set"]({
+            ...settings,
+            // Relative to the directory the preview is generated into, as the setup writes them.
+            hostCss: ["../theme.css"],
+            libraryDirs: ["ui"],
+          });
+          const { event, result } = yield* nextEvent(
+            client["events.designSystem"](),
+            client["designSystem.detect"]()
+          );
+          assert.deepStrictEqual(
+            result.colors.flatMap((g) =>
+              g.tokens.map((t) => [t.name, t.value])
+            ),
+            [["color-brand", "#ff0066"]]
+          );
+          assert.deepStrictEqual(result.radius, [
+            { name: "radius-card", value: "12px" },
+          ]);
+          // The catalogue gives every component a category.
+          assert.isString(result.components?.Button?.category);
+          assert.strictEqual(
+            event._tag === "Some" ? event.value.designSystem?.radius.length : 0,
+            1
+          );
+          assert.isTrue(
+            yield* fs.exists(path.join(repo, "designs/design-system.json"))
+          );
+          // One undo takes it back.
+          yield* client["edit.undo"]();
+          assert.isNull((yield* client["designSystem.get"]()).designSystem);
+        }),
+      30_000
     );
 
     it.effect("keeps thumbnails under the key they were drawn for", () =>

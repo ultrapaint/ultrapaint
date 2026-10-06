@@ -275,10 +275,16 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "settings.renameConfig": () =>
         Effect.tap(settings.renameConfig, () => project.publishInfo),
       "settings.set": Effect.fnUntraced(function* (input) {
+        const before = yield* settings.get;
         const validation = yield* settings.set(input);
         const saved = yield* settings.get;
         if (validation.ok && saved) {
-          yield* project.open(saved);
+          const { configured } = yield* project.info;
+          // Setting what is already running must not restart the preview, nor drop the
+          // project's undo history.
+          if (!configured || JSON.stringify(before) !== JSON.stringify(saved)) {
+            yield* project.open(saved);
+          }
         }
         return validation;
       }),
