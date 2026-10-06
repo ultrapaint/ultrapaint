@@ -61,7 +61,7 @@ import {
 } from "./setup.ts";
 import { CustomiseMode, Skill, SkillList } from "./skills.ts";
 import { Snapshot, SnapshotView } from "./snapshots.ts";
-import { SyncPlan } from "./sync.ts";
+import { FigmaDecision, FigmaTokenComparison, SyncPlan } from "./sync.ts";
 import {
   AgentConfig,
   AgentEdited,
@@ -410,6 +410,20 @@ const requestRpcs = [
 
   /** The design-system sync's plan for the project as it is now (ADR 0025). */
   Rpc.make("sync.plan", { error: NotConfigured, success: SyncPlan }),
+  /** The newest Figma import's tokens against the code's; null when there is no import. */
+  Rpc.make("sync.figmaTokens", {
+    error: Schema.Union([BadRequest, NotConfigured]),
+    success: Schema.NullOr(FigmaTokenComparison),
+  }),
+  /** What Figma changed, and the conflicts given to it, written into the code. */
+  Rpc.make("sync.applyFigma", {
+    error: Schema.Union([BadRequest, NotConfigured]),
+    payload: { decisions: Schema.Array(FigmaDecision) },
+    success: Schema.Struct({
+      files: Schema.Array(Schema.String),
+      written: Schema.Number,
+    }),
+  }),
 
   /** The design skills agents are told, built-in and the project's own, with what is off. */
   Rpc.make("skills.list", {

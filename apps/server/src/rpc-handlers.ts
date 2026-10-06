@@ -295,6 +295,8 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "snapshots.list": () => snapshots.list,
       "snapshots.restore": ({ id }) => snapshots.restore(id),
       "snapshots.view": ({ id }) => snapshots.view(id),
+      "sync.applyFigma": ({ decisions }) => sync.applyFigma(decisions),
+      "sync.figmaTokens": () => sync.figmaTokens,
       "sync.plan": () => sync.plan,
       "threads.answer": ({ threadId, itemId, answers }) =>
         threads.answer(threadId, itemId, answers),

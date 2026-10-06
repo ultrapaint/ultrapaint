@@ -405,7 +405,7 @@ ${chosen.warnings.length > 0 ? `\nWhat the reading could not carry over:\n${chos
 ${
   designSystem
     ? "The design system is imported: read_design_system has its tokens and each component's notes."
-    : "The design system has not been imported yet; components come from list_components. Suggest /init afterwards."
+    : "There is no design system yet; components come from list_components. Afterwards, point the user to Sync in the Design system panel, which makes one."
 }
 
 1. Read the import (read_figma_import) and the repository's components (list_components). For each Figma

@@ -12,8 +12,13 @@ import type {
   SetupStepStatus,
 } from "@ultrapaint/contracts/design-system-setup";
 import {
+  baselineKey,
   driftCount,
   emptyDrift,
+  type FigmaDecision,
+  type FigmaTokenDiff,
+  type FigmaTokenOutcome,
+  type SyncBaseline,
   type SyncCase,
   type SyncDrift,
   type SyncFacts,
@@ -21,7 +26,8 @@ import {
   type SyncStepKind,
   type SyncStepState,
 } from "@ultrapaint/contracts/sync";
-import type { SourceToken } from "@ultrapaint/contracts/tokens";
+import type { SourceToken, TokenChange } from "@ultrapaint/contracts/tokens";
+import { inCodeUnits, sameValue } from "./token-values.ts";
 
 const plural = (n: number, one: string, many = `${one}s`) =>
   `${n} ${n === 1 ? one : many}`;
@@ -291,4 +297,93 @@ export const summaryOf = (
       : `${lead} Every step is done.`;
   }
   return `${lead} Next: ${next.title.toLowerCase()}.`;
+};
+
+/** A token as Figma has it, named as the code names it (`@ultrapaint/figma-import/tokens`). */
+export interface FigmaSide {
+  readonly kind: SourceToken["kind"];
+  readonly name: string;
+  readonly values: Readonly<Record<string, string>>;
+  readonly variable: string;
+}
+
+/** What one token's value comes to, Figma's against the code's and the last sync's. */
+const outcomeOf = (
+  figma: string,
+  code: string | undefined,
+  base: { readonly code?: string; readonly figma?: string } | null
+): FigmaTokenOutcome => {
+  if (code !== undefined && sameValue(figma, code)) {
+    return "same";
+  }
+  if (code === undefined) {
+    // The code took out what the last sync agreed on: Figma is behind.
+    return base?.code === undefined ? "to-code" : "figma-behind";
+  }
+  if (base?.figma === undefined) {
+    return "conflict";
+  }
+  const figmaChanged = !sameValue(figma, base.figma);
+  const codeChanged = !sameValue(code, base.code);
+  if (figmaChanged && !codeChanged) {
+    return "to-code";
+  }
+  if (codeChanged && !figmaChanged) {
+    return "figma-behind";
+  }
+  return "conflict";
+};
+
+/** Figma's tokens against the code's, theme by theme, against the last sync with this file. */
+export const compareFigma = (
+  figma: readonly FigmaSide[],
+  code: readonly SourceToken[],
+  baseline: SyncBaseline | null
+): FigmaTokenDiff[] => {
+  const declared = new Map(code.filter((t) => t.own).map((t) => [t.name, t]));
+  return figma.flatMap((token) =>
+    Object.entries(token.values).map(([theme, value]): FigmaTokenDiff => {
+      const found = declared.get(token.name);
+      const current = theme === "" ? found?.value : found?.values?.[theme];
+      const key = baselineKey(token.name, theme || undefined);
+      const base = baseline
+        ? { code: baseline.code[key], figma: baseline.figma[key] }
+        : null;
+      return {
+        ...(base?.figma !== undefined && { base: base.figma }),
+        ...(current !== undefined && { code: current }),
+        figma: value,
+        kind: token.kind,
+        name: token.name,
+        outcome: outcomeOf(value, current, base),
+        ...(theme && { theme }),
+        variable: token.variable,
+      };
+    })
+  );
+};
+
+/**
+ * The changes to the code a comparison comes to once the user has picked: everything Figma
+ * changed alone, and the conflicts the user gave to Figma, written in the code's units.
+ */
+export const figmaChanges = (
+  diffs: readonly FigmaTokenDiff[],
+  decisions: readonly FigmaDecision[]
+): TokenChange[] => {
+  const picked = new Map(
+    decisions.map((d) => [baselineKey(d.name, d.theme), d.take])
+  );
+  return diffs
+    .filter(
+      (d) =>
+        d.outcome === "to-code" ||
+        (d.outcome === "conflict" &&
+          picked.get(baselineKey(d.name, d.theme)) === "figma")
+    )
+    .map((d) => ({
+      name: d.name,
+      ...(d.theme && { theme: d.theme }),
+      value: inCodeUnits(d.figma, d.code),
+    }));
 };

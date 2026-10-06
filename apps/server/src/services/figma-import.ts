@@ -37,6 +37,10 @@ import {
 import { outlineOf } from "@ultrapaint/figma-import/outline";
 import { makeTokenMatcher } from "@ultrapaint/figma-import/paint";
 import {
+  type FigmaTokenSet,
+  readFigmaTokens,
+} from "@ultrapaint/figma-import/tokens";
+import {
   Clock,
   Context,
   Effect,
@@ -182,6 +186,10 @@ export class FigmaImportService extends Context.Service<
       frame: string
     ) => Effect.Effect<FramePreview, ImportFailure>;
     readonly get: (id: string) => Effect.Effect<FigmaImport, NotFound>;
+    /** The file's variables and styles as tokens named the way the code names them (ADR 0025). */
+    readonly tokens: (
+      id: string
+    ) => Effect.Effect<FigmaTokenSet, ImportFailure>;
     /** The most recent import, or null when there is none. */
     readonly latest: Effect.Effect<FigmaImport | null>;
     readonly list: Effect.Effect<readonly FigmaImport[]>;
@@ -411,7 +419,10 @@ export class FigmaImportService extends Context.Service<
       const conversionOptions = Effect.fnUntraced(function* (
         summary: FigmaImport
       ) {
-        const { designSystem: ds } = yield* designSystem.get;
+        const { designSystem: saved } = yield* designSystem.get;
+        // Before a design system is written, the code's own tokens are what colours match
+        // (ADR 0025): Figma's may have been taken into it already.
+        const ds = saved ?? (yield* designSystem.scan).designSystem;
         return {
           mapping: summary.mapping,
           next: makeIdGenerator(["root"]),
@@ -545,6 +556,13 @@ export class FigmaImportService extends Context.Service<
         } satisfies WrittenFrame;
       });
 
+      const tokens = Effect.fn("FigmaImportService.tokens")(function* (
+        id: string
+      ) {
+        const file = yield* load(id);
+        return readFigmaTokens(file);
+      });
+
       return FigmaImportService.of({
         component,
         create,
@@ -554,6 +572,7 @@ export class FigmaImportService extends Context.Service<
         latest: Effect.map(list, (all) => all[0] ?? null),
         list,
         map,
+        tokens,
         writeFrame,
       });
     })

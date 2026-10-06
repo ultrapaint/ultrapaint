@@ -4,8 +4,14 @@
  * plan is worked out again whenever something it reads changes, and pushed to the editor, whose
  * Design system tab counts what is left to do.
  */
-import type { NotConfigured } from "@ultrapaint/contracts/errors";
-import type { SyncFacts, SyncPlan } from "@ultrapaint/contracts/sync";
+import { BadRequest, type NotConfigured } from "@ultrapaint/contracts/errors";
+import {
+  baselineKey,
+  type FigmaDecision,
+  type FigmaTokenComparison,
+  type SyncFacts,
+  type SyncPlan,
+} from "@ultrapaint/contracts/sync";
 import {
   Clock,
   Context,
@@ -25,7 +31,9 @@ import { DesignSystemService } from "./design-system.ts";
 import { DesignSystemSetupService } from "./design-system-setup.ts";
 import {
   caseOf,
+  compareFigma,
   driftOf,
+  figmaChanges,
   planOf,
   summaryOf,
 } from "./design-system-sync-rules.ts";
@@ -44,6 +52,24 @@ interface Manifest {
 export class DesignSystemSyncService extends Context.Service<
   DesignSystemSyncService,
   {
+    /**
+     * Figma's tokens against the code's and the last sync's, for the newest import; null when
+     * there is none.
+     */
+    readonly figmaTokens: Effect.Effect<
+      FigmaTokenComparison | null,
+      NotConfigured | BadRequest
+    >;
+    /**
+     * Writes what Figma changed alone, and the conflicts the user gave to Figma, into the code,
+     * and keeps where the two now agree as the baseline of the next sync.
+     */
+    readonly applyFigma: (
+      decisions: readonly FigmaDecision[]
+    ) => Effect.Effect<
+      { readonly files: readonly string[]; readonly written: number },
+      NotConfigured | BadRequest
+    >;
     /** The plan as the project is now; also pushed to the editor. */
     readonly plan: Effect.Effect<SyncPlan, NotConfigured>;
   }
@@ -91,7 +117,8 @@ export class DesignSystemSyncService extends Context.Service<
               settings,
             })
           );
-          const state = yield* (yield* DesignSystemService).get;
+          const designSystem = yield* DesignSystemService;
+          const state = yield* designSystem.get;
           const latest = yield* (yield* FigmaImportService).latest;
           const facts: SyncFacts = {
             app: yield* hasApp(paths.anchorDir),
@@ -103,10 +130,10 @@ export class DesignSystemSyncService extends Context.Service<
             stylesheets: settings.hostCss.length,
             tokens: source.tokens.filter((t) => t.own).length,
           };
-          const baseline = state.designSystem?.sync;
+          const baseline = yield* designSystem.baseline;
           const figmaSynced =
             latest !== null &&
-            baseline !== undefined &&
+            baseline !== null &&
             baseline.file === latest.name &&
             baseline.at >= latest.createdAt;
           return {
@@ -241,7 +268,112 @@ export class DesignSystemSyncService extends Context.Service<
         Effect.forkScoped
       );
 
-      return DesignSystemSyncService.of({ plan });
+      /** The newest import's tokens compared, with what the comparison was made from. */
+      const compare = project.use(
+        Effect.gen(function* () {
+          const latest = yield* (yield* FigmaImportService).latest;
+          if (!latest) {
+            return null;
+          }
+          const paths = yield* RepoPaths;
+          const figma = yield* (yield* FigmaImportService)
+            .tokens(latest.id)
+            .pipe(
+              Effect.mapError(
+                (error) =>
+                  new BadRequest({
+                    message: `${latest.name} could not be read: ${error.message}`,
+                  })
+              )
+            );
+          const code = (yield* ProjectStyleSystem).readTokens({
+            anchorDir: paths.anchorDir,
+            root: paths.root,
+            settings: paths.settings,
+          });
+          const stored = yield* (yield* DesignSystemService).baseline;
+          // A baseline from another Figma file says nothing about this one.
+          const baseline = stored?.file === latest.name ? stored : null;
+          const diffs = compareFigma(figma.tokens, code.tokens, baseline);
+          return {
+            comparison: {
+              baseline: baseline !== null,
+              diffs,
+              file: latest.name,
+              importId: latest.id,
+              notes: [...figma.notes],
+            } satisfies FigmaTokenComparison,
+            figma,
+          };
+        })
+      );
+
+      const figmaTokens = Effect.map(
+        compare,
+        (found) => found?.comparison ?? null
+      );
+
+      const applyFigma = Effect.fn("DesignSystemSyncService.applyFigma")(
+        function* (decisions: readonly FigmaDecision[]) {
+          const found = yield* compare;
+          if (!found) {
+            return yield* new BadRequest({
+              message: "There is no Figma import to take tokens from.",
+            });
+          }
+          const changes = figmaChanges(found.comparison.diffs, decisions);
+          const result = yield* project.use(
+            Effect.gen(function* () {
+              const designSystem = yield* DesignSystemService;
+              const { files } =
+                changes.length > 0
+                  ? yield* designSystem.setTokens(changes)
+                  : { files: [] as readonly string[] };
+              // Where Figma and the code stand now, for the next sync to compare against.
+              const paths = yield* RepoPaths;
+              const code = (yield* ProjectStyleSystem).readTokens({
+                anchorDir: paths.anchorDir,
+                root: paths.root,
+                settings: paths.settings,
+              });
+              const declared = new Map(
+                code.tokens.filter((t) => t.own).map((t) => [t.name, t])
+              );
+              const figma: Record<string, string> = {};
+              const inCode: Record<string, string> = {};
+              for (const d of found.comparison.diffs) {
+                const key = baselineKey(d.name, d.theme);
+                figma[key] = d.figma;
+                const now = declared.get(d.name);
+                const value = d.theme ? now?.values?.[d.theme] : now?.value;
+                if (value !== undefined) {
+                  inCode[key] = value;
+                }
+              }
+              yield* designSystem
+                .saveBaseline({
+                  at: yield* Clock.currentTimeMillis,
+                  code: inCode,
+                  figma,
+                  file: found.comparison.file,
+                })
+                .pipe(
+                  Effect.mapError(
+                    (error) =>
+                      new BadRequest({
+                        message: `the baseline could not be saved: ${error.message}`,
+                      })
+                  )
+                );
+              return { files, written: changes.length };
+            })
+          );
+          yield* Effect.ignore(plan);
+          return result;
+        }
+      );
+
+      return DesignSystemSyncService.of({ applyFigma, figmaTokens, plan });
     })
   );
 }

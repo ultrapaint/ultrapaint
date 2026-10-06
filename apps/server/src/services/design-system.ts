@@ -7,6 +7,7 @@ import {
   mapTokens,
 } from "@ultrapaint/contracts/design-system";
 import { BadRequest } from "@ultrapaint/contracts/errors";
+import { SyncBaseline } from "@ultrapaint/contracts/sync";
 import type { SourceToken, TokenChange } from "@ultrapaint/contracts/tokens";
 import { serialise } from "@ultrapaint/design-document/factories";
 import type { DesignSystemScan } from "@ultrapaint/framework-api/node";
@@ -21,12 +22,17 @@ import {
 } from "effect";
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { EventBus } from "../events.ts";
+import { hashContent } from "../hash.ts";
 import { CatalogueService } from "./catalogue.ts";
 import { type EditFailure, EditService } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
+import { Storage } from "./storage.ts";
 import { ProjectStyleSystem } from "./style-system.ts";
 
 const decodeDesignSystem = Schema.decodeUnknownEffect(DesignSystem);
+const BaselineJson = Schema.fromJsonString(SyncBaseline);
+const decodeBaseline = Schema.decodeUnknownEffect(BaselineJson);
+const encodeBaseline = Schema.encodeEffect(BaselineJson);
 
 /**
  * The design system as the project records it: `design-system.json` and `DESIGN.md` at the root
@@ -57,6 +63,19 @@ export class DesignSystemService extends Context.Service<
       },
       BadRequest
     >;
+    /** Several token changes at once, in one write of each file they touch. */
+    readonly setTokens: (
+      changes: readonly TokenChange[]
+    ) => Effect.Effect<{ readonly files: readonly string[] }, BadRequest>;
+    /**
+     * What the last sync with Figma agreed on: the design system's, or the one waiting in the
+     * state directory for a design system to be written.
+     */
+    readonly baseline: Effect.Effect<SyncBaseline | null>;
+    /** Keeps a sync's baseline: in `design-system.json` when there is one, else until there is. */
+    readonly saveBaseline: (
+      baseline: SyncBaseline
+    ) => Effect.Effect<void, EditFailure>;
     /** Validates and saves; `notes` replaces `DESIGN.md` when given. */
     readonly write: (
       designSystem: unknown,
@@ -72,6 +91,7 @@ export class DesignSystemService extends Context.Service<
       const styleSystem = yield* ProjectStyleSystem;
       const catalogue = yield* CatalogueService;
       const events = yield* EventBus;
+      const storage = yield* Storage;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const writeAtomic = makeWriteAtomic(fs, path);
@@ -135,6 +155,26 @@ export class DesignSystemService extends Context.Service<
           return rest;
         });
 
+      /** Where a baseline waits for a design system to be written: the state, per repository. */
+      const pendingFile = Effect.map(storage.stateDir, (state) =>
+        path.join(
+          state,
+          "design-system-sync",
+          hashContent(paths.root),
+          "baseline.json"
+        )
+      );
+
+      /** The baseline waiting in the state directory, if one is. */
+      const pending = Effect.gen(function* () {
+        const text = yield* fs.readFileString(yield* pendingFile);
+        return yield* decodeBaseline(text);
+      }).pipe(
+        Effect.map((found): SyncBaseline | null => found),
+        // None waiting, or one written by a version that no longer reads it.
+        Effect.orElseSucceed(() => null)
+      );
+
       const get: Effect.Effect<DesignSystemState> = Effect.gen(function* () {
         const [text, notes] = yield* Effect.all([
           readOptional(systemFile),
@@ -168,6 +208,11 @@ export class DesignSystemService extends Context.Service<
               problem: `${DESIGN_SYSTEM_FILE} is not valid: ${decoded.failure.message}`,
             };
       }).pipe(Effect.withSpan("DesignSystemService.get"));
+
+      const baseline = Effect.gen(function* () {
+        const { designSystem } = yield* get;
+        return designSystem?.sync ?? (yield* pending);
+      });
 
       const scan = Effect.gen(function* () {
         const found = yield* Effect.sync(() =>
@@ -218,11 +263,15 @@ export class DesignSystemService extends Context.Service<
           )
         );
         const code = yield* codeTokens;
+        // A sync's baseline is the tool's, not the writer's: an agent rewriting the design
+        // system without it keeps the one there is, or the one waiting for a design system.
+        const kept = designSystem.sync ?? (yield* baseline) ?? undefined;
+        const saved = kept ? { ...designSystem, sync: kept } : designSystem;
         yield* edit.transaction("Update the design system", (tx) =>
           Effect.gen(function* () {
             yield* tx.write(
               paths.relative(systemFile),
-              serialise(forFile(designSystem, code))
+              serialise(forFile(saved, code))
             );
             if (notes !== undefined) {
               yield* tx.write(
@@ -240,13 +289,10 @@ export class DesignSystemService extends Context.Service<
 
       const detect = Effect.flatMap(scan, (found) => write(found.designSystem));
 
-      const setToken = Effect.fn("DesignSystemService.setToken")(function* (
-        change: TokenChange
+      /** Writes the files a list of token changes comes to, all inside the repository. */
+      const writeChanges = Effect.fnUntraced(function* (
+        changes: readonly TokenChange[]
       ) {
-        const before = (yield* codeTokens).get(change.name);
-        const previous =
-          (change.theme ? before?.values?.[change.theme] : before?.value) ??
-          null;
         const edits = yield* Effect.try({
           catch: (error) =>
             new BadRequest({
@@ -259,14 +305,9 @@ export class DesignSystemService extends Context.Service<
                 root: paths.root,
                 settings: paths.settings,
               },
-              [change]
+              changes
             ),
         });
-        if (edits.length === 0) {
-          return yield* new BadRequest({
-            message: `${change.name} is not declared in a stylesheet of the repository, and there is none to add it to.`,
-          });
-        }
         const root = path.resolve(paths.root);
         for (const written of edits) {
           const file = path.resolve(root, written.file);
@@ -277,11 +318,50 @@ export class DesignSystemService extends Context.Service<
           }
           yield* Effect.orDie(writeAtomic(file, written.text));
         }
-        yield* Effect.flatMap(get, (state) =>
-          events.publish("designSystem", state)
-        );
-        return { files: edits.map((e) => e.file), previous };
+        if (edits.length > 0) {
+          yield* Effect.flatMap(get, (state) =>
+            events.publish("designSystem", state)
+          );
+        }
+        return { files: edits.map((e) => e.file) };
       });
+
+      const setTokens = Effect.fn("DesignSystemService.setTokens")(
+        (changes: readonly TokenChange[]) => writeChanges(changes)
+      );
+
+      const setToken = Effect.fn("DesignSystemService.setToken")(function* (
+        change: TokenChange
+      ) {
+        const before = (yield* codeTokens).get(change.name);
+        const previous =
+          (change.theme ? before?.values?.[change.theme] : before?.value) ??
+          null;
+        const { files } = yield* writeChanges([change]);
+        if (files.length === 0) {
+          return yield* new BadRequest({
+            message: `${change.name} is not declared in a stylesheet of the repository, and there is none to add it to.`,
+          });
+        }
+        return { files, previous };
+      });
+
+      const saveBaseline = Effect.fn("DesignSystemService.saveBaseline")(
+        function* (next: SyncBaseline) {
+          const { designSystem } = yield* get;
+          if (designSystem) {
+            yield* write({ ...designSystem, sync: next });
+            yield* Effect.ignore(fs.remove(yield* pendingFile));
+            return;
+          }
+          const file = yield* pendingFile;
+          yield* Effect.orDie(
+            Effect.flatMap(encodeBaseline(next), (text) =>
+              writeAtomic(file, text)
+            )
+          );
+        }
+      );
 
       // Whoever changes the files — an undo, an agent writing them by hand, a checkout.
       const names = new Set([
@@ -297,7 +377,16 @@ export class DesignSystemService extends Context.Service<
         Effect.forkScoped
       );
 
-      return DesignSystemService.of({ detect, get, scan, setToken, write });
+      return DesignSystemService.of({
+        baseline,
+        detect,
+        get,
+        saveBaseline,
+        scan,
+        setToken,
+        setTokens,
+        write,
+      });
     })
   );
 }
