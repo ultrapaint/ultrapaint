@@ -1,6 +1,6 @@
 # Run by hand, from the Actions tab on main: raises the version in the root package.json, commits
 # and tags it, and attaches the command's package (`pnpm pack:local`) to a GitHub release, to be
-# installed in any repository with `npm install -g ./ultrapaint-<version>.tgz`.
+# installed for any repository with `pnpm add -g ./ultrapaint-<version>.tgz`.
 name: Release
 
 on:
@@ -22,15 +22,15 @@ concurrency:
 jobs:
   release:
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      # pnpm at the version package.json names, Node.js, the store's cache and `pnpm install`.
+      - uses: pnpm/setup@v3
         with:
-          node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+          runtime: node@24
+          cache: true
+          require-lockfile: true
 
       - name: Raise the version
         id: version
@@ -53,8 +53,11 @@ jobs:
       - name: Try the package
         env:
           VERSION: ${{ steps.version.outputs.version }}
+        # Installed the way the release notes say, into a pnpm home of its own.
         run: |
-          npm install -g "./dist/ultrapaint-$VERSION.tgz"
+          export PNPM_HOME="$RUNNER_TEMP/pnpm-global"
+          export PATH="$PNPM_HOME/bin:$PATH"
+          pnpm add -g "./dist/ultrapaint-$VERSION.tgz"
           test "$(ultrapaint --version)" = "ultrapaint v$VERSION"
 
       - name: Commit and tag
@@ -81,5 +84,5 @@ jobs:
 
           \`\`\`bash
           gh release download v$VERSION --repo ${{ github.repository }} --pattern '*.tgz'
-          npm install -g ./ultrapaint-$VERSION.tgz
+          pnpm add -g ./ultrapaint-$VERSION.tgz
           \`\`\`"

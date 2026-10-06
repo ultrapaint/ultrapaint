@@ -1,8 +1,9 @@
 /**
  * The server as a bundle that runs without the workspace: `dist/bin.mjs`, the catalogue's
  * worker next to it, and the preview's bundles in `dist/preview/`, where a bundled server looks
- * for them. Effect is bundled in; only what is loaded from disk at runtime stays a dependency of
- * whoever ships the bundle: TypeScript 5 for the catalogue and esbuild for the preview.
+ * for them. Effect is bundled in; only TypeScript 5, which the catalogue loads from disk at
+ * runtime, stays a dependency of whoever ships the bundle. esbuild is imported only to build the
+ * preview's bundles from sources, which a bundled server never does.
  */
 import { cpSync, rmSync } from "node:fs";
 import path from "node:path";

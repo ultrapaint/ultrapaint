@@ -27,14 +27,16 @@ and commit like any other file.
 Each [release](https://github.com/ultrapaint/ultrapaint/releases) carries the command as a
 package, `ultrapaint-<version>.tgz`: the server and the editor already built, nothing to clone.
 The repository is private, so download it with the [GitHub CLI](https://cli.github.com) (or from
-the release page while signed in) and install it globally:
+the release page while signed in) and install it globally with pnpm:
 
 ```bash
 gh release download --repo ultrapaint/ultrapaint --pattern '*.tgz'
-npm install -g ./ultrapaint-*.tgz
+pnpm add -g ./ultrapaint-*.tgz
 ```
 
-To update, download the newer release and install it the same way.
+pnpm installs global commands into a directory of its own; if it says that directory is not on
+your `PATH`, run `pnpm setup` once and open a new shell. `npm install -g ./ultrapaint-*.tgz`
+works too. To update, download the newer release and install it the same way.
 
 ### From a checkout
 

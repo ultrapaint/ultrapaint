@@ -1,7 +1,6 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { build } from "esbuild";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 // A source checkout builds the bundles on demand. A bundled server has no sources to build
@@ -72,6 +71,8 @@ export const buildPreviewBundles = async (
         newest(path.dirname(coreSource))
       );
   if (stale) {
+    // Only a checkout builds them, so a bundled server does not need esbuild installed.
+    const { build } = await import("esbuild");
     await build({
       bundle: true,
       entryPoints: [path.join(here, "serve.ts")],

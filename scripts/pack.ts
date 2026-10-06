@@ -3,9 +3,9 @@
  * this checkout, written to `dist/ultrapaint-<version>.tgz`. It holds the command bundled as
  * `cli.mjs`, the server's bundle in `server/` and the editor's build in `web/`. Installing it
  * fetches only what is loaded from disk at runtime: Vite and its React plugin, which the
- * preview falls back to when the repository has none, esbuild and TypeScript 5.
+ * preview falls back to when the repository has none, and TypeScript 5.
  *
- * `npm install -g ./dist/ultrapaint-<version>.tgz` puts the command on the PATH. The package
+ * `pnpm add -g ./dist/ultrapaint-<version>.tgz` puts the command on the PATH. The package
  * is private, so it cannot be published by mistake while the name is not chosen.
  */
 import { execFileSync } from "node:child_process";
@@ -94,7 +94,6 @@ writeFileSync(
       bin: { "ultrapaint": "cli.mjs" },
       dependencies: {
         "@vitejs/plugin-react": range("@vitejs/plugin-react"),
-        esbuild: range("esbuild"),
         "typescript-api": range("typescript-api"),
         vite: range("vite"),
       },
@@ -117,6 +116,4 @@ const tarball = sh(
   stage
 );
 console.log(`[pack] ${path.join(out, tarball)}`);
-console.log(
-  `[pack] install it with: npm install -g ${path.join(out, tarball)}`
-);
+console.log(`[pack] install it with: pnpm add -g ${path.join(out, tarball)}`);
