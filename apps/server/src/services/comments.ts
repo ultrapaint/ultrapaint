@@ -11,7 +11,7 @@ import {
   type ForbiddenPath,
   NotFound,
 } from "@ultrapaint/contracts/errors";
-import { ROOT_CANVAS } from "@ultrapaint/shared/canvas";
+import { CANVAS_FILE, ROOT_CANVAS } from "@ultrapaint/shared/canvas";
 import {
   Clock,
   Context,
@@ -26,7 +26,7 @@ import {
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { EventBus } from "../events.ts";
 import { toPosix } from "../hash.ts";
-import { makeId } from "../ids.ts";
+import { makeId, safeCanvasId } from "../ids.ts";
 import type { EditFailure, EditTransaction } from "./edit.ts";
 import { runGit } from "./git.ts";
 import { RepoPaths } from "./repo-paths.ts";
@@ -64,7 +64,9 @@ export class CommentsService extends Context.Service<
       id: string,
       replyId: string
     ) => Effect.Effect<Comment, CommentsFailure>;
-    readonly list: (canvas: string) => Effect.Effect<CommentList, Conflict>;
+    readonly list: (
+      canvas: string
+    ) => Effect.Effect<CommentList, Conflict | NotFound>;
     /** Adds an answer to the thread under a comment. */
     readonly reply: (
       input: ReplyInput
@@ -101,7 +103,27 @@ export class CommentsService extends Context.Service<
       const exists = (p: string) =>
         Effect.orElseSucceed(fs.exists(p), () => false);
 
-      const fileOf = (canvas: string) => path.join(root, canvas, COMMENTS_FILE);
+      const fileOf = (canvas: string) =>
+        Effect.map(safeCanvasId(canvas), (safe) =>
+          path.join(root, safe, COMMENTS_FILE)
+        );
+
+      /**
+       * Where a change to a canvas's comments is written: a canvas there is. Comments do not
+       * make a directory a canvas, nor a directory to put the file in.
+       */
+      const fileToWrite = Effect.fnUntraced(function* (canvas: string) {
+        const file = yield* fileOf(canvas);
+        if (
+          canvas !== ROOT_CANVAS &&
+          !(yield* exists(path.join(root, canvas, CANVAS_FILE)))
+        ) {
+          return yield* new NotFound({
+            message: `canvas not found: ${canvas}`,
+          });
+        }
+        return yield* paths.resolve(file);
+      });
 
       // The name comments are signed with. A repository without one leaves them unsigned.
       const author = yield* runGit(paths.root, ["config", "user.name"]).pipe(
@@ -112,7 +134,7 @@ export class CommentsService extends Context.Service<
       const list = Effect.fn("CommentsService.list")(function* (
         canvas: string
       ) {
-        const file = fileOf(canvas);
+        const file = yield* fileOf(canvas);
         if (!(yield* exists(file))) {
           return emptyList();
         }
@@ -131,7 +153,7 @@ export class CommentsService extends Context.Service<
         canvas: string,
         comments: readonly Comment[]
       ) {
-        const file = yield* paths.resolve(fileOf(canvas));
+        const file = yield* fileToWrite(canvas);
         const next: CommentList = { comments, version: 1 };
         yield* Effect.orDie(writeAtomic(file, renderComments(next)));
         yield* events.publish("comments", { canvas, list: next });
@@ -256,7 +278,7 @@ export class CommentsService extends Context.Service<
           next.length === before.comments.length &&
           next.every((comment, i) => comment === before.comments[i]);
         if (!same) {
-          const file = yield* paths.resolve(fileOf(canvas));
+          const file = yield* paths.resolve(yield* fileOf(canvas));
           const written: CommentList = { comments: next, version: 1 };
           yield* tx.write(paths.relative(file), renderComments(written));
           yield* events.publish("comments", { canvas, list: written });

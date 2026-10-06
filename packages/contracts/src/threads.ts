@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { Json } from "./base.ts";
+import { FileId, Json } from "./base.ts";
 
 export const AgentConfig = Schema.Struct({
   args: Schema.Array(Schema.String),
@@ -422,7 +422,7 @@ export type ThreadItem = typeof ThreadItem.Type;
 export const PromptInput = Schema.Struct({
   attachments: Schema.Array(PromptAttachment),
   text: Schema.String,
-  threadId: Schema.String,
+  threadId: FileId,
 });
 export type PromptInput = typeof PromptInput.Type;
 

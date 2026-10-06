@@ -44,30 +44,51 @@ export class RepoPaths extends Context.Service<
         const exists = (p: string) =>
           Effect.orElseSucceed(fs.exists(p), () => false);
 
-        // Walk up to the nearest existing ancestor so symlinked parents are followed.
-        const nearestExisting = Effect.fnUntraced(function* (abs: string) {
+        /**
+         * The path with every symlink in it followed: the real path of its nearest existing
+         * ancestor, so that symlinked parents are followed, and the rest as it is written.
+         */
+        const realOf = Effect.fnUntraced(function* (abs: string) {
           let probe = abs;
           while (!(yield* exists(probe))) {
             const parent = path.dirname(probe);
             if (parent === probe) {
-              return probe;
+              break;
             }
             probe = parent;
           }
-          return yield* Effect.orElseSucceed(fs.realPath(probe), () => probe);
+          const real = yield* Effect.orElseSucceed(
+            fs.realPath(probe),
+            () => probe
+          );
+          return path.join(real, path.relative(probe, abs));
         });
 
+        const inRepository = (real: string) =>
+          real === realRoot || real.startsWith(realRoot + path.sep);
+
+        /*
+         * What is checked is where the path leads, every link followed. What is handed back is
+         * its directory's real path and its own name: a later swap of a directory along the way
+         * for a link no longer moves where it points. The name itself is left to the operation:
+         * a write renames over it and a removal unlinks it, so a page that is a link to a file
+         * elsewhere in the repository is replaced, never written through.
+         */
         const resolve = Effect.fn("RepoPaths.resolve")(function* (p: string) {
           const abs = path.isAbsolute(p)
             ? path.resolve(p)
             : path.resolve(root, p);
-          const real = yield* nearestExisting(abs);
-          if (real !== realRoot && !real.startsWith(realRoot + path.sep)) {
+          const real = yield* realOf(abs);
+          const resolved =
+            abs === root
+              ? root
+              : path.join(yield* realOf(path.dirname(abs)), path.basename(abs));
+          if (!(inRepository(real) && inRepository(resolved))) {
             return yield* new ForbiddenPath({
               message: `path escapes the repository: ${p}`,
             });
           }
-          return abs;
+          return resolved;
         });
 
         const designsDir = path.join(root, settings.designsDir);

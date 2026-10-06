@@ -1,5 +1,6 @@
 import { Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/rpc";
+import { CanvasId, FileId } from "./base.ts";
 import { Catalogue } from "./catalogue.ts";
 import {
   Comment,
@@ -123,7 +124,7 @@ const SetupError = Schema.Union([
 ]);
 const SetupStepRef = { step: SetupStepId };
 
-const ThreadRef = { threadId: Schema.String };
+const ThreadRef = { threadId: FileId };
 
 /** Every request the editor can make. Tags are the method names the editor already uses. */
 const requestRpcs = [
@@ -184,7 +185,7 @@ const requestRpcs = [
   Rpc.make("pages.create", {
     error: PagesError,
     payload: {
-      canvas: Schema.String,
+      canvas: CanvasId,
       name: Schema.String,
       route: Schema.optional(Schema.String),
       template: Schema.optional(Schema.String),
@@ -232,7 +233,7 @@ const requestRpcs = [
       ids: Schema.Array(Schema.String),
       move: Schema.Boolean,
       target: Schema.Union([
-        Schema.Struct({ canvas: Schema.String }),
+        Schema.Struct({ canvas: CanvasId }),
         Schema.Struct({ name: Schema.String }),
       ]),
     },
@@ -247,19 +248,19 @@ const requestRpcs = [
   /** What the canvas is called; its directory, and every link into it, stay. */
   Rpc.make("canvases.rename", {
     error: PagesError,
-    payload: { id: Schema.String, name: Schema.String },
+    payload: { id: CanvasId, name: Schema.String },
     success: Canvas,
   }),
   /** A copy of everything the canvas holds, pages, layout and own assets, under a new name. */
   Rpc.make("canvases.duplicate", {
     error: PagesError,
-    payload: { id: Schema.String, name: Schema.String },
+    payload: { id: CanvasId, name: Schema.String },
     success: Canvas,
   }),
   /** The canvas's pages, layout and comments; the last canvas stays. */
   Rpc.make("canvases.delete", {
     error: PagesError,
-    payload: { id: Schema.String },
+    payload: { id: CanvasId },
   }),
   /**
    * The URL the canvas's prototype opens on. A page of the canvas must serve it; when that page
@@ -267,7 +268,7 @@ const requestRpcs = [
    */
   Rpc.make("canvases.setHome", {
     error: PagesError,
-    payload: { id: Schema.String, route: Schema.String },
+    payload: { id: CanvasId, route: Schema.String },
     success: Canvas,
   }),
   Rpc.make("canvases.reorder", {
@@ -276,14 +277,14 @@ const requestRpcs = [
   }),
   Rpc.make("canvas.get", {
     error: PagesError,
-    payload: { canvas: Schema.String },
+    payload: { canvas: CanvasId },
     success: CanvasLayout,
   }),
   /** Saves where the pages' frames sit; the canvas's nodes change through `documents.apply`. */
   Rpc.make("canvas.set", {
     error: PagesError,
     payload: {
-      canvas: Schema.String,
+      canvas: CanvasId,
       frames: Schema.Record(Schema.String, FrameLayout),
     },
   }),
@@ -300,7 +301,7 @@ const requestRpcs = [
   /** Every document of a canvas: its pages and its loose nodes. */
   Rpc.make("documents.list", {
     error: PagesError,
-    payload: { canvas: Schema.String },
+    payload: { canvas: CanvasId },
     success: Schema.Array(DocumentState),
   }),
   Rpc.make("documents.get", {
@@ -484,7 +485,7 @@ const requestRpcs = [
 
   Rpc.make("comments.list", {
     error: PagesError,
-    payload: { canvas: Schema.String },
+    payload: { canvas: CanvasId },
     success: CommentList,
   }),
   Rpc.make("comments.create", {
@@ -499,7 +500,7 @@ const requestRpcs = [
   }),
   Rpc.make("comments.delete", {
     error: PagesError,
-    payload: { canvas: Schema.String, id: Schema.String },
+    payload: { canvas: CanvasId, id: Schema.String },
   }),
   Rpc.make("comments.reply", {
     error: PagesError,
@@ -509,7 +510,7 @@ const requestRpcs = [
   Rpc.make("comments.deleteReply", {
     error: PagesError,
     payload: {
-      canvas: Schema.String,
+      canvas: CanvasId,
       id: Schema.String,
       replyId: Schema.String,
     },
@@ -571,7 +572,7 @@ const requestRpcs = [
   /** Takes a queued prompt back out, to drop it or to edit it in the composer. */
   Rpc.make("threads.unqueue", {
     error: ThreadError,
-    payload: { id: Schema.String, threadId: Schema.String },
+    payload: { id: Schema.String, threadId: FileId },
     success: Schema.NullOr(QueuedPrompt),
   }),
   /** Sends the oldest queued prompt now, after a turn that was stopped or failed. */
@@ -627,7 +628,7 @@ const requestRpcs = [
   }),
   Rpc.make("figma.delete", {
     error: Schema.Union([NotConfigured, NotFound]),
-    payload: { id: Schema.String },
+    payload: { id: FileId },
   }),
   Rpc.make("git.diff", {
     error: GitError,

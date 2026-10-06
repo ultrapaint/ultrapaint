@@ -1,5 +1,5 @@
 import { Effect, Schema } from "effect";
-import { NonEmptyString, Timestamp } from "./base.ts";
+import { CanvasId, NonEmptyString, Timestamp } from "./base.ts";
 
 /** An answer in a comment's thread. */
 export const CommentReply = Schema.Struct({
@@ -48,7 +48,7 @@ export const CommentList = Schema.Struct({
 export type CommentList = typeof CommentList.Type;
 
 export const CreateCommentInput = Schema.Struct({
-  canvas: Schema.String,
+  canvas: CanvasId,
   element: Schema.NullOr(Schema.String),
   nodeId: Schema.NullOr(Schema.String),
   page: Schema.String,
@@ -60,7 +60,7 @@ export type CreateCommentInput = typeof CreateCommentInput.Type;
 
 /** Only what is given changes. */
 export const UpdateCommentInput = Schema.Struct({
-  canvas: Schema.String,
+  canvas: CanvasId,
   id: Schema.String,
   resolved: Schema.optional(Schema.Boolean),
   text: Schema.optional(NonEmptyString),
@@ -68,7 +68,7 @@ export const UpdateCommentInput = Schema.Struct({
 export type UpdateCommentInput = typeof UpdateCommentInput.Type;
 
 export const ReplyInput = Schema.Struct({
-  canvas: Schema.String,
+  canvas: CanvasId,
   id: Schema.String,
   text: NonEmptyString,
 });

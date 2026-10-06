@@ -11,6 +11,7 @@ import {
 import { AppLog } from "../../app-log.ts";
 import { makeWriteAtomic } from "../../atomic-write.ts";
 import { EventBus } from "../../events.ts";
+import { safeFileId } from "../../ids.ts";
 import { makeKeyedLock } from "../../keyed-lock.ts";
 import { Storage } from "../storage.ts";
 
@@ -116,8 +117,10 @@ export class ThreadStore extends Context.Service<
       const writeAtomic = makeWriteAtomic(fs, path);
       // Asked for on every write: saving an unsaved session moves the state directory.
       const fileOf = (id: string) =>
-        Effect.map(storage.stateDir, (state) =>
-          path.join(state, "threads", `${id}.json`)
+        Effect.flatMap(safeFileId("thread", id), (safe) =>
+          Effect.map(storage.stateDir, (state) =>
+            path.join(state, "threads", `${safe}.json`)
+          )
         );
       const dir = path.join(yield* storage.stateDir, "threads");
       const threads = new Map<string, Entry>();
@@ -131,6 +134,8 @@ export class ThreadStore extends Context.Service<
           Effect.flatMap(parseJson),
           Effect.map(migrateStored),
           Effect.flatMap(decodeStored),
+          // Its id names the file it is written back to.
+          Effect.tap((stored) => safeFileId("thread", stored.thread.id)),
           Effect.tap((stored) =>
             Effect.sync(() => {
               // No session survives a restart, whatever the file says.
@@ -238,7 +243,10 @@ export class ThreadStore extends Context.Service<
         patchItem,
         push,
         remove: Effect.fnUntraced(function* (id: string) {
-          threads.delete(id);
+          // Only a thread there is has a file to remove.
+          if (!threads.delete(id)) {
+            return;
+          }
           // Behind any write still in flight, or its rename would bring the file back.
           yield* writes.withLock(
             id,

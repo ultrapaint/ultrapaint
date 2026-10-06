@@ -51,7 +51,7 @@ import {
   Semaphore,
 } from "effect";
 import { makeWriteAtomic } from "../atomic-write.ts";
-import { makeId } from "../ids.ts";
+import { makeId, safeFileId } from "../ids.ts";
 import { CatalogueService } from "./catalogue.ts";
 import { DesignSystemService } from "./design-system.ts";
 import type { EditFailure } from "./edit.ts";
@@ -226,9 +226,12 @@ export class FigmaImportService extends Context.Service<
       // The summary file is read, changed and written back: one at a time.
       const writing = yield* Semaphore.make(1);
 
+      // Removed recursively by `delete`: an id that named anything else would take that with it.
       const dirOf = (id: string) =>
-        Effect.map(storage.stateDir, (state) =>
-          path.join(state, IMPORTS_DIR, id)
+        Effect.flatMap(safeFileId("Figma import", id), (safe) =>
+          Effect.map(storage.stateDir, (state) =>
+            path.join(state, IMPORTS_DIR, safe)
+          )
         );
 
       const readSummary = Effect.fnUntraced(function* (id: string) {
@@ -250,7 +253,8 @@ export class FigmaImportService extends Context.Service<
       });
 
       const writeSummary = Effect.fnUntraced(function* (summary: FigmaImport) {
-        const dir = yield* dirOf(summary.id);
+        // Its id was made here or read back with it: one that is not an id is a bug.
+        const dir = yield* Effect.orDie(dirOf(summary.id));
         yield* Effect.orDie(fs.makeDirectory(dir, { recursive: true }));
         yield* Effect.orDie(
           writeAtomic(
@@ -350,7 +354,7 @@ export class FigmaImportService extends Context.Service<
           mapping: {},
           name,
         };
-        const dir = yield* dirOf(id);
+        const dir = yield* Effect.orDie(dirOf(id));
         yield* Effect.orDie(fs.makeDirectory(dir, { recursive: true }));
         yield* Effect.orDie(fs.writeFile(path.join(dir, FILE_NAME), bytes));
         yield* writeSummary(summary);

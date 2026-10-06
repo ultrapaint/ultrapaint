@@ -4,6 +4,7 @@ import { assert, layer } from "@effect/vitest";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { Effect, Fiber, FileSystem, Stream } from "effect";
 import { TestEnv, TestServer } from "./testing/harness.ts";
+import { toolCaller } from "./testing/mcp.ts";
 
 const SHA_RE = /^[0-9a-f]{40}$/;
 const HOME = "home.page.json";
@@ -1577,6 +1578,114 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           (yield* client["pages.list"]()).canvases.map((c) => c.id),
           "wireframes"
         );
+      })
+    );
+  }
+);
+
+/**
+ * A request as it arrives over the socket, its payload not checked by the client's schema first:
+ * what a page that is not the editor could send. Answers with the exit's tag.
+ */
+const rawCall = (port: number, tag: string, payload: unknown) =>
+  Effect.callback<string>((resume) => {
+    const socket = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+    socket.onopen = () =>
+      socket.send(
+        JSON.stringify({ _tag: "Request", headers: [], id: "1", payload, tag })
+      );
+    socket.onmessage = (message) => {
+      const decoded = JSON.parse(String(message.data)) as {
+        readonly _tag: string;
+        readonly exit?: { readonly _tag: string };
+      };
+      if (decoded._tag === "Exit") {
+        socket.close();
+        resume(Effect.succeed(decoded.exit?._tag ?? ""));
+      }
+    };
+    socket.onerror = () => resume(Effect.succeed("error"));
+  });
+
+layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
+  "ids that would name a path somewhere else",
+  (it) => {
+    it.effect("opens the fixture", () =>
+      Effect.gen(function* () {
+        const { client, settings } = yield* TestEnv;
+        const validation = yield* client["settings.set"](settings);
+        assert.deepStrictEqual(validation.problems, []);
+      })
+    );
+
+    it.effect("will not delete the settings as a thread", () =>
+      Effect.gen(function* () {
+        const { home, port } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        const settingsFile = path.join(home, "settings.json");
+        assert.isTrue(yield* fs.exists(settingsFile));
+        assert.strictEqual(
+          yield* rawCall(port, "threads.delete", { threadId: "../settings" }),
+          "Failure"
+        );
+        assert.isTrue(yield* fs.exists(settingsFile));
+      })
+    );
+
+    it.effect("reads no canvas, comments or import outside their place", () =>
+      Effect.gen(function* () {
+        const { home, port } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        for (const [tag, payload] of [
+          ["canvas.get", { canvas: "../.." }],
+          ["comments.list", { canvas: "../.." }],
+          ["documents.list", { canvas: "/etc" }],
+          ["canvas.set", { canvas: "..", frames: {} }],
+          ["comments.create", { ...commentOn("../x", HOME, "Out") }],
+          ["figma.delete", { id: "../threads" }],
+        ] as const) {
+          assert.strictEqual(
+            yield* rawCall(port, tag, payload),
+            "Failure",
+            tag
+          );
+        }
+        assert.isTrue(yield* fs.exists(path.join(home, "threads")));
+      })
+    );
+
+    it.effect("makes no canvas for a page, a frame or a comment", () =>
+      Effect.gen(function* () {
+        const { client, repo } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        const created = yield* Effect.flip(
+          client["pages.create"]({ canvas: "nowhere", name: "Lost" })
+        );
+        assert.strictEqual(created._tag, "NotFound");
+        const framed = yield* Effect.flip(
+          client["canvas.set"]({ canvas: "nowhere", frames: {} })
+        );
+        assert.strictEqual(framed._tag, "NotFound");
+        const commented = yield* Effect.flip(
+          client["comments.create"](commentOn("nowhere", HOME, "Lost"))
+        );
+        assert.strictEqual(commented._tag, "NotFound");
+        assert.isFalse(yield* fs.exists(path.join(repo, "designs/nowhere")));
+        assert.deepStrictEqual(
+          (yield* client["pages.list"]()).canvases.map((c) => c.id),
+          [""]
+        );
+      })
+    );
+
+    it.effect("tells an agent there is no Figma import by that name", () =>
+      Effect.gen(function* () {
+        const { client, port } = yield* TestEnv;
+        const { token } = yield* client["mcp.connection"]();
+        const call = toolCaller(port, token);
+        const read = yield* call("read_figma_import", { import: "../.." });
+        assert.isTrue(read.result.isError);
+        assert.include(read.result.content[0]?.text ?? "", "no Figma import");
       })
     );
   }

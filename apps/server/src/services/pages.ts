@@ -58,6 +58,7 @@ import {
 import { EventBus } from "../events.ts";
 import { makeWalk } from "../fs-walk.ts";
 import { hashContent, toPosix } from "../hash.ts";
+import { safeCanvasId } from "../ids.ts";
 import { COMMENTS_FILE, CommentsService } from "./comments.ts";
 import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
@@ -353,7 +354,7 @@ export class PagesService extends Context.Service<
     /** The layout of a canvas: its frames and the nodes on it. */
     readonly readCanvas: (
       canvas: string
-    ) => Effect.Effect<CanvasLayout, Conflict>;
+    ) => Effect.Effect<CanvasLayout, Conflict | NotFound>;
     /** Repo-relative path of a canvas's `canvas.json`. */
     readonly canvasFile: (canvas: string) => Effect.Effect<string, EditFailure>;
     /** Renames the page, which moves its file and its variants', and its comments; its URL stays. */
@@ -432,7 +433,7 @@ export class PagesService extends Context.Service<
       const readCanvas = Effect.fn("PagesService.readCanvas")(function* (
         canvas: string
       ) {
-        const file = canvasPath(canvas);
+        const file = canvasPath(yield* safeCanvasId(canvas));
         if (!(yield* exists(file))) {
           return emptyCanvasLayout();
         }
@@ -449,7 +450,9 @@ export class PagesService extends Context.Service<
       });
 
       const canvasFile = Effect.fnUntraced(function* (canvas: string) {
-        return paths.relative(yield* paths.resolve(canvasPath(canvas)));
+        return paths.relative(
+          yield* paths.resolve(canvasPath(yield* safeCanvasId(canvas)))
+        );
       });
 
       const updateCanvas = Effect.fnUntraced(function* (
@@ -697,6 +700,12 @@ export class PagesService extends Context.Service<
           return yield* new BadRequest({ message: "a page needs a name" });
         }
         const all = yield* list;
+        // A canvas is made by `createCanvas`, never by a page that names one there is not.
+        if (!all.canvases.some((c) => c.id === canvas)) {
+          return yield* new NotFound({
+            message: `canvas not found: ${canvas}`,
+          });
+        }
         const route =
           page.route === undefined || page.route.trim() === ""
             ? undefined
@@ -1474,12 +1483,17 @@ export class PagesService extends Context.Service<
         canvas: string,
         frames: Record<string, FrameLayout>
       ) {
+        const all = yield* list;
+        // Frames are saved for a canvas there is; they do not make one.
+        if (!all.canvases.some((c) => c.id === canvas)) {
+          return yield* new NotFound({
+            message: `canvas not found: ${canvas}`,
+          });
+        }
         // The editor's frames may be older than a page renamed, moved or deleted since: a frame
         // of a page that is gone would be brought back under its old name.
         const present = new Set(
-          (yield* list).pages
-            .filter((p) => p.canvas === canvas)
-            .map((p) => p.path)
+          all.pages.filter((p) => p.canvas === canvas).map((p) => p.path)
         );
         yield* edit.transaction("Arrange the canvas", (tx) =>
           updateCanvas(tx, canvas, (layout) => ({
