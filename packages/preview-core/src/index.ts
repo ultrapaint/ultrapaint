@@ -74,8 +74,13 @@ export const startPreview = () => {
   // ---- Messaging ----
   // Every message carries the frame id so the editor can route it without relying on window
   // identity, which changes when the host restarts on another port.
+  /**
+   * Where the editor is, once it has spoken: what is posted after goes to it alone. Until then
+   * (`ed:ready`, an early error) it goes to the parent whatever its origin.
+   */
+  let editorOrigin = "*";
   const post = (msg: Record<string, unknown>) => {
-    window.parent.postMessage({ ...msg, frame: config.frame }, "*");
+    window.parent.postMessage({ ...msg, frame: config.frame }, editorOrigin);
   };
 
   // The frame that draws pictures (thumbnails, screenshots) draws each state at once: a
@@ -446,9 +451,18 @@ export const startPreview = () => {
 
   // ---- Handlers ----
   window.addEventListener("message", (ev) => {
+    // Only the editor, the window this preview is framed in, may ask anything of it: another
+    // frame on the page could otherwise take screenshots of it or read its tokens.
+    if (standalone || ev.source !== window.parent) {
+      return;
+    }
     const msg = ev.data as ({ type?: string } & Record<string, unknown>) | null;
     if (!msg || typeof msg.type !== "string" || !msg.type.startsWith("ed:")) {
       return;
+    }
+    // An opaque origin cannot be posted to by name; the parent is the only window posted to.
+    if (ev.origin !== "" && ev.origin !== "null") {
+      editorOrigin = ev.origin;
     }
     switch (msg.type) {
       case "ed:render":
