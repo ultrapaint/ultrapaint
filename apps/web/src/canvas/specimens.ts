@@ -13,7 +13,7 @@ const WIDTH = 1200;
 const HEIGHT = 900;
 
 let iframe: HTMLIFrameElement | null = null;
-let ready: Promise<void> | null = null;
+let ready: Promise<boolean> | null = null;
 let queue: Promise<unknown> = Promise.resolve();
 let srcOf: string | null = null;
 
@@ -30,10 +30,17 @@ const settle = () =>
   ]);
 
 /**
- * The hidden iframe, loaded from the preview at `host`, made once and kept; made again for
- * another canvas, whose images are found elsewhere.
+ * How long the preview has to load and say it is ready. One that never does is given up on, so a
+ * dead preview fails the pictures asked of it instead of holding every later one up.
  */
-const open = (host: string, canvas: string) => {
+export const READY_MS = 20_000;
+
+/**
+ * The hidden iframe, loaded from the preview at `host`, made once and kept; made again for
+ * another canvas, whose images are found elsewhere. Whether it answered in time: one that did
+ * not is taken down, and the next picture loads the preview afresh.
+ */
+const open = (host: string, canvas: string): Promise<boolean> => {
   const src = `${host}/?canvas=${encodeURIComponent(canvas)}&frame=${FRAME}`;
   if (iframe && ready && srcOf === src) {
     return ready;
@@ -49,17 +56,32 @@ const open = (host: string, canvas: string) => {
   el.src = src;
   iframe = el;
   const bridge = bridgeFor(FRAME);
-  ready = new Promise<void>((resolve) => {
+  const opening = new Promise<boolean>((resolve) => {
+    const timer = setTimeout(() => {
+      off();
+      resolve(false);
+    }, READY_MS);
     const off = bridge.on((msg) => {
       if (msg.type === "ed:ready") {
+        clearTimeout(timer);
         off();
-        resolve();
+        resolve(true);
       }
     });
   });
+  ready = opening;
+  opening.then((answered) => {
+    if (!answered && ready === opening) {
+      el.remove();
+      bridge.detach();
+      iframe = null;
+      ready = null;
+      srcOf = null;
+    }
+  });
   document.body.append(el);
   bridge.attach(el);
-  return ready;
+  return opening;
 };
 
 /** Waits for the preview to have drawn a render, however long its components take to load. */
@@ -97,7 +119,9 @@ export const drawSpecimen = (
   options: SpecimenOptions = {}
 ): Promise<string | null> => {
   const task = queue.then(async () => {
-    await open(host, options.canvas ?? "");
+    if (!(await open(host, options.canvas ?? ""))) {
+      return null;
+    }
     if (iframe) {
       iframe.style.width = `${options.width ?? WIDTH}px`;
       iframe.style.height = `${options.height ?? HEIGHT}px`;
@@ -114,6 +138,7 @@ export const drawSpecimen = (
     await settle();
     return await bridge.screenshot(options.nodeId);
   });
+  // A picture that failed fails alone; the next one in line is still drawn.
   queue = task.catch(() => null);
   return task;
 };
