@@ -11,7 +11,7 @@ export const ScaffoldButton = () => {
     return null;
   }
   const start = async () => {
-    // The repository has a package.json at its root, or it would not be open.
+    // A repository that is open has a package already, if not one with React: beside it.
     if (
       await startApplication({
         beside: true,

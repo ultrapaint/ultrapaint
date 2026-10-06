@@ -24,7 +24,7 @@ const COMPONENT_FILE_RE = /^(?!.*\.(stories|test|spec)\.)[^_].*\.tsx$/;
 const LIBRARY_NAME_RE =
   /(^|[-/@])(ui|components?|design-system|ds|kit)([-/]|$)/i;
 const APP_NAME_RE =
-  /(^|[-/@])(app|web|site|client|frontend|storybook)([-/]|$)/i;
+  /(^|[-/@])(app|web|site|client|front|frontend|storybook)([-/]|$)/i;
 const DESIGNS_NAME_RE = /(^|[-/])designs?$/i;
 
 const toPosix = (p: string) => p.replaceAll("\\", "/");
@@ -213,6 +213,8 @@ export const detect: Detect = (root) => {
           ...(pkg.dependencies.has("vite") ? ["has Vite"] : []),
         ];
         const score =
+          // Rendering with React is enough to resolve pages from; the rest says how well.
+          1 +
           (pkg.dependencies.has("react-dom") ? 1 : 0) +
           usedLibraries.length * 3 +
           // A designs package that is already there was made for exactly this.

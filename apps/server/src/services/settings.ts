@@ -299,6 +299,23 @@ export class SettingsService extends Context.Service<
           Effect.orElseSucceed(() => "")
         );
 
+      /** Whether a package.json is in the designs directory or a directory above it, in the repository. */
+      const packageAbove = Effect.fnUntraced(function* (
+        repo: string,
+        designsDir: string
+      ) {
+        let dir = path.resolve(repo, designsDir);
+        for (;;) {
+          if (yield* exists(path.join(dir, "package.json"))) {
+            return true;
+          }
+          if (dir === repo || !dir.startsWith(repo)) {
+            return false;
+          }
+          dir = path.dirname(dir);
+        }
+      });
+
       const validate = Effect.fn("SettingsService.validate")(function* (
         settings: Settings
       ) {
@@ -308,9 +325,6 @@ export class SettingsService extends Context.Service<
           problems.push("Repository path must be absolute.");
         }
         if (yield* exists(repo)) {
-          if (!(yield* exists(path.join(repo, "package.json")))) {
-            problems.push("Repository has no package.json.");
-          }
           const inside = yield* gitLine(repo, [
             "rev-parse",
             "--is-inside-work-tree",
@@ -326,6 +340,9 @@ export class SettingsService extends Context.Service<
             `Designs directory does not exist: ${settings.designsDir}`
           );
         }
+        // The pages import what a package of the repository can: the one named, or the nearest
+        // one above the designs directory. The repository's root need not be one; an app in
+        // `front/` with no manifest at the root is set up by naming `front`.
         if (settings.resolveFrom !== undefined) {
           const anchor = path.join(repo, settings.resolveFrom, "package.json");
           if (!(yield* exists(anchor))) {
@@ -333,6 +350,10 @@ export class SettingsService extends Context.Service<
               `The package pages resolve their imports from has no package.json: ${settings.resolveFrom}`
             );
           }
+        } else if (!(yield* packageAbove(repo, settings.designsDir))) {
+          problems.push(
+            "No package.json for the pages to resolve their imports from: set Resolve imports from to your application's directory."
+          );
         }
         for (const dir of settings.libraryDirs) {
           if (!(yield* exists(path.join(repo, dir)))) {

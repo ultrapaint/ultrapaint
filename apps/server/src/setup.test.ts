@@ -73,5 +73,51 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         assert.isFalse(validation.ok);
       })
     );
+
+    it.effect(
+      "sets up an app in front/ when the repository's root has no package.json",
+      () =>
+        Effect.gen(function* () {
+          const { client, repo, settings } = yield* TestEnv;
+          const fs = yield* FileSystem.FileSystem;
+          // The fixture's root manifest goes; the app is a package of its own in front/.
+          yield* fs.remove(`${repo}/package.json`);
+          yield* fs.makeDirectory(`${repo}/front/src/components`, {
+            recursive: true,
+          });
+          yield* fs.writeFileString(
+            `${repo}/front/package.json`,
+            '{ "name": "front", "dependencies": { "react": "19" } }\n'
+          );
+          yield* fs.writeFileString(
+            `${repo}/front/src/components/header.tsx`,
+            "export const Header = () => null;\n"
+          );
+          yield* fs.makeDirectory(`${repo}/docs/designs`, { recursive: true });
+
+          const found = yield* client["setup.detect"]({ repoPath: repo });
+          assert.isFalse(found.rootManifest ?? true);
+          assert.strictEqual(found.anchors[0]?.dir, "front");
+          assert.strictEqual(
+            found.libraries[0]?.sourceDir,
+            "front/src/components"
+          );
+
+          const front = {
+            ...settings,
+            designsDir: "docs/designs",
+            libraryDirs: ["front/src/components"],
+            resolveFrom: "front",
+          };
+          const ok = yield* client["settings.validate"](front);
+          assert.deepStrictEqual(ok.problems, []);
+
+          // Without saying where the pages import from, there is nothing to resolve them in.
+          const { resolveFrom: _gone, ...unanchored } = front;
+          const missing = yield* client["settings.validate"](unanchored);
+          assert.isFalse(missing.ok);
+          assert.include(missing.problems.join(" "), "Resolve imports from");
+        })
+    );
   }
 );

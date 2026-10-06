@@ -171,7 +171,9 @@ framework, so StyleX or Emotion would be another one, not a rewrite
 ([ADR 0024](docs/adr/0024-style-systems.md)).
 
 Nothing is installed for the designs. Their components are imported the way the package you
-picked imports them, and render with your repository's own React and Vite.
+picked imports them, and render with your repository's own React and Vite. That package is the
+only one that needs a `package.json`: a repository whose root has none, with the application in
+`front/`, is set up with **Resolve imports from** `front`.
 
 Started like this, without a configuration file, the top bar says **Not saved**: your settings
 and agent threads go away when the tool stops. Click it to save an `ultrapaint.config.json` in
