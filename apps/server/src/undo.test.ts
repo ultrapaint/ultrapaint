@@ -65,6 +65,69 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         }),
       30_000
     );
+
+    test.effect(
+      "fills in the ids a page leaves out without writing over an edit made meanwhile",
+      () =>
+        Effect.gen(function* () {
+          const { client, repo, settings } = yield* TestEnv;
+          const fs = yield* FileSystem.FileSystem;
+          const path = yield* Path.Path;
+          yield* client["settings.set"](settings);
+          const file = path.join(repo, "designs/handmade.page.json");
+          for (let round = 0; round < 10; round += 1) {
+            // Written by hand: the paragraph has no id yet.
+            yield* fs.writeFileString(
+              file,
+              JSON.stringify({
+                root: {
+                  children: [{ role: "paragraph", text: "Old", type: "text" }],
+                  id: "root",
+                  type: "page",
+                },
+                version: 1,
+              })
+            );
+            yield* Effect.all(
+              [
+                client["documents.apply"]({
+                  edits: [
+                    {
+                      doc: "handmade.page.json",
+                      ops: [
+                        {
+                          node: {
+                            id: `new_${round}`,
+                            role: "paragraph",
+                            text: "New",
+                            type: "text",
+                          },
+                          op: "insert",
+                          parent: "root",
+                        },
+                      ],
+                    },
+                  ],
+                }),
+                ...Array.from({ length: 4 }, () =>
+                  client["documents.get"]({ doc: "handmade.page.json" })
+                ),
+              ],
+              { concurrency: "unbounded" }
+            );
+            const saved = JSON.parse(yield* fs.readFileString(file));
+            const texts = saved.root.children.map(
+              (c: { id?: string; text: string }) => [typeof c.id, c.text]
+            );
+            assert.deepStrictEqual(texts, [
+              ["string", "Old"],
+              ["string", "New"],
+            ]);
+          }
+          yield* fs.remove(file);
+        }),
+      30_000
+    );
   }
 );
 

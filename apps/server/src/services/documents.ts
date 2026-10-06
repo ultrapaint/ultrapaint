@@ -154,12 +154,30 @@ export class DocumentService extends Context.Service<
         return paths.relative(yield* paths.resolve(path.join(root, doc)));
       });
 
+      /** What a document's text is as a document, or why it is not one. */
+      const loadedFrom = Effect.fnUntraced(function* (
+        text: string,
+        canvas: boolean
+      ) {
+        const hash = hashContent(text);
+        const parsed = yield* parseDocument(text, canvas);
+        const loaded: Loaded =
+          "problem" in parsed
+            ? { hash, problem: parsed.problem, root: null, text }
+            : { hash, root: parsed.root, text };
+        return { filled: "filled" in parsed && parsed.filled, loaded };
+      });
+
       /**
        * Reads a document. Ids a hand-written file leaves out are filled in and written back,
-       * outside the undo journal: the file then says what the editor and agents call its nodes.
+       * outside the undo history: the file then says what the editor and agents call its nodes.
+       * The write goes through the journal, so it is atomic, made one writer at a time, and the
+       * steps that recorded the file see it. Inside a transaction, which holds the journal,
+       * `persist` is false: the ids are filled in what is read, and the action writes them.
        */
       const load = Effect.fnUntraced(function* (
-        doc: string
+        doc: string,
+        persist = true
       ): Effect.fn.Return<Loaded, EditFailure> {
         const rel = yield* fileOf(doc);
         const abs = yield* paths.resolve(rel);
@@ -175,44 +193,62 @@ export class DocumentService extends Context.Service<
               })
           )
         );
-        const canvas = canvasOfDoc(doc);
+        const canvas = canvasOfDoc(doc) !== null;
         if (text === null) {
           const missing: Loaded = {
             hash: "",
-            root: canvas === null ? null : canvasRoot([]),
+            root: canvas ? canvasRoot([]) : null,
             text,
           };
           return missing;
         }
-        const hash = hashContent(text);
-        const parsed = yield* parseDocument(text, canvas !== null);
-        if ("problem" in parsed) {
-          return {
-            hash,
-            problem: parsed.problem,
-            root: null,
-            text,
-          } satisfies Loaded;
+        const read = yield* loadedFrom(text, canvas);
+        if (!(read.filled && persist)) {
+          return read.loaded;
         }
-        const loaded = { hash, root: parsed.root, text } satisfies Loaded;
-        return parsed.filled ? yield* rewrite(abs, text, loaded) : loaded;
+        const written = yield* edit
+          .amend(rel, (content) =>
+            content === null
+              ? Effect.fail(new NotFound({ message: `${rel} is gone` }))
+              : Effect.map(withIds(content, canvas), (next) => {
+                  const kept = next ?? content;
+                  return [kept, kept] as const;
+                })
+          )
+          .pipe(Effect.catchTag("NotFound", () => Effect.succeed(null)));
+        if (written === null) {
+          return read.loaded;
+        }
+        return (yield* loadedFrom(written, canvas)).loaded;
       });
 
-      /** Writes back a document whose ids were filled in, as the file it should have been. */
-      const rewrite = Effect.fnUntraced(function* (
-        abs: string,
-        original: string,
-        loaded: Loaded
-      ) {
-        const next = abs.endsWith(CANVAS_FILE)
-          ? serialiseDocument({
-              ...(JSON.parse(original) as Record<string, unknown>),
-              nodes: childrenOf(loaded.root as DesignNode),
-            })
-          : serialiseDocument({ root: loaded.root, version: DOCUMENT_VERSION });
-        yield* Effect.orDie(fs.writeFileString(abs, next));
-        return { ...loaded, hash: hashContent(next), text: next };
-      });
+      /**
+       * The text a document should have, with the ids it leaves out filled in; null when none
+       * are missing, or it is not a document.
+       */
+      const withIds = (text: string, canvas: boolean) =>
+        Effect.flatMap(parseDocument(text, canvas), (parsed) => {
+          if ("problem" in parsed || !parsed.filled) {
+            return Effect.succeed(null);
+          }
+          if (!canvas) {
+            return Effect.succeed(
+              serialiseDocument({
+                root: parsed.root,
+                version: DOCUMENT_VERSION,
+              })
+            );
+          }
+          // The canvas's layout is kept as it is; only its nodes get their ids.
+          return Effect.try(
+            () => JSON.parse(text) as Record<string, unknown>
+          ).pipe(
+            Effect.map((layout): string | null =>
+              serialiseDocument({ ...layout, nodes: childrenOf(parsed.root) })
+            ),
+            Effect.orElseSucceed(() => null)
+          );
+        });
 
       const stateOf = (doc: string, loaded: Loaded): DocumentState => ({
         doc,
@@ -265,11 +301,15 @@ export class DocumentService extends Context.Service<
           (input.edits.length === 1 && input.edits[0]?.ops.length === 1
             ? `Edit ${input.edits[0]?.ops[0]?.op ?? "document"}`
             : "Edit the design");
+        // Ids a document leaves out are written before the action, which holds the journal.
+        yield* Effect.forEach(input.edits, (change) => load(change.doc), {
+          discard: true,
+        });
         yield* edit.transaction(label, (tx) =>
           Effect.forEach(
             input.edits,
             Effect.fnUntraced(function* (change) {
-              const loaded = yield* load(change.doc);
+              const loaded = yield* load(change.doc, false);
               if (loaded.problem !== undefined || loaded.root === null) {
                 return yield* new BadRequest({
                   message: `${change.doc} cannot be edited: ${loaded.problem ?? "it does not exist"}`,

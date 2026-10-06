@@ -370,7 +370,11 @@ export class EditService extends Context.Service<
         exclusive(
           Effect.gen(function* () {
             yield* editable(rel);
-            const [next, result] = yield* update(yield* current(rel));
+            const now = yield* current(rel);
+            const [next, result] = yield* update(now);
+            if (next === now) {
+              return result;
+            }
             yield* restore(rel, next);
             // The steps that recorded the file see it changed the same way. A state where it
             // did not exist stays so, and one the change cannot be made to stays as it was.
