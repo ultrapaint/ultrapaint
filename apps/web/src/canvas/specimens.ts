@@ -152,3 +152,20 @@ export const hashOf = (text: string) => {
   }
   return h.toString(16).padStart(8, "0");
 };
+
+/** What a picture is drawn in besides the node: a change to any of it draws the node again. */
+export interface DrawnIn {
+  /** When the components' code was last read, as the catalogue says. */
+  readonly builtAt: number;
+  readonly canvas: string;
+  readonly designSystem: DesignSystem | null;
+}
+
+/** A key for a picture of `shown`, the parts of a node it depends on, drawn in `drawnIn`. */
+export const pictureKey = (shown: unknown, drawnIn: DrawnIn) =>
+  JSON.stringify([
+    hashOf(
+      JSON.stringify([drawnIn.designSystem, drawnIn.builtAt, drawnIn.canvas])
+    ),
+    shown,
+  ]);

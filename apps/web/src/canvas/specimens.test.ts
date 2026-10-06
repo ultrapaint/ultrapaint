@@ -2,7 +2,7 @@ import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { EditorMessage } from "@ultrapaint/contracts/preview";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { bridgeFor } from "./bridge.ts";
-import { drawSpecimen, READY_MS } from "./specimens.ts";
+import { drawSpecimen, pictureKey, READY_MS } from "./specimens.ts";
 
 /** A hidden iframe as the specimens make it, whose preview answers when `alive`. */
 interface FakeFrame {
@@ -102,5 +102,29 @@ describe("drawSpecimen", () => {
     bridgeFor("specimen").handle({ frame: "specimen", type: "ed:ready" });
     await vi.advanceTimersByTimeAsync(200);
     await expect(behind).resolves.toBe("data:image/png;base64,AA");
+  });
+});
+
+describe("pictureKey", () => {
+  const drawnIn = { builtAt: 1, canvas: "c_1", designSystem: null };
+  const ds = { colors: [{ name: "Brand", tokens: [] }] } as never;
+
+  it("is the same for the same node drawn in the same design system, code and canvas", () => {
+    expect(pictureKey(["Button", "primary"], drawnIn)).toBe(
+      pictureKey(["Button", "primary"], { ...drawnIn })
+    );
+  });
+
+  it("changes with the design system, the components' code and the canvas", () => {
+    const key = pictureKey(["Button", "primary"], drawnIn);
+    expect(
+      pictureKey(["Button", "primary"], { ...drawnIn, designSystem: ds })
+    ).not.toBe(key);
+    expect(
+      pictureKey(["Button", "primary"], { ...drawnIn, builtAt: 2 })
+    ).not.toBe(key);
+    expect(
+      pictureKey(["Button", "primary"], { ...drawnIn, canvas: "c_2" })
+    ).not.toBe(key);
   });
 });
