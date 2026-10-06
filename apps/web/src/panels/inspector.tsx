@@ -110,7 +110,7 @@ import { useInstances } from "../state/instances.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { ComponentProps } from "./component-props.tsx";
 
-type Set = (field: string, value: JsonValue) => void;
+type SetField = (field: string, value: JsonValue) => void;
 
 /**
  * The nodes the inspector is about: every one selected, the one it shows first leading; or the
@@ -141,7 +141,7 @@ const useInspected = () => {
 };
 
 /** Sets a field of every node inspected. */
-const set: Set = (field, value) =>
+const set: SetField = (field, value) =>
   updateSelection({ [field]: value }, `Change ${field}`);
 
 /** Sets fields of every node inspected, worked out from each: the rest of its border, its sides. */

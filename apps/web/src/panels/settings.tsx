@@ -404,12 +404,6 @@ const SkillsGroup = ({
   );
 };
 
-/** Stands for "no choice": the first agent, or the agent's own model. */
-
-/**
- * The agent and model a new thread starts with. Saved as soon as it is picked: it is the
- * user's, not the project's, and a thread can still switch both in its composer.
- */
 /** Kept in this browser rather than the settings file, so it applies at once and to every project. */
 const SendKeyGroup = () => {
   const sendKey = useSendKey((s) => s.sendKey);
@@ -434,6 +428,10 @@ const SendKeyGroup = () => {
   );
 };
 
+/**
+ * The agent and model a new thread starts with. Saved as soon as it is picked: it is the
+ * user's, not the project's, and a thread can still switch both in its composer.
+ */
 const ChatDefaultsGroup = () => {
   const [agents, setAgents] = useState<readonly AgentConfig[]>([]);
   const [known, setKnown] = useState<readonly AgentOptions[]>([]);

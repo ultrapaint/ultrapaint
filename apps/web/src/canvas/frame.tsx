@@ -83,7 +83,6 @@ const isInteractive = (s: { mode: string; spacePan: boolean }) =>
 /** How far the pointer travels before a press becomes a drag, in screen pixels. */
 const DRAG_THRESHOLD = 4;
 
-/** Tells a preview what its frame shows now: the document as it is, in the design system. */
 /** What a frame is called over its top edge: the page, in its variant, or the node on the canvas. */
 const frameName = (page: Page | undefined, root: DesignNode | null) => {
   if (page) {
@@ -94,6 +93,7 @@ const frameName = (page: Page | undefined, root: DesignNode | null) => {
   return root ? nodeLabel(root) : "";
 };
 
+/** Tells a preview what its frame shows now: the document as it is, in the design system. */
 const renderFrame = (
   frameId: string,
   kind: "page" | "node",
