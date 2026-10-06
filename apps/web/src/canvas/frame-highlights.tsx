@@ -13,11 +13,8 @@ import {
 } from "../lib/selection-kind.ts";
 import { rootOfFrame, useDocuments } from "../state/documents.ts";
 import { type Selection, useEditor, type Workspace } from "../state/editor.ts";
-import {
-  ElementToolbar,
-  GroupToolbar,
-  TAG_HEIGHT,
-} from "./element-toolbar.tsx";
+import { ElementToolbar, GroupToolbar } from "./element-toolbar.tsx";
+import { TAG_HEIGHT } from "./element-toolbar-placement.ts";
 import { SelectionTag } from "./selection-tag.tsx";
 
 /** The node selected in this frame, if the selection is here. */
