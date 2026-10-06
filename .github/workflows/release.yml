@@ -80,9 +80,17 @@ jobs:
           gh release create "v$VERSION" "dist/ultrapaint-$VERSION.tgz" \
             --title "v$VERSION" \
             --generate-notes \
-            --notes "Install it, then run \`ultrapaint\` in any repository (Node.js 24 or newer):
+            --notes "Needs Node.js 24 or newer. To run it without installing, in the repository you want to design in:
 
           \`\`\`bash
-          gh release download v$VERSION --repo ${{ github.repository }} --pattern '*.tgz'
+          dir=\$(mktemp -d)
+          gh release download v$VERSION --repo $GITHUB_REPOSITORY --pattern '*.tgz' --dir \"\$dir\"
+          pnpm dlx \"\$dir\"/ultrapaint-$VERSION.tgz
+          \`\`\`
+
+          To install it, then run \`ultrapaint\` in any repository:
+
+          \`\`\`bash
+          gh release download v$VERSION --repo $GITHUB_REPOSITORY --pattern '*.tgz'
           pnpm add -g ./ultrapaint-$VERSION.tgz
           \`\`\`"

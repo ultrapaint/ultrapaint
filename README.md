@@ -26,8 +26,22 @@ and commit like any other file.
 
 Each [release](https://github.com/ultrapaint/ultrapaint/releases) carries the command as a
 package, `ultrapaint-<version>.tgz`: the server and the editor already built, nothing to clone.
-The repository is private, so download it with the [GitHub CLI](https://cli.github.com) (or from
-the release page while signed in) and install it globally with pnpm:
+The repository is private, so download it with the [GitHub CLI](https://cli.github.com), or from
+the release page while signed in.
+
+To try it without installing anything, run this in the repository you want to design in. It
+downloads the latest release to a temporary directory and runs it from there:
+
+```bash
+dir=$(mktemp -d)
+gh release download --repo ultrapaint/ultrapaint --pattern '*.tgz' --dir "$dir"
+pnpm dlx "$dir"/ultrapaint-*.tgz
+```
+
+`pnpm dlx` needs the tarball's absolute path: a relative one is read from pnpm's cache, not from
+where you are. Flags go after the path (`pnpm dlx "$dir"/ultrapaint-*.tgz --port 4800`).
+
+To keep the command, install it globally instead:
 
 ```bash
 gh release download --repo ultrapaint/ultrapaint --pattern '*.tgz'

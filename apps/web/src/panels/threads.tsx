@@ -24,9 +24,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Circle,
   CircleAlert,
-  CircleDot,
   CircleHelp,
   Clock,
   Ellipsis,
@@ -49,7 +47,6 @@ import {
   ShieldQuestion,
   Sparkles,
   Square,
-  SquareCheck,
   SquareDashedMousePointer,
   X,
   Zap,
@@ -57,6 +54,7 @@ import {
 import {
   type ChangeEvent,
   type KeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type ReactNode,
   useEffect,
   useMemo,
@@ -106,6 +104,15 @@ import { IconButton } from "../components/icon-button.tsx";
 import { Markdown } from "../components/markdown.tsx";
 import { SetupEmpty } from "../components/setup-dialog.tsx";
 import { showScope } from "../lib/add-to-chat.ts";
+import {
+  type AnswerDraft,
+  answeredWell,
+  notANumber,
+  openQuestionOf,
+  type QuestionItem,
+  type QuestionOf,
+  takesTyping,
+} from "../lib/answers.ts";
 import { shortcutLabel } from "../lib/keys.ts";
 import {
   type DiffRow,
@@ -125,6 +132,15 @@ import {
 } from "../lib/thread-work.ts";
 import { terminalKey, useAgents } from "../state/agents.ts";
 import {
+  declineQuestions,
+  draftOf,
+  pick,
+  sendAnswers,
+  setOther,
+  setStep,
+  useAnswers,
+} from "../state/answers.ts";
+import {
   addChip,
   type Chip,
   chipKey,
@@ -141,7 +157,7 @@ import { useDesignSystemSetup } from "../state/design-system-setup.ts";
 import { nodeIn, useDocuments } from "../state/documents.ts";
 import { useEditor, type Workspace } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
-import { isSendKey, useSendKey } from "../state/send-key.ts";
+import { isSendKey, type SendKey, useSendKey } from "../state/send-key.ts";
 import { ScopePicture, ThreadList } from "./chat-list.tsx";
 import { ChatStarters } from "./chat-starters.tsx";
 import { SetupStepBar, SetupStepIntro } from "./design-system-setup.tsx";
@@ -875,9 +891,6 @@ const Permission = ({
   );
 };
 
-type QuestionItem = Extract<ThreadItem, { kind: "question" }>;
-type QuestionOf = QuestionItem["questions"][number];
-
 /** What an answer reads as once given: each option's label, or the text typed. */
 const answerLabel = (question: QuestionOf, answer: Answer | undefined) => {
   const label = (one: string) =>
@@ -890,102 +903,54 @@ const answerLabel = (question: QuestionOf, answer: Answer | undefined) => {
     : answer.map(label).join(", ");
 };
 
-/** An answer typed for a number question that is not one. */
-const notANumber = (question: QuestionOf, typed: string) => {
-  if (question.value !== "number" && question.value !== "integer") {
-    return false;
-  }
-  const value = Number(typed);
-  return (
-    !Number.isFinite(value) ||
-    (question.value === "integer" && !Number.isInteger(value))
-  );
-};
-
-/** What says whether a choice is picked: a radio, or a box where several can be. */
-const choiceMark = (multiple: boolean, on: boolean): LucideIcon => {
-  if (multiple) {
-    return on ? SquareCheck : Square;
-  }
-  return on ? CircleDot : Circle;
-};
+/** The options a question offers past this many have no key of their own. */
+const KEYED_OPTIONS = 9;
 
 /**
- * The choices of a question as full-width rows, each with its description under it, and a row
- * to type an answer of one's own. Only what is picked takes the brand colour.
+ * The choices of a question as full-width rows, each with its description under it and, on the
+ * right, the key that picks it or the check that says it is picked. An answer typed in the
+ * composer stands instead of them, so while there is one none shows as picked.
  */
 const QuestionChoices = ({
-  onPick,
-  other,
-  picked,
+  draft,
+  itemId,
   question,
-  setOther,
 }: {
-  onPick: (id: string) => void;
-  other: string;
-  picked: Answer | undefined;
+  draft: AnswerDraft;
+  itemId: string;
   question: QuestionOf;
-  setOther: (text: string) => void;
 }) => {
-  const chosen = other ? [] : [picked ?? []].flat();
-  const typed = question.options.length === 0;
-  const invalid = notANumber(question, other);
+  const typed =
+    takesTyping(question) && Boolean(draft.other[question.id]?.trim());
+  const chosen = typed ? [] : [draft.picked[question.id] ?? []].flat();
   return (
-    <div className="flex flex-col gap-1.5">
-      {question.options.map((o) => {
+    <div className="flex flex-col gap-0.5">
+      {question.options.map((o, i) => {
         const on = chosen.includes(o.id);
-        const Mark = choiceMark(question.multiple === true, on);
         return (
           <button
             aria-pressed={on}
             className={cn(
-              "flex w-full items-start gap-2.5 rounded-md border bg-background px-2.5 py-1.5 text-left outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50",
-              on && "border-brand bg-brand/10 hover:bg-brand/15"
+              "flex w-full items-start gap-3 rounded-md border border-transparent px-2.5 py-1.5 text-left outline-none transition-colors hover:bg-accent/60 focus-visible:border-ring",
+              on && "bg-accent hover:bg-accent"
             )}
             key={o.id}
-            onClick={() => onPick(o.id)}
+            onClick={() => pick(itemId, question, o.id)}
             type="button"
           >
-            <Mark
-              className={cn(
-                "mt-0.75 size-3.5 shrink-0",
-                on ? "text-brand" : "text-muted-foreground"
-              )}
-            />
-            <span className="flex min-w-0 flex-col">
+            <span className="flex min-w-0 flex-1 flex-col">
               <span className="font-medium text-foreground">{o.label}</span>
               {o.description ? (
                 <span className="text-muted-foreground">{o.description}</span>
               ) : null}
             </span>
+            <span className="flex h-5 w-4 shrink-0 items-center justify-center text-muted-foreground tabular-nums">
+              {on ? <Check className="size-3.5 text-brand" /> : null}
+              {!on && i < KEYED_OPTIONS ? i + 1 : null}
+            </span>
           </button>
         );
       })}
-      {typed || question.allowOther ? (
-        <label
-          className={cn(
-            "flex w-full items-center gap-2.5 rounded-md border border-dashed px-2.5 transition-colors focus-within:border-ring focus-within:border-solid",
-            other && !invalid && "border-brand border-solid bg-brand/10",
-            invalid && "border-destructive border-solid"
-          )}
-        >
-          <Pencil className="size-3.5 shrink-0 text-muted-foreground" />
-          <input
-            aria-invalid={invalid || undefined}
-            className="h-8 min-w-0 flex-1 bg-transparent font-body text-foreground outline-none placeholder:text-muted-foreground"
-            inputMode={
-              question.value === "number" || question.value === "integer"
-                ? "decimal"
-                : undefined
-            }
-            onChange={(e: ChangeEvent<HTMLInputElement>) =>
-              setOther(e.target.value)
-            }
-            placeholder={typed ? "Type an answer" : "Or type your own answer"}
-            value={other}
-          />
-        </label>
-      ) : null}
     </div>
   );
 };
@@ -1004,10 +969,29 @@ const cardTitle = (item: QuestionItem) => {
   return item.elicitation?.message ?? "The agent asks";
 };
 
+/** What is said under a question: its own description, or how it is answered. */
+const questionHint = (question: QuestionOf) => {
+  if (question.description) {
+    return question.description;
+  }
+  if (question.options.length === 0) {
+    return "Type the answer in the box below.";
+  }
+  return question.multiple ? "Pick one or more." : undefined;
+};
+
+/** Whether the thread's agent is at work, so answers that go as a prompt have to wait. */
+const useRunning = (threadId: string) =>
+  useAgents((s) => {
+    const status = s.threads.find((t) => t.id === threadId)?.status;
+    return status === "running" || status === "cancelling";
+  });
+
 /**
- * Questions put to the user. When the agent waits for them within its turn they are answered
- * (or declined) at once; otherwise the answers are sent as the next prompt, so they wait until
- * the agent's turn has ended.
+ * Questions put to the user, one at a time: the card shows the question and its choices, and the
+ * composer below takes an answer of one's own and steps to the next question, then sends them.
+ * When the agent waits for the answers within its turn they are answered (or declined) at once;
+ * otherwise they are sent as the next prompt, so they wait until the agent's turn has ended.
  */
 const QuestionCard = ({
   item,
@@ -1016,139 +1000,93 @@ const QuestionCard = ({
   item: QuestionItem;
   threadId: string;
 }) => {
-  const running = useAgents((s) => {
-    const status = s.threads.find((t) => t.id === threadId)?.status;
-    return status === "running" || status === "cancelling";
-  });
-  const [picked, setPicked] = useState<Record<string, Answer>>({});
-  const [other, setOther] = useState<Record<string, string>>({});
-  const [busy, setBusy] = useState(false);
-  const waiting = item.elicitation !== undefined;
-  const answerOf = (question: QuestionOf): Answer | undefined => {
-    const typed = other[question.id]?.trim();
-    return typed ? typed : picked[question.id];
-  };
-  const answeredWell = (question: QuestionOf) => {
-    const answer = answerOf(question);
-    if (answer === undefined || answer.length === 0) {
-      return question.optional === true;
-    }
-    return typeof answer !== "string" || !notANumber(question, answer);
-  };
-  const complete = item.questions.every(answeredWell);
-  const run = async (request: () => Promise<unknown>) => {
-    setBusy(true);
-    try {
-      await request();
-    } catch (error) {
-      reportError(error);
-    }
-    setBusy(false);
-  };
-  const send = () =>
-    run(() =>
-      api().request("threads.answer", {
-        answers: Object.fromEntries(
-          item.questions.flatMap((q) => {
-            const answer = answerOf(q);
-            return answer === undefined ? [] : [[q.id, answer]];
-          })
-        ),
-        itemId: item.id,
-        threadId,
-      })
-    );
-  const decline = () =>
-    run(() => api().request("threads.decline", { itemId: item.id, threadId }));
-  const pick = (question: QuestionOf, id: string) => {
-    setPicked((p) => {
-      if (!question.multiple) {
-        return { ...p, [question.id]: id };
-      }
-      const now = [p[question.id] ?? []].flat();
-      return {
-        ...p,
-        [question.id]: now.includes(id)
-          ? now.filter((one) => one !== id)
-          : [...now, id],
-      };
-    });
-    if (!question.multiple) {
-      setOther((p) => ({ ...p, [question.id]: "" }));
-    }
-  };
-  const answered = item.answers;
-  const open = answered === null && item.outcome === undefined;
-  // An agent that waits for the answers is mid-turn; one that does not hears them as a prompt.
-  const blocked = running && !waiting;
-  return (
-    <AskCard
-      icon={answered ? Check : CircleHelp}
-      open={open}
-      title={cardTitle(item)}
-    >
-      {item.questions.map((question) => (
-        <div className="flex flex-col gap-2" key={question.id}>
-          <div className="flex flex-col">
-            <span
-              className={cn(
-                open ? "font-medium text-foreground" : "text-muted-foreground"
-              )}
-            >
-              {question.question}
-              {question.optional ? (
-                <span className="font-normal text-muted-foreground">
-                  {" "}
-                  (optional)
-                </span>
-              ) : null}
-            </span>
-            {question.description ? (
-              <span className="text-muted-foreground">
-                {question.description}
-              </span>
-            ) : null}
-          </div>
-          {open ? (
-            <QuestionChoices
-              onPick={(id) => pick(question, id)}
-              other={other[question.id] ?? ""}
-              picked={picked[question.id]}
-              question={question}
-              setOther={(text) =>
-                setOther((p) => ({ ...p, [question.id]: text }))
-              }
-            />
-          ) : (
+  const running = useRunning(threadId);
+  const draft = useAnswers((s) => draftOf(s.drafts, item.id));
+  const [collapsed, setCollapsed] = useState(false);
+  const open = item.answers === null && item.outcome === undefined;
+  if (!open) {
+    const answered = item.answers;
+    return (
+      <AskCard
+        icon={answered ? Check : CircleHelp}
+        open={false}
+        title={cardTitle(item)}
+      >
+        {item.questions.map((q) => (
+          <div className="flex flex-col gap-1" key={q.id}>
+            <span className="text-muted-foreground">{q.question}</span>
             <span className="flex items-center gap-2 font-medium text-foreground">
               {answered ? <Check className="size-3.5 shrink-0" /> : null}
-              {answerLabel(question, answered?.[question.id])}
+              {answerLabel(q, answered?.[q.id])}
             </span>
-          )}
-        </div>
-      ))}
-      {open ? (
-        <div className="flex items-center gap-1.5">
-          <span className="flex-1 text-muted-foreground">
-            {blocked
-              ? "Can be sent once the agent has finished its turn"
-              : null}
-          </span>
-          {waiting ? (
-            <Button disabled={busy} onClick={decline} size="sm" variant="ghost">
-              Decline
-            </Button>
-          ) : null}
+          </div>
+        ))}
+      </AskCard>
+    );
+  }
+  const question = item.questions[draft.step] ?? item.questions[0];
+  if (!question) {
+    return null;
+  }
+  const count = item.questions.length;
+  const waiting = item.elicitation !== undefined;
+  const hint = questionHint(question);
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border bg-card p-3 font-body">
+      <div className="flex items-center gap-1.5 text-muted-foreground">
+        <CircleHelp className="size-3.5 shrink-0 text-brand" />
+        <span className="min-w-0 flex-1 truncate">{cardTitle(item)}</span>
+        {waiting ? (
           <Button
-            disabled={!complete || blocked || busy}
-            onClick={send}
-            size="sm"
+            disabled={draft.busy}
+            onClick={() => declineQuestions(item, threadId)}
+            size="xs"
+            variant="ghost"
           >
-            Send answers
+            Decline
           </Button>
-        </div>
+        ) : null}
+        {count > 1 ? (
+          <span className="tabular-nums">
+            {draft.step + 1}/{count}
+          </span>
+        ) : null}
+        <Button
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? "Show the choices" : "Hide the choices"}
+          className="text-muted-foreground"
+          onClick={() => setCollapsed((c) => !c)}
+          size="icon-xs"
+          variant="ghost"
+        >
+          <ChevronDown
+            className={cn("transition-transform", collapsed && "-rotate-90")}
+          />
+        </Button>
+      </div>
+      <div className="flex flex-col">
+        <span className="font-medium text-foreground">
+          {question.question}
+          {question.optional ? (
+            <span className="font-normal text-muted-foreground">
+              {" "}
+              (optional)
+            </span>
+          ) : null}
+        </span>
+        {hint && !collapsed ? (
+          <span className="text-muted-foreground">{hint}</span>
+        ) : null}
+      </div>
+      {collapsed ? null : (
+        <QuestionChoices draft={draft} itemId={item.id} question={question} />
+      )}
+      {running && !waiting ? (
+        <span className="text-muted-foreground">
+          The answers can be sent once the agent has finished its turn.
+        </span>
       ) : null}
-    </AskCard>
+    </div>
   );
 };
 
@@ -1663,6 +1601,7 @@ const Composer = ({ thread }: { thread: Thread }) => {
   const canvas = useEditor((s) => s.canvas);
   const shotFrame = shotFrameOf(workspace, canvas, page);
   const running = thread.status === "running" || thread.status === "cancelling";
+  const answering = useAnswering(thread.id);
 
   // While the agent works, what is sent waits in the thread's queue.
   const send = async () => {
@@ -1715,6 +1654,10 @@ const Composer = ({ thread }: { thread: Thread }) => {
     return false;
   };
   const onTextKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (answering) {
+      onAnswerKey(e, answering, thread.id, sendKey, running);
+      return;
+    }
     if (offered.length > 0 && onMenuKey(e)) {
       e.preventDefault();
       return;
@@ -1778,7 +1721,7 @@ const Composer = ({ thread }: { thread: Thread }) => {
             ) : null}
           </div>
         ) : null}
-        {offered.length > 0 ? (
+        {offered.length > 0 && !answering ? (
           <div
             className="mx-2 mt-2 flex flex-col overflow-hidden rounded-md border bg-popover"
             role="listbox"
@@ -1811,13 +1754,17 @@ const Composer = ({ thread }: { thread: Thread }) => {
             ))}
           </div>
         ) : null}
-        <textarea
-          className="field-sizing-content max-h-60 min-h-24 w-full resize-none bg-transparent px-3 py-2 font-body outline-none placeholder:text-muted-foreground"
-          onChange={onTextChange}
-          onKeyDown={onTextKeyDown}
-          placeholder={placeholderOf(running, agentName)}
-          value={text}
-        />
+        {answering ? (
+          <AnswerField answering={answering} onKeyDown={onTextKeyDown} />
+        ) : (
+          <textarea
+            className="field-sizing-content max-h-60 min-h-24 w-full resize-none bg-transparent px-3 py-2 font-body outline-none placeholder:text-muted-foreground"
+            onChange={onTextChange}
+            onKeyDown={onTextKeyDown}
+            placeholder={placeholderOf(running, agentName)}
+            value={text}
+          />
+        )}
         <div className="@container flex min-w-0 items-center gap-1 px-1.5 pb-1.5">
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -1869,12 +1816,21 @@ const Composer = ({ thread }: { thread: Thread }) => {
           <ModePicker thread={thread} />
           <ModelPicker thread={thread} />
           <div className="flex-1" />
-          <SendButtons
-            canSend={!busy && Boolean(text.trim())}
-            onSend={send}
-            onStop={cancel}
-            running={running}
-          />
+          {answering ? (
+            <AnswerButtons
+              answering={answering}
+              onStop={cancel}
+              running={running}
+              threadId={thread.id}
+            />
+          ) : (
+            <SendButtons
+              canSend={!busy && Boolean(text.trim())}
+              onSend={send}
+              onStop={cancel}
+              running={running}
+            />
+          )}
         </div>
       </div>
     </div>
@@ -1969,6 +1925,169 @@ const QueuedPrompts = ({
         </div>
       ))}
     </div>
+  );
+};
+
+/** The open question card, what has been given to it, and the question on screen. */
+interface Answering {
+  asking: QuestionItem;
+  draft: AnswerDraft;
+  question: QuestionOf;
+}
+
+/** An agent's questions waiting for answers take the composer over, one question at a time. */
+const useAnswering = (threadId: string): Answering | null => {
+  const asking = useAgents((s) => openQuestionOf(s.items[threadId] ?? []));
+  const draft = useAnswers((s) =>
+    asking ? draftOf(s.drafts, asking.id) : null
+  );
+  const question = asking?.questions[draft?.step ?? 0] ?? asking?.questions[0];
+  return asking && draft && question ? { asking, draft, question } : null;
+};
+
+/** The answers can go: all given, and nothing in the way of sending them. */
+const canSendAnswers = ({ asking, draft }: Answering, running: boolean) =>
+  !(
+    draft.busy ||
+    // Answers that go as a prompt wait for the agent's turn to end.
+    (running && asking.elicitation === undefined)
+  ) && asking.questions.every((q) => answeredWell(draft, q));
+
+/** On to the next question, or, on the last one, the answers go. */
+const advance = (answering: Answering, threadId: string, running: boolean) => {
+  const { asking, draft, question } = answering;
+  if (!answeredWell(draft, question)) {
+    return;
+  }
+  if (draft.step < asking.questions.length - 1) {
+    setStep(asking, draft.step + 1);
+  } else if (canSendAnswers(answering, running)) {
+    sendAnswers(asking, threadId);
+  }
+};
+
+/**
+ * The composer's keys while it answers: the send key steps on, and with nothing typed 1–9 pick
+ * the question's options, as the card shows.
+ */
+const onAnswerKey = (
+  e: KeyboardEvent<HTMLTextAreaElement>,
+  answering: Answering,
+  threadId: string,
+  sendKey: SendKey,
+  running: boolean
+) => {
+  const { asking, draft, question } = answering;
+  if (isSendKey(e, sendKey)) {
+    e.preventDefault();
+    advance(answering, threadId, running);
+    return;
+  }
+  const typed = draft.other[question.id] ?? "";
+  const digit = Number(e.key);
+  const option =
+    Number.isInteger(digit) && digit >= 1
+      ? question.options[digit - 1]
+      : undefined;
+  if (option && !typed && !(e.metaKey || e.ctrlKey || e.altKey)) {
+    e.preventDefault();
+    pick(asking.id, question, option.id);
+  }
+};
+
+const answerPlaceholder = (question: QuestionOf) => {
+  if (question.options.length === 0) {
+    return "Type your answer…";
+  }
+  return question.allowOther
+    ? "Type your own answer, or leave this blank to use the option picked"
+    : "Pick an option above, or press its number";
+};
+
+/** The composer's box while it answers: an answer of one's own to the question on screen. */
+const AnswerField = ({
+  answering: { asking, draft, question },
+  onKeyDown,
+}: {
+  answering: Answering;
+  onKeyDown: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
+}) => {
+  const typed = draft.other[question.id] ?? "";
+  return (
+    <textarea
+      aria-invalid={notANumber(question, typed) || undefined}
+      className="field-sizing-content max-h-60 min-h-24 w-full resize-none bg-transparent px-3 py-2 font-body outline-none placeholder:text-muted-foreground aria-invalid:text-destructive"
+      inputMode={
+        question.value === "number" || question.value === "integer"
+          ? "decimal"
+          : undefined
+      }
+      onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
+        if (takesTyping(question)) {
+          setOther(asking.id, question, e.target.value);
+        }
+      }}
+      onKeyDown={onKeyDown}
+      placeholder={answerPlaceholder(question)}
+      readOnly={!takesTyping(question)}
+      value={typed}
+    />
+  );
+};
+
+/** A click on a step button leaves the focus where it was, so typing goes on in the composer. */
+const keepFocus = (e: ReactMouseEvent) => e.preventDefault();
+
+/** Back a question, on to the next, and on the last one Send answers; Stop while the agent works. */
+const AnswerButtons = ({
+  answering,
+  onStop,
+  running,
+  threadId,
+}: {
+  answering: Answering;
+  onStop: () => void;
+  running: boolean;
+  threadId: string;
+}) => {
+  const { asking, draft, question } = answering;
+  const last = draft.step >= asking.questions.length - 1;
+  const ready = last
+    ? canSendAnswers(answering, running)
+    : answeredWell(draft, question);
+  return (
+    <>
+      {running ? (
+        <Button
+          aria-label="Stop"
+          onClick={onStop}
+          size="icon-sm"
+          title="Stop"
+          variant="outline"
+        >
+          <Square />
+        </Button>
+      ) : null}
+      {draft.step > 0 ? (
+        <Button
+          onClick={() => setStep(asking, draft.step - 1)}
+          onMouseDown={keepFocus}
+          size="sm"
+          variant="outline"
+        >
+          Previous
+        </Button>
+      ) : null}
+      <Button
+        disabled={!ready}
+        onClick={() => advance(answering, threadId, running)}
+        onMouseDown={keepFocus}
+        size="sm"
+        title={shortcutLabel("⌘↩")}
+      >
+        {last ? "Send answers" : "Next question"}
+      </Button>
+    </>
   );
 };
 
