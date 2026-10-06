@@ -42,6 +42,12 @@ import { simpleDiff } from "./threads/diff.ts";
 
 const Kept = Schema.Struct({
   files: Schema.Record(Schema.String, Schema.String),
+  /**
+   * The repository it was taken in. The state directory can serve several, one after the
+   * other; a snapshot is only seen, and put back, in its own. Absent in one kept before it was
+   * recorded.
+   */
+  repo: Schema.optional(Schema.String),
   snapshot: Snapshot,
 });
 type Kept = typeof Kept.Type;
@@ -215,13 +221,22 @@ export class Snapshots extends Context.Service<
         }
       }
 
-      const find = (id: string) =>
-        Effect.suspend(() => {
-          const record = store.get(id);
-          return record
-            ? Effect.succeed(record)
-            : Effect.fail(new NotFound({ message: "unknown snapshot" }));
-        });
+      /** The open repository's root; null when none is open. */
+      const openRepo = project
+        .use(Effect.map(RepoPaths, (paths) => paths.root))
+        .pipe(Effect.orElseSucceed(() => null));
+
+      /** Whether a snapshot belongs to the open repository, or says nothing of where it was taken. */
+      const ours = (record: Kept, repo: string | null) =>
+        record.repo === undefined || record.repo === repo;
+
+      const find = Effect.fnUntraced(function* (id: string) {
+        const record = store.get(id);
+        if (!(record && ours(record, yield* openRepo))) {
+          return yield* new NotFound({ message: "unknown snapshot" });
+        }
+        return record;
+      });
 
       const create = Effect.fn("Snapshots.create")(function* (
         name: string,
@@ -235,8 +250,10 @@ export class Snapshots extends Context.Service<
                   ([file]) => kept(file)
                 )
               );
+        const repo = yield* openRepo;
         const record: Kept = {
           files,
+          ...(repo !== null && { repo }),
           snapshot: {
             at: yield* Clock.currentTimeMillis,
             files: Object.keys(files).length,
@@ -327,10 +344,11 @@ export class Snapshots extends Context.Service<
         create,
         delete: remove,
         diff,
-        list: Effect.sync(() =>
-          Array.from(store.values(), (r) => r.snapshot).sort(
-            (a, b) => b.at - a.at
-          )
+        list: Effect.map(openRepo, (repo) =>
+          Array.from(store.values())
+            .filter((r) => ours(r, repo))
+            .map((r) => r.snapshot)
+            .sort((a, b) => b.at - a.at)
         ),
         restore,
         view,

@@ -54,6 +54,11 @@ export const makeDesignFiles = (
 const Record = Schema.Struct({
   checkpoint: Checkpoint,
   files: Schema.Record(Schema.String, Schema.String),
+  /**
+   * The repository it was taken in. The state directory can serve several, one after the
+   * other; a checkpoint is only seen in its own. Absent in one kept before it was recorded.
+   */
+  repo: Schema.optional(Schema.String),
 });
 type Record = typeof Record.Type;
 const RecordJson = Schema.fromJsonString(Record);
@@ -112,19 +117,29 @@ export class Checkpoints extends Context.Service<
 
       const designFiles = makeDesignFiles(fs, path, project);
 
-      const find = (id: string) =>
-        Effect.suspend(() => {
-          const record = store.get(id);
-          return record
-            ? Effect.succeed(record)
-            : Effect.fail(new NotFound({ message: "unknown checkpoint" }));
-        });
+      /** The open repository's root; null when none is open. */
+      const openRepo = project
+        .use(Effect.map(RepoPaths, (paths) => paths.root))
+        .pipe(Effect.orElseSucceed(() => null));
+
+      /** Whether a checkpoint belongs to the open repository, or says nothing of where it was taken. */
+      const ours = (record: Record, repo: string | null) =>
+        record.repo === undefined || record.repo === repo;
+
+      const find = Effect.fnUntraced(function* (id: string) {
+        const record = store.get(id);
+        if (!(record && ours(record, yield* openRepo))) {
+          return yield* new NotFound({ message: "unknown checkpoint" });
+        }
+        return record;
+      });
 
       const create = Effect.fn("Checkpoints.create")(function* (
         threadId: string,
         label: string
       ) {
         const files = yield* designFiles;
+        const repo = yield* openRepo;
         const record: Record = {
           checkpoint: {
             at: yield* Clock.currentTimeMillis,
@@ -134,6 +149,7 @@ export class Checkpoints extends Context.Service<
             threadId,
           },
           files,
+          ...(repo !== null && { repo }),
         };
         store.set(record.checkpoint.id, record);
         yield* encodeRecord(record).pipe(
@@ -207,10 +223,11 @@ export class Checkpoints extends Context.Service<
         create,
         diff,
         files: (id) => Effect.map(find(id), (record) => record.files),
-        list: Effect.sync(() =>
-          Array.from(store.values(), (r) => r.checkpoint).sort(
-            (a, b) => b.at - a.at
-          )
+        list: Effect.map(openRepo, (repo) =>
+          Array.from(store.values())
+            .filter((r) => ours(r, repo))
+            .map((r) => r.checkpoint)
+            .sort((a, b) => b.at - a.at)
         ),
         revert,
       });
