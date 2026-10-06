@@ -4,7 +4,7 @@
  * are compared with the code's first, then an agent turns the frames into pages (ADR 0025).
  */
 
-import type { FigmaImport } from "@ultrapaint/contracts/figma";
+import { type FigmaImport, MAX_FIG_BYTES } from "@ultrapaint/contracts/figma";
 import { toast } from "sonner";
 import { showSetup } from "../state/design-system-setup.ts";
 import { ensureEditable } from "../state/setup.ts";
@@ -32,6 +32,14 @@ const upload = async (file: File): Promise<FigmaImport> => {
 /** Reads the file on the server, then opens a thread to convert it. */
 export const importFigma = async (file: File) => {
   if (!ensureEditable({ designSystem: false })) {
+    return;
+  }
+  // Checked here: the server refuses a larger body by closing the connection before it has
+  // read it, which the browser reports as a network failure rather than the server's message.
+  if (file.size > MAX_FIG_BYTES) {
+    toast.error(
+      `${file.name} is larger than ${MAX_FIG_BYTES / 1024 / 1024} MB, the most a Figma import accepts.`
+    );
     return;
   }
   const id = toast.loading(`Reading ${file.name}…`);
