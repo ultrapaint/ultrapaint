@@ -617,7 +617,12 @@ export const useEditor = create<EditorStore>((set, get) => ({
     set({ activePage: pageAt(canvas, route, variant)?.id ?? null, variant });
     writeUrl({ canvas, page: null, route, variant }, true);
   },
-  setView: (view) => set((s) => ({ view: { ...s.view, ...view } })),
+  setView: (view) => {
+    // Said outright, it goes over whatever was waiting for the next frame.
+    const base = nextView();
+    cancelPendingView();
+    set({ view: { ...base, ...view } });
+  },
   setWorkspace: (workspace) => {
     const s = get();
     if (workspace === s.workspace) {
@@ -737,6 +742,39 @@ export const useEditor = create<EditorStore>((set, get) => ({
     fitTo(set, viewport, [target]);
   },
 }));
+
+type View = EditorStore["view"];
+
+/** Where the canvas is being panned or zoomed to, until the next frame draws it. */
+let pendingView: View | null = null;
+let viewFrame: number | null = null;
+
+const cancelPendingView = () => {
+  if (viewFrame !== null) {
+    cancelAnimationFrame(viewFrame);
+    viewFrame = null;
+  }
+  pendingView = null;
+};
+
+/** The view as the next frame will draw it: what a wheel or a drag goes on from. */
+export const nextView = (): View => pendingView ?? useEditor.getState().view;
+
+/**
+ * Pans or zooms the canvas on the next frame. A wheel or a pointer reports many times a frame,
+ * and the canvas is drawn once a frame: it takes them all in one change.
+ */
+export const setViewSoon = (view: Partial<View>) => {
+  pendingView = { ...nextView(), ...view };
+  viewFrame ??= requestAnimationFrame(() => {
+    viewFrame = null;
+    const next = pendingView;
+    pendingView = null;
+    if (next) {
+      useEditor.setState({ view: next });
+    }
+  });
+};
 
 /** Nothing shows a selection in the prototype, so nothing may be selected there. */
 const hidesSelection = (get: () => EditorStore) =>

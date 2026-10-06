@@ -463,6 +463,8 @@ export const Frame = memo(
      * it, as in Figma: a selected node, or a text, a picture or a component, is dragged instead.
      */
     const [marquee, setMarquee] = useState<Rect | null>(null);
+    /** The marquee as the pointer last drew it, which the next frame shows. */
+    const marqueeTo = useRef<{ request: number; rect: Rect } | null>(null);
     const marqueeFrom = useRef<{ x: number; y: number } | null>(null);
     const marqueeIn = useRef<DesignNode | null>(null);
     const isSelected = (id: string) => {
@@ -504,12 +506,23 @@ export const Frame = memo(
       const from = marqueeFrom.current;
       if (from) {
         const to = toFrame(e);
-        setMarquee({
+        const rect = {
           height: Math.abs(to.y - from.y),
           width: Math.abs(to.x - from.x),
           x: Math.min(from.x, to.x),
           y: Math.min(from.y, to.y),
-        });
+        };
+        // Drawn once a frame, however often the pointer reports.
+        const request =
+          marqueeTo.current?.request ??
+          requestAnimationFrame(() => {
+            const drawn = marqueeTo.current;
+            marqueeTo.current = null;
+            if (drawn) {
+              setMarquee(drawn.rect);
+            }
+          });
+        marqueeTo.current = { rect, request };
         return;
       }
       if (dragging.current) {
@@ -554,7 +567,12 @@ export const Frame = memo(
       press.current = null;
       if (marqueeFrom.current) {
         marqueeFrom.current = null;
-        const drawn = marquee;
+        const waiting = marqueeTo.current;
+        marqueeTo.current = null;
+        if (waiting) {
+          cancelAnimationFrame(waiting.request);
+        }
+        const drawn = waiting?.rect ?? marquee;
         setMarquee(null);
         if (drawn) {
           selectInMarquee(drawn).catch(() => undefined);

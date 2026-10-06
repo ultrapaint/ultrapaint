@@ -7,7 +7,9 @@ import { useDocuments } from "./documents.ts";
 import {
   computeFrames,
   landingOf,
+  nextView,
   type Selection,
+  setViewSoon,
   useEditor,
 } from "./editor.ts";
 import { useProject } from "./project.ts";
@@ -78,6 +80,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 describe("landingOf", () => {
@@ -315,5 +318,38 @@ describe("openCanvas", () => {
     expect(fakeApi.calls.filter((c) => c.method === "canvas.set")).toHaveLength(
       1
     );
+  });
+});
+
+describe("setViewSoon", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal("requestAnimationFrame", (cb: () => void) =>
+      setTimeout(cb, 16)
+    );
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => clearTimeout(id));
+    useEditor.setState({ view: { x: 0, y: 0, zoom: 1 } });
+  });
+
+  it("takes every change of a frame in one, each going on from the last", () => {
+    let changes = 0;
+    const off = useEditor.subscribe(() => {
+      changes += 1;
+    });
+    setViewSoon({ x: nextView().x - 10 });
+    setViewSoon({ x: nextView().x - 10, zoom: 2 });
+    expect(useEditor.getState().view).toEqual({ x: 0, y: 0, zoom: 1 });
+    vi.advanceTimersByTime(16);
+    off();
+    expect(changes).toBe(1);
+    expect(useEditor.getState().view).toEqual({ x: -20, y: 0, zoom: 2 });
+  });
+
+  it("gives way to a view set outright, which keeps what was waiting", () => {
+    setViewSoon({ x: 50 });
+    useEditor.getState().setView({ zoom: 3 });
+    expect(useEditor.getState().view).toEqual({ x: 50, y: 0, zoom: 3 });
+    vi.advanceTimersByTime(16);
+    expect(useEditor.getState().view).toEqual({ x: 50, y: 0, zoom: 3 });
   });
 });

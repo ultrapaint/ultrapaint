@@ -3,6 +3,8 @@ import type { FrameLayout } from "@ultrapaint/contracts/pages";
 import { canvasDocOf } from "@ultrapaint/design-document/tree";
 import { cn } from "cn";
 import {
+  type ComponentProps,
+  memo,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   useEffect,
@@ -26,7 +28,9 @@ import {
   type Box,
   hold,
   holdUntil,
+  nextView,
   nodeFrameLayout,
+  setViewSoon,
   useEditor,
 } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
@@ -73,11 +77,8 @@ export const Canvas = () => {
   const pages = allPages.filter((p) => p.canvas === canvas);
   const nodes = useDocuments((s) => canvasNodes(s.docs, canvas));
   const sizes = useEditor((s) => s.sizes);
-  // A node on the canvas being dragged is drawn where the pointer holds it.
+  // A node on the canvas being dragged is in view: it is where the pointer is.
   const dragged = useDrag((s) => s.dragged);
-  const pointer = useDrag((s) => s.pointer);
-  const grab = useDrag((s) => s.grab);
-  const free = useDrag((s) => s.free);
   const grid = useCanvasGrid((s) => s.visible);
   const hostUrl = useHostUrl();
   const [size, setSize] = useState({ height: 0, width: 0 });
@@ -136,8 +137,7 @@ export const Canvas = () => {
         return;
       }
       e.preventDefault();
-      const s = useEditor.getState();
-      const { x, y, zoom } = s.view;
+      const { x, y, zoom } = nextView();
       if (e.ctrlKey || e.metaKey) {
         const rect = el.getBoundingClientRect();
         const cx = e.clientX - rect.left;
@@ -146,9 +146,13 @@ export const Canvas = () => {
           zoom * Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.002))
         );
         const k = next / zoom;
-        s.setView({ x: cx - (cx - x) * k, y: cy - (cy - y) * k, zoom: next });
+        setViewSoon({
+          x: cx - (cx - x) * k,
+          y: cy - (cy - y) * k,
+          zoom: next,
+        });
       } else {
-        s.setView({ x: x - e.deltaX, y: y - e.deltaY });
+        setViewSoon({ x: x - e.deltaX, y: y - e.deltaY });
       }
     };
     el.addEventListener("wheel", onWheel, { passive: false });
@@ -324,12 +328,13 @@ export const Canvas = () => {
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     setPanning(true);
+    const from = nextView();
     drag.current = {
       kind: "pan",
       startX: e.clientX,
       startY: e.clientY,
-      vx: view.x,
-      vy: view.y,
+      vx: from.x,
+      vy: from.y,
     };
   };
 
@@ -427,7 +432,7 @@ export const Canvas = () => {
     // With the grid on, what is moved or resized snaps to it unless ⌘/Ctrl is held.
     const onGrid = snapsToGrid(holdsFree(e));
     if (d.kind === "pan") {
-      s.setView({
+      setViewSoon({
         x: d.vx + (e.clientX - d.startX),
         y: d.vy + (e.clientY - d.startY),
       });
@@ -605,24 +610,19 @@ export const Canvas = () => {
         })}
         {nodes.map((node) => {
           const frameId = nodeFrameOf(node.id);
-          const moving =
-            dragged?.kind === "loose" && dragged.frame === frameId
-              ? landingPoint(pointer, grab, free, grid)
-              : null;
+          const moving = dragged?.kind === "loose" && dragged.frame === frameId;
           const box = {
             ...nodeFrameLayout(node, sizes[frameId]),
             ...held[frameId],
-            ...moving,
           };
           return (
-            <Frame
-              frame={box}
+            <NodeFrame
               frameId={frameId}
               hostUrl={hostUrl}
               key={frameId}
-              kind="node"
+              node={node}
               onDragStart={startFrameDrag}
-              visible={isVisible(box)}
+              visible={moving || isVisible(box)}
               zoom={view.zoom}
             />
           );
@@ -634,6 +634,61 @@ export const Canvas = () => {
     </div>
   );
 };
+
+/** Where a dragged node on the canvas is drawn: where the pointer holds it; null when not dragged. */
+const movingTo = (
+  s: ReturnType<typeof useDrag.getState>,
+  frameId: string,
+  grid: boolean
+) =>
+  s.dragged?.kind === "loose" && s.dragged.frame === frameId
+    ? landingPoint(s.pointer, s.grab, s.free, grid)
+    : null;
+
+/**
+ * A node placed on the canvas, in its own frame. Its box is made here, from what concerns this
+ * node alone, so it stays the same object while the canvas pans and the frame is not redrawn.
+ */
+const NodeFrame = memo(
+  ({
+    frameId,
+    hostUrl,
+    node,
+    onDragStart,
+    visible,
+    zoom,
+  }: {
+    frameId: string;
+    hostUrl: string | null;
+    node: DesignNode;
+    onDragStart: ComponentProps<typeof Frame>["onDragStart"];
+    visible: boolean;
+    zoom: number;
+  }) => {
+    const size = useEditor((s) => s.sizes[frameId]);
+    const held = useEditor((s) => s.held[frameId]);
+    const grid = useCanvasGrid((s) => s.visible);
+    const movingX = useDrag((s) => movingTo(s, frameId, grid)?.x ?? null);
+    const movingY = useDrag((s) => movingTo(s, frameId, grid)?.y ?? null);
+    const box = {
+      ...nodeFrameLayout(node, size),
+      ...held,
+      ...(movingX !== null && movingY !== null && { x: movingX, y: movingY }),
+    };
+    return (
+      <Frame
+        frame={box}
+        frameId={frameId}
+        hostUrl={hostUrl}
+        kind="node"
+        onDragStart={onDragStart}
+        visible={visible}
+        zoom={zoom}
+      />
+    );
+  }
+);
+NodeFrame.displayName = "NodeFrame";
 
 const isTyping = (e: Event) => {
   const t = e.target as HTMLElement | null;
