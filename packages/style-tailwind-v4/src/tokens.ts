@@ -82,6 +82,8 @@ interface Declared {
   readonly declared: Map<string, Declaration>;
   /** The `@theme` resets, `--color-*` of `--color-*: initial`, which take Tailwind's defaults out. */
   readonly resets: string[];
+  /** The same resets where they are written: a token added before one would be taken out. */
+  readonly resetsAt: Declaration[];
   /** Plain variables by theme (`""` the default), then by variable. */
   readonly scoped: Map<string, Map<string, Declaration>>;
 }
@@ -111,6 +113,7 @@ const takeTheme = (out: Declared, decl: Declaration) => {
     }
   }
   out.resets.push(decl.name);
+  out.resetsAt.push(decl);
 };
 
 const declarationsOf = (files: readonly string[]): Declared => {
@@ -118,6 +121,7 @@ const declarationsOf = (files: readonly string[]): Declared => {
     blocks: [],
     declared: new Map(),
     resets: [],
+    resetsAt: [],
     scoped: new Map(),
   };
   for (const file of files) {
@@ -170,6 +174,8 @@ const defaultsOf = (
 
 /** What the reading keeps beyond the tokens: what a write needs to find its place. */
 interface Reading extends Declared {
+  /** Every stylesheet read, absolute, in the order Tailwind reads them. */
+  readonly files: readonly string[];
   readonly source: TokenSource;
   /** The stylesheets the repository writes, absolute, in the order they are read. */
   readonly writable: string[];
@@ -271,6 +277,7 @@ const read = (ctx: DesignSystemContext): Reading => {
   }
   return {
     ...declared,
+    files: found.files,
     source: { files: found.files.map(relative), notes, themes, tokens },
     writable,
   };
@@ -365,25 +372,55 @@ export const writeTokens = (
   const ownBlocks = reading.blocks.filter((b) =>
     reading.writable.includes(b.file)
   );
-  const themeBlock =
-    ownBlocks.find(
-      (b) => isTheme(b.prelude) && !b.prelude.includes("inline")
-    ) ?? ownBlocks.find((b) => isTheme(b.prelude));
   const [firstFile] = reading.writable;
+  const rank = (file: string) => reading.files.indexOf(file);
+  /** The last `@theme` reset that would take `variable` out, as Tailwind reads them in order. */
+  const lastResetOf = (variable: string) =>
+    reading.resetsAt.findLast((r) => resetCovers(r.name, variable));
 
-  /** Adds a declaration to a theme's block, or a block made for it. */
-  const add = (theme: string, line: string) => {
+  /**
+   * The `@theme` block a new token goes into: one written after the last reset that covers it
+   * (`--color-*: initial` in a later block would take it out again), a plain one rather than an
+   * `inline` one. A token added before the `}` of the reset's own block comes after it.
+   */
+  const themeBlockFor = (variable: string) => {
+    const reset = lastResetOf(variable);
+    const after = (b: Block) =>
+      reset === undefined ||
+      rank(b.file) > rank(reset.file) ||
+      (b.file === reset.file && b.close > reset.declStart);
+    const candidates = ownBlocks.filter((b) => isTheme(b.prelude) && after(b));
+    return (
+      candidates.find((b) => !b.prelude.includes("inline")) ?? candidates[0]
+    );
+  };
+
+  /** The stylesheet a block made for a new token is added to the end of. */
+  const fileFor = (theme: string, variable: string) => {
+    const reset = theme === "" ? lastResetOf(variable) : undefined;
+    if (reset === undefined) {
+      return firstFile;
+    }
+    return (
+      reading.writable.find((file) => rank(file) >= rank(reset.file)) ??
+      firstFile
+    );
+  };
+
+  /** Adds a declaration of `variable` to a theme's block, or a block made for it. */
+  const add = (theme: string, variable: string, line: string) => {
     const block =
       theme === ""
-        ? themeBlock
+        ? themeBlockFor(variable)
         : ownBlocks.find(
             (b) => !isTheme(b.prelude) && themeKeyOf(b.prelude) === theme
           );
+    const file = fileFor(theme, variable);
     if (block) {
       edits.splice(block.file, (text) => insertion(text, block, line));
-    } else if (firstFile) {
+    } else if (file) {
       const selector = theme === "" ? "@theme" : selectorOf(theme);
-      edits.append(firstFile, `\n${selector} {\n  ${line}\n}\n`);
+      edits.append(file, `\n${selector} {\n  ${line}\n}\n`);
     }
   };
 
@@ -416,7 +453,7 @@ export const writeTokens = (
         text: value,
       }));
     } else if (!remove && value !== undefined) {
-      add(theme, `${variable}: ${value};`);
+      add(theme, variable, `${variable}: ${value};`);
     }
   }
   return edits.done();

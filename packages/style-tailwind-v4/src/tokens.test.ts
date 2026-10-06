@@ -204,6 +204,46 @@ describe("writing Tailwind v4 tokens back", () => {
     expect(edited[0]?.text).toContain("--background: #f0f0f0;");
   });
 
+  it("adds a token after the reset of its namespace, which would take it out again", () => {
+    const ctx = project(`@import "tailwindcss";
+@theme {
+  --radius-lg: 0.75rem;
+}
+@theme {
+  --color-*: initial;
+  --color-old: #000;
+}
+`);
+    const text =
+      writeTokens(ctx, [
+        { name: "color-brand", value: "#2563eb" },
+        { name: "radius-sm", value: "0.25rem" },
+      ])[0]?.text ?? "";
+    expect(text).toContain("--color-old: #000;\n  --color-brand: #2563eb;\n}");
+    // Nothing resets the radii: the first block still takes them.
+    expect(text).toContain("--radius-lg: 0.75rem;\n  --radius-sm: 0.25rem;\n}");
+  });
+
+  it("starts a theme block after a reset written in a block of its own", () => {
+    const ctx = project(`@import "tailwindcss";
+@theme {
+  --color-old: #000;
+}
+@theme inline {
+  --color-*: initial;
+}
+@theme {
+  --radius-lg: 0.75rem;
+}
+`);
+    const text =
+      writeTokens(ctx, [{ name: "color-brand", value: "#2563eb" }])[0]?.text ??
+      "";
+    expect(text).toContain(
+      "--radius-lg: 0.75rem;\n  --color-brand: #2563eb;\n}"
+    );
+  });
+
   it("starts a theme block in a stylesheet that has none", () => {
     const ctx = project('@import "tailwindcss";\n');
     const edits = writeTokens(ctx, [
