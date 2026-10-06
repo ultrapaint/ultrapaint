@@ -16,8 +16,8 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { createRequire } from "node:module";
 import path from "node:path";
+import { buildSync } from "esbuild";
 
 interface PackageJson {
   dependencies?: Record<string, string>;
@@ -61,11 +61,7 @@ execFileSync("pnpm", ["-F", "@ultrapaint/web", "build"], {
 rmSync(stage, { force: true, recursive: true });
 mkdirSync(stage, { recursive: true });
 
-// The root has no esbuild of its own; the server's is the one its bundle is made with.
-const esbuild = createRequire(path.join(serverDir, "package.json"))(
-  "esbuild"
-) as typeof import("esbuild");
-esbuild.buildSync({
+buildSync({
   // Bundled CommonJS dependencies require Node's own modules, which ESM has no `require` for.
   banner: {
     js: "import { createRequire as __ultrapaintRequire } from 'node:module'; const require = __ultrapaintRequire(import.meta.url);",

@@ -18,7 +18,7 @@
     "prepare": "effect-tsgo patch --typescript --skip-missing",
     "start": "node scripts/cli.ts",
     "test": "pnpm -r test",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "tsc --noEmit -p . && pnpm -r typecheck"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.14",
@@ -26,6 +26,7 @@
     "@effect/tsgo": "^0.47.2",
     "@types/node": "^24.0.0",
     "effect": "catalog:",
+    "esbuild": "^0.28.2",
     "typescript": "7.0.2",
     "ultracite": "7.12.0"
   },
