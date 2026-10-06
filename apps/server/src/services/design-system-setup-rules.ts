@@ -9,6 +9,7 @@ import {
   type MappingEntry,
   type MigrationBatch,
   mappingKey,
+  targetsOf,
   USAGE_KINDS,
   type UsageInventory,
   type UsageKind,
@@ -127,38 +128,6 @@ export const mappingCounts = (mapping: UsageMapping) => ({
   undecided: mapping.entries.filter((e) => e.target === undefined && !e.keep)
     .length,
 });
-
-/** The targets a kind may take: its tokens, the steps of the scale, the layers, the components. */
-export const targetsOf = (
-  kind: UsageKind,
-  ds: DesignSystem,
-  components: readonly string[]
-): readonly string[] => {
-  const names = (tokens: readonly { readonly name: string }[] | undefined) =>
-    (tokens ?? []).map((t) => t.name);
-  switch (kind) {
-    case "color":
-      return ds.colors.flatMap((g) => names(g.tokens));
-    case "spacing":
-      return names(ds.spacing.tokens);
-    case "fontSize":
-      return names(ds.typography.sizes);
-    case "fontWeight":
-      return names(ds.typography.weights);
-    case "radius":
-      return names(ds.radius);
-    case "shadow":
-      return names(ds.shadows);
-    case "zIndex":
-      return (ds.elevation ?? []).flatMap((l) =>
-        l.layer === undefined ? [] : [String(l.layer)]
-      );
-    case "element":
-      return components;
-    default:
-      return [];
-  }
-};
 
 /** Why a target cannot be what a value of its kind becomes; null when it can. */
 export const targetProblem = (

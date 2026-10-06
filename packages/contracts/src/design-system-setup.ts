@@ -4,6 +4,7 @@
  * what is off the system, the migration of the code, and a last inventory to verify it.
  */
 import { Schema } from "effect";
+import type { DesignSystem } from "./design-system.ts";
 
 export const SetupStepId = Schema.Literals([
   "inventory",
@@ -274,3 +275,38 @@ export const UsageLeft = Schema.Struct({
   value: Schema.String,
 });
 export type UsageLeft = typeof UsageLeft.Type;
+
+/**
+ * The targets a kind may take by name: its tokens, the layers, the components. A length may
+ * also become a step of the spacing scale, which no list holds: any `spacing-<n>` is one.
+ */
+export const targetsOf = (
+  kind: UsageKind,
+  ds: DesignSystem,
+  components: readonly string[]
+): readonly string[] => {
+  const names = (tokens: readonly { readonly name: string }[] | undefined) =>
+    (tokens ?? []).map((t) => t.name);
+  switch (kind) {
+    case "color":
+      return ds.colors.flatMap((g) => names(g.tokens));
+    case "spacing":
+      return names(ds.spacing.tokens);
+    case "fontSize":
+      return names(ds.typography.sizes);
+    case "fontWeight":
+      return names(ds.typography.weights);
+    case "radius":
+      return names(ds.radius);
+    case "shadow":
+      return names(ds.shadows);
+    case "zIndex":
+      return (ds.elevation ?? []).flatMap((l) =>
+        l.layer === undefined ? [] : [String(l.layer)]
+      );
+    case "element":
+      return components;
+    default:
+      return [];
+  }
+};
