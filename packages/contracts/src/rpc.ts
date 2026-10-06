@@ -78,6 +78,7 @@ import {
   Thread,
   ThreadItem,
 } from "./threads.ts";
+import { TokenChange } from "./tokens.ts";
 
 const PagesError = Schema.Union([
   NotConfigured,
@@ -304,6 +305,18 @@ const requestRpcs = [
   Rpc.make("designSystem.get", {
     error: NotConfigured,
     success: DesignSystemState,
+  }),
+  /**
+   * A token's value set in the code, where the style system declares it (ADR 0025). Returns the
+   * files written and the value before, for an undo.
+   */
+  Rpc.make("designSystem.setToken", {
+    error: Schema.Union([BadRequest, NotConfigured]),
+    payload: TokenChange,
+    success: Schema.Struct({
+      files: Schema.Array(Schema.String),
+      previous: Schema.NullOr(Schema.String),
+    }),
   }),
   /** Runs the fixed-rule scan and saves what it finds, without an agent. */
   Rpc.make("designSystem.detect", {

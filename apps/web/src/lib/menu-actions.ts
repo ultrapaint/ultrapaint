@@ -109,6 +109,7 @@ import {
   stopThread,
   toggleFollowing,
 } from "./thread-actions.ts";
+import { editTokenValue } from "./token-edit.ts";
 
 export const copyText = (text: string, what = text) => {
   navigator.clipboard?.writeText(text).then(
@@ -552,6 +553,10 @@ const runToken = (name: string, value: string, id: string) => {
   }
   if (id === "copyValue") {
     copyText(value);
+    return;
+  }
+  if (id === "edit") {
+    editTokenValue(name, value);
     return;
   }
   if (id.startsWith("apply:")) {

@@ -468,6 +468,8 @@ export const tokenEntries = (f: TokenFacts): Entry[] => {
   return tidy([
     item("copyRef", `Copy $${f.name}`),
     item("copyValue", `Copy ${f.value}`),
+    // The value is the code's (ADR 0025): it is changed where the code declares it.
+    item("edit", "Edit the value in the code…"),
     separator,
     {
       disabled: fields.length === 0,

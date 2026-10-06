@@ -361,6 +361,8 @@ describe("tokens", () => {
     });
     expect(find(got, "apply")).toMatchObject({ disabled: true });
     expect(ids(got)).toContain("copyRef");
+    // Its value is the code's, edited there.
+    expect(ids(got)).toContain("edit");
   });
 
   it("fit only the fields every selected node has", () => {

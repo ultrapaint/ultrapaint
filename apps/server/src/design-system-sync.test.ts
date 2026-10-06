@@ -64,5 +64,52 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           assert.include(drifted.steps[0]?.detail ?? "", "color-accent");
         })
     );
+
+    it.effect(
+      "keeps the values in the code: the file leaves them out, and an edit writes the stylesheet",
+      () =>
+        Effect.gen(function* () {
+          const { client, repo } = yield* TestEnv;
+          const fs = yield* FileSystem.FileSystem;
+          const file = JSON.parse(
+            yield* fs.readFileString(
+              path.join(repo, "designs/design-system.json")
+            )
+          );
+          const listed = JSON.stringify(file);
+          assert.include(listed, '"color-brand"');
+          assert.notInclude(listed, "#2563eb");
+
+          const brand = (state: {
+            readonly designSystem: {
+              readonly colors: readonly {
+                readonly tokens: readonly { name: string; value: string }[];
+              }[];
+            } | null;
+          }) =>
+            state.designSystem?.colors
+              .flatMap((g) => g.tokens)
+              .find((t) => t.name === "color-brand")?.value;
+          assert.strictEqual(
+            brand(yield* client["designSystem.get"]()),
+            "#2563eb"
+          );
+
+          const { files, previous } = yield* client["designSystem.setToken"]({
+            name: "color-brand",
+            value: "#1d4ed8",
+          });
+          assert.deepStrictEqual(files, ["styles/app.css"]);
+          assert.strictEqual(previous, "#2563eb");
+          assert.include(
+            yield* fs.readFileString(path.join(repo, "styles/app.css")),
+            "--color-brand: #1d4ed8;"
+          );
+          assert.strictEqual(
+            brand(yield* client["designSystem.get"]()),
+            "#1d4ed8"
+          );
+        })
+    );
   }
 );

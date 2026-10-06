@@ -189,7 +189,21 @@ export class DesignSystemSyncService extends Context.Service<
             (event) =>
               STYLESHEET_RE.test(event.path) || event.path.endsWith(".tsx")
           ),
-          Stream.runForEach(() => PubSub.publish(pokes, undefined))
+          Stream.debounce("150 millis"),
+          Stream.runForEach(() =>
+            Effect.gen(function* () {
+              // The design system's values are the code's: the editor hears they changed.
+              yield* project
+                .use(Effect.flatMap(DesignSystemService, (d) => d.get))
+                .pipe(
+                  Effect.flatMap((state) =>
+                    events.publish("designSystem", state)
+                  ),
+                  Effect.ignore
+                );
+              yield* PubSub.publish(pokes, undefined);
+            })
+          )
         );
         yield* FiberHandle.run(watching, watch);
       });
