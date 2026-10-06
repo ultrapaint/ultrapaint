@@ -55,3 +55,6 @@ export const startCommand = async (text: string) => {
   useEditor.getState().setLeftTab("chat");
   await createThread(text.endsWith(" ") ? text : `${text} `);
 };
+
+/** Opens a thread with `/init` in its composer, for the user to send. */
+export const startInit = () => startCommand("/init");

@@ -47,7 +47,7 @@ import { PanelEmpty } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import { SetupEmpty } from "../components/setup-dialog.tsx";
 import { pickFigmaFile } from "../lib/import-figma.ts";
-import { startCommand } from "../lib/start-thread.ts";
+import { startInit } from "../lib/start-thread.ts";
 import {
   holdMenu,
   type MenuTarget,
@@ -60,9 +60,6 @@ import { useDesignSystemSetup } from "../state/design-system-setup.ts";
 import { useProject } from "../state/project.ts";
 import { useSync } from "../state/sync.ts";
 import { SyncView } from "./sync.tsx";
-
-/** Opens a thread with `/init` in its composer, for the user to send. */
-export const startInit = () => startCommand("/init");
 
 const COLOR_PREFIX_RE = /^color-/;
 

@@ -17,6 +17,8 @@ import {
 import {
   type ComponentType,
   type CSSProperties,
+  lazy,
+  Suspense,
   useEffect,
   useRef,
 } from "react";
@@ -47,17 +49,10 @@ import { openSetup, SetupDialog } from "./components/setup-dialog.tsx";
 import { ShortcutSheet } from "./components/shortcut-sheet.tsx";
 import { useOpenNodeLink } from "./lib/open-node-link.ts";
 import { useShortcuts } from "./lib/shortcuts.ts";
-import { Assets } from "./panels/assets.tsx";
 import { CanvasSwitcher } from "./panels/canvases.tsx";
-import { Changes } from "./panels/changes.tsx";
 import { CodePanel } from "./panels/code.tsx";
-import { Comments } from "./panels/comments.tsx";
-import { DesignSystemPanel } from "./panels/design-system.tsx";
 import { Inspector } from "./panels/inspector.tsx";
-import { Layers } from "./panels/layers.tsx";
-import { Pages } from "./panels/pages.tsx";
 import { SaveConfigDialog } from "./panels/save-config.tsx";
-import { SettingsPage } from "./panels/settings.tsx";
 import { Threads } from "./panels/threads.tsx";
 import { useAgents } from "./state/agents.ts";
 import { useCatalogue } from "./state/catalogue.ts";
@@ -79,6 +74,34 @@ import { syncWaiting, useSync } from "./state/sync.ts";
 import { onUrlChange, readUrl, tidyUrl, writeMode } from "./state/url.ts";
 
 installBridgeRouter();
+
+/*
+ * Loaded when first opened: the chat is the panel the editor opens on, and the others, the
+ * settings above all, bring code nobody needs until they are looked at.
+ */
+const Assets = lazy(() =>
+  import("./panels/assets.tsx").then((m) => ({ default: m.Assets }))
+);
+const Changes = lazy(() =>
+  import("./panels/changes.tsx").then((m) => ({ default: m.Changes }))
+);
+const Comments = lazy(() =>
+  import("./panels/comments.tsx").then((m) => ({ default: m.Comments }))
+);
+const DesignSystemPanel = lazy(() =>
+  import("./panels/design-system.tsx").then((m) => ({
+    default: m.DesignSystemPanel,
+  }))
+);
+const Layers = lazy(() =>
+  import("./panels/layers.tsx").then((m) => ({ default: m.Layers }))
+);
+const Pages = lazy(() =>
+  import("./panels/pages.tsx").then((m) => ({ default: m.Pages }))
+);
+const SettingsPage = lazy(() =>
+  import("./panels/settings.tsx").then((m) => ({ default: m.SettingsPage }))
+);
 
 /** `rail` is the word under the icon, `label` the panel's title and the button's name. */
 const leftTabs: Record<
@@ -365,7 +388,9 @@ const LeftPanel = ({
         </div>
       )}
       <div className="min-h-0 flex-1 overflow-auto">
-        <Active />
+        <Suspense fallback={null}>
+          <Active />
+        </Suspense>
       </div>
       <ResizeHandle
         defaultWidth={defaultWidth}
@@ -590,7 +615,9 @@ export const App = () => {
     <TooltipProvider delay={300}>
       <div className="flex h-full flex-col">
         {settingsOpen ? (
-          <SettingsPage />
+          <Suspense fallback={null}>
+            <SettingsPage />
+          </Suspense>
         ) : (
           <div className="relative flex min-h-0 flex-1">
             <Rail />
