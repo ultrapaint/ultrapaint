@@ -289,7 +289,7 @@ export class DesignSystemSyncService extends Context.Service<
             Effect.gen(function* () {
               // The design system's values are the code's: the editor hears they changed.
               yield* project
-                .use(Effect.flatMap(DesignSystemService, (d) => d.get))
+                .use(Effect.flatMap(DesignSystemService, (d) => d.refresh))
                 .pipe(
                   Effect.flatMap((state) =>
                     events.publish("designSystem", state)

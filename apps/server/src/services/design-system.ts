@@ -23,6 +23,7 @@ import {
 } from "effect";
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { EventBus } from "../events.ts";
+import { makeStampedCache } from "../file-stamp.ts";
 import { hashContent } from "../hash.ts";
 import { CatalogueService } from "./catalogue.ts";
 import { type EditFailure, EditService } from "./edit.ts";
@@ -41,8 +42,8 @@ const encodeBaseline = Schema.encodeEffect(BaselineJson);
  * `detect` writes what the fixed-rule scan finds, for a project without an agent. Both are one
  * undo step, and the editor hears about every change, whoever made it.
  *
- * A token's value is the code's (ADR 0025): it is read through the style system every time, and
- * the file leaves it out for a token the code declares. A token the code does not declare keeps
+ * A token's value is the code's (ADR 0025): it is read through the style system, again whenever
+ * a stylesheet it came from changes, and the file leaves it out for a token the code declares. A token the code does not declare keeps
  * the value the file gives it, if any.
  */
 export class DesignSystemService extends Context.Service<
@@ -50,6 +51,11 @@ export class DesignSystemService extends Context.Service<
   {
     readonly detect: Effect.Effect<DesignSystem, EditFailure>;
     readonly get: Effect.Effect<DesignSystemState>;
+    /**
+     * The state read again, the stylesheets from scratch: after a change to them that the files
+     * read last time would not show, such as a stylesheet that was not there.
+     */
+    readonly refresh: Effect.Effect<DesignSystemState>;
     /** What the stylesheets say, with the catalogue's categories for the components. */
     readonly scan: Effect.Effect<DesignSystemScan>;
     /**
@@ -106,17 +112,24 @@ export class DesignSystemService extends Context.Service<
           () => null
         );
 
-      /** The tokens the code declares, by name; none when the stylesheets cannot be read. */
-      const codeTokens = Effect.try(() => {
-        const source = styleSystem.readTokens({
-          anchorDir: paths.anchorDir,
-          root: paths.root,
-          settings: paths.settings,
-        });
-        return new Map<string, SourceToken>(
-          source.tokens.map((t) => [t.name, t])
-        );
-      }).pipe(
+      /** The tokens the code declares, by name, kept until a stylesheet they come from changes. */
+      const codeCache = makeStampedCache(
+        fs,
+        Effect.try(() => {
+          const source = styleSystem.readTokens({
+            anchorDir: paths.anchorDir,
+            root: paths.root,
+            settings: paths.settings,
+          });
+          return {
+            files: source.files.map((file) => path.resolve(paths.root, file)),
+            value: new Map<string, SourceToken>(
+              source.tokens.map((t) => [t.name, t])
+            ),
+          };
+        })
+      );
+      const codeTokens = codeCache.get.pipe(
         // A stylesheet that cannot be read leaves the file's own values in force.
         Effect.orElseSucceed(() => new Map<string, SourceToken>())
       );
@@ -177,28 +190,42 @@ export class DesignSystemService extends Context.Service<
         Effect.orElseSucceed(() => null)
       );
 
+      /** The two files as they read, the design system decoded: kept until either changes. */
+      const filesCache = makeStampedCache(
+        fs,
+        Effect.gen(function* () {
+          const [text, notes] = yield* Effect.all([
+            readOptional(systemFile),
+            readOptional(notesFile),
+          ]);
+          const decoded =
+            text === null
+              ? null
+              : yield* Effect.result(
+                  Effect.flatMap(
+                    Effect.try({
+                      catch: (error) =>
+                        new BadRequest({
+                          message: `not JSON: ${String(error)}`,
+                        }),
+                      // A value the file leaves out is the code's, filled in below.
+                      try: () =>
+                        mapTokenRecords(JSON.parse(text) as unknown, (t) =>
+                          "value" in t ? t : { ...t, value: "" }
+                        ),
+                    }),
+                    decodeDesignSystem
+                  )
+                );
+          return { files: [systemFile, notesFile], value: { decoded, notes } };
+        })
+      );
+
       const get: Effect.Effect<DesignSystemState> = Effect.gen(function* () {
-        const [text, notes] = yield* Effect.all([
-          readOptional(systemFile),
-          readOptional(notesFile),
-        ]);
-        if (text === null) {
+        const { decoded, notes } = yield* filesCache.get;
+        if (decoded === null) {
           return { designSystem: null, notes };
         }
-        const decoded = yield* Effect.result(
-          Effect.flatMap(
-            Effect.try({
-              catch: (error) =>
-                new BadRequest({ message: `not JSON: ${String(error)}` }),
-              // A value the file leaves out is the code's, filled in below.
-              try: () =>
-                mapTokenRecords(JSON.parse(text) as unknown, (t) =>
-                  "value" in t ? t : { ...t, value: "" }
-                ),
-            }),
-            decodeDesignSystem
-          )
-        );
         return decoded._tag === "Success"
           ? {
               designSystem: withCodeValues(decoded.success, yield* codeTokens),
@@ -434,6 +461,7 @@ export class DesignSystemService extends Context.Service<
         baseline,
         detect,
         get,
+        refresh: Effect.andThen(codeCache.clear, get),
         saveBaseline,
         scan,
         setToken,

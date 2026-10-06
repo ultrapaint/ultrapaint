@@ -51,6 +51,7 @@ import {
   Semaphore,
 } from "effect";
 import { makeWriteAtomic } from "../atomic-write.ts";
+import { makeStamp } from "../file-stamp.ts";
 import { makeId, safeFileId } from "../ids.ts";
 import { CatalogueService } from "./catalogue.ts";
 import { DesignSystemService } from "./design-system.ts";
@@ -291,19 +292,52 @@ export class FigmaImportService extends Context.Service<
         return yield* withCandidates(yield* readSummary(id));
       });
 
-      const list = Effect.gen(function* () {
+      const stampOf = makeStamp(fs);
+      /** Summaries as last read, with the stamp their file had then: a list reads only what changed. */
+      const summaries = new Map<
+        string,
+        { readonly stamp: string; readonly summary: FigmaImport }
+      >();
+
+      /** Every import's summary, newest first, without the catalogue's guesses. */
+      const listSummaries = Effect.gen(function* () {
         const root = path.join(yield* storage.stateDir, IMPORTS_DIR);
         const ids = yield* Effect.orElseSucceed(
           fs.readDirectory(root),
-          () => []
+          (): string[] => []
         );
-        const summaries = yield* Effect.forEach(ids, (id) =>
-          Effect.option(get(id))
+        for (const id of summaries.keys()) {
+          if (!ids.includes(id)) {
+            summaries.delete(id);
+          }
+        }
+        const found = yield* Effect.forEach(ids, (id) =>
+          Effect.gen(function* () {
+            // Stamped before it is read, so a change during the reading is seen next time.
+            const stamp = yield* stampOf([path.join(root, id, SUMMARY_NAME)]);
+            const kept = summaries.get(id);
+            if (kept?.stamp === stamp) {
+              return [kept.summary];
+            }
+            const read = yield* Effect.option(readSummary(id));
+            if (read._tag === "None") {
+              summaries.delete(id);
+              return [];
+            }
+            summaries.set(id, { stamp, summary: read.value });
+            return [read.value];
+          })
         );
-        return summaries
-          .flatMap((s) => (s._tag === "Some" ? [s.value] : []))
-          .sort((a, b) => b.createdAt - a.createdAt);
-      }).pipe(Effect.withSpan("FigmaImportService.list"));
+        return found.flat().sort((a, b) => b.createdAt - a.createdAt);
+      });
+
+      const list = Effect.flatMap(listSummaries, (all) =>
+        Effect.forEach(all, withCandidates)
+      ).pipe(Effect.withSpan("FigmaImportService.list"));
+
+      const latest = Effect.flatMap(listSummaries, ([newest]) =>
+        newest === undefined ? Effect.succeed(null) : withCandidates(newest)
+      ).pipe(Effect.withSpan("FigmaImportService.latest"));
 
       const load = Effect.fnUntraced(function* (id: string) {
         const cached = loaded.get(id);
@@ -582,7 +616,7 @@ export class FigmaImportService extends Context.Service<
         delete: remove,
         frame,
         get,
-        latest: Effect.map(list, (all) => all[0] ?? null),
+        latest,
         list,
         map,
         tokens,
