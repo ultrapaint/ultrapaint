@@ -10,6 +10,7 @@
  * The server listens on loopback, but so does every page in the browser: without a token any
  * website the user has open could reach the editor's tools.
  */
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import {
   Context,
   Effect,
@@ -20,8 +21,25 @@ import {
   Semaphore,
 } from "effect";
 import { makeWriteAtomic } from "../../atomic-write.ts";
-import { makeId } from "../../ids.ts";
 import { Storage } from "../storage.ts";
+
+/**
+ * A token nobody can guess: 256 bits from the operating system's generator. A page in the
+ * browser can try tokens as fast as it can send requests.
+ */
+const newToken = Effect.sync(
+  () => `mcp_${randomBytes(32).toString("base64url")}`
+);
+
+/** How tokens were made before: the time and a few random bits, which a page could guess. */
+const GUESSABLE_TOKEN_RE = /^mcp_[0-9a-z]+_[0-9a-z]{5}$/;
+
+/** Whether two tokens are the same, in a time that does not say how much of them matched. */
+const sameToken = (given: string, known: string) => {
+  const a = Buffer.from(given);
+  const b = Buffer.from(known);
+  return a.length === b.length && timingSafeEqual(a, b);
+};
 
 /**
  * The thread whose agent is making the call being served. The gate puts it there once it has
@@ -56,7 +74,6 @@ export class McpAccess extends Context.Service<
       const path = yield* Path.Path;
       const writeAtomic = makeWriteAtomic(fs, path);
       const threads = new Map<string, string>();
-      const newToken = makeId("mcp");
       // Two first calls at once must not each invent a token and each write theirs.
       const making = yield* Semaphore.make(1);
       /** The project's token, as last read or made, and the state directory it belongs to. */
@@ -75,15 +92,26 @@ export class McpAccess extends Context.Service<
           if (known?.file === file) {
             return known.token;
           }
-          const existing = yield* Effect.orElseSucceed(
+          const read = yield* Effect.orElseSucceed(
             Effect.map(fs.readFileString(file), (text) => text.trim()),
             () => ""
           );
+          // One made the old way is replaced: the agent outside is given the new one to use.
+          const existing = GUESSABLE_TOKEN_RE.test(read) ? "" : read;
+          if (read && !existing) {
+            yield* Effect.logWarning(
+              "the MCP token was one a website could guess, and is replaced: copy the new one from the settings into agents outside the editor"
+            );
+          }
+          if (existing) {
+            // Written before it was kept to its owner; only they need to read it.
+            yield* Effect.ignore(fs.chmod(file, 0o600));
+          }
           const token = existing || (yield* newToken);
           if (!existing) {
             // A state directory that cannot be written still gets a token; it lasts until the
             // server stops, which is better than turning away every agent outside the editor.
-            yield* writeAtomic(file, `${token}\n`).pipe(
+            yield* writeAtomic(file, `${token}\n`, { mode: 0o600 }).pipe(
               Effect.catch((error) =>
                 Effect.logWarning(
                   `the MCP token could not be kept: ${error.message}`
@@ -108,7 +136,7 @@ export class McpAccess extends Context.Service<
           if (threadOf(token) !== undefined) {
             return Effect.succeed(true);
           }
-          return Effect.map(external, (project) => token === project);
+          return Effect.map(external, (project) => sameToken(token, project));
         },
         external,
         issue: (threadId) =>
