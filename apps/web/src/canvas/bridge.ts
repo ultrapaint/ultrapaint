@@ -35,6 +35,11 @@ export class FrameBridge {
    */
   private watched: string[] = [];
   private skeletons: string[] = [];
+  /**
+   * The origin the preview said it was ready from. Its address is no guide: the user's app may
+   * redirect elsewhere (127.0.0.1 to localhost), and the preview then speaks from there.
+   */
+  private spoke: string | null = null;
   /** The preview has loaded and answers. */
   ready: boolean;
   readonly frameId: string;
@@ -47,18 +52,17 @@ export class FrameBridge {
   attach(iframe: HTMLIFrameElement) {
     this.iframe = iframe;
     this.ready = false;
+    this.spoke = null;
   }
 
   detach() {
     this.iframe = null;
     this.ready = false;
+    this.spoke = null;
   }
 
-  /**
-   * Where the preview is loaded from, when its address says: messages are taken only from there,
-   * and sent only there.
-   */
-  private origin(): string | null {
+  /** Where the preview's address says it is loaded from, before it has said anything. */
+  private srcOrigin(): string | null {
     const src = this.iframe?.src ?? "";
     if (!URL.canParse(src)) {
       return null;
@@ -68,15 +72,22 @@ export class FrameBridge {
   }
 
   /**
-   * Whether a message is this bridge's preview speaking: sent by its iframe's window, from the
-   * preview's origin. Any other page in the browser can post to the editor too.
+   * Whether a message is this bridge's preview speaking: sent by its iframe's window and, once
+   * the preview has said it is ready, from the origin it said so from. Any other page in the
+   * browser can post to the editor too, and the iframe may be navigated to another site.
    */
-  accepts(ev: Pick<MessageEvent, "origin" | "source">) {
+  accepts(ev: Pick<MessageEvent, "data" | "origin" | "source">) {
     if (!this.iframe || this.iframe.contentWindow !== ev.source) {
       return false;
     }
-    const origin = this.origin();
-    return origin === null || origin === ev.origin;
+    if (this.spoke !== null) {
+      return this.spoke === ev.origin;
+    }
+    const data = ev.data as { type?: unknown } | null | undefined;
+    if (data?.type === "ed:ready" && ev.origin !== "" && ev.origin !== "null") {
+      this.spoke = ev.origin;
+    }
+    return true;
   }
 
   handle(msg: HostMessage) {
@@ -107,7 +118,10 @@ export class FrameBridge {
   }
 
   send(msg: EditorMessage) {
-    this.iframe?.contentWindow?.postMessage(msg, this.origin() ?? "*");
+    this.iframe?.contentWindow?.postMessage(
+      msg,
+      this.spoke ?? this.srcOrigin() ?? "*"
+    );
   }
 
   private request<T extends HostMessage>(

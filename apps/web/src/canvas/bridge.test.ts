@@ -90,6 +90,11 @@ describe("the bridge router", () => {
     const bridge = bridgeFor("routed");
     const { contentWindow, iframe } = fakeIframe();
     bridge.attach(iframe);
+    route({
+      data: { frame: "routed", type: "ed:ready" },
+      origin: PREVIEW,
+      source: contentWindow as unknown as Window,
+    });
     const heard = vi.fn();
     bridge.on(heard);
     const data = { frame: "routed", type: "ed:hmr" };
@@ -115,5 +120,32 @@ describe("the bridge router", () => {
       source: contentWindow as unknown as Window,
     });
     expect(heard).toHaveBeenCalledTimes(2);
+  });
+
+  it("follows a preview that redirected to another origin, from the one it is ready on", () => {
+    const bridge = bridgeFor("redirected");
+    const { contentWindow, iframe, sent } = fakeIframe();
+    bridge.attach(iframe);
+    const heard = vi.fn();
+    bridge.on(heard);
+    const from = (origin: string, type: string) =>
+      route({
+        data: { frame: "redirected", type },
+        origin,
+        source: contentWindow as unknown as Window,
+      });
+
+    // Loaded from 127.0.0.1, the app sent it on to localhost.
+    from("http://localhost:4772", "ed:ready");
+    expect(bridge.ready).toBe(true);
+    bridge.editText("n");
+    expect(sent.at(-1)?.origin).toBe("http://localhost:4772");
+    from("http://localhost:4772", "ed:hmr");
+    // Once ready, its own address is no longer where it speaks from.
+    from(PREVIEW, "ed:hmr");
+    expect(heard.mock.calls.map(([msg]) => msg.type)).toEqual([
+      "ed:ready",
+      "ed:hmr",
+    ]);
   });
 });
