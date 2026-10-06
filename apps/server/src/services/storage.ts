@@ -11,6 +11,7 @@ const STATE_SUBDIRS = [
   "threads",
   "chat",
   "checkpoints",
+  "snapshots",
   "catalogue",
   "thumbnails",
   "imports",

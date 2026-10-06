@@ -229,6 +229,7 @@ layer(Unsaved, { excludeTestServices: true, timeout: "60 seconds" })(
             agentId: "fake",
             title: "before saving",
           });
+          const snapshot = yield* client["snapshots.create"]({ name: "kept" });
           const configPath = path.join(repo, "ultrapaint.json");
 
           const events = yield* Effect.forkScoped(
@@ -264,6 +265,11 @@ layer(Unsaved, { excludeTestServices: true, timeout: "60 seconds" })(
           const state = path.join(repo, ".ultrapaint");
           assert.isTrue(
             yield* fs.exists(path.join(state, "threads", `${thread.id}.json`))
+          );
+          assert.isTrue(
+            yield* fs.exists(
+              path.join(state, "snapshots", `${snapshot.id}.json`)
+            )
           );
           assert.strictEqual(
             yield* fs.readFileString(path.join(state, ".gitignore")),
