@@ -9,6 +9,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { LibrarySuggestion } from "@ultrapaint/contracts/setup";
 import type { Detect } from "@ultrapaint/framework-api/node";
+import { toPosix } from "@ultrapaint/shared/path";
 
 const MAX_DEPTH = 5;
 const MAX_SUGGESTIONS = 5;
@@ -26,8 +27,6 @@ const LIBRARY_NAME_RE =
 const APP_NAME_RE =
   /(^|[-/@])(app|web|site|client|front|frontend|storybook)([-/]|$)/i;
 const DESIGNS_NAME_RE = /(^|[-/])designs?$/i;
-
-const toPosix = (p: string) => p.replaceAll("\\", "/");
 
 interface Manifest {
   dependencies?: Record<string, string>;

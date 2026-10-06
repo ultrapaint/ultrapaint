@@ -6,9 +6,8 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import type { PreviewStyleContext } from "@ultrapaint/framework-api/node";
+import { toPosix } from "@ultrapaint/shared/path";
 import { inlineThemeAliases } from "./design-system-scan.ts";
-
-const toPosix = (p: string) => p.replaceAll("\\", "/");
 
 /**
  * Whether a package is installed where the anchor can reach it: in its own `node_modules` or

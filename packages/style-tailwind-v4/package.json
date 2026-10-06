@@ -13,7 +13,8 @@
   "dependencies": {
     "@babel/parser": "^8.0.5",
     "@ultrapaint/contracts": "workspace:*",
-    "@ultrapaint/framework-api": "workspace:*"
+    "@ultrapaint/framework-api": "workspace:*",
+    "@ultrapaint/shared": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

@@ -19,6 +19,7 @@ import {
   tokenKindOf,
 } from "@ultrapaint/contracts/tokens";
 import type { DesignSystemContext } from "@ultrapaint/framework-api/node";
+import { toPosix } from "@ultrapaint/shared/path";
 import { collect, hostEntries, themeOf } from "./design-system-scan.ts";
 import {
   applyThemeDeclaration,
@@ -34,8 +35,6 @@ const ALIAS_RE = /^var\(\s*(--[\w-]+)\s*\)$/;
 /** A scope whose variables hold for the whole document: the default theme's. */
 const ROOT_SCOPE_RE = /(^|[\s,])(:root|html|:host)\b/;
 const NODE_MODULES_RE = /[\\/]node_modules[\\/]/;
-
-const toPosix = (p: string) => p.replaceAll("\\", "/");
 
 /** The variable a value is an alias of, `var(--primary)`; undefined for anything else. */
 const aliasOf = (value: string): string | undefined => {

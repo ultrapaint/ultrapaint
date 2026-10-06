@@ -1,13 +1,12 @@
 import path from "node:path";
 import type { PreviewInput } from "@ultrapaint/framework-api/node";
+import { toPosix } from "@ultrapaint/shared/path";
 import { ASSET_PATH } from "./asset-route.ts";
 import type { PreviewBundles } from "./build.ts";
 import type { ServeOptions } from "./serve.ts";
 
 const LEADING_NON_DOT_RE = /^(?!\.)/;
 const LEADING_NON_SLASH_RE = /^(?!\/)/;
-
-const toPosix = (p: string) => p.replaceAll("\\", "/");
 
 /** Packages there must be one copy of on the page, whoever imports them. */
 const SINGLETONS = ["react", "react-dom", "scheduler"];

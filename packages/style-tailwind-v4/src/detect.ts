@@ -6,6 +6,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { StyleSuggestions } from "@ultrapaint/framework-api/node";
+import { toPosix } from "@ultrapaint/shared/path";
 
 const MAX_SUGGESTIONS = 5;
 const SKIPPED_DIRS = new Set([
@@ -22,8 +23,6 @@ const TAILWIND_CSS_RE =
 const CSS_FILE_RE = /\.css$/;
 const TAILWIND_V4_RE = /@import\s+["']tailwindcss|@theme\b/;
 const TAILWIND_V3_RE = /@tailwind\s+(base|components|utilities)/;
-
-const toPosix = (p: string) => p.replaceAll("\\", "/");
 
 /** Stylesheets below `dir` that set Tailwind up, repo-relative. */
 const cssEntriesOf = (dir: string, root: string): string[] => {

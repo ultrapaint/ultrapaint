@@ -18,13 +18,12 @@ import type {
   CatalogueBuilder,
   CatalogueContext,
 } from "@ultrapaint/framework-api/node";
+import { toPosix } from "@ultrapaint/shared/path";
 // TypeScript 7 (native) has no JS compiler API; the catalogue uses the 5.x API under an alias.
 import ts from "typescript-api";
 
 const hashContent = (content: string): string =>
   createHash("sha1").update(content).digest("hex").slice(0, 16);
-
-const toPosix = (p: string) => p.replaceAll("\\", "/");
 
 /** Bump when the extraction logic changes so stale caches are rebuilt. */
 const CATALOGUE_VERSION = 4;
