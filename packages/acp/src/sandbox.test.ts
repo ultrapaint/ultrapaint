@@ -131,51 +131,66 @@ describe("sandboxLaunch", () => {
   it("starts the agent through sandbox-exec with its own temp directory", () => {
     const wrapped = sandboxLaunch(launch, policy, DARWIN);
     expect(wrapped.command).toBe("/usr/bin/sandbox-exec");
-    expect(wrapped.args.slice(-3)).toEqual([
+    expect(wrapped.args).toEqual([
+      "-p",
+      seatbeltProfile(policy),
       "npx",
       "-y",
       "@agentclientprotocol/claude-agent-acp",
     ]);
-    expect(wrapped.args[0]).toBe("-p");
-    expect(wrapped.args[1]).toBe(seatbeltProfile(policy));
-    // Set by `env` inside the sandbox, not on sandbox-exec.
-    expect(wrapped.args.slice(2, 5)).toEqual([
-      "/usr/bin/env",
-      "FOO=bar",
-      `TMPDIR=${policy.tmpDir}`,
-    ]);
-    expect(wrapped.env).toEqual({});
+    expect(wrapped.env).toEqual({ FOO: "bar", TMPDIR: policy.tmpDir });
   });
 
   it("starts the agent through bubblewrap on Linux", () => {
     const wrapped = sandboxLaunch(launch, policy, LINUX);
     expect(wrapped.command).toBe("/usr/bin/bwrap");
-    expect(wrapped.args.slice(-3)).toEqual([
+    expect(wrapped.args.slice(-7)).toEqual([
+      "--setenv",
+      "TMPDIR",
+      "/tmp",
+      "--",
       "npx",
       "-y",
       "@agentclientprotocol/claude-agent-acp",
     ]);
-    // Set by bubblewrap inside the sandbox, not on bubblewrap.
-    expect(wrapped.args.slice(-10, -4)).toEqual([
-      "--setenv",
-      "FOO",
-      "bar",
-      "--setenv",
-      "TMPDIR",
-      "/tmp",
-    ]);
-    expect(wrapped.args.at(-4)).toBe("--");
-    expect(wrapped.env).toEqual({});
+    // Handed on by bubblewrap, which keeps its environment for what it starts.
+    expect(wrapped.env).toEqual({ FOO: "bar" });
   });
 
-  it("never sets a variable on the process that makes the sandbox", () => {
+  it("puts no value of a variable on the command line, where anyone can read it", () => {
+    const secret = {
+      ...launch,
+      env: { ANTHROPIC_API_KEY: "sk-ant-secret", FOO: "bar" },
+    };
+    for (const tools of [LINUX, DARWIN]) {
+      const wrapped = sandboxLaunch(secret, policy, tools);
+      expect(wrapped.args.join("\n")).not.toContain("sk-ant-secret");
+      expect(wrapped.args.join("\n")).not.toContain("ANTHROPIC_API_KEY");
+      expect(wrapped.env.ANTHROPIC_API_KEY).toBe("sk-ant-secret");
+    }
+  });
+
+  it("never sets a loader variable on the process that makes the sandbox", () => {
     const preload = {
       ...launch,
-      env: { "BAD=NAME": "x", LD_PRELOAD: "/tmp/x.so" },
+      env: {
+        "BAD=NAME": "x",
+        DYLD_INSERT_LIBRARIES: "/tmp/x.dylib",
+        GCONV_PATH: "/tmp/gconv",
+        LD_PRELOAD: "/tmp/x.so",
+      },
     };
     for (const tools of [LINUX, DARWIN]) {
       const wrapped = sandboxLaunch(preload, policy, tools);
-      expect(wrapped.env).toEqual({});
+      expect(Object.keys(wrapped.env).sort()).toEqual(
+        tools === DARWIN ? ["TMPDIR"] : []
+      );
+      // Set inside the sandbox instead, on what it starts.
+      expect(wrapped.args.join(" ")).toContain(
+        tools === DARWIN
+          ? "LD_PRELOAD=/tmp/x.so"
+          : "--setenv LD_PRELOAD /tmp/x.so"
+      );
       // A name that would be read as something else is not passed at all.
       expect(wrapped.args.some((arg) => arg.includes("BAD=NAME"))).toBe(false);
     }

@@ -57,11 +57,12 @@ const ENV_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 /**
  * The variables that tell the dynamic loader what to load into a process before its own code
- * runs. Inside the sandbox they would only reach what is already confined, but they are never
+ * runs (`GCONV_PATH` names modules glibc loads to convert text). Inside the sandbox they would
+ * only reach what is already confined, but they are never
  * what an agent needs for a command, and a variable set on the wrong side of the sandbox is a
  * way out of it.
  */
-const LOADER_ENV_RE = /^(LD_|DYLD_)/;
+const LOADER_ENV_RE = /^(?:LD_|DYLD_|GCONV_PATH$)/;
 
 /** What of the environment an agent asked for a command may be set: no loader variables. */
 export const agentEnv = (
@@ -206,44 +207,55 @@ export const sandboxAvailable = (tools: SandboxTools): boolean =>
  * Wraps the command that starts an agent so that it runs inside the sandbox. Where there is
  * none the launch is returned unchanged; the caller tells the user.
  *
- * The launch's variables are set inside the sandbox, by the sandbox, never on the process that
- * makes it: `bwrap` and `sandbox-exec` run unconfined until they have confined what they start,
- * and `LD_PRELOAD` on either would run its library there.
+ * The launch's variables reach the agent through the environment of the process that makes the
+ * sandbox, which `bwrap` and `sandbox-exec` hand on to what they start: on the command line any
+ * user of the machine could read an API key in the process list. The loader's variables are the
+ * exception: on that process `LD_PRELOAD` would run its library before the sandbox is up, so
+ * they are set inside it instead, where they are only paths.
  */
 export const sandboxLaunch = (
   launch: AgentLaunch,
   policy: SandboxPolicy,
   tools: SandboxTools = { platform: process.platform }
 ): AgentLaunch => {
+  const loader = settable(launch.env).filter(([name]) =>
+    LOADER_ENV_RE.test(name)
+  );
+  const env = Object.fromEntries(settable(agentEnv(launch.env)));
   if (tools.platform === "darwin") {
-    // Temporary files are written where the agent may write, and nowhere else.
-    const env = settable({ ...launch.env, TMPDIR: policy.tmpDir });
     return {
       args: [
         "-p",
         seatbeltProfile(policy),
-        "/usr/bin/env",
-        ...env.map(([name, value]) => `${name}=${value}`),
+        ...(loader.length > 0
+          ? [
+              "/usr/bin/env",
+              ...loader.map(([name, value]) => `${name}=${value}`),
+            ]
+          : []),
         launch.command,
         ...launch.args,
       ],
       command: "/usr/bin/sandbox-exec",
-      env: {},
+      // Temporary files are written where the agent may write, and nowhere else.
+      env: { ...env, TMPDIR: policy.tmpDir },
     };
   }
   if (tools.platform === "linux" && tools.bubblewrap) {
-    // The session's temporary directory is `/tmp` in there.
-    const env = settable({ ...launch.env, TMPDIR: "/tmp" });
     return {
       args: [
         ...bubblewrapArgs(policy),
-        ...env.flatMap(([name, value]) => ["--setenv", name, value]),
+        // The session's temporary directory is `/tmp` in there.
+        "--setenv",
+        "TMPDIR",
+        "/tmp",
+        ...loader.flatMap(([name, value]) => ["--setenv", name, value]),
         "--",
         launch.command,
         ...launch.args,
       ],
       command: tools.bubblewrap,
-      env: {},
+      env,
     };
   }
   return launch;
