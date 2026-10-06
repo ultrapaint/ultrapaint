@@ -12,6 +12,7 @@ import {
   Layer,
   Path,
   Random,
+  Schedule,
   Semaphore,
 } from "effect";
 import { ChildProcessSpawner } from "effect/process";
@@ -270,7 +271,11 @@ export class GitService extends Context.Service<
         yield* fs.copyFile(real, index).pipe(Effect.ignore);
         const env = { GIT_INDEX_FILE: index };
         const tree = yield* Effect.gen(function* () {
-          yield* run(["add", "--all", "--", ":/"], env);
+          // A file written atomically elsewhere can vanish between git listing it and reading
+          // it ("adding files failed"); the working tree a moment later is as good a snapshot.
+          yield* run(["add", "--all", "--", ":/"], env).pipe(
+            Effect.retry({ schedule: Schedule.spaced("50 millis"), times: 3 })
+          );
           return (yield* run(["write-tree"], env)).trim();
         }).pipe(Effect.ensuring(Effect.ignore(fs.remove(index))));
         yield* run(["update-ref", `${prefix}/${tree}`, tree]);

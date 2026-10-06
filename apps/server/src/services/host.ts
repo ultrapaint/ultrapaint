@@ -113,6 +113,12 @@ export class HostManager extends Context.Service<
         );
         yield* Effect.orDie(
           Effect.gen(function* () {
+            // Ignored before anything is written into it: a snapshot of the working tree taken
+            // meanwhile must not see the files, nor their temporary copies come and go.
+            const ignore = path.join(dir, ".gitignore");
+            if (!(yield* exists(ignore))) {
+              yield* writeAtomic(ignore, "*\n");
+            }
             for (const [name, content] of Object.entries(generated.files)) {
               yield* writeAtomic(path.join(dir, name), content);
             }
@@ -126,10 +132,6 @@ export class HostManager extends Context.Service<
               if (!keep.has(name) && (yield* fs.stat(file)).type === "File") {
                 yield* fs.remove(file);
               }
-            }
-            const ignore = path.join(dir, ".gitignore");
-            if (!(yield* exists(ignore))) {
-              yield* writeAtomic(ignore, "*\n");
             }
           })
         );
