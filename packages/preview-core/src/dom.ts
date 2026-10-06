@@ -76,9 +76,6 @@ export const paintsNothing = (el: Element, style: CSSStyleDeclaration) =>
   el.childElementCount === 0 &&
   (el.textContent ?? "").trim() === "";
 
-/** Whether the element itself puts a box on the screen, whatever it happens to contain. */
-export const drawsItsOwnBox = (el: Element) => drawsBox(getComputedStyle(el));
-
 /**
  * Machinery a popup adds to the page rather than anything of the design: the sheet that catches
  * the click that dismisses it, the one-pixel spans parked off-screen that keep focus from

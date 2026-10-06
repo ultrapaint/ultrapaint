@@ -7,7 +7,6 @@ import type {
   ContainerNode,
   DesignNode,
   GroupNode,
-  PageNode,
 } from "@ultrapaint/contracts/document";
 
 /** File extension of a page, with its dots. */
@@ -141,17 +140,6 @@ export function* walk(root: DesignNode): Generator<DesignNode> {
 export const idsOf = (root: DesignNode): Set<string> =>
   new Set(Array.from(walk(root), (node) => node.id));
 
-/** The modules a tree's instances import, which the preview has to be able to load. */
-export const importsOf = (root: DesignNode): Set<string> => {
-  const froms = new Set<string>();
-  for (const node of walk(root)) {
-    if (node.type === "instance") {
-      froms.add(node.from);
-    }
-  }
-  return froms;
-};
-
 const shorten = (text: string, max = 32) =>
   text.length > max ? `${text.slice(0, max - 1)}…` : text;
 
@@ -200,10 +188,4 @@ export const canvasRoot = (nodes: readonly DesignNode[]): GroupNode => ({
   children: nodes,
   id: CANVAS_ROOT_ID,
   type: "group",
-});
-
-export const emptyPage = (): PageNode => ({
-  children: [],
-  id: "root",
-  type: "page",
 });

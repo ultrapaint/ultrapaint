@@ -4,7 +4,7 @@
  * filled in when it is read.
  */
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import { childrenOf, walk } from "./tree.ts";
+import { childrenOf } from "./tree.ts";
 
 const ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
 
@@ -107,17 +107,4 @@ export const withNewIds = (node: DesignNode, next: IdGenerator): DesignNode => {
     ...copy,
     children: children.map((child) => withNewIds(child, next)),
   } as DesignNode;
-};
-
-/** Whether any id occurs twice in the tree. */
-export const duplicateIds = (root: DesignNode): string[] => {
-  const seen = new Set<string>();
-  const twice = new Set<string>();
-  for (const node of walk(root)) {
-    if (seen.has(node.id)) {
-      twice.add(node.id);
-    }
-    seen.add(node.id);
-  }
-  return [...twice];
 };
