@@ -23,6 +23,7 @@ import {
   type SetStateAction,
   useEffect,
   useEffectEvent,
+  useRef,
   useState,
 } from "react";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,9 @@ import { useSnapshotView } from "../state/snapshot-view.ts";
 
 const DIFF_MARKER_RE = /^[+\-@]/;
 
+/** How long the files are left to settle before the panel asks again what changed. */
+const FILES_SETTLE_MS = 250;
+
 interface CheckpointDiff {
   diffs: readonly GitDiff[];
   id: string;
@@ -67,14 +71,31 @@ export const Changes = () => {
   const [cpDiff, setCpDiff] = useState<CheckpointDiff | null>(null);
   const [busy, setBusy] = useState(false);
 
+  /**
+   * Counts the refreshes, and the statuses taken in from them or from the server: an answer that
+   * arrives after a later one is older news, and is dropped.
+   */
+  const asked = useRef({ refresh: 0, status: 0 });
+  const takeStatus = (s: GitStatus) => {
+    asked.current.status += 1;
+    setStatus(s);
+  };
+
   const refresh = async () => {
+    asked.current.refresh += 1;
+    const ticket = { ...asked.current };
     try {
       const [s, cps, sns] = await Promise.all([
         api().request("git.status", undefined),
         api().request("checkpoints.list", undefined),
         api().request("snapshots.list", undefined),
       ]);
-      setStatus(s);
+      if (ticket.refresh !== asked.current.refresh) {
+        return;
+      }
+      if (ticket.status === asked.current.status) {
+        takeStatus(s);
+      }
       setCheckpoints(cps);
       setSnapshots(sns);
       setSelected(
@@ -99,6 +120,7 @@ export const Changes = () => {
   };
 
   const onFilesChanged = useEffectEvent(refresh);
+  const onStatus = useEffectEvent(takeStatus);
   const onShowDiffRequest = useEffectEvent(showDiff);
 
   // A file asked for from elsewhere, before the panel was open or while it is.
@@ -124,11 +146,15 @@ export const Changes = () => {
       await onFilesChanged();
     };
     loadInitial();
-    const offGit = api().on("git", setStatus);
+    const offGit = api().on("git", onStatus);
+    // A save, a checkout or an agent changes many files at once: one refresh for all of them.
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const offFile = api().on("file.changed", () => {
-      onFilesChanged();
+      clearTimeout(timer);
+      timer = setTimeout(onFilesChanged, FILES_SETTLE_MS);
     });
     return () => {
+      clearTimeout(timer);
       offGit();
       offFile();
     };
