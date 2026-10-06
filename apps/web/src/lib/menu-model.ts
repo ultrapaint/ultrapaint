@@ -10,7 +10,7 @@ import {
   nodeKind,
   nodeLabel,
 } from "@ultrapaint/design-document/tree";
-import type { TokenKind } from "../state/context-menu.ts";
+import type { MenuTokenKind } from "../state/context-menu.ts";
 import { viewportPresets } from "./presets.ts";
 
 export type Entry =
@@ -396,7 +396,7 @@ const hasGap = (node: DesignNode) =>
 
 /** The fields of this node a token of this kind fits. */
 export const tokenFields = (
-  kind: TokenKind,
+  kind: MenuTokenKind,
   node: DesignNode | null
 ): TokenField[] => {
   if (!node) {
@@ -423,7 +423,7 @@ export const tokenFields = (
         { field: "maxWidth", label: "Max width" },
         { field: "minWidth", label: "Min width" },
       ];
-    case "size":
+    case "fontSize":
       return text ? [{ field: "size", label: "Font size" }] : [];
     case "spacing":
       return [
@@ -438,7 +438,7 @@ export const tokenFields = (
 
 /** The fields every one of these nodes has that a token of this kind fits. */
 export const sharedTokenFields = (
-  kind: TokenKind,
+  kind: MenuTokenKind,
   nodes: readonly DesignNode[]
 ): TokenField[] => {
   const [first, ...rest] = nodes;
@@ -460,7 +460,7 @@ const appliedTo = (selected: readonly DesignNode[], none: string) => {
 };
 
 export interface TokenFacts {
-  kind: TokenKind;
+  kind: MenuTokenKind;
   name: string;
   /** What is selected, which is what the token is applied to. */
   selected: readonly DesignNode[];

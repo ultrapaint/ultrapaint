@@ -6,7 +6,7 @@
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import type { TokenKind } from "./token-options.tsx";
+import type { FieldTokenKind } from "./token-options.tsx";
 
 export type TokenField = "color" | "fill" | "gap" | "radius" | "shadow";
 
@@ -22,13 +22,13 @@ export type Control =
   | {
       readonly field: TokenField;
       readonly kind: "token";
-      readonly token: TokenKind;
+      readonly token: FieldTokenKind;
     };
 
 /** A component's props the toolbar shows before "+ n". */
 export const SHOWN_PROPS = 2;
 
-const token = (field: TokenField, kind: TokenKind): Control => ({
+const token = (field: TokenField, kind: FieldTokenKind): Control => ({
   field,
   kind: "token",
   token: kind,

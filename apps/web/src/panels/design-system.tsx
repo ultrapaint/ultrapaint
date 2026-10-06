@@ -52,9 +52,9 @@ import { startInit } from "../lib/start-thread.ts";
 import {
   holdMenu,
   type MenuTarget,
+  type MenuTokenKind,
   openMenuAt,
   showMenu,
-  type TokenKind,
 } from "../state/context-menu.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
@@ -162,7 +162,12 @@ const sampleTarget = (
   }
   const size = sizesMatching(ds, q)[Number(index)];
   return size
-    ? { kind: "token", name: size.name, tokenKind: "size", value: size.value }
+    ? {
+        kind: "token",
+        name: size.name,
+        tokenKind: "fontSize",
+        value: size.value,
+      }
     : null;
 };
 
@@ -327,7 +332,7 @@ const TokenRows = ({
 }: {
   tokens: readonly Token[];
   /** What the tokens can be applied to, from their menu. */
-  kind: TokenKind;
+  kind: MenuTokenKind;
   preview: (token: Token) => React.ReactNode;
 }) => (
   <div className="flex flex-col py-1">

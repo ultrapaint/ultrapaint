@@ -357,7 +357,7 @@ describe("tokens", () => {
       "margin",
     ]);
     expect(tokenFields("font", row)).toEqual([]);
-    expect(tokenFields("size", text).map((f) => f.field)).toEqual(["size"]);
+    expect(tokenFields("fontSize", text).map((f) => f.field)).toEqual(["size"]);
     expect(tokenFields("borderWidth", row).map((f) => f.field)).toEqual([
       "border.width",
     ]);

@@ -92,8 +92,8 @@ import {
 } from "../lib/shared-value.ts";
 import { type Side, sharedSide, withSides } from "../lib/sides.ts";
 import {
+  type FieldTokenKind,
   Swatch,
-  type TokenKind,
   useColorOf,
   useTokenOptions,
 } from "../lib/token-options.tsx";
@@ -601,7 +601,7 @@ const TokenField = ({
   title,
 }: {
   field: string;
-  kind: TokenKind;
+  kind: FieldTokenKind;
   value: JsonValue | undefined;
   placeholder?: string;
   numeric?: boolean;
@@ -777,7 +777,11 @@ const TextSection = ({ nodes }: { nodes: readonly TextNode[] }) => {
             : { [key]: value };
         })
       : set(key, value);
-  const setting = (key: TextStyleSetting, kind: TokenKind, numeric = true) => (
+  const setting = (
+    key: TextStyleSetting,
+    kind: FieldTokenKind,
+    numeric = true
+  ) => (
     <TokenField
       className={style ? "text-muted-foreground" : undefined}
       field={key}
@@ -809,8 +813,8 @@ const TextSection = ({ nodes }: { nodes: readonly TextNode[] }) => {
         />
       </Row>
       <TextStyleRow named={named} nodes={nodes} style={style} styles={styles} />
-      <Row label="Size">{setting("size", "size")}</Row>
-      <Row label="Weight">{setting("weight", "weight")}</Row>
+      <Row label="Size">{setting("size", "fontSize")}</Row>
+      <Row label="Weight">{setting("weight", "fontWeight")}</Row>
       <Row label="Font">{setting("font", "font", false)}</Row>
       <Row label="Line">{setting("lineHeight", "leading")}</Row>
       <Row label="Tracking">{setting("tracking", "tracking")}</Row>

@@ -3,6 +3,7 @@
  * sizes with the value they resolve to, spacing as the steps of its scale in pixels.
  */
 import type { DesignSystem, Token } from "@ultrapaint/contracts/design-system";
+import type { TokenKind } from "@ultrapaint/contracts/tokens";
 import { tokenRef, toPixels } from "@ultrapaint/design-document/tokens";
 import type { StyleOption } from "../components/style-combobox.tsx";
 import { useDesignSystem } from "../state/design-system.ts";
@@ -23,22 +24,25 @@ const tokenOption = (token: Token, prefix: string): StyleOption => ({
   value: tokenRef(token.name),
 });
 
-export type TokenKind =
+/** The kinds of token a style field of a node picks from. */
+export type FieldTokenKind = Extract<
+  TokenKind,
+  | "borderWidth"
   | "color"
+  | "container"
+  | "font"
+  | "fontSize"
+  | "fontWeight"
+  | "leading"
   | "radius"
   | "shadow"
-  | "size"
-  | "weight"
-  | "font"
-  | "leading"
-  | "tracking"
   | "spacing"
-  | "borderWidth"
-  | "container";
+  | "tracking"
+>;
 
 const tokenOptions = (
   ds: DesignSystem | null,
-  kind: TokenKind
+  kind: FieldTokenKind
 ): StyleOption[] => {
   if (kind === "spacing") {
     const base = toPixels(ds?.spacing.base ?? "0.25rem") ?? 4;
@@ -75,9 +79,9 @@ const tokenOptions = (
       return (ds.layout?.containers ?? []).map((t) =>
         tokenOption(t, "container-")
       );
-    case "size":
+    case "fontSize":
       return ds.typography.sizes.map((t) => tokenOption(t, "text-"));
-    case "weight":
+    case "fontWeight":
       return ds.typography.weights.map((t) => tokenOption(t, "font-weight-"));
     case "font":
       return ds.typography.fonts.map((t) => ({
@@ -95,7 +99,7 @@ const tokenOptions = (
   }
 };
 
-export const useTokenOptions = (kind: TokenKind) =>
+export const useTokenOptions = (kind: FieldTokenKind) =>
   tokenOptions(
     useDesignSystem((s) => s.designSystem),
     kind

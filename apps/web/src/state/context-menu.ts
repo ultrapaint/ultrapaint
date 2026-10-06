@@ -4,6 +4,7 @@
  * `<ContextMenuHost />` draws it. The same target gives the same menu wherever it was clicked.
  */
 import type { DesignNode } from "@ultrapaint/contracts/document";
+import type { TokenKind } from "@ultrapaint/contracts/tokens";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { create } from "zustand";
 
@@ -13,18 +14,22 @@ export interface Point {
   y: number;
 }
 
-/** What a design token can be applied to, by the kind of value it holds. */
-export type TokenKind =
+/**
+ * The kinds of token a token's menu knows what to apply to. Breakpoints, easings, durations and
+ * the rest are `other`: copied into code, not applied to a node.
+ */
+export type MenuTokenKind = Extract<
+  TokenKind,
   | "borderWidth"
   | "color"
   | "container"
   | "font"
+  | "fontSize"
+  | "other"
   | "radius"
   | "shadow"
-  | "size"
   | "spacing"
-  /** Breakpoints, easings, durations: copied into code, not applied to a node. */
-  | "other";
+>;
 
 export type MenuTarget =
   /** A node of a frame; `at` is where in the frame it was clicked. */
@@ -36,7 +41,7 @@ export type MenuTarget =
   /** A canvas of the list in the Pages panel. */
   | { kind: "canvasEntry"; canvasId: string }
   | { kind: "comment"; commentId: string }
-  | { kind: "token"; name: string; value: string; tokenKind: TokenKind }
+  | { kind: "token"; name: string; value: string; tokenKind: MenuTokenKind }
   | { kind: "textStyle"; name: string }
   /** An entry of the Assets panel: a primitive, or a component of the design system. */
   | {
