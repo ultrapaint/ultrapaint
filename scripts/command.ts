@@ -6,9 +6,9 @@
  * it is.
  *
  * It runs from a source checkout or from the package `pnpm pack:local` makes. In a checkout the
- * server runs from its sources under tsx, and a fresh checkout builds the editor once. The
- * package carries this file bundled as `cli.mjs`, with the server's bundle in `server/` and the
- * editor's build in `web/` next to it, and has no sources to run.
+ * server runs from its sources under tsx, and the editor is built when it has no build or its
+ * sources changed since. The package carries this file bundled as `cli.mjs`, with the server's
+ * bundle in `server/` and the editor's build in `web/` next to it, and has no sources to run.
  *
  * `--dev`, in a checkout only, runs its sources instead of a build: the server under `tsx
  * watch`, which restarts it when a file changes, and the editor under Vite, which reloads it.
@@ -23,7 +23,7 @@
  * Both call `main` in their own process, so the children are always the command's own and go
  * with its scope.
  */
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { networkInterfaces } from "node:os";
 import path from "node:path";
@@ -142,12 +142,77 @@ const run = (
     return yield* child.exitCode;
   });
 
-/** The editor is served as a built bundle; a fresh checkout builds it once. */
+/** The latest change under a directory, its installs and builds aside; a deletion counts too. */
+const newestUnder = (dir: string): number => {
+  let newest = statSync(dir).mtimeMs;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (
+      entry.name === "node_modules" ||
+      entry.name === "dist" ||
+      entry.name.startsWith(".")
+    ) {
+      continue;
+    }
+    const full = path.join(dir, entry.name);
+    newest = Math.max(
+      newest,
+      entry.isDirectory() ? newestUnder(full) : statSync(full).mtimeMs
+    );
+  }
+  return newest;
+};
+
+/** The editor's package and the workspace packages it is built from, transitively. */
+const editorPackages = (): readonly string[] => {
+  const dirs = [webDir];
+  for (const dir of dirs) {
+    const { dependencies = {} } = JSON.parse(
+      readFileSync(path.join(dir, "package.json"), "utf8")
+    ) as { dependencies?: Record<string, string> };
+    for (const [name, version] of Object.entries(dependencies)) {
+      const workspace = path.join(
+        root,
+        "packages",
+        name.replace("@ultrapaint/", "")
+      );
+      if (version.startsWith("workspace:") && !dirs.includes(workspace)) {
+        dirs.push(workspace);
+      }
+    }
+  }
+  return dirs;
+};
+
+/**
+ * Whether the build is older than what it is built from. A pull or a checkout writes the files
+ * it changes, so their times say the build no longer matches; the lockfile stands for the
+ * installed dependencies. Times rather than a hash of the contents: a few hundred `stat`s cost
+ * next to nothing at startup.
+ */
+const editorStale = (built: string) => {
+  const lockfile = path.join(root, "pnpm-lock.yaml");
+  const sources = [
+    ...editorPackages().map(newestUnder),
+    existsSync(lockfile) ? statSync(lockfile).mtimeMs : 0,
+  ];
+  return Math.max(...sources) > statSync(built).mtimeMs;
+};
+
+/** The editor is served as a built bundle, built again when its sources have changed since. */
 const ensureEditor = Effect.gen(function* () {
-  if (packaged || existsSync(path.join(webDist, "index.html"))) {
+  if (packaged) {
     return;
   }
-  yield* Console.log("[ultrapaint] building the editor, once…");
+  const built = path.join(webDist, "index.html");
+  const fresh = !existsSync(built);
+  if (!(fresh || editorStale(built))) {
+    return;
+  }
+  yield* Console.log(
+    fresh
+      ? "[ultrapaint] building the editor, once…"
+      : "[ultrapaint] the editor's sources changed since its build; building it again…"
+  );
   const code = yield* run("pnpm", ["-F", "@ultrapaint/web", "build"], root);
   if (Number(code) !== 0) {
     return yield* Effect.die(new Error("the editor could not be built"));
