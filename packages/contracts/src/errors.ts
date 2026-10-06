@@ -56,7 +56,7 @@ export type WireError =
 export const errorCodes = {
   AgentFailure: "agent_error",
   BadRequest: "bad_request",
-  CommandFailed: "internal",
+  CommandFailed: "command_failed",
   Conflict: "conflict",
   ForbiddenPath: "forbidden_path",
   NotConfigured: "not_configured",

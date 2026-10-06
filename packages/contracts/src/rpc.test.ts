@@ -2,7 +2,7 @@ import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 import { DesignSystem, emptyDesignSystem } from "./design-system.ts";
 import { DocOp, PageDocument } from "./document.ts";
-import { errorCodes, NotFound } from "./errors.ts";
+import { CommandFailed, errorCodes, NotFound } from "./errors.ts";
 import { EditorMessage } from "./preview.ts";
 import { UltrapaintRpcs, eventNames } from "./rpc.ts";
 import { Settings } from "./settings.ts";
@@ -140,5 +140,9 @@ describe("contracts", () => {
       expect(UltrapaintRpcs.requests.has(`events.${name}`)).toBe(true);
     }
     expect(errorCodes[new NotFound({ message: "x" })._tag]).toBe("not_found");
+    // A git command that failed is not a bug of the server's.
+    expect(errorCodes[new CommandFailed({ message: "x" })._tag]).toBe(
+      "command_failed"
+    );
   });
 });

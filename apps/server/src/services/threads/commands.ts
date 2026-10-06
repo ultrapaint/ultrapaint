@@ -21,6 +21,7 @@ import type { FigmaTokenDiff } from "@ultrapaint/contracts/sync";
 import type { SlashCommand } from "@ultrapaint/contracts/threads";
 import { normaliseRoute } from "@ultrapaint/shared/route";
 import { Context, Effect, Layer, Schema } from "effect";
+import { AppLog } from "../../app-log.ts";
 import { ServerConfig } from "../../config.ts";
 import { ProjectManager } from "../../project.ts";
 import { CatalogueService } from "../catalogue.ts";
@@ -195,6 +196,7 @@ export class SlashCommands extends Context.Service<
       const setup = yield* DesignSystemSetupService;
       const sync = yield* DesignSystemSyncService;
       const { mcp } = yield* ServerConfig;
+      const log = yield* AppLog;
 
       /** What `/init` asks for, which Define asks for too when it adopts the theme. */
       const importSteps = project.use(
@@ -916,32 +918,52 @@ do not do the steps yourself, and stop.
         );
       };
 
+      /**
+       * A command that cannot be prepared is sent to the agent as it was typed. Why it could
+       * not is in the log: without it, the agent's puzzled answer is all the user sees.
+       */
+      const orAsTyped =
+        (name: string) =>
+        <E extends { readonly message: string }>(
+          prepared: Effect.Effect<string, E>
+        ) =>
+          prepared.pipe(
+            Effect.catch((error) =>
+              Effect.as(
+                log.log(
+                  "agent",
+                  "warn",
+                  `/${name} was sent as typed: ${error.message}`
+                ),
+                null
+              )
+            )
+          );
+
       const expand = (text: string) => {
         const match: RegExpExecArray | null = COMMAND_RE.exec(text.trim());
         const name = match?.[1];
         const argument = match?.[2]?.trim() ?? "";
         if (name === "init") {
-          return init(argument).pipe(Effect.orElseSucceed(() => null));
+          return init(argument).pipe(orAsTyped(name));
         }
         if (name === "implement") {
-          return implement(argument).pipe(Effect.orElseSucceed(() => null));
+          return implement(argument).pipe(orAsTyped(name));
         }
         if (name === "import-figma") {
-          return importFigma(argument).pipe(Effect.orElseSucceed(() => null));
+          return importFigma(argument).pipe(orAsTyped(name));
         }
         if (name === "redraw") {
-          return redraw(argument).pipe(Effect.orElseSucceed(() => null));
+          return redraw(argument).pipe(orAsTyped(name));
         }
         if (name === "components") {
-          return components(argument).pipe(Effect.orElseSucceed(() => null));
+          return components(argument).pipe(orAsTyped(name));
         }
         if (name === "design-system") {
-          return designSystemStep(argument).pipe(
-            Effect.orElseSucceed(() => null)
-          );
+          return designSystemStep(argument).pipe(orAsTyped(name));
         }
         if (name === "sync") {
-          return syncCommand(argument).pipe(Effect.orElseSucceed(() => null));
+          return syncCommand(argument).pipe(orAsTyped(name));
         }
         return Effect.succeed(null);
       };
