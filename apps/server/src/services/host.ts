@@ -20,6 +20,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { AppLog } from "../app-log.ts";
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { connectHost, ServerConfig } from "../config.ts";
+import { makeExists } from "../fs-exists.ts";
 import { ComponentRegistry, PREVIEW_DIR } from "./component-registry.ts";
 import { ProjectFramework } from "./framework.ts";
 import { RepoPaths } from "./repo-paths.ts";
@@ -91,8 +92,7 @@ export class HostManager extends Context.Service<
       const setStatus = (next: HostStatus) =>
         Effect.as(SubscriptionRef.set(status, next), next);
 
-      const exists = (p: string) =>
-        Effect.orElseSucceed(fs.exists(p), () => false);
+      const exists = makeExists(fs);
 
       const generate = Effect.gen(function* () {
         const dir = path.join(paths.designsDir, PREVIEW_DIR);

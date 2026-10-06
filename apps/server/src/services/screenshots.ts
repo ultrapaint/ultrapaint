@@ -21,8 +21,7 @@ import {
 } from "effect";
 import { EventBus } from "../events.ts";
 import { makeId } from "../ids.ts";
-
-const PNG_DATA_URL = "data:image/png;base64,";
+import { PNG_DATA_URL } from "../png-text.ts";
 
 export class ScreenshotFailure extends Schema.TaggedError<ScreenshotFailure>()(
   "ScreenshotFailure",

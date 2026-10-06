@@ -9,6 +9,7 @@ import {
 import { Context, Effect, FileSystem, Layer, Path, Semaphore } from "effect";
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { EventBus } from "../events.ts";
+import { makeExists } from "../fs-exists.ts";
 import { hashContent } from "../hash.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
@@ -160,8 +161,7 @@ export class EditService extends Context.Service<
         events.publish("edit.state", snapshotState())
       );
 
-      const exists = (p: string) =>
-        Effect.orElseSucceed(fs.exists(p), () => false);
+      const exists = makeExists(fs);
 
       const read = Effect.fn("EditService.read")(function* (rel: string) {
         const abs = yield* paths.resolve(rel);

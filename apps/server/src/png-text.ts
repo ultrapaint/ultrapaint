@@ -1,5 +1,8 @@
 import { crc32 } from "node:zlib";
 
+/** How a PNG travels in a JSON message: base64 behind this prefix. */
+export const PNG_DATA_URL = "data:image/png;base64,";
+
 /**
  * A text chunk (`tEXt`) in a PNG: a keyword and its value, carried in the file itself and shown
  * by no viewer. A page's PNG records in one what it was drawn from, so the server knows whether

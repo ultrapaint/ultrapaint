@@ -33,10 +33,8 @@ import {
   type TokenChange,
   tokenKindOf,
 } from "@ultrapaint/contracts/tokens";
+import { plural } from "@ultrapaint/shared/text";
 import { inCodeUnits, sameValue } from "./token-values.ts";
-
-const plural = (n: number, one: string, many = `${one}s`) =>
-  `${n} ${n === 1 ? one : many}`;
 
 /** A few names, then how many more. */
 const some = (names: readonly string[], shown = 4) =>

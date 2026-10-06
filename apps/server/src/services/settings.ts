@@ -25,6 +25,7 @@ import {
 import { ChildProcessSpawner } from "effect/process";
 import { AppLog } from "../app-log.ts";
 import { makeWriteAtomic } from "../atomic-write.ts";
+import { makeExists } from "../fs-exists.ts";
 import { runGit } from "./git.ts";
 import { toConfig, toSettings } from "./project-config.ts";
 import { Storage } from "./storage.ts";
@@ -101,8 +102,7 @@ export class SettingsService extends Context.Service<
       const writeAtomic = makeWriteAtomic(fs, path);
       const external = yield* PubSub.unbounded<Settings>();
 
-      const exists = (p: string) =>
-        Effect.orElseSucceed(fs.exists(p), () => false);
+      const exists = makeExists(fs);
 
       const settingsFile = Effect.map(
         storage.target,

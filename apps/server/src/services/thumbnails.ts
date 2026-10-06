@@ -1,8 +1,8 @@
 import { BadRequest } from "@ultrapaint/contracts/errors";
 import { Context, Effect, FileSystem, Layer, Path } from "effect";
+import { PNG_DATA_URL } from "../png-text.ts";
 import { Storage } from "./storage.ts";
 
-const PNG_DATA_URL = "data:image/png;base64,";
 const KEY_RE = /^[\w-]{1,64}$/;
 const UNSAFE_RE = /[^\w.-]+/g;
 

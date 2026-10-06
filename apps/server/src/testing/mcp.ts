@@ -6,7 +6,7 @@
 import { Effect } from "effect";
 import { MCP_TOKEN_HEADER } from "../services/mcp/route.ts";
 
-export const PROTOCOL = "2026-07-28";
+const PROTOCOL = "2026-07-28";
 const JSON_RPC = { "content-type": "application/json" };
 const ACCEPT = { accept: "application/json, text/event-stream" };
 

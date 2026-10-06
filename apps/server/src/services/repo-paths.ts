@@ -1,6 +1,7 @@
 import { ForbiddenPath } from "@ultrapaint/contracts/errors";
 import type { Settings } from "@ultrapaint/contracts/settings";
 import { Context, Effect, FileSystem, Layer, Path } from "effect";
+import { makeExists } from "../fs-exists.ts";
 import { toPosix } from "../hash.ts";
 
 /**
@@ -41,8 +42,7 @@ export class RepoPaths extends Context.Service<
         const realRoot = root;
         const designs = toPosix(settings.designsDir);
 
-        const exists = (p: string) =>
-          Effect.orElseSucceed(fs.exists(p), () => false);
+        const exists = makeExists(fs);
 
         /**
          * The path with every symlink in it followed: the real path of its nearest existing

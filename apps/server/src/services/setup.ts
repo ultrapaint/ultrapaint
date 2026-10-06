@@ -15,6 +15,7 @@ import { defaultStyleSystem } from "@ultrapaint/contracts/tokens";
 import { Context, Effect, FileSystem, Layer, Path } from "effect";
 import { ChildProcessSpawner } from "effect/process";
 import { makeWriteAtomic } from "../atomic-write.ts";
+import { makeExists } from "../fs-exists.ts";
 import { toPosix } from "../hash.ts";
 import { runCommand } from "../process.ts";
 import { locateFramework } from "./framework.ts";
@@ -58,8 +59,7 @@ export class SetupService extends Context.Service<
       const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
       const writeAtomic = makeWriteAtomic(fs, path);
 
-      const exists = (p: string) =>
-        Effect.orElseSucceed(fs.exists(p), () => false);
+      const exists = makeExists(fs);
 
       const repository = Effect.fnUntraced(function* (repoPath: string) {
         if (!(path.isAbsolute(repoPath) && (yield* exists(repoPath)))) {

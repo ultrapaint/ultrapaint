@@ -32,7 +32,7 @@ const PAGE_SUFFIX = ".page.json";
 const PNG_SUFFIX = ".page.png";
 
 /** `orders.page.json` is drawn into `orders.page.png`, beside it. */
-export const pngFileOf = (pageFile: string) =>
+const pngFileOf = (pageFile: string) =>
   `${pageFile.slice(0, -PAGE_SUFFIX.length)}${PNG_SUFFIX}`;
 
 /** What one pass did. */

@@ -23,6 +23,7 @@ import {
   Stream,
 } from "effect";
 import { EventBus } from "../events.ts";
+import { makeExists } from "../fs-exists.ts";
 import { toPosix } from "../hash.ts";
 import { makeId, safeCanvasId } from "../ids.ts";
 import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
@@ -95,8 +96,7 @@ export class CommentsService extends Context.Service<
       const path = yield* Path.Path;
       const root = paths.designsDir;
 
-      const exists = (p: string) =>
-        Effect.orElseSucceed(fs.exists(p), () => false);
+      const exists = makeExists(fs);
 
       const fileOf = (canvas: string) =>
         Effect.map(safeCanvasId(canvas), (safe) =>

@@ -6,7 +6,7 @@
  * tools let an agent see what the file holds, decide component by component, put a question
  * to the user (with ask_user) where it cannot decide, and write frames as pages once the mapping is settled.
  */
-import { Json, type JsonValue } from "@ultrapaint/contracts/base";
+import { Json } from "@ultrapaint/contracts/base";
 import {
   ComponentCandidate,
   ComponentMapping,
@@ -21,6 +21,7 @@ import { DesignSystemService } from "../design-system.ts";
 import { FigmaImportService } from "../figma-import.ts";
 import {
   AnyJson,
+  asJson,
   makeLookup,
   missing,
   opt,
@@ -155,8 +156,6 @@ export const FigmaTools = Toolkit.make(
   MapFigmaComponent,
   WriteFigmaFrame
 );
-
-const asJson = (value: unknown) => value as JsonValue;
 
 export const FigmaToolsLive = FigmaTools.toLayer(
   Effect.gen(function* () {

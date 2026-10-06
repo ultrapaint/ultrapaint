@@ -40,6 +40,7 @@ import {
   Stream,
 } from "effect";
 import { EventBus } from "../events.ts";
+import { makeExists } from "../fs-exists.ts";
 import { hashContent, toPosix } from "../hash.ts";
 import { type EditFailure, EditService } from "./edit.ts";
 import { PagesService, parseCanvas } from "./pages.ts";
@@ -137,8 +138,7 @@ export class DocumentService extends Context.Service<
       // Two uploads at once would choose the same free name.
       const naming = yield* Semaphore.make(1);
 
-      const exists = (p: string) =>
-        Effect.orElseSucceed(fs.exists(p), () => false);
+      const exists = makeExists(fs);
 
       /** The file behind a document, repo-relative. */
       const fileOf = Effect.fnUntraced(function* (doc: string) {

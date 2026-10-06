@@ -16,20 +16,18 @@ import {
   type UsageMapping,
 } from "@ultrapaint/contracts/design-system-setup";
 import type { UsageSuggestion } from "@ultrapaint/framework-api/node";
+import { plural } from "@ultrapaint/shared/text";
 
 /** Values off the system a task lists, most used first. */
 const BRIEF_VALUES = 80;
 /** Kinds named in the card's line before the rest are counted. */
 const SUMMARY_KINDS = 3;
 /** Files a batch takes, so that one batch is one reviewable change. */
-export const BATCH_FILES = 12;
+const BATCH_FILES = 12;
 /** Tokens a refusal lists before it stops. */
 const LISTED_TOKENS = 12;
 const SPACING_STEP_RE = /^spacing-\d+(\.\d+)?$/;
 const NUMBER_RE = /^-?\d+$/;
-
-export const plural = (n: number, one: string, many = `${one}s`) =>
-  `${n} ${n === 1 ? one : many}`;
 
 const offOf = (inventory: UsageInventory, kind: UsageKind) => {
   const totals = inventory.totals.find((t) => t.kind === kind);
@@ -37,7 +35,7 @@ const offOf = (inventory: UsageInventory, kind: UsageKind) => {
 };
 
 /** Every use off the system an inventory counts. */
-export const offTotal = (inventory: UsageInventory) =>
+const offTotal = (inventory: UsageInventory) =>
   inventory.totals.reduce((sum, t) => sum + t.default + t.raw, 0);
 
 /** The inventory in a line, for the step's card: the kinds most off the system. */

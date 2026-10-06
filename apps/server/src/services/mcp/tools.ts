@@ -627,7 +627,7 @@ export const linkTargetOf = (
 };
 
 /** Documents and the design system are JSON through and through; their types only say more. */
-const asJson = (value: unknown) => value as JsonValue;
+export const asJson = (value: unknown) => value as JsonValue;
 
 /**
  * How a tool finds what an agent names: a canvas, a page by route or file, a document. Every

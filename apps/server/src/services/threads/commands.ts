@@ -20,6 +20,7 @@ import { PageDocument } from "@ultrapaint/contracts/document";
 import type { FigmaTokenDiff } from "@ultrapaint/contracts/sync";
 import type { SlashCommand } from "@ultrapaint/contracts/threads";
 import { normaliseRoute } from "@ultrapaint/shared/route";
+import { plural } from "@ultrapaint/shared/text";
 import { Context, Effect, Layer, Schema } from "effect";
 import { AppLog } from "../../app-log.ts";
 import { ServerConfig } from "../../config.ts";
@@ -27,11 +28,7 @@ import { ProjectManager } from "../../project.ts";
 import { CatalogueService } from "../catalogue.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { DesignSystemSetupService } from "../design-system-setup.ts";
-import {
-  inventoryBrief,
-  mappingCounts,
-  plural,
-} from "../design-system-setup-rules.ts";
+import { inventoryBrief, mappingCounts } from "../design-system-setup-rules.ts";
 import { DesignSystemSyncService } from "../design-system-sync.ts";
 import { DocumentService } from "../documents.ts";
 import { FigmaImportService } from "../figma-import.ts";
@@ -42,7 +39,7 @@ import { ProjectStyleSystem } from "../style-system.ts";
 const COMMAND_RE = /^\/([a-z][\w-]*)(?:\s+([\s\S]*))?$/;
 const WHITESPACE_RE = /\s+/;
 
-export const SLASH_COMMANDS: readonly SlashCommand[] = [
+const SLASH_COMMANDS: readonly SlashCommand[] = [
   {
     description:
       "Import the repository's design system: tokens, text styles, components and conventions",
@@ -105,10 +102,16 @@ const userAdds = (extra: string) =>
 
 const QUOTED_ROOT = '""';
 
+/** A command's argument: its first word, and what the user adds after it. */
+const splitArgument = (argument: string) => {
+  const [target = "", ...rest] = argument.trim().split(WHITESPACE_RE);
+  return { extra: rest.join(" "), target };
+};
+
 /** A canvas as a command names it: its id, `""` for the designs directory's own. */
 const canvasArgument = (argument: string) => {
-  const [target = "", ...rest] = argument.trim().split(WHITESPACE_RE);
-  return { extra: rest.join(" "), id: target === QUOTED_ROOT ? "" : target };
+  const { extra, target } = splitArgument(argument);
+  return { extra, id: target === QUOTED_ROOT ? "" : target };
 };
 
 const named = (id: string) => JSON.stringify(id);
@@ -312,8 +315,7 @@ ${userAdds(extra)}</ultrapaint-task>`
       const implement = (argument: string) =>
         project.use(
           Effect.gen(function* () {
-            const [target = "", ...rest] = argument.trim().split(WHITESPACE_RE);
-            const extra = rest.join(" ");
+            const { extra, target } = splitArgument(argument);
             const { pages } = yield* (yield* PagesService).list;
             const page = pageNamed(pages, target);
             if (!page) {
@@ -352,8 +354,7 @@ ${userAdds(extra)}</ultrapaint-task>`;
       const importFigma = (argument: string) =>
         project.use(
           Effect.gen(function* () {
-            const [target = "", ...rest] = argument.trim().split(WHITESPACE_RE);
-            const extra = rest.join(" ");
+            const { extra, target } = splitArgument(argument);
             const figma = yield* FigmaImportService;
             const imports = yield* figma.list;
             const chosen =
@@ -700,11 +701,11 @@ ${userAdds(extra)}</ultrapaint-task>`;
         });
 
       /** Define, adopting the theme or proposing one: as the user said, or as the step was started. */
-      const defineTask = (rest: readonly string[]) =>
+      const defineTask = (argument: string) =>
         Effect.gen(function* () {
-          const [first = "", ...words] = rest;
+          const { extra: words, target: first } = splitArgument(argument);
           const given = isDefineMode(first) ? first : undefined;
-          const extra = (given ? words : rest).join(" ");
+          const extra = given ? words : argument.trim();
           const state = yield* setup.get;
           const inventory = yield* setup.inventory;
           const brief = inventory
@@ -725,13 +726,13 @@ ${userAdds(extra)}</ultrapaint-task>`;
         });
 
       const designSystemStep = (argument: string) => {
-        const [target = "", ...rest] = argument.trim().split(WHITESPACE_RE);
+        const { extra, target } = splitArgument(argument);
         if (target === "define") {
-          return defineTask(rest);
+          return defineTask(extra);
         }
         if (target === "map" || target === "migrate") {
           return mcp
-            ? (target === "map" ? mapTask : migrateTask)(rest.join(" "))
+            ? (target === "map" ? mapTask : migrateTask)(extra)
             : Effect.succeed(needsTools(target === "map" ? "Map" : "Migrate"));
         }
         const offered = SETUP_STEPS.filter((s) => s.agent)
@@ -899,12 +900,12 @@ ${userAdds(extra)}</ultrapaint-task>`;
         });
 
       const syncCommand = (argument: string) => {
-        const [target = "", ...rest] = argument.trim().split(WHITESPACE_RE);
+        const { extra, target } = splitArgument(argument);
         if (target === "describe") {
-          return syncDescribe(rest.join(" "));
+          return syncDescribe(extra);
         }
         if (target === "figma") {
-          return syncFigma(rest.join(" "));
+          return syncFigma(extra);
         }
         return Effect.map(
           sync.plan,

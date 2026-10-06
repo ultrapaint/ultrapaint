@@ -10,7 +10,6 @@ import {
 import type { GitDiff } from "@ultrapaint/contracts/git";
 import {
   type CanvasLayout,
-  CanvasOrder,
   emptyCanvasLayout,
   type Page,
 } from "@ultrapaint/contracts/pages";
@@ -34,7 +33,7 @@ import { ProjectManager } from "../project.ts";
 import { COMMENTS_FILE } from "./comments.ts";
 import { parseDocument } from "./documents.ts";
 import { EditService, type EditTransaction } from "./edit.ts";
-import { canvasIdsIn, pageListOf, parseCanvas } from "./pages.ts";
+import { canvasIdsIn, decodeOrder, pageListOf, parseCanvas } from "./pages.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { Storage } from "./storage.ts";
 import { Checkpoints, makeDesignFiles } from "./threads/checkpoints.ts";
@@ -54,9 +53,6 @@ type Kept = typeof Kept.Type;
 const RecordJson = Schema.fromJsonString(Kept);
 const decodeRecord = Schema.decodeUnknownEffect(RecordJson);
 const encodeRecord = Schema.encodeEffect(RecordJson);
-const decodeOrder = Schema.decodeUnknownEffect(
-  Schema.fromJsonString(CanvasOrder)
-);
 
 type RestoreFailure =
   | NotFound

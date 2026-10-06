@@ -32,6 +32,7 @@ import type {
   UsageContext,
   UsageReader,
 } from "@ultrapaint/framework-api/node";
+import { plural } from "@ultrapaint/shared/text";
 import {
   Clock,
   Context,
@@ -55,7 +56,6 @@ import {
   mappingCounts,
   mappingOf,
   mappingTable,
-  plural,
   targetProblem,
   verifySummary,
 } from "./design-system-setup-rules.ts";

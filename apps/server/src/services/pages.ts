@@ -56,6 +56,7 @@ import {
   Stream,
 } from "effect";
 import { EventBus } from "../events.ts";
+import { makeExists } from "../fs-exists.ts";
 import { makeWalk } from "../fs-walk.ts";
 import { hashContent, toPosix } from "../hash.ts";
 import { safeCanvasId } from "../ids.ts";
@@ -69,7 +70,7 @@ const FRAME_GAP = 80;
 const SEGMENT_RE = /[\\/]/;
 
 const decodeCanvas = Schema.decodeUnknownEffect(CanvasLayout);
-const decodeOrder = Schema.decodeUnknownEffect(
+export const decodeOrder = Schema.decodeUnknownEffect(
   Schema.fromJsonString(CanvasOrder)
 );
 
@@ -104,7 +105,7 @@ const sortedKeys = <T>(record: Readonly<Record<string, T>>) =>
  * routes are written even when there are none, since their absence means a canvas from before
  * pages had optional URLs.
  */
-export const renderCanvas = (layout: CanvasLayout) => {
+const renderCanvas = (layout: CanvasLayout) => {
   const nodes = layout.nodes ?? [];
   const variants = layout.variants ?? [];
   return serialiseDocument({
@@ -148,7 +149,7 @@ export const homeOf = (
  * URL, the new URL of the page that served it, or else the first URL a page serves. Absent when
  * the canvas never said, or when no page serves a URL any more.
  */
-export const followHome = (
+const followHome = (
   home: string | undefined,
   before: Readonly<Record<string, string>>,
   after: Readonly<Record<string, string>>
@@ -263,7 +264,7 @@ export type CopyTarget =
  * Rewrites, in place, the `link` of every node of a JSON tree (a page document, a canvas's
  * nodes): `map` answers what a link becomes, or undefined to leave it. True when one changed.
  */
-export const mapLinks = (
+const mapLinks = (
   value: unknown,
   map: (link: string) => string | undefined
 ): boolean => {
@@ -420,8 +421,7 @@ export class PagesService extends Context.Service<
       const mutations = yield* Semaphore.make(1);
       const exclusive = mutations.withPermits(1);
 
-      const exists = (p: string) =>
-        Effect.orElseSucceed(fs.exists(p), () => false);
+      const exists = makeExists(fs);
 
       const relativeToDesigns = (abs: string) =>
         toPosix(path.relative(root, abs));
