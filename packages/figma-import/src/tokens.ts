@@ -38,6 +38,8 @@ const UNNAMED_SET_RE = /^(collection|variables|untitled)( ?\d+)?$/i;
 const EDGE_DASH_RE = /^-+|-+$/g;
 /** Mode names that are the default theme, whatever the file calls it. */
 const DEFAULT_MODE_RE = /^(light|default|mode ?1|value|base)$/i;
+/** A string variable is a font when its collection or name says so. */
+const FONT_PATH_RE = /font|family|typeface/i;
 
 /** What a number variable is, from the words in its collection and name. */
 const NUMBER_KINDS: readonly (readonly [RegExp, TokenKind])[] = [
@@ -175,8 +177,11 @@ interface Mode {
 type Loose = Record<string, unknown>;
 const field = (node: unknown, key: string): unknown =>
   typeof node === "object" && node !== null ? (node as Loose)[key] : undefined;
+/** A field that should hold a list, or an empty one when the file has none there. */
+const listOf = (value: unknown): readonly unknown[] =>
+  Array.isArray(value) ? value : [];
 
-const valueOf = (data: unknown): VariableValue => {
+const variableValueOf = (data: unknown): VariableValue => {
   const value = field(data, "value");
   const alias = guidOf(field(field(value, "alias"), "guid") as never);
   if (alias) {
@@ -220,16 +225,15 @@ const variableOf = (node: FigNode, setName: string): Variable | null => {
     kind = "color";
   } else if (type === "FLOAT") {
     kind = numberKindOf(path);
-  } else if (type === "STRING" && /font|family|typeface/i.test(path)) {
+  } else if (type === "STRING" && FONT_PATH_RE.test(path)) {
     kind = "font";
   }
-  const entries =
-    (field(field(node, "variableDataValues"), "entries") as unknown[]) ?? [];
+  const entries = listOf(field(field(node, "variableDataValues"), "entries"));
   const values = new Map<string, VariableValue>();
   for (const entry of entries) {
     const mode = guidOf(field(entry, "modeID") as never);
     if (mode) {
-      values.set(mode, valueOf(field(entry, "variableData")));
+      values.set(mode, variableValueOf(field(entry, "variableData")));
     }
   }
   return { id, kind, path, set, type, values };
@@ -275,7 +279,8 @@ const cssOf = (kind: TokenKind, value: VariableValue): string | null => {
   return value.text ?? null;
 };
 
-const readVariables = (file: FigFile, notes: string[]): FigmaToken[] => {
+/** Every live variable, by id, with the collections they sit in and those collections' modes. */
+const collectVariables = (file: FigFile) => {
   const nodes = file.doc.message.nodeChanges as FigNode[];
   const alive = nodes.filter((n) => n.phase !== "REMOVED");
   const sets = new Map(
@@ -292,6 +297,34 @@ const readVariables = (file: FigFile, notes: string[]): FigmaToken[] => {
     }
   }
   const modes = new Map([...sets].map(([id, set]) => [id, modesOf(set)]));
+  return { modes, variables };
+};
+
+/** A variable's CSS theme by theme, or null when its default mode comes to nothing. */
+const themeValuesOf = (
+  variable: Variable,
+  kind: TokenKind,
+  modes: readonly Mode[],
+  resolve: ReturnType<typeof resolverOf>
+): Record<string, string> | null => {
+  const values = new Map<string, string>();
+  for (const mode of modes) {
+    const value = resolve(variable, mode.id);
+    const css = value ? cssOf(kind, value) : null;
+    // A theme that only repeats the default's value has nothing of its own to say.
+    const repeats = mode.theme !== "" && css === values.get("");
+    if (css !== null && !values.has(mode.theme) && !repeats) {
+      values.set(mode.theme, css);
+    }
+  }
+  return values.has("") ? Object.fromEntries(values) : null;
+};
+
+const skippedNote = (skipped: readonly string[]): string =>
+  `${skipped.length} variable${skipped.length === 1 ? " is" : "s are"} not a colour, a font or a number on a known scale, and ${skipped.length === 1 ? "was" : "were"} left out: ${skipped.slice(0, 5).join(", ")}${skipped.length > 5 ? "…" : ""}.`;
+
+const readVariables = (file: FigFile, notes: string[]): FigmaToken[] => {
+  const { modes, variables } = collectVariables(file);
   const defaultModeOf = new Map(
     [...modes].map(([id, list]) => [id, list[0]?.id ?? ""])
   );
@@ -307,17 +340,13 @@ const readVariables = (file: FigFile, notes: string[]): FigmaToken[] => {
       skipped.push(variable.path);
       continue;
     }
-    const values: Record<string, string> = {};
-    for (const mode of modes.get(variable.set) ?? []) {
-      const value = resolve(variable, mode.id);
-      const css = value ? cssOf(variable.kind, value) : null;
-      // A theme that only repeats the default's value has nothing of its own to say.
-      const repeats = mode.theme !== "" && css === values[""];
-      if (css !== null && values[mode.theme] === undefined && !repeats) {
-        values[mode.theme] = css;
-      }
-    }
-    if (values[""] !== undefined) {
+    const values = themeValuesOf(
+      variable,
+      variable.kind,
+      modes.get(variable.set) ?? [],
+      resolve
+    );
+    if (values) {
       const first = variable.values.get(defaultModeOf.get(variable.set) ?? "");
       const target = first?.alias ? variables.get(first.alias) : undefined;
       tokens.push({
@@ -331,9 +360,7 @@ const readVariables = (file: FigFile, notes: string[]): FigmaToken[] => {
     }
   }
   if (skipped.length > 0) {
-    notes.push(
-      `${skipped.length} variable${skipped.length === 1 ? " is" : "s are"} not a colour, a font or a number on a known scale, and ${skipped.length === 1 ? "was" : "were"} left out: ${skipped.slice(0, 5).join(", ")}${skipped.length > 5 ? "…" : ""}.`
-    );
+    notes.push(skippedNote(skipped));
   }
   return tokens;
 };
@@ -388,7 +415,7 @@ const readStyles = (file: FigFile): FigmaToken[] => {
         });
       }
     } else if (type === "EFFECT") {
-      const css = shadowCss((field(node, "effects") as unknown[]) ?? []);
+      const css = shadowCss(listOf(field(node, "effects")));
       const name = tokenNameOf("shadow", path);
       if (css && name) {
         tokens.push({

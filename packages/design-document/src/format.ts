@@ -19,7 +19,9 @@ const byNodeOrder = (a: string, b: string) => {
   const ia = LEADING.indexOf(a);
   const ib = LEADING.indexOf(b);
   if (ia !== -1 || ib !== -1) {
-    return (ia === -1 ? LEADING.length : ia) - (ib === -1 ? LEADING.length : ib);
+    return (
+      (ia === -1 ? LEADING.length : ia) - (ib === -1 ? LEADING.length : ib)
+    );
   }
   if (a < b) {
     return -1;
