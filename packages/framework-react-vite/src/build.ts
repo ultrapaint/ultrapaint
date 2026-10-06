@@ -1,6 +1,8 @@
+import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import type { BuildOptions } from "esbuild";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 // A source checkout builds the bundles on demand. A bundled server has no sources to build
@@ -22,8 +24,9 @@ export interface PreviewBundles {
 }
 
 /**
- * Every source file the last build read, as esbuild reported them, relative to this directory.
- * Kept out of `dist`, which a bundled server copies.
+ * What the last build read, as esbuild reported it, relative to this directory, and the
+ * fingerprint of how it built: `{ fingerprint, inputs }`. Kept out of `dist`, which a bundled
+ * server copies.
  */
 const inputsFile = path.resolve(here, "../.cache/preview-inputs.json");
 
@@ -44,27 +47,34 @@ const mtimeOf = (file: string): number | null => {
 };
 
 /**
- * Whether the outputs are older than any file the build that made them read, or that build's
- * inputs are not known. The inputs are esbuild's own list, so a file of any package the bundles
- * reach counts, `design-document` and `contracts` as much as the renderer.
+ * Whether the outputs are older than any file the build that made them read, were built another
+ * way (`fingerprint`: esbuild's version, the options, this file), or that build's inputs are not
+ * known. The inputs are esbuild's own list, so a file of any package the bundles reach counts,
+ * `design-document` and `contracts` as much as the renderer.
  */
 export const bundlesStale = (
   outputs: readonly string[],
   inputsPath: string,
-  base: string
+  base: string,
+  fingerprint: string
 ): boolean => {
   const built = outputs.map(mtimeOf);
   if (built.some((m) => m === null)) {
     return true;
   }
-  let inputs: unknown;
+  let record: { fingerprint?: unknown; inputs?: unknown } | null;
   try {
-    inputs = JSON.parse(readFileSync(inputsPath, "utf8"));
+    record = JSON.parse(readFileSync(inputsPath, "utf8"));
   } catch {
     // No list of inputs, or one that cannot be read: nothing says the bundles are current.
     return true;
   }
-  if (!Array.isArray(inputs) || inputs.length === 0) {
+  const inputs = record?.inputs;
+  if (
+    record?.fingerprint !== fingerprint ||
+    !Array.isArray(inputs) ||
+    inputs.length === 0
+  ) {
     return true;
   }
   const oldest = Math.min(...(built as number[]));
@@ -73,6 +83,16 @@ export const bundlesStale = (
     return m === null || m > oldest;
   });
 };
+
+/** How a build is made, apart from its sources: the same fingerprint, the same bundles. */
+export const buildFingerprint = (
+  esbuildVersion: string,
+  options: unknown,
+  builder: string
+): string =>
+  createHash("sha1")
+    .update(`${esbuildVersion}\n${JSON.stringify(options)}\n${builder}`)
+    .digest("hex");
 
 const sourceOf = (specifier: string) =>
   fileURLToPath(import.meta.resolve(specifier));
@@ -91,51 +111,63 @@ export const buildPreviewBundles = async (
   const runtimeSource = sourceOf("@ultrapaint/renderer-react/runtime");
   const renderSource = sourceOf("@ultrapaint/renderer-react/render");
   const outputs = [bundles.render, bundles.runtime, bundles.serve];
-  const stale = opts.force || bundlesStale(outputs, inputsFile, here);
+  // Paths in the metafile are relative to the working directory: this one, made explicit.
+  const common = {
+    absWorkingDir: here,
+    bundle: true,
+    logLevel: "silent",
+    metafile: true,
+  } as const;
+  const options = [
+    {
+      ...common,
+      entryPoints: [path.join(here, "serve.ts")],
+      // Loaded from the target repository when it has them, from this package otherwise.
+      external: ["vite", "@vitejs/plugin-react", "@tailwindcss/vite"],
+      format: "esm",
+      outfile: bundles.serve,
+      platform: "node",
+      target: "node22",
+    },
+    {
+      ...common,
+      entryPoints: [runtimeSource],
+      format: "iife",
+      outfile: bundles.runtime,
+      platform: "browser",
+      target: "es2022",
+    },
+    {
+      ...common,
+      entryPoints: [renderSource],
+      external: ["react", "react-dom", "react-dom/client"],
+      format: "esm",
+      outfile: bundles.render,
+      platform: "browser",
+      target: "es2022",
+    },
+  ] satisfies BuildOptions[];
+  // Only a checkout builds them, so a bundled server does not need esbuild installed.
+  const { build, version } = await import("esbuild");
+  // A newer esbuild, other options or a change to this file build differently from the same
+  // sources.
+  const fingerprint = buildFingerprint(
+    version,
+    options,
+    readFileSync(fileURLToPath(import.meta.url), "utf8")
+  );
+  const stale =
+    opts.force || bundlesStale(outputs, inputsFile, here, fingerprint);
   if (stale) {
-    // Only a checkout builds them, so a bundled server does not need esbuild installed.
-    const { build } = await import("esbuild");
-    // Paths in the metafile are relative to the working directory: this one, made explicit.
-    const common = {
-      absWorkingDir: here,
-      bundle: true,
-      logLevel: "silent",
-      metafile: true,
-    } as const;
-    const results = [
-      await build({
-        ...common,
-        entryPoints: [path.join(here, "serve.ts")],
-        // Loaded from the target repository when it has them, from this package otherwise.
-        external: ["vite", "@vitejs/plugin-react", "@tailwindcss/vite"],
-        format: "esm",
-        outfile: bundles.serve,
-        platform: "node",
-        target: "node22",
-      }),
-      await build({
-        ...common,
-        entryPoints: [runtimeSource],
-        format: "iife",
-        outfile: bundles.runtime,
-        platform: "browser",
-        target: "es2022",
-      }),
-      await build({
-        ...common,
-        entryPoints: [renderSource],
-        external: ["react", "react-dom", "react-dom/client"],
-        format: "esm",
-        outfile: bundles.render,
-        platform: "browser",
-        target: "es2022",
-      }),
-    ];
+    const results = await Promise.all(options.map((o) => build(o)));
     const inputs = new Set(
-      results.flatMap((r) => Object.keys(r.metafile.inputs))
+      results.flatMap((r) => Object.keys(r.metafile?.inputs ?? {}))
     );
     mkdirSync(path.dirname(inputsFile), { recursive: true });
-    writeFileSync(inputsFile, JSON.stringify([...inputs]));
+    writeFileSync(
+      inputsFile,
+      JSON.stringify({ fingerprint, inputs: [...inputs] })
+    );
   }
   return bundles;
 };

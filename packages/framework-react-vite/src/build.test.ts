@@ -8,7 +8,7 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { bundlesStale } from "./build.ts";
+import { buildFingerprint, bundlesStale } from "./build.ts";
 
 const roots: string[] = [];
 afterAll(() => {
@@ -16,6 +16,8 @@ afterAll(() => {
     rmSync(root, { force: true, recursive: true });
   }
 });
+
+const FINGERPRINT = buildFingerprint("0.28.2", [{ bundle: true }], "build");
 
 /** A package whose bundles were built at t=2000 from two sources, one in another package. */
 const built = () => {
@@ -36,7 +38,10 @@ const built = () => {
   mkdirSync(path.dirname(inputs), { recursive: true });
   writeFileSync(
     inputs,
-    JSON.stringify(["entry.ts", "../../design-document/src/css.ts"])
+    JSON.stringify({
+      fingerprint: FINGERPRINT,
+      inputs: ["entry.ts", "../../design-document/src/css.ts"],
+    })
   );
   return { base, file, inputs, outputs, root };
 };
@@ -44,28 +49,52 @@ const built = () => {
 describe("whether the preview bundles are stale", () => {
   it("is not while no input the build read changed", () => {
     const { base, inputs, outputs } = built();
-    expect(bundlesStale(outputs, inputs, base)).toBe(false);
+    expect(bundlesStale(outputs, inputs, base, FINGERPRINT)).toBe(false);
   });
 
   it("is when a file of another package the bundles read changed", () => {
     const { base, file, inputs, outputs } = built();
     file("design-document/src/css.ts", 3000);
-    expect(bundlesStale(outputs, inputs, base)).toBe(true);
+    expect(bundlesStale(outputs, inputs, base, FINGERPRINT)).toBe(true);
   });
 
   it("is when an input, an output or the list of inputs is gone", () => {
     const gone = built();
     rmSync(path.join(gone.root, "design-document/src/css.ts"));
-    expect(bundlesStale(gone.outputs, gone.inputs, gone.base)).toBe(true);
+    expect(
+      bundlesStale(gone.outputs, gone.inputs, gone.base, FINGERPRINT)
+    ).toBe(true);
     const unlisted = built();
     rmSync(unlisted.inputs);
-    expect(bundlesStale(unlisted.outputs, unlisted.inputs, unlisted.base)).toBe(
-      true
-    );
+    expect(
+      bundlesStale(
+        unlisted.outputs,
+        unlisted.inputs,
+        unlisted.base,
+        FINGERPRINT
+      )
+    ).toBe(true);
     const unbuilt = built();
     rmSync(unbuilt.outputs[0] ?? "");
-    expect(bundlesStale(unbuilt.outputs, unbuilt.inputs, unbuilt.base)).toBe(
-      true
-    );
+    expect(
+      bundlesStale(unbuilt.outputs, unbuilt.inputs, unbuilt.base, FINGERPRINT)
+    ).toBe(true);
+  });
+
+  it("is when esbuild, the options or the build itself changed", () => {
+    const { base, inputs, outputs } = built();
+    for (const other of [
+      buildFingerprint("0.29.0", [{ bundle: true }], "build"),
+      buildFingerprint("0.28.2", [{ bundle: false }], "build"),
+      buildFingerprint("0.28.2", [{ bundle: true }], "build, changed"),
+    ]) {
+      expect(bundlesStale(outputs, inputs, base, other)).toBe(true);
+    }
+  });
+
+  it("is when the inputs were listed before builds had a fingerprint", () => {
+    const { base, inputs, outputs } = built();
+    writeFileSync(inputs, JSON.stringify(["entry.ts"]));
+    expect(bundlesStale(outputs, inputs, base, FINGERPRINT)).toBe(true);
   });
 });
