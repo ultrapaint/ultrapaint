@@ -27,8 +27,10 @@ import { FigmaImportService } from "./services/figma-import.ts";
 import { ProjectFramework } from "./services/framework.ts";
 import { GitService } from "./services/git.ts";
 import { HostManager } from "./services/host.ts";
+import { PagePngs } from "./services/page-pngs.ts";
 import { PagesService } from "./services/pages.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
+import type { Screenshots } from "./services/screenshots.ts";
 import { SettingsService } from "./services/settings.ts";
 import { SkillsService } from "./services/skills.ts";
 import { Storage } from "./services/storage.ts";
@@ -46,6 +48,7 @@ export type ProjectServices =
   | FigmaImportService
   | GitService
   | HostManager
+  | PagePngs
   | ProjectFramework
   | ProjectStyleSystem
   | RepoPaths
@@ -59,11 +62,16 @@ type ProjectRequirements =
   | EventBus
   | FileSystem.FileSystem
   | Path.Path
+  | Screenshots
   | ServerConfig
   | Storage;
 
 const projectLayer = (settings: Settings) =>
-  Layer.mergeAll(DocumentService.layer, FigmaImportService.layer).pipe(
+  // Pictures of the pages, drawn from the documents as they change.
+  PagePngs.layer.pipe(
+    Layer.provideMerge(
+      Layer.mergeAll(DocumentService.layer, FigmaImportService.layer)
+    ),
     Layer.provideMerge(
       Layer.mergeAll(DesignSystemService.layer, SkillsService.layer)
     ),

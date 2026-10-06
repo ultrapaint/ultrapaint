@@ -1,64 +1,12 @@
 {
-  "root": {
-    "fill": "$color-background",
-    "id": "root",
-    "gap": 0,
-    "children": [
-      {
-        "fill": "#fafafa",
-        "height": "fill",
-        "id": "c_hrvpgg",
-        "padding": 40,
-        "width": "fill",
-        "gap": 24,
-        "children": [
-          {
-            "id": "r_h0hvpg",
-            "crossAlign": "center",
-            "gap": 12,
-            "children": [
-              {
-                "id": "i_x1o7ul",
-                "name": "New order",
-                "component": "Button",
-                "from": "@/components/ui/button",
-                "props": {
-                  "variant": "default",
-                  "size": "default"
-                },
-                "text": "New order",
-                "type": "instance"
-              },
-              {
-                "id": "i_7358zp",
-                "name": "Export",
-                "component": "Button",
-                "from": "@/components/ui/button",
-                "props": {
-                  "variant": "outline"
-                },
-                "text": "Export",
-                "type": "instance"
-              }
-            ],
-            "type": "row"
-          },
-          {
-            "id": "t_xwqqts",
-            "name": "Heading",
-            "color": "#18181b",
-            "level": 2,
-            "role": "heading",
-            "size": 22,
-            "text": "Orders",
-            "type": "text",
-            "weight": 700
-          }
-        ],
-        "type": "column"
-      }
-    ],
-    "type": "page"
-  },
+  "root": {"type": "page", "id": "root", "fill": "$color-background", "gap": 0, "children": [
+    {"type": "column", "id": "c_hrvpgg", "fill": "#fafafa", "gap": 24, "height": "fill", "padding": 40, "width": "fill", "children": [
+      {"type": "row", "id": "r_h0hvpg", "crossAlign": "center", "gap": 12, "children": [
+        {"type": "instance", "id": "i_x1o7ul", "name": "New order", "component": "Button", "from": "@/components/ui/button", "props": {"variant": "default", "size": "default"}, "text": "New order"},
+        {"type": "instance", "id": "i_7358zp", "name": "Export", "component": "Button", "from": "@/components/ui/button", "props": {"variant": "outline"}, "text": "Export"}
+      ]},
+      {"type": "text", "id": "t_xwqqts", "name": "Heading", "color": "#18181b", "level": 2, "role": "heading", "size": 22, "text": "Orders", "weight": 700}
+    ]}
+  ]},
   "version": 1
 }

@@ -14,6 +14,8 @@
     "@ultrapaint/contracts": "workspace:*"
   },
   "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "effect": "catalog:",
     "typescript": "7.0.2",
     "vitest": "^5.0.1"
   }

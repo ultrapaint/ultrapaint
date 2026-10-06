@@ -5,11 +5,16 @@ import { Effect, type FileSystem, type Path, Random } from "effect";
  * temporary file sits next to the target to keep the rename on one filesystem.
  */
 export const makeWriteAtomic = (fs: FileSystem.FileSystem, path: Path.Path) =>
-  Effect.fn("writeAtomic")(function* (file: string, content: string) {
+  Effect.fn("writeAtomic")(function* (
+    file: string,
+    content: string | Uint8Array
+  ) {
     yield* fs.makeDirectory(path.dirname(file), { recursive: true });
     const suffix = (yield* Random.nextIntBetween(0, 2 ** 31)).toString(36);
     const tmp = `${file}.${suffix}.tmp`;
-    yield* fs.writeFileString(tmp, content);
+    yield* typeof content === "string"
+      ? fs.writeFileString(tmp, content)
+      : fs.writeFile(tmp, content);
     yield* fs.rename(tmp, file);
   });
 

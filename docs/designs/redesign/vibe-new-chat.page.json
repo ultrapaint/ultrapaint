@@ -1,2865 +1,387 @@
 {
-  "root": {
-    "fill": "$color-background",
-    "id": "root",
-    "gap": 0,
-    "children": [
-      {
-        "height": 900,
-        "id": "r_8mg74t",
-        "name": "Editor · Vibe · New chat",
-        "width": "fill",
-        "crossAlign": "stretch",
-        "children": [
-          {
-            "border": {
-              "color": "$color-border",
-              "style": "solid",
-              "width": "0 1px 0 0"
-            },
-            "fill": "$color-sidebar",
-            "height": "fill",
-            "id": "c_hd1r4b",
-            "name": "Rail",
-            "padding": {
-              "bottom": 12,
-              "top": 10
-            },
-            "width": 64,
-            "crossAlign": "center",
-            "gap": 2,
-            "children": [
-              {
-                "fill": "$color-brand",
-                "height": 32,
-                "id": "r_binjlr",
-                "name": "Logo",
-                "radius": 8,
-                "width": 32,
-                "align": "center",
-                "crossAlign": "center",
-                "children": [
-                  {
-                    "id": "t_rxvq7p",
-                    "color": "#ffffff",
-                    "role": "paragraph",
-                    "size": 11,
-                    "text": "UP",
-                    "type": "text",
-                    "weight": 700
-                  }
-                ],
-                "type": "row"
-              },
-              {
-                "height": 8,
-                "id": "g_hhobmj",
-                "width": 8,
-                "children": [],
-                "type": "group"
-              },
-              {
-                "id": "c_6nns8t",
-                "name": "Rail · Chats",
-                "padding": {
-                  "bottom": 5,
-                  "top": 5
-                },
-                "width": 60,
-                "crossAlign": "center",
-                "gap": 3,
-                "children": [
-                  {
-                    "fill": "$color-muted",
-                    "height": 30,
-                    "id": "r_jtmcrl",
-                    "radius": 8,
-                    "width": 36,
-                    "align": "center",
-                    "crossAlign": "center",
-                    "children": [
-                      {
-                        "height": 18,
-                        "id": "img_bt03n9",
-                        "name": "sparkles with dot",
-                        "width": 18,
-                        "src": "assets/icons/sparkles-fg-dot-ai-27272a.svg",
-                        "type": "image"
-                      }
-                    ],
-                    "type": "row"
-                  },
-                  {
-                    "id": "t_19z9v1",
-                    "align": "center",
-                    "color": "$color-foreground",
-                    "role": "paragraph",
-                    "size": 10,
-                    "text": "Chats",
-                    "type": "text",
-                    "weight": 500
-                  }
-                ],
-                "type": "column"
-              },
-              {
-                "id": "c_2nlnjy",
-                "name": "Rail · Pages",
-                "padding": {
-                  "bottom": 5,
-                  "top": 5
-                },
-                "width": 60,
-                "crossAlign": "center",
-                "gap": 3,
-                "children": [
-                  {
-                    "height": 30,
-                    "id": "r_v2mho1",
-                    "radius": 8,
-                    "width": 36,
-                    "align": "center",
-                    "crossAlign": "center",
-                    "children": [
-                      {
-                        "height": 18,
-                        "id": "img_rm5msu",
-                        "name": "monitor-smartphone",
-                        "width": 18,
-                        "src": "assets/icons/monitor-smartphone-muted.svg",
-                        "type": "image"
-                      }
-                    ],
-                    "type": "row"
-                  },
-                  {
-                    "id": "t_yq8leu",
-                    "align": "center",
-                    "color": "$color-muted-foreground",
-                    "role": "paragraph",
-                    "size": 10,
-                    "text": "Pages",
-                    "type": "text",
-                    "weight": 500
-                  }
-                ],
-                "type": "column"
-              },
-              {
-                "id": "c_vswh1q",
-                "name": "Rail · System",
-                "padding": {
-                  "bottom": 5,
-                  "top": 5
-                },
-                "width": 60,
-                "crossAlign": "center",
-                "gap": 3,
-                "children": [
-                  {
-                    "height": 30,
-                    "id": "r_vg5z79",
-                    "radius": 8,
-                    "width": 36,
-                    "align": "center",
-                    "crossAlign": "center",
-                    "children": [
-                      {
-                        "height": 18,
-                        "id": "img_gsqjpn",
-                        "name": "palette",
-                        "width": 18,
-                        "src": "assets/icons/palette-muted.svg",
-                        "type": "image"
-                      }
-                    ],
-                    "type": "row"
-                  },
-                  {
-                    "id": "t_iu5hjo",
-                    "align": "center",
-                    "color": "$color-muted-foreground",
-                    "role": "paragraph",
-                    "size": 10,
-                    "text": "System",
-                    "type": "text",
-                    "weight": 500
-                  }
-                ],
-                "type": "column"
-              },
-              {
-                "id": "c_q5rrit",
-                "name": "Rail · Comments",
-                "padding": {
-                  "bottom": 5,
-                  "top": 5
-                },
-                "width": 60,
-                "crossAlign": "center",
-                "gap": 3,
-                "children": [
-                  {
-                    "height": 30,
-                    "id": "r_ogdf7m",
-                    "radius": 8,
-                    "width": 36,
-                    "align": "center",
-                    "crossAlign": "center",
-                    "children": [
-                      {
-                        "height": 18,
-                        "id": "img_qgf9xe",
-                        "name": "message-circle",
-                        "width": 18,
-                        "src": "assets/icons/message-circle-muted.svg",
-                        "type": "image"
-                      }
-                    ],
-                    "type": "row"
-                  },
-                  {
-                    "id": "t_z8nytn",
-                    "align": "center",
-                    "color": "$color-muted-foreground",
-                    "role": "paragraph",
-                    "size": 10,
-                    "text": "Comments",
-                    "type": "text",
-                    "weight": 500
-                  }
-                ],
-                "type": "column"
-              },
-              {
-                "id": "c_j7w7gn",
-                "name": "Rail · Changes",
-                "padding": {
-                  "bottom": 5,
-                  "top": 5
-                },
-                "width": 60,
-                "crossAlign": "center",
-                "gap": 3,
-                "children": [
-                  {
-                    "height": 30,
-                    "id": "r_pam4zh",
-                    "radius": 8,
-                    "width": 36,
-                    "align": "center",
-                    "crossAlign": "center",
-                    "children": [
-                      {
-                        "height": 18,
-                        "id": "img_y5kbrn",
-                        "name": "git-compare-arrows",
-                        "width": 18,
-                        "src": "assets/icons/git-compare-arrows-muted.svg",
-                        "type": "image"
-                      }
-                    ],
-                    "type": "row"
-                  },
-                  {
-                    "id": "t_publst",
-                    "align": "center",
-                    "color": "$color-muted-foreground",
-                    "role": "paragraph",
-                    "size": 10,
-                    "text": "Changes",
-                    "type": "text",
-                    "weight": 500
-                  }
-                ],
-                "type": "column"
-              },
-              {
-                "height": "fill",
-                "id": "c_qd382b",
-                "name": "Spacer",
-                "width": "fill",
-                "children": [],
-                "type": "column"
-              },
-              {
-                "id": "c_itjacc",
-                "name": "Rail · Settings",
-                "padding": {
-                  "bottom": 5,
-                  "top": 5
-                },
-                "width": 60,
-                "crossAlign": "center",
-                "gap": 3,
-                "children": [
-                  {
-                    "height": 30,
-                    "id": "r_ewxlzr",
-                    "radius": 8,
-                    "width": 36,
-                    "align": "center",
-                    "crossAlign": "center",
-                    "children": [
-                      {
-                        "height": 18,
-                        "id": "img_8t8u30",
-                        "name": "settings",
-                        "width": 18,
-                        "src": "assets/icons/settings-muted.svg",
-                        "type": "image"
-                      }
-                    ],
-                    "type": "row"
-                  },
-                  {
-                    "id": "t_yksyd0",
-                    "align": "center",
-                    "color": "$color-muted-foreground",
-                    "role": "paragraph",
-                    "size": 10,
-                    "text": "Settings",
-                    "type": "text",
-                    "weight": 500
-                  }
-                ],
-                "type": "column"
-              },
-              {
-                "height": 10,
-                "id": "g_bzgmtu",
-                "width": 8,
-                "children": [],
-                "type": "group"
-              },
-              {
-                "fill": "$color-border",
-                "height": 1,
-                "id": "g_uwm9eu",
-                "name": "Divider",
-                "width": 28,
-                "children": [],
-                "type": "group"
-              },
-              {
-                "height": 10,
-                "id": "g_hpij53",
-                "width": 8,
-                "children": [],
-                "type": "group"
-              },
-              {
-                "border": {
-                  "color": "#3f3f46",
-                  "style": "solid",
-                  "width": 1
-                },
-                "fill": "#27272a",
-                "height": 30,
-                "id": "r_xddu8k",
-                "name": "Git user",
-                "radius": 999,
-                "width": 30,
-                "align": "center",
-                "crossAlign": "center",
-                "children": [
-                  {
-                    "id": "t_ieozms",
-                    "color": "$color-muted-foreground",
-                    "role": "paragraph",
-                    "size": 10,
-                    "text": "AL",
-                    "type": "text",
-                    "weight": 600
-                  }
-                ],
-                "type": "row"
-              }
-            ],
-            "type": "column"
-          },
-          {
-            "border": {
-              "color": "$color-border",
-              "style": "solid",
-              "width": "0 1px 0 0"
-            },
-            "fill": "$color-sidebar",
-            "height": "fill",
-            "id": "c_6ae8xt",
-            "name": "Panel",
-            "width": 384,
-            "children": [
-              {
-                "border": {
-                  "color": "$color-border",
-                  "style": "solid",
-                  "width": "0 0 1px 0"
-                },
-                "height": 52,
-                "id": "r_ja195z",
-                "name": "Thread header",
-                "padding": {
-                  "left": 8,
-                  "right": 8
-                },
-                "width": "fill",
-                "crossAlign": "center",
-                "gap": 6,
-                "children": [
-                  {
-                    "height": 28,
-                    "id": "r_pmug17",
-                    "name": "chevron-left button",
-                    "radius": 7,
-                    "width": 28,
-                    "align": "center",
-                    "crossAlign": "center",
-                    "children": [
-                      {
-                        "height": 16,
-                        "id": "img_x9mtr0",
-                        "name": "chevron-left",
-                        "width": 16,
-                        "src": "assets/icons/chevron-left-muted.svg",
-                        "type": "image"
-                      }
-                    ],
-                    "type": "row"
-                  },
-                  {
-                    "id": "c_epmsxd",
-                    "width": "fill",
-                    "gap": 1,
-                    "children": [
-                      {
-                        "id": "t_k0hadt",
-                        "color": "$color-foreground",
-                        "role": "paragraph",
-                        "size": 13,
-                        "text": "New chat",
-                        "type": "text",
-                        "weight": 600
-                      },
-                      {
-                        "id": "t_0oulsw",
-                        "color": "$color-muted-foreground",
-                        "role": "paragraph",
-                        "size": 11,
-                        "text": "Not started · nothing is sent yet",
-                        "type": "text"
-                      }
-                    ],
-                    "type": "column"
-                  },
-                  {
-                    "height": 28,
-                    "id": "r_fqu7t6",
-                    "name": "ellipsis button",
-                    "radius": 7,
-                    "width": 28,
-                    "align": "center",
-                    "crossAlign": "center",
-                    "children": [
-                      {
-                        "height": 16,
-                        "id": "img_rcxdzf",
-                        "name": "ellipsis",
-                        "width": 16,
-                        "src": "assets/icons/ellipsis-muted.svg",
-                        "type": "image"
-                      }
-                    ],
-                    "type": "row"
-                  }
-                ],
-                "type": "row"
-              },
-              {
-                "height": "fill",
-                "id": "c_mwg1a6",
-                "name": "Empty",
-                "padding": {
-                  "left": 20,
-                  "right": 20,
-                  "top": 40
-                },
-                "width": "fill",
-                "crossAlign": "center",
-                "gap": 18,
-                "children": [
-                  {
-                    "border": {
-                      "color": "#ec4899",
-                      "style": "solid",
-                      "width": 1
-                    },
-                    "fill": "#500724",
-                    "height": 44,
-                    "id": "r_73y3xi",
-                    "radius": 999,
-                    "width": 44,
-                    "align": "center",
-                    "crossAlign": "center",
-                    "children": [
-                      {
-                        "height": 20,
-                        "id": "img_363xej",
-                        "name": "sparkles",
-                        "width": 20,
-                        "src": "assets/icons/sparkles-ai-light.svg",
-                        "type": "image"
-                      }
-                    ],
-                    "type": "row"
-                  },
-                  {
-                    "id": "c_4qqa83",
-                    "crossAlign": "center",
-                    "gap": 4,
-                    "children": [
-                      {
-                        "id": "t_4worvl",
-                        "color": "$color-foreground",
-                        "role": "paragraph",
-                        "size": 16,
-                        "text": "What's next?",
-                        "type": "text",
-                        "weight": 600
-                      },
-                      {
-                        "id": "t_pjxbsa",
-                        "maxWidth": 280,
-                        "align": "center",
-                        "color": "$color-muted-foreground",
-                        "role": "paragraph",
-                        "size": 12,
-                        "text": "The chat works on what you attach. Pick a starting point or just ask.",
-                        "type": "text"
-                      }
-                    ],
-                    "type": "column"
-                  },
-                  {
-                    "id": "c_u8zmm2",
-                    "width": "fill",
-                    "gap": 8,
-                    "children": [
-                      {
-                        "border": {
-                          "color": "$color-border",
-                          "style": "solid",
-                          "width": 1
-                        },
-                        "fill": "#1f1f23",
-                        "id": "c_lbvjte",
-                        "name": "Suggestion · Tidy and polish",
-                        "radius": 10,
-                        "width": "fill",
-                        "children": [
-                          {
-                            "id": "r_fmwb55",
-                            "padding": {
-                              "bottom": 10,
-                              "left": 12,
-                              "right": 12,
-                              "top": 10
-                            },
-                            "width": "fill",
-                            "crossAlign": "center",
-                            "gap": 10,
-                            "children": [
-                              {
-                                "fill": "#27272a",
-                                "height": 28,
-                                "id": "r_hvwbkc",
-                                "radius": 7,
-                                "width": 28,
-                                "align": "center",
-                                "crossAlign": "center",
-                                "children": [
-                                  {
-                                    "height": 14,
-                                    "id": "img_h81iju",
-                                    "name": "wand-sparkles",
-                                    "width": 14,
-                                    "src": "assets/icons/wand-sparkles-fg.svg",
-                                    "type": "image"
-                                  }
-                                ],
-                                "type": "row"
-                              },
-                              {
-                                "id": "c_z1u4m8",
-                                "width": "fill",
-                                "gap": 1,
-                                "children": [
-                                  {
-                                    "id": "t_fifsvs",
-                                    "color": "$color-foreground",
-                                    "role": "paragraph",
-                                    "size": 12.5,
-                                    "text": "Tidy and polish",
-                                    "type": "text",
-                                    "weight": 600
-                                  },
-                                  {
-                                    "id": "t_wbhh6u",
-                                    "color": "$color-muted-foreground",
-                                    "role": "paragraph",
-                                    "size": 11.5,
-                                    "text": "Bring the selection back onto the system",
-                                    "type": "text"
-                                  }
-                                ],
-                                "type": "column"
-                              },
-                              {
-                                "height": 14,
-                                "id": "img_vz4hvi",
-                                "name": "chevron-up",
-                                "width": 14,
-                                "src": "assets/icons/chevron-up-muted.svg",
-                                "type": "image"
-                              }
-                            ],
-                            "type": "row"
-                          },
-                          {
-                            "id": "c_hls3t3",
-                            "padding": {
-                              "bottom": 10,
-                              "left": 12,
-                              "right": 12
-                            },
-                            "width": "fill",
-                            "gap": 6,
-                            "children": [
-                              {
-                                "fill": "#27272a",
-                                "id": "r_mkzkwq",
-                                "padding": {
-                                  "bottom": 7,
-                                  "left": 10,
-                                  "right": 10,
-                                  "top": 7
-                                },
-                                "radius": 7,
-                                "width": "fill",
-                                "crossAlign": "center",
-                                "gap": 8,
-                                "children": [
-                                  {
-                                    "height": 12,
-                                    "id": "img_m1owoa",
-                                    "name": "corner-down-right",
-                                    "width": 12,
-                                    "src": "assets/icons/corner-down-right-muted.svg",
-                                    "type": "image"
-                                  },
-                                  {
-                                    "id": "t_bpbu7i",
-                                    "width": "fill",
-                                    "color": "$color-foreground",
-                                    "role": "paragraph",
-                                    "size": 12,
-                                    "text": "Match spacing to the 4px scale",
-                                    "type": "text"
-                                  },
-                                  {
-                                    "height": 12,
-                                    "id": "img_ybzu8c",
-                                    "name": "arrow-up-right",
-                                    "width": 12,
-                                    "src": "assets/icons/arrow-up-right-muted.svg",
-                                    "type": "image"
-                                  }
-                                ],
-                                "type": "row"
-                              },
-                              {
-                                "fill": "#27272a",
-                                "id": "r_4xq6di",
-                                "padding": {
-                                  "bottom": 7,
-                                  "left": 10,
-                                  "right": 10,
-                                  "top": 7
-                                },
-                                "radius": 7,
-                                "width": "fill",
-                                "crossAlign": "center",
-                                "gap": 8,
-                                "children": [
-                                  {
-                                    "height": 12,
-                                    "id": "img_ikzy89",
-                                    "name": "corner-down-right",
-                                    "width": 12,
-                                    "src": "assets/icons/corner-down-right-muted.svg",
-                                    "type": "image"
-                                  },
-                                  {
-                                    "id": "t_0jejnb",
-                                    "width": "fill",
-                                    "color": "$color-foreground",
-                                    "role": "paragraph",
-                                    "size": 12,
-                                    "text": "Use the text styles of the system",
-                                    "type": "text"
-                                  },
-                                  {
-                                    "height": 12,
-                                    "id": "img_yv57jo",
-                                    "name": "arrow-up-right",
-                                    "width": 12,
-                                    "src": "assets/icons/arrow-up-right-muted.svg",
-                                    "type": "image"
-                                  }
-                                ],
-                                "type": "row"
-                              },
-                              {
-                                "fill": "#27272a",
-                                "id": "r_yn25hf",
-                                "padding": {
-                                  "bottom": 7,
-                                  "left": 10,
-                                  "right": 10,
-                                  "top": 7
-                                },
-                                "radius": 7,
-                                "width": "fill",
-                                "crossAlign": "center",
-                                "gap": 8,
-                                "children": [
-                                  {
-                                    "height": 12,
-                                    "id": "img_0ehy10",
-                                    "name": "corner-down-right",
-                                    "width": 12,
-                                    "src": "assets/icons/corner-down-right-muted.svg",
-                                    "type": "image"
-                                  },
-                                  {
-                                    "id": "t_29j916",
-                                    "width": "fill",
-                                    "color": "$color-foreground",
-                                    "role": "paragraph",
-                                    "size": 12,
-                                    "text": "Swap raw colours for tokens",
-                                    "type": "text"
-                                  },
-                                  {
-                                    "height": 12,
-                                    "id": "img_07p1ll",
-                                    "name": "arrow-up-right",
-                                    "width": 12,
-                                    "src": "assets/icons/arrow-up-right-muted.svg",
-                                    "type": "image"
-                                  }
-                                ],
-                                "type": "row"
-                              }
-                            ],
-                            "type": "column"
-                          }
-                        ],
-                        "type": "column"
-                      },
-                      {
-                        "border": {
-                          "color": "$color-border",
-                          "style": "solid",
-                          "width": 1
-                        },
-                        "id": "c_krfuaj",
-                        "name": "Suggestion · Generate designs",
-                        "radius": 10,
-                        "width": "fill",
-                        "children": [
-                          {
-                            "id": "r_glzs2a",
-                            "padding": {
-                              "bottom": 10,
-                              "left": 12,
-                              "right": 12,
-                              "top": 10
-                            },
-                            "width": "fill",
-                            "crossAlign": "center",
-                            "gap": 10,
-                            "children": [
-                              {
-                                "fill": "#27272a",
-                                "height": 28,
-                                "id": "r_cghvv1",
-                                "radius": 7,
-                                "width": 28,
-                                "align": "center",
-                                "crossAlign": "center",
-                                "children": [
-                                  {
-                                    "height": 14,
-                                    "id": "img_g0x3o5",
-                                    "name": "layout-template",
-                                    "width": 14,
-                                    "src": "assets/icons/layout-template-fg.svg",
-                                    "type": "image"
-                                  }
-                                ],
-                                "type": "row"
-                              },
-                              {
-                                "id": "c_v1xrsa",
-                                "width": "fill",
-                                "gap": 1,
-                                "children": [
-                                  {
-                                    "id": "t_2gtjwn",
-                                    "color": "$color-foreground",
-                                    "role": "paragraph",
-                                    "size": 12.5,
-                                    "text": "Generate designs",
-                                    "type": "text",
-                                    "weight": 600
-                                  },
-                                  {
-                                    "id": "t_pi104s",
-                                    "color": "$color-muted-foreground",
-                                    "role": "paragraph",
-                                    "size": 11.5,
-                                    "text": "New pages and variants from a prompt",
-                                    "type": "text"
-                                  }
-                                ],
-                                "type": "column"
-                              },
-                              {
-                                "height": 14,
-                                "id": "img_0vvi0w",
-                                "name": "chevron-down",
-                                "width": 14,
-                                "src": "assets/icons/chevron-down-muted.svg",
-                                "type": "image"
-                              }
-                            ],
-                            "type": "row"
-                          }
-                        ],
-                        "type": "column"
-                      },
-                      {
-                        "border": {
-                          "color": "$color-border",
-                          "style": "solid",
-                          "width": 1
-                        },
-                        "id": "c_qrlojl",
-                        "name": "Suggestion · Implement in code",
-                        "radius": 10,
-                        "width": "fill",
-                        "children": [
-                          {
-                            "id": "r_hh7nkv",
-                            "padding": {
-                              "bottom": 10,
-                              "left": 12,
-                              "right": 12,
-                              "top": 10
-                            },
-                            "width": "fill",
-                            "crossAlign": "center",
-                            "gap": 10,
-                            "children": [
-                              {
-                                "fill": "#27272a",
-                                "height": 28,
-                                "id": "r_yfrun3",
-                                "radius": 7,
-                                "width": 28,
-                                "align": "center",
-                                "crossAlign": "center",
-                                "children": [
-                                  {
-                                    "height": 14,
-                                    "id": "img_bx53fa",
-                                    "name": "code",
-                                    "width": 14,
-                                    "src": "assets/icons/code-fg.svg",
-                                    "type": "image"
-                                  }
-                                ],
-                                "type": "row"
-                              },
-                              {
-                                "id": "c_1ccija",
-                                "width": "fill",
-                                "gap": 1,
-                                "children": [
-                                  {
-                                    "id": "t_2e1er4",
-                                    "color": "$color-foreground",
-                                    "role": "paragraph",
-                                    "size": 12.5,
-                                    "text": "Implement in code",
-                                    "type": "text",
-                                    "weight": 600
-                                  },
-                                  {
-                                    "id": "t_8x0mt1",
-                                    "color": "$color-muted-foreground",
-                                    "role": "paragraph",
-                                    "size": 11.5,
-                                    "text": "Write the page with your components",
-                                    "type": "text"
-                                  }
-                                ],
-                                "type": "column"
-                              },
-                              {
-                                "height": 14,
-                                "id": "img_odn7qm",
-                                "name": "chevron-down",
-                                "width": 14,
-                                "src": "assets/icons/chevron-down-muted.svg",
-                                "type": "image"
-                              }
-                            ],
-                            "type": "row"
-                          }
-                        ],
-                        "type": "column"
-                      },
-                      {
-                        "border": {
-                          "color": "$color-border",
-                          "style": "solid",
-                          "width": 1
-                        },
-                        "id": "c_msc6f5",
-                        "name": "Suggestion · Import from Figma",
-                        "radius": 10,
-                        "width": "fill",
-                        "children": [
-                          {
-                            "id": "r_0gb382",
-                            "padding": {
-                              "bottom": 10,
-                              "left": 12,
-                              "right": 12,
-                              "top": 10
-                            },
-                            "width": "fill",
-                            "crossAlign": "center",
-                            "gap": 10,
-                            "children": [
-                              {
-                                "fill": "#27272a",
-                                "height": 28,
-                                "id": "r_pp8b8c",
-                                "radius": 7,
-                                "width": 28,
-                                "align": "center",
-                                "crossAlign": "center",
-                                "children": [
-                                  {
-                                    "height": 14,
-                                    "id": "img_jxbprt",
-                                    "name": "file-input",
-                                    "width": 14,
-                                    "src": "assets/icons/file-input-fg.svg",
-                                    "type": "image"
-                                  }
-                                ],
-                                "type": "row"
-                              },
-                              {
-                                "id": "c_4y4qh7",
-                                "width": "fill",
-                                "gap": 1,
-                                "children": [
-                                  {
-                                    "id": "t_xqa4i0",
-                                    "color": "$color-foreground",
-                                    "role": "paragraph",
-                                    "size": 12.5,
-                                    "text": "Import from Figma",
-                                    "type": "text",
-                                    "weight": 600
-                                  },
-                                  {
-                                    "id": "t_yofrb4",
-                                    "color": "$color-muted-foreground",
-                                    "role": "paragraph",
-                                    "size": 11.5,
-                                    "text": "Turn a .fig file into pages",
-                                    "type": "text"
-                                  }
-                                ],
-                                "type": "column"
-                              },
-                              {
-                                "height": 14,
-                                "id": "img_p4wjs4",
-                                "name": "chevron-down",
-                                "width": 14,
-                                "src": "assets/icons/chevron-down-muted.svg",
-                                "type": "image"
-                              }
-                            ],
-                            "type": "row"
-                          }
-                        ],
-                        "type": "column"
-                      }
-                    ],
-                    "type": "column"
-                  }
-                ],
-                "type": "column"
-              },
-              {
-                "id": "c_mzpjvo",
-                "padding": {
-                  "bottom": 12,
-                  "left": 12,
-                  "right": 12
-                },
-                "width": "fill",
-                "gap": 8,
-                "children": [
-                  {
-                    "id": "r_1ob3te",
-                    "padding": {
-                      "left": 4
-                    },
-                    "crossAlign": "center",
-                    "gap": 6,
-                    "children": [
-                      {
-                        "height": 12,
-                        "id": "img_bhfi0a",
-                        "name": "info",
-                        "width": 12,
-                        "src": "assets/icons/info-muted.svg",
-                        "type": "image"
-                      },
-                      {
-                        "id": "t_3dirvw",
-                        "color": "$color-muted-foreground",
-                        "role": "paragraph",
-                        "size": 11,
-                        "text": "New order is attached from the canvas",
-                        "type": "text"
-                      }
-                    ],
-                    "type": "row"
-                  },
-                  {
-                    "border": {
-                      "color": "$color-brand",
-                      "style": "solid",
-                      "width": 1
-                    },
-                    "fill": "#1f1f23",
-                    "id": "c_gwhleo",
-                    "name": "Composer",
-                    "padding": 10,
-                    "radius": 12,
-                    "width": "fill",
-                    "gap": 8,
-                    "children": [
-                      {
-                        "id": "r_572mg1",
-                        "width": "fill",
-                        "crossAlign": "center",
-                        "gap": 6,
-                        "wrap": true,
-                        "children": [
-                          {
-                            "border": {
-                              "color": "#7c3aed",
-                              "style": "solid",
-                              "width": 1
-                            },
-                            "fill": "#2e1065",
-                            "id": "r_mjc35d",
-                            "name": "Attached · New order",
-                            "padding": {
-                              "bottom": 3,
-                              "left": 4,
-                              "right": 6,
-                              "top": 3
-                            },
-                            "radius": 6,
-                            "crossAlign": "center",
-                            "gap": 6,
-                            "children": [
-                              {
-                                "fill": "#ffffff",
-                                "height": 18,
-                                "id": "img_n3bbs4",
-                                "radius": 4,
-                                "width": 18,
-                                "fit": "contain",
-                                "src": "assets/thumbs/new-order-button.png",
-                                "type": "image"
-                              },
-                              {
-                                "id": "t_6xkg8q",
-                                "color": "#ddd6fe",
-                                "role": "paragraph",
-                                "size": 11.5,
-                                "text": "New order",
-                                "type": "text",
-                                "weight": 500
-                              },
-                              {
-                                "height": 12,
-                                "id": "img_uppoj6",
-                                "name": "x",
-                                "width": 12,
-                                "src": "assets/icons/x-muted.svg",
-                                "type": "image"
-                              }
-                            ],
-                            "type": "row"
-                          }
-                        ],
-                        "type": "row"
-                      },
-                      {
-                        "id": "t_5o7llf",
-                        "padding": {
-                          "bottom": 10,
-                          "left": 2,
-                          "top": 2
-                        },
-                        "width": "fill",
-                        "color": "#71717a",
-                        "role": "paragraph",
-                        "size": 13,
-                        "text": "Make it the primary action, with a keyboard shortcut…",
-                        "type": "text"
-                      },
-                      {
-                        "id": "r_9bwhz9",
-                        "width": "fill",
-                        "crossAlign": "center",
-                        "gap": 4,
-                        "children": [
-                          {
-                            "height": 28,
-                            "id": "r_383ng3",
-                            "name": "plus button",
-                            "radius": 7,
-                            "width": 28,
-                            "align": "center",
-                            "crossAlign": "center",
-                            "children": [
-                              {
-                                "height": 16,
-                                "id": "img_xa2x73",
-                                "name": "plus",
-                                "width": 16,
-                                "src": "assets/icons/plus-muted.svg",
-                                "type": "image"
-                              }
-                            ],
-                            "type": "row"
-                          },
-                          {
-                            "height": 28,
-                            "id": "r_e54gnh",
-                            "name": "Agent",
-                            "padding": {
-                              "left": 6,
-                              "right": 8
-                            },
-                            "radius": 7,
-                            "crossAlign": "center",
-                            "gap": 6,
-                            "children": [
-                              {
-                                "height": 12,
-                                "id": "img_fmad1o",
-                                "name": "Claude Code",
-                                "width": 12,
-                                "fit": "contain",
-                                "src": "assets/icons/agent-claude.svg",
-                                "type": "image"
-                              },
-                              {
-                                "id": "t_y8a8qd",
-                                "color": "$color-foreground",
-                                "role": "paragraph",
-                                "size": 11.5,
-                                "text": "Claude Code",
-                                "type": "text",
-                                "weight": 500
-                              },
-                              {
-                                "id": "t_e7fvlb",
-                                "color": "$color-muted-foreground",
-                                "role": "paragraph",
-                                "size": 11.5,
-                                "text": "Opus 5.5",
-                                "type": "text"
-                              },
-                              {
-                                "height": 12,
-                                "id": "img_gnfsxw",
-                                "name": "chevron-down",
-                                "width": 12,
-                                "src": "assets/icons/chevron-down-muted.svg",
-                                "type": "image"
-                              }
-                            ],
-                            "type": "row"
-                          },
-                          {
-                            "height": "fill",
-                            "id": "c_3c8jce",
-                            "name": "Spacer",
-                            "width": "fill",
-                            "children": [],
-                            "type": "column"
-                          },
-                          {
-                            "height": 28,
-                            "id": "r_icsds7",
-                            "name": "mic button",
-                            "radius": 7,
-                            "width": 28,
-                            "align": "center",
-                            "crossAlign": "center",
-                            "children": [
-                              {
-                                "height": 16,
-                                "id": "img_tzynlv",
-                                "name": "mic",
-                                "width": 16,
-                                "src": "assets/icons/mic-muted.svg",
-                                "type": "image"
-                              }
-                            ],
-                            "type": "row"
-                          },
-                          {
-                            "fill": "$color-foreground",
-                            "height": 28,
-                            "id": "r_utrgau",
-                            "name": "Send",
-                            "radius": 999,
-                            "width": 28,
-                            "align": "center",
-                            "crossAlign": "center",
-                            "children": [
-                              {
-                                "height": 15,
-                                "id": "img_2zdwsz",
-                                "name": "arrow-up",
-                                "width": 15,
-                                "src": "assets/icons/arrow-up-dark.svg",
-                                "type": "image"
-                              }
-                            ],
-                            "type": "row"
-                          }
-                        ],
-                        "type": "row"
-                      }
-                    ],
-                    "type": "column"
-                  }
-                ],
-                "type": "column"
-              }
-            ],
-            "type": "column"
-          },
-          {
-            "fill": "#0c0c0e",
-            "height": "fill",
-            "id": "c_a8irvm",
-            "name": "Canvas",
-            "padding": {
-              "bottom": 16,
-              "top": 14
-            },
-            "width": "fill",
-            "crossAlign": "center",
-            "gap": 0,
-            "children": [
-              {
-                "border": {
-                  "color": "$color-border",
-                  "style": "solid",
-                  "width": 1
-                },
-                "fill": "$color-sidebar",
-                "id": "r_rimijt",
-                "name": "Workspace switch",
-                "padding": 3,
-                "radius": 11,
-                "shadow": "$shadow-lg",
-                "crossAlign": "center",
-                "gap": 2,
-                "children": [
-                  {
-                    "fill": "#27272a",
-                    "id": "r_9uc29h",
-                    "name": "Mode · Vibe",
-                    "padding": {
-                      "bottom": 6,
-                      "left": 12,
-                      "right": 14,
-                      "top": 6
-                    },
-                    "radius": 8,
-                    "crossAlign": "center",
-                    "gap": 6,
-                    "children": [
-                      {
-                        "height": 14,
-                        "id": "img_8jst3f",
-                        "name": "sparkles",
-                        "width": 14,
-                        "src": "assets/icons/sparkles-ai-light.svg",
-                        "type": "image"
-                      },
-                      {
-                        "id": "t_tadt5x",
-                        "color": "$color-foreground",
-                        "role": "paragraph",
-                        "size": 12,
-                        "text": "Vibe",
-                        "type": "text",
-                        "weight": 500
-                      }
-                    ],
-                    "type": "row"
-                  },
-                  {
-                    "id": "r_ujst4e",
-                    "name": "Mode · Design",
-                    "padding": {
-                      "bottom": 6,
-                      "left": 12,
-                      "right": 14,
-                      "top": 6
-                    },
-                    "radius": 8,
-                    "crossAlign": "center",
-                    "gap": 6,
-                    "children": [
-                      {
-                        "height": 14,
-                        "id": "img_xoc6ac",
-                        "name": "pen-tool",
-                        "width": 14,
-                        "src": "assets/icons/pen-tool-muted.svg",
-                        "type": "image"
-                      },
-                      {
-                        "id": "t_yw4hqg",
-                        "color": "$color-muted-foreground",
-                        "role": "paragraph",
-                        "size": 12,
-                        "text": "Design",
-                        "type": "text",
-                        "weight": 500
-                      }
-                    ],
-                    "type": "row"
-                  },
-                  {
-                    "id": "r_xgx0pk",
-                    "name": "Mode · Prototype",
-                    "padding": {
-                      "bottom": 6,
-                      "left": 12,
-                      "right": 14,
-                      "top": 6
-                    },
-                    "radius": 8,
-                    "crossAlign": "center",
-                    "gap": 6,
-                    "children": [
-                      {
-                        "height": 14,
-                        "id": "img_74zfza",
-                        "name": "play",
-                        "width": 14,
-                        "src": "assets/icons/play-muted.svg",
-                        "type": "image"
-                      },
-                      {
-                        "id": "t_z1dhab",
-                        "color": "$color-muted-foreground",
-                        "role": "paragraph",
-                        "size": 12,
-                        "text": "Prototype",
-                        "type": "text",
-                        "weight": 500
-                      }
-                    ],
-                    "type": "row"
-                  }
-                ],
-                "type": "row"
-              },
-              {
-                "id": "c_hvxlch",
-                "name": "Frame",
-                "padding": {
-                  "top": 38
-                },
-                "width": 820,
-                "children": [
-                  {
-                    "id": "r_84yjcw",
-                    "name": "Frame label",
-                    "padding": {
-                      "bottom": 8
-                    },
-                    "width": "fill",
-                    "crossAlign": "center",
-                    "gap": 8,
-                    "children": [
-                      {
-                        "id": "t_1p3x07",
-                        "color": "$color-foreground",
-                        "role": "paragraph",
-                        "size": 11,
-                        "text": "Orders",
-                        "type": "text",
-                        "weight": 500
-                      },
-                      {
-                        "id": "t_0jnw52",
-                        "color": "$color-muted-foreground",
-                        "font": "$font-mono",
-                        "role": "paragraph",
-                        "size": 11,
-                        "text": "/orders",
-                        "type": "text"
-                      },
-                      {
-                        "height": "fill",
-                        "id": "c_fp1v2s",
-                        "name": "Spacer",
-                        "width": "fill",
-                        "children": [],
-                        "type": "column"
-                      },
-                      {
-                        "id": "t_anserw",
-                        "color": "#71717a",
-                        "role": "paragraph",
-                        "size": 11,
-                        "text": "1280 × 800",
-                        "type": "text"
-                      }
-                    ],
-                    "type": "row"
-                  },
-                  {
-                    "fill": "#fafafa",
-                    "id": "c_4zeqic",
-                    "name": "Orders",
-                    "padding": 28,
-                    "width": "fill",
-                    "gap": 18,
-                    "children": [
-                      {
-                        "id": "c_5djtpv",
-                        "name": "Page header",
-                        "width": "fill",
-                        "gap": 6,
-                        "children": [
-                          {
-                            "id": "r_oz7j91",
-                            "width": "fill",
-                            "align": "end",
-                            "crossAlign": "center",
-                            "children": [
-                              {
-                                "id": "r_njc5rh",
-                                "padding": {
-                                  "right": 60
-                                },
-                                "crossAlign": "center",
-                                "children": [
-                                  {
-                                    "border": {
-                                      "color": "#3f3f46",
-                                      "style": "solid",
-                                      "width": 1
-                                    },
-                                    "fill": "#18181b",
-                                    "id": "r_r6p3e0",
-                                    "name": "Element toolbar",
-                                    "padding": 3,
-                                    "radius": 10,
-                                    "shadow": "$shadow-xl",
-                                    "crossAlign": "center",
-                                    "gap": 2,
-                                    "children": [
-                                      {
-                                        "height": 28,
-                                        "id": "r_1lq0bm",
-                                        "name": "Select · Default",
-                                        "padding": {
-                                          "left": 7,
-                                          "right": 6
-                                        },
-                                        "radius": 6,
-                                        "crossAlign": "center",
-                                        "gap": 5,
-                                        "children": [
-                                          {
-                                            "id": "t_r9ywox",
-                                            "color": "$color-foreground",
-                                            "role": "paragraph",
-                                            "size": 12,
-                                            "text": "Default",
-                                            "type": "text",
-                                            "weight": 500
-                                          },
-                                          {
-                                            "height": 11,
-                                            "id": "img_19nq8g",
-                                            "name": "chevron-down",
-                                            "width": 11,
-                                            "src": "assets/icons/chevron-down-muted.svg",
-                                            "type": "image"
-                                          }
-                                        ],
-                                        "type": "row"
-                                      },
-                                      {
-                                        "height": 28,
-                                        "id": "r_hb3cdd",
-                                        "name": "Select · M",
-                                        "padding": {
-                                          "left": 7,
-                                          "right": 6
-                                        },
-                                        "radius": 6,
-                                        "crossAlign": "center",
-                                        "gap": 5,
-                                        "children": [
-                                          {
-                                            "height": 13,
-                                            "id": "img_6gttna",
-                                            "name": "ruler-dimension-line",
-                                            "width": 13,
-                                            "src": "assets/icons/ruler-dimension-line-muted.svg",
-                                            "type": "image"
-                                          },
-                                          {
-                                            "id": "t_1muvpu",
-                                            "color": "$color-foreground",
-                                            "role": "paragraph",
-                                            "size": 12,
-                                            "text": "M",
-                                            "type": "text",
-                                            "weight": 500
-                                          },
-                                          {
-                                            "height": 11,
-                                            "id": "img_wl9m91",
-                                            "name": "chevron-down",
-                                            "width": 11,
-                                            "src": "assets/icons/chevron-down-muted.svg",
-                                            "type": "image"
-                                          }
-                                        ],
-                                        "type": "row"
-                                      },
-                                      {
-                                        "height": 28,
-                                        "id": "r_k8jen0",
-                                        "name": "Select · plus",
-                                        "padding": {
-                                          "left": 7,
-                                          "right": 6
-                                        },
-                                        "radius": 6,
-                                        "crossAlign": "center",
-                                        "gap": 5,
-                                        "children": [
-                                          {
-                                            "height": 13,
-                                            "id": "img_8he9og",
-                                            "name": "plus",
-                                            "width": 13,
-                                            "src": "assets/icons/plus-muted.svg",
-                                            "type": "image"
-                                          },
-                                          {
-                                            "id": "t_80wn51",
-                                            "color": "$color-foreground",
-                                            "font": "$font-mono",
-                                            "role": "paragraph",
-                                            "size": 11.5,
-                                            "text": "plus",
-                                            "type": "text",
-                                            "weight": 500
-                                          },
-                                          {
-                                            "height": 11,
-                                            "id": "img_j9b18r",
-                                            "name": "chevron-down",
-                                            "width": 11,
-                                            "src": "assets/icons/chevron-down-muted.svg",
-                                            "type": "image"
-                                          }
-                                        ],
-                                        "type": "row"
-                                      },
-                                      {
-                                        "fill": "#3f3f46",
-                                        "height": 20,
-                                        "id": "g_qzmcy9",
-                                        "width": 1,
-                                        "children": [],
-                                        "type": "group"
-                                      },
-                                      {
-                                        "border": {
-                                          "color": "#ec4899",
-                                          "style": "solid",
-                                          "width": 1
-                                        },
-                                        "fill": "#500724",
-                                        "height": 28,
-                                        "id": "r_wj3mqc",
-                                        "name": "In chat",
-                                        "radius": 7,
-                                        "width": 28,
-                                        "align": "center",
-                                        "crossAlign": "center",
-                                        "children": [
-                                          {
-                                            "height": 14,
-                                            "id": "img_b2vfpi",
-                                            "name": "message-square-check",
-                                            "width": 14,
-                                            "src": "assets/icons/message-square-check-ai-light.svg",
-                                            "type": "image"
-                                          }
-                                        ],
-                                        "type": "row"
-                                      },
-                                      {
-                                        "height": 28,
-                                        "id": "r_onz3pq",
-                                        "name": "ellipsis button",
-                                        "radius": 7,
-                                        "width": 28,
-                                        "align": "center",
-                                        "crossAlign": "center",
-                                        "children": [
-                                          {
-                                            "height": 16,
-                                            "id": "img_p1d7sw",
-                                            "name": "ellipsis",
-                                            "width": 16,
-                                            "src": "assets/icons/ellipsis-muted.svg",
-                                            "type": "image"
-                                          }
-                                        ],
-                                        "type": "row"
-                                      }
-                                    ],
-                                    "type": "row"
-                                  }
-                                ],
-                                "type": "row"
-                              }
-                            ],
-                            "type": "row"
-                          },
-                          {
-                            "id": "r_c0pz11",
-                            "width": "fill",
-                            "align": "between",
-                            "crossAlign": "end",
-                            "children": [
-                              {
-                                "id": "c_vlqrb6",
-                                "width": "fill",
-                                "gap": 2,
-                                "children": [
-                                  {
-                                    "id": "t_sczq8e",
-                                    "color": "#18181b",
-                                    "role": "paragraph",
-                                    "size": 22,
-                                    "text": "Orders",
-                                    "type": "text",
-                                    "weight": 700
-                                  },
-                                  {
-                                    "id": "t_mt7nyy",
-                                    "color": "#71717a",
-                                    "role": "paragraph",
-                                    "size": 12,
-                                    "text": "131 orders this month",
-                                    "type": "text"
-                                  }
-                                ],
-                                "type": "column"
-                              },
-                              {
-                                "id": "r_56u3xh",
-                                "crossAlign": "center",
-                                "gap": 8,
-                                "children": [
-                                  {
-                                    "border": {
-                                      "color": "#e4e4e7",
-                                      "style": "solid",
-                                      "width": 1
-                                    },
-                                    "fill": "#ffffff",
-                                    "id": "r_yjz9ii",
-                                    "name": "Export",
-                                    "padding": {
-                                      "bottom": 7,
-                                      "left": 12,
-                                      "right": 12,
-                                      "top": 7
-                                    },
-                                    "radius": 6,
-                                    "crossAlign": "center",
-                                    "gap": 6,
-                                    "children": [
-                                      {
-                                        "id": "t_49fqpr",
-                                        "color": "#18181b",
-                                        "role": "paragraph",
-                                        "size": 12,
-                                        "text": "Export",
-                                        "type": "text",
-                                        "weight": 500
-                                      },
-                                      {
-                                        "height": 14,
-                                        "id": "img_8siw4e",
-                                        "name": "chevron-down",
-                                        "width": 14,
-                                        "src": "assets/icons/chevron-down-dark.svg",
-                                        "type": "image"
-                                      }
-                                    ],
-                                    "type": "row"
-                                  },
-                                  {
-                                    "id": "c_uuerhw",
-                                    "name": "Selection",
-                                    "width": "hug",
-                                    "crossAlign": "start",
-                                    "gap": 8,
-                                    "children": [
-                                      {
-                                        "id": "c_oy9tca",
-                                        "width": "hug",
-                                        "children": [
-                                          {
-                                            "id": "r_6a6qvb",
-                                            "width": "fill",
-                                            "crossAlign": "center",
-                                            "children": [
-                                              {
-                                                "fill": "#8b5cf6",
-                                                "id": "r_ddoe9s",
-                                                "name": "Selection tag",
-                                                "padding": {
-                                                  "bottom": 2,
-                                                  "left": 6,
-                                                  "right": 7,
-                                                  "top": 2
-                                                },
-                                                "radius": "5px 5px 0 0",
-                                                "crossAlign": "center",
-                                                "gap": 5,
-                                                "children": [
-                                                  {
-                                                    "height": 11,
-                                                    "id": "img_lsi3f2",
-                                                    "name": "component",
-                                                    "width": 11,
-                                                    "src": "assets/icons/component-white.svg",
-                                                    "type": "image"
-                                                  },
-                                                  {
-                                                    "id": "t_hdck68",
-                                                    "color": "#ffffff",
-                                                    "role": "paragraph",
-                                                    "size": 11,
-                                                    "text": "Button",
-                                                    "type": "text",
-                                                    "weight": 600
-                                                  },
-                                                  {
-                                                    "fill": "#ffffff66",
-                                                    "height": 10,
-                                                    "id": "g_03i8fb",
-                                                    "width": 1,
-                                                    "children": [],
-                                                    "type": "group"
-                                                  },
-                                                  {
-                                                    "height": 10,
-                                                    "id": "img_xzxtyi",
-                                                    "name": "message-square",
-                                                    "width": 10,
-                                                    "src": "assets/icons/message-square-white.svg",
-                                                    "type": "image"
-                                                  },
-                                                  {
-                                                    "id": "t_w4ou8g",
-                                                    "color": "#ffffffdd",
-                                                    "role": "paragraph",
-                                                    "size": 11,
-                                                    "text": "In chat",
-                                                    "type": "text"
-                                                  }
-                                                ],
-                                                "type": "row"
-                                              }
-                                            ],
-                                            "type": "row"
-                                          },
-                                          {
-                                            "border": {
-                                              "color": "#8b5cf6",
-                                              "style": "solid",
-                                              "width": 2
-                                            },
-                                            "id": "c_0xoamu",
-                                            "radius": "0 8px 8px 8px",
-                                            "width": "hug",
-                                            "children": [
-                                              {
-                                                "id": "r_c7sazb",
-                                                "padding": 2,
-                                                "crossAlign": "center",
-                                                "children": [
-                                                  {
-                                                    "fill": "#2563eb",
-                                                    "id": "r_zgzqew",
-                                                    "name": "New order",
-                                                    "padding": {
-                                                      "bottom": 7,
-                                                      "left": 12,
-                                                      "right": 12,
-                                                      "top": 7
-                                                    },
-                                                    "radius": 6,
-                                                    "crossAlign": "center",
-                                                    "gap": 6,
-                                                    "children": [
-                                                      {
-                                                        "height": 14,
-                                                        "id": "img_qut0dv",
-                                                        "name": "plus",
-                                                        "width": 14,
-                                                        "src": "assets/icons/plus-white.svg",
-                                                        "type": "image"
-                                                      },
-                                                      {
-                                                        "id": "t_q5ncl0",
-                                                        "color": "#ffffff",
-                                                        "role": "paragraph",
-                                                        "size": 12,
-                                                        "text": "New order",
-                                                        "type": "text",
-                                                        "weight": 500
-                                                      }
-                                                    ],
-                                                    "type": "row"
-                                                  }
-                                                ],
-                                                "type": "row"
-                                              }
-                                            ],
-                                            "type": "column"
-                                          }
-                                        ],
-                                        "type": "column"
-                                      }
-                                    ],
-                                    "type": "column"
-                                  }
-                                ],
-                                "type": "row"
-                              }
-                            ],
-                            "type": "row"
-                          }
-                        ],
-                        "type": "column"
-                      },
-                      {
-                        "border": {
-                          "color": "#e4e4e7",
-                          "style": "solid",
-                          "width": 1
-                        },
-                        "fill": "#ffffff",
-                        "id": "c_2dzpt9",
-                        "name": "Orders table",
-                        "radius": 8,
-                        "width": "fill",
-                        "children": [
-                          {
-                            "fill": "#f4f4f5",
-                            "id": "r_zlei8r",
-                            "name": "Header row",
-                            "padding": {
-                              "bottom": 10,
-                              "left": 16,
-                              "right": 16,
-                              "top": 10
-                            },
-                            "crossAlign": "center",
-                            "gap": 16,
-                            "children": [
-                              {
-                                "id": "t_z4cpt7",
-                                "width": 70,
-                                "color": "#71717a",
-                                "role": "paragraph",
-                                "size": 11,
-                                "text": "Order",
-                                "type": "text",
-                                "weight": 600
-                              },
-                              {
-                                "id": "t_8gicgw",
-                                "width": 170,
-                                "color": "#71717a",
-                                "role": "paragraph",
-                                "size": 11,
-                                "text": "Device",
-                                "type": "text",
-                                "weight": 600
-                              },
-                              {
-                                "id": "t_dswa5m",
-                                "width": 70,
-                                "color": "#71717a",
-                                "role": "paragraph",
-                                "size": 11,
-                                "text": "Qty",
-                                "type": "text",
-                                "weight": 600
-                              },
-                              {
-                                "id": "t_6shpfx",
-                                "width": 160,
-                                "color": "#71717a",
-                                "role": "paragraph",
-                                "size": 11,
-                                "text": "Customer",
-                                "type": "text",
-                                "weight": 600
-                              },
-                              {
-                                "id": "t_m0jpu1",
-                                "width": 110,
-                                "color": "#71717a",
-                                "role": "paragraph",
-                                "size": 11,
-                                "text": "Status",
-                                "type": "text",
-                                "weight": 600
-                              },
-                              {
-                                "id": "t_8d0a32",
-                                "width": 120,
-                                "color": "#71717a",
-                                "role": "paragraph",
-                                "size": 11,
-                                "text": "Date",
-                                "type": "text",
-                                "weight": 600
-                              }
-                            ],
-                            "type": "row"
-                          },
-                          {
-                            "id": "r_7jspc1",
-                            "name": "Row #1042",
-                            "padding": {
-                              "bottom": 11,
-                              "left": 16,
-                              "right": 16,
-                              "top": 11
-                            },
-                            "crossAlign": "center",
-                            "gap": 16,
-                            "children": [
-                              {
-                                "id": "t_l7t1yx",
-                                "width": 70,
-                                "color": "#71717a",
-                                "font": "$font-mono",
-                                "role": "paragraph",
-                                "size": 11,
-                                "text": "#1042",
-                                "type": "text"
-                              },
-                              {
-                                "id": "t_3buv11",
-                                "width": 170,
-                                "color": "#18181b",
-                                "role": "paragraph",
-                                "size": 12,
-                                "text": "Sensor Hub S2",
-                                "type": "text",
-                                "weight": 500
-                              },
-                              {
-                                "id": "t_pfff3t",
-                                "width": 70,
-                                "color": "#18181b",
-                                "role": "paragraph",
-                                "size": 12,
-                                "text": "3",
-                                "type": "text"
-                              },
-                              {
-                                "id": "t_i0mkew",
-                                "width": 160,
-                                "color": "#18181b",
-                                "role": "paragraph",
-                                "size": 12,
-                                "text": "Acme Corp",
-                                "type": "text"
-                              },
-                              {
-                                "id": "r_g3zv23",
-                                "width": 110,
-                                "crossAlign": "center",
-                                "children": [
-                                  {
-                                    "fill": "#dcfce7",
-                                    "id": "r_gp79vi",
-                                    "padding": {
-                                      "bottom": 2,
-                                      "left": 8,
-                                      "right": 8,
-                                      "top": 2
-                                    },
-                                    "radius": 999,
-                                    "crossAlign": "center",
-                                    "children": [
-                                      {
-                                        "id": "t_b7wn98",
-                                        "color": "#166534",
-                                        "role": "paragraph",
-                                        "size": 11,
-                                        "text": "Shipped",
-                                        "type": "text",
-                                        "weight": 500
-                                      }
-                                    ],
-                                    "type": "row"
-                                  }
-                                ],
-                                "type": "row"
-                              },
-                              {
-                                "id": "t_6s7g3e",
-                                "width": 120,
-                                "color": "#71717a",
-                                "role": "paragraph",
-                                "size": 12,
-                                "text": "Sep 28, 2026",
-                                "type": "text"
-                              }
-                            ],
-                            "type": "row"
-                          },
-                          {
-                            "border": {
-                              "color": "#e4e4e7",
-                              "style": "solid",
-                              "width": "1px 0 0 0"
-                            },
-                            "id": "r_7k9y39",
-                            "name": "Row #1041",
-                            "padding": {
-                              "bottom": 11,
-                              "left": 16,
-                              "right": 16,
-                              "top": 11
-                            },
-                            "crossAlign": "center",
-                            "gap": 16,
-                            "children": [
-                              {
-                                "id": "t_zvrh2f",
-                                "width": 70,
-                                "color": "#71717a",
-                                "font": "$font-mono",
-                                "role": "paragraph",
-                                "size": 11,
-                                "text": "#1041",
-                                "type": "text"
-                              },
-                              {
-                                "id": "t_x6ts3m",
-                                "width": 170,
-                                "color": "#18181b",
-                                "role": "paragraph",
-                                "size": 12,
-                                "text": "Gateway Pro",
-                                "type": "text",
-                                "weight": 500
-                              },
-                              {
-                                "id": "t_i9143a",
-                                "width": 70,
-                                "color": "#18181b",
-                                "role": "paragraph",
-                                "size": 12,
-                                "text": "1",
-                                "type": "text"
-                              },
-                              {
-                                "id": "t_p7t3fa",
-                                "width": 160,
-                                "color": "#18181b",
-                                "role": "paragraph",
-                                "size": 12,
-                                "text": "Globex Inc",
-                                "type": "text"
-                              },
-                              {
-                                "id": "r_8c1t5f",
-                                "width": 110,
-                                "crossAlign": "center",
-                                "children": [
-                                  {
-                                    "fill": "#dbeafe",
-                                    "id": "r_649v5w",
-                                    "padding": {
-                                      "bottom": 2,
-                                      "left": 8,
-                                      "right": 8,
-                                      "top": 2
-                                    },
-                                    "radius": 999,
-                                    "crossAlign": "center",
-                                    "children": [
-                                      {
-                                        "id": "t_e7cafu",
-                                        "color": "#1e40af",
-                                        "role": "paragraph",
-                                        "size": 11,
-                                        "text": "Processing",
-                                        "type": "text",
-                                        "weight": 500
-                                      }
-                                    ],
-                                    "type": "row"
-                                  }
-                                ],
-                                "type": "row"
-                              },
-                              {
-                                "id": "t_4yb8if",
-                                "width": 120,
-                                "color": "#71717a",
-                                "role": "paragraph",
-                                "size": 12,
-                                "text": "Sep 27, 2026",
-                                "type": "text"
-                              }
-                            ],
-                            "type": "row"
-                          },
-                          {
-                            "border": {
-                              "color": "#e4e4e7",
-                              "style": "solid",
-                              "width": "1px 0 0 0"
-                            },
-                            "id": "r_4uzy7w",
-                            "name": "Row #1040",
-                            "padding": {
-                              "bottom": 11,
-                              "left": 16,
-                              "right": 16,
-                              "top": 11
-                            },
-                            "crossAlign": "center",
-                            "gap": 16,
-                            "children": [
-                              {
-                                "id": "t_0ojtxd",
-                                "width": 70,
-                                "color": "#71717a",
-                                "font": "$font-mono",
-                                "role": "paragraph",
-                                "size": 11,
-                                "text": "#1040",
-                                "type": "text"
-                              },
-                              {
-                                "id": "t_0qdb15",
-                                "width": 170,
-                                "color": "#18181b",
-                                "role": "paragraph",
-                                "size": 12,
-                                "text": "Bolt Y3 Connector",
-                                "type": "text",
-                                "weight": 500
-                              },
-                              {
-                                "id": "t_uvs2th",
-                                "width": 70,
-                                "color": "#18181b",
-                                "role": "paragraph",
-                                "size": 12,
-                                "text": "12",
-                                "type": "text"
-                              },
-                              {
-                                "id": "t_o95kxv",
-                                "width": 160,
-                                "color": "#18181b",
-                                "role": "paragraph",
-                                "size": 12,
-                                "text": "Initech",
-                                "type": "text"
-                              },
-                              {
-                                "id": "r_qgm84q",
-                                "width": 110,
-                                "crossAlign": "center",
-                                "children": [
-                                  {
-                                    "fill": "#fef9c3",
-                                    "id": "r_6eng3r",
-                                    "padding": {
-                                      "bottom": 2,
-                                      "left": 8,
-                                      "right": 8,
-                                      "top": 2
-                                    },
-                                    "radius": 999,
-                                    "crossAlign": "center",
-                                    "children": [
-                                      {
-                                        "id": "t_zmy6i8",
-                                        "color": "#854d0e",
-                                        "role": "paragraph",
-                                        "size": 11,
-                                        "text": "Pending",
-                                        "type": "text",
-                                        "weight": 500
-                                      }
-                                    ],
-                                    "type": "row"
-                                  }
-                                ],
-                                "type": "row"
-                              },
-                              {
-                                "id": "t_04eixs",
-                                "width": 120,
-                                "color": "#71717a",
-                                "role": "paragraph",
-                                "size": 12,
-                                "text": "Sep 27, 2026",
-                                "type": "text"
-                              }
-                            ],
-                            "type": "row"
-                          },
-                          {
-                            "border": {
-                              "color": "#e4e4e7",
-                              "style": "solid",
-                              "width": "1px 0 0 0"
-                            },
-                            "id": "r_agarkb",
-                            "name": "Row #1039",
-                            "padding": {
-                              "bottom": 11,
-                              "left": 16,
-                              "right": 16,
-                              "top": 11
-                            },
-                            "crossAlign": "center",
-                            "gap": 16,
-                            "children": [
-                              {
-                                "id": "t_1t0cuv",
-                                "width": 70,
-                                "color": "#71717a",
-                                "font": "$font-mono",
-                                "role": "paragraph",
-                                "size": 11,
-                                "text": "#1039",
-                                "type": "text"
-                              },
-                              {
-                                "id": "t_rhv6fb",
-                                "width": 170,
-                                "color": "#18181b",
-                                "role": "paragraph",
-                                "size": 12,
-                                "text": "Sensor Hub S2",
-                                "type": "text",
-                                "weight": 500
-                              },
-                              {
-                                "id": "t_tymtai",
-                                "width": 70,
-                                "color": "#18181b",
-                                "role": "paragraph",
-                                "size": 12,
-                                "text": "5",
-                                "type": "text"
-                              },
-                              {
-                                "id": "t_rrv5f8",
-                                "width": 160,
-                                "color": "#18181b",
-                                "role": "paragraph",
-                                "size": 12,
-                                "text": "Umbrella Co",
-                                "type": "text"
-                              },
-                              {
-                                "id": "r_z96mgw",
-                                "width": 110,
-                                "crossAlign": "center",
-                                "children": [
-                                  {
-                                    "fill": "#dcfce7",
-                                    "id": "r_uh3r7y",
-                                    "padding": {
-                                      "bottom": 2,
-                                      "left": 8,
-                                      "right": 8,
-                                      "top": 2
-                                    },
-                                    "radius": 999,
-                                    "crossAlign": "center",
-                                    "children": [
-                                      {
-                                        "id": "t_z92b4w",
-                                        "color": "#166534",
-                                        "role": "paragraph",
-                                        "size": 11,
-                                        "text": "Shipped",
-                                        "type": "text",
-                                        "weight": 500
-                                      }
-                                    ],
-                                    "type": "row"
-                                  }
-                                ],
-                                "type": "row"
-                              },
-                              {
-                                "id": "t_vlh59i",
-                                "width": 120,
-                                "color": "#71717a",
-                                "role": "paragraph",
-                                "size": 12,
-                                "text": "Sep 25, 2026",
-                                "type": "text"
-                              }
-                            ],
-                            "type": "row"
-                          },
-                          {
-                            "border": {
-                              "color": "#e4e4e7",
-                              "style": "solid",
-                              "width": "1px 0 0 0"
-                            },
-                            "id": "r_thfb0r",
-                            "name": "Row #1038",
-                            "padding": {
-                              "bottom": 11,
-                              "left": 16,
-                              "right": 16,
-                              "top": 11
-                            },
-                            "crossAlign": "center",
-                            "gap": 16,
-                            "children": [
-                              {
-                                "id": "t_hmv43y",
-                                "width": 70,
-                                "color": "#71717a",
-                                "font": "$font-mono",
-                                "role": "paragraph",
-                                "size": 11,
-                                "text": "#1038",
-                                "type": "text"
-                              },
-                              {
-                                "id": "t_jp67gg",
-                                "width": 170,
-                                "color": "#18181b",
-                                "role": "paragraph",
-                                "size": 12,
-                                "text": "Relay Module",
-                                "type": "text",
-                                "weight": 500
-                              },
-                              {
-                                "id": "t_xtt1kl",
-                                "width": 70,
-                                "color": "#18181b",
-                                "role": "paragraph",
-                                "size": 12,
-                                "text": "8",
-                                "type": "text"
-                              },
-                              {
-                                "id": "t_3hm46v",
-                                "width": 160,
-                                "color": "#18181b",
-                                "role": "paragraph",
-                                "size": 12,
-                                "text": "Hooli",
-                                "type": "text"
-                              },
-                              {
-                                "id": "r_vcycv6",
-                                "width": 110,
-                                "crossAlign": "center",
-                                "children": [
-                                  {
-                                    "fill": "#fee2e2",
-                                    "id": "r_ly7m93",
-                                    "padding": {
-                                      "bottom": 2,
-                                      "left": 8,
-                                      "right": 8,
-                                      "top": 2
-                                    },
-                                    "radius": 999,
-                                    "crossAlign": "center",
-                                    "children": [
-                                      {
-                                        "id": "t_qpdfjh",
-                                        "color": "#991b1b",
-                                        "role": "paragraph",
-                                        "size": 11,
-                                        "text": "Cancelled",
-                                        "type": "text",
-                                        "weight": 500
-                                      }
-                                    ],
-                                    "type": "row"
-                                  }
-                                ],
-                                "type": "row"
-                              },
-                              {
-                                "id": "t_ryrypo",
-                                "width": 120,
-                                "color": "#71717a",
-                                "role": "paragraph",
-                                "size": 12,
-                                "text": "Sep 24, 2026",
-                                "type": "text"
-                              }
-                            ],
-                            "type": "row"
-                          },
-                          {
-                            "border": {
-                              "color": "#e4e4e7",
-                              "style": "solid",
-                              "width": "1px 0 0 0"
-                            },
-                            "id": "r_ixbwex",
-                            "name": "Row #1037",
-                            "padding": {
-                              "bottom": 11,
-                              "left": 16,
-                              "right": 16,
-                              "top": 11
-                            },
-                            "crossAlign": "center",
-                            "gap": 16,
-                            "children": [
-                              {
-                                "id": "t_lvu9nu",
-                                "width": 70,
-                                "color": "#71717a",
-                                "font": "$font-mono",
-                                "role": "paragraph",
-                                "size": 11,
-                                "text": "#1037",
-                                "type": "text"
-                              },
-                              {
-                                "id": "t_pdv6w1",
-                                "width": 170,
-                                "color": "#18181b",
-                                "role": "paragraph",
-                                "size": 12,
-                                "text": "Gateway Pro",
-                                "type": "text",
-                                "weight": 500
-                              },
-                              {
-                                "id": "t_slgvoj",
-                                "width": 70,
-                                "color": "#18181b",
-                                "role": "paragraph",
-                                "size": 12,
-                                "text": "2",
-                                "type": "text"
-                              },
-                              {
-                                "id": "t_ff8fd4",
-                                "width": 160,
-                                "color": "#18181b",
-                                "role": "paragraph",
-                                "size": 12,
-                                "text": "Stark Industries",
-                                "type": "text"
-                              },
-                              {
-                                "id": "r_lwt1eq",
-                                "width": 110,
-                                "crossAlign": "center",
-                                "children": [
-                                  {
-                                    "fill": "#dcfce7",
-                                    "id": "r_8dscs7",
-                                    "padding": {
-                                      "bottom": 2,
-                                      "left": 8,
-                                      "right": 8,
-                                      "top": 2
-                                    },
-                                    "radius": 999,
-                                    "crossAlign": "center",
-                                    "children": [
-                                      {
-                                        "id": "t_mmmr4j",
-                                        "color": "#166534",
-                                        "role": "paragraph",
-                                        "size": 11,
-                                        "text": "Shipped",
-                                        "type": "text",
-                                        "weight": 500
-                                      }
-                                    ],
-                                    "type": "row"
-                                  }
-                                ],
-                                "type": "row"
-                              },
-                              {
-                                "id": "t_8q0s67",
-                                "width": 120,
-                                "color": "#71717a",
-                                "role": "paragraph",
-                                "size": 12,
-                                "text": "Sep 22, 2026",
-                                "type": "text"
-                              }
-                            ],
-                            "type": "row"
-                          }
-                        ],
-                        "type": "column"
-                      }
-                    ],
-                    "type": "column"
-                  }
-                ],
-                "type": "column"
-              },
-              {
-                "height": "fill",
-                "id": "c_5s7tmq",
-                "name": "Spacer",
-                "width": "fill",
-                "children": [],
-                "type": "column"
-              },
-              {
-                "border": {
-                  "color": "$color-border",
-                  "style": "solid",
-                  "width": 1
-                },
-                "fill": "$color-sidebar",
-                "id": "r_gglf62",
-                "name": "Tools",
-                "padding": 4,
-                "radius": 11,
-                "shadow": "$shadow-lg",
-                "crossAlign": "center",
-                "gap": 2,
-                "children": [
-                  {
-                    "fill": "$color-brand",
-                    "height": 30,
-                    "id": "r_07y6f2",
-                    "radius": 7,
-                    "width": 30,
-                    "align": "center",
-                    "crossAlign": "center",
-                    "children": [
-                      {
-                        "height": 15,
-                        "id": "img_dwj6je",
-                        "name": "mouse-pointer-2",
-                        "width": 15,
-                        "src": "assets/icons/mouse-pointer-2-white.svg",
-                        "type": "image"
-                      }
-                    ],
-                    "type": "row"
-                  },
-                  {
-                    "height": 30,
-                    "id": "r_anq41f",
-                    "name": "frame button",
-                    "radius": 7,
-                    "width": 30,
-                    "align": "center",
-                    "crossAlign": "center",
-                    "children": [
-                      {
-                        "height": 16,
-                        "id": "img_xhe38f",
-                        "name": "frame",
-                        "width": 16,
-                        "src": "assets/icons/frame-muted.svg",
-                        "type": "image"
-                      }
-                    ],
-                    "type": "row"
-                  },
-                  {
-                    "height": 30,
-                    "id": "r_xcw65r",
-                    "name": "type button",
-                    "radius": 7,
-                    "width": 30,
-                    "align": "center",
-                    "crossAlign": "center",
-                    "children": [
-                      {
-                        "height": 16,
-                        "id": "img_9uz292",
-                        "name": "type",
-                        "width": 16,
-                        "src": "assets/icons/type-muted.svg",
-                        "type": "image"
-                      }
-                    ],
-                    "type": "row"
-                  },
-                  {
-                    "height": 30,
-                    "id": "r_o0nq0s",
-                    "name": "hand button",
-                    "radius": 7,
-                    "width": 30,
-                    "align": "center",
-                    "crossAlign": "center",
-                    "children": [
-                      {
-                        "height": 16,
-                        "id": "img_ptng4v",
-                        "name": "hand",
-                        "width": 16,
-                        "src": "assets/icons/hand-muted.svg",
-                        "type": "image"
-                      }
-                    ],
-                    "type": "row"
-                  },
-                  {
-                    "height": 30,
-                    "id": "r_3vcxyo",
-                    "name": "message-circle button",
-                    "radius": 7,
-                    "width": 30,
-                    "align": "center",
-                    "crossAlign": "center",
-                    "children": [
-                      {
-                        "height": 16,
-                        "id": "img_hm4jvu",
-                        "name": "message-circle",
-                        "width": 16,
-                        "src": "assets/icons/message-circle-muted.svg",
-                        "type": "image"
-                      }
-                    ],
-                    "type": "row"
-                  },
-                  {
-                    "height": 4,
-                    "id": "g_4v03ro",
-                    "width": 6,
-                    "children": [],
-                    "type": "group"
-                  },
-                  {
-                    "fill": "$color-border",
-                    "height": 18,
-                    "id": "g_h1pak9",
-                    "name": "Divider",
-                    "width": 1,
-                    "children": [],
-                    "type": "group"
-                  },
-                  {
-                    "height": 4,
-                    "id": "g_ut7yi3",
-                    "width": 6,
-                    "children": [],
-                    "type": "group"
-                  },
-                  {
-                    "height": 30,
-                    "id": "r_ocpsa2",
-                    "name": "undo-2 button",
-                    "radius": 7,
-                    "width": 30,
-                    "align": "center",
-                    "crossAlign": "center",
-                    "children": [
-                      {
-                        "height": 16,
-                        "id": "img_tgm31q",
-                        "name": "undo-2",
-                        "width": 16,
-                        "src": "assets/icons/undo-2-muted.svg",
-                        "type": "image"
-                      }
-                    ],
-                    "type": "row"
-                  },
-                  {
-                    "height": 30,
-                    "id": "r_7nw4i7",
-                    "name": "redo-2 button",
-                    "radius": 7,
-                    "width": 30,
-                    "align": "center",
-                    "crossAlign": "center",
-                    "children": [
-                      {
-                        "height": 16,
-                        "id": "img_iq5fss",
-                        "name": "redo-2",
-                        "width": 16,
-                        "src": "assets/icons/redo-2-muted.svg",
-                        "type": "image"
-                      }
-                    ],
-                    "type": "row"
-                  },
-                  {
-                    "height": 4,
-                    "id": "g_prqu3w",
-                    "width": 6,
-                    "children": [],
-                    "type": "group"
-                  },
-                  {
-                    "fill": "$color-border",
-                    "height": 18,
-                    "id": "g_cdkwdb",
-                    "name": "Divider",
-                    "width": 1,
-                    "children": [],
-                    "type": "group"
-                  },
-                  {
-                    "height": 4,
-                    "id": "g_ljagd7",
-                    "width": 6,
-                    "children": [],
-                    "type": "group"
-                  },
-                  {
-                    "height": 30,
-                    "id": "r_c1pofs",
-                    "name": "zoom-out button",
-                    "radius": 7,
-                    "width": 30,
-                    "align": "center",
-                    "crossAlign": "center",
-                    "children": [
-                      {
-                        "height": 16,
-                        "id": "img_5yxnut",
-                        "name": "zoom-out",
-                        "width": 16,
-                        "src": "assets/icons/zoom-out-muted.svg",
-                        "type": "image"
-                      }
-                    ],
-                    "type": "row"
-                  },
-                  {
-                    "id": "t_id8zip",
-                    "color": "$color-foreground",
-                    "role": "paragraph",
-                    "size": 12,
-                    "text": "75%",
-                    "type": "text",
-                    "weight": 500
-                  },
-                  {
-                    "height": 30,
-                    "id": "r_02u55y",
-                    "name": "zoom-in button",
-                    "radius": 7,
-                    "width": 30,
-                    "align": "center",
-                    "crossAlign": "center",
-                    "children": [
-                      {
-                        "height": 16,
-                        "id": "img_r57edd",
-                        "name": "zoom-in",
-                        "width": 16,
-                        "src": "assets/icons/zoom-in-muted.svg",
-                        "type": "image"
-                      }
-                    ],
-                    "type": "row"
-                  }
-                ],
-                "type": "row"
-              }
-            ],
-            "type": "column"
-          }
-        ],
-        "type": "row"
-      }
-    ],
-    "type": "page"
-  },
+  "root": {"type": "page", "id": "root", "fill": "$color-background", "gap": 0, "children": [
+    {"type": "row", "id": "r_8mg74t", "name": "Editor · Vibe · New chat", "crossAlign": "stretch", "height": 900, "width": "fill", "children": [
+      {"type": "column", "id": "c_hd1r4b", "name": "Rail", "border": {"color": "$color-border", "style": "solid", "width": "0 1px 0 0"}, "crossAlign": "center", "fill": "$color-sidebar", "gap": 2, "height": "fill", "padding": {"bottom": 12, "top": 10}, "width": 64, "children": [
+        {"type": "row", "id": "r_binjlr", "name": "Logo", "align": "center", "crossAlign": "center", "fill": "$color-brand", "height": 32, "radius": 8, "width": 32, "children": [
+          {"type": "text", "id": "t_rxvq7p", "color": "#ffffff", "role": "paragraph", "size": 11, "text": "UP", "weight": 700}
+        ]},
+        {"type": "group", "id": "g_hhobmj", "height": 8, "width": 8, "children": []},
+        {"type": "column", "id": "c_6nns8t", "name": "Rail · Chats", "crossAlign": "center", "gap": 3, "padding": {"bottom": 5, "top": 5}, "width": 60, "children": [
+          {"type": "row", "id": "r_jtmcrl", "align": "center", "crossAlign": "center", "fill": "$color-muted", "height": 30, "radius": 8, "width": 36, "children": [
+            {"type": "image", "id": "img_bt03n9", "name": "sparkles with dot", "height": 18, "src": "assets/icons/sparkles-fg-dot-ai-27272a.svg", "width": 18}
+          ]},
+          {"type": "text", "id": "t_19z9v1", "align": "center", "color": "$color-foreground", "role": "paragraph", "size": 10, "text": "Chats", "weight": 500}
+        ]},
+        {"type": "column", "id": "c_2nlnjy", "name": "Rail · Pages", "crossAlign": "center", "gap": 3, "padding": {"bottom": 5, "top": 5}, "width": 60, "children": [
+          {"type": "row", "id": "r_v2mho1", "align": "center", "crossAlign": "center", "height": 30, "radius": 8, "width": 36, "children": [
+            {"type": "image", "id": "img_rm5msu", "name": "monitor-smartphone", "height": 18, "src": "assets/icons/monitor-smartphone-muted.svg", "width": 18}
+          ]},
+          {"type": "text", "id": "t_yq8leu", "align": "center", "color": "$color-muted-foreground", "role": "paragraph", "size": 10, "text": "Pages", "weight": 500}
+        ]},
+        {"type": "column", "id": "c_vswh1q", "name": "Rail · System", "crossAlign": "center", "gap": 3, "padding": {"bottom": 5, "top": 5}, "width": 60, "children": [
+          {"type": "row", "id": "r_vg5z79", "align": "center", "crossAlign": "center", "height": 30, "radius": 8, "width": 36, "children": [
+            {"type": "image", "id": "img_gsqjpn", "name": "palette", "height": 18, "src": "assets/icons/palette-muted.svg", "width": 18}
+          ]},
+          {"type": "text", "id": "t_iu5hjo", "align": "center", "color": "$color-muted-foreground", "role": "paragraph", "size": 10, "text": "System", "weight": 500}
+        ]},
+        {"type": "column", "id": "c_q5rrit", "name": "Rail · Comments", "crossAlign": "center", "gap": 3, "padding": {"bottom": 5, "top": 5}, "width": 60, "children": [
+          {"type": "row", "id": "r_ogdf7m", "align": "center", "crossAlign": "center", "height": 30, "radius": 8, "width": 36, "children": [
+            {"type": "image", "id": "img_qgf9xe", "name": "message-circle", "height": 18, "src": "assets/icons/message-circle-muted.svg", "width": 18}
+          ]},
+          {"type": "text", "id": "t_z8nytn", "align": "center", "color": "$color-muted-foreground", "role": "paragraph", "size": 10, "text": "Comments", "weight": 500}
+        ]},
+        {"type": "column", "id": "c_j7w7gn", "name": "Rail · Changes", "crossAlign": "center", "gap": 3, "padding": {"bottom": 5, "top": 5}, "width": 60, "children": [
+          {"type": "row", "id": "r_pam4zh", "align": "center", "crossAlign": "center", "height": 30, "radius": 8, "width": 36, "children": [
+            {"type": "image", "id": "img_y5kbrn", "name": "git-compare-arrows", "height": 18, "src": "assets/icons/git-compare-arrows-muted.svg", "width": 18}
+          ]},
+          {"type": "text", "id": "t_publst", "align": "center", "color": "$color-muted-foreground", "role": "paragraph", "size": 10, "text": "Changes", "weight": 500}
+        ]},
+        {"type": "column", "id": "c_qd382b", "name": "Spacer", "height": "fill", "width": "fill", "children": []},
+        {"type": "column", "id": "c_itjacc", "name": "Rail · Settings", "crossAlign": "center", "gap": 3, "padding": {"bottom": 5, "top": 5}, "width": 60, "children": [
+          {"type": "row", "id": "r_ewxlzr", "align": "center", "crossAlign": "center", "height": 30, "radius": 8, "width": 36, "children": [
+            {"type": "image", "id": "img_8t8u30", "name": "settings", "height": 18, "src": "assets/icons/settings-muted.svg", "width": 18}
+          ]},
+          {"type": "text", "id": "t_yksyd0", "align": "center", "color": "$color-muted-foreground", "role": "paragraph", "size": 10, "text": "Settings", "weight": 500}
+        ]},
+        {"type": "group", "id": "g_bzgmtu", "height": 10, "width": 8, "children": []},
+        {"type": "group", "id": "g_uwm9eu", "name": "Divider", "fill": "$color-border", "height": 1, "width": 28, "children": []},
+        {"type": "group", "id": "g_hpij53", "height": 10, "width": 8, "children": []},
+        {"type": "row", "id": "r_xddu8k", "name": "Git user", "align": "center", "border": {"color": "#3f3f46", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#27272a", "height": 30, "radius": 999, "width": 30, "children": [
+          {"type": "text", "id": "t_ieozms", "color": "$color-muted-foreground", "role": "paragraph", "size": 10, "text": "AL", "weight": 600}
+        ]}
+      ]},
+      {"type": "column", "id": "c_6ae8xt", "name": "Panel", "border": {"color": "$color-border", "style": "solid", "width": "0 1px 0 0"}, "fill": "$color-sidebar", "height": "fill", "width": 384, "children": [
+        {"type": "row", "id": "r_ja195z", "name": "Thread header", "border": {"color": "$color-border", "style": "solid", "width": "0 0 1px 0"}, "crossAlign": "center", "gap": 6, "height": 52, "padding": {"left": 8, "right": 8}, "width": "fill", "children": [
+          {"type": "row", "id": "r_pmug17", "name": "chevron-left button", "align": "center", "crossAlign": "center", "height": 28, "radius": 7, "width": 28, "children": [
+            {"type": "image", "id": "img_x9mtr0", "name": "chevron-left", "height": 16, "src": "assets/icons/chevron-left-muted.svg", "width": 16}
+          ]},
+          {"type": "column", "id": "c_epmsxd", "gap": 1, "width": "fill", "children": [
+            {"type": "text", "id": "t_k0hadt", "color": "$color-foreground", "role": "paragraph", "size": 13, "text": "New chat", "weight": 600},
+            {"type": "text", "id": "t_0oulsw", "color": "$color-muted-foreground", "role": "paragraph", "size": 11, "text": "Not started · nothing is sent yet"}
+          ]},
+          {"type": "row", "id": "r_fqu7t6", "name": "ellipsis button", "align": "center", "crossAlign": "center", "height": 28, "radius": 7, "width": 28, "children": [
+            {"type": "image", "id": "img_rcxdzf", "name": "ellipsis", "height": 16, "src": "assets/icons/ellipsis-muted.svg", "width": 16}
+          ]}
+        ]},
+        {"type": "column", "id": "c_mwg1a6", "name": "Empty", "crossAlign": "center", "gap": 18, "height": "fill", "padding": {"left": 20, "right": 20, "top": 40}, "width": "fill", "children": [
+          {"type": "row", "id": "r_73y3xi", "align": "center", "border": {"color": "#ec4899", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#500724", "height": 44, "radius": 999, "width": 44, "children": [
+            {"type": "image", "id": "img_363xej", "name": "sparkles", "height": 20, "src": "assets/icons/sparkles-ai-light.svg", "width": 20}
+          ]},
+          {"type": "column", "id": "c_4qqa83", "crossAlign": "center", "gap": 4, "children": [
+            {"type": "text", "id": "t_4worvl", "color": "$color-foreground", "role": "paragraph", "size": 16, "text": "What's next?", "weight": 600},
+            {"type": "text", "id": "t_pjxbsa", "align": "center", "color": "$color-muted-foreground", "maxWidth": 280, "role": "paragraph", "size": 12, "text": "The chat works on what you attach. Pick a starting point or just ask."}
+          ]},
+          {"type": "column", "id": "c_u8zmm2", "gap": 8, "width": "fill", "children": [
+            {"type": "column", "id": "c_lbvjte", "name": "Suggestion · Tidy and polish", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "#1f1f23", "radius": 10, "width": "fill", "children": [
+              {"type": "row", "id": "r_fmwb55", "crossAlign": "center", "gap": 10, "padding": {"bottom": 10, "left": 12, "right": 12, "top": 10}, "width": "fill", "children": [
+                {"type": "row", "id": "r_hvwbkc", "align": "center", "crossAlign": "center", "fill": "#27272a", "height": 28, "radius": 7, "width": 28, "children": [
+                  {"type": "image", "id": "img_h81iju", "name": "wand-sparkles", "height": 14, "src": "assets/icons/wand-sparkles-fg.svg", "width": 14}
+                ]},
+                {"type": "column", "id": "c_z1u4m8", "gap": 1, "width": "fill", "children": [
+                  {"type": "text", "id": "t_fifsvs", "color": "$color-foreground", "role": "paragraph", "size": 12.5, "text": "Tidy and polish", "weight": 600},
+                  {"type": "text", "id": "t_wbhh6u", "color": "$color-muted-foreground", "role": "paragraph", "size": 11.5, "text": "Bring the selection back onto the system"}
+                ]},
+                {"type": "image", "id": "img_vz4hvi", "name": "chevron-up", "height": 14, "src": "assets/icons/chevron-up-muted.svg", "width": 14}
+              ]},
+              {"type": "column", "id": "c_hls3t3", "gap": 6, "padding": {"bottom": 10, "left": 12, "right": 12}, "width": "fill", "children": [
+                {"type": "row", "id": "r_mkzkwq", "crossAlign": "center", "fill": "#27272a", "gap": 8, "padding": {"bottom": 7, "left": 10, "right": 10, "top": 7}, "radius": 7, "width": "fill", "children": [
+                  {"type": "image", "id": "img_m1owoa", "name": "corner-down-right", "height": 12, "src": "assets/icons/corner-down-right-muted.svg", "width": 12},
+                  {"type": "text", "id": "t_bpbu7i", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "Match spacing to the 4px scale", "width": "fill"},
+                  {"type": "image", "id": "img_ybzu8c", "name": "arrow-up-right", "height": 12, "src": "assets/icons/arrow-up-right-muted.svg", "width": 12}
+                ]},
+                {"type": "row", "id": "r_4xq6di", "crossAlign": "center", "fill": "#27272a", "gap": 8, "padding": {"bottom": 7, "left": 10, "right": 10, "top": 7}, "radius": 7, "width": "fill", "children": [
+                  {"type": "image", "id": "img_ikzy89", "name": "corner-down-right", "height": 12, "src": "assets/icons/corner-down-right-muted.svg", "width": 12},
+                  {"type": "text", "id": "t_0jejnb", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "Use the text styles of the system", "width": "fill"},
+                  {"type": "image", "id": "img_yv57jo", "name": "arrow-up-right", "height": 12, "src": "assets/icons/arrow-up-right-muted.svg", "width": 12}
+                ]},
+                {"type": "row", "id": "r_yn25hf", "crossAlign": "center", "fill": "#27272a", "gap": 8, "padding": {"bottom": 7, "left": 10, "right": 10, "top": 7}, "radius": 7, "width": "fill", "children": [
+                  {"type": "image", "id": "img_0ehy10", "name": "corner-down-right", "height": 12, "src": "assets/icons/corner-down-right-muted.svg", "width": 12},
+                  {"type": "text", "id": "t_29j916", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "Swap raw colours for tokens", "width": "fill"},
+                  {"type": "image", "id": "img_07p1ll", "name": "arrow-up-right", "height": 12, "src": "assets/icons/arrow-up-right-muted.svg", "width": 12}
+                ]}
+              ]}
+            ]},
+            {"type": "column", "id": "c_krfuaj", "name": "Suggestion · Generate designs", "border": {"color": "$color-border", "style": "solid", "width": 1}, "radius": 10, "width": "fill", "children": [
+              {"type": "row", "id": "r_glzs2a", "crossAlign": "center", "gap": 10, "padding": {"bottom": 10, "left": 12, "right": 12, "top": 10}, "width": "fill", "children": [
+                {"type": "row", "id": "r_cghvv1", "align": "center", "crossAlign": "center", "fill": "#27272a", "height": 28, "radius": 7, "width": 28, "children": [
+                  {"type": "image", "id": "img_g0x3o5", "name": "layout-template", "height": 14, "src": "assets/icons/layout-template-fg.svg", "width": 14}
+                ]},
+                {"type": "column", "id": "c_v1xrsa", "gap": 1, "width": "fill", "children": [
+                  {"type": "text", "id": "t_2gtjwn", "color": "$color-foreground", "role": "paragraph", "size": 12.5, "text": "Generate designs", "weight": 600},
+                  {"type": "text", "id": "t_pi104s", "color": "$color-muted-foreground", "role": "paragraph", "size": 11.5, "text": "New pages and variants from a prompt"}
+                ]},
+                {"type": "image", "id": "img_0vvi0w", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down-muted.svg", "width": 14}
+              ]}
+            ]},
+            {"type": "column", "id": "c_qrlojl", "name": "Suggestion · Implement in code", "border": {"color": "$color-border", "style": "solid", "width": 1}, "radius": 10, "width": "fill", "children": [
+              {"type": "row", "id": "r_hh7nkv", "crossAlign": "center", "gap": 10, "padding": {"bottom": 10, "left": 12, "right": 12, "top": 10}, "width": "fill", "children": [
+                {"type": "row", "id": "r_yfrun3", "align": "center", "crossAlign": "center", "fill": "#27272a", "height": 28, "radius": 7, "width": 28, "children": [
+                  {"type": "image", "id": "img_bx53fa", "name": "code", "height": 14, "src": "assets/icons/code-fg.svg", "width": 14}
+                ]},
+                {"type": "column", "id": "c_1ccija", "gap": 1, "width": "fill", "children": [
+                  {"type": "text", "id": "t_2e1er4", "color": "$color-foreground", "role": "paragraph", "size": 12.5, "text": "Implement in code", "weight": 600},
+                  {"type": "text", "id": "t_8x0mt1", "color": "$color-muted-foreground", "role": "paragraph", "size": 11.5, "text": "Write the page with your components"}
+                ]},
+                {"type": "image", "id": "img_odn7qm", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down-muted.svg", "width": 14}
+              ]}
+            ]},
+            {"type": "column", "id": "c_msc6f5", "name": "Suggestion · Import from Figma", "border": {"color": "$color-border", "style": "solid", "width": 1}, "radius": 10, "width": "fill", "children": [
+              {"type": "row", "id": "r_0gb382", "crossAlign": "center", "gap": 10, "padding": {"bottom": 10, "left": 12, "right": 12, "top": 10}, "width": "fill", "children": [
+                {"type": "row", "id": "r_pp8b8c", "align": "center", "crossAlign": "center", "fill": "#27272a", "height": 28, "radius": 7, "width": 28, "children": [
+                  {"type": "image", "id": "img_jxbprt", "name": "file-input", "height": 14, "src": "assets/icons/file-input-fg.svg", "width": 14}
+                ]},
+                {"type": "column", "id": "c_4y4qh7", "gap": 1, "width": "fill", "children": [
+                  {"type": "text", "id": "t_xqa4i0", "color": "$color-foreground", "role": "paragraph", "size": 12.5, "text": "Import from Figma", "weight": 600},
+                  {"type": "text", "id": "t_yofrb4", "color": "$color-muted-foreground", "role": "paragraph", "size": 11.5, "text": "Turn a .fig file into pages"}
+                ]},
+                {"type": "image", "id": "img_p4wjs4", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down-muted.svg", "width": 14}
+              ]}
+            ]}
+          ]}
+        ]},
+        {"type": "column", "id": "c_mzpjvo", "gap": 8, "padding": {"bottom": 12, "left": 12, "right": 12}, "width": "fill", "children": [
+          {"type": "row", "id": "r_1ob3te", "crossAlign": "center", "gap": 6, "padding": {"left": 4}, "children": [
+            {"type": "image", "id": "img_bhfi0a", "name": "info", "height": 12, "src": "assets/icons/info-muted.svg", "width": 12},
+            {"type": "text", "id": "t_3dirvw", "color": "$color-muted-foreground", "role": "paragraph", "size": 11, "text": "New order is attached from the canvas"}
+          ]},
+          {"type": "column", "id": "c_gwhleo", "name": "Composer", "border": {"color": "$color-brand", "style": "solid", "width": 1}, "fill": "#1f1f23", "gap": 8, "padding": 10, "radius": 12, "width": "fill", "children": [
+            {"type": "row", "id": "r_572mg1", "crossAlign": "center", "gap": 6, "width": "fill", "wrap": true, "children": [
+              {"type": "row", "id": "r_mjc35d", "name": "Attached · New order", "border": {"color": "#7c3aed", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#2e1065", "gap": 6, "padding": {"bottom": 3, "left": 4, "right": 6, "top": 3}, "radius": 6, "children": [
+                {"type": "image", "id": "img_n3bbs4", "fill": "#ffffff", "fit": "contain", "height": 18, "radius": 4, "src": "assets/thumbs/new-order-button.png", "width": 18},
+                {"type": "text", "id": "t_6xkg8q", "color": "#ddd6fe", "role": "paragraph", "size": 11.5, "text": "New order", "weight": 500},
+                {"type": "image", "id": "img_uppoj6", "name": "x", "height": 12, "src": "assets/icons/x-muted.svg", "width": 12}
+              ]}
+            ]},
+            {"type": "text", "id": "t_5o7llf", "color": "#71717a", "padding": {"bottom": 10, "left": 2, "top": 2}, "role": "paragraph", "size": 13, "text": "Make it the primary action, with a keyboard shortcut…", "width": "fill"},
+            {"type": "row", "id": "r_9bwhz9", "crossAlign": "center", "gap": 4, "width": "fill", "children": [
+              {"type": "row", "id": "r_383ng3", "name": "plus button", "align": "center", "crossAlign": "center", "height": 28, "radius": 7, "width": 28, "children": [
+                {"type": "image", "id": "img_xa2x73", "name": "plus", "height": 16, "src": "assets/icons/plus-muted.svg", "width": 16}
+              ]},
+              {"type": "row", "id": "r_e54gnh", "name": "Agent", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 6, "right": 8}, "radius": 7, "children": [
+                {"type": "image", "id": "img_fmad1o", "name": "Claude Code", "fit": "contain", "height": 12, "src": "assets/icons/agent-claude.svg", "width": 12},
+                {"type": "text", "id": "t_y8a8qd", "color": "$color-foreground", "role": "paragraph", "size": 11.5, "text": "Claude Code", "weight": 500},
+                {"type": "text", "id": "t_e7fvlb", "color": "$color-muted-foreground", "role": "paragraph", "size": 11.5, "text": "Opus 5.5"},
+                {"type": "image", "id": "img_gnfsxw", "name": "chevron-down", "height": 12, "src": "assets/icons/chevron-down-muted.svg", "width": 12}
+              ]},
+              {"type": "column", "id": "c_3c8jce", "name": "Spacer", "height": "fill", "width": "fill", "children": []},
+              {"type": "row", "id": "r_icsds7", "name": "mic button", "align": "center", "crossAlign": "center", "height": 28, "radius": 7, "width": 28, "children": [
+                {"type": "image", "id": "img_tzynlv", "name": "mic", "height": 16, "src": "assets/icons/mic-muted.svg", "width": 16}
+              ]},
+              {"type": "row", "id": "r_utrgau", "name": "Send", "align": "center", "crossAlign": "center", "fill": "$color-foreground", "height": 28, "radius": 999, "width": 28, "children": [
+                {"type": "image", "id": "img_2zdwsz", "name": "arrow-up", "height": 15, "src": "assets/icons/arrow-up-dark.svg", "width": 15}
+              ]}
+            ]}
+          ]}
+        ]}
+      ]},
+      {"type": "column", "id": "c_a8irvm", "name": "Canvas", "crossAlign": "center", "fill": "#0c0c0e", "gap": 0, "height": "fill", "padding": {"bottom": 16, "top": 14}, "width": "fill", "children": [
+        {"type": "row", "id": "r_rimijt", "name": "Workspace switch", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-sidebar", "gap": 2, "padding": 3, "radius": 11, "shadow": "$shadow-lg", "children": [
+          {"type": "row", "id": "r_9uc29h", "name": "Mode · Vibe", "crossAlign": "center", "fill": "#27272a", "gap": 6, "padding": {"bottom": 6, "left": 12, "right": 14, "top": 6}, "radius": 8, "children": [
+            {"type": "image", "id": "img_8jst3f", "name": "sparkles", "height": 14, "src": "assets/icons/sparkles-ai-light.svg", "width": 14},
+            {"type": "text", "id": "t_tadt5x", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "Vibe", "weight": 500}
+          ]},
+          {"type": "row", "id": "r_ujst4e", "name": "Mode · Design", "crossAlign": "center", "gap": 6, "padding": {"bottom": 6, "left": 12, "right": 14, "top": 6}, "radius": 8, "children": [
+            {"type": "image", "id": "img_xoc6ac", "name": "pen-tool", "height": 14, "src": "assets/icons/pen-tool-muted.svg", "width": 14},
+            {"type": "text", "id": "t_yw4hqg", "color": "$color-muted-foreground", "role": "paragraph", "size": 12, "text": "Design", "weight": 500}
+          ]},
+          {"type": "row", "id": "r_xgx0pk", "name": "Mode · Prototype", "crossAlign": "center", "gap": 6, "padding": {"bottom": 6, "left": 12, "right": 14, "top": 6}, "radius": 8, "children": [
+            {"type": "image", "id": "img_74zfza", "name": "play", "height": 14, "src": "assets/icons/play-muted.svg", "width": 14},
+            {"type": "text", "id": "t_z1dhab", "color": "$color-muted-foreground", "role": "paragraph", "size": 12, "text": "Prototype", "weight": 500}
+          ]}
+        ]},
+        {"type": "column", "id": "c_hvxlch", "name": "Frame", "padding": {"top": 38}, "width": 820, "children": [
+          {"type": "row", "id": "r_84yjcw", "name": "Frame label", "crossAlign": "center", "gap": 8, "padding": {"bottom": 8}, "width": "fill", "children": [
+            {"type": "text", "id": "t_1p3x07", "color": "$color-foreground", "role": "paragraph", "size": 11, "text": "Orders", "weight": 500},
+            {"type": "text", "id": "t_0jnw52", "color": "$color-muted-foreground", "font": "$font-mono", "role": "paragraph", "size": 11, "text": "/orders"},
+            {"type": "column", "id": "c_fp1v2s", "name": "Spacer", "height": "fill", "width": "fill", "children": []},
+            {"type": "text", "id": "t_anserw", "color": "#71717a", "role": "paragraph", "size": 11, "text": "1280 × 800"}
+          ]},
+          {"type": "column", "id": "c_4zeqic", "name": "Orders", "fill": "#fafafa", "gap": 18, "padding": 28, "width": "fill", "children": [
+            {"type": "column", "id": "c_5djtpv", "name": "Page header", "gap": 6, "width": "fill", "children": [
+              {"type": "row", "id": "r_oz7j91", "align": "end", "crossAlign": "center", "width": "fill", "children": [
+                {"type": "row", "id": "r_njc5rh", "crossAlign": "center", "padding": {"right": 60}, "children": [
+                  {"type": "row", "id": "r_r6p3e0", "name": "Element toolbar", "border": {"color": "#3f3f46", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#18181b", "gap": 2, "padding": 3, "radius": 10, "shadow": "$shadow-xl", "children": [
+                    {"type": "row", "id": "r_1lq0bm", "name": "Select · Default", "crossAlign": "center", "gap": 5, "height": 28, "padding": {"left": 7, "right": 6}, "radius": 6, "children": [
+                      {"type": "text", "id": "t_r9ywox", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "Default", "weight": 500},
+                      {"type": "image", "id": "img_19nq8g", "name": "chevron-down", "height": 11, "src": "assets/icons/chevron-down-muted.svg", "width": 11}
+                    ]},
+                    {"type": "row", "id": "r_hb3cdd", "name": "Select · M", "crossAlign": "center", "gap": 5, "height": 28, "padding": {"left": 7, "right": 6}, "radius": 6, "children": [
+                      {"type": "image", "id": "img_6gttna", "name": "ruler-dimension-line", "height": 13, "src": "assets/icons/ruler-dimension-line-muted.svg", "width": 13},
+                      {"type": "text", "id": "t_1muvpu", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "M", "weight": 500},
+                      {"type": "image", "id": "img_wl9m91", "name": "chevron-down", "height": 11, "src": "assets/icons/chevron-down-muted.svg", "width": 11}
+                    ]},
+                    {"type": "row", "id": "r_k8jen0", "name": "Select · plus", "crossAlign": "center", "gap": 5, "height": 28, "padding": {"left": 7, "right": 6}, "radius": 6, "children": [
+                      {"type": "image", "id": "img_8he9og", "name": "plus", "height": 13, "src": "assets/icons/plus-muted.svg", "width": 13},
+                      {"type": "text", "id": "t_80wn51", "color": "$color-foreground", "font": "$font-mono", "role": "paragraph", "size": 11.5, "text": "plus", "weight": 500},
+                      {"type": "image", "id": "img_j9b18r", "name": "chevron-down", "height": 11, "src": "assets/icons/chevron-down-muted.svg", "width": 11}
+                    ]},
+                    {"type": "group", "id": "g_qzmcy9", "fill": "#3f3f46", "height": 20, "width": 1, "children": []},
+                    {"type": "row", "id": "r_wj3mqc", "name": "In chat", "align": "center", "border": {"color": "#ec4899", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#500724", "height": 28, "radius": 7, "width": 28, "children": [
+                      {"type": "image", "id": "img_b2vfpi", "name": "message-square-check", "height": 14, "src": "assets/icons/message-square-check-ai-light.svg", "width": 14}
+                    ]},
+                    {"type": "row", "id": "r_onz3pq", "name": "ellipsis button", "align": "center", "crossAlign": "center", "height": 28, "radius": 7, "width": 28, "children": [
+                      {"type": "image", "id": "img_p1d7sw", "name": "ellipsis", "height": 16, "src": "assets/icons/ellipsis-muted.svg", "width": 16}
+                    ]}
+                  ]}
+                ]}
+              ]},
+              {"type": "row", "id": "r_c0pz11", "align": "between", "crossAlign": "end", "width": "fill", "children": [
+                {"type": "column", "id": "c_vlqrb6", "gap": 2, "width": "fill", "children": [
+                  {"type": "text", "id": "t_sczq8e", "color": "#18181b", "role": "paragraph", "size": 22, "text": "Orders", "weight": 700},
+                  {"type": "text", "id": "t_mt7nyy", "color": "#71717a", "role": "paragraph", "size": 12, "text": "131 orders this month"}
+                ]},
+                {"type": "row", "id": "r_56u3xh", "crossAlign": "center", "gap": 8, "children": [
+                  {"type": "row", "id": "r_yjz9ii", "name": "Export", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#ffffff", "gap": 6, "padding": {"bottom": 7, "left": 12, "right": 12, "top": 7}, "radius": 6, "children": [
+                    {"type": "text", "id": "t_49fqpr", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Export", "weight": 500},
+                    {"type": "image", "id": "img_8siw4e", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down-dark.svg", "width": 14}
+                  ]},
+                  {"type": "column", "id": "c_uuerhw", "name": "Selection", "crossAlign": "start", "gap": 8, "width": "hug", "children": [
+                    {"type": "column", "id": "c_oy9tca", "width": "hug", "children": [
+                      {"type": "row", "id": "r_6a6qvb", "crossAlign": "center", "width": "fill", "children": [
+                        {"type": "row", "id": "r_ddoe9s", "name": "Selection tag", "crossAlign": "center", "fill": "#8b5cf6", "gap": 5, "padding": {"bottom": 2, "left": 6, "right": 7, "top": 2}, "radius": "5px 5px 0 0", "children": [
+                          {"type": "image", "id": "img_lsi3f2", "name": "component", "height": 11, "src": "assets/icons/component-white.svg", "width": 11},
+                          {"type": "text", "id": "t_hdck68", "color": "#ffffff", "role": "paragraph", "size": 11, "text": "Button", "weight": 600},
+                          {"type": "group", "id": "g_03i8fb", "fill": "#ffffff66", "height": 10, "width": 1, "children": []},
+                          {"type": "image", "id": "img_xzxtyi", "name": "message-square", "height": 10, "src": "assets/icons/message-square-white.svg", "width": 10},
+                          {"type": "text", "id": "t_w4ou8g", "color": "#ffffffdd", "role": "paragraph", "size": 11, "text": "In chat"}
+                        ]}
+                      ]},
+                      {"type": "column", "id": "c_0xoamu", "border": {"color": "#8b5cf6", "style": "solid", "width": 2}, "radius": "0 8px 8px 8px", "width": "hug", "children": [
+                        {"type": "row", "id": "r_c7sazb", "crossAlign": "center", "padding": 2, "children": [
+                          {"type": "row", "id": "r_zgzqew", "name": "New order", "crossAlign": "center", "fill": "#2563eb", "gap": 6, "padding": {"bottom": 7, "left": 12, "right": 12, "top": 7}, "radius": 6, "children": [
+                            {"type": "image", "id": "img_qut0dv", "name": "plus", "height": 14, "src": "assets/icons/plus-white.svg", "width": 14},
+                            {"type": "text", "id": "t_q5ncl0", "color": "#ffffff", "role": "paragraph", "size": 12, "text": "New order", "weight": 500}
+                          ]}
+                        ]}
+                      ]}
+                    ]}
+                  ]}
+                ]}
+              ]}
+            ]},
+            {"type": "column", "id": "c_2dzpt9", "name": "Orders table", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "fill": "#ffffff", "radius": 8, "width": "fill", "children": [
+              {"type": "row", "id": "r_zlei8r", "name": "Header row", "crossAlign": "center", "fill": "#f4f4f5", "gap": 16, "padding": {"bottom": 10, "left": 16, "right": 16, "top": 10}, "children": [
+                {"type": "text", "id": "t_z4cpt7", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Order", "weight": 600, "width": 70},
+                {"type": "text", "id": "t_8gicgw", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Device", "weight": 600, "width": 170},
+                {"type": "text", "id": "t_dswa5m", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Qty", "weight": 600, "width": 70},
+                {"type": "text", "id": "t_6shpfx", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Customer", "weight": 600, "width": 160},
+                {"type": "text", "id": "t_m0jpu1", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Status", "weight": 600, "width": 110},
+                {"type": "text", "id": "t_8d0a32", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Date", "weight": 600, "width": 120}
+              ]},
+              {"type": "row", "id": "r_7jspc1", "name": "Row #1042", "crossAlign": "center", "gap": 16, "padding": {"bottom": 11, "left": 16, "right": 16, "top": 11}, "children": [
+                {"type": "text", "id": "t_l7t1yx", "color": "#71717a", "font": "$font-mono", "role": "paragraph", "size": 11, "text": "#1042", "width": 70},
+                {"type": "text", "id": "t_3buv11", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Sensor Hub S2", "weight": 500, "width": 170},
+                {"type": "text", "id": "t_pfff3t", "color": "#18181b", "role": "paragraph", "size": 12, "text": "3", "width": 70},
+                {"type": "text", "id": "t_i0mkew", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Acme Corp", "width": 160},
+                {"type": "row", "id": "r_g3zv23", "crossAlign": "center", "width": 110, "children": [
+                  {"type": "row", "id": "r_gp79vi", "crossAlign": "center", "fill": "#dcfce7", "padding": {"bottom": 2, "left": 8, "right": 8, "top": 2}, "radius": 999, "children": [
+                    {"type": "text", "id": "t_b7wn98", "color": "#166534", "role": "paragraph", "size": 11, "text": "Shipped", "weight": 500}
+                  ]}
+                ]},
+                {"type": "text", "id": "t_6s7g3e", "color": "#71717a", "role": "paragraph", "size": 12, "text": "Sep 28, 2026", "width": 120}
+              ]},
+              {"type": "row", "id": "r_7k9y39", "name": "Row #1041", "border": {"color": "#e4e4e7", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 16, "padding": {"bottom": 11, "left": 16, "right": 16, "top": 11}, "children": [
+                {"type": "text", "id": "t_zvrh2f", "color": "#71717a", "font": "$font-mono", "role": "paragraph", "size": 11, "text": "#1041", "width": 70},
+                {"type": "text", "id": "t_x6ts3m", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Gateway Pro", "weight": 500, "width": 170},
+                {"type": "text", "id": "t_i9143a", "color": "#18181b", "role": "paragraph", "size": 12, "text": "1", "width": 70},
+                {"type": "text", "id": "t_p7t3fa", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Globex Inc", "width": 160},
+                {"type": "row", "id": "r_8c1t5f", "crossAlign": "center", "width": 110, "children": [
+                  {"type": "row", "id": "r_649v5w", "crossAlign": "center", "fill": "#dbeafe", "padding": {"bottom": 2, "left": 8, "right": 8, "top": 2}, "radius": 999, "children": [
+                    {"type": "text", "id": "t_e7cafu", "color": "#1e40af", "role": "paragraph", "size": 11, "text": "Processing", "weight": 500}
+                  ]}
+                ]},
+                {"type": "text", "id": "t_4yb8if", "color": "#71717a", "role": "paragraph", "size": 12, "text": "Sep 27, 2026", "width": 120}
+              ]},
+              {"type": "row", "id": "r_4uzy7w", "name": "Row #1040", "border": {"color": "#e4e4e7", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 16, "padding": {"bottom": 11, "left": 16, "right": 16, "top": 11}, "children": [
+                {"type": "text", "id": "t_0ojtxd", "color": "#71717a", "font": "$font-mono", "role": "paragraph", "size": 11, "text": "#1040", "width": 70},
+                {"type": "text", "id": "t_0qdb15", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Bolt Y3 Connector", "weight": 500, "width": 170},
+                {"type": "text", "id": "t_uvs2th", "color": "#18181b", "role": "paragraph", "size": 12, "text": "12", "width": 70},
+                {"type": "text", "id": "t_o95kxv", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Initech", "width": 160},
+                {"type": "row", "id": "r_qgm84q", "crossAlign": "center", "width": 110, "children": [
+                  {"type": "row", "id": "r_6eng3r", "crossAlign": "center", "fill": "#fef9c3", "padding": {"bottom": 2, "left": 8, "right": 8, "top": 2}, "radius": 999, "children": [
+                    {"type": "text", "id": "t_zmy6i8", "color": "#854d0e", "role": "paragraph", "size": 11, "text": "Pending", "weight": 500}
+                  ]}
+                ]},
+                {"type": "text", "id": "t_04eixs", "color": "#71717a", "role": "paragraph", "size": 12, "text": "Sep 27, 2026", "width": 120}
+              ]},
+              {"type": "row", "id": "r_agarkb", "name": "Row #1039", "border": {"color": "#e4e4e7", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 16, "padding": {"bottom": 11, "left": 16, "right": 16, "top": 11}, "children": [
+                {"type": "text", "id": "t_1t0cuv", "color": "#71717a", "font": "$font-mono", "role": "paragraph", "size": 11, "text": "#1039", "width": 70},
+                {"type": "text", "id": "t_rhv6fb", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Sensor Hub S2", "weight": 500, "width": 170},
+                {"type": "text", "id": "t_tymtai", "color": "#18181b", "role": "paragraph", "size": 12, "text": "5", "width": 70},
+                {"type": "text", "id": "t_rrv5f8", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Umbrella Co", "width": 160},
+                {"type": "row", "id": "r_z96mgw", "crossAlign": "center", "width": 110, "children": [
+                  {"type": "row", "id": "r_uh3r7y", "crossAlign": "center", "fill": "#dcfce7", "padding": {"bottom": 2, "left": 8, "right": 8, "top": 2}, "radius": 999, "children": [
+                    {"type": "text", "id": "t_z92b4w", "color": "#166534", "role": "paragraph", "size": 11, "text": "Shipped", "weight": 500}
+                  ]}
+                ]},
+                {"type": "text", "id": "t_vlh59i", "color": "#71717a", "role": "paragraph", "size": 12, "text": "Sep 25, 2026", "width": 120}
+              ]},
+              {"type": "row", "id": "r_thfb0r", "name": "Row #1038", "border": {"color": "#e4e4e7", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 16, "padding": {"bottom": 11, "left": 16, "right": 16, "top": 11}, "children": [
+                {"type": "text", "id": "t_hmv43y", "color": "#71717a", "font": "$font-mono", "role": "paragraph", "size": 11, "text": "#1038", "width": 70},
+                {"type": "text", "id": "t_jp67gg", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Relay Module", "weight": 500, "width": 170},
+                {"type": "text", "id": "t_xtt1kl", "color": "#18181b", "role": "paragraph", "size": 12, "text": "8", "width": 70},
+                {"type": "text", "id": "t_3hm46v", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Hooli", "width": 160},
+                {"type": "row", "id": "r_vcycv6", "crossAlign": "center", "width": 110, "children": [
+                  {"type": "row", "id": "r_ly7m93", "crossAlign": "center", "fill": "#fee2e2", "padding": {"bottom": 2, "left": 8, "right": 8, "top": 2}, "radius": 999, "children": [
+                    {"type": "text", "id": "t_qpdfjh", "color": "#991b1b", "role": "paragraph", "size": 11, "text": "Cancelled", "weight": 500}
+                  ]}
+                ]},
+                {"type": "text", "id": "t_ryrypo", "color": "#71717a", "role": "paragraph", "size": 12, "text": "Sep 24, 2026", "width": 120}
+              ]},
+              {"type": "row", "id": "r_ixbwex", "name": "Row #1037", "border": {"color": "#e4e4e7", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 16, "padding": {"bottom": 11, "left": 16, "right": 16, "top": 11}, "children": [
+                {"type": "text", "id": "t_lvu9nu", "color": "#71717a", "font": "$font-mono", "role": "paragraph", "size": 11, "text": "#1037", "width": 70},
+                {"type": "text", "id": "t_pdv6w1", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Gateway Pro", "weight": 500, "width": 170},
+                {"type": "text", "id": "t_slgvoj", "color": "#18181b", "role": "paragraph", "size": 12, "text": "2", "width": 70},
+                {"type": "text", "id": "t_ff8fd4", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Stark Industries", "width": 160},
+                {"type": "row", "id": "r_lwt1eq", "crossAlign": "center", "width": 110, "children": [
+                  {"type": "row", "id": "r_8dscs7", "crossAlign": "center", "fill": "#dcfce7", "padding": {"bottom": 2, "left": 8, "right": 8, "top": 2}, "radius": 999, "children": [
+                    {"type": "text", "id": "t_mmmr4j", "color": "#166534", "role": "paragraph", "size": 11, "text": "Shipped", "weight": 500}
+                  ]}
+                ]},
+                {"type": "text", "id": "t_8q0s67", "color": "#71717a", "role": "paragraph", "size": 12, "text": "Sep 22, 2026", "width": 120}
+              ]}
+            ]}
+          ]}
+        ]},
+        {"type": "column", "id": "c_5s7tmq", "name": "Spacer", "height": "fill", "width": "fill", "children": []},
+        {"type": "row", "id": "r_gglf62", "name": "Tools", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-sidebar", "gap": 2, "padding": 4, "radius": 11, "shadow": "$shadow-lg", "children": [
+          {"type": "row", "id": "r_07y6f2", "align": "center", "crossAlign": "center", "fill": "$color-brand", "height": 30, "radius": 7, "width": 30, "children": [
+            {"type": "image", "id": "img_dwj6je", "name": "mouse-pointer-2", "height": 15, "src": "assets/icons/mouse-pointer-2-white.svg", "width": 15}
+          ]},
+          {"type": "row", "id": "r_anq41f", "name": "frame button", "align": "center", "crossAlign": "center", "height": 30, "radius": 7, "width": 30, "children": [
+            {"type": "image", "id": "img_xhe38f", "name": "frame", "height": 16, "src": "assets/icons/frame-muted.svg", "width": 16}
+          ]},
+          {"type": "row", "id": "r_xcw65r", "name": "type button", "align": "center", "crossAlign": "center", "height": 30, "radius": 7, "width": 30, "children": [
+            {"type": "image", "id": "img_9uz292", "name": "type", "height": 16, "src": "assets/icons/type-muted.svg", "width": 16}
+          ]},
+          {"type": "row", "id": "r_o0nq0s", "name": "hand button", "align": "center", "crossAlign": "center", "height": 30, "radius": 7, "width": 30, "children": [
+            {"type": "image", "id": "img_ptng4v", "name": "hand", "height": 16, "src": "assets/icons/hand-muted.svg", "width": 16}
+          ]},
+          {"type": "row", "id": "r_3vcxyo", "name": "message-circle button", "align": "center", "crossAlign": "center", "height": 30, "radius": 7, "width": 30, "children": [
+            {"type": "image", "id": "img_hm4jvu", "name": "message-circle", "height": 16, "src": "assets/icons/message-circle-muted.svg", "width": 16}
+          ]},
+          {"type": "group", "id": "g_4v03ro", "height": 4, "width": 6, "children": []},
+          {"type": "group", "id": "g_h1pak9", "name": "Divider", "fill": "$color-border", "height": 18, "width": 1, "children": []},
+          {"type": "group", "id": "g_ut7yi3", "height": 4, "width": 6, "children": []},
+          {"type": "row", "id": "r_ocpsa2", "name": "undo-2 button", "align": "center", "crossAlign": "center", "height": 30, "radius": 7, "width": 30, "children": [
+            {"type": "image", "id": "img_tgm31q", "name": "undo-2", "height": 16, "src": "assets/icons/undo-2-muted.svg", "width": 16}
+          ]},
+          {"type": "row", "id": "r_7nw4i7", "name": "redo-2 button", "align": "center", "crossAlign": "center", "height": 30, "radius": 7, "width": 30, "children": [
+            {"type": "image", "id": "img_iq5fss", "name": "redo-2", "height": 16, "src": "assets/icons/redo-2-muted.svg", "width": 16}
+          ]},
+          {"type": "group", "id": "g_prqu3w", "height": 4, "width": 6, "children": []},
+          {"type": "group", "id": "g_cdkwdb", "name": "Divider", "fill": "$color-border", "height": 18, "width": 1, "children": []},
+          {"type": "group", "id": "g_ljagd7", "height": 4, "width": 6, "children": []},
+          {"type": "row", "id": "r_c1pofs", "name": "zoom-out button", "align": "center", "crossAlign": "center", "height": 30, "radius": 7, "width": 30, "children": [
+            {"type": "image", "id": "img_5yxnut", "name": "zoom-out", "height": 16, "src": "assets/icons/zoom-out-muted.svg", "width": 16}
+          ]},
+          {"type": "text", "id": "t_id8zip", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "75%", "weight": 500},
+          {"type": "row", "id": "r_02u55y", "name": "zoom-in button", "align": "center", "crossAlign": "center", "height": 30, "radius": 7, "width": 30, "children": [
+            {"type": "image", "id": "img_r57edd", "name": "zoom-in", "height": 16, "src": "assets/icons/zoom-in-muted.svg", "width": 16}
+          ]}
+        ]}
+      ]}
+    ]}
+  ]},
   "version": 1
 }

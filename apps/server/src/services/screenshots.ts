@@ -10,7 +10,15 @@ import type {
   ScreenshotRequest,
   ScreenshotResult,
 } from "@ultrapaint/contracts/screenshots";
-import { Context, Deferred, Effect, Layer, Schema, Stream } from "effect";
+import {
+  Context,
+  Deferred,
+  Effect,
+  Layer,
+  Schema,
+  Stream,
+  SubscriptionRef,
+} from "effect";
 import { EventBus } from "../events.ts";
 import { makeId } from "../ids.ts";
 
@@ -37,6 +45,8 @@ export class Screenshots extends Context.Service<
     ) => Effect.Effect<Uint8Array, ScreenshotFailure>;
     /** An editor's answer to a request. One that nobody waits for any more is dropped. */
     readonly deliver: (result: ScreenshotResult) => Effect.Effect<void>;
+    /** How many editors can draw, now and whenever that changes. */
+    readonly editors: Stream.Stream<number>;
     /** The requests, for one editor: while it listens, it counts as able to answer. */
     readonly requests: Stream.Stream<ScreenshotRequest>;
   }
@@ -46,18 +56,13 @@ export class Screenshots extends Context.Service<
     Effect.gen(function* () {
       const events = yield* EventBus;
       const pending = new Map<string, Pending>();
-      let editors = 0;
+      const editors = yield* SubscriptionRef.make(0);
 
       const requests = Stream.unwrap(
         Effect.as(
           Effect.acquireRelease(
-            Effect.sync(() => {
-              editors += 1;
-            }),
-            () =>
-              Effect.sync(() => {
-                editors -= 1;
-              })
+            SubscriptionRef.update(editors, (n) => n + 1),
+            () => SubscriptionRef.update(editors, (n) => n - 1)
           ),
           events.subscribe("screenshot")
         )
@@ -66,7 +71,8 @@ export class Screenshots extends Context.Service<
       const capture = Effect.fn("Screenshots.capture")(function* (
         request: Omit<ScreenshotRequest, "requestId">
       ) {
-        if (editors === 0) {
+        const listening = yield* SubscriptionRef.get(editors);
+        if (listening === 0) {
           return yield* new ScreenshotFailure({
             message:
               "no editor is open to draw it: pictures are drawn by the editor's preview in the browser, so open the editor and ask again",
@@ -74,7 +80,7 @@ export class Screenshots extends Context.Service<
         }
         const requestId = yield* makeId("shot");
         const deferred = yield* Deferred.make<Uint8Array, ScreenshotFailure>();
-        pending.set(requestId, { deferred, problems: [], waiting: editors });
+        pending.set(requestId, { deferred, problems: [], waiting: listening });
         yield* events.publish("screenshot", { ...request, requestId });
         return yield* Deferred.await(deferred).pipe(
           Effect.timeoutOrElse({
@@ -120,7 +126,12 @@ export class Screenshots extends Context.Service<
         }
       });
 
-      return Screenshots.of({ capture, deliver, requests });
+      return Screenshots.of({
+        capture,
+        deliver,
+        editors: SubscriptionRef.changes(editors),
+        requests,
+      });
     })
   );
 }

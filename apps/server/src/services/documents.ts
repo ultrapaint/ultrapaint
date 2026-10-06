@@ -15,7 +15,7 @@ import {
   ASSETS_DIR,
   type UploadAssetInput,
 } from "@ultrapaint/contracts/pages";
-import { serialise } from "@ultrapaint/design-document/factories";
+import { serialiseDocument } from "@ultrapaint/design-document/format";
 import { fillIds, makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { applyOps, DocumentOpError } from "@ultrapaint/design-document/ops";
 import {
@@ -196,11 +196,11 @@ export class DocumentService extends Context.Service<
         loaded: Loaded
       ) {
         const next = abs.endsWith(CANVAS_FILE)
-          ? serialise({
+          ? serialiseDocument({
               ...(JSON.parse(original) as Record<string, unknown>),
               nodes: childrenOf(loaded.root as DesignNode),
             })
-          : serialise({ root: loaded.root, version: DOCUMENT_VERSION });
+          : serialiseDocument({ root: loaded.root, version: DOCUMENT_VERSION });
         yield* Effect.orDie(fs.writeFileString(abs, next));
         return { ...loaded, hash: hashContent(next), text: next };
       });
@@ -298,7 +298,7 @@ export class DocumentService extends Context.Service<
                   root: result.root,
                   version: DOCUMENT_VERSION,
                 }).pipe(Effect.mapError(invalid));
-                yield* tx.write(yield* fileOf(change.doc), serialise(document));
+                yield* tx.write(yield* fileOf(change.doc), serialiseDocument(document));
               } else {
                 const nodes = yield* decodeNodes(childrenOf(result.root)).pipe(
                   Effect.mapError(invalid)

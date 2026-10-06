@@ -276,6 +276,14 @@ be a token of your design system (`"$color-primary"`, `"$text-lg"`, `"$spacing-4
 design follows the theme when it changes. `get_document_format`, on the editor's MCP server,
 gives an agent the whole format as a JSON Schema.
 
+A page file is JSON written one node per line: a node's own fields on its line, its children
+indented below it. A change in the inspector is a change to one line, and a reviewer reads the
+tree from the indentation. With `pagePngs` on (Settings → Repository → **PNG of every page**),
+every page also gets a PNG beside its file, `orders.page.png`, drawn by the editor's preview at
+the size of the page's frame. It is drawn again only when the page, its frame or the design system
+changes, so anyone browsing the repository sees the screens and a pull request shows them as
+image diffs. A page changed while no editor is open keeps its old picture until one opens.
+
 The **Layers** panel shows the whole space at once, as a design tool does: every page with its
 tree, and the nodes placed on the canvas beside them. A node inside a page follows the page's
 layout; a node on the canvas has its own position. Drag one from one to the other, in the layers
@@ -478,6 +486,7 @@ type after it is added to it.
 | `styleSystem` | What the tokens are written in: `tailwind-v4` (the default, and the only one today) |
 | `theme` | `light` or `dark` for the preview |
 | `providersModule` | A module of the designs directory whose default export wraps every page |
+| `pagePngs` | `true` to keep a PNG of every page beside its file (off by default) |
 | `skills.disabled` | Design skills agents are not told |
 
 You rarely write it by hand: the setup and **Detect and apply** in Sync write it for you, and

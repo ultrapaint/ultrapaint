@@ -21,6 +21,7 @@ import {
   renderTemplate,
   serialise,
 } from "@ultrapaint/design-document/factories";
+import { serialiseDocument } from "@ultrapaint/design-document/format";
 import { fillIds } from "@ultrapaint/design-document/ids";
 import { isPageFile, PAGE_EXTENSION } from "@ultrapaint/design-document/tree";
 import {
@@ -105,7 +106,7 @@ const sortedKeys = <T>(record: Readonly<Record<string, T>>) =>
 export const renderCanvas = (layout: CanvasLayout) => {
   const nodes = layout.nodes ?? [];
   const variants = layout.variants ?? [];
-  return serialise({
+  return serialiseDocument({
     ...(layout.name !== undefined && { name: layout.name }),
     ...(layout.home !== undefined && { home: layout.home }),
     ...(variants.length > 0 && { variants }),
@@ -704,7 +705,7 @@ export class PagesService extends Context.Service<
         const abs = yield* paths.resolve(path.join(root, canvas, pagePath));
         yield* edit.transaction(`Create ${name}`, (tx) =>
           Effect.gen(function* () {
-            yield* tx.create(paths.relative(abs), serialise(document));
+            yield* tx.create(paths.relative(abs), serialiseDocument(document));
             // Written even without a URL: the page is one, and a canvas without routes would
             // give it the one its path names.
             yield* updateRoutes(tx, all, canvas, (routes) =>
@@ -1160,7 +1161,7 @@ export class PagesService extends Context.Service<
             Effect.try(() => JSON.parse(text.value) as unknown)
           );
           if (json._tag === "Some" && visit(json.value)) {
-            yield* tx.write(page.file, serialise(json.value));
+            yield* tx.write(page.file, serialiseDocument(json.value));
           }
         }
         const layout = yield* Effect.orElseSucceed(readCanvas(canvas), () =>

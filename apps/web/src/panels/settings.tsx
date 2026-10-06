@@ -788,6 +788,8 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     const storybookUrl = e.target.value || undefined;
     setDraft((d) => ({ ...d, storybookUrl }));
   };
+  const onPagePngs = (on: boolean) =>
+    setDraft((d) => ({ ...d, pagePngs: on || undefined }));
   const onTheme = (v: string) =>
     setDraft((d) => ({ ...d, theme: v as Settings["theme"] }));
   const onSkill = (name: string, enabled: boolean) =>
@@ -833,7 +835,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           />
         </Row>
         <Row
-          description="Relative to the repository. Pages are saved here as design documents (.page.json), with the design system beside them. Changing it opens the project there; the pages already written stay where they are."
+          description="Relative to the repository. Pages are saved here as design documents (.page.json, one element per line), with the design system beside them. Changing it opens the project there; the pages already written stay where they are."
           htmlFor="settings-designs"
           title="Designs directory"
         >
@@ -855,6 +857,24 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
             placeholder="apps/web"
             value={draft.resolveFrom ?? ""}
           />
+        </Row>
+      </Group>
+      <Group
+        description="Pictures of the screens, kept in the repository beside the design documents."
+        title="Pictures"
+      >
+        <Row
+          description="Writes a PNG of every page beside its file (orders.page.png), drawn by the editor's preview at the size of the page's frame and drawn again when the page or the design system changes. Anyone browsing the repository sees the screens, and pull requests show them as image diffs."
+          htmlFor="settings-page-pngs"
+          title="PNG of every page"
+        >
+          <div className="flex justify-end">
+            <Switch
+              checked={draft.pagePngs === true}
+              id="settings-page-pngs"
+              onCheckedChange={onPagePngs}
+            />
+          </div>
         </Row>
       </Group>
       <Group title="Detection">

@@ -1,2025 +1,281 @@
 {
-  "root": {
-    "id": "root",
-    "children": [
-      {
-        "id": "c_0i1itj",
-        "name": "Board · Ask card",
-        "padding": {
-          "bottom": 56,
-          "left": 64,
-          "right": 64,
-          "top": 56
-        },
-        "width": "fill",
-        "children": [
-          {
-            "id": "c_qti0mc",
-            "padding": {
-              "bottom": 12
-            },
-            "gap": 8,
-            "children": [
-              {
-                "id": "r_tj948p",
-                "crossAlign": "center",
-                "gap": 8,
-                "children": [
-                  {
-                    "fill": "#052e16",
-                    "id": "r_ynn180",
-                    "padding": {
-                      "bottom": 2,
-                      "left": 8,
-                      "right": 8,
-                      "top": 2
-                    },
-                    "radius": 999,
-                    "children": [
-                      {
-                        "id": "t_rggsv8",
-                        "color": "#86efac",
-                        "lineHeight": 1.5,
-                        "role": "paragraph",
-                        "size": 11,
-                        "text": "Sketch",
-                        "type": "text",
-                        "weight": 600
-                      }
-                    ],
-                    "type": "row"
-                  },
-                  {
-                    "id": "t_0vt30y",
-                    "color": "$color-muted-foreground",
-                    "lineHeight": 1.5,
-                    "role": "paragraph",
-                    "size": 11.5,
-                    "text": "A question from the agent, in the chat panel",
-                    "type": "text"
-                  }
-                ],
-                "type": "row"
-              },
-              {
-                "id": "t_e4hcmp",
-                "color": "$color-foreground",
-                "lineHeight": 1.5,
-                "role": "paragraph",
-                "size": 26,
-                "text": "The agent asks",
-                "type": "text",
-                "weight": 700
-              },
-              {
-                "id": "t_cvoreb",
-                "maxWidth": 760,
-                "color": "$color-muted-foreground",
-                "lineHeight": 1.6,
-                "role": "paragraph",
-                "size": 13,
-                "text": "After t3code: the card asks one question at a time, and the composer answers it. Choices are rows with their description under them and their key on the right, 1 to 9; the picked one takes a quiet background and a check. What is typed in the composer is an answer of one's own, standing for the picked option. Its button steps to the next question, back with Previous, and sends the answers on the last one. Decline and the count sit in the card's header; the chevron folds the choices away.",
-                "type": "text"
-              }
-            ],
-            "type": "column"
-          },
-          {
-            "border": {
-              "color": "$color-border",
-              "style": "solid",
-              "width": "0 0 1px 0"
-            },
-            "id": "r_2t55fm",
-            "padding": {
-              "bottom": 28,
-              "top": 28
-            },
-            "width": "fill",
-            "crossAlign": "start",
-            "gap": 40,
-            "children": [
-              {
-                "id": "c_1cdkb4",
-                "width": 384,
-                "gap": 14,
-                "children": [
-                  {
-                    "id": "c_rcxb3f",
-                    "width": "fill",
-                    "gap": 4,
-                    "children": [
-                      {
-                        "id": "t_lfhql6",
-                        "color": "$color-foreground",
-                        "lineHeight": 1.5,
-                        "role": "paragraph",
-                        "size": 14,
-                        "text": "Asked",
-                        "type": "text",
-                        "weight": 600
-                      },
-                      {
-                        "id": "t_lilic3",
-                        "color": "$color-muted-foreground",
-                        "lineHeight": 1.55,
-                        "role": "paragraph",
-                        "size": 12,
-                        "text": "The first question; nothing picked, so Next waits.",
-                        "type": "text"
-                      }
-                    ],
-                    "type": "column"
-                  },
-                  {
-                    "border": {
-                      "color": "$color-border",
-                      "style": "solid",
-                      "width": 1
-                    },
-                    "fill": "$color-sidebar",
-                    "id": "c_2mhgkc",
-                    "name": "Panel",
-                    "padding": 16,
-                    "radius": 10,
-                    "width": 384,
-                    "gap": 14,
-                    "children": [
-                      {
-                        "id": "t_rtubal",
-                        "color": "$color-foreground",
-                        "lineHeight": 1.5,
-                        "role": "paragraph",
-                        "size": 12.5,
-                        "text": "Ask me two questions to test the card",
-                        "type": "text"
-                      },
-                      {
-                        "border": {
-                          "color": "$color-border",
-                          "style": "solid",
-                          "width": 1
-                        },
-                        "fill": "$color-card",
-                        "id": "c_rbxxwz",
-                        "name": "Ask card",
-                        "padding": 12,
-                        "radius": 10,
-                        "width": "fill",
-                        "gap": 8,
-                        "children": [
-                          {
-                            "id": "r_qfczmx",
-                            "width": "fill",
-                            "crossAlign": "center",
-                            "gap": 8,
-                            "children": [
-                              {
-                                "height": 14,
-                                "id": "img_togpx6",
-                                "name": "circle-help-brand",
-                                "width": 14,
-                                "src": "assets/icons/circle-help-brand.svg",
-                                "type": "image"
-                              },
-                              {
-                                "id": "t_22o2ra",
-                                "width": "fill",
-                                "color": "$color-muted-foreground",
-                                "lineHeight": 1.5,
-                                "role": "paragraph",
-                                "size": 12.5,
-                                "text": "The agent asks",
-                                "type": "text"
-                              },
-                              {
-                                "id": "t_c89ukh",
-                                "color": "$color-muted-foreground",
-                                "lineHeight": 1.5,
-                                "role": "paragraph",
-                                "size": 12.5,
-                                "text": "Decline",
-                                "type": "text"
-                              },
-                              {
-                                "id": "t_rgkq7l",
-                                "color": "$color-muted-foreground",
-                                "lineHeight": 1.5,
-                                "role": "paragraph",
-                                "size": 12.5,
-                                "text": "1/2",
-                                "type": "text"
-                              },
-                              {
-                                "height": 13,
-                                "id": "img_aompnv",
-                                "name": "chevron-down-muted",
-                                "width": 13,
-                                "src": "assets/icons/chevron-down-muted.svg",
-                                "type": "image"
-                              }
-                            ],
-                            "type": "row"
-                          },
-                          {
-                            "id": "c_e3kjzy",
-                            "width": "fill",
-                            "children": [
-                              {
-                                "id": "t_md4zj7",
-                                "color": "$color-foreground",
-                                "lineHeight": 1.5,
-                                "role": "paragraph",
-                                "size": 13,
-                                "text": "Which snack should fuel the next coding session?",
-                                "type": "text",
-                                "weight": 500
-                              }
-                            ],
-                            "type": "column"
-                          },
-                          {
-                            "id": "c_oyovjt",
-                            "width": "fill",
-                            "gap": 2,
-                            "children": [
-                              {
-                                "id": "r_suxjji",
-                                "name": "Choice",
-                                "padding": {
-                                  "bottom": 6,
-                                  "left": 10,
-                                  "right": 10,
-                                  "top": 6
-                                },
-                                "radius": 6,
-                                "width": "fill",
-                                "crossAlign": "start",
-                                "gap": 12,
-                                "children": [
-                                  {
-                                    "id": "c_py3rmr",
-                                    "width": "fill",
-                                    "gap": 1,
-                                    "children": [
-                                      {
-                                        "id": "t_ez1gwi",
-                                        "color": "$color-foreground",
-                                        "lineHeight": 1.5,
-                                        "role": "paragraph",
-                                        "size": 13,
-                                        "text": "Espresso (Recommended)",
-                                        "type": "text",
-                                        "weight": 500
-                                      },
-                                      {
-                                        "id": "t_1xr050",
-                                        "color": "$color-muted-foreground",
-                                        "lineHeight": 1.5,
-                                        "role": "paragraph",
-                                        "size": 12,
-                                        "text": "Fast, focused, slightly jittery.",
-                                        "type": "text"
-                                      }
-                                    ],
-                                    "type": "column"
-                                  },
-                                  {
-                                    "id": "t_5n9hwq",
-                                    "color": "$color-muted-foreground",
-                                    "lineHeight": 1.5,
-                                    "role": "paragraph",
-                                    "size": 12,
-                                    "text": "1",
-                                    "type": "text"
-                                  }
-                                ],
-                                "type": "row"
-                              },
-                              {
-                                "id": "r_e2h6sk",
-                                "name": "Choice",
-                                "padding": {
-                                  "bottom": 6,
-                                  "left": 10,
-                                  "right": 10,
-                                  "top": 6
-                                },
-                                "radius": 6,
-                                "width": "fill",
-                                "crossAlign": "start",
-                                "gap": 12,
-                                "children": [
-                                  {
-                                    "id": "c_mluf2v",
-                                    "width": "fill",
-                                    "gap": 1,
-                                    "children": [
-                                      {
-                                        "id": "t_d07tmb",
-                                        "color": "$color-foreground",
-                                        "lineHeight": 1.5,
-                                        "role": "paragraph",
-                                        "size": 13,
-                                        "text": "Croissant",
-                                        "type": "text",
-                                        "weight": 500
-                                      },
-                                      {
-                                        "id": "t_vthlmk",
-                                        "color": "$color-muted-foreground",
-                                        "lineHeight": 1.5,
-                                        "role": "paragraph",
-                                        "size": 12,
-                                        "text": "Flaky, buttery, crumbs in the keyboard.",
-                                        "type": "text"
-                                      }
-                                    ],
-                                    "type": "column"
-                                  },
-                                  {
-                                    "id": "t_o4zgzk",
-                                    "color": "$color-muted-foreground",
-                                    "lineHeight": 1.5,
-                                    "role": "paragraph",
-                                    "size": 12,
-                                    "text": "2",
-                                    "type": "text"
-                                  }
-                                ],
-                                "type": "row"
-                              },
-                              {
-                                "id": "r_s7g9m6",
-                                "name": "Choice",
-                                "padding": {
-                                  "bottom": 6,
-                                  "left": 10,
-                                  "right": 10,
-                                  "top": 6
-                                },
-                                "radius": 6,
-                                "width": "fill",
-                                "crossAlign": "start",
-                                "gap": 12,
-                                "children": [
-                                  {
-                                    "id": "c_bgy0dt",
-                                    "width": "fill",
-                                    "gap": 1,
-                                    "children": [
-                                      {
-                                        "id": "t_bux3gz",
-                                        "color": "$color-foreground",
-                                        "lineHeight": 1.5,
-                                        "role": "paragraph",
-                                        "size": 13,
-                                        "text": "Fruit bowl",
-                                        "type": "text",
-                                        "weight": 500
-                                      },
-                                      {
-                                        "id": "t_k1cd03",
-                                        "color": "$color-muted-foreground",
-                                        "lineHeight": 1.5,
-                                        "role": "paragraph",
-                                        "size": 12,
-                                        "text": "Virtuous and mildly disappointing.",
-                                        "type": "text"
-                                      }
-                                    ],
-                                    "type": "column"
-                                  },
-                                  {
-                                    "id": "t_buis7o",
-                                    "color": "$color-muted-foreground",
-                                    "lineHeight": 1.5,
-                                    "role": "paragraph",
-                                    "size": 12,
-                                    "text": "3",
-                                    "type": "text"
-                                  }
-                                ],
-                                "type": "row"
-                              }
-                            ],
-                            "type": "column"
-                          }
-                        ],
-                        "type": "column"
-                      },
-                      {
-                        "height": 24,
-                        "id": "g_j6t7lf",
-                        "width": "fill",
-                        "children": [],
-                        "type": "group"
-                      },
-                      {
-                        "border": {
-                          "color": "$color-border",
-                          "style": "solid",
-                          "width": 1
-                        },
-                        "fill": "rgba(255,255,255,0.03)",
-                        "id": "c_eyrvv2",
-                        "name": "Composer",
-                        "padding": {
-                          "bottom": 8,
-                          "left": 12,
-                          "right": 8,
-                          "top": 10
-                        },
-                        "radius": 12,
-                        "width": "fill",
-                        "gap": 6,
-                        "children": [
-                          {
-                            "id": "t_w3kpdg",
-                            "width": "fill",
-                            "color": "$color-muted-foreground",
-                            "lineHeight": 1.5,
-                            "role": "paragraph",
-                            "size": 13,
-                            "text": "Type your own answer, or leave this blank to use the option picked",
-                            "type": "text"
-                          },
-                          {
-                            "height": 36,
-                            "id": "g_2irbw0",
-                            "width": "fill",
-                            "children": [],
-                            "type": "group"
-                          },
-                          {
-                            "id": "r_nydck2",
-                            "width": "fill",
-                            "crossAlign": "center",
-                            "gap": 6,
-                            "children": [
-                              {
-                                "height": 14,
-                                "id": "img_dorhgv",
-                                "name": "plus-muted",
-                                "width": 14,
-                                "src": "assets/icons/plus-muted.svg",
-                                "type": "image"
-                              },
-                              {
-                                "height": 13,
-                                "id": "img_44wf33",
-                                "name": "agent-claude",
-                                "width": 13,
-                                "src": "assets/icons/agent-claude.svg",
-                                "type": "image"
-                              },
-                              {
-                                "id": "t_d620pc",
-                                "color": "$color-muted-foreground",
-                                "lineHeight": 1.5,
-                                "role": "paragraph",
-                                "size": 12.5,
-                                "text": "Claude Code",
-                                "type": "text"
-                              },
-                              {
-                                "height": 11,
-                                "id": "img_euopzw",
-                                "name": "chevron-down-muted",
-                                "width": 11,
-                                "src": "assets/icons/chevron-down-muted.svg",
-                                "type": "image"
-                              },
-                              {
-                                "id": "g_5r7b9e",
-                                "width": "fill",
-                                "children": [],
-                                "type": "group"
-                              },
-                              {
-                                "id": "i_lo9mco",
-                                "opacity": 0.5,
-                                "component": "Button",
-                                "from": "@/components/ui/button",
-                                "props": {
-                                  "size": "sm"
-                                },
-                                "text": "Next question",
-                                "type": "instance"
-                              }
-                            ],
-                            "type": "row"
-                          }
-                        ],
-                        "type": "column"
-                      }
-                    ],
-                    "type": "column"
-                  }
-                ],
-                "type": "column"
-              },
-              {
-                "id": "c_uos9gl",
-                "width": 384,
-                "gap": 14,
-                "children": [
-                  {
-                    "id": "c_97gjac",
-                    "width": "fill",
-                    "gap": 4,
-                    "children": [
-                      {
-                        "id": "t_2allvr",
-                        "color": "$color-foreground",
-                        "lineHeight": 1.5,
-                        "role": "paragraph",
-                        "size": 14,
-                        "text": "Picked",
-                        "type": "text",
-                        "weight": 600
-                      },
-                      {
-                        "id": "t_y4pjp5",
-                        "color": "$color-muted-foreground",
-                        "lineHeight": 1.55,
-                        "role": "paragraph",
-                        "size": 12,
-                        "text": "1 picked Espresso; Next is ready.",
-                        "type": "text"
-                      }
-                    ],
-                    "type": "column"
-                  },
-                  {
-                    "border": {
-                      "color": "$color-border",
-                      "style": "solid",
-                      "width": 1
-                    },
-                    "fill": "$color-sidebar",
-                    "id": "c_8ckc2v",
-                    "name": "Panel",
-                    "padding": 16,
-                    "radius": 10,
-                    "width": 384,
-                    "gap": 14,
-                    "children": [
-                      {
-                        "id": "t_45ahun",
-                        "color": "$color-foreground",
-                        "lineHeight": 1.5,
-                        "role": "paragraph",
-                        "size": 12.5,
-                        "text": "Ask me two questions to test the card",
-                        "type": "text"
-                      },
-                      {
-                        "border": {
-                          "color": "$color-border",
-                          "style": "solid",
-                          "width": 1
-                        },
-                        "fill": "$color-card",
-                        "id": "c_9l3trp",
-                        "name": "Ask card",
-                        "padding": 12,
-                        "radius": 10,
-                        "width": "fill",
-                        "gap": 8,
-                        "children": [
-                          {
-                            "id": "r_t2thg5",
-                            "width": "fill",
-                            "crossAlign": "center",
-                            "gap": 8,
-                            "children": [
-                              {
-                                "height": 14,
-                                "id": "img_49nk5k",
-                                "name": "circle-help-brand",
-                                "width": 14,
-                                "src": "assets/icons/circle-help-brand.svg",
-                                "type": "image"
-                              },
-                              {
-                                "id": "t_imv82e",
-                                "width": "fill",
-                                "color": "$color-muted-foreground",
-                                "lineHeight": 1.5,
-                                "role": "paragraph",
-                                "size": 12.5,
-                                "text": "The agent asks",
-                                "type": "text"
-                              },
-                              {
-                                "id": "t_vypyuu",
-                                "color": "$color-muted-foreground",
-                                "lineHeight": 1.5,
-                                "role": "paragraph",
-                                "size": 12.5,
-                                "text": "Decline",
-                                "type": "text"
-                              },
-                              {
-                                "id": "t_2zthpx",
-                                "color": "$color-muted-foreground",
-                                "lineHeight": 1.5,
-                                "role": "paragraph",
-                                "size": 12.5,
-                                "text": "1/2",
-                                "type": "text"
-                              },
-                              {
-                                "height": 13,
-                                "id": "img_wt3wo5",
-                                "name": "chevron-down-muted",
-                                "width": 13,
-                                "src": "assets/icons/chevron-down-muted.svg",
-                                "type": "image"
-                              }
-                            ],
-                            "type": "row"
-                          },
-                          {
-                            "id": "c_nokq7o",
-                            "width": "fill",
-                            "children": [
-                              {
-                                "id": "t_y0egzp",
-                                "color": "$color-foreground",
-                                "lineHeight": 1.5,
-                                "role": "paragraph",
-                                "size": 13,
-                                "text": "Which snack should fuel the next coding session?",
-                                "type": "text",
-                                "weight": 500
-                              }
-                            ],
-                            "type": "column"
-                          },
-                          {
-                            "id": "c_yb18my",
-                            "width": "fill",
-                            "gap": 2,
-                            "children": [
-                              {
-                                "fill": "$color-accent",
-                                "id": "r_aoa6ij",
-                                "name": "Choice · picked",
-                                "padding": {
-                                  "bottom": 6,
-                                  "left": 10,
-                                  "right": 10,
-                                  "top": 6
-                                },
-                                "radius": 6,
-                                "width": "fill",
-                                "crossAlign": "start",
-                                "gap": 12,
-                                "children": [
-                                  {
-                                    "id": "c_ke7trd",
-                                    "width": "fill",
-                                    "gap": 1,
-                                    "children": [
-                                      {
-                                        "id": "t_iuyr3e",
-                                        "color": "$color-foreground",
-                                        "lineHeight": 1.5,
-                                        "role": "paragraph",
-                                        "size": 13,
-                                        "text": "Espresso (Recommended)",
-                                        "type": "text",
-                                        "weight": 500
-                                      },
-                                      {
-                                        "id": "t_dgcrpk",
-                                        "color": "$color-muted-foreground",
-                                        "lineHeight": 1.5,
-                                        "role": "paragraph",
-                                        "size": 12,
-                                        "text": "Fast, focused, slightly jittery.",
-                                        "type": "text"
-                                      }
-                                    ],
-                                    "type": "column"
-                                  },
-                                  {
-                                    "height": 14,
-                                    "id": "img_efe9yo",
-                                    "margin": {
-                                      "top": 3
-                                    },
-                                    "name": "check-brand",
-                                    "width": 14,
-                                    "src": "assets/icons/check-brand.svg",
-                                    "type": "image"
-                                  }
-                                ],
-                                "type": "row"
-                              },
-                              {
-                                "id": "r_4ivttz",
-                                "name": "Choice",
-                                "padding": {
-                                  "bottom": 6,
-                                  "left": 10,
-                                  "right": 10,
-                                  "top": 6
-                                },
-                                "radius": 6,
-                                "width": "fill",
-                                "crossAlign": "start",
-                                "gap": 12,
-                                "children": [
-                                  {
-                                    "id": "c_hlf8cc",
-                                    "width": "fill",
-                                    "gap": 1,
-                                    "children": [
-                                      {
-                                        "id": "t_v3xtfo",
-                                        "color": "$color-foreground",
-                                        "lineHeight": 1.5,
-                                        "role": "paragraph",
-                                        "size": 13,
-                                        "text": "Croissant",
-                                        "type": "text",
-                                        "weight": 500
-                                      },
-                                      {
-                                        "id": "t_c5o66w",
-                                        "color": "$color-muted-foreground",
-                                        "lineHeight": 1.5,
-                                        "role": "paragraph",
-                                        "size": 12,
-                                        "text": "Flaky, buttery, crumbs in the keyboard.",
-                                        "type": "text"
-                                      }
-                                    ],
-                                    "type": "column"
-                                  },
-                                  {
-                                    "id": "t_3poi61",
-                                    "color": "$color-muted-foreground",
-                                    "lineHeight": 1.5,
-                                    "role": "paragraph",
-                                    "size": 12,
-                                    "text": "2",
-                                    "type": "text"
-                                  }
-                                ],
-                                "type": "row"
-                              },
-                              {
-                                "id": "r_gyupt0",
-                                "name": "Choice",
-                                "padding": {
-                                  "bottom": 6,
-                                  "left": 10,
-                                  "right": 10,
-                                  "top": 6
-                                },
-                                "radius": 6,
-                                "width": "fill",
-                                "crossAlign": "start",
-                                "gap": 12,
-                                "children": [
-                                  {
-                                    "id": "c_dmillc",
-                                    "width": "fill",
-                                    "gap": 1,
-                                    "children": [
-                                      {
-                                        "id": "t_8mmtxj",
-                                        "color": "$color-foreground",
-                                        "lineHeight": 1.5,
-                                        "role": "paragraph",
-                                        "size": 13,
-                                        "text": "Fruit bowl",
-                                        "type": "text",
-                                        "weight": 500
-                                      },
-                                      {
-                                        "id": "t_9ils7d",
-                                        "color": "$color-muted-foreground",
-                                        "lineHeight": 1.5,
-                                        "role": "paragraph",
-                                        "size": 12,
-                                        "text": "Virtuous and mildly disappointing.",
-                                        "type": "text"
-                                      }
-                                    ],
-                                    "type": "column"
-                                  },
-                                  {
-                                    "id": "t_vsdhgb",
-                                    "color": "$color-muted-foreground",
-                                    "lineHeight": 1.5,
-                                    "role": "paragraph",
-                                    "size": 12,
-                                    "text": "3",
-                                    "type": "text"
-                                  }
-                                ],
-                                "type": "row"
-                              }
-                            ],
-                            "type": "column"
-                          }
-                        ],
-                        "type": "column"
-                      },
-                      {
-                        "height": 24,
-                        "id": "g_h5nrdi",
-                        "width": "fill",
-                        "children": [],
-                        "type": "group"
-                      },
-                      {
-                        "border": {
-                          "color": "$color-border",
-                          "style": "solid",
-                          "width": 1
-                        },
-                        "fill": "rgba(255,255,255,0.03)",
-                        "id": "c_10cf7v",
-                        "name": "Composer",
-                        "padding": {
-                          "bottom": 8,
-                          "left": 12,
-                          "right": 8,
-                          "top": 10
-                        },
-                        "radius": 12,
-                        "width": "fill",
-                        "gap": 6,
-                        "children": [
-                          {
-                            "id": "t_vt6e70",
-                            "width": "fill",
-                            "color": "$color-muted-foreground",
-                            "lineHeight": 1.5,
-                            "role": "paragraph",
-                            "size": 13,
-                            "text": "Type your own answer, or leave this blank to use the option picked",
-                            "type": "text"
-                          },
-                          {
-                            "height": 36,
-                            "id": "g_3rifdj",
-                            "width": "fill",
-                            "children": [],
-                            "type": "group"
-                          },
-                          {
-                            "id": "r_0jd33d",
-                            "width": "fill",
-                            "crossAlign": "center",
-                            "gap": 6,
-                            "children": [
-                              {
-                                "height": 14,
-                                "id": "img_w4ur69",
-                                "name": "plus-muted",
-                                "width": 14,
-                                "src": "assets/icons/plus-muted.svg",
-                                "type": "image"
-                              },
-                              {
-                                "height": 13,
-                                "id": "img_89vlz7",
-                                "name": "agent-claude",
-                                "width": 13,
-                                "src": "assets/icons/agent-claude.svg",
-                                "type": "image"
-                              },
-                              {
-                                "id": "t_uw602p",
-                                "color": "$color-muted-foreground",
-                                "lineHeight": 1.5,
-                                "role": "paragraph",
-                                "size": 12.5,
-                                "text": "Claude Code",
-                                "type": "text"
-                              },
-                              {
-                                "height": 11,
-                                "id": "img_rm2imv",
-                                "name": "chevron-down-muted",
-                                "width": 11,
-                                "src": "assets/icons/chevron-down-muted.svg",
-                                "type": "image"
-                              },
-                              {
-                                "id": "g_3ecwxv",
-                                "width": "fill",
-                                "children": [],
-                                "type": "group"
-                              },
-                              {
-                                "id": "i_vm2p5l",
-                                "component": "Button",
-                                "from": "@/components/ui/button",
-                                "props": {
-                                  "size": "sm"
-                                },
-                                "text": "Next question",
-                                "type": "instance"
-                              }
-                            ],
-                            "type": "row"
-                          }
-                        ],
-                        "type": "column"
-                      }
-                    ],
-                    "type": "column"
-                  }
-                ],
-                "type": "column"
-              },
-              {
-                "id": "c_6pzc7o",
-                "width": 384,
-                "gap": 14,
-                "children": [
-                  {
-                    "id": "c_bem9b4",
-                    "width": "fill",
-                    "gap": 4,
-                    "children": [
-                      {
-                        "id": "t_ra2092",
-                        "color": "$color-foreground",
-                        "lineHeight": 1.5,
-                        "role": "paragraph",
-                        "size": 14,
-                        "text": "Typed",
-                        "type": "text",
-                        "weight": 600
-                      },
-                      {
-                        "id": "t_an96e0",
-                        "color": "$color-muted-foreground",
-                        "lineHeight": 1.55,
-                        "role": "paragraph",
-                        "size": 12,
-                        "text": "An answer of one's own stands for the picked option.",
-                        "type": "text"
-                      }
-                    ],
-                    "type": "column"
-                  },
-                  {
-                    "border": {
-                      "color": "$color-border",
-                      "style": "solid",
-                      "width": 1
-                    },
-                    "fill": "$color-sidebar",
-                    "id": "c_zdzwbu",
-                    "name": "Panel",
-                    "padding": 16,
-                    "radius": 10,
-                    "width": 384,
-                    "gap": 14,
-                    "children": [
-                      {
-                        "id": "t_2161cw",
-                        "color": "$color-foreground",
-                        "lineHeight": 1.5,
-                        "role": "paragraph",
-                        "size": 12.5,
-                        "text": "Ask me two questions to test the card",
-                        "type": "text"
-                      },
-                      {
-                        "border": {
-                          "color": "$color-border",
-                          "style": "solid",
-                          "width": 1
-                        },
-                        "fill": "$color-card",
-                        "id": "c_nd073m",
-                        "name": "Ask card",
-                        "padding": 12,
-                        "radius": 10,
-                        "width": "fill",
-                        "gap": 8,
-                        "children": [
-                          {
-                            "id": "r_ezd9jl",
-                            "width": "fill",
-                            "crossAlign": "center",
-                            "gap": 8,
-                            "children": [
-                              {
-                                "height": 14,
-                                "id": "img_0nznz3",
-                                "name": "circle-help-brand",
-                                "width": 14,
-                                "src": "assets/icons/circle-help-brand.svg",
-                                "type": "image"
-                              },
-                              {
-                                "id": "t_9m8216",
-                                "width": "fill",
-                                "color": "$color-muted-foreground",
-                                "lineHeight": 1.5,
-                                "role": "paragraph",
-                                "size": 12.5,
-                                "text": "The agent asks",
-                                "type": "text"
-                              },
-                              {
-                                "id": "t_ctc8jx",
-                                "color": "$color-muted-foreground",
-                                "lineHeight": 1.5,
-                                "role": "paragraph",
-                                "size": 12.5,
-                                "text": "Decline",
-                                "type": "text"
-                              },
-                              {
-                                "id": "t_gs7jnh",
-                                "color": "$color-muted-foreground",
-                                "lineHeight": 1.5,
-                                "role": "paragraph",
-                                "size": 12.5,
-                                "text": "1/2",
-                                "type": "text"
-                              },
-                              {
-                                "height": 13,
-                                "id": "img_7c1i4d",
-                                "name": "chevron-down-muted",
-                                "width": 13,
-                                "src": "assets/icons/chevron-down-muted.svg",
-                                "type": "image"
-                              }
-                            ],
-                            "type": "row"
-                          },
-                          {
-                            "id": "c_c9rhsf",
-                            "width": "fill",
-                            "children": [
-                              {
-                                "id": "t_r8v98c",
-                                "color": "$color-foreground",
-                                "lineHeight": 1.5,
-                                "role": "paragraph",
-                                "size": 13,
-                                "text": "Which snack should fuel the next coding session?",
-                                "type": "text",
-                                "weight": 500
-                              }
-                            ],
-                            "type": "column"
-                          },
-                          {
-                            "id": "c_xqkq3w",
-                            "width": "fill",
-                            "gap": 2,
-                            "children": [
-                              {
-                                "id": "r_tx17u2",
-                                "name": "Choice",
-                                "padding": {
-                                  "bottom": 6,
-                                  "left": 10,
-                                  "right": 10,
-                                  "top": 6
-                                },
-                                "radius": 6,
-                                "width": "fill",
-                                "crossAlign": "start",
-                                "gap": 12,
-                                "children": [
-                                  {
-                                    "id": "c_bcs3t3",
-                                    "width": "fill",
-                                    "gap": 1,
-                                    "children": [
-                                      {
-                                        "id": "t_llniee",
-                                        "color": "$color-foreground",
-                                        "lineHeight": 1.5,
-                                        "role": "paragraph",
-                                        "size": 13,
-                                        "text": "Espresso (Recommended)",
-                                        "type": "text",
-                                        "weight": 500
-                                      },
-                                      {
-                                        "id": "t_vfl8pz",
-                                        "color": "$color-muted-foreground",
-                                        "lineHeight": 1.5,
-                                        "role": "paragraph",
-                                        "size": 12,
-                                        "text": "Fast, focused, slightly jittery.",
-                                        "type": "text"
-                                      }
-                                    ],
-                                    "type": "column"
-                                  },
-                                  {
-                                    "id": "t_6df2vo",
-                                    "color": "$color-muted-foreground",
-                                    "lineHeight": 1.5,
-                                    "role": "paragraph",
-                                    "size": 12,
-                                    "text": "1",
-                                    "type": "text"
-                                  }
-                                ],
-                                "type": "row"
-                              },
-                              {
-                                "id": "r_7bd71s",
-                                "name": "Choice",
-                                "padding": {
-                                  "bottom": 6,
-                                  "left": 10,
-                                  "right": 10,
-                                  "top": 6
-                                },
-                                "radius": 6,
-                                "width": "fill",
-                                "crossAlign": "start",
-                                "gap": 12,
-                                "children": [
-                                  {
-                                    "id": "c_ld2is7",
-                                    "width": "fill",
-                                    "gap": 1,
-                                    "children": [
-                                      {
-                                        "id": "t_b5gmxy",
-                                        "color": "$color-foreground",
-                                        "lineHeight": 1.5,
-                                        "role": "paragraph",
-                                        "size": 13,
-                                        "text": "Croissant",
-                                        "type": "text",
-                                        "weight": 500
-                                      },
-                                      {
-                                        "id": "t_j29hqc",
-                                        "color": "$color-muted-foreground",
-                                        "lineHeight": 1.5,
-                                        "role": "paragraph",
-                                        "size": 12,
-                                        "text": "Flaky, buttery, crumbs in the keyboard.",
-                                        "type": "text"
-                                      }
-                                    ],
-                                    "type": "column"
-                                  },
-                                  {
-                                    "id": "t_un08i8",
-                                    "color": "$color-muted-foreground",
-                                    "lineHeight": 1.5,
-                                    "role": "paragraph",
-                                    "size": 12,
-                                    "text": "2",
-                                    "type": "text"
-                                  }
-                                ],
-                                "type": "row"
-                              },
-                              {
-                                "id": "r_ycd1z8",
-                                "name": "Choice",
-                                "padding": {
-                                  "bottom": 6,
-                                  "left": 10,
-                                  "right": 10,
-                                  "top": 6
-                                },
-                                "radius": 6,
-                                "width": "fill",
-                                "crossAlign": "start",
-                                "gap": 12,
-                                "children": [
-                                  {
-                                    "id": "c_ezt61s",
-                                    "width": "fill",
-                                    "gap": 1,
-                                    "children": [
-                                      {
-                                        "id": "t_2v74y8",
-                                        "color": "$color-foreground",
-                                        "lineHeight": 1.5,
-                                        "role": "paragraph",
-                                        "size": 13,
-                                        "text": "Fruit bowl",
-                                        "type": "text",
-                                        "weight": 500
-                                      },
-                                      {
-                                        "id": "t_498azy",
-                                        "color": "$color-muted-foreground",
-                                        "lineHeight": 1.5,
-                                        "role": "paragraph",
-                                        "size": 12,
-                                        "text": "Virtuous and mildly disappointing.",
-                                        "type": "text"
-                                      }
-                                    ],
-                                    "type": "column"
-                                  },
-                                  {
-                                    "id": "t_g8vlyp",
-                                    "color": "$color-muted-foreground",
-                                    "lineHeight": 1.5,
-                                    "role": "paragraph",
-                                    "size": 12,
-                                    "text": "3",
-                                    "type": "text"
-                                  }
-                                ],
-                                "type": "row"
-                              }
-                            ],
-                            "type": "column"
-                          }
-                        ],
-                        "type": "column"
-                      },
-                      {
-                        "height": 24,
-                        "id": "g_k42wme",
-                        "width": "fill",
-                        "children": [],
-                        "type": "group"
-                      },
-                      {
-                        "border": {
-                          "color": "$color-border",
-                          "style": "solid",
-                          "width": 1
-                        },
-                        "fill": "rgba(255,255,255,0.03)",
-                        "id": "c_9gwg0n",
-                        "name": "Composer",
-                        "padding": {
-                          "bottom": 8,
-                          "left": 12,
-                          "right": 8,
-                          "top": 10
-                        },
-                        "radius": 12,
-                        "width": "fill",
-                        "gap": 6,
-                        "children": [
-                          {
-                            "id": "t_nfef96",
-                            "width": "fill",
-                            "color": "$color-foreground",
-                            "lineHeight": 1.5,
-                            "role": "paragraph",
-                            "size": 13,
-                            "text": "A banana",
-                            "type": "text"
-                          },
-                          {
-                            "height": 36,
-                            "id": "g_scaor7",
-                            "width": "fill",
-                            "children": [],
-                            "type": "group"
-                          },
-                          {
-                            "id": "r_05d9p6",
-                            "width": "fill",
-                            "crossAlign": "center",
-                            "gap": 6,
-                            "children": [
-                              {
-                                "height": 14,
-                                "id": "img_avexlh",
-                                "name": "plus-muted",
-                                "width": 14,
-                                "src": "assets/icons/plus-muted.svg",
-                                "type": "image"
-                              },
-                              {
-                                "height": 13,
-                                "id": "img_jy5wze",
-                                "name": "agent-claude",
-                                "width": 13,
-                                "src": "assets/icons/agent-claude.svg",
-                                "type": "image"
-                              },
-                              {
-                                "id": "t_341fvw",
-                                "color": "$color-muted-foreground",
-                                "lineHeight": 1.5,
-                                "role": "paragraph",
-                                "size": 12.5,
-                                "text": "Claude Code",
-                                "type": "text"
-                              },
-                              {
-                                "height": 11,
-                                "id": "img_chlpp0",
-                                "name": "chevron-down-muted",
-                                "width": 11,
-                                "src": "assets/icons/chevron-down-muted.svg",
-                                "type": "image"
-                              },
-                              {
-                                "id": "g_pdvxd6",
-                                "width": "fill",
-                                "children": [],
-                                "type": "group"
-                              },
-                              {
-                                "id": "i_fkuqie",
-                                "component": "Button",
-                                "from": "@/components/ui/button",
-                                "props": {
-                                  "size": "sm"
-                                },
-                                "text": "Next question",
-                                "type": "instance"
-                              }
-                            ],
-                            "type": "row"
-                          }
-                        ],
-                        "type": "column"
-                      }
-                    ],
-                    "type": "column"
-                  }
-                ],
-                "type": "column"
-              }
-            ],
-            "type": "row"
-          },
-          {
-            "id": "r_ebmztk",
-            "padding": {
-              "bottom": 28,
-              "top": 28
-            },
-            "width": "fill",
-            "crossAlign": "start",
-            "gap": 40,
-            "children": [
-              {
-                "id": "c_91snq5",
-                "width": 384,
-                "gap": 14,
-                "children": [
-                  {
-                    "id": "c_55etiy",
-                    "width": "fill",
-                    "gap": 4,
-                    "children": [
-                      {
-                        "id": "t_cf73rp",
-                        "color": "$color-foreground",
-                        "lineHeight": 1.5,
-                        "role": "paragraph",
-                        "size": 14,
-                        "text": "Several at once, last step",
-                        "type": "text",
-                        "weight": 600
-                      },
-                      {
-                        "id": "t_wb2mb4",
-                        "color": "$color-muted-foreground",
-                        "lineHeight": 1.55,
-                        "role": "paragraph",
-                        "size": 12,
-                        "text": "Previous goes back; the button sends the answers.",
-                        "type": "text"
-                      }
-                    ],
-                    "type": "column"
-                  },
-                  {
-                    "border": {
-                      "color": "$color-border",
-                      "style": "solid",
-                      "width": 1
-                    },
-                    "fill": "$color-sidebar",
-                    "id": "c_w0plgg",
-                    "name": "Panel",
-                    "padding": 16,
-                    "radius": 10,
-                    "width": 384,
-                    "gap": 14,
-                    "children": [
-                      {
-                        "id": "t_oe8f6n",
-                        "color": "$color-foreground",
-                        "lineHeight": 1.5,
-                        "role": "paragraph",
-                        "size": 12.5,
-                        "text": "Ask me two questions to test the card",
-                        "type": "text"
-                      },
-                      {
-                        "border": {
-                          "color": "$color-border",
-                          "style": "solid",
-                          "width": 1
-                        },
-                        "fill": "$color-card",
-                        "id": "c_wpu0uz",
-                        "name": "Ask card",
-                        "padding": 12,
-                        "radius": 10,
-                        "width": "fill",
-                        "gap": 8,
-                        "children": [
-                          {
-                            "id": "r_xb1hts",
-                            "width": "fill",
-                            "crossAlign": "center",
-                            "gap": 8,
-                            "children": [
-                              {
-                                "height": 14,
-                                "id": "img_5krjl3",
-                                "name": "circle-help-brand",
-                                "width": 14,
-                                "src": "assets/icons/circle-help-brand.svg",
-                                "type": "image"
-                              },
-                              {
-                                "id": "t_sja0ie",
-                                "width": "fill",
-                                "color": "$color-muted-foreground",
-                                "lineHeight": 1.5,
-                                "role": "paragraph",
-                                "size": 12.5,
-                                "text": "The agent asks",
-                                "type": "text"
-                              },
-                              {
-                                "id": "t_2bhnb9",
-                                "color": "$color-muted-foreground",
-                                "lineHeight": 1.5,
-                                "role": "paragraph",
-                                "size": 12.5,
-                                "text": "Decline",
-                                "type": "text"
-                              },
-                              {
-                                "id": "t_j32ofw",
-                                "color": "$color-muted-foreground",
-                                "lineHeight": 1.5,
-                                "role": "paragraph",
-                                "size": 12.5,
-                                "text": "2/2",
-                                "type": "text"
-                              },
-                              {
-                                "height": 13,
-                                "id": "img_juyybw",
-                                "name": "chevron-down-muted",
-                                "width": 13,
-                                "src": "assets/icons/chevron-down-muted.svg",
-                                "type": "image"
-                              }
-                            ],
-                            "type": "row"
-                          },
-                          {
-                            "id": "c_gp3mcp",
-                            "width": "fill",
-                            "children": [
-                              {
-                                "id": "t_bwj0jj",
-                                "color": "$color-foreground",
-                                "lineHeight": 1.5,
-                                "role": "paragraph",
-                                "size": 13,
-                                "text": "Which features should the imaginary toolbar have?",
-                                "type": "text",
-                                "weight": 500
-                              },
-                              {
-                                "id": "t_x2e5sh",
-                                "color": "$color-muted-foreground",
-                                "lineHeight": 1.5,
-                                "role": "paragraph",
-                                "size": 13,
-                                "text": "Pick one or more.",
-                                "type": "text"
-                              }
-                            ],
-                            "type": "column"
-                          },
-                          {
-                            "id": "c_vhlxei",
-                            "width": "fill",
-                            "gap": 2,
-                            "children": [
-                              {
-                                "fill": "$color-accent",
-                                "id": "r_146i4l",
-                                "name": "Choice · picked",
-                                "padding": {
-                                  "bottom": 6,
-                                  "left": 10,
-                                  "right": 10,
-                                  "top": 6
-                                },
-                                "radius": 6,
-                                "width": "fill",
-                                "crossAlign": "start",
-                                "gap": 12,
-                                "children": [
-                                  {
-                                    "id": "c_n4rlkd",
-                                    "width": "fill",
-                                    "gap": 1,
-                                    "children": [
-                                      {
-                                        "id": "t_dxz9lx",
-                                        "color": "$color-foreground",
-                                        "lineHeight": 1.5,
-                                        "role": "paragraph",
-                                        "size": 13,
-                                        "text": "Undo/redo",
-                                        "type": "text",
-                                        "weight": 500
-                                      },
-                                      {
-                                        "id": "t_u5qf8y",
-                                        "color": "$color-muted-foreground",
-                                        "lineHeight": 1.5,
-                                        "role": "paragraph",
-                                        "size": 12,
-                                        "text": "The classics.",
-                                        "type": "text"
-                                      }
-                                    ],
-                                    "type": "column"
-                                  },
-                                  {
-                                    "height": 14,
-                                    "id": "img_cby9ve",
-                                    "margin": {
-                                      "top": 3
-                                    },
-                                    "name": "check-brand",
-                                    "width": 14,
-                                    "src": "assets/icons/check-brand.svg",
-                                    "type": "image"
-                                  }
-                                ],
-                                "type": "row"
-                              },
-                              {
-                                "id": "r_cel2p7",
-                                "name": "Choice",
-                                "padding": {
-                                  "bottom": 6,
-                                  "left": 10,
-                                  "right": 10,
-                                  "top": 6
-                                },
-                                "radius": 6,
-                                "width": "fill",
-                                "crossAlign": "start",
-                                "gap": 12,
-                                "children": [
-                                  {
-                                    "id": "c_vol6fm",
-                                    "width": "fill",
-                                    "gap": 1,
-                                    "children": [
-                                      {
-                                        "id": "t_gs8hq1",
-                                        "color": "$color-foreground",
-                                        "lineHeight": 1.5,
-                                        "role": "paragraph",
-                                        "size": 13,
-                                        "text": "Color picker",
-                                        "type": "text",
-                                        "weight": 500
-                                      },
-                                      {
-                                        "id": "t_m0vzsb",
-                                        "color": "$color-muted-foreground",
-                                        "lineHeight": 1.5,
-                                        "role": "paragraph",
-                                        "size": 12,
-                                        "text": "A swatch popover for fills and strokes.",
-                                        "type": "text"
-                                      }
-                                    ],
-                                    "type": "column"
-                                  },
-                                  {
-                                    "id": "t_e2u86m",
-                                    "color": "$color-muted-foreground",
-                                    "lineHeight": 1.5,
-                                    "role": "paragraph",
-                                    "size": 12,
-                                    "text": "2",
-                                    "type": "text"
-                                  }
-                                ],
-                                "type": "row"
-                              },
-                              {
-                                "fill": "$color-accent",
-                                "id": "r_y8dqad",
-                                "name": "Choice · picked",
-                                "padding": {
-                                  "bottom": 6,
-                                  "left": 10,
-                                  "right": 10,
-                                  "top": 6
-                                },
-                                "radius": 6,
-                                "width": "fill",
-                                "crossAlign": "start",
-                                "gap": 12,
-                                "children": [
-                                  {
-                                    "id": "c_eu27uv",
-                                    "width": "fill",
-                                    "gap": 1,
-                                    "children": [
-                                      {
-                                        "id": "t_curdz0",
-                                        "color": "$color-foreground",
-                                        "lineHeight": 1.5,
-                                        "role": "paragraph",
-                                        "size": 13,
-                                        "text": "Zoom controls",
-                                        "type": "text",
-                                        "weight": 500
-                                      },
-                                      {
-                                        "id": "t_wwcun3",
-                                        "color": "$color-muted-foreground",
-                                        "lineHeight": 1.5,
-                                        "role": "paragraph",
-                                        "size": 12,
-                                        "text": "Fit, 100%, and +/- buttons.",
-                                        "type": "text"
-                                      }
-                                    ],
-                                    "type": "column"
-                                  },
-                                  {
-                                    "height": 14,
-                                    "id": "img_jz2pkc",
-                                    "margin": {
-                                      "top": 3
-                                    },
-                                    "name": "check-brand",
-                                    "width": 14,
-                                    "src": "assets/icons/check-brand.svg",
-                                    "type": "image"
-                                  }
-                                ],
-                                "type": "row"
-                              }
-                            ],
-                            "type": "column"
-                          }
-                        ],
-                        "type": "column"
-                      },
-                      {
-                        "height": 24,
-                        "id": "g_avfhx6",
-                        "width": "fill",
-                        "children": [],
-                        "type": "group"
-                      },
-                      {
-                        "border": {
-                          "color": "$color-border",
-                          "style": "solid",
-                          "width": 1
-                        },
-                        "fill": "rgba(255,255,255,0.03)",
-                        "id": "c_t2y3tu",
-                        "name": "Composer",
-                        "padding": {
-                          "bottom": 8,
-                          "left": 12,
-                          "right": 8,
-                          "top": 10
-                        },
-                        "radius": 12,
-                        "width": "fill",
-                        "gap": 6,
-                        "children": [
-                          {
-                            "id": "t_4wh24i",
-                            "width": "fill",
-                            "color": "$color-muted-foreground",
-                            "lineHeight": 1.5,
-                            "role": "paragraph",
-                            "size": 13,
-                            "text": "Pick an option above, or press its number",
-                            "type": "text"
-                          },
-                          {
-                            "height": 36,
-                            "id": "g_3s0gxv",
-                            "width": "fill",
-                            "children": [],
-                            "type": "group"
-                          },
-                          {
-                            "id": "r_aun37s",
-                            "width": "fill",
-                            "crossAlign": "center",
-                            "gap": 6,
-                            "children": [
-                              {
-                                "height": 14,
-                                "id": "img_zz29by",
-                                "name": "plus-muted",
-                                "width": 14,
-                                "src": "assets/icons/plus-muted.svg",
-                                "type": "image"
-                              },
-                              {
-                                "height": 13,
-                                "id": "img_o49l9p",
-                                "name": "agent-claude",
-                                "width": 13,
-                                "src": "assets/icons/agent-claude.svg",
-                                "type": "image"
-                              },
-                              {
-                                "id": "t_31w08c",
-                                "color": "$color-muted-foreground",
-                                "lineHeight": 1.5,
-                                "role": "paragraph",
-                                "size": 12.5,
-                                "text": "Claude Code",
-                                "type": "text"
-                              },
-                              {
-                                "height": 11,
-                                "id": "img_fzgblj",
-                                "name": "chevron-down-muted",
-                                "width": 11,
-                                "src": "assets/icons/chevron-down-muted.svg",
-                                "type": "image"
-                              },
-                              {
-                                "id": "g_7edyuk",
-                                "width": "fill",
-                                "children": [],
-                                "type": "group"
-                              },
-                              {
-                                "id": "i_6gs4tl",
-                                "component": "Button",
-                                "from": "@/components/ui/button",
-                                "props": {
-                                  "size": "sm",
-                                  "variant": "outline"
-                                },
-                                "text": "Previous",
-                                "type": "instance"
-                              },
-                              {
-                                "id": "i_n89qrj",
-                                "component": "Button",
-                                "from": "@/components/ui/button",
-                                "props": {
-                                  "size": "sm"
-                                },
-                                "text": "Send answers",
-                                "type": "instance"
-                              }
-                            ],
-                            "type": "row"
-                          }
-                        ],
-                        "type": "column"
-                      }
-                    ],
-                    "type": "column"
-                  }
-                ],
-                "type": "column"
-              },
-              {
-                "id": "c_2rtmrt",
-                "width": 384,
-                "gap": 14,
-                "children": [
-                  {
-                    "id": "c_kmsuyc",
-                    "width": "fill",
-                    "gap": 4,
-                    "children": [
-                      {
-                        "id": "t_0pf3ef",
-                        "color": "$color-foreground",
-                        "lineHeight": 1.5,
-                        "role": "paragraph",
-                        "size": 14,
-                        "text": "Answered",
-                        "type": "text",
-                        "weight": 600
-                      },
-                      {
-                        "id": "t_vcg0n6",
-                        "color": "$color-muted-foreground",
-                        "lineHeight": 1.55,
-                        "role": "paragraph",
-                        "size": 12,
-                        "text": "Folds to each question and what was answered.",
-                        "type": "text"
-                      }
-                    ],
-                    "type": "column"
-                  },
-                  {
-                    "border": {
-                      "color": "$color-border",
-                      "style": "solid",
-                      "width": 1
-                    },
-                    "fill": "$color-sidebar",
-                    "id": "c_bdr04d",
-                    "name": "Panel",
-                    "padding": 16,
-                    "radius": 10,
-                    "width": 384,
-                    "gap": 14,
-                    "children": [
-                      {
-                        "id": "t_zsxoet",
-                        "color": "$color-foreground",
-                        "lineHeight": 1.5,
-                        "role": "paragraph",
-                        "size": 12.5,
-                        "text": "Ask me two questions to test the card",
-                        "type": "text"
-                      },
-                      {
-                        "border": {
-                          "color": "$color-border",
-                          "style": "solid",
-                          "width": 1
-                        },
-                        "fill": "$color-card",
-                        "id": "c_aqjw0e",
-                        "name": "Ask card · answered",
-                        "padding": 12,
-                        "radius": 10,
-                        "width": "fill",
-                        "gap": 8,
-                        "children": [
-                          {
-                            "id": "r_g24kh1",
-                            "crossAlign": "center",
-                            "gap": 6,
-                            "children": [
-                              {
-                                "height": 14,
-                                "id": "img_u50ph2",
-                                "name": "check-muted",
-                                "width": 14,
-                                "src": "assets/icons/check-muted.svg",
-                                "type": "image"
-                              },
-                              {
-                                "id": "t_brf8k6",
-                                "color": "$color-muted-foreground",
-                                "lineHeight": 1.5,
-                                "role": "paragraph",
-                                "size": 12.5,
-                                "text": "Answered",
-                                "type": "text"
-                              }
-                            ],
-                            "type": "row"
-                          },
-                          {
-                            "id": "c_pu0yec",
-                            "gap": 2,
-                            "children": [
-                              {
-                                "id": "t_yrmsf8",
-                                "color": "$color-muted-foreground",
-                                "lineHeight": 1.5,
-                                "role": "paragraph",
-                                "size": 13,
-                                "text": "Which snack should fuel the next coding session?",
-                                "type": "text"
-                              },
-                              {
-                                "id": "r_2o31dr",
-                                "crossAlign": "center",
-                                "gap": 8,
-                                "children": [
-                                  {
-                                    "height": 14,
-                                    "id": "img_jx7srr",
-                                    "name": "check-fg",
-                                    "width": 14,
-                                    "src": "assets/icons/check-fg.svg",
-                                    "type": "image"
-                                  },
-                                  {
-                                    "id": "t_q826iy",
-                                    "color": "$color-foreground",
-                                    "lineHeight": 1.5,
-                                    "role": "paragraph",
-                                    "size": 13,
-                                    "text": "Espresso",
-                                    "type": "text",
-                                    "weight": 500
-                                  }
-                                ],
-                                "type": "row"
-                              }
-                            ],
-                            "type": "column"
-                          },
-                          {
-                            "id": "c_dkjqa7",
-                            "gap": 2,
-                            "children": [
-                              {
-                                "id": "t_1jjj9n",
-                                "color": "$color-muted-foreground",
-                                "lineHeight": 1.5,
-                                "role": "paragraph",
-                                "size": 13,
-                                "text": "Which features should the toolbar have?",
-                                "type": "text"
-                              },
-                              {
-                                "id": "r_tnyjmt",
-                                "crossAlign": "center",
-                                "gap": 8,
-                                "children": [
-                                  {
-                                    "height": 14,
-                                    "id": "img_y0c5jz",
-                                    "name": "check-fg",
-                                    "width": 14,
-                                    "src": "assets/icons/check-fg.svg",
-                                    "type": "image"
-                                  },
-                                  {
-                                    "id": "t_sblvpm",
-                                    "color": "$color-foreground",
-                                    "lineHeight": 1.5,
-                                    "role": "paragraph",
-                                    "size": 13,
-                                    "text": "Undo/redo, Zoom controls",
-                                    "type": "text",
-                                    "weight": 500
-                                  }
-                                ],
-                                "type": "row"
-                              }
-                            ],
-                            "type": "column"
-                          }
-                        ],
-                        "type": "column"
-                      },
-                      {
-                        "height": 24,
-                        "id": "g_m2xyuo",
-                        "width": "fill",
-                        "children": [],
-                        "type": "group"
-                      }
-                    ],
-                    "type": "column"
-                  }
-                ],
-                "type": "column"
-              }
-            ],
-            "type": "row"
-          }
-        ],
-        "type": "column"
-      }
-    ],
-    "type": "page"
-  },
+  "root": {"type": "page", "id": "root", "children": [
+    {"type": "column", "id": "c_0i1itj", "name": "Board · Ask card", "padding": {"bottom": 56, "left": 64, "right": 64, "top": 56}, "width": "fill", "children": [
+      {"type": "column", "id": "c_qti0mc", "gap": 8, "padding": {"bottom": 12}, "children": [
+        {"type": "row", "id": "r_tj948p", "crossAlign": "center", "gap": 8, "children": [
+          {"type": "row", "id": "r_ynn180", "fill": "#052e16", "padding": {"bottom": 2, "left": 8, "right": 8, "top": 2}, "radius": 999, "children": [
+            {"type": "text", "id": "t_rggsv8", "color": "#86efac", "lineHeight": 1.5, "role": "paragraph", "size": 11, "text": "Sketch", "weight": 600}
+          ]},
+          {"type": "text", "id": "t_0vt30y", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 11.5, "text": "A question from the agent, in the chat panel"}
+        ]},
+        {"type": "text", "id": "t_e4hcmp", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 26, "text": "The agent asks", "weight": 700},
+        {"type": "text", "id": "t_cvoreb", "color": "$color-muted-foreground", "lineHeight": 1.6, "maxWidth": 760, "role": "paragraph", "size": 13, "text": "After t3code: the card asks one question at a time, and the composer answers it. Choices are rows with their description under them and their key on the right, 1 to 9; the picked one takes a quiet background and a check. What is typed in the composer is an answer of one's own, standing for the picked option. Its button steps to the next question, back with Previous, and sends the answers on the last one. Decline and the count sit in the card's header; the chevron folds the choices away."}
+      ]},
+      {"type": "row", "id": "r_2t55fm", "border": {"color": "$color-border", "style": "solid", "width": "0 0 1px 0"}, "crossAlign": "start", "gap": 40, "padding": {"bottom": 28, "top": 28}, "width": "fill", "children": [
+        {"type": "column", "id": "c_1cdkb4", "gap": 14, "width": 384, "children": [
+          {"type": "column", "id": "c_rcxb3f", "gap": 4, "width": "fill", "children": [
+            {"type": "text", "id": "t_lfhql6", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 14, "text": "Asked", "weight": 600},
+            {"type": "text", "id": "t_lilic3", "color": "$color-muted-foreground", "lineHeight": 1.55, "role": "paragraph", "size": 12, "text": "The first question; nothing picked, so Next waits."}
+          ]},
+          {"type": "column", "id": "c_2mhgkc", "name": "Panel", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-sidebar", "gap": 14, "padding": 16, "radius": 10, "width": 384, "children": [
+            {"type": "text", "id": "t_rtubal", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Ask me two questions to test the card"},
+            {"type": "column", "id": "c_rbxxwz", "name": "Ask card", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-card", "gap": 8, "padding": 12, "radius": 10, "width": "fill", "children": [
+              {"type": "row", "id": "r_qfczmx", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
+                {"type": "image", "id": "img_togpx6", "name": "circle-help-brand", "height": 14, "src": "assets/icons/circle-help-brand.svg", "width": 14},
+                {"type": "text", "id": "t_22o2ra", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "The agent asks", "width": "fill"},
+                {"type": "text", "id": "t_c89ukh", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Decline"},
+                {"type": "text", "id": "t_rgkq7l", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "1/2"},
+                {"type": "image", "id": "img_aompnv", "name": "chevron-down-muted", "height": 13, "src": "assets/icons/chevron-down-muted.svg", "width": 13}
+              ]},
+              {"type": "column", "id": "c_e3kjzy", "width": "fill", "children": [
+                {"type": "text", "id": "t_md4zj7", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Which snack should fuel the next coding session?", "weight": 500}
+              ]},
+              {"type": "column", "id": "c_oyovjt", "gap": 2, "width": "fill", "children": [
+                {"type": "row", "id": "r_suxjji", "name": "Choice", "crossAlign": "start", "gap": 12, "padding": {"bottom": 6, "left": 10, "right": 10, "top": 6}, "radius": 6, "width": "fill", "children": [
+                  {"type": "column", "id": "c_py3rmr", "gap": 1, "width": "fill", "children": [
+                    {"type": "text", "id": "t_ez1gwi", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Espresso (Recommended)", "weight": 500},
+                    {"type": "text", "id": "t_1xr050", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12, "text": "Fast, focused, slightly jittery."}
+                  ]},
+                  {"type": "text", "id": "t_5n9hwq", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12, "text": "1"}
+                ]},
+                {"type": "row", "id": "r_e2h6sk", "name": "Choice", "crossAlign": "start", "gap": 12, "padding": {"bottom": 6, "left": 10, "right": 10, "top": 6}, "radius": 6, "width": "fill", "children": [
+                  {"type": "column", "id": "c_mluf2v", "gap": 1, "width": "fill", "children": [
+                    {"type": "text", "id": "t_d07tmb", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Croissant", "weight": 500},
+                    {"type": "text", "id": "t_vthlmk", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12, "text": "Flaky, buttery, crumbs in the keyboard."}
+                  ]},
+                  {"type": "text", "id": "t_o4zgzk", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12, "text": "2"}
+                ]},
+                {"type": "row", "id": "r_s7g9m6", "name": "Choice", "crossAlign": "start", "gap": 12, "padding": {"bottom": 6, "left": 10, "right": 10, "top": 6}, "radius": 6, "width": "fill", "children": [
+                  {"type": "column", "id": "c_bgy0dt", "gap": 1, "width": "fill", "children": [
+                    {"type": "text", "id": "t_bux3gz", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Fruit bowl", "weight": 500},
+                    {"type": "text", "id": "t_k1cd03", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12, "text": "Virtuous and mildly disappointing."}
+                  ]},
+                  {"type": "text", "id": "t_buis7o", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12, "text": "3"}
+                ]}
+              ]}
+            ]},
+            {"type": "group", "id": "g_j6t7lf", "height": 24, "width": "fill", "children": []},
+            {"type": "column", "id": "c_eyrvv2", "name": "Composer", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "rgba(255,255,255,0.03)", "gap": 6, "padding": {"bottom": 8, "left": 12, "right": 8, "top": 10}, "radius": 12, "width": "fill", "children": [
+              {"type": "text", "id": "t_w3kpdg", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Type your own answer, or leave this blank to use the option picked", "width": "fill"},
+              {"type": "group", "id": "g_2irbw0", "height": 36, "width": "fill", "children": []},
+              {"type": "row", "id": "r_nydck2", "crossAlign": "center", "gap": 6, "width": "fill", "children": [
+                {"type": "image", "id": "img_dorhgv", "name": "plus-muted", "height": 14, "src": "assets/icons/plus-muted.svg", "width": 14},
+                {"type": "image", "id": "img_44wf33", "name": "agent-claude", "height": 13, "src": "assets/icons/agent-claude.svg", "width": 13},
+                {"type": "text", "id": "t_d620pc", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Claude Code"},
+                {"type": "image", "id": "img_euopzw", "name": "chevron-down-muted", "height": 11, "src": "assets/icons/chevron-down-muted.svg", "width": 11},
+                {"type": "group", "id": "g_5r7b9e", "width": "fill", "children": []},
+                {"type": "instance", "id": "i_lo9mco", "component": "Button", "from": "@/components/ui/button", "opacity": 0.5, "props": {"size": "sm"}, "text": "Next question"}
+              ]}
+            ]}
+          ]}
+        ]},
+        {"type": "column", "id": "c_uos9gl", "gap": 14, "width": 384, "children": [
+          {"type": "column", "id": "c_97gjac", "gap": 4, "width": "fill", "children": [
+            {"type": "text", "id": "t_2allvr", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 14, "text": "Picked", "weight": 600},
+            {"type": "text", "id": "t_y4pjp5", "color": "$color-muted-foreground", "lineHeight": 1.55, "role": "paragraph", "size": 12, "text": "1 picked Espresso; Next is ready."}
+          ]},
+          {"type": "column", "id": "c_8ckc2v", "name": "Panel", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-sidebar", "gap": 14, "padding": 16, "radius": 10, "width": 384, "children": [
+            {"type": "text", "id": "t_45ahun", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Ask me two questions to test the card"},
+            {"type": "column", "id": "c_9l3trp", "name": "Ask card", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-card", "gap": 8, "padding": 12, "radius": 10, "width": "fill", "children": [
+              {"type": "row", "id": "r_t2thg5", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
+                {"type": "image", "id": "img_49nk5k", "name": "circle-help-brand", "height": 14, "src": "assets/icons/circle-help-brand.svg", "width": 14},
+                {"type": "text", "id": "t_imv82e", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "The agent asks", "width": "fill"},
+                {"type": "text", "id": "t_vypyuu", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Decline"},
+                {"type": "text", "id": "t_2zthpx", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "1/2"},
+                {"type": "image", "id": "img_wt3wo5", "name": "chevron-down-muted", "height": 13, "src": "assets/icons/chevron-down-muted.svg", "width": 13}
+              ]},
+              {"type": "column", "id": "c_nokq7o", "width": "fill", "children": [
+                {"type": "text", "id": "t_y0egzp", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Which snack should fuel the next coding session?", "weight": 500}
+              ]},
+              {"type": "column", "id": "c_yb18my", "gap": 2, "width": "fill", "children": [
+                {"type": "row", "id": "r_aoa6ij", "name": "Choice · picked", "crossAlign": "start", "fill": "$color-accent", "gap": 12, "padding": {"bottom": 6, "left": 10, "right": 10, "top": 6}, "radius": 6, "width": "fill", "children": [
+                  {"type": "column", "id": "c_ke7trd", "gap": 1, "width": "fill", "children": [
+                    {"type": "text", "id": "t_iuyr3e", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Espresso (Recommended)", "weight": 500},
+                    {"type": "text", "id": "t_dgcrpk", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12, "text": "Fast, focused, slightly jittery."}
+                  ]},
+                  {"type": "image", "id": "img_efe9yo", "name": "check-brand", "height": 14, "margin": {"top": 3}, "src": "assets/icons/check-brand.svg", "width": 14}
+                ]},
+                {"type": "row", "id": "r_4ivttz", "name": "Choice", "crossAlign": "start", "gap": 12, "padding": {"bottom": 6, "left": 10, "right": 10, "top": 6}, "radius": 6, "width": "fill", "children": [
+                  {"type": "column", "id": "c_hlf8cc", "gap": 1, "width": "fill", "children": [
+                    {"type": "text", "id": "t_v3xtfo", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Croissant", "weight": 500},
+                    {"type": "text", "id": "t_c5o66w", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12, "text": "Flaky, buttery, crumbs in the keyboard."}
+                  ]},
+                  {"type": "text", "id": "t_3poi61", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12, "text": "2"}
+                ]},
+                {"type": "row", "id": "r_gyupt0", "name": "Choice", "crossAlign": "start", "gap": 12, "padding": {"bottom": 6, "left": 10, "right": 10, "top": 6}, "radius": 6, "width": "fill", "children": [
+                  {"type": "column", "id": "c_dmillc", "gap": 1, "width": "fill", "children": [
+                    {"type": "text", "id": "t_8mmtxj", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Fruit bowl", "weight": 500},
+                    {"type": "text", "id": "t_9ils7d", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12, "text": "Virtuous and mildly disappointing."}
+                  ]},
+                  {"type": "text", "id": "t_vsdhgb", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12, "text": "3"}
+                ]}
+              ]}
+            ]},
+            {"type": "group", "id": "g_h5nrdi", "height": 24, "width": "fill", "children": []},
+            {"type": "column", "id": "c_10cf7v", "name": "Composer", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "rgba(255,255,255,0.03)", "gap": 6, "padding": {"bottom": 8, "left": 12, "right": 8, "top": 10}, "radius": 12, "width": "fill", "children": [
+              {"type": "text", "id": "t_vt6e70", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Type your own answer, or leave this blank to use the option picked", "width": "fill"},
+              {"type": "group", "id": "g_3rifdj", "height": 36, "width": "fill", "children": []},
+              {"type": "row", "id": "r_0jd33d", "crossAlign": "center", "gap": 6, "width": "fill", "children": [
+                {"type": "image", "id": "img_w4ur69", "name": "plus-muted", "height": 14, "src": "assets/icons/plus-muted.svg", "width": 14},
+                {"type": "image", "id": "img_89vlz7", "name": "agent-claude", "height": 13, "src": "assets/icons/agent-claude.svg", "width": 13},
+                {"type": "text", "id": "t_uw602p", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Claude Code"},
+                {"type": "image", "id": "img_rm2imv", "name": "chevron-down-muted", "height": 11, "src": "assets/icons/chevron-down-muted.svg", "width": 11},
+                {"type": "group", "id": "g_3ecwxv", "width": "fill", "children": []},
+                {"type": "instance", "id": "i_vm2p5l", "component": "Button", "from": "@/components/ui/button", "props": {"size": "sm"}, "text": "Next question"}
+              ]}
+            ]}
+          ]}
+        ]},
+        {"type": "column", "id": "c_6pzc7o", "gap": 14, "width": 384, "children": [
+          {"type": "column", "id": "c_bem9b4", "gap": 4, "width": "fill", "children": [
+            {"type": "text", "id": "t_ra2092", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 14, "text": "Typed", "weight": 600},
+            {"type": "text", "id": "t_an96e0", "color": "$color-muted-foreground", "lineHeight": 1.55, "role": "paragraph", "size": 12, "text": "An answer of one's own stands for the picked option."}
+          ]},
+          {"type": "column", "id": "c_zdzwbu", "name": "Panel", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-sidebar", "gap": 14, "padding": 16, "radius": 10, "width": 384, "children": [
+            {"type": "text", "id": "t_2161cw", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Ask me two questions to test the card"},
+            {"type": "column", "id": "c_nd073m", "name": "Ask card", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-card", "gap": 8, "padding": 12, "radius": 10, "width": "fill", "children": [
+              {"type": "row", "id": "r_ezd9jl", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
+                {"type": "image", "id": "img_0nznz3", "name": "circle-help-brand", "height": 14, "src": "assets/icons/circle-help-brand.svg", "width": 14},
+                {"type": "text", "id": "t_9m8216", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "The agent asks", "width": "fill"},
+                {"type": "text", "id": "t_ctc8jx", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Decline"},
+                {"type": "text", "id": "t_gs7jnh", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "1/2"},
+                {"type": "image", "id": "img_7c1i4d", "name": "chevron-down-muted", "height": 13, "src": "assets/icons/chevron-down-muted.svg", "width": 13}
+              ]},
+              {"type": "column", "id": "c_c9rhsf", "width": "fill", "children": [
+                {"type": "text", "id": "t_r8v98c", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Which snack should fuel the next coding session?", "weight": 500}
+              ]},
+              {"type": "column", "id": "c_xqkq3w", "gap": 2, "width": "fill", "children": [
+                {"type": "row", "id": "r_tx17u2", "name": "Choice", "crossAlign": "start", "gap": 12, "padding": {"bottom": 6, "left": 10, "right": 10, "top": 6}, "radius": 6, "width": "fill", "children": [
+                  {"type": "column", "id": "c_bcs3t3", "gap": 1, "width": "fill", "children": [
+                    {"type": "text", "id": "t_llniee", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Espresso (Recommended)", "weight": 500},
+                    {"type": "text", "id": "t_vfl8pz", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12, "text": "Fast, focused, slightly jittery."}
+                  ]},
+                  {"type": "text", "id": "t_6df2vo", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12, "text": "1"}
+                ]},
+                {"type": "row", "id": "r_7bd71s", "name": "Choice", "crossAlign": "start", "gap": 12, "padding": {"bottom": 6, "left": 10, "right": 10, "top": 6}, "radius": 6, "width": "fill", "children": [
+                  {"type": "column", "id": "c_ld2is7", "gap": 1, "width": "fill", "children": [
+                    {"type": "text", "id": "t_b5gmxy", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Croissant", "weight": 500},
+                    {"type": "text", "id": "t_j29hqc", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12, "text": "Flaky, buttery, crumbs in the keyboard."}
+                  ]},
+                  {"type": "text", "id": "t_un08i8", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12, "text": "2"}
+                ]},
+                {"type": "row", "id": "r_ycd1z8", "name": "Choice", "crossAlign": "start", "gap": 12, "padding": {"bottom": 6, "left": 10, "right": 10, "top": 6}, "radius": 6, "width": "fill", "children": [
+                  {"type": "column", "id": "c_ezt61s", "gap": 1, "width": "fill", "children": [
+                    {"type": "text", "id": "t_2v74y8", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Fruit bowl", "weight": 500},
+                    {"type": "text", "id": "t_498azy", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12, "text": "Virtuous and mildly disappointing."}
+                  ]},
+                  {"type": "text", "id": "t_g8vlyp", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12, "text": "3"}
+                ]}
+              ]}
+            ]},
+            {"type": "group", "id": "g_k42wme", "height": 24, "width": "fill", "children": []},
+            {"type": "column", "id": "c_9gwg0n", "name": "Composer", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "rgba(255,255,255,0.03)", "gap": 6, "padding": {"bottom": 8, "left": 12, "right": 8, "top": 10}, "radius": 12, "width": "fill", "children": [
+              {"type": "text", "id": "t_nfef96", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "A banana", "width": "fill"},
+              {"type": "group", "id": "g_scaor7", "height": 36, "width": "fill", "children": []},
+              {"type": "row", "id": "r_05d9p6", "crossAlign": "center", "gap": 6, "width": "fill", "children": [
+                {"type": "image", "id": "img_avexlh", "name": "plus-muted", "height": 14, "src": "assets/icons/plus-muted.svg", "width": 14},
+                {"type": "image", "id": "img_jy5wze", "name": "agent-claude", "height": 13, "src": "assets/icons/agent-claude.svg", "width": 13},
+                {"type": "text", "id": "t_341fvw", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Claude Code"},
+                {"type": "image", "id": "img_chlpp0", "name": "chevron-down-muted", "height": 11, "src": "assets/icons/chevron-down-muted.svg", "width": 11},
+                {"type": "group", "id": "g_pdvxd6", "width": "fill", "children": []},
+                {"type": "instance", "id": "i_fkuqie", "component": "Button", "from": "@/components/ui/button", "props": {"size": "sm"}, "text": "Next question"}
+              ]}
+            ]}
+          ]}
+        ]}
+      ]},
+      {"type": "row", "id": "r_ebmztk", "crossAlign": "start", "gap": 40, "padding": {"bottom": 28, "top": 28}, "width": "fill", "children": [
+        {"type": "column", "id": "c_91snq5", "gap": 14, "width": 384, "children": [
+          {"type": "column", "id": "c_55etiy", "gap": 4, "width": "fill", "children": [
+            {"type": "text", "id": "t_cf73rp", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 14, "text": "Several at once, last step", "weight": 600},
+            {"type": "text", "id": "t_wb2mb4", "color": "$color-muted-foreground", "lineHeight": 1.55, "role": "paragraph", "size": 12, "text": "Previous goes back; the button sends the answers."}
+          ]},
+          {"type": "column", "id": "c_w0plgg", "name": "Panel", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-sidebar", "gap": 14, "padding": 16, "radius": 10, "width": 384, "children": [
+            {"type": "text", "id": "t_oe8f6n", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Ask me two questions to test the card"},
+            {"type": "column", "id": "c_wpu0uz", "name": "Ask card", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-card", "gap": 8, "padding": 12, "radius": 10, "width": "fill", "children": [
+              {"type": "row", "id": "r_xb1hts", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
+                {"type": "image", "id": "img_5krjl3", "name": "circle-help-brand", "height": 14, "src": "assets/icons/circle-help-brand.svg", "width": 14},
+                {"type": "text", "id": "t_sja0ie", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "The agent asks", "width": "fill"},
+                {"type": "text", "id": "t_2bhnb9", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Decline"},
+                {"type": "text", "id": "t_j32ofw", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "2/2"},
+                {"type": "image", "id": "img_juyybw", "name": "chevron-down-muted", "height": 13, "src": "assets/icons/chevron-down-muted.svg", "width": 13}
+              ]},
+              {"type": "column", "id": "c_gp3mcp", "width": "fill", "children": [
+                {"type": "text", "id": "t_bwj0jj", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Which features should the imaginary toolbar have?", "weight": 500},
+                {"type": "text", "id": "t_x2e5sh", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Pick one or more."}
+              ]},
+              {"type": "column", "id": "c_vhlxei", "gap": 2, "width": "fill", "children": [
+                {"type": "row", "id": "r_146i4l", "name": "Choice · picked", "crossAlign": "start", "fill": "$color-accent", "gap": 12, "padding": {"bottom": 6, "left": 10, "right": 10, "top": 6}, "radius": 6, "width": "fill", "children": [
+                  {"type": "column", "id": "c_n4rlkd", "gap": 1, "width": "fill", "children": [
+                    {"type": "text", "id": "t_dxz9lx", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Undo/redo", "weight": 500},
+                    {"type": "text", "id": "t_u5qf8y", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12, "text": "The classics."}
+                  ]},
+                  {"type": "image", "id": "img_cby9ve", "name": "check-brand", "height": 14, "margin": {"top": 3}, "src": "assets/icons/check-brand.svg", "width": 14}
+                ]},
+                {"type": "row", "id": "r_cel2p7", "name": "Choice", "crossAlign": "start", "gap": 12, "padding": {"bottom": 6, "left": 10, "right": 10, "top": 6}, "radius": 6, "width": "fill", "children": [
+                  {"type": "column", "id": "c_vol6fm", "gap": 1, "width": "fill", "children": [
+                    {"type": "text", "id": "t_gs8hq1", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Color picker", "weight": 500},
+                    {"type": "text", "id": "t_m0vzsb", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12, "text": "A swatch popover for fills and strokes."}
+                  ]},
+                  {"type": "text", "id": "t_e2u86m", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12, "text": "2"}
+                ]},
+                {"type": "row", "id": "r_y8dqad", "name": "Choice · picked", "crossAlign": "start", "fill": "$color-accent", "gap": 12, "padding": {"bottom": 6, "left": 10, "right": 10, "top": 6}, "radius": 6, "width": "fill", "children": [
+                  {"type": "column", "id": "c_eu27uv", "gap": 1, "width": "fill", "children": [
+                    {"type": "text", "id": "t_curdz0", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Zoom controls", "weight": 500},
+                    {"type": "text", "id": "t_wwcun3", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12, "text": "Fit, 100%, and +/- buttons."}
+                  ]},
+                  {"type": "image", "id": "img_jz2pkc", "name": "check-brand", "height": 14, "margin": {"top": 3}, "src": "assets/icons/check-brand.svg", "width": 14}
+                ]}
+              ]}
+            ]},
+            {"type": "group", "id": "g_avfhx6", "height": 24, "width": "fill", "children": []},
+            {"type": "column", "id": "c_t2y3tu", "name": "Composer", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "rgba(255,255,255,0.03)", "gap": 6, "padding": {"bottom": 8, "left": 12, "right": 8, "top": 10}, "radius": 12, "width": "fill", "children": [
+              {"type": "text", "id": "t_4wh24i", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Pick an option above, or press its number", "width": "fill"},
+              {"type": "group", "id": "g_3s0gxv", "height": 36, "width": "fill", "children": []},
+              {"type": "row", "id": "r_aun37s", "crossAlign": "center", "gap": 6, "width": "fill", "children": [
+                {"type": "image", "id": "img_zz29by", "name": "plus-muted", "height": 14, "src": "assets/icons/plus-muted.svg", "width": 14},
+                {"type": "image", "id": "img_o49l9p", "name": "agent-claude", "height": 13, "src": "assets/icons/agent-claude.svg", "width": 13},
+                {"type": "text", "id": "t_31w08c", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Claude Code"},
+                {"type": "image", "id": "img_fzgblj", "name": "chevron-down-muted", "height": 11, "src": "assets/icons/chevron-down-muted.svg", "width": 11},
+                {"type": "group", "id": "g_7edyuk", "width": "fill", "children": []},
+                {"type": "instance", "id": "i_6gs4tl", "component": "Button", "from": "@/components/ui/button", "props": {"size": "sm", "variant": "outline"}, "text": "Previous"},
+                {"type": "instance", "id": "i_n89qrj", "component": "Button", "from": "@/components/ui/button", "props": {"size": "sm"}, "text": "Send answers"}
+              ]}
+            ]}
+          ]}
+        ]},
+        {"type": "column", "id": "c_2rtmrt", "gap": 14, "width": 384, "children": [
+          {"type": "column", "id": "c_kmsuyc", "gap": 4, "width": "fill", "children": [
+            {"type": "text", "id": "t_0pf3ef", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 14, "text": "Answered", "weight": 600},
+            {"type": "text", "id": "t_vcg0n6", "color": "$color-muted-foreground", "lineHeight": 1.55, "role": "paragraph", "size": 12, "text": "Folds to each question and what was answered."}
+          ]},
+          {"type": "column", "id": "c_bdr04d", "name": "Panel", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-sidebar", "gap": 14, "padding": 16, "radius": 10, "width": 384, "children": [
+            {"type": "text", "id": "t_zsxoet", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Ask me two questions to test the card"},
+            {"type": "column", "id": "c_aqjw0e", "name": "Ask card · answered", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-card", "gap": 8, "padding": 12, "radius": 10, "width": "fill", "children": [
+              {"type": "row", "id": "r_g24kh1", "crossAlign": "center", "gap": 6, "children": [
+                {"type": "image", "id": "img_u50ph2", "name": "check-muted", "height": 14, "src": "assets/icons/check-muted.svg", "width": 14},
+                {"type": "text", "id": "t_brf8k6", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Answered"}
+              ]},
+              {"type": "column", "id": "c_pu0yec", "gap": 2, "children": [
+                {"type": "text", "id": "t_yrmsf8", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Which snack should fuel the next coding session?"},
+                {"type": "row", "id": "r_2o31dr", "crossAlign": "center", "gap": 8, "children": [
+                  {"type": "image", "id": "img_jx7srr", "name": "check-fg", "height": 14, "src": "assets/icons/check-fg.svg", "width": 14},
+                  {"type": "text", "id": "t_q826iy", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Espresso", "weight": 500}
+                ]}
+              ]},
+              {"type": "column", "id": "c_dkjqa7", "gap": 2, "children": [
+                {"type": "text", "id": "t_1jjj9n", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Which features should the toolbar have?"},
+                {"type": "row", "id": "r_tnyjmt", "crossAlign": "center", "gap": 8, "children": [
+                  {"type": "image", "id": "img_y0c5jz", "name": "check-fg", "height": 14, "src": "assets/icons/check-fg.svg", "width": 14},
+                  {"type": "text", "id": "t_sblvpm", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Undo/redo, Zoom controls", "weight": 500}
+                ]}
+              ]}
+            ]},
+            {"type": "group", "id": "g_m2xyuo", "height": 24, "width": "fill", "children": []}
+          ]}
+        ]}
+      ]}
+    ]}
+  ]},
   "version": 1
 }

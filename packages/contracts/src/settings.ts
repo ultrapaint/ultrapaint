@@ -13,6 +13,11 @@ export const Theme = Schema.Literals(["light", "dark"]);
 const common = {
   /** Renderer and builder for the preview; `react-vite` when absent. */
   framework: Schema.optional(FrameworkId),
+  /**
+   * Writes a PNG of every page beside its file (`orders.page.png`), drawn again whenever the page,
+   * its frame or the design system changes. Off when absent.
+   */
+  pagePngs: Schema.optional(Schema.Boolean),
   /** Optional module (relative to designsDir) whose default export wraps every screen. */
   providersModule: Schema.optional(Schema.String),
   /**
