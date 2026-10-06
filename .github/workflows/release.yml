@@ -32,6 +32,16 @@ jobs:
           cache: true
           require-lockfile: true
 
+      # The same checks as CI, so a release never packs a commit that fails them.
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
       - name: Raise the version
         id: version
         env:
