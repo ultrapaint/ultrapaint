@@ -840,6 +840,9 @@ const fitTo = (
       )
     )
   );
+  // A fit takes the whole view: a pan or zoom still waiting for the next frame (a trackpad's
+  // inertia) would otherwise land on top of it.
+  cancelPendingView();
   set({
     view: {
       x: viewport.x + (viewport.width - (x2 - x1) * zoom) / 2 - x1 * zoom,

@@ -11,6 +11,7 @@ import {
   allFrames,
   flushLayout,
   type Mode,
+  nextView,
   useEditor,
   type Viewport,
   workspaceOrder,
@@ -440,15 +441,16 @@ export const viewportSize = (): Viewport => {
 };
 
 export const zoomBy = (k: number) => {
-  const s = useEditor.getState();
+  // From the view as the next frame draws it, so a pan still waiting for that frame is kept.
+  const view = nextView();
   const { width, height, x } = viewportSize();
   const cx = x + width / 2;
   const cy = height / 2;
-  const next = Math.min(4, Math.max(0.05, s.view.zoom * k));
-  const r = next / s.view.zoom;
-  s.setView({
-    x: cx - (cx - s.view.x) * r,
-    y: cy - (cy - s.view.y) * r,
+  const next = Math.min(4, Math.max(0.05, view.zoom * k));
+  const r = next / view.zoom;
+  useEditor.getState().setView({
+    x: cx - (cx - view.x) * r,
+    y: cy - (cy - view.y) * r,
     zoom: next,
   });
 };

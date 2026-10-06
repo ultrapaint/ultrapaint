@@ -35,7 +35,7 @@ import { shortcutLabel } from "../lib/keys.ts";
 import { undoOrRedo, viewportSize, zoomBy } from "../lib/shortcuts.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { useComments } from "../state/comments.ts";
-import { type Mode, useEditor } from "../state/editor.ts";
+import { type Mode, nextView, useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
 
 /** `label` names the tool for a screen reader, as the tooltip names it on screen. */
@@ -131,7 +131,7 @@ const zoomToSelection = () =>
 const toggleGrid = () => useCanvasGrid.getState().toggle();
 
 const ZoomPresetItem = ({ pct }: { pct: number }) => {
-  const onClick = () => zoomBy(pct / 100 / useEditor.getState().view.zoom);
+  const onClick = () => zoomBy(pct / 100 / nextView().zoom);
   return <DropdownMenuItem onClick={onClick}>{pct}%</DropdownMenuItem>;
 };
 
