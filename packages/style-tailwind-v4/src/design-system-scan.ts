@@ -656,9 +656,7 @@ export const scanDesignSystem = (
     typography: {
       fonts: fonts.sort(byName),
       ...(leading.length > 0 && { leading: leading.sort(byName) }),
-      sizes: sizes.sort(
-        (a, b) => Number.parseFloat(a.value) - Number.parseFloat(b.value)
-      ),
+      sizes: sizes.sort((a, b) => lengthOf(a.value) - lengthOf(b.value)),
       styles,
       ...(tracking.length > 0 && { tracking: tracking.sort(byName) }),
       weights: weights.sort(

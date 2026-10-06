@@ -713,8 +713,9 @@ export interface Classified {
 }
 
 export interface Known {
+  /** Each colour value, normalised, and the first colour token that has it. */
+  readonly colorByValue: Map<string, string>;
   readonly colors: Set<string>;
-  readonly colorTokens: Map<string, string>;
   readonly layers: Set<string>;
   readonly radii: Set<string>;
   readonly shadows: Set<string>;
@@ -741,9 +742,16 @@ export const knownOf = (
       }
     }
   }
+  const colorByValue = new Map<string, string>();
+  for (const [name, value] of colorTokens) {
+    const normalised = normaliseColor(value);
+    if (!colorByValue.has(normalised)) {
+      colorByValue.set(normalised, name);
+    }
+  }
   return {
+    colorByValue,
     colors: new Set(colorTokens.keys()),
-    colorTokens,
     layers: new Set(
       (ds.elevation ?? []).flatMap((level) =>
         level.layer === undefined ? [] : [String(level.layer)]
@@ -757,19 +765,10 @@ export const knownOf = (
   };
 };
 
-/** The colour token whose value is exactly this literal. */
-const tokenWithValue = (known: Known, literal: string) => {
-  const value = normaliseColor(literal);
-  for (const [name, tokenValue] of known.colorTokens) {
-    if (normaliseColor(tokenValue) === value) {
-      return name;
-    }
-  }
-};
-
 const rawColor = (known: Known, literal: string): Classified => {
   const value = normaliseColor(literal);
-  const token = tokenWithValue(known, value);
+  // The colour token whose value is exactly this literal.
+  const token = known.colorByValue.get(value);
   return {
     kind: "color",
     literal: literal.trim(),

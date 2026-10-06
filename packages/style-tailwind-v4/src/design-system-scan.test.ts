@@ -266,6 +266,29 @@ describe("scanning a Tailwind v4 design system", () => {
     expect(everything.designSystem.typography.fonts).toEqual([]);
   });
 
+  it("sorts type sizes by length, rem and px alike", () => {
+    const root = repository({
+      "app.css": `@import "tailwindcss";
+@theme { --text-body: 1rem; --text-caption: 12px; --text-title: 1.5rem; --text-display: 30px; }`,
+      "node_modules/tailwindcss/package.json": '{"name":"tailwindcss"}',
+    });
+    const { designSystem } = scanDesignSystem({
+      anchorDir: root,
+      root,
+      settings: {
+        ...defaultSettings(root),
+        designsDir: ".",
+        hostCss: ["../app.css"],
+      },
+    });
+    expect(designSystem.typography.sizes.map((s) => s.name)).toEqual([
+      "text-caption",
+      "text-body",
+      "text-title",
+      "text-display",
+    ]);
+  });
+
   it("says so when there is no Tailwind", () => {
     const root = repository({ "app.css": ":root { --x: 1px; }" });
     const { designSystem, notes } = scanDesignSystem({
