@@ -304,9 +304,11 @@ export const main = (args: readonly string[]): void => {
   );
 
   /**
-   * The server under `tsx watch` and the editor under Vite, side by side in one scope. `tsx
-   * watch` restarts the server whenever a source changes; an unsaved session lives in a
-   * directory of the command's scope so that it survives those restarts.
+   * The server under `tsx watch` and the editor under Vite, side by side. `tsx watch` restarts
+   * the server whenever a source changes; an unsaved session lives in a directory of the
+   * command's scope so that it survives those restarts. Neither ends on its own, so the first to
+   * end (Vite on a taken port, say) ends the session: each runs in a scope of its own, and the
+   * other is stopped by closing it. The returned code is the command's.
    */
   const develop = Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -319,8 +321,8 @@ export const main = (args: readonly string[]): void => {
             }),
           ]
         : [];
-    return yield* Effect.all(
-      [
+    const [name, code] = yield* Effect.raceFirst(
+      Effect.scoped(
         run(
           process.execPath,
           [
@@ -339,7 +341,9 @@ export const main = (args: readonly string[]): void => {
           ],
           cwd,
           { name: "server" }
-        ),
+        )
+      ).pipe(Effect.map((exit) => ["server", Number(exit)] as const)),
+      Effect.scoped(
         run(process.execPath, [vite()], webDir, {
           env: {
             ULTRAPAINT_HOST: host,
@@ -347,10 +351,14 @@ export const main = (args: readonly string[]): void => {
             ULTRAPAINT_WEB_PORT: String(webPort),
           },
           name: "web",
-        }),
-      ],
-      { concurrency: "unbounded" }
+        })
+      ).pipe(Effect.map((exit) => ["web", Number(exit)] as const))
     );
+    yield* Console.error(
+      `[ultrapaint] the ${name} process ended with code ${code}; stopping the session`
+    );
+    // Ending at all is a failure here, even with 0: the session was meant to run until stopped.
+    return code === 0 ? 1 : code;
   });
 
   const program = Effect.gen(function* () {
@@ -370,7 +378,7 @@ export const main = (args: readonly string[]): void => {
     }
     yield* Effect.forkScoped(openBrowser);
     if (dev) {
-      yield* develop;
+      process.exitCode = yield* develop;
       return;
     }
     yield* ensureEditor;
