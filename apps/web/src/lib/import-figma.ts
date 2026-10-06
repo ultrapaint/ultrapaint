@@ -4,7 +4,6 @@
  * are compared with the code's first, then an agent turns the frames into pages (ADR 0025).
  */
 
-import { getPlatform } from "@ultrapaint/client-runtime/platform";
 import type { FigmaImport } from "@ultrapaint/contracts/figma";
 import { toast } from "sonner";
 import { showSetup } from "../state/design-system-setup.ts";
@@ -15,8 +14,7 @@ const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
 const upload = async (file: File): Promise<FigmaImport> => {
-  const base = getPlatform().serverUrl ?? "";
-  const response = await fetch(`${base}/api/figma/import`, {
+  const response = await fetch("/api/figma/import", {
     body: file,
     headers: {
       "content-type": "application/octet-stream",
