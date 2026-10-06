@@ -6,6 +6,7 @@ import type { DesignSystem, Token } from "@ultrapaint/contracts/design-system";
 import { tokenRef, toPixels } from "@ultrapaint/design-document/tokens";
 import type { StyleOption } from "../components/style-combobox.tsx";
 import { useDesignSystem } from "../state/design-system.ts";
+import { SPACING_SCALE } from "./spacing.ts";
 
 export const Swatch = ({ color }: { color: string | undefined }) => (
   <span
@@ -21,11 +22,6 @@ const tokenOption = (token: Token, prefix: string): StyleOption => ({
     : token.name,
   value: tokenRef(token.name),
 });
-
-/** Steps of Tailwind's spacing scale a designer picks from. */
-const SPACING_STEPS = [
-  0, 0.5, 1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10, 12, 14, 16, 20, 24, 32, 40, 48,
-];
 
 export type TokenKind =
   | "color"
@@ -47,7 +43,7 @@ const tokenOptions = (
   if (kind === "spacing") {
     const base = toPixels(ds?.spacing.base ?? "0.25rem") ?? 4;
     return [
-      ...SPACING_STEPS.map((step) => ({
+      ...SPACING_SCALE.map((step) => ({
         description: `spacing-${step}`,
         label: String(step * base),
         value: String(step * base),

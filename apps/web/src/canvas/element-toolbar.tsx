@@ -92,6 +92,7 @@ import {
   updateNodes,
   wrapNodes,
 } from "../lib/node-actions.ts";
+import { TOOLBAR_SPACING } from "../lib/spacing.ts";
 import { openChat, stopThread } from "../lib/thread-actions.ts";
 import { ComponentProps } from "../panels/component-props.tsx";
 import { useAgents } from "../state/agents.ts";
@@ -117,9 +118,6 @@ const shared = (values: readonly string[], fallback: string) => {
   const [first = fallback] = values;
   return values.every((v) => v === first) ? first : MIXED;
 };
-
-/** Steps of the spacing scale the toolbar offers; the inspector has every value. */
-const SPACING_STEPS = [0, 1, 2, 3, 4, 5, 6, 8, 10, 12];
 
 const FIELD: Record<
   TokenField,
@@ -509,7 +507,7 @@ const TokenSelect = ({
       </DropdownMenuGroup>
     ));
   } else if (control.token === "spacing") {
-    items = SPACING_STEPS.map((step) => (
+    items = TOOLBAR_SPACING.map((step) => (
       <DropdownMenuRadioItem key={step} value={String(step * base)}>
         <span
           className="h-2.5 shrink-0 rounded-sm bg-muted-foreground/40"

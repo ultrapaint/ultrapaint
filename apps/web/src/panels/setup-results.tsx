@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
 import { Segmented } from "../components/segmented.tsx";
+import { SPACING_SCALE } from "../lib/spacing.ts";
 import { useCatalogue } from "../state/catalogue.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
@@ -41,11 +42,6 @@ const BASICS: Record<string, string> = {
 const KIND_LABELS = Object.fromEntries(
   USAGE_KINDS.map(({ kind, label }) => [kind, label])
 ) as Record<UsageKind, string>;
-/** The steps of the spacing scale offered for a length, beyond the named tokens. */
-const SPACING_STEPS = [
-  0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 20, 24, 28,
-  32, 36, 40, 48, 56, 64, 72, 80, 96,
-];
 
 const Bar = ({
   totals,
@@ -226,7 +222,8 @@ const targetsOf = (
     radius: names(ds.radius),
     shadow: names(ds.shadows),
     spacing: [
-      ...SPACING_STEPS.map((s) => `spacing-${s}`),
+      // The steps of the spacing scale are offered for a length, beyond the named tokens.
+      ...SPACING_SCALE.map((s) => `spacing-${s}`),
       ...names(ds.spacing.tokens),
     ],
     zIndex: (ds.elevation ?? []).flatMap((l) =>
