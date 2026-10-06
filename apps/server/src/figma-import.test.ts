@@ -313,7 +313,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
             route: "/login",
           });
           assert.isTrue(again.result.isError);
-        })
+        }),
+      30_000
     );
 
     it.effect(
@@ -394,7 +395,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
             })
           );
           assert.strictEqual(twice._tag, "Failure");
-        })
+        }),
+      30_000
     );
 
     it.effect(

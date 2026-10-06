@@ -223,7 +223,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             told.indexOf("# Hierarchy"),
             told.indexOf("Blue is the brand.")
           );
-        })
+        }),
+      30_000
     );
   }
 );

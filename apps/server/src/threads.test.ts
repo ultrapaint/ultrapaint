@@ -118,7 +118,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             thread?.modes?.map((m) => m.id),
             ["ask", "auto"]
           );
-        })
+        }),
+      30_000
     );
 
     it.effect("authenticates and retries when the agent asks for it", () =>

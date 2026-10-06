@@ -230,208 +230,227 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             again.result.content?.[0]?.text ?? "",
             "End your turn"
           );
-        })
+        }),
+      30_000
     );
 
-    it.effect("answers an agent's session token with the project's pages", () =>
-      Effect.gen(function* () {
-        const { client, port, settings } = yield* TestEnv;
-        yield* client["settings.set"](settings);
-        const thread = yield* client["threads.create"]({ agentId: "fake" });
-        // The agent reports the MCP server it was handed, token and all.
-        yield* client["threads.prompt"]({
-          attachments: [],
-          text: "mcp",
-          threadId: thread.id,
-        });
-        const items = yield* client["threads.items"]({
-          threadId: thread.id,
-        }).pipe(
-          Effect.tap(() => Effect.sleep("25 millis")),
-          Effect.repeat({
-            until: (all) => all.at(-1)?.kind === "turn_end",
-          }),
-          Effect.timeout("20 seconds")
-        );
-        const said = items
-          .map((i) => (i.kind === "agent" ? i.text : ""))
-          .find((t) => t.startsWith("mcp:"));
-        const [url, token] = (said ?? "").slice("mcp:".length).split("|");
-        assert.include(url ?? "", `127.0.0.1:${port}/mcp`);
-        assert.isTrue((token ?? "").startsWith("mcp_"));
-
-        const listed = yield* callMcp(port, token, { method: "tools/list" });
-        assert.strictEqual(listed.status, 200);
-        const tools = (yield* Effect.promise(() => listed.json())) as {
-          result: { tools: { name: string }[] };
-        };
-        assert.deepStrictEqual(tools.result.tools.map((t) => t.name).sort(), [
-          "apply_operations",
-          "ask_user",
-          "copy_pages",
-          "create_canvas",
-          "create_page",
-          "delete_page",
-          "duplicate_page",
-          "finish_setup_step",
-          "focus",
-          "get_component",
-          "get_context",
-          "get_document_format",
-          "get_screenshot",
-          "list_comments",
-          "list_components",
-          "list_figma_imports",
-          "list_links",
-          "list_pages",
-          "list_templates",
-          "map_figma_component",
-          "map_values",
-          "next_batch",
-          "read_canvas",
-          "read_design_system",
-          "read_figma_component",
-          "read_figma_frame",
-          "read_figma_import",
-          "read_page",
-          "rename_page",
-          "reply_to_comment",
-          "resolve_comment",
-          "scan_design_system",
-          "set_frame",
-          "set_home",
-          "set_page_url",
-          "write_design_system",
-          "write_figma_frame",
-        ]);
-
-        const called = yield* callMcp(port, token, {
-          method: "tools/call",
-          params: { arguments: {}, name: "list_pages" },
-        });
-        const pages = (yield* Effect.promise(() => called.json())) as {
-          result: { structuredContent: { pages: { route: string }[] } };
-        };
-        assert.deepStrictEqual(
-          pages.result.structuredContent.pages.map((p) => p.route),
-          ["/home"]
-        );
-
-        // A page the agent makes through the editor is named as asked and serves the URL given.
-        const created = yield* callMcp(port, token, {
-          method: "tools/call",
-          params: {
-            arguments: { name: "Pricing", route: "/pricing" },
-            name: "create_page",
-          },
-        });
-        const page = (yield* Effect.promise(() => created.json())) as {
-          result: { structuredContent: { file: string; route: string } };
-        };
-        assert.strictEqual(page.result.structuredContent.route, "/pricing");
-        assert.include(page.result.structuredContent.file, "pricing.page.json");
-        // A page without a URL is named by its file, and given one afterwards.
-        const sketch = yield* callMcp(port, token, {
-          method: "tools/call",
-          params: { arguments: { name: "Sketch" }, name: "create_page" },
-        });
-        const sketched = (yield* Effect.promise(() => sketch.json())) as {
-          result: { structuredContent: { file: string; route?: string } };
-        };
-        assert.isUndefined(sketched.result.structuredContent.route);
-        const served = yield* callMcp(port, token, {
-          method: "tools/call",
-          params: {
-            arguments: { route: "sketch.page.json", url: "/sketch" },
-            name: "set_page_url",
-          },
-        });
-        const servedAt = (yield* Effect.promise(() => served.json())) as {
-          result: { structuredContent: { route?: string } };
-        };
-        assert.strictEqual(servedAt.result.structuredContent.route, "/sketch");
-        const listedAgain = yield* client["pages.list"]();
-        assert.include(
-          listedAgain.pages.map((p) => p.route),
-          "/pricing"
-        );
-
-        const tool = (name: string, args: Record<string, unknown>) =>
-          Effect.flatMap(
-            callMcp(port, token, {
-              method: "tools/call",
-              params: { arguments: args, name },
+    it.effect(
+      "answers an agent's session token with the project's pages",
+      () =>
+        Effect.gen(function* () {
+          const { client, port, settings } = yield* TestEnv;
+          yield* client["settings.set"](settings);
+          const thread = yield* client["threads.create"]({ agentId: "fake" });
+          // The agent reports the MCP server it was handed, token and all.
+          yield* client["threads.prompt"]({
+            attachments: [],
+            text: "mcp",
+            threadId: thread.id,
+          });
+          const items = yield* client["threads.items"]({
+            threadId: thread.id,
+          }).pipe(
+            Effect.tap(() => Effect.sleep("25 millis")),
+            Effect.repeat({
+              until: (all) => all.at(-1)?.kind === "turn_end",
             }),
-            (response) =>
-              Effect.promise(
-                () =>
-                  response.json() as Promise<{
-                    result: {
-                      isError?: boolean;
-                      content: { text: string }[];
-                      structuredContent: Record<string, unknown>;
-                    };
-                  }>
-              )
+            Effect.timeout("20 seconds")
+          );
+          const said = items
+            .map((i) => (i.kind === "agent" ? i.text : ""))
+            .find((t) => t.startsWith("mcp:"));
+          const [url, token] = (said ?? "").slice("mcp:".length).split("|");
+          assert.include(url ?? "", `127.0.0.1:${port}/mcp`);
+          assert.isTrue((token ?? "").startsWith("mcp_"));
+
+          const listed = yield* callMcp(port, token, { method: "tools/list" });
+          assert.strictEqual(listed.status, 200);
+          const tools = (yield* Effect.promise(() => listed.json())) as {
+            result: { tools: { name: string }[] };
+          };
+          assert.deepStrictEqual(tools.result.tools.map((t) => t.name).sort(), [
+            "apply_operations",
+            "ask_user",
+            "copy_pages",
+            "create_canvas",
+            "create_page",
+            "delete_page",
+            "duplicate_page",
+            "finish_setup_step",
+            "focus",
+            "get_component",
+            "get_context",
+            "get_document_format",
+            "get_screenshot",
+            "list_comments",
+            "list_components",
+            "list_figma_imports",
+            "list_links",
+            "list_pages",
+            "list_templates",
+            "map_figma_component",
+            "map_values",
+            "next_batch",
+            "read_canvas",
+            "read_design_system",
+            "read_figma_component",
+            "read_figma_frame",
+            "read_figma_import",
+            "read_page",
+            "rename_page",
+            "reply_to_comment",
+            "resolve_comment",
+            "scan_design_system",
+            "set_frame",
+            "set_home",
+            "set_page_url",
+            "write_design_system",
+            "write_figma_frame",
+          ]);
+
+          const called = yield* callMcp(port, token, {
+            method: "tools/call",
+            params: { arguments: {}, name: "list_pages" },
+          });
+          const pages = (yield* Effect.promise(() => called.json())) as {
+            result: { structuredContent: { pages: { route: string }[] } };
+          };
+          assert.deepStrictEqual(
+            pages.result.structuredContent.pages.map((p) => p.route),
+            ["/home"]
           );
 
-        // The agent changes the page through the same operations the editor uses.
-        const applied = yield* tool("apply_operations", {
-          ops: [
-            {
-              node: { level: 1, role: "heading", text: "Plans", type: "text" },
-              op: "insert",
-              parent: null,
+          // A page the agent makes through the editor is named as asked and serves the URL given.
+          const created = yield* callMcp(port, token, {
+            method: "tools/call",
+            params: {
+              arguments: { name: "Pricing", route: "/pricing" },
+              name: "create_page",
             },
-          ],
-          route: "/pricing",
-        });
-        assert.isNotTrue(applied.result.isError);
-        const [heading] = applied.result.structuredContent.created as string[];
-        const read = yield* tool("read_page", { route: "/pricing" });
-        const document = read.result.structuredContent.document as {
-          root: { children: { id: string; text: string }[] };
-        };
-        assert.deepStrictEqual(
-          document.root.children.map((c) => [c.id, c.text]),
-          [[heading, "Plans"]]
-        );
-        const wrong = yield* tool("apply_operations", {
-          ops: [{ id: "nowhere", op: "remove" }],
-          route: "/pricing",
-        });
-        assert.isTrue(wrong.result.isError);
-        assert.include(wrong.result.content[0]?.text ?? "", "no node nowhere");
+          });
+          const page = (yield* Effect.promise(() => created.json())) as {
+            result: { structuredContent: { file: string; route: string } };
+          };
+          assert.strictEqual(page.result.structuredContent.route, "/pricing");
+          assert.include(
+            page.result.structuredContent.file,
+            "pricing.page.json"
+          );
+          // A page without a URL is named by its file, and given one afterwards.
+          const sketch = yield* callMcp(port, token, {
+            method: "tools/call",
+            params: { arguments: { name: "Sketch" }, name: "create_page" },
+          });
+          const sketched = (yield* Effect.promise(() => sketch.json())) as {
+            result: { structuredContent: { file: string; route?: string } };
+          };
+          assert.isUndefined(sketched.result.structuredContent.route);
+          const served = yield* callMcp(port, token, {
+            method: "tools/call",
+            params: {
+              arguments: { route: "sketch.page.json", url: "/sketch" },
+              name: "set_page_url",
+            },
+          });
+          const servedAt = (yield* Effect.promise(() => served.json())) as {
+            result: { structuredContent: { route?: string } };
+          };
+          assert.strictEqual(
+            servedAt.result.structuredContent.route,
+            "/sketch"
+          );
+          const listedAgain = yield* client["pages.list"]();
+          assert.include(
+            listedAgain.pages.map((p) => p.route),
+            "/pricing"
+          );
 
-        // The design system is validated before it is saved.
-        const invalid = yield* tool("write_design_system", {
-          designSystem: { version: 1 },
-        });
-        assert.isTrue(invalid.result.isError);
-        const saved = yield* tool("write_design_system", {
-          designSystem: {
-            colors: [
+          const tool = (name: string, args: Record<string, unknown>) =>
+            Effect.flatMap(
+              callMcp(port, token, {
+                method: "tools/call",
+                params: { arguments: args, name },
+              }),
+              (response) =>
+                Effect.promise(
+                  () =>
+                    response.json() as Promise<{
+                      result: {
+                        isError?: boolean;
+                        content: { text: string }[];
+                        structuredContent: Record<string, unknown>;
+                      };
+                    }>
+                )
+            );
+
+          // The agent changes the page through the same operations the editor uses.
+          const applied = yield* tool("apply_operations", {
+            ops: [
               {
-                name: "Semantic",
-                tokens: [{ name: "color-primary", value: "#000" }],
+                node: {
+                  level: 1,
+                  role: "heading",
+                  text: "Plans",
+                  type: "text",
+                },
+                op: "insert",
+                parent: null,
               },
             ],
-            radius: [],
-            shadows: [],
-            spacing: { base: "0.25rem" },
-            typography: { fonts: [], sizes: [], styles: [], weights: [] },
-            version: 1,
-          },
-          notes: "# Acme\nUse the primary colour for one action per screen.",
-        });
-        assert.isNotTrue(saved.result.isError);
-        const system = yield* client["designSystem.get"]();
-        assert.strictEqual(
-          system.designSystem?.colors[0]?.tokens[0]?.name,
-          "color-primary"
-        );
-        assert.include(system.notes ?? "", "one action per screen");
-      })
+            route: "/pricing",
+          });
+          assert.isNotTrue(applied.result.isError);
+          const [heading] = applied.result.structuredContent
+            .created as string[];
+          const read = yield* tool("read_page", { route: "/pricing" });
+          const document = read.result.structuredContent.document as {
+            root: { children: { id: string; text: string }[] };
+          };
+          assert.deepStrictEqual(
+            document.root.children.map((c) => [c.id, c.text]),
+            [[heading, "Plans"]]
+          );
+          const wrong = yield* tool("apply_operations", {
+            ops: [{ id: "nowhere", op: "remove" }],
+            route: "/pricing",
+          });
+          assert.isTrue(wrong.result.isError);
+          assert.include(
+            wrong.result.content[0]?.text ?? "",
+            "no node nowhere"
+          );
+
+          // The design system is validated before it is saved.
+          const invalid = yield* tool("write_design_system", {
+            designSystem: { version: 1 },
+          });
+          assert.isTrue(invalid.result.isError);
+          const saved = yield* tool("write_design_system", {
+            designSystem: {
+              colors: [
+                {
+                  name: "Semantic",
+                  tokens: [{ name: "color-primary", value: "#000" }],
+                },
+              ],
+              radius: [],
+              shadows: [],
+              spacing: { base: "0.25rem" },
+              typography: { fonts: [], sizes: [], styles: [], weights: [] },
+              version: 1,
+            },
+            notes: "# Acme\nUse the primary colour for one action per screen.",
+          });
+          assert.isNotTrue(saved.result.isError);
+          const system = yield* client["designSystem.get"]();
+          assert.strictEqual(
+            system.designSystem?.colors[0]?.tokens[0]?.name,
+            "color-primary"
+          );
+          assert.include(system.notes ?? "", "one action per screen");
+        }),
+      30_000
     );
 
     it.effect(

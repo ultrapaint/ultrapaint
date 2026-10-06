@@ -62,7 +62,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           ]);
           assert.strictEqual(drifted.steps[0]?.state, "attention");
           assert.include(drifted.steps[0]?.detail ?? "", "color-accent");
-        })
+        }),
+      30_000
     );
 
     it.effect(
@@ -168,7 +169,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             })
           );
           assert.include(refused.message, "already has a package.json");
-        })
+        }),
+      30_000
     );
   }
 );

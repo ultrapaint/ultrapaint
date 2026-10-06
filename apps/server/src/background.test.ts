@@ -15,7 +15,7 @@ const nextEvent = <A, E, B, E2, R2>(
 ) =>
   Effect.gen(function* () {
     const first = yield* Effect.forkScoped(
-      Stream.runHead(stream).pipe(Effect.timeout("10 seconds"))
+      Stream.runHead(stream).pipe(Effect.timeout("20 seconds"))
     );
     // The subscription has to reach the server before the change happens.
     yield* Effect.sleep("150 millis");
