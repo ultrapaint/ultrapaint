@@ -20,18 +20,20 @@ export const MCP_PATH = "/mcp";
 export const MCP_TOKEN_HEADER = "x-ultrapaint-token";
 const MCP_VERSION_HEADER = "mcp-protocol-version";
 
-/** Turns away anything reaching the MCP endpoint without a token of a live session. */
-const TokenGate = HttpRouter.use(
-  Effect.fnUntraced(function* (router) {
+/**
+ * Turns away anything reaching the MCP endpoint without a token of a live session. It is given
+ * to the MCP routes themselves rather than run on every request: the router finds a route by a
+ * path it has decoded and folded (`/MCP`, `//mcp` and `/%6dcp` all reach it), so a gate that
+ * read the path for itself would let those through.
+ */
+const TokenGate = HttpRouter.middleware(
+  Effect.gen(function* () {
     const access = yield* McpAccess;
     /** Who has been heard speaking which protocol revision, so each is logged once. */
     const heard = new Set<string>();
-    yield* router.addGlobalMiddleware((handler) =>
+    return (handler) =>
       Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest;
-        if (!request.url.startsWith(MCP_PATH)) {
-          return yield* handler;
-        }
         const token = request.headers[MCP_TOKEN_HEADER];
         if (!(yield* access.allows(token))) {
           return HttpServerResponse.text("unknown token", { status: 403 });
@@ -50,8 +52,7 @@ const TokenGate = HttpRouter.use(
         }
         // An agent from outside the editor has no thread, and the tools that need one say so.
         return yield* Effect.provideService(handler, CallingThread, thread);
-      })
-    );
+      });
   })
 );
 
@@ -78,7 +79,6 @@ export const McpRoute = Tools.pipe(
         McpProtocol.v2025_06_18,
       ],
       version: "0.1.0",
-    })
-  ),
-  Layer.merge(TokenGate)
+    }).pipe(Layer.provide(TokenGate.layer))
+  )
 );

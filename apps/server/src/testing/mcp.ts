@@ -17,14 +17,16 @@ export const callMcp = (
   port: number,
   token: string | undefined,
   body: { readonly method: string; readonly params?: Record<string, unknown> },
-  capabilities: ClientCapabilities = {}
+  capabilities: ClientCapabilities = {},
+  /** The endpoint as the request spells it; the router reaches it by other spellings too. */
+  path = "/mcp"
 ) => {
   const params = body.params ?? {};
   const meta = (params._meta ?? {}) as Record<string, unknown>;
   const name =
     typeof params.name === "string" ? { "mcp-name": params.name } : {};
   return Effect.promise(() =>
-    fetch(`http://127.0.0.1:${port}/mcp`, {
+    fetch(`http://127.0.0.1:${port}${path}`, {
       body: JSON.stringify({
         id: 1,
         jsonrpc: "2.0",

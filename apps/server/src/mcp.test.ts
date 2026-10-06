@@ -47,6 +47,34 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         })
     );
 
+    it.effect(
+      "turns away a caller without a token however the path is spelled",
+      () =>
+        Effect.gen(function* () {
+          const { client, port } = yield* TestEnv;
+          const { token } = yield* client["mcp.connection"]();
+          for (const path of ["/MCP", "//mcp", "/%6dcp", "/mcp/", "/Mcp?x=1"]) {
+            const refused = yield* callMcp(
+              port,
+              undefined,
+              { method: "tools/list" },
+              {},
+              path
+            );
+            assert.strictEqual(refused.status, 403, path);
+            // The same spelling with the token reaches the tools: the router does route it.
+            const answered = yield* callMcp(
+              port,
+              token,
+              { method: "tools/list" },
+              {},
+              path
+            );
+            assert.strictEqual(answered.status, 200, path);
+          }
+        })
+    );
+
     it.effect("turns away a token that belongs to no session", () =>
       Effect.gen(function* () {
         const { port } = yield* TestEnv;
