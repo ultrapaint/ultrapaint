@@ -8,7 +8,7 @@ import {
   LEGACY_CONFIG_FILE_NAME,
 } from "@ultrapaint/contracts/settings";
 import { applySuggestions } from "@ultrapaint/contracts/setup";
-import { Effect, Layer, Stream } from "effect";
+import { Effect, Layer, Option, Stream } from "effect";
 import {
   HttpRouter,
   HttpServerRequest,
@@ -134,21 +134,49 @@ const FigmaImportRoute = HttpRouter.use(
         ) {
           return HttpServerResponse.text("origin not allowed", { status: 403 });
         }
+        const tooLarge = HttpServerResponse.jsonUnsafe(
+          { message: "the file is larger than the import accepts" },
+          { status: 413 }
+        );
         const declared = Number(request.headers["content-length"] ?? 0);
         if (declared > MAX_FIG_BYTES) {
+          return tooLarge;
+        }
+        const name = yield* Effect.option(
+          Effect.try(() =>
+            decodeURIComponent(request.headers[FIG_HEADER] ?? "design.fig")
+          )
+        );
+        if (Option.isNone(name)) {
           return HttpServerResponse.jsonUnsafe(
-            { message: "the file is larger than the import accepts" },
-            { status: 413 }
+            { message: `${FIG_HEADER} is not a URI-encoded file name` },
+            { status: 400 }
           );
         }
-        const name = decodeURIComponent(
-          request.headers[FIG_HEADER] ?? "design.fig"
+        // Counted as it arrives: a chunked body declares no length, and is cut off at the cap
+        // rather than read whole first.
+        const chunks: Uint8Array[] = [];
+        let size = 0;
+        yield* Stream.runForEachWhile(request.stream, (chunk) =>
+          Effect.sync(() => {
+            size += chunk.length;
+            chunks.push(chunk);
+            return size <= MAX_FIG_BYTES;
+          })
         );
-        const bytes = new Uint8Array(yield* request.arrayBuffer);
+        if (size > MAX_FIG_BYTES) {
+          return tooLarge;
+        }
+        const bytes = new Uint8Array(size);
+        let at = 0;
+        for (const chunk of chunks) {
+          bytes.set(chunk, at);
+          at += chunk.length;
+        }
         return yield* project
           .use(
             Effect.flatMap(FigmaImportService, (figma) =>
-              figma.create(name, bytes)
+              figma.create(name.value, bytes)
             )
           )
           .pipe(

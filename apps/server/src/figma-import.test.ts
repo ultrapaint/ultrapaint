@@ -1,6 +1,7 @@
+import { request } from "node:http";
 import { assert, layer } from "@effect/vitest";
 import type { PageDocument } from "@ultrapaint/contracts/document";
-import type { FigmaImport } from "@ultrapaint/contracts/figma";
+import { type FigmaImport, MAX_FIG_BYTES } from "@ultrapaint/contracts/figma";
 import type { FigGuid } from "@ultrapaint/figma-import/fig";
 import {
   identity,
@@ -114,9 +115,75 @@ const upload = (port: number, name: string, bytes: Uint8Array) =>
     })
   );
 
+/**
+ * A body sent in chunks, with no length declared, until the server answers or `total` bytes are
+ * out. Answers with the status and how much had been sent by then.
+ */
+const uploadChunked = (port: number, total: number) =>
+  Effect.callback<{ readonly sent: number; readonly status: number }>(
+    (resume) => {
+      const chunk = new Uint8Array(1024 * 1024);
+      let sent = 0;
+      let done = false;
+      const finish = (status: number) => {
+        if (!done) {
+          done = true;
+          resume(Effect.succeed({ sent, status }));
+        }
+      };
+      const req = request({
+        agent: false,
+        headers: {
+          "content-type": "application/octet-stream",
+          "transfer-encoding": "chunked",
+          "x-file-name": "huge.fig",
+        },
+        host: "127.0.0.1",
+        method: "POST",
+        path: "/api/figma/import",
+        port,
+      });
+      req.on("response", (res) => {
+        res.resume();
+        finish(res.statusCode ?? 0);
+      });
+      req.on("error", () => finish(-1));
+      const pump = () => {
+        while (!done && sent < total) {
+          sent += chunk.length;
+          if (!req.write(chunk)) {
+            req.once("drain", pump);
+            return;
+          }
+        }
+        if (!done) {
+          req.end();
+        }
+      };
+      pump();
+    }
+  );
+
 layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
   "importing a Figma file",
   (it) => {
+    it.effect("answers a file name that is not URI-encoded with a 400", () =>
+      Effect.gen(function* () {
+        const { port } = yield* TestEnv;
+        const response = yield* Effect.promise(() =>
+          fetch(`http://127.0.0.1:${port}/api/figma/import`, {
+            body: new Uint8Array(8),
+            headers: {
+              "content-type": "application/octet-stream",
+              "x-file-name": "%E0%A4%A",
+            },
+            method: "POST",
+          })
+        );
+        assert.strictEqual(response.status, 400);
+      })
+    );
+
     it.effect(
       "reads the file, lets an agent map its components, and writes a frame as a page",
       () =>
@@ -327,6 +394,19 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
             })
           );
           assert.strictEqual(twice._tag, "Failure");
+        })
+    );
+
+    it.effect(
+      "turns away a body past the cap that declared no length, without reading it all",
+      () =>
+        Effect.gen(function* () {
+          const { port } = yield* TestEnv;
+          const total = MAX_FIG_BYTES * 2;
+          const { sent, status } = yield* uploadChunked(port, total);
+          // Answered before the client had sent it all; a reset is the server hanging up on it.
+          assert.include([413, -1], status);
+          assert.isBelow(sent, total);
         })
     );
   }
