@@ -71,7 +71,10 @@ export const masked = (text: string): string => {
   let i = 0;
   while (i < text.length) {
     const char = text[i];
-    if (char === '"' || char === "'") {
+    if (char === "\\") {
+      // An escaped character, `.it\'s`, is part of a name, and opens nothing.
+      i += 2;
+    } else if (char === '"' || char === "'") {
       i = stringEnd(text, i) + 1;
     } else if (char === "/" && text[i + 1] === "*") {
       const close = text.indexOf("*/", i + 2);
@@ -220,7 +223,10 @@ export const parseStylesheet = (file: string, text: string): Parsed => {
   let i = 0;
   while (i < css.length) {
     const char = css[i];
-    if (char === '"' || char === "'") {
+    if (char === "\\") {
+      // `.foo\(` and `.it\'s` are selectors: the escaped character opens nothing.
+      i += 1;
+    } else if (char === '"' || char === "'") {
       i = stringEnd(css, i);
     } else if (char === "(" || char === ")") {
       parens = Math.max(0, parens + (char === "(" ? 1 : -1));
@@ -295,7 +301,9 @@ const closingParen = (text: string, open: number): number => {
   let i = open;
   while (i < text.length) {
     const char = text[i];
-    if (char === '"' || char === "'") {
+    if (char === "\\") {
+      i += 1;
+    } else if (char === '"' || char === "'") {
       i = stringEnd(text, i);
     } else if (char === "(") {
       depth += 1;

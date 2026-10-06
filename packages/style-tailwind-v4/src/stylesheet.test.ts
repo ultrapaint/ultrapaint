@@ -50,6 +50,18 @@ describe("reading a stylesheet", () => {
     expect(masked("a /* b\nc */ d")).toBe("a     \n     d");
   });
 
+  it("steps over escaped characters in selectors", () => {
+    expect(declared(".foo\\( { color: red } :root { --x: 1 }")).toEqual([
+      ".foo\\( | color: red",
+      ":root | --x: 1",
+    ]);
+    expect(declared(".it\\'s { color: red } :root { --x: 1 }")).toEqual([
+      ".it\\'s | color: red",
+      ":root | --x: 1",
+    ]);
+    expect(masked(".a\\/* b */ {}")).toBe(".a\\/* b */ {}");
+  });
+
   it("reads a value without its comments, keeping where it is written", () => {
     const css = `:root {
   --color-bg: var(--background /* light */);
