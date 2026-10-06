@@ -338,6 +338,11 @@ export const Canvas = () => {
     };
   };
 
+  /** Puts back a node on the canvas being dragged by its name, and stops following the pointer. */
+  const looseDrag = useRef<(() => void) | null>(null);
+  // A canvas that goes away mid-drag leaves nothing listening to the window.
+  useEffect(() => () => looseDrag.current?.(), []);
+
   // Stable identity (only touches refs and the store) so memoized Frames skip re-rendering while panning.
   const startFrameDrag = (
     e: ReactPointerEvent,
@@ -378,13 +383,26 @@ export const Canvas = () => {
         );
         const move = (ev: PointerEvent) =>
           moveDrag(ev.clientX, ev.clientY, ev.altKey, holdsFree(ev));
-        const up = () => {
+        const stop = () => {
           window.removeEventListener("pointermove", move);
           window.removeEventListener("pointerup", up);
+          window.removeEventListener("pointercancel", cancel);
+          looseDrag.current = null;
+        };
+        const up = () => {
+          stop();
           endDrag();
         };
+        // The browser took the pointer away: the node goes back where it was.
+        const cancel = () => {
+          stop();
+          cancelDrag();
+        };
+        looseDrag.current?.();
+        looseDrag.current = cancel;
         window.addEventListener("pointermove", move);
         window.addEventListener("pointerup", up);
+        window.addEventListener("pointercancel", cancel);
         return;
       }
       ref.current?.setPointerCapture(e.pointerId);
