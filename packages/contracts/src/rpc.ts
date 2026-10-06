@@ -57,6 +57,8 @@ import {
 import {
   CreateDesignsInput,
   CreateDesignsResult,
+  ScaffoldInput,
+  ScaffoldResult,
   SetupSuggestions,
 } from "./setup.ts";
 import { CustomiseMode, Skill, SkillList } from "./skills.ts";
@@ -148,6 +150,12 @@ const requestRpcs = [
     error: BadRequest,
     payload: { repoPath: Schema.String },
     success: SetupSuggestions,
+  }),
+  /** A new application where the repository has none, Figma's tokens its theme when imported. */
+  Rpc.make("setup.scaffold", {
+    error: Schema.Union([BadRequest, ForbiddenPath]),
+    payload: ScaffoldInput,
+    success: ScaffoldResult,
   }),
   Rpc.make("setup.createDesigns", {
     error: Schema.Union([BadRequest, ForbiddenPath]),

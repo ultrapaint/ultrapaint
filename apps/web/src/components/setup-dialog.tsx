@@ -8,7 +8,7 @@ import {
   describeSuggestions,
   type SetupSuggestions,
 } from "@ultrapaint/contracts/setup";
-import { CircleAlert, FolderSearch, Wand2 } from "lucide-react";
+import { CircleAlert, FolderSearch, RefreshCw, Rocket } from "lucide-react";
 import type * as React from "react";
 import { useEffect, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -34,8 +34,9 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { startCommand } from "../lib/start-thread.ts";
+import { startApplication } from "../lib/scaffold.ts";
 import { api } from "../state/connection.ts";
+import { showSetup as showSync } from "../state/design-system-setup.ts";
 import { useProject } from "../state/project.ts";
 import { dismissInit, useSetup } from "../state/setup.ts";
 
@@ -49,11 +50,22 @@ const configureFolders = () => {
   close();
   useProject.getState().openSettings(true, "repository");
 };
-const runInit = () => {
+/** The Sync view, which works out what the repository needs (ADR 0025). */
+const openSync = () => {
   close();
-  startCommand("/init");
+  showSync();
 };
 export const openSetup = () => useSetup.getState().open("configure");
+
+/** A repository with no application: one is started, then the Sync view takes over. */
+const startNew = async (found: SetupSuggestions, repoPath: string) => {
+  // A repository with no package.json at all gets the application at its root.
+  if (
+    await startApplication({ beside: found.rootManifest ?? false, repoPath })
+  ) {
+    openSync();
+  }
+};
 
 /**
  * Asked at the first edit: set the repository up, or import its design system. The editor is
@@ -74,21 +86,21 @@ export const SetupDialog = () => {
 const InitPrompt = () => (
   <>
     <DialogHeader>
-      <DialogTitle>Import the design system?</DialogTitle>
+      <DialogTitle>Set up the design system?</DialogTitle>
       <DialogDescription>
-        The design system is not imported yet, so agents and the inspector do
-        not know its tokens, text styles or conventions. /init has an agent read
-        the Tailwind v4 theme and the components, and ask you what it cannot
-        find out.
+        There is no design system yet, so agents and the inspector do not know
+        your tokens, text styles or conventions. Sync works out what you have —
+        a Figma file, your code's theme and components — and takes you through
+        making one from it.
       </DialogDescription>
     </DialogHeader>
     <DialogFooter>
       <Button onClick={dismissInit} variant="outline">
         Not now
       </Button>
-      <Button onClick={runInit}>
-        <Wand2 />
-        Run /init
+      <Button onClick={openSync}>
+        <RefreshCw />
+        Open Sync
       </Button>
     </DialogFooter>
   </>
@@ -142,7 +154,7 @@ const ConfigureForm = () => {
       setProblems(validation.problems);
       if (validation.ok) {
         await useProject.getState().load();
-        runInit();
+        openSync();
       }
     } catch (error) {
       setProblems([(error as Error).message]);
@@ -176,8 +188,8 @@ const ConfigureForm = () => {
         <DialogTitle>Set up this repository</DialogTitle>
         <DialogDescription>
           Pages are design documents in the repository, versioned with the code.
-          Say where they go, then let an agent import the design system with
-          /init, or configure the folders yourself.
+          Say where they go, then Sync takes you through the design system: from
+          a Figma file, from your code, or from scratch.
         </DialogDescription>
       </DialogHeader>
       {found ? (
@@ -185,6 +197,17 @@ const ConfigureForm = () => {
           <FolderSearch />
           <AlertDescription>{describeSuggestions(found)}</AlertDescription>
         </Alert>
+      ) : null}
+      {found && found.anchors.length === 0 ? (
+        <Button
+          className="self-start"
+          disabled={busy}
+          onClick={() => startNew(found, repoPath)}
+          variant="outline"
+        >
+          <Rocket />
+          Start a new application here…
+        </Button>
       ) : null}
       <FieldGroup className="gap-4">
         <Field>
@@ -227,8 +250,8 @@ const ConfigureForm = () => {
           Configure folders…
         </Button>
         <Button disabled={busy || !draft} onClick={setUp}>
-          <Wand2 />
-          {busy ? "Setting up…" : "Set up with /init"}
+          <RefreshCw />
+          {busy ? "Setting up…" : "Set up and sync"}
         </Button>
       </DialogFooter>
     </>

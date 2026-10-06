@@ -285,6 +285,28 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "settings.validate": (input) => settings.validate(input),
       "setup.createDesigns": (input) => setup.createDesigns(input),
       "setup.detect": ({ repoPath }) => setup.detect(repoPath),
+      "setup.scaffold": Effect.fnUntraced(function* (input) {
+        // A Figma file imported already gives the new application its theme.
+        const tokens = yield* figma((f) =>
+          Effect.gen(function* () {
+            const latest = yield* f.latest;
+            if (!latest) {
+              return {};
+            }
+            const set = yield* f.tokens(latest.id);
+            return Object.fromEntries(
+              set.tokens.flatMap((t) => {
+                const value = t.values[""];
+                return value === undefined ? [] : [[t.name, value] as const];
+              })
+            );
+          })
+        ).pipe(
+          // No project open, or a file that does not read: the template's own theme.
+          Effect.orElseSucceed((): Record<string, string> => ({}))
+        );
+        return yield* setup.scaffold(input, tokens);
+      }),
       "skills.customise": ({ mode, name }) =>
         skills((s) => s.customise(name, mode)),
       "skills.list": () => skills((s) => s.list),

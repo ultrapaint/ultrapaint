@@ -39,6 +39,8 @@ export const SetupSuggestions = Schema.Struct({
   framework: FrameworkId,
   libraries: Schema.Array(LibrarySuggestion),
   repoName: Schema.String,
+  /** The repository's root has a package.json: a new application goes in a directory of it. */
+  rootManifest: Schema.optional(Schema.Boolean),
   /** The style system the stylesheets are written for, when one the tool reads is found. */
   styleSystem: Schema.optional(StyleSystemId),
   /**
@@ -61,6 +63,36 @@ export const CreateDesignsResult = Schema.Struct({
   created: Schema.Array(Schema.String),
 });
 export type CreateDesignsResult = typeof CreateDesignsResult.Type;
+
+/** A new application, written where the repository has none (ADR 0025). */
+export const ScaffoldInput = Schema.Struct({
+  /** Repo-relative directory it goes in; `.` for the root. */
+  dir: RepoRelativePath,
+  /** Run the repository's package manager once the files are written. */
+  install: Schema.Boolean,
+  name: Schema.String,
+  repoPath: Schema.String,
+});
+export type ScaffoldInput = typeof ScaffoldInput.Type;
+
+export const ScaffoldResult = Schema.Struct({
+  /** Repo-relative paths of the files written. */
+  created: Schema.Array(Schema.String),
+  /** Whether the dependencies were installed. */
+  installed: Schema.Boolean,
+  /** The install's last lines, when it failed. */
+  installLog: Schema.optional(Schema.String),
+  /** The package manager it was installed with, or would be. */
+  packageManager: Schema.String,
+  /** Settings that point the tool at the new application, ready to apply. */
+  settings: Schema.Struct({
+    designsDir: RepoRelativePath,
+    hostCss: Schema.Array(Schema.String),
+    libraryDirs: Schema.Array(RepoRelativePath),
+    resolveFrom: Schema.optional(RepoRelativePath),
+  }),
+});
+export type ScaffoldResult = typeof ScaffoldResult.Type;
 
 /** Directory the preview is generated into; host CSS imports are written relative to it. */
 const GENERATED_DIR = ".ultrapaint";

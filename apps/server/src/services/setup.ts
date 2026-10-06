@@ -1,20 +1,35 @@
 import { BadRequest, ForbiddenPath } from "@ultrapaint/contracts/errors";
-import { defaultFramework } from "@ultrapaint/contracts/settings";
-import type {
-  CreateDesignsInput,
-  CreateDesignsResult,
-  SetupSuggestions,
+import {
+  DEFAULT_DESIGNS_DIR,
+  defaultFramework,
+} from "@ultrapaint/contracts/settings";
+import {
+  type CreateDesignsInput,
+  type CreateDesignsResult,
+  relativePosix,
+  type ScaffoldInput,
+  type ScaffoldResult,
+  type SetupSuggestions,
 } from "@ultrapaint/contracts/setup";
 import { defaultStyleSystem } from "@ultrapaint/contracts/tokens";
 import { Context, Effect, FileSystem, Layer, Path } from "effect";
+import { ChildProcessSpawner } from "effect/process";
+import { makeWriteAtomic } from "../atomic-write.ts";
 import { toPosix } from "../hash.ts";
+import { runCommand } from "../process.ts";
 import { locateFramework } from "./framework.ts";
 import { locateStyleSystem } from "./style-system.ts";
 
+/** `"packageManager": "pnpm@10.0.0"` in a package.json. */
+const PACKAGE_MANAGER_RE = /"packageManager"\s*:\s*"(pnpm|yarn|npm|bun)@/;
+/** The last lines of a failed install are what the user is shown. */
+const INSTALL_LOG_LINES = 12;
+
 /**
- * The first-run setup: looks at a repository before anything is configured, and creates the
- * directory the pages will live in. It is the only part of the server that writes into a
- * repository no project is open for, so it checks every path itself.
+ * The first-run setup: looks at a repository before anything is configured, creates the
+ * directory the pages will live in, and starts an application where there is none (ADR 0025).
+ * It is the only part of the server that writes into a repository no project is open for, so it
+ * checks every path itself.
  */
 export class SetupService extends Context.Service<
   SetupService,
@@ -25,6 +40,14 @@ export class SetupService extends Context.Service<
     readonly detect: (
       repoPath: string
     ) => Effect.Effect<SetupSuggestions, BadRequest>;
+    /**
+     * Writes a new application into the repository, installs it when asked, and answers with
+     * the settings that point the tool at it. `tokens` start its theme (a Figma file's).
+     */
+    readonly scaffold: (
+      input: ScaffoldInput,
+      tokens: Readonly<Record<string, string>>
+    ) => Effect.Effect<ScaffoldResult, BadRequest | ForbiddenPath>;
   }
 >()("ultrapaint/server/SetupService") {
   static readonly layer = Layer.effect(
@@ -32,6 +55,8 @@ export class SetupService extends Context.Service<
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
+      const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+      const writeAtomic = makeWriteAtomic(fs, path);
 
       const exists = (p: string) =>
         Effect.orElseSucceed(fs.exists(p), () => false);
@@ -72,6 +97,7 @@ export class SetupService extends Context.Service<
           framework: defaultFramework,
           libraries: found?.libraries ?? [],
           repoName: path.basename(root),
+          rootManifest: yield* exists(path.join(root, "package.json")),
           ...(styles.tailwind === "v4" && { styleSystem: styleSystem.id }),
           tailwind: styles.tailwind,
         } satisfies SetupSuggestions;
@@ -113,7 +139,137 @@ export class SetupService extends Context.Service<
         return { created } satisfies CreateDesignsResult;
       });
 
-      return SetupService.of({ createDesigns, detect });
+      /** The package manager the repository is set up with, by its lockfile or manifest. */
+      const packageManagerOf = Effect.fnUntraced(function* (root: string) {
+        const has = (file: string) => exists(path.join(root, file));
+        if (yield* has("pnpm-lock.yaml")) {
+          return "pnpm";
+        }
+        if (yield* has("yarn.lock")) {
+          return "yarn";
+        }
+        if ((yield* has("bun.lock")) || (yield* has("bun.lockb"))) {
+          return "bun";
+        }
+        if (yield* has("package-lock.json")) {
+          return "npm";
+        }
+        const manifest = yield* fs
+          .readFileString(path.join(root, "package.json"))
+          .pipe(Effect.orElseSucceed(() => ""));
+        const named: RegExpExecArray | null = PACKAGE_MANAGER_RE.exec(manifest);
+        if (named?.[1]) {
+          return named[1];
+        }
+        // Nothing says: pnpm when it is there, npm otherwise.
+        const pnpm = yield* runCommand("pnpm", ["--version"], {
+          cwd: root,
+          timeout: "10 seconds",
+        }).pipe(
+          Effect.provideService(
+            ChildProcessSpawner.ChildProcessSpawner,
+            spawner
+          ),
+          Effect.map((r) => r.exitCode === 0),
+          Effect.orElseSucceed(() => false)
+        );
+        return pnpm ? "pnpm" : "npm";
+      });
+
+      /** Installs the application; what went wrong, in its last lines, when it did not. */
+      const installIn = Effect.fnUntraced(function* (
+        packageManager: string,
+        target: string,
+        dir: string
+      ) {
+        // Outside a workspace's globs, pnpm would install the workspace instead.
+        const args =
+          packageManager === "pnpm" && dir !== "."
+            ? ["install", "--ignore-workspace"]
+            : ["install"];
+        const result = yield* runCommand(packageManager, args, {
+          cwd: target,
+          timeout: "10 minutes",
+        }).pipe(
+          Effect.provideService(
+            ChildProcessSpawner.ChildProcessSpawner,
+            spawner
+          ),
+          // Not installed, or it could not run: the user installs, the files are there.
+          Effect.orElseSucceed(() => null)
+        );
+        if (result?.exitCode === 0) {
+          return { installed: true };
+        }
+        const log = result
+          ? `${result.stdout}\n${result.stderr}`
+          : `${packageManager} could not run`;
+        return {
+          installed: false,
+          installLog: log
+            .trim()
+            .split("\n")
+            .slice(-INSTALL_LOG_LINES)
+            .join("\n"),
+        };
+      });
+
+      const scaffold = Effect.fn("SetupService.scaffold")(function* (
+        input: ScaffoldInput,
+        tokens: Readonly<Record<string, string>>
+      ) {
+        const root = yield* repository(input.repoPath);
+        const target = path.resolve(root, input.dir);
+        if (!(target === root || target.startsWith(root + path.sep))) {
+          return yield* new ForbiddenPath({
+            message: "the application must be inside the repository",
+          });
+        }
+        if (yield* exists(path.join(target, "package.json"))) {
+          return yield* new BadRequest({
+            message: `${input.dir} already has a package.json: start the application somewhere else`,
+          });
+        }
+        const { framework } = yield* locateFramework(defaultFramework, root);
+        if (!framework.scaffold) {
+          return yield* new BadRequest({
+            message: `${framework.id} cannot start an application`,
+          });
+        }
+        const dir = toPosix(path.relative(root, target)) || ".";
+        const made = framework.scaffold({ dir, name: input.name, tokens });
+        for (const [file, text] of Object.entries(made.files)) {
+          yield* Effect.orDie(writeAtomic(path.join(root, file), text));
+        }
+        // Where the pages go, so the settings are valid as they are answered.
+        const designsDir = DEFAULT_DESIGNS_DIR;
+        yield* Effect.orDie(
+          fs.makeDirectory(path.join(root, designsDir), { recursive: true })
+        );
+        const packageManager = yield* packageManagerOf(root);
+        const install = input.install
+          ? yield* installIn(packageManager, target, dir)
+          : { installed: false };
+        return {
+          created: Object.keys(made.files),
+          ...install,
+          packageManager,
+          settings: {
+            designsDir,
+            hostCss: [
+              relativePosix(
+                `${designsDir}/.ultrapaint`,
+                made.settings.hostCss
+              ),
+            ],
+            libraryDirs: [made.settings.libraryDir],
+            // The application's package, the root's included: not the designs directory.
+            resolveFrom: made.settings.resolveFrom,
+          },
+        } satisfies ScaffoldResult;
+      });
+
+      return SetupService.of({ createDesigns, detect, scaffold });
     })
   );
 }

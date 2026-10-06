@@ -111,5 +111,43 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           );
         })
     );
+
+    it.effect(
+      "starts an application where there is none, with settings that point at it",
+      () =>
+        Effect.gen(function* () {
+          const { client, repo, settings } = yield* TestEnv;
+          const fs = yield* FileSystem.FileSystem;
+          const made = yield* client["setup.scaffold"]({
+            dir: "app",
+            install: false,
+            name: "Acme",
+            repoPath: repo,
+          });
+          assert.include(made.created, "app/src/components/ui/button.tsx");
+          assert.isFalse(made.installed);
+          assert.deepStrictEqual(made.settings, {
+            designsDir: "docs/designs",
+            hostCss: ["../../../app/src/index.css"],
+            libraryDirs: ["app/src/components"],
+            resolveFrom: "app",
+          });
+          assert.isTrue(yield* fs.exists(path.join(repo, "docs/designs")));
+          const validation = yield* client["settings.set"]({
+            ...settings,
+            ...made.settings,
+          });
+          assert.isTrue(validation.ok);
+          const refused = yield* Effect.flip(
+            client["setup.scaffold"]({
+              dir: "app",
+              install: false,
+              name: "Acme",
+              repoPath: repo,
+            })
+          );
+          assert.include(refused.message, "already has a package.json");
+        })
+    );
   }
 );

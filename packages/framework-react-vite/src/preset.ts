@@ -16,6 +16,7 @@ import {
   OPTIONS_FILE,
   previewFiles,
 } from "./preview-files.ts";
+import { scaffold } from "./scaffold.ts";
 
 /**
  * Whether a package is installed where the anchor can reach it: in its own `node_modules` or
@@ -57,4 +58,5 @@ export const framework: Framework = {
       };
     },
   },
+  scaffold,
 };
