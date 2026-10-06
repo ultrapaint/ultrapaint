@@ -258,16 +258,23 @@ export class FigmaImportService extends Context.Service<
         );
       });
 
+      /** A disk that will not take a write, said as the request's failure. */
+      const notSaved =
+        (what: string) => (error: { readonly message: string }) =>
+          new BadRequest({
+            message: `${what} could not be saved: ${error.message}`,
+          });
+
       const writeSummary = Effect.fnUntraced(function* (summary: FigmaImport) {
         // Its id was made here or read back with it: one that is not an id is a bug.
         const dir = yield* Effect.orDie(dirOf(summary.id));
-        yield* Effect.orDie(fs.makeDirectory(dir, { recursive: true }));
-        yield* Effect.orDie(
+        yield* Effect.andThen(
+          fs.makeDirectory(dir, { recursive: true }),
           writeAtomic(
             path.join(dir, SUMMARY_NAME),
             `${JSON.stringify(summary, null, 2)}\n`
           )
-        );
+        ).pipe(Effect.mapError(notSaved(`${summary.name}'s import`)));
       });
 
       /** The catalogue's guesses for each component, from the names; nothing when it is not built. */
@@ -394,8 +401,10 @@ export class FigmaImportService extends Context.Service<
           name,
         };
         const dir = yield* Effect.orDie(dirOf(id));
-        yield* Effect.orDie(fs.makeDirectory(dir, { recursive: true }));
-        yield* Effect.orDie(fs.writeFile(path.join(dir, FILE_NAME), bytes));
+        yield* Effect.andThen(
+          fs.makeDirectory(dir, { recursive: true }),
+          fs.writeFile(path.join(dir, FILE_NAME), bytes)
+        ).pipe(Effect.mapError(notSaved(name)));
         yield* writeSummary(summary);
         loaded.set(id, file);
         return yield* withCandidates(summary);
@@ -541,10 +550,10 @@ export class FigmaImportService extends Context.Service<
           if (yield* Effect.orElseSucceed(fs.exists(abs), () => false)) {
             continue;
           }
-          yield* Effect.orDie(
-            fs.makeDirectory(path.dirname(abs), { recursive: true })
-          );
-          yield* Effect.orDie(fs.writeFile(abs, image.bytes));
+          yield* Effect.andThen(
+            fs.makeDirectory(path.dirname(abs), { recursive: true }),
+            fs.writeFile(abs, image.bytes)
+          ).pipe(Effect.mapError(notSaved(image.src)));
         }
       });
 

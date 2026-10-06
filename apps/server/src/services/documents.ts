@@ -401,9 +401,16 @@ export class DocumentService extends Context.Service<
             }
             // Assets stay out of the undo journal, which holds text: an undone image node
             // leaves its file, as a deleted one does.
-            yield* Effect.orDie(fs.makeDirectory(dir, { recursive: true }));
-            yield* Effect.orDie(
+            yield* Effect.andThen(
+              fs.makeDirectory(dir, { recursive: true }),
               fs.writeFile(path.join(dir, name), new Uint8Array(bytes))
+            ).pipe(
+              Effect.mapError(
+                (error) =>
+                  new Conflict({
+                    message: `${input.name} could not be saved: ${error.message}`,
+                  })
+              )
             );
             return { src: `${ASSETS_DIR}/${name}` };
           })

@@ -517,7 +517,14 @@ export class SettingsService extends Context.Service<
         if (yield* exists(next)) {
           return yield* new Conflict({ message: `${next} already exists` });
         }
-        yield* Effect.orDie(fs.rename(target.configPath, next));
+        yield* fs.rename(target.configPath, next).pipe(
+          Effect.mapError(
+            (error) =>
+              new Conflict({
+                message: `${target.configPath} could not be renamed: ${error.message}`,
+              })
+          )
+        );
         yield* storage.rename(next);
         const file = yield* settingsFile;
         if (file) {

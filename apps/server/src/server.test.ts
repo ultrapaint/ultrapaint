@@ -927,6 +927,18 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           client["assets.upload"]({ data: "", name: "notes.txt" })
         );
         assert.strictEqual(refused._tag, "BadRequest");
+        // A directory that takes no file is a failure the editor can show, not a crash.
+        if (process.getuid?.() !== 0) {
+          const assets = path.join(repo, "designs/assets");
+          yield* fs.chmod(assets, 0o555);
+          const unsaved = yield* Effect.flip(
+            client["assets.upload"]({
+              data: Buffer.from("png").toString("base64"),
+              name: "Blocked.png",
+            })
+          ).pipe(Effect.ensuring(Effect.ignore(fs.chmod(assets, 0o755))));
+          assert.strictEqual(unsaved._tag, "Conflict");
+        }
       })
     );
 

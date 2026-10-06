@@ -924,8 +924,13 @@ export class PagesService extends Context.Service<
           if (id !== ROOT_CANVAS) {
             const from = path.join(root, id, ASSETS_DIR);
             if (yield* exists(from)) {
-              yield* Effect.orDie(
-                fs.copy(from, path.join(root, copyId, ASSETS_DIR))
+              yield* fs.copy(from, path.join(root, copyId, ASSETS_DIR)).pipe(
+                Effect.mapError(
+                  (error) =>
+                    new Conflict({
+                      message: `the canvas was copied without its images: ${error.message}`,
+                    })
+                )
               );
             }
           }
@@ -995,12 +1000,19 @@ export class PagesService extends Context.Service<
         // brings the pages back, and their images stay gone, as an uploaded image would.
         if (id !== ROOT_CANVAS) {
           const dir = yield* paths.resolve(path.join(root, id));
-          yield* Effect.orDie(
-            fs.remove(path.join(dir, ASSETS_DIR), {
+          yield* fs
+            .remove(path.join(dir, ASSETS_DIR), {
               force: true,
               recursive: true,
             })
-          );
+            .pipe(
+              Effect.mapError(
+                (error) =>
+                  new Conflict({
+                    message: `the canvas's pages were deleted, its images not: ${error.message}`,
+                  })
+              )
+            );
           yield* removeEmptyDirs(dir);
         }
         yield* publishList;
