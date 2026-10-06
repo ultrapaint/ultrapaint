@@ -11,8 +11,9 @@
  * way: it is put in the thread, and the agent ends its turn to hear the answers as its next
  * prompt.
  */
-import { Effect, Layer, Schema } from "effect";
+import { Effect, Layer, Schema, Stream } from "effect";
 import { McpSchema, McpServer, Tool } from "effect/ai";
+import { EventBus } from "../../events.ts";
 import { answersOf, answersText, formOf } from "../threads/elicitation.ts";
 import { ThreadService } from "../threads/threads.ts";
 import { CallingThread } from "./access.ts";
@@ -82,6 +83,17 @@ export const AskUserToolLive = Layer.effectDiscard(
      * every form unless its client says it shows them, which codex-acp does not yet.
      */
     const cannotWait = new Set<string>();
+    // A thread deleted takes its mark along.
+    yield* (yield* EventBus).subscribe("agent").pipe(
+      Stream.runForEach((event) =>
+        Effect.sync(() => {
+          if (event.type === "removed") {
+            cannotWait.delete(event.threadId);
+          }
+        })
+      ),
+      Effect.forkScoped
+    );
 
     const ask = Effect.fnUntraced(function* (payload: unknown) {
       const { questions } = yield* decodeParameters(payload ?? {}).pipe(

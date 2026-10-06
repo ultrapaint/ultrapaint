@@ -3,7 +3,7 @@ import { assert, describe, it, layer } from "@effect/vitest";
 import { Conflict } from "@ultrapaint/contracts/errors";
 import { Effect, FileSystem, Layer, Path } from "effect";
 import { EventBus } from "./events.ts";
-import { EditService } from "./services/edit.ts";
+import { EditService, withinLimits } from "./services/edit.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
 import { TestEnv, TestServer } from "./testing/harness.ts";
 
@@ -180,4 +180,32 @@ describe("the edit journal", () => {
         );
       }).pipe(Effect.provide(NodeServices.layer))
   );
+});
+
+describe("the undo journal", () => {
+  it("keeps the newest steps that fit, and always the newest", () => {
+    const step = (label: string, chars: number) => ({
+      changes: [{ after: "x".repeat(chars), before: null, file: "a.json" }],
+      label,
+    });
+    const many = Array.from({ length: 250 }, (_, i) => step(`${i}`, 1));
+    const kept = withinLimits(many);
+    assert.strictEqual(kept.length, 200);
+    assert.strictEqual(kept.at(-1)?.label, "249");
+    // Large copies push the old steps out long before two hundred.
+    const large = withinLimits([
+      step("old", 20 * 1024 * 1024),
+      step("older", 1),
+      step("new", 20 * 1024 * 1024),
+    ]);
+    assert.deepStrictEqual(
+      large.map((e) => e.label),
+      ["older", "new"]
+    );
+    const huge = withinLimits([step("only", 64 * 1024 * 1024)]);
+    assert.deepStrictEqual(
+      huge.map((e) => e.label),
+      ["only"]
+    );
+  });
 });

@@ -13,6 +13,12 @@ import { hashContent } from "../hash.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
 const JOURNAL_LIMIT = 200;
+/**
+ * The text the journal may hold, before and after, across its steps. Each step keeps whole
+ * copies of the files it touched: two hundred steps over a large page would hold hundreds of
+ * megabytes. The newest step is always kept.
+ */
+const JOURNAL_CHARS = 32 * 1024 * 1024;
 
 /** One file as an action left it: `null` is a file that does not exist. */
 interface FileChange {
@@ -26,6 +32,31 @@ interface JournalEntry {
   readonly changes: readonly FileChange[];
   readonly label: string;
 }
+
+const sizeOf = (entry: JournalEntry) =>
+  entry.changes.reduce(
+    (sum, c) => sum + (c.before?.length ?? 0) + (c.after?.length ?? 0),
+    0
+  );
+
+/** The newest steps that fit the journal's limits, at least the newest one. */
+export const withinLimits = (
+  entries: readonly JournalEntry[]
+): JournalEntry[] => {
+  const kept: JournalEntry[] = [];
+  let chars = 0;
+  for (const entry of entries.toReversed()) {
+    chars += sizeOf(entry);
+    if (
+      kept.length > 0 &&
+      (kept.length >= JOURNAL_LIMIT || chars > JOURNAL_CHARS)
+    ) {
+      break;
+    }
+    kept.push(entry);
+  }
+  return kept.reverse();
+};
 
 export interface SourceFile {
   readonly abs: string;
@@ -299,10 +330,10 @@ export class EditService extends Context.Service<
                   return Effect.void;
                 }
                 // Drop redo entries beyond the cursor, then append.
-                journal = [
+                journal = withinLimits([
                   ...journal.slice(0, cursor),
                   { changes, label },
-                ].slice(-JOURNAL_LIMIT);
+                ]);
                 cursor = journal.length;
                 invalidated = undefined;
                 return publishState;

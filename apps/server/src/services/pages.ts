@@ -1606,7 +1606,12 @@ export class PagesService extends Context.Service<
         if (lastHash.get(abs) === hash) {
           return;
         }
-        lastHash.set(abs, hash);
+        // A file gone is forgotten: page files come and go with every rename and delete.
+        if (hash === "") {
+          lastHash.delete(abs);
+        } else {
+          lastHash.set(abs, hash);
+        }
         yield* events.publish("file.changed", {
           file: paths.relative(abs),
           hash,

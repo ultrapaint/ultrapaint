@@ -1449,6 +1449,7 @@ export class ThreadService extends Context.Service<
           yield* stopOpening(threadId);
           // Gone first, so that no session starts for it from here on.
           yield* store.remove(threadId);
+          shown.delete(threadId);
           // An agent still booting is stopped there, with what its start opened.
           const boot = booting.get(threadId);
           if (boot) {
