@@ -31,7 +31,7 @@ import {
 const IMPORT_RE = /@import\s+(?:url\()?\s*["']([^"']+)["']/g;
 const PALETTE_RE = /^color-([a-z]+)-(\d{2,3})$/;
 const DARK_RE =
-  /\.dark\b|\[data-theme=["']?dark["']?\]|prefers-color-scheme:\s*dark|@variant\s+dark|@custom-variant\s+dark/;
+  /\.dark(?![\w-])|\[data-theme=["']?dark["']?\]|prefers-color-scheme:\s*dark|@(?:custom-)?variant\s+dark(?![\w-])/;
 const OTHER_THEME_RE = /\[data-theme=["']?([\w-]+)["']?\]/;
 const TAILWIND_IMPORT_RE = /^tailwindcss(\/.*)?$/;
 
@@ -57,12 +57,33 @@ const scopesOf = (css: string): Scope[] => {
   return [...scopes.values()];
 };
 
+/** A prelude without its `:not(…)`s: what they name is where the block does not apply. */
+const withoutNegations = (prelude: string): string => {
+  let out = prelude;
+  let at = out.indexOf(":not(");
+  while (at !== -1) {
+    let depth = 0;
+    let end = at + 4;
+    for (; end < out.length; end += 1) {
+      depth += out[end] === "(" ? 1 : 0;
+      depth -= out[end] === ")" ? 1 : 0;
+      if (depth === 0) {
+        break;
+      }
+    }
+    out = out.slice(0, at) + out.slice(end + 1);
+    at = out.indexOf(":not(");
+  }
+  return out;
+};
+
 /** Which theme a block's values belong to: the default, `dark`, or a named one. */
 export const themeOf = (prelude: string): string | null => {
-  if (DARK_RE.test(prelude)) {
+  const applies = withoutNegations(prelude);
+  if (DARK_RE.test(applies)) {
     return "dark";
   }
-  const named: RegExpExecArray | null = OTHER_THEME_RE.exec(prelude);
+  const named: RegExpExecArray | null = OTHER_THEME_RE.exec(applies);
   return named?.[1] && named[1] !== "light" ? named[1] : null;
 };
 

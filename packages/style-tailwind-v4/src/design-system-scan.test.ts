@@ -3,7 +3,11 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { defaultSettings } from "@ultrapaint/contracts/settings";
 import { afterAll, describe, expect, it } from "vitest";
-import { inlineThemeAliases, scanDesignSystem } from "./design-system-scan.ts";
+import {
+  inlineThemeAliases,
+  scanDesignSystem,
+  themeOf,
+} from "./design-system-scan.ts";
 
 const roots: string[] = [];
 afterAll(() => {
@@ -275,6 +279,21 @@ describe("scanning a Tailwind v4 design system", () => {
     });
     expect(designSystem.colors).toEqual([]);
     expect(notes.some((n) => n.includes("Tailwind v4"))).toBe(true);
+  });
+});
+
+describe("the theme a block belongs to", () => {
+  it("is dark only where the block applies in the dark", () => {
+    expect(themeOf(".dark")).toBe("dark");
+    expect(themeOf(":root.dark")).toBe("dark");
+    expect(themeOf("@media (prefers-color-scheme: dark) :root")).toBe("dark");
+    expect(themeOf('[data-theme="dark"]')).toBe("dark");
+    expect(themeOf(":root:not(.dark)")).toBeNull();
+    expect(themeOf(':root:not(:where(.dark, [data-theme="dark"]))')).toBeNull();
+    expect(themeOf(".dark-blue")).toBeNull();
+    expect(themeOf(".darker")).toBeNull();
+    expect(themeOf('[data-theme="ocean"]:not(.dark)')).toBe("ocean");
+    expect(themeOf('[data-theme="light"]')).toBeNull();
   });
 });
 
