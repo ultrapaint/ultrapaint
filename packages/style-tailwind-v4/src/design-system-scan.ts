@@ -117,9 +117,12 @@ const packageEntry = (root: string, sub: readonly string[]): string | null => {
   return existsSync(file) ? file : null;
 };
 
-/** The directory of an installed package, looked up the way Node would from `start`. */
-const packageRoot = (pkg: string, start: string): string | null => {
-  let dir = start;
+/**
+ * The directory of an installed package, looked up the way Node would from `start`: in its own
+ * `node_modules` or an ancestor's.
+ */
+export const packageRoot = (pkg: string, start: string): string | null => {
+  let dir = path.resolve(start);
   for (;;) {
     const root = path.join(dir, "node_modules", pkg);
     if (existsSync(path.join(root, "package.json"))) {
