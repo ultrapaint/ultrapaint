@@ -434,17 +434,26 @@ const program = Effect.gen(function* () {
     }
   });
 
+  /**
+   * Whatever ends the run, a failure or ^C half way included, the scratch designs go and the
+   * runs measured so far are written: an hour of agent turns is not lost to the last one.
+   */
+  const finish = Effect.gen(function* () {
+    rmSync(designs, { force: true, recursive: true });
+    if (measurements.length === 0) {
+      return;
+    }
+    mkdirSync(outDir, { recursive: true });
+    const file = path.join(outDir, `${label}-${agentId}-${Date.now()}.json`);
+    writeFileSync(file, `${JSON.stringify(measurements, null, 2)}\n`);
+    yield* Effect.log(`wrote ${path.relative(repo, file)}`);
+  });
+
   yield* work.pipe(
     // The server first: the protocol connects to it.
-    Effect.provide(protocol.pipe(Layer.provide(server)))
+    Effect.provide(protocol.pipe(Layer.provide(server))),
+    Effect.ensuring(finish)
   );
-
-  rmSync(designs, { force: true, recursive: true });
-  const out = outDir;
-  mkdirSync(out, { recursive: true });
-  const file = path.join(out, `${label}-${agentId}-${Date.now()}.json`);
-  writeFileSync(file, `${JSON.stringify(measurements, null, 2)}\n`);
-  yield* Effect.log(`wrote ${path.relative(repo, file)}`);
 });
 
 program.pipe(

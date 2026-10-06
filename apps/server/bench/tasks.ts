@@ -38,8 +38,12 @@ interface Node {
 const read = (ctx: TaskContext, rel: string) => {
   try {
     return readFileSync(path.join(ctx.designs, rel), "utf8");
-  } catch {
-    return null;
+  } catch (error) {
+    // A file the agent did not write is a check that fails; anything else is the bench's.
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return null;
+    }
+    throw error;
   }
 };
 
