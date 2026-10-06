@@ -27,23 +27,23 @@ import { hitUnlocked } from "./hit-test.ts";
 import { holdsFree } from "./snap.ts";
 
 /** How far the pointer travels before a press becomes a drag, in screen pixels. */
-export const DRAG_THRESHOLD = 4;
+const DRAG_THRESHOLD = 4;
 
 /** The node a drag carries, when it carries one that is already in a document. */
-export const draggedId = (target: Dragged): string | null => {
+const draggedId = (target: Dragged): string | null => {
   if (target.kind === "node") {
     return target.node.id;
   }
   return target.kind === "loose" ? target.nodeId : null;
 };
 
-export const intersects = (a: Rect, b: Rect) =>
+const intersects = (a: Rect, b: Rect) =>
   a.x < b.x + b.width &&
   b.x < a.x + a.width &&
   a.y < b.y + b.height &&
   b.y < a.y + a.height;
 
-export const contains = (outer: Rect, inner: Rect) =>
+const contains = (outer: Rect, inner: Rect) =>
   inner.x >= outer.x &&
   inner.y >= outer.y &&
   inner.x + inner.width <= outer.x + outer.width &&
