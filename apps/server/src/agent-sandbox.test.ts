@@ -123,10 +123,15 @@ describe("AgentSandbox, on a Linux machine with bubblewrap", () => {
           command: "/bin/sh",
           env: { FOO: "inside" },
         });
-        assert.deepStrictEqual(launch.env, {});
+        // In the environment bubblewrap hands on, not on its command line.
+        assert.deepStrictEqual(launch.env, { FOO: "inside" });
+        assert.notInclude(launch.args, "inside");
         const result = yield* runCommand(launch.command, [...launch.args], {
           cwd: root,
-          env: { DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/0/bus" },
+          env: {
+            ...launch.env,
+            DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/0/bus",
+          },
           timeout: "10 seconds",
         });
         assert.strictEqual(result.exitCode, 0, result.stderr);
