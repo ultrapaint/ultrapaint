@@ -8,7 +8,11 @@ import { BadRequest, type NotConfigured } from "@ultrapaint/contracts/errors";
 import {
   baselineKey,
   type FigmaDecision,
+  type FigmaMatch,
+  type FigmaMatchInput,
+  type FigmaMatchSource,
   type FigmaTokenComparison,
+  type SyncBaseline,
   type SyncFacts,
   type SyncPlan,
 } from "@ultrapaint/contracts/sync";
@@ -33,7 +37,11 @@ import {
   caseOf,
   compareFigma,
   driftOf,
+  type FigmaSide,
   figmaChanges,
+  matchFigma,
+  matchKeyOf,
+  matchProblem,
   planOf,
   summaryOf,
 } from "./design-system-sync-rules.ts";
@@ -48,6 +56,28 @@ interface Manifest {
   devDependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
 }
+
+/** Keyed in order: the baseline is committed, and merges line by line. */
+const sorted = <A>(record: Readonly<Record<string, A>>): Record<string, A> =>
+  Object.fromEntries(
+    Object.entries(record).sort(([a], [b]) => a.localeCompare(b))
+  );
+
+/** What every matched Figma token is in the code, to keep in the baseline by Figma's id. */
+const matchesOf = (
+  tokens: readonly FigmaSide[],
+  matched: ReadonlyMap<string, { by: FigmaMatchSource; to: string | null }>
+): Record<string, FigmaMatch> =>
+  sorted(
+    Object.fromEntries(
+      tokens.flatMap((token) => {
+        const match = matched.get(token.variable);
+        return match
+          ? [[matchKeyOf(token), { ...match, figma: token.variable }]]
+          : [];
+      })
+    )
+  );
 
 export class DesignSystemSyncService extends Context.Service<
   DesignSystemSyncService,
@@ -68,6 +98,21 @@ export class DesignSystemSyncService extends Context.Service<
       decisions: readonly FigmaDecision[]
     ) => Effect.Effect<
       { readonly files: readonly string[]; readonly written: number },
+      NotConfigured | BadRequest
+    >;
+    /**
+     * Says what Figma tokens of the newest import are in the code (ADR 0025), by where they are
+     * in Figma; what cannot be matched as asked is said in `problems`.
+     */
+    readonly matchFigma: (
+      entries: readonly FigmaMatchInput[],
+      by: Exclude<FigmaMatchSource, "rule">
+    ) => Effect.Effect<
+      {
+        readonly problems: readonly string[];
+        readonly saved: number;
+        readonly unmatched: number;
+      },
       NotConfigured | BadRequest
     >;
     /** The plan as the project is now; also pushed to the editor. */
@@ -295,13 +340,19 @@ export class DesignSystemSyncService extends Context.Service<
           // A baseline from another Figma file says nothing about this one.
           const baseline = stored?.file === latest.name ? stored : null;
           const diffs = compareFigma(figma.tokens, code.tokens, baseline);
+          const own = code.tokens.filter((t) => t.own);
           return {
+            baseline,
+            code: code.tokens,
             comparison: {
-              baseline: baseline !== null,
+              // Matches saved before any value was taken are no earlier sync to compare with.
+              baseline:
+                baseline !== null && Object.keys(baseline.figma).length > 0,
               diffs,
               file: latest.name,
               importId: latest.id,
               notes: [...figma.notes],
+              targets: own.map((t) => ({ kind: t.kind, name: t.name })),
             } satisfies FigmaTokenComparison,
             figma,
           };
@@ -341,7 +392,10 @@ export class DesignSystemSyncService extends Context.Service<
               );
               const figma: Record<string, string> = {};
               const inCode: Record<string, string> = {};
-              for (const d of found.comparison.diffs) {
+              for (const d of found.comparison.diffs.filter(
+                (diff) =>
+                  diff.outcome !== "unmatched" && diff.outcome !== "ignored"
+              )) {
                 const key = baselineKey(d.name, d.theme);
                 figma[key] = d.figma;
                 const now = declared.get(d.name);
@@ -356,6 +410,16 @@ export class DesignSystemSyncService extends Context.Service<
                   code: inCode,
                   figma,
                   file: found.comparison.file,
+                  // What the rules matched is kept too: the code changing later does not
+                  // move a token the user has seen written.
+                  matches: matchesOf(
+                    found.figma.tokens,
+                    matchFigma(
+                      found.figma.tokens,
+                      found.code,
+                      found.baseline?.matches
+                    )
+                  ),
                 })
                 .pipe(
                   Effect.mapError(
@@ -373,7 +437,87 @@ export class DesignSystemSyncService extends Context.Service<
         }
       );
 
-      return DesignSystemSyncService.of({ applyFigma, figmaTokens, plan });
+      const saveMatches = Effect.fn("DesignSystemSyncService.matchFigma")(
+        function* (
+          entries: readonly FigmaMatchInput[],
+          by: Exclude<FigmaMatchSource, "rule">
+        ) {
+          const found = yield* compare;
+          if (!found) {
+            return yield* new BadRequest({
+              message: "There is no Figma import to match tokens from.",
+            });
+          }
+          const { file } = found.comparison;
+          const tokens = new Map(
+            found.figma.tokens.map((t) => [t.variable, t] as const)
+          );
+          const matches: Record<string, FigmaMatch> = {
+            ...found.baseline?.matches,
+          };
+          const problems: string[] = [];
+          let saved = 0;
+          for (const entry of entries) {
+            const token = tokens.get(entry.variable);
+            if (!token) {
+              problems.push(
+                `${entry.variable} is not a variable or style of ${file}`
+              );
+              continue;
+            }
+            const problem = entry.to ? matchProblem(token, entry.to) : null;
+            if (problem) {
+              problems.push(problem);
+              continue;
+            }
+            const key = matchKeyOf(token);
+            if (entry.to === undefined) {
+              delete matches[key];
+            } else {
+              matches[key] = { by, figma: token.variable, to: entry.to };
+            }
+            saved += 1;
+          }
+          const next: SyncBaseline = {
+            ...(found.baseline ?? { at: 0, code: {}, figma: {} }),
+            file,
+            matches: sorted(matches),
+          };
+          const diffs = compareFigma(found.figma.tokens, found.code, next);
+          // A match that leaves something to write puts the step back in front of the user.
+          const pending = diffs.some(
+            (d) => d.outcome === "to-code" || d.outcome === "conflict"
+          );
+          yield* project
+            .use(
+              Effect.flatMap(DesignSystemService, (d) =>
+                d.saveBaseline(pending ? { ...next, at: 0 } : next)
+              )
+            )
+            .pipe(
+              Effect.mapError(
+                (error) =>
+                  new BadRequest({
+                    message: `the matches could not be saved: ${error.message}`,
+                  })
+              )
+            );
+          yield* Effect.ignore(plan);
+          const unmatched = new Set(
+            diffs
+              .filter((d) => d.outcome === "unmatched")
+              .map((d) => d.variable)
+          ).size;
+          return { problems, saved, unmatched };
+        }
+      );
+
+      return DesignSystemSyncService.of({
+        applyFigma,
+        figmaTokens,
+        matchFigma: saveMatches,
+        plan,
+      });
     })
   );
 }

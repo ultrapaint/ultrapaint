@@ -281,6 +281,12 @@ drift.
 - **Importing a Figma file** opens Sync rather than the `/import-figma` thread: its tokens come
   first, and **Map and write the pages** starts the thread.
 
+- **Figma's tokens are matched before they are compared** (ADR 0025's amendment). Comparing by
+  name offered to add every variable of a file whose names were not the code's
+  (`color-collection-1-brand-600`) beside the tokens the application uses. Rules match the
+  certain ones, `/sync figma` has an agent match the rest with the user, and the step lists every
+  match to change; nothing unmatched is written.
+
 ### Found on the way
 
 - A snapshot of the working tree could fail when a file written atomically vanished while git

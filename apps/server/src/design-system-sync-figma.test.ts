@@ -103,8 +103,9 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           const outcomes = Object.fromEntries(
             (comparison?.diffs ?? []).map((d) => [d.name, d.outcome])
           );
+          // The accent is nothing the code has: it waits to be matched, and is not written.
           assert.deepStrictEqual(outcomes, {
-            "color-accent": "to-code",
+            "color-accent": "unmatched",
             "color-brand": "same",
             "color-muted": "conflict",
             "radius-card": "conflict",
@@ -112,6 +113,22 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           const plan = yield* client["sync.plan"]();
           assert.strictEqual(plan.case, "figma-code");
           assert.strictEqual(plan.steps[0]?.kind, "figma-tokens");
+
+          // The user names it the code's way; a name of another kind is refused.
+          const matched = yield* client["sync.matchFigma"]({
+            entries: [
+              { to: "color-highlight", variable: "Tokens/Color/Accent" },
+              { to: "color-card", variable: "Tokens/Radius/Card" },
+            ],
+          });
+          assert.strictEqual(matched.saved, 1);
+          assert.strictEqual(matched.unmatched, 0);
+          assert.lengthOf(matched.problems, 1);
+          const named = yield* client["sync.figmaTokens"]();
+          assert.deepInclude(
+            (named?.diffs ?? []).map((d) => [d.variable, d.name, d.outcome]),
+            ["Tokens/Color/Accent", "color-highlight", "to-code"]
+          );
 
           // The user keeps the code's muted and takes Figma's radius.
           const applied = yield* client["sync.applyFigma"]({
@@ -122,7 +139,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           });
           assert.strictEqual(applied.written, 2);
           const text = yield* fs.readFileString(css);
-          assert.include(text, "--color-accent: #f59e0b;");
+          assert.include(text, "--color-highlight: #f59e0b;");
+          assert.notInclude(text, "--color-accent");
           // Written in the unit the code uses.
           assert.include(text, "--radius-card: 0.75rem;");
           assert.include(text, "--color-muted: #e5e7eb;");
@@ -144,8 +162,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
             (again?.diffs ?? []).map((d) => [d.name, d.outcome])
           );
           assert.deepStrictEqual(next, {
-            "color-accent": "same",
             "color-brand": "to-code",
+            "color-highlight": "same",
             "color-muted": "figma-behind",
             "radius-card": "same",
           });

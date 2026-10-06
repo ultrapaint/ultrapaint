@@ -11,6 +11,10 @@ import { type FigFile, guidOf } from "./fig.ts";
 import { cssColor, cssRgba, topPaint } from "./paint.ts";
 
 export interface FigmaToken {
+  /** The variable its default mode points at, by its place in Figma: a semantic colour's palette entry. */
+  readonly alias?: string;
+  /** Figma's own id for the variable or style, which a rename keeps. */
+  readonly id?: string;
   readonly kind: TokenKind;
   /** As the code names it: `color-primary-500`. */
   readonly name: string;
@@ -28,6 +32,9 @@ export interface FigmaTokenSet {
 }
 
 const SEGMENT_RE = /[^a-z0-9]+/g;
+const NUMBER_WORD_RE = /^\d+$/;
+/** The names Figma gives a collection nobody named: they say nothing about the token. */
+const UNNAMED_SET_RE = /^(collection|variables|untitled)( ?\d+)?$/i;
 const EDGE_DASH_RE = /^-+|-+$/g;
 /** Mode names that are the default theme, whatever the file calls it. */
 const DEFAULT_MODE_RE = /^(light|default|mode ?1|value|base)$/i;
@@ -116,12 +123,18 @@ export const tokenNameOf = (kind: TokenKind, path: string): string | null => {
     return null;
   }
   const words = path
-    .toLowerCase()
     .split("/")
+    .filter((s) => !UNNAMED_SET_RE.test(s.trim()))
     .flatMap((s) =>
-      s.replace(SEGMENT_RE, "-").replace(EDGE_DASH_RE, "").split("-")
+      s
+        .toLowerCase()
+        .replace(SEGMENT_RE, "-")
+        .replace(EDGE_DASH_RE, "")
+        .split("-")
     )
-    .filter((s) => s !== "" && !KIND_WORDS.has(s));
+    .filter((s) => s !== "" && !KIND_WORDS.has(s))
+    // `Danger/Danger` is one danger; `Grid/2/2` keeps its numbers.
+    .filter((s, i, all) => s !== all[i - 1] || NUMBER_WORD_RE.test(s));
   return words.length === 0 ? null : `${prefix}${words.join("-")}`;
 };
 
@@ -305,7 +318,11 @@ const readVariables = (file: FigFile, notes: string[]): FigmaToken[] => {
       }
     }
     if (values[""] !== undefined) {
+      const first = variable.values.get(defaultModeOf.get(variable.set) ?? "");
+      const target = first?.alias ? variables.get(first.alias) : undefined;
       tokens.push({
+        ...(target && { alias: target.path }),
+        id: variable.id,
         kind: variable.kind,
         name,
         values,
@@ -354,6 +371,7 @@ const readStyles = (file: FigFile): FigmaToken[] => {
   for (const node of nodes) {
     const type = field(node, "styleType");
     const path = String(node.name ?? "");
+    const id = guidOf(node.guid);
     if (type === "FILL") {
       const paint = topPaint(
         field(node, "fillPaints") as readonly FigPaint[] | undefined,
@@ -362,6 +380,7 @@ const readStyles = (file: FigFile): FigmaToken[] => {
       const name = tokenNameOf("color", path);
       if (paint?.color && name) {
         tokens.push({
+          ...(id && { id }),
           kind: "color",
           name,
           values: { "": cssColor(paint.color, paint.opacity ?? 1) },
@@ -373,6 +392,7 @@ const readStyles = (file: FigFile): FigmaToken[] => {
       const name = tokenNameOf("shadow", path);
       if (css && name) {
         tokens.push({
+          ...(id && { id }),
           kind: "shadow",
           name,
           values: { "": css },

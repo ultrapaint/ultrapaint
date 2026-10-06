@@ -122,10 +122,28 @@ export const SyncPlan = Schema.Struct({
 });
 export type SyncPlan = typeof SyncPlan.Type;
 
+/** Who matched a Figma token to the code's: the rules, an agent, or the user. */
+export const FigmaMatchSource = Schema.Literals(["rule", "agent", "user"]);
+export type FigmaMatchSource = typeof FigmaMatchSource.Type;
+
+/**
+ * What a Figma variable or style is in the code: `to` the code's token, added when the code does
+ * not declare it yet; null when it is left out of the code. A Figma file's names are rarely the
+ * ones the code wants, so nothing of Figma's reaches the code before it is matched.
+ */
+export const FigmaMatch = Schema.Struct({
+  by: FigmaMatchSource,
+  /** Where it is in Figma, `Colors/Primary/500`: to read, and to find it by when ids differ. */
+  figma: Schema.String,
+  to: Schema.NullOr(Schema.String),
+});
+export type FigmaMatch = typeof FigmaMatch.Type;
+
 /**
  * What the last sync with Figma agreed on, kept in `design-system.json` so a teammate's sync
- * starts from the same point: each token's value in Figma and in the code then, keyed by
- * `name` for the default theme and `name@theme` for another.
+ * starts from the same point: each token's value in Figma and in the code then, keyed by the
+ * code's `name` for the default theme and `name@theme` for another, and what each of Figma's
+ * tokens is in the code. Matches saved before any value was taken leave `at` at 0.
  */
 export const SyncBaseline = Schema.Struct({
   at: Schema.Number,
@@ -133,6 +151,8 @@ export const SyncBaseline = Schema.Struct({
   figma: Schema.Record(Schema.String, Schema.String),
   /** The Figma file it was taken from, by name. */
   file: Schema.String,
+  /** What each Figma variable and style is in the code, by Figma's id. */
+  matches: Schema.optional(Schema.Record(Schema.String, FigmaMatch)),
 });
 export type SyncBaseline = typeof SyncBaseline.Type;
 
@@ -146,21 +166,32 @@ export const baselineKey = (name: string, theme?: string) =>
  * - `to-code`: Figma changed it (or has it and the code does not): the code takes Figma's.
  * - `figma-behind`: the code changed it since; Figma is behind, and the code is kept.
  * - `conflict`: both changed it, or there is no baseline and they differ: the user picks.
+ * - `unmatched`: no one has said what it is in the code yet; nothing is written.
+ * - `ignored`: left out of the code on purpose.
  */
 export const FigmaTokenOutcome = Schema.Literals([
   "same",
   "to-code",
   "figma-behind",
   "conflict",
+  "unmatched",
+  "ignored",
 ]);
 export type FigmaTokenOutcome = typeof FigmaTokenOutcome.Type;
 
 export const FigmaTokenDiff = Schema.Struct({
+  /** The Figma token it points at, by `variable`: a semantic colour's palette entry. */
+  alias: Schema.optional(Schema.String),
   base: Schema.optional(Schema.String),
+  /** Who matched it; left out while it is unmatched. */
+  by: Schema.optional(FigmaMatchSource),
   code: Schema.optional(Schema.String),
   figma: Schema.String,
   kind: TokenKind,
-  /** The token, named as the code names it. */
+  /**
+   * The code's token it is matched to; unmatched or left out, the name Figma's own naming
+   * comes to (`color-brand-500`).
+   */
   name: Schema.String,
   outcome: FigmaTokenOutcome,
   /** Left out for the default theme. */
@@ -178,8 +209,22 @@ export const FigmaTokenComparison = Schema.Struct({
   importId: Schema.String,
   /** What could not be read or named, in a few words each. */
   notes: Schema.Array(Schema.String),
+  /** The tokens the code declares itself, which Figma's can be matched to. */
+  targets: Schema.Array(
+    Schema.Struct({ kind: TokenKind, name: Schema.String })
+  ),
 });
 export type FigmaTokenComparison = typeof FigmaTokenComparison.Type;
+
+/**
+ * A Figma token matched by an agent or the user, by where it is in Figma: `to` the code's token
+ * (added when the code does not declare it), null to leave it out, absent to undo the match.
+ */
+export const FigmaMatchInput = Schema.Struct({
+  to: Schema.optional(Schema.NullOr(Schema.String)),
+  variable: Schema.String,
+});
+export type FigmaMatchInput = typeof FigmaMatchInput.Type;
 
 /** The user's pick for a token in conflict. */
 export const FigmaDecision = Schema.Struct({

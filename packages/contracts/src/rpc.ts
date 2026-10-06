@@ -63,7 +63,12 @@ import {
 } from "./setup.ts";
 import { CustomiseMode, Skill, SkillList } from "./skills.ts";
 import { Snapshot, SnapshotView } from "./snapshots.ts";
-import { FigmaDecision, FigmaTokenComparison, SyncPlan } from "./sync.ts";
+import {
+  FigmaDecision,
+  FigmaMatchInput,
+  FigmaTokenComparison,
+  SyncPlan,
+} from "./sync.ts";
 import {
   AgentConfig,
   AgentEdited,
@@ -422,6 +427,16 @@ const requestRpcs = [
   Rpc.make("sync.figmaTokens", {
     error: Schema.Union([BadRequest, NotConfigured]),
     success: Schema.NullOr(FigmaTokenComparison),
+  }),
+  /** What Figma tokens are in the code, as the user matched them in the Sync view. */
+  Rpc.make("sync.matchFigma", {
+    error: Schema.Union([BadRequest, NotConfigured]),
+    payload: { entries: Schema.Array(FigmaMatchInput) },
+    success: Schema.Struct({
+      problems: Schema.Array(Schema.String),
+      saved: Schema.Number,
+      unmatched: Schema.Number,
+    }),
   }),
   /** What Figma changed, and the conflicts given to it, written into the code. */
   Rpc.make("sync.applyFigma", {

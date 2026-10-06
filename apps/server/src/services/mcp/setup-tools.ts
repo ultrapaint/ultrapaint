@@ -13,6 +13,7 @@ import {
 import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
 import { DesignSystemSetupService } from "../design-system-setup.ts";
+import { DesignSystemSyncService } from "../design-system-sync.ts";
 import { CallingThread } from "./access.ts";
 import { missing, opt, reported, ToolFailure } from "./tools.ts";
 
@@ -26,10 +27,14 @@ const FinishSetupStep = Tool.make("finish_setup_step", {
   success: Schema.Struct({ status: Schema.String, step: Schema.String }),
 });
 
-/** A decision as an agent passes it: optional keys, not unions with null. */
+/**
+ * A decision as an agent passes it: optional keys, not unions with null. Kind `figma` matches a
+ * Figma variable or style (`value`, where it is in Figma) to the code's token (`target`, added
+ * when the code does not declare it), or leaves it out of the code (`keep`), for the sync.
+ */
 const MapEntry = Schema.Struct({
   keep: opt(Schema.Boolean),
-  kind: UsageKind,
+  kind: Schema.Literals([...UsageKind.literals, "figma"]),
   note: opt(Schema.String),
   target: opt(Schema.String),
   value: Schema.String,
@@ -37,7 +42,7 @@ const MapEntry = Schema.Struct({
 
 const MapValues = Tool.make("map_values", {
   description:
-    'Decide values: target a token (color-primary, spacing-3, text-sm), a layer ("50") or a component (Button), or keep: true.',
+    'Decide values: target a token (color-primary, text-sm), a layer ("50") or a component (Button), or keep: true.',
   failure: Failure,
   parameters: Schema.Struct({ entries: Schema.Array(MapEntry) }),
   success: Schema.Struct({
@@ -73,6 +78,7 @@ const undecidedIn = (entries: readonly MappingEntry[]) =>
 export const SetupToolsLive = SetupTools.toLayer(
   Effect.gen(function* () {
     const setup = yield* DesignSystemSetupService;
+    const sync = yield* DesignSystemSyncService;
 
     /** The thread calling, which a step's tools need. */
     const caller = Effect.gen(function* () {
@@ -92,11 +98,34 @@ export const SetupToolsLive = SetupTools.toLayer(
       }),
 
       map_values: Effect.fnUntraced(function* ({ entries }) {
-        const result = yield* reported(setup.setMapping(entries, "agent"));
+        const values = entries.flatMap((e) =>
+          e.kind === "figma" ? [] : [{ ...e, kind: e.kind }]
+        );
+        const figma = entries.filter((e) => e.kind === "figma");
+        const matched =
+          figma.length > 0
+            ? yield* reported(
+                sync.matchFigma(
+                  figma.map((e) => ({
+                    to: e.keep ? null : e.target,
+                    variable: e.value,
+                  })),
+                  "agent"
+                )
+              )
+            : { problems: [], saved: 0, unmatched: 0 };
+        if (values.length === 0) {
+          return {
+            problems: matched.problems,
+            saved: matched.saved,
+            undecided: matched.unmatched,
+          };
+        }
+        const result = yield* reported(setup.setMapping(values, "agent"));
         return {
-          problems: result.problems,
-          saved: result.applied,
-          undecided: undecidedIn(result.mapping.entries),
+          problems: [...result.problems, ...matched.problems],
+          saved: result.applied + matched.saved,
+          undecided: undecidedIn(result.mapping.entries) + matched.unmatched,
         };
       }),
 

@@ -17,6 +17,7 @@ import {
   SETUP_STEPS,
 } from "@ultrapaint/contracts/design-system-setup";
 import { PageDocument } from "@ultrapaint/contracts/document";
+import type { FigmaTokenDiff } from "@ultrapaint/contracts/sync";
 import type { SlashCommand } from "@ultrapaint/contracts/threads";
 import { normaliseRoute } from "@ultrapaint/shared/route";
 import { Context, Effect, Layer, Schema } from "effect";
@@ -75,9 +76,9 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     name: "design-system",
   },
   {
-    argument: "[describe]",
+    argument: "[describe | figma]",
     description:
-      "Bring the design system and the code together: opens Sync; `describe` has an agent describe what changed",
+      "Bring the design system and the code together: opens Sync; `describe` has an agent describe what changed, `figma` match Figma's tokens to the code's",
     name: "sync",
   },
 ];
@@ -86,6 +87,8 @@ const isDefineMode = Schema.is(DefineModeSchema);
 
 /** Values of the mapping a Map task lists, each way. */
 const MAP_LISTED = 200;
+/** Tokens of each side a `/sync figma` task lists. */
+const FIGMA_LISTED = 300;
 
 /** The design system's schema, for an agent that has to write the file without the tools. */
 export const designSystemSchema = () =>
@@ -799,10 +802,107 @@ ${list(
 ${userAdds(extra)}</ultrapaint-task>`;
         });
 
+      /**
+       * `/sync figma`: an agent matches the newest Figma import's tokens to the code's, with the
+       * user, before anything of Figma's is written (ADR 0025). Both lists come in the task.
+       */
+      const syncFigma = (extra: string) =>
+        Effect.gen(function* () {
+          if (!mcp) {
+            return `<ultrapaint-task command="sync">
+The user ran /sync figma, which matches Figma's tokens through the editor's MCP server, and the
+server was started without it. Tell the user to start it with MCP on, or to match the tokens in the
+Design system panel's Sync view, and stop.
+</ultrapaint-task>`;
+          }
+          const comparison = yield* sync.figmaTokens;
+          if (!comparison) {
+            return `<ultrapaint-task command="sync">
+The user ran /sync figma, but no Figma file has been imported. Tell them to import one from the
+Design system panel's Sync view, and stop.
+</ultrapaint-task>`;
+          }
+          const byVariable = new Map<string, FigmaTokenDiff[]>();
+          for (const d of comparison.diffs) {
+            byVariable.set(d.variable, [
+              ...(byVariable.get(d.variable) ?? []),
+              d,
+            ]);
+          }
+          const figmaLines = [...byVariable.values()].flatMap((diffs) => {
+            const [first] = diffs;
+            if (!first) {
+              return [];
+            }
+            const values = diffs
+              .map((d) => (d.theme ? `${d.theme} ${d.figma}` : d.figma))
+              .join("; ");
+            const points = first.alias ? `, points at ${first.alias}` : "";
+            let now = "unmatched";
+            if (first.outcome === "ignored") {
+              now = `left out (${first.by})`;
+            } else if (first.outcome !== "unmatched") {
+              now = `${first.name} (${first.by})`;
+            }
+            return [
+              `- ${first.variable} (${first.kind}, ${values}${points}) → ${now}`,
+            ];
+          });
+          const code = yield* project.use(
+            Effect.gen(function* () {
+              const paths = yield* RepoPaths;
+              return (yield* ProjectStyleSystem)
+                .readTokens({
+                  anchorDir: paths.anchorDir,
+                  root: paths.root,
+                  settings: paths.settings,
+                })
+                .tokens.filter((t) => t.own);
+            })
+          );
+          const codeLines = code.map((t) => `- ${t.name}: ${t.value}`);
+          const listed = (lines: readonly string[]) =>
+            lines.length > FIGMA_LISTED
+              ? `${lines.slice(0, FIGMA_LISTED).join("\n")}\n- and ${lines.length - FIGMA_LISTED} more, for a second run`
+              : lines.join("\n") || "- none";
+          const unmatched = [...byVariable.values()].filter(
+            (diffs) => diffs[0]?.outcome === "unmatched"
+          ).length;
+          return `<ultrapaint-task command="sync">
+Match the tokens of the Figma file ${comparison.file} to the code's. A Figma file's names are rarely
+the ones the code wants (\`Collection 1/Brand/600\`), and its palette is often more than the
+application uses: nothing of Figma's is written to the code until it is matched, and the code's
+names win. ${unmatched === 0 ? "Every token is matched already: check the matches, change what is wrong, and stop there." : `${unmatched} are not matched yet.`}
+
+The code's own tokens:
+${listed(codeLines)}
+
+Figma's tokens, where each is in Figma (kind, value by theme) → what it is in the code now:
+${listed(figmaLines)}
+
+1. Decide what each unmatched token is in the code, and check what the rules matched:
+   - a token the code declares, when it is the same thing (the same role, not only the same value);
+   - a new token, named the way the code names its tokens, not after Figma's collections:
+     \`color-destructive\`, not \`color-collection-1-danger-danger\`;
+   - left out, for what the application does not use: a palette step only other variables point
+     at, a variable only Figma needs.
+   Look at how the components use the code's tokens when a name or a role is unclear.
+2. Ask the user with ask_user where the meaning is theirs to say, a group at a time (the brand
+   scale, the greys, the semantic colours), with your proposal as the first option.
+3. Record the decisions with map_values: kind "figma", value the Figma variable as listed above,
+   target the code's token, or keep: true to leave it out.
+4. Do not write the stylesheets or the design system. Finish by telling the user to review the
+   matches in the Design system panel's Sync view and to press Write there.
+${userAdds(extra)}</ultrapaint-task>`;
+        });
+
       const syncCommand = (argument: string) => {
         const [target = "", ...rest] = argument.trim().split(WHITESPACE_RE);
         if (target === "describe") {
           return syncDescribe(rest.join(" "));
+        }
+        if (target === "figma") {
+          return syncFigma(rest.join(" "));
         }
         return Effect.map(
           sync.plan,

@@ -117,36 +117,48 @@ describe("the tokens of a Figma file", () => {
       "text-body-lg"
     );
     expect(tokenNameOf("color", "Colors")).toBeNull();
+    // What Figma calls a collection nobody named, and a word said twice, are left out.
+    expect(tokenNameOf("color", "Collection 1/Brand/50")).toBe(
+      "color-brand-50"
+    );
+    expect(tokenNameOf("color", "Color/Danger/Danger")).toBe("color-danger");
+    expect(tokenNameOf("spacing", "Spacing/Grid/2/2")).toBe("spacing-grid-2-2");
   });
 
   it("reads variables mode by mode, follows aliases, and takes colour and shadow styles", () => {
     const set = readFigmaTokens(file());
     expect(set.tokens).toEqual([
       {
+        id: "9:10",
         kind: "color",
         name: "color-blue-500",
         values: { "": "#3b82f6" },
         variable: "Primitives/Blue/500",
       },
       {
+        id: "7:1007",
         kind: "color",
         name: "color-brand-accent",
         values: { "": "#ff0000" },
         variable: "Brand/Accent",
       },
       {
+        alias: "Primitives/Blue/500",
+        id: "9:20",
         kind: "color",
         name: "color-primary",
         values: { "": "#3b82f6", dark: "#ffffff" },
         variable: "Semantic/Primary",
       },
       {
+        id: "9:11",
         kind: "radius",
         name: "radius-card",
         values: { "": "12px" },
         variable: "Primitives/Radius/Card",
       },
       {
+        id: "7:1008",
         kind: "shadow",
         name: "shadow-card",
         values: { "": "0px 4px 8px 0px rgba(0, 0, 0, 0.1)" },

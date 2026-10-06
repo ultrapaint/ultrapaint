@@ -329,20 +329,29 @@ has a dot while something is waiting.
 | nothing yet | starts an application (Vite, React, Tailwind v4, ten components), then defines its design system |
 | a Figma file, no application | starts an application with Figma's tokens as its theme, then turns the frames into pages |
 | an application, no design system | reads what the code uses, has an agent define the design system, and offers to map and migrate the code onto it |
-| a Figma file and an application | takes Figma's tokens into your code first, then the same steps, then the frames |
+| a Figma file and an application | matches Figma's tokens to your code's and takes their values first, then the same steps, then the frames |
 | a design system | lists what drifted — tokens and components the code has that the design system does not describe, and the other way round — for `/sync describe`; compares a newer Figma import |
 
 Settings that point nowhere (no component directory, one with no components the editor can
 read, no stylesheet) come first in every case: **Detect and apply** proposes where they are and
 applies them once you have seen it.
 
-**Figma's tokens** are compared with your code's, one by one and theme by theme: a colour
+**Figma's tokens are matched to your code's first**, because a Figma file's names
+(`Collection 1/Brand/600`) and palette are rarely what the frontend wants. Each variable and
+style is one of your tokens, a new token under a name you choose, or left out of the code;
+nothing that is not matched is written. Rules match what is certain (the same name, or the one
+token with the same value, the semantic colour over its palette entry); **Match with an agent**
+(`/sync figma`) has an agent match the rest, asking you where the meaning is yours to say; and
+**Review the matches** lists every one to change. The matches are kept with the last sync, so a
+newer import of the file goes through them.
+
+Matched tokens are compared with your code's, one by one and theme by theme: a colour
 however it is written (`#3b82f6`, `rgb(…)`, `oklch(…)`), a length in px or rem. Each is also
 compared with what the last sync agreed on, which is kept in `design-system.json`:
 
 | Since the last sync | What happens |
 |---|---|
-| Figma changed it, or has it and the code does not | the code takes Figma's value, in the unit the code uses |
+| Figma changed it, or it is matched to a token the code does not have yet | the code takes Figma's value, in the unit the code uses |
 | the code changed it | the code is kept; Figma is behind |
 | both changed it, or there was no earlier sync and they differ | you pick, one by one or **All from Figma** / **All from the code** |
 
@@ -450,6 +459,7 @@ type after it is added to it.
 |---|---|
 | `/sync` | Opens the Sync view on the steps for your repository's case (no agent turn) |
 | `/sync describe` | An agent brings the design system up to the code: describes new tokens and components, takes out the ones gone, asks you what they are for |
+| `/sync figma` | An agent matches the imported Figma file's tokens to your code's, asking you where the meaning is yours to say; you review and write them in Sync |
 | `/init` | An agent describes the theme you have as the design system, and writes `design-system.json` and `DESIGN.md` |
 | `/import-figma [import]` | An agent maps an imported Figma file's components to yours and writes its frames as pages |
 | `/implement <page>` | An agent writes a page (by URL or file) in your application, with your components and conventions |

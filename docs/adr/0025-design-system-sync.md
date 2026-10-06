@@ -47,7 +47,7 @@ out on purpose (`omitted`).
 its variables and colour styles become tokens named the way the code names them, and each is
 compared with the code's and with what the last sync agreed on (`sync` in `design-system.json`,
 committed, so a teammate starts from the same point). Changed only in Figma, or new there: the
-code takes it. Changed only in the code: Figma is behind and the code is kept. Changed on both
+code takes it (once matched; see the amendment below). Changed only in the code: Figma is behind and the code is kept. Changed on both
 sides, or differing with no baseline: the user picks, in the view. The frames then become pages
 as before (0016). Exporting to Figma is not done.
 
@@ -70,3 +70,36 @@ anchor's root (`/src/components/header`), which the preview resolves against the
 - A Figma comparison that finds nothing to name (no variables, no styles) says so and asks
   nothing. Variables that are neither colours nor numbers on a known scale are left out, with
   a note.
+
+## Amendment, 2026-10-06: Figma's tokens are matched before anything is taken
+
+Comparing by name took a Figma file's names into the code. An application that already has
+tokens calls its colour `color-primary`; Figma's comes out as `color-collection-1-brand-600`, so
+nothing matched, every variable counted as new in Figma, and Sync offered to add them all to
+`@theme` beside the ones the application uses. A Figma file's names and palette are rarely what
+the frontend wants.
+
+**Each of Figma's tokens is matched to the code before it is compared.** A match says what a
+Figma variable or style is in the code: one of the code's tokens, a new token under a name chosen
+the code's way, or left out of the code. Only a matched token is compared and written; one that
+is not matched is listed and never written. The matches are kept in the baseline (`sync.matches`
+in `design-system.json`, by Figma's id, with the variable's place to read it and to find it again
+when the id changes), so a newer import of the file is compared through them.
+
+- **Rules take only what is certain**: the code declares a token of the same name, or exactly one
+  token of the kind has the same value. When several of Figma's come to one code token by value,
+  the one pointing at another (a semantic colour over its palette entry) takes it, and a palette
+  entry a matched token points at is left out.
+- **An agent takes the rest, with the user**: `/sync figma` (**Match with an agent** in the step)
+  lists both sides in its task, asks where the meaning is the user's, and records its decisions
+  with `map_values`, kind `figma`. No tool is added. It does not write the code.
+- **The user reviews and changes any match** in the step, row by row, or adds or leaves out the
+  rest at once, then writes as before. A match the user or an agent changes that leaves something
+  to write puts the step back in front of the user.
+
+Figma's own naming is kept for the names it proposes, with what Figma calls a collection nobody
+named (`Collection 1`) and a word said twice (`Danger/Danger`) dropped.
+
+The steps' order does not change: Figma's tokens still come before Define in the Figma-onto-code
+case. Matching already keeps Figma's names out of the code, so Define describes the code's names
+either way.

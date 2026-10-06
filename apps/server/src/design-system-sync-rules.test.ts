@@ -1,11 +1,20 @@
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import { emptySetup } from "@ultrapaint/contracts/design-system-setup";
-import { emptyDrift, type SyncFacts } from "@ultrapaint/contracts/sync";
+import {
+  emptyDrift,
+  type SyncBaseline,
+  type SyncFacts,
+} from "@ultrapaint/contracts/sync";
 import type { SourceToken } from "@ultrapaint/contracts/tokens";
 import { describe, expect, it } from "vitest";
 import {
   caseOf,
+  compareFigma,
   driftOf,
+  type FigmaSide,
+  figmaChanges,
+  matchFigma,
+  matchProblem,
   planOf,
   summaryOf,
 } from "./services/design-system-sync-rules.ts";
@@ -156,5 +165,96 @@ describe("the plan", () => {
       setup: emptySetup(0),
     });
     expect(summaryOf("maintain", quiet)).toContain("Nothing to do");
+  });
+});
+
+describe("matching Figma's tokens to the code's", () => {
+  const code: SourceToken[] = [
+    { kind: "color", name: "color-primary", own: true, value: "#2563eb" },
+    { kind: "color", name: "color-muted", own: true, value: "#e5e7eb" },
+    { kind: "radius", name: "radius-card", own: true, value: "0.5rem" },
+  ];
+  const figma: FigmaSide[] = [
+    {
+      id: "1:1",
+      kind: "color",
+      name: "color-brand-600",
+      values: { "": "#2563eb" },
+      variable: "Collection 1/Brand/600",
+    },
+    {
+      alias: "Collection 1/Brand/600",
+      id: "1:2",
+      kind: "color",
+      name: "color-action",
+      values: { "": "#2563eb" },
+      variable: "Semantic/Action",
+    },
+    {
+      id: "1:3",
+      kind: "radius",
+      name: "radius-card",
+      values: { "": "12px" },
+      variable: "Radius/Card",
+    },
+    {
+      id: "1:4",
+      kind: "color",
+      name: "color-danger",
+      values: { "": "#dc2626" },
+      variable: "Color/Danger/Danger",
+    },
+  ];
+
+  it("takes the same name, the one value, and the semantic token over its palette entry", () => {
+    const matched = matchFigma(figma, code, undefined);
+    expect(Object.fromEntries(matched)).toEqual({
+      // Two of Figma's have primary's value: the one pointing at the other takes it.
+      "Collection 1/Brand/600": { by: "rule", to: null },
+      "Radius/Card": { by: "rule", to: "radius-card" },
+      "Semantic/Action": { by: "rule", to: "color-primary" },
+    });
+  });
+
+  it("writes nothing of what is unmatched, and what was matched by hand wins", () => {
+    const diffs = compareFigma(figma, code, null);
+    expect(diffs.map((d) => [d.variable, d.name, d.outcome])).toEqual([
+      ["Collection 1/Brand/600", "color-brand-600", "ignored"],
+      ["Semantic/Action", "color-primary", "same"],
+      ["Radius/Card", "radius-card", "conflict"],
+      ["Color/Danger/Danger", "color-danger", "unmatched"],
+    ]);
+    expect(figmaChanges(diffs, [])).toEqual([]);
+
+    const baseline: SyncBaseline = {
+      at: 0,
+      code: {},
+      figma: {},
+      file: "App",
+      matches: {
+        // Found by its place when Figma's id changed.
+        "9:9": {
+          by: "user",
+          figma: "Color/Danger/Danger",
+          to: "color-destructive",
+        },
+      },
+    };
+    const matched = compareFigma(figma, code, baseline);
+    expect(matched.at(-1)).toMatchObject({
+      by: "user",
+      name: "color-destructive",
+      outcome: "to-code",
+    });
+    expect(figmaChanges(matched, [])).toEqual([
+      { name: "color-destructive", value: "#dc2626" },
+    ]);
+  });
+
+  it("only matches a name of the token's kind", () => {
+    const brand = figma[0] as FigmaSide;
+    expect(matchProblem(brand, "color-brand")).toBeNull();
+    expect(matchProblem(brand, "radius-card")).toContain("names a radius one");
+    expect(matchProblem(brand, "Brand Blue")).toContain("not a token name");
   });
 });
