@@ -22,7 +22,14 @@ import {
   tokenRef,
   toPixels,
 } from "@ultrapaint/design-document/tokens";
-import { Check, RefreshCw, Search, Sparkles, Wand2 } from "lucide-react";
+import {
+  Check,
+  ListChecks,
+  RefreshCw,
+  Search,
+  Sparkles,
+  Wand2,
+} from "lucide-react";
 import type * as React from "react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -48,7 +55,9 @@ import {
   type TokenKind,
 } from "../state/context-menu.ts";
 import { useDesignSystem } from "../state/design-system.ts";
+import { useDesignSystemSetup } from "../state/design-system-setup.ts";
 import { useProject } from "../state/project.ts";
+import { DesignSystemSetupView } from "./design-system-setup.tsx";
 
 /** Opens a thread with `/init` in its composer, for the user to send. */
 export const startInit = () => startCommand("/init");
@@ -660,6 +669,8 @@ export const DesignSystemPanel = () => {
   const [tab, setTab] = useState<"tokens" | "notes">("tokens");
   const themes = designSystem?.themes ?? ["light"];
   const [theme, setTheme] = useState(themes[0] ?? "light");
+  const setupShown = useDesignSystemSetup((s) => s.shown);
+  const showSetup = useDesignSystemSetup((s) => s.show);
 
   useEffect(() => {
     if (configured && !loaded) {
@@ -672,6 +683,9 @@ export const DesignSystemPanel = () => {
   }
   if (!loaded) {
     return <PanelEmpty>Reading the design system…</PanelEmpty>;
+  }
+  if (setupShown) {
+    return <DesignSystemSetupView onBack={() => showSetup(false)} />;
   }
   if (!designSystem) {
     return (
@@ -687,6 +701,10 @@ export const DesignSystemPanel = () => {
         <Button onClick={startInit} size="sm">
           <Wand2 />
           Initialise with an agent
+        </Button>
+        <Button onClick={() => showSetup(true)} size="sm" variant="outline">
+          <ListChecks />
+          Set up step by step
         </Button>
         <Button
           disabled={detecting}
@@ -714,6 +732,12 @@ export const DesignSystemPanel = () => {
             value={q}
           />
         </InputGroup>
+        <IconButton
+          onClick={() => showSetup(true)}
+          tooltip="Set up step by step: inventory, define, map, migrate, verify"
+        >
+          <ListChecks />
+        </IconButton>
         <IconButton onClick={startInit} tooltip="Re-run /init with an agent">
           <RefreshCw />
         </IconButton>

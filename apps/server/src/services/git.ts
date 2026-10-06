@@ -1,17 +1,30 @@
+import type { RestoreEntry } from "@ultrapaint/contracts/design-system-setup";
 import { CommandFailed } from "@ultrapaint/contracts/errors";
 import type {
   GitDiff,
   GitFileStatus,
   GitStatus,
 } from "@ultrapaint/contracts/git";
-import { Context, Effect, Layer, Semaphore } from "effect";
+import {
+  Context,
+  Effect,
+  FileSystem,
+  Layer,
+  Path,
+  Random,
+  Semaphore,
+} from "effect";
 import { ChildProcessSpawner } from "effect/process";
 import { runCommand } from "../process.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
 /** Runs git and returns stdout and the exit code. Spawn failures surface as `CommandFailed`. */
-export const runGit = (cwd: string, args: readonly string[]) =>
-  runCommand("git", args, { cwd }).pipe(
+export const runGit = (
+  cwd: string,
+  args: readonly string[],
+  env?: Record<string, string>
+) =>
+  runCommand("git", args, { cwd, ...(env && { env }) }).pipe(
     Effect.mapError(
       (cause) =>
         new CommandFailed({ message: `git ${args[0]}: ${cause.message}` })
@@ -21,9 +34,10 @@ export const runGit = (cwd: string, args: readonly string[]) =>
 /** Runs git and fails with `CommandFailed` on a non-zero exit. */
 export const git = Effect.fnUntraced(function* (
   cwd: string,
-  args: readonly string[]
+  args: readonly string[],
+  env?: Record<string, string>
 ) {
-  const result = yield* runGit(cwd, args);
+  const result = yield* runGit(cwd, args, env);
   if (result.exitCode !== 0) {
     return yield* new CommandFailed({
       message: `git ${args[0]} exited ${result.exitCode}: ${result.stderr.trim()}`,
@@ -65,6 +79,30 @@ const parseStatus = (
 /** Content hash per changed or untracked file; used to attribute changes to an agent turn. */
 export type GitSnapshot = ReadonlyMap<string, string>;
 
+/** A file that differs between two trees: added, modified or deleted in the second. */
+export interface TreeChange {
+  readonly path: string;
+  readonly status: "A" | "M" | "D";
+}
+
+/** Paths per `git restore`, well under any command line's limit. */
+const RESTORE_CHUNK = 200;
+
+const parseNameStatus = (out: string): TreeChange[] => {
+  const parts = out.split("\0").filter(Boolean);
+  const changes: TreeChange[] = [];
+  for (let i = 0; i + 1 < parts.length; i += 2) {
+    const code = parts[i]?.[0];
+    const file = parts[i + 1];
+    if (file && (code === "A" || code === "M" || code === "D")) {
+      changes.push({ path: file, status: code });
+    } else if (file && code === "T") {
+      changes.push({ path: file, status: "M" });
+    }
+  }
+  return changes;
+};
+
 export class GitService extends Context.Service<
   GitService,
   {
@@ -84,6 +122,31 @@ export class GitService extends Context.Service<
     readonly diff: (
       rel: string
     ) => Effect.Effect<GitDiff, CommandFailed | ForbiddenPathError>;
+    /** The files that differ between two trees, repo-relative, as the second has them. */
+    readonly changedBetween: (
+      from: string,
+      to: string
+    ) => Effect.Effect<readonly TreeChange[], CommandFailed>;
+    /** Removes a ref `snapshotTree` made. */
+    readonly deleteRef: (ref: string) => Effect.Effect<void, CommandFailed>;
+    /** Every file of the working tree git would keep: tracked and untracked, not ignored. */
+    readonly files: Effect.Effect<readonly string[], CommandFailed>;
+    /**
+     * Puts files back as a tree has them, and removes the ones it does not have. The working
+     * tree only: the index, the branch and the stash are left as they are.
+     */
+    readonly restoreFrom: (
+      tree: string,
+      entries: readonly RestoreEntry[]
+    ) => Effect.Effect<void, CommandFailed | ForbiddenPathError>;
+    /**
+     * Writes the working tree as it is into a git tree, untracked files included and ignored ones
+     * left out, through an index of its own, and points `<prefix>/<tree>` at it so it outlives
+     * `git gc`.
+     */
+    readonly snapshotTree: (
+      prefix: string
+    ) => Effect.Effect<string, CommandFailed>;
     readonly snapshot: Effect.Effect<GitSnapshot, CommandFailed>;
     readonly status: Effect.Effect<GitStatus, CommandFailed>;
   }
@@ -92,6 +155,8 @@ export class GitService extends Context.Service<
     GitService,
     Effect.gen(function* () {
       const paths = yield* RepoPaths;
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
       const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
       // `git status` and friends are cheap but a snapshot fans out one process per file.
       const processes = yield* Semaphore.make(8);
@@ -105,7 +170,8 @@ export class GitService extends Context.Service<
             spawner
           )
         );
-      const run = (args: readonly string[]) => provide(git(paths.root, args));
+      const run = (args: readonly string[], env?: Record<string, string>) =>
+        provide(git(paths.root, args, env));
 
       const status = Effect.map(
         run(["status", "--porcelain=v1", "-b", "-z", "--untracked-files=all"]),
@@ -190,14 +256,97 @@ export class GitService extends Context.Service<
         };
       });
 
+      const snapshotTree = Effect.fn("GitService.snapshotTree")(function* (
+        prefix: string
+      ) {
+        const real = path.resolve(
+          paths.root,
+          (yield* run(["rev-parse", "--git-path", "index"])).trim()
+        );
+        const suffix = (yield* Random.nextIntBetween(0, 2 ** 31)).toString(36);
+        const index = `${real}.ultrapaint-${suffix}`;
+        // The real index is copied for what it knows of the files' timestamps, so only what
+        // changed is hashed again; a repository without commits has none yet.
+        yield* fs.copyFile(real, index).pipe(Effect.ignore);
+        const env = { GIT_INDEX_FILE: index };
+        const tree = yield* Effect.gen(function* () {
+          yield* run(["add", "--all", "--", ":/"], env);
+          return (yield* run(["write-tree"], env)).trim();
+        }).pipe(Effect.ensuring(Effect.ignore(fs.remove(index))));
+        yield* run(["update-ref", `${prefix}/${tree}`, tree]);
+        return tree;
+      });
+
+      const changedBetween = Effect.fn("GitService.changedBetween")(function* (
+        from: string,
+        to: string
+      ) {
+        if (from === to) {
+          return [];
+        }
+        return parseNameStatus(
+          yield* run([
+            "diff",
+            "--name-status",
+            "--no-renames",
+            "--relative",
+            "-z",
+            from,
+            to,
+          ])
+        );
+      });
+
+      const restoreFrom = Effect.fn("GitService.restoreFrom")(function* (
+        tree: string,
+        entries: readonly RestoreEntry[]
+      ) {
+        const restored = entries
+          .filter((e) => e.action === "restore")
+          .map((e) => e.path);
+        yield* Effect.forEach(restored, paths.resolve, { discard: true });
+        for (let i = 0; i < restored.length; i += RESTORE_CHUNK) {
+          yield* run([
+            "restore",
+            `--source=${tree}`,
+            "--worktree",
+            "--",
+            ...restored.slice(i, i + RESTORE_CHUNK),
+          ]);
+        }
+        for (const entry of entries) {
+          if (entry.action === "delete") {
+            const abs = yield* paths.resolve(entry.path);
+            // Already gone is what was asked for.
+            yield* Effect.ignore(fs.remove(abs));
+          }
+        }
+      });
+
+      const deleteRef = Effect.fn("GitService.deleteRef")(function* (
+        ref: string
+      ) {
+        yield* run(["update-ref", "-d", ref]);
+      });
+
+      const listFiles = Effect.map(
+        run(["ls-files", "-z", "--cached", "--others", "--exclude-standard"]),
+        (out) => [...new Set(out.split("\0").filter(Boolean))]
+      ).pipe(Effect.withSpan("GitService.files"));
+
       return GitService.of({
         branch: Effect.map(run(["rev-parse", "--abbrev-ref", "HEAD"]), (out) =>
           out.trim()
         ),
+        changedBetween,
         changedSince,
         commit,
+        deleteRef,
         diff,
+        files: listFiles,
+        restoreFrom,
         snapshot,
+        snapshotTree,
         status,
         user,
       });

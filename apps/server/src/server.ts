@@ -17,6 +17,7 @@ import { connectHost, isLoopback, ServerConfig } from "./config.ts";
 import { EventBus } from "./events.ts";
 import { ProjectManager } from "./project.ts";
 import { RpcHandlers } from "./rpc-handlers.ts";
+import { DesignSystemSetupService } from "./services/design-system-setup.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
 import { McpAccess } from "./services/mcp/access.ts";
 import { McpRoute } from "./services/mcp/route.ts";
@@ -268,6 +269,8 @@ const Threads = ThreadService.layer.pipe(
 
 /** Application services. Each is built once and shared by every route. */
 const Services = Threads.pipe(
+  // The commands that expand a step's task read the setup, and the threads are built on them.
+  Layer.provideMerge(DesignSystemSetupService.layer),
   Layer.provideMerge(ProjectManager.layer),
   Layer.provideMerge(Screenshots.layer),
   Layer.provideMerge(SettingsService.layer),

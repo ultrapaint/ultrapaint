@@ -20,6 +20,8 @@ export const runCommand = Effect.fn("runCommand")(function* (
   args: readonly string[],
   options: {
     readonly cwd: string;
+    /** Added to the server's own environment. */
+    readonly env?: Record<string, string>;
     readonly shell?: boolean;
     readonly timeout?: Duration.Input;
   }
@@ -28,6 +30,7 @@ export const runCommand = Effect.fn("runCommand")(function* (
   const handle = yield* spawner.spawn(
     ChildProcess.make(command, args, {
       cwd: options.cwd,
+      ...(options.env && { env: options.env, extendEnv: true }),
       forceKillAfter: "1 second",
       shell: options.shell ?? false,
       stdin: "ignore",

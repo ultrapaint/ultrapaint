@@ -138,7 +138,7 @@ export const DialogHost = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>{confirm?.title}</AlertDialogTitle>
             {confirm?.description ? (
-              <AlertDialogDescription>
+              <AlertDialogDescription className="whitespace-pre-line">
                 {confirm.description}
               </AlertDialogDescription>
             ) : null}

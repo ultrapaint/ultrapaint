@@ -17,6 +17,7 @@ import {
   OPTIONS_FILE,
   previewFiles,
 } from "./preview-files.ts";
+import { usage } from "./usage-rewrite.ts";
 
 /**
  * Whether a package is installed where the anchor can reach it: in its own `node_modules` or
@@ -59,4 +60,5 @@ export const framework: Framework = {
       };
     },
   },
+  usage,
 };

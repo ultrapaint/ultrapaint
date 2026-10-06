@@ -135,12 +135,14 @@ import {
 } from "../state/attachments.ts";
 import { api } from "../state/connection.ts";
 import { openMenuAt } from "../state/context-menu.ts";
+import { useDesignSystemSetup } from "../state/design-system-setup.ts";
 import { nodeIn, useDocuments } from "../state/documents.ts";
 import { useEditor, type Workspace } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { isSendKey, useSendKey } from "../state/send-key.ts";
 import { ScopePicture, ThreadList } from "./chat-list.tsx";
 import { ChatStarters } from "./chat-starters.tsx";
+import { SetupStepBar, SetupStepIntro } from "./design-system-setup.tsx";
 import { WorkingIndicator, WorkingMark } from "./thread-work.tsx";
 
 export const Threads = () => {
@@ -168,6 +170,7 @@ export const Threads = () => {
   return (
     <div className="flex h-full flex-col">
       <ThreadHeader thread={thread} />
+      <SetupStepBar threadId={thread.id} />
       <ScopeBar thread={thread} />
       <ThreadView items={items ?? []} thread={thread} />
     </div>
@@ -273,9 +276,16 @@ const ThreadView = ({
   const last = items.at(-1);
   const since = items.findLast((i) => i.kind === "user")?.at;
   const fresh = items.length === 0 && thread.status === "idle";
+  const stepThread = useDesignSystemSetup(
+    (s) =>
+      s.setup?.steps.some(
+        (step) => step.threadId === thread.id && step.status !== "todo"
+      ) ?? false
+  );
   return (
     <>
-      {fresh ? <ChatStarters thread={thread} /> : null}
+      {fresh && stepThread ? <SetupStepIntro threadId={thread.id} /> : null}
+      {fresh && !stepThread ? <ChatStarters thread={thread} /> : null}
       {/* Keyed by thread so each one opens scrolled to its latest message. */}
       {fresh ? null : (
         <MessageScrollerProvider

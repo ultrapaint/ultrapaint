@@ -1,3 +1,7 @@
+import {
+  type SetupStepId,
+  setupStepOf,
+} from "@ultrapaint/contracts/design-system-setup";
 import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
 import { Effect } from "effect";
 import { AppLog } from "./app-log.ts";
@@ -7,6 +11,7 @@ import { ProjectManager } from "./project.ts";
 import { CatalogueService } from "./services/catalogue.ts";
 import { CommentsService } from "./services/comments.ts";
 import { DesignSystemService } from "./services/design-system.ts";
+import { DesignSystemSetupService } from "./services/design-system-setup.ts";
 import { DocumentService } from "./services/documents.ts";
 import { EditService } from "./services/edit.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
@@ -50,6 +55,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const access = yield* McpAccess;
     const commands = yield* SlashCommands;
     const screenshots = yield* Screenshots;
+    const dsSetup = yield* DesignSystemSetupService;
     const { host: listenHost, mcp: mcpEnabled, port } = yield* ServerConfig;
 
     const pages = <A, E>(
@@ -84,6 +90,23 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const figma = <A, E>(
       f: (s: FigmaImportService["Service"]) => Effect.Effect<A, E>
     ) => project.use(Effect.flatMap(FigmaImportService, f));
+
+    /**
+     * Stops the turns of the steps from `step` on that are under way, before the setup moves
+     * them: an agent still writing would undo the redo.
+     */
+    const stopThreads = (step: SetupStepId, only: boolean) =>
+      Effect.gen(function* () {
+        const { steps } = yield* dsSetup.get;
+        const from = steps.findIndex((s) => s.id === step);
+        const affected = only ? [steps[from]] : steps.slice(from);
+        for (const s of affected) {
+          if (s?.threadId !== undefined && s.status === "active") {
+            // A thread that is not working has no turn to cancel.
+            yield* Effect.ignore(threads.cancel(s.threadId));
+          }
+        }
+      });
 
     return UltrapaintRpcs.of({
       "agents.discover": ({ agentId }) => discovery.discover(agentId),
@@ -124,6 +147,44 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "documents.apply": (input) => documents((d) => d.apply(input)),
       "documents.get": ({ doc }) => documents((d) => d.get(doc)),
       "documents.list": ({ canvas }) => documents((d) => d.list(canvas)),
+      "dsSetup.audit": () => dsSetup.audit,
+      "dsSetup.batchPreview": ({ batchId }) => dsSetup.batchPreview(batchId),
+      "dsSetup.complete": ({ step }) => dsSetup.complete(step),
+      "dsSetup.get": () => dsSetup.get,
+      "dsSetup.inventory": () => dsSetup.inventory,
+      "dsSetup.mapping": () => dsSetup.mapping,
+      "dsSetup.redo": ({ step }) =>
+        Effect.andThen(stopThreads(step, false), dsSetup.redo(step)),
+      "dsSetup.redoPreview": ({ step }) => dsSetup.redoPreview(step),
+      "dsSetup.resume": ({ step }) => dsSetup.resume(step),
+      "dsSetup.revertBatch": ({ batchId }) => dsSetup.revertBatch(batchId),
+      "dsSetup.setMapping": ({ changes }) =>
+        Effect.map(dsSetup.setMapping(changes, "user"), (r) => ({
+          mapping: r.mapping,
+          problems: r.problems,
+        })),
+      "dsSetup.start": Effect.fnUntraced(function* ({ mode, step }) {
+        const thread = setupStepOf(step)?.agent
+          ? yield* threads.create(
+              undefined,
+              `Design system: ${setupStepOf(step)?.title ?? step}`
+            )
+          : null;
+        const started = yield* dsSetup
+          .start(step, {
+            ...(mode && { mode }),
+            ...(thread && { threadId: thread.id }),
+          })
+          // A step that could not start leaves no empty thread behind.
+          .pipe(
+            Effect.tapError(() =>
+              thread ? threads.delete(thread.id) : Effect.void
+            )
+          );
+        return { setup: started, threadId: thread?.id ?? null };
+      }),
+      "dsSetup.stop": ({ step }) =>
+        Effect.andThen(stopThreads(step, true), dsSetup.stop(step)),
       "edit.redo": () => edit((e) => e.redo),
       "edit.state": () => edit((e) => e.state),
       "edit.undo": () => edit((e) => e.undo),
@@ -136,6 +197,8 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "events.comments": () => events.subscribe("comments"),
       "events.designSystem": () => events.subscribe("designSystem"),
       "events.document": () => events.subscribe("document"),
+      "events.dsSetup": () => events.subscribe("dsSetup"),
+      "events.dsSetupMapping": () => events.subscribe("dsSetupMapping"),
       "events.edit.state": () => events.subscribe("edit.state"),
       "events.file.changed": () => events.subscribe("file.changed"),
       "events.git": () => events.subscribe("git"),

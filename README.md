@@ -229,6 +229,29 @@ asks you what it cannot find out, and saves two files next to the designs:
 - `DESIGN.md` — the conventions every agent is told about: what the product is, which colours
   mean what, what to always or never do.
 
+### Setting one up step by step
+
+A project whose code has drifted from its theme, or that has no theme to speak of, needs more
+than `/init`. **Set up step by step** in the Design system panel takes it through five steps, in
+order; each one stops for you before the next.
+
+| Step | What happens |
+|---|---|
+| Inventory | The code is read for the colours, spacing, type sizes and weights, radii, shadows and z-index layers it uses, and the plain `<button>`s and `<input>`s where your library has a component. Each value is the design system's, one of Tailwind's own, or written out (`bg-[#3b82f6]`, `p-[13px]`, an inline style), with how often and where |
+| Define | An agent writes the design system. It **adopts** the theme there is, as `/init` does, or **proposes** one from what the code uses: a palette and its semantic colours, a spacing base, a type scale, the radii and shadows, put to you on question cards and then written into the stylesheet's `@theme`. The inventory recommends one of the two; you choose |
+| Map | The code is read again against the design system, and each value off it is given what it becomes: a token (`color-primary`, `spacing-3`), the library's component for a plain element, or kept as it is. Rules settle the exact matches; an agent the rest, asking you where the meaning is yours. You can change any of it in the panel |
+| Migrate | The code is brought onto the design system a directory at a time. The rules rewrite what is mechanical, classes (`hover:bg-[#3b82f6]/50` → `hover:bg-primary/50`), inline styles and stylesheet declarations; the agent does the rest, a colour in a constant, a `<button>` to `Button`, then runs your type check and linter. Each batch can be reverted on its own |
+| Verify | The code is read once more: how many uses are still off the system, against how many there were when the mapping was made, and how many of those are kept on purpose |
+
+A step an agent does runs in a thread of its own, opened with `/design-system <step>` in its
+composer and marked with the step it runs. **Stop** ends the agent's turn and keeps what it
+did; **Resume** picks it up again. **Redo** puts back every file the step and the later ones
+changed, as it was when the step started, after showing you the list, and takes the later steps
+back to the start; files you changed yourself in between are left alone. Each step is kept as a
+git snapshot of the working tree under `refs/ultrapaint/setup/`, and so is each batch of Migrate, so the setup needs a git
+repository; your index, branch and stash are never touched. Where the setup is lives in the state
+directory, not in the repository ([ADR 0023](docs/adr/0023-design-system-setup.md)).
+
 ### Design skills
 
 Before it designs, every agent is also told how to design well, whatever the product: hierarchy,
@@ -308,6 +331,7 @@ supported.
 - [Spaces, pages and the router](docs/adr/0012-spaces-pages-router.md), and [pages with optional URLs](docs/adr/0020-pages-have-optional-urls.md)
 - [Design documents instead of TSX pages](docs/adr/0015-design-documents.md)
 - [Importing a Figma file](docs/adr/0016-figma-import.md)
+- [Setting up a design system in steps](docs/adr/0023-design-system-setup.md)
 - [All architecture decisions](docs/adr/README.md)
 - [Work definition](docs/discuss/work-definition.md) and [implementation plan](docs/PLAN.md)
 

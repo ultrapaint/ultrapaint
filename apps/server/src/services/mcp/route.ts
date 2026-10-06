@@ -13,6 +13,7 @@ import { CallingThread, McpAccess } from "./access.ts";
 import { AskUserToolLive } from "./ask-user.ts";
 import { FigmaTools, FigmaToolsLive } from "./figma-tools.ts";
 import { ScreenshotToolLive } from "./screenshot.ts";
+import { SetupTools, SetupToolsLive } from "./setup-tools.ts";
 import { EditorTools, EditorToolsLive } from "./tools.ts";
 
 export const MCP_PATH = "/mcp";
@@ -57,6 +58,7 @@ const TokenGate = HttpRouter.use(
 const Tools = Layer.mergeAll(
   McpServer.toolkit(EditorTools).pipe(Layer.provide(EditorToolsLive)),
   McpServer.toolkit(FigmaTools).pipe(Layer.provide(FigmaToolsLive)),
+  McpServer.toolkit(SetupTools).pipe(Layer.provide(SetupToolsLive)),
   ScreenshotToolLive,
   AskUserToolLive
 );

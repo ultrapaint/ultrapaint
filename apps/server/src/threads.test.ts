@@ -530,7 +530,14 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           const commands = yield* client["commands.list"]();
           assert.deepStrictEqual(
             commands.map((c) => c.name),
-            ["init", "implement", "import-figma", "redraw", "components"]
+            [
+              "init",
+              "implement",
+              "import-figma",
+              "redraw",
+              "components",
+              "design-system",
+            ]
           );
           const threadId = yield* startThread;
           yield* prompt(threadId, "/init");

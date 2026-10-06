@@ -9,6 +9,15 @@ import {
   UpdateCommentInput,
 } from "./comments.ts";
 import { DesignSystem, DesignSystemState } from "./design-system.ts";
+import {
+  DefineMode,
+  DesignSystemSetup,
+  MappingChange,
+  RestoreEntry,
+  SetupStepId,
+  UsageInventory,
+  UsageMapping,
+} from "./design-system-setup.ts";
 import { ApplyInput, ApplyResult, DocumentState } from "./document.ts";
 import { UndoResult, UndoState } from "./edit.ts";
 import {
@@ -95,6 +104,15 @@ const ThreadError = Schema.Union([
 ]);
 const GitError = Schema.Union([NotConfigured, ForbiddenPath, CommandFailed]);
 const CheckpointError = Schema.Union([NotConfigured, NotFound, ForbiddenPath]);
+/** A step out of order is a BadRequest; git failing to snapshot or put back is CommandFailed. */
+const SetupError = Schema.Union([
+  NotConfigured,
+  BadRequest,
+  CommandFailed,
+  ForbiddenPath,
+  NotFound,
+]);
+const SetupStepRef = { step: SetupStepId };
 
 const ThreadRef = { threadId: Schema.String };
 
@@ -284,6 +302,90 @@ const requestRpcs = [
   Rpc.make("designSystem.detect", {
     error: EditError,
     success: DesignSystem,
+  }),
+
+  /** The design-system setup's steps (ADR 0023). */
+  Rpc.make("dsSetup.get", { error: NotConfigured, success: DesignSystemSetup }),
+  /** What the Inventory step found; null before it has run. */
+  Rpc.make("dsSetup.inventory", {
+    error: NotConfigured,
+    success: Schema.NullOr(UsageInventory),
+  }),
+  /**
+   * Starts a step once the ones before it are done: the inventory runs there and then; a step an
+   * agent does gets a thread, returned for the editor to open with the step's command.
+   */
+  Rpc.make("dsSetup.start", {
+    error: Schema.Union([SetupError, ThreadError]),
+    payload: { ...SetupStepRef, mode: Schema.optional(DefineMode) },
+    success: Schema.Struct({
+      setup: DesignSystemSetup,
+      threadId: Schema.NullOr(Schema.String),
+    }),
+  }),
+  /** Stops a step: its thread's turn is cancelled and what it did so far is kept. */
+  Rpc.make("dsSetup.stop", {
+    error: SetupError,
+    payload: SetupStepRef,
+    success: DesignSystemSetup,
+  }),
+  /** Takes a stopped step, or one in review, up again in its thread. */
+  Rpc.make("dsSetup.resume", {
+    error: SetupError,
+    payload: SetupStepRef,
+    success: DesignSystemSetup,
+  }),
+  /** The user goes on past a step. */
+  Rpc.make("dsSetup.complete", {
+    error: SetupError,
+    payload: SetupStepRef,
+    success: DesignSystemSetup,
+  }),
+  /** The code read against the saved design system, by Map and Verify; null before Map. */
+  Rpc.make("dsSetup.audit", {
+    error: NotConfigured,
+    success: Schema.NullOr(UsageInventory),
+  }),
+  /** What each value off the system becomes; null before Map. */
+  Rpc.make("dsSetup.mapping", {
+    error: NotConfigured,
+    success: Schema.NullOr(UsageMapping),
+  }),
+  /** The user's decisions on the mapping; what could not be taken says why. */
+  Rpc.make("dsSetup.setMapping", {
+    error: SetupError,
+    payload: { changes: Schema.Array(MappingChange) },
+    success: Schema.Struct({
+      mapping: UsageMapping,
+      problems: Schema.Array(Schema.String),
+    }),
+  }),
+  /** The files reverting a batch of Migrate would put back. */
+  Rpc.make("dsSetup.batchPreview", {
+    error: SetupError,
+    payload: { batchId: Schema.String },
+    success: Schema.Array(RestoreEntry),
+  }),
+  /** Puts back what a batch of Migrate changed, and takes it back to todo. */
+  Rpc.make("dsSetup.revertBatch", {
+    error: SetupError,
+    payload: { batchId: Schema.String },
+    success: DesignSystemSetup,
+  }),
+  /** The files redoing a step would put back, before anything is. */
+  Rpc.make("dsSetup.redoPreview", {
+    error: SetupError,
+    payload: SetupStepRef,
+    success: Schema.Array(RestoreEntry),
+  }),
+  /**
+   * Puts back every file this step and the later ones changed, as it was when this step began,
+   * and takes them back to todo.
+   */
+  Rpc.make("dsSetup.redo", {
+    error: SetupError,
+    payload: SetupStepRef,
+    success: DesignSystemSetup,
   }),
 
   /** The design skills agents are told, built-in and the project's own, with what is off. */
@@ -537,6 +639,10 @@ export const eventSchemas = {
   designSystem: DesignSystemState,
   /** A document changed: an edit, an undo, an agent, a branch switch. */
   document: DocumentState,
+  /** A step of the design-system setup changed. */
+  dsSetup: DesignSystemSetup,
+  /** The mapping changed: the rules, the agent, the user, or a redo that dropped it. */
+  dsSetupMapping: Schema.NullOr(UsageMapping),
   "edit.state": UndoState,
   "file.changed": Schema.Struct({ file: Schema.String, hash: Schema.String }),
   git: GitStatus,
@@ -568,6 +674,14 @@ const eventRpcs = [
   Rpc.make("events.designSystem", {
     stream: true,
     success: eventSchemas.designSystem,
+  }),
+  Rpc.make("events.dsSetup", {
+    stream: true,
+    success: eventSchemas.dsSetup,
+  }),
+  Rpc.make("events.dsSetupMapping", {
+    stream: true,
+    success: eventSchemas.dsSetupMapping,
   }),
   Rpc.make("events.comments", {
     stream: true,

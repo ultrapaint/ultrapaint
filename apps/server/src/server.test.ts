@@ -744,6 +744,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           "import-figma",
           "redraw",
           "components",
+          "design-system",
         ]);
       })
     );

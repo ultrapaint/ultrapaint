@@ -677,5 +677,8 @@ export const scanDesignSystem = (
       path.relative(ctx.root, f).replaceAll("\\", "/")
     ),
     notes,
+    ownTokens: [...themeVars.keys()]
+      .filter((k) => !k.endsWith("-*"))
+      .map((k) => k.slice(2)),
   };
 };
