@@ -408,6 +408,15 @@ layer(Appearing, { excludeTestServices: true, timeout: "60 seconds" })(
           );
           const again = yield* Effect.flip(client["settings.renameConfig"]());
           assert.strictEqual(again._tag, "BadRequest");
+
+          // The old name is no longer the configuration: a file that takes it again is not read.
+          yield* fs.writeFileString(
+            legacy,
+            JSON.stringify({ designsDir: "designs", theme: "light" })
+          );
+          yield* Effect.sleep("600 millis");
+          assert.strictEqual((yield* client["settings.get"]())?.theme, "dark");
+          yield* fs.remove(legacy);
         })
     );
   }

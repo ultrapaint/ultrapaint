@@ -13,6 +13,7 @@ import {
   Context,
   Effect,
   Exit,
+  FiberHandle,
   FileSystem,
   Layer,
   Path,
@@ -200,6 +201,9 @@ export class SettingsService extends Context.Service<
         yield* PubSub.publish(external, settings);
       });
 
+      // One watcher, on the file the settings are saved to now: saving a session to a file or
+      // renaming it moves the watch, and the file it left is no longer heard.
+      const watching = yield* FiberHandle.make<void, never>();
       const watch = (file: SettingsFile) =>
         fs.watch(path.dirname(file.path)).pipe(
           Stream.filter(
@@ -220,7 +224,8 @@ export class SettingsService extends Context.Service<
           ),
           // A directory that cannot be watched only means external edits need a restart.
           Effect.ignore({ log: true }),
-          Effect.forkIn(layerScope)
+          (watcher) => FiberHandle.run(watching, watcher),
+          Effect.asVoid
         );
 
       const initialFile = yield* settingsFile;
