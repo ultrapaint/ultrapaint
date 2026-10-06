@@ -168,6 +168,42 @@ describe("writing Tailwind v4 tokens back", () => {
     expect(byName(ctx, "radius-lg")).toBeUndefined();
   });
 
+  it("takes the last of two changes to one value, whether to the token or the variable it names", () => {
+    const ctx = project();
+    const text = (changes: Parameters<typeof writeTokens>[1]) =>
+      writeTokens(ctx, changes)[0]?.text ?? "";
+    expect(
+      text([
+        { name: "color-brand", value: "#111" },
+        { name: "color-brand", value: "#222222" },
+      ])
+    ).toBe(APP_CSS.replace("#2563eb", "#222222"));
+    expect(
+      text([
+        { name: "color-brand", remove: true },
+        { name: "color-brand", value: "#333333" },
+      ])
+    ).toBe(APP_CSS.replace("#2563eb", "#333333"));
+    const twice = text([
+      { name: "color-accent", value: "#444444" },
+      { name: "color-accent", value: "#555555" },
+    ]);
+    expect(twice).toContain("--color-accent: #555555;");
+    expect(twice).not.toContain("#444444");
+    // Two tokens that are one variable: the last change is the variable's.
+    const shared = project(
+      APP_CSS.replace(
+        "--color-background: var(--background);",
+        "--color-background: var(--background);\n  --color-surface: var(--background);"
+      )
+    );
+    const edited = writeTokens(shared, [
+      { name: "color-background", value: "#fafafa" },
+      { name: "color-surface", value: "#f0f0f0" },
+    ]);
+    expect(edited[0]?.text).toContain("--background: #f0f0f0;");
+  });
+
   it("starts a theme block in a stylesheet that has none", () => {
     const ctx = project('@import "tailwindcss";\n');
     const edits = writeTokens(ctx, [

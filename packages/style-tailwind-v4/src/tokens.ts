@@ -311,6 +311,10 @@ const removal = (text: string, decl: Declaration): Splice => {
     : { end: decl.declEnd, start: decl.declStart, text: "" };
 };
 
+/** Whether two changes touch the same text; two insertions at one place both stand. */
+const overlaps = (a: Splice, b: Splice) =>
+  a.end > a.start && b.end > b.start && a.start < b.end && b.start < a.end;
+
 /** Edits gathered file by file, then applied from the end of each file back. */
 const editor = (root: string) => {
   const texts = new Map<string, string>();
@@ -339,8 +343,12 @@ const editor = (root: string) => {
           text: text + (appended.get(file) ?? ""),
         };
       }),
-    splice: (file: string, make: (text: string) => Splice) =>
-      splices.set(file, [...(splices.get(file) ?? []), make(textOf(file))]),
+    /** A change to the text; one that rewrites what an earlier one did takes its place. */
+    splice: (file: string, make: (text: string) => Splice) => {
+      const next = make(textOf(file));
+      const kept = (splices.get(file) ?? []).filter((s) => !overlaps(s, next));
+      splices.set(file, [...kept, next]);
+    },
   };
 };
 
@@ -391,7 +399,9 @@ export const writeTokens = (
     return { decl, target, theme, variable };
   };
 
-  for (const change of changes) {
+  // A token changed twice in one theme takes its last change.
+  const latest = new Map(changes.map((c) => [`${c.theme ?? ""}|${c.name}`, c]));
+  for (const change of latest.values()) {
     const { decl, target, theme, variable } = targetOf(change);
     const { remove, value } = change;
     const gone = theme === "" ? decl : target;
