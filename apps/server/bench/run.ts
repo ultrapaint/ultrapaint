@@ -22,7 +22,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import type { ProjectInfo } from "@ultrapaint/contracts/project";
@@ -300,6 +300,8 @@ const program = Effect.gen(function* () {
           addresses: [],
           home: homedir(),
           path: process.env.PATH ?? "",
+          tmpdir: tmpdir(),
+          uid: process.getuid?.(),
         },
         mcp: arm === "mcp",
         port,

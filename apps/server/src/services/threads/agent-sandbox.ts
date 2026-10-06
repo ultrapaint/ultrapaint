@@ -9,7 +9,6 @@
  * `packages/acp`'s pure profile builder.
  */
 
-import { tmpdir } from "node:os";
 import {
   type AgentLaunch,
   type SandboxTools,
@@ -35,12 +34,11 @@ const COMMON_TOOLCHAIN = [
 
 /**
  * What the agent and its tools may scribble in outside the repository: the package managers'
- * caches (the built-in agents are started with `npx`, which unpacks them into one) and the
- * system's temporary directories, which shell commands and the agents' own bookkeeping expect
- * to be writable. Nothing of the user's work lives in either.
+ * caches. The built-in agents are started with `npx`, which unpacks them into one, and a
+ * package install inside the sandbox fills them; read-only, neither would work. Nothing of the
+ * user's work lives there.
  */
 const COMMON_SCRATCH = [
-  "/tmp",
   // The agent signs in as you: on macOS that login is in the Keychain, which is written on use.
   "~/Library/Keychains",
   "~/.npm",
@@ -60,6 +58,14 @@ export interface Machine {
   readonly home: string;
   /** The `PATH`, whose entries under the home directory are the toolchain. */
   readonly path: string;
+  /**
+   * The system's temporary directory. Seatbelt cannot give a session a `/tmp` of its own, so on
+   * macOS the agent shares it, and `/tmp`, with everything else; shell commands expect both to
+   * be writable.
+   */
+  readonly tmpdir: string;
+  /** The user's id, which names their runtime directory; none where there are no user ids. */
+  readonly uid: number | undefined;
 }
 
 /** One agent session's sandbox: how to start it, and how to run anything else inside it. */
@@ -96,7 +102,7 @@ export class AgentSandbox extends Context.Service<
    * to use; left out, it is whatever this platform has.
    */
   static readonly layerFor = (
-    { home, path: searchPath }: Machine,
+    { home, path: searchPath, tmpdir, uid: userId }: Machine,
     options?: { readonly tools?: SandboxTools }
   ) =>
     Layer.effect(
@@ -105,7 +111,7 @@ export class AgentSandbox extends Context.Service<
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-        const uid = String(process.getuid?.() ?? "");
+        const uid = String(userId ?? "");
         // Linux confines with bubblewrap, which is not always installed.
         const bubblewrap =
           options?.tools === undefined && process.platform === "linux"
@@ -129,6 +135,15 @@ export class AgentSandbox extends Context.Service<
         };
         // A home directory that is not a real path cannot be closed: `--tmpfs ""` is no sandbox.
         const possible = path.isAbsolute(home) && sandboxAvailable(tools);
+
+        /*
+         * The user's runtime directory holds the session bus, the user's systemd and the
+         * keyring, each a socket that runs commands outside the sandbox for whoever asks.
+         */
+        const hidden =
+          tools.platform === "linux" && userId !== undefined
+            ? [`/run/user/${userId}`]
+            : [];
 
         const expand = (p: string) =>
           (p === "~" || p.startsWith("~/") ? path.join(home, p.slice(1)) : p)
@@ -161,7 +176,10 @@ export class AgentSandbox extends Context.Service<
          */
         const pathToolchain = searchPath
           .split(process.platform === "win32" ? ";" : ":")
-          .filter((dir) => dir.startsWith(`${home}/`))
+          // fnm keeps each shell's node under the runtime directory, which is hidden too.
+          .filter((dir) =>
+            [home, ...hidden].some((closed) => dir.startsWith(`${closed}/`))
+          )
           .map((dir) => {
             const parent = path.dirname(dir);
             return path.basename(dir) === "bin" && parent !== home
@@ -190,7 +208,11 @@ export class AgentSandbox extends Context.Service<
           Effect.orElseSucceed((): string[] => [])
         );
 
-        const scratch = yield* resolveAll([...COMMON_SCRATCH, tmpdir()]);
+        // On Linux the session's own directory is its `/tmp`, and the machine's is out of reach.
+        const scratch = yield* resolveAll([
+          ...COMMON_SCRATCH,
+          ...(tools.platform === "darwin" ? ["/tmp", tmpdir] : []),
+        ]);
         const reads = yield* resolveAll([
           ...(yield* gitConfigFiles),
           ...pathToolchain,
@@ -215,6 +237,7 @@ export class AgentSandbox extends Context.Service<
                   { args: ["-c", "true"], command: "/bin/sh", env: {} },
                   {
                     agentDirs: [],
+                    hidden,
                     home,
                     readOnly: [],
                     reads,
@@ -289,6 +312,7 @@ export class AgentSandbox extends Context.Service<
                 ...stateDirs.map((dir) => dir.replace(TRAILING_SLASH_RE, "")),
                 ...rootAliases,
               ]),
+              hidden,
               home,
               // Under every name the repository goes by, like the repository itself.
               readOnly: [root, ...rootAliases].map((name) =>

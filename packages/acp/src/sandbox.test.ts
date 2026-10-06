@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import {
   type AgentLaunch,
+  agentEnv,
   bubblewrapArgs,
   outermost,
   sandboxAvailable,
@@ -10,6 +11,7 @@ import {
 
 const policy = {
   agentDirs: ["/Users/me/.claude", "/tmp/claude-501"],
+  hidden: ["/run/user/501"],
   home: "/Users/me",
   readOnly: ["/Users/me/code/app/.git"],
   reads: ["/Users/me/.nvm", "/Users/me/.gitconfig"],
@@ -95,6 +97,34 @@ describe("bubblewrapArgs", () => {
   it("ends the sandbox with the server that started it", () => {
     expect(args).toContain("--die-with-parent");
   });
+
+  it("gives the agent its own processes, IPC and no terminal to type into", () => {
+    for (const flag of ["--unshare-pid", "--unshare-ipc", "--new-session"]) {
+      expect(args).toContain(flag);
+    }
+    // The network stays: an agent talks to its model.
+    expect(args).not.toContain("--unshare-net");
+    expect(args).not.toContain("--unshare-all");
+  });
+
+  it("hides the session bus and the user's runtime directory", () => {
+    expect(args).toContain("--unsetenv DBUS_SESSION_BUS_ADDRESS");
+    expect(args).toContain("--tmpfs /run/user/501");
+  });
+
+  it("makes the session's temporary directory its /tmp, under what is bound back", () => {
+    // On Linux the server leaves the machine's /tmp out of what is writable.
+    const list = bubblewrapArgs({ ...policy, scratch: ["/Users/me/.npm"] });
+    const tmp = list.indexOf("/tmp");
+    expect(list.slice(tmp - 2, tmp + 1)).toEqual([
+      "--bind",
+      policy.tmpDir,
+      "/tmp",
+    ]);
+    // The machine's /tmp is not bound, only an agent directory that lives in it, after.
+    expect(list.join(" ")).not.toContain("--bind-try /tmp /tmp");
+    expect(list.indexOf("/tmp/claude-501")).toBeGreaterThan(tmp);
+  });
 });
 
 describe("sandboxLaunch", () => {
@@ -108,7 +138,13 @@ describe("sandboxLaunch", () => {
     ]);
     expect(wrapped.args[0]).toBe("-p");
     expect(wrapped.args[1]).toBe(seatbeltProfile(policy));
-    expect(wrapped.env).toEqual({ FOO: "bar", TMPDIR: policy.tmpDir });
+    // Set by `env` inside the sandbox, not on sandbox-exec.
+    expect(wrapped.args.slice(2, 5)).toEqual([
+      "/usr/bin/env",
+      "FOO=bar",
+      `TMPDIR=${policy.tmpDir}`,
+    ]);
+    expect(wrapped.env).toEqual({});
   });
 
   it("starts the agent through bubblewrap on Linux", () => {
@@ -119,7 +155,30 @@ describe("sandboxLaunch", () => {
       "-y",
       "@agentclientprotocol/claude-agent-acp",
     ]);
-    expect(wrapped.env).toEqual({ FOO: "bar", TMPDIR: policy.tmpDir });
+    // Set by bubblewrap inside the sandbox, not on bubblewrap.
+    expect(wrapped.args.slice(-10, -4)).toEqual([
+      "--setenv",
+      "FOO",
+      "bar",
+      "--setenv",
+      "TMPDIR",
+      "/tmp",
+    ]);
+    expect(wrapped.args.at(-4)).toBe("--");
+    expect(wrapped.env).toEqual({});
+  });
+
+  it("never sets a variable on the process that makes the sandbox", () => {
+    const preload = {
+      ...launch,
+      env: { "BAD=NAME": "x", LD_PRELOAD: "/tmp/x.so" },
+    };
+    for (const tools of [LINUX, DARWIN]) {
+      const wrapped = sandboxLaunch(preload, policy, tools);
+      expect(wrapped.env).toEqual({});
+      // A name that would be read as something else is not passed at all.
+      expect(wrapped.args.some((arg) => arg.includes("BAD=NAME"))).toBe(false);
+    }
   });
 
   it("leaves the launch alone where there is no sandbox", () => {
@@ -129,6 +188,20 @@ describe("sandboxLaunch", () => {
     expect(sandboxAvailable({ platform: "win32" })).toBe(false);
     expect(sandboxAvailable(LINUX)).toBe(true);
     expect(sandboxAvailable(DARWIN)).toBe(true);
+  });
+});
+
+describe("agentEnv", () => {
+  it("drops what tells the loader what to load, and keeps the rest", () => {
+    expect(
+      agentEnv({
+        DYLD_INSERT_LIBRARIES: "/tmp/x.dylib",
+        LD_LIBRARY_PATH: "/tmp",
+        LD_PRELOAD: "/tmp/x.so",
+        NODE_ENV: "test",
+        OLD_PWD: "/",
+      })
+    ).toEqual({ NODE_ENV: "test", OLD_PWD: "/" });
   });
 });
 

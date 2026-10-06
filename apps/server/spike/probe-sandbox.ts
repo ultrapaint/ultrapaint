@@ -9,6 +9,7 @@
  *
  * node --experimental-strip-types apps/server/spike/probe-sandbox.ts [claude-code|codex]
  */
+import { tmpdir } from "node:os";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { builtInAgents } from "@ultrapaint/acp/configs";
 import { Effect, FileSystem, Layer } from "effect";
@@ -243,6 +244,8 @@ program.pipe(
       AgentSandbox.layerFor({
         home: process.env.HOME ?? "",
         path: process.env.PATH ?? "",
+        tmpdir: tmpdir(),
+        uid: process.getuid?.(),
       }),
       NodeServices.layer
     )

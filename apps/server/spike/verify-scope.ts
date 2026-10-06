@@ -4,6 +4,7 @@
  *
  * node --experimental-strip-types apps/server/spike/verify-scope.ts <claude-code|codex>
  */
+import { tmpdir } from "node:os";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { spawnAcpAgent } from "@ultrapaint/acp/acp-agent";
 import { builtInAgents } from "@ultrapaint/acp/configs";
@@ -137,6 +138,8 @@ program.pipe(
       AgentSandbox.layerFor({
         home: process.env.HOME ?? "",
         path: process.env.PATH ?? "",
+        tmpdir: tmpdir(),
+        uid: process.getuid?.(),
       }),
       NodeServices.layer
     )

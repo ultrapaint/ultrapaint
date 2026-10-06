@@ -83,6 +83,10 @@ export class ServerConfig extends Context.Service<
       readonly addresses: readonly string[];
       readonly home: string;
       readonly path: string;
+      /** The system's temporary directory, as `os.tmpdir()` says. */
+      readonly tmpdir: string;
+      /** The user's id; none on a platform without them. */
+      readonly uid: number | undefined;
     };
     /** Directory the server was started from; the first-run setup proposes its repository. */
     readonly cwd: string;

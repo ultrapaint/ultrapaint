@@ -1,4 +1,4 @@
-import { homedir, hostname, networkInterfaces } from "node:os";
+import { homedir, hostname, networkInterfaces, tmpdir } from "node:os";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { Config, Effect, Layer, Option } from "effect";
 import { Command, Flag } from "effect/cli";
@@ -110,6 +110,8 @@ const serve = Command.make(
         // The password database answers when the environment has no HOME.
         home: process.env.HOME || homedir(),
         path: process.env.PATH ?? "",
+        tmpdir: tmpdir(),
+        uid: process.getuid?.(),
       },
       mcp: !noMcp,
       port,

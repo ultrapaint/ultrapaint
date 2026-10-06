@@ -9,7 +9,7 @@
  * A question the agent puts to the user is answered with the first option of each, so a prompt
  * that makes it ask runs to the end on its own.
  */
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
@@ -41,6 +41,8 @@ const program = Effect.gen(function* () {
           addresses: [],
           home: homedir(),
           path: process.env.PATH ?? "",
+          tmpdir: tmpdir(),
+          uid: process.getuid?.(),
         },
         mcp: true,
         port,

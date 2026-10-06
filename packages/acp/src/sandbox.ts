@@ -19,6 +19,13 @@ export interface AgentLaunch {
 export interface SandboxPolicy {
   /** The agent's own directories: its login, its sessions, its state. Read and written. */
   readonly agentDirs: readonly string[];
+  /**
+   * Directories blanked like the home directory, and let back only where `reads` names something
+   * inside them: the user's runtime directory, where the session bus, the user's systemd and the
+   * keyring listen. A socket on a read-only mount still answers, and any of those would run a
+   * command outside the sandbox for the asking. Bubblewrap only; macOS has no such directory.
+   */
+  readonly hidden: readonly string[];
   /** The user's home directory, everything of which is out of reach unless allowed. */
   readonly home: string;
   /**
@@ -37,9 +44,36 @@ export interface SandboxPolicy {
    * into a cache, and shell commands expect a writable `/tmp`. No work of the user's lives here.
    */
   readonly scratch: readonly string[];
-  /** A temporary directory of this session's own; also the agent's `TMPDIR`. */
+  /**
+   * A temporary directory of this session's own; also the agent's `TMPDIR`. On Linux it is the
+   * sandbox's `/tmp` too, so nothing another program left in the machine's `/tmp` (an X server's
+   * socket, another session's files) is in reach.
+   */
   readonly tmpDir: string;
 }
+
+/** A name `env` and bubblewrap's `--setenv` both take as it is. */
+const ENV_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/**
+ * The variables that tell the dynamic loader what to load into a process before its own code
+ * runs. Inside the sandbox they would only reach what is already confined, but they are never
+ * what an agent needs for a command, and a variable set on the wrong side of the sandbox is a
+ * way out of it.
+ */
+const LOADER_ENV_RE = /^(LD_|DYLD_)/;
+
+/** What of the environment an agent asked for a command may be set: no loader variables. */
+export const agentEnv = (
+  env: Readonly<Record<string, string>>
+): Record<string, string> =>
+  Object.fromEntries(
+    Object.entries(env).filter(([name]) => !LOADER_ENV_RE.test(name))
+  );
+
+/** The launch's variables, each a name that can be passed on the command line. */
+const settable = (env: Readonly<Record<string, string>>) =>
+  Object.entries(env).filter(([name]) => ENV_NAME_RE.test(name));
 
 const subpaths = (paths: readonly string[]) =>
   paths.map((p) => `(subpath ${JSON.stringify(p)})`).join(" ");
@@ -94,14 +128,15 @@ export const seatbeltProfile = (policy: SandboxPolicy): string => {
 /**
  * The same policy for bubblewrap: the filesystem read-only, the home directory blanked with an
  * empty tmpfs, and then only what the policy allows bound back over it — read-only for the
- * toolchain, read-write for the repository and the rest. Network is left alone.
+ * toolchain, read-write for the repository and the rest. The session's own temporary directory
+ * is its `/tmp`. Network is left alone; processes, System V IPC and the terminal are the
+ * sandbox's own.
  *
  * Order is the whole trick: every bind after the first covers what came before it.
  */
 export const bubblewrapArgs = (policy: SandboxPolicy): string[] => {
   const writable = outermost([
     policy.root,
-    policy.tmpDir,
     ...policy.agentDirs,
     ...policy.scratch,
   ]);
@@ -116,11 +151,19 @@ export const bubblewrapArgs = (policy: SandboxPolicy): string[] => {
     "/",
     "--dev",
     "/dev",
+    // Its own process tree: nothing outside it can be signalled or traced, nor its `/proc` read.
+    "--unshare-pid",
+    "--unshare-ipc",
     "--proc",
     "/proc",
     // Nothing of the home directory is there unless it is named below.
     "--tmpfs",
     policy.home,
+    ...policy.hidden.flatMap((path) => ["--tmpfs", path]),
+    // Before the binds below: a repository or a state directory under `/tmp` comes back over it.
+    "--bind",
+    policy.tmpDir,
+    "/tmp",
     ...reads.flatMap((path) => ["--ro-bind-try", path, path]),
     ...writable.flatMap((path) => ["--bind-try", path, path]),
     // Over the writable binds, so that what is under them and must not change cannot.
@@ -137,9 +180,13 @@ export const bubblewrapArgs = (policy: SandboxPolicy): string[] => {
      */
     "--remount-ro",
     policy.home,
+    // The address of the bus is no use without its socket, and says where to look for one.
+    "--unsetenv",
+    "DBUS_SESSION_BUS_ADDRESS",
+    // No controlling terminal: a command cannot push keystrokes into the one the server runs in.
+    "--new-session",
     // The agent goes when the server does, whatever happens to it.
     "--die-with-parent",
-    "--",
   ];
 };
 
@@ -158,26 +205,45 @@ export const sandboxAvailable = (tools: SandboxTools): boolean =>
 /**
  * Wraps the command that starts an agent so that it runs inside the sandbox. Where there is
  * none the launch is returned unchanged; the caller tells the user.
+ *
+ * The launch's variables are set inside the sandbox, by the sandbox, never on the process that
+ * makes it: `bwrap` and `sandbox-exec` run unconfined until they have confined what they start,
+ * and `LD_PRELOAD` on either would run its library there.
  */
 export const sandboxLaunch = (
   launch: AgentLaunch,
   policy: SandboxPolicy,
   tools: SandboxTools = { platform: process.platform }
 ): AgentLaunch => {
-  // Temporary files are written where the agent may write, and nowhere else.
-  const env = { ...launch.env, TMPDIR: policy.tmpDir };
   if (tools.platform === "darwin") {
+    // Temporary files are written where the agent may write, and nowhere else.
+    const env = settable({ ...launch.env, TMPDIR: policy.tmpDir });
     return {
-      args: ["-p", seatbeltProfile(policy), launch.command, ...launch.args],
+      args: [
+        "-p",
+        seatbeltProfile(policy),
+        "/usr/bin/env",
+        ...env.map(([name, value]) => `${name}=${value}`),
+        launch.command,
+        ...launch.args,
+      ],
       command: "/usr/bin/sandbox-exec",
-      env,
+      env: {},
     };
   }
   if (tools.platform === "linux" && tools.bubblewrap) {
+    // The session's temporary directory is `/tmp` in there.
+    const env = settable({ ...launch.env, TMPDIR: "/tmp" });
     return {
-      args: [...bubblewrapArgs(policy), launch.command, ...launch.args],
+      args: [
+        ...bubblewrapArgs(policy),
+        ...env.flatMap(([name, value]) => ["--setenv", name, value]),
+        "--",
+        launch.command,
+        ...launch.args,
+      ],
       command: tools.bubblewrap,
-      env,
+      env: {},
     };
   }
   return launch;

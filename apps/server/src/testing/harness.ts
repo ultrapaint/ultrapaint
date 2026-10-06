@@ -1,5 +1,5 @@
 import { createServer } from "node:net";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { NodeServices } from "@effect/platform-node";
 import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
 import type { Settings } from "@ultrapaint/contracts/settings";
@@ -159,6 +159,8 @@ export const makeTestServer = (
               addresses: [],
               home: homedir(),
               path: process.env.PATH ?? "",
+              tmpdir: tmpdir(),
+              uid: process.getuid?.(),
             },
             mcp: true,
             port,

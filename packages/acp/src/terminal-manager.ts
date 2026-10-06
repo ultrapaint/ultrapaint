@@ -1,7 +1,7 @@
 import { Effect, Exit, Fiber, Random, Scope, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { TerminalError } from "./errors.ts";
-import type { AgentLaunch } from "./sandbox.ts";
+import { type AgentLaunch, agentEnv } from "./sandbox.ts";
 
 const DEFAULT_OUTPUT_LIMIT = 1024 * 1024;
 
@@ -95,7 +95,7 @@ export const makeTerminalManager = (options?: {
       const launch = confine({
         args: request.args,
         command: request.command,
-        env: request.env,
+        env: agentEnv(request.env),
       });
       const handle = yield* spawner
         .spawn(

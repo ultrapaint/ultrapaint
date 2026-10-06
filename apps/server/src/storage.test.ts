@@ -1,4 +1,4 @@
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it, layer } from "@effect/vitest";
 import { Effect, Fiber, FileSystem, Layer, Path, Scope, Stream } from "effect";
@@ -415,6 +415,8 @@ describe("a configuration file that cannot be read", () => {
                   addresses: [],
                   home: homedir(),
                   path: process.env.PATH ?? "",
+                  tmpdir: tmpdir(),
+                  uid: process.getuid?.(),
                 },
                 mcp: true,
                 port: yield* freePort,
@@ -459,6 +461,8 @@ const settingsOf = (cwd: string, storage: StorageTarget) =>
           addresses: [],
           home: homedir(),
           path: process.env.PATH ?? "",
+          tmpdir: tmpdir(),
+          uid: process.getuid?.(),
         },
         mcp: false,
         port: 0,
