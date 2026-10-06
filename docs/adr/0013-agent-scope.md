@@ -2,6 +2,32 @@
 
 Status: accepted, 2026-09-19.
 
+Update, 2026-10-06: the decision stands; the sandbox was tightened where a confined process could
+still reach something outside it (commit `499e57c`).
+
+- The variables of a launch are set inside the sandbox, by the sandbox (`--setenv` for
+  bubblewrap, `/usr/bin/env` under `sandbox-exec`), and the process that makes it gets none:
+  `bwrap` and `sandbox-exec` run unconfined until they have confined what they start, and an
+  `LD_PRELOAD` on either would run its library there. Variables an agent asks for a terminal
+  command lose `LD_*` and `DYLD_*`, which no command needs and which are a way out when set on
+  the wrong side.
+- On Linux the session's own temporary directory is its `/tmp` (and `TMPDIR`); the machine's
+  `/tmp`, with the sockets and files other programs leave there, is out of reach. macOS keeps
+  sharing `/tmp` and the system's temporary directory: Seatbelt cannot give a session one of its
+  own, and shell commands expect both writable.
+- Bubblewrap gives the agent its own process tree and System V IPC (`--unshare-pid`,
+  `--unshare-ipc`), so nothing outside can be signalled, traced or read through `/proc`, and no
+  controlling terminal (`--new-session`), so a command cannot push keystrokes into the one the
+  server runs in.
+- The user's runtime directory (`/run/user/<uid>`) is blanked like the home directory, and
+  `DBUS_SESSION_BUS_ADDRESS` unset: the session bus, the user's systemd and the keyring listen
+  there, and each would run a command outside the sandbox for whoever asks. A toolchain on
+  `PATH` under it (fnm's) is let back read-only.
+- The package managers' caches stay writable. The built-in agents start through `npx`, which
+  unpacks them into its cache, and a package installed from inside the sandbox fills them;
+  read-only, neither works. Nothing of the user's work lives there. They are, with `/tmp` on
+  macOS, what "the temporary directories" below now means.
+
 ## Decision
 
 An agent process is started inside an operating system sandbox that lets it read the repository,
