@@ -298,7 +298,10 @@ export class DocumentService extends Context.Service<
                   root: result.root,
                   version: DOCUMENT_VERSION,
                 }).pipe(Effect.mapError(invalid));
-                yield* tx.write(yield* fileOf(change.doc), serialiseDocument(document));
+                yield* tx.write(
+                  yield* fileOf(change.doc),
+                  serialiseDocument(document)
+                );
               } else {
                 const nodes = yield* decodeNodes(childrenOf(result.root)).pipe(
                   Effect.mapError(invalid)

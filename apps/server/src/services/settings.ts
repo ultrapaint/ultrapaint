@@ -414,6 +414,39 @@ export class SettingsService extends Context.Service<
         return validation;
       });
 
+      /**
+       * Whether a file already at `configPath` may be replaced: only when asked to, and only a
+       * configuration. Any other JSON file, a package.json or an application's settings, is not
+       * this tool's to write over.
+       */
+      const checkReplace = Effect.fnUntraced(function* (
+        configPath: string,
+        overwrite: boolean
+      ) {
+        if (!(yield* exists(configPath))) {
+          return;
+        }
+        if (!overwrite) {
+          return yield* new Conflict({
+            message: `${configPath} already exists`,
+          });
+        }
+        const isConfig =
+          (CONFIG_FILE_NAMES as readonly string[]).includes(
+            path.basename(configPath)
+          ) ||
+          Exit.isSuccess(
+            yield* Effect.exit(
+              Effect.flatMap(fs.readFileString(configPath), decodeConfig)
+            )
+          );
+        if (!isConfig) {
+          return yield* new BadRequest({
+            message: `${configPath} is not an ultrapaint configuration, and is not replaced.`,
+          });
+        }
+      });
+
       const persist = Effect.fn("SettingsService.persist")(function* (
         input: PersistInput
       ) {
@@ -435,29 +468,7 @@ export class SettingsService extends Context.Service<
             message: `Directory does not exist: ${path.dirname(configPath)}`,
           });
         }
-        if (yield* exists(configPath)) {
-          if (!input.overwrite) {
-            return yield* new Conflict({
-              message: `${configPath} already exists`,
-            });
-          }
-          // Only a configuration is replaced by one: any other JSON file, a package.json or an
-          // application's settings, is not this tool's to write over.
-          const isConfig =
-            (CONFIG_FILE_NAMES as readonly string[]).includes(
-              path.basename(configPath)
-            ) ||
-            Exit.isSuccess(
-              yield* Effect.exit(
-                Effect.flatMap(fs.readFileString(configPath), decodeConfig)
-              )
-            );
-          if (!isConfig) {
-            return yield* new BadRequest({
-              message: `${configPath} is not an ultrapaint configuration, and is not replaced.`,
-            });
-          }
-        }
+        yield* checkReplace(configPath, input.overwrite === true);
         const validation = yield* validate(input.settings);
         if (!validation.ok) {
           return { validation } satisfies PersistResult;
