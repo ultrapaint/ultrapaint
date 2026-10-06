@@ -91,13 +91,15 @@ export const SetupToolsLive = SetupTools.toLayer(
     });
 
     return {
-      finish_setup_step: Effect.fnUntraced(function* ({ summary }) {
+      finish_setup_step: Effect.fn("SetupTools.finish_setup_step")(function* ({
+        summary,
+      }) {
         const threadId = yield* caller;
         const step = yield* reported(setup.finish(threadId, summary));
         return { status: step.status, step: step.id };
       }),
 
-      map_values: Effect.fnUntraced(function* ({ entries }) {
+      map_values: Effect.fn("SetupTools.map_values")(function* ({ entries }) {
         const values = entries.flatMap((e) =>
           e.kind === "figma" ? [] : [{ ...e, kind: e.kind }]
         );
@@ -129,7 +131,7 @@ export const SetupToolsLive = SetupTools.toLayer(
         };
       }),
 
-      next_batch: Effect.fnUntraced(function* ({ done }) {
+      next_batch: Effect.fn("SetupTools.next_batch")(function* ({ done }) {
         const threadId = yield* caller;
         if (done !== undefined) {
           yield* reported(setup.finishBatch(threadId, done));

@@ -116,22 +116,24 @@ export class ChatPreferences extends Context.Service<
         defaults: Effect.sync(() => state.defaults),
         options: Effect.sync(() => state.agents),
         optionsFor,
-        remember: (options) =>
-          Effect.suspend(() => {
-            state = {
-              ...state,
-              agents: [
-                ...state.agents.filter((a) => a.agentId !== options.agentId),
-                options,
-              ],
-            };
-            return save;
-          }),
-        setDefaults: (defaults) =>
-          Effect.suspend(() => {
-            state = { ...state, defaults };
-            return save;
-          }),
+        remember: Effect.fn("ChatPreferences.remember")(function* (
+          options: AgentOptions
+        ) {
+          state = {
+            ...state,
+            agents: [
+              ...state.agents.filter((a) => a.agentId !== options.agentId),
+              options,
+            ],
+          };
+          yield* save;
+        }),
+        setDefaults: Effect.fn("ChatPreferences.setDefaults")(function* (
+          defaults: ChatDefaults
+        ) {
+          state = { ...state, defaults };
+          yield* save;
+        }),
       });
     })
   );

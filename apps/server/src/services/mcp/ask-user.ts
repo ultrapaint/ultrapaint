@@ -95,7 +95,7 @@ export const AskUserToolLive = Layer.effectDiscard(
       Effect.forkScoped
     );
 
-    const ask = Effect.fnUntraced(function* (payload: unknown) {
+    const ask = Effect.fn("AskUserTool.ask_user")(function* (payload: unknown) {
       const { questions } = yield* decodeParameters(payload ?? {}).pipe(
         Effect.mapError(
           (error) => new McpSchema.InvalidParams({ message: error.message })

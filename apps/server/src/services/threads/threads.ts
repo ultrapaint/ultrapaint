@@ -461,45 +461,53 @@ export class ThreadService extends Context.Service<
         onElicitation: (request) => onElicitation(threadId, session(), request),
         onPermission: (request) => onPermission(threadId, session(), request),
         onStderr: (text) => log.log("agent", "info", `[${agentName}] ${text}`),
-        readTextFile: Effect.fnUntraced(function* (request) {
-          const abs = yield* paths.resolve(request.path);
-          const content = yield* fs.readFileString(abs);
-          if (!(request.line || request.limit)) {
-            return { content };
+        readTextFile: Effect.fn("ThreadService.readTextFile")(
+          function* (request) {
+            const abs = yield* paths.resolve(request.path);
+            const content = yield* fs.readFileString(abs);
+            if (!(request.line || request.limit)) {
+              return { content };
+            }
+            const start = Math.max(0, (request.line ?? 1) - 1);
+            const end = request.limit ? start + request.limit : undefined;
+            return {
+              content: content.split("\n").slice(start, end).join("\n"),
+            };
           }
-          const start = Math.max(0, (request.line ?? 1) - 1);
-          const end = request.limit ? start + request.limit : undefined;
-          return { content: content.split("\n").slice(start, end).join("\n") };
-        }),
+        ),
         terminal: {
-          create: Effect.fnUntraced(function* (request) {
-            const cwd = request.cwd
-              ? yield* paths.resolve(request.cwd)
-              : paths.root;
-            const terminalId = yield* terminals.create({
-              args: request.args ?? [],
-              command: request.command,
-              cwd,
-              env: Object.fromEntries(
-                (request.env ?? []).map((e) => [e.name, e.value])
-              ),
-              outputByteLimit: request.outputByteLimit,
-            });
-            return { terminalId };
-          }),
+          create: Effect.fn("ThreadService.createTerminal")(
+            function* (request) {
+              const cwd = request.cwd
+                ? yield* paths.resolve(request.cwd)
+                : paths.root;
+              const terminalId = yield* terminals.create({
+                args: request.args ?? [],
+                command: request.command,
+                cwd,
+                env: Object.fromEntries(
+                  (request.env ?? []).map((e) => [e.name, e.value])
+                ),
+                outputByteLimit: request.outputByteLimit,
+              });
+              return { terminalId };
+            }
+          ),
           kill: (request) => terminals.kill(request.terminalId),
           output: (request) => terminals.output(request.terminalId),
           release: (request) => terminals.release(request.terminalId),
           waitForExit: (request) => terminals.waitForExit(request.terminalId),
         },
-        writeTextFile: Effect.fnUntraced(function* (request) {
-          const abs = yield* paths.resolve(request.path);
-          yield* writeAtomic(abs, request.content);
-          yield* events.publish("file.changed", {
-            file: paths.relative(abs),
-            hash: hashContent(request.content),
-          });
-        }),
+        writeTextFile: Effect.fn("ThreadService.writeTextFile")(
+          function* (request) {
+            const abs = yield* paths.resolve(request.path);
+            yield* writeAtomic(abs, request.content);
+            yield* events.publish("file.changed", {
+              file: paths.relative(abs),
+              hash: hashContent(request.content),
+            });
+          }
+        ),
       });
 
       // ---- session lifecycle ----

@@ -227,68 +227,74 @@ export const FigmaToolsLive = FigmaTools.toLayer(
     });
 
     return {
-      list_figma_imports: Effect.fnUntraced(function* () {
-        const all = yield* imports((s) => s.list);
-        return {
-          imports: all.map((entry) => ({
-            components: entry.components.length,
-            createdAt: entry.createdAt,
-            frames: entry.pages.reduce(
-              (sum, page) => sum + page.frames.length,
-              0
-            ),
-            id: entry.id,
-            mapped: Object.keys(entry.mapping).length,
-            name: entry.name,
-          })),
-        };
-      }),
-
-      map_figma_component: Effect.fnUntraced(function* ({
-        component,
-        import: id,
-        mapping,
-      }) {
-        const entry = yield* importOf(id);
-        let decided: ComponentMapping | null = null;
-        let notes: string[] = [];
-        if (mapping !== null) {
-          const raw = yield* decodeMapping(mapping).pipe(
-            Effect.mapError(
-              (error) =>
-                new ToolFailure({
-                  message: `the mapping is not valid: ${error.message}`,
-                })
-            )
-          );
-          ({ mapping: decided, notes } = yield* checkMapping(raw));
+      list_figma_imports: Effect.fn("FigmaTools.list_figma_imports")(
+        function* () {
+          const all = yield* imports((s) => s.list);
+          return {
+            imports: all.map((entry) => ({
+              components: entry.components.length,
+              createdAt: entry.createdAt,
+              frames: entry.pages.reduce(
+                (sum, page) => sum + page.frames.length,
+                0
+              ),
+              id: entry.id,
+              mapped: Object.keys(entry.mapping).length,
+              name: entry.name,
+            })),
+          };
         }
-        const next = yield* imports((s) => s.map(entry.id, component, decided));
-        return {
-          mapping: decided,
-          notes,
-          undecided: next.components
-            .filter((c) => !(c.key in next.mapping))
-            .map((c) => c.key),
-        };
-      }),
+      ),
 
-      read_figma_component: Effect.fnUntraced(function* ({
-        component,
+      map_figma_component: Effect.fn("FigmaTools.map_figma_component")(
+        function* ({ component, import: id, mapping }) {
+          const entry = yield* importOf(id);
+          let decided: ComponentMapping | null = null;
+          let notes: string[] = [];
+          if (mapping !== null) {
+            const raw = yield* decodeMapping(mapping).pipe(
+              Effect.mapError(
+                (error) =>
+                  new ToolFailure({
+                    message: `the mapping is not valid: ${error.message}`,
+                  })
+              )
+            );
+            ({ mapping: decided, notes } = yield* checkMapping(raw));
+          }
+          const next = yield* imports((s) =>
+            s.map(entry.id, component, decided)
+          );
+          return {
+            mapping: decided,
+            notes,
+            undecided: next.components
+              .filter((c) => !(c.key in next.mapping))
+              .map((c) => c.key),
+          };
+        }
+      ),
+
+      read_figma_component: Effect.fn("FigmaTools.read_figma_component")(
+        function* ({ component, import: id }) {
+          const entry = yield* importOf(id);
+          const preview = yield* imports((s) =>
+            s.component(entry.id, component)
+          );
+          return {
+            candidates: preview.component.candidates,
+            component: preview.component,
+            document: asJson(preview.document),
+            outline: preview.outline,
+            usedIn: preview.usedIn,
+          };
+        }
+      ),
+
+      read_figma_frame: Effect.fn("FigmaTools.read_figma_frame")(function* ({
+        frame,
         import: id,
       }) {
-        const entry = yield* importOf(id);
-        const preview = yield* imports((s) => s.component(entry.id, component));
-        return {
-          candidates: preview.component.candidates,
-          component: preview.component,
-          document: asJson(preview.document),
-          outline: preview.outline,
-          usedIn: preview.usedIn,
-        };
-      }),
-
-      read_figma_frame: Effect.fnUntraced(function* ({ frame, import: id }) {
         const entry = yield* importOf(id);
         const preview = yield* imports((s) => s.frame(entry.id, frame));
         return {
@@ -300,7 +306,9 @@ export const FigmaToolsLive = FigmaTools.toLayer(
         };
       }),
 
-      read_figma_import: Effect.fnUntraced(function* ({ import: id }) {
+      read_figma_import: Effect.fn("FigmaTools.read_figma_import")(function* ({
+        import: id,
+      }) {
         const entry = yield* importOf(id);
         return {
           components: entry.components,
@@ -312,7 +320,7 @@ export const FigmaToolsLive = FigmaTools.toLayer(
         };
       }),
 
-      write_figma_frame: Effect.fnUntraced(function* ({
+      write_figma_frame: Effect.fn("FigmaTools.write_figma_frame")(function* ({
         frame,
         import: id,
         route,

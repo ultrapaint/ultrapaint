@@ -81,13 +81,12 @@ export class AgentConfigs extends Context.Service<
       });
 
       return AgentConfigs.of({
-        get: (id) =>
-          Effect.flatMap(list, (agents) => {
-            const found = agents.find((a) => a.id === id);
-            return found
-              ? Effect.succeed(found)
-              : Effect.fail(new NotFound({ message: `unknown agent ${id}` }));
-          }),
+        get: Effect.fn("AgentConfigs.get")(function* (id: string) {
+          const found = (yield* list).find((a) => a.id === id);
+          return found
+            ? found
+            : yield* new NotFound({ message: `unknown agent ${id}` });
+        }),
         list,
       });
     })

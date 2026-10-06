@@ -735,7 +735,7 @@ export const EditorToolsLive = EditorTools.toLayer(
     ) => reported(project.use(Effect.flatMap(PagesService, f)));
 
     return {
-      apply_operations: Effect.fnUntraced(function* ({
+      apply_operations: Effect.fn("EditorTools.apply_operations")(function* ({
         canvas,
         expectedHash,
         label,
@@ -812,7 +812,7 @@ export const EditorToolsLive = EditorTools.toLayer(
         };
       }),
 
-      copy_pages: Effect.fnUntraced(function* ({
+      copy_pages: Effect.fn("EditorTools.copy_pages")(function* ({
         canvas,
         move,
         newCanvas,
@@ -848,12 +848,14 @@ export const EditorToolsLive = EditorTools.toLayer(
         };
       }),
 
-      create_canvas: Effect.fnUntraced(function* ({ name }) {
+      create_canvas: Effect.fn("EditorTools.create_canvas")(function* ({
+        name,
+      }) {
         const made = yield* pagesService((pages) => pages.createCanvas(name));
         return { id: made.id, name: made.name };
       }),
 
-      create_page: Effect.fnUntraced(function* ({
+      create_page: Effect.fn("EditorTools.create_page")(function* ({
         canvas,
         name,
         route,
@@ -876,7 +878,10 @@ export const EditorToolsLive = EditorTools.toLayer(
         };
       }),
 
-      delete_page: Effect.fnUntraced(function* ({ route, canvas }) {
+      delete_page: Effect.fn("EditorTools.delete_page")(function* ({
+        route,
+        canvas,
+      }) {
         const page = yield* pageAt(route, canvas);
         const { pages } = yield* reported(pagesOf);
         // What goes with it, as the editor deletes it: a base page's variants.
@@ -893,13 +898,21 @@ export const EditorToolsLive = EditorTools.toLayer(
         return { deleted: [page.file, ...variants.map((p) => p.file)] };
       }),
 
-      duplicate_page: Effect.fnUntraced(function* ({ route, canvas }) {
+      duplicate_page: Effect.fn("EditorTools.duplicate_page")(function* ({
+        route,
+        canvas,
+      }) {
         const page = yield* pageAt(route, canvas);
         const copy = yield* pagesService((pages) => pages.duplicate(page.id));
         return { file: copy.file };
       }),
 
-      focus: Effect.fnUntraced(function* ({ action, nodes, route, canvas }) {
+      focus: Effect.fn("EditorTools.focus")(function* ({
+        action,
+        nodes,
+        route,
+        canvas,
+      }) {
         const page = yield* pageAt(route, canvas);
         const threadId = yield* Effect.service(CallingThread);
         if (threadId) {
@@ -914,7 +927,9 @@ export const EditorToolsLive = EditorTools.toLayer(
         }
         return { file: page.file };
       }),
-      get_component: Effect.fnUntraced(function* ({ name }) {
+      get_component: Effect.fn("EditorTools.get_component")(function* ({
+        name,
+      }) {
         const catalogue = yield* reported(catalogueOf);
         const component = catalogue.components.find((c) => c.name === name);
         if (!component) {
@@ -942,7 +957,7 @@ export const EditorToolsLive = EditorTools.toLayer(
         };
       }),
 
-      get_context: Effect.fnUntraced(function* () {
+      get_context: Effect.fn("EditorTools.get_context")(function* () {
         const paths = yield* reported(project.use(RepoPaths));
         const pages = yield* reported(pagesOf);
         return {
@@ -971,7 +986,10 @@ export const EditorToolsLive = EditorTools.toLayer(
           ),
         })),
 
-      list_comments: Effect.fnUntraced(function* ({ includeResolved, canvas }) {
+      list_comments: Effect.fn("EditorTools.list_comments")(function* ({
+        includeResolved,
+        canvas,
+      }) {
         const id = yield* canvasOf(canvas);
         const list = yield* reported(
           project.use(
@@ -992,7 +1010,9 @@ export const EditorToolsLive = EditorTools.toLayer(
         };
       }),
 
-      list_components: Effect.fnUntraced(function* ({ match }) {
+      list_components: Effect.fn("EditorTools.list_components")(function* ({
+        match,
+      }) {
         const catalogue = yield* reported(catalogueOf);
         const needle = match?.toLowerCase();
         return {
@@ -1010,7 +1030,10 @@ export const EditorToolsLive = EditorTools.toLayer(
         };
       }),
 
-      list_links: Effect.fnUntraced(function* ({ brokenOnly, canvas }) {
+      list_links: Effect.fn("EditorTools.list_links")(function* ({
+        brokenOnly,
+        canvas,
+      }) {
         const id = yield* canvasOf(canvas);
         const inCanvas = (yield* reported(pagesOf)).pages.filter(
           (p) => p.canvas === id
@@ -1045,7 +1068,7 @@ export const EditorToolsLive = EditorTools.toLayer(
         };
       }),
 
-      list_pages: Effect.fnUntraced(function* () {
+      list_pages: Effect.fn("EditorTools.list_pages")(function* () {
         const pages = yield* reported(pagesOf);
         return {
           pages: pages.pages.map((page) => ({
@@ -1065,7 +1088,7 @@ export const EditorToolsLive = EditorTools.toLayer(
           })
         ),
 
-      read_canvas: Effect.fnUntraced(function* ({ canvas }) {
+      read_canvas: Effect.fn("EditorTools.read_canvas")(function* ({ canvas }) {
         const id = yield* canvasOf(canvas);
         const state = yield* documents((d) => d.get(canvasDocOf(id)));
         if (state.problem !== undefined) {
@@ -1081,16 +1104,22 @@ export const EditorToolsLive = EditorTools.toLayer(
         };
       }),
 
-      read_design_system: Effect.fnUntraced(function* () {
-        const state = yield* designSystem((d) => d.get);
-        return {
-          designSystem: asJson(state.designSystem),
-          notes: state.notes,
-          ...(state.problem !== undefined && { problem: state.problem }),
-        };
-      }),
+      read_design_system: Effect.fn("EditorTools.read_design_system")(
+        function* () {
+          const state = yield* designSystem((d) => d.get);
+          return {
+            designSystem: asJson(state.designSystem),
+            notes: state.notes,
+            ...(state.problem !== undefined && { problem: state.problem }),
+          };
+        }
+      ),
 
-      read_page: Effect.fnUntraced(function* ({ route, canvas, node }) {
+      read_page: Effect.fn("EditorTools.read_page")(function* ({
+        route,
+        canvas,
+        node,
+      }) {
         const page = yield* pageAt(route, canvas);
         const state = yield* documents((d) => d.get(page.id));
         if (state.problem !== undefined) {
@@ -1115,7 +1144,11 @@ export const EditorToolsLive = EditorTools.toLayer(
         };
       }),
 
-      rename_page: Effect.fnUntraced(function* ({ route, canvas, name }) {
+      rename_page: Effect.fn("EditorTools.rename_page")(function* ({
+        route,
+        canvas,
+        name,
+      }) {
         const page = yield* pageAt(route, canvas);
         const moved = yield* reported(
           project.use(
@@ -1125,7 +1158,11 @@ export const EditorToolsLive = EditorTools.toLayer(
         return { file: moved.file };
       }),
 
-      reply_to_comment: Effect.fnUntraced(function* ({ id, canvas, text }) {
+      reply_to_comment: Effect.fn("EditorTools.reply_to_comment")(function* ({
+        id,
+        canvas,
+        text,
+      }) {
         const inCanvas = yield* canvasOf(canvas);
         const comment = yield* reported(
           project.use(
@@ -1137,7 +1174,10 @@ export const EditorToolsLive = EditorTools.toLayer(
         return { replies: comment.replies.length };
       }),
 
-      resolve_comment: Effect.fnUntraced(function* ({ id, canvas }) {
+      resolve_comment: Effect.fn("EditorTools.resolve_comment")(function* ({
+        id,
+        canvas,
+      }) {
         const inCanvas = yield* canvasOf(canvas);
         const comment = yield* reported(
           project.use(
@@ -1149,16 +1189,18 @@ export const EditorToolsLive = EditorTools.toLayer(
         return { resolved: comment.resolved };
       }),
 
-      scan_design_system: Effect.fnUntraced(function* () {
-        const found = yield* designSystem((d) => d.scan);
-        return {
-          designSystem: asJson(found.designSystem),
-          files: found.files,
-          notes: found.notes,
-        };
-      }),
+      scan_design_system: Effect.fn("EditorTools.scan_design_system")(
+        function* () {
+          const found = yield* designSystem((d) => d.scan);
+          return {
+            designSystem: asJson(found.designSystem),
+            files: found.files,
+            notes: found.notes,
+          };
+        }
+      ),
 
-      set_frame: Effect.fnUntraced(function* ({
+      set_frame: Effect.fn("EditorTools.set_frame")(function* ({
         height,
         preset,
         route,
@@ -1201,7 +1243,10 @@ export const EditorToolsLive = EditorTools.toLayer(
         return { file: page.file, height: frame.height, width: frame.width };
       }),
 
-      set_home: Effect.fnUntraced(function* ({ route, canvas }) {
+      set_home: Effect.fn("EditorTools.set_home")(function* ({
+        route,
+        canvas,
+      }) {
         const page = yield* pageAt(route, canvas);
         if (page.route === undefined) {
           return yield* missing(
@@ -1215,7 +1260,11 @@ export const EditorToolsLive = EditorTools.toLayer(
         return { canvas: changed.id, home: changed.home };
       }),
 
-      set_page_url: Effect.fnUntraced(function* ({ route, canvas, url }) {
+      set_page_url: Effect.fn("EditorTools.set_page_url")(function* ({
+        route,
+        canvas,
+        url,
+      }) {
         const page = yield* pageAt(route, canvas);
         const changed = yield* reported(
           project.use(
@@ -1230,13 +1279,12 @@ export const EditorToolsLive = EditorTools.toLayer(
         };
       }),
 
-      write_design_system: Effect.fnUntraced(function* ({
-        designSystem: input,
-        notes,
-      }) {
-        yield* designSystem((d) => d.write(input, notes));
-        return { saved: true };
-      }),
+      write_design_system: Effect.fn("EditorTools.write_design_system")(
+        function* ({ designSystem: input, notes }) {
+          yield* designSystem((d) => d.write(input, notes));
+          return { saved: true };
+        }
+      ),
     };
   })
 );
