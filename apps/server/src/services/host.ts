@@ -10,6 +10,7 @@ import {
   Layer,
   Path,
   Schedule,
+  Schema,
   Scope,
   Semaphore,
   Stream,
@@ -45,6 +46,12 @@ const probe = (url: string) =>
 interface Running {
   readonly scope: Scope.Closeable;
 }
+
+/** Why the preview could not be started; the editor shows the message on the host status. */
+export class HostStartError extends Schema.TaggedError<HostStartError>()(
+  "HostStartError",
+  { message: Schema.String }
+) {}
 
 /**
  * Runs the preview host: what the project's framework generates, served by the script it
@@ -108,10 +115,13 @@ export class HostManager extends Context.Service<
           })
         ).pipe(
           Effect.mapError(
-            (e) => `the preview could not be prepared: ${String(e.cause)}`
+            (e) =>
+              new HostStartError({
+                message: `the preview could not be prepared: ${String(e.cause)}`,
+              })
           )
         );
-        yield* Effect.orDie(
+        yield* Effect.mapError(
           Effect.gen(function* () {
             // Ignored before anything is written into it: a snapshot of the working tree taken
             // meanwhile must not see the files, nor their temporary copies come and go.
@@ -133,7 +143,11 @@ export class HostManager extends Context.Service<
                 yield* fs.remove(file);
               }
             }
-          })
+          }),
+          (error) =>
+            new HostStartError({
+              message: `the preview could not be written: ${error.message}`,
+            })
         );
         return generated.serve;
       });
@@ -156,11 +170,25 @@ export class HostManager extends Context.Service<
           Effect.ignore
         );
 
+      /** A start that did not get the preview running ends what it started. */
+      const abandon = Effect.suspend(() => {
+        const current = running;
+        running = null;
+        return current ? Scope.close(current.scope, Exit.void) : Effect.void;
+      });
+
       const launch = Effect.gen(function* () {
         lastError = "";
         yield* setStatus({ state: "starting" });
         const serve = yield* generate;
-        const port = yield* Effect.orDie(freePort(host));
+        const port = yield* freePort(host).pipe(
+          Effect.mapError(
+            (error) =>
+              new HostStartError({
+                message: `no port is free for the preview: ${error.message}`,
+              })
+          )
+        );
         const url = `http://${connectHost(host)}:${port}`;
 
         const scope = yield* Scope.fork(layerScope);
@@ -187,7 +215,12 @@ export class HostManager extends Context.Service<
           )
           .pipe(
             Scope.provide(scope),
-            Effect.mapError((e) => `vite could not be started: ${e.message}`),
+            Effect.mapError(
+              (e) =>
+                new HostStartError({
+                  message: `vite could not be started: ${e.message}`,
+                })
+            ),
             Effect.onError(() => Scope.close(scope, Exit.void))
           );
         running = { scope };
@@ -231,12 +264,14 @@ export class HostManager extends Context.Service<
         if (outcome === "exited") {
           // The watcher above reports the same thing; whichever comes first, the caller must
           // not be told the preview is still starting.
+          yield* abandon;
           return yield* setStatus({ error: yield* exited, state: "error" });
         }
         if (outcome === "timeout") {
+          // Stopped, so that the next start starts it again rather than find it running.
+          yield* abandon;
           return yield* setStatus({
             error: "vite did not start listening within 30 s",
-            pid: Number(handle.pid),
             state: "error",
           });
         }
@@ -247,7 +282,25 @@ export class HostManager extends Context.Service<
           url,
         });
       }).pipe(
-        Effect.catch((error: string) => setStatus({ error, state: "error" }))
+        Effect.catchTag("HostStartError", (error) =>
+          Effect.andThen(
+            abandon,
+            setStatus({ error: error.message, state: "error" })
+          )
+        ),
+        // A bug of ours must not leave the preview "starting" for good either.
+        Effect.catchDefect((defect) =>
+          Effect.gen(function* () {
+            const message =
+              defect instanceof Error ? defect.message : String(defect);
+            yield* log.log("host", "error", `the preview broke: ${message}`);
+            yield* abandon;
+            return yield* setStatus({
+              error: `the preview could not be started: ${message}`,
+              state: "error",
+            });
+          })
+        )
       );
 
       // A request that goes away mid-start must not leave the host half started: the work is
