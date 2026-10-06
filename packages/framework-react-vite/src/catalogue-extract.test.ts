@@ -108,7 +108,8 @@ const PRELUDE = `declare namespace JSX { interface Element {} }
 declare const cva: (base: string, config?: unknown) => (props?: unknown) => JSX.Element;
 `;
 
-describe("building the catalogue", () => {
+// Building a TypeScript program takes seconds, and longer on a loaded machine.
+describe("building the catalogue", { timeout: 30_000 }, () => {
   it("gives each component the variants of the cva it uses, not every cva of its file", () => {
     const catalogue = libraries({
       "packages/ui/package.json": JSON.stringify({
