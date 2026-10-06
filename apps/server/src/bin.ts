@@ -87,13 +87,15 @@ const serve = Command.make(
     webDist,
   }) {
     const cwd = process.cwd();
+    // The password database answers when the environment has no HOME (or an empty one).
+    const userHome = process.env.HOME || homedir();
     const { storage, userDir } = yield* resolveStorage({
       config: Option.getOrUndefined(config),
       cwd,
       ephemeral,
       home: Option.getOrUndefined(home),
       sessionDir: Option.getOrUndefined(sessionDir),
-      userHome: process.env.HOME ?? cwd,
+      userHome,
     });
     const resolved = ServerConfig.of({
       briefing: !noBriefing,
@@ -107,8 +109,7 @@ const serve = Command.make(
           ),
           hostname(),
         ],
-        // The password database answers when the environment has no HOME.
-        home: process.env.HOME || homedir(),
+        home: userHome,
         path: process.env.PATH ?? "",
         tmpdir: tmpdir(),
         uid: process.getuid?.(),
