@@ -679,12 +679,84 @@ export const catalogueSourceFiles = (ctx: ExtractContext): string[] => {
   return files.sort();
 };
 
+/** How the catalogue's program reads the library: also how its own source files are found. */
+const COMPILER_OPTIONS: ts.CompilerOptions = {
+  allowImportingTsExtensions: true,
+  allowJs: true,
+  jsx: ts.JsxEmit.Preserve,
+  module: ts.ModuleKind.Preserve,
+  moduleResolution: ts.ModuleResolutionKind.Bundler,
+  noEmit: true,
+  skipLibCheck: true,
+  strict: true,
+  target: ts.ScriptTarget.ES2022,
+};
+
+/**
+ * The repository's own files the catalogue's program reads from the library's: the library's,
+ * and what they import, however far, short of the packages in `node_modules`. A `cva` in
+ * `button-variants.ts` or `lib/variants.ts` shapes the catalogue as much as the components do.
+ * Only the imports are read, which is quick next to building the program.
+ */
+export const catalogueInputs = (files: readonly string[]): string[] => {
+  const seen = new Set(files);
+  const queue = [...files];
+  const cache = ts.createModuleResolutionCache(
+    process.cwd(),
+    (f) => f,
+    COMPILER_OPTIONS
+  );
+  for (let file = queue.pop(); file !== undefined; file = queue.pop()) {
+    let text: string;
+    try {
+      text = readFileSync(file, "utf8");
+    } catch {
+      // Gone since it was listed: its mtime says so in the key.
+      continue;
+    }
+    const { importedFiles } = ts.preProcessFile(text, true, true);
+    for (const imported of importedFiles) {
+      const resolved = ts.resolveModuleName(
+        imported.fileName,
+        file,
+        COMPILER_OPTIONS,
+        ts.sys,
+        cache
+      ).resolvedModule;
+      const target = resolved?.resolvedFileName;
+      if (
+        target === undefined ||
+        resolved?.isExternalLibraryImport ||
+        target.includes("/node_modules/") ||
+        seen.has(target)
+      ) {
+        continue;
+      }
+      seen.add(target);
+      queue.push(target);
+    }
+  }
+  return [...seen].sort();
+};
+
+const mtimeOf = (file: string): number | null => {
+  try {
+    return statSync(file).mtimeMs;
+  } catch {
+    // Gone: the key changes, as it must.
+    return null;
+  }
+};
+
+/** Changes whenever the catalogue could: a file the program reads, the packages, the extractor. */
 export const catalogueCacheKey = (
   ctx: ExtractContext,
   files: readonly string[]
 ): string =>
   hashContent(
-    `v${CATALOGUE_VERSION}\n${files.map((f) => `${f}:${statSync(f).mtimeMs}`).join("\n")}${JSON.stringify(ctx.componentPackages)}`
+    `v${CATALOGUE_VERSION}\n${catalogueInputs(files)
+      .map((f) => `${f}:${mtimeOf(f)}`)
+      .join("\n")}${JSON.stringify(ctx.componentPackages)}`
   );
 
 /** Whether `file` is inside `dir`: `src/ui` holds `src/ui/button.tsx`, not `src/ui-extra/…`. */
@@ -785,17 +857,7 @@ export const buildCatalogue = (
   ctx: ExtractContext,
   files: string[]
 ): Catalogue => {
-  const program = ts.createProgram(files, {
-    allowImportingTsExtensions: true,
-    allowJs: true,
-    jsx: ts.JsxEmit.Preserve,
-    module: ts.ModuleKind.Preserve,
-    moduleResolution: ts.ModuleResolutionKind.Bundler,
-    noEmit: true,
-    skipLibCheck: true,
-    strict: true,
-    target: ts.ScriptTarget.ES2022,
-  });
+  const program = ts.createProgram(files, COMPILER_OPTIONS);
   const checker = program.getTypeChecker();
   const stories = storiesOf(ctx);
   const packages = makePackages();

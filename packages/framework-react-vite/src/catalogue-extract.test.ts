@@ -1,9 +1,10 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildCatalogue,
+  catalogueCacheKey,
   catalogueSourceFiles,
   parseJsonc,
   specifierFromPackage,
@@ -304,5 +305,38 @@ export { Button, buttonVariants };
 `,
       })
     ).toEqual({ Button: BUTTON_VARIANTS });
+  });
+});
+
+describe("the catalogue's cache key", () => {
+  it("changes with any file of the repository the library imports, not only its components", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "catalogue-key-"));
+    const write = (rel: string, text: string) => {
+      mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+      writeFileSync(path.join(root, rel), text);
+      return path.join(root, rel);
+    };
+    write(
+      "ui/button.tsx",
+      'import { buttonVariants } from "./button-variants";\nexport const Button = buttonVariants;\n'
+    );
+    const variants = write(
+      "ui/button-variants.ts",
+      'export { tone as buttonVariants } from "../lib/variants";\n'
+    );
+    const lib = write("lib/variants.ts", "export const tone = 1;\n");
+    const ctx = {
+      componentPackages: [],
+      libraryDirs: [path.join(root, "ui")],
+      root,
+    };
+    const key = () => catalogueCacheKey(ctx, catalogueSourceFiles(ctx));
+    const before = key();
+    expect(key()).toBe(before);
+    utimesSync(variants, 3000, 3000);
+    const afterVariants = key();
+    expect(afterVariants).not.toBe(before);
+    utimesSync(lib, 3000, 3000);
+    expect(key()).not.toBe(afterVariants);
   });
 });
