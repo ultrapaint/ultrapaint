@@ -296,7 +296,8 @@ export const summaryOf = (
       ? `${lead} Nothing to do: they agree.`
       : `${lead} Every step is done.`;
   }
-  return `${lead} Next: ${next.title.toLowerCase()}.`;
+  const title = next.title.charAt(0).toLowerCase() + next.title.slice(1);
+  return `${lead} Next: ${title}.`;
 };
 
 /** A token as Figma has it, named as the code names it (`@ultrapaint/figma-import/tokens`). */

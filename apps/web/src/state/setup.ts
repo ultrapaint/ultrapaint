@@ -59,7 +59,15 @@ export const setupNeed = (): SetupNeed | null => {
  * Called before an edit. `true` lets it go ahead; `false` means the setup dialog opened
  * instead, and the edit is dropped.
  */
-export const ensureEditable = (): boolean => {
+export const ensureEditable = (
+  options: {
+    /**
+     * Whether the edit is worth asking about the design system first. Importing a Figma file is
+     * itself a way to make one (ADR 0025), so it is not.
+     */
+    readonly designSystem?: boolean;
+  } = {}
+): boolean => {
   const snapshot = viewedSnapshot();
   if (snapshot) {
     toast.info(`The snapshot ${snapshot.snapshot.name} is open`, {
@@ -69,7 +77,7 @@ export const ensureEditable = (): boolean => {
     return false;
   }
   const need = setupNeed();
-  if (need === null) {
+  if (need === null || (need === "init" && options.designSystem === false)) {
     return true;
   }
   useSetup.getState().open(need);

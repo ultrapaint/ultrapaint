@@ -298,7 +298,9 @@ const readVariables = (file: FigFile, notes: string[]): FigmaToken[] => {
     for (const mode of modes.get(variable.set) ?? []) {
       const value = resolve(variable, mode.id);
       const css = value ? cssOf(variable.kind, value) : null;
-      if (css !== null && values[mode.theme] === undefined) {
+      // A theme that only repeats the default's value has nothing of its own to say.
+      const repeats = mode.theme !== "" && css === values[""];
+      if (css !== null && values[mode.theme] === undefined && !repeats) {
         values[mode.theme] = css;
       }
     }

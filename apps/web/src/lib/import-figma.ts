@@ -33,7 +33,7 @@ const upload = async (file: File): Promise<FigmaImport> => {
 
 /** Reads the file on the server, then opens a thread to convert it. */
 export const importFigma = async (file: File) => {
-  if (!ensureEditable()) {
+  if (!ensureEditable({ designSystem: false })) {
     return;
   }
   const id = toast.loading(`Reading ${file.name}…`);

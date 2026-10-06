@@ -215,10 +215,16 @@ const PlanStep = ({
       return null;
     }
     const firstOpen = setup.steps.findIndex((s) => s.status !== "done");
+    // A step of the sync's own before it is waiting (Figma's tokens, the settings).
+    const waiting = plan.steps.findIndex(
+      (s) => s.state === "attention" || s.state === "active"
+    );
     return (
       <StepCard
         index={setupIndex}
+        later={waiting !== -1 && waiting < index}
         open={firstOpen === -1 || setupIndex <= firstOpen}
+        position={index}
         step={setupStep}
       />
     );
@@ -292,6 +298,17 @@ export const SyncView = ({
           {reading ? <Spinner /> : <RefreshCw />}
         </IconButton>
       </div>
+      {plan.facts.figma ? null : (
+        <div className="flex items-center gap-2 border-b px-3 py-2 font-body">
+          <span className="min-w-0 flex-1 text-muted-foreground">
+            Have a Figma file? Its variables and styles become your tokens.
+          </span>
+          <Button onClick={pickFigmaFile} size="sm" variant="outline">
+            <FileUp />
+            Import…
+          </Button>
+        </div>
+      )}
       <ol className="min-h-0 flex-1 overflow-auto">
         {plan.steps.map((step, index) => (
           <PlanStep index={index} key={step.kind} plan={plan} step={step} />

@@ -277,17 +277,23 @@ const DefineNote = ({ step }: { step: SetupStep }) => {
 
 export const StepCard = ({
   index,
+  later = false,
   open,
+  position,
   step,
 }: {
   index: number;
+  /** Another step comes first, outside the setup: a step not started waits. */
+  later?: boolean;
   /** Every step before it is done. */
   open: boolean;
+  /** Where it is in the list it is drawn in, when that is not the setup's own order. */
+  position?: number;
   step: SetupStep;
 }) => {
   const definition = SETUP_STEPS[index];
   const inventory = useDesignSystemSetup((s) => s.inventory);
-  const state = useStepState(step, open);
+  const state = useStepState(step, open && !later);
   const [mode, setMode] = useState<DefineMode | null>(null);
   const chosen = mode ?? inventory?.recommendation.mode ?? "adopt";
   if (!definition) {
@@ -302,7 +308,7 @@ export const StepCard = ({
         !(open || started) && "opacity-60"
       )}
     >
-      <StepMarker index={index} status={step.status} />
+      <StepMarker index={position ?? index} status={step.status} />
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <div className="flex items-center gap-2">
           <span className="font-heading-xsmall">{definition.title}</span>

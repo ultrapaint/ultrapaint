@@ -58,6 +58,7 @@ import {
 import { useDesignSystem } from "../state/design-system.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
 import { useProject } from "../state/project.ts";
+import { useSync } from "../state/sync.ts";
 import { SyncView } from "./sync.tsx";
 
 /** Opens a thread with `/init` in its composer, for the user to send. */
@@ -671,6 +672,8 @@ export const DesignSystemPanel = () => {
   const themes = designSystem?.themes ?? ["light"];
   const [theme, setTheme] = useState(themes[0] ?? "light");
   const setupShown = useDesignSystemSetup((s) => s.shown);
+  // A Figma file imported already: the way on is the sync it started.
+  const figma = useSync((s) => s.plan?.facts.figma);
   const showSetup = useDesignSystemSetup((s) => s.show);
 
   useEffect(() => {
@@ -701,10 +704,17 @@ export const DesignSystemPanel = () => {
               "Start from a Figma file, and its variables and styles become your tokens. Or sync from the code: it reads your theme and components, and makes one from what the code uses."}
           </span>
         </div>
-        <Button onClick={pickFigmaFile} size="sm">
-          <FileUp />
-          Import a Figma file…
-        </Button>
+        {figma ? (
+          <Button onClick={() => showSetup(true)} size="sm">
+            <RefreshCw />
+            Continue with {figma.name}
+          </Button>
+        ) : (
+          <Button onClick={pickFigmaFile} size="sm">
+            <FileUp />
+            Import a Figma file…
+          </Button>
+        )}
         <Button onClick={() => showSetup(true)} size="sm" variant="outline">
           <RefreshCw />
           Sync from the code
