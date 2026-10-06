@@ -12,12 +12,12 @@ import {
 } from "@ultrapaint/design-document/tree";
 import { Check } from "lucide-react";
 import { type ReactNode, useEffect, useMemo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { AgentIcon } from "../components/agent-icon.tsx";
 import { type AgentWork, useAgents } from "../state/agents.ts";
 import { openMenuAt } from "../state/context-menu.ts";
 import { isNodeFrame, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
-import { useShallow } from "zustand/react/shallow";
 import { bridgeFor } from "./bridge.ts";
 
 /** Enough outlines to see where the work is; past that they only add noise. */

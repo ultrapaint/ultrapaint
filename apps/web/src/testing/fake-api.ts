@@ -23,10 +23,6 @@ export const fakeApi = {
     listeners.set(event, set);
     return () => set.delete(listener);
   },
-  /** How a request is answered: a value, or a promise the test settles. */
-  respond: (method: string, responder: Responder) => {
-    responders.set(method, responder);
-  },
   request: (method: string, input: unknown): Promise<unknown> => {
     fakeApi.calls.push({ input, method });
     const responder = responders.get(method);
@@ -38,6 +34,10 @@ export const fakeApi = {
   reset: () => {
     fakeApi.calls.length = 0;
     responders.clear();
+  },
+  /** How a request is answered: a value, or a promise the test settles. */
+  respond: (method: string, responder: Responder) => {
+    responders.set(method, responder);
   },
 };
 

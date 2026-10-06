@@ -280,7 +280,10 @@ describe("openCanvas", () => {
 
   it("saves a move still waiting to be saved to the canvas it was made on", async () => {
     vi.useFakeTimers();
-    useEditor.setState({ canvas: "main", frames: computeFrames([home], layoutOf()) });
+    useEditor.setState({
+      canvas: "main",
+      frames: computeFrames([home], layoutOf()),
+    });
     useEditor.getState().setFrame(home.id, {
       height: 900,
       preset: "desktop",
@@ -309,6 +312,8 @@ describe("openCanvas", () => {
     ]);
     // Nothing is left to save onto the canvas opened.
     await vi.advanceTimersByTimeAsync(1000);
-    expect(fakeApi.calls.filter((c) => c.method === "canvas.set")).toHaveLength(1);
+    expect(fakeApi.calls.filter((c) => c.method === "canvas.set")).toHaveLength(
+      1
+    );
   });
 });

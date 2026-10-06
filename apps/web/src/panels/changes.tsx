@@ -90,8 +90,9 @@ export const Changes = () => {
 
   const showDiff = async (path: string) => {
     try {
+      const next = await api().request("git.diff", { path });
       setCpDiff(null);
-      setDiff(await api().request("git.diff", { path }));
+      setDiff(next);
     } catch (error) {
       reportError(error);
     }
@@ -101,13 +102,19 @@ export const Changes = () => {
   const onShowDiffRequest = useEffectEvent(showDiff);
 
   // A file asked for from elsewhere, before the panel was open or while it is.
-  const requested = useDiffRequest((s) => s.path);
   useEffect(() => {
-    if (configured && requested !== null) {
-      takeDiffRequest();
-      onShowDiffRequest(requested);
+    if (!configured) {
+      return;
     }
-  }, [configured, requested]);
+    const take = async ({ path }: { path: string | null }) => {
+      if (path !== null) {
+        takeDiffRequest();
+        await onShowDiffRequest(path);
+      }
+    };
+    take(useDiffRequest.getState());
+    return useDiffRequest.subscribe(take);
+  }, [configured]);
 
   useEffect(() => {
     if (!configured) {

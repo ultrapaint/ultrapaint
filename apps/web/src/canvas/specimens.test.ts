@@ -47,7 +47,12 @@ const makeFrame = () => {
   };
 };
 
-const node: DesignNode = { id: "n", role: "paragraph", text: "Hi", type: "text" };
+const node: DesignNode = {
+  id: "n",
+  role: "paragraph",
+  text: "Hi",
+  type: "text",
+};
 
 beforeEach(() => {
   vi.useFakeTimers();

@@ -39,6 +39,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { create } from "zustand";
 import { Button } from "@/components/ui/button";
 import {
   InputGroup,
@@ -68,7 +69,6 @@ import {
   useLayerRename,
 } from "../state/layer-rename.ts";
 import { useProject } from "../state/project.ts";
-import { create } from "zustand";
 import { InlineInput } from "./canvases.tsx";
 import {
   filterLayers,
