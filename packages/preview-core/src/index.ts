@@ -393,6 +393,13 @@ export const startPreview = () => {
   const SHARP_CROP_WIDTH = 800;
 
   /**
+   * Every image of a canvas is one URL told apart by its query (`/@ultrapaint/asset?src=…`), and
+   * html-to-image caches what it fetched by the URL without its query unless told otherwise: every
+   * image after the first would be drawn as the first.
+   */
+  const pictureOptions = { cacheBust: true, includeQueryParams: true };
+
+  /**
    * A picture of what is drawn, or of one node of it in place: the whole is drawn, then cut to
    * the node, so what is behind the node and around it is as the page shows it.
    */
@@ -400,7 +407,7 @@ export const startPreview = () => {
     const target = mode === "fit" && canvas ? canvas : document.body;
     if (nodeId === undefined) {
       return await toPng(target, {
-        cacheBust: true,
+        ...pictureOptions,
         pixelRatio: mode === "fit" ? 2 : 1,
       });
     }
@@ -411,7 +418,7 @@ export const startPreview = () => {
     const node = unionRect(els);
     const origin = target.getBoundingClientRect();
     const pixelRatio = mode === "fit" || node.width <= SHARP_CROP_WIDTH ? 2 : 1;
-    const whole = await toCanvas(target, { cacheBust: true, pixelRatio });
+    const whole = await toCanvas(target, { ...pictureOptions, pixelRatio });
     const x = Math.max(0, Math.floor((node.x - origin.left) * pixelRatio));
     const y = Math.max(0, Math.floor((node.y - origin.top) * pixelRatio));
     const width = Math.min(whole.width - x, Math.ceil(node.width * pixelRatio));

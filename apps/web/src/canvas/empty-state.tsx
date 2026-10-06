@@ -79,7 +79,9 @@ const keepFromCanvas = (e: ReactPointerEvent) => e.stopPropagation();
 
 /**
  * Shown over a canvas with nothing on it, centred in the part the side panels leave to be seen.
- * The rest of it lets the pointer through, so the canvas still takes a drop or a pan around it.
+ * It sits on a card, as the workspace switch does, so the grid panning under it never runs through
+ * the text. The rest of it lets the pointer through, so the canvas still takes a drop or a pan
+ * around it.
  */
 export const EmptyState = () => {
   const configured = useProject((s) => s.info.configured);
@@ -96,7 +98,7 @@ export const EmptyState = () => {
     >
       {configured ? (
         <div
-          className="pointer-events-auto flex max-w-xl flex-col items-center gap-4 p-6 text-center"
+          className="pointer-events-auto flex max-w-xl flex-col items-center gap-4 rounded-xl border bg-sidebar/90 px-8 py-6 text-center shadow-black/10 shadow-sm backdrop-blur-sm"
           onPointerDown={keepFromCanvas}
         >
           <div className="flex flex-col items-center gap-1">
@@ -120,7 +122,7 @@ export const EmptyState = () => {
           </div>
         </div>
       ) : (
-        <span className="pointer-events-auto flex items-center gap-2 text-muted-foreground">
+        <span className="pointer-events-auto flex items-center gap-2 rounded-xl border bg-sidebar/90 px-4 py-3 text-muted-foreground shadow-black/10 shadow-sm backdrop-blur-sm">
           No repository set up yet.
           <Button onClick={openSetup} size="sm" variant="outline">
             Set up…

@@ -1,6 +1,25 @@
 {
   "name": "Redesign",
+  "routes": {
+    "ask-card.page.json": "/ask-card",
+    "box-model.page.json": "/box-model",
+    "components.page.json": "/components",
+    "design.page.json": "/design",
+    "element-toolbar.page.json": "/element-toolbar",
+    "spacing-options.page.json": "/spacing-options",
+    "spacing-popover.page.json": "/spacing-popover",
+    "vibe-new-chat.page.json": "/vibe-new-chat",
+    "vibe-thread.page.json": "/vibe-thread",
+    "vibe.page.json": "/vibe"
+  },
   "frames": {
+    "ask-card.page.json": {
+      "height": 1500,
+      "preset": "custom",
+      "width": 1440,
+      "x": 12060,
+      "y": 0
+    },
     "box-model.page.json": {
       "height": 2600,
       "preset": "custom",

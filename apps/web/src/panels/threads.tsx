@@ -24,7 +24,9 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Circle,
   CircleAlert,
+  CircleDot,
   CircleHelp,
   Clock,
   Ellipsis,
@@ -47,6 +49,7 @@ import {
   ShieldQuestion,
   Sparkles,
   Square,
+  SquareCheck,
   SquareDashedMousePointer,
   X,
   Zap,
@@ -85,7 +88,6 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker";
 import { Message, MessageContent } from "@/components/ui/message";
@@ -761,6 +763,30 @@ const Item = ({
 
 type PermissionItem = Extract<ThreadItem, { kind: "permission" }>;
 
+/**
+ * A card that waits on the user, as a question or a permission: neutral like every other card of
+ * the thread, with the brand colour kept for its icon while it waits and for what is picked.
+ */
+const AskCard = ({
+  children,
+  icon: Icon,
+  open,
+  title,
+}: {
+  children: ReactNode;
+  icon: LucideIcon;
+  open: boolean;
+  title: string;
+}) => (
+  <div className="flex flex-col gap-3 rounded-lg border bg-card p-3 font-body">
+    <span className="flex items-center gap-1.5 text-muted-foreground">
+      <Icon className={cn("size-3.5 shrink-0", open && "text-brand")} />
+      {title}
+    </span>
+    {children}
+  </div>
+);
+
 const PermissionOption = ({
   option,
   remember,
@@ -801,46 +827,51 @@ const Permission = ({
 }) => {
   const [remember, setRemember] = useState(false);
   const onRememberChange = (c: boolean) => setRemember(c === true);
+  const open = !item.decision;
   return (
-    <Alert className={cn(!item.decision && "border-brand bg-brand/10")}>
-      <ShieldQuestion />
-      <AlertTitle>
-        {item.decision ? "Permission" : "Permission requested"}
-      </AlertTitle>
-      <AlertDescription className="flex flex-col gap-1.5">
-        <span>{item.title}</span>
-        {item.detail ? (
-          <pre className="max-h-24 select-text overflow-auto whitespace-pre-wrap font-code">
-            {item.detail}
-          </pre>
-        ) : null}
-        {item.decision ? (
-          <span className="flex items-center gap-1">
-            <Check className="size-3" />
-            {item.options.find((o) => o.optionId === item.decision)?.name ??
-              item.decision}
-          </span>
-        ) : (
-          <>
-            <div className="flex flex-wrap gap-1">
-              {item.options.map((o) => (
-                <PermissionOption
-                  key={o.optionId}
-                  option={o}
-                  remember={remember}
-                  requestId={item.requestId}
-                  threadId={threadId}
-                />
-              ))}
-            </div>
-            <Label className="font-normal">
-              <Checkbox checked={remember} onCheckedChange={onRememberChange} />
-              remember for this thread
-            </Label>
-          </>
+    <AskCard
+      icon={open ? ShieldQuestion : Check}
+      open={open}
+      title={open ? "Permission requested" : "Permission"}
+    >
+      <span
+        className={cn(
+          open ? "font-medium text-foreground" : "text-muted-foreground"
         )}
-      </AlertDescription>
-    </Alert>
+      >
+        {item.title}
+      </span>
+      {item.detail ? (
+        <pre className="max-h-24 select-text overflow-auto whitespace-pre-wrap rounded-md border bg-background px-2.5 py-1.5 font-code text-muted-foreground">
+          {item.detail}
+        </pre>
+      ) : null}
+      {open ? (
+        <>
+          <Label className="font-normal text-muted-foreground">
+            <Checkbox checked={remember} onCheckedChange={onRememberChange} />
+            Remember for this thread
+          </Label>
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
+            {item.options.map((o) => (
+              <PermissionOption
+                key={o.optionId}
+                option={o}
+                remember={remember}
+                requestId={item.requestId}
+                threadId={threadId}
+              />
+            ))}
+          </div>
+        </>
+      ) : (
+        <span className="flex items-center gap-2 font-medium text-foreground">
+          <Check className="size-3.5 shrink-0" />
+          {item.options.find((o) => o.optionId === item.decision)?.name ??
+            item.decision}
+        </span>
+      )}
+    </AskCard>
   );
 };
 
@@ -871,6 +902,18 @@ const notANumber = (question: QuestionOf, typed: string) => {
   );
 };
 
+/** What says whether a choice is picked: a radio, or a box where several can be. */
+const choiceMark = (multiple: boolean, on: boolean): LucideIcon => {
+  if (multiple) {
+    return on ? SquareCheck : Square;
+  }
+  return on ? CircleDot : Circle;
+};
+
+/**
+ * The choices of a question as full-width rows, each with its description under it, and a row
+ * to type an answer of one's own. Only what is picked takes the brand colour.
+ */
 const QuestionChoices = ({
   onPick,
   other,
@@ -885,48 +928,65 @@ const QuestionChoices = ({
   setOther: (text: string) => void;
 }) => {
   const chosen = other ? [] : [picked ?? []].flat();
-  const description =
-    chosen.length === 1
-      ? question.options.find((o) => o.id === chosen[0])?.description
-      : undefined;
   const typed = question.options.length === 0;
+  const invalid = notANumber(question, other);
   return (
-    <>
-      {typed ? null : (
-        <div className="flex flex-wrap gap-1">
-          {question.options.map((o) => (
-            <Button
-              key={o.id}
-              onClick={() => onPick(o.id)}
-              size="sm"
-              title={o.description}
-              variant={chosen.includes(o.id) ? "default" : "outline"}
-            >
-              {o.label}
-            </Button>
-          ))}
-        </div>
-      )}
-      {description ? (
-        <span className="text-muted-foreground">{description}</span>
-      ) : null}
+    <div className="flex flex-col gap-1.5">
+      {question.options.map((o) => {
+        const on = chosen.includes(o.id);
+        const Mark = choiceMark(question.multiple === true, on);
+        return (
+          <button
+            aria-pressed={on}
+            className={cn(
+              "flex w-full items-start gap-2.5 rounded-md border bg-background px-2.5 py-1.5 text-left outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50",
+              on && "border-brand bg-brand/10 hover:bg-brand/15"
+            )}
+            key={o.id}
+            onClick={() => onPick(o.id)}
+            type="button"
+          >
+            <Mark
+              className={cn(
+                "mt-0.75 size-3.5 shrink-0",
+                on ? "text-brand" : "text-muted-foreground"
+              )}
+            />
+            <span className="flex min-w-0 flex-col">
+              <span className="font-medium text-foreground">{o.label}</span>
+              {o.description ? (
+                <span className="text-muted-foreground">{o.description}</span>
+              ) : null}
+            </span>
+          </button>
+        );
+      })}
       {typed || question.allowOther ? (
-        <Input
-          aria-invalid={notANumber(question, other) || undefined}
-          className="h-7 font-body"
-          inputMode={
-            question.value === "number" || question.value === "integer"
-              ? "decimal"
-              : undefined
-          }
-          onChange={(e: ChangeEvent<HTMLInputElement>) =>
-            setOther(e.target.value)
-          }
-          placeholder={typed ? "Type an answer" : "Or type an answer"}
-          value={other}
-        />
+        <label
+          className={cn(
+            "flex w-full items-center gap-2.5 rounded-md border border-dashed px-2.5 transition-colors focus-within:border-ring focus-within:border-solid",
+            other && !invalid && "border-brand border-solid bg-brand/10",
+            invalid && "border-destructive border-solid"
+          )}
+        >
+          <Pencil className="size-3.5 shrink-0 text-muted-foreground" />
+          <input
+            aria-invalid={invalid || undefined}
+            className="h-8 min-w-0 flex-1 bg-transparent font-body text-foreground outline-none placeholder:text-muted-foreground"
+            inputMode={
+              question.value === "number" || question.value === "integer"
+                ? "decimal"
+                : undefined
+            }
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              setOther(e.target.value)
+            }
+            placeholder={typed ? "Type an answer" : "Or type your own answer"}
+            value={other}
+          />
+        </label>
       ) : null}
-    </>
+    </div>
   );
 };
 
@@ -1022,13 +1082,19 @@ const QuestionCard = ({
   // An agent that waits for the answers is mid-turn; one that does not hears them as a prompt.
   const blocked = running && !waiting;
   return (
-    <Alert className={cn(open && "border-brand bg-brand/10")}>
-      <CircleHelp />
-      <AlertTitle>{cardTitle(item)}</AlertTitle>
-      <AlertDescription className="flex flex-col gap-3">
-        {item.questions.map((question) => (
-          <div className="flex flex-col gap-1.5" key={question.id}>
-            <span className="font-medium text-foreground">
+    <AskCard
+      icon={answered ? Check : CircleHelp}
+      open={open}
+      title={cardTitle(item)}
+    >
+      {item.questions.map((question) => (
+        <div className="flex flex-col gap-2" key={question.id}>
+          <div className="flex flex-col">
+            <span
+              className={cn(
+                open ? "font-medium text-foreground" : "text-muted-foreground"
+              )}
+            >
               {question.question}
               {question.optional ? (
                 <span className="font-normal text-muted-foreground">
@@ -1042,52 +1108,47 @@ const QuestionCard = ({
                 {question.description}
               </span>
             ) : null}
-            {open ? (
-              <QuestionChoices
-                onPick={(id) => pick(question, id)}
-                other={other[question.id] ?? ""}
-                picked={picked[question.id]}
-                question={question}
-                setOther={(text) =>
-                  setOther((p) => ({ ...p, [question.id]: text }))
-                }
-              />
-            ) : (
-              <span className="flex items-center gap-1">
-                {answered ? <Check className="size-3" /> : null}
-                {answerLabel(question, answered?.[question.id])}
-              </span>
-            )}
           </div>
-        ))}
-        {open ? (
-          <div className="flex items-center gap-2">
-            <Button
-              disabled={!complete || blocked || busy}
-              onClick={send}
-              size="sm"
-            >
-              Send answers
+          {open ? (
+            <QuestionChoices
+              onPick={(id) => pick(question, id)}
+              other={other[question.id] ?? ""}
+              picked={picked[question.id]}
+              question={question}
+              setOther={(text) =>
+                setOther((p) => ({ ...p, [question.id]: text }))
+              }
+            />
+          ) : (
+            <span className="flex items-center gap-2 font-medium text-foreground">
+              {answered ? <Check className="size-3.5 shrink-0" /> : null}
+              {answerLabel(question, answered?.[question.id])}
+            </span>
+          )}
+        </div>
+      ))}
+      {open ? (
+        <div className="flex items-center gap-1.5">
+          <span className="flex-1 text-muted-foreground">
+            {blocked
+              ? "Can be sent once the agent has finished its turn"
+              : null}
+          </span>
+          {waiting ? (
+            <Button disabled={busy} onClick={decline} size="sm" variant="ghost">
+              Decline
             </Button>
-            {waiting ? (
-              <Button
-                disabled={busy}
-                onClick={decline}
-                size="sm"
-                variant="ghost"
-              >
-                Decline
-              </Button>
-            ) : null}
-            {blocked ? (
-              <span className="text-muted-foreground">
-                once the agent has finished its turn
-              </span>
-            ) : null}
-          </div>
-        ) : null}
-      </AlertDescription>
-    </Alert>
+          ) : null}
+          <Button
+            disabled={!complete || blocked || busy}
+            onClick={send}
+            size="sm"
+          >
+            Send answers
+          </Button>
+        </div>
+      ) : null}
+    </AskCard>
   );
 };
 
@@ -1413,7 +1474,7 @@ const SandboxBadge = ({ thread }: { thread: Thread }) => {
       title={`The agent reads and writes in ${repoPath ?? "the repository"}, its own files, caches and temporary files. The rest of your home directory is closed to it.`}
     >
       <ShieldCheck />
-      {repo ? `Scoped to ${repo}` : "Scoped to the repository"}
+      {repo ?? "repository"}
     </span>
   ) : (
     <span

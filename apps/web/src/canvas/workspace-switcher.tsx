@@ -5,6 +5,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   holdsWorkspaceModifier,
+  isMac,
   workspaceKeyLabel,
   workspaceModifier,
 } from "../lib/keys.ts";
@@ -44,8 +45,12 @@ const workspaces = workspaceOrder.map((value, i) => ({
 
 /** Items share one width and gap so the pill's position follows from the index alone. */
 const gap = "0.25rem";
-/** Shortcut hints need room of their own, so revealing them widens every item at once. */
-const widthFor = (hinting: boolean) => (hinting ? "8.75rem" : "6.5rem");
+/**
+ * Shortcut hints need room of their own, so revealing them widens every item at once: more of it
+ * where the hint is spelled out (`Alt+3`) than on a Mac (`⌃3`).
+ */
+const hintedWidth = isMac ? "8.75rem" : "10.25rem";
+const widthFor = (hinting: boolean) => (hinting ? hintedWidth : "6.5rem");
 
 const onValueChange = (next: readonly unknown[]) => {
   const v = next[0] as Workspace | undefined;

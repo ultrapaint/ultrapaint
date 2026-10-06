@@ -1,0 +1,1683 @@
+{
+  "root": {
+    "id": "root",
+    "children": [
+      {
+        "id": "c_6zr72d",
+        "name": "Board · Ask card",
+        "padding": {
+          "bottom": 56,
+          "left": 64,
+          "right": 64,
+          "top": 56
+        },
+        "width": "fill",
+        "children": [
+          {
+            "id": "c_i9aa5p",
+            "padding": {
+              "bottom": 12
+            },
+            "gap": 8,
+            "children": [
+              {
+                "id": "r_m8xoj4",
+                "crossAlign": "center",
+                "gap": 8,
+                "children": [
+                  {
+                    "fill": "#052e16",
+                    "id": "r_wqazx8",
+                    "padding": {
+                      "bottom": 2,
+                      "left": 8,
+                      "right": 8,
+                      "top": 2
+                    },
+                    "radius": 999,
+                    "children": [
+                      {
+                        "id": "t_jjwiea",
+                        "color": "#86efac",
+                        "lineHeight": 1.5,
+                        "role": "paragraph",
+                        "size": 11,
+                        "text": "Sketch",
+                        "type": "text",
+                        "weight": 600
+                      }
+                    ],
+                    "type": "row"
+                  },
+                  {
+                    "id": "t_0yjk97",
+                    "color": "$color-muted-foreground",
+                    "lineHeight": 1.5,
+                    "role": "paragraph",
+                    "size": 11.5,
+                    "text": "A question from the agent, in the chat panel",
+                    "type": "text"
+                  }
+                ],
+                "type": "row"
+              },
+              {
+                "id": "t_utibv7",
+                "color": "$color-foreground",
+                "lineHeight": 1.5,
+                "role": "paragraph",
+                "size": 26,
+                "text": "The agent asks",
+                "type": "text",
+                "weight": 700
+              },
+              {
+                "id": "t_fat0wp",
+                "maxWidth": 760,
+                "color": "$color-muted-foreground",
+                "lineHeight": 1.6,
+                "role": "paragraph",
+                "size": 13,
+                "text": "Today the whole card is tinted blue and the choices are outline buttons on that tint, so they barely stand out. The card goes neutral like every other card in the thread; the blue is kept for the one thing that needs it: the question icon, and the choice you picked. Choices become full-width rows with a radio, a box when several can be picked, and their description shown under the label instead of in a tooltip.",
+                "type": "text"
+              }
+            ],
+            "type": "column"
+          },
+          {
+            "border": {
+              "color": "$color-border",
+              "style": "solid",
+              "width": "0 0 1px 0"
+            },
+            "id": "r_c5fjh0",
+            "padding": {
+              "bottom": 28,
+              "top": 28
+            },
+            "width": "fill",
+            "crossAlign": "start",
+            "gap": 40,
+            "children": [
+              {
+                "id": "c_wsap6o",
+                "width": 384,
+                "gap": 14,
+                "children": [
+                  {
+                    "id": "c_lp5t3z",
+                    "width": "fill",
+                    "gap": 4,
+                    "children": [
+                      {
+                        "id": "t_wozwa3",
+                        "color": "$color-foreground",
+                        "lineHeight": 1.5,
+                        "role": "paragraph",
+                        "size": 14,
+                        "text": "Today",
+                        "type": "text",
+                        "weight": 600
+                      },
+                      {
+                        "id": "t_iwbels",
+                        "color": "$color-muted-foreground",
+                        "lineHeight": 1.55,
+                        "role": "paragraph",
+                        "size": 12,
+                        "text": "Blue on blue: the outline buttons sink into the tint.",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "column"
+                  },
+                  {
+                    "border": {
+                      "color": "$color-border",
+                      "style": "solid",
+                      "width": 1
+                    },
+                    "fill": "$color-sidebar",
+                    "id": "c_cnx4lj",
+                    "name": "Panel",
+                    "padding": 16,
+                    "radius": 10,
+                    "width": 384,
+                    "gap": 14,
+                    "children": [
+                      {
+                        "id": "t_dee5xm",
+                        "color": "$color-foreground",
+                        "lineHeight": 1.5,
+                        "role": "paragraph",
+                        "size": 12.5,
+                        "text": "I'll map the components first, then rebuild the page with them.",
+                        "type": "text"
+                      },
+                      {
+                        "border": {
+                          "color": "$color-brand",
+                          "style": "solid",
+                          "width": 1
+                        },
+                        "fill": "rgba(91, 156, 248, 0.10)",
+                        "id": "c_sfntff",
+                        "name": "Ask card · today",
+                        "padding": 12,
+                        "radius": 10,
+                        "width": "fill",
+                        "gap": 6,
+                        "children": [
+                          {
+                            "id": "r_z9mv23",
+                            "crossAlign": "center",
+                            "gap": 8,
+                            "children": [
+                              {
+                                "height": 14,
+                                "id": "img_0q63e4",
+                                "name": "circle-help-muted",
+                                "width": 14,
+                                "src": "assets/icons/circle-help-muted.svg",
+                                "type": "image"
+                              },
+                              {
+                                "id": "t_9yd9i4",
+                                "color": "$color-foreground",
+                                "lineHeight": 1.5,
+                                "role": "paragraph",
+                                "size": 13,
+                                "text": "The agent asks",
+                                "type": "text",
+                                "weight": 500
+                              }
+                            ],
+                            "type": "row"
+                          },
+                          {
+                            "id": "c_ho9q96",
+                            "padding": {
+                              "left": 22
+                            },
+                            "gap": 10,
+                            "children": [
+                              {
+                                "id": "t_p5w970",
+                                "color": "$color-muted-foreground",
+                                "lineHeight": 1.5,
+                                "role": "paragraph",
+                                "size": 13,
+                                "text": "The editor sees no components in this repository: its component library folder isn't set (libraryDirs is empty), so Button, Badge, Card, PageLayout etc. can't be mapped. How should I proceed?",
+                                "type": "text"
+                              },
+                              {
+                                "id": "c_gvbr8v",
+                                "gap": 6,
+                                "children": [
+                                  {
+                                    "id": "r_3uny2h",
+                                    "children": [
+                                      {
+                                        "border": {
+                                          "color": "$color-border",
+                                          "style": "solid",
+                                          "width": 1
+                                        },
+                                        "fill": "rgba(255,255,255,0.03)",
+                                        "id": "r_8emn58",
+                                        "padding": {
+                                          "bottom": 2,
+                                          "left": 8,
+                                          "right": 8,
+                                          "top": 2
+                                        },
+                                        "radius": 6,
+                                        "children": [
+                                          {
+                                            "id": "t_2fzz00",
+                                            "color": "$color-foreground",
+                                            "lineHeight": 1.5,
+                                            "role": "paragraph",
+                                            "size": 12,
+                                            "text": "I'll set src/components as the library",
+                                            "type": "text"
+                                          }
+                                        ],
+                                        "type": "row"
+                                      }
+                                    ],
+                                    "type": "row"
+                                  },
+                                  {
+                                    "id": "r_5fus3r",
+                                    "children": [
+                                      {
+                                        "border": {
+                                          "color": "$color-border",
+                                          "style": "solid",
+                                          "width": 1
+                                        },
+                                        "fill": "rgba(255,255,255,0.03)",
+                                        "id": "r_hlrvon",
+                                        "padding": {
+                                          "bottom": 2,
+                                          "left": 8,
+                                          "right": 8,
+                                          "top": 2
+                                        },
+                                        "radius": 6,
+                                        "children": [
+                                          {
+                                            "id": "t_0602di",
+                                            "color": "$color-foreground",
+                                            "lineHeight": 1.5,
+                                            "role": "paragraph",
+                                            "size": 12,
+                                            "text": "Create ultrapaint.json in front/",
+                                            "type": "text"
+                                          }
+                                        ],
+                                        "type": "row"
+                                      }
+                                    ],
+                                    "type": "row"
+                                  },
+                                  {
+                                    "id": "r_bdnh18",
+                                    "children": [
+                                      {
+                                        "border": {
+                                          "color": "$color-border",
+                                          "style": "solid",
+                                          "width": 1
+                                        },
+                                        "fill": "rgba(255,255,255,0.03)",
+                                        "id": "r_y14b77",
+                                        "padding": {
+                                          "bottom": 2,
+                                          "left": 8,
+                                          "right": 8,
+                                          "top": 2
+                                        },
+                                        "radius": 6,
+                                        "children": [
+                                          {
+                                            "id": "t_wu4sum",
+                                            "color": "$color-foreground",
+                                            "lineHeight": 1.5,
+                                            "role": "paragraph",
+                                            "size": 12,
+                                            "text": "Import as Figma layers now",
+                                            "type": "text"
+                                          }
+                                        ],
+                                        "type": "row"
+                                      }
+                                    ],
+                                    "type": "row"
+                                  }
+                                ],
+                                "type": "column"
+                              },
+                              {
+                                "border": {
+                                  "color": "$color-border",
+                                  "style": "solid",
+                                  "width": 1
+                                },
+                                "id": "r_kll29c",
+                                "padding": {
+                                  "bottom": 4,
+                                  "left": 8,
+                                  "right": 8,
+                                  "top": 4
+                                },
+                                "radius": 6,
+                                "width": "fill",
+                                "children": [
+                                  {
+                                    "id": "t_rhnjj5",
+                                    "color": "$color-muted-foreground",
+                                    "lineHeight": 1.5,
+                                    "role": "paragraph",
+                                    "size": 12,
+                                    "text": "Or type an answer",
+                                    "type": "text"
+                                  }
+                                ],
+                                "type": "row"
+                              },
+                              {
+                                "id": "r_faj4ko",
+                                "gap": 8,
+                                "children": [
+                                  {
+                                    "id": "i_rwbza1",
+                                    "opacity": 0.5,
+                                    "component": "Button",
+                                    "from": "@/components/ui/button",
+                                    "props": {
+                                      "size": "sm"
+                                    },
+                                    "text": "Send answers",
+                                    "type": "instance"
+                                  },
+                                  {
+                                    "id": "i_vd2753",
+                                    "component": "Button",
+                                    "from": "@/components/ui/button",
+                                    "props": {
+                                      "size": "sm",
+                                      "variant": "ghost"
+                                    },
+                                    "text": "Decline",
+                                    "type": "instance"
+                                  }
+                                ],
+                                "type": "row"
+                              }
+                            ],
+                            "type": "column"
+                          }
+                        ],
+                        "type": "column"
+                      }
+                    ],
+                    "type": "column"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "id": "c_pb04jg",
+                "width": 384,
+                "gap": 14,
+                "children": [
+                  {
+                    "id": "c_ado8ai",
+                    "width": "fill",
+                    "gap": 4,
+                    "children": [
+                      {
+                        "id": "t_74wonp",
+                        "color": "$color-foreground",
+                        "lineHeight": 1.5,
+                        "role": "paragraph",
+                        "size": 14,
+                        "text": "Asked",
+                        "type": "text",
+                        "weight": 600
+                      },
+                      {
+                        "id": "t_k86xzr",
+                        "color": "$color-muted-foreground",
+                        "lineHeight": 1.55,
+                        "role": "paragraph",
+                        "size": 12,
+                        "text": "Neutral card, choices as rows. Send waits for a choice.",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "column"
+                  },
+                  {
+                    "border": {
+                      "color": "$color-border",
+                      "style": "solid",
+                      "width": 1
+                    },
+                    "fill": "$color-sidebar",
+                    "id": "c_0sw7fe",
+                    "name": "Panel",
+                    "padding": 16,
+                    "radius": 10,
+                    "width": 384,
+                    "gap": 14,
+                    "children": [
+                      {
+                        "id": "t_spa4ey",
+                        "color": "$color-foreground",
+                        "lineHeight": 1.5,
+                        "role": "paragraph",
+                        "size": 12.5,
+                        "text": "I'll map the components first, then rebuild the page with them.",
+                        "type": "text"
+                      },
+                      {
+                        "border": {
+                          "color": "$color-border",
+                          "style": "solid",
+                          "width": 1
+                        },
+                        "fill": "$color-card",
+                        "id": "c_xo7tsb",
+                        "name": "Ask card",
+                        "padding": 12,
+                        "radius": 10,
+                        "width": "fill",
+                        "gap": 12,
+                        "children": [
+                          {
+                            "id": "r_9hvmyc",
+                            "crossAlign": "center",
+                            "gap": 6,
+                            "children": [
+                              {
+                                "height": 14,
+                                "id": "img_3y7edn",
+                                "name": "circle-help-brand",
+                                "width": 14,
+                                "src": "assets/icons/circle-help-brand.svg",
+                                "type": "image"
+                              },
+                              {
+                                "id": "t_e9fz47",
+                                "color": "$color-muted-foreground",
+                                "lineHeight": 1.5,
+                                "role": "paragraph",
+                                "size": 12,
+                                "text": "The agent asks",
+                                "type": "text",
+                                "weight": 500
+                              }
+                            ],
+                            "type": "row"
+                          },
+                          {
+                            "id": "t_cc6hpw",
+                            "color": "$color-foreground",
+                            "lineHeight": 1.5,
+                            "role": "paragraph",
+                            "size": 13,
+                            "text": "The editor sees no components in this repository: its component library folder isn't set (libraryDirs is empty), so Button, Badge, Card, PageLayout etc. can't be mapped. How should I proceed?",
+                            "type": "text",
+                            "weight": 500
+                          },
+                          {
+                            "id": "c_8ol68x",
+                            "width": "fill",
+                            "gap": 6,
+                            "children": [
+                              {
+                                "border": {
+                                  "color": "$color-border",
+                                  "style": "solid",
+                                  "width": 1
+                                },
+                                "fill": "$color-background",
+                                "id": "r_hl409i",
+                                "name": "Choice",
+                                "padding": {
+                                  "bottom": 7,
+                                  "left": 10,
+                                  "right": 10,
+                                  "top": 7
+                                },
+                                "radius": 8,
+                                "width": "fill",
+                                "crossAlign": "start",
+                                "gap": 10,
+                                "children": [
+                                  {
+                                    "height": 14,
+                                    "id": "img_wj5g83",
+                                    "margin": {
+                                      "top": 3
+                                    },
+                                    "name": "circle-muted",
+                                    "width": 14,
+                                    "src": "assets/icons/circle-muted.svg",
+                                    "type": "image"
+                                  },
+                                  {
+                                    "id": "c_esdy7j",
+                                    "width": "fill",
+                                    "gap": 1,
+                                    "children": [
+                                      {
+                                        "id": "t_wbs4bx",
+                                        "color": "$color-foreground",
+                                        "lineHeight": 1.5,
+                                        "role": "paragraph",
+                                        "size": 13,
+                                        "text": "I'll set src/components as the library",
+                                        "type": "text",
+                                        "weight": 500
+                                      }
+                                    ],
+                                    "type": "column"
+                                  }
+                                ],
+                                "type": "row"
+                              },
+                              {
+                                "border": {
+                                  "color": "$color-border",
+                                  "style": "solid",
+                                  "width": 1
+                                },
+                                "fill": "$color-background",
+                                "id": "r_96ziym",
+                                "name": "Choice",
+                                "padding": {
+                                  "bottom": 7,
+                                  "left": 10,
+                                  "right": 10,
+                                  "top": 7
+                                },
+                                "radius": 8,
+                                "width": "fill",
+                                "crossAlign": "start",
+                                "gap": 10,
+                                "children": [
+                                  {
+                                    "height": 14,
+                                    "id": "img_eebn5x",
+                                    "margin": {
+                                      "top": 3
+                                    },
+                                    "name": "circle-muted",
+                                    "width": 14,
+                                    "src": "assets/icons/circle-muted.svg",
+                                    "type": "image"
+                                  },
+                                  {
+                                    "id": "c_i5mkg8",
+                                    "width": "fill",
+                                    "gap": 1,
+                                    "children": [
+                                      {
+                                        "id": "t_7xjyhf",
+                                        "color": "$color-foreground",
+                                        "lineHeight": 1.5,
+                                        "role": "paragraph",
+                                        "size": 13,
+                                        "text": "Create ultrapaint.json in front/",
+                                        "type": "text",
+                                        "weight": 500
+                                      },
+                                      {
+                                        "id": "t_6rpi15",
+                                        "color": "$color-muted-foreground",
+                                        "lineHeight": 1.5,
+                                        "role": "paragraph",
+                                        "size": 12,
+                                        "text": "Keeps the settings with the repository, so the next session finds them.",
+                                        "type": "text"
+                                      }
+                                    ],
+                                    "type": "column"
+                                  }
+                                ],
+                                "type": "row"
+                              },
+                              {
+                                "border": {
+                                  "color": "$color-border",
+                                  "style": "solid",
+                                  "width": 1
+                                },
+                                "fill": "$color-background",
+                                "id": "r_p4br00",
+                                "name": "Choice",
+                                "padding": {
+                                  "bottom": 7,
+                                  "left": 10,
+                                  "right": 10,
+                                  "top": 7
+                                },
+                                "radius": 8,
+                                "width": "fill",
+                                "crossAlign": "start",
+                                "gap": 10,
+                                "children": [
+                                  {
+                                    "height": 14,
+                                    "id": "img_bulfsr",
+                                    "margin": {
+                                      "top": 3
+                                    },
+                                    "name": "circle-muted",
+                                    "width": 14,
+                                    "src": "assets/icons/circle-muted.svg",
+                                    "type": "image"
+                                  },
+                                  {
+                                    "id": "c_l4l181",
+                                    "width": "fill",
+                                    "gap": 1,
+                                    "children": [
+                                      {
+                                        "id": "t_41mskx",
+                                        "color": "$color-foreground",
+                                        "lineHeight": 1.5,
+                                        "role": "paragraph",
+                                        "size": 13,
+                                        "text": "Import as Figma layers now",
+                                        "type": "text",
+                                        "weight": 500
+                                      }
+                                    ],
+                                    "type": "column"
+                                  }
+                                ],
+                                "type": "row"
+                              },
+                              {
+                                "border": {
+                                  "color": "$color-border",
+                                  "style": "dashed",
+                                  "width": 1
+                                },
+                                "id": "r_ows62i",
+                                "name": "Other",
+                                "padding": {
+                                  "bottom": 7,
+                                  "left": 10,
+                                  "right": 10,
+                                  "top": 7
+                                },
+                                "radius": 8,
+                                "width": "fill",
+                                "crossAlign": "center",
+                                "gap": 10,
+                                "children": [
+                                  {
+                                    "height": 14,
+                                    "id": "img_ae9v7f",
+                                    "name": "pencil-muted",
+                                    "width": 14,
+                                    "src": "assets/icons/pencil-muted.svg",
+                                    "type": "image"
+                                  },
+                                  {
+                                    "id": "t_1morff",
+                                    "color": "$color-muted-foreground",
+                                    "lineHeight": 1.5,
+                                    "role": "paragraph",
+                                    "size": 13,
+                                    "text": "Or type your own answer",
+                                    "type": "text"
+                                  }
+                                ],
+                                "type": "row"
+                              }
+                            ],
+                            "type": "column"
+                          },
+                          {
+                            "id": "r_nyqpkg",
+                            "width": "fill",
+                            "crossAlign": "center",
+                            "gap": 6,
+                            "children": [
+                              {
+                                "id": "g_ciizza",
+                                "width": "fill",
+                                "children": [],
+                                "type": "group"
+                              },
+                              {
+                                "id": "i_qe2wta",
+                                "component": "Button",
+                                "from": "@/components/ui/button",
+                                "props": {
+                                  "size": "sm",
+                                  "variant": "ghost"
+                                },
+                                "text": "Decline",
+                                "type": "instance"
+                              },
+                              {
+                                "id": "i_wh5qye",
+                                "opacity": 0.5,
+                                "component": "Button",
+                                "from": "@/components/ui/button",
+                                "props": {
+                                  "size": "sm"
+                                },
+                                "text": "Send answers",
+                                "type": "instance"
+                              }
+                            ],
+                            "type": "row"
+                          }
+                        ],
+                        "type": "column"
+                      }
+                    ],
+                    "type": "column"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "id": "c_8mx238",
+                "width": 384,
+                "gap": 14,
+                "children": [
+                  {
+                    "id": "c_aykuul",
+                    "width": "fill",
+                    "gap": 4,
+                    "children": [
+                      {
+                        "id": "t_xqxq57",
+                        "color": "$color-foreground",
+                        "lineHeight": 1.5,
+                        "role": "paragraph",
+                        "size": 14,
+                        "text": "Picked",
+                        "type": "text",
+                        "weight": 600
+                      },
+                      {
+                        "id": "t_gcmrfe",
+                        "color": "$color-muted-foreground",
+                        "lineHeight": 1.55,
+                        "role": "paragraph",
+                        "size": 12,
+                        "text": "The picked row takes the brand colour; Send is ready.",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "column"
+                  },
+                  {
+                    "border": {
+                      "color": "$color-border",
+                      "style": "solid",
+                      "width": 1
+                    },
+                    "fill": "$color-sidebar",
+                    "id": "c_g8fggn",
+                    "name": "Panel",
+                    "padding": 16,
+                    "radius": 10,
+                    "width": 384,
+                    "gap": 14,
+                    "children": [
+                      {
+                        "id": "t_6tz9k2",
+                        "color": "$color-foreground",
+                        "lineHeight": 1.5,
+                        "role": "paragraph",
+                        "size": 12.5,
+                        "text": "I'll map the components first, then rebuild the page with them.",
+                        "type": "text"
+                      },
+                      {
+                        "border": {
+                          "color": "$color-border",
+                          "style": "solid",
+                          "width": 1
+                        },
+                        "fill": "$color-card",
+                        "id": "c_etp6ab",
+                        "name": "Ask card",
+                        "padding": 12,
+                        "radius": 10,
+                        "width": "fill",
+                        "gap": 12,
+                        "children": [
+                          {
+                            "id": "r_p44m5n",
+                            "crossAlign": "center",
+                            "gap": 6,
+                            "children": [
+                              {
+                                "height": 14,
+                                "id": "img_98xznw",
+                                "name": "circle-help-brand",
+                                "width": 14,
+                                "src": "assets/icons/circle-help-brand.svg",
+                                "type": "image"
+                              },
+                              {
+                                "id": "t_l6ktnw",
+                                "color": "$color-muted-foreground",
+                                "lineHeight": 1.5,
+                                "role": "paragraph",
+                                "size": 12,
+                                "text": "The agent asks",
+                                "type": "text",
+                                "weight": 500
+                              }
+                            ],
+                            "type": "row"
+                          },
+                          {
+                            "id": "t_8h7ooz",
+                            "color": "$color-foreground",
+                            "lineHeight": 1.5,
+                            "role": "paragraph",
+                            "size": 13,
+                            "text": "The editor sees no components in this repository: its component library folder isn't set (libraryDirs is empty), so Button, Badge, Card, PageLayout etc. can't be mapped. How should I proceed?",
+                            "type": "text",
+                            "weight": 500
+                          },
+                          {
+                            "id": "c_lf1a4a",
+                            "width": "fill",
+                            "gap": 6,
+                            "children": [
+                              {
+                                "border": {
+                                  "color": "$color-border",
+                                  "style": "solid",
+                                  "width": 1
+                                },
+                                "fill": "$color-background",
+                                "id": "r_kcftg2",
+                                "name": "Choice",
+                                "padding": {
+                                  "bottom": 7,
+                                  "left": 10,
+                                  "right": 10,
+                                  "top": 7
+                                },
+                                "radius": 8,
+                                "width": "fill",
+                                "crossAlign": "start",
+                                "gap": 10,
+                                "children": [
+                                  {
+                                    "height": 14,
+                                    "id": "img_l5hdss",
+                                    "margin": {
+                                      "top": 3
+                                    },
+                                    "name": "circle-muted",
+                                    "width": 14,
+                                    "src": "assets/icons/circle-muted.svg",
+                                    "type": "image"
+                                  },
+                                  {
+                                    "id": "c_ghwevh",
+                                    "width": "fill",
+                                    "gap": 1,
+                                    "children": [
+                                      {
+                                        "id": "t_2vx9sq",
+                                        "color": "$color-foreground",
+                                        "lineHeight": 1.5,
+                                        "role": "paragraph",
+                                        "size": 13,
+                                        "text": "I'll set src/components as the library",
+                                        "type": "text",
+                                        "weight": 500
+                                      }
+                                    ],
+                                    "type": "column"
+                                  }
+                                ],
+                                "type": "row"
+                              },
+                              {
+                                "border": {
+                                  "color": "$color-brand",
+                                  "style": "solid",
+                                  "width": 1
+                                },
+                                "fill": "rgba(91, 156, 248, 0.10)",
+                                "id": "r_j4yydo",
+                                "name": "Choice · picked",
+                                "padding": {
+                                  "bottom": 7,
+                                  "left": 10,
+                                  "right": 10,
+                                  "top": 7
+                                },
+                                "radius": 8,
+                                "width": "fill",
+                                "crossAlign": "start",
+                                "gap": 10,
+                                "children": [
+                                  {
+                                    "height": 14,
+                                    "id": "img_6bqsh1",
+                                    "margin": {
+                                      "top": 3
+                                    },
+                                    "name": "circle-dot-brand",
+                                    "width": 14,
+                                    "src": "assets/icons/circle-dot-brand.svg",
+                                    "type": "image"
+                                  },
+                                  {
+                                    "id": "c_2x9xfr",
+                                    "width": "fill",
+                                    "gap": 1,
+                                    "children": [
+                                      {
+                                        "id": "t_xpw459",
+                                        "color": "$color-foreground",
+                                        "lineHeight": 1.5,
+                                        "role": "paragraph",
+                                        "size": 13,
+                                        "text": "Create ultrapaint.json in front/",
+                                        "type": "text",
+                                        "weight": 500
+                                      },
+                                      {
+                                        "id": "t_xrxaqk",
+                                        "color": "$color-muted-foreground",
+                                        "lineHeight": 1.5,
+                                        "role": "paragraph",
+                                        "size": 12,
+                                        "text": "Keeps the settings with the repository, so the next session finds them.",
+                                        "type": "text"
+                                      }
+                                    ],
+                                    "type": "column"
+                                  }
+                                ],
+                                "type": "row"
+                              },
+                              {
+                                "border": {
+                                  "color": "$color-border",
+                                  "style": "solid",
+                                  "width": 1
+                                },
+                                "fill": "$color-background",
+                                "id": "r_6e2l2l",
+                                "name": "Choice",
+                                "padding": {
+                                  "bottom": 7,
+                                  "left": 10,
+                                  "right": 10,
+                                  "top": 7
+                                },
+                                "radius": 8,
+                                "width": "fill",
+                                "crossAlign": "start",
+                                "gap": 10,
+                                "children": [
+                                  {
+                                    "height": 14,
+                                    "id": "img_houwtw",
+                                    "margin": {
+                                      "top": 3
+                                    },
+                                    "name": "circle-muted",
+                                    "width": 14,
+                                    "src": "assets/icons/circle-muted.svg",
+                                    "type": "image"
+                                  },
+                                  {
+                                    "id": "c_xov3hb",
+                                    "width": "fill",
+                                    "gap": 1,
+                                    "children": [
+                                      {
+                                        "id": "t_ni0gc9",
+                                        "color": "$color-foreground",
+                                        "lineHeight": 1.5,
+                                        "role": "paragraph",
+                                        "size": 13,
+                                        "text": "Import as Figma layers now",
+                                        "type": "text",
+                                        "weight": 500
+                                      }
+                                    ],
+                                    "type": "column"
+                                  }
+                                ],
+                                "type": "row"
+                              },
+                              {
+                                "border": {
+                                  "color": "$color-border",
+                                  "style": "dashed",
+                                  "width": 1
+                                },
+                                "id": "r_mzwb5o",
+                                "name": "Other",
+                                "padding": {
+                                  "bottom": 7,
+                                  "left": 10,
+                                  "right": 10,
+                                  "top": 7
+                                },
+                                "radius": 8,
+                                "width": "fill",
+                                "crossAlign": "center",
+                                "gap": 10,
+                                "children": [
+                                  {
+                                    "height": 14,
+                                    "id": "img_8wa8li",
+                                    "name": "pencil-muted",
+                                    "width": 14,
+                                    "src": "assets/icons/pencil-muted.svg",
+                                    "type": "image"
+                                  },
+                                  {
+                                    "id": "t_27vy9k",
+                                    "color": "$color-muted-foreground",
+                                    "lineHeight": 1.5,
+                                    "role": "paragraph",
+                                    "size": 13,
+                                    "text": "Or type your own answer",
+                                    "type": "text"
+                                  }
+                                ],
+                                "type": "row"
+                              }
+                            ],
+                            "type": "column"
+                          },
+                          {
+                            "id": "r_r7dtjo",
+                            "width": "fill",
+                            "crossAlign": "center",
+                            "gap": 6,
+                            "children": [
+                              {
+                                "id": "g_j0r9pd",
+                                "width": "fill",
+                                "children": [],
+                                "type": "group"
+                              },
+                              {
+                                "id": "i_hxg96o",
+                                "component": "Button",
+                                "from": "@/components/ui/button",
+                                "props": {
+                                  "size": "sm",
+                                  "variant": "ghost"
+                                },
+                                "text": "Decline",
+                                "type": "instance"
+                              },
+                              {
+                                "id": "i_6sfwvn",
+                                "component": "Button",
+                                "from": "@/components/ui/button",
+                                "props": {
+                                  "size": "sm"
+                                },
+                                "text": "Send answers",
+                                "type": "instance"
+                              }
+                            ],
+                            "type": "row"
+                          }
+                        ],
+                        "type": "column"
+                      }
+                    ],
+                    "type": "column"
+                  }
+                ],
+                "type": "column"
+              }
+            ],
+            "type": "row"
+          },
+          {
+            "id": "r_xj0es6",
+            "padding": {
+              "bottom": 28,
+              "top": 28
+            },
+            "width": "fill",
+            "crossAlign": "start",
+            "gap": 40,
+            "children": [
+              {
+                "id": "c_dfugk1",
+                "width": 384,
+                "gap": 14,
+                "children": [
+                  {
+                    "id": "c_9ntdkg",
+                    "width": "fill",
+                    "gap": 4,
+                    "children": [
+                      {
+                        "id": "t_umz9vd",
+                        "color": "$color-foreground",
+                        "lineHeight": 1.5,
+                        "role": "paragraph",
+                        "size": 14,
+                        "text": "Several at once",
+                        "type": "text",
+                        "weight": 600
+                      },
+                      {
+                        "id": "t_63ssz8",
+                        "color": "$color-muted-foreground",
+                        "lineHeight": 1.55,
+                        "role": "paragraph",
+                        "size": 12,
+                        "text": "A question that takes several answers shows boxes.",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "column"
+                  },
+                  {
+                    "border": {
+                      "color": "$color-border",
+                      "style": "solid",
+                      "width": 1
+                    },
+                    "fill": "$color-sidebar",
+                    "id": "c_w6y5w2",
+                    "name": "Panel",
+                    "padding": 16,
+                    "radius": 10,
+                    "width": 384,
+                    "gap": 14,
+                    "children": [
+                      {
+                        "id": "t_b6fzjy",
+                        "color": "$color-foreground",
+                        "lineHeight": 1.5,
+                        "role": "paragraph",
+                        "size": 12.5,
+                        "text": "I'll map the components first, then rebuild the page with them.",
+                        "type": "text"
+                      },
+                      {
+                        "border": {
+                          "color": "$color-border",
+                          "style": "solid",
+                          "width": 1
+                        },
+                        "fill": "$color-card",
+                        "id": "c_i6ggck",
+                        "name": "Ask card",
+                        "padding": 12,
+                        "radius": 10,
+                        "width": "fill",
+                        "gap": 12,
+                        "children": [
+                          {
+                            "id": "r_jk7fvf",
+                            "crossAlign": "center",
+                            "gap": 6,
+                            "children": [
+                              {
+                                "height": 14,
+                                "id": "img_o1jxys",
+                                "name": "circle-help-brand",
+                                "width": 14,
+                                "src": "assets/icons/circle-help-brand.svg",
+                                "type": "image"
+                              },
+                              {
+                                "id": "t_wt0o0u",
+                                "color": "$color-muted-foreground",
+                                "lineHeight": 1.5,
+                                "role": "paragraph",
+                                "size": 12,
+                                "text": "The agent asks",
+                                "type": "text",
+                                "weight": 500
+                              }
+                            ],
+                            "type": "row"
+                          },
+                          {
+                            "id": "t_kyotyr",
+                            "color": "$color-foreground",
+                            "lineHeight": 1.5,
+                            "role": "paragraph",
+                            "size": 13,
+                            "text": "Which of these should the agent map first?",
+                            "type": "text",
+                            "weight": 500
+                          },
+                          {
+                            "id": "c_lc2l4q",
+                            "width": "fill",
+                            "gap": 6,
+                            "children": [
+                              {
+                                "border": {
+                                  "color": "$color-brand",
+                                  "style": "solid",
+                                  "width": 1
+                                },
+                                "fill": "rgba(91, 156, 248, 0.10)",
+                                "id": "r_qicgom",
+                                "name": "Choice · picked",
+                                "padding": {
+                                  "bottom": 7,
+                                  "left": 10,
+                                  "right": 10,
+                                  "top": 7
+                                },
+                                "radius": 8,
+                                "width": "fill",
+                                "crossAlign": "start",
+                                "gap": 10,
+                                "children": [
+                                  {
+                                    "height": 14,
+                                    "id": "img_2wih3u",
+                                    "margin": {
+                                      "top": 3
+                                    },
+                                    "name": "square-check-brand",
+                                    "width": 14,
+                                    "src": "assets/icons/square-check-brand.svg",
+                                    "type": "image"
+                                  },
+                                  {
+                                    "id": "c_b3xgua",
+                                    "width": "fill",
+                                    "gap": 1,
+                                    "children": [
+                                      {
+                                        "id": "t_sthznb",
+                                        "color": "$color-foreground",
+                                        "lineHeight": 1.5,
+                                        "role": "paragraph",
+                                        "size": 13,
+                                        "text": "Button",
+                                        "type": "text",
+                                        "weight": 500
+                                      }
+                                    ],
+                                    "type": "column"
+                                  }
+                                ],
+                                "type": "row"
+                              },
+                              {
+                                "border": {
+                                  "color": "$color-border",
+                                  "style": "solid",
+                                  "width": 1
+                                },
+                                "fill": "$color-background",
+                                "id": "r_2nv300",
+                                "name": "Choice",
+                                "padding": {
+                                  "bottom": 7,
+                                  "left": 10,
+                                  "right": 10,
+                                  "top": 7
+                                },
+                                "radius": 8,
+                                "width": "fill",
+                                "crossAlign": "start",
+                                "gap": 10,
+                                "children": [
+                                  {
+                                    "height": 14,
+                                    "id": "img_e24b5n",
+                                    "margin": {
+                                      "top": 3
+                                    },
+                                    "name": "square-empty-muted",
+                                    "width": 14,
+                                    "src": "assets/icons/square-empty-muted.svg",
+                                    "type": "image"
+                                  },
+                                  {
+                                    "id": "c_omgknr",
+                                    "width": "fill",
+                                    "gap": 1,
+                                    "children": [
+                                      {
+                                        "id": "t_80j4k2",
+                                        "color": "$color-foreground",
+                                        "lineHeight": 1.5,
+                                        "role": "paragraph",
+                                        "size": 13,
+                                        "text": "Badge",
+                                        "type": "text",
+                                        "weight": 500
+                                      }
+                                    ],
+                                    "type": "column"
+                                  }
+                                ],
+                                "type": "row"
+                              },
+                              {
+                                "border": {
+                                  "color": "$color-brand",
+                                  "style": "solid",
+                                  "width": 1
+                                },
+                                "fill": "rgba(91, 156, 248, 0.10)",
+                                "id": "r_kju8az",
+                                "name": "Choice · picked",
+                                "padding": {
+                                  "bottom": 7,
+                                  "left": 10,
+                                  "right": 10,
+                                  "top": 7
+                                },
+                                "radius": 8,
+                                "width": "fill",
+                                "crossAlign": "start",
+                                "gap": 10,
+                                "children": [
+                                  {
+                                    "height": 14,
+                                    "id": "img_oa1au7",
+                                    "margin": {
+                                      "top": 3
+                                    },
+                                    "name": "square-check-brand",
+                                    "width": 14,
+                                    "src": "assets/icons/square-check-brand.svg",
+                                    "type": "image"
+                                  },
+                                  {
+                                    "id": "c_x7972b",
+                                    "width": "fill",
+                                    "gap": 1,
+                                    "children": [
+                                      {
+                                        "id": "t_5ihd0b",
+                                        "color": "$color-foreground",
+                                        "lineHeight": 1.5,
+                                        "role": "paragraph",
+                                        "size": 13,
+                                        "text": "Card",
+                                        "type": "text",
+                                        "weight": 500
+                                      }
+                                    ],
+                                    "type": "column"
+                                  }
+                                ],
+                                "type": "row"
+                              },
+                              {
+                                "border": {
+                                  "color": "$color-border",
+                                  "style": "solid",
+                                  "width": 1
+                                },
+                                "fill": "$color-background",
+                                "id": "r_9byn6m",
+                                "name": "Choice",
+                                "padding": {
+                                  "bottom": 7,
+                                  "left": 10,
+                                  "right": 10,
+                                  "top": 7
+                                },
+                                "radius": 8,
+                                "width": "fill",
+                                "crossAlign": "start",
+                                "gap": 10,
+                                "children": [
+                                  {
+                                    "height": 14,
+                                    "id": "img_9itpza",
+                                    "margin": {
+                                      "top": 3
+                                    },
+                                    "name": "square-empty-muted",
+                                    "width": 14,
+                                    "src": "assets/icons/square-empty-muted.svg",
+                                    "type": "image"
+                                  },
+                                  {
+                                    "id": "c_r0ke9s",
+                                    "width": "fill",
+                                    "gap": 1,
+                                    "children": [
+                                      {
+                                        "id": "t_rupvgo",
+                                        "color": "$color-foreground",
+                                        "lineHeight": 1.5,
+                                        "role": "paragraph",
+                                        "size": 13,
+                                        "text": "PageLayout",
+                                        "type": "text",
+                                        "weight": 500
+                                      }
+                                    ],
+                                    "type": "column"
+                                  }
+                                ],
+                                "type": "row"
+                              },
+                              {
+                                "border": {
+                                  "color": "$color-border",
+                                  "style": "dashed",
+                                  "width": 1
+                                },
+                                "id": "r_hoeyoe",
+                                "name": "Other",
+                                "padding": {
+                                  "bottom": 7,
+                                  "left": 10,
+                                  "right": 10,
+                                  "top": 7
+                                },
+                                "radius": 8,
+                                "width": "fill",
+                                "crossAlign": "center",
+                                "gap": 10,
+                                "children": [
+                                  {
+                                    "height": 14,
+                                    "id": "img_qdgb77",
+                                    "name": "pencil-muted",
+                                    "width": 14,
+                                    "src": "assets/icons/pencil-muted.svg",
+                                    "type": "image"
+                                  },
+                                  {
+                                    "id": "t_t3edma",
+                                    "color": "$color-muted-foreground",
+                                    "lineHeight": 1.5,
+                                    "role": "paragraph",
+                                    "size": 13,
+                                    "text": "Or type your own answer",
+                                    "type": "text"
+                                  }
+                                ],
+                                "type": "row"
+                              }
+                            ],
+                            "type": "column"
+                          },
+                          {
+                            "id": "r_rlcp7t",
+                            "width": "fill",
+                            "crossAlign": "center",
+                            "gap": 6,
+                            "children": [
+                              {
+                                "id": "g_0skywr",
+                                "width": "fill",
+                                "children": [],
+                                "type": "group"
+                              },
+                              {
+                                "id": "i_05u71h",
+                                "component": "Button",
+                                "from": "@/components/ui/button",
+                                "props": {
+                                  "size": "sm",
+                                  "variant": "ghost"
+                                },
+                                "text": "Decline",
+                                "type": "instance"
+                              },
+                              {
+                                "id": "i_tcd4dc",
+                                "component": "Button",
+                                "from": "@/components/ui/button",
+                                "props": {
+                                  "size": "sm"
+                                },
+                                "text": "Send answers",
+                                "type": "instance"
+                              }
+                            ],
+                            "type": "row"
+                          }
+                        ],
+                        "type": "column"
+                      }
+                    ],
+                    "type": "column"
+                  }
+                ],
+                "type": "column"
+              },
+              {
+                "id": "c_9hbjnt",
+                "width": 384,
+                "gap": 14,
+                "children": [
+                  {
+                    "id": "c_5igvny",
+                    "width": "fill",
+                    "gap": 4,
+                    "children": [
+                      {
+                        "id": "t_91enxx",
+                        "color": "$color-foreground",
+                        "lineHeight": 1.5,
+                        "role": "paragraph",
+                        "size": 14,
+                        "text": "Answered",
+                        "type": "text",
+                        "weight": 600
+                      },
+                      {
+                        "id": "t_z99ea8",
+                        "color": "$color-muted-foreground",
+                        "lineHeight": 1.55,
+                        "role": "paragraph",
+                        "size": 12,
+                        "text": "Folds to the question and what was answered.",
+                        "type": "text"
+                      }
+                    ],
+                    "type": "column"
+                  },
+                  {
+                    "border": {
+                      "color": "$color-border",
+                      "style": "solid",
+                      "width": 1
+                    },
+                    "fill": "$color-sidebar",
+                    "id": "c_kr5h4s",
+                    "name": "Panel",
+                    "padding": 16,
+                    "radius": 10,
+                    "width": 384,
+                    "gap": 14,
+                    "children": [
+                      {
+                        "id": "t_qo6qva",
+                        "color": "$color-foreground",
+                        "lineHeight": 1.5,
+                        "role": "paragraph",
+                        "size": 12.5,
+                        "text": "I'll map the components first, then rebuild the page with them.",
+                        "type": "text"
+                      },
+                      {
+                        "border": {
+                          "color": "$color-border",
+                          "style": "solid",
+                          "width": 1
+                        },
+                        "fill": "$color-card",
+                        "id": "c_e4rqzh",
+                        "name": "Ask card · answered",
+                        "padding": 12,
+                        "radius": 10,
+                        "width": "fill",
+                        "gap": 12,
+                        "children": [
+                          {
+                            "id": "r_5lh8ln",
+                            "crossAlign": "center",
+                            "gap": 6,
+                            "children": [
+                              {
+                                "height": 14,
+                                "id": "img_n2d1gx",
+                                "name": "check-muted",
+                                "width": 14,
+                                "src": "assets/icons/check-muted.svg",
+                                "type": "image"
+                              },
+                              {
+                                "id": "t_xms42d",
+                                "color": "$color-muted-foreground",
+                                "lineHeight": 1.5,
+                                "role": "paragraph",
+                                "size": 12,
+                                "text": "Answered",
+                                "type": "text",
+                                "weight": 500
+                              }
+                            ],
+                            "type": "row"
+                          },
+                          {
+                            "id": "t_ymks9k",
+                            "color": "$color-muted-foreground",
+                            "lineHeight": 1.5,
+                            "role": "paragraph",
+                            "size": 13,
+                            "text": "The editor sees no components in this repository: its component library folder isn't set (libraryDirs is empty), so Button, Badge, Card, PageLayout etc. can't be mapped. How should I proceed?",
+                            "type": "text"
+                          },
+                          {
+                            "id": "r_14zhr8",
+                            "crossAlign": "center",
+                            "gap": 8,
+                            "children": [
+                              {
+                                "height": 14,
+                                "id": "img_vdo4c0",
+                                "name": "check-fg",
+                                "width": 14,
+                                "src": "assets/icons/check-fg.svg",
+                                "type": "image"
+                              },
+                              {
+                                "id": "t_kvtjoi",
+                                "color": "$color-foreground",
+                                "lineHeight": 1.5,
+                                "role": "paragraph",
+                                "size": 13,
+                                "text": "Create ultrapaint.json in front/",
+                                "type": "text",
+                                "weight": 500
+                              }
+                            ],
+                            "type": "row"
+                          }
+                        ],
+                        "type": "column"
+                      }
+                    ],
+                    "type": "column"
+                  }
+                ],
+                "type": "column"
+              }
+            ],
+            "type": "row"
+          }
+        ],
+        "type": "column"
+      }
+    ],
+    "type": "page"
+  },
+  "version": 1
+}
