@@ -25,8 +25,8 @@ still reach something outside it (commit `499e57c`).
   `PATH` under it (fnm's) is let back read-only.
 - The package managers' caches stay writable. The built-in agents start through `npx`, which
   unpacks them into its cache, and a package installed from inside the sandbox fills them;
-  read-only, neither works. Nothing of the user's work lives there. They are, with `/tmp` on
-  macOS, what "the temporary directories" below now means.
+  read-only, neither works. Nothing of the user's work lives there. "The temporary
+  directories" below are now the session's own on Linux, and the shared ones on macOS.
 
 ## Decision
 
