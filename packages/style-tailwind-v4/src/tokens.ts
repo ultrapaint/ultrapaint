@@ -93,6 +93,24 @@ const readFile = (file: string): string | null => {
   }
 };
 
+/** A `@theme` declaration taken in: a token, or a reset of the tokens declared before it. */
+const takeTheme = (out: Declared, decl: Declaration) => {
+  if (!isReset(decl.value)) {
+    const name = tokenNameOf(decl.name);
+    if (name) {
+      out.declared.set(name, decl);
+    }
+    return;
+  }
+  // As Tailwind reads it: the tokens declared so far that it covers are gone too.
+  for (const declared of [...out.declared.keys()]) {
+    if (resetCovers(decl.name, `--${declared}`)) {
+      out.declared.delete(declared);
+    }
+  }
+  out.resets.push(decl.name);
+};
+
 const declarationsOf = (files: readonly string[]): Declared => {
   const out: Declared = {
     blocks: [],
@@ -108,20 +126,9 @@ const declarationsOf = (files: readonly string[]): Declared => {
     const parsed = customPropertiesOf(file, text);
     out.blocks.push(...parsed.blocks);
     for (const decl of parsed.declarations) {
-      const name = tokenNameOf(decl.name);
       const key = themeKeyOf(decl.prelude);
-      if (isTheme(decl.prelude) && isReset(decl.value)) {
-        // As Tailwind reads it: the tokens declared so far that it covers are gone too.
-        for (const declared of [...out.declared.keys()]) {
-          if (resetCovers(decl.name, `--${declared}`)) {
-            out.declared.delete(declared);
-          }
-        }
-        out.resets.push(decl.name);
-      } else if (isTheme(decl.prelude)) {
-        if (name) {
-          out.declared.set(name, decl);
-        }
+      if (isTheme(decl.prelude)) {
+        takeTheme(out, decl);
       } else if (key !== null) {
         const vars = out.scoped.get(key) ?? new Map<string, Declaration>();
         vars.set(decl.name, decl);
