@@ -84,6 +84,7 @@ import {
   type TokenField,
   tokenLabel,
 } from "../lib/element-controls.ts";
+import { LruMap } from "../lib/lru.ts";
 import {
   areSiblings,
   setPropsOfNodes,
@@ -201,8 +202,11 @@ export const MenuHead = ({
   </DropdownMenuLabel>
 );
 
-/** Pictures of an instance drawn in each value of one of its props, kept for the session. */
-const previewCache = new Map<string, string | null>();
+/**
+ * Pictures of an instance drawn in each value of one of its props, kept for the session: the
+ * last few hundred, as each is a PNG held in memory.
+ */
+const previewCache = new LruMap<string, string | null>(200);
 
 /**
  * The pictures of an instance in each value of one of its props, drawn while its menu is open.
@@ -236,6 +240,10 @@ const useVariantPreviews = (
       ]);
     (async () => {
       for (const option of optionsKey.split("|")) {
+        // The menu closed: what it did not show yet is not drawn.
+        if (!live) {
+          return;
+        }
         const key = keyOf(option);
         if (!previewCache.has(key)) {
           const root: InstanceNode = {
