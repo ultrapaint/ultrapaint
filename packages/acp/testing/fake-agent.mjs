@@ -25,7 +25,9 @@
  * Sessions offer a `model` option, `fast` or `smart`, and the modes `ask` and `auto`.
  *
  * `FAKE_AGENT_LOAD=1` advertises `loadSession`; `FAKE_AGENT_AUTH=1` refuses `session/new` until
- * `authenticate` was called.
+ * `authenticate` was called. Started with `--slow-start`, it takes two seconds to answer
+ * `initialize`, as an agent that boots slowly does; any other argument is left alone, so a test
+ * can mark its processes to find them.
  */
 import { Readable, Writable } from "node:stream";
 import {
@@ -39,6 +41,7 @@ import {
 const cancels = new Map();
 let authenticated = process.env.FAKE_AGENT_AUTH !== "1";
 let sessions = 0;
+const SLOW_START_MS = process.argv.includes("--slow-start") ? 2000 : 0;
 
 const text = (cx, sessionId, value, kind = "agent_message_chunk") =>
   cx.notify(methods.client.session.update, {
@@ -272,11 +275,14 @@ const stream = ndJsonStream(
 );
 
 agent({ name: "fake-agent" })
-  .onRequest("initialize", () => ({
-    agentCapabilities: { loadSession: process.env.FAKE_AGENT_LOAD === "1" },
-    authMethods: [{ description: "test", id: "test-auth", name: "Test" }],
-    protocolVersion: PROTOCOL_VERSION,
-  }))
+  .onRequest("initialize", async () => {
+    await new Promise((resolve) => setTimeout(resolve, SLOW_START_MS));
+    return {
+      agentCapabilities: { loadSession: process.env.FAKE_AGENT_LOAD === "1" },
+      authMethods: [{ description: "test", id: "test-auth", name: "Test" }],
+      protocolVersion: PROTOCOL_VERSION,
+    };
+  })
   .onRequest("authenticate", () => {
     authenticated = true;
     return {};

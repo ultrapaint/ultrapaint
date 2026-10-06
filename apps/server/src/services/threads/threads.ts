@@ -609,7 +609,34 @@ export class ThreadService extends Context.Service<
         return current;
       });
 
-      const start = Effect.fnUntraced(function* (threadId: string) {
+      /**
+       * Starts a thread's session. A start that does not finish (it failed, broke, or was
+       * stopped because the thread was deleted while its agent booted) closes what it opened:
+       * the agent process, its terminals and its MCP token.
+       */
+      const start = (threadId: string) =>
+        Effect.suspend(() => {
+          const opened: { scope: Scope.Closeable | null } = { scope: null };
+          return startIn(threadId, opened).pipe(
+            Effect.onError(() =>
+              Effect.suspend(() => {
+                const { scope } = opened;
+                if (scope === null) {
+                  return Effect.void;
+                }
+                if (live.get(threadId)?.scope === scope) {
+                  live.delete(threadId);
+                }
+                return Scope.close(scope, Exit.void);
+              })
+            )
+          );
+        });
+
+      const startIn = Effect.fnUntraced(function* (
+        threadId: string,
+        opened: { scope: Scope.Closeable | null }
+      ) {
         const thread = yield* store.get(threadId);
         if (!thread) {
           return yield* new NotFound({ message: `unknown thread ${threadId}` });
@@ -619,6 +646,7 @@ export class ThreadService extends Context.Service<
         const config = yield* agents.get(thread.agentId);
 
         const scope = yield* Scope.fork(projectScope);
+        opened.scope = scope;
         const holder: { session: Live | null } = { session: null };
         const boot = Effect.gen(function* () {
           // The agent's only temporary directory, and it goes with the session.
@@ -831,13 +859,30 @@ export class ThreadService extends Context.Service<
         return session;
       });
 
+      /** Session starts under way, by thread: deleting the thread stops its agent mid-boot. */
+      const booting = new Map<string, Fiber.Fiber<unknown, unknown>>();
+
       const ensureLive = (threadId: string) =>
         detached(
           starting.withLock(
             threadId,
             Effect.suspend(() => {
               const existing = live.get(threadId);
-              return existing ? Effect.succeed(existing) : start(threadId);
+              if (existing) {
+                return Effect.succeed(existing);
+              }
+              return Effect.withFiber((self) => {
+                booting.set(threadId, self);
+                return start(threadId).pipe(
+                  Effect.ensuring(
+                    Effect.sync(() => {
+                      if (booting.get(threadId) === self) {
+                        booting.delete(threadId);
+                      }
+                    })
+                  )
+                );
+              });
             })
           )
         ).pipe(Effect.withSpan("ThreadService.ensureLive"));
@@ -896,6 +941,28 @@ export class ThreadService extends Context.Service<
         return { blocks, labels };
       });
 
+      /** A turn that went wrong: the transcript says why, and the thread takes prompts again. */
+      const failTurn = (threadId: string, message: string) =>
+        Effect.gen(function* () {
+          yield* store.push(threadId, {
+            at: yield* Clock.currentTimeMillis,
+            id: yield* newItemId,
+            kind: "status",
+            text: `Turn failed: ${message}`,
+          });
+          yield* store.update(threadId, { error: message, status: "error" });
+        });
+
+      /** A bug of ours in a turn: logged, and the turn fails rather than stay "running". */
+      const turnBroke = (threadId: string, defect: unknown) => {
+        const message =
+          defect instanceof Error ? defect.message : String(defect);
+        return Effect.andThen(
+          log.log("agent", "error", `a turn of ${threadId} broke: ${message}`),
+          failTurn(threadId, message)
+        );
+      };
+
       const runTurn = (
         threadId: string,
         session: Live,
@@ -911,20 +978,16 @@ export class ThreadService extends Context.Service<
           ),
           Effect.matchEffect({
             onFailure: (error) =>
-              Effect.gen(function* () {
-                yield* store.push(threadId, {
-                  at: yield* Clock.currentTimeMillis,
-                  id: yield* newItemId,
-                  kind: "status",
-                  text: `Turn failed: ${error.message}`,
-                });
-                yield* store.update(threadId, {
-                  error: error.message,
-                  status: "error",
-                });
-              }),
+              Effect.andThen(
+                Effect.sync(() => {
+                  session.turn = null;
+                }),
+                failTurn(threadId, error.message)
+              ),
             onSuccess: (response) =>
               Effect.gen(function* () {
+                // Before the status changes: a cancel that sees no turn leaves the status alone.
+                session.turn = null;
                 const changedFiles = yield* project
                   .use(
                     Effect.flatMap(GitService, (git) =>
@@ -957,6 +1020,7 @@ export class ThreadService extends Context.Service<
                 }
               }),
           }),
+          Effect.catchDefect((defect) => turnBroke(threadId, defect)),
           Effect.ensuring(
             Effect.sync(() => {
               session.turn = null;
@@ -1071,6 +1135,7 @@ export class ThreadService extends Context.Service<
             Effect.catch((error) =>
               store.update(threadId, { error: error.message, status: "error" })
             ),
+            Effect.catchDefect((defect) => turnBroke(threadId, defect)),
             Effect.onInterrupt(() =>
               Effect.gen(function* () {
                 yield* store.push(threadId, {
@@ -1355,23 +1420,42 @@ export class ThreadService extends Context.Service<
           }
           const session = live.get(threadId);
           const sessionId = (yield* store.get(threadId))?.sessionId;
-          if (!(session && sessionId)) {
+          // Only a turn the agent is working on is stopped. One that has ended leaves the thread
+          // as it is: nothing would take it out of "cancelling" again.
+          if (!(session && sessionId) || session.turn === null) {
             return;
           }
           yield* store.update(threadId, { status: "cancelling" });
+          // The client answers every permission request still open with `cancelled` (ACP).
+          for (const pending of session.pending.values()) {
+            yield* Deferred.succeed(pending.decision, CANCELLED);
+          }
           // It will not wait for the cards it asked with either.
           yield* letGo(threadId, session);
           // The agent ends the turn itself and answers the prompt with `cancelled`.
           yield* Effect.mapError(session.agent.cancel(sessionId), agentFailure);
+          // Unless the turn ended on its own meanwhile, and its end has already been written.
+          if (
+            session.turn === null &&
+            (yield* store.get(threadId))?.status === "cancelling"
+          ) {
+            yield* store.update(threadId, { status: "idle" });
+          }
         }),
         cardsShown: (threadId) => Effect.sync(() => shown.get(threadId) ?? 0),
         create,
         decline,
-        delete: (threadId) =>
-          stopOpening(threadId).pipe(
-            Effect.andThen(stop(threadId)),
-            Effect.andThen(store.remove(threadId))
-          ),
+        delete: Effect.fn("ThreadService.delete")(function* (threadId: string) {
+          yield* stopOpening(threadId);
+          // Gone first, so that no session starts for it from here on.
+          yield* store.remove(threadId);
+          // An agent still booting is stopped there, with what its start opened.
+          const boot = booting.get(threadId);
+          if (boot) {
+            yield* Fiber.interrupt(boot);
+          }
+          yield* stop(threadId);
+        }),
         prompt: (input) =>
           detached(opening.withLock(input.threadId, prompt(input))),
         resolvePermission,
