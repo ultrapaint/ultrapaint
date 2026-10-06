@@ -2,7 +2,12 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { parseJsonc, specifierFromPackage } from "./catalogue-extract.ts";
+import {
+  buildCatalogue,
+  catalogueSourceFiles,
+  parseJsonc,
+  specifierFromPackage,
+} from "./catalogue-extract.ts";
 
 /** A package on disk: its package.json, and a tsconfig when given one. */
 const pkgWith = (pkg: object, tsconfig?: string) => {
@@ -78,5 +83,90 @@ describe("parseJsonc", () => {
       p: "@/*",
       q: [1, 2],
     });
+  });
+});
+
+/** A repository with two library packages, one's name the start of the other's. */
+const libraries = (files: Record<string, string>) => {
+  const root = mkdtempSync(path.join(tmpdir(), "catalogue-build-"));
+  for (const [rel, text] of Object.entries(files)) {
+    mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+    writeFileSync(path.join(root, rel), text);
+  }
+  const ctx = {
+    componentPackages: [],
+    libraryDirs: [
+      path.join(root, "packages/ui"),
+      path.join(root, "packages/ui-extra"),
+    ],
+    root,
+  };
+  return buildCatalogue(ctx, catalogueSourceFiles(ctx));
+};
+
+const PRELUDE = `declare namespace JSX { interface Element {} }
+declare const cva: (base: string, config?: unknown) => (props?: unknown) => JSX.Element;
+`;
+
+describe("building the catalogue", () => {
+  it("gives each component the variants of the cva it uses, not every cva of its file", () => {
+    const catalogue = libraries({
+      "packages/ui/package.json": JSON.stringify({
+        exports: { "./*": "./src/*.tsx" },
+        name: "@acme/ui",
+      }),
+      "packages/ui/src/controls.tsx": `${PRELUDE}
+const buttonVariants = cva("btn", {
+  variants: { variant: { default: "", outline: "" }, size: { sm: "", "2xl": "" } },
+  defaultVariants: { variant: "default", size: "sm" },
+});
+const badgeVariants = cva("badge", {
+  variants: { tone: { info: "", danger: "" } },
+  defaultVariants: { tone: "info" },
+});
+export interface ButtonProps { variant?: string; size?: string }
+export function Button(props: ButtonProps): JSX.Element {
+  return buttonVariants(props);
+}
+/** A badge also takes a variant, which its cva does not know. */
+export const Badge = (props: { tone?: string; variant?: string }): JSX.Element =>
+  badgeVariants(props);
+`,
+    });
+    const byName = new Map(catalogue.components.map((c) => [c.name, c]));
+    expect(byName.get("Button")?.variants).toEqual({
+      size: ["sm", "2xl"],
+      variant: ["default", "outline"],
+    });
+    expect(
+      byName.get("Button")?.props.map((p) => [p.name, p.defaultValue])
+    ).toEqual([
+      ["variant", "default"],
+      ["size", "sm"],
+    ]);
+    expect(byName.get("Badge")?.variants).toEqual({ tone: ["info", "danger"] });
+    expect(
+      byName.get("Badge")?.props.find((p) => p.name === "variant")?.defaultValue
+    ).toBeUndefined();
+    expect(byName.get("Button")?.importFrom).toBe("@acme/ui/controls");
+  });
+
+  it("takes a component's package from its own library directory, not one whose name starts it", () => {
+    const catalogue = libraries({
+      "packages/ui-extra/package.json": JSON.stringify({
+        exports: { "./*": "./src/*.tsx" },
+        name: "@acme/ui-extra",
+      }),
+      "packages/ui-extra/src/chip.tsx": `${PRELUDE}
+export const Chip = (props: { label: string }): JSX.Element => cva(props.label)();
+`,
+      "packages/ui/package.json": JSON.stringify({
+        exports: { "./*": "./src/*.tsx" },
+        name: "@acme/ui",
+      }),
+    });
+    expect(
+      catalogue.components.map((c) => [c.name, c.group, c.importFrom])
+    ).toEqual([["Chip", "@acme/ui-extra", "@acme/ui-extra/chip"]]);
   });
 });

@@ -1,13 +1,12 @@
 /**
  * Component catalogue: extracts exported components, their prop types, enum members,
  * defaults and `cva` variants from the configured design-system directories with the
- * TypeScript compiler API, and caches the result under the tool home.
+ * TypeScript compiler API, and computes the key the server caches the result under.
  */
 
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
-import { parse } from "@babel/parser";
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type {
   Catalogue,
@@ -28,7 +27,7 @@ const hashContent = (content: string): string =>
 const toPosix = (p: string) => p.replaceAll("\\", "/");
 
 /** Bump when the extraction logic changes so stale caches are rebuilt. */
-const CATALOGUE_VERSION = 3;
+const CATALOGUE_VERSION = 4;
 
 const TSX_EXT_RE = /\.tsx$/;
 const NON_COMPONENT_TSX_RE = /\.(stories|test|spec)\.tsx$/;
@@ -117,93 +116,87 @@ interface CvaInfo {
   variants: Record<string, string[]>;
 }
 
-interface AstNode {
-  type: string;
-  [k: string]: unknown;
-}
+/** A property's name as written: `size`, `"2xl"`, `1`; null for a computed one. */
+const propertyName = (name: ts.PropertyName): string | null =>
+  ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)
+    ? name.text
+    : null;
 
-const isAstNode = (v: unknown): v is AstNode =>
-  typeof v === "object" &&
-  v !== null &&
-  typeof (v as AstNode).type === "string";
+/** The `key: value` properties of an object literal. */
+const assignments = (obj: ts.ObjectLiteralExpression) =>
+  obj.properties.filter(ts.isPropertyAssignment).flatMap((p) => {
+    const name = propertyName(p.name);
+    return name === null ? [] : [[name, p.initializer] as const];
+  });
 
-const keyName = (p: AstNode) => {
-  const k = p.key as AstNode;
-  if (k.type === "Identifier") {
-    return k.name as string;
+const isCvaCall = (n: ts.Node): n is ts.CallExpression =>
+  ts.isCallExpression(n) &&
+  ts.isIdentifier(n.expression) &&
+  n.expression.text === "cva";
+
+/** `variants` and `defaultVariants` of a `cva(base, { … })` call. */
+const cvaOfCall = (call: ts.CallExpression): CvaInfo => {
+  const info: CvaInfo = { defaults: {}, variants: {} };
+  const [, cfg] = call.arguments;
+  if (!(cfg && ts.isObjectLiteralExpression(cfg))) {
+    return info;
   }
-  return k.type === "StringLiteral" ? (k.value as string) : null;
-};
-
-const objectProperties = (obj: AstNode): AstNode[] =>
-  (obj.properties as AstNode[]).filter((p) => p.type === "ObjectProperty");
-
-const astChildren = (n: AstNode): AstNode[] => {
-  const out: AstNode[] = [];
-  for (const key of Object.keys(n)) {
-    if (key === "loc") {
+  for (const [name, value] of assignments(cfg)) {
+    if (!ts.isObjectLiteralExpression(value)) {
       continue;
     }
-    const v = n[key];
-    if (Array.isArray(v)) {
-      for (const x of v) {
-        if (isAstNode(x)) {
-          out.push(x);
-        }
+    for (const [key, member] of assignments(value)) {
+      if (name === "variants" && ts.isObjectLiteralExpression(member)) {
+        info.variants[key] = assignments(member).map(([m]) => m);
+      } else if (name === "defaultVariants" && ts.isStringLiteralLike(member)) {
+        info.defaults[key] = member.text;
       }
-    } else if (isAstNode(v)) {
-      out.push(v);
     }
   }
-  return out;
+  return info;
 };
 
-const isCvaCall = (n: AstNode): boolean =>
-  n.type === "CallExpression" &&
-  (n.callee as AstNode).type === "Identifier" &&
-  (n.callee as AstNode).name === "cva";
-
-const readVariants = (info: CvaInfo, variants: AstNode) => {
-  for (const vp of objectProperties(variants)) {
-    const vn = keyName(vp);
-    const vv = vp.value as AstNode;
-    if (vn && vv.type === "ObjectExpression") {
-      info.variants[vn] = (vv.properties as AstNode[])
-        .map((m) => (m.type === "ObjectProperty" ? keyName(m) : null))
-        .filter((x): x is string => !!x);
-    }
-  }
+const mergeCva = (into: CvaInfo, from: CvaInfo) => {
+  Object.assign(into.variants, from.variants);
+  Object.assign(into.defaults, from.defaults);
 };
 
-const readDefaultVariants = (info: CvaInfo, defaults: AstNode) => {
-  for (const dp of objectProperties(defaults)) {
-    const dn = keyName(dp);
-    const dv = dp.value as AstNode;
-    if (dn && dv.type === "StringLiteral") {
-      info.defaults[dn] = dv.value as string;
+/**
+ * The `cva` variants a component uses: the `cva()` calls written inside it, and those of the
+ * variables it calls or names in a `typeof` (`buttonVariants({ variant })`,
+ * `VariantProps<typeof buttonVariants>`), wherever they are declared. A file's other `cva()`s
+ * belong to its other components.
+ */
+const cvaOfComponent = (checker: ts.TypeChecker, decl: ts.Node): CvaInfo => {
+  const info: CvaInfo = { defaults: {}, variants: {} };
+  const named = (id: ts.Identifier) => {
+    const symbol = checker.getSymbolAtLocation(id);
+    const target =
+      symbol && symbol.flags & ts.SymbolFlags.Alias
+        ? checker.getAliasedSymbol(symbol)
+        : symbol;
+    const declared = target?.valueDeclaration;
+    if (
+      declared &&
+      ts.isVariableDeclaration(declared) &&
+      declared.initializer &&
+      isCvaCall(declared.initializer)
+    ) {
+      mergeCva(info, cvaOfCall(declared.initializer));
     }
-  }
-};
-
-/** Reads `variants` and `defaultVariants` from the config argument of a `cva` call. */
-const readCvaConfig = (info: CvaInfo, call: AstNode) => {
-  const [, cfg] = call.arguments as AstNode[];
-  if (cfg?.type !== "ObjectExpression") {
-    return;
-  }
-  for (const p of objectProperties(cfg)) {
-    const name = keyName(p);
-    const v = p.value as AstNode;
-    if (v.type !== "ObjectExpression") {
-      continue;
+  };
+  const visit = (n: ts.Node) => {
+    if (isCvaCall(n)) {
+      mergeCva(info, cvaOfCall(n));
+    } else if (ts.isCallExpression(n) && ts.isIdentifier(n.expression)) {
+      named(n.expression);
+    } else if (ts.isTypeQueryNode(n) && ts.isIdentifier(n.exprName)) {
+      named(n.exprName);
     }
-    if (name === "variants") {
-      readVariants(info, v);
-    }
-    if (name === "defaultVariants") {
-      readDefaultVariants(info, v);
-    }
-  }
+    ts.forEachChild(n, visit);
+  };
+  visit(decl);
+  return info;
 };
 
 interface PackageJson {
@@ -246,35 +239,65 @@ const hasEntry = (pkg: PackageJson) => {
   return typeof pkg.exports === "string" || "." in pkg.exports;
 };
 
+/** The path aliases of one tsconfig. */
+interface AliasOptions {
+  readonly baseUrl?: string;
+  readonly paths?: Record<string, string[]>;
+}
+
+/** What a package says about importing its files: its manifest and its tsconfigs' aliases. */
+interface PackageInfo {
+  readonly aliases: readonly AliasOptions[];
+  readonly pkg: PackageJson;
+}
+
+/** Reads a package's manifest and aliases; null when the manifest cannot be read. */
+const readPackage = (pj: string, pkgDir: string): PackageInfo | null => {
+  let pkg: PackageJson;
+  try {
+    pkg = JSON.parse(readFileSync(pj, "utf8")) as PackageJson;
+  } catch {
+    // A manifest that cannot be read names no package to import from.
+    return null;
+  }
+  const aliases = TSCONFIG_NAMES.flatMap((name) => {
+    const options = aliasOptionsIn(path.join(pkgDir, name));
+    return options ? [options] : [];
+  });
+  return { aliases, pkg };
+};
+
 /**
  * Import specifier for `file`: through the `exports` map of the package.json at `pj`, else the
  * package's own path aliases, else the package's name when it has an entry, else a path from
  * the package's root (`/src/components/header`), which the preview resolves against the anchor:
  * right for an application's own components, the anchor being that application. Null for a
- * package without a name.
+ * package without a name. `info` is the package as already read, when it was.
  */
 export const specifierFromPackage = (
   pj: string,
   pkgDir: string,
-  file: string
+  file: string,
+  info: PackageInfo | null = readPackage(pj, pkgDir)
 ): { pkg: string; specifier: string } | null => {
-  const pkg = JSON.parse(readFileSync(pj, "utf8")) as PackageJson;
-  if (!pkg.name) {
+  const name = info?.pkg.name;
+  if (!(info && name)) {
     return null;
   }
+  const { aliases, pkg } = info;
   const relNoExt = path.relative(pkgDir, file).replace(TS_EXT_RE, "");
   const specifier =
     fromExportsMap(
-      pkg.name,
+      name,
       typeof pkg.exports === "object" ? pkg.exports : {},
       relNoExt
     ) ??
-    specifierFromAlias(pkgDir, file) ??
-    (hasEntry(pkg) ? pkg.name : null) ??
+    specifierFromAlias(aliases, pkgDir, file) ??
+    (hasEntry(pkg) ? name : null) ??
     // An application's own component that no export or alias reaches: a path from the
     // package's root, which the preview resolves against the anchor.
     `/${toPosix(relNoExt).replace(INDEX_RE, "")}`;
-  return { pkg: pkg.name, specifier };
+  return { pkg: name, specifier };
 };
 
 /** Where the token at `i` ends: a string, a comment, or one character. */
@@ -320,9 +343,13 @@ export const parseJsonc = (text: string): unknown => {
  * it (`@/components/ui/button`): the tsconfig's `paths`, which the package's Vite config usually
  * mirrors, and which the preview inherits with it.
  */
-const specifierFromAlias = (pkgDir: string, file: string): string | null => {
-  for (const name of TSCONFIG_NAMES) {
-    const found = aliasIn(path.join(pkgDir, name), pkgDir, file);
+const specifierFromAlias = (
+  aliases: readonly AliasOptions[],
+  pkgDir: string,
+  file: string
+): string | null => {
+  for (const options of aliases) {
+    const found = aliasFrom(options, pkgDir, file);
     if (found) {
       return found;
     }
@@ -336,24 +363,27 @@ const specifierFromAlias = (pkgDir: string, file: string): string | null => {
  */
 const TSCONFIG_NAMES = ["tsconfig.json", "tsconfig.app.json"];
 
-const aliasIn = (
-  tsconfig: string,
-  pkgDir: string,
-  file: string
-): string | null => {
+/** The aliases a tsconfig declares; null when there is no tsconfig there to read. */
+const aliasOptionsIn = (tsconfig: string): AliasOptions | null => {
   if (!existsSync(tsconfig)) {
     return null;
   }
-  let options: { baseUrl?: string; paths?: Record<string, string[]> } = {};
   try {
     const parsed = parseJsonc(readFileSync(tsconfig, "utf8")) as {
-      compilerOptions?: typeof options;
+      compilerOptions?: AliasOptions;
     };
-    options = parsed.compilerOptions ?? {};
+    return parsed.compilerOptions ?? {};
   } catch {
     // An unreadable tsconfig only means no alias is known.
     return null;
   }
+};
+
+const aliasFrom = (
+  options: AliasOptions,
+  pkgDir: string,
+  file: string
+): string | null => {
   const base = path.resolve(pkgDir, options.baseUrl ?? ".");
   const relNoExt = toPosix(path.relative(base, file)).replace(TS_EXT_RE, "");
   for (const [alias, targets] of Object.entries(options.paths ?? {})) {
@@ -370,31 +400,6 @@ const aliasIn = (
     }
   }
   return null;
-};
-
-/** Finds `cva(base, { variants, defaultVariants })` calls in a file with Babel. */
-export const cvaFromSource = (code: string): CvaInfo => {
-  const info: CvaInfo = { defaults: {}, variants: {} };
-  let ast: unknown;
-  try {
-    ast = parse(code, {
-      errorRecovery: true,
-      plugins: ["jsx", "typescript"],
-      sourceType: "module",
-    });
-  } catch {
-    return info;
-  }
-  const visit = (n: AstNode) => {
-    if (isCvaCall(n)) {
-      readCvaConfig(info, n);
-    }
-    for (const child of astChildren(n)) {
-      visit(child);
-    }
-  };
-  visit(ast as AstNode);
-  return info;
 };
 
 const classify = (
@@ -450,9 +455,6 @@ const classify = (
   }
   if (flags & ts.TypeFlags.Object) {
     return { kind: "object", raw };
-  }
-  if (flags & ts.TypeFlags.Any || flags & ts.TypeFlags.Unknown) {
-    return { kind: "other", raw };
   }
   return { kind: "other", raw };
 };
@@ -600,8 +602,7 @@ export type ExtractContext = CatalogueContext;
 export const catalogueSourceFiles = (ctx: ExtractContext): string[] => {
   const files: string[] = [];
   for (const dir of ctx.libraryDirs) {
-    const abs = dir;
-    if (!existsSync(abs)) {
+    if (!existsSync(dir)) {
       continue;
     }
     const walk = (d: string) => {
@@ -620,7 +621,7 @@ export const catalogueSourceFiles = (ctx: ExtractContext): string[] => {
         }
       }
     };
-    walk(abs);
+    walk(dir);
   }
   return files.sort();
 };
@@ -633,24 +634,59 @@ export const catalogueCacheKey = (
     `v${CATALOGUE_VERSION}\n${files.map((f) => `${f}:${statSync(f).mtimeMs}`).join("\n")}${JSON.stringify(ctx.componentPackages)}`
   );
 
-/** Resolves the import specifier for a component file from the package's `exports` map. */
+/** Whether `file` is inside `dir`: `src/ui` holds `src/ui/button.tsx`, not `src/ui-extra/…`. */
+const isInside = (dir: string, file: string) => {
+  const rel = path.relative(dir, file);
+  return rel !== "" && !rel.startsWith("..") && !path.isAbsolute(rel);
+};
+
+/** Packages and manifests read once for a whole build, not once per component file. */
+const makePackages = () => {
+  const manifests = new Map<string, string | null>();
+  const packages = new Map<string, PackageInfo | null>();
+  /** The nearest package.json at or above a library directory. */
+  const manifestOf = (dir: string): string | null => {
+    const known = manifests.get(dir);
+    if (known !== undefined) {
+      return known;
+    }
+    let found: string | null = null;
+    for (let probe = dir; probe !== path.dirname(probe); ) {
+      const pj = path.join(probe, "package.json");
+      if (existsSync(pj)) {
+        found = pj;
+        break;
+      }
+      probe = path.dirname(probe);
+    }
+    manifests.set(dir, found);
+    return found;
+  };
+  const packageAt = (pj: string): PackageInfo | null => {
+    if (!packages.has(pj)) {
+      packages.set(pj, readPackage(pj, path.dirname(pj)));
+    }
+    return packages.get(pj) ?? null;
+  };
+  return { manifestOf, packageAt };
+};
+
+type Packages = ReturnType<typeof makePackages>;
+
+/** Resolves the import specifier for a component file from its package. */
 const importSpecifier = (
   ctx: ExtractContext,
+  packages: Packages,
   file: string
 ): { pkg: string; specifier: string } | null => {
   for (const dir of ctx.libraryDirs) {
-    const abs = dir;
-    if (!file.startsWith(abs)) {
+    if (!isInside(dir, file)) {
       continue;
     }
-    // Find the nearest package.json above the library dir.
-    let probe = abs;
-    while (probe !== path.dirname(probe)) {
-      const pj = path.join(probe, "package.json");
-      if (existsSync(pj)) {
-        return specifierFromPackage(pj, probe, file);
-      }
-      probe = path.dirname(probe);
+    const pj = packages.manifestOf(dir);
+    if (pj) {
+      const pkgDir = path.dirname(pj);
+      return specifierFromPackage(pj, pkgDir, file, packages.packageAt(pj));
     }
   }
   return null;
@@ -659,11 +695,10 @@ const importSpecifier = (
 const storiesOf = (ctx: ExtractContext): Map<string, string[]> => {
   const map = new Map<string, string[]>();
   for (const dir of ctx.libraryDirs) {
-    const abs = dir;
     const roots = [
-      abs,
-      path.dirname(abs),
-      path.join(path.dirname(abs), "stories"),
+      dir,
+      path.dirname(dir),
+      path.join(path.dirname(dir), "stories"),
     ];
     for (const r of roots) {
       if (!(existsSync(r) && statSync(r).isDirectory())) {
@@ -710,11 +745,16 @@ export const buildCatalogue = (
   });
   const checker = program.getTypeChecker();
   const stories = storiesOf(ctx);
+  const packages = makePackages();
   const components: ComponentMeta[] = [];
   let usable = 0;
 
   for (const file of files) {
-    for (const meta of fileComponents(ctx, program, checker, stories, file)) {
+    const found = fileComponents(
+      { checker, ctx, packages, program, stories },
+      file
+    );
+    for (const meta of found) {
       components.push(meta);
       if (meta.props.length > 0 || Object.keys(meta.variants).length > 0) {
         usable += 1;
@@ -731,12 +771,16 @@ export const buildCatalogue = (
 
 /** Metadata for every exported component of one source file. */
 const fileComponents = (
-  ctx: ExtractContext,
-  program: ts.Program,
-  checker: ts.TypeChecker,
-  stories: Map<string, string[]>,
+  build: {
+    readonly checker: ts.TypeChecker;
+    readonly ctx: ExtractContext;
+    readonly packages: Packages;
+    readonly program: ts.Program;
+    readonly stories: Map<string, string[]>;
+  },
   file: string
 ): ComponentMeta[] => {
+  const { checker, ctx, packages, program, stories } = build;
   const sf = program.getSourceFile(file);
   if (!sf) {
     return [];
@@ -745,9 +789,7 @@ const fileComponents = (
   if (!moduleSymbol) {
     return [];
   }
-  const code = sf.getFullText();
-  const cva = cvaFromSource(code);
-  const spec = importSpecifier(ctx, file);
+  const spec = importSpecifier(ctx, packages, file);
   const base = path.basename(file, ".tsx");
   const category = CATEGORIES.find(([re]) => re.test(base))?.[1] ?? "Other";
   const out: ComponentMeta[] = [];
@@ -761,7 +803,7 @@ const fileComponents = (
       checker,
       component.sig,
       component.decl,
-      cva
+      cvaOfComponent(checker, component.decl)
     );
     const description =
       ts
