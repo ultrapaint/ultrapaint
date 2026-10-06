@@ -2,6 +2,11 @@
 
 Status: accepted, 2026-09-17. Supersedes ADR 0005 and D12 in `PLAN.md`.
 
+Update, 2026-10-06: the decision stands; some details below have since changed. Effect is pinned
+at `4.0.0`, its final release, and the unstable modules left `effect/unstable/*` in `rc.118`.
+`packages/host-plugin` gave way to `preview-core` and `renderer-react` (ADR 0011), and the
+desktop shell, preload included, was removed (ADR 0017).
+
 ## Decision
 
 The backend runs on the Effect 4 runtime (`4.0.0-rc.115`, pinned through the pnpm catalog).

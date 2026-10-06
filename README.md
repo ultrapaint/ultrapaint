@@ -535,8 +535,9 @@ pnpm test && pnpm typecheck && pnpm lint
 ```
 
 `pnpm dev` is `ultrapaint --dev` run from the checkout, with ports in 4600–4679 derived from the
-checkout's path so several worktrees, and the installed command on 4770, run side by side. It keeps its settings in `~/.ultrapaint` unless it
-is given `--config` or `--ephemeral`. Read [`AGENTS.md`](AGENTS.md) before writing server code.
+checkout's path so several worktrees, and the installed command on 4770, run side by side. It
+keeps its settings in `~/.ultrapaint` unless it is given `--config` or `--ephemeral`. Read
+[`AGENTS.md`](AGENTS.md) before writing server code.
 
 - `apps/web` — the editor (React, Tailwind, Base UI). It talks to the origin it is served from and touches nothing of the machine.
 - `apps/server` — local backend on the Effect 4 runtime: settings, preview host, pages and spaces, design documents and the design system, undo, git, ACP threads.

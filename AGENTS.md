@@ -10,8 +10,8 @@ guide doesn't cover, search through the source code in `node_modules/effect/src`
 
 # Effect conventions in this repository
 
-Effect 4 (release candidate) is pinned through the pnpm catalog. Bump every `effect` package
-together, one RC at a time, and never patch `effect`.
+Effect 4 is pinned through the pnpm catalog. Bump every `effect` package in the catalog together,
+and never patch `effect`.
 
 - Imports: `import { Effect, Layer, Schema } from "effect"` and named imports from the module
   paths (`effect/ai`, `effect/http`, `effect/rpc`, …; there is no `effect/unstable/*` since
