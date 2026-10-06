@@ -12,6 +12,7 @@ import {
 import {
   Context,
   Effect,
+  Exit,
   FileSystem,
   Layer,
   Path,
@@ -434,10 +435,28 @@ export class SettingsService extends Context.Service<
             message: `Directory does not exist: ${path.dirname(configPath)}`,
           });
         }
-        if (!input.overwrite && (yield* exists(configPath))) {
-          return yield* new Conflict({
-            message: `${configPath} already exists`,
-          });
+        if (yield* exists(configPath)) {
+          if (!input.overwrite) {
+            return yield* new Conflict({
+              message: `${configPath} already exists`,
+            });
+          }
+          // Only a configuration is replaced by one: any other JSON file, a package.json or an
+          // application's settings, is not this tool's to write over.
+          const isConfig =
+            (CONFIG_FILE_NAMES as readonly string[]).includes(
+              path.basename(configPath)
+            ) ||
+            Exit.isSuccess(
+              yield* Effect.exit(
+                Effect.flatMap(fs.readFileString(configPath), decodeConfig)
+              )
+            );
+          if (!isConfig) {
+            return yield* new BadRequest({
+              message: `${configPath} is not an ultrapaint configuration, and is not replaced.`,
+            });
+          }
         }
         const validation = yield* validate(input.settings);
         if (!validation.ok) {

@@ -202,6 +202,19 @@ layer(Unsaved, { excludeTestServices: true, timeout: "60 seconds" })(
             })
           );
           assert.strictEqual(missing._tag, "BadRequest");
+          // Replacing is for a configuration; any other JSON file stays as it is.
+          const fs = yield* FileSystem.FileSystem;
+          const packageJson = `${repo}/package.json`;
+          const before = yield* fs.readFileString(packageJson);
+          const other = yield* Effect.flip(
+            client["settings.persist"]({
+              configPath: packageJson,
+              overwrite: true,
+              settings,
+            })
+          );
+          assert.strictEqual(other._tag, "BadRequest");
+          assert.strictEqual(yield* fs.readFileString(packageJson), before);
         })
     );
 
