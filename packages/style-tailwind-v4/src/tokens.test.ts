@@ -91,6 +91,41 @@ describe("reading Tailwind v4 tokens", () => {
   });
 });
 
+describe("reading a theme that resets Tailwind's defaults", () => {
+  it("lists no default the theme resets, and no token declared before the reset", () => {
+    const ctx = project(`@import "tailwindcss";
+@theme {
+  --color-old: #000;
+  --color-*: initial;
+  --font-weight-*: initial;
+  --color-brand: #2563eb;
+}
+`);
+    mkdirSync(path.join(ctx.root, "node_modules/tailwindcss"), {
+      recursive: true,
+    });
+    writeFileSync(
+      path.join(ctx.root, "node_modules/tailwindcss/package.json"),
+      '{"name":"tailwindcss"}'
+    );
+    writeFileSync(
+      path.join(ctx.root, "node_modules/tailwindcss/theme.css"),
+      `@theme default {
+  --color-red-500: red;
+  --font-sans: Inter;
+  --font-weight-bold: 700;
+  --radius-lg: 0.5rem;
+}`
+    );
+    const names = readTokens(ctx).tokens.map((t) => `${t.name} ${t.own}`);
+    expect(names.sort()).toEqual([
+      "color-brand true",
+      "font-sans false",
+      "radius-lg false",
+    ]);
+  });
+});
+
 describe("writing Tailwind v4 tokens back", () => {
   it("changes a value where it is written, in each theme", () => {
     const ctx = project();

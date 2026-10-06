@@ -21,9 +21,12 @@ import {
 import type { DesignSystemContext } from "@ultrapaint/framework-api/node";
 import { collect, hostEntries, themeOf } from "./design-system-scan.ts";
 import {
+  applyThemeDeclaration,
   type Block,
   type Declaration,
+  isReset,
   parseStylesheet,
+  resetCovers,
   resolveVars,
 } from "./stylesheet.ts";
 
@@ -75,6 +78,8 @@ interface Declared {
   readonly blocks: Block[];
   /** The `@theme` declaration of each token, by name; the last one wins, as in CSS. */
   readonly declared: Map<string, Declaration>;
+  /** The `@theme` resets, `--color-*` of `--color-*: initial`, which take Tailwind's defaults out. */
+  readonly resets: string[];
   /** Plain variables by theme (`""` the default), then by variable. */
   readonly scoped: Map<string, Map<string, Declaration>>;
 }
@@ -92,6 +97,7 @@ const declarationsOf = (files: readonly string[]): Declared => {
   const out: Declared = {
     blocks: [],
     declared: new Map(),
+    resets: [],
     scoped: new Map(),
   };
   for (const file of files) {
@@ -104,7 +110,15 @@ const declarationsOf = (files: readonly string[]): Declared => {
     for (const decl of parsed.declarations) {
       const name = tokenNameOf(decl.name);
       const key = themeKeyOf(decl.prelude);
-      if (isTheme(decl.prelude)) {
+      if (isTheme(decl.prelude) && isReset(decl.value)) {
+        // As Tailwind reads it: the tokens declared so far that it covers are gone too.
+        for (const declared of [...out.declared.keys()]) {
+          if (resetCovers(decl.name, `--${declared}`)) {
+            out.declared.delete(declared);
+          }
+        }
+        out.resets.push(decl.name);
+      } else if (isTheme(decl.prelude)) {
         if (name) {
           out.declared.set(name, decl);
         }
@@ -118,17 +132,28 @@ const declarationsOf = (files: readonly string[]): Declared => {
   return out;
 };
 
-/** Tailwind's own theme: the defaults, by token name, as written. */
-const defaultsOf = (file: string | null): Map<string, string> => {
-  const defaults = new Map<string, string>();
+/** Tailwind's own theme: the defaults, by token name, as written, less what the resets take out. */
+const defaultsOf = (
+  file: string | null,
+  resets: readonly string[]
+): Map<string, string> => {
+  const vars = new Map<string, string>();
   const text = file ? readFile(file) : null;
-  if (!(file && text)) {
-    return defaults;
+  if (file && text) {
+    for (const decl of customPropertiesOf(file, text).declarations) {
+      if (isTheme(decl.prelude)) {
+        applyThemeDeclaration(vars, decl.name, decl.value);
+      }
+    }
   }
-  for (const decl of customPropertiesOf(file, text).declarations) {
-    const name = tokenNameOf(decl.name);
-    if (name && isTheme(decl.prelude)) {
-      defaults.set(name, decl.value);
+  for (const reset of resets) {
+    applyThemeDeclaration(vars, reset, "initial");
+  }
+  const defaults = new Map<string, string>();
+  for (const [variable, value] of vars) {
+    const name = tokenNameOf(variable);
+    if (name) {
+      defaults.set(name, value);
     }
   }
   return defaults;
@@ -170,7 +195,7 @@ const read = (ctx: DesignSystemContext): Reading => {
       !NODE_MODULES_RE.test(file) && path.resolve(file).startsWith(inside)
   );
   const declared = declarationsOf(found.files);
-  const defaults = defaultsOf(found.tailwindTheme);
+  const defaults = defaultsOf(found.tailwindTheme, declared.resets);
   const resolve = resolverOf(declared, defaults);
   const themes = [...declared.scoped.keys()].filter((k) => k !== "");
   const relative = (file: string) => toPosix(path.relative(ctx.root, file));

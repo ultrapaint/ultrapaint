@@ -20,7 +20,13 @@ import type {
   DesignSystemContext,
   DesignSystemScan,
 } from "@ultrapaint/framework-api/node";
-import { masked, parseStylesheet, resolveVars } from "./stylesheet.ts";
+import {
+  applyThemeDeclaration,
+  isReset,
+  masked,
+  parseStylesheet,
+  resolveVars,
+} from "./stylesheet.ts";
 
 const IMPORT_RE = /@import\s+(?:url\()?\s*["']([^"']+)["']/g;
 const PALETTE_RE = /^color-([a-z]+)-(\d{2,3})$/;
@@ -33,7 +39,8 @@ const TAILWIND_IMPORT_RE = /^tailwindcss(\/.*)?$/;
 interface Scope {
   /** The at-rule or selector chain that holds it: `@theme inline`, `:root`, `.dark`. */
   readonly prelude: string;
-  readonly vars: Map<string, string>;
+  /** Its custom properties in the order they are written, which a reset depends on. */
+  readonly vars: (readonly [string, string])[];
 }
 
 /** The blocks of a stylesheet that declare custom properties, nested ones with their outer prelude. */
@@ -43,11 +50,8 @@ const scopesOf = (css: string): Scope[] => {
     if (!decl.name.startsWith("--")) {
       continue;
     }
-    const scope = scopes.get(decl.block) ?? {
-      prelude: decl.prelude,
-      vars: new Map<string, string>(),
-    };
-    scope.vars.set(decl.name, decl.value);
+    const scope = scopes.get(decl.block) ?? { prelude: decl.prelude, vars: [] };
+    scope.vars.push([decl.name, decl.value]);
     scopes.set(decl.block, scope);
   }
   return [...scopes.values()];
@@ -258,19 +262,19 @@ const iconSetOf = (dirs: readonly string[]): IconSet | null => {
 };
 
 interface Variables {
-  /** Tailwind's own `@theme`. */
+  /** Tailwind's own `@theme`, less what the repository's resets take out. */
   readonly defaultThemeVars: Map<string, string>;
   /** Custom properties outside any `@theme` and any theme selector. */
   readonly rootVars: Map<string, string>;
   /** Per theme (`dark`, …), what its selector sets. */
   readonly themed: Map<string, Map<string, string>>;
-  /** The repository's `@theme` blocks. */
+  /** The repository's `@theme` blocks, their resets applied in order. */
   readonly themeVars: Map<string, string>;
 }
 
 const setAll = (
   into: Map<string, string>,
-  from: ReadonlyMap<string, string>
+  from: Iterable<readonly [string, string]>
 ) => {
   for (const [k, v] of from) {
     into.set(k, v);
@@ -289,7 +293,9 @@ const variablesOf = (
   };
   for (const scope of defaults) {
     if (scope.prelude.startsWith("@theme")) {
-      setAll(out.defaultThemeVars, scope.vars);
+      for (const [k, v] of scope.vars) {
+        applyThemeDeclaration(out.defaultThemeVars, k, v);
+      }
     }
   }
   for (const scope of scopes) {
@@ -299,7 +305,14 @@ const variablesOf = (
       setAll(vars, scope.vars);
       out.themed.set(theme, vars);
     } else if (scope.prelude.startsWith("@theme")) {
-      setAll(out.themeVars, scope.vars);
+      for (const [k, v] of scope.vars) {
+        // Tailwind's defaults come before anything the repository writes, so a reset
+        // anywhere in its theme takes them out.
+        applyThemeDeclaration(out.themeVars, k, v);
+        if (isReset(v)) {
+          applyThemeDeclaration(out.defaultThemeVars, k, v);
+        }
+      }
     } else {
       setAll(out.rootVars, scope.vars);
     }
@@ -307,27 +320,20 @@ const variablesOf = (
   return out;
 };
 
-/** The theme variables that make tokens: Tailwind's defaults, less what the repository resets. */
+/** The theme variables that make tokens: Tailwind's defaults that are left, then the repository's. */
 const themeTokensOf = (
   defaultThemeVars: ReadonlyMap<string, string>,
   themeVars: ReadonlyMap<string, string>
 ) => {
   const ownColors = [...themeVars.keys()].some((k) => k.startsWith("--color-"));
-  // A theme that resets a namespace (`--color-*: initial`) drops Tailwind's defaults for it.
-  const reset = (ns: string) => themeVars.get(`--${ns}-*`) === "initial";
   const all = new Map<string, string>();
   for (const [k, v] of defaultThemeVars) {
-    const ns = k.slice(2).split("-")[0] ?? "";
     // Tailwind's whole palette only when the repository has no colours of its own.
-    if (!((k.startsWith("--color-") && ownColors) || reset(ns))) {
+    if (!(k.startsWith("--color-") && ownColors)) {
       all.set(k, v);
     }
   }
-  for (const [k, v] of themeVars) {
-    if (!k.endsWith("-*")) {
-      all.set(k, v);
-    }
-  }
+  setAll(all, themeVars);
   return all;
 };
 
@@ -646,8 +652,6 @@ export const scanDesignSystem = (
       path.relative(ctx.root, f).replaceAll("\\", "/")
     ),
     notes,
-    ownTokens: [...themeVars.keys()]
-      .filter((k) => !k.endsWith("-*"))
-      .map((k) => k.slice(2)),
+    ownTokens: [...themeVars.keys()].map((k) => k.slice(2)),
   };
 };

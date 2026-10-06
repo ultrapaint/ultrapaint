@@ -213,6 +213,55 @@ describe("scanning a Tailwind v4 design system", () => {
     ]);
   });
 
+  it("drops the defaults a theme resets, by namespace, multi-word ones included", () => {
+    const scan = (theme: string) => {
+      const root = repository({
+        "app.css": `@import "tailwindcss";\n@theme {\n${theme}\n}`,
+        "node_modules/tailwindcss/package.json": '{"name":"tailwindcss"}',
+        "node_modules/tailwindcss/theme.css": `@theme default {
+  --color-red-500: red;
+  --font-sans: Inter;
+  --font-weight-bold: 700;
+  --inset-shadow-sm: inset 0 1px 1px rgb(0 0 0 / 0.05);
+  --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.1);
+  --radius-lg: 0.5rem;
+}`,
+      });
+      return scanDesignSystem({
+        anchorDir: root,
+        root,
+        settings: {
+          ...defaultSettings(root),
+          designsDir: ".",
+          hostCss: ["../app.css"],
+        },
+      });
+    };
+    const reset = scan(`  --color-*: initial;
+  --font-*: initial;
+  --font-weight-*: initial;
+  --shadow-*: initial;
+  --font-display: Lato;`);
+    expect(reset.designSystem.colors).toEqual([]);
+    expect(reset.designSystem.typography.fonts).toEqual([
+      { name: "font-display", value: "Lato" },
+    ]);
+    expect(reset.designSystem.typography.weights).toEqual([]);
+    // `--shadow-*` is its own namespace: `--inset-shadow-*` is not in it.
+    expect(reset.designSystem.shadows).toEqual([]);
+    expect(reset.designSystem.radius.map((t) => t.name)).toEqual(["radius-lg"]);
+    expect(reset.ownTokens).toEqual(["font-display"]);
+    // `--font-*` alone keeps the weights, as Tailwind does.
+    expect(
+      scan("  --font-*: initial;").designSystem.typography.weights
+    ).toEqual([{ name: "font-weight-bold", value: "700" }]);
+    const everything = scan("  --*: initial;\n  --radius-card: 12px;");
+    expect(everything.designSystem.radius).toEqual([
+      { name: "radius-card", value: "12px" },
+    ]);
+    expect(everything.designSystem.typography.fonts).toEqual([]);
+  });
+
   it("says so when there is no Tailwind", () => {
     const root = repository({ "app.css": ":root { --x: 1px; }" });
     const { designSystem, notes } = scanDesignSystem({
