@@ -76,6 +76,9 @@ export const migrateStored = (stored: unknown): unknown => {
   };
 };
 
+/** How long a patched transcript may wait before it is written. */
+const FLUSH_DELAY = "250 millis";
+
 interface Entry {
   items: ThreadItem[];
   thread: Thread;
@@ -155,7 +158,7 @@ export class ThreadStore extends Context.Service<
         );
       }
 
-      const persist = (id: string) =>
+      const write = (id: string) =>
         writes.withLock(
           id,
           Effect.suspend(() => {
@@ -172,6 +175,48 @@ export class ThreadStore extends Context.Service<
             );
           })
         );
+
+      /*
+       * A streamed reply patches its item once per chunk, and each write encodes the whole
+       * thread: written every time, a long reply costs the square of its length. A patch only
+       * marks the thread dirty and the file is written at most every FLUSH_DELAY; anything that
+       * adds or changes the thread itself (a new item, the end of a turn) writes at once, and
+       * closing the store writes whatever is still dirty.
+       */
+      const dirty = new Set<string>();
+      const scheduled = new Set<string>();
+      const scope = yield* Effect.scope;
+      // Uninterruptible once begun: the mark is cleared before the write, so a write cut short
+      // by shutdown would lose what it carried.
+      const flush = (id: string) =>
+        Effect.uninterruptible(
+          Effect.suspend(() => (dirty.delete(id) ? write(id) : Effect.void))
+        );
+      const persistSoon = (id: string) =>
+        Effect.suspend(() => {
+          dirty.add(id);
+          if (scheduled.has(id)) {
+            return Effect.void;
+          }
+          scheduled.add(id);
+          return Effect.asVoid(
+            Effect.forkIn(
+              Effect.sleep(FLUSH_DELAY).pipe(
+                Effect.andThen(Effect.sync(() => scheduled.delete(id))),
+                Effect.andThen(flush(id))
+              ),
+              scope
+            )
+          );
+        });
+      const persist = (id: string) =>
+        Effect.suspend(() => {
+          dirty.delete(id);
+          return write(id);
+        });
+      yield* Effect.addFinalizer(() =>
+        Effect.forEach([...dirty], flush, { discard: true })
+      );
 
       const update = Effect.fnUntraced(function* (
         id: string,
@@ -216,7 +261,7 @@ export class ThreadStore extends Context.Service<
         }
         const item = patch(existing);
         entry.items[index] = item;
-        yield* persist(id);
+        yield* persistSoon(id);
         yield* events.publish("agent", {
           item,
           threadId: id,
@@ -247,6 +292,7 @@ export class ThreadStore extends Context.Service<
           if (!threads.delete(id)) {
             return;
           }
+          dirty.delete(id);
           // Behind any write still in flight, or its rename would bring the file back.
           yield* writes.withLock(
             id,
