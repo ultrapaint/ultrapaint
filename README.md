@@ -123,7 +123,7 @@ It serves the editor and its backend on `http://127.0.0.1:4770` and opens it in 
 | `--port <number>` | Listen on another port |
 | `--host <address>` | Listen on this address instead of loopback, to reach the editor from another machine (see below) |
 | `--no-open` | Do not open the browser |
-| `--dev` | From a checkout only: run its sources with hot reload instead of its build. The server restarts and the editor reloads as the checkout changes. Listens on every interface unless `--host` says otherwise |
+| `--dev` | From a checkout only: run its sources with hot reload instead of its build. The server restarts and the editor reloads as the checkout changes. Listens on loopback too; `--host` opens it to the network |
 
 ### As a devDependency of your project
 
@@ -195,9 +195,8 @@ Your pages are files in your repository and are written there in every case.
 `ultrapaint --host <address>` listens on that address instead of loopback: this machine's
 address on a private network such as Tailscale, or `0.0.0.0` for every interface. The command
 prints the addresses the editor is reachable at, and the preview is served on the same address.
-`--dev` listens on every interface by default, the editor's dev server included, since
-development is looked at from other machines as a matter of course; `--host 127.0.0.1` keeps it
-to this machine.
+`--dev` stays on loopback as well; with `--host` the editor's dev server listens on that address
+too.
 
 There is no login. Whoever reaches that port can run agents in the repository with your rights,
 so keep it to a private network and prefer the network's own address over `0.0.0.0`.

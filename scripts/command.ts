@@ -76,8 +76,7 @@ FLAGS OF THE COMMAND
 `
   : `
 FLAGS OF THE COMMAND
-  --dev                Run the checkout's sources with hot reload instead of a build,
-                       on every interface unless --host says otherwise
+  --dev                Run the checkout's sources with hot reload instead of a build
   --no-open            Do not open the browser
 
   With --dev, --host applies to the editor's dev server too, and ULTRAPAINT_WEB_PORT is its
@@ -181,11 +180,12 @@ export const main = (args: readonly string[]): void => {
       DEFAULT_PORT
   );
   const webPort = Number(process.env.ULTRAPAINT_WEB_PORT ?? serverPort + 1);
-  // Development is reached from other machines as a matter of course; a build is not.
+  // Loopback, with --dev too: whoever reaches the port can run agents with the user's rights,
+  // so another machine is let in only when `--host` names an address for it.
   const host =
     flagValue(serverArgs, "--host") ??
     process.env.ULTRAPAINT_HOST ??
-    (dev ? "0.0.0.0" : "127.0.0.1");
+    "127.0.0.1";
   const wildcard = host === "0.0.0.0" || host === "::";
   // Where this machine reaches what is bound to `host`.
   const reach = wildcard ? "127.0.0.1" : inUrl(host);
