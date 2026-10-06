@@ -41,8 +41,6 @@ import {
   Pencil,
   Plus,
   Shield,
-  ShieldAlert,
-  ShieldCheck,
   ShieldOff,
   ShieldQuestion,
   Sparkles,
@@ -200,7 +198,7 @@ export const Threads = () => {
   );
 };
 
-/** Back to the list, the thread's name, who works on it and where it may write. */
+/** Back to the list, the thread's name and who works on it. */
 const ThreadHeader = ({ thread }: { thread: Thread }) => {
   const agentName = useAgents(
     (s) => s.agents.find((a) => a.id === thread.agentId)?.name
@@ -228,7 +226,6 @@ const ThreadHeader = ({ thread }: { thread: Thread }) => {
           <span className="truncate">
             {[agentName, model].filter(Boolean).join(" · ")}
           </span>
-          <SandboxBadge thread={thread} />
         </span>
       </div>
       <IconButton
@@ -1405,39 +1402,6 @@ const ModelPicker = ({ thread }: { thread: Thread }) => {
         )}
       </DropdownMenuContent>
     </DropdownMenu>
-  );
-};
-
-/**
- * Whether the agent is confined to the repository. The scope is the operating system's, so it
- * says which repository, and says so plainly where the platform has no sandbox to offer.
- */
-const SandboxBadge = ({ thread }: { thread: Thread }) => {
-  const repoPath = useProject((s) => s.info.repoPath);
-  if (thread.sandboxed === undefined) {
-    return null;
-  }
-  const repo = repoPath?.split("/").filter(Boolean).at(-1);
-  return thread.sandboxed ? (
-    <span
-      className="flex items-center gap-1 self-start px-1 font-body text-muted-foreground [&_svg]:size-3"
-      title={`The agent reads and writes in ${repoPath ?? "the repository"}, its own files, caches and temporary files. The rest of your home directory is closed to it.`}
-    >
-      <ShieldCheck />
-      {repo ?? "repository"}
-    </span>
-  ) : (
-    <span
-      className="flex items-center gap-1 self-start px-1 font-body text-warning [&_svg]:size-3"
-      title={
-        thread.sandboxProblem
-          ? `The sandbox on this machine did not start (${thread.sandboxProblem}), so the agent reaches everything you can.`
-          : "This machine has no sandbox for agents, so the agent reaches everything you can. Agents are confined on macOS, and on Linux once bubblewrap is installed."
-      }
-    >
-      <ShieldAlert />
-      Not scoped
-    </span>
   );
 };
 
