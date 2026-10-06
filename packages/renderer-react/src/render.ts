@@ -101,14 +101,40 @@ interface BoundaryProps {
   /** The node the error box stands for, so it can still be pointed at and measured. */
   nodeId?: string;
   onError?: (error: Error) => void;
+  /** What is drawn: when any of it changes, an error is forgotten and the children drawn again. */
+  resetKeys: readonly unknown[];
 }
 
-/** Keeps one component that throws from taking the rest of the page with it. */
-class Boundary extends Component<BoundaryProps, { error: Error | null }> {
-  override state = { error: null as Error | null };
+interface BoundaryState {
+  readonly error: Error | null;
+  readonly resetKeys: readonly unknown[];
+}
 
-  static getDerivedStateFromError(error: Error) {
+const sameKeys = (a: readonly unknown[], b: readonly unknown[]) =>
+  a.length === b.length && a.every((key, i) => Object.is(key, b[i]));
+
+/**
+ * Keeps one component that throws from taking the rest of the page with it. The error stays
+ * until what is drawn changes, a prop fixed or the component reloaded, and is then tried again.
+ */
+class Boundary extends Component<BoundaryProps, BoundaryState> {
+  override state: BoundaryState = {
+    error: null,
+    resetKeys: this.props.resetKeys,
+  };
+
+  static getDerivedStateFromError(error: Error): Partial<BoundaryState> {
     return { error };
+  }
+
+  static getDerivedStateFromProps(
+    props: BoundaryProps,
+    state: BoundaryState
+  ): Partial<BoundaryState> | null {
+    if (sameKeys(props.resetKeys, state.resetKeys)) {
+      return null;
+    }
+    return { error: null, resetKeys: props.resetKeys };
   }
 
   override componentDidCatch(error: Error) {
@@ -332,7 +358,12 @@ const InstanceView = ({
   const component = (extra: Record<string, unknown>) =>
     createElement(
       Boundary,
-      { key, label: node.component, nodeId: wrapped ? undefined : node.id },
+      {
+        key,
+        label: node.component,
+        nodeId: wrapped ? undefined : node.id,
+        resetKeys: [node, Resolved],
+      },
       Resolved
         ? createElement(Resolved, { ...props, ...extra }, content)
         : createElement(Missing, {
@@ -484,7 +515,10 @@ const makeComponents = (initial: ComponentRegistry) => {
     cache.set(key, component);
     return component;
   };
+  /** How many times the registry was replaced: a reloaded module may no longer throw. */
+  let replaced = 0;
   const replace = (next: ComponentRegistry) => {
+    replaced += 1;
     for (const key of cache.keys()) {
       const from = key.slice(0, key.lastIndexOf("#"));
       if (next[from] !== registry[from]) {
@@ -495,7 +529,7 @@ const makeComponents = (initial: ComponentRegistry) => {
     }
     registry = next;
   };
-  return { componentOf, learned, replace };
+  return { componentOf, generation: () => replaced, learned, replace };
 };
 
 export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
@@ -570,7 +604,12 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
           { fallback: null },
           createElement(
             Boundary,
-            { key: "page", label: "The page", onError },
+            {
+              key: "page",
+              label: "The page",
+              onError,
+              resetKeys: [request, components.generation()],
+            },
             body
           ),
           createElement(Rendered, {

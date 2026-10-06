@@ -30,9 +30,17 @@ const Broken = (): ReactNode => {
   throw new Error("boom");
 };
 
+/** One that throws until its prop is fixed. */
+const Fragile = ({ fail, ...props }: Props & { fail?: boolean }) => {
+  if (fail) {
+    throw new Error("bad prop");
+  }
+  return createElement("div", { ...props, "data-slot": "fragile" });
+};
+
 const FROM = "@acme/ui";
 const registry: ComponentRegistry = {
-  [FROM]: () => Promise.resolve({ Broken, Card, Stubborn }),
+  [FROM]: () => Promise.resolve({ Broken, Card, Fragile, Stubborn }),
 };
 
 const instance = (
@@ -67,13 +75,17 @@ const draw = async (root: DesignNode) => {
   document.body.append(canvas);
   const reports: Record<string, InstanceDrawn> = {};
   const navigated: string[] = [];
+  const waiting = new Map<number, () => void>();
   const rendered = new Promise<void>((resolve) => {
     mounted = renderToCanvas(
       {
         assetUrl: (src) => src,
         components: registry,
         navigate: (route) => navigated.push(route),
-        onRendered: () => resolve(),
+        onRendered: (id) => {
+          waiting.get(id)?.();
+          resolve();
+        },
         providers: undefined,
         reportError: () => undefined,
         reportInstances: (instances) => Object.assign(reports, instances),
@@ -87,7 +99,19 @@ const draw = async (root: DesignNode) => {
   await frame();
   const at = (id: string) =>
     canvas.querySelector(`[data-ed-node="${id}"]`) as HTMLElement | null;
-  return { at, canvas, navigated, reports };
+  /** Draws the next document over this one, and waits for it the same way. */
+  const redraw = async (next: DesignNode) => {
+    // The render is a transition: wait until it is the one on the screen.
+    const done = new Promise<void>((resolve) => waiting.set(2, resolve));
+    mounted?.render({
+      designSystem: null,
+      mode: "page",
+      renderId: 2,
+      root: next,
+    });
+    await done;
+  };
+  return { at, canvas, navigated, redraw, reports };
 };
 
 describe("an instance", () => {
@@ -169,6 +193,19 @@ describe("an instance", () => {
   it("keeps the node's id on the error a component throws", async () => {
     const { at } = await draw(column([instance("broken", "Broken")]));
     expect(at("broken")?.textContent).toContain("boom");
+  });
+
+  it("draws the component again once the prop that broke it is fixed", async () => {
+    const { at, redraw } = await draw(
+      column([instance("fragile", "Fragile", { props: { fail: true } })])
+    );
+    expect(at("fragile")?.textContent).toContain("bad prop");
+    await redraw(
+      column([instance("fragile", "Fragile", { props: { fail: false } })])
+    );
+    await frame();
+    expect(at("fragile")?.dataset.slot).toBe("fragile");
+    expect(at("fragile")?.textContent).not.toContain("bad prop");
   });
 
   it("stands in for a missing export with the node's box", async () => {
