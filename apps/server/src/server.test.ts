@@ -27,7 +27,7 @@ const UPGRADE = {
 /** The status a raw request to the server is answered with, its headers exactly as given. */
 const statusOf = (
   port: number,
-  path: string,
+  target: string,
   headers: Record<string, string>,
   method = "GET"
 ) =>
@@ -38,7 +38,7 @@ const statusOf = (
       headers,
       host: "127.0.0.1",
       method,
-      path,
+      path: target,
       port,
     });
     req.on("response", (res) => {
