@@ -125,9 +125,6 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           );
           // Nor does it stop the sync, which reads the newest import.
           yield* client["sync.plan"]();
-          // It can still be deleted.
-          yield* client["figma.delete"]({ id: "fig_broken" });
-          assert.isFalse(yield* fs.exists(dir));
         }),
       30_000
     );

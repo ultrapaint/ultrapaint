@@ -171,7 +171,6 @@ const requestRpcs = [
 
   Rpc.make("project.info", { success: ProjectInfo }),
   Rpc.make("host.start", { error: NotConfigured, success: HostStatus }),
-  Rpc.make("host.stop", { error: NotConfigured, success: HostStatus }),
   Rpc.make("logs.recent", { success: Schema.Array(LogLine) }),
 
   Rpc.make("pages.list", { error: NotConfigured, success: PageList }),
@@ -532,11 +531,6 @@ const requestRpcs = [
     payload: { refresh: Schema.Boolean },
     success: Catalogue,
   }),
-  Rpc.make("catalogue.storyUrl", {
-    error: NotConfigured,
-    payload: { storyId: Schema.String },
-    success: Schema.NullOr(Schema.String),
-  }),
 
   Rpc.make("agents.list", { success: Schema.Array(AgentConfig) }),
   /** The options each agent's sessions offer, for the agents that have run here before. */
@@ -625,10 +619,6 @@ const requestRpcs = [
   Rpc.make("figma.list", {
     error: NotConfigured,
     success: Schema.Array(FigmaImport),
-  }),
-  Rpc.make("figma.delete", {
-    error: Schema.Union([NotConfigured, NotFound]),
-    payload: { id: FileId },
   }),
   Rpc.make("git.diff", {
     error: GitError,

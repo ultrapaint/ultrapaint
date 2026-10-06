@@ -19,8 +19,6 @@ import { ProjectFramework } from "./framework.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { Storage } from "./storage.ts";
 
-const TRAILING_SLASH_RE = /\/$/;
-
 const decodeCache = Schema.decodeUnknownEffect(
   Schema.fromJsonString(Catalogue)
 );
@@ -71,7 +69,6 @@ export class CatalogueService extends Context.Service<
   CatalogueService,
   {
     readonly get: (refresh: boolean) => Effect.Effect<Catalogue, ForbiddenPath>;
-    readonly storyUrl: (storyId: string) => string | null;
   }
 >()("ultrapaint/server/CatalogueService") {
   static readonly layer = Layer.effect(
@@ -143,12 +140,6 @@ export class CatalogueService extends Context.Service<
               ),
               Effect.withSpan("CatalogueService.get")
             ),
-        storyUrl: (storyId) => {
-          const base = paths.settings.storybookUrl;
-          return base
-            ? `${base.replace(TRAILING_SLASH_RE, "")}/iframe.html?id=${encodeURIComponent(storyId)}&viewMode=story`
-            : null;
-        },
       });
     })
   );

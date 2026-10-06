@@ -128,8 +128,6 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "canvases.setHome": ({ id, route }) => pages((s) => s.setHome(id, route)),
 
       "catalogue.get": ({ refresh }) => catalogue((c) => c.get(refresh)),
-      "catalogue.storyUrl": ({ storyId }) =>
-        catalogue((c) => Effect.succeed(c.storyUrl(storyId))),
       "chat.defaults": () => preferences.defaults,
       "chat.setDefaults": (defaults) => preferences.setDefaults(defaults),
       "checkpoints.diff": ({ id }) => checkpoints.diff(id),
@@ -212,7 +210,6 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "events.screenshot": () => screenshots.requests,
       "events.skills": () => events.subscribe("skills"),
       "events.syncPlan": () => events.subscribe("syncPlan"),
-      "figma.delete": ({ id }) => figma((f) => f.delete(id)),
       "figma.list": () => figma((f) => f.list),
       "git.commit": ({ message, paths }) =>
         git((g) =>
@@ -227,7 +224,6 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "git.status": () => git((g) => g.status),
       health: () => Effect.succeed({ ok: true, version: config.version }),
       "host.start": () => host((h) => h.start),
-      "host.stop": () => host((h) => h.stop),
       "logs.recent": () => log.recent(RECENT_LOG_LINES),
       "mcp.connection": () =>
         Effect.map(

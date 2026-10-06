@@ -1737,7 +1737,6 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           ["documents.list", { canvas: "/etc" }],
           ["canvas.set", { canvas: "..", frames: {} }],
           ["comments.create", { ...commentOn("../x", HOME, "Out") }],
-          ["figma.delete", { id: "../threads" }],
         ] as const) {
           assert.strictEqual(
             yield* rawCall(port, tag, payload),

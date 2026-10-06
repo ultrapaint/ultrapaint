@@ -514,8 +514,6 @@ export const AgentEvent = Schema.Union([
 ]);
 export type AgentEvent = typeof AgentEvent.Type;
 
-export const _json = Json;
-
 const MARKDOWN_RE = /[*_`#>[\]]+/g;
 const SPACES_RE = /\s+/g;
 

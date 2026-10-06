@@ -65,7 +65,6 @@ export class HostManager extends Context.Service<
     readonly changes: Stream.Stream<HostStatus>;
     readonly start: Effect.Effect<HostStatus>;
     readonly status: Effect.Effect<HostStatus>;
-    readonly stop: Effect.Effect<HostStatus>;
   }
 >()("ultrapaint/server/HostManager") {
   static readonly layer = Layer.effect(
@@ -314,25 +313,10 @@ export class HostManager extends Context.Service<
         )
       ).pipe(Effect.withSpan("HostManager.start"));
 
-      const stop = detached(
-        lifecycle.withPermits(1)(
-          Effect.gen(function* () {
-            const current = running;
-            if (!current) {
-              return yield* SubscriptionRef.get(status);
-            }
-            running = null;
-            yield* Scope.close(current.scope, Exit.void);
-            return yield* setStatus({ state: "stopped" });
-          })
-        )
-      ).pipe(Effect.withSpan("HostManager.stop"));
-
       return HostManager.of({
         changes: SubscriptionRef.changes(status),
         start,
         status: SubscriptionRef.get(status),
-        stop,
       });
     })
   );

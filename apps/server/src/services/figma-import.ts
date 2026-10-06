@@ -182,7 +182,6 @@ export class FigmaImportService extends Context.Service<
       name: string,
       bytes: Uint8Array
     ) => Effect.Effect<FigmaImport, BadRequest>;
-    readonly delete: (id: string) => Effect.Effect<void, NotFound>;
     /** A frame converted with the mapping as it stands, found by its id or its name. */
     readonly frame: (
       id: string,
@@ -402,17 +401,6 @@ export class FigmaImportService extends Context.Service<
         return yield* withCandidates(summary);
       });
 
-      const remove = Effect.fn("FigmaImportService.delete")(function* (
-        id: string
-      ) {
-        // An import whose summary does not read can still be deleted; one not there cannot.
-        yield* readSummary(id).pipe(
-          Effect.catchTag("BadRequest", () => Effect.void)
-        );
-        loaded.delete(id);
-        yield* Effect.orDie(fs.remove(yield* dirOf(id), { recursive: true }));
-      });
-
       const map = Effect.fn("FigmaImportService.map")(function* (
         id: string,
         key: string,
@@ -613,7 +601,6 @@ export class FigmaImportService extends Context.Service<
       return FigmaImportService.of({
         component,
         create,
-        delete: remove,
         frame,
         get,
         latest,
