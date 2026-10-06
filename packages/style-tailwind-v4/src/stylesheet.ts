@@ -87,6 +87,39 @@ export const masked = (text: string): string => {
   return out + text.slice(from);
 };
 
+const SPACE_RE = /\s/;
+
+/**
+ * What is written between `start` and `end` as a reader takes it, the comments out: each one, and
+ * the space around it, is one space, or none next to a parenthesis or a comma. `css` is `text`
+ * masked: where the two differ, a comment is.
+ */
+const uncommented = (
+  text: string,
+  css: string,
+  start: number,
+  end: number
+): string => {
+  let out = "";
+  let i = start;
+  while (i < end) {
+    if (css[i] === text[i]) {
+      out += text[i];
+      i += 1;
+      continue;
+    }
+    out = out.trimEnd();
+    while (i < end && (css[i] !== text[i] || SPACE_RE.test(css[i] ?? ""))) {
+      i += 1;
+    }
+    const next = css[i];
+    if (!(out.endsWith("(") || next === ")" || next === ",")) {
+      out += " ";
+    }
+  }
+  return out.trim();
+};
+
 /** The declaration written between `start` and `end`, if one is. */
 const declarationAt = (
   file: string,
@@ -114,7 +147,8 @@ const declarationAt = (
     file,
     name: named[1],
     prelude: holder.prelude,
-    value: text.slice(valueStart, valueEnd),
+    // Read without its comments; written over by its offsets, which take them along.
+    value: uncommented(text, css, valueStart, valueEnd),
     valueEnd,
     valueStart,
   };
@@ -122,7 +156,6 @@ const declarationAt = (
 
 /** An at-rule statement written between `start` and `end`, if one is. */
 const statementAt = (
-  text: string,
   css: string,
   span: { readonly end: number; readonly start: number },
   prelude: string
@@ -133,7 +166,8 @@ const statementAt = (
     return null;
   }
   const paramsStart = span.start + at[0].length;
-  const params = text.slice(paramsStart, span.start + chunk.trimEnd().length);
+  // Its comments blanked, so an offset into it is still one into the text.
+  const params = css.slice(paramsStart, span.start + chunk.trimEnd().length);
   return { name: at[1], params, paramsStart, prelude };
 };
 
@@ -153,9 +187,7 @@ export const parseStylesheet = (file: string, text: string): Parsed => {
     if (holder !== undefined) {
       const span = { end: at, start, stop };
       const found = declarationAt(file, text, css, span, holder);
-      const statement = found
-        ? null
-        : statementAt(text, css, span, holder.prelude);
+      const statement = found ? null : statementAt(css, span, holder.prelude);
       if (found) {
         declarations.push(found);
       } else if (statement) {

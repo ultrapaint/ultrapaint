@@ -49,6 +49,29 @@ describe("reading a stylesheet", () => {
     ]);
     expect(masked("a /* b\nc */ d")).toBe("a     \n     d");
   });
+
+  it("reads a value without its comments, keeping where it is written", () => {
+    const css = `:root {
+  --color-bg: var(--background /* light */);
+  --font-sans: "Inter" /* main */, sans-serif;
+  --gap: /* none yet */ 4px;
+}`;
+    const parsed = parseStylesheet("a.css", css);
+    expect(parsed.declarations.map((d) => d.value)).toEqual([
+      "var(--background)",
+      '"Inter", sans-serif',
+      "4px",
+    ]);
+    const [bg] = parsed.declarations;
+    expect(css.slice(bg?.valueStart, bg?.valueEnd)).toBe(
+      "var(--background /* light */)"
+    );
+    expect(
+      resolveVars(bg?.value ?? "", (v) =>
+        v === "--background" ? "#fff" : undefined
+      )
+    ).toBe("#fff");
+  });
 });
 
 describe("following var()", () => {
