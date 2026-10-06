@@ -312,6 +312,8 @@ export const Frame = memo(
 
     // Pointer interaction in select mode.
     const lastHit = useRef(0);
+    /** Counts the hover lookups: only the latest one's answer counts, and none after a leave. */
+    const hoverAsked = useRef(0);
     const toFrame = (e: ReactPointerEvent | ReactMouseEvent) => {
       const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
       return { x: (e.clientX - r.left) / zoom, y: (e.clientY - r.top) / zoom };
@@ -337,7 +339,13 @@ export const Frame = memo(
         return;
       }
       lastHit.current = now;
+      hoverAsked.current += 1;
+      const asked = hoverAsked.current;
       const id = await nodeAt(e);
+      // A later move was answered first, or the pointer has left the frame since.
+      if (asked !== hoverAsked.current) {
+        return;
+      }
       const store = useEditor.getState();
       if (id) {
         store.setHover({ frame: frameId, nodeId: id });
@@ -668,6 +676,7 @@ export const Frame = memo(
     };
 
     const onPointerLeave = () => {
+      hoverAsked.current += 1;
       const s = useEditor.getState();
       if (s.hover?.frame === frameId) {
         s.setHover(null);
@@ -793,9 +802,7 @@ const useSelectedIn = (frameId: string) =>
  */
 const useAlsoIn = (frameId: string) =>
   useEditor((s) =>
-    s.selection?.frame === frameId
-      ? s.also.map((a) => a.nodeId).join(" ")
-      : ""
+    s.selection?.frame === frameId ? s.also.map((a) => a.nodeId).join(" ") : ""
   );
 
 /** The node hovered in this frame, if the pointer is over one here. */
@@ -997,11 +1004,9 @@ const Highlights = ({ frameId, inv }: { frameId: string; inv: number }) => {
   );
   // This frame's document only: an edit elsewhere has nothing to outline here.
   const root = useDocuments((s) => rootOfFrame(s.docs, canvas, frameId));
-  const selectedNode =
-    selectedId === null ? null : findNode(root, selectedId);
+  const selectedNode = selectedId === null ? null : findNode(root, selectedId);
   const hoverNode = hoverId === null ? null : findNode(root, hoverId);
-  const selectedRect =
-    selectedId === null ? undefined : rects?.[selectedId];
+  const selectedRect = selectedId === null ? undefined : rects?.[selectedId];
   const hoverRect =
     hoverId !== null && hoverId !== selectedId ? rects?.[hoverId] : undefined;
   // Several selected: each is outlined, and what they share hangs over the box around them.
