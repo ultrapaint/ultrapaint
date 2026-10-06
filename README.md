@@ -10,6 +10,37 @@ Nothing is installed in your repository and nothing leaves your machine: the too
 server, reads your components where they are, and writes pages as `.page.json` files you review
 and commit like any other file.
 
+## Why teams move to ultrapaint
+
+**You have a React app and no design system.** Most products do: a theme that names a few
+colours, `bg-[#3b82f6]` and `p-[13px]` everywhere else, plain `<button>`s next to the library's
+`Button`. Run ultrapaint in the repository and **Sync** reads what the code actually uses,
+makes a design system out of it with an agent that asks you what each colour means, and can
+then bring the code onto it a directory at a time, every batch undoable.
+
+**Your designs live in Figma.** Import the `.fig` file. Its variables and styles become your
+code's tokens, light and dark, written into your Tailwind theme where they belong, and its
+frames become pages drawn with your real components, not pictures of them. Import the file
+again after the designer changes it, and only what changed comes across; where the code changed
+too, you pick.
+
+**Your design system and your code drift apart.** Someone changes a colour in the frontend
+and nobody updates the design system, or the other way round. In ultrapaint a token's value
+lives in one place, your code, and the design system says what it is for. A token or a
+component added to the code shows up as something to describe; editing a value in the editor
+edits your stylesheet.
+
+**You are starting from nothing.** Start an application from the editor: Vite, React and
+Tailwind v4 with a set of components to design with, its theme taken from your Figma file when
+you have one. Then design, and have an agent implement the pages in it.
+
+**Your team works with coding agents.** Claude Code and Codex design on the canvas next to you,
+with your components and your tokens, ask you on cards when a decision is yours, and turn a
+finished page into your application's own code with your conventions.
+
+Whichever of these you are in, it is the same action: open the **Design system** panel and press
+**Sync**, or type `/sync` in a chat. It works out the case and lays out the steps.
+
 ## Installation
 
 > [!WARNING]
@@ -87,7 +118,7 @@ It serves the editor and its backend on `http://127.0.0.1:4770` and opens it in 
 
 | Flag | What it does |
 |---|---|
-| `--config <file>` | Use this configuration file instead of looking for `ultrapaint.json` |
+| `--config <file>` | Use this configuration file instead of looking for `ultrapaint.config.json` |
 | `--ephemeral` | Save nothing, even when a configuration file exists |
 | `--port <number>` | Listen on another port |
 | `--host <address>` | Listen on this address instead of loopback, to reach the editor from another machine (see below) |
@@ -126,25 +157,32 @@ pnpm ultrapaint --dev
 
 ## First run
 
-Start `ultrapaint` inside a repository and the setup looks at it for you: it proposes the
-component library, the package the components resolve from, the stylesheet that sets up your
-design system, and a directory for the designs (`docs/designs` unless you already have one).
-Confirm or change the proposals, let it create the directory, and the canvas opens.
+Start `ultrapaint` inside a repository and the setup looks at it for you: it proposes where
+your components are — a component library package, or your application's own
+`src/components` (an app in `front/` gets `front/src/components`) — the package the pages
+resolve their imports from, the stylesheet that sets up your design system, and a directory for
+the designs (`docs/designs` unless you already have one). Confirm or change the proposals, and
+the canvas opens with **Sync**, which takes you on from there. A repository with no React
+application gets **Start a new application here** instead.
 
-Only Tailwind v4 is supported: the design system is read from its `@theme`. The setup says so
-when the stylesheets set up Tailwind v3 or no Tailwind at all.
+Only Tailwind v4 is read today: the tokens are its `@theme`. The setup says so when the
+stylesheets set up Tailwind v3 or no Tailwind at all. Styling is a separate adapter from the
+framework, so StyleX or Emotion would be another one, not a rewrite
+([ADR 0024](docs/adr/0024-style-systems.md)).
 
 Nothing is installed for the designs. Their components are imported the way the package you
 picked imports them, and render with your repository's own React and Vite.
 
 Started like this, without a configuration file, the top bar says **Not saved**: your settings
-and agent threads go away when the tool stops. Click it to save an `ultrapaint.json` in the
-repository. The file holds no path of your machine and is meant to be committed, so the next
-person only runs `ultrapaint`.
+and agent threads go away when the tool stops. Click it to save an `ultrapaint.config.json` in
+the repository. The file holds no path of your machine and is meant to be committed, so the next
+person only runs `ultrapaint`. A configuration file that appears while the tool runs (a
+teammate's pull, one you wrote) is taken at once, without a restart. A file still called
+`ultrapaint.json`, its earlier name, is read too, and **Settings** renames it.
 
 | Started with | Settings | Agent threads, checkpoints, caches |
 |---|---|---|
-| an `ultrapaint.json` found from the working directory up, or `--config <file>` | that file | `.ultrapaint/` next to it, git-ignored |
+| an `ultrapaint.config.json` (or `ultrapaint.json`) found from the working directory up, or `--config <file>` | that file | `.ultrapaint/` next to it, git-ignored |
 | neither | not saved until you save a configuration | a temporary directory |
 | `--home <dir>` (what `pnpm dev` uses) | `<dir>/settings.json` | `<dir>` |
 
@@ -254,24 +292,57 @@ become the matching Tailwind v4 classes, instances become your components.
 
 ## The design system
 
-**Initialise** (in the Design system panel or in Settings) opens a thread with `/init` in its
-composer and your default agent picked; nothing is sent until you press it. The agent reads the
-Tailwind v4 theme of your stylesheets, looks at your components, their docs and your screens,
-asks you what it cannot find out, and saves two files next to the designs:
+The design system is two files next to the designs, both meant to be committed:
 
-- `design-system.json` — colours by palette, type sizes and text styles, fonts, spacing, radius,
-  shadows, border widths, elevation levels (a surface, its shadow and its z-index), breakpoints
-  and container widths, motion (easings, durations, animations), the icon set and its sizes,
-  themes, and for each component a category, a description and the example props its palette
-  thumbnail is drawn with;
+- `design-system.json` — what each token and component is for: colours by palette and the
+  semantic ones, type sizes and text styles, fonts, spacing, radius, shadows, border widths,
+  elevation levels (a surface, its shadow and its z-index), breakpoints and container widths,
+  motion, the icon set, themes, and for each component a category, a description and the example
+  props its thumbnail is drawn with;
 - `DESIGN.md` — the conventions every agent is told about: what the product is, which colours
   mean what, what to always or never do.
 
+**A token's value lives in your code**, where your stylesheets declare it, and nowhere else.
+`design-system.json` leaves the values out and they are read from the code every time, so the
+two cannot disagree ([ADR 0025](docs/adr/0025-design-system-sync.md)). Right-click a token in the
+Design system panel and **Edit the value in the code…** writes your stylesheet, in the theme
+block it is declared in, with an **Undo** in the toast that reports it.
+
+### Sync
+
+**Sync** (the panel's ⟳ button, its empty state, or `/sync` in a chat) reads what the
+repository has and lays out the steps for its case. The Design system button on the left rail
+has a dot while something is waiting.
+
+| You have | Sync does |
+|---|---|
+| nothing yet | starts an application (Vite, React, Tailwind v4, ten components), then defines its design system |
+| a Figma file, no application | starts an application with Figma's tokens as its theme, then turns the frames into pages |
+| an application, no design system | reads what the code uses, has an agent define the design system, and offers to map and migrate the code onto it |
+| a Figma file and an application | takes Figma's tokens into your code first, then the same steps, then the frames |
+| a design system | lists what drifted — tokens and components the code has that the design system does not describe, and the other way round — for `/sync describe`; compares a newer Figma import |
+
+Settings that point nowhere (no component directory, one with no components the editor can
+read, no stylesheet) come first in every case: **Detect and apply** proposes where they are and
+applies them once you have seen it.
+
+**Figma's tokens** are compared with your code's, one by one and theme by theme: a colour
+however it is written (`#3b82f6`, `rgb(…)`, `oklch(…)`), a length in px or rem. Each is also
+compared with what the last sync agreed on, which is kept in `design-system.json`:
+
+| Since the last sync | What happens |
+|---|---|
+| Figma changed it, or has it and the code does not | the code takes Figma's value, in the unit the code uses |
+| the code changed it | the code is kept; Figma is behind |
+| both changed it, or there was no earlier sync and they differ | you pick, one by one or **All from Figma** / **All from the code** |
+
+`/init` is still there as the quick way to have an agent describe a theme that is already the
+design system.
+
 ### Setting one up step by step
 
-A project whose code has drifted from its theme, or that has no theme to speak of, needs more
-than `/init`. **Set up step by step** in the Design system panel takes it through five steps, in
-order; each one stops for you before the next.
+When the code has no design system, Sync takes it through five steps, in order; each one stops
+for you before the next.
 
 | Step | What happens |
 |---|---|
@@ -296,7 +367,7 @@ Before it designs, every agent is also told how to design well, whatever the pro
 layout, spacing, typography, colour, elevation, borders and radius, iconography, motion,
 content, states, how to compose with components, and accessibility. These
 skills ship with the tool and come before `DESIGN.md`, which wins where they disagree. **Settings**
-lists them, with a switch to turn any off (saved in `ultrapaint.json` as `skills.disabled`).
+lists them, with a switch to turn any off (saved in `ultrapaint.config.json` as `skills.disabled`).
 
 A project takes a skill over with a markdown file in `skills/` inside the designs directory:
 
@@ -313,18 +384,24 @@ grid of thumbnails, drawn with the example props.
 
 ## Importing a Figma file
 
-**Import a Figma file…** in the canvas list (or the canvas's right-click menu) takes a `.fig` file (File → Save local copy in Figma).
-The server reads it by fixed rules — the frames of each page, the components and where they are
-used, the images — and opens a thread with `/import-figma` in its composer. The agent then
+**Import a Figma file…** (in the Design system panel, the Sync view, the canvas list or a
+canvas's right-click menu) takes a `.fig` file (File → Save local copy in Figma) and opens Sync on
+it. Its tokens come first: variables mode by mode (Light and Dark become your themes), aliases
+followed, and colour and shadow styles, named the way your code names tokens
+(`Colors/Primary/500` is `color-primary-500`), compared with your code as above.
+
+Then **Map and write the pages** opens a thread with `/import-figma` in its composer. The agent
 decides, component by component, what each Figma component becomes: one of your components,
 with its variants and text properties mapped to props; a custom one, kept as the layers it is
 made of; or left out. Where the names do not settle it, the agent asks you in the thread, with
 the likely candidates to pick from, and carries on with your answers. Each frame is then written
-as a page at a route that fits its name, with its pictures in the space's `assets/`, and the
-agent looks at it and mends what the rules could not carry over.
+as a page at a route that fits its name, with its pictures in the space's `assets/`, colours
+that are tokens written as tokens, and the agent looks at it and mends what the rules could not
+carry over.
 
 Auto-layout becomes rows and columns, text keeps its font, image fills become images, icons
 become SVG files. Free-positioned layers are stacked in reading order, and the import says so.
+Exporting back to Figma is not done yet.
 
 ## Pages, URLs and canvases
 
@@ -352,13 +429,65 @@ pasted to someone else.
 A **canvas** owns one router and its own pages; a page of one canvas cannot navigate to a page of
 another. The canvas's name under the project, in every workspace, opens the list of canvases.
 
+## Commands and where things are
+
+### In a chat
+
+Type `/` in the composer for the list. A command is expanded into the agent's task; what you
+type after it is added to it.
+
+| Command | What it does |
+|---|---|
+| `/sync` | Opens the Sync view on the steps for your repository's case (no agent turn) |
+| `/sync describe` | An agent brings the design system up to the code: describes new tokens and components, takes out the ones gone, asks you what they are for |
+| `/init` | An agent describes the theme you have as the design system, and writes `design-system.json` and `DESIGN.md` |
+| `/import-figma [import]` | An agent maps an imported Figma file's components to yours and writes its frames as pages |
+| `/implement <page>` | An agent writes a page (by URL or file) in your application, with your components and conventions |
+| `/redraw <canvas> <what to change>` | Changes every page of a canvas, a copy made to go another way |
+| `/components <canvas>` | Draws a sheet of your components, in each of their variants, into a canvas |
+| `/design-system <step>` | Runs a step of the setup in its thread: `define`, `map` or `migrate` (Sync opens these for you) |
+
+### In the editor
+
+| Where | What to do there |
+|---|---|
+| Design system panel → **Sync** (⟳), or its empty state | Bring the design system and the code together, whatever you start from |
+| Design system panel → **Import a Figma file…** | Take a `.fig` file's tokens, then its frames |
+| Design system panel → right-click a token | Copy it, apply it to the selection, **Edit the value in the code…** |
+| Design system panel → the wand | Run `/init` again |
+| Assets panel | Your components, as a list or thumbnails; drag one onto the canvas |
+| Pages panel → **Implement** | `/implement` for that page |
+| Settings → Repository | Where the components, stylesheets and designs are; **Rename to ultrapaint.config.json** for an old file |
+| Settings → Design system | The design skills agents are told, and the ones you replace or extend |
+| Top bar → **Not saved** | Save the configuration to `ultrapaint.config.json` |
+| Rail → Design system dot | Sync has something waiting: settings to fix, drift to describe, Figma tokens to take |
+
+### The configuration file
+
+`ultrapaint.config.json` at the root of the repository (paths relative to it):
+
+| Field | What it is |
+|---|---|
+| `designsDir` | Where the pages are (`docs/designs`) |
+| `resolveFrom` | The package the pages import from as if they were its files: your app (`front`) |
+| `libraryDirs` | Where the components are (`front/src/components`) |
+| `componentPackages` | Package names whose exports are your components, for a library that is a package |
+| `hostCss` | The stylesheets the preview imports, relative to `<designsDir>/.ultrapaint` |
+| `styleSystem` | What the tokens are written in: `tailwind-v4` (the default, and the only one today) |
+| `theme` | `light` or `dark` for the preview |
+| `providersModule` | A module of the designs directory whose default export wraps every page |
+| `skills.disabled` | Design skills agents are not told |
+
+You rarely write it by hand: the setup and **Detect and apply** in Sync write it for you, and
+agents never do.
+
 ## Some notes
 
 This project is very early. Expect bugs and breaking changes.
 
 It supports React with Vite and Tailwind v4 today. The preview is split the way Storybook's is, so that another
-framework is a package rather than a rewrite, but none exists yet. Yarn Plug'n'Play is not
-supported.
+framework is a package rather than a rewrite, and styling is an adapter of its own beside it, so
+StyleX or Emotion would be too; neither exists yet. Yarn Plug'n'Play is not supported.
 
 ## Documentation
 
@@ -370,6 +499,8 @@ supported.
 - [Design documents instead of TSX pages](docs/adr/0015-design-documents.md)
 - [Importing a Figma file](docs/adr/0016-figma-import.md)
 - [Setting up a design system in steps](docs/adr/0023-design-system-setup.md)
+- [Style systems: tokens read and written behind one interface](docs/adr/0024-style-systems.md)
+- [One Sync for the design system and the code](docs/adr/0025-design-system-sync.md)
 - [All architecture decisions](docs/adr/README.md)
 - [Work definition](docs/discuss/work-definition.md) and [implementation plan](docs/PLAN.md)
 
@@ -378,7 +509,7 @@ supported.
 ```bash
 pnpm install
 pnpm dev                                        # server and editor with hot reload, ports printed at start
-pnpm dev -- --config ../your-repo/ultrapaint.json   # against a configuration file
+pnpm dev -- --config ../your-repo/ultrapaint.config.json   # against a configuration file
 pnpm dev -- --ephemeral                         # save nothing
 pnpm test && pnpm typecheck && pnpm lint
 ```
@@ -391,11 +522,12 @@ is given `--config` or `--ephemeral`. Read [`AGENTS.md`](AGENTS.md) before writi
 - `apps/server` — local backend on the Effect 4 runtime: settings, preview host, pages and spaces, design documents and the design system, undo, git, ACP threads.
 - `packages/contracts` — Effect Schema for everything on the wire, the document format included, and the `RpcGroup` that is the editor's API.
 - `packages/design-document` — the document format's pure code: tree walks, ids, the operations every edit is made of, tokens and the CSS a node is drawn with.
-- `packages/framework-api` — what a renderer gives the preview and what a framework gives the server.
+- `packages/framework-api` — what a renderer gives the preview, and what a framework and a style system give the server.
 - `packages/preview-core` — the framework-neutral runtime injected into every preview iframe: what to draw, measuring, hit-testing, text editing, the prototype's navigation.
 - `packages/renderer-react` — draws design documents with the repository's own React and components (`renderToCanvas`).
-- `packages/figma-import` — reads a `.fig` file and converts its frames to design documents by fixed rules, with a mapping that says what each Figma component becomes.
-- `packages/framework-react-vite` — the Node side for React + Vite: the Tailwind v4 theme scan, catalogue extraction, repository detection, the preview server and its component registry.
+- `packages/figma-import` — reads a `.fig` file: its frames to design documents by fixed rules, with a mapping that says what each Figma component becomes, and its variables and styles as tokens.
+- `packages/framework-react-vite` — the Node side for React + Vite: catalogue extraction, repository detection, the preview server and its component registry, and the application a repository can start from.
+- `packages/style-tailwind-v4` — the Tailwind v4 style system: tokens read from and written to `@theme`, the theme scan, what the code's classes use and their rewrite, the preview's stylesheet.
 - `packages/acp` — the only module that imports the ACP SDK, behind an `AcpAgent` Effect interface; agent launch configs are data.
 - `packages/client-runtime`, `packages/shared` — the editor's RPC connection (reconnects, typed requests, events) and small utilities.
 - `scripts/command.ts` — the `ultrapaint` command, run from a checkout (with its `--dev` mode) or bundled into the release package by `scripts/pack.ts`; `scripts/cli.ts` is it on the PATH and `scripts/dev-runner.ts` is `pnpm dev`, that mode with development's ports and settings.

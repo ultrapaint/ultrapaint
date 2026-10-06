@@ -1,8 +1,8 @@
 # Plan: one `/sync` for the design system, whatever the project starts from
 
-Status: proposed, 2026-10-06. Builds on ADR 0015 (the design system is imported by an agent),
-0016 (Figma import) and 0023 (design-system setup). Will be recorded in two ADRs: 0024 (style
-systems) and 0025 (sync and the configuration file).
+Status: done, 2026-10-06. Builds on ADR 0015 (the design system is imported by an agent),
+0016 (Figma import) and 0023 (design-system setup). Recorded in ADR 0024 (style systems) and
+ADR 0025 (sync and the configuration file). The outcome and the deviations are at the end.
 
 ## Why
 
@@ -255,3 +255,37 @@ is define (propose: a few questions on the brand colour, density and tone) or Fi
   snapshot, and `writeTokens` refuses when the declaration's span no longer holds what it read.
 - **The baseline in a committed file** can conflict on merge. It is one JSON object keyed by
   token, sorted, so conflicts are line-level and readable.
+
+## Outcome
+
+All six phases are on `main`, one commit or two each.
+Checked by hand against a repository
+shaped like the one that started this (a root `package.json`, the app in `front/`, its
+components in `front/src/components`, no configuration): detection proposes them, the catalogue
+lists them, Sync opens on the code case, a `.fig` with two modes is compared and taken into the
+stylesheet, a token is edited from the panel, and a colour added to the code by hand shows up as
+drift.
+
+### Deviations
+
+- **Undo of a token edit** is the toast's Undo, which writes the old value back, not a git
+  snapshot as a setup step has. An edit is one value; the toast is enough.
+- **Figma text styles** are not taken. Variables and colour and shadow styles are; text styles
+  are left to Define and `/sync describe`, which read the design.
+- **The scaffold template** belongs to the React + Vite framework and is written in Tailwind; a
+  second style system will need its own template, chosen by the style system.
+- **The Setup view is gone**: the Sync view draws the setup's steps, numbered in the plan's run,
+  and they say Later while a step of the sync's own comes first.
+- **The first-edit prompt and the first-run setup** open Sync instead of `/init`; `/init` stays
+  as the quick way when the theme already is the design system.
+- **Importing a Figma file** opens Sync rather than the `/import-figma` thread: its tokens come
+  first, and **Map and write the pages** starts the thread.
+
+### Found on the way
+
+- A snapshot of the working tree could fail when a file written atomically vanished while git
+  read it: the preview wrote its files before its `.gitignore`. Fixed by writing the ignore
+  first, and git's add is retried.
+- Detection proposed a stylesheet and a library separately from the framework; both now come
+  from the style system's detection over the packages the framework proposed.
+
