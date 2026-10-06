@@ -135,16 +135,18 @@ export const Changes = () => {
   }, [configured]);
 
   const commit = async () => {
-    if (!message.trim() || selected.size === 0) {
+    // Enter again while a commit is on its way is not a second commit.
+    if (busy || !message.trim() || selected.size === 0) {
       return;
     }
+    const sent = message;
     setBusy(true);
     try {
       await api().request("git.commit", {
-        message,
+        message: sent,
         paths: Array.from(selected),
       });
-      setMessage("");
+      setMessage((current) => (current === sent ? "" : current));
       setSelected(new Set());
       setDiff(null);
       await refresh();

@@ -1574,13 +1574,15 @@ const Composer = ({ thread }: { thread: Thread }) => {
   const running = thread.status === "running" || thread.status === "cancelling";
   const answering = useAnswering(thread.id);
 
-  // While the agent works, what is sent waits in the thread's queue.
+  // While the agent works, what is sent waits in the thread's queue. One prompt at a time: a
+  // screenshot to attach can take a while, and Enter again meanwhile must not send it twice.
   const send = async () => {
-    if (!text.trim()) {
+    const sent = text;
+    if (busy || !sent.trim()) {
       return;
     }
     // `/sync` alone is the editor's: it opens the Sync view rather than starting a turn.
-    if (text.trim() === "/sync") {
+    if (sent.trim() === "/sync") {
       setText("");
       showSetup();
       useSync.getState().load();
@@ -1594,10 +1596,11 @@ const Composer = ({ thread }: { thread: Thread }) => {
       );
       await api().request("threads.prompt", {
         attachments,
-        text,
+        text: sent,
         threadId: thread.id,
       });
-      setText("");
+      // What was typed while it went is the next prompt, and stays.
+      setText((current) => (current === sent ? "" : current));
       clearChips(thread.id);
       setDismissed([]);
     } catch (error) {
