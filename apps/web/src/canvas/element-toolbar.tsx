@@ -15,6 +15,7 @@ import type {
   InstanceNode,
   TextNode,
 } from "@ultrapaint/contracts/document";
+import type { Rect } from "@ultrapaint/contracts/preview";
 import type { Thread } from "@ultrapaint/contracts/threads";
 import {
   attachTextStyle,
@@ -913,19 +914,12 @@ const GAP = 8;
 const roomAbove = (rectY: number, inv: number) =>
   rectY >= (TAG_HEIGHT + GAP + TOOLBAR_HEIGHT) * inv;
 
-interface Box {
-  readonly height: number;
-  readonly width: number;
-  readonly x: number;
-  readonly y: number;
-}
-
 /**
  * Where the toolbar goes: centred over the element, or under it when the frame's top would clip
  * it, and moved sideways to stay inside the frame, which clips what is drawn outside it. The
  * toolbar's width is only known once it is drawn; until then it is centred.
  */
-const usePlacement = (rect: Box, inv: number, frameWidth: number) => {
+const usePlacement = (rect: Rect, inv: number, frameWidth: number) => {
   // A callback ref: the toolbar can be drawn later than the hook first runs.
   const [el, placeAt] = useState<HTMLDivElement | null>(null);
   const [width, setWidth] = useState<number | null>(null);
@@ -979,7 +973,7 @@ export const ElementToolbar = ({
   inv: number;
   node: DesignNode;
   /** Where the element is in the frame, which decides where the toolbar can go. */
-  rect: Box;
+  rect: Rect;
 }) => {
   const [placeAt, placement] = usePlacement(rect, inv, frameWidth);
   const selection = useEditor((s) => s.selection);
@@ -1076,7 +1070,7 @@ export const GroupToolbar = ({
   frameWidth: number;
   inv: number;
   nodes: readonly DesignNode[];
-  rect: Box;
+  rect: Rect;
   targets: readonly Selection[];
 }) => {
   const [placeAt, placement] = usePlacement(rect, inv, frameWidth);

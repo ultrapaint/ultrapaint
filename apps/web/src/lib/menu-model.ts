@@ -124,8 +124,8 @@ const headingOf = (node: DesignNode) => {
   return label === kind ? label : `${label} · ${kind}`;
 };
 
-/** A page's root is the page: it is not copied, moved or deleted as a node. */
-const isPageRoot = (node: DesignNode) => node.type === "page";
+/** A page's root is the page: it is not copied, moved, deleted or duplicated as a node. */
+export const isPageRoot = (node: DesignNode) => node.type === "page";
 
 export const nodeEntries = (f: NodeFacts): Entry[] => {
   const { node } = f;

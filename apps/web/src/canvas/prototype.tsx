@@ -1,4 +1,3 @@
-import type { HostMessage } from "@ultrapaint/contracts/preview";
 import { basePathOf } from "@ultrapaint/shared/route";
 import { cn } from "cn";
 import {
@@ -33,10 +32,11 @@ import { useDesignSystem } from "../state/design-system.ts";
 import { useDocuments } from "../state/documents.ts";
 import { pagesOfCanvas, useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
-import { bridgeFor, removeBridge } from "./bridge.ts";
+import { bridgeFor } from "./bridge.ts";
 import { commentCursor, FrameComments, placeComment } from "./comments.tsx";
 import { useHostUrl } from "./frame.tsx";
 import { HotspotLayer, HotspotsToggle, onPrototypePress } from "./hotspots.tsx";
+import { usePreviewBridge } from "./use-preview-bridge.ts";
 
 /** Room kept free around the page for the workspace switcher and the bottom strip. */
 const inset = { bottom: 72, side: 32, top: 64 };
@@ -210,17 +210,12 @@ export const Prototype = () => {
 
   // `reloads` remounts the iframe, and `shown` mounts it in the first place: the bridge has to
   // be attached to whichever iframe is there, or its `ed:ready` goes unheard.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the remount is the dependency.
-  useEffect(() => {
-    const iframe = iframeRef.current;
-    if (!(iframe && url && canvas !== null)) {
-      return;
-    }
-    const frameId = frameIdOf(canvas);
-    const bridge = bridgeFor(frameId);
-    bridge.attach(iframe);
-    const off = bridge.on((msg: HostMessage) => {
-      if (msg.type === "ed:ready") {
+  usePreviewBridge(
+    iframeRef,
+    url && canvas !== null ? frameIdOf(canvas) : null,
+    `${url}:${reloads}:${shown}`,
+    (msg, bridge) => {
+      if (msg.type === "ed:ready" && canvas !== null) {
         // Whatever the iframe started on, the editor says what it shows; and it is for clicking.
         renderRoute(canvas);
         bridge.setInteractive(true);
@@ -229,12 +224,8 @@ export const Prototype = () => {
         followLink(msg.route, { push: !msg.replace });
       }
       onPrototypePress(msg, useEditor.getState().activePage);
-    });
-    return () => {
-      off();
-      removeBridge(frameId);
-    };
-  }, [canvas, url, reloads, shown]);
+    }
+  );
 
   // The editor holds the route; the preview draws the page serving it, without reloading.
   const document = useDocuments((s) =>

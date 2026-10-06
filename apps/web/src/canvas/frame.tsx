@@ -1,6 +1,6 @@
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page, ViewportPreset } from "@ultrapaint/contracts/pages";
-import type { HostError, HostMessage } from "@ultrapaint/contracts/preview";
+import type { HostError, Rect } from "@ultrapaint/contracts/preview";
 import {
   childrenOf,
   findNode,
@@ -46,7 +46,7 @@ import { previewUrl, useProject } from "../state/project.ts";
 import { stepInto } from "../state/tree.ts";
 import { FramePresence } from "./agent-presence.tsx";
 import { AgentWorkOverlay, useFrameWork, useSkeletons } from "./agent-work.tsx";
-import { bridgeFor, removeBridge } from "./bridge.ts";
+import { bridgeFor } from "./bridge.ts";
 import { commentCursor, FrameComments } from "./comments.tsx";
 import { beginDrag, type Dragged, endDrag, moveDrag, useDrag } from "./drag.ts";
 import {
@@ -58,6 +58,7 @@ import { hitUnlocked } from "./hit-test.ts";
 import { PageToolbar } from "./page-toolbar.tsx";
 import { SelectionTag } from "./selection-tag.tsx";
 import { holdsFree } from "./snap.ts";
+import { usePreviewBridge } from "./use-preview-bridge.ts";
 
 const formatHostError = (error: HostError) => {
   if (!error.file) {
@@ -204,18 +205,13 @@ export const Frame = memo(
     const inv = 1 / zoom;
     const name = frameName(page, root);
 
-    // Bridge lifecycle. The bridge is looked up here and in handlers, never during render: the
-    // registry is mutable (cleanup removes the entry), so a render-time lookup would be cached by
-    // React Compiler and go stale.
-    useEffect(() => {
-      const iframe = iframeRef.current;
-      if (!(iframe && visible && url)) {
-        return;
-      }
-      const bridge = bridgeFor(frameId);
-      bridge.attach(iframe);
-      const store = useEditor.getState;
-      const off = bridge.on((msg: HostMessage) => {
+    // The bridge speaks for this frame while it is on screen and has a preview to load.
+    usePreviewBridge(
+      iframeRef,
+      visible && url ? frameId : null,
+      url,
+      (msg, bridge) => {
+        const store = useEditor.getState;
         switch (msg.type) {
           case "ed:ready":
             // A repository may pin its own framework package one day; an older preview
@@ -258,12 +254,8 @@ export const Frame = memo(
           default:
             break;
         }
-      });
-      return () => {
-        off();
-        removeBridge(frameId);
-      };
-    }, [frameId, kind, visible, url]);
+      }
+    );
 
     // Whatever changed the document or the design system, the preview draws it again.
     // biome-ignore lint/correctness/useExhaustiveDependencies: the document is the dependency.
@@ -973,13 +965,6 @@ const FrameChrome = ({
     </>
   );
 };
-
-interface Rect {
-  height: number;
-  width: number;
-  x: number;
-  y: number;
-}
 
 const intersects = (a: Rect, b: Rect) =>
   a.x < b.x + b.width &&

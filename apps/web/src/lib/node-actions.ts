@@ -30,6 +30,7 @@ import {
 } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
 import { requestInlineRename } from "../state/layer-rename.ts";
+import { isPageRoot } from "./menu-model.ts";
 
 interface Context {
   readonly activePage: string | null;
@@ -128,9 +129,6 @@ export const setLocked = (locked: boolean, target?: Selection) =>
     locked ? "Lock" : "Unlock",
     target
   );
-
-/** The root of a page cannot be deleted or duplicated: the page can. */
-const isPageRoot = (node: DesignNode) => node.type === "page";
 
 export const deleteSelection = (target?: Selection) =>
   deleteNodes(actedOn(target));

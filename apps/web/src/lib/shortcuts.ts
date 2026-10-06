@@ -18,24 +18,13 @@ import {
 import { usePanels } from "../state/panels.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { onCopyEvent, onPasteEvent } from "./clipboard.ts";
-import { holdsWorkspaceModifier } from "./keys.ts";
+import { holdsWorkspaceModifier, isTyping } from "./keys.ts";
 import {
   deleteSelection,
   duplicateSelection,
   selected,
   wrapSelection,
 } from "./node-actions.ts";
-
-const isTyping = (e: Event) => {
-  const t = e.target as HTMLElement | null;
-  return (
-    !!t &&
-    (t.tagName === "INPUT" ||
-      t.tagName === "TEXTAREA" ||
-      t.tagName === "SELECT" ||
-      t.isContentEditable)
-  );
-};
 
 /**
  * Dialogs, menus and select popups are not page-blocking the way native confirm/prompt were, so

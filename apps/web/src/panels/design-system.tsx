@@ -39,8 +39,9 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@/components/ui/input-group";
-import { bridgeFor, removeBridge } from "../canvas/bridge.ts";
+import { bridgeFor } from "../canvas/bridge.ts";
 import { useHostUrl } from "../canvas/frame.tsx";
+import { usePreviewBridge } from "../canvas/use-preview-bridge.ts";
 import { IconButton } from "../components/icon-button.tsx";
 import { Markdown } from "../components/markdown.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
@@ -254,27 +255,20 @@ const TypeSpecimen = ({ ds, q }: { ds: DesignSystem; q: string }) => {
   const [height, setHeight] = useState(120);
   const [ready, setReady] = useState(false);
   const frame = "design-system:typography";
-  useEffect(() => {
-    const iframe = ref.current;
-    if (!(iframe && host)) {
-      return;
-    }
-    const bridge = bridgeFor(frame);
-    bridge.attach(iframe);
-    const off = bridge.on((msg) => {
+  usePreviewBridge(
+    ref,
+    host ? frame : null,
+    host,
+    (msg) => {
       if (msg.type === "ed:ready") {
         setReady(true);
       }
       if (msg.type === "ed:size") {
         setHeight(msg.height);
       }
-    });
-    return () => {
-      off();
-      removeBridge(frame);
-      setReady(false);
-    };
-  }, [host]);
+    },
+    () => setReady(false)
+  );
   useEffect(() => {
     if (ready) {
       bridgeFor(frame).render({

@@ -62,3 +62,15 @@ export const holdsWorkspaceModifier = (e: KeyboardEvent) =>
 /** How the switcher writes the key of a workspace. */
 export const workspaceKeyLabel = (digit: number) =>
   shortcutLabel(`${isMac ? "⌃" : "⌥"}${digit}`);
+
+/** The event is aimed at a field that takes keys of its own: text, a select, an editable node. */
+export const isTyping = (e: Event) => {
+  const t = e.target as HTMLElement | null;
+  return (
+    !!t &&
+    (t.tagName === "INPUT" ||
+      t.tagName === "TEXTAREA" ||
+      t.tagName === "SELECT" ||
+      t.isContentEditable)
+  );
+};

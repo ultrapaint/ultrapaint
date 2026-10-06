@@ -30,7 +30,7 @@ import {
   rootOfFrame,
   useDocuments,
 } from "../state/documents.ts";
-import { allFrames, holdUntil, useEditor } from "../state/editor.ts";
+import { allFrames, type Box, holdUntil, useEditor } from "../state/editor.ts";
 import { bridgeFor } from "./bridge.ts";
 import { snapPoint } from "./snap.ts";
 
@@ -116,13 +116,6 @@ export const canvasPoint = (clientX: number, clientY: number) => {
     y: (clientY - r.top - y) / zoom,
   };
 };
-
-interface Box {
-  height: number;
-  width: number;
-  x: number;
-  y: number;
-}
 
 /** The frame under a canvas point: nodes on the canvas lie over pages. */
 const frameAt = (x: number, y: number, except?: string): string | null => {

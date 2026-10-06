@@ -11,6 +11,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { isTyping } from "../lib/keys.ts";
 import { snapsToGrid, useCanvasGrid } from "../state/canvas-grid.ts";
 import { useComments } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
@@ -707,14 +708,6 @@ const NodeFrame = memo(
   }
 );
 NodeFrame.displayName = "NodeFrame";
-
-const isTyping = (e: Event) => {
-  const t = e.target as HTMLElement | null;
-  return (
-    !!t &&
-    (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)
-  );
-};
 
 /**
  * The box left once `corner` is dragged by (dx, dy): the opposite corner stays where it was, and
