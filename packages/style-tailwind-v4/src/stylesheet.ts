@@ -358,35 +358,71 @@ const nextVar = (text: string, from: number): number => {
   return at;
 };
 
+/** How long a value followed through its variables may grow before the rest is left as written. */
+const MAX_RESOLVED = 10_000;
+
 /**
  * A value with every `var()` in it followed to what it ends at, each on its own: an unknown
  * variable takes its fallback, or stays as written, and the others are still followed. A
- * variable met again on its own path is a cycle and is treated as unknown.
+ * variable met again on its own path is a cycle and is treated as unknown. What a variable ends
+ * at is followed once (`--a: var(--b) var(--b)` many levels deep stays quick), and a value that
+ * would grow past `MAX_RESOLVED` keeps its remaining references as written.
  */
 export const resolveVars = (
   value: string,
   lookup: (variable: string) => string | undefined
 ): string => {
-  const walk = (text: string, seen: ReadonlySet<string>): string => {
+  /** What a variable ends at, when that did not depend on the path it was reached by. */
+  const memo = new Map<string, string>();
+  interface Followed {
+    /** A cycle cut it short: what it ends at depends on the path it was reached by. */
+    readonly cyclic: boolean;
+    readonly out: string;
+  }
+
+  /** What one `var()` ends at, from the variables on the path to it. */
+  const follow = (
+    ref: { fallback: string | undefined; variable: string },
+    written: string,
+    seen: ReadonlySet<string>
+  ): Followed => {
+    const known = memo.get(ref.variable);
+    if (known !== undefined) {
+      return { cyclic: false, out: known };
+    }
+    const met = seen.has(ref.variable);
+    const found = met ? undefined : lookup(ref.variable);
+    if (found !== undefined) {
+      const inner = walk(found, new Set([...seen, ref.variable]));
+      if (!inner.cyclic) {
+        memo.set(ref.variable, inner.out);
+      }
+      return inner;
+    }
+    if (ref.fallback === undefined) {
+      return { cyclic: met, out: written };
+    }
+    const inner = walk(ref.fallback, seen);
+    return { cyclic: met || inner.cyclic, out: inner.out };
+  };
+
+  const walk = (text: string, seen: ReadonlySet<string>): Followed => {
     let out = "";
+    let cyclic = false;
     let from = 0;
     let at = nextVar(text, 0);
     let ref = at === -1 ? null : referenceAt(text, at);
     while (ref) {
-      const { close, fallback, variable } = ref;
-      const found = seen.has(variable) ? undefined : lookup(variable);
-      let replacement = text.slice(at, close + 1);
-      if (found !== undefined) {
-        replacement = walk(found, new Set([...seen, variable]));
-      } else if (fallback !== undefined) {
-        replacement = walk(fallback, seen);
-      }
-      out += text.slice(from, at) + replacement;
-      from = close + 1;
+      const written = text.slice(at, ref.close + 1);
+      const followed = follow(ref, written, seen);
+      cyclic ||= followed.cyclic;
+      const fits = out.length + followed.out.length <= MAX_RESOLVED;
+      out += text.slice(from, at) + (fits ? followed.out : written);
+      from = ref.close + 1;
       at = nextVar(text, from);
       ref = at === -1 ? null : referenceAt(text, at);
     }
-    return out + text.slice(from);
+    return { cyclic, out: out + text.slice(from) };
   };
-  return walk(value, new Set());
+  return walk(value, new Set()).out;
 };

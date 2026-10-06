@@ -115,6 +115,24 @@ describe("following var()", () => {
     expect(resolveVars("var(--x)", (n) => loop.get(n))).toBe("var(--x)");
   });
 
+  it("follows a variable once however often it is met, and stops a value growing without end", () => {
+    const fanOut = new Map(
+      Array.from({ length: 60 }, (_, i) => [
+        `--f${i}`,
+        `var(--f${i + 1}) var(--f${i + 1})`,
+      ])
+    );
+    fanOut.set("--f60", "1px");
+    let lookups = 0;
+    const out = resolveVars("var(--f0)", (n) => {
+      lookups += 1;
+      return fanOut.get(n);
+    });
+    expect(lookups).toBe(61);
+    expect(out.startsWith("1px 1px 1px")).toBe(true);
+    expect(out.length).toBeLessThanOrEqual(10_000);
+  });
+
   it("goes deeper than a fixed number of steps", () => {
     const chain = new Map(
       Array.from({ length: 30 }, (_, i) => [`--v${i}`, `var(--v${i + 1})`])
