@@ -13,6 +13,7 @@ import {
 import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
+  useEffect,
   useRef,
   useState,
 } from "react";
@@ -49,6 +50,18 @@ const contains = (outer: Rect, inner: Rect) =>
   inner.x + inner.width <= outer.x + outer.width &&
   inner.y + inner.height <= outer.y + outer.height;
 
+/**
+ * Forgets what the pointer hovers over in a frame, and the hover lookup still on its way: the
+ * pointer left the frame, or the layer it hovered over went away under it.
+ */
+export const leaveHover = (asked: { current: number }, frameId: string) => {
+  asked.current += 1;
+  const s = useEditor.getState();
+  if (s.hover?.frame === frameId) {
+    s.setHover(null);
+  }
+};
+
 /** The pointer's handlers for a frame's select and comment layers, and the marquee being drawn. */
 export const useFramePointer = ({
   canvas,
@@ -56,6 +69,7 @@ export const useFramePointer = ({
   frameId,
   kind,
   root,
+  selecting,
   zoom,
 }: {
   canvas: string | null;
@@ -64,12 +78,22 @@ export const useFramePointer = ({
   frameId: string;
   kind: "page" | "node";
   root: DesignNode | null;
+  /** The select layer is up: not while Space pans, nor in another mode. */
+  selecting: boolean;
   zoom: number;
 }) => {
   // Pointer interaction in select mode.
   const lastHit = useRef(0);
   /** Counts the hover lookups: only the latest one's answer counts, and none after a leave. */
   const hoverAsked = useRef(0);
+  // The select layer taken away under a resting pointer (Space held, another mode) sends no
+  // pointerleave, and the hover would stay drawn.
+  useEffect(() => {
+    if (!selecting) {
+      return;
+    }
+    return () => leaveHover(hoverAsked, frameId);
+  }, [selecting, frameId]);
   const toFrame = (e: ReactPointerEvent | ReactMouseEvent) => {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
     return { x: (e.clientX - r.left) / zoom, y: (e.clientY - r.top) / zoom };
@@ -447,13 +471,7 @@ export const useFramePointer = ({
     openMenuAt(e, { at: toFrame(e), kind: "page", pageId: frameId });
   };
 
-  const onPointerLeave = () => {
-    hoverAsked.current += 1;
-    const s = useEditor.getState();
-    if (s.hover?.frame === frameId) {
-      s.setHover(null);
-    }
-  };
+  const onPointerLeave = () => leaveHover(hoverAsked, frameId);
 
   return {
     marquee,

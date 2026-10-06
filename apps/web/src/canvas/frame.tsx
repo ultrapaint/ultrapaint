@@ -63,6 +63,10 @@ const commitText = (frame: string, nodeId: string, text: string) => {
 const isInteractive = (s: { mode: string; spacePan: boolean }) =>
   s.mode === "interact" && !s.spacePan;
 
+/** The frame's select layer is up. */
+const isSelecting = (s: { mode: string; spacePan: boolean }) =>
+  s.mode === "select" && !s.spacePan;
+
 /** What a frame is called over its top edge: the page, in its variant, or the node on the canvas. */
 const frameName = (page: Page | undefined, root: DesignNode | null) => {
   if (page) {
@@ -273,6 +277,7 @@ export const Frame = memo(
       bridgeFor(frameId).watchRects(ids);
     }, [frameId, selectedHere, alsoHere, hoverHere, root, workIds]);
 
+    const selecting = useEditor(isSelecting);
     const {
       marquee,
       onCommentContextMenu,
@@ -284,7 +289,15 @@ export const Frame = memo(
       onPointerMove,
       onPointerUp,
       onSelectClick,
-    } = useFramePointer({ canvas, frame, frameId, kind, root, zoom });
+    } = useFramePointer({
+      canvas,
+      frame,
+      frameId,
+      kind,
+      root,
+      selecting,
+      zoom,
+    });
 
     const isNode = kind === "node";
 
@@ -337,7 +350,7 @@ export const Frame = memo(
               {url ? "" : "Preview host not running"}
             </div>
           )}
-          {mode === "select" && !spacePan && (
+          {selecting ? (
             <button
               aria-label={`Select in ${name}`}
               className="absolute inset-0 h-full w-full cursor-default"
@@ -351,7 +364,7 @@ export const Frame = memo(
               onPointerUp={onPointerUp}
               type="button"
             />
-          )}
+          ) : null}
           {mode === "comment" && !spacePan && !isNode && (
             <button
               aria-label={`Comment on ${name}`}
