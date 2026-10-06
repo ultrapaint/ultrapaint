@@ -27,22 +27,35 @@ const decodeCache = Schema.decodeUnknownEffect(
 
 /**
  * Runs the compiler pass on a worker thread; interrupting the effect terminates the worker. A
- * build that fails is a defect: an unexpected error in this request, not a wire error.
+ * build that fails is a defect: an unexpected error in this request, not a wire error. A worker
+ * that ends without sending a catalogue has failed too, whatever its exit code: waiting for one
+ * would hold the build lock for good.
  */
-const buildInWorker = (
+export const buildInWorker = (
   workerUrl: URL,
   ctx: CatalogueContext,
-  files: string[]
+  files: readonly string[]
 ) =>
   Effect.callback<Catalogue>((resume) => {
     const worker = new Worker(workerUrl, { workerData: { ctx, files } });
-    worker.once("message", (catalogue: Catalogue) =>
-      resume(Effect.succeed(catalogue))
-    );
-    worker.once("error", (error) => resume(Effect.die(error)));
+    let answered = false;
+    worker.once("message", (catalogue: Catalogue) => {
+      answered = true;
+      resume(Effect.succeed(catalogue));
+    });
+    worker.once("error", (error) => {
+      answered = true;
+      resume(Effect.die(error));
+    });
     worker.once("exit", (code) => {
-      if (code !== 0) {
-        resume(Effect.die(new Error(`catalogue worker exited with ${code}`)));
+      if (!answered) {
+        resume(
+          Effect.die(
+            new Error(
+              `catalogue worker exited with ${code} without a catalogue`
+            )
+          )
+        );
       }
     });
     return Effect.promise(() => worker.terminate());
