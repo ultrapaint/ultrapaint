@@ -653,6 +653,26 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
       })
     );
 
+    it.effect("commits the files it is given, not what a pattern matches", () =>
+      Effect.gen(function* () {
+        const { client, repo } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        yield* fs.writeFileString(path.join(repo, "notes.txt"), "mine\n");
+        for (const spec of [":/", "*", "*.txt"]) {
+          const error = yield* Effect.flip(
+            client["git.commit"]({ message: "everything", paths: [spec] })
+          );
+          assert.strictEqual(error._tag, "CommandFailed", spec);
+        }
+        const status = yield* client["git.status"]();
+        assert.include(
+          status.files.map((f) => f.path),
+          "notes.txt"
+        );
+        yield* fs.remove(path.join(repo, "notes.txt"));
+      })
+    );
+
     it.effect(
       "fails one request on an unexpected error and keeps the event streams",
       () =>

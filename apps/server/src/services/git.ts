@@ -234,8 +234,16 @@ export class GitService extends Context.Service<
         files: readonly string[]
       ) {
         yield* Effect.forEach(files, paths.resolve, { discard: true });
-        yield* run(["add", "--", ...files]);
-        yield* run(["commit", "-m", message, "--", ...files]);
+        // Paths, not pathspecs: `:/` or `*` would commit far more than the files the user picked.
+        yield* run(["--literal-pathspecs", "add", "--", ...files]);
+        yield* run([
+          "--literal-pathspecs",
+          "commit",
+          "-m",
+          message,
+          "--",
+          ...files,
+        ]);
         return (yield* run(["rev-parse", "HEAD"])).trim();
       });
 
