@@ -5,12 +5,14 @@ Status: accepted, 2026-09-19.
 Update, 2026-10-06: the decision stands; the sandbox was tightened where a confined process could
 still reach something outside it (commit `499e57c`).
 
-- The variables of a launch are set inside the sandbox, by the sandbox (`--setenv` for
-  bubblewrap, `/usr/bin/env` under `sandbox-exec`), and the process that makes it gets none:
-  `bwrap` and `sandbox-exec` run unconfined until they have confined what they start, and an
-  `LD_PRELOAD` on either would run its library there. Variables an agent asks for a terminal
-  command lose `LD_*` and `DYLD_*`, which no command needs and which are a way out when set on
-  the wrong side.
+- The variables of a launch reach the agent through the environment of `bwrap` or
+  `sandbox-exec`, which both hand it on, never through their command line, where any user of
+  the machine could read an API key in the process list. The loader's variables (`LD_*`,
+  `DYLD_*`, `GCONV_PATH`) are the exception: `bwrap` and `sandbox-exec` run unconfined until they
+  have confined what they start, and an `LD_PRELOAD` on either would run its library there, so
+  those are set inside the sandbox (`--setenv`, `/usr/bin/env`), where they are only paths.
+  Variables an agent asks for a terminal command lose them altogether: no command needs them,
+  and they are a way out when set on the wrong side.
 - On Linux the session's own temporary directory is its `/tmp` (and `TMPDIR`); the machine's
   `/tmp`, with the sockets and files other programs leave there, is out of reach. macOS keeps
   sharing `/tmp` and the system's temporary directory: Seatbelt cannot give a session one of its
