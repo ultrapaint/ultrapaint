@@ -254,7 +254,9 @@ const categoryOf = (
 
 export const Assets = () => {
   const configured = useProject((s) => s.info.configured);
-  const { catalogue, loading, load } = useCatalogue();
+  const catalogue = useCatalogue((s) => s.catalogue);
+  const loading = useCatalogue((s) => s.loading);
+  const load = useCatalogue((s) => s.load);
   // The target is worked out from the selection and the documents.
   const selection = useEditor((s) => s.selection);
   const selectedPage = useEditor((s) => s.selectedPage);

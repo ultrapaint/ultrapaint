@@ -663,7 +663,11 @@ const MoreFoundations = ({
 
 export const DesignSystemPanel = () => {
   const configured = useProject((s) => s.info.configured);
-  const { designSystem, notes, problem, loaded, detecting } = useDesignSystem();
+  const designSystem = useDesignSystem((s) => s.designSystem);
+  const notes = useDesignSystem((s) => s.notes);
+  const problem = useDesignSystem((s) => s.problem);
+  const loaded = useDesignSystem((s) => s.loaded);
+  const detecting = useDesignSystem((s) => s.detecting);
   const [q, setQuery] = useState("");
   const [tab, setTab] = useState<"tokens" | "notes">("tokens");
   const themes = designSystem?.themes ?? ["light"];

@@ -151,7 +151,9 @@ const Row = ({
 
 /** Where `/init` is started from the settings, and where its result is said to be. */
 const DesignSystemGroup = () => {
-  const { designSystem, detecting, loaded } = useDesignSystem();
+  const designSystem = useDesignSystem((s) => s.designSystem);
+  const detecting = useDesignSystem((s) => s.detecting);
+  const loaded = useDesignSystem((s) => s.loaded);
   useEffect(() => {
     if (!loaded) {
       useDesignSystem.getState().load();
@@ -373,7 +375,9 @@ const SkillsGroup = ({
   disabled: readonly string[];
   onToggle: (name: string, enabled: boolean) => void;
 }) => {
-  const { dir, loaded, skills } = useSkills();
+  const dir = useSkills((s) => s.dir);
+  const loaded = useSkills((s) => s.loaded);
+  const skills = useSkills((s) => s.skills);
   useEffect(() => {
     if (!loaded) {
       useSkills.getState().load();

@@ -258,7 +258,8 @@ export const SyncView = ({
   /** Back to the tokens, when there are any to go back to. */
   onBack?: () => void;
 }) => {
-  const { plan, reading } = useSync();
+  const plan = useSync((s) => s.plan);
+  const reading = useSync((s) => s.reading);
   const setupLoaded = useDesignSystemSetup((s) => s.loaded);
 
   useEffect(() => {

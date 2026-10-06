@@ -352,7 +352,8 @@ export const StepCard = ({
  * to the steps, since the chat and the Design system panel share the rail.
  */
 export const SetupStepBar = ({ threadId }: { threadId: string }) => {
-  const { loaded, setup } = useDesignSystemSetup();
+  const loaded = useDesignSystemSetup((s) => s.loaded);
+  const setup = useDesignSystemSetup((s) => s.setup);
   useEffect(() => {
     if (!loaded) {
       useDesignSystemSetup.getState().load();
