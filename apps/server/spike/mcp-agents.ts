@@ -37,7 +37,11 @@ const program = Effect.gen(function* () {
         cwd: repo,
         discovery: false,
         host: "127.0.0.1",
-        machine: { home: homedir(), path: process.env.PATH ?? "" },
+        machine: {
+          addresses: [],
+          home: homedir(),
+          path: process.env.PATH ?? "",
+        },
         mcp: true,
         port,
         // The repository's own configuration, read and never written; the threads' state in a

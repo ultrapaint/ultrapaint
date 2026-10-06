@@ -16,6 +16,43 @@ const paragraph = (id: string, text: string): DesignNode => ({
   type: "text",
 });
 
+/** What a WebSocket handshake sends; a 101 is the socket accepted. */
+const UPGRADE = {
+  Connection: "Upgrade",
+  "Sec-WebSocket-Key": "dGhlIHNhbXBsZSBub25jZQ==",
+  "Sec-WebSocket-Version": "13",
+  Upgrade: "websocket",
+};
+
+/** The status a raw request to the server is answered with, its headers exactly as given. */
+const statusOf = (
+  port: number,
+  path: string,
+  headers: Record<string, string>,
+  method = "GET"
+) =>
+  Effect.callback<number>((resume) => {
+    // A fresh connection each time: the server closes one it refused an upgrade on.
+    const req = request({
+      agent: false,
+      headers,
+      host: "127.0.0.1",
+      method,
+      path,
+      port,
+    });
+    req.on("response", (res) => {
+      res.resume();
+      resume(Effect.succeed(res.statusCode ?? 0));
+    });
+    req.on("upgrade", (_res, socket) => {
+      socket.destroy();
+      resume(Effect.succeed(101));
+    });
+    req.on("error", () => resume(Effect.succeed(-1)));
+    req.end();
+  });
+
 const childIds = (node: DesignNode | null | undefined) =>
   node && "children" in node ? (node.children ?? []).map((c) => c.id) : [];
 
@@ -1126,27 +1163,67 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
     it.effect("turns away a browser page from another origin", () =>
       Effect.gen(function* () {
         const { port } = yield* TestEnv;
-        const status = yield* Effect.callback<number>((resume) => {
-          const req = request({
-            headers: {
-              Connection: "Upgrade",
-              Origin: "https://evil.example",
-              "Sec-WebSocket-Key": "dGhlIHNhbXBsZSBub25jZQ==",
-              "Sec-WebSocket-Version": "13",
-              Upgrade: "websocket",
-            },
-            host: "127.0.0.1",
-            path: "/ws",
-            port,
-          });
-          req.on("response", (res) =>
-            resume(Effect.succeed(res.statusCode ?? 0))
-          );
-          req.on("upgrade", () => resume(Effect.succeed(101)));
-          req.on("error", () => resume(Effect.succeed(-1)));
-          req.end();
+        const status = yield* statusOf(port, "/ws", {
+          ...UPGRADE,
+          Origin: "https://evil.example",
         });
         assert.strictEqual(status, 403);
+      })
+    );
+
+    it.effect(
+      "turns away a page that made its own name point here, on every route",
+      () =>
+        Effect.gen(function* () {
+          const { port } = yield* TestEnv;
+          // DNS rebinding: the page's origin and the Host it sends agree, and both are its own.
+          const rebound = {
+            Host: `attacker.com:${port}`,
+            Origin: `http://attacker.com:${port}`,
+          };
+          assert.strictEqual(
+            yield* statusOf(port, "/ws", { ...UPGRADE, ...rebound }),
+            403
+          );
+          assert.strictEqual(
+            yield* statusOf(port, "/api/health", rebound),
+            403
+          );
+          assert.strictEqual(
+            yield* statusOf(port, "/mcp", rebound, "POST"),
+            403
+          );
+          assert.strictEqual(
+            yield* statusOf(port, "/api/health", { Host: "attacker.com" }),
+            403
+          );
+        })
+    );
+
+    it.effect("answers loopback names, with or without an origin", () =>
+      Effect.gen(function* () {
+        const { port } = yield* TestEnv;
+        for (const host of ["localhost", "127.0.0.1", "[::1]"]) {
+          assert.strictEqual(
+            yield* statusOf(port, "/api/health", { Host: `${host}:${port}` }),
+            200
+          );
+          assert.strictEqual(
+            yield* statusOf(port, "/ws", {
+              ...UPGRADE,
+              Host: `${host}:${port}`,
+            }),
+            101
+          );
+          assert.strictEqual(
+            yield* statusOf(port, "/ws", {
+              ...UPGRADE,
+              Host: `${host}:${port}`,
+              Origin: `http://${host}:${port}`,
+            }),
+            101
+          );
+        }
       })
     );
   }

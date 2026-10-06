@@ -411,7 +411,11 @@ describe("a configuration file that cannot be read", () => {
                 cwd: dir,
                 discovery: false,
                 host: "127.0.0.1",
-                machine: { home: homedir(), path: process.env.PATH ?? "" },
+                machine: {
+                  addresses: [],
+                  home: homedir(),
+                  path: process.env.PATH ?? "",
+                },
                 mcp: true,
                 port: yield* freePort,
                 storage: {
@@ -451,7 +455,11 @@ const settingsOf = (cwd: string, storage: StorageTarget) =>
         cwd,
         discovery: false,
         host: "127.0.0.1",
-        machine: { home: homedir(), path: process.env.PATH ?? "" },
+        machine: {
+          addresses: [],
+          home: homedir(),
+          path: process.env.PATH ?? "",
+        },
         mcp: false,
         port: 0,
         storage,

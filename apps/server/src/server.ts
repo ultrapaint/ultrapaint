@@ -17,7 +17,13 @@ import {
 } from "effect/http";
 import { RpcSerialization, RpcServer } from "effect/rpc";
 import { AppLog } from "./app-log.ts";
-import { connectHost, isLoopback, ServerConfig } from "./config.ts";
+import {
+  allowedHostNames,
+  connectHost,
+  hostNameOf,
+  isLoopback,
+  ServerConfig,
+} from "./config.ts";
 import { EventBus } from "./events.ts";
 import { ProjectManager } from "./project.ts";
 import { RpcHandlers } from "./rpc-handlers.ts";
@@ -40,6 +46,28 @@ import { Checkpoints } from "./services/threads/checkpoints.ts";
 import { SlashCommands } from "./services/threads/commands.ts";
 import { ThreadStore } from "./services/threads/thread-store.ts";
 import { ThreadService } from "./services/threads/threads.ts";
+
+/**
+ * Every request names this server by one of its own names. A website the user has open can
+ * point its name at this machine (DNS rebinding); its page is then same-origin with whatever it
+ * reaches here, so the origin checks below let it through. The `Host` it sends is still its
+ * own name, and that is turned away here, before any route sees the request.
+ */
+const HostGuard = HttpRouter.middleware(
+  Effect.map(ServerConfig, ({ host, machine }) => {
+    const allowed = allowedHostNames(host, machine.addresses);
+    return (handler) =>
+      Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) => {
+        const name = hostNameOf(request.headers.host ?? "");
+        return name !== undefined && allowed.has(name)
+          ? handler
+          : Effect.succeed(
+              HttpServerResponse.text("host not allowed", { status: 403 })
+            );
+      });
+  }),
+  { global: true }
+);
 
 const LOCAL_ORIGIN_RE = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
 
@@ -302,6 +330,7 @@ const Services = Threads.pipe(
 );
 
 const Routes = Layer.mergeAll(
+  HostGuard,
   RpcRoute,
   HealthRoute,
   FigmaImportRoute,

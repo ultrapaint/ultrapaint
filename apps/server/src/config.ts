@@ -33,6 +33,35 @@ export const connectHost = (host: string): string => {
 export const isLoopback = (host: string): boolean =>
   host === "127.0.0.1" || host === "localhost" || host === "::1";
 
+/** A `Host` header: a name or an address, a bracketed IPv6 address, and maybe a port. */
+const HOST_RE = /^(?:\[[0-9a-f:.]+\]|[a-z0-9.-]+)(?::\d+)?$/i;
+
+/** The host name in a `Host` header, as a URL spells it; nothing for anything else. */
+export const hostNameOf = (host: string): string | undefined =>
+  HOST_RE.test(host) && URL.canParse(`http://${host}`)
+    ? new URL(`http://${host}`).hostname
+    : undefined;
+
+const LOOPBACK_ADDRESSES = ["localhost", "127.0.0.1", "::1"];
+
+/**
+ * The names a request may address a server bound to `host` by. A page from a website can make
+ * its own name resolve to this machine (DNS rebinding), and then its origin and the `Host` it
+ * sends agree; what it cannot do is send one of these. Loopback always; bound to one address,
+ * that address; bound to every interface, every address of the machine and its name.
+ */
+export const allowedHostNames = (
+  host: string,
+  addresses: readonly string[]
+): ReadonlySet<string> => {
+  const own = WILDCARDS.has(host) ? addresses : [host];
+  return new Set(
+    [...LOOPBACK_ADDRESSES, ...own].flatMap(
+      (name) => hostNameOf(name.includes(":") ? `[${name}]` : name) ?? []
+    )
+  );
+};
+
 /** Resolved once in `bin.ts` from flags and environment; nothing deeper reads `process.env`. */
 export class ServerConfig extends Context.Service<
   ServerConfig,
@@ -43,10 +72,18 @@ export class ServerConfig extends Context.Service<
      */
     readonly briefing: boolean;
     /**
-     * What confining an agent needs to know about this machine: the home directory it keeps
-     * closed, and the `PATH` its toolchain is found on.
+     * What this machine is: the home directory a confined agent is kept out of, the `PATH` its
+     * toolchain is found on, and the names the server answers to.
      */
-    readonly machine: { readonly home: string; readonly path: string };
+    readonly machine: {
+      /**
+       * This machine's network addresses and its name: a server bound to every interface is
+       * reached by any of them, and a request naming anything else is turned away.
+       */
+      readonly addresses: readonly string[];
+      readonly home: string;
+      readonly path: string;
+    };
     /** Directory the server was started from; the first-run setup proposes its repository. */
     readonly cwd: string;
     /**

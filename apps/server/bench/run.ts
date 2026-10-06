@@ -296,7 +296,11 @@ const program = Effect.gen(function* () {
         // Model options are known from discovery, before the first prompt starts a session.
         discovery: true,
         host: "127.0.0.1",
-        machine: { home: homedir(), path: process.env.PATH ?? "" },
+        machine: {
+          addresses: [],
+          home: homedir(),
+          path: process.env.PATH ?? "",
+        },
         mcp: arm === "mcp",
         port,
         storage: { mode: "ephemeral" },

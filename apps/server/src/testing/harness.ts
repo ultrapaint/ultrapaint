@@ -155,7 +155,11 @@ export const makeTestServer = (
             cwd: repo,
             discovery: false,
             host: "127.0.0.1",
-            machine: { home: homedir(), path: process.env.PATH ?? "" },
+            machine: {
+              addresses: [],
+              home: homedir(),
+              path: process.env.PATH ?? "",
+            },
             mcp: true,
             port,
             storage,

@@ -1,4 +1,4 @@
-import { homedir } from "node:os";
+import { homedir, hostname, networkInterfaces } from "node:os";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { Config, Effect, Layer, Option } from "effect";
 import { Command, Flag } from "effect/cli";
@@ -101,6 +101,12 @@ const serve = Command.make(
       discovery: !noDiscovery,
       host,
       machine: {
+        addresses: [
+          ...Object.values(networkInterfaces()).flatMap((nets) =>
+            (nets ?? []).map((net) => net.address)
+          ),
+          hostname(),
+        ],
         // The password database answers when the environment has no HOME.
         home: process.env.HOME || homedir(),
         path: process.env.PATH ?? "",
