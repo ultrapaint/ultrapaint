@@ -535,6 +535,23 @@ const nameOf = (node: unknown): string | null => {
   return null;
 };
 
+/** A style property's value when it is written out: a string, a number, `-16` included. */
+const styleValueOf = (value: AstNode): string | null => {
+  if (value.type === "StringLiteral") {
+    return value.value as string;
+  }
+  if (value.type === "NumericLiteral") {
+    return String(value.value);
+  }
+  const { argument } = value;
+  return value.type === "UnaryExpression" &&
+    value.operator === "-" &&
+    isNode(argument) &&
+    argument.type === "NumericLiteral"
+    ? `-${String(argument.value)}`
+    : null;
+};
+
 /** A JSX `style={{ … }}`: each property with a value written out. */
 const fromStyle = (object: AstNode, out: UsageOccurrence[]) => {
   for (const property of (object.properties as unknown[] | undefined) ?? []) {
@@ -546,12 +563,7 @@ const fromStyle = (object: AstNode, out: UsageOccurrence[]) => {
     if (!(key && isNode(value))) {
       continue;
     }
-    let written: string | null = null;
-    if (value.type === "StringLiteral") {
-      written = value.value as string;
-    } else if (value.type === "NumericLiteral") {
-      written = String(value.value);
-    }
+    const written = styleValueOf(value);
     if (written === null) {
       continue;
     }
@@ -561,7 +573,7 @@ const fromStyle = (object: AstNode, out: UsageOccurrence[]) => {
       use: `style:${key}`,
       value: written,
       ...spanOf(value),
-      ...(value.type === "NumericLiteral" && { numeric: true }),
+      ...(value.type !== "StringLiteral" && { numeric: true }),
     });
   }
 };

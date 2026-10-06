@@ -99,6 +99,33 @@ describe("rewriting a file onto the design system", () => {
     ]);
   });
 
+  it("keeps a negative value negative, in a stylesheet and in a style", () => {
+    const negative = new Map([
+      ...mapping,
+      [mappingKey("spacing", "-16px"), "spacing-4"],
+      [mappingKey("spacing", "16px"), "spacing-4"],
+      [mappingKey("radius", "-6px"), "radius-sm"],
+    ]);
+    const css = `.a {
+  margin-top: -16px;
+  margin: 16px -16px !important;
+}
+`;
+    const sheet = usage.rewrite("src/a.css", css, ctx, negative);
+    expect(sheet.text).toBe(`.a {
+  margin-top: calc(--spacing(4) * -1);
+  margin: --spacing(4) calc(--spacing(4) * -1) !important;
+}
+`);
+    const tsx = `export const A = () => <div style={{ marginTop: -16, marginLeft: "-16px", padding: 16 }} />;
+`;
+    const inline = usage.rewrite("src/a.tsx", tsx, ctx, negative);
+    expect(inline.text).toContain(
+      `style={{ marginTop: "calc(var(--spacing) * -4)", marginLeft: "calc(var(--spacing) * -4)", padding: "calc(var(--spacing) * 4)" }}`
+    );
+    expect(inline.changes).toBe(3);
+  });
+
   it("leaves what is not mechanical to the agent, with what the mapping says", () => {
     const text = `const COLORS = ["#3b82f6"];
 export const A = () => <button onClick={go}>Go</button>;

@@ -198,25 +198,30 @@ const rewriteClass = (
   return `${parts.variants}${bang("before")}${negative ? "-" : ""}${parts.use}-${next}${parts.modifier}${bang("after")}`;
 };
 
-/** A target as CSS: in a stylesheet Tailwind processes, or in an inline style. */
+/**
+ * A target as CSS: in a stylesheet Tailwind processes, or in an inline style. The target is the
+ * token of the value's size, so a negative value, `-16px`, is that token turned around.
+ */
 const cssValue = (
   kind: UsageKind,
   target: string,
-  where: "stylesheet" | "inline"
+  where: "stylesheet" | "inline",
+  negative: boolean
 ): string | null => {
   if (kind === "zIndex") {
+    // A layer's target is the number itself, its sign included.
     return NUMBER_RE.test(target) ? target : null;
   }
   if (kind === "element") {
     return null;
   }
   const step: RegExpExecArray | null = SPACING_STEP_RE.exec(target);
-  if (kind === "spacing" && step) {
-    return where === "stylesheet"
-      ? `--spacing(${step[1]})`
-      : `calc(var(--spacing) * ${step[1]})`;
+  if (kind === "spacing" && step && where === "inline") {
+    return `calc(var(--spacing) * ${negative ? "-" : ""}${step[1]})`;
   }
-  return `var(--${target})`;
+  const css =
+    kind === "spacing" && step ? `--spacing(${step[1]})` : `var(--${target})`;
+  return negative ? `calc(${css} * -1)` : css;
 };
 
 /** Every place `literal` is written in `text` as a value of its own: `4px`, not the end of `14px`. */
@@ -258,13 +263,14 @@ const rewriteDeclared = (
   const declared = use.use.startsWith("css:");
   let next = use.value;
   for (const [value, target] of decided) {
+    // A number in a style object is the whole value.
+    const written = use.numeric ? use.value : value.literal;
     const css = cssValue(
       value.kind,
       target,
-      declared ? "stylesheet" : "inline"
+      declared ? "stylesheet" : "inline",
+      written?.trim().startsWith("-") ?? false
     );
-    // A number in a style object is the whole value.
-    const written = use.numeric ? use.value : value.literal;
     const replaced = css && written ? replaceValue(next, written, css) : next;
     if (replaced === next) {
       return null;
