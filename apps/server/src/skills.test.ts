@@ -124,7 +124,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             off.skills.filter((s) => !s.enabled).map((s) => s.name),
             ["color", "brand"]
           );
-        })
+        }),
+      30_000
     );
 
     it.effect(

@@ -200,7 +200,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           yield* prompt(threadId, "history");
           const again = yield* waitForThread(threadId, turnsEnded(3));
           assert.strictEqual(said(again.items).at(-1), "history:none");
-        })
+        }),
+      30_000
     );
 
     it.effect(

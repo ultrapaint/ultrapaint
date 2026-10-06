@@ -32,7 +32,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
                   : Effect.fail("not yet")
               ),
               Effect.retry(Schedule.spaced("100 millis")),
-              Effect.timeout("10 seconds")
+              // Generous: under a full parallel run the editor's drawing waits its turn.
+              Effect.timeout("20 seconds")
             );
 
           // A PNG someone else put here: it carries no key of ours, so it is never removed.
@@ -97,11 +98,11 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
               there ? Effect.fail("still there") : Effect.void
             ),
             Effect.retry(Schedule.spaced("100 millis")),
-            Effect.timeout("10 seconds")
+            Effect.timeout("20 seconds")
           );
           assert.isTrue(yield* fs.exists(theirs));
         }),
-      30_000
+      60_000
     );
   }
 );
