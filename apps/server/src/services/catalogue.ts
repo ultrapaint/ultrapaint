@@ -1,5 +1,5 @@
 import { Worker } from "node:worker_threads";
-import type { Catalogue } from "@ultrapaint/contracts/catalogue";
+import { Catalogue } from "@ultrapaint/contracts/catalogue";
 import type { ForbiddenPath } from "@ultrapaint/contracts/errors";
 import type { CatalogueContext } from "@ultrapaint/framework-api/node";
 import {
@@ -9,6 +9,7 @@ import {
   FileSystem,
   Layer,
   Path,
+  Schema,
   Semaphore,
 } from "effect";
 import { AppLog } from "../app-log.ts";
@@ -19,6 +20,10 @@ import { RepoPaths } from "./repo-paths.ts";
 import { Storage } from "./storage.ts";
 
 const TRAILING_SLASH_RE = /\/$/;
+
+const decodeCache = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(Catalogue)
+);
 
 /**
  * Runs the compiler pass on a worker thread; interrupting the effect terminates the worker. A
@@ -90,10 +95,9 @@ export class CatalogueService extends Context.Service<
         );
         if (!refresh) {
           // A missing or unreadable cache file only means the catalogue is rebuilt.
-          const stored = yield* fs.readFileString(cacheFile).pipe(
-            Effect.map((text) => JSON.parse(text) as Catalogue),
-            Effect.option
-          );
+          const stored = yield* fs
+            .readFileString(cacheFile)
+            .pipe(Effect.flatMap(decodeCache), Effect.option);
           if (stored._tag === "Some") {
             cached = stored.value;
             return cached;

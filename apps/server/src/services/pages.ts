@@ -434,10 +434,21 @@ export class PagesService extends Context.Service<
         canvas: string
       ) {
         const file = canvasPath(yield* safeCanvasId(canvas));
-        if (!(yield* exists(file))) {
+        const text = yield* fs.readFileString(file).pipe(
+          // A canvas without a canvas.json, or one deleted while it was read, has no layout yet.
+          Effect.catchReason("PlatformError", "NotFound", () =>
+            Effect.succeed(null)
+          ),
+          Effect.mapError(
+            (error) =>
+              new Conflict({
+                message: `${canvas || "the designs root"}'s ${CANVAS_FILE} cannot be read: ${error.message}`,
+              })
+          )
+        );
+        if (text === null) {
           return emptyCanvasLayout();
         }
-        const text = yield* Effect.orDie(fs.readFileString(file));
         const { layout } = yield* parseCanvas(text).pipe(
           Effect.mapError(
             (error) =>
@@ -501,7 +512,7 @@ export class PagesService extends Context.Service<
         }
         // A list that cannot be read orders nothing: the canvases are still all there.
         return yield* Effect.orElseSucceed(
-          Effect.flatMap(Effect.orDie(fs.readFileString(orderPath)), (text) =>
+          Effect.flatMap(fs.readFileString(orderPath), (text) =>
             Effect.map(decodeOrder(text), (file) => file.order)
           ),
           (): readonly string[] => []
@@ -1578,6 +1589,18 @@ export class PagesService extends Context.Service<
         });
       });
 
+      /**
+       * One change handled, whatever happens to it: a file that vanished or cannot be read
+       * mid-way is logged, and the watcher goes on to the next change.
+       */
+      const survive = <A, E>(effect: Effect.Effect<A, E>) =>
+        effect.pipe(
+          Effect.asVoid,
+          Effect.catchCause((cause) =>
+            Effect.logWarning("a change to the designs was not handled", cause)
+          )
+        );
+
       const watched = fs.watch(root, { recursive: true }).pipe(
         Stream.filter(
           (event) =>
@@ -1592,7 +1615,7 @@ export class PagesService extends Context.Service<
         yield* stream.pipe(
           Stream.filter((event) => event._tag !== "Update"),
           Stream.debounce("80 millis"),
-          Stream.runForEach(() => publishList),
+          Stream.runForEach(() => survive(publishList)),
           Effect.ignore({ log: true }),
           Effect.forkScoped
         );
@@ -1602,10 +1625,12 @@ export class PagesService extends Context.Service<
               const abs = path.resolve(root, event.path);
               const name = path.basename(abs);
               if (name === CANVAS_FILE) {
-                return Effect.andThen(onCanvasChanged(abs), onFileChanged(abs));
+                return survive(
+                  Effect.andThen(onCanvasChanged(abs), onFileChanged(abs))
+                );
               }
               if (name === CANVASES_FILE && path.dirname(abs) === root) {
-                return publishList;
+                return survive(publishList);
               }
               const watchedFile =
                 isPageFile(name) ||
@@ -1614,7 +1639,7 @@ export class PagesService extends Context.Service<
                     name === DESIGN_NOTES_FILE)) ||
                 (path.dirname(abs) === path.join(root, SKILLS_DIR) &&
                   name.endsWith(SKILL_EXTENSION));
-              return watchedFile ? onFileChanged(abs) : Effect.void;
+              return watchedFile ? survive(onFileChanged(abs)) : Effect.void;
             },
             { concurrency: "unbounded" }
           ),

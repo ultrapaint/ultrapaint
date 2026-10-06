@@ -7,7 +7,7 @@ import {
 } from "@ultrapaint/contracts/document";
 import {
   BadRequest,
-  type Conflict,
+  Conflict,
   NotFound,
   Stale,
 } from "@ultrapaint/contracts/errors";
@@ -163,9 +163,18 @@ export class DocumentService extends Context.Service<
       ): Effect.fn.Return<Loaded, EditFailure> {
         const rel = yield* fileOf(doc);
         const abs = yield* paths.resolve(rel);
-        const text = (yield* exists(abs))
-          ? yield* Effect.orDie(fs.readFileString(abs))
-          : null;
+        const text = yield* fs.readFileString(abs).pipe(
+          // A document deleted, or deleted while it was read, is one that is not there.
+          Effect.catchReason("PlatformError", "NotFound", () =>
+            Effect.succeed(null)
+          ),
+          Effect.mapError(
+            (error) =>
+              new Conflict({
+                message: `${rel} cannot be read: ${error.message}`,
+              })
+          )
+        );
         const canvas = canvasOfDoc(doc);
         if (text === null) {
           const missing: Loaded = {
@@ -382,10 +391,13 @@ export class DocumentService extends Context.Service<
           if (doc === null) {
             return Effect.void;
           }
-          // A page that is gone is published with no root: the editor drops it.
+          // A page that is gone is published with no root: the editor drops it. Whatever goes
+          // wrong with one file is logged, and the next change is still heard.
           return load(doc).pipe(
             Effect.flatMap((loaded) => publish(stateOf(doc, loaded))),
-            Effect.ignore({ log: true })
+            Effect.catchCause((cause) =>
+              Effect.logWarning(`${file} changed and could not be read`, cause)
+            )
           );
         }),
         Stream.runDrain,

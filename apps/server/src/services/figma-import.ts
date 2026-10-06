@@ -65,7 +65,9 @@ const SUMMARY_NAME = "import.json";
 /** Parsed files kept in memory: a large file takes a while to read. */
 const LOADED_LIMIT = 2;
 
-const decodeImport = Schema.decodeUnknownEffect(FigmaImport);
+const decodeImport = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(FigmaImport)
+);
 const decodePage = Schema.decodeUnknownEffect(
   Schema.Struct({ root: Schema.Unknown, version: Schema.Number })
 );
@@ -185,7 +187,7 @@ export class FigmaImportService extends Context.Service<
       id: string,
       frame: string
     ) => Effect.Effect<FramePreview, ImportFailure>;
-    readonly get: (id: string) => Effect.Effect<FigmaImport, NotFound>;
+    readonly get: (id: string) => Effect.Effect<FigmaImport, ImportFailure>;
     /** The file's variables and styles as tokens named the way the code names them (ADR 0025). */
     readonly tokens: (
       id: string
@@ -244,10 +246,14 @@ export class FigmaImportService extends Context.Service<
             message: `no Figma import ${id}; list_figma_imports has the ones there are`,
           });
         }
-        return yield* Effect.orDie(
-          Effect.flatMap(
-            Effect.try(() => JSON.parse(text.value) as unknown),
-            decodeImport
+        // A summary that does not read is that import's problem alone: the list leaves it out,
+        // and the other imports are still there.
+        return yield* decodeImport(text.value).pipe(
+          Effect.mapError(
+            (error) =>
+              new BadRequest({
+                message: `the summary of Figma import ${id} cannot be read: ${error.message}`,
+              })
           )
         );
       });
@@ -365,7 +371,10 @@ export class FigmaImportService extends Context.Service<
       const remove = Effect.fn("FigmaImportService.delete")(function* (
         id: string
       ) {
-        yield* readSummary(id);
+        // An import whose summary does not read can still be deleted; one not there cannot.
+        yield* readSummary(id).pipe(
+          Effect.catchTag("BadRequest", () => Effect.void)
+        );
         loaded.delete(id);
         yield* Effect.orDie(fs.remove(yield* dirOf(id), { recursive: true }));
       });

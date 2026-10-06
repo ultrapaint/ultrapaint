@@ -25,6 +25,7 @@ import {
   Layer,
   Path,
   PubSub,
+  Schema,
   Semaphore,
   Stream,
 } from "effect";
@@ -51,11 +52,30 @@ import { ProjectStyleSystem } from "./style-system.ts";
 
 const STYLESHEET_RE = /\.css$/;
 
-interface Manifest {
-  dependencies?: Record<string, string>;
-  devDependencies?: Record<string, string>;
-  peerDependencies?: Record<string, string>;
-}
+const Dependencies = Schema.optional(
+  Schema.Record(Schema.String, Schema.Unknown)
+);
+
+/** The parts of a package.json that say whether it renders with React. */
+const decodeManifest = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(
+    Schema.Struct({
+      dependencies: Dependencies,
+      devDependencies: Dependencies,
+      peerDependencies: Dependencies,
+    })
+  )
+);
+
+/**
+ * One change seen, whatever happens to it: a reading that fails or breaks is logged, and the
+ * next change tries again. The loops that call this run for as long as the server does.
+ */
+const survive = <A, E, R>(effect: Effect.Effect<A, E, R>, what: string) =>
+  effect.pipe(
+    Effect.asVoid,
+    Effect.catchCause((cause) => Effect.logWarning(what, cause))
+  );
 
 /** Keyed in order: the baseline is committed, and merges line by line. */
 const sorted = <A>(record: Readonly<Record<string, A>>): Record<string, A> =>
@@ -133,14 +153,14 @@ export class DesignSystemSyncService extends Context.Service<
       /** Whether the package the pages resolve from renders with React. */
       const hasApp = (anchorDir: string) =>
         fs.readFileString(path.join(anchorDir, "package.json")).pipe(
-          Effect.map((text) => {
-            const manifest = JSON.parse(text) as Manifest;
-            return [
+          Effect.flatMap(decodeManifest),
+          Effect.map((manifest) =>
+            [
               manifest.dependencies,
               manifest.devDependencies,
               manifest.peerDependencies,
-            ].some((deps) => deps?.react !== undefined);
-          }),
+            ].some((deps) => deps?.react !== undefined)
+          ),
           // No manifest, or one that does not read: no application to speak of.
           Effect.orElseSucceed(() => false)
         );
@@ -271,7 +291,8 @@ export class DesignSystemSyncService extends Context.Service<
                   Effect.flatMap((state) =>
                     events.publish("designSystem", state)
                   ),
-                  Effect.ignore
+                  (effect) =>
+                    survive(effect, "the design system could not be re-read")
                 );
               yield* PubSub.publish(pokes, undefined);
             })
@@ -281,7 +302,9 @@ export class DesignSystemSyncService extends Context.Service<
       });
       yield* events.subscribe("project").pipe(
         Stream.debounce("200 millis"),
-        Stream.runForEach(() => rewatch),
+        Stream.runForEach(() =>
+          survive(rewatch, "the code's directories could not be watched")
+        ),
         Effect.forkScoped
       );
 
@@ -306,8 +329,10 @@ export class DesignSystemSyncService extends Context.Service<
         Stream.debounce("400 millis"),
         Stream.runForEach(() =>
           plan.pipe(
-            // Nothing open, or a reading that failed: the next change tries again.
-            Effect.ignore
+            // Nothing open is no plan to speak of; a reading that failed is logged, and the
+            // next change tries again.
+            Effect.catchTag("NotConfigured", () => Effect.void),
+            (effect) => survive(effect, "the sync plan could not be worked out")
           )
         ),
         Effect.forkScoped
