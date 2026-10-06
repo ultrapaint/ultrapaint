@@ -32,7 +32,10 @@ const INDENT = "  ";
 const LINE_WIDTH = 80;
 
 const WHITESPACE_RE = /\s+/g;
+/** What JSX text would read as markup or an expression, or would collapse. */
 const JSX_UNSAFE_RE = /[{}<>\n]|^\s|\s$/;
+/** What JSX decodes in text and in a quoted attribute: `&amp;`, `&#169;`. */
+const ENTITY_RE = /&(?:#\d+|#x[\da-f]+|[a-z][a-z\d]*);/i;
 const ATTRIBUTE_NAME_RE = /^[A-Za-z_$][\w$-]*$/;
 const IDENTIFIER_RE = /^[A-Za-z_$][\w$]*$/;
 const WORD_RE = /[A-Za-z0-9]+/g;
@@ -110,9 +113,13 @@ export interface CodeOptions {
 
 /** What writing every node of one call needs. */
 interface Writing {
-  readonly ds: DesignSystem | null | undefined;
+  /** The name each module's default export is imported as, unique in the file. */
+  readonly defaultNames: ReadonlyMap<string, string>;
   readonly hrefOf: (link: string) => string;
   readonly instances: Readonly<Record<string, InstanceDrawn>>;
+  readonly scale: Scale;
+  /** The design system's styles, made once for every node. */
+  readonly styles: Omit<StyleContext, "parent">;
 }
 
 // ---- Values as utilities ----
@@ -280,7 +287,12 @@ const borderClasses = (node: DesignNode): string[] => {
   if (width === undefined || width === 1) {
     out.push("border");
   } else if (typeof width === "number") {
-    out.push(`border-${width}`);
+    // Tailwind has a utility for a whole number of pixels only.
+    out.push(
+      Number.isInteger(width) && width >= 0
+        ? `border-${width}`
+        : arbitrary("border", `${width}px`)
+    );
   } else {
     out.push(
       isToken(width)
@@ -459,22 +471,31 @@ const appearanceClasses = (node: DesignNode): string[] => {
   return out;
 };
 
+/** The utilities a node is written with, the design system's styles and scale made already. */
+const classesWith = (
+  node: DesignNode,
+  styles: Omit<StyleContext, "parent">,
+  scale: Scale,
+  parent: ParentLayout
+): string[] => {
+  const classes = [
+    ...layoutClasses(node, scale),
+    ...boxClasses(node, parent, scale),
+    ...(node.type === "text"
+      ? textClasses(node, { ...styles, parent }, scale)
+      : []),
+    ...appearanceClasses(node),
+  ];
+  return [...new Set(classes)];
+};
+
 /** The utilities a node is written with: layout, size, spacing, type, then appearance. */
 export const classesOf = (
   node: DesignNode,
   ds: DesignSystem | null | undefined,
   parent: ParentLayout = "free"
-): string[] => {
-  const ctx = makeStyleContext(ds, parent);
-  const scale = { step: spacingStep(ds) };
-  const classes = [
-    ...layoutClasses(node, scale),
-    ...boxClasses(node, parent, scale),
-    ...(node.type === "text" ? textClasses(node, ctx, scale) : []),
-    ...appearanceClasses(node),
-  ];
-  return [...new Set(classes)];
-};
+): string[] =>
+  classesWith(node, makeStyleContext(ds), { step: spacingStep(ds) }, parent);
 
 const spacingStep = (ds: DesignSystem | null | undefined) => {
   const step = toPixels(ds?.spacing.base ?? "0.25rem");
@@ -493,20 +514,31 @@ const defaultImportName = (from: string) => {
   return IDENTIFIER_RE.test(name) ? name : `Component${name}`;
 };
 
-const tagOfInstance = (node: InstanceNode) =>
-  node.component === "default" ? defaultImportName(node.from) : node.component;
+const tagOfInstance = (node: InstanceNode, w: Writing) =>
+  node.component === "default"
+    ? (w.defaultNames.get(node.from) ?? defaultImportName(node.from))
+    : node.component;
 
-/** The imports the visible instances under a node need, one statement per module. */
-const importsFor = (root: DesignNode): string[] => {
-  const modules = new Map<string, { named: Set<string>; fallback?: string }>();
+/**
+ * The imports the visible instances under a node need, one statement per module, and the name
+ * each module's default export is imported as: two `…/button` modules are `Button` and `Button2`,
+ * and neither takes the name of a component imported by name.
+ */
+const importsFor = (
+  root: DesignNode
+): { defaultNames: Map<string, string>; lines: string[] } => {
+  const modules = new Map<string, { named: Set<string>; fallback: boolean }>();
   const visit = (node: DesignNode) => {
     if (node.hidden) {
       return;
     }
     if (node.type === "instance") {
-      const entry = modules.get(node.from) ?? { named: new Set<string>() };
+      const entry = modules.get(node.from) ?? {
+        fallback: false,
+        named: new Set<string>(),
+      };
       if (node.component === "default") {
-        entry.fallback = defaultImportName(node.from);
+        entry.fallback = true;
       } else {
         entry.named.add(node.component);
       }
@@ -517,16 +549,30 @@ const importsFor = (root: DesignNode): string[] => {
     }
   };
   visit(root);
-  return [...modules.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([from, { fallback, named }]) => {
-      const names = [...named].sort((a, b) => a.localeCompare(b));
-      const parts = [
-        ...(fallback ? [fallback] : []),
-        ...(names.length > 0 ? [`{ ${names.join(", ")} }`] : []),
-      ];
-      return `import ${parts.join(", ")} from ${JSON.stringify(from)};`;
-    });
+  const sorted = [...modules.entries()].sort(([a], [b]) => a.localeCompare(b));
+  const taken = new Set(sorted.flatMap(([, { named }]) => [...named]));
+  const defaultNames = new Map<string, string>();
+  for (const [from, { fallback }] of sorted) {
+    if (fallback) {
+      const base = defaultImportName(from);
+      let name = base;
+      for (let n = 2; taken.has(name); n += 1) {
+        name = `${base}${n}`;
+      }
+      taken.add(name);
+      defaultNames.set(from, name);
+    }
+  }
+  const lines = sorted.map(([from, { named }]) => {
+    const names = [...named].sort((a, b) => a.localeCompare(b));
+    const fallback = defaultNames.get(from);
+    const parts = [
+      ...(fallback ? [fallback] : []),
+      ...(names.length > 0 ? [`{ ${names.join(", ")} }`] : []),
+    ];
+    return `import ${parts.join(", ")} from ${JSON.stringify(from)};`;
+  });
+  return { defaultNames, lines };
 };
 
 // ---- JSX ----
@@ -550,10 +596,13 @@ const element = (
 
 /** Text as a JSX child: as it is, or as a string expression when JSX would read it otherwise. */
 const jsxText = (text: string) =>
-  JSX_UNSAFE_RE.test(text) ? `{${JSON.stringify(text)}}` : text;
+  JSX_UNSAFE_RE.test(text) || ENTITY_RE.test(text)
+    ? `{${JSON.stringify(text)}}`
+    : text;
 
+/** An attribute's string: quoted, or an expression when JSX would read an entity or a quote. */
 const stringAttribute = (name: string, value: string) =>
-  value.includes('"') || value.includes("\\")
+  value.includes('"') || value.includes("\\") || ENTITY_RE.test(value)
     ? `${name}={${JSON.stringify(value)}}`
     : `${name}="${value}"`;
 
@@ -623,7 +672,7 @@ const linked = (node: DesignNode, w: Writing, child: Child): Child =>
     : child;
 
 const jsxOf = (node: DesignNode, w: Writing, parent: ParentLayout): Child => {
-  const classes = classesOf(node, w.ds, parent);
+  const classes = classesWith(node, w.styles, w.scale, parent);
   switch (node.type) {
     case "text":
       return linked(
@@ -659,7 +708,7 @@ const jsxOf = (node: DesignNode, w: Writing, parent: ParentLayout): Child => {
           w,
           element("div", classAttribute(["flex", "flex-col", ...classes]), [
             element(
-              tagOfInstance(node),
+              tagOfInstance(node, w),
               propAttributes(node.props, []),
               content
             ),
@@ -670,7 +719,7 @@ const jsxOf = (node: DesignNode, w: Writing, parent: ParentLayout): Child => {
         node,
         w,
         element(
-          tagOfInstance(node),
+          tagOfInstance(node, w),
           propAttributes(node.props, classes),
           content
         )
@@ -748,15 +797,19 @@ export const toCode = (
   options: CodeOptions = {}
 ): string => {
   const parent = options.parent ?? "free";
-  const imports = importsFor(node.hidden ? { ...node, hidden: false } : node);
+  const { defaultNames, lines: imports } = importsFor(
+    node.hidden ? { ...node, hidden: false } : node
+  );
   const notes = node.hidden
     ? ["// Hidden in the design: the application leaves it out."]
     : [];
   const asComponent = node.type === "page" && options.component !== undefined;
-  const writing = {
-    ds,
+  const writing: Writing = {
+    defaultNames,
     hrefOf: options.hrefOf ?? ((link: string) => link),
     instances: options.instances ?? {},
+    scale: { step: spacingStep(ds) },
+    styles: makeStyleContext(ds),
   };
   const markup = printChild(jsxOf(node, writing, parent), asComponent ? 2 : 0);
   const body = asComponent

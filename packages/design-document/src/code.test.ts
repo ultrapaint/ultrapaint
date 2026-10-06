@@ -179,6 +179,15 @@ describe("classesOf", () => {
   });
 });
 
+describe("a border's width", () => {
+  it("is Tailwind's utility for whole pixels, and an arbitrary value otherwise", () => {
+    const widths = [1.5, 3].map((width) =>
+      classesOf({ border: { width }, children: [], id: "g", type: "group" }, ds)
+    );
+    expect(widths).toEqual([["border-[1.5px]"], ["border-3"]]);
+  });
+});
+
 describe("toCode", () => {
   const page: PageNode = {
     children: [
@@ -336,6 +345,61 @@ export default function PricingPage() {
 <div className="flex flex-col flex-1 min-h-0">
   <Card size="sm" />
 </div>`);
+  });
+});
+
+describe("toCode's names and text", () => {
+  it("gives two default exports of the same name a name each, and none a named import's", () => {
+    const row: DesignNode = {
+      children: [
+        {
+          component: "default",
+          from: "@acme/ui/button",
+          id: "a",
+          type: "instance",
+        },
+        {
+          component: "default",
+          from: "@beta/ui/button",
+          id: "b",
+          type: "instance",
+        },
+        { component: "Button", from: "@gamma/ui", id: "c", type: "instance" },
+      ],
+      id: "row",
+      type: "row",
+    };
+    expect(toCode(row, ds)).toBe(`import Button2 from "@acme/ui/button";
+import Button3 from "@beta/ui/button";
+import { Button } from "@gamma/ui";
+
+<div className="flex">
+  <Button2 />
+  <Button3 />
+  <Button />
+</div>`);
+  });
+
+  it("writes text JSX would read otherwise as a string", () => {
+    const text = (value: string): DesignNode => ({
+      id: "t",
+      role: "paragraph",
+      text: value,
+      type: "text",
+    });
+    expect(toCode(text("Tom & Jerry"), ds)).toBe("<p>Tom & Jerry</p>");
+    expect(toCode(text("Fish &amp; chips"), ds)).toBe(
+      `<p>{"Fish &amp; chips"}</p>`
+    );
+    expect(toCode(text("a < b"), ds)).toBe(`<p>{"a < b"}</p>`);
+    expect(toCode(text("{x}"), ds)).toBe(`<p>{"{x}"}</p>`);
+    const image: DesignNode = {
+      alt: "R&amp;D",
+      id: "i",
+      src: "/a.png",
+      type: "image",
+    };
+    expect(toCode(image, ds)).toContain(`alt={"R&amp;D"}`);
   });
 });
 
