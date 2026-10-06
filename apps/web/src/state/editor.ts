@@ -192,13 +192,15 @@ interface EditorStore {
 }
 
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
+/** Counts the canvases asked for: only the last one asked for is opened. */
+let opening = 0;
 
 /**
  * Where a canvas opens: the page without a URL it was asked for, as it is, or the page serving
  * the route. A canvas whose route has no page opens on whatever page it does have: one with a
  * URL first, as the prototype can go on from it.
  */
-const landingOf = (
+export const landingOf = (
   all: readonly Page[],
   served: readonly Page[],
   target: string,
@@ -311,7 +313,8 @@ export const allFrames = (): Record<string, Box> => {
   return out;
 };
 
-const computeFrames = (
+/** The pages' frames: where the layout has them, the rest in a row to the right of them. */
+export const computeFrames = (
   pages: readonly Page[],
   layout: CanvasLayout
 ): Record<string, FrameLayout> => {
@@ -431,11 +434,20 @@ export const useEditor = create<EditorStore>((set, get) => ({
 
   openCanvas: async (canvas, at = {}) => {
     const { page, route, variant = null } = at;
+    opening += 1;
+    const asked = opening;
+    // A move still waiting to be saved belongs to the canvas being left: it is saved now, while
+    // the frames are still that canvas's.
+    flushLayout();
     try {
       const snapshot = viewedSnapshot();
       const layout = snapshot
         ? (snapshot.layouts[canvas] ?? { frames: {}, version: 1 as const })
         : await api().request("canvas.get", { canvas });
+      // Another canvas was asked for while this one's layout was on its way.
+      if (asked !== opening) {
+        return;
+      }
       const all = useProject
         .getState()
         .pages.filter((p) => p.canvas === canvas);
