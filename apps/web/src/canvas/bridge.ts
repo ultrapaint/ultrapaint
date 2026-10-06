@@ -54,9 +54,29 @@ export class FrameBridge {
     this.ready = false;
   }
 
-  /** Called by the global message router for messages from this bridge's window. */
-  matches(source: MessageEventSource | null) {
-    return !!this.iframe && this.iframe.contentWindow === source;
+  /**
+   * Where the preview is loaded from, when its address says: messages are taken only from there,
+   * and sent only there.
+   */
+  private origin(): string | null {
+    const src = this.iframe?.src ?? "";
+    if (!URL.canParse(src)) {
+      return null;
+    }
+    const { origin } = new URL(src);
+    return origin === "null" ? null : origin;
+  }
+
+  /**
+   * Whether a message is this bridge's preview speaking: sent by its iframe's window, from the
+   * preview's origin. Any other page in the browser can post to the editor too.
+   */
+  accepts(ev: Pick<MessageEvent, "origin" | "source">) {
+    if (!this.iframe || this.iframe.contentWindow !== ev.source) {
+      return false;
+    }
+    const origin = this.origin();
+    return origin === null || origin === ev.origin;
   }
 
   handle(msg: HostMessage) {
@@ -87,7 +107,7 @@ export class FrameBridge {
   }
 
   send(msg: EditorMessage) {
-    this.iframe?.contentWindow?.postMessage(msg, "*");
+    this.iframe?.contentWindow?.postMessage(msg, this.origin() ?? "*");
   }
 
   private request<T extends HostMessage>(
@@ -227,15 +247,16 @@ export const installBridgeRouter = () => {
     ) {
       return;
     }
-    // Prefer the frame id the runtime stamps on every message; fall back to window identity.
+    // The frame id the runtime stamps on every message finds the bridge at once; the window
+    // it came from is what says the message is that preview's.
     const byFrame =
       typeof data.frame === "string" ? bridges.get(data.frame) : undefined;
-    if (byFrame) {
+    if (byFrame?.accepts(ev)) {
       byFrame.handle(data);
       return;
     }
     for (const b of bridges.values()) {
-      if (b.matches(ev.source)) {
+      if (b.accepts(ev)) {
         b.handle(data);
         return;
       }
