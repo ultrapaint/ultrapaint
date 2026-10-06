@@ -99,7 +99,7 @@ export const bindDocuments = () => {
 };
 
 /** Whether a document is the open canvas's: one of its pages, or its loose nodes. */
-const belongsTo = (doc: string, canvas: string | null) => {
+export const belongsTo = (doc: string, canvas: string | null) => {
   if (canvas === null) {
     return false;
   }

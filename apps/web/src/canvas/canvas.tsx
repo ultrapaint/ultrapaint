@@ -721,7 +721,7 @@ const isTyping = (e: Event) => {
  * neither side goes under `min`. Keeping the ratio (Shift), the side the pointer moved further
  * decides.
  */
-const resizeFrom = (
+export const resizeFrom = (
   box: Box,
   corner: Corner,
   dx: number,
@@ -762,11 +762,11 @@ const roundBox = (b: Box): Box => ({
  * Where a page frame being moved goes: on the grid when it snaps, otherwise against the edges of
  * the frames around it, unless Shift or ⌘/Ctrl is held.
  */
-const placeFrame = (
+export const placeFrame = (
   f: FrameLayout,
   pageId: string,
   onGrid: boolean,
-  e: ReactPointerEvent
+  e: Pick<ReactPointerEvent, "ctrlKey" | "metaKey" | "shiftKey">
 ): FrameLayout => {
   if (onGrid) {
     return { ...f, ...snapPoint(f) };

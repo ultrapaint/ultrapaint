@@ -167,7 +167,7 @@ const draggedIn = (dragged: Dragged, doc: string): string | null => {
 };
 
 /** Where something dropped inside `container` goes: before the first child the pointer is above. */
-const dropInside = (
+export const dropInside = (
   frameId: string,
   container: DesignNode,
   own: Rect,
@@ -209,7 +209,7 @@ const dropInside = (
 };
 
 /** A node on the way down to the pointer, and what a drop there has to know. */
-interface Spot {
+export interface Spot {
   /** The dragged node, which is not a place to drop it. */
   readonly exclude: string | null;
   readonly frame: Box;
@@ -230,7 +230,7 @@ const edgeOf = (node: DesignNode, holds: boolean) => {
 };
 
 /** The drop one node offers: beside it near its edges, else inside it when it holds others. */
-const dropAt = async (
+export const dropAt = async (
   spot: Spot,
   px: number,
   py: number
@@ -470,7 +470,7 @@ const carried = (
 };
 
 /** The edits a drop makes: an insert, a move within one document, or a move between two. */
-const dropEdits = (
+export const dropEdits = (
   drop: Drop,
   node: DesignNode,
   source: string | null,
