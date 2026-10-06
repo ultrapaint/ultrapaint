@@ -1,0 +1,85 @@
+# Run by hand, from the Actions tab on main: raises the version in the root package.json, commits
+# and tags it, and attaches the command's package (`pnpm pack:local`) to a GitHub release, to be
+# installed in any repository with `npm install -g ./ultrapaint-<version>.tgz`.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version to release: raise a part of package.json's, or release it as it is"
+        type: choice
+        options: [patch, minor, major, as-is]
+        default: patch
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Raise the version
+        id: version
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          if [ "$BUMP" != "as-is" ]; then
+            npm version "$BUMP" --no-git-tag-version
+          fi
+          version=$(node -p "require('./package.json').version")
+          if git rev-parse --verify --quiet "refs/tags/v$version" >/dev/null; then
+            echo "::error::v$version is already released; raise the version instead"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Pack
+        run: pnpm pack:local
+
+      - name: Try the package
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          npm install -g "dist/ultrapaint-$VERSION.tgz"
+          test "$(ultrapaint --version)" = "ultrapaint v$VERSION"
+
+      - name: Commit and tag
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet; then
+            git commit -am "chore: release v$VERSION"
+          fi
+          git tag "v$VERSION"
+          git push origin HEAD:main "v$VERSION"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "v$VERSION" "dist/ultrapaint-$VERSION.tgz" \
+            --title "v$VERSION" \
+            --generate-notes \
+            --notes "Install it, then run \`ultrapaint\` in any repository (Node.js 24 or newer):
+
+          \`\`\`bash
+          gh release download v$VERSION --repo ${{ github.repository }} --pattern '*.tgz'
+          npm install -g ./ultrapaint-$VERSION.tgz
+          \`\`\`"

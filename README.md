@@ -13,8 +13,8 @@ and commit like any other file.
 ## Installation
 
 > [!WARNING]
-> There are no packaged releases yet: ultrapaint is installed from this repository. You need
-> [Node.js](https://nodejs.org) 24 or newer, [pnpm](https://pnpm.io/installation) and git.
+> ultrapaint is not on npm yet. It is installed from a release of this repository, or run from
+> a checkout of it. You need [Node.js](https://nodejs.org) 24 or newer.
 >
 > Agents are optional. To use one, install and sign in to it first; ultrapaint uses the login
 > you already have:
@@ -22,7 +22,24 @@ and commit like any other file.
 > - Claude Code: install [Claude Code](https://claude.com/product/claude-code) and run `claude` once to sign in
 > - Codex: install [Codex CLI](https://developers.openai.com/codex/cli) and run `codex login`
 
-### Command line
+### From a release
+
+Each [release](https://github.com/ultrapaint/ultrapaint/releases) carries the command as a
+package, `ultrapaint-<version>.tgz`: the server and the editor already built, nothing to clone.
+The repository is private, so download it with the [GitHub CLI](https://cli.github.com) (or from
+the release page while signed in) and install it globally:
+
+```bash
+gh release download --repo ultrapaint/ultrapaint --pattern '*.tgz'
+npm install -g ./ultrapaint-*.tgz
+```
+
+To update, download the newer release and install it the same way.
+
+### From a checkout
+
+The checkout is the way to run what is on `main` before it is released, and to work on
+ultrapaint itself. You need [pnpm](https://pnpm.io/installation) and git as well.
 
 ```bash
 git clone https://github.com/ultrapaint/ultrapaint.git
@@ -33,8 +50,16 @@ pnpm install:cli
 
 `pnpm install:cli` links the `ultrapaint` command into `~/.local/bin`; make sure that directory
 is on your `PATH`. On Windows, or to skip the link, run `pnpm start` from the checkout instead.
+The first start builds the editor, which takes a few seconds. To update, pull and install again:
+`git pull && pnpm install`.
 
-Then go to the repository you want to design in and start it:
+`pnpm pack:local` makes the package a release carries, from the checkout as it is, in
+`dist/ultrapaint-<version>.tgz`. A release is made by hand: the **Release** workflow in the
+Actions tab raises the version in `package.json`, tags it and attaches the package.
+
+### Starting it
+
+Go to the repository you want to design in and start it:
 
 ```bash
 cd ~/code/your-repo
@@ -42,8 +67,7 @@ ultrapaint
 ```
 
 It serves the editor and its backend on `http://127.0.0.1:4770` and opens it in your browser.
-The first start builds the editor, which takes a few seconds. `ultrapaint --help` has the full
-reference; the flags you are most likely to want:
+`ultrapaint --help` has the full reference; the flags you are most likely to want:
 
 | Flag | What it does |
 |---|---|
@@ -52,9 +76,7 @@ reference; the flags you are most likely to want:
 | `--port <number>` | Listen on another port |
 | `--host <address>` | Listen on this address instead of loopback, to reach the editor from another machine (see below) |
 | `--no-open` | Do not open the browser |
-| `--dev` | Run the checkout's sources with hot reload instead of its build: the server restarts and the editor reloads as the checkout changes. Listens on every interface unless `--host` says otherwise |
-
-To update, pull and install again: `git pull && pnpm install`.
+| `--dev` | From a checkout only: run its sources with hot reload instead of its build. The server restarts and the editor reloads as the checkout changes. Listens on every interface unless `--host` says otherwise |
 
 ### As a devDependency of your project
 
@@ -360,7 +382,7 @@ is given `--config` or `--ephemeral`. Read [`AGENTS.md`](AGENTS.md) before writi
 - `packages/framework-react-vite` — the Node side for React + Vite: the Tailwind v4 theme scan, catalogue extraction, repository detection, the preview server and its component registry.
 - `packages/acp` — the only module that imports the ACP SDK, behind an `AcpAgent` Effect interface; agent launch configs are data.
 - `packages/client-runtime`, `packages/shared` — the editor's RPC connection (reconnects, typed requests, events) and small utilities.
-- `scripts/command.ts` — the `ultrapaint` command of a checkout, with its `--dev` mode; `scripts/cli.ts` is it on the PATH and `scripts/dev-runner.ts` is `pnpm dev`, that mode with development's ports and settings.
+- `scripts/command.ts` — the `ultrapaint` command, run from a checkout (with its `--dev` mode) or bundled into the release package by `scripts/pack.ts`; `scripts/cli.ts` is it on the PATH and `scripts/dev-runner.ts` is `pnpm dev`, that mode with development's ports and settings.
 
 Storage verdict: [`docs/decisions/storage-format.md`](docs/decisions/storage-format.md).
 Spike results: [`docs/feature/spikes/findings.md`](docs/feature/spikes/findings.md).

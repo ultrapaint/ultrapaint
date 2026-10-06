@@ -1,17 +1,22 @@
 /**
- * The `ultrapaint` command of a source checkout: serves the built editor and the backend on
- * one port, from the directory it is run in, and opens the browser. The working directory
- * matters: the server looks for an `ultrapaint.json` from there upwards and proposes the
- * repository around it. Everything the command does not know (`--config`, `--port`,
- * `--help`…) goes to the server as it is.
+ * The `ultrapaint` command: serves the built editor and the backend on one port, from the
+ * directory it is run in, and opens the browser. The working directory matters: the server
+ * looks for an `ultrapaint.json` from there upwards and proposes the repository around it.
+ * Everything the command does not know (`--config`, `--port`, `--help`…) goes to the server as
+ * it is.
  *
- * `--dev` runs the checkout's sources instead of a build: the server under `tsx watch`, which
- * restarts it when a file changes, and the editor under Vite, which reloads it. The browser
- * opens on Vite's port, and Vite proxies the API and the socket to the server. A session
- * started without a configuration is kept in a directory the command owns, so the server's
- * restarts keep it and quitting the command still throws it away. `pnpm dev` in the checkout
- * is this mode with development's ports and settings; a project that links the checkout gets
- * it as `ultrapaint --dev`.
+ * It runs from a source checkout or from the package `pnpm pack:local` makes. In a checkout the
+ * server runs from its sources under tsx, and a fresh checkout builds the editor once. The
+ * package carries this file bundled as `cli.mjs`, with the server's bundle in `server/` and the
+ * editor's build in `web/` next to it, and has no sources to run.
+ *
+ * `--dev`, in a checkout only, runs its sources instead of a build: the server under `tsx
+ * watch`, which restarts it when a file changes, and the editor under Vite, which reloads it.
+ * The browser opens on Vite's port, and Vite proxies the API and the socket to the server. A
+ * session started without a configuration is kept in a directory the command owns, so the
+ * server's restarts keep it and quitting the command still throws it away. `pnpm dev` in the
+ * checkout is this mode with development's ports and settings; a project that links the
+ * checkout gets it as `ultrapaint --dev`.
  *
  * `scripts/cli.ts` is the command on the PATH (`pnpm install:cli`) and in a project's
  * `node_modules/.bin` (`ultrapaint@link:<checkout>`); `scripts/dev-runner.ts` is `pnpm dev`.
@@ -26,32 +31,50 @@ import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { Console, Effect, FileSystem, Schedule, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
-const root = path.resolve(import.meta.dirname, "..");
+/** Whether this is the package's bundled `cli.mjs` rather than a checkout's sources. */
+const packaged = !import.meta.url.endsWith(".ts");
+const root = packaged
+  ? import.meta.dirname
+  : path.resolve(import.meta.dirname, "..");
 const serverDir = path.join(root, "apps", "server");
 const serverBin = path.join(serverDir, "src", "bin.ts");
 // Otherwise tsx reads the tsconfig of the repository the command is run in.
 const serverTsconfig = path.join(serverDir, "tsconfig.json");
 const webDir = path.join(root, "apps", "web");
-const webDist = path.join(webDir, "dist");
+const webDist = packaged ? path.join(root, "web") : path.join(webDir, "dist");
 // The server is TypeScript that imports workspace packages as TypeScript; tsx runs it as it is.
-const tsx = createRequire(path.join(serverDir, "package.json")).resolve(
-  "tsx/cli"
-);
+const tsx = () =>
+  createRequire(path.join(serverDir, "package.json")).resolve("tsx/cli");
 // Vite does not export its bin; its package.json says where it is.
-const vitePackage = createRequire(path.join(webDir, "package.json")).resolve(
-  "vite/package.json"
-);
-const vite = path.join(
-  path.dirname(vitePackage),
-  (JSON.parse(readFileSync(vitePackage, "utf8")) as { bin: { vite: string } })
-    .bin.vite
-);
+const vite = () => {
+  const vitePackage = createRequire(path.join(webDir, "package.json")).resolve(
+    "vite/package.json"
+  );
+  return path.join(
+    path.dirname(vitePackage),
+    (
+      JSON.parse(readFileSync(vitePackage, "utf8")) as {
+        bin: { vite: string };
+      }
+    ).bin.vite
+  );
+};
+/** What starts the server, before its own flags: its bundle, or its sources under tsx. */
+const serverEntry = (): readonly string[] =>
+  packaged
+    ? [path.join(root, "server", "bin.mjs")]
+    : [tsx(), "--tsconfig", serverTsconfig, serverBin];
 
 const DEFAULT_PORT = 4770;
 const INFORMATIONAL = new Set(["--help", "-h", "--version", "-v"]);
 /** Flags of the command itself; the server never sees them. */
 const OWN_FLAGS = new Set(["--dev", "--no-open"]);
-const OWN_HELP = `
+const OWN_HELP = packaged
+  ? `
+FLAGS OF THE COMMAND
+  --no-open            Do not open the browser
+`
+  : `
 FLAGS OF THE COMMAND
   --dev                Run the checkout's sources with hot reload instead of a build,
                        on every interface unless --host says otherwise
@@ -122,7 +145,7 @@ const run = (
 
 /** The editor is served as a built bundle; a fresh checkout builds it once. */
 const ensureEditor = Effect.gen(function* () {
-  if (existsSync(path.join(webDist, "index.html"))) {
+  if (packaged || existsSync(path.join(webDist, "index.html"))) {
     return;
   }
   yield* Console.log("[ultrapaint] building the editor, once…");
@@ -207,18 +230,12 @@ export const main = (args: readonly string[]): void => {
   );
 
   /** The server from its sources, serving the built editor. */
-  const serve = run(
-    process.execPath,
-    [
-      tsx,
-      "--tsconfig",
-      serverTsconfig,
-      serverBin,
-      "--web-dist",
-      webDist,
-      ...serverArgs,
-    ],
-    cwd
+  const serve = Effect.suspend(() =>
+    run(
+      process.execPath,
+      [...serverEntry(), "--web-dist", webDist, ...serverArgs],
+      cwd
+    )
   );
 
   /**
@@ -242,7 +259,7 @@ export const main = (args: readonly string[]): void => {
         run(
           process.execPath,
           [
-            tsx,
+            tsx(),
             "watch",
             "--clear-screen=false",
             "--tsconfig",
@@ -258,7 +275,7 @@ export const main = (args: readonly string[]): void => {
           cwd,
           { name: "server" }
         ),
-        run(process.execPath, [vite], webDir, {
+        run(process.execPath, [vite()], webDir, {
           env: {
             ULTRAPAINT_HOST: host,
             ULTRAPAINT_PORT: String(serverPort),
@@ -277,6 +294,13 @@ export const main = (args: readonly string[]): void => {
       if (serverArgs.includes("--help") || serverArgs.includes("-h")) {
         yield* Console.log(OWN_HELP);
       }
+      return;
+    }
+    if (dev && packaged) {
+      yield* Console.error(
+        "[ultrapaint] --dev runs a checkout's sources, and this package has none"
+      );
+      process.exitCode = 1;
       return;
     }
     yield* Effect.forkScoped(openBrowser);

@@ -1,5 +1,6 @@
 {
   "name": "ultrapaint",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "bin": {
@@ -13,6 +14,7 @@
     "format": "ultracite fix",
     "install:cli": "mkdir -p \"$HOME/.local/bin\" && ln -sf \"$PWD/scripts/cli.ts\" \"$HOME/.local/bin/ultrapaint\" && echo \"ultrapaint -> $HOME/.local/bin/ultrapaint (make sure that directory is on your PATH)\"",
     "lint": "ultracite check",
+    "pack:local": "node --experimental-strip-types scripts/pack.ts",
     "prepare": "effect-tsgo patch --typescript --skip-missing",
     "start": "node scripts/cli.ts",
     "test": "pnpm -r test",

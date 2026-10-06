@@ -2,11 +2,13 @@ import { homedir } from "node:os";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { Config, Effect, Layer, Option } from "effect";
 import { Command, Flag } from "effect/cli";
+import product from "../../../package.json" with { type: "json" };
 import { ServerConfig } from "./config.ts";
 import { ServerLive } from "./server.ts";
 import { resolveStorage } from "./storage-resolve.ts";
 
-const VERSION = "0.1.0";
+/** The release workflow bumps it in the root `package.json`; the bundle carries it. */
+const VERSION = product.version;
 
 const serve = Command.make(
   "ultrapaint",

@@ -7,7 +7,7 @@
     "ultrapaint": "./src/bin.ts"
   },
   "scripts": {
-    "build": "pnpm -F @ultrapaint/framework-react-vite build && esbuild src/bin.ts ../../packages/framework-react-vite/src/catalogue-worker.ts --bundle --platform=node --format=esm --target=node22 --outdir=dist --entry-names=[name] --out-extension:.js=.mjs --external:typescript-api --external:esbuild --external:effect --external:@effect/platform-node && rm -rf dist/preview && cp -R ../../packages/framework-react-vite/dist dist/preview",
+    "build": "pnpm -F @ultrapaint/framework-react-vite build && node --experimental-strip-types scripts/build.ts",
     "dev": "tsx watch --clear-screen=false src/bin.ts",
     "start": "tsx src/bin.ts",
     "test": "vitest run",
