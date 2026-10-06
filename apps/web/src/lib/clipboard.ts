@@ -9,6 +9,7 @@ import { canvasDocOf, nodeLabel } from "@ultrapaint/design-document/tree";
 import { toast } from "sonner";
 import { create } from "zustand";
 import { type Drop, insertAt, placementAt } from "../canvas/drag.ts";
+import { placeOnCanvas } from "../state/canvas-grid.ts";
 import {
   applyEdits,
   docOfFrame,
@@ -160,9 +161,11 @@ export const pasteAt = async (
   if (!drop) {
     return;
   }
+  // On the canvas it lands on the grid when the grid is on; in a page, the page places it.
+  const placed = drop.kind === "canvas" ? placeOnCanvas(at) : at;
   await (nodes.length === 1
-    ? insertAt(drop, first, at)
-    : insertAllAt(drop, nodes, at));
+    ? insertAt(drop, first, placed)
+    : insertAllAt(drop, nodes, placed));
 };
 
 /** A copy event: the selected nodes go onto the clipboard. True when they were taken. */

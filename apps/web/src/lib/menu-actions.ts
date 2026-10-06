@@ -16,6 +16,7 @@ import { sendComment } from "../canvas/send-to-agent.tsx";
 import { confirmDialog } from "../components/dialogs.tsx";
 import { askLinkUrl } from "../components/link-field.tsx";
 import { useAgents } from "../state/agents.ts";
+import { placeOnCanvas, useCanvasGrid } from "../state/canvas-grid.ts";
 import {
   deleteComment,
   pageOfComment,
@@ -219,6 +220,7 @@ export const entriesFor = (target: MenuTarget): Entry[] | null => {
       return canvasEntries({
         canPaste: canPaste(),
         commentsVisible: useComments.getState().visible,
+        gridVisible: useCanvasGrid.getState().visible,
       });
     case "comment": {
       const comment = commentById(target.commentId);
@@ -473,6 +475,7 @@ const runCanvas = (at: Point, id: string) => {
     newPage: () => newPage(),
     paste: () => pasteAt(at),
     toggleComments: () => useComments.getState().toggleVisible(),
+    toggleGrid: () => useCanvasGrid.getState().toggle(),
     "tool:group": () => editor.setMode("group"),
     "tool:text": () => editor.setMode("text"),
     zoom100: () => editor.setView({ zoom: 1 }),
@@ -588,7 +591,7 @@ const insertOnCanvas = (node: DesignNode) => {
   const { x, width, height } = viewportSize();
   const r = el?.getBoundingClientRect() ?? { left: 0, top: 0 };
   const at = canvasPoint(r.left + x + width / 2, r.top + height / 2);
-  return insertAt({ kind: "canvas" }, node, at);
+  return insertAt({ kind: "canvas" }, node, placeOnCanvas(at));
 };
 
 const runComponent = (

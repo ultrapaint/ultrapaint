@@ -33,6 +33,7 @@ import {
 import { IconButton } from "../components/icon-button.tsx";
 import { shortcutLabel } from "../lib/keys.ts";
 import { undoOrRedo, viewportSize, zoomBy } from "../lib/shortcuts.ts";
+import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { useComments } from "../state/comments.ts";
 import { type Mode, useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
@@ -127,6 +128,7 @@ const zoomIn = () => zoomBy(1.25);
 const zoomToFit = () => useEditor.getState().zoomToFit(viewportSize());
 const zoomToSelection = () =>
   useEditor.getState().zoomToSelection(viewportSize());
+const toggleGrid = () => useCanvasGrid.getState().toggle();
 
 const ZoomPresetItem = ({ pct }: { pct: number }) => {
   const onClick = () => zoomBy(pct / 100 / useEditor.getState().view.zoom);
@@ -135,6 +137,7 @@ const ZoomPresetItem = ({ pct }: { pct: number }) => {
 
 const Zoom = () => {
   const zoom = useEditor((s) => s.view.zoom);
+  const grid = useCanvasGrid((s) => s.visible);
   return (
     <div className="flex items-center gap-0.5">
       <IconButton
@@ -174,6 +177,13 @@ const Zoom = () => {
             <DropdownMenuItem onClick={zoomToSelection}>
               Zoom to selection
               <DropdownMenuShortcut>{shortcutLabel("⇧2")}</DropdownMenuShortcut>
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuItem onClick={toggleGrid}>
+              {grid ? "Hide grid" : "Show grid"}
+              <DropdownMenuShortcut>{shortcutLabel("⌘'")}</DropdownMenuShortcut>
             </DropdownMenuItem>
           </DropdownMenuGroup>
         </DropdownMenuContent>

@@ -2,6 +2,7 @@ import { childrenOf } from "@ultrapaint/design-document/tree";
 import { useEffect } from "react";
 import { bridgeFor } from "../canvas/bridge.ts";
 import { openShortcutSheet } from "../components/shortcut-sheet.tsx";
+import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { toggleCommenting, useComments } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
 import { showMenu } from "../state/context-menu.ts";
@@ -212,6 +213,11 @@ const handleZoomKey = (e: KeyboardEvent, s: EditorState, meta: boolean) => {
   if (meta && e.key === "-") {
     e.preventDefault();
     zoomBy(0.8);
+  }
+  // ⌘' (Ctrl+'), as in Figma: by the key's place, a layout may type something else there.
+  if (meta && !e.shiftKey && (e.key === "'" || e.code === "Quote")) {
+    e.preventDefault();
+    useCanvasGrid.getState().toggle();
   }
 };
 

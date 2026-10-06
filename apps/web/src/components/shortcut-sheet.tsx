@@ -71,6 +71,7 @@ const GROUPS: readonly {
       ["⇧0", "Zoom to 100%"],
       ["⌘=", "Zoom in"],
       ["⌘-", "Zoom out"],
+      ["⌘'", "Show or hide the grid; what is moved snaps to it"],
     ],
     title: "View",
   },

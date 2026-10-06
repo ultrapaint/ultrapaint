@@ -56,6 +56,7 @@ import {
 import { hitUnlocked } from "./hit-test.ts";
 import { PageToolbar } from "./page-toolbar.tsx";
 import { SelectionTag } from "./selection-tag.tsx";
+import { holdsFree } from "./snap.ts";
 
 const formatHostError = (error: HostError) => {
   if (!error.file) {
@@ -451,7 +452,7 @@ export const Frame = memo(
       y: number;
       /** Where it began in the frame, for a marquee. */
       at: { x: number; y: number };
-      last: { x: number; y: number; alt: boolean };
+      last: { x: number; y: number; alt: boolean; free: boolean };
       target: Promise<Dragged | null>;
     } | null>(null);
     /**
@@ -477,7 +478,7 @@ export const Frame = memo(
       const { x, y } = toFrame(e);
       press.current = {
         at: { x, y },
-        last: { alt: e.altKey, x: e.clientX, y: e.clientY },
+        last: { alt: e.altKey, free: holdsFree(e), x: e.clientX, y: e.clientY },
         target: dragTarget(x, y, e.altKey),
         x: e.clientX,
         y: e.clientY,
@@ -491,7 +492,12 @@ export const Frame = memo(
         onMove(e);
         return;
       }
-      p.last = { alt: e.altKey, x: e.clientX, y: e.clientY };
+      p.last = {
+        alt: e.altKey,
+        free: holdsFree(e),
+        x: e.clientX,
+        y: e.clientY,
+      };
       const from = marqueeFrom.current;
       if (from) {
         const to = toFrame(e);
@@ -504,7 +510,7 @@ export const Frame = memo(
         return;
       }
       if (dragging.current) {
-        moveDrag(e.clientX, e.clientY, e.altKey);
+        moveDrag(e.clientX, e.clientY, e.altKey, holdsFree(e));
         return;
       }
       if (Math.hypot(e.clientX - p.x, e.clientY - p.y) < DRAG_THRESHOLD) {
@@ -537,8 +543,8 @@ export const Frame = memo(
         if (id && useEditor.getState().selection?.nodeId !== id) {
           select(id);
         }
-        beginDrag(target, p.x, p.y, p.last.alt);
-        moveDrag(p.last.x, p.last.y, p.last.alt);
+        beginDrag(target, p.x, p.y, p.last.alt, p.last.free);
+        moveDrag(p.last.x, p.last.y, p.last.alt, p.last.free);
       });
     };
     const onPointerUp = () => {

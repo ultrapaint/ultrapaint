@@ -4,6 +4,7 @@
  */
 
 import { canvasDocOf } from "@ultrapaint/design-document/tree";
+import { placeOnCanvas } from "../state/canvas-grid.ts";
 import { api } from "../state/connection.ts";
 import { applyOps } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
@@ -73,8 +74,8 @@ export const addImages = async (
               src,
               type: "image",
               width,
-              x: Math.round(x),
-              y: Math.round(at.y),
+              // On the grid when it is on, the next image too.
+              ...placeOnCanvas({ x, y: at.y }),
             },
             op: "insert",
             parent: null,

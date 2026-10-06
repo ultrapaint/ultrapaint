@@ -6,7 +6,8 @@
  * say what is a container and which way it lays out its children, so the answer is read off
  * them, and only the rectangles are asked of the preview.
  *
- * Alt copies instead of moving, as it does in every design tool.
+ * Alt copies instead of moving, as it does in every design tool. With the grid on, what lands on
+ * the canvas lands on the grid, unless ⌘/Ctrl is held.
  */
 import type { DesignNode, DocumentEdit } from "@ultrapaint/contracts/document";
 import type { Rect } from "@ultrapaint/contracts/preview";
@@ -18,6 +19,7 @@ import {
   findPath,
 } from "@ultrapaint/design-document/tree";
 import { create } from "zustand";
+import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { holdsChildren } from "../state/catalogue.ts";
 import {
   applyEdits,
@@ -30,6 +32,7 @@ import {
 } from "../state/documents.ts";
 import { allFrames, holdUntil, useEditor } from "../state/editor.ts";
 import { bridgeFor } from "./bridge.ts";
+import { snapPoint } from "./snap.ts";
 
 /** Type of the data an Assets entry's drag carries: the node it inserts, as JSON. */
 export const ASSET_MIME = "application/ultrapaint-node";
@@ -70,6 +73,8 @@ interface DragStore {
   copy: boolean;
   dragged: Dragged | null;
   drop: Drop | null;
+  /** ⌘/Ctrl is held: it lands where it is let go, off the grid. */
+  free: boolean;
   /** Where the pointer holds what it drags, from that thing's top left corner. */
   grab: { x: number; y: number };
   /** Pointer position on the canvas. */
@@ -80,9 +85,24 @@ export const useDrag = create<DragStore>(() => ({
   copy: false,
   dragged: null,
   drop: null,
+  free: false,
   grab: { x: 0, y: 0 },
   pointer: { x: 0, y: 0 },
 }));
+
+/**
+ * Where what is dragged would land on the canvas: its top left corner, on the grid when it
+ * snaps. `grid` is passed by a component that redraws when the grid is switched.
+ */
+export const landingPoint = (
+  pointer: { x: number; y: number },
+  grab: { x: number; y: number },
+  free: boolean,
+  grid = useCanvasGrid.getState().visible
+) => {
+  const at = { x: pointer.x - grab.x, y: pointer.y - grab.y };
+  return grid && !free ? snapPoint(at) : round(at);
+};
 
 // ---- Geometry ----
 
@@ -298,14 +318,20 @@ const placementIn = async (
 // ---- The drag itself ----
 
 let pending = false;
-let queued: { clientX: number; clientY: number; alt: boolean } | null = null;
+let queued: {
+  clientX: number;
+  clientY: number;
+  alt: boolean;
+  free: boolean;
+} | null = null;
 
 /** Starts a drag. What is dragged keeps its place until the drop. */
 export const beginDrag = (
   dragged: Dragged,
   clientX: number,
   clientY: number,
-  alt: boolean
+  alt: boolean,
+  free = false
 ) => {
   const p = canvasPoint(clientX, clientY);
   let grab = { x: 0, y: 0 };
@@ -321,20 +347,25 @@ export const beginDrag = (
   } else if (dragged.kind === "loose") {
     grab = { x: p.x - dragged.origin.x, y: p.y - dragged.origin.y };
   }
-  useDrag.setState({ copy: alt, dragged, drop: null, grab, pointer: p });
+  useDrag.setState({ copy: alt, dragged, drop: null, free, grab, pointer: p });
   useEditor.getState().setHover(null);
 };
 
 /** Follows the pointer. Lookups in the preview are asynchronous; only the latest one counts. */
-export const moveDrag = (clientX: number, clientY: number, alt: boolean) => {
+export const moveDrag = (
+  clientX: number,
+  clientY: number,
+  alt: boolean,
+  free = false
+) => {
   const { dragged } = useDrag.getState();
   if (!dragged) {
     return;
   }
   const p = canvasPoint(clientX, clientY);
-  useDrag.setState({ copy: alt, pointer: p });
+  useDrag.setState({ copy: alt, free, pointer: p });
   if (pending) {
-    queued = { alt, clientX, clientY };
+    queued = { alt, clientX, clientY, free };
     return;
   }
   pending = true;
@@ -350,7 +381,7 @@ export const moveDrag = (clientX: number, clientY: number, alt: boolean) => {
       const next = queued;
       queued = null;
       if (next) {
-        moveDrag(next.clientX, next.clientY, next.alt);
+        moveDrag(next.clientX, next.clientY, next.alt, next.free);
       }
     });
 };
@@ -482,8 +513,8 @@ const dropEdits = (
 
 /** Carries the drop out. `created` is the node an Assets drag inserts. */
 export const endDrag = async (created?: DesignNode) => {
-  const { copy, dragged, drop, grab, pointer } = useDrag.getState();
-  const at = round({ x: pointer.x - grab.x, y: pointer.y - grab.y });
+  const { copy, dragged, drop, free, grab, pointer } = useDrag.getState();
+  const at = landingPoint(pointer, grab, free);
   const land = () => carryOut(dragged, drop, at, copy, created);
   // A node on the canvas that moves is held where it was let go before the drag lets go of it:
   // drawn from its document alone, it would jump back until the server answers.

@@ -294,10 +294,26 @@ describe("the canvas menu", () => {
   it("names the comments toggle after what it does", () => {
     expect(
       find(
-        canvasEntries({ canPaste: true, commentsVisible: true }),
+        canvasEntries({
+          canPaste: true,
+          commentsVisible: true,
+          gridVisible: false,
+        }),
         "toggleComments"
       )
     ).toMatchObject({ label: "Hide comments" });
+  });
+
+  it("names the grid toggle after what it does", () => {
+    const entries = (gridVisible: boolean) =>
+      canvasEntries({ canPaste: true, commentsVisible: true, gridVisible });
+    expect(find(entries(false), "toggleGrid")).toMatchObject({
+      label: "Show grid",
+      shortcut: "⌘'",
+    });
+    expect(find(entries(true), "toggleGrid")).toMatchObject({
+      label: "Hide grid",
+    });
   });
 });
 

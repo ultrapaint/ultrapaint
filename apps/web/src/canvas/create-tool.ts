@@ -9,6 +9,7 @@ import type { DesignNode } from "@ultrapaint/contracts/document";
 import { newPrimitive } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { create } from "zustand";
+import { placeOnCanvas } from "../state/canvas-grid.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useEditor } from "../state/editor.ts";
 import { bridgeFor, type FrameBridge } from "./bridge.ts";
@@ -81,16 +82,19 @@ export const hoverCreate = (clientX: number, clientY: number) => {
   }
 };
 
-export const beginCreate = (clientX: number, clientY: number) => {
-  const p = canvasPoint(clientX, clientY);
+/** With the grid on, both corners of what is drawn go on it, unless `free` (⌘/Ctrl) is held. */
+export const beginCreate = (clientX: number, clientY: number, free = false) => {
+  const p = placeOnCanvas(canvasPoint(clientX, clientY), free);
   useCreate.setState({ from: p, to: p });
   queued = null;
   followDrop(p);
 };
 
-export const moveCreate = (clientX: number, clientY: number) => {
+export const moveCreate = (clientX: number, clientY: number, free = false) => {
   if (useCreate.getState().from) {
-    useCreate.setState({ to: canvasPoint(clientX, clientY) });
+    useCreate.setState({
+      to: placeOnCanvas(canvasPoint(clientX, clientY), free),
+    });
   }
 };
 

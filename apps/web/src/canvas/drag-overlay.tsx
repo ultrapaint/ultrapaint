@@ -1,9 +1,10 @@
 import type { Rect } from "@ultrapaint/contracts/preview";
 import { nodeLabel } from "@ultrapaint/design-document/tree";
 import type { ReactNode } from "react";
+import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { useEditor } from "../state/editor.ts";
 import { boxOf, isCreateTool, useCreate } from "./create-tool.ts";
-import { useDrag } from "./drag.ts";
+import { landingPoint, useDrag } from "./drag.ts";
 
 const BRAND = "var(--selection)";
 
@@ -25,10 +26,17 @@ export const DragOverlay = ({ zoom }: { zoom: number }) => {
   const pointer = useDrag((s) => s.pointer);
   const grab = useDrag((s) => s.grab);
   const copy = useDrag((s) => s.copy);
+  const free = useDrag((s) => s.free);
+  const grid = useCanvasGrid((s) => s.visible);
   if (!dragged) {
     return null;
   }
   const inv = 1 / zoom;
+  // Dropped on the canvas, it lands on the grid; into a page, the page lays it out.
+  const at =
+    drop?.kind === "canvas"
+      ? landingPoint(pointer, grab, free, grid)
+      : { x: pointer.x - grab.x, y: pointer.y - grab.y };
   let label: string | null = copy ? "Copy" : null;
   if (drop?.kind === "canvas") {
     label =
@@ -49,9 +57,9 @@ export const DragOverlay = ({ zoom }: { zoom: number }) => {
           style={{
             background: "color-mix(in srgb, var(--selection) 8%, transparent)",
             height: dragged.rect.height,
-            left: pointer.x - grab.x,
+            left: at.x,
             outline: `${1.5 * inv}px dashed ${BRAND}`,
-            top: pointer.y - grab.y,
+            top: at.y,
             width: dragged.rect.width,
           }}
         >

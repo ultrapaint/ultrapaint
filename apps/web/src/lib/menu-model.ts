@@ -312,6 +312,7 @@ export const canvasListEntries = (f: CanvasEntryFacts): Entry[] =>
 export interface CanvasFacts {
   canPaste: boolean;
   commentsVisible: boolean;
+  gridVisible: boolean;
 }
 
 export const canvasEntries = (f: CanvasFacts): Entry[] =>
@@ -329,6 +330,9 @@ export const canvasEntries = (f: CanvasFacts): Entry[] =>
       f.commentsVisible ? "Hide comments" : "Show comments",
       { shortcut: "⇧C" }
     ),
+    item("toggleGrid", f.gridVisible ? "Hide grid" : "Show grid", {
+      shortcut: "⌘'",
+    }),
     item("tool:text", "Text tool", { shortcut: "T" }),
     item("tool:group", "Group tool", { shortcut: "G" }),
   ]);

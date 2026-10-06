@@ -187,6 +187,8 @@ input[type="number"]::-webkit-inner-spin-button {
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
+  --color-canvas: var(--canvas);
+  --color-canvas-grid: var(--canvas-grid);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -231,6 +233,10 @@ input[type="number"]::-webkit-inner-spin-button {
   --agent-foreground: #ffffff;
   --success: oklch(0.6 0.16 150);
   --warning: oklch(0.62 0.15 70);
+  /* The canvas: a step off the pages, most of them white, and off the panels. Its grid is drawn
+     in lines of this colour, faded with the zoom. */
+  --canvas: oklch(0.965 0.001 286);
+  --canvas-grid: oklch(0.141 0.005 285.823 / 9%);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.141 0.005 285.823);
   --sidebar-primary: oklch(0.21 0.006 285.885);
@@ -246,6 +252,8 @@ input[type="number"]::-webkit-inner-spin-button {
   --brand-foreground: oklch(0.985 0 0);
   --success: oklch(0.7 0.16 150);
   --warning: oklch(0.8 0.15 80);
+  --canvas: oklch(0.17 0.005 286);
+  --canvas-grid: oklch(1 0 0 / 7%);
   --background: oklch(0.141 0.005 285.823);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.21 0.006 285.885);

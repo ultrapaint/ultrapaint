@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { snapsToGrid, useCanvasGrid } from "../state/canvas-grid.ts";
 import { useComments } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
 import { openMenuAt } from "../state/context-menu.ts";
@@ -46,14 +47,17 @@ import {
   cancelDrag,
   canvasPoint,
   endDrag,
+  landingPoint,
   moveDrag,
   useDrag,
 } from "./drag.ts";
 import { CreateOverlay, DragOverlay } from "./drag-overlay.tsx";
 import { EmptyState } from "./empty-state.tsx";
 import { type Corner, drawResized, Frame, useHostUrl } from "./frame.tsx";
+import { gridBackground } from "./grid.ts";
 import { isFrameLocked } from "./hit-test.ts";
 import { addImages, imageFiles } from "./items.ts";
+import { holdsFree, snapBox, snapPoint, snapToEdges } from "./snap.ts";
 
 const clampZoom = (z: number) => Math.min(4, Math.max(0.05, z));
 
@@ -73,6 +77,8 @@ export const Canvas = () => {
   const dragged = useDrag((s) => s.dragged);
   const pointer = useDrag((s) => s.pointer);
   const grab = useDrag((s) => s.grab);
+  const free = useDrag((s) => s.free);
+  const grid = useCanvasGrid((s) => s.visible);
   const hostUrl = useHostUrl();
   const [size, setSize] = useState({ height: 0, width: 0 });
   const [panning, setPanning] = useState(false);
@@ -207,7 +213,7 @@ export const Canvas = () => {
         if (!useDrag.getState().dragged) {
           beginDrag({ kind: "new", name: "" }, e.clientX, e.clientY, false);
         }
-        moveDrag(e.clientX, e.clientY, false);
+        moveDrag(e.clientX, e.clientY, false, holdsFree(e));
       }
     };
     const onDragLeave = (e: DragEvent) => {
@@ -303,7 +309,7 @@ export const Canvas = () => {
       if (!ensureEditable()) {
         return;
       }
-      beginCreate(e.clientX, e.clientY);
+      beginCreate(e.clientX, e.clientY, holdsFree(e));
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
       return;
     }
@@ -362,10 +368,11 @@ export const Canvas = () => {
           },
           e.clientX,
           e.clientY,
-          e.altKey
+          e.altKey,
+          holdsFree(e)
         );
         const move = (ev: PointerEvent) =>
-          moveDrag(ev.clientX, ev.clientY, ev.altKey);
+          moveDrag(ev.clientX, ev.clientY, ev.altKey, holdsFree(ev));
         const up = () => {
           window.removeEventListener("pointermove", move);
           window.removeEventListener("pointerup", up);
@@ -408,7 +415,7 @@ export const Canvas = () => {
     const d = drag.current;
     if (!d) {
       if (isCreateTool(mode) && !spacePan) {
-        moveCreate(e.clientX, e.clientY);
+        moveCreate(e.clientX, e.clientY, holdsFree(e));
         hoverCreate(e.clientX, e.clientY);
       }
       return;
@@ -417,13 +424,18 @@ export const Canvas = () => {
     const { zoom } = s.view;
     const dx = (e.clientX - d.startX) / zoom;
     const dy = (e.clientY - d.startY) / zoom;
+    // With the grid on, what is moved or resized snaps to it unless ⌘/Ctrl is held.
+    const onGrid = snapsToGrid(holdsFree(e));
     if (d.kind === "pan") {
       s.setView({
         x: d.vx + (e.clientX - d.startX),
         y: d.vy + (e.clientY - d.startY),
       });
     } else if (d.kind === "resize-node") {
-      const next = roundBox(resizeFrom(d.box, d.corner, dx, dy, 8, e.shiftKey));
+      const resized = resizeFrom(d.box, d.corner, dx, dy, 8, e.shiftKey);
+      const next = roundBox(
+        onGrid ? snapBox(resized, d.box, d.corner, 8, e.shiftKey) : resized
+      );
       s.setSize(nodeFrameOf(d.nodeId), {
         height: next.height,
         width: next.width,
@@ -436,22 +448,17 @@ export const Canvas = () => {
         width: next.width,
       });
     } else if (d.kind === "move") {
-      const others = Object.entries(s.frames)
-        .filter(([id]) => id !== d.pageId)
-        .map(([, f]) => f);
-      const snapped = snap(
-        { ...d.frame, x: d.frame.x + dx, y: d.frame.y + dy },
-        others,
-        8 / zoom,
-        e.shiftKey
-      );
-      s.setFrame(d.pageId, snapped, false);
+      const moved = { ...d.frame, x: d.frame.x + dx, y: d.frame.y + dy };
+      s.setFrame(d.pageId, placeFrame(moved, d.pageId, onGrid, e), false);
     } else {
+      const resized = resizeFrom(d.frame, d.corner, dx, dy, 120, e.shiftKey);
       s.setFrame(
         d.pageId,
         {
           ...d.frame,
-          ...resizeFrom(d.frame, d.corner, dx, dy, 120, e.shiftKey),
+          ...(onGrid
+            ? snapBox(resized, d.frame, d.corner, 120, e.shiftKey)
+            : resized),
           preset: "custom",
         },
         false
@@ -551,7 +558,7 @@ export const Canvas = () => {
     // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: the canvas is the pointer's; its menu is on the context menu key too.
     <div
       className={cn(
-        "relative h-full w-full overflow-hidden bg-background",
+        "relative h-full w-full overflow-hidden bg-canvas",
         // Frame chrome sets its own cursors; while panning the hand wins everywhere.
         (spacePan || mode === "pan") && "cursor-grab [&_*]:cursor-grab!",
         !spacePan &&
@@ -568,12 +575,7 @@ export const Canvas = () => {
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       ref={ref}
-      style={{
-        backgroundImage:
-          "radial-gradient(circle, var(--border) 1px, transparent 1px)",
-        backgroundPosition: `${view.x}px ${view.y}px`,
-        backgroundSize: `${Math.max(12, 24 * view.zoom)}px ${Math.max(12, 24 * view.zoom)}px`,
-      }}
+      style={grid ? gridBackground(view) : undefined}
     >
       <div
         className="absolute top-0 left-0"
@@ -605,7 +607,7 @@ export const Canvas = () => {
           const frameId = nodeFrameOf(node.id);
           const moving =
             dragged?.kind === "loose" && dragged.frame === frameId
-              ? { x: pointer.x - grab.x, y: pointer.y - grab.y }
+              ? landingPoint(pointer, grab, free, grid)
               : null;
           const box = {
             ...nodeFrameLayout(node, sizes[frameId]),
@@ -683,37 +685,25 @@ const roundBox = (b: Box): Box => ({
   y: Math.round(b.y),
 });
 
-const snap = (
+/**
+ * Where a page frame being moved goes: on the grid when it snaps, otherwise against the edges of
+ * the frames around it, unless Shift or ⌘/Ctrl is held.
+ */
+const placeFrame = (
   f: FrameLayout,
-  others: FrameLayout[],
-  threshold: number,
-  disabled: boolean
+  pageId: string,
+  onGrid: boolean,
+  e: ReactPointerEvent
 ): FrameLayout => {
-  if (disabled) {
+  if (onGrid) {
+    return { ...f, ...snapPoint(f) };
+  }
+  if (e.shiftKey || holdsFree(e)) {
     return f;
   }
-  let { x, y } = f;
-  const xs = others.flatMap((o) => [
-    o.x,
-    o.x + o.width,
-    o.x - f.width,
-    o.x + o.width - f.width,
-  ]);
-  const ys = others.flatMap((o) => [
-    o.y,
-    o.y + o.height,
-    o.y - f.height,
-    o.y + o.height - f.height,
-  ]);
-  for (const c of xs) {
-    if (Math.abs(c - x) < threshold) {
-      x = c;
-    }
-  }
-  for (const c of ys) {
-    if (Math.abs(c - y) < threshold) {
-      y = c;
-    }
-  }
-  return { ...f, x, y };
+  const s = useEditor.getState();
+  const others = Object.entries(s.frames)
+    .filter(([id]) => id !== pageId)
+    .map(([, o]) => o);
+  return snapToEdges(f, others, 8 / s.view.zoom);
 };
