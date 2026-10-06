@@ -1,5 +1,7 @@
 import {
   type AgentConfig,
+  type AgentEdited,
+  type AgentFocus,
   summarise,
   type Thread,
   type ThreadItem,
@@ -77,17 +79,81 @@ const writeSeen = (seen: Record<string, number>) => {
 export const isUnread = (thread: Thread, seen: Record<string, number>) =>
   thread.updatedAt > (seen[thread.id] ?? thread.createdAt);
 
-/** The thread with its summary brought up to date from the items the editor holds. */
-const summarised = (
+/**
+ * The threads with one's summary brought up to date from the items the editor holds. The same
+ * list, and the same thread, while the summary stays what it was: an agent streaming its answer
+ * updates an item many times a second, and everything showing the thread would redraw each time.
+ */
+export const summarised = (
   threads: readonly Thread[],
   threadId: string,
   items: readonly ThreadItem[]
-) =>
-  threads.map((t) =>
-    t.id === threadId && items.length > 0
-      ? { ...t, summary: summarise(items) }
-      : t
+): readonly Thread[] => {
+  const at = threads.findIndex((t) => t.id === threadId);
+  const thread = threads[at];
+  if (!thread || items.length === 0) {
+    return threads;
+  }
+  const summary = summarise(items);
+  if (
+    thread.summary?.text === summary.text &&
+    thread.summary.waiting === summary.waiting
+  ) {
+    return threads;
+  }
+  return threads.with(at, { ...thread, summary });
+};
+
+/**
+ * An agent's work once it says what it is about to change: added to what it is already doing on
+ * the same document, or begun afresh on another.
+ */
+export const focusedWork = (
+  before: AgentWork | undefined,
+  ev: AgentFocus & { readonly nodeIds: readonly string[] }
+): AgentWork => {
+  const same = before?.doc === ev.pageId && !before.done;
+  return {
+    doc: ev.pageId,
+    done: false,
+    intent: ev.nodeIds,
+    nodeIds: [...new Set([...(same ? before.nodeIds : []), ...ev.nodeIds])],
+    ...(ev.action === undefined ? {} : { action: ev.action }),
+  };
+};
+
+/**
+ * An agent's work once it changed nodes: what it announced and has now changed is no longer a
+ * skeleton, and what it said it is doing stays said.
+ */
+export const editedWork = (
+  before: AgentWork | undefined,
+  ev: AgentEdited
+): AgentWork => {
+  const same = before?.doc === ev.doc && !before.done;
+  const action = same ? before.action : ev.label;
+  return {
+    doc: ev.doc,
+    done: false,
+    intent: same ? before.intent.filter((id) => !ev.nodeIds.includes(id)) : [],
+    nodeIds: [...new Set([...(same ? before.nodeIds : []), ...ev.nodeIds])],
+    ...(action === undefined ? {} : { action }),
+  };
+};
+
+/** Everything kept of a thread that is gone: its transcript, its terminals, its work. */
+const withoutThread = (s: AgentsStore, threadId: string) => {
+  const { [threadId]: _items, ...items } = s.items;
+  const { [threadId]: _work, ...working } = s.working;
+  const { [threadId]: _focus, ...focused } = s.focused;
+  const prefix = terminalKey(threadId, "");
+  const terminals = Object.fromEntries(
+    Object.entries(s.terminals).filter(([key]) => !key.startsWith(prefix))
   );
+  clearTimeout(doneTimers.get(threadId));
+  doneTimers.delete(threadId);
+  return { focused, items, terminals, working };
+};
 
 /** What a terminal's tail is worth keeping in memory while it runs. */
 const TERMINAL_TAIL = 8000;
@@ -109,42 +175,21 @@ export const useAgents = create<AgentsStore>((set, get) => ({
     api().on("agent.focus", (ev) => {
       set((s) => {
         const focused = { ...s.focused, [ev.threadId]: ev.pageId };
-        if (!ev.nodeIds?.length) {
+        const { nodeIds } = ev;
+        if (!nodeIds?.length) {
           return { focused };
         }
-        const before = s.working[ev.threadId];
-        const same = before?.doc === ev.pageId && !before.done;
-        const work: AgentWork = {
-          doc: ev.pageId,
-          done: false,
-          intent: ev.nodeIds,
-          nodeIds: [
-            ...new Set([...(same ? before.nodeIds : []), ...ev.nodeIds]),
-          ],
-          ...(ev.action === undefined ? {} : { action: ev.action }),
-        };
+        const work = focusedWork(s.working[ev.threadId], { ...ev, nodeIds });
         return { focused, working: { ...s.working, [ev.threadId]: work } };
       });
     });
     api().on("agent.edited", (ev) => {
-      set((s) => {
-        const before = s.working[ev.threadId];
-        const same = before?.doc === ev.doc && !before.done;
-        const action = same ? before.action : ev.label;
-        const work: AgentWork = {
-          doc: ev.doc,
-          done: false,
-          // What it announced and has now changed is no longer a skeleton.
-          intent: same
-            ? before.intent.filter((id) => !ev.nodeIds.includes(id))
-            : [],
-          nodeIds: [
-            ...new Set([...(same ? before.nodeIds : []), ...ev.nodeIds]),
-          ],
-          ...(action === undefined ? {} : { action }),
-        };
-        return { working: { ...s.working, [ev.threadId]: work } };
-      });
+      set((s) => ({
+        working: {
+          ...s.working,
+          [ev.threadId]: editedWork(s.working[ev.threadId], ev),
+        },
+      }));
     });
     api().on("agent.terminal", (ev) => {
       const key = terminalKey(ev.threadId, ev.terminalId);
@@ -204,13 +249,12 @@ export const useAgents = create<AgentsStore>((set, get) => ({
         });
       } else if (ev.type === "removed") {
         set((s) => {
-          const { [ev.threadId]: _gone, ...items } = s.items;
           const threads = s.threads.filter((t) => t.id !== ev.threadId);
           const gone = s.current === ev.threadId;
           return {
+            ...withoutThread(s, ev.threadId),
             current: gone ? null : s.current,
             following: s.following === ev.threadId ? null : s.following,
-            items,
             threads,
             view: gone ? ("list" as const) : s.view,
           };
@@ -280,7 +324,7 @@ export const useAgents = create<AgentsStore>((set, get) => ({
 }));
 
 /** Marks a thread's work done, and takes it off the canvas a moment later. */
-const finishWork = (threadId: string) => {
+export const finishWork = (threadId: string) => {
   queueMicrotask(() => {
     useAgents.setState((s) => {
       const work = s.working[threadId];
