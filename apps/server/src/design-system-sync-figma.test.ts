@@ -193,7 +193,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           );
           assert.deepStrictEqual(
             matches.map(([variable]) => [variable, names.get(variable)]),
-            matches
+            matches.map(([variable, to]) => [variable, to])
           );
         }),
       30_000
