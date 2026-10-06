@@ -54,7 +54,7 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          npm install -g "dist/ultrapaint-$VERSION.tgz"
+          npm install -g "./dist/ultrapaint-$VERSION.tgz"
           test "$(ultrapaint --version)" = "ultrapaint v$VERSION"
 
       - name: Commit and tag
