@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,6 +21,12 @@ export interface PreviewBundles {
   readonly serve: string;
 }
 
+/**
+ * Every source file the last build read, as esbuild reported them, relative to this directory.
+ * Kept out of `dist`, which a bundled server copies.
+ */
+const inputsFile = path.resolve(here, "../.cache/preview-inputs.json");
+
 const bundles: PreviewBundles = {
   dir: dist,
   render: path.join(dist, "render.js"),
@@ -28,19 +34,44 @@ const bundles: PreviewBundles = {
   serve: path.join(dist, "serve.mjs"),
 };
 
-const newest = (dir: string): number => {
-  let max = 0;
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (entry.name === "node_modules" || entry.name === "dist") {
-      continue;
-    }
-    const p = path.join(dir, entry.name);
-    const m = entry.isDirectory() ? newest(p) : statSync(p).mtimeMs;
-    if (m > max) {
-      max = m;
-    }
+const mtimeOf = (file: string): number | null => {
+  try {
+    return statSync(file).mtimeMs;
+  } catch {
+    // Gone since the last build: whatever read it must be built again.
+    return null;
   }
-  return max;
+};
+
+/**
+ * Whether the outputs are older than any file the build that made them read, or that build's
+ * inputs are not known. The inputs are esbuild's own list, so a file of any package the bundles
+ * reach counts, `design-document` and `contracts` as much as the renderer.
+ */
+export const bundlesStale = (
+  outputs: readonly string[],
+  inputsPath: string,
+  base: string
+): boolean => {
+  const built = outputs.map(mtimeOf);
+  if (built.some((m) => m === null)) {
+    return true;
+  }
+  let inputs: unknown;
+  try {
+    inputs = JSON.parse(readFileSync(inputsPath, "utf8"));
+  } catch {
+    // No list of inputs, or one that cannot be read: nothing says the bundles are current.
+    return true;
+  }
+  if (!Array.isArray(inputs) || inputs.length === 0) {
+    return true;
+  }
+  const oldest = Math.min(...(built as number[]));
+  return inputs.some((input) => {
+    const m = mtimeOf(path.resolve(base, String(input)));
+    return m === null || m > oldest;
+  });
 };
 
 const sourceOf = (specifier: string) =>
@@ -59,50 +90,52 @@ export const buildPreviewBundles = async (
   }
   const runtimeSource = sourceOf("@ultrapaint/renderer-react/runtime");
   const renderSource = sourceOf("@ultrapaint/renderer-react/render");
-  const coreSource = sourceOf("@ultrapaint/preview-core/index");
   const outputs = [bundles.render, bundles.runtime, bundles.serve];
-  const stale =
-    opts.force ||
-    !outputs.every((file) => existsSync(file)) ||
-    Math.min(...outputs.map((file) => statSync(file).mtimeMs)) <
-      Math.max(
-        newest(here),
-        newest(path.dirname(runtimeSource)),
-        newest(path.dirname(coreSource))
-      );
+  const stale = opts.force || bundlesStale(outputs, inputsFile, here);
   if (stale) {
     // Only a checkout builds them, so a bundled server does not need esbuild installed.
     const { build } = await import("esbuild");
-    await build({
+    // Paths in the metafile are relative to the working directory: this one, made explicit.
+    const common = {
+      absWorkingDir: here,
       bundle: true,
-      entryPoints: [path.join(here, "serve.ts")],
-      // Loaded from the target repository when it has them, from this package otherwise.
-      external: ["vite", "@vitejs/plugin-react", "@tailwindcss/vite"],
-      format: "esm",
       logLevel: "silent",
-      outfile: bundles.serve,
-      platform: "node",
-      target: "node22",
-    });
-    await build({
-      bundle: true,
-      entryPoints: [runtimeSource],
-      format: "iife",
-      logLevel: "silent",
-      outfile: bundles.runtime,
-      platform: "browser",
-      target: "es2022",
-    });
-    await build({
-      bundle: true,
-      entryPoints: [renderSource],
-      external: ["react", "react-dom", "react-dom/client"],
-      format: "esm",
-      logLevel: "silent",
-      outfile: bundles.render,
-      platform: "browser",
-      target: "es2022",
-    });
+      metafile: true,
+    } as const;
+    const results = [
+      await build({
+        ...common,
+        entryPoints: [path.join(here, "serve.ts")],
+        // Loaded from the target repository when it has them, from this package otherwise.
+        external: ["vite", "@vitejs/plugin-react", "@tailwindcss/vite"],
+        format: "esm",
+        outfile: bundles.serve,
+        platform: "node",
+        target: "node22",
+      }),
+      await build({
+        ...common,
+        entryPoints: [runtimeSource],
+        format: "iife",
+        outfile: bundles.runtime,
+        platform: "browser",
+        target: "es2022",
+      }),
+      await build({
+        ...common,
+        entryPoints: [renderSource],
+        external: ["react", "react-dom", "react-dom/client"],
+        format: "esm",
+        outfile: bundles.render,
+        platform: "browser",
+        target: "es2022",
+      }),
+    ];
+    const inputs = new Set(
+      results.flatMap((r) => Object.keys(r.metafile.inputs))
+    );
+    mkdirSync(path.dirname(inputsFile), { recursive: true });
+    writeFileSync(inputsFile, JSON.stringify([...inputs]));
   }
   return bundles;
 };
