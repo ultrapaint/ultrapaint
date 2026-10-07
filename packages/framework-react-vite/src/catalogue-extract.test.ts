@@ -286,6 +286,25 @@ export { Button as PrimaryButton } from "./button";
     });
   });
 
+  it("finds the cva in a file the component imports through the package's path alias", () => {
+    expect(
+      variantsOf({
+        "packages/ui/src/button.tsx": `${PRELUDE}
+import { buttonVariants } from "@/lib/variants";
+export const Button = (props: { variant?: string; size?: string }): JSX.Element =>
+  buttonVariants(props);
+`,
+        "packages/ui/src/lib/variants.ts": `${PRELUDE}
+export ${BUTTON_CVA}
+`,
+        "packages/ui/tsconfig.json": `{
+  // as shadcn sets it up
+  "compilerOptions": { "paths": { "@/*": ["./src/*"] } },
+}`,
+      })
+    ).toEqual({ Button: BUTTON_VARIANTS });
+  });
+
   it("reads the shadcn v4 shape, a function component with VariantProps in its props", () => {
     expect(
       variantsOf({
@@ -380,5 +399,33 @@ describe("the catalogue's cache key", () => {
     expect(afterVariants).not.toBe(before);
     utimesSync(lib, 3000, 3000);
     expect(key()).not.toBe(afterVariants);
+  });
+
+  it("changes with a file the library imports through its package's path alias", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "catalogue-key-"));
+    const write = (rel: string, text: string) => {
+      mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+      writeFileSync(path.join(root, rel), text);
+      return path.join(root, rel);
+    };
+    write("package.json", JSON.stringify({ name: "app" }));
+    write(
+      "tsconfig.json",
+      '{ "compilerOptions": { "baseUrl": ".", "paths": { "@/*": ["src/*"] } } }'
+    );
+    write(
+      "src/ui/button.tsx",
+      'import { tone } from "@/lib/variants";\nexport const Button = tone;\n'
+    );
+    const lib = write("src/lib/variants.ts", "export const tone = 1;\n");
+    const ctx = {
+      componentPackages: [],
+      libraryDirs: [path.join(root, "src/ui")],
+      root,
+    };
+    const key = () => catalogueCacheKey(ctx, catalogueSourceFiles(ctx));
+    const before = key();
+    utimesSync(lib, 3000, 3000);
+    expect(key()).not.toBe(before);
   });
 });

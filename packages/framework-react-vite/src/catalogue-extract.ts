@@ -26,7 +26,7 @@ const hashContent = (content: string): string =>
   createHash("sha1").update(content).digest("hex").slice(0, 16);
 
 /** Bump when the extraction logic changes so stale caches are rebuilt. */
-const CATALOGUE_VERSION = 5;
+const CATALOGUE_VERSION = 6;
 
 const TSX_EXT_RE = /\.tsx$/;
 const NON_COMPONENT_TSX_RE = /\.(stories|test|spec)\.tsx$/;
@@ -725,11 +725,7 @@ const reactTypesOf = (ctx: ExtractContext): string[] => {
 export const catalogueInputs = (files: readonly string[]): string[] => {
   const seen = new Set(files);
   const queue = [...files];
-  const cache = ts.createModuleResolutionCache(
-    process.cwd(),
-    (f) => f,
-    COMPILER_OPTIONS
-  );
+  const resolve = makeResolver(makePackages());
   for (let file = queue.pop(); file !== undefined; file = queue.pop()) {
     let text: string;
     try {
@@ -740,13 +736,7 @@ export const catalogueInputs = (files: readonly string[]): string[] => {
     }
     const { importedFiles } = ts.preProcessFile(text, true, true);
     for (const imported of importedFiles) {
-      const resolved = ts.resolveModuleName(
-        imported.fileName,
-        file,
-        COMPILER_OPTIONS,
-        ts.sys,
-        cache
-      ).resolvedModule;
+      const resolved = resolve(imported.fileName, file).resolvedModule;
       const target = resolved?.resolvedFileName;
       if (
         target === undefined ||
@@ -822,6 +812,91 @@ const makePackages = () => {
 
 type Packages = ReturnType<typeof makePackages>;
 
+/**
+ * How a file's package resolves its imports: the program's options with the `paths` (and
+ * `baseUrl`) of the package's tsconfig, made absolute, so that `@/lib/variants` reaches the
+ * file it names from the library's code as it does in the package's own build.
+ */
+const optionsOf = (
+  info: PackageInfo | null,
+  pkgDir: string
+): ts.CompilerOptions => {
+  const aliased = info?.aliases.find((options) => options.paths);
+  if (!aliased?.paths) {
+    return COMPILER_OPTIONS;
+  }
+  const base = path.resolve(pkgDir, aliased.baseUrl ?? ".");
+  return {
+    ...COMPILER_OPTIONS,
+    ...(aliased.baseUrl === undefined ? {} : { baseUrl: base }),
+    paths: Object.fromEntries(
+      Object.entries(aliased.paths).map(([alias, targets]) => [
+        alias,
+        targets.map((target) => toPosix(path.resolve(base, target))),
+      ])
+    ),
+  };
+};
+
+/**
+ * Resolves an import from a file the way the file's own package does (`optionsOf`): each
+ * package of a monorepo with its own aliases, `@/` naming a different directory in each.
+ */
+const makeResolver = (packages: Packages) => {
+  const byPackage = new Map<
+    string | null,
+    { cache: ts.ModuleResolutionCache; options: ts.CompilerOptions }
+  >();
+  const resolutionOf = (file: string) => {
+    const pj = packages.manifestOf(path.dirname(file));
+    let found = byPackage.get(pj);
+    if (!found) {
+      const options = pj
+        ? optionsOf(packages.packageAt(pj), path.dirname(pj))
+        : COMPILER_OPTIONS;
+      found = {
+        cache: ts.createModuleResolutionCache(process.cwd(), (f) => f, options),
+        options,
+      };
+      byPackage.set(pj, found);
+    }
+    return found;
+  };
+  return (name: string, containingFile: string, mode?: ts.ResolutionMode) => {
+    const { cache, options } = resolutionOf(containingFile);
+    return ts.resolveModuleName(
+      name,
+      containingFile,
+      options,
+      ts.sys,
+      cache,
+      undefined,
+      mode
+    );
+  };
+};
+
+/** A compiler host whose imports resolve as each file's package resolves them (`makeResolver`). */
+const compilerHost = (packages: Packages): ts.CompilerHost => {
+  const host = ts.createCompilerHost(COMPILER_OPTIONS);
+  const resolve = makeResolver(packages);
+  host.resolveModuleNameLiterals = (
+    literals,
+    containingFile,
+    _redirected,
+    options,
+    containingSourceFile
+  ) =>
+    literals.map((literal) =>
+      resolve(
+        literal.text,
+        containingFile,
+        ts.getModeForUsageLocation(containingSourceFile, literal, options)
+      )
+    );
+  return host;
+};
+
 /** Resolves the import specifier for a component file from its package. */
 const importSpecifier = (
   ctx: ExtractContext,
@@ -881,13 +956,14 @@ export const buildCatalogue = (
   ctx: ExtractContext,
   files: string[]
 ): Catalogue => {
+  const packages = makePackages();
   const program = ts.createProgram(
     [...files, ...reactTypesOf(ctx)],
-    COMPILER_OPTIONS
+    COMPILER_OPTIONS,
+    compilerHost(packages)
   );
   const checker = program.getTypeChecker();
   const stories = storiesOf(ctx);
-  const packages = makePackages();
   const components: ComponentMeta[] = [];
   let usable = 0;
 
