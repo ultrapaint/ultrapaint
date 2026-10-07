@@ -43,7 +43,8 @@ import { EventBus } from "../events.ts";
 import { makeExists } from "../fs-exists.ts";
 import { hashContent, toPosix } from "../hash.ts";
 import { type EditFailure, EditService } from "./edit.ts";
-import { PagesService, parseCanvas } from "./pages.ts";
+import { PagesService } from "./pages.ts";
+import { parseCanvas } from "./pages-layout.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
 const decodePage = Schema.decodeUnknownEffect(PageDocument);

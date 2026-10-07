@@ -33,7 +33,12 @@ import { ProjectManager } from "../project.ts";
 import { COMMENTS_FILE } from "./comments.ts";
 import { parseDocument } from "./documents.ts";
 import { EditService, type EditTransaction } from "./edit.ts";
-import { canvasIdsIn, decodeOrder, pageListOf, parseCanvas } from "./pages.ts";
+import {
+  canvasIdsIn,
+  decodeOrder,
+  pageListOf,
+  parseCanvas,
+} from "./pages-layout.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { Storage } from "./storage.ts";
 import { Checkpoints, makeDesignFiles } from "./threads/checkpoints.ts";
