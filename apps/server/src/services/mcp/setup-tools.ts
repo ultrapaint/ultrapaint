@@ -15,7 +15,7 @@ import { Tool, Toolkit } from "effect/ai";
 import { DesignSystemSetupService } from "../design-system-setup.ts";
 import { DesignSystemSyncService } from "../design-system-sync.ts";
 import { CallingThread } from "./access.ts";
-import { missing, opt, reported, ToolFailure } from "./tools.ts";
+import { missing, opt, reported, ToolFailure } from "./tool-helpers.ts";
 
 const Failure = ToolFailure;
 

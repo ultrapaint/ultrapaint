@@ -19,15 +19,15 @@ import { Tool, Toolkit } from "effect/ai";
 import { CatalogueService } from "../catalogue.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { FigmaImportService } from "../figma-import.ts";
+import { makeLookup } from "./lookup.ts";
 import {
   AnyJson,
   asJson,
-  makeLookup,
   missing,
   opt,
   reported,
   ToolFailure,
-} from "./tools.ts";
+} from "./tool-helpers.ts";
 
 const Failure = ToolFailure;
 

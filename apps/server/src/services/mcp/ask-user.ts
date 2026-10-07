@@ -17,7 +17,7 @@ import { EventBus } from "../../events.ts";
 import { answersOf, answersText, formOf } from "../threads/elicitation.ts";
 import { ThreadService } from "../threads/threads.ts";
 import { CallingThread } from "./access.ts";
-import { opt } from "./tools.ts";
+import { opt } from "./tool-helpers.ts";
 
 /** The key the answers come back under, on the agent's second call. */
 const ANSWERS = "answers";

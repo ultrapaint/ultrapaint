@@ -15,14 +15,14 @@ import { Effect, Layer, Schema } from "effect";
 import { McpSchema, McpServer, Tool } from "effect/ai";
 import { PagesService } from "../pages.ts";
 import { Screenshots } from "../screenshots.ts";
+import { makeLookup } from "./lookup.ts";
 import {
   finite,
-  makeLookup,
   missing,
   opt,
   PAGE_PARAMETER,
   reported,
-} from "./tools.ts";
+} from "./tool-helpers.ts";
 
 /** The width a node on the canvas is drawn in, when it fills its parent. */
 const CANVAS_WIDTH = 1200;
