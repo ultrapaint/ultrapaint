@@ -306,6 +306,48 @@ export { Button, buttonVariants };
       })
     ).toEqual({ Button: BUTTON_VARIANTS });
   });
+
+  it("reads a component that names the React namespace without importing React", () => {
+    // React's types as a library installs them, which the server's own directory may not have.
+    const reactTypes = `export = React;
+export as namespace React;
+declare namespace React {
+  interface ReactElement { props: unknown }
+  type Size = "sm" | "lg";
+  type ReactNode = ReactElement | string | number | boolean | null | undefined;
+  namespace JSX { interface Element extends ReactElement {} }
+}
+`;
+    const catalogue = libraries({
+      "node_modules/@types/react/index.d.ts": reactTypes,
+      "node_modules/@types/react/package.json": JSON.stringify({
+        name: "@types/react",
+        types: "index.d.ts",
+      }),
+      "packages/ui/package.json": UI_PACKAGE,
+      "packages/ui/src/card.tsx": `export function Card(props: {
+  size?: React.Size;
+  children?: React.ReactNode;
+}): React.JSX.Element {
+  return props as unknown as React.JSX.Element;
+}
+`,
+    });
+    expect(
+      catalogue.components.map((c) => [
+        c.name,
+        c.props.map((p) => [p.name, p.type.kind]),
+      ])
+    ).toEqual([
+      [
+        "Card",
+        [
+          ["size", "enum"],
+          ["children", "node"],
+        ],
+      ],
+    ]);
+  });
 });
 
 describe("the catalogue's cache key", () => {

@@ -690,6 +690,30 @@ const COMPILER_OPTIONS: ts.CompilerOptions = {
   skipLibCheck: true,
   strict: true,
   target: ts.ScriptTarget.ES2022,
+  // Without it, every `@types` package around the server's working directory is read, which is
+  // most of the program's time and none of the library's business. React's types, which a
+  // component may name without importing React, are added from the library (`reactTypesOf`).
+  types: [],
+};
+
+/**
+ * React's types as the libraries find them, from their own `node_modules`: the global `React`
+ * namespace a component may write `React.ReactNode` with when no file imports React.
+ */
+const reactTypesOf = (ctx: ExtractContext): string[] => {
+  const found = new Set<string>();
+  for (const dir of ctx.libraryDirs) {
+    const resolved = ts.resolveTypeReferenceDirective(
+      "react",
+      path.join(dir, "index.ts"),
+      COMPILER_OPTIONS,
+      ts.sys
+    ).resolvedTypeReferenceDirective?.resolvedFileName;
+    if (resolved) {
+      found.add(resolved);
+    }
+  }
+  return [...found];
 };
 
 /**
@@ -857,7 +881,10 @@ export const buildCatalogue = (
   ctx: ExtractContext,
   files: string[]
 ): Catalogue => {
-  const program = ts.createProgram(files, COMPILER_OPTIONS);
+  const program = ts.createProgram(
+    [...files, ...reactTypesOf(ctx)],
+    COMPILER_OPTIONS
+  );
   const checker = program.getTypeChecker();
   const stories = storiesOf(ctx);
   const packages = makePackages();
