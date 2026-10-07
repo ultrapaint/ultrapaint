@@ -67,12 +67,26 @@ export class RepoPaths extends Context.Service<
         const inRepository = (real: string) =>
           real === realRoot || real.startsWith(realRoot + path.sep);
 
+        const designsDir = path.join(root, settings.designsDir);
+        /*
+         * Where the designs directory really is. It may be a link to a directory elsewhere in the
+         * repository (`docs/designs` to `packages/ui/designs`), and everything else names its
+         * files under the name the settings give it: a path resolved into it is handed back
+         * under that name.
+         */
+        const realDesigns = yield* realOf(designsDir);
+        const underDesigns = (real: string) =>
+          real === realDesigns || real.startsWith(realDesigns + path.sep)
+            ? path.join(designsDir, path.relative(realDesigns, real))
+            : real;
+
         /*
          * What is checked is where the path leads, every link followed. What is handed back is
          * its directory's real path and its own name: a later swap of a directory along the way
-         * for a link no longer moves where it points. The name itself is left to the operation:
-         * a write renames over it and a removal unlinks it, so a page that is a link to a file
-         * elsewhere in the repository is replaced, never written through.
+         * for a link no longer moves where it points. Inside the designs directory that path is
+         * named under the directory's own name, link or not. The name itself is left to the
+         * operation: a write renames over it and a removal unlinks it, so a page that is a link
+         * to a file elsewhere in the repository is replaced, never written through.
          */
         const resolve = Effect.fn("RepoPaths.resolve")(function* (p: string) {
           const abs = path.isAbsolute(p)
@@ -88,10 +102,9 @@ export class RepoPaths extends Context.Service<
               message: `path escapes the repository: ${p}`,
             });
           }
-          return resolved;
+          return underDesigns(resolved);
         });
 
-        const designsDir = path.join(root, settings.designsDir);
         const nearestPackage = Effect.fnUntraced(function* (from: string) {
           let dir = from;
           while (dir.startsWith(root) && dir !== path.dirname(dir)) {
