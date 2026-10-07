@@ -79,8 +79,8 @@ FLAGS OF THE COMMAND
   --dev                Run the checkout's sources with hot reload instead of a build
   --no-open            Do not open the browser
 
-  With --dev, --host applies to the editor's dev server too, and ULTRAPAINT_WEB_PORT is its
-  port (default: the server's port plus one).
+  With --dev, --host and --allowed-host apply to the editor's dev server too, and
+  ULTRAPAINT_WEB_PORT is its port (default: the server's port plus one).
 `;
 
 /** The value of `--name value` or `--name=value` in the arguments, if given. */
@@ -92,6 +92,16 @@ const flagValue = (args: readonly string[], name: string) => {
     ? undefined
     : (args[index]?.split("=")[1] ?? args[index + 1]);
 };
+
+/** Every value of a flag given more than once, `--name value` or `--name=value`. */
+const flagValues = (args: readonly string[], name: string) =>
+  args.flatMap((arg, index) => {
+    if (arg.startsWith(`${name}=`)) {
+      return [arg.slice(name.length + 1)];
+    }
+    const next = args[index + 1];
+    return arg === name && next !== undefined ? [next] : [];
+  });
 
 /** An address as it goes into a URL: an IPv6 one in brackets. */
 const inUrl = (address: string) =>
@@ -346,6 +356,11 @@ export const main = (args: readonly string[]): void => {
       Effect.scoped(
         run(process.execPath, [vite()], webDir, {
           env: {
+            // Vite checks the Host of a request itself, before its proxy reaches the server.
+            ULTRAPAINT_ALLOWED_HOSTS: flagValues(
+              serverArgs,
+              "--allowed-host"
+            ).join(","),
             ULTRAPAINT_HOST: host,
             ULTRAPAINT_PORT: String(serverPort),
             ULTRAPAINT_WEB_PORT: String(webPort),
