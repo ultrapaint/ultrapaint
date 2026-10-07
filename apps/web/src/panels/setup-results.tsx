@@ -3,7 +3,6 @@
  * each step: the inventory and the audits (how much of each kind is the system's, the values most
  * used off it), Map's mapping with a choice per value, and Migrate's batches.
  */
-import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import {
   type MappingEntry,
   type MigrationBatch,
@@ -24,7 +23,7 @@ import {
 } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
 import { Segmented } from "../components/segmented.tsx";
-import { SPACING_SCALE } from "../lib/spacing.ts";
+import { mapTargetsOf } from "../lib/map-targets.ts";
 import { useCatalogue } from "../state/catalogue.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
@@ -203,36 +202,6 @@ export const InventoryResult = ({
   );
 };
 
-/** What a value of a kind may become, as Map offers it. */
-const targetsOf = (
-  kind: UsageKind,
-  ds: DesignSystem | null,
-  components: readonly string[]
-): readonly string[] => {
-  const names = (tokens: readonly { readonly name: string }[] | undefined) =>
-    (tokens ?? []).map((t) => t.name);
-  if (!ds) {
-    return kind === "element" ? components : [];
-  }
-  const byKind: Record<UsageKind, readonly string[]> = {
-    color: ds.colors.flatMap((g) => names(g.tokens)),
-    element: components,
-    fontSize: names(ds.typography.sizes),
-    fontWeight: names(ds.typography.weights),
-    radius: names(ds.radius),
-    shadow: names(ds.shadows),
-    spacing: [
-      // The steps of the spacing scale are offered for a length, beyond the named tokens.
-      ...SPACING_SCALE.map((s) => `spacing-${s}`),
-      ...names(ds.spacing.tokens),
-    ],
-    zIndex: (ds.elevation ?? []).flatMap((l) =>
-      l.layer === undefined ? [] : [String(l.layer)]
-    ),
-  };
-  return byKind[kind];
-};
-
 const BY: Record<NonNullable<MappingEntry["by"]>, string> = {
   agent: "agent",
   rule: "rule",
@@ -344,7 +313,7 @@ export const MappingView = () => {
           <MappingRow
             entry={entry}
             key={`${entry.kind}|${entry.value}`}
-            targets={targetsOf(entry.kind, designSystem, components)}
+            targets={mapTargetsOf(entry.kind, designSystem, components)}
           />
         ))}
       </ul>
