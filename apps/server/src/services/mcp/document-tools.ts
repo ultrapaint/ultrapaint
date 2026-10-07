@@ -14,7 +14,7 @@ import { Effect, Predicate, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
 import { EventBus } from "../../events.ts";
 import { ProjectStyleSystem } from "../style-system.ts";
-import { designSystemSchema, pageSchema } from "../threads/commands.ts";
+import { designSystemSchema, pageSchema } from "../threads/task-text.ts";
 import { CallingThread } from "./access.ts";
 import { makeLookup } from "./lookup.ts";
 import {
