@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { scopeOf } from "./threads.ts";
+import { scopeOf } from "./turns.ts";
 
 describe("a thread's scope", () => {
   it("is the first node its first prompt attached, a component when it is one", () => {
