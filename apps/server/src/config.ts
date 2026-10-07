@@ -45,19 +45,29 @@ export const hostNameOf = (host: string): string | undefined =>
 const LOOPBACK_ADDRESSES = ["localhost", "127.0.0.1", "::1"];
 
 /**
- * The names a request may address a server bound to `host` by. A page from a website can make
- * its own name resolve to this machine (DNS rebinding), and then its origin and the `Host` it
- * sends agree; what it cannot do is send one of these. Loopback always; bound to one address,
- * that address; bound to every interface, every address of the machine and its name.
+ * Whether a request may address a server bound to `host` by `name`, the host name of its `Host`
+ * header. A page from a website can make its own name resolve to this machine (DNS rebinding),
+ * and then its origin and the `Host` it sends agree; what it cannot do is send one of these.
+ * Loopback always; bound to one address, that address; bound to every interface, every address
+ * of the machine and its names. Beyond those, the names the user allowed (`--allowed-host`), for
+ * a proxy or a name the machine has elsewhere: a name with a leading dot allows its subdomains.
  */
-export const allowedHostNames = (
+export const isAllowedHost = (
+  name: string,
   host: string,
-  addresses: readonly string[]
-): ReadonlySet<string> => {
+  addresses: readonly string[],
+  allowed: readonly string[] = []
+): boolean => {
   const own = WILDCARDS.has(host) ? addresses : [host];
-  return new Set(
-    [...LOOPBACK_ADDRESSES, ...own].flatMap(
-      (name) => hostNameOf(name.includes(":") ? `[${name}]` : name) ?? []
+  const exact = [...LOOPBACK_ADDRESSES, ...own, ...allowed].flatMap(
+    (n) => hostNameOf(n.includes(":") ? `[${n}]` : n) ?? []
+  );
+  return (
+    exact.includes(name) ||
+    allowed.some(
+      (n) =>
+        n.startsWith(".") &&
+        (name.endsWith(n.toLowerCase()) || name === n.slice(1).toLowerCase())
     )
   );
 };
@@ -77,10 +87,11 @@ export class ServerConfig extends Context.Service<
      */
     readonly machine: {
       /**
-       * This machine's network addresses and its name: a server bound to every interface is
-       * reached by any of them, and a request naming anything else is turned away.
+       * This machine's network addresses and its names, as they are now: a server bound to
+       * every interface is reached by any of them, and a request naming anything else is turned
+       * away. Asked on every request, since an address comes and goes with a network.
        */
-      readonly addresses: readonly string[];
+      readonly addresses: () => readonly string[];
       readonly home: string;
       readonly path: string;
       /** The system's temporary directory, as `os.tmpdir()` says. */
@@ -100,6 +111,11 @@ export class ServerConfig extends Context.Service<
      * machine, over a private network.
      */
     readonly host: string;
+    /**
+     * Further names a request may address the server by: a reverse proxy's, or a name the
+     * machine has on a network of its own (`--allowed-host`, given once per name).
+     */
+    readonly allowedHosts: readonly string[];
     /** Whether agents are given the editor's own MCP server to call. */
     readonly mcp: boolean;
     readonly port: number;

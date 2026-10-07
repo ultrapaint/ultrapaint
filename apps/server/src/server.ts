@@ -18,9 +18,9 @@ import {
 import { RpcSerialization, RpcServer } from "effect/rpc";
 import { AppLog } from "./app-log.ts";
 import {
-  allowedHostNames,
   connectHost,
   hostNameOf,
+  isAllowedHost,
   isLoopback,
   ServerConfig,
 } from "./config.ts";
@@ -54,18 +54,20 @@ import { ThreadService } from "./services/threads/threads.ts";
  * own name, and that is turned away here, before any route sees the request.
  */
 const HostGuard = HttpRouter.middleware(
-  Effect.map(ServerConfig, ({ host, machine }) => {
-    const allowed = allowedHostNames(host, machine.addresses);
-    return (handler) =>
-      Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) => {
-        const name = hostNameOf(request.headers.host ?? "");
-        return name !== undefined && allowed.has(name)
-          ? handler
-          : Effect.succeed(
-              HttpServerResponse.text("host not allowed", { status: 403 })
-            );
-      });
-  }),
+  Effect.map(
+    ServerConfig,
+    ({ allowedHosts, host, machine }) =>
+      (handler) =>
+        Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) => {
+          const name = hostNameOf(request.headers.host ?? "");
+          return name !== undefined &&
+            isAllowedHost(name, host, machine.addresses(), allowedHosts)
+            ? handler
+            : Effect.succeed(
+                HttpServerResponse.text("host not allowed", { status: 403 })
+              );
+        })
+  ),
   { global: true }
 );
 

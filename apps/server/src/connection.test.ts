@@ -20,12 +20,13 @@ const startServer = (home: string, port: number) =>
       ServerLive.pipe(
         Layer.provide(
           Layer.succeed(ServerConfig, {
+            allowedHosts: [],
             briefing: true,
             cwd: home,
             discovery: false,
             host: "127.0.0.1",
             machine: {
-              addresses: [],
+              addresses: () => [],
               home: homedir(),
               path: process.env.PATH ?? "",
               tmpdir: tmpdir(),

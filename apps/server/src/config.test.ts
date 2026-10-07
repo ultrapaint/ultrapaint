@@ -1,25 +1,46 @@
 import { assert, describe, it } from "@effect/vitest";
-import { allowedHostNames, hostNameOf } from "./config.ts";
+import { hostNameOf, isAllowedHost } from "./config.ts";
+
+const allowed = (
+  name: string,
+  host: string,
+  addresses: readonly string[],
+  extra?: readonly string[]
+) => isAllowedHost(name, host, addresses, extra);
 
 describe("the names the server answers to", () => {
   it("is loopback, and the address it is bound to", () => {
-    const local = allowedHostNames("127.0.0.1", ["192.168.1.5", "box"]);
-    assert.deepStrictEqual([...local].sort(), [
-      "127.0.0.1",
-      "[::1]",
-      "localhost",
-    ]);
-    const lan = allowedHostNames("192.168.1.5", []);
-    assert.isTrue(lan.has("192.168.1.5"));
-    assert.isTrue(lan.has("localhost"));
+    for (const name of ["127.0.0.1", "[::1]", "localhost"]) {
+      assert.isTrue(allowed(name, "127.0.0.1", ["192.168.1.5", "box"]), name);
+    }
+    assert.isFalse(allowed("192.168.1.5", "127.0.0.1", ["192.168.1.5"]));
+    assert.isFalse(allowed("box", "127.0.0.1", ["box"]));
+    assert.isTrue(allowed("192.168.1.5", "192.168.1.5", []));
+    assert.isTrue(allowed("localhost", "192.168.1.5", []));
   });
 
-  it("is every address of the machine and its name when bound to all", () => {
-    const all = allowedHostNames("0.0.0.0", ["192.168.1.5", "fe80::1", "Box"]);
-    for (const name of ["192.168.1.5", "[fe80::1]", "box", "127.0.0.1"]) {
-      assert.isTrue(all.has(name), name);
+  it("is every address of the machine and its names when bound to all", () => {
+    const addresses = ["192.168.1.5", "fe80::1", "Box", "Box.local"];
+    for (const name of [
+      "192.168.1.5",
+      "[fe80::1]",
+      "box",
+      "box.local",
+      "127.0.0.1",
+    ]) {
+      assert.isTrue(allowed(name, "0.0.0.0", addresses), name);
     }
-    assert.isFalse(all.has("0.0.0.0"));
+    assert.isFalse(allowed("0.0.0.0", "0.0.0.0", addresses));
+    assert.isFalse(allowed("attacker.com", "0.0.0.0", addresses));
+  });
+
+  it("is the names the user allowed, a leading dot for a domain's subdomains", () => {
+    const extra = ["editor.example.com", ".tailnet.ts.net"];
+    assert.isTrue(allowed("editor.example.com", "0.0.0.0", [], extra));
+    assert.isTrue(allowed("box.tailnet.ts.net", "0.0.0.0", [], extra));
+    assert.isTrue(allowed("tailnet.ts.net", "0.0.0.0", [], extra));
+    assert.isFalse(allowed("eviltailnet.ts.net", "0.0.0.0", [], extra));
+    assert.isFalse(allowed("example.com", "0.0.0.0", [], extra));
   });
 
   it("reads the name out of a Host header and refuses anything else", () => {

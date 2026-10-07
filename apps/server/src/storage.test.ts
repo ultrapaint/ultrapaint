@@ -435,12 +435,13 @@ describe("a configuration file that cannot be read", () => {
           ServerLive.pipe(
             Layer.provide(
               Layer.succeed(ServerConfig, {
+                allowedHosts: [],
                 briefing: true,
                 cwd: dir,
                 discovery: false,
                 host: "127.0.0.1",
                 machine: {
-                  addresses: [],
+                  addresses: () => [],
                   home: homedir(),
                   path: process.env.PATH ?? "",
                   tmpdir: tmpdir(),
@@ -481,12 +482,13 @@ const settingsOf = (cwd: string, storage: StorageTarget) =>
     Layer.provide(EventBus.layer),
     Layer.provide(
       Layer.succeed(ServerConfig, {
+        allowedHosts: [],
         briefing: true,
         cwd,
         discovery: false,
         host: "127.0.0.1",
         machine: {
-          addresses: [],
+          addresses: () => [],
           home: homedir(),
           path: process.env.PATH ?? "",
           tmpdir: tmpdir(),

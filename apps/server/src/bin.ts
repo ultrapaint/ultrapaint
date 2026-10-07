@@ -13,6 +13,12 @@ const VERSION = product.version;
 const serve = Command.make(
   "ultrapaint",
   {
+    allowedHost: Flag.String("allowed-host").pipe(
+      Flag.withDescription(
+        "A further name the editor may be reached by, such as a reverse proxy's or a VPN's; .example.com allows its subdomains (repeatable)"
+      ),
+      Flag.atLeast(0)
+    ),
     config: Flag.String("config").pipe(
       Flag.withDescription(
         "Configuration file (default: the nearest ultrapaint.config.json, or ultrapaint.json, from the working directory up)"
@@ -75,6 +81,7 @@ const serve = Command.make(
     ),
   },
   Effect.fn(function* ({
+    allowedHost,
     config,
     ephemeral,
     home,
@@ -98,16 +105,20 @@ const serve = Command.make(
       userHome,
     });
     const resolved = ServerConfig.of({
+      allowedHosts: allowedHost,
       briefing: !noBriefing,
       cwd,
       discovery: !noDiscovery,
       host,
       machine: {
-        addresses: [
+        // Read on every request: a network joined since the start brings an address.
+        addresses: () => [
           ...Object.values(networkInterfaces()).flatMap((nets) =>
             (nets ?? []).map((net) => net.address)
           ),
           hostname(),
+          // The name mDNS gives the machine on the local network.
+          `${hostname()}.local`,
         ],
         home: userHome,
         path: process.env.PATH ?? "",

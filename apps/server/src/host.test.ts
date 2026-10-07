@@ -72,12 +72,13 @@ const withHost = <A, E>(
         recent: () => Effect.succeed([]),
       }),
       Layer.succeed(ServerConfig, {
+        allowedHosts: [],
         briefing: false,
         cwd: repo,
         discovery: false,
         host: "127.0.0.1",
         machine: {
-          addresses: [],
+          addresses: () => [],
           home: homedir(),
           path: process.env.PATH ?? "",
           tmpdir: tmpdir(),

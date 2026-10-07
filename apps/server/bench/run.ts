@@ -291,13 +291,14 @@ const program = Effect.gen(function* () {
   const server = ServerLive.pipe(
     Layer.provide(
       Layer.succeed(ServerConfig, {
+        allowedHosts: [],
         briefing: arm !== "baseline",
         cwd: repo,
         // Model options are known from discovery, before the first prompt starts a session.
         discovery: true,
         host: "127.0.0.1",
         machine: {
-          addresses: [],
+          addresses: () => [],
           home: homedir(),
           path: process.env.PATH ?? "",
           tmpdir: tmpdir(),
