@@ -48,6 +48,7 @@ describe("McpAccess", () => {
           const access = yield* McpAccess;
           const token = yield* access.external;
           assert.match(token, TOKEN_RE);
+          assert.isFalse(yield* access.replaced);
           assert.isTrue(yield* access.allows(token));
           // As long as the token, and one character off.
           assert.isFalse(yield* access.allows(`${token.slice(0, -1)}x`));
@@ -73,6 +74,8 @@ describe("McpAccess", () => {
         const access = yield* McpAccess;
         assert.isFalse(yield* access.allows(old));
         assert.match(yield* access.external, TOKEN_RE);
+        // The settings tell the user to give the agents outside the new one.
+        assert.isTrue(yield* access.replaced);
       }).pipe(Effect.provide(accessIn(home)));
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
   );

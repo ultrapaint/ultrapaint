@@ -58,6 +58,11 @@ export class McpAccess extends Context.Service<
     readonly allows: (token: string | undefined) => Effect.Effect<boolean>;
     /** The project's own token, for agents outside the editor. Made once, kept with the state. */
     readonly external: Effect.Effect<string>;
+    /**
+     * Whether the project's token was one made the old, guessable way and was replaced since the
+     * server started: the agents outside the editor still send the old one, which is turned away.
+     */
+    readonly replaced: Effect.Effect<boolean>;
     /** A token for this thread, valid until the surrounding scope closes. */
     readonly issue: (
       threadId: string
@@ -79,6 +84,7 @@ export class McpAccess extends Context.Service<
       /** The project's token, as last read or made, and the state directory it belongs to. */
       let known: { readonly file: string; readonly token: string } | null =
         null;
+      let replaced = false;
 
       /**
        * Read from the state directory the first time, written if it is not there, and kept. The
@@ -99,6 +105,7 @@ export class McpAccess extends Context.Service<
           // One made the old way is replaced: the agent outside is given the new one to use.
           const existing = GUESSABLE_TOKEN_RE.test(read) ? "" : read;
           if (read && !existing) {
+            replaced = true;
             yield* Effect.logWarning(
               "the MCP token was one a website could guess, and is replaced: copy the new one from the settings into agents outside the editor"
             );
@@ -147,6 +154,7 @@ export class McpAccess extends Context.Service<
             }),
             (token) => Effect.sync(() => threads.delete(token))
           ),
+        replaced: Effect.map(external, () => replaced),
         threadOf,
       });
     })

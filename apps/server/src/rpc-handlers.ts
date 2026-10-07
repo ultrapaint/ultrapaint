@@ -227,10 +227,13 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "logs.recent": () => log.recent(RECENT_LOG_LINES),
       "mcp.connection": () =>
         Effect.map(
-          mcpEnabled ? access.external : Effect.succeed(""),
-          (token) => ({
+          mcpEnabled
+            ? Effect.all({ replaced: access.replaced, token: access.external })
+            : Effect.succeed({ replaced: false, token: "" }),
+          ({ replaced, token }) => ({
             enabled: mcpEnabled,
             header: MCP_TOKEN_HEADER,
+            replaced,
             token,
             url: `http://${connectHost(listenHost)}:${port}${MCP_PATH}`,
           })

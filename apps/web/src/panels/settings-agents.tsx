@@ -69,6 +69,12 @@ export const McpConnectionGroup = () => {
             {copied ? "Copied" : "Copy"}
           </Button>
         </div>
+        {connection.replaced ? (
+          <p className="font-body text-destructive">
+            The token has changed: copy the command again into agents connected
+            before, which are turned away until then.
+          </p>
+        ) : null}
       </Row>
     </Group>
   );

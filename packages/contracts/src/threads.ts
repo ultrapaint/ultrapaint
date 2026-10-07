@@ -459,6 +459,8 @@ export const McpConnection = Schema.Struct({
   /** Off when the server was started with `--no-mcp`. */
   enabled: Schema.Boolean,
   header: Schema.String,
+  /** The token was one made the old, guessable way and is new since the server started. */
+  replaced: Schema.Boolean,
   token: Schema.String,
   url: Schema.String,
 });
