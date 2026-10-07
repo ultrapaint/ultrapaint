@@ -46,21 +46,25 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             pages.pages.map((p) => p.id),
             page.id
           );
+          // Both are on the page under the name it has again, the later one too.
           const { comments } = yield* client["comments.list"]({ canvas: "" });
           assert.deepStrictEqual(
             comments.map((c) => [c.id, c.page]),
             [
               [first.id, page.id],
-              [second.id, renamed.id],
+              [second.id, page.id],
             ]
           );
 
-          // And forward again, with both comments on the page's new name.
+          // One added while the rename is undone goes forward with it.
+          yield* pinned("While undone", page.id);
+
+          // And forward again, with every comment on the page's new name.
           yield* client["edit.redo"]();
           const again = yield* client["comments.list"]({ canvas: "" });
           assert.deepStrictEqual(
             again.comments.map((c) => c.page),
-            [renamed.id, renamed.id]
+            [renamed.id, renamed.id, renamed.id]
           );
         }),
       30_000

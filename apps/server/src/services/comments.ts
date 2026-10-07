@@ -12,6 +12,7 @@ import {
   NotFound,
 } from "@ultrapaint/contracts/errors";
 import { CANVAS_FILE, ROOT_CANVAS } from "@ultrapaint/shared/canvas";
+import { dirname } from "@ultrapaint/shared/path";
 import {
   Clock,
   Context,
@@ -149,17 +150,20 @@ export class CommentsService extends Context.Service<
        * undo step; it goes through the journal all the same, which reads and writes the file
        * one change at a time and carries the change into the steps that recorded the file.
        * `revise` answers with the comments to save and what the change gave; it is pure, and is
-       * also run on the comments as those steps had them.
+       * also run on the comments as those steps had them, with `pageIn` saying what a page is
+       * called in each: a comment on a page renamed since is on its old name before the rename.
        */
       const write = <A>(
         canvas: string,
         revise: (
-          comments: readonly Comment[]
+          comments: readonly Comment[],
+          pageIn: (page: string) => string
         ) => Effect.Effect<readonly [readonly Comment[], A], CommentsFailure>
       ) =>
         Effect.gen(function* () {
           const file = paths.relative(yield* fileToWrite(canvas));
-          const [saved, result] = yield* edit.amend(file, (content) =>
+          const dir = dirname(file);
+          const [saved, result] = yield* edit.amend(file, (content, nameIn) =>
             Effect.gen(function* () {
               const before =
                 content === null
@@ -172,7 +176,14 @@ export class CommentsService extends Context.Service<
                           })
                       )
                     );
-              const [comments, given] = yield* revise(before.comments);
+              const pageIn = (page: string) => {
+                const named = nameIn(`${dir}/${page}`);
+                // A page moved to another canvas has no name in this one's comments.
+                return named.startsWith(`${dir}/`)
+                  ? named.slice(dir.length + 1)
+                  : page;
+              };
+              const [comments, given] = yield* revise(before.comments, pageIn);
               const next: CommentList = { comments, version: 1 };
               return [renderComments(next), [next, given] as const] as const;
             })
@@ -210,8 +221,11 @@ export class CommentsService extends Context.Service<
           x: Math.round(input.x),
           y: Math.round(input.y),
         };
-        return yield* write(input.canvas, (comments) =>
-          Effect.succeed([[...comments, comment], comment] as const)
+        return yield* write(input.canvas, (comments, pageIn) =>
+          Effect.succeed([
+            [...comments, { ...comment, page: pageIn(comment.page) }],
+            comment,
+          ] as const)
         );
       });
 

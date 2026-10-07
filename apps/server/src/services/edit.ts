@@ -28,11 +28,33 @@ interface FileChange {
   readonly file: string;
 }
 
+/** A file a step moved, by its name before and after. */
+interface FileMove {
+  readonly from: string;
+  readonly to: string;
+}
+
 /** One undo step: everything a single action changed, in every file it touched. */
 interface JournalEntry {
   readonly changes: readonly FileChange[];
   readonly label: string;
+  /** Files it moved: what names a file in one state names it differently in another. */
+  readonly moves?: readonly FileMove[];
 }
+
+/** The name `file` has after the steps, applied in order. */
+const forwardThrough = (entries: readonly JournalEntry[], file: string) =>
+  entries.reduce(
+    (name, entry) => entry.moves?.find((m) => m.from === name)?.to ?? name,
+    file
+  );
+
+/** The name `file` had before the steps, taken back newest first. */
+const backThrough = (entries: readonly JournalEntry[], file: string) =>
+  entries.reduceRight(
+    (name, entry) => entry.moves?.find((m) => m.to === name)?.from ?? name,
+    file
+  );
 
 const sizeOf = (entry: JournalEntry) =>
   entry.changes.reduce(
@@ -82,6 +104,11 @@ export interface EditTransaction {
     rel: string,
     content: string
   ) => Effect.Effect<void, EditFailure>;
+  /**
+   * Moves a file to a new one, which must not be there yet. Recorded as a move, so that a
+   * change carried into the steps (a comment added since) names the file as each step had it.
+   */
+  readonly move: (from: string, to: string) => Effect.Effect<void, EditFailure>;
   readonly remove: (rel: string) => Effect.Effect<void, EditFailure>;
   /** Writes the file as given, whether it exists or not. Writing what is there changes nothing. */
   readonly write: (
@@ -118,12 +145,14 @@ export class EditService extends Context.Service<
      * now (null when there is none) and says what the change gave. It runs under the journal's
      * lock, and is applied as well to the file as every recorded step left it and found it, so
      * that undoing or redoing a step that touched the file (a page renamed takes its comments
-     * along) carries the change and is not refused as an outside edit.
+     * along) carries the change and is not refused as an outside edit. `nameIn` says what a
+     * file named now was called in the state given: a page moved since has its old name there.
      */
     readonly amend: <A, E>(
       rel: string,
       update: (
-        content: string | null
+        content: string | null,
+        nameIn: (file: string) => string
       ) => Effect.Effect<readonly [next: string, result: A], E>
     ) => Effect.Effect<A, E | ForbiddenPath | Conflict>;
   }
@@ -249,6 +278,7 @@ export class EditService extends Context.Service<
       /** A recorder for one transaction; the caller holds the journal lock. */
       const recorder = () => {
         const changes: FileChange[] = [];
+        const moves: FileMove[] = [];
         const record = (
           file: string,
           before: string | null,
@@ -298,9 +328,24 @@ export class EditService extends Context.Service<
           record(rel, before, content);
         });
 
-        const tx: EditTransaction = { create, remove, write };
+        const move = Effect.fn("EditService.move")(function* (
+          from: string,
+          to: string
+        ) {
+          yield* editable(from);
+          const content = yield* current(from);
+          if (content === null) {
+            return yield* new NotFound({ message: `${from} is not there` });
+          }
+          yield* create(to, content);
+          yield* remove(from);
+          moves.push({ from, to });
+        });
+
+        const tx: EditTransaction = { create, move, remove, write };
         return {
           changes: () => changes.filter((c) => c.before !== c.after),
+          moves: () => [...moves],
           tx,
         };
       };
@@ -330,9 +375,12 @@ export class EditService extends Context.Service<
                   return Effect.void;
                 }
                 // Drop redo entries beyond the cursor, then append.
+                const moves = r.moves();
                 journal = withinLimits([
                   ...journal.slice(0, cursor),
-                  { changes, label },
+                  moves.length > 0
+                    ? { changes, label, moves }
+                    : { changes, label },
                 ]);
                 cursor = journal.length;
                 invalidated = undefined;
@@ -395,32 +443,47 @@ export class EditService extends Context.Service<
       const amend = <A, E>(
         rel: string,
         update: (
-          content: string | null
+          content: string | null,
+          nameIn: (file: string) => string
         ) => Effect.Effect<readonly [next: string, result: A], E>
       ): Effect.Effect<A, E | ForbiddenPath | Conflict> =>
         exclusive(
           Effect.gen(function* () {
             yield* editable(rel);
             const now = yield* current(rel);
-            const [next, result] = yield* update(now);
+            const [next, result] = yield* update(now, (file) => file);
             if (next === now) {
               return result;
             }
             yield* restore(rel, next);
             // The steps that recorded the file see it changed the same way. A state where it
             // did not exist stays so, and one the change cannot be made to stays as it was.
-            const rebase = (content: string | null) =>
+            const rebase = (
+              content: string | null,
+              nameIn: (file: string) => string
+            ) =>
               content === null
                 ? Effect.succeed(null)
-                : update(content).pipe(
+                : update(content, nameIn).pipe(
                     Effect.map(([rebased]) => rebased),
                     Effect.orElseSucceed(() => content)
                   );
-            for (const entry of journal) {
+            // The states before the cursor are the past, the ones after it the steps undone:
+            // a file is named in each as the moves between it and now have it.
+            for (const [i, entry] of journal.entries()) {
+              const past = i < cursor;
+              const before = (file: string) =>
+                past
+                  ? backThrough(journal.slice(i, cursor), file)
+                  : forwardThrough(journal.slice(cursor, i), file);
+              const after = (file: string) =>
+                past
+                  ? backThrough(journal.slice(i + 1, cursor), file)
+                  : forwardThrough(journal.slice(cursor, i + 1), file);
               for (const change of entry.changes) {
                 if (change.file === rel) {
-                  change.before = yield* rebase(change.before);
-                  change.after = yield* rebase(change.after);
+                  change.before = yield* rebase(change.before, before);
+                  change.after = yield* rebase(change.after, after);
                 }
               }
             }

@@ -1279,8 +1279,7 @@ export class PagesService extends Context.Service<
           Effect.gen(function* () {
             for (const { from, to } of files) {
               // Read in the action, so an edit made meanwhile moves with the page.
-              yield* tx.create(to, yield* contentOf(from));
-              yield* tx.remove(from);
+              yield* tx.move(from, to);
             }
             yield* comments.rewrite(tx, page.canvas, (pinned) =>
               pinned.some((c) => moves.has(c.page))
