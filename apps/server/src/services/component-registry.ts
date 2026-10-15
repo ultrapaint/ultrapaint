@@ -6,7 +6,7 @@ import { RepoPaths } from "./repo-paths.ts";
 /** Directory in the designs directory the preview is generated into. */
 export const PREVIEW_DIR = ".ultrapaint";
 
-const SPECIFIER_RE = /^[\w@][\w@./-]*$/;
+const SPECIFIER_RE = /^[\w@#][\w@#./-]*$/;
 
 /**
  * The component modules the preview can import, which is what an instance is drawn from. The
