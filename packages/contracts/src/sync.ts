@@ -105,6 +105,11 @@ export const SyncFacts = Schema.Struct({
       /** In the designs directory, not at the root of the repository yet. */
       legacy: Schema.Boolean,
       path: Schema.String,
+      /**
+       * The format's sections it has with nothing under them; all eight when its prose is in
+       * none of them (a DESIGN.md written before ADR 0027).
+       */
+      unwritten: Schema.Number,
     })
   ),
   /** Whether `design-system.json` is there and reads. */

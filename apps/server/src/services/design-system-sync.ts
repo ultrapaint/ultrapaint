@@ -24,7 +24,7 @@ import {
   type TokenSourceKind,
 } from "@ultrapaint/contracts/sync";
 import type { TokenChange } from "@ultrapaint/contracts/tokens";
-import { emptyGroups } from "@ultrapaint/design-md/format";
+import { emptyGroups, SECTIONS } from "@ultrapaint/design-md/format";
 import { flatten } from "@ultrapaint/design-md/merge";
 import { mirrorOf } from "@ultrapaint/design-md/mirror";
 import { parse } from "@ultrapaint/design-md/parse";
@@ -104,6 +104,22 @@ const sorted = <A>(record: Readonly<Record<string, A>>): Record<string, A> =>
   Object.fromEntries(
     Object.entries(record).sort(([a], [b]) => a.localeCompare(b))
   );
+
+/**
+ * The format's sections a DESIGN.md has with nothing under them, or all of them when its prose is
+ * in none (ADR 0027): what `/sync describe` has an agent write.
+ */
+const unwrittenOf = (
+  sections: readonly {
+    readonly section: string | null;
+    readonly text: string;
+  }[]
+) => {
+  const known = sections.filter((s) => s.section !== null);
+  return known.length === 0
+    ? SECTIONS.length
+    : known.filter((s) => s.text.trim() === "").length;
+};
 
 /** The tokens a write adds to the code that the design system does not list yet, with values. */
 const newTokens = (ds: DesignSystem, changes: readonly TokenChange[]) => {
@@ -272,6 +288,7 @@ export class DesignSystemSyncService extends Context.Service<
                 held: state.document.held.length,
                 legacy: state.document.legacy,
                 path: state.document.path,
+                unwritten: unwrittenOf(state.document.sections),
               },
             }),
             designSystem: state.designSystem !== null,

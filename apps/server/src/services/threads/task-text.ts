@@ -25,3 +25,24 @@ export const splitArgument = (argument: string) => {
   const [target = "", ...rest] = argument.trim().split(WHITESPACE_RE);
   return { extra: rest.join(" "), target };
 };
+
+/**
+ * How an agent writes DESIGN.md (ADR 0027): the open format's sections in its order, and what goes
+ * in each. Every task that has an agent write the document says this, in these words.
+ */
+export const DESIGN_MD_GUIDE = `DESIGN.md is the design system in the open format (github.com/google-labs-code/design.md), at the
+root of the repository, where every agent and person reads it, in the editor or not. Its front
+matter's token groups (colors, typography, rounded, spacing) are filled in from the code: what you
+write is the prose. The body is these \`##\` sections, in this order; leave one out only when there
+is nothing to say:
+   - Overview: what the product is and for whom, its voice and tone, and its look as a specific
+     reference rather than adjectives ("a printed lecture handout", not "clean and modern").
+   - Colors: what each colour is for, named as its token ({colors.primary}), and how dark mode
+     differs.
+   - Typography: the families, and which text style ({typography.heading-xl}) is for what.
+   - Layout: the grid, the spacing scale, how much room things get, the breakpoints.
+   - Elevation & Depth: how layers are told apart: surfaces, shadows, borders.
+   - Shapes: the radii ({rounded.md}) and where each goes.
+   - Components: which component to use for what, and what each variant is for.
+   - Do's and Don'ts: the rules, short and specific, what to avoid among them.
+   Short and specific: a named reference carries more than a list of adjectives.`;

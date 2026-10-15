@@ -151,7 +151,7 @@ describe("the plan", () => {
       drift: { ...emptyDrift, tokensUndescribed: ["color-new"] },
       facts: {
         ...facts,
-        designMd: { held: 0, legacy: false, path: "DESIGN.md" },
+        designMd: { held: 0, legacy: false, path: "DESIGN.md", unwritten: 0 },
         designSystem: true,
         figma: { id: "f", name: "App" },
       },
@@ -173,7 +173,7 @@ describe("the plan", () => {
       drift: emptyDrift,
       facts: {
         ...facts,
-        designMd: { held: 0, legacy: false, path: "DESIGN.md" },
+        designMd: { held: 0, legacy: false, path: "DESIGN.md", unwritten: 0 },
         designSystem: true,
       },
       figmaSynced: false,
@@ -197,7 +197,12 @@ describe("the plan", () => {
       drift: emptyDrift,
       facts: {
         ...facts,
-        designMd: { held: 0, legacy: true, path: "docs/designs/DESIGN.md" },
+        designMd: {
+          held: 0,
+          legacy: true,
+          path: "docs/designs/DESIGN.md",
+          unwritten: 8,
+        },
         designSystem: true,
       },
       figmaSynced: false,
@@ -209,7 +214,7 @@ describe("the plan", () => {
       drift: emptyDrift,
       facts: {
         ...facts,
-        designMd: { held: 3, legacy: false, path: "DESIGN.md" },
+        designMd: { held: 3, legacy: false, path: "DESIGN.md", unwritten: 0 },
         designSystem: true,
       },
       figmaSynced: false,
@@ -221,6 +226,20 @@ describe("the plan", () => {
       title: "Take DESIGN.md's tokens into the code",
     });
     expect(held[0]?.detail).toContain("3 values of DESIGN.md");
+    const prose = planOf({
+      drift: emptyDrift,
+      facts: {
+        ...facts,
+        designMd: { held: 0, legacy: false, path: "DESIGN.md", unwritten: 8 },
+        designSystem: true,
+      },
+      figmaSynced: false,
+      setup: emptySetup(0),
+    });
+    expect(prose[0]).toMatchObject({ kind: "describe", state: "attention" });
+    expect(prose[0]?.detail).toBe(
+      "DESIGN.md has none of the format's sections written yet: an agent writes them, keeping what it says."
+    );
   });
 });
 

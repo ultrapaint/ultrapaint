@@ -13,7 +13,7 @@ every theme. A contrast you did not compute is a guess.
 
 Surfaces, text and borders come from semantic tokens: background, foreground, muted, border,
 primary, destructive and their pairs. A palette colour (\`"$color-blue-500"\`) on a screen is a
-decision the design system did not make; use one only where DESIGN.md does.
+decision the design system did not make; use one only where DESIGN.md's Colors section does.
 
 ## A token only in its role
 

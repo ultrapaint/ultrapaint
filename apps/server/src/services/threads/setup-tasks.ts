@@ -12,10 +12,11 @@ import { plural } from "@ultrapaint/shared/text";
 import { Effect, Schema } from "effect";
 import { ServerConfig } from "../../config.ts";
 import { ProjectManager } from "../../project.ts";
+import { DesignSystemService } from "../design-system.ts";
 import { DesignSystemSetupService } from "../design-system-setup.ts";
 import { inventoryBrief, mappingCounts } from "../design-system-setup-rules.ts";
 import { RepoPaths } from "../repo-paths.ts";
-import { splitArgument, userAdds } from "./task-text.ts";
+import { DESIGN_MD_GUIDE, splitArgument, userAdds } from "./task-text.ts";
 
 const isDefineMode = Schema.is(DefineModeSchema);
 
@@ -51,7 +52,8 @@ supported. Change no other file: bringing the code onto the design system is a l
 ${brief}
 
 ${steps}
-   Note in DESIGN.md what the code does off the system that the team should stop doing.
+   Say in DESIGN.md's Do's and Don'ts what the code does off the system that the team should
+   stop doing.
 5. ${finishing("Define")}
 ${userAdds(extra)}</ultrapaint-task>`
     );
@@ -97,8 +99,8 @@ ${tools}
    \`@theme inline\` (--color-primary: var(--primary)).
 5. Call scan_design_system again and save the result with write_design_system, curated as /init
    does: semantic colours first with what each is for, the text styles, the components with their
-   category and example props, the elevation levels. DESIGN.md says what the product is, which
-   colour means what, and what the code must stop doing.
+   category and example props, the elevation levels. And DESIGN.md: ${DESIGN_MD_GUIDE}
+   Its Do's and Don'ts say what the code must stop doing.
 6. ${finishing("Define")}
 ${userAdds(extra)}</ultrapaint-task>`;
       })
@@ -202,9 +204,19 @@ ${userAdds(extra)}</ultrapaint-task>`;
       const extra = given ? words : argument.trim();
       const state = yield* setup.get;
       const inventory = yield* setup.inventory;
-      const brief = inventory
-        ? inventoryBrief(inventory)
-        : "The Inventory step has not run, so what the code uses is not known: read the code yourself.";
+      const { designSystem, document } = yield* project.use(
+        Effect.flatMap(DesignSystemService, (d) => d.get)
+      );
+      // A DESIGN.md from elsewhere (Stitch, a designer) is what the product is meant to be.
+      const intent =
+        document && !designSystem
+          ? `\n\nThe repository has a DESIGN.md (${document.path}), which read_design_system returns: it says what the product is meant to look like, with tokens in its front matter. Propose from it first, keep what its prose says, and keep its sections; its tokens are matched to the code's in Sync afterwards.`
+          : "";
+      const brief = `${
+        inventory
+          ? inventoryBrief(inventory)
+          : "The Inventory step has not run, so what the code uses is not known: read the code yourself."
+      }${intent}`;
       const mode: DefineMode =
         given ??
         state.steps.find((s) => s.id === "define")?.mode ??

@@ -6,8 +6,8 @@ export const content = {
 A design is judged with the words it will hold. Write real copy, at realistic lengths, in the
 product's voice, and say each thing the way the product always says it.
 
-Read the copy the product already has before writing. A voice DESIGN.md sets is the voice; plain
-language bends to it everywhere except errors and destructive moments.
+Read the copy the product already has before writing. The voice DESIGN.md's Overview sets is the
+voice; plain language bends to it everywhere except errors and destructive moments.
 
 ## Real words at real lengths
 

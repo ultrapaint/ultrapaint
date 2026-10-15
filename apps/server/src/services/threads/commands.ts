@@ -5,7 +5,7 @@
  * typed.
  */
 import {
-  DESIGN_NOTES_FILE,
+  DESIGN_MD_FILE,
   DESIGN_SYSTEM_FILE,
 } from "@ultrapaint/contracts/design-system";
 import type { SlashCommand } from "@ultrapaint/contracts/threads";
@@ -19,7 +19,7 @@ import { RepoPaths } from "../repo-paths.ts";
 import { makePageTasks } from "./page-tasks.ts";
 import { makeSetupTasks } from "./setup-tasks.ts";
 import { makeSyncTasks } from "./sync-tasks.ts";
-import { designSystemSchema, userAdds } from "./task-text.ts";
+import { DESIGN_MD_GUIDE, designSystemSchema, userAdds } from "./task-text.ts";
 
 const COMMAND_RE = /^\/([a-z][\w-]*)(?:\s+([\s\S]*))?$/;
 
@@ -87,7 +87,8 @@ export class SlashCommands extends Context.Service<
       const importSteps = project.use(
         Effect.gen(function* () {
           const paths = yield* RepoPaths;
-          const { designSystem } = yield* (yield* DesignSystemService).get;
+          const { designSystem, document } = yield* (yield* DesignSystemService)
+            .get;
           const { settings } = paths;
           const libraries =
             settings.libraryDirs.join(", ") || "the component library";
@@ -100,17 +101,25 @@ export class SlashCommands extends Context.Service<
    A design system was imported before: read_design_system returns it with DESIGN.md. Update
    it rather than start over, and ask only about what changed.`
        : ""
+   }${
+     document && !designSystem
+       ? `
+   The repository has a DESIGN.md (${document.path}), which read_design_system returns: it says
+   what the product is meant to look like. Start from it, keep what it says, and keep its
+   sections; its tokens are compared with the code's in Sync afterwards.`
+       : ""
    }`
             : `1. Read the stylesheets the preview imports (${settings.hostCss.join(", ") || "none configured yet"}) and
    their @theme blocks.`;
           const write = mcp
             ? `4. Save it with write_design_system: \`designSystem\` is the design-system.json object and
-   \`notes\` the whole of DESIGN.md. get_document_format with kind "design-system" has its JSON
-   Schema. The tool validates it and tells you what is wrong; fix it and call it again. Do not
-   write the two files by hand.`
+   \`designMd\` the whole of DESIGN.md. get_document_format with kind "design-system" has its JSON
+   Schema. The tool validates both, puts the code's values in DESIGN.md's front matter and tells
+   you what is wrong; fix it and call it again. Do not write the two files by hand.`
             : `4. Write ${settings.designsDir}/${DESIGN_SYSTEM_FILE}, valid against this JSON Schema:
    ${designSystemSchema()}
-   and ${settings.designsDir}/${DESIGN_NOTES_FILE}.`;
+   and ${DESIGN_MD_FILE} at the root of the repository, without front matter: the editor fills in
+   its tokens.`;
           return `${tools}
 2. Look at what the scan cannot see: the design system's packages (${libraries}), their READMEs,
    AGENTS.md and docs, Storybook stories, style guides, and how the application's own screens use
@@ -143,8 +152,7 @@ ${write}
      its components has them read from there.
    - icons: the package the product's icons come from, the sizes it uses, and in
      \`description\` how they are used (stroke width, with or without labels).
-   - DESIGN.md: what the application is and for whom, the voice and tone, layout conventions,
-     which component to use for what, and what to avoid. Short and specific.`;
+   - DESIGN.md: ${DESIGN_MD_GUIDE}`;
         })
       );
 

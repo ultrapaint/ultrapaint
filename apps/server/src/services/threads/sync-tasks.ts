@@ -4,6 +4,7 @@
  * editor's sync stands.
  */
 import type { TokenDiff, TokenSourceKind } from "@ultrapaint/contracts/sync";
+import { SECTIONS } from "@ultrapaint/design-md/format";
 import { mirrorOf } from "@ultrapaint/design-md/mirror";
 import { parse } from "@ultrapaint/design-md/parse";
 import { groupsOf } from "@ultrapaint/design-md/tokens";
@@ -14,7 +15,7 @@ import { DesignSystemService } from "../design-system.ts";
 import { DesignSystemSyncService } from "../design-system-sync.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { ProjectStyleSystem } from "../style-system.ts";
-import { splitArgument, userAdds } from "./task-text.ts";
+import { DESIGN_MD_GUIDE, splitArgument, userAdds } from "./task-text.ts";
 
 /** Tokens of each side a `/sync figma` task lists. */
 const FIGMA_LISTED = 300;
@@ -51,16 +52,22 @@ The user ran /sync describe, but there is no design system yet to describe the c
 to open the Design system panel and press Sync, which starts one, and stop.
 </ultrapaint-task>`;
       }
+      const doc = plan.facts.designMd;
+      const prose =
+        doc && !doc.legacy && doc.unwritten > 0
+          ? `${doc.path} has ${doc.unwritten === SECTIONS.length ? "none of the format's sections written yet" : `${doc.unwritten} of the format's sections with nothing under them`}.`
+          : "";
       const nothing =
         drift.tokensUndescribed.length +
           drift.tokensGone.length +
           drift.componentsUndescribed.length +
           drift.componentsGone.length ===
-        0;
+          0 && prose === "";
       return `<ultrapaint-task command="sync">
 Bring the design system up to the code as it is now. Its values are the code's: they are read from
-the code every time, so only what each token and component is for is yours to write.
-${nothing ? "\nThe design system already lists every token and component of the code: say so, and stop.\n" : ""}
+the code every time, so only what each token and component is for is yours to write, here and in
+DESIGN.md's prose.
+${nothing ? "\nThe design system already lists every token and component of the code, and DESIGN.md's sections are written: say so, and stop.\n" : ""}
 ${list(
   "Tokens the code declares that the design system does not list:",
   drift.tokensUndescribed.map((n) => `${n}: ${declaredValue(n)}`)
@@ -70,7 +77,7 @@ ${list(
 )}${list(
   "Components of the code it says nothing about:",
   drift.componentsUndescribed
-)}${list("Components it notes that the code no longer has:", drift.componentsGone)}
+)}${list("Components it notes that the code no longer has:", drift.componentsGone)}${prose ? `\n${prose}\n` : ""}
 1. read_design_system for the design system and DESIGN.md.
 2. Each new token: find where the code uses it, put it in the group it belongs to and say in
    \`description\` what it is for. A token the product has on purpose but designers should not
@@ -79,8 +86,12 @@ ${list(
    whether the code should declare it again.
 4. Each new component: get_component for its props; give it a \`category\`, a \`description\` and
    \`exampleProps\` that make it render something meaningful. Take out the notes of a component gone.
-5. Where what something is for is the user's to say, ask with ask_user, a few at a time.
-6. Save with write_design_system; then a short summary of what changed.
+5. DESIGN.md: say in its prose what changed above, and write what it does not say yet. Prose that
+   is not in the format's sections is put in them, keeping what it says; a section the format does
+   not know stays, after the others. ${DESIGN_MD_GUIDE}
+6. Where what something is for is the user's to say, ask with ask_user, a few at a time.
+7. Save with write_design_system, the design system and the whole of DESIGN.md as designMd; then a
+   short summary of what changed.
 ${userAdds(extra)}</ultrapaint-task>`;
     });
 

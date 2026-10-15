@@ -290,7 +290,19 @@ section they defer to:
 Done when `/init` on this repository writes a root `DESIGN.md` that the linter passes with no
 error.
 
-### Phase 5: the panel
+**Done, 2026-10-15.** `DESIGN_MD_GUIDE` (`threads/task-text.ts`) is the one text on the
+sections: `/init`, both Define modes and `/sync describe` include it.
+
+- **Starting from someone else's DESIGN.md.** When a project has a DESIGN.md and no design
+  system, `/init` and Define start from it.
+- **The describe step also waits on prose.** It is waiting while DESIGN.md has unwritten
+  sections (`SyncFacts.designMd.unwritten`), as well as on drift. A first DESIGN.md, written with
+  empty sections, therefore leads straight to `/sync describe`.
+- **Not run.** `/init` has not been run with a real agent on this repository, so the done-when
+  of this phase is unchecked. What the agent's write goes through, the linter included, is
+  covered by `mcp.test.ts`.
+
+
 
 5.1 The DESIGN.md tab shows the document by section, with an Edit action per section (a plain
 markdown field in a popover, like the toolbar's) and the linter's findings above.

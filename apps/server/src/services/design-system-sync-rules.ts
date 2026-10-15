@@ -34,6 +34,7 @@ import {
   type TokenChange,
   tokenKindOf,
 } from "@ultrapaint/contracts/tokens";
+import { SECTIONS } from "@ultrapaint/design-md/format";
 import { plural } from "@ultrapaint/shared/text";
 import { inCodeUnits, sameValue } from "./token-values.ts";
 
@@ -262,14 +263,29 @@ const documentSteps = (facts: SyncFacts): SyncStep[] => {
   return [];
 };
 
-const describeStepOf = (drift: SyncDrift) => {
+/** What DESIGN.md's prose still needs, in a sentence; empty when nothing. */
+const proseOf = (facts: SyncFacts) => {
+  const doc = facts.designMd;
+  if (!doc || doc.legacy || doc.unwritten === 0) {
+    return "";
+  }
+  return doc.unwritten === SECTIONS.length
+    ? `${doc.path} has none of the format's sections written yet: an agent writes them, keeping what it says.`
+    : `${doc.path} has ${plural(doc.unwritten, "section")} with nothing written under it.`;
+};
+
+const describeStepOf = (drift: SyncDrift, facts: SyncFacts) => {
   const drifted = driftCount(drift) > 0;
+  const prose = proseOf(facts);
+  const lead = drifted
+    ? `The code has ${driftParts(drift).join("; ")}. An agent updates the design system, asking you what each is for.`
+    : "";
   return step(
     "describe",
     "Describe what changed",
-    drifted ? "attention" : "done",
-    drifted
-      ? `The code has ${driftParts(drift).join("; ")}. An agent updates the design system, asking you what each is for.`
+    drifted || prose ? "attention" : "done",
+    drifted || prose
+      ? [lead, prose].filter(Boolean).join(" ")
       : "The design system lists every token and component the code has. Values are always read from the code."
   );
 };
@@ -283,7 +299,7 @@ const stepsOf = (input: PlanInput): SyncStep[] => {
     return [
       ...head,
       ...documentSteps(facts),
-      describeStepOf(drift),
+      describeStepOf(drift, facts),
       ...(facts.figma
         ? [figmaStepOf(facts, figmaSynced), framesStepOf(true)]
         : []),

@@ -200,8 +200,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           const { client, repo, settings } = yield* TestEnv;
           const fs = yield* FileSystem.FileSystem;
           yield* fs.writeFileString(
-            `${repo}/designs/DESIGN.md`,
-            "Blue is the brand.\n"
+            `${repo}/DESIGN.md`,
+            "## Colors\n\nBlue is the brand.\n"
           );
           yield* client["settings.set"]({
             ...settings,
