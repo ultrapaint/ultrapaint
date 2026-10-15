@@ -21,7 +21,7 @@ import {
 } from "@ultrapaint/design-md/merge";
 import { mirrorOf } from "@ultrapaint/design-md/mirror";
 import { parse } from "@ultrapaint/design-md/parse";
-import { create, withMirror } from "@ultrapaint/design-md/write";
+import { create, withMirror, withSection } from "@ultrapaint/design-md/write";
 import type { DesignSystemScan } from "@ultrapaint/framework-api/node";
 import {
   Clock,
@@ -110,6 +110,14 @@ export class DesignSystemService extends Context.Service<
       { readonly path: string },
       EditFailure
     >;
+    /**
+     * One `##` section of `DESIGN.md` given its text, or added where the format orders it: what
+     * the Design system panel's Edit writes. One undo step.
+     */
+    readonly setSection: (
+      name: string,
+      text: string
+    ) => Effect.Effect<void, EditFailure>;
     /**
      * Saves the design system and `DESIGN.md` as given, in one undo step: for Sync, which has
      * merged them itself (ADR 0027).
@@ -598,6 +606,24 @@ export class DesignSystemService extends Context.Service<
         Effect.withSpan("DesignSystemService.mirrorDocument")
       );
 
+      const setSection = Effect.fn("DesignSystemService.setSection")(function* (
+        name: string,
+        text: string
+      ) {
+        const { document } = yield* get;
+        if (!document) {
+          return yield* new BadRequest({
+            message: "There is no DESIGN.md to write in yet: Sync writes one.",
+          });
+        }
+        yield* edit.transaction(`Edit DESIGN.md's ${name}`, (tx) =>
+          tx.write(document.path, withSection(document.text, name, text))
+        );
+        yield* Effect.flatMap(get, (state) =>
+          events.publish("designSystem", state)
+        );
+      });
+
       const replace = Effect.fn("DesignSystemService.replace")(function* (
         designSystem: DesignSystem,
         document: string,
@@ -859,6 +885,7 @@ export class DesignSystemService extends Context.Service<
         replace,
         saveBaseline,
         scan,
+        setSection,
         setToken,
         setTokens,
         write,

@@ -44,7 +44,6 @@ import { bridgeFor } from "../canvas/bridge.ts";
 import { useHostUrl } from "../canvas/frame.tsx";
 import { usePreviewBridge } from "../canvas/use-preview-bridge.ts";
 import { IconButton } from "../components/icon-button.tsx";
-import { Markdown } from "../components/markdown.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import { SetupEmpty } from "../components/setup-dialog.tsx";
@@ -61,6 +60,7 @@ import { useDesignSystem } from "../state/design-system.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
 import { useProject } from "../state/project.ts";
 import { useSync } from "../state/sync.ts";
+import { DesignMdView, SectionProse } from "./design-md-view.tsx";
 import { SyncView } from "./sync.tsx";
 
 const COLOR_PREFIX_RE = /^color-/;
@@ -434,30 +434,20 @@ const LengthBar = ({ max, value }: { max: number; value: string }) => (
 const widest = (tokens: readonly Token[]) =>
   Math.max(1, ...tokens.map((t) => toPixels(t.value) ?? 0));
 
-const Notes = ({ document }: { document: DesignDocument | null }) =>
-  document ? (
-    <div className="px-3 py-2">
-      <Markdown>{document.body}</Markdown>
-    </div>
-  ) : (
-    <div className="flex flex-col items-start gap-2 p-3 font-body text-muted-foreground">
-      No DESIGN.md yet: the conventions an agent writes during /init.
-      <Button onClick={startInit} size="sm" variant="outline">
-        <Wand2 />
-        Run /init
-      </Button>
-    </div>
-  );
-
 const Contents = ({
+  document,
   ds,
   q,
   theme,
 }: {
+  document: DesignDocument | null;
   ds: DesignSystem;
   q: string;
   theme: string;
 }) => {
+  // What DESIGN.md says about a group, above its tokens; a search shows the tokens alone.
+  const prose = (name: string) =>
+    q ? null : <SectionProse document={document} name={name} />;
   const themes = ds.themes ?? ["light"];
   const groups = ds.colors
     .map((g) => ({ ...g, tokens: g.tokens.filter((t) => matches(t, q)) }))
@@ -469,6 +459,7 @@ const Contents = ({
   return (
     <>
       <Heading>Colours</Heading>
+      {prose("Colors")}
       {groups.length === 0 ? (
         <div className="px-3 py-2 font-body text-muted-foreground">
           No colours
@@ -479,6 +470,7 @@ const Contents = ({
         ))
       )}
       <Heading>Typography</Heading>
+      {prose("Typography")}
       <TypeSpecimen ds={ds} q={q} />
       {fonts.length > 0 && (
         <TokenRows
@@ -488,6 +480,7 @@ const Contents = ({
         />
       )}
       <Heading>Spacing · {ds.spacing.base} a step</Heading>
+      {prose("Layout")}
       <div className="flex flex-col gap-1 px-3 py-2">
         {SPACING_SAMPLE.map((step) => (
           <div className="flex items-center gap-2" key={step}>
@@ -527,6 +520,7 @@ const Contents = ({
       {radius.length > 0 && (
         <>
           <Heading>Radius</Heading>
+          {prose("Shapes")}
           <TokenRows
             kind="radius"
             preview={(t) => (
@@ -554,17 +548,19 @@ const Contents = ({
           />
         </>
       )}
-      <MoreFoundations ds={ds} q={q} theme={theme} />
+      <MoreFoundations document={document} ds={ds} q={q} theme={theme} />
     </>
   );
 };
 
 /** Elevation, border widths, layout, motion and icons: what a design system may also name. */
 const MoreFoundations = ({
+  document,
   ds,
   q,
   theme,
 }: {
+  document: DesignDocument | null;
   ds: DesignSystem;
   q: string;
   theme: string;
@@ -586,6 +582,9 @@ const MoreFoundations = ({
       {levels.length > 0 && (
         <>
           <Heading>Elevation</Heading>
+          {q ? null : (
+            <SectionProse document={document} name="Elevation & Depth" />
+          )}
           <ElevationRows ds={ds} levels={levels} theme={theme} />
         </>
       )}
@@ -784,9 +783,14 @@ export const DesignSystemPanel = () => {
       ) : null}
       <div className="min-h-0 flex-1 overflow-auto">
         {tab === "tokens" ? (
-          <Contents ds={designSystem} q={q2} theme={theme} />
+          <Contents
+            document={document}
+            ds={designSystem}
+            q={q2}
+            theme={theme}
+          />
         ) : (
-          <Notes document={document} />
+          <DesignMdView document={document} />
         )}
       </div>
       {designSystem.source ? (

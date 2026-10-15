@@ -133,6 +133,24 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           const state = yield* client["designSystem.get"]();
           assert.strictEqual(state.document?.path, "DESIGN.md");
           assert.include(state.document?.body ?? "", "One primary action");
+
+          // The panel writes one section at a time, and the rest stays.
+          yield* client["designSystem.setSection"]({
+            name: "Colors",
+            text: "Brand {colors.brand} for the one action.",
+          });
+          const edited = yield* fs.readFileString(path.join(repo, "DESIGN.md"));
+          assert.include(edited, "One primary action per screen.\n");
+          assert.include(
+            edited,
+            "## Colors\n\nBrand {colors.brand} for the one action.\n"
+          );
+          const sections = (yield* client["designSystem.get"]()).document
+            ?.sections;
+          assert.deepStrictEqual(
+            sections?.map((s) => [s.section, s.text.trim()]),
+            [["Colors", "Brand {colors.brand} for the one action."]]
+          );
         }),
       30_000
     );

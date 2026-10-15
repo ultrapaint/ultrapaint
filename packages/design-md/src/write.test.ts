@@ -3,7 +3,13 @@ import { describe, expect, it } from "vitest";
 import { emptyGroups, type TokenGroups } from "./format.ts";
 import { parse } from "./parse.ts";
 import { groupsOf } from "./tokens.ts";
-import { create, renameRefs, type WriteResult, withMirror } from "./write.ts";
+import {
+  create,
+  renameRefs,
+  type WriteResult,
+  withMirror,
+  withSection,
+} from "./write.ts";
 
 const upstream = (name: string) =>
   readFileSync(
@@ -194,5 +200,34 @@ describe("renameRefs", () => {
     expect(
       renameRefs(text, new Map([["colors.tertiary", "colors.accent"]]))
     ).toBe(text.replaceAll("{colors.tertiary}", "{colors.accent}"));
+  });
+});
+
+describe("withSection", () => {
+  const text =
+    "---\nname: Acme\n---\n\n## Overview\n\nOld.\n\n## Shapes\n\nSharp.\n";
+
+  it("replaces a section's text, the alias's heading kept", () => {
+    expect(withSection(text, "Overview", "New, calm.")).toBe(
+      "---\nname: Acme\n---\n\n## Overview\n\nNew, calm.\n\n## Shapes\n\nSharp.\n"
+    );
+    expect(withSection("## Brand & Style\n\nOld.\n", "Overview", "New.")).toBe(
+      "## Brand & Style\n\nNew.\n"
+    );
+    expect(withSection(text, "Shapes", "Round.")).toBe(
+      "---\nname: Acme\n---\n\n## Overview\n\nOld.\n\n## Shapes\n\nRound.\n"
+    );
+  });
+
+  it("adds a section where the format orders it, or at the end", () => {
+    expect(withSection(text, "Colors", "Ink.")).toBe(
+      "---\nname: Acme\n---\n\n## Overview\n\nOld.\n\n## Colors\n\nInk.\n\n## Shapes\n\nSharp.\n"
+    );
+    expect(withSection(text, "Do's and Don'ts", "- Don't glow.")).toBe(
+      `${text}\n## Do's and Don'ts\n\n- Don't glow.\n`
+    );
+    expect(parse(withSection(text, "Iconography", "Lucide.")).problems).toEqual(
+      []
+    );
   });
 });

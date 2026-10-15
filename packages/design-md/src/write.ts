@@ -202,3 +202,36 @@ export const renameRefs = (
     const to = renames.get(path);
     return to === undefined ? whole : `{${to}}`;
   });
+
+/**
+ * The file with one `##` section saying `body`: the section the format calls `name` (or the one
+ * headed so), its text replaced; when there is none, added where the format orders it. The rest of
+ * the file stays as it is.
+ */
+export const withSection = (
+  text: string,
+  name: string,
+  body: string
+): string => {
+  const doc = parse(text);
+  const block = `${body.trim()}\n`;
+  const found = doc.sections.find(
+    (s) => s.section === name || s.heading === name
+  );
+  if (found) {
+    const headingEnd = text.indexOf("\n", found.start) + 1;
+    const next = found.end < text.length ? "\n" : "";
+    return `${text.slice(0, headingEnd)}\n${block}${next}${text.slice(found.end)}`;
+  }
+  const order = SECTIONS.findIndex((s) => s.name === name);
+  const after = doc.sections.find((s) => {
+    const at = SECTIONS.findIndex((x) => x.name === s.section);
+    return order !== -1 && at > order;
+  });
+  const section = `## ${name}\n\n${block}`;
+  if (after) {
+    return `${text.slice(0, after.start)}${section}\n${text.slice(after.start)}`;
+  }
+  const head = text.endsWith("\n") || text === "" ? text : `${text}\n`;
+  return `${head}${head.endsWith("\n\n") || head === "" ? "" : "\n"}${section}`;
+};

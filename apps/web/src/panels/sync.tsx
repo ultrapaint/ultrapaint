@@ -33,6 +33,7 @@ import { api } from "../state/connection.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { useSync } from "../state/sync.ts";
+import { placeDocument } from "./design-md-view.tsx";
 import { StepCard } from "./design-system-setup.tsx";
 import { ScaffoldButton } from "./sync-scaffold.tsx";
 import { TokensStep } from "./sync-tokens.tsx";
@@ -153,18 +154,6 @@ const SettingsStep = ({ index, step }: { index: number; step: SyncStep }) => (
     </div>
   </SyncCard>
 );
-
-const placeDocument = async () => {
-  try {
-    const { path } = await api().request(
-      "designSystem.placeDocument",
-      undefined
-    );
-    toast.success(`${path} is at the root of the repository.`);
-  } catch (error) {
-    reportError(error);
-  }
-};
 
 const DocumentStep = ({ index, step }: { index: number; step: SyncStep }) => (
   <SyncCard index={index} step={step}>

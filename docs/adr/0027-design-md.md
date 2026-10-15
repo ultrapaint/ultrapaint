@@ -1,6 +1,6 @@
 # ADR 0027: DESIGN.md follows the open standard, at the repository root, kept in step with the code both ways
 
-Status: proposed, 2026-10-15. Amends 0015 (the design system's two files) and 0025 (sync).
+Status: accepted, 2026-10-15. Amends 0015 (the design system's two files) and 0025 (sync).
 Plan: `docs/PLAN-design-md.md`.
 
 ## Context

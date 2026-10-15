@@ -3,6 +3,9 @@
 Status: accepted, 2026-09-25. Supersedes 0002, 0003, 0007's snippet insertion and the TSX
 verdict of [the storage checkpoint](../decisions/storage-format.md). Amends 0011, 0012 and 0014.
 
+> Amended by [0027](0027-design-md.md): `DESIGN.md` follows the open DESIGN.md format, at the root
+> of the repository, its front matter mirroring the code's tokens.
+
 > Amended by [0019](0019-canvases.md): a space is a canvas, and an image's `assets/` is the
 > canvas's own when it has that file, the shared one at the root of the designs directory
 > otherwise.

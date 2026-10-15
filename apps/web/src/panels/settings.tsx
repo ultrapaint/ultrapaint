@@ -1,3 +1,4 @@
+import type { DesignDocument } from "@ultrapaint/contracts/design-system";
 import type { Settings, StorageInfo } from "@ultrapaint/contracts/settings";
 import {
   CONFIG_FILE_NAME,
@@ -36,6 +37,7 @@ import { api } from "../state/connection.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useEditor } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
+import { placeDocument } from "./design-md-view.tsx";
 import {
   ChatDefaultsGroup,
   McpConnectionGroup,
@@ -80,8 +82,28 @@ const sections: readonly {
 ];
 
 /** Where `/init` is started from the settings, and where its result is said to be. */
+/** Where DESIGN.md is, and whether the format's linter is content with it. */
+const documentDescription = (document: DesignDocument | null) => {
+  if (!document) {
+    return "The design system in the open format every agent reads, at the root of the repository. There is none yet.";
+  }
+  if (document.legacy) {
+    return `${document.path}: in the designs directory. At the root of the repository, agents outside the editor find it too, and its front matter follows the code's tokens.`;
+  }
+  const errors = document.findings.filter((f) => f.severity === "error").length;
+  const warnings = document.findings.filter(
+    (f) => f.severity === "warning"
+  ).length;
+  const lint =
+    errors + warnings === 0
+      ? "The format's linter finds nothing to say."
+      : `The format's linter finds ${[errors > 0 ? `${errors} error${errors === 1 ? "" : "s"}` : "", warnings > 0 ? `${warnings} warning${warnings === 1 ? "" : "s"}` : ""].filter(Boolean).join(" and ")}: the Design system panel lists them.`;
+  return `${document.path}, its front matter following the code's tokens. ${lint}`;
+};
+
 const DesignSystemGroup = () => {
   const designSystem = useDesignSystem((s) => s.designSystem);
+  const document = useDesignSystem((s) => s.document);
   const detecting = useDesignSystem((s) => s.detecting);
   const loaded = useDesignSystem((s) => s.loaded);
   useEffect(() => {
@@ -130,6 +152,15 @@ const DesignSystemGroup = () => {
           </Button>
         </div>
       </Row>
+      {designSystem ? (
+        <Row description={documentDescription(document)} title="DESIGN.md" wide>
+          {document?.legacy || !document ? (
+            <Button onClick={placeDocument} variant="outline">
+              {document ? "Move to the repository root" : "Write it"}
+            </Button>
+          ) : null}
+        </Row>
+      ) : null}
     </Group>
   );
 };

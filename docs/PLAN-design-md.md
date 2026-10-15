@@ -318,7 +318,15 @@ legacy.
 - ADR 0015's amendment note;
 - the ADR index.
 
-### Phase 6: component tokens (optional, independent)
+**Done, 2026-10-15.** `apps/web/src/panels/design-md-view.tsx` is the DESIGN.md tab. Each
+section is written alone, through `designSystem.setSection` (`withSection` in the package), as one
+undo step. Seen in a headless Chrome on a scratch repository: a prose-only DESIGN.md got its
+front matter from the theme as soon as the design system was detected, and its prose stayed as it
+was. Deviation: Settings has a DESIGN.md row of its own, with where the file is, what the linter
+says, and **Move to the repository root** or **Write it**. The Design system panel offers the
+same.
+
+
 
 6.1 **The catalogue keeps the classes.** The catalogue extraction
 (`framework-react-vite/src/catalogue-extract.ts`) keeps each cva variant member's classes, and

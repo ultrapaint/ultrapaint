@@ -309,21 +309,39 @@ become the matching Tailwind v4 classes, instances become your components.
 
 ## The design system
 
-The design system is two files next to the designs, both meant to be committed:
+The design system is two files, both meant to be committed:
 
-- `design-system.json` — what each token and component is for: colours by palette and the
-  semantic ones, type sizes and text styles, fonts, spacing, radius, shadows, border widths,
-  elevation levels (a surface, its shadow and its z-index), breakpoints and container widths,
-  motion, the icon set, themes, and for each component a category, a description and the example
-  props its thumbnail is drawn with;
-- `DESIGN.md` — the conventions every agent is told about: what the product is, which colours
-  mean what, what to always or never do.
+- `DESIGN.md`, at the root of the repository, in the open
+  [DESIGN.md format](https://github.com/google-labs-code/design.md) that coding agents and design
+  tools read and write ([ADR 0027](docs/adr/0027-design-md.md)):
+  - its front matter holds the tokens (`colors`, `typography`, `rounded`, `spacing`), kept in
+    step with your code;
+  - its body says, in the format's sections, what the product is, which colours mean what,
+    which component to use for what, and what to always or never do.
+
+  Every agent is told it, and an agent outside the editor finds it too. The format's own linter
+  checks it: broken references, contrast, section order. A `DESIGN.md` in the designs directory
+  is still read, and Sync moves it to the root.
+- `design-system.json`, next to the designs: what the format has no place for. That is colours
+  by palette and the semantic ones with what each is for, how each text style is built from the
+  tokens, fonts, shadows, border widths, elevation levels (a surface, its shadow and its
+  z-index), breakpoints and container widths, motion, the icon set and themes. For each
+  component it keeps a category, a description and the example props its thumbnail is drawn
+  with. It also keeps what Sync last agreed on with Figma and with `DESIGN.md`.
 
 **A token's value lives in your code**, where your stylesheets declare it, and nowhere else.
 `design-system.json` leaves the values out and they are read from the code every time, so the
 two cannot disagree ([ADR 0025](docs/adr/0025-design-system-sync.md)). Right-click a token in the
 Design system panel and **Edit the value in the code…** writes your stylesheet, in the theme
 block it is declared in, with an **Undo** in the toast that reports it.
+
+`DESIGN.md`'s front matter mirrors those values in the default theme; its body says how dark mode
+differs. When the code changes a value, the front matter follows. When someone changes a value in
+`DESIGN.md`, by hand, from Stitch or in a pull, it waits in Sync, matched and compared with the
+code's as a Figma file's tokens are, until you take it into the code. The panel's **DESIGN.md**
+tab shows the document section by section, with an **Edit** on each and what the linter says
+above them, and the colour, type, spacing and radius tabs show their section's prose above the
+tokens.
 
 ### Sync
 
@@ -337,7 +355,7 @@ has a dot while something is waiting.
 | a Figma file, no application | starts an application with Figma's tokens as its theme, then turns the frames into pages |
 | an application, no design system | reads what the code uses, has an agent define the design system, and offers to map and migrate the code onto it |
 | a Figma file and an application | matches Figma's tokens to your code's and takes their values first, then the same steps, then the frames |
-| a design system | lists what drifted — tokens and components the code has that the design system does not describe, and the other way round — for `/sync describe`; compares a newer Figma import |
+| a design system | moves `DESIGN.md` to the repository root, or writes a first one; takes what someone changed in `DESIGN.md` into the code; lists what drifted (tokens and components the code has that the design system does not describe, and the other way round) and the `DESIGN.md` sections left to write, for `/sync describe`; compares a newer Figma import |
 
 Settings that point nowhere (no component directory, one with no components the editor can
 read, no stylesheet) come first in every case: **Detect and apply** proposes where they are and
@@ -392,7 +410,8 @@ directory, not in the repository ([ADR 0023](docs/adr/0023-design-system-setup.m
 Before it designs, every agent is also told how to design well, whatever the product: hierarchy,
 layout, spacing, typography, colour, elevation, borders and radius, iconography, motion,
 content, states, how to compose with components, and accessibility. These
-skills ship with the tool and come before `DESIGN.md`, which wins where they disagree. **Settings**
+skills ship with the tool and come before `DESIGN.md`, which wins where they disagree: a rule
+that holds for this product alone belongs in its Do's and Don'ts. **Settings**
 lists them, with a switch to turn any off (saved in `ultrapaint.config.json` as `skills.disabled`).
 
 A project takes a skill over with a markdown file in `skills/` inside the designs directory:
@@ -467,7 +486,8 @@ type after it is added to it.
 | `/sync` | Opens the Sync view on the steps for your repository's case (no agent turn) |
 | `/sync describe` | An agent brings the design system up to the code: describes new tokens and components, takes out the ones gone, asks you what they are for |
 | `/sync figma` | An agent matches the imported Figma file's tokens to your code's, asking you where the meaning is yours to say; you review and write them in Sync |
-| `/init` | An agent describes the theme you have as the design system, and writes `design-system.json` and `DESIGN.md` |
+| `/sync design` | An agent matches `DESIGN.md`'s tokens to your code's and settles its text styles with you; you review and write them in Sync |
+| `/init` | An agent describes the theme you have as the design system, and writes `design-system.json` and `DESIGN.md` in the format's sections |
 | `/import-figma [import]` | An agent maps an imported Figma file's components to yours and writes its frames as pages |
 | `/implement <page>` | An agent writes a page (by URL or file) in your application, with your components and conventions |
 | `/redraw <canvas> <what to change>` | Changes every page of a canvas, a copy made to go another way |

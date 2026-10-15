@@ -345,6 +345,11 @@ const requestRpcs = [
     error: EditError,
     success: Schema.Struct({ path: Schema.String }),
   }),
+  /** One `##` section of DESIGN.md given its text, or added in the format's order; one undo step. */
+  Rpc.make("designSystem.setSection", {
+    error: EditError,
+    payload: { name: Schema.String, text: Schema.String },
+  }),
 
   /** The design-system setup's steps (ADR 0023). */
   Rpc.make("dsSetup.get", { error: NotConfigured, success: DesignSystemSetup }),
