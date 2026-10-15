@@ -427,6 +427,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           });
           assert.isTrue(invalid.result.isError);
           const saved = yield* tool("write_design_system", {
+            designMd:
+              "## Overview\n\nAcme. Use the primary colour for one action per screen.\n",
             designSystem: {
               colors: [
                 {
@@ -440,7 +442,6 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
               typography: { fonts: [], sizes: [], styles: [], weights: [] },
               version: 1,
             },
-            notes: "# Acme\nUse the primary colour for one action per screen.",
           });
           assert.isNotTrue(saved.result.isError);
           const system = yield* client["designSystem.get"]();
@@ -448,7 +449,10 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             system.designSystem?.colors[0]?.tokens[0]?.name,
             "color-primary"
           );
-          assert.include(system.notes ?? "", "one action per screen");
+          assert.include(system.document?.text ?? "", "one action per screen");
+          // At the root, its front matter filled in from the design system.
+          assert.strictEqual(system.document?.path, "DESIGN.md");
+          assert.include(system.document?.text ?? "", "colors:\n  primary:");
         }),
       30_000
     );

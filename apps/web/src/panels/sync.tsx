@@ -11,6 +11,7 @@ import { cn } from "cn";
 import {
   Check,
   ChevronLeft,
+  FileText,
   FileUp,
   RefreshCw,
   Settings2,
@@ -153,6 +154,31 @@ const SettingsStep = ({ index, step }: { index: number; step: SyncStep }) => (
   </SyncCard>
 );
 
+const placeDocument = async () => {
+  try {
+    const { path } = await api().request(
+      "designSystem.placeDocument",
+      undefined
+    );
+    toast.success(`${path} is at the root of the repository.`);
+  } catch (error) {
+    reportError(error);
+  }
+};
+
+const DocumentStep = ({ index, step }: { index: number; step: SyncStep }) => (
+  <SyncCard index={index} step={step}>
+    {step.state === "done" ? null : (
+      <div className="flex flex-wrap gap-1.5">
+        <Button onClick={placeDocument} size="sm">
+          <FileText />
+          {step.title.startsWith("Move") ? "Move it" : "Write it"}
+        </Button>
+      </div>
+    )}
+  </SyncCard>
+);
+
 const DescribeStep = ({ index, step }: { index: number; step: SyncStep }) => (
   <SyncCard index={index} step={step}>
     {step.state === "done" ? null : (
@@ -234,6 +260,9 @@ const PlanStep = ({
   }
   if (step.kind === "describe") {
     return <DescribeStep index={index} step={step} />;
+  }
+  if (step.kind === "design-md") {
+    return <DocumentStep index={index} step={step} />;
   }
   if (step.kind === "import-frames") {
     return <FramesStep index={index} plan={plan} step={step} />;

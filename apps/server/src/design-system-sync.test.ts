@@ -46,7 +46,9 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           const saved = yield* client["sync.plan"]();
           assert.strictEqual(saved.case, "maintain");
           assert.deepStrictEqual(saved.drift.tokensUndescribed, []);
-          assert.strictEqual(saved.steps[0]?.state, "done");
+          const describe = (plan: typeof saved) =>
+            plan.steps.find((s) => s.kind === "describe");
+          assert.strictEqual(describe(saved)?.state, "done");
 
           // Someone adds a colour to the code and nobody tells the design system.
           yield* fs.writeFileString(
@@ -60,8 +62,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           assert.deepStrictEqual(drifted.drift.tokensUndescribed, [
             "color-accent",
           ]);
-          assert.strictEqual(drifted.steps[0]?.state, "attention");
-          assert.include(drifted.steps[0]?.detail ?? "", "color-accent");
+          assert.strictEqual(describe(drifted)?.state, "attention");
+          assert.include(describe(drifted)?.detail ?? "", "color-accent");
         }),
       30_000
     );

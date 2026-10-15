@@ -336,6 +336,14 @@ const requestRpcs = [
     error: EditError,
     success: DesignSystem,
   }),
+  /**
+   * Puts DESIGN.md at the root of the repository (ADR 0027): the designs directory's moved
+   * there, or a first one written from the design system. One undo step.
+   */
+  Rpc.make("designSystem.placeDocument", {
+    error: EditError,
+    success: Schema.Struct({ path: Schema.String }),
+  }),
 
   /** The design-system setup's steps (ADR 0023). */
   Rpc.make("dsSetup.get", { error: NotConfigured, success: DesignSystemSetup }),

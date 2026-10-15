@@ -3,6 +3,7 @@
  * the stylesheets or written, and the repository's components with an instance to start from.
  */
 import { Json } from "@ultrapaint/contracts/base";
+import type { DesignFinding } from "@ultrapaint/contracts/design-system";
 import { newInstance } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { Effect, Schema } from "effect";
@@ -20,6 +21,10 @@ import {
 } from "./tool-helpers.ts";
 
 const Failure = ToolFailure;
+
+/** A finding of the DESIGN.md linter as one line an agent reads. */
+const findingLine = (f: DesignFinding) =>
+  `${f.severity}: ${f.path ? `${f.path}: ` : ""}${f.message}`;
 
 const ComponentSummary = Schema.Struct({
   importFrom: Schema.String,
@@ -41,25 +46,31 @@ export const ScanDesignSystem = Tool.make("scan_design_system", {
 
 export const ReadDesignSystem = Tool.make("read_design_system", {
   description:
-    "The design system as recorded: design-system.json (tokens, text styles, component notes) and DESIGN.md (conventions); null when never imported.",
+    "The design system: design-system.json (tokens, text styles, component notes) and DESIGN.md; null when never imported.",
   failure: Failure,
   success: Schema.Struct({
+    designMd: Schema.NullOr(Schema.String),
     designSystem: Json,
-    notes: Schema.NullOr(Schema.String),
+    /** What the format's linter says about DESIGN.md. */
+    findings: Schema.Array(Schema.String),
     problem: Schema.optional(Schema.String),
   }),
 }).annotate(Tool.Readonly, true);
 
 export const WriteDesignSystem = Tool.make("write_design_system", {
   description:
-    'Save design-system.json, and DESIGN.md when notes is given; refused with the reason when it does not match its schema (get_document_format, kind "design-system"). A token is named after its Tailwind v4 variable without the dashes ("color-primary"); a text style refers to it as "$color-primary".',
+    'Save design-system.json, and DESIGN.md (token groups filled from the code) when designMd is given; refused with the reason when invalid (get_document_format, kind "design-system"). A token is its Tailwind v4 variable without the dashes ("color-primary"); a text style refers to it as "$color-primary".',
   failure: Failure,
   parameters: Schema.Struct({
-    designSystem: AnyJson,
     /** The whole of DESIGN.md. */
-    notes: opt(Schema.String),
+    designMd: opt(Schema.String),
+    designSystem: AnyJson,
   }),
-  success: Schema.Struct({ saved: Schema.Boolean }),
+  success: Schema.Struct({
+    /** What the format's linter says, and values put back to the code's. */
+    findings: Schema.Array(Schema.String),
+    saved: Schema.Boolean,
+  }),
 });
 
 export const ListComponents = Tool.make("list_components", {
@@ -166,8 +177,11 @@ export const designSystemToolHandlers = Effect.gen(function* () {
       function* () {
         const state = yield* designSystem((d) => d.get);
         return {
+          designMd: state.document?.text ?? null,
           designSystem: asJson(state.designSystem),
-          notes: state.notes,
+          findings: (state.document?.findings ?? [])
+            .filter((f) => f.severity !== "info")
+            .map(findingLine),
           ...(state.problem !== undefined && { problem: state.problem }),
         };
       }
@@ -185,9 +199,11 @@ export const designSystemToolHandlers = Effect.gen(function* () {
     ),
 
     write_design_system: Effect.fn("EditorTools.write_design_system")(
-      function* ({ designSystem: input, notes }) {
-        yield* designSystem((d) => d.write(input, notes));
-        return { saved: true };
+      function* ({ designMd, designSystem: input }) {
+        const { findings } = yield* designSystem((d) =>
+          d.write(input, designMd)
+        );
+        return { findings: findings.map(findingLine), saved: true };
       }
     ),
   });

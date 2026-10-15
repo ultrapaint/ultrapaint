@@ -10,6 +10,12 @@ import { Json } from "./base.ts";
 import { SyncBaseline } from "./sync.ts";
 
 export const DESIGN_SYSTEM_FILE = "design-system.json";
+/**
+ * The design system's document in the open DESIGN.md format, at the root of the repository
+ * (ADR 0027): what every agent and person reads, in the editor or not.
+ */
+export const DESIGN_MD_FILE = "DESIGN.md";
+/** Where `DESIGN.md` was before ADR 0027: in the designs directory. Still read; Sync moves it. */
 export const DESIGN_NOTES_FILE = "DESIGN.md";
 
 export const Token = Schema.Struct({
@@ -160,12 +166,37 @@ export const IconSet = Schema.Struct({
 });
 export type IconSet = typeof IconSet.Type;
 
+/** Who matched a token of `DESIGN.md` to the code's: the rules, an agent, or the user. */
+export const DocumentMatchSource = Schema.Literals(["rule", "agent", "user"]);
+export type DocumentMatchSource = typeof DocumentMatchSource.Type;
+
+/** What a token of `DESIGN.md` is in the code: `to` the code's token, null when left out. */
+export const DocumentMatch = Schema.Struct({
+  by: DocumentMatchSource,
+  to: Schema.NullOr(Schema.String),
+});
+export type DocumentMatch = typeof DocumentMatch.Type;
+
+/**
+ * What `DESIGN.md`'s front matter and the code last agreed on (ADR 0027): each mirrored value by
+ * its path in the document (`colors.primary`, `typography.body.fontSize`), and what each of the
+ * document's tokens is in the code, by path.
+ */
+export const DocumentBaseline = Schema.Struct({
+  agreed: Schema.Record(Schema.String, Schema.String),
+  at: Schema.Number,
+  matches: Schema.optional(Schema.Record(Schema.String, DocumentMatch)),
+});
+export type DocumentBaseline = typeof DocumentBaseline.Type;
+
 export const DesignSystem = Schema.Struct({
   /** `--border-width-*`: Tailwind has no namespace for them, so `$border-width-thin` is a variable. */
   borderWidths: Schema.optional(Schema.Array(Token)),
   colors: Schema.Array(TokenGroup),
   /** Notes by component export name. */
   components: Schema.optional(Schema.Record(Schema.String, ComponentNotes)),
+  /** What `DESIGN.md` and the code last agreed on (ADR 0027). */
+  designMd: Schema.optional(DocumentBaseline),
   /** Elevation levels, lowest first. */
   elevation: Schema.optional(Schema.Array(ElevationLevel)),
   icons: Schema.optional(IconSet),
@@ -333,11 +364,56 @@ export const emptyDesignSystem = (): DesignSystem => ({
   version: 1,
 });
 
-/** What the editor reads: the design system, its notes, and whether init has run. */
+/** What the format's linter, or the reading of the file, says about `DESIGN.md`. */
+export const DesignFinding = Schema.Struct({
+  message: Schema.String,
+  /** Where in the file: `colors.primary`, `components.button`. */
+  path: Schema.optional(Schema.String),
+  severity: Schema.Literals(["error", "warning", "info"]),
+});
+export type DesignFinding = typeof DesignFinding.Type;
+
+/** A `##` section of `DESIGN.md`. */
+export const DesignSection = Schema.Struct({
+  heading: Schema.String,
+  /** The format's section the heading names (`Overview` for "Brand & Style"); null for others. */
+  section: Schema.NullOr(Schema.String),
+  text: Schema.String,
+});
+export type DesignSection = typeof DesignSection.Type;
+
+/** A value of `DESIGN.md`'s front matter that differs from the code's and is waiting for Sync. */
+export const DocumentHeld = Schema.Struct({
+  code: Schema.optional(Schema.String),
+  doc: Schema.optional(Schema.String),
+  /** `doc`: changed in the document only. `both`: changed on both sides. */
+  kind: Schema.Literals(["doc", "both"]),
+  /** `colors.primary`, `typography.body.fontSize`. */
+  path: Schema.String,
+});
+export type DocumentHeld = typeof DocumentHeld.Type;
+
+/** `DESIGN.md` as the editor reads it (ADR 0027). */
+export const DesignDocument = Schema.Struct({
+  /** The text after the front matter: what agents are told. */
+  body: Schema.String,
+  findings: Schema.Array(DesignFinding),
+  /** Values of the front matter the code does not have yet, or differs on. */
+  held: Schema.Array(DocumentHeld),
+  /** In the designs directory, where it was before ADR 0027: Sync moves it to the root. */
+  legacy: Schema.Boolean,
+  /** Repository-relative. */
+  path: Schema.String,
+  sections: Schema.Array(DesignSection),
+  text: Schema.String,
+});
+export type DesignDocument = typeof DesignDocument.Type;
+
+/** What the editor reads: the design system, its document, and whether init has run. */
 export const DesignSystemState = Schema.Struct({
   designSystem: Schema.NullOr(DesignSystem),
-  /** Contents of `DESIGN.md`, when there is one. */
-  notes: Schema.NullOr(Schema.String),
+  /** `DESIGN.md`, when there is one. */
+  document: Schema.NullOr(DesignDocument),
   /** Why `design-system.json` cannot be read, when it cannot. */
   problem: Schema.optional(Schema.String),
 });

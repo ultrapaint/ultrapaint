@@ -54,7 +54,8 @@ setting.
   - changed in the document only: the code takes it once the user confirms in Sync;
   - changed in the code only: the document is rewritten;
   - changed on both sides: the user picks.
-  The baseline is `sync.designMd` in `design-system.json`, committed.
+  The baseline is `designMd` in `design-system.json`, committed: each mirrored value by its
+  path in the document (`colors.primary`, `typography.body.fontSize`).
 
 **A token of the document is matched before anything is taken**, as Figma's are (0025's
 amendment). Rules take only what is certain: the code declares the name under that group's
@@ -85,9 +86,10 @@ so it can be replaced:
 **Agents write the body in the format.**
 - `/init`, Define and `/sync describe` write the eight sections in order, the voice and the
   audience in Overview, and refer to tokens as `{colors.primary}`.
-- `write_design_system` takes the document. It regenerates the mirrored groups itself. It
-  refuses a mirrored value that differs from the code's and says to change the stylesheet
-  instead. An agent does not change values through the document; a person may.
+- `write_design_system` takes the document. It regenerates the mirrored groups itself, and a
+  value the agent wrote that differs from the code's is put back, with a finding that says
+  to change the stylesheet instead. An agent does not change values through the document; a
+  person may.
 - No MCP tool is added: `read_design_system` and `write_design_system` carry the document where
   they carried `notes`.
 

@@ -191,6 +191,13 @@ export class DesignSystemSyncService extends Context.Service<
           const facts: SyncFacts = {
             app: yield* hasApp(paths.anchorDir),
             components: components.length,
+            ...(state.document && {
+              designMd: {
+                held: state.document.held.length,
+                legacy: state.document.legacy,
+                path: state.document.path,
+              },
+            }),
             designSystem: state.designSystem !== null,
             ...(latest && { figma: { id: latest.id, name: latest.name } }),
             libraryDirs: [...settings.libraryDirs],

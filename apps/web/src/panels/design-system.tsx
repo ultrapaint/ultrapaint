@@ -6,6 +6,7 @@
  * With nothing imported yet, this is where init starts.
  */
 import {
+  type DesignDocument,
   type DesignSystem,
   type ElevationLevel,
   type FontSizeToken,
@@ -433,10 +434,10 @@ const LengthBar = ({ max, value }: { max: number; value: string }) => (
 const widest = (tokens: readonly Token[]) =>
   Math.max(1, ...tokens.map((t) => toPixels(t.value) ?? 0));
 
-const Notes = ({ notes }: { notes: string | null }) =>
-  notes ? (
+const Notes = ({ document }: { document: DesignDocument | null }) =>
+  document ? (
     <div className="px-3 py-2">
-      <Markdown>{notes}</Markdown>
+      <Markdown>{document.body}</Markdown>
     </div>
   ) : (
     <div className="flex flex-col items-start gap-2 p-3 font-body text-muted-foreground">
@@ -663,7 +664,7 @@ const MoreFoundations = ({
 export const DesignSystemPanel = () => {
   const configured = useProject((s) => s.info.configured);
   const designSystem = useDesignSystem((s) => s.designSystem);
-  const notes = useDesignSystem((s) => s.notes);
+  const document = useDesignSystem((s) => s.document);
   const problem = useDesignSystem((s) => s.problem);
   const loaded = useDesignSystem((s) => s.loaded);
   const detecting = useDesignSystem((s) => s.detecting);
@@ -785,7 +786,7 @@ export const DesignSystemPanel = () => {
         {tab === "tokens" ? (
           <Contents ds={designSystem} q={q2} theme={theme} />
         ) : (
-          <Notes notes={notes} />
+          <Notes document={document} />
         )}
       </div>
       {designSystem.source ? (

@@ -31,6 +31,8 @@ export interface Section {
 
 export interface DesignMd {
   readonly blocks: readonly TokenBlock[];
+  /** Where the body starts: after the front matter's closing line, 0 when there is none. */
+  readonly body: number;
   /** The block each top-level key is in, by key. */
   readonly keys: ReadonlyMap<string, number>;
   /** What is wrong with it, in words a person can act on. */
@@ -243,6 +245,7 @@ export const parse = (text: string): DesignMd => {
 
   return {
     blocks,
+    body: front.body,
     keys,
     problems,
     sections: body.sections,

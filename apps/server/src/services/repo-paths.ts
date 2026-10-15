@@ -1,3 +1,4 @@
+import { DESIGN_MD_FILE } from "@ultrapaint/contracts/design-system";
 import { ForbiddenPath } from "@ultrapaint/contracts/errors";
 import type { Settings } from "@ultrapaint/contracts/settings";
 import { Context, Effect, FileSystem, Layer, Path } from "effect";
@@ -128,10 +129,13 @@ export class RepoPaths extends Context.Service<
         return RepoPaths.of({
           anchorDir,
           designsDir,
+          // The design system's document is the one file outside the designs directory the
+          // editor writes and undoes (ADR 0027).
           isEditable: (rel) =>
-            isInDesigns(rel) &&
-            !toPosix(rel).includes("/.ultrapaint/") &&
-            !toPosix(rel).includes("/node_modules/"),
+            toPosix(rel) === DESIGN_MD_FILE ||
+            (isInDesigns(rel) &&
+              !toPosix(rel).includes("/.ultrapaint/") &&
+              !toPosix(rel).includes("/node_modules/")),
           isInDesigns,
           relative: (abs) => toPosix(path.relative(root, abs)),
           resolve,

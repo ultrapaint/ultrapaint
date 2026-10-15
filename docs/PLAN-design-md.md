@@ -154,6 +154,31 @@ repository root" in every case:
 Done when, in a project with a legacy file, Sync offers the move, the root file gets its front
 matter, editing a colour in the panel rewrites `colors` in the file, and the body is untouched.
 
+**Done, 2026-10-15.** `DesignSystemService` reads, lints, mirrors and places the document;
+`DesignMdLint` wraps the linter; Sync has the `design-md` step; the server's bundle carries the
+linter's `spec-config.yaml`. Tests: `apps/server/src/design-md.test.ts`. Deviations:
+
+- **One agreement map, at `designMd` in `design-system.json`** rather than `sync.designMd`.
+  `sync` is Figma's baseline, whose fields are required. When the document and the code agree,
+  their value is the same, so one map of the agreed values, by path, is enough
+  (`@ultrapaint/design-md/merge`).
+- **Per token, not per file.** A value the code changed alone is written into the document even
+  while another value the document changed is held. Without an agreement yet:
+  - a document with no mirrored values takes them all;
+  - one with values of its own is held whole, for phase 3 to match.
+- **Undo.** The root `DESIGN.md` is the one file outside the designs directory the edit journal
+  writes (`RepoPaths.isEditable`). Placing it and an agent's write are undo steps. The mirror's
+  writes, and the agreement they move, go outside the history (`EditService.amend`), as a value
+  edited in the panel does.
+- **No `git mv`.** The move is the journal's, undoable, and git sees a rename once it is staged.
+- **"Write DESIGN.md".** With a design system and no `DESIGN.md` anywhere, the same step writes a
+  first one, its front matter filled in and the eight sections empty for `/sync describe`.
+- **What an agent writes against the code's values is put back, not refused**, with a warning
+  finding per value. The agent cannot change a value either way, and a refusal would cost it a
+  turn.
+- **The MCP budget.** The read and write tools' descriptions were cut to make room for
+  `designMd`. They stand at about 15,974 of 16,000 characters.
+
 ### Phase 3: the document's tokens in Sync
 
 3.1 **Generalise Figma's comparison to a source of tokens.**

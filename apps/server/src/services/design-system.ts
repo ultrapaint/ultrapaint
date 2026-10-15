@@ -1,6 +1,9 @@
 import {
+  DESIGN_MD_FILE,
   DESIGN_NOTES_FILE,
   DESIGN_SYSTEM_FILE,
+  type DesignDocument,
+  type DesignFinding,
   DesignSystem,
   type DesignSystemState,
   mapTokenRecords,
@@ -10,8 +13,18 @@ import { BadRequest } from "@ultrapaint/contracts/errors";
 import { SyncBaseline } from "@ultrapaint/contracts/sync";
 import type { SourceToken, TokenChange } from "@ultrapaint/contracts/tokens";
 import { serialise } from "@ultrapaint/design-document/factories";
+import {
+  flatten,
+  mergeMirror,
+  resolvedValues,
+  sameValue,
+} from "@ultrapaint/design-md/merge";
+import { mirrorOf } from "@ultrapaint/design-md/mirror";
+import { parse } from "@ultrapaint/design-md/parse";
+import { create, withMirror } from "@ultrapaint/design-md/write";
 import type { DesignSystemScan } from "@ultrapaint/framework-api/node";
 import {
+  Clock,
   Context,
   Effect,
   FileSystem,
@@ -26,6 +39,7 @@ import { EventBus } from "../events.ts";
 import { makeStampedCache } from "../file-stamp.ts";
 import { hashContent } from "../hash.ts";
 import { CatalogueService } from "./catalogue.ts";
+import { DesignMdLint } from "./design-md-lint.ts";
 import { type EditFailure, EditService } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { Storage } from "./storage.ts";
@@ -37,10 +51,15 @@ const decodeBaseline = Schema.decodeUnknownEffect(BaselineJson);
 const encodeBaseline = Schema.encodeEffect(BaselineJson);
 
 /**
- * The design system as the project records it: `design-system.json` and `DESIGN.md` at the root
- * of the designs directory. `/init` has an agent write them through `write`, which validates;
- * `detect` writes what the fixed-rule scan finds, for a project without an agent. Both are one
- * undo step, and the editor hears about every change, whoever made it.
+ * The design system as the project records it: `design-system.json` at the root of the designs
+ * directory and `DESIGN.md` at the root of the repository (ADR 0027), the designs directory's
+ * read while there is none there. `/init` has an agent write them through `write`, which
+ * validates; `detect` writes what the fixed-rule scan finds, for a project without an agent.
+ * Both are one undo step, and the editor hears about every change, whoever made it.
+ *
+ * `DESIGN.md`'s front matter mirrors the code's values: when the code changes, the values it
+ * changed alone are written into the document, outside the undo history as a value edit is; what
+ * the document changed is held for Sync (`@ultrapaint/design-md/merge`).
  *
  * A token's value is the code's (ADR 0025): it is read through the style system, again whenever
  * a stylesheet it came from changes, and the file leaves it out for a token the code declares. A token the code does not declare keeps
@@ -83,11 +102,29 @@ export class DesignSystemService extends Context.Service<
     readonly saveBaseline: (
       baseline: SyncBaseline
     ) => Effect.Effect<void, EditFailure>;
-    /** Validates and saves; `notes` replaces `DESIGN.md` when given. */
+    /**
+     * Puts `DESIGN.md` at the root of the repository: the designs directory's moved there, or a
+     * first one made from the design system, its front matter filled in (ADR 0027).
+     */
+    readonly placeDocument: Effect.Effect<
+      { readonly path: string },
+      EditFailure
+    >;
+    /**
+     * Validates and saves; `document` replaces `DESIGN.md` when given, at the root. Its mirrored
+     * token groups are the code's, filled in whatever it says; `findings` are what the format's
+     * linter says and what was put back. A linter error refuses the whole write.
+     */
     readonly write: (
       designSystem: unknown,
-      notes?: string
-    ) => Effect.Effect<DesignSystem, EditFailure>;
+      document?: string
+    ) => Effect.Effect<
+      {
+        readonly designSystem: DesignSystem;
+        readonly findings: readonly DesignFinding[];
+      },
+      EditFailure
+    >;
   }
 >()("ultrapaint/server/DesignSystemService") {
   static readonly layer = Layer.effect(
@@ -102,9 +139,16 @@ export class DesignSystemService extends Context.Service<
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const writeAtomic = makeWriteAtomic(fs, path);
+      const linter = yield* DesignMdLint;
       const systemFile = path.join(paths.designsDir, DESIGN_SYSTEM_FILE);
-      const notesFile = path.join(paths.designsDir, DESIGN_NOTES_FILE);
+      const documentFile = path.join(paths.root, DESIGN_MD_FILE);
+      const legacyCandidate = path.join(paths.designsDir, DESIGN_NOTES_FILE);
+      // A designs directory at the root of the repository has one DESIGN.md, not two.
+      const legacyFile =
+        legacyCandidate === documentFile ? null : legacyCandidate;
+      const documentRel = paths.relative(documentFile);
       const tokenWrites = yield* Semaphore.make(1);
+      const mirrorWrites = yield* Semaphore.make(1);
 
       const readOptional = (file: string) =>
         Effect.orElseSucceed(
@@ -190,13 +234,34 @@ export class DesignSystemService extends Context.Service<
         Effect.orElseSucceed(() => null)
       );
 
-      /** The two files as they read, the design system decoded: kept until either changes. */
+      /** The root's DESIGN.md, or the designs directory's while the root has none. */
+      const documentFound = (
+        rootDocument: string | null,
+        legacyDocument: string | null
+      ) => {
+        if (rootDocument !== null) {
+          return { legacy: false, path: documentRel, text: rootDocument };
+        }
+        if (legacyDocument === null || legacyFile === null) {
+          return null;
+        }
+        return {
+          legacy: true,
+          path: paths.relative(legacyFile),
+          text: legacyDocument,
+        };
+      };
+
+      /** The files as they read, the design system decoded: kept until one of them changes. */
       const filesCache = makeStampedCache(
         fs,
         Effect.gen(function* () {
-          const [text, notes] = yield* Effect.all([
+          const [text, rootDocument, legacyDocument] = yield* Effect.all([
             readOptional(systemFile),
-            readOptional(notesFile),
+            readOptional(documentFile),
+            legacyFile === null
+              ? Effect.succeed(null)
+              : readOptional(legacyFile),
           ]);
           const decoded =
             text === null
@@ -217,25 +282,77 @@ export class DesignSystemService extends Context.Service<
                     decodeDesignSystem
                   )
                 );
-          return { files: [systemFile, notesFile], value: { decoded, notes } };
+          const document = documentFound(rootDocument, legacyDocument);
+          return {
+            files: [
+              systemFile,
+              documentFile,
+              ...(legacyFile ? [legacyFile] : []),
+            ],
+            value: { decoded, document },
+          };
         })
       );
 
-      const get: Effect.Effect<DesignSystemState> = Effect.gen(function* () {
-        const { decoded, notes } = yield* filesCache.get;
-        if (decoded === null) {
-          return { designSystem: null, notes };
+      /** The linter's findings for the last text it read: a get reads the same file again. */
+      let linted: {
+        readonly findings: readonly DesignFinding[];
+        readonly text: string;
+      } | null = null;
+      const lintOf = Effect.fnUntraced(function* (text: string) {
+        if (linted?.text === text) {
+          return linted.findings;
         }
-        return decoded._tag === "Success"
-          ? {
-              designSystem: withCodeValues(decoded.success, yield* codeTokens),
-              notes,
-            }
-          : {
-              designSystem: null,
-              notes,
-              problem: `${DESIGN_SYSTEM_FILE} is not valid: ${decoded.failure.message}`,
-            };
+        const findings = yield* linter.lint(text);
+        linted = { findings, text };
+        return findings;
+      });
+
+      /** `DESIGN.md` as the editor shows it, with what Sync has to settle when it mirrors. */
+      const documentOf = Effect.fnUntraced(function* (
+        found: {
+          readonly legacy: boolean;
+          readonly path: string;
+          readonly text: string;
+        },
+        ds: DesignSystem | null
+      ) {
+        const doc = parse(found.text);
+        const held =
+          ds && !found.legacy
+            ? mergeMirror(doc, mirrorOf(ds).groups, ds.designMd?.agreed ?? null)
+                .held
+            : [];
+        return {
+          body: found.text.slice(doc.body),
+          findings: yield* lintOf(found.text),
+          held,
+          legacy: found.legacy,
+          path: found.path,
+          sections: doc.sections.map((section) => ({
+            heading: section.heading,
+            section: section.section,
+            text: section.text,
+          })),
+          text: found.text,
+        } satisfies DesignDocument;
+      });
+
+      const get: Effect.Effect<DesignSystemState> = Effect.gen(function* () {
+        const { decoded, document: found } = yield* filesCache.get;
+        const designSystem =
+          decoded?._tag === "Success"
+            ? withCodeValues(decoded.success, yield* codeTokens)
+            : null;
+        const document = found ? yield* documentOf(found, designSystem) : null;
+        if (decoded?._tag === "Failure") {
+          return {
+            designSystem: null,
+            document,
+            problem: `${DESIGN_SYSTEM_FILE} is not valid: ${decoded.failure.message}`,
+          };
+        }
+        return { designSystem, document };
       }).pipe(Effect.withSpan("DesignSystemService.get"));
 
       const baseline = Effect.gen(function* () {
@@ -279,9 +396,63 @@ export class DesignSystemService extends Context.Service<
         } satisfies DesignSystemScan;
       }).pipe(Effect.withSpan("DesignSystemService.scan"));
 
+      /** The document's mirrored values the writer gave that the code has otherwise. */
+      const putBack = (text: string, mirror: ReturnType<typeof mirrorOf>) => {
+        const given = resolvedValues(parse(text));
+        const ours = flatten(mirror.groups);
+        return Object.entries(given)
+          .filter(([key, value]) => !sameValue(value, ours[key]))
+          .map(
+            ([key, value]): DesignFinding => ({
+              message:
+                ours[key] === undefined
+                  ? `${key} (${String(value)}) is not a token of the design system, and was left out: the token groups are filled in from the code.`
+                  : `${key} was given as ${String(value)}; the code's ${String(ours[key])} is kept. Values are the code's: change them in the stylesheet.`,
+              path: key,
+              severity: "warning",
+            })
+          );
+      };
+
+      /** What `write` saves of the document, and what it says about it. */
+      const documentToWrite = Effect.fnUntraced(function* (
+        text: string,
+        merged: DesignSystem
+      ) {
+        const mirror = mirrorOf(merged);
+        const written = withMirror(text, mirror.groups);
+        if ("problem" in written) {
+          return yield* new BadRequest({
+            message: `DESIGN.md: ${written.problem}`,
+          });
+        }
+        const findings = yield* lintOf(written.text);
+        const errors = findings.filter((f) => f.severity === "error");
+        if (errors.length > 0) {
+          return yield* new BadRequest({
+            message: `DESIGN.md does not follow the format: ${errors
+              .map((f) => (f.path ? `${f.path}: ${f.message}` : f.message))
+              .join(" ")}`,
+          });
+        }
+        return {
+          agreed: Object.fromEntries(
+            Object.entries(flatten(mirror.groups)).map(([k, v]) => [
+              k,
+              String(v),
+            ])
+          ),
+          findings: [
+            ...putBack(text, mirror),
+            ...findings.filter((f) => f.severity === "warning"),
+          ],
+          text: written.text,
+        };
+      });
+
       const write = Effect.fn("DesignSystemService.write")(function* (
         input: unknown,
-        notes?: string
+        document?: string
       ) {
         const designSystem = yield* decodeDesignSystem(input).pipe(
           Effect.mapError(
@@ -292,31 +463,196 @@ export class DesignSystemService extends Context.Service<
           )
         );
         const code = yield* codeTokens;
-        // A sync's baseline is the tool's, not the writer's: an agent rewriting the design
-        // system without it keeps the one there is, or the one waiting for a design system.
+        const before = yield* get;
+        // A sync's baselines are the tool's, not the writer's: an agent rewriting the design
+        // system without them keeps the ones there are, or the one waiting for a design system.
         const kept = designSystem.sync ?? (yield* baseline) ?? undefined;
-        const saved = kept ? { ...designSystem, sync: kept } : designSystem;
+        const keptDocument =
+          designSystem.designMd ?? before.designSystem?.designMd;
+        const merged = withCodeValues(designSystem, code);
+        const written =
+          document === undefined
+            ? null
+            : yield* documentToWrite(document, merged);
+        const saved: DesignSystem = {
+          ...designSystem,
+          ...(kept && { sync: kept }),
+          ...(written
+            ? {
+                designMd: {
+                  agreed: written.agreed,
+                  at: yield* Clock.currentTimeMillis,
+                  ...(keptDocument?.matches && {
+                    matches: keptDocument.matches,
+                  }),
+                },
+              }
+            : keptDocument && { designMd: keptDocument }),
+        };
         yield* edit.transaction("Update the design system", (tx) =>
           Effect.gen(function* () {
             yield* tx.write(
               paths.relative(systemFile),
               serialise(forFile(saved, code))
             );
-            if (notes !== undefined) {
-              yield* tx.write(
-                paths.relative(notesFile),
-                notes.endsWith("\n") ? notes : `${notes}\n`
-              );
+            if (written) {
+              yield* tx.write(documentRel, written.text);
+              // The designs directory's DESIGN.md is replaced by the root's.
+              if (before.document?.legacy) {
+                yield* tx.remove(before.document.path);
+              }
             }
           })
         );
+        yield* Effect.ignore(mirrorDocument);
         yield* Effect.flatMap(get, (state) =>
           events.publish("designSystem", state)
         );
-        return designSystem;
+        return { designSystem, findings: written?.findings ?? [] };
       });
 
-      const detect = Effect.flatMap(scan, (found) => write(found.designSystem));
+      /**
+       * `DESIGN.md`'s front matter brought up to the code: the values the code changed alone
+       * written in, the agreement moved with them, both outside the undo history (ADR 0027).
+       * A document in the designs directory waits for Sync to move it; one with values of its
+       * own keeps them for Sync to offer.
+       */
+      const mirrorDocument = Effect.gen(function* () {
+        const { decoded, document: found } = yield* filesCache.get;
+        if (!(decoded?._tag === "Success" && found && !found.legacy)) {
+          return;
+        }
+        const merged = withCodeValues(decoded.success, yield* codeTokens);
+        const mirror = mirrorOf(merged).groups;
+        const agreed = decoded.success.designMd?.agreed ?? null;
+        const rewrite = (content: string) => {
+          const next = withMirror(
+            content,
+            mergeMirror(parse(content), mirror, agreed).groups
+          );
+          return "problem" in next ? content : next.text;
+        };
+        const result = mergeMirror(parse(found.text), mirror, agreed);
+        // A document taken away meanwhile stays away.
+        yield* edit.amend(documentRel, (content) =>
+          content === null
+            ? Effect.fail("gone" as const)
+            : Effect.succeed([rewrite(content), null] as const)
+        );
+        const same =
+          agreed !== null &&
+          Object.keys(agreed).length === Object.keys(result.agreed).length &&
+          Object.entries(result.agreed).every(([k, v]) => agreed[k] === v);
+        if (
+          same ||
+          (agreed === null && Object.keys(result.agreed).length === 0)
+        ) {
+          return;
+        }
+        const at = yield* Clock.currentTimeMillis;
+        yield* edit.amend(paths.relative(systemFile), (content) =>
+          Effect.try({
+            catch: () => null,
+            try: () => {
+              if (content === null) {
+                throw new Error("gone");
+              }
+              const json = JSON.parse(content) as Record<string, unknown>;
+              const previous = json.designMd as
+                | { readonly matches?: unknown }
+                | undefined;
+              return serialise({
+                ...json,
+                designMd: {
+                  agreed: result.agreed,
+                  at,
+                  ...(previous?.matches !== undefined && {
+                    matches: previous.matches,
+                  }),
+                },
+              });
+            },
+          }).pipe(
+            // A file that does not read is left alone: get says why.
+            Effect.orElseSucceed(() => content),
+            Effect.map((next) => [next ?? "", null] as const)
+          )
+        );
+      }).pipe(
+        mirrorWrites.withPermits(1),
+        Effect.withSpan("DesignSystemService.mirrorDocument")
+      );
+
+      /**
+       * The document placed at the root: the designs directory's with the design system's
+       * tokens in its front matter, or a first one; null with neither to write it from.
+       */
+      const placedText = (
+        legacy: string | null,
+        mirror: ReturnType<typeof mirrorOf>["groups"] | null
+      ): string | null => {
+        if (mirror === null) {
+          return legacy;
+        }
+        if (legacy === null) {
+          return create(mirror, { name: path.basename(paths.root) });
+        }
+        const next = withMirror(
+          legacy,
+          mergeMirror(parse(legacy), mirror, null).groups
+        );
+        return "problem" in next ? legacy : next.text;
+      };
+
+      const placeDocument = Effect.gen(function* () {
+        const state = yield* get;
+        if (state.document && !state.document.legacy) {
+          return { path: state.document.path };
+        }
+        const ds = state.designSystem;
+        const mirror = ds ? mirrorOf(ds).groups : null;
+        const legacy = state.document;
+        const text = placedText(legacy?.text ?? null, mirror);
+        if (text === null) {
+          return yield* new BadRequest({
+            message:
+              "There is no design system to write DESIGN.md from yet: define it first.",
+          });
+        }
+        // What the document and the code agree on from now: every value they share.
+        const designMd = ds &&
+          mirror && {
+            agreed: mergeMirror(parse(text), mirror, {}).agreed,
+            at: yield* Clock.currentTimeMillis,
+            ...(ds.designMd?.matches && { matches: ds.designMd.matches }),
+          };
+        const code = yield* codeTokens;
+        yield* edit.transaction(
+          legacy ? "Move DESIGN.md to the repository root" : "Write DESIGN.md",
+          (tx) =>
+            Effect.gen(function* () {
+              if (legacy) {
+                yield* tx.move(legacy.path, documentRel);
+              }
+              yield* tx.write(documentRel, text);
+              if (ds && designMd) {
+                yield* tx.write(
+                  paths.relative(systemFile),
+                  serialise(forFile({ ...ds, designMd }, code))
+                );
+              }
+            })
+        );
+        yield* Effect.ignore(mirrorDocument);
+        yield* Effect.flatMap(get, (next) =>
+          events.publish("designSystem", next)
+        );
+        return { path: documentRel };
+      }).pipe(Effect.withSpan("DesignSystemService.placeDocument"));
+
+      const detect = Effect.flatMap(scan, (found) =>
+        Effect.map(write(found.designSystem), (w) => w.designSystem)
+      );
 
       /**
        * Writes the files a list of token changes comes to, all inside the repository: all of
@@ -390,6 +726,8 @@ export class DesignSystemService extends Context.Service<
           )
         );
         if (edits.length > 0) {
+          yield* codeCache.clear;
+          yield* Effect.ignore(mirrorDocument);
           yield* Effect.flatMap(get, (state) =>
             events.publish("designSystem", state)
           );
@@ -446,13 +784,29 @@ export class DesignSystemService extends Context.Service<
       // Whoever changes the files — an undo, an agent writing them by hand, a checkout.
       const names = new Set([
         paths.relative(systemFile),
-        paths.relative(notesFile),
+        documentRel,
+        ...(legacyFile ? [paths.relative(legacyFile)] : []),
       ]);
-      yield* events.subscribe("file.changed").pipe(
-        Stream.filter(({ file }) => names.has(file)),
+      // The root's DESIGN.md is outside the designs directory the pages watcher watches.
+      const rootChanges = fs.watch(paths.root).pipe(
+        Stream.filter((event) => path.basename(event.path) === DESIGN_MD_FILE),
+        Stream.map(() => undefined),
+        // A root that cannot be watched only means its changes are seen later.
+        Stream.catch(() => Stream.empty)
+      );
+      yield* Stream.merge(
+        events.subscribe("file.changed").pipe(
+          Stream.filter(({ file }) => names.has(file)),
+          Stream.map(() => undefined)
+        ),
+        rootChanges
+      ).pipe(
         Stream.debounce("50 millis"),
         Stream.runForEach(() =>
-          Effect.flatMap(get, (state) => events.publish("designSystem", state))
+          Effect.gen(function* () {
+            yield* Effect.ignore(mirrorDocument, { log: true });
+            yield* events.publish("designSystem", yield* get);
+          })
         ),
         Effect.forkScoped
       );
@@ -461,7 +815,11 @@ export class DesignSystemService extends Context.Service<
         baseline,
         detect,
         get,
-        refresh: Effect.andThen(codeCache.clear, get),
+        placeDocument,
+        refresh: codeCache.clear.pipe(
+          Effect.andThen(Effect.ignore(mirrorDocument, { log: true })),
+          Effect.andThen(get)
+        ),
         saveBaseline,
         scan,
         setToken,
@@ -469,5 +827,5 @@ export class DesignSystemService extends Context.Service<
         write,
       });
     })
-  );
+  ).pipe(Layer.provide(DesignMdLint.layer));
 }

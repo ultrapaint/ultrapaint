@@ -26,6 +26,7 @@ export type SyncCase = typeof SyncCase.Type;
 
 export const SyncStepKind = Schema.Literals([
   "settings",
+  "design-md",
   "scaffold",
   "figma-tokens",
   "inventory",
@@ -95,6 +96,16 @@ export const SyncFacts = Schema.Struct({
   app: Schema.Boolean,
   /** Components the catalogue lists. */
   components: Schema.Number,
+  /** `DESIGN.md`, when there is one (ADR 0027). */
+  designMd: Schema.optional(
+    Schema.Struct({
+      /** Values of its front matter waiting for Sync: changed in it, or on both sides. */
+      held: Schema.Number,
+      /** In the designs directory, not at the root of the repository yet. */
+      legacy: Schema.Boolean,
+      path: Schema.String,
+    })
+  ),
   /** Whether `design-system.json` is there and reads. */
   designSystem: Schema.Boolean,
   /** The newest Figma import, when there is one. */

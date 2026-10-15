@@ -220,6 +220,37 @@ const driftParts = (drift: SyncDrift) =>
       return `${plural(list.length, what as string)} ${where as string} (${some(list)})`;
     });
 
+/**
+ * DESIGN.md at the root of the repository (ADR 0027), once there is a design system to write
+ * it from: moved from the designs directory, or written for the first time.
+ */
+const documentSteps = (facts: SyncFacts): SyncStep[] => {
+  if (!facts.designSystem) {
+    return [];
+  }
+  if (!facts.designMd) {
+    return [
+      step(
+        "design-md",
+        "Write DESIGN.md",
+        "attention",
+        "DESIGN.md is the design system in the open format every agent reads, at the root of the repository: its front matter holds the tokens, kept in step with the code, and an agent describes the rest."
+      ),
+    ];
+  }
+  if (facts.designMd.legacy) {
+    return [
+      step(
+        "design-md",
+        "Move DESIGN.md to the repository root",
+        "attention",
+        `${facts.designMd.path} moves to the root of the repository, where agents outside the editor look for it, and its front matter is filled in with the design system's tokens.`
+      ),
+    ];
+  }
+  return [];
+};
+
 const describeStepOf = (drift: SyncDrift) => {
   const drifted = driftCount(drift) > 0;
   return step(
@@ -240,6 +271,7 @@ const stepsOf = (input: PlanInput): SyncStep[] => {
   if (kind === "maintain") {
     return [
       ...head,
+      ...documentSteps(facts),
       describeStepOf(drift),
       ...(facts.figma
         ? [figmaStepOf(facts, figmaSynced), framesStepOf(true)]

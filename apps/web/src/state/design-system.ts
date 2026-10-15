@@ -34,6 +34,7 @@ export const useDesignSystem = create<DesignSystemStore>((set) => ({
     }
   },
   detecting: false,
+  document: null,
   load: async () => {
     if (!bound) {
       bound = true;
@@ -49,5 +50,4 @@ export const useDesignSystem = create<DesignSystemStore>((set) => ({
     }
   },
   loaded: false,
-  notes: null,
 }));

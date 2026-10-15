@@ -143,7 +143,12 @@ describe("the plan", () => {
   it("keeps a design system in sync: describe what drifted, and Figma when there is a file", () => {
     const steps = planOf({
       drift: { ...emptyDrift, tokensUndescribed: ["color-new"] },
-      facts: { ...facts, designSystem: true, figma: { id: "f", name: "App" } },
+      facts: {
+        ...facts,
+        designMd: { held: 0, legacy: false, path: "DESIGN.md" },
+        designSystem: true,
+        figma: { id: "f", name: "App" },
+      },
       figmaSynced: true,
       setup: emptySetup(0),
     });
@@ -160,11 +165,40 @@ describe("the plan", () => {
     );
     const quiet = planOf({
       drift: emptyDrift,
-      facts: { ...facts, designSystem: true },
+      facts: {
+        ...facts,
+        designMd: { held: 0, legacy: false, path: "DESIGN.md" },
+        designSystem: true,
+      },
       figmaSynced: false,
       setup: emptySetup(0),
     });
     expect(summaryOf("maintain", quiet)).toContain("Nothing to do");
+  });
+
+  it("puts DESIGN.md at the root first: written when there is none, moved from the designs directory", () => {
+    const none = planOf({
+      drift: emptyDrift,
+      facts: { ...facts, designSystem: true },
+      figmaSynced: false,
+      setup: emptySetup(0),
+    });
+    expect(none.map((s) => [s.kind, s.title, s.state])).toEqual([
+      ["design-md", "Write DESIGN.md", "attention"],
+      ["describe", "Describe what changed", "done"],
+    ]);
+    const legacy = planOf({
+      drift: emptyDrift,
+      facts: {
+        ...facts,
+        designMd: { held: 0, legacy: true, path: "docs/designs/DESIGN.md" },
+        designSystem: true,
+      },
+      figmaSynced: false,
+      setup: emptySetup(0),
+    });
+    expect(legacy[0]?.title).toBe("Move DESIGN.md to the repository root");
+    expect(legacy[0]?.detail).toContain("docs/designs/DESIGN.md");
   });
 });
 

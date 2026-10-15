@@ -11,6 +11,7 @@
  */
 import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
 import {
+  type DesignDocument,
   type DesignSystem,
   TEXT_STYLE_GROUPS,
   type TextStyle,
@@ -79,11 +80,11 @@ ${skills}
 `
     : "";
 
-const conventionsOf = (notes: string | null) =>
-  notes
+const conventionsOf = (document: DesignDocument | null) =>
+  document?.body.trim()
     ? `
-Conventions of this design system (DESIGN.md):
-${notes.trim()}
+Conventions of this design system (${document.path}):
+${document.body.trim()}
 `
     : "";
 
@@ -140,7 +141,7 @@ export class ProjectBriefing extends Context.Service<
 
         const system = yield* Effect.orElseSucceed(
           Effect.flatMap(DesignSystemService, (service) => service.get),
-          () => ({ designSystem: null, notes: null })
+          () => ({ designSystem: null, document: null })
         );
         const ds = system.designSystem;
         const styles = ds?.typography.styles ?? [];
@@ -149,7 +150,7 @@ export class ProjectBriefing extends Context.Service<
           () => ""
         );
         const craft = craftOf(skills);
-        const conventions = conventionsOf(system.notes);
+        const conventions = conventionsOf(system.document);
 
         return `<ultrapaint>
 You are working in ultrapaint, a design tool. The user sees the designs you change, live, on

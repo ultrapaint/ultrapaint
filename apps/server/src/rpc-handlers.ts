@@ -144,6 +144,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "comments.update": (input) => comments((c) => c.update(input)),
       "designSystem.detect": () => designSystem((d) => d.detect),
       "designSystem.get": () => designSystem((d) => d.get),
+      "designSystem.placeDocument": () => designSystem((d) => d.placeDocument),
       "designSystem.setToken": (change) =>
         designSystem((d) => d.setToken(change)),
       "documents.apply": (input) => documents((d) => d.apply(input)),
