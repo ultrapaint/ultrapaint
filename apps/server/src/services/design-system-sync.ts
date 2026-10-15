@@ -24,9 +24,9 @@ import {
   type TokenSourceKind,
 } from "@ultrapaint/contracts/sync";
 import type { TokenChange } from "@ultrapaint/contracts/tokens";
+import type { TokenGroups } from "@ultrapaint/design-md/format";
 import { emptyGroups, SECTIONS } from "@ultrapaint/design-md/format";
-import { flatten } from "@ultrapaint/design-md/merge";
-import { mirrorOf } from "@ultrapaint/design-md/mirror";
+import { valuesOf } from "@ultrapaint/design-md/merge";
 import { parse } from "@ultrapaint/design-md/parse";
 import {
   documentPathOf,
@@ -140,7 +140,7 @@ const newTokens = (ds: DesignSystem, changes: readonly TokenChange[]) => {
 const documentAfter = (
   text: string,
   diffs: TokenComparison["diffs"],
-  ds: DesignSystem
+  mirror: TokenGroups
 ): string | null => {
   const renames = new Map<string, string>();
   for (const d of diffs) {
@@ -163,10 +163,10 @@ const documentAfter = (
         unmatched.has(`${group}.${key}`)
       )
     ) as Record<string, A>;
-  const mirror = mirrorOf(ds).groups;
   const written = withMirror(renamed, {
     ...emptyGroups(),
     colors: { ...mirror.colors, ...kept<string>("colors") },
+    components: mirror.components,
     rounded: { ...mirror.rounded, ...kept<string>("rounded") },
     spacing: { ...mirror.spacing, ...kept<number | string>("spacing") },
     typography: own.typography,
@@ -663,6 +663,9 @@ export class DesignSystemSyncService extends Context.Service<
           const typography = document.held
             .filter((h) => h.path.startsWith("typography."))
             .map((h) => h.path);
+          const components = document.held
+            .filter((h) => h.path.startsWith("components."))
+            .map((h) => h.path);
           const own = code.tokens.filter((t) => t.own);
           return {
             code: code.tokens,
@@ -675,6 +678,11 @@ export class DesignSystemSyncService extends Context.Service<
                 ...(typography.length > 0
                   ? [
                       `${plural(typography.length, "text style setting")} of ${document.path} differ from the code's (${typography.slice(0, 4).join(", ")}${typography.length > 4 ? ", …" : ""}): a text style is several tokens, so /sync design settles them with you.`,
+                    ]
+                  : []),
+                ...(components.length > 0
+                  ? [
+                      `${plural(components.length, "component setting")} of ${document.path} differ from the components' classes (${components.slice(0, 4).join(", ")}${components.length > 4 ? ", …" : ""}). Classes are the code's: taking the document's tokens puts the code's back; change the classes to change them.`,
                     ]
                   : []),
               ],
@@ -725,13 +733,13 @@ export class DesignSystemSyncService extends Context.Service<
               if (!document) {
                 return yield* noDocument;
               }
-              const text = documentAfter(document.text, diffs, listed);
+              const mirror = yield* service.mirror(listed, document.text);
+              const text = documentAfter(document.text, diffs, mirror);
               if (text === null) {
                 return yield* new BadRequest({
                   message: `${document.path}'s YAML does not read, so it cannot be rewritten.`,
                 });
               }
-              const mirror = mirrorOf(listed).groups;
               const agreed = {
                 // A text style is the agent's to settle: what was agreed on them stays.
                 ...Object.fromEntries(
@@ -739,11 +747,7 @@ export class DesignSystemSyncService extends Context.Service<
                     k.startsWith("typography.")
                   )
                 ),
-                ...Object.fromEntries(
-                  Object.entries(flatten({ ...mirror, typography: {} })).map(
-                    ([k, v]) => [k, String(v)]
-                  )
-                ),
+                ...valuesOf({ ...mirror, typography: {} }),
               };
               yield* service
                 .replace(

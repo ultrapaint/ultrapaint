@@ -14,7 +14,7 @@ import {
   tokenValues,
 } from "@ultrapaint/design-document/tokens";
 import type { TokenGroups, Typography } from "./format.ts";
-import { tokenKeyOf } from "./tokens.ts";
+import { documentPathOf, tokenKeyOf } from "./tokens.ts";
 import {
   familyOf,
   formatNumber,
@@ -79,7 +79,14 @@ const spacingOf = (value: string): number | string | null => {
  * The front matter's mirrored groups for a design system whose values are the code's (the
  * service merges them in on read).
  */
-export const mirrorOf = (ds: DesignSystem): Mirror => {
+export const mirrorOf = (
+  ds: DesignSystem,
+  /**
+   * Component tokens by key, each property a token as pages name it (`$color-primary`), a value,
+   * or a reference already (`{colors.primary}`); none when the components are not known yet.
+   */
+  components: Readonly<Record<string, Readonly<Record<string, string>>>> = {}
+): Mirror => {
   const values = tokenValues(ds);
   const notes: string[] = [];
   const resolve = (name: string, value: string): string | null => {
@@ -121,7 +128,17 @@ export const mirrorOf = (ds: DesignSystem): Mirror => {
     }
   }
 
-  return { groups: { colors, rounded, spacing, typography }, notes };
+  const known = { colors, rounded, spacing };
+  return {
+    groups: {
+      colors,
+      components: componentGroup(components, known, values, notes),
+      rounded,
+      spacing,
+      typography,
+    },
+    notes,
+  };
 };
 
 /** A setting of a text style as CSS: a token's value, a number of pixels, or the CSS it is. */
@@ -215,4 +232,180 @@ const lineHeightOf = (
     return Number(formatNumber(Number(value)));
   }
   return isDimension(value) ? value : null;
+};
+
+const COMPONENT_COLORS = new Set(["backgroundColor", "textColor"]);
+
+/** A component token's properties in the order the format lists them. */
+const PROP_ORDER = [
+  "backgroundColor",
+  "textColor",
+  "typography",
+  "rounded",
+  "padding",
+  "size",
+  "height",
+  "width",
+];
+const rank = (prop: string) => {
+  const at = PROP_ORDER.indexOf(prop);
+  return at === -1 ? PROP_ORDER.length : at;
+};
+
+/**
+ * Component tokens as the front matter holds them: a token the front matter has becomes a
+ * reference to it (`$color-primary` → `{colors.primary}`), another its value; what the format
+ * cannot hold is left out.
+ */
+const componentGroup = (
+  components: Readonly<Record<string, Readonly<Record<string, string>>>>,
+  known: Pick<TokenGroups, "colors" | "rounded" | "spacing">,
+  values: ReadonlyMap<string, string>,
+  notes: string[]
+): Record<string, Record<string, string>> => {
+  const has = (path: string) => {
+    const [group = "", key = ""] = path.split(".");
+    return (
+      (known as Record<string, Record<string, unknown>>)[group]?.[key] !==
+      undefined
+    );
+  };
+  const out: Record<string, Record<string, string>> = {};
+  for (const [key, props] of Object.entries(components)) {
+    const entry: Record<string, string> = {};
+    const ordered = Object.entries(props).sort(([a], [b]) => rank(a) - rank(b));
+    for (const [prop, given] of ordered) {
+      const value = componentValue(prop, given, has, values);
+      if (value === null) {
+        notes.push(
+          `components.${key}.${prop}: ${given} is not a value DESIGN.md can hold.`
+        );
+      } else {
+        entry[prop] = value;
+      }
+    }
+    if (Object.keys(entry).length > 0) {
+      out[key] = entry;
+    }
+  }
+  return out;
+};
+
+const componentValue = (
+  prop: string,
+  given: string,
+  has: (path: string) => boolean,
+  values: ReadonlyMap<string, string>
+): string | null => {
+  if (given.startsWith("{")) {
+    return given;
+  }
+  if (isToken(given)) {
+    const name = tokenName(given);
+    const path = documentPathOf(name);
+    if (path !== null && has(path)) {
+      return `{${path}}`;
+    }
+    const raw = values.get(name);
+    const resolved =
+      raw === undefined ? null : resolveCss(raw, (n) => values.get(n));
+    return resolved === null
+      ? null
+      : componentValue(prop, resolved, has, values);
+  }
+  if (COMPONENT_COLORS.has(prop)) {
+    return isColor(given) ? given : null;
+  }
+  return isDimension(given) ? given : null;
+};
+
+/** A component's classes as the catalogue keeps them (`ComponentMeta.styles`). */
+export interface ComponentClasses {
+  readonly name: string;
+  readonly styles?: {
+    readonly base: string;
+    readonly classes: Readonly<
+      Record<string, Readonly<Record<string, string>>>
+    >;
+    readonly defaults: Readonly<Record<string, string>>;
+  };
+}
+
+/** The variant that changes a component's colours, by the names libraries give it. */
+const COLOR_AXES = ["variant", "intent", "color", "tone", "appearance"];
+const SIZE_AXIS = "size";
+const SIZE_PROPS = new Set(["height", "padding", "size", "width"]);
+const UPPER_RE = /([a-z0-9])([A-Z])/g;
+
+/** `DropdownMenuItem` → `dropdown-menu-item`. */
+const kebab = (name: string) => tokenKeyOf(name.replace(UPPER_RE, "$1-$2"));
+
+/**
+ * The component tokens a design system's components come to (ADR 0027), from their classes:
+ * `button` as it starts, `button-<variant>` for each other member of the variant that changes
+ * its colours, and `button-<size>` for each other size, its dimensions alone. `read` is the style
+ * system's reading of a list of classes. Only the components the design system notes.
+ */
+export const componentEntries = (
+  components: readonly ComponentClasses[],
+  listed: ReadonlySet<string>,
+  read: (classes: string) => Readonly<Record<string, string>>
+): Record<string, Record<string, string>> => {
+  const out: Record<string, Record<string, string>> = {};
+  for (const component of components) {
+    if (component.styles && listed.has(component.name)) {
+      Object.assign(
+        out,
+        entriesOf(kebab(component.name), component.styles, read)
+      );
+    }
+  }
+  return out;
+};
+
+/** One component's entries: as it starts, each other colour variant, each other size. */
+const entriesOf = (
+  key: string,
+  styles: NonNullable<ComponentClasses["styles"]>,
+  read: (classes: string) => Readonly<Record<string, string>>
+): Record<string, Record<string, string>> => {
+  const classesFor = (choice: Readonly<Record<string, string>>) =>
+    [
+      styles.base,
+      ...Object.entries(styles.classes).map(
+        ([axis, members]) =>
+          members[choice[axis] ?? styles.defaults[axis] ?? ""] ?? ""
+      ),
+    ].join(" ");
+  const out: Record<string, Record<string, string>> = {};
+  const add = (name: string, entry: Readonly<Record<string, string>>) => {
+    if (Object.keys(entry).length > 0) {
+      out[name] = { ...entry };
+    }
+  };
+  add(key, read(classesFor({})));
+  /** The members of an axis other than the one it starts with. */
+  const others = (axis: string | undefined) =>
+    axis === undefined
+      ? []
+      : Object.keys(styles.classes[axis] ?? {}).filter(
+          (member) => member !== styles.defaults[axis]
+        );
+  const colorAxis = COLOR_AXES.find((a) => styles.classes[a]);
+  for (const member of others(colorAxis)) {
+    add(
+      `${key}-${kebab(member)}`,
+      read(classesFor({ [colorAxis ?? ""]: member }))
+    );
+  }
+  for (const member of others(SIZE_AXIS)) {
+    const sized = read(classesFor({ [SIZE_AXIS]: member }));
+    add(
+      `${key}-${kebab(member)}`,
+      Object.fromEntries(
+        Object.entries(sized).filter(([prop]) => SIZE_PROPS.has(prop))
+      )
+    );
+  }
+  return out;
 };

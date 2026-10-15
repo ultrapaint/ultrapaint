@@ -165,6 +165,20 @@ export const groupsOf = (
       spacing[key] = value;
     }
   }
+  const components: Record<string, Record<string, string>> = {};
+  for (const [key, value] of Object.entries(records.components)) {
+    if (!isRecord(value)) {
+      problems.push(`components.${key} is not a set of component properties.`);
+      continue;
+    }
+    components[key] = Object.fromEntries(
+      Object.entries(value).flatMap(([field, v]) =>
+        typeof v === "string" || typeof v === "number"
+          ? [[field, String(v)]]
+          : []
+      )
+    );
+  }
   const typography: Record<string, Typography> = {};
   for (const [key, value] of Object.entries(records.typography)) {
     const settings = typographyOf(key, value, problems);
@@ -172,7 +186,10 @@ export const groupsOf = (
       typography[key] = settings;
     }
   }
-  return { groups: { colors, rounded, spacing, typography }, problems };
+  return {
+    groups: { colors, components, rounded, spacing, typography },
+    problems,
+  };
 };
 
 /** A token of the document, named as the code would name it. */

@@ -13,14 +13,20 @@ import { BadRequest } from "@ultrapaint/contracts/errors";
 import { SyncBaseline } from "@ultrapaint/contracts/sync";
 import type { SourceToken, TokenChange } from "@ultrapaint/contracts/tokens";
 import { serialise } from "@ultrapaint/design-document/factories";
+import type { TokenGroups } from "@ultrapaint/design-md/format";
 import {
-  flatten,
   mergeMirror,
   resolvedValues,
   sameValue,
+  valuesOf,
 } from "@ultrapaint/design-md/merge";
-import { mirrorOf } from "@ultrapaint/design-md/mirror";
+import {
+  type ComponentClasses,
+  componentEntries,
+  mirrorOf,
+} from "@ultrapaint/design-md/mirror";
 import { parse } from "@ultrapaint/design-md/parse";
+import { groupsOf } from "@ultrapaint/design-md/tokens";
 import { create, withMirror, withSection } from "@ultrapaint/design-md/write";
 import type { DesignSystemScan } from "@ultrapaint/framework-api/node";
 import {
@@ -110,6 +116,15 @@ export class DesignSystemService extends Context.Service<
       { readonly path: string },
       EditFailure
     >;
+    /**
+     * The front matter the code implies for a design system (ADR 0027): its tokens in the
+     * format, its components' tokens read from their classes. `document` stands in for the
+     * components while the catalogue has not been read.
+     */
+    readonly mirror: (
+      designSystem: DesignSystem,
+      document: string | null
+    ) => Effect.Effect<TokenGroups>;
     /**
      * One `##` section of `DESIGN.md` given its text, or added where the format orders it: what
      * the Design system panel's Edit writes. One undo step.
@@ -332,6 +347,51 @@ export class DesignSystemService extends Context.Service<
       const agreedOf = (ds: DesignSystem) =>
         ds.designMd && ds.designMd.at > 0 ? ds.designMd.agreed : null;
 
+      /**
+       * The catalogue's components, once it has been read: their classes are what DESIGN.md's
+       * component tokens come from. Read in the background, and again on a refresh; until then
+       * the document's own component tokens stand.
+       */
+      let catalogued: readonly ComponentClasses[] | null = null;
+      const loadComponents = Effect.map(
+        Effect.option(catalogue.get(false)),
+        (found) => {
+          if (found._tag === "Some") {
+            catalogued = found.value.components;
+          }
+        }
+      );
+
+      /** The front matter the code implies for a design system, its components' tokens with it. */
+      const mirrorFor = Effect.fnUntraced(function* (
+        ds: DesignSystem,
+        document: string | null
+      ) {
+        const known = catalogued;
+        if (known === null) {
+          const own = document
+            ? groupsOf(parse(document)).groups.components
+            : {};
+          return mirrorOf(ds, own);
+        }
+        const tokens = [...(yield* codeTokens).values()];
+        return mirrorOf(
+          ds,
+          componentEntries(
+            known,
+            new Set(Object.keys(ds.components ?? {})),
+            (classes) =>
+              Object.fromEntries(
+                Object.entries(
+                  styleSystem.componentStyle(classes, tokens)
+                ).filter(
+                  (entry): entry is [string, string] => entry[1] !== undefined
+                )
+              )
+          )
+        );
+      });
+
       /** `DESIGN.md` as the editor shows it, with what Sync has to settle when it mirrors. */
       const documentOf = Effect.fnUntraced(function* (
         found: {
@@ -344,7 +404,11 @@ export class DesignSystemService extends Context.Service<
         const doc = parse(found.text);
         const held =
           ds && !found.legacy
-            ? mergeMirror(doc, mirrorOf(ds).groups, agreedOf(ds)).held
+            ? mergeMirror(
+                doc,
+                (yield* mirrorFor(ds, found.text)).groups,
+                agreedOf(ds)
+              ).held
             : [];
         return {
           body: found.text.slice(doc.body),
@@ -422,7 +486,7 @@ export class DesignSystemService extends Context.Service<
       /** The document's mirrored values the writer gave that the code has otherwise. */
       const putBack = (text: string, mirror: ReturnType<typeof mirrorOf>) => {
         const given = resolvedValues(parse(text));
-        const ours = flatten(mirror.groups);
+        const ours = valuesOf(mirror.groups);
         return Object.entries(given)
           .filter(([key, value]) => !sameValue(value, ours[key]))
           .map(
@@ -442,7 +506,7 @@ export class DesignSystemService extends Context.Service<
         text: string,
         merged: DesignSystem
       ) {
-        const mirror = mirrorOf(merged);
+        const mirror = yield* mirrorFor(merged, text);
         const written = withMirror(text, mirror.groups);
         if ("problem" in written) {
           return yield* new BadRequest({
@@ -459,12 +523,7 @@ export class DesignSystemService extends Context.Service<
           });
         }
         return {
-          agreed: Object.fromEntries(
-            Object.entries(flatten(mirror.groups)).map(([k, v]) => [
-              k,
-              String(v),
-            ])
-          ),
+          agreed: valuesOf(mirror.groups),
           findings: [
             ...putBack(text, mirror),
             ...findings.filter((f) => f.severity === "warning"),
@@ -546,7 +605,7 @@ export class DesignSystemService extends Context.Service<
           return;
         }
         const merged = withCodeValues(decoded.success, yield* codeTokens);
-        const mirror = mirrorOf(merged).groups;
+        const mirror = (yield* mirrorFor(merged, found.text)).groups;
         const agreed = agreedOf(decoded.success);
         const rewrite = (content: string) => {
           const next = withMirror(
@@ -672,8 +731,10 @@ export class DesignSystemService extends Context.Service<
           return { path: state.document.path };
         }
         const ds = state.designSystem;
-        const mirror = ds ? mirrorOf(ds).groups : null;
         const legacy = state.document;
+        const mirror = ds
+          ? (yield* mirrorFor(ds, legacy?.text ?? null)).groups
+          : null;
         const text = placedText(legacy?.text ?? null, mirror);
         if (text === null) {
           return yield* new BadRequest({
@@ -873,12 +934,22 @@ export class DesignSystemService extends Context.Service<
         Effect.forkScoped
       );
 
+      // The components' classes, as soon as the catalogue is read: DESIGN.md gets their tokens,
+      // and the editor hears of it when the document is written.
+      yield* loadComponents.pipe(
+        Effect.andThen(Effect.ignore(mirrorDocument, { log: true })),
+        Effect.forkScoped
+      );
+
       return DesignSystemService.of({
         baseline,
         detect,
         get,
+        mirror: (ds, document) =>
+          Effect.map(mirrorFor(ds, document), (m) => m.groups),
         placeDocument,
         refresh: codeCache.clear.pipe(
+          Effect.andThen(loadComponents),
           Effect.andThen(Effect.ignore(mirrorDocument, { log: true })),
           Effect.andThen(get)
         ),

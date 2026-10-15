@@ -14,6 +14,7 @@ describe("flatten", () => {
   it("names every value by its path, and comes back as it was", () => {
     const groups: TokenGroups = {
       colors: { primary: "#000" },
+      components: {},
       rounded: { md: "8px" },
       spacing: { base: "4px", columns: 12 },
       typography: { body: { fontSize: "16px", lineHeight: 1.5 } },

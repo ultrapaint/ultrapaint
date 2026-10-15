@@ -40,10 +40,10 @@ setting.
 | `rounded.<name>` | `radius-<name>` |
 | `spacing.base`, `spacing.<name>` | `spacing`, `spacing-<name>` |
 | `typography.<style>` | a text style of `design-system.json`, its tokens resolved to values |
-| `components.<name>` | a component's variants, from its classes (last phase, see the plan) |
+| `components.<name>` | a component as it starts, `<name>-<variant>` and `<name>-<size>`, read from its classes by the style system |
 
-- **The editor owns the mirrored groups:** `colors`, `rounded`, `spacing`, `typography` and,
-  later, `components`.
+- **The editor owns the mirrored groups:** `colors`, `rounded`, `spacing`, `typography` and
+  `components`.
 - **The document's authors own everything else:** `name`, `description`, `omitted`, unknown keys
   and the body. The editor never changes them, except to rename a token reference as described
   below.

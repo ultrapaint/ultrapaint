@@ -44,6 +44,7 @@ export const MIRRORED_GROUPS = [
   "typography",
   "rounded",
   "spacing",
+  "components",
 ] as const;
 export type MirroredGroup = (typeof MIRRORED_GROUPS)[number];
 
@@ -70,9 +71,16 @@ export interface Typography {
   readonly lineHeight?: number | string;
 }
 
+/**
+ * One component token: its properties (`backgroundColor`, `textColor`, `rounded`, `padding`,
+ * `height`, `width`, `size`), each a reference (`{colors.primary}`) or a value.
+ */
+export type ComponentToken = Readonly<Record<string, string>>;
+
 /** The mirrored groups, by token key. */
 export interface TokenGroups {
   readonly colors: Readonly<Record<string, string>>;
+  readonly components: Readonly<Record<string, ComponentToken>>;
   readonly rounded: Readonly<Record<string, string>>;
   readonly spacing: Readonly<Record<string, number | string>>;
   readonly typography: Readonly<Record<string, Typography>>;
@@ -80,6 +88,7 @@ export interface TokenGroups {
 
 export const emptyGroups = (): TokenGroups => ({
   colors: {},
+  components: {},
   rounded: {},
   spacing: {},
   typography: {},

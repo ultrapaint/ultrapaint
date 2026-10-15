@@ -159,6 +159,7 @@ describe("create", () => {
   it("writes a file that reads back as it was given, every section in order", () => {
     const groups: TokenGroups = {
       colors: { primary: "#1A1C1E" },
+      components: {},
       rounded: { md: "8px" },
       spacing: { base: "0.25rem" },
       typography: {

@@ -349,7 +349,38 @@ pairs.
 6.4 **Changes made in the document.** A component token changed in the document is not written
 back to the classes. Sync lists it for `/sync describe`. Classes are the code's to change.
 
-## Risks
+**Done, 2026-10-15.**
+
+- **The catalogue** keeps each component's `cva` classes (`ComponentMeta.styles`, catalogue
+  version 7).
+- **`StyleSystem.componentStyle`** reads them: `style-tailwind-v4/src/component-style.ts`.
+- **`componentEntries`** (`design-md/mirror.ts`) makes the entries.
+- **The mirror writes them in the format's property order**, referring to the front matter's
+  tokens.
+
+Tests: `apps/server/src/design-md.test.ts` covers a cva Button with a danger variant and a large
+size. Deviations:
+
+- **When the catalogue is not read yet**, the document's own component tokens stand, so nothing
+  is taken out. The design system reads the catalogue in the background, and again on a refresh.
+- **A colour variant's entry is whole**, not only what differs from the component as it starts.
+  A variant that sets no background (a ghost button) has none: it gets no `transparent`, which
+  the linter's contrast check would misread.
+- **Agreements keep values resolved** (`valuesOf`), because component tokens are references.
+- **Changed component tokens** are said in the DESIGN.md step's notes. Taking the document's
+  tokens puts the code's back, since classes are the code's.
+
+## Outcome
+
+All six phases are on `main`, a commit each after the ADR (`4012f93` to the phase 6 commit).
+
+- **Checked by tests.** The upstream examples round-trip byte for byte. A prose-only, a legacy
+  and a Stitch-style DESIGN.md each go through Sync in `design-md.test.ts`. The panel was seen
+  in a headless Chrome on a scratch repository.
+- **Not checked.** `/init`, `/sync describe` and `/sync design` have not been run with a real
+  agent. The format is `alpha`, and `@google/design.md` is pinned at 0.4.0.
+
+
 
 - **The format is `alpha`.** We pin the version we write and lint, and fixtures from upstream
   catch a change when we bump it.

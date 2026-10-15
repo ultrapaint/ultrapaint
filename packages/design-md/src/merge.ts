@@ -63,6 +63,34 @@ export const unflatten = (flat: Flat): TokenGroups => {
   return groups as unknown as TokenGroups;
 };
 
+/** Values by path, the references among them followed through `tree`. */
+const resolveAgainst = (
+  flat: Flat,
+  tree: TokenGroups
+): Record<string, number | string> => {
+  const out: Record<string, number | string> = {};
+  for (const [path, value] of Object.entries(flat)) {
+    const ref = refOf(value);
+    const followed =
+      ref === null
+        ? value
+        : follow(tree as unknown as Record<string, unknown>, ref);
+    if (followed !== null) {
+      out[path] = followed;
+    }
+  }
+  return out;
+};
+
+/** The groups' values by path, references followed, as an agreement keeps them. */
+export const valuesOf = (groups: TokenGroups): Record<string, string> =>
+  Object.fromEntries(
+    Object.entries(resolveAgainst(flatten(groups), groups)).map(([k, v]) => [
+      k,
+      String(v),
+    ])
+  );
+
 /** The document's mirrored values, references followed. */
 export const resolvedValues = (
   doc: DesignMd
@@ -131,7 +159,9 @@ export const mergeMirror = (
 ): Merged => {
   const raw = flatten(groupsOf(doc).groups);
   const resolved = resolvedValues(doc);
-  const ours = flatten(code);
+  const oursRaw = flatten(code);
+  // The code's component tokens refer to its own colours: compared by what they come to.
+  const ours = resolveAgainst(oursRaw, code);
 
   if (agreed === null && Object.keys(raw).length > 0) {
     // Not agreed on yet: nothing is written until Sync has matched it.
@@ -155,8 +185,9 @@ export const mergeMirror = (
     const outcome = outcomeOf(c, d, base);
     if (outcome === "code") {
       // The document has what was agreed: the code moved alone, or took it out.
-      if (c !== undefined) {
-        out[path] = c;
+      const written = oursRaw[path];
+      if (c !== undefined && written !== undefined) {
+        out[path] = written;
         nextAgreed[path] = String(c);
       }
       continue;

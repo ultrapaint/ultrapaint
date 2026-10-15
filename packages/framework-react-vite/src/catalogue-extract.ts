@@ -26,7 +26,7 @@ const hashContent = (content: string): string =>
   createHash("sha1").update(content).digest("hex").slice(0, 16);
 
 /** Bump when the extraction logic changes so stale caches are rebuilt. */
-const CATALOGUE_VERSION = 6;
+const CATALOGUE_VERSION = 7;
 
 const TSX_EXT_RE = /\.tsx$/;
 const NON_COMPONENT_TSX_RE = /\.(stories|test|spec)\.tsx$/;
@@ -111,9 +111,35 @@ const toStoryId = (s: string) =>
     .replaceAll(/^-+|-+$/g, "");
 
 interface CvaInfo {
+  /** The classes every variant has: `cva`'s first argument, where it is written out. */
+  base: string;
+  /** Each variant member's classes, where they are written out: `variant.default`. */
+  classes: Record<string, Record<string, string>>;
   defaults: Record<string, string>;
   variants: Record<string, string[]>;
 }
+
+const emptyCva = (): CvaInfo => ({
+  base: "",
+  classes: {},
+  defaults: {},
+  variants: {},
+});
+
+/** Classes written out: a string, or an array of strings; empty for anything computed. */
+const classesOf = (n: ts.Expression): string => {
+  if (ts.isStringLiteralLike(n)) {
+    return n.text.trim();
+  }
+  if (ts.isArrayLiteralExpression(n)) {
+    return n.elements
+      .filter(ts.isStringLiteralLike)
+      .map((e) => e.text.trim())
+      .filter(Boolean)
+      .join(" ");
+  }
+  return "";
+};
 
 /** A property's name as written: `size`, `"2xl"`, `1`; null for a computed one. */
 const propertyName = (name: ts.PropertyName): string | null =>
@@ -135,8 +161,9 @@ const isCvaCall = (n: ts.Node): n is ts.CallExpression =>
 
 /** `variants` and `defaultVariants` of a `cva(base, { … })` call. */
 const cvaOfCall = (call: ts.CallExpression): CvaInfo => {
-  const info: CvaInfo = { defaults: {}, variants: {} };
-  const [, cfg] = call.arguments;
+  const info = emptyCva();
+  const [base, cfg] = call.arguments;
+  info.base = base ? classesOf(base) : "";
   if (!(cfg && ts.isObjectLiteralExpression(cfg))) {
     return info;
   }
@@ -146,7 +173,11 @@ const cvaOfCall = (call: ts.CallExpression): CvaInfo => {
     }
     for (const [key, member] of assignments(value)) {
       if (name === "variants" && ts.isObjectLiteralExpression(member)) {
-        info.variants[key] = assignments(member).map(([m]) => m);
+        const members = assignments(member);
+        info.variants[key] = members.map(([m]) => m);
+        info.classes[key] = Object.fromEntries(
+          members.map(([m, v]) => [m, classesOf(v)])
+        );
       } else if (name === "defaultVariants" && ts.isStringLiteralLike(member)) {
         info.defaults[key] = member.text;
       }
@@ -156,6 +187,8 @@ const cvaOfCall = (call: ts.CallExpression): CvaInfo => {
 };
 
 const mergeCva = (into: CvaInfo, from: CvaInfo) => {
+  into.base = [into.base, from.base].filter(Boolean).join(" ");
+  Object.assign(into.classes, from.classes);
   Object.assign(into.variants, from.variants);
   Object.assign(into.defaults, from.defaults);
 };
@@ -220,7 +253,7 @@ const cvaCallsIn = (sf: ts.SourceFile): ts.CallExpression[] => {
  * other components; when nothing leads to one and the file has a single `cva()`, it is that.
  */
 const cvaOfComponent = (checker: ts.TypeChecker, decl: ts.Node): CvaInfo => {
-  const info: CvaInfo = { defaults: {}, variants: {} };
+  const info = emptyCva();
   const visited = new Set<ts.Node>([decl]);
   let found = false;
   const follow = (id: ts.Node) => {
@@ -1017,11 +1050,12 @@ const fileComponents = (
       continue;
     }
     const name = exp.getName();
+    const cva = cvaOfComponent(checker, component.decl);
     const { props, variants } = collectProps(
       checker,
       component.sig,
       component.decl,
-      cvaOfComponent(checker, component.decl)
+      cva
     );
     const description =
       ts
@@ -1037,6 +1071,15 @@ const fileComponents = (
       props,
       snippet: snippetFor(name, props),
       storyIds: stories.get(base) ?? [],
+      ...(cva.base || Object.keys(cva.classes).length > 0
+        ? {
+            styles: {
+              base: cva.base,
+              classes: cva.classes,
+              defaults: cva.defaults,
+            },
+          }
+        : {}),
       variants,
       ...(description ? { description } : {}),
     });

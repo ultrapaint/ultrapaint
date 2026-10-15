@@ -17,7 +17,9 @@ import type {
 import type { Settings } from "@ultrapaint/contracts/settings";
 import type { SetupSuggestions } from "@ultrapaint/contracts/setup";
 import type {
+  ComponentStyle,
   FileEdit,
+  SourceToken,
   StyleSystemId,
   TokenChange,
   TokenSource,
@@ -223,6 +225,14 @@ export interface StyleSystem {
    * implement a page.
    */
   readonly codeRules: string;
+  /**
+   * What a component's classes set in the state it starts in, as DESIGN.md's component tokens
+   * hold it (ADR 0027), the code's tokens being `tokens`.
+   */
+  readonly componentStyle: (
+    classes: string,
+    tokens: readonly SourceToken[]
+  ) => ComponentStyle;
   /** The stylesheets of the packages in `dirs` (absolute) that set the style system up. */
   readonly detect: (root: string, dirs: readonly string[]) => StyleSuggestions;
   readonly id: StyleSystemId;

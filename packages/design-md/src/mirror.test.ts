@@ -3,7 +3,7 @@ import {
   emptyDesignSystem,
 } from "@ultrapaint/contracts/design-system";
 import { describe, expect, it } from "vitest";
-import { mirrorOf } from "./mirror.ts";
+import { componentEntries, mirrorOf } from "./mirror.ts";
 
 /** A shadcn theme on Tailwind v4, as the service hands it over: the code's values merged in. */
 const shadcn = (): DesignSystem => {
@@ -98,5 +98,83 @@ describe("mirrorOf", () => {
     expect(notes).toEqual([
       "color-chart: var(--chart-1) does not resolve to a value.",
     ]);
+  });
+});
+
+describe("component tokens", () => {
+  /** A stand-in for the style system: one class, one property. */
+  const read = (classes: string): Record<string, string> => {
+    const out: Record<string, string> = {};
+    for (const c of classes.split(" ")) {
+      if (c.startsWith("bg-")) {
+        out.backgroundColor = `$color-${c.slice(3)}`;
+      } else if (c.startsWith("fg-")) {
+        out.textColor = `$color-${c.slice(3)}`;
+      } else if (c.startsWith("h-")) {
+        out.height = c.slice(2);
+      }
+    }
+    return out;
+  };
+  const button = {
+    name: "IconButton",
+    styles: {
+      base: "fg-ink",
+      classes: {
+        size: { lg: "h-48px", sm: "h-32px" },
+        variant: {
+          danger: "bg-danger fg-white",
+          default: "bg-primary",
+          ghost: "",
+        },
+      },
+      defaults: { size: "sm", variant: "default" },
+    },
+  };
+
+  it("gives the component as it starts, each colour variant, and each size's dimensions", () => {
+    expect(
+      componentEntries(
+        [button, { name: "Card" }],
+        new Set(["IconButton"]),
+        read
+      )
+    ).toEqual({
+      "icon-button": {
+        backgroundColor: "$color-primary",
+        height: "32px",
+        textColor: "$color-ink",
+      },
+      "icon-button-danger": {
+        backgroundColor: "$color-danger",
+        height: "32px",
+        textColor: "$color-white",
+      },
+      "icon-button-ghost": { height: "32px", textColor: "$color-ink" },
+      "icon-button-lg": { height: "48px" },
+    });
+    expect(componentEntries([button], new Set(), read)).toEqual({});
+  });
+
+  it("refers to the front matter's tokens, and writes the value of one it does not have", () => {
+    const { groups, notes } = mirrorOf(shadcn(), {
+      button: {
+        backgroundColor: "$color-primary",
+        height: "2.25rem",
+        rounded: "$radius-lg",
+        textColor: "$color-chart",
+      },
+      card: { backgroundColor: "$color-nowhere", padding: "50%" },
+    });
+    expect(groups.components).toEqual({
+      button: {
+        backgroundColor: "{colors.primary}",
+        height: "2.25rem",
+        rounded: "{rounded.lg}",
+      },
+    });
+    expect(notes).toContain(
+      "components.button.textColor: $color-chart is not a value DESIGN.md can hold."
+    );
   });
 });

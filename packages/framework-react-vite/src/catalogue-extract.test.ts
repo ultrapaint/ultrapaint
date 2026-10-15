@@ -138,6 +138,40 @@ const variantsOf = (files: Record<string, string>) =>
 
 // Building a TypeScript program takes seconds, and longer on a loaded machine.
 describe("building the catalogue", { timeout: 30_000 }, () => {
+  it("keeps the classes of each variant, written out as strings or arrays", () => {
+    const catalogue = libraries({
+      "packages/ui/package.json": UI_PACKAGE,
+      "packages/ui/src/button.tsx": `${PRELUDE}
+const buttonVariants = cva(["inline-flex rounded-md", "text-sm"], {
+  variants: {
+    variant: {
+      default: "bg-primary text-primary-foreground",
+      outline: ["border", "bg-background"],
+      computed: someClasses(),
+    },
+    size: { sm: "h-8 px-3", lg: "h-10 px-6" },
+  },
+  defaultVariants: { variant: "default", size: "sm" },
+});
+declare const someClasses: () => string;
+export const Button = (props: { variant?: string; size?: string }): JSX.Element =>
+  buttonVariants(props);
+`,
+    });
+    expect(catalogue.components[0]?.styles).toEqual({
+      base: "inline-flex rounded-md text-sm",
+      classes: {
+        size: { lg: "h-10 px-6", sm: "h-8 px-3" },
+        variant: {
+          computed: "",
+          default: "bg-primary text-primary-foreground",
+          outline: "border bg-background",
+        },
+      },
+      defaults: { size: "sm", variant: "default" },
+    });
+  });
+
   it("gives each component the variants of the cva it uses, not every cva of its file", () => {
     const catalogue = libraries({
       "packages/ui/package.json": JSON.stringify({

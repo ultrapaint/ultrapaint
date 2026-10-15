@@ -122,3 +122,18 @@ export const tokenKindOf = (name: string): TokenKind => {
 /** The value a token has in a theme, falling back to the default theme's. */
 export const tokenValueIn = (token: SourceToken, theme?: string): string =>
   (theme ? token.values?.[theme] : undefined) ?? token.value;
+
+/**
+ * What a component's classes set in the state it starts in, as DESIGN.md's component tokens
+ * hold it (ADR 0027): a token as pages name it (`$color-primary`), or a length or colour as CSS.
+ * What no class sets, or a class sets with nothing the format can hold, is left out.
+ */
+export interface ComponentStyle {
+  readonly backgroundColor?: string;
+  readonly height?: string;
+  readonly padding?: string;
+  readonly rounded?: string;
+  readonly size?: string;
+  readonly textColor?: string;
+  readonly width?: string;
+}
