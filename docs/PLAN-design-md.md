@@ -70,11 +70,11 @@ A value the format cannot hold is left out and listed.
 - `create(mirror, { name })` makes a first file, with the eight section headings and nothing
   under them.
 - `renameRefs(doc, renames)` renames `{colors.a}` to `{colors.b}` in the front matter and the
-  body, outside code fences.
+  body.
 
 1.4 **Tests.**
 - Round trips of three fixtures: the upstream examples (`atmospheric-glass`, `paws-and-paths`,
-  `totality-festival`, copied under `test/fixtures/upstream/` with their Apache-2.0 notice) and a
+  `totality-festival`, copied under `fixtures/upstream/` with their Apache-2.0 notice) and a
   shadcn-style theme of our own.
 - Parse, then rewrite with the same mirror, gives back the same text byte for byte.
 - Unknown keys and sections survive, a `#` title survives, and code fences are not split.
@@ -88,6 +88,29 @@ A value the format cannot hold is left out and listed.
 
 Done when the fixtures round-trip, and `pnpm typecheck` passes with `design-md` depending only
 on `yaml` and contracts.
+
+**Done, 2026-10-15.** `packages/design-md`: `parse.ts`, `tokens.ts` (`groupsOf`,
+`documentTokens`), `mirror.ts` (`mirrorOf`), `write.ts` (`withMirror`, `create`, `renameRefs`),
+`values.ts` (colours, lengths, `var()` and `calc()` resolved). Deviations:
+
+- **Dependencies.** It depends on `@ultrapaint/design-document` as well, for `tokenValues`. That
+  is the same reading of a design system's values the preview uses.
+- **Tokens in fenced `yaml` blocks** are read and written in place, beside the front matter.
+  The format's linter reads them too. A group given in two blocks is a problem.
+- **`renameRefs` renames inside code fences as well.** A fenced example of the document's own
+  tokens would otherwise go stale.
+
+What the lint spike found:
+
+- **It holds up.** `@google/design.md@0.4.0`'s linter is one bundled 667 KB module that imports
+  only Node's own. It lints a file in 10 to 35 ms. It passes, with no error or warning, the
+  files `create` and `withMirror` write.
+- **The server's bundle has to carry its configuration.** On its first lint it reads
+  `spec-config.yaml` next to its own module. So `apps/server/scripts/build.ts` copies that file
+  beside the bundle, or keeps the package external. Phase 2 does this, when it adds the
+  dependency to the server.
+- **It does not report two sections of the same name**, which the format calls an error.
+  `parse` does.
 
 ### Phase 2: the file at the root, mirrored from the code
 
@@ -270,7 +293,6 @@ back to the classes. Sync lists it for `/sync describe`. Classes are the code's 
   the mirror is not written over an edit that has not been taken, and Sync shows both.
 - **Text styles' values are resolved,** so the link to their tokens is lost in the document. 3.4
   keeps that decision with an agent and the user, not with rules.
-- **The linter's dependencies** (bundled zod 3, remark) and its size. The 1.5 spike decides
-  whether to use it or our own checks.
+- **The linter's configuration file** must travel with the server's bundle (see 1.5).
 - **The MCP budget** is about 10 characters. 4.3 renames rather than adds, and 3.5's enum value
   needs a cut.
