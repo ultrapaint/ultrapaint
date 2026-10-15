@@ -4,6 +4,7 @@
  */
 import {
   type DesignSystem,
+  type DocumentBaseline,
   designSystemTokenNames,
 } from "@ultrapaint/contracts/design-system";
 import type {
@@ -15,11 +16,8 @@ import {
   baselineKey,
   driftCount,
   emptyDrift,
-  type FigmaDecision,
   type FigmaMatch,
   type FigmaMatchSource,
-  type FigmaTokenDiff,
-  type FigmaTokenOutcome,
   type SyncBaseline,
   type SyncCase,
   type SyncDrift,
@@ -27,6 +25,9 @@ import {
   type SyncStep,
   type SyncStepKind,
   type SyncStepState,
+  type TokenDecision,
+  type TokenDiff,
+  type TokenOutcome,
 } from "@ultrapaint/contracts/sync";
 import {
   type SourceToken,
@@ -235,6 +236,16 @@ const documentSteps = (facts: SyncFacts): SyncStep[] => {
         "Write DESIGN.md",
         "attention",
         "DESIGN.md is the design system in the open format every agent reads, at the root of the repository: its front matter holds the tokens, kept in step with the code, and an agent describes the rest."
+      ),
+    ];
+  }
+  if (facts.designMd.held > 0 && !facts.designMd.legacy) {
+    return [
+      step(
+        "design-tokens",
+        "Take DESIGN.md's tokens into the code",
+        "attention",
+        `${plural(facts.designMd.held, "value")} of ${facts.designMd.path}'s front matter changed there, or differ from the code's. Each of its tokens is matched to a token of the code, added under a name you choose, or left out: rules take the plain matches, an agent the rest with you. Then what the document changed is taken into the code, and you pick where both changed.`
       ),
     ];
   }
@@ -457,51 +468,55 @@ export const matchProblem = (
     : `${token.variable} is a ${token.kind} token and ${to} names a ${kind} one`;
 };
 
-/** What one token's value comes to, Figma's against the code's and the last sync's. */
+/** What one token's value comes to, the source's against the code's and the last agreement's. */
 const outcomeOf = (
-  figma: string,
+  source: string,
   code: string | undefined,
-  base: { readonly code?: string; readonly figma?: string } | null
-): FigmaTokenOutcome => {
-  if (code !== undefined && sameValue(figma, code)) {
+  base: { readonly code?: string; readonly source?: string } | null
+): TokenOutcome => {
+  if (code !== undefined && sameValue(source, code)) {
     return "same";
   }
   if (code === undefined) {
-    // The code took out what the last sync agreed on: Figma is behind.
-    return base?.code === undefined ? "to-code" : "figma-behind";
+    // The code took out what was agreed: the source is behind.
+    return base?.code === undefined ? "to-code" : "source-behind";
   }
-  if (base?.figma === undefined) {
+  if (base?.source === undefined) {
     return "conflict";
   }
-  const figmaChanged = !sameValue(figma, base.figma);
+  const sourceChanged = !sameValue(source, base.source);
   const codeChanged = !sameValue(code, base.code);
-  if (figmaChanged && !codeChanged) {
+  if (sourceChanged && !codeChanged) {
     return "to-code";
   }
-  if (codeChanged && !figmaChanged) {
-    return "figma-behind";
+  if (codeChanged && !sourceChanged) {
+    return "source-behind";
   }
   return "conflict";
 };
 
 /**
- * Figma's tokens against the code's, theme by theme, against the last sync with this file. Only
- * a matched token is compared: an unmatched one is listed and left alone.
+ * A source's tokens against the code's, theme by theme, against what was agreed last. Only a
+ * matched token is compared: an unmatched one is listed and left alone.
  */
-export const compareFigma = (
-  figma: readonly FigmaSide[],
+const compareSide = (
+  side: readonly FigmaSide[],
   code: readonly SourceToken[],
-  baseline: SyncBaseline | null
-): FigmaTokenDiff[] => {
+  matches: ReadonlyMap<string, Matched>,
+  baseOf: (
+    name: string,
+    theme: string,
+    token: FigmaSide
+  ) => { readonly code?: string; readonly source?: string } | null
+): TokenDiff[] => {
   const declared = new Map(code.filter((t) => t.own).map((t) => [t.name, t]));
-  const matches = matchFigma(figma, code, baseline?.matches);
-  return figma.flatMap((token) =>
-    Object.entries(token.values).map(([theme, value]): FigmaTokenDiff => {
+  return side.flatMap((token) =>
+    Object.entries(token.values).map(([theme, value]): TokenDiff => {
       const match = matches.get(token.variable);
       const common = {
         ...(token.alias && { alias: token.alias }),
-        figma: value,
         kind: token.kind,
+        source: value,
         ...(theme && { theme }),
         variable: token.variable,
       };
@@ -518,13 +533,10 @@ export const compareFigma = (
       }
       const found = declared.get(match.to);
       const current = theme === "" ? found?.value : found?.values?.[theme];
-      const key = baselineKey(match.to, theme || undefined);
-      const base = baseline
-        ? { code: baseline.code[key], figma: baseline.figma[key] }
-        : null;
+      const base = baseOf(match.to, theme, token);
       return {
         ...common,
-        ...(base?.figma !== undefined && { base: base.figma }),
+        ...(base?.source !== undefined && { base: base.source }),
         by: match.by,
         ...(current !== undefined && { code: current }),
         name: match.to,
@@ -534,31 +546,141 @@ export const compareFigma = (
   );
 };
 
+/** Figma's tokens against the code's, against the last sync with this file (ADR 0025). */
+export const compareFigma = (
+  figma: readonly FigmaSide[],
+  code: readonly SourceToken[],
+  baseline: SyncBaseline | null
+): TokenDiff[] =>
+  compareSide(
+    figma,
+    code,
+    matchFigma(figma, code, baseline?.matches),
+    (name, theme) => {
+      const key = baselineKey(name, theme || undefined);
+      return baseline
+        ? { code: baseline.code[key], source: baseline.figma[key] }
+        : null;
+    }
+  );
+
+/** DESIGN.md's tokens as a source: one value each, in the default theme (ADR 0027). */
+export const documentSide = (
+  tokens: readonly {
+    readonly alias?: string;
+    readonly kind: SourceToken["kind"];
+    readonly name: string;
+    readonly value: string;
+    readonly variable: string;
+  }[]
+): FigmaSide[] =>
+  tokens.map((t) => ({
+    ...(t.alias !== undefined && { alias: t.alias }),
+    kind: t.kind,
+    name: t.name,
+    values: { "": t.value },
+    variable: t.variable,
+  }));
+
+/** The matches DESIGN.md keeps, by path, as the matching reads them. */
+const documentMatches = (
+  baseline: DocumentBaseline | null
+): Record<string, FigmaMatch> =>
+  Object.fromEntries(
+    Object.entries(baseline?.matches ?? {}).map(([variable, m]) => [
+      variable,
+      { by: m.by, figma: variable, to: m.to },
+    ])
+  );
+
+/** What each of DESIGN.md's tokens is in the code: the same rules as Figma's, by path. */
+export const matchDocument = (
+  side: readonly FigmaSide[],
+  code: readonly SourceToken[],
+  baseline: DocumentBaseline | null
+) => matchFigma(side, code, documentMatches(baseline));
+
 /**
- * The changes to the code a comparison comes to once the user has picked: everything Figma
- * changed alone, and the conflicts the user gave to Figma, written in the code's units.
+ * DESIGN.md's tokens against the code's. What the two agreed is one value by path: the
+ * document's and the code's were the same then.
  */
-export const figmaChanges = (
-  diffs: readonly FigmaTokenDiff[],
-  decisions: readonly FigmaDecision[]
+export const compareDocument = (
+  side: readonly FigmaSide[],
+  code: readonly SourceToken[],
+  baseline: DocumentBaseline | null
+): TokenDiff[] =>
+  compareSide(
+    side,
+    code,
+    matchDocument(side, code, baseline),
+    (_name, _theme, token) => {
+      const agreed = baseline?.agreed[token.variable];
+      return agreed === undefined ? null : { code: agreed, source: agreed };
+    }
+  );
+
+/**
+ * The changes to the code a comparison comes to once the user has picked: everything the source
+ * changed alone, and the conflicts the user gave to it, written in the code's units.
+ */
+export const tokenChanges = (
+  diffs: readonly TokenDiff[],
+  decisions: readonly TokenDecision[]
 ): TokenChange[] => {
   const picked = new Map(
     decisions.map((d) => [baselineKey(d.name, d.theme), d.take])
   );
-  // Two of Figma's tokens matched to one code token: the first one's value is written.
+  // Two of the source's tokens matched to one code token: the first one's value is written.
   const changes = new Map<string, TokenChange>();
   for (const d of diffs) {
     const key = baselineKey(d.name, d.theme);
     const taken =
       d.outcome === "to-code" ||
-      (d.outcome === "conflict" && picked.get(key) === "figma");
+      (d.outcome === "conflict" && picked.get(key) === "source");
     if (taken && !changes.has(key)) {
       changes.set(key, {
         name: d.name,
         ...(d.theme && { theme: d.theme }),
-        value: inCodeUnits(d.figma, d.code),
+        value: inCodeUnits(d.source, d.code),
       });
     }
   }
   return [...changes.values()];
+};
+
+/**
+ * The design system with tokens the code was just given listed, so that DESIGN.md's front
+ * matter, which mirrors what the design system lists, keeps them: a colour in the semantic group
+ * (the first group when there is none), a radius and a spacing in theirs. `/sync describe` says
+ * what each is for.
+ */
+export const listTokens = (
+  ds: DesignSystem,
+  tokens: readonly { readonly name: string; readonly value: string }[]
+): DesignSystem => {
+  const colors = tokens.filter((t) => t.name.startsWith("color-"));
+  const radii = tokens.filter((t) => t.name.startsWith("radius-"));
+  const spacing = tokens.filter((t) => t.name.startsWith("spacing-"));
+  const semantic = Math.max(
+    0,
+    ds.colors.findIndex((g) => g.name.toLowerCase() === "semantic")
+  );
+  const into = () =>
+    ds.colors.length === 0
+      ? [{ name: "Colors", tokens: colors }]
+      : ds.colors.map((g, i) =>
+          i === semantic ? { ...g, tokens: [...g.tokens, ...colors] } : g
+        );
+  const groups = colors.length === 0 ? ds.colors : into();
+  return {
+    ...ds,
+    colors: groups,
+    radius: [...ds.radius, ...radii],
+    spacing: {
+      ...ds.spacing,
+      ...(spacing.length > 0 && {
+        tokens: [...(ds.spacing.tokens ?? []), ...spacing],
+      }),
+    },
+  };
 };

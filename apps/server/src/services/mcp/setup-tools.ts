@@ -28,13 +28,14 @@ const FinishSetupStep = Tool.make("finish_setup_step", {
 });
 
 /**
- * A decision as an agent passes it: optional keys, not unions with null. Kind `figma` matches a
- * Figma variable or style (`value`, where it is in Figma) to the code's token (`target`, added
- * when the code does not declare it), or leaves it out of the code (`keep`), for the sync.
+ * A decision as an agent passes it: optional keys, not unions with null. Kinds `figma` and
+ * `design` match a token of the newest Figma import or of DESIGN.md (`value`, where it is there)
+ * to the code's token (`target`, added when the code does not declare it), or leave it out of
+ * the code (`keep`), for the sync.
  */
 const MapEntry = Schema.Struct({
   keep: opt(Schema.Boolean),
-  kind: Schema.Literals([...UsageKind.literals, "figma"]),
+  kind: Schema.Literals([...UsageKind.literals, "figma", "design"]),
   note: opt(Schema.String),
   target: opt(Schema.String),
   value: Schema.String,
@@ -101,21 +102,32 @@ export const SetupToolsLive = SetupTools.toLayer(
 
       map_values: Effect.fn("SetupTools.map_values")(function* ({ entries }) {
         const values = entries.flatMap((e) =>
-          e.kind === "figma" ? [] : [{ ...e, kind: e.kind }]
+          e.kind === "figma" || e.kind === "design"
+            ? []
+            : [{ ...e, kind: e.kind }]
         );
-        const figma = entries.filter((e) => e.kind === "figma");
-        const matched =
-          figma.length > 0
-            ? yield* reported(
-                sync.matchFigma(
-                  figma.map((e) => ({
+        const matchesOf = (source: "design" | "figma") => {
+          const listed = entries.filter((e) => e.kind === source);
+          return listed.length > 0
+            ? reported(
+                sync.match(
+                  source,
+                  listed.map((e) => ({
                     to: e.keep ? null : e.target,
                     variable: e.value,
                   })),
                   "agent"
                 )
               )
-            : { problems: [], saved: 0, unmatched: 0 };
+            : Effect.succeed({ problems: [], saved: 0, unmatched: 0 });
+        };
+        const figma = yield* matchesOf("figma");
+        const design = yield* matchesOf("design");
+        const matched = {
+          problems: [...figma.problems, ...design.problems],
+          saved: figma.saved + design.saved,
+          unmatched: figma.unmatched + design.unmatched,
+        };
         if (values.length === 0) {
           return {
             problems: matched.problems,

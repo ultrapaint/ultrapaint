@@ -4,18 +4,37 @@
  * plan is worked out again whenever something it reads changes, and pushed to the editor, whose
  * Design system tab counts what is left to do.
  */
+import {
+  type DesignSystem,
+  type DocumentMatch,
+  designSystemTokenNames,
+} from "@ultrapaint/contracts/design-system";
 import { BadRequest, type NotConfigured } from "@ultrapaint/contracts/errors";
 import {
   baselineKey,
-  type FigmaDecision,
   type FigmaMatch,
-  type FigmaMatchInput,
   type FigmaMatchSource,
-  type FigmaTokenComparison,
+  type MatchSource,
   type SyncBaseline,
   type SyncFacts,
   type SyncPlan,
+  type TokenComparison,
+  type TokenDecision,
+  type TokenMatchInput,
+  type TokenSourceKind,
 } from "@ultrapaint/contracts/sync";
+import type { TokenChange } from "@ultrapaint/contracts/tokens";
+import { emptyGroups } from "@ultrapaint/design-md/format";
+import { flatten } from "@ultrapaint/design-md/merge";
+import { mirrorOf } from "@ultrapaint/design-md/mirror";
+import { parse } from "@ultrapaint/design-md/parse";
+import {
+  documentPathOf,
+  documentTokens,
+  groupsOf,
+} from "@ultrapaint/design-md/tokens";
+import { renameRefs, withMirror } from "@ultrapaint/design-md/write";
+import { plural } from "@ultrapaint/shared/text";
 import {
   Clock,
   Context,
@@ -36,15 +55,18 @@ import { DesignSystemService } from "./design-system.ts";
 import { DesignSystemSetupService } from "./design-system-setup.ts";
 import {
   caseOf,
+  compareDocument,
   compareFigma,
+  documentSide,
   driftOf,
   type FigmaSide,
-  figmaChanges,
+  listTokens,
   matchFigma,
   matchKeyOf,
   matchProblem,
   planOf,
   summaryOf,
+  tokenChanges,
 } from "./design-system-sync-rules.ts";
 import { FigmaImportService } from "./figma-import.ts";
 import { RepoPaths } from "./repo-paths.ts";
@@ -83,6 +105,59 @@ const sorted = <A>(record: Readonly<Record<string, A>>): Record<string, A> =>
     Object.entries(record).sort(([a], [b]) => a.localeCompare(b))
   );
 
+/** The tokens a write adds to the code that the design system does not list yet, with values. */
+const newTokens = (ds: DesignSystem, changes: readonly TokenChange[]) => {
+  const listed = new Set(designSystemTokenNames(ds));
+  return changes.flatMap((c) =>
+    c.theme === undefined && c.value !== undefined && !listed.has(c.name)
+      ? [{ name: c.name, value: c.value }]
+      : []
+  );
+};
+
+/**
+ * DESIGN.md once its tokens are taken (ADR 0027): every matched token under the code's name, its
+ * references renamed; the colours, radii and spacing the design system's, with the code's
+ * values; what is still unmatched kept as the document has it; its text styles as they are, for
+ * the agent. Null when its YAML does not read.
+ */
+const documentAfter = (
+  text: string,
+  diffs: TokenComparison["diffs"],
+  ds: DesignSystem
+): string | null => {
+  const renames = new Map<string, string>();
+  for (const d of diffs) {
+    if (d.outcome === "unmatched" || d.outcome === "ignored") {
+      continue;
+    }
+    const to = documentPathOf(d.name);
+    if (to !== null && to !== d.variable) {
+      renames.set(d.variable, to);
+    }
+  }
+  const renamed = renameRefs(text, renames);
+  const unmatched = new Set(
+    diffs.filter((d) => d.outcome === "unmatched").map((d) => d.variable)
+  );
+  const own = groupsOf(parse(renamed)).groups;
+  const kept = <A>(group: "colors" | "rounded" | "spacing") =>
+    Object.fromEntries(
+      Object.entries(own[group]).filter(([key]) =>
+        unmatched.has(`${group}.${key}`)
+      )
+    ) as Record<string, A>;
+  const mirror = mirrorOf(ds).groups;
+  const written = withMirror(renamed, {
+    ...emptyGroups(),
+    colors: { ...mirror.colors, ...kept<string>("colors") },
+    rounded: { ...mirror.rounded, ...kept<string>("rounded") },
+    spacing: { ...mirror.spacing, ...kept<number | string>("spacing") },
+    typography: own.typography,
+  });
+  return "problem" in written ? null : written.text;
+};
+
 /** What every matched Figma token is in the code, to keep in the baseline by Figma's id. */
 const matchesOf = (
   tokens: readonly FigmaSide[],
@@ -103,30 +178,31 @@ export class DesignSystemSyncService extends Context.Service<
   DesignSystemSyncService,
   {
     /**
-     * Figma's tokens against the code's and the last sync's, for the newest import; null when
-     * there is none.
+     * A source's tokens against the code's and the last agreement's: the newest Figma import's
+     * (ADR 0025) or DESIGN.md's (ADR 0027); null when there is no such source.
      */
-    readonly figmaTokens: Effect.Effect<
-      FigmaTokenComparison | null,
-      NotConfigured | BadRequest
-    >;
+    readonly tokens: (
+      source: TokenSourceKind
+    ) => Effect.Effect<TokenComparison | null, NotConfigured | BadRequest>;
     /**
-     * Writes what Figma changed alone, and the conflicts the user gave to Figma, into the code,
-     * and keeps where the two now agree as the baseline of the next sync.
+     * Writes what the source changed alone, and the conflicts the user gave to it, into the
+     * code, and keeps where the two now agree for the next sync.
      */
-    readonly applyFigma: (
-      decisions: readonly FigmaDecision[]
+    readonly apply: (
+      source: TokenSourceKind,
+      decisions: readonly TokenDecision[]
     ) => Effect.Effect<
       { readonly files: readonly string[]; readonly written: number },
       NotConfigured | BadRequest
     >;
     /**
-     * Says what Figma tokens of the newest import are in the code (ADR 0025), by where they are
-     * in Figma; what cannot be matched as asked is said in `problems`.
+     * Says what a source's tokens are in the code, by where they are in the source; what cannot
+     * be matched as asked is said in `problems`.
      */
-    readonly matchFigma: (
-      entries: readonly FigmaMatchInput[],
-      by: Exclude<FigmaMatchSource, "rule">
+    readonly match: (
+      source: TokenSourceKind,
+      entries: readonly TokenMatchInput[],
+      by: Exclude<MatchSource, "rule">
     ) => Effect.Effect<
       {
         readonly problems: readonly string[];
@@ -387,8 +463,9 @@ export class DesignSystemSyncService extends Context.Service<
               file: latest.name,
               importId: latest.id,
               notes: [...figma.notes],
+              source: "figma",
               targets: own.map((t) => ({ kind: t.kind, name: t.name })),
-            } satisfies FigmaTokenComparison,
+            } satisfies TokenComparison,
             figma,
           };
         })
@@ -400,14 +477,14 @@ export class DesignSystemSyncService extends Context.Service<
       );
 
       const applyFigma = Effect.fn("DesignSystemSyncService.applyFigma")(
-        function* (decisions: readonly FigmaDecision[]) {
+        function* (decisions: readonly TokenDecision[]) {
           const found = yield* compare;
           if (!found) {
             return yield* new BadRequest({
               message: "There is no Figma import to take tokens from.",
             });
           }
-          const changes = figmaChanges(found.comparison.diffs, decisions);
+          const changes = tokenChanges(found.comparison.diffs, decisions);
           const result = yield* project.use(
             Effect.gen(function* () {
               const designSystem = yield* DesignSystemService;
@@ -432,7 +509,7 @@ export class DesignSystemSyncService extends Context.Service<
                   diff.outcome !== "unmatched" && diff.outcome !== "ignored"
               )) {
                 const key = baselineKey(d.name, d.theme);
-                figma[key] = d.figma;
+                figma[key] = d.source;
                 const now = declared.get(d.name);
                 const value = d.theme ? now?.values?.[d.theme] : now?.value;
                 if (value !== undefined) {
@@ -475,7 +552,7 @@ export class DesignSystemSyncService extends Context.Service<
 
       const saveMatches = Effect.fn("DesignSystemSyncService.matchFigma")(
         function* (
-          entries: readonly FigmaMatchInput[],
+          entries: readonly TokenMatchInput[],
           by: Exclude<FigmaMatchSource, "rule">
         ) {
           const found = yield* compare;
@@ -549,11 +626,211 @@ export class DesignSystemSyncService extends Context.Service<
         (effect) => baselineLock.withPermits(1)(effect)
       );
 
+      /** DESIGN.md's tokens compared, with what the comparison was made from (ADR 0027). */
+      const compareDesign = project.use(
+        Effect.gen(function* () {
+          const { designSystem: ds, document } =
+            yield* (yield* DesignSystemService).get;
+          if (!(ds && document) || document.legacy) {
+            return null;
+          }
+          const paths = yield* RepoPaths;
+          const code = (yield* ProjectStyleSystem).readTokens({
+            anchorDir: paths.anchorDir,
+            root: paths.root,
+            settings: paths.settings,
+          });
+          const { problems, tokens } = documentTokens(parse(document.text));
+          const side = documentSide(tokens);
+          const baseline = ds.designMd ?? null;
+          const typography = document.held
+            .filter((h) => h.path.startsWith("typography."))
+            .map((h) => h.path);
+          const own = code.tokens.filter((t) => t.own);
+          return {
+            code: code.tokens,
+            comparison: {
+              baseline: baseline !== null && baseline.at > 0,
+              diffs: compareDocument(side, code.tokens, baseline),
+              file: document.path,
+              notes: [
+                ...problems,
+                ...(typography.length > 0
+                  ? [
+                      `${plural(typography.length, "text style setting")} of ${document.path} differ from the code's (${typography.slice(0, 4).join(", ")}${typography.length > 4 ? ", …" : ""}): a text style is several tokens, so /sync design settles them with you.`,
+                    ]
+                  : []),
+              ],
+              source: "design",
+              targets: own.map((t) => ({ kind: t.kind, name: t.name })),
+            } satisfies TokenComparison,
+            designSystem: ds,
+            side,
+          };
+        })
+      );
+
+      const designTokens = Effect.map(
+        compareDesign,
+        (found) => found?.comparison ?? null
+      );
+
+      const noDocument = new BadRequest({
+        message:
+          "There is no DESIGN.md at the root of the repository, beside a design system, to take tokens from.",
+      });
+
+      /**
+       * DESIGN.md's tokens taken (ADR 0027): the code takes what the document changed alone and
+       * the conflicts given to it; the design system lists the tokens new to it; the document is
+       * rewritten in the code's names, its references with it, what was left out of the code
+       * taken out of it, and what is still unmatched kept.
+       */
+      const applyDesign = Effect.fn("DesignSystemSyncService.applyDesign")(
+        function* (decisions: readonly TokenDecision[]) {
+          const found = yield* compareDesign;
+          if (!found) {
+            return yield* noDocument;
+          }
+          const { diffs } = found.comparison;
+          const changes = tokenChanges(diffs, decisions);
+          const result = yield* project.use(
+            Effect.gen(function* () {
+              const service = yield* DesignSystemService;
+              const { files } =
+                changes.length > 0
+                  ? yield* service.setTokens(changes)
+                  : { files: [] as readonly string[] };
+              const after = yield* service.get;
+              const ds = after.designSystem ?? found.designSystem;
+              const listed = listTokens(ds, newTokens(ds, changes));
+              const { document } = after;
+              if (!document) {
+                return yield* noDocument;
+              }
+              const text = documentAfter(document.text, diffs, listed);
+              if (text === null) {
+                return yield* new BadRequest({
+                  message: `${document.path}'s YAML does not read, so it cannot be rewritten.`,
+                });
+              }
+              const mirror = mirrorOf(listed).groups;
+              const agreed = {
+                // A text style is the agent's to settle: what was agreed on them stays.
+                ...Object.fromEntries(
+                  Object.entries(ds.designMd?.agreed ?? {}).filter(([k]) =>
+                    k.startsWith("typography.")
+                  )
+                ),
+                ...Object.fromEntries(
+                  Object.entries(flatten({ ...mirror, typography: {} })).map(
+                    ([k, v]) => [k, String(v)]
+                  )
+                ),
+              };
+              yield* service
+                .replace(
+                  {
+                    ...listed,
+                    designMd: { agreed, at: yield* Clock.currentTimeMillis },
+                  },
+                  text,
+                  `Take ${document.path}'s tokens into the code`
+                )
+                .pipe(
+                  Effect.mapError(
+                    (error) =>
+                      new BadRequest({
+                        message: `${document.path} could not be written: ${error.message}`,
+                      })
+                  )
+                );
+              return { files, written: changes.length };
+            })
+          );
+          yield* Effect.ignore(plan);
+          return result;
+        },
+        (effect) => baselineLock.withPermits(1)(effect)
+      );
+
+      const matchDesign = Effect.fn("DesignSystemSyncService.matchDesign")(
+        function* (
+          entries: readonly TokenMatchInput[],
+          by: Exclude<MatchSource, "rule">
+        ) {
+          const found = yield* compareDesign;
+          if (!found) {
+            return yield* noDocument;
+          }
+          const tokens = new Map(
+            found.side.map((t) => [t.variable, t] as const)
+          );
+          const ds = found.designSystem;
+          const matches: Record<string, DocumentMatch> = {
+            ...ds.designMd?.matches,
+          };
+          const problems: string[] = [];
+          let saved = 0;
+          for (const entry of entries) {
+            const token = tokens.get(entry.variable);
+            if (!token) {
+              problems.push(
+                `${entry.variable} is not a token of ${found.comparison.file}`
+              );
+              continue;
+            }
+            const problem = entry.to ? matchProblem(token, entry.to) : null;
+            if (problem) {
+              problems.push(problem);
+              continue;
+            }
+            if (entry.to === undefined) {
+              delete matches[entry.variable];
+            } else {
+              matches[entry.variable] = { by, to: entry.to };
+            }
+            saved += 1;
+          }
+          const next = {
+            // Matches saved before anything is taken are no agreement yet (`at` 0).
+            ...(ds.designMd ?? { agreed: {}, at: 0 }),
+            matches: sorted(matches),
+          };
+          yield* project
+            .use(
+              Effect.flatMap(DesignSystemService, (d) =>
+                d.write({ ...ds, designMd: next })
+              )
+            )
+            .pipe(
+              Effect.mapError(
+                (error) =>
+                  new BadRequest({
+                    message: `the matches could not be saved: ${error.message}`,
+                  })
+              )
+            );
+          yield* Effect.ignore(plan);
+          const unmatched = compareDocument(
+            found.side,
+            found.code,
+            next
+          ).filter((d) => d.outcome === "unmatched").length;
+          return { problems, saved, unmatched };
+        },
+        (effect) => baselineLock.withPermits(1)(effect)
+      );
+
       return DesignSystemSyncService.of({
-        applyFigma,
-        figmaTokens,
-        matchFigma: saveMatches,
+        apply: (source, decisions) =>
+          source === "figma" ? applyFigma(decisions) : applyDesign(decisions),
+        match: (source, entries, by) =>
+          source === "figma"
+            ? saveMatches(entries, by)
+            : matchDesign(entries, by),
         plan,
+        tokens: (source) => (source === "figma" ? figmaTokens : designTokens),
       });
     })
   );

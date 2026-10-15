@@ -111,6 +111,15 @@ export class DesignSystemService extends Context.Service<
       EditFailure
     >;
     /**
+     * Saves the design system and `DESIGN.md` as given, in one undo step: for Sync, which has
+     * merged them itself (ADR 0027).
+     */
+    readonly replace: (
+      designSystem: DesignSystem,
+      document: string,
+      label: string
+    ) => Effect.Effect<void, EditFailure>;
+    /**
      * Validates and saves; `document` replaces `DESIGN.md` when given, at the root. Its mirrored
      * token groups are the code's, filled in whatever it says; `findings` are what the format's
      * linter says and what was put back. A linter error refuses the whole write.
@@ -308,6 +317,13 @@ export class DesignSystemService extends Context.Service<
         return findings;
       });
 
+      /**
+       * What DESIGN.md and the code agreed on, or null before anything was: matches saved
+       * before a document's tokens are taken leave `at` at 0 (ADR 0027).
+       */
+      const agreedOf = (ds: DesignSystem) =>
+        ds.designMd && ds.designMd.at > 0 ? ds.designMd.agreed : null;
+
       /** `DESIGN.md` as the editor shows it, with what Sync has to settle when it mirrors. */
       const documentOf = Effect.fnUntraced(function* (
         found: {
@@ -320,8 +336,7 @@ export class DesignSystemService extends Context.Service<
         const doc = parse(found.text);
         const held =
           ds && !found.legacy
-            ? mergeMirror(doc, mirrorOf(ds).groups, ds.designMd?.agreed ?? null)
-                .held
+            ? mergeMirror(doc, mirrorOf(ds).groups, agreedOf(ds)).held
             : [];
         return {
           body: found.text.slice(doc.body),
@@ -524,7 +539,7 @@ export class DesignSystemService extends Context.Service<
         }
         const merged = withCodeValues(decoded.success, yield* codeTokens);
         const mirror = mirrorOf(merged).groups;
-        const agreed = decoded.success.designMd?.agreed ?? null;
+        const agreed = agreedOf(decoded.success);
         const rewrite = (content: string) => {
           const next = withMirror(
             content,
@@ -582,6 +597,27 @@ export class DesignSystemService extends Context.Service<
         mirrorWrites.withPermits(1),
         Effect.withSpan("DesignSystemService.mirrorDocument")
       );
+
+      const replace = Effect.fn("DesignSystemService.replace")(function* (
+        designSystem: DesignSystem,
+        document: string,
+        label: string
+      ) {
+        const code = yield* codeTokens;
+        yield* edit.transaction(label, (tx) =>
+          Effect.gen(function* () {
+            yield* tx.write(
+              paths.relative(systemFile),
+              serialise(forFile(designSystem, code))
+            );
+            yield* tx.write(documentRel, document);
+          })
+        );
+        yield* Effect.ignore(mirrorDocument);
+        yield* Effect.flatMap(get, (state) =>
+          events.publish("designSystem", state)
+        );
+      });
 
       /**
        * The document placed at the root: the designs directory's with the design system's
@@ -820,6 +856,7 @@ export class DesignSystemService extends Context.Service<
           Effect.andThen(Effect.ignore(mirrorDocument, { log: true })),
           Effect.andThen(get)
         ),
+        replace,
         saveBaseline,
         scan,
         setToken,

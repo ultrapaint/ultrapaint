@@ -27,6 +27,7 @@ export type SyncCase = typeof SyncCase.Type;
 export const SyncStepKind = Schema.Literals([
   "settings",
   "design-md",
+  "design-tokens",
   "scaffold",
   "figma-tokens",
   "inventory",
@@ -133,9 +134,18 @@ export const SyncPlan = Schema.Struct({
 });
 export type SyncPlan = typeof SyncPlan.Type;
 
-/** Who matched a Figma token to the code's: the rules, an agent, or the user. */
-export const FigmaMatchSource = Schema.Literals(["rule", "agent", "user"]);
-export type FigmaMatchSource = typeof FigmaMatchSource.Type;
+/**
+ * Where tokens come from to be compared with the code's: the newest Figma import (ADR 0025), or
+ * `DESIGN.md`'s front matter (ADR 0027).
+ */
+export const TokenSourceKind = Schema.Literals(["figma", "design"]);
+export type TokenSourceKind = typeof TokenSourceKind.Type;
+
+/** Who matched a source's token to the code's: the rules, an agent, or the user. */
+export const MatchSource = Schema.Literals(["rule", "agent", "user"]);
+export type MatchSource = typeof MatchSource.Type;
+export const FigmaMatchSource = MatchSource;
+export type FigmaMatchSource = MatchSource;
 
 /**
  * What a Figma variable or style is in the code: `to` the code's token, added when the code does
@@ -172,75 +182,80 @@ export const baselineKey = (name: string, theme?: string) =>
   theme ? `${name}@${theme}` : name;
 
 /**
- * What a token's comparison between Figma and the code comes to, against the baseline:
+ * What a token's comparison between a source (Figma, DESIGN.md) and the code comes to, against
+ * what the two last agreed on:
  * - `same`: nothing to do.
- * - `to-code`: Figma changed it (or has it and the code does not): the code takes Figma's.
- * - `figma-behind`: the code changed it since; Figma is behind, and the code is kept.
- * - `conflict`: both changed it, or there is no baseline and they differ: the user picks.
+ * - `to-code`: the source changed it (or has it and the code does not): the code takes it.
+ * - `source-behind`: the code changed it since; the source is behind, and the code is kept.
+ * - `conflict`: both changed it, or nothing was agreed and they differ: the user picks.
  * - `unmatched`: no one has said what it is in the code yet; nothing is written.
  * - `ignored`: left out of the code on purpose.
  */
-export const FigmaTokenOutcome = Schema.Literals([
+export const TokenOutcome = Schema.Literals([
   "same",
   "to-code",
-  "figma-behind",
+  "source-behind",
   "conflict",
   "unmatched",
   "ignored",
 ]);
-export type FigmaTokenOutcome = typeof FigmaTokenOutcome.Type;
+export type TokenOutcome = typeof TokenOutcome.Type;
 
-export const FigmaTokenDiff = Schema.Struct({
-  /** The Figma token it points at, by `variable`: a semantic colour's palette entry. */
+export const TokenDiff = Schema.Struct({
+  /** The source's token it points at, by `variable`: a semantic colour's palette entry. */
   alias: Schema.optional(Schema.String),
   base: Schema.optional(Schema.String),
   /** Who matched it; left out while it is unmatched. */
-  by: Schema.optional(FigmaMatchSource),
+  by: Schema.optional(MatchSource),
   code: Schema.optional(Schema.String),
-  figma: Schema.String,
   kind: TokenKind,
   /**
-   * The code's token it is matched to; unmatched or left out, the name Figma's own naming
+   * The code's token it is matched to; unmatched or left out, the name the source's own naming
    * comes to (`color-brand-500`).
    */
   name: Schema.String,
-  outcome: FigmaTokenOutcome,
+  outcome: TokenOutcome,
+  /** Its value in the source. */
+  source: Schema.String,
   /** Left out for the default theme. */
   theme: Schema.optional(Schema.String),
-  /** Where it came from in Figma: `Colors/Primary/500`. */
+  /** Where it came from in the source: `Colors/Primary/500`, `colors.primary`. */
   variable: Schema.String,
 });
-export type FigmaTokenDiff = typeof FigmaTokenDiff.Type;
+export type TokenDiff = typeof TokenDiff.Type;
 
-export const FigmaTokenComparison = Schema.Struct({
-  /** Whether a baseline from this file was there to compare against. */
+export const TokenComparison = Schema.Struct({
+  /** Whether an earlier agreement with this source was there to compare against. */
   baseline: Schema.Boolean,
-  diffs: Schema.Array(FigmaTokenDiff),
+  diffs: Schema.Array(TokenDiff),
+  /** What the source is, to say: the Figma file's name, `DESIGN.md`. */
   file: Schema.String,
-  importId: Schema.String,
-  /** What could not be read or named, in a few words each. */
+  /** The Figma import, for a Figma comparison. */
+  importId: Schema.optional(Schema.String),
+  /** What could not be read, named or compared, in a few words each. */
   notes: Schema.Array(Schema.String),
-  /** The tokens the code declares itself, which Figma's can be matched to. */
+  source: TokenSourceKind,
+  /** The tokens the code declares itself, which the source's can be matched to. */
   targets: Schema.Array(
     Schema.Struct({ kind: TokenKind, name: Schema.String })
   ),
 });
-export type FigmaTokenComparison = typeof FigmaTokenComparison.Type;
+export type TokenComparison = typeof TokenComparison.Type;
 
 /**
- * A Figma token matched by an agent or the user, by where it is in Figma: `to` the code's token
- * (added when the code does not declare it), null to leave it out, absent to undo the match.
+ * A source's token matched by an agent or the user, by where it is in the source: `to` the code's
+ * token (added when the code does not declare it), null to leave it out, absent to undo the match.
  */
-export const FigmaMatchInput = Schema.Struct({
+export const TokenMatchInput = Schema.Struct({
   to: Schema.optional(Schema.NullOr(Schema.String)),
   variable: Schema.String,
 });
-export type FigmaMatchInput = typeof FigmaMatchInput.Type;
+export type TokenMatchInput = typeof TokenMatchInput.Type;
 
-/** The user's pick for a token in conflict. */
-export const FigmaDecision = Schema.Struct({
+/** The user's pick for a token in conflict: the source's value or the code's. */
+export const TokenDecision = Schema.Struct({
   name: Schema.String,
-  take: Schema.Literals(["figma", "code"]),
+  take: Schema.Literals(["source", "code"]),
   theme: Schema.optional(Schema.String),
 });
-export type FigmaDecision = typeof FigmaDecision.Type;
+export type TokenDecision = typeof TokenDecision.Type;

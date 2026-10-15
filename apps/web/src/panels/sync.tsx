@@ -1,8 +1,8 @@
 /**
  * The Design system panel's Sync view (ADR 0025): the case the project is in, and the steps that
  * bring the design system and the code together, in order. The setup's steps (ADR 0023) are
- * drawn as they always were; the sync's own — the settings, describing what changed, Figma's
- * tokens and frames, a new application — around them.
+ * drawn as they always were; the sync's own — the settings, DESIGN.md at the root and its tokens,
+ * describing what changed, Figma's tokens and frames, a new application — around them.
  */
 import { SETUP_STEPS } from "@ultrapaint/contracts/design-system-setup";
 import { applySuggestions } from "@ultrapaint/contracts/setup";
@@ -34,8 +34,8 @@ import { useDesignSystemSetup } from "../state/design-system-setup.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { useSync } from "../state/sync.ts";
 import { StepCard } from "./design-system-setup.tsx";
-import { FigmaTokensStep } from "./sync-figma.tsx";
 import { ScaffoldButton } from "./sync-scaffold.tsx";
+import { TokensStep } from "./sync-tokens.tsx";
 
 const STATE_LABELS: Record<SyncStep["state"], string> = {
   active: "Under way",
@@ -267,10 +267,13 @@ const PlanStep = ({
   if (step.kind === "import-frames") {
     return <FramesStep index={index} plan={plan} step={step} />;
   }
-  if (step.kind === "figma-tokens") {
+  if (step.kind === "figma-tokens" || step.kind === "design-tokens") {
     return (
       <SyncCard index={index} step={step}>
-        <FigmaTokensStep plan={plan} />
+        <TokensStep
+          plan={plan}
+          source={step.kind === "figma-tokens" ? "figma" : "design"}
+        />
       </SyncCard>
     );
   }

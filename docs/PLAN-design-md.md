@@ -228,7 +228,28 @@ shadcn app:
 - applying writes `@theme`, and the document comes back in the code's names with its prose's
   references renamed.
 
-### Phase 4: agents write the format
+**Done, 2026-10-15.** Tests: `apps/server/src/design-md.test.ts` (a Stitch-style document on a
+shadcn-shaped theme) and `design-system-sync-rules.test.ts`. Deviations:
+
+- **Renamed, not aliased.** The comparison's contract types and RPCs are the source's, whichever
+  it is: `TokenDiff` (its value in `source`), `TokenComparison` (with `source`),
+  `TokenDecision` (`take: "source" | "code"`), and `sync.tokens` / `sync.match` / `sync.apply`
+  with `source: "figma" | "design"`. `FigmaSide` stays as the shape of a source's token, and
+  matching is Figma's, unchanged (`matchDocument` keys DESIGN.md's matches by path). The Sync
+  view's step is `sync-tokens.tsx`, the same for both.
+- **No new cases.** `figma` and `figma-code` keep their names. A `DESIGN.md`'s tokens are compared
+  once there is a design system. Before that, Define reads the document (4.1). The step shows
+  only while something is held.
+- **Applying also:**
+  - lists the tokens the code was given in `design-system.json` (`listTokens`, colours in the
+    semantic group), because the front matter mirrors what the design system lists;
+  - takes what was left out of the code out of the document;
+  - keeps what is still unmatched as the document has it.
+- **The matches are kept beside the agreement** (`designMd.matches`). Matches saved before
+  anything is taken leave `at` at 0. That reads as nothing agreed yet, so the document is not
+  filled in with the code's tokens while it is being matched.
+
+
 
 4.1 **Task prompts.** `/init` (`commands.ts`), Define (`setup-tasks.ts`) and `/sync describe`
 (`sync-tasks.ts`) replace "DESIGN.md: what the application is…" with a short guide to the eight

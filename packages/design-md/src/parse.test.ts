@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parse } from "./parse.ts";
-import { documentTokens, groupsOf } from "./tokens.ts";
+import { documentPathOf, documentTokens, groupsOf } from "./tokens.ts";
 
 const upstream = (name: string) =>
   readFileSync(
@@ -167,5 +167,15 @@ describe("documentTokens", () => {
     expect(problems).toEqual([
       "typography.body-md.fontSize: 16 is not a length in px, em or rem.",
     ]);
+  });
+});
+
+describe("documentPathOf", () => {
+  it("says where a code token goes in the front matter", () => {
+    expect(documentPathOf("color-accent")).toBe("colors.accent");
+    expect(documentPathOf("radius-lg")).toBe("rounded.lg");
+    expect(documentPathOf("spacing")).toBe("spacing.base");
+    expect(documentPathOf("spacing-gutter")).toBe("spacing.gutter");
+    expect(documentPathOf("shadow-md")).toBeNull();
   });
 });

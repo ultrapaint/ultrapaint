@@ -44,5 +44,7 @@ export const syncWaiting = (plan: SyncPlan | null) =>
       s.state === "attention" &&
       (s.kind === "settings" ||
         s.kind === "describe" ||
+        s.kind === "design-md" ||
+        s.kind === "design-tokens" ||
         s.kind === "figma-tokens")
   ) ?? false;

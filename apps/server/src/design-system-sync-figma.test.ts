@@ -98,7 +98,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
             tokensFile([37 / 255, 99 / 255, 235 / 255])
           );
           assert.strictEqual(first.status, 200);
-          const comparison = yield* client["sync.figmaTokens"]();
+          const comparison = yield* client["sync.tokens"]({ source: "figma" });
           assert.isFalse(comparison?.baseline ?? true);
           const outcomes = Object.fromEntries(
             (comparison?.diffs ?? []).map((d) => [d.name, d.outcome])
@@ -115,27 +115,29 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           assert.strictEqual(plan.steps[0]?.kind, "figma-tokens");
 
           // The user names it the code's way; a name of another kind is refused.
-          const matched = yield* client["sync.matchFigma"]({
+          const matched = yield* client["sync.match"]({
             entries: [
               { to: "color-highlight", variable: "Tokens/Color/Accent" },
               { to: "color-card", variable: "Tokens/Radius/Card" },
             ],
+            source: "figma",
           });
           assert.strictEqual(matched.saved, 1);
           assert.strictEqual(matched.unmatched, 0);
           assert.lengthOf(matched.problems, 1);
-          const named = yield* client["sync.figmaTokens"]();
+          const named = yield* client["sync.tokens"]({ source: "figma" });
           assert.deepInclude(
             (named?.diffs ?? []).map((d) => [d.variable, d.name, d.outcome]),
             ["Tokens/Color/Accent", "color-highlight", "to-code"]
           );
 
           // The user keeps the code's muted and takes Figma's radius.
-          const applied = yield* client["sync.applyFigma"]({
+          const applied = yield* client["sync.apply"]({
             decisions: [
               { name: "color-muted", take: "code" },
-              { name: "radius-card", take: "figma" },
+              { name: "radius-card", take: "source" },
             ],
+            source: "figma",
           });
           assert.strictEqual(applied.written, 2);
           const text = yield* fs.readFileString(css);
@@ -156,7 +158,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
             (yield* fs.readFileString(css)).replace("#e5e7eb", "#f3f4f6")
           );
           yield* upload(port, "tokens.fig", tokensFile([1, 0, 0]));
-          const again = yield* client["sync.figmaTokens"]();
+          const again = yield* client["sync.tokens"]({ source: "figma" });
           assert.isTrue(again?.baseline ?? false);
           const next = Object.fromEntries(
             (again?.diffs ?? []).map((d) => [d.name, d.outcome])
@@ -164,7 +166,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           assert.deepStrictEqual(next, {
             "color-brand": "to-code",
             "color-highlight": "same",
-            "color-muted": "figma-behind",
+            "color-muted": "source-behind",
             "radius-card": "same",
           });
         }),
@@ -184,10 +186,13 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           yield* Effect.forEach(
             matches,
             ([variable, to]) =>
-              client["sync.matchFigma"]({ entries: [{ to, variable }] }),
+              client["sync.match"]({
+                entries: [{ to, variable }],
+                source: "figma",
+              }),
             { concurrency: "unbounded" }
           );
-          const named = yield* client["sync.figmaTokens"]();
+          const named = yield* client["sync.tokens"]({ source: "figma" });
           const names = new Map(
             (named?.diffs ?? []).map((d) => [d.variable, d.name])
           );

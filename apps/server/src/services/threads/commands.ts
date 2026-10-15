@@ -58,9 +58,9 @@ const SLASH_COMMANDS: readonly SlashCommand[] = [
     name: "design-system",
   },
   {
-    argument: "[describe | figma]",
+    argument: "[describe | figma | design]",
     description:
-      "Bring the design system and the code together: opens Sync; `describe` has an agent describe what changed, `figma` match Figma's tokens to the code's",
+      "Bring the design system and the code together: opens Sync; `describe` has an agent describe what changed, `figma` match Figma's tokens to the code's, `design` DESIGN.md's",
     name: "sync",
   },
 ];

@@ -138,3 +138,105 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
     );
   }
 );
+
+layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
+  "DESIGN.md from elsewhere (ADR 0027)",
+  (it) => {
+    it.effect(
+      "has its tokens matched, taken into the code, and is rewritten in the code's names",
+      () =>
+        Effect.gen(function* () {
+          const { client, repo, settings } = yield* TestEnv;
+          const fs = yield* FileSystem.FileSystem;
+          const file = path.join(repo, "DESIGN.md");
+          yield* fs.writeFileString(
+            path.join(repo, "designs/package.json"),
+            '{ "name": "designs", "dependencies": { "react": "19" } }\n'
+          );
+          yield* fs.makeDirectory(path.join(repo, "styles"));
+          yield* fs.writeFileString(path.join(repo, "styles/app.css"), THEME);
+          yield* client["settings.set"]({
+            ...settings,
+            hostCss: ["../../styles/app.css"],
+            libraryDirs: ["ui"],
+          });
+          yield* client["designSystem.detect"]();
+          // A designer's DESIGN.md, in names of its own.
+          yield* fs.writeFileString(
+            file,
+            [
+              "---",
+              "version: alpha",
+              "name: Heritage",
+              "colors:",
+              '  primary: "#2563eb"',
+              '  tertiary: "#b8422e"',
+              "rounded:",
+              "  card: 1rem",
+              "---",
+              "",
+              "## Colors",
+              "",
+              "Boston Clay {colors.tertiary} is the sole accent, beside {colors.primary}.",
+              "",
+            ].join("\n")
+          );
+
+          const plan = yield* client["sync.plan"]();
+          assert.strictEqual(plan.steps[0]?.kind, "design-tokens");
+          const compared = yield* client["sync.tokens"]({ source: "design" });
+          assert.deepStrictEqual(
+            compared?.diffs.map((d) => [d.variable, d.name, d.outcome]),
+            [
+              ["colors.primary", "color-brand", "same"],
+              ["colors.tertiary", "color-tertiary", "unmatched"],
+              ["rounded.card", "radius-card", "conflict"],
+            ]
+          );
+
+          const matched = yield* client["sync.match"]({
+            entries: [{ to: "color-accent", variable: "colors.tertiary" }],
+            source: "design",
+          });
+          assert.strictEqual(matched.unmatched, 0);
+          // Matching writes nothing into the document yet.
+          assert.include(yield* fs.readFileString(file), "tertiary:");
+
+          const applied = yield* client["sync.apply"]({
+            decisions: [{ name: "radius-card", take: "source" }],
+            source: "design",
+          });
+          assert.strictEqual(applied.written, 2);
+          const css = yield* fs.readFileString(
+            path.join(repo, "styles/app.css")
+          );
+          assert.include(css, "--color-accent: #b8422e;");
+          assert.include(css, "--radius-card: 1rem;");
+
+          const doc = yield* fs.readFileString(file);
+          assert.include(doc, "name: Heritage");
+          assert.include(doc, 'accent: "#b8422e"');
+          assert.include(doc, 'brand: "#2563eb"');
+          assert.notInclude(doc, "tertiary:");
+          assert.notInclude(doc, "primary:");
+          assert.include(
+            doc,
+            "Boston Clay {colors.accent} is the sole accent, beside {colors.brand}."
+          );
+          const state = yield* client["designSystem.get"]();
+          assert.deepStrictEqual(state.document?.held, []);
+          assert.include(
+            (state.designSystem?.colors ?? []).flatMap((g) =>
+              g.tokens.map((t) => t.name)
+            ),
+            "color-accent"
+          );
+          assert.notInclude(
+            (yield* client["sync.plan"]()).steps.map((s) => s.kind),
+            "design-tokens"
+          );
+        }),
+      30_000
+    );
+  }
+);

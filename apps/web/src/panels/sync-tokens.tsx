@@ -1,17 +1,19 @@
 /**
- * Figma's tokens against the code's, in the Sync view (ADR 0025). Each of Figma's tokens is first
- * matched to the code's — by rules where it is certain, by an agent with the user, or by the user
- * here — and nothing unmatched is written. Then what Figma changed alone is taken into the code;
- * where Figma is behind, the code is kept; where both changed, or there is no earlier sync to
- * tell, the user picks, token by token or all at once. Applying writes the code and keeps where
- * the two agree, and the matches, for the next sync.
+ * A source's tokens against the code's, in the Sync view: a Figma import's (ADR 0025) or
+ * DESIGN.md's front matter (ADR 0027). Each of the source's tokens is first matched to the
+ * code's — by rules where it is certain, by an agent with the user, or by the user here — and
+ * nothing unmatched is written. Then what the source changed alone is taken into the code; where
+ * it is behind, the code is kept; where both changed, or there is no earlier agreement to tell,
+ * the user picks, token by token or all at once. Applying writes the code and keeps where the two
+ * agree, and the matches, for the next sync.
  */
 import type {
-  FigmaDecision,
-  FigmaMatchInput,
-  FigmaTokenComparison,
-  FigmaTokenDiff,
   SyncPlan,
+  TokenComparison,
+  TokenDecision,
+  TokenDiff,
+  TokenMatchInput,
+  TokenSourceKind,
 } from "@ultrapaint/contracts/sync";
 import { baselineKey } from "@ultrapaint/contracts/sync";
 import { Check, ChevronDown, Wand2 } from "lucide-react";
@@ -35,29 +37,34 @@ const NEW_NAMED = "__new-named";
 /** Matches listed before "Show all". */
 const FIRST_MATCHES = 30;
 
-const BY: Record<NonNullable<FigmaTokenDiff["by"]>, string> = {
+const BY: Record<NonNullable<TokenDiff["by"]>, string> = {
   agent: "agent",
   rule: "rule",
   user: "you",
 };
 
-type Take = FigmaDecision["take"];
+type Take = TokenDecision["take"];
 type Picks = Readonly<Record<string, Take>>;
 
-const keyOf = (d: FigmaTokenDiff) => baselineKey(d.name, d.theme);
+/** What the user calls the source. */
+const LABEL: Record<TokenSourceKind, string> = {
+  design: "DESIGN.md",
+  figma: "Figma",
+};
 
-const labelOf = (d: FigmaTokenDiff) =>
-  d.theme ? `${d.name} (${d.theme})` : d.name;
+const keyOf = (d: TokenDiff) => baselineKey(d.name, d.theme);
+
+const labelOf = (d: TokenDiff) => (d.theme ? `${d.name} (${d.theme})` : d.name);
 
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
 
-const outcomes = (comparison: FigmaTokenComparison) => {
-  const by = (outcome: FigmaTokenDiff["outcome"]) =>
+const outcomes = (comparison: TokenComparison) => {
+  const by = (outcome: TokenDiff["outcome"]) =>
     comparison.diffs.filter((d) => d.outcome === outcome);
   const toCode = by("to-code");
   return {
     added: toCode.filter((d) => d.code === undefined),
-    behind: by("figma-behind"),
+    behind: by("source-behind"),
     changed: toCode.filter((d) => d.code !== undefined),
     conflicts: by("conflict"),
     same: by("same"),
@@ -65,8 +72,8 @@ const outcomes = (comparison: FigmaTokenComparison) => {
   };
 };
 
-/** One row per Figma token: its default theme's comparison stands for the others. */
-const tokensOf = (comparison: FigmaTokenComparison) => {
+/** One row per token of the source: its default theme's comparison stands for the others. */
+const tokensOf = (comparison: TokenComparison) => {
   const seen = new Set<string>();
   return comparison.diffs.filter((d) => {
     if (seen.has(d.variable)) {
@@ -77,13 +84,19 @@ const tokensOf = (comparison: FigmaTokenComparison) => {
   });
 };
 
-const unmatchedIn = (tokens: readonly FigmaTokenDiff[]) =>
+const unmatchedIn = (tokens: readonly TokenDiff[]) =>
   tokens.filter((d) => d.outcome === "unmatched");
 
 /** Saves matches; what the server would not take is said, and the rest stays. */
-const saveMatches = async (entries: readonly FigmaMatchInput[]) => {
+const saveMatches = async (
+  source: TokenSourceKind,
+  entries: readonly TokenMatchInput[]
+) => {
   try {
-    const { problems } = await api().request("sync.matchFigma", { entries });
+    const { problems } = await api().request("sync.match", {
+      entries,
+      source,
+    });
     if (problems.length > 0) {
       toast.error(problems.join(" "));
     }
@@ -92,7 +105,7 @@ const saveMatches = async (entries: readonly FigmaMatchInput[]) => {
   }
 };
 
-const choiceOf = (d: FigmaTokenDiff) => {
+const choiceOf = (d: TokenDiff) => {
   if (d.outcome === "unmatched") {
     return "";
   }
@@ -100,14 +113,16 @@ const choiceOf = (d: FigmaTokenDiff) => {
 };
 
 const MatchRow = ({
+  source,
   token,
   targets,
 }: {
+  source: TokenSourceKind;
   targets: readonly string[];
-  token: FigmaTokenDiff;
+  token: TokenDiff;
 }) => {
   const matched = token.outcome !== "unmatched" && token.outcome !== "ignored";
-  // A new token's name, Figma's own when nothing is matched yet.
+  // A new token's name, the source's own when nothing is matched yet.
   const fresh = targets.includes(token.name) ? null : token.name;
   const decide = async (choice: string) => {
     if (choice === NEW_NAMED) {
@@ -118,7 +133,9 @@ const MatchRow = ({
         title: "A new token",
       });
       if (name?.trim()) {
-        await saveMatches([{ to: name.trim(), variable: token.variable }]);
+        await saveMatches(source, [
+          { to: name.trim(), variable: token.variable },
+        ]);
       }
       return;
     }
@@ -128,7 +145,7 @@ const MatchRow = ({
     } else if (choice === LEAVE_OUT) {
       to = null;
     }
-    await saveMatches([
+    await saveMatches(source, [
       { ...(to !== undefined && { to }), variable: token.variable },
     ]);
   };
@@ -138,7 +155,7 @@ const MatchRow = ({
         className="flex min-w-0 items-center gap-1.5"
         title={token.variable}
       >
-        <Value kind={token.kind} value={token.figma} />
+        <Value kind={token.kind} value={token.source} />
         <span className="ml-auto shrink-0 font-body text-muted-foreground">
           {token.by ? BY[token.by] : ""}
         </span>
@@ -160,7 +177,9 @@ const MatchRow = ({
         </NativeSelectOption>
         {fresh ? (
           <NativeSelectOption value={fresh}>
-            {matched ? `New: ${fresh}` : `New, as Figma names it: ${fresh}`}
+            {matched
+              ? `New: ${fresh}`
+              : `New, as ${LABEL[source]} names it: ${fresh}`}
           </NativeSelectOption>
         ) : null}
         <NativeSelectOption value={NEW_NAMED}>New, named…</NativeSelectOption>
@@ -175,10 +194,12 @@ const MatchRow = ({
 };
 
 /**
- * What each of Figma's tokens is in the code. Open while some are unmatched; the agent, or the
- * user row by row, matches them, and the rest can be added or left out at once.
+ * What each of the source's tokens is in the code. Open while some are unmatched; the agent, or
+ * the user row by row, matches them, and the rest can be added or left out at once.
  */
-const Matches = ({ comparison }: { comparison: FigmaTokenComparison }) => {
+const Matches = ({ comparison }: { comparison: TokenComparison }) => {
+  const { source } = comparison;
+  const label = LABEL[source];
   const tokens = tokensOf(comparison);
   const unmatched = unmatchedIn(tokens);
   const [open, setOpen] = useState(unmatched.length > 0);
@@ -189,18 +210,21 @@ const Matches = ({ comparison }: { comparison: FigmaTokenComparison }) => {
     ...tokens.filter((d) => d.outcome !== "unmatched"),
   ];
   const shown = all ? ordered : ordered.slice(0, FIRST_MATCHES);
-  const rest = (to: (d: FigmaTokenDiff) => string | null) =>
-    saveMatches(unmatched.map((d) => ({ to: to(d), variable: d.variable })));
+  const rest = (to: (d: TokenDiff) => string | null) =>
+    saveMatches(
+      source,
+      unmatched.map((d) => ({ to: to(d), variable: d.variable }))
+    );
   return (
     <div className="flex flex-col gap-1">
       <span>
         {unmatched.length > 0
-          ? `${unmatched.length} of ${plural(tokens.length, "Figma token")} not matched to the code yet: nothing of theirs is written.`
-          : `All ${plural(tokens.length, "Figma token")} matched to the code or left out.`}
+          ? `${unmatched.length} of ${plural(tokens.length, `${label} token`)} not matched to the code yet: nothing of theirs is written.`
+          : `All ${plural(tokens.length, `${label} token`)} matched to the code or left out.`}
       </span>
       <div className="flex flex-wrap gap-1.5">
         <Button
-          onClick={() => startCommand("/sync figma")}
+          onClick={() => startCommand(`/sync ${source}`)}
           size="sm"
           variant={unmatched.length > 0 ? "default" : "outline"}
         >
@@ -221,7 +245,7 @@ const Matches = ({ comparison }: { comparison: FigmaTokenComparison }) => {
                 size="sm"
                 variant="outline"
               >
-                Add the rest as Figma names them
+                Add the rest as {label} names them
               </Button>
               <Button
                 onClick={() => rest(() => null)}
@@ -236,6 +260,7 @@ const Matches = ({ comparison }: { comparison: FigmaTokenComparison }) => {
             {shown.map((d) => (
               <MatchRow
                 key={d.variable}
+                source={source}
                 targets={comparison.targets
                   .filter((t) => t.kind === d.kind)
                   .map((t) => t.name)}
@@ -273,7 +298,7 @@ const Value = ({ kind, value }: { kind: string; value: string }) => (
 );
 
 /** A few of a list, by name, then how many more. */
-const Names = ({ diffs }: { diffs: readonly FigmaTokenDiff[] }) => (
+const Names = ({ diffs }: { diffs: readonly TokenDiff[] }) => (
   <span className="font-code text-muted-foreground">
     {diffs.slice(0, 6).map(labelOf).join(", ")}
     {diffs.length > 6 ? ` and ${diffs.length - 6} more` : ""}
@@ -284,7 +309,7 @@ const Listed = ({
   diffs,
   title,
 }: {
-  diffs: readonly FigmaTokenDiff[];
+  diffs: readonly TokenDiff[];
   title: string;
 }) =>
   diffs.length > 0 ? (
@@ -297,11 +322,13 @@ const Listed = ({
 const Conflicts = ({
   baseline,
   conflicts,
+  label,
   onPick,
   picks,
 }: {
   baseline: boolean;
-  conflicts: readonly FigmaTokenDiff[];
+  conflicts: readonly TokenDiff[];
+  label: string;
   onPick: (picks: Picks) => void;
   picks: Picks;
 }) => {
@@ -318,8 +345,8 @@ const Conflicts = ({
           : `${conflicts.length} differ, and there is no earlier sync to tell which changed: pick which to keep.`}
       </span>
       <div className="flex gap-1.5">
-        <Button onClick={() => all("figma")} size="sm" variant="outline">
-          All from Figma
+        <Button onClick={() => all("source")} size="sm" variant="outline">
+          All from {label}
         </Button>
         <Button onClick={() => all("code")} size="sm" variant="outline">
           All from the code
@@ -335,9 +362,9 @@ const Conflicts = ({
               onChange={(take) => onPick({ ...picks, [keyOf(d)]: take })}
               options={[
                 {
-                  label: <Value kind={d.kind} value={d.figma} />,
-                  title: `Figma: ${d.variable}`,
-                  value: "figma" as const,
+                  label: <Value kind={d.kind} value={d.source} />,
+                  title: `${label}: ${d.variable}`,
+                  value: "source" as const,
                 },
                 {
                   label: <Value kind={d.kind} value={d.code ?? "none"} />,
@@ -354,21 +381,22 @@ const Conflicts = ({
   );
 };
 
-/** Writes what Figma changed and the conflicts given to it; true when it went through. */
+/** Writes what the source changed and the conflicts given to it; true when it went through. */
 const applyPicks = async (
-  comparison: FigmaTokenComparison,
-  conflicts: readonly FigmaTokenDiff[],
+  comparison: TokenComparison,
+  conflicts: readonly TokenDiff[],
   picks: Picks
 ) => {
-  const decisions: FigmaDecision[] = conflicts.flatMap((d) => {
+  const decisions: TokenDecision[] = conflicts.flatMap((d) => {
     const take = picks[keyOf(d)];
     return take
       ? [{ name: d.name, take, ...(d.theme && { theme: d.theme }) }]
       : [];
   });
   try {
-    const { files, written } = await api().request("sync.applyFigma", {
+    const { files, written } = await api().request("sync.apply", {
       decisions,
+      source: comparison.source,
     });
     toast.success(
       written === 0
@@ -393,31 +421,37 @@ const applyLabel = (undecided: number, writes: number, unmatched: number) => {
   return `Write ${plural(writes, "token")} to the code`;
 };
 
-export const FigmaTokensStep = ({ plan }: { plan: SyncPlan }) => {
-  const [comparison, setComparison] = useState<FigmaTokenComparison | null>(
-    null
-  );
+export const TokensStep = ({
+  plan,
+  source,
+}: {
+  plan: SyncPlan;
+  source: TokenSourceKind;
+}) => {
+  const [comparison, setComparison] = useState<TokenComparison | null>(null);
   const [picks, setPicks] = useState<Picks>({});
   const [busy, setBusy] = useState(false);
 
-  // Read again whenever the plan moves: a new import, the code changed.
+  // Read again whenever the plan moves: a new import, the code or the document changed.
   useEffect(() => {
     if (plan.at > 0) {
       api()
-        .request("sync.figmaTokens", undefined)
+        .request("sync.tokens", { source })
         .then(setComparison)
         .catch(reportError);
     }
-  }, [plan.at]);
+  }, [plan.at, source]);
 
   if (!comparison) {
     return <Spinner />;
   }
+  const label = LABEL[source];
   const { added, behind, changed, conflicts, same, toCode } =
     outcomes(comparison);
   const undecided = conflicts.filter((d) => !picks[keyOf(d)]).length;
   const writes =
-    toCode.length + conflicts.filter((d) => picks[keyOf(d)] === "figma").length;
+    toCode.length +
+    conflicts.filter((d) => picks[keyOf(d)] === "source").length;
   const unmatched = unmatchedIn(tokensOf(comparison)).length;
   const agreed =
     toCode.length + conflicts.length + unmatched === 0 && comparison.baseline;
@@ -437,7 +471,7 @@ export const FigmaTokensStep = ({ plan }: { plan: SyncPlan }) => {
           <Check className="size-3.5 text-primary" />
           {plural(same.length, "token")} agree with {comparison.file}.
           {behind.length > 0
-            ? ` The code changed ${behind.length} since; Figma is behind.`
+            ? ` The code changed ${behind.length} since; ${label} is behind.`
             : ""}
         </p>
         <Matches comparison={comparison} />
@@ -455,15 +489,20 @@ export const FigmaTokensStep = ({ plan }: { plan: SyncPlan }) => {
       <Listed diffs={added} title={`${added.length} new, added to the code:`} />
       <Listed
         diffs={changed}
-        title={`${changed.length} changed in Figma, taken into the code:`}
+        title={`${changed.length} changed in ${label}, taken into the code:`}
       />
       <Listed
         diffs={behind}
-        title={`${behind.length} changed in the code since; Figma is behind and the code is kept:`}
+        title={
+          source === "design"
+            ? `${behind.length} changed in the code since; ${label} follows the code:`
+            : `${behind.length} changed in the code since; ${label} is behind and the code is kept:`
+        }
       />
       <Conflicts
         baseline={comparison.baseline}
         conflicts={conflicts}
+        label={label}
         onPick={setPicks}
         picks={picks}
       />

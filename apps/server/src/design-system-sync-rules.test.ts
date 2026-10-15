@@ -1,4 +1,7 @@
-import type { DesignSystem } from "@ultrapaint/contracts/design-system";
+import {
+  type DesignSystem,
+  emptyDesignSystem,
+} from "@ultrapaint/contracts/design-system";
 import { emptySetup } from "@ultrapaint/contracts/design-system-setup";
 import {
   emptyDrift,
@@ -9,14 +12,17 @@ import type { SourceToken } from "@ultrapaint/contracts/tokens";
 import { describe, expect, it } from "vitest";
 import {
   caseOf,
+  compareDocument,
   compareFigma,
+  documentSide,
   driftOf,
   type FigmaSide,
-  figmaChanges,
+  listTokens,
   matchFigma,
   matchProblem,
   planOf,
   summaryOf,
+  tokenChanges,
 } from "./services/design-system-sync-rules.ts";
 
 const facts: SyncFacts = {
@@ -199,6 +205,22 @@ describe("the plan", () => {
     });
     expect(legacy[0]?.title).toBe("Move DESIGN.md to the repository root");
     expect(legacy[0]?.detail).toContain("docs/designs/DESIGN.md");
+    const held = planOf({
+      drift: emptyDrift,
+      facts: {
+        ...facts,
+        designMd: { held: 3, legacy: false, path: "DESIGN.md" },
+        designSystem: true,
+      },
+      figmaSynced: false,
+      setup: emptySetup(0),
+    });
+    expect(held[0]).toMatchObject({
+      kind: "design-tokens",
+      state: "attention",
+      title: "Take DESIGN.md's tokens into the code",
+    });
+    expect(held[0]?.detail).toContain("3 values of DESIGN.md");
   });
 });
 
@@ -258,7 +280,7 @@ describe("matching Figma's tokens to the code's", () => {
       ["Radius/Card", "radius-card", "conflict"],
       ["Color/Danger/Danger", "color-danger", "unmatched"],
     ]);
-    expect(figmaChanges(diffs, [])).toEqual([]);
+    expect(tokenChanges(diffs, [])).toEqual([]);
 
     const baseline: SyncBaseline = {
       at: 0,
@@ -280,7 +302,7 @@ describe("matching Figma's tokens to the code's", () => {
       name: "color-destructive",
       outcome: "to-code",
     });
-    expect(figmaChanges(matched, [])).toEqual([
+    expect(tokenChanges(matched, [])).toEqual([
       { name: "color-destructive", value: "#dc2626" },
     ]);
   });
@@ -290,5 +312,92 @@ describe("matching Figma's tokens to the code's", () => {
     expect(matchProblem(brand, "color-brand")).toBeNull();
     expect(matchProblem(brand, "radius-card")).toContain("names a radius one");
     expect(matchProblem(brand, "Brand Blue")).toContain("not a token name");
+  });
+});
+
+describe("DESIGN.md's tokens against the code's (ADR 0027)", () => {
+  const code: SourceToken[] = [
+    { kind: "color", name: "color-brand", own: true, value: "#2563eb" },
+    { kind: "color", name: "color-ink", own: true, value: "#111111" },
+    { kind: "radius", name: "radius-card", own: true, value: "0.75rem" },
+  ];
+  const side = documentSide([
+    {
+      kind: "color",
+      name: "color-primary",
+      value: "#2563eb",
+      variable: "colors.primary",
+    },
+    {
+      kind: "color",
+      name: "color-ink",
+      value: "#000000",
+      variable: "colors.ink",
+    },
+    {
+      kind: "color",
+      name: "color-tertiary",
+      value: "#b8422e",
+      variable: "colors.tertiary",
+    },
+    {
+      kind: "radius",
+      name: "radius-card",
+      value: "1rem",
+      variable: "rounded.card",
+    },
+  ]);
+
+  it("matches by name and by the one value, and with nothing agreed, asks where they differ", () => {
+    const diffs = compareDocument(side, code, null);
+    expect(diffs.map((d) => [d.variable, d.name, d.outcome])).toEqual([
+      ["colors.primary", "color-brand", "same"],
+      ["colors.ink", "color-ink", "conflict"],
+      ["colors.tertiary", "color-tertiary", "unmatched"],
+      ["rounded.card", "radius-card", "conflict"],
+    ]);
+  });
+
+  it("takes what the document changed alone, by what was agreed, and the matches it keeps", () => {
+    const diffs = compareDocument(side, code, {
+      agreed: { "colors.ink": "#111111", "rounded.card": "0.5rem" },
+      at: 1,
+      matches: { "colors.tertiary": { by: "user", to: "color-accent" } },
+    });
+    expect(diffs.map((d) => [d.variable, d.name, d.outcome])).toEqual([
+      ["colors.primary", "color-brand", "same"],
+      ["colors.ink", "color-ink", "to-code"],
+      ["colors.tertiary", "color-accent", "to-code"],
+      ["rounded.card", "radius-card", "conflict"],
+    ]);
+    expect(
+      tokenChanges(diffs, [{ name: "radius-card", take: "source" }])
+    ).toEqual([
+      { name: "color-ink", value: "#000000" },
+      { name: "color-accent", value: "#b8422e" },
+      { name: "radius-card", value: "1rem" },
+    ]);
+  });
+
+  it("lists the tokens the code was given, colours in the semantic group", () => {
+    const system: DesignSystem = {
+      ...emptyDesignSystem(),
+      colors: [
+        { name: "Blue", tokens: [] },
+        {
+          name: "Semantic",
+          tokens: [{ name: "color-brand", value: "#2563eb" }],
+        },
+      ],
+    };
+    const listed = listTokens(system, [
+      { name: "color-accent", value: "#b8422e" },
+      { name: "radius-pill", value: "9999px" },
+    ]);
+    expect(listed.colors[1]?.tokens.map((t) => t.name)).toEqual([
+      "color-brand",
+      "color-accent",
+    ]);
+    expect(listed.radius).toEqual([{ name: "radius-pill", value: "9999px" }]);
   });
 });

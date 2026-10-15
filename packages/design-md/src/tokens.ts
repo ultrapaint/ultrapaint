@@ -270,3 +270,19 @@ export const documentTokens = (
   }
   return { problems, tokens };
 };
+
+/**
+ * Where a code token goes in the document, or null for one the front matter has no group for:
+ * `color-accent` → `colors.accent`, `spacing` → `spacing.base`.
+ */
+export const documentPathOf = (name: string): string | null => {
+  if (name === "spacing") {
+    return "spacing.base";
+  }
+  for (const [group, { prefix }] of Object.entries(PREFIXES)) {
+    if (name.startsWith(prefix)) {
+      return `${group}.${name.slice(prefix.length)}`;
+    }
+  }
+  return null;
+};

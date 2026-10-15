@@ -65,10 +65,11 @@ import {
 import { CustomiseMode, Skill, SkillList } from "./skills.ts";
 import { Snapshot, SnapshotView } from "./snapshots.ts";
 import {
-  FigmaDecision,
-  FigmaMatchInput,
-  FigmaTokenComparison,
   SyncPlan,
+  TokenComparison,
+  TokenDecision,
+  TokenMatchInput,
+  TokenSourceKind,
 } from "./sync.ts";
 import {
   AgentConfig,
@@ -431,25 +432,35 @@ const requestRpcs = [
 
   /** The design-system sync's plan for the project as it is now (ADR 0025). */
   Rpc.make("sync.plan", { error: NotConfigured, success: SyncPlan }),
-  /** The newest Figma import's tokens against the code's; null when there is no import. */
-  Rpc.make("sync.figmaTokens", {
+  /**
+   * A source's tokens against the code's: the newest Figma import's, or DESIGN.md's front matter
+   * (ADR 0027); null when there is no such source to compare.
+   */
+  Rpc.make("sync.tokens", {
     error: Schema.Union([BadRequest, NotConfigured]),
-    success: Schema.NullOr(FigmaTokenComparison),
+    payload: { source: TokenSourceKind },
+    success: Schema.NullOr(TokenComparison),
   }),
-  /** What Figma tokens are in the code, as the user matched them in the Sync view. */
-  Rpc.make("sync.matchFigma", {
+  /** What a source's tokens are in the code, as the user matched them in the Sync view. */
+  Rpc.make("sync.match", {
     error: Schema.Union([BadRequest, NotConfigured]),
-    payload: { entries: Schema.Array(FigmaMatchInput) },
+    payload: {
+      entries: Schema.Array(TokenMatchInput),
+      source: TokenSourceKind,
+    },
     success: Schema.Struct({
       problems: Schema.Array(Schema.String),
       saved: Schema.Number,
       unmatched: Schema.Number,
     }),
   }),
-  /** What Figma changed, and the conflicts given to it, written into the code. */
-  Rpc.make("sync.applyFigma", {
+  /** What a source changed, and the conflicts given to it, written into the code. */
+  Rpc.make("sync.apply", {
     error: Schema.Union([BadRequest, NotConfigured]),
-    payload: { decisions: Schema.Array(FigmaDecision) },
+    payload: {
+      decisions: Schema.Array(TokenDecision),
+      source: TokenSourceKind,
+    },
     success: Schema.Struct({
       files: Schema.Array(Schema.String),
       written: Schema.Number,
