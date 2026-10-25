@@ -39,6 +39,14 @@ const SPECIMEN_FRAME = "specimen";
 const STILL_CSS =
   "*, *::before, *::after { transition: none !important; animation-duration: 0s !important; animation-delay: 0s !important; }";
 
+/**
+ * A frame stands for a device, whose scrollbars float over the page. A scrollbar that takes room
+ * would narrow the page, and one that comes and goes with an animation reaching past the edge
+ * (a spinning square is wider at 45°) flashes on and off in the frame.
+ */
+const NO_SCROLLBAR_CSS =
+  ":root { scrollbar-width: none; } :root::-webkit-scrollbar { display: none; }";
+
 const SKELETON_ATTRIBUTE = "data-ed-skeleton";
 
 /** The placeholder's look: grey on any page, light passing through it unless motion is reduced. */
@@ -89,6 +97,12 @@ export const startPreview = () => {
     const still = document.createElement("style");
     still.textContent = STILL_CSS;
     document.head.append(still);
+  }
+  // Opened on its own, in a tab, the page is in a real browser and keeps its scrollbars.
+  if (!standalone) {
+    const noScrollbar = document.createElement("style");
+    noScrollbar.textContent = NO_SCROLLBAR_CSS;
+    document.head.append(noScrollbar);
   }
 
   // ---- Drawing ----
