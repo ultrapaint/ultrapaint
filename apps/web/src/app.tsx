@@ -461,6 +461,7 @@ export const App = () => {
   const connState = useConnection((s) => s.state);
   const error = useProject((s) => s.error);
   const configured = useProject((s) => s.info.configured);
+  const projectName = useProject((s) => s.info.name);
   const pages = useProject((s) => s.pages);
   const canvases = useProject((s) => s.canvases);
   const canvas = useEditor((s) => s.canvas);
@@ -491,6 +492,14 @@ export const App = () => {
     }
     useProject.getState().load();
   }, [connState]);
+
+  // The tab reads the project first, so several open projects stay apart in the tab strip.
+  useEffect(() => {
+    document.title =
+      configured && projectName
+        ? `${projectName} · ultrapaint`
+        : "ultrapaint";
+  }, [configured, projectName]);
 
   // Index the design system in the background so prop controls are typed.
   useEffect(() => {
