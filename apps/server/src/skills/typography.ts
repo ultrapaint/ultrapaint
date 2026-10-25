@@ -29,8 +29,8 @@ wraps to three lines or more takes at least \`1.4\`.
 
 ## Tracking by size
 
-Headings of \`24px\` and up tighten to \`-0.02em\`. Small uppercase labels open to \`0.05em\`. Body
-text keeps \`0\`.
+Headings of \`24px\` and up tighten to \`-0.02em\`. Text a style sets in capitals opens to
+\`0.05em\`. Body text keeps \`0\`.
 
 ## Cap the measure
 

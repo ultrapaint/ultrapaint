@@ -26,10 +26,12 @@ Importance goes to the top and the leading edge first. Then a heavier weight or 
 colour against muted. Size is the loudest tool and comes last. One tool per step of importance;
 all three on one element shouts.
 
-## The title names the screen
+## Headings lead
 
-The page title says what the screen is in two to four words: "Invoices", "Billing settings". The
-text below it adds what the title does not say.
+The page title says what the screen is in two to four words: "Invoices", "Billing settings".
+Every heading, the title among them, is the first thing in its section, and the text below it
+adds what the heading does not say: the organisation, the place, the category. What frames the
+whole page sits in its header.
 
 ## Order follows use
 
@@ -47,6 +49,7 @@ Past three containers deep, a heading and a gap say more than another box.
 | --- | --- |
 | Two buttons in the primary variant on one screen | Keep the one the screen is for; the other becomes secondary |
 | The title repeated in the first paragraph or a card heading | Cut the repeat |
+| A small label above a heading ("Features", "School · Desio") | Cut it; what it adds goes below the heading or in the page header |
 | The key figure below its metadata | Move it to the top of its group |
 | A card in a card in a card | Replace the inner containers with a heading and a gap |
 | Delete beside Save in the same style | Destructive variant, moved apart |
