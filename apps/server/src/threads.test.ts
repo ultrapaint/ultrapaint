@@ -556,17 +556,30 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             "/init"
           );
 
+          // The thread designs and its agent is running: it cannot write the application, and
+          // is told to send the user to an implement thread (ADR 0030).
           yield* prompt(threadId, "/implement /home");
-          const implement = yield* waitForThread(
+          const refused = yield* waitForThread(
             threadId,
             (thread, items) =>
               turnEnded(thread, items) &&
               items.filter((i) => i.kind === "turn_end").length === 2
           );
           assert.include(
+            said(refused.items).at(-1) ?? "",
+            "task:implement The user ran /implement in a thread that designs"
+          );
+          assert.isUndefined(refused.thread?.purpose);
+
+          // A thread that starts with /implement implements: its agent may write the repository.
+          const implementing = yield* startThread;
+          yield* prompt(implementing, "/implement /home");
+          const implement = yield* waitForThread(implementing, turnEnded);
+          assert.include(
             said(implement.items).at(-1) ?? "",
             "task:implement Implement the page Home of the design (designs/home.page.json)"
           );
+          assert.strictEqual(implement.thread?.purpose, "implement");
 
           yield* prompt(threadId, '/components ""');
           const components = yield* waitForThread(threadId, turnsEnded(3));

@@ -17,6 +17,12 @@ import {
   type TextStyle,
 } from "@ultrapaint/contracts/design-system";
 import type { PageList } from "@ultrapaint/contracts/pages";
+import {
+  type ComponentSpec,
+  DRAFT_FROM,
+  SPECS_DIR,
+} from "@ultrapaint/contracts/specs";
+import type { ThreadPurpose } from "@ultrapaint/contracts/threads";
 import { groupTextStyles } from "@ultrapaint/design-document/text-styles";
 import { Context, Effect, Layer } from "effect";
 import { ServerConfig } from "../../config.ts";
@@ -26,6 +32,7 @@ import { DesignSystemService } from "../design-system.ts";
 import { PagesService } from "../pages.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { SkillsService } from "../skills.ts";
+import { SpecService } from "../specs.ts";
 import { AgentSandbox } from "./agent-sandbox.ts";
 
 /** The styles under their groups: `headings: Heading xl, Heading lg; body: Body`. */
@@ -109,11 +116,58 @@ const pagesListOf = (pages: PageList) => {
     .join("\n");
 };
 
+/**
+ * What the thread is for (ADR 0030): the design leads and the code follows it. A design thread
+ * writes the designs only; behaviour the design cannot show is written down, not coded. An
+ * implement thread writes the application from a design.
+ */
+const roleOf = (purpose: ThreadPurpose, designsDir: string, mcp: boolean) =>
+  purpose === "implement"
+    ? `This thread implements: it turns designs into the application's code, and may write the
+whole repository. The design is what the UI looks like and which states it has; what it does is
+the code's. ${mcp ? 'When a design is implemented, mark it with handoff (action "mark", the files).' : "When a design is implemented, tell the user which files implement it."}`
+    : `This thread designs: it may write ${designsDir} only, not the application's code. The design is
+what the UI looks like and which states it has (an empty, loading or error state is a page of
+its own, orders@empty.page.json); what it does — data, permissions, validation, what a button
+calls — is the code's. When the user asks for behaviour, ${mcp ? 'write it down on the node it belongs to with handoff (action "note")' : "write it down as a comment on the node"}, and
+tell them it goes to the code when the page is implemented (the Implement button). Token values
+are the design's: change them in the design system, never in a stylesheet.`;
+
+/**
+ * The component specs (ADR 0029): which components' look the design owns, and the drafts the
+ * code does not have yet.
+ */
+const specsOf = (specs: readonly ComponentSpec[]) => {
+  const owned = specs.filter((s) => s.look === "design" && !s.draft);
+  const drafts = specs.filter((s) => s.draft);
+  if (owned.length === 0 && drafts.length === 0) {
+    return "";
+  }
+  return `Component specs in ${SPECS_DIR}/ say how a component looks, apart from what it does, which is
+its code's: ${[
+    owned.length > 0
+      ? `the design owns the look of ${owned.map((s) => s.component).join(", ")}, drawn over the component (change a look in its spec, not on each instance)`
+      : null,
+    drafts.length > 0
+      ? `${drafts.map((s) => s.component).join(", ")} ${drafts.length === 1 ? "is a draft" : "are drafts"}, a component the code does not have yet: place ${drafts.length === 1 ? "it" : "them"} as an instance with from "${DRAFT_FROM}"`
+      : null,
+  ]
+    .filter(Boolean)
+    .join("; ")}.
+
+`;
+};
+
 export class ProjectBriefing extends Context.Service<
   ProjectBriefing,
   {
-    /** The briefing for the open project, or nothing when no project is open. */
-    readonly text: Effect.Effect<string | undefined>;
+    /**
+     * The briefing for the open project, for a thread of this purpose (ADR 0030), or nothing when
+     * no project is open.
+     */
+    readonly text: (
+      purpose: ThreadPurpose
+    ) => Effect.Effect<string | undefined>;
   }
 >()("ultrapaint/server/ProjectBriefing") {
   static readonly layer = Layer.effect(
@@ -123,7 +177,7 @@ export class ProjectBriefing extends Context.Service<
       const { mcp } = yield* ServerConfig;
       const sandbox = yield* AgentSandbox;
 
-      const build = Effect.gen(function* () {
+      const build = Effect.fnUntraced(function* (purpose: ThreadPurpose) {
         const paths = yield* RepoPaths;
         const pages = yield* (yield* PagesService).list;
         // A catalogue that is not built yet is not worth waiting for: the agent can read the
@@ -151,10 +205,15 @@ export class ProjectBriefing extends Context.Service<
         );
         const craft = craftOf(skills);
         const conventions = conventionsOf(system.document);
+        const specs = yield* Effect.orElseSucceed(
+          Effect.flatMap(SpecService, (service) => service.specs),
+          (): readonly ComponentSpec[] => []
+        );
 
         return `<ultrapaint>
 You are working in ultrapaint, a design tool. The user sees the designs you change, live, on
 its canvas, drawn with this repository's own design system.
+${roleOf(purpose, settings.designsDir, Boolean(mcp))}
 
 Designs live in ${settings.designsDir}, in canvases: a directory with a canvas.json is a canvas
 (the designs directory itself when there is only one), and each has its own pages, the URLs they
@@ -240,7 +299,7 @@ Prefer these to editing the JSON files yourself; if you do write a file, keep it
     : `Edit the .page.json files directly and keep them valid; every node needs a unique id.
 
 `
-}Your shell already starts in ${paths.root}, the repository: use paths relative to it, and
+}${specsOf(specs)}Your shell already starts in ${paths.root}, the repository: use paths relative to it, and
 stay inside it. Changes land on the canvas as you make them, so make them one
 step at a time rather than rewriting a page wholesale. ultrapaint.config.json is the user's:
 never write it; when components or styles are missing, send the user to Sync in the Design
@@ -255,10 +314,11 @@ and stashes are the user's, made from the editor.`
       });
 
       return ProjectBriefing.of({
-        text: project
-          .use(build)
-          // No project open, or a repository the server cannot read: the agent manages without.
-          .pipe(Effect.orElseSucceed(() => undefined)),
+        text: (purpose) =>
+          project
+            .use(build(purpose))
+            // No project open, or a repository the server cannot read: the agent manages without.
+            .pipe(Effect.orElseSucceed(() => undefined)),
       });
     })
   );

@@ -1,9 +1,10 @@
 /**
  * The design system as the tool knows it: `design-system.json` at the root of the designs
  * directory, written by the `/init` agent (or by the fixed-rule scan) and read by the inspector,
- * the Design system panel, the preview and every agent briefing. Tailwind v4 only: a token's
- * name is the name of its `@theme` variable without the leading dashes, so `color-primary` is
- * `--color-primary`, and the utilities it becomes follow from that name (ADR 0015).
+ * the Design system panel, the preview and every agent briefing. It holds every token's value
+ * (ADR 0028); the code, Figma and DESIGN.md are compared with it. A token's name is the one pages
+ * write without the `$` (`color-primary`); the style system maps it to its own
+ * (`--color-primary` in Tailwind v4).
  */
 import { Schema } from "effect";
 import { Json } from "./base.ts";
@@ -23,9 +24,9 @@ export const Token = Schema.Struct({
   /** The `@theme` variable without its dashes: `color-primary`, `radius-lg`, `text-sm`. */
   name: Schema.String,
   /**
-   * The value in the default theme, resolved to CSS the browser understands. The code holds it
-   * (ADR 0025): the file leaves it out for a token the code declares, and it is read from the
-   * code every time.
+   * The value in the default theme, resolved to CSS the browser understands. The design holds it
+   * (ADR 0028); a file written before that leaves it out for a token the code declares, and the
+   * code's is read until the file is written again.
    */
   value: Schema.String,
   /** Values in other themes, by theme name. */
@@ -192,10 +193,15 @@ export type DocumentBaseline = typeof DocumentBaseline.Type;
 export const DesignSystem = Schema.Struct({
   /** `--border-width-*`: Tailwind has no namespace for them, so `$border-width-thin` is a variable. */
   borderWidths: Schema.optional(Schema.Array(Token)),
+  /**
+   * What the design system and the code last agreed on (ADR 0028): each token's value by
+   * `name` and `name@theme`.
+   */
+  codeSync: Schema.optional(DocumentBaseline),
   colors: Schema.Array(TokenGroup),
   /** Notes by component export name. */
   components: Schema.optional(Schema.Record(Schema.String, ComponentNotes)),
-  /** What `DESIGN.md` and the code last agreed on (ADR 0027). */
+  /** What `DESIGN.md` and the design system last agreed on (ADR 0027). */
   designMd: Schema.optional(DocumentBaseline),
   /** Elevation levels, lowest first. */
   elevation: Schema.optional(Schema.Array(ElevationLevel)),
@@ -414,6 +420,11 @@ export const DesignSystemState = Schema.Struct({
   designSystem: Schema.NullOr(DesignSystem),
   /** `DESIGN.md`, when there is one. */
   document: Schema.NullOr(DesignDocument),
+  /**
+   * The stylesheet that gives the code's variables the design's values in the preview, where
+   * they differ (ADR 0028); empty when they agree.
+   */
+  previewCss: Schema.optional(Schema.String),
   /** Why `design-system.json` cannot be read, when it cannot. */
   problem: Schema.optional(Schema.String),
 });

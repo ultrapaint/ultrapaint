@@ -36,6 +36,11 @@ export interface SandboxPolicy {
   readonly readOnly: readonly string[];
   /** The toolchain and configuration the agent's shell reads: read only. */
   readonly reads: readonly string[];
+  /**
+   * Inside what `readOnly` closes, what is written again: a design thread's designs directory,
+   * when the rest of the repository is read-only to it (ADR 0030). Applied last.
+   */
+  readonly rewritable?: readonly string[] | undefined;
   /** The repository: the user's work, and the point of the exercise. Read and written. */
   readonly root: string;
   /**
@@ -123,6 +128,9 @@ export const seatbeltProfile = (policy: SandboxPolicy): string => {
     ...(policy.readOnly.length > 0
       ? [`(deny file-write* ${subpaths(outermost(policy.readOnly))})`]
       : []),
+    ...((policy.rewritable ?? []).length > 0
+      ? [`(allow file-write* ${subpaths(outermost(policy.rewritable ?? []))})`]
+      : []),
   ].join("\n");
 };
 
@@ -170,6 +178,12 @@ export const bubblewrapArgs = (policy: SandboxPolicy): string[] => {
     // Over the writable binds, so that what is under them and must not change cannot.
     ...outermost(policy.readOnly).flatMap((path) => [
       "--ro-bind-try",
+      path,
+      path,
+    ]),
+    // And over those, what is written again inside them.
+    ...outermost(policy.rewritable ?? []).flatMap((path) => [
+      "--bind-try",
       path,
       path,
     ]),

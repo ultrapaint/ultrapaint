@@ -588,7 +588,10 @@ export const scanDesignSystem = (
     const value = resolveDefault(raw);
     const values: Record<string, string> = {};
     for (const [theme, resolve] of resolveIn) {
-      const other = resolve(raw);
+      // A theme's block may set the theme variable itself (`.dark { --color-accent: … }`), not
+      // only what an `@theme inline` alias points at: the design system holds both (ADR 0028).
+      const own = themed.get(theme)?.get(`--${name}`);
+      const other = resolve(own ?? raw);
       if (other !== value) {
         values[theme] = other;
       }

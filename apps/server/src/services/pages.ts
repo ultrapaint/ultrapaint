@@ -51,6 +51,11 @@ export class PagesService extends Context.Service<
       document: PageDocument,
       frame?: { readonly height: number; readonly width: number }
     ) => Effect.Effect<Page, PagesFailure>;
+    /** The page drawn again in a state, in the state's file, its frame beside the page's. */
+    readonly createState: (
+      id: string,
+      state: string
+    ) => Effect.Effect<Page, PagesFailure>;
     /** The page drawn again for a variant, in the variant's file, its frame under the page's. */
     readonly createVariant: (
       id: string,
@@ -160,6 +165,7 @@ export class PagesService extends Context.Service<
       } = makeCanvasOperations(reading, comments);
       const {
         create,
+        createState,
         createVariant,
         createWith,
         duplicate,
@@ -176,6 +182,7 @@ export class PagesService extends Context.Service<
         create: (canvas, page, templateId) =>
           exclusive(create(canvas, page, templateId)),
         createCanvas: (name) => exclusive(createCanvas(name)),
+        createState: (id, state) => exclusive(createState(id, state)),
         createVariant: (id, variant) => exclusive(createVariant(id, variant)),
         createWith: (canvas, page, document, frame) =>
           exclusive(createWith(canvas, page, document, frame)),

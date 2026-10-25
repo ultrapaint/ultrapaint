@@ -3,6 +3,9 @@
 Status: accepted, 2026-09-30. Amends 0012 (spaces become canvases, variants are built), 0014 (the
 tools take `canvas`) and 0015 (assets are shared).
 
+> Amended by [0030](0030-the-implementation-link.md), 2026-10-25: a canvas also lists `states`,
+> a page drawn again in a state of the same screen, which a link can open.
+
 ## Context
 
 A project had one surface. Everything lived on it: the application's screens, their wireframes,

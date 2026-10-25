@@ -144,6 +144,11 @@ export const nodeEntries = (f: NodeFacts): Entry[] => {
     item("rename", "Rename…", one),
     item("viewCode", "View code", one),
     f.onPage && item("comment", "Comment on this", one),
+    // A part of the page made a component the code does not have yet (ADR 0029).
+    f.onPage &&
+      !root &&
+      !(node.type === "instance" && node.from === "#draft") &&
+      item("makeDraft", "Make a draft component…", one),
     linkEntries(f),
     f.parentSelectable &&
       item("selectParent", "Select parent", { ...one, shortcut: "Esc" }),
@@ -200,12 +205,18 @@ export interface PageFacts {
   canvases: readonly { id: string; name: string }[];
   /** How many pages the menu acts on: the picked ones, when the page is one of them. */
   count: number;
+  /** Where it stands with its code (ADR 0030). */
+  implementation: "draft" | "ready" | "implemented" | "changed";
   name: string;
   /** The canvas is on screen: the prototype has no frames to zoom to. */
   onCanvas: boolean;
   preset: ViewportPreset | null;
   /** The URL it serves in the prototype; absent when it has none. */
   route?: string;
+  /** The page's own state (ADR 0030); absent for a base page. */
+  state?: string;
+  /** The canvas's states the page has no drawing for yet. */
+  statesFree: readonly string[];
   /** The page's own variant; absent for a base page. */
   variant?: string;
   /** The canvas's variants the page has no drawing for yet. */
@@ -223,12 +234,59 @@ const canvasTargets = (verb: "copyTo" | "moveTo", f: PageFacts): Entry[] =>
     item(`${verb}:new`, "New canvas…"),
   ]);
 
+/** Whether the page is a base page, not a variant's or a state's drawing of one. */
+const isBasePage = (f: PageFacts) =>
+  f.variant === undefined && f.state === undefined;
+
+/** A base page drawn again: for a variant of the prototype, or in a state (ADR 0030). */
+const drawingEntries = (f: PageFacts): (Entry | false)[] =>
+  isBasePage(f)
+    ? [
+        {
+          entries: tidy([
+            ...f.variantsFree.map((v) => item(`variant:${v}`, v)),
+            f.variantsFree.length > 0 && separator,
+            item("variant:new", "New variant…"),
+          ]),
+          id: "variant",
+          kind: "submenu",
+          label: "Draw a variant",
+        },
+        {
+          entries: tidy([
+            ...f.statesFree.map((v) => item(`state:${v}`, v)),
+            f.statesFree.length > 0 && separator,
+            item("state:new", "New state…"),
+          ]),
+          id: "state",
+          kind: "submenu",
+          label: "Draw a state",
+        },
+      ]
+    : [];
+
+/** The page and the code that implements it (ADR 0030). */
+const codeEntries = (f: PageFacts): (Entry | false)[] => {
+  const bound =
+    f.implementation === "implemented" || f.implementation === "changed";
+  return [
+    item("implement", "Implement with an agent"),
+    f.implementation === "draft" && item("ready", "Mark ready to implement"),
+    f.implementation === "ready" && item("notReady", "Mark not ready"),
+    item(
+      "markImplemented",
+      bound ? "Mark implemented again…" : "Mark implemented…"
+    ),
+    bound && item("unlink", "Unlink from its code"),
+  ];
+};
+
 export const pageEntries = (f: PageFacts): Entry[] => {
   const pages = f.count === 1 ? "page" : `${f.count} pages`;
   return tidy([
     {
       kind: "label",
-      label: `${f.name}${f.variant ? ` · ${f.variant}` : ""} · ${f.route ?? "no URL"}`,
+      label: `${f.name}${f.variant ? ` · ${f.variant}` : ""}${f.state ? ` · ${f.state}` : ""} · ${f.route ?? "no URL"}`,
     },
     item("goTo", f.route ? `Go to ${f.route}` : "Go to page"),
     f.onCanvas && item("zoomTo", "Zoom to page"),
@@ -246,20 +304,13 @@ export const pageEntries = (f: PageFacts): Entry[] => {
       label: "Viewport",
     },
     separator,
-    f.variant === undefined && item("rename", "Rename…"),
+    f.variant === undefined &&
+      f.state === undefined &&
+      item("rename", "Rename…"),
     item("setUrl", f.route ? "Change URL…" : "Set URL…"),
     f.route !== undefined && item("removeUrl", "Remove URL"),
     item("duplicate", "Duplicate page"),
-    f.variant === undefined && {
-      entries: tidy([
-        ...f.variantsFree.map((v) => item(`variant:${v}`, v)),
-        f.variantsFree.length > 0 && separator,
-        item("variant:new", "New variant…"),
-      ]),
-      id: "variant",
-      kind: "submenu",
-      label: "Draw a variant",
-    },
+    ...drawingEntries(f),
     {
       entries: canvasTargets("copyTo", f),
       id: "copyTo",
@@ -272,7 +323,8 @@ export const pageEntries = (f: PageFacts): Entry[] => {
       kind: "submenu",
       label: `Move ${pages} to canvas`,
     },
-    item("implement", "Implement with an agent"),
+    separator,
+    ...codeEntries(f),
     f.onCanvas && item("comment", "Add a comment"),
     separator,
     item("delete", "Delete page…", { destructive: true }),
@@ -340,6 +392,8 @@ export const canvasEntries = (f: CanvasFacts): Entry[] =>
 // ---- Comments ----
 
 export interface CommentFacts {
+  /** A behaviour note (ADR 0030) rather than talk about the design. */
+  behaviour?: boolean;
   /** The chat in use, when there is one; `busy` while its agent works. */
   current: { busy: boolean; title: string } | null;
   /** It is pinned on an element, which can be selected. */
@@ -352,6 +406,10 @@ export const commentEntries = (f: CommentFacts): Entry[] =>
     item("open", "Open"),
     f.hasElement && item("selectElement", "Select the element"),
     item("resolve", f.resolved ? "Reopen" : "Resolve"),
+    item(
+      "kind",
+      f.behaviour ? "Make it a plain comment" : "Make it a behaviour note"
+    ),
     {
       entries: [
         item(

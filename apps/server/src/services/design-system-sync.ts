@@ -4,11 +4,7 @@
  * plan is worked out again whenever something it reads changes, and pushed to the editor, whose
  * Design system tab counts what is left to do.
  */
-import {
-  type DesignSystem,
-  type DocumentMatch,
-  designSystemTokenNames,
-} from "@ultrapaint/contracts/design-system";
+import type { DocumentMatch } from "@ultrapaint/contracts/design-system";
 import { BadRequest, type NotConfigured } from "@ultrapaint/contracts/errors";
 import {
   baselineKey,
@@ -55,18 +51,22 @@ import { DesignSystemService } from "./design-system.ts";
 import { DesignSystemSetupService } from "./design-system-setup.ts";
 import {
   caseOf,
+  codeChanges,
+  codeCounts,
+  compareCode,
   compareDocument,
   compareFigma,
+  designTokensOf,
   documentSide,
   driftOf,
   type FigmaSide,
-  listTokens,
   matchFigma,
   matchKeyOf,
   matchProblem,
   planOf,
   summaryOf,
   tokenChanges,
+  withTokenChanges,
 } from "./design-system-sync-rules.ts";
 import { FigmaImportService } from "./figma-import.ts";
 import { RepoPaths } from "./repo-paths.ts";
@@ -121,19 +121,9 @@ const unwrittenOf = (
     : known.filter((s) => s.text.trim() === "").length;
 };
 
-/** The tokens a write adds to the code that the design system does not list yet, with values. */
-const newTokens = (ds: DesignSystem, changes: readonly TokenChange[]) => {
-  const listed = new Set(designSystemTokenNames(ds));
-  return changes.flatMap((c) =>
-    c.theme === undefined && c.value !== undefined && !listed.has(c.name)
-      ? [{ name: c.name, value: c.value }]
-      : []
-  );
-};
-
 /**
- * DESIGN.md once its tokens are taken (ADR 0027): every matched token under the code's name, its
- * references renamed; the colours, radii and spacing the design system's, with the code's
+ * DESIGN.md once its tokens are taken (ADR 0027): every matched token under the design system's
+ * name, its references renamed; the colours, radii and spacing the design system's, with its
  * values; what is still unmatched kept as the document has it; its text styles as they are, for
  * the agent. Null when its YAML does not read.
  */
@@ -194,26 +184,30 @@ export class DesignSystemSyncService extends Context.Service<
   DesignSystemSyncService,
   {
     /**
-     * A source's tokens against the code's and the last agreement's: the newest Figma import's
-     * (ADR 0025) or DESIGN.md's (ADR 0027); null when there is no such source.
+     * A source's tokens against the design system's and the last agreement's: the newest Figma
+     * import's (ADR 0025), DESIGN.md's (ADR 0027) or the code's (ADR 0028); null when there is no
+     * such source, or no design system to compare the code with.
      */
     readonly tokens: (
       source: TokenSourceKind
     ) => Effect.Effect<TokenComparison | null, NotConfigured | BadRequest>;
     /**
-     * Writes what the source changed alone, and the conflicts the user gave to it, into the
-     * code, and keeps where the two now agree for the next sync.
+     * Takes what the source changed alone, and the conflicts the user gave to it, into the
+     * design system (into the code while there is no design system yet), and keeps where the two
+     * now agree for the next sync. For the code, what the design system changed and the
+     * conflicts given to it are written to the code: the export; `only` keeps to one direction.
      */
     readonly apply: (
       source: TokenSourceKind,
-      decisions: readonly TokenDecision[]
+      decisions: readonly TokenDecision[],
+      only?: "export" | "import"
     ) => Effect.Effect<
       { readonly files: readonly string[]; readonly written: number },
       NotConfigured | BadRequest
     >;
     /**
-     * Says what a source's tokens are in the code, by where they are in the source; what cannot
-     * be matched as asked is said in `problems`.
+     * Says what a source's tokens are in the design system, by where they are in the source;
+     * what cannot be matched as asked is said in `problems`. The code's are matched by name.
      */
     readonly match: (
       source: TokenSourceKind,
@@ -280,6 +274,18 @@ export class DesignSystemSyncService extends Context.Service<
           const designSystem = yield* DesignSystemService;
           const state = yield* designSystem.get;
           const latest = yield* (yield* FigmaImportService).latest;
+          const ds = state.designSystem;
+          const codeTokens =
+            ds && source.files.length > 0
+              ? codeCounts(
+                  compareCode(
+                    source.tokens,
+                    designTokensOf(ds),
+                    ds.codeSync ?? null,
+                    new Set(ds.omitted ?? [])
+                  )
+                )
+              : undefined;
           const facts: SyncFacts = {
             app: yield* hasApp(paths.anchorDir),
             components: components.length,
@@ -297,6 +303,7 @@ export class DesignSystemSyncService extends Context.Service<
             styleSystem: styleSystem.id,
             stylesheets: settings.hostCss.length,
             tokens: source.tokens.filter((t) => t.own).length,
+            ...(codeTokens && { codeTokens }),
           };
           const baseline = yield* designSystem.baseline;
           const figmaSynced =
@@ -387,7 +394,7 @@ export class DesignSystemSyncService extends Context.Service<
           Stream.debounce("150 millis"),
           Stream.runForEach(() =>
             Effect.gen(function* () {
-              // The design system's values are the code's: the editor hears they changed.
+              // The preview draws the design over the code's values: the editor hears they changed.
               yield* project
                 .use(Effect.flatMap(DesignSystemService, (d) => d.refresh))
                 .pipe(
@@ -441,6 +448,24 @@ export class DesignSystemSyncService extends Context.Service<
         Effect.forkScoped
       );
 
+      /**
+       * The tokens a source is compared with: the design system's (ADR 0028), or the code's while
+       * there is no design system yet, which is then made from the code.
+       */
+      const targetTokens = Effect.fnUntraced(function* (
+        paths: typeof RepoPaths.Service
+      ) {
+        const { designSystem: ds } = yield* (yield* DesignSystemService).get;
+        if (ds) {
+          return designTokensOf(ds);
+        }
+        return (yield* ProjectStyleSystem).readTokens({
+          anchorDir: paths.anchorDir,
+          root: paths.root,
+          settings: paths.settings,
+        }).tokens;
+      });
+
       /** The newest import's tokens compared, with what the comparison was made from. */
       const compare = project.use(
         Effect.gen(function* () {
@@ -459,19 +484,15 @@ export class DesignSystemSyncService extends Context.Service<
                   })
               )
             );
-          const code = (yield* ProjectStyleSystem).readTokens({
-            anchorDir: paths.anchorDir,
-            root: paths.root,
-            settings: paths.settings,
-          });
+          const target = yield* targetTokens(paths);
           const stored = yield* (yield* DesignSystemService).baseline;
           // A baseline from another Figma file says nothing about this one.
           const baseline = stored?.file === latest.name ? stored : null;
-          const diffs = compareFigma(figma.tokens, code.tokens, baseline);
-          const own = code.tokens.filter((t) => t.own);
+          const diffs = compareFigma(figma.tokens, target, baseline);
+          const own = target.filter((t) => t.own);
           return {
             baseline,
-            code: code.tokens,
+            code: target,
             comparison: {
               // Matches saved before any value was taken are no earlier sync to compare with.
               baseline:
@@ -493,6 +514,24 @@ export class DesignSystemSyncService extends Context.Service<
         (found) => found?.comparison ?? null
       );
 
+      /**
+       * Figma's changes taken: into the design system (ADR 0028), or into the code while there
+       * is no design system yet, which is then made from the code.
+       */
+      const takeFigma = Effect.fnUntraced(function* (
+        changes: readonly TokenChange[],
+        file: string
+      ) {
+        if (changes.length === 0) {
+          return { files: [] as readonly string[] };
+        }
+        const designSystem = yield* DesignSystemService;
+        const { designSystem: ds } = yield* designSystem.get;
+        return ds
+          ? yield* designSystem.setTokens(changes, `Take ${file}'s tokens`)
+          : yield* designSystem.writeCode(changes);
+      });
+
       const applyFigma = Effect.fn("DesignSystemSyncService.applyFigma")(
         function* (decisions: readonly TokenDecision[]) {
           const found = yield* compare;
@@ -505,19 +544,16 @@ export class DesignSystemSyncService extends Context.Service<
           const result = yield* project.use(
             Effect.gen(function* () {
               const designSystem = yield* DesignSystemService;
-              const { files } =
-                changes.length > 0
-                  ? yield* designSystem.setTokens(changes)
-                  : { files: [] as readonly string[] };
-              // Where Figma and the code stand now, for the next sync to compare against.
+              const { files } = yield* takeFigma(
+                changes,
+                found.comparison.file
+              );
+              // Where Figma and the design system stand now, for the next sync to compare with.
               const paths = yield* RepoPaths;
-              const code = (yield* ProjectStyleSystem).readTokens({
-                anchorDir: paths.anchorDir,
-                root: paths.root,
-                settings: paths.settings,
-              });
               const declared = new Map(
-                code.tokens.filter((t) => t.own).map((t) => [t.name, t])
+                (yield* targetTokens(paths))
+                  .filter((t) => t.own)
+                  .map((t) => [t.name, t])
               );
               const figma: Record<string, string> = {};
               const inCode: Record<string, string> = {};
@@ -526,7 +562,9 @@ export class DesignSystemSyncService extends Context.Service<
                   diff.outcome !== "unmatched" && diff.outcome !== "ignored"
               )) {
                 const key = baselineKey(d.name, d.theme);
-                figma[key] = d.source;
+                if (d.source !== undefined) {
+                  figma[key] = d.source;
+                }
                 const now = declared.get(d.name);
                 const value = d.theme ? now?.values?.[d.theme] : now?.value;
                 if (value !== undefined) {
@@ -616,7 +654,7 @@ export class DesignSystemSyncService extends Context.Service<
           const diffs = compareFigma(found.figma.tokens, found.code, next);
           // A match that leaves something to write puts the step back in front of the user.
           const pending = diffs.some(
-            (d) => d.outcome === "to-code" || d.outcome === "conflict"
+            (d) => d.outcome === "to-design" || d.outcome === "conflict"
           );
           yield* project
             .use(
@@ -651,12 +689,7 @@ export class DesignSystemSyncService extends Context.Service<
           if (!(ds && document) || document.legacy) {
             return null;
           }
-          const paths = yield* RepoPaths;
-          const code = (yield* ProjectStyleSystem).readTokens({
-            anchorDir: paths.anchorDir,
-            root: paths.root,
-            settings: paths.settings,
-          });
+          const target = designTokensOf(ds);
           const { problems, tokens } = documentTokens(parse(document.text));
           const side = documentSide(tokens);
           const baseline = ds.designMd ?? null;
@@ -666,18 +699,17 @@ export class DesignSystemSyncService extends Context.Service<
           const components = document.held
             .filter((h) => h.path.startsWith("components."))
             .map((h) => h.path);
-          const own = code.tokens.filter((t) => t.own);
           return {
-            code: code.tokens,
+            code: target,
             comparison: {
               baseline: baseline !== null && baseline.at > 0,
-              diffs: compareDocument(side, code.tokens, baseline),
+              diffs: compareDocument(side, target, baseline),
               file: document.path,
               notes: [
                 ...problems,
                 ...(typography.length > 0
                   ? [
-                      `${plural(typography.length, "text style setting")} of ${document.path} differ from the code's (${typography.slice(0, 4).join(", ")}${typography.length > 4 ? ", …" : ""}): a text style is several tokens, so /sync design settles them with you.`,
+                      `${plural(typography.length, "text style setting")} of ${document.path} differ from the design system's (${typography.slice(0, 4).join(", ")}${typography.length > 4 ? ", …" : ""}): a text style is several tokens, so /sync design settles them with you.`,
                     ]
                   : []),
                 ...(components.length > 0
@@ -686,8 +718,8 @@ export class DesignSystemSyncService extends Context.Service<
                     ]
                   : []),
               ],
-              source: "design",
-              targets: own.map((t) => ({ kind: t.kind, name: t.name })),
+              source: "designMd",
+              targets: target.map((t) => ({ kind: t.kind, name: t.name })),
             } satisfies TokenComparison,
             designSystem: ds,
             side,
@@ -706,10 +738,10 @@ export class DesignSystemSyncService extends Context.Service<
       });
 
       /**
-       * DESIGN.md's tokens taken (ADR 0027): the code takes what the document changed alone and
-       * the conflicts given to it; the design system lists the tokens new to it; the document is
-       * rewritten in the code's names, its references with it, what was left out of the code
-       * taken out of it, and what is still unmatched kept.
+       * DESIGN.md's tokens taken (ADR 0027): the design system takes what the document changed
+       * alone and the conflicts given to it, listing the tokens new to it; the document is
+       * rewritten in the design system's names, its references with it, what was left out taken
+       * out of it, and what is still unmatched kept. With `codeTokens: auto` the code follows.
        */
       const applyDesign = Effect.fn("DesignSystemSyncService.applyDesign")(
         function* (decisions: readonly TokenDecision[]) {
@@ -722,13 +754,9 @@ export class DesignSystemSyncService extends Context.Service<
           const result = yield* project.use(
             Effect.gen(function* () {
               const service = yield* DesignSystemService;
-              const { files } =
-                changes.length > 0
-                  ? yield* service.setTokens(changes)
-                  : { files: [] as readonly string[] };
               const after = yield* service.get;
               const ds = after.designSystem ?? found.designSystem;
-              const listed = listTokens(ds, newTokens(ds, changes));
+              const listed = withTokenChanges(ds, changes);
               const { document } = after;
               if (!document) {
                 return yield* noDocument;
@@ -756,7 +784,7 @@ export class DesignSystemSyncService extends Context.Service<
                     designMd: { agreed, at: yield* Clock.currentTimeMillis },
                   },
                   text,
-                  `Take ${document.path}'s tokens into the code`
+                  `Take ${document.path}'s tokens into the design system`
                 )
                 .pipe(
                   Effect.mapError(
@@ -766,7 +794,15 @@ export class DesignSystemSyncService extends Context.Service<
                       })
                   )
                 );
-              return { files, written: changes.length };
+              const paths = yield* RepoPaths;
+              const code =
+                changes.length > 0 && paths.settings.codeTokens === "auto"
+                  ? yield* service.writeCode(changes)
+                  : { files: [] as readonly string[] };
+              return {
+                files: [document.path, ...code.files],
+                written: changes.length,
+              };
             })
           );
           yield* Effect.ignore(plan);
@@ -843,15 +879,122 @@ export class DesignSystemSyncService extends Context.Service<
         (effect) => baselineLock.withPermits(1)(effect)
       );
 
+      /** The code's tokens compared with the design system's (ADR 0028). */
+      const compareWithCode = project.use(
+        Effect.gen(function* () {
+          const service = yield* DesignSystemService;
+          const { designSystem: ds } = yield* service.get;
+          if (!ds) {
+            return null;
+          }
+          const paths = yield* RepoPaths;
+          const source = (yield* ProjectStyleSystem).readTokens({
+            anchorDir: paths.anchorDir,
+            root: paths.root,
+            settings: paths.settings,
+          });
+          const design = designTokensOf(ds);
+          return {
+            baseline: ds.codeSync !== undefined,
+            diffs: compareCode(
+              source.tokens,
+              design,
+              ds.codeSync ?? null,
+              new Set(ds.omitted ?? [])
+            ),
+            file:
+              source.files.length === 1
+                ? (source.files[0] ?? "the code")
+                : "the code",
+            notes: [...source.notes],
+            source: "code",
+            targets: design.map((t) => ({ kind: t.kind, name: t.name })),
+          } satisfies TokenComparison;
+        })
+      );
+
+      /**
+       * The code and the design system brought together (ADR 0028): what the code changed alone,
+       * and the conflicts given to it, taken into the design system; what the design system
+       * changed alone, and the conflicts given to it, written to the code.
+       */
+      const applyCode = Effect.fn("DesignSystemSyncService.applyCode")(
+        function* (
+          decisions: readonly TokenDecision[],
+          only?: "export" | "import"
+        ) {
+          const comparison = yield* compareWithCode;
+          if (!comparison) {
+            return yield* new BadRequest({
+              message:
+                "There is no design system yet to compare the code with: Sync makes one.",
+            });
+          }
+          const { toCode, toDesign } = codeChanges(
+            comparison.diffs,
+            decisions,
+            only
+          );
+          const result = yield* project.use(
+            Effect.gen(function* () {
+              const service = yield* DesignSystemService;
+              const taken =
+                toDesign.length > 0
+                  ? yield* service.setTokens(toDesign, "Take the code's tokens")
+                  : { files: [] as readonly string[] };
+              const written =
+                toCode.length > 0
+                  ? yield* service.writeCode(toCode)
+                  : { files: [] as readonly string[] };
+              return {
+                files: [...new Set([...taken.files, ...written.files])],
+                written: toCode.length + toDesign.length,
+              };
+            })
+          );
+          yield* Effect.ignore(plan);
+          return result;
+        },
+        (effect) => baselineLock.withPermits(1)(effect)
+      );
+
+      const byName = new BadRequest({
+        message:
+          "The code's tokens are matched to the design system's by name: there is nothing to match.",
+      });
+
       return DesignSystemSyncService.of({
-        apply: (source, decisions) =>
-          source === "figma" ? applyFigma(decisions) : applyDesign(decisions),
-        match: (source, entries, by) =>
-          source === "figma"
-            ? saveMatches(entries, by)
-            : matchDesign(entries, by),
+        apply: (source, decisions, only) => {
+          switch (source) {
+            case "figma":
+              return applyFigma(decisions);
+            case "designMd":
+              return applyDesign(decisions);
+            default:
+              return applyCode(decisions, only);
+          }
+        },
+        match: (source, entries, by) => {
+          switch (source) {
+            case "figma":
+              return saveMatches(entries, by);
+            case "designMd":
+              return matchDesign(entries, by);
+            default:
+              return Effect.fail(byName);
+          }
+        },
         plan,
-        tokens: (source) => (source === "figma" ? figmaTokens : designTokens),
+        tokens: (source) => {
+          switch (source) {
+            case "figma":
+              return figmaTokens;
+            case "designMd":
+              return designTokens;
+            default:
+              return compareWithCode;
+          }
+        },
       });
     })
   );

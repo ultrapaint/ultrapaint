@@ -57,9 +57,10 @@ export const LinkField = ({
   const options: SelectOption[] = [
     { label: "Nowhere", value: NOWHERE },
     ...bases.map((p) => ({
-      description: p.route ?? "no URL",
+      // A page in a state (ADR 0030) serves no URL: a link names its file.
+      description: p.state === undefined ? (p.route ?? "no URL") : "state",
       group: "Pages",
-      label: p.name,
+      label: p.state === undefined ? p.name : `${p.name} · ${p.state}`,
       value: linkToPage(p),
     })),
     { group: "Other", label: "Back", value: BACK_LINK },

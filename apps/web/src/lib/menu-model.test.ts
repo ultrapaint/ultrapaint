@@ -211,10 +211,12 @@ describe("the page menu", () => {
     canPaste: false,
     canvases: [{ id: "", name: "App" }],
     count: 1,
+    implementation: "draft" as const,
     name: "Home",
     onCanvas: true,
     preset: "mobile" as const,
     route: "/",
+    statesFree: [],
     variantsFree: ["bold"],
   };
 

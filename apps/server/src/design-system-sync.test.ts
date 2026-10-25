@@ -1,5 +1,6 @@
 import path from "node:path";
 import { assert, layer } from "@effect/vitest";
+import type { TokenComparison } from "@ultrapaint/contracts/sync";
 import { Effect, FileSystem } from "effect";
 import { TestEnv, TestServer } from "./testing/harness.ts";
 
@@ -69,69 +70,134 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
     );
 
     it.effect(
-      "keeps the values in the code: the file leaves them out, and an edit writes the stylesheet",
+      "keeps the values in the design: an edit changes the design system, and the code follows on export",
       () =>
         Effect.gen(function* () {
-          const { client, repo } = yield* TestEnv;
+          const { client, repo, settings } = yield* TestEnv;
           const fs = yield* FileSystem.FileSystem;
-          const file = JSON.parse(
-            yield* fs.readFileString(
-              path.join(repo, "designs/design-system.json")
-            )
-          );
-          const listed = JSON.stringify(file);
+          const css = path.join(repo, "styles/app.css");
+          const system = path.join(repo, "designs/design-system.json");
+          const listed = yield* fs.readFileString(system);
           assert.include(listed, '"color-brand"');
-          assert.notInclude(listed, "#2563eb");
+          assert.include(listed, "#2563eb");
+          // The Design Tokens format is written beside it.
+          const dtcg = yield* fs.readFileString(
+            path.join(repo, "designs/design.tokens.json")
+          );
+          assert.include(dtcg, '"color-brand"');
 
-          const brand = (state: {
+          const brand = (read: {
             readonly designSystem: {
               readonly colors: readonly {
                 readonly tokens: readonly { name: string; value: string }[];
               }[];
             } | null;
           }) =>
-            state.designSystem?.colors
+            read.designSystem?.colors
               .flatMap((g) => g.tokens)
               .find((t) => t.name === "color-brand")?.value;
-          assert.strictEqual(
-            brand(yield* client["designSystem.get"]()),
-            "#2563eb"
-          );
 
           const { files, previous } = yield* client["designSystem.setToken"]({
             name: "color-brand",
             value: "#1d4ed8",
           });
-          assert.deepStrictEqual(files, ["styles/app.css"]);
+          assert.deepStrictEqual(files, [
+            "designs/design-system.json",
+            "designs/design.tokens.json",
+          ]);
           assert.strictEqual(previous, "#2563eb");
+          // The application is not touched: the design leads.
           assert.include(
-            yield* fs.readFileString(path.join(repo, "styles/app.css")),
-            "--color-brand: #1d4ed8;"
+            yield* fs.readFileString(css),
+            "--color-brand: #2563eb;"
           );
+          const state = yield* client["designSystem.get"]();
+          assert.strictEqual(brand(state), "#1d4ed8");
+          // The preview draws the design's value over the code's.
+          assert.include(state.previewCss ?? "", "#1d4ed8");
+
+          const compare = () => client["sync.tokens"]({ source: "code" });
+          const outcome = (comparison: TokenComparison | null, name: string) =>
+            comparison?.diffs.find(
+              (d) => d.name === name && d.theme === undefined
+            )?.outcome;
+          const waiting = yield* compare();
+          assert.strictEqual(outcome(waiting, "color-brand"), "source-behind");
+          // The colour the code added alone is offered to the design system.
+          assert.strictEqual(outcome(waiting, "color-accent"), "to-design");
+          const plan = yield* client["sync.plan"]();
+          assert.strictEqual(plan.facts.codeTokens?.toCode, 1);
+          const step = plan.steps.find((s) => s.kind === "code-tokens");
+          assert.strictEqual(step?.state, "attention");
+
+          // The code changes a radius on its own.
+          yield* fs.writeFileString(
+            css,
+            (yield* fs.readFileString(css)).replace(
+              "--radius-card: 0.75rem;",
+              "--radius-card: 1rem;"
+            )
+          );
+          yield* client["designSystem.get"]();
           assert.strictEqual(
-            brand(yield* client["designSystem.get"]()),
-            "#1d4ed8"
+            outcome(yield* compare(), "radius-card"),
+            "to-design"
           );
 
-          // Two edits at once to the same stylesheet: each is written, neither over the other.
-          yield* Effect.all(
-            [
-              client["designSystem.setToken"]({
-                name: "color-brand",
-                value: "#1e40af",
-              }),
-              client["designSystem.setToken"]({
-                name: "radius-card",
-                value: "1rem",
-              }),
-            ],
-            { concurrency: "unbounded" }
+          // Sync both ways: the design's colour to the code, the code's radius to the design.
+          const applied = yield* client["sync.apply"]({
+            decisions: [],
+            source: "code",
+          });
+          assert.include(applied.files, "styles/app.css");
+          const after = yield* fs.readFileString(css);
+          assert.include(after, "--color-brand: #1d4ed8;");
+          const settled = yield* compare();
+          assert.strictEqual(outcome(settled, "color-brand"), "same");
+          assert.strictEqual(outcome(settled, "radius-card"), "same");
+          assert.strictEqual(outcome(settled, "color-accent"), "same");
+          const saved = JSON.parse(yield* fs.readFileString(system));
+          assert.strictEqual(saved.codeSync.agreed["color-brand"], "#1d4ed8");
+
+          // Changed on both sides: the user picks, and the design's is written to the code.
+          yield* client["designSystem.setToken"]({
+            name: "color-brand",
+            value: "#1e40af",
+          });
+          yield* fs.writeFileString(
+            css,
+            (yield* fs.readFileString(css)).replace(
+              "--color-brand: #1d4ed8;",
+              "--color-brand: #0f172a;"
+            )
           );
-          const both = yield* fs.readFileString(
-            path.join(repo, "styles/app.css")
+          yield* client["designSystem.get"]();
+          assert.strictEqual(
+            outcome(yield* compare(), "color-brand"),
+            "conflict"
           );
-          assert.include(both, "--color-brand: #1e40af;");
-          assert.include(both, "--radius-card: 1rem;");
+          yield* client["sync.apply"]({
+            decisions: [{ name: "color-brand", take: "design" }],
+            source: "code",
+          });
+          assert.include(
+            yield* fs.readFileString(css),
+            "--color-brand: #1e40af;"
+          );
+
+          // With codeTokens auto, an edit reaches the code at once, as before ADR 0028.
+          const current = (yield* client["settings.get"]()) ?? settings;
+          yield* client["settings.set"]({ ...current, codeTokens: "auto" });
+          const auto = yield* client["designSystem.setToken"]({
+            name: "radius-card",
+            value: "1.25rem",
+          });
+          assert.include(auto.files, "styles/app.css");
+          assert.include(
+            yield* fs.readFileString(css),
+            "--radius-card: 1.25rem;"
+          );
+          assert.strictEqual(outcome(yield* compare(), "radius-card"), "same");
         }),
       30_000
     );

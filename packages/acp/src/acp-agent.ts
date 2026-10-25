@@ -25,6 +25,7 @@ import {
   type ReadTextFileRequest,
   type ReadTextFileResponse,
   type ReleaseTerminalRequest,
+  RequestError,
   type RequestPermissionRequest,
   type RequestPermissionResponse,
   type SessionNotification,
@@ -264,7 +265,11 @@ export const spawnAcpAgent = (
       Readable.toWeb(child.stdout as Readable) as ReadableStream<Uint8Array>
     );
 
-    /** Runs a handler for the SDK; a typed failure becomes the rejection the agent sees. */
+    /**
+     * Runs a handler for the SDK; a typed failure becomes the rejection the agent sees, with its
+     * reason: a plain error reaches the agent as "Internal error" and nothing else, and a write
+     * refused outside the designs directory has to say why for the agent to do otherwise.
+     */
     const serve = async <A>(
       effect: Effect.Effect<A, { readonly message: string }>
     ): Promise<A> => {
@@ -272,7 +277,7 @@ export const spawnAcpAgent = (
       if (Result.isSuccess(result)) {
         return result.success;
       }
-      throw new Error(result.failure.message);
+      throw RequestError.internalError(undefined, result.failure.message);
     };
 
     const app = client({ name: "ultrapaint" })

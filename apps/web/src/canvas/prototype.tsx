@@ -31,6 +31,7 @@ import { toggleCommenting, useComments } from "../state/comments.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useDocuments } from "../state/documents.ts";
 import { pagesOfCanvas, useEditor } from "../state/editor.ts";
+import { useDesignLookVersion } from "../state/look.ts";
 import { useProject } from "../state/project.ts";
 import { bridgeFor } from "./bridge.ts";
 import { commentCursor, FrameComments, placeComment } from "./comments.tsx";
@@ -232,12 +233,13 @@ export const Prototype = () => {
     activePage ? s.docs[activePage] : undefined
   );
   const designSystem = useDesignSystem((s) => s.designSystem);
+  const look = useDesignLookVersion();
   // biome-ignore lint/correctness/useExhaustiveDependencies: what is drawn is the dependency.
   useEffect(() => {
     if (canvas !== null && url && bridgeFor(frameIdOf(canvas)).ready) {
       renderRoute(canvas);
     }
-  }, [route, canvas, url, document, designSystem]);
+  }, [route, canvas, url, document, designSystem, ...look]);
 
   return (
     <div

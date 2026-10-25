@@ -7,6 +7,7 @@
  * through these two interfaces, as a Storybook framework package (`@storybook/react-vite`)
  * does for Storybook's core.
  */
+import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type {
   UsageInventory,
@@ -16,8 +17,10 @@ import type {
 } from "@ultrapaint/contracts/design-system-setup";
 import type { Settings } from "@ultrapaint/contracts/settings";
 import type { SetupSuggestions } from "@ultrapaint/contracts/setup";
+import type { ComponentSpec } from "@ultrapaint/contracts/specs";
 import type {
   ComponentStyle,
+  DesignTokenValue,
   FileEdit,
   SourceToken,
   StyleSystemId,
@@ -215,6 +218,15 @@ export interface PreviewStyleContext extends DesignSystemContext {
   readonly dir: string;
 }
 
+/** A component's `cva` classes as the catalogue reads them: the base, each member's, the defaults. */
+export type ComponentStyles = NonNullable<ComponentMeta["styles"]>;
+
+/** What a style system reads off a component's code into its spec (ADR 0029). */
+export type SpecFromCode = Pick<
+  ComponentSpec,
+  "base" | "defaults" | "states" | "variants"
+>;
+
 /**
  * A style system (ADR 0024): Tailwind v4 today, StyleX or Emotion later. Synchronous and pure
  * apart from reading the repository's files; the server writes what it returns.
@@ -225,6 +237,15 @@ export interface StyleSystem {
    * implement a page.
    */
   readonly codeRules: string;
+  /**
+   * A component's classes read into the fields of its spec (ADR 0029): the root slot's style
+   * fields in its base, in each variant member and in each state, tokens named as pages name
+   * them where the classes name one of `tokens`.
+   */
+  readonly componentSpec: (
+    styles: ComponentStyles,
+    tokens: readonly SourceToken[]
+  ) => SpecFromCode;
   /**
    * What a component's classes set in the state it starts in, as DESIGN.md's component tokens
    * hold it (ADR 0027), the code's tokens being `tokens`.
@@ -241,6 +262,15 @@ export interface StyleSystem {
    * makes every token a custom property the preview can draw with.
    */
   readonly previewCss: (ctx: PreviewStyleContext) => readonly string[];
+  /**
+   * A stylesheet that gives the code's variables the design's values (ADR 0028): placed
+   * unlayered after the code's CSS in the preview, the repository's components draw with
+   * `tokens`. Plain CSS; empty when there is nothing to set.
+   */
+  readonly previewTokenCss: (
+    ctx: DesignSystemContext,
+    tokens: readonly DesignTokenValue[]
+  ) => string;
   /** Every token the code declares, with where each value is written. */
   readonly readTokens: (ctx: DesignSystemContext) => TokenSource;
   /**

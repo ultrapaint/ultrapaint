@@ -175,7 +175,7 @@ export const makePagesReading = Effect.gen(function* () {
       pagePath,
       relativeToDesigns(abs),
       paths.relative(abs),
-      layout.routes
+      layout
     );
   });
 

@@ -4,7 +4,19 @@
  * and `/components` a sheet of the design system into a canvas.
  */
 import type { TextStyle } from "@ultrapaint/contracts/design-system";
-import { normaliseRoute } from "@ultrapaint/shared/route";
+import type { DesignNode } from "@ultrapaint/contracts/document";
+import {
+  SPEC_TARGET_PREFIX,
+  specTarget,
+} from "@ultrapaint/contracts/implementation";
+import type { Page } from "@ultrapaint/contracts/pages";
+import {
+  type ComponentSpec,
+  SPEC_EXTENSION,
+  SPECS_DIR,
+} from "@ultrapaint/contracts/specs";
+import { walk } from "@ultrapaint/design-document/tree";
+import { basePathOf, normaliseRoute } from "@ultrapaint/shared/route";
 import { Effect } from "effect";
 import { ServerConfig } from "../../config.ts";
 import { ProjectManager } from "../../project.ts";
@@ -12,7 +24,10 @@ import { CatalogueService } from "../catalogue.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { DocumentService } from "../documents.ts";
 import { FigmaImportService } from "../figma-import.ts";
+import { ImplementationService } from "../implementation.ts";
 import { PagesService } from "../pages.ts";
+import { RepoPaths } from "../repo-paths.ts";
+import { SpecService } from "../specs.ts";
 import { ProjectStyleSystem } from "../style-system.ts";
 import { pageSchema, splitArgument, userAdds } from "./task-text.ts";
 
@@ -42,6 +57,17 @@ ${styles.map((style) => `- ${style.name}: ${JSON.stringify(style)}`).join("\n")}
 `
     : "";
 
+/** The spec a command names: `spec:Button`, or the component's name. */
+const specNamed = (
+  specs: readonly ComponentSpec[],
+  target: string
+): ComponentSpec | undefined => {
+  const name = target.startsWith(SPEC_TARGET_PREFIX)
+    ? target.slice(SPEC_TARGET_PREFIX.length)
+    : target;
+  return name ? specs.find((s) => s.component === name) : undefined;
+};
+
 /**
  * The page a command names: by its URL, which names the base page, or by its file, which names
  * a variant's page or one without a URL. Named by nothing, the only page there is.
@@ -52,6 +78,7 @@ const pageNamed = <
     readonly id: string;
     readonly path: string;
     readonly route?: string | undefined;
+    readonly state?: string | undefined;
     readonly variant?: string | undefined;
   },
 >(
@@ -63,7 +90,10 @@ const pageNamed = <
   }
   if (target.startsWith("/")) {
     const route = normaliseRoute(target);
-    return pages.find((p) => p.route === route && p.variant === undefined);
+    return pages.find(
+      (p) =>
+        p.route === route && p.variant === undefined && p.state === undefined
+    );
   }
   return pages.find(
     (p) => p.id === target || p.file === target || p.path === target
@@ -91,6 +121,72 @@ Ask which one.
 </ultrapaint-task>`;
 };
 
+/** The components a tree uses, by name. */
+const usedComponents = (root: DesignNode | null | undefined) => {
+  const used = new Set<string>();
+  if (root) {
+    for (const node of walk(root)) {
+      if (node.type === "instance") {
+        used.add(node.component);
+      }
+    }
+  }
+  return used;
+};
+
+/** Where a page belongs in the application, as the design says it. */
+const whereOf = (page: Page) => {
+  if (page.state !== undefined) {
+    return `It is the ${page.state} state of ${page.name}: implement it as that state of the same screen (what the screen shows when it is ${page.state}), not as a page of its own.`;
+  }
+  return page.route === undefined
+    ? "It has no URL in the design: ask the user where it belongs before writing anything."
+    : `It serves ${page.route} in the design's prototype.`;
+};
+
+const notesSection = (
+  notes: readonly {
+    readonly element: string | null;
+    readonly nodeId: string | null;
+    readonly text: string;
+  }[]
+) => {
+  if (notes.length === 0) {
+    return "";
+  }
+  const on = (n: (typeof notes)[number]) => {
+    if (!n.element) {
+      return "";
+    }
+    return n.nodeId ? `on ${n.element} (${n.nodeId}): ` : `on ${n.element}: `;
+  };
+  return `
+Behaviour notes on the page, what the code must do that the design cannot show:
+${notes.map((n) => `- ${on(n)}${n.text}`).join("\n")}
+`;
+};
+
+const statesSection = (states: readonly Page[]) =>
+  states.length > 0
+    ? `
+The page's states, drawn as pages of their own; implement each as a state of this screen:
+${states.map((p) => `- ${p.state}: ${p.file}`).join("\n")}
+`
+    : "";
+
+const ownedSection = (owned: readonly ComponentSpec[]) => {
+  if (owned.length === 0) {
+    return "";
+  }
+  const drafts = owned.some((s) => s.draft)
+    ? 'A draft component (from "#draft") has no code yet: implement it first, or build its tree inline and tell the user.\n'
+    : "";
+  return `
+Components whose look the design owns (ADR 0029): ${owned.map((s) => s.component).join(", ")}. Use
+them as they are; their look is implemented on its own (/implement <Component>), not in this page.
+${drafts}`;
+};
+
 export const makePageTasks = Effect.fnUntraced(function* (deps: {
   /** What a task says first when the editor sees no components. */
   readonly componentsMissing: Effect.Effect<string>;
@@ -99,44 +195,154 @@ export const makePageTasks = Effect.fnUntraced(function* (deps: {
   const project = yield* ProjectManager;
   const { mcp } = yield* ServerConfig;
 
+  /**
+   * `/implement` (ADR 0030): a page or a component spec turned into the application's code. A
+   * design implemented before is given with what changed since, its behaviour notes and its
+   * states; the agent marks it implemented when it is done.
+   */
   const implement = (argument: string) =>
     project.use(
       Effect.gen(function* () {
         const { extra, target } = splitArgument(argument);
+        const specs = yield* (yield* SpecService).specs;
+        const spec = specNamed(specs, target);
+        if (spec) {
+          return yield* implementSpec(spec, extra);
+        }
         const { pages } = yield* (yield* PagesService).list;
         const page = pageNamed(pages, target);
         if (!page) {
           return unknownPage(target, pages);
         }
-        const state = yield* Effect.orElseSucceed(
-          (yield* DocumentService).get(page.id),
-          () => null
-        );
-        const { designSystem } = yield* (yield* DesignSystemService).get;
-        const { codeRules } = yield* ProjectStyleSystem;
-        const styles = designSystem?.typography.styles ?? [];
-        return `<ultrapaint-task command="implement">
-Implement the page ${page.name} of the design (${page.file}) in this repository's application,
-in its own conventions. ${
-          page.route === undefined
-            ? "It has no URL in the design: ask the user where it belongs before writing anything."
-            : `It serves ${page.route} in the design's prototype.`
-        }
+        return yield* implementPage(page, pages, specs, extra);
+      })
+    );
 
+  /** How to say the design is done, through the editor's tool or to the user. */
+  const markStep = (target: string) =>
+    mcp
+      ? `Mark it implemented: call handoff with action "mark", target "${target}" and files, every
+   repository file you wrote or changed for it. The editor then knows which code implements it,
+   and tells the next implementation what changed.`
+      : "Tell the user which files implement it, so they can mark it implemented in the editor.";
+
+  /** What was implemented before, and what changed since, for a task to start from. */
+  const since = Effect.fnUntraced(function* (target: string) {
+    const service = yield* ImplementationService;
+    const item = yield* Effect.orElseSucceed(service.item(target), () => null);
+    const changes = yield* Effect.orElseSucceed(
+      service.changes(target),
+      () => null
+    );
+    if (!(item?.files.length && changes?.implemented)) {
+      return "It has not been implemented before.";
+    }
+    const lines = [
+      `It was implemented before, in ${item.files.join(", ")}.`,
+      changes.empty
+        ? "The design has not changed since: check the code still matches it."
+        : `What changed in the design since then:\n${changes.text}\nChange the code for these; what did not change is implemented already.`,
+    ];
+    if (item.changedFiles.length > 0) {
+      lines.push(
+        `These files changed since, by someone else: ${item.changedFiles.join(", ")}. Keep what they changed unless the design says otherwise, and tell the user where the code and the design now disagree.`
+      );
+    }
+    return lines.join("\n");
+  });
+
+  const implementPage = Effect.fnUntraced(function* (
+    page: Page,
+    pages: readonly Page[],
+    specs: readonly ComponentSpec[],
+    extra: string
+  ) {
+    const state = yield* Effect.orElseSucceed(
+      (yield* DocumentService).get(page.id),
+      () => null
+    );
+    const { designSystem } = yield* (yield* DesignSystemService).get;
+    const { codeRules } = yield* ProjectStyleSystem;
+    const styles = designSystem?.typography.styles ?? [];
+    const notes = yield* (yield* ImplementationService).notes(page);
+    const before = yield* since(page.id);
+    const base = basePathOf(page.path);
+    const states = pages.filter(
+      (p) =>
+        p.canvas === page.canvas &&
+        p.state !== undefined &&
+        basePathOf(p.path) === base &&
+        p.id !== page.id
+    );
+    const owned = specs.filter(
+      (s) => usedComponents(state?.root).has(s.component) && s.look === "design"
+    );
+    const where = whereOf(page);
+    return `<ultrapaint-task command="implement">
+Implement the page ${page.name} of the design (${page.file}) in this repository's application,
+in its own conventions. ${where}
+The design is what it looks like and which states it has; what it does (data, permissions,
+validation, what a button calls) is the code's, and the behaviour notes below say what is wanted.
+
+${before}
+${notesSection(notes)}${statesSection(states)}${ownedSection(owned)}
 The design, as the editor holds it:
 ${JSON.stringify(state?.root ?? null, null, 2)}
 
 ${codeRules}
 ${textStyles(styles)}
-1. Find where the application's pages live and how its routes are declared. If it is not clear
+1. Find where the application's pages live and how its routes are declared${before.startsWith("It was") ? ", starting from the files that implement it" : ""}. If it is not clear
    where this page belongs, ask the user before writing anything.
 2. Write the page with the design system's components and the application's existing layouts;
    do not copy the design node by node where a component already does the job.
-3. Run the repository's type check and linter on what you changed.
-4. End with a short summary, and what the design asked for that the code could not do.
+3. Implement each behaviour note with the application's own services, guards and data; ask the
+   user where one is unclear rather than inventing it.
+4. Run the repository's type check and linter on what you changed.
+5. ${markStep(page.id)}
+6. End with a short summary, and what the design asked for that the code could not do.
 ${userAdds(extra)}</ultrapaint-task>`;
-      })
+  });
+
+  const implementSpec = Effect.fnUntraced(function* (
+    spec: ComponentSpec,
+    extra: string
+  ) {
+    const target = specTarget(spec.component);
+    const before = yield* since(target);
+    const { codeRules } = yield* ProjectStyleSystem;
+    const catalogue = yield* Effect.orElseSucceed(
+      (yield* CatalogueService).get(false),
+      () => null
     );
+    const meta = catalogue?.components.find(
+      (c) => c.name === spec.component && c.importFrom === spec.from
+    );
+    const paths = yield* RepoPaths;
+    const intro = spec.draft
+      ? `Implement ${spec.component}, a draft component of the design (${SPECS_DIR}/${spec.component}${SPEC_EXTENSION}): the code does not have it
+yet. Create it in the components directory (${paths.settings.libraryDirs.join(", ") || "where the application keeps its components"}), from the draft's
+tree, with a prop for what varies, in the shape the other components have.`
+      : `Implement the look of ${spec.component} as its spec says (${SPECS_DIR}/${spec.component}${SPEC_EXTENSION}), in its code${meta ? ` (${meta.file})` : ""}.
+Its behaviour stays as it is: only its classes change.`;
+    return `<ultrapaint-task command="implement">
+${intro}
+
+${before}
+
+The spec: \`base\` is what every instance starts from; \`variants\` per prop and value; \`states\`
+(hover, focus, active, disabled, open, checked, invalid) are the state classes (\`hover:\`,
+\`focus-visible:\`, \`active:\`, \`disabled:\`, \`data-open:\` or \`data-[state=open]:\`, \`data-checked:\`,
+\`aria-invalid:\`); a slot other than \`root\` is the element with that \`data-slot\`. Values are the
+design system's tokens.
+${JSON.stringify(spec, null, 2)}
+
+${codeRules}
+1. ${spec.draft ? 'Write the component, then replace the draft\'s instances in the pages with it: apply_operations, update from and component of each instance whose from is "#draft".' : "Change the component's classes (its cva base, variants and sizes, and the state classes) so it draws as the spec says. Keep its props and behaviour."}
+2. Run the repository's type check and linter on what you changed.
+3. ${markStep(target)}
+4. End with a short summary, and what the spec asked for that the code could not do.
+${userAdds(extra)}</ultrapaint-task>`;
+  });
 
   const importFigma = (argument: string) =>
     project.use(

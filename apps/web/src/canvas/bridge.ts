@@ -7,13 +7,26 @@ import type {
   RenderMode,
 } from "@ultrapaint/contracts/preview";
 
+import type { DesignLook } from "../state/look.ts";
+
 type Listener = (msg: HostMessage) => void;
+
+/**
+ * Where the design's look comes from when a render does not say: the app hands it the stores'
+ * at startup, which keeps the bridge free of them.
+ */
+let currentLook = (): DesignLook => ({ specs: [], styles: "" });
+export const provideDesignLook = (look: () => DesignLook) => {
+  currentLook = look;
+};
 
 let renders = 0;
 
 /** What a preview was last told to draw, so a preview that reloads is told again. */
 export interface RenderRequest {
   readonly designSystem: DesignSystem | null;
+  /** The design's look over the code's (ADR 0028, 0029); the current one when left out. */
+  readonly look?: DesignLook;
   readonly message?: string;
   readonly mode: RenderMode;
   readonly root: DesignNode | null;
@@ -171,11 +184,14 @@ export class FrameBridge {
   /** Tells the preview what to draw; answers the id its `ed:rendered` will carry. */
   render(request: RenderRequest): number {
     renders += 1;
+    const look = request.look ?? currentLook();
     this.send({
       designSystem: request.designSystem,
       mode: request.mode,
       renderId: renders,
       root: request.root,
+      ...(look.specs.length > 0 && { specs: look.specs }),
+      ...(look.styles && { styles: look.styles }),
       type: "ed:render",
       ...(request.message !== undefined && { message: request.message }),
     });

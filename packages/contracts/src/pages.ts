@@ -17,6 +17,8 @@ export const Canvas = Schema.Struct({
   /** Path relative to the designs directory; `""` is the designs directory itself. */
   id: Schema.String,
   name: Schema.String,
+  /** States its pages are drawn in, one page each (ADR 0030): `empty`, `loading`. */
+  states: Schema.optional(Schema.Array(Schema.String)),
   /** Variants its pages may be drawn in, in the order they are offered (ADR 0019). */
   variants: Schema.Array(Schema.String),
 });
@@ -40,6 +42,11 @@ export const Page = Schema.Struct({
    * page serves its base page's URL. Absent when the page has none.
    */
   route: Schema.optional(Schema.String),
+  /**
+   * The state the page is its base page in (`orders@empty.page.json`, with `empty` in the
+   * canvas's `states`, ADR 0030); a state's page has no `variant`.
+   */
+  state: Schema.optional(Schema.String),
   /** The variant the page is drawn for (`pricing@bold.page.json`); absent for the base. */
   variant: Schema.optional(Schema.String),
 });
@@ -98,6 +105,11 @@ export const CanvasLayout = Schema.Struct({
    * `/settings/billing`), until the first change writes them out.
    */
   routes: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+  /**
+   * Names its pages' states go by (ADR 0030): a `@name` file of a page is that page in the state,
+   * not a prototype-wide variant.
+   */
+  states: Schema.optional(Schema.Array(Schema.String)),
   /** Names of the variants its pages may be drawn in, in the order they are offered. */
   variants: Schema.optional(Schema.Array(Schema.String)),
   version: Schema.Literal(1),

@@ -29,13 +29,21 @@ export const takeDraft = (threadId: string) => {
   return draft;
 };
 
+/** A draft that asks for the application's code. */
+const IMPLEMENT_RE = /^\/implement(\s|$)/;
+
 /**
  * Creates a thread and opens it, its composer holding `draft`. Without an agent the server picks
  * the chat's default. Nothing waits on an agent: it starts with the thread's first prompt.
  */
 export const createThread = async (draft = "", agentId?: string) => {
   try {
-    const t = await api().request("threads.create", agentId ? { agentId } : {});
+    // A thread that starts by implementing may write the application (ADR 0030).
+    const implementing = IMPLEMENT_RE.test(draft.trim());
+    const t = await api().request("threads.create", {
+      ...(agentId && { agentId }),
+      ...(implementing && { purpose: "implement" as const }),
+    });
     if (draft) {
       useDrafts.setState((s) => ({ drafts: { ...s.drafts, [t.id]: draft } }));
     }

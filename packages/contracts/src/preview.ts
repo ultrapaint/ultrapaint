@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 import { DesignSystem } from "./design-system.ts";
 import { DesignNode } from "./document.ts";
+import { ComponentSpec } from "./specs.ts";
 
 /**
  * Protocol between the editor (parent window) and the preview runtime in every iframe,
@@ -135,6 +136,10 @@ export const EditorMessage = Schema.Union([
     mode: RenderMode,
     renderId: Schema.Number,
     root: Schema.NullOr(DesignNode),
+    /** The component specs (ADR 0029), drawn over their components; drafts in their place. */
+    specs: Schema.optional(Schema.Array(ComponentSpec)),
+    /** CSS the design puts after the code's: the tokens' values where they differ (ADR 0028). */
+    styles: Schema.optional(Schema.String),
     type: Schema.Literal("ed:render"),
   }),
   Schema.Struct({

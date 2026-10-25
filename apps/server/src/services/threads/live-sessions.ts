@@ -286,10 +286,14 @@ export const makeLiveSessions = Effect.fnUntraced(function* (deps: {
       const tmpDir = yield* Effect.orDie(
         fs.makeTempDirectoryScoped({ prefix: "ultrapaint-agent-" })
       );
+      // A design thread writes its designs only; an implement thread, the repository (ADR 0030).
+      const writable =
+        thread.purpose === "implement" ? undefined : paths.designsDir;
       const confined = yield* sandbox.session({
         config,
         root: paths.root,
         tmpDir,
+        writable,
       });
       const terminals = yield* makeTerminalManager({
         // A command we run for the agent must not reach further than one it runs itself.
@@ -304,7 +308,8 @@ export const makeLiveSessions = Effect.fnUntraced(function* (deps: {
           config.name,
           paths,
           terminals,
-          () => holder.session as Live
+          () => holder.session as Live,
+          writable
         ),
       });
       const session: Live = {

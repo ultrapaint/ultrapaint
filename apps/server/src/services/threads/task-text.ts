@@ -32,8 +32,8 @@ export const splitArgument = (argument: string) => {
  */
 export const DESIGN_MD_GUIDE = `DESIGN.md is the design system in the open format (github.com/google-labs-code/design.md), at the
 root of the repository, where every agent and person reads it, in the editor or not. Its front
-matter's token groups (colors, typography, rounded, spacing) are filled in from the code: what you
-write is the prose. The body is these \`##\` sections, in this order; leave one out only when there
+matter's token groups (colors, typography, rounded, spacing) are filled in from the design system:
+what you write is the prose. The body is these \`##\` sections, in this order; leave one out only when there
 is nothing to say:
    - Overview: what the product is and for whom, its voice and tone, and its look as a specific
      reference rather than adjectives ("a printed lecture handout", not "clean and modern").

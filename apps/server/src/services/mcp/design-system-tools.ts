@@ -35,7 +35,7 @@ const ComponentSummary = Schema.Struct({
 
 export const ScanDesignSystem = Tool.make("scan_design_system", {
   description:
-    "A first design-system.json, read by fixed rules from the Tailwind v4 @theme blocks of the stylesheets the preview imports, with the files read and notes on what could not be interpreted. The start of /init.",
+    "A first design-system.json, read by fixed rules from the code's tokens, with the files read and notes on what could not be interpreted. The start of /init.",
   failure: Failure,
   success: Schema.Struct({
     designSystem: Json,
@@ -59,7 +59,7 @@ export const ReadDesignSystem = Tool.make("read_design_system", {
 
 export const WriteDesignSystem = Tool.make("write_design_system", {
   description:
-    'Save design-system.json, and DESIGN.md (token groups filled from the code) when designMd is given; refused with the reason when invalid (get_document_format, kind "design-system"). A token is its Tailwind v4 variable without the dashes ("color-primary"); a text style refers to it as "$color-primary".',
+    'Save design-system.json, which holds every token\'s value, and DESIGN.md when designMd is given; refused with the reason when invalid (get_document_format, kind "design-system"). A token is named without dashes ("color-primary"); a text style refers to it as "$color-primary".',
   failure: Failure,
   parameters: Schema.Struct({
     /** The whole of DESIGN.md. */

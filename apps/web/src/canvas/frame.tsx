@@ -26,6 +26,7 @@ import {
 } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { useInstances } from "../state/instances.ts";
+import { useDesignLookVersion } from "../state/look.ts";
 import { previewUrl, useProject } from "../state/project.ts";
 import { FramePresence } from "./agent-presence.tsx";
 import { AgentWorkOverlay, useFrameWork, useSkeletons } from "./agent-work.tsx";
@@ -232,14 +233,16 @@ export const Frame = memo(
       }
     );
 
-    // Whatever changed the document or the design system, the preview draws it again.
+    // Whatever changed the document, the design system or the design's look, the preview draws
+    // it again.
+    const look = useDesignLookVersion();
     // biome-ignore lint/correctness/useExhaustiveDependencies: the document is the dependency.
     useEffect(() => {
       const bridge = bridgeFor(frameId);
       if (visible && url && bridge.ready) {
         renderFrame(frameId, kind);
       }
-    }, [frameId, kind, visible, url, root, problem, designSystem]);
+    }, [frameId, kind, visible, url, root, problem, designSystem, ...look]);
 
     // Outside interact mode the page is a picture: pointer events are off on the iframe, and
     // the runtime swallows whatever else could reach a component.

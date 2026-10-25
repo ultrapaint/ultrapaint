@@ -108,6 +108,37 @@ describe("scanning a Tailwind v4 design system", () => {
     expect(notes.some((n) => n.includes("Tailwind v4"))).toBe(false);
   });
 
+  it("reads a theme's values set on the theme variables themselves", () => {
+    const root = repository({
+      "node_modules/tailwindcss/package.json": '{"name":"tailwindcss"}',
+      "node_modules/tailwindcss/theme.css":
+        "@theme default { --spacing: 0.25rem; }",
+      "src/index.css": `@import "tailwindcss";
+@theme {
+  --color-accent: #f4f4f5;
+  --color-ring: #2563eb;
+}
+.dark {
+  --color-accent: #27272a;
+}
+`,
+    });
+    const { designSystem } = scanDesignSystem({
+      anchorDir: root,
+      root,
+      settings: {
+        ...defaultSettings(root),
+        designsDir: "designs",
+        hostCss: ["../../src/index.css"],
+      },
+    });
+    expect(designSystem.themes).toEqual(["light", "dark"]);
+    expect(designSystem.colors.flatMap((g) => g.tokens)).toEqual([
+      { name: "color-accent", value: "#f4f4f5", values: { dark: "#27272a" } },
+      { name: "color-ring", value: "#2563eb" },
+    ]);
+  });
+
   it("reads border widths, layout, motion and icons, and starts the elevation", () => {
     const root = repository({
       "app.css": `@import "tailwindcss";

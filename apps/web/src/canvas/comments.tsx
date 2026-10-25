@@ -5,6 +5,7 @@ import {
   ArrowUp,
   Check,
   CircleCheck,
+  Cog,
   Pencil,
   Trash2,
   Undo2,
@@ -21,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { confirmDialog } from "../components/dialogs.tsx";
 import { IconButton } from "../components/icon-button.tsx";
+import { Segmented } from "../components/segmented.tsx";
 import {
   deleteComment,
   deleteReply,
@@ -158,6 +160,18 @@ const Anchor = ({
   </div>
 );
 
+/** What a pin shows: a tick once resolved, a cog on a behaviour note, the author's initial. */
+const PinMark = ({ comment }: { comment: Comment }) => {
+  if (comment.resolved) {
+    return <Check className="size-3" />;
+  }
+  return comment.kind === "behaviour" ? (
+    <Cog className="size-3" />
+  ) : (
+    initialOf(comment.author)
+  );
+};
+
 /** The comment's mark on the page. Hovering it previews the text; clicking opens the card. */
 const Pin = ({ comment, open }: { comment: Comment; open: boolean }) => {
   const toggle = () => useComments.getState().setOpen(open ? null : comment.id);
@@ -183,19 +197,18 @@ const Pin = ({ comment, open }: { comment: Comment; open: boolean }) => {
       <span
         className={cn(
           "flex size-5 shrink-0 items-center justify-center rounded-full bg-brand font-body font-semibold text-brand-foreground leading-4",
+          comment.kind === "behaviour" && "rounded-sm bg-component",
           open && "bg-brand-foreground text-brand"
         )}
       >
-        {comment.resolved ? (
-          <Check className="size-3" />
-        ) : (
-          initialOf(comment.author)
-        )}
+        <PinMark comment={comment} />
       </span>
       {open ? null : (
         <span className="hidden max-w-56 flex-col items-start gap-0.5 text-left font-body leading-4 group-hover:flex">
           <span className="font-medium">
-            {comment.author ?? "Comment"}
+            {comment.kind === "behaviour"
+              ? "Behaviour note"
+              : (comment.author ?? "Comment")}
             <span className="ml-1.5 font-normal text-muted-foreground">
               {relativeTime(comment.createdAt)}
               {comment.replies.length > 0
@@ -418,15 +431,36 @@ const ReplyInput = ({ commentId }: { commentId: string }) => {
   );
 };
 
-/** Where a new comment is written, next to the spot it was placed on. */
+/**
+ * Where a new comment is written, next to the spot it was placed on: a comment on the design, or
+ * a behaviour note (ADR 0030), what the code must do that the design cannot show.
+ */
 const Composer = () => {
   const cancel = () => useComments.getState().setDraft(null);
+  const [kind, setKind] = useState<"comment" | "behaviour">("comment");
   return (
     <div className={cardClass} onPointerDown={stop}>
+      <Segmented
+        onChange={setKind}
+        options={[
+          { label: "Comment", value: "comment" as const },
+          {
+            label: "Behaviour note",
+            title:
+              "What the code must do that the design cannot show: it goes to the code when the page is implemented",
+            value: "behaviour" as const,
+          },
+        ]}
+        value={kind}
+      />
       <TextInput
         onCancel={cancel}
-        onSubmit={postDraft}
-        placeholder="Add a comment"
+        onSubmit={(text) => postDraft(text, kind)}
+        placeholder={
+          kind === "behaviour"
+            ? "Only admins can delete; disabled until the form is valid…"
+            : "Add a comment"
+        }
         submitLabel="Post"
       />
     </div>

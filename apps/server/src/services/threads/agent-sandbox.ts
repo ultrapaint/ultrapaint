@@ -94,6 +94,11 @@ export class AgentSandbox extends Context.Service<
       readonly config: AgentConfig;
       readonly root: string;
       readonly tmpDir: string;
+      /**
+       * The only part of the repository the agent may write, when not all of it: a design
+       * thread's designs directory (ADR 0030).
+       */
+      readonly writable?: string | undefined;
     }) => Effect.Effect<AgentSandboxSession>;
   }
 >()("ultrapaint/server/AgentSandbox") {
@@ -283,7 +288,12 @@ export class AgentSandbox extends Context.Service<
         return AgentSandbox.of({
           available,
           problem,
-          session: Effect.fnUntraced(function* ({ config, root, tmpDir }) {
+          session: Effect.fnUntraced(function* ({
+            config,
+            root,
+            tmpDir,
+            writable,
+          }) {
             const base: AgentLaunch = {
               args: config.args,
               command: config.command,
@@ -307,6 +317,12 @@ export class AgentSandbox extends Context.Service<
              * symlink (`/tmp/app` is `/private/tmp/app`) needs its real name allowed as well.
              */
             const [, ...rootAliases] = yield* bothNames(root);
+            // A design thread writes its designs only: the repository is read-only around them.
+            const confined =
+              writable !== undefined &&
+              path.resolve(writable) !== path.resolve(root)
+                ? yield* bothNames(writable)
+                : null;
             const policy = {
               agentDirs: yield* resolveAll([
                 ...stateDirs.map((dir) => dir.replace(TRAILING_SLASH_RE, "")),
@@ -315,10 +331,11 @@ export class AgentSandbox extends Context.Service<
               hidden,
               home,
               // Under every name the repository goes by, like the repository itself.
-              readOnly: [root, ...rootAliases].map((name) =>
-                path.join(name, ".git")
-              ),
+              readOnly: confined
+                ? [root, ...rootAliases]
+                : [root, ...rootAliases].map((name) => path.join(name, ".git")),
               reads,
+              ...(confined && { rewritable: confined }),
               root,
               scratch,
               tmpDir,

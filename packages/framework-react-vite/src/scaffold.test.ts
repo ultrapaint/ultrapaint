@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
+import { buildCatalogue, catalogueSourceFiles } from "./catalogue-extract.ts";
 import { detect } from "./detect.ts";
 import { scaffold } from "./scaffold.ts";
 
@@ -21,6 +22,26 @@ const written = (files: Readonly<Record<string, string>>) => {
   }
   return root;
 };
+
+const { files: app } = scaffold({ dir: ".", name: "x", tokens: {} });
+const ui = (name: string) => String(app[`src/components/ui/${name}.tsx`]);
+
+/** Every `data-slot` a source marks, in order. */
+const slotsOf = (source: string) =>
+  [...source.matchAll(/data-slot="([a-z-]+)"/g)].map(([, slot]) => slot);
+
+/** React's types as far as the catalogue needs them: what a component returns, what it takes. */
+const REACT_TYPES = `export = React;
+export as namespace React;
+declare namespace React {
+  interface ReactElement { props: unknown }
+  type ComponentProps<T extends string> = { className?: string; children?: unknown };
+  namespace JSX {
+    interface Element extends ReactElement {}
+    interface IntrinsicElements { [name: string]: unknown }
+  }
+}
+`;
 
 describe("a new application", () => {
   it("is one the setup recognises: the app, its own components, its stylesheet", () => {
@@ -57,5 +78,134 @@ describe("a new application", () => {
     ];
     expect(starter).toContain("--color-primary: #2563eb;");
     expect(starter).toContain(".dark {");
+  });
+
+  it("depends on what its components import", () => {
+    const pkg = JSON.parse(String(app["package.json"]));
+    expect(pkg.dependencies).toMatchObject({
+      "@base-ui/react": "^1.8.0",
+      "class-variance-authority": "^0.7.1",
+      clsx: "^2.1.1",
+      react: expect.any(String),
+      "react-dom": expect.any(String),
+      "tailwind-merge": "^3.7.0",
+    });
+    expect(app["src/lib/cn.ts"]).toContain("twMerge(clsx(inputs))");
+  });
+});
+
+describe("its components", () => {
+  it("write their variants in a cva, with the defaults, as shadcn does", () => {
+    for (const [name, axes] of [
+      ["button", ["size", "variant"]],
+      ["badge", ["variant"]],
+    ] as const) {
+      const source = ui(name);
+      expect(source).toContain(
+        'import { cva, type VariantProps } from "class-variance-authority";'
+      );
+      expect(source).toContain(`const ${name}Variants = cva(`);
+      expect(source).toContain("variants: {");
+      expect(source).toContain("defaultVariants: {");
+      for (const axis of axes) {
+        expect(source).toContain(`${axis}: "default",`);
+      }
+      expect(source).toContain(`VariantProps<typeof ${name}Variants>`);
+      expect(source).toContain('import { cn } from "@/lib/cn";');
+    }
+  });
+
+  it("mark every part with data-slot", () => {
+    expect(slotsOf(ui("button"))).toEqual(["button"]);
+    expect(slotsOf(ui("badge"))).toEqual(["badge"]);
+    expect(slotsOf(ui("input"))).toEqual(["input"]);
+    expect(slotsOf(ui("label"))).toEqual(["label"]);
+    expect(slotsOf(ui("textarea"))).toEqual(["textarea"]);
+    expect(slotsOf(ui("card"))).toEqual([
+      "card",
+      "card-header",
+      "card-title",
+      "card-description",
+      "card-content",
+      "card-footer",
+    ]);
+    expect(slotsOf(ui("checkbox"))).toEqual(["checkbox", "checkbox-indicator"]);
+    expect(slotsOf(ui("dialog"))).toEqual(
+      expect.arrayContaining([
+        "dialog",
+        "dialog-trigger",
+        "dialog-overlay",
+        "dialog-content",
+        "dialog-close",
+        "dialog-title",
+        "dialog-description",
+      ])
+    );
+    expect(slotsOf(ui("select"))).toEqual(
+      expect.arrayContaining([
+        "select",
+        "select-trigger",
+        "select-value",
+        "select-content",
+        "select-item",
+      ])
+    );
+    expect(slotsOf(ui("tabs"))).toEqual([
+      "tabs",
+      "tabs-list",
+      "tabs-trigger",
+      "tabs-content",
+    ]);
+  });
+
+  it("build the dialog, select, tabs and checkbox on Base UI", () => {
+    for (const [name, part] of [
+      ["dialog", "Dialog"],
+      ["select", "Select"],
+      ["tabs", "Tabs"],
+      ["checkbox", "Checkbox"],
+    ] as const) {
+      expect(ui(name)).toContain(
+        `import { ${part} as ${part}Primitive } from "@base-ui/react/${name}";`
+      );
+    }
+    expect(ui("checkbox")).toContain("data-checked:bg-primary");
+    expect(ui("select")).toContain("data-highlighted:bg-accent");
+    expect(ui("tabs")).toContain("data-active:bg-background");
+  });
+
+  it("are read by the catalogue: the button's variant classes and defaults", () => {
+    const root = written({
+      ...app,
+      "node_modules/@types/react/index.d.ts": REACT_TYPES,
+      "node_modules/@types/react/package.json": JSON.stringify({
+        name: "@types/react",
+        types: "index.d.ts",
+      }),
+    });
+    const ctx = {
+      componentPackages: [],
+      libraryDirs: [path.join(root, "src/components")],
+      root,
+    };
+    const { components } = buildCatalogue(ctx, catalogueSourceFiles(ctx));
+    const button = components.find((c) => c.name === "Button");
+    expect(button?.importFrom).toBe("@/components/ui/button");
+    expect(Object.keys(button?.styles?.classes.variant ?? {}).sort()).toEqual([
+      "default",
+      "destructive",
+      "ghost",
+      "link",
+      "outline",
+      "secondary",
+    ]);
+    expect(button?.styles?.classes.variant?.default).toContain("bg-primary");
+    expect(button?.styles?.defaults).toEqual({
+      size: "default",
+      variant: "default",
+    });
+    expect(
+      components.find((c) => c.name === "Badge")?.styles?.defaults
+    ).toEqual({ variant: "default" });
   });
 });

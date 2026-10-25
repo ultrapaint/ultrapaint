@@ -27,12 +27,14 @@ import { FigmaImportService } from "./services/figma-import.ts";
 import { ProjectFramework } from "./services/framework.ts";
 import { GitService } from "./services/git.ts";
 import { HostManager } from "./services/host.ts";
+import { ImplementationService } from "./services/implementation.ts";
 import { PagePngs } from "./services/page-pngs.ts";
 import { PagesService } from "./services/pages.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
 import type { Screenshots } from "./services/screenshots.ts";
 import { SettingsService } from "./services/settings.ts";
 import { SkillsService } from "./services/skills.ts";
+import { SpecService } from "./services/specs.ts";
 import { Storage } from "./services/storage.ts";
 import { ProjectStyleSystem } from "./services/style-system.ts";
 import { Thumbnails } from "./services/thumbnails.ts";
@@ -48,12 +50,14 @@ export type ProjectServices =
   | FigmaImportService
   | GitService
   | HostManager
+  | ImplementationService
   | PagePngs
   | ProjectFramework
   | ProjectStyleSystem
   | RepoPaths
   | PagesService
   | SkillsService
+  | SpecService
   | Thumbnails;
 
 type ProjectRequirements =
@@ -69,6 +73,9 @@ type ProjectRequirements =
 const projectLayer = (settings: Settings) =>
   // Pictures of the pages, drawn from the documents as they change.
   PagePngs.layer.pipe(
+    // The link to the code reads the pages, their documents and the specs (ADR 0030).
+    Layer.provideMerge(ImplementationService.layer),
+    Layer.provideMerge(SpecService.layer),
     Layer.provideMerge(
       Layer.mergeAll(DocumentService.layer, FigmaImportService.layer)
     ),

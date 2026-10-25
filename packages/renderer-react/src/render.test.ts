@@ -1,9 +1,11 @@
 // @vitest-environment happy-dom
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { InstanceDrawn } from "@ultrapaint/contracts/preview";
+import { type ComponentSpec, emptySpec } from "@ultrapaint/contracts/specs";
 import type {
   ComponentRegistry,
   Mounted,
+  RenderRequest,
 } from "@ultrapaint/framework-api/browser";
 import { type CSSProperties, createElement, type ReactNode } from "react";
 import { afterEach, describe, expect, it } from "vitest";
@@ -70,7 +72,10 @@ afterEach(() => {
 });
 
 /** Draws a node and waits until it is on the screen and the instances are reported. */
-const draw = async (root: DesignNode) => {
+const draw = async (
+  root: DesignNode,
+  extra: Pick<RenderRequest, "specs" | "styles"> = {}
+) => {
   const canvas = document.createElement("div");
   document.body.append(canvas);
   const reports: Record<string, InstanceDrawn> = {};
@@ -92,7 +97,13 @@ const draw = async (root: DesignNode) => {
       },
       canvas
     );
-    mounted.render({ designSystem: null, mode: "page", renderId: 1, root });
+    mounted.render({
+      designSystem: null,
+      mode: "page",
+      renderId: 1,
+      root,
+      ...extra,
+    });
   });
   await rendered;
   await frame();
@@ -223,5 +234,67 @@ describe("an instance", () => {
     );
     at("card")?.click();
     expect(navigated).toEqual(["/pricing"]);
+  });
+});
+
+describe("the design's stylesheet and specs (ADR 0028, 0029)", () => {
+  it("marks every instance with its component and its variant props", async () => {
+    const { at } = await draw(
+      column([
+        instance("card", "Card", { props: { size: "lg", variant: "outline" } }),
+      ])
+    );
+    const card = at("card");
+    expect(card?.getAttribute("data-ed-c")).toBe("Card");
+    expect(card?.getAttribute("data-ed-v")).toBe("size:lg variant:outline");
+  });
+
+  it("puts the tokens' CSS and the specs' after everything else in the document", async () => {
+    const spec: ComponentSpec = {
+      ...emptySpec("Card", FROM),
+      base: { root: { fill: "#ff0000" } },
+    };
+    await draw(column([instance("card", "Card")]), {
+      specs: [spec],
+      styles: ":root { --primary: #123456; }",
+    });
+    const sheet = document.head.lastElementChild;
+    expect(sheet?.hasAttribute("data-ed-design")).toBe(true);
+    expect(sheet?.textContent).toContain("--primary: #123456");
+    expect(sheet?.textContent).toContain('[data-ed-c="Card"]');
+    expect(sheet?.textContent).toContain("background-color: #ff0000");
+  });
+
+  it("draws a draft from its tree, only its instance selectable", async () => {
+    const draft: ComponentSpec = {
+      ...emptySpec("Promo", "#draft"),
+      draft: {
+        children: [
+          { id: "d-title", role: "heading", text: "Title", type: "text" },
+          { id: "d-body", role: "paragraph", text: "Body", type: "text" },
+        ],
+        id: "d-root",
+        type: "column",
+      },
+    };
+    const { at, canvas } = await draw(
+      column([
+        {
+          component: "Promo",
+          from: "#draft",
+          id: "promo",
+          text: "Spring sale",
+          type: "instance",
+        },
+      ]),
+      { specs: [draft] }
+    );
+    const promo = at("promo");
+    expect(promo?.getAttribute("data-ed-c")).toBe("Promo");
+    expect(promo?.textContent).toBe("Spring saleBody");
+    expect(at("d-title")).toBeNull();
+    expect(
+      canvas.querySelector('[data-ed-draft-node="d-body"]')?.textContent
+    ).toBe("Body");
   });
 });

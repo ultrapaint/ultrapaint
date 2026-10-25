@@ -4,6 +4,7 @@
  */
 import type { Page, ViewportPreset } from "@ultrapaint/contracts/pages";
 import { slugOf } from "@ultrapaint/shared/path";
+import { toast } from "sonner";
 import { confirmDialog, promptDialog } from "../components/dialogs.tsx";
 import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
@@ -206,5 +207,102 @@ export const newPage = async () => {
   });
   if (name !== null && name.trim() !== "") {
     await createPage({ name });
+  }
+};
+
+/**
+ * The page drawn again in a state (ADR 0030): empty, loading, an error, a dialog open. A link
+ * opens it; implementing the page implements it as a state of the same screen.
+ */
+export const newState = async (page: Page, state?: string) => {
+  if (!ensureEditable()) {
+    return;
+  }
+  const name =
+    state ??
+    (await promptDialog({
+      confirmLabel: "Create",
+      description:
+        "The page again in another state of the same screen: empty, loading, an error, a dialog open. A link can open it, and implementing the page implements it as that state.",
+      placeholder: "empty",
+      title: `New state of ${page.name}`,
+    }));
+  if (name === null || name.trim() === "") {
+    return;
+  }
+  try {
+    const created = await api().request("pages.createState", {
+      id: page.id,
+      state: name.trim(),
+    });
+    useEditor.getState().openPage(created.id, { push: false });
+  } catch (error) {
+    reportError(error);
+  }
+};
+
+/** Marks a page ready to implement, or not (ADR 0030). */
+export const setPageReady = async (page: Page, ready: boolean) => {
+  try {
+    await api().request("implementation.setReady", { ready, target: page.id });
+    toast.success(
+      ready
+        ? `${page.name} is ready to implement.`
+        : `${page.name} is a draft again.`
+    );
+  } catch (error) {
+    reportError(error);
+  }
+};
+
+/**
+ * Marks a design implemented by the files the user names, as it is now (ADR 0030): the next
+ * implementation is told what changed since.
+ */
+export const markImplemented = async (
+  target: string,
+  name: string,
+  files: readonly string[] = []
+) => {
+  const given = await promptDialog({
+    confirmLabel: "Mark implemented",
+    defaultValue: files.join(", "),
+    description:
+      "The files of the repository that implement it, separated by commas: src/routes/orders.tsx. The editor then tells you when either side changes.",
+    placeholder: "src/routes/orders.tsx",
+    title: `${name} is implemented by`,
+  });
+  if (given === null) {
+    return;
+  }
+  const named = given
+    .split(",")
+    .map((f) => f.trim())
+    .filter(Boolean);
+  if (named.length === 0) {
+    return;
+  }
+  try {
+    await api().request("implementation.mark", { files: named, target });
+    toast.success(`${name} is marked implemented.`);
+  } catch (error) {
+    reportError(error);
+  }
+};
+
+/** Takes a design's link to its code off: it is a draft again. */
+export const unlinkImplementation = async (target: string, name: string) => {
+  const ok = await confirmDialog({
+    confirmLabel: "Unlink",
+    description: `What implements ${name} is forgotten, and how it was then: the next implementation starts from the design as a whole.`,
+    title: `Unlink ${name} from its code?`,
+  });
+  if (!ok) {
+    return;
+  }
+  try {
+    await api().request("implementation.unbind", { target });
+  } catch (error) {
+    reportError(error);
   }
 };

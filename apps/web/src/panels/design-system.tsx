@@ -60,6 +60,7 @@ import { useDesignSystem } from "../state/design-system.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
 import { useProject } from "../state/project.ts";
 import { useSync } from "../state/sync.ts";
+import { ComponentsView } from "./design-components.tsx";
 import { DesignMdView, SectionProse } from "./design-md-view.tsx";
 import { SyncView } from "./sync.tsx";
 
@@ -668,7 +669,7 @@ export const DesignSystemPanel = () => {
   const loaded = useDesignSystem((s) => s.loaded);
   const detecting = useDesignSystem((s) => s.detecting);
   const [q, setQuery] = useState("");
-  const [tab, setTab] = useState<"tokens" | "notes">("tokens");
+  const [tab, setTab] = useState<"tokens" | "components" | "notes">("tokens");
   const themes = designSystem?.themes ?? ["light"];
   const [theme, setTheme] = useState(themes[0] ?? "light");
   const setupShown = useDesignSystemSetup((s) => s.shown);
@@ -756,11 +757,12 @@ export const DesignSystemPanel = () => {
         </IconButton>
       </div>
       <div className="flex items-center gap-2 border-b px-2 py-1.5">
-        <div className="w-36">
+        <div className="w-60">
           <Segmented
             onChange={setTab}
             options={[
               { label: "Tokens", value: "tokens" },
+              { label: "Components", value: "components" },
               { label: "DESIGN.md", value: "notes" },
             ]}
             value={tab}
@@ -789,9 +791,9 @@ export const DesignSystemPanel = () => {
             q={q2}
             theme={theme}
           />
-        ) : (
-          <DesignMdView document={document} />
-        )}
+        ) : null}
+        {tab === "components" ? <ComponentsView q={q2} /> : null}
+        {tab === "notes" ? <DesignMdView document={document} /> : null}
       </div>
       {designSystem.source ? (
         <div

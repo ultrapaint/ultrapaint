@@ -12,6 +12,7 @@ import type {
   RequestPermissionResponse,
 } from "@ultrapaint/acp/acp-agent";
 import type { TerminalManager } from "@ultrapaint/acp/terminal-manager";
+import { ForbiddenPath } from "@ultrapaint/contracts/errors";
 import { Clock, Deferred, Effect, FileSystem, Path } from "effect";
 import { AppLog } from "../../app-log.ts";
 import { makeWriteAtomic } from "../../atomic-write.ts";
@@ -177,7 +178,13 @@ export const makeAgentClient = Effect.fnUntraced(function* (
     agentName: string,
     paths: RepoPaths["Service"],
     terminals: TerminalManager,
-    session: () => Live
+    session: () => Live,
+    /**
+     * The only directory the agent may write through the editor, when not the whole repository:
+     * a design thread's designs directory (ADR 0030). The sandbox closes the rest to its own
+     * tools; this closes it to the writes the editor makes for it.
+     */
+    writable?: string
   ): AcpHandlers => ({
     onElicitation: (request) => onElicitation(threadId, session(), request),
     onPermission: (request) => onPermission(threadId, session(), request),
@@ -218,6 +225,15 @@ export const makeAgentClient = Effect.fnUntraced(function* (
     writeTextFile: Effect.fn("ThreadService.writeTextFile")(
       function* (request) {
         const abs = yield* paths.resolve(request.path);
+        if (
+          writable !== undefined &&
+          abs !== writable &&
+          !abs.startsWith(`${writable}${path.sep}`)
+        ) {
+          return yield* new ForbiddenPath({
+            message: `${paths.relative(abs)} is outside the designs directory: this thread designs, and writes only ${paths.relative(writable)}. The application's code is an implement thread's (the Implement button).`,
+          });
+        }
         yield* writeAtomic(abs, request.content);
         yield* events.publish("file.changed", {
           file: paths.relative(abs),

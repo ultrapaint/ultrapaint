@@ -128,13 +128,13 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           const named = yield* client["sync.tokens"]({ source: "figma" });
           assert.deepInclude(
             (named?.diffs ?? []).map((d) => [d.variable, d.name, d.outcome]),
-            ["Tokens/Color/Accent", "color-highlight", "to-code"]
+            ["Tokens/Color/Accent", "color-highlight", "to-design"]
           );
 
           // The user keeps the code's muted and takes Figma's radius.
           const applied = yield* client["sync.apply"]({
             decisions: [
-              { name: "color-muted", take: "code" },
+              { name: "color-muted", take: "design" },
               { name: "radius-card", take: "source" },
             ],
             source: "figma",
@@ -164,7 +164,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
             (again?.diffs ?? []).map((d) => [d.name, d.outcome])
           );
           assert.deepStrictEqual(next, {
-            "color-brand": "to-code",
+            "color-brand": "to-design",
             "color-highlight": "same",
             "color-muted": "source-behind",
             "radius-card": "same",

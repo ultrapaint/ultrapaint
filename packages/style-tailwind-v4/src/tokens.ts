@@ -40,7 +40,7 @@ const ALIAS_RE = /^var\(\s*(--[\w-]+)\s*\)$/;
 const NODE_MODULES_RE = /[\\/]node_modules[\\/]/;
 
 /** The variable a value is an alias of, `var(--primary)`; undefined for anything else. */
-const aliasOf = (value: string): string | undefined => {
+export const aliasOf = (value: string): string | undefined => {
   const match: RegExpExecArray | null = ALIAS_RE.exec(value);
   return match?.[1];
 };
@@ -54,10 +54,10 @@ const customPropertiesOf = (file: string, text: string) => {
   };
 };
 
-const isTheme = (prelude: string) => prelude.includes("@theme");
+export const isTheme = (prelude: string) => prelude.includes("@theme");
 
 /** The theme a block of plain variables gives values for: `""` for the default, or none. */
-const themeKeyOf = (prelude: string): string | null => {
+export const themeKeyOf = (prelude: string): string | null => {
   const named = themeOf(prelude);
   if (named) {
     return named;
@@ -173,7 +173,7 @@ const defaultsOf = (
 };
 
 /** What the reading keeps beyond the tokens: what a write needs to find its place. */
-interface Reading extends Declared {
+export interface Reading extends Declared {
   /** Every stylesheet read, absolute, in the order Tailwind reads them. */
   readonly files: readonly string[];
   readonly source: TokenSource;
@@ -195,7 +195,7 @@ const resolverOf =
       );
     });
 
-const read = (ctx: DesignSystemContext): Reading => {
+export const read = (ctx: DesignSystemContext): Reading => {
   const entries = hostEntries(ctx);
   const found = collect(entries, ctx.anchorDir);
   const notes =
@@ -294,7 +294,7 @@ interface Splice {
 }
 
 /** The selector a theme's values are written under when it has no block yet. */
-const selectorOf = (theme: string) =>
+export const selectorOf = (theme: string) =>
   theme === "dark" ? ".dark" : `[data-theme="${theme}"]`;
 
 /** Where a declaration goes in a block: on a line of its own before the `}`, indented. */

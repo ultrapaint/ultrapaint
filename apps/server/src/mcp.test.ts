@@ -282,6 +282,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             "get_context",
             "get_document_format",
             "get_screenshot",
+            "handoff",
             "list_comments",
             "list_components",
             "list_figma_imports",

@@ -40,8 +40,18 @@ const decodeComments = Schema.decodeUnknownEffect(
 const emptyList = (): CommentList => ({ comments: [], version: 1 });
 
 /** The text of `comments.json`, the same whoever writes it. */
+/** The file as it is written: a plain comment says nothing of its kind, as before there were kinds. */
 const renderComments = (list: CommentList) =>
-  `${JSON.stringify(list, null, 2)}\n`;
+  `${JSON.stringify(
+    {
+      ...list,
+      comments: list.comments.map(({ kind, ...rest }) =>
+        kind === "behaviour" ? { ...rest, kind } : rest
+      ),
+    },
+    null,
+    2
+  )}\n`;
 
 type CommentsFailure = NotFound | Conflict | ForbiddenPath;
 
@@ -212,6 +222,7 @@ export class CommentsService extends Context.Service<
           createdAt: now,
           element: input.element,
           id: yield* makeId("comment"),
+          kind: input.kind ?? "comment",
           nodeId: input.nodeId,
           page: input.page,
           replies: [],
@@ -235,6 +246,7 @@ export class CommentsService extends Context.Service<
         return yield* change(input.canvas, input.id, (comment, now) =>
           Effect.succeed({
             ...comment,
+            kind: input.kind ?? comment.kind,
             resolved: input.resolved ?? comment.resolved,
             text: input.text?.trim() ?? comment.text,
             updatedAt: now,

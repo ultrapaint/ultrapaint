@@ -16,6 +16,7 @@ import type {
   Question,
   QueuedPrompt,
   Thread,
+  ThreadPurpose,
 } from "@ultrapaint/contracts/threads";
 import { Clock, Context, Deferred, Effect, Fiber, Layer } from "effect";
 import { makeId } from "../../ids.ts";
@@ -71,7 +72,8 @@ export class ThreadService extends Context.Service<
     /** Without an agent, the chat's default one. */
     readonly create: (
       agentId?: string,
-      title?: string
+      title?: string,
+      purpose?: ThreadPurpose
     ) => Effect.Effect<Thread, ThreadFailure>;
     readonly delete: (threadId: string) => Effect.Effect<void>;
     /** Sends a prompt; while the agent works, it waits in the thread's queue instead. */
@@ -243,7 +245,8 @@ export class ThreadService extends Context.Service<
 
       const create = Effect.fn("ThreadService.create")(function* (
         agentId?: string,
-        title?: string
+        title?: string,
+        purpose?: ThreadPurpose
       ) {
         const known = yield* agents.list;
         const defaults = yield* preferences.defaults;
@@ -265,6 +268,7 @@ export class ThreadService extends Context.Service<
           agentId: agent.id,
           createdAt: now,
           id: yield* makeId("thread"),
+          ...(purpose === "implement" && { purpose }),
           status: "idle",
           title: title ?? UNTITLED,
           updatedAt: now,

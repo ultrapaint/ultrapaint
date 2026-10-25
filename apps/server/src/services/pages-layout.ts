@@ -81,10 +81,12 @@ const sortedKeys = <T>(record: Readonly<Record<string, T>>) =>
 export const renderCanvas = (layout: CanvasLayout) => {
   const nodes = layout.nodes ?? [];
   const variants = layout.variants ?? [];
+  const states = layout.states ?? [];
   return serialiseDocument({
     ...(layout.name !== undefined && { name: layout.name }),
     ...(layout.home !== undefined && { home: layout.home }),
     ...(variants.length > 0 && { variants }),
+    ...(states.length > 0 && { states }),
     ...(layout.routes !== undefined && { routes: sortedKeys(layout.routes) }),
     frames: sortedKeys(layout.frames),
     ...(nodes.length > 0 && { nodes }),
@@ -147,16 +149,23 @@ export const canvasIdsIn = (files: readonly string[]): string[] => {
   return ids.length === 0 ? [ROOT_CANVAS] : ids;
 };
 
-/** A page from its canvas, its path inside it and the canvas's routes. */
+/**
+ * A page from its canvas, its path inside it and the canvas's routes and states. A `@name` file
+ * whose name the canvas lists among its states is its base page in that state (ADR 0030): it
+ * serves no URL, a link reaches it by its file.
+ */
 export const pageOf = (
   canvas: string,
   pagePath: string,
   id: string,
   file: string,
-  routes: CanvasLayout["routes"]
+  layout: Pick<CanvasLayout, "routes" | "states">
 ): Page => {
-  const route = pageRouteOf(routes, pagePath);
-  const variant = variantOf(pagePath);
+  const suffix = variantOf(pagePath);
+  const state =
+    suffix !== null && (layout.states ?? []).includes(suffix) ? suffix : null;
+  const route =
+    state === null ? pageRouteOf(layout.routes, pagePath) : undefined;
   return {
     canvas,
     file,
@@ -164,7 +173,7 @@ export const pageOf = (
     name: pageNameOf(pagePath),
     path: pagePath,
     ...(route !== undefined && { route }),
-    ...(variant !== null && { variant }),
+    ...(state === null ? suffix !== null && { variant: suffix } : { state }),
   };
 };
 
@@ -197,7 +206,7 @@ export const pageListOf = (input: {
           pathInCanvas(canvas, rel),
           rel,
           input.fileOf(rel),
-          input.layouts[canvas]?.routes
+          input.layouts[canvas] ?? {}
         )
       );
     }
@@ -221,6 +230,9 @@ export const pageListOf = (input: {
       id,
       name: layout.name ?? (id === ROOT_CANVAS ? input.rootName : humanise(id)),
       variants: [...new Set([...listed, ...drawn])],
+      ...((layout.states ?? []).length > 0 && {
+        states: [...(layout.states ?? [])],
+      }),
     };
   });
   return { canvases: orderCanvases(canvases, input.order), pages };

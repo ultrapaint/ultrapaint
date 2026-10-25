@@ -3,6 +3,7 @@ import { cn } from "cn";
 import {
   CheckCheck,
   CircleCheck,
+  Cog,
   Eye,
   EyeOff,
   MessageCircle,
@@ -150,13 +151,24 @@ const Item = ({ comment }: { comment: Comment }) => {
         }
         type="button"
       />
-      <span className="flex size-5 shrink-0 items-center justify-center rounded-full rounded-bl-none bg-brand font-body font-semibold text-brand-foreground leading-4">
-        {initialOf(comment.author)}
+      <span
+        className={cn(
+          "flex size-5 shrink-0 items-center justify-center rounded-full rounded-bl-none bg-brand font-body font-semibold text-brand-foreground leading-4",
+          comment.kind === "behaviour" && "rounded-sm bg-component"
+        )}
+      >
+        {comment.kind === "behaviour" ? (
+          <Cog className="size-3" />
+        ) : (
+          initialOf(comment.author)
+        )}
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex items-baseline gap-1.5">
           <span className="truncate font-medium text-foreground">
-            {comment.author ?? "Someone"}
+            {comment.kind === "behaviour"
+              ? "Behaviour note"
+              : (comment.author ?? "Someone")}
           </span>
           <span className="shrink-0 font-body text-muted-foreground">
             {relativeTime(comment.createdAt)}

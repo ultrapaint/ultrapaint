@@ -89,7 +89,14 @@ export const pageOfComment = (comment: Comment): Page | undefined =>
 
 const currentCanvas = () => useComments.getState().canvas ?? "";
 
-export const postDraft = async (text: string) => {
+/**
+ * Posts the comment being written; a behaviour note (ADR 0030) says what the code must do that
+ * the design cannot show, and goes to the code when the page is implemented.
+ */
+export const postDraft = async (
+  text: string,
+  kind: "comment" | "behaviour" = "comment"
+) => {
   const { draft } = useComments.getState();
   const page = pagesOfCanvas(useEditor.getState().canvas).find(
     (p) => p.id === draft?.pageId
@@ -101,6 +108,7 @@ export const postDraft = async (text: string) => {
     const comment = await api().request("comments.create", {
       canvas: currentCanvas(),
       element: draft.element,
+      kind,
       nodeId: draft.nodeId,
       page: page.path,
       text: text.trim(),
@@ -116,7 +124,11 @@ export const postDraft = async (text: string) => {
 
 export const updateComment = (
   id: string,
-  change: { resolved?: boolean; text?: string }
+  change: {
+    kind?: "comment" | "behaviour";
+    resolved?: boolean;
+    text?: string;
+  }
 ) =>
   api()
     .request("comments.update", { canvas: currentCanvas(), id, ...change })

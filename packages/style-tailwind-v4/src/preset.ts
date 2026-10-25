@@ -5,19 +5,23 @@
  */
 import type { StyleSystem } from "@ultrapaint/framework-api/node";
 import { codeRules } from "./code-rules.ts";
+import { componentSpec } from "./component-spec.ts";
 import { componentStyle } from "./component-style.ts";
 import { scanDesignSystem } from "./design-system-scan.ts";
 import { detectStyles } from "./detect.ts";
 import { previewCss } from "./preview-css.ts";
+import { previewTokenCss } from "./preview-tokens.ts";
 import { readTokens, writeTokens } from "./tokens.ts";
 import { usage } from "./usage-rewrite.ts";
 
 export const styleSystem: StyleSystem = {
   codeRules,
+  componentSpec,
   componentStyle,
   detect: detectStyles,
   id: "tailwind-v4",
   previewCss,
+  previewTokenCss,
   readTokens,
   scan: scanDesignSystem,
   usage,

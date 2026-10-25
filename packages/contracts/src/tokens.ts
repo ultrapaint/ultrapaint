@@ -137,3 +137,13 @@ export interface ComponentStyle {
   readonly textColor?: string;
   readonly width?: string;
 }
+
+/**
+ * A token's value as the design holds it (ADR 0028), for one theme: `theme` is left out for the
+ * default theme. The value is CSS, as the design writes it.
+ */
+export interface DesignTokenValue {
+  readonly name: string;
+  readonly theme?: string;
+  readonly value: string;
+}

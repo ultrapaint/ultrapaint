@@ -6,6 +6,8 @@ import {
   type DesignSystem,
   type DocumentBaseline,
   designSystemTokenNames,
+  mapTokens,
+  type Token,
 } from "@ultrapaint/contracts/design-system";
 import type {
   DesignSystemSetup,
@@ -49,7 +51,7 @@ export const driftOf = (
   ds: DesignSystem | null,
   tokens: readonly SourceToken[],
   components: readonly string[],
-  /** Whether the stylesheets were read at all: without them every token would look gone. */
+  /** Whether the stylesheets were read at all: without them nothing can be said of tokens. */
   read: boolean
 ): SyncDrift => {
   if (!ds) {
@@ -57,7 +59,6 @@ export const driftOf = (
   }
   const omitted = new Set(ds.omitted ?? []);
   const listed = new Set(designSystemTokenNames(ds));
-  const declared = new Set(tokens.map((t) => t.name));
   const described = new Set(Object.keys(ds.components ?? {}));
   const have = new Set(components);
   return {
@@ -68,12 +69,13 @@ export const driftOf = (
     componentsUndescribed: components.filter(
       (c) => !(described.has(c) || omitted.has(c))
     ),
-    tokensGone: read
-      ? [...listed].filter((t) => !(declared.has(t) || omitted.has(t)))
+    // A token the code does not declare is waiting for an export, not drift (ADR 0028).
+    tokensGone: [],
+    tokensUndescribed: read
+      ? tokens
+          .filter((t) => t.own && !(listed.has(t.name) || omitted.has(t.name)))
+          .map((t) => t.name)
       : [],
-    tokensUndescribed: tokens
-      .filter((t) => t.own && !(listed.has(t.name) || omitted.has(t.name)))
-      .map((t) => t.name),
   };
 };
 
@@ -189,13 +191,15 @@ const settingsSteps = (facts: SyncFacts): SyncStep[] => {
 
 const figmaStepOf = (facts: SyncFacts, synced: boolean) => {
   const name = facts.figma?.name;
+  // Without a design system yet, Figma's tokens go into the code it is then made from.
+  const target = facts.designSystem ? "the design system" : "the code";
   return step(
     "figma-tokens",
-    "Match Figma's tokens to the code's",
+    `Match Figma's tokens to ${target}'s`,
     synced ? "done" : "attention",
     synced
-      ? `${name ?? "The Figma file"} and the code agree on every token matched.`
-      : `Each variable and style of ${name ?? "the Figma file"} is matched to a token of the code, added under a name you choose, or left out: rules take the plain matches, an agent the rest with you. Then what changed on one side is taken to the other, and you pick where both changed.`
+      ? `${name ?? "The Figma file"} and ${target} agree on every token matched.`
+      : `Each variable and style of ${name ?? "the Figma file"} is matched to a token of ${target}, added under a name you choose, or left out: rules take the plain matches, an agent the rest with you. Then what Figma changed is taken, and you pick where both changed.`
   );
 };
 
@@ -236,7 +240,7 @@ const documentSteps = (facts: SyncFacts): SyncStep[] => {
         "design-md",
         "Write DESIGN.md",
         "attention",
-        "DESIGN.md is the design system in the open format every agent reads, at the root of the repository: its front matter holds the tokens, kept in step with the code, and an agent describes the rest."
+        "DESIGN.md is the design system in the open format every agent reads, at the root of the repository: its front matter holds the tokens, kept in step with the design system, and an agent describes the rest."
       ),
     ];
   }
@@ -244,9 +248,9 @@ const documentSteps = (facts: SyncFacts): SyncStep[] => {
     return [
       step(
         "design-tokens",
-        "Take DESIGN.md's tokens into the code",
+        "Take DESIGN.md's tokens into the design system",
         "attention",
-        `${plural(facts.designMd.held, "value")} of ${facts.designMd.path}'s front matter changed there, or differ from the code's. Each of its tokens is matched to a token of the code, added under a name you choose, or left out: rules take the plain matches, an agent the rest with you. Then what the document changed is taken into the code, and you pick where both changed.`
+        `${plural(facts.designMd.held, "value")} of ${facts.designMd.path}'s front matter changed there, or differ from the design system's. Each of its tokens is matched to a token of the design system, added under a name you choose, or left out: rules take the plain matches, an agent the rest with you. Then what the document changed is taken into the design system, and you pick where both changed.`
       ),
     ];
   }
@@ -286,8 +290,41 @@ const describeStepOf = (drift: SyncDrift, facts: SyncFacts) => {
     drifted || prose ? "attention" : "done",
     drifted || prose
       ? [lead, prose].filter(Boolean).join(" ")
-      : "The design system lists every token and component the code has. Values are always read from the code."
+      : "The design system lists every token and component the code has."
   );
+};
+
+/**
+ * The code against the design system (ADR 0028): what waits to be written to the code, what the
+ * code changed alone, and what changed on both sides.
+ */
+const codeStepsOf = (facts: SyncFacts): SyncStep[] => {
+  const counts = facts.codeTokens;
+  if (!(counts && facts.app)) {
+    return [];
+  }
+  if (counts.toCode + counts.toDesign + counts.conflicts === 0) {
+    return [];
+  }
+  const parts = [
+    counts.toCode > 0
+      ? `${plural(counts.toCode, "token")} of the design wait for the code`
+      : null,
+    counts.toDesign > 0
+      ? `${plural(counts.toDesign, "token")} changed in the code alone`
+      : null,
+    counts.conflicts > 0
+      ? `${plural(counts.conflicts, "token")} changed on both sides`
+      : null,
+  ].filter((p): p is string => p !== null);
+  return [
+    step(
+      "code-tokens",
+      "Bring the code up to the design",
+      "attention",
+      `${parts.join("; ")}. Export writes the design's values into the stylesheets; what the code changed is taken into the design or written over, and you pick where both changed.`
+    ),
+  ];
 };
 
 const stepsOf = (input: PlanInput): SyncStep[] => {
@@ -300,6 +337,7 @@ const stepsOf = (input: PlanInput): SyncStep[] => {
       ...head,
       ...documentSteps(facts),
       describeStepOf(drift, facts),
+      ...codeStepsOf(facts),
       ...(facts.figma
         ? [figmaStepOf(facts, figmaSynced), framesStepOf(true)]
         : []),
@@ -484,36 +522,39 @@ export const matchProblem = (
     : `${token.variable} is a ${token.kind} token and ${to} names a ${kind} one`;
 };
 
-/** What one token's value comes to, the source's against the code's and the last agreement's. */
+/**
+ * What one token's value comes to, the source's against the design system's and the last
+ * agreement's (ADR 0028).
+ */
 const outcomeOf = (
   source: string,
-  code: string | undefined,
+  design: string | undefined,
   base: { readonly code?: string; readonly source?: string } | null
 ): TokenOutcome => {
-  if (code !== undefined && sameValue(source, code)) {
+  if (design !== undefined && sameValue(source, design)) {
     return "same";
   }
-  if (code === undefined) {
-    // The code took out what was agreed: the source is behind.
-    return base?.code === undefined ? "to-code" : "source-behind";
+  if (design === undefined) {
+    // The design system took out what was agreed: the source is behind.
+    return base?.code === undefined ? "to-design" : "source-behind";
   }
   if (base?.source === undefined) {
     return "conflict";
   }
   const sourceChanged = !sameValue(source, base.source);
-  const codeChanged = !sameValue(code, base.code);
-  if (sourceChanged && !codeChanged) {
-    return "to-code";
+  const designChanged = !sameValue(design, base.code);
+  if (sourceChanged && !designChanged) {
+    return "to-design";
   }
-  if (codeChanged && !sourceChanged) {
+  if (designChanged && !sourceChanged) {
     return "source-behind";
   }
   return "conflict";
 };
 
 /**
- * A source's tokens against the code's, theme by theme, against what was agreed last. Only a
- * matched token is compared: an unmatched one is listed and left alone.
+ * A source's tokens against the design system's, theme by theme, against what was agreed last.
+ * Only a matched token is compared: an unmatched one is listed and left alone.
  */
 const compareSide = (
   side: readonly FigmaSide[],
@@ -554,7 +595,7 @@ const compareSide = (
         ...common,
         ...(base?.source !== undefined && { base: base.source }),
         by: match.by,
-        ...(current !== undefined && { code: current }),
+        ...(current !== undefined && { design: current }),
         name: match.to,
         outcome: outcomeOf(value, current, base),
       };
@@ -562,7 +603,7 @@ const compareSide = (
   );
 };
 
-/** Figma's tokens against the code's, against the last sync with this file (ADR 0025). */
+/** Figma's tokens against the design system's, against the last sync with this file (ADR 0025). */
 export const compareFigma = (
   figma: readonly FigmaSide[],
   code: readonly SourceToken[],
@@ -636,8 +677,8 @@ export const compareDocument = (
   );
 
 /**
- * The changes to the code a comparison comes to once the user has picked: everything the source
- * changed alone, and the conflicts the user gave to it, written in the code's units.
+ * The changes to the design system a comparison comes to once the user has picked: everything
+ * the source changed alone, and the conflicts the user gave to it, in the design system's units.
  */
 export const tokenChanges = (
   diffs: readonly TokenDiff[],
@@ -651,13 +692,13 @@ export const tokenChanges = (
   for (const d of diffs) {
     const key = baselineKey(d.name, d.theme);
     const taken =
-      d.outcome === "to-code" ||
+      d.outcome === "to-design" ||
       (d.outcome === "conflict" && picked.get(key) === "source");
-    if (taken && !changes.has(key)) {
+    if (taken && d.source !== undefined && !changes.has(key)) {
       changes.set(key, {
         name: d.name,
         ...(d.theme && { theme: d.theme }),
-        value: inCodeUnits(d.source, d.code),
+        value: inCodeUnits(d.source, d.design),
       });
     }
   }
@@ -697,6 +738,315 @@ export const listTokens = (
       ...(spacing.length > 0 && {
         tokens: [...(ds.spacing.tokens ?? []), ...spacing],
       }),
+    },
+  };
+};
+
+/**
+ * The design system's tokens as a side to compare with: every token it lists, the spacing base
+ * as `spacing`, each with its value per theme. A token whose value is empty is left out.
+ */
+export const designTokensOf = (ds: DesignSystem): SourceToken[] => {
+  const tokens: SourceToken[] = [];
+  const seen = new Set<string>();
+  const add = (
+    name: string,
+    value: string,
+    values?: Readonly<Record<string, string>>
+  ) => {
+    if (seen.has(name) || value === "") {
+      return;
+    }
+    seen.add(name);
+    tokens.push({
+      kind: tokenKindOf(name),
+      name,
+      own: true,
+      value,
+      ...(values &&
+        Object.keys(values).length > 0 && { values: { ...values } }),
+    });
+  };
+  if (ds.spacing.base) {
+    add("spacing", ds.spacing.base);
+  }
+  mapTokens(ds, (t) => {
+    add(t.name, t.value, t.values);
+    return t;
+  });
+  return tokens;
+};
+
+/** Every value of a list of tokens by `name` and `name@theme`, as a baseline keeps them. */
+export const valuesByKey = (
+  tokens: readonly SourceToken[]
+): Record<string, string> => {
+  const values: Record<string, string> = {};
+  for (const t of tokens) {
+    values[baselineKey(t.name)] = t.value;
+    for (const [theme, value] of Object.entries(t.values ?? {})) {
+      values[baselineKey(t.name, theme)] = value;
+    }
+  }
+  return values;
+};
+
+/**
+ * The code's tokens against the design system's (ADR 0028), theme by theme, against what the two
+ * last agreed on. Both sides name tokens the same way, so nothing is matched:
+ * - only the design system has it: waiting for the code (`source-behind`);
+ * - only the code has it: new there (`to-design`), unless the design system leaves it out on
+ *   purpose (`ignored`), or took it out after they agreed (`conflict`);
+ * - both: changed on one side since they agreed, that side's; on both, or never agreed, the
+ *   user's pick.
+ */
+export const compareCode = (
+  code: readonly SourceToken[],
+  design: readonly SourceToken[],
+  baseline: DocumentBaseline | null,
+  omitted: ReadonlySet<string>
+): TokenDiff[] => {
+  const ours = valuesByKey(design);
+  // A style system's own default counts as the code having the token, but is never offered.
+  const theirs = valuesByKey(code);
+  const own = valuesByKey(code.filter((t) => t.own));
+  const kinds = new Map(
+    [...code, ...design].map((t) => [t.name, t.kind] as const)
+  );
+  // The spacing base is the style system's step; a code that does not name it has the default.
+  const keys = [...new Set([...Object.keys(ours), ...Object.keys(own)])].filter(
+    (key) => key !== "spacing" || key in theirs
+  );
+  return keys.sort().map((key): TokenDiff => {
+    const at = key.indexOf("@");
+    const name = at === -1 ? key : key.slice(0, at);
+    const theme = at === -1 ? undefined : key.slice(at + 1);
+    const designValue = ours[key];
+    const codeValue = theirs[key];
+    const base = baseline?.agreed[key];
+    const common = {
+      ...(base !== undefined && { base }),
+      ...(designValue !== undefined && { design: designValue }),
+      kind: kinds.get(name) ?? tokenKindOf(name),
+      name,
+      ...(codeValue !== undefined && { source: codeValue }),
+      ...(theme && { theme }),
+      variable: name,
+    };
+    return {
+      ...common,
+      outcome: codeOutcomeOf(designValue, codeValue, base, omitted.has(name)),
+    };
+  });
+};
+
+/** What one value of the code comes to against the design system's and their agreement. */
+const codeOutcomeOf = (
+  design: string | undefined,
+  code: string | undefined,
+  base: string | undefined,
+  omitted: boolean
+): TokenOutcome => {
+  if (code === undefined) {
+    return "source-behind";
+  }
+  if (design === undefined) {
+    if (omitted) {
+      return "ignored";
+    }
+    return base === undefined ? "to-design" : "conflict";
+  }
+  if (sameValue(code, design)) {
+    return "same";
+  }
+  if (base === undefined) {
+    return "conflict";
+  }
+  const codeChanged = !sameValue(code, base);
+  const designChanged = !sameValue(design, base);
+  if (codeChanged && !designChanged) {
+    return "to-design";
+  }
+  if (designChanged && !codeChanged) {
+    return "source-behind";
+  }
+  return "conflict";
+};
+
+/** How many of a code comparison's tokens wait for each side, and for the user. */
+export const codeCounts = (diffs: readonly TokenDiff[]) => ({
+  conflicts: diffs.filter((d) => d.outcome === "conflict").length,
+  toCode: diffs.filter((d) => d.outcome === "source-behind").length,
+  toDesign: diffs.filter((d) => d.outcome === "to-design").length,
+});
+
+/**
+ * What a code comparison comes to once the user has picked (ADR 0028): the changes to the
+ * design system (what the code changed alone, the conflicts given to the code) and to the code
+ * (what the design system changed alone, the conflicts given to it), one direction only when
+ * asked. A token the design system took out after they agreed, given to the design system, is
+ * taken out of the code.
+ */
+export const codeChanges = (
+  diffs: readonly TokenDiff[],
+  decisions: readonly TokenDecision[],
+  only?: "export" | "import"
+): { readonly toCode: TokenChange[]; readonly toDesign: TokenChange[] } => {
+  const picked = new Map(
+    decisions.map((d) => [baselineKey(d.name, d.theme), d.take])
+  );
+  const toCode: TokenChange[] = [];
+  const toDesign: TokenChange[] = [];
+  for (const d of diffs) {
+    const pick = picked.get(baselineKey(d.name, d.theme));
+    const target = {
+      name: d.name,
+      ...(d.theme && { theme: d.theme }),
+    };
+    const importIt =
+      d.outcome === "to-design" ||
+      (d.outcome === "conflict" && pick === "source");
+    const exportIt =
+      d.outcome === "source-behind" ||
+      (d.outcome === "conflict" && pick === "design");
+    if (importIt && only !== "export" && d.source !== undefined) {
+      toDesign.push({ ...target, value: d.source });
+    }
+    if (exportIt && only !== "import") {
+      toCode.push(
+        d.design === undefined
+          ? { ...target, remove: true }
+          : { ...target, value: d.design }
+      );
+    }
+  }
+  return { toCode, toDesign };
+};
+
+/**
+ * A design system with token changes made to it: a value set where the token is listed, a token
+ * not listed yet added where `listTokens` puts it (the default theme first), a removal taken out.
+ */
+export const withTokenChanges = (
+  ds: DesignSystem,
+  changes: readonly TokenChange[]
+): DesignSystem => {
+  const byName = new Map<string, TokenChange[]>();
+  for (const c of changes) {
+    byName.set(c.name, [...(byName.get(c.name) ?? []), c]);
+  }
+  let spacingBase = ds.spacing.base;
+  const spacing = byName.get("spacing");
+  for (const c of spacing ?? []) {
+    if (c.theme === undefined && c.value !== undefined) {
+      spacingBase = c.value;
+    }
+  }
+  byName.delete("spacing");
+  const listed = new Set(designSystemTokenNames(ds));
+  const apply = (t: Token): Token => {
+    const own = byName.get(t.name);
+    if (!own) {
+      return t;
+    }
+    let next: Token = t;
+    for (const c of own) {
+      if (c.theme === undefined) {
+        next = c.value === undefined ? next : { ...next, value: c.value };
+      } else if (c.remove || c.value === undefined) {
+        const { [c.theme]: _gone, ...rest } = { ...next.values };
+        next = { ...next, values: rest };
+      } else {
+        next = { ...next, values: { ...next.values, [c.theme]: c.value } };
+      }
+    }
+    return next;
+  };
+  const removed = new Set(
+    changes.filter((c) => c.remove && c.theme === undefined).map((c) => c.name)
+  );
+  const changed = removeTokens(mapTokens(ds, apply), removed);
+  const added = [...byName.entries()]
+    .filter(([name]) => !(listed.has(name) || removed.has(name)))
+    .flatMap(([name, own]) => {
+      const value = own.find((c) => c.theme === undefined)?.value;
+      if (value === undefined) {
+        return [];
+      }
+      const values = Object.fromEntries(
+        own.flatMap((c) =>
+          c.theme !== undefined && c.value !== undefined
+            ? [[c.theme, c.value] as const]
+            : []
+        )
+      );
+      return [
+        {
+          name,
+          value,
+          ...(Object.keys(values).length > 0 && { values }),
+        },
+      ];
+    });
+  const withAdded = added.length > 0 ? listTokens(changed, added) : changed;
+  return spacingBase === ds.spacing.base
+    ? withAdded
+    : { ...withAdded, spacing: { ...withAdded.spacing, base: spacingBase } };
+};
+
+/** A design system without the tokens of these names, wherever it lists them. */
+const removeTokens = (
+  ds: DesignSystem,
+  names: ReadonlySet<string>
+): DesignSystem => {
+  if (names.size === 0) {
+    return ds;
+  }
+  const keep = <T extends { readonly name: string }>(list: readonly T[]) =>
+    list.filter((t) => !names.has(t.name));
+  const optional = <T extends { readonly name: string }>(
+    list: readonly T[] | undefined
+  ) => (list === undefined ? undefined : keep(list));
+  return {
+    ...ds,
+    ...(ds.borderWidths && { borderWidths: keep(ds.borderWidths) }),
+    colors: ds.colors.map((g) => ({ ...g, tokens: keep(g.tokens) })),
+    ...(ds.layout && {
+      layout: {
+        ...ds.layout,
+        ...(ds.layout.breakpoints && {
+          breakpoints: keep(ds.layout.breakpoints),
+        }),
+        ...(ds.layout.containers && { containers: keep(ds.layout.containers) }),
+      },
+    }),
+    ...(ds.motion && {
+      motion: {
+        ...ds.motion,
+        ...(ds.motion.durations && { durations: keep(ds.motion.durations) }),
+        ...(ds.motion.easings && { easings: keep(ds.motion.easings) }),
+        ...(ds.motion.animations && {
+          animations: keep(ds.motion.animations),
+        }),
+      },
+    }),
+    radius: keep(ds.radius),
+    shadows: keep(ds.shadows),
+    spacing: {
+      ...ds.spacing,
+      ...(ds.spacing.tokens && { tokens: keep(ds.spacing.tokens) }),
+    },
+    typography: {
+      ...ds.typography,
+      fonts: keep(ds.typography.fonts),
+      ...(ds.typography.leading && {
+        leading: optional(ds.typography.leading),
+      }),
+      sizes: keep(ds.typography.sizes),
+      ...(ds.typography.tracking && {
+        tracking: optional(ds.typography.tracking),
+      }),
+      weights: keep(ds.typography.weights),
     },
   };
 };

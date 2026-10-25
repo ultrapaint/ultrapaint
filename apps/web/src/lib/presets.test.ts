@@ -37,9 +37,11 @@ describe("the viewport presets", () => {
       canPaste: false,
       canvases: [],
       count: 1,
+      implementation: "draft" as const,
       name: "Home",
       onCanvas: true,
       preset: "custom",
+      statesFree: [],
       variantsFree: [],
     });
     const submenu = entries.find(

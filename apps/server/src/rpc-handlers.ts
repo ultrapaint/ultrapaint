@@ -18,6 +18,7 @@ import { EditService } from "./services/edit.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
 import { GitService } from "./services/git.ts";
 import { HostManager } from "./services/host.ts";
+import { ImplementationService } from "./services/implementation.ts";
 import { McpAccess } from "./services/mcp/access.ts";
 import { MCP_PATH, MCP_TOKEN_HEADER } from "./services/mcp/route.ts";
 import { PagesService } from "./services/pages.ts";
@@ -26,6 +27,7 @@ import { SettingsService } from "./services/settings.ts";
 import { SetupService } from "./services/setup.ts";
 import { SkillsService } from "./services/skills.ts";
 import { Snapshots } from "./services/snapshots.ts";
+import { SpecService } from "./services/specs.ts";
 import { AgentConfigs } from "./services/threads/agent-configs.ts";
 import { AgentDiscovery } from "./services/threads/agent-discovery.ts";
 import { ChatPreferences } from "./services/threads/chat-preferences.ts";
@@ -92,6 +94,12 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const figma = <A, E>(
       f: (s: FigmaImportService["Service"]) => Effect.Effect<A, E>
     ) => project.use(Effect.flatMap(FigmaImportService, f));
+    const specs = <A, E>(
+      f: (s: SpecService["Service"]) => Effect.Effect<A, E>
+    ) => project.use(Effect.flatMap(SpecService, f));
+    const implementation = <A, E>(
+      f: (s: ImplementationService["Service"]) => Effect.Effect<A, E>
+    ) => project.use(Effect.flatMap(ImplementationService, f));
 
     /**
      * Stops the turns of the steps from `step` on that are under way, before the setup moves
@@ -128,6 +136,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "canvases.setHome": ({ id, route }) => pages((s) => s.setHome(id, route)),
 
       "catalogue.get": ({ refresh }) => catalogue((c) => c.get(refresh)),
+
       "chat.defaults": () => preferences.defaults,
       "chat.setDefaults": (defaults) => preferences.setDefaults(defaults),
       "checkpoints.diff": ({ id }) => checkpoints.diff(id),
@@ -207,11 +216,13 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "events.edit.state": () => events.subscribe("edit.state"),
       "events.file.changed": () => events.subscribe("file.changed"),
       "events.git": () => events.subscribe("git"),
+      "events.implementation": () => events.subscribe("implementation"),
       "events.log": () => events.subscribe("log"),
       "events.pages": () => events.subscribe("pages"),
       "events.project": () => events.subscribe("project"),
       "events.screenshot": () => screenshots.requests,
       "events.skills": () => events.subscribe("skills"),
+      "events.specs": () => events.subscribe("specs"),
       "events.syncPlan": () => events.subscribe("syncPlan"),
       "figma.list": () => figma((f) => f.list),
       "git.commit": ({ message, paths }) =>
@@ -227,6 +238,15 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "git.status": () => git((g) => g.status),
       health: () => Effect.succeed({ ok: true, version: config.version }),
       "host.start": () => host((h) => h.start),
+      "implementation.changes": ({ target }) =>
+        implementation((s) => s.changes(target)),
+      "implementation.list": () => implementation((s) => s.list),
+      "implementation.mark": ({ files, target }) =>
+        implementation((s) => s.mark(target, files)),
+      "implementation.setReady": ({ ready, target }) =>
+        implementation((s) => s.setReady(target, ready)),
+      "implementation.unbind": ({ target }) =>
+        implementation((s) => s.unbind(target)),
       "logs.recent": () => log.recent(RECENT_LOG_LINES),
       "mcp.connection": () =>
         Effect.map(
@@ -245,6 +265,8 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
         pages((s) => s.copyTo(ids, target, move)),
       "pages.create": ({ canvas, name, route, template }) =>
         pages((s) => s.create(canvas, { name, route }, template)),
+      "pages.createState": ({ id, state }) =>
+        pages((s) => s.createState(id, state)),
       "pages.createVariant": ({ id, variant }) =>
         pages((s) => s.createVariant(id, variant)),
       "pages.delete": ({ id }) => pages((s) => s.delete(id)),
@@ -325,7 +347,15 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "snapshots.list": () => snapshots.list,
       "snapshots.restore": ({ id }) => snapshots.restore(id),
       "snapshots.view": ({ id }) => snapshots.view(id),
-      "sync.apply": ({ decisions, source }) => sync.apply(source, decisions),
+      "specs.draftFrom": ({ id, name, nodeId }) =>
+        specs((s) => s.draftFrom(id, nodeId, name)),
+      "specs.fromCode": ({ component, from, look }) =>
+        specs((s) => s.fromCode(component, from, look ?? "code")),
+      "specs.list": () => specs((s) => s.list),
+      "specs.remove": ({ component }) => specs((s) => s.remove(component)),
+      "specs.write": ({ spec }) => specs((s) => s.write(spec)),
+      "sync.apply": ({ decisions, only, source }) =>
+        sync.apply(source, decisions, only),
       "sync.match": ({ entries, source }) =>
         sync.match(source, entries, "user"),
       "sync.plan": () => sync.plan,
@@ -333,7 +363,8 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "threads.answer": ({ threadId, itemId, answers }) =>
         threads.answer(threadId, itemId, answers),
       "threads.cancel": ({ threadId }) => threads.cancel(threadId),
-      "threads.create": ({ agentId, title }) => threads.create(agentId, title),
+      "threads.create": ({ agentId, purpose, title }) =>
+        threads.create(agentId, title, purpose),
       "threads.decline": ({ threadId, itemId }) =>
         threads.decline(threadId, itemId),
       "threads.delete": ({ threadId }) => threads.delete(threadId),

@@ -8,7 +8,8 @@
  *   permission  asks for permission, then reports the chosen option as text
  *   elicit      asks the user a form (a choice and a number) and reports the answer as text;
  *               `elicit link` asks them to follow a link instead
- *   write       writes `designs/agent.tsx` through `fs/write_text_file`
+ *   write       writes `designs/agent.tsx`, or the path given after it, through
+ *               `fs/write_text_file`, and says `refused: …` when the host refuses
  *   terminal    runs `echo hi` through `terminal/*` and reports the output
  *   escape      runs a terminal command writing to the path given after the scenario name
  *   blocks      reports how many project briefings came with the prompt
@@ -257,13 +258,17 @@ const scenarios = {
     await new Promise((resolve) => cancels.set(sessionId, resolve));
     return "cancelled";
   },
-  async write(cx, sessionId, cwd) {
-    await cx.request(methods.client.fs.writeTextFile, {
-      content: "export default function Agent() {\n  return <main />;\n}\n",
-      path: `${cwd}/designs/agent.tsx`,
-      sessionId,
-    });
-    await text(cx, sessionId, "written");
+  async write(cx, sessionId, cwd, rest) {
+    try {
+      await cx.request(methods.client.fs.writeTextFile, {
+        content: "export default function Agent() {\n  return <main />;\n}\n",
+        path: `${cwd}/${rest || "designs/agent.tsx"}`,
+        sessionId,
+      });
+      await text(cx, sessionId, "written");
+    } catch (error) {
+      await text(cx, sessionId, `refused: ${error.message}`);
+    }
   },
 };
 

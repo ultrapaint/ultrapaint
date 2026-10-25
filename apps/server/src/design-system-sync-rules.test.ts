@@ -8,12 +8,16 @@ import {
   type SyncBaseline,
   type SyncFacts,
 } from "@ultrapaint/contracts/sync";
-import type { SourceToken } from "@ultrapaint/contracts/tokens";
+import { type SourceToken, tokenKindOf } from "@ultrapaint/contracts/tokens";
 import { describe, expect, it } from "vitest";
 import {
   caseOf,
+  codeChanges,
+  codeCounts,
+  compareCode,
   compareDocument,
   compareFigma,
+  designTokensOf,
   documentSide,
   driftOf,
   type FigmaSide,
@@ -23,6 +27,7 @@ import {
   planOf,
   summaryOf,
   tokenChanges,
+  withTokenChanges,
 } from "./services/design-system-sync-rules.ts";
 
 const facts: SyncFacts = {
@@ -91,7 +96,8 @@ describe("drift between the design system and the code", () => {
     expect(drift).toEqual({
       componentsGone: ["Gone"],
       componentsUndescribed: ["Card"],
-      tokensGone: ["color-old"],
+      // A token the code does not declare waits for an export (ADR 0028), it is not gone.
+      tokensGone: [],
       tokensUndescribed: ["color-new"],
     });
   });
@@ -223,7 +229,7 @@ describe("the plan", () => {
     expect(held[0]).toMatchObject({
       kind: "design-tokens",
       state: "attention",
-      title: "Take DESIGN.md's tokens into the code",
+      title: "Take DESIGN.md's tokens into the design system",
     });
     expect(held[0]?.detail).toContain("3 values of DESIGN.md");
     const prose = planOf({
@@ -319,7 +325,7 @@ describe("matching Figma's tokens to the code's", () => {
     expect(matched.at(-1)).toMatchObject({
       by: "user",
       name: "color-destructive",
-      outcome: "to-code",
+      outcome: "to-design",
     });
     expect(tokenChanges(matched, [])).toEqual([
       { name: "color-destructive", value: "#dc2626" },
@@ -385,8 +391,8 @@ describe("DESIGN.md's tokens against the code's (ADR 0027)", () => {
     });
     expect(diffs.map((d) => [d.variable, d.name, d.outcome])).toEqual([
       ["colors.primary", "color-brand", "same"],
-      ["colors.ink", "color-ink", "to-code"],
-      ["colors.tertiary", "color-accent", "to-code"],
+      ["colors.ink", "color-ink", "to-design"],
+      ["colors.tertiary", "color-accent", "to-design"],
       ["rounded.card", "radius-card", "conflict"],
     ]);
     expect(
@@ -418,5 +424,105 @@ describe("DESIGN.md's tokens against the code's (ADR 0027)", () => {
       "color-accent",
     ]);
     expect(listed.radius).toEqual([{ name: "radius-pill", value: "9999px" }]);
+  });
+});
+
+describe("the code against the design system (ADR 0028)", () => {
+  const code = (name: string, value: string, own = true): SourceToken => ({
+    kind: tokenKindOf(name),
+    name,
+    own,
+    value,
+  });
+  const design = (name: string, value: string) => code(name, value);
+
+  it("says which side each token waits for, against what the two agreed", () => {
+    const diffs = compareCode(
+      [
+        code("color-same", "#000"),
+        code("color-design", "#111"),
+        code("color-code", "#999"),
+        code("color-both", "#555"),
+        code("color-new", "#abc"),
+        code("color-omitted", "#def"),
+        code("color-red-500", "#f00", false),
+        code("spacing", "0.25rem", false),
+      ],
+      [
+        design("color-same", "#000"),
+        design("color-design", "#222"),
+        design("color-code", "#333"),
+        design("color-both", "#666"),
+        design("color-only", "#777"),
+        design("color-red-500", "#f00"),
+        design("spacing", "0.25rem"),
+      ],
+      {
+        agreed: {
+          "color-both": "#444",
+          "color-code": "#333",
+          "color-design": "#111",
+        },
+        at: 1,
+      },
+      new Set(["color-omitted"])
+    );
+    expect(Object.fromEntries(diffs.map((d) => [d.name, d.outcome]))).toEqual({
+      "color-both": "conflict",
+      "color-code": "to-design",
+      "color-design": "source-behind",
+      "color-new": "to-design",
+      "color-omitted": "ignored",
+      "color-only": "source-behind",
+      // A style system's default the design system names is not waiting for the code.
+      "color-red-500": "same",
+      "color-same": "same",
+      spacing: "same",
+    });
+    expect(codeCounts(diffs)).toEqual({
+      conflicts: 1,
+      toCode: 2,
+      toDesign: 2,
+    });
+
+    const { toCode, toDesign } = codeChanges(diffs, [
+      { name: "color-both", take: "design" },
+    ]);
+    expect(toCode).toEqual([
+      { name: "color-both", value: "#666" },
+      { name: "color-design", value: "#222" },
+      { name: "color-only", value: "#777" },
+    ]);
+    expect(toDesign).toEqual([
+      { name: "color-code", value: "#999" },
+      { name: "color-new", value: "#abc" },
+    ]);
+    expect(codeChanges(diffs, [], "import").toCode).toEqual([]);
+    expect(codeChanges(diffs, [], "export").toDesign).toEqual([]);
+  });
+
+  it("changes a design system's tokens, adding the new ones where they belong", () => {
+    const next = withTokenChanges(ds, [
+      { name: "color-primary", value: "#123456" },
+      { name: "color-primary", theme: "dark", value: "#654321" },
+      { name: "color-fresh", value: "#0f0" },
+      { name: "radius-pill", value: "999px" },
+      { name: "spacing", value: "0.3rem" },
+    ]);
+    const tokens = designTokensOf(next);
+    const byName = new Map(tokens.map((t) => [t.name, t]));
+    expect(byName.get("color-primary")).toMatchObject({
+      value: "#123456",
+      values: { dark: "#654321" },
+    });
+    expect(byName.get("color-fresh")?.value).toBe("#0f0");
+    expect(byName.get("radius-pill")?.value).toBe("999px");
+    expect(next.spacing.base).toBe("0.3rem");
+    const removed = withTokenChanges(next, [
+      { name: "color-fresh", remove: true },
+    ]);
+    expect(designTokensOf(removed).map((t) => t.name)).not.toContain(
+      "color-fresh"
+    );
   });
 });

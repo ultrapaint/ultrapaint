@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { bridgeFor } from "../canvas/bridge.ts";
 import { canvasPoint, insertAt } from "../canvas/drag.ts";
 import { sendComment } from "../canvas/send-to-agent.tsx";
-import { confirmDialog } from "../components/dialogs.tsx";
+import { confirmDialog, promptDialog } from "../components/dialogs.tsx";
 import { askLinkUrl } from "../components/link-field.tsx";
 import { useAgents } from "../state/agents.ts";
 import { placeOnCanvas, useCanvasGrid } from "../state/canvas-grid.ts";
@@ -25,12 +25,15 @@ import {
   updateComment,
   useComments,
 } from "../state/comments.ts";
+import { api } from "../state/connection.ts";
 import type { MenuTarget, Point } from "../state/context-menu.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { isNodeFrame, nodeIn, useDocuments } from "../state/documents.ts";
 import { pagesOfCanvas, type Selection, useEditor } from "../state/editor.ts";
+import { useImplementation } from "../state/implementation.ts";
 import { pagesActedOn } from "../state/page-picks.ts";
 import { useProject } from "../state/project.ts";
+import { ensureEditable } from "../state/setup.ts";
 import { addToChat } from "./add-to-chat.ts";
 import {
   canvasById,
@@ -96,11 +99,15 @@ import {
   editPageUrl,
   goToPage,
   implementPage,
+  markImplemented,
   newPage,
+  newState,
   pageById,
   renamePage,
   setPagePreset,
+  setPageReady,
   setPageUrl,
+  unlinkImplementation,
   zoomToPage,
 } from "./page-actions.ts";
 import { viewportSize } from "./shortcuts.ts";
@@ -180,6 +187,15 @@ const pageMenu = (pageId: string): Entry[] | null => {
       )
       .flatMap((p) => (p.variant === undefined ? [] : [p.variant]))
   );
+  const stated = new Set(
+    pages
+      .filter(
+        (p) =>
+          p.canvas === page.canvas &&
+          basePathOf(p.path) === basePathOf(page.path)
+      )
+      .flatMap((p) => (p.state === undefined ? [] : [p.state]))
+  );
   return pageEntries({
     canPaste: canPaste(),
     canvases: canvases
@@ -191,6 +207,12 @@ const pageMenu = (pageId: string): Entry[] | null => {
     preset: useEditor.getState().frames[page.id]?.preset ?? null,
     ...(page.route !== undefined && { route: page.route }),
     ...(page.variant !== undefined && { variant: page.variant }),
+    ...(page.state !== undefined && { state: page.state }),
+    implementation:
+      useImplementation.getState().byTarget[page.id]?.status ?? "draft",
+    statesFree: (
+      canvases.find((c) => c.id === page.canvas)?.states ?? []
+    ).filter((v) => !stated.has(v)),
     variantsFree: (
       canvases.find((c) => c.id === page.canvas)?.variants ?? []
     ).filter((v) => !drawn.has(v)),
@@ -230,6 +252,7 @@ export const entriesFor = (target: MenuTarget): Entry[] | null => {
       const { current: id, threads } = useAgents.getState();
       const current = threads.find((t) => t.id === id);
       return commentEntries({
+        behaviour: comment.kind === "behaviour",
         current: current
           ? {
               busy:
@@ -367,6 +390,38 @@ const linkNode = async (sel: Selection, choice: string, current?: string) => {
  * actions find it through `actedOn`); renaming, editing text, selecting the parent, commenting,
  * the links and arranging are about the node itself.
  */
+/**
+ * A node of a page made a draft component (ADR 0029): its subtree becomes the spec's tree, and it
+ * an instance of it, which pages can use until the code has the component.
+ */
+const makeDraftOf = async (sel: Selection) => {
+  const node = selected(nodeContext(sel))?.node;
+  if (!(node && ensureEditable())) {
+    return;
+  }
+  const name = await promptDialog({
+    confirmLabel: "Make component",
+    defaultValue: node.name ?? "",
+    description:
+      "Its look is the design's; the code gets it when it is implemented (the Components tab). Until then pages use it as it is drawn.",
+    placeholder: "Pricing card",
+    title: "A draft component",
+  });
+  if (!name?.trim()) {
+    return;
+  }
+  try {
+    const entry = await api().request("specs.draftFrom", {
+      id: sel.frame,
+      name: name.trim(),
+      nodeId: node.id,
+    });
+    toast.success(`${entry.spec?.component ?? name} is a draft component.`);
+  } catch (error) {
+    reportError(error);
+  }
+};
+
 const runNode = (target: Selection & { at?: Point }, id: string) => {
   const sel = { frame: target.frame, nodeId: target.nodeId };
   if (!selected(nodeContext(sel))) {
@@ -395,6 +450,7 @@ const runNode = (target: Selection & { at?: Point }, id: string) => {
     delete: () => deleteSelection(sel),
     duplicate: () => duplicateSelection(sel),
     editText: () => editText(sel),
+    makeDraft: () => makeDraftOf(sel),
     paste: () => pasteInto(sel),
     rename: () => renameNode(sel),
     selectParent: () => selectParent(sel),
@@ -424,6 +480,11 @@ const runPage = (pageId: string, id: string, at?: Point) => {
     newVariant(page, variant === "new" ? undefined : variant);
     return;
   }
+  if (id.startsWith("state:")) {
+    const state = argOf(id);
+    newState(page, state === "new" ? undefined : state);
+    return;
+  }
   if (id.startsWith("copyTo:") || id.startsWith("moveTo:")) {
     const where = argOf(id);
     const { pages } = useProject.getState();
@@ -441,10 +502,19 @@ const runPage = (pageId: string, id: string, at?: Point) => {
     duplicate: () => duplicatePage(page),
     goTo: () => goToPage(page),
     implement: () => implementPage(page),
+    markImplemented: () =>
+      markImplemented(
+        page.id,
+        page.name,
+        useImplementation.getState().byTarget[page.id]?.files
+      ),
+    notReady: () => setPageReady(page, false),
     paste: () => pasteIntoPage(page.id),
+    ready: () => setPageReady(page, true),
     removeUrl: () => setPageUrl(page, ""),
     rename: () => renamePage(page),
     setUrl: () => editPageUrl(page),
+    unlink: () => unlinkImplementation(page.id, page.name),
     zoomTo: () => zoomToPage(page),
   };
   actions[id]?.();
@@ -502,6 +572,11 @@ const runComment = async (commentId: string, id: string) => {
     }
     case "resolve":
       updateComment(comment.id, { resolved: !comment.resolved });
+      break;
+    case "kind":
+      updateComment(comment.id, {
+        kind: comment.kind === "behaviour" ? "comment" : "behaviour",
+      });
       break;
     case "send:current": {
       const { current } = useAgents.getState();

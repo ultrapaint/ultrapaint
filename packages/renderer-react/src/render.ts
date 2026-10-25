@@ -9,6 +9,7 @@
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 import type { InstanceDrawn } from "@ultrapaint/contracts/preview";
+import { type ComponentSpec, DRAFT_FROM } from "@ultrapaint/contracts/specs";
 import {
   layoutOf,
   makeStyleContext,
@@ -18,6 +19,12 @@ import {
   type StyleContext,
   tagOf,
 } from "@ultrapaint/design-document/css";
+import {
+  COMPONENT_ATTRIBUTE,
+  specCss,
+  VARIANT_ATTRIBUTE,
+  variantAttributeOf,
+} from "@ultrapaint/design-document/spec";
 import { childrenOf } from "@ultrapaint/design-document/tree";
 import {
   type ComponentRegistry,
@@ -79,17 +86,27 @@ const MESSAGE_STYLE = {
   minHeight: "100vh",
 } as const;
 
+/** The attribute the nodes of a draft's tree are marked with: not the page's, so not selectable. */
+const DRAFT_NODE_ATTRIBUTE = "data-ed-draft-node";
+
 /** What every node of one render needs, handed down without threading it through props. */
 interface Scope {
   readonly assetUrl: (src: string) => string;
   readonly componentOf: (
     node: InstanceNode
   ) => ComponentType<Record<string, unknown>> | null;
+  /** The trees of the draft components (ADR 0029), by component name. */
+  readonly drafts: ReadonlyMap<string, DesignNode>;
   /** How each instance was drawn, which the instance reads and its effect writes. */
   readonly instances: InstanceStore;
   /** What earlier instances of a component taught: whether it wraps, how it lays out. */
   readonly learned: Learned;
   readonly navigate: (route: string) => void;
+  /**
+   * What a node's id is written in: the page's attribute, or, inside a draft's tree, one the
+   * editor does not read, so only the draft's instance can be selected.
+   */
+  readonly nodeAttribute: string;
   readonly styles: Omit<StyleContext, "parent">;
 }
 
@@ -232,20 +249,32 @@ const onLink = (scope: Scope, link: string | undefined) =>
       }
     : undefined;
 
+/** What a draft's instance gives the root of the draft's tree: its id, its marks, its box. */
+interface RootOverride {
+  readonly attributes: Readonly<Record<string, unknown>>;
+  readonly style: Style;
+}
+
 const NodeView = ({
   node,
+  own,
   parent,
 }: {
   node: DesignNode;
+  /** Set on a draft's root, which stands for the instance on the page. */
+  own?: RootOverride | undefined;
   parent: ParentLayout;
 }): ReactNode => {
   const scope = useContext(ScopeContext) as Scope;
-  const style = nodeStyle(node, { ...scope.styles, parent });
-  const common = {
-    [NODE_ATTRIBUTE]: node.id,
-    onClick: onLink(scope, node.link),
-    style,
-  };
+  const drawn = nodeStyle(node, { ...scope.styles, parent });
+  const style = own ? { ...drawn, ...own.style } : drawn;
+  const common: Record<string, unknown> = own
+    ? { ...own.attributes, style }
+    : {
+        [scope.nodeAttribute]: node.id,
+        onClick: onLink(scope, node.link),
+        style,
+      };
   if (node.type === "instance") {
     // A node that becomes another component starts over: what was learned was about the old one.
     return createElement(InstanceView, {
@@ -294,7 +323,90 @@ const NodeView = ({
  * off the DOM after each commit, and a change draws the children again before the frame is
  * painted.
  */
+/**
+ * A draft component's instance (ADR 0029): the draft's tree drawn in its place, its root carrying
+ * the instance's id, marks and box, so the instance is what is selected, and the spec's styles
+ * reach it as they reach a component. The instance's text replaces the tree's first text.
+ */
+const DraftView = ({
+  node,
+  style,
+}: {
+  node: InstanceNode;
+  style: Style;
+}): ReactNode => {
+  const scope = useContext(ScopeContext) as Scope;
+  const tree = scope.drafts.get(node.component);
+  const marks = {
+    [scope.nodeAttribute]: node.id,
+    [COMPONENT_ATTRIBUTE]: node.component,
+    [VARIANT_ATTRIBUTE]: variantAttributeOf(node.props),
+    "data-ed-instance": node.component,
+  };
+  if (!tree) {
+    return createElement(Missing, {
+      ...marks,
+      style,
+      text: `${node.component} is not a draft component`,
+    });
+  }
+  const filled =
+    node.text === undefined ? tree : withFirstText(tree, node.text);
+  return createElement(
+    ScopeContext.Provider,
+    { value: { ...scope, nodeAttribute: DRAFT_NODE_ATTRIBUTE } },
+    createElement(NodeView, {
+      node: filled,
+      own: {
+        attributes: {
+          ...marks,
+          ...(node.link && { onClickCapture: onLink(scope, node.link) }),
+        },
+        style: Object.fromEntries(
+          Object.entries(style).filter(([key]) => key !== "boxSizing")
+        ),
+      },
+      parent: "free",
+    })
+  );
+};
+
+/** A tree with its first text node's text replaced. */
+const withFirstText = (tree: DesignNode, text: string): DesignNode => {
+  let done = false;
+  const visit = (node: DesignNode): DesignNode => {
+    if (done) {
+      return node;
+    }
+    if (node.type === "text") {
+      done = true;
+      return { ...node, text };
+    }
+    if ("children" in node && node.children) {
+      return {
+        ...node,
+        children: node.children.map(visit),
+      } as DesignNode;
+    }
+    return node;
+  };
+  return visit(tree);
+};
+
 const InstanceView = ({
+  node,
+  style,
+}: {
+  node: InstanceNode;
+  style: Style;
+}): ReactNode => {
+  if (node.from === DRAFT_FROM) {
+    return createElement(DraftView, { node, style });
+  }
+  return createElement(ComponentInstanceView, { node, style });
+};
+
+const ComponentInstanceView = ({
   node,
   style,
 }: {
@@ -317,8 +429,13 @@ const InstanceView = ({
   const children = childrenOf(node);
   const firstChild = children[0]?.id;
 
+  const attribute = scope.nodeAttribute;
+  const selectorOf = (id: string) =>
+    attribute === NODE_ATTRIBUTE
+      ? nodeSelector(id)
+      : `[${attribute}="${CSS.escape(id)}"]`;
   useLayoutEffect(() => {
-    const own = document.querySelector(nodeSelector(node.id));
+    const own = document.querySelector(selectorOf(node.id));
     if (!(wrapped || own)) {
       // The id went nowhere: the component does not pass its props on.
       instances.set(node.id, { component: Resolved, layout, wrapped: true });
@@ -332,7 +449,7 @@ const InstanceView = ({
     const child =
       firstChild === undefined
         ? null
-        : document.querySelector(nodeSelector(firstChild));
+        : document.querySelector(selectorOf(firstChild));
     const container = child ? containerOf(child) : null;
     const next = container ? layoutOfElement(container) : layout;
     if (container) {
@@ -370,11 +487,17 @@ const InstanceView = ({
           })
     );
 
+  // What a component spec's stylesheet finds the instance by (ADR 0029).
+  const marks = {
+    [COMPONENT_ATTRIBUTE]: node.component,
+    [VARIANT_ATTRIBUTE]: variantAttributeOf(props),
+  };
   if (!wrapped) {
     const own = isRecord(props.style) ? props.style : {};
     return component({
-      [NODE_ATTRIBUTE]: node.id,
+      [attribute]: node.id,
       "data-ed-instance": node.component,
+      ...marks,
       ...(onClickCapture && { onClickCapture }),
       ...(setsAnything(style) && { style: { ...own, ...style } }),
     });
@@ -385,8 +508,9 @@ const InstanceView = ({
   return createElement(
     "div",
     {
-      [NODE_ATTRIBUTE]: node.id,
+      [attribute]: node.id,
       "data-ed-instance": node.component,
+      ...marks,
       "data-ed-wrapper": "",
       onClickCapture,
       style: wrapperStyle,
@@ -539,6 +663,22 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
   let last: RenderRequest | null = null;
   let designSystem: DesignSystem | null = null;
   let styles = makeStyleContext(null);
+  let specs: readonly ComponentSpec[] | undefined;
+  let drafts: ReadonlyMap<string, DesignNode> = new Map();
+  /**
+   * The design's own stylesheet (ADR 0028, 0029): the tokens' values over the code's and the
+   * component specs, after everything else in the document so it wins without `!important`.
+   */
+  const sheet = document.createElement("style");
+  sheet.setAttribute("data-ed-design", "");
+  const placeSheet = (css: string) => {
+    if (sheet.textContent !== css) {
+      sheet.textContent = css;
+    }
+    if (sheet.parentNode !== document.head || sheet.nextSibling !== null) {
+      document.head.append(sheet);
+    }
+  };
   const onError = (error: Error) =>
     setup.reportError({ message: error.message, stack: error.stack });
 
@@ -561,18 +701,46 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
   const instances = makeInstanceStore(report);
 
   let first = true;
-  const draw = (request: RenderRequest) => {
-    last = request;
+  /** What the request changes of the design system, the specs and the design's stylesheet. */
+  let tokenCss: string | undefined;
+  const restyle = (request: RenderRequest) => {
+    const restyled =
+      request.designSystem !== designSystem ||
+      request.specs !== specs ||
+      request.styles !== tokenCss;
     if (request.designSystem !== designSystem) {
       ({ designSystem } = request);
       styles = makeStyleContext(designSystem);
     }
+    if (request.specs !== specs) {
+      ({ specs } = request);
+      drafts = new Map(
+        (specs ?? []).flatMap((spec) =>
+          spec.draft ? [[spec.component, spec.draft] as const] : []
+        )
+      );
+    }
+    tokenCss = request.styles;
+    if (restyled) {
+      placeSheet(
+        [tokenCss ?? "", specCss(specs ?? [], styles)]
+          .filter(Boolean)
+          .join("\n\n")
+      );
+    }
+  };
+
+  const draw = (request: RenderRequest) => {
+    last = request;
+    restyle(request);
     const scope: Scope = {
       assetUrl: setup.assetUrl,
       componentOf: components.componentOf,
+      drafts,
       instances,
       learned: components.learned,
       navigate: setup.navigate,
+      nodeAttribute: NODE_ATTRIBUTE,
       styles,
     };
     const { root: node } = request;

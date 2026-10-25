@@ -3,11 +3,14 @@
  * another editor, the editors hear of it: a page or design file changed, a canvas's layout, and
  * the page list when pages or canvases come or go.
  */
+
 import {
   DESIGN_NOTES_FILE,
   DESIGN_SYSTEM_FILE,
 } from "@ultrapaint/contracts/design-system";
+import { IMPLEMENTATION_FILE } from "@ultrapaint/contracts/implementation";
 import { SKILL_EXTENSION, SKILLS_DIR } from "@ultrapaint/contracts/skills";
+import { SPEC_EXTENSION, SPECS_DIR } from "@ultrapaint/contracts/specs";
 import { isPageFile } from "@ultrapaint/design-document/tree";
 import {
   CANVAS_FILE,
@@ -179,7 +182,11 @@ export const watchDesigns = Effect.fnUntraced(function* (
             (path.dirname(abs) === root &&
               (name === DESIGN_SYSTEM_FILE || name === DESIGN_NOTES_FILE)) ||
             (path.dirname(abs) === path.join(root, SKILLS_DIR) &&
-              name.endsWith(SKILL_EXTENSION));
+              name.endsWith(SKILL_EXTENSION)) ||
+            // Component specs and the implementation link (ADR 0029, 0030).
+            (path.dirname(abs) === path.join(root, SPECS_DIR) &&
+              name.endsWith(SPEC_EXTENSION)) ||
+            (path.dirname(abs) === root && name === IMPLEMENTATION_FILE);
           return watchedFile ? survive(onFileChanged(abs)) : Effect.void;
         },
         { concurrency: "unbounded" }

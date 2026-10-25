@@ -18,14 +18,17 @@ const SPACES_RE = /\s+/;
 const IMPORTANT_RE = /^!|!$/g;
 
 /** The groups of `re` in `text`, or none. */
-const groups = (re: RegExp, text: string): readonly (string | undefined)[] => {
+export const groups = (
+  re: RegExp,
+  text: string
+): readonly (string | undefined)[] => {
   // Typed by hand: the linter otherwise takes the result for non-null.
   const match: RegExpExecArray | null = re.exec(text);
   return match === null ? [] : match.slice(1);
 };
 
 /** What is inside `[…]`, for an arbitrary value. */
-const arbitraryOf = (value: string) => groups(ARBITRARY_RE, value)[0];
+export const arbitraryOf = (value: string) => groups(ARBITRARY_RE, value)[0];
 
 /** `n` steps of the spacing base: `0.25rem` × 9 → `2.25rem`. */
 const steps = (base: string, n: number): string | null => {
@@ -36,7 +39,7 @@ const steps = (base: string, n: number): string | null => {
   return `${Number((Number(amount) * n).toFixed(4))}${unit}`;
 };
 
-interface Reading {
+export interface Reading {
   readonly base: string;
   readonly names: ReadonlySet<string>;
 }
@@ -63,7 +66,7 @@ const lengthOf = (value: string, { base, names }: Reading) => {
   return STEP_RE.test(value) ? steps(base, Number(value)) : null;
 };
 
-const radiusOf = (value: string | undefined, { names }: Reading) => {
+export const radiusOf = (value: string | undefined, { names }: Reading) => {
   if (value === undefined) {
     return names.has("radius") ? "$radius" : null;
   }

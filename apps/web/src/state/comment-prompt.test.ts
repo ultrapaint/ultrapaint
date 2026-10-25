@@ -17,6 +17,7 @@ const comment: Comment = {
   createdAt: 1,
   element: "Welcome",
   id: "comment_1",
+  kind: "comment",
   nodeId: "t_title",
   page: "onboarding/pick.page.json",
   replies: [

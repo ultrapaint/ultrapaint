@@ -100,6 +100,19 @@ const ThreadHeader = ({ thread }: { thread: Thread }) => {
           <span className="truncate">
             {[agentName, model].filter(Boolean).join(" · ")}
           </span>
+          <span
+            className={cn(
+              "shrink-0 rounded-sm border px-1 leading-4",
+              thread.purpose === "implement" && "border-agent text-agent"
+            )}
+            title={
+              thread.purpose === "implement"
+                ? "Implements: it may write the application's code"
+                : "Designs: it writes the designs only; behaviour it is asked for becomes notes for the code"
+            }
+          >
+            {thread.purpose === "implement" ? "Implements" : "Designs"}
+          </span>
         </span>
       </div>
       <IconButton

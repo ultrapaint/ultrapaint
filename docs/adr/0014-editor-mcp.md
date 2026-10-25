@@ -17,6 +17,9 @@ Status: accepted, 2026-09-21.
 > `ask_user` answers "input required" with a form, which the editor draws as a card the agent
 > waits on within its turn.
 
+> Amended by [0030](0030-the-implementation-link.md), 2026-10-25: one more tool, `handoff`, and
+> the server's `instructions`, which an agent outside the editor gets when it connects.
+
 ## Decision
 
 The server hosts an MCP server on its own port at `/mcp`, built on Effect's `McpServer` over

@@ -3,6 +3,9 @@
 Status: accepted, 2026-10-15. Amends 0015 (the design system's two files) and 0025 (sync).
 Plan: `docs/PLAN-design-md.md`.
 
+> Amended by [0028](0028-the-design-holds-the-values.md), 2026-10-25: the front matter mirrors
+> the design system's values, and DESIGN.md's tokens are compared with the design system's.
+
 ## Context
 
 `DESIGN.md` has been free prose in the designs directory since 0015: the agent writes it whole,

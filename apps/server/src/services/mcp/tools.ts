@@ -38,6 +38,7 @@ import {
   ReadCanvas,
   ReadPage,
 } from "./document-tools.ts";
+import { Handoff, handoffToolHandlers } from "./handoff-tools.ts";
 import {
   CreatePage,
   DeletePage,
@@ -77,7 +78,8 @@ export const EditorTools = Toolkit.make(
   ListLinks,
   ReplyToComment,
   ResolveComment,
-  Focus
+  Focus,
+  Handoff
 );
 
 export const EditorToolsLive = EditorTools.toLayer(
@@ -88,6 +90,7 @@ export const EditorToolsLive = EditorTools.toLayer(
       ...(yield* designSystemToolHandlers),
       ...(yield* documentToolHandlers),
       ...(yield* pageToolHandlers),
+      ...(yield* handoffToolHandlers),
     };
   })
 );

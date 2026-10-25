@@ -30,8 +30,8 @@ const FinishSetupStep = Tool.make("finish_setup_step", {
 /**
  * A decision as an agent passes it: optional keys, not unions with null. Kinds `figma` and
  * `design` match a token of the newest Figma import or of DESIGN.md (`value`, where it is there)
- * to the code's token (`target`, added when the code does not declare it), or leave it out of
- * the code (`keep`), for the sync.
+ * to the design system's token (`target`, added when it does not list it), or leave it out
+ * (`keep`), for the sync (ADR 0028).
  */
 const MapEntry = Schema.Struct({
   keep: opt(Schema.Boolean),
@@ -106,12 +106,12 @@ export const SetupToolsLive = SetupTools.toLayer(
             ? []
             : [{ ...e, kind: e.kind }]
         );
-        const matchesOf = (source: "design" | "figma") => {
-          const listed = entries.filter((e) => e.kind === source);
+        const matchesOf = (kind: "design" | "figma") => {
+          const listed = entries.filter((e) => e.kind === kind);
           return listed.length > 0
             ? reported(
                 sync.match(
-                  source,
+                  kind === "design" ? "designMd" : kind,
                   listed.map((e) => ({
                     to: e.keep ? null : e.target,
                     variable: e.value,

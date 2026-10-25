@@ -317,9 +317,11 @@ export const makeCanvasOperations = (
         message: "the pages to copy are in more than one canvas",
       });
     }
-    // A base page's variants are drawings of it, and go wherever it goes.
+    // A base page's variants and states are drawings of it, and go wherever it goes.
     const bases = new Set(
-      picked.filter((p) => p.variant === undefined).map((p) => p.path)
+      picked
+        .filter((p) => p.variant === undefined && p.state === undefined)
+        .map((p) => p.path)
     );
     const chosen = all.pages.filter(
       (p) =>
@@ -355,6 +357,11 @@ export const makeCanvasOperations = (
         chosen.flatMap((p) => (p.variant === undefined ? [] : [p.variant]))
       ),
     ];
+    const states = [
+      ...new Set(
+        chosen.flatMap((p) => (p.state === undefined ? [] : [p.state]))
+      ),
+    ];
     const verb = move ? "Move" : "Copy";
     const what = picked.length === 1 ? first.name : `${picked.length} pages`;
     const gone = (key: string) => chosen.some((p) => p.path === key);
@@ -374,9 +381,15 @@ export const makeCanvasOperations = (
         const withVariants = (layout: CanvasLayout): CanvasLayout => {
           const listed = layout.variants ?? [];
           const added = variants.filter((v) => !listed.includes(v));
-          return added.length > 0
-            ? { ...layout, variants: [...listed, ...added] }
-            : layout;
+          const listedStates = layout.states ?? [];
+          const addedStates = states.filter((v) => !listedStates.includes(v));
+          return {
+            ...layout,
+            ...(added.length > 0 && { variants: [...listed, ...added] }),
+            ...(addedStates.length > 0 && {
+              states: [...listedStates, ...addedStates],
+            }),
+          };
         };
         if (creating) {
           const fresh = { ...emptyCanvasLayout(), name: targetName };

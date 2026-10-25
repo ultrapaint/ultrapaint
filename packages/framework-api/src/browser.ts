@@ -7,6 +7,7 @@
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { InstanceDrawn, RenderMode } from "@ultrapaint/contracts/preview";
+import type { ComponentSpec } from "@ultrapaint/contracts/specs";
 
 /** Attribute the renderer writes on every node it draws: the node's id in the document. */
 export const NODE_ATTRIBUTE = "data-ed-node";
@@ -50,6 +51,10 @@ export interface RenderRequest {
   readonly mode: RenderMode;
   readonly renderId: number;
   readonly root: DesignNode | null;
+  /** The component specs (ADR 0029): drawn over their components, drafts in their instances' place. */
+  readonly specs?: readonly ComponentSpec[] | undefined;
+  /** CSS the design puts after the code's: the tokens' values where they differ (ADR 0028). */
+  readonly styles?: string | undefined;
 }
 
 /** A mounted canvas: the providers stay put, what is under them is drawn again on request. */

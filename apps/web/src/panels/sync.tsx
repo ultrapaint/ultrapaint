@@ -35,6 +35,7 @@ import { reportError, useProject } from "../state/project.ts";
 import { useSync } from "../state/sync.ts";
 import { placeDocument } from "./design-md-view.tsx";
 import { StepCard } from "./design-system-setup.tsx";
+import { CodeTokensStep } from "./sync-code.tsx";
 import { ScaffoldButton } from "./sync-scaffold.tsx";
 import { TokensStep } from "./sync-tokens.tsx";
 
@@ -261,8 +262,15 @@ const PlanStep = ({
       <SyncCard index={index} step={step}>
         <TokensStep
           plan={plan}
-          source={step.kind === "figma-tokens" ? "figma" : "design"}
+          source={step.kind === "figma-tokens" ? "figma" : "designMd"}
         />
+      </SyncCard>
+    );
+  }
+  if (step.kind === "code-tokens") {
+    return (
+      <SyncCard index={index} step={step}>
+        <CodeTokensStep plan={plan} />
       </SyncCard>
     );
   }

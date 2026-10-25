@@ -11,6 +11,11 @@ export const defaultFramework: FrameworkId = "react-vite";
 export const Theme = Schema.Literals(["light", "dark"]);
 
 const common = {
+  /**
+   * Whether a token changed in the design is written to the code at once (`auto`) or waits in
+   * Sync for an export (`manual`, the default): the design holds the values (ADR 0028).
+   */
+  codeTokens: Schema.optional(Schema.Literals(["manual", "auto"])),
   /** Renderer and builder for the preview; `react-vite` when absent. */
   framework: Schema.optional(FrameworkId),
   /**

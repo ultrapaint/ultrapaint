@@ -10,6 +10,7 @@ import {
   House,
   Link2,
   Split,
+  SquareDashed,
   Trash2,
   TriangleAlert,
 } from "lucide-react";
@@ -39,39 +40,47 @@ import {
 import { api } from "../state/connection.ts";
 import { openMenuAt } from "../state/context-menu.ts";
 import { useEditor } from "../state/editor.ts";
+import { statusLabel, useImplementation } from "../state/implementation.ts";
 import { usePagePicks } from "../state/page-picks.ts";
 import { useProject } from "../state/project.ts";
 import { InlineInput } from "./canvases.tsx";
 
 interface Entry {
   page: Page;
-  /** The route's pages drawn for a variant, in the canvas's order of variants. */
+  /**
+   * The route's pages drawn for a variant, in the canvas's order of variants, then the page in
+   * its states (ADR 0030), in the canvas's order of states.
+   */
   variants: Page[];
 }
 
+const isBase = (p: Page) => p.variant === undefined && p.state === undefined;
+
 /**
- * The canvas's pages, one row each, with their variants under them: the ones in the prototype
- * first, in the order of their URLs, then the ones it cannot reach, by name.
+ * The canvas's pages, one row each, with their variants and states under them: the ones in the
+ * prototype first, in the order of their URLs, then the ones it cannot reach, by name.
  */
-const entriesOf = (pages: readonly Page[], order: readonly string[]) => {
-  const byVariant = (a: Page, b: Page) =>
-    order.indexOf(a.variant ?? "") - order.indexOf(b.variant ?? "");
-  const entries: Entry[] = pages
-    .filter((p) => p.variant === undefined)
-    .map((page) => ({
-      page,
-      variants: pages
-        .filter(
-          (p) => p.variant !== undefined && basePathOf(p.path) === page.path
-        )
-        .sort(byVariant),
-    }));
-  // A variant whose base page is gone is still a page of the canvas.
+const entriesOf = (
+  pages: readonly Page[],
+  order: readonly string[],
+  states: readonly string[]
+) => {
+  const rank = (p: Page) =>
+    p.variant === undefined
+      ? order.length + states.indexOf(p.state ?? "")
+      : order.indexOf(p.variant);
+  const entries: Entry[] = pages.filter(isBase).map((page) => ({
+    page,
+    variants: pages
+      .filter((p) => !isBase(p) && basePathOf(p.path) === page.path)
+      .sort((a, b) => rank(a) - rank(b)),
+  }));
+  // A variant or a state whose base page is gone is still a page of the canvas.
   for (const orphan of pages.filter(
     (p) =>
-      p.variant !== undefined &&
-      !pages.some(
-        (b) => b.variant === undefined && b.path === basePathOf(p.path)
+      !(
+        isBase(p) ||
+        pages.some((b) => isBase(b) && b.path === basePathOf(p.path))
       )
   )) {
     entries.push({ page: orphan, variants: [] });
@@ -106,7 +115,7 @@ export const Pages = () => {
   }
 
   const inCanvas = pages.filter((p) => p.canvas === canvas);
-  const entries = entriesOf(inCanvas, info?.variants ?? []);
+  const entries = entriesOf(inCanvas, info?.variants ?? [], info?.states ?? []);
   const unreachable = entries.filter((e) => e.page.route === undefined).length;
 
   return (
@@ -238,18 +247,18 @@ const PageRow = ({ entry, home }: { entry: Entry; home: string }) => {
           <button
             className="flex h-full min-w-0 flex-1 items-center truncate text-left"
             onClick={(e) => openPage(page, e)}
-            onDoubleClick={() =>
-              page.variant === undefined && setEditing("name")
-            }
+            onDoubleClick={() => isBase(page) && setEditing("name")}
             title={`${page.name} · ${page.file}`}
             type="button"
           >
             <span className="truncate">
               {page.name}
               {page.variant === undefined ? "" : ` · ${page.variant}`}
+              {page.state === undefined ? "" : ` · ${page.state}`}
             </span>
           </button>
         )}
+        <StatusDot target={page.id} />
         {editing === "url" ? (
           <InlineInput
             className="max-w-[55%]"
@@ -308,7 +317,32 @@ const PageRow = ({ entry, home }: { entry: Entry; home: string }) => {
   );
 };
 
-/** A page drawn again for a variant: opening it puts the prototype in that variant. */
+/**
+ * Where a page stands with its code (ADR 0030): nothing while it is a draft, a dot otherwise —
+ * ready, implemented, or changed since on one side or both.
+ */
+const StatusDot = ({ target }: { target: string }) => {
+  const item = useImplementation((s) => s.byTarget[target]);
+  if (!item || item.status === "draft") {
+    return null;
+  }
+  const color = {
+    changed: "bg-warning",
+    implemented: "bg-success",
+    ready: "bg-primary",
+  }[item.status];
+  return (
+    <span
+      className={cn("size-1.5 shrink-0 rounded-full", color)}
+      title={statusLabel(item)}
+    />
+  );
+};
+
+/**
+ * A page drawn again for a variant, opening which puts the prototype in that variant; or the
+ * page in a state (ADR 0030), which a link opens.
+ */
 const VariantRow = ({ page }: { page: Page }) => {
   const active = useEditor((s) => s.activePage === page.id);
   const picked = usePagePicks((s) => s.ids.includes(page.id));
@@ -324,12 +358,21 @@ const VariantRow = ({ page }: { page: Page }) => {
       <button
         className="flex h-full min-w-0 flex-1 items-center gap-1.5 truncate text-left"
         onClick={(e) => openPage(page, e)}
-        title={`${page.name} in the ${page.variant} variant`}
+        title={
+          page.state === undefined
+            ? `${page.name} in the ${page.variant} variant`
+            : `${page.name} when it is ${page.state}`
+        }
         type="button"
       >
-        <Split className="size-3 shrink-0 text-muted-foreground" />
-        <span className="truncate">{page.variant}</span>
+        {page.state === undefined ? (
+          <Split className="size-3 shrink-0 text-muted-foreground" />
+        ) : (
+          <SquareDashed className="size-3 shrink-0 text-muted-foreground" />
+        )}
+        <span className="truncate">{page.variant ?? page.state}</span>
       </button>
+      <StatusDot target={page.id} />
       <span className="hidden items-center group-hover:flex">
         <IconButton
           onClick={stop(() => duplicatePage(page))}

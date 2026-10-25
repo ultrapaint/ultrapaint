@@ -180,6 +180,13 @@ export const ThreadScope = Schema.Struct({
 });
 export type ThreadScope = typeof ThreadScope.Type;
 
+/**
+ * What a thread is for (ADR 0030): `design` writes the designs directory only, `implement` the
+ * repository. Threads written before there was a purpose are design threads.
+ */
+export const ThreadPurpose = Schema.Literals(["design", "implement"]);
+export type ThreadPurpose = typeof ThreadPurpose.Type;
+
 export const Thread = Schema.Struct({
   agentId: Schema.String,
   /**
@@ -193,6 +200,8 @@ export const Thread = Schema.Struct({
   id: Schema.String,
   /** Advertised session modes, generic. */
   modes: Schema.optional(Schema.Array(SessionMode)),
+  /** `design` when absent. */
+  purpose: Schema.optional(ThreadPurpose),
   /**
    * Prompts sent while the agent was working, oldest first: each is sent when a turn ends, and
    * waits after a turn that was stopped or failed until the user sends it.

@@ -161,7 +161,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
   "DESIGN.md from elsewhere (ADR 0027)",
   (it) => {
     it.effect(
-      "has its tokens matched, taken into the code, and is rewritten in the code's names",
+      "has its tokens matched, taken into the design system, and is rewritten in its names",
       () =>
         Effect.gen(function* () {
           const { client, repo, settings } = yield* TestEnv;
@@ -202,7 +202,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
 
           const plan = yield* client["sync.plan"]();
           assert.strictEqual(plan.steps[0]?.kind, "design-tokens");
-          const compared = yield* client["sync.tokens"]({ source: "design" });
+          const compared = yield* client["sync.tokens"]({ source: "designMd" });
           assert.deepStrictEqual(
             compared?.diffs.map((d) => [d.variable, d.name, d.outcome]),
             [
@@ -214,7 +214,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
 
           const matched = yield* client["sync.match"]({
             entries: [{ to: "color-accent", variable: "colors.tertiary" }],
-            source: "design",
+            source: "designMd",
           });
           assert.strictEqual(matched.unmatched, 0);
           // Matching writes nothing into the document yet.
@@ -222,14 +222,23 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
 
           const applied = yield* client["sync.apply"]({
             decisions: [{ name: "radius-card", take: "source" }],
-            source: "design",
+            source: "designMd",
           });
           assert.strictEqual(applied.written, 2);
+          // The design system takes them (ADR 0028); the code waits for an export.
           const css = yield* fs.readFileString(
             path.join(repo, "styles/app.css")
           );
-          assert.include(css, "--color-accent: #b8422e;");
-          assert.include(css, "--radius-card: 1rem;");
+          assert.notInclude(css, "--color-accent");
+          const toCode = yield* client["sync.tokens"]({ source: "code" });
+          assert.deepInclude(
+            (toCode?.diffs ?? []).map((d) => [d.name, d.design, d.outcome]),
+            ["color-accent", "#b8422e", "source-behind"]
+          );
+          assert.deepInclude(
+            (toCode?.diffs ?? []).map((d) => [d.name, d.design, d.outcome]),
+            ["radius-card", "1rem", "source-behind"]
+          );
 
           const doc = yield* fs.readFileString(file);
           assert.include(doc, "name: Heritage");

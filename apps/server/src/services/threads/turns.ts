@@ -8,7 +8,9 @@ import { type NotConfigured, NotFound } from "@ultrapaint/contracts/errors";
 import type {
   PromptInput,
   QueuedPrompt,
+  Thread,
   ThreadItem,
+  ThreadPurpose,
   ThreadScope,
 } from "@ultrapaint/contracts/threads";
 import { Clock, Effect, Fiber, FileSystem, type Scope } from "effect";
@@ -28,6 +30,17 @@ import { emptyCursor, turnUsage } from "./transcript.ts";
 
 const DATA_URL_RE = /^data:([^;]+);base64,(.*)$/s;
 /** Until the first prompt names it. */
+/** A prompt that asks for the application's code. */
+const IMPLEMENT_RE = /^\/implement(?:\s|$)/;
+
+/** What a design thread whose agent is running is told when asked to implement. */
+const DESIGN_THREAD_IMPLEMENT = `<ultrapaint-task command="implement">
+The user ran /implement in a thread that designs: its agent can write the designs directory only,
+not the application's code (ADR 0030). Do not try to write the code. Tell the user, in a sentence,
+to press Implement on the page (or start a new chat with /implement), which opens a thread that
+can, and stop.
+</ultrapaint-task>`;
+
 export const UNTITLED = "New chat";
 
 const TITLE_LIMIT = 48;
@@ -228,12 +241,13 @@ export const makeTurns = Effect.fnUntraced(function* (deps: {
    */
   const sessionContext = Effect.fnUntraced(function* (
     session: Live,
-    earlier: readonly ThreadItem[]
+    earlier: readonly ThreadItem[],
+    purpose: ThreadPurpose
   ) {
     if (session.resumed && earlier.some((i) => i.kind === "user")) {
       return [];
     }
-    const about = briefingEnabled ? yield* briefing.text : undefined;
+    const about = briefingEnabled ? yield* briefing.text(purpose) : undefined;
     const recap = session.resumed ? null : recapOf(earlier);
     return [about, recap].flatMap((text): ContentBlock[] =>
       text ? [{ text, type: "text" }] : []
@@ -253,7 +267,8 @@ export const makeTurns = Effect.fnUntraced(function* (deps: {
     const { session, sessionId } = yield* sessionOf(threadId);
     if (!session.briefed) {
       session.briefed = true;
-      blocks.unshift(...(yield* sessionContext(session, earlier)));
+      const purpose = (yield* store.get(threadId))?.purpose ?? "design";
+      blocks.unshift(...(yield* sessionContext(session, earlier, purpose)));
     }
     const snapshot = yield* project
       .use(Effect.flatMap(GitService, (git) => git.snapshot))
@@ -271,6 +286,22 @@ export const makeTurns = Effect.fnUntraced(function* (deps: {
 
   /** Turns still on their way to the agent, by thread: a cancel stops them there. */
   const openings = new Map<string, Fiber.Fiber<void>>();
+
+  /**
+   * The task a prompt stands for. `/implement` turns a thread that has not started its agent into
+   * an implement thread: its session is then started with the repository writable (ADR 0030).
+   * One already running keeps its sandbox, and is told to send the user to an implement thread.
+   */
+  const taskFor = Effect.fnUntraced(function* (thread: Thread, text: string) {
+    if (!IMPLEMENT_RE.test(text.trim()) || thread.purpose === "implement") {
+      return yield* commands.expand(text);
+    }
+    if (thread.sessionId !== undefined) {
+      return DESIGN_THREAD_IMPLEMENT;
+    }
+    yield* store.update(thread.id, { purpose: "implement" });
+    return yield* commands.expand(text);
+  });
 
   const prompt = Effect.fn("ThreadService.prompt")(function* (
     input: PromptInput
@@ -297,7 +328,7 @@ export const makeTurns = Effect.fnUntraced(function* (deps: {
     const paths = yield* currentPaths;
     const { blocks, labels } = yield* attachmentBlocks(input, paths);
     // `/init`, `/implement`: the agent is given the task, the transcript keeps what was typed.
-    const task = yield* commands.expand(input.text);
+    const task = yield* taskFor(thread, input.text);
     if (task !== null) {
       blocks[0] = { text: task, type: "text" };
     }

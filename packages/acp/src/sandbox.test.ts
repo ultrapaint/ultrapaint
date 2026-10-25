@@ -298,3 +298,41 @@ describe("the repository's .git", () => {
     expect(args[git - 1]).toBe("--ro-bind-try");
   });
 });
+
+describe("a design thread's sandbox (ADR 0030)", () => {
+  const designing = {
+    ...policy,
+    readOnly: [policy.root],
+    rewritable: [`${policy.root}/docs/designs`],
+  };
+
+  it("closes the repository to Seatbelt's writes and opens the designs again, last", () => {
+    const lines = seatbeltProfile(designing).split("\n");
+    const closed = lines.indexOf(
+      `(deny file-write* (subpath "${policy.root}"))`
+    );
+    const reopened = lines.indexOf(
+      `(allow file-write* (subpath "${policy.root}/docs/designs"))`
+    );
+    expect(closed).toBeGreaterThan(-1);
+    expect(reopened).toBe(lines.length - 1);
+  });
+
+  it("binds the designs writable over bubblewrap's read-only repository", () => {
+    const args = bubblewrapArgs(designing);
+    const readOnly = args.findIndex(
+      (a, i) => a === "--ro-bind-try" && args[i + 1] === policy.root
+    );
+    const writable = args.findIndex(
+      (a, i) =>
+        a === "--bind-try" && args[i + 1] === `${policy.root}/docs/designs`
+    );
+    expect(readOnly).toBeGreaterThan(-1);
+    expect(writable).toBeGreaterThan(readOnly);
+  });
+
+  it("says nothing of the designs when the whole repository is writable", () => {
+    expect(bubblewrapArgs(policy).join(" ")).not.toContain("docs/designs");
+    expect(seatbeltProfile(policy)).not.toContain("docs/designs");
+  });
+});

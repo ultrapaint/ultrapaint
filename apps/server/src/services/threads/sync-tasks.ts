@@ -13,6 +13,7 @@ import { ServerConfig } from "../../config.ts";
 import { ProjectManager } from "../../project.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { DesignSystemSyncService } from "../design-system-sync.ts";
+import { designTokensOf } from "../design-system-sync-rules.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { ProjectStyleSystem } from "../style-system.ts";
 import { DESIGN_MD_GUIDE, splitArgument, userAdds } from "./task-text.ts";
@@ -64,8 +65,9 @@ to open the Design system panel and press Sync, which starts one, and stop.
           drift.componentsGone.length ===
           0 && prose === "";
       return `<ultrapaint-task command="sync">
-Bring the design system up to the code as it is now. Its values are the code's: they are read from
-the code every time, so only what each token and component is for is yours to write, here and in
+Bring the design system up to the code as it is now. The design system holds the values (ADR 0028)
+and the code follows it; a token the code declares that the design system does not list is taken
+with the code's value, and what each token and component is for is yours to write, here and in
 DESIGN.md's prose.
 ${nothing ? "\nThe design system already lists every token and component of the code, and DESIGN.md's sections are written: say so, and stop.\n" : ""}
 ${list(
@@ -82,8 +84,8 @@ ${list(
 2. Each new token: find where the code uses it, put it in the group it belongs to and say in
    \`description\` what it is for. A token the product has on purpose but designers should not
    reach for goes into \`omitted\` instead.
-3. Each token gone: take it out. If pages still use it (read_page), tell the user which, and ask
-   whether the code should declare it again.
+3. Do not take a token out because the code does not declare it: the code is behind, and Sync
+   exports it.
 4. Each new component: get_component for its props; give it a \`category\`, a \`description\` and
    \`exampleProps\` that make it render something meaningful. Take out the notes of a component gone.
 5. DESIGN.md: say in its prose what changed above, and write what it does not say yet. Prose that
@@ -126,8 +128,16 @@ ${userAdds(extra)}</ultrapaint-task>`;
     return { lines, unmatched };
   };
 
+  /**
+   * The tokens a source is matched to: the design system's (ADR 0028), or the code's while there
+   * is no design system yet.
+   */
   const codeTokens = project.use(
     Effect.gen(function* () {
+      const { designSystem } = yield* (yield* DesignSystemService).get;
+      if (designSystem) {
+        return designTokensOf(designSystem);
+      }
       const paths = yield* RepoPaths;
       return (yield* ProjectStyleSystem)
         .readTokens({
@@ -183,12 +193,12 @@ system. Tell them to open the Design system panel's Sync view, which moves or wr
         (t) => `- ${t.name}: ${t.value}`
       );
       return `<ultrapaint-task command="sync">
-Match the tokens of the Figma file ${comparison.file} to the code's. A Figma file's names are rarely
-the ones the code wants (\`Collection 1/Brand/600\`), and its palette is often more than the
-application uses: nothing of Figma's is written to the code until it is matched, and the code's
-names win. ${unmatched === 0 ? "Every token is matched already: check the matches, change what is wrong, and stop there." : `${unmatched} are not matched yet.`}
+Match the tokens of the Figma file ${comparison.file} to the design system's (the code's while there
+is no design system yet). A Figma file's names are rarely the ones the product wants
+(\`Collection 1/Brand/600\`), and its palette is often more than the application uses: nothing of
+Figma's is taken until it is matched, and the design system's names win. ${unmatched === 0 ? "Every token is matched already: check the matches, change what is wrong, and stop there." : `${unmatched} are not matched yet.`}
 
-The code's own tokens:
+The tokens to match to:
 ${listed(codeLines)}
 
 Figma's tokens, where each is in Figma (kind, value by theme) → what it is in the code now:
@@ -204,9 +214,9 @@ ${listed(lines)}
 2. Ask the user with ask_user where the meaning is theirs to say, a group at a time (the brand
    scale, the greys, the semantic colours), with your proposal as the first option.
 3. Record the decisions with map_values: kind "figma", value the Figma variable as listed above,
-   target the code's token, or keep: true to leave it out.
-4. Do not write the stylesheets or the design system. Finish by telling the user to review the
-   matches in the Design system panel's Sync view and to press Write there.
+   target the token it is, or keep: true to leave it out.
+4. Do not write the stylesheets or the design system's values. Finish by telling the user to review
+   the matches in the Design system panel's Sync view and to press Write there.
 ${userAdds(extra)}</ultrapaint-task>`;
     });
 
@@ -217,11 +227,11 @@ ${userAdds(extra)}</ultrapaint-task>`;
   const syncDesign = (extra: string) =>
     Effect.gen(function* () {
       if (!mcp) {
-        return unavailable("design", "mcp");
+        return unavailable("designMd", "mcp");
       }
-      const comparison = yield* sync.tokens("design");
+      const comparison = yield* sync.tokens("designMd");
       if (!comparison) {
-        return unavailable("design", "none");
+        return unavailable("designMd", "none");
       }
       const { lines, unmatched } = sourceLines(comparison.diffs);
       const codeLines = (yield* codeTokens).map(
@@ -251,37 +261,37 @@ ${userAdds(extra)}</ultrapaint-task>`;
           JSON.stringify(settings) !== JSON.stringify(styles.ours[key])
       );
       return `<ultrapaint-task command="sync">
-Bring ${comparison.file}'s tokens into the code. DESIGN.md is the design system in the open format:
-its front matter mirrors the code's tokens, and someone changed it by hand, or it came from
-elsewhere (Stitch, a designer) with names of its own (\`tertiary\`, \`surface-container-high\`).
-Nothing of it is written to the code until it is matched, and then the code's names win and the
-document is rewritten in them. ${unmatched === 0 ? "Every colour, radius and spacing is matched already: check the matches, then the text styles." : `${unmatched} of its tokens are not matched yet.`}
+Bring ${comparison.file}'s tokens into the design system. DESIGN.md is the design system in the open
+format: its front matter mirrors the design system's tokens, and someone changed it by hand, or it
+came from elsewhere (Stitch, a designer) with names of its own (\`tertiary\`,
+\`surface-container-high\`). Nothing of it is taken until it is matched, and then the design
+system's names win and the document is rewritten in them. ${unmatched === 0 ? "Every colour, radius and spacing is matched already: check the matches, then the text styles." : `${unmatched} of its tokens are not matched yet.`}
 
-The code's own tokens:
+The design system's tokens:
 ${listed(codeLines)}
 
-The document's tokens, where each is (kind, value) → what it is in the code now:
+The document's tokens, where each is (kind, value) → what it is in the design system now:
 ${listed(lines)}
 
-Its text styles${differ.length > 0 ? `, ${differ.length} of them different from the code's` : ", the same as the code's"}:
+Its text styles${differ.length > 0 ? `, ${differ.length} of them different from the design system's` : ", the same as the design system's"}:
 ${listed(styleLines(styles.doc))}
 
 The design system's text styles, as the document would write them:
 ${listed(styleLines(styles.ours))}
 
-1. Match each unmatched token: a token the code declares when it is the same thing (the same role,
-   not only the same value), a new token named the way the code names its tokens, or left out.
+1. Match each unmatched token: a token of the design system when it is the same thing (the same
+   role, not only the same value), a new token named the way it names its tokens, or left out.
    Read the document's prose: it says what each colour is for.
 2. Ask the user with ask_user where the meaning is theirs to say, a group at a time, with your
    proposal as the first option.
 3. Record the decisions with map_values: kind "design", value the token's place as listed above
-   (\`colors.tertiary\`), target the code's token, or keep: true to leave it out.
+   (\`colors.tertiary\`), target the design system's token, or keep: true to leave it out.
 4. The text styles are several tokens each, so they are yours to settle with the user: a style of
    the document becomes a text style of design-system.json named so its key comes out the same
-   (\`headline-lg\` is "Headline lg"), set in the code's tokens; where it needs a size, weight or
-   line height the code does not have, add the token to the stylesheet's theme. Save with
-   write_design_system, passing the design system and the whole of DESIGN.md as it is.
-5. Do not write the colours, radii or spacing into the stylesheets yourself. Finish by telling the
+   (\`headline-lg\` is "Headline lg"), set in its tokens; where it needs a size, weight or line
+   height the design system does not have, add the token to it. Save with write_design_system,
+   passing the design system and the whole of DESIGN.md as it is.
+5. Do not write the colours, radii or spacing yourself. Finish by telling the
    user to review the matches in the Design system panel's Sync view and to press Write there.
 ${userAdds(extra)}</ultrapaint-task>`;
     });

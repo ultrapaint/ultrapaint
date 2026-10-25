@@ -19,5 +19,9 @@
  * 5: design documents (ADR 0015). The editor sends what to draw with `ed:render`; the preview
  * no longer sends a tree, inspects styles or holds a router, and nodes are named by the
  * document's ids.
+ *
+ * 6: the design's stylesheet and component specs (ADR 0028, 0029). `ed:render` carries `styles`
+ * (the tokens' values over the code's) and `specs`; instances are marked with `data-ed-c` and
+ * `data-ed-v`, and drafts are drawn from their tree.
  */
-export const PREVIEW_PROTOCOL = 5;
+export const PREVIEW_PROTOCOL = 6;

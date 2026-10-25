@@ -7,6 +7,10 @@
 import type { Comment } from "@ultrapaint/contracts/comments";
 import type { PageDocument } from "@ultrapaint/contracts/document";
 import { BadRequest, Conflict, NotFound } from "@ultrapaint/contracts/errors";
+import {
+  IMPLEMENTATION_FILE,
+  implementedFileOf,
+} from "@ultrapaint/contracts/implementation";
 import { emptyCanvasLayout } from "@ultrapaint/contracts/pages";
 import {
   pageTemplates,
@@ -22,7 +26,7 @@ import {
   pageNameOf,
   variantPathOf,
 } from "@ultrapaint/shared/route";
-import { Effect } from "effect";
+import { Effect, Predicate } from "effect";
 import type { CommentsService } from "./comments.ts";
 import type { EditTransaction } from "./edit.ts";
 import type { NewPage } from "./pages.ts";
@@ -54,6 +58,84 @@ export const makePageOperations = (
     updateFrames,
     updateRoutes,
   } = reading;
+
+  /** A page's id, from its canvas and its path inside it. */
+  const idOf = (canvas: string, pagePath: string) =>
+    canvas === "" ? pagePath : `${canvas}/${pagePath}`;
+
+  /**
+   * The links to the code (ADR 0030) moved with the pages they are for, inside an action on
+   * them: a renamed page keeps its binding and the design as it was implemented; a deleted one
+   * takes them along, and undo brings them back. A file that does not read is left as it is.
+   */
+  /** `implementation.json` as it reads, its items apart; null when there is none, or it does not read. */
+  const readBindings = Effect.fnUntraced(function* (file: string) {
+    const text = yield* fs
+      .readFileString(file)
+      .pipe(Effect.orElseSucceed((): string | null => null));
+    const parsed: unknown =
+      text === null
+        ? null
+        : yield* Effect.try(() => JSON.parse(text) as unknown).pipe(
+            Effect.orElseSucceed(() => null)
+          );
+    return Predicate.isObject(parsed) &&
+      "items" in parsed &&
+      Predicate.isObject(parsed.items)
+      ? { items: parsed.items, parsed }
+      : null;
+  });
+
+  /** One page's design as it was implemented, moved with it or taken away. */
+  const moveImplemented = Effect.fnUntraced(function* (
+    tx: EditTransaction,
+    from: string,
+    to: string | null
+  ) {
+    const kept = path.join(root, implementedFileOf(from));
+    if (!(yield* exists(kept))) {
+      return;
+    }
+    yield* to === null
+      ? tx.remove(paths.relative(kept))
+      : tx.move(
+          paths.relative(kept),
+          paths.relative(path.join(root, implementedFileOf(to)))
+        );
+  });
+
+  /**
+   * The links to the code (ADR 0030) moved with the pages they are for, inside an action on
+   * them: a renamed page keeps its binding and the design as it was implemented; a deleted one
+   * takes them along, and undo brings them back. A file that does not read is left as it is.
+   */
+  const rebind = Effect.fnUntraced(function* (
+    tx: EditTransaction,
+    moves: ReadonlyMap<string, string | null>
+  ) {
+    const file = path.join(root, IMPLEMENTATION_FILE);
+    const found = yield* readBindings(file);
+    const bound = [...moves].filter(([from]) => found && from in found.items);
+    if (!found || bound.length === 0) {
+      return;
+    }
+    const next: Record<string, unknown> = { ...found.items };
+    for (const [from, to] of bound) {
+      const item = next[from];
+      delete next[from];
+      if (to !== null) {
+        next[to] = item;
+      }
+      yield* moveImplemented(tx, from, to);
+    }
+    const sorted = Object.fromEntries(
+      Object.entries(next).sort(([a], [b]) => a.localeCompare(b))
+    );
+    yield* tx.write(
+      paths.relative(file),
+      `${JSON.stringify({ ...found.parsed, items: sorted }, null, 2)}\n`
+    );
+  });
 
   const createWith = Effect.fn("PagesService.createWith")(function* (
     canvas: string,
@@ -175,9 +257,9 @@ export const makePageOperations = (
     }
     const all = yield* list;
     const { page } = yield* byId(id, all);
-    if (page.variant !== undefined) {
+    if (page.variant !== undefined || page.state !== undefined) {
       return yield* new BadRequest({
-        message: `a variant's page is named after its base page: rename ${pageNameOf(page.path)}`,
+        message: `a ${page.state === undefined ? "variant" : "state"}'s page is named after its base page: rename ${pageNameOf(page.path)}`,
       });
     }
     const dir = dirname(page.path);
@@ -186,17 +268,18 @@ export const makePageOperations = (
       return page;
     }
     const targetPath = yield* freePagePath(page.canvas, dir, trimmed);
-    // The page's variants are named after it, and go with it.
+    // The page's variants and states are named after it, and go with it.
     const moving = all.pages.filter(
       (p) => p.canvas === page.canvas && basePathOf(p.path) === page.path
     );
     const moves = new Map(
-      moving.map((p) => [
-        p.path,
-        p.variant === undefined
-          ? targetPath
-          : variantPathOf(targetPath, p.variant),
-      ])
+      moving.map((p) => {
+        const suffix = p.variant ?? p.state;
+        return [
+          p.path,
+          suffix === undefined ? targetPath : variantPathOf(targetPath, suffix),
+        ];
+      })
     );
     const files = yield* Effect.forEach(moving, (p) =>
       Effect.gen(function* () {
@@ -234,6 +317,15 @@ export const makePageOperations = (
         );
         // Links name a page by its file: they follow it to its new one.
         yield* rewriteLinks(tx, page.canvas, (link) => moves.get(link));
+        yield* rebind(
+          tx,
+          new Map(
+            [...moves].map(([from, to]) => [
+              idOf(page.canvas, from),
+              idOf(page.canvas, to),
+            ])
+          )
+        );
       })
     );
     yield* publishList;
@@ -296,7 +388,7 @@ export const makePageOperations = (
       page.canvas,
       dirname(page.path),
       pageNameOf(page.path),
-      page.variant
+      page.variant ?? page.state
     );
     const target = yield* paths.resolve(path.join(root, page.canvas, copyPath));
     yield* edit.transaction(`Duplicate ${page.name}`, (tx) =>
@@ -374,20 +466,88 @@ export const makePageOperations = (
     return yield* toPage(page.canvas, variantPath, target);
   });
 
+  /**
+   * The page drawn again in a state (ADR 0030): a copy of the base page in the state's file,
+   * its frame to the right of the page's row, the state listed in the canvas's `states`. A name
+   * the canvas uses for a variant is refused: a file is one or the other.
+   */
+  const createState = Effect.fn("PagesService.createState")(function* (
+    id: string,
+    state: string
+  ) {
+    const name = slugOf(state);
+    if (!isVariantName(name)) {
+      return yield* new BadRequest({
+        message: `a state is named with letters, digits and dashes: ${state}`,
+      });
+    }
+    const { page } = yield* byId(id);
+    const basePath = basePathOf(page.path);
+    const layout = yield* Effect.orElseSucceed(readCanvas(page.canvas), () =>
+      emptyCanvasLayout()
+    );
+    if ((layout.variants ?? []).includes(name)) {
+      return yield* new Conflict({
+        message: `${name} is a variant of this canvas, not a state: name the state otherwise`,
+      });
+    }
+    const statePath = variantPathOf(basePath, name);
+    const target = yield* paths.resolve(
+      path.join(root, page.canvas, statePath)
+    );
+    if (yield* exists(target)) {
+      return yield* new Conflict({
+        message: `${page.name} has a ${name} state already`,
+      });
+    }
+    const baseFile = paths.relative(path.join(root, page.canvas, basePath));
+    yield* edit.transaction(`Draw ${page.name} ${name}`, (tx) =>
+      Effect.gen(function* () {
+        // Read in the action, so an edit made meanwhile is drawn again too.
+        yield* tx.create(paths.relative(target), yield* contentOf(baseFile));
+        yield* updateCanvas(tx, page.canvas, (current) => {
+          const listed = current.states ?? [];
+          const frame = current.frames[basePath];
+          // To the right of everything on the page's row: a state reads across from its base.
+          const right = frame
+            ? Math.max(
+                ...Object.values(current.frames)
+                  .filter((f) => f.y === frame.y)
+                  .map((f) => f.x + f.width)
+              ) + FRAME_GAP
+            : 0;
+          return {
+            ...current,
+            frames: frame
+              ? { ...current.frames, [statePath]: { ...frame, x: right } }
+              : current.frames,
+            states: listed.includes(name) ? listed : [...listed, name],
+          };
+        });
+      })
+    );
+    yield* publishList;
+    return yield* toPage(page.canvas, statePath, target);
+  });
+
   const remove = Effect.fn("PagesService.delete")(function* (id: string) {
     const all = yield* list;
     const { page } = yield* byId(id, all);
-    // A base page's variants are drawings of it: they would be left serving nothing.
-    const going =
-      page.variant === undefined
-        ? all.pages.filter(
-            (p) => p.canvas === page.canvas && basePathOf(p.path) === page.path
-          )
-        : [page];
+    // A base page's variants and states are drawings of it: they would be left serving nothing.
+    const base = page.variant === undefined && page.state === undefined;
+    const going = base
+      ? all.pages.filter(
+          (p) => p.canvas === page.canvas && basePathOf(p.path) === page.path
+        )
+      : [page];
     const gone = new Set(going.map((p) => p.path));
+    const drawings = [
+      going.some((p) => p.variant !== undefined) ? "variants" : null,
+      going.some((p) => p.state !== undefined) ? "states" : null,
+    ].filter(Boolean);
     const label =
-      going.length > 1
-        ? `Delete ${page.name} and its variants`
+      drawings.length > 0
+        ? `Delete ${page.name} and its ${drawings.join(" and ")}`
         : `Delete ${page.name}`;
     yield* edit.transaction(label, (tx) =>
       Effect.gen(function* () {
@@ -401,18 +561,19 @@ export const makePageOperations = (
               )
             : null
         );
-        if (page.variant === undefined) {
+        if (base) {
           yield* updateRoutes(tx, all, page.canvas, (routes) => {
             const { [page.path]: _, ...rest } = routes;
             return rest;
           });
         }
-        // Its comments go with it, and come back with it on undo.
+        // Its comments go with it, and come back with it on undo; so does its link to the code.
         yield* comments.rewrite(tx, page.canvas, (pinned) =>
           pinned.some((c) => gone.has(c.page))
             ? pinned.filter((c) => !gone.has(c.page))
             : pinned
         );
+        yield* rebind(tx, new Map(going.map((p) => [p.id, null] as const)));
       })
     );
     yield* publishList;
@@ -420,6 +581,7 @@ export const makePageOperations = (
 
   return {
     create,
+    createState,
     createVariant,
     createWith,
     duplicate,

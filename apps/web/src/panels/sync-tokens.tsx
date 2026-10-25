@@ -1,10 +1,11 @@
 /**
- * A source's tokens against the code's, in the Sync view: a Figma import's (ADR 0025) or
- * DESIGN.md's front matter (ADR 0027). Each of the source's tokens is first matched to the
- * code's — by rules where it is certain, by an agent with the user, or by the user here — and
- * nothing unmatched is written. Then what the source changed alone is taken into the code; where
- * it is behind, the code is kept; where both changed, or there is no earlier agreement to tell,
- * the user picks, token by token or all at once. Applying writes the code and keeps where the two
+ * A source's tokens against the design system's, in the Sync view: a Figma import's (ADR 0025) or
+ * DESIGN.md's front matter (ADR 0027). The design system holds the values (ADR 0028); while there
+ * is none yet, Figma's are compared with the code's, which it is then made from. Each of the
+ * source's tokens is first matched — by rules where it is certain, by an agent with the user, or
+ * by the user here — and nothing unmatched is taken. Then what the source changed alone is taken;
+ * where it is behind, the design system is kept; where both changed, or there is no earlier
+ * agreement to tell, the user picks, token by token or all at once. Applying keeps where the two
  * agree, and the matches, for the next sync.
  */
 import type {
@@ -48,7 +49,8 @@ type Picks = Readonly<Record<string, Take>>;
 
 /** What the user calls the source. */
 const LABEL: Record<TokenSourceKind, string> = {
-  design: "DESIGN.md",
+  code: "the code",
+  designMd: "DESIGN.md",
   figma: "Figma",
 };
 
@@ -61,14 +63,14 @@ const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
 const outcomes = (comparison: TokenComparison) => {
   const by = (outcome: TokenDiff["outcome"]) =>
     comparison.diffs.filter((d) => d.outcome === outcome);
-  const toCode = by("to-code");
+  const taken = by("to-design");
   return {
-    added: toCode.filter((d) => d.code === undefined),
+    added: taken.filter((d) => d.design === undefined),
     behind: by("source-behind"),
-    changed: toCode.filter((d) => d.code !== undefined),
+    changed: taken.filter((d) => d.design !== undefined),
     conflicts: by("conflict"),
     same: by("same"),
-    toCode,
+    taken,
   };
 };
 
@@ -114,10 +116,13 @@ const choiceOf = (d: TokenDiff) => {
 
 const MatchRow = ({
   source,
+  target,
   token,
   targets,
 }: {
   source: TokenSourceKind;
+  /** What the tokens are matched to, as the user calls it: the design system, or the code. */
+  target: string;
   targets: readonly string[];
   token: TokenDiff;
 }) => {
@@ -129,7 +134,7 @@ const MatchRow = ({
       const name = await promptDialog({
         confirmLabel: "Match",
         defaultValue: fresh ?? "",
-        description: `What ${token.variable} is called in the code: lower case, words joined by dashes.`,
+        description: `What ${token.variable} is called in ${target}: lower case, words joined by dashes.`,
         title: "A new token",
       });
       if (name?.trim()) {
@@ -155,7 +160,7 @@ const MatchRow = ({
         className="flex min-w-0 items-center gap-1.5"
         title={token.variable}
       >
-        <Value kind={token.kind} value={token.source} />
+        <Value kind={token.kind} value={token.source ?? ""} />
         <span className="ml-auto shrink-0 font-body text-muted-foreground">
           {token.by ? BY[token.by] : ""}
         </span>
@@ -165,16 +170,14 @@ const MatchRow = ({
         {token.alias ? ` → ${token.alias}` : ""}
       </span>
       <NativeSelect
-        aria-label={`What ${token.variable} is in the code`}
+        aria-label={`What ${token.variable} is in ${target}`}
         className="min-w-0"
         onChange={(e) => decide(e.target.value)}
         size="sm"
         value={choiceOf(token)}
       >
         <NativeSelectOption value="">Not matched</NativeSelectOption>
-        <NativeSelectOption value={LEAVE_OUT}>
-          Left out of the code
-        </NativeSelectOption>
+        <NativeSelectOption value={LEAVE_OUT}>Left out</NativeSelectOption>
         {fresh ? (
           <NativeSelectOption value={fresh}>
             {matched
@@ -197,7 +200,13 @@ const MatchRow = ({
  * What each of the source's tokens is in the code. Open while some are unmatched; the agent, or
  * the user row by row, matches them, and the rest can be added or left out at once.
  */
-const Matches = ({ comparison }: { comparison: TokenComparison }) => {
+const Matches = ({
+  comparison,
+  target,
+}: {
+  comparison: TokenComparison;
+  target: string;
+}) => {
   const { source } = comparison;
   const label = LABEL[source];
   const tokens = tokensOf(comparison);
@@ -219,12 +228,14 @@ const Matches = ({ comparison }: { comparison: TokenComparison }) => {
     <div className="flex flex-col gap-1">
       <span>
         {unmatched.length > 0
-          ? `${unmatched.length} of ${plural(tokens.length, `${label} token`)} not matched to the code yet: nothing of theirs is written.`
-          : `All ${plural(tokens.length, `${label} token`)} matched to the code or left out.`}
+          ? `${unmatched.length} of ${plural(tokens.length, `${label} token`)} not matched to ${target} yet: nothing of theirs is taken.`
+          : `All ${plural(tokens.length, `${label} token`)} matched to ${target} or left out.`}
       </span>
       <div className="flex flex-wrap gap-1.5">
         <Button
-          onClick={() => startCommand(`/sync ${source}`)}
+          onClick={() =>
+            startCommand(`/sync ${source === "designMd" ? "design" : source}`)
+          }
           size="sm"
           variant={unmatched.length > 0 ? "default" : "outline"}
         >
@@ -261,6 +272,7 @@ const Matches = ({ comparison }: { comparison: TokenComparison }) => {
               <MatchRow
                 key={d.variable}
                 source={source}
+                target={target}
                 targets={comparison.targets
                   .filter((t) => t.kind === d.kind)
                   .map((t) => t.name)}
@@ -319,18 +331,21 @@ const Listed = ({
     </div>
   ) : null;
 
-const Conflicts = ({
+export const Conflicts = ({
   baseline,
   conflicts,
   label,
   onPick,
   picks,
+  target,
 }: {
   baseline: boolean;
   conflicts: readonly TokenDiff[];
   label: string;
   onPick: (picks: Picks) => void;
   picks: Picks;
+  /** The other side, as the user calls it: the design system, or the code. */
+  target: string;
 }) => {
   if (conflicts.length === 0) {
     return null;
@@ -348,8 +363,8 @@ const Conflicts = ({
         <Button onClick={() => all("source")} size="sm" variant="outline">
           All from {label}
         </Button>
-        <Button onClick={() => all("code")} size="sm" variant="outline">
-          All from the code
+        <Button onClick={() => all("design")} size="sm" variant="outline">
+          All from {target}
         </Button>
       </div>
       <ul className="flex flex-col">
@@ -362,14 +377,14 @@ const Conflicts = ({
               onChange={(take) => onPick({ ...picks, [keyOf(d)]: take })}
               options={[
                 {
-                  label: <Value kind={d.kind} value={d.source} />,
+                  label: <Value kind={d.kind} value={d.source ?? "none"} />,
                   title: `${label}: ${d.variable}`,
                   value: "source" as const,
                 },
                 {
-                  label: <Value kind={d.kind} value={d.code ?? "none"} />,
-                  title: "The code",
-                  value: "code" as const,
+                  label: <Value kind={d.kind} value={d.design ?? "none"} />,
+                  title: target,
+                  value: "design" as const,
                 },
               ]}
               value={picks[keyOf(d)] ?? null}
@@ -381,11 +396,12 @@ const Conflicts = ({
   );
 };
 
-/** Writes what the source changed and the conflicts given to it; true when it went through. */
-const applyPicks = async (
+/** Takes what the source changed and the conflicts given to it; true when it went through. */
+export const applyPicks = async (
   comparison: TokenComparison,
   conflicts: readonly TokenDiff[],
-  picks: Picks
+  picks: Picks,
+  only?: "export" | "import"
 ) => {
   const decisions: TokenDecision[] = conflicts.flatMap((d) => {
     const take = picks[keyOf(d)];
@@ -396,11 +412,12 @@ const applyPicks = async (
   try {
     const { files, written } = await api().request("sync.apply", {
       decisions,
+      ...(only && { only }),
       source: comparison.source,
     });
     toast.success(
       written === 0
-        ? `${comparison.file} and the code agree; the sync remembers it.`
+        ? `${comparison.file} and the design agree; the sync remembers it.`
         : `${plural(written, "token")} written to ${files.join(", ")}.`
     );
     await useSync.getState().load();
@@ -411,14 +428,19 @@ const applyPicks = async (
   }
 };
 
-const applyLabel = (undecided: number, writes: number, unmatched: number) => {
+const applyLabel = (
+  undecided: number,
+  writes: number,
+  unmatched: number,
+  target: string
+) => {
   if (undecided > 0) {
     return `${undecided} left to pick`;
   }
   if (writes === 0 && unmatched > 0) {
-    return "Nothing matched to write yet";
+    return "Nothing matched to take yet";
   }
-  return `Write ${plural(writes, "token")} to the code`;
+  return `Take ${plural(writes, "token")} into ${target}`;
 };
 
 export const TokensStep = ({
@@ -446,15 +468,16 @@ export const TokensStep = ({
     return <Spinner />;
   }
   const label = LABEL[source];
-  const { added, behind, changed, conflicts, same, toCode } =
+  // Figma's tokens go into the code while there is no design system to take them (ADR 0028).
+  const target = plan.facts.designSystem ? "the design system" : "the code";
+  const { added, behind, changed, conflicts, same, taken } =
     outcomes(comparison);
   const undecided = conflicts.filter((d) => !picks[keyOf(d)]).length;
   const writes =
-    toCode.length +
-    conflicts.filter((d) => picks[keyOf(d)] === "source").length;
+    taken.length + conflicts.filter((d) => picks[keyOf(d)] === "source").length;
   const unmatched = unmatchedIn(tokensOf(comparison)).length;
   const agreed =
-    toCode.length + conflicts.length + unmatched === 0 && comparison.baseline;
+    taken.length + conflicts.length + unmatched === 0 && comparison.baseline;
 
   const apply = async () => {
     setBusy(true);
@@ -471,10 +494,10 @@ export const TokensStep = ({
           <Check className="size-3.5 text-primary" />
           {plural(same.length, "token")} agree with {comparison.file}.
           {behind.length > 0
-            ? ` The code changed ${behind.length} since; ${label} is behind.`
+            ? ` ${target.charAt(0).toUpperCase()}${target.slice(1)} changed ${behind.length} since; ${label} is behind.`
             : ""}
         </p>
-        <Matches comparison={comparison} />
+        <Matches comparison={comparison} target={target} />
       </div>
     );
   }
@@ -485,18 +508,21 @@ export const TokensStep = ({
           {note}
         </p>
       ))}
-      <Matches comparison={comparison} />
-      <Listed diffs={added} title={`${added.length} new, added to the code:`} />
+      <Matches comparison={comparison} target={target} />
+      <Listed
+        diffs={added}
+        title={`${added.length} new, added to ${target}:`}
+      />
       <Listed
         diffs={changed}
-        title={`${changed.length} changed in ${label}, taken into the code:`}
+        title={`${changed.length} changed in ${label}, taken into ${target}:`}
       />
       <Listed
         diffs={behind}
         title={
-          source === "design"
-            ? `${behind.length} changed in the code since; ${label} follows the code:`
-            : `${behind.length} changed in the code since; ${label} is behind and the code is kept:`
+          source === "designMd"
+            ? `${behind.length} changed in ${target} since; ${label} follows it:`
+            : `${behind.length} changed in ${target} since; ${label} is behind and ${target} is kept:`
         }
       />
       <Conflicts
@@ -505,6 +531,7 @@ export const TokensStep = ({
         label={label}
         onPick={setPicks}
         picks={picks}
+        target={target}
       />
       <Button
         className="self-start"
@@ -513,7 +540,7 @@ export const TokensStep = ({
         size="sm"
       >
         {busy ? <Spinner /> : null}
-        {applyLabel(undecided, writes, unmatched)}
+        {applyLabel(undecided, writes, unmatched, target)}
       </Button>
     </div>
   );

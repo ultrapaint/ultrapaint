@@ -13,7 +13,7 @@ import type {
   ImageNode,
   InstanceNode,
 } from "@ultrapaint/contracts/document";
-import type { ViewportPreset } from "@ultrapaint/contracts/pages";
+import type { Page, ViewportPreset } from "@ultrapaint/contracts/pages";
 import { nodeKind, nodeLabel } from "@ultrapaint/design-document/tree";
 import { cn } from "cn";
 import {
@@ -29,7 +29,7 @@ import {
   Ungroup,
   Upload,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,7 +49,12 @@ import {
   wrapSelection,
 } from "../lib/node-actions.ts";
 import { copyNodeRef } from "../lib/node-links.ts";
-import { editPageUrl, implementPage } from "../lib/page-actions.ts";
+import {
+  editPageUrl,
+  implementPage,
+  markImplemented,
+  setPageReady,
+} from "../lib/page-actions.ts";
 import { presetOf, viewportPresets } from "../lib/presets.ts";
 import { MIXED, sharedValue, shownAs } from "../lib/shared-value.ts";
 import { api } from "../state/connection.ts";
@@ -60,6 +65,7 @@ import {
   useDocuments,
 } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { statusLabel, useImplementation } from "../state/implementation.ts";
 import { useInstances } from "../state/instances.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { ComponentProps } from "./component-props.tsx";
@@ -349,16 +355,92 @@ const PageSection = ({ frame }: { frame: string }) => {
           {Math.round(layout.width)} × {Math.round(layout.height)}
         </span>
       </Row>
+      <CodeLink page={page} />
+    </Section>
+  );
+};
+
+/**
+ * Where the page stands with the code that implements it (ADR 0030): the files, whether the
+ * design or the code changed since, what changed in the design, and the way to implement it.
+ */
+const CodeLink = ({ page }: { page: Page }) => {
+  const item = useImplementation((s) => s.byTarget[page.id]);
+  const designChanged = item?.designChanged ?? false;
+  // What changed is read for the page and the status it has now; an answer for another is not shown.
+  const key = `${page.id}:${item?.at ?? 0}:${designChanged}`;
+  const [read, setRead] = useState<{ key: string; text: string } | null>(null);
+  useEffect(() => {
+    if (!designChanged) {
+      return;
+    }
+    api()
+      .request("implementation.changes", { target: page.id })
+      .then((c) => setRead({ key, text: c.text }))
+      .catch(() => undefined);
+  }, [page.id, designChanged, key]);
+  const changes = designChanged && read?.key === key ? read.text : null;
+  const bound = item?.status === "implemented" || item?.status === "changed";
+  return (
+    <div className="mt-1 flex flex-col gap-1.5">
+      <Row label="Code">
+        <span
+          className={cn(
+            "truncate font-body",
+            item?.status === "changed"
+              ? "text-warning"
+              : "text-muted-foreground"
+          )}
+          title={item?.files.join("\n")}
+        >
+          {item && item.status !== "draft"
+            ? statusLabel(item)
+            : "Not implemented"}
+        </span>
+      </Row>
+      {bound && item ? (
+        <span
+          className="truncate font-code text-muted-foreground"
+          title={item.files.join("\n")}
+        >
+          {item.files.join(", ")}
+        </span>
+      ) : null}
+      {changes ? (
+        <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-2 font-code text-muted-foreground">
+          {changes}
+        </pre>
+      ) : null}
       <Button
-        className="mt-1 justify-start"
+        className="justify-start"
         onClick={() => implementPage(page)}
         size="sm"
         variant="outline"
       >
         <Code />
-        Implement in the application
+        {item?.status === "changed" && item.designChanged
+          ? "Implement what changed"
+          : "Implement in the application"}
       </Button>
-    </Section>
+      <div className="flex flex-wrap gap-1">
+        {item?.status === "draft" || item === undefined ? (
+          <Button
+            onClick={() => setPageReady(page, true)}
+            size="sm"
+            variant="ghost"
+          >
+            Mark ready
+          </Button>
+        ) : null}
+        <Button
+          onClick={() => markImplemented(page.id, page.name, item?.files)}
+          size="sm"
+          variant="ghost"
+        >
+          {bound ? "Mark implemented again…" : "Mark implemented…"}
+        </Button>
+      </div>
+    </div>
   );
 };
 

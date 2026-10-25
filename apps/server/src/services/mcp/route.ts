@@ -64,11 +64,28 @@ const Tools = Layer.mergeAll(
   AskUserToolLive
 );
 
+/**
+ * What an agent is told when it connects (ADR 0030): the designs lead and the code follows, and
+ * how to keep the two linked. An agent in the editor is briefed as well; one outside it reads
+ * only this.
+ */
+export const MCP_INSTRUCTIONS = `ultrapaint keeps this repository's designs: pages, component specs and the design system, in the
+designs directory. The design is what the UI looks like and which states it has; the code is what
+it does. The design leads, and the code follows it through the handoff tool:
+- Before implementing UI, call handoff with action "list" to see what is ready or changed since it
+  was implemented, and "read" with its target for the task, which says what changed.
+- After implementing a page or a component, call handoff "mark" with the files that implement it.
+- When the code has to do something a design cannot show (a permission, a validation, a call),
+  or when you change UI in a way the design does not say, call handoff "note" on the page's node.
+- Change a design only through the tools (apply_operations, write_design_system), never by
+  editing its JSON by hand; change token values in the design system, not in the stylesheet.`;
+
 export const McpRoute = Tools.pipe(
   Layer.provide(
     McpServer.layerHttp({
       description:
         "The ultrapaint editor: the project's pages, routes and components.",
+      instructions: MCP_INSTRUCTIONS,
       name: EDITOR_MCP_SERVER,
       path: MCP_PATH,
       // The stateless revision first. Codex speaks it only behind a flag that is off by default

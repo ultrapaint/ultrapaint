@@ -40,6 +40,12 @@ import {
   GitStatus,
 } from "./git.ts";
 import {
+  ImplementationChanges,
+  ImplementationItem,
+  ImplementationList,
+  ImplementationTarget,
+} from "./implementation.ts";
+import {
   Canvas,
   CanvasLayout,
   FrameLayout,
@@ -64,6 +70,7 @@ import {
 } from "./setup.ts";
 import { CustomiseMode, Skill, SkillList } from "./skills.ts";
 import { Snapshot, SnapshotView } from "./snapshots.ts";
+import { ComponentSpec, SpecEntry, SpecList, SpecLook } from "./specs.ts";
 import {
   SyncPlan,
   TokenComparison,
@@ -86,6 +93,7 @@ import {
   SlashCommand,
   Thread,
   ThreadItem,
+  ThreadPurpose,
 } from "./threads.ts";
 import { TokenChange } from "./tokens.ts";
 
@@ -220,6 +228,16 @@ const requestRpcs = [
   Rpc.make("pages.createVariant", {
     error: PagesError,
     payload: { id: Schema.String, variant: Schema.String },
+    success: Page,
+  }),
+  /**
+   * The page drawn again in a state (ADR 0030): a copy of it in the file of the state
+   * (`orders@empty.page.json`), with its frame beside the page's, the state listed in the
+   * canvas's `states`.
+   */
+  Rpc.make("pages.createState", {
+    error: PagesError,
+    payload: { id: Schema.String, state: Schema.String },
     success: Page,
   }),
   /**
@@ -438,15 +456,15 @@ const requestRpcs = [
   /** The design-system sync's plan for the project as it is now (ADR 0025). */
   Rpc.make("sync.plan", { error: NotConfigured, success: SyncPlan }),
   /**
-   * A source's tokens against the code's: the newest Figma import's, or DESIGN.md's front matter
-   * (ADR 0027); null when there is no such source to compare.
+   * A source's tokens against the design system's: the newest Figma import's, DESIGN.md's front
+   * matter (ADR 0027) or the code's (ADR 0028); null when there is no such source to compare.
    */
   Rpc.make("sync.tokens", {
     error: Schema.Union([BadRequest, NotConfigured]),
     payload: { source: TokenSourceKind },
     success: Schema.NullOr(TokenComparison),
   }),
-  /** What a source's tokens are in the code, as the user matched them in the Sync view. */
+  /** What a source's tokens are in the design system, as the user matched them in Sync. */
   Rpc.make("sync.match", {
     error: Schema.Union([BadRequest, NotConfigured]),
     payload: {
@@ -459,11 +477,16 @@ const requestRpcs = [
       unmatched: Schema.Number,
     }),
   }),
-  /** What a source changed, and the conflicts given to it, written into the code. */
+  /**
+   * What a source changed, and the conflicts given to it, taken into the design system. For the
+   * code, what the design system changed, and the conflicts given to it, are written to the
+   * code too (the export); `only` keeps to one direction.
+   */
   Rpc.make("sync.apply", {
     error: Schema.Union([BadRequest, NotConfigured]),
     payload: {
       decisions: Schema.Array(TokenDecision),
+      only: Schema.optional(Schema.Literals(["export", "import"])),
       source: TokenSourceKind,
     },
     success: Schema.Struct({
@@ -577,6 +600,8 @@ const requestRpcs = [
     /** Without an agent, the chat's default one. */
     payload: {
       agentId: Schema.optional(Schema.String),
+      /** `design` when absent (ADR 0030). */
+      purpose: Schema.optional(ThreadPurpose),
       title: Schema.optional(Schema.String),
     },
     success: Thread,
@@ -701,6 +726,76 @@ const requestRpcs = [
     error: EditError,
     payload: { id: Schema.String },
   }),
+
+  /** The component specs of the designs directory (ADR 0029), each read or with its problem. */
+  Rpc.make("specs.list", { error: NotConfigured, success: SpecList }),
+  /** A spec saved as given, validated: one undo step. */
+  Rpc.make("specs.write", {
+    error: EditError,
+    payload: { spec: ComponentSpec },
+    success: SpecEntry,
+  }),
+  /**
+   * A component's spec read off its code (its cva classes) through the style system, saved
+   * with the look given (`code` when absent): a mirror until someone takes the look over.
+   */
+  Rpc.make("specs.fromCode", {
+    error: EditError,
+    payload: {
+      component: Schema.String,
+      from: Schema.optional(Schema.String),
+      look: Schema.optional(SpecLook),
+    },
+    success: SpecEntry,
+  }),
+  Rpc.make("specs.remove", {
+    error: EditError,
+    payload: { component: Schema.String },
+  }),
+  /**
+   * A node made a draft component: its subtree becomes the spec's tree, and the node an
+   * instance of it. One undo step.
+   */
+  Rpc.make("specs.draftFrom", {
+    error: EditError,
+    payload: {
+      id: Schema.String,
+      name: Schema.String,
+      nodeId: Schema.String,
+    },
+    success: SpecEntry,
+  }),
+
+  /** Every page and spec, with whether it is ready, implemented, or changed since (ADR 0030). */
+  Rpc.make("implementation.list", {
+    error: NotConfigured,
+    success: ImplementationList,
+  }),
+  Rpc.make("implementation.setReady", {
+    error: EditError,
+    payload: { ready: Schema.Boolean, target: ImplementationTarget },
+    success: ImplementationItem,
+  }),
+  /** The design marked implemented by these files, as it is now: one undo step. */
+  Rpc.make("implementation.mark", {
+    error: EditError,
+    payload: {
+      files: Schema.Array(Schema.String),
+      target: ImplementationTarget,
+    },
+    success: ImplementationItem,
+  }),
+  /** The binding taken off: the design is a draft again. */
+  Rpc.make("implementation.unbind", {
+    error: EditError,
+    payload: { target: ImplementationTarget },
+  }),
+  /** What changed in the design since it was implemented. */
+  Rpc.make("implementation.changes", {
+    error: EditError,
+    payload: { target: ImplementationTarget },
+    success: ImplementationChanges,
+  }),
 ] as const;
 
 /** Everything the server pushes. Each is a stream that stays open for the life of the socket. */
@@ -721,6 +816,8 @@ export const eventSchemas = {
   "edit.state": UndoState,
   "file.changed": Schema.Struct({ file: Schema.String, hash: Schema.String }),
   git: GitStatus,
+  /** A binding, a design or a bound file changed (ADR 0030). */
+  implementation: ImplementationList,
   log: LogLine,
   pages: PageList,
   project: ProjectInfo,
@@ -728,6 +825,8 @@ export const eventSchemas = {
   screenshot: ScreenshotRequest,
   /** A skill file changed, or the settings turned one on or off. */
   skills: SkillList,
+  /** A spec file changed (ADR 0029). */
+  specs: SpecList,
   /** The sync's plan, worked out again because something it reads changed. */
   syncPlan: SyncPlan,
 } as const;
@@ -784,6 +883,11 @@ const eventRpcs = [
   Rpc.make("events.syncPlan", {
     stream: true,
     success: eventSchemas.syncPlan,
+  }),
+  Rpc.make("events.specs", { stream: true, success: eventSchemas.specs }),
+  Rpc.make("events.implementation", {
+    stream: true,
+    success: eventSchemas.implementation,
   }),
 ] as const;
 

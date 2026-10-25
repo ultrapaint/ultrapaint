@@ -2,6 +2,10 @@
 
 Status: accepted, 2026-09-19.
 
+> Amended by [0030](0030-the-implementation-link.md), 2026-10-25: a design thread's sandbox makes
+> the repository read-only but for the designs directory (`rewritable`), and the editor refuses
+> its ACP writes outside it.
+
 Update, 2026-10-06: the decision stands; the sandbox was tightened where a confined process could
 still reach something outside it (commit `499e57c`).
 

@@ -21,8 +21,7 @@ export class ToolFailure extends Schema.TaggedError<ToolFailure>()(
  * How a tool takes a page: its URL, or its file when it has none. Every tool repeats it, and an
  * agent reads every tool's schema, so it is kept short; the briefing says the rest.
  */
-export const PAGE_PARAMETER =
-  "URL (/settings/billing) or file (drafts/billing.page.json) of the page";
+export const PAGE_PARAMETER = "URL or file of the page";
 
 /**
  * A parameter an agent may leave out. `optionalKey`, not `optional`: the latter also takes

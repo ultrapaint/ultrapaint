@@ -33,7 +33,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { installBridgeRouter } from "./canvas/bridge.ts";
+import { installBridgeRouter, provideDesignLook } from "./canvas/bridge.ts";
 import { Canvas } from "./canvas/canvas.tsx";
 import { Prototype, PrototypeBar } from "./canvas/prototype.tsx";
 import { SnapshotBanner } from "./canvas/snapshot-banner.tsx";
@@ -67,9 +67,12 @@ import {
   useEditor,
   workspaceTabs,
 } from "./state/editor.ts";
+import { useImplementation } from "./state/implementation.ts";
+import { designLook } from "./state/look.ts";
 import { openLeftPanel, usePanels } from "./state/panels.ts";
 import { bindProjectEvents, useProject } from "./state/project.ts";
 import { bindScreenshots } from "./state/screenshots.ts";
+import { useSpecs } from "./state/specs.ts";
 import { syncWaiting, useSync } from "./state/sync.ts";
 import { onUrlChange, readUrl, tidyUrl, writeMode } from "./state/url.ts";
 
@@ -507,6 +510,9 @@ export const App = () => {
       bindDocuments();
       useDesignSystem.getState().load();
       useCatalogue.getState().load();
+      useSpecs.getState().load();
+      useImplementation.getState().load();
+      provideDesignLook(designLook);
       // Agent events are followed from the start, not only while the chat is open: the badge
       // over the tool strip reports turns that changed files.
       useAgents.getState().bind();

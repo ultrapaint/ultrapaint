@@ -2,6 +2,10 @@
 
 Status: accepted, 2026-10-06. Amends 0011 (framework packages) and 0015 (the design system).
 
+> Amended by [0028](0028-the-design-holds-the-values.md), 2026-10-25: the style system is the
+> code's side of the design system; it also writes the preview's overrides (`previewTokenCss`)
+> and reads component specs off classes (`componentSpec`, ADR 0029).
+
 ## Context
 
 Tailwind v4 is the only styling the tool understands, and its knowledge was spread through the

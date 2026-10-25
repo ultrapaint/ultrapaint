@@ -26,6 +26,7 @@ export type SyncCase = typeof SyncCase.Type;
 
 export const SyncStepKind = Schema.Literals([
   "settings",
+  "code-tokens",
   "design-md",
   "design-tokens",
   "scaffold",
@@ -95,6 +96,17 @@ export const driftCount = (drift: SyncDrift) =>
 export const SyncFacts = Schema.Struct({
   /** The package the pages resolve from has React: there is an application. */
   app: Schema.Boolean,
+  /**
+   * The design system against the code (ADR 0028), when there is a design system: tokens waiting
+   * to be written to the code, changed in the code alone, and changed on both sides.
+   */
+  codeTokens: Schema.optional(
+    Schema.Struct({
+      conflicts: Schema.Number,
+      toCode: Schema.Number,
+      toDesign: Schema.Number,
+    })
+  ),
   /** Components the catalogue lists. */
   components: Schema.Number,
   /** `DESIGN.md`, when there is one (ADR 0027). */
@@ -140,10 +152,10 @@ export const SyncPlan = Schema.Struct({
 export type SyncPlan = typeof SyncPlan.Type;
 
 /**
- * Where tokens come from to be compared with the code's: the newest Figma import (ADR 0025), or
- * `DESIGN.md`'s front matter (ADR 0027).
+ * Where tokens come from to be compared with the design system's (ADR 0028): the newest Figma
+ * import (ADR 0025), `DESIGN.md`'s front matter (ADR 0027), or the code.
  */
-export const TokenSourceKind = Schema.Literals(["figma", "design"]);
+export const TokenSourceKind = Schema.Literals(["figma", "designMd", "code"]);
 export type TokenSourceKind = typeof TokenSourceKind.Type;
 
 /** Who matched a source's token to the code's: the rules, an agent, or the user. */
@@ -167,12 +179,17 @@ export type FigmaMatch = typeof FigmaMatch.Type;
 
 /**
  * What the last sync with Figma agreed on, kept in `design-system.json` so a teammate's sync
- * starts from the same point: each token's value in Figma and in the code then, keyed by the
- * code's `name` for the default theme and `name@theme` for another, and what each of Figma's
- * tokens is in the code. Matches saved before any value was taken leave `at` at 0.
+ * starts from the same point: each token's value in Figma and in the design system then, keyed
+ * by the design system's `name` for the default theme and `name@theme` for another, and what each
+ * of Figma's tokens is in the design system. Matches saved before any value was taken leave `at`
+ * at 0.
  */
 export const SyncBaseline = Schema.Struct({
   at: Schema.Number,
+  /**
+   * The design system's values (ADR 0028). Called `code` because, before, the values were the
+   * code's; the files already written keep the name.
+   */
   code: Schema.Record(Schema.String, Schema.String),
   figma: Schema.Record(Schema.String, Schema.String),
   /** The Figma file it was taken from, by name. */
@@ -187,18 +204,20 @@ export const baselineKey = (name: string, theme?: string) =>
   theme ? `${name}@${theme}` : name;
 
 /**
- * What a token's comparison between a source (Figma, DESIGN.md) and the code comes to, against
- * what the two last agreed on:
+ * What a token's comparison between a source (Figma, DESIGN.md, the code) and the design system
+ * comes to, against what the two last agreed on (ADR 0028):
  * - `same`: nothing to do.
- * - `to-code`: the source changed it (or has it and the code does not): the code takes it.
- * - `source-behind`: the code changed it since; the source is behind, and the code is kept.
+ * - `to-design`: the source changed it (or has it and the design system does not): the design
+ *   system takes it.
+ * - `source-behind`: the design system changed it since; the source is behind. For the code
+ *   that is what an export writes; Figma and DESIGN.md are left as they are.
  * - `conflict`: both changed it, or nothing was agreed and they differ: the user picks.
- * - `unmatched`: no one has said what it is in the code yet; nothing is written.
- * - `ignored`: left out of the code on purpose.
+ * - `unmatched`: no one has said what it is in the design system yet; nothing is written.
+ * - `ignored`: left out of the design system on purpose.
  */
 export const TokenOutcome = Schema.Literals([
   "same",
-  "to-code",
+  "to-design",
   "source-behind",
   "conflict",
   "unmatched",
@@ -212,16 +231,17 @@ export const TokenDiff = Schema.Struct({
   base: Schema.optional(Schema.String),
   /** Who matched it; left out while it is unmatched. */
   by: Schema.optional(MatchSource),
-  code: Schema.optional(Schema.String),
+  /** Its value in the design system; left out when the design system does not have it. */
+  design: Schema.optional(Schema.String),
   kind: TokenKind,
   /**
-   * The code's token it is matched to; unmatched or left out, the name the source's own naming
-   * comes to (`color-brand-500`).
+   * The design system's token it is matched to; unmatched or left out, the name the source's own
+   * naming comes to (`color-brand-500`).
    */
   name: Schema.String,
   outcome: TokenOutcome,
-  /** Its value in the source. */
-  source: Schema.String,
+  /** Its value in the source; left out when the source does not have it (the code, behind). */
+  source: Schema.optional(Schema.String),
   /** Left out for the default theme. */
   theme: Schema.optional(Schema.String),
   /** Where it came from in the source: `Colors/Primary/500`, `colors.primary`. */
@@ -240,7 +260,7 @@ export const TokenComparison = Schema.Struct({
   /** What could not be read, named or compared, in a few words each. */
   notes: Schema.Array(Schema.String),
   source: TokenSourceKind,
-  /** The tokens the code declares itself, which the source's can be matched to. */
+  /** The design system's tokens, which the source's can be matched to. */
   targets: Schema.Array(
     Schema.Struct({ kind: TokenKind, name: Schema.String })
   ),
@@ -248,8 +268,8 @@ export const TokenComparison = Schema.Struct({
 export type TokenComparison = typeof TokenComparison.Type;
 
 /**
- * A source's token matched by an agent or the user, by where it is in the source: `to` the code's
- * token (added when the code does not declare it), null to leave it out, absent to undo the match.
+ * A source's token matched by an agent or the user, by where it is in the source: `to` the design
+ * system's token (added when it does not have it), null to leave it out, absent to undo the match.
  */
 export const TokenMatchInput = Schema.Struct({
   to: Schema.optional(Schema.NullOr(Schema.String)),
@@ -257,10 +277,10 @@ export const TokenMatchInput = Schema.Struct({
 });
 export type TokenMatchInput = typeof TokenMatchInput.Type;
 
-/** The user's pick for a token in conflict: the source's value or the code's. */
+/** The user's pick for a token in conflict: the source's value or the design system's. */
 export const TokenDecision = Schema.Struct({
   name: Schema.String,
-  take: Schema.Literals(["source", "code"]),
+  take: Schema.Literals(["source", "design"]),
   theme: Schema.optional(Schema.String),
 });
 export type TokenDecision = typeof TokenDecision.Type;

@@ -6,6 +6,8 @@ const pages = [
   { path: "invoice.page.json", route: "/invoices/:id" },
   { path: "draft.page.json" },
   { path: "draft@bold.page.json", variant: "bold" },
+  // A page in a state (ADR 0030): no variant, no URL, reached by its file.
+  { path: "index@empty.page.json", state: "empty" },
 ];
 
 describe("links", () => {
@@ -53,5 +55,13 @@ describe("links", () => {
       { link: "back", nodeId: "a" },
       { link: "/", nodeId: "c" },
     ]);
+  });
+
+  it("lead to a page in a state by its file, never by its base page's URL", () => {
+    expect(pageOfLink(pages, "index@empty.page.json")?.path).toBe(
+      "index@empty.page.json"
+    );
+    expect(pageOfLink(pages, "/")?.path).toBe("index.page.json");
+    expect(isBrokenLink(pages, "index@empty.page.json")).toBe(false);
   });
 });

@@ -11,6 +11,13 @@ export const CommentReply = Schema.Struct({
 export type CommentReply = typeof CommentReply.Type;
 
 /**
+ * What a comment is: talk about the design, or a behaviour note (ADR 0030), what the code must do
+ * that a design cannot show ("only admins see this"), which `/implement` carries to the code.
+ */
+export const CommentKind = Schema.Literals(["comment", "behaviour"]);
+export type CommentKind = typeof CommentKind.Type;
+
+/**
  * A note pinned on a page of the canvas. The pin sits at `x`/`y`, in the page's own pixels from
  * its top-left corner, so it stays put when the frame moves on the canvas. The node under the
  * pin is remembered too, by id and name, which is what an agent can act on.
@@ -22,6 +29,10 @@ export const Comment = Schema.Struct({
   /** Name of the node the comment was placed on, as the layers panel shows it. */
   element: Schema.NullOr(Schema.String),
   id: Schema.String,
+  /** A plain comment unless it says it is a behaviour note. */
+  kind: CommentKind.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed("comment" as const))
+  ),
   /** Id of that node in the page's document. */
   nodeId: Schema.NullOr(Schema.String).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed(null))
@@ -50,6 +61,7 @@ export type CommentList = typeof CommentList.Type;
 export const CreateCommentInput = Schema.Struct({
   canvas: CanvasId,
   element: Schema.NullOr(Schema.String),
+  kind: Schema.optional(CommentKind),
   nodeId: Schema.NullOr(Schema.String),
   page: Schema.String,
   text: NonEmptyString,
@@ -62,6 +74,7 @@ export type CreateCommentInput = typeof CreateCommentInput.Type;
 export const UpdateCommentInput = Schema.Struct({
   canvas: CanvasId,
   id: Schema.String,
+  kind: Schema.optional(CommentKind),
   resolved: Schema.optional(Schema.Boolean),
   text: Schema.optional(NonEmptyString),
 });
