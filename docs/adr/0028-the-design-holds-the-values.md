@@ -4,6 +4,10 @@ Status: accepted, 2026-10-25. Supersedes 0025's "values live in the code". Amend
 names), 0024 (the style system is the code's side) and 0027 (DESIGN.md is compared with the
 design, not the code). Plan: `docs/PLAN-design-source.md`.
 
+> Amended 2026-10-25 (second round): `design.tokens.json` is a Sync source as well as an
+> export; agents bring the code up to the design through `handoff` and `/sync code`; and a
+> design's implementation waits on the tokens it uses that the code does not have yet.
+
 ## Context
 
 Since 0025 a token's value was read from the code every time, and editing it in the editor wrote
@@ -51,13 +55,36 @@ server keeps it in `DesignSystemState.previewCss`, the editor sends it with ever
 (`ed:render`'s `styles`), and the preview keeps it in one `<style>` after everything else, so it
 wins without `!important`. `PREVIEW_PROTOCOL` goes to 6.
 
-**The Design Tokens format is an export.** `design.tokens.json` in the designs directory is
-written with every change of the design system, in the Design Tokens Community Group's format
-(2025.10): colours and dimensions as structured values, the other themes' values under
-`$extensions["dev.ultrapaint"].themes`, a value the format has no type for as CSS under the same
-extension. It is for Style Dictionary, Tokens Studio and Figma's variables; `design-system.json`
-stays the file the tool reads, because it holds what the format does not: groups, text styles,
-elevation, what each component is for, the baselines.
+**The Design Tokens format is an export, and a source.** `design.tokens.json` in the designs
+directory is written with every change of the design system, in the Design Tokens Community
+Group's format (2025.10): colours and dimensions as structured values, the other themes' values
+under `$extensions["dev.ultrapaint"].themes`, a value the format has no type for as CSS under
+the same extension. It is for Style Dictionary, Tokens Studio and Figma's variables;
+`design-system.json` stays the file the tool reads, because it holds what the format does not:
+groups, text styles, elevation, what each component is for, the baselines.
+
+Another tool may write the file back. It is a Sync source (`dtcg`) compared with the design
+system as the code is, by name, against `designTokens` in `design-system.json`: the values the
+editor last wrote into the file, moved with every write, so the editor's own writes never read
+as another tool's. While the file holds values of its own that differ from that baseline, the
+editor does not write over it: Sync lists what the tool changed (taken into the design system),
+what both changed (the user picks) and what the design system changed meanwhile, and writes the
+file again once they are taken. A token taken out of the file is not taken out of the design
+system; the file gets it back.
+
+**Agents bring the code up to the design too.** `/sync code` lists what waits for the code, what
+the code changed alone and what changed on both sides, and has the agent ask the user where it
+is theirs to say. The values are written through the MCP tool `handoff` (0030): `export` writes
+the design's values into the stylesheets through the style system, `import` takes the code's
+into the design; with no tokens named, what changed on that side alone, and with names, those
+tokens, conflicts included (how an agent applies the user's pick).
+
+**A design's implementation waits on its tokens.** The tokens a page uses (its nodes', its text
+styles', the specs it places whose look the design owns) or a spec uses, whose design value the
+code does not have yet, are listed with its status (`tokens`), named in its `/implement` task
+with the step that exports them, and shown in the inspector with an Export button. An agent's
+`handoff` "mark" is refused while one waits: the code would not draw the design. The user can
+still mark it, and the status says the tokens wait.
 
 ## Consequences
 
@@ -71,3 +98,5 @@ elevation, what each component is for, the baselines.
   it did with the code's.
 - A new style system implements `readTokens`, `writeTokens` and `previewTokenCss`; the sync, the
   preview and the export follow.
+- `design-system.json` keeps one baseline more, `designTokens`, as long as the token list: the
+  price of telling another tool's change from the editor's own.

@@ -29,8 +29,8 @@ export const takeDraft = (threadId: string) => {
   return draft;
 };
 
-/** A draft that asks for the application's code. */
-const IMPLEMENT_RE = /^\/implement(\s|$)/;
+/** A draft that asks for the application's code; `--adopt` only links pages to code built already. */
+const IMPLEMENT_RE = /^\/implement(?!\s+--adopt(?:\s|$))(\s|$)/;
 
 /**
  * Creates a thread and opens it, its composer holding `draft`. Without an agent the server picks

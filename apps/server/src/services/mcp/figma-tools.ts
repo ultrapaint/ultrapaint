@@ -58,7 +58,7 @@ const ListFigmaImports = Tool.make("list_figma_imports", {
 
 const ReadFigmaImport = Tool.make("read_figma_import", {
   description:
-    "A Figma file: its pages and frames (the screens to turn into pages), its components with variants, properties, uses and candidate components of this repository, and the mapping decided so far. Start here.",
+    "A Figma file: its pages and frames (the screens to turn into pages), its components with variants, properties, uses and this repository's candidates, and the mapping so far. Start here.",
   failure: Failure,
   parameters: Schema.Struct(importRef),
   success: Schema.Struct({
@@ -73,7 +73,7 @@ const ReadFigmaImport = Tool.make("read_figma_import", {
 
 const ReadFigmaFrame = Tool.make("read_figma_frame", {
   description:
-    "One frame, by id (12:345) or name: its layers as an outline, with each component instance and whether it is mapped, and the page document it converts to now; unmapped instances are expanded into their layers.",
+    "One frame, by id (12:345) or name: its layers as an outline, each component instance and whether it is mapped, and the page document it converts to now (unmapped instances expanded).",
   failure: Failure,
   parameters: Schema.Struct({
     ...importRef,
@@ -131,7 +131,7 @@ null forgets the decision.`,
 
 const WriteFigmaFrame = Tool.make("write_figma_frame", {
   description:
-    "Write a frame as a page named after it, converted with the mapping as it stands, its images copied to assets and sized as in Figma. Give it a URL when it is a screen of the application. Map the components first; what is unmapped is expanded and reported.",
+    "Write a frame as a page named after it, converted with the mapping so far, its images copied to assets. Give it a URL when it is a screen of the application. Map the components first; what is unmapped is expanded and reported.",
   failure: Failure,
   parameters: Schema.Struct({
     ...importRef,

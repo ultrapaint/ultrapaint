@@ -64,6 +64,20 @@ export const SpecSlot = Schema.Struct({
 });
 export type SpecSlot = typeof SpecSlot.Type;
 
+/**
+ * A behaviour note on a component (ADR 0030): what its code must do that a spec cannot show
+ * ("closes on Escape and gives the focus back"), about one slot or the whole component. Kept in
+ * the spec, so it is part of what tells the spec changed since it was implemented, and carried by
+ * the spec's `/implement`.
+ */
+export const SpecNote = Schema.Struct({
+  id: Schema.String,
+  /** The slot it is about; the whole component when left out. */
+  slot: Schema.optional(Schema.String),
+  text: Schema.String,
+});
+export type SpecNote = typeof SpecNote.Type;
+
 export const SpecLook = Schema.Literals(["design", "code"]);
 export type SpecLook = typeof SpecLook.Type;
 
@@ -81,6 +95,8 @@ export const ComponentSpec = Schema.Struct({
   /** The module it is imported from, as an instance names it; `#draft` for a draft. */
   from: Schema.String,
   look: SpecLook,
+  /** Behaviour notes: what the code must do that the spec cannot show. */
+  notes: Schema.optional(Schema.Array(SpecNote)),
   slots: Schema.Array(SpecSlot),
   /** Style fields per state, per slot. */
   states: Schema.Record(Schema.String, SlotStyles),

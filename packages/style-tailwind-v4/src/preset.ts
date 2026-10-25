@@ -9,6 +9,7 @@ import { componentSpec } from "./component-spec.ts";
 import { componentStyle } from "./component-style.ts";
 import { scanDesignSystem } from "./design-system-scan.ts";
 import { detectStyles } from "./detect.ts";
+import { tailwindClasses } from "./node-classes.ts";
 import { previewCss } from "./preview-css.ts";
 import { previewTokenCss } from "./preview-tokens.ts";
 import { readTokens, writeTokens } from "./tokens.ts";
@@ -20,6 +21,7 @@ export const styleSystem: StyleSystem = {
   componentStyle,
   detect: detectStyles,
   id: "tailwind-v4",
+  nodeClasses: tailwindClasses,
   previewCss,
   previewTokenCss,
   readTokens,

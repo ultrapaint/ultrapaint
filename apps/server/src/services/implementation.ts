@@ -8,6 +8,7 @@
  */
 
 import type { Comment } from "@ultrapaint/contracts/comments";
+import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import {
   BadRequest,
@@ -28,9 +29,12 @@ import {
   specTarget,
 } from "@ultrapaint/contracts/implementation";
 import type { Page } from "@ultrapaint/contracts/pages";
-import type { ComponentSpec } from "@ultrapaint/contracts/specs";
+import type { ComponentSpec, SpecNote } from "@ultrapaint/contracts/specs";
+import type { TokenDiff } from "@ultrapaint/contracts/sync";
 import { describeDiff, diffTrees } from "@ultrapaint/design-document/diff";
 import { serialise } from "@ultrapaint/design-document/factories";
+import { tokensIn, tokensUsed } from "@ultrapaint/design-document/tokens";
+import { plural } from "@ultrapaint/shared/text";
 import {
   Clock,
   Context,
@@ -44,6 +48,7 @@ import {
 import { EventBus } from "../events.ts";
 import { hashContent } from "../hash.ts";
 import { CommentsService } from "./comments.ts";
+import { DesignSystemService } from "./design-system.ts";
 import { DocumentService } from "./documents.ts";
 import { type EditFailure, EditService } from "./edit.ts";
 import { PagesService } from "./pages.ts";
@@ -101,6 +106,61 @@ export interface Current {
 
 const emptyFile = (): ImplementationFile => ({ items: {}, version: 1 });
 
+/** A change to one entry of `implementation.json`, and the snapshot written or taken with it. */
+interface EntryEdit {
+  readonly snapshot?: {
+    readonly rel: string;
+    /** Null takes the snapshot away. */
+    readonly text: string | null;
+  };
+  readonly target: string;
+  readonly update: (entry: ImplementationEntry) => ImplementationEntry | null;
+}
+
+/** The entries with the edits made, in order of their keys: the file is committed. */
+const withEdits = (
+  items: Readonly<Record<string, ImplementationEntry>>,
+  edits: readonly EntryEdit[]
+): Record<string, ImplementationEntry> => {
+  const next: Record<string, ImplementationEntry> = { ...items };
+  for (const { target, update } of edits) {
+    const entry = update(next[target] ?? {});
+    delete next[target];
+    if (entry !== null) {
+      next[target] = entry;
+    }
+  }
+  return Object.fromEntries(
+    Object.entries(next).sort(([a], [b]) => a.localeCompare(b))
+  );
+};
+
+/** What telling which tokens a design waits on needs, read once for a whole list. */
+interface TokenContext {
+  readonly designSystem: DesignSystem | null;
+  readonly specs: readonly ComponentSpec[];
+  /** The code comparison's tokens whose design value has not reached the code, by name. */
+  readonly waiting: ReadonlyMap<string, readonly TokenDiff[]>;
+}
+
+/** The tokens a design relies on (ADR 0028): a page's, with its text styles and owned specs, or a spec's. */
+const usesOf = (snapshot: Implemented, ctx: TokenContext): Set<string> =>
+  snapshot.kind === "spec"
+    ? tokensIn(snapshot.spec)
+    : tokensUsed(snapshot.root, ctx.designSystem, ctx.specs);
+
+/** The tokens a design relies on that wait for the code, sorted. */
+const waitingOf = (snapshot: Implemented, ctx: TokenContext): string[] =>
+  [...usesOf(snapshot, ctx)].filter((name) => ctx.waiting.has(name)).sort();
+
+/** A component's behaviour note as a page's reads, its slot where a node's name would be. */
+const specNoteOf = (n: SpecNote): Note => ({
+  element: n.slot ?? null,
+  id: n.id,
+  nodeId: null,
+  text: n.text,
+});
+
 /** What changed between a design as it was implemented and as it is, a line each. */
 const changedLines = (before: Implemented, now: Implemented): string[] => {
   if (before.kind === "page" && now.kind === "page") {
@@ -111,7 +171,12 @@ const changedLines = (before: Implemented, now: Implemented): string[] => {
     ];
   }
   if (before.kind === "spec" && now.kind === "spec") {
-    return describeSpecChanges(before.spec, now.spec);
+    const { notes: was = [], ...look } = before.spec;
+    const { notes: is = [], ...after } = now.spec;
+    return [
+      ...describeSpecChanges(look, after),
+      ...describeNoteChanges(was.map(specNoteOf), is.map(specNoteOf)),
+    ];
   }
   return [];
 };
@@ -134,8 +199,8 @@ const flatten = (
 
 /** What changed in a spec, a line per field. */
 export const describeSpecChanges = (
-  before: ComponentSpec,
-  after: ComponentSpec
+  before: Omit<ComponentSpec, "notes">,
+  after: Omit<ComponentSpec, "notes">
 ): string[] => {
   const a = flatten(before);
   const b = flatten(after);
@@ -191,17 +256,45 @@ export class ImplementationService extends Context.Service<
     ) => Effect.Effect<ImplementationChanges, NotFound>;
     /** The open behaviour notes of a page (ADR 0030). */
     readonly notes: (page: Page) => Effect.Effect<readonly Note[]>;
+    /**
+     * The design system's tokens whose value has not reached the code (ADR 0028): those the
+     * design relies on, each with its comparison per theme, and how many others wait.
+     */
+    readonly tokens: (target: string) => Effect.Effect<
+      {
+        readonly others: number;
+        readonly used: readonly TokenDiff[];
+      },
+      NotFound
+    >;
     readonly setReady: (
       target: string,
       ready: boolean
     ) => Effect.Effect<ImplementationItem, NotFound | EditFailure>;
+    /**
+     * The design marked implemented by these files. `faithful` refuses while tokens the design
+     * relies on wait for the code (ADR 0028): what an agent marks has to draw as designed.
+     */
     readonly mark: (
       target: string,
-      files: readonly string[]
+      files: readonly string[],
+      faithful?: boolean
     ) => Effect.Effect<
       ImplementationItem,
       NotFound | EditFailure | ForbiddenPath
     >;
+    /** Several designs marked ready, or not, in one undo step; one implemented already is left. */
+    readonly setReadyAll: (
+      targets: readonly string[],
+      ready: boolean
+    ) => Effect.Effect<number, NotFound | EditFailure>;
+    /** Several designs marked implemented by their files, in one undo step (ADR 0030). */
+    readonly markAll: (
+      marks: readonly {
+        readonly files: readonly string[];
+        readonly target: string;
+      }[]
+    ) => Effect.Effect<number, NotFound | EditFailure | ForbiddenPath>;
     readonly unbind: (
       target: string
     ) => Effect.Effect<void, NotFound | EditFailure>;
@@ -219,6 +312,7 @@ export class ImplementationService extends Context.Service<
       const documents = yield* DocumentService;
       const comments = yield* CommentsService;
       const specService = yield* SpecService;
+      const designSystems = yield* DesignSystemService;
       const fileAbs = path.join(paths.designsDir, IMPLEMENTATION_FILE);
       const fileRel = paths.relative(fileAbs);
 
@@ -323,13 +417,35 @@ export class ImplementationService extends Context.Service<
           )
         );
 
+      /** The design system, the specs and what waits for the code, for a list of designs. */
+      const tokenContext: Effect.Effect<TokenContext> = Effect.gen(
+        function* () {
+          const comparison = yield* designSystems.codeComparison;
+          const waiting = new Map<string, TokenDiff[]>();
+          // No stylesheet read: nothing can be said to be missing from it.
+          for (const d of comparison?.read ? comparison.diffs : []) {
+            if (d.outcome === "source-behind" || d.outcome === "conflict") {
+              waiting.set(d.name, [...(waiting.get(d.name) ?? []), d]);
+            }
+          }
+          return {
+            designSystem: (yield* designSystems.get).designSystem,
+            specs: yield* specService.specs,
+            waiting,
+          };
+        }
+      );
+
       const itemOf = Effect.fnUntraced(function* (
         found: Current,
-        entry: ImplementationEntry | undefined
+        entry: ImplementationEntry | undefined,
+        ctx: TokenContext
       ) {
         const binding = entry?.implemented;
         const ready = entry?.ready ?? false;
         const kind = isSpecTarget(found.target) ? "spec" : "page";
+        const waiting = waitingOf(found.snapshot, ctx);
+        const tokens = waiting.length > 0 ? { tokens: waiting } : {};
         if (!binding) {
           return {
             changedFiles: [],
@@ -341,6 +457,7 @@ export class ImplementationService extends Context.Service<
             ready,
             status: ready ? "ready" : "draft",
             target: found.target,
+            ...tokens,
           } satisfies ImplementationItem;
         }
         const hashes = yield* hashFiles(binding.files);
@@ -362,14 +479,16 @@ export class ImplementationService extends Context.Service<
           ready,
           status: designChanged || codeChanged ? "changed" : "implemented",
           target: found.target,
+          ...tokens,
         } satisfies ImplementationItem;
       });
 
       const list: Effect.Effect<ImplementationList> = Effect.gen(function* () {
         const file = yield* readFile;
         const all = yield* everything;
+        const ctx = yield* tokenContext;
         const items = yield* Effect.forEach(all, (found) =>
-          itemOf(found, file.items[found.target])
+          itemOf(found, file.items[found.target], ctx)
         );
         return { items };
       }).pipe(Effect.withSpan("ImplementationService.list"));
@@ -379,42 +498,74 @@ export class ImplementationService extends Context.Service<
       ) {
         const found = yield* current(target);
         const file = yield* readFile;
-        return yield* itemOf(found, file.items[found.target]);
+        return yield* itemOf(
+          found,
+          file.items[found.target],
+          yield* tokenContext
+        );
+      });
+
+      const tokens = Effect.fn("ImplementationService.tokens")(function* (
+        target: string
+      ) {
+        const found = yield* current(target);
+        const ctx = yield* tokenContext;
+        const used = new Set(waitingOf(found.snapshot, ctx));
+        return {
+          others: [...ctx.waiting.keys()].filter((name) => !used.has(name))
+            .length,
+          used: [...used].flatMap((name) => ctx.waiting.get(name) ?? []),
+        };
       });
 
       const publish = Effect.flatMap(list, (l) =>
         events.publish("implementation", l)
       );
 
-      /** `implementation.json` with one entry changed, and the files to write with it. */
-      const writeEntry = Effect.fnUntraced(function* (
-        target: string,
+      /** `implementation.json` with entries changed, and the files to write with them: one undo step. */
+      const writeEntries = Effect.fnUntraced(function* (
         label: string,
-        update: (entry: ImplementationEntry) => ImplementationEntry | null,
-        snapshot?: { readonly rel: string; readonly text: string | null }
+        edits: readonly EntryEdit[]
       ) {
         yield* edit.transaction(label, (tx) =>
           Effect.gen(function* () {
             // Read in the action, so a change made meanwhile is kept.
             const file = yield* readFile;
-            const next = update(file.items[target] ?? {});
-            const { [target]: _old, ...rest } = file.items;
-            const items = next === null ? rest : { ...rest, [target]: next };
-            const sorted = Object.fromEntries(
-              Object.entries(items).sort(([a], [b]) => a.localeCompare(b))
+            yield* tx.write(
+              fileRel,
+              serialise({ items: withEdits(file.items, edits), version: 1 })
             );
-            yield* tx.write(fileRel, serialise({ items: sorted, version: 1 }));
-            if (snapshot) {
-              if (snapshot.text === null) {
-                yield* tx.remove(snapshot.rel);
-              } else {
-                yield* tx.write(snapshot.rel, snapshot.text);
+            for (const { snapshot } of edits) {
+              if (snapshot) {
+                yield* snapshot.text === null
+                  ? tx.remove(snapshot.rel)
+                  : tx.write(snapshot.rel, snapshot.text);
               }
             }
           })
         );
         yield* publish;
       });
+
+      /** `implementation.json` with one entry changed, and the files to write with it. */
+      const writeEntry = (
+        target: string,
+        label: string,
+        update: (entry: ImplementationEntry) => ImplementationEntry | null,
+        snapshot?: { readonly rel: string; readonly text: string | null }
+      ) =>
+        writeEntries(label, [
+          { target, update, ...(snapshot !== undefined && { snapshot }) },
+        ]);
+
+      /** A design ready, or not, as an entry has it. */
+      const readyIn =
+        (ready: boolean) =>
+        (entry: ImplementationEntry): ImplementationEntry | null => {
+          const { ready: _ready, ...rest } = entry;
+          const next = ready ? { ...rest, ready: true } : rest;
+          return Object.keys(next).length === 0 ? null : next;
+        };
 
       const setReady = Effect.fn("ImplementationService.setReady")(function* (
         target: string,
@@ -426,24 +577,49 @@ export class ImplementationService extends Context.Service<
           ready
             ? `Mark ${found.name} ready to implement`
             : `Mark ${found.name} not ready`,
-          (entry) => {
-            const { ready: _ready, ...rest } = entry;
-            const next = ready ? { ...rest, ready: true } : rest;
-            return Object.keys(next).length === 0 ? null : next;
-          }
+          readyIn(ready)
         );
         return yield* item(found.target);
       });
 
-      const mark = Effect.fn("ImplementationService.mark")(function* (
-        target: string,
-        files: readonly string[]
+      const setReadyAll = Effect.fn("ImplementationService.setReadyAll")(
+        function* (targets: readonly string[], ready: boolean) {
+          const found = yield* Effect.forEach(targets, current);
+          const file = yield* readFile;
+          // A design implemented already is past being ready.
+          const open = found.filter(
+            (f) => file.items[f.target]?.implemented === undefined
+          );
+          if (open.length === 0) {
+            return 0;
+          }
+          yield* writeEntries(
+            ready
+              ? `Mark ${plural(open.length, "design")} ready to implement`
+              : `Mark ${plural(open.length, "design")} not ready`,
+            open.map((f) => ({ target: f.target, update: readyIn(ready) }))
+          );
+          return open.length;
+        }
+      );
+
+      /** A design's binding to these files as it is now, checked: the files are there. */
+      const bindingFor = Effect.fnUntraced(function* (
+        found: Current,
+        files: readonly string[],
+        faithful: boolean,
+        ctx: TokenContext | null
       ) {
-        const found = yield* current(target);
         if (files.length === 0) {
           return yield* new BadRequest({
             message:
               "name the files that implement it, repository-relative: src/routes/orders.tsx",
+          });
+        }
+        const waiting = faithful && ctx ? waitingOf(found.snapshot, ctx) : [];
+        if (waiting.length > 0) {
+          return yield* new BadRequest({
+            message: `${found.name} uses tokens whose design value has not reached the code: ${waiting.join(", ")}. Bring them over first (handoff "export" with their names; where both sides changed one, ask the user which value to keep), then mark it.`,
           });
         }
         const checked = yield* Effect.forEach(files, (file) =>
@@ -465,16 +641,53 @@ export class ImplementationService extends Context.Service<
           design: found.hash,
           files: unique,
         };
-        yield* writeEntry(
-          found.target,
-          `Mark ${found.name} implemented`,
-          (entry) => {
+        return {
+          snapshot: {
+            rel: snapshotRel(found.target),
+            text: serialise(found.snapshot),
+          },
+          target: found.target,
+          update: (entry: ImplementationEntry): ImplementationEntry => {
             const { ready: _ready, ...rest } = entry;
             return { ...rest, implemented: binding };
           },
-          { rel: snapshotRel(found.target), text: serialise(found.snapshot) }
+        };
+      });
+
+      const mark = Effect.fn("ImplementationService.mark")(function* (
+        target: string,
+        files: readonly string[],
+        faithful = false
+      ) {
+        const found = yield* current(target);
+        const change = yield* bindingFor(
+          found,
+          files,
+          faithful,
+          faithful ? yield* tokenContext : null
         );
+        yield* writeEntries(`Mark ${found.name} implemented`, [change]);
         return yield* item(found.target);
+      });
+
+      const markAll = Effect.fn("ImplementationService.markAll")(function* (
+        marks: readonly {
+          readonly files: readonly string[];
+          readonly target: string;
+        }[]
+      ) {
+        const changes = yield* Effect.forEach(marks, ({ files, target }) =>
+          Effect.flatMap(current(target), (found) =>
+            bindingFor(found, files, false, null)
+          )
+        );
+        if (changes.length > 0) {
+          yield* writeEntries(
+            `Link ${plural(changes.length, "design")} to their code`,
+            changes
+          );
+        }
+        return changes.length;
       });
 
       const unbind = Effect.fn("ImplementationService.unbind")(function* (
@@ -564,6 +777,8 @@ export class ImplementationService extends Context.Service<
           poke(events.subscribe("pages")),
           poke(events.subscribe("specs")),
           poke(events.subscribe("comments")),
+          // A token exported, or changed in the design: what waits for the code moved.
+          poke(events.subscribe("designSystem")),
         ],
         { concurrency: "unbounded" }
       ).pipe(
@@ -579,8 +794,11 @@ export class ImplementationService extends Context.Service<
         item,
         list,
         mark,
+        markAll,
         notes,
         setReady,
+        setReadyAll,
+        tokens,
         unbind,
       });
     })

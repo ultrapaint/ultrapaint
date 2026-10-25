@@ -39,7 +39,7 @@ const AskQuestion = Schema.Struct({
 
 const AskUser = Tool.make("ask_user", {
   description:
-    "Ask the user one to four questions when a decision is theirs, each with options to pick from (short labels, the one you would choose first) and allowOther for an answer of their own. You get the answers as this tool's result. If the result says the questions were shown instead, end your turn: the answers come as the next message.",
+    "Ask the user one to four questions when a decision is theirs: options to pick from (short labels, your pick first), allowOther for an answer of their own. The answers are the result; if it says the questions were shown instead, end your turn: they come as the next message.",
   parameters: Schema.Struct({
     questions: Schema.Array(AskQuestion).check(
       Schema.isMinLength(1),

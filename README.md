@@ -19,10 +19,10 @@ makes a design system out of it with an agent that asks you what each colour mea
 then bring the code onto it a directory at a time, every batch undoable.
 
 **Your designs live in Figma.** Import the `.fig` file. Its variables and styles become your
-code's tokens, light and dark, written into your Tailwind theme where they belong, and its
-frames become pages drawn with your real components, not pictures of them. Import the file
-again after the designer changes it, and only what changed comes across; where the code changed
-too, you pick.
+design system's tokens, light and dark (your Tailwind theme's, written where they belong, when
+the project has no design system yet), and its frames become pages drawn with your real
+components, not pictures of them. Import the file again after the designer changes it, and only
+what changed comes across; where the design system changed too, you pick.
 
 **Your design system and your code drift apart.** Someone changes a colour in the frontend
 and nobody updates the design system, or the other way round. In ultrapaint the design leads
@@ -307,7 +307,9 @@ them. The workspaces are ⌃1–3 on a Mac and Alt+1–3 elsewhere.
 
 When a page is ready, **Implement** in the Pages panel (or `/implement <url or file>` in a thread) asks
 an agent to write it in your application with your own components and conventions: the tokens
-become the matching Tailwind v4 classes, instances become your components.
+become the matching Tailwind v4 classes, instances become your components. The inspector's
+**Code** tab shows the same translation for the selected element, written by the server through
+the project's style system.
 
 ### Designs and the code that implements them
 
@@ -319,13 +321,25 @@ but it keeps the link between the two:
   or changed since: the design, the code or both. The Pages panel shows it as a dot, the
   inspector's Code row says which files implement the page and lists what changed in the design.
   `implementation.json` and the designs as they were implemented (`_implemented/`) live in the
-  designs directory and are committed.
+  designs directory and are committed. A page renamed, or moved to another canvas, keeps its
+  link; a copy is a new design and starts as a draft.
+- **Tokens waiting for the code.** A token changed in the design and not exported yet is not in
+  the application: a page that uses one says so ("Implemented · tokens wait for the code"), the
+  inspector names them with an **Export** button, and `/implement` brings them over before
+  writing the page. An agent cannot mark a page implemented while one of its tokens waits.
 - **Implement what changed.** An implement thread is told the changes since the page was
-  implemented, its behaviour notes and its states, then the whole design, and marks the page
-  implemented with the files it wrote.
+  implemented, its behaviour notes, its states and the tokens it waits on, then the whole
+  design, and marks the page implemented with the files it wrote.
 - **Behaviour notes.** A comment can be a behaviour note: what the code must do that a design
   cannot show ("only admins can delete", "disabled until the form is valid"). It is pinned to its
-  element and goes to the code with the page.
+  element and goes to the code with the page. A component has its own, in its spec (the
+  Components tab's **Behaviour**), and they go to the code when it is implemented.
+- **Bringing a project in.** Pages built before the project came into the editor start as
+  drafts. Pick several in the Pages panel (⌘ or Shift) to **Mark them ready** at once, or **Find
+  their code with an agent** (`/implement --adopt`, also in a canvas's menu): an agent finds the
+  files that already draw each page and links them, changing no code. The Components tab's **Read
+  every spec from the code** reads a spec for every component with classes and links each to its
+  file.
 - **States.** **Draw a state** (in a page's menu) draws the page again empty, loading, with an
   error or a dialog open (`orders@empty.page.json`); a link can open it, and implementing the
   page implements it as that state of the same screen.
@@ -334,7 +348,8 @@ but it keeps the link between the two:
   `/implement` (the Implement button) implements, and may write the whole repository.
 - **Agents outside the editor.** Connected through `claude mcp add` (Settings → Agents), an agent
   is told how to use `handoff`: what is ready or changed, the task for one, marking it
-  implemented, and writing a behaviour note.
+  implemented, writing a behaviour note on a page or a component, and exporting the design's
+  token values to the code (or importing the code's).
 
 ### Components: behaviour from the code, look from the design
 
@@ -357,7 +372,7 @@ The design system is two files, both meant to be committed:
   [DESIGN.md format](https://github.com/google-labs-code/design.md) that coding agents and design
   tools read and write ([ADR 0027](docs/adr/0027-design-md.md)):
   - its front matter holds the tokens (`colors`, `typography`, `rounded`, `spacing`), kept in
-    step with your code;
+    step with the design system;
   - its body says, in the format's sections, what the product is, which colours mean what,
     which component to use for what, and what to always or never do.
 
@@ -369,17 +384,20 @@ The design system is two files, both meant to be committed:
   tokens, fonts, shadows, border widths, elevation levels (a surface, its shadow and its
   z-index), breakpoints and container widths, motion, the icon set and themes. For each
   component it keeps a category, a description and the example props its thumbnail is drawn
-  with. It also keeps what Sync last agreed on with Figma and with `DESIGN.md`.
+  with. It also keeps what Sync last agreed on with Figma, `DESIGN.md`, the code and
+  `design.tokens.json`.
 
 **A token's value lives in the design system** ([ADR 0028](docs/adr/0028-the-design-holds-the-values.md)):
 `design-system.json` holds every value in every theme, and `design.tokens.json` beside it says
 the same in the [Design Tokens format](https://www.designtokens.org/tr/2025.10/) for Style
-Dictionary, Tokens Studio and Figma's variables. Right-click a token in the Design system panel
-and **Edit** changes the design, one undo step; the canvas draws it at once, over your
-stylesheet's value. The code follows when you export it from Sync (**Bring the code up to the
-design**), which writes your stylesheet in the theme block the token is declared in. Turn on
-**Write token changes to the code at once** there to have every edit reach the stylesheet as it
-is made.
+Dictionary, Tokens Studio and Figma's variables. When one of those tools changes
+`design.tokens.json`, the editor does not write over it: Sync offers what it changed (**Take
+design.tokens.json's changes into the design system**), then writes the file again. Right-click a
+token in the Design system panel and **Edit** changes the design, one undo step; the canvas draws
+it at once, over your stylesheet's value. The code follows when you export it from Sync (**Bring
+the code up to the design**, or `/sync code` for an agent to settle it with you), which writes
+your stylesheet in the theme block the token is declared in. Turn on **Write token changes to the
+code at once** there to have every edit reach the stylesheet as it is made.
 
 `DESIGN.md`'s front matter mirrors those values in the default theme; its body says how dark mode
 differs. When the design system changes a value, the front matter follows. When someone changes a
@@ -401,13 +419,14 @@ has a dot while something is waiting.
 | a Figma file, no application | starts an application with Figma's tokens as its theme, then turns the frames into pages |
 | an application, no design system | reads what the code uses, has an agent define the design system, and offers to map and migrate the code onto it |
 | a Figma file and an application | matches Figma's tokens to your code's and takes their values first, then the same steps, then the frames |
-| a design system | moves `DESIGN.md` to the repository root, or writes a first one; takes what someone changed in `DESIGN.md` into the design system; exports what the code is missing and takes in what the code changed alone; lists what drifted (tokens and components the code has that the design system does not describe, and the other way round) and the `DESIGN.md` sections left to write, for `/sync describe`; compares a newer Figma import |
+| a design system | moves `DESIGN.md` to the repository root, or writes a first one; takes what someone changed in `DESIGN.md` or another tool in `design.tokens.json` into the design system; exports what the code is missing and takes in what the code changed alone; lists what drifted (tokens and components the code has that the design system does not describe, and the other way round) and the `DESIGN.md` sections left to write, for `/sync describe`; compares a newer Figma import |
 
 Settings that point nowhere (no component directory, one with no components the editor can
 read, no stylesheet) come first in every case: **Detect and apply** proposes where they are and
 applies them once you have seen it.
 
-**Figma's tokens are matched to your code's first**, because a Figma file's names
+**Figma's tokens are matched first**, to the design system's (to your code's while there is
+none), because a Figma file's names
 (`Collection 1/Brand/600`) and palette are rarely what the frontend wants. Each variable and
 style is one of your tokens, a new token under a name you choose, or left out of the code;
 nothing that is not matched is written. Rules match what is certain (the same name, or the one
@@ -416,15 +435,15 @@ token with the same value, the semantic colour over its palette entry); **Match 
 **Review the matches** lists every one to change. The matches are kept with the last sync, so a
 newer import of the file goes through them.
 
-Matched tokens are compared with your code's, one by one and theme by theme: a colour
+Matched tokens are compared with the design system's, one by one and theme by theme: a colour
 however it is written (`#3b82f6`, `rgb(…)`, `oklch(…)`), a length in px or rem. Each is also
 compared with what the last sync agreed on, which is kept in `design-system.json`:
 
 | Since the last sync | What happens |
 |---|---|
-| Figma changed it, or it is matched to a token the code does not have yet | the code takes Figma's value, in the unit the code uses |
-| the code changed it | the code is kept; Figma is behind |
-| both changed it, or there was no earlier sync and they differ | you pick, one by one or **All from Figma** / **All from the code** |
+| Figma changed it, or it is matched to a token the design system does not have yet | the design system takes Figma's value, in the unit it already uses |
+| the design system changed it | it is kept; Figma is behind |
+| both changed it, or there was no earlier sync and they differ | you pick, one by one or **All from Figma** / **All from the design system** |
 
 `/init` is still there as the quick way to have an agent describe a theme that is already the
 design system.
@@ -530,12 +549,14 @@ type after it is added to it.
 | Command | What it does |
 |---|---|
 | `/sync` | Opens the Sync view on the steps for your repository's case (no agent turn) |
-| `/sync describe` | An agent brings the design system up to the code: describes new tokens and components, takes out the ones gone, asks you what they are for |
-| `/sync figma` | An agent matches the imported Figma file's tokens to your code's, asking you where the meaning is yours to say; you review and write them in Sync |
-| `/sync design` | An agent matches `DESIGN.md`'s tokens to your code's and settles its text styles with you; you review and write them in Sync |
+| `/sync describe` | An agent describes in the design system what the code has that it does not list: new tokens and components, asking you what they are for |
+| `/sync figma` | An agent matches the imported Figma file's tokens to the design system's, asking you where the meaning is yours to say; you review and write them in Sync |
+| `/sync design` | An agent matches `DESIGN.md`'s tokens to the design system's and settles its text styles with you; you review and write them in Sync |
+| `/sync code` | An agent brings the code up to the design: exports the tokens waiting for it, and asks you about what the code changed alone or on both sides |
 | `/init` | An agent describes the theme you have as the design system, and writes `design-system.json` and `DESIGN.md` in the format's sections |
 | `/import-figma [import]` | An agent maps an imported Figma file's components to yours and writes its frames as pages |
-| `/implement <page>` | An agent writes a page (by URL or file) in your application, with your components and conventions |
+| `/implement <page>` | An agent writes a page (by URL or file), or a component's spec (`/implement Button`), in your application, with your components and conventions |
+| `/implement --adopt [canvas or pages]` | An agent links pages already built in your application to the files that implement them, changing no code |
 | `/redraw <canvas> <what to change>` | Changes every page of a canvas, a copy made to go another way |
 | `/components <canvas>` | Draws a sheet of your components, in each of their variants, into a canvas |
 | `/design-system <step>` | Runs a step of the setup in its thread: `define`, `map` or `migrate` (Sync opens these for you) |
@@ -616,13 +637,13 @@ keeps its settings in `~/.ultrapaint` unless it is given `--config` or `--epheme
 - `apps/web` — the editor (React, Tailwind, Base UI). It talks to the origin it is served from and touches nothing of the machine.
 - `apps/server` — local backend on the Effect 4 runtime: settings, preview host, pages and spaces, design documents and the design system, undo, git, ACP threads.
 - `packages/contracts` — Effect Schema for everything on the wire, the document format included, and the `RpcGroup` that is the editor's API.
-- `packages/design-document` — the document format's pure code: tree walks, ids, the operations every edit is made of, tokens and the CSS a node is drawn with.
+- `packages/design-document` — the document format's pure code: tree walks, ids, the operations every edit is made of, tokens and the CSS a node is drawn with, a node's JSX with the classes a style system writes.
 - `packages/framework-api` — what a renderer gives the preview, and what a framework and a style system give the server.
 - `packages/preview-core` — the framework-neutral runtime injected into every preview iframe: what to draw, measuring, hit-testing, text editing, the prototype's navigation.
 - `packages/renderer-react` — draws design documents with the repository's own React and components (`renderToCanvas`).
 - `packages/figma-import` — reads a `.fig` file: its frames to design documents by fixed rules, with a mapping that says what each Figma component becomes, and its variables and styles as tokens.
 - `packages/framework-react-vite` — the Node side for React + Vite: catalogue extraction, repository detection, the preview server and its component registry, and the application a repository can start from.
-- `packages/style-tailwind-v4` — the Tailwind v4 style system: tokens read from and written to `@theme`, the theme scan, what the code's classes use and their rewrite, the preview's stylesheet.
+- `packages/style-tailwind-v4` — the Tailwind v4 style system: tokens read from and written to `@theme`, the theme scan, what the code's classes use and their rewrite, the preview's stylesheet, a node's utilities for the Code tab.
 - `packages/acp` — the only module that imports the ACP SDK, behind an `AcpAgent` Effect interface; agent launch configs are data.
 - `packages/client-runtime`, `packages/shared` — the editor's RPC connection (reconnects, typed requests, events) and small utilities.
 - `scripts/command.ts` — the `ultrapaint` command, run from a checkout (with its `--dev` mode) or bundled into the release package by `scripts/pack.ts`; `scripts/cli.ts` is it on the PATH and `scripts/dev-runner.ts` is `pnpm dev`, that mode with development's ports and settings.

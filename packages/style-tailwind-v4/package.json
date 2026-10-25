@@ -13,6 +13,7 @@
   "dependencies": {
     "@babel/parser": "^8.0.5",
     "@ultrapaint/contracts": "workspace:*",
+    "@ultrapaint/design-document": "workspace:*",
     "@ultrapaint/framework-api": "workspace:*",
     "@ultrapaint/shared": "workspace:*"
   },

@@ -12,12 +12,13 @@ import type {
   TokenDiff,
 } from "@ultrapaint/contracts/sync";
 import { baselineKey } from "@ultrapaint/contracts/sync";
-import { Check } from "lucide-react";
+import { Check, Wand2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
+import { startCommand } from "../lib/start-thread.ts";
 import { api } from "../state/connection.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { applyPicks, Conflicts } from "./sync-tokens.tsx";
@@ -167,7 +168,7 @@ export const CodeTokensStep = ({ plan }: { plan: SyncPlan }) => {
       ))}
       <List
         diffs={toCode}
-        title={`${plural(toCode.length, "token")} of the design wait for the code (the code's value → the design's):`}
+        title={`${plural(toCode.length, "token")} of the design ${toCode.length === 1 ? "waits" : "wait"} for the code (the code's value → the design's):`}
       />
       {toCode.length > 0 ? (
         <Button
@@ -213,6 +214,18 @@ export const CodeTokensStep = ({ plan }: { plan: SyncPlan }) => {
         >
           {busy === "both" ? <Spinner /> : null}
           {undecided > 0 ? `${undecided} left to pick` : "Bring them together"}
+        </Button>
+      ) : null}
+      {toDesign.length + conflicts.length > 0 ? (
+        <Button
+          className="self-start"
+          disabled={busy !== null}
+          onClick={() => startCommand("/sync code")}
+          size="sm"
+          variant="ghost"
+        >
+          <Wand2 />
+          Settle them with an agent
         </Button>
       ) : null}
       <AutoExport />

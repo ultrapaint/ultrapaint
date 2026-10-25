@@ -63,6 +63,7 @@ import {
   matchFigma,
   matchKeyOf,
   matchProblem,
+  namedDiffs,
   planOf,
   summaryOf,
   tokenChanges,
@@ -164,7 +165,7 @@ const documentAfter = (
   return "problem" in written ? null : written.text;
 };
 
-/** What every matched Figma token is in the code, to keep in the baseline by Figma's id. */
+/** What every matched Figma token is in the design system, to keep in the baseline by Figma's id. */
 const matchesOf = (
   tokens: readonly FigmaSide[],
   matched: ReadonlyMap<string, { by: FigmaMatchSource; to: string | null }>
@@ -195,12 +196,14 @@ export class DesignSystemSyncService extends Context.Service<
      * Takes what the source changed alone, and the conflicts the user gave to it, into the
      * design system (into the code while there is no design system yet), and keeps where the two
      * now agree for the next sync. For the code, what the design system changed and the
-     * conflicts given to it are written to the code: the export; `only` keeps to one direction.
+     * conflicts given to it are written to the code: the export; `only` keeps to one direction,
+     * and `tokens`, when it names any, to those tokens (by name, or `name@theme`).
      */
     readonly apply: (
       source: TokenSourceKind,
       decisions: readonly TokenDecision[],
-      only?: "export" | "import"
+      only?: "export" | "import",
+      tokens?: readonly string[]
     ) => Effect.Effect<
       { readonly files: readonly string[]; readonly written: number },
       NotConfigured | BadRequest
@@ -286,6 +289,8 @@ export class DesignSystemSyncService extends Context.Service<
                   )
                 )
               : undefined;
+          const dtcg = yield* designSystem.designTokensComparison;
+          const designTokens = dtcg ? codeCounts(dtcg.diffs) : undefined;
           const facts: SyncFacts = {
             app: yield* hasApp(paths.anchorDir),
             components: components.length,
@@ -298,6 +303,13 @@ export class DesignSystemSyncService extends Context.Service<
               },
             }),
             designSystem: state.designSystem !== null,
+            ...(designTokens && {
+              designTokens: {
+                behind: designTokens.toCode,
+                conflicts: designTokens.conflicts,
+                toDesign: designTokens.toDesign,
+              },
+            }),
             ...(latest && { figma: { id: latest.id, name: latest.name } }),
             libraryDirs: [...settings.libraryDirs],
             styleSystem: styleSystem.id,
@@ -881,36 +893,18 @@ export class DesignSystemSyncService extends Context.Service<
 
       /** The code's tokens compared with the design system's (ADR 0028). */
       const compareWithCode = project.use(
-        Effect.gen(function* () {
-          const service = yield* DesignSystemService;
-          const { designSystem: ds } = yield* service.get;
-          if (!ds) {
-            return null;
-          }
-          const paths = yield* RepoPaths;
-          const source = (yield* ProjectStyleSystem).readTokens({
-            anchorDir: paths.anchorDir,
-            root: paths.root,
-            settings: paths.settings,
-          });
-          const design = designTokensOf(ds);
-          return {
-            baseline: ds.codeSync !== undefined,
-            diffs: compareCode(
-              source.tokens,
-              design,
-              ds.codeSync ?? null,
-              new Set(ds.omitted ?? [])
-            ),
-            file:
-              source.files.length === 1
-                ? (source.files[0] ?? "the code")
-                : "the code",
-            notes: [...source.notes],
-            source: "code",
-            targets: design.map((t) => ({ kind: t.kind, name: t.name })),
-          } satisfies TokenComparison;
-        })
+        Effect.flatMap(DesignSystemService, (service) =>
+          Effect.map(
+            service.codeComparison,
+            (found): TokenComparison | null => {
+              if (!found) {
+                return null;
+              }
+              const { read: _read, ...comparison } = found;
+              return comparison;
+            }
+          )
+        )
       );
 
       /**
@@ -921,7 +915,8 @@ export class DesignSystemSyncService extends Context.Service<
       const applyCode = Effect.fn("DesignSystemSyncService.applyCode")(
         function* (
           decisions: readonly TokenDecision[],
-          only?: "export" | "import"
+          only?: "export" | "import",
+          tokens: readonly string[] = []
         ) {
           const comparison = yield* compareWithCode;
           if (!comparison) {
@@ -931,7 +926,7 @@ export class DesignSystemSyncService extends Context.Service<
             });
           }
           const { toCode, toDesign } = codeChanges(
-            comparison.diffs,
+            namedDiffs(comparison.diffs, tokens),
             decisions,
             only
           );
@@ -958,20 +953,53 @@ export class DesignSystemSyncService extends Context.Service<
         (effect) => baselineLock.withPermits(1)(effect)
       );
 
+      /** `design.tokens.json` compared with the design system (ADR 0028). */
+      const compareDtcg = project.use(
+        Effect.flatMap(DesignSystemService, (d) => d.designTokensComparison)
+      );
+
+      /**
+       * What another tool changed in `design.tokens.json`, and the conflicts given to it, taken
+       * into the design system; the file is then written again from it, which brings what the
+       * design system changed into the file and moves their agreement.
+       */
+      const applyDtcg = Effect.fn("DesignSystemSyncService.applyDtcg")(
+        function* (decisions: readonly TokenDecision[]) {
+          const comparison = yield* compareDtcg;
+          if (!comparison) {
+            return yield* new BadRequest({
+              message:
+                "There is no design.tokens.json beside a design system to take tokens from.",
+            });
+          }
+          const changes = tokenChanges(comparison.diffs, decisions);
+          const { files } = yield* project.use(
+            Effect.flatMap(DesignSystemService, (d) =>
+              d.takeDesignTokens(changes)
+            )
+          );
+          yield* Effect.ignore(plan);
+          return { files, written: changes.length };
+        },
+        (effect) => baselineLock.withPermits(1)(effect)
+      );
+
       const byName = new BadRequest({
         message:
-          "The code's tokens are matched to the design system's by name: there is nothing to match.",
+          "The code's and design.tokens.json's tokens are matched to the design system's by name: there is nothing to match.",
       });
 
       return DesignSystemSyncService.of({
-        apply: (source, decisions, only) => {
+        apply: (source, decisions, only, tokens) => {
           switch (source) {
             case "figma":
               return applyFigma(decisions);
             case "designMd":
               return applyDesign(decisions);
+            case "dtcg":
+              return applyDtcg(decisions);
             default:
-              return applyCode(decisions, only);
+              return applyCode(decisions, only, tokens);
           }
         },
         match: (source, entries, by) => {
@@ -991,6 +1019,8 @@ export class DesignSystemSyncService extends Context.Service<
               return figmaTokens;
             case "designMd":
               return designTokens;
+            case "dtcg":
+              return compareDtcg;
             default:
               return compareWithCode;
           }

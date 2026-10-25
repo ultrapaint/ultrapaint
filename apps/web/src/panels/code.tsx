@@ -1,10 +1,14 @@
 /**
- * The selected node as code: JSX with the design system's components and Tailwind utilities,
- * everything under it included, by the rules an agent implements a page by. It is the reference
- * translation, for reading a design as code and seeing why it draws as it does; the
- * application's code is still written by an agent, in the repository's conventions.
+ * The selected node as code: JSX with the design system's components and the classes of the
+ * project's style system, everything under it included, by the rules an agent implements a page
+ * by. It is the reference translation, for reading a design as code and seeing why it draws as it
+ * does; the application's code is still written by an agent, in the repository's conventions.
+ * The server writes it, through the style system (ADR 0024): Tailwind's utilities today.
  */
-import { pageComponentName, toCode } from "@ultrapaint/design-document/code";
+
+import type { DesignNode } from "@ultrapaint/contracts/document";
+import type { InstanceDrawn } from "@ultrapaint/contracts/preview";
+import { pageComponentName } from "@ultrapaint/design-document/code";
 import { layoutOf, type ParentLayout } from "@ultrapaint/design-document/css";
 import {
   findPath,
@@ -12,8 +16,10 @@ import {
   nodeLabel,
 } from "@ultrapaint/design-document/tree";
 import { routeOf } from "@ultrapaint/shared/route";
+import { useEffect, useState } from "react";
 import { Markdown } from "../components/markdown.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
+import { api } from "../state/connection.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
@@ -59,20 +65,54 @@ const useSubject = () => {
   return { node, parent, route } as const;
 };
 
+/**
+ * The code the server writes for a node, through the project's style system; the last one
+ * written stays on screen while the next is on its way.
+ */
+const useWritten = (request: {
+  readonly component: string | undefined;
+  readonly instances: Readonly<Record<string, InstanceDrawn>>;
+  readonly node: DesignNode | undefined;
+  readonly parent: ParentLayout;
+}) => {
+  const { component, instances, node, parent } = request;
+  // A token's value changed: its class may be another.
+  const designSystem = useDesignSystem((s) => s.designSystem);
+  const [code, setCode] = useState<string | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the server writes with the design system it holds, so a change to it writes the code again.
+  useEffect(() => {
+    if (!node) {
+      return;
+    }
+    let live = true;
+    api()
+      .request("code.write", {
+        ...(component !== undefined && { component }),
+        instances,
+        node,
+        parent,
+      })
+      .then((written) => {
+        if (live) {
+          setCode(written.code);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [component, instances, node, parent, designSystem]);
+  return code;
+};
+
 export const CodePanel = () => {
   const subject = useSubject();
-  const designSystem = useDesignSystem((s) => s.designSystem);
   const instances = useInstances((s) => s.drawn);
-  if (!subject) {
-    return (
-      <PanelEmpty>
-        Select an element on the canvas or in the layers to see its code
-      </PanelEmpty>
-    );
-  }
-  const { node, parent, route } = subject;
+  const node = subject?.node;
+  const parent = subject?.parent;
+  const route = subject?.route;
   const component =
-    node.type === "page" && route !== undefined
+    node?.type === "page" && route !== undefined
       ? pageComponentName(route)
       : undefined;
   // Inside an instance, a node is sized against the layout its component was drawn with.
@@ -82,11 +122,19 @@ export const CodePanel = () => {
   } else if (parent) {
     parentLayout = layoutOf(parent);
   }
-  const code = toCode(node, designSystem, {
+  const code = useWritten({
     component,
     instances,
+    node,
     parent: parentLayout,
   });
+  if (!node) {
+    return (
+      <PanelEmpty>
+        Select an element on the canvas or in the layers to see its code
+      </PanelEmpty>
+    );
+  }
   return (
     <div className="flex flex-col gap-2 px-3 py-2.5">
       <div className="flex min-w-0 items-baseline gap-2">
@@ -98,11 +146,13 @@ export const CodePanel = () => {
         )}
       </div>
       <p className="font-body text-muted-foreground">
-        The node and everything in it, as Tailwind and your components, by the
-        rules agents implement a design with. Links are written as plain
-        anchors; the application uses its router's.
+        The node and everything in it, as your style system's classes and your
+        components, by the rules agents implement a design with. Links are
+        written as plain anchors; the application uses its router's.
       </p>
-      <Markdown codeBlockMaxHeight="none">{fenced(code, "tsx")}</Markdown>
+      {code === null ? null : (
+        <Markdown codeBlockMaxHeight="none">{fenced(code, "tsx")}</Markdown>
+      )}
     </div>
   );
 };

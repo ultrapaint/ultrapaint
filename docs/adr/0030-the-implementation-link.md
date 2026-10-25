@@ -4,6 +4,10 @@ Status: accepted, 2026-10-25. Amends 0013 (a design thread's sandbox), 0014 (one
 the server's instructions), 0015 (`/implement`), 0019 (page states beside variants) and 0021
 (links name states). Plan: `docs/PLAN-design-source.md`.
 
+> Amended 2026-10-25 (second round): bindings follow a page moved to another canvas, and a
+> copy starts without one; pages built already are brought in in bulk; components have behaviour
+> notes; `handoff` also exports and imports tokens (0028).
+
 ## Context
 
 `/implement` put a page's whole tree in a prompt and kept nothing: the next change to the design
@@ -39,7 +43,8 @@ marking the design implemented with the files it wrote, through `handoff`.
 
 **Behaviour is written down, not drawn.** A comment can be a behaviour note (`kind:
 "behaviour"`): pinned to a node, shown apart from discussion, never executed or mocked. A design
-thread asked for behaviour writes one; `/implement` carries them.
+thread asked for behaviour writes one; `/implement` carries them. A component's notes are kept in
+its spec (0029), since a component has no page to pin them on.
 
 **States are pages.** `orders@empty.page.json` is the orders page in its empty state when `empty`
 is in the canvas's `states`; a variant (0019) is a prototype-wide alternative, a state belongs
@@ -52,15 +57,28 @@ there is no sandbox, only the ACP check and the briefing hold, and the thread sa
 
 **External agents pull from the same link.** One MCP tool, `handoff`: `list` (what is ready or
 changed), `read` (a design's implementation task, as `/implement` writes it), `mark` (implemented,
-with its files), `note` (a behaviour note, or a flag that the code moved away from the design).
-The server's MCP `instructions` say when to use it; an agent outside the editor gets them when it
+with its files; refused while tokens the design uses wait for the code, 0028), `note` (a
+behaviour note on a page's node or a component's spec, or a flag that the code moved away from
+the design), `export` and `import` (token values between the design and the code, 0028). The
+server's MCP `instructions` say when to use it; an agent outside the editor gets them when it
 connects.
+
+**A binding is the design's, wherever the design goes.** A page renamed, or moved to another
+canvas, takes its binding and its snapshot to its new id; a page deleted, alone or with its
+canvas, takes them away, and undo brings them back. A copy, of a page or of a canvas, is a new
+design: it starts as a draft, its states with it, while the original keeps its binding.
+
+**A project built already is brought in, not implemented again.** Several pages, or a canvas,
+are marked ready in one undo step. `/implement --adopt [canvas | page…]` has an agent find the
+files that already draw each page not linked yet and mark them through `handoff`, changing no
+code; it runs in a design thread, since it writes nothing but the link.
 
 ## Consequences
 
 - The Pages panel shows each page's status; the inspector shows the binding, what changed, and
   marks a page ready or implemented.
-- Deleting or renaming a page moves its binding and snapshot with it.
-- The tool budget of 0022 holds: `handoff` fits because descriptions elsewhere were cut.
+- Deleting, renaming or moving a page to another canvas moves its binding and snapshot with it.
+- The tool budget of 0022 holds: `handoff` fits because descriptions elsewhere were cut, and its
+  `export`/`import` (with a `tokens` parameter) fit by cutting more: 15,921 characters of 16,000.
 - Behaviour notes are comments: the comment tools and the Comments panel see them, with their
   kind.

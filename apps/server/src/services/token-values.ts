@@ -1,7 +1,8 @@
 /**
  * Telling two token values apart the way a person would (ADR 0025): `#3b82f6` and
- * `oklch(0.623 0.188 259.8)` are one colour, `12px` and `0.75rem` one length. Used to compare
- * Figma's values with the code's, and to write Figma's in the unit the code already uses. Pure.
+ * `oklch(0.623 0.188 259.8)` are one colour, `12px` and `0.75rem` one length. Used to compare a
+ * source's values with the design system's and the code's, and to write a source's value in the
+ * unit the token is already written in. Pure.
  */
 
 type Rgba = readonly [number, number, number, number];
@@ -147,8 +148,8 @@ export const sameValue = (a: string | undefined, b: string | undefined) => {
 };
 
 /**
- * Figma's value written the way the code writes this token: a length in rem when the code's is
- * in rem. Anything else is written as Figma has it.
+ * A source's value (Figma's) written the way the token is written now, in the design system or
+ * the code: a length in rem when that is in rem. Anything else is written as the source has it.
  */
 export const inCodeUnits = (figma: string, code: string | undefined) => {
   const px = pixels(figma);

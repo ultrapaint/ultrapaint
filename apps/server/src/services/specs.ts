@@ -23,8 +23,10 @@ import {
   type SpecEntry,
   type SpecList,
   type SpecLook,
+  type SpecNote,
   specFileOf,
 } from "@ultrapaint/contracts/specs";
+import type { SourceToken } from "@ultrapaint/contracts/tokens";
 import { serialise } from "@ultrapaint/design-document/factories";
 import {
   childrenOf,
@@ -41,6 +43,7 @@ import {
   Stream,
 } from "effect";
 import { EventBus } from "../events.ts";
+import { makeId } from "../ids.ts";
 import { CatalogueService } from "./catalogue.ts";
 import { DesignSystemService } from "./design-system.ts";
 import { DocumentService } from "./documents.ts";
@@ -107,9 +110,30 @@ export class SpecService extends Context.Service<
       from: string | undefined,
       look: SpecLook
     ) => Effect.Effect<SpecEntry, EditFailure | NotFound>;
+    /**
+     * A spec read off the code for every component with classes to read and no spec yet, in one
+     * undo step: how a project whose components are built already comes in. Answers with each
+     * spec and the file of its component.
+     */
+    readonly fromCodeAll: (look: SpecLook) => Effect.Effect<
+      readonly {
+        readonly file: string;
+        readonly spec: ComponentSpec;
+      }[],
+      EditFailure
+    >;
     readonly remove: (
       component: string
     ) => Effect.Effect<void, EditFailure | NotFound>;
+    /**
+     * A behaviour note added to a component's spec (ADR 0030), about a slot or the whole
+     * component: what its code must do that the spec cannot show. One undo step.
+     */
+    readonly addNote: (
+      component: string,
+      text: string,
+      slot?: string
+    ) => Effect.Effect<SpecNote, EditFailure | NotFound>;
     readonly draftFrom: (
       page: string,
       nodeId: string,
@@ -248,33 +272,91 @@ export class SpecService extends Context.Service<
         return slotsOf(meta.name, slotsInSource(source), siblings);
       });
 
+      /** A component's spec read off its cva classes; one there was keeps its behaviour notes. */
+      const specFromCode = Effect.fnUntraced(function* (
+        meta: ComponentMeta,
+        all: readonly ComponentMeta[],
+        look: SpecLook,
+        tokens: readonly SourceToken[],
+        kept: ComponentSpec | undefined
+      ) {
+        const { styles } = meta;
+        const read = styles
+          ? yield* Effect.try({
+              catch: (error) =>
+                new BadRequest({
+                  message: `${meta.name}'s classes could not be read: ${String(error)}`,
+                }),
+              try: () => styleSystem.componentSpec(styles, tokens),
+            })
+          : { base: {}, defaults: {}, states: {}, variants: {} };
+        const parts = yield* slotsFor(meta, all);
+        // Read again, a spec keeps its behaviour notes: they are not the code's look.
+        const notes = kept?.notes;
+        return {
+          ...emptySpec(meta.name, meta.importFrom, look),
+          ...read,
+          ...(meta.description !== undefined && {
+            description: meta.description,
+          }),
+          ...(notes && notes.length > 0 && { notes }),
+          slots: [{ name: ROOT_SLOT }, ...parts.map((name) => ({ name }))],
+        } satisfies ComponentSpec;
+      });
+
       const fromCode = Effect.fn("SpecService.fromCode")(function* (
         component: string,
         from: string | undefined,
         look: SpecLook
       ) {
         const { all, meta } = yield* metaOf(component, from);
-        const tokens = yield* designSystem.codeTokens;
-        const { styles } = meta;
-        const read = styles
-          ? yield* Effect.try({
-              catch: (error) =>
-                new BadRequest({
-                  message: `${component}'s classes could not be read: ${String(error)}`,
-                }),
-              try: () => styleSystem.componentSpec(styles, tokens),
-            })
-          : { base: {}, defaults: {}, states: {}, variants: {} };
-        const parts = yield* slotsFor(meta, all);
-        const spec: ComponentSpec = {
-          ...emptySpec(meta.name, meta.importFrom, look),
-          ...read,
-          ...(meta.description !== undefined && {
-            description: meta.description,
-          }),
-          slots: [{ name: ROOT_SLOT }, ...parts.map((name) => ({ name }))],
-        };
+        const spec = yield* specFromCode(
+          meta,
+          all,
+          look,
+          yield* designSystem.codeTokens,
+          (yield* specs).find((s) => s.component === meta.name)
+        );
         return yield* save(spec, `Read the ${meta.name} spec from the code`);
+      });
+
+      const fromCodeAll = Effect.fn("SpecService.fromCodeAll")(function* (
+        look: SpecLook
+      ) {
+        const { components } = yield* catalogue.get(false).pipe(
+          Effect.mapError(
+            (error) =>
+              new BadRequest({
+                message: `the catalogue cannot be read: ${error.message}`,
+              })
+          )
+        );
+        const have = new Set((yield* specs).map((s) => s.component));
+        // A component without classes to read would be an empty spec; one with a spec keeps it.
+        const open = components.filter(
+          (c) => c.styles !== undefined && !have.has(c.name)
+        );
+        const tokens = yield* designSystem.codeTokens;
+        const read = yield* Effect.forEach(open, (meta) =>
+          Effect.map(
+            specFromCode(meta, components, look, tokens, undefined),
+            (spec) => ({ file: meta.file, spec })
+          )
+        );
+        if (read.length > 0) {
+          yield* edit.transaction(
+            `Read ${read.length} spec${read.length === 1 ? "" : "s"} from the code`,
+            (tx) =>
+              Effect.forEach(
+                read,
+                ({ spec }) =>
+                  tx.write(fileOf(spec.component).repo, serialise(spec)),
+                { discard: true }
+              )
+          );
+          yield* publish;
+        }
+        return read;
       });
 
       const remove = Effect.fn("SpecService.remove")(function* (
@@ -291,6 +373,39 @@ export class SpecService extends Context.Service<
           tx.remove(file.repo)
         );
         yield* publish;
+      });
+
+      const addNote = Effect.fn("SpecService.addNote")(function* (
+        component: string,
+        text: string,
+        slot?: string
+      ) {
+        const spec = (yield* specs).find((s) => s.component === component);
+        if (!spec) {
+          return yield* new NotFound({
+            message: `no spec for ${component}: read it from the code first`,
+          });
+        }
+        if (text.trim() === "") {
+          return yield* new BadRequest({
+            message: "say what the component must do",
+          });
+        }
+        if (slot !== undefined && !spec.slots.some((s) => s.name === slot)) {
+          return yield* new NotFound({
+            message: `${component} has no slot ${slot}; its slots are ${spec.slots.map((s) => s.name).join(", ")}`,
+          });
+        }
+        const note: SpecNote = {
+          id: yield* makeId("note"),
+          ...(slot !== undefined && slot !== ROOT_SLOT && { slot }),
+          text: text.trim(),
+        };
+        yield* save(
+          { ...spec, notes: [...(spec.notes ?? []), note] },
+          `Note how ${component} behaves`
+        );
+        return note;
       });
 
       const draftFrom = Effect.fn("SpecService.draftFrom")(function* (
@@ -386,8 +501,10 @@ export class SpecService extends Context.Service<
       );
 
       return SpecService.of({
+        addNote,
         draftFrom,
         fromCode,
+        fromCodeAll,
         list,
         remove,
         specs,

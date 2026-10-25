@@ -18,7 +18,11 @@ import {
   mapTokens,
   type Token,
 } from "@ultrapaint/contracts/design-system";
-import { type TokenKind, tokenKindOf } from "@ultrapaint/contracts/tokens";
+import {
+  type SourceToken,
+  type TokenKind,
+  tokenKindOf,
+} from "@ultrapaint/contracts/tokens";
 import { parseColor } from "./token-values.ts";
 
 /** The export, in the designs directory next to `design-system.json`. */
@@ -898,4 +902,49 @@ export const tokensFromDesignTokens = (
     );
   }
   return { notes: [...notes], tokens };
+};
+
+/**
+ * A Design Tokens file's tokens as a side the sync compares with the design system (ADR 0028):
+ * one token per name, the other themes' values with it.
+ */
+export const designTokensSide = (read: readonly ReadToken[]): SourceToken[] => {
+  const byName = new Map<string, SourceToken>();
+  for (const t of read) {
+    const found = byName.get(t.name);
+    if (t.theme === undefined) {
+      byName.set(t.name, {
+        kind: tokenKindOf(t.name),
+        name: t.name,
+        own: true,
+        value: t.value,
+        ...(found?.values && { values: found.values }),
+      });
+    } else if (found) {
+      byName.set(t.name, {
+        ...found,
+        values: { ...found.values, [t.theme]: t.value },
+      });
+    }
+  }
+  return [...byName.values()];
+};
+
+/**
+ * `design.tokens.json`'s text read as a side: its tokens and what could not be read, or the
+ * reason it is no Design Tokens file at all.
+ */
+export const readDesignTokens = (
+  text: string
+):
+  | { readonly notes: readonly string[]; readonly tokens: SourceToken[] }
+  | { readonly problem: string } => {
+  let json: unknown;
+  try {
+    json = JSON.parse(text);
+  } catch (error) {
+    return { problem: `${DESIGN_TOKENS_FILE} is not JSON: ${String(error)}` };
+  }
+  const { notes, tokens } = tokensFromDesignTokens(json);
+  return { notes, tokens: designTokensSide(tokens) };
 };

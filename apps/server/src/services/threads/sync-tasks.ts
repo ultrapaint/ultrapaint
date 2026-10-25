@@ -1,9 +1,14 @@
 /**
- * The tasks of `/sync` (ADR 0025): the design system described up to the code, Figma's or
- * DESIGN.md's tokens matched to the code's (ADR 0027), or, with none of these, where the
- * editor's sync stands.
+ * The tasks of `/sync` (ADR 0025): what the code has that the design system does not list
+ * described in it, Figma's or DESIGN.md's tokens matched to the design system's (ADR 0027), the
+ * code brought up to the design (ADR 0028), or, with none of these, where the editor's sync
+ * stands.
  */
-import type { TokenDiff, TokenSourceKind } from "@ultrapaint/contracts/sync";
+import {
+  baselineKey,
+  type TokenDiff,
+  type TokenSourceKind,
+} from "@ultrapaint/contracts/sync";
 import { SECTIONS } from "@ultrapaint/design-md/format";
 import { mirrorOf } from "@ultrapaint/design-md/mirror";
 import { parse } from "@ultrapaint/design-md/parse";
@@ -26,7 +31,7 @@ export const makeSyncTasks = Effect.gen(function* () {
   const sync = yield* DesignSystemSyncService;
   const { mcp } = yield* ServerConfig;
 
-  /** `/sync describe`: the design system brought up to the code's tokens and components. */
+  /** `/sync describe`: the tokens and components of the code the design system does not list, described in it. */
   const syncDescribe = (extra: string) =>
     Effect.gen(function* () {
       const plan = yield* sync.plan;
@@ -65,10 +70,10 @@ to open the Design system panel and press Sync, which starts one, and stop.
           drift.componentsGone.length ===
           0 && prose === "";
       return `<ultrapaint-task command="sync">
-Bring the design system up to the code as it is now. The design system holds the values (ADR 0028)
-and the code follows it; a token the code declares that the design system does not list is taken
-with the code's value, and what each token and component is for is yours to write, here and in
-DESIGN.md's prose.
+Describe in the design system what the code has that it does not list yet. The design system
+holds the values (ADR 0028) and the code follows it; a token the code declares that the design
+system does not list is taken with the code's value, and what each token and component is for is
+yours to write, here and in DESIGN.md's prose.
 ${nothing ? "\nThe design system already lists every token and component of the code, and DESIGN.md's sections are written: say so, and stop.\n" : ""}
 ${list(
   "Tokens the code declares that the design system does not list:",
@@ -132,7 +137,7 @@ ${userAdds(extra)}</ultrapaint-task>`;
    * The tokens a source is matched to: the design system's (ADR 0028), or the code's while there
    * is no design system yet.
    */
-  const codeTokens = project.use(
+  const targetTokens = project.use(
     Effect.gen(function* () {
       const { designSystem } = yield* (yield* DesignSystemService).get;
       if (designSystem) {
@@ -176,8 +181,9 @@ system. Tell them to open the Design system panel's Sync view, which moves or wr
   };
 
   /**
-   * `/sync figma`: an agent matches the newest Figma import's tokens to the code's, with the
-   * user, before anything of Figma's is written (ADR 0025). Both lists come in the task.
+   * `/sync figma`: an agent matches the newest Figma import's tokens to the design system's (the
+   * code's while there is none), with the user, before anything of Figma's is written (ADR
+   * 0025). Both lists come in the task.
    */
   const syncFigma = (extra: string) =>
     Effect.gen(function* () {
@@ -189,7 +195,7 @@ system. Tell them to open the Design system panel's Sync view, which moves or wr
         return unavailable("figma", "none");
       }
       const { lines, unmatched } = sourceLines(comparison.diffs);
-      const codeLines = (yield* codeTokens).map(
+      const targetLines = (yield* targetTokens).map(
         (t) => `- ${t.name}: ${t.value}`
       );
       return `<ultrapaint-task command="sync">
@@ -199,18 +205,18 @@ is no design system yet). A Figma file's names are rarely the ones the product w
 Figma's is taken until it is matched, and the design system's names win. ${unmatched === 0 ? "Every token is matched already: check the matches, change what is wrong, and stop there." : `${unmatched} are not matched yet.`}
 
 The tokens to match to:
-${listed(codeLines)}
+${listed(targetLines)}
 
-Figma's tokens, where each is in Figma (kind, value by theme) → what it is in the code now:
+Figma's tokens, where each is in Figma (kind, value by theme) → what it is matched to now:
 ${listed(lines)}
 
-1. Decide what each unmatched token is in the code, and check what the rules matched:
-   - a token the code declares, when it is the same thing (the same role, not only the same value);
-   - a new token, named the way the code names its tokens, not after Figma's collections:
+1. Decide what each unmatched token is, and check what the rules matched:
+   - a token listed above, when it is the same thing (the same role, not only the same value);
+   - a new token, named the way the tokens above are named, not after Figma's collections:
  \`color-destructive\`, not \`color-collection-1-danger-danger\`;
    - left out, for what the application does not use: a palette step only other variables point
  at, a variable only Figma needs.
-   Look at how the components use the code's tokens when a name or a role is unclear.
+   Look at how the components use the tokens in the code when a name or a role is unclear.
 2. Ask the user with ask_user where the meaning is theirs to say, a group at a time (the brand
    scale, the greys, the semantic colours), with your proposal as the first option.
 3. Record the decisions with map_values: kind "figma", value the Figma variable as listed above,
@@ -221,8 +227,8 @@ ${userAdds(extra)}</ultrapaint-task>`;
     });
 
   /**
-   * `/sync design`: an agent matches DESIGN.md's tokens to the code's with the user, and settles
-   * the text styles, which rules cannot (ADR 0027). Every list comes in the task.
+   * `/sync design`: an agent matches DESIGN.md's tokens to the design system's with the user,
+   * and settles the text styles, which rules cannot (ADR 0027). Every list comes in the task.
    */
   const syncDesign = (extra: string) =>
     Effect.gen(function* () {
@@ -234,7 +240,7 @@ ${userAdds(extra)}</ultrapaint-task>`;
         return unavailable("designMd", "none");
       }
       const { lines, unmatched } = sourceLines(comparison.diffs);
-      const codeLines = (yield* codeTokens).map(
+      const targetLines = (yield* targetTokens).map(
         (t) => `- ${t.name}: ${t.value}`
       );
       const styles = yield* project.use(
@@ -268,7 +274,7 @@ came from elsewhere (Stitch, a designer) with names of its own (\`tertiary\`,
 system's names win and the document is rewritten in them. ${unmatched === 0 ? "Every colour, radius and spacing is matched already: check the matches, then the text styles." : `${unmatched} of its tokens are not matched yet.`}
 
 The design system's tokens:
-${listed(codeLines)}
+${listed(targetLines)}
 
 The document's tokens, where each is (kind, value) → what it is in the design system now:
 ${listed(lines)}
@@ -296,8 +302,102 @@ ${listed(styleLines(styles.ours))}
 ${userAdds(extra)}</ultrapaint-task>`;
     });
 
+  /** A token of the code comparison, a line: its name and theme, the code's value → the design's. */
+  const codeLine = (d: TokenDiff) =>
+    `- ${baselineKey(d.name, d.theme)}: code ${d.source ?? "(not declared)"}, design ${d.design ?? "(taken out)"}${d.base === undefined ? "" : `, agreed last ${d.base}`}`;
+
+  /** How `/sync code`'s steps are carried out: through handoff, or by the user in Sync. */
+  const codeHow = mcp
+    ? {
+        both: 'handoff with action "export" or "import" and tokens, the names',
+        exportAll:
+          'Export what waits for the code: handoff with action "export" and no tokens. It writes\n   the design\'s values into the stylesheets through the style system and moves the agreement.',
+        importAll:
+          'handoff with action "import" and no tokens takes them all into the design; "export" with\n   their names writes the design\'s values over them.',
+      }
+    : {
+        both: "the Design system panel's Sync view, where the user picks each one",
+        exportAll:
+          "The editor's MCP server is off, so the values cannot be written from here: tell the user\n   to press Export in the Design system panel's Sync view, or write each value above into the\n   stylesheet where the token is declared.",
+        importAll:
+          "the Sync view's Take button takes them into the design; to write the design's values over\n   them, write them into the stylesheet by hand.",
+      };
+
+  /** `/sync code`'s numbered steps, for what the comparison has waiting on each side. */
+  const codeSteps = (waiting: {
+    readonly conflicts: number;
+    readonly toCode: number;
+    readonly toDesign: number;
+  }) => {
+    const first =
+      waiting.toCode > 0 ? codeHow.exportAll : "Nothing waits for the code.";
+    const second =
+      waiting.toDesign > 0
+        ? `What the code changed alone is usually a fix someone made in the code: ask the user with ask_user\n   whether to keep it (the design takes it) or put the design's value back, a group at a time.\n   Then ${codeHow.importAll}`
+        : "Nothing changed in the code alone.";
+    const third =
+      waiting.conflicts > 0
+        ? `For each token changed on both sides, ask the user which value to keep, with the design's\n   as the first option, then apply the picks with ${codeHow.both}.`
+        : "Nothing changed on both sides.";
+    return `1. ${first}
+2. ${second}
+3. ${third}
+4. End with a short summary: what was written where, and what the user left as it is.`;
+  };
+
+  /**
+   * `/sync code` (ADR 0028): the code brought up to the design, what the code changed alone
+   * offered to the design, and the conflicts settled with the user. The lists come in the task;
+   * the values are written through handoff, which the Sync view's buttons also come to.
+   */
+  const syncCode = (extra: string) =>
+    Effect.gen(function* () {
+      const comparison = yield* sync.tokens("code").pipe(
+        // Nothing open, or the stylesheets not read: the task says there is nothing to compare.
+        Effect.orElseSucceed(() => null)
+      );
+      if (!comparison) {
+        return `<ultrapaint-task command="sync">
+The user ran /sync code, but there is no design system yet to bring the code up to. Tell them to
+open the Design system panel and press Sync, which starts one, and stop.
+</ultrapaint-task>`;
+      }
+      const by = (outcome: TokenDiff["outcome"]) =>
+        comparison.diffs.filter((d) => d.outcome === outcome);
+      const toCode = by("source-behind");
+      const toDesign = by("to-design");
+      const conflicts = by("conflict");
+      if (toCode.length + toDesign.length + conflicts.length === 0) {
+        return `<ultrapaint-task command="sync">
+The user ran /sync code. The code has every value of the design: say so, and stop.
+</ultrapaint-task>`;
+      }
+      const list = (title: string, diffs: readonly TokenDiff[]) =>
+        diffs.length > 0 ? `${title}\n${listed(diffs.map(codeLine))}\n` : "";
+      const where =
+        comparison.file === "the code"
+          ? ""
+          : `The code's tokens are in ${comparison.file}. `;
+      const notes =
+        comparison.notes.length > 0
+          ? `\nWhat could not be read: ${comparison.notes.join(" ")}\n`
+          : "";
+      return `<ultrapaint-task command="sync">
+Bring the code up to the design (ADR 0028). The design system holds every token's value and the
+stylesheets follow it: a token changed in the design alone waits for the code, one changed in the
+code alone is offered to the design, and where both changed since they last agreed the user
+picks. ${where}Do not edit design-system.json or the stylesheets' tokens by hand.
+
+${list("Tokens of the design that wait for the code:", toCode)}${list("Tokens changed in the code alone:", toDesign)}${list("Tokens changed on both sides:", conflicts)}${notes}
+${codeSteps({ conflicts: conflicts.length, toCode: toCode.length, toDesign: toDesign.length })}
+${userAdds(extra)}</ultrapaint-task>`;
+    });
+
   const syncCommand = (argument: string) => {
     const { extra, target } = splitArgument(argument);
+    if (target === "code") {
+      return syncCode(extra);
+    }
     if (target === "describe") {
       return syncDescribe(extra);
     }

@@ -255,6 +255,31 @@ export const setPageReady = async (page: Page, ready: boolean) => {
   }
 };
 
+/** Marks several pages ready to implement at once; one implemented already is left as it is. */
+export const setPagesReady = async (ids: readonly string[]) => {
+  try {
+    const { changed } = await api().request("implementation.setReadyAll", {
+      ready: true,
+      targets: [...ids],
+    });
+    toast.success(
+      changed === 0
+        ? "They are implemented already."
+        : `${changed} page${changed === 1 ? " is" : "s are"} ready to implement.`
+    );
+  } catch (error) {
+    reportError(error);
+  }
+};
+
+/**
+ * Has an agent find the code that already implements pages and link them (ADR 0030), without
+ * changing the code: how a project built before it came into the editor brings its pages in.
+ * The words are canvases (`""` for the designs directory's own) or pages, by id.
+ */
+export const adoptPages = (words: readonly string[]) =>
+  startCommand(`/implement --adopt ${words.join(" ")}`);
+
 /**
  * Marks a design implemented by the files the user names, as it is now (ADR 0030): the next
  * implementation is told what changed since.

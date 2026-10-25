@@ -94,6 +94,7 @@ import {
 } from "./node-actions.ts";
 import { copyNodeLink, copyNodeRef } from "./node-links.ts";
 import {
+  adoptPages,
   deletePage,
   duplicatePage,
   editPageUrl,
@@ -106,6 +107,7 @@ import {
   renamePage,
   setPagePreset,
   setPageReady,
+  setPagesReady,
   setPageUrl,
   unlinkImplementation,
   zoomToPage,
@@ -497,6 +499,7 @@ const runPage = (pageId: string, id: string, at?: Point) => {
     return;
   }
   const actions: Record<string, () => unknown> = {
+    adopt: () => adoptPages(pagesActedOn(page.id)),
     comment: () => startComment(page.id, at ?? { x: 40, y: 40 }),
     delete: () => deletePage(page),
     duplicate: () => duplicatePage(page),
@@ -511,6 +514,7 @@ const runPage = (pageId: string, id: string, at?: Point) => {
     notReady: () => setPageReady(page, false),
     paste: () => pasteIntoPage(page.id),
     ready: () => setPageReady(page, true),
+    readyAll: () => setPagesReady(pagesActedOn(page.id)),
     removeUrl: () => setPageUrl(page, ""),
     rename: () => renamePage(page),
     setUrl: () => editPageUrl(page),
@@ -525,7 +529,12 @@ const runCanvasEntry = (canvasId: string, id: string) => {
   if (!canvas) {
     return;
   }
+  const ids = useProject
+    .getState()
+    .pages.filter((p) => p.canvas === canvas.id)
+    .map((p) => p.id);
   const actions: Record<string, () => unknown> = {
+    adopt: () => adoptPages([canvas.id === "" ? '""' : canvas.id]),
     componentSheet: () => componentSheet(canvas),
     delete: () => deleteCanvas(canvas),
     duplicate: () => duplicateCanvas(canvas),
@@ -533,6 +542,7 @@ const runCanvasEntry = (canvasId: string, id: string) => {
     moveDown: () => moveCanvas(canvas, 1),
     moveUp: () => moveCanvas(canvas, -1),
     openCanvas: () => openCanvas(canvas.id),
+    readyAll: () => setPagesReady(ids),
     rename: () => renameCanvas(canvas),
   };
   actions[id]?.();

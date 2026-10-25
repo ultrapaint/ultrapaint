@@ -40,7 +40,11 @@ import {
 import { api } from "../state/connection.ts";
 import { openMenuAt } from "../state/context-menu.ts";
 import { useEditor } from "../state/editor.ts";
-import { statusLabel, useImplementation } from "../state/implementation.ts";
+import {
+  statusLabel,
+  tokensWaiting,
+  useImplementation,
+} from "../state/implementation.ts";
 import { usePagePicks } from "../state/page-picks.ts";
 import { useProject } from "../state/project.ts";
 import { InlineInput } from "./canvases.tsx";
@@ -326,11 +330,13 @@ const StatusDot = ({ target }: { target: string }) => {
   if (!item || item.status === "draft") {
     return null;
   }
-  const color = {
-    changed: "bg-warning",
-    implemented: "bg-success",
-    ready: "bg-primary",
-  }[item.status];
+  const color = tokensWaiting(item)
+    ? "bg-warning"
+    : {
+        changed: "bg-warning",
+        implemented: "bg-success",
+        ready: "bg-primary",
+      }[item.status];
   return (
     <span
       className={cn("size-1.5 shrink-0 rounded-full", color)}

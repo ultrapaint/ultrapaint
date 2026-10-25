@@ -308,7 +308,7 @@ const codeStepsOf = (facts: SyncFacts): SyncStep[] => {
   }
   const parts = [
     counts.toCode > 0
-      ? `${plural(counts.toCode, "token")} of the design wait for the code`
+      ? `${plural(counts.toCode, "token")} of the design ${counts.toCode === 1 ? "waits" : "wait"} for the code`
       : null,
     counts.toDesign > 0
       ? `${plural(counts.toDesign, "token")} changed in the code alone`
@@ -327,6 +327,36 @@ const codeStepsOf = (facts: SyncFacts): SyncStep[] => {
   ];
 };
 
+/**
+ * `design.tokens.json` against the design system (ADR 0028): what another tool changed in it
+ * alone, changed on both sides, or what the design system changed while the file kept its own.
+ */
+const dtcgStepsOf = (facts: SyncFacts): SyncStep[] => {
+  const counts = facts.designTokens;
+  if (!counts || counts.behind + counts.toDesign + counts.conflicts === 0) {
+    return [];
+  }
+  const parts = [
+    counts.toDesign > 0
+      ? `${plural(counts.toDesign, "token")} changed in design.tokens.json alone, by another tool`
+      : null,
+    counts.conflicts > 0
+      ? `${plural(counts.conflicts, "token")} changed on both sides`
+      : null,
+    counts.behind > 0
+      ? `${plural(counts.behind, "token")} of the design system it does not have yet`
+      : null,
+  ].filter((p): p is string => p !== null);
+  return [
+    step(
+      "dtcg-tokens",
+      "Take design.tokens.json's changes into the design system",
+      "attention",
+      `${parts.join("; ")}. What the file changed is taken into the design system, you pick where both changed, and the file is written again from the design system.`
+    ),
+  ];
+};
+
 const stepsOf = (input: PlanInput): SyncStep[] => {
   const { drift, facts, figmaSynced, setup } = input;
   const kind = caseOf(facts);
@@ -336,6 +366,7 @@ const stepsOf = (input: PlanInput): SyncStep[] => {
     return [
       ...head,
       ...documentSteps(facts),
+      ...dtcgStepsOf(facts),
       describeStepOf(drift, facts),
       ...codeStepsOf(facts),
       ...(facts.figma
@@ -401,7 +432,7 @@ export const summaryOf = (
   return `${lead} Next: ${title}.`;
 };
 
-/** A token as Figma has it, named as the code names it (`@ultrapaint/figma-import/tokens`). */
+/** A token as Figma has it, named as pages name tokens (`@ultrapaint/figma-import/tokens`). */
 export interface FigmaSide {
   /** The Figma token its default mode points at, by `variable`. */
   readonly alias?: string;
@@ -418,7 +449,7 @@ export const matchKeyOf = (token: {
   readonly variable: string;
 }) => token.id ?? token.variable;
 
-/** What a Figma token is in the code, and who said so. */
+/** What a Figma token is in the design system (the code while there is none), and who said so. */
 export interface Matched {
   readonly by: FigmaMatchSource;
   /** The code's token; null when it is left out. */
@@ -426,10 +457,11 @@ export interface Matched {
 }
 
 /**
- * What each of Figma's tokens is in the code, by `variable` (ADR 0025). What an agent or the user
- * decided, kept in the baseline, comes first. Rules then take only what is certain: the code
- * declares a token of the same name, or exactly one token of the kind with the same value; when
- * several of Figma's come to one code token by value, the one that points at another (a semantic
+ * What each of Figma's tokens is among the tokens it is matched to, the design system's or the
+ * code's while there is none, by `variable` (ADR 0025). What an agent or the user decided, kept
+ * in the baseline, comes first. Rules then take only what is certain: there is a token of the
+ * same name, or exactly one token of the kind with the same value; when several of Figma's come
+ * to one token by value, the one that points at another (a semantic
  * colour over its palette entry) takes it, and a palette entry a matched token points at is left
  * out. The rest stays unmatched, and nothing of it is written.
  */
@@ -650,7 +682,7 @@ const documentMatches = (
     ])
   );
 
-/** What each of DESIGN.md's tokens is in the code: the same rules as Figma's, by path. */
+/** What each of DESIGN.md's tokens is in the design system: the same rules as Figma's, by path. */
 export const matchDocument = (
   side: readonly FigmaSide[],
   code: readonly SourceToken[],
@@ -658,8 +690,8 @@ export const matchDocument = (
 ) => matchFigma(side, code, documentMatches(baseline));
 
 /**
- * DESIGN.md's tokens against the code's. What the two agreed is one value by path: the
- * document's and the code's were the same then.
+ * DESIGN.md's tokens against the design system's. What the two agreed is one value by path: the
+ * document's and the design system's were the same then.
  */
 export const compareDocument = (
   side: readonly FigmaSide[],
@@ -921,6 +953,60 @@ export const codeChanges = (
     }
   }
   return { toCode, toDesign };
+};
+
+/**
+ * The diffs of a comparison for the tokens named, by name (every theme of it) or by
+ * `name@theme`; every diff when none is named.
+ */
+export const namedDiffs = (
+  diffs: readonly TokenDiff[],
+  names: readonly string[]
+): TokenDiff[] => {
+  if (names.length === 0) {
+    return [...diffs];
+  }
+  const wanted = new Set(names);
+  return diffs.filter(
+    (d) => wanted.has(d.name) || wanted.has(baselineKey(d.name, d.theme))
+  );
+};
+
+/**
+ * What an agent asks of the code comparison (ADR 0028), `export` (the design's values to the
+ * code) or `import` (the code's into the design): the picks it comes to, and what it leaves. A
+ * token named is taken that way even where both sides changed it, which is how an agent settles
+ * a conflict the user decided; with none named, only what changed on that side alone is, and
+ * the conflicts are left for the user.
+ */
+export const codeDirection = (
+  diffs: readonly TokenDiff[],
+  direction: "export" | "import",
+  names: readonly string[]
+): {
+  readonly decisions: TokenDecision[];
+  /** The conflicts left, none being named. */
+  readonly left: TokenDiff[];
+  /** Names that are no token of either side. */
+  readonly unknown: string[];
+} => {
+  const chosen = namedDiffs(diffs, names);
+  const conflicts = chosen.filter((d) => d.outcome === "conflict");
+  const known = new Set(
+    diffs.flatMap((d) => [d.name, baselineKey(d.name, d.theme)])
+  );
+  return {
+    decisions:
+      names.length === 0
+        ? []
+        : conflicts.map((d) => ({
+            name: d.name,
+            take: direction === "export" ? "design" : "source",
+            ...(d.theme && { theme: d.theme }),
+          })),
+    left: names.length === 0 ? conflicts : [],
+    unknown: names.filter((n) => !known.has(n)),
+  };
 };
 
 /**

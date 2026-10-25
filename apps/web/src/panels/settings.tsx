@@ -88,7 +88,7 @@ const documentDescription = (document: DesignDocument | null) => {
     return "The design system in the open format every agent reads, at the root of the repository. There is none yet.";
   }
   if (document.legacy) {
-    return `${document.path}: in the designs directory. At the root of the repository, agents outside the editor find it too, and its front matter follows the code's tokens.`;
+    return `${document.path}: in the designs directory. At the root of the repository, agents outside the editor find it too, and its front matter follows the design system's tokens.`;
   }
   const errors = document.findings.filter((f) => f.severity === "error").length;
   const warnings = document.findings.filter(
@@ -98,7 +98,7 @@ const documentDescription = (document: DesignDocument | null) => {
     errors + warnings === 0
       ? "The format's linter finds nothing to say."
       : `The format's linter finds ${[errors > 0 ? `${errors} error${errors === 1 ? "" : "s"}` : "", warnings > 0 ? `${warnings} warning${warnings === 1 ? "" : "s"}` : ""].filter(Boolean).join(" and ")}: the Design system panel lists them.`;
-  return `${document.path}, its front matter following the code's tokens. ${lint}`;
+  return `${document.path}, its front matter following the design system's tokens. ${lint}`;
 };
 
 const DesignSystemGroup = () => {

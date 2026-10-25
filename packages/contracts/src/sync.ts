@@ -29,6 +29,7 @@ export const SyncStepKind = Schema.Literals([
   "code-tokens",
   "design-md",
   "design-tokens",
+  "dtcg-tokens",
   "scaffold",
   "figma-tokens",
   "inventory",
@@ -126,6 +127,18 @@ export const SyncFacts = Schema.Struct({
   ),
   /** Whether `design-system.json` is there and reads. */
   designSystem: Schema.Boolean,
+  /**
+   * `design.tokens.json` against the design system (ADR 0028), when the file is there: tokens
+   * another tool changed in it alone, changed on both sides, and changed in the design system
+   * while the file kept its own (the file is behind).
+   */
+  designTokens: Schema.optional(
+    Schema.Struct({
+      behind: Schema.Number,
+      conflicts: Schema.Number,
+      toDesign: Schema.Number,
+    })
+  ),
   /** The newest Figma import, when there is one. */
   figma: Schema.optional(
     Schema.Struct({ id: Schema.String, name: Schema.String })
@@ -153,21 +166,27 @@ export type SyncPlan = typeof SyncPlan.Type;
 
 /**
  * Where tokens come from to be compared with the design system's (ADR 0028): the newest Figma
- * import (ADR 0025), `DESIGN.md`'s front matter (ADR 0027), or the code.
+ * import (ADR 0025), `DESIGN.md`'s front matter (ADR 0027), the code, or `design.tokens.json`
+ * (`dtcg`) as another tool left it.
  */
-export const TokenSourceKind = Schema.Literals(["figma", "designMd", "code"]);
+export const TokenSourceKind = Schema.Literals([
+  "figma",
+  "designMd",
+  "code",
+  "dtcg",
+]);
 export type TokenSourceKind = typeof TokenSourceKind.Type;
 
-/** Who matched a source's token to the code's: the rules, an agent, or the user. */
+/** Who matched a source's token to the design system's: the rules, an agent, or the user. */
 export const MatchSource = Schema.Literals(["rule", "agent", "user"]);
 export type MatchSource = typeof MatchSource.Type;
 export const FigmaMatchSource = MatchSource;
 export type FigmaMatchSource = MatchSource;
 
 /**
- * What a Figma variable or style is in the code: `to` the code's token, added when the code does
- * not declare it yet; null when it is left out of the code. A Figma file's names are rarely the
- * ones the code wants, so nothing of Figma's reaches the code before it is matched.
+ * What a Figma variable or style is in the design system (the code while there is none): `to`
+ * its token, added when it does not list it yet; null when it is left out. A Figma file's names
+ * are rarely the ones the product wants, so nothing of Figma's is taken before it is matched.
  */
 export const FigmaMatch = Schema.Struct({
   by: FigmaMatchSource,

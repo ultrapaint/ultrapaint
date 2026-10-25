@@ -27,6 +27,7 @@ import type {
   TokenChange,
   TokenSource,
 } from "@ultrapaint/contracts/tokens";
+import type { ClassWriter } from "@ultrapaint/design-document/code";
 
 /** Plain data, so the whole context can be handed to a worker thread. */
 export interface CatalogueContext {
@@ -257,6 +258,12 @@ export interface StyleSystem {
   /** The stylesheets of the packages in `dirs` (absolute) that set the style system up. */
   readonly detect: (root: string, dirs: readonly string[]) => StyleSuggestions;
   readonly id: StyleSystemId;
+  /**
+   * How a node of a design is written in this style system's classes, its design system's
+   * styles made once: the inspector's Code tab writes a node's JSX with it, as `codeRules` tells
+   * agents to. Pure.
+   */
+  readonly nodeClasses: (designSystem: DesignSystem | null) => ClassWriter;
   /**
    * Lines of the preview's stylesheet: the repository's own stylesheets imported, and whatever
    * makes every token a custom property the preview can draw with.

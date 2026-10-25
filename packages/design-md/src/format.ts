@@ -38,7 +38,7 @@ export const sectionOf = (heading: string): SectionName | null => {
   return found?.name ?? null;
 };
 
-/** The front matter's token groups the code's values fill in; the rest is the file's authors'. */
+/** The front matter's token groups the design system's values fill in; the rest is the file's authors'. */
 export const MIRRORED_GROUPS = [
   "colors",
   "typography",

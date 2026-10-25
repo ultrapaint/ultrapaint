@@ -30,8 +30,9 @@ const SLASH_COMMANDS: readonly SlashCommand[] = [
     name: "init",
   },
   {
-    argument: "<page>",
-    description: "Turn a page of the design into the application's own code",
+    argument: "<page | component> | --adopt [canvas | page…]",
+    description:
+      "Turn a page or a component of the design into the application's own code; `--adopt` links pages built already to the files that implement them",
     name: "implement",
   },
   {
@@ -58,9 +59,9 @@ const SLASH_COMMANDS: readonly SlashCommand[] = [
     name: "design-system",
   },
   {
-    argument: "[describe | figma | design]",
+    argument: "[describe | figma | design | code]",
     description:
-      "Bring the design system and the code together: opens Sync; `describe` has an agent describe what changed, `figma` match Figma's tokens to the code's, `design` DESIGN.md's",
+      "Bring the design system and the code together: opens Sync; `describe` has an agent describe what changed, `figma` match Figma's tokens to the design system's, `design` DESIGN.md's, `code` bring the code up to the design",
     name: "sync",
   },
 ];
@@ -106,7 +107,7 @@ export class SlashCommands extends Context.Service<
        ? `
    The repository has a DESIGN.md (${document.path}), which read_design_system returns: it says
    what the product is meant to look like. Start from it, keep what it says, and keep its
-   sections; its tokens are compared with the code's in Sync afterwards.`
+   sections; its tokens are compared with the design system's in Sync afterwards.`
        : ""
    }`
             : `1. Read the stylesheets the preview imports (${settings.hostCss.join(", ") || "none configured yet"}) and
@@ -114,8 +115,8 @@ export class SlashCommands extends Context.Service<
           const write = mcp
             ? `4. Save it with write_design_system: \`designSystem\` is the design-system.json object and
    \`designMd\` the whole of DESIGN.md. get_document_format with kind "design-system" has its JSON
-   Schema. The tool validates both, puts the code's values in DESIGN.md's front matter and tells
-   you what is wrong; fix it and call it again. Do not write the two files by hand.`
+   Schema. The tool validates both, puts the design system's values in DESIGN.md's front matter
+   and tells you what is wrong; fix it and call it again. Do not write the two files by hand.`
             : `4. Write ${settings.designsDir}/${DESIGN_SYSTEM_FILE}, valid against this JSON Schema:
    ${designSystemSchema()}
    and ${DESIGN_MD_FILE} at the root of the repository, without front matter: the editor fills in

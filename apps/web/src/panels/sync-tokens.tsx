@@ -1,6 +1,8 @@
 /**
- * A source's tokens against the design system's, in the Sync view: a Figma import's (ADR 0025) or
- * DESIGN.md's front matter (ADR 0027). The design system holds the values (ADR 0028); while there
+ * A source's tokens against the design system's, in the Sync view: a Figma import's (ADR 0025),
+ * DESIGN.md's front matter (ADR 0027), or design.tokens.json as another tool left it, whose
+ * tokens are named as the design system's and need no matching. The design system holds the
+ * values (ADR 0028); while there
  * is none yet, Figma's are compared with the code's, which it is then made from. Each of the
  * source's tokens is first matched — by rules where it is certain, by an agent with the user, or
  * by the user here — and nothing unmatched is taken. Then what the source changed alone is taken;
@@ -51,8 +53,13 @@ type Picks = Readonly<Record<string, Take>>;
 const LABEL: Record<TokenSourceKind, string> = {
   code: "the code",
   designMd: "DESIGN.md",
+  dtcg: "design.tokens.json",
   figma: "Figma",
 };
+
+/** Sources whose tokens are named their own way, and matched before anything is taken. */
+const matchedSource = (source: TokenSourceKind) =>
+  source === "figma" || source === "designMd";
 
 const keyOf = (d: TokenDiff) => baselineKey(d.name, d.theme);
 
@@ -497,7 +504,20 @@ export const TokensStep = ({
             ? ` ${target.charAt(0).toUpperCase()}${target.slice(1)} changed ${behind.length} since; ${label} is behind.`
             : ""}
         </p>
-        <Matches comparison={comparison} target={target} />
+        {matchedSource(source) ? (
+          <Matches comparison={comparison} target={target} />
+        ) : null}
+        {source === "dtcg" && behind.length > 0 ? (
+          <Button
+            className="self-start"
+            disabled={busy}
+            onClick={apply}
+            size="sm"
+          >
+            {busy ? <Spinner /> : null}
+            Write {label} again
+          </Button>
+        ) : null}
       </div>
     );
   }
@@ -508,7 +528,9 @@ export const TokensStep = ({
           {note}
         </p>
       ))}
-      <Matches comparison={comparison} target={target} />
+      {matchedSource(source) ? (
+        <Matches comparison={comparison} target={target} />
+      ) : null}
       <Listed
         diffs={added}
         title={`${added.length} new, added to ${target}:`}
@@ -520,7 +542,7 @@ export const TokensStep = ({
       <Listed
         diffs={behind}
         title={
-          source === "designMd"
+          source === "designMd" || source === "dtcg"
             ? `${behind.length} changed in ${target} since; ${label} follows it:`
             : `${behind.length} changed in ${target} since; ${label} is behind and ${target} is kept:`
         }

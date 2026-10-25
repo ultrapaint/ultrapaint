@@ -85,7 +85,7 @@ const LinkSummary = Schema.Struct({
 
 export const ListLinks = Tool.make("list_links", {
   description:
-    'Every node of a canvas that links somewhere, with its page and where it leads, broken ones said so. Run it after changing URLs or deleting or moving pages; fix a link by updating the node\'s "link".',
+    'Every node of a canvas that links somewhere, its page and where it leads, broken ones said so. Run it after changing URLs or deleting or moving pages; fix a link by updating the node\'s "link".',
   failure: Failure,
   parameters: Schema.Struct({
     /** Only the links that lead nowhere. */

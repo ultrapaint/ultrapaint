@@ -210,7 +210,7 @@ ${userAdds(extra)}</ultrapaint-task>`;
       // A DESIGN.md from elsewhere (Stitch, a designer) is what the product is meant to be.
       const intent =
         document && !designSystem
-          ? `\n\nThe repository has a DESIGN.md (${document.path}), which read_design_system returns: it says what the product is meant to look like, with tokens in its front matter. Propose from it first, keep what its prose says, and keep its sections; its tokens are matched to the code's in Sync afterwards.`
+          ? `\n\nThe repository has a DESIGN.md (${document.path}), which read_design_system returns: it says what the product is meant to look like, with tokens in its front matter. Propose from it first, keep what its prose says, and keep its sections; its tokens are matched to the design system's in Sync afterwards.`
           : "";
       const brief = `${
         inventory

@@ -100,6 +100,13 @@ export const ImplementationItem = Schema.Struct({
   ready: Schema.Boolean,
   status: ImplementationStatus,
   target: Schema.String,
+  /**
+   * The design system's tokens the design relies on whose value has not reached the code (ADR
+   * 0028): changed in the design alone, waiting for an export, or changed on both sides. Left
+   * out when there are none. The code does not draw the design faithfully until they are brought
+   * over.
+   */
+  tokens: Schema.optional(Schema.Array(Schema.String)),
 });
 export type ImplementationItem = typeof ImplementationItem.Type;
 

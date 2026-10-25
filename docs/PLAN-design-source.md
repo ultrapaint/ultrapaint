@@ -1,7 +1,8 @@
 # Plan: the design is the source, the code is a side
 
-Status: done, 2026-10-25. Decisions in ADR 0028 (the design holds the values), 0029
-(component specs) and 0030 (the implementation link). Builds on 0015, 0021, 0024, 0025, 0027.
+Status: done, 2026-10-25, its leftovers in a second round the same day. Decisions in ADR 0028
+(the design holds the values), 0029 (component specs) and 0030 (the implementation link). Builds
+on 0015, 0021, 0024, 0025, 0027.
 
 ## Why
 
@@ -96,9 +97,9 @@ Each phase ends with `pnpm typecheck`, `pnpm test` and `pnpm lint` passing.
 
 ## What was built differently
 
-- **DTCG is written, not read.** `design.tokens.json` is written with every change of the design
-  system; `tokensFromDesignTokens` reads one (aliases, `$ref`, other tools' files) and is tested,
-  but no Sync source uses it yet.
+- **DTCG was written, not read, at first.** `design.tokens.json` was written with every change
+  of the design system and `tokensFromDesignTokens` was tested, but no Sync source used it until
+  the second round.
 - **The MCP budget.** `handoff` fit under the 16,000 characters by shortening the page parameter's
   description and the scan and write tools' descriptions (which also stopped saying the values
   are the code's): 15,997.
@@ -110,12 +111,41 @@ Each phase ends with `pnpm typecheck`, `pnpm test` and `pnpm lint` passing.
 - **A design thread that already started cannot become an implement thread.** `/implement` turns
   a thread into an implement thread only before its agent starts; one that is running is told to
   send the user to the Implement button.
-- **Not done:** pages copied or moved to another canvas do not take their binding; a Sync source
-  for `design.tokens.json`; the Code tab still writes Tailwind directly.
+- **Left for the second round:** pages copied or moved to another canvas did not take their
+  binding; there was no Sync source for `design.tokens.json`; the Code tab wrote Tailwind
+  directly. All three are done below.
+
+## Second round: what was left over
+
+| # | What | How |
+|---|---|---|
+| R1 | `/implement` and tokens waiting for the code | `ImplementationItem.tokens`: the tokens a design relies on (its nodes', its text styles', the owned specs it places; a spec's own) that are `source-behind` or in conflict in the code comparison. The task lists them with the export step; the inspector names them with an Export button (`sync.apply` with `tokens`); an agent's `handoff` "mark" is refused while one waits, the user's is not. Chosen over exporting inside the implement flow: an export changes every page using the token, so it is a step the agent takes, and asks about where both sides changed, rather than a side effect of marking. |
+| R2 | Wording from before ADR 0028 | `/sync`'s description and tasks, `/init`'s and the setup's DESIGN.md lines, the comments of the design-system service and the sync rules, the contracts' baseline docs, the settings' DESIGN.md line and the README now say the design system where they said the code's. |
+| R3 | `/sync code` for agents | A `code` argument and its task (`sync-tasks.ts`); `handoff` gained `export` and `import` and a `tokens` parameter. Budget: 15,997 → 15,921, by cutting `ask_user`, `get_screenshot`, `write_figma_frame`, `create_page`, `get_context`, `set_frame`, `list_pages`, `read_figma_import`, `read_figma_frame`, `scan_design_system` and `list_links` without losing what they say. The Sync view's code step offers **Settle them with an agent**. |
+| R4 | Bringing existing projects in | Pages picked together (or a canvas) are marked ready in one step (`implementation.setReadyAll`); **Find their code with an agent** starts `/implement --adopt <canvas or pages>`, which runs in a design thread and marks each page through `handoff`. Marking implemented stays per page: the files are the agent's to find. **Read every spec from the code** (`specs.fromCodeAll`) reads a mirror spec for every component with classes and links each to its file (`implementation.markAll`). |
+| R5 | Behaviour notes on components | `ComponentSpec.notes` (id, slot, text), not comments: a component has no canvas or page to pin a comment on, and in the spec the notes are hashed with it, so a new note reads as the design having changed (`describeNoteChanges` for specs too). `handoff` "note" takes `spec:<Component>` (node = slot), `specs.addNote` serves the Components tab's **Behaviour**, reading the spec off the code again keeps them, and the spec's `/implement` carries them. |
+| R6 | Pages moved or copied to another canvas | `pages-bindings.ts` holds what rename and delete used; a move rebinds to the new id and moves the snapshot, deleting a canvas takes its pages' bindings, a copy (a page's or a canvas's) starts as a draft, its states with it. |
+| R7 | DTCG as a Sync source | `TokenSourceKind` `dtcg`, compared with the design system by name (`compareCode`), against `DesignSystem.designTokens`, the values the editor last wrote, moved with every write. While the file differs from that baseline the editor leaves it alone (no feedback loop, no lost edit); the plan's `dtcg-tokens` step takes it in, and the file is written again from the design system. |
+| R8 | The Code tab through the style system | `toCode` takes a `ClassWriter`; Tailwind's utilities moved to `style-tailwind-v4/src/node-classes.ts`; `StyleSystem.nodeClasses`; the tab asks the server (`code.write`). Output unchanged for Tailwind (its tests moved with it). |
+| R9 | Dogfooding and end to end | See Verified. |
 
 ## Verified
 
-`pnpm typecheck`, `pnpm lint` and `pnpm test` (870 tests, 69 more than before) pass. On a scaffolded
+Second round: `pnpm typecheck`, `pnpm lint` and `pnpm test` (888 tests, 18 more) pass, and the
+editor is built. The MCP tools take 15,921 characters of the 16,000. The editor run on this
+repository (`docs/designs`) loads its two canvases and draws the Redesign pages, and its Code tab
+is written by the server. On the scaffolded application in a scratch repository, driven in
+headless Chrome: a token changed in the design makes the implemented page say "tokens wait for
+the code", and the inspector's Export writes the stylesheet and clears it; two pages picked in the
+Pages panel are marked ready at once, and **Find the code of 2 pages with an agent** opens a
+design thread with `/implement --adopt`; **Read every spec from the code** reads and links the
+specs; a behaviour note added in the Components tab is in the spec and its `/implement`; a page
+moved to another canvas keeps its binding, and undo brings it back; `design.tokens.json` changed
+by hand appears as a Sync step, the editor's own token edits meanwhile leave it alone, and **Take**
+brings it in and writes the file again; the Sync view's code step with a conflict offers **Settle
+them with an agent** (`/sync code`).
+
+First round: `pnpm typecheck`, `pnpm lint` and `pnpm test` (870 tests, 69 more than before) pass. On a scaffolded
 application in a scratch repository, driven in headless Chrome: a token edit changes the design
 system and not the stylesheet while the canvas draws the new value; a spec's variant restyles the
 real Base UI button on the canvas while the other variants keep the code's look; export writes the

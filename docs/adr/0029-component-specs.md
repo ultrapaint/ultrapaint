@@ -4,6 +4,9 @@ Status: accepted, 2026-10-25. Builds on 0015 (instances render the repository's 
 0027 (component tokens from cva) and 0028 (the design holds the values). Plan:
 `docs/PLAN-design-source.md`.
 
+> Amended 2026-10-25 (second round): a spec keeps the component's behaviour notes (`notes`),
+> and every spec can be read off the code at once, linked to its component's file.
+
 ## Context
 
 Pages are drawn with the repository's real components, which is what makes a design look like
@@ -31,6 +34,7 @@ directory:
 | `states` | `hover`, `focus`, `active`, `disabled`, `open`, `checked`, `invalid`: style fields per slot |
 | `defaults` | The member each axis starts in |
 | `draft` | A spec with no code: a tree of nodes drawn in its place |
+| `notes` | Behaviour notes (0030): what the code must do that the spec cannot show, about a slot or the whole component |
 
 Style fields are the design document's own (`fill`, `color`, `border`, `radius`, `padding`,
 `height`, `width`, `shadow`, `opacity`, `fontSize`, `fontWeight`), tokens included.
@@ -63,7 +67,20 @@ the dialog, select, tabs and checkbox on Base UI; once the application is set up
 a spec for each with `look: design`: the project is restyled in the editor and the code follows.
 
 **Implementing a spec is an agent's.** `/implement` takes a component: the spec, what changed
-since it was implemented (0030), and the rules that turn style fields into the code's classes.
+since it was implemented (0030), its behaviour notes, and the rules that turn style fields into
+the code's classes.
+
+**A component's behaviour notes live in its spec.** A page's notes are comments pinned on it
+(0030); a component has no canvas to pin them on, so its spec keeps them, each with an id, the
+slot it is about and its text. Being part of the spec, a note added or changed is part of what
+tells the spec changed since it was implemented, and `/implement` names it. Reading the spec off
+the code again keeps them: they are not the code's look. The Components tab lists and adds them,
+and `handoff` "note" on `spec:<Component>` (the node a slot) adds one.
+
+**A project built already comes in at once.** **Read every spec from the code** in the
+Components tab reads a spec for every component with classes and no spec yet, mirroring the code
+(`look: code`), in one undo step, and links each to its component's file as implemented: from
+then on a look taken over and changed reads as the design having changed.
 
 ## Consequences
 

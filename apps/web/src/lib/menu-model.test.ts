@@ -261,6 +261,25 @@ describe("the page menu", () => {
       "variant"
     );
   });
+
+  it("links one page to its code, or brings several in at once (ADR 0030)", () => {
+    const one = ids(pageEntries(base));
+    expect(one).toContain("implement");
+    expect(one).toContain("adopt");
+    expect(one).toContain("ready");
+    expect(
+      ids(pageEntries({ ...base, implementation: "implemented" }))
+    ).not.toContain("adopt");
+    const several = pageEntries({ ...base, count: 3 });
+    expect(find(several, "readyAll")).toMatchObject({
+      label: "Mark 3 pages ready to implement",
+    });
+    expect(find(several, "adopt")).toMatchObject({
+      label: "Find the code of 3 pages with an agent",
+    });
+    expect(ids(several)).not.toContain("implement");
+    expect(ids(several)).not.toContain("markImplemented");
+  });
 });
 
 describe("the menu of a canvas in the list", () => {
@@ -275,6 +294,15 @@ describe("the menu of a canvas in the list", () => {
       find(canvasListEntries({ ...base, only: true }), "delete")
     ).toMatchObject({
       disabled: true,
+    });
+  });
+
+  it("brings every page of a canvas in: ready, or linked to its code by an agent", () => {
+    expect(find(canvasListEntries(base), "readyAll")).toMatchObject({
+      label: "Mark every page ready to implement",
+    });
+    expect(find(canvasListEntries(base), "adopt")).toMatchObject({
+      label: "Find the pages' code with an agent",
     });
   });
 

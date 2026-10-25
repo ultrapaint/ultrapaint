@@ -8,6 +8,7 @@ import type {
   ImplementationItem,
   ImplementationList,
 } from "@ultrapaint/contracts/implementation";
+import { toast } from "sonner";
 import { create } from "zustand";
 import { api } from "./connection.ts";
 import { reportError } from "./project.ts";
@@ -41,11 +42,7 @@ export const useImplementation = create<ImplementationStore>((set) => ({
   loaded: false,
 }));
 
-/** What a status reads as, in a few words. */
-export const statusLabel = (item: ImplementationItem | undefined): string => {
-  if (!item) {
-    return "";
-  }
+const statusWords = (item: ImplementationItem): string => {
   switch (item.status) {
     case "draft":
       return "Draft";
@@ -60,6 +57,45 @@ export const statusLabel = (item: ImplementationItem | undefined): string => {
       ]
         .filter(Boolean)
         .join(" · ");
+  }
+};
+
+/**
+ * Whether the code draws a design implemented as it is: not while tokens it uses wait for the
+ * code (ADR 0028), which the status says alongside.
+ */
+export const tokensWaiting = (item: ImplementationItem | undefined) =>
+  (item?.status === "implemented" || item?.status === "changed") &&
+  (item.tokens?.length ?? 0) > 0;
+
+/** What a status reads as, in a few words. */
+export const statusLabel = (item: ImplementationItem | undefined): string => {
+  if (!item) {
+    return "";
+  }
+  const words = statusWords(item);
+  return tokensWaiting(item) ? `${words} · tokens wait for the code` : words;
+};
+
+/**
+ * The design's values of these tokens written to the code (ADR 0028). What changed on both
+ * sides is left for the Sync view, where the user picks.
+ */
+export const exportTokens = async (names: readonly string[]) => {
+  try {
+    const { files, written } = await api().request("sync.apply", {
+      decisions: [],
+      only: "export",
+      source: "code",
+      tokens: [...names],
+    });
+    toast.success(
+      written === 0
+        ? "Nothing was written: they changed in the code as well. Pick which to keep in Sync."
+        : `${written} token value${written === 1 ? "" : "s"} written to ${files.join(", ")}.`
+    );
+  } catch (error) {
+    reportError(error);
   }
 };
 

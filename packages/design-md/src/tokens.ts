@@ -1,7 +1,7 @@
 /**
- * The document's tokens: its groups as the format types them, and as the code would name them,
- * so they can be matched to the code's and compared (ADR 0027). `colors.primary` is the code's
- * `color-primary`, `rounded.md` its `radius-md`, `spacing.base` its `spacing`.
+ * The document's tokens: its groups as the format types them, and as the design system names
+ * them, so they can be matched to its tokens and compared (ADR 0027). `colors.primary` is
+ * `color-primary`, `rounded.md` is `radius-md`, `spacing.base` is `spacing`.
  */
 import type { TokenKind } from "@ultrapaint/contracts/tokens";
 import {

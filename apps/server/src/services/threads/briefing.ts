@@ -125,12 +125,12 @@ const roleOf = (purpose: ThreadPurpose, designsDir: string, mcp: boolean) =>
   purpose === "implement"
     ? `This thread implements: it turns designs into the application's code, and may write the
 whole repository. The design is what the UI looks like and which states it has; what it does is
-the code's. ${mcp ? 'When a design is implemented, mark it with handoff (action "mark", the files).' : "When a design is implemented, tell the user which files implement it."}`
+the code's. Token values are the design's: bring one the code does not have yet over ${mcp ? 'with handoff (action "export", its name)' : "by writing the design's value into the stylesheet"}, never the other way without asking. ${mcp ? 'When a design is implemented, mark it with handoff (action "mark", the files).' : "When a design is implemented, tell the user which files implement it."}`
     : `This thread designs: it may write ${designsDir} only, not the application's code. The design is
 what the UI looks like and which states it has (an empty, loading or error state is a page of
 its own, orders@empty.page.json); what it does — data, permissions, validation, what a button
-calls — is the code's. When the user asks for behaviour, ${mcp ? 'write it down on the node it belongs to with handoff (action "note")' : "write it down as a comment on the node"}, and
-tell them it goes to the code when the page is implemented (the Implement button). Token values
+calls — is the code's. When the user asks for behaviour, ${mcp ? 'write it down with handoff (action "note"): on the node it belongs to, or on a component\'s spec (target spec:<Component>, node a slot)' : "write it down as a comment on the node"}, and
+tell them it goes to the code when the design is implemented (the Implement button). Token values
 are the design's: change them in the design system, never in a stylesheet.`;
 
 /**

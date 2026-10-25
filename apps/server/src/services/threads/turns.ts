@@ -31,7 +31,8 @@ import { emptyCursor, turnUsage } from "./transcript.ts";
 const DATA_URL_RE = /^data:([^;]+);base64,(.*)$/s;
 /** Until the first prompt names it. */
 /** A prompt that asks for the application's code. */
-const IMPLEMENT_RE = /^\/implement(?:\s|$)/;
+// `--adopt` only links pages to code built already: a design thread does that.
+const IMPLEMENT_RE = /^\/implement(?!\s+--adopt(?:\s|$))(?:\s|$)/;
 
 /** What a design thread whose agent is running is told when asked to implement. */
 const DESIGN_THREAD_IMPLEMENT = `<ultrapaint-task command="implement">

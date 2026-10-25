@@ -1,7 +1,8 @@
 /**
  * How a page's tokens and nodes become code written with Tailwind v4 and the repository's
  * components, told to every agent that implements a page. The editor's Code tab writes the same
- * translation out (`@ultrapaint/design-document/code`): change both together.
+ * translation out (`node-classes.ts`, the classes of `@ultrapaint/design-document/code`'s JSX):
+ * change both together.
  */
 export const codeRules = `How the design maps to code (Tailwind v4):
 - A token "$name" is the theme variable --name. "$color-primary" is bg-primary, text-primary,

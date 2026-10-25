@@ -65,7 +65,12 @@ import {
   useDocuments,
 } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
-import { statusLabel, useImplementation } from "../state/implementation.ts";
+import {
+  exportTokens,
+  statusLabel,
+  tokensWaiting,
+  useImplementation,
+} from "../state/implementation.ts";
 import { useInstances } from "../state/instances.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { ComponentProps } from "./component-props.tsx";
@@ -361,6 +366,28 @@ const PageSection = ({ frame }: { frame: string }) => {
 };
 
 /**
+ * The tokens a design uses whose value has not reached the code (ADR 0028), and a way to bring
+ * them over; what changed on both sides is left for the Sync view.
+ */
+const TokensWaiting = ({ tokens }: { tokens: readonly string[] }) => (
+  <div className="flex items-start gap-1.5 font-body text-muted-foreground">
+    <span className="min-w-0 flex-1">
+      {tokens.length === 1 ? "A token" : `${tokens.length} tokens`} it uses wait
+      {tokens.length === 1 ? "s" : ""} for the code:{" "}
+      <span className="font-code">{tokens.join(", ")}</span>
+    </span>
+    <Button
+      className="shrink-0"
+      onClick={() => exportTokens(tokens)}
+      size="xs"
+      variant="ghost"
+    >
+      Export
+    </Button>
+  </div>
+);
+
+/**
  * Where the page stands with the code that implements it (ADR 0030): the files, whether the
  * design or the code changed since, what changed in the design, and the way to implement it.
  */
@@ -387,7 +414,7 @@ const CodeLink = ({ page }: { page: Page }) => {
         <span
           className={cn(
             "truncate font-body",
-            item?.status === "changed"
+            item?.status === "changed" || tokensWaiting(item)
               ? "text-warning"
               : "text-muted-foreground"
           )}
@@ -398,6 +425,7 @@ const CodeLink = ({ page }: { page: Page }) => {
             : "Not implemented"}
         </span>
       </Row>
+      {item?.tokens ? <TokensWaiting tokens={item.tokens} /> : null}
       {bound && item ? (
         <span
           className="truncate font-code text-muted-foreground"

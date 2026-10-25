@@ -25,6 +25,7 @@ import { Effect } from "effect";
 import { COMMENTS_FILE, type CommentsService } from "./comments.ts";
 import type { EditTransaction } from "./edit.ts";
 import type { CopyTarget } from "./pages.ts";
+import { idOf, makeBindings } from "./pages-bindings.ts";
 import { renderCanvas } from "./pages-layout.ts";
 import type { PagesReading } from "./pages-reading.ts";
 
@@ -55,6 +56,7 @@ export const makeCanvasOperations = (
     updateRoutes,
     writeOrder,
   } = reading;
+  const { rebind } = makeBindings(reading);
 
   // ---- canvases ----
   /**
@@ -241,9 +243,12 @@ export const makeCanvasOperations = (
     }
     yield* edit.transaction(`Delete the canvas ${canvas.name}`, (tx) =>
       Effect.gen(function* () {
-        for (const page of all.pages.filter((p) => p.canvas === id)) {
+        const going = all.pages.filter((p) => p.canvas === id);
+        for (const page of going) {
           yield* tx.remove(page.file);
         }
+        // Its pages' links to the code go with them (ADR 0030), and come back on undo.
+        yield* rebind(tx, new Map(going.map((p) => [p.id, null] as const)));
         yield* tx.remove(yield* canvasFile(id));
         yield* tx.remove(
           paths.relative(
@@ -439,6 +444,14 @@ export const makeCanvasOperations = (
           yield* updateRoutes(tx, all, from, (routes) =>
             Object.fromEntries(
               Object.entries(routes).filter(([key]) => !gone(key))
+            )
+          );
+          // A page moved is still the design its code implements (ADR 0030): its binding and
+          // the design as it was implemented go with it. A copy is a new design, with none.
+          yield* rebind(
+            tx,
+            new Map(
+              entries.map(({ page }) => [page.id, idOf(to, page.path)] as const)
             )
           );
         }

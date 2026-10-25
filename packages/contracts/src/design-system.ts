@@ -167,11 +167,11 @@ export const IconSet = Schema.Struct({
 });
 export type IconSet = typeof IconSet.Type;
 
-/** Who matched a token of `DESIGN.md` to the code's: the rules, an agent, or the user. */
+/** Who matched a token of `DESIGN.md` to the design system's: the rules, an agent, or the user. */
 export const DocumentMatchSource = Schema.Literals(["rule", "agent", "user"]);
 export type DocumentMatchSource = typeof DocumentMatchSource.Type;
 
-/** What a token of `DESIGN.md` is in the code: `to` the code's token, null when left out. */
+/** What a token of `DESIGN.md` is in the design system: `to` its token, null when left out. */
 export const DocumentMatch = Schema.Struct({
   by: DocumentMatchSource,
   to: Schema.NullOr(Schema.String),
@@ -179,9 +179,10 @@ export const DocumentMatch = Schema.Struct({
 export type DocumentMatch = typeof DocumentMatch.Type;
 
 /**
- * What `DESIGN.md`'s front matter and the code last agreed on (ADR 0027): each mirrored value by
- * its path in the document (`colors.primary`, `typography.body.fontSize`), and what each of the
- * document's tokens is in the code, by path.
+ * What a side and the design system last agreed on: for `DESIGN.md`'s front matter (ADR 0027)
+ * each mirrored value by its path in the document (`colors.primary`,
+ * `typography.body.fontSize`) and what each of the document's tokens is in the design system,
+ * by path; for the code and `design.tokens.json` (ADR 0028) each value by `name` and `name@theme`.
  */
 export const DocumentBaseline = Schema.Struct({
   agreed: Schema.Record(Schema.String, Schema.String),
@@ -203,6 +204,12 @@ export const DesignSystem = Schema.Struct({
   components: Schema.optional(Schema.Record(Schema.String, ComponentNotes)),
   /** What `DESIGN.md` and the design system last agreed on (ADR 0027). */
   designMd: Schema.optional(DocumentBaseline),
+  /**
+   * What `design.tokens.json` and the design system last agreed on (ADR 0028): the values the
+   * editor last wrote into it, by `name` and `name@theme`. Moved whenever the editor writes the
+   * file, so its own writes never read as another tool's.
+   */
+  designTokens: Schema.optional(DocumentBaseline),
   /** Elevation levels, lowest first. */
   elevation: Schema.optional(Schema.Array(ElevationLevel)),
   icons: Schema.optional(IconSet),
@@ -388,7 +395,7 @@ export const DesignSection = Schema.Struct({
 });
 export type DesignSection = typeof DesignSection.Type;
 
-/** A value of `DESIGN.md`'s front matter that differs from the code's and is waiting for Sync. */
+/** A value of `DESIGN.md`'s front matter that differs from the design system's and is waiting for Sync. */
 export const DocumentHeld = Schema.Struct({
   code: Schema.optional(Schema.String),
   doc: Schema.optional(Schema.String),

@@ -6,6 +6,8 @@ import {
 import { describe, expect, it } from "vitest";
 import {
   designTokensOf,
+  designTokensSide,
+  readDesignTokens,
   serialiseDesignTokens,
   tokensFromDesignTokens,
 } from "./services/dtcg.ts";
@@ -404,3 +406,33 @@ const GROUPS = [
 ];
 const groupOrder = (a: string, b: string) =>
   GROUPS.indexOf(a) - GROUPS.indexOf(b);
+
+describe("design.tokens.json as a Sync source", () => {
+  it("reads the export back as the design system's tokens, a theme's values with each", () => {
+    const read = readDesignTokens(serialiseDesignTokens(ds));
+    if ("problem" in read) {
+      throw new Error(read.problem);
+    }
+    const primary = read.tokens.find((t) => t.name === "color-primary");
+    expect(primary).toEqual({
+      kind: "color",
+      name: "color-primary",
+      own: true,
+      value: "#3b82f6",
+      values: { dark: "oklch(0.623 0.214 259.815)" },
+    });
+  });
+
+  it("says why a file is no Design Tokens file", () => {
+    const read = readDesignTokens("{ not json");
+    expect("problem" in read && read.problem).toContain(
+      "design.tokens.json is not JSON"
+    );
+    expect(
+      designTokensSide([
+        { name: "color-a", theme: "dark", value: "#000" },
+        { name: "color-a", value: "#fff" },
+      ])
+    ).toEqual([{ kind: "color", name: "color-a", own: true, value: "#fff" }]);
+  });
+});

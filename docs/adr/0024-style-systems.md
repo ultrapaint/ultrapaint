@@ -5,6 +5,12 @@ Status: accepted, 2026-10-06. Amends 0011 (framework packages) and 0015 (the des
 > Amended by [0028](0028-the-design-holds-the-values.md), 2026-10-25: the style system is the
 > code's side of the design system; it also writes the preview's overrides (`previewTokenCss`)
 > and reads component specs off classes (`componentSpec`, ADR 0029).
+>
+> Amended 2026-10-25 (second round, `docs/PLAN-design-source.md`): the Code tab's translation is
+> behind the interface too. `nodeClasses(designSystem)` gives a `ClassWriter` (the classes of a
+> node, and of the element around an instance that keeps its props), which
+> `@ultrapaint/design-document/code` writes its JSX with; the server writes the tab's code
+> (`code.write`), so the editor no longer knows Tailwind's utilities.
 
 ## Context
 
@@ -34,6 +40,7 @@ A React app can be styled with Tailwind, StyleX or Emotion alike.
 | `previewCss` | Lines of the preview's stylesheet, so every token is a custom property there |
 | `usage` | What the code uses, for the setup's inventory, map and migrate |
 | `codeRules` | How a token and a page's fields become code, for agents implementing a page |
+| `nodeClasses` | The classes a node is written with in the Code tab, the same rules as `codeRules` (added later) |
 
 **The tokens are neutral.** `@ultrapaint/contracts/tokens` has the model the server speaks: a
 token's name is the one pages use without the `$` (`color-primary`), with its kind, its value
@@ -59,6 +66,6 @@ by detection. The server loads it as it loads the framework, through `ProjectSty
   server's list of bundled style systems; the sync, the setup and the Figma comparison follow.
 - `hostCss` stays a top-level setting, read by the Tailwind adapter. It moves under a style
   section with the first second adapter, and the configuration's schema is versioned then.
-- Still Tailwind-shaped, to move behind the adapter when next touched: the Code tab's
-  translation (`packages/design-document/src/code.ts`), the Tailwind checks in the setup's
-  rules, and the wording of the briefing.
+- Still Tailwind-shaped, to move behind the adapter when next touched: the Tailwind checks in
+  the setup's rules, and the wording of the briefing. The Code tab's translation moved behind it
+  (`nodeClasses`, Tailwind's in `packages/style-tailwind-v4/src/node-classes.ts`).

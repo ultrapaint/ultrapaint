@@ -18,15 +18,17 @@ import {
   type SpecStyle,
 } from "@ultrapaint/contracts/specs";
 import { STATE_ATTRIBUTE } from "@ultrapaint/design-document/spec";
-import { ArrowLeft, Code2, Trash2 } from "lucide-react";
+import { ArrowLeft, Code2, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/ui/native-select";
+import { Spinner } from "@/components/ui/spinner";
 import { bridgeFor } from "../canvas/bridge.ts";
 import { useHostUrl } from "../canvas/frame.tsx";
 import { usePreviewBridge } from "../canvas/use-preview-bridge.ts";
@@ -288,7 +290,8 @@ const Matrix = ({
     );
   }
   return (
-    <div className="overflow-hidden rounded-md border bg-white">
+    // A spec with many fields and notes overflows the panel: the matrix keeps its height.
+    <div className="shrink-0 overflow-hidden rounded-md border bg-white">
       <iframe
         className="pointer-events-none block w-full border-0"
         ref={ref}
@@ -437,6 +440,109 @@ const SlotFields = ({
         }
         value={style.opacity}
       />
+    </div>
+  );
+};
+
+/**
+ * The component's behaviour notes (ADR 0030): what its code must do that the spec cannot show,
+ * about one part or the whole of it. They go with the spec to `/implement`. Added and taken out
+ * on the spec as saved, so a look being edited is not saved with them.
+ */
+const Notes = ({ dirty, spec }: { dirty: boolean; spec: ComponentSpec }) => {
+  const [text, setText] = useState("");
+  const [slot, setSlot] = useState(ROOT_SLOT);
+  const notes = spec.notes ?? [];
+  const add = async () => {
+    if (text.trim() === "") {
+      return;
+    }
+    try {
+      await api().request("specs.addNote", {
+        component: spec.component,
+        ...(slot !== ROOT_SLOT && { slot }),
+        text: text.trim(),
+      });
+      setText("");
+    } catch (error) {
+      reportError(error);
+    }
+  };
+  const remove = (id: string) =>
+    save({ ...spec, notes: notes.filter((n) => n.id !== id) });
+  const partOf = (name: string | undefined) =>
+    spec.slots.find((s) => s.name === name)?.label ?? name;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="font-medium">Behaviour</span>
+      {notes.length === 0 ? (
+        <p className="text-muted-foreground">
+          What the code must do that the spec cannot show: it goes to the code
+          when the component is implemented.
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-1">
+          {notes.map((n) => (
+            <li className="flex items-start gap-1.5" key={n.id}>
+              <span className="min-w-0 flex-1">
+                {n.slot ? (
+                  <span className="text-muted-foreground">
+                    {partOf(n.slot)}:{" "}
+                  </span>
+                ) : null}
+                {n.text}
+              </span>
+              <Button
+                aria-label="Take the note out"
+                disabled={dirty}
+                onClick={() => remove(n.id)}
+                size="icon-xs"
+                variant="ghost"
+              >
+                <X />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex gap-1.5">
+        {spec.slots.length > 1 ? (
+          <NativeSelect
+            aria-label="About"
+            className="w-28"
+            onChange={(e) => setSlot(e.target.value)}
+            size="sm"
+            value={slot}
+          >
+            {spec.slots.map((s) => (
+              <NativeSelectOption key={s.name} value={s.name}>
+                {s.label ?? (s.name === ROOT_SLOT ? "The component" : s.name)}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        ) : null}
+        <Input
+          aria-label="A behaviour note"
+          className="h-7 min-w-0 flex-1"
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              add();
+            }
+          }}
+          placeholder="Closes on Escape and gives the focus back"
+          value={text}
+        />
+        <Button
+          disabled={dirty || text.trim() === ""}
+          onClick={add}
+          size="sm"
+          title={dirty ? "Save or discard the look's changes first" : undefined}
+          variant="outline"
+        >
+          Note
+        </Button>
+      </div>
     </div>
   );
 };
@@ -649,7 +755,44 @@ const SpecDetail = ({
             The spec mirrors the code. Take the look over to change it here.
           </p>
         )}
+        {saved ? <Notes dirty={dirty} spec={saved} /> : null}
       </div>
+    </div>
+  );
+};
+
+/**
+ * Every component of the code with classes to read and no spec yet, read into a spec that mirrors
+ * it and linked to its file as implemented (ADR 0029, 0030): how a project built before it came
+ * into the editor brings its components in. One undo step for the specs, one for the links.
+ */
+const ReadAll = ({ count }: { count: number }) => {
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    setBusy(true);
+    try {
+      const { linked, read } = await api().request("specs.fromCodeAll", {
+        look: "code",
+      });
+      toast.success(
+        `${read} spec${read === 1 ? "" : "s"} read from the code, ${linked} linked to ${linked === 1 ? "its component's file" : "their components' files"}.`
+      );
+    } catch (error) {
+      reportError(error);
+    }
+    setBusy(false);
+  };
+  return (
+    <div className="flex flex-col items-start gap-1.5 border-b px-3 py-2">
+      <span className="text-muted-foreground">
+        {count === 1 ? "A component has" : `${count} components have`} no spec
+        yet: read from its classes, it mirrors the code and is linked to its
+        file.
+      </span>
+      <Button disabled={busy} onClick={run} size="sm" variant="outline">
+        {busy ? <Spinner /> : null}
+        Read every spec from the code
+      </Button>
     </div>
   );
 };
@@ -665,6 +808,9 @@ export const ComponentsView = ({ q }: { q: string }) => {
     (l) => !q || l.name.toLowerCase().includes(q)
   );
   const opened = open ? listed.find((l) => l.name === open) : undefined;
+  const unread = (catalogue?.components ?? []).filter(
+    (c) => c.styles !== undefined && !specs.some((s) => s.component === c.name)
+  ).length;
 
   useEffect(() => {
     useImplementation.getState().load();
@@ -678,6 +824,7 @@ export const ComponentsView = ({ q }: { q: string }) => {
   }
   return (
     <div className="flex flex-col font-body">
+      {unread > 0 ? <ReadAll count={unread} /> : null}
       {problems.map((p) => (
         <p className="border-b px-3 py-1.5 text-destructive" key={p.file}>
           {p.file}: {p.problem}

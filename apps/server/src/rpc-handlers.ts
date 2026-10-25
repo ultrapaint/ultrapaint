@@ -2,7 +2,9 @@ import {
   type SetupStepId,
   setupStepOf,
 } from "@ultrapaint/contracts/design-system-setup";
+import { specTarget } from "@ultrapaint/contracts/implementation";
 import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
+import { toCode } from "@ultrapaint/design-document/code";
 import { Effect } from "effect";
 import { AppLog } from "./app-log.ts";
 import { connectHost, ServerConfig } from "./config.ts";
@@ -28,6 +30,7 @@ import { SetupService } from "./services/setup.ts";
 import { SkillsService } from "./services/skills.ts";
 import { Snapshots } from "./services/snapshots.ts";
 import { SpecService } from "./services/specs.ts";
+import { ProjectStyleSystem } from "./services/style-system.ts";
 import { AgentConfigs } from "./services/threads/agent-configs.ts";
 import { AgentDiscovery } from "./services/threads/agent-discovery.ts";
 import { ChatPreferences } from "./services/threads/chat-preferences.ts";
@@ -136,12 +139,27 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "canvases.setHome": ({ id, route }) => pages((s) => s.setHome(id, route)),
 
       "catalogue.get": ({ refresh }) => catalogue((c) => c.get(refresh)),
-
       "chat.defaults": () => preferences.defaults,
       "chat.setDefaults": (defaults) => preferences.setDefaults(defaults),
       "checkpoints.diff": ({ id }) => checkpoints.diff(id),
       "checkpoints.list": () => checkpoints.list,
       "checkpoints.revert": ({ id }) => checkpoints.revert(id),
+
+      "code.write": ({ component, instances, node, parent }) =>
+        project.use(
+          Effect.gen(function* () {
+            const styleSystem = yield* ProjectStyleSystem;
+            const { designSystem: ds } = yield* (yield* DesignSystemService)
+              .get;
+            // The markup is the design document's, the classes the style system's (ADR 0024).
+            const code = toCode(node, styleSystem.nodeClasses(ds), {
+              component,
+              instances,
+              parent,
+            });
+            return { code, language: "tsx" };
+          })
+        ),
       "commands.list": () => Effect.succeed(commands.list),
       "comments.create": (input) => comments((c) => c.create(input)),
       "comments.delete": ({ id, canvas }) =>
@@ -245,6 +263,12 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
         implementation((s) => s.mark(target, files)),
       "implementation.setReady": ({ ready, target }) =>
         implementation((s) => s.setReady(target, ready)),
+      "implementation.setReadyAll": ({ ready, targets }) =>
+        implementation((s) =>
+          Effect.map(s.setReadyAll(targets, ready), (changed) => ({
+            changed,
+          }))
+        ),
       "implementation.unbind": ({ target }) =>
         implementation((s) => s.unbind(target)),
       "logs.recent": () => log.recent(RECENT_LOG_LINES),
@@ -347,15 +371,31 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "snapshots.list": () => snapshots.list,
       "snapshots.restore": ({ id }) => snapshots.restore(id),
       "snapshots.view": ({ id }) => snapshots.view(id),
+      "specs.addNote": ({ component, slot, text }) =>
+        specs((s) => s.addNote(component, text, slot)),
       "specs.draftFrom": ({ id, name, nodeId }) =>
         specs((s) => s.draftFrom(id, nodeId, name)),
       "specs.fromCode": ({ component, from, look }) =>
         specs((s) => s.fromCode(component, from, look ?? "code")),
+      "specs.fromCodeAll": ({ look }) =>
+        Effect.gen(function* () {
+          const read = yield* specs((s) => s.fromCodeAll(look ?? "code"));
+          // Read off the code, each spec is what its component's file draws: implemented by it.
+          const linked = yield* implementation((s) =>
+            s.markAll(
+              read.map(({ file, spec }) => ({
+                files: [file],
+                target: specTarget(spec.component),
+              }))
+            )
+          );
+          return { linked, read: read.length };
+        }),
       "specs.list": () => specs((s) => s.list),
       "specs.remove": ({ component }) => specs((s) => s.remove(component)),
       "specs.write": ({ spec }) => specs((s) => s.write(spec)),
-      "sync.apply": ({ decisions, only, source }) =>
-        sync.apply(source, decisions, only),
+      "sync.apply": ({ decisions, only, source, tokens }) =>
+        sync.apply(source, decisions, only, tokens),
       "sync.match": ({ entries, source }) =>
         sync.match(source, entries, "user"),
       "sync.plan": () => sync.plan,

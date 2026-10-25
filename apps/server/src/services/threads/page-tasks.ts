@@ -15,8 +15,10 @@ import {
   SPEC_EXTENSION,
   SPECS_DIR,
 } from "@ultrapaint/contracts/specs";
+import { baselineKey, type TokenDiff } from "@ultrapaint/contracts/sync";
 import { walk } from "@ultrapaint/design-document/tree";
 import { basePathOf, normaliseRoute } from "@ultrapaint/shared/route";
+import { plural } from "@ultrapaint/shared/text";
 import { Effect } from "effect";
 import { ServerConfig } from "../../config.ts";
 import { ProjectManager } from "../../project.ts";
@@ -32,6 +34,9 @@ import { ProjectStyleSystem } from "../style-system.ts";
 import { pageSchema, splitArgument, userAdds } from "./task-text.ts";
 
 const QUOTED_ROOT = '""';
+/** `/implement --adopt`: link pages built already to their code, instead of implementing one. */
+const ADOPT_FLAG = "--adopt";
+const WORDS_RE = /\s+/;
 
 /** A canvas as a command names it: its id, `""` for the designs directory's own. */
 const canvasArgument = (argument: string) => {
@@ -40,6 +45,17 @@ const canvasArgument = (argument: string) => {
 };
 
 const named = (id: string) => JSON.stringify(id);
+
+/** Steps as a task numbers them, a step that does not apply left out. */
+const numbered = (steps: readonly (string | null)[]) =>
+  steps
+    .filter((step): step is string => step !== null)
+    .map((step, i) => `${i + 1}. ${step}`)
+    .join("\n");
+
+/** A token waiting for the code, a line: the design's value, the code's, and whether both moved. */
+const waitingLine = (d: TokenDiff) =>
+  `- ${baselineKey(d.name, d.theme)}: design ${d.design ?? "(taken out)"}, code ${d.source ?? "(not declared)"}${d.outcome === "conflict" ? ", changed on both sides" : ""}`;
 
 const unknownCanvas = (
   command: string,
@@ -121,6 +137,33 @@ Ask which one.
 </ultrapaint-task>`;
 };
 
+/**
+ * The pages a list of words names: a canvas's id (`""` for the designs directory's own) names
+ * all its pages, anything else one page, by its id, file or URL.
+ */
+const pagesOf = (
+  words: readonly string[],
+  canvases: readonly { readonly id: string }[],
+  pages: readonly Page[]
+) => {
+  const picked = new Set<string>();
+  const unknown: string[] = [];
+  for (const word of words) {
+    const canvas = word === QUOTED_ROOT ? "" : word;
+    const page = pageNamed(pages, word);
+    if (canvases.some((c) => c.id === canvas)) {
+      for (const p of pages.filter((each) => each.canvas === canvas)) {
+        picked.add(p.id);
+      }
+    } else if (page) {
+      picked.add(page.id);
+    } else {
+      unknown.push(word);
+    }
+  }
+  return { picked, unknown };
+};
+
 /** The components a tree uses, by name. */
 const usedComponents = (root: DesignNode | null | undefined) => {
   const used = new Set<string>();
@@ -149,20 +192,21 @@ const notesSection = (
     readonly element: string | null;
     readonly nodeId: string | null;
     readonly text: string;
-  }[]
+  }[],
+  on: "page" | "component" = "page"
 ) => {
   if (notes.length === 0) {
     return "";
   }
-  const on = (n: (typeof notes)[number]) => {
+  const where = (n: (typeof notes)[number]) => {
     if (!n.element) {
       return "";
     }
     return n.nodeId ? `on ${n.element} (${n.nodeId}): ` : `on ${n.element}: `;
   };
   return `
-Behaviour notes on the page, what the code must do that the design cannot show:
-${notes.map((n) => `- ${on(n)}${n.text}`).join("\n")}
+Behaviour notes on the ${on}, what the code must do that the design cannot show:
+${notes.map((n) => `- ${where(n)}${n.text}`).join("\n")}
 `;
 };
 
@@ -204,6 +248,9 @@ export const makePageTasks = Effect.fnUntraced(function* (deps: {
     project.use(
       Effect.gen(function* () {
         const { extra, target } = splitArgument(argument);
+        if (target === ADOPT_FLAG) {
+          return yield* adopt(extra);
+        }
         const specs = yield* (yield* SpecService).specs;
         const spec = specNamed(specs, target);
         if (spec) {
@@ -218,6 +265,71 @@ export const makePageTasks = Effect.fnUntraced(function* (deps: {
       })
     );
 
+  /**
+   * `/implement --adopt [canvas | page …]` (ADR 0030): pages the application has built already,
+   * linked to the files that implement them, without changing the code. What a project brought
+   * into the editor with its screens done starts from. Named by nothing, every page that is not
+   * linked yet.
+   */
+  const adopt = Effect.fnUntraced(function* (argument: string) {
+    const { canvases, pages } = yield* (yield* PagesService).list;
+    const { items } = yield* (yield* ImplementationService).list;
+    const bound = new Set(
+      items
+        .filter((i) => i.status === "implemented" || i.status === "changed")
+        .map((i) => i.target)
+    );
+    const words = argument.split(WORDS_RE).filter(Boolean);
+    const { picked, unknown } = pagesOf(words, canvases, pages);
+    const chosen = pages.filter(
+      (p) => (words.length === 0 || picked.has(p.id)) && !bound.has(p.id)
+    );
+    if (chosen.length === 0) {
+      return `<ultrapaint-task command="implement">
+The user asked to link pages of the design to the code that implements them, but ${unknown.length > 0 ? `there is no canvas or page ${unknown.join(", ")}, and ` : ""}every page ${words.length > 0 ? "named " : ""}is linked already. Say so, and stop.
+</ultrapaint-task>`;
+    }
+    const lines = chosen.map(
+      (p) =>
+        `- ${p.id}: ${p.name}${p.state ? ` in the ${p.state} state` : ""}${p.variant ? ` (variant ${p.variant})` : ""}, ${p.route ?? "no URL"}`
+    );
+    const mark = mcp
+      ? `mark it implemented: handoff with action "mark", target the page's id as listed and files,
+   the repository files that draw it (the route's module, the screen's component, the components
+   only it uses). A state's page is implemented by the same files as its page.`
+      : "note its files: without the editor's MCP server the user marks each page in the inspector.";
+    return `<ultrapaint-task command="implement">
+These pages of the design are built in the application already, and the editor does not know by
+which files. Find the code that implements each one and link them, so that from now on the editor
+tells what changed on either side. Do not change the application's code, and do not change the
+designs.${
+      unknown.length > 0
+        ? `
+(There is no canvas or page ${unknown.join(", ")}; they are left out.)`
+        : ""
+    }
+
+The pages, by id:
+${lines.join("\n")}
+
+1. Find where the application's pages live and how its routes are declared. For each page above,
+   find the screen that serves its URL; a page without a URL is matched by its name and what it
+   shows. Ask the user where you cannot tell, a few pages at a time.
+2. Where the code draws the same screen (read_page and get_screenshot show the design; the
+   layout, the sections and the components match, not every pixel), ${mark}
+3. Where the code draws something else, or nothing, leave the page unlinked: it is a design still
+   to implement.${
+     mcp
+       ? `
+4. If marking is refused because tokens the page uses have not reached the code, the design's
+   values are newer than the stylesheet's: ask the user whether to export them (handoff "export"
+   with their names) before marking, or to leave the page unlinked.`
+       : ""
+   }
+${mcp ? "5" : "4"}. End with a table: each page, the files that implement it or why it is left unlinked.
+</ultrapaint-task>`;
+  });
+
   /** How to say the design is done, through the editor's tool or to the user. */
   const markStep = (target: string) =>
     mcp
@@ -225,6 +337,49 @@ export const makePageTasks = Effect.fnUntraced(function* (deps: {
    repository file you wrote or changed for it. The editor then knows which code implements it,
    and tells the next implementation what changed.`
       : "Tell the user which files implement it, so they can mark it implemented in the editor.";
+
+  /**
+   * The tokens a design relies on whose value has not reached the code (ADR 0028): listed, with
+   * the step that brings them over before the code is written to match the design. The others
+   * waiting are other designs' and stay.
+   */
+  const tokensFor = Effect.fnUntraced(function* (target: string) {
+    const { others, used } = yield* Effect.orElseSucceed(
+      (yield* ImplementationService).tokens(target),
+      () => ({ others: 0, used: [] as readonly TokenDiff[] })
+    );
+    if (used.length === 0) {
+      return { section: "", step: null };
+    }
+    const conflicted = new Set(
+      used.filter((d) => d.outcome === "conflict").map((d) => d.name)
+    );
+    const plain = [...new Set(used.map((d) => d.name))].filter(
+      (name) => !conflicted.has(name)
+    );
+    const rest =
+      others > 0
+        ? ` ${plural(others, "other token")} of the design wait for the code too: leave them, they are other designs', unless the user asks.`
+        : "";
+    const section = `
+Tokens this design uses whose value has not reached the code, the design's value first. The
+design system holds the values and the stylesheets follow it; until these are brought over, the
+code cannot draw the design as it is:
+${used.map(waitingLine).join("\n")}
+`;
+    const ask =
+      conflicted.size > 0
+        ? ` ${[...conflicted].join(", ")} changed on both sides: ask the user which value to keep, then ${mcp ? 'bring it over with "export" (the design\'s) or "import" (the code\'s) and its name' : "write that value into the stylesheet"}.`
+        : "";
+    const exportStep = mcp
+      ? `call handoff with action "export" and tokens ${JSON.stringify(plain)}: it writes the design's values into the stylesheets through the style system.`
+      : "write the design's value of each into the stylesheet where the token is declared.";
+    const write = plain.length > 0 ? exportStep : "";
+    return {
+      section,
+      step: `Bring the tokens above over before writing the code: ${write}${ask}${rest}`,
+    };
+  });
 
   /** What was implemented before, and what changed since, for a task to start from. */
   const since = Effect.fnUntraced(function* (target: string) {
@@ -278,6 +433,7 @@ export const makePageTasks = Effect.fnUntraced(function* (deps: {
       (s) => usedComponents(state?.root).has(s.component) && s.look === "design"
     );
     const where = whereOf(page);
+    const tokens = yield* tokensFor(page.id);
     return `<ultrapaint-task command="implement">
 Implement the page ${page.name} of the design (${page.file}) in this repository's application,
 in its own conventions. ${where}
@@ -285,21 +441,24 @@ The design is what it looks like and which states it has; what it does (data, pe
 validation, what a button calls) is the code's, and the behaviour notes below say what is wanted.
 
 ${before}
-${notesSection(notes)}${statesSection(states)}${ownedSection(owned)}
+${notesSection(notes)}${statesSection(states)}${ownedSection(owned)}${tokens.section}
 The design, as the editor holds it:
 ${JSON.stringify(state?.root ?? null, null, 2)}
 
 ${codeRules}
 ${textStyles(styles)}
-1. Find where the application's pages live and how its routes are declared${before.startsWith("It was") ? ", starting from the files that implement it" : ""}. If it is not clear
-   where this page belongs, ask the user before writing anything.
-2. Write the page with the design system's components and the application's existing layouts;
-   do not copy the design node by node where a component already does the job.
-3. Implement each behaviour note with the application's own services, guards and data; ask the
-   user where one is unclear rather than inventing it.
-4. Run the repository's type check and linter on what you changed.
-5. ${markStep(page.id)}
-6. End with a short summary, and what the design asked for that the code could not do.
+${numbered([
+  `Find where the application's pages live and how its routes are declared${before.startsWith("It was") ? ", starting from the files that implement it" : ""}. If it is not clear
+   where this page belongs, ask the user before writing anything.`,
+  tokens.step,
+  `Write the page with the design system's components and the application's existing layouts;
+   do not copy the design node by node where a component already does the job.`,
+  `Implement each behaviour note with the application's own services, guards and data; ask the
+   user where one is unclear rather than inventing it.`,
+  "Run the repository's type check and linter on what you changed.",
+  markStep(page.id),
+  "End with a short summary, and what the design asked for that the code could not do.",
+])}
 ${userAdds(extra)}</ultrapaint-task>`;
   });
 
@@ -309,6 +468,8 @@ ${userAdds(extra)}</ultrapaint-task>`;
   ) {
     const target = specTarget(spec.component);
     const before = yield* since(target);
+    const tokens = yield* tokensFor(target);
+    const notes = spec.notes ?? [];
     const { codeRules } = yield* ProjectStyleSystem;
     const catalogue = yield* Effect.orElseSucceed(
       (yield* CatalogueService).get(false),
@@ -323,12 +484,15 @@ ${userAdds(extra)}</ultrapaint-task>`;
 yet. Create it in the components directory (${paths.settings.libraryDirs.join(", ") || "where the application keeps its components"}), from the draft's
 tree, with a prop for what varies, in the shape the other components have.`
       : `Implement the look of ${spec.component} as its spec says (${SPECS_DIR}/${spec.component}${SPEC_EXTENSION}), in its code${meta ? ` (${meta.file})` : ""}.
-Its behaviour stays as it is: only its classes change.`;
+Its behaviour stays as it is: only its classes change${notes.length > 0 ? ", and what its behaviour notes ask" : ""}.`;
     return `<ultrapaint-task command="implement">
 ${intro}
 
 ${before}
-
+${notesSection(
+  notes.map((n) => ({ element: n.slot ?? null, nodeId: null, text: n.text })),
+  "component"
+)}${tokens.section}
 The spec: \`base\` is what every instance starts from; \`variants\` per prop and value; \`states\`
 (hover, focus, active, disabled, open, checked, invalid) are the state classes (\`hover:\`,
 \`focus-visible:\`, \`active:\`, \`disabled:\`, \`data-open:\` or \`data-[state=open]:\`, \`data-checked:\`,
@@ -337,10 +501,18 @@ design system's tokens.
 ${JSON.stringify(spec, null, 2)}
 
 ${codeRules}
-1. ${spec.draft ? 'Write the component, then replace the draft\'s instances in the pages with it: apply_operations, update from and component of each instance whose from is "#draft".' : "Change the component's classes (its cva base, variants and sizes, and the state classes) so it draws as the spec says. Keep its props and behaviour."}
-2. Run the repository's type check and linter on what you changed.
-3. ${markStep(target)}
-4. End with a short summary, and what the spec asked for that the code could not do.
+${numbered([
+  tokens.step,
+  spec.draft
+    ? 'Write the component, then replace the draft\'s instances in the pages with it: apply_operations, update from and component of each instance whose from is "#draft".'
+    : "Change the component's classes (its cva base, variants and sizes, and the state classes) so it draws as the spec says. Keep its props and behaviour.",
+  notes.length > 0
+    ? "Implement each behaviour note in the component, with the application's own services and data; ask the user where one is unclear rather than inventing it."
+    : null,
+  "Run the repository's type check and linter on what you changed.",
+  markStep(target),
+  "End with a short summary, and what the spec asked for that the code could not do.",
+])}
 ${userAdds(extra)}</ultrapaint-task>`;
   });
 

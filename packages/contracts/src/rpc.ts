@@ -19,7 +19,12 @@ import {
   UsageInventory,
   UsageMapping,
 } from "./design-system-setup.ts";
-import { ApplyInput, ApplyResult, DocumentState } from "./document.ts";
+import {
+  ApplyInput,
+  ApplyResult,
+  DesignNode,
+  DocumentState,
+} from "./document.ts";
 import { UndoResult, UndoState } from "./edit.ts";
 import {
   AgentFailure,
@@ -53,6 +58,7 @@ import {
   PageList,
   UploadAssetInput,
 } from "./pages.ts";
+import { InstanceDrawn } from "./preview.ts";
 import { HostStatus, LogLine, ProjectInfo } from "./project.ts";
 import { ScreenshotRequest, ScreenshotResult } from "./screenshots.ts";
 import {
@@ -70,7 +76,13 @@ import {
 } from "./setup.ts";
 import { CustomiseMode, Skill, SkillList } from "./skills.ts";
 import { Snapshot, SnapshotView } from "./snapshots.ts";
-import { ComponentSpec, SpecEntry, SpecList, SpecLook } from "./specs.ts";
+import {
+  ComponentSpec,
+  SpecEntry,
+  SpecList,
+  SpecLook,
+  SpecNote,
+} from "./specs.ts";
 import {
   SyncPlan,
   TokenComparison,
@@ -480,7 +492,8 @@ const requestRpcs = [
   /**
    * What a source changed, and the conflicts given to it, taken into the design system. For the
    * code, what the design system changed, and the conflicts given to it, are written to the
-   * code too (the export); `only` keeps to one direction.
+   * code too (the export); `only` keeps to one direction, and `tokens`, when it names any, to
+   * those tokens (by name, or `name@theme`).
    */
   Rpc.make("sync.apply", {
     error: Schema.Union([BadRequest, NotConfigured]),
@@ -488,6 +501,7 @@ const requestRpcs = [
       decisions: Schema.Array(TokenDecision),
       only: Schema.optional(Schema.Literals(["export", "import"])),
       source: TokenSourceKind,
+      tokens: Schema.optional(Schema.Array(Schema.String)),
     },
     success: Schema.Struct({
       files: Schema.Array(Schema.String),
@@ -727,6 +741,25 @@ const requestRpcs = [
     payload: { id: Schema.String },
   }),
 
+  /**
+   * A node of a design as code, everything under it included (the inspector's Code tab): JSX
+   * with the repository's components, its look in the classes of the project's style system
+   * (ADR 0024). `parent` is how its parent lays it out; `component` names a page's function;
+   * `instances` is how the preview drew them.
+   */
+  Rpc.make("code.write", {
+    error: NotConfigured,
+    payload: {
+      component: Schema.optional(Schema.String),
+      instances: Schema.optional(Schema.Record(Schema.String, InstanceDrawn)),
+      node: DesignNode,
+      parent: Schema.optional(
+        Schema.Literals(["row", "column", "block", "free"])
+      ),
+    },
+    success: Schema.Struct({ code: Schema.String, language: Schema.String }),
+  }),
+
   /** The component specs of the designs directory (ADR 0029), each read or with its problem. */
   Rpc.make("specs.list", { error: NotConfigured, success: SpecList }),
   /** A spec saved as given, validated: one undo step. */
@@ -748,9 +781,29 @@ const requestRpcs = [
     },
     success: SpecEntry,
   }),
+  /**
+   * A spec read off the code for every component with classes to read and no spec yet, each
+   * linked to its component's file as implemented (ADR 0029, 0030): how a project whose
+   * components are built already comes in. `look` is `code` when absent.
+   */
+  Rpc.make("specs.fromCodeAll", {
+    error: EditError,
+    payload: { look: Schema.optional(SpecLook) },
+    success: Schema.Struct({ linked: Schema.Number, read: Schema.Number }),
+  }),
   Rpc.make("specs.remove", {
     error: EditError,
     payload: { component: Schema.String },
+  }),
+  /** A behaviour note added to a component's spec, about a slot or the whole of it (ADR 0030). */
+  Rpc.make("specs.addNote", {
+    error: EditError,
+    payload: {
+      component: Schema.String,
+      slot: Schema.optional(Schema.String),
+      text: Schema.String,
+    },
+    success: SpecNote,
   }),
   /**
    * A node made a draft component: its subtree becomes the spec's tree, and the node an
@@ -775,6 +828,15 @@ const requestRpcs = [
     error: EditError,
     payload: { ready: Schema.Boolean, target: ImplementationTarget },
     success: ImplementationItem,
+  }),
+  /** Several designs marked ready, or not, in one undo step; one implemented already is left. */
+  Rpc.make("implementation.setReadyAll", {
+    error: EditError,
+    payload: {
+      ready: Schema.Boolean,
+      targets: Schema.Array(ImplementationTarget),
+    },
+    success: Schema.Struct({ changed: Schema.Number }),
   }),
   /** The design marked implemented by these files, as it is now: one undo step. */
   Rpc.make("implementation.mark", {

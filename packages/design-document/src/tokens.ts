@@ -6,6 +6,9 @@
  * follows from the same name.
  */
 import type { DesignSystem, Token } from "@ultrapaint/contracts/design-system";
+import type { DesignNode } from "@ultrapaint/contracts/document";
+import type { ComponentSpec } from "@ultrapaint/contracts/specs";
+import { childrenOf } from "./tree.ts";
 
 export const TOKEN_PREFIX = "$";
 
@@ -106,4 +109,71 @@ export const toPixels = (value: string, rootSize = 16): number | null => {
     return n * rootSize;
   }
   return value.endsWith("px") || PLAIN_NUMBER_RE.test(value.trim()) ? n : null;
+};
+
+const TOKEN_REF_RE = /^\$([a-z0-9][\w-]*)/i;
+const SPACING_MULTIPLE_RE = /^spacing-\d/;
+
+/** Every token a value names, however deep in it: `"$color-primary"` anywhere, by name. */
+export const tokensIn = (
+  value: unknown,
+  into: Set<string> = new Set()
+): Set<string> => {
+  if (typeof value === "string") {
+    const found: RegExpExecArray | null = TOKEN_REF_RE.exec(value);
+    const name = found ? found[1] : undefined;
+    if (name) {
+      into.add(name);
+      // A step of the spacing scale is a multiple of `--spacing`, which is the token behind it.
+      if (SPACING_MULTIPLE_RE.test(name)) {
+        into.add("spacing");
+      }
+    }
+  } else if (Array.isArray(value)) {
+    for (const item of value) {
+      tokensIn(item, into);
+    }
+  } else if (typeof value === "object" && value !== null) {
+    for (const item of Object.values(value)) {
+      tokensIn(item, into);
+    }
+  }
+  return into;
+};
+
+/**
+ * The tokens a design relies on (ADR 0028): those its nodes name, those of the text styles its
+ * texts are set in, and those of the specs whose look the design owns that it places, a draft's
+ * tree included. What the code's own classes use is the code's.
+ */
+export const tokensUsed = (
+  root: DesignNode | null | undefined,
+  ds: DesignSystem | null | undefined,
+  specs: readonly ComponentSpec[] = []
+): Set<string> => {
+  const used = tokensIn(root);
+  if (!root) {
+    return used;
+  }
+  const styles = new Map(
+    (ds?.typography.styles ?? []).map((s) => [s.name, s] as const)
+  );
+  const owned = new Map(
+    specs
+      .filter((s) => s.look === "design" || s.draft)
+      .map((s) => [`${s.from}\0${s.component}`, s] as const)
+  );
+  const visit = (node: DesignNode) => {
+    if (node.type === "text" && node.textStyle) {
+      tokensIn(styles.get(node.textStyle), used);
+    }
+    if (node.type === "instance") {
+      tokensIn(owned.get(`${node.from}\0${node.component}`), used);
+    }
+    for (const child of childrenOf(node)) {
+      visit(child);
+    }
+  };
+  visit(root);
+  return used;
 };

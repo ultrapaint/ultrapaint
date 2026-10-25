@@ -39,6 +39,13 @@ import { CodeTokensStep } from "./sync-code.tsx";
 import { ScaffoldButton } from "./sync-scaffold.tsx";
 import { TokensStep } from "./sync-tokens.tsx";
 
+/** The source a step's tokens are compared from. */
+const TOKEN_STEP_SOURCES = {
+  "design-tokens": "designMd",
+  "dtcg-tokens": "dtcg",
+  "figma-tokens": "figma",
+} as const;
+
 const STATE_LABELS: Record<SyncStep["state"], string> = {
   active: "Under way",
   attention: "Next",
@@ -257,13 +264,14 @@ const PlanStep = ({
   if (step.kind === "import-frames") {
     return <FramesStep index={index} plan={plan} step={step} />;
   }
-  if (step.kind === "figma-tokens" || step.kind === "design-tokens") {
+  if (
+    step.kind === "figma-tokens" ||
+    step.kind === "design-tokens" ||
+    step.kind === "dtcg-tokens"
+  ) {
     return (
       <SyncCard index={index} step={step}>
-        <TokensStep
-          plan={plan}
-          source={step.kind === "figma-tokens" ? "figma" : "designMd"}
-        />
+        <TokensStep plan={plan} source={TOKEN_STEP_SOURCES[step.kind]} />
       </SyncCard>
     );
   }

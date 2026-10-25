@@ -265,12 +265,22 @@ const drawingEntries = (f: PageFacts): (Entry | false)[] =>
       ]
     : [];
 
-/** The page and the code that implements it (ADR 0030). */
+/**
+ * The page and the code that implements it (ADR 0030); several pages picked, all of them at once:
+ * marked ready, or linked by an agent to the code that already implements them.
+ */
 const codeEntries = (f: PageFacts): (Entry | false)[] => {
+  if (f.count > 1) {
+    return [
+      item("readyAll", `Mark ${f.count} pages ready to implement`),
+      item("adopt", `Find the code of ${f.count} pages with an agent`),
+    ];
+  }
   const bound =
     f.implementation === "implemented" || f.implementation === "changed";
   return [
     item("implement", "Implement with an agent"),
+    !bound && item("adopt", "Find its code with an agent"),
     f.implementation === "draft" && item("ready", "Mark ready to implement"),
     f.implementation === "ready" && item("notReady", "Mark not ready"),
     item(
@@ -349,6 +359,9 @@ export const canvasListEntries = (f: CanvasEntryFacts): Entry[] =>
     item("duplicate", "Duplicate…"),
     item("duplicateWithAgent", "Duplicate with an agent…"),
     item("componentSheet", "Draw the components with an agent"),
+    separator,
+    item("readyAll", "Mark every page ready to implement"),
+    item("adopt", "Find the pages' code with an agent"),
     separator,
     item("moveUp", "Move up", { disabled: f.first }),
     item("moveDown", "Move down", { disabled: f.last }),

@@ -1,7 +1,7 @@
 /**
- * The front matter the code implies (ADR 0027): the design system's colours, radii, spacing and
- * text styles, with the code's values in the default theme, written as the format holds them.
- * Other themes stay in the code; the body says how they differ.
+ * The front matter a design system comes to (ADR 0027, 0028): its colours, radii, spacing and
+ * text styles, with its values in the default theme, written as the format holds them. Other
+ * themes stay in the design system; the body says how they differ.
  */
 import type {
   DesignSystem,

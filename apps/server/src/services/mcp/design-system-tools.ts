@@ -35,7 +35,7 @@ const ComponentSummary = Schema.Struct({
 
 export const ScanDesignSystem = Tool.make("scan_design_system", {
   description:
-    "A first design-system.json, read by fixed rules from the code's tokens, with the files read and notes on what could not be interpreted. The start of /init.",
+    "A first design-system.json, read by fixed rules from the code's tokens, with the files read and notes on what it could not interpret. The start of /init.",
   failure: Failure,
   success: Schema.Struct({
     designSystem: Json,
@@ -67,7 +67,7 @@ export const WriteDesignSystem = Tool.make("write_design_system", {
     designSystem: AnyJson,
   }),
   success: Schema.Struct({
-    /** What the format's linter says, and values put back to the code's. */
+    /** What the format's linter says, and values put back to the design system's. */
     findings: Schema.Array(Schema.String),
     saved: Schema.Boolean,
   }),

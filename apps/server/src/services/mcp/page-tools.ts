@@ -52,7 +52,7 @@ const CanvasSummary = Schema.Struct({
 
 export const GetContext = Tool.make("get_context", {
   description:
-    "The project: repository root, designs directory, the package pages import from, its canvases and how many pages there are, and a short guide to how designs are kept. Call it first, unless you were already told the pages.",
+    "The project: repository root, designs directory, the package pages import from, its canvases and page count, and a short guide to how designs are kept. Call it first, unless you were told the pages.",
   failure: Failure,
   success: Schema.Struct({
     canvases: Schema.Array(CanvasSummary),
@@ -67,14 +67,14 @@ export const GetContext = Tool.make("get_context", {
 
 export const ListPages = Tool.make("list_pages", {
   description:
-    "Every page: its canvas, name, file, and the URL it serves in the prototype (none when it has none). A variant's page (pricing@bold.page.json) serves its base page's URL, so name it by its file.",
+    "Every page: its canvas, name, file, and the URL it serves in the prototype, if any. A variant's page (pricing@bold.page.json) serves its base page's URL: name it by its file.",
   failure: Failure,
   success: Schema.Struct({ pages: Schema.Array(PageSummary) }),
 }).annotate(Tool.Readonly, true);
 
 export const SetFrame = Tool.make("set_frame", {
   description:
-    "Size a page's frame, the window it is drawn in on the canvas and in get_screenshot: a preset or a width and height in pixels. A long page needs a tall frame to be seen whole.",
+    "Size a page's frame, the window it is drawn in on the canvas and in get_screenshot: a preset, or width and height in pixels. A long page needs a tall frame.",
   failure: Failure,
   parameters: Schema.Struct({
     canvas: opt(Schema.String),
@@ -92,7 +92,7 @@ export const SetFrame = Tool.make("set_frame", {
 
 export const CreatePage = Tool.make("create_page", {
   description:
-    "Add a page; its file is its name made safe (Billing settings: billing-settings.page.json). Give it a URL when the prototype or a link should reach it: a screen of the application has one, a sketch needs none. Then fill it with apply_operations.",
+    "Add a page; its file is its name made safe (Billing settings: billing-settings.page.json). A screen of the application gets a URL, for the prototype and links; a sketch needs none. Then fill it with apply_operations.",
   failure: Failure,
   parameters: Schema.Struct({
     canvas: opt(Schema.String),
