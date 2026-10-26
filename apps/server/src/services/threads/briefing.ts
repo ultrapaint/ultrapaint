@@ -29,6 +29,7 @@ import { ServerConfig } from "../../config.ts";
 import { ProjectManager } from "../../project.ts";
 import { CatalogueService } from "../catalogue.ts";
 import { DesignSystemService } from "../design-system.ts";
+import { GitService } from "../git.ts";
 import { PagesService } from "../pages.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { SkillsService } from "../skills.ts";
@@ -187,6 +188,8 @@ export class ProjectBriefing extends Context.Service<
           () => undefined
         );
         const { settings } = paths;
+        // A folder without git has no .git to tell the agent about.
+        const gitRepository = yield* (yield* GitService).repository;
         const components = (catalogue?.components ?? []).slice(
           0,
           COMPONENT_LIMIT
@@ -304,7 +307,7 @@ stay inside it. Changes land on the canvas as you make them, so make them one
 step at a time rather than rewriting a page wholesale. ultrapaint.config.json is the user's:
 never write it; when components or styles are missing, send the user to Sync in the Design
 system panel.${
-          sandbox.available
+          sandbox.available && gitRepository
             ? `
 The repository's .git is read-only to you: git status, diff and log work, but commits, branches
 and stashes are the user's, made from the editor.`

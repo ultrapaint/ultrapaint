@@ -21,6 +21,11 @@ export const ProjectInfo = Schema.Struct({
   branch: Schema.optional(Schema.String),
   configured: Schema.Boolean,
   designsDir: Schema.optional(Schema.String),
+  /**
+   * Whether the folder is in a git repository the tool can read: its status, diffs and branch.
+   * Absent or false, there is no git or no repository, and the tool works without them.
+   */
+  gitRepository: Schema.optional(Schema.Boolean),
   /** `user.name` and `user.email` from the repository's git configuration, when set. */
   gitUser: Schema.optional(GitUser),
   host: HostStatus,

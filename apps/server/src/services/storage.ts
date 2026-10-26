@@ -82,11 +82,15 @@ export class Storage extends Context.Service<
       const gitRoot = runGit(config.cwd, ["rev-parse", "--show-toplevel"]).pipe(
         Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
         Effect.map((r) => (r.exitCode === 0 ? r.stdout.trim() : "")),
-        // Not inside a repository, or no git: the setup then asks for the path.
+        // Not inside a repository, or no git.
         Effect.orElseSucceed(() => "")
       );
+      // The repository around the working directory, or the working directory itself: a folder
+      // needs no git to be designed in.
       const cwdRepo =
-        target.mode === "ephemeral" ? (yield* gitRoot) || undefined : undefined;
+        target.mode === "ephemeral"
+          ? (yield* gitRoot) || config.cwd
+          : undefined;
 
       const info = Effect.sync((): StorageInfo => {
         if (target.mode === "file") {

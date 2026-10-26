@@ -119,7 +119,10 @@ export type StorageMode = typeof StorageMode.Type;
 export const StorageInfo = Schema.Struct({
   /** File the settings are read from and written to; absent when nothing is saved. */
   configPath: Schema.optional(Schema.String),
-  /** Repository the first-run setup should propose: the config's directory or the git root. */
+  /**
+   * Folder the first-run setup should propose: the config's directory, or the git root around
+   * the working directory, or the working directory when it is in no repository.
+   */
   defaultRepoPath: Schema.optional(Schema.String),
   mode: StorageMode,
   /** An unsaved session the command keeps across restarts of the server, until it stops. */

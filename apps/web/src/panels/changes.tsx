@@ -70,6 +70,8 @@ export const tickedAfterCommit = (
 
 export const Changes = () => {
   const configured = useProject((s) => s.info.configured);
+  // Without git, or in a folder that is no repository, the panel has its history only.
+  const repository = useProject((s) => s.info.gitRepository === true);
   // Looked at: the rail stops saying an agent changed something.
   useEffect(() => {
     useAgents.getState().clearChanged();
@@ -79,7 +81,7 @@ export const Changes = () => {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState("");
   const [checkpoints, setCheckpoints] = useState<readonly Checkpoint[]>([]);
-  const [snapshots, setSnapshots] = useState<readonly Snapshot[]>([]);
+  const [snapshots, setSnapshots] = useState<readonly Snapshot[] | null>(null);
   const [cpDiff, setCpDiff] = useState<CheckpointDiff | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -93,23 +95,21 @@ export const Changes = () => {
     setStatus(s);
   };
 
-  const refresh = async () => {
-    asked.current.refresh += 1;
-    const ticket = { ...asked.current };
+  /** Git's status, apart: a git that fails or is not there leaves the history to show. */
+  const refreshStatus = async (ticket: { refresh: number; status: number }) => {
+    if (!repository) {
+      setStatus(null);
+      return;
+    }
     try {
-      const [s, cps, sns] = await Promise.all([
-        api().request("git.status", undefined),
-        api().request("checkpoints.list", undefined),
-        api().request("snapshots.list", undefined),
-      ]);
-      if (ticket.refresh !== asked.current.refresh) {
+      const s = await api().request("git.status", undefined);
+      if (
+        ticket.refresh !== asked.current.refresh ||
+        ticket.status !== asked.current.status
+      ) {
         return;
       }
-      if (ticket.status === asked.current.status) {
-        takeStatus(s);
-      }
-      setCheckpoints(cps);
-      setSnapshots(sns);
+      takeStatus(s);
       setSelected(
         (prev) =>
           new Set(
@@ -119,6 +119,27 @@ export const Changes = () => {
     } catch (error) {
       reportError(error);
     }
+  };
+
+  const refresh = async () => {
+    asked.current.refresh += 1;
+    const ticket = { ...asked.current };
+    const history = async () => {
+      try {
+        const [cps, sns] = await Promise.all([
+          api().request("checkpoints.list", undefined),
+          api().request("snapshots.list", undefined),
+        ]);
+        if (ticket.refresh !== asked.current.refresh) {
+          return;
+        }
+        setCheckpoints(cps);
+        setSnapshots(sns);
+      } catch (error) {
+        reportError(error);
+      }
+    };
+    await Promise.all([history(), refreshStatus(ticket)]);
   };
 
   const showDiff = async (path: string) => {
@@ -158,7 +179,8 @@ export const Changes = () => {
       await onFilesChanged();
     };
     loadInitial();
-    const offGit = api().on("git", onStatus);
+    // Git's own news only where there is a repository to have any.
+    const offGit = repository ? api().on("git", onStatus) : () => undefined;
     // A save, a checkout or an agent changes many files at once: one refresh for all of them.
     let timer: ReturnType<typeof setTimeout> | undefined;
     const offFile = api().on("file.changed", () => {
@@ -170,7 +192,7 @@ export const Changes = () => {
       offGit();
       offFile();
     };
-  }, [configured]);
+  }, [configured, repository]);
 
   const commit = async () => {
     // Enter again while a commit is on its way is not a second commit.
@@ -207,61 +229,74 @@ export const Changes = () => {
   if (!configured) {
     return <SetupEmpty />;
   }
-  if (!status) {
+  if (snapshots === null || (repository && !status)) {
     return <PanelEmpty>Loading…</PanelEmpty>;
   }
 
-  const design = status.files.filter((f) => f.design);
-  const other = status.files.filter((f) => !f.design);
+  const files = status?.files ?? [];
+  const design = files.filter((f) => f.design);
+  const other = files.filter((f) => !f.design);
   const openDiffs = cpDiff?.diffs ?? (diff ? [diff] : null);
 
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-1 border-b px-2 py-1.5 text-muted-foreground">
         <span className="flex-1 truncate">
-          on <span className="text-foreground">{status.branch}</span> ·{" "}
-          {status.files.length} changed
+          {status ? (
+            <>
+              on <span className="text-foreground">{status.branch}</span> ·{" "}
+              {files.length} changed
+            </>
+          ) : (
+            "No git repository here"
+          )}
         </span>
         <IconButton onClick={refresh} tooltip="Refresh">
           <RefreshCw />
         </IconButton>
       </div>
-      <div className="max-h-[45%] min-h-0 overflow-auto">
-        <FileGroup
-          current={diff?.path}
-          files={design}
-          onShow={showDiff}
-          selected={selected}
-          setSelected={setSelected}
-          title="Design files"
-        />
-        <FileGroup
-          current={diff?.path}
-          files={other}
-          onShow={showDiff}
-          selected={selected}
-          setSelected={setSelected}
-          title="Other files"
-        />
-        {status.files.length === 0 && (
-          <div className="p-3 text-muted-foreground">Working tree clean</div>
-        )}
-      </div>
-      <div className="flex gap-1 border-y p-2">
-        <Input
-          onChange={onMessageChange}
-          onKeyDown={onMessageKeyDown}
-          placeholder="Commit message"
-          value={message}
-        />
-        <Button
-          disabled={busy || !message.trim() || selected.size === 0}
-          onClick={commit}
-          title="Commit selected files"
-        >
-          <GitCommitHorizontal data-icon="inline-start" /> {selected.size}
-        </Button>
-      </div>
+      {status ? (
+        <>
+          <div className="max-h-[45%] min-h-0 overflow-auto">
+            <FileGroup
+              current={diff?.path}
+              files={design}
+              onShow={showDiff}
+              selected={selected}
+              setSelected={setSelected}
+              title="Design files"
+            />
+            <FileGroup
+              current={diff?.path}
+              files={other}
+              onShow={showDiff}
+              selected={selected}
+              setSelected={setSelected}
+              title="Other files"
+            />
+            {files.length === 0 && (
+              <div className="p-3 text-muted-foreground">
+                Working tree clean
+              </div>
+            )}
+          </div>
+          <div className="flex gap-1 border-y p-2">
+            <Input
+              onChange={onMessageChange}
+              onKeyDown={onMessageKeyDown}
+              placeholder="Commit message"
+              value={message}
+            />
+            <Button
+              disabled={busy || !message.trim() || selected.size === 0}
+              onClick={commit}
+              title="Commit selected files"
+            >
+              <GitCommitHorizontal data-icon="inline-start" /> {selected.size}
+            </Button>
+          </div>
+        </>
+      ) : null}
       <div className="min-h-0 flex-1 overflow-auto">
         {openDiffs ? (
           <DiffView diffs={openDiffs} />

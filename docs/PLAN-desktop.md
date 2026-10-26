@@ -65,7 +65,7 @@ Each phase ends with `pnpm typecheck`, `pnpm test` and `pnpm lint` passing.
 
 Everything here helps the command too; nothing needs Electron.
 
-- [ ] 0.1 Git optional: the settings check accepts a folder that is not a work tree; the project
+- [x] 0.1 Git optional: the settings check accepts a folder that is not a work tree; the project
       folder falls back to the working directory when there is no git root; the Changes panel no
       longer waits on `git.status` together with checkpoints and snapshots; the briefing mentions
       `.git` only when there is one. A test fixture without `git init`.

@@ -301,7 +301,7 @@ export class SettingsService extends Context.Service<
             spawner
           ),
           Effect.map((r) => (r.exitCode === 0 ? r.stdout.trim() : "")),
-          // Git missing or not runnable reads the same as "not a work tree".
+          // Git missing, or a folder that is not a repository: there is no branch to say.
           Effect.orElseSucceed(() => "")
         );
 
@@ -330,15 +330,8 @@ export class SettingsService extends Context.Service<
         if (!path.isAbsolute(settings.repoPath)) {
           problems.push("Repository path must be absolute.");
         }
-        if (yield* exists(repo)) {
-          const inside = yield* gitLine(repo, [
-            "rev-parse",
-            "--is-inside-work-tree",
-          ]);
-          if (inside !== "true") {
-            problems.push("Repository path is not a git work tree.");
-          }
-        } else {
+        // Any folder will do: git is read when it is there, and never needed (PLAN-desktop D9).
+        if (!(yield* exists(repo))) {
           problems.push(`Repository path does not exist: ${repo}`);
         }
         if (!(yield* exists(path.join(repo, settings.designsDir)))) {

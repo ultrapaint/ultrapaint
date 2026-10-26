@@ -108,6 +108,11 @@ export class GitService extends Context.Service<
   GitService,
   {
     readonly branch: Effect.Effect<string, CommandFailed>;
+    /**
+     * Whether git is installed and the project's folder is in a repository: what git says is
+     * read only then. Asked each time, since a repository can be made while the project is open.
+     */
+    readonly repository: Effect.Effect<boolean>;
     /** `user.name` and `user.email` as git resolves them for the repository; unset ones are absent. */
     readonly user: Effect.Effect<{
       readonly email?: string;
@@ -342,6 +347,14 @@ export class GitService extends Context.Service<
         yield* run(["update-ref", "-d", ref]);
       });
 
+      const repository = provide(
+        runGit(paths.root, ["rev-parse", "--is-inside-work-tree"])
+      ).pipe(
+        Effect.map((r) => r.exitCode === 0 && r.stdout.trim() === "true"),
+        // No git on the machine reads the same as no repository.
+        Effect.orElseSucceed(() => false)
+      );
+
       const listFiles = Effect.map(
         run(["ls-files", "-z", "--cached", "--others", "--exclude-standard"]),
         (out) => [...new Set(out.split("\0").filter(Boolean))]
@@ -357,6 +370,7 @@ export class GitService extends Context.Service<
         deleteRef,
         diff,
         files: listFiles,
+        repository,
         restoreFrom,
         snapshot,
         snapshotTree,

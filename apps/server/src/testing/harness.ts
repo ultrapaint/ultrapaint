@@ -63,8 +63,13 @@ export const freePort = Effect.callback<number>((resume) => {
   });
 });
 
-/** A throwaway git repository with a designs package and one committed page. */
-export const makeRepository = Effect.gen(function* () {
+/**
+ * A throwaway project folder with a designs package and one page. With `git`, a repository
+ * with all of it committed; without, a plain folder, as a design started from nothing is.
+ */
+export const makeFixture = Effect.fnUntraced(function* (options: {
+  readonly git: boolean;
+}) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   // macOS temp directories are symlinks; the server resolves them, so the fixture does too.
@@ -78,6 +83,9 @@ export const makeRepository = Effect.gen(function* () {
   yield* write("designs/package.json", '{ "name": "designs" }\n');
   yield* write("designs/home.page.json", HOME_PAGE);
   yield* write("ui/button.tsx", BUTTON_COMPONENT);
+  if (!options.git) {
+    return repo;
+  }
   const git = (...args: string[]) => runCommand("git", args, { cwd: repo });
   yield* git("init", "-q", "-b", "main");
   yield* git("config", "user.email", "test@example.com");
@@ -87,6 +95,9 @@ export const makeRepository = Effect.gen(function* () {
   yield* git("commit", "-q", "-m", "init");
   return repo;
 });
+
+/** A throwaway git repository with a designs package and one committed page. */
+export const makeRepository = makeFixture({ git: true });
 
 export class TestEnv extends Context.Service<
   TestEnv,
@@ -116,14 +127,16 @@ export const makeTestServer = (
     StorageTarget,
     PlatformError.PlatformError,
     FileSystem.FileSystem
-  >
+  >,
+  /** `git: false` makes the fixture a plain folder, without `git init`. */
+  options: { readonly git?: boolean } = {}
 ) =>
   Layer.unwrap(
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const home = yield* fs.makeTempDirectoryScoped();
-      const repo = yield* makeRepository;
+      const repo = yield* makeFixture({ git: options.git ?? true });
       const port = yield* freePort;
       const storage = yield* Effect.orDie(storageFor({ home, repo }));
       const fakeAgent = path.resolve(

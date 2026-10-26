@@ -485,7 +485,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           description={
             repoFromFile
               ? "Given by where the configuration file is."
-              : "Absolute path to a git repository. Its root needs no package.json: the pages import from the package named below."
+              : "Absolute path to the project's folder, a git repository or not. Its root needs no package.json: the pages import from the package named below."
           }
           htmlFor="settings-repo"
           title="Repository path"

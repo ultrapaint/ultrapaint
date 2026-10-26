@@ -168,8 +168,8 @@ const ConfigureForm = () => {
         <DialogHeader>
           <DialogTitle>Set up a repository</DialogTitle>
           <DialogDescription>
-            The tool was not started inside a git repository. Say in the
-            settings which repository to design in, and where its pages go.
+            The tool does not know which folder to design in. Say in the
+            settings where it is, and where its pages go.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

@@ -161,11 +161,15 @@ export class ProjectManager extends Context.Service<
           const paths = yield* RepoPaths;
           const git = yield* GitService;
           const host = yield* HostManager;
+          const gitRepository = yield* git.repository;
           return {
             // A detached HEAD or a broken git must not hide the rest of the project.
-            branch: yield* Effect.orElseSucceed(git.branch, () => ""),
+            branch: gitRepository
+              ? yield* Effect.orElseSucceed(git.branch, () => "")
+              : "",
             configured: true,
             designsDir: paths.settings.designsDir,
+            gitRepository,
             gitUser: yield* git.user,
             host: yield* host.status,
             name: path.basename(paths.root),
