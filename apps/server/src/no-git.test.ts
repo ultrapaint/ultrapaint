@@ -188,3 +188,79 @@ layer(UnsavedPlainFolder, { excludeTestServices: true, timeout: "60 seconds" })(
     );
   }
 );
+
+const PlainSetupFolder = makeTestServer(
+  ({ home }) => Effect.succeed({ home, mode: "managed" }),
+  { git: false }
+);
+
+const SNAPSHOT_ID_RE = /^[0-9a-f]{64}$/;
+
+const APP = `export const App = () => (
+  <div className="bg-[#ff0000] p-4 text-gray-500">Save</div>
+);
+`;
+
+layer(PlainSetupFolder, { excludeTestServices: true, timeout: "60 seconds" })(
+  "the design-system setup without git",
+  (it) => {
+    it.effect(
+      "keeps each step in the tool's own snapshots, and puts back what a step changed",
+      () =>
+        Effect.gen(function* () {
+          const { client, home, repo, settings } = yield* TestEnv;
+          const fs = yield* FileSystem.FileSystem;
+          const file = (rel: string) => path.join(repo, rel);
+          yield* fs.makeDirectory(file("src"));
+          yield* fs.writeFileString(file("src/app.tsx"), APP);
+          // Ignored, so neither snapshotted nor put back.
+          yield* fs.writeFileString(file(".gitignore"), "*.log\n");
+          yield* client["settings.set"]({ ...settings, libraryDirs: ["ui"] });
+          yield* client["chat.setDefaults"]({ agentId: "fake" });
+
+          const { setup } = yield* client["dsSetup.start"]({
+            step: "inventory",
+          });
+          assert.match(setup.steps[0]?.before ?? "", SNAPSHOT_ID_RE);
+          yield* client["dsSetup.complete"]({ step: "inventory" });
+          yield* client["dsSetup.start"]({ step: "define" });
+
+          // The step's work: a file changed, one added, one deleted.
+          yield* fs.writeFileString(
+            file("src/app.tsx"),
+            APP.replace("bg-[#ff0000]", "bg-primary")
+          );
+          yield* fs.writeFileString(file("src/theme.css"), "@theme {}\n");
+          yield* fs.remove(file("ui/button.tsx"));
+          yield* fs.writeFileString(file("debug.log"), "noise\n");
+          yield* client["dsSetup.stop"]({ step: "define" });
+
+          const preview = yield* client["dsSetup.redoPreview"]({
+            step: "define",
+          });
+          assert.deepStrictEqual(
+            [...preview].sort((a, b) => a.path.localeCompare(b.path)),
+            [
+              { action: "restore", path: "src/app.tsx" },
+              { action: "delete", path: "src/theme.css" },
+              { action: "restore", path: "ui/button.tsx" },
+            ]
+          );
+          yield* client["dsSetup.redo"]({ step: "define" });
+          assert.strictEqual(
+            yield* fs.readFileString(file("src/app.tsx")),
+            APP
+          );
+          assert.isFalse(yield* fs.exists(file("src/theme.css")));
+          assert.isTrue(yield* fs.exists(file("ui/button.tsx")));
+          assert.isTrue(yield* fs.exists(file("debug.log")));
+          assert.isFalse(yield* fs.exists(file(".git")));
+          // The snapshots are in the state directory, not in the project.
+          assert.isTrue(
+            yield* fs.exists(path.join(home, "store", "manifests"))
+          );
+        }),
+      30_000
+    );
+  }
+);

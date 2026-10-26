@@ -74,7 +74,7 @@ Everything here helps the command too; nothing needs Electron.
       there. A display name in settings for comments and the avatar, used when git gives none.
 - [x] 0.3 Files an agent turn changed, without git: a hash of the files the turn could reach,
       before and after, ignoring what `.gitignore` ignores (or the ACP write events).
-- [ ] 0.4 The snapshot store (D10) and the setup's snapshots on it; the setup lists the code's
+- [x] 0.4 The snapshot store (D10) and the setup's snapshots on it; the setup lists the code's
       files with a walk that respects `.gitignore`. ADR 0023 amended.
 - [ ] 0.5 The run file (D5) and `--ready-json`: the server prints its URL, port and token as one
       line of JSON once it listens, for whatever started it.

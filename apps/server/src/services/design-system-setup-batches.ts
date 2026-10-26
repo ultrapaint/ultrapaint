@@ -25,7 +25,7 @@ export const makeMigrateBatches = (deps: {
   readonly store: Effect.Success<typeof makeSetupStore>;
 }) => {
   const { codebase, lock, snapshots, store } = deps;
-  const { git, release, restorePlan, snapshot } = snapshots;
+  const { release, restore, restorePlan, snapshot } = snapshots;
   const { get, mappingFile, save } = store;
 
   /** Migrate, as the thread asking for a batch runs it. */
@@ -179,7 +179,7 @@ export const makeMigrateBatches = (deps: {
     function* (batchId: string) {
       const { base, batch, setup } = yield* batchOf(batchId);
       const { entries, now } = yield* restorePlan(base, [batch]);
-      yield* git((g) => g.restoreFrom(base, entries));
+      yield* restore(base, entries);
       const reset: MigrationBatch = {
         dir: batch.dir,
         files: batch.files,

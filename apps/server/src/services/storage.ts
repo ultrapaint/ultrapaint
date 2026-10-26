@@ -16,6 +16,7 @@ const STATE_SUBDIRS = [
   "thumbnails",
   "imports",
   "design-system-setup",
+  "store",
 ] as const;
 
 /**

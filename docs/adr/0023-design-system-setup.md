@@ -1,6 +1,9 @@
 # ADR 0023: A design system is set up in steps the user sees, stops and redoes
 
 Status: accepted, 2026-10-06. Builds on 0015 (the design system is imported by an agent).
+Amended 2026-10-26 by [PLAN-desktop](../PLAN-desktop.md) Phase 0.4: the snapshots are kept in the
+tool's own snapshot store, the code's files are listed by a walk that reads `.gitignore`, and no
+git is needed (see the amendment at the end).
 
 ## Context
 
@@ -61,7 +64,8 @@ with `finish_setup_step`, which puts the step in review; the user can also mark 
 themselves. Stop cancels the thread's turn and keeps what was done. Resume opens the same
 thread again.
 
-**Every step is a pair of snapshots of the whole working tree, taken with git.** When a step
+**Every step is a pair of snapshots of the whole working tree, taken with git** (amended: in
+the tool's snapshot store, below). When a step
 starts and when it stops or is done, the server writes the working tree, untracked files
 included and ignored files left out, into a tree object through a temporary index, and points a
 ref under `refs/ultrapaint/setup/` at it. The user's index, branch and stash are not touched.
@@ -81,7 +85,8 @@ source files (class names, colour literals), the JSX `style` objects, plain elem
 catalogue has a component, and the declarations and `@apply` of the stylesheets, outside the
 theme. Every use is recorded with where it is written, so the same reading rewrites it. The rules
 of the mapping and the rewrite live there too. It is synchronous and pure; the server lists the
-files with git, reads them, hands them over one by one and writes back what changed.
+files (with git, as amended below: by a walk that reads `.gitignore`), reads them, hands them
+over one by one and writes back what changed.
 
 **A step's agent reads in its task and acts through tools.** The inventory and the mapping a step
 needs are in the task `/design-system <step>` expands into, read once; the tools are only what
@@ -94,7 +99,31 @@ tools on every turn.
   and the gate. The panel's Tokens view is where Define's result is reviewed.
 - Agents get `finish_setup_step`, `map_values` and `next_batch` on the editor's MCP server, and
   `/design-system define|map|migrate` expands into the step's task.
-- The setup needs a git repository; without one a step cannot start, and says why.
+- The setup needs a git repository; without one a step cannot start, and says why (amended:
+  it needs none).
 - Map and Migrate need the editor's MCP server; started without it, their task says so.
 - What the rules cannot rewrite in place — a string with an escape in it, a colour in a constant,
   an element — is left to the agent, never guessed at.
+
+## Amendment, 2026-10-26: snapshots without git
+
+The tool no longer needs git (PLAN-desktop D9), so the setup's snapshots move out of it (D10).
+
+- **The snapshots are in the tool's snapshot store**, `store/` in the state directory: each
+  file's contents once, named by their SHA-256 (`objects/`), and one manifest per snapshot naming
+  the hash of every file it holds (`manifests/<id>.json`, the id being the hash of that list).
+  A snapshot costs only the files that changed since the last one; a file whose time and size
+  did not move is not read again. A ref per setup (`refs/setup/<project>/<id>`) keeps a snapshot;
+  one no step names any longer is let go, and what no ref keeps is removed with the contents only
+  it named. The same store is meant to carry the revision history later
+  ([PLAN-revision-history](../PLAN-revision-history.md)).
+- **The files are those the folder's `.gitignore` keeps.** The server walks the folder and reads
+  every `.gitignore` in it (and `.git/info/exclude` when there is one) as git does; `node_modules`,
+  `dist`, `.git` and the state directory are never walked. Git need not be installed.
+- **Redoing puts the files back from the store**, keeping each file's permissions; the user's
+  index, branch and stash are not involved at all. A setup started by a version that kept its
+  snapshots in git cannot be redone from those snapshots: the redo says so, and the setup is
+  started again from its first step.
+- The store is in the state directory, so it is kept in every storage mode; an unsaved session
+  keeps it in its temporary directory, and moves it with the rest when the session is saved.
+  A first snapshot copies the project's kept files there, a few megabytes for most projects.

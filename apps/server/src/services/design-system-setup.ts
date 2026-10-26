@@ -177,7 +177,7 @@ export class DesignSystemSetupService extends Context.Service<
         store;
       const { codebase, eachSource, readCode } = yield* makeCodebaseReader;
       const snapshots = yield* makeSetupSnapshots;
-      const { git, release, restorePlan, snapshot } = snapshots;
+      const { release, restore, restorePlan, snapshot } = snapshots;
       // One change at a time: every change reads the state, snapshots and writes it back.
       const lock = yield* Semaphore.make(1);
       const { batchPreview, finishBatch, nextBatch, revertBatch } =
@@ -417,7 +417,7 @@ export class DesignSystemSetupService extends Context.Service<
       ) {
         const setup = yield* get;
         const { base, entries, now } = yield* restoreOf(setup, id);
-        yield* git((g) => g.restoreFrom(base, entries));
+        yield* restore(base, entries);
         const from = indexOf(id);
         const next: DesignSystemSetup = {
           ...setup,

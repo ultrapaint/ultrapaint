@@ -36,6 +36,7 @@ import { ProfileService } from "./services/profile.ts";
 import { Screenshots } from "./services/screenshots.ts";
 import { SettingsService } from "./services/settings.ts";
 import { SetupService } from "./services/setup.ts";
+import { SnapshotStore } from "./services/snapshot-store.ts";
 import { Snapshots } from "./services/snapshots.ts";
 import { Storage } from "./services/storage.ts";
 import { AgentConfigs } from "./services/threads/agent-configs.ts";
@@ -353,6 +354,7 @@ const Services = Threads.pipe(
   Layer.provideMerge(DesignSystemSetupService.layer),
   Layer.provideMerge(ProjectManager.layer),
   Layer.provideMerge(ProfileService.layer),
+  Layer.provideMerge(SnapshotStore.layer),
   Layer.provideMerge(Screenshots.layer),
   Layer.provideMerge(SettingsService.layer),
   Layer.provideMerge(SetupService.layer),

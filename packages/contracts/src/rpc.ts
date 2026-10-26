@@ -143,7 +143,7 @@ const GitWriteError = Schema.Union([
   BadRequest,
 ]);
 const CheckpointError = Schema.Union([NotConfigured, NotFound, ForbiddenPath]);
-/** A step out of order is a BadRequest; git failing to snapshot or put back is CommandFailed. */
+/** A step out of order, or a snapshot that cannot be taken or put back, is a BadRequest. */
 const SetupError = Schema.Union([
   NotConfigured,
   BadRequest,

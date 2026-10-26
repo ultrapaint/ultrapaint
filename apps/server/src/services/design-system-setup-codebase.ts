@@ -1,10 +1,9 @@
 /**
- * How the design-system setup reads the code: the application's source files, as git lists them
- * and the style system reads them, against the saved design system or, before there is one, the
+ * How the design-system setup reads the code: the application's source files, those the folder's
+ * `.gitignore` keeps (no git needed), as the style system reads them, against the saved design system or, before there is one, the
  * theme's scan.
  */
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
-import { BadRequest } from "@ultrapaint/contracts/errors";
 import type {
   UsageContext,
   UsageReader,
@@ -16,9 +15,9 @@ import { ProjectManager } from "../project.ts";
 import { CatalogueService } from "./catalogue.ts";
 import { DesignSystemService } from "./design-system.ts";
 import { refuse } from "./design-system-setup-store.ts";
-import { GitService } from "./git.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { ProjectStyleSystem } from "./style-system.ts";
+import { WorkingTree } from "./working-tree.ts";
 
 const TRAILING_SLASH_RE = /\/+$/;
 
@@ -59,64 +58,54 @@ export const makeCodebaseReader = Effect.gen(function* () {
    * when there is none yet and `saved` is not required.
    */
   const codebase = (required: boolean, perGroup?: number) =>
-    project
-      .use(
-        Effect.gen(function* () {
-          const paths = yield* RepoPaths;
-          const repo = yield* GitService;
-          const { usage } = yield* ProjectStyleSystem;
-          const designSystem = yield* DesignSystemService;
-          const catalogue = yield* CatalogueService;
-          const saved = (yield* designSystem.get).designSystem;
-          if (required && !saved) {
-            return yield* refuse(
-              "There is no design system saved: Define writes design-system.json first."
-            );
-          }
-          const theme = saved ? null : yield* designSystem.scan;
-          const components = yield* catalogue.get(false).pipe(
-            Effect.map((c) => c.components.map((component) => component.name)),
-            // A catalogue that cannot be built only means plain elements are not reported.
-            Effect.orElseSucceed((): string[] => [])
+    project.use(
+      Effect.gen(function* () {
+        const paths = yield* RepoPaths;
+        const tree = yield* WorkingTree;
+        const { usage } = yield* ProjectStyleSystem;
+        const designSystem = yield* DesignSystemService;
+        const catalogue = yield* CatalogueService;
+        const saved = (yield* designSystem.get).designSystem;
+        if (required && !saved) {
+          return yield* refuse(
+            "There is no design system saved: Define writes design-system.json first."
           );
-          const designs = paths.relative(paths.designsDir);
-          const files = (yield* repo.files).filter(
-            (file) =>
-              usage.includes(file) &&
-              file !== designs &&
-              !file.startsWith(`${designs}/`)
-          );
-          const ctx: UsageContext = {
-            components,
-            designSystem: saved ?? theme?.designSystem ?? emptyTheme,
-            libraryDirs: paths.settings.libraryDirs.map((d) =>
-              toPosix(d).replace(TRAILING_SLASH_RE, "")
+        }
+        const theme = saved ? null : yield* designSystem.scan;
+        const components = yield* catalogue.get(false).pipe(
+          Effect.map((c) => c.components.map((component) => component.name)),
+          // A catalogue that cannot be built only means plain elements are not reported.
+          Effect.orElseSucceed((): string[] => [])
+        );
+        const designs = paths.relative(paths.designsDir);
+        const files = (yield* tree.files).filter(
+          (file) =>
+            usage.includes(file) &&
+            file !== designs &&
+            !file.startsWith(`${designs}/`)
+        );
+        const ctx: UsageContext = {
+          components,
+          designSystem: saved ?? theme?.designSystem ?? emptyTheme,
+          libraryDirs: paths.settings.libraryDirs.map((d) =>
+            toPosix(d).replace(TRAILING_SLASH_RE, "")
+          ),
+          ownTokens: theme ? theme.ownTokens : null,
+          ...(perGroup !== undefined && { perGroup }),
+        };
+        const read = (file: string) =>
+          fs.readFileString(path.join(paths.root, file)).pipe(
+            Effect.map((text): string | null =>
+              text.length <= MAX_SOURCE_BYTES ? text : null
             ),
-            ownTokens: theme ? theme.ownTokens : null,
-            ...(perGroup !== undefined && { perGroup }),
-          };
-          const read = (file: string) =>
-            fs.readFileString(path.join(paths.root, file)).pipe(
-              Effect.map((text): string | null =>
-                text.length <= MAX_SOURCE_BYTES ? text : null
-              ),
-              // Listed by git and deleted since: there is nothing to read.
-              Effect.orElseSucceed(() => null)
-            );
-          const write = (file: string, text: string) =>
-            Effect.orDie(writeAtomic(path.join(paths.root, file), text));
-          return { ctx, files, read, usage, write } satisfies Codebase;
-        })
-      )
-      .pipe(
-        Effect.mapError((error) =>
-          error._tag === "CommandFailed"
-            ? new BadRequest({
-                message: `The setup lists the files with git, and git failed: ${error.message}`,
-              })
-            : error
-        )
-      );
+            // Listed and deleted since: there is nothing to read.
+            Effect.orElseSucceed(() => null)
+          );
+        const write = (file: string, text: string) =>
+          Effect.orDie(writeAtomic(path.join(paths.root, file), text));
+        return { ctx, files, read, usage, write } satisfies Codebase;
+      })
+    );
 
   /** Every source file, read and handed to `f`, yielding now and then. */
   const eachSource = <A>(
