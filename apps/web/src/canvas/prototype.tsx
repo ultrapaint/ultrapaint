@@ -1,10 +1,15 @@
+import { presetSize } from "@ultrapaint/contracts/pages";
 import { basePathOf } from "@ultrapaint/shared/route";
 import { cn } from "cn";
 import {
   ArrowLeft,
   ArrowRight,
+  type LucideIcon,
   MessageCircle,
+  Monitor,
   RotateCw,
+  Smartphone,
+  Tablet,
   TriangleAlert,
 } from "lucide-react";
 import {
@@ -15,14 +20,18 @@ import {
   useState,
 } from "react";
 import { create } from "zustand";
-import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { IconButton } from "../components/icon-button.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { followLink } from "../lib/links.ts";
-import { editPageUrl, NO_URL_HINT } from "../lib/page-actions.ts";
+import { NO_URL_HINT } from "../lib/page-actions.ts";
 import {
-  deviceSize,
   type PrototypeDevice,
   parseDevice,
   prototypeDevices,
@@ -63,8 +72,12 @@ const useDevice = create<{
   },
 }));
 
-const pickDevice = (value: string) =>
-  useDevice.getState().setDevice(parseDevice(value));
+const pickDevice = (next: readonly unknown[]) => {
+  // Pressing the device already on keeps it: one is always picked.
+  if (typeof next[0] === "string") {
+    useDevice.getState().setDevice(parseDevice(next[0]));
+  }
+};
 
 /** The one frame of a prototype. Navigating swaps the page inside it, it is never drawn anew. */
 export const frameIdOf = (canvas: string) => `prototype:${canvas}`;
@@ -158,9 +171,6 @@ export const Prototype = () => {
   const canvas = useEditor((s) => s.canvas);
   const route = useEditor((s) => s.route);
   const activePage = useEditor((s) => s.activePage);
-  const frame = useEditor((s) =>
-    activePage ? s.frames[activePage] : undefined
-  );
   const pages = useProject((s) => s.pages);
   const title =
     route ?? pages.find((p) => p.id === activePage)?.name ?? "Prototype";
@@ -188,7 +198,7 @@ export const Prototype = () => {
     };
   }, []);
 
-  const size = deviceSize(device, frame);
+  const size = presetSize[device];
   const scale = Math.min(
     1,
     (area.width - inset.side * 2) / size.width,
@@ -297,7 +307,7 @@ const NO_VARIANTS: readonly string[] = [];
  * Said over the bar while the prototype shows a page that serves no URL: it can be looked at, but
  * nothing in the click-through leads to it.
  */
-const NoUrlWarning = () => {
+export const NoUrlWarning = () => {
   const activePage = useEditor((s) => s.activePage);
   const route = useEditor((s) => s.route);
   const page = useProject((s) => s.pages.find((p) => p.id === activePage));
@@ -310,7 +320,7 @@ const NoUrlWarning = () => {
     ) ?? page;
   return (
     <div
-      className="pointer-events-auto flex max-w-xl items-center gap-2 rounded-xl border border-warning/40 bg-sidebar py-1 pr-1 pl-3 font-body text-sidebar-foreground shadow-black/30 shadow-lg"
+      className="pointer-events-auto flex max-w-xl items-center gap-2 rounded-xl border border-warning/40 bg-sidebar px-3 py-1.5 font-body text-sidebar-foreground shadow-black/30 shadow-lg"
       role="status"
       title={NO_URL_HINT}
     >
@@ -319,105 +329,79 @@ const NoUrlWarning = () => {
         <span className="font-medium">{base.name}</span> has no URL: no link
         leads here.
       </span>
-      <Button
-        className="shrink-0"
-        onClick={() => editPageUrl(base)}
-        size="sm"
-        variant="outline"
-      >
-        Set URL
-      </Button>
     </div>
   );
 };
 
-/** How the bar names a page: where it is served, then what it is called. */
-const pageOption = (page: {
-  readonly id: string;
-  readonly name: string;
-  readonly route?: string | undefined;
-}) => ({
-  label:
-    page.route === undefined
-      ? `${page.name} · no URL`
-      : `${page.route} · ${page.name}`,
-  value: page.id,
-});
-
 /**
- * Floating strip under the prototype: the canvas's history, the page it is on, the variant it
- * clicks through when the canvas has variants, the device it is tried on, commenting on the page,
- * what can be pressed, and a restart. A page without a URL is on the list too, and says so over
- * the bar when it is shown.
+ * Floating strip at the bottom of the prototype's column of tools: the canvas's history, a
+ * restart, and the variant it clicks through when the canvas has variants. The page it is on is
+ * picked in the left panel.
  */
 export const PrototypeBar = () => {
   const canvas = useEditor((s) => s.canvas);
-  const activePage = useEditor((s) => s.activePage);
   const variant = useEditor((s) => s.variant);
-  const commenting = useEditor((s) => s.mode === "comment");
-  const device = useDevice((s) => s.device);
   const variants = useProject(
     (s) => s.canvases.find((c) => c.id === canvas)?.variants ?? NO_VARIANTS
   );
-  // Subscribed to so the list follows a page being created, renamed or given a URL.
-  useProject((s) => s.pages);
-  const all = pagesOfCanvas(canvas);
-  const bases = all
-    .filter((p) => p.variant === undefined)
-    .sort((a, b) => {
-      if (a.route !== undefined && b.route !== undefined) {
-        return a.route.localeCompare(b.route);
-      }
-      if (a.route !== undefined || b.route !== undefined) {
-        return a.route === undefined ? 1 : -1;
-      }
-      return a.name.localeCompare(b.name);
-    });
-  // A variant's page is shown as its base page, the one the list names.
-  const shown = all.find((p) => p.id === activePage);
-  const current = shown
-    ? (bases.find((p) => p.path === basePathOf(shown.path))?.id ?? null)
-    : null;
-  const go = (id: string) => useEditor.getState().openPage(id);
   const pickVariant = (next: string) =>
     useEditor.getState().setVariant(next === BASE ? null : next);
 
   return (
-    <>
-      <NoUrlWarning />
-      <div className="pointer-events-auto flex items-center gap-1 rounded-xl border bg-sidebar p-1 text-sidebar-foreground shadow-black/30 shadow-lg">
-        <IconButton className="size-8 rounded-lg" onClick={back} tooltip="Back">
-          <ArrowLeft />
-        </IconButton>
-        <IconButton
-          className="size-8 rounded-lg"
-          onClick={forward}
-          tooltip="Forward"
-        >
-          <ArrowRight />
-        </IconButton>
-        {variants.length > 0 ? (
-          <div className="w-32">
-            <OptionSelect
-              className="border-transparent bg-transparent dark:bg-transparent"
-              onChange={pickVariant}
-              options={[
-                { label: "No variant", value: BASE },
-                ...variants.map((v) => ({ label: v, value: v })),
-              ]}
-              value={variant ?? BASE}
-            />
-          </div>
-        ) : null}
-        <div className="w-72">
+    <div className="floating pointer-events-auto flex items-center gap-1 p-1">
+      <IconButton className="size-8 rounded-lg" onClick={back} tooltip="Back">
+        <ArrowLeft />
+      </IconButton>
+      <IconButton
+        className="size-8 rounded-lg"
+        disabled={canvas === null}
+        onClick={reload}
+        tooltip="Restart the prototype"
+      >
+        <RotateCw />
+      </IconButton>
+      <IconButton
+        className="size-8 rounded-lg"
+        onClick={forward}
+        tooltip="Forward"
+      >
+        <ArrowRight />
+      </IconButton>
+      {variants.length > 0 ? (
+        <div className="w-32">
           <OptionSelect
             className="border-transparent bg-transparent dark:bg-transparent"
-            onChange={go}
-            options={bases.map(pageOption)}
-            placeholder="No page"
-            value={current}
+            onChange={pickVariant}
+            options={[
+              { label: "No variant", value: BASE },
+              ...variants.map((v) => ({ label: v, value: v })),
+            ]}
+            value={variant ?? BASE}
           />
         </div>
+      ) : null}
+    </div>
+  );
+};
+
+const DEVICE_ICON: Record<PrototypeDevice, LucideIcon> = {
+  desktop: Monitor,
+  mobile: Smartphone,
+  tablet: Tablet,
+};
+
+/**
+ * The prototype's tools, floating in a column beside the left panel as the canvas's are: what can
+ * be pressed and commenting on the page, then, in a card of its own, the device it is tried on.
+ * The app positions it.
+ */
+export const PrototypeTools = () => {
+  const canvas = useEditor((s) => s.canvas);
+  const commenting = useEditor((s) => s.mode === "comment");
+  const device = useDevice((s) => s.device);
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="floating pointer-events-auto flex flex-col items-center gap-1 p-1">
         <HotspotsToggle />
         <IconButton
           aria-pressed={commenting}
@@ -428,6 +412,7 @@ export const PrototypeBar = () => {
           disabled={canvas === null}
           label={commenting ? "Stop commenting" : "Comment"}
           onClick={toggleCommenting}
+          side="right"
           tooltip={
             <>
               {commenting ? "Stop commenting" : "Comment"} <Kbd>C</Kbd>
@@ -436,23 +421,38 @@ export const PrototypeBar = () => {
         >
           <MessageCircle />
         </IconButton>
-        <div className="w-28">
-          <OptionSelect
-            className="border-transparent bg-transparent dark:bg-transparent"
-            onChange={pickDevice}
-            options={prototypeDevices}
-            value={device}
-          />
-        </div>
-        <IconButton
-          className="size-8 rounded-lg"
-          disabled={canvas === null}
-          onClick={reload}
-          tooltip="Restart the prototype"
-        >
-          <RotateCw />
-        </IconButton>
       </div>
-    </>
+      <div className="floating pointer-events-auto flex flex-col items-center p-1">
+        <ToggleGroup
+          aria-label="Device"
+          onValueChange={pickDevice}
+          orientation="vertical"
+          spacing={0.5}
+          value={[device]}
+        >
+          {prototypeDevices.map((d) => {
+            const Icon = DEVICE_ICON[d.value];
+            return (
+              <Tooltip key={d.value}>
+                <TooltipTrigger
+                  render={
+                    <ToggleGroupItem
+                      aria-label={d.label}
+                      className="size-8 rounded-lg data-pressed:bg-muted data-pressed:text-foreground"
+                      value={d.value}
+                    >
+                      <Icon />
+                    </ToggleGroupItem>
+                  }
+                />
+                <TooltipContent side="right">
+                  {d.label} · {d.description}
+                </TooltipContent>
+              </Tooltip>
+            );
+          })}
+        </ToggleGroup>
+      </div>
+    </div>
   );
 };

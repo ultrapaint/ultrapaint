@@ -102,9 +102,7 @@ const leftPanels: readonly {
     tab: "designSystem",
     title: "Design system",
   },
-  { tab: "comments", title: "Comments" },
   { keywords: "history diff git", tab: "changes", title: "Changes" },
-  { keywords: "routes", tab: "pages", title: "Pages" },
 ];
 
 const tools: readonly { keys: string; title: string; tool: Mode }[] = [
@@ -130,7 +128,7 @@ export const commands = (): Command[] => {
   const { workspace } = editor();
   const panels = usePanels.getState();
   const { settings, info } = useProject.getState();
-  const offered = railTabs[workspace];
+  const offered = workspace === "design" ? railTabs : [];
   const list: Command[] = [
     {
       group: "Agents",
@@ -168,6 +166,13 @@ export const commands = (): Command[] => {
             keywords: "jsx tailwind source",
             run: () => showRight("code"),
             title: "Show the code",
+          } satisfies Command,
+          {
+            group: "Panels",
+            id: "right:comments",
+            keywords: "feedback notes pins",
+            run: () => showRight("comments"),
+            title: "Show the comments",
           } satisfies Command,
         ]
       : []),

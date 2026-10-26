@@ -118,7 +118,7 @@ export const HotspotLayer = ({
   );
 };
 
-/** The prototype bar's switch that keeps the hotspots up. */
+/** The prototype's switch that keeps the hotspots up. */
 export const HotspotsToggle = () => {
   const shown = useHotspots((s) => s.shown);
   return (
@@ -126,6 +126,7 @@ export const HotspotsToggle = () => {
       aria-pressed={shown}
       className="size-8 rounded-lg aria-pressed:bg-muted aria-pressed:text-sky-500"
       onClick={() => useHotspots.getState().toggle()}
+      side="right"
       tooltip={shown ? "Hide what can be pressed" : "Show what can be pressed"}
     >
       <MousePointerClick />

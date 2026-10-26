@@ -43,14 +43,7 @@ export type Workspace = "design" | "prototype";
 /** The order Ctrl+1..2 follow. */
 export const workspaceOrder: readonly Workspace[] = ["design", "prototype"];
 
-export type LeftTab =
-  | "chat"
-  | "comments"
-  | "layers"
-  | "pages"
-  | "assets"
-  | "designSystem"
-  | "changes";
+export type LeftTab = "chat" | "layers" | "assets" | "designSystem" | "changes";
 
 /**
  * The workspace a reload or a shared link asks for, or the canvas. A link from before Vibe and
@@ -60,14 +53,16 @@ const workspaceInUrl = (): Workspace =>
   workspaceOrder.find((w) => w === readUrl().mode) ?? "design";
 
 /**
- * The left panels a workspace offers, in rail order: the agents always first. The pages and the
- * URLs they serve are the prototype's business; the canvas shows the pages, and its layers and
- * assets mean nothing in the prototype.
+ * The canvas's left panels, in rail order: the agents always first. The prototype has no rail:
+ * its left panel is its pages and the URLs they serve.
  */
-export const railTabs: Record<Workspace, readonly LeftTab[]> = {
-  design: ["chat", "layers", "assets", "designSystem", "comments", "changes"],
-  prototype: ["chat", "pages", "designSystem", "comments", "changes"],
-};
+export const railTabs: readonly LeftTab[] = [
+  "chat",
+  "layers",
+  "assets",
+  "designSystem",
+  "changes",
+];
 
 /**
  * Where to open a canvas: at a URL of its router, or on a page (its id) that serves none, in a
@@ -79,8 +74,11 @@ export interface OpenAt {
   variant?: string | null;
 }
 
-/** What the right panel shows about the selection: its fields, or the code it stands for. */
-export type RightTab = "design" | "code";
+/**
+ * What the right panel shows: the selection's fields, the code it stands for, or the canvas's
+ * comments.
+ */
+export type RightTab = "design" | "code" | "comments";
 
 /**
  * A node of a design. `frame` is where it is shown: a page's id, or `node:<id>` for a node
@@ -594,7 +592,11 @@ export const useEditor = create<EditorStore>((set, get) => ({
         ? s
         : { hover }
     ),
-  setLeftTab: (leftTab) => set({ leftTab }),
+  // The left panels are the canvas's: one asked for from the prototype brings the canvas back.
+  setLeftTab: (leftTab) => {
+    get().setWorkspace("design");
+    set({ leftTab });
+  },
   setMode: (mode) => set({ mode }),
   setPreset: (pageId, preset) => {
     const f = get().frames[pageId];
@@ -653,7 +655,6 @@ export const useEditor = create<EditorStore>((set, get) => ({
     if (workspace === s.workspace) {
       return;
     }
-    const kept = railTabs[workspace].includes(s.leftTab);
     const { docs } = useDocuments.getState();
     const pages = pagesOfCanvas(s.canvas);
     // Nothing shows the selection in the prototype, so no key may act on it there: it is put
@@ -679,7 +680,6 @@ export const useEditor = create<EditorStore>((set, get) => ({
     set({
       ...next.picked,
       hover: null,
-      leftTab: kept ? s.leftTab : "chat",
       memory: next.memory,
       mode: next.mode,
       workspace,

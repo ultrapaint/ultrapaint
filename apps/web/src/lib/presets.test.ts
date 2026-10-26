@@ -2,7 +2,6 @@ import { presetSize } from "@ultrapaint/contracts/pages";
 import { describe, expect, it } from "vitest";
 import { pageEntries } from "./menu-model.ts";
 import {
-  deviceSize,
   parseDevice,
   presetOf,
   prototypeDevices,
@@ -63,25 +62,18 @@ describe("the viewport presets", () => {
 });
 
 describe("the prototype's devices", () => {
-  it("follow the frame first, then the presets without Custom", () => {
+  it("are the presets without Custom", () => {
     expect(prototypeDevices.map((d) => d.value)).toEqual([
-      "frame",
       "mobile",
       "tablet",
       "desktop",
     ]);
   });
 
-  it("read back what was stored, and the frame for anything else", () => {
+  it("read back what was stored, and the desktop for anything else", () => {
     expect(parseDevice("tablet")).toBe("tablet");
-    expect(parseDevice("custom")).toBe("frame");
-    expect(parseDevice(null)).toBe("frame");
-  });
-
-  it("size the page by the device, or by its frame when following it", () => {
-    const frame = { height: 600, width: 1000 };
-    expect(deviceSize("frame", frame)).toEqual(frame);
-    expect(deviceSize("frame", undefined)).toEqual(presetSize.desktop);
-    expect(deviceSize("mobile", frame)).toEqual(presetSize.mobile);
+    expect(parseDevice("frame")).toBe("desktop");
+    expect(parseDevice("custom")).toBe("desktop");
+    expect(parseDevice(null)).toBe("desktop");
   });
 });

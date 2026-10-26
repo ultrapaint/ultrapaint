@@ -198,15 +198,22 @@ const togglePrototype = () => {
   );
 };
 
+/** Puts the right panel away, from the row of its tabs. */
+export const HideRightPanel = () => (
+  <TopButton label="Hide the right panel" onClick={toggleRight}>
+    <PanelRightClose />
+  </TopButton>
+);
+
 /**
  * The actions at the window's top right, over the right panel: every command (⌘K), the
- * prototype, and the right panel's toggle.
+ * prototype, and with the right panel put away the button that brings it back; the one that
+ * hides it is in the panel's own tab row.
  */
 export const TopActions = () => {
   const chrome = useWindowChrome();
   const prototype = useEditor((s) => s.workspace === "prototype");
   const hidden = usePanels((s) => s.right);
-  const PanelIcon = hidden ? PanelRightOpen : PanelRightClose;
   return (
     <div
       className={cn(
@@ -242,15 +249,11 @@ export const TopActions = () => {
       >
         {prototype ? <Square className="fill-current" /> : <Play />}
       </TopButton>
-      {prototype ? null : (
-        <TopButton
-          label={hidden ? "Show the right panel" : "Hide the right panel"}
-          onClick={toggleRight}
-          pressed={!hidden}
-        >
-          <PanelIcon />
+      {!prototype && hidden ? (
+        <TopButton label="Show the right panel" onClick={toggleRight}>
+          <PanelRightOpen />
         </TopButton>
-      )}
+      ) : null}
     </div>
   );
 };

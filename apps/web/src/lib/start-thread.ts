@@ -56,8 +56,8 @@ export const createThread = async (draft = "", agentId?: string) => {
 };
 
 /**
- * Opens the chat on a new thread with `text` in its composer. Every workspace has the chat on its
- * rail, so the workspace stays the one the command was started from.
+ * Opens the chat on a new thread with `text` in its composer. The chat is the canvas's: from the
+ * prototype, the canvas comes back.
  */
 export const startCommand = async (text: string) => {
   useEditor.getState().setLeftTab("chat");

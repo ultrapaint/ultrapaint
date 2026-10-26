@@ -14,6 +14,15 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
 import { AgentIcon } from "../components/agent-icon.tsx";
 import { createThread } from "../lib/start-thread.ts";
@@ -191,26 +200,57 @@ const ThreadRow = ({
   );
 };
 
-const FilterChip = ({
-  active,
-  count,
-  label,
-  onClick,
+const FILTERS: readonly { label: string; value: Filter }[] = [
+  { label: "All", value: "all" },
+  { label: "Running", value: "running" },
+  { label: "This page", value: "page" },
+];
+
+/**
+ * The filter, at the end of the search field: which chats the list shows, each choice with how
+ * many it would. Lit while it narrows the list.
+ */
+const FilterMenu = ({
+  counts,
+  filter,
+  onChange,
 }: {
-  active: boolean;
-  count?: number;
-  label: string;
-  onClick: () => void;
+  counts: Partial<Record<Filter, number>>;
+  filter: Filter;
+  onChange: (filter: Filter) => void;
 }) => (
-  <button
-    aria-pressed={active}
-    className="flex items-center gap-1 rounded-full border px-2.5 py-0.5 font-body font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 aria-pressed:border-transparent aria-pressed:bg-muted aria-pressed:text-foreground"
-    onClick={onClick}
-    type="button"
-  >
-    {label}
-    {count ? <span className="text-muted-foreground">{count}</span> : null}
-  </button>
+  <DropdownMenu>
+    <DropdownMenuTrigger
+      aria-label="Filter chats"
+      className="relative flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-background/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 data-popup-open:bg-background/60 data-popup-open:text-foreground"
+      title="Filter chats"
+    >
+      <ListFilter
+        className={cn("size-3.5", filter !== "all" && "text-foreground")}
+      />
+      {filter === "all" ? null : (
+        <span className="absolute top-0.5 right-0.5 size-1.5 rounded-full bg-brand" />
+      )}
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end" className="w-44">
+      <DropdownMenuGroup>
+        <DropdownMenuLabel>Show</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          onValueChange={(v) => onChange(v as Filter)}
+          value={filter}
+        >
+          {FILTERS.map((f) => (
+            <DropdownMenuRadioItem closeOnClick key={f.value} value={f.value}>
+              <span className="flex-1">{f.label}</span>
+              {counts[f.value] ? (
+                <span className="text-muted-foreground">{counts[f.value]}</span>
+              ) : null}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuGroup>
+    </DropdownMenuContent>
+  </DropdownMenu>
 );
 
 /** Keeps the pictures in step with the threads and their documents, a moment after they settle. */
@@ -289,8 +329,6 @@ export const ThreadList = () => {
   }, [threads, query, filter, pageFile]);
   const today = shown.filter((t) => isToday(t.updatedAt, now));
   const earlier = shown.filter((t) => !isToday(t.updatedAt, now));
-  const toggle = (f: Filter) =>
-    setFilter((current) => (current === f ? "all" : f));
 
   return (
     <div className="flex h-full flex-col">
@@ -306,35 +344,22 @@ export const ThreadList = () => {
           New
         </Button>
       </div>
-      <div className="flex flex-col gap-2 px-3 pb-1">
-        <label className="flex h-7.5 items-center gap-1.5 rounded-md bg-muted px-2 text-muted-foreground focus-within:ring-2 focus-within:ring-ring/50">
-          <Search className="size-3.5 shrink-0" />
-          <input
-            aria-label="Search chats"
-            className="min-w-0 flex-1 bg-transparent font-body text-foreground outline-none placeholder:text-muted-foreground"
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search chats"
-            value={query}
-          />
-        </label>
-        <div className="flex items-center gap-1.5">
-          <ListFilter className="size-3.5 text-muted-foreground" />
-          <FilterChip
-            active={filter === "all"}
-            label="All"
-            onClick={() => setFilter("all")}
-          />
-          <FilterChip
-            active={filter === "running"}
-            count={running}
-            label="Running"
-            onClick={() => toggle("running")}
-          />
-          <FilterChip
-            active={filter === "page"}
-            count={onPage}
-            label="This page"
-            onClick={() => toggle("page")}
+      <div className="px-3 pb-1">
+        <div className="flex h-7.5 items-center gap-1.5 rounded-md bg-muted pr-0.5 pl-2 text-muted-foreground has-[input:focus]:ring-2 has-[input:focus]:ring-ring/50">
+          <label className="flex min-w-0 flex-1 items-center gap-1.5">
+            <Search className="size-3.5 shrink-0" />
+            <input
+              aria-label="Search chats"
+              className="min-w-0 flex-1 bg-transparent font-body text-foreground outline-none placeholder:text-muted-foreground"
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search chats"
+              value={query}
+            />
+          </label>
+          <FilterMenu
+            counts={{ page: onPage, running }}
+            filter={filter}
+            onChange={setFilter}
           />
         </div>
       </div>

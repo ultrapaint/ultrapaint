@@ -34,41 +34,27 @@ export const sizeForPreset = (preset: ViewportPreset, current: Size): Size =>
     : presetSize[preset];
 
 /**
- * What the prototype is shown on: the page's design frame, as it always was, or one of the
- * devices, which changes the preview alone and never the design.
+ * What the prototype is shown on: one of the devices, which sizes the preview alone and never the
+ * design. A page taller than the device scrolls in it.
  */
-export type PrototypeDevice = "frame" | Exclude<ViewportPreset, "custom">;
+export type PrototypeDevice = Exclude<ViewportPreset, "custom">;
 
 export const prototypeDevices: readonly {
-  description?: string;
+  description: string;
   label: string;
   value: PrototypeDevice;
-}[] = [
-  { label: "Frame size", value: "frame" },
-  ...viewportPresets.flatMap((p) =>
-    p.value === "custom"
-      ? []
-      : [
-          {
-            description: `${presetSize[p.value].width} × ${presetSize[p.value].height}`,
-            label: p.label,
-            value: p.value,
-          },
-        ]
-  ),
-];
+}[] = viewportPresets.flatMap((p) =>
+  p.value === "custom"
+    ? []
+    : [
+        {
+          description: `${presetSize[p.value].width} × ${presetSize[p.value].height}`,
+          label: p.label,
+          value: p.value,
+        },
+      ]
+);
 
-/** A device read back from storage, or the frame's size for anything it does not know. */
+/** A device read back from storage, or the desktop for anything it does not know. */
 export const parseDevice = (raw: string | null): PrototypeDevice =>
-  prototypeDevices.find((d) => d.value === raw)?.value ?? "frame";
-
-/** The size the prototype's page is laid out at: the device's, or the frame's when it follows it. */
-export const deviceSize = (
-  device: PrototypeDevice,
-  frame: Size | undefined
-): Size => {
-  if (device !== "frame") {
-    return presetSize[device];
-  }
-  return frame ?? presetSize.desktop;
-};
+  prototypeDevices.find((d) => d.value === raw)?.value ?? "desktop";

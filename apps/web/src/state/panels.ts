@@ -30,7 +30,7 @@ interface PanelsStore extends Hidden {
   toggleAll: () => void;
   /** The left panel alone. */
   toggleLeft: () => void;
-  /** The right panel alone: the inspector and the code. */
+  /** The right panel alone: the inspector, the code and the comments. */
   toggleRight: () => void;
 }
 

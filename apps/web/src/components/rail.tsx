@@ -1,9 +1,8 @@
+import { cn } from "cn";
 import {
   GitCompareArrows,
   Layers as LayersIcon,
   type LucideIcon,
-  MessageCircle,
-  MonitorSmartphone,
   Palette as PaletteIcon,
   Settings,
   Shapes,
@@ -25,14 +24,12 @@ export const railItems: Record<
   assets: { icon: Shapes, label: "Assets", rail: "Assets" },
   changes: { icon: GitCompareArrows, label: "Changes", rail: "Changes" },
   chat: { icon: Sparkles, label: "Agents", rail: "Agents" },
-  comments: { icon: MessageCircle, label: "Comments", rail: "Comments" },
   designSystem: {
     icon: PaletteIcon,
     label: "Design system",
     rail: "Design system",
   },
   layers: { icon: LayersIcon, label: "Layers", rail: "Layers" },
-  pages: { icon: MonitorSmartphone, label: "Pages", rail: "Pages" },
 };
 
 const openSettings = () => useProject.getState().openSettings(true);
@@ -72,7 +69,7 @@ const RailItem = ({
         {dot ? (
           <span
             aria-label={dot}
-            className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-agent ring-2 ring-sidebar group-hover:ring-muted group-aria-pressed:ring-muted"
+            className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-agent ring-2 ring-rail group-hover:ring-muted group-aria-pressed:ring-muted"
             role="status"
           />
         ) : null}
@@ -125,17 +122,21 @@ const RailButton = ({ value }: { value: LeftTab }) => {
 };
 
 /**
- * The left panels the workspace offers, floating in a column of their own at the window's left,
- * each named under its icon: the agents always first. Settings and who the user is at its foot.
+ * The left panels the workspace offers, in a column at the window's left, each named under its
+ * icon: the agents always first. Settings and who the user is at its foot. It shares one card with
+ * the left panel, a shade darker; with the panel put away it is the whole card.
  */
 export const Rail = () => {
-  const workspace = useEditor((s) => s.workspace);
+  const panelHidden = usePanels((s) => s.left);
   return (
     <nav
       aria-label="Panels"
-      className="floating pointer-events-auto flex w-16 shrink-0 flex-col items-center gap-0.5 py-2"
+      className={cn(
+        "flex min-h-0 w-15.5 shrink-0 flex-col items-center gap-0.5 overflow-y-auto bg-rail py-2 [scrollbar-width:none]",
+        panelHidden ? "rounded-[inherit]" : "rounded-l-[inherit]"
+      )}
     >
-      {railTabs[workspace].map((value) => (
+      {railTabs.map((value) => (
         <RailButton key={value} value={value} />
       ))}
       <div className="flex-1" />
