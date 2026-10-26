@@ -237,12 +237,17 @@ export class SetupService extends Context.Service<
           });
         }
         const dir = toPosix(path.relative(root, target)) || ".";
-        const made = framework.scaffold({ dir, name: input.name, tokens });
+        const made = framework.scaffold({
+          dir,
+          name: input.name,
+          template: input.template ?? "starter",
+          tokens,
+        });
         for (const [file, text] of Object.entries(made.files)) {
           yield* Effect.orDie(writeAtomic(path.join(root, file), text));
         }
         // Where the pages go, so the settings are valid as they are answered.
-        const designsDir = DEFAULT_DESIGNS_DIR;
+        const designsDir = input.designsDir ?? DEFAULT_DESIGNS_DIR;
         yield* Effect.orDie(
           fs.makeDirectory(path.join(root, designsDir), { recursive: true })
         );

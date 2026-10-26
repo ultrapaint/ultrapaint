@@ -45,6 +45,7 @@ import {
   Stream,
 } from "effect";
 import { EventBus } from "../events.ts";
+import { makeWalk } from "../fs-walk.ts";
 import { ProjectManager } from "../project.ts";
 import { CatalogueService } from "./catalogue.ts";
 import { DesignSystemService } from "./design-system.ts";
@@ -74,6 +75,8 @@ import { RepoPaths } from "./repo-paths.ts";
 import { ProjectStyleSystem } from "./style-system.ts";
 
 const STYLESHEET_RE = /\.css$/;
+/** What a component is written in. */
+const SOURCE_FILE_RE = /\.(?:[cm]?[jt]sx?)$/;
 
 const Dependencies = Schema.optional(
   Schema.Record(Schema.String, Schema.Unknown)
@@ -257,6 +260,20 @@ export class DesignSystemSyncService extends Context.Service<
           Effect.orElseSucceed(() => false)
         );
 
+      const walk = makeWalk(fs, path);
+      /** Source files under the component directories, their installs and builds aside. */
+      const librarySources = (dirs: readonly string[]) =>
+        Effect.map(
+          Effect.forEach(dirs, (dir) =>
+            walk(dir, {
+              includeFile: (name) => SOURCE_FILE_RE.test(name),
+              skipDir: (name) =>
+                name === "node_modules" || name.startsWith("."),
+            })
+          ),
+          (found) => found.flat().length
+        );
+
       const read = project.use(
         Effect.gen(function* () {
           const paths = yield* RepoPaths;
@@ -312,6 +329,11 @@ export class DesignSystemSyncService extends Context.Service<
             }),
             ...(latest && { figma: { id: latest.id, name: latest.name } }),
             libraryDirs: [...settings.libraryDirs],
+            ...(components.length === 0 && {
+              librarySources: yield* librarySources(
+                settings.libraryDirs.map((dir) => path.resolve(paths.root, dir))
+              ),
+            }),
             styleSystem: styleSystem.id,
             stylesheets: settings.hostCss.length,
             tokens: source.tokens.filter((t) => t.own).length,

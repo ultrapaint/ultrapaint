@@ -240,5 +240,39 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         }),
       30_000
     );
+
+    it.effect(
+      "starts a blank application: no components, and no settings to put right for it",
+      () =>
+        Effect.gen(function* () {
+          const { client, repo, settings } = yield* TestEnv;
+          const fs = yield* FileSystem.FileSystem;
+          const made = yield* client["setup.scaffold"]({
+            dir: "blank",
+            install: false,
+            name: "Blank",
+            repoPath: repo,
+            template: "blank",
+          });
+          assert.notInclude(made.created, "blank/src/components/ui/button.tsx");
+          assert.isTrue(
+            yield* fs.exists(path.join(repo, "blank/src/components"))
+          );
+          const current = (yield* client["settings.get"]()) ?? settings;
+          const validation = yield* client["settings.set"]({
+            ...current,
+            ...made.settings,
+          });
+          assert.isTrue(validation.ok);
+          const plan = yield* client["sync.plan"]();
+          assert.strictEqual(plan.facts.components, 0);
+          assert.strictEqual(plan.facts.librarySources, 0);
+          assert.notInclude(
+            plan.steps.map((s) => s.kind),
+            "settings"
+          );
+        }),
+      30_000
+    );
   }
 );

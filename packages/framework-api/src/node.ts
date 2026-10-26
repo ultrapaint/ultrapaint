@@ -308,11 +308,19 @@ export interface ScaffoldResult {
   };
 }
 
+/**
+ * What a new application starts with: `starter`, a set of components to design with; `blank`,
+ * none, and a theme that declares nothing, for a design system defined from nothing.
+ */
+export type ScaffoldTemplate = "starter" | "blank";
+
 export type Scaffold = (input: {
   /** Repo-relative directory the application goes in; `.` for the root. */
   readonly dir: string;
   /** The application's name, for its package.json. */
   readonly name: string;
+  /** `starter` when absent. */
+  readonly template?: ScaffoldTemplate;
   /** Tokens to start the theme with, by name; the template's own when empty. */
   readonly tokens: Readonly<Record<string, string>>;
 }) => ScaffoldResult;

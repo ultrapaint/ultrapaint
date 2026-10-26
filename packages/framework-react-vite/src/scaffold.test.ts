@@ -94,6 +94,56 @@ describe("a new application", () => {
   });
 });
 
+describe("a blank application", () => {
+  const blank = scaffold({
+    dir: "app",
+    name: "Blank",
+    template: "blank",
+    tokens: {},
+  });
+
+  it("has no components, an empty component directory and a theme that declares nothing", () => {
+    expect(
+      Object.keys(blank.files).filter((f) =>
+        f.startsWith("app/src/components/")
+      )
+    ).toEqual(["app/src/components/.gitkeep"]);
+    expect(blank.files["app/src/index.css"]).toContain("@theme {\n}\n");
+    expect(blank.files["app/src/index.css"]).not.toContain("--color-");
+    expect(blank.settings).toEqual({
+      hostCss: "app/src/index.css",
+      libraryDir: "app/src/components",
+      resolveFrom: "app",
+    });
+  });
+
+  it("depends on React and what a shadcn component needs, not on Base UI", () => {
+    const pkg = JSON.parse(String(blank.files["app/package.json"]));
+    expect(pkg.dependencies["@base-ui/react"]).toBeUndefined();
+    expect(pkg.dependencies).toMatchObject({
+      "class-variance-authority": expect.any(String),
+      react: expect.any(String),
+      "react-dom": expect.any(String),
+    });
+    expect(blank.files["app/src/lib/cn.ts"]).toContain("twMerge");
+  });
+
+  it("starts its theme from the tokens it is given", () => {
+    const given = scaffold({
+      dir: ".",
+      name: "x",
+      template: "blank",
+      tokens: { "color-primary": "#ff0000" },
+    }).files["src/index.css"];
+    expect(given).toContain("@theme {\n  --color-primary: #ff0000;\n}\n");
+  });
+
+  it("is an application detection recognises", () => {
+    const found = detect(written(blank.files));
+    expect(found?.anchors[0]?.dir).toBe("app");
+  });
+});
+
 describe("its components", () => {
   it("write their variants in a cva, with the defaults, as shadcn does", () => {
     for (const [name, axes] of [

@@ -5,9 +5,14 @@
  * `cva`, every part marked with `data-slot`, the dialog, select, tabs and checkbox on Base UI, so
  * the catalogue reads them as it reads any library and a spec can style each part. The theme's
  * `@theme` starts from the tokens the caller gives (a Figma file's), else from a neutral set; the
- * components use only the colours the neutral set names. Pure: the server writes the files.
+ * components use only the colours the neutral set names. A blank application (PLAN-desktop D11)
+ * has none of the components and a theme that declares nothing, for a design system defined from
+ * nothing; its component directory is there, empty. Pure: the server writes the files.
  */
-import type { Scaffold } from "@ultrapaint/framework-api/node";
+import type {
+  Scaffold,
+  ScaffoldTemplate,
+} from "@ultrapaint/framework-api/node";
 
 /** The theme a new application starts with when nothing else is given. */
 const STARTER_TOKENS: Readonly<Record<string, string>> = {
@@ -91,6 +96,22 @@ ${declarations(DARK_TOKENS)}
     font-family: var(--font-sans);
   }
 }
+`;
+};
+
+/**
+ * A blank application's stylesheet: Tailwind, and a theme that declares nothing of its own, which
+ * the design system fills in once it is defined. The tokens given (a Figma file's) when there are.
+ */
+const blankStylesheet = (tokens: Readonly<Record<string, string>>) => {
+  const declared = declarations(tokens);
+  return `@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* The design system's tokens: ultrapaint reads them from here, and writes them here. */
+@theme {
+${declared ? `${declared}\n` : ""}}
 `;
 };
 
@@ -659,6 +680,11 @@ export const App = () => (
 );
 `;
 
+/** A blank application's first screen: nothing on it, for the first page to be designed. */
+const BLANK_APP = `/** The first screen: design it in ultrapaint, then implement it here. */
+export const App = () => <main className="min-h-screen" />;
+`;
+
 const MAIN = `import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
@@ -713,18 +739,24 @@ const html = (name: string) => `<!doctype html>
 </html>
 `;
 
-const packageJson = (name: string) =>
+/**
+ * The versions ultrapaint itself is built and tested with. A blank application leaves out
+ * Base UI, which only the starter's dialog, select, tabs and checkbox use; it keeps what a
+ * component written the shadcn way needs (ADR 0029), for the first one implemented.
+ */
+const dependenciesOf = (template: ScaffoldTemplate) => ({
+  ...(template === "starter" && { "@base-ui/react": "^1.8.0" }),
+  "class-variance-authority": "^0.7.1",
+  clsx: "^2.1.1",
+  react: "^19.3.0",
+  "react-dom": "^19.3.0",
+  "tailwind-merge": "^3.7.0",
+});
+
+const packageJson = (name: string, template: ScaffoldTemplate) =>
   `${JSON.stringify(
     {
-      // The versions ultrapaint itself is built and tested with.
-      dependencies: {
-        "@base-ui/react": "^1.8.0",
-        "class-variance-authority": "^0.7.1",
-        clsx: "^2.1.1",
-        react: "^19.3.0",
-        "react-dom": "^19.3.0",
-        "tailwind-merge": "^3.7.0",
-      },
+      dependencies: dependenciesOf(template),
       devDependencies: {
         "@tailwindcss/vite": "^4.3.3",
         "@types/node": "^24.0.0",
@@ -756,25 +788,39 @@ const packageNameOf = (name: string) =>
     .replace(/[^a-z0-9-]+/g, "-")
     .replace(/^-+|-+$/g, "") || "app";
 
-export const scaffold: Scaffold = ({ dir, name, tokens }) => {
+/** The starter's components, by file. */
+const COMPONENTS: Readonly<Record<string, string>> = {
+  "src/components/ui/badge.tsx": BADGE,
+  "src/components/ui/button.tsx": BUTTON,
+  "src/components/ui/card.tsx": CARD,
+  "src/components/ui/checkbox.tsx": CHECKBOX,
+  "src/components/ui/dialog.tsx": DIALOG,
+  "src/components/ui/input.tsx": INPUT,
+  "src/components/ui/label.tsx": LABEL,
+  "src/components/ui/select.tsx": SELECT,
+  "src/components/ui/tabs.tsx": TABS,
+  "src/components/ui/textarea.tsx": TEXTAREA,
+};
+
+export const scaffold: Scaffold = ({
+  dir,
+  name,
+  template = "starter",
+  tokens,
+}) => {
   const base = dir.replace(LEADING_DOT_SLASH_RE, "");
   const at = (file: string) => (base ? `${base}/${file}` : file);
+  const starter = template === "starter";
   const files: Record<string, string> = {
     ".gitignore": "node_modules\ndist\n",
     "index.html": html(name),
-    "package.json": packageJson(packageNameOf(name)),
-    "src/App.tsx": APP,
-    "src/components/ui/badge.tsx": BADGE,
-    "src/components/ui/button.tsx": BUTTON,
-    "src/components/ui/card.tsx": CARD,
-    "src/components/ui/checkbox.tsx": CHECKBOX,
-    "src/components/ui/dialog.tsx": DIALOG,
-    "src/components/ui/input.tsx": INPUT,
-    "src/components/ui/label.tsx": LABEL,
-    "src/components/ui/select.tsx": SELECT,
-    "src/components/ui/tabs.tsx": TABS,
-    "src/components/ui/textarea.tsx": TEXTAREA,
-    "src/index.css": stylesheet(tokens),
+    "package.json": packageJson(packageNameOf(name), template),
+    ...(starter
+      ? COMPONENTS
+      : // Where the components go once there are some: the settings point at it from the start.
+        { "src/components/.gitkeep": "" }),
+    "src/App.tsx": starter ? APP : BLANK_APP,
+    "src/index.css": starter ? stylesheet(tokens) : blankStylesheet(tokens),
     "src/lib/cn.ts": CN,
     "src/main.tsx": MAIN,
     "tsconfig.json": TSCONFIG,

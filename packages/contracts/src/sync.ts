@@ -145,6 +145,12 @@ export const SyncFacts = Schema.Struct({
   ),
   /** The component directories the settings name. */
   libraryDirs: Schema.Array(Schema.String),
+  /**
+   * Source files in the component directories, counted when none of their components could be
+   * read: none at all is a project with no components yet (a blank new design), not settings
+   * that point at the wrong place.
+   */
+  librarySources: Schema.optional(Schema.Number),
   styleSystem: Schema.String,
   /** The stylesheets the settings name. */
   stylesheets: Schema.Number,

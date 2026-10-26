@@ -65,13 +65,24 @@ export const CreateDesignsResult = Schema.Struct({
 export type CreateDesignsResult = typeof CreateDesignsResult.Type;
 
 /** A new application, written where the repository has none (ADR 0025). */
+/**
+ * What a new application starts with: `starter`, ten components to design with; `blank`, none,
+ * and a theme that declares nothing (PLAN-desktop D11).
+ */
+export const ScaffoldTemplate = Schema.Literals(["starter", "blank"]);
+export type ScaffoldTemplate = typeof ScaffoldTemplate.Type;
+
 export const ScaffoldInput = Schema.Struct({
+  /** Where the pages go, repo-relative; `docs/designs` when absent. */
+  designsDir: Schema.optional(RepoRelativePath),
   /** Repo-relative directory it goes in; `.` for the root. */
   dir: RepoRelativePath,
   /** Run the repository's package manager once the files are written. */
   install: Schema.Boolean,
   name: Schema.String,
   repoPath: Schema.String,
+  /** `starter` when absent. */
+  template: Schema.optional(ScaffoldTemplate),
 });
 export type ScaffoldInput = typeof ScaffoldInput.Type;
 

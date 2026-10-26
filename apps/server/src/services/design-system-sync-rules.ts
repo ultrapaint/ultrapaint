@@ -172,7 +172,10 @@ const settingsSteps = (facts: SyncFacts): SyncStep[] => {
   }
   const missing = [
     facts.libraryDirs.length === 0 ? "no component directory is set" : null,
-    facts.libraryDirs.length > 0 && facts.components === 0
+    // An empty component directory is a project with no components yet, not a wrong setting.
+    facts.libraryDirs.length > 0 &&
+    facts.components === 0 &&
+    facts.librarySources !== 0
       ? `${facts.libraryDirs.join(", ")} has no components the editor can read`
       : null,
     facts.stylesheets === 0 ? "no stylesheet is set" : null,
