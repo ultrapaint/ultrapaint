@@ -6,6 +6,11 @@ import type {
   Rect,
   RenderMode,
 } from "@ultrapaint/contracts/preview";
+import type {
+  FrameEvents,
+  FrameRuntime,
+} from "@ultrapaint/framework-api/browser";
+import { PREVIEW_PROTOCOL } from "@ultrapaint/framework-api/protocol";
 
 import type { DesignLook } from "../state/look.ts";
 
@@ -33,12 +38,25 @@ export interface RenderRequest {
 }
 
 /**
- * One bridge per preview iframe: a frame on the canvas, the prototype, a specimen. Wraps
- * `postMessage` with request/response correlation and fans host messages out to subscribers
- * (rects, sizes, HMR, errors, navigation).
+ * One bridge per preview: a frame on the canvas, the prototype, a specimen. A frame drawn in the
+ * editor's own page (ADR 0034) is called directly and answers at once; an iframe is spoken to
+ * over `postMessage`, with request/response correlation. Either way what the preview says is
+ * fanned out to subscribers as messages (rects, sizes, HMR, errors, navigation).
  */
 export class FrameBridge {
   private iframe: HTMLIFrameElement | null = null;
+  private runtime: FrameRuntime | null = null;
+  /** What a frame in the editor's page was last told to draw. */
+  private drawn: {
+    readonly designSystem: DesignSystem | null;
+    readonly message: string | undefined;
+    readonly mode: RenderMode;
+    readonly renderId: number;
+    readonly root: DesignNode | null;
+    readonly runtime: FrameRuntime;
+    readonly specs: DesignLook["specs"];
+    readonly styles: DesignLook["styles"];
+  } | null = null;
   private nextId = 1;
   private readonly pending = new Map<number, (msg: HostMessage) => void>();
   private readonly listeners = new Set<Listener>();
@@ -69,14 +87,72 @@ export class FrameBridge {
       return;
     }
     this.iframe = iframe;
+    this.runtime = null;
     this.ready = false;
     this.spoke = null;
   }
 
+  /** A frame drawn in the editor's page: ready at once, and called directly. */
+  attachRuntime(runtime: FrameRuntime) {
+    if (runtime === this.runtime) {
+      return;
+    }
+    this.iframe = null;
+    this.runtime = runtime;
+    this.ready = true;
+    this.spoke = null;
+    this.resend();
+  }
+
   detach() {
     this.iframe = null;
+    this.runtime = null;
     this.ready = false;
     this.spoke = null;
+  }
+
+  /**
+   * Tells the subscribers the frame is ready, as an iframe says once it has loaded: a frame drawn
+   * in the editor's page is ready before anyone listens, and again whenever its frame takes it
+   * back from the pool.
+   */
+  announce() {
+    if (this.runtime) {
+      this.handle({
+        frame: this.frameId,
+        protocol: PREVIEW_PROTOCOL,
+        type: "ed:ready",
+      });
+    }
+  }
+
+  /** What the frame tells its bridge, as the messages an iframe would post. */
+  events(): FrameEvents {
+    return {
+      error: (error) => this.handle({ error, type: "ed:error" }),
+      hmr: () => this.handle({ type: "ed:hmr" }),
+      instances: (instances) =>
+        this.handle({ instances, type: "ed:instances" }),
+      navigateTo: (route, replace) =>
+        this.handle({ replace, route, type: "ed:navigateTo" }),
+      pressed: (nodeIds) => this.handle({ nodeIds, type: "ed:pressed" }),
+      rects: (rects) => this.handle({ rects, type: "ed:rects" }),
+      rendered: (renderId) => this.handle({ renderId, type: "ed:rendered" }),
+      size: ({ height, width }) =>
+        this.handle({ height, type: "ed:size", width }),
+      textCommit: (nodeId, text) =>
+        this.handle({ nodeId, text, type: "ed:textCommit" }),
+    };
+  }
+
+  /** What the preview keeps up to date, told again: it was asked before it could hear. */
+  private resend() {
+    if (this.watched.length > 0) {
+      this.send({ nodeIds: this.watched, type: "ed:watchRects" });
+    }
+    if (this.skeletons.length > 0) {
+      this.send({ nodeIds: this.skeletons, type: "ed:skeleton" });
+    }
   }
 
   /** Where the preview's address says it is loaded from, before it has said anything. */
@@ -109,14 +185,17 @@ export class FrameBridge {
   }
 
   handle(msg: HostMessage) {
-    if (msg.type === "ed:ready") {
+    // What `pnpm bench:canvas` times frames by, as it heard iframes' messages.
+    if (this.runtime && import.meta.env.DEV && typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("ed:frame", {
+          detail: { frame: this.frameId, type: msg.type },
+        })
+      );
+    }
+    if (msg.type === "ed:ready" && !this.runtime) {
       this.ready = true;
-      if (this.watched.length > 0) {
-        this.send({ nodeIds: this.watched, type: "ed:watchRects" });
-      }
-      if (this.skeletons.length > 0) {
-        this.send({ nodeIds: this.skeletons, type: "ed:skeleton" });
-      }
+      this.resend();
     }
     if ("requestId" in msg) {
       const cb = this.pending.get(msg.requestId);
@@ -136,10 +215,72 @@ export class FrameBridge {
   }
 
   send(msg: EditorMessage) {
+    if (this.runtime) {
+      this.call(this.runtime, msg);
+      return;
+    }
     this.iframe?.contentWindow?.postMessage(
       msg,
       this.spoke ?? this.srcOrigin() ?? "*"
     );
+  }
+
+  /** A message, as a call on a frame drawn in the editor's page; an answer comes at once. */
+  private call(runtime: FrameRuntime, msg: EditorMessage) {
+    switch (msg.type) {
+      case "ed:render": {
+        const { type: _type, ...request } = msg;
+        runtime.render(request);
+        break;
+      }
+      case "ed:hitTest":
+        this.handle({
+          nodeIds: runtime.hitTest(msg.x, msg.y),
+          requestId: msg.requestId,
+          type: "ed:hit",
+        });
+        break;
+      case "ed:watchRects":
+        runtime.watchRects(msg.nodeIds);
+        break;
+      case "ed:skeleton":
+        runtime.skeleton(msg.nodeIds);
+        break;
+      case "ed:measure":
+        this.handle({
+          rects: runtime.measure(msg.nodeIds),
+          requestId: msg.requestId,
+          type: "ed:measured",
+        });
+        break;
+      case "ed:editText":
+        runtime.editText(msg.nodeId);
+        break;
+      case "ed:setInteractive":
+        runtime.setInteractive(msg.interactive);
+        break;
+      case "ed:screenshot":
+        runtime.screenshot(msg.nodeId).then((dataUrl) =>
+          this.handle({
+            dataUrl,
+            requestId: msg.requestId,
+            type: "ed:screenshot",
+          })
+        );
+        break;
+      case "ed:getTokens":
+        this.handle({
+          requestId: msg.requestId,
+          tokens: runtime.tokens(msg.prefixes),
+          type: "ed:tokens",
+        });
+        break;
+      case "ed:scrollIntoView":
+        runtime.scrollIntoView(msg.nodeId);
+        break;
+      default:
+        break;
+    }
   }
 
   private request<T extends HostMessage>(
@@ -188,8 +329,36 @@ export class FrameBridge {
 
   /** Tells the preview what to draw; answers the id its `ed:rendered` will carry. */
   render(request: RenderRequest): number {
-    renders += 1;
     const look = request.look ?? currentLook();
+    // A frame drawn in the editor's page still shows what it was last told to draw: a frame
+    // taken back from the pool is not drawn again for nothing, on the editor's own thread.
+    const { drawn } = this;
+    if (
+      this.runtime &&
+      drawn !== null &&
+      drawn.runtime === this.runtime &&
+      drawn.designSystem === request.designSystem &&
+      drawn.root === request.root &&
+      drawn.mode === request.mode &&
+      drawn.message === request.message &&
+      drawn.specs === look.specs &&
+      drawn.styles === look.styles
+    ) {
+      return drawn.renderId;
+    }
+    renders += 1;
+    this.drawn = this.runtime
+      ? {
+          designSystem: request.designSystem,
+          message: request.message,
+          mode: request.mode,
+          renderId: renders,
+          root: request.root,
+          runtime: this.runtime,
+          specs: look.specs,
+          styles: look.styles,
+        }
+      : null;
     this.send({
       designSystem: request.designSystem,
       mode: request.mode,

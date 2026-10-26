@@ -74,8 +74,24 @@ export const keysLabel = (mac: string): string => {
   return match ? workspaceKeyLabel(Number(match[1])) : shortcutLabel(mac);
 };
 
+/**
+ * The event comes from inside a frame of the canvas, drawn in the editor's page (ADR 0034): a
+ * page in the prototype, a text being edited in place. It is the page's, as it was when a frame
+ * was an iframe whose events never reached the editor.
+ */
+export const fromFrame = (e: Event) =>
+  e
+    .composedPath?.()
+    .some(
+      (node) =>
+        node instanceof Element && node.hasAttribute("data-ed-frame-host")
+    ) ?? false;
+
 /** The event is aimed at a field that takes keys of its own: text, a select, an editable node. */
 export const isTyping = (e: Event) => {
+  if (fromFrame(e)) {
+    return true;
+  }
   const t = e.target as HTMLElement | null;
   return (
     !!t &&

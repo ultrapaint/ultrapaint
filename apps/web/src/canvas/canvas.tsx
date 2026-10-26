@@ -11,7 +11,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { isTyping } from "../lib/keys.ts";
+import { fromFrame, isTyping } from "../lib/keys.ts";
 import { snapsToGrid, useCanvasGrid } from "../state/canvas-grid.ts";
 import { useComments } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
@@ -187,10 +187,12 @@ export const Canvas = () => {
       return;
     }
     const onWheel = (e: WheelEvent) => {
-      // A comment thread scrolls itself, unless it is a pinch, which still zooms.
+      // A comment thread scrolls itself, unless it is a pinch, which still zooms; so does a page
+      // that takes input.
       if (
         !(e.ctrlKey || e.metaKey) &&
-        (e.target as Element | null)?.closest("[data-canvas-scroll]")
+        ((e.target as Element | null)?.closest("[data-canvas-scroll]") ||
+          fromFrame(e))
       ) {
         return;
       }

@@ -2,13 +2,14 @@ import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page, ViewportPreset } from "@ultrapaint/contracts/pages";
 import type { HostError } from "@ultrapaint/contracts/preview";
 import { findNode, nodeLabel } from "@ultrapaint/design-document/tree";
+import type { Preview } from "@ultrapaint/framework-api/browser";
 import { PREVIEW_PROTOCOL } from "@ultrapaint/framework-api/protocol";
 import { cn } from "cn";
 import {
+  type CSSProperties,
   memo,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
-  type RefObject,
   useEffect,
   useEffectEvent,
   useLayoutEffect,
@@ -45,9 +46,10 @@ import {
   useSelectedIn,
 } from "./frame-highlights.tsx";
 import { PageToolbar } from "./page-toolbar.tsx";
+import { usePreview } from "./preview-module.ts";
 import { parkPreview, placePreview, previewDrawn } from "./preview-pool.ts";
 import { useFramePointer } from "./use-frame-pointer.ts";
-import { usePreviewBridge } from "./use-preview-bridge.ts";
+import { useFrameBridge } from "./use-preview-bridge.ts";
 
 const formatHostError = (error: HostError) => {
   if (!error.file) {
@@ -162,7 +164,7 @@ interface Props {
 
 export const Frame = memo(
   ({ frameId, kind, page, frame, hostUrl, visible, onDragStart }: Props) => {
-    const iframeRef = useRef<HTMLIFrameElement>(null);
+    const preview = usePreview();
     // Only what is selected or hovered in this frame: elsewhere it is no business of this one.
     const selectedHere = useSelectedIn(frameId);
     const alsoHere = useAlsoIn(frameId);
@@ -181,73 +183,68 @@ export const Frame = memo(
           page !== undefined &&
           s.comments.some((c) => c.id === s.open && c.page === page.path))
     );
-    const url = hostUrl
-      ? `${hostUrl}/?canvas=${encodeURIComponent(canvas ?? "")}&frame=${encodeURIComponent(frameId)}`
-      : null;
+    // A frame drawn once keeps its page while it is away from the screen: hidden where it is,
+    // so coming back neither moves it nor lays it out again.
+    const [kept, setKept] = useState(false);
+    const drawn = visible && preview !== null;
+    const hosted = (visible || kept) && preview !== null;
     const name = frameName(page, root);
     // A callback ref: the selection's toolbar is drawn in it once it is there.
     const [toolbarLayer, setToolbarLayer] = useState<HTMLDivElement | null>(
       null
     );
 
-    // The bridge speaks for this frame while it is on screen and has a preview to load.
-    usePreviewBridge(
-      iframeRef,
-      visible && url ? frameId : null,
-      url,
-      (msg, bridge) => {
-        const store = useEditor.getState;
-        switch (msg.type) {
-          case "ed:rendered":
-            previewDrawn(frameId);
+    // The bridge speaks for this frame while it is on screen and drawn.
+    useFrameBridge(drawn ? frameId : null, (msg, bridge) => {
+      const store = useEditor.getState;
+      switch (msg.type) {
+        case "ed:rendered":
+          previewDrawn(frameId);
+          setKept(true);
+          break;
+        case "ed:ready":
+          // A repository may pin its own framework package one day; an older preview
+          // would then misread what the editor sends.
+          if ((msg.protocol ?? PREVIEW_PROTOCOL) !== PREVIEW_PROTOCOL) {
+            store().setHostError(
+              frameId,
+              `The preview speaks protocol ${msg.protocol}, the editor ${PREVIEW_PROTOCOL}. Update the framework package installed in the repository.`
+            );
             break;
-          case "ed:ready":
-            // A repository may pin its own framework package one day; an older preview
-            // would then misread what the editor sends.
-            if ((msg.protocol ?? PREVIEW_PROTOCOL) !== PREVIEW_PROTOCOL) {
-              store().setHostError(
-                frameId,
-                `The preview speaks protocol ${msg.protocol}, the editor ${PREVIEW_PROTOCOL}. Update the framework package installed in the repository.`
-              );
-              break;
-            }
-            renderFrame(frameId, kind);
-            // A page that reloads (or arrives late) has to be told the current mode: it starts
-            // out interactive so that a preview opened on its own still works.
-            bridge.setInteractive(isInteractive(store()));
-            store().setHostError(frameId, null);
-            break;
-          case "ed:rects":
-            store().setRects(frameId, msg.rects);
-            break;
-          case "ed:size":
-            store().setSize(frameId, { height: msg.height, width: msg.width });
-            break;
-          case "ed:instances":
-            useInstances.getState().report(msg.instances);
-            break;
-          case "ed:hmr":
-            store().setHostError(frameId, null);
-            break;
-          case "ed:error":
-            store().setHostError(frameId, formatHostError(msg.error));
-            previewDrawn(frameId);
-            break;
-          case "ed:textCommit":
-            commitText(frameId, msg.nodeId, msg.text);
-            break;
-          case "ed:navigateTo":
-            // The frame keeps its page; the canvas brings the page the link leads to into view.
-            focusLink(msg.route);
-            break;
-          default:
-            break;
-        }
-      },
-      undefined,
-      // The pool keeps the preview, and its bridge, while the frame is away.
-      false
-    );
+          }
+          renderFrame(frameId, kind);
+          // A page that reloads (or arrives late) has to be told the current mode: it starts
+          // out interactive so that a preview opened on its own still works.
+          bridge.setInteractive(isInteractive(store()));
+          store().setHostError(frameId, null);
+          break;
+        case "ed:rects":
+          store().setRects(frameId, msg.rects);
+          break;
+        case "ed:size":
+          store().setSize(frameId, { height: msg.height, width: msg.width });
+          break;
+        case "ed:instances":
+          useInstances.getState().report(msg.instances);
+          break;
+        case "ed:hmr":
+          store().setHostError(frameId, null);
+          break;
+        case "ed:error":
+          store().setHostError(frameId, formatHostError(msg.error));
+          previewDrawn(frameId);
+          break;
+        case "ed:textCommit":
+          commitText(frameId, msg.nodeId, msg.text);
+          break;
+        case "ed:navigateTo":
+          // The frame keeps its page; the canvas brings the page the link leads to into view.
+          focusLink(msg.route);
+          break;
+        default:
+          break;
+      }
+    });
 
     // Whatever changed the document, the design system or the design's look, the preview draws
     // it again.
@@ -255,10 +252,10 @@ export const Frame = memo(
     // biome-ignore lint/correctness/useExhaustiveDependencies: the document is the dependency.
     useEffect(() => {
       const bridge = bridgeFor(frameId);
-      if (visible && url && bridge.ready) {
+      if (drawn && bridge.ready) {
         renderFrame(frameId, kind);
       }
-    }, [frameId, kind, visible, url, root, problem, designSystem, ...look]);
+    }, [frameId, kind, drawn, root, problem, designSystem, ...look]);
 
     // A selection whose node is gone (an undo, an agent) is let go of.
     useEffect(() => {
@@ -337,17 +334,18 @@ export const Frame = memo(
             isNode ? "overflow-visible" : "overflow-hidden bg-white shadow-2xl"
           )}
         >
-          {visible && url ? (
-            <PreviewIframe
+          {hosted && canvas !== null ? (
+            <PreviewHost
+              away={!visible}
+              canvas={canvas}
               frameId={frameId}
-              iframeRef={iframeRef}
               isNode={isNode}
+              preview={preview}
               title={name}
-              url={url}
             />
           ) : (
             <div className="flex h-full items-center justify-center text-zinc-500">
-              {url ? "" : "Preview host not running"}
+              {hostUrl ? "" : "Preview host not running"}
             </div>
           )}
           <SelectLayer
@@ -395,72 +393,77 @@ export const Frame = memo(
 Frame.displayName = "Frame";
 
 /**
- * The preview of a frame. Outside interact mode the page is a picture: pointer events are off on
- * the iframe, and the runtime swallows whatever else could reach a component. Only this reads the
- * mode, so Space or another tool draws no frame again.
+ * The frame's page, drawn in a shadow root of the editor's page (ADR 0034). Outside interact
+ * mode the page is a picture: the pointer goes past it, and the frame takes no input. Only this
+ * reads the mode, so Space or another tool draws no frame again.
  */
-const PreviewIframe = ({
+const PreviewHost = ({
+  away,
+  canvas,
   frameId,
-  iframeRef,
   isNode,
+  preview,
   title,
-  url,
 }: {
+  /** Off the screen: kept as it is, and skipped by the browser. */
+  away: boolean;
+  canvas: string;
   frameId: string;
-  iframeRef: RefObject<HTMLIFrameElement | null>;
   isNode: boolean;
+  preview: Preview;
   title: string;
-  url: string;
 }) => {
   const interactive = useEditor(isInteractive);
   const holder = useRef<HTMLDivElement>(null);
-  // Placed before the bridge attaches to it, which happens in the frame's passive effects.
+  const host = useRef<HTMLElement | null>(null);
+  // Placed before the bridge listens to it, which happens in the frame's passive effects.
   useLayoutEffect(() => {
     if (!holder.current) {
       return;
     }
-    return showPreview(frameId, url, holder.current, iframeRef, isNode);
-  }, [frameId, url, isNode, iframeRef]);
+    host.current = placePreview(
+      frameId,
+      canvas,
+      holder.current,
+      cn("block h-full w-full", isNode ? "bg-transparent" : "bg-white"),
+      (el) => {
+        const bridge = bridgeFor(frameId);
+        const runtime = preview.mountFrame(el, {
+          canvas,
+          events: bridge.events(),
+          frame: frameId,
+        });
+        bridge.attachRuntime(runtime);
+        return runtime;
+      }
+    );
+    return () => {
+      parkPreview(frameId);
+      host.current = null;
+    };
+  }, [frameId, canvas, isNode, preview]);
   useEffect(() => {
-    describePreview(iframeRef.current, title, interactive);
+    if (host.current) {
+      host.current.title = title;
+      host.current.style.pointerEvents = interactive ? "auto" : "none";
+    }
     bridgeFor(frameId).setInteractive(interactive);
-  }, [frameId, iframeRef, title, interactive]);
-  return <div className="h-full w-full" ref={holder} />;
-};
-
-/**
- * Puts the frame's preview in its holder, from the pool (`preview-pool.ts`), and parks it there
- * again once the frame no longer shows it.
- */
-const showPreview = (
-  frameId: string,
-  url: string,
-  holder: HTMLElement,
-  iframeRef: RefObject<HTMLIFrameElement | null>,
-  isNode: boolean
-) => {
-  iframeRef.current = placePreview(
-    frameId,
-    url,
-    holder,
-    cn("block h-full w-full border-0", isNode ? "bg-transparent" : "bg-white")
+  }, [frameId, title, interactive]);
+  useLayoutEffect(() => {
+    if (host.current) {
+      host.current.style.contentVisibility = away ? "hidden" : "";
+    }
+  }, [away]);
+  // The camera writes the zoom on the layer as `--inv`, which everything under it inherits; pinned
+  // on the holder, a zoom stops here: the host, whose style applies every `:host` rule of the
+  // page's stylesheet (all of its tokens), is not styled again on every step.
+  return (
+    <div
+      className="h-full w-full"
+      ref={holder}
+      style={{ "--inv": "1" } as CSSProperties}
+    />
   );
-  return () => {
-    parkPreview(frameId);
-    iframeRef.current = null;
-  };
-};
-
-/** What the preview is called, and whether the pointer reaches it. */
-const describePreview = (
-  iframe: HTMLIFrameElement | null,
-  title: string,
-  interactive: boolean
-) => {
-  if (iframe) {
-    iframe.title = title;
-    iframe.style.pointerEvents = interactive ? "auto" : "none";
-  }
 };
 
 type LayerHandler<E> = (e: E) => void;

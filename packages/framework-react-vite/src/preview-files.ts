@@ -119,6 +119,8 @@ installHooks();
   const editor = `import "./editor-hooks.ts";
 import "./host.css";
 import { createPreview } from ${JSON.stringify(fsUrl(bundles.editor))};
+
+export { onReloadRequest } from ${JSON.stringify(fsUrl(bundles.editor))};
 import { components } from "./${COMPONENTS_FILE}";
 ${providersImport}
 

@@ -143,19 +143,23 @@ const instrument = () => {
     messages: [],
   };
   (window as unknown as BenchWindow).__bench = bench;
+  // What the frames say: an iframe's messages, or a frame drawn in the editor's page (ADR 0034).
+  const record = (d: { frame?: unknown; type?: unknown } | null) => {
+    if (
+      typeof d?.type === "string" &&
+      d.type.startsWith("ed:") &&
+      typeof d.frame === "string"
+    ) {
+      bench.messages.push({ frame: d.frame, t: now(), type: d.type });
+    }
+  };
   window.addEventListener(
     "message",
-    (ev) => {
-      const d = ev.data as { frame?: unknown; type?: unknown } | null;
-      if (
-        typeof d?.type === "string" &&
-        d.type.startsWith("ed:") &&
-        typeof d.frame === "string"
-      ) {
-        bench.messages.push({ frame: d.frame, t: now(), type: d.type });
-      }
-    },
+    (ev) => record(ev.data as { frame?: unknown; type?: unknown } | null),
     true
+  );
+  window.addEventListener("ed:frame", (ev) =>
+    record((ev as CustomEvent<{ frame: string; type: string }>).detail)
   );
   new PerformanceObserver((list) => {
     for (const e of list.getEntries()) {
@@ -389,6 +393,14 @@ const launch = async () => {
   });
   const page = context.pages()[0] ?? (await context.newPage());
   await page.addInitScript(instrument);
+  // A page loaded again mid-run measures nothing: said, so it is not taken for a slow canvas.
+  let loads = 0;
+  page.on("load", () => {
+    loads += 1;
+    if (loads > 1) {
+      console.warn(`\nthe editor loaded again (${loads})`);
+    }
+  });
   return { context, page, profile };
 };
 
@@ -419,11 +431,11 @@ const viewport = (page: Page) =>
 const now = (page: Page) =>
   page.evaluate(() => performance.timeOrigin + performance.now());
 
-/** The frames with an iframe on the canvas. */
+/** The frames with a preview on the canvas. */
 const mounted = (page: Page) =>
   page.evaluate(() =>
     [...document.querySelectorAll("[data-canvas] [data-frame]")]
-      .filter((f) => f.querySelector("iframe"))
+      .filter((f) => f.querySelector("[data-ed-frame-host], iframe"))
       .map((f) => f.getAttribute("data-frame") ?? "")
   );
 
@@ -445,7 +457,7 @@ const untilLive = async (
         const frame = document.querySelector(
           `[data-canvas] [data-frame="${CSS.escape(id)}"]`
         );
-        if (!frame?.querySelector("iframe")) {
+        if (!frame?.querySelector("[data-ed-frame-host], iframe")) {
           return null;
         }
         // Since its document last loaded: a preview moved back from where it was kept
@@ -453,6 +465,11 @@ const untilLive = async (
         const loaded =
           b.messages.findLast((m) => m.frame === id && m.type === "ed:ready")
             ?.t ?? 0;
+        // A frame drawn in the editor's page and taken back from the pool shows what it drew
+        // as it is placed, and is not drawn again when nothing changed.
+        if (frame.querySelector("[data-ed-drawn]") && loaded > 0) {
+          return loaded;
+        }
         return (
           b.messages.find(
             (m) => m.frame === id && m.type === "ed:rendered" && m.t >= loaded
@@ -529,8 +546,9 @@ const gesture = (page: Page, input: Gesture) =>
           const frame = document.querySelector(
             `[data-canvas] [data-frame="${CSS.escape(id)}"]`
           );
-          // A picture of the page stands in for it while its preview loads: not blank.
-          if (frame?.querySelector("[data-snapshot]")) {
+          // A picture of the page stands in for it while its preview loads: not blank. A frame
+          // drawn in the editor's page keeps what it drew while it was parked.
+          if (frame?.querySelector("[data-snapshot], [data-ed-drawn]")) {
             return true;
           }
           if (!frame?.querySelector("iframe")) {
@@ -980,7 +998,7 @@ const run = async () => {
     results.mounted = (await mounted(page)).length;
     results.memory = memoryOf(profile);
     console.log(
-      `memory ${JSON.stringify(results.memory)}, ${results.mounted} iframes`
+      `memory ${JSON.stringify(results.memory)}, ${results.mounted} frames drawn`
     );
   } finally {
     await context.close();

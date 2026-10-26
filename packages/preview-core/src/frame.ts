@@ -83,8 +83,8 @@ export const createPreview = (input: PreviewSetup): Preview => {
   installHooks();
   let { components } = input;
   const frames = new Set<{
+    events: FrameEvents;
     mounted: Mounted;
-    reportError: NonNullable<FrameEvents["error"]>;
   }>();
   const previewBase = new URL(input.designsRoot, location.href).pathname.split(
     "@fs"
@@ -94,10 +94,7 @@ export const createPreview = (input: PreviewSetup): Preview => {
   const preview: Preview = {
     mountFrame: (host, options) => {
       const frame = mountFrame(host, options, input, components);
-      const entry = {
-        mounted: frame.mounted,
-        reportError: options.events.error ?? (() => undefined),
-      };
+      const entry = { events: options.events, mounted: frame.mounted };
       frames.add(entry);
       return {
         ...frame.runtime,
@@ -107,10 +104,14 @@ export const createPreview = (input: PreviewSetup): Preview => {
         },
       };
     },
-    notifyHmr: () => undefined,
+    notifyHmr: () => {
+      for (const frame of frames) {
+        frame.events.hmr?.();
+      }
+    },
     reportError: (error) => {
       for (const frame of frames) {
-        frame.reportError(error);
+        frame.events.error?.(error);
       }
     },
     setComponents: (next) => {

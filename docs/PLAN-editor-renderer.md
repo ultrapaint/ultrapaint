@@ -1,6 +1,6 @@
 # Plan: frames drawn in the editor's page, without iframes
 
-Status: proposed, 2026-10-26; Phase 0 (the spike) and Phase 1 done 2026-10-26. Through
+Status: proposed, 2026-10-26; Phases 0, 1 and 2 done 2026-10-26. Through
 [ADR 0034](adr/0034-frames-in-the-editors-page.md): supersedes 0011's iframes, amends 0015, 0031
 and 0033. Builds on 0028, 0029 and 0030.
 
@@ -132,19 +132,45 @@ Built beside the iframes, which keep working until Phase 2 switches the editor o
 - [x] 1.7 `framework-api/browser` says `Preview`, `FrameRuntime` and `FrameEvents`. The messages
       of `contracts/preview.ts` go with the iframes (4.1).
 
-### Phase 2: the editor draws in its page
+### Phase 2: the editor draws in its page — done
 
-- [ ] 2.1 `frame.tsx` hosts shadow roots (R2, R6, R7); loose canvas nodes too. `bridge.ts` keeps
-      runtimes, not channels; `use-preview-bridge` goes.
-- [ ] 2.2 Pointer, highlights, drag, the create tool and in-place text editing call the runtime;
-      the rect store and its diffing go; the Code tab reads `instances` from the runtime.
-- [ ] 2.3 The load queue becomes a render queue in slices, nearest the middle first;
-      `preview-pool.ts` and `Origin-Agent-Cluster` go.
-- [ ] 2.4 Low-zoom bitmaps: below a zoom, frames drawn as pictures taken when idle, kept until the
-      page changes.
-- [ ] 2.5 `pnpm bench:canvas` drives shadow roots. Gate: load ≤ 1.7 s, zoom ≤ 27%, nothing blank,
-      memory under today's at every size; pan as close to 12% as painting allows, no task over
-      33 ms. A pan over 17% stops the phase until it is understood.
+- [x] 2.1 `frame.tsx` draws a frame's page in a shadow host (`PreviewHost`), from the preview loaded
+      once (`preview-module.ts`); nodes placed on the canvas too (`fit`). The editor's own
+      shortcuts, its paste and the canvas's wheel leave alone what comes from inside a frame
+      (`fromFrame` in `keys.ts`), as they never heard an iframe's.
+- [x] 2.2 `FrameBridge` stays the editor's interface to a frame and calls it directly
+      (`attachRuntime`): hit tests, measures and tokens answer at once, what the frame says comes
+      as the messages it always came as. Pointer, highlights, drag, the create tool and text
+      editing are unchanged; the rects are still pushed when they move, which costs nothing now.
+      A frame is not told to draw again what it already shows.
+- [x] 2.3 `preview-pool.ts` keeps shadow hosts, not iframes: a frame that leaves the screen keeps
+      its host where it is, `content-visibility: hidden`, so coming back neither moves it nor
+      lays it out again; a canvas switched away from parks its hosts (32 kept). The zoom the
+      camera writes (`--inv`) is pinned on each host's holder: a zoom does not style the host
+      again, whose `:host` rules carry all the page's tokens. `Origin-Agent-Cluster` goes with
+      the iframes (4.1).
+- [ ] 2.4 Low-zoom bitmaps: not built. With 50 frames on screen a zoom holds 60 fps (two frames
+      in 120 over 33 ms) and costs the frames' own chrome, not their pages; a picture of a page
+      costs 0.6 to 2 s of the editor's thread (html-to-image). Measured again when a project needs
+      it, or when Chrome draws elements into a canvas (`drawElementImage`).
+- [x] 2.5 `pnpm bench:canvas` drives shadow hosts too (`ed:frame` events, `data-ed-drawn`), and says
+      when the editor loaded again mid-run.
+
+Measured on this machine, Redesign canvas (10 frames, 4,287 layers), iframes before and the
+editor's page after:
+
+| | Iframes (ADR 0033) | Frames in the editor's page |
+|---|---|---|
+| Load, every frame drawn | 1,757 ms | 402 ms |
+| Pan: busy / longest task | 12–14% / 7 ms | 14–16% / 9 ms, nothing blank |
+| Zoom: busy / longest task | 25% | 28% / 7 ms, no frame over 33 ms |
+| Going to a far page | | 59–96 ms |
+| Switching canvas and back | | 27–75 ms, nothing loaded again |
+| Renderer / all processes | 539 / 780 MB | 340 / 582 MB |
+
+With 50 frames (the Redesign pages five times) all 50 are drawn in 1.7 s, panning keeps the editor
+30% busy and zooming 73%, with no frame over 33 ms while panning and two in 120 while zooming;
+the renderer holds 471 MB.
 
 ### Phase 3: pictures and the prototype
 

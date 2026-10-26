@@ -1,0 +1,68 @@
+/**
+ * The repository's components, loaded into the editor's own page (ADR 0034): the module the
+ * preview's server generates, imported once from the editor's origin, which forwards
+ * `/preview/` to it. Every frame of the canvas draws with what it returns.
+ */
+import type { Preview } from "@ultrapaint/framework-api/browser";
+import { useEffect, useSyncExternalStore } from "react";
+import { useProject } from "../state/project.ts";
+
+interface PreviewModule {
+  readonly onReloadRequest: (listener: () => void) => () => void;
+  readonly preview: Preview;
+}
+
+let loading: { entry: string; module: Promise<PreviewModule> } | null = null;
+let loaded: { entry: string; preview: Preview } | null = null;
+const listeners = new Set<() => void>();
+
+/**
+ * Imports the preview's entry, once per entry. The dev server asks for the page to be loaded
+ * again when the modules it holds are out of date (its dependencies bundled anew, the server
+ * started again): the editor's page is then loaded again, which is the only way to drop them.
+ */
+const load = (entry: string) => {
+  if (loading?.entry === entry) {
+    return loading.module;
+  }
+  const module = import(/* @vite-ignore */ entry) as Promise<PreviewModule>;
+  loading = { entry, module };
+  module.then(
+    (m) => {
+      m.onReloadRequest(() => window.location.reload());
+      loaded = { entry, preview: m.preview };
+      for (const listener of listeners) {
+        listener();
+      }
+    },
+    () => {
+      // Tried again on the next start of the preview's server.
+      if (loading?.entry === entry) {
+        loading = null;
+      }
+    }
+  );
+  return module;
+};
+
+const subscribe = (listener: () => void) => {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+};
+const snapshot = () => loaded;
+
+/** The preview while the project's runs and its module has loaded; null until then. */
+export const usePreview = (): Preview | null => {
+  const entry = useProject((s) =>
+    s.info.host.state === "running" ? (s.info.host.entry ?? null) : null
+  );
+  useEffect(() => {
+    if (entry !== null) {
+      load(entry).catch(() => undefined);
+    }
+  }, [entry]);
+  const current = useSyncExternalStore(subscribe, snapshot);
+  return entry !== null && current?.entry === entry ? current.preview : null;
+};

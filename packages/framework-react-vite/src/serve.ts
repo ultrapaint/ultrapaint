@@ -367,6 +367,9 @@ const server = await vite.createServer(
     resolve: { dedupe: options.singletons },
     root: options.anchorDir,
     server: {
+      // The client runs in the editor's page: what that page logs is the editor's, not the
+      // preview's, and Vite reads the stacks of what it is sent against its own modules.
+      forwardConsole: false,
       fs: { allow: [options.root, options.bundleDir, options.dir] },
       // No address of its own: the client reaches the socket where it was loaded from, the
       // editor's server, which forwards it here. Errors are the editor's to show.

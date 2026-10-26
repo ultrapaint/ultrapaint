@@ -115,6 +115,8 @@ export interface FrameEvents {
     readonly message: string;
     readonly stack?: string | undefined;
   }) => void;
+  /** The dev server brought modules up to date: an error shown may be gone. */
+  readonly hmr?: () => void;
   /** How instances were drawn, by node id: the ones that changed since the last call. */
   readonly instances?: (
     instances: Readonly<Record<string, InstanceDrawn>>

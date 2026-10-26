@@ -14,9 +14,19 @@ let installed = false;
 let target: (() => Element | null) | null = null;
 let base = "";
 
-/** Whether the call comes from the preview's own modules. */
-const fromPreview = () =>
-  (new Error("who appends to the body").stack ?? "").includes(base);
+/** This module's own file, whose frames on the stack are the patch, not who called it. */
+const OWN = import.meta.url.split("?")[0] ?? "";
+
+/**
+ * Whether the call comes from the preview's own modules: its first caller outside this module.
+ * Anything further down the stack does not say: the editor's own React may commit inside a
+ * callback of the preview's.
+ */
+const fromPreview = () => {
+  const lines = (new Error("who appends to the body").stack ?? "").split("\n");
+  const caller = lines.slice(1).find((line) => !line.includes(OWN)) ?? "";
+  return caller.includes(base);
+};
 
 type Inserting = (this: Node, ...args: never[]) => unknown;
 
