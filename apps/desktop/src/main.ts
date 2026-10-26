@@ -16,7 +16,8 @@ import {
   ipcMain,
   shell,
 } from "electron";
-import { Agents } from "./agents.ts";
+import { AgentSettings } from "./agent-settings.ts";
+import { AGENTS, type AgentId, Agents, isAgentId } from "./agents.ts";
 import { Channel, type ListedProject, type PickFolderOptions } from "./ipc.ts";
 import { LoginShell } from "./login-shell.ts";
 import { Notices } from "./notices.ts";
@@ -51,7 +52,15 @@ const showView = (view: View) =>
       return;
     }
     if (view._tag === "Editor") {
-      await window.loadURL(view.url);
+      const next = new URL(view.url);
+      const was = window.webContents.getURL();
+      if (view.keepLocation && was.startsWith("http")) {
+        const current = new URL(was);
+        next.pathname = current.pathname;
+        next.search = current.search;
+        next.hash = current.hash;
+      }
+      await window.loadURL(next.href);
       return;
     }
     await window.loadFile(
@@ -109,6 +118,7 @@ const runtime = ManagedRuntime.make(
         node: process.execPath,
       })
     ),
+    Layer.provideMerge(AgentSettings.layer(dataDir)),
     // Read once, as the app starts.
     Layer.provideMerge(LoginShell.layer),
     Layer.provideMerge(
@@ -149,6 +159,42 @@ handle(Channel.pickFolder, async (options) => {
 });
 
 handle(Channel.notices, () => runtime.runPromise(Notices.use((n) => n.list)));
+
+handle(Channel.agentsList, () =>
+  runtime.runPromise(Agents.use((a) => a.status))
+);
+
+/** A change to an agent's settings, applied by starting the project's server again. */
+const changeAgent = (id: unknown, executable: string | undefined) => {
+  const agent = String(id);
+  return runtime.runPromise(
+    Effect.gen(function* () {
+      if (!isAgentId(agent)) {
+        return;
+      }
+      yield* AgentSettings.use((s) =>
+        s.update(agent, (setting) => ({ ...setting, path: executable }))
+      );
+      yield* OpenProject.use((o) => o.restart);
+    })
+  );
+};
+
+handle(Channel.agentsChoosePath, async (id) => {
+  if (!window) {
+    return;
+  }
+  const picked = await dialog.showOpenDialog(window, {
+    properties: ["openFile", "showHiddenFiles"],
+    title: `Where is ${AGENTS[String(id) as AgentId]?.name ?? "the agent"}?`,
+  });
+  const [file] = picked.filePaths;
+  if (!picked.canceled && file) {
+    await changeAgent(id, file);
+  }
+});
+
+handle(Channel.agentsClearPath, (id) => changeAgent(id, undefined));
 
 handle(Channel.projectsList, () =>
   runtime.runPromise(

@@ -3,6 +3,9 @@
  * the main process. Only the app's own window calls them.
  */
 export const Channel = {
+  agentsChoosePath: "ultrapaint:agents-choose-path",
+  agentsClearPath: "ultrapaint:agents-clear-path",
+  agentsList: "ultrapaint:agents-list",
   notices: "ultrapaint:notices",
   pickFolder: "ultrapaint:pick-folder",
   projectsAdd: "ultrapaint:projects-add",
@@ -31,4 +34,21 @@ export interface ShellNotice {
   readonly id: string;
   readonly link?: { readonly label: string; readonly url: string };
   readonly title: string;
+}
+
+/** How an agent stands on this machine (`PlatformAgent` in the editor). */
+export interface AgentStatus {
+  /** The executable set in the app's settings, in place of the PATH's. */
+  readonly customPath?: string;
+  /** What was found, or what is missing and how to put it right: a sentence or two. */
+  readonly detail: string;
+  readonly executable?: string;
+  readonly id: string;
+  /** Where to read how to install it. */
+  readonly install: string;
+  readonly name: string;
+  readonly source?: "path" | "setting";
+  /** `ready`: found and signed in. */
+  readonly state: "ready" | "signed-out" | "missing";
+  readonly version?: string;
 }

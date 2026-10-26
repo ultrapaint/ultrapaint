@@ -24,6 +24,7 @@ import {
   ShieldOff,
   Sparkles,
 } from "lucide-react";
+import { useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,6 +43,7 @@ import {
 import { AgentIcon } from "../components/agent-icon.tsx";
 import { useAgents } from "../state/agents.ts";
 import { api } from "../state/connection.ts";
+import { readiness, useMachineAgents } from "../state/machine-agents.ts";
 import { reportError } from "../state/project.ts";
 
 const ON_OFF = [
@@ -170,6 +172,11 @@ const SelectOptionSub = ({
 /** The agent a thread's next prompt goes to, with its mark by each one. */
 const AgentSub = ({ thread }: { thread: Thread }) => {
   const agents = useAgents((s) => s.agents);
+  // Which are installed and signed in on this computer, where the shell can tell (Platform).
+  const machine = useMachineAgents((s) => s.agents);
+  useEffect(() => {
+    useMachineAgents.getState().load().catch(reportError);
+  }, []);
   const agent = agents.find((a) => a.id === thread.agentId);
   const busy = thread.status === "running" || thread.status === "cancelling";
   const onAgentChange = (agentId: unknown) => {
@@ -206,6 +213,11 @@ const AgentSub = ({ thread }: { thread: Thread }) => {
               >
                 <AgentIcon agentId={a.id} />
                 {a.name}
+                {readiness(machine[a.id]) ? (
+                  <span className="ml-auto pl-2 text-muted-foreground">
+                    {readiness(machine[a.id])}
+                  </span>
+                ) : null}
               </DropdownMenuRadioItem>
             ))}
           </DropdownMenuRadioGroup>

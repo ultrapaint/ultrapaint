@@ -5,6 +5,7 @@
  */
 import { contextBridge, ipcRenderer } from "electron";
 import {
+  type AgentStatus,
   Channel,
   type ListedProject,
   type PickFolderOptions,
@@ -12,6 +13,14 @@ import {
 } from "./ipc.ts";
 
 contextBridge.exposeInMainWorld("ultrapaintPlatform", {
+  agents: {
+    choosePath: (id: string): Promise<void> =>
+      ipcRenderer.invoke(Channel.agentsChoosePath, id),
+    clearPath: (id: string): Promise<void> =>
+      ipcRenderer.invoke(Channel.agentsClearPath, id),
+    list: (): Promise<readonly AgentStatus[]> =>
+      ipcRenderer.invoke(Channel.agentsList),
+  },
   notices: (): Promise<readonly ShellNotice[]> =>
     ipcRenderer.invoke(Channel.notices),
   pickFolder: (options?: PickFolderOptions): Promise<string | null> =>

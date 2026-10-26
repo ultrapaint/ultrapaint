@@ -23,16 +23,22 @@ import { Shell } from "./shell.ts";
 
 /** What the user is asked before agents at work are stopped. */
 export const stopQuestion = (
-  action: "switch" | "quit",
+  action: "switch" | "quit" | "restart",
   working: number,
   name: string
 ) => {
-  const stops =
-    action === "switch"
-      ? "Opening another project stops this one's server"
-      : "Quitting stops this project's server";
+  const stops = {
+    quit: "Quitting stops this project's server",
+    restart:
+      "Applying the change starts this project's server again, which stops it",
+    switch: "Opening another project stops this one's server",
+  }[action];
   return {
-    action: action === "switch" ? "Stop and switch" : "Stop and quit",
+    action: {
+      quit: "Stop and quit",
+      restart: "Stop and apply",
+      switch: "Stop and switch",
+    }[action],
     detail: `${stops}, and the agent's work with it. What it wrote so far stays.`,
     message:
       working === 1
@@ -69,6 +75,12 @@ export class OpenProject extends Context.Service<
     readonly open: (
       id: string
     ) => Effect.Effect<void, StoreError | UnknownProject | ServerStartError>;
+    /**
+     * Starts the open project's server again, so that it takes up a change to the agents; the
+     * editor comes back where it was. Asks first when agents are at work; nothing changes when
+     * the user says no, nor for a server the app only attached to.
+     */
+    readonly restart: Effect.Effect<void, StoreError | ServerStartError>;
     /** At start: the project opened last, or the page that asks for one. */
     readonly start: Effect.Effect<void, StoreError>;
     /**
@@ -101,7 +113,7 @@ export class OpenProject extends Context.Service<
          * Asked first when agents are at work in it; false when the user says no.
          */
         const release = Effect.fnUntraced(function* (
-          action: "switch" | "quit",
+          action: "switch" | "quit" | "restart",
           ask: boolean
         ) {
           const was = open;
@@ -124,7 +136,8 @@ export class OpenProject extends Context.Service<
         });
 
         const launch = Effect.fn("OpenProject.launch")(function* (
-          project: Project
+          project: Project,
+          keepLocation = false
         ) {
           const scope = yield* Scope.make();
           // Asked at each start: an agent installed or set up since is in the next one.
@@ -144,7 +157,11 @@ export class OpenProject extends Context.Service<
             );
           open = { project, scope, server };
           yield* store.opened(project.id);
-          yield* shell.show({ _tag: "Editor", url: server.url });
+          yield* shell.show({
+            _tag: "Editor",
+            ...(keepLocation ? { keepLocation } : {}),
+            url: server.url,
+          });
         });
 
         /** Shows why a project could not be opened, and fails with it. */
@@ -187,6 +204,17 @@ export class OpenProject extends Context.Service<
               open?.project.id === id ? Effect.void : openProject(project)
             ),
           openFolder,
+          restart: switching.withPermits(1)(
+            Effect.gen(function* () {
+              const was = open;
+              if (!was || was.server.attached) {
+                return;
+              }
+              if (yield* release("restart", true)) {
+                yield* showFailure(launch(was.project, true));
+              }
+            })
+          ),
           start: Effect.gen(function* () {
             const last = yield* store.last;
             if (Option.isNone(last)) {

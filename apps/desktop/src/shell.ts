@@ -6,7 +6,15 @@ import { Context, type Effect, type Option } from "effect";
 
 /** What the window shows: a project's editor, or the page that asks for a first project. */
 export type View =
-  | { readonly _tag: "Editor"; readonly url: string }
+  | {
+      readonly _tag: "Editor";
+      /**
+       * The same project's editor again, after its server restarted: the page goes on where it
+       * was (the settings section open, say), at the new server's address.
+       */
+      readonly keepLocation?: boolean;
+      readonly url: string;
+    }
   | { readonly _tag: "Welcome"; readonly problem?: string | undefined };
 
 export class Shell extends Context.Service<

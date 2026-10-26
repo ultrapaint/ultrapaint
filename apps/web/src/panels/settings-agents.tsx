@@ -17,7 +17,9 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Markdown } from "../components/markdown.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
+import { platform } from "../platform.ts";
 import { api } from "../state/connection.ts";
+import { readiness, useMachineAgents } from "../state/machine-agents.ts";
 import { reportError } from "../state/project.ts";
 import { type SendKey, useSendKey } from "../state/send-key.ts";
 import { useSkills } from "../state/skills.ts";
@@ -236,6 +238,8 @@ export const SendKeyGroup = () => {
  */
 export const ChatDefaultsGroup = () => {
   const [agents, setAgents] = useState<readonly AgentConfig[]>([]);
+  // Which are installed and signed in on this computer, where the shell can tell (Platform).
+  const machine = useMachineAgents((s) => s.agents);
   const [known, setKnown] = useState<readonly AgentOptions[]>([]);
   const [defaults, setDefaults] = useState<ChatDefaults | null>(null);
   /** Why the chosen agent could not list its models, once it has been asked. */
@@ -311,7 +315,14 @@ export const ChatDefaultsGroup = () => {
       <Row description="The agent a new chat starts with." title="Agent">
         <OptionSelect
           onChange={onAgent}
-          options={agents.map((a) => ({ label: a.name, value: a.id }))}
+          options={agents.map((a) => {
+            const word = readiness(machine[a.id]);
+            return {
+              ...(word === null ? {} : { description: word }),
+              label: a.name,
+              value: a.id,
+            };
+          })}
           value={agentId}
         />
       </Row>
@@ -328,6 +339,91 @@ export const ChatDefaultsGroup = () => {
           value={defaults.model ?? models[0]?.value ?? null}
         />
       </Row>
+    </Group>
+  );
+};
+
+/** Where an agent's executable was found, for the row that says so. */
+const foundAt = (agent: {
+  readonly executable?: string;
+  readonly source?: string;
+  readonly version?: string;
+}) => {
+  const where =
+    agent.source === "setting"
+      ? `${agent.executable}, set here`
+      : `${agent.executable}, on your PATH`;
+  return agent.version ? `${agent.version} at ${where}.` : `At ${where}.`;
+};
+
+/**
+ * The agents on this computer, as the desktop app finds them: installed or not, signed in or
+ * not, and where. An agent not on the PATH can be pointed at; the change starts the project's
+ * server again. Nothing in a browser.
+ */
+export const MachineAgentsGroup = () => {
+  const setup = platform().agents;
+  const agents = useMachineAgents((s) => s.agents);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    useMachineAgents.getState().load().catch(reportError);
+  }, []);
+  if (!setup) {
+    return null;
+  }
+  const change = (run: () => Promise<void>) => {
+    setBusy(true);
+    run()
+      .then(() => useMachineAgents.getState().load())
+      .catch(reportError)
+      .finally(() => setBusy(false));
+  };
+  return (
+    <Group
+      description="The agents the chats run, as this computer has them. Each runs from where it is installed, with its own sign-in."
+      title="On this computer"
+    >
+      {Object.values(agents).map((agent) => (
+        <Row
+          description={
+            <>
+              {agent.executable ? foundAt(agent) : null} {agent.detail}
+              {agent.state === "missing" ? (
+                <>
+                  {" "}
+                  <a href={agent.install} rel="noreferrer" target="_blank">
+                    How to install it
+                  </a>
+                </>
+              ) : null}
+            </>
+          }
+          key={agent.id}
+          title={agent.name}
+          wide
+        >
+          <div className="flex flex-wrap items-center justify-end gap-1">
+            {agent.customPath ? (
+              <Button
+                disabled={busy}
+                onClick={() => change(() => setup.clearPath(agent.id))}
+                size="sm"
+                variant="ghost"
+              >
+                Use the PATH
+              </Button>
+            ) : null}
+            <Button
+              disabled={busy}
+              onClick={() => change(() => setup.choosePath(agent.id))}
+              size="sm"
+              variant="outline"
+            >
+              Choose…
+            </Button>
+          </div>
+        </Row>
+      ))}
     </Group>
   );
 };

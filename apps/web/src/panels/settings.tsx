@@ -42,6 +42,7 @@ import { reportError, useProject } from "../state/project.ts";
 import { placeDocument } from "./design-md-view.tsx";
 import {
   ChatDefaultsGroup,
+  MachineAgentsGroup,
   McpConnectionGroup,
   SendKeyGroup,
   SkillsGroup,
@@ -270,6 +271,14 @@ const TailwindAlert = ({
     </Alert>
   );
 
+/**
+ * Whether a section is there before anything is saved: not one that needs a project, except the
+ * agents where the shell has agents of its own to set up (the desktop app).
+ */
+const shown = (id: SectionId) =>
+  !sections.find((s) => s.id === id)?.needsSaved ||
+  (id === "agents" && platform().agents !== undefined);
+
 /** The sections on the left. The first run has nothing saved, so it hides what needs a project. */
 const Sidebar = ({
   onBack,
@@ -288,7 +297,7 @@ const Sidebar = ({
     </div>
     <nav aria-label="Settings sections" className="flex flex-col gap-0.5 p-2">
       {sections
-        .filter((s) => showAll || !s.needsSaved)
+        .filter((s) => showAll || shown(s.id))
         .map(({ icon: Icon, id, label }) => {
           const active = id === section;
           return (
@@ -323,6 +332,27 @@ const Sidebar = ({
   </aside>
 );
 
+/** The agents: before anything is saved, only those on this computer, which need no project. */
+const AgentsSection = ({
+  disabledSkills,
+  onSkill,
+  saved,
+}: {
+  disabledSkills: readonly string[];
+  onSkill: (name: string, enabled: boolean) => void;
+  saved: boolean;
+}) =>
+  saved ? (
+    <>
+      <MachineAgentsGroup />
+      <ChatDefaultsGroup />
+      <SkillsGroup disabled={disabledSkills} onToggle={onSkill} />
+      <McpConnectionGroup />
+    </>
+  ) : (
+    <MachineAgentsGroup />
+  );
+
 const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const storage = useProject((s) => s.info.storage);
   const detected = useProject((s) => s.info.setup === "detected");
@@ -332,7 +362,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const wanted = useProject((s) => s.settingsSection);
   // The URL may name a section that does not exist, or one the first run hides.
   const section: SectionId =
-    sections.find((s) => s.id === wanted && (saved || !s.needsSaved))?.id ??
+    sections.find((s) => s.id === wanted && (saved || shown(s.id)))?.id ??
     "repository";
   const setSection = (id: SectionId) =>
     useProject.getState().openSettings(true, id);
@@ -689,11 +719,11 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   );
 
   const agents = (
-    <>
-      <ChatDefaultsGroup />
-      <SkillsGroup disabled={draft.skills?.disabled ?? []} onToggle={onSkill} />
-      <McpConnectionGroup />
-    </>
+    <AgentsSection
+      disabledSkills={draft.skills?.disabled ?? []}
+      onSkill={onSkill}
+      saved={saved !== null}
+    />
   );
 
   const body = {

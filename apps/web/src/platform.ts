@@ -43,7 +43,40 @@ export interface ShellNotice {
   readonly title: string;
 }
 
+/** How an agent stands on this machine, as the shell found it. */
+export interface PlatformAgent {
+  /** The executable set in the shell's settings, in place of the one on the PATH. */
+  readonly customPath?: string;
+  /** What was found, or what is missing and how to put it right. */
+  readonly detail: string;
+  readonly executable?: string;
+  /** The agent's id, as the server's agents have it: `claude-code`, `codex`. */
+  readonly id: string;
+  /** Where to read how to install it. */
+  readonly install: string;
+  readonly name: string;
+  /** Where the executable came from: the PATH, or the shell's settings. */
+  readonly source?: "path" | "setting";
+  /** `ready`: found and signed in; `signed-out`: found; `missing`: not found. */
+  readonly state: "ready" | "signed-out" | "missing";
+  readonly version?: string;
+}
+
+/**
+ * The agents on this machine, as a shell that runs them finds them (the desktop app). A change
+ * starts the project's server again, and the editor comes back where it was.
+ */
+export interface AgentSetup {
+  /** Picks the agent's executable with the shell's own dialog. */
+  readonly choosePath: (id: string) => Promise<void>;
+  /** Goes back to the agent on the PATH. */
+  readonly clearPath: (id: string) => Promise<void>;
+  readonly list: () => Promise<readonly PlatformAgent[]>;
+}
+
 export interface Platform {
+  /** The agents on this machine; absent in a browser, where the server's own are all there is. */
+  readonly agents?: AgentSetup;
   /**
    * The preview's URL as this window reaches it. The server names the preview by its address
    * on the server's machine; a server on another machine, over SSH, is reached through a port
