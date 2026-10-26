@@ -13,7 +13,6 @@ import {
 import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
-  useEffect,
   useRef,
   useState,
 } from "react";
@@ -69,7 +68,6 @@ export const useFramePointer = ({
   frameId,
   kind,
   root,
-  selecting,
 }: {
   canvas: string | null;
   /** Where the frame is on the canvas, which a node dragged off it starts from. */
@@ -77,21 +75,16 @@ export const useFramePointer = ({
   frameId: string;
   kind: "page" | "node";
   root: DesignNode | null;
-  /** The select layer is up: not while Space pans, nor in another mode. */
-  selecting: boolean;
 }) => {
   // Pointer interaction in select mode.
   const lastHit = useRef(0);
   /** Counts the hover lookups: only the latest one's answer counts, and none after a leave. */
   const hoverAsked = useRef(0);
-  // The select layer taken away under a resting pointer (Space held, another mode) sends no
-  // pointerleave, and the hover would stay drawn.
-  useEffect(() => {
-    if (!selecting) {
-      return;
-    }
-    return () => leaveHover(hoverAsked, frameId);
-  }, [selecting, frameId]);
+  /**
+   * The select layer taken away under a resting pointer (Space held, another mode) sends no
+   * pointerleave, and the hover would stay drawn: the layer calls this as it goes.
+   */
+  const onSelectLayerGone = () => leaveHover(hoverAsked, frameId);
   const toFrame = (e: ReactPointerEvent | ReactMouseEvent) => {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
     // The zoom the frame is drawn at: read when the pointer acts, so a zoom redraws no frame.
@@ -484,5 +477,6 @@ export const useFramePointer = ({
     onPointerMove,
     onPointerUp,
     onSelectClick,
+    onSelectLayerGone,
   };
 };

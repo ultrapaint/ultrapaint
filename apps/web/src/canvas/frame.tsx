@@ -8,7 +8,9 @@ import {
   memo,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
+  type RefObject,
   useEffect,
+  useEffectEvent,
   useRef,
   useState,
 } from "react";
@@ -159,8 +161,6 @@ interface Props {
 export const Frame = memo(
   ({ frameId, kind, page, frame, hostUrl, visible, onDragStart }: Props) => {
     const iframeRef = useRef<HTMLIFrameElement>(null);
-    const mode = useEditor((s) => s.mode);
-    const spacePan = useEditor((s) => s.spacePan);
     // Only what is selected or hovered in this frame: elsewhere it is no business of this one.
     const selectedHere = useSelectedIn(frameId);
     const alsoHere = useAlsoIn(frameId);
@@ -251,15 +251,6 @@ export const Frame = memo(
       }
     }, [frameId, kind, visible, url, root, problem, designSystem, ...look]);
 
-    // Outside interact mode the page is a picture: pointer events are off on the iframe, and
-    // the runtime swallows whatever else could reach a component.
-    useEffect(() => {
-      if (!(visible && url)) {
-        return;
-      }
-      bridgeFor(frameId).setInteractive(mode === "interact" && !spacePan);
-    }, [frameId, visible, url, mode, spacePan]);
-
     // A selection whose node is gone (an undo, an agent) is let go of.
     useEffect(() => {
       if (selectedHere !== null && root && !findNode(root, selectedHere)) {
@@ -287,10 +278,10 @@ export const Frame = memo(
       bridgeFor(frameId).watchRects(ids);
     }, [frameId, selectedHere, alsoHere, hoverHere, root, workIds]);
 
-    const selecting = useEditor(isSelecting);
     const {
       marquee,
       onCommentContextMenu,
+      onSelectLayerGone,
       onContextMenu,
       onDoubleClick,
       onPlaceComment,
@@ -305,7 +296,6 @@ export const Frame = memo(
       frameId,
       kind,
       root,
-      selecting,
     });
 
     const isNode = kind === "node";
@@ -339,47 +329,34 @@ export const Frame = memo(
           )}
         >
           {visible && url ? (
-            <iframe
-              className={cn(
-                "block h-full w-full border-0",
-                isNode ? "bg-transparent" : "bg-white"
-              )}
-              ref={iframeRef}
-              src={url}
-              style={{
-                pointerEvents:
-                  mode === "interact" && !spacePan ? "auto" : "none",
-              }}
+            <PreviewIframe
+              frameId={frameId}
+              iframeRef={iframeRef}
+              isNode={isNode}
               title={name}
+              url={url}
             />
           ) : (
             <div className="flex h-full items-center justify-center text-zinc-500">
               {url ? "" : "Preview host not running"}
             </div>
           )}
-          {selecting ? (
-            <button
-              aria-label={`Select in ${name}`}
-              className="absolute inset-0 h-full w-full cursor-default"
-              onClick={onSelectClick}
-              onContextMenu={onContextMenu}
-              onDoubleClick={onDoubleClick}
-              onPointerCancel={onPointerUp}
-              onPointerDown={onPointerDown}
-              onPointerLeave={onPointerLeave}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-              type="button"
-            />
-          ) : null}
-          {mode === "comment" && !spacePan && !isNode && (
-            <button
-              aria-label={`Comment on ${name}`}
-              className="absolute inset-0 h-full w-full"
+          <SelectLayer
+            name={name}
+            onClick={onSelectClick}
+            onContextMenu={onContextMenu}
+            onDoubleClick={onDoubleClick}
+            onGone={onSelectLayerGone}
+            onPointerDown={onPointerDown}
+            onPointerLeave={onPointerLeave}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+          />
+          {isNode ? null : (
+            <CommentLayer
+              name={name}
               onClick={onPlaceComment}
               onContextMenu={onCommentContextMenu}
-              style={{ cursor: commentCursor }}
-              type="button"
             />
           )}
           <AgentWorkOverlay frameId={frameId} pieces={work.pieces} />
@@ -407,6 +384,120 @@ export const Frame = memo(
   }
 );
 Frame.displayName = "Frame";
+
+/**
+ * The preview of a frame. Outside interact mode the page is a picture: pointer events are off on
+ * the iframe, and the runtime swallows whatever else could reach a component. Only this reads the
+ * mode, so Space or another tool draws no frame again.
+ */
+const PreviewIframe = ({
+  frameId,
+  iframeRef,
+  isNode,
+  title,
+  url,
+}: {
+  frameId: string;
+  iframeRef: RefObject<HTMLIFrameElement | null>;
+  isNode: boolean;
+  title: string;
+  url: string;
+}) => {
+  const interactive = useEditor(isInteractive);
+  useEffect(() => {
+    bridgeFor(frameId).setInteractive(interactive);
+  }, [frameId, interactive]);
+  return (
+    <iframe
+      className={cn(
+        "block h-full w-full border-0",
+        isNode ? "bg-transparent" : "bg-white"
+      )}
+      ref={iframeRef}
+      src={url}
+      style={{ pointerEvents: interactive ? "auto" : "none" }}
+      title={title}
+    />
+  );
+};
+
+type LayerHandler<E> = (e: E) => void;
+
+/** Over the frame in select mode, without Space held: what picks nodes in the preview. */
+const SelectLayer = ({
+  name,
+  onClick,
+  onContextMenu,
+  onDoubleClick,
+  onGone,
+  onPointerDown,
+  onPointerLeave,
+  onPointerMove,
+  onPointerUp,
+}: {
+  name: string;
+  onClick: LayerHandler<ReactMouseEvent>;
+  onContextMenu: LayerHandler<ReactMouseEvent>;
+  onDoubleClick: LayerHandler<ReactMouseEvent>;
+  /** Called as the layer goes away: the pointer resting on it then sends no leave. */
+  onGone: () => void;
+  onPointerDown: LayerHandler<ReactPointerEvent>;
+  onPointerLeave: LayerHandler<ReactPointerEvent>;
+  onPointerMove: LayerHandler<ReactPointerEvent>;
+  onPointerUp: LayerHandler<ReactPointerEvent>;
+}) => {
+  const selecting = useEditor(isSelecting);
+  const gone = useEffectEvent(onGone);
+  useEffect(() => {
+    if (selecting) {
+      return () => gone();
+    }
+  }, [selecting]);
+  if (!selecting) {
+    return null;
+  }
+  return (
+    <button
+      aria-label={`Select in ${name}`}
+      className="absolute inset-0 h-full w-full cursor-default"
+      onClick={onClick}
+      onContextMenu={onContextMenu}
+      onDoubleClick={onDoubleClick}
+      onPointerCancel={onPointerUp}
+      onPointerDown={onPointerDown}
+      onPointerLeave={onPointerLeave}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      type="button"
+    />
+  );
+};
+
+/** Over a page in comment mode, without Space held: a click places a comment. */
+const CommentLayer = ({
+  name,
+  onClick,
+  onContextMenu,
+}: {
+  name: string;
+  onClick: LayerHandler<ReactMouseEvent>;
+  onContextMenu: LayerHandler<ReactMouseEvent>;
+}) => {
+  const commenting = useEditor((s) => s.mode === "comment" && !s.spacePan);
+  if (!commenting) {
+    return null;
+  }
+  return (
+    <button
+      aria-label={`Comment on ${name}`}
+      className="absolute inset-0 h-full w-full"
+      onClick={onClick}
+      onContextMenu={onContextMenu}
+      style={{ cursor: commentCursor }}
+      type="button"
+    />
+  );
+};
 
 /** The box being drawn over a frame to select what it touches. */
 const Marquee = ({

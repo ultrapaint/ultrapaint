@@ -6,7 +6,7 @@
 import { useEffect, useRef } from "react";
 import { type AgentActivity, activityOnPage } from "../lib/agent-activity.ts";
 import { viewportSize } from "../lib/shortcuts.ts";
-import { useAgentActivity } from "../state/agent-activity.ts";
+import { useAgentActivityOf } from "../state/agent-activity.ts";
 import { useAgents } from "../state/agents.ts";
 import { openMenuAt } from "../state/context-menu.ts";
 import { useEditor } from "../state/editor.ts";
@@ -25,8 +25,9 @@ const VERBS: Record<AgentActivity["action"], string> = {
  * a constant size whatever the zoom, the way the page's name is.
  */
 export const FramePresence = ({ pageId }: { pageId: string }) => {
-  const activity = useAgentActivity();
-  const here = activityOnPage(activity, pageId);
+  const here = useAgentActivityOf((activity) =>
+    activityOnPage(activity, pageId)
+  );
   const threads = useAgents((s) => s.threads);
   if (!here) {
     return null;
@@ -64,12 +65,15 @@ export const FramePresence = ({ pageId }: { pageId: string }) => {
  */
 export const useFollowAgent = () => {
   const following = useAgents((s) => s.following);
-  const activity = useAgentActivity();
+  // Only the page the followed agent is on: the canvas this runs in is not drawn again for
+  // each word an agent writes.
+  const target = useAgentActivityOf(
+    (activity) =>
+      activity.find((a) => a.threadId === following)?.pageIds[0] ?? null
+  );
   const pages = useProject((s) => s.pages);
-  const followed = activity.find((a) => a.threadId === following);
   const lastPage = useRef<string | null>(null);
 
-  const target = followed?.pageIds[0] ?? null;
   useEffect(() => {
     if (!target || target === lastPage.current) {
       return;

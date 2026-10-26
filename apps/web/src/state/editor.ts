@@ -253,6 +253,31 @@ export const nodeFrameLayout = (
   y: node.y ?? 0,
 });
 
+/** Whether two reports of a frame's rects hold the same rects for the same nodes. */
+const sameRects = (
+  a: Readonly<Record<string, Rect>> | undefined,
+  b: Readonly<Record<string, Rect>>
+) => {
+  if (!a) {
+    return false;
+  }
+  const keys = Object.keys(a);
+  return (
+    keys.length === Object.keys(b).length &&
+    keys.every((key) => {
+      const was = a[key] as Rect;
+      const is = b[key];
+      return (
+        is !== undefined &&
+        was.x === is.x &&
+        was.y === is.y &&
+        was.width === is.width &&
+        was.height === is.height
+      );
+    })
+  );
+};
+
 /** A box on the canvas, in the canvas's own coordinates. */
 export interface Box {
   height: number;
@@ -578,8 +603,13 @@ export const useEditor = create<EditorStore>((set, get) => ({
     }
     get().setFrame(pageId, { ...f, ...sizeForPreset(preset, f), preset });
   },
+  // A preview reports again whenever its page changes; only rects that moved are news.
   setRects: (frame, rects) =>
-    set((s) => ({ rects: { ...s.rects, [frame]: rects } })),
+    set((s) =>
+      sameRects(s.rects[frame], rects)
+        ? s
+        : { rects: { ...s.rects, [frame]: rects } }
+    ),
   setRightTab: (rightTab) => set({ rightTab }),
   setSize: (frame, size) =>
     set((s) => {

@@ -8,6 +8,7 @@ import type {
 } from "@ultrapaint/contracts/project";
 import type { Settings } from "@ultrapaint/contracts/settings";
 import { create } from "zustand";
+import { keptAsTheyWere } from "../lib/kept-as-they-were.ts";
 import { platform } from "../platform.ts";
 import { api } from "./connection.ts";
 import { viewedSnapshot } from "./snapshot-view.ts";
@@ -124,7 +125,10 @@ export const bindProjectEvents = () => {
   // A snapshot on screen keeps its own list; the files' is read again on going back to now.
   c.on("pages", ({ canvases, pages }) => {
     if (!viewedSnapshot()) {
-      useProject.setState({ canvases, pages });
+      useProject.setState((s) => ({
+        canvases: keptAsTheyWere(s.canvases, canvases),
+        pages: keptAsTheyWere(s.pages, pages),
+      }));
     }
   });
   c.on("log", (line) =>

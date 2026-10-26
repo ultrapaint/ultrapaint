@@ -238,6 +238,11 @@ export const startPreview = () => {
   // ---- Rectangles ----
   let watched: string[] = [];
   let rectsScheduled = false;
+  /**
+   * The rects last sent, as text: the page changes under an animation every frame, and the editor
+   * needs to hear only when what it watches has moved. Forgotten when it asks for other nodes.
+   */
+  let rectsSent = "";
   const measure = (ids: readonly string[]) => {
     const rects: Record<string, ReturnType<typeof unionRect>> = {};
     for (const id of ids) {
@@ -250,8 +255,14 @@ export const startPreview = () => {
   };
   const sendRects = () => {
     rectsScheduled = false;
-    if (watched.length > 0) {
-      post({ rects: measure(watched), type: "ed:rects" });
+    if (watched.length === 0) {
+      return;
+    }
+    const rects = measure(watched);
+    const text = JSON.stringify(rects);
+    if (text !== rectsSent) {
+      rectsSent = text;
+      post({ rects, type: "ed:rects" });
     }
   };
   const scheduleRects = () => {
@@ -497,6 +508,7 @@ export const startPreview = () => {
       }
       case "ed:watchRects":
         watched = msg.nodeIds as string[];
+        rectsSent = "";
         scheduleRects();
         break;
       case "ed:skeleton":
