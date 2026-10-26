@@ -122,43 +122,14 @@ agent, not of the window. The New design dialog writes on this machine; on anoth
 `ultrapaint new`, run there. The preview's port is forwarded when the editor first asks for it.
 ADR 0031 has the details.
 
-### Phase 4: later
+### Phase 4 and after
 
-- [ ] A managed Node and pnpm in the app's data, for machines without them.
-- [ ] A password or passphrase prompt for SSH (`SSH_ASKPASS` fed from the window), and New design
-      on a remote machine.
-- [ ] Windows.
-- [ ] Updates, once the repository is public.
-- [ ] Tabs: several projects open at once.
+In [PLAN-desktop-next](PLAN-desktop-next.md), with what building Phases 0 to 3 found.
 
 ## Future: revision history
 
-Not planned yet; recorded so Phase 0's snapshot store is built for it.
-
-Today there are three kinds of history: the editor's undo (each action, in memory, lost on reload),
-a checkpoint per agent turn of the designs directory (0008, for reverting a turn), and named
-snapshots (0019). A revision history would sit between undo and named snapshots, as Figma's
-version history does: kept on disk, listed, each revision opened and restored.
-
-- An agent turn is one revision, as its checkpoint is today.
-- The user's own edits are grouped: a revision closes after a pause (a minute without an edit)
-  or a number of actions, so a session of small changes is a few revisions, not hundreds.
-- Each revision is a manifest in the snapshot store; unchanged files are shared between
-  revisions, so a revision costs only what it changed.
-- Undo stays per action and in memory; restoring a revision is itself undoable.
-
-To decide then: the grouping of user edits, how long revisions are kept, whether checkpoints
-become revisions or stay apart, and whether a revision covers the designs only or the code too.
+In [PLAN-revision-history](PLAN-revision-history.md).
 
 ## Open questions
 
-- **Storage adapters.** A free hosted version keeping the work in the browser's storage, or a
-  GitHub integration for working without a local repository. Both need the preview and the agents
-  somewhere: the browser cannot run the project's Vite or an agent CLI, so a hosted version means
-  either a canvas without the real components or a machine in the cloud. Deferred until the
-  desktop app is in use.
-- **Signing.** macOS builds need an Apple Developer account to open without a warning.
-- **The Changes panel.** To be redesigned. With a revision history, git's diffs matter less;
-  what the panel shows with git, without git, and next to the revisions is open.
-- **The SSH runtime.** Decided for now: the remote machine needs Node and the `ultrapaint`
-  command. A pinned runtime the app uploads, as T3 Code does, is later.
+Moved to [PLAN-desktop-next](PLAN-desktop-next.md), with the ones building it raised.
