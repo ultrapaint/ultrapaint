@@ -1,5 +1,5 @@
 import { createServer } from "node:net";
-import { homedir, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { NodeServices } from "@effect/platform-node";
 import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
 import type { Settings } from "@ultrapaint/contracts/settings";
@@ -187,7 +187,8 @@ export const makeTestServer = (
             host: "127.0.0.1",
             machine: {
               addresses: () => [],
-              home: homedir(),
+              // The fixture's home: the preview is generated under its cache, not the user's.
+              home,
               node: process.execPath,
               path: process.env.PATH ?? "",
               tmpdir: tmpdir(),

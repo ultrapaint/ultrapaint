@@ -20,7 +20,8 @@ type Listener = (msg: HostMessage) => void;
  * Where the design's look comes from when a render does not say: the app hands it the stores'
  * at startup, which keeps the bridge free of them.
  */
-let currentLook = (): DesignLook => ({ specs: [], styles: "" });
+const NO_LOOK: DesignLook = { specs: [], styles: "" };
+let currentLook = (): DesignLook => NO_LOOK;
 export const provideDesignLook = (look: () => DesignLook) => {
   currentLook = look;
 };
@@ -73,6 +74,8 @@ export class FrameBridge {
   private spoke: string | null = null;
   /** The preview has loaded and answers. */
   ready: boolean;
+  /** The last render the preview said it drew; what it is told again it does not draw again. */
+  renderedId = 0;
   readonly frameId: string;
 
   constructor(frameId: string) {
@@ -192,6 +195,9 @@ export class FrameBridge {
           detail: { frame: this.frameId, type: msg.type },
         })
       );
+    }
+    if (msg.type === "ed:rendered") {
+      this.renderedId = Math.max(this.renderedId, msg.renderId);
     }
     if (msg.type === "ed:ready" && !this.runtime) {
       this.ready = true;

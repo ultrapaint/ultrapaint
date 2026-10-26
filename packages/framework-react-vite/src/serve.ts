@@ -354,7 +354,9 @@ const server = await vite.createServer(
     plugins: [
       ultrapaintResolve({
         anchorDir: options.anchorDir,
-        from: [options.designsDir, options.bundleDir],
+        // The generated modules sit outside the repository: what they import resolves from the
+        // anchor, `#` imports and aliases included.
+        from: [options.designsDir, options.bundleDir, options.dir],
       }),
       servePage,
       serveAsset,

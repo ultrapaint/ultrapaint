@@ -41,8 +41,8 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { bridgeFor } from "../canvas/bridge.ts";
-import { useHostUrl } from "../canvas/frame.tsx";
-import { usePreviewBridge } from "../canvas/use-preview-bridge.ts";
+import { usePreview } from "../canvas/preview-module.ts";
+import { PreviewSurface } from "../canvas/preview-surface.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";
@@ -257,25 +257,10 @@ const typeSpecimen = (ds: DesignSystem, q: string): DesignNode => {
 };
 
 const TypeSpecimen = ({ ds, q }: { ds: DesignSystem; q: string }) => {
-  const host = useHostUrl();
-  const ref = useRef<HTMLIFrameElement>(null);
-  const [height, setHeight] = useState(120);
+  const running = usePreview() !== null;
+  const ref = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
   const frame = "design-system:typography";
-  usePreviewBridge(
-    ref,
-    host ? frame : null,
-    host,
-    (msg) => {
-      if (msg.type === "ed:ready") {
-        setReady(true);
-      }
-      if (msg.type === "ed:size") {
-        setHeight(msg.height);
-      }
-    },
-    () => setReady(false)
-  );
   useEffect(() => {
     if (ready) {
       bridgeFor(frame).render({
@@ -301,7 +286,7 @@ const TypeSpecimen = ({ ds, q }: { ds: DesignSystem; q: string }) => {
       showMenu(target, anchor);
     }
   };
-  if (!host) {
+  if (!running) {
     return (
       <div className="px-3 py-2 font-body text-muted-foreground">
         The preview is not running; type samples are drawn by it.
@@ -314,12 +299,17 @@ const TypeSpecimen = ({ ds, q }: { ds: DesignSystem; q: string }) => {
       <div
         className="overflow-hidden rounded-md border bg-white"
         onContextMenu={onContextMenu}
+        ref={ref}
       >
-        <iframe
-          className="pointer-events-none block w-full origin-top-left border-0"
-          ref={ref}
-          src={`${host}/?frame=${encodeURIComponent(frame)}`}
-          style={{ height }}
+        <PreviewSurface
+          className="w-full"
+          frameId={frame}
+          hostClassName="block w-full"
+          onMessage={(msg) => {
+            if (msg.type === "ed:ready") {
+              setReady(true);
+            }
+          }}
           title="Type samples"
         />
       </div>

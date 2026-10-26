@@ -19,7 +19,7 @@ import {
 } from "@ultrapaint/contracts/specs";
 import { STATE_ATTRIBUTE } from "@ultrapaint/design-document/spec";
 import { ArrowLeft, Code2, Trash2, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,8 +30,8 @@ import {
 } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
 import { bridgeFor } from "../canvas/bridge.ts";
-import { useHostUrl } from "../canvas/frame.tsx";
-import { usePreviewBridge } from "../canvas/use-preview-bridge.ts";
+import { usePreview } from "../canvas/preview-module.ts";
+import { PreviewSurface } from "../canvas/preview-surface.tsx";
 import { confirmDialog } from "../components/dialogs.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";
@@ -243,26 +243,10 @@ const Matrix = ({
   meta: ComponentMeta | undefined;
   spec: ComponentSpec;
 }) => {
-  const host = useHostUrl();
+  const running = usePreview() !== null;
   const ds = useDesignSystem((s) => s.designSystem);
-  const ref = useRef<HTMLIFrameElement>(null);
-  const [height, setHeight] = useState(120);
   const [ready, setReady] = useState(false);
   const frame = "design-system:components";
-  usePreviewBridge(
-    ref,
-    host ? frame : null,
-    host,
-    (msg) => {
-      if (msg.type === "ed:ready") {
-        setReady(true);
-      }
-      if (msg.type === "ed:size") {
-        setHeight(msg.height);
-      }
-    },
-    () => setReady(false)
-  );
   useEffect(() => {
     if (!ready) {
       return;
@@ -282,7 +266,7 @@ const Matrix = ({
       root: matrixOf(spec, meta, spec.component),
     });
   }, [ready, ds, spec, meta]);
-  if (!host) {
+  if (!running) {
     return (
       <div className="px-3 py-2 font-body text-muted-foreground">
         The preview is not running; the component is drawn by it.
@@ -292,11 +276,15 @@ const Matrix = ({
   return (
     // A spec with many fields and notes overflows the panel: the matrix keeps its height.
     <div className="shrink-0 overflow-hidden rounded-md border bg-white">
-      <iframe
-        className="pointer-events-none block w-full border-0"
-        ref={ref}
-        src={`${host}/?frame=${encodeURIComponent(frame)}`}
-        style={{ height }}
+      <PreviewSurface
+        className="w-full"
+        frameId={frame}
+        hostClassName="block w-full"
+        onMessage={(msg) => {
+          if (msg.type === "ed:ready") {
+            setReady(true);
+          }
+        }}
         title={`${spec.component} in its variants and states`}
       />
     </div>

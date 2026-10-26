@@ -35,14 +35,14 @@ import { useDesignLookVersion } from "../state/look.ts";
 import { useProject } from "../state/project.ts";
 import { bridgeFor } from "./bridge.ts";
 import { commentCursor, FrameComments, placeComment } from "./comments.tsx";
-import { useHostUrl } from "./frame.tsx";
 import { HotspotLayer, HotspotsToggle, onPrototypePress } from "./hotspots.tsx";
-import { usePreviewBridge } from "./use-preview-bridge.ts";
+import { usePreview } from "./preview-module.ts";
+import { PreviewSurface } from "./preview-surface.tsx";
 
 /** Room kept free around the page for the cards at the top and the bottom strip. */
 const inset = { bottom: 72, side: 32, top: 64 };
 
-/** Asks the prototype to reload its iframe, which restarts the canvas from its current route. */
+/** Asks the prototype to draw its page anew, which restarts the canvas from its current route. */
 const RELOAD_EVENT = "ultrapaint:reload-prototype";
 
 const DEVICE_KEY = "ultrapaint:prototype-device";
@@ -66,7 +66,7 @@ const useDevice = create<{
 const pickDevice = (value: string) =>
   useDevice.getState().setDevice(parseDevice(value));
 
-/** The one iframe of a prototype. Navigating swaps the page inside it, it never reloads. */
+/** The one frame of a prototype. Navigating swaps the page inside it, it is never drawn anew. */
 export const frameIdOf = (canvas: string) => `prototype:${canvas}`;
 
 /** Tells the prototype what the route shows: the page serving it, in the design system. */
@@ -154,7 +154,6 @@ const PageComments = ({
  */
 export const Prototype = () => {
   const ref = useRef<HTMLDivElement>(null);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
   const canvas = useEditor((s) => s.canvas);
   const route = useEditor((s) => s.route);
   const activePage = useEditor((s) => s.activePage);
@@ -164,7 +163,7 @@ export const Prototype = () => {
   const pages = useProject((s) => s.pages);
   const title =
     route ?? pages.find((p) => p.id === activePage)?.name ?? "Prototype";
-  const hostUrl = useHostUrl();
+  const preview = usePreview();
   const device = useDevice((s) => s.device);
   const [area, setArea] = useState({ height: 0, width: 0 });
   const [reloads, setReloads] = useState(0);
@@ -188,11 +187,6 @@ export const Prototype = () => {
     };
   }, []);
 
-  const url =
-    hostUrl && canvas !== null
-      ? `${hostUrl}/?canvas=${encodeURIComponent(canvas)}&frame=${encodeURIComponent(frameIdOf(canvas))}`
-      : null;
-
   const size = deviceSize(device, frame);
   const scale = Math.min(
     1,
@@ -203,30 +197,11 @@ export const Prototype = () => {
   let content: string | null = null;
   if (!hasPages) {
     content = "This canvas has no pages yet";
-  } else if (!hostUrl) {
+  } else if (!preview) {
     content = "Preview host not running";
   }
-  // The iframe only exists once the area is measured, which is after the first render.
-  const shown = content === null && url !== null && scale > 0;
-
-  // `reloads` remounts the iframe, and `shown` mounts it in the first place: the bridge has to
-  // be attached to whichever iframe is there, or its `ed:ready` goes unheard.
-  usePreviewBridge(
-    iframeRef,
-    url && canvas !== null ? frameIdOf(canvas) : null,
-    `${url}:${reloads}:${shown}`,
-    (msg, bridge) => {
-      if (msg.type === "ed:ready" && canvas !== null) {
-        // Whatever the iframe started on, the editor says what it shows; and it is for clicking.
-        renderRoute(canvas);
-        bridge.setInteractive(true);
-      }
-      if (msg.type === "ed:navigateTo") {
-        followLink(msg.route, { push: !msg.replace });
-      }
-      onPrototypePress(msg, useEditor.getState().activePage);
-    }
-  );
+  // The frame only exists once the area is measured, which is after the first render.
+  const shown = content === null && canvas !== null && scale > 0;
 
   // The editor holds the route; the preview draws the page serving it, without reloading.
   const document = useDocuments((s) =>
@@ -236,10 +211,10 @@ export const Prototype = () => {
   const look = useDesignLookVersion();
   // biome-ignore lint/correctness/useExhaustiveDependencies: what is drawn is the dependency.
   useEffect(() => {
-    if (canvas !== null && url && bridgeFor(frameIdOf(canvas)).ready) {
+    if (canvas !== null && shown && bridgeFor(frameIdOf(canvas)).ready) {
       renderRoute(canvas);
     }
-  }, [route, canvas, url, document, designSystem, ...look]);
+  }, [route, canvas, shown, document, designSystem, ...look]);
 
   return (
     <div
@@ -256,22 +231,35 @@ export const Prototype = () => {
           style={{ height: size.height * scale, width: size.width * scale }}
         >
           <div className="relative h-full w-full overflow-hidden rounded-md bg-white shadow-2xl">
-            <iframe
-              className="block origin-top-left border-0 bg-white"
-              key={`${canvas}:${reloads}`}
-              ref={iframeRef}
-              src={url}
-              style={{
-                height: size.height,
-                transform: `scale(${scale})`,
-                width: size.width,
-              }}
-              title={title}
-            />
+            {canvas === null ? null : (
+              <PreviewSurface
+                canvas={canvas}
+                className="origin-top-left bg-white"
+                frameId={frameIdOf(canvas)}
+                interactive
+                // A reload draws the page anew, from the route the editor holds.
+                key={`${canvas}:${reloads}`}
+                onMessage={(msg) => {
+                  if (msg.type === "ed:ready") {
+                    renderRoute(canvas);
+                  }
+                  if (msg.type === "ed:navigateTo") {
+                    followLink(msg.route, { push: !msg.replace });
+                  }
+                  onPrototypePress(msg, useEditor.getState().activePage);
+                }}
+                style={{
+                  height: size.height,
+                  transform: `scale(${scale})`,
+                  width: size.width,
+                }}
+                title={title}
+              />
+            )}
             {canvas === null ? null : (
               <HotspotLayer
                 frameId={frameIdOf(canvas)}
-                // A reloaded iframe has a bridge of its own, which the layer has to listen to.
+                // A frame drawn anew has a bridge of its own, which the layer has to listen to.
                 key={`hotspots:${canvas}:${reloads}`}
                 page={activePage}
                 scale={scale}

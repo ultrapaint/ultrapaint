@@ -128,7 +128,6 @@ const draw = async (thread: Thread) => {
   }
   drawnFrom.set(thread.id, source.from);
   const shot = await drawSpecimen(
-    host,
     source.root,
     useDesignSystem.getState().designSystem,
     source.options

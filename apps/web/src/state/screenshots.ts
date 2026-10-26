@@ -15,7 +15,6 @@ const draw = async (request: ScreenshotRequest) => {
     return { problem: "the editor's preview is not running" };
   }
   const dataUrl = await drawSpecimen(
-    url,
     request.root,
     useDesignSystem.getState().designSystem,
     {

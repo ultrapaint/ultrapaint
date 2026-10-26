@@ -1,50 +1,42 @@
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import type { EditorMessage } from "@ultrapaint/contracts/preview";
+import type {
+  FrameEvents,
+  FrameRuntime,
+  Preview,
+} from "@ultrapaint/framework-api/browser";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { bridgeFor } from "./bridge.ts";
-import { drawSpecimen, pictureKey, READY_MS } from "./specimens.ts";
+import { drawSpecimen, pictureKey } from "./specimens.ts";
 
-/** A hidden iframe as the specimens make it, whose preview answers when `alive`. */
-interface FakeFrame {
-  alive: boolean;
-  removed: boolean;
-}
+/** The preview the specimens draw with: none until a test gives one. */
+let preview: Preview | null = null;
+vi.mock("./preview-module.ts", () => ({
+  previewReady: () => Promise.resolve(preview),
+}));
 
-const frames: FakeFrame[] = [];
-let alive = false;
-
-const makeFrame = () => {
-  const bridge = bridgeFor("specimen");
-  const frame: FakeFrame = { alive, removed: false };
-  frames.push(frame);
-  return {
-    contentWindow: {
-      postMessage: (msg: EditorMessage) => {
-        if (!frame.alive) {
-          return;
-        }
-        // The preview answers on its own turn, as a real one does.
-        queueMicrotask(() => {
-          if (msg.type === "ed:render") {
-            bridge.handle({ renderId: msg.renderId, type: "ed:rendered" });
-          } else if (msg.type === "ed:screenshot") {
-            bridge.handle({
-              dataUrl: "data:image/png;base64,AA",
-              requestId: msg.requestId,
-              type: "ed:screenshot",
-            });
-          }
-        });
-      },
+/** A preview whose frame draws on its own turn, as React does, and is captured as `picture`. */
+const fakePreview = (picture: string | null) => {
+  const drawn: unknown[] = [];
+  const mounted: string[] = [];
+  const value = {
+    mountFrame: (
+      _host: HTMLElement,
+      options: { canvas: string; events: FrameEvents }
+    ) => {
+      mounted.push(options.canvas);
+      return {
+        render: (request: { renderId: number; root: unknown }) => {
+          drawn.push(request.root);
+          queueMicrotask(() => options.events.rendered?.(request.renderId));
+        },
+        screenshot: () => Promise.resolve(picture),
+        setInteractive: () => undefined,
+        skeleton: () => undefined,
+        unmount: () => undefined,
+        watchRects: () => undefined,
+      } as unknown as FrameRuntime;
     },
-    remove: () => {
-      frame.removed = true;
-    },
-    setAttribute: () => undefined,
-    src: "",
-    style: {},
-    tabIndex: 0,
-  };
+  } as unknown as Preview;
+  return { drawn, mounted, value };
 };
 
 const node: DesignNode = {
@@ -56,11 +48,15 @@ const node: DesignNode = {
 
 beforeEach(() => {
   vi.useFakeTimers();
-  frames.length = 0;
-  alive = false;
+  preview = null;
   vi.stubGlobal("document", {
     body: { append: () => undefined },
-    createElement: makeFrame,
+    createElement: () => ({
+      dataset: {},
+      remove: () => undefined,
+      setAttribute: () => undefined,
+      style: {},
+    }),
   });
   vi.stubGlobal("requestAnimationFrame", (cb: () => void) =>
     setTimeout(cb, 16)
@@ -73,35 +69,33 @@ afterEach(() => {
 });
 
 describe("drawSpecimen", () => {
-  it("gives up on a preview that never loads, and loads it afresh for the next picture", async () => {
-    const first = drawSpecimen("http://preview", node, null, { canvas: "a" });
-    await vi.advanceTimersByTimeAsync(READY_MS);
-    await expect(first).resolves.toBeNull();
-    expect(frames).toHaveLength(1);
-    expect(frames[0]?.removed).toBe(true);
-
-    // The preview is back: the next picture makes a new iframe, which answers.
-    alive = true;
-    const second = drawSpecimen("http://preview", node, null, { canvas: "a" });
-    await vi.advanceTimersByTimeAsync(0);
-    expect(frames).toHaveLength(2);
-    bridgeFor("specimen").handle({ frame: "specimen", type: "ed:ready" });
-    await vi.advanceTimersByTimeAsync(200);
-    await expect(second).resolves.toBe("data:image/png;base64,AA");
+  it("draws nothing while the preview is not running", async () => {
+    await expect(drawSpecimen(node, null)).resolves.toBeNull();
   });
 
-  it("draws the pictures queued behind one whose preview did not answer", async () => {
-    const stuck = drawSpecimen("http://preview", node, null, { canvas: "b" });
-    const behind = drawSpecimen("http://preview", node, null, { canvas: "b" });
-    alive = true;
-    await vi.advanceTimersByTimeAsync(READY_MS);
-    await expect(stuck).resolves.toBeNull();
-    // The one behind it opened its own iframe instead of waiting on the dead one.
-    await vi.advanceTimersByTimeAsync(0);
-    expect(frames.at(-1)?.removed).toBe(false);
-    bridgeFor("specimen").handle({ frame: "specimen", type: "ed:ready" });
+  it("draws one picture after the other in the frame nobody sees", async () => {
+    const fake = fakePreview("data:image/png;base64,AA");
+    preview = fake.value;
+    const first = drawSpecimen(node, null, { canvas: "a" });
+    const second = drawSpecimen({ ...node, id: "m" }, null, { canvas: "a" });
     await vi.advanceTimersByTimeAsync(200);
-    await expect(behind).resolves.toBe("data:image/png;base64,AA");
+    await expect(first).resolves.toBe("data:image/png;base64,AA");
+    await expect(second).resolves.toBe("data:image/png;base64,AA");
+    expect(fake.drawn).toHaveLength(2);
+    // One frame for the canvas, kept for the next picture.
+    expect(fake.mounted).toEqual(["a"]);
+  });
+
+  it("takes a picture of what the frame shows already, without waiting for it to draw again", async () => {
+    const fake = fakePreview("data:image/png;base64,AA");
+    preview = fake.value;
+    const first = drawSpecimen(node, null, { canvas: "c" });
+    await vi.advanceTimersByTimeAsync(200);
+    await first;
+    const again = drawSpecimen(node, null, { canvas: "c" });
+    await vi.advanceTimersByTimeAsync(200);
+    await expect(again).resolves.toBe("data:image/png;base64,AA");
+    expect(fake.drawn).toHaveLength(1);
   });
 });
 

@@ -1,21 +1,27 @@
 /**
- * Pictures of single nodes, drawn by an iframe of the preview nobody sees: the Assets panel's
- * thumbnails, and the screenshots agents ask for. One node at a time, with the repository's
- * stylesheet and its real components, then captured.
+ * Pictures of single nodes, drawn in a frame of the editor's page nobody sees (ADR 0034): the
+ * Assets panel's thumbnails, the threads' pictures, the toolbar's options and the screenshots
+ * agents ask for. One node at a time, with the repository's stylesheet and its real components,
+ * then captured.
  */
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { HostMessage, RenderMode } from "@ultrapaint/contracts/preview";
+import type { FrameRuntime, Preview } from "@ultrapaint/framework-api/browser";
 import { bridgeFor } from "./bridge.ts";
+import { previewReady } from "./preview-module.ts";
 
 const FRAME = "specimen";
 const WIDTH = 1200;
 const HEIGHT = 900;
 
-let iframe: HTMLIFrameElement | null = null;
-let ready: Promise<boolean> | null = null;
+let specimen: {
+  canvas: string;
+  host: HTMLElement;
+  preview: Preview;
+  runtime: FrameRuntime;
+} | null = null;
 let queue: Promise<unknown> = Promise.resolve();
-let srcOf: string | null = null;
 
 /**
  * Two frames for layout to settle, or a moment when the tab is in the background: frames are not
@@ -30,64 +36,46 @@ const settle = () =>
   ]);
 
 /**
- * How long the preview has to load and say it is ready. One that never does is given up on, so a
- * dead preview fails the pictures asked of it instead of holding every later one up.
+ * The frame nobody sees, made once and kept; made again for another canvas, whose images are
+ * found elsewhere. Null while the preview is not running.
  */
-export const READY_MS = 20_000;
-
-/**
- * The hidden iframe, loaded from the preview at `host`, made once and kept; made again for
- * another canvas, whose images are found elsewhere. Whether it answered in time: one that did
- * not is taken down, and the next picture loads the preview afresh.
- */
-const open = (host: string, canvas: string): Promise<boolean> => {
-  const src = `${host}/?canvas=${encodeURIComponent(canvas)}&frame=${FRAME}`;
-  if (iframe && ready && srcOf === src) {
-    return ready;
+const open = async (canvas: string) => {
+  const preview = await previewReady();
+  if (!preview) {
+    return null;
   }
-  iframe?.remove();
-  srcOf = src;
-  const el = document.createElement("iframe");
-  el.setAttribute("aria-hidden", "true");
-  el.tabIndex = -1;
-  // Inside the viewport, under everything and transparent: the browser throttles an iframe
-  // from another origin that is out of view, and it would never answer.
-  el.style.cssText = `position:fixed;left:0;top:0;width:${WIDTH}px;height:${HEIGHT}px;border:0;pointer-events:none;background:transparent;opacity:0;z-index:-1`;
-  el.src = src;
-  iframe = el;
+  if (specimen?.preview === preview && specimen.canvas === canvas) {
+    return specimen;
+  }
+  specimen?.runtime.unmount();
+  specimen?.host.remove();
+  const host = document.createElement("div");
+  host.setAttribute("aria-hidden", "true");
+  host.dataset.edFrameHost = FRAME;
+  // Drawn, but nowhere the pointer or the eye goes.
+  host.style.cssText = `position:fixed;left:-20000px;top:0;width:${WIDTH}px;height:${HEIGHT}px;pointer-events:none`;
+  document.body.append(host);
   const bridge = bridgeFor(FRAME);
-  const opening = new Promise<boolean>((resolve) => {
-    const timer = setTimeout(() => {
-      off();
-      resolve(false);
-    }, READY_MS);
-    const off = bridge.on((msg) => {
-      if (msg.type === "ed:ready") {
-        clearTimeout(timer);
-        off();
-        resolve(true);
-      }
-    });
+  const runtime = preview.mountFrame(host, {
+    canvas,
+    events: bridge.events(),
+    frame: FRAME,
+    still: true,
   });
-  ready = opening;
-  opening.then((answered) => {
-    if (!answered && ready === opening) {
-      el.remove();
-      bridge.detach();
-      iframe = null;
-      ready = null;
-      srcOf = null;
-    }
-  });
-  document.body.append(el);
-  bridge.attach(el);
-  return opening;
+  bridge.attachRuntime(runtime);
+  specimen = { canvas, host, preview, runtime };
+  return specimen;
 };
 
-/** Waits for the preview to have drawn a render, however long its components take to load. */
+/** Waits for the frame to have drawn a render, however long its components take to load. */
 const rendered = (renderId: number, timeoutMs: number) =>
   new Promise<boolean>((resolve) => {
     const bridge = bridgeFor(FRAME);
+    // Told again what it shows, it does not draw it again.
+    if (bridge.renderedId >= renderId) {
+      resolve(true);
+      return;
+    }
     const timer = setTimeout(() => {
       off();
       resolve(false);
@@ -113,19 +101,17 @@ export interface SpecimenOptions {
 
 /** A PNG of the node as the preview draws it, or null when it could not be drawn. */
 export const drawSpecimen = (
-  host: string,
   node: DesignNode,
   designSystem: DesignSystem | null,
   options: SpecimenOptions = {}
 ): Promise<string | null> => {
   const task = queue.then(async () => {
-    if (!(await open(host, options.canvas ?? ""))) {
+    const frame = await open(options.canvas ?? "");
+    if (!frame) {
       return null;
     }
-    if (iframe) {
-      iframe.style.width = `${options.width ?? WIDTH}px`;
-      iframe.style.height = `${options.height ?? HEIGHT}px`;
-    }
+    frame.host.style.width = `${options.width ?? WIDTH}px`;
+    frame.host.style.height = `${options.height ?? HEIGHT}px`;
     const bridge = bridgeFor(FRAME);
     const id = bridge.render({
       designSystem,

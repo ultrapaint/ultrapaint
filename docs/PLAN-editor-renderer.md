@@ -1,6 +1,6 @@
 # Plan: frames drawn in the editor's page, without iframes
 
-Status: proposed, 2026-10-26; Phases 0, 1 and 2 done 2026-10-26. Through
+Status: proposed, 2026-10-26; Phases 0 to 3 done 2026-10-26. Through
 [ADR 0034](adr/0034-frames-in-the-editors-page.md): supersedes 0011's iframes, amends 0015, 0031
 and 0033. Builds on 0028, 0029 and 0030.
 
@@ -172,12 +172,17 @@ With 50 frames (the Redesign pages five times) all 50 are drawn in 1.7 s, pannin
 30% busy and zooming 73%, with no frame over 33 ms while panning and two in 120 while zooming;
 the renderer holds 471 MB.
 
-### Phase 3: pictures and the prototype
+### Phase 3: pictures and the prototype — done
 
-- [ ] 3.1 Specimens, thumbnails, the threads' pictures and the toolbar's previews draw into small
-      shadow roots out of sight.
-- [ ] 3.2 Screenshots and page PNGs: html-to-image on a frame's root, from the editor.
-- [ ] 3.3 The prototype mounts its page without `inert`: the components' own behaviour.
+- [x] 3.1 The pictures (the Assets panel's thumbnails, the threads', the toolbar's options and the
+      screenshots agents ask for) are drawn in one shadow host nobody sees (`specimens.ts`); the
+      type samples and a component's matrix in `PreviewSurface`, a shadow host drawn by the
+      preview and spoken to through its bridge.
+- [x] 3.2 A picture is html-to-image on the frame's own elements: about 0.3 s for a page of the
+      samples. The page PNGs and agents' screenshots go through it.
+- [x] 3.3 The prototype is a `PreviewSurface` that takes input: on sacro-cuore its header's menu
+      opens (a Base UI popup, moved into the frame, placed under its button) and its links go to
+      their pages. No iframe is left in the editor.
 
 ### Phase 4: what goes, the desktop app, the records
 

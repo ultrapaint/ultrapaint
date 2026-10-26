@@ -1,4 +1,4 @@
-import { homedir, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import {
@@ -27,7 +27,7 @@ const startServer = (home: string, port: number) =>
             host: "127.0.0.1",
             machine: {
               addresses: () => [],
-              home: homedir(),
+              home,
               node: process.execPath,
               path: process.env.PATH ?? "",
               tmpdir: tmpdir(),

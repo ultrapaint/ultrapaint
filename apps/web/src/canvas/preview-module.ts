@@ -66,3 +66,20 @@ export const usePreview = (): Preview | null => {
   const current = useSyncExternalStore(subscribe, snapshot);
   return entry !== null && current?.entry === entry ? current.preview : null;
 };
+
+/**
+ * The preview, once its module has loaded; null when the project's preview is not running or
+ * its module could not be loaded. For what draws outside React: pictures, screenshots.
+ */
+export const previewReady = async (): Promise<Preview | null> => {
+  const { host } = useProject.getState().info;
+  if (host.state !== "running" || !host.entry) {
+    return null;
+  }
+  try {
+    return (await load(host.entry)).preview;
+  } catch {
+    // Not loaded: no picture is drawn, and the next one tries again.
+    return null;
+  }
+};

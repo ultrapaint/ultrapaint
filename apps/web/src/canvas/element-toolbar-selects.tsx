@@ -209,7 +209,7 @@ const useVariantPreviews = (
           // Cropped to the instance: what wraps it may take the whole preview. One at a time,
           // as the frame that draws them draws one thing.
           // biome-ignore lint/performance/noAwaitInLoops: the pictures are drawn one after the other.
-          const picture = await drawSpecimen(host, root, ds, {
+          const picture = await drawSpecimen(root, ds, {
             canvas,
             nodeId: root.id,
           });

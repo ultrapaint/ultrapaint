@@ -195,8 +195,8 @@ const useThumbnails = (
   const missingOf = useEffectEvent((wanted: readonly string[]) =>
     components.filter((c) => wanted.includes(c.name) && !thumbnails[c.name])
   );
-  const draw = useEffectEvent((url: string, c: ComponentMeta) =>
-    drawSpecimen(url, instanceOf(c), designSystem)
+  const draw = useEffectEvent((c: ComponentMeta) =>
+    drawSpecimen(instanceOf(c), designSystem)
   );
 
   useEffect(() => {
@@ -230,7 +230,7 @@ const useThumbnails = (
           return;
         }
         // biome-ignore lint/performance/noAwaitInLoops: one iframe draws one thumbnail at a time.
-        const dataUrl = await draw(host, c);
+        const dataUrl = await draw(c);
         if (cancelled || !dataUrl) {
           continue;
         }
