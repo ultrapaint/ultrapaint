@@ -637,6 +637,29 @@ const makeComponents = (initial: ComponentRegistry) => {
     cache.set(key, component);
     return component;
   };
+  /** The loaders already started, so each module is asked for once. */
+  const started = new Set<() => Promise<unknown>>();
+  /**
+   * Starts loading every module the tree's instances come from, all at once. Drawn, each
+   * component loads only once React reaches it, and one inside another waits for the outer one:
+   * a page of nested components loaded them one after the other.
+   */
+  const preload = (root: DesignNode) => {
+    const walk = (node: DesignNode) => {
+      if (node.type === "instance") {
+        const load = registry[node.from];
+        if (load && !started.has(load)) {
+          started.add(load);
+          // A module that fails is reported where its instance is drawn.
+          load().catch(() => undefined);
+        }
+      }
+      for (const child of childrenOf(node)) {
+        walk(child);
+      }
+    };
+    walk(root);
+  };
   /** How many times the registry was replaced: a reloaded module may no longer throw. */
   let replaced = 0;
   const replace = (next: ComponentRegistry) => {
@@ -651,7 +674,13 @@ const makeComponents = (initial: ComponentRegistry) => {
     }
     registry = next;
   };
-  return { componentOf, generation: () => replaced, learned, replace };
+  return {
+    componentOf,
+    generation: () => replaced,
+    learned,
+    preload,
+    replace,
+  };
 };
 
 export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
@@ -744,6 +773,9 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
       styles,
     };
     const { root: node } = request;
+    if (node) {
+      components.preload(node);
+    }
     let body: ReactNode;
     if (request.message !== undefined || node === null) {
       body = createElement(Message, {
