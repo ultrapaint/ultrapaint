@@ -188,6 +188,7 @@ input[type="number"]::-webkit-inner-spin-button {
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+  --color-rail: var(--rail);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -262,6 +263,8 @@ input[type="number"]::-webkit-inner-spin-button {
   --canvas: oklch(0.965 0.001 286);
   --canvas-grid: oklch(0.141 0.005 285.823 / 9%);
   --sidebar: oklch(0.985 0 0);
+  /* The rail, a shade under the panel it opens. */
+  --rail: oklch(0.95 0.002 286);
   --sidebar-foreground: oklch(0.141 0.005 285.823);
   --sidebar-primary: oklch(0.21 0.006 285.885);
   --sidebar-primary-foreground: oklch(0.985 0 0);
@@ -302,6 +305,7 @@ input[type="number"]::-webkit-inner-spin-button {
   --chart-4: oklch(0.37 0.013 285.805);
   --chart-5: oklch(0.274 0.006 286.033);
   --sidebar: oklch(0.21 0.006 285.885);
+  --rail: oklch(0.18 0.006 285.885);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
   --sidebar-primary-foreground: oklch(0.985 0 0);

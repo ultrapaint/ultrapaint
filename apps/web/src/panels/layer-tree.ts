@@ -245,3 +245,20 @@ export const treeMove = (
       return null;
   }
 };
+
+/**
+ * The rows that open for every branch to show one level more: each folded one seen with rows
+ * under it.
+ */
+export const oneLevelOpen = (rows: readonly VisibleRow[]): string[] =>
+  rows.filter((r) => r.expandable && !r.expanded).map((r) => r.key);
+
+/**
+ * The rows that fold for every branch to show one level less: the open ones with none open under
+ * them.
+ */
+export const oneLevelFolded = (rows: readonly VisibleRow[]): string[] => {
+  const open = rows.filter((r) => r.expanded);
+  const outer = new Set(open.map((r) => r.parent));
+  return open.filter((r) => !outer.has(r.key)).map((r) => r.key);
+};

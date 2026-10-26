@@ -5,6 +5,8 @@ import {
   filterLayers,
   type LayerItem,
   looseItem,
+  oneLevelFolded,
+  oneLevelOpen,
   openUnless,
   pageItem,
   pageKey,
@@ -137,6 +139,26 @@ describe("the rows that can be seen", () => {
       "node:note#note",
     ]);
     expect(rows[1]).toMatchObject({ expandable: true, expanded: false });
+  });
+});
+
+describe("one level at a time", () => {
+  it("opens every folded branch one level", () => {
+    const rows = visibleRows(
+      items,
+      openUnless(new Set(["home#hero", "home#footer"]))
+    );
+    expect(oneLevelOpen(rows)).toEqual(["home#hero", "home#footer"]);
+  });
+
+  it("folds the innermost open rows of each branch, then the ones above", () => {
+    const all = visibleRows(items, openUnless(new Set()));
+    expect(oneLevelFolded(all)).toEqual(["home#hero", "home#footer"]);
+    const less = visibleRows(
+      items,
+      openUnless(new Set(["home#hero", "home#footer"]))
+    );
+    expect(oneLevelFolded(less)).toEqual(["home#page"]);
   });
 });
 

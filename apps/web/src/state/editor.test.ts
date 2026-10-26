@@ -238,8 +238,8 @@ describe("setWorkspace", () => {
 
     useEditor.getState().setWorkspace("prototype");
     expect(useEditor.getState()).toMatchObject({
-      // The layers are Design's: the chat is shown instead.
-      leftTab: "chat",
+      // The prototype shows its pages, not the rail's panels: the layers wait for the canvas.
+      leftTab: "layers",
       mode: "interact",
       selection: null,
     });
@@ -256,7 +256,7 @@ describe("setWorkspace", () => {
     });
   });
 
-  it("keeps a panel every workspace offers", () => {
+  it("keeps the canvas's left panel for its return", () => {
     useEditor.setState({ leftTab: "changes", workspace: "design" });
     useEditor.getState().setWorkspace("prototype");
     expect(useEditor.getState().leftTab).toBe("changes");

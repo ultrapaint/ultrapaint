@@ -19,6 +19,8 @@ import { cn } from "cn";
 import {
   ChevronDown,
   ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
   Eye,
   EyeOff,
   File,
@@ -46,6 +48,7 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group";
+import { IconButton } from "../components/icon-button.tsx";
 import { NodeIcon } from "../components/node-icon.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { describeLink } from "../lib/links.ts";
@@ -81,6 +84,8 @@ import {
   type LayerItem,
   layerKey,
   looseItem,
+  oneLevelFolded,
+  oneLevelOpen,
   openUnless,
   pageItem,
   pageKey,
@@ -330,6 +335,38 @@ const LayerFilter = ({
   );
 };
 
+/**
+ * The panel's title, with the buttons that open every branch one level more or fold it one level
+ * less. Without the tree they do nothing.
+ */
+const LayersHeading = ({
+  onCollapse,
+  onExpand,
+}: {
+  onCollapse?: (() => void) | undefined;
+  onExpand?: (() => void) | undefined;
+}) => (
+  <div className="flex h-9 shrink-0 items-center gap-0.5 pr-1.5 pl-3">
+    <span className="flex-1 font-heading-xsmall">Layers</span>
+    <IconButton
+      disabled={!onExpand}
+      onClick={onExpand}
+      size="icon-xs"
+      tooltip="Expand one level"
+    >
+      <ChevronsUpDown />
+    </IconButton>
+    <IconButton
+      disabled={!onCollapse}
+      onClick={onCollapse}
+      size="icon-xs"
+      tooltip="Collapse one level"
+    >
+      <ChevronsDownUp />
+    </IconButton>
+  </div>
+);
+
 /** The heights of the panel's lines, which the window of drawn rows is worked out from. */
 const PAGE_ROW = 28;
 const PAGE_PROBLEM = 20;
@@ -339,6 +376,17 @@ const HEADING = 32;
 const LIST_PAD = 4;
 /** Drawn beyond what is seen, either side, so a scroll shows rows already there. */
 const OVERSCAN = 300;
+
+/** What the panel says instead of the tree, or null when there is one to show. */
+const emptyText = (canvas: string | null, loaded: boolean, count: number) => {
+  if (canvas === null) {
+    return "Open a canvas from the Pages panel";
+  }
+  if (!loaded) {
+    return "Reading the designs…";
+  }
+  return count === 0 ? "Nothing on this canvas yet" : null;
+};
 
 /** A line of the list: a row, or the heading over the nodes placed on the canvas. */
 type Line = { kind: "heading" } | { kind: "row"; row: VisibleRow };
@@ -489,6 +537,20 @@ export const Layers = () => {
   const toggle = (key: string) =>
     setFolding((prev) => withKey(prev, key, !prev.has(key)));
 
+  /** Opens or folds each of the rows, from whichever way it is now. */
+  const flipRows = (keys: readonly string[]) =>
+    setFolding((prev) => {
+      const next = new Set(prev);
+      for (const key of keys) {
+        if (!next.delete(key)) {
+          next.add(key);
+        }
+      }
+      return next;
+    });
+  const toOpen = oneLevelOpen(rows);
+  const toFold = oneLevelFolded(rows);
+
   /** Opens or folds a row, whichever way it is by default. */
   const setRowOpen = (key: string, open: boolean) => {
     const item = findItem(shown, key);
@@ -601,14 +663,14 @@ export const Layers = () => {
     }
   };
 
-  if (canvas === null) {
-    return <PanelEmpty>Open a canvas from the Pages panel</PanelEmpty>;
-  }
-  if (!loaded) {
-    return <PanelEmpty>Reading the designs…</PanelEmpty>;
-  }
-  if (pages.length === 0 && nodes.length === 0) {
-    return <PanelEmpty>Nothing on this canvas yet</PanelEmpty>;
+  const empty = emptyText(canvas, loaded, pages.length + nodes.length);
+  if (empty) {
+    return (
+      <div className="flex h-full flex-col">
+        <LayersHeading />
+        <PanelEmpty>{empty}</PanelEmpty>
+      </div>
+    );
   }
 
   const shared: Shared = {
@@ -624,6 +686,10 @@ export const Layers = () => {
 
   return (
     <div className="flex h-full flex-col">
+      <LayersHeading
+        onCollapse={toFold.length > 0 ? () => flipRows(toFold) : undefined}
+        onExpand={toOpen.length > 0 ? () => flipRows(toOpen) : undefined}
+      />
       <LayerFilter onDown={onFilterDown} onQuery={onQuery} query={query} />
       <div
         aria-label="Layers"

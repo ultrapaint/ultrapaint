@@ -2,7 +2,7 @@ import type { Canvas } from "@ultrapaint/contracts/pages";
 import { cn } from "cn";
 import {
   Check,
-  ChevronsUpDown,
+  ChevronDown,
   EllipsisVertical,
   FileUp,
   Frame,
@@ -16,11 +16,6 @@ import {
   useState,
 } from "react";
 import { Input } from "@/components/ui/input";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { IconButton } from "../components/icon-button.tsx";
 import {
   newCanvas,
@@ -55,7 +50,7 @@ export const InlineInput = ({
   const onChange = (e: ChangeEvent<HTMLInputElement>) =>
     setDraft(e.target.value);
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    // The popover and the canvas have keys of their own; typing is the field's.
+    // The canvas has keys of its own; typing is the field's.
     e.stopPropagation();
     if (e.key === "Escape") {
       onCancel();
@@ -85,11 +80,9 @@ export const InlineInput = ({
 const CanvasList = ({
   canvases,
   current,
-  onOpened,
 }: {
   canvases: readonly Canvas[];
   current: string | null;
-  onOpened: () => void;
 }) => {
   const [dropAt, setDropAt] = useState<number | null>(null);
   const onDrop = (e: DragEvent) => {
@@ -131,7 +124,6 @@ const CanvasList = ({
               );
             }
           }}
-          onOpened={onOpened}
         />
       ))}
     </div>
@@ -145,7 +137,6 @@ const CanvasRow = ({
   dropBelow,
   onDragEnd,
   onDragOver,
-  onOpened,
 }: {
   canvas: Canvas;
   current: boolean;
@@ -154,7 +145,6 @@ const CanvasRow = ({
   dropBelow: boolean;
   onDragEnd: () => void;
   onDragOver: (e: DragEvent) => void;
-  onOpened: () => void;
 }) => {
   const [renaming, setRenaming] = useState(false);
   const count = useProject(
@@ -175,10 +165,7 @@ const CanvasRow = ({
     setRenaming(false);
     renameCanvas(canvas, name);
   };
-  const open = () => {
-    openCanvas(canvas.id);
-    onOpened();
-  };
+  const open = () => openCanvas(canvas.id);
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: the row's buttons raise the menu from the keyboard, and it bubbles here.
     <div
@@ -241,10 +228,11 @@ const CanvasRow = ({
 };
 
 /**
- * The canvas on screen, under the project, in every workspace: canvases hold pages, so the
- * switch between them sits above whatever panel is open. It opens the list of canvases.
+ * The canvas on screen, in a card of its own between the project and the left panel, in every
+ * workspace: canvases hold pages, so the switch between them sits above whatever panel is open.
+ * Expanded, the card lists the canvases and grows down, and the panel under it gets shorter.
  */
-export const CanvasSwitcher = () => {
+export const CanvasCard = ({ width }: { width: number | null }) => {
   const configured = useProject((s) => s.info.configured);
   const canvases = useProject((s) => s.canvases);
   const current = useEditor((s) => s.canvas);
@@ -253,53 +241,54 @@ export const CanvasSwitcher = () => {
     return null;
   }
   const name = canvases.find((c) => c.id === current)?.name ?? "No canvas";
-  const close = () => setOpen(false);
-  const create = () => {
-    close();
-    newCanvas();
-  };
-  const importFile = () => {
-    close();
-    pickFigmaFile();
-  };
   return (
-    <Popover onOpenChange={setOpen} open={open}>
-      <PopoverTrigger
-        className="flex h-9 shrink-0 items-center gap-2 border-b px-3 text-left font-body outline-none hover:bg-muted/40 focus-visible:bg-muted/40 data-popup-open:bg-muted/40"
-        title="Canvases"
+    <section
+      aria-label="Canvases"
+      className="floating pointer-events-auto flex max-h-[50%] shrink-0 flex-col"
+      style={width === null ? undefined : { width }}
+    >
+      <button
+        aria-expanded={open}
+        className="flex h-9 shrink-0 items-center gap-2 rounded-[inherit] px-3 text-left font-body outline-none hover:bg-muted/40 focus-visible:bg-muted/40"
+        onClick={() => setOpen(!open)}
+        title={open ? "Hide the canvases" : "Show the canvases"}
+        type="button"
       >
         <Frame className="size-3.5 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate font-medium">{name}</span>
-        <ChevronsUpDown className="size-3 shrink-0 text-muted-foreground" />
-      </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        className="w-(--anchor-width) min-w-60 gap-1 p-1"
-        sideOffset={2}
-      >
-        <div className="px-2 pt-1 pb-0.5 font-heading-xsmall text-muted-foreground">
-          Canvases
+        <ChevronDown
+          className={cn(
+            "size-3.5 shrink-0 text-muted-foreground transition-transform",
+            open && "rotate-180"
+          )}
+        />
+      </button>
+      {open ? (
+        <div className="flex min-h-0 flex-col gap-1 overflow-auto border-t p-1">
+          <div className="px-2 pt-1 pb-0.5 font-heading-xsmall text-muted-foreground">
+            Canvases
+          </div>
+          <CanvasList canvases={canvases} current={current} />
+          <div className="my-0.5 h-px bg-border" />
+          <button
+            className="flex h-7 shrink-0 items-center gap-2 rounded-md px-1.5 text-left font-body text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+            onClick={newCanvas}
+            type="button"
+          >
+            <Plus className="size-3.5" />
+            New canvas
+          </button>
+          <button
+            className="flex h-7 shrink-0 items-center gap-2 rounded-md px-1.5 text-left font-body text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+            onClick={pickFigmaFile}
+            title="An agent turns the frames of a .fig file into pages of this canvas"
+            type="button"
+          >
+            <FileUp className="size-3.5" />
+            Import a Figma file…
+          </button>
         </div>
-        <CanvasList canvases={canvases} current={current} onOpened={close} />
-        <div className="my-0.5 h-px bg-border" />
-        <button
-          className="flex h-7 items-center gap-2 rounded-md px-1.5 text-left font-body text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-          onClick={create}
-          type="button"
-        >
-          <Plus className="size-3.5" />
-          New canvas
-        </button>
-        <button
-          className="flex h-7 items-center gap-2 rounded-md px-1.5 text-left font-body text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-          onClick={importFile}
-          title="An agent turns the frames of a .fig file into pages of this canvas"
-          type="button"
-        >
-          <FileUp className="size-3.5" />
-          Import a Figma file…
-        </button>
-      </PopoverContent>
-    </Popover>
+      ) : null}
+    </section>
   );
 };
