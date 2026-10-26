@@ -5,12 +5,19 @@
  * (`useInv`), or which frames are near the screen (`useFramesInView`), which changes far less
  * often than the view.
  */
-import { type RefObject, useEffect, useLayoutEffect, useState } from "react";
+import {
+  type RefObject,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { useDocuments } from "../state/documents.ts";
 import { allFrames, useEditor } from "../state/editor.ts";
 import { useDrag } from "./drag.ts";
 import { gridBackground } from "./grid.ts";
-import { framesNear, NEAR_MARGIN } from "./mounting.ts";
+import { framesNear, framesToShow, NEAR_MARGIN } from "./mounting.ts";
+import { isWarm, LOADING_MAX, onPoolChange } from "./preview-pool.ts";
 
 interface View {
   x: number;
@@ -104,31 +111,41 @@ const sameSet = (a: ReadonlySet<string>, b: ReadonlySet<string>) =>
   a.size === b.size && [...a].every((id) => b.has(id));
 
 /**
- * The frames near the screen, worked out once a frame from the view, the frames and the nodes on
- * the canvas, and handed to React only when the set changes. A node dragged by its name counts
- * as near: it is where the pointer is.
+ * The frames to show: those near the screen, worked out once a frame from the view, the frames
+ * and the nodes on the canvas, and handed to React only when the set changes. A frame whose
+ * preview is loaded (kept by the pool) shows at once; the others load a few at a time, nearest the
+ * middle first (`framesToShow`). A node dragged by its name is shown: it is where the pointer is.
  */
 export const useFramesInView = (screen: {
   height: number;
   width: number;
 }): ReadonlySet<string> => {
   const [inView, setInView] = useState<ReadonlySet<string>>(() => new Set());
+  const shown = useRef<ReadonlySet<string>>(inView);
   const { height, width } = screen;
   useEffect(() => {
     let pending: number | null = null;
     const update = () => {
       pending = null;
-      const next = framesNear(
-        allFrames(),
-        useEditor.getState().view,
-        { height, width },
-        NEAR_MARGIN
-      );
+      const boxes = allFrames();
+      const { view } = useEditor.getState();
+      const next = framesToShow({
+        boxes,
+        loadingMax: LOADING_MAX,
+        near: framesNear(boxes, view, { height, width }, NEAR_MARGIN),
+        screen: { height, width },
+        shown: shown.current,
+        view,
+        warm: isWarm,
+      });
       const { dragged } = useDrag.getState();
       if (dragged?.kind === "loose") {
         next.add(dragged.frame);
       }
-      setInView((prev) => (sameSet(prev, next) ? prev : next));
+      if (!sameSet(shown.current, next)) {
+        shown.current = next;
+        setInView(next);
+      }
     };
     // Several stores may change in one go (a canvas opened, then its view): one look at them all.
     const soon = () => {
@@ -157,6 +174,8 @@ export const useFramesInView = (screen: {
           soon();
         }
       }),
+      // A preview that drew lets the next one load.
+      onPoolChange(soon),
     ];
     return () => {
       for (const off of offs) {

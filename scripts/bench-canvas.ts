@@ -99,7 +99,6 @@ interface TreeNode {
 interface BenchWindow {
   __bench: {
     frameRenders: number;
-    iframes: { frame: string; kind: "add" | "remove"; t: number }[];
     longTasks: { d: number; t: number }[];
     messages: { frame: string; t: number; type: string }[];
   };
@@ -130,8 +129,8 @@ interface BenchWindow {
 }
 
 /**
- * Runs in the editor before the app does: records the preview iframes coming and going, what the
- * previews say (stamped with their frame), long tasks, and how many times React drew a `Frame`.
+ * Runs in the editor before the app does: records what the previews say (stamped with their
+ * frame; `ed:ready` is a document loaded), long tasks, and how many times React drew a `Frame`.
  */
 const instrument = () => {
   if (window.top !== window) {
@@ -140,7 +139,6 @@ const instrument = () => {
   const now = () => performance.timeOrigin + performance.now();
   const bench: BenchWindow["__bench"] = {
     frameRenders: 0,
-    iframes: [],
     longTasks: [],
     messages: [],
   };
@@ -167,35 +165,6 @@ const instrument = () => {
       });
     }
   }).observe({ buffered: true, type: "longtask" });
-  const frameOf = (el: Element) =>
-    el.closest("[data-frame]")?.getAttribute("data-frame") ?? "";
-  const iframesIn = (n: Node) => {
-    if (!(n instanceof Element)) {
-      return [];
-    }
-    return n.tagName === "IFRAME" ? [n] : [...n.querySelectorAll("iframe")];
-  };
-  const record = (
-    nodes: NodeList,
-    kind: "add" | "remove",
-    /** Where they were: a node gone from the document has no frame above it any more. */
-    parent: Node,
-    t: number
-  ) => {
-    const at = parent instanceof Element ? frameOf(parent) : "";
-    for (const n of nodes) {
-      for (const f of iframesIn(n)) {
-        bench.iframes.push({ frame: frameOf(f) || at, kind, t });
-      }
-    }
-  };
-  new MutationObserver((mutations) => {
-    const t = now();
-    for (const m of mutations) {
-      record(m.addedNodes, "add", m.target, t);
-      record(m.removedNodes, "remove", m.target, t);
-    }
-  }).observe(document, { childList: true, subtree: true });
   // A stand-in for React DevTools: counts the commits in which a `Frame` drew again.
   const seen = new Map<string, unknown>();
   interface Fiber {
@@ -479,11 +448,14 @@ const untilLive = async (
         if (!frame?.querySelector("iframe")) {
           return null;
         }
-        const added =
-          b.iframes.findLast((e) => e.frame === id && e.kind === "add")?.t ?? 0;
+        // Since its document last loaded: a preview moved back from where it was kept
+        // shows what it drew before.
+        const loaded =
+          b.messages.findLast((m) => m.frame === id && m.type === "ed:ready")
+            ?.t ?? 0;
         return (
           b.messages.find(
-            (m) => m.frame === id && m.type === "ed:rendered" && m.t >= added
+            (m) => m.frame === id && m.type === "ed:rendered" && m.t >= loaded
           )?.t ?? null
         );
       });
@@ -564,14 +536,14 @@ const gesture = (page: Page, input: Gesture) =>
           if (!frame?.querySelector("iframe")) {
             return false;
           }
-          const added = b.iframes.findLast(
-            (e) => e.frame === id && e.kind === "add"
+          const loaded = b.messages.findLast(
+            (m) => m.frame === id && m.type === "ed:ready"
           );
           return b.messages.some(
             (m) =>
               m.frame === id &&
               m.type === "ed:rendered" &&
-              m.t >= (added?.t ?? 0)
+              m.t >= (loaded?.t ?? 0)
           );
         };
         const track = (t: number) => {
@@ -714,10 +686,9 @@ const counts = (page: Page, from: number) =>
     const b = (window as unknown as BenchWindow).__bench;
     return {
       frameRenders: b.frameRenders,
-      iframesAdded: b.iframes.filter((e) => e.kind === "add" && e.t >= since)
-        .length,
-      iframesRemoved: b.iframes.filter(
-        (e) => e.kind === "remove" && e.t >= since
+      // Documents loaded in a preview: what a frame shown again costs when it was not kept.
+      previewLoads: b.messages.filter(
+        (m) => m.type === "ed:ready" && m.t >= since
       ).length,
     };
   }, from);
@@ -874,9 +845,10 @@ const benchSwitch = async (page: Page): Promise<Result> => {
     const stray = await page.evaluate(
       ({ start, shown }) => {
         const b = (window as unknown as BenchWindow).__bench;
-        // Frames mounted that are not on screen: the canvas drew a view it was leaving.
-        return b.iframes.filter(
-          (e) => e.kind === "add" && e.t >= start && !shown.includes(e.frame)
+        // Previews loaded for frames not on screen: the canvas drew a view it was leaving.
+        return b.messages.filter(
+          (m) =>
+            m.type === "ed:ready" && m.t >= start && !shown.includes(m.frame)
         ).length;
       },
       { shown: ids, start: since }
@@ -884,7 +856,7 @@ const benchSwitch = async (page: Page): Promise<Result> => {
     runs.push({
       allDrawnMs,
       onScreen: ids.length,
-      strayMounts: stray,
+      strayLoads: stray,
       to: canvas,
       ...(await counts(page, since)),
     });

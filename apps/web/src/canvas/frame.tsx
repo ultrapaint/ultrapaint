@@ -11,6 +11,7 @@ import {
   type RefObject,
   useEffect,
   useEffectEvent,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -44,6 +45,7 @@ import {
   useSelectedIn,
 } from "./frame-highlights.tsx";
 import { PageToolbar } from "./page-toolbar.tsx";
+import { parkPreview, placePreview, previewDrawn } from "./preview-pool.ts";
 import { useFramePointer } from "./use-frame-pointer.ts";
 import { usePreviewBridge } from "./use-preview-bridge.ts";
 
@@ -196,6 +198,9 @@ export const Frame = memo(
       (msg, bridge) => {
         const store = useEditor.getState;
         switch (msg.type) {
+          case "ed:rendered":
+            previewDrawn(frameId);
+            break;
           case "ed:ready":
             // A repository may pin its own framework package one day; an older preview
             // would then misread what the editor sends.
@@ -226,6 +231,7 @@ export const Frame = memo(
             break;
           case "ed:error":
             store().setHostError(frameId, formatHostError(msg.error));
+            previewDrawn(frameId);
             break;
           case "ed:textCommit":
             commitText(frameId, msg.nodeId, msg.text);
@@ -237,7 +243,10 @@ export const Frame = memo(
           default:
             break;
         }
-      }
+      },
+      undefined,
+      // The pool keeps the preview, and its bridge, while the frame is away.
+      false
     );
 
     // Whatever changed the document, the design system or the design's look, the preview draws
@@ -404,21 +413,54 @@ const PreviewIframe = ({
   url: string;
 }) => {
   const interactive = useEditor(isInteractive);
+  const holder = useRef<HTMLDivElement>(null);
+  // Placed before the bridge attaches to it, which happens in the frame's passive effects.
+  useLayoutEffect(() => {
+    if (!holder.current) {
+      return;
+    }
+    return showPreview(frameId, url, holder.current, iframeRef, isNode);
+  }, [frameId, url, isNode, iframeRef]);
   useEffect(() => {
+    describePreview(iframeRef.current, title, interactive);
     bridgeFor(frameId).setInteractive(interactive);
-  }, [frameId, interactive]);
-  return (
-    <iframe
-      className={cn(
-        "block h-full w-full border-0",
-        isNode ? "bg-transparent" : "bg-white"
-      )}
-      ref={iframeRef}
-      src={url}
-      style={{ pointerEvents: interactive ? "auto" : "none" }}
-      title={title}
-    />
+  }, [frameId, iframeRef, title, interactive]);
+  return <div className="h-full w-full" ref={holder} />;
+};
+
+/**
+ * Puts the frame's preview in its holder, from the pool (`preview-pool.ts`), and parks it there
+ * again once the frame no longer shows it.
+ */
+const showPreview = (
+  frameId: string,
+  url: string,
+  holder: HTMLElement,
+  iframeRef: RefObject<HTMLIFrameElement | null>,
+  isNode: boolean
+) => {
+  iframeRef.current = placePreview(
+    frameId,
+    url,
+    holder,
+    cn("block h-full w-full border-0", isNode ? "bg-transparent" : "bg-white")
   );
+  return () => {
+    parkPreview(frameId);
+    iframeRef.current = null;
+  };
+};
+
+/** What the preview is called, and whether the pointer reaches it. */
+const describePreview = (
+  iframe: HTMLIFrameElement | null,
+  title: string,
+  interactive: boolean
+) => {
+  if (iframe) {
+    iframe.title = title;
+    iframe.style.pointerEvents = interactive ? "auto" : "none";
+  }
 };
 
 type LayerHandler<E> = (e: E) => void;

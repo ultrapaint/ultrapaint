@@ -63,6 +63,11 @@ export class FrameBridge {
   }
 
   attach(iframe: HTMLIFrameElement) {
+    // A preview kept loaded while its frame was away comes back as it was: ready, and speaking
+    // from where it did.
+    if (iframe === this.iframe) {
+      return;
+    }
     this.iframe = iframe;
     this.ready = false;
     this.spoke = null;

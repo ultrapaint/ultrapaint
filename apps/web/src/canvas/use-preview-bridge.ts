@@ -4,7 +4,9 @@ import { bridgeFor, type FrameBridge, removeBridge } from "./bridge.ts";
 
 /**
  * Attaches the bridge of `frameId` to the iframe in `iframe`, hands it what the preview sends,
- * and removes the bridge once the iframe goes. `frameId` is null while there is nothing to
+ * and removes the bridge once the iframe goes, unless `release` is false: a frame on the canvas
+ * keeps its preview loaded while it is away (`preview-pool.ts`), which removes the bridge when it
+ * drops the preview. `frameId` is null while there is nothing to
  * attach to. `mount` changes whenever the iframe element may have been replaced (a new address,
  * a reload, the iframe mounted at last): the bridge is attached to whichever one is there, or
  * its `ed:ready` goes unheard.
@@ -18,7 +20,8 @@ export const usePreviewBridge = (
   frameId: string | null,
   mount: unknown,
   onMessage: (msg: HostMessage, bridge: FrameBridge) => void,
-  onDetach?: () => void
+  onDetach?: () => void,
+  release = true
 ) => {
   const handle = useEffectEvent(onMessage);
   const detached = useEffectEvent(() => onDetach?.());
@@ -33,8 +36,10 @@ export const usePreviewBridge = (
     const off = bridge.on((msg) => handle(msg, bridge));
     return () => {
       off();
-      removeBridge(frameId);
+      if (release) {
+        removeBridge(frameId);
+      }
       detached();
     };
-  }, [iframe, frameId, mount]);
+  }, [iframe, frameId, mount, release]);
 };
