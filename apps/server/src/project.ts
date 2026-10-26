@@ -17,6 +17,7 @@ import type { ChildProcessSpawner } from "effect/process";
 import { AppLog } from "./app-log.ts";
 import type { ServerConfig } from "./config.ts";
 import { EventBus } from "./events.ts";
+import type { PreviewProxy } from "./preview-proxy.ts";
 import { CatalogueService } from "./services/catalogue.ts";
 import { CommentsService } from "./services/comments.ts";
 import { ComponentRegistry } from "./services/component-registry.ts";
@@ -65,6 +66,7 @@ export type ProjectServices =
 
 type ProjectRequirements =
   | AppLog
+  | PreviewProxy
   | ChildProcessSpawner.ChildProcessSpawner
   | EventBus
   | FileSystem.FileSystem

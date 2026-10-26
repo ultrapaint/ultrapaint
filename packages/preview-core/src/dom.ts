@@ -11,8 +11,11 @@ import {
  * wrapper, and one without a box of its own is `display: contents`, which has no box to
  * measure: what the component rendered inside it is.
  */
-export const elementsOf = (id: string): Element[] => {
-  const found = document.querySelectorAll(nodeSelector(id));
+export const elementsOf = (
+  id: string,
+  root: ParentNode = document
+): Element[] => {
+  const found = root.querySelectorAll(nodeSelector(id));
   const out: Element[] = [];
   for (const el of Array.from(found)) {
     if (getComputedStyle(el).display === "contents") {

@@ -15,6 +15,11 @@ const dist = fromSource
 export interface PreviewBundles {
   /** Directory of the browser bundles; the preview server is allowed to serve from it. */
   readonly dir: string;
+  /**
+   * ES module the editor's page loads (ADR 0034): the preview core's frames and the renderer,
+   * `createPreview`; `react` stays an import, so it is the repository's.
+   */
+  readonly editor: string;
   /** ES module with `renderToCanvas`; `react` stays an import, so it is the repository's. */
   readonly render: string;
   /** Classic script injected ahead of the screen: preview core plus React's introspector. */
@@ -32,6 +37,7 @@ const inputsFile = path.resolve(here, "../.cache/preview-inputs.json");
 
 const bundles: PreviewBundles = {
   dir: dist,
+  editor: path.join(dist, "editor.js"),
   render: path.join(dist, "render.js"),
   runtime: path.join(dist, "runtime.js"),
   serve: path.join(dist, "serve.mjs"),
@@ -110,7 +116,13 @@ export const buildPreviewBundles = async (
   }
   const runtimeSource = sourceOf("@ultrapaint/renderer-react/runtime");
   const renderSource = sourceOf("@ultrapaint/renderer-react/render");
-  const outputs = [bundles.render, bundles.runtime, bundles.serve];
+  const editorSource = sourceOf("@ultrapaint/renderer-react/editor");
+  const outputs = [
+    bundles.editor,
+    bundles.render,
+    bundles.runtime,
+    bundles.serve,
+  ];
   // Paths in the metafile are relative to the working directory: this one, made explicit.
   const common = {
     absWorkingDir: here,
@@ -134,6 +146,15 @@ export const buildPreviewBundles = async (
       entryPoints: [runtimeSource],
       format: "iife",
       outfile: bundles.runtime,
+      platform: "browser",
+      target: "es2022",
+    },
+    {
+      ...common,
+      entryPoints: [editorSource],
+      external: ["react", "react-dom", "react-dom/client"],
+      format: "esm",
+      outfile: bundles.editor,
       platform: "browser",
       target: "es2022",
     },

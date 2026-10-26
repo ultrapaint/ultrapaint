@@ -45,6 +45,8 @@ const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
  * `127.0.0.1` where the page may say `localhost`, which can resolve elsewhere. A shell that
  * reaches the server through a forwarded port maps the preview's too (`Platform`).
  */
+const TRAILING_SLASH_RE = /\/$/;
+
 export const previewUrl = (host: HostStatus): string | null => {
   if (host.state !== "running" || !host.url) {
     return null;
@@ -55,7 +57,7 @@ export const previewUrl = (host: HostStatus): string | null => {
   }
   const url = new URL(host.url);
   url.hostname = window.location.hostname;
-  return url.origin;
+  return `${url.origin}${url.pathname.replace(TRAILING_SLASH_RE, "")}`;
 };
 
 export const useProject = create<ProjectStore>((set, get) => ({

@@ -1,4 +1,4 @@
-import { homedir, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import type { Framework, StyleSystem } from "@ultrapaint/framework-api/node";
@@ -6,6 +6,7 @@ import { Effect, Fiber, FileSystem, Layer, Path } from "effect";
 import { TestClock } from "effect/testing";
 import { AppLog } from "./app-log.ts";
 import { ServerConfig } from "./config.ts";
+import { PreviewProxy } from "./preview-proxy.ts";
 import { ComponentRegistry } from "./services/component-registry.ts";
 import { ProjectFramework } from "./services/framework.ts";
 import { HostManager } from "./services/host.ts";
@@ -47,7 +48,11 @@ const withHost = <A, E>(
     const framework = {
       preview: {
         generate: () =>
-          Promise.resolve({ files: {}, serve: { args: [pidFile], script } }),
+          Promise.resolve({
+            entry: "/preview/editor.ts",
+            files: {},
+            serve: { args: [pidFile], script },
+          }),
       },
     } as unknown as Framework;
     const services = Layer.mergeAll(
@@ -67,6 +72,10 @@ const withHost = <A, E>(
         current,
         sync: () => Effect.void,
       }),
+      Layer.succeed(PreviewProxy, {
+        attach: () => undefined,
+        setTarget: () => Effect.void,
+      }),
       Layer.succeed(AppLog, {
         log: () => Effect.void,
         recent: () => Effect.succeed([]),
@@ -79,7 +88,8 @@ const withHost = <A, E>(
         host: "127.0.0.1",
         machine: {
           addresses: () => [],
-          home: homedir(),
+          // The preview is generated under the home's cache: the fixture's, not the user's.
+          home: repo,
           node: process.execPath,
           path: process.env.PATH ?? "",
           tmpdir: tmpdir(),

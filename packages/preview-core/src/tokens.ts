@@ -26,17 +26,21 @@ const collect = (rules: CSSRuleList, into: Set<string>) => {
 };
 
 export const readTokens = (
-  prefixes?: readonly string[]
+  prefixes?: readonly string[],
+  /** The sheets to read: the document's, or what a frame adopts. */
+  sheets: Iterable<CSSStyleSheet> = Array.from(document.styleSheets),
+  /** Where the values are read: the document's root, or a frame's body. */
+  at: Element = document.documentElement
 ): Record<string, string> => {
   const names = new Set<string>();
-  for (const sheet of Array.from(document.styleSheets)) {
+  for (const sheet of sheets) {
     try {
       collect(sheet.cssRules, names);
     } catch {
       // As above: a sheet from another origin.
     }
   }
-  const computed = getComputedStyle(document.documentElement);
+  const computed = getComputedStyle(at);
   const tokens: Record<string, string> = {};
   for (const name of names) {
     if (prefixes && !prefixes.some((p) => name.startsWith(p))) {

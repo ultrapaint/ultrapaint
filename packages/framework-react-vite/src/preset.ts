@@ -13,6 +13,7 @@ import { detect } from "./detect.ts";
 import {
   COMPONENTS_FILE,
   componentsModule,
+  editorEntry,
   OPTIONS_FILE,
   previewFiles,
 } from "./preview-files.ts";
@@ -50,6 +51,7 @@ export const framework: Framework = {
       // Tailwind 4 is a Vite plugin the anchor has or has not; the preview inherits it.
       const tailwind = resolvesFrom(input.anchorDir, "@tailwindcss/vite");
       return {
+        entry: editorEntry(input),
         files: previewFiles(input, bundles, tailwind),
         serve: {
           args: [path.join(input.dir, OPTIONS_FILE)],

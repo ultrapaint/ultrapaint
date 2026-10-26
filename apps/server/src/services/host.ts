@@ -20,8 +20,12 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { AppLog } from "../app-log.ts";
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { connectHost, ServerConfig } from "../config.ts";
-import { makeExists } from "../fs-exists.ts";
-import { ComponentRegistry, PREVIEW_DIR } from "./component-registry.ts";
+import { PREVIEW_BASE, PreviewProxy } from "../preview-proxy.ts";
+import {
+  ComponentRegistry,
+  LEGACY_PREVIEW_DIR,
+  previewDirOf,
+} from "./component-registry.ts";
 import { ProjectFramework } from "./framework.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { ProjectStyleSystem } from "./style-system.ts";
@@ -76,6 +80,7 @@ export class HostManager extends Context.Service<
       const framework = yield* ProjectFramework;
       const styleSystem = yield* ProjectStyleSystem;
       const registry = yield* ComponentRegistry;
+      const proxy = yield* PreviewProxy;
       const log = yield* AppLog;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -90,16 +95,46 @@ export class HostManager extends Context.Service<
       let running: Running | null = null;
 
       const setStatus = (next: HostStatus) =>
-        Effect.as(SubscriptionRef.set(status, next), next);
+        Effect.as(
+          Effect.andThen(
+            SubscriptionRef.set(status, next),
+            proxy.setTarget(
+              next.state === "running" ? (next.port ?? null) : null
+            )
+          ),
+          next
+        );
+      // The project closing stops the preview: the editor's server forwards to nothing then.
+      yield* Effect.addFinalizer(() => proxy.setTarget(null));
 
-      const exists = makeExists(fs);
+      /**
+       * The directory the preview was generated into inside the designs directory before ADR
+       * 0034, with its dependency cache: removed when it is ours, which its `.gitignore` of one
+       * `*` says.
+       */
+      const removeLegacy = Effect.gen(function* () {
+        const legacy = path.join(paths.designsDir, LEGACY_PREVIEW_DIR);
+        const ignore = yield* fs
+          .readFileString(path.join(legacy, ".gitignore"))
+          .pipe(Effect.orElseSucceed(() => ""));
+        if (ignore === "*\n") {
+          yield* fs.remove(legacy, { recursive: true });
+          yield* log.log(
+            "host",
+            "info",
+            `removed ${legacy}: the preview is generated outside the repository now`
+          );
+        }
+      }).pipe(Effect.ignore);
 
       const generate = Effect.gen(function* () {
-        const dir = path.join(paths.designsDir, PREVIEW_DIR);
+        yield* removeLegacy;
+        const dir = previewDirOf(machine.home, paths.designsDir, path.join);
         const components = yield* registry.current;
         const generated = yield* Effect.tryPromise(() =>
           framework.preview.generate({
             anchorDir: paths.anchorDir,
+            base: PREVIEW_BASE,
             components,
             designsDir: paths.designsDir,
             dir,
@@ -122,20 +157,12 @@ export class HostManager extends Context.Service<
         );
         yield* Effect.mapError(
           Effect.gen(function* () {
-            // Ignored before anything is written into it: a snapshot of the working tree taken
-            // meanwhile must not see the files, nor their temporary copies come and go.
-            const ignore = path.join(dir, ".gitignore");
-            if (!(yield* exists(ignore))) {
-              yield* writeAtomic(ignore, "*\n");
-            }
+            yield* fs.makeDirectory(dir, { recursive: true });
             for (const [name, content] of Object.entries(generated.files)) {
               yield* writeAtomic(path.join(dir, name), content);
             }
             // The directory is ours: a file an older version generated must not linger.
-            const keep = new Set([
-              ...Object.keys(generated.files),
-              ".gitignore",
-            ]);
+            const keep = new Set(Object.keys(generated.files));
             for (const name of yield* fs.readDirectory(dir)) {
               const file = path.join(dir, name);
               if (!keep.has(name) && (yield* fs.stat(file)).type === "File") {
@@ -148,7 +175,7 @@ export class HostManager extends Context.Service<
               message: `the preview could not be written: ${error.message}`,
             })
         );
-        return generated.serve;
+        return generated;
       });
 
       // The last thing the preview said on stderr: why it exited, when it exits.
@@ -179,7 +206,7 @@ export class HostManager extends Context.Service<
       const launch = Effect.gen(function* () {
         lastError = "";
         yield* setStatus({ state: "starting" });
-        const serve = yield* generate;
+        const { entry, serve } = yield* generate;
         const port = yield* freePort(host).pipe(
           Effect.mapError(
             (error) =>
@@ -188,7 +215,7 @@ export class HostManager extends Context.Service<
               })
           )
         );
-        const url = `http://${connectHost(host)}:${port}`;
+        const url = `http://${connectHost(host)}:${port}${PREVIEW_BASE.slice(0, -1)}`;
 
         const scope = yield* Scope.fork(layerScope);
         const stopped = yield* Deferred.make<void>();
@@ -201,9 +228,12 @@ export class HostManager extends Context.Service<
                 cwd: paths.anchorDir,
                 // `pnpm` puts its own store on NODE_PATH; the preview must only see what the
                 // target repository can resolve, never this tool's dependencies.
+                // React's production build draws the frames (ADR 0034): an edit takes half the
+                // time. The dev server still serves the modules as they change; a component
+                // changed is drawn again from the registry rather than refreshed in place.
                 env: {
                   FORCE_COLOR: "0",
-                  NODE_ENV: "development",
+                  NODE_ENV: "production",
                   NODE_PATH: "",
                 },
                 extendEnv: true,
@@ -275,6 +305,7 @@ export class HostManager extends Context.Service<
           });
         }
         return yield* setStatus({
+          entry,
           pid: Number(handle.pid),
           port,
           state: "running",

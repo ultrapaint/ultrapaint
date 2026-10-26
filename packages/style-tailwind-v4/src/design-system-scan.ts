@@ -531,21 +531,20 @@ const moreFoundations = (found: {
 };
 
 /**
- * The stylesheets the settings name, as files. The preview's stylesheet imports them from the
- * generated directory, and so they resolve from there.
+ * What the stylesheets the settings name are relative to: the preview's stylesheet as it was
+ * once generated, `<designs>/.ultrapaint/host.css`. It is generated elsewhere since ADR 0034;
+ * the settings keep their meaning.
  */
-export const hostEntries = (ctx: DesignSystemContext): string[] => {
-  const generated = path.join(
-    ctx.root,
-    ctx.settings.designsDir,
-    ".ultrapaint"
-  );
-  return ctx.settings.hostCss
-    .map((spec) =>
-      resolveImport(spec, path.join(generated, "host.css"), ctx.anchorDir)
-    )
+export const hostCssBase = (
+  ctx: Pick<DesignSystemContext, "root" | "settings">
+): string =>
+  path.join(ctx.root, ctx.settings.designsDir, ".ultrapaint", "host.css");
+
+/** The stylesheets the settings name, as files. */
+export const hostEntries = (ctx: DesignSystemContext): string[] =>
+  ctx.settings.hostCss
+    .map((spec) => resolveImport(spec, hostCssBase(ctx), ctx.anchorDir))
     .filter((file): file is string => file !== null);
-};
 
 export const scanDesignSystem = (
   ctx: DesignSystemContext

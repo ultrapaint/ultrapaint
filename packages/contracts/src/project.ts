@@ -2,6 +2,11 @@ import { Schema } from "effect";
 import { StorageInfo } from "./settings.ts";
 
 export const HostStatus = Schema.Struct({
+  /**
+   * The module the editor imports to draw its frames in its own page (ADR 0034), as a path on
+   * the editor's own origin: `/preview/@fs/…/editor.ts`.
+   */
+  entry: Schema.optional(Schema.String),
   error: Schema.optional(Schema.String),
   pid: Schema.optional(Schema.Number),
   port: Schema.optional(Schema.Number),

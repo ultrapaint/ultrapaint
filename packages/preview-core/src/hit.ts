@@ -38,20 +38,37 @@ const pointerEventsSheet = () => {
  * Runs the lookup with the page's own defences down. Both changes are undone before anything
  * else can observe them: nothing here yields, and neither affects what is painted.
  */
-const unblocked = <T>(read: () => T): T => {
-  const inert = Array.from(document.querySelectorAll(`[${INERT}]`));
+/**
+ * Where a lookup happens: the iframe's document, or a frame's shadow root in the editor's page,
+ * whose points are the screen's and whose size is the frame's.
+ */
+export interface HitScope {
+  readonly root: Document | ShadowRoot;
+  /** The window's size, in the points' units: what a sheet covering it measures. */
+  readonly viewport: () => { readonly height: number; readonly width: number };
+}
+
+const documentScope: HitScope = {
+  root:
+    typeof document === "undefined" ? (null as unknown as Document) : document,
+  viewport: () => ({ height: window.innerHeight, width: window.innerWidth }),
+};
+
+export const unblocked = <T>(scope: HitScope, read: () => T): T => {
+  const { root } = scope;
+  const inert = Array.from(root.querySelectorAll(`[${INERT}]`));
   for (const el of inert) {
     el.removeAttribute(INERT);
   }
   const overlay = pointerEventsSheet();
   if (overlay) {
-    document.adoptedStyleSheets = [...document.adoptedStyleSheets, overlay];
+    root.adoptedStyleSheets = [...root.adoptedStyleSheets, overlay];
   }
   try {
     return read();
   } finally {
     if (overlay) {
-      document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
+      root.adoptedStyleSheets = root.adoptedStyleSheets.filter(
         (s) => s !== overlay
       );
     }
@@ -67,36 +84,56 @@ const unblocked = <T>(read: () => T): T => {
  * lookup goes through it to whatever is underneath. A dimmed dialog overlay paints, and stays
  * selectable like any other element.
  */
-const isDismissLayer = (el: Element): boolean => {
+const isDismissLayer = (scope: HitScope, el: Element): boolean => {
   const style = getComputedStyle(el);
   if (style.position !== "fixed" && style.position !== "absolute") {
     return false;
   }
   const rect = el.getBoundingClientRect();
+  const viewport = scope.viewport();
   if (
-    rect.width < window.innerWidth * 0.9 ||
-    rect.height < window.innerHeight * 0.9
+    rect.width < viewport.width * 0.9 ||
+    rect.height < viewport.height * 0.9
   ) {
     return false;
   }
   return paintsNothing(el, style);
 };
 
-const pick = (stack: readonly Element[]): Element | null =>
-  stack.find((el) => !isDismissLayer(el)) ?? null;
+/**
+ * The elements under a point that belong to the scope: a shadow root answers with the editor's
+ * own elements over it too, which are no part of the page.
+ */
+const stackAt = (scope: HitScope, x: number, y: number) => {
+  const stack = scope.root.elementsFromPoint(x, y);
+  return scope.root === document
+    ? stack
+    : stack.filter((el) => scope.root.contains(el));
+};
+
+const pick = (scope: HitScope, stack: readonly Element[]): Element | null =>
+  stack.find((el) => !isDismissLayer(scope, el)) ?? null;
 
 /** Whether a lookup landed on nothing in particular, and is worth a second try. */
 const empty = (el: Element | null) =>
-  el === null || el === document.documentElement || el === document.body;
+  el === null ||
+  el === document.documentElement ||
+  el === document.body ||
+  el.hasAttribute("data-ed-body") ||
+  el.id === "root";
 
-export const elementAt = (x: number, y: number): Element | null => {
+export const elementAt = (
+  x: number,
+  y: number,
+  scope: HitScope = documentScope
+): Element | null => {
   // The plain lookup first: it is what the page itself would answer, and on a leaf it is the
   // whole answer, since nothing can hide inside an element that holds nothing.
-  const direct = pick(document.elementsFromPoint(x, y));
+  const direct = pick(scope, stackAt(scope, x, y));
   if (!empty(direct) && direct?.childElementCount === 0) {
     return direct;
   }
-  const open = unblocked(() => pick(document.elementsFromPoint(x, y)));
+  const open = unblocked(scope, () => pick(scope, stackAt(scope, x, y)));
   if (empty(direct)) {
     return open ?? direct;
   }

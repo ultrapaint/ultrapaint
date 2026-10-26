@@ -42,6 +42,12 @@ export default defineConfig({
     port: webPort,
     proxy: {
       "/api": { target: `http://${serverHost}:${serverPort}` },
+      // The preview's modules, which the editor draws its frames with (ADR 0034), and their live
+      // updates: the server forwards them to the preview's own server.
+      "/preview": {
+        target: `http://${serverHost}:${serverPort}`,
+        ws: true,
+      },
       "/ws": { target: `ws://${serverHost}:${serverPort}`, ws: true },
     },
     strictPort: true,

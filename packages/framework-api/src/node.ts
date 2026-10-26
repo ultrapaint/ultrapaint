@@ -153,11 +153,16 @@ export interface UsageReader {
 export interface PreviewInput {
   /** Package the pages resolve their imports from. Absolute. */
   readonly anchorDir: string;
+  /**
+   * The path the preview is served under, `/preview/`, which the editor's server forwards to
+   * it: the editor loads the preview's modules from its own origin (ADR 0034).
+   */
+  readonly base: string;
   /** Specifiers of the component modules the preview must be able to import. */
   readonly components: readonly string[];
   /** Absolute. */
   readonly designsDir: string;
-  /** The generated, git-ignored directory the preview is served from. Absolute. */
+  /** The generated directory the preview is served from, outside the repository. Absolute. */
   readonly dir: string;
   /** Repository root. Absolute. */
   readonly root: string;
@@ -180,6 +185,8 @@ export interface PreviewBuilder {
    * from the anchor package with `args` followed by the port to listen on.
    */
   readonly generate: (input: PreviewInput) => Promise<{
+    /** The module the editor imports to draw its frames, as a path under `input.base`. */
+    readonly entry: string;
     readonly files: Record<string, string>;
     readonly serve: {
       readonly args: readonly string[];

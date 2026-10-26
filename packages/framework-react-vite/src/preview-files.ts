@@ -33,15 +33,22 @@ ${entries}
 if (import.meta.hot) {
   import.meta.hot.accept((next) => {
     if (next) {
-      (window as unknown as { __ED__: { setComponents: (c: unknown) => void } }).__ED__.setComponents(next.components);
+      (window as unknown as { __ED__?: { setComponents: (c: unknown) => void } }).__ED__?.setComponents(next.components);
     }
   });
 }
 `;
 };
 
+/** The module the editor imports to draw frames in its own page (ADR 0034). */
+export const EDITOR_FILE = "editor.ts";
+
+/** Where the editor imports the preview from: `/preview/@fs/<dir>/editor.ts`. */
+export const editorEntry = (input: Pick<PreviewInput, "base" | "dir">) =>
+  `${input.base}@fs${toPosix(path.join(input.dir, EDITOR_FILE)).replace(LEADING_NON_SLASH_RE, "/")}`;
+
 /**
- * Contents of the generated directory the preview is served from: the page, its entry module
+ * Contents of the generated directory the preview is served from: the page, its entry modules
  * and the options of the serve script. No Vite config is written; the serve script builds it
  * from the anchor's own and from these options.
  */
@@ -56,16 +63,23 @@ export const previewFiles = (
     designsDir,
     ...settings.libraryDirs.map((d) => path.join(input.root, d)),
   ];
-  const fsUrl = (file: string) =>
-    `/@fs${toPosix(file).replace(LEADING_NON_SLASH_RE, "/")}`;
+  const fsPath = (file: string) =>
+    `@fs${toPosix(file).replace(LEADING_NON_SLASH_RE, "/")}`;
+  /** What a module or the page imports: Vite puts the base in front. */
+  const fsUrl = (file: string) => `/${fsPath(file)}`;
+  /** What the browser asks for as it is: with the base. */
+  const servedUrl = (file: string) => `${input.base}${fsPath(file)}`;
+  const assets = `${input.base.slice(0, -1)}${ASSET_PATH}`;
 
   const options: ServeOptions = {
     anchorDir: input.anchorDir,
+    base: input.base,
     bundleDir: bundles.dir,
     designsDir,
     dir,
     entries: [
       toPosix(path.join(dir, "main.ts")),
+      toPosix(path.join(dir, EDITOR_FILE)),
       toPosix(path.join(dir, COMPONENTS_FILE)),
       ...settings.libraryDirs.map(
         (d) => `${toPosix(path.join(input.root, d))}/**/*.tsx`
@@ -94,6 +108,36 @@ export const previewFiles = (
   const providersImport = settings.providersModule
     ? `import Providers from ${JSON.stringify(toPosix(path.relative(dir, path.join(designsDir, settings.providersModule))).replace(LEADING_NON_DOT_RE, "./"))};`
     : "const Providers = undefined;";
+
+  // The hooks are in place before the stylesheet's module runs: Vite's client hands what it
+  // loads to the editor's frames instead of the editor's head.
+  const editorHooks = `import { installHooks } from ${JSON.stringify(fsUrl(bundles.editor))};
+
+installHooks();
+`;
+
+  const editor = `import "./editor-hooks.ts";
+import "./host.css";
+import { createPreview } from ${JSON.stringify(fsUrl(bundles.editor))};
+import { components } from "./${COMPONENTS_FILE}";
+${providersImport}
+
+// What the editor draws its frames with, in its own page (ADR 0034).
+export const preview = createPreview({
+  assets: ${JSON.stringify(assets)},
+  components,
+  designsRoot: ${JSON.stringify(servedUrl(designsDir))},
+  providers: Providers,
+  theme: ${JSON.stringify(settings.theme)},
+});
+
+if (import.meta.hot) {
+  import.meta.hot.on("vite:afterUpdate", () => preview.notifyHmr());
+  import.meta.hot.on("vite:error", (e: { err: { message: string; id?: string; loc?: { line: number } } }) =>
+    preview.reportError({ message: e.err.message, file: e.err.id, line: e.err.loc?.line }),
+  );
+}
+`;
 
   const main = `import "./host.css";
 import { renderToCanvas } from ${JSON.stringify(fsUrl(bundles.render))};
@@ -124,8 +168,8 @@ if (import.meta.hot) {
   <script>
     const params = new URLSearchParams(location.search);
     window.__ED_CONFIG__ = {
-      assets: ${JSON.stringify(ASSET_PATH)},
-      designsRoot: ${JSON.stringify(fsUrl(designsDir))},
+      assets: ${JSON.stringify(assets)},
+      designsRoot: ${JSON.stringify(servedUrl(designsDir))},
       frame: params.get("frame") || "",
       canvas: params.get("canvas") || "",
     };
@@ -141,6 +185,8 @@ if (import.meta.hot) {
 
   return {
     [COMPONENTS_FILE]: componentsModule(input.components),
+    [EDITOR_FILE]: editor,
+    "editor-hooks.ts": editorHooks,
     "host.css": css,
     "index.html": html,
     "main.ts": main,

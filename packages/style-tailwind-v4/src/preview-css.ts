@@ -7,7 +7,12 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import type { PreviewStyleContext } from "@ultrapaint/framework-api/node";
 import { toPosix } from "@ultrapaint/shared/path";
-import { inlineThemeAliases, packageRoot } from "./design-system-scan.ts";
+import {
+  hostCssBase,
+  inlineThemeAliases,
+  packageRoot,
+  resolveImport,
+} from "./design-system-scan.ts";
 
 /**
  * The `@theme inline` variables, declared again on every element: a design drawn inside a
@@ -16,7 +21,7 @@ import { inlineThemeAliases, packageRoot } from "./design-system-scan.ts";
 const themeAliasesCss = (ctx: PreviewStyleContext): string[] => {
   const aliases = inlineThemeAliases(
     ctx.settings.hostCss,
-    path.join(ctx.dir, "host.css"),
+    hostCssBase(ctx),
     ctx.anchorDir
   );
   if (aliases.size === 0) {
@@ -57,11 +62,20 @@ const designsExcluded = (ctx: PreviewStyleContext): string[] => {
     : [];
 };
 
+/**
+ * A stylesheet the settings name, as the preview's stylesheet imports it from where it is
+ * generated: the file it names, or the name as it is when no file is found.
+ */
+const hostImport = (ctx: PreviewStyleContext, spec: string) => {
+  const file = resolveImport(spec, hostCssBase(ctx), ctx.anchorDir);
+  return `@import ${JSON.stringify(file ? toPosix(path.relative(ctx.dir, file)) : spec)};`;
+};
+
 export const previewCss = (ctx: PreviewStyleContext): string[] => {
   // Without Tailwind's Vite plugin the stylesheets are plain CSS, and these would be noise.
   const tailwind = packageRoot("@tailwindcss/vite", ctx.anchorDir) !== null;
   return [
-    ...ctx.settings.hostCss.map((c) => `@import ${JSON.stringify(c)};`),
+    ...ctx.settings.hostCss.map((c) => hostImport(ctx, c)),
     // Tailwind scans what these point at. The designs are documents with no classes in them,
     // so only the components are scanned.
     ...(tailwind

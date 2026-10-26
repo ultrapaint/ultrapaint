@@ -1,6 +1,6 @@
 # Plan: frames drawn in the editor's page, without iframes
 
-Status: proposed, 2026-10-26; Phase 0 (the spike) done 2026-10-26. Through
+Status: proposed, 2026-10-26; Phase 0 (the spike) and Phase 1 done 2026-10-26. Through
 [ADR 0034](adr/0034-frames-in-the-editors-page.md): supersedes 0011's iframes, amends 0015, 0031
 and 0033. Builds on 0028, 0029 and 0030.
 
@@ -105,23 +105,32 @@ the low-zoom bitmaps answer.
       React; 10 and 50 screens.
 - [x] 0.3 Pictures against the iframe preview; portals; `inert` and hit tests; Vite's client.
 
-### Phase 1: groundwork
+### Phase 1: groundwork — done
 
-- [ ] 1.1 The server proxies the preview's Vite server under its own port (`/preview/*`, the HMR
-      socket included), with R9's client and no error overlay.
-- [ ] 1.2 The generated entry (`main.ts`, `components.ts`, `preview.json`) and Vite's cache move
-      out of the designs directory into the anchor's `node_modules/.ultrapaint/`.
-- [ ] 1.3 `preview-core` gets `mountFrame(host, setup) → FrameRuntime`: `render`, `hitTest`,
-      `rects`, `measure`, `editText`, `instances`, `screenshot`, `navigateTo`, synchronous, every
-      query on the frame's root. `startPreview` and its message dispatch go.
-- [ ] 1.4 `renderer-react` draws into a given root, with one component registry for every frame
-      and no suspension for modules already loaded; its `<style>` goes into the shared sheet.
-      Instances are drawn through `renderInstance`.
-- [ ] 1.5 The stylesheet pipeline: collected from Vite's `<style>` tags (disabled where they land),
-      `previewTokenCss` and the specs' stylesheet; rewritten (R5); adopted; updated in place.
-- [ ] 1.6 Portals (R10); production React on the canvas (R8).
-- [ ] 1.7 `framework-api` says `FrameRuntime` instead of the protocol; `contracts/preview.ts` loses
-      its messages.
+Built beside the iframes, which keep working until Phase 2 switches the editor over.
+
+- [x] 1.1 The server forwards `/preview/` to the preview's Vite server (`preview-proxy.ts`), the HMR
+      socket included; the editor's dev server forwards it to the server. Vite serves under
+      `/preview/`, its client is patched (`vite-client.ts`: `__edReload`, `__edStyles`) and its
+      error overlay is off.
+- [x] 1.2 The generated files and Vite's cache moved out of the designs directory, into
+      `~/.cache/ultrapaint/preview/<hash of the designs directory>` (not the anchor's
+      `node_modules`: Vite never watches it, and the registry is rewritten while it runs). The old
+      `<designs>/.ultrapaint` is removed when its `.gitignore` says it is ours. `hostCss` keeps
+      its meaning, relative to where the stylesheet was generated before.
+- [x] 1.3 `preview-core/frame.ts`: `createPreview` and `mountFrame(host, options) → FrameRuntime`,
+      synchronous, every query on the frame's shadow root, coordinates in the page's pixels
+      whatever the zoom. The iframe's `startPreview` stays until Phase 2.
+- [x] 1.4 `renderer-react` looks up in the render's own root, shares one set of loaded components
+      by registry (no suspension for a module already there), hands its stylesheet to the shared
+      sheet, and fills the frame's height (`100cqh`). The `renderInstance` seam waits for Phase 6.
+- [x] 1.5 `preview-core/styles.ts` and `frame-css.ts`: the stylesheets Vite's client hands over,
+      rewritten (R5) through the browser's own parser, adopted by every frame, font faces and
+      registered properties lifted into the document.
+- [x] 1.6 Portals (`portals.ts`, by the stack and the frame that last drew or took input);
+      React's production build in the preview (`NODE_ENV=production`).
+- [x] 1.7 `framework-api/browser` says `Preview`, `FrameRuntime` and `FrameEvents`. The messages
+      of `contracts/preview.ts` go with the iframes (4.1).
 
 ### Phase 2: the editor draws in its page
 

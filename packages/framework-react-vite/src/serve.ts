@@ -28,9 +28,15 @@ import {
   TAILWIND_PLUGIN_RE,
 } from "./inherit-plugins.ts";
 import { ultrapaintResolve } from "./resolve-plugin.ts";
+import { CLIENT_RE, CLIENT_STYLES_HOOK, patchClient } from "./vite-client.ts";
 
 export interface ServeOptions {
   anchorDir: string;
+  /**
+   * The path everything is served under, `/preview/`: the editor's server forwards it here, so
+   * the editor imports the preview's modules from its own origin.
+   */
+  base: string;
   /** Directory of our browser bundles, outside the repository. */
   bundleDir: string;
   designsDir: string;
@@ -51,8 +57,6 @@ export interface ServeOptions {
 
 const [optionsFile, portArg, hostArg] = process.argv.slice(2);
 const host = hostArg || "127.0.0.1";
-// Bound to every interface, the HMR client is left to use the address the page was loaded at.
-const hmr = host === "0.0.0.0" || host === "::" ? {} : { host };
 const given = JSON.parse(
   readFileSync(optionsFile as string, "utf8")
 ) as ServeOptions;
@@ -225,6 +229,23 @@ if (options.tailwind && !has(inheritedPlugins, TAILWIND_PLUGIN_RE)) {
   extra.push(module.default());
 }
 
+const patchedClient = {
+  enforce: "post" as const,
+  name: "ultrapaint:client",
+  transform(code: string, id: string) {
+    if (!CLIENT_RE.test(id.split("?")[0] ?? id)) {
+      return null;
+    }
+    const patched = patchClient(code);
+    if (!patched.includes(CLIENT_STYLES_HOOK)) {
+      log(
+        "this Vite's client could not be adapted to the editor: a full reload reloads the editor"
+      );
+    }
+    return { code: patched, map: null };
+  },
+};
+
 /**
  * The anchor package is the Vite root, as the project directory is for Storybook: what Vite
  * resolves on its own account (pre-bundled dependencies, de-duplicated packages, the public
@@ -236,7 +257,10 @@ const servePage = {
     dev.middlewares.use((req, res, next) => {
       const url = req.url ?? "/";
       const [pathname] = url.split("?");
-      if (pathname !== "/" && pathname !== "/index.html") {
+      if (
+        pathname !== options.base &&
+        pathname !== `${options.base}index.html`
+      ) {
         next();
         return;
       }
@@ -276,36 +300,39 @@ const MIME: Record<string, string> = {
  */
 const serveAsset = {
   configureServer(dev: import("vite").ViteDevServer) {
-    dev.middlewares.use(ASSET_PATH, (req, res) => {
-      const params = new URL(req.url ?? "/", "http://preview").searchParams;
-      const file = resolveAsset(
-        options.designsDir,
-        params.get("canvas") ?? "",
-        params.get("src") ?? "",
-        existsSync
-      );
-      if (file === null) {
-        res.statusCode = 404;
-        res.end();
-        return;
+    dev.middlewares.use(
+      `${options.base.slice(0, -1)}${ASSET_PATH}`,
+      (req, res) => {
+        const params = new URL(req.url ?? "/", "http://preview").searchParams;
+        const file = resolveAsset(
+          options.designsDir,
+          params.get("canvas") ?? "",
+          params.get("src") ?? "",
+          existsSync
+        );
+        if (file === null) {
+          res.statusCode = 404;
+          res.end();
+          return;
+        }
+        const stat = statSync(file);
+        const etag = `W/"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
+        res.setHeader("cache-control", "no-cache");
+        res.setHeader("etag", etag);
+        if (req.headers["if-none-match"] === etag) {
+          res.statusCode = 304;
+          res.end();
+          return;
+        }
+        res.statusCode = 200;
+        res.setHeader(
+          "content-type",
+          MIME[path.extname(file).toLowerCase()] ?? "application/octet-stream"
+        );
+        res.setHeader("content-length", stat.size);
+        createReadStream(file).pipe(res);
       }
-      const stat = statSync(file);
-      const etag = `W/"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
-      res.setHeader("cache-control", "no-cache");
-      res.setHeader("etag", etag);
-      if (req.headers["if-none-match"] === etag) {
-        res.statusCode = 304;
-        res.end();
-        return;
-      }
-      res.statusCode = 200;
-      res.setHeader(
-        "content-type",
-        MIME[path.extname(file).toLowerCase()] ?? "application/octet-stream"
-      );
-      res.setHeader("content-length", stat.size);
-      createReadStream(file).pipe(res);
-    });
+    );
   },
   name: "ultrapaint:assets",
 };
@@ -313,6 +340,7 @@ const serveAsset = {
 const server = await vite.createServer(
   vite.mergeConfig(inherited, {
     appType: "spa",
+    base: options.base,
     cacheDir: path.join(options.dir, ".vite"),
     clearScreen: false,
     configFile: false,
@@ -330,6 +358,7 @@ const server = await vite.createServer(
       }),
       servePage,
       serveAsset,
+      patchedClient,
       ...(sparing(
         await flattenPlugins(extra),
         spared
@@ -338,8 +367,10 @@ const server = await vite.createServer(
     resolve: { dedupe: options.singletons },
     root: options.anchorDir,
     server: {
-      fs: { allow: [options.root, options.bundleDir] },
-      hmr,
+      fs: { allow: [options.root, options.bundleDir, options.dir] },
+      // No address of its own: the client reaches the socket where it was loaded from, the
+      // editor's server, which forwards it here. Errors are the editor's to show.
+      hmr: { overlay: false },
       host,
       port,
       strictPort: true,
@@ -348,17 +379,17 @@ const server = await vite.createServer(
       warmup: {
         clientFiles: [
           path.join(options.dir, "main.ts"),
+          path.join(options.dir, "editor.ts"),
           path.join(options.dir, "components.ts"),
         ],
       },
-      watch: { ignored: ["**/.ultrapaint/.vite/**"] },
     },
   } satisfies InlineConfig)
 );
 // Vite watches its root, the anchor package. The pages and the design system's sources lie
 // outside it, so a page added after the start would never reach `import.meta.glob` in the entry
 // module: the canvas lists it and the preview answers that there is no page for its route.
-server.watcher.add(options.include);
+server.watcher.add([...options.include, options.dir]);
 await server.listen();
 server.printUrls();
 

@@ -108,6 +108,8 @@ interface Scope {
    * editor does not read, so only the draft's instance can be selected.
    */
   readonly nodeAttribute: string;
+  /** Where the render's elements are looked up: its document, or the frame's shadow root. */
+  readonly root: ParentNode;
   readonly styles: Omit<StyleContext, "parent">;
 }
 
@@ -436,7 +438,7 @@ const ComponentInstanceView = ({
       ? nodeSelector(id)
       : `[${attribute}="${CSS.escape(id)}"]`;
   useLayoutEffect(() => {
-    const own = document.querySelector(selectorOf(node.id));
+    const own = scope.root.querySelector(selectorOf(node.id));
     if (!(wrapped || own)) {
       // The id went nowhere: the component does not pass its props on.
       instances.set(node.id, { component: Resolved, layout, wrapped: true });
@@ -450,7 +452,7 @@ const ComponentInstanceView = ({
     const child =
       firstChild === undefined
         ? null
-        : document.querySelector(selectorOf(firstChild));
+        : scope.root.querySelector(selectorOf(firstChild));
     const container = child ? containerOf(child) : null;
     const next = container ? layoutOfElement(container) : layout;
     if (container) {
@@ -606,7 +608,7 @@ const makeInstanceStore = (
  * One lazy component per module and export, kept while the registry keeps the module, with
  * what its instances taught: a new instance starts from it instead of drawing twice.
  */
-const makeComponents = (initial: ComponentRegistry) => {
+const makeComponents = (initial: ComponentRegistry): Components => {
   let registry = initial;
   const cache = new Map<string, ComponentType<Record<string, unknown>>>();
   const learned: Learned = { layouts: new Map(), wraps: new Set() };
@@ -684,12 +686,38 @@ const makeComponents = (initial: ComponentRegistry) => {
   };
 };
 
+interface Components {
+  readonly componentOf: (
+    node: InstanceNode
+  ) => ComponentType<Record<string, unknown>> | null;
+  readonly generation: () => number;
+  readonly learned: Learned;
+  readonly preload: (root: DesignNode) => void;
+  readonly replace: (next: ComponentRegistry) => void;
+}
+
+/**
+ * The components of a registry, shared by everything drawn from it: frames of the editor's page
+ * all draw from the one registry, and a component loaded for one draws in the next at once,
+ * without waiting (React holds back what suspends, even for a module already there).
+ */
+const shared = new WeakMap<ComponentRegistry, Components>();
+const componentsFor = (registry: ComponentRegistry): Components => {
+  let found = shared.get(registry);
+  if (!found) {
+    found = makeComponents(registry);
+    shared.set(registry, found);
+  }
+  return found;
+};
+
 export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
   const Providers = (setup.providers ?? PassThrough) as ComponentType<{
     children: ReactNode;
   }>;
   const root = createRoot(canvas);
-  const components = makeComponents(setup.components);
+  const lookup = canvas.getRootNode() as ParentNode;
+  let components = componentsFor(setup.components);
   let last: RenderRequest | null = null;
   let designSystem: DesignSystem | null = null;
   let styles = makeStyleContext(null);
@@ -702,6 +730,10 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
   const sheet = document.createElement("style");
   sheet.setAttribute("data-ed-design", "");
   const placeSheet = (css: string) => {
+    if (setup.setDesignCss) {
+      setup.setDesignCss(css);
+      return;
+    }
     if (sheet.textContent !== css) {
       sheet.textContent = css;
     }
@@ -771,6 +803,7 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
       learned: components.learned,
       navigate: setup.navigate,
       nodeAttribute: NODE_ATTRIBUTE,
+      root: lookup,
       styles,
     };
     const { root: node } = request;
@@ -784,7 +817,10 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
       });
     } else if (request.mode === "page" && node.type === "page") {
       body = createElement(NodeView, {
-        node: { ...node, minHeight: node.minHeight ?? "100vh" },
+        node: {
+          ...node,
+          minHeight: node.minHeight ?? setup.pageHeight ?? "100vh",
+        },
         parent: "free",
       });
     } else {
@@ -829,7 +865,13 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
   const mounted: Mounted = {
     render: draw,
     setComponents: (next) => {
-      components.replace(next);
+      const known = shared.get(next);
+      if (known) {
+        components = known;
+      } else {
+        components.replace(next);
+        shared.set(next, components);
+      }
       if (last) {
         draw(last);
       }

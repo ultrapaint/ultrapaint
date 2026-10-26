@@ -1,10 +1,25 @@
 import { Context, Effect, FileSystem, Layer, Path, Ref } from "effect";
 import { makeWriteAtomic } from "../atomic-write.ts";
+import { ServerConfig } from "../config.ts";
+import { hashContent } from "../hash.ts";
 import { ProjectFramework } from "./framework.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
-/** Directory in the designs directory the preview is generated into. */
-export const PREVIEW_DIR = ".ultrapaint";
+/**
+ * Directory in the designs directory the preview was generated into before ADR 0034. A project
+ * opened still holding it has it removed, when it is ours.
+ */
+export const LEGACY_PREVIEW_DIR = ".ultrapaint";
+
+/**
+ * Where the preview of a designs directory is generated: the user's cache, one directory per
+ * designs directory, outside the repository. Nothing of it is the design's.
+ */
+export const previewDirOf = (
+  home: string,
+  designsDir: string,
+  join: (...parts: string[]) => string
+) => join(home, ".cache", "ultrapaint", "preview", hashContent(designsDir));
 
 const SPECIFIER_RE = /^[\w@#][\w@#./-]*$/;
 
@@ -28,13 +43,13 @@ export class ComponentRegistry extends Context.Service<
     Effect.gen(function* () {
       const paths = yield* RepoPaths;
       const framework = yield* ProjectFramework;
+      const { machine } = yield* ServerConfig;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const writeAtomic = makeWriteAtomic(fs, path);
       const known = yield* Ref.make<ReadonlySet<string>>(new Set());
       const file = path.join(
-        paths.designsDir,
-        PREVIEW_DIR,
+        previewDirOf(machine.home, paths.designsDir, path.join),
         framework.preview.components.file
       );
 

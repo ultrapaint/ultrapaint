@@ -27,6 +27,7 @@ import {
 } from "./config.ts";
 import { EventBus } from "./events.ts";
 import { ListenPort } from "./listen-port.ts";
+import { PreviewProxy } from "./preview-proxy.ts";
 import { ProjectManager } from "./project.ts";
 import { RpcHandlers } from "./rpc-handlers.ts";
 import { Announce } from "./run-file.ts";
@@ -237,14 +238,24 @@ const StaticRoute = Layer.unwrap(
 // The editor holds a WebSocket open for as long as it runs. The default shutdown first waits
 // (20 s) for connections to drain, which a live socket never does. Closing the request scopes is
 // what ends those sockets, so the wait is skipped.
+// `/preview/` goes to the open project's preview server before the router sees it (ADR 0034).
 const HttpServerLive = Layer.unwrap(
-  Effect.map(ServerConfig, ({ host, port }) =>
-    NodeHttpServer.layer(createServer, {
-      disablePreemptiveShutdown: true,
-      host,
-      port,
-    })
-  )
+  Effect.gen(function* () {
+    const { host, port } = yield* ServerConfig;
+    const proxy = yield* PreviewProxy;
+    return NodeHttpServer.layer(
+      () => {
+        const server = createServer();
+        proxy.attach(server);
+        return server;
+      },
+      {
+        disablePreemptiveShutdown: true,
+        host,
+        port,
+      }
+    );
+  })
 );
 
 /** Once the port is open, the port it is: the one asked for, or the one the system gave for 0. */
@@ -388,7 +399,8 @@ const Services = Threads.pipe(
   Layer.provideMerge(Storage.layer),
   Layer.provideMerge(AppLog.layer),
   Layer.provideMerge(EventBus.layer),
-  Layer.provideMerge(ListenPort.layer)
+  Layer.provideMerge(ListenPort.layer),
+  Layer.provideMerge(PreviewProxy.layer)
 );
 
 const Routes = Layer.mergeAll(
