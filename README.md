@@ -173,6 +173,22 @@ with ChatGPT from there, Claude Code by running `claude` once in a terminal or w
 the app keeps in the system's keychain. A project whose server the command already runs is
 opened in it, and left running.
 
+**New design**, on the welcome page and in the switcher, starts a design in a folder with no
+code yet: a name, a folder (`~/Ultrapaint/<name>` unless you pick another), a template (**Blank**:
+no components and a theme that declares nothing; **Starter components**: ten to restyle), the
+code in `app/` or at the folder's root, and whether to keep it in git (off by default; on, it is
+`git init` and a first commit, `Start <name>`). The app writes it step by step, installs it with
+pnpm when it is on your PATH and npm otherwise, adds it to the list and opens it on Sync's
+**Define** step. A step that fails says why and leaves what was written: open it as it is, or
+try again, which finishes it.
+
+The command does the same without the app:
+
+```bash
+ultrapaint new ~/Ultrapaint/Acme --template starter --code app --git
+cd ~/Ultrapaint/Acme && ultrapaint
+```
+
 Releases do not carry it yet: build it from a checkout, for the machine you are on (an AppImage
 and a deb on Linux, a dmg and a zip on macOS, unsigned), or run it from the checkout.
 

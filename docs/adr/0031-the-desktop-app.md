@@ -3,7 +3,7 @@
 Status: accepted, 2026-10-26. Amends 0017 (the desktop shell returns, for a reason written down
 here), 0004, 0013, 0018 and 0023 (git is no longer needed). Builds on 0008, 0010 and 0019. The
 work is planned in [PLAN-desktop](../PLAN-desktop.md); this records its decisions and what Phase 0
-changed in the server and the editor.
+changed in the server and the editor, and what Phases 1 and 2 added.
 
 ## Context
 
@@ -121,10 +121,57 @@ preview's bundles are run by other processes and read through the sandbox's bind
 AppImage and a deb, macOS a dmg and a zip, unsigned; the Release workflow builds both and keeps
 them as artifacts.
 
+### What Phase 2 added (a new design from nothing)
+
+**One code path writes a new design: `ultrapaint new`.** A design from nothing has no server
+to ask before it is written, so the writing is a subcommand of the server's own binary, built on
+the first-run setup's scaffold (0025), and the command and the app share it. The app runs it as
+it runs a project's server (its binary as Node, the login shell's `PATH`) with
+`--progress-json`, and shows each line as a step: the folder made, the configuration, designs
+and code written, the packages installed, the first commit when git is on, then the app's own,
+opening it. The first step that fails stops the rest and leaves what was written: the project
+opens as it is, and running the same again finishes it (its configuration says the files are
+written; a repository without a commit gets its first).
+
+**The dialog is the editor's, in both places.** The welcome page is now a second page of the
+editor's build (`welcome.html`), served to the window under the app's own scheme
+(`ultrapaint://app/`), so the New design dialog is one component, with the editor's fields,
+opened from the welcome page and from the project switcher. It reaches the app through
+`Platform.newDesign`.
+
+**The folder** is `~/Ultrapaint/<name>` unless another is picked, numbered (`<name> 2`) when
+one is there, and must be empty or not there yet: a new design writes `.gitignore`, `src/` and
+the like, and does not write over anyone's. **The code goes in `app/` by default**, beside
+`designs/` and the configuration, so the folder's top level says what is design and what is code
+and a designer finds the pages without going through `src/`; at the root is offered for a folder
+meant to be one package.
+
+**Blank means no components, not no code.** Pages render with the project's own React, so both
+templates start a Vite, React and Tailwind application. **Blank** (the default) has no
+components, an empty component directory the settings point at, and an `@theme` that declares
+nothing: Define makes the design system from nothing, and the canvas draws rows, columns, text,
+images and drafts (0029). **Starter components** is the scaffold's ten. Sync takes a component
+directory with no source file in it for a project with no components yet, not for settings to
+put right.
+
+**The configuration is written last**, so a folder that has one has all its files, and the
+server runs on it as a project from the start: its state directory, its run file, attaching.
+With git on, it says so (`"git": "on"`). **Packages are installed with pnpm when it is on the
+`PATH`, npm otherwise**: npm comes with Node, which the preview needs anyway, while `npx pnpm` or
+Corepack would download a package manager on first use. Without Node, the install step says so,
+the banner says how to install it, and the project is written to install later.
+
+**It opens on Sync's define step**, as 0025's scratch case goes on once its application is
+started: the app loads the editor with `?new-design=<template>`, and the editor reads the
+template's inventory and goes past it (a template uses only its own theme), gives the starter's
+components their specs with the design's look, as an application started from Sync gets them,
+and shows Sync with Define next.
+
 ## Consequences
 
-- A project need not be a repository, and a design can start in an empty folder (Phase 2 of the
-  plan). Teams that commit their designs keep doing so with git; the tool commits only when asked
+- A project need not be a repository, and a design starts in an empty folder (Phase 2 of the
+  plan). On another machine over SSH (Phase 3) it is the same `ultrapaint new`, run there with
+  `--progress-json`. Teams that commit their designs keep doing so with git; the tool commits only when asked
   to.
 - The first snapshot of a project copies the files `.gitignore` keeps into the state directory;
   later ones cost what changed. A setup started by a version that kept its snapshots in git

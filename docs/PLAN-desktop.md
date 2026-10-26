@@ -1,6 +1,6 @@
 # Plan: a desktop app on top of the web app
 
-Status: proposed, 2026-10-25; Phases 0 and 1 done 2026-10-26. Amends ADR 0017 (the desktop shell
+Status: proposed, 2026-10-25; Phases 0, 1 and 2 done 2026-10-26. Amends ADR 0017 (the desktop shell
 returns, with the reason written down) through [ADR 0031](adr/0031-the-desktop-app.md). Builds on 0004, 0008, 0010, 0013, 0019,
 0023.
 
@@ -101,12 +101,12 @@ Everything here helps the command too; nothing needs Electron.
 
 ### Phase 2: a new design from nothing
 
-- [ ] 2.1 The dialog (D11): name, folder, template, where the code goes, the git integration.
-- [ ] 2.2 Writing the project: the configuration, the designs, the scaffold in `app/` or the root,
+- [x] 2.1 The dialog (D11): name, folder, template, where the code goes, the git integration.
+- [x] 2.2 Writing the project: the configuration, the designs, the scaffold in `app/` or the root,
       the packages installed; progress shown step by step.
-- [ ] 2.3 Blank as a template: the designs and an empty design system, no components; the starter
+- [x] 2.3 Blank as a template: the designs and an empty design system, no components; the starter
       components as the other.
-- [ ] 2.4 Opening it on Sync's define step, as the scratch case of 0025 does.
+- [x] 2.4 Opening it on Sync's define step, as the scratch case of 0025 does.
 
 ### Phase 3: projects over SSH
 
