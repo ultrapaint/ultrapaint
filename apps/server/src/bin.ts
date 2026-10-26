@@ -1,7 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { homedir, hostname, networkInterfaces, tmpdir } from "node:os";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
-import { Config, Console, Effect, Layer, Logger, Option } from "effect";
+import { AgentRuntimeJson } from "@ultrapaint/acp/runtime";
+import { Config, Console, Effect, Layer, Logger, Option, Schema } from "effect";
 import { Command, Flag } from "effect/cli";
 import product from "../../../package.json" with { type: "json" };
 import { ServerConfig, type StorageTarget } from "./config.ts";
@@ -20,6 +21,30 @@ const VERSION = product.version;
  */
 const runAsNode = process.versions.electron !== undefined;
 delete process.env.ELECTRON_RUN_AS_NODE;
+
+class AgentRuntimeError extends Schema.TaggedError<AgentRuntimeError>()(
+  "AgentRuntimeError",
+  { message: Schema.String }
+) {}
+
+/**
+ * The desktop app's agent runtime, in the environment rather than on the command line, where any
+ * user of the machine could read the key it may carry. Taken out of the environment at once, so
+ * that nothing the server starts inherits it.
+ */
+const agentRuntimeJson = process.env.ULTRAPAINT_AGENT_RUNTIME;
+delete process.env.ULTRAPAINT_AGENT_RUNTIME;
+const agentRuntime =
+  agentRuntimeJson === undefined
+    ? Effect.succeed(undefined)
+    : Schema.decodeUnknownEffect(AgentRuntimeJson)(agentRuntimeJson).pipe(
+        Effect.mapError(
+          (error) =>
+            new AgentRuntimeError({
+              message: `ULTRAPAINT_AGENT_RUNTIME is not an agent runtime: ${error.message}`,
+            })
+        )
+      );
 
 /** The state directory a storage target has before the server starts, if it has one. */
 const stateDirOf = (storage: StorageTarget): string | undefined => {
@@ -173,6 +198,7 @@ const serve = Command.make(
       return;
     }
     const resolved = ServerConfig.of({
+      agentRuntime: yield* agentRuntime,
       allowedHosts: allowedHost,
       briefing: !noBriefing,
       cwd,

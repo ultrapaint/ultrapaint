@@ -1,6 +1,7 @@
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import { Effect, FileSystem, Layer, Option } from "effect";
+import { Agents, makeRuntime } from "./agents.ts";
 import { LoginShell } from "./login-shell.ts";
 import { OpenProject } from "./open-project.ts";
 import { ProjectStore } from "./projects.ts";
@@ -21,6 +22,14 @@ const withApp = <A, E>(
     const app = OpenProject.layer(dir).pipe(
       Layer.provideMerge(ProjectStore.layer(dir)),
       Layer.provideMerge(LoginShell.layerTest({ PATH: "/usr/bin" })),
+      Layer.provideMerge(
+        Agents.layerTest(
+          makeRuntime(
+            { adaptersDir: "/app/adapters", node: "/app/electron" },
+            {}
+          )
+        )
+      ),
       Layer.provideMerge(fakeServers(recorded)),
       Layer.provideMerge(fakeShell(recorded))
     );

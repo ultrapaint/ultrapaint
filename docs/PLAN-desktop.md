@@ -90,7 +90,7 @@ Everything here helps the command too; nothing needs Electron.
 - [x] 1.3 The server per open project (D4), attaching when one runs (D5); stopping on switch and
       on close (D13).
 - [x] 1.4 Login-shell PATH (D6); Node detected, missing Node a banner with its install step.
-- [ ] 1.5 The adapters bundled into the app and run on Electron's Node (D8); the command keeps
+- [x] 1.5 The adapters bundled into the app and run on Electron's Node (D8); the command keeps
       `npx`.
 - [ ] 1.6 Agents detected (D8): `claude` and `codex` on the PATH or at a path set in settings,
       their sign-in checked; the agent picker says which are ready.

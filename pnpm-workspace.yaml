@@ -19,6 +19,12 @@ allowBuilds:
   electron: true
   esbuild: true
 
+# The desktop app bundles the agents' ACP adapters (ADR 0031) but not the agents themselves: the
+# native Claude Code and Codex binaries are the user's own, or downloaded when asked for.
+ignoredOptionalDependencies:
+  - '@anthropic-ai/claude-agent-sdk-*'
+  - '@openai/codex-*'
+
 minimumReleaseAgeExclude:
   - '@biomejs/biome@2.5.14'
   - '@biomejs/cli-darwin-arm64@2.5.14'

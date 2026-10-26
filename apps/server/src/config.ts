@@ -1,3 +1,4 @@
+import type { AgentRuntime } from "@ultrapaint/acp/runtime";
 import { Context } from "effect";
 
 /**
@@ -76,6 +77,11 @@ export const isAllowedHost = (
 export class ServerConfig extends Context.Service<
   ServerConfig,
   {
+    /**
+     * The adapters the desktop app brings for the built-in agents, run on its own binary, in
+     * place of `npx` (ADR 0031); none for the command.
+     */
+    readonly agentRuntime?: AgentRuntime | undefined;
     /**
      * Whether a session's first prompt carries the project briefing: where the designs live, how
      * pages route, what the Assets panel holds. On unless a measurement wants it off.

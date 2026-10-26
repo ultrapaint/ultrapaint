@@ -110,7 +110,14 @@ export class AgentSandbox extends Context.Service<
    */
   static readonly layerFor = (
     { home, path: searchPath, tmpdir, uid: userId }: Machine,
-    options?: { readonly tools?: SandboxTools }
+    options?: {
+      /**
+       * Further paths the agent reads and runs from: the desktop app's Electron, adapters and
+       * downloaded agents, which may well be under the home directory.
+       */
+      readonly reads?: readonly string[];
+      readonly tools?: SandboxTools;
+    }
   ) =>
     Layer.effect(
       AgentSandbox,
@@ -224,6 +231,7 @@ export class AgentSandbox extends Context.Service<
           ...(yield* gitConfigFiles),
           ...pathToolchain,
           ...COMMON_TOOLCHAIN,
+          ...(options?.reads ?? []),
         ]);
 
         /*
@@ -398,8 +406,10 @@ export class AgentSandbox extends Context.Service<
   /** For the machine the server resolved at startup. */
   static readonly layer = Layer.unwrap(
     Effect.gen(function* () {
-      const { machine } = yield* ServerConfig;
-      return AgentSandbox.layerFor(machine);
+      const { agentRuntime, machine } = yield* ServerConfig;
+      return AgentSandbox.layerFor(machine, {
+        reads: agentRuntime?.reads ?? [],
+      });
     })
   );
 }

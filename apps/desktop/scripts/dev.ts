@@ -9,6 +9,7 @@ import { statSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import {
+  buildAdapters,
   buildShell,
   buildWeb,
   desktopDir,
@@ -21,6 +22,7 @@ const args = process.argv.slice(2).filter((arg) => arg !== "--");
 const rebuildWeb = args.includes("--web");
 
 await buildShell();
+await buildAdapters();
 writeManifest();
 if (rebuildWeb || !hasWeb()) {
   console.log("[desktop] building the editor into the app");

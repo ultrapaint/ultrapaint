@@ -1,4 +1,5 @@
 import { builtInAgents } from "@ultrapaint/acp/configs";
+import { withRuntime } from "@ultrapaint/acp/runtime";
 import { Json } from "@ultrapaint/contracts/base";
 import { NotFound } from "@ultrapaint/contracts/errors";
 import type { AgentConfig } from "@ultrapaint/contracts/threads";
@@ -37,7 +38,7 @@ export class AgentConfigs extends Context.Service<
   static readonly layer = Layer.effect(
     AgentConfigs,
     Effect.gen(function* () {
-      const { userDir } = yield* ServerConfig;
+      const { agentRuntime, userDir } = yield* ServerConfig;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       // Only ever read: an unsaved session must not leave anything behind.
@@ -75,7 +76,8 @@ export class AgentConfigs extends Context.Service<
           readCustom
         );
         return [
-          ...builtInAgents,
+          // The desktop app's adapters in place of `npx`, when it brought them.
+          ...builtInAgents.map((agent) => withRuntime(agent, agentRuntime)),
           ...custom.flatMap((c) => (c._tag === "Some" ? [c.value] : [])),
         ];
       });

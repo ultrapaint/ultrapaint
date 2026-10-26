@@ -14,6 +14,7 @@ import {
   Scope,
   Semaphore,
 } from "effect";
+import { Agents } from "./agents.ts";
 import type { ServerStartError, StoreError, UnknownProject } from "./errors.ts";
 import { LoginShell } from "./login-shell.ts";
 import { ProjectServer, type RunningServer } from "./project-server.ts";
@@ -90,6 +91,7 @@ export class OpenProject extends Context.Service<
         const path = yield* Path.Path;
         // The terminal's PATH, so that the preview finds the user's Node and agents their tools.
         const { env } = yield* LoginShell;
+        const agents = yield* Agents;
         // One switch at a time: a second click waits for the first to finish.
         const switching = yield* Semaphore.make(1);
         let open: Open | null = null;
@@ -125,10 +127,15 @@ export class OpenProject extends Context.Service<
           project: Project
         ) {
           const scope = yield* Scope.make();
+          // Asked at each start: an agent installed or set up since is in the next one.
+          const runtime = yield* agents.runtime;
           const server = yield* servers
             .start({
               cwd: project.path,
-              env,
+              env: {
+                ...env,
+                ULTRAPAINT_AGENT_RUNTIME: JSON.stringify(runtime),
+              },
               sessionDir: path.join(dataDir, "sessions", project.id),
             })
             .pipe(

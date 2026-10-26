@@ -12,6 +12,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { build } from "esbuild";
 
@@ -116,6 +117,57 @@ export const buildWeb = () => {
   cpSync(out, web, {
     filter: (file) => !file.endsWith(".map"),
     recursive: true,
+  });
+};
+
+/**
+ * The built-in agents' ACP adapters, each bundled into one file (PLAN-desktop D8), with the
+ * script that starts them on Electron's binary. The agents' own native binaries are left out
+ * (`ignoredOptionalDependencies`): they are the user's, or downloaded when asked for.
+ */
+export const ADAPTERS = {
+  "claude-agent-acp": "@agentclientprotocol/claude-agent-acp/dist/index.js",
+  "codex-acp": "@agentclientprotocol/codex-acp/dist/index.js",
+} as const;
+
+export const buildAdapters = async () => {
+  const out = path.join(appDir, "adapters");
+  const require = createRequire(path.join(desktopDir, "package.json"));
+  mkdirSync(out, { recursive: true });
+  const bundleOne = async (name: string, entry: string) => {
+    const source = require.resolve(entry);
+    // Codex's adapter is a bundle already, with its own `require`; Claude's is plain ESM.
+    const bundled = readFileSync(source, "utf8").includes("__createRequire");
+    await build({
+      ...(bundled ? {} : { banner: { js: requireBanner } }),
+      bundle: true,
+      entryPoints: [source],
+      external: ["@anthropic-ai/claude-agent-sdk-*", "@openai/codex-*"],
+      format: "esm",
+      legalComments: "none",
+      logLevel: "error",
+      minify: true,
+      outfile: path.join(out, `${name}.mjs`),
+      platform: "node",
+      target: "node24",
+    });
+    // Its licence goes with it.
+    cpSync(
+      path.join(path.dirname(source), "..", "LICENSE"),
+      path.join(out, `${name}.LICENSE`)
+    );
+  };
+  await Promise.all(
+    Object.entries(ADAPTERS).map(([name, entry]) => bundleOne(name, entry))
+  );
+  await build({
+    bundle: true,
+    entryPoints: [path.join(desktopDir, "src", "adapter-run.ts")],
+    format: "esm",
+    logLevel: "warning",
+    outfile: path.join(out, "run.mjs"),
+    platform: "node",
+    target: "node24",
   });
 };
 

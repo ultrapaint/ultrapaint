@@ -16,6 +16,7 @@ import {
   ipcMain,
   shell,
 } from "electron";
+import { Agents } from "./agents.ts";
 import { Channel, type ListedProject, type PickFolderOptions } from "./ipc.ts";
 import { LoginShell } from "./login-shell.ts";
 import { Notices } from "./notices.ts";
@@ -102,6 +103,12 @@ const ElectronShell = Layer.succeed(
 const runtime = ManagedRuntime.make(
   Layer.mergeAll(OpenProject.layer(dataDir), Notices.layer).pipe(
     Layer.provideMerge(ProjectStore.layer(dataDir)),
+    Layer.provideMerge(
+      Agents.layer({
+        adaptersDir: path.join(appDir, "adapters"),
+        node: process.execPath,
+      })
+    ),
     // Read once, as the app starts.
     Layer.provideMerge(LoginShell.layer),
     Layer.provideMerge(
