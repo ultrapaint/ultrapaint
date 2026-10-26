@@ -217,8 +217,8 @@ the renderer holds 471 MB.
 
 ### Phase 6: captures, an experiment — on the branch `experiment/captures`, not merged
 
-Built and measured on its own branch (`?captures=1`, `pnpm bench:canvas --captures`), where the
-plan has the numbers. A page whose instances were all seen before is drawn from their captures as
+Built and measured on its own branch (`?captures=1`, `pnpm bench:canvas --captures`);
+`docs/feature/spikes/captures.md` keeps what it did, the numbers and the code. A page whose instances were all seen before is drawn from their captures as
 plain DOM, to the pixel: a canvas of fifty pages switched to draws in 0.9 s instead of 6.2, with a
 tenth less memory; an edit costs more, the page being built again whole; and captures kept
 between sessions would need the server to say when the components changed. On canvases of ten
