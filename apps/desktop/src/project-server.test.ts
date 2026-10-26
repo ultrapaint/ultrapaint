@@ -1,8 +1,9 @@
+import { createServer } from "node:http";
 import path from "node:path";
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import { Effect, Exit, FileSystem, Layer, Schedule, Scope } from "effect";
-import { ProjectServer, serverEnv } from "./project-server.ts";
+import { agentsWorking, ProjectServer, serverEnv } from "./project-server.ts";
 
 const fake = path.resolve(import.meta.dirname, "../testing/fake-server.mjs");
 
@@ -58,10 +59,9 @@ describe("ProjectServer", () => {
             sessionDir: path.join(dir, "session"),
           })
           .pipe(Scope.provide(scope));
-        assert.deepStrictEqual(running, {
-          token: "fake-token",
-          url: "http://127.0.0.1:4999",
-        });
+        assert.isFalse(running.attached);
+        assert.strictEqual(running.token, "fake-token");
+        assert.strictEqual(running.url, "http://127.0.0.1:4999");
         const started = JSON.parse(yield* fs.readFileString(record));
         assert.strictEqual(started.cwd, dir);
         assert.strictEqual(started.env.ELECTRON_RUN_AS_NODE, "1");
@@ -105,5 +105,44 @@ describe("ProjectServer", () => {
           "something the server could not get past"
         );
       }).pipe(Effect.scoped, Effect.provide(withFake))
+  );
+});
+
+describe("agentsWorking", () => {
+  it.effect(
+    "reads how many agents are at work, from the run it was told of only",
+    () =>
+      Effect.gen(function* () {
+        const server = createServer((_request, response) => {
+          response.setHeader("content-type", "application/json");
+          response.end(
+            JSON.stringify({ ok: true, token: "run-1", working: 2 })
+          );
+        });
+        const port = yield* Effect.callback<number>((resume) => {
+          server.listen(0, "127.0.0.1", () => {
+            const address = server.address();
+            resume(
+              Effect.succeed(
+                typeof address === "object" && address ? address.port : 0
+              )
+            );
+          });
+        });
+        yield* Effect.addFinalizer(() =>
+          Effect.callback<void>((resume) => {
+            server.close(() => resume(Effect.void));
+          })
+        );
+        const url = `http://127.0.0.1:${port}`;
+        assert.strictEqual(yield* agentsWorking(url, "run-1"), 2);
+        // Another server on the port is not the one the app started.
+        assert.strictEqual(yield* agentsWorking(url, "run-2"), 0);
+        // Nothing answers: nothing to cut off.
+        assert.strictEqual(
+          yield* agentsWorking("http://127.0.0.1:9", "run-1"),
+          0
+        );
+      }).pipe(Effect.scoped)
   );
 });

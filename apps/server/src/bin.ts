@@ -156,7 +156,10 @@ const serve = Command.make(
         `ultrapaint is running already for this project: ${running.value.url}`
       );
       if (readyJson) {
-        yield* Console.log(JSON.stringify(running.value));
+        // `attached`: the line is the running server's, and this process is done.
+        yield* Console.log(
+          JSON.stringify({ ...running.value, attached: true })
+        );
       }
       return;
     }

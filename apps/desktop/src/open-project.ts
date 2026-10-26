@@ -1,6 +1,8 @@
 /**
  * The project open in the window (PLAN-desktop D3): one at a time. Opening another stops the
- * server of the one open and starts the next one's; the window then shows its editor.
+ * server of the one open and starts the next one's; the window then shows its editor. A server
+ * with an agent at work is stopped only once the user says so (D3, D13); a server the app
+ * attached to, rather than started (D5), is left running.
  */
 import {
   Context,
@@ -16,6 +18,26 @@ import type { ServerStartError, StoreError, UnknownProject } from "./errors.ts";
 import { ProjectServer, type RunningServer } from "./project-server.ts";
 import { type Project, ProjectStore } from "./projects.ts";
 import { Shell } from "./shell.ts";
+
+/** What the user is asked before agents at work are stopped. */
+export const stopQuestion = (
+  action: "switch" | "quit",
+  working: number,
+  name: string
+) => {
+  const stops =
+    action === "switch"
+      ? "Opening another project stops this one's server"
+      : "Quitting stops this project's server";
+  return {
+    action: action === "switch" ? "Stop and switch" : "Stop and quit",
+    detail: `${stops}, and the agent's work with it. What it wrote so far stays.`,
+    message:
+      working === 1
+        ? `An agent is working in ${name}`
+        : `${working} agents are working in ${name}`,
+  };
+};
 
 interface Open {
   readonly project: Project;
@@ -38,14 +60,22 @@ export class OpenProject extends Context.Service<
     readonly openFolder: (
       folder: string
     ) => Effect.Effect<Project, StoreError | ServerStartError>;
-    /** Opens a project in place of the one open. */
+    /**
+     * Opens a project in place of the one open; nothing changes when the user would rather let
+     * an agent at work in the open one finish.
+     */
     readonly open: (
       id: string
     ) => Effect.Effect<void, StoreError | UnknownProject | ServerStartError>;
     /** At start: the project opened last, or the page that asks for one. */
     readonly start: Effect.Effect<void, StoreError>;
-    /** Stops the open project's server, as the app quits. */
-    readonly stop: Effect.Effect<void>;
+    /**
+     * Stops the open project's server, as the app quits. With `ask`, an agent at work is the
+     * user's to stop: false when they would rather it went on, and nothing is stopped.
+     */
+    readonly stop: (options: {
+      readonly ask: boolean;
+    }) => Effect.Effect<boolean>;
   }
 >()("ultrapaint/desktop/OpenProject") {
   /** `dataDir` is the app's data directory, where unsaved sessions are kept. */
@@ -62,10 +92,31 @@ export class OpenProject extends Context.Service<
         const switching = yield* Semaphore.make(1);
         let open: Open | null = null;
 
-        const close = Effect.suspend(() => {
+        /**
+         * Lets go of the open project: its server stops, unless the app only attached to it.
+         * Asked first when agents are at work in it; false when the user says no.
+         */
+        const release = Effect.fnUntraced(function* (
+          action: "switch" | "quit",
+          ask: boolean
+        ) {
           const was = open;
+          if (!was) {
+            return true;
+          }
+          const working =
+            ask && !was.server.attached ? yield* was.server.working : 0;
+          if (working > 0) {
+            const agree = yield* shell.confirm(
+              stopQuestion(action, working, was.project.name)
+            );
+            if (!agree) {
+              return false;
+            }
+          }
           open = null;
-          return was ? Scope.close(was.scope, Exit.void) : Effect.void;
+          yield* Scope.close(was.scope, Exit.void);
+          return true;
         });
 
         const launch = Effect.fn("OpenProject.launch")(function* (
@@ -99,7 +150,9 @@ export class OpenProject extends Context.Service<
 
         const openProject = (project: Project) =>
           switching.withPermits(1)(
-            Effect.andThen(close, showFailure(launch(project)))
+            Effect.flatMap(release("switch", true), (released) =>
+              released ? showFailure(launch(project)) : Effect.void
+            )
           );
 
         const openFolder = Effect.fn("OpenProject.openFolder")(function* (
@@ -133,7 +186,7 @@ export class OpenProject extends Context.Service<
             // A project that cannot start leaves the window on the welcome page, saying why.
             yield* Effect.ignore(openProject(last.value));
           }),
-          stop: switching.withPermits(1)(close),
+          stop: ({ ask }) => switching.withPermits(1)(release("quit", ask)),
         });
       })
     );

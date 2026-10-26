@@ -69,7 +69,7 @@ describe("OpenProject", () => {
         yield* open.open(b.id);
         // Opening the one open already does nothing.
         yield* open.open(b.id);
-        yield* open.stop;
+        assert.isTrue(yield* open.stop({ ask: true }));
         assert.deepStrictEqual(recorded.events, [
           "start a",
           "stop a",
@@ -115,5 +115,58 @@ describe("OpenProject", () => {
         assert.isTrue(Option.isNone(yield* open.current));
       })
     )
+  );
+
+  it.effect(
+    "asks before it stops agents at work, and stays when the user says no",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProject;
+          const busy = yield* store.add("/work/busy");
+          const other = yield* store.add("/work/other");
+          yield* open.open(busy.id);
+          recorded.working.busy = 2;
+          recorded.answers.push(false);
+          yield* open.open(other.id);
+          assert.deepStrictEqual(recorded.questions, [
+            "2 agents are working in busy",
+          ]);
+          assert.strictEqual(
+            Option.getOrThrow(yield* open.current).id,
+            busy.id
+          );
+          assert.deepStrictEqual(recorded.events, ["start busy"]);
+          // Quitting asks the same; a signal does not wait for an answer.
+          recorded.answers.push(false);
+          assert.isFalse(yield* open.stop({ ask: true }));
+          assert.isTrue(yield* open.stop({ ask: false }));
+          assert.deepStrictEqual(recorded.events, ["start busy", "stop busy"]);
+        })
+      )
+  );
+
+  it.effect(
+    "leaves a server it attached to running, and asks nothing of it",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProject;
+          const attached = yield* store.add("/work/attached");
+          const other = yield* store.add("/work/other");
+          yield* open.open(attached.id);
+          recorded.working.attached = 1;
+          yield* open.open(other.id);
+          yield* open.stop({ ask: true });
+          assert.deepStrictEqual(recorded.questions, []);
+          assert.deepStrictEqual(recorded.events, [
+            "attach attached",
+            "start other",
+            "stop other",
+          ]);
+        })
+      )
   );
 });

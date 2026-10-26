@@ -705,6 +705,14 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           yield* waitForThread(threadId, (_, transcript) =>
             transcript.some((i) => i.kind === "agent" && i.text === "waiting")
           );
+          // Whoever would stop the server is told an agent is at work.
+          const { port } = yield* TestEnv;
+          const health = yield* Effect.promise(() =>
+            fetch(`http://127.0.0.1:${port}/api/health`).then(
+              (r) => r.json() as Promise<{ readonly working?: number }>
+            )
+          );
+          assert.isAtLeast(health.working ?? 0, 1);
           yield* prompt(threadId, "reply");
           yield* prompt(threadId, "model");
           const { thread: busy } = yield* waitForThread(

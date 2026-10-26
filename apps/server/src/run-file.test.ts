@@ -37,10 +37,16 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         });
         const health = yield* Effect.promise(() =>
           fetch(`${value.url}/api/health`).then(
-            (r) => r.json() as Promise<{ readonly token?: string }>
+            (r) =>
+              r.json() as Promise<{
+                readonly token?: string;
+                readonly working?: number;
+              }>
           )
         );
         assert.strictEqual(health.token, "test");
+        // No agent is at work: the server can be stopped without cutting one off.
+        assert.strictEqual(health.working, 0);
         // The server it names answers as that run: a second start attaches to it.
         assert.deepStrictEqual(yield* liveRun(home), run);
       })
@@ -201,7 +207,7 @@ describe("--ready-json", () => {
         assert.strictEqual(Number(code), 0);
         assert.deepStrictEqual(
           [...said].map((l) => JSON.parse(l)),
-          [ready]
+          [{ ...ready, attached: true }]
         );
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
     90_000

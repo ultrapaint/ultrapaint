@@ -241,24 +241,53 @@ if (app.requestSingleInstanceLock()) {
   app.quit();
 }
 
-// Closing the window quits; the server the app started stops before the app is gone.
-app.on("window-all-closed", () => app.quit());
-let stopping = false;
-app.on("before-quit", (event) => {
-  if (stopping) {
+/*
+ * Closing the window quits (D13). The server the app started stops first, once the user agreed
+ * to stop agents at work in it; a signal does not wait for an answer. `quitting` lets the close
+ * and the quit through once that is done.
+ */
+let quitting = false;
+let asking = false;
+const quit = (ask: boolean) => {
+  // A signal is not held up by a question already on screen.
+  if (quitting || (asking && ask)) {
     return;
   }
-  stopping = true;
-  event.preventDefault();
+  asking = asking || ask;
   runtime
-    .runPromise(OpenProject.use((o) => o.stop))
-    .then(() => runtime.dispose())
-    .finally(() => app.quit());
-});
+    .runPromise(OpenProject.use((o) => o.stop({ ask })))
+    .then(async (stopped) => {
+      asking = false;
+      if (!stopped) {
+        return;
+      }
+      quitting = true;
+      await runtime.dispose();
+      app.quit();
+    })
+    .catch(() => {
+      quitting = true;
+      app.quit();
+    });
+};
 
-// A signal quits as the window's close does, so that the servers stop first.
+app.on("browser-window-created", (_event, created) => {
+  created.on("close", (event) => {
+    if (!quitting) {
+      event.preventDefault();
+      quit(true);
+    }
+  });
+});
+app.on("window-all-closed", () => app.quit());
+app.on("before-quit", (event) => {
+  if (!quitting) {
+    event.preventDefault();
+    quit(true);
+  }
+});
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
-  process.on(signal, () => app.quit());
+  process.on(signal, () => quit(false));
 }
 
 if (app.hasSingleInstanceLock()) {

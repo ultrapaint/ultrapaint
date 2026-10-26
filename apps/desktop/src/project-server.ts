@@ -2,9 +2,19 @@
  * The server of the open project (PLAN-desktop D4): the same server the `ultrapaint` command
  * runs, started with Electron's own binary as Node (`ELECTRON_RUN_AS_NODE`), on a port the system
  * picks on loopback, and read from its ready line. It lives in the scope it was started in:
- * closing the scope stops it, through the handle that spawned it.
+ * closing the scope stops it, through the handle that spawned it. A project whose server runs
+ * already (D5) is found by the server itself, from the run file, which says so in its ready line
+ * and exits: that server is attached to, and the scope holds nothing to stop.
  */
-import { Context, Effect, Fiber, Layer, type Scope, Stream } from "effect";
+import {
+  Context,
+  Effect,
+  Fiber,
+  Layer,
+  Schema,
+  type Scope,
+  Stream,
+} from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { ServerStartError } from "./errors.ts";
 import { firstReadyLine } from "./ready-line.ts";
@@ -31,9 +41,44 @@ export interface ServerOptions {
 
 /** A server that answers for the project. */
 export interface RunningServer {
+  /**
+   * The server was running already, started by the `ultrapaint` command or another app (D5):
+   * it is attached to, and not the app's to stop.
+   */
+  readonly attached: boolean;
   readonly token: string;
   readonly url: string;
+  /**
+   * How many agents are at work in it now, as its health check says; none when it does not
+   * answer, or another server answers in its place.
+   */
+  readonly working: Effect.Effect<number>;
 }
+
+const Health = Schema.fromJsonString(
+  Schema.Struct({
+    token: Schema.optional(Schema.String),
+    working: Schema.optional(Schema.Number),
+  })
+);
+const decodeHealth = Schema.decodeUnknownEffect(Health);
+
+/** The agents at work in the server at `url`, if it is the run with `token`. */
+export const agentsWorking = (url: string, token: string) =>
+  Effect.tryPromise({
+    catch: () => "no answer" as const,
+    try: (signal) =>
+      fetch(`${url}/api/health`, { signal }).then((response) =>
+        response.ok ? response.text() : ""
+      ),
+  }).pipe(
+    Effect.timeout("3 seconds"),
+    Effect.flatMap(decodeHealth),
+    Effect.map((health) =>
+      health.token === token ? (health.working ?? 0) : 0
+    ),
+    Effect.orElseSucceed(() => 0)
+  );
 
 /** How long a server may take to say it listens: a cold start compiles the server's sources. */
 const READY_TIMEOUT = "90 seconds";
@@ -163,7 +208,12 @@ export class ProjectServer extends Context.Service<
               )
             )
           );
-          return { token: ready.token, url: ready.url } satisfies RunningServer;
+          return {
+            attached: ready.attached === true,
+            token: ready.token,
+            url: ready.url,
+            working: agentsWorking(ready.url, ready.token),
+          } satisfies RunningServer;
         });
 
         return ProjectServer.of({ start });

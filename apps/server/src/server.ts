@@ -202,14 +202,27 @@ const FigmaImportRoute = HttpRouter.use(
   })
 );
 
+/** A thread whose agent is at work: stopping the server now would cut it off. */
+const BUSY = new Set(["starting", "running", "cancelling"]);
+
 const HealthRoute = HttpRouter.use(
   Effect.fnUntraced(function* (router) {
     const { token, version } = yield* ServerConfig;
+    const threads = yield* ThreadStore;
     // The token says which run answers: whoever read a run file checks it against this one.
+    // `working` counts the agents at work, for whoever is about to stop the server (the desktop
+    // app asks before it does).
     yield* router.add(
       "GET",
       "/api/health",
-      HttpServerResponse.json({ ok: true, token, version })
+      Effect.flatMap(threads.list, (all) =>
+        HttpServerResponse.json({
+          ok: true,
+          token,
+          version,
+          working: all.filter((t) => BUSY.has(t.status)).length,
+        })
+      )
     );
   })
 );

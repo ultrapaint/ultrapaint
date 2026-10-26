@@ -13,6 +13,8 @@ export interface Recorded {
   picks: string[];
   questions: string[];
   views: View[];
+  /** How many agents each folder's server says are at work. */
+  working: Record<string, number>;
 }
 
 export const makeRecorded = (): Recorded => ({
@@ -21,6 +23,7 @@ export const makeRecorded = (): Recorded => ({
   picks: [],
   questions: [],
   views: [],
+  working: {},
 });
 
 export const fakeShell = (recorded: Recorded) =>
@@ -40,7 +43,7 @@ export const fakeShell = (recorded: Recorded) =>
 
 /**
  * A server per start, at `http://127.0.0.1/<folder name>`, whose stop is recorded; a folder
- * named `broken` does not start.
+ * named `broken` does not start, and one named `attached` has a server running already.
  */
 export const fakeServers = (recorded: Recorded) =>
   Layer.succeed(
@@ -52,11 +55,19 @@ export const fakeServers = (recorded: Recorded) =>
           if (name === "broken") {
             return yield* new ServerStartError({ message: "it broke" });
           }
-          recorded.events.push(`start ${name}`);
-          yield* Effect.addFinalizer(() =>
-            Effect.sync(() => recorded.events.push(`stop ${name}`))
-          );
-          return { token: `token-${name}`, url: `http://127.0.0.1/${name}` };
+          const attached = name === "attached";
+          recorded.events.push(`${attached ? "attach" : "start"} ${name}`);
+          if (!attached) {
+            yield* Effect.addFinalizer(() =>
+              Effect.sync(() => recorded.events.push(`stop ${name}`))
+            );
+          }
+          return {
+            attached,
+            token: `token-${name}`,
+            url: `http://127.0.0.1/${name}`,
+            working: Effect.sync(() => recorded.working[name] ?? 0),
+          };
         }),
     })
   );
