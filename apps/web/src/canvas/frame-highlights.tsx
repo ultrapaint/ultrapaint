@@ -4,6 +4,7 @@
  */
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Rect } from "@ultrapaint/contracts/preview";
+import { resolveAtBreakpoint } from "@ultrapaint/design-document/breakpoints";
 import { findNode } from "@ultrapaint/design-document/tree";
 import { AlertTriangle } from "lucide-react";
 import {
@@ -11,18 +12,35 @@ import {
   kindHoverColor,
   selectionKindOf,
 } from "../lib/selection-kind.ts";
-import { rootOfFrame, useDocuments } from "../state/documents.ts";
+import { useBreakpointAt, useBreakpoints } from "../state/design-system.ts";
+import {
+  isNodeFrame,
+  pageOfFrame,
+  rootOfFrame,
+  useDocuments,
+} from "../state/documents.ts";
 import { type Selection, useEditor, useInv } from "../state/editor.ts";
 import { screenPx } from "./camera.ts";
 import { ElementToolbar, GroupToolbar } from "./element-toolbar.tsx";
 import { TAG_HEIGHT } from "./element-toolbar-placement.ts";
 import { SelectionTag } from "./selection-tag.tsx";
 
-/** The node selected in this frame, if the selection is here. */
+/** Whether a selection made in `frame` shows in `here`: the same frame, or a view of its page. */
+const showsIn = (frame: string | undefined, here: string) =>
+  frame !== undefined && pageOfFrame(frame) === pageOfFrame(here);
+
+/**
+ * The node selected in this frame, if the selection is here: a node selected in one view of a
+ * page is outlined in every view of it (ADR 0036).
+ */
 export const useSelectedIn = (frameId: string) =>
   useEditor((s) =>
-    s.selection?.frame === frameId ? s.selection.nodeId : null
+    showsIn(s.selection?.frame, frameId) ? (s.selection?.nodeId ?? null) : null
   );
+
+/** Whether the selection was made in this very frame: the one its toolbar hangs in. */
+const useSelectionMadeIn = (frameId: string) =>
+  useEditor((s) => s.selection?.frame === frameId);
 
 /**
  * The others selected with it in this frame, as their ids joined by spaces: a string, so the
@@ -30,7 +48,9 @@ export const useSelectedIn = (frameId: string) =>
  */
 export const useAlsoIn = (frameId: string) =>
   useEditor((s) =>
-    s.selection?.frame === frameId ? s.also.map((a) => a.nodeId).join(" ") : ""
+    showsIn(s.selection?.frame, frameId)
+      ? s.also.map((a) => a.nodeId).join(" ")
+      : ""
   );
 
 /** The node hovered in this frame, if the pointer is over one here. */
@@ -55,6 +75,8 @@ const unionOf = (rects: readonly Rect[]): Rect | null => {
 /** The outlines of the hovered and the selected nodes, and an error the preview reported. */
 export const Highlights = ({ frameId }: { frameId: string }) => {
   const selectedId = useSelectedIn(frameId);
+  // Another view of the page outlines the selection; its toolbar is the view's it was made in.
+  const madeHere = useSelectionMadeIn(frameId);
   const alsoIds = useAlsoIn(frameId);
   const hoverId = useHoverIn(frameId);
   const rects = useEditor((s) => s.rects[frameId]);
@@ -73,8 +95,14 @@ export const Highlights = ({ frameId }: { frameId: string }) => {
       Number.POSITIVE_INFINITY
   );
   const frame = { height: frameHeight, width: frameWidth };
-  // This frame's document only: an edit elsewhere has nothing to outline here.
-  const root = useDocuments((s) => rootOfFrame(s.docs, canvas, frameId));
+  // This frame's document only: an edit elsewhere has nothing to outline here. As the frame
+  // draws it: a row from a breakpoint on is named a row there (ADR 0036).
+  const own = useDocuments((s) => rootOfFrame(s.docs, canvas, frameId));
+  const breakpoint = useBreakpointAt(
+    isNodeFrame(frameId) ? undefined : frameWidth
+  );
+  const breakpoints = useBreakpoints();
+  const root = own && resolveAtBreakpoint(own, breakpoints, breakpoint);
   const selectedNode = selectedId === null ? null : findNode(root, selectedId);
   const hoverNode = hoverId === null ? null : findNode(root, hoverId);
   const selectedRect = selectedId === null ? undefined : rects?.[selectedId];
@@ -107,7 +135,7 @@ export const Highlights = ({ frameId }: { frameId: string }) => {
       ) : null}
       {selectedRect ? (
         <Outline
-          bare={many}
+          bare={many || !madeHere}
           frame={frame}
           kind="selection"
           node={selectedNode}
@@ -123,7 +151,7 @@ export const Highlights = ({ frameId }: { frameId: string }) => {
           rect={o.rect}
         />
       ))}
-      {group?.rect ? (
+      {group?.rect && madeHere ? (
         <GroupOutline
           frame={frame}
           nodes={group.nodes}

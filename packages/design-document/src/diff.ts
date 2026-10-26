@@ -106,9 +106,26 @@ const sameJson = (a: unknown, b: unknown): boolean => {
 /** Fields that are the tree itself rather than the node's own. */
 const STRUCTURAL = new Set(["children", "id"]);
 
+/**
+ * A node's fields as the diff compares them: what a breakpoint sets is a field of its own,
+ * `at.md.gap` (ADR 0036), so that a change says which width it is for.
+ */
+const flatFields = (node: DesignNode): Record<string, unknown> => {
+  const { at, ...own } = node as DesignNode & {
+    at?: Record<string, Record<string, unknown>>;
+  };
+  const out: Record<string, unknown> = { ...own };
+  for (const [breakpoint, fields] of Object.entries(at ?? {})) {
+    for (const [field, value] of Object.entries(fields)) {
+      out[`at.${breakpoint}.${field}`] = value;
+    }
+  }
+  return out;
+};
+
 const fieldChanges = (before: DesignNode, after: DesignNode): FieldChange[] => {
-  const a = before as unknown as Record<string, unknown>;
-  const b = after as unknown as Record<string, unknown>;
+  const a = flatFields(before);
+  const b = flatFields(after);
   const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
   return Array.from(keys)
     .filter((key) => !STRUCTURAL.has(key))

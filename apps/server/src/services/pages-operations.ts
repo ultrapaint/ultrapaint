@@ -27,7 +27,12 @@ import type { CommentsService } from "./comments.ts";
 import type { EditTransaction } from "./edit.ts";
 import type { NewPage } from "./pages.ts";
 import { idOf, makeBindings } from "./pages-bindings.ts";
-import { FRAME_GAP, mapLinks } from "./pages-layout.ts";
+import {
+  FRAME_GAP,
+  frameBottom,
+  frameRight,
+  mapLinks,
+} from "./pages-layout.ts";
 import type { PagesReading } from "./pages-reading.ts";
 
 export const makePageOperations = (
@@ -326,7 +331,7 @@ export const makePageOperations = (
                 ...frames,
                 [copyPath]: {
                   ...frame,
-                  x: frame.x + frame.width + FRAME_GAP,
+                  x: frameRight(frame) + FRAME_GAP,
                 },
               }
             : null;
@@ -370,7 +375,7 @@ export const makePageOperations = (
             ? Math.max(
                 ...Object.values(layout.frames)
                   .filter((f) => f.x === frame.x)
-                  .map((f) => f.y + f.height)
+                  .map(frameBottom)
               ) + FRAME_GAP
             : 0;
           return {
@@ -434,7 +439,7 @@ export const makePageOperations = (
             ? Math.max(
                 ...Object.values(current.frames)
                   .filter((f) => f.y === frame.y)
-                  .map((f) => f.x + f.width)
+                  .map(frameRight)
               ) + FRAME_GAP
             : 0;
           return {

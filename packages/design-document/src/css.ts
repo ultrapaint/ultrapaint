@@ -211,6 +211,9 @@ const boxStyle = (node: DesignNode, ctx: StyleContext): Style => {
   if (node.opacity !== undefined) {
     style.opacity = String(node.opacity);
   }
+  if (node.order !== undefined) {
+    style.order = String(node.order);
+  }
   if (node.link) {
     style.cursor = "pointer";
   }

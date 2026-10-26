@@ -5,6 +5,7 @@
  * field values are not checked here; the server decodes the result against the schema.
  */
 import type { DesignNode, DocOp } from "@ultrapaint/contracts/document";
+import { FIXED_FIELDS } from "./breakpoints.ts";
 import { type IdGenerator, idPrefix, withNewIds } from "./ids.ts";
 import { acceptsChildren, findPath, idsOf, isContainer, walk } from "./tree.ts";
 
@@ -26,6 +27,46 @@ type Draft = Record<string, unknown> & {
 /** Fields an `update` may not touch: they are the tree itself. */
 const STRUCTURAL = new Set(["id", "children"]);
 const CONTAINER_TYPES = new Set(["group", "row", "column"]);
+
+/**
+ * Sets fields of a node from a breakpoint on (ADR 0036), in its `at`; `null` takes the
+ * breakpoint's value away, and what is left empty goes with it. Only a row or a column changes
+ * its type at a breakpoint, into the other.
+ */
+const setAt = (node: Draft, name: string, set: Record<string, unknown>) => {
+  const at = { ...(node.at as Record<string, Record<string, unknown>>) };
+  const over = { ...at[name] };
+  for (const [key, value] of Object.entries(set)) {
+    if (FIXED_FIELDS.has(key)) {
+      fail(`${key} is the same at every breakpoint: set it without "at"`);
+    }
+    if (
+      key === "type" &&
+      value !== null &&
+      !(
+        (node.type === "row" || node.type === "column") &&
+        (value === "row" || value === "column")
+      )
+    ) {
+      fail("only a row or a column can become the other at a breakpoint");
+    }
+    if (value === null) {
+      delete over[key];
+    } else {
+      over[key] = value;
+    }
+  }
+  if (Object.keys(over).length > 0) {
+    at[name] = over;
+  } else {
+    delete at[name];
+  }
+  if (Object.keys(at).length > 0) {
+    node.at = at;
+  } else {
+    node.at = undefined;
+  }
+};
 
 /** How far a copy on the canvas lands from its original. */
 const DUPLICATE_OFFSET = 40;
@@ -185,6 +226,10 @@ export const applyOps = (
 
   const updateOp = (op: Extract<DocOp, { op: "update" }>) => {
     const [node] = pathTo(draft, op.id).slice(-1) as [Draft];
+    if (op.at !== undefined) {
+      setAt(node, op.at, op.set);
+      return;
+    }
     for (const [key, value] of Object.entries(op.set)) {
       if (STRUCTURAL.has(key)) {
         fail(`${key} cannot be set; move or insert nodes instead`);
@@ -211,6 +256,23 @@ export const applyOps = (
     const [node] = pathTo(draft, op.id).slice(-1) as [Draft];
     if (node.type !== "instance") {
       fail(`${op.id} is a ${node.type}, not an instance: it has no props`);
+    }
+    if (op.at !== undefined) {
+      const over = (node.at as Record<string, Draft> | undefined)?.[op.at];
+      const props = {
+        ...(over?.props as Record<string, unknown> | undefined),
+      };
+      for (const [key, value] of Object.entries(op.props)) {
+        if (value === null) {
+          delete props[key];
+        } else {
+          props[key] = value;
+        }
+      }
+      setAt(node, op.at, {
+        props: Object.keys(props).length > 0 ? props : null,
+      });
+      return;
     }
     const props = { ...(node.props as Record<string, unknown> | undefined) };
     for (const [key, value] of Object.entries(op.props)) {

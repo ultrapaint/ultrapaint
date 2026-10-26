@@ -51,6 +51,7 @@ import {
 import { IconButton } from "../components/icon-button.tsx";
 import { NodeIcon } from "../components/node-icon.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
+import { editedFrameOf, useDrawnIn } from "../lib/breakpoint-edits.ts";
 import { describeLink } from "../lib/links.ts";
 import { renameNodeTo, setHidden, setLocked } from "../lib/node-actions.ts";
 import { renamePageTo } from "../lib/page-actions.ts";
@@ -61,6 +62,7 @@ import {
   docOfFrame,
   frameOfCanvasNode,
   nodeFrameOf,
+  pageOfFrame,
   useDocuments,
 } from "../state/documents.ts";
 import { type Selection, selectForMenu, useEditor } from "../state/editor.ts";
@@ -144,7 +146,11 @@ const selectItem = (item: LayerItem, add: boolean) => {
   if (!item.node) {
     return;
   }
-  const at = { frame: item.frame, nodeId: item.node.id };
+  // A row names the page; the selection stays in the view of it it is in (ADR 0036).
+  const at = {
+    frame: editedFrameOf(editor.selection, item.frame),
+    nodeId: item.node.id,
+  };
   if (add) {
     editor.toggleSelected(at);
   } else {
@@ -157,8 +163,9 @@ const selectedKeyOf = (
   selection: Selection | null,
   selectedPage: string | null
 ) => {
+  // A node selected in a view of a page is the page's row (ADR 0036).
   if (selection) {
-    return layerKey(selection.frame, selection.nodeId);
+    return layerKey(pageOfFrame(selection.frame), selection.nodeId);
   }
   return selectedPage ? pageKey(selectedPage) : null;
 };
@@ -245,17 +252,18 @@ const useRevealSelection = ({
   const [revealed, setRevealed] = useState<Selection | null>(null);
   if (selection && selection !== revealed) {
     setRevealed(selection);
-    onReveal(layerKey(selection.frame, selection.nodeId));
-    const { page, root } = rootOf(selection.frame);
+    const frame = pageOfFrame(selection.frame);
+    onReveal(layerKey(frame, selection.nodeId));
+    const { page, root } = rootOf(frame);
     const path = findPath(root, selection.nodeId);
     if (path) {
       // A page opens by default, a layer when flipped. A page's root is the page's own row.
       const next = new Set(flipped);
       if (page) {
-        next.delete(pageKey(selection.frame));
+        next.delete(pageKey(frame));
       }
       for (const n of path.slice(page ? 1 : 0, -1)) {
-        next.add(layerKey(selection.frame, n.id));
+        next.add(layerKey(frame, n.id));
       }
       if (
         next.size !== flipped.size ||
@@ -485,7 +493,7 @@ export const Layers = () => {
       setScrollTo({ focus: false, key });
     },
     rootOf: (frame) => {
-      const doc = docs[frame];
+      const doc = docs[pageOfFrame(frame)];
       if (doc) {
         return { page: true, root: doc.root ?? null };
       }
@@ -1081,7 +1089,9 @@ const RowToggle = ({
 
 /** The lock, the eye and the menu at the end of a node's row. */
 const RowControls = ({ row }: { row: Row }) => {
-  const { frame, node } = row;
+  const { frame } = row;
+  // Hidden or shown at the breakpoint of the view the selection is in (ADR 0036).
+  const node = useDrawnIn(row.node, frame);
   const target = { frame, nodeId: node.id };
   return (
     <>
@@ -1143,17 +1153,23 @@ const LayerRow = ({
   const hasChildren = item.children.length > 0;
   const selected = useEditor(
     (s) =>
-      (s.selection?.frame === frame && s.selection.nodeId === node.id) ||
-      s.also.some((a) => a.frame === frame && a.nodeId === node.id)
+      (s.selection !== null &&
+        pageOfFrame(s.selection.frame) === frame &&
+        s.selection.nodeId === node.id) ||
+      s.also.some((a) => pageOfFrame(a.frame) === frame && a.nodeId === node.id)
   );
   const hovered = useEditor(
-    (s) => s.hover?.frame === frame && s.hover.nodeId === node.id
+    (s) =>
+      s.hover !== null &&
+      pageOfFrame(s.hover.frame) === frame &&
+      s.hover.nodeId === node.id
   );
   const dropHere = useDropHere(key);
   const dragHandlers = rowDrag(row, key, shared);
   const renaming = shared.renaming === key;
   const label = nodeLabel(node);
   const target = { frame, nodeId: node.id };
+  const drawn = useDrawnIn(node, frame);
 
   /** Shift-click adds the row to the selection, or takes it out. */
   const onClick = (e: MouseEvent) => selectItem(item, e.shiftKey);
@@ -1192,7 +1208,7 @@ const LayerRow = ({
       <span
         className={cn(
           "flex min-w-0 flex-1 items-center gap-1",
-          (node.hidden || hiddenAbove) && "opacity-50"
+          (drawn.hidden || hiddenAbove) && "opacity-50"
         )}
       >
         <span

@@ -23,6 +23,7 @@ import {
   NODE_FRAME_PREFIX,
   nodeFrameOf,
   useDocuments,
+  viewFrameOf,
 } from "../state/documents.ts";
 import {
   allFrames,
@@ -614,22 +615,32 @@ export const Canvas = () => {
         ref={layer}
         style={{ transformOrigin: "0 0" }}
       >
-        {pages.map((page) => {
+        {pages.flatMap((page) => {
           const frame = frames[page.id];
           if (!frame) {
-            return null;
+            return [];
           }
-          return (
-            <Frame
-              frame={frame}
-              frameId={page.id}
-              key={page.id}
-              kind="page"
-              onDragStart={startFrameDrag}
-              page={page}
-              visible={inView.has(page.id)}
-            />
-          );
+          // The page's frame, then each of its views: the page drawn again (ADR 0036).
+          const ids = [
+            page.id,
+            ...(frame.views ?? []).map((v) => viewFrameOf(page.id, v.id)),
+          ];
+          return ids.flatMap((id) => {
+            const box = frames[id];
+            return box
+              ? [
+                  <Frame
+                    frame={box}
+                    frameId={id}
+                    key={id}
+                    kind="page"
+                    onDragStart={startFrameDrag}
+                    page={page}
+                    visible={inView.has(id)}
+                  />,
+                ]
+              : [];
+          });
         })}
         {nodes.map((node) => {
           const frameId = nodeFrameOf(node.id);

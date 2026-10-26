@@ -4,6 +4,7 @@ import {
 } from "@ultrapaint/contracts/design-system-setup";
 import { specTarget } from "@ultrapaint/contracts/implementation";
 import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
+import { breakpointsOf } from "@ultrapaint/design-document/breakpoints";
 import { toCode } from "@ultrapaint/design-document/code";
 import { Effect } from "effect";
 import { AppLog } from "./app-log.ts";
@@ -157,6 +158,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
               .get;
             // The markup is the design document's, the classes the style system's (ADR 0024).
             const code = toCode(node, styleSystem.nodeClasses(ds), {
+              breakpoints: breakpointsOf(ds),
               component,
               instances,
               parent,

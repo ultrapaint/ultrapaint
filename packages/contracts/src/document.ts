@@ -120,6 +120,11 @@ export interface BoxFields {
   /** What the layers panel calls it; the type and content otherwise. */
   readonly name?: string | undefined;
   readonly opacity?: number | undefined;
+  /**
+   * Its place among its siblings as drawn, before or after them (CSS `order`): lower first, 0
+   * when absent. Set at a breakpoint, it moves the node there without moving it in the tree.
+   */
+  readonly order?: number | undefined;
   readonly padding?: Padding | undefined;
   readonly radius?: Length | undefined;
   /** A shadow token (`"$shadow-md"`) or a CSS box-shadow. */
@@ -129,6 +134,34 @@ export interface BoxFields {
   readonly x?: number | undefined;
   readonly y?: number | undefined;
 }
+
+/**
+ * What a node's fields are from a breakpoint of the design system on (ADR 0036), by the
+ * breakpoint's name (`md`), mobile-first: the node's own fields are the smallest screen's, and
+ * `at.md` holds from `md` up until a larger breakpoint sets the field again.
+ */
+export interface AtBreakpoints<Fields> {
+  readonly [breakpoint: string]: Fields;
+}
+
+/** Fields that are the node itself, the same at every width. */
+type Fixed =
+  | "at"
+  | "children"
+  | "component"
+  | "from"
+  | "id"
+  | "level"
+  | "link"
+  | "locked"
+  | "name"
+  | "role"
+  | "type"
+  | "x"
+  | "y";
+
+/** What a node of this kind can set at a breakpoint. */
+export type OverrideOf<Node> = Partial<Omit<Node, Fixed>>;
 
 export interface StackFields {
   /** Along the main axis. */
@@ -140,22 +173,31 @@ export interface StackFields {
 }
 
 export interface PageNode extends BoxFields, StackFields {
+  readonly at?: AtBreakpoints<OverrideOf<PageNode>> | undefined;
   readonly children: readonly DesignNode[];
   readonly type: "page";
 }
 
 export interface GroupNode extends BoxFields {
+  readonly at?: AtBreakpoints<OverrideOf<GroupNode>> | undefined;
   readonly children: readonly DesignNode[];
   readonly type: "group";
 }
 
 export interface StackNode extends BoxFields, StackFields {
+  /** A row can be a column from a breakpoint on, and the other way round. */
+  readonly at?:
+    | AtBreakpoints<
+        OverrideOf<StackNode> & { readonly type?: "row" | "column" | undefined }
+      >
+    | undefined;
   readonly children: readonly DesignNode[];
   readonly type: "row" | "column";
 }
 
 export interface TextNode extends BoxFields {
   readonly align?: TextAlign | undefined;
+  readonly at?: AtBreakpoints<OverrideOf<TextNode>> | undefined;
   readonly color?: string | undefined;
   /** A font family token (`"$font-sans"`) or CSS. */
   readonly font?: string | undefined;
@@ -176,6 +218,7 @@ export interface TextNode extends BoxFields {
 
 export interface ImageNode extends BoxFields {
   readonly alt?: string | undefined;
+  readonly at?: AtBreakpoints<OverrideOf<ImageNode>> | undefined;
   readonly fit?: ImageFit | undefined;
   /** Path inside the canvas, `assets/hero.png`, or a URL. */
   readonly src: string;
@@ -188,6 +231,8 @@ export interface ImageNode extends BoxFields {
 }
 
 export interface InstanceNode extends BoxFields {
+  /** Props set at a breakpoint are laid over the node's own, one by one. */
+  readonly at?: AtBreakpoints<OverrideOf<InstanceNode>> | undefined;
   /** Nodes rendered as the component's children; takes precedence over `text`. */
   readonly children?: readonly DesignNode[] | undefined;
   /** Export name of the component, `Button`. */
@@ -236,6 +281,7 @@ const boxFields = {
   opacity: Schema.optional(
     Schema.Number.check(Schema.isBetween({ maximum: 1, minimum: 0 }))
   ),
+  order: Schema.optional(Schema.Int),
   padding: Schema.optional(Padding),
   radius: Schema.optional(Length),
   shadow: Schema.optional(Schema.String),
@@ -251,6 +297,26 @@ const stackFields = {
   wrap: Schema.optional(Schema.Boolean),
 };
 
+/** The box fields a breakpoint can set: all but the node's identity and its place on the canvas. */
+const {
+  id: _id,
+  link: _link,
+  locked: _locked,
+  name: _name,
+  x: _x,
+  y: _y,
+  ...boxOverride
+} = boxFields;
+
+/** `at`: what the node's fields are from each breakpoint on, by the breakpoint's name. */
+const atBreakpoints = <F extends Schema.Struct.Fields>(fields: F) =>
+  Schema.optional(
+    Schema.Record(Schema.String, Schema.Struct(fields)).annotate({
+      description:
+        'Fields that differ from a breakpoint of the design system on, by its name: {"md": {"type": "row", "gap": "$spacing-6"}}. Mobile-first: the node\'s own fields are the smallest screen\'s.',
+    })
+  );
+
 /** Children refer back to the union, which is only complete once everything below exists. */
 const children = Schema.Array(
   Schema.suspend((): Schema.Codec<DesignNode> => DesignNode)
@@ -259,12 +325,14 @@ const children = Schema.Array(
 export const PageNodeSchema = Schema.Struct({
   ...boxFields,
   ...stackFields,
+  at: atBreakpoints({ ...boxOverride, ...stackFields }),
   children,
   type: Schema.Literal("page"),
 });
 
 const GroupNodeSchema = Schema.Struct({
   ...boxFields,
+  at: atBreakpoints(boxOverride),
   children,
   type: Schema.Literal("group"),
 });
@@ -272,44 +340,72 @@ const GroupNodeSchema = Schema.Struct({
 const StackNodeSchema = Schema.Struct({
   ...boxFields,
   ...stackFields,
+  at: atBreakpoints({
+    ...boxOverride,
+    ...stackFields,
+    type: Schema.optional(Schema.Literals(["row", "column"])),
+  }),
   children,
   type: Schema.Literals(["row", "column"]),
 });
 
-const TextNodeSchema = Schema.Struct({
-  ...boxFields,
+const textFields = {
   align: Schema.optional(TextAlign),
   color: Schema.optional(Color),
   font: Schema.optional(Schema.String),
+  lineHeight: Schema.optional(Length),
+  size: Schema.optional(Length),
+  textStyle: Schema.optional(Schema.String),
+  tracking: Schema.optional(Length),
+  weight: Schema.optional(Length),
+};
+
+const TextNodeSchema = Schema.Struct({
+  ...boxFields,
+  ...textFields,
+  at: atBreakpoints({
+    ...boxOverride,
+    ...textFields,
+    text: Schema.optional(Schema.String),
+  }),
   level: Schema.optional(
     Schema.Int.check(Schema.isBetween({ maximum: 6, minimum: 1 }))
   ),
-  lineHeight: Schema.optional(Length),
   role: Schema.Literals(["heading", "paragraph"]),
-  size: Schema.optional(Length),
   text: Schema.String,
-  textStyle: Schema.optional(Schema.String),
-  tracking: Schema.optional(Length),
   type: Schema.Literal("text"),
-  weight: Schema.optional(Length),
 });
+
+const imageFields = {
+  alt: Schema.optional(Schema.String),
+  fit: Schema.optional(ImageFit),
+  tint: Schema.optional(Color),
+};
 
 const ImageNodeSchema = Schema.Struct({
   ...boxFields,
-  alt: Schema.optional(Schema.String),
-  fit: Schema.optional(ImageFit),
+  ...imageFields,
+  at: atBreakpoints({
+    ...boxOverride,
+    ...imageFields,
+    src: Schema.optional(Schema.String),
+  }),
   src: Schema.String,
-  tint: Schema.optional(Color),
   type: Schema.Literal("image"),
 });
 
+const instanceFields = {
+  props: Schema.optional(Schema.Record(Schema.String, Json)),
+  text: Schema.optional(Schema.String),
+};
+
 const InstanceNodeSchema = Schema.Struct({
   ...boxFields,
+  ...instanceFields,
+  at: atBreakpoints({ ...boxOverride, ...instanceFields }),
   children: Schema.optional(children),
   component: Schema.String,
   from: Schema.String,
-  props: Schema.optional(Schema.Record(Schema.String, Json)),
-  text: Schema.optional(Schema.String),
   type: Schema.Literal("instance"),
 });
 
@@ -334,6 +430,9 @@ export const PageDocument: Schema.Codec<PageDocument> = Schema.Struct({
   root: PageNodeSchema,
   version: Schema.Literal(1),
 }) as unknown as Schema.Codec<PageDocument>;
+
+/** A breakpoint of the design system, by its name: `md`, `lg`. */
+export const BreakpointName = Schema.String.check(Schema.isMinLength(1));
 
 /**
  * Which document an operation is about: a page by its id (its path inside the designs
@@ -364,14 +463,19 @@ export const DocOp = Schema.Union([
     op: Schema.Literal("move"),
     parent: Schema.NullOr(Schema.String),
   }),
-  /** Sets fields of the node; `null` removes one. `id`, `type` and `children` are not fields. */
+  /**
+   * Sets fields of the node; `null` removes one. `id`, `type` and `children` are not fields.
+   * With `at`, they are set from that breakpoint on (ADR 0036), in the node's `at`.
+   */
   Schema.Struct({
+    at: Schema.optional(BreakpointName),
     id: Schema.String,
     op: Schema.Literal("update"),
     set: Schema.Record(Schema.String, Json),
   }),
-  /** Sets props of an instance; `null` removes one. */
+  /** Sets props of an instance; `null` removes one. With `at`, from that breakpoint on. */
   Schema.Struct({
+    at: Schema.optional(BreakpointName),
     id: Schema.String,
     op: Schema.Literal("setProps"),
     props: Schema.Record(Schema.String, Json),

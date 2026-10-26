@@ -147,9 +147,31 @@ export const nodeFrameOf = (nodeId: string) => `${NODE_FRAME_PREFIX}${nodeId}`;
 export const isNodeFrame = (frame: string) =>
   frame.startsWith(NODE_FRAME_PREFIX);
 
+/**
+ * What separates a page from one of its views in a view's frame id, `<page>#<view>` (ADR 0036):
+ * a view is a frame of its own whose document is the page's.
+ */
+const VIEW_SEPARATOR = "#";
+
+export const viewFrameOf = (page: string, view: string) =>
+  `${page}${VIEW_SEPARATOR}${view}`;
+
+export const isViewFrame = (frame: string) =>
+  !isNodeFrame(frame) && frame.includes(VIEW_SEPARATOR);
+
+/** The page a frame shows: itself, or the page a view of it draws again. */
+export const pageOfFrame = (frame: string): string =>
+  isViewFrame(frame) ? frame.slice(0, frame.indexOf(VIEW_SEPARATOR)) : frame;
+
+/** The view a frame is, by its id inside its page; null for the page's own frame. */
+export const viewOfFrame = (frame: string): string | null =>
+  isViewFrame(frame)
+    ? frame.slice(frame.indexOf(VIEW_SEPARATOR) + VIEW_SEPARATOR.length)
+    : null;
+
 /** The document a frame belongs to: the page it is, or the canvas's loose nodes. */
 export const docOfFrame = (frame: string, canvas: string | null): string =>
-  isNodeFrame(frame) ? canvasDocOf(canvas ?? "") : frame;
+  isNodeFrame(frame) ? canvasDocOf(canvas ?? "") : pageOfFrame(frame);
 
 const NO_NODES: readonly DesignNode[] = [];
 
@@ -172,7 +194,7 @@ export const rootOfFrame = (
     const id = frame.slice(NODE_FRAME_PREFIX.length);
     return canvasNodes(docs, canvas).find((n) => n.id === id) ?? null;
   }
-  return docs[frame]?.root ?? null;
+  return docs[pageOfFrame(frame)]?.root ?? null;
 };
 
 /** A node of a frame, by id. */

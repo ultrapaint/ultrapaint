@@ -1,4 +1,5 @@
 import { presetSize } from "@ultrapaint/contracts/pages";
+import { resolveAt } from "@ultrapaint/design-document/breakpoints";
 import { basePathOf } from "@ultrapaint/shared/route";
 import { cn } from "cn";
 import {
@@ -37,7 +38,7 @@ import {
   prototypeDevices,
 } from "../lib/presets.ts";
 import { toggleCommenting, useComments } from "../state/comments.ts";
-import { useDesignSystem } from "../state/design-system.ts";
+import { breakpointsFor, useDesignSystem } from "../state/design-system.ts";
 import { useDocuments } from "../state/documents.ts";
 import { pagesOfCanvas, useEditor } from "../state/editor.ts";
 import { useDesignLookVersion } from "../state/look.ts";
@@ -94,11 +95,15 @@ const renderRoute = (canvas: string) => {
   } else if (state?.problem !== undefined) {
     message = `This page cannot be read: ${state.problem}`;
   }
+  const { designSystem } = useDesignSystem.getState();
+  const root = state?.root ?? null;
+  // Drawn as the page is at the device's width: its breakpoints' values (ADR 0036).
+  const { width } = presetSize[useDevice.getState().device];
   bridgeFor(frameIdOf(canvas)).render({
     defaults: useEditor.getState().layout.defaults,
-    designSystem: useDesignSystem.getState().designSystem,
+    designSystem,
     mode: "page",
-    root: state?.root ?? null,
+    root: root && resolveAt(root, breakpointsFor(designSystem), width),
     ...(message !== undefined && { message }),
   });
 };
@@ -226,7 +231,7 @@ export const Prototype = () => {
     if (canvas !== null && shown && bridgeFor(frameIdOf(canvas)).ready) {
       renderRoute(canvas);
     }
-  }, [route, canvas, shown, document, designSystem, defaults, ...look]);
+  }, [route, canvas, shown, document, designSystem, defaults, device, ...look]);
 
   return (
     <div

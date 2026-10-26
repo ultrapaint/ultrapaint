@@ -4,6 +4,7 @@
  * A copy takes every node selected, and a paste puts them all back, side by side, as one undo
  * step. Ids are the server's to settle: an insert keeps a pasted node's ids unless they are taken.
  */
+
 import type { DesignNode, DocOp } from "@ultrapaint/contracts/document";
 import { canvasDocOf, nodeLabel } from "@ultrapaint/design-document/tree";
 import { toast } from "sonner";
@@ -19,6 +20,7 @@ import {
   useDocuments,
 } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
+import { insertedAt } from "./breakpoint-edits.ts";
 import {
   actedOn,
   deleteNodes,
@@ -126,7 +128,7 @@ const insertAllAt = async (
     const { x: _x, y: _y, ...unplaced } = node;
     return {
       index: drop.index + i,
-      node: unplaced as DesignNode,
+      node: insertedAt(unplaced as DesignNode, drop.frame),
       op: "insert",
       parent: drop.parent,
     };

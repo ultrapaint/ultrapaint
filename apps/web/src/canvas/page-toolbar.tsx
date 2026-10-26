@@ -1,9 +1,11 @@
 /**
- * The Vibe toolbar over a selected page: the viewports it can be drawn at, then the page's menu.
- * The frame's header keeps only its name and size; Design keeps the inspector's Viewport field.
+ * The Vibe toolbar over a selected page: the viewports it can be drawn at, the views it is drawn
+ * in beside its frame (ADR 0036), then the page's menu. The frame's header keeps only its name
+ * and size; Design keeps the inspector's Viewport field.
  */
 import { presetSize, type ViewportPreset } from "@ultrapaint/contracts/pages";
 import {
+  Columns2,
   type LucideIcon,
   Monitor,
   Scaling,
@@ -14,10 +16,13 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
+  DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { presetOf, viewportPresets } from "../lib/presets.ts";
+import { useBreakpoints } from "../state/design-system.ts";
 import { useEditor } from "../state/editor.ts";
 import { screenPx, UNZOOM } from "./camera.ts";
 import { useDrag } from "./drag.ts";
@@ -74,6 +79,59 @@ const ViewportSelect = ({
   </DropdownMenu>
 );
 
+/**
+ * Adds a view of the page beside its frame: at a device's width, or where a breakpoint of the
+ * design system starts. The view is selected, so what is edited next lands at its breakpoint.
+ */
+const ViewsMenu = ({ pageId }: { pageId: string }) => {
+  const count = useEditor((s) => s.frames[pageId]?.views?.length ?? 0);
+  const breakpoints = useBreakpoints();
+  const add = (width: number, height?: number) => {
+    const s = useEditor.getState();
+    const view = s.addView(pageId, width, height);
+    if (view) {
+      s.selectPage(view);
+    }
+  };
+  return (
+    <DropdownMenu>
+      <ValueTrigger icon={Columns2} tooltip="Views">
+        {count === 0 ? "Views" : `${count + 1} views`}
+      </ValueTrigger>
+      <DropdownMenuContent className="w-56">
+        <DropdownMenuGroup>
+          <MenuHead name="Add a view" />
+          {DEVICES.map((d) => {
+            const Icon = PRESET_ICON[d.value];
+            return (
+              <DropdownMenuItem
+                key={d.value}
+                onClick={() => add(d.size.width, d.size.height)}
+              >
+                <Icon />
+                <span className="flex-1">{d.label}</span>
+                <span className="font-body text-muted-foreground">
+                  {d.size.width}
+                </span>
+              </DropdownMenuItem>
+            );
+          })}
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <MenuHead name="At a breakpoint" />
+          {breakpoints.map((b) => (
+            <DropdownMenuItem key={b.name} onClick={() => add(b.min)}>
+              <span className="flex-1 font-code">{b.name}</span>
+              <span className="font-body text-muted-foreground">{b.min}</span>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
 /** Centred over the frame, above its header, at the same size on screen whatever the zoom. */
 export const PageToolbar = ({
   headerHeight,
@@ -102,6 +160,7 @@ export const PageToolbar = ({
       }}
     >
       <ViewportSelect pageId={pageId} preset={preset} />
+      <ViewsMenu pageId={pageId} />
       <Divider />
       <MoreButton menu={{ kind: "page", pageId }} />
     </div>

@@ -421,6 +421,28 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             wrong.result.content[0]?.text ?? "",
             "no node nowhere"
           );
+          // A breakpoint's fields go in its \`at\`; one the design system lacks is refused.
+          const wide = yield* tool("apply_operations", {
+            ops: [{ at: "md", id: heading, op: "update", set: { size: 40 } }],
+            route: "/pricing",
+          });
+          assert.isNotTrue(wide.result.isError);
+          const atMd = yield* tool("read_page", { route: "/pricing" });
+          const [withAt] = (
+            atMd.result.structuredContent.document as {
+              root: { children: { at?: unknown }[] };
+            }
+          ).root.children;
+          assert.deepStrictEqual(withAt?.at, { md: { size: 40 } });
+          const nowhere = yield* tool("apply_operations", {
+            ops: [{ at: "tv", id: heading, op: "update", set: { size: 1 } }],
+            route: "/pricing",
+          });
+          assert.isTrue(nowhere.result.isError);
+          assert.include(
+            nowhere.result.content[0]?.text ?? "",
+            "tv is not a breakpoint"
+          );
 
           // The design system is validated before it is saved.
           const invalid = yield* tool("write_design_system", {
