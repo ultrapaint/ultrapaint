@@ -3,6 +3,7 @@ import path from "node:path";
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it, layer } from "@effect/vitest";
 import {
+  Deferred,
   Effect,
   FileSystem,
   Layer,
@@ -121,7 +122,13 @@ const tsx = createRequire(
 ).resolve("tsx/cli");
 
 /** `bin.ts` as the desktop app or a command over SSH starts it, on a free port. */
-const startServer = (home: string) =>
+const startServer = (
+  home: string,
+  options: {
+    readonly flags?: readonly string[];
+    readonly stdin?: Stream.Stream<Uint8Array>;
+  } = {}
+) =>
   Effect.gen(function* () {
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
     return yield* spawner.spawn(
@@ -139,8 +146,13 @@ const startServer = (home: string) =>
           "--ready-json",
           "--no-discovery",
           "--no-mcp",
+          ...(options.flags ?? []),
         ],
-        { cwd: home, forceKillAfter: "2 seconds", stdin: "ignore" }
+        {
+          cwd: home,
+          forceKillAfter: "2 seconds",
+          stdin: options.stdin ? { stream: options.stdin } : "ignore",
+        }
       )
     );
   });
@@ -191,6 +203,36 @@ describe("--ready-json", () => {
           [...said].map((l) => JSON.parse(l)),
           [ready]
         );
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    90_000
+  );
+});
+
+describe("--stop-with-stdin", () => {
+  it.effect(
+    "stops the server once whatever started it closes its stdin",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const home = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());
+        const close = yield* Deferred.make<void>();
+        const server = yield* startServer(home, {
+          flags: ["--stop-with-stdin"],
+          stdin: Stream.fromEffect(Deferred.await(close)).pipe(
+            Stream.flatMap(() => Stream.empty)
+          ),
+        });
+        const line = yield* lines(server.stdout).pipe(
+          Stream.runHead,
+          Effect.timeout("40 seconds")
+        );
+        assert.isTrue(Option.isSome(line));
+        assert.isTrue(yield* fs.exists(path.join(home, RUN_FILE_NAME)));
+        yield* Deferred.succeed(close, undefined);
+        const code = yield* server.exitCode.pipe(Effect.timeout("20 seconds"));
+        assert.strictEqual(Number(code), 0);
+        // It stopped as it does on a signal: its run file went with it.
+        assert.isFalse(yield* fs.exists(path.join(home, RUN_FILE_NAME)));
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
     90_000
   );

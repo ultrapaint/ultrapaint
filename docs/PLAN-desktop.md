@@ -84,7 +84,7 @@ Everything here helps the command too; nothing needs Electron.
 
 ### Phase 1: the desktop app with local projects
 
-- [ ] 1.1 `apps/desktop`: Electron main, preload and the `Platform` bridge; the window loads the
+- [x] 1.1 `apps/desktop`: Electron main, preload and the `Platform` bridge; the window loads the
       server's editor.
 - [ ] 1.2 The project list (D2) in the app's data; add a folder; the select (D3).
 - [ ] 1.3 The server per open project (D4), attaching when one runs (D5); stopping on switch and

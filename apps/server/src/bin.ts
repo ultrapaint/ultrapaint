@@ -20,6 +20,23 @@ const stateDirOf = (storage: StorageTarget): string | undefined => {
   return storage.mode === "file" ? storage.stateDir : storage.sessionDir;
 };
 
+/**
+ * Waits for stdin to end. The desktop app, or a command over SSH, holds the other end; when it
+ * goes, however it goes, the pipe closes and the server stops as it does on a signal.
+ */
+const stdinClosed = Effect.callback<void>((resume) => {
+  const done = () => resume(Effect.void);
+  process.stdin.once("end", done);
+  process.stdin.once("close", done);
+  // Read and dropped: nothing is said on it, but a paused stream never sees its end.
+  process.stdin.resume();
+  return Effect.sync(() => {
+    process.stdin.off("end", done);
+    process.stdin.off("close", done);
+    process.stdin.pause();
+  });
+});
+
 const serve = Command.make(
   "ultrapaint",
   {
@@ -90,6 +107,12 @@ const serve = Command.make(
       Flag.withFallbackConfig(Config.String("ULTRAPAINT_SESSION_DIR")),
       Flag.optional
     ),
+    stopWithStdin: Flag.Boolean("stop-with-stdin").pipe(
+      Flag.withDescription(
+        "Stop when stdin closes: whatever started the server takes it along when it goes, even when it cannot say so"
+      ),
+      Flag.withDefault(false)
+    ),
     webDist: Flag.String("web-dist").pipe(
       Flag.withDescription("Built editor bundle to serve"),
       Flag.withFallbackConfig(Config.String("ULTRAPAINT_WEB_DIST")),
@@ -108,6 +131,7 @@ const serve = Command.make(
     port,
     readyJson,
     sessionDir,
+    stopWithStdin,
     webDist,
   }) {
     const cwd = process.cwd();
@@ -167,8 +191,11 @@ const serve = Command.make(
       version: VERSION,
       webDist: Option.getOrUndefined(webDist),
     });
-    return yield* Layer.launch(
+    const served = Layer.launch(
       ServerLive.pipe(Layer.provide(Layer.succeed(ServerConfig, resolved)))
+    );
+    return yield* (
+      stopWithStdin ? Effect.raceFirst(served, stdinClosed) : served
     ).pipe(
       // With the ready line on stdout, stdout carries nothing else.
       Effect.provideService(Logger.LogToStderr, readyJson)
