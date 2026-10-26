@@ -34,8 +34,8 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
-  type RefObject,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -78,17 +78,19 @@ import {
 } from "./layer-drag.ts";
 import {
   filterLayers,
-  isExpanded,
   type LayerItem,
   layerKey,
   looseItem,
+  openUnless,
   pageItem,
   pageKey,
+  pagesOpen,
   TREE_KEYS,
   treeMove,
   type VisibleRow,
   visibleRows,
 } from "./layer-tree.ts";
+import { offsetsOf, useListWindow, windowOf } from "./list-window.ts";
 
 /** A row's own indent, and where its chevron sits inside it. */
 const ROW_PAD = 8;
@@ -218,52 +220,46 @@ const treeItemKey = (target: EventTarget) => {
 };
 
 /**
- * Opens the way down to the selection whenever it changes, and scrolls to it. It is adjusted
- * during render rather than in an effect, so the expanded tree paints in the same pass; `onReveal`
- * hears of the row, which takes the tree's focus.
+ * Opens the way down to the selection whenever it changes: its page, and the layers it is inside,
+ * not the selected one itself. It is adjusted during render rather than in an effect, so the
+ * opened tree paints in the same pass; `onReveal` hears of the row, which takes the tree's focus
+ * and is scrolled to.
  */
 const useRevealSelection = ({
-  collapsed,
-  list,
+  flipped,
   onReveal,
   rootOf,
-  setCollapsed,
+  setFlipped,
 }: {
-  collapsed: ReadonlySet<string>;
-  list: RefObject<HTMLDivElement | null>;
+  flipped: ReadonlySet<string>;
   onReveal: (key: string) => void;
-  rootOf: (frame: string) => DesignNode | null;
-  setCollapsed: (next: ReadonlySet<string>) => void;
+  rootOf: (frame: string) => { page: boolean; root: DesignNode | null };
+  setFlipped: (next: ReadonlySet<string>) => void;
 }) => {
   const selection = useEditor((s) => s.selection);
   const [revealed, setRevealed] = useState<Selection | null>(null);
   if (selection && selection !== revealed) {
     setRevealed(selection);
     onReveal(layerKey(selection.frame, selection.nodeId));
-    const path = findPath(rootOf(selection.frame), selection.nodeId);
+    const { page, root } = rootOf(selection.frame);
+    const path = findPath(root, selection.nodeId);
     if (path) {
-      const next = new Set(collapsed);
-      next.delete(pageKey(selection.frame));
-      for (const n of path) {
-        next.delete(layerKey(selection.frame, n.id));
+      // A page opens by default, a layer when flipped. A page's root is the page's own row.
+      const next = new Set(flipped);
+      if (page) {
+        next.delete(pageKey(selection.frame));
       }
-      if (next.size !== collapsed.size) {
-        setCollapsed(next);
+      for (const n of path.slice(page ? 1 : 0, -1)) {
+        next.add(layerKey(selection.frame, n.id));
+      }
+      if (
+        next.size !== flipped.size ||
+        [...next].some((k) => !flipped.has(k))
+      ) {
+        setFlipped(next);
       }
     }
   }
-
-  useEffect(() => {
-    if (!revealed) {
-      return;
-    }
-    const key = layerKey(revealed.frame, revealed.nodeId);
-    requestAnimationFrame(() => {
-      list.current
-        ?.querySelector(`[data-row="${CSS.escape(key)}"]`)
-        ?.scrollIntoView({ block: "nearest" });
-    });
-  }, [revealed, list]);
 };
 
 /**
@@ -334,6 +330,19 @@ const LayerFilter = ({
   );
 };
 
+/** The heights of the panel's lines, which the window of drawn rows is worked out from. */
+const PAGE_ROW = 28;
+const PAGE_PROBLEM = 20;
+const NODE_ROW = 24;
+const HEADING = 32;
+/** The room above the first line and below the last. */
+const LIST_PAD = 4;
+/** Drawn beyond what is seen, either side, so a scroll shows rows already there. */
+const OVERSCAN = 300;
+
+/** A line of the list: a row, or the heading over the nodes placed on the canvas. */
+type Line = { kind: "heading" } | { kind: "row"; row: VisibleRow };
+
 export const Layers = () => {
   const canvas = useEditor((s) => s.canvas);
   const allPages = useProject((s) => s.pages);
@@ -342,7 +351,8 @@ export const Layers = () => {
   const loaded = useDocuments((s) => s.loaded);
   const selection = useEditor((s) => s.selection);
   const selectedPage = useEditor((s) => s.selectedPage);
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  /** The rows open or folded against how the panel starts out: see `pagesOpen`. */
+  const [flipped, setFlipped] = useState<ReadonlySet<string>>(new Set());
   /** What is folded while a filter is typed: everything it finds starts out open. */
   const [foldedInFilter, setFoldedInFilter] = useState<ReadonlySet<string>>(
     new Set()
@@ -352,33 +362,118 @@ export const Layers = () => {
   const [renaming, setRenaming] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<Row | null>(null);
-  const nodes = canvasNodes(docs, canvas);
+  /** A row to scroll to once it is drawn, and whether it takes the focus. */
+  const [scrollTo, setScrollTo] = useState<{
+    focus: boolean;
+    key: string;
+  } | null>(null);
+  const listed = useListWindow(listRef);
+  // The tree is built again only when the documents change: a canvas holds thousands of layers,
+  // and a selection or a fold changes none of them.
+  const { items, nodes } = useMemo(() => {
+    const placed = canvasNodes(docs, canvas);
+    return {
+      items: [
+        ...allPages
+          .filter((p) => p.canvas === canvas)
+          .map((page) => pageItem(page, docs[page.id]?.root ?? null)),
+        ...placed.map((node) => looseItem(nodeFrameOf(node.id), node)),
+      ],
+      nodes: placed,
+    };
+  }, [allPages, canvas, docs]);
 
   const filtering = query.trim() !== "";
-  const folded = filtering ? foldedInFilter : collapsed;
-  const setFolded = filtering ? setFoldedInFilter : setCollapsed;
-  const items = [
-    ...pages.map((page) => pageItem(page, docs[page.id]?.root ?? null)),
-    ...nodes.map((node) => looseItem(nodeFrameOf(node.id), node)),
-  ];
-  const shown = filterLayers(items, query);
-  const shownPages = shown.filter((item) => item.page);
-  const shownLoose = shown.filter((item) => !item.page);
-  const rows = visibleRows(shown, folded);
+  const setFolding = filtering ? setFoldedInFilter : setFlipped;
+  const shown = useMemo(() => filterLayers(items, query), [items, query]);
+  const isOpen = filtering ? openUnless(foldedInFilter) : pagesOpen(flipped);
+  const rows = useMemo(
+    () =>
+      visibleRows(
+        shown,
+        filtering ? openUnless(foldedInFilter) : pagesOpen(flipped)
+      ),
+    [shown, filtering, foldedInFilter, flipped]
+  );
   const tabStop = tabStopOf(rows, [
     focusKey,
     selectedKeyOf(selection, selectedPage),
   ]);
 
+  // The lines drawn, with where each starts: the heading goes over the first node on the canvas.
+  const lines: Line[] = [];
+  const heights: number[] = [];
+  let headed = false;
+  for (const row of rows) {
+    if (!headed && row.level === 1 && !row.item.page) {
+      headed = true;
+      lines.push({ kind: "heading" });
+      heights.push(HEADING);
+    }
+    lines.push({ kind: "row", row });
+    if (row.item.page) {
+      heights.push(
+        PAGE_ROW + (docs[row.item.frame]?.problem ? PAGE_PROBLEM : 0)
+      );
+    } else {
+      heights.push(NODE_ROW);
+    }
+  }
+  const tops = offsetsOf(heights);
+  const total = tops.at(-1) as number;
+  const { end, start } = windowOf(
+    tops,
+    listed.scrollTop - LIST_PAD,
+    listed.height,
+    OVERSCAN
+  );
+  const lineOf = (key: string) =>
+    lines.findIndex((l) => l.kind === "row" && l.row.key === key);
+
   useRevealSelection({
-    collapsed,
-    list: listRef,
-    onReveal: setFocusKey,
-    rootOf: (frame) =>
-      docs[frame]?.root ??
-      nodes.find((n) => nodeFrameOf(n.id) === frame) ??
-      null,
-    setCollapsed,
+    flipped,
+    onReveal: (key) => {
+      setFocusKey(key);
+      setScrollTo({ focus: false, key });
+    },
+    rootOf: (frame) => {
+      const doc = docs[frame];
+      if (doc) {
+        return { page: true, root: doc.root ?? null };
+      }
+      return {
+        page: false,
+        root: nodes.find((n) => nodeFrameOf(n.id) === frame) ?? null,
+      };
+    },
+    setFlipped,
+  });
+
+  /** A row to focus once it is drawn: a row off screen is drawn after the list scrolls to it. */
+  const pendingFocus = useRef<string | null>(null);
+  // A row asked for is scrolled to once it is a line of the list, and takes the focus if asked.
+  useEffect(() => {
+    if (scrollTo) {
+      const index = lines.findIndex(
+        (l) => l.kind === "row" && l.row.key === scrollTo.key
+      );
+      if (index >= 0) {
+        listed.scrollIntoView(
+          LIST_PAD + (tops[index] as number),
+          LIST_PAD + (tops[index + 1] as number)
+        );
+        setScrollTo(null);
+        if (scrollTo.focus) {
+          pendingFocus.current = scrollTo.key;
+        }
+      }
+    }
+    const key = pendingFocus.current;
+    const element = key === null ? null : rowElement(listRef.current, key);
+    if (element) {
+      pendingFocus.current = null;
+      element.focus({ preventScroll: true });
+    }
   });
 
   // A row the filter hides is shown again to be renamed.
@@ -388,14 +483,27 @@ export const Layers = () => {
       setQuery("");
     }
     setRenaming(key);
+    setScrollTo({ focus: false, key });
   });
 
   const toggle = (key: string) =>
-    setFolded((prev) => withKey(prev, key, !prev.has(key)));
+    setFolding((prev) => withKey(prev, key, !prev.has(key)));
+
+  /** Opens or folds a row, whichever way it is by default. */
+  const setRowOpen = (key: string, open: boolean) => {
+    const item = findItem(shown, key);
+    if (item && isOpen(item) !== open) {
+      toggle(key);
+    }
+  };
 
   const focusRow = (key: string) => {
     setFocusKey(key);
-    rowElement(listRef.current, key)?.focus();
+    const element = rowElement(listRef.current, key);
+    if (element && lineOf(key) >= start && lineOf(key) < end) {
+      element.focus();
+    }
+    setScrollTo({ focus: true, key });
   };
 
   /** The name is kept or dropped; a row that had the focus while it was typed gets it back. */
@@ -446,9 +554,9 @@ export const Layers = () => {
     if (move && "focus" in move) {
       focusRow(move.focus);
     } else if (move && "expand" in move) {
-      setFolded((prev) => withKey(prev, move.expand, false));
+      setRowOpen(move.expand, true);
     } else if (move) {
-      setFolded((prev) => withKey(prev, move.collapse, true));
+      setRowOpen(move.collapse, false);
     }
     return true;
   };
@@ -506,7 +614,6 @@ export const Layers = () => {
   const shared: Shared = {
     drag,
     endRename,
-    folded,
     onDrop,
     renaming,
     setDrag,
@@ -521,32 +628,52 @@ export const Layers = () => {
       <div
         aria-label="Layers"
         aria-multiselectable="true"
-        className="min-h-0 flex-1 overflow-auto py-1"
+        className="min-h-0 flex-1 overflow-auto"
         onFocus={onTreeFocus}
         onKeyDown={onTreeKeyDown}
         ref={listRef}
         role="tree"
       >
-        {shownPages.map((item) => (
-          <PageRow item={item} key={item.key} shared={shared} />
-        ))}
-        {shownLoose.length > 0 && (
-          <div
-            className="mt-2 px-3 pt-1 pb-0.5 font-heading-xsmall text-muted-foreground uppercase"
-            role="presentation"
-          >
-            On the canvas
-          </div>
-        )}
-        {shownLoose.map((item) => (
-          <LayerRow
-            ancestors={[]}
-            item={item}
-            key={item.key}
-            level={1}
-            shared={shared}
-          />
-        ))}
+        {/* Only the lines near what is seen are drawn; the rest is room. */}
+        <div
+          style={{
+            boxSizing: "border-box",
+            height: total + LIST_PAD * 2,
+            paddingTop: LIST_PAD + (tops[start] ?? 0),
+          }}
+        >
+          {lines.slice(start, end).map((line) => {
+            if (line.kind === "heading") {
+              return (
+                <div
+                  className="flex h-8 items-end px-3 pb-0.5 font-heading-xsmall text-muted-foreground uppercase"
+                  key="heading"
+                  role="presentation"
+                >
+                  On the canvas
+                </div>
+              );
+            }
+            const { row } = line;
+            return row.item.page ? (
+              <PageRow
+                expanded={row.expanded}
+                item={row.item}
+                key={row.key}
+                row={row}
+                shared={shared}
+              />
+            ) : (
+              <LayerRow
+                expanded={row.expanded}
+                item={row.item}
+                key={row.key}
+                row={row}
+                shared={shared}
+              />
+            );
+          })}
+        </div>
         {shown.length === 0 ? (
           <div className="px-3 py-2 font-body text-muted-foreground">
             No layer goes by that name
@@ -560,7 +687,6 @@ export const Layers = () => {
 export interface Shared {
   drag: Row | null;
   endRename: (key: string) => void;
-  folded: ReadonlySet<string>;
   onDrop: (target: Row, position: DropPosition) => Promise<void>;
   /** The row whose name is being typed. */
   renaming: string | null;
@@ -622,36 +748,34 @@ const RowName = ({
 };
 
 /**
- * The element of a row that is its treeitem: what the keyboard focuses, and what holds the rows
- * under it in a group. What the row shows is its first child, so that the focus ring and the
- * selection colour are the row's alone.
+ * The element of a row that is its treeitem: what the keyboard focuses. The tree is flat, each
+ * row saying its level and its place among its siblings, so only the rows on screen are drawn.
+ * What the row shows is its child, so that the focus ring and the selection colour are its alone.
  */
 const TreeItem = ({
   children,
-  expanded,
   item,
   label,
-  level,
   onContextMenu,
   row,
   selected,
   shared,
 }: {
   children: ReactNode;
-  expanded: boolean | undefined;
   item: LayerItem;
   label: string;
-  level: number;
   onContextMenu: (e: MouseEvent) => void;
-  row: ReactNode;
+  row: VisibleRow;
   selected: boolean;
   shared: Shared;
 }) => (
   <div
-    aria-expanded={expanded}
+    aria-expanded={row.expandable ? row.expanded : undefined}
     aria-label={label}
-    aria-level={level}
+    aria-level={row.level}
+    aria-posinset={row.position}
     aria-selected={selected}
+    aria-setsize={row.siblings}
     className="outline-none"
     data-key={item.key}
     onContextMenu={(e) => {
@@ -665,11 +789,7 @@ const TreeItem = ({
     role="treeitem"
     tabIndex={shared.tabStop === item.key ? 0 : -1}
   >
-    {row}
-    {expanded ? (
-      // biome-ignore lint/a11y/useSemanticElements: a tree's rows are grouped by role; a fieldset is for a form.
-      <div role="group">{children}</div>
-    ) : null}
+    {children}
   </div>
 );
 
@@ -678,12 +798,21 @@ const FOCUS_RING =
   "[:focus-visible>&]:outline-1 [:focus-visible>&]:outline-ring [:focus-visible>&]:-outline-offset-1";
 
 /** A page's own row, and its tree under it. */
-const PageRow = ({ item, shared }: { item: LayerItem; shared: Shared }) => {
+const PageRow = ({
+  expanded,
+  item,
+  row: line,
+  shared,
+}: {
+  expanded: boolean;
+  item: LayerItem;
+  row: VisibleRow;
+  shared: Shared;
+}) => {
   const page = item.page as Page;
   const problem = useDocuments((s) => s.docs[page.id]?.problem);
   const root = item.node;
   const { key } = item;
-  const expanded = isExpanded(item, shared.folded);
   const selected = useEditor((s) => s.selectedPage === page.id);
   const dropHere = useDropHere(key);
   const select = () => {
@@ -747,36 +876,22 @@ const PageRow = ({ item, shared }: { item: LayerItem; shared: Shared }) => {
   );
   return (
     <TreeItem
-      expanded={item.children.length > 0 ? expanded : undefined}
       item={item}
       label={page.name}
-      level={1}
       onContextMenu={onContextMenu}
-      row={
-        <>
-          {row}
-          {problem ? (
-            <div
-              className="truncate px-8 py-0.5 font-body text-destructive"
-              title={problem}
-            >
-              Not a valid page: {problem}
-            </div>
-          ) : null}
-        </>
-      }
+      row={line}
       selected={selected}
       shared={shared}
     >
-      {item.children.map((child) => (
-        <LayerRow
-          ancestors={[page.id]}
-          item={child}
-          key={child.key}
-          level={2}
-          shared={shared}
-        />
-      ))}
+      {row}
+      {problem ? (
+        <div
+          className="flex h-5 items-center truncate px-8 font-body text-destructive"
+          title={problem}
+        >
+          Not a valid page: {problem}
+        </div>
+      ) : null}
     </TreeItem>
   );
 };
@@ -944,24 +1059,21 @@ const rowTone = (selected: boolean, hovered: boolean, component = false) => {
 };
 
 const LayerRow = ({
+  expanded,
   item,
-  ancestors,
-  hiddenAbove = false,
-  level,
+  row: visible,
   shared,
 }: {
+  expanded: boolean;
   item: LayerItem;
-  /** The rows this one is written inside, outermost first: one guide line each. */
-  ancestors: readonly string[];
-  /** A row it is written under is hidden, and this one with it. */
-  hiddenAbove?: boolean;
-  level: number;
+  /** Where it is in the list: what it is written under, and whether that is hidden. */
+  row: VisibleRow;
   shared: Shared;
 }) => {
   const { frame, key } = item;
+  const { guides, hiddenAbove } = visible;
   const node = item.node as DesignNode;
   const row: Row = { frame, node, parent: item.parent };
-  const expanded = isExpanded(item, shared.folded);
   const hasChildren = item.children.length > 0;
   const selected = useEditor(
     (s) =>
@@ -1002,10 +1114,10 @@ const LayerRow = ({
       {...dragHandlers}
       onMouseEnter={onMouseEnter}
       onMouseLeave={clearHover}
-      style={{ paddingLeft: ROW_PAD + ancestors.length * INDENT }}
+      style={{ paddingLeft: ROW_PAD + guides.length * INDENT }}
       title={nodeKind(node)}
     >
-      <DepthGuides ancestors={ancestors} />
+      <DepthGuides ancestors={guides} />
       <Chevron
         collapsed={!expanded}
         hidden={!hasChildren}
@@ -1044,25 +1156,14 @@ const LayerRow = ({
 
   return (
     <TreeItem
-      expanded={hasChildren ? expanded : undefined}
       item={item}
       label={label}
-      level={level}
       onContextMenu={onContextMenu}
-      row={line}
+      row={visible}
       selected={selected}
       shared={shared}
     >
-      {item.children.map((child) => (
-        <LayerRow
-          ancestors={[...ancestors, node.id]}
-          hiddenAbove={hiddenAbove || node.hidden === true}
-          item={child}
-          key={child.key}
-          level={level + 1}
-          shared={shared}
-        />
-      ))}
+      {line}
     </TreeItem>
   );
 };

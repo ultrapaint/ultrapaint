@@ -11,10 +11,11 @@
  * - zoom: in and out at the fitted view, with the editor's main thread and the frames React drew;
  * - goto: zooming to the page at the far end, until it has drawn;
  * - switch: to another canvas and back, until every screen on view has drawn;
+ * - layers: opening the Layers panel, then selecting and hovering nodes with it open;
  * - memory: what the browser's processes hold at the end.
  *
  *   pnpm bench:canvas [--url http://127.0.0.1:4601] [--canvas redesign] [--other samples]
- *     [--scenarios load,pan,zoom,goto,switch] [--out result.json] [--chrome /path/to/chrome]
+ *     [--scenarios load,pan,zoom,goto,switch,layers] [--out result.json] [--chrome /path/to/chrome]
  *
  * Without `--url` it finds the editor where `pnpm dev` puts it for this checkout.
  */
@@ -57,7 +58,7 @@ const EDITOR = (args.url ?? devUrl()).replace(/\/$/, "");
 const CANVAS = args.canvas;
 const OTHER = args.other;
 const SCENARIOS = new Set(
-  (args.scenarios ?? "load,pan,zoom,goto,switch")
+  (args.scenarios ?? "load,pan,zoom,goto,switch,layers")
     .split(",")
     .map((s) => s.trim())
 );
@@ -89,6 +90,11 @@ interface View {
   zoom: number;
 }
 
+interface TreeNode {
+  children?: TreeNode[];
+  id: string;
+}
+
 /** What the page under test offers the bench: the editor's dev handle and what is recorded. */
 interface BenchWindow {
   __bench: {
@@ -99,10 +105,18 @@ interface BenchWindow {
   };
   __ed: {
     openCanvas: (id: string) => void;
+    useDocuments: {
+      getState: () => {
+        docs: Record<string, { root?: TreeNode | null }>;
+      };
+    };
     useEditor: {
       getState: () => {
         canvas: string | null;
         frames: Record<string, Box>;
+        select: (s: { frame: string; nodeId: string } | null) => void;
+        setHover: (s: { frame: string; nodeId: string } | null) => void;
+        setLeftTab: (tab: string) => void;
         setView: (v: Partial<View>) => void;
         view: View;
         zoomToFit: (v: Box) => void;
@@ -371,6 +385,9 @@ const mainThread = (events: TraceEvent[]) => {
   };
   return {
     busyPct: wall > 0 ? Math.round((busy / wall) * 100) : 0,
+    longestTaskMs: Math.round(
+      Math.max(0, ...tasks.map((e) => e.dur ?? 0)) / 1000
+    ),
     ms: {
       layout: spent(["Layout"]),
       paint: spent(["Paint", "PrePaint", "Layerize", "UpdateLayer"]),
@@ -384,9 +401,6 @@ const mainThread = (events: TraceEvent[]) => {
       ]),
       style: spent(["UpdateLayoutTree", "RecalculateStyles"]),
     },
-    longestTaskMs: Math.round(
-      Math.max(0, ...tasks.map((e) => e.dur ?? 0)) / 1000
-    ),
     previewsInEditorProcess: frames.filter(
       (f) => f.parent && f.processId === pid
     ).length,
@@ -878,6 +892,90 @@ const benchSwitch = async (page: Page): Promise<Result> => {
   return { runs };
 };
 
+/**
+ * The Layers panel: opening it on the canvas, then selecting nodes of its pages one after the
+ * other and hovering others, each timed until the frame after it is drawn.
+ */
+const benchLayers = async (page: Page, cdp: CDPSession): Promise<Result> => {
+  const { events, result } = await traced(cdp, () =>
+    page.evaluate(async (canvas) => {
+      const w = window as unknown as BenchWindow;
+      const editor = () => w.__ed.useEditor.getState();
+      const drawn = () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => setTimeout(resolve, 0))
+        );
+      const time = async (change: () => void) => {
+        const t = performance.now();
+        change();
+        await drawn();
+        return performance.now() - t;
+      };
+      const targets: { frame: string; nodeId: string }[] = [];
+      const walk = (frame: string, node: TreeNode, depth: number) => {
+        if (depth > 0) {
+          targets.push({ frame, nodeId: node.id });
+        }
+        for (const child of node.children ?? []) {
+          walk(frame, child, depth + 1);
+        }
+      };
+      for (const [frame, doc] of Object.entries(
+        w.__ed.useDocuments.getState().docs
+      )) {
+        if (frame.startsWith(`${canvas}/`) && doc.root) {
+          walk(frame, doc.root, 0);
+        }
+      }
+      // Spread over the canvas: every page, deep and shallow nodes.
+      const stride = Math.max(1, Math.floor(targets.length / 12));
+      const picked = targets.filter((_t, i) => i % stride === 0).slice(0, 12);
+      performance.mark("bench-start");
+      const opened = performance.now();
+      editor().setLeftTab("layers");
+      while (
+        document.querySelector('[role="treeitem"]') === null &&
+        performance.now() - opened < 20_000
+      ) {
+        // biome-ignore lint/performance/noAwaitInLoops: waiting for the panel to draw its rows.
+        await drawn();
+      }
+      const openMs = performance.now() - opened;
+      const inDom = document.querySelectorAll('[role="treeitem"]').length;
+      const select: number[] = [];
+      for (const target of picked) {
+        // biome-ignore lint/performance/noAwaitInLoops: one change at a time, as a person makes them.
+        select.push(await time(() => editor().select(target)));
+      }
+      const hover: number[] = [];
+      for (const target of picked) {
+        // biome-ignore lint/performance/noAwaitInLoops: one change at a time, as a person makes them.
+        hover.push(await time(() => editor().setHover(target)));
+      }
+      performance.mark("bench-end");
+      editor().select(null);
+      editor().setHover(null);
+      editor().setLeftTab("chat");
+      return {
+        hover,
+        nodes: targets.length,
+        open: openMs,
+        rows: inDom,
+        select,
+      };
+    }, CANVAS)
+  );
+  const { busyPct: _, ...thread } = mainThread(events);
+  return {
+    ...thread,
+    hoverMs: stats(result.hover),
+    nodes: result.nodes,
+    openMs: Math.round(result.open),
+    rowsInDom: result.rows,
+    selectMs: stats(result.select),
+  };
+};
+
 const run = async () => {
   const results: Record<string, unknown> = {
     at: new Date().toISOString(),
@@ -904,6 +1002,7 @@ const run = async () => {
     await step("zoom", () => benchZoom(page, cdp));
     await step("goto", () => benchGoto(page));
     await step("switch", () => benchSwitch(page));
+    await step("layers", () => benchLayers(page, cdp));
     await fitAll(page);
     await page.waitForTimeout(3000);
     results.mounted = (await mounted(page)).length;

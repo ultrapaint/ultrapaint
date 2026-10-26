@@ -97,40 +97,89 @@ export const filterLayers = (
   return q === "" ? items : narrow(items, q);
 };
 
-/** Whether a row shows the rows under it: it has some, and has not been folded. */
-export const isExpanded = (item: LayerItem, collapsed: ReadonlySet<string>) =>
-  item.children.length > 0 && !collapsed.has(item.key);
+/** Whether a row is open, showing the rows under it when it has some. */
+export type IsOpen = (item: LayerItem) => boolean;
 
-/** A row as the keyboard sees it, in the order the panel lists them. */
+/** Every row open but the folded ones: how what a filter finds starts out. */
+export const openUnless =
+  (folded: ReadonlySet<string>): IsOpen =>
+  (item) =>
+    !folded.has(item.key);
+
+/**
+ * The pages open and the layers in them folded, but for the rows flipped from that: how the panel
+ * starts out, the way Figma lists the top layers of each frame. A canvas of thousands of layers
+ * then lists a few dozen rows until one is opened.
+ */
+export const pagesOpen =
+  (flipped: ReadonlySet<string>): IsOpen =>
+  (item) =>
+    (item.page !== undefined) !== flipped.has(item.key);
+
+/** Whether a row shows the rows under it: it has some, and is open. */
+export const isExpanded = (item: LayerItem, isOpen: IsOpen) =>
+  item.children.length > 0 && isOpen(item);
+
+/** A row as the panel lists it, in the order it lists them. */
 export interface VisibleRow {
   readonly expandable: boolean;
   readonly expanded: boolean;
+  /** The rows it is written under, outermost first: the panel draws a guide line for each. */
+  readonly guides: readonly string[];
+  /** A row it is written under is hidden, and this one with it. */
+  readonly hiddenAbove: boolean;
+  readonly item: LayerItem;
   readonly key: string;
   /** 1 at the top of the tree, as `aria-level` counts. */
   readonly level: number;
   /** The row it is written under, or null at the top. */
   readonly parent: string | null;
+  /** Its place among the rows under the same one, from 1, as `aria-posinset` counts. */
+  readonly position: number;
+  /** How many rows are under the same one, as `aria-setsize` counts. */
+  readonly siblings: number;
 }
 
 /** Every row that can be seen, from top to bottom: the rows of folded ones left out. */
 export const visibleRows = (
   items: readonly LayerItem[],
-  collapsed: ReadonlySet<string>,
+  isOpen: IsOpen,
   level = 1,
-  parent: string | null = null
+  parent: string | null = null,
+  guides: readonly string[] = [],
+  hiddenAbove = false
 ): VisibleRow[] =>
-  items.flatMap((item) => {
-    const expanded = isExpanded(item, collapsed);
+  items.flatMap((item, index) => {
+    const expanded = isExpanded(item, isOpen);
     const row: VisibleRow = {
       expandable: item.children.length > 0,
       expanded,
+      guides,
+      hiddenAbove,
+      item,
       key: item.key,
       level,
       parent,
+      position: index + 1,
+      siblings: items.length,
     };
-    return expanded
-      ? [row, ...visibleRows(item.children, collapsed, level + 1, item.key)]
-      : [row];
+    if (!expanded) {
+      return [row];
+    }
+    // A page's root is the page: hiding it hides nothing in the list.
+    const hidden =
+      hiddenAbove || (item.page === undefined && item.node?.hidden === true);
+    return [
+      row,
+      ...visibleRows(
+        item.children,
+        isOpen,
+        level + 1,
+        item.key,
+        [...guides, item.key],
+        hidden
+      ),
+    ];
   });
 
 /** What a key does to the tree: move the focus to a row, or open or fold one. */
