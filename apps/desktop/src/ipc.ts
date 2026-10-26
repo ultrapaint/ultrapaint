@@ -17,9 +17,11 @@ export const Channel = {
   notices: "ultrapaint:notices",
   pickFolder: "ultrapaint:pick-folder",
   projectsAdd: "ultrapaint:projects-add",
+  projectsAddRemote: "ultrapaint:projects-add-remote",
   projectsCurrent: "ultrapaint:projects-current",
   projectsList: "ultrapaint:projects-list",
   projectsOpen: "ultrapaint:projects-open",
+  sshHosts: "ultrapaint:ssh-hosts",
 } as const;
 
 /** What `pickFolder` takes, as the editor's `Platform` says it. */
@@ -33,6 +35,15 @@ export interface ListedProject {
   readonly detail?: string;
   readonly id: string;
   readonly name: string;
+}
+
+/** A folder on another machine, as the dialog asks for it (`RemoteProjectInput` in the editor). */
+export interface RemoteProjectRequest {
+  /** What runs the server there; `ultrapaint` when empty. */
+  readonly command?: string;
+  /** `alias`, `host`, `user@host` or `user@host:port`. */
+  readonly host: string;
+  readonly path: string;
 }
 
 /** Something the app found the editor will miss (`ShellNotice` in the editor). */

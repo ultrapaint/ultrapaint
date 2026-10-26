@@ -15,10 +15,18 @@ import {
   Semaphore,
 } from "effect";
 import { Agents } from "./agents.ts";
-import type { ServerStartError, StoreError, UnknownProject } from "./errors.ts";
+import {
+  ServerStartError,
+  type StoreError,
+  type UnknownProject,
+} from "./errors.ts";
 import { LoginShell } from "./login-shell.ts";
 import { ProjectServer, type RunningServer } from "./project-server.ts";
-import { type Project, ProjectStore } from "./projects.ts";
+import {
+  type Project,
+  ProjectStore,
+  type RemoteProjectInput,
+} from "./projects.ts";
 import { Shell } from "./shell.ts";
 
 /** What the user is asked before agents at work are stopped. */
@@ -60,6 +68,16 @@ export class OpenProject extends Context.Service<
     /** Picks a folder, adds it to the list and opens it. Nothing when the picker is cancelled. */
     readonly add: Effect.Effect<
       Option.Option<Project>,
+      StoreError | ServerStartError
+    >;
+    /**
+     * Adds a folder on another machine (or finds it in the list) and opens it. Whether it is
+     * open, as for `openFolder`.
+     */
+    readonly addRemote: (
+      input: RemoteProjectInput
+    ) => Effect.Effect<
+      { readonly opened: boolean; readonly project: Project },
       StoreError | ServerStartError
     >;
     /** The project open now. */
@@ -152,6 +170,11 @@ export class OpenProject extends Context.Service<
             readonly query?: Readonly<Record<string, string>> | undefined;
           } = {}
         ) {
+          if (project.kind === "ssh") {
+            return yield* new ServerStartError({
+              message: `${project.name} is on ${project.host}, and this version opens only folders on this machine`,
+            });
+          }
           const scope = yield* Scope.make();
           // Asked at each start: an agent installed or set up since is in the next one.
           const runtime = yield* agents.runtime;
@@ -216,6 +239,15 @@ export class OpenProject extends Context.Service<
           return { opened, project };
         });
 
+        const addRemote = Effect.fn("OpenProject.addRemote")(function* (
+          input: RemoteProjectInput
+        ) {
+          const project = yield* store.addRemote(input);
+          const opened =
+            open?.project.id === project.id || (yield* openProject(project));
+          return { opened, project };
+        });
+
         return OpenProject.of({
           add: Effect.gen(function* () {
             const folder = yield* shell.pickFolder("Add a project folder");
@@ -223,6 +255,7 @@ export class OpenProject extends Context.Service<
               ? Option.none()
               : Option.some((yield* openFolder(folder.value)).project);
           }),
+          addRemote,
           current: Effect.sync(() => Option.fromNullishOr(open?.project)),
           open: (id) =>
             Effect.flatMap(store.get(id), (project) =>

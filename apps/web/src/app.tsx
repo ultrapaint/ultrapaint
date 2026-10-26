@@ -49,6 +49,7 @@ import {
   hasProjectSwitcher,
   ProjectSwitcher,
 } from "./components/project-switcher.tsx";
+import { RemoteProjectDialog } from "./components/remote-project-dialog.tsx";
 import { ResizeHandle, usePanelWidth } from "./components/resize-handle.tsx";
 import { openSetup, SetupDialog } from "./components/setup-dialog.tsx";
 import { ShellNotices } from "./components/shell-notices.tsx";
@@ -702,6 +703,7 @@ export const App = () => {
         <SaveConfigDialog />
         <SetupDialog />
         <NewDesignDialog />
+        <RemoteProjectDialog />
         <DialogHost />
         <ShortcutSheet />
         <ContextMenuHost />

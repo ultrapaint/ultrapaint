@@ -35,9 +35,10 @@ import { NewDesignRequest, NewDesigns } from "./new-design.ts";
 import { Notices } from "./notices.ts";
 import { OpenProject } from "./open-project.ts";
 import { ProjectServer } from "./project-server.ts";
-import { ProjectStore } from "./projects.ts";
+import { ProjectStore, projectDetail, remoteInputOf } from "./projects.ts";
 import { SecretError, Secrets } from "./secrets.ts";
 import { Shell, type View } from "./shell.ts";
+import { readSshHosts } from "./ssh-hosts.ts";
 
 // A data directory of its own, for trying the app without touching the user's.
 if (process.env.ULTRAPAINT_DESKTOP_USER_DATA) {
@@ -46,6 +47,14 @@ if (process.env.ULTRAPAINT_DESKTOP_USER_DATA) {
     path.resolve(process.env.ULTRAPAINT_DESKTOP_USER_DATA)
   );
 }
+
+/**
+ * An SSH configuration in place of `~/.ssh/config`, for every `ssh` the app runs and for the
+ * hosts it suggests: for trying remote projects against a throwaway server.
+ */
+const sshConfig = process.env.ULTRAPAINT_DESKTOP_SSH_CONFIG
+  ? path.resolve(process.env.ULTRAPAINT_DESKTOP_SSH_CONFIG)
+  : undefined;
 
 /** In development, how the server is started from its sources; packaged, its bundle beside this. */
 const DevServerArgs = Schema.fromJsonString(Schema.Array(Schema.String));
@@ -325,7 +334,11 @@ handle(Channel.projectsList, () =>
       ProjectStore.use((store) => store.list),
       (projects) =>
         projects.map(
-          (p): ListedProject => ({ detail: p.path, id: p.id, name: p.name })
+          (p): ListedProject => ({
+            detail: projectDetail(p),
+            id: p.id,
+            name: p.name,
+          })
         )
     )
   )
@@ -346,6 +359,40 @@ handle(Channel.projectsOpen, (id) =>
 
 handle(Channel.projectsAdd, () =>
   runtime.runPromise(Effect.asVoid(OpenProject.use((o) => o.add)))
+);
+
+const RemoteRequest = Schema.Struct({
+  command: Schema.optional(Schema.String),
+  host: Schema.String,
+  path: Schema.String,
+});
+const decodeRemoteRequest = Schema.decodeUnknownEffect(RemoteRequest);
+
+/**
+ * Adds a folder on another machine and opens it. What is wrong with the fields comes back to
+ * the dialog; a project that does not open shows why on the welcome page, as any project does.
+ */
+handle(Channel.projectsAddRemote, (request) =>
+  runtime.runPromise(
+    Effect.gen(function* () {
+      const fields = yield* decodeRemoteRequest(request);
+      const checked = remoteInputOf(fields);
+      if ("problem" in checked) {
+        return { problem: checked.problem };
+      }
+      yield* Effect.ignore(OpenProject.use((o) => o.addRemote(checked.input)));
+      return {};
+    })
+  )
+);
+
+handle(Channel.sshHosts, () =>
+  runtime.runPromise(
+    readSshHosts(
+      sshConfig ?? path.join(app.getPath("home"), ".ssh", "config"),
+      app.getPath("home")
+    )
+  )
 );
 
 const decodeNewDesign = Schema.decodeUnknownEffect(NewDesignRequest);

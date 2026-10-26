@@ -1,7 +1,8 @@
 /**
  * The app's projects (PLAN-desktop D2): `projects.json` in the app's data directory. A project is
- * a name and a local folder for now; a host and a path on it come with SSH (Phase 3), as another
- * `kind`. The list is the app's own: nothing is written in the projects' folders.
+ * a name and either a local folder (`local`) or a folder on another machine reached over SSH
+ * (`ssh`): a host as `ssh` takes it, a path there, and the command that runs the server there.
+ * The list is the app's own: nothing is written in the projects' folders.
  */
 import {
   Clock,
@@ -17,6 +18,7 @@ import {
 } from "effect";
 import { writeAtomic } from "./atomic-write.ts";
 import { StoreError, UnknownProject } from "./errors.ts";
+import { parseHostInput } from "./ssh-hosts.ts";
 
 export const LocalProject = Schema.Struct({
   id: Schema.String,
@@ -29,9 +31,82 @@ export const LocalProject = Schema.Struct({
 });
 export type LocalProject = typeof LocalProject.Type;
 
-/** A project in the list. Only local folders so far. */
-export const Project = LocalProject;
+/** The command that runs the server on the remote machine, unless the project names another. */
+export const DEFAULT_REMOTE_COMMAND = "ultrapaint";
+
+export const SshProject = Schema.Struct({
+  /**
+   * What runs the server there, before the flags the app adds: `ultrapaint` by default, or
+   * `node /path/to/ultrapaint/scripts/cli.ts`, say. Shell syntax, run by the login shell.
+   */
+  command: Schema.optional(Schema.String),
+  /** A `Host` alias of the SSH configuration, a host name, or `user@host`. */
+  host: Schema.String,
+  id: Schema.String,
+  kind: Schema.Literal("ssh"),
+  lastOpened: Schema.optional(Schema.Number),
+  name: Schema.String,
+  /** The folder on the remote machine: absolute, or under its home as `~/…`. */
+  path: Schema.String,
+  /** A port other than the configuration's (or 22). */
+  port: Schema.optional(Schema.Int),
+});
+export type SshProject = typeof SshProject.Type;
+
+/** A project in the list: a local folder, or a folder on another machine over SSH. */
+export const Project = Schema.Union([LocalProject, SshProject]);
 export type Project = typeof Project.Type;
+
+/** What a remote project is added with: the dialog's fields. */
+export interface RemoteProjectInput {
+  readonly command?: string | undefined;
+  readonly host: string;
+  readonly name?: string | undefined;
+  readonly path: string;
+  readonly port?: number | undefined;
+}
+
+/**
+ * The dialog's fields as a remote project, or what is wrong with them: a host `ssh` takes, and a
+ * path that is absolute or under the home directory.
+ */
+export const remoteInputOf = (fields: {
+  readonly command?: string | undefined;
+  readonly host: string;
+  readonly path: string;
+}): { readonly input: RemoteProjectInput } | { readonly problem: string } => {
+  const host = parseHostInput(fields.host);
+  if (!host) {
+    return {
+      problem: `${fields.host.trim() || "An empty host"} is not a host: an alias of your SSH configuration, a host name, user@host or user@host:port`,
+    };
+  }
+  const path = normalizeRemotePath(fields.path);
+  if (!(path.startsWith("/") || path === "~" || path.startsWith("~/"))) {
+    return {
+      problem: `${path || "An empty path"} is not a folder's full path on ${host.host}: start it with / or ~/`,
+    };
+  }
+  return { input: { ...host, command: fields.command, path } };
+};
+
+/** Where a project is, for the switcher: its folder, or `host:path`. */
+export const projectDetail = (project: Project) =>
+  project.kind === "local"
+    ? project.path
+    : `${project.host}${project.port === undefined ? "" : `:${project.port}`}:${project.path}`;
+
+/** A remote path without the slashes that make it differ from the same path: `/a/b/` is `/a/b`. */
+const TRAILING_SLASHES_RE = /(?<=.)\/+$/;
+export const normalizeRemotePath = (path: string) =>
+  path.trim().replace(TRAILING_SLASHES_RE, "");
+
+/** The last part of a remote path, for the project's name. */
+const lastSegment = (path: string) =>
+  path
+    .split("/")
+    .filter((part) => part !== "" && part !== "~")
+    .at(-1);
 
 const ProjectsFile = Schema.fromJsonString(
   Schema.Struct({
@@ -59,6 +134,13 @@ export class ProjectStore extends Context.Service<
       folder: string,
       name?: string
     ) => Effect.Effect<Project, StoreError>;
+    /**
+     * Adds a folder on another machine, or finds it when the same host, port and path are in
+     * the list already; a command given there replaces the one it had.
+     */
+    readonly addRemote: (
+      input: RemoteProjectInput
+    ) => Effect.Effect<SshProject, StoreError>;
     readonly get: (
       id: string
     ) => Effect.Effect<Project, StoreError | UnknownProject>;
@@ -106,6 +188,10 @@ export class ProjectStore extends Context.Service<
             Effect.provideService(Path.Path, path)
           );
 
+        const newId = Effect.map(Random.nextIntBetween(0, 2 ** 48), (n) =>
+          n.toString(36)
+        );
+
         const get = Effect.fn("ProjectStore.get")(function* (id: string) {
           const found = (yield* read).find((p) => p.id === id);
           return found ?? (yield* new UnknownProject({ id }));
@@ -117,16 +203,54 @@ export class ProjectStore extends Context.Service<
         ) {
           const absolute = path.resolve(folder);
           const projects = yield* read;
-          const known = projects.find((p) => p.path === absolute);
+          const known = projects.find(
+            (p) => p.kind === "local" && p.path === absolute
+          );
           if (known) {
             return known;
           }
-          const id = (yield* Random.nextIntBetween(0, 2 ** 48)).toString(36);
           const project: Project = {
-            id,
+            id: yield* newId,
             kind: "local",
             name: name?.trim() || path.basename(absolute) || absolute,
             path: absolute,
+          };
+          yield* write([...projects, project]);
+          return project;
+        }, lock.withPermits(1));
+
+        const addRemote = Effect.fn("ProjectStore.addRemote")(function* (
+          input: RemoteProjectInput
+        ) {
+          const host = input.host.trim();
+          const remotePath = normalizeRemotePath(input.path);
+          const command = input.command?.trim() || undefined;
+          const projects = yield* read;
+          const known = projects.find(
+            (p): p is SshProject =>
+              p.kind === "ssh" &&
+              p.host === host &&
+              p.port === input.port &&
+              p.path === remotePath
+          );
+          if (known) {
+            if (command === undefined || command === known.command) {
+              return known;
+            }
+            const changed: SshProject = { ...known, command };
+            yield* write(
+              projects.map((p) => (p.id === known.id ? changed : p))
+            );
+            return changed;
+          }
+          const project: SshProject = {
+            ...(command === undefined ? {} : { command }),
+            host,
+            id: yield* newId,
+            kind: "ssh",
+            name: input.name?.trim() || lastSegment(remotePath) || host,
+            path: remotePath,
+            ...(input.port === undefined ? {} : { port: input.port }),
           };
           yield* write([...projects, project]);
           return project;
@@ -142,6 +266,7 @@ export class ProjectStore extends Context.Service<
 
         return ProjectStore.of({
           add,
+          addRemote,
           get,
           last: Effect.map(read, (projects) =>
             Option.fromNullishOr(

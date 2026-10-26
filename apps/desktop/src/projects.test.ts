@@ -3,7 +3,12 @@ import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import { Effect, FileSystem, Option, type Path } from "effect";
 import { TestClock } from "effect/testing";
-import { PROJECTS_FILE, ProjectStore } from "./projects.ts";
+import {
+  PROJECTS_FILE,
+  ProjectStore,
+  projectDetail,
+  remoteInputOf,
+} from "./projects.ts";
 
 const inTemp = <A, E>(
   body: (
@@ -84,4 +89,116 @@ describe("ProjectStore", () => {
       })
     )
   );
+
+  it.effect(
+    "reads a list written before remote projects, and one with both",
+    () =>
+      inTemp((dir) =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const file = path.join(dir, PROJECTS_FILE);
+          yield* fs.writeFileString(
+            file,
+            JSON.stringify({
+              projects: [
+                { id: "a", kind: "local", name: "shop", path: "/work/shop" },
+              ],
+              version: 1,
+            })
+          );
+          const store = yield* ProjectStore;
+          assert.deepStrictEqual(yield* store.list, [
+            { id: "a", kind: "local", name: "shop", path: "/work/shop" },
+          ]);
+          const remote = yield* store.addRemote({
+            host: "devbox",
+            path: "~/code/atlas/",
+          });
+          assert.deepStrictEqual(remote, {
+            host: "devbox",
+            id: remote.id,
+            kind: "ssh",
+            name: "atlas",
+            path: "~/code/atlas",
+          });
+          // Read again from the file, as the next start of the app does.
+          const reread = yield* Effect.provide(
+            ProjectStore.use((s) => s.list),
+            ProjectStore.layer(dir)
+          );
+          assert.deepStrictEqual(
+            reread.map((p) => [p.kind, p.name]),
+            [
+              ["ssh", "atlas"],
+              ["local", "shop"],
+            ]
+          );
+          assert.strictEqual(projectDetail(remote), "devbox:~/code/atlas");
+        })
+      )
+  );
+
+  it.effect(
+    "adds a remote folder once per host, port and path, and takes a new command",
+    () =>
+      inTemp(() =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const first = yield* store.addRemote({
+            host: "me@box",
+            path: "/srv/site",
+            port: 2222,
+          });
+          assert.strictEqual(first.command, undefined);
+          assert.strictEqual(projectDetail(first), "me@box:2222:/srv/site");
+          const again = yield* store.addRemote({
+            command: "node ~/ultrapaint/scripts/cli.ts",
+            host: "me@box",
+            path: "/srv/site/",
+            port: 2222,
+          });
+          assert.strictEqual(again.id, first.id);
+          assert.strictEqual(
+            again.command,
+            "node ~/ultrapaint/scripts/cli.ts"
+          );
+          // Another port is another machine, as far as the list knows.
+          const other = yield* store.addRemote({
+            host: "me@box",
+            path: "/srv/site",
+          });
+          assert.notStrictEqual(other.id, first.id);
+          // A local folder of the same path is a project of its own.
+          const local = yield* store.add("/srv/site");
+          assert.strictEqual(local.kind, "local");
+          assert.strictEqual((yield* store.list).length, 3);
+        })
+      )
+  );
+});
+
+describe("remoteInputOf", () => {
+  it("splits the host's port off and keeps the path as typed", () => {
+    assert.deepStrictEqual(
+      remoteInputOf({ host: " me@box:2222 ", path: "~/code/shop/" }),
+      {
+        input: {
+          command: undefined,
+          host: "me@box",
+          path: "~/code/shop",
+          port: 2222,
+        },
+      }
+    );
+  });
+
+  it("says what is wrong with a host or a path", () => {
+    const host = remoteInputOf({ host: "two words", path: "/srv" });
+    assert.include("problem" in host ? host.problem : "", "is not a host");
+    const relative = remoteInputOf({ host: "box", path: "code/shop" });
+    assert.include(
+      "problem" in relative ? relative.problem : "",
+      "not a folder's full path on box"
+    );
+  });
 });

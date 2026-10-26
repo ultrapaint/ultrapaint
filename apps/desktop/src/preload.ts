@@ -12,6 +12,7 @@ import {
   type NewDesignRequest,
   type NewDesignUpdate,
   type PickFolderOptions,
+  type RemoteProjectRequest,
   type ShellNotice,
 } from "./ipc.ts";
 
@@ -60,11 +61,17 @@ contextBridge.exposeInMainWorld("ultrapaintPlatform", {
     ipcRenderer.invoke(Channel.pickFolder, options),
   projects: {
     add: (): Promise<void> => ipcRenderer.invoke(Channel.projectsAdd),
+    addRemote: (
+      request: RemoteProjectRequest
+    ): Promise<{ readonly problem?: string }> =>
+      ipcRenderer.invoke(Channel.projectsAddRemote, request),
     current: (): Promise<string | null> =>
       ipcRenderer.invoke(Channel.projectsCurrent),
     list: (): Promise<readonly ListedProject[]> =>
       ipcRenderer.invoke(Channel.projectsList),
     open: (id: string): Promise<void> =>
       ipcRenderer.invoke(Channel.projectsOpen, id),
+    sshHosts: (): Promise<readonly string[]> =>
+      ipcRenderer.invoke(Channel.sshHosts),
   },
 });

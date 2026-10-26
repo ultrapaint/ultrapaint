@@ -15,10 +15,28 @@ export interface PlatformProject {
   readonly name: string;
 }
 
+/** A folder on another machine, reached over SSH, as the dialog asks for it. */
+export interface RemoteProjectInput {
+  /** What runs the server there, before the flags the shell adds; `ultrapaint` when empty. */
+  readonly command?: string;
+  /** An alias of the user's SSH configuration, a host name, `user@host` or `user@host:port`. */
+  readonly host: string;
+  /** The folder there: absolute, or `~/…`. */
+  readonly path: string;
+}
+
 /** The shell's list of projects, for the switcher in the header. One project is open at a time. */
 export interface ProjectSwitcher {
   /** Adds a project, through the shell's own dialog; absent when the shell cannot. */
   readonly add?: () => Promise<void>;
+  /**
+   * Adds a folder on another machine and opens it in place of the open project; absent when
+   * the shell cannot. What is wrong with the input comes back as `problem`; a project that
+   * could not be opened is the shell's to show, as for `open`.
+   */
+  readonly addRemote?: (
+    input: RemoteProjectInput
+  ) => Promise<{ readonly problem?: string }>;
   /** The open project's id. */
   readonly current: () => Promise<string | null>;
   readonly list: () => Promise<readonly PlatformProject[]>;
@@ -27,6 +45,8 @@ export interface ProjectSwitcher {
    * is working, starts the next one's and loads its editor in place of this one.
    */
   readonly open: (id: string) => Promise<void>;
+  /** The host aliases of the user's SSH configuration, suggested as a host is typed. */
+  readonly sshHosts?: () => Promise<readonly string[]>;
 }
 
 /**

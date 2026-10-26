@@ -3,7 +3,7 @@
  * first start or when a project could not start, with why. It lists the app's projects and
  * offers a new design or a folder, through `Platform`; there is no server behind it.
  */
-import { CircleAlert, FolderPlus, Plus } from "lucide-react";
+import { CircleAlert, FolderPlus, Plus, Server } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -14,6 +14,11 @@ import {
   NewDesignDialog,
   openNewDesign,
 } from "./components/new-design-dialog.tsx";
+import {
+  canAddRemoteProjects,
+  openRemoteProject,
+  RemoteProjectDialog,
+} from "./components/remote-project-dialog.tsx";
 import { type PlatformProject, platform } from "./platform.ts";
 import "./styles.css";
 
@@ -42,7 +47,8 @@ const Welcome = () => {
         <h1 className="font-heading-small">Ultrapaint</h1>
         <p className="font-body text-muted-foreground">
           Start a new design, or open a folder to design in: a repository with
-          your components, or an empty folder. The list keeps it for next time.
+          your components, or an empty folder, here or on another machine over
+          SSH. The list keeps it for next time.
         </p>
       </div>
       {problem ? (
@@ -86,8 +92,15 @@ const Welcome = () => {
             Add a project folder…
           </Button>
         ) : null}
+        {canAddRemoteProjects() ? (
+          <Button onClick={openRemoteProject} variant="outline">
+            <Server />
+            Open over SSH…
+          </Button>
+        ) : null}
       </div>
       <NewDesignDialog />
+      <RemoteProjectDialog />
     </main>
   );
 };

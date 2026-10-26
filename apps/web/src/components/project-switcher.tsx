@@ -7,11 +7,17 @@ import {
 import { reportError } from "../state/project.ts";
 import { canMakeNewDesigns, openNewDesign } from "./new-design-dialog.tsx";
 import { OptionSelect } from "./option-select.tsx";
+import {
+  canAddRemoteProjects,
+  openRemoteProject,
+} from "./remote-project-dialog.tsx";
 
 /** The option that asks the shell for another project rather than naming one. */
 const ADD = "\u0000add";
 /** The option that opens the New design dialog. */
 const NEW = "\u0000new";
+/** The option that opens the dialog for a folder on another machine. */
+const REMOTE = "\u0000remote";
 
 /**
  * The shell's projects, one of them open, in the header's place for the project's name. Only a
@@ -34,6 +40,10 @@ const SwitcherSelect = ({ switcher }: { switcher: Switcher }) => {
       openNewDesign();
       return;
     }
+    if (id === REMOTE) {
+      openRemoteProject();
+      return;
+    }
     const next = id === ADD ? switcher.add?.() : switcher.open(id);
     next?.catch(reportError);
   };
@@ -49,6 +59,9 @@ const SwitcherSelect = ({ switcher }: { switcher: Switcher }) => {
         })),
         ...(canMakeNewDesigns() ? [{ label: "New design…", value: NEW }] : []),
         ...(switcher.add ? [{ label: "Add a project…", value: ADD }] : []),
+        ...(canAddRemoteProjects()
+          ? [{ label: "Open over SSH…", value: REMOTE }]
+          : []),
       ]}
       placeholder="Choose a project"
       size="sm"
