@@ -76,9 +76,28 @@ export const presetSize: Record<
   tablet: { height: 1194, width: 834 },
 };
 
+/**
+ * Another frame of the same page at a width of its own (ADR 0036): the page drawn again, not a
+ * copy, showing the values of the breakpoint its width falls in. Where it sits is counted from
+ * the page's frame, so it moves with it.
+ */
+export const FrameView = Schema.Struct({
+  height: Schema.Number,
+  /** What tells it from the page's other views, unique among them: `mobile`, `v2`. */
+  id: Schema.String.check(Schema.isMinLength(1)),
+  width: Schema.Number,
+  /** From the page frame's left edge. */
+  x: Schema.Number,
+  /** From the page frame's top edge. */
+  y: Schema.Number,
+});
+export type FrameView = typeof FrameView.Type;
+
 export const FrameLayout = Schema.Struct({
   height: Schema.Number,
   preset: ViewportPreset,
+  /** The page's views, drawn beside its frame; absent when it has none. */
+  views: Schema.optional(Schema.Array(FrameView)),
   width: Schema.Number,
   x: Schema.Number,
   y: Schema.Number,

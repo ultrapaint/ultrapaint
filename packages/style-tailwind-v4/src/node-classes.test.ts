@@ -462,3 +462,68 @@ import { Card2 } from "@gamma/ui";
     expect(toCode(image, ds)).toContain(`alt={"R&amp;D"}`);
   });
 });
+
+describe("breakpoints", () => {
+  const breakpoints = [
+    { min: 768, name: "md" },
+    { min: 1024, name: "lg" },
+  ];
+  const write = (node: DesignNode) =>
+    writeCode(node, tailwindClasses(ds), { breakpoints });
+
+  it("writes what a node sets at a breakpoint with its prefix, mobile-first", () => {
+    const node: DesignNode = {
+      at: { lg: { gap: 32 }, md: { gap: 24, type: "row", wrap: true } },
+      children: [],
+      gap: 16,
+      id: "s",
+      type: "column",
+    };
+    expect(write(node)).toBe(
+      `<div className="flex max-md:flex-col gap-4 md:flex-wrap md:gap-6 lg:gap-8" />`
+    );
+  });
+
+  it("hides a node below a breakpoint, and writes a text that differs once per run of widths", () => {
+    const node: DesignNode = {
+      children: [
+        {
+          at: { md: { hidden: false } },
+          hidden: true,
+          id: "nav",
+          role: "paragraph",
+          text: "Links",
+          type: "text",
+        },
+        {
+          at: { lg: { text: "Open the menu" } },
+          id: "menu",
+          role: "paragraph",
+          size: "$text-lg",
+          text: "Menu",
+          type: "text",
+        },
+      ],
+      id: "s",
+      type: "row",
+    };
+    expect(write(node)).toBe(`<div className="flex">
+  <p className="max-md:hidden">Links</p>
+  <p className="text-lg lg:hidden">Menu</p>
+  <p className="text-lg max-lg:hidden">Open the menu</p>
+</div>`);
+  });
+
+  it("moves a node among its siblings from a breakpoint on with order", () => {
+    const node: DesignNode = {
+      at: { md: { order: -1 } },
+      id: "t",
+      role: "paragraph",
+      text: "First on a wide screen",
+      type: "text",
+    };
+    expect(write(node)).toBe(
+      `<p className="md:-order-1">First on a wide screen</p>`
+    );
+  });
+});

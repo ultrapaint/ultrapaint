@@ -1,6 +1,11 @@
 import type { DesignNode, PageNode } from "@ultrapaint/contracts/document";
 import { describe, expect, it } from "vitest";
-import { type ClassWriter, pageComponentName, toCode } from "./code.ts";
+import {
+  type ClassWriter,
+  pageComponentName,
+  responsiveClasses,
+  toCode,
+} from "./code.ts";
 
 /** A style system that writes each node's type and its parent's layout, to see where they go. */
 const writer: ClassWriter = {
@@ -94,5 +99,29 @@ describe("pageComponentName", () => {
     expect(pageComponentName("/settings/billing")).toBe("SettingsBillingPage");
     expect(pageComponentName("/invoices/:id")).toBe("InvoicesIdPage");
     expect(pageComponentName("/404")).toBe("Page404");
+  });
+});
+
+describe("responsiveClasses", () => {
+  it("lets a class of a breakpoint take over from one of its group, and bounds the rest", () => {
+    expect(
+      responsiveClasses(
+        [null, "md", "lg"],
+        [
+          ["gap-4", "self-start", "w-fit"],
+          ["gap-6", "self-stretch"],
+          ["gap-4", "w-50"],
+        ]
+      )
+    ).toEqual([
+      "gap-4",
+      // Taken over at md, and the one that took over stops at lg: so does it.
+      "max-lg:self-start",
+      "max-md:w-fit",
+      "md:gap-6",
+      "md:max-lg:self-stretch",
+      "lg:gap-4",
+      "lg:w-50",
+    ]);
   });
 });

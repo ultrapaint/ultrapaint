@@ -4,10 +4,15 @@
  * agents ask for. One node at a time, with the repository's stylesheet and its real components,
  * then captured.
  */
+
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { PageDefaults } from "@ultrapaint/contracts/pages";
 import type { HostMessage, RenderMode } from "@ultrapaint/contracts/preview";
+import {
+  breakpointsOf,
+  resolveAt,
+} from "@ultrapaint/design-document/breakpoints";
 import type { FrameRuntime, Preview } from "@ultrapaint/framework-api/browser";
 import { bridgeFor } from "./bridge.ts";
 import { previewReady } from "./preview-module.ts";
@@ -137,7 +142,12 @@ export const drawSpecimen = (
       defaults,
       designSystem,
       mode: options.mode ?? "fit",
-      root: node,
+      // As the page is at the window's width: its breakpoints' values (ADR 0036).
+      root: resolveAt(
+        node,
+        breakpointsOf(designSystem),
+        options.width ?? WIDTH
+      ),
     });
     if (!(await rendered(id, 8000))) {
       return null;

@@ -27,6 +27,11 @@ export interface RenderSetup {
   /** URL of an image a node shows: a path inside the canvas, or a URL as it is. */
   readonly assetUrl: (src: string) => string;
   readonly components: ComponentRegistry;
+  /**
+   * The render's components are drawing, or their effects running: what they ask of the window's
+   * size is the frame's (ADR 0036). Called often; it only says so.
+   */
+  readonly drawing?: () => void;
   /** A node with a link was pressed. */
   readonly navigate: (route: string) => void;
   /** A render reached the screen. */

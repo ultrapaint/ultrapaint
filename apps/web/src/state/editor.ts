@@ -1,6 +1,7 @@
 import type {
   CanvasLayout,
   FrameLayout,
+  FrameView,
   Page,
   ViewportPreset,
 } from "@ultrapaint/contracts/pages";
@@ -18,9 +19,13 @@ import { api } from "./connection.ts";
 import {
   canvasNodes,
   isNodeFrame,
+  isViewFrame,
   nodeFrameOf,
   nodeIn,
+  pageOfFrame,
   useDocuments,
+  viewFrameOf,
+  viewOfFrame,
 } from "./documents.ts";
 import { reportError, useProject } from "./project.ts";
 import { viewedSnapshot } from "./snapshot-view.ts";
@@ -105,6 +110,8 @@ interface EditorStore {
    * what the prototype shows and agents are about.
    */
   activePage: string | null;
+  /** Draws a page again at another width beside its frame; the new view's frame id. */
+  addView: (pageId: string, width: number, height?: number) => string | null;
   /**
    * The other nodes selected with `selection`, in the same frame: Shift-click and the marquee add
    * them. `selection` is the one the inspector shows and the menus act on first.
@@ -139,6 +146,8 @@ interface EditorStore {
    */
   openPage: (pageId: string, options?: { push?: boolean }) => void;
   rects: Record<string, Record<string, Rect>>;
+  /** Takes a view of a page away, by its frame id. */
+  removeView: (frame: string) => void;
   rightTab: RightTab;
   /**
    * Where the canvas's router is. The editor holds it; the preview is told. Null while the
@@ -152,6 +161,10 @@ interface EditorStore {
   /** Several nodes of one frame at once, the first of them the one the inspector shows. */
   selectMany: (selections: readonly Selection[]) => void;
   selectPage: (pageId: string | null) => void;
+  /**
+   * Sets a frame: a page's (its views move with it) or a view's (ADR 0036). A page's frame given
+   * without views keeps the ones it has.
+   */
   setFrame: (pageId: string, frame: FrameLayout, persist?: boolean) => void;
   setHostError: (frame: string, error: string | null) => void;
   setHover: (hover: EditorStore["hover"]) => void;
@@ -330,6 +343,126 @@ export const allFrames = (): Record<string, Box> => {
   return out;
 };
 
+/**
+ * The frames with their pages' views among them, each a box of its own where its page's frame
+ * puts it (ADR 0036): a view's place is counted from its page's frame, so it moves with it.
+ */
+const placeViews = (
+  frames: Record<string, FrameLayout>
+): Record<string, FrameLayout> => {
+  const out: Record<string, FrameLayout> = {};
+  for (const [id, frame] of Object.entries(frames)) {
+    if (isViewFrame(id)) {
+      continue;
+    }
+    out[id] = frame;
+    for (const view of frame.views ?? []) {
+      out[viewFrameOf(id, view.id)] = {
+        height: view.height,
+        preset: "custom",
+        width: view.width,
+        x: frame.x + view.x,
+        y: frame.y + view.y,
+      };
+    }
+  }
+  return out;
+};
+
+/** Room between a frame and the view beside it. */
+const VIEW_GAP = 80;
+
+/** The frames once `id`, a page's frame or one of its views, is `box`. */
+const framesWith = (
+  frames: Record<string, FrameLayout>,
+  id: string,
+  box: FrameLayout
+): Record<string, FrameLayout> => {
+  const view = viewOfFrame(id);
+  if (view === null) {
+    // A frame given without its views keeps those it has.
+    const views = "views" in box ? box.views : frames[id]?.views;
+    return placeViews({
+      ...frames,
+      [id]: { ...box, ...(views && views.length > 0 ? { views } : {}) },
+    });
+  }
+  const pageId = pageOfFrame(id);
+  const page = frames[pageId];
+  if (!page) {
+    return frames;
+  }
+  const views = (page.views ?? []).map((v) =>
+    v.id === view
+      ? {
+          height: box.height,
+          id: v.id,
+          width: box.width,
+          x: box.x - page.x,
+          y: box.y - page.y,
+        }
+      : v
+  );
+  return placeViews({ ...frames, [pageId]: { ...page, views } });
+};
+
+const overlaps = (a: Box, b: Box) =>
+  a.x < b.x + b.width + VIEW_GAP &&
+  b.x < a.x + a.width + VIEW_GAP &&
+  a.y < b.y + b.height + VIEW_GAP &&
+  b.y < a.y + a.height + VIEW_GAP;
+
+/**
+ * Where a new view of a page goes, counted from its frame: to the right of the frame and of its
+ * views; below them when another page is there, and further down until nothing is in the way.
+ */
+const freeSpotFor = (
+  frames: Record<string, FrameLayout>,
+  pageId: string,
+  size: { height: number; width: number }
+): { x: number; y: number } => {
+  const page = frames[pageId] as FrameLayout;
+  const own: Box[] = [
+    page,
+    ...(page.views ?? []).map((v) => ({
+      ...v,
+      x: page.x + v.x,
+      y: page.y + v.y,
+    })),
+  ];
+  const others = Object.entries(frames).flatMap(([id, f]) =>
+    pageOfFrame(id) === pageId ? [] : [f]
+  );
+  const blocking = (spot: Box) => others.filter((f) => overlaps(spot, f));
+  const right = Math.max(...own.map((f) => f.x + f.width)) + VIEW_GAP;
+  let box: Box = { ...size, x: right, y: page.y };
+  if (blocking(box).length === 0) {
+    return { x: box.x - page.x, y: 0 };
+  }
+  box = {
+    ...size,
+    x: page.x,
+    y: Math.max(...own.map((f) => f.y + f.height)) + VIEW_GAP,
+  };
+  for (let found = blocking(box); found.length > 0; found = blocking(box)) {
+    box = {
+      ...box,
+      y: Math.max(...found.map((f) => f.y + f.height)) + VIEW_GAP,
+    };
+  }
+  return { x: box.x - page.x, y: box.y - page.y };
+};
+
+/** A view's id: what its width is, told apart from the page's others. */
+const viewIdFor = (width: number, taken: readonly FrameView[]) => {
+  const base = `w${Math.round(width)}`;
+  let id = base;
+  for (let n = 2; taken.some((v) => v.id === id); n += 1) {
+    id = `${base}-${n}`;
+  }
+  return id;
+};
+
 /** The pages' frames: where the layout has them, the rest in a row to the right of them. */
 export const computeFrames = (
   pages: readonly Page[],
@@ -358,7 +491,7 @@ export const computeFrames = (
     };
     cursorX += size.width + 120;
   }
-  return frames;
+  return placeViews(frames);
 };
 
 /** Saves the frames as they are now: one undo step on the server. */
@@ -374,9 +507,12 @@ const saveLayout = (
   const pages = pagesOfCanvas(canvas);
   const layoutFrames: Record<string, FrameLayout> = {};
   for (const [id, f] of Object.entries(frames)) {
+    // A view's box is its page's to save, in the page's frame.
     const page = pages.find((p) => p.id === id);
     if (page) {
-      layoutFrames[page.path] = f;
+      const { views, ...frame } = f;
+      layoutFrames[page.path] =
+        views && views.length > 0 ? { ...frame, views } : frame;
     }
   }
   set({ layout: { ...layout, frames: layoutFrames } });
@@ -414,6 +550,21 @@ export const flushLayout = (): Promise<void> => {
 
 export const useEditor = create<EditorStore>((set, get) => ({
   activePage: null,
+  addView: (pageId, width, height) => {
+    const page = get().frames[pageId];
+    if (!page) {
+      return null;
+    }
+    const views = page.views ?? [];
+    const size = { height: height ?? page.height, width: Math.round(width) };
+    const view: FrameView = {
+      ...size,
+      ...freeSpotFor(get().frames, pageId, size),
+      id: viewIdFor(width, views),
+    };
+    get().setFrame(pageId, { ...page, views: [...views, view] });
+    return viewFrameOf(pageId, view.id);
+  },
   also: [],
   applyLayout: (canvas, layout) => {
     const s = get();
@@ -546,6 +697,22 @@ export const useEditor = create<EditorStore>((set, get) => ({
     );
   },
   rects: {},
+  removeView: (frame) => {
+    const view = viewOfFrame(frame);
+    const pageId = pageOfFrame(frame);
+    const page = get().frames[pageId];
+    if (view === null || !page) {
+      return;
+    }
+    const s = get();
+    if (s.selection && s.selection.frame === frame) {
+      s.select({ ...s.selection, frame: pageId });
+    }
+    get().setFrame(pageId, {
+      ...page,
+      views: (page.views ?? []).filter((v) => v.id !== view),
+    });
+  },
   rightTab: "design",
   route: "/",
   select: (selection) => {
@@ -566,19 +733,29 @@ export const useEditor = create<EditorStore>((set, get) => ({
       return;
     }
     get().select(first);
-    set({ also: rest.filter((s) => s.frame === first.frame) });
+    const frame = get().selection?.frame ?? first.frame;
+    set({
+      also: rest
+        .filter((s) => pageOfFrame(s.frame) === pageOfFrame(first.frame))
+        .map((s) => ({ ...s, frame })),
+    });
   },
   selectPage: (pageId) => {
     if (pageId && hidesSelection(get)) {
       return;
     }
-    set({ also: [], selectedPage: pageId, selection: null });
+    // A view's frame selects its page, which every view of it shows (ADR 0036).
+    set({
+      also: [],
+      selectedPage: pageId && pageOfFrame(pageId),
+      selection: null,
+    });
     if (pageId) {
       followFrame(get, set, pageId);
     }
   },
   setFrame: (pageId, frame, persist = true) => {
-    set((s) => ({ frames: { ...s.frames, [pageId]: frame } }));
+    set((s) => ({ frames: framesWith(s.frames, pageId, frame) }));
     if (persist) {
       persistLayout(get, set);
     }
@@ -885,11 +1062,12 @@ const hidesSelection = (get: () => EditorStore) =>
 const followFrame = (
   get: () => EditorStore,
   set: (partial: Partial<EditorStore>) => void,
-  pageId: string
+  frame: string
 ) => {
-  if (isNodeFrame(pageId)) {
+  if (isNodeFrame(frame)) {
     return;
   }
+  const pageId = pageOfFrame(frame);
   const { activePage, canvas, route, variant } = get();
   const page = pagesOfCanvas(canvas).find((p) => p.id === pageId);
   const pageVariant = page?.variant ?? null;

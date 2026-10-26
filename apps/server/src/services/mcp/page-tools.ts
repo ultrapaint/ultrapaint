@@ -5,7 +5,11 @@
  */
 
 import { Json } from "@ultrapaint/contracts/base";
-import { type FrameLayout, presetSize } from "@ultrapaint/contracts/pages";
+import {
+  type FrameLayout,
+  type FrameView,
+  presetSize,
+} from "@ultrapaint/contracts/pages";
 import { basePathOf } from "@ultrapaint/shared/route";
 import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
@@ -28,7 +32,7 @@ const Failure = ToolFailure;
  * outside the editor, which has no briefing. `get_context` answers with it, once, rather than
  * every tool carrying a share of it on every turn.
  */
-const GUIDE = `Designs are kept in canvases. Each has its own pages, the URLs they serve in its prototype, and loose nodes placed beside the pages; when there are several, tools take canvas (an id from canvases; the designs directory's own is ""). A page is a <name>.page.json design document, not code: a tree of nodes (page, row, column, group, text, image, and instance of one of the repository's components), each with an id. Its URL is optional, and a page without one is reached by no link. pricing@bold.page.json is pricing.page.json drawn again for the variant bold, shown in its place when the prototype is in that variant. Images live in the designs directory's assets/, or a canvas's own assets/ to replace a shared file. Change pages through these tools (read_page, then apply_operations), not by editing the files: get_document_format has the whole format and get_component an instance to start from. Call focus before changing nodes, so the user sees where you work, and get_screenshot to look at the result.`;
+const GUIDE = `Designs are kept in canvases. Each has its own pages, the URLs they serve in its prototype, and loose nodes placed beside the pages; when there are several, tools take canvas (an id from canvases; the designs directory's own is ""). A page is a <name>.page.json design document, not code: a tree of nodes (page, row, column, group, text, image, and instance of one of the repository's components), each with an id. Its URL is optional, and a page without one is reached by no link. pricing@bold.page.json is pricing.page.json drawn again for the variant bold, shown in its place when the prototype is in that variant. A page is one tree for every width, mobile-first: a node's fields are the smallest screen's, and its at says what differs from a design system breakpoint up (at.md); a page's views draw it at other widths beside its frame. Images live in the designs directory's assets/, or a canvas's own assets/ to replace a shared file. Change pages through these tools (read_page, then apply_operations), not by editing the files: get_document_format has the whole format and get_component an instance to start from. Call focus before changing nodes, so the user sees where you work, and get_screenshot to look at the result.`;
 
 const PageSummary = Schema.Struct({
   canvas: Schema.String,
@@ -52,7 +56,7 @@ const CanvasSummary = Schema.Struct({
 
 export const GetContext = Tool.make("get_context", {
   description:
-    "The project: repository root, designs directory, the package pages import from, its canvases and page count, and a short guide to how designs are kept. Call it first, unless you were told the pages.",
+    "The project: repository root, designs directory, the package pages import from, its canvases and page count, and a guide to how designs are kept. Call it first unless told the pages.",
   failure: Failure,
   success: Schema.Struct({
     canvases: Schema.Array(CanvasSummary),
@@ -72,15 +76,52 @@ export const ListPages = Tool.make("list_pages", {
   success: Schema.Struct({ pages: Schema.Array(PageSummary) }),
 }).annotate(Tool.Readonly, true);
 
+/**
+ * A page's views at these widths (ADR 0036), side by side to the right of its frame: one it had
+ * at a width keeps its id and its height, a new one is as tall as the frame.
+ */
+const viewsAt = (
+  widths: readonly number[],
+  before: readonly FrameView[],
+  frameWidth: number,
+  frameHeight: number
+): FrameView[] => {
+  let x = frameWidth;
+  const taken = new Set<string>();
+  return widths.map((width) => {
+    const rounded = Math.round(width);
+    const had = before.find((v) => v.width === rounded && !taken.has(v.id));
+    let id = had?.id ?? `w${rounded}`;
+    for (let n = 2; !had && taken.has(id); n += 1) {
+      id = `w${rounded}-${n}`;
+    }
+    taken.add(id);
+    x += VIEW_GAP;
+    const view: FrameView = {
+      height: had?.height ?? frameHeight,
+      id,
+      width: rounded,
+      x,
+      y: 0,
+    };
+    x += rounded;
+    return view;
+  });
+};
+
+/** Room between a page's frame and its views. */
+const VIEW_GAP = 80;
+
 export const SetFrame = Tool.make("set_frame", {
   description:
-    "Size a page's frame, the window it is drawn in on the canvas and in get_screenshot: a preset, or width and height in pixels. A long page needs a tall frame.",
+    "Size a page's frame, the window it is drawn in on the canvas and in get_screenshot: a preset, or width and height in pixels. A long page needs a tall frame. views: widths drawn beside it.",
   failure: Failure,
   parameters: Schema.Struct({
     canvas: opt(Schema.String),
     height: opt(finite(100, 20_000)),
     preset: opt(Schema.Literals(["mobile", "tablet", "desktop"])),
     route: Schema.String.annotate({ description: PAGE_PARAMETER }),
+    views: opt(Schema.Array(finite(200, 8000))),
     width: opt(finite(200, 8000)),
   }),
   success: Schema.Struct({
@@ -304,6 +345,7 @@ export const pageToolHandlers = Effect.gen(function* () {
       preset,
       route,
       canvas,
+      views,
       width,
     }) {
       const page = yield* pageAt(route, canvas);
@@ -321,13 +363,19 @@ export const pageToolHandlers = Effect.gen(function* () {
           0,
           ...Object.values(frames).map((f) => f.x + f.width + 120)
         );
+        const frameHeight = height ?? size.height;
+        const frameWidth = width ?? size.width;
+        const kept = views
+          ? viewsAt(views, before?.views ?? [], frameWidth, frameHeight)
+          : before?.views;
         return {
-          height: height ?? size.height,
+          height: frameHeight,
           preset:
             width === undefined && height === undefined && preset
               ? preset
               : "custom",
-          width: width ?? size.width,
+          ...(kept && kept.length > 0 && { views: kept }),
+          width: frameWidth,
           x: before?.x ?? right,
           y: before?.y ?? 0,
         };

@@ -22,7 +22,12 @@ export const codeRules = `How the design maps to code (Tailwind v4):
 - fill: bg-*. border: border, border-* and the colour; "$border-width-*" is
   border-(length:--border-width-*). radius: rounded-*. shadow: shadow-*. "$container-md" in
   maxWidth or minWidth is max-w-md or min-w-md.
-  opacity: opacity-*. hidden: leave the node out.
+  opacity: opacity-*. hidden: leave the node out. order: order-* (-order-1 for -1).
+- at: what differs from a breakpoint of the design system up, mobile-first: at.md.gap 24 is
+  md:gap-6 beside the base's gap-4; at.md.type "row" on a column is max-md:flex-col (or flex-col
+  md:flex-row); hidden with at.lg.hidden false is max-lg:hidden. A text or props that differ: the
+  component's own responsive prop if it has one, else one element per width with the hidden
+  classes. Never a second component for the phone.
 - text: role heading with level n is <hN>, paragraph is <p>; size, weight, font, lineHeight,
   tracking, color and align are the matching utilities; textStyle names a text style of the
   design system — write all of the classes that style stands for (its size, weight and line

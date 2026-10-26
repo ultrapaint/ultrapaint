@@ -48,6 +48,7 @@ import {
   Suspense,
   startTransition,
   useContext,
+  useEffect,
   useLayoutEffect,
   useSyncExternalStore,
 } from "react";
@@ -99,6 +100,8 @@ interface Scope {
   ) => ComponentType<Record<string, unknown>> | null;
   /** The trees of the draft components (ADR 0029), by component name. */
   readonly drafts: ReadonlyMap<string, DesignNode>;
+  /** Says the render's components are drawing: what they ask of the window is the frame's. */
+  readonly drawing: () => void;
   /** How each instance was drawn, which the instance reads and its effect writes. */
   readonly instances: InstanceStore;
   /** What earlier instances of a component taught: whether it wraps, how it lays out. */
@@ -478,6 +481,8 @@ const ComponentInstanceView = ({
   style: Style;
 }): ReactNode => {
   const scope = useContext(ScopeContext) as Scope;
+  // The component draws next: a `matchMedia` it calls is about this frame (ADR 0036).
+  scope.drawing();
   const Resolved = scope.componentOf(node);
   const key = `${node.from}#${node.component}`;
   const { instances, learned } = scope;
@@ -598,6 +603,18 @@ const Rendered = ({
   useLayoutEffect(() => {
     onRendered(renderId);
   }, [onRendered, renderId]);
+  return null;
+};
+
+/**
+ * Says the frame is drawing, before the providers and the page are and as the render's effects
+ * run: the first thing drawn, its effects run first. What a component's effect asks of the window (`matchMedia`,
+ * `innerWidth`) is then about this frame, whichever frame was drawn last (ADR 0036).
+ */
+const Drawing = ({ drawing }: { drawing: () => void }) => {
+  drawing();
+  useLayoutEffect(drawing);
+  useEffect(drawing);
   return null;
 };
 
@@ -804,6 +821,7 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
   };
   const onError = (error: Error) =>
     setup.reportError({ message: error.message, stack: error.stack });
+  const drawing = setup.drawing ?? (() => undefined);
 
   // How instances were drawn goes to the editor once a frame, and only what changed.
   let unsent: Record<string, InstanceDrawn> = {};
@@ -860,6 +878,7 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
       assetUrl: setup.assetUrl,
       componentOf: components.componentOf,
       drafts,
+      drawing,
       instances,
       learned: components.learned,
       navigate: setup.navigate,
@@ -889,30 +908,35 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
       body = createElement(NodeView, { node, parent: "free" });
     }
     const tree = createElement(
-      Providers,
+      Fragment,
       null,
+      createElement(Drawing, { drawing }),
       createElement(
-        ScopeContext.Provider,
-        { value: scope },
-        // One boundary for the whole render: a component still loading holds the render back
-        // (a transition keeps the last one on screen meanwhile) instead of drawing a placeholder.
+        Providers,
+        null,
         createElement(
-          Suspense,
-          { fallback: null },
+          ScopeContext.Provider,
+          { value: scope },
+          // One boundary for the whole render: a component still loading holds the render back
+          // (a transition keeps the last one on screen meanwhile) instead of drawing a placeholder.
           createElement(
-            Boundary,
-            {
-              key: "page",
-              label: "The page",
-              onError,
-              resetKeys: [request, components.generation()],
-            },
-            body
-          ),
-          createElement(Rendered, {
-            onRendered: setup.onRendered,
-            renderId: request.renderId,
-          })
+            Suspense,
+            { fallback: null },
+            createElement(
+              Boundary,
+              {
+                key: "page",
+                label: "The page",
+                onError,
+                resetKeys: [request, components.generation()],
+              },
+              body
+            ),
+            createElement(Rendered, {
+              onRendered: setup.onRendered,
+              renderId: request.renderId,
+            })
+          )
         )
       )
     );

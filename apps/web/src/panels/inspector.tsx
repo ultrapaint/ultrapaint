@@ -7,6 +7,7 @@
  * they are of one kind, the value of a field when they agree on it and "Mixed" when they do not.
  * A change sets every one of them, as one undo step.
  */
+
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type {
   DesignNode,
@@ -14,6 +15,10 @@ import type {
   InstanceNode,
 } from "@ultrapaint/contracts/document";
 import type { Page, ViewportPreset } from "@ultrapaint/contracts/pages";
+import {
+  breakpointAt,
+  resolveAtBreakpoint,
+} from "@ultrapaint/design-document/breakpoints";
 import { nodeKind, nodeLabel } from "@ultrapaint/design-document/tree";
 import { cn } from "cn";
 import {
@@ -58,6 +63,7 @@ import {
 import { presetOf, viewportPresets } from "../lib/presets.ts";
 import { MIXED, sharedValue, shownAs } from "../lib/shared-value.ts";
 import { api } from "../state/connection.ts";
+import { useBreakpoints } from "../state/design-system.ts";
 import {
   isNodeFrame,
   nodeIn,
@@ -75,6 +81,7 @@ import { useInstances } from "../state/instances.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { ComponentProps } from "./component-props.tsx";
 import { AppearanceSection } from "./inspector-appearance.tsx";
+import { BreakpointSection } from "./inspector-breakpoints.tsx";
 import {
   allOf,
   allStacks,
@@ -102,21 +109,29 @@ const useInspected = () => {
   const also = useEditor((s) => s.also);
   const selectedPage = useEditor((s) => s.selectedPage);
   const canvas = useEditor((s) => s.canvas);
+  const frame = selection?.frame ?? selectedPage;
+  // The fields as the frame draws them: its breakpoint's values (ADR 0036).
+  const breakpoints = useBreakpoints();
+  const width = useEditor((s) =>
+    frame === null ? undefined : s.frames[frame]?.width
+  );
+  const shown = width === undefined ? null : breakpointAt(breakpoints, width);
   const nodes = useDocuments(
     useShallow((s): DesignNode[] => {
+      const at = (found: DesignNode) =>
+        resolveAtBreakpoint(found, breakpoints, shown?.name ?? null);
       if (selection) {
         return [selection, ...also].flatMap((t) => {
           const node = nodeIn(s.docs, canvas, t.frame, t.nodeId);
-          return node ? [node] : [];
+          return node ? [at(node)] : [];
         });
       }
       const root = selectedPage
         ? rootOfFrame(s.docs, canvas, selectedPage)
         : null;
-      return root ? [root] : [];
+      return root ? [at(root)] : [];
     })
   );
-  const frame = selection?.frame ?? selectedPage;
   const [node] = nodes;
   return node && frame ? { frame, node, nodes } : null;
 };
@@ -137,6 +152,7 @@ export const Inspector = () => {
       key={`${frame}#${nodes.map((n) => n.id).join(",")}`}
     >
       <Header frame={frame} node={node} nodes={nodes} />
+      {nodes.length === 1 && <BreakpointSection frame={frame} node={node} />}
       {node.type === "page" && nodes.length === 1 && (
         <PageSection frame={frame} />
       )}

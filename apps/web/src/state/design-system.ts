@@ -6,6 +6,11 @@ import type {
   DesignSystem,
   DesignSystemState,
 } from "@ultrapaint/contracts/design-system";
+import {
+  type Breakpoint,
+  breakpointAt,
+  breakpointsOf,
+} from "@ultrapaint/design-document/breakpoints";
 import { create } from "zustand";
 import { api } from "./connection.ts";
 import { reportError } from "./project.ts";
@@ -51,3 +56,35 @@ export const useDesignSystem = create<DesignSystemStore>((set) => ({
   },
   loaded: false,
 }));
+
+const breakpointCache = new WeakMap<DesignSystem, readonly Breakpoint[]>();
+
+/** The design system's breakpoints (ADR 0036), the same list while it stays the same. */
+export const breakpointsFor = (
+  ds: DesignSystem | null
+): readonly Breakpoint[] => {
+  if (!ds) {
+    return breakpointsOf(null);
+  }
+  let found = breakpointCache.get(ds);
+  if (!found) {
+    found = breakpointsOf(ds);
+    breakpointCache.set(ds, found);
+  }
+  return found;
+};
+
+/** The breakpoints of the design system now. */
+export const currentBreakpoints = () =>
+  breakpointsFor(useDesignSystem.getState().designSystem);
+
+export const useBreakpoints = () =>
+  useDesignSystem((s) => breakpointsFor(s.designSystem));
+
+/** The breakpoint a width falls in, by name; null at the base or without a width. */
+export const useBreakpointAt = (width: number | undefined) =>
+  useDesignSystem((s) =>
+    width === undefined
+      ? null
+      : (breakpointAt(breakpointsFor(s.designSystem), width)?.name ?? null)
+  );

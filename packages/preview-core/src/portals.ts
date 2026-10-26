@@ -18,15 +18,26 @@ let base = "";
 const OWN = import.meta.url.split("?")[0] ?? "";
 
 /**
- * Whether the call comes from the preview's own modules: its first caller outside this module.
+ * Whether the call comes from the preview's own modules: its first caller outside this module
+ * and the patches' (`patches`, the files of whatever patched the global it reached through).
  * Anything further down the stack does not say: the editor's own React may commit inside a
  * callback of the preview's.
  */
-const fromPreview = () => {
-  const lines = (new Error("who appends to the body").stack ?? "").split("\n");
-  const caller = lines.slice(1).find((line) => !line.includes(OWN)) ?? "";
+export const calledFromPreview = (patches: readonly string[] = []) => {
+  if (base === "") {
+    return false;
+  }
+  const lines = (new Error("who calls").stack ?? "").split("\n");
+  const caller =
+    lines
+      .slice(1)
+      .find(
+        (line) => !(line.includes(OWN) || patches.some((p) => line.includes(p)))
+      ) ?? "";
   return caller.includes(base);
 };
+
+const fromPreview = () => calledFromPreview();
 
 type Inserting = (this: Node, ...args: never[]) => unknown;
 

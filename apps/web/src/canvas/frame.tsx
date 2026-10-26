@@ -1,9 +1,11 @@
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page, ViewportPreset } from "@ultrapaint/contracts/pages";
 import type { HostError } from "@ultrapaint/contracts/preview";
+import { resolveAt } from "@ultrapaint/design-document/breakpoints";
 import { findNode, nodeLabel } from "@ultrapaint/design-document/tree";
 import type { Preview } from "@ultrapaint/framework-api/browser";
 import { cn } from "cn";
+import { X } from "lucide-react";
 import {
   type CSSProperties,
   memo,
@@ -15,17 +17,25 @@ import {
   useRef,
   useState,
 } from "react";
+import { updateOpsAt } from "../lib/breakpoint-edits.ts";
 import { focusLink } from "../lib/links.ts";
 import { kindColor, kindHoverColor } from "../lib/selection-kind.ts";
 import { useComments } from "../state/comments.ts";
 import { openMenuAt } from "../state/context-menu.ts";
-import { useDesignSystem } from "../state/design-system.ts";
+import {
+  breakpointsFor,
+  useBreakpointAt,
+  useDesignSystem,
+} from "../state/design-system.ts";
 import {
   applyOps,
   docOfFrame,
   isNodeFrame,
+  nodeIn,
+  pageOfFrame,
   rootOfFrame,
   useDocuments,
+  viewOfFrame,
 } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { useInstances } from "../state/instances.ts";
@@ -58,12 +68,18 @@ const formatHostError = (error: HostError) => {
   return `${error.message}\n${error.file}${line}`;
 };
 
-/** Writes an inline text edit from the preview back into the document. */
+/**
+ * Writes an inline text edit from the preview back into the document, at the breakpoint of the
+ * view it was typed in (ADR 0036).
+ */
 const commitText = (frame: string, nodeId: string, text: string) => {
   const { canvas } = useEditor.getState();
+  const node = nodeIn(useDocuments.getState().docs, canvas, frame, nodeId);
   applyOps(
     docOfFrame(frame, canvas),
-    [{ id: nodeId, op: "update", set: { text } }],
+    node
+      ? updateOpsAt(node, frame, { text })
+      : [{ id: nodeId, op: "update", set: { text } }],
     "Edit text"
   );
 };
@@ -85,23 +101,31 @@ const frameName = (page: Page | undefined, root: DesignNode | null) => {
   return root ? nodeLabel(root) : "";
 };
 
-/** Tells a preview what its frame shows now: the document as it is, in the design system. */
+/**
+ * Tells a preview what its frame shows now: the document as it is at the frame's width (its
+ * breakpoints' values, ADR 0036), in the design system. A node on the canvas is as wide as it
+ * is drawn, or as its own fixed width; otherwise it is the smallest screen's.
+ */
 const renderFrame = (
   frameId: string,
   kind: "page" | "node",
+  width: number | undefined,
   size?: { height: number; width: number }
 ) => {
   const { canvas, layout } = useEditor.getState();
   const state = isNodeFrame(frameId)
     ? null
-    : useDocuments.getState().docs[frameId];
+    : useDocuments.getState().docs[pageOfFrame(frameId)];
   const root = rootOfFrame(useDocuments.getState().docs, canvas, frameId);
   const { designSystem } = useDesignSystem.getState();
+  const sized = root && size ? ({ ...root, ...size } as DesignNode) : root;
+  const at =
+    width ?? size?.width ?? (typeof root?.width === "number" ? root.width : 0);
   bridgeFor(frameId).render({
     defaults: layout.defaults,
     designSystem,
     mode: kind === "page" ? "page" : "fit",
-    root: root && size ? ({ ...root, ...size } as DesignNode) : root,
+    root: sized && resolveAt(sized, breakpointsFor(designSystem), at),
     ...(state?.problem !== undefined && {
       message: `This page cannot be read: ${state.problem}`,
     }),
@@ -117,7 +141,7 @@ export const drawResized = (
   size?: { height: number; width: number }
 ) => {
   if (bridgeFor(frameId).ready) {
-    renderFrame(frameId, "node", size);
+    renderFrame(frameId, "node", undefined, size);
   }
 };
 
@@ -169,11 +193,10 @@ export const Frame = memo(
     const selectedHere = useSelectedIn(frameId);
     const alsoHere = useAlsoIn(frameId);
     const hoverHere = useHoverIn(frameId);
-    const isActive = useEditor((s) => s.activePage === frameId);
     const canvas = useEditor((s) => s.canvas);
     const root = useDocuments((s) => rootOfFrame(s.docs, canvas, frameId));
     const problem = useDocuments((s) =>
-      isNodeFrame(frameId) ? undefined : s.docs[frameId]?.problem
+      isNodeFrame(frameId) ? undefined : s.docs[pageOfFrame(frameId)]?.problem
     );
     const designSystem = useDesignSystem((s) => s.designSystem);
     const defaults = useEditor((s) => s.layout.defaults);
@@ -190,6 +213,9 @@ export const Frame = memo(
     const drawn = visible && preview !== null;
     const hosted = (visible || kept) && preview !== null;
     const name = frameName(page, root);
+    // A page is drawn at its frame's width; a node on the canvas at its own.
+    const drawnWidth = kind === "page" ? frame.width : undefined;
+    const breakpoint = useBreakpointAt(drawnWidth);
     // A callback ref: the selection's toolbar is drawn in it once it is there.
     const [toolbarLayer, setToolbarLayer] = useState<HTMLDivElement | null>(
       null
@@ -204,7 +230,7 @@ export const Frame = memo(
           setKept(true);
           break;
         case "ed:ready":
-          renderFrame(frameId, kind);
+          renderFrame(frameId, kind, drawnWidth);
           // A frame taken back from the pool is told the current mode.
           bridge.setInteractive(isInteractive(store()));
           store().setHostError(frameId, null);
@@ -237,16 +263,26 @@ export const Frame = memo(
       }
     });
 
-    // Whatever changed the document, the design system or the design's look, the preview draws
-    // it again.
+    // Whatever changed the document, the design system, the design's look or the breakpoint
+    // the frame's width falls in, the preview draws it again.
     const look = useDesignLookVersion();
     // biome-ignore lint/correctness/useExhaustiveDependencies: the document is the dependency.
     useEffect(() => {
       const bridge = bridgeFor(frameId);
       if (drawn && bridge.ready) {
-        renderFrame(frameId, kind);
+        renderFrame(frameId, kind, drawnWidth);
       }
-    }, [frameId, kind, drawn, root, problem, designSystem, defaults, ...look]);
+    }, [
+      frameId,
+      kind,
+      drawn,
+      root,
+      problem,
+      designSystem,
+      defaults,
+      breakpoint,
+      ...look,
+    ]);
 
     // A selection whose node is gone (an undo, an agent) is let go of.
     useEffect(() => {
@@ -312,7 +348,7 @@ export const Frame = memo(
         <FrameChrome
           frame={frame}
           frameId={frameId}
-          isActive={isActive}
+          holdsSelection={selectedHere !== null}
           kind={kind}
           name={name}
           onDragStart={onDragStart}
@@ -553,6 +589,43 @@ const Marquee = ({
   />
 );
 
+/**
+ * The breakpoint a page's frame or view is drawn at, once the page has views (ADR 0036), and on a
+ * view the button that takes it away.
+ */
+const ViewBadge = ({ frameId, width }: { frameId: string; width: number }) => {
+  const breakpoint = useBreakpointAt(width);
+  const isView = viewOfFrame(frameId) !== null;
+  const hasViews = useEditor(
+    (s) => (s.frames[pageOfFrame(frameId)]?.views?.length ?? 0) > 0
+  );
+  if (!(isView || hasViews)) {
+    return null;
+  }
+  return (
+    <>
+      <span
+        className="rounded bg-muted px-1 font-code text-muted-foreground"
+        title="The breakpoint this view shows, and the one its edits land at"
+      >
+        {breakpoint ?? "base"}
+      </span>
+      {isView ? (
+        <button
+          aria-label="Remove this view"
+          className="flex size-4 cursor-pointer items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+          onClick={() => useEditor.getState().removeView(frameId)}
+          onPointerDown={(e) => e.stopPropagation()}
+          title="Remove this view"
+          type="button"
+        >
+          <X className="size-3" />
+        </button>
+      ) : null}
+    </>
+  );
+};
+
 /** Whether the frame itself is selected: the page, or the node on the canvas it shows. */
 const useFrameSelected = (
   frameId: string,
@@ -561,7 +634,7 @@ const useFrameSelected = (
 ) =>
   useEditor(
     (s) =>
-      s.selectedPage === frameId ||
+      s.selectedPage === pageOfFrame(frameId) ||
       (kind === "node" &&
         s.selection?.frame === frameId &&
         s.selection.nodeId === root?.id)
@@ -636,13 +709,14 @@ const HEADER_GAP = 6;
 const FrameChrome = ({
   frameId,
   frame,
-  isActive,
+  holdsSelection,
   kind,
   name,
   onDragStart,
   root,
 }: Pick<Props, "frame" | "frameId" | "kind" | "onDragStart"> & {
-  isActive: boolean;
+  /** Something in the frame is selected: the label is lit while it is, not after. */
+  holdsSelection: boolean;
   name: string;
   root: DesignNode | null;
 }) => {
@@ -670,7 +744,9 @@ const FrameChrome = ({
       <div
         className={cn(
           "absolute left-0 flex items-center gap-2 whitespace-nowrap",
-          isSelected || isActive ? "text-foreground" : "text-muted-foreground"
+          isSelected || holdsSelection
+            ? "text-foreground"
+            : "text-muted-foreground"
         )}
         style={{
           bottom: `calc(100% + ${screenPx(HEADER_GAP)})`,
@@ -698,8 +774,9 @@ const FrameChrome = ({
             {Math.round(frame.width)} × {Math.round(frame.height)}
           </span>
         )}
+        {kind === "page" && <ViewBadge frameId={frameId} width={frame.width} />}
       </div>
-      {kind === "page" && isSelected ? (
+      {kind === "page" && isSelected && viewOfFrame(frameId) === null ? (
         <PageToolbar
           headerHeight={HEADER_GAP + HEADER_HEIGHT}
           pageId={frameId}

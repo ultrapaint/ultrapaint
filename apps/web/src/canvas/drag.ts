@@ -9,6 +9,7 @@
  * Alt copies instead of moving, as it does in every design tool. With the grid on, what lands on
  * the canvas lands on the grid, unless ⌘/Ctrl is held.
  */
+
 import type { DesignNode, DocumentEdit } from "@ultrapaint/contracts/document";
 import type { Rect } from "@ultrapaint/contracts/preview";
 import { runsInRow } from "@ultrapaint/design-document/css";
@@ -19,6 +20,7 @@ import {
   findPath,
 } from "@ultrapaint/design-document/tree";
 import { create } from "zustand";
+import { insertedAt } from "../lib/breakpoint-edits.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { holdsChildren } from "../state/catalogue.ts";
 import {
@@ -474,8 +476,12 @@ export const dropEdits = (
   const parent = drop.kind === "into" ? drop.parent : null;
   const index = drop.kind === "into" ? drop.index : undefined;
   const { x: _x, y: _y, ...unplaced } = node;
-  const placed: DesignNode =
+  // A new node dropped into a view above the base shows from its breakpoint up (ADR 0036).
+  let placed: DesignNode =
     drop.kind === "canvas" ? { ...node, ...at } : (unplaced as DesignNode);
+  if (drop.kind === "into" && source === null) {
+    placed = insertedAt(placed, drop.frame);
+  }
   const insert: DocumentEdit = {
     doc: target,
     ops: [{ index, node: placed, op: "insert", parent }],

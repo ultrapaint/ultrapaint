@@ -400,6 +400,10 @@ const boxClasses = (
   if (node.margin !== undefined) {
     out.push(...sidesClasses("m", node.margin, scale));
   }
+  if (node.order !== undefined) {
+    const { order } = node;
+    out.push(order < 0 ? `-order-${-order}` : `order-${order}`);
+  }
   return out;
 };
 
@@ -455,14 +459,111 @@ const spacingStep = (ds: DesignSystem | null | undefined) => {
   return step && step > 0 ? step : 4;
 };
 
+/** Tailwind's own font sizes, which `text-*` names beside the design system's. */
+const FONT_SIZES = new Set([
+  "xs",
+  "sm",
+  "base",
+  "lg",
+  "xl",
+  "2xl",
+  "3xl",
+  "4xl",
+  "5xl",
+  "6xl",
+  "7xl",
+  "8xl",
+  "9xl",
+]);
+const WEIGHT_NAMES = new Set(Object.values(WEIGHTS));
+const DISPLAY_RE = /^(?:flex|hidden|block|inline|inline-flex|grid|contents)$/;
+const DIRECTION_RE = /^flex-(?:row|col)(?:-reverse)?$/;
+const WRAP_RE = /^flex-(?:wrap|nowrap|wrap-reverse)$/;
+const FLEX_RE = /^flex-(?:\d+|auto|initial|none)$/;
+const TEXT_ALIGN_RE = /^text-(?:left|center|right|justify|start|end)$/;
+const BORDER_STYLE_RE = /^border-(?:solid|dashed|dotted|double|none)$/;
+const BORDER_WIDTH_RE = /^border(?:-\d+|-\(length:.*|-\[\d.*)?$/;
+const ARBITRARY_NUMBER_RE = /^[a-z-]+-\[(?:length:|\d|\.)/;
+const ORDER_RE = /^-?order-/;
+const VALUE_START_RE = /-(?:\[|\()/;
+const LEADING_DASH_RE = /^-/;
+
+/** Utilities whose name alone says what they set, whatever their prefix shares. */
+const FIXED_GROUPS: readonly (readonly [RegExp, string])[] = [
+  [DISPLAY_RE, "display"],
+  [DIRECTION_RE, "flex-direction"],
+  [WRAP_RE, "flex-wrap"],
+  [FLEX_RE, "flex"],
+  [ORDER_RE, "order"],
+  [TEXT_ALIGN_RE, "text-align"],
+  [BORDER_STYLE_RE, "border-style"],
+];
+
+/** `text-lg` is a size, `text-primary` a colour. */
+const textGroup = (cls: string, sizes: ReadonlySet<string>) =>
+  sizes.has(cls.slice(5)) || ARBITRARY_NUMBER_RE.test(cls)
+    ? "font-size"
+    : "text-color";
+
+/** `font-bold` is a weight, `font-sans` a family. */
+const fontGroup = (cls: string) => {
+  const value = cls.slice(5);
+  return WEIGHT_NAMES.has(value) ||
+    value.startsWith("weight-") ||
+    value.startsWith("(--font-weight") ||
+    ARBITRARY_NUMBER_RE.test(cls)
+    ? "font-weight"
+    : "font-family";
+};
+
+/** A class's name up to its value: `gap-4` → `gap`, `-mt-2` → `mt`. */
+const prefixGroup = (cls: string) => {
+  // A negative margin is the same group as the margin: `-mt-2`, `mt-4`.
+  const head = (cls.split(VALUE_START_RE)[0] ?? cls).replace(
+    LEADING_DASH_RE,
+    ""
+  );
+  const dash = head.lastIndexOf("-");
+  return dash > 0 ? head.slice(0, dash) : head;
+};
+
+/**
+ * What a class sets, as one name for every value of it (ADR 0036): `md:gap-6` takes over from
+ * `gap-4`, and `flex-wrap` does not from `flex-col`. The utilities whose prefix is shared by
+ * several properties (`flex-*`, `text-*`, `font-*`, `border-*`) are told apart here.
+ */
+const groupOf = (sizes: ReadonlySet<string>) => (cls: string) => {
+  const fixed = FIXED_GROUPS.find(([re]) => re.test(cls));
+  if (fixed) {
+    return fixed[1];
+  }
+  if (cls.startsWith("text-")) {
+    return textGroup(cls, sizes);
+  }
+  if (cls.startsWith("font-")) {
+    return fontGroup(cls);
+  }
+  if (cls === "border" || cls.startsWith("border-")) {
+    return BORDER_WIDTH_RE.test(cls) ? "border-width" : "border-color";
+  }
+  return prefixGroup(cls);
+};
+
 /** How Tailwind v4 writes a design's nodes, its styles and spacing step made once. */
 export const tailwindClasses = (
   ds: DesignSystem | null | undefined
 ): ClassWriter => {
   const styles = makeStyleContext(ds);
   const scale = { step: spacingStep(ds) };
+  const sizes = new Set([
+    ...FONT_SIZES,
+    ...(ds?.typography.sizes ?? []).map((t) =>
+      t.name.startsWith("text-") ? t.name.slice(5) : t.name
+    ),
+  ]);
   return {
     classes: (node, parent) => classesWith(node, styles, scale, parent),
+    group: groupOf(sizes),
     // A column that stretches the component across, as the canvas draws it.
     wrapper: (classes) => ["flex", "flex-col", ...classes],
   };

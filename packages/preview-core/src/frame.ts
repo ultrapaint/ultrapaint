@@ -28,6 +28,7 @@ import { toCanvas, toPng } from "html-to-image";
 import { chainAt, directText, elementsOf, unionRect } from "./dom.ts";
 import { BODY_ATTRIBUTE } from "./frame-css.ts";
 import { elementAt, type HitScope } from "./hit.ts";
+import { frameMedia } from "./media.ts";
 import { routePortals } from "./portals.ts";
 import { publicUrlOf } from "./public-url.ts";
 import {
@@ -184,6 +185,7 @@ const mountFrame = (
   if (options.still) {
     host.setAttribute("data-ed-still", "");
   }
+  const media = frameMedia(host, shadow);
 
   // ---- Where the frame is ----
   /** The frame's place on the screen and the canvas's zoom, which its pixels are scaled by. */
@@ -257,6 +259,7 @@ const mountFrame = (
   const setup: RenderSetup = {
     assetUrl,
     components,
+    drawing: media.asking,
     navigate: (route) => events.navigateTo?.(route, false),
     onRendered: (renderId) => {
       applySkeletons();
@@ -378,6 +381,7 @@ const mountFrame = (
   };
   const activity = () => {
     activeFrame = body;
+    media.asking();
   };
 
   /** A plain `<a href>` a component renders is a navigation the editor decides on. */
@@ -564,6 +568,7 @@ const mountFrame = (
       mo.disconnect();
       resize.disconnect();
       hostResize.disconnect();
+      media.unmount();
       host.removeEventListener("scroll", scheduleRects);
       mounted.unmount();
       shadow.replaceChildren();

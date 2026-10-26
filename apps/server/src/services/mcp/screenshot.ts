@@ -30,7 +30,7 @@ const CANVAS_HEIGHT = 900;
 
 const GetScreenshot = Tool.make("get_screenshot", {
   description:
-    "A picture of a page, or of one node, drawn with the repository's styles and components: look after a change and fix spacing, alignment, overflow and contrast. Drawn at its frame's size, or at width. node may be a node reference (/orders#c_8x2k1q) alone; a loose node needs loose: true. Needs the editor open in a browser.",
+    "A picture of a page, or of one node, as the repository draws it: look after a change; fix spacing, alignment, overflow, contrast. Drawn at its frame's size, or at width. node may be a node reference (/orders#c_8x2k1q) alone; a loose node needs loose: true. Needs the editor open in a browser.",
   parameters: Schema.Struct({
     /** Needed only when the project has several canvases. */
     canvas: opt(Schema.String),

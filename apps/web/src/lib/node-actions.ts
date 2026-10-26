@@ -30,6 +30,13 @@ import {
 } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
 import { requestInlineRename } from "../state/layer-rename.ts";
+import {
+  asDrawnIn,
+  editedFrameOf,
+  insertedAt,
+  propsOpsAt,
+  updateOpsAt,
+} from "./breakpoint-edits.ts";
 import { isPageRoot } from "./menu-model.ts";
 
 interface Context {
@@ -240,7 +247,7 @@ export const insertNodes = async (
     const { x: _x, y: _y, ...unplaced } = node;
     return {
       ...(target.index !== undefined && { index: target.index + i }),
-      node: unplaced as DesignNode,
+      node: insertedAt(unplaced as DesignNode, target.frame),
       op: "insert",
       parent: target.parent,
     };
@@ -397,8 +404,21 @@ const applyToEach = (
   label: string
 ) => {
   const byDoc = new Map<string, DocOp[]>();
-  for (const { doc, node } of nodesOf(targets)) {
-    byDoc.set(doc, [...(byDoc.get(doc) ?? []), ...opsOf(node)]);
+  const { selection } = useEditor.getState();
+  for (const { doc, frame: named, node } of nodesOf(targets)) {
+    const frame = editedFrameOf(selection, named);
+    // A field lands at the breakpoint of the view it is edited in (ADR 0036).
+    // What an edit works out from the node (the rest of its border) is the node as drawn there.
+    const ops = opsOf(asDrawnIn(node, frame)).flatMap((op): DocOp[] => {
+      if (op.op === "update" && op.at === undefined) {
+        return updateOpsAt(node, frame, op.set);
+      }
+      if (op.op === "setProps" && op.at === undefined) {
+        return propsOpsAt(node, frame, op.props);
+      }
+      return [op];
+    });
+    byDoc.set(doc, [...(byDoc.get(doc) ?? []), ...ops]);
   }
   const edits = [...byDoc].flatMap(([doc, ops]) =>
     ops.length > 0 ? [{ doc, ops }] : []

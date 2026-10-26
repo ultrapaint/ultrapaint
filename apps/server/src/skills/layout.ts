@@ -36,6 +36,16 @@ Check the page at the design system's breakpoints, or at \`390\` and \`1440\` wi
 breakpoint, something moves: a side panel becomes a sheet, columns stack, a table becomes a
 list.
 
+## One page, mobile-first
+
+A page is one tree for every width. Design the smallest screen first in the node's own fields,
+then say what changes from a breakpoint up in \`at\`, as Tailwind's \`md:\` does:
+\`{op: "update", id, at: "md", set: {type: "row", gap: "$spacing-6"}}\`. A breakpoint can change
+any style field, a text's \`text\`, an instance's \`props\`, \`hidden\` and \`order\`; the tree
+itself is the same. Something only a wide screen has is \`hidden: true\` with
+\`at: {lg: {hidden: false}}\`; never draw a second page for the phone. Give the page views at the
+widths you check (\`set_frame\`'s \`views: [390, 1440]\`) so the user sees them side by side.
+
 ## The primary action stays reachable
 
 At the end of a form, in the page header, or fixed to the bottom on a phone when the screen is
@@ -65,7 +75,8 @@ settings, onboarding, empty states.
 | Text touching the edge at \`390\` | Page padding of \`16px\` or more |
 | A paragraph or form stretched across \`1440\` | \`maxWidth\` from a container token |
 | A button or label with a fixed pixel width | \`hug\`, with padding from the component |
-| Columns squeezed unreadable at \`390\` | Stack them |
+| Columns squeezed unreadable at \`390\` | A column at the base, \`at.md\` a row |
+| A second page drawn for the phone | One page; what differs in \`at\` |
 | A row of cards ending exactly at the scroller's edge | Size them so the next one peeks |
 | Two nested regions that both scroll | One scroll region |
 `,

@@ -5,14 +5,16 @@
  */
 import { Json } from "@ultrapaint/contracts/base";
 import { DocOp } from "@ultrapaint/contracts/document";
+import { breakpointsOf } from "@ultrapaint/design-document/breakpoints";
 import { fillIds } from "@ultrapaint/design-document/ids";
 import { touchedBy } from "@ultrapaint/design-document/ops";
 import { fillWarnings } from "@ultrapaint/design-document/sizing";
-import { canvasDocOf, findNode } from "@ultrapaint/design-document/tree";
+import { canvasDocOf, findNode, walk } from "@ultrapaint/design-document/tree";
 import { parseNodeRef } from "@ultrapaint/shared/node-ref";
 import { Effect, Predicate, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
 import { EventBus } from "../../events.ts";
+import { DesignSystemService } from "../design-system.ts";
 import { ProjectStyleSystem } from "../style-system.ts";
 import { designSystemSchema, pageSchema } from "../threads/task-text.ts";
 import { CallingThread } from "./access.ts";
@@ -66,7 +68,7 @@ const AnyObject = Schema.Record(Schema.String, Schema.Unknown);
 
 export const ReadPage = Tool.make("read_page", {
   description:
-    "A page's design document: its tree of nodes with their ids, or with node only that node's subtree, and a hash to pass to apply_operations as expectedHash. A node reference the user copied (/orders#c_8x2k1q) names the page too.",
+    "A page's design document: its tree of nodes with their ids, or with node only that node's subtree, and a hash for apply_operations' expectedHash. A node reference the user copied (/orders#c_8x2k1q) names the page too.",
   failure: Failure,
   parameters: Schema.Struct({
     /** Needed only when the URL is a page in more than one canvas. */
@@ -101,14 +103,15 @@ export const GetDocumentFormat = Tool.make("get_document_format", {
 }).annotate(Tool.Readonly, true);
 
 export const ApplyOperations = Tool.make("apply_operations", {
-  description: `Change a page, or with loose: true the nodes beside the pages: validated, shown at once, one undo step. ops, in order (an id may be a node reference, /orders#c_8x2k1q):
+  description: `Change a page, or with loose: true the nodes beside the pages, as one undo step. ops, in order (an id may be a node reference, /orders#c_8x2k1q):
 - {op:"insert", parent, index?, node}: parent a node id, or null for the top level; node may leave out ids
 - {op:"remove", id}
 - {op:"move", id, parent, index?}: index among the siblings without the moved node
 - {op:"update", id, set:{field: value}}: null removes a field; a group, row or column may change "type"
 - {op:"setProps", id, props:{name: value}}: null removes a prop
+(both take at:"md": from that breakpoint up)
 - {op:"wrap", ids:[...], type:"row"|"column"|"group"}, {op:"unwrap", id}, {op:"duplicate", id}
-Inserting into an instance that shows "text" makes that text its first child.
+Inserting into an instance showing "text" makes that text its first child.
 Values: numbers are pixels, "$name" a design token, anything else CSS. Size an instance with width, height and padding, never a className prop. expectedHash (from read_page) refuses the call if the page changed since. "warnings" names fills that have no room to take.`,
   failure: Failure,
   parameters: Schema.Struct({
@@ -157,9 +160,47 @@ const DocumentTools = Toolkit.make(
   Focus
 );
 
+/** The breakpoints one operation writes at: its `at`, and the `at` of every node it inserts. */
+const breakpointsOf1 = (op: DocOp): string[] => {
+  switch (op.op) {
+    case "setProps":
+      return op.at === undefined ? [] : [op.at];
+    case "update": {
+      const set = op.set.at;
+      const whole = set && typeof set === "object" ? Object.keys(set) : [];
+      return op.at === undefined ? whole : [op.at, ...whole];
+    }
+    case "insert":
+      return Array.from(walk(op.node)).flatMap((n) => Object.keys(n.at ?? {}));
+    default:
+      return [];
+  }
+};
+
+/** The breakpoints operations write at. */
+const breakpointsNamedIn = (ops: readonly DocOp[]): string[] => [
+  ...new Set(ops.flatMap(breakpointsOf1)),
+];
+
 export const documentToolHandlers = Effect.gen(function* () {
   const events = yield* EventBus;
   const { canvasOf, documents, pageAt, project } = yield* makeLookup;
+
+  /** Refuses a breakpoint the design system does not have: the code has no prefix for it. */
+  const knownBreakpoints = Effect.fnUntraced(function* (ops: readonly DocOp[]) {
+    const { designSystem } = yield* reported(
+      project.use(Effect.flatMap(DesignSystemService, (d) => d.get))
+    );
+    const known = breakpointsOf(designSystem).map((b) => b.name);
+    const unknown = breakpointsNamedIn(ops).filter(
+      (name) => !known.includes(name)
+    );
+    if (unknown.length > 0) {
+      return yield* new ToolFailure({
+        message: `${unknown.join(", ")} is not a breakpoint of the design system: ${known.join(", ")}`,
+      });
+    }
+  });
 
   /** How the design maps to code, in the open project's style system. */
   const codeRulesOf = reported(
@@ -203,6 +244,7 @@ export const documentToolHandlers = Effect.gen(function* () {
             })
         )
       );
+      yield* knownBreakpoints(decoded);
       const result = yield* documents((d) =>
         d.apply({
           edits: [

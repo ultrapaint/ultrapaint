@@ -343,3 +343,26 @@ describe("describeDiff", () => {
     );
   });
 });
+
+describe("diffTrees at breakpoints", () => {
+  it("names what a breakpoint sets as a field of its own", () => {
+    const then: DesignNode = {
+      at: { md: { gap: 24 } },
+      children: [],
+      gap: 16,
+      id: "s",
+      type: "column",
+    };
+    const now: DesignNode = {
+      at: { lg: { gap: 32 }, md: { gap: 24, type: "row" } },
+      children: [],
+      gap: 16,
+      id: "s",
+      type: "column",
+    };
+    expect(diffTrees(then, now).changed[0]?.fields).toEqual([
+      { after: 32, before: undefined, field: "at.lg.gap" },
+      { after: "row", before: undefined, field: "at.md.type" },
+    ]);
+  });
+});

@@ -9,6 +9,7 @@ import {
   CanvasLayout,
   CanvasOrder,
   emptyCanvasLayout,
+  type FrameLayout,
   type Page,
   type PageList,
 } from "@ultrapaint/contracts/pages";
@@ -41,6 +42,16 @@ export const IGNORED_DIRS = new Set([
 ]);
 /** Room left between a new frame and the one it is placed after. */
 export const FRAME_GAP = 80;
+
+/** Where a frame ends on the right, with the views drawn beside it (ADR 0036). */
+export const frameRight = (frame: FrameLayout) =>
+  frame.x +
+  Math.max(frame.width, ...(frame.views ?? []).map((v) => v.x + v.width));
+
+/** Where a frame ends at the bottom, with the views drawn under it. */
+export const frameBottom = (frame: FrameLayout) =>
+  frame.y +
+  Math.max(frame.height, ...(frame.views ?? []).map((v) => v.y + v.height));
 
 const decodeCanvas = Schema.decodeUnknownEffect(CanvasLayout);
 export const decodeOrder = Schema.decodeUnknownEffect(
