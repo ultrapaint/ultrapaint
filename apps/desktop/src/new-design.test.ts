@@ -9,6 +9,7 @@ import { DESIGNS_HOME, folderNameOf, NewDesigns } from "./new-design.ts";
 import { OpenProject } from "./open-project.ts";
 import { ProjectStore } from "./projects.ts";
 import {
+  fakeRemoteProjects,
   fakeServers,
   fakeShell,
   makeRecorded,
@@ -59,6 +60,7 @@ const withApp = <A, E>(
         )
       ),
       Layer.provideMerge(fakeServers(recorded)),
+      Layer.provideMerge(fakeRemoteProjects(recorded)),
       Layer.provideMerge(fakeShell(recorded))
     );
     return yield* body({ home, record, recorded }).pipe(Effect.provide(app));

@@ -2,6 +2,7 @@
 import { Effect, Layer, Option } from "effect";
 import { ServerStartError } from "./errors.ts";
 import { ProjectServer, type ServerOptions } from "./project-server.ts";
+import { RemoteProjects } from "./remote-project.ts";
 import { Shell, type View } from "./shell.ts";
 
 /** What the fakes saw, in order. */
@@ -66,6 +67,36 @@ export const fakeServers = (recorded: Recorded) =>
             attached,
             token: `token-${name}`,
             url: `http://127.0.0.1/${name}`,
+            working: Effect.sync(() => recorded.working[name] ?? 0),
+          };
+        }),
+    })
+  );
+
+/**
+ * A remote project's server per start, at `http://127.0.0.1/<host>/<folder name>`, recorded as
+ * the local fake's are; a host named `down` cannot be reached.
+ */
+export const fakeRemoteProjects = (recorded: Recorded) =>
+  Layer.succeed(
+    RemoteProjects,
+    RemoteProjects.of({
+      start: (project) =>
+        Effect.gen(function* () {
+          if (project.host === "down") {
+            return yield* new ServerStartError({
+              message: "down could not be reached",
+            });
+          }
+          const name = `${project.host}:${project.path.split("/").at(-1) ?? ""}`;
+          recorded.events.push(`start ${name}`);
+          yield* Effect.addFinalizer(() =>
+            Effect.sync(() => recorded.events.push(`stop ${name}`))
+          );
+          return {
+            attached: false,
+            token: `token-${name}`,
+            url: `http://127.0.0.1/${project.host}/${project.path.split("/").at(-1) ?? ""}`,
             working: Effect.sync(() => recorded.working[name] ?? 0),
           };
         }),

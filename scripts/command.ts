@@ -260,13 +260,19 @@ const answers = (url: string) =>
 /** Runs the command with its arguments, in this process; returns when it is over. */
 export const main = (args: readonly string[]): void => {
   const dev = args.includes("--dev");
-  const open = !args.includes("--no-open");
   const serverArgs = args.filter((arg) => !OWN_FLAGS.has(arg));
   // `ultrapaint new <folder>` writes a design and ends: its output is the answer, as for --help.
   const informational =
     serverArgs[0] === "new" || serverArgs.some((arg) => INFORMATIONAL.has(arg));
-  // Asked for by whoever runs the command: the ready line is passed on as it is.
+  // Asked for by whoever runs the command: the ready line is passed on as it is, and that one
+  // opens the editor (the desktop app, over SSH too), not a browser here.
   const asked = serverArgs.includes("--ready-json");
+  const open = !(args.includes("--no-open") || asked);
+  // Whoever started it holds the other end of its stdin, which the server watches: the server
+  // gets this command's own stdin rather than none, which would be closed from the start.
+  const stopWithStdin = serverArgs.includes("--stop-with-stdin");
+  // A build given is served as it is: not rebuilt, and not replaced by the checkout's.
+  const givenWebDist = flagValue(serverArgs, "--web-dist") !== undefined;
 
   const serverPort = Number(
     flagValue(serverArgs, "--port") ??
@@ -307,12 +313,17 @@ export const main = (args: readonly string[]): void => {
         })
       : Deferred.await(ready).pipe(Effect.timeout("2 minutes"));
 
+  // With the ready line asked for, stdout carries that line alone: whoever reads it may stop
+  // reading once it has it.
+  const say = (line: string) =>
+    asked ? Console.error(line) : Console.log(line);
+
   const openBrowser = (ready: Deferred.Deferred<string>) =>
     Effect.gen(function* () {
       const url = yield* editorReady(ready);
-      yield* Console.log(`[ultrapaint] ${url}`);
+      yield* say(`[ultrapaint] ${url}`);
       for (const address of fromNetwork) {
-        yield* Console.log(`[ultrapaint] from the network: ${address}`);
+        yield* say(`[ultrapaint] from the network: ${address}`);
       }
       if (!open) {
         return;
@@ -330,7 +341,7 @@ export const main = (args: readonly string[]): void => {
     }).pipe(
       // Said once; the processes' own output says why.
       Effect.catch(() =>
-        Console.log(`[ultrapaint] ${editorUrl} did not answer in two minutes`)
+        say(`[ultrapaint] ${editorUrl} did not answer in two minutes`)
       )
     );
 
@@ -353,8 +364,7 @@ export const main = (args: readonly string[]): void => {
           process.execPath,
           [
             ...serverEntry(),
-            "--web-dist",
-            webDist,
+            ...(givenWebDist ? [] : ["--web-dist", webDist]),
             ...(asked ? [] : ["--ready-json"]),
             ...serverArgs,
           ],
@@ -364,7 +374,7 @@ export const main = (args: readonly string[]): void => {
             extendEnv: true,
             forceKillAfter: "3 seconds",
             stderr: "inherit",
-            stdin: "ignore",
+            stdin: stopWithStdin ? "inherit" : "ignore",
           }
         )
       );
@@ -373,7 +383,7 @@ export const main = (args: readonly string[]): void => {
         Stream.splitLines,
         Stream.runForEach((line) =>
           Option.match(decodeReady(line), {
-            onNone: () => Console.log(line),
+            onNone: () => say(line),
             onSome: (found) =>
               Effect.gen(function* () {
                 if (asked) {
@@ -472,7 +482,9 @@ export const main = (args: readonly string[]): void => {
       process.exitCode = yield* develop;
       return;
     }
-    yield* ensureEditor;
+    if (!givenWebDist) {
+      yield* ensureEditor;
+    }
     process.exitCode = Number(yield* serve(ready));
     // A server that was running already ends this one at once: its editor is still opened.
     if (process.exitCode === 0 && (yield* Deferred.isDone(ready))) {

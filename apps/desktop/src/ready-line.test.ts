@@ -1,6 +1,6 @@
 import { assert, describe, it } from "@effect/vitest";
 import { Effect, Stream } from "effect";
-import { firstReadyLine } from "./ready-line.ts";
+import { firstReadyLine, watchReadyLine } from "./ready-line.ts";
 
 const out = (...chunks: string[]) =>
   Stream.fromIterable(chunks.map((c) => new TextEncoder().encode(c)));
@@ -43,5 +43,32 @@ describe("firstReadyLine", () => {
       assert.strictEqual(error._tag, "ServerStartError");
       assert.include(error.message, "stopped before");
     })
+  );
+
+  it.live("watches for the line and keeps reading what comes after it", () =>
+    Effect.gen(function* () {
+      let read = 0;
+      const chunks = [
+        "log\n",
+        `${JSON.stringify({ ...READY, attached: true })}\n`,
+        "later\n",
+        "more\n",
+      ];
+      const ready = yield* watchReadyLine(
+        Stream.fromIterable(chunks).pipe(
+          Stream.tap(() =>
+            Effect.sync(() => {
+              read += 1;
+            })
+          ),
+          Stream.map((c) => new TextEncoder().encode(c))
+        )
+      );
+      assert.isTrue(ready.attached);
+      yield* Effect.sleep("10 millis");
+      assert.strictEqual(read, chunks.length);
+      const error = yield* Effect.flip(watchReadyLine(out("nothing\n")));
+      assert.include(error.message, "stopped before");
+    }).pipe(Effect.scoped)
   );
 });

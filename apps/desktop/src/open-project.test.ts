@@ -6,6 +6,7 @@ import { LoginShell } from "./login-shell.ts";
 import { OpenProject } from "./open-project.ts";
 import { ProjectStore } from "./projects.ts";
 import {
+  fakeRemoteProjects,
   fakeServers,
   fakeShell,
   makeRecorded,
@@ -31,6 +32,7 @@ const withApp = <A, E>(
         )
       ),
       Layer.provideMerge(fakeServers(recorded)),
+      Layer.provideMerge(fakeRemoteProjects(recorded)),
       Layer.provideMerge(fakeShell(recorded))
     );
     return yield* body(recorded).pipe(Effect.provide(app));
@@ -179,5 +181,54 @@ describe("OpenProject", () => {
           ]);
         })
       )
+  );
+
+  it.effect(
+    "opens a folder on another machine in place of a local one, and stops its server on a switch",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProject;
+          const local = yield* store.add("/work/here");
+          yield* open.open(local.id);
+          const { opened, project } = yield* open.addRemote({
+            host: "devbox",
+            path: "~/code/shop",
+          });
+          assert.isTrue(opened);
+          assert.strictEqual(project.kind, "ssh");
+          assert.deepStrictEqual(recorded.views.at(-1), {
+            _tag: "Editor",
+            url: "http://127.0.0.1/devbox/shop",
+          });
+          // The same folder again is the one open: nothing restarts.
+          yield* open.addRemote({ host: "devbox", path: "~/code/shop/" });
+          yield* open.open(local.id);
+          assert.deepStrictEqual(recorded.events, [
+            "start here",
+            "stop here",
+            "start devbox:shop",
+            "stop devbox:shop",
+            "start here",
+          ]);
+        })
+      )
+  );
+
+  it.effect("says why a remote project could not be opened", () =>
+    withApp((recorded) =>
+      Effect.gen(function* () {
+        const open = yield* OpenProject;
+        const { opened } = yield* Effect.orElseSucceed(
+          open.addRemote({ host: "down", path: "/srv" }),
+          () => ({ opened: false })
+        );
+        assert.isFalse(opened);
+        assert.deepStrictEqual(recorded.views, [
+          { _tag: "Welcome", problem: "down could not be reached" },
+        ]);
+      })
+    )
   );
 });

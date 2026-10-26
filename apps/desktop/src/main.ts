@@ -36,9 +36,11 @@ import { Notices } from "./notices.ts";
 import { OpenProject } from "./open-project.ts";
 import { ProjectServer } from "./project-server.ts";
 import { ProjectStore, projectDetail, remoteInputOf } from "./projects.ts";
+import { RemoteProjects } from "./remote-project.ts";
 import { SecretError, Secrets } from "./secrets.ts";
 import { Shell, type View } from "./shell.ts";
 import { readSshHosts } from "./ssh-hosts.ts";
+import { RemoteServers } from "./ssh-server.ts";
 
 // A data directory of its own, for trying the app without touching the user's.
 if (process.env.ULTRAPAINT_DESKTOP_USER_DATA) {
@@ -218,6 +220,10 @@ const runtime = ManagedRuntime.make(
       })
     ),
     Layer.provideMerge(ElectronSecrets),
+    Layer.provideMerge(RemoteProjects.layer),
+    Layer.provideMerge(
+      RemoteServers.layer({ configFile: sshConfig, ssh: "ssh" })
+    ),
     // Read once, as the app starts.
     Layer.provideMerge(LoginShell.layer),
     Layer.provideMerge(ProjectServer.layer(serverLaunch)),
@@ -251,7 +257,18 @@ handle(Channel.pickFolder, async (options) => {
   return picked.canceled ? null : (picked.filePaths[0] ?? null);
 });
 
-handle(Channel.notices, () => runtime.runPromise(Notices.use((n) => n.list)));
+// What this machine lacks is no matter to a project whose server runs on another one.
+handle(Channel.notices, () =>
+  runtime.runPromise(
+    Effect.flatMap(
+      OpenProject.use((o) => o.current),
+      (current) =>
+        Option.isSome(current) && current.value.kind === "ssh"
+          ? Effect.succeed([])
+          : Notices.use((n) => n.list)
+    )
+  )
+);
 
 handle(Channel.agentsList, () =>
   runtime.runPromise(Agents.use((a) => a.status))

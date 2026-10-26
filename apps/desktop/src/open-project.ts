@@ -15,11 +15,7 @@ import {
   Semaphore,
 } from "effect";
 import { Agents } from "./agents.ts";
-import {
-  ServerStartError,
-  type StoreError,
-  type UnknownProject,
-} from "./errors.ts";
+import type { ServerStartError, StoreError, UnknownProject } from "./errors.ts";
 import { LoginShell } from "./login-shell.ts";
 import { ProjectServer, type RunningServer } from "./project-server.ts";
 import {
@@ -27,6 +23,7 @@ import {
   ProjectStore,
   type RemoteProjectInput,
 } from "./projects.ts";
+import { RemoteProjects } from "./remote-project.ts";
 import { Shell } from "./shell.ts";
 
 /** What the user is asked before agents at work are stopped. */
@@ -132,6 +129,7 @@ export class OpenProject extends Context.Service<
         // The terminal's PATH, so that the preview finds the user's Node and agents their tools.
         const { env } = yield* LoginShell;
         const agents = yield* Agents;
+        const remote = yield* RemoteProjects;
         // One switch at a time: a second click waits for the first to finish.
         const switching = yield* Semaphore.make(1);
         let open: Open | null = null;
@@ -170,27 +168,27 @@ export class OpenProject extends Context.Service<
             readonly query?: Readonly<Record<string, string>> | undefined;
           } = {}
         ) {
-          if (project.kind === "ssh") {
-            return yield* new ServerStartError({
-              message: `${project.name} is on ${project.host}, and this version opens only folders on this machine`,
-            });
-          }
           const scope = yield* Scope.make();
-          // Asked at each start: an agent installed or set up since is in the next one.
-          const runtime = yield* agents.runtime;
-          const server = yield* servers
-            .start({
-              cwd: project.path,
-              env: {
-                ...env,
-                ULTRAPAINT_AGENT_RUNTIME: JSON.stringify(runtime),
-              },
-              sessionDir: path.join(dataDir, "sessions", project.id),
-            })
-            .pipe(
-              Scope.provide(scope),
-              Effect.onError(() => Scope.close(scope, Exit.void))
-            );
+          const server = yield* (
+            project.kind === "ssh"
+              ? // There, the server runs the remote machine's own agents: the app's are not.
+                remote.start(project)
+              : Effect.gen(function* () {
+                  // Asked at each start: an agent installed or set up since is in the next one.
+                  const runtime = yield* agents.runtime;
+                  return yield* servers.start({
+                    cwd: project.path,
+                    env: {
+                      ...env,
+                      ULTRAPAINT_AGENT_RUNTIME: JSON.stringify(runtime),
+                    },
+                    sessionDir: path.join(dataDir, "sessions", project.id),
+                  });
+                })
+          ).pipe(
+            Scope.provide(scope),
+            Effect.onError(() => Scope.close(scope, Exit.void))
+          );
           open = { project, scope, server };
           yield* store.opened(project.id);
           const url = new URL(server.url);

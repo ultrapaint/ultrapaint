@@ -3,7 +3,7 @@
  * and which run it is. A server that found one already running for the project prints that
  * one's line, with `attached`, and exits.
  */
-import { Effect, Option, Schema, Stream } from "effect";
+import { Deferred, Effect, Option, Result, Schema, Stream } from "effect";
 import { ServerStartError } from "./errors.ts";
 
 export const ReadyLine = Schema.Struct({
@@ -47,3 +47,42 @@ export const firstReadyLine = <E>(stdout: Stream.Stream<Uint8Array, E>) =>
       })
     )
   );
+
+/**
+ * The first ready line on a server's stdout, read without letting go of the rest: a pipe no one
+ * reads any more would end what writes to it, `ssh` among them. The rest is read and dropped as
+ * long as the scope lasts.
+ */
+export const watchReadyLine = <E>(stdout: Stream.Stream<Uint8Array, E>) =>
+  Effect.gen(function* () {
+    const found = yield* Deferred.make<ReadyLine, ServerStartError>();
+    yield* stdout.pipe(
+      Stream.decodeText(),
+      Stream.splitLines,
+      Stream.runForEach((line) =>
+        Result.match(decodeLine(line.trim()), {
+          onFailure: () => Effect.void,
+          // The first one counts; any after it is not waited for.
+          onSuccess: (ready) => Deferred.succeed(found, ready),
+        })
+      ),
+      Effect.andThen(
+        Deferred.fail(
+          found,
+          new ServerStartError({
+            message: "the server stopped before it said where it listens",
+          })
+        )
+      ),
+      Effect.catch(() =>
+        Deferred.fail(
+          found,
+          new ServerStartError({
+            message: "the server's output could not be read",
+          })
+        )
+      ),
+      Effect.forkScoped
+    );
+    return yield* Deferred.await(found);
+  });
