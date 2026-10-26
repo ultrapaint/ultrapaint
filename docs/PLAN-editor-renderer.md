@@ -1,6 +1,6 @@
 # Plan: frames drawn in the editor's page, without iframes
 
-Status: accepted, 2026-10-26; Phases 0 to 4 done 2026-10-26. Through
+Status: accepted, 2026-10-26; Phases 0 to 5 done 2026-10-26, Phase 6 measured on a branch. Through
 [ADR 0034](adr/0034-frames-in-the-editors-page.md): supersedes 0011's iframes, amends 0015, 0031
 and 0033. Builds on 0028, 0029 and 0030.
 
@@ -215,15 +215,14 @@ the renderer holds 471 MB.
       baseline, the `dtcg` Sync source and its step go; an older `design-system.json`, values in
       it, still reads.
 
-### Phase 6: captures, an experiment
+### Phase 6: captures, an experiment — on the branch `experiment/captures`, not merged
 
-- [ ] 6.1 After an instance draws live, its DOM is serialised, keyed by component and props hash,
-      with markers for slots and text props; a `<canvas>` becomes a picture.
-- [ ] 6.2 Behind a flag, frames seen for the first time and frames far away draw from captures, and
-      go live when selected, edited or on screen for a while.
-- [ ] 6.3 Measured: the first draw after a project opens, memory, edits, how many components
-      capture well. Then one of: stay on L, keep captures as a cache, or a committed library with
-      the canvas drawing captures only (its own ADR).
+Built and measured on its own branch (`?captures=1`, `pnpm bench:canvas --captures`), where the
+plan has the numbers. A page whose instances were all seen before is drawn from their captures as
+plain DOM, to the pixel: a canvas of fifty pages switched to draws in 0.9 s instead of 6.2, with a
+tenth less memory; an edit costs more, the page being built again whole; and captures kept
+between sessions would need the server to say when the components changed. On canvases of ten
+pages L is as fast. Main stays on L.
 
 ## Pitfalls
 
