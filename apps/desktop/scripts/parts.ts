@@ -53,6 +53,20 @@ export const buildShell = async () => {
     platform: "node",
     target: "node24",
   });
+  // The page the window shows while no project is open.
+  await build({
+    bundle: true,
+    entryPoints: [path.join(desktopDir, "src", "welcome.ts")],
+    format: "iife",
+    logLevel: "warning",
+    outfile: path.join(appDir, "welcome.js"),
+    platform: "browser",
+    target: "chrome140",
+  });
+  cpSync(
+    path.join(desktopDir, "src", "welcome.html"),
+    path.join(appDir, "welcome.html")
+  );
 };
 
 /** The app's own package.json: what Electron reads to start it, and what is installed with it. */
