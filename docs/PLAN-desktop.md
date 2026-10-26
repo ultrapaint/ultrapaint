@@ -1,6 +1,6 @@
 # Plan: a desktop app on top of the web app
 
-Status: proposed, 2026-10-25; Phase 0 done 2026-10-26. Amends ADR 0017 (the desktop shell
+Status: proposed, 2026-10-25; Phases 0 and 1 done 2026-10-26. Amends ADR 0017 (the desktop shell
 returns, with the reason written down) through [ADR 0031](adr/0031-the-desktop-app.md). Builds on 0004, 0008, 0010, 0013, 0019,
 0023.
 
@@ -97,7 +97,7 @@ Everything here helps the command too; nothing needs Electron.
 - [x] 1.7 An agent not found is offered as a download (D8): a pinned release for the platform,
       checked by its hash, into the app's data, with progress; then its sign-in (Codex through
       the adapter's ChatGPT flow, Claude Code through its own login or an API key).
-- [ ] 1.8 Packaging for macOS and Linux; a Release workflow job that builds them.
+- [x] 1.8 Packaging for macOS and Linux; a Release workflow job that builds them.
 
 ### Phase 2: a new design from nothing
 

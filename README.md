@@ -162,6 +162,26 @@ and nothing is built: the server restarts and the editor reloads as the checkout
 pnpm ultrapaint --dev
 ```
 
+### The desktop app
+
+The same editor in a window of its own, with a list of projects and a switcher in the header
+([ADR 0031](docs/adr/0031-the-desktop-app.md)). It starts each project's server itself and
+brings the agents' adapters inside it: it needs Node.js (22.12 or newer) only for the preview,
+and finds it, with `claude` and `codex`, on the PATH your login shell has. An agent it cannot
+find is offered under Settings, Agents, as a download into the app's own data; Codex signs in
+with ChatGPT from there, Claude Code by running `claude` once in a terminal or with an API key
+the app keeps in the system's keychain. A project whose server the command already runs is
+opened in it, and left running.
+
+Releases do not carry it yet: build it from a checkout, for the machine you are on (an AppImage
+and a deb on Linux, a dmg and a zip on macOS, unsigned), or run it from the checkout.
+
+```bash
+pnpm desktop:build                              # installers in apps/desktop/release
+pnpm desktop:dev                                # the app from the checkout, the server from its sources
+pnpm desktop:dev -- ~/code/your-repo            # opening a folder, which joins the list
+```
+
 ## First run
 
 Start `ultrapaint` inside a repository and the setup looks at it for you: it proposes where
@@ -653,6 +673,7 @@ keeps its settings in `~/.ultrapaint` unless it is given `--config` or `--epheme
 - `packages/style-tailwind-v4` — the Tailwind v4 style system: tokens read from and written to `@theme`, the theme scan, what the code's classes use and their rewrite, the preview's stylesheet, a node's utilities for the Code tab.
 - `packages/acp` — the only module that imports the ACP SDK, behind an `AcpAgent` Effect interface; agent launch configs are data.
 - `packages/client-runtime`, `packages/shared` — the editor's RPC connection (reconnects, typed requests, events) and small utilities.
+- `apps/desktop` — the desktop app: an Electron window around the same server and editor, its project list, the server it starts per project, the agents' adapters bundled and run on Electron's Node, the agents found, downloaded and signed in; `pnpm desktop:dev` and `pnpm desktop:build`.
 - `scripts/command.ts` — the `ultrapaint` command, run from a checkout (with its `--dev` mode) or bundled into the release package by `scripts/pack.ts`; `scripts/cli.ts` is it on the PATH and `scripts/dev-runner.ts` is `pnpm dev`, that mode with development's ports and settings.
 
 Storage verdict: [`docs/decisions/storage-format.md`](docs/decisions/storage-format.md).

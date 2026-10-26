@@ -1,6 +1,9 @@
 # Run by hand, from the Actions tab on main: raises the version in the root package.json, commits
 # and tags it, and attaches the command's package (`pnpm pack:local`) to a GitHub release, to be
-# installed for any repository with `pnpm add -g ./ultrapaint-<version>.tgz`.
+# installed for any repository with `pnpm add -g ./ultrapaint-<version>.tgz`. The desktop app is
+# then built from the tag on Linux and macOS (`pnpm desktop:build`), unsigned, and kept as the
+# run's artifacts: not attached to the release, and no update feed, until the repository is
+# public (PLAN-desktop D15).
 name: Release
 
 on:
@@ -23,6 +26,8 @@ jobs:
   release:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-26.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
       # pnpm at the version package.json names, Node.js, the store's cache and `pnpm install`.
@@ -104,3 +109,34 @@ jobs:
           gh release download v$VERSION --repo $GITHUB_REPOSITORY --pattern '*.tgz'
           pnpm add -g ./ultrapaint-$VERSION.tgz
           \`\`\`"
+
+  desktop:
+    needs: release
+    strategy:
+      fail-fast: false
+      matrix:
+        # An AppImage and a deb on Linux, a dmg and a zip on macOS (Apple silicon).
+        os: [ubuntu-26.04, macos-26]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: v${{ needs.release.outputs.version }}
+      - uses: pnpm/setup@v3
+        with:
+          runtime: node@24
+          cache: true
+          require-lockfile: true
+
+      - name: Build the desktop app
+        run: pnpm desktop:build
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ultrapaint-${{ needs.release.outputs.version }}-${{ runner.os }}
+          path: |
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.deb
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.zip
+          if-no-files-found: error

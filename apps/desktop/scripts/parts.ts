@@ -76,8 +76,12 @@ export const writeManifest = (dependencies: Record<string, string> = {}) => {
     path.join(appDir, "package.json"),
     `${JSON.stringify(
       {
+        author: { email: "alessandro@narciso.dev", name: "Alessandro Narciso" },
         dependencies,
         description: "A design tool for teams that work with coding agents",
+        // The window's WM_CLASS on Linux, so the desktop links it to the launcher's entry.
+        desktopName: "ultrapaint.desktop",
+        homepage: "https://github.com/ultrapaint/ultrapaint",
         main: "main.mjs",
         name: "ultrapaint",
         private: true,

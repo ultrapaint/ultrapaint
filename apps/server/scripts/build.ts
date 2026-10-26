@@ -16,7 +16,12 @@ const frameworkDir = path.resolve(
   serverDir,
   "../../packages/framework-react-vite"
 );
-const dist = path.join(serverDir, "dist");
+// `--outdir <dir>`: somewhere else than `dist`, as the desktop app stages its own copy.
+const outdirFlag = process.argv.indexOf("--outdir");
+const dist =
+  outdirFlag === -1
+    ? path.join(serverDir, "dist")
+    : path.resolve(process.argv[outdirFlag + 1] ?? "dist");
 
 await build({
   // Bundled CommonJS dependencies require Node's own modules, which ESM has no `require` for.

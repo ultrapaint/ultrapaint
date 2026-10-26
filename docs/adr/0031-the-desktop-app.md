@@ -81,6 +81,46 @@ and a project switcher in the header's place for the project's name. The shell's
 sets them on `window.ultrapaintPlatform`; `serverUrl` stays the hook for a backend that is not the
 page's origin.
 
+### What Phase 1 added (the app with local projects)
+
+**The app starts a server per open project and stops what it started.** It runs the server with
+`--port 0 --ready-json --stop-with-stdin` (the server binds port 0 itself and names the port it
+got; it stops when the pipe on its stdin closes, however the app went) and a session directory
+of its own per project, for a folder without a configuration. A server that is already running
+says so in its ready line (`attached`) and exits; the app opens that one and never stops it.
+`/api/health` counts the agents at work (`working`), and the app asks before a switch, a restart
+or a quit stops them. The project list is `projects.json` in the app's data.
+
+**The app's environment is the login shell's.** `$SHELL -ilc` is asked once for `PATH` and a few
+other variables (`launchctl getenv PATH` on macOS when it says nothing). The server, run as Node
+by Electron's binary, takes `ELECTRON_RUN_AS_NODE` out of its environment before it starts
+anything, and runs the preview on the user's `node`. Missing or old Node is a banner over the
+editor (`Platform.notices`).
+
+**The agents' adapters ship in the app; the agents do not.** claude-agent-acp and codex-acp are
+bundled with esbuild into two files without their native binaries, and run through a small
+wrapper that deletes `ELECTRON_RUN_AS_NODE` before importing the adapter, so neither the agent
+nor its shell commands inherit it. The server is handed this as its agent runtime
+(`ULTRAPAINT_AGENT_RUNTIME`, read and deleted in `bin.ts`): the built-in agents then start as
+`<electron> run.mjs <adapter>`, with `CLAUDE_CODE_EXECUTABLE` or `CODEX_PATH`, and the sandbox lets
+them read Electron, the adapters and the agent's own directory. The command keeps `npx`.
+
+**An agent is found where the user has it, and downloaded only when asked.** The path set in the
+app's settings, then the login shell's `PATH`, then a copy the app downloaded. Sign-in is asked
+of the agent itself (`claude auth status`, `codex login status`). A missing agent is offered as a
+pinned release for the platform, checked by size and SHA-256 (Claude Code from its installer's
+bucket, Codex's package from its GitHub release), unpacked into the app's data and nowhere else.
+Codex signs in with ChatGPT through its adapter's `chat-gpt` method; Claude Code is not signed in
+from the app (a third-party product may not offer claude.ai sign-in without approval): the user
+runs `claude` once, or gives an API key, which the app keeps encrypted with the system's keychain
+and passes to Claude Code's adapter alone. A change to an agent's path or key restarts the
+project's server, and the editor comes back where it was.
+
+**The app is packaged without an archive** (`asar: false`): the server, the adapters and the
+preview's bundles are run by other processes and read through the sandbox's binds. Linux gets an
+AppImage and a deb, macOS a dmg and a zip, unsigned; the Release workflow builds both and keeps
+them as artifacts.
+
 ## Consequences
 
 - A project need not be a repository, and a design can start in an empty folder (Phase 2 of the
