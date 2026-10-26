@@ -227,6 +227,10 @@ const servePage = {
         .then((html) => {
           res.statusCode = 200;
           res.setHeader("content-type", "text/html");
+          // The page asks for an agent cluster of its own origin. The editor is on another
+          // port of the same host, which is the same site: without this the browser runs every
+          // preview on the editor's main thread, and a preview that loads stalls the canvas.
+          res.setHeader("origin-agent-cluster", "?1");
           res.end(html);
         }, next);
     });
