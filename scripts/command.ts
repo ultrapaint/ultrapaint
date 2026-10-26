@@ -262,7 +262,9 @@ export const main = (args: readonly string[]): void => {
   const dev = args.includes("--dev");
   const open = !args.includes("--no-open");
   const serverArgs = args.filter((arg) => !OWN_FLAGS.has(arg));
-  const informational = serverArgs.some((arg) => INFORMATIONAL.has(arg));
+  // `ultrapaint new <folder>` writes a design and ends: its output is the answer, as for --help.
+  const informational =
+    serverArgs[0] === "new" || serverArgs.some((arg) => INFORMATIONAL.has(arg));
   // Asked for by whoever runs the command: the ready line is passed on as it is.
   const asked = serverArgs.includes("--ready-json");
 
@@ -332,7 +334,7 @@ export const main = (args: readonly string[]): void => {
       )
     );
 
-  /** The server, for `--help` and `--version`: its output is the answer. */
+  /** The server, for `--help`, `--version` and `new`: its output is the answer. */
   const inform = Effect.suspend(() =>
     run(process.execPath, [...serverEntry(), ...serverArgs], cwd)
   );

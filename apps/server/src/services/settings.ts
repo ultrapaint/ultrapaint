@@ -27,7 +27,7 @@ import { AppLog } from "../app-log.ts";
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { makeExists } from "../fs-exists.ts";
 import { runGit } from "./git.ts";
-import { toConfig, toSettings } from "./project-config.ts";
+import { configText, toConfig, toSettings } from "./project-config.ts";
 import { Storage } from "./storage.ts";
 
 const ConfigJson = Schema.fromJsonString(ProjectConfig);
@@ -47,11 +47,6 @@ interface SettingsFile {
   /** A file in a repository is shared: no absolute path goes into it. */
   readonly relative: boolean;
 }
-
-const sortKeys = (value: object) =>
-  Object.fromEntries(
-    Object.entries(value).sort(([a], [b]) => (a < b ? -1 : Number(a > b)))
-  );
 
 /** File an unsaved session keeps its settings in, inside the directory the command lends it. */
 const SESSION_FILE = "session.json";
@@ -153,7 +148,7 @@ export class SettingsService extends Context.Service<
           schema: schemaRef,
         });
         const encoded = yield* encodeConfig(config);
-        const text = `${JSON.stringify(sortKeys(encoded), null, 2)}\n`;
+        const text = configText(encoded);
         yield* writeAtomic(file.path, text);
         lastText = text;
       }, Effect.orDie);

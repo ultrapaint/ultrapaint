@@ -41,3 +41,13 @@ export const toConfig = (
     ...(written === undefined ? {} : { repoPath: written }),
   };
 };
+
+/** A configuration as its file is written: keys in order, so a change reads as a small diff. */
+export const configText = (encoded: object): string =>
+  `${JSON.stringify(
+    Object.fromEntries(
+      Object.entries(encoded).sort(([a], [b]) => (a < b ? -1 : Number(a > b)))
+    ),
+    null,
+    2
+  )}\n`;

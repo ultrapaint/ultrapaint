@@ -26,6 +26,15 @@ const PACKAGE_MANAGER_RE = /"packageManager"\s*:\s*"(pnpm|yarn|npm|bun)@/;
 /** The last lines of a failed install are what the user is shown. */
 const INSTALL_LOG_LINES = 12;
 
+/** What an install came to. */
+export interface Installed {
+  readonly installed: boolean;
+  /** The install's last lines, when it failed. */
+  readonly installLog?: string;
+  /** The package manager it was installed with, or would have been. */
+  readonly packageManager: string;
+}
+
 /**
  * The first-run setup: looks at a repository before anything is configured, creates the
  * directory the pages will live in, and starts an application where there is none (ADR 0025).
@@ -41,6 +50,16 @@ export class SetupService extends Context.Service<
     readonly detect: (
       repoPath: string
     ) => Effect.Effect<SetupSuggestions, BadRequest>;
+    /**
+     * Installs the application in `dir` (repo-relative) with `packageManager`, or the one the
+     * repository is set up with. Whether it was installed, and what went wrong when it was not,
+     * in the install's last lines.
+     */
+    readonly install: (input: {
+      readonly dir: string;
+      readonly packageManager?: string | undefined;
+      readonly repoPath: string;
+    }) => Effect.Effect<Installed, BadRequest | ForbiddenPath>;
     /**
      * Writes a new application into the repository, installs it when asked, and answers with
      * the settings that point the tool at it. `tokens` start its theme (a Figma file's).
@@ -199,11 +218,12 @@ export class SetupService extends Context.Service<
           Effect.orElseSucceed(() => null)
         );
         if (result?.exitCode === 0) {
-          return { installed: true };
+          return { installed: true, packageManager } satisfies Installed;
         }
         const log = result
           ? `${result.stdout}\n${result.stderr}`
-          : `${packageManager} could not run`;
+          : // Not there, or its interpreter is not: a package manager runs on Node.
+            `${packageManager} could not run: is Node.js installed?`;
         return {
           installed: false,
           installLog: log
@@ -211,20 +231,51 @@ export class SetupService extends Context.Service<
             .split("\n")
             .slice(-INSTALL_LOG_LINES)
             .join("\n"),
+          packageManager,
+        } satisfies Installed;
+      });
+
+      /** The application's directory, inside the repository, and the repository's root. */
+      const applicationDir = Effect.fnUntraced(function* (
+        repoPath: string,
+        dir: string
+      ) {
+        const root = yield* repository(repoPath);
+        const target = path.resolve(root, dir);
+        if (!(target === root || target.startsWith(root + path.sep))) {
+          return yield* new ForbiddenPath({
+            message: "the application must be inside the repository",
+          });
+        }
+        return {
+          dir: toPosix(path.relative(root, target)) || ".",
+          root,
+          target,
         };
+      });
+
+      const install = Effect.fn("SetupService.install")(function* (input: {
+        readonly dir: string;
+        readonly packageManager?: string | undefined;
+        readonly repoPath: string;
+      }) {
+        const { dir, root, target } = yield* applicationDir(
+          input.repoPath,
+          input.dir
+        );
+        const packageManager =
+          input.packageManager ?? (yield* packageManagerOf(root));
+        return yield* installIn(packageManager, target, dir);
       });
 
       const scaffold = Effect.fn("SetupService.scaffold")(function* (
         input: ScaffoldInput,
         tokens: Readonly<Record<string, string>>
       ) {
-        const root = yield* repository(input.repoPath);
-        const target = path.resolve(root, input.dir);
-        if (!(target === root || target.startsWith(root + path.sep))) {
-          return yield* new ForbiddenPath({
-            message: "the application must be inside the repository",
-          });
-        }
+        const { dir, root, target } = yield* applicationDir(
+          input.repoPath,
+          input.dir
+        );
         if (yield* exists(path.join(target, "package.json"))) {
           return yield* new BadRequest({
             message: `${input.dir} already has a package.json: start the application somewhere else`,
@@ -236,7 +287,6 @@ export class SetupService extends Context.Service<
             message: `${framework.id} cannot start an application`,
           });
         }
-        const dir = toPosix(path.relative(root, target)) || ".";
         const made = framework.scaffold({
           dir,
           name: input.name,
@@ -251,14 +301,12 @@ export class SetupService extends Context.Service<
         yield* Effect.orDie(
           fs.makeDirectory(path.join(root, designsDir), { recursive: true })
         );
-        const packageManager = yield* packageManagerOf(root);
-        const install = input.install
-          ? yield* installIn(packageManager, target, dir)
-          : { installed: false };
+        const installed = input.install
+          ? yield* installIn(yield* packageManagerOf(root), target, dir)
+          : { installed: false, packageManager: yield* packageManagerOf(root) };
         return {
           created: Object.keys(made.files),
-          ...install,
-          packageManager,
+          ...installed,
           settings: {
             designsDir,
             hostCss: [
@@ -274,7 +322,7 @@ export class SetupService extends Context.Service<
         } satisfies ScaffoldResult;
       });
 
-      return SetupService.of({ createDesigns, detect, scaffold });
+      return SetupService.of({ createDesigns, detect, install, scaffold });
     })
   );
 }

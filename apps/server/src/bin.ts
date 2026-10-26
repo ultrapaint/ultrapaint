@@ -6,6 +6,7 @@ import { Config, Console, Effect, Layer, Logger, Option, Schema } from "effect";
 import { Command, Flag } from "effect/cli";
 import product from "../../../package.json" with { type: "json" };
 import { ServerConfig, type StorageTarget } from "./config.ts";
+import { newCommand } from "./new-command.ts";
 import { liveRun } from "./run-file.ts";
 import { ServerLive } from "./server.ts";
 import { resolveStorage } from "./storage-resolve.ts";
@@ -243,6 +244,8 @@ const serve = Command.make(
 ).pipe(Command.withDescription("Local backend of the ultrapaint editor"));
 
 serve.pipe(
+  // `ultrapaint new <folder>`: a design from nothing, written before any server runs in it.
+  Command.withSubcommands([newCommand]),
   Command.run({ version: VERSION }),
   Effect.provide(NodeServices.layer),
   NodeRuntime.runMain
