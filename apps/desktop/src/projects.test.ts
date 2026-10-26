@@ -162,6 +162,20 @@ describe("ProjectStore", () => {
             again.command,
             "node ~/ultrapaint/scripts/cli.ts"
           );
+          // Not given, it stays; given empty, the default is back.
+          const kept = yield* store.addRemote({
+            host: "me@box",
+            path: "/srv/site",
+            port: 2222,
+          });
+          assert.strictEqual(kept.command, "node ~/ultrapaint/scripts/cli.ts");
+          const reset = yield* store.addRemote({
+            command: " ",
+            host: "me@box",
+            path: "/srv/site",
+            port: 2222,
+          });
+          assert.notProperty(reset, "command");
           // Another port is another machine, as far as the list knows.
           const other = yield* store.addRemote({
             host: "me@box",

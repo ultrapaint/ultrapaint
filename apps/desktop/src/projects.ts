@@ -136,7 +136,8 @@ export class ProjectStore extends Context.Service<
     ) => Effect.Effect<Project, StoreError>;
     /**
      * Adds a folder on another machine, or finds it when the same host, port and path are in
-     * the list already; a command given there replaces the one it had.
+     * the list already; a command given there replaces the one it had, and an empty one puts
+     * the default back.
      */
     readonly addRemote: (
       input: RemoteProjectInput
@@ -234,10 +235,13 @@ export class ProjectStore extends Context.Service<
               p.path === remotePath
           );
           if (known) {
-            if (command === undefined || command === known.command) {
+            // Not given, it stays; given empty, it is the default again.
+            if (input.command === undefined || command === known.command) {
               return known;
             }
-            const changed: SshProject = { ...known, command };
+            const { command: _was, ...rest } = known;
+            const changed: SshProject =
+              command === undefined ? rest : { ...rest, command };
             yield* write(
               projects.map((p) => (p.id === known.id ? changed : p))
             );
