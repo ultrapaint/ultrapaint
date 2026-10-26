@@ -1,0 +1,186 @@
+# Plan: frames drawn in the editor's page, without iframes
+
+Status: proposed, 2026-10-26; Phase 0 (the spike) done 2026-10-26. Through
+[ADR 0034](adr/0034-frames-in-the-editors-page.md): supersedes 0011's iframes, amends 0015, 0031
+and 0033. Builds on 0028, 0029 and 0030.
+
+## Why
+
+Since 0028–0030 the design and the implementation are two steps: the design owns the values, the
+looks and the states; the code owns the behaviour and catches up through the implementation link.
+The canvas still draws pages with the repository's real components, and that stays: it is what
+makes a design feel like the product, and the prototype behave like it.
+
+What does not stay is how they are drawn. Every frame is an iframe on a Vite dev server: its own
+document, its own copy of React and of every component module, a boot of 0.3 to 2.7 s the first
+time it is seen, 6 to 14 MB more for each screen, and an asynchronous bridge for every hover, hit
+test and edit. ADR 0033 made the most of iframes (a process of their own, a pool, a load queue);
+what is left is the iframes themselves.
+
+The repository's components run in the editor's own page instead: one copy of the application's
+React and modules for the whole canvas, one shadow root per frame, one parsed stylesheet adopted
+by every frame, and the preview's runtime called directly. Captures of what the components drew
+(a static cache, "C") are tried afterwards as an experiment, behind a flag, before anything is
+committed to them.
+
+## Decisions
+
+| # | Decision | Choice |
+|---|---|---|
+| R1 | What draws the frames | The repository's real components, live, in the editor's page (option "L"). No iframes on the canvas, in the prototype or for pictures |
+| R2 | A frame | A host element with a shadow root that copies an iframe's structure: shadow root, a body element, a root element. `contain: strict` and `container-type: size` on the host |
+| R3 | The application's code | Loaded once, from the preview's Vite server, proxied under the editor server's own port: one origin, one port over SSH |
+| R4 | Styles | The application's CSS, `previewTokenCss` and the specs' stylesheet are collected into one constructable stylesheet, rewritten for frames (R5), adopted by every shadow root and updated in place by HMR |
+| R5 | Rewrites | `html`, `:root` → `:host`; `body` → the body element; `#root` → the root element; `:host` added to `*, ::before, ::after`; `@media` on width → `@container`; `vh` → `cqh`; `@font-face` and `@property` lifted into the editor's document |
+| R6 | Design mode | Frame content is `inert`: no focus, no events. Selection is preview-core's hit test on the frame's root, lifting `inert` for the synchronous read. The prototype removes `inert` |
+| R7 | Away from the screen | Frames far away are unmounted; drawing one again is synchronous. Parked frames take `content-visibility: hidden`; frames on screen do not take `content-visibility: auto` (it doubled the cost of a zoom at 50 frames). Low-zoom bitmaps are required |
+| R8 | React's build on the canvas | Production: it halves the time of an edit (31 → 14 ms) and of a load. A change to a component's code remounts its frames instead of refreshing them |
+| R9 | Vite's client | The proxy serves it with `location.reload()` and `full-reload` turned into "remount the frames"; the error overlay is off (`server.hmr.overlay: false`) |
+| R10 | Portals | A node the application adds to the editor's body is moved into the frame that was rendering or clicked, and moved back before React removes it |
+| R11 | Captures (C) | An experiment after L, behind a flag: live instances serialised after they draw, keyed by component and props hash, drawn without JavaScript where they help. Committed to only on its own measurements and its own ADR |
+| R12 | Format | Pages stay JSON. `providers.tsx` becomes page defaults in `design-system.json`; `providersModule` stays optional, for real React contexts, resolved from the application. Icons get a `tint`. `design.tokens.json` becomes the only token file |
+
+Two rules keep C cheap later: an instance is drawn through one seam,
+`renderInstance(component, props, slots)`; and the editor reads frames through the DOM and the
+`data-ed-*` attributes only, never through React's internals.
+
+## Measured: the spike (Phase 0)
+
+A harness drew each page in a shadow root on the real preview server, with the editor's own
+render inputs, in headless Chrome on this machine. The baseline is today's editor through
+`pnpm bench:canvas`; L is the harness alone, without the editor's own work on its thread. The
+iframe harness is the same harness with an iframe per frame, for 50 screens and edits. jarvis no
+longer has designs; caedraft took its place. Scripts and results: `/tmp/ed-spike` (not kept).
+
+| Redesign (10 frames, 4,297 nodes) | Today | Iframe harness | L, dev React | L, production React |
+|---|---|---|---|---|
+| Load, every frame drawn | 1,757 ms | 1,380 ms | 1,083 ms | 739 ms |
+| Pan: busy / longest task | 12–14% / 7 ms | | 10% / 10 ms | 9–10% / 11 ms |
+| Zoom: busy | 25% | | 9% | 9% |
+| Edit (median) | | 31 ms | 32 ms | 14 ms |
+| Renderer / all processes | 539 / 780 MB | 258 / 460 MB | 234 / 451 MB | 193 / 409 MB |
+| 50 screens: load | | 4,912 ms | 1,772 ms | 1,199 ms |
+| 50 screens: zoom busy | | 33% | 35% | 37% |
+| 50 screens: renderer | | 487 MB | 315 MB | 246 MB |
+
+| sacro-cuore (12 frames, 440 nodes, 143 instances) | Today | Iframe harness | L, dev React | L, production React |
+|---|---|---|---|---|
+| Load | 3,085 ms | 2,258 ms | 1,115 ms | 675 ms |
+| Pan: busy / longest task | 14% / 3 ms | | 11–12% / 6 ms | 11–13% / 7 ms |
+| Zoom: busy | 30–47% | | 14% | 14% |
+| Edit (median) | | 30.5 ms | 29.5 ms | 13.8 ms |
+| Renderer / all processes | 709 / 957 MB | 471 / 702 MB | 396 / 638 MB | 218 / 460 MB |
+| 48 screens: load | | 8,515 ms | 2,357 ms | 1,576 ms |
+| 48 screens: renderer | | 963 MB | 463 MB | 255 MB |
+| Each screen more | | 13.7 MB | 1.9 MB | about 1 MB |
+
+caedraft (5 frames, about 1,600 nodes) agrees: a load of 628 ms against 1,023, a zoom 7% busy
+against 22, 1.7 MB a screen against 6.3. No pan in any run had a frame over 33 ms.
+
+Pictures of the same pages at 100%, iframe against shadow root: Redesign 0% of pixels differ;
+sacro-cuore 0.041% at most, none strongly, its 390 px frame included (the breakpoints rewritten to
+container queries); caedraft up to 4%, faint only (no channel off by more than 32), once the
+structure of R2 is in.
+
+What it found to do, all in this plan: the structure and rewrites of R2 and R5 (without them a
+page's background stopped at its content, and 12% of pixels differed for want of the fonts);
+one component registry for every frame, drawing modules already loaded without suspending (a
+remount with a fresh registry suspended, and React 19 held it back 300 ms); queries in
+`renderer-react` and `preview-core` scoped to the frame's root (the instance lookup, the
+per-frame `<style>` in `document.head`, skeletons, `elementAt`, `isDismissLayer`'s
+`window.innerWidth`); `content-visibility` for parked frames only; portals moved in and back;
+Vite's full reload, which fired once while Vite optimised its dependencies on a first open.
+
+Two gates are not settled by the harness. Panning in the real editor adds the frames' painting to
+the editor's own work: an estimated 15–17% busy against 0033's 12%, the longest task under
+12 ms. And with about 50 frames on screen a zoom is over 27% busy for iframes and L alike, which
+the low-zoom bitmaps answer.
+
+## Phases
+
+### Phase 0: spike — done
+
+- [x] 0.1 Today's numbers on this machine (`pnpm bench:canvas`): Redesign, sacro-cuore, caedraft.
+- [x] 0.2 A harness drawing pages in shadow roots on the real preview server; dev and production
+      React; 10 and 50 screens.
+- [x] 0.3 Pictures against the iframe preview; portals; `inert` and hit tests; Vite's client.
+
+### Phase 1: groundwork
+
+- [ ] 1.1 The server proxies the preview's Vite server under its own port (`/preview/*`, the HMR
+      socket included), with R9's client and no error overlay.
+- [ ] 1.2 The generated entry (`main.ts`, `components.ts`, `preview.json`) and Vite's cache move
+      out of the designs directory into the anchor's `node_modules/.ultrapaint/`.
+- [ ] 1.3 `preview-core` gets `mountFrame(host, setup) → FrameRuntime`: `render`, `hitTest`,
+      `rects`, `measure`, `editText`, `instances`, `screenshot`, `navigateTo`, synchronous, every
+      query on the frame's root. `startPreview` and its message dispatch go.
+- [ ] 1.4 `renderer-react` draws into a given root, with one component registry for every frame
+      and no suspension for modules already loaded; its `<style>` goes into the shared sheet.
+      Instances are drawn through `renderInstance`.
+- [ ] 1.5 The stylesheet pipeline: collected from Vite's `<style>` tags (disabled where they land),
+      `previewTokenCss` and the specs' stylesheet; rewritten (R5); adopted; updated in place.
+- [ ] 1.6 Portals (R10); production React on the canvas (R8).
+- [ ] 1.7 `framework-api` says `FrameRuntime` instead of the protocol; `contracts/preview.ts` loses
+      its messages.
+
+### Phase 2: the editor draws in its page
+
+- [ ] 2.1 `frame.tsx` hosts shadow roots (R2, R6, R7); loose canvas nodes too. `bridge.ts` keeps
+      runtimes, not channels; `use-preview-bridge` goes.
+- [ ] 2.2 Pointer, highlights, drag, the create tool and in-place text editing call the runtime;
+      the rect store and its diffing go; the Code tab reads `instances` from the runtime.
+- [ ] 2.3 The load queue becomes a render queue in slices, nearest the middle first;
+      `preview-pool.ts` and `Origin-Agent-Cluster` go.
+- [ ] 2.4 Low-zoom bitmaps: below a zoom, frames drawn as pictures taken when idle, kept until the
+      page changes.
+- [ ] 2.5 `pnpm bench:canvas` drives shadow roots. Gate: load ≤ 1.7 s, zoom ≤ 27%, nothing blank,
+      memory under today's at every size; pan as close to 12% as painting allows, no task over
+      33 ms. A pan over 17% stops the phase until it is understood.
+
+### Phase 3: pictures and the prototype
+
+- [ ] 3.1 Specimens, thumbnails, the threads' pictures and the toolbar's previews draw into small
+      shadow roots out of sight.
+- [ ] 3.2 Screenshots and page PNGs: html-to-image on a frame's root, from the editor.
+- [ ] 3.3 The prototype mounts its page without `inert`: the components' own behaviour.
+
+### Phase 4: what goes, the desktop app, the records
+
+- [ ] 4.1 Delete iframe hosting, the message protocol, the pool, the load queue, the rect store,
+      the specimen iframe and the generated `index.html`.
+- [ ] 4.2 The desktop app forwards the server's port only: `Platform.mapPreviewUrl`, the preload's
+      synchronous IPC and the forward made again when the preview moves go.
+- [ ] 4.3 ADR 0034 accepted with the measurements; 0011, 0015, 0031 and 0033 amended; the README.
+
+### Phase 5: the designs directory holds data only
+
+- [ ] 5.1 Page defaults in `design-system.json` (theme, font, colour, background, text size)
+      replace `providers.tsx`; `providersModule` stays optional, resolved from the application.
+- [ ] 5.2 Icons get a `tint`: drawn as a mask in a token's colour, one file for every colour.
+- [ ] 5.3 `design.tokens.json` becomes the only token file: token values move there,
+      `design-system.json` keeps the rest; the copy and its baseline go. Its own ADR, amending 0028.
+
+### Phase 6: captures, an experiment
+
+- [ ] 6.1 After an instance draws live, its DOM is serialised, keyed by component and props hash,
+      with markers for slots and text props; a `<canvas>` becomes a picture.
+- [ ] 6.2 Behind a flag, frames seen for the first time and frames far away draw from captures, and
+      go live when selected, edited or on screen for a while.
+- [ ] 6.3 Measured: the first draw after a project opens, memory, edits, how many components
+      capture well. Then one of: stay on L, keep captures as a cache, or a committed library with
+      the canvas drawing captures only (its own ADR).
+
+## Pitfalls
+
+| Pitfall | Answer |
+|---|---|
+| A document-level hotkey in the application hears the editor's keys | Rare; written down, not handled |
+| An infinite loop in a component freezes the editor | The user's own code; an error boundary per frame catches what throws |
+| A hook on `matchMedia` or `window` sees the editor's window, not the frame (sacro-cuore's header on scroll) | Accepted; breakpoints in CSS are container queries |
+| `BrowserRouter`, `window.location` | `providersModule` uses a memory router |
+| Vite's first open optimises its dependencies and asks for a full reload | R9: frames remount, the editor stays |
+
+## Open questions
+
+None for the user now. Measured as the phases go: how many frames stay mounted away from the
+screen (2.5), the zoom below which frames are bitmaps (2.4), and whether captures pay (6.3).
