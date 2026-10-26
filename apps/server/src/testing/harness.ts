@@ -10,6 +10,7 @@ import {
   Fiber,
   FileSystem,
   Layer,
+  Option,
   Path,
   type PlatformError,
   Stream,
@@ -18,7 +19,16 @@ import { RpcClient, type RpcClientError, RpcSerialization } from "effect/rpc";
 import { Socket } from "effect/socket";
 import { ServerConfig, type StorageTarget } from "../config.ts";
 import { runCommand } from "../process.ts";
+import { readRunFile } from "../run-file.ts";
 import { ServerLive } from "../server.ts";
+
+/** Where a storage target keeps its state, and with it the run file. */
+const stateDirOf = (storage: StorageTarget, home: string) => {
+  if (storage.mode === "file") {
+    return storage.stateDir;
+  }
+  return storage.mode === "managed" ? storage.home : home;
+};
 
 const HOME_PAGE = `${JSON.stringify(
   {
@@ -128,8 +138,11 @@ export const makeTestServer = (
     PlatformError.PlatformError,
     FileSystem.FileSystem
   >,
-  /** `git: false` makes the fixture a plain folder, without `git init`. */
-  options: { readonly git?: boolean } = {}
+  /**
+   * `git: false` makes the fixture a plain folder, without `git init`. `anyPort` starts the
+   * server with port 0, as the desktop app does, and the client finds the port in the run file.
+   */
+  options: { readonly anyPort?: boolean; readonly git?: boolean } = {}
 ) =>
   Layer.unwrap(
     Effect.gen(function* () {
@@ -137,7 +150,7 @@ export const makeTestServer = (
       const path = yield* Path.Path;
       const home = yield* fs.makeTempDirectoryScoped();
       const repo = yield* makeFixture({ git: options.git ?? true });
-      const port = yield* freePort;
+      const asked = options.anyPort ? 0 : yield* freePort;
       const storage = yield* Effect.orDie(storageFor({ home, repo }));
       const fakeAgent = path.resolve(
         import.meta.dirname,
@@ -180,7 +193,7 @@ export const makeTestServer = (
               uid: process.getuid?.(),
             },
             mcp: true,
-            port,
+            port: asked,
             readyJson: false,
             storage,
             token: "test",
@@ -190,27 +203,42 @@ export const makeTestServer = (
           })
         )
       );
-      const protocol = RpcClient.layerProtocolSocket().pipe(
-        Layer.provide(Socket.layerWebSocket(`ws://127.0.0.1:${port}/ws`)),
+      /** The port the server listens on, which the run file says once it does. */
+      const listening =
+        asked === 0
+          ? Effect.map(readRunFile(stateDirOf(storage, home)), (run) =>
+              Option.match(run, { onNone: () => 0, onSome: (r) => r.port })
+            )
+          : Effect.succeed(asked);
+      const protocol = Layer.unwrap(
+        Effect.map(listening, (port) =>
+          RpcClient.layerProtocolSocket().pipe(
+            Layer.provide(Socket.layerWebSocket(`ws://127.0.0.1:${port}/ws`))
+          )
+        )
+      ).pipe(
         Layer.provide(Socket.layerWebSocketConstructorGlobal),
         Layer.provide(RpcSerialization.layerJson)
       );
       const env = Layer.effect(
         TestEnv,
-        Effect.map(RpcClient.make(UltrapaintRpcs), (client) => ({
-          client,
-          home,
-          port,
-          repo,
-          settings: {
-            componentPackages: [],
-            designsDir: "designs",
-            hostCss: [],
-            libraryDirs: [],
-            repoPath: repo,
-            theme: "light",
-          } satisfies Settings,
-        }))
+        Effect.map(
+          Effect.all([RpcClient.make(UltrapaintRpcs), listening]),
+          ([client, port]) => ({
+            client,
+            home,
+            port,
+            repo,
+            settings: {
+              componentPackages: [],
+              designsDir: "designs",
+              hostCss: [],
+              libraryDirs: [],
+              repoPath: repo,
+              theme: "light",
+            } satisfies Settings,
+          })
+        )
       );
       // The client connects only after the server layer is up.
       return env.pipe(Layer.provide(protocol), Layer.provide(server));

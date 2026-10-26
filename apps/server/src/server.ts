@@ -11,6 +11,7 @@ import { applySuggestions } from "@ultrapaint/contracts/setup";
 import { Effect, Layer, Option, Stream } from "effect";
 import {
   HttpRouter,
+  HttpServer,
   HttpServerRequest,
   HttpServerResponse,
   HttpStaticServer,
@@ -25,6 +26,7 @@ import {
   ServerConfig,
 } from "./config.ts";
 import { EventBus } from "./events.ts";
+import { ListenPort } from "./listen-port.ts";
 import { ProjectManager } from "./project.ts";
 import { RpcHandlers } from "./rpc-handlers.ts";
 import { Announce } from "./run-file.ts";
@@ -232,6 +234,15 @@ const HttpServerLive = Layer.unwrap(
   )
 );
 
+/** Once the port is open, the port it is: the one asked for, or the one the system gave for 0. */
+const Listening = Layer.effectDiscard(
+  Effect.gen(function* () {
+    const { address } = yield* HttpServer.HttpServer;
+    const listen = yield* ListenPort;
+    yield* listen.listening("port" in address ? address.port : 0);
+  })
+).pipe(Layer.provideMerge(HttpServerLive));
+
 /**
  * Opens the configured project, if there is one, once everything else is up. An unsaved session
  * started inside a repository opens it with what detection finds there, when that is enough to
@@ -239,7 +250,8 @@ const HttpServerLive = Layer.unwrap(
  */
 const Boot = Layer.effectDiscard(
   Effect.gen(function* () {
-    const { host, port } = yield* ServerConfig;
+    const { host } = yield* ServerConfig;
+    const port = yield* (yield* ListenPort).get;
     const settings = yield* SettingsService;
     const setup = yield* SetupService;
     const project = yield* ProjectManager;
@@ -362,7 +374,8 @@ const Services = Threads.pipe(
   Layer.provideMerge(SetupService.layer),
   Layer.provideMerge(Storage.layer),
   Layer.provideMerge(AppLog.layer),
-  Layer.provideMerge(EventBus.layer)
+  Layer.provideMerge(EventBus.layer),
+  Layer.provideMerge(ListenPort.layer)
 );
 
 const Routes = Layer.mergeAll(
@@ -386,7 +399,7 @@ const Routes = Layer.mergeAll(
 const Served = HttpRouter.serve(Routes, {
   disableListenLog: true,
   disableLogger: true,
-}).pipe(Layer.provideMerge(HttpServerLive), Layer.provideMerge(Services));
+}).pipe(Layer.provideMerge(Listening), Layer.provideMerge(Services));
 
 /** And once it all answers, the run file and the ready line say so (PLAN-desktop D5). */
 export const ServerLive = Announce.pipe(Layer.provide(Served));

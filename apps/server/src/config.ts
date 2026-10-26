@@ -118,6 +118,7 @@ export class ServerConfig extends Context.Service<
     readonly allowedHosts: readonly string[];
     /** Whether agents are given the editor's own MCP server to call. */
     readonly mcp: boolean;
+    /** The port asked for; with 0 the system picks one, which `ListenPort` says once known. */
     readonly port: number;
     /**
      * Whether the server says it is ready as one line of JSON on stdout, `{ url, port, token,

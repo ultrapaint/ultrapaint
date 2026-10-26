@@ -77,6 +77,26 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
   }
 );
 
+layer(
+  makeTestServer(({ home }) => Effect.succeed({ home, mode: "managed" }), {
+    anyPort: true,
+  }),
+  { excludeTestServices: true, timeout: "60 seconds" }
+)("a server started on port 0", (test) => {
+  test.effect(
+    "binds it itself and names the port it got, to agents as well",
+    () =>
+      Effect.gen(function* () {
+        const { client, home, port } = yield* TestEnv;
+        assert.isAbove(port, 0);
+        const run = Option.getOrThrow(yield* readRunFile(home));
+        assert.strictEqual(run.port, port);
+        const connection = yield* client["mcp.connection"](undefined);
+        assert.strictEqual(new URL(connection.url).port, String(port));
+      })
+  );
+});
+
 describe("the run file of a server that stops", () => {
   it.effect("goes with it", () =>
     Effect.gen(function* () {

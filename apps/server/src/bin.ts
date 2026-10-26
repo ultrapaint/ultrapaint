@@ -1,5 +1,4 @@
 import { randomBytes } from "node:crypto";
-import { createServer } from "node:net";
 import { homedir, hostname, networkInterfaces, tmpdir } from "node:os";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { Config, Console, Effect, Layer, Logger, Option } from "effect";
@@ -20,18 +19,6 @@ const stateDirOf = (storage: StorageTarget): string | undefined => {
   }
   return storage.mode === "file" ? storage.stateDir : storage.sessionDir;
 };
-
-/** A port nothing listens on now, on the address the server is to bind. */
-const freePort = (host: string) =>
-  Effect.callback<number>((resume) => {
-    const probe = createServer();
-    probe.once("error", () => resume(Effect.succeed(0)));
-    probe.listen(0, host, () => {
-      const address = probe.address();
-      const port = typeof address === "object" && address ? address.port : 0;
-      probe.close(() => resume(Effect.succeed(port)));
-    });
-  });
 
 const serve = Command.make(
   "ultrapaint",
@@ -171,7 +158,8 @@ const serve = Command.make(
         uid: process.getuid?.(),
       },
       mcp: !noMcp,
-      port: port === 0 ? yield* freePort(host) : port,
+      // 0 is bound as it is: the system picks the port, and the ready line says which.
+      port,
       readyJson,
       storage,
       token: randomBytes(16).toString("hex"),

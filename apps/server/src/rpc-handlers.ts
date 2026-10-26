@@ -9,6 +9,7 @@ import { Effect } from "effect";
 import { AppLog } from "./app-log.ts";
 import { connectHost, ServerConfig } from "./config.ts";
 import { EventBus } from "./events.ts";
+import { ListenPort } from "./listen-port.ts";
 import { ProjectManager } from "./project.ts";
 import { CatalogueService } from "./services/catalogue.ts";
 import { CommentsService } from "./services/comments.ts";
@@ -65,7 +66,8 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const dsSetup = yield* DesignSystemSetupService;
     const profile = yield* ProfileService;
     const sync = yield* DesignSystemSyncService;
-    const { host: listenHost, mcp: mcpEnabled, port } = yield* ServerConfig;
+    const { host: listenHost, mcp: mcpEnabled } = yield* ServerConfig;
+    const listen = yield* ListenPort;
 
     const pages = <A, E>(
       f: (s: PagesService["Service"]) => Effect.Effect<A, E>
@@ -282,10 +284,16 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "logs.recent": () => log.recent(RECENT_LOG_LINES),
       "mcp.connection": () =>
         Effect.map(
-          mcpEnabled
-            ? Effect.all({ replaced: access.replaced, token: access.external })
-            : Effect.succeed({ replaced: false, token: "" }),
-          ({ replaced, token }) => ({
+          Effect.all({
+            port: listen.get,
+            tokens: mcpEnabled
+              ? Effect.all({
+                  replaced: access.replaced,
+                  token: access.external,
+                })
+              : Effect.succeed({ replaced: false, token: "" }),
+          }),
+          ({ port, tokens: { replaced, token } }) => ({
             enabled: mcpEnabled,
             header: MCP_TOKEN_HEADER,
             replaced,

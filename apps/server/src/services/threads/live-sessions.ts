@@ -40,6 +40,7 @@ import { AppLog } from "../../app-log.ts";
 import { connectHost, ServerConfig } from "../../config.ts";
 import { EventBus } from "../../events.ts";
 import { makeKeyedLock } from "../../keyed-lock.ts";
+import { ListenPort } from "../../listen-port.ts";
 import { ProjectManager } from "../../project.ts";
 import { McpAccess } from "../mcp/access.ts";
 import { MCP_PATH, MCP_TOKEN_HEADER } from "../mcp/route.ts";
@@ -123,7 +124,8 @@ export const makeLiveSessions = Effect.fnUntraced(function* (deps: {
   const agents = yield* AgentConfigs;
   const sandbox = yield* AgentSandbox;
   const access = yield* McpAccess;
-  const { host, mcp: mcpEnabled, port } = yield* ServerConfig;
+  const { host, mcp: mcpEnabled } = yield* ServerConfig;
+  const listen = yield* ListenPort;
   const preferences = yield* ChatPreferences;
   const project = yield* ProjectManager;
   const events = yield* EventBus;
@@ -396,7 +398,7 @@ export const makeLiveSessions = Effect.fnUntraced(function* (deps: {
         headers: [{ name: MCP_TOKEN_HEADER, value: token }],
         name: EDITOR_MCP_SERVER,
         type: "http",
-        url: `http://${connectHost(host)}:${port}${MCP_PATH}`,
+        url: `http://${connectHost(host)}:${yield* listen.get}${MCP_PATH}`,
       });
     }
 
