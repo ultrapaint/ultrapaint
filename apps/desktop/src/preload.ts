@@ -16,6 +16,7 @@ import {
   type RemoteProjectRequest,
   type ShellInfo,
   type ShellNotice,
+  type ShellStatus,
 } from "./ipc.ts";
 
 const info = ipcRenderer.sendSync(Channel.shellInfo) as ShellInfo;
@@ -39,6 +40,16 @@ const mapPreviewUrl = (url: string): string => {
   }
   return mapped.url;
 };
+
+/** What the app is doing for the open project, as it last said. */
+let { status } = info;
+const listeners = new Set<(next: ShellStatus | null) => void>();
+ipcRenderer.on(Channel.shellStatus, (_event, next: ShellStatus | null) => {
+  status = next;
+  for (const listener of listeners) {
+    listener(next);
+  }
+});
 
 const agents = {
   choosePath: (id: string): Promise<void> =>
@@ -100,5 +111,14 @@ contextBridge.exposeInMainWorld("ultrapaintPlatform", {
       ipcRenderer.invoke(Channel.projectsOpen, id),
     sshHosts: (): Promise<readonly string[]> =>
       ipcRenderer.invoke(Channel.sshHosts),
+  },
+  shellStatus: {
+    current: (): ShellStatus | null => status,
+    subscribe: (listener: (next: ShellStatus | null) => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
   },
 });

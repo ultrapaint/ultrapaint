@@ -32,6 +32,7 @@ import {
   type NewDesignUpdate,
   type PickFolderOptions,
   type ShellInfo,
+  type ShellStatus,
 } from "./ipc.ts";
 import { LoginShell } from "./login-shell.ts";
 import { NewDesignRequest, NewDesigns } from "./new-design.ts";
@@ -125,6 +126,9 @@ const showView = (view: View) =>
     Effect.catchDefect(() => Effect.void)
   );
 
+/** What the app last told the window it is doing, for a page that loads meanwhile. */
+let shellStatus: ShellStatus | null = null;
+
 const ElectronShell = Layer.succeed(
   Shell,
   Shell.of({
@@ -159,6 +163,11 @@ const ElectronShell = Layer.succeed(
         );
       }),
     show: showView,
+    status: (status) =>
+      Effect.sync(() => {
+        shellStatus = status;
+        window?.webContents.send(Channel.shellStatus, status);
+      }),
   })
 );
 
@@ -244,7 +253,7 @@ const fromWindow = (event: IpcMainEvent) =>
  * renders it: both synchronous for the page, which waits while a port is forwarded.
  */
 ipcMain.on(Channel.shellInfo, (event) => {
-  const info: ShellInfo = { remote: false };
+  const info: ShellInfo = { remote: false, status: null };
   if (!fromWindow(event)) {
     event.returnValue = info;
     return;
@@ -254,6 +263,7 @@ ipcMain.on(Channel.shellInfo, (event) => {
     .then((current) => {
       event.returnValue = {
         remote: Option.isSome(current) && current.value.kind === "ssh",
+        status: shellStatus,
       } satisfies ShellInfo;
     })
     .catch(() => {

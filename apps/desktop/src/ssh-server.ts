@@ -15,6 +15,7 @@ import {
   FileSystem,
   Layer,
   Path,
+  Schema,
   type Scope,
   Stream,
 } from "effect";
@@ -111,6 +112,26 @@ export interface RemoteServer {
   readonly url: string;
 }
 
+const Health = Schema.fromJsonString(
+  Schema.Struct({ token: Schema.optional(Schema.String) })
+);
+const decodeHealth = Schema.decodeUnknownEffect(Health);
+
+/** Whether the server at `url` answers as the run with `token`. */
+export const answers = (url: string, token: string) =>
+  Effect.tryPromise({
+    catch: () => "no answer" as const,
+    try: (signal) =>
+      fetch(`${url}/api/health`, { signal }).then((response) =>
+        response.ok ? response.text() : ""
+      ),
+  }).pipe(
+    Effect.timeout("3 seconds"),
+    Effect.flatMap(decodeHealth),
+    Effect.map((health) => health.token === token),
+    Effect.orElseSucceed(() => false)
+  );
+
 /** Lines of output kept for a message: the last ones say why. */
 const keepLines = (kept: string[], line: string, limit = 50) => {
   kept.push(line);
@@ -126,6 +147,15 @@ export class RemoteServers extends Context.Service<
     readonly connect: (
       project: SshProject
     ) => Effect.Effect<Connection, SshError, Scope.Scope>;
+    /**
+     * Stops a server the app started over a connection that has since dropped, and attached to
+     * again: no session holds its stdin any more. By the pid it gave in its ready line, once its
+     * port still answers with its token: the pid is that run's.
+     */
+    readonly stop: (
+      connection: Connection,
+      server: RemoteServer
+    ) => Effect.Effect<void>;
     /**
      * Starts the project's server on the connection, or attaches to the one running there,
      * and forwards its port, on `preferred` when it is free.
@@ -423,7 +453,22 @@ export class RemoteServers extends Context.Service<
           } satisfies RemoteServer;
         });
 
-        return RemoteServers.of({ connect, start });
+        const stop = (connection: Connection, server: RemoteServer) =>
+          Effect.gen(function* () {
+            if (!(yield* answers(server.url, server.ready.token))) {
+              return;
+            }
+            yield* Effect.scoped(
+              Effect.flatMap(
+                connection.session(
+                  `kill -TERM ${Math.trunc(server.ready.pid)}`
+                ),
+                (handle) => handle.exitCode
+              )
+            );
+          }).pipe(Effect.timeout("10 seconds"), Effect.ignore);
+
+        return RemoteServers.of({ connect, start, stop });
       })
     );
 }

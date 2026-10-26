@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { api, useConnection } from "../state/connection.ts";
 import { reportError, useProject } from "../state/project.ts";
+import { useShellStatus } from "../state/shell-status.ts";
 
 const startPreview = () =>
   api().request("host.start", undefined).catch(reportError);
@@ -24,7 +25,19 @@ export const CanvasStatus = () => {
   const connState = useConnection((s) => s.state);
   const configured = useProject((s) => s.info.configured);
   const host = useProject((s) => s.info.host);
+  const shell = useShellStatus();
 
+  // The shell knows more than the socket does: why the backend is away, and what it is doing.
+  if (shell) {
+    return (
+      <Notice>
+        <Spinner />
+        <span className="pr-1.5" title={shell.detail}>
+          {shell.message}
+        </span>
+      </Notice>
+    );
+  }
   if (connState !== "open") {
     return (
       <Notice>

@@ -166,6 +166,8 @@ export class OpenProject extends Context.Service<
           }
           open = null;
           yield* Scope.close(was.scope, Exit.void);
+          // Whatever it was saying (reconnecting) is no longer so.
+          yield* shell.status(null);
           return true;
         });
 
@@ -180,7 +182,16 @@ export class OpenProject extends Context.Service<
           const server = yield* (
             project.kind === "ssh"
               ? // There, the server runs the remote machine's own agents: the app's are not.
-                remote.start(project)
+                remote.start(project, {
+                  // The editor at another port, or another server's: loaded there again.
+                  moved: (movedTo) =>
+                    shell.show({
+                      _tag: "Editor",
+                      keepLocation: true,
+                      url: movedTo,
+                    }),
+                  status: shell.status,
+                })
               : Effect.gen(function* () {
                   // Asked at each start: an agent installed or set up since is in the next one.
                   const runtime = yield* agents.runtime;

@@ -188,7 +188,10 @@ describe.skipIf(SSHD === undefined)(
             const projects = yield* RemoteProjects;
             const scope = yield* Scope.make();
             const running = yield* projects
-              .start(project({ path: root }))
+              .start(project({ path: root }), {
+                moved: () => Effect.void,
+                status: () => Effect.void,
+              })
               .pipe(Scope.provide(scope));
             const { preview } = yield* Effect.promise(() =>
               fetch(`${running.url}/api/health`).then(

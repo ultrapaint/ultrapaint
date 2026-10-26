@@ -17,6 +17,16 @@ export type View =
     }
   | { readonly _tag: "Welcome"; readonly problem?: string | undefined };
 
+/**
+ * What the app is doing for the open project that the editor cannot see: reconnecting to the
+ * machine a remote project is on, say. Shown over the canvas until it is cleared.
+ */
+export interface ShellStatus {
+  /** Why, at more length: the error the last attempt met. */
+  readonly detail?: string | undefined;
+  readonly message: string;
+}
+
 export class Shell extends Context.Service<
   Shell,
   {
@@ -31,5 +41,7 @@ export class Shell extends Context.Service<
       title: string
     ) => Effect.Effect<Option.Option<string>>;
     readonly show: (view: View) => Effect.Effect<void>;
+    /** Tells the window what the app is doing for the open project; `null` when nothing. */
+    readonly status: (status: ShellStatus | null) => Effect.Effect<void>;
   }
 >()("ultrapaint/desktop/Shell") {}

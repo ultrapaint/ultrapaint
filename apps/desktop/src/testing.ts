@@ -3,7 +3,7 @@ import { Effect, Layer, Option } from "effect";
 import { ServerStartError } from "./errors.ts";
 import { ProjectServer, type ServerOptions } from "./project-server.ts";
 import { RemoteProjects } from "./remote-project.ts";
-import { Shell, type View } from "./shell.ts";
+import { Shell, type ShellStatus, type View } from "./shell.ts";
 
 /** What the fakes saw, in order. */
 export interface Recorded {
@@ -13,6 +13,8 @@ export interface Recorded {
   /** Folders the next pickers return; cancelled when there are none left. */
   picks: string[];
   questions: string[];
+  /** What the window was told the app is doing, `null` once it is done. */
+  statuses: (ShellStatus | null)[];
   views: View[];
   /** How many agents each folder's server says are at work. */
   working: Record<string, number>;
@@ -23,6 +25,7 @@ export const makeRecorded = (): Recorded => ({
   events: [],
   picks: [],
   questions: [],
+  statuses: [],
   views: [],
   working: {},
 });
@@ -39,6 +42,7 @@ export const fakeShell = (recorded: Recorded) =>
       pickFolder: () =>
         Effect.sync(() => Option.fromNullishOr(recorded.picks.shift())),
       show: (view) => Effect.sync(() => recorded.views.push(view)),
+      status: (status) => Effect.sync(() => recorded.statuses.push(status)),
     })
   );
 

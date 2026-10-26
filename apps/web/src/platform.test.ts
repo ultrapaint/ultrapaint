@@ -2,6 +2,7 @@ import "./testing/fake-browser.ts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { platform, setPlatform } from "./platform.ts";
 import { previewUrl } from "./state/project.ts";
+import { shellStatusText } from "./state/shell-status.ts";
 
 vi.mock(
   "./state/connection.ts",
@@ -50,5 +51,22 @@ describe("the platform", () => {
     expect((await shell.notices?.())?.map((n) => n.id)).toEqual(["node"]);
     expect(previewUrl(running)).toBe("http://127.0.0.1:61000");
     expect(previewUrl({ state: "starting" })).toBeNull();
+  });
+
+  it("reads the shell's status by value, however often its bridge copies it", () => {
+    let status: { message: string; detail?: string } | null = null;
+    const source = {
+      // A bridge hands out a new copy on every read.
+      current: () => (status ? { ...status } : null),
+      subscribe: () => () => undefined,
+    };
+    expect(shellStatusText(source)).toBe("null");
+    status = {
+      detail: "Connection refused",
+      message: "Reconnecting to devbox…",
+    };
+    expect(shellStatusText(source)).toBe(shellStatusText(source));
+    expect(JSON.parse(shellStatusText(source))).toEqual(status);
+    expect(shellStatusText()).toBe("null");
   });
 });

@@ -172,6 +172,25 @@ export interface NewDesigns {
   ) => Promise<void>;
 }
 
+/**
+ * What the shell is doing for the open project that the editor cannot see: reconnecting to the
+ * machine a project over SSH is on, say. The editor shows it while the backend is away.
+ */
+export interface ShellStatus {
+  /** Why, at more length. */
+  readonly detail?: string;
+  readonly message: string;
+}
+
+/** The shell's status, as it changes. */
+export interface ShellStatusSource {
+  readonly current: () => ShellStatus | null;
+  /** Calls `listener` with each change; the returned function stops it. */
+  readonly subscribe: (
+    listener: (status: ShellStatus | null) => void
+  ) => () => void;
+}
+
 export interface Platform {
   /** The agents on this machine; absent in a browser, where the server's own are all there is. */
   readonly agents?: AgentSetup;
@@ -195,6 +214,8 @@ export interface Platform {
   readonly projects?: ProjectSwitcher;
   /** The server's WebSocket: a backend that is not the origin the editor was served from. */
   readonly serverUrl: string;
+  /** What the shell is doing for the open project; absent in a browser. */
+  readonly shellStatus?: ShellStatusSource;
 }
 
 /** What a shell's preload script may set; every part of it is optional. */

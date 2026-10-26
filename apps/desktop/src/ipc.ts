@@ -25,6 +25,8 @@ export const Channel = {
   projectsOpen: "ultrapaint:projects-open",
   /** Synchronous, as the page loads: what the open project is (`ShellInfo`). */
   shellInfo: "ultrapaint:shell-info",
+  /** From the main process: what the app is doing for the open project (`ShellStatus`). */
+  shellStatus: "ultrapaint:shell-status",
   sshHosts: "ultrapaint:ssh-hosts",
 } as const;
 
@@ -35,6 +37,14 @@ export interface ShellInfo {
    * forwarded port, and its agents are that machine's, not this one's.
    */
   readonly remote: boolean;
+  /** What the app is doing for it as the page loads: reconnecting, say. */
+  readonly status: ShellStatus | null;
+}
+
+/** What the app is doing for the open project (`ShellStatus` in the editor). */
+export interface ShellStatus {
+  readonly detail?: string | undefined;
+  readonly message: string;
 }
 
 /** The answer to `previewUrl`: kept by the page only once it is forwarded. */
