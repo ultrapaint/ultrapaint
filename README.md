@@ -189,6 +189,18 @@ ultrapaint new ~/Ultrapaint/Acme --template starter --code app --git
 cd ~/Ultrapaint/Acme && ultrapaint
 ```
 
+**Open over SSH…**, on the welcome page and in the switcher, opens a folder on another machine:
+a host (an alias of your `~/.ssh/config`, offered as you type, or `user@host:port`), the folder
+there, and the command that runs the editor there when it is not `ultrapaint` on that machine's
+PATH (`node ~/ultrapaint/scripts/cli.ts` for a checkout, say). The app runs your own `ssh`, with
+your configuration, keys and agent, starts the server in that folder from your login shell there,
+and forwards its port and the preview's to this machine; agents and the preview run on the other
+machine, with its Node.js and its agents. That machine needs Node.js and the `ultrapaint`
+command, installed as above. The app cannot type a password or a key's passphrase: load the key
+into your agent (`ssh-add`) or set one up (`ssh-copy-id <host>`), and connect once in a terminal
+to accept the host's key. A dropped connection is made again by itself, the canvas saying so
+meanwhile; quitting or switching stops what the app started there.
+
 Releases do not carry it yet: build it from a checkout, for the machine you are on (an AppImage
 and a deb on Linux, a dmg and a zip on macOS, unsigned), or run it from the checkout.
 

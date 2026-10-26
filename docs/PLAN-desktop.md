@@ -1,6 +1,6 @@
 # Plan: a desktop app on top of the web app
 
-Status: proposed, 2026-10-25; Phases 0, 1 and 2 done 2026-10-26. Amends ADR 0017 (the desktop shell
+Status: proposed, 2026-10-25; Phases 0, 1, 2 and 3 done 2026-10-26. Amends ADR 0017 (the desktop shell
 returns, with the reason written down) through [ADR 0031](adr/0031-the-desktop-app.md). Builds on 0004, 0008, 0010, 0013, 0019,
 0023.
 
@@ -110,16 +110,23 @@ Everything here helps the command too; nothing needs Electron.
 
 ### Phase 3: projects over SSH
 
-- [ ] 3.1 A project with a host (an alias from `~/.ssh/config` or `user@host:port`) and a path.
-- [ ] 3.2 Starting the server there with `--ready-json`, over the system `ssh`; the remote machine
+- [x] 3.1 A project with a host (an alias from `~/.ssh/config` or `user@host:port`) and a path.
+- [x] 3.2 Starting the server there with `--ready-json`, over the system `ssh`; the remote machine
       needs Node and the `ultrapaint` command (a pinned runtime the app uploads is later).
-- [ ] 3.3 Forwarding the server's port, and the preview's whenever it starts or moves; the editor
+- [x] 3.3 Forwarding the server's port, and the preview's whenever it starts or moves; the editor
       reaches the preview through the mapping of 0.6.
-- [ ] 3.4 Reconnecting after a dropped connection; the server stops when the app closes.
+- [x] 3.4 Reconnecting after a dropped connection; the server stops when the app closes.
+
+Key authentication only: `ssh` runs in batch mode, and a password or passphrase is asked of the
+agent, not of the window. The New design dialog writes on this machine; on another one it is
+`ultrapaint new`, run there. The preview's port is forwarded when the editor first asks for it.
+ADR 0031 has the details.
 
 ### Phase 4: later
 
 - [ ] A managed Node and pnpm in the app's data, for machines without them.
+- [ ] A password or passphrase prompt for SSH (`SSH_ASKPASS` fed from the window), and New design
+      on a remote machine.
 - [ ] Windows.
 - [ ] Updates, once the repository is public.
 - [ ] Tabs: several projects open at once.

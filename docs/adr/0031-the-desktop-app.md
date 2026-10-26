@@ -3,7 +3,7 @@
 Status: accepted, 2026-10-26. Amends 0017 (the desktop shell returns, for a reason written down
 here), 0004, 0013, 0018 and 0023 (git is no longer needed). Builds on 0008, 0010 and 0019. The
 work is planned in [PLAN-desktop](../PLAN-desktop.md); this records its decisions and what Phase 0
-changed in the server and the editor, and what Phases 1 and 2 added.
+changed in the server and the editor, and what Phases 1, 2 and 3 added.
 
 ## Context
 
@@ -167,11 +167,86 @@ template's inventory and goes past it (a template uses only its own theme), give
 components their specs with the design's look, as an application started from Sync gets them,
 and shows Sync with Define next.
 
+### What Phase 3 added (projects over SSH)
+
+**A project is a local folder or a folder on another machine.** The list's second kind, `ssh`,
+keeps a host as `ssh` takes it (an alias of `~/.ssh/config`, a host name, `user@host`, with a
+port when one is typed as `user@host:port`), a path there (absolute or `~/…`) and, when it is not
+`ultrapaint`, the command that runs the server there (`node ~/ultrapaint/scripts/cli.ts`, say).
+Lists written before keep reading. **Open over SSH…**, on the welcome page and in the switcher,
+is a dialog of three of the editor's fields, the host offering the `Host` aliases of the user's
+configuration and of the files it includes, patterns aside.
+
+**The app runs the system's `ssh`, not a library of its own**, so the user's configuration, keys,
+agent, `ProxyJump` and known hosts apply as in a terminal. What the app relies on is given on the
+command line, which wins over the configuration: `BatchMode`, no terminal, no `RemoteCommand`,
+none of the configuration's forwards, a `ControlMaster` in the foreground. One connection per
+open project: a master on a socket in a private temporary directory, whose own session runs `cat`
+and ends when the app's end of its stdin closes, so that the connection goes with the app however
+the app goes; the server in a second session on it; the ports forwarded on it with
+`ssh -O forward`. The socket's directory goes with the project.
+
+**A password or a passphrase is not asked for.** `BatchMode` makes `ssh` fail rather than prompt,
+and the app says what to do instead: load the key into the agent (`ssh-add`), or set one up
+(`ssh-copy-id`). A prompt in the window fed to `SSH_ASKPASS`, as T3 Code has, is left for when
+someone needs it: a machine one designs on every day has a key in the agent. An unknown host key
+is not accepted on the user's behalf either: they are told to connect once in a terminal and
+check it there.
+
+**The server is started by the remote user's login shell**, interactive as the app's own is read
+(D6), so that what its startup files put on the `PATH` (fnm, nvm, Volta, `~/.local/bin`) is there;
+it runs a POSIX script whatever that shell's syntax: into the folder, then `<command> --host
+127.0.0.1 --port 0 --ready-json --stop-with-stdin --session-dir
+~/.ultrapaint/desktop-sessions/<id>`, each word quoted for both shells. The ready line comes back
+over `ssh`; `attached` says the project's server was running there already, which the app then
+neither stops nor asks about, as for a local one. The remote machine needs Node.js and the
+`ultrapaint` command; neither is uploaded (a pinned runtime the app brings is later). Failures say
+which: the host unreachable, its key unknown, no key accepted, the folder missing (the script's own
+exit code), the command or Node not found (exit 127, told apart by what the shell said), the server
+stopping before its ready line (its last lines). The app's agent runtime is not sent, nor any
+`ULTRAPAINT_` variable: the server there runs the remote machine's agents through `npx`, as the
+command does, and a remote project's editor shows the server's agents rather than the app's, and
+no banner about this machine's Node.
+
+**`ultrapaint` passes `--stop-with-stdin` on.** The command gives the server its own stdin when
+asked to stop with it (it gave none, which a server watching stdin took for the end at once),
+opens no browser and keeps stdout to the ready line when `--ready-json` is asked for (whoever asked
+opens the editor), and serves a `--web-dist` it is given as it is, without building the
+checkout's editor.
+
+**Ports are forwarded to loopback here, and the preview's URL rewritten to them.** The server's
+port goes to a free local port and the window loads the editor from there: the server's host and
+origin checks take `127.0.0.1` as for a local server, and the editor's socket and Vite's live
+updates go through the forward as any connection does. The preview starts later, and moves when it
+starts again, on a port only the remote machine knows. `Platform.mapPreviewUrl` is synchronous, so
+the preload script asks the main process synchronously the first time it sees a preview URL; the
+main process forwards that port then (a few milliseconds over the master) and answers the URL
+through it, path and query kept, and the page keeps the answer. A preview at another port is
+forwarded in its turn and the old forward cancelled. The forward is made when the editor first
+asks rather than ahead of it by watching the server's state: the page waits once per start of the
+preview, and nothing polls.
+
+**A dropped connection is made again.** The master exiting (`ServerAliveInterval` notices a dead
+link within half a minute), the server's session ending, or, for a server only attached to, its
+health check going unanswered, starts a reconnection: at once, then after 1, 2, 4… seconds up to
+half a minute, the canvas saying **Reconnecting to <host>…** with the last error as its detail
+(`Platform.shellStatus`). The ports are forwarded again on the local ports they had, so the
+editor's socket finds its server where it was and the page is not reloaded; it is, in the same
+place, when a port was taken meanwhile or the server is another run. A server still running is
+attached to; the app's own, found again after a drop its session did not survive, is still the
+app's to stop, which it does by the pid of its ready line once its port answers with its token.
+Switching projects or quitting stops what the app started there and closes the connection;
+nothing is left running on either machine.
+
+**For trying it without another machine**, `ULTRAPAINT_DESKTOP_SSH_CONFIG` points every `ssh` the
+app runs, and the hosts it suggests, at another configuration: a throwaway `sshd` on loopback with
+keys and known hosts of its own, as the app's tests run one.
+
 ## Consequences
 
 - A project need not be a repository, and a design starts in an empty folder (Phase 2 of the
-  plan). On another machine over SSH (Phase 3) it is the same `ultrapaint new`, run there with
-  `--progress-json`. Teams that commit their designs keep doing so with git; the tool commits only when asked
+  plan). On another machine over SSH it is the same `ultrapaint new`, run there; the app's
+  New design dialog writes on this machine only, for now. Teams that commit their designs keep doing so with git; the tool commits only when asked
   to.
 - The first snapshot of a project copies the files `.gitignore` keeps into the state directory;
   later ones cost what changed. A setup started by a version that kept its snapshots in git
