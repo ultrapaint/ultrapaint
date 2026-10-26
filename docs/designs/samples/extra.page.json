@@ -7,30 +7,30 @@
             {"type": "row", "id": "r_39nztn", "crossAlign": "center", "fill": "#ef4444", "height": 8, "radius": 999, "width": 8, "children": []},
             {"type": "text", "id": "t_ultb85", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Temperature alarms", "weight": 500}
           ]},
-          {"type": "image", "id": "img_6zlyrq", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down-gray.svg", "width": 14}
+          {"type": "image", "id": "img_6zlyrq", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "#71717a", "width": 14}
         ]},
         {"type": "row", "id": "r_4od23v", "align": "between", "border": {"color": "#e4e4e7", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "padding": 12, "width": "fill", "children": [
           {"type": "row", "id": "r_aq20sr", "crossAlign": "center", "gap": 8, "children": [
             {"type": "row", "id": "r_jpawdc", "crossAlign": "center", "fill": "#f59e0b", "height": 8, "radius": 999, "width": 8, "children": []},
             {"type": "text", "id": "t_q2qnz1", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Door sensors", "weight": 500}
           ]},
-          {"type": "image", "id": "img_fezv9b", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down-gray.svg", "width": 14}
+          {"type": "image", "id": "img_fezv9b", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "#71717a", "width": 14}
         ]},
         {"type": "row", "id": "r_bob9qp", "align": "between", "border": {"color": "#e4e4e7", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "padding": 12, "width": "fill", "children": [
           {"type": "row", "id": "r_b2goyr", "crossAlign": "center", "gap": 8, "children": [
             {"type": "row", "id": "r_ivh296", "crossAlign": "center", "fill": "#22c55e", "height": 8, "radius": 999, "width": 8, "children": []},
             {"type": "text", "id": "t_xl8pzs", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Battery level", "weight": 500}
           ]},
-          {"type": "image", "id": "img_blps3z", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down-gray.svg", "width": 14}
+          {"type": "image", "id": "img_blps3z", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "#71717a", "width": 14}
         ]}
       ]},
       {"type": "column", "id": "c_pp9p4p", "name": "Map", "border": {"color": "#bae6fd", "style": "solid", "width": 1}, "fill": "#e0f2fe", "gap": 8, "height": 260, "padding": 14, "radius": 10, "width": 420, "children": [
         {"type": "row", "id": "r_b5x301", "crossAlign": "center", "fill": "#ffffff", "gap": 6, "padding": {"bottom": 4, "left": 8, "right": 8, "top": 4}, "radius": 999, "children": [
-          {"type": "image", "id": "img_6v83h3", "name": "map-pin", "height": 12, "src": "assets/icons/map-pin-red.svg", "width": 12},
+          {"type": "image", "id": "img_6v83h3", "name": "map-pin", "height": 12, "src": "assets/icons/map-pin.svg", "tint": "#f87171", "width": 12},
           {"type": "text", "id": "t_zefgqn", "color": "#18181b", "role": "paragraph", "size": 11, "text": "Warehouse 4 · Rotterdam", "weight": 500}
         ]},
         {"type": "row", "id": "r_5yor7v", "align": "center", "crossAlign": "center", "height": "fill", "width": "fill", "children": [
-          {"type": "image", "id": "img_qccbky", "name": "map-pin", "height": 40, "src": "assets/icons/map-pin-red.svg", "width": 40}
+          {"type": "image", "id": "img_qccbky", "name": "map-pin", "height": 40, "src": "assets/icons/map-pin.svg", "tint": "#f87171", "width": 40}
         ]}
       ]},
       {"type": "column", "id": "c_knxx7f", "name": "Sign in", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "fill": "#ffffff", "gap": 12, "padding": 24, "radius": 12, "width": 320, "children": [

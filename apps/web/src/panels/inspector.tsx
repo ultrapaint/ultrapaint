@@ -78,6 +78,7 @@ import { AppearanceSection } from "./inspector-appearance.tsx";
 import {
   allOf,
   allStacks,
+  ColorField,
   nullIfMixed,
   oneComponent,
   set,
@@ -618,6 +619,15 @@ const ImageSection = ({ nodes }: { nodes: readonly ImageNode[] }) => {
             { label: "Fill", value: "fill" },
           ]}
           value={nullIfMixed(sharedOf(nodes, (n) => n.fit ?? "cover"))}
+        />
+      </Row>
+      <Row label="Tint">
+        <ColorField
+          field="tint"
+          {...shownAs(
+            sharedOf(nodes, (n) => n.tint),
+            "Its own colours"
+          )}
         />
       </Row>
     </Section>

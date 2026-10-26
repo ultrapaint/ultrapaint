@@ -10,7 +10,7 @@
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 import type { InstanceDrawn } from "@ultrapaint/contracts/preview";
-import { layoutOf, type ParentLayout, tagOf } from "./css.ts";
+import { layoutOf, maskOf, type ParentLayout, tagOf } from "./css.ts";
 import { childrenOf, nodeLabel } from "./tree.ts";
 
 /**
@@ -283,6 +283,22 @@ const jsxOf = (node: DesignNode, w: Writing, parent: ParentLayout): Child => {
         ])
       );
     case "image":
+      if (node.tint !== undefined) {
+        // An icon in a colour: its file as a mask over the tint, which is its background.
+        const tinted = [
+          ...w.classes.classes({ ...node, fill: node.tint }, parent),
+        ];
+        return linked(
+          node,
+          w,
+          element("span", [
+            stringAttribute("aria-label", node.alt ?? ""),
+            ...classAttribute(tinted),
+            stringAttribute("role", "img"),
+            `style={${JSON.stringify(maskOf(node.src))}}`,
+          ])
+        );
+      }
       return linked(
         node,
         w,

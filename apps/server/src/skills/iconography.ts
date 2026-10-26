@@ -26,7 +26,8 @@ beside medium or semibold. One stroke width per surface.
 ## The colour of its text
 
 An icon takes its label's colour: muted beside muted text, foreground beside foreground. A
-status icon takes the status colour and sits beside a word.
+status icon takes the status colour and sits beside a word. Its image node says the colour in
+\`tint\` (a colour token): one file per glyph, drawn in any colour, never a copy per colour.
 
 ## Outline by default, filled when active
 

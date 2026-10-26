@@ -10,10 +10,10 @@
           {"type": "row", "id": "r_4fracj", "crossAlign": "center", "gap": 8, "children": [
             {"type": "row", "id": "r_5ufj3i", "name": "Export", "border": {"color": "#e4e4e7", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#ffffff", "gap": 6, "padding": {"bottom": 7, "left": 12, "right": 12, "top": 7}, "radius": 6, "children": [
               {"type": "text", "id": "t_0lojux", "color": "#18181b", "role": "paragraph", "size": 12, "text": "Export", "weight": 500},
-              {"type": "image", "id": "img_11n1on", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down-dark.svg", "width": 14}
+              {"type": "image", "id": "img_11n1on", "name": "chevron-down", "height": 14, "src": "assets/icons/chevron-down.svg", "tint": "#18181b", "width": 14}
             ]},
             {"type": "row", "id": "r_mj9chm", "name": "New order", "crossAlign": "center", "fill": "#2563eb", "gap": 6, "link": "extra.page.json", "padding": {"bottom": 7, "left": 12, "right": 12, "top": 7}, "radius": 6, "children": [
-              {"type": "image", "id": "img_4l0jgd", "name": "plus", "height": 14, "src": "assets/icons/plus-white.svg", "width": 14},
+              {"type": "image", "id": "img_4l0jgd", "name": "plus", "height": 14, "src": "assets/icons/plus.svg", "tint": "#ffffff", "width": 14},
               {"type": "text", "id": "t_v4quki", "color": "#ffffff", "role": "paragraph", "size": 12, "text": "New order", "weight": 500}
             ]}
           ]}

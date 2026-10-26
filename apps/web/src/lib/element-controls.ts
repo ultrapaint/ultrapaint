@@ -8,7 +8,13 @@ import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { FieldTokenKind } from "./token-options.tsx";
 
-export type TokenField = "color" | "fill" | "gap" | "radius" | "shadow";
+export type TokenField =
+  | "color"
+  | "fill"
+  | "gap"
+  | "radius"
+  | "shadow"
+  | "tint";
 
 export type Control =
   | {
@@ -61,7 +67,10 @@ export const controlsOf = (
         ],
       };
     case "image":
-      return { more: [], shown: [token("radius", "radius")] };
+      return {
+        more: [],
+        shown: [token("tint", "color"), token("radius", "radius")],
+      };
     case "group":
       return {
         more: [],
@@ -108,6 +117,7 @@ const PREFIX: Record<TokenField, string> = {
   gap: "spacing-",
   radius: "radius-",
   shadow: "shadow-",
+  tint: "color-",
 };
 
 /**

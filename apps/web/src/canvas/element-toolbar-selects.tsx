@@ -24,6 +24,7 @@ import {
   ChevronDown,
   Copy,
   type LucideIcon,
+  Palette,
   SlidersHorizontal,
   SquareDashed,
   SquareRoundCorner,
@@ -87,6 +88,7 @@ const FIELD: Record<
   gap: { icon: BetweenHorizontalStart, name: "gap", utility: "gap" },
   radius: { icon: SquareRoundCorner, name: "radius", utility: "rounded" },
   shadow: { icon: Copy, name: "shadow", utility: "shadow" },
+  tint: { icon: Palette, name: "tint", utility: "bg" },
 };
 
 const spacingBaseOf = (ds: DesignSystem | null) =>

@@ -21,11 +21,11 @@
             {"type": "text", "id": "t_rtubal", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Ask me two questions to test the card"},
             {"type": "column", "id": "c_rbxxwz", "name": "Ask card", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-card", "gap": 8, "padding": 12, "radius": 10, "width": "fill", "children": [
               {"type": "row", "id": "r_qfczmx", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
-                {"type": "image", "id": "img_togpx6", "name": "circle-help-brand", "height": 14, "src": "assets/icons/circle-help-brand.svg", "width": 14},
+                {"type": "image", "id": "img_togpx6", "name": "circle-help-brand", "height": 14, "src": "assets/icons/circle-help.svg", "tint": "#5b9cf8", "width": 14},
                 {"type": "text", "id": "t_22o2ra", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "The agent asks", "width": "fill"},
                 {"type": "text", "id": "t_c89ukh", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Decline"},
                 {"type": "text", "id": "t_rgkq7l", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "1/2"},
-                {"type": "image", "id": "img_aompnv", "name": "chevron-down-muted", "height": 13, "src": "assets/icons/chevron-down-muted.svg", "width": 13}
+                {"type": "image", "id": "img_aompnv", "name": "chevron-down-muted", "height": 13, "src": "assets/icons/chevron-down.svg", "tint": "#a1a1aa", "width": 13}
               ]},
               {"type": "column", "id": "c_e3kjzy", "width": "fill", "children": [
                 {"type": "text", "id": "t_md4zj7", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Which snack should fuel the next coding session?", "weight": 500}
@@ -59,10 +59,10 @@
               {"type": "text", "id": "t_w3kpdg", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Type your own answer, or leave this blank to use the option picked", "width": "fill"},
               {"type": "group", "id": "g_2irbw0", "height": 36, "width": "fill", "children": []},
               {"type": "row", "id": "r_nydck2", "crossAlign": "center", "gap": 6, "width": "fill", "children": [
-                {"type": "image", "id": "img_dorhgv", "name": "plus-muted", "height": 14, "src": "assets/icons/plus-muted.svg", "width": 14},
-                {"type": "image", "id": "img_44wf33", "name": "agent-claude", "height": 13, "src": "assets/icons/agent-claude.svg", "width": 13},
+                {"type": "image", "id": "img_dorhgv", "name": "plus-muted", "height": 14, "src": "assets/icons/plus-muted.svg", "tint": "#a1a1aa", "width": 14},
+                {"type": "image", "id": "img_44wf33", "name": "agent-claude", "height": 13, "src": "assets/icons/agent-claude.svg", "tint": "#d97757", "width": 13},
                 {"type": "text", "id": "t_d620pc", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Claude Code"},
-                {"type": "image", "id": "img_euopzw", "name": "chevron-down-muted", "height": 11, "src": "assets/icons/chevron-down-muted.svg", "width": 11},
+                {"type": "image", "id": "img_euopzw", "name": "chevron-down-muted", "height": 11, "src": "assets/icons/chevron-down.svg", "tint": "#a1a1aa", "width": 11},
                 {"type": "group", "id": "g_5r7b9e", "width": "fill", "children": []},
                 {"type": "instance", "id": "i_lo9mco", "component": "Button", "from": "@/components/ui/button", "opacity": 0.5, "props": {"size": "sm"}, "text": "Next question"}
               ]}
@@ -78,11 +78,11 @@
             {"type": "text", "id": "t_45ahun", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Ask me two questions to test the card"},
             {"type": "column", "id": "c_9l3trp", "name": "Ask card", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-card", "gap": 8, "padding": 12, "radius": 10, "width": "fill", "children": [
               {"type": "row", "id": "r_t2thg5", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
-                {"type": "image", "id": "img_49nk5k", "name": "circle-help-brand", "height": 14, "src": "assets/icons/circle-help-brand.svg", "width": 14},
+                {"type": "image", "id": "img_49nk5k", "name": "circle-help-brand", "height": 14, "src": "assets/icons/circle-help.svg", "tint": "#5b9cf8", "width": 14},
                 {"type": "text", "id": "t_imv82e", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "The agent asks", "width": "fill"},
                 {"type": "text", "id": "t_vypyuu", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Decline"},
                 {"type": "text", "id": "t_2zthpx", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "1/2"},
-                {"type": "image", "id": "img_wt3wo5", "name": "chevron-down-muted", "height": 13, "src": "assets/icons/chevron-down-muted.svg", "width": 13}
+                {"type": "image", "id": "img_wt3wo5", "name": "chevron-down-muted", "height": 13, "src": "assets/icons/chevron-down.svg", "tint": "#a1a1aa", "width": 13}
               ]},
               {"type": "column", "id": "c_nokq7o", "width": "fill", "children": [
                 {"type": "text", "id": "t_y0egzp", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Which snack should fuel the next coding session?", "weight": 500}
@@ -93,7 +93,7 @@
                     {"type": "text", "id": "t_iuyr3e", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Espresso (Recommended)", "weight": 500},
                     {"type": "text", "id": "t_dgcrpk", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12, "text": "Fast, focused, slightly jittery."}
                   ]},
-                  {"type": "image", "id": "img_efe9yo", "name": "check-brand", "height": 14, "margin": {"top": 3}, "src": "assets/icons/check-brand.svg", "width": 14}
+                  {"type": "image", "id": "img_efe9yo", "name": "check-brand", "height": 14, "margin": {"top": 3}, "src": "assets/icons/check.svg", "tint": "#5b9cf8", "width": 14}
                 ]},
                 {"type": "row", "id": "r_4ivttz", "name": "Choice", "crossAlign": "start", "gap": 12, "padding": {"bottom": 6, "left": 10, "right": 10, "top": 6}, "radius": 6, "width": "fill", "children": [
                   {"type": "column", "id": "c_hlf8cc", "gap": 1, "width": "fill", "children": [
@@ -116,10 +116,10 @@
               {"type": "text", "id": "t_vt6e70", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Type your own answer, or leave this blank to use the option picked", "width": "fill"},
               {"type": "group", "id": "g_3rifdj", "height": 36, "width": "fill", "children": []},
               {"type": "row", "id": "r_0jd33d", "crossAlign": "center", "gap": 6, "width": "fill", "children": [
-                {"type": "image", "id": "img_w4ur69", "name": "plus-muted", "height": 14, "src": "assets/icons/plus-muted.svg", "width": 14},
-                {"type": "image", "id": "img_89vlz7", "name": "agent-claude", "height": 13, "src": "assets/icons/agent-claude.svg", "width": 13},
+                {"type": "image", "id": "img_w4ur69", "name": "plus-muted", "height": 14, "src": "assets/icons/plus-muted.svg", "tint": "#a1a1aa", "width": 14},
+                {"type": "image", "id": "img_89vlz7", "name": "agent-claude", "height": 13, "src": "assets/icons/agent-claude.svg", "tint": "#d97757", "width": 13},
                 {"type": "text", "id": "t_uw602p", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Claude Code"},
-                {"type": "image", "id": "img_rm2imv", "name": "chevron-down-muted", "height": 11, "src": "assets/icons/chevron-down-muted.svg", "width": 11},
+                {"type": "image", "id": "img_rm2imv", "name": "chevron-down-muted", "height": 11, "src": "assets/icons/chevron-down.svg", "tint": "#a1a1aa", "width": 11},
                 {"type": "group", "id": "g_3ecwxv", "width": "fill", "children": []},
                 {"type": "instance", "id": "i_vm2p5l", "component": "Button", "from": "@/components/ui/button", "props": {"size": "sm"}, "text": "Next question"}
               ]}
@@ -135,11 +135,11 @@
             {"type": "text", "id": "t_2161cw", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Ask me two questions to test the card"},
             {"type": "column", "id": "c_nd073m", "name": "Ask card", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-card", "gap": 8, "padding": 12, "radius": 10, "width": "fill", "children": [
               {"type": "row", "id": "r_ezd9jl", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
-                {"type": "image", "id": "img_0nznz3", "name": "circle-help-brand", "height": 14, "src": "assets/icons/circle-help-brand.svg", "width": 14},
+                {"type": "image", "id": "img_0nznz3", "name": "circle-help-brand", "height": 14, "src": "assets/icons/circle-help.svg", "tint": "#5b9cf8", "width": 14},
                 {"type": "text", "id": "t_9m8216", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "The agent asks", "width": "fill"},
                 {"type": "text", "id": "t_ctc8jx", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Decline"},
                 {"type": "text", "id": "t_gs7jnh", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "1/2"},
-                {"type": "image", "id": "img_7c1i4d", "name": "chevron-down-muted", "height": 13, "src": "assets/icons/chevron-down-muted.svg", "width": 13}
+                {"type": "image", "id": "img_7c1i4d", "name": "chevron-down-muted", "height": 13, "src": "assets/icons/chevron-down.svg", "tint": "#a1a1aa", "width": 13}
               ]},
               {"type": "column", "id": "c_c9rhsf", "width": "fill", "children": [
                 {"type": "text", "id": "t_r8v98c", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Which snack should fuel the next coding session?", "weight": 500}
@@ -173,10 +173,10 @@
               {"type": "text", "id": "t_nfef96", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "A banana", "width": "fill"},
               {"type": "group", "id": "g_scaor7", "height": 36, "width": "fill", "children": []},
               {"type": "row", "id": "r_05d9p6", "crossAlign": "center", "gap": 6, "width": "fill", "children": [
-                {"type": "image", "id": "img_avexlh", "name": "plus-muted", "height": 14, "src": "assets/icons/plus-muted.svg", "width": 14},
-                {"type": "image", "id": "img_jy5wze", "name": "agent-claude", "height": 13, "src": "assets/icons/agent-claude.svg", "width": 13},
+                {"type": "image", "id": "img_avexlh", "name": "plus-muted", "height": 14, "src": "assets/icons/plus-muted.svg", "tint": "#a1a1aa", "width": 14},
+                {"type": "image", "id": "img_jy5wze", "name": "agent-claude", "height": 13, "src": "assets/icons/agent-claude.svg", "tint": "#d97757", "width": 13},
                 {"type": "text", "id": "t_341fvw", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Claude Code"},
-                {"type": "image", "id": "img_chlpp0", "name": "chevron-down-muted", "height": 11, "src": "assets/icons/chevron-down-muted.svg", "width": 11},
+                {"type": "image", "id": "img_chlpp0", "name": "chevron-down-muted", "height": 11, "src": "assets/icons/chevron-down.svg", "tint": "#a1a1aa", "width": 11},
                 {"type": "group", "id": "g_pdvxd6", "width": "fill", "children": []},
                 {"type": "instance", "id": "i_fkuqie", "component": "Button", "from": "@/components/ui/button", "props": {"size": "sm"}, "text": "Next question"}
               ]}
@@ -194,11 +194,11 @@
             {"type": "text", "id": "t_oe8f6n", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Ask me two questions to test the card"},
             {"type": "column", "id": "c_wpu0uz", "name": "Ask card", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-card", "gap": 8, "padding": 12, "radius": 10, "width": "fill", "children": [
               {"type": "row", "id": "r_xb1hts", "crossAlign": "center", "gap": 8, "width": "fill", "children": [
-                {"type": "image", "id": "img_5krjl3", "name": "circle-help-brand", "height": 14, "src": "assets/icons/circle-help-brand.svg", "width": 14},
+                {"type": "image", "id": "img_5krjl3", "name": "circle-help-brand", "height": 14, "src": "assets/icons/circle-help.svg", "tint": "#5b9cf8", "width": 14},
                 {"type": "text", "id": "t_sja0ie", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "The agent asks", "width": "fill"},
                 {"type": "text", "id": "t_2bhnb9", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Decline"},
                 {"type": "text", "id": "t_j32ofw", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "2/2"},
-                {"type": "image", "id": "img_juyybw", "name": "chevron-down-muted", "height": 13, "src": "assets/icons/chevron-down-muted.svg", "width": 13}
+                {"type": "image", "id": "img_juyybw", "name": "chevron-down-muted", "height": 13, "src": "assets/icons/chevron-down.svg", "tint": "#a1a1aa", "width": 13}
               ]},
               {"type": "column", "id": "c_gp3mcp", "width": "fill", "children": [
                 {"type": "text", "id": "t_bwj0jj", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Which features should the imaginary toolbar have?", "weight": 500},
@@ -210,7 +210,7 @@
                     {"type": "text", "id": "t_dxz9lx", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Undo/redo", "weight": 500},
                     {"type": "text", "id": "t_u5qf8y", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12, "text": "The classics."}
                   ]},
-                  {"type": "image", "id": "img_cby9ve", "name": "check-brand", "height": 14, "margin": {"top": 3}, "src": "assets/icons/check-brand.svg", "width": 14}
+                  {"type": "image", "id": "img_cby9ve", "name": "check-brand", "height": 14, "margin": {"top": 3}, "src": "assets/icons/check.svg", "tint": "#5b9cf8", "width": 14}
                 ]},
                 {"type": "row", "id": "r_cel2p7", "name": "Choice", "crossAlign": "start", "gap": 12, "padding": {"bottom": 6, "left": 10, "right": 10, "top": 6}, "radius": 6, "width": "fill", "children": [
                   {"type": "column", "id": "c_vol6fm", "gap": 1, "width": "fill", "children": [
@@ -224,7 +224,7 @@
                     {"type": "text", "id": "t_curdz0", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Zoom controls", "weight": 500},
                     {"type": "text", "id": "t_wwcun3", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12, "text": "Fit, 100%, and +/- buttons."}
                   ]},
-                  {"type": "image", "id": "img_jz2pkc", "name": "check-brand", "height": 14, "margin": {"top": 3}, "src": "assets/icons/check-brand.svg", "width": 14}
+                  {"type": "image", "id": "img_jz2pkc", "name": "check-brand", "height": 14, "margin": {"top": 3}, "src": "assets/icons/check.svg", "tint": "#5b9cf8", "width": 14}
                 ]}
               ]}
             ]},
@@ -233,10 +233,10 @@
               {"type": "text", "id": "t_4wh24i", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Pick an option above, or press its number", "width": "fill"},
               {"type": "group", "id": "g_3s0gxv", "height": 36, "width": "fill", "children": []},
               {"type": "row", "id": "r_aun37s", "crossAlign": "center", "gap": 6, "width": "fill", "children": [
-                {"type": "image", "id": "img_zz29by", "name": "plus-muted", "height": 14, "src": "assets/icons/plus-muted.svg", "width": 14},
-                {"type": "image", "id": "img_o49l9p", "name": "agent-claude", "height": 13, "src": "assets/icons/agent-claude.svg", "width": 13},
+                {"type": "image", "id": "img_zz29by", "name": "plus-muted", "height": 14, "src": "assets/icons/plus-muted.svg", "tint": "#a1a1aa", "width": 14},
+                {"type": "image", "id": "img_o49l9p", "name": "agent-claude", "height": 13, "src": "assets/icons/agent-claude.svg", "tint": "#d97757", "width": 13},
                 {"type": "text", "id": "t_31w08c", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Claude Code"},
-                {"type": "image", "id": "img_fzgblj", "name": "chevron-down-muted", "height": 11, "src": "assets/icons/chevron-down-muted.svg", "width": 11},
+                {"type": "image", "id": "img_fzgblj", "name": "chevron-down-muted", "height": 11, "src": "assets/icons/chevron-down.svg", "tint": "#a1a1aa", "width": 11},
                 {"type": "group", "id": "g_7edyuk", "width": "fill", "children": []},
                 {"type": "instance", "id": "i_6gs4tl", "component": "Button", "from": "@/components/ui/button", "props": {"size": "sm", "variant": "outline"}, "text": "Previous"},
                 {"type": "instance", "id": "i_n89qrj", "component": "Button", "from": "@/components/ui/button", "props": {"size": "sm"}, "text": "Send answers"}
@@ -253,20 +253,20 @@
             {"type": "text", "id": "t_zsxoet", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Ask me two questions to test the card"},
             {"type": "column", "id": "c_aqjw0e", "name": "Ask card · answered", "border": {"color": "$color-border", "style": "solid", "width": 1}, "fill": "$color-card", "gap": 8, "padding": 12, "radius": 10, "width": "fill", "children": [
               {"type": "row", "id": "r_g24kh1", "crossAlign": "center", "gap": 6, "children": [
-                {"type": "image", "id": "img_u50ph2", "name": "check-muted", "height": 14, "src": "assets/icons/check-muted.svg", "width": 14},
+                {"type": "image", "id": "img_u50ph2", "name": "check-muted", "height": 14, "src": "assets/icons/check.svg", "tint": "#a1a1aa", "width": 14},
                 {"type": "text", "id": "t_brf8k6", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 12.5, "text": "Answered"}
               ]},
               {"type": "column", "id": "c_pu0yec", "gap": 2, "children": [
                 {"type": "text", "id": "t_yrmsf8", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Which snack should fuel the next coding session?"},
                 {"type": "row", "id": "r_2o31dr", "crossAlign": "center", "gap": 8, "children": [
-                  {"type": "image", "id": "img_jx7srr", "name": "check-fg", "height": 14, "src": "assets/icons/check-fg.svg", "width": 14},
+                  {"type": "image", "id": "img_jx7srr", "name": "check-fg", "height": 14, "src": "assets/icons/check.svg", "tint": "#fafafa", "width": 14},
                   {"type": "text", "id": "t_q826iy", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Espresso", "weight": 500}
                 ]}
               ]},
               {"type": "column", "id": "c_dkjqa7", "gap": 2, "children": [
                 {"type": "text", "id": "t_1jjj9n", "color": "$color-muted-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Which features should the toolbar have?"},
                 {"type": "row", "id": "r_tnyjmt", "crossAlign": "center", "gap": 8, "children": [
-                  {"type": "image", "id": "img_y0c5jz", "name": "check-fg", "height": 14, "src": "assets/icons/check-fg.svg", "width": 14},
+                  {"type": "image", "id": "img_y0c5jz", "name": "check-fg", "height": 14, "src": "assets/icons/check.svg", "tint": "#fafafa", "width": 14},
                   {"type": "text", "id": "t_sblvpm", "color": "$color-foreground", "lineHeight": 1.5, "role": "paragraph", "size": 13, "text": "Undo/redo, Zoom controls", "weight": 500}
                 ]}
               ]}

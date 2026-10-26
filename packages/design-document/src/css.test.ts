@@ -154,3 +154,26 @@ describe("pageDefaultsStyle", () => {
     ).toEqual({});
   });
 });
+
+describe("a tinted image", () => {
+  it("is its file's shape filled with the tint", () => {
+    const style = nodeStyle(
+      {
+        height: 16,
+        id: "i",
+        src: "assets/icons/check.svg",
+        tint: "$color-muted",
+        type: "image",
+        width: 16,
+      },
+      makeStyleContext(null)
+    );
+    expect(style.background).toBe("var(--color-muted)");
+    expect(style.maskSize).toBe("contain");
+    expect(style.objectFit).toBeUndefined();
+    expect(tagOf({ id: "i", src: "x.svg", tint: "red", type: "image" })).toBe(
+      "span"
+    );
+    expect(tagOf({ id: "i", src: "x.png", type: "image" })).toBe("img");
+  });
+});

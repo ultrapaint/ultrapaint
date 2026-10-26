@@ -351,15 +351,39 @@ export const nodeStyle = (node: DesignNode, ctx: StyleContext): Style => {
     case "text":
       return { ...textStyle(node, ctx), ...box };
     case "image":
-      return {
-        display: "block",
-        maxWidth: "100%",
-        objectFit: node.fit ?? "cover",
-        ...box,
-      };
+      // A tinted image is its shape filled with the tint: the file is the mask (`maskOf`).
+      return node.tint === undefined
+        ? {
+            display: "block",
+            maxWidth: "100%",
+            objectFit: node.fit ?? "cover",
+            ...box,
+          }
+        : {
+            display: "block",
+            maxWidth: "100%",
+            ...box,
+            background: css(node.tint),
+            maskPosition: "center",
+            maskRepeat: "no-repeat",
+            maskSize: MASK_SIZE[node.fit ?? "contain"] ?? "contain",
+          };
     default:
       return box;
   }
+};
+
+/** How a tinted image's file covers its box, as `fit` says of an image's pixels. */
+const MASK_SIZE: Record<string, string> = {
+  contain: "contain",
+  cover: "cover",
+  fill: "100% 100%",
+};
+
+/** The mask a tinted image is drawn with: its file, as a CSS image. */
+export const maskOf = (url: string): Style => {
+  const image = `url(${JSON.stringify(url)})`;
+  return { maskImage: image, WebkitMaskImage: image };
 };
 
 /** The tag a node is drawn as. */
@@ -370,7 +394,7 @@ export const tagOf = (node: DesignNode): string => {
       : "p";
   }
   if (node.type === "image") {
-    return "img";
+    return node.tint === undefined ? "img" : "span";
   }
   return "div";
 };

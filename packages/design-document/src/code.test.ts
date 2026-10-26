@@ -64,6 +64,30 @@ export default function HomePage() {
   });
 });
 
+describe("a tinted image", () => {
+  it("is written as its file masking its tint, the tint taking the fill's classes", () => {
+    const fills: ClassWriter = {
+      classes: (node) => [`bg-${node.fill ?? "none"}`],
+      wrapper: (classes) => classes,
+    };
+    const icon: DesignNode = {
+      alt: "Check",
+      id: "i",
+      src: "assets/icons/check.svg",
+      tint: "$color-muted",
+      type: "image",
+    };
+    expect(toCode(icon, fills, { parent: "row" })).toBe(
+      `<span
+  aria-label="Check"
+  className="bg-$color-muted"
+  role="img"
+  style={{"maskImage":"url(\\"assets/icons/check.svg\\")","WebkitMaskImage":"url(\\"assets/icons/check.svg\\")"}}
+/>`
+    );
+  });
+});
+
 describe("pageComponentName", () => {
   it("names a page after its route", () => {
     expect(pageComponentName("/")).toBe("HomePage");

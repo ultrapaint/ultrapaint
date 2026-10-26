@@ -14,6 +14,7 @@ import type { ComponentSpec } from "@ultrapaint/contracts/specs";
 import {
   layoutOf,
   makeStyleContext,
+  maskOf,
   nodeStyle,
   type ParentLayout,
   type Style,
@@ -288,6 +289,15 @@ const NodeView = ({
   }
   if (node.type === "text") {
     return createElement(tagOf(node), common, node.text);
+  }
+  if (node.type === "image" && node.tint !== undefined) {
+    // Its shape, filled with the tint: the file is drawn as a mask.
+    return createElement("span", {
+      ...common,
+      "aria-label": node.alt ?? "",
+      role: "img",
+      style: { ...style, ...maskOf(scope.assetUrl(node.src)) },
+    });
   }
   if (node.type === "image") {
     return createElement("img", {

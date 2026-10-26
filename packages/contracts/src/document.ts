@@ -179,6 +179,11 @@ export interface ImageNode extends BoxFields {
   readonly fit?: ImageFit | undefined;
   /** Path inside the canvas, `assets/hero.png`, or a URL. */
   readonly src: string;
+  /**
+   * The colour an icon is drawn in: its shape, filled with it (a token, `"$color-muted"`, or a CSS
+   * colour). One file serves every colour; absent, the image is drawn as it is.
+   */
+  readonly tint?: string | undefined;
   readonly type: "image";
 }
 
@@ -294,6 +299,7 @@ const ImageNodeSchema = Schema.Struct({
   alt: Schema.optional(Schema.String),
   fit: Schema.optional(ImageFit),
   src: Schema.String,
+  tint: Schema.optional(Color),
   type: Schema.Literal("image"),
 });
 

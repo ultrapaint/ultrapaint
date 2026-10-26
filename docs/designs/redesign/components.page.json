@@ -28,32 +28,32 @@
                   ]},
                   {"type": "column", "id": "c_zmmrlx", "name": "Rail · Pages", "crossAlign": "center", "gap": 3, "padding": {"bottom": 5, "top": 5}, "width": 60, "children": [
                     {"type": "row", "id": "r_48yo2x", "align": "center", "crossAlign": "center", "height": 30, "radius": 8, "width": 36, "children": [
-                      {"type": "image", "id": "img_b54obq", "name": "monitor-smartphone", "height": 18, "src": "assets/icons/monitor-smartphone-muted.svg", "width": 18}
+                      {"type": "image", "id": "img_b54obq", "name": "monitor-smartphone", "height": 18, "src": "assets/icons/monitor-smartphone.svg", "tint": "#a1a1aa", "width": 18}
                     ]},
                     {"type": "text", "id": "t_tstftj", "align": "center", "color": "$color-muted-foreground", "role": "paragraph", "size": 10, "text": "Pages", "weight": 500}
                   ]},
                   {"type": "column", "id": "c_4sgclo", "name": "Rail · System", "crossAlign": "center", "gap": 3, "padding": {"bottom": 5, "top": 5}, "width": 60, "children": [
                     {"type": "row", "id": "r_1p11os", "align": "center", "crossAlign": "center", "height": 30, "radius": 8, "width": 36, "children": [
-                      {"type": "image", "id": "img_huq8gv", "name": "palette", "height": 18, "src": "assets/icons/palette-muted.svg", "width": 18}
+                      {"type": "image", "id": "img_huq8gv", "name": "palette", "height": 18, "src": "assets/icons/palette.svg", "tint": "#a1a1aa", "width": 18}
                     ]},
                     {"type": "text", "id": "t_jg4j0x", "align": "center", "color": "$color-muted-foreground", "role": "paragraph", "size": 10, "text": "System", "weight": 500}
                   ]},
                   {"type": "column", "id": "c_xbhsd9", "name": "Rail · Comments", "crossAlign": "center", "gap": 3, "padding": {"bottom": 5, "top": 5}, "width": 60, "children": [
                     {"type": "row", "id": "r_gxt2hz", "align": "center", "crossAlign": "center", "height": 30, "radius": 8, "width": 36, "children": [
-                      {"type": "image", "id": "img_dtkt90", "name": "message-circle", "height": 18, "src": "assets/icons/message-circle-muted.svg", "width": 18}
+                      {"type": "image", "id": "img_dtkt90", "name": "message-circle", "height": 18, "src": "assets/icons/message-circle.svg", "tint": "#a1a1aa", "width": 18}
                     ]},
                     {"type": "text", "id": "t_nt51yy", "align": "center", "color": "$color-muted-foreground", "role": "paragraph", "size": 10, "text": "Comments", "weight": 500}
                   ]},
                   {"type": "column", "id": "c_lordzb", "name": "Rail · Changes", "crossAlign": "center", "gap": 3, "padding": {"bottom": 5, "top": 5}, "width": 60, "children": [
                     {"type": "row", "id": "r_2hytg9", "align": "center", "crossAlign": "center", "height": 30, "radius": 8, "width": 36, "children": [
-                      {"type": "image", "id": "img_si2h3i", "name": "git-compare-arrows", "height": 18, "src": "assets/icons/git-compare-arrows-muted.svg", "width": 18}
+                      {"type": "image", "id": "img_si2h3i", "name": "git-compare-arrows", "height": 18, "src": "assets/icons/git-compare-arrows.svg", "tint": "#a1a1aa", "width": 18}
                     ]},
                     {"type": "text", "id": "t_c782an", "align": "center", "color": "$color-muted-foreground", "role": "paragraph", "size": 10, "text": "Changes", "weight": 500}
                   ]},
                   {"type": "column", "id": "c_5lledx", "name": "Spacer", "height": "fill", "width": "fill", "children": []},
                   {"type": "column", "id": "c_lpw2d5", "name": "Rail · Settings", "crossAlign": "center", "gap": 3, "padding": {"bottom": 5, "top": 5}, "width": 60, "children": [
                     {"type": "row", "id": "r_tis4xv", "align": "center", "crossAlign": "center", "height": 30, "radius": 8, "width": 36, "children": [
-                      {"type": "image", "id": "img_qo56eb", "name": "settings", "height": 18, "src": "assets/icons/settings-muted.svg", "width": 18}
+                      {"type": "image", "id": "img_qo56eb", "name": "settings", "height": 18, "src": "assets/icons/settings.svg", "tint": "#a1a1aa", "width": 18}
                     ]},
                     {"type": "text", "id": "t_t1uuka", "align": "center", "color": "$color-muted-foreground", "role": "paragraph", "size": 10, "text": "Settings", "weight": 500}
                   ]},
@@ -76,13 +76,13 @@
                   {"type": "group", "id": "g_57i0yd", "height": 8, "width": 8, "children": []},
                   {"type": "column", "id": "c_jtyjex", "name": "Rail · Layers", "crossAlign": "center", "gap": 3, "padding": {"bottom": 5, "top": 5}, "width": 60, "children": [
                     {"type": "row", "id": "r_7fenxk", "align": "center", "crossAlign": "center", "fill": "$color-muted", "height": 30, "radius": 8, "width": 36, "children": [
-                      {"type": "image", "id": "img_dqb35s", "name": "layers", "height": 18, "src": "assets/icons/layers-fg.svg", "width": 18}
+                      {"type": "image", "id": "img_dqb35s", "name": "layers", "height": 18, "src": "assets/icons/layers.svg", "tint": "#fafafa", "width": 18}
                     ]},
                     {"type": "text", "id": "t_wmjga6", "align": "center", "color": "$color-foreground", "role": "paragraph", "size": 10, "text": "Layers", "weight": 500}
                   ]},
                   {"type": "column", "id": "c_wlzsk9", "name": "Rail · Assets", "crossAlign": "center", "gap": 3, "padding": {"bottom": 5, "top": 5}, "width": 60, "children": [
                     {"type": "row", "id": "r_79n9lp", "align": "center", "crossAlign": "center", "height": 30, "radius": 8, "width": 36, "children": [
-                      {"type": "image", "id": "img_yrylzh", "name": "shapes", "height": 18, "src": "assets/icons/shapes-muted.svg", "width": 18}
+                      {"type": "image", "id": "img_yrylzh", "name": "shapes", "height": 18, "src": "assets/icons/shapes.svg", "tint": "#a1a1aa", "width": 18}
                     ]},
                     {"type": "text", "id": "t_tt9ex6", "align": "center", "color": "$color-muted-foreground", "role": "paragraph", "size": 10, "text": "Assets", "weight": 500}
                   ]},
@@ -97,32 +97,32 @@
                   ]},
                   {"type": "column", "id": "c_nlty2h", "name": "Rail · Pages", "crossAlign": "center", "gap": 3, "padding": {"bottom": 5, "top": 5}, "width": 60, "children": [
                     {"type": "row", "id": "r_oxwqz6", "align": "center", "crossAlign": "center", "height": 30, "radius": 8, "width": 36, "children": [
-                      {"type": "image", "id": "img_zq1nni", "name": "monitor-smartphone", "height": 18, "src": "assets/icons/monitor-smartphone-muted.svg", "width": 18}
+                      {"type": "image", "id": "img_zq1nni", "name": "monitor-smartphone", "height": 18, "src": "assets/icons/monitor-smartphone.svg", "tint": "#a1a1aa", "width": 18}
                     ]},
                     {"type": "text", "id": "t_ce6epk", "align": "center", "color": "$color-muted-foreground", "role": "paragraph", "size": 10, "text": "Pages", "weight": 500}
                   ]},
                   {"type": "column", "id": "c_s7cfhi", "name": "Rail · System", "crossAlign": "center", "gap": 3, "padding": {"bottom": 5, "top": 5}, "width": 60, "children": [
                     {"type": "row", "id": "r_64l15i", "align": "center", "crossAlign": "center", "height": 30, "radius": 8, "width": 36, "children": [
-                      {"type": "image", "id": "img_04i60b", "name": "palette", "height": 18, "src": "assets/icons/palette-muted.svg", "width": 18}
+                      {"type": "image", "id": "img_04i60b", "name": "palette", "height": 18, "src": "assets/icons/palette.svg", "tint": "#a1a1aa", "width": 18}
                     ]},
                     {"type": "text", "id": "t_xm0x77", "align": "center", "color": "$color-muted-foreground", "role": "paragraph", "size": 10, "text": "System", "weight": 500}
                   ]},
                   {"type": "column", "id": "c_krhnvx", "name": "Rail · Comments", "crossAlign": "center", "gap": 3, "padding": {"bottom": 5, "top": 5}, "width": 60, "children": [
                     {"type": "row", "id": "r_n3h9r8", "align": "center", "crossAlign": "center", "height": 30, "radius": 8, "width": 36, "children": [
-                      {"type": "image", "id": "img_2rwfiy", "name": "message-circle", "height": 18, "src": "assets/icons/message-circle-muted.svg", "width": 18}
+                      {"type": "image", "id": "img_2rwfiy", "name": "message-circle", "height": 18, "src": "assets/icons/message-circle.svg", "tint": "#a1a1aa", "width": 18}
                     ]},
                     {"type": "text", "id": "t_k6o4oj", "align": "center", "color": "$color-muted-foreground", "role": "paragraph", "size": 10, "text": "Comments", "weight": 500}
                   ]},
                   {"type": "column", "id": "c_l2qh4c", "name": "Rail · Changes", "crossAlign": "center", "gap": 3, "padding": {"bottom": 5, "top": 5}, "width": 60, "children": [
                     {"type": "row", "id": "r_k4jav4", "align": "center", "crossAlign": "center", "height": 30, "radius": 8, "width": 36, "children": [
-                      {"type": "image", "id": "img_b38300", "name": "git-compare-arrows", "height": 18, "src": "assets/icons/git-compare-arrows-muted.svg", "width": 18}
+                      {"type": "image", "id": "img_b38300", "name": "git-compare-arrows", "height": 18, "src": "assets/icons/git-compare-arrows.svg", "tint": "#a1a1aa", "width": 18}
                     ]},
                     {"type": "text", "id": "t_by35wc", "align": "center", "color": "$color-muted-foreground", "role": "paragraph", "size": 10, "text": "Changes", "weight": 500}
                   ]},
                   {"type": "column", "id": "c_lh5il2", "name": "Spacer", "height": "fill", "width": "fill", "children": []},
                   {"type": "column", "id": "c_t54y39", "name": "Rail · Settings", "crossAlign": "center", "gap": 3, "padding": {"bottom": 5, "top": 5}, "width": 60, "children": [
                     {"type": "row", "id": "r_smff7a", "align": "center", "crossAlign": "center", "height": 30, "radius": 8, "width": 36, "children": [
-                      {"type": "image", "id": "img_y23ujt", "name": "settings", "height": 18, "src": "assets/icons/settings-muted.svg", "width": 18}
+                      {"type": "image", "id": "img_y23ujt", "name": "settings", "height": 18, "src": "assets/icons/settings.svg", "tint": "#a1a1aa", "width": 18}
                     ]},
                     {"type": "text", "id": "t_vww7rs", "align": "center", "color": "$color-muted-foreground", "role": "paragraph", "size": 10, "text": "Settings", "weight": 500}
                   ]},
@@ -151,32 +151,32 @@
                   ]},
                   {"type": "column", "id": "c_07v66k", "name": "Rail · Pages", "crossAlign": "center", "gap": 3, "padding": {"bottom": 5, "top": 5}, "width": 60, "children": [
                     {"type": "row", "id": "r_o9dfj6", "align": "center", "crossAlign": "center", "fill": "$color-muted", "height": 30, "radius": 8, "width": 36, "children": [
-                      {"type": "image", "id": "img_f4cc5m", "name": "monitor-smartphone", "height": 18, "src": "assets/icons/monitor-smartphone-fg.svg", "width": 18}
+                      {"type": "image", "id": "img_f4cc5m", "name": "monitor-smartphone", "height": 18, "src": "assets/icons/monitor-smartphone.svg", "tint": "#fafafa", "width": 18}
                     ]},
                     {"type": "text", "id": "t_s0f6no", "align": "center", "color": "$color-foreground", "role": "paragraph", "size": 10, "text": "Pages", "weight": 500}
                   ]},
                   {"type": "column", "id": "c_b0jcfr", "name": "Rail · System", "crossAlign": "center", "gap": 3, "padding": {"bottom": 5, "top": 5}, "width": 60, "children": [
                     {"type": "row", "id": "r_2gcki8", "align": "center", "crossAlign": "center", "height": 30, "radius": 8, "width": 36, "children": [
-                      {"type": "image", "id": "img_zbvaxs", "name": "palette", "height": 18, "src": "assets/icons/palette-muted.svg", "width": 18}
+                      {"type": "image", "id": "img_zbvaxs", "name": "palette", "height": 18, "src": "assets/icons/palette.svg", "tint": "#a1a1aa", "width": 18}
                     ]},
                     {"type": "text", "id": "t_bia688", "align": "center", "color": "$color-muted-foreground", "role": "paragraph", "size": 10, "text": "System", "weight": 500}
                   ]},
                   {"type": "column", "id": "c_kodphb", "name": "Rail · Comments", "crossAlign": "center", "gap": 3, "padding": {"bottom": 5, "top": 5}, "width": 60, "children": [
                     {"type": "row", "id": "r_h4nei3", "align": "center", "crossAlign": "center", "height": 30, "radius": 8, "width": 36, "children": [
-                      {"type": "image", "id": "img_67h1rq", "name": "message-circle", "height": 18, "src": "assets/icons/message-circle-muted.svg", "width": 18}
+                      {"type": "image", "id": "img_67h1rq", "name": "message-circle", "height": 18, "src": "assets/icons/message-circle.svg", "tint": "#a1a1aa", "width": 18}
                     ]},
                     {"type": "text", "id": "t_kujzgq", "align": "center", "color": "$color-muted-foreground", "role": "paragraph", "size": 10, "text": "Comments", "weight": 500}
                   ]},
                   {"type": "column", "id": "c_nyfpjq", "name": "Rail · Changes", "crossAlign": "center", "gap": 3, "padding": {"bottom": 5, "top": 5}, "width": 60, "children": [
                     {"type": "row", "id": "r_ekixwe", "align": "center", "crossAlign": "center", "height": 30, "radius": 8, "width": 36, "children": [
-                      {"type": "image", "id": "img_mhk8hk", "name": "git-compare-arrows", "height": 18, "src": "assets/icons/git-compare-arrows-muted.svg", "width": 18}
+                      {"type": "image", "id": "img_mhk8hk", "name": "git-compare-arrows", "height": 18, "src": "assets/icons/git-compare-arrows.svg", "tint": "#a1a1aa", "width": 18}
                     ]},
                     {"type": "text", "id": "t_s1a2ed", "align": "center", "color": "$color-muted-foreground", "role": "paragraph", "size": 10, "text": "Changes", "weight": 500}
                   ]},
                   {"type": "column", "id": "c_mj3bsl", "name": "Spacer", "height": "fill", "width": "fill", "children": []},
                   {"type": "column", "id": "c_im5lbw", "name": "Rail · Settings", "crossAlign": "center", "gap": 3, "padding": {"bottom": 5, "top": 5}, "width": 60, "children": [
                     {"type": "row", "id": "r_datk5u", "align": "center", "crossAlign": "center", "height": 30, "radius": 8, "width": 36, "children": [
-                      {"type": "image", "id": "img_n9lyrm", "name": "settings", "height": 18, "src": "assets/icons/settings-muted.svg", "width": 18}
+                      {"type": "image", "id": "img_n9lyrm", "name": "settings", "height": 18, "src": "assets/icons/settings.svg", "tint": "#a1a1aa", "width": 18}
                     ]},
                     {"type": "text", "id": "t_xvnf9z", "align": "center", "color": "$color-muted-foreground", "role": "paragraph", "size": 10, "text": "Settings", "weight": 500}
                   ]},
@@ -210,7 +210,7 @@
             {"type": "column", "id": "c_z0tycw", "border": {"color": "$color-border", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "$color-sidebar", "padding": {"bottom": 12, "top": 10}, "radius": 10, "width": 64, "children": [
               {"type": "column", "id": "c_7f8pia", "name": "Rail · Settings", "crossAlign": "center", "gap": 3, "padding": {"bottom": 5, "top": 5}, "width": 60, "children": [
                 {"type": "row", "id": "r_5og8u8", "align": "center", "crossAlign": "center", "height": 30, "radius": 8, "width": 36, "children": [
-                  {"type": "image", "id": "img_ziyvpg", "name": "settings", "height": 18, "src": "assets/icons/settings-muted.svg", "width": 18}
+                  {"type": "image", "id": "img_ziyvpg", "name": "settings", "height": 18, "src": "assets/icons/settings.svg", "tint": "#a1a1aa", "width": 18}
                 ]},
                 {"type": "text", "id": "t_ehuelz", "align": "center", "color": "$color-muted-foreground", "role": "paragraph", "size": 10, "text": "Settings", "weight": 500}
               ]},
@@ -232,11 +232,11 @@
                 ]}
               ]},
               {"type": "row", "id": "r_ximezy", "border": {"color": "$color-border", "style": "solid", "width": "1px 0 0 0"}, "crossAlign": "center", "gap": 6, "padding": {"top": 8}, "width": "fill", "children": [
-                {"type": "image", "id": "img_coqs2v", "name": "git-branch", "height": 12, "src": "assets/icons/git-branch-muted.svg", "width": 12},
+                {"type": "image", "id": "img_coqs2v", "name": "git-branch", "height": 12, "src": "assets/icons/git-branch.svg", "tint": "#a1a1aa", "width": 12},
                 {"type": "text", "id": "t_kd3xvd", "color": "#71717a", "role": "paragraph", "size": 11, "text": "From git config in this repository"}
               ]},
               {"type": "row", "id": "r_3taqdh", "crossAlign": "center", "gap": 6, "width": "fill", "children": [
-                {"type": "image", "id": "img_zcm1ld", "name": "message-circle", "height": 12, "src": "assets/icons/message-circle-muted.svg", "width": 12},
+                {"type": "image", "id": "img_zcm1ld", "name": "message-circle", "height": 12, "src": "assets/icons/message-circle.svg", "tint": "#a1a1aa", "width": 12},
                 {"type": "text", "id": "t_sgp9f7", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Signs your comments on the canvas"}
               ]}
             ]}
@@ -264,7 +264,7 @@
                     ]},
                     {"type": "text", "id": "t_iw97p8", "color": "$color-muted-foreground", "lineHeight": 1.45, "role": "paragraph", "size": 11.5, "text": "Moving Order first, then Device…", "width": "fill"},
                     {"type": "row", "id": "r_w58ip4", "crossAlign": "center", "gap": 6, "padding": {"top": 3}, "width": "fill", "children": [
-                      {"type": "image", "id": "img_ic92w5", "name": "Claude Code", "fit": "contain", "height": 12, "src": "assets/icons/agent-claude.svg", "width": 12},
+                      {"type": "image", "id": "img_ic92w5", "name": "Claude Code", "fit": "contain", "height": 12, "src": "assets/icons/agent-claude.svg", "tint": "#d97757", "width": 12},
                       {"type": "text", "id": "t_ythzj4", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Orders table · /orders", "width": "fill"},
                       {"type": "row", "id": "r_vk9clr", "crossAlign": "center", "gap": 5, "children": [
                         {"type": "instance", "id": "i_wm1y9k", "component": "Spinner", "from": "@/components/ui/spinner", "height": 11, "width": 11},
@@ -290,7 +290,7 @@
                     ]},
                     {"type": "text", "id": "t_o8q80f", "color": "$color-muted-foreground", "lineHeight": 1.45, "role": "paragraph", "size": 11.5, "text": "Which alarm types should it offer?", "width": "fill"},
                     {"type": "row", "id": "r_38i8bt", "crossAlign": "center", "gap": 6, "padding": {"top": 3}, "width": "fill", "children": [
-                      {"type": "image", "id": "img_6r5xfr", "name": "Claude Code", "fit": "contain", "height": 12, "src": "assets/icons/agent-claude.svg", "width": 12},
+                      {"type": "image", "id": "img_6r5xfr", "name": "Claude Code", "fit": "contain", "height": 12, "src": "assets/icons/agent-claude.svg", "tint": "#d97757", "width": 12},
                       {"type": "text", "id": "t_frvfhs", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Alarm modal · /alarms", "width": "fill"},
                       {"type": "row", "id": "r_2aa69p", "crossAlign": "center", "gap": 5, "children": [
                         {"type": "row", "id": "r_k8pnqi", "crossAlign": "center", "fill": "#fbbf24", "height": 7, "radius": 999, "width": 7, "children": []},
@@ -315,10 +315,10 @@
                     ]},
                     {"type": "text", "id": "t_8f7xmt", "color": "$color-muted-foreground", "lineHeight": 1.45, "role": "paragraph", "size": 11.5, "text": "The agent exited: out of credit.", "width": "fill"},
                     {"type": "row", "id": "r_fbgo77", "crossAlign": "center", "gap": 6, "padding": {"top": 3}, "width": "fill", "children": [
-                      {"type": "image", "id": "img_669q30", "name": "Claude Code", "fit": "contain", "height": 12, "src": "assets/icons/agent-claude.svg", "width": 12},
+                      {"type": "image", "id": "img_669q30", "name": "Claude Code", "fit": "contain", "height": 12, "src": "assets/icons/agent-claude.svg", "tint": "#d97757", "width": 12},
                       {"type": "text", "id": "t_wo08n8", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Pricing · /pricing", "width": "fill"},
                       {"type": "row", "id": "r_j572z2", "crossAlign": "center", "gap": 5, "children": [
-                        {"type": "image", "id": "img_4j41gc", "name": "circle-alert", "height": 11, "src": "assets/icons/circle-alert-red.svg", "width": 11},
+                        {"type": "image", "id": "img_4j41gc", "name": "circle-alert", "height": 11, "src": "assets/icons/circle-alert.svg", "tint": "#f87171", "width": 11},
                         {"type": "text", "id": "t_y1d20m", "color": "#f87171", "role": "paragraph", "size": 11, "text": "Stopped", "weight": 500}
                       ]}
                     ]}
@@ -340,7 +340,7 @@
                     ]},
                     {"type": "text", "id": "t_eyvlky", "color": "$color-muted-foreground", "lineHeight": 1.45, "role": "paragraph", "size": 11.5, "text": "The pin shows the warehouse name.", "width": "fill"},
                     {"type": "row", "id": "r_ge4tl0", "crossAlign": "center", "gap": 6, "padding": {"top": 3}, "width": "fill", "children": [
-                      {"type": "image", "id": "img_2y0blz", "name": "Codex", "fit": "contain", "height": 12, "src": "assets/icons/agent-codex.svg", "width": 12},
+                      {"type": "image", "id": "img_2y0blz", "name": "Codex", "fit": "contain", "height": 12, "src": "assets/icons/agent-codex.svg", "tint": "#fafafa", "width": 12},
                       {"type": "text", "id": "t_2b705x", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Map · /sites", "width": "fill"}
                     ]}
                   ]}
@@ -383,7 +383,7 @@
             ]},
             {"type": "column", "id": "c_dyuqd9", "crossAlign": "center", "gap": 6, "width": 110, "children": [
               {"type": "column", "id": "c_jcyusw", "align": "center", "border": {"color": "#3f3f46", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#ffffff", "height": 64, "radius": 10, "width": 64, "children": [
-                {"type": "image", "id": "img_pnxo5q", "name": "sparkles", "height": 22, "src": "assets/icons/sparkles-gray.svg", "width": 22}
+                {"type": "image", "id": "img_pnxo5q", "name": "sparkles", "height": 22, "src": "assets/icons/sparkles-fg.svg", "tint": "#71717a", "width": 22}
               ]},
               {"type": "text", "id": "t_3ogjcw", "align": "center", "color": "$color-foreground", "role": "paragraph", "size": 11.5, "text": "No scope", "weight": 500},
               {"type": "text", "id": "t_d7zp8l", "align": "center", "color": "#71717a", "role": "paragraph", "size": 10.5, "text": "the project"}
@@ -404,20 +404,20 @@
                 {"type": "text", "id": "t_0v9zfd", "color": "#71717a", "padding": {"bottom": 10, "left": 2, "top": 2}, "role": "paragraph", "size": 13, "text": "Ask for changes", "width": "fill"},
                 {"type": "row", "id": "r_kftuik", "crossAlign": "center", "gap": 4, "width": "fill", "children": [
                   {"type": "row", "id": "r_q642mh", "name": "plus button", "align": "center", "crossAlign": "center", "height": 28, "radius": 7, "width": 28, "children": [
-                    {"type": "image", "id": "img_x0nk4r", "name": "plus", "height": 16, "src": "assets/icons/plus-muted.svg", "width": 16}
+                    {"type": "image", "id": "img_x0nk4r", "name": "plus", "height": 16, "src": "assets/icons/plus-muted.svg", "tint": "#a1a1aa", "width": 16}
                   ]},
                   {"type": "row", "id": "r_qi4suo", "name": "Agent", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 6, "right": 8}, "radius": 7, "children": [
-                    {"type": "image", "id": "img_v347bt", "name": "Claude Code", "fit": "contain", "height": 12, "src": "assets/icons/agent-claude.svg", "width": 12},
+                    {"type": "image", "id": "img_v347bt", "name": "Claude Code", "fit": "contain", "height": 12, "src": "assets/icons/agent-claude.svg", "tint": "#d97757", "width": 12},
                     {"type": "text", "id": "t_j4ir87", "color": "$color-foreground", "role": "paragraph", "size": 11.5, "text": "Claude Code", "weight": 500},
                     {"type": "text", "id": "t_k3mnoz", "color": "$color-muted-foreground", "role": "paragraph", "size": 11.5, "text": "Opus 5.5"},
-                    {"type": "image", "id": "img_s21c05", "name": "chevron-down", "height": 12, "src": "assets/icons/chevron-down-muted.svg", "width": 12}
+                    {"type": "image", "id": "img_s21c05", "name": "chevron-down", "height": 12, "src": "assets/icons/chevron-down.svg", "tint": "#a1a1aa", "width": 12}
                   ]},
                   {"type": "column", "id": "c_vhqo1l", "name": "Spacer", "height": "fill", "width": "fill", "children": []},
                   {"type": "row", "id": "r_sd5k7a", "name": "mic button", "align": "center", "crossAlign": "center", "height": 28, "radius": 7, "width": 28, "children": [
-                    {"type": "image", "id": "img_8jw5m2", "name": "mic", "height": 16, "src": "assets/icons/mic-muted.svg", "width": 16}
+                    {"type": "image", "id": "img_8jw5m2", "name": "mic", "height": 16, "src": "assets/icons/mic.svg", "tint": "#a1a1aa", "width": 16}
                   ]},
                   {"type": "row", "id": "r_sw2f7q", "name": "Send", "align": "center", "crossAlign": "center", "fill": "#3f3f46", "height": 28, "radius": 999, "width": 28, "children": [
-                    {"type": "image", "id": "img_5nadoz", "name": "arrow-up", "height": 15, "src": "assets/icons/arrow-up-muted.svg", "width": 15}
+                    {"type": "image", "id": "img_5nadoz", "name": "arrow-up", "height": 15, "src": "assets/icons/arrow-up.svg", "tint": "#a1a1aa", "width": 15}
                   ]}
                 ]}
               ]}
@@ -429,33 +429,33 @@
                   {"type": "row", "id": "r_idc924", "name": "Attached · New order", "border": {"color": "#7c3aed", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#2e1065", "gap": 6, "padding": {"bottom": 3, "left": 4, "right": 6, "top": 3}, "radius": 6, "children": [
                     {"type": "image", "id": "img_fejwt7", "fill": "#ffffff", "fit": "contain", "height": 18, "radius": 4, "src": "assets/thumbs/new-order-button.png", "width": 18},
                     {"type": "text", "id": "t_frda5x", "color": "#ddd6fe", "role": "paragraph", "size": 11.5, "text": "New order", "weight": 500},
-                    {"type": "image", "id": "img_oxzhsd", "name": "x", "height": 12, "src": "assets/icons/x-muted.svg", "width": 12}
+                    {"type": "image", "id": "img_oxzhsd", "name": "x", "height": 12, "src": "assets/icons/x-muted.svg", "tint": "#a1a1aa", "width": 12}
                   ]},
                   {"type": "row", "id": "r_sez97k", "name": "Attached · Page header", "border": {"color": "#1d4ed8", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#172554", "gap": 6, "padding": {"bottom": 3, "left": 4, "right": 6, "top": 3}, "radius": 6, "children": [
                     {"type": "row", "id": "r_0gzfrq", "align": "center", "crossAlign": "center", "height": 18, "radius": 4, "width": 18, "children": [
-                      {"type": "image", "id": "img_3o2qvj", "name": "rows-3", "height": 12, "src": "assets/icons/rows-3-brand.svg", "width": 12}
+                      {"type": "image", "id": "img_3o2qvj", "name": "rows-3", "height": 12, "src": "assets/icons/rows-3.svg", "tint": "#5b9cf8", "width": 12}
                     ]},
                     {"type": "text", "id": "t_gg1tfe", "color": "#bfdbfe", "role": "paragraph", "size": 11.5, "text": "Page header", "weight": 500},
-                    {"type": "image", "id": "img_4imuz3", "name": "x", "height": 12, "src": "assets/icons/x-muted.svg", "width": 12}
+                    {"type": "image", "id": "img_4imuz3", "name": "x", "height": 12, "src": "assets/icons/x-muted.svg", "tint": "#a1a1aa", "width": 12}
                   ]}
                 ]},
                 {"type": "text", "id": "t_3le013", "color": "#71717a", "padding": {"bottom": 10, "left": 2, "top": 2}, "role": "paragraph", "size": 13, "text": "Make both the same height", "width": "fill"},
                 {"type": "row", "id": "r_5lc8gr", "crossAlign": "center", "gap": 4, "width": "fill", "children": [
                   {"type": "row", "id": "r_lew3g7", "name": "plus button", "align": "center", "crossAlign": "center", "height": 28, "radius": 7, "width": 28, "children": [
-                    {"type": "image", "id": "img_tc8agt", "name": "plus", "height": 16, "src": "assets/icons/plus-muted.svg", "width": 16}
+                    {"type": "image", "id": "img_tc8agt", "name": "plus", "height": 16, "src": "assets/icons/plus-muted.svg", "tint": "#a1a1aa", "width": 16}
                   ]},
                   {"type": "row", "id": "r_ffahk5", "name": "Agent", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 6, "right": 8}, "radius": 7, "children": [
-                    {"type": "image", "id": "img_hpx5l0", "name": "Claude Code", "fit": "contain", "height": 12, "src": "assets/icons/agent-claude.svg", "width": 12},
+                    {"type": "image", "id": "img_hpx5l0", "name": "Claude Code", "fit": "contain", "height": 12, "src": "assets/icons/agent-claude.svg", "tint": "#d97757", "width": 12},
                     {"type": "text", "id": "t_ls0abn", "color": "$color-foreground", "role": "paragraph", "size": 11.5, "text": "Claude Code", "weight": 500},
                     {"type": "text", "id": "t_8g3uiq", "color": "$color-muted-foreground", "role": "paragraph", "size": 11.5, "text": "Opus 5.5"},
-                    {"type": "image", "id": "img_kky4j0", "name": "chevron-down", "height": 12, "src": "assets/icons/chevron-down-muted.svg", "width": 12}
+                    {"type": "image", "id": "img_kky4j0", "name": "chevron-down", "height": 12, "src": "assets/icons/chevron-down.svg", "tint": "#a1a1aa", "width": 12}
                   ]},
                   {"type": "column", "id": "c_158nrq", "name": "Spacer", "height": "fill", "width": "fill", "children": []},
                   {"type": "row", "id": "r_dwow54", "name": "mic button", "align": "center", "crossAlign": "center", "height": 28, "radius": 7, "width": 28, "children": [
-                    {"type": "image", "id": "img_6mmodc", "name": "mic", "height": 16, "src": "assets/icons/mic-muted.svg", "width": 16}
+                    {"type": "image", "id": "img_6mmodc", "name": "mic", "height": 16, "src": "assets/icons/mic.svg", "tint": "#a1a1aa", "width": 16}
                   ]},
                   {"type": "row", "id": "r_ul445f", "name": "Send", "align": "center", "crossAlign": "center", "fill": "$color-foreground", "height": 28, "radius": 999, "width": 28, "children": [
-                    {"type": "image", "id": "img_av0nrt", "name": "arrow-up", "height": 15, "src": "assets/icons/arrow-up-dark.svg", "width": 15}
+                    {"type": "image", "id": "img_av0nrt", "name": "arrow-up", "height": 15, "src": "assets/icons/arrow-up.svg", "tint": "#18181b", "width": 15}
                   ]}
                 ]}
               ]}
@@ -467,23 +467,23 @@
                   {"type": "row", "id": "r_hrdk32", "name": "Attached · Orders table", "border": {"color": "#7c3aed", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#2e1065", "gap": 6, "padding": {"bottom": 3, "left": 4, "right": 6, "top": 3}, "radius": 6, "children": [
                     {"type": "image", "id": "img_omiclo", "fill": "#ffffff", "fit": "contain", "height": 18, "radius": 4, "src": "assets/thumbs/orders-table.png", "width": 18},
                     {"type": "text", "id": "t_ugy5so", "color": "#ddd6fe", "role": "paragraph", "size": 11.5, "text": "Orders table", "weight": 500},
-                    {"type": "image", "id": "img_byezly", "name": "x", "height": 12, "src": "assets/icons/x-muted.svg", "width": 12}
+                    {"type": "image", "id": "img_byezly", "name": "x", "height": 12, "src": "assets/icons/x-muted.svg", "tint": "#a1a1aa", "width": 12}
                   ]}
                 ]},
                 {"type": "text", "id": "t_e2r9h8", "color": "#71717a", "padding": {"bottom": 10, "left": 2, "top": 2}, "role": "paragraph", "size": 13, "text": "Queue a follow-up…", "width": "fill"},
                 {"type": "row", "id": "r_ocnpp6", "crossAlign": "center", "gap": 4, "width": "fill", "children": [
                   {"type": "row", "id": "r_ry5c4w", "name": "plus button", "align": "center", "crossAlign": "center", "height": 28, "radius": 7, "width": 28, "children": [
-                    {"type": "image", "id": "img_shy7ow", "name": "plus", "height": 16, "src": "assets/icons/plus-muted.svg", "width": 16}
+                    {"type": "image", "id": "img_shy7ow", "name": "plus", "height": 16, "src": "assets/icons/plus-muted.svg", "tint": "#a1a1aa", "width": 16}
                   ]},
                   {"type": "row", "id": "r_e5bvzt", "name": "Agent", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 6, "right": 8}, "radius": 7, "children": [
-                    {"type": "image", "id": "img_cmw73u", "name": "Claude Code", "fit": "contain", "height": 12, "src": "assets/icons/agent-claude.svg", "width": 12},
+                    {"type": "image", "id": "img_cmw73u", "name": "Claude Code", "fit": "contain", "height": 12, "src": "assets/icons/agent-claude.svg", "tint": "#d97757", "width": 12},
                     {"type": "text", "id": "t_2chenn", "color": "$color-foreground", "role": "paragraph", "size": 11.5, "text": "Claude Code", "weight": 500},
                     {"type": "text", "id": "t_7igg1v", "color": "$color-muted-foreground", "role": "paragraph", "size": 11.5, "text": "Opus 5.5"},
-                    {"type": "image", "id": "img_58dc1s", "name": "chevron-down", "height": 12, "src": "assets/icons/chevron-down-muted.svg", "width": 12}
+                    {"type": "image", "id": "img_58dc1s", "name": "chevron-down", "height": 12, "src": "assets/icons/chevron-down.svg", "tint": "#a1a1aa", "width": 12}
                   ]},
                   {"type": "column", "id": "c_h02dgj", "name": "Spacer", "height": "fill", "width": "fill", "children": []},
                   {"type": "row", "id": "r_rd86e8", "name": "mic button", "align": "center", "crossAlign": "center", "height": 28, "radius": 7, "width": 28, "children": [
-                    {"type": "image", "id": "img_om4ydj", "name": "mic", "height": 16, "src": "assets/icons/mic-muted.svg", "width": 16}
+                    {"type": "image", "id": "img_om4ydj", "name": "mic", "height": 16, "src": "assets/icons/mic.svg", "tint": "#a1a1aa", "width": 16}
                   ]},
                   {"type": "row", "id": "r_kfb53c", "name": "Stop", "align": "center", "crossAlign": "center", "fill": "$color-foreground", "height": 28, "radius": 999, "width": 28, "children": [
                     {"type": "row", "id": "r_mns9oq", "crossAlign": "center", "fill": "#18181b", "height": 9, "radius": 2, "width": 9, "children": []}
@@ -506,7 +506,7 @@
                 {"type": "text", "id": "t_gpefno", "color": "$color-muted-foreground", "role": "paragraph", "size": 11, "text": "Orders table · Column", "weight": 600}
               ]},
               {"type": "row", "id": "r_i71pw8", "crossAlign": "center", "gap": 9, "padding": {"bottom": 5, "left": 8, "right": 8, "top": 5}, "radius": 6, "width": "fill", "children": [
-                {"type": "image", "id": "img_2hdkdx", "name": "sparkles", "height": 13, "src": "assets/icons/sparkles-muted.svg", "width": 13},
+                {"type": "image", "id": "img_2hdkdx", "name": "sparkles", "height": 13, "src": "assets/icons/sparkles-fg.svg", "tint": "#a1a1aa", "width": 13},
                 {"type": "column", "id": "c_nhk31z", "gap": 1, "width": "fill", "children": [
                   {"type": "text", "id": "t_jmzf22", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "Add to chat"}
                 ]},
@@ -514,7 +514,7 @@
               ]},
               {"type": "group", "id": "g_0j1cn9", "fill": "#3f3f46", "height": 1, "width": "fill", "children": []},
               {"type": "row", "id": "r_0rd585", "crossAlign": "start", "fill": "#27272a", "gap": 9, "padding": {"bottom": 5, "left": 8, "right": 8, "top": 5}, "radius": 6, "width": "fill", "children": [
-                {"type": "image", "id": "img_2s44hn", "name": "link", "height": 13, "src": "assets/icons/link-muted.svg", "width": 13},
+                {"type": "image", "id": "img_2s44hn", "name": "link", "height": 13, "src": "assets/icons/link.svg", "tint": "#a1a1aa", "width": 13},
                 {"type": "column", "id": "c_4w9a6b", "gap": 1, "width": "fill", "children": [
                   {"type": "text", "id": "t_lu0vyy", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "Copy link to element"},
                   {"type": "text", "id": "t_52vp1u", "color": "#71717a", "font": "$font-mono", "role": "paragraph", "size": 10.5, "text": "?route=/orders&node=c_8x2k1q"}
@@ -522,7 +522,7 @@
                 {"type": "text", "id": "t_jq7ymk", "color": "#71717a", "role": "paragraph", "size": 11, "text": "⇧⌘L"}
               ]},
               {"type": "row", "id": "r_7ujiw7", "crossAlign": "start", "fill": "#27272a", "gap": 9, "padding": {"bottom": 5, "left": 8, "right": 8, "top": 5}, "radius": 6, "width": "fill", "children": [
-                {"type": "image", "id": "img_eeqf1i", "name": "hash", "height": 13, "src": "assets/icons/hash-muted.svg", "width": 13},
+                {"type": "image", "id": "img_eeqf1i", "name": "hash", "height": 13, "src": "assets/icons/hash.svg", "tint": "#a1a1aa", "width": 13},
                 {"type": "column", "id": "c_cc3fdd", "gap": 1, "width": "fill", "children": [
                   {"type": "text", "id": "t_mfkni4", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "Copy element ID"},
                   {"type": "text", "id": "t_1rzfhe", "color": "#71717a", "font": "$font-mono", "role": "paragraph", "size": 10.5, "text": "c_8x2k1q"}
@@ -531,35 +531,35 @@
               ]},
               {"type": "group", "id": "g_dcphao", "fill": "#3f3f46", "height": 1, "width": "fill", "children": []},
               {"type": "row", "id": "r_ji57q6", "crossAlign": "center", "gap": 9, "padding": {"bottom": 5, "left": 8, "right": 8, "top": 5}, "radius": 6, "width": "fill", "children": [
-                {"type": "image", "id": "img_qhjdcd", "name": "copy", "height": 13, "src": "assets/icons/copy-muted.svg", "width": 13},
+                {"type": "image", "id": "img_qhjdcd", "name": "copy", "height": 13, "src": "assets/icons/copy.svg", "tint": "#a1a1aa", "width": 13},
                 {"type": "column", "id": "c_ghse9s", "gap": 1, "width": "fill", "children": [
                   {"type": "text", "id": "t_6het9g", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "Copy"}
                 ]},
                 {"type": "text", "id": "t_3fcr7x", "color": "#71717a", "role": "paragraph", "size": 11, "text": "⌘C"}
               ]},
               {"type": "row", "id": "r_hhyyr7", "crossAlign": "center", "gap": 9, "padding": {"bottom": 5, "left": 8, "right": 8, "top": 5}, "radius": 6, "width": "fill", "children": [
-                {"type": "image", "id": "img_gqm91m", "name": "clipboard", "height": 13, "src": "assets/icons/clipboard-muted.svg", "width": 13},
+                {"type": "image", "id": "img_gqm91m", "name": "clipboard", "height": 13, "src": "assets/icons/clipboard.svg", "tint": "#a1a1aa", "width": 13},
                 {"type": "column", "id": "c_6gzykx", "gap": 1, "width": "fill", "children": [
                   {"type": "text", "id": "t_7ne9uk", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "Paste"}
                 ]},
                 {"type": "text", "id": "t_oeyvai", "color": "#71717a", "role": "paragraph", "size": 11, "text": "⌘V"}
               ]},
               {"type": "row", "id": "r_m000ju", "crossAlign": "center", "gap": 9, "padding": {"bottom": 5, "left": 8, "right": 8, "top": 5}, "radius": 6, "width": "fill", "children": [
-                {"type": "image", "id": "img_316jux", "name": "copy-plus", "height": 13, "src": "assets/icons/copy-plus-muted.svg", "width": 13},
+                {"type": "image", "id": "img_316jux", "name": "copy-plus", "height": 13, "src": "assets/icons/copy-plus.svg", "tint": "#a1a1aa", "width": 13},
                 {"type": "column", "id": "c_4u89ua", "gap": 1, "width": "fill", "children": [
                   {"type": "text", "id": "t_cc979k", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "Duplicate"}
                 ]},
                 {"type": "text", "id": "t_044pfh", "color": "#71717a", "role": "paragraph", "size": 11, "text": "⌘D"}
               ]},
               {"type": "row", "id": "r_3cim6j", "crossAlign": "center", "gap": 9, "padding": {"bottom": 5, "left": 8, "right": 8, "top": 5}, "radius": 6, "width": "fill", "children": [
-                {"type": "image", "id": "img_yvz684", "name": "group", "height": 13, "src": "assets/icons/group-muted.svg", "width": 13},
+                {"type": "image", "id": "img_yvz684", "name": "group", "height": 13, "src": "assets/icons/group.svg", "tint": "#a1a1aa", "width": 13},
                 {"type": "column", "id": "c_ex56sh", "gap": 1, "width": "fill", "children": [
                   {"type": "text", "id": "t_ryvawq", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "Wrap in"}
                 ]},
-                {"type": "image", "id": "img_4idrl3", "name": "chevron-right", "height": 12, "src": "assets/icons/chevron-right-muted.svg", "width": 12}
+                {"type": "image", "id": "img_4idrl3", "name": "chevron-right", "height": 12, "src": "assets/icons/chevron-right.svg", "tint": "#a1a1aa", "width": 12}
               ]},
               {"type": "row", "id": "r_65aq3c", "crossAlign": "center", "gap": 9, "padding": {"bottom": 5, "left": 8, "right": 8, "top": 5}, "radius": 6, "width": "fill", "children": [
-                {"type": "image", "id": "img_26xflz", "name": "arrow-up-left", "height": 13, "src": "assets/icons/arrow-up-left-muted.svg", "width": 13},
+                {"type": "image", "id": "img_26xflz", "name": "arrow-up-left", "height": 13, "src": "assets/icons/arrow-up-left.svg", "tint": "#a1a1aa", "width": 13},
                 {"type": "column", "id": "c_3romap", "gap": 1, "width": "fill", "children": [
                   {"type": "text", "id": "t_fbw9iv", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "Select parent"}
                 ]},
@@ -567,7 +567,7 @@
               ]},
               {"type": "group", "id": "g_oec4if", "fill": "#3f3f46", "height": 1, "width": "fill", "children": []},
               {"type": "row", "id": "r_07dni2", "crossAlign": "center", "gap": 9, "padding": {"bottom": 5, "left": 8, "right": 8, "top": 5}, "radius": 6, "width": "fill", "children": [
-                {"type": "image", "id": "img_u4f4s7", "name": "trash", "height": 13, "src": "assets/icons/trash-red.svg", "width": 13},
+                {"type": "image", "id": "img_u4f4s7", "name": "trash", "height": 13, "src": "assets/icons/trash.svg", "tint": "#f87171", "width": 13},
                 {"type": "column", "id": "c_ergdfw", "gap": 1, "width": "fill", "children": [
                   {"type": "text", "id": "t_qiwa0e", "color": "#f87171", "role": "paragraph", "size": 12, "text": "Delete"}
                 ]},
@@ -577,7 +577,7 @@
             {"type": "column", "id": "c_pra9fp", "gap": 12, "children": [
               {"type": "row", "id": "r_kqm338", "name": "Toast", "border": {"color": "#3f3f46", "style": "solid", "width": 1}, "crossAlign": "start", "fill": "#18181b", "gap": 10, "padding": 12, "radius": 10, "shadow": "$shadow-xl", "width": 340, "children": [
                 {"type": "row", "id": "r_c720wo", "align": "center", "crossAlign": "center", "fill": "#14532d", "height": 22, "radius": 999, "width": 22, "children": [
-                  {"type": "image", "id": "img_gj6wvn", "name": "check", "height": 12, "src": "assets/icons/check-green.svg", "width": 12}
+                  {"type": "image", "id": "img_gj6wvn", "name": "check", "height": 12, "src": "assets/icons/check.svg", "tint": "#4ade80", "width": 12}
                 ]},
                 {"type": "column", "id": "c_hijs0b", "gap": 3, "width": "fill", "children": [
                   {"type": "text", "id": "t_pz6yx8", "color": "$color-foreground", "role": "paragraph", "size": 12.5, "text": "Link copied", "weight": 600},
@@ -589,7 +589,7 @@
               ]},
               {"type": "row", "id": "r_1mup9u", "name": "Toast", "border": {"color": "#3f3f46", "style": "solid", "width": 1}, "crossAlign": "start", "fill": "#18181b", "gap": 10, "padding": 12, "radius": 10, "shadow": "$shadow-xl", "width": 340, "children": [
                 {"type": "row", "id": "r_l86vwh", "align": "center", "crossAlign": "center", "fill": "#14532d", "height": 22, "radius": 999, "width": 22, "children": [
-                  {"type": "image", "id": "img_vchbse", "name": "check", "height": 12, "src": "assets/icons/check-green.svg", "width": 12}
+                  {"type": "image", "id": "img_vchbse", "name": "check", "height": 12, "src": "assets/icons/check.svg", "tint": "#4ade80", "width": 12}
                 ]},
                 {"type": "column", "id": "c_c0lopy", "gap": 3, "width": "fill", "children": [
                   {"type": "text", "id": "t_o72xek", "color": "$color-foreground", "role": "paragraph", "size": 12.5, "text": "ID copied", "weight": 600},
@@ -611,7 +611,7 @@
               {"type": "column", "id": "c_7lb0r6", "gap": 6, "padding": {"top": 6}, "children": [
                 {"type": "text", "id": "t_70fu8d", "color": "#71717a", "role": "paragraph", "size": 11, "text": "Opened", "weight": 500},
                 {"type": "row", "id": "r_2tqb7q", "name": "Address bar", "crossAlign": "center", "fill": "#27272a", "gap": 8, "height": 34, "padding": {"left": 12, "right": 12}, "radius": 999, "width": 440, "children": [
-                  {"type": "image", "id": "img_dektbd", "name": "lock", "height": 12, "src": "assets/icons/lock-muted.svg", "width": 12},
+                  {"type": "image", "id": "img_dektbd", "name": "lock", "height": 12, "src": "assets/icons/lock.svg", "tint": "#a1a1aa", "width": 12},
                   {"type": "text", "id": "t_fzpjtg", "color": "$color-muted-foreground", "role": "paragraph", "size": 12, "text": "127.0.0.1:4770"},
                   {"type": "text", "id": "t_tv02td", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "/?route=/orders&node=c_8x2k1q"}
                 ]}
@@ -631,10 +631,10 @@
               {"type": "image", "id": "img_gip0h3", "fill": "#ffffff", "fit": "contain", "height": 22, "radius": 5, "src": "assets/thumbs/orders-table.png", "width": 22},
               {"type": "text", "id": "t_1d5jw4", "color": "$color-foreground", "role": "paragraph", "size": 12.5, "text": "Reorder table columns", "weight": 600, "width": "fill"},
               {"type": "row", "id": "r_zthto3", "name": "panel-left button", "align": "center", "crossAlign": "center", "height": 28, "radius": 7, "width": 28, "children": [
-                {"type": "image", "id": "img_gtvzv2", "name": "panel-left", "height": 16, "src": "assets/icons/panel-left-muted.svg", "width": 16}
+                {"type": "image", "id": "img_gtvzv2", "name": "panel-left", "height": 16, "src": "assets/icons/panel-left.svg", "tint": "#a1a1aa", "width": 16}
               ]},
               {"type": "row", "id": "r_iyx04d", "name": "chevron-down button", "align": "center", "crossAlign": "center", "height": 28, "radius": 7, "width": 28, "children": [
-                {"type": "image", "id": "img_b4b1gg", "name": "chevron-down", "height": 16, "src": "assets/icons/chevron-down-muted.svg", "width": 16}
+                {"type": "image", "id": "img_b4b1gg", "name": "chevron-down", "height": 16, "src": "assets/icons/chevron-down.svg", "tint": "#a1a1aa", "width": 16}
               ]}
             ]},
             {"type": "column", "id": "c_v7dqb4", "gap": 10, "padding": 14, "width": "fill", "children": [
@@ -645,11 +645,11 @@
               ]},
               {"type": "text", "id": "t_tryvkl", "color": "$color-foreground", "role": "paragraph", "size": 12, "text": "I'll read the table, then reorder its columns."},
               {"type": "row", "id": "r_n9evn8", "crossAlign": "center", "gap": 6, "children": [
-                {"type": "image", "id": "img_wkdal4", "name": "chevron-right", "height": 12, "src": "assets/icons/chevron-right-muted.svg", "width": 12},
+                {"type": "image", "id": "img_wkdal4", "name": "chevron-right", "height": 12, "src": "assets/icons/chevron-right.svg", "tint": "#a1a1aa", "width": 12},
                 {"type": "text", "id": "t_0cquu5", "color": "$color-muted-foreground", "role": "paragraph", "size": 11.5, "text": "Worked for 48s · 5 steps"}
               ]},
               {"type": "row", "id": "r_nhml7z", "crossAlign": "center", "gap": 8, "children": [
-                {"type": "image", "id": "img_wzx7nv", "name": "sparkles", "height": 13, "src": "assets/icons/sparkles-ai-light.svg", "width": 13},
+                {"type": "image", "id": "img_wzx7nv", "name": "sparkles", "height": 13, "src": "assets/icons/sparkles.svg", "tint": "#f9a8d4", "width": 13},
                 {"type": "text", "id": "t_rwjdf3", "color": "#f9a8d4", "role": "paragraph", "size": 12, "text": "Duplicating the table", "weight": 500}
               ]}
             ]},
@@ -659,23 +659,23 @@
                   {"type": "row", "id": "r_8gfyx3", "name": "Attached · Orders table", "border": {"color": "#7c3aed", "style": "solid", "width": 1}, "crossAlign": "center", "fill": "#2e1065", "gap": 6, "padding": {"bottom": 3, "left": 4, "right": 6, "top": 3}, "radius": 6, "children": [
                     {"type": "image", "id": "img_65x5kk", "fill": "#ffffff", "fit": "contain", "height": 18, "radius": 4, "src": "assets/thumbs/orders-table.png", "width": 18},
                     {"type": "text", "id": "t_nm2rpz", "color": "#ddd6fe", "role": "paragraph", "size": 11.5, "text": "Orders table", "weight": 500},
-                    {"type": "image", "id": "img_7tc7bd", "name": "x", "height": 12, "src": "assets/icons/x-muted.svg", "width": 12}
+                    {"type": "image", "id": "img_7tc7bd", "name": "x", "height": 12, "src": "assets/icons/x-muted.svg", "tint": "#a1a1aa", "width": 12}
                   ]}
                 ]},
                 {"type": "text", "id": "t_f6c1x6", "color": "#71717a", "padding": {"bottom": 10, "left": 2, "top": 2}, "role": "paragraph", "size": 13, "text": "Queue a follow-up…", "width": "fill"},
                 {"type": "row", "id": "r_cj8ljz", "crossAlign": "center", "gap": 4, "width": "fill", "children": [
                   {"type": "row", "id": "r_sklvkc", "name": "plus button", "align": "center", "crossAlign": "center", "height": 28, "radius": 7, "width": 28, "children": [
-                    {"type": "image", "id": "img_8t4qq5", "name": "plus", "height": 16, "src": "assets/icons/plus-muted.svg", "width": 16}
+                    {"type": "image", "id": "img_8t4qq5", "name": "plus", "height": 16, "src": "assets/icons/plus-muted.svg", "tint": "#a1a1aa", "width": 16}
                   ]},
                   {"type": "row", "id": "r_xqt9ny", "name": "Agent", "crossAlign": "center", "gap": 6, "height": 28, "padding": {"left": 6, "right": 8}, "radius": 7, "children": [
-                    {"type": "image", "id": "img_0zp5kf", "name": "Claude Code", "fit": "contain", "height": 12, "src": "assets/icons/agent-claude.svg", "width": 12},
+                    {"type": "image", "id": "img_0zp5kf", "name": "Claude Code", "fit": "contain", "height": 12, "src": "assets/icons/agent-claude.svg", "tint": "#d97757", "width": 12},
                     {"type": "text", "id": "t_xw8h5l", "color": "$color-foreground", "role": "paragraph", "size": 11.5, "text": "Claude Code", "weight": 500},
                     {"type": "text", "id": "t_1f4k2f", "color": "$color-muted-foreground", "role": "paragraph", "size": 11.5, "text": "Opus 5.5"},
-                    {"type": "image", "id": "img_wx3zh9", "name": "chevron-down", "height": 12, "src": "assets/icons/chevron-down-muted.svg", "width": 12}
+                    {"type": "image", "id": "img_wx3zh9", "name": "chevron-down", "height": 12, "src": "assets/icons/chevron-down.svg", "tint": "#a1a1aa", "width": 12}
                   ]},
                   {"type": "column", "id": "c_ezednm", "name": "Spacer", "height": "fill", "width": "fill", "children": []},
                   {"type": "row", "id": "r_ehlxfi", "name": "mic button", "align": "center", "crossAlign": "center", "height": 28, "radius": 7, "width": 28, "children": [
-                    {"type": "image", "id": "img_sd0lmc", "name": "mic", "height": 16, "src": "assets/icons/mic-muted.svg", "width": 16}
+                    {"type": "image", "id": "img_sd0lmc", "name": "mic", "height": 16, "src": "assets/icons/mic.svg", "tint": "#a1a1aa", "width": 16}
                   ]},
                   {"type": "row", "id": "r_omye7l", "name": "Stop", "align": "center", "crossAlign": "center", "fill": "$color-foreground", "height": 28, "radius": 999, "width": 28, "children": [
                     {"type": "row", "id": "r_0orky5", "crossAlign": "center", "fill": "#18181b", "height": 9, "radius": 2, "width": 9, "children": []}

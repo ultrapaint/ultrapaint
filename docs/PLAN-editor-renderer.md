@@ -203,7 +203,11 @@ the renderer holds 471 MB.
       leading), drawn on every frame's body, popups included. This repository's two canvases say
       what its providers did; every page draws as it did, to the pixel. `providersModule` stays
       optional, for React contexts an application needs.
-- [ ] 5.2 Icons get a `tint`: drawn as a mask in a token's colour, one file for every colour.
+- [x] 5.2 Image nodes take a `tint`: the file's shape filled with a colour or token (a CSS mask),
+      written to code as the same. This repository's 154 icons are 116: every single-colour copy
+      of a glyph is one file drawn in `currentColor`, its pages say the colour, and they draw as
+      they did (under 0.1% of pixels, all anti-aliasing). The inspector and the toolbar set it,
+      and the iconography skill tells agents to.
 - [ ] 5.3 `design.tokens.json` becomes the only token file: token values move there,
       `design-system.json` keeps the rest; the copy and its baseline go. Its own ADR, amending 0028.
 
