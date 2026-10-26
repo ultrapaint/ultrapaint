@@ -1,0 +1,6 @@
+{
+  "kind": "form",
+  "name": "shadcn/ui: sign-in block",
+  "url": "https://ui.shadcn.com/view/new-york-v4/login-04",
+  "why": "A sign-in screen that does one thing: a short form with clear labels, one primary action, the alternatives (other providers, sign up) present but quieter, and a picture that gives the page presence without competing; on a phone the picture goes and the form keeps its width."
+}

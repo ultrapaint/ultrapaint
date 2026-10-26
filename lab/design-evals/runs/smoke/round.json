@@ -1,0 +1,11 @@
+{
+  "agent": "claude-code",
+  "commit": "efe69c0",
+  "name": "smoke",
+  "references": [
+    "shadcn-login"
+  ],
+  "runs": 1,
+  "skills": "built-in",
+  "startedAt": "2026-10-26T16:48:32.740Z"
+}
