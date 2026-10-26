@@ -1,5 +1,6 @@
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
+import type { PageDefaults } from "@ultrapaint/contracts/pages";
 import type {
   HostMessage,
   Rect,
@@ -28,6 +29,8 @@ let renders = 0;
 
 /** What a frame is told to draw. */
 export interface RenderRequest {
+  /** What the canvas draws every page in (`CanvasLayout.defaults`). */
+  readonly defaults?: PageDefaults | undefined;
   readonly designSystem: DesignSystem | null;
   /** The design's look over the code's (ADR 0028, 0029); the current one when left out. */
   readonly look?: DesignLook;
@@ -47,6 +50,7 @@ export class FrameBridge {
   private runtime: FrameRuntime | null = null;
   /** What the frame was last told to draw. */
   private drawn: {
+    readonly defaults: PageDefaults | undefined;
     readonly designSystem: DesignSystem | null;
     readonly message: string | undefined;
     readonly mode: RenderMode;
@@ -163,6 +167,7 @@ export class FrameBridge {
       runtime !== null &&
       drawn !== null &&
       drawn.runtime === runtime &&
+      drawn.defaults === request.defaults &&
       drawn.designSystem === request.designSystem &&
       drawn.root === request.root &&
       drawn.mode === request.mode &&
@@ -178,6 +183,7 @@ export class FrameBridge {
       return renders;
     }
     this.drawn = {
+      defaults: request.defaults,
       designSystem: request.designSystem,
       message: request.message,
       mode: request.mode,
@@ -188,6 +194,7 @@ export class FrameBridge {
       styles: look.styles,
     };
     runtime.render({
+      defaults: request.defaults,
       designSystem: request.designSystem,
       mode: request.mode,
       renderId: renders,

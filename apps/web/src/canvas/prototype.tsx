@@ -82,6 +82,7 @@ const renderRoute = (canvas: string) => {
     message = `This page cannot be read: ${state.problem}`;
   }
   bridgeFor(frameIdOf(canvas)).render({
+    defaults: useEditor.getState().layout.defaults,
     designSystem: useDesignSystem.getState().designSystem,
     mode: "page",
     root: state?.root ?? null,
@@ -208,13 +209,14 @@ export const Prototype = () => {
     activePage ? s.docs[activePage] : undefined
   );
   const designSystem = useDesignSystem((s) => s.designSystem);
+  const defaults = useEditor((s) => s.layout.defaults);
   const look = useDesignLookVersion();
   // biome-ignore lint/correctness/useExhaustiveDependencies: what is drawn is the dependency.
   useEffect(() => {
     if (canvas !== null && shown && bridgeFor(frameIdOf(canvas)).ready) {
       renderRoute(canvas);
     }
-  }, [route, canvas, shown, document, designSystem, ...look]);
+  }, [route, canvas, shown, document, designSystem, defaults, ...look]);
 
   return (
     <div

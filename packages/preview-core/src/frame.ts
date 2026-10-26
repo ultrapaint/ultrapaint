@@ -8,6 +8,11 @@
  * A frame's coordinates are the page's own pixels, as they were in an iframe: the canvas's zoom
  * and where the frame is on the screen are taken out of everything it measures.
  */
+
+import {
+  makeStyleContext,
+  pageDefaultsStyle,
+} from "@ultrapaint/design-document/css";
 import type {
   FrameEvents,
   FrameRect,
@@ -144,6 +149,29 @@ const buildFrame = (host: HTMLElement, theme: string) => {
   return { body, root, shadow };
 };
 
+/**
+ * What the canvas draws every page in, on the frame's body, as an application sets it on its
+ * root: popups the page opens are inside it too.
+ */
+const applyDefaults = (
+  body: HTMLElement,
+  request: RenderRequest,
+  theme: string
+) => {
+  const { defaults } = request;
+  const shown = defaults?.theme ?? theme;
+  body.setAttribute("data-theme", shown);
+  // `dark` is a class to Tailwind, any other theme its `data-theme`: both are set.
+  body.className = defaults?.theme ?? "";
+  body.removeAttribute("style");
+  if (defaults) {
+    Object.assign(
+      body.style,
+      pageDefaultsStyle(defaults, makeStyleContext(request.designSystem))
+    );
+  }
+};
+
 const mountFrame = (
   host: HTMLElement,
   options: MountFrameOptions,
@@ -249,6 +277,7 @@ const mountFrame = (
       finishTextEdit(false);
     }
     activeFrame = body;
+    applyDefaults(body, request, input.theme);
     fill = request.root?.width === "fill";
     applyMode(request.mode);
     mounted.render(request);

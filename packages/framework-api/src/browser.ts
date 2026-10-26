@@ -6,6 +6,7 @@
  */
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
+import type { PageDefaults } from "@ultrapaint/contracts/pages";
 import type { InstanceDrawn, RenderMode } from "@ultrapaint/contracts/preview";
 import type { ComponentSpec } from "@ultrapaint/contracts/specs";
 
@@ -52,6 +53,8 @@ export interface RenderSetup {
 
 /** One thing to draw. */
 export interface RenderRequest {
+  /** What the canvas draws every page in: its theme, its fill and its type. */
+  readonly defaults?: PageDefaults | undefined;
   readonly designSystem: DesignSystem | null;
   /** Shown instead of a node. */
   readonly message?: string | undefined;

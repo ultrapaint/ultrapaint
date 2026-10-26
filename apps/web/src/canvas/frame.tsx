@@ -91,13 +91,14 @@ const renderFrame = (
   kind: "page" | "node",
   size?: { height: number; width: number }
 ) => {
-  const { canvas } = useEditor.getState();
+  const { canvas, layout } = useEditor.getState();
   const state = isNodeFrame(frameId)
     ? null
     : useDocuments.getState().docs[frameId];
   const root = rootOfFrame(useDocuments.getState().docs, canvas, frameId);
   const { designSystem } = useDesignSystem.getState();
   bridgeFor(frameId).render({
+    defaults: layout.defaults,
     designSystem,
     mode: kind === "page" ? "page" : "fit",
     root: root && size ? ({ ...root, ...size } as DesignNode) : root,
@@ -175,6 +176,7 @@ export const Frame = memo(
       isNodeFrame(frameId) ? undefined : s.docs[frameId]?.problem
     );
     const designSystem = useDesignSystem((s) => s.designSystem);
+    const defaults = useEditor((s) => s.layout.defaults);
     const holdsCard = useComments(
       (s) =>
         s.draft?.pageId === frameId ||
@@ -244,7 +246,7 @@ export const Frame = memo(
       if (drawn && bridge.ready) {
         renderFrame(frameId, kind);
       }
-    }, [frameId, kind, drawn, root, problem, designSystem, ...look]);
+    }, [frameId, kind, drawn, root, problem, designSystem, defaults, ...look]);
 
     // A selection whose node is gone (an undo, an agent) is let go of.
     useEffect(() => {

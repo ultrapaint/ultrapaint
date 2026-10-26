@@ -197,8 +197,12 @@ the renderer holds 471 MB.
 
 ### Phase 5: the designs directory holds data only
 
-- [ ] 5.1 Page defaults in `design-system.json` (theme, font, colour, background, text size)
-      replace `providers.tsx`; `providersModule` stays optional, resolved from the application.
+- [x] 5.1 Page defaults replace `providers.tsx`, per canvas rather than in `design-system.json`:
+      canvases differ (this repository's Redesign is the editor's dark UI), and a project without a
+      design system has them too. `canvas.json` says `defaults` (theme, fill, colour, font, size,
+      leading), drawn on every frame's body, popups included. This repository's two canvases say
+      what its providers did; every page draws as it did, to the pixel. `providersModule` stays
+      optional, for React contexts an application needs.
 - [ ] 5.2 Icons get a `tint`: drawn as a mask in a token's colour, one file for every colour.
 - [ ] 5.3 `design.tokens.json` becomes the only token file: token values move there,
       `design-system.json` keeps the rest; the copy and its baseline go. Its own ADR, amending 0028.

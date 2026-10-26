@@ -16,6 +16,7 @@ import type {
   Size,
   TextNode,
 } from "@ultrapaint/contracts/document";
+import type { PageDefaults } from "@ultrapaint/contracts/pages";
 import {
   isToken,
   makeTokenResolver,
@@ -300,6 +301,32 @@ const textStyle = (node: TextNode, ctx: StyleContext): Style => {
   }
   if (node.align) {
     style.textAlign = TEXT_ALIGN[node.align] ?? "left";
+  }
+  return style;
+};
+
+/** The style of what holds a canvas's pages: its defaults (`CanvasLayout.defaults`) as CSS. */
+export const pageDefaultsStyle = (
+  defaults: PageDefaults,
+  ctx: Pick<StyleContext, "resolver">
+): Style => {
+  const { css } = ctx.resolver;
+  const style: Style = {};
+  if (defaults.fill !== undefined) {
+    style.background = css(defaults.fill);
+  }
+  if (defaults.color !== undefined) {
+    style.color = css(defaults.color);
+  }
+  if (defaults.font !== undefined) {
+    style.fontFamily = css(defaults.font);
+  }
+  if (defaults.size !== undefined) {
+    style.fontSize = css(defaults.size);
+  }
+  const leading = lineHeightStyle(defaults.leading, defaults.size, css);
+  if (leading !== undefined) {
+    style.lineHeight = leading;
   }
   return style;
 };

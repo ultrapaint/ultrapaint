@@ -15,6 +15,7 @@ import { provideDesignLook } from "./canvas/bridge.ts";
 import { Canvas } from "./canvas/canvas.tsx";
 import { Prototype, PrototypeBar } from "./canvas/prototype.tsx";
 import { SnapshotBanner } from "./canvas/snapshot-banner.tsx";
+import { provideCanvasDefaults } from "./canvas/specimens.ts";
 import { CanvasStatus } from "./canvas/status.tsx";
 import { Toolbar, ZoomControl } from "./canvas/toolbar.tsx";
 import { CommandPalette } from "./components/command-palette.tsx";
@@ -42,7 +43,12 @@ import { useComments } from "./state/comments.ts";
 import { useConnection } from "./state/connection.ts";
 import { useDesignSystem } from "./state/design-system.ts";
 import { bindDocuments } from "./state/documents.ts";
-import { type LeftTab, type RightTab, useEditor } from "./state/editor.ts";
+import {
+  canvasDefaults,
+  type LeftTab,
+  type RightTab,
+  useEditor,
+} from "./state/editor.ts";
 import { useImplementation } from "./state/implementation.ts";
 import { designLook } from "./state/look.ts";
 import { usePanels } from "./state/panels.ts";
@@ -261,6 +267,7 @@ export const App = () => {
       useSpecs.getState().load();
       useImplementation.getState().load();
       provideDesignLook(designLook);
+      provideCanvasDefaults(canvasDefaults);
       // Agent events are followed from the start, not only while the chat is open: the badge
       // over the tool strip reports turns that changed files.
       useAgents.getState().bind();

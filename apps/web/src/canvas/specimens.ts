@@ -6,6 +6,7 @@
  */
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
+import type { PageDefaults } from "@ultrapaint/contracts/pages";
 import type { HostMessage, RenderMode } from "@ultrapaint/contracts/preview";
 import type { FrameRuntime, Preview } from "@ultrapaint/framework-api/browser";
 import { bridgeFor } from "./bridge.ts";
@@ -22,6 +23,18 @@ let specimen: {
   runtime: FrameRuntime;
 } | null = null;
 let queue: Promise<unknown> = Promise.resolve();
+
+/**
+ * What a canvas draws every page in (`CanvasLayout.defaults`): the app hands the lookup in at
+ * startup, which keeps the pictures free of the stores.
+ */
+let defaultsOf = (_canvas: string): Promise<PageDefaults | undefined> =>
+  Promise.resolve(undefined);
+export const provideCanvasDefaults = (
+  lookup: (canvas: string) => Promise<PageDefaults | undefined>
+) => {
+  defaultsOf = lookup;
+};
 
 /**
  * Two frames for layout to settle, or a moment when the tab is in the background: frames are not
@@ -112,8 +125,16 @@ export const drawSpecimen = (
     }
     frame.host.style.width = `${options.width ?? WIDTH}px`;
     frame.host.style.height = `${options.height ?? HEIGHT}px`;
+    // A canvas whose defaults cannot be read is drawn in the stylesheet's own.
+    let defaults: PageDefaults | undefined;
+    try {
+      defaults = await defaultsOf(options.canvas ?? "");
+    } catch {
+      defaults = undefined;
+    }
     const bridge = bridgeFor(FRAME);
     const id = bridge.render({
+      defaults,
       designSystem,
       mode: options.mode ?? "fit",
       root: node,

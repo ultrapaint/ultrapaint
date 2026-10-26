@@ -90,7 +90,25 @@ export type FrameLayout = typeof FrameLayout.Type;
  * the pages' frames sit and which URL each page serves, both keyed by the page's path inside the
  * canvas, and the nodes placed on the canvas beside the pages, each at its own `x` and `y`.
  */
+/**
+ * What every page of a canvas is drawn in, as the application's root would set it: its theme,
+ * its background and its type. Values are tokens (`$color-background`) or CSS, as a node's are.
+ */
+export const PageDefaults = Schema.Struct({
+  color: Schema.optional(Schema.String),
+  fill: Schema.optional(Schema.String),
+  font: Schema.optional(Schema.String),
+  /** A multiple of the size, or a length; the size's own line height when absent. */
+  leading: Schema.optional(Schema.Union([Schema.Number, Schema.String])),
+  size: Schema.optional(Schema.Union([Schema.Number, Schema.String])),
+  /** A theme of the design system: `dark` is the class, any other the `data-theme`. */
+  theme: Schema.optional(Schema.String),
+});
+export type PageDefaults = typeof PageDefaults.Type;
+
 export const CanvasLayout = Schema.Struct({
+  /** What every page of the canvas is drawn in; the stylesheet's own defaults when absent. */
+  defaults: Schema.optional(PageDefaults),
   frames: Schema.Record(Schema.String, FrameLayout),
   /** URL the canvas opens on, which a page of it serves; `/`, or the first URL served, when absent. */
   home: Schema.optional(Schema.String),

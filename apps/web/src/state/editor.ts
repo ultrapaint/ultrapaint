@@ -968,3 +968,15 @@ export const selectForMenu = (target: Selection) => {
   }
   select(target);
 };
+
+/** What a canvas draws every page in (`CanvasLayout.defaults`): the open one's, or the server's. */
+export const canvasDefaults = async (canvas: string) => {
+  const { canvas: open, layout } = useEditor.getState();
+  if (canvas === open) {
+    return layout.defaults;
+  }
+  if (canvas === "") {
+    return;
+  }
+  return (await api().request("canvas.get", { canvas })).defaults;
+};

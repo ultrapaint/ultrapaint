@@ -1,7 +1,13 @@
 import { emptyDesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { describe, expect, it } from "vitest";
-import { makeStyleContext, nodeStyle, runsInRow, tagOf } from "./css.ts";
+import {
+  makeStyleContext,
+  nodeStyle,
+  pageDefaultsStyle,
+  runsInRow,
+  tagOf,
+} from "./css.ts";
 
 const ds = {
   ...emptyDesignSystem(),
@@ -117,5 +123,34 @@ describe("runsInRow", () => {
 
   it("stacks what it cannot tell", () => {
     expect(runsInRow(group, [box(0, 0)])).toBe(false);
+  });
+});
+
+describe("pageDefaultsStyle", () => {
+  it("draws a canvas's pages in its fill, colour and type, tokens as variables", () => {
+    expect(
+      pageDefaultsStyle(
+        {
+          color: "$color-foreground",
+          fill: "$color-background",
+          font: "$font-sans",
+          size: "$text-sm",
+        },
+        makeStyleContext(null)
+      )
+    ).toEqual({
+      background: "var(--color-background)",
+      color: "var(--color-foreground)",
+      fontFamily: "var(--font-sans)",
+      fontSize: "var(--text-sm)",
+      // A Tailwind size brings the line height it is paired with.
+      lineHeight: "var(--text-sm--line-height)",
+    });
+  });
+
+  it("leaves to the stylesheet what the canvas does not say", () => {
+    expect(
+      pageDefaultsStyle({ theme: "dark" }, makeStyleContext(null))
+    ).toEqual({});
   });
 });

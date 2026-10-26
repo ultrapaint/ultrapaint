@@ -1,4 +1,10 @@
 {
+  "defaults": {
+    "color": "$color-foreground",
+    "fill": "$color-background",
+    "font": "$font-sans",
+    "theme": "dark"
+  },
   "name": "Redesign",
   "routes": {
     "ask-card.page.json": "/ask-card",
