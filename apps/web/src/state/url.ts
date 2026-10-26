@@ -4,7 +4,7 @@
  * page that serves no URL.
  * A prototype can be reloaded, bookmarked and handed to someone else, and the browser's back
  * and forward buttons are the prototype's, because every navigation is a history entry.
- * The workspace rides along as `?mode=design`, so a reload comes back to the same one.
+ * The workspace rides along as `?mode=prototype`, so a reload comes back to the same one.
  */
 import { normaliseRoute } from "@ultrapaint/shared/route";
 
@@ -19,7 +19,10 @@ export interface UrlState {
 }
 
 /** What a parameter means when it is absent, so it is left out rather than written. */
-const defaults: Record<string, string> = { mode: "vibe", route: "/" };
+const defaults: Record<string, string> = { mode: "design", route: "/" };
+
+/** Values older links carry for what is now the default: Vibe and Design are one workspace. */
+const formerDefaults: Record<string, readonly string[]> = { mode: ["vibe"] };
 
 export const readUrl = (): UrlState & {
   mode: string | null;
@@ -56,7 +59,11 @@ const writeQuery = (
   const params = new URLSearchParams(window.location.search);
   update(params);
   for (const [key, value] of [...params]) {
-    if (value === "" || defaults[key] === value) {
+    if (
+      value === "" ||
+      defaults[key] === value ||
+      formerDefaults[key]?.includes(value)
+    ) {
       params.delete(key);
     }
   }

@@ -48,8 +48,8 @@ export const shortcutLabel = (mac: string, onMac = isMac): string => {
 };
 
 /**
- * The modifier that jumps to a workspace with 1–3: Control on a Mac, where ⌘ is the browser's
- * for its tabs, and Alt elsewhere, where Ctrl+1–3 are the browser's tabs and never reach the page.
+ * The modifier that jumps to a workspace with 1–2: Control on a Mac, where ⌘ is the browser's
+ * for its tabs, and Alt elsewhere, where Ctrl+1–2 are the browser's tabs and never reach the page.
  */
 export const workspaceModifier = isMac ? "Control" : "Alt";
 
@@ -62,6 +62,17 @@ export const holdsWorkspaceModifier = (e: KeyboardEvent) =>
 /** How the switcher writes the key of a workspace. */
 export const workspaceKeyLabel = (digit: number) =>
   shortcutLabel(`${isMac ? "⌃" : "⌥"}${digit}`);
+
+const WORKSPACE_KEY_RE = /^⌃([1-9])$/;
+
+/**
+ * A shortcut written the Mac way, as this platform writes it; the workspace keys (`⌃1`) with
+ * the platform's own workspace modifier.
+ */
+export const keysLabel = (mac: string): string => {
+  const match: RegExpExecArray | null = WORKSPACE_KEY_RE.exec(mac);
+  return match ? workspaceKeyLabel(Number(match[1])) : shortcutLabel(mac);
+};
 
 /** The event is aimed at a field that takes keys of its own: text, a select, an editable node. */
 export const isTyping = (e: Event) => {

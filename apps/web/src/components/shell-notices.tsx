@@ -5,9 +5,9 @@ import { platform, type ShellNotice } from "../platform.ts";
 import { IconButton } from "./icon-button.tsx";
 
 /**
- * What the shell found missing on this machine (Platform), above the editor: Node.js not
- * installed, say, with how to install it, before the preview fails for want of it. Nothing in a
- * browser. A dismissed notice stays away until the editor is loaded again.
+ * What the shell found missing on this machine (Platform), floating at the top of the canvas:
+ * Node.js not installed, say, with how to install it, before the preview fails for want of it.
+ * Nothing in a browser. A dismissed notice stays away until the editor is loaded again.
  */
 export const ShellNotices = () => {
   const [notices, setNotices] = useState<readonly ShellNotice[]>([]);
@@ -24,9 +24,12 @@ export const ShellNotices = () => {
   const dismiss = (id: string) =>
     setNotices((all) => all.filter((n) => n.id !== id));
   return (
-    <div className="flex shrink-0 flex-col gap-1 border-b p-1.5">
+    <div className="pointer-events-none absolute inset-x-0 top-3 z-20 flex flex-col items-center gap-2 px-4">
       {notices.map((notice) => (
-        <Alert className="pr-8" key={notice.id}>
+        <Alert
+          className="floating pointer-events-auto max-w-xl pr-8"
+          key={notice.id}
+        >
           <TriangleAlert className="text-warning" />
           <AlertTitle>{notice.title}</AlertTitle>
           <AlertDescription>

@@ -14,14 +14,16 @@ type Named =
   | { label?: string; tooltip: string }
   | { label: string; tooltip?: React.ReactNode };
 
-/** Ghost icon Button with an optional shadcn Tooltip. */
+/** Ghost icon Button with an optional shadcn Tooltip; `side` is where the tooltip opens. */
 export const IconButton = ({
   label,
+  side,
   tooltip,
   variant = "ghost",
   size = "icon",
   ...props
-}: React.ComponentProps<typeof Button> & Named) => {
+}: React.ComponentProps<typeof Button> &
+  Named & { side?: "top" | "right" | "bottom" | "left" }) => {
   const button = (
     <Button
       aria-label={label ?? (typeof tooltip === "string" ? tooltip : undefined)}
@@ -36,7 +38,7 @@ export const IconButton = ({
   return (
     <Tooltip>
       <TooltipTrigger render={button} />
-      <TooltipContent>{tooltip}</TooltipContent>
+      <TooltipContent side={side}>{tooltip}</TooltipContent>
     </Tooltip>
   );
 };

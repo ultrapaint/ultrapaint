@@ -178,28 +178,30 @@ const SetupRow = () => (
   </div>
 );
 
-/**
- * The other way to begin, as the workspace works: Vibe describes a page to an agent, Design
- * drags in a component.
- */
-const OtherWay = () => {
-  const workspace = useEditor((s) => s.workspace);
-  const design = workspace === "design";
-  const Icon = design ? Shapes : Sparkles;
-  return (
+/** The other ways to begin: describe a page to an agent, or drag a component in. */
+const OtherWay = () => (
+  <div className="flex items-center gap-1.5 text-muted-foreground">
     <button
-      className="pointer-events-auto flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
-      onClick={() => openLeftPanel(design ? "assets" : "chat")}
+      className="pointer-events-auto flex items-center gap-1.5 hover:text-foreground"
+      onClick={() => openLeftPanel("chat")}
       onPointerDown={keepFromCanvas}
       type="button"
     >
-      <Icon className={cn("size-3", !design && "text-agent")} />
-      {design
-        ? "or drag a component or an image from Assets"
-        : "or describe a page to an agent"}
+      <Sparkles className="size-3 text-agent" />
+      or describe a page to an agent
     </button>
-  );
-};
+    <span aria-hidden>·</span>
+    <button
+      className="pointer-events-auto flex items-center gap-1.5 hover:text-foreground"
+      onClick={() => openLeftPanel("assets")}
+      onPointerDown={keepFromCanvas}
+      type="button"
+    >
+      <Shapes className="size-3" />
+      drag a component or an image from Assets
+    </button>
+  </div>
+);
 
 /**
  * The ways from an empty canvas to a first page: a blank page, or a starter an agent draws.

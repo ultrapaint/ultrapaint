@@ -20,6 +20,7 @@ import {
   RemoteProjectDialog,
 } from "./components/remote-project-dialog.tsx";
 import { type PlatformProject, platform } from "./platform.ts";
+import { useWindowChrome } from "./state/window-controls.ts";
 import "./styles.css";
 
 const messageOf = (error: unknown) =>
@@ -105,8 +106,15 @@ const Welcome = () => {
   );
 };
 
+/** A window that draws no title bar of its own (a Mac) is moved by the top of the page. */
+const WindowTop = () =>
+  useWindowChrome().drag ? (
+    <div className="window-drag fixed inset-x-0 top-0 h-11" />
+  ) : null;
+
 createRoot(document.getElementById("root") as HTMLElement).render(
   <TooltipProvider delay={300}>
+    <WindowTop />
     <Welcome />
   </TooltipProvider>
 );

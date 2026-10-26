@@ -1,6 +1,7 @@
 import { childrenOf } from "@ultrapaint/design-document/tree";
 import { useEffect } from "react";
 import { bridgeFor } from "../canvas/bridge.ts";
+import { openCommandPalette } from "../components/command-palette.tsx";
 import { openShortcutSheet } from "../components/shortcut-sheet.tsx";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { toggleCommenting, useComments } from "../state/comments.ts";
@@ -151,7 +152,7 @@ const handleHelpKey = (e: KeyboardEvent) => {
 const DIGIT_RE = /^Digit([1-9])$/;
 
 /**
- * ⌃1–3 on a Mac, Alt+1–3 elsewhere, jump to a workspace: the browser keeps ⌘ on a Mac and Ctrl
+ * ⌃1–2 on a Mac, Alt+1–2 elsewhere, jump to a workspace: the browser keeps ⌘ on a Mac and Ctrl
  * elsewhere for its tabs. Exclusive: returns true when the key was consumed.
  */
 const handleWorkspaceKey = (e: KeyboardEvent, s: EditorState) => {
@@ -165,6 +166,20 @@ const handleWorkspaceKey = (e: KeyboardEvent, s: EditorState) => {
   }
   e.preventDefault();
   s.setWorkspace(next);
+  return true;
+};
+
+/**
+ * ⌘K (Ctrl+K) opens the command palette, from a text field too; exclusive: returns true when
+ * the key was consumed.
+ */
+const handlePaletteKey = (e: KeyboardEvent) => {
+  const meta = e.metaKey || e.ctrlKey;
+  if (!meta || e.altKey || e.shiftKey || e.key.toLowerCase() !== "k") {
+    return false;
+  }
+  e.preventDefault();
+  openCommandPalette();
   return true;
 };
 
@@ -384,11 +399,12 @@ export const useShortcuts = () => {
         return;
       }
       const s = useEditor.getState();
-      // Neither a menu, a workspace switch nor the panels mean anything to a text field: they
-      // work while typing too (the menu key only on the canvas, which has no field).
+      // Neither a menu, a workspace switch, the palette nor the panels mean anything to a text
+      // field: they work while typing too (the menu key only on the canvas, which has no field).
       if (
         handleMenuKey(e, s) ||
         handleWorkspaceKey(e, s) ||
+        handlePaletteKey(e) ||
         handlePanelsKey(e)
       ) {
         return;

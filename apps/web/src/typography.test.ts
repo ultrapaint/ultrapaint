@@ -26,7 +26,7 @@ const sources = (dir: string): string[] =>
 
 /** The one small role, for the rail's labels: everything else in the editor reads at 14px. */
 const SMALL_ROLE = /(?:^|[^\w-])font-rail(?![\w-])/;
-const SMALL_ROLE_FILES = ["app.tsx"];
+const SMALL_ROLE_FILES = ["components/rail.tsx"];
 
 const linesMatching = (pattern: RegExp, skipped: readonly string[]) =>
   sources(SRC)

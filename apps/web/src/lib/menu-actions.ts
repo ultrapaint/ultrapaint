@@ -32,6 +32,7 @@ import { isNodeFrame, nodeIn, useDocuments } from "../state/documents.ts";
 import { pagesOfCanvas, type Selection, useEditor } from "../state/editor.ts";
 import { useImplementation } from "../state/implementation.ts";
 import { pagesActedOn } from "../state/page-picks.ts";
+import { usePanels } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import { ensureEditable } from "../state/setup.ts";
 import { addToChat } from "./add-to-chat.ts";
@@ -307,7 +308,7 @@ export const entriesFor = (target: MenuTarget): Entry[] | null => {
 
 const select = (target: Selection) => useEditor.getState().select(target);
 
-/** The code the node stands for is in the right panel, which only the design workspace has. */
+/** The code the node stands for is in the right panel, brought back when it was put away. */
 const viewCode = (target: Selection) => {
   const editor = useEditor.getState();
   if (editor.workspace !== "design") {
@@ -315,6 +316,7 @@ const viewCode = (target: Selection) => {
   }
   editor.select(target);
   editor.setRightTab("code");
+  usePanels.getState().setHidden({ right: false });
 };
 
 /**

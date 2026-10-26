@@ -303,7 +303,7 @@ name and what it is doing on their edge, and the text it is rewriting turns to p
 it is done. A selection is blue, or purple when it is a component of your library.
 
 **Chats** lists your chats, each with a picture of what it works on, its last line, and whether it
-is working or waiting for you. In **Vibe**, the element you select has a toolbar over it with what
+is working or waiting for you. The element you select has a toolbar over it with what
 your design system offers for it — a component's own variants, the text styles, the colour,
 radius and spacing tokens — and a button that adds it to the chat. Shift-click or draw a marquee to
 select several, and set what they share at once. What you send while an agent works waits in the
@@ -355,7 +355,16 @@ at the top finds layers by name, text or component.
 Several elements selected at once are changed together everywhere, in the inspector (where the
 fields they differ on say "Mixed"), the menus, the toolbar and the keys, as one undo step. ⌘\
 (Ctrl+\) puts the panels away, and `?` lists every shortcut, written as your platform writes
-them. The workspaces are ⌃1–3 on a Mac and Alt+1–3 elsewhere.
+them. ⌘K (Ctrl+K) finds any command by its name: a panel, a tool, a zoom, what the selection's
+right-click menu offers, a page, a canvas or a chat.
+
+The editor is cards floating over the canvas: the project at the top left, the rail of panels
+under it (Agents first, then Layers, Assets, Design system, Comments and Changes) beside the left
+panel, the tools in a column next to it, and at the top right the commands, the prototype (▷)
+and the right panel, with the inspector and the code. Each side panel is put away on its own: with
+the right one away the canvas is the agent's, with the chat beside it. ⌃1 is the canvas and ⌃2
+the prototype on a Mac, Alt+1 and Alt+2 elsewhere. In the desktop app on a Mac the window's
+buttons sit in the project's card, and dragging the cards at the top moves the window.
 
 When a page is ready, **Implement** in the Pages panel (or `/implement <url or file>` in a thread) asks
 an agent to write it in your application with your own components and conventions: the tokens
@@ -578,11 +587,11 @@ none. A page without a URL is drawn and edited like any other, but no link reach
 prototype warns when it shows one. A canvas made before URLs were optional serves each page at
 the route its path names until its pages next change.
 
-The **Pages** panel belongs to the **prototype** workspace: every page of the canvas with its URL,
+The **Pages** panel belongs to the **prototype**: every page of the canvas with its URL,
 or a warning when it has none, where URLs are given, changed and taken off. Any node in a page can
 link to another page (it keeps leading there when the page is renamed or its URL changes), to a
 URL with its parameters, back, or to another site: in the inspector, its right-click menu or the
-Vibe toolbar. The prototype's bar shows what can be pressed, and a press on nothing flashes it. It also tries the
+element toolbar. The prototype's bar shows what can be pressed, and a press on nothing flashes it. It also tries the
 prototype on a phone, a tablet or a desktop without changing the design, and takes comments on the
 page you are on. In the prototype the whole thing is one iframe: pressing a link swaps the page inside it,
 provider and component state survives, and the route is in the editor's own URL — so the
@@ -590,7 +599,7 @@ browser's back and forward buttons are the prototype's, and a prototype state ca
 pasted to someone else.
 
 A **canvas** owns one router and its own pages; a page of one canvas cannot navigate to a page of
-another. The canvas's name under the project, in every workspace, opens the list of canvases.
+another. The canvas's name at the top of the left panel opens the list of canvases.
 
 ## Commands and where things are
 
@@ -627,7 +636,8 @@ type after it is added to it.
 | Settings → Repository | Where the components, stylesheets and designs are; **Write to git**, off unless you want the Changes panel to commit; **Rename to ultrapaint.config.json** for an old file |
 | Settings → Editor → **Display name** | The name your comments are signed with when git has none |
 | Settings → Design system | The design skills agents are told, and the ones you replace or extend |
-| Top bar → **Not saved** | Save the configuration to `ultrapaint.config.json` |
+| Title card → **Not saved** (⚠) | Save the configuration to `ultrapaint.config.json` |
+| ⌘K, or **Commands** at the top right | Every command of the editor, by name |
 | Rail → Design system dot | Sync has something waiting: settings to fix, drift to describe, Figma tokens to take |
 
 ### The configuration file

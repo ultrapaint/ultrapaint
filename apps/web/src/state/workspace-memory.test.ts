@@ -20,7 +20,6 @@ const everything = { node: () => true, page: () => true };
 describe("modeFor", () => {
   it("gives a workspace never left its first tool", () => {
     expect(modeFor("design", undefined)).toBe("select");
-    expect(modeFor("vibe", undefined)).toBe("select");
     expect(modeFor("prototype", undefined)).toBe("interact");
   });
 
@@ -66,18 +65,6 @@ describe("stillThere", () => {
 });
 
 describe("switchWorkspace", () => {
-  it("carries the selection between the workspaces that show the canvas", () => {
-    const next = switchWorkspace(
-      { mode: "text", picked, workspace: "vibe" },
-      "design",
-      emptyMemory,
-      everything
-    );
-    expect(next.picked).toEqual(picked);
-    expect(next.mode).toBe("select");
-    expect(next.memory.modes.vibe).toBe("text");
-  });
-
   it("selects nothing in the prototype, and finds the selection again after it", () => {
     const away = switchWorkspace(
       { mode: "pan", picked, workspace: "design" },
@@ -102,14 +89,14 @@ describe("switchWorkspace", () => {
 
   it("finds again only what was not deleted while the prototype was shown", () => {
     const away = switchWorkspace(
-      { mode: "select", picked, workspace: "vibe" },
+      { mode: "select", picked, workspace: "design" },
       "prototype",
       emptyMemory,
       everything
     );
     const back = switchWorkspace(
       { mode: "interact", picked: nothingPicked, workspace: "prototype" },
-      "vibe",
+      "design",
       away.memory,
       { node: () => false, page: () => true }
     );
@@ -119,9 +106,9 @@ describe("switchWorkspace", () => {
   it("restores each workspace's own tool", () => {
     let memory = emptyMemory;
     const go = (
-      from: "vibe" | "design" | "prototype",
+      from: "design" | "prototype",
       mode: "select" | "text" | "comment" | "pan" | "interact",
-      to: "vibe" | "design" | "prototype"
+      to: "design" | "prototype"
     ) => {
       const next = switchWorkspace(
         { mode, picked: nothingPicked, workspace: from },
@@ -133,9 +120,8 @@ describe("switchWorkspace", () => {
       return next.mode;
     };
     expect(go("design", "text", "prototype")).toBe("interact");
-    expect(go("prototype", "comment", "vibe")).toBe("select");
-    expect(go("vibe", "pan", "design")).toBe("text");
-    expect(go("design", "text", "prototype")).toBe("comment");
-    expect(go("prototype", "comment", "vibe")).toBe("pan");
+    expect(go("prototype", "comment", "design")).toBe("text");
+    expect(go("design", "pan", "prototype")).toBe("comment");
+    expect(go("prototype", "interact", "design")).toBe("pan");
   });
 });

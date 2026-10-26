@@ -503,7 +503,6 @@ const FrameChrome = ({
   root: DesignNode | null;
 }) => {
   const isSelected = useFrameSelected(frameId, kind, root);
-  const workspace = useEditor((s) => s.workspace);
   const [titleHover, setTitleHover] = useState(false);
   const selectFrame = () => {
     const store = useEditor.getState();
@@ -556,7 +555,7 @@ const FrameChrome = ({
           </span>
         )}
       </div>
-      {kind === "page" && isSelected && workspace === "vibe" ? (
+      {kind === "page" && isSelected ? (
         <PageToolbar
           headerHeight={HEADER_GAP + HEADER_HEIGHT}
           inv={inv}

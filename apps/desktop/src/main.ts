@@ -33,6 +33,7 @@ import {
   type PickFolderOptions,
   type ShellInfo,
   type ShellStatus,
+  type WindowControlsInfo,
 } from "./ipc.ts";
 import { LoginShell } from "./login-shell.ts";
 import { NewDesignRequest, NewDesigns } from "./new-design.ts";
@@ -73,6 +74,21 @@ const serverArgs = devServer
   : [path.join(appDir, "server", "bin.mjs")];
 
 let window: BrowserWindow | null = null;
+
+/**
+ * On a Mac the window draws no title bar: its buttons sit inside the editor's title card, the
+ * top-left of the floating cards (8px from the window's edges, 44px tall), centred on its
+ * height. Elsewhere the system draws the frame.
+ */
+const ownTitleBar = process.platform === "darwin";
+const TRAFFIC_LIGHTS = { x: 22, y: 24 };
+/** Where the editor's content may begin past the buttons: their width (52px) and a gap. */
+const CONTROLS_INSET = TRAFFIC_LIGHTS.x + 52 + 12;
+
+const windowControls = (): WindowControlsInfo | null =>
+  ownTitleBar
+    ? { fullScreen: window?.isFullScreen() ?? false, inset: CONTROLS_INSET }
+    : null;
 
 /**
  * The editor's build, served to the window under the app's own scheme for the pages that have no
@@ -253,7 +269,11 @@ const fromWindow = (event: IpcMainEvent) =>
  * renders it: both synchronous for the page, which waits while a port is forwarded.
  */
 ipcMain.on(Channel.shellInfo, (event) => {
-  const info: ShellInfo = { remote: false, status: null };
+  const info: ShellInfo = {
+    remote: false,
+    status: null,
+    windowControls: windowControls(),
+  };
   if (!fromWindow(event)) {
     event.returnValue = info;
     return;
@@ -264,6 +284,7 @@ ipcMain.on(Channel.shellInfo, (event) => {
       event.returnValue = {
         remote: Option.isSome(current) && current.value.kind === "ssh",
         status: shellStatus,
+        windowControls: windowControls(),
       } satisfies ShellInfo;
     })
     .catch(() => {
@@ -509,6 +530,9 @@ const makeWindow = () => {
     backgroundColor: "#1a1a1d",
     height: 950,
     show: false,
+    ...(ownTitleBar
+      ? { titleBarStyle: "hidden", trafficLightPosition: TRAFFIC_LIGHTS }
+      : {}),
     title: "Ultrapaint",
     webPreferences: {
       contextIsolation: true,
@@ -537,6 +561,13 @@ const makeWindow = () => {
   created.on("closed", () => {
     window = null;
   });
+  // Full screen draws no buttons: the title card takes their room back.
+  created.on("enter-full-screen", () =>
+    created.webContents.send(Channel.fullScreen, true)
+  );
+  created.on("leave-full-screen", () =>
+    created.webContents.send(Channel.fullScreen, false)
+  );
   return created;
 };
 

@@ -34,15 +34,14 @@ import {
 
 export type Mode = "select" | "group" | "text" | "interact" | "pan" | "comment";
 
-/** What the app is for right now: prompting an agent, editing the design, or clicking through it. */
-export type Workspace = "vibe" | "design" | "prototype";
+/**
+ * What the app is for right now: working on the canvas, with an agent and the inspector, or
+ * clicking through the design as a prototype.
+ */
+export type Workspace = "design" | "prototype";
 
-/** Switcher order, which is also the order Ctrl+1..3 follow. */
-export const workspaceOrder: readonly Workspace[] = [
-  "vibe",
-  "design",
-  "prototype",
-];
+/** The order Ctrl+1..2 follow. */
+export const workspaceOrder: readonly Workspace[] = ["design", "prototype"];
 
 export type LeftTab =
   | "chat"
@@ -53,26 +52,21 @@ export type LeftTab =
   | "designSystem"
   | "changes";
 
-/** The workspace a reload or a shared link asks for, or the first one. */
+/**
+ * The workspace a reload or a shared link asks for, or the canvas. A link from before Vibe and
+ * Design were one (`?mode=vibe`) opens the canvas.
+ */
 const workspaceInUrl = (): Workspace =>
-  workspaceOrder.find((w) => w === readUrl().mode) ?? "vibe";
-
-/** Left panels every workspace offers, in rail order. */
-export const sharedTabs: readonly LeftTab[] = [
-  "chat",
-  "designSystem",
-  "comments",
-  "changes",
-];
+  workspaceOrder.find((w) => w === readUrl().mode) ?? "design";
 
 /**
- * Left panels only a workspace offers, shown above the shared ones on the rail. The pages and
- * the URLs they serve are the prototype's business; the canvas shows the pages everywhere else.
+ * The left panels a workspace offers, in rail order: the agents always first. The pages and the
+ * URLs they serve are the prototype's business; the canvas shows the pages, and its layers and
+ * assets mean nothing in the prototype.
  */
-export const workspaceTabs: Record<Workspace, readonly LeftTab[]> = {
-  design: ["layers", "assets"],
-  prototype: ["pages"],
-  vibe: [],
+export const railTabs: Record<Workspace, readonly LeftTab[]> = {
+  design: ["chat", "layers", "assets", "designSystem", "comments", "changes"],
+  prototype: ["chat", "pages", "designSystem", "comments", "changes"],
 };
 
 /**
@@ -628,9 +622,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
     if (workspace === s.workspace) {
       return;
     }
-    const kept =
-      sharedTabs.includes(s.leftTab) ||
-      workspaceTabs[workspace].includes(s.leftTab);
+    const kept = railTabs[workspace].includes(s.leftTab);
     const { docs } = useDocuments.getState();
     const pages = pagesOfCanvas(s.canvas);
     // Nothing shows the selection in the prototype, so no key may act on it there: it is put

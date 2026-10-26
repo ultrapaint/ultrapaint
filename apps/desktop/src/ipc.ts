@@ -9,6 +9,8 @@ export const Channel = {
   agentsList: "ultrapaint:agents-list",
   agentsSetApiKey: "ultrapaint:agents-set-api-key",
   agentsSignIn: "ultrapaint:agents-sign-in",
+  /** From the main process: the window went in or out of full screen. */
+  fullScreen: "ultrapaint:full-screen",
   newDesignCreate: "ultrapaint:new-design-create",
   newDesignFolder: "ultrapaint:new-design-folder",
   newDesignOpen: "ultrapaint:new-design-open",
@@ -39,6 +41,18 @@ export interface ShellInfo {
   readonly remote: boolean;
   /** What the app is doing for it as the page loads: reconnecting, say. */
   readonly status: ShellStatus | null;
+  /**
+   * The window's own buttons, drawn over the page where it draws no title bar (macOS), and
+   * whether it is full screen, where they are not; null where the system draws the frame.
+   */
+  readonly windowControls: WindowControlsInfo | null;
+}
+
+/** Where the window's buttons are (`WindowControls` in the editor). */
+export interface WindowControlsInfo {
+  readonly fullScreen: boolean;
+  /** How far from the window's left edge they reach, in CSS pixels. */
+  readonly inset: number;
 }
 
 /** What the app is doing for the open project (`ShellStatus` in the editor). */

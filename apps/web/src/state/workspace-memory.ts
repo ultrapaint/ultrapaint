@@ -1,8 +1,7 @@
 /**
- * What a workspace keeps while another is shown. Vibe and Design show the same canvas, so what
- * is selected on it goes from one to the other, the way it is seen to; the prototype shows no
- * selection, so it puts the canvas's aside, and hands it back when the canvas is shown again.
- * The tool in hand is each workspace's own. Pure, so it can be tested without an editor.
+ * What a workspace keeps while another is shown. The prototype shows no selection, so it puts
+ * the canvas's aside, and hands it back when the canvas is shown again. The tool in hand is each
+ * workspace's own. Pure, so it can be tested without an editor.
  */
 import type { Mode, Selection, Workspace } from "./editor.ts";
 

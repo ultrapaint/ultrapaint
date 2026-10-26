@@ -12,7 +12,7 @@ import {
   selectionKindOf,
 } from "../lib/selection-kind.ts";
 import { rootOfFrame, useDocuments } from "../state/documents.ts";
-import { type Selection, useEditor, type Workspace } from "../state/editor.ts";
+import { type Selection, useEditor } from "../state/editor.ts";
 import { ElementToolbar, GroupToolbar } from "./element-toolbar.tsx";
 import { TAG_HEIGHT } from "./element-toolbar-placement.ts";
 import { SelectionTag } from "./selection-tag.tsx";
@@ -65,7 +65,6 @@ export const Highlights = ({
   const rects = useEditor((s) => s.rects[frameId]);
   const hostError = useEditor((s) => s.hostErrors[frameId]);
   const canvas = useEditor((s) => s.canvas);
-  const workspace = useEditor((s) => s.workspace);
   const frameWidth = useEditor(
     (s) =>
       s.frames[frameId]?.width ??
@@ -109,13 +108,7 @@ export const Highlights = ({
   return (
     <>
       {hoverRect ? (
-        <Outline
-          inv={inv}
-          kind="hover"
-          node={hoverNode}
-          rect={hoverRect}
-          workspace={workspace}
-        />
+        <Outline inv={inv} kind="hover" node={hoverNode} rect={hoverRect} />
       ) : null}
       {selectedRect ? (
         <Outline
@@ -125,7 +118,6 @@ export const Highlights = ({
           kind="selection"
           node={selectedNode}
           rect={selectedRect}
-          workspace={workspace}
         />
       ) : null}
       {others.map((o) => (
@@ -136,7 +128,6 @@ export const Highlights = ({
           kind="selection"
           node={o.node}
           rect={o.rect}
-          workspace={workspace}
         />
       ))}
       {group?.rect ? (
@@ -146,7 +137,6 @@ export const Highlights = ({
           nodes={group.nodes}
           rect={group.rect}
           targets={group.targets}
-          workspace={workspace}
         />
       ) : null}
       {hostError ? (
@@ -163,8 +153,8 @@ export const Highlights = ({
 };
 
 /**
- * The box around several selected nodes: their count on its edge and, in Vibe, the toolbar of
- * what they share; in Design, the box's size under it.
+ * The box around several selected nodes: their count on its edge and the toolbar of what they
+ * share.
  */
 const GroupOutline = ({
   frame,
@@ -172,14 +162,12 @@ const GroupOutline = ({
   nodes,
   rect,
   targets,
-  workspace,
 }: {
   frame: { height: number; width: number };
   inv: number;
   nodes: readonly DesignNode[];
   rect: Rect;
   targets: readonly Selection[];
-  workspace: Workspace;
 }) => {
   const color = kindColor("element");
   return (
@@ -194,41 +182,24 @@ const GroupOutline = ({
         width: rect.width,
       }}
     >
-      {workspace === "vibe" ? (
-        <>
-          <span
-            className="absolute left-0 flex h-5 items-center rounded-t-[5px] px-1.5 font-body font-semibold text-white leading-4"
-            style={{
-              background: color,
-              bottom: "100%",
-              transform: `translate(${-1 * inv}px, ${-4 * inv}px) scale(${inv})`,
-              transformOrigin: "bottom left",
-            }}
-          >
-            {nodes.length} selected
-          </span>
-          <GroupToolbar
-            frame={frame}
-            inv={inv}
-            nodes={nodes}
-            rect={rect}
-            targets={targets}
-          />
-        </>
-      ) : (
-        <span
-          className="absolute left-1/2 rounded-sm px-1 py-0.5 font-body font-medium text-white"
-          style={{
-            background: color,
-            top: "100%",
-            transform: `translate(-50%, ${6 * inv}px) scale(${inv})`,
-            transformOrigin: "top center",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {nodes.length} · {Math.round(rect.width)} × {Math.round(rect.height)}
-        </span>
-      )}
+      <span
+        className="absolute left-0 flex h-5 items-center rounded-t-[5px] px-1.5 font-body font-semibold text-white leading-4"
+        style={{
+          background: color,
+          bottom: "100%",
+          transform: `translate(${-1 * inv}px, ${-4 * inv}px) scale(${inv})`,
+          transformOrigin: "bottom left",
+        }}
+      >
+        {nodes.length} selected
+      </span>
+      <GroupToolbar
+        frame={frame}
+        inv={inv}
+        nodes={nodes}
+        rect={rect}
+        targets={targets}
+      />
     </div>
   );
 };
@@ -240,9 +211,9 @@ const UNBOUNDED = {
 };
 
 /**
- * A node's outline, in the colour of what it is: blue for an element, purple for a component. In
- * Design the selection's size sits under it; in Vibe its name sits on its top-left edge, where the
- * element toolbar hangs its controls from.
+ * A node's outline, in the colour of what it is: blue for an element, purple for a component. The
+ * selection's name sits on its top-left edge, where the element toolbar hangs its controls from;
+ * its size is the inspector's.
  */
 const Outline = ({
   bare = false,
@@ -251,7 +222,6 @@ const Outline = ({
   inv,
   kind,
   node,
-  workspace,
 }: {
   /** One of several selected: outlined only, the group carries the name and the toolbar. */
   bare?: boolean;
@@ -261,7 +231,6 @@ const Outline = ({
   inv: number;
   kind: "hover" | "selection";
   node: DesignNode | null;
-  workspace: Workspace;
 }) => {
   const tone = selectionKindOf(node);
   const color = kind === "selection" ? kindColor(tone) : kindHoverColor(tone);
@@ -277,21 +246,7 @@ const Outline = ({
         width: rect.width,
       }}
     >
-      {kind === "selection" && !bare && workspace !== "vibe" && (
-        <span
-          className="absolute left-1/2 rounded-sm px-1 py-0.5 font-body font-medium text-white"
-          style={{
-            background: color,
-            top: "100%",
-            transform: `translate(-50%, ${4 * inv}px) scale(${inv})`,
-            transformOrigin: "top center",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {Math.round(rect.width)} × {Math.round(rect.height)}
-        </span>
-      )}
-      {kind === "selection" && !bare && workspace === "vibe" && node ? (
+      {kind === "selection" && !bare && node ? (
         <>
           <SelectionTag
             color={color}

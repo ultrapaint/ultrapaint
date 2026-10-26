@@ -39,6 +39,7 @@ import { api } from "../state/connection.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useEditor } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
+import { useWindowChrome } from "../state/window-controls.ts";
 import { placeDocument } from "./design-md-view.tsx";
 import {
   ChatDefaultsGroup,
@@ -280,6 +281,43 @@ const shown = (id: SectionId) =>
   (id === "agents" && platform().agents !== undefined);
 
 /** The sections on the left. The first run has nothing saved, so it hides what needs a project. */
+/**
+ * The sidebar's heading. In a desktop window that draws no title bar of its own (a Mac) the
+ * window's buttons sit at its start: it leaves them room, is as tall as the editor's title card
+ * so they stay where they were, and moves the window when dragged.
+ */
+const SettingsTitle = () => {
+  const chrome = useWindowChrome();
+  return (
+    <div
+      className={cn(
+        "flex shrink-0 items-center px-4",
+        chrome.drag ? "window-drag h-15" : "h-12"
+      )}
+      style={chrome.inset > 0 ? { paddingLeft: chrome.inset } : undefined}
+    >
+      <h1 className="font-semibold">Settings</h1>
+    </div>
+  );
+};
+
+/** Where in the settings this is; as tall as the sidebar's heading, and as draggable. */
+const SectionHeader = ({ label }: { label: string }) => {
+  const chrome = useWindowChrome();
+  return (
+    <header
+      className={cn(
+        "flex shrink-0 items-center gap-1.5 border-b px-6 font-body",
+        chrome.drag ? "window-drag h-15" : "h-12"
+      )}
+    >
+      <span className="text-muted-foreground">Settings</span>
+      <span className="text-muted-foreground">/</span>
+      <span className="font-medium">{label}</span>
+    </header>
+  );
+};
+
 const Sidebar = ({
   onBack,
   onSelect,
@@ -292,9 +330,7 @@ const Sidebar = ({
   showAll: boolean;
 }) => (
   <aside className="flex w-56 shrink-0 flex-col border-r bg-sidebar">
-    <div className="flex h-12 shrink-0 items-center px-4">
-      <h1 className="font-semibold">Settings</h1>
-    </div>
+    <SettingsTitle />
     <nav aria-label="Settings sections" className="flex flex-col gap-0.5 p-2">
       {sections
         .filter((s) => showAll || shown(s.id))
@@ -742,11 +778,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
         showAll={saved !== null}
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-12 shrink-0 items-center gap-1.5 border-b px-6 font-body">
-          <span className="text-muted-foreground">Settings</span>
-          <span className="text-muted-foreground">/</span>
-          <span className="font-medium">{label}</span>
-        </header>
+        <SectionHeader label={label} />
         <div className="@container min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto flex max-w-3xl flex-col gap-8 px-6 py-8">
             {body}

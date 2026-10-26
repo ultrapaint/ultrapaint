@@ -191,6 +191,20 @@ export interface ShellStatusSource {
   ) => () => void;
 }
 
+/**
+ * The window's own buttons, where the shell draws no title bar (the desktop app on a Mac): they
+ * sit over the editor's title card, which leaves them room, and the cards at the top move the
+ * window when dragged, as a title bar would.
+ */
+export interface WindowControls {
+  /** Full screen draws no buttons, and the room is the editor's again. */
+  readonly fullScreen: () => boolean;
+  /** How far from the window's left edge the buttons reach, in CSS pixels. */
+  readonly inset: number;
+  /** Calls `listener` as the window goes in or out of full screen; the returned function stops it. */
+  readonly subscribe: (listener: (fullScreen: boolean) => void) => () => void;
+}
+
 export interface Platform {
   /** The agents on this machine; absent in a browser, where the server's own are all there is. */
   readonly agents?: AgentSetup;
@@ -216,6 +230,8 @@ export interface Platform {
   readonly serverUrl: string;
   /** What the shell is doing for the open project; absent in a browser. */
   readonly shellStatus?: ShellStatusSource;
+  /** The window's buttons over the page; absent in a browser and where the system draws the frame. */
+  readonly windowControls?: WindowControls;
 }
 
 /** What a shell's preload script may set; every part of it is optional. */

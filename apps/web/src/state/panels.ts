@@ -3,8 +3,9 @@ import { type LeftTab, useEditor } from "./editor.ts";
 
 /**
  * Whether the side panels are put away, for a clear look at the canvas. A preference of this
- * browser, like the panels' widths, so it is kept here rather than in the settings file. The rail
- * stays whatever is hidden: it is the way back.
+ * browser, like the panels' widths, so it is kept here rather than in the settings file. Each
+ * side is put away on its own: the canvas with the right panel away is the agent's view, with
+ * only the chat beside it. The rail stays whatever is hidden: it is the way back.
  */
 const LEFT_KEY = "ultrapaint:panel-hidden:left";
 const RIGHT_KEY = "ultrapaint:panel-hidden:right";
@@ -27,8 +28,10 @@ interface PanelsStore extends Hidden {
   setHidden: (hidden: Partial<Hidden>) => void;
   /** ⌘\: hides both side panels, or shows them again. */
   toggleAll: () => void;
-  /** The rail's own button: the left panel alone. */
+  /** The left panel alone. */
   toggleLeft: () => void;
+  /** The right panel alone: the inspector and the code. */
+  toggleRight: () => void;
 }
 
 export const usePanels = create<PanelsStore>((set, get) => ({
@@ -48,6 +51,7 @@ export const usePanels = create<PanelsStore>((set, get) => ({
       toggledAll(get(), useEditor.getState().workspace === "design")
     ),
   toggleLeft: () => get().setHidden({ left: !get().left }),
+  toggleRight: () => get().setHidden({ right: !get().right }),
 }));
 
 /** Opens a left panel, bringing the panel back when it was put away. */

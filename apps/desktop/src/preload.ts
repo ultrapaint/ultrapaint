@@ -51,6 +51,28 @@ ipcRenderer.on(Channel.shellStatus, (_event, next: ShellStatus | null) => {
   }
 });
 
+/** The window's buttons over the page, on a Mac; full screen hides them. */
+const fullScreenListeners = new Set<(fullScreen: boolean) => void>();
+let fullScreen = info.windowControls?.fullScreen ?? false;
+ipcRenderer.on(Channel.fullScreen, (_event, next: boolean) => {
+  fullScreen = next;
+  for (const listener of fullScreenListeners) {
+    listener(next);
+  }
+});
+const windowControls = info.windowControls
+  ? {
+      fullScreen: () => fullScreen,
+      inset: info.windowControls.inset,
+      subscribe: (listener: (next: boolean) => void) => {
+        fullScreenListeners.add(listener);
+        return () => {
+          fullScreenListeners.delete(listener);
+        };
+      },
+    }
+  : undefined;
+
 const agents = {
   choosePath: (id: string): Promise<void> =>
     ipcRenderer.invoke(Channel.agentsChoosePath, id),
@@ -112,6 +134,7 @@ contextBridge.exposeInMainWorld("ultrapaintPlatform", {
     sshHosts: (): Promise<readonly string[]> =>
       ipcRenderer.invoke(Channel.sshHosts),
   },
+  ...(windowControls ? { windowControls } : {}),
   shellStatus: {
     current: (): ShellStatus | null => status,
     subscribe: (listener: (next: ShellStatus | null) => void) => {

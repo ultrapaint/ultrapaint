@@ -257,8 +257,8 @@ describe("setWorkspace", () => {
   });
 
   it("keeps a panel every workspace offers", () => {
-    useEditor.setState({ leftTab: "changes", workspace: "vibe" });
-    useEditor.getState().setWorkspace("design");
+    useEditor.setState({ leftTab: "changes", workspace: "design" });
+    useEditor.getState().setWorkspace("prototype");
     expect(useEditor.getState().leftTab).toBe("changes");
   });
 });

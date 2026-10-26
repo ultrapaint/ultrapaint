@@ -2,7 +2,8 @@
 
 Status: accepted, 2026-09-29. Extends 0014 and 0015. Amended 2026-10-26 by
 [0031](0031-the-desktop-app.md): without a name from git, the avatar is the display name in
-Settings.
+Settings. Amended 2026-10-26 by [0032](0032-floating-cards-one-canvas-workspace.md): Vibe and
+Design are one workspace, and the toolbar is over every selection on the canvas.
 
 The editor was redesigned with the tool itself: the pages are in `docs/designs/redesign/`, and
 `ultrapaint.json` at the root opens this repository in the editor.

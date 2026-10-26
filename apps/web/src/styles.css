@@ -96,6 +96,30 @@
   letter-spacing: 0;
 }
 
+/* What floats over the canvas: the rail, the side panels, the tools and the title card are
+   cards of their own, apart from each other and from the window's edge, as in pen.dev. */
+@utility floating {
+  color: var(--sidebar-foreground);
+  background-color: var(--sidebar);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow:
+    0 10px 15px -3px oklch(0 0 0 / 30%),
+    0 4px 6px -4px oklch(0 0 0 / 30%);
+}
+
+/* The parts of a desktop window that move it when dragged, as its title bar would, and the
+   controls on them that do not. Nothing in a browser. */
+@utility window-drag {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+@utility window-no-drag {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
 /* Text with a light passing through it: something is in progress. */
 @utility text-shimmer {
   color: transparent;

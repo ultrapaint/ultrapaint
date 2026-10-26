@@ -135,11 +135,12 @@ const ZoomPresetItem = ({ pct }: { pct: number }) => {
   return <DropdownMenuItem onClick={onClick}>{pct}%</DropdownMenuItem>;
 };
 
-const Zoom = () => {
+/** The zoom, floating at the canvas's bottom right: out, the level and its menu, in. */
+export const ZoomControl = () => {
   const zoom = useEditor((s) => s.view.zoom);
   const grid = useCanvasGrid((s) => s.visible);
   return (
-    <div className="flex items-center gap-0.5">
+    <div className="floating pointer-events-auto flex items-center gap-0.5 p-1">
       <IconButton
         className="size-8 rounded-lg"
         onClick={zoomOut}
@@ -162,7 +163,7 @@ const Zoom = () => {
             data-icon="inline-end"
           />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="center" className="w-48" side="top">
+        <DropdownMenuContent align="end" className="w-48" side="top">
           <DropdownMenuGroup>
             {[50, 100, 200].map((pct) => (
               <ZoomPresetItem key={pct} pct={pct} />
@@ -199,16 +200,20 @@ const Zoom = () => {
   );
 };
 
-/** Floating tool strip at the bottom centre of the canvas; the app positions it. */
+/**
+ * The canvas's tools, floating in a column at the top, beside the left panel: the tools, then
+ * undo and redo. The app positions it.
+ */
 export const Toolbar = () => {
   const undo = useProject((s) => s.undo);
   // Holding Space pans for as long as it is held; the strip shows the tool in effect.
   const effective = useEditor((s) => (s.spacePan ? "pan" : s.mode));
 
   return (
-    <div className="pointer-events-auto flex items-center gap-1 rounded-xl border bg-sidebar p-1 text-sidebar-foreground shadow-black/30 shadow-lg">
+    <div className="floating pointer-events-auto flex flex-col items-center gap-1 p-1">
       <ToggleGroup
         onValueChange={onModeChange}
+        orientation="vertical"
         spacing={0.5}
         value={[effective]}
       >
@@ -225,16 +230,17 @@ export const Toolbar = () => {
                 </ToggleGroupItem>
               }
             />
-            <TooltipContent side="top">{m.tooltip}</TooltipContent>
+            <TooltipContent side="right">{m.tooltip}</TooltipContent>
           </Tooltip>
         ))}
       </ToggleGroup>
-      <Separator className="mx-0.5 h-5" orientation="vertical" />
+      <Separator className="my-0.5 w-5" />
       <IconButton
         className="size-8 rounded-lg"
         disabled={!undo.canUndo}
         label={undo.undoLabel ? `Undo ${undo.undoLabel}` : "Undo"}
         onClick={undoEdit}
+        side="right"
         tooltip={
           <>
             Undo{undo.undoLabel ? ` · ${undo.undoLabel}` : ""}{" "}
@@ -249,6 +255,7 @@ export const Toolbar = () => {
         disabled={!undo.canRedo}
         label="Redo"
         onClick={redoEdit}
+        side="right"
         tooltip={
           <>
             Redo <Kbd>{shortcutLabel("⇧⌘Z")}</Kbd>
@@ -257,8 +264,6 @@ export const Toolbar = () => {
       >
         <Redo2 />
       </IconButton>
-      <Separator className="mx-0.5 h-5" orientation="vertical" />
-      <Zoom />
     </div>
   );
 };

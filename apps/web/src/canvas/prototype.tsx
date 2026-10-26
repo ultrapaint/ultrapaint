@@ -39,7 +39,7 @@ import { useHostUrl } from "./frame.tsx";
 import { HotspotLayer, HotspotsToggle, onPrototypePress } from "./hotspots.tsx";
 import { usePreviewBridge } from "./use-preview-bridge.ts";
 
-/** Room kept free around the page for the workspace switcher and the bottom strip. */
+/** Room kept free around the page for the cards at the top and the bottom strip. */
 const inset = { bottom: 72, side: 32, top: 64 };
 
 /** Asks the prototype to reload its iframe, which restarts the canvas from its current route. */
