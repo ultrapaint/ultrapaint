@@ -11,15 +11,27 @@ import { RepoPaths } from "./repo-paths.ts";
  */
 export const LEGACY_PREVIEW_DIR = ".ultrapaint";
 
+/** This installation of the tool: a checkout's sources, or a bundled server's directory. */
+const INSTALLATION = import.meta.dirname;
+
 /**
- * Where the preview of a designs directory is generated: the user's cache, one directory per
- * designs directory, outside the repository. Nothing of it is the design's.
+ * Where the preview of a designs directory is generated: the user's cache, outside the
+ * repository, one directory per designs directory and per installation of the tool, so two
+ * versions open on the same project (two checkouts, the desktop app and the command) do not
+ * write over each other's files. Nothing of it is the design's.
  */
 export const previewDirOf = (
   home: string,
   designsDir: string,
   join: (...parts: string[]) => string
-) => join(home, ".cache", "ultrapaint", "preview", hashContent(designsDir));
+) =>
+  join(
+    home,
+    ".cache",
+    "ultrapaint",
+    "preview",
+    hashContent(`${INSTALLATION}\n${designsDir}`)
+  );
 
 const SPECIFIER_RE = /^[\w@#][\w@#./-]*$/;
 
