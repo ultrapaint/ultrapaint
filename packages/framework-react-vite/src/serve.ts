@@ -8,7 +8,13 @@
  * design system is built with. A repository without Vite gets the copy bundled with this
  * package. Plugins that turn a dev server into an application server are left out.
  */
-import { existsSync, readFileSync, realpathSync } from "node:fs";
+import {
+  createReadStream,
+  existsSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+} from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -17,6 +23,7 @@ import {
   flattenPlugins,
   has,
   REACT_PLUGIN_RE,
+  sparing,
   splitPlugins,
   TAILWIND_PLUGIN_RE,
 } from "./inherit-plugins.ts";
@@ -65,7 +72,18 @@ const port = Number(portArg);
 const fromAnchor = createRequire(path.join(options.anchorDir, "package.json"));
 
 const log = (text: string) => console.log(`[ultrapaint] ${text}`);
-const LEADING_NON_SLASH_RE = /^(?!\/)/;
+
+const posix = (p: string) => p.replaceAll("\\", "/");
+/**
+ * Modules the anchor's plugins have nothing to do to: our browser bundles, built already, and the
+ * dependencies Vite has bundled. An application's Babel setup runs on every module otherwise, and
+ * spent seconds on them each time the preview started.
+ */
+const sparedRoots = [options.bundleDir, path.join(options.dir, ".vite")].map(
+  (dir) => `${posix(dir)}/`
+);
+const spared = (id: string) =>
+  sparedRoots.some((root) => posix(id).startsWith(root));
 
 /**
  * Root directory of a package as the anchor resolves it, or null. Looked up by folder instead
@@ -169,7 +187,7 @@ const inheritedConfig = async (api: Vite): Promise<UserConfig> => {
       exclude: config.optimizeDeps?.exclude,
       include: config.optimizeDeps?.include,
     },
-    plugins: kept as UserConfig["plugins"],
+    plugins: sparing(kept, spared) as UserConfig["plugins"],
     publicDir:
       typeof config.publicDir === "string"
         ? path.resolve(config.root ?? options.anchorDir, config.publicDir)
@@ -238,7 +256,24 @@ const servePage = {
   name: "ultrapaint:page",
 };
 
-/** An image of a canvas, found where it is and handed to Vite's own file serving. */
+const MIME: Record<string, string> = {
+  ".avif": "image/avif",
+  ".gif": "image/gif",
+  ".ico": "image/x-icon",
+  ".jpeg": "image/jpeg",
+  ".jpg": "image/jpeg",
+  ".mp4": "video/mp4",
+  ".png": "image/png",
+  ".svg": "image/svg+xml",
+  ".webm": "video/webm",
+  ".webp": "image/webp",
+};
+
+/**
+ * An image of a canvas, found where it is and sent from here. A redirect to the file was a round
+ * trip of its own for every image of every page loaded, which the browser does not keep; the file
+ * is checked again by its size and time, and answered with 304 when it did not change.
+ */
 const serveAsset = {
   configureServer(dev: import("vite").ViteDevServer) {
     dev.middlewares.use(ASSET_PATH, (req, res) => {
@@ -254,12 +289,22 @@ const serveAsset = {
         res.end();
         return;
       }
-      res.statusCode = 302;
+      const stat = statSync(file);
+      const etag = `W/"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
+      res.setHeader("cache-control", "no-cache");
+      res.setHeader("etag", etag);
+      if (req.headers["if-none-match"] === etag) {
+        res.statusCode = 304;
+        res.end();
+        return;
+      }
+      res.statusCode = 200;
       res.setHeader(
-        "location",
-        `/@fs${file.replaceAll("\\", "/").replace(LEADING_NON_SLASH_RE, "/")}`
+        "content-type",
+        MIME[path.extname(file).toLowerCase()] ?? "application/octet-stream"
       );
-      res.end();
+      res.setHeader("content-length", stat.size);
+      createReadStream(file).pipe(res);
     });
   },
   name: "ultrapaint:assets",
@@ -285,7 +330,10 @@ const server = await vite.createServer(
       }),
       servePage,
       serveAsset,
-      ...extra,
+      ...(sparing(
+        await flattenPlugins(extra),
+        spared
+      ) as import("vite").PluginOption[]),
     ],
     resolve: { dedupe: options.singletons },
     root: options.anchorDir,
@@ -295,6 +343,14 @@ const server = await vite.createServer(
       host,
       port,
       strictPort: true,
+      // The page's own modules are transformed as the server starts, not when the first
+      // preview asks for them.
+      warmup: {
+        clientFiles: [
+          path.join(options.dir, "main.ts"),
+          path.join(options.dir, "components.ts"),
+        ],
+      },
       watch: { ignored: ["**/.ultrapaint/.vite/**"] },
     },
   } satisfies InlineConfig)

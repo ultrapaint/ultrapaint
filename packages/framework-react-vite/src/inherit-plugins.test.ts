@@ -3,6 +3,7 @@ import {
   flattenPlugins,
   has,
   REACT_PLUGIN_RE,
+  sparing,
   splitPlugins,
   TAILWIND_PLUGIN_RE,
 } from "./inherit-plugins.ts";
@@ -50,5 +51,51 @@ describe("plugins inherited from the anchor's Vite config", () => {
     expect(has(plugins, REACT_PLUGIN_RE)).toBe(true);
     expect(has(plugins, TAILWIND_PLUGIN_RE)).toBe(true);
     expect(has([{ name: "other" }], REACT_PLUGIN_RE)).toBe(false);
+  });
+});
+
+const FILTER_RE = /x/;
+
+describe("plugins kept off what needs no transform", () => {
+  const spared = (path: string) => path.startsWith("/bundles/");
+
+  it("leaves a spared module alone, by its path without the query", () => {
+    const [plain, hooked] = sparing(
+      [
+        { name: "a", transform: (code: string) => `${code}!` },
+        {
+          name: "b",
+          transform: {
+            filter: { id: FILTER_RE },
+            handler: (code: string) => `${code}?`,
+          },
+        },
+      ],
+      spared
+    );
+    const call = (plugin: unknown, id: string) => {
+      const { transform } = plugin as {
+        transform:
+          | ((code: string, id: string) => unknown)
+          | { handler: (code: string, id: string) => unknown };
+      };
+      const handler =
+        typeof transform === "function" ? transform : transform.handler;
+      return handler.call({}, "code", id);
+    };
+    expect(call(plain, "/bundles/render.js?v=1")).toBeNull();
+    expect(call(plain, "/src/page.tsx")).toBe("code!");
+    expect(call(hooked, "/bundles/render.js")).toBeNull();
+    expect(call(hooked, "/src/page.tsx")).toBe("code?");
+    expect(
+      (hooked as { transform: { filter: unknown } }).transform.filter
+    ).toEqual({
+      id: FILTER_RE,
+    });
+  });
+
+  it("keeps a plugin without a transform as it is", () => {
+    const plugin = { name: "c" };
+    expect(sparing([plugin], spared)[0]).toBe(plugin);
   });
 });

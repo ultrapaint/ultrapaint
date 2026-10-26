@@ -35,3 +35,45 @@ export const splitPlugins = (plugins: readonly NamedPlugin[]) => {
 
 export const has = (plugins: readonly NamedPlugin[], re: RegExp) =>
   plugins.some((p) => re.test(p.name ?? ""));
+
+type TransformHandler = (
+  this: unknown,
+  code: string,
+  id: string,
+  ...rest: unknown[]
+) => unknown;
+
+interface TransformingPlugin extends NamedPlugin {
+  transform?: TransformHandler | { handler: TransformHandler };
+}
+
+/** A module id without its query: `/a/render.js?v=1` is `/a/render.js`. */
+const pathOf = (id: string) => id.split("?")[0] ?? id;
+
+/**
+ * The plugins, each leaving alone the modules `spared` says: our own browser bundles, built
+ * already, and the dependencies Vite has bundled. An application's Babel setup (React Compiler,
+ * Lingui) often runs on every module, and spent seconds on them each time the preview started.
+ */
+export const sparing = <P extends NamedPlugin>(
+  plugins: readonly P[],
+  spared: (path: string) => boolean
+): P[] =>
+  plugins.map((plugin) => {
+    const { transform } = plugin as TransformingPlugin;
+    if (!transform) {
+      return plugin;
+    }
+    const handler =
+      typeof transform === "function" ? transform : transform.handler;
+    const guarded: TransformHandler = function (code, id, ...rest) {
+      return spared(pathOf(id)) ? null : handler.call(this, code, id, ...rest);
+    };
+    return {
+      ...plugin,
+      transform:
+        typeof transform === "function"
+          ? guarded
+          : { ...transform, handler: guarded },
+    };
+  });
