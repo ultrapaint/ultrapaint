@@ -13,7 +13,7 @@ import {
   useState,
 } from "react";
 import { useDocuments } from "../state/documents.ts";
-import { allFrames, useEditor } from "../state/editor.ts";
+import { allFrames, useEditor, viewTarget } from "../state/editor.ts";
 import { useDrag } from "./drag.ts";
 import { gridBackground } from "./grid.ts";
 import { framesNear, framesToShow, NEAR_MARGIN } from "./mounting.ts";
@@ -128,12 +128,25 @@ export const useFramesInView = (screen: {
     const update = () => {
       pending = null;
       const boxes = allFrames();
-      const { view } = useEditor.getState();
+      const seen = { height, width };
+      const now = useEditor.getState().view;
+      // While the camera glides to a place, what is there loads, not what it passes over: the
+      // frames shown stay while they are near, and only those where it goes are added.
+      const target = viewTarget();
+      const view = target ?? now;
+      const near = framesNear(boxes, view, seen, NEAR_MARGIN);
+      if (target) {
+        for (const id of framesNear(boxes, now, seen, NEAR_MARGIN)) {
+          if (shown.current.has(id)) {
+            near.add(id);
+          }
+        }
+      }
       const next = framesToShow({
         boxes,
         loadingMax: LOADING_MAX,
-        near: framesNear(boxes, view, { height, width }, NEAR_MARGIN),
-        screen: { height, width },
+        near,
+        screen: seen,
         shown: shown.current,
         view,
         warm: isWarm,

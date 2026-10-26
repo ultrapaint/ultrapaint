@@ -645,6 +645,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
     // Said outright, it goes over whatever was waiting for the next frame.
     const base = nextView();
     cancelPendingView();
+    land();
     set({ view: { ...base, ...view } });
   },
   setWorkspace: (workspace) => {
@@ -742,7 +743,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
     const frames = allFrames();
     const pageFrame = selectedPage ? frames[selectedPage] : undefined;
     if (pageFrame) {
-      fitTo(set, viewport, [pageFrame]);
+      fitTo(set, viewport, [pageFrame], true);
       return;
     }
     if (!selection) {
@@ -761,7 +762,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
           y: frame.y + rect.y,
         }
       : frame;
-    fitTo(set, viewport, [target]);
+    fitTo(set, viewport, [target], true);
   },
 }));
 
@@ -786,6 +787,72 @@ const cancelPendingView = () => {
   pendingView = null;
 };
 
+/** A move of the camera on its way, and where it goes. */
+let flight: { frame: number; to: View } | null = null;
+
+/** Where the camera is moving to, while it moves: what is there loads first. */
+export const viewTarget = (): View | null => flight?.to ?? null;
+
+/** Stops a move of the camera where it is: the user took the canvas, or another move began. */
+const land = () => {
+  if (flight) {
+    cancelAnimationFrame(flight.frame);
+    flight = null;
+  }
+};
+
+const FLIGHT_MS = 320;
+
+const easeInOut = (k: number) =>
+  k < 0.5 ? 4 * k * k * k : 1 - (-2 * k + 2) ** 3 / 2;
+
+/**
+ * Moves the camera to `to` over a third of a second, the point in the middle of `viewport`
+ * gliding while the zoom changes evenly in scale, so the way from one place to the other is
+ * seen. At once when the system asks for reduced motion.
+ */
+const flyTo = (
+  set: (partial: Partial<EditorStore>) => void,
+  to: View,
+  viewport: Viewport
+) => {
+  cancelPendingView();
+  land();
+  const from = useEditor.getState().view;
+  const still =
+    typeof requestAnimationFrame === "undefined" ||
+    typeof matchMedia === "undefined" ||
+    matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (still || (from.x === to.x && from.y === to.y && from.zoom === to.zoom)) {
+    set({ view: to });
+    return;
+  }
+  // The screen point that stays the middle of what is seen, in the canvas at each end.
+  const mx = viewport.x + viewport.width / 2;
+  const my = viewport.height / 2;
+  const a = { x: (mx - from.x) / from.zoom, y: (my - from.y) / from.zoom };
+  const b = { x: (mx - to.x) / to.zoom, y: (my - to.y) / to.zoom };
+  const za = Math.log(from.zoom);
+  const zb = Math.log(to.zoom);
+  let start: number | null = null;
+  const step = (now: number) => {
+    start ??= now;
+    const k = Math.min(1, (now - start) / FLIGHT_MS);
+    if (k >= 1 || !flight) {
+      flight = null;
+      set({ view: to });
+      return;
+    }
+    const e = easeInOut(k);
+    const zoom = Math.exp(za + (zb - za) * e);
+    const cx = a.x + (b.x - a.x) * e;
+    const cy = a.y + (b.y - a.y) * e;
+    set({ view: { x: mx - cx * zoom, y: my - cy * zoom, zoom } });
+    flight.frame = requestAnimationFrame(step);
+  };
+  flight = { frame: requestAnimationFrame(step), to };
+};
+
 /** The view as the next frame will draw it: what a wheel or a drag goes on from. */
 export const nextView = (): View => pendingView ?? useEditor.getState().view;
 
@@ -794,6 +861,7 @@ export const nextView = (): View => pendingView ?? useEditor.getState().view;
  * and the canvas is drawn once a frame: it takes them all in one change.
  */
 export const setViewSoon = (view: Partial<View>) => {
+  land();
   pendingView = { ...nextView(), ...view };
   viewFrame ??= requestAnimationFrame(() => {
     viewFrame = null;
@@ -852,7 +920,9 @@ const followFrame = (
 const fitTo = (
   set: (partial: Partial<EditorStore>) => void,
   viewport: Viewport,
-  boxes: { x: number; y: number; width: number; height: number }[]
+  boxes: { x: number; y: number; width: number; height: number }[],
+  /** Glides there, rather than being there at once. */
+  glide = false
 ) => {
   const x1 = Math.min(...boxes.map((b) => b.x));
   const y1 = Math.min(...boxes.map((b) => b.y));
@@ -869,16 +939,20 @@ const fitTo = (
       )
     )
   );
+  const view = {
+    x: viewport.x + (viewport.width - (x2 - x1) * zoom) / 2 - x1 * zoom,
+    y: (viewport.height - (y2 - y1) * zoom) / 2 - y1 * zoom,
+    zoom,
+  };
+  if (glide) {
+    flyTo(set, view, viewport);
+    return;
+  }
   // A fit takes the whole view: a pan or zoom still waiting for the next frame (a trackpad's
   // inertia) would otherwise land on top of it.
   cancelPendingView();
-  set({
-    view: {
-      x: viewport.x + (viewport.width - (x2 - x1) * zoom) / 2 - x1 * zoom,
-      y: (viewport.height - (y2 - y1) * zoom) / 2 - y1 * zoom,
-      zoom,
-    },
-  });
+  land();
+  set({ view });
 };
 
 /**
