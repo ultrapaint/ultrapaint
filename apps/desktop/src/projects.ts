@@ -51,8 +51,14 @@ export const byLastOpened = (projects: readonly Project[]): Project[] =>
 export class ProjectStore extends Context.Service<
   ProjectStore,
   {
-    /** Adds a folder, or finds it when it is in the list already. */
-    readonly add: (folder: string) => Effect.Effect<Project, StoreError>;
+    /**
+     * Adds a folder, under `name` or the folder's own, or finds it when it is in the list
+     * already.
+     */
+    readonly add: (
+      folder: string,
+      name?: string
+    ) => Effect.Effect<Project, StoreError>;
     readonly get: (
       id: string
     ) => Effect.Effect<Project, StoreError | UnknownProject>;
@@ -105,7 +111,10 @@ export class ProjectStore extends Context.Service<
           return found ?? (yield* new UnknownProject({ id }));
         });
 
-        const add = Effect.fn("ProjectStore.add")(function* (folder: string) {
+        const add = Effect.fn("ProjectStore.add")(function* (
+          folder: string,
+          name?: string
+        ) {
           const absolute = path.resolve(folder);
           const projects = yield* read;
           const known = projects.find((p) => p.path === absolute);
@@ -116,7 +125,7 @@ export class ProjectStore extends Context.Service<
           const project: Project = {
             id,
             kind: "local",
-            name: path.basename(absolute) || absolute,
+            name: name?.trim() || path.basename(absolute) || absolute,
             path: absolute,
           };
           yield* write([...projects, project]);

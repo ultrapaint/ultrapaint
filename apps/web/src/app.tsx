@@ -44,6 +44,7 @@ import { ContextMenuHost } from "./components/context-menu-host.tsx";
 import { DialogHost } from "./components/dialogs.tsx";
 import { GitUserButton } from "./components/git-user.tsx";
 import { IconButton } from "./components/icon-button.tsx";
+import { NewDesignDialog } from "./components/new-design-dialog.tsx";
 import {
   hasProjectSwitcher,
   ProjectSwitcher,
@@ -697,6 +698,7 @@ export const App = () => {
         )}
         <SaveConfigDialog />
         <SetupDialog />
+        <NewDesignDialog />
         <DialogHost />
         <ShortcutSheet />
         <ContextMenuHost />

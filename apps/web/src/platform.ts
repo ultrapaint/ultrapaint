@@ -99,6 +99,55 @@ export interface AgentSetup {
   readonly signIn: (id: string) => Promise<void>;
 }
 
+/** A design from nothing (PLAN-desktop D11), as the dialog asks for it. */
+export interface NewDesignInput {
+  /** Where the application's code goes: `app/` beside the designs, or the folder's root. */
+  readonly code: "app" | "root";
+  /** Absolute; made when it is not there, and empty otherwise. */
+  readonly folder: string;
+  /** A first commit, and the git integration on; off, nothing is written to git. */
+  readonly git: boolean;
+  readonly name: string;
+  /** `blank`: no components; `starter`: ten to design with. */
+  readonly template: "blank" | "starter";
+}
+
+/** The steps of writing a new design, in order; `open` is the shell's, once it is written. */
+export type NewDesignStep = "folder" | "write" | "install" | "git" | "open";
+
+/** How a step goes, as the shell reports it. */
+export interface NewDesignProgress {
+  /** What it did, or why it failed. */
+  readonly detail?: string;
+  readonly state: "active" | "done" | "skipped" | "failed";
+  readonly step: NewDesignStep;
+}
+
+/** Writing a new design and opening it, which the shell does without a server (the desktop app). */
+export interface NewDesigns {
+  /**
+   * Writes it, telling `onProgress` how each step goes, then opens it in place of the open
+   * project, which the shell stops (asking first when an agent is working). Resolves with the
+   * step that failed, when one does: what the steps before it did stays.
+   */
+  readonly create: (
+    input: NewDesignInput,
+    onProgress: (progress: NewDesignProgress) => void
+  ) => Promise<{
+    readonly failed?: {
+      readonly message: string;
+      readonly step: NewDesignStep;
+    };
+  }>;
+  /**
+   * Where a design of that name goes unless another folder is picked: a folder of that name
+   * in `~/Ultrapaint`, numbered when one is there already.
+   */
+  readonly folderFor: (name: string) => Promise<string>;
+  /** Opens a design whose writing stopped part of the way, as it is. */
+  readonly open: (folder: string, name: string) => Promise<void>;
+}
+
 export interface Platform {
   /** The agents on this machine; absent in a browser, where the server's own are all there is. */
   readonly agents?: AgentSetup;
@@ -109,6 +158,8 @@ export interface Platform {
    * the URL is used as it is.
    */
   readonly mapPreviewUrl?: (url: string) => string;
+  /** New designs from nothing; absent in a browser, where the server's folder is the project. */
+  readonly newDesign?: NewDesigns;
   /** What the shell found missing on this machine; absent in a browser. */
   readonly notices?: () => Promise<readonly ShellNotice[]>;
   /** A native folder picker; absent in a browser, where a path is typed. Null when cancelled. */

@@ -183,6 +183,26 @@ describe("a new design", () => {
   );
 
   it.effect(
+    "makes the first commit in a repository with none, as an earlier run whose commit failed left it",
+    () =>
+      Effect.gen(function* () {
+        const folder = yield* tempDir;
+        yield* runCommand("git", ["init", "--quiet"], { cwd: folder });
+        const { result, steps } = yield* create({ folder, git: true });
+        assert.isTrue(result._tag === "Success");
+        assert.strictEqual(ends(steps).at(-1), "git:done");
+        const log = yield* runCommand("git", ["log", "--format=%s"], {
+          cwd: folder,
+        });
+        assert.strictEqual(log.stdout.trim(), "Start Acme");
+        // A repository with commits is left as it is.
+        const again = yield* create({ folder, git: true });
+        assert.strictEqual(ends(again.steps).at(-1), "git:skipped");
+      }).pipe(Effect.scoped, Effect.provide(Live)),
+    30_000
+  );
+
+  it.effect(
     "stops at an install that fails, saying why, and a second run finishes it",
     () =>
       Effect.gen(function* () {

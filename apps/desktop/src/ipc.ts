@@ -9,6 +9,11 @@ export const Channel = {
   agentsList: "ultrapaint:agents-list",
   agentsSetApiKey: "ultrapaint:agents-set-api-key",
   agentsSignIn: "ultrapaint:agents-sign-in",
+  newDesignCreate: "ultrapaint:new-design-create",
+  newDesignFolder: "ultrapaint:new-design-folder",
+  newDesignOpen: "ultrapaint:new-design-open",
+  /** From the main process: how a step of the new design goes. */
+  newDesignProgress: "ultrapaint:new-design-progress",
   notices: "ultrapaint:notices",
   pickFolder: "ultrapaint:pick-folder",
   projectsAdd: "ultrapaint:projects-add",
@@ -69,4 +74,31 @@ export interface AgentStatus {
   /** `ready`: found and signed in. */
   readonly state: "ready" | "signed-out" | "missing";
   readonly version?: string;
+}
+
+/** A design from nothing, as the dialog asks for it (`NewDesignInput` in the editor). */
+export interface NewDesignRequest {
+  readonly code: "app" | "root";
+  readonly folder: string;
+  readonly git: boolean;
+  readonly name: string;
+  readonly template: "blank" | "starter";
+}
+
+/** The steps of a new design: the server's, then the app's own `open`. */
+export type NewDesignStepId = "folder" | "write" | "install" | "git" | "open";
+
+/** How a step goes (`NewDesignProgress` in the editor). */
+export interface NewDesignUpdate {
+  readonly detail?: string;
+  readonly state: "active" | "done" | "skipped" | "failed";
+  readonly step: NewDesignStepId;
+}
+
+/** How it ended: the step that failed, when one did. */
+export interface NewDesignOutcome {
+  readonly failed?: {
+    readonly message: string;
+    readonly step: NewDesignStepId;
+  };
 }

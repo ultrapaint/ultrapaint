@@ -26,7 +26,7 @@ import { Context, Effect, FileSystem, Layer, Path, Schema } from "effect";
 import { ChildProcessSpawner } from "effect/process";
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { makeExists } from "../fs-exists.ts";
-import { git } from "./git.ts";
+import { git, runGit } from "./git.ts";
 import { configText, toConfig } from "./project-config.ts";
 import { SetupService } from "./setup.ts";
 
@@ -204,9 +204,22 @@ export class NewDesignService extends Context.Service<
             "git",
             Effect.gen(function* () {
               if (yield* exists(path.join(folder, ".git"))) {
-                return { detail: "A repository already.", skipped: true };
+                // Made by an earlier run whose commit failed (git knew no one), or by the user.
+                const head = yield* runGit(folder, [
+                  "rev-parse",
+                  "--verify",
+                  "--quiet",
+                  "HEAD",
+                ]);
+                if (head.exitCode === 0) {
+                  return {
+                    detail: "A repository already, with commits.",
+                    skipped: true,
+                  };
+                }
+              } else {
+                yield* git(folder, ["init", "--quiet"]);
               }
-              yield* git(folder, ["init", "--quiet"]);
               yield* git(folder, ["add", "--all"]);
               yield* git(folder, [
                 "commit",

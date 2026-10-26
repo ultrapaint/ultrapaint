@@ -63,6 +63,9 @@ importers:
       '@ultrapaint/acp':
         specifier: workspace:*
         version: link:../../packages/acp
+      '@ultrapaint/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@types/node':
         specifier: ^24.0.0
         version: 24.13.5

@@ -19,7 +19,17 @@ const allowedHosts = [
 ];
 
 export default defineConfig({
-  build: { outDir: "dist", sourcemap: true },
+  build: {
+    outDir: "dist",
+    rolldownOptions: {
+      // The editor, and the desktop app's page for when no project is open.
+      input: {
+        index: fileURLToPath(new URL("./index.html", import.meta.url)),
+        welcome: fileURLToPath(new URL("./welcome.html", import.meta.url)),
+      },
+    },
+    sourcemap: true,
+  },
   plugins: [
     react(),
     babel({ presets: [reactCompilerPreset()] }),

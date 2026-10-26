@@ -6,6 +6,7 @@
  * connects them to Electron.
  */
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { NodeServices } from "@effect/platform-node";
 import { Effect, Layer, ManagedRuntime, Option, Schema } from "effect";
 import {
@@ -14,6 +15,8 @@ import {
   dialog,
   type IpcMainInvokeEvent,
   ipcMain,
+  net,
+  protocol,
   safeStorage,
   shell,
 } from "electron";
@@ -21,8 +24,14 @@ import { AgentDownloads } from "./agent-downloads.ts";
 import { releaseFor } from "./agent-releases.ts";
 import { AgentSettings } from "./agent-settings.ts";
 import { AGENTS, type AgentId, Agents, isAgentId } from "./agents.ts";
-import { Channel, type ListedProject, type PickFolderOptions } from "./ipc.ts";
+import {
+  Channel,
+  type ListedProject,
+  type NewDesignUpdate,
+  type PickFolderOptions,
+} from "./ipc.ts";
 import { LoginShell } from "./login-shell.ts";
+import { NewDesignRequest, NewDesigns } from "./new-design.ts";
 import { Notices } from "./notices.ts";
 import { OpenProject } from "./open-project.ts";
 import { ProjectServer } from "./project-server.ts";
@@ -50,6 +59,31 @@ const serverArgs = devServer
 
 let window: BrowserWindow | null = null;
 
+/**
+ * The editor's build, served to the window under the app's own scheme for the pages that have no
+ * server behind them: the welcome page. Its absolute paths (`/assets/…`) resolve as they do
+ * when a server serves it.
+ */
+const APP_SCHEME = "ultrapaint";
+const webDir = path.join(appDir, "web");
+protocol.registerSchemesAsPrivileged([
+  {
+    privileges: { secure: true, standard: true, supportFetchAPI: true },
+    scheme: APP_SCHEME,
+  },
+]);
+
+/** A file of the editor's build, and nothing outside it. */
+const serveWeb = (request: Request) => {
+  const file = path.join(
+    webDir,
+    decodeURIComponent(new URL(request.url).pathname)
+  );
+  return file.startsWith(webDir + path.sep)
+    ? net.fetch(pathToFileURL(file).href)
+    : new Response(null, { status: 404 });
+};
+
 const showView = (view: View) =>
   Effect.promise(async () => {
     if (!window) {
@@ -67,10 +101,11 @@ const showView = (view: View) =>
       await window.loadURL(next.href);
       return;
     }
-    await window.loadFile(
-      path.join(appDir, "welcome.html"),
-      view.problem ? { query: { problem: view.problem } } : {}
-    );
+    const welcome = new URL(`${APP_SCHEME}://app/welcome.html`);
+    if (view.problem) {
+      welcome.searchParams.set("problem", view.problem);
+    }
+    await window.loadURL(welcome.href);
   }).pipe(
     // A page that did not finish loading (the user switched again meanwhile) is not an error.
     Effect.catchDefect(() => Effect.void)
@@ -146,8 +181,19 @@ const ElectronSecrets = Layer.sync(Secrets, () =>
   })
 );
 
+const serverLaunch = {
+  args: serverArgs,
+  command: process.execPath,
+  webDist: webDir,
+};
+
 const runtime = ManagedRuntime.make(
-  Layer.mergeAll(OpenProject.layer(dataDir), Notices.layer).pipe(
+  Layer.mergeAll(
+    NewDesigns.layer({ home: app.getPath("home"), launch: serverLaunch }).pipe(
+      Layer.provideMerge(OpenProject.layer(dataDir))
+    ),
+    Notices.layer
+  ).pipe(
     Layer.provideMerge(ProjectStore.layer(dataDir)),
     Layer.provideMerge(
       Agents.layer({
@@ -165,13 +211,7 @@ const runtime = ManagedRuntime.make(
     Layer.provideMerge(ElectronSecrets),
     // Read once, as the app starts.
     Layer.provideMerge(LoginShell.layer),
-    Layer.provideMerge(
-      ProjectServer.layer({
-        args: serverArgs,
-        command: process.execPath,
-        webDist: path.join(appDir, "web"),
-      })
-    ),
+    Layer.provideMerge(ProjectServer.layer(serverLaunch)),
     Layer.provideMerge(ElectronShell),
     Layer.provideMerge(NodeServices.layer)
   )
@@ -308,6 +348,33 @@ handle(Channel.projectsAdd, () =>
   runtime.runPromise(Effect.asVoid(OpenProject.use((o) => o.add)))
 );
 
+const decodeNewDesign = Schema.decodeUnknownEffect(NewDesignRequest);
+
+handle(Channel.newDesignFolder, (name) =>
+  runtime.runPromise(NewDesigns.use((n) => n.folderFor(String(name ?? ""))))
+);
+
+/** Writes a new design, its steps sent to the window as they go, then opens it. */
+handle(Channel.newDesignCreate, (request) =>
+  runtime.runPromise(
+    Effect.flatMap(decodeNewDesign(request), (decoded) =>
+      NewDesigns.use((n) =>
+        n.create(decoded, (update: NewDesignUpdate) =>
+          Effect.sync(() =>
+            window?.webContents.send(Channel.newDesignProgress, update)
+          )
+        )
+      )
+    )
+  )
+);
+
+handle(Channel.newDesignOpen, (folder, name) =>
+  runtime.runPromise(
+    NewDesigns.use((n) => n.open(String(folder), String(name)))
+  )
+);
+
 /** A folder named on the command line, after the app's own path in development. */
 const folderArgument = (argv: readonly string[]) =>
   argv.slice(app.isPackaged ? 1 : 2).find((arg) => !arg.startsWith("-"));
@@ -350,6 +417,7 @@ const makeWindow = () => {
 
 const start = async () => {
   await app.whenReady();
+  protocol.handle(APP_SCHEME, serveWeb);
   window = makeWindow();
   const folder = folderArgument(process.argv);
   await runtime.runPromise(

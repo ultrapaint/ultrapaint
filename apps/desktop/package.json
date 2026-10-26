@@ -16,6 +16,7 @@
     "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",
     "@ultrapaint/acp": "workspace:*",
+    "@ultrapaint/contracts": "workspace:*",
     "@types/node": "^24.0.0",
     "effect": "catalog:",
     "electron": "44.4.5",

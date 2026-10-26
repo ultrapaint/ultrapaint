@@ -54,20 +54,6 @@ export const buildShell = async () => {
     platform: "node",
     target: "node24",
   });
-  // The page the window shows while no project is open.
-  await build({
-    bundle: true,
-    entryPoints: [path.join(desktopDir, "src", "welcome.ts")],
-    format: "iife",
-    logLevel: "warning",
-    outfile: path.join(appDir, "welcome.js"),
-    platform: "browser",
-    target: "chrome140",
-  });
-  cpSync(
-    path.join(desktopDir, "src", "welcome.html"),
-    path.join(appDir, "welcome.html")
-  );
 };
 
 /** The app's own package.json: what Electron reads to start it, and what is installed with it. */
@@ -175,5 +161,10 @@ export const buildAdapters = async () => {
   });
 };
 
-/** Whether the editor was built into the app already. */
-export const hasWeb = () => existsSync(path.join(appDir, "web", "index.html"));
+/**
+ * Whether the editor was built into the app already, with the welcome page the window shows
+ * while no project is open (`apps/web/welcome.html`).
+ */
+export const hasWeb = () =>
+  existsSync(path.join(appDir, "web", "index.html")) &&
+  existsSync(path.join(appDir, "web", "welcome.html"));

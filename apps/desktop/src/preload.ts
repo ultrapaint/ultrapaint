@@ -8,6 +8,9 @@ import {
   type AgentStatus,
   Channel,
   type ListedProject,
+  type NewDesignOutcome,
+  type NewDesignRequest,
+  type NewDesignUpdate,
   type PickFolderOptions,
   type ShellNotice,
 } from "./ipc.ts";
@@ -26,6 +29,26 @@ contextBridge.exposeInMainWorld("ultrapaintPlatform", {
       ipcRenderer.invoke(Channel.agentsSetApiKey, id, key),
     signIn: (id: string): Promise<void> =>
       ipcRenderer.invoke(Channel.agentsSignIn, id),
+  },
+  newDesign: {
+    /** The steps come as events while the request runs; the listener goes with it. */
+    create: async (
+      request: NewDesignRequest,
+      onProgress: (update: NewDesignUpdate) => void
+    ): Promise<NewDesignOutcome> => {
+      const listener = (_event: unknown, update: NewDesignUpdate) =>
+        onProgress(update);
+      ipcRenderer.on(Channel.newDesignProgress, listener);
+      try {
+        return await ipcRenderer.invoke(Channel.newDesignCreate, request);
+      } finally {
+        ipcRenderer.off(Channel.newDesignProgress, listener);
+      }
+    },
+    folderFor: (name: string): Promise<string> =>
+      ipcRenderer.invoke(Channel.newDesignFolder, name),
+    open: (folder: string, name: string): Promise<NewDesignOutcome> =>
+      ipcRenderer.invoke(Channel.newDesignOpen, folder, name),
   },
   notices: (): Promise<readonly ShellNotice[]> =>
     ipcRenderer.invoke(Channel.notices),

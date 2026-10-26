@@ -1,0 +1,21 @@
+<!doctype html>
+<!--
+  The desktop app's page when no project is open: its first start, or a project that could not
+  start (PLAN-desktop, ADR 0031). It asks for a new design, a folder or another project of the
+  list, through the Platform the app's preload script sets; it talks to no server.
+-->
+<html class="dark" lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:"
+      http-equiv="Content-Security-Policy"
+    >
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <title>Ultrapaint</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="/src/welcome.tsx" type="module"></script>
+  </body>
+</html>

@@ -5,10 +5,13 @@ import {
   type ProjectSwitcher as Switcher,
 } from "../platform.ts";
 import { reportError } from "../state/project.ts";
+import { canMakeNewDesigns, openNewDesign } from "./new-design-dialog.tsx";
 import { OptionSelect } from "./option-select.tsx";
 
 /** The option that asks the shell for another project rather than naming one. */
 const ADD = "\u0000add";
+/** The option that opens the New design dialog. */
+const NEW = "\u0000new";
 
 /**
  * The shell's projects, one of them open, in the header's place for the project's name. Only a
@@ -27,6 +30,10 @@ const SwitcherSelect = ({ switcher }: { switcher: Switcher }) => {
       .catch(reportError);
   }, [switcher]);
   const choose = (id: string) => {
+    if (id === NEW) {
+      openNewDesign();
+      return;
+    }
     const next = id === ADD ? switcher.add?.() : switcher.open(id);
     next?.catch(reportError);
   };
@@ -40,6 +47,7 @@ const SwitcherSelect = ({ switcher }: { switcher: Switcher }) => {
           label: p.name,
           value: p.id,
         })),
+        ...(canMakeNewDesigns() ? [{ label: "New design…", value: NEW }] : []),
         ...(switcher.add ? [{ label: "Add a project…", value: ADD }] : []),
       ]}
       placeholder="Choose a project"

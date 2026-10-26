@@ -64,10 +64,18 @@ export class OpenProject extends Context.Service<
     >;
     /** The project open now. */
     readonly current: Effect.Effect<Option.Option<Project>>;
-    /** Adds a folder named on the command line, when it is not in the list yet, and opens it. */
+    /**
+     * Adds a folder (named on the command line, or a new design) when it is not in the list yet,
+     * under `name` or the folder's own, and opens it. Whether it is open: the user may rather
+     * let an agent at work in the open project finish, and the folder then waits in the list.
+     */
     readonly openFolder: (
-      folder: string
-    ) => Effect.Effect<Project, StoreError | ServerStartError>;
+      folder: string,
+      name?: string
+    ) => Effect.Effect<
+      { readonly opened: boolean; readonly project: Project },
+      StoreError | ServerStartError
+    >;
     /**
      * Opens a project in place of the one open; nothing changes when the user would rather let
      * an agent at work in the open one finish.
@@ -174,21 +182,24 @@ export class OpenProject extends Context.Service<
             )
           );
 
+        /** Opens a project in place of the open one; false when the user kept that one. */
         const openProject = (project: Project) =>
           switching.withPermits(1)(
             Effect.flatMap(release("switch", true), (released) =>
-              released ? showFailure(launch(project)) : Effect.void
+              released
+                ? Effect.as(showFailure(launch(project)), true)
+                : Effect.succeed(false)
             )
           );
 
         const openFolder = Effect.fn("OpenProject.openFolder")(function* (
-          folder: string
+          folder: string,
+          name?: string
         ) {
-          const project = yield* store.add(folder);
-          if (open?.project.id !== project.id) {
-            yield* openProject(project);
-          }
-          return project;
+          const project = yield* store.add(folder, name);
+          const opened =
+            open?.project.id === project.id || (yield* openProject(project));
+          return { opened, project };
         });
 
         return OpenProject.of({
@@ -196,12 +207,14 @@ export class OpenProject extends Context.Service<
             const folder = yield* shell.pickFolder("Add a project folder");
             return Option.isNone(folder)
               ? Option.none()
-              : Option.some(yield* openFolder(folder.value));
+              : Option.some((yield* openFolder(folder.value)).project);
           }),
           current: Effect.sync(() => Option.fromNullishOr(open?.project)),
           open: (id) =>
             Effect.flatMap(store.get(id), (project) =>
-              open?.project.id === id ? Effect.void : openProject(project)
+              open?.project.id === id
+                ? Effect.void
+                : Effect.asVoid(openProject(project))
             ),
           openFolder,
           restart: switching.withPermits(1)(
