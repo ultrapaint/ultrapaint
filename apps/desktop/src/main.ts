@@ -13,6 +13,7 @@ import {
   app,
   BrowserWindow,
   dialog,
+  type IpcMainEvent,
   type IpcMainInvokeEvent,
   ipcMain,
   net,
@@ -27,8 +28,10 @@ import { AGENTS, type AgentId, Agents, isAgentId } from "./agents.ts";
 import {
   Channel,
   type ListedProject,
+  type MappedUrl,
   type NewDesignUpdate,
   type PickFolderOptions,
+  type ShellInfo,
 } from "./ipc.ts";
 import { LoginShell } from "./login-shell.ts";
 import { NewDesignRequest, NewDesigns } from "./new-design.ts";
@@ -231,6 +234,48 @@ const runtime = ManagedRuntime.make(
     Layer.provideMerge(NodeServices.layer)
   )
 );
+
+/** Whether a message comes from the app's own window. */
+const fromWindow = (event: IpcMainEvent) =>
+  window !== null && event.sender === window.webContents;
+
+/**
+ * What the preload script asks before the page loads, and the preview's URL as the editor
+ * renders it: both synchronous for the page, which waits while a port is forwarded.
+ */
+ipcMain.on(Channel.shellInfo, (event) => {
+  const info: ShellInfo = { remote: false };
+  if (!fromWindow(event)) {
+    event.returnValue = info;
+    return;
+  }
+  runtime
+    .runPromise(OpenProject.use((o) => o.current))
+    .then((current) => {
+      event.returnValue = {
+        remote: Option.isSome(current) && current.value.kind === "ssh",
+      } satisfies ShellInfo;
+    })
+    .catch(() => {
+      event.returnValue = info;
+    });
+});
+
+ipcMain.on(Channel.previewUrl, (event, url: unknown) => {
+  const asItIs: MappedUrl = { forwarded: false, url: String(url) };
+  if (!fromWindow(event)) {
+    event.returnValue = asItIs;
+    return;
+  }
+  runtime
+    .runPromise(OpenProject.use((o) => o.mapPreviewUrl(String(url))))
+    .then((mapped) => {
+      event.returnValue = mapped;
+    })
+    .catch(() => {
+      event.returnValue = asItIs;
+    });
+});
 
 /** Only the app's own window may call the main process. */
 const handle = <A>(

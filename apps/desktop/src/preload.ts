@@ -8,29 +8,56 @@ import {
   type AgentStatus,
   Channel,
   type ListedProject,
+  type MappedUrl,
   type NewDesignOutcome,
   type NewDesignRequest,
   type NewDesignUpdate,
   type PickFolderOptions,
   type RemoteProjectRequest,
+  type ShellInfo,
   type ShellNotice,
 } from "./ipc.ts";
 
+const info = ipcRenderer.sendSync(Channel.shellInfo) as ShellInfo;
+
+/** The preview's URLs as forwarded, kept: the editor asks on every change of its state. */
+const forwarded = new Map<string, string>();
+
+/**
+ * The preview's URL through the port the app forwards for it, for a project on another machine.
+ * The first time, the page waits while the port is forwarded; a URL the app could not forward
+ * now (the connection is down) is asked again the next time.
+ */
+const mapPreviewUrl = (url: string): string => {
+  const known = forwarded.get(url);
+  if (known !== undefined) {
+    return known;
+  }
+  const mapped = ipcRenderer.sendSync(Channel.previewUrl, url) as MappedUrl;
+  if (mapped.forwarded) {
+    forwarded.set(url, mapped.url);
+  }
+  return mapped.url;
+};
+
+const agents = {
+  choosePath: (id: string): Promise<void> =>
+    ipcRenderer.invoke(Channel.agentsChoosePath, id),
+  clearPath: (id: string): Promise<void> =>
+    ipcRenderer.invoke(Channel.agentsClearPath, id),
+  download: (id: string): Promise<void> =>
+    ipcRenderer.invoke(Channel.agentsDownload, id),
+  list: (): Promise<readonly AgentStatus[]> =>
+    ipcRenderer.invoke(Channel.agentsList),
+  setApiKey: (id: string, key: string | null): Promise<void> =>
+    ipcRenderer.invoke(Channel.agentsSetApiKey, id, key),
+  signIn: (id: string): Promise<void> =>
+    ipcRenderer.invoke(Channel.agentsSignIn, id),
+};
+
 contextBridge.exposeInMainWorld("ultrapaintPlatform", {
-  agents: {
-    choosePath: (id: string): Promise<void> =>
-      ipcRenderer.invoke(Channel.agentsChoosePath, id),
-    clearPath: (id: string): Promise<void> =>
-      ipcRenderer.invoke(Channel.agentsClearPath, id),
-    download: (id: string): Promise<void> =>
-      ipcRenderer.invoke(Channel.agentsDownload, id),
-    list: (): Promise<readonly AgentStatus[]> =>
-      ipcRenderer.invoke(Channel.agentsList),
-    setApiKey: (id: string, key: string | null): Promise<void> =>
-      ipcRenderer.invoke(Channel.agentsSetApiKey, id, key),
-    signIn: (id: string): Promise<void> =>
-      ipcRenderer.invoke(Channel.agentsSignIn, id),
-  },
+  // This machine's agents are no matter to a server on another one, which has its own.
+  ...(info.remote ? { mapPreviewUrl } : { agents }),
   newDesign: {
     /** The steps come as events while the request runs; the listener goes with it. */
     create: async (

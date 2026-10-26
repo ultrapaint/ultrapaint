@@ -4,6 +4,7 @@ import { assert, describe, it } from "@effect/vitest";
 import { Effect, Exit, FileSystem, Layer, Schedule, Scope } from "effect";
 import { LoginShell } from "./login-shell.ts";
 import type { SshProject } from "./projects.ts";
+import { RemoteProjects } from "./remote-project.ts";
 import { RemoteServers } from "./ssh-server.ts";
 import { SSHD, startSshd } from "./testing-sshd.ts";
 
@@ -32,7 +33,11 @@ const withSshd = <A, E>(
   body: (dirs: {
     readonly root: string;
     readonly sessions: string;
-  }) => Effect.Effect<A, E, RemoteServers | FileSystem.FileSystem>
+  }) => Effect.Effect<
+    A,
+    E,
+    RemoteServers | RemoteProjects | FileSystem.FileSystem
+  >
 ) =>
   Effect.gen(function* () {
     const sshd = yield* startSshd;
@@ -41,11 +46,14 @@ const withSshd = <A, E>(
     const sessions = path.join(root, "sessions");
     return yield* body({ root, sessions }).pipe(
       Effect.provide(
-        RemoteServers.layer({
-          configFile: sshd.configFile,
-          sessionsDir: sessions,
-          ssh: "ssh",
-        }).pipe(
+        RemoteProjects.layer.pipe(
+          Layer.provideMerge(
+            RemoteServers.layer({
+              configFile: sshd.configFile,
+              sessionsDir: sessions,
+              ssh: "ssh",
+            })
+          ),
           Layer.provide(LoginShell.layerTest({ PATH: process.env.PATH ?? "" }))
         )
       )
@@ -167,6 +175,47 @@ describe.skipIf(SSHD === undefined)(
               "unreachable could not be reached"
             );
             assert.isTrue(unreachable.retryable);
+          })
+        ),
+      30_000
+    );
+
+    it.live(
+      "forwards the preview when the editor asks for it, at its path and query",
+      () =>
+        withSshd(({ root }) =>
+          Effect.gen(function* () {
+            const projects = yield* RemoteProjects;
+            const scope = yield* Scope.make();
+            const running = yield* projects
+              .start(project({ path: root }))
+              .pipe(Scope.provide(scope));
+            const { preview } = yield* Effect.promise(() =>
+              fetch(`${running.url}/api/health`).then(
+                (response) => response.json() as Promise<{ preview: string }>
+              )
+            );
+            const map =
+              running.mapPreviewUrl ??
+              (() => Effect.die("no mapping for a remote server"));
+            const mapped = yield* map(`${preview}/pages/home?frame=a`);
+            assert.isTrue(mapped.forwarded);
+            assert.notStrictEqual(
+              new URL(mapped.url).port,
+              new URL(preview).port
+            );
+            assert.strictEqual(new URL(mapped.url).search, "?frame=a");
+            const body = yield* Effect.promise(() =>
+              fetch(mapped.url).then((response) => response.text())
+            );
+            assert.strictEqual(body, "the preview");
+            // Asked again, the same forward.
+            const again = yield* map(preview);
+            assert.strictEqual(
+              new URL(again.url).port,
+              new URL(mapped.url).port
+            );
+            yield* Scope.close(scope, Exit.void);
           })
         ),
       30_000
