@@ -14,7 +14,7 @@
 import { removeBridge } from "./bridge.ts";
 
 /** How many previews stay loaded while their frames are off the canvas. */
-export const PARKED_MAX = 12;
+export const PARKED_MAX = 16;
 
 /** How many new previews load at once. */
 export const LOADING_MAX = 3;
