@@ -1,6 +1,8 @@
 import { createRoot } from "react-dom/client";
 import { App } from "./app.tsx";
 import { bridgeFor } from "./canvas/bridge.ts";
+import { openCanvas } from "./lib/canvas-actions.ts";
+import { zoomToPage } from "./lib/page-actions.ts";
 import { BillingPage } from "./pages/billing.tsx";
 import { PricingPage } from "./pages/pricing.tsx";
 import { useAgents } from "./state/agents.ts";
@@ -15,11 +17,14 @@ if (import.meta.env.DEV) {
   (window as unknown as { __ed: unknown }).__ed = {
     api,
     bridgeFor,
+    // What `pnpm bench:canvas` drives the canvas with.
+    openCanvas,
     useAgents,
     useAttachments,
     useDocuments,
     useEditor,
     useProject,
+    zoomToPage,
   };
 }
 

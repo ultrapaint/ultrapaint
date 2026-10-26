@@ -7,6 +7,7 @@
     "ultrapaint": "./scripts/cli.ts"
   },
   "scripts": {
+    "bench:canvas": "node --experimental-strip-types scripts/bench-canvas.ts",
     "build": "pnpm -r build",
     "desktop:build": "pnpm -F @ultrapaint/desktop dist",
     "desktop:dev": "pnpm -F @ultrapaint/desktop dev",
@@ -29,6 +30,7 @@
     "@types/node": "^24.0.0",
     "effect": "catalog:",
     "esbuild": "^0.28.2",
+    "playwright-core": "^1.64.1",
     "typescript": "7.0.2",
     "ultracite": "7.12.0"
   },
