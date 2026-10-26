@@ -4,6 +4,10 @@ import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
 import { Effect, FileSystem } from "effect";
 import { makeTestServer, TestEnv } from "./testing/harness.ts";
 
+// A machine where git knows no one: whatever this one's global configuration says is not read.
+process.env.GIT_CONFIG_GLOBAL = "/dev/null";
+process.env.GIT_CONFIG_NOSYSTEM = "1";
+
 /** A plain folder, never `git init`ed, with its settings and state in a home directory. */
 const PlainFolder = makeTestServer(
   ({ home }) => Effect.succeed({ home, mode: "managed" }),
@@ -66,6 +70,78 @@ layer(PlainFolder, { excludeTestServices: true, timeout: "60 seconds" })(
         );
         assert.isFalse(yield* fs.exists(path.join(repo, ".git")));
       })
+    );
+
+    it.effect(
+      "signs comments with the profile's display name when git has none",
+      () =>
+        Effect.gen(function* () {
+          const { client, settings } = yield* TestEnv;
+          yield* client["settings.set"](settings);
+          const unsigned = yield* client["comments.create"]({
+            canvas: "",
+            element: null,
+            nodeId: null,
+            page: "home.page.json",
+            text: "Before a name",
+            x: 0,
+            y: 0,
+          });
+          assert.isNull(unsigned.author);
+
+          const saved = yield* client["profile.set"]({
+            displayName: "  Ada Lovelace ",
+          });
+          assert.deepStrictEqual(saved, { displayName: "Ada Lovelace" });
+          assert.deepStrictEqual(yield* client["profile.get"](), saved);
+          assert.strictEqual(
+            (yield* client["project.info"]()).displayName,
+            "Ada Lovelace"
+          );
+          const signed = yield* client["comments.create"]({
+            canvas: "",
+            element: null,
+            nodeId: null,
+            page: "home.page.json",
+            text: "After",
+            x: 0,
+            y: 0,
+          });
+          assert.strictEqual(signed.author, "Ada Lovelace");
+        })
+    );
+
+    it.effect(
+      "makes the folder a repository only once writing to git is on",
+      () =>
+        Effect.gen(function* () {
+          const { client, repo, settings } = yield* TestEnv;
+          const fs = yield* FileSystem.FileSystem;
+          yield* client["settings.set"](settings);
+          const refused = yield* Effect.flip(client["git.init"]());
+          assert.strictEqual(refused._tag, "BadRequest");
+          const commit = yield* Effect.flip(
+            client["git.commit"]({ message: "m", paths: ["designs"] })
+          );
+          assert.strictEqual(commit._tag, "BadRequest");
+          assert.isFalse(yield* fs.exists(path.join(repo, ".git")));
+
+          assert.isTrue(
+            (yield* client["settings.set"]({ ...settings, git: "on" })).ok
+          );
+          yield* client["git.init"]();
+          assert.isTrue(yield* fs.exists(path.join(repo, ".git")));
+          const info = yield* client["project.info"]();
+          assert.isTrue(info.gitRepository);
+          const status = yield* client["git.status"]();
+          assert.include(
+            status.files.map((f) => f.path),
+            "designs/home.page.json"
+          );
+          // Back to a plain folder for the tests after this one.
+          yield* client["settings.set"](settings);
+          yield* fs.remove(path.join(repo, ".git"), { recursive: true });
+        })
     );
 
     it.effect("tells the agent nothing about a .git there is not", () =>

@@ -66,6 +66,7 @@ import {
   PersistResult,
   Settings,
   SettingsValidation,
+  UserProfile,
 } from "./settings.ts";
 import {
   CreateDesignsInput,
@@ -134,6 +135,13 @@ const ThreadError = Schema.Union([
   AgentFailure,
 ]);
 const GitError = Schema.Union([NotConfigured, ForbiddenPath, CommandFailed]);
+/** Writing to git with the project's git setting off is a BadRequest. */
+const GitWriteError = Schema.Union([
+  NotConfigured,
+  ForbiddenPath,
+  CommandFailed,
+  BadRequest,
+]);
 const CheckpointError = Schema.Union([NotConfigured, NotFound, ForbiddenPath]);
 /** A step out of order is a BadRequest; git failing to snapshot or put back is CommandFailed. */
 const SetupError = Schema.Union([
@@ -602,6 +610,13 @@ const requestRpcs = [
     payload: { agentId: Schema.String },
     success: AgentOptions,
   }),
+  /** The user's own profile: the name comments are signed with when git has none. */
+  Rpc.make("profile.get", { success: UserProfile }),
+  Rpc.make("profile.set", {
+    error: BadRequest,
+    payload: UserProfile,
+    success: UserProfile,
+  }),
   Rpc.make("chat.defaults", { success: ChatDefaults }),
   Rpc.make("chat.setDefaults", { payload: ChatDefaults }),
   /** The commands a prompt may start with, `/init`, which the server expands. */
@@ -689,10 +704,12 @@ const requestRpcs = [
     success: GitDiff,
   }),
   Rpc.make("git.commit", {
-    error: GitError,
+    error: GitWriteError,
     payload: GitCommitInput,
     success: GitCommitResult,
   }),
+  /** Makes the project's folder a git repository, when writing to git is on and it is none. */
+  Rpc.make("git.init", { error: GitWriteError }),
   Rpc.make("checkpoints.list", { success: Schema.Array(Checkpoint) }),
   Rpc.make("checkpoints.diff", {
     error: CheckpointError,

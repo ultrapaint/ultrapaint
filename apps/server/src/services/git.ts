@@ -1,10 +1,11 @@
 import type { RestoreEntry } from "@ultrapaint/contracts/design-system-setup";
-import { CommandFailed } from "@ultrapaint/contracts/errors";
+import { BadRequest, CommandFailed } from "@ultrapaint/contracts/errors";
 import type {
   GitDiff,
   GitFileStatus,
   GitStatus,
 } from "@ultrapaint/contracts/git";
+import { writesGit } from "@ultrapaint/contracts/settings";
 import {
   Context,
   Effect,
@@ -121,10 +122,16 @@ export class GitService extends Context.Service<
     readonly changedSince: (
       snapshot: GitSnapshot
     ) => Effect.Effect<string[], CommandFailed>;
+    /** Commits the files; refused unless writing to git is on in the settings. */
     readonly commit: (
       message: string,
       paths: readonly string[]
-    ) => Effect.Effect<string, CommandFailed | ForbiddenPathError>;
+    ) => Effect.Effect<string, BadRequest | CommandFailed | ForbiddenPathError>;
+    /**
+     * Makes the project's folder a repository when it is none; refused unless writing to git is
+     * on in the settings. Nothing else ever runs `git init`.
+     */
+    readonly init: Effect.Effect<void, BadRequest | CommandFailed>;
     readonly diff: (
       rel: string
     ) => Effect.Effect<GitDiff, CommandFailed | ForbiddenPathError>;
@@ -234,10 +241,21 @@ export class GitService extends Context.Service<
         return { diff: untracked.stdout, path: rel };
       });
 
+      /** Writing to git is the user's to allow, per project (PLAN-desktop D9). */
+      const writable = (what: string) =>
+        writesGit(paths.settings)
+          ? Effect.void
+          : Effect.fail(
+              new BadRequest({
+                message: `Writing to git is off for this project: turn it on in Settings to ${what}.`,
+              })
+            );
+
       const commit = Effect.fn("GitService.commit")(function* (
         message: string,
         files: readonly string[]
       ) {
+        yield* writable("commit");
         yield* Effect.forEach(files, paths.resolve, { discard: true });
         // Paths, not pathspecs: `:/` or `*` would commit far more than the files the user picked.
         yield* run(["--literal-pathspecs", "add", "--", ...files]);
@@ -355,6 +373,14 @@ export class GitService extends Context.Service<
         Effect.orElseSucceed(() => false)
       );
 
+      const init = Effect.gen(function* () {
+        yield* writable("make this folder a repository");
+        if (yield* repository) {
+          return;
+        }
+        yield* run(["init", "--quiet"]);
+      }).pipe(Effect.withSpan("GitService.init"));
+
       const listFiles = Effect.map(
         run(["ls-files", "-z", "--cached", "--others", "--exclude-standard"]),
         (out) => [...new Set(out.split("\0").filter(Boolean))]
@@ -370,6 +396,7 @@ export class GitService extends Context.Service<
         deleteRef,
         diff,
         files: listFiles,
+        init,
         repository,
         restoreFrom,
         snapshot,

@@ -23,7 +23,7 @@ export type CommentKind = typeof CommentKind.Type;
  * pin is remembered too, by id and name, which is what an agent can act on.
  */
 export const Comment = Schema.Struct({
-  /** Who wrote it: the repository's git user, when there is one. */
+  /** Who wrote it: git's user name, else the display name of the user's profile. */
   author: Schema.NullOr(Schema.String),
   createdAt: Timestamp,
   /** Name of the node the comment was placed on, as the layers panel shows it. */

@@ -694,7 +694,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
       })
     );
 
-    it.effect("reports git status, diffs and commits design files", () =>
+    it.effect("reports git status and diffs, and commits nothing", () =>
       Effect.gen(function* () {
         const { client } = yield* TestEnv;
         const status = yield* client["git.status"]();
@@ -711,35 +711,11 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         });
         assert.include(untracked.diff, '+  "version": 1');
 
-        const { event, result } = yield* nextEvent(
-          client["events.git"](),
+        // Reading needs nothing; committing waits until writing to git is on.
+        const refused = yield* Effect.flip(
           client["git.commit"]({ message: "designs", paths: changed })
         );
-        assert.match(result.sha, SHA_RE);
-        assert.deepStrictEqual(
-          event._tag === "Some" ? event.value.files : null,
-          []
-        );
-      })
-    );
-
-    it.effect("commits the files it is given, not what a pattern matches", () =>
-      Effect.gen(function* () {
-        const { client, repo } = yield* TestEnv;
-        const fs = yield* FileSystem.FileSystem;
-        yield* fs.writeFileString(path.join(repo, "notes.txt"), "mine\n");
-        for (const spec of [":/", "*", "*.txt"]) {
-          const error = yield* Effect.flip(
-            client["git.commit"]({ message: "everything", paths: [spec] })
-          );
-          assert.strictEqual(error._tag, "CommandFailed", spec);
-        }
-        const status = yield* client["git.status"]();
-        assert.include(
-          status.files.map((f) => f.path),
-          "notes.txt"
-        );
-        yield* fs.remove(path.join(repo, "notes.txt"));
+        assert.strictEqual(refused._tag, "BadRequest");
       })
     );
 
@@ -1795,6 +1771,58 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         const read = yield* call("read_figma_import", { import: "../.." });
         assert.isTrue(read.result.isError);
         assert.include(read.result.content[0]?.text ?? "", "no Figma import");
+      })
+    );
+  }
+);
+
+layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
+  "writing to git",
+  (it) => {
+    it.effect("commits design files once writing to git is on", () =>
+      Effect.gen(function* () {
+        const { client, repo, settings } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        assert.isTrue(
+          (yield* client["settings.set"]({ ...settings, git: "on" })).ok
+        );
+        yield* fs.writeFileString(
+          path.join(repo, "designs/notes.page.json"),
+          '{ "version": 1 }\n'
+        );
+        const changed = (yield* client["git.status"]()).files.map(
+          (f) => f.path
+        );
+        assert.include(changed, "designs/notes.page.json");
+        const { event, result } = yield* nextEvent(
+          client["events.git"](),
+          client["git.commit"]({ message: "designs", paths: changed })
+        );
+        assert.match(result.sha, SHA_RE);
+        assert.deepStrictEqual(
+          event._tag === "Some" ? event.value.files : null,
+          []
+        );
+      })
+    );
+
+    it.effect("commits the files it is given, not what a pattern matches", () =>
+      Effect.gen(function* () {
+        const { client, repo } = yield* TestEnv;
+        const fs = yield* FileSystem.FileSystem;
+        yield* fs.writeFileString(path.join(repo, "notes.txt"), "mine\n");
+        for (const spec of [":/", "*", "*.txt"]) {
+          const error = yield* Effect.flip(
+            client["git.commit"]({ message: "everything", paths: [spec] })
+          );
+          assert.strictEqual(error._tag, "CommandFailed", spec);
+        }
+        const status = yield* client["git.status"]();
+        assert.include(
+          status.files.map((f) => f.path),
+          "notes.txt"
+        );
+        yield* fs.remove(path.join(repo, "notes.txt"));
       })
     );
   }

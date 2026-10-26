@@ -69,7 +69,7 @@ Everything here helps the command too; nothing needs Electron.
       folder falls back to the working directory when there is no git root; the Changes panel no
       longer waits on `git.status` together with checkpoints and snapshots; the briefing mentions
       `.git` only when there is one. A test fixture without `git init`.
-- [ ] 0.2 Writing to git as a setting (`git: off | on`, default off): commit and `git init` only
+- [x] 0.2 Writing to git as a setting (`git: off | on`, default off): commit and `git init` only
       when it is on; status, diff and the branch are read whenever git and a repository are
       there. A display name in settings for comments and the avatar, used when git gives none.
 - [ ] 0.3 Files an agent turn changed, without git: a hash of the files the turn could reach,

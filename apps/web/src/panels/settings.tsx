@@ -4,6 +4,7 @@ import {
   CONFIG_FILE_NAME,
   defaultSettings,
   LEGACY_CONFIG_FILE_NAME,
+  writesGit,
 } from "@ultrapaint/contracts/settings";
 import {
   applySuggestions,
@@ -45,6 +46,7 @@ import {
   SkillsGroup,
 } from "./settings-agents.tsx";
 import { Group, Row } from "./settings-group.tsx";
+import { ProfileGroup } from "./settings-profile.tsx";
 
 const themes = [
   { label: "Light", value: "light" },
@@ -455,6 +457,8 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   };
   const onPagePngs = (on: boolean) =>
     setDraft((d) => ({ ...d, pagePngs: on || undefined }));
+  const onGit = (on: boolean) =>
+    setDraft((d) => ({ ...d, git: on ? "on" : undefined }));
   const onTheme = (v: string) =>
     setDraft((d) => ({ ...d, theme: v as Settings["theme"] }));
   const onSkill = (name: string, enabled: boolean) =>
@@ -542,6 +546,24 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           </div>
         </Row>
       </Group>
+      <Group
+        description="Where the folder is a git repository, the Changes panel shows its status and diffs, and the branch is shown. The tool needs no git."
+        title="Git"
+      >
+        <Row
+          description="Lets the Changes panel commit the files you pick, and make a folder that is no repository one. Off, the tool never writes to git."
+          htmlFor="settings-git"
+          title="Write to git"
+        >
+          <div className="flex justify-end">
+            <Switch
+              checked={writesGit(draft)}
+              id="settings-git"
+              onCheckedChange={onGit}
+            />
+          </div>
+        </Row>
+      </Group>
       <Group title="Detection">
         <Row
           description="Reads the repository and fills in the designs directory, the stylesheets and the component packages it finds. What you typed is replaced."
@@ -614,6 +636,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
 
   const editor = (
     <>
+      <ProfileGroup />
       <Group title="Appearance">
         <Row
           description="The theme the editor and the preview are drawn in."

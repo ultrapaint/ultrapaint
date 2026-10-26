@@ -24,6 +24,7 @@ import { ImplementationService } from "./services/implementation.ts";
 import { McpAccess } from "./services/mcp/access.ts";
 import { MCP_PATH, MCP_TOKEN_HEADER } from "./services/mcp/route.ts";
 import { PagesService } from "./services/pages.ts";
+import { ProfileService } from "./services/profile.ts";
 import { Screenshots } from "./services/screenshots.ts";
 import { SettingsService } from "./services/settings.ts";
 import { SetupService } from "./services/setup.ts";
@@ -62,6 +63,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const commands = yield* SlashCommands;
     const screenshots = yield* Screenshots;
     const dsSetup = yield* DesignSystemSetupService;
+    const profile = yield* ProfileService;
     const sync = yield* DesignSystemSyncService;
     const { host: listenHost, mcp: mcpEnabled, port } = yield* ServerConfig;
 
@@ -252,6 +254,12 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
           })
         ),
       "git.diff": ({ path }) => git((g) => g.diff(path)),
+      "git.init": () =>
+        Effect.andThen(
+          git((g) => g.init),
+          // The folder is a repository now: the editor reads its status from here on.
+          project.publishInfo
+        ),
 
       "git.status": () => git((g) => g.status),
       health: () => Effect.succeed({ ok: true, version: config.version }),
@@ -300,6 +308,9 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "pages.rename": ({ id, name }) => pages((s) => s.rename(id, name)),
       "pages.setRoute": ({ id, route }) => pages((s) => s.setRoute(id, route)),
       "pages.templates": () => pages((s) => Effect.succeed(s.templates)),
+      "profile.get": () => profile.get,
+      "profile.set": (input) =>
+        Effect.tap(profile.set(input), () => project.publishInfo),
 
       "project.info": () => project.info,
 

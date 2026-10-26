@@ -17,16 +17,19 @@ const initialsOf = (name: string): string => {
 };
 
 /**
- * Who the user is, as git says in this repository: not an account and not a login. The circle
- * shows the initials of `user.name`; the email is in the popup it opens.
+ * Who the user is, as git says in this repository, or the display name of their profile when
+ * git gives no name: not an account and not a login. The circle shows the initials of the name;
+ * the email is in the popup it opens.
  */
 export const GitUserButton = () => {
   const user = useProject((s) => s.info.gitUser);
-  const name = user?.name ?? user?.email;
+  const displayName = useProject((s) => s.info.displayName);
+  const fullName = user?.name ?? displayName;
+  const name = fullName ?? user?.email;
   if (!name) {
     return null;
   }
-  const initials = initialsOf(user?.name ?? "") || name[0]?.toUpperCase();
+  const initials = initialsOf(fullName ?? "") || name[0]?.toUpperCase();
   return (
     <Popover>
       <PopoverTrigger
@@ -46,8 +49,8 @@ export const GitUserButton = () => {
             {initials}
           </span>
           <div className="flex min-w-0 flex-col">
-            {user?.name ? (
-              <span className="truncate font-semibold">{user.name}</span>
+            {fullName ? (
+              <span className="truncate font-semibold">{fullName}</span>
             ) : null}
             {user?.email ? (
               <span className="truncate text-muted-foreground">
@@ -59,7 +62,9 @@ export const GitUserButton = () => {
         <div className="flex flex-col gap-1.5 border-t pt-2.5 font-body text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <GitBranch className="size-3" />
-            From git config in this repository
+            {user?.name
+              ? "From git config in this repository"
+              : "Your display name, from Settings"}
           </span>
           <span className="flex items-center gap-1.5">
             <MessageCircle className="size-3" />

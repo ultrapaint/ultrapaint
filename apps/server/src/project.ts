@@ -30,6 +30,7 @@ import { HostManager } from "./services/host.ts";
 import { ImplementationService } from "./services/implementation.ts";
 import { PagePngs } from "./services/page-pngs.ts";
 import { PagesService } from "./services/pages.ts";
+import { ProfileService } from "./services/profile.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
 import type { Screenshots } from "./services/screenshots.ts";
 import { SettingsService } from "./services/settings.ts";
@@ -66,6 +67,7 @@ type ProjectRequirements =
   | EventBus
   | FileSystem.FileSystem
   | Path.Path
+  | ProfileService
   | Screenshots
   | ServerConfig
   | Storage;
@@ -141,6 +143,7 @@ export class ProjectManager extends Context.Service<
       const log = yield* AppLog;
       const storage = yield* Storage;
       const settingsService = yield* SettingsService;
+      const profile = yield* ProfileService;
       const managerScope = yield* Effect.scope;
       // open and close never interleave.
       const lifecycle = yield* Semaphore.make(1);
@@ -185,14 +188,14 @@ export class ProjectManager extends Context.Service<
           host: { state: "stopped" as const },
         }))
       );
-      const info: Effect.Effect<ProjectInfo> = Effect.zipWith(
-        openInfo,
-        storage.info,
-        (project, storageInfo): ProjectInfo => ({
-          ...project,
-          storage: storageInfo,
-        })
-      );
+      const info: Effect.Effect<ProjectInfo> = Effect.gen(function* () {
+        const { displayName } = yield* profile.get;
+        return {
+          ...(yield* openInfo),
+          ...(displayName === undefined ? {} : { displayName }),
+          storage: yield* storage.info,
+        };
+      });
 
       const publishInfo = Effect.flatMap(info, (value) =>
         events.publish("project", value)

@@ -3,6 +3,7 @@ import type {
   GitDiff,
   GitStatus,
 } from "@ultrapaint/contracts/git";
+import { writesGit } from "@ultrapaint/contracts/settings";
 import type { Snapshot } from "@ultrapaint/contracts/snapshots";
 import { cn } from "cn";
 import {
@@ -72,6 +73,10 @@ export const Changes = () => {
   const configured = useProject((s) => s.info.configured);
   // Without git, or in a folder that is no repository, the panel has its history only.
   const repository = useProject((s) => s.info.gitRepository === true);
+  // Committing, or making the folder a repository, is for when writing to git is on.
+  const writes = useProject(
+    (s) => s.settings !== null && writesGit(s.settings)
+  );
   // Looked at: the rail stops saying an agent changed something.
   useEffect(() => {
     useAgents.getState().clearChanged();
@@ -214,6 +219,16 @@ export const Changes = () => {
     setBusy(false);
   };
 
+  const init = async () => {
+    setBusy(true);
+    try {
+      await api().request("git.init", undefined);
+    } catch (error) {
+      reportError(error);
+    }
+    setBusy(false);
+  };
+
   const onMessageChange = (e: ChangeEvent<HTMLInputElement>) =>
     setMessage(e.target.value);
   const onMessageKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -280,22 +295,32 @@ export const Changes = () => {
               </div>
             )}
           </div>
-          <div className="flex gap-1 border-y p-2">
-            <Input
-              onChange={onMessageChange}
-              onKeyDown={onMessageKeyDown}
-              placeholder="Commit message"
-              value={message}
-            />
-            <Button
-              disabled={busy || !message.trim() || selected.size === 0}
-              onClick={commit}
-              title="Commit selected files"
-            >
-              <GitCommitHorizontal data-icon="inline-start" /> {selected.size}
-            </Button>
-          </div>
+          {writes ? (
+            <div className="flex gap-1 border-y p-2">
+              <Input
+                onChange={onMessageChange}
+                onKeyDown={onMessageKeyDown}
+                placeholder="Commit message"
+                value={message}
+              />
+              <Button
+                disabled={busy || !message.trim() || selected.size === 0}
+                onClick={commit}
+                title="Commit selected files"
+              >
+                <GitCommitHorizontal data-icon="inline-start" /> {selected.size}
+              </Button>
+            </div>
+          ) : null}
         </>
+      ) : null}
+      {!repository && writes ? (
+        <div className="border-b p-2">
+          <Button disabled={busy} onClick={init} size="sm" variant="outline">
+            <GitCommitHorizontal data-icon="inline-start" />
+            Make this folder a git repository
+          </Button>
+        </div>
       ) : null}
       <div className="min-h-0 flex-1 overflow-auto">
         {openDiffs ? (

@@ -32,6 +32,7 @@ import { DesignSystemSyncService } from "./services/design-system-sync.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
 import { McpAccess } from "./services/mcp/access.ts";
 import { McpRoute } from "./services/mcp/route.ts";
+import { ProfileService } from "./services/profile.ts";
 import { Screenshots } from "./services/screenshots.ts";
 import { SettingsService } from "./services/settings.ts";
 import { SetupService } from "./services/setup.ts";
@@ -351,6 +352,7 @@ const Services = Threads.pipe(
   Layer.provideMerge(DesignSystemSyncService.layer),
   Layer.provideMerge(DesignSystemSetupService.layer),
   Layer.provideMerge(ProjectManager.layer),
+  Layer.provideMerge(ProfileService.layer),
   Layer.provideMerge(Screenshots.layer),
   Layer.provideMerge(SettingsService.layer),
   Layer.provideMerge(SetupService.layer),

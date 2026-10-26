@@ -17,6 +17,7 @@ import {
   type TextStyle,
 } from "@ultrapaint/contracts/design-system";
 import type { PageList } from "@ultrapaint/contracts/pages";
+import { writesGit } from "@ultrapaint/contracts/settings";
 import {
   type ComponentSpec,
   DRAFT_FROM,
@@ -45,6 +46,21 @@ const textStylesByGroup = (styles: readonly TextStyle[]) =>
         `${TEXT_STYLE_GROUPS.find((g) => g.group === group)?.label.toLowerCase() ?? group}: ${list.map((s) => s.name).join(", ")}`
     )
     .join("; ");
+
+/**
+ * What the agent is told of `.git`: only where there is one, and the sandbox keeps it read-only.
+ * Commits are the user's, made from the editor when writing to git is on.
+ */
+const dotGitNote = (
+  sandboxed: boolean,
+  repository: boolean,
+  writes: boolean
+) =>
+  sandboxed && repository
+    ? `
+The repository's .git is read-only to you: git status, diff and log work, but commits, branches
+and stashes are the user's${writes ? ", made from the editor" : ""}.`
+    : "";
 
 /** Enough of the components to choose from; the agent reads the rest when it needs to. */
 const COMPONENT_LIMIT = 60;
@@ -306,13 +322,7 @@ Prefer these to editing the JSON files yourself; if you do write a file, keep it
 stay inside it. Changes land on the canvas as you make them, so make them one
 step at a time rather than rewriting a page wholesale. ultrapaint.config.json is the user's:
 never write it; when components or styles are missing, send the user to Sync in the Design
-system panel.${
-          sandbox.available && gitRepository
-            ? `
-The repository's .git is read-only to you: git status, diff and log work, but commits, branches
-and stashes are the user's, made from the editor.`
-            : ""
-        }
+system panel.${dotGitNote(sandbox.available, gitRepository, writesGit(settings))}
 </ultrapaint>`;
       });
 

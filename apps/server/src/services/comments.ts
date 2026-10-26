@@ -29,6 +29,7 @@ import { toPosix } from "../hash.ts";
 import { makeId, safeCanvasId } from "../ids.ts";
 import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
 import { runGit } from "./git.ts";
+import { ProfileService } from "./profile.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
 export const COMMENTS_FILE = "comments.json";
@@ -131,10 +132,16 @@ export class CommentsService extends Context.Service<
         return yield* paths.resolve(file);
       });
 
-      // The name comments are signed with. A repository without one leaves them unsigned.
-      const author = yield* runGit(paths.root, ["config", "user.name"]).pipe(
+      // The name comments are signed with: git's, else the display name of the user's profile.
+      // Without either they are unsigned.
+      const profile = yield* ProfileService;
+      const gitName = yield* runGit(paths.root, ["config", "user.name"]).pipe(
         Effect.map((r) => (r.exitCode === 0 ? r.stdout.trim() || null : null)),
         Effect.orElseSucceed(() => null)
+      );
+      const authorNow = Effect.map(
+        profile.get,
+        ({ displayName }) => gitName ?? displayName ?? null
       );
 
       const list = Effect.fn("CommentsService.list")(function* (
@@ -218,7 +225,7 @@ export class CommentsService extends Context.Service<
       ) {
         const now = yield* Clock.currentTimeMillis;
         const comment: Comment = {
-          author,
+          author: yield* authorNow,
           createdAt: now,
           element: input.element,
           id: yield* makeId("comment"),
@@ -279,6 +286,7 @@ export class CommentsService extends Context.Service<
         input: ReplyInput
       ) {
         const replyId = yield* makeId("reply");
+        const author = yield* authorNow;
         return yield* change(input.canvas, input.id, (comment, now) =>
           Effect.succeed({
             ...comment,
