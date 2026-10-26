@@ -3,6 +3,7 @@ import type { PreviewInput } from "@ultrapaint/framework-api/node";
 import { toPosix } from "@ultrapaint/shared/path";
 import { ASSET_PATH } from "./asset-route.ts";
 import type { PreviewBundles } from "./build.ts";
+import { PUBLIC_FILES_ID } from "./public-urls.ts";
 import type { ServeOptions } from "./serve.ts";
 
 const LEADING_NON_DOT_RE = /^(?!\.)/;
@@ -120,6 +121,7 @@ import { createPreview } from ${JSON.stringify(fsUrl(bundles.editor))};
 
 export { onReloadRequest } from ${JSON.stringify(fsUrl(bundles.editor))};
 import { components } from "./${COMPONENTS_FILE}";
+import { publicFiles } from ${JSON.stringify(PUBLIC_FILES_ID)};
 ${providersImport}
 
 // What the editor draws its frames with, in its own page (ADR 0034).
@@ -128,6 +130,7 @@ export const preview = createPreview({
   components,
   designsRoot: ${JSON.stringify(servedUrl(designsDir))},
   providers: Providers,
+  publicFiles,
   theme: ${JSON.stringify(settings.theme)},
 });
 

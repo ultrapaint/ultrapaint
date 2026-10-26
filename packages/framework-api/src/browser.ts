@@ -35,6 +35,8 @@ export interface RenderSetup {
   readonly pageHeight?: string;
   /** Default export of the providers module from the settings, when there is one. */
   readonly providers: unknown;
+  /** A root path to one of the application's public files where the page finds it; others as they are. */
+  readonly publicUrl?: (url: string) => string;
   /** Reports a render error to the editor. */
   readonly reportError: (error: {
     readonly message: string;
@@ -164,8 +166,19 @@ export interface PreviewSetup {
   readonly designsRoot: string;
   readonly mount: RenderToCanvas;
   readonly providers: unknown;
+  /**
+   * The application's public directory, which it names files in from the root (`/media/a.webp`):
+   * its entries (a directory's ending in `/`), served under `base` in the editor's page.
+   */
+  readonly publicFiles?: PublicFiles | undefined;
   /** Written on every frame as `data-theme`, as it was on an iframe's document. */
   readonly theme: string;
+}
+
+/** The entries of the application's public directory and where the editor's page finds them. */
+export interface PublicFiles {
+  readonly base: string;
+  readonly entries: readonly string[];
 }
 
 /** The repository's components, ready to draw frames in the editor's page. */

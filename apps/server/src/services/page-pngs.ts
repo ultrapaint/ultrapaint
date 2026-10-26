@@ -27,7 +27,7 @@ import { Screenshots } from "./screenshots.ts";
 /** The text chunk a page's PNG says what it was drawn from in. */
 const KEYWORD = "ultrapaint";
 /** Bumped when what goes into the key, or how a page is drawn, changes: every PNG is redrawn. */
-const DRAWING = "1";
+const DRAWING = "2";
 const PAGE_SUFFIX = ".page.json";
 const PNG_SUFFIX = ".page.png";
 
@@ -131,11 +131,11 @@ export class PagePngs extends Context.Service<
           if (Option.isNone(state) || root?.type !== "page") {
             return null;
           }
-          const frame =
-            (yield* layoutOf(page.canvas))?.frames[page.path] ??
-            presetSize.desktop;
+          const layout = yield* layoutOf(page.canvas);
+          const frame = layout?.frames[page.path] ?? presetSize.desktop;
+          // The canvas's page defaults draw on every page of it (its fill, its type).
           const key = hashContent(
-            `${context}:${state.value.hash}:${frame.width}x${frame.height}`
+            `${context}:${state.value.hash}:${frame.width}x${frame.height}:${JSON.stringify(layout?.defaults ?? null)}`
           );
           return { frame, key, root };
         });

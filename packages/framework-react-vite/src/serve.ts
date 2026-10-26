@@ -11,6 +11,7 @@
 import {
   createReadStream,
   existsSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   statSync,
@@ -27,6 +28,7 @@ import {
   splitPlugins,
   TAILWIND_PLUGIN_RE,
 } from "./inherit-plugins.ts";
+import { PUBLIC_FILES_ID, prefixPublicUrls } from "./public-urls.ts";
 import { ultrapaintResolve } from "./resolve-plugin.ts";
 import { CLIENT_RE, CLIENT_STYLES_HOOK, patchClient } from "./vite-client.ts";
 
@@ -243,6 +245,56 @@ const patchedClient = {
   },
 };
 
+/** The application's code, where a root path to one of its public files can be written. */
+const CODE_RE = /\.(?:[cm]?[jt]sx?|json)$/;
+
+/** Root paths to the public directory's files, under the base the editor's page finds them at. */
+const publicUrls = () => {
+  let publicDir = "";
+  let base = "/";
+  const stat = (relative: string) =>
+    statSync(path.join(publicDir, relative), { throwIfNoEntry: false });
+  const files = {
+    isDirectory: (relative: string) => stat(relative)?.isDirectory() === true,
+    isFile: (relative: string) => stat(relative)?.isFile() === true,
+  };
+  return {
+    configResolved(config: import("vite").ResolvedConfig) {
+      ({ base, publicDir } = config);
+    },
+    enforce: "post" as const,
+    load(id: string) {
+      if (id !== `\0${PUBLIC_FILES_ID}`) {
+        return null;
+      }
+      const entries =
+        publicDir !== "" && existsSync(publicDir)
+          ? readdirSync(publicDir, { withFileTypes: true }).map((entry) =>
+              entry.isDirectory() ? `${entry.name}/` : entry.name
+            )
+          : [];
+      return `export const publicFiles = ${JSON.stringify({ base, entries })};`;
+    },
+    name: "ultrapaint:public-urls",
+    resolveId(id: string) {
+      return id === PUBLIC_FILES_ID ? `\0${PUBLIC_FILES_ID}` : null;
+    },
+    transform(code: string, id: string) {
+      const file = id.split("?")[0] ?? id;
+      if (
+        publicDir === "" ||
+        id.startsWith("\0") ||
+        file.includes("/node_modules/") ||
+        !CODE_RE.test(file)
+      ) {
+        return null;
+      }
+      const next = prefixPublicUrls(code, base, files);
+      return next === null ? null : { code: next, map: null };
+    },
+  };
+};
+
 const MIME: Record<string, string> = {
   ".avif": "image/avif",
   ".gif": "image/gif",
@@ -323,6 +375,7 @@ const server = await vite.createServer(
       }),
       serveAsset,
       patchedClient,
+      publicUrls(),
       ...(sparing(
         await flattenPlugins(extra),
         spared

@@ -29,6 +29,7 @@ import { chainAt, directText, elementsOf, unionRect } from "./dom.ts";
 import { BODY_ATTRIBUTE } from "./frame-css.ts";
 import { elementAt, type HitScope } from "./hit.ts";
 import { routePortals } from "./portals.ts";
+import { publicUrlOf } from "./public-url.ts";
 import {
   adoptedSheets,
   frameSheets,
@@ -210,9 +211,10 @@ const mountFrame = (
   /** Whether a `fit` render takes the frame's width, and wraps in it, rather than its own. */
   let fill = false;
 
+  const publicUrl = publicUrlOf(input.publicFiles);
   const assetUrl = (src: string) => {
     if (ABSOLUTE_URL_RE.test(src)) {
-      return src;
+      return publicUrl(src);
     }
     const file = src.replace(LEADING_DOT_SLASH_RE, "");
     if (options.canvas) {
@@ -264,6 +266,7 @@ const mountFrame = (
     },
     pageHeight: "100cqh",
     providers: input.providers,
+    publicUrl,
     reportError: (error) => events.error?.(error),
     reportInstances: (instances) => events.instances?.(instances),
     setDesignCss,

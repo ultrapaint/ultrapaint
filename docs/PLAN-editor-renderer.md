@@ -233,6 +233,8 @@ pages L is as fast. Main stays on L.
 | A hook on `matchMedia` or `window` sees the editor's window, not the frame (sacro-cuore's header on scroll) | Accepted; breakpoints in CSS are container queries |
 | `BrowserRouter`, `window.location` | `providersModule` uses a memory router |
 | Vite's first open optimises its dependencies and asks for a full reload | R9: frames remount, the editor stays |
+| The application names its public files from the root (`"/media/a.webp"`, in its code or in a page's props), which is the editor's root here | The preview's server moves such strings in the code under `/preview/` when they name a public file; the renderer does the same to an instance's props, by the public directory's entries |
+| The frame's reset (`:host { all: initial }`) beat the application's root rules in `@layer base` (Tailwind's preflight: line height, type), being unlayered | The reset is a layer of its own, the frames' first |
 
 ## Open questions
 
