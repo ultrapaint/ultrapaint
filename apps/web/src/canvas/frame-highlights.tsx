@@ -12,7 +12,7 @@ import {
   selectionKindOf,
 } from "../lib/selection-kind.ts";
 import { rootOfFrame, useDocuments } from "../state/documents.ts";
-import { type Selection, useEditor } from "../state/editor.ts";
+import { type Selection, useEditor, useInv } from "../state/editor.ts";
 import { ElementToolbar, GroupToolbar } from "./element-toolbar.tsx";
 import { TAG_HEIGHT } from "./element-toolbar-placement.ts";
 import { SelectionTag } from "./selection-tag.tsx";
@@ -52,13 +52,8 @@ const unionOf = (rects: readonly Rect[]): Rect | null => {
 };
 
 /** The outlines of the hovered and the selected nodes, and an error the preview reported. */
-export const Highlights = ({
-  frameId,
-  inv,
-}: {
-  frameId: string;
-  inv: number;
-}) => {
+export const Highlights = ({ frameId }: { frameId: string }) => {
+  const inv = useInv();
   const selectedId = useSelectedIn(frameId);
   const alsoIds = useAlsoIn(frameId);
   const hoverId = useHoverIn(frameId);

@@ -17,7 +17,7 @@ import { AgentIcon } from "../components/agent-icon.tsx";
 import { type AgentWork, useAgents } from "../state/agents.ts";
 import { openMenuAt } from "../state/context-menu.ts";
 import { isNodeFrame, rootOfFrame, useDocuments } from "../state/documents.ts";
-import { useEditor } from "../state/editor.ts";
+import { useEditor, useInv } from "../state/editor.ts";
 import { bridgeFor } from "./bridge.ts";
 
 /** Enough outlines to see where the work is; past that they only add noise. */
@@ -149,14 +149,13 @@ const Tag = ({
 
 export const AgentWorkOverlay = ({
   frameId,
-  inv,
   pieces,
 }: {
   frameId: string;
-  inv: number;
   pieces: readonly FrameWork[];
 }) => {
   const rects = useEditor((s) => s.rects[frameId]);
+  const inv = useInv();
   return (
     <>
       {pieces.map(({ nodeIds, threadId, work }) =>

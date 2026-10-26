@@ -643,7 +643,6 @@ export const Canvas = () => {
               onDragStart={startFrameDrag}
               page={page}
               visible={isVisible(frame)}
-              zoom={view.zoom}
             />
           );
         })}
@@ -662,12 +661,11 @@ export const Canvas = () => {
               node={node}
               onDragStart={startFrameDrag}
               visible={moving || isVisible(box)}
-              zoom={view.zoom}
             />
           );
         })}
-        <DragOverlay zoom={view.zoom} />
-        <CreateOverlay zoom={view.zoom} />
+        <DragOverlay />
+        <CreateOverlay />
       </div>
       {pages.length === 0 && nodes.length === 0 && <EmptyState />}
     </div>
@@ -695,14 +693,12 @@ const NodeFrame = memo(
     node,
     onDragStart,
     visible,
-    zoom,
   }: {
     frameId: string;
     hostUrl: string | null;
     node: DesignNode;
     onDragStart: ComponentProps<typeof Frame>["onDragStart"];
     visible: boolean;
-    zoom: number;
   }) => {
     const size = useEditor((s) => s.sizes[frameId]);
     const held = useEditor((s) => s.held[frameId]);
@@ -722,7 +718,6 @@ const NodeFrame = memo(
         kind="node"
         onDragStart={onDragStart}
         visible={visible}
-        zoom={zoom}
       />
     );
   }

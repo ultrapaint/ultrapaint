@@ -24,7 +24,7 @@ import {
   rootOfFrame,
   useDocuments,
 } from "../state/documents.ts";
-import { useEditor } from "../state/editor.ts";
+import { useEditor, useInv } from "../state/editor.ts";
 import { useInstances } from "../state/instances.ts";
 import { useDesignLookVersion } from "../state/look.ts";
 import { previewUrl, useProject } from "../state/project.ts";
@@ -153,20 +153,10 @@ interface Props {
   /** The page a page frame shows. */
   page?: Page;
   visible: boolean;
-  zoom: number;
 }
 
 export const Frame = memo(
-  ({
-    frameId,
-    kind,
-    page,
-    frame,
-    hostUrl,
-    zoom,
-    visible,
-    onDragStart,
-  }: Props) => {
+  ({ frameId, kind, page, frame, hostUrl, visible, onDragStart }: Props) => {
     const iframeRef = useRef<HTMLIFrameElement>(null);
     const mode = useEditor((s) => s.mode);
     const spacePan = useEditor((s) => s.spacePan);
@@ -191,7 +181,6 @@ export const Frame = memo(
     const url = hostUrl
       ? `${hostUrl}/?canvas=${encodeURIComponent(canvas ?? "")}&frame=${encodeURIComponent(frameId)}`
       : null;
-    const inv = 1 / zoom;
     const name = frameName(page, root);
     // A callback ref: the selection's toolbar is drawn in it once it is there.
     const [toolbarLayer, setToolbarLayer] = useState<HTMLDivElement | null>(
@@ -316,7 +305,6 @@ export const Frame = memo(
       kind,
       root,
       selecting,
-      zoom,
     });
 
     const isNode = kind === "node";
@@ -336,7 +324,6 @@ export const Frame = memo(
         <FrameChrome
           frame={frame}
           frameId={frameId}
-          inv={inv}
           isActive={isActive}
           kind={kind}
           name={name}
@@ -394,29 +381,17 @@ export const Frame = memo(
               type="button"
             />
           )}
-          <AgentWorkOverlay frameId={frameId} inv={inv} pieces={work.pieces} />
-          {marquee ? (
-            <div
-              className="pointer-events-none absolute border border-selection bg-selection/10"
-              style={{
-                borderWidth: inv,
-                height: marquee.height,
-                left: marquee.x,
-                top: marquee.y,
-                width: marquee.width,
-              }}
-            />
-          ) : null}
+          <AgentWorkOverlay frameId={frameId} pieces={work.pieces} />
+          {marquee ? <Marquee box={marquee} /> : null}
           <ToolbarLayer.Provider value={toolbarLayer}>
-            <Highlights frameId={frameId} inv={inv} />
+            <Highlights frameId={frameId} />
           </ToolbarLayer.Provider>
         </div>
 
-        {page ? <FrameComments inv={inv} page={page} /> : null}
+        {page ? <FrameComments page={page} /> : null}
 
         <ResizeHandles
           frameId={frameId}
-          inv={inv}
           kind={kind}
           onDragStart={onDragStart}
           root={root}
@@ -431,6 +406,27 @@ export const Frame = memo(
   }
 );
 Frame.displayName = "Frame";
+
+/** The box being drawn over a frame to select what it touches. */
+const Marquee = ({
+  box,
+}: {
+  box: { height: number; width: number; x: number; y: number };
+}) => {
+  const inv = useInv();
+  return (
+    <div
+      className="pointer-events-none absolute border border-selection bg-selection/10"
+      style={{
+        borderWidth: inv,
+        height: box.height,
+        left: box.x,
+        top: box.y,
+        width: box.width,
+      }}
+    />
+  );
+};
 
 /** Whether the frame itself is selected: the page, or the node on the canvas it shows. */
 const useFrameSelected = (
@@ -449,15 +445,14 @@ const useFrameSelected = (
 /** A handle on each corner, shown while the frame is selected or the pointer is over it. */
 const ResizeHandles = ({
   frameId,
-  inv,
   kind,
   onDragStart,
   root,
 }: Pick<Props, "frameId" | "kind" | "onDragStart"> & {
-  inv: number;
   root: DesignNode | null;
 }) => {
   const isSelected = useFrameSelected(frameId, kind, root);
+  const inv = useInv();
   return CORNERS.map((corner) => (
     <div
       className={cn(
@@ -490,19 +485,18 @@ const HEADER_GAP = 6;
 const FrameChrome = ({
   frameId,
   frame,
-  inv,
   isActive,
   kind,
   name,
   onDragStart,
   root,
 }: Pick<Props, "frame" | "frameId" | "kind" | "onDragStart"> & {
-  inv: number;
   isActive: boolean;
   name: string;
   root: DesignNode | null;
 }) => {
   const isSelected = useFrameSelected(frameId, kind, root);
+  const inv = useInv();
   const [titleHover, setTitleHover] = useState(false);
   const selectFrame = () => {
     const store = useEditor.getState();

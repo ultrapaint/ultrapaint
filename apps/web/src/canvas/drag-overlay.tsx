@@ -2,7 +2,7 @@ import type { Rect } from "@ultrapaint/contracts/preview";
 import { nodeLabel } from "@ultrapaint/design-document/tree";
 import type { ReactNode } from "react";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
-import { useEditor } from "../state/editor.ts";
+import { useEditor, useInv } from "../state/editor.ts";
 import { boxOf, isCreateTool, useCreate } from "./create-tool.ts";
 import { landingPoint, useDrag } from "./drag.ts";
 
@@ -20,7 +20,8 @@ const OVER_FRAMES = { zIndex: 2 };
  * land. Drawn in the canvas's own coordinates, so it zooms with the frames; strokes and labels
  * keep their size on screen.
  */
-export const DragOverlay = ({ zoom }: { zoom: number }) => {
+export const DragOverlay = () => {
+  const inv = useInv();
   const dragged = useDrag((s) => s.dragged);
   const drop = useDrag((s) => s.drop);
   const pointer = useDrag((s) => s.pointer);
@@ -31,7 +32,6 @@ export const DragOverlay = ({ zoom }: { zoom: number }) => {
   if (!dragged) {
     return null;
   }
-  const inv = 1 / zoom;
   // Dropped on the canvas, it lands on the grid; into a page, the page lays it out.
   const at =
     drop?.kind === "canvas"
@@ -89,7 +89,8 @@ export const DragOverlay = ({ zoom }: { zoom: number }) => {
  * What the Group and Text tools will do: where a press would put the new node, and the group
  * being drawn with its size.
  */
-export const CreateOverlay = ({ zoom }: { zoom: number }) => {
+export const CreateOverlay = () => {
+  const inv = useInv();
   const mode = useEditor((s) => s.mode);
   const drop = useCreate((s) => s.drop);
   const from = useCreate((s) => s.from);
@@ -97,7 +98,6 @@ export const CreateOverlay = ({ zoom }: { zoom: number }) => {
   if (!isCreateTool(mode)) {
     return null;
   }
-  const inv = 1 / zoom;
   const drawn = mode === "group" && from && to ? boxOf(from, to) : null;
   return (
     <div

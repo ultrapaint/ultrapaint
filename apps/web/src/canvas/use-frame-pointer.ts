@@ -70,7 +70,6 @@ export const useFramePointer = ({
   kind,
   root,
   selecting,
-  zoom,
 }: {
   canvas: string | null;
   /** Where the frame is on the canvas, which a node dragged off it starts from. */
@@ -80,7 +79,6 @@ export const useFramePointer = ({
   root: DesignNode | null;
   /** The select layer is up: not while Space pans, nor in another mode. */
   selecting: boolean;
-  zoom: number;
 }) => {
   // Pointer interaction in select mode.
   const lastHit = useRef(0);
@@ -96,6 +94,8 @@ export const useFramePointer = ({
   }, [selecting, frameId]);
   const toFrame = (e: ReactPointerEvent | ReactMouseEvent) => {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    // The zoom the frame is drawn at: read when the pointer acts, so a zoom redraws no frame.
+    const { zoom } = useEditor.getState().view;
     return { x: (e.clientX - r.left) / zoom, y: (e.clientY - r.top) / zoom };
   };
   const currentRoot = () =>

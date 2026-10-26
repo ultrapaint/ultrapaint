@@ -737,6 +737,13 @@ export const useEditor = create<EditorStore>((set, get) => ({
 
 type View = EditorStore["view"];
 
+/**
+ * How many canvas pixels make one on screen. What is drawn in the zoomed layer at a constant size
+ * on screen (names, handles, outlines) is scaled by it. Only what draws such things reads it, so a
+ * zoom redraws them and not the frames around them.
+ */
+export const useInv = () => useEditor((s) => 1 / s.view.zoom);
+
 /** Where the canvas is being panned or zoomed to, until the next frame draws it. */
 let pendingView: View | null = null;
 let viewFrame: number | null = null;

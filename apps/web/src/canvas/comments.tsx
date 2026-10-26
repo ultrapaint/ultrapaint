@@ -34,7 +34,7 @@ import {
 } from "../state/comments.ts";
 import { openMenuAt } from "../state/context-menu.ts";
 import { nodeIn, useDocuments } from "../state/documents.ts";
-import { useEditor } from "../state/editor.ts";
+import { useEditor, useInv } from "../state/editor.ts";
 import { bridgeFor } from "./bridge.ts";
 import { SendToAgent } from "./send-to-agent.tsx";
 
@@ -103,7 +103,16 @@ const stop = (e: ReactPointerEvent) => e.stopPropagation();
  * Pins, the open card and the comment being written, for one page. Drawn in the page's own
  * pixels and scaled back by `inv` so they keep their size at any zoom.
  */
-export const FrameComments = ({ page, inv }: { page: Page; inv: number }) => {
+export const FrameComments = ({
+  inv: own,
+  page,
+}: {
+  /** The prototype's own scale; on the canvas, the canvas's zoom. */
+  inv?: number;
+  page: Page;
+}) => {
+  const canvasInv = useInv();
+  const inv = own ?? canvasInv;
   const visible = useComments((s) => s.visible);
   const open = useComments((s) => s.open);
   const draft = useComments((s) =>
