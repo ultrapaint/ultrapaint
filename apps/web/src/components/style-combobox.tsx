@@ -2,7 +2,7 @@ import { Combobox as ComboboxPrimitive } from "@base-ui/react";
 import { cn } from "cn";
 import { ChevronDownIcon } from "lucide-react";
 import type * as React from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ComboboxContent,
   ComboboxEmpty,
@@ -45,42 +45,142 @@ const ArbitraryDot = ({ className }: { className?: string }) => (
 const matches = (o: StyleOption, q: string) =>
   `${o.label} ${o.value} ${o.description ?? ""}`.toLowerCase().includes(q);
 
-/**
- * Searchable field over the classes a style can take. The list is the design system's options;
- * when the query matches none of them, `custom` turns it into a class (usually arbitrary) offered
- * last and marked, so the defined values stay the easy path.
- */
-export const StyleCombobox = ({
-  current,
-  display,
-  options,
-  onPick,
-  custom,
-  disabled,
-  leading,
-  hint,
-  title,
-  className,
-}: {
+interface StyleComboboxProps {
+  className?: string;
   /** The class currently setting the value, if any. */
   current: string | undefined;
-  /** Text shown while closed when `current` is not one of the options, e.g. the computed value. */
-  display: string;
-  options: readonly StyleOption[];
-  onPick: (cls: string) => void;
   /** Class for a free-form query, or null when the query can't become one. */
   custom?: (query: string) => string | null;
   disabled?: boolean;
-  leading?: React.ReactNode;
+  /** Text shown while closed when `current` is not one of the options, e.g. the computed value. */
+  display: string;
   /**
    * Muted text at the end of the field, e.g. where the value comes from. Left out when the value is
    * one of the options, whose label already says it.
    */
   hint?: string;
+  leading?: React.ReactNode;
+  onPick: (cls: string) => void;
+  options: readonly StyleOption[];
   title?: string;
-  className?: string;
-}) => {
-  const [open, setOpen] = useState(false);
+}
+
+/** How a field became a combobox: focused from the keyboard, or clicked, which opens it. */
+type Activation = "focus" | "open";
+
+/**
+ * Searchable field over the classes a style can take. The list is the design system's options;
+ * when the query matches none of them, `custom` turns it into a class (usually arbitrary) offered
+ * last and marked, so the defined values stay the easy path.
+ *
+ * It is drawn as a plain field that looks the same until it is focused or clicked: the inspector
+ * shows thirty of them and is drawn again for each selection, and a combobox is costly to set up
+ * while only the one in use needs to be one.
+ */
+export const StyleCombobox = (props: StyleComboboxProps) => {
+  const [activated, setActivated] = useState<Activation | null>(null);
+  return activated ? (
+    <ActiveCombobox {...props} activated={activated} />
+  ) : (
+    <IdleCombobox {...props} onActivate={setActivated} />
+  );
+};
+
+const INPUT_CLASS =
+  "h-full min-w-0 flex-1 bg-transparent px-1.5 font-body outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed";
+const TRIGGER_CLASS =
+  "flex size-5 shrink-0 items-center justify-center rounded-sm hover:bg-muted disabled:pointer-events-none";
+
+/** The field as it looks closed: what it shows, and nothing to set up. */
+const IdleCombobox = ({
+  className,
+  current,
+  disabled,
+  display,
+  hint,
+  leading,
+  onActivate,
+  options,
+  title,
+}: StyleComboboxProps & { onActivate: (how: Activation) => void }) => {
+  const selected = options.find((o) => o.value === current) ?? null;
+  const open = (e: React.PointerEvent) => {
+    if (!disabled && e.button === 0) {
+      e.preventDefault();
+      onActivate("open");
+    }
+  };
+  return (
+    <InputGroup
+      className={cn("h-6 min-w-0 flex-1", className)}
+      data-disabled={disabled}
+      title={title}
+    >
+      {leading ? (
+        <InputGroupAddon className="py-0 pl-1.5 font-body font-normal">
+          {leading}
+        </InputGroupAddon>
+      ) : null}
+      <input
+        aria-expanded={false}
+        aria-haspopup="listbox"
+        className={INPUT_CLASS}
+        data-slot="input-group-control"
+        disabled={disabled}
+        onFocus={() => onActivate("focus")}
+        onPointerDown={open}
+        placeholder={selected?.label ?? display}
+        readOnly
+        role="combobox"
+        value={selected?.label ?? display}
+      />
+      <InputGroupAddon align="inline-end" className="min-w-0 gap-1 py-0 pr-0.5">
+        {hint && !selected ? (
+          <span
+            className="min-w-0 max-w-24 truncate font-code font-normal"
+            title={hint}
+          >
+            {hint}
+          </span>
+        ) : null}
+        {isArbitraryClass(current) ? <ArbitraryDot /> : null}
+        <button
+          aria-label="Open"
+          className={TRIGGER_CLASS}
+          disabled={disabled}
+          onPointerDown={open}
+          tabIndex={-1}
+          type="button"
+        >
+          <ChevronDownIcon className="size-3" />
+        </button>
+      </InputGroupAddon>
+    </InputGroup>
+  );
+};
+
+/** The combobox itself, once the field is in use: focused, and open when it was clicked. */
+const ActiveCombobox = ({
+  activated,
+  className,
+  current,
+  custom,
+  disabled,
+  display,
+  hint,
+  leading,
+  onPick,
+  options,
+  title,
+}: StyleComboboxProps & { activated: Activation }) => {
+  const [open, setOpen] = useState(activated === "open");
+  const group = useRef<HTMLDivElement>(null);
+  // It takes the place of the field that was focused or clicked: the focus goes on to it.
+  useEffect(() => {
+    group.current
+      ?.querySelector<HTMLInputElement>('[data-slot="input-group-control"]')
+      ?.focus();
+  }, []);
   const [query, setQuery] = useState("");
   const selected = options.find((o) => o.value === current) ?? null;
   const arbitrary = isArbitraryClass(current);
@@ -137,6 +237,7 @@ export const StyleCombobox = ({
       <InputGroup
         className={cn("h-6 min-w-0 flex-1", className)}
         data-disabled={disabled}
+        ref={group}
         title={title}
       >
         {leading ? (
@@ -145,7 +246,7 @@ export const StyleCombobox = ({
           </InputGroupAddon>
         ) : null}
         <ComboboxPrimitive.Input
-          className="h-full min-w-0 flex-1 bg-transparent px-1.5 font-body outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
+          className={INPUT_CLASS}
           data-slot="input-group-control"
           onFocus={selectAll}
           placeholder={selected?.label ?? display}
@@ -164,7 +265,7 @@ export const StyleCombobox = ({
           ) : null}
           {arbitrary ? <ArbitraryDot /> : null}
           <ComboboxPrimitive.Trigger
-            className="flex size-5 shrink-0 items-center justify-center rounded-sm hover:bg-muted disabled:pointer-events-none"
+            className={TRIGGER_CLASS}
             disabled={disabled}
           >
             <ChevronDownIcon className="size-3" />
