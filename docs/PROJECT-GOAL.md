@@ -65,7 +65,7 @@ Build a local-first design tool for teams that work with coding agents.
 
 - **Web UI and backend are strictly separated.** The editor is a pure web application
   that talks to a local backend over a well-defined API. The backend owns everything
-  that touches the machine: the repository filesystem, git, the dev server for the
+  that touches the machine: the repository filesystem, git where there is one, the dev server for the
   preview, code parsing and edits, agent processes, and credentials. The web UI never
   accesses these directly.
 
@@ -75,10 +75,14 @@ Build a local-first design tool for teams that work with coding agents.
   server, and shares types, and use the same structure and conventions here.
 
 - **A command run in the repository, and the browser.** The tool is started where the
-  repository is, the way a dev server is, and serves the editor to the browser. Because the
-  UI is a plain web app, another shell could serve it later without changes to the editor
-  itself; a shell would add native integration only, not features. The Electron shell that
-  once existed was removed ([ADR 0017](adr/0017-a-command-in-the-repository.md)).
+  repository is, the way a dev server is, and serves the editor to the browser
+  ([ADR 0017](adr/0017-a-command-in-the-repository.md)). A desktop app is a shell around the
+  same server and the same web build: it keeps a list of projects, local or over SSH, starts a
+  design in an empty folder and opens a native folder picker; it adds native integration only,
+  not features ([ADR 0031](adr/0031-the-desktop-app.md)).
+
+- **Git is welcome, not required.** A project is a folder. Where it is a git repository the tool
+  reads its status, diffs and branch; it commits only when the project's git setting is on.
 
 - **ACP is the only agent interface.** The backend hosts agents as ACP sessions: it
   spawns the agent process, relays prompts, streams updates and tool activity to the

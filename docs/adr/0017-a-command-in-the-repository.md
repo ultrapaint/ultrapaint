@@ -1,7 +1,9 @@
 # ADR 0017: A command run in the repository, served to the browser
 
 Status: accepted, 2026-09-28. Amends the architecture section of the project goal and the
-`managed` row of 0010.
+`managed` row of 0010. Amended 2026-10-26 by [0031](0031-the-desktop-app.md): a desktop app
+returns, as a shell around the same server and web build, for the list of projects, a new design
+in an empty folder and a native folder picker; the command stays as decided here.
 
 ## Context
 

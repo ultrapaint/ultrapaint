@@ -1,7 +1,7 @@
 # Plan: a desktop app on top of the web app
 
-Status: proposed, 2026-10-25. Amends ADR 0017 (the desktop shell returns, with the reason
-written down); the ADR (0031) is written with Phase 0. Builds on 0004, 0008, 0010, 0013, 0019,
+Status: proposed, 2026-10-25; Phase 0 done 2026-10-26. Amends ADR 0017 (the desktop shell
+returns, with the reason written down) through [ADR 0031](adr/0031-the-desktop-app.md). Builds on 0004, 0008, 0010, 0013, 0019,
 0023.
 
 ## Why
@@ -80,7 +80,7 @@ Everything here helps the command too; nothing needs Electron.
       line of JSON once it listens, for whatever started it.
 - [x] 0.6 `Platform` grows the hooks the desktop fills: a folder picker, the preview URL mapped
       through a forwarded port, and the project switcher's place in the header.
-- [ ] 0.7 ADR 0031 (the desktop app), 0017 amended, the project goal and the README.
+- [x] 0.7 ADR 0031 (the desktop app), 0017 amended, the project goal and the README.
 
 ### Phase 1: the desktop app with local projects
 

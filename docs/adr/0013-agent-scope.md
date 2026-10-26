@@ -92,13 +92,16 @@ the user's browser has — each with a cost to what an agent or the editor can d
 when the scope was chosen, and is still to be decided.
 
 One route was closed here, because nothing had to be asked for it to be taken. The editor runs
-git in the repository on every turn, outside the sandbox, and a hook in `.git/hooks` or a
+git in the repository on every turn, outside the sandbox (since 0031, only where there is a
+repository, to read its status and diffs; a turn's files are found without git), and a hook in `.git/hooks` or a
 `core.fsmonitor` in `.git/config` would have run with it — planted by an agent that was careless,
 or talked into it by something it read. `.git` is read-only inside the sandbox, under every name
 the repository has; `git status`, `diff` and `log` work, and an agent cannot commit, branch or
 stash. Everything the editor's own git commands could be made to run has to be written into
 `.git` first: hooks, `core.fsmonitor`, filter, textconv and diff drivers. The briefing tells a
-confined agent that commits are the user's, so it does not find out by failing.
+confined agent that commits are the user's, so it does not find out by failing. A folder without
+`.git` is told nothing of it; on Linux a `.git` an agent creates there is not read-only to it,
+which 0031 leaves to close.
 
 ## Why not the protocol or the agents' own settings
 

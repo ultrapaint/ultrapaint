@@ -116,16 +116,20 @@ ultrapaint
 ```
 
 It serves the editor and its backend on `http://127.0.0.1:4770` and opens it in your browser.
-`ultrapaint --help` has the full reference; the flags you are most likely to want:
+Started again in a project whose server already runs, it opens that one's editor instead of
+starting a second: the server leaves `run.json` in its state directory while it runs. The folder
+need not be a git repository, and the tool needs no git. `ultrapaint --help` has the full
+reference; the flags you are most likely to want:
 
 | Flag | What it does |
 |---|---|
 | `--config <file>` | Use this configuration file instead of looking for `ultrapaint.config.json` |
 | `--ephemeral` | Save nothing, even when a configuration file exists |
-| `--port <number>` | Listen on another port |
+| `--port <number>` | Listen on another port; `0` picks a free one |
 | `--host <address>` | Listen on this address instead of loopback, to reach the editor from another machine (see below) |
 | `--allowed-host <name>` | Also answer requests that name the editor so: a reverse proxy's name, or a VPN's; `.example.com` allows its subdomains. Repeat it for each name |
 | `--no-open` | Do not open the browser |
+| `--ready-json` | Once listening, print `{"pid","port","token","url"}` as one line of JSON on stdout (logs go to stderr), for a program that starts the server |
 | `--dev` | From a checkout only: run its sources with hot reload instead of its build. The server restarts and the editor reloads as the checkout changes. Listens on loopback too; `--host` opens it to the network |
 
 ### As a devDependency of your project
@@ -466,8 +470,9 @@ composer and marked with the step it runs. **Stop** ends the agent's turn and ke
 did; **Resume** picks it up again. **Redo** puts back every file the step and the later ones
 changed, as it was when the step started, after showing you the list, and takes the later steps
 back to the start; files you changed yourself in between are left alone. Each step is kept as a
-git snapshot of the working tree under `refs/ultrapaint/setup/`, and so is each batch of Migrate, so the setup needs a git
-repository; your index, branch and stash are never touched. Where the setup is lives in the state
+snapshot of the files your `.gitignore` keeps, in the tool's own snapshot store in the state
+directory, and so is each batch of Migrate: no git is needed, and your index, branch and stash are
+never touched. Where the setup is lives in the state
 directory, not in the repository ([ADR 0023](docs/adr/0023-design-system-setup.md)).
 
 ### Design skills
@@ -571,7 +576,8 @@ type after it is added to it.
 | Design system panel → the wand | Run `/init` again |
 | Assets panel | Your components, as a list or thumbnails; drag one onto the canvas |
 | Pages panel → **Implement** | `/implement` for that page |
-| Settings → Repository | Where the components, stylesheets and designs are; **Rename to ultrapaint.config.json** for an old file |
+| Settings → Repository | Where the components, stylesheets and designs are; **Write to git**, off unless you want the Changes panel to commit; **Rename to ultrapaint.config.json** for an old file |
+| Settings → Editor → **Display name** | The name your comments are signed with when git has none |
 | Settings → Design system | The design skills agents are told, and the ones you replace or extend |
 | Top bar → **Not saved** | Save the configuration to `ultrapaint.config.json` |
 | Rail → Design system dot | Sync has something waiting: settings to fix, drift to describe, Figma tokens to take |
@@ -591,6 +597,7 @@ type after it is added to it.
 | `theme` | `light` or `dark` for the preview |
 | `providersModule` | A module of the designs directory whose default export wraps every page |
 | `pagePngs` | `true` to keep a PNG of every page beside its file (off by default) |
+| `git` | `on` to let the tool commit and run `git init` (off by default); a repository is read either way |
 | `skills.disabled` | Design skills agents are not told |
 
 You rarely write it by hand: the setup and **Detect and apply** in Sync write it for you, and
@@ -608,7 +615,7 @@ StyleX or Emotion would be too; neither exists yet. Yarn Plug'n'Play is not supp
 
 - [What the project is for](docs/PROJECT-GOAL.md)
 - [Where settings and state are kept](docs/adr/0010-storage-modes.md)
-- [A command run in the repository, no desktop app](docs/adr/0017-a-command-in-the-repository.md)
+- [A command run in the repository](docs/adr/0017-a-command-in-the-repository.md), and [the desktop app around it](docs/adr/0031-the-desktop-app.md)
 - [How the preview is built: editor, preview core, renderer, framework](docs/adr/0011-preview-split.md)
 - [Spaces, pages and the router](docs/adr/0012-spaces-pages-router.md), and [pages with optional URLs](docs/adr/0020-pages-have-optional-urls.md)
 - [Design documents instead of TSX pages](docs/adr/0015-design-documents.md)
@@ -635,7 +642,7 @@ keeps its settings in `~/.ultrapaint` unless it is given `--config` or `--epheme
 [`AGENTS.md`](AGENTS.md) before writing server code.
 
 - `apps/web` — the editor (React, Tailwind, Base UI). It talks to the origin it is served from and touches nothing of the machine.
-- `apps/server` — local backend on the Effect 4 runtime: settings, preview host, pages and spaces, design documents and the design system, undo, git, ACP threads.
+- `apps/server` — local backend on the Effect 4 runtime: settings, preview host, pages and spaces, design documents and the design system, undo, git where there is one, the snapshot store, ACP threads.
 - `packages/contracts` — Effect Schema for everything on the wire, the document format included, and the `RpcGroup` that is the editor's API.
 - `packages/design-document` — the document format's pure code: tree walks, ids, the operations every edit is made of, tokens and the CSS a node is drawn with, a node's JSX with the classes a style system writes.
 - `packages/framework-api` — what a renderer gives the preview, and what a framework and a style system give the server.

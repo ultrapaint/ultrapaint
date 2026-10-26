@@ -1,6 +1,8 @@
 # ADR 0018: Chats are found by what they work on, and agents' work shows on the elements
 
-Status: accepted, 2026-09-29. Extends 0014 and 0015.
+Status: accepted, 2026-09-29. Extends 0014 and 0015. Amended 2026-10-26 by
+[0031](0031-the-desktop-app.md): without a name from git, the avatar is the display name in
+Settings.
 
 The editor was redesigned with the tool itself: the pages are in `docs/designs/redesign/`, and
 `ultrapaint.json` at the root opens this repository in the editor.
@@ -14,7 +16,8 @@ its work on an element, its status in the chat. The agent's own brand colour is 
 tag names the agent instead.
 
 **A rail with words.** Each panel is named under its icon. Settings sits at the bottom, then the
-git user: `user.name` and `user.email` from the repository's git configuration, not an account.
+git user: `user.name` and `user.email` from the repository's git configuration, not an account
+(since 0031, the display name set in Settings when git gives no name).
 A dot in the icon's own corner says an agent is working (Chats) or that a turn changed files
 nobody looked at yet (Changes).
 
