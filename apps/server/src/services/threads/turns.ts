@@ -18,8 +18,8 @@ import { AppLog } from "../../app-log.ts";
 import { ServerConfig } from "../../config.ts";
 import { makeKeyedLock } from "../../keyed-lock.ts";
 import { ProjectManager } from "../../project.ts";
-import { GitService, type GitSnapshot } from "../git.ts";
 import type { RepoPaths } from "../repo-paths.ts";
+import { type TreeStamp, WorkingTree } from "../working-tree.ts";
 import { ProjectBriefing } from "./briefing.ts";
 import { Checkpoints } from "./checkpoints.ts";
 import { SlashCommands } from "./commands.ts";
@@ -179,7 +179,7 @@ export const makeTurns = Effect.fnUntraced(function* (deps: {
     session: Live,
     sessionId: string,
     blocks: ContentBlock[],
-    snapshot: GitSnapshot
+    before: TreeStamp
   ) =>
     session.agent.prompt(sessionId, blocks).pipe(
       // The response can overtake the last updates; the transcript must be complete first.
@@ -201,9 +201,9 @@ export const makeTurns = Effect.fnUntraced(function* (deps: {
             session.turn = null;
             const changedFiles = yield* project
               .use(
-                Effect.flatMap(GitService, (git) => git.changedSince(snapshot))
+                Effect.flatMap(WorkingTree, (tree) => tree.changedSince(before))
               )
-              // Attribution is a nicety; a git failure must not fail the turn.
+              // Attribution is a nicety; a project closed meanwhile must not fail the turn.
               .pipe(Effect.orElseSucceed((): string[] => []));
             const usage = turnUsage((response as { _meta?: unknown })._meta);
             yield* store.push(threadId, {
@@ -271,16 +271,17 @@ export const makeTurns = Effect.fnUntraced(function* (deps: {
       const purpose = (yield* store.get(threadId))?.purpose ?? "design";
       blocks.unshift(...(yield* sessionContext(session, earlier, purpose)));
     }
-    const snapshot = yield* project
-      .use(Effect.flatMap(GitService, (git) => git.snapshot))
-      .pipe(Effect.orElseSucceed((): GitSnapshot => new Map()));
+    // The folder's files before the turn, by time and size, to tell after it what it changed.
+    const before = yield* project
+      .use(Effect.flatMap(WorkingTree, (tree) => tree.stamp))
+      .pipe(Effect.orElseSucceed((): TreeStamp => new Map()));
     // Not cut short by a cancel: a checkpoint half written is worse than a late cancel.
     yield* Effect.uninterruptible(
       checkpoints.create(threadId, `Before: ${input.text.slice(0, 60)}`)
     );
     session.turn = emptyCursor();
     yield* Effect.forkIn(
-      runTurn(threadId, session, sessionId, blocks, snapshot),
+      runTurn(threadId, session, sessionId, blocks, before),
       session.scope
     );
   });

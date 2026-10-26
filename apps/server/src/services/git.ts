@@ -78,9 +78,6 @@ const parseStatus = (
   return { branch, files };
 };
 
-/** Content hash per changed or untracked file; used to attribute changes to an agent turn. */
-export type GitSnapshot = ReadonlyMap<string, string>;
-
 /** A file that differs between two trees: added, modified or deleted in the second. */
 export interface TreeChange {
   readonly path: string;
@@ -119,9 +116,6 @@ export class GitService extends Context.Service<
       readonly email?: string;
       readonly name?: string;
     }>;
-    readonly changedSince: (
-      snapshot: GitSnapshot
-    ) => Effect.Effect<string[], CommandFailed>;
     /** Commits the files; refused unless writing to git is on in the settings. */
     readonly commit: (
       message: string,
@@ -160,7 +154,6 @@ export class GitService extends Context.Service<
     readonly snapshotTree: (
       prefix: string
     ) => Effect.Effect<string, CommandFailed>;
-    readonly snapshot: Effect.Effect<GitSnapshot, CommandFailed>;
     readonly status: Effect.Effect<GitStatus, CommandFailed>;
   }
 >()("ultrapaint/server/GitService") {
@@ -190,41 +183,6 @@ export class GitService extends Context.Service<
         run(["status", "--porcelain=v1", "-b", "-z", "--untracked-files=all"]),
         (out) => parseStatus(out, paths.isInDesigns)
       ).pipe(Effect.withSpan("GitService.status"));
-
-      const snapshot = Effect.gen(function* () {
-        const { files } = yield* status;
-        const hashes = yield* Effect.forEach(
-          files,
-          (f) =>
-            f.code === " D" || f.code === "D "
-              ? Effect.succeed([f.path, "deleted"] as const)
-              : run(["hash-object", "--", f.path]).pipe(
-                  Effect.map((hash) => [f.path, hash.trim()] as const),
-                  // A file can disappear between status and hashing.
-                  Effect.orElseSucceed(() => [f.path, "?"] as const)
-                ),
-          { concurrency: "unbounded" }
-        );
-        return new Map(hashes) as GitSnapshot;
-      }).pipe(Effect.withSpan("GitService.snapshot"));
-
-      const changedSince = Effect.fn("GitService.changedSince")(function* (
-        before: GitSnapshot
-      ) {
-        const now = yield* snapshot;
-        const changed: string[] = [];
-        for (const [file, hash] of now) {
-          if (before.get(file) !== hash) {
-            changed.push(file);
-          }
-        }
-        for (const file of before.keys()) {
-          if (!now.has(file)) {
-            changed.push(file);
-          }
-        }
-        return changed;
-      });
 
       const diff = Effect.fn("GitService.diff")(function* (rel: string) {
         const abs = yield* paths.resolve(rel);
@@ -391,7 +349,6 @@ export class GitService extends Context.Service<
           out.trim()
         ),
         changedBetween,
-        changedSince,
         commit,
         deleteRef,
         diff,
@@ -399,7 +356,6 @@ export class GitService extends Context.Service<
         init,
         repository,
         restoreFrom,
-        snapshot,
         snapshotTree,
         status,
         user,

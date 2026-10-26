@@ -144,6 +144,19 @@ layer(PlainFolder, { excludeTestServices: true, timeout: "60 seconds" })(
         })
     );
 
+    it.effect("tells which files an agent's turn changed, without git", () =>
+      Effect.gen(function* () {
+        const { client, settings } = yield* TestEnv;
+        yield* client["settings.set"](settings);
+        const { items } = yield* runTurn("write");
+        const end = items.at(-1);
+        assert.deepStrictEqual(
+          end?.kind === "turn_end" ? end.changedFiles : null,
+          ["designs/agent.tsx"]
+        );
+      })
+    );
+
     it.effect("tells the agent nothing about a .git there is not", () =>
       Effect.gen(function* () {
         const { client, settings } = yield* TestEnv;

@@ -39,6 +39,7 @@ import { SpecService } from "./services/specs.ts";
 import { Storage } from "./services/storage.ts";
 import { ProjectStyleSystem } from "./services/style-system.ts";
 import { Thumbnails } from "./services/thumbnails.ts";
+import { WorkingTree } from "./services/working-tree.ts";
 
 /** Everything that exists once a target repository is configured. */
 export type ProjectServices =
@@ -59,7 +60,8 @@ export type ProjectServices =
   | PagesService
   | SkillsService
   | SpecService
-  | Thumbnails;
+  | Thumbnails
+  | WorkingTree;
 
 type ProjectRequirements =
   | AppLog
@@ -90,7 +92,8 @@ const projectLayer = (settings: Settings) =>
         GitService.layer,
         HostManager.layer,
         PagesService.layer,
-        Thumbnails.layer
+        Thumbnails.layer,
+        WorkingTree.layer
       )
     ),
     // A page renamed, moved or deleted takes its comments along, in the same undo step.
