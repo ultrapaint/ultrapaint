@@ -7,13 +7,12 @@
  */
 
 import type { Border, Padding } from "@ultrapaint/contracts/document";
-import {
-  type ComponentSpec,
-  ROOT_SLOT,
-  type SlotStyles,
-  SPEC_STATES,
-  type SpecState,
-  type SpecStyle,
+import { ROOT_SLOT, SPEC_STATES } from "@ultrapaint/contracts/spec-names";
+import type {
+  ComponentSpec,
+  SlotStyles,
+  SpecState,
+  SpecStyle,
 } from "@ultrapaint/contracts/specs";
 import type { StyleContext } from "./css.ts";
 

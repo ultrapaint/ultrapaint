@@ -7,25 +7,25 @@
  */
 import { Schema } from "effect";
 import { Border, Color, DesignNode, Length, Padding } from "./document.ts";
+import {
+  ROOT_SLOT,
+  SPEC_EXTENSION,
+  SPEC_STATES,
+  SPECS_DIR,
+} from "./spec-names.ts";
 
-/** Where specs live, inside the designs directory. */
-export const SPECS_DIR = "specs";
-export const SPEC_EXTENSION = ".spec.json";
-/** What a draft component's instances name as `from`. */
-export const DRAFT_FROM = "#draft";
+// biome-ignore lint/performance/noBarrelFile: the names live apart so the preview loads no schema; the specs' users find them here too.
+export {
+  DRAFT_FROM,
+  ROOT_SLOT,
+  SPEC_EXTENSION,
+  SPEC_STATES,
+  SPECS_DIR,
+} from "./spec-names.ts";
 
 /** The states a spec can style. */
-export const SpecState = Schema.Literals([
-  "hover",
-  "focus",
-  "active",
-  "disabled",
-  "open",
-  "checked",
-  "invalid",
-]);
+export const SpecState = Schema.Literals(SPEC_STATES);
 export type SpecState = typeof SpecState.Type;
-export const SPEC_STATES: readonly SpecState[] = SpecState.literals;
 
 /** The style fields a spec sets on one slot: the design document's own, tokens included. */
 export const SpecStyle = Schema.Struct({
@@ -52,9 +52,6 @@ export const SPEC_STYLE_FIELDS = Object.keys(
 /** Style fields per slot, by the slot's name (its `data-slot`, or `root`). */
 export const SlotStyles = Schema.Record(Schema.String, SpecStyle);
 export type SlotStyles = typeof SlotStyles.Type;
-
-/** The slot every spec has: the element the component renders at its root. */
-export const ROOT_SLOT = "root";
 
 export const SpecSlot = Schema.Struct({
   /** What the editor calls it; the name otherwise. */

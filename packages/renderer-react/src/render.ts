@@ -9,7 +9,8 @@
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 import type { InstanceDrawn } from "@ultrapaint/contracts/preview";
-import { type ComponentSpec, DRAFT_FROM } from "@ultrapaint/contracts/specs";
+import { DRAFT_FROM } from "@ultrapaint/contracts/spec-names";
+import type { ComponentSpec } from "@ultrapaint/contracts/specs";
 import {
   layoutOf,
   makeStyleContext,
