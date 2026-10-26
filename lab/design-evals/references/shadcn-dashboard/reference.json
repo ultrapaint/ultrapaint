@@ -1,6 +1,0 @@
-{
-  "kind": "dashboard",
-  "name": "shadcn/ui: dashboard block",
-  "url": "https://ui.shadcn.com/view/new-york-v4/dashboard-01",
-  "why": "A dense admin dashboard that stays calm: a handful of key figures with their trend, one chart and one table, ranked by position and weight rather than colour, with restrained chrome and consistent spacing throughout; on a phone the navigation folds away and the figures stack."
-}
