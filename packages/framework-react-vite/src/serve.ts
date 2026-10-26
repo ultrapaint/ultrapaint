@@ -40,12 +40,10 @@ export interface ServeOptions {
   /** Directory of our browser bundles, outside the repository. */
   bundleDir: string;
   designsDir: string;
-  /** The generated directory: the page, its entry module and the dependency cache. */
+  /** The generated directory: the editor's entry module and the dependency cache. */
   dir: string;
   /** Every file that may be rendered, as glob patterns, for dependency discovery. */
   entries: string[];
-  /** The generated page, served at `/`. */
-  html: string;
   /** Directories the dev server watches beyond its root: the designs and the libraries. */
   include: string[];
   root: string;
@@ -68,7 +66,6 @@ const options: ServeOptions = {
   bundleDir: real(given.bundleDir),
   designsDir: real(given.designsDir),
   dir: real(given.dir),
-  html: real(given.html),
   include: given.include.map(real),
   root: real(given.root),
 };
@@ -246,40 +243,6 @@ const patchedClient = {
   },
 };
 
-/**
- * The anchor package is the Vite root, as the project directory is for Storybook: what Vite
- * resolves on its own account (pre-bundled dependencies, de-duplicated packages, the public
- * directory, env files) then comes from where the design system's consumers get it. Our page
- * is not a file of that package, so it is served from the generated directory.
- */
-const servePage = {
-  configureServer(dev: import("vite").ViteDevServer) {
-    dev.middlewares.use((req, res, next) => {
-      const url = req.url ?? "/";
-      const [pathname] = url.split("?");
-      if (
-        pathname !== options.base &&
-        pathname !== `${options.base}index.html`
-      ) {
-        next();
-        return;
-      }
-      dev
-        .transformIndexHtml(url, readFileSync(options.html, "utf8"))
-        .then((html) => {
-          res.statusCode = 200;
-          res.setHeader("content-type", "text/html");
-          // The page asks for an agent cluster of its own origin. The editor is on another
-          // port of the same host, which is the same site: without this the browser runs every
-          // preview on the editor's main thread, and a preview that loads stalls the canvas.
-          res.setHeader("origin-agent-cluster", "?1");
-          res.end(html);
-        }, next);
-    });
-  },
-  name: "ultrapaint:page",
-};
-
 const MIME: Record<string, string> = {
   ".avif": "image/avif",
   ".gif": "image/gif",
@@ -339,7 +302,7 @@ const serveAsset = {
 
 const server = await vite.createServer(
   vite.mergeConfig(inherited, {
-    appType: "spa",
+    appType: "custom",
     base: options.base,
     cacheDir: path.join(options.dir, ".vite"),
     clearScreen: false,
@@ -358,7 +321,6 @@ const server = await vite.createServer(
         // anchor, `#` imports and aliases included.
         from: [options.designsDir, options.bundleDir, options.dir],
       }),
-      servePage,
       serveAsset,
       patchedClient,
       ...(sparing(
@@ -367,6 +329,10 @@ const server = await vite.createServer(
       ) as import("vite").PluginOption[]),
     ],
     resolve: { dedupe: options.singletons },
+    // The anchor package is the Vite root, as the project directory is for Storybook: what Vite
+    // resolves on its own account (pre-bundled dependencies, de-duplicated packages, the public
+    // directory, env files) comes from where the design system's consumers get it. The modules
+    // the editor imports are served from the generated directory, outside it.
     root: options.anchorDir,
     server: {
       // The client runs in the editor's page: what that page logs is the editor's, not the
@@ -383,7 +349,6 @@ const server = await vite.createServer(
       // preview asks for them.
       warmup: {
         clientFiles: [
-          path.join(options.dir, "main.ts"),
           path.join(options.dir, "editor.ts"),
           path.join(options.dir, "components.ts"),
         ],

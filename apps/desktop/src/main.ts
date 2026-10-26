@@ -28,7 +28,6 @@ import { AGENTS, type AgentId, Agents, isAgentId } from "./agents.ts";
 import {
   Channel,
   type ListedProject,
-  type MappedUrl,
   type NewDesignUpdate,
   type PickFolderOptions,
   type ShellInfo,
@@ -264,10 +263,7 @@ const runtime = ManagedRuntime.make(
 const fromWindow = (event: IpcMainEvent) =>
   window !== null && event.sender === window.webContents;
 
-/**
- * What the preload script asks before the page loads, and the preview's URL as the editor
- * renders it: both synchronous for the page, which waits while a port is forwarded.
- */
+/** What the preload script asks before the page loads: synchronous for the page. */
 ipcMain.on(Channel.shellInfo, (event) => {
   const info: ShellInfo = {
     remote: false,
@@ -289,22 +285,6 @@ ipcMain.on(Channel.shellInfo, (event) => {
     })
     .catch(() => {
       event.returnValue = info;
-    });
-});
-
-ipcMain.on(Channel.previewUrl, (event, url: unknown) => {
-  const asItIs: MappedUrl = { forwarded: false, url: String(url) };
-  if (!fromWindow(event)) {
-    event.returnValue = asItIs;
-    return;
-  }
-  runtime
-    .runPromise(OpenProject.use((o) => o.mapPreviewUrl(String(url))))
-    .then((mapped) => {
-      event.returnValue = mapped;
-    })
-    .catch(() => {
-      event.returnValue = asItIs;
     });
 });
 

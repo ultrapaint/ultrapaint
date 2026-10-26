@@ -1,35 +1,18 @@
 /**
  * The open project's server when the project is on another machine (PLAN-desktop D12): a
  * connection, the server started there or attached to, and its port forwarded here, as one
- * `RunningServer` the window loads the editor from. The preview's port is forwarded when the
- * editor first asks for it (`mapPreviewUrl`), and again when it moves. `ssh-server.ts` makes
- * each part; this keeps them together for as long as the project is open.
+ * `RunningServer` the window loads the editor from. The preview comes through the server's own
+ * port (`/preview/`, ADR 0034): it is the one port forwarded. `ssh-server.ts` makes each part;
+ * this keeps them together for as long as the project is open.
  *
  * A connection that drops, or a server that stops, is made again: with a growing wait between
- * attempts, the window saying so meanwhile, and the ports forwarded on the ports they had, so
+ * attempts, the window saying so meanwhile, and the port forwarded on the port it had, so
  * that the editor's socket finds its server again where it was. The server is started again if
  * it died, or attached to if it still runs; the window loads the editor again only when it is
  * another server, or another port.
  */
-import {
-  Context,
-  Duration,
-  Effect,
-  Exit,
-  Layer,
-  Result,
-  Scope,
-  Semaphore,
-} from "effect";
+import { Context, Duration, Effect, Exit, Layer, Result, Scope } from "effect";
 import { ServerStartError } from "./errors.ts";
-import {
-  type Forwards,
-  forwardOf,
-  movePreview,
-  type PortForward,
-  remotePortOf,
-  throughForward,
-} from "./forwards.ts";
 import { agentsWorking, type RunningServer } from "./project-server.ts";
 import type { SshProject } from "./projects.ts";
 import type { ShellStatus } from "./shell.ts";
@@ -41,8 +24,6 @@ import {
   RemoteServers,
 } from "./ssh-server.ts";
 
-/** How long the window may wait for a port to be forwarded before it gets the URL as it was. */
-const FORWARD_TIMEOUT = "5 seconds";
 /** How often a server the app attached to is asked whether it still answers. */
 const HEALTH_EVERY = "5 seconds";
 /** How many unanswered asks in a row mean it stopped. */
@@ -77,11 +58,8 @@ interface Live {
   readonly server: RemoteServer;
 }
 
-const serverForward = (server: RemoteServer): PortForward => ({
-  local: Number(new URL(server.url).port),
-  remoteHost: new URL(server.ready.url).hostname,
-  remotePort: server.ready.port,
-});
+/** The port here the server is forwarded to. */
+const localPortOf = (server: RemoteServer) => Number(new URL(server.url).port);
 
 export class RemoteProjects extends Context.Service<
   RemoteProjects,
@@ -104,7 +82,7 @@ export class RemoteProjects extends Context.Service<
 
       const start = Effect.fn("RemoteProjects.start")(
         function* (project: SshProject, hooks: RemoteHooks) {
-          /** A connection and the server on it, its ports on the ones they had when free. */
+          /** A connection and the server on it, its port on the one it had when free. */
           const open = (preferred?: number) =>
             Effect.gen(function* () {
               const scope = yield* Scope.make();
@@ -123,13 +101,11 @@ export class RemoteProjects extends Context.Service<
             });
 
           let live = yield* open();
-          let forwards: Forwards = { server: serverForward(live.server) };
+          let local = localPortOf(live.server);
           // Whether the server is the app's to stop: it started it, here or before a drop.
           let owned = live.server.ready.attached !== true;
           // The app's own server, attached to again after a drop: no session holds its stdin.
           let adopted = false;
-          // One change to the forwards at a time: the editor's asks, and a reconnection.
-          const forwarding = yield* Semaphore.make(1);
 
           yield* Effect.addFinalizer(() =>
             Effect.gen(function* () {
@@ -172,9 +148,7 @@ export class RemoteProjects extends Context.Service<
                 message: `Reconnecting to ${project.host}…`,
               });
               for (let attempt = 1; ; attempt += 1) {
-                const result = yield* Effect.result(
-                  open(forwards.server.local)
-                );
+                const result = yield* Effect.result(open(local));
                 if (Result.isSuccess(result)) {
                   return result.success;
                 }
@@ -190,51 +164,26 @@ export class RemoteProjects extends Context.Service<
               }
             });
 
-          /** Takes the new connection on, its preview forwarded again; true when the editor moved. */
-          const takeOn = (next: Live) =>
-            forwarding.withPermits(1)(
-              Effect.gen(function* () {
-                const before = forwards;
-                const { ready } = next.server;
-                const same = ready.token === live.server.ready.token;
-                if (ready.attached !== true) {
-                  owned = true;
-                  adopted = false;
-                } else if (same) {
-                  adopted = owned;
-                } else {
-                  // Someone else's server took the project's place meanwhile.
-                  owned = false;
-                  adopted = false;
-                }
-                let after: Forwards = { server: serverForward(next.server) };
-                let moved = !same || after.server.local !== before.server.local;
-                // The same server's preview keeps its port there: forwarded again on its port
-                // here, so the canvas loads it where it did.
-                if (same && before.preview) {
-                  const { preview } = before;
-                  const local = yield* Effect.result(
-                    next.connection.forward(
-                      preview.remoteHost,
-                      preview.remotePort,
-                      preview.local
-                    )
-                  );
-                  if (Result.isSuccess(local)) {
-                    after = {
-                      ...after,
-                      preview: { ...preview, local: local.success },
-                    };
-                    moved = moved || local.success !== preview.local;
-                  } else {
-                    moved = true;
-                  }
-                }
-                live = next;
-                forwards = after;
-                return moved;
-              })
-            );
+          /** Takes the new connection on; true when the editor moved. */
+          const takeOn = (next: Live) => {
+            const { ready } = next.server;
+            const same = ready.token === live.server.ready.token;
+            if (ready.attached !== true) {
+              owned = true;
+              adopted = false;
+            } else if (same) {
+              adopted = owned;
+            } else {
+              // Someone else's server took the project's place meanwhile.
+              owned = false;
+              adopted = false;
+            }
+            const after = localPortOf(next.server);
+            const moved = !same || after !== local;
+            live = next;
+            local = after;
+            return moved;
+          };
 
           yield* Effect.forkScoped(
             Effect.forever(
@@ -242,7 +191,7 @@ export class RemoteProjects extends Context.Service<
                 const reason = yield* lost(live);
                 yield* Scope.close(live.scope, Exit.void);
                 const next = yield* reconnect(reason);
-                const moved = yield* takeOn(next);
+                const moved = takeOn(next);
                 yield* hooks.status(null);
                 if (moved) {
                   yield* hooks.moved(next.server.url);
@@ -251,36 +200,8 @@ export class RemoteProjects extends Context.Service<
             )
           );
 
-          const mapPreviewUrl = (url: string) =>
-            forwarding.withPermits(1)(
-              Effect.gen(function* () {
-                const port = remotePortOf(url);
-                if (port === undefined) {
-                  // Not on the remote machine's loopback: reached as it is.
-                  return { forwarded: true, url };
-                }
-                const known = forwardOf(forwards, port);
-                if (known) {
-                  return { forwarded: true, url: throughForward(url, known) };
-                }
-                const remoteHost = new URL(url).hostname;
-                const local = yield* live.connection.forward(remoteHost, port);
-                const preview = { local, remoteHost, remotePort: port };
-                const moved = movePreview(forwards, preview);
-                forwards = moved.next;
-                yield* Effect.forEach(moved.cancel, live.connection.cancel, {
-                  discard: true,
-                });
-                return { forwarded: true, url: throughForward(url, preview) };
-              }).pipe(
-                Effect.timeout(FORWARD_TIMEOUT),
-                Effect.orElseSucceed(() => ({ forwarded: false, url }))
-              )
-            );
-
           return {
             attached: !owned,
-            mapPreviewUrl,
             get token() {
               return live.server.ready.token;
             },

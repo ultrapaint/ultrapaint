@@ -33,7 +33,6 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { ASSET_MIME, beginDrag, cancelDrag, useDrag } from "../canvas/drag.ts";
-import { useHostUrl } from "../canvas/frame.tsx";
 import { drawSpecimen, hashOf } from "../canvas/specimens.ts";
 import { IconButton } from "../components/icon-button.tsx";
 import { Segmented } from "../components/segmented.tsx";
@@ -46,7 +45,7 @@ import { useDesignSystem } from "../state/design-system.ts";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { useDesignLookVersion } from "../state/look.ts";
-import { useProject } from "../state/project.ts";
+import { previewRunning, useProject } from "../state/project.ts";
 import { ensureEditable } from "../state/setup.ts";
 
 type View = "list" | "grid";
@@ -179,7 +178,7 @@ const useThumbnails = (
   components: readonly ComponentMeta[],
   active: boolean
 ) => {
-  const host = useHostUrl();
+  const host = useProject((s) => previewRunning(s.info.host));
   const builtAt = useCatalogue((s) => s.catalogue?.builtAt ?? 0);
   const designSystem = useDesignSystem((s) => s.designSystem);
   // The design's look over the code's draws them too (ADR 0028, 0029).
@@ -229,7 +228,7 @@ const useThumbnails = (
         if (cancelled) {
           return;
         }
-        // biome-ignore lint/performance/noAwaitInLoops: one iframe draws one thumbnail at a time.
+        // biome-ignore lint/performance/noAwaitInLoops: one frame draws one thumbnail at a time.
         const dataUrl = await draw(c);
         if (cancelled || !dataUrl) {
           continue;

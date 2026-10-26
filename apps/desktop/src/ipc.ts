@@ -18,8 +18,6 @@ export const Channel = {
   newDesignProgress: "ultrapaint:new-design-progress",
   notices: "ultrapaint:notices",
   pickFolder: "ultrapaint:pick-folder",
-  /** Synchronous: the preview's URL as the window reaches it (`Platform.mapPreviewUrl`). */
-  previewUrl: "ultrapaint:preview-url",
   projectsAdd: "ultrapaint:projects-add",
   projectsAddRemote: "ultrapaint:projects-add-remote",
   projectsCurrent: "ultrapaint:projects-current",
@@ -35,8 +33,8 @@ export const Channel = {
 /** What the preload script needs to know before the page loads. */
 export interface ShellInfo {
   /**
-   * The open project's server runs on another machine: its preview is reached through a
-   * forwarded port, and its agents are that machine's, not this one's.
+   * The open project's server runs on another machine: its agents are that machine's, not
+   * this one's.
    */
   readonly remote: boolean;
   /** What the app is doing for it as the page loads: reconnecting, say. */
@@ -59,12 +57,6 @@ export interface WindowControlsInfo {
 export interface ShellStatus {
   readonly detail?: string | undefined;
   readonly message: string;
-}
-
-/** The answer to `previewUrl`: kept by the page only once it is forwarded. */
-export interface MappedUrl {
-  readonly forwarded: boolean;
-  readonly url: string;
 }
 
 /** What `pickFolder` takes, as the editor's `Platform` says it. */

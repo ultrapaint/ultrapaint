@@ -61,10 +61,6 @@ const fakeRemoteServers = (machine: FakeMachine) =>
             })
           );
           const connection: Connection = {
-            cancel: (forward) =>
-              Effect.sync(() =>
-                machine.log.push(`cancel ${forward.remotePort}`)
-              ),
             closed: Deferred.await(closed),
             forward: (_host, remotePort, preferred) =>
               Effect.sync(() => {
@@ -214,15 +210,6 @@ describe("RemoteProjects", () => {
             .pipe(Scope.provide(scope));
           assert.strictEqual(running.url, "http://127.0.0.1:41000");
           assert.isFalse(running.attached);
-          // The preview, asked for once: forwarded.
-          const preview = yield* running.mapPreviewUrl?.(
-            "http://127.0.0.1:5173/?frame=a"
-          ) ?? Effect.die("no mapping");
-          assert.deepStrictEqual(preview, {
-            forwarded: true,
-            url: "http://127.0.0.1:41001/?frame=a",
-          });
-
           // The network goes; the server there keeps running. Three attempts fail.
           machine.failures.push(unreachable, unreachable, unreachable);
           yield* dropConnection(machine, "connection reset");
@@ -250,13 +237,12 @@ describe("RemoteProjects", () => {
           yield* TestClock.adjust("1 second");
           yield* settle;
           assert.isNull(seen.statuses.at(-1));
-          // Same server, same ports: the editor's socket finds it where it was, no reload.
+          // Same server, same port: the editor's socket finds it where it was, no reload.
           assert.deepStrictEqual(seen.moved, []);
           assert.strictEqual(running.url, "http://127.0.0.1:41000");
-          assert.deepStrictEqual(machine.log.slice(-3), [
+          assert.deepStrictEqual(machine.log.slice(-2), [
             "attach run-1",
             "forward 4701->41000",
-            "forward 5173->41001",
           ]);
 
           // The app's own server, attached to again: stopped by the app when it closes.
@@ -308,7 +294,7 @@ describe("RemoteProjects", () => {
   );
 
   it.effect(
-    "moves the preview's forward when the preview moves, and leaves a server it attached to running",
+    "leaves a server it attached to running, and forwards its port alone",
     () =>
       withMachine((machine, seen) =>
         Effect.gen(function* () {
@@ -319,24 +305,11 @@ describe("RemoteProjects", () => {
             .start(project, hooksFor(seen))
             .pipe(Scope.provide(scope));
           assert.isTrue(running.attached);
-          const map = running.mapPreviewUrl ?? (() => Effect.die("no mapping"));
-          yield* map("http://127.0.0.1:5173");
-          const moved = yield* map("http://127.0.0.1:5174/");
-          assert.strictEqual(moved.url, "http://127.0.0.1:41002/");
-          // Its own port goes through the server's forward, as it is.
-          const own = yield* map("http://127.0.0.1:4700/x");
-          assert.strictEqual(own.url, "http://127.0.0.1:41000/x");
-          // Elsewhere than the remote machine's loopback: as it is.
-          const elsewhere = yield* map("https://example.com/a?b=c");
-          assert.strictEqual(elsewhere.url, "https://example.com/a?b=c");
           yield* Scope.close(scope, Exit.void);
           assert.deepStrictEqual(machine.log, [
             "connect",
             "attach theirs",
             "forward 4700->41000",
-            "forward 5173->41001",
-            "forward 5174->41002",
-            "cancel 5173",
             "disconnect",
           ]);
           assert.isNotNull(machine.running);

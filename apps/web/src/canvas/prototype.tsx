@@ -99,7 +99,7 @@ const closeComments = (e: ReactPointerEvent) => {
 
 /**
  * The comments of the page the prototype shows, pinned where they were placed, and in comment
- * mode the sheet a click drops a new one on. Laid over the iframe in the page's own pixels and
+ * mode the sheet a click drops a new one on. Laid over the frame in the page's own pixels and
  * scaled as it is; the pins and cards are scaled back to keep their size, and are not clipped
  * by the page's edge, so a card near it can still be read.
  */
@@ -149,7 +149,7 @@ const PageComments = ({
 /**
  * The canvas at the size of the current page's frame, or of the device picked under it, scaled
  * down only when it does not fit, with clicks going to the page itself. The editor holds the
- * route: what a link inside asks for comes back out as a navigation, and the iframe is told what
+ * route: what a link inside asks for comes back out as a navigation, and the frame is told what
  * to show.
  */
 export const Prototype = () => {

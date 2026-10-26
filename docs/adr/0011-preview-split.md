@@ -2,6 +2,11 @@
 
 Status: accepted, 2026-09-17. Supersedes 0001 and 0006; builds on 0002, 0003 and 0007.
 
+> Amended by [0034](0034-frames-in-the-editors-page.md), 2026-10-26. The split stands; the iframe
+> goes. The preview core and the renderer run in the editor's own page, loaded once from the
+> preview's server through the editor's server (`/preview/`), and draw every frame in a shadow
+> root; the editor calls them directly instead of posting messages.
+
 > Amended by [0015](0015-design-documents.md), 2026-09-25. The split stands; what crosses it
 > changed. The preview no longer renders a page module and walks its fibers: the editor sends it
 > a design document, the renderer draws it with the repository's components (imported through a

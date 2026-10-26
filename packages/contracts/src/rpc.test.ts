@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { DesignSystem, emptyDesignSystem } from "./design-system.ts";
 import { DocOp, PageDocument } from "./document.ts";
 import { CommandFailed, errorCodes, NotFound } from "./errors.ts";
-import { EditorMessage } from "./preview.ts";
 import { UltrapaintRpcs, eventNames } from "./rpc.ts";
 import { Settings } from "./settings.ts";
 import { ThreadItem } from "./threads.ts";
@@ -100,15 +99,7 @@ describe("contracts", () => {
     ).toThrow();
   });
 
-  it("carries a document and the design system to the preview", () => {
-    const message: EditorMessage = {
-      designSystem: emptyDesignSystem(),
-      mode: "page",
-      renderId: 3,
-      root: { children: [], id: "root", type: "page" },
-      type: "ed:render",
-    };
-    expect(overTheWire(EditorMessage, message)).toEqual(message);
+  it("carries the design system over the wire", () => {
     expect(overTheWire(DesignSystem, emptyDesignSystem())).toEqual(
       emptyDesignSystem()
     );

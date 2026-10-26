@@ -116,7 +116,7 @@ const collectAttachments = async (
   return attachments;
 };
 
-/** In the prototype the whole canvas is one iframe; on the canvas every page has its own. */
+/** In the prototype the whole canvas is one frame; on the canvas every page has its own. */
 const shotFrameOf = (
   workspace: Workspace,
   canvas: string | null,

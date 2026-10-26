@@ -3,7 +3,6 @@ import type { Page, ViewportPreset } from "@ultrapaint/contracts/pages";
 import type { HostError } from "@ultrapaint/contracts/preview";
 import { findNode, nodeLabel } from "@ultrapaint/design-document/tree";
 import type { Preview } from "@ultrapaint/framework-api/browser";
-import { PREVIEW_PROTOCOL } from "@ultrapaint/framework-api/protocol";
 import { cn } from "cn";
 import {
   type CSSProperties,
@@ -31,7 +30,7 @@ import {
 import { useEditor } from "../state/editor.ts";
 import { useInstances } from "../state/instances.ts";
 import { useDesignLookVersion } from "../state/look.ts";
-import { previewUrl, useProject } from "../state/project.ts";
+import { previewRunning, useProject } from "../state/project.ts";
 import { FramePresence } from "./agent-presence.tsx";
 import { AgentWorkOverlay, useFrameWork, useSkeletons } from "./agent-work.tsx";
 import { bridgeFor } from "./bridge.ts";
@@ -48,8 +47,8 @@ import {
 import { PageToolbar } from "./page-toolbar.tsx";
 import { usePreview } from "./preview-module.ts";
 import { parkPreview, placePreview, previewDrawn } from "./preview-pool.ts";
+import { useFrameBridge } from "./use-frame-bridge.ts";
 import { useFramePointer } from "./use-frame-pointer.ts";
-import { useFrameBridge } from "./use-preview-bridge.ts";
 
 const formatHostError = (error: HostError) => {
   if (!error.file) {
@@ -149,7 +148,6 @@ interface FrameBox {
 interface Props {
   frame: FrameBox;
   frameId: string;
-  hostUrl: string | null;
   kind: "page" | "node";
   onDragStart: (
     e: ReactPointerEvent,
@@ -163,8 +161,9 @@ interface Props {
 }
 
 export const Frame = memo(
-  ({ frameId, kind, page, frame, hostUrl, visible, onDragStart }: Props) => {
+  ({ frameId, kind, page, frame, visible, onDragStart }: Props) => {
     const preview = usePreview();
+    const running = useProject((s) => previewRunning(s.info.host));
     // Only what is selected or hovered in this frame: elsewhere it is no business of this one.
     const selectedHere = useSelectedIn(frameId);
     const alsoHere = useAlsoIn(frameId);
@@ -203,18 +202,8 @@ export const Frame = memo(
           setKept(true);
           break;
         case "ed:ready":
-          // A repository may pin its own framework package one day; an older preview
-          // would then misread what the editor sends.
-          if ((msg.protocol ?? PREVIEW_PROTOCOL) !== PREVIEW_PROTOCOL) {
-            store().setHostError(
-              frameId,
-              `The preview speaks protocol ${msg.protocol}, the editor ${PREVIEW_PROTOCOL}. Update the framework package installed in the repository.`
-            );
-            break;
-          }
           renderFrame(frameId, kind);
-          // A page that reloads (or arrives late) has to be told the current mode: it starts
-          // out interactive so that a preview opened on its own still works.
+          // A frame taken back from the pool is told the current mode.
           bridge.setInteractive(isInteractive(store()));
           store().setHostError(frameId, null);
           break;
@@ -345,7 +334,7 @@ export const Frame = memo(
             />
           ) : (
             <div className="flex h-full items-center justify-center text-zinc-500">
-              {hostUrl ? "" : "Preview host not running"}
+              {running ? "" : "Preview host not running"}
             </div>
           )}
           <SelectLayer
@@ -726,5 +715,3 @@ const FrameChrome = ({
     </>
   );
 };
-
-export const useHostUrl = () => useProject((s) => previewUrl(s.info.host));

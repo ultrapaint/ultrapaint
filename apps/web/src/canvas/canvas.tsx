@@ -59,7 +59,7 @@ import {
 } from "./drag.ts";
 import { CreateOverlay, DragOverlay } from "./drag-overlay.tsx";
 import { EmptyState } from "./empty-state.tsx";
-import { type Corner, drawResized, Frame, useHostUrl } from "./frame.tsx";
+import { type Corner, drawResized, Frame } from "./frame.tsx";
 import { isFrameLocked } from "./hit-test.ts";
 import { addImages, imageFiles } from "./items.ts";
 import { holdsFree, snapBox, snapPoint, snapToEdges } from "./snap.ts";
@@ -127,7 +127,6 @@ export const Canvas = () => {
   const pages = allPages.filter((p) => p.canvas === canvas);
   const nodes = useDocuments((s) => canvasNodes(s.docs, canvas));
   const grid = useCanvasGrid((s) => s.visible);
-  const hostUrl = useHostUrl();
   const [size, setSize] = useState({ height: 0, width: 0 });
   const [panning, setPanning] = useState(false);
   // Virtualisation: only the frames near the screen have a preview mounted.
@@ -624,7 +623,6 @@ export const Canvas = () => {
             <Frame
               frame={frame}
               frameId={page.id}
-              hostUrl={hostUrl}
               key={page.id}
               kind="page"
               onDragStart={startFrameDrag}
@@ -638,7 +636,6 @@ export const Canvas = () => {
           return (
             <NodeFrame
               frameId={frameId}
-              hostUrl={hostUrl}
               key={frameId}
               node={node}
               onDragStart={startFrameDrag}
@@ -671,13 +668,11 @@ const movingTo = (
 const NodeFrame = memo(
   ({
     frameId,
-    hostUrl,
     node,
     onDragStart,
     visible,
   }: {
     frameId: string;
-    hostUrl: string | null;
     node: DesignNode;
     onDragStart: ComponentProps<typeof Frame>["onDragStart"];
     visible: boolean;
@@ -696,7 +691,6 @@ const NodeFrame = memo(
       <Frame
         frame={box}
         frameId={frameId}
-        hostUrl={hostUrl}
         kind="node"
         onDragStart={onDragStart}
         visible={visible}

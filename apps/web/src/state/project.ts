@@ -9,7 +9,6 @@ import type {
 import type { Settings } from "@ultrapaint/contracts/settings";
 import { create } from "zustand";
 import { keptAsTheyWere } from "../lib/kept-as-they-were.ts";
-import { platform } from "../platform.ts";
 import { api } from "./connection.ts";
 import { viewedSnapshot } from "./snapshot-view.ts";
 import { readUrl, writeSettingsSection } from "./url.ts";
@@ -36,29 +35,12 @@ interface ProjectStore {
   undo: UndoState;
 }
 
-const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
-
 /**
- * Where the preview is loaded from. The server names it by the address it reaches it at on
- * its own machine; a page opened from another machine reaches the same machine by the address
- * it was opened at, so that one is used instead. On this machine the server's is kept: it says
- * `127.0.0.1` where the page may say `localhost`, which can resolve elsewhere. A shell that
- * reaches the server through a forwarded port maps the preview's too (`Platform`).
+ * Whether the project's preview runs: what the frames are drawn with (ADR 0034), from the
+ * editor's own origin, wherever the editor was opened.
  */
-const TRAILING_SLASH_RE = /\/$/;
-
-export const previewUrl = (host: HostStatus): string | null => {
-  if (host.state !== "running" || !host.url) {
-    return null;
-  }
-  const { mapPreviewUrl } = platform();
-  if (LOOPBACK.has(window.location.hostname)) {
-    return mapPreviewUrl ? mapPreviewUrl(host.url) : host.url;
-  }
-  const url = new URL(host.url);
-  url.hostname = window.location.hostname;
-  return `${url.origin}${url.pathname.replace(TRAILING_SLASH_RE, "")}`;
-};
+export const previewRunning = (host: HostStatus): boolean =>
+  host.state === "running" && host.entry !== undefined;
 
 export const useProject = create<ProjectStore>((set, get) => ({
   canvases: [],

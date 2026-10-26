@@ -3,6 +3,12 @@
 Status: accepted, 2026-10-26. Amends 0011 (the preview iframes) and 0015 (the preview draws the
 documents the editor sends).
 
+
+> Amended by [0034](0034-frames-in-the-editors-page.md), 2026-10-26. The previews are no longer
+> iframes but shadow roots of the editor's page: the agent cluster, `moveBefore` and the iframe
+> pool go. The pool keeps shadow hosts instead, a frame that leaves the screen keeps its page where
+> it is (`content-visibility: hidden`), and the camera's `--inv` is pinned above each host. The
+> camera, the nearest-first queue, the Layers panel and `pnpm bench:canvas` stay.
 ## Context
 
 With many screens on a canvas, panning and zooming lagged, and a screen coming back into view went

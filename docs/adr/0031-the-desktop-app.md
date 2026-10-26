@@ -5,6 +5,11 @@ here), 0004, 0013, 0018 and 0023 (git is no longer needed). Builds on 0008, 0010
 work is planned in [PLAN-desktop](../PLAN-desktop.md); this records its decisions and what Phase 0
 changed in the server and the editor, and what Phases 1, 2 and 3 added.
 
+> Amended by [0034](0034-frames-in-the-editors-page.md), 2026-10-26: the editor imports the
+> preview through its own server (`/preview/`), so over SSH the app forwards the server's port
+> alone. `Platform.mapPreviewUrl`, the preload's synchronous IPC and the forward made again when
+> the preview moves are gone. The user's Node still runs the preview's Vite.
+
 ## Context
 
 The tool is a command run in a repository and served to the browser (0017). That stays. What the

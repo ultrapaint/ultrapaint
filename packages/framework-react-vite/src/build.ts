@@ -20,10 +20,6 @@ export interface PreviewBundles {
    * `createPreview`; `react` stays an import, so it is the repository's.
    */
   readonly editor: string;
-  /** ES module with `renderToCanvas`; `react` stays an import, so it is the repository's. */
-  readonly render: string;
-  /** Classic script injected ahead of the screen: preview core plus React's introspector. */
-  readonly runtime: string;
   /** Node script that serves the preview. */
   readonly serve: string;
 }
@@ -38,8 +34,6 @@ const inputsFile = path.resolve(here, "../.cache/preview-inputs.json");
 const bundles: PreviewBundles = {
   dir: dist,
   editor: path.join(dist, "editor.js"),
-  render: path.join(dist, "render.js"),
-  runtime: path.join(dist, "runtime.js"),
   serve: path.join(dist, "serve.mjs"),
 };
 
@@ -105,8 +99,8 @@ const sourceOf = (specifier: string) =>
 
 /**
  * Bundles what runs outside this process: the serve script (Node, run from the target
- * repository) and the two browser modules. Each is self-contained, so the target repository
- * resolves none of our dependencies.
+ * repository) and the module the editor's page loads. Each is self-contained, so the target
+ * repository resolves none of our dependencies.
  */
 export const buildPreviewBundles = async (
   opts: { force?: boolean } = {}
@@ -114,15 +108,8 @@ export const buildPreviewBundles = async (
   if (!fromSource) {
     return bundles;
   }
-  const runtimeSource = sourceOf("@ultrapaint/renderer-react/runtime");
-  const renderSource = sourceOf("@ultrapaint/renderer-react/render");
   const editorSource = sourceOf("@ultrapaint/renderer-react/editor");
-  const outputs = [
-    bundles.editor,
-    bundles.render,
-    bundles.runtime,
-    bundles.serve,
-  ];
+  const outputs = [bundles.editor, bundles.serve];
   // Paths in the metafile are relative to the working directory: this one, made explicit.
   const common = {
     absWorkingDir: here,
@@ -143,27 +130,10 @@ export const buildPreviewBundles = async (
     },
     {
       ...common,
-      entryPoints: [runtimeSource],
-      format: "iife",
-      outfile: bundles.runtime,
-      platform: "browser",
-      target: "es2022",
-    },
-    {
-      ...common,
       entryPoints: [editorSource],
       external: ["react", "react-dom", "react-dom/client"],
       format: "esm",
       outfile: bundles.editor,
-      platform: "browser",
-      target: "es2022",
-    },
-    {
-      ...common,
-      entryPoints: [renderSource],
-      external: ["react", "react-dom", "react-dom/client"],
-      format: "esm",
-      outfile: bundles.render,
       platform: "browser",
       target: "es2022",
     },

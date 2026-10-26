@@ -1,8 +1,8 @@
 /**
- * What a renderer gives the preview, in the browser. The preview core knows the DOM and the
- * editor's protocol and nothing about any UI framework; drawing a design document with the
- * framework the design system is written in is the renderer's, the way Storybook's preview only
- * knows a renderer's `renderToCanvas`.
+ * What a renderer gives the preview, in the editor's page (ADR 0034). The preview core knows the
+ * DOM and nothing about any UI framework; drawing a design document with the framework the design
+ * system is written in is the renderer's, the way Storybook's preview only knows a renderer's
+ * `renderToCanvas`.
  */
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
@@ -76,28 +76,6 @@ export type RenderToCanvas = (
   setup: RenderSetup,
   canvas: HTMLElement
 ) => Mounted;
-
-/** What the generated entry module hands the preview core to start. */
-export interface StartInput {
-  readonly canvas: HTMLElement;
-  readonly components: ComponentRegistry;
-  readonly mount: RenderToCanvas;
-  readonly providers: unknown;
-}
-
-/** The surface the preview core leaves on `window.__ED__` for the generated modules. */
-export interface PreviewGlobal {
-  readonly notifyHmr: () => void;
-  readonly reportError: (error: {
-    readonly file?: string | undefined;
-    readonly line?: number | undefined;
-    readonly message: string;
-    readonly stack?: string | undefined;
-  }) => void;
-  /** The generated registry of component modules was rewritten. */
-  readonly setComponents: (components: ComponentRegistry) => void;
-  readonly start: (input: StartInput) => void;
-}
 
 /** A box in a frame's own coordinates: the page's pixels, whatever the canvas's zoom. */
 export interface FrameRect {

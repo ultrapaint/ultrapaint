@@ -11,7 +11,7 @@ import { api } from "./connection.ts";
 import { useDesignSystem } from "./design-system.ts";
 import { frameOfCanvasNode, rootOfFrame, useDocuments } from "./documents.ts";
 import { useEditor } from "./editor.ts";
-import { previewUrl, useProject } from "./project.ts";
+import { previewRunning, useProject } from "./project.ts";
 
 const KEY = "threads";
 /** Twice the size the list shows them at. */
@@ -122,7 +122,7 @@ const sourceOf = (thread: Thread) => {
 
 const draw = async (thread: Thread) => {
   const source = sourceOf(thread);
-  const host = previewUrl(useProject.getState().info.host);
+  const host = previewRunning(useProject.getState().info.host);
   if (!(source && host) || drawnFrom.get(thread.id) === source.from) {
     return;
   }

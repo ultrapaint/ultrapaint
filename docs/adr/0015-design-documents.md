@@ -3,6 +3,10 @@
 Status: accepted, 2026-09-25. Supersedes 0002, 0003, 0007's snippet insertion and the TSX
 verdict of [the storage checkpoint](../decisions/storage-format.md). Amends 0011, 0012 and 0014.
 
+> Amended by [0034](0034-frames-in-the-editors-page.md), 2026-10-26: the preview still draws the
+> documents the editor gives it, in a frame of the editor's own page, called directly; there is
+> no iframe, no `postMessage` and no `PREVIEW_PROTOCOL` any more.
+
 > Amended by [0027](0027-design-md.md): `DESIGN.md` follows the open DESIGN.md format, at the root
 > of the repository, its front matter mirroring the code's tokens.
 

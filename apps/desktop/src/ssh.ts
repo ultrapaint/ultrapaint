@@ -139,18 +139,17 @@ export interface Forward {
   readonly remotePort: number;
 }
 
-/** Adds a forward to the live connection, or cancels one. */
+/** Adds a forward to the live connection. */
 export const forwardArgs = (
   target: SshTarget,
   socket: string,
-  operation: "forward" | "cancel",
   forward: Forward
 ) => [
   ...(target.configFile ? ["-F", target.configFile] : []),
   "-S",
   socket,
   "-O",
-  operation,
+  "forward",
   "-L",
   `127.0.0.1:${forward.local}:${forward.remoteHost}:${forward.remotePort}`,
   "--",

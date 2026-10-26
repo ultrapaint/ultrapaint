@@ -123,7 +123,7 @@ describe("ssh arguments", () => {
     assert.include(session, "ControlMaster=no");
     assert.notInclude(session, "-F");
     assert.deepStrictEqual(
-      forwardArgs(target, "/tmp/d/s", "forward", {
+      forwardArgs(target, "/tmp/d/s", {
         local: 41_000,
         remoteHost: "127.0.0.1",
         remotePort: 4770,

@@ -1,6 +1,6 @@
 # Plan: frames drawn in the editor's page, without iframes
 
-Status: proposed, 2026-10-26; Phases 0 to 3 done 2026-10-26. Through
+Status: accepted, 2026-10-26; Phases 0 to 4 done 2026-10-26. Through
 [ADR 0034](adr/0034-frames-in-the-editors-page.md): supersedes 0011's iframes, amends 0015, 0031
 and 0033. Builds on 0028, 0029 and 0030.
 
@@ -184,13 +184,16 @@ the renderer holds 471 MB.
       opens (a Base UI popup, moved into the frame, placed under its button) and its links go to
       their pages. No iframe is left in the editor.
 
-### Phase 4: what goes, the desktop app, the records
+### Phase 4: what goes, the desktop app, the records — done
 
-- [ ] 4.1 Delete iframe hosting, the message protocol, the pool, the load queue, the rect store,
-      the specimen iframe and the generated `index.html`.
-- [ ] 4.2 The desktop app forwards the server's port only: `Platform.mapPreviewUrl`, the preload's
-      synchronous IPC and the forward made again when the preview moves go.
-- [ ] 4.3 ADR 0034 accepted with the measurements; 0011, 0015, 0031 and 0033 amended; the README.
+- [x] 4.1 Deleted: the iframe runtime (`startPreview`, the injected `runtime.js`, the `render.js`
+      bundle), the generated `index.html` and `main.ts`, `PREVIEW_PROTOCOL`, the bridge's
+      `postMessage` transport and router, `usePreviewBridge`, the specimen iframe, the editor's
+      messages to the preview (`EditorMessage`), `previewUrl` and `useHostUrl`, and the
+      `Origin-Agent-Cluster` header.
+- [x] 4.2 The desktop app forwards the server's port only: `Platform.mapPreviewUrl`, the preload's
+      synchronous IPC, `forwards.ts` and the forward made again when the preview moves are gone.
+- [x] 4.3 ADR 0034 accepted with the measurements; 0011, 0015, 0031 and 0033 amended; the README.
 
 ### Phase 5: the designs directory holds data only
 

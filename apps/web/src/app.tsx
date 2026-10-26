@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { installBridgeRouter, provideDesignLook } from "./canvas/bridge.ts";
+import { provideDesignLook } from "./canvas/bridge.ts";
 import { Canvas } from "./canvas/canvas.tsx";
 import { Prototype, PrototypeBar } from "./canvas/prototype.tsx";
 import { SnapshotBanner } from "./canvas/snapshot-banner.tsx";
@@ -52,8 +52,6 @@ import { useSpecs } from "./state/specs.ts";
 import { useSync } from "./state/sync.ts";
 import { onUrlChange, readUrl, tidyUrl, writeMode } from "./state/url.ts";
 import { useWindowChrome } from "./state/window-controls.ts";
-
-installBridgeRouter();
 
 /*
  * Loaded when first opened: the chat is the panel the editor opens on, and the others, the

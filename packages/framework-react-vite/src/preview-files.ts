@@ -48,9 +48,9 @@ export const editorEntry = (input: Pick<PreviewInput, "base" | "dir">) =>
   `${input.base}@fs${toPosix(path.join(input.dir, EDITOR_FILE)).replace(LEADING_NON_SLASH_RE, "/")}`;
 
 /**
- * Contents of the generated directory the preview is served from: the page, its entry modules
- * and the options of the serve script. No Vite config is written; the serve script builds it
- * from the anchor's own and from these options.
+ * Contents of the generated directory the preview is served from: the module the editor's page
+ * imports, the registry and the stylesheet it loads, and the options of the serve script. No Vite
+ * config is written; the serve script builds it from the anchor's own and from these options.
  */
 export const previewFiles = (
   input: PreviewInput,
@@ -65,7 +65,7 @@ export const previewFiles = (
   ];
   const fsPath = (file: string) =>
     `@fs${toPosix(file).replace(LEADING_NON_SLASH_RE, "/")}`;
-  /** What a module or the page imports: Vite puts the base in front. */
+  /** What a module imports: Vite puts the base in front. */
   const fsUrl = (file: string) => `/${fsPath(file)}`;
   /** What the browser asks for as it is: with the base. */
   const servedUrl = (file: string) => `${input.base}${fsPath(file)}`;
@@ -78,7 +78,6 @@ export const previewFiles = (
     designsDir,
     dir,
     entries: [
-      toPosix(path.join(dir, "main.ts")),
       toPosix(path.join(dir, EDITOR_FILE)),
       toPosix(path.join(dir, COMPONENTS_FILE)),
       ...settings.libraryDirs.map(
@@ -88,7 +87,6 @@ export const previewFiles = (
       // that editors resolve what the pages import; the scan must not walk into them.
       ...include.map((d) => `!${toPosix(d)}/**/node_modules/**`),
     ],
-    html: path.join(dir, "index.html"),
     include,
     root: input.root,
     singletons: SINGLETONS,
@@ -141,57 +139,11 @@ if (import.meta.hot) {
 }
 `;
 
-  const main = `import "./host.css";
-import { renderToCanvas } from ${JSON.stringify(fsUrl(bundles.render))};
-import { components } from "./${COMPONENTS_FILE}";
-${providersImport}
-
-// The preview core, injected ahead of this module, leaves its surface on the window. The editor
-// tells it what to draw.
-const ed = window.__ED__;
-const canvas = document.getElementById("root") as HTMLElement;
-
-ed.start({ canvas, components, mount: renderToCanvas, providers: Providers });
-
-if (import.meta.hot) {
-  import.meta.hot.on("vite:afterUpdate", () => ed.notifyHmr());
-  import.meta.hot.on("vite:error", (e: { err: { message: string; id?: string; loc?: { line: number } } }) =>
-    ed.reportError({ message: e.err.message, file: e.err.id, line: e.err.loc?.line }),
-  );
-}
-`;
-
-  const html = `<!doctype html>
-<html lang="en" data-theme="${settings.theme}">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ultrapaint preview</title>
-  <script>
-    const params = new URLSearchParams(location.search);
-    window.__ED_CONFIG__ = {
-      assets: ${JSON.stringify(assets)},
-      designsRoot: ${JSON.stringify(servedUrl(designsDir))},
-      frame: params.get("frame") || "",
-      canvas: params.get("canvas") || "",
-    };
-  </script>
-  <script src="${fsUrl(bundles.runtime)}"></script>
-</head>
-<body>
-  <div id="root"></div>
-  <script type="module" src="${fsUrl(path.join(dir, "main.ts"))}"></script>
-</body>
-</html>
-`;
-
   return {
     [COMPONENTS_FILE]: componentsModule(input.components),
     [EDITOR_FILE]: editor,
     "editor-hooks.ts": editorHooks,
     "host.css": css,
-    "index.html": html,
-    "main.ts": main,
     [OPTIONS_FILE]: `${JSON.stringify(options, null, 2)}\n`,
   };
 };

@@ -80,14 +80,6 @@ export class OpenProject extends Context.Service<
     /** The project open now. */
     readonly current: Effect.Effect<Option.Option<Project>>;
     /**
-     * The open project's preview URL as the window reaches it (`RunningServer.mapPreviewUrl`):
-     * as it is for a project on this machine, or when none is open.
-     */
-    readonly mapPreviewUrl: (url: string) => Effect.Effect<{
-      readonly forwarded: boolean;
-      readonly url: string;
-    }>;
-    /**
      * Adds a folder (named on the command line, or a new design) when it is not in the list yet,
      * under `name` or the folder's own, and opens it. Whether it is open: the user may rather
      * let an agent at work in the open project finish, and the folder then waits in the list.
@@ -274,12 +266,6 @@ export class OpenProject extends Context.Service<
           }),
           addRemote,
           current: Effect.sync(() => Option.fromNullishOr(open?.project)),
-          mapPreviewUrl: (url) =>
-            Effect.suspend(
-              () =>
-                open?.server.mapPreviewUrl?.(url) ??
-                Effect.succeed({ forwarded: true, url })
-            ),
           open: (id) =>
             Effect.flatMap(store.get(id), (project) =>
               open?.project.id === id

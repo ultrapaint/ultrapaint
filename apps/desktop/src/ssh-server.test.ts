@@ -179,49 +179,5 @@ describe.skipIf(SSHD === undefined)(
         ),
       30_000
     );
-
-    it.live(
-      "forwards the preview when the editor asks for it, at its path and query",
-      () =>
-        withSshd(({ root }) =>
-          Effect.gen(function* () {
-            const projects = yield* RemoteProjects;
-            const scope = yield* Scope.make();
-            const running = yield* projects
-              .start(project({ path: root }), {
-                moved: () => Effect.void,
-                status: () => Effect.void,
-              })
-              .pipe(Scope.provide(scope));
-            const { preview } = yield* Effect.promise(() =>
-              fetch(`${running.url}/api/health`).then(
-                (response) => response.json() as Promise<{ preview: string }>
-              )
-            );
-            const map =
-              running.mapPreviewUrl ??
-              (() => Effect.die("no mapping for a remote server"));
-            const mapped = yield* map(`${preview}/pages/home?frame=a`);
-            assert.isTrue(mapped.forwarded);
-            assert.notStrictEqual(
-              new URL(mapped.url).port,
-              new URL(preview).port
-            );
-            assert.strictEqual(new URL(mapped.url).search, "?frame=a");
-            const body = yield* Effect.promise(() =>
-              fetch(mapped.url).then((response) => response.text())
-            );
-            assert.strictEqual(body, "the preview");
-            // Asked again, the same forward.
-            const again = yield* map(preview);
-            assert.strictEqual(
-              new URL(again.url).port,
-              new URL(mapped.url).port
-            );
-            yield* Scope.close(scope, Exit.void);
-          })
-        ),
-      30_000
-    );
   }
 );

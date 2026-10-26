@@ -1,12 +1,9 @@
 import { Schema } from "effect";
-import { DesignSystem } from "./design-system.ts";
-import { DesignNode } from "./document.ts";
-import { ComponentSpec } from "./specs.ts";
 
 /**
- * Protocol between the editor (parent window) and the preview runtime in every iframe,
- * transported over `postMessage`. The editor holds the documents and sends the preview what to
- * draw; the preview answers with where things are.
+ * What the editor and a frame drawn in its page (ADR 0034) say to each other: the editor holds
+ * the documents and tells a frame what to draw; the frame answers with where things are. The
+ * frame is called directly; these are the messages its bridge hands what it says on as.
  */
 
 export const Rect = Schema.Struct({
@@ -39,7 +36,7 @@ export const InstanceDrawn = Schema.Struct({
 export type InstanceDrawn = typeof InstanceDrawn.Type;
 
 /**
- * How a render is laid out: `page` fills the iframe as a page fills a window; `fit` draws the
+ * How a render is laid out: `page` fills the frame as a page fills a window; `fit` draws the
  * node at its own size and reports that size, for a node placed on the canvas and for specimens
  * (thumbnails, type samples).
  */
@@ -49,10 +46,8 @@ export type RenderMode = typeof RenderMode.Type;
 /** Messages the preview sends to the editor. */
 export const HostMessage = Schema.Union([
   Schema.Struct({
-    /** Identifies the iframe to the editor: a frame on the canvas, the prototype, a specimen. */
+    /** The frame: one on the canvas, the prototype, a specimen. */
     frame: Schema.String,
-    /** Version of this protocol the preview speaks. */
-    protocol: Schema.optional(Schema.Number),
     type: Schema.Literal("ed:ready"),
   }),
   /** A render reached the screen; `renderId` is the one `ed:render` carried. */
@@ -125,67 +120,3 @@ export const HostMessage = Schema.Union([
   }),
 ]);
 export type HostMessage = typeof HostMessage.Type;
-
-/** Messages the editor sends to the preview. */
-export const EditorMessage = Schema.Union([
-  /** What to draw. The only way what the preview shows ever changes. */
-  Schema.Struct({
-    designSystem: Schema.NullOr(DesignSystem),
-    /** Shown instead of a node: no page serves the route, the page cannot be read. */
-    message: Schema.optional(Schema.String),
-    mode: RenderMode,
-    renderId: Schema.Number,
-    root: Schema.NullOr(DesignNode),
-    /** The component specs (ADR 0029), drawn over their components; drafts in their place. */
-    specs: Schema.optional(Schema.Array(ComponentSpec)),
-    /** CSS the design puts after the code's: the tokens' values where they differ (ADR 0028). */
-    styles: Schema.optional(Schema.String),
-    type: Schema.Literal("ed:render"),
-  }),
-  Schema.Struct({
-    requestId: Schema.Number,
-    type: Schema.Literal("ed:hitTest"),
-    x: Schema.Number,
-    y: Schema.Number,
-  }),
-  Schema.Struct({
-    nodeIds: Schema.Array(Schema.String),
-    type: Schema.Literal("ed:watchRects"),
-  }),
-  /** Nodes an agent is rewriting: drawn as shimmering placeholders until it is done. */
-  Schema.Struct({
-    nodeIds: Schema.Array(Schema.String),
-    type: Schema.Literal("ed:skeleton"),
-  }),
-  /** Where these nodes are, once: what a drag needs to show where it would land. */
-  Schema.Struct({
-    nodeIds: Schema.Array(Schema.String),
-    requestId: Schema.Number,
-    type: Schema.Literal("ed:measure"),
-  }),
-  Schema.Struct({ nodeId: Schema.String, type: Schema.Literal("ed:editText") }),
-  /** Whether the page may respond to input at all: true only in interact mode. */
-  Schema.Struct({
-    interactive: Schema.Boolean,
-    type: Schema.Literal("ed:setInteractive"),
-  }),
-  Schema.Struct({
-    /** Crop the picture to this node, drawn in place; all of it when absent. */
-    nodeId: Schema.optional(Schema.String),
-    requestId: Schema.Number,
-    type: Schema.Literal("ed:screenshot"),
-  }),
-  Schema.Struct({
-    /** Only the variables with one of these prefixes, when given: `--color-`. */
-    prefixes: Schema.optional(Schema.Array(Schema.String)),
-    requestId: Schema.Number,
-    type: Schema.Literal("ed:getTokens"),
-  }),
-  Schema.Struct({
-    nodeId: Schema.String,
-    type: Schema.Literal("ed:scrollIntoView"),
-  }),
-]);
-export type EditorMessage = typeof EditorMessage.Type;
-
-export const HOST_MESSAGE_PREFIX = "ed:";

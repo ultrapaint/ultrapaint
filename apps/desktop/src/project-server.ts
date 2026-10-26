@@ -46,16 +46,6 @@ export interface RunningServer {
    * it is attached to, and not the app's to stop.
    */
   readonly attached: boolean;
-  /**
-   * The preview's URL as the window reaches it, for a server on another machine: through a
-   * port forwarded here, forwarded now when it is not yet. `forwarded` is false when it cannot
-   * be (the connection is down), and the URL is as it was. Absent for a server on this
-   * machine, whose preview is reached at its own URL.
-   */
-  readonly mapPreviewUrl?: (url: string) => Effect.Effect<{
-    readonly forwarded: boolean;
-    readonly url: string;
-  }>;
   readonly token: string;
   readonly url: string;
   /**

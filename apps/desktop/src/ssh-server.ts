@@ -74,8 +74,6 @@ export const freeLocalPort = (preferred?: number) =>
 
 /** One connection to the remote machine, as long as its scope lasts. */
 export interface Connection {
-  /** Cancels a forward; one that is not there is no error. */
-  readonly cancel: (forward: Forward) => Effect.Effect<void>;
   /** Completes, with why, when the connection is gone. */
   readonly closed: Effect.Effect<string>;
   /**
@@ -311,7 +309,7 @@ export class RemoteServers extends Context.Service<
 
           const forwardOnce = (forward: Forward) =>
             Effect.flatMap(
-              runSsh(forwardArgs(target, socket, "forward", forward)),
+              runSsh(forwardArgs(target, socket, forward)),
               ({ exitCode, stderr }) =>
                 exitCode === 0
                   ? Effect.succeed(forward.local)
@@ -324,10 +322,6 @@ export class RemoteServers extends Context.Service<
             );
 
           const connection: Connection = {
-            cancel: (forward) =>
-              Effect.ignore(
-                runSsh(forwardArgs(target, socket, "cancel", forward))
-              ),
             closed: Deferred.await(closed),
             forward: (remoteHost, remotePort, preferred) =>
               Effect.gen(function* () {

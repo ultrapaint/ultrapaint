@@ -1,9 +1,8 @@
 /**
  * What the editor asks of whatever it runs in. In a browser, nothing beyond the page: the server
- * is the page's own origin, a folder is a typed path, the preview is reached at its own URL and
- * there is one project. The desktop app (PLAN-desktop, ADR 0031) fills the rest in from its
- * preload script, as `window.ultrapaintPlatform`, before the editor loads; the editor imports
- * nothing of Electron.
+ * is the page's own origin, a folder is a typed path and there is one project. The desktop app
+ * (PLAN-desktop, ADR 0031) fills the rest in from its preload script, as
+ * `window.ultrapaintPlatform`, before the editor loads; the editor imports nothing of Electron.
  */
 import { defaultServerUrl } from "@ultrapaint/client-runtime/connection";
 
@@ -208,13 +207,6 @@ export interface WindowControls {
 export interface Platform {
   /** The agents on this machine; absent in a browser, where the server's own are all there is. */
   readonly agents?: AgentSetup;
-  /**
-   * The preview's URL as this window reaches it. The server names the preview by its address
-   * on the server's machine; a server on another machine, over SSH, is reached through a port
-   * the shell forwards. Synchronous: the shell answers from forwards it already holds. Absent,
-   * the URL is used as it is.
-   */
-  readonly mapPreviewUrl?: (url: string) => string;
   /** New designs from nothing; absent in a browser, where the server's folder is the project. */
   readonly newDesign?: NewDesigns;
   /** What the shell found missing on this machine; absent in a browser. */

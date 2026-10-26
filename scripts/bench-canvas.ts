@@ -143,24 +143,12 @@ const instrument = () => {
     messages: [],
   };
   (window as unknown as BenchWindow).__bench = bench;
-  // What the frames say: an iframe's messages, or a frame drawn in the editor's page (ADR 0034).
-  const record = (d: { frame?: unknown; type?: unknown } | null) => {
-    if (
-      typeof d?.type === "string" &&
-      d.type.startsWith("ed:") &&
-      typeof d.frame === "string"
-    ) {
-      bench.messages.push({ frame: d.frame, t: now(), type: d.type });
-    }
-  };
-  window.addEventListener(
-    "message",
-    (ev) => record(ev.data as { frame?: unknown; type?: unknown } | null),
-    true
-  );
-  window.addEventListener("ed:frame", (ev) =>
-    record((ev as CustomEvent<{ frame: string; type: string }>).detail)
-  );
+  // What the frames say, which their bridges dispatch for this in development (ADR 0034).
+  window.addEventListener("ed:frame", (ev) => {
+    const { frame, type } = (ev as CustomEvent<{ frame: string; type: string }>)
+      .detail;
+    bench.messages.push({ frame, t: now(), type });
+  });
   new PerformanceObserver((list) => {
     for (const e of list.getEntries()) {
       bench.longTasks.push({
@@ -307,10 +295,7 @@ const traced = async <T>(cdp: CDPSession, record: () => Promise<T>) => {
   return { events, result };
 };
 
-/**
- * How busy the editor's main thread was between the `bench-start` and `bench-end` marks, and
- * whether the previews ran in its process.
- */
+/** How busy the editor's main thread was between the `bench-start` and `bench-end` marks. */
 const mainThread = (events: TraceEvent[]) => {
   const started = events.find((e) => e.name === "TracingStartedInBrowser");
   const frames = started?.args?.data?.frames ?? [];
@@ -374,9 +359,6 @@ const mainThread = (events: TraceEvent[]) => {
       ]),
       style: spent(["UpdateLayoutTree", "RecalculateStyles"]),
     },
-    previewsInEditorProcess: frames.filter(
-      (f) => f.parent && f.processId === pid
-    ).length,
   };
 };
 
@@ -435,12 +417,12 @@ const now = (page: Page) =>
 const mounted = (page: Page) =>
   page.evaluate(() =>
     [...document.querySelectorAll("[data-canvas] [data-frame]")]
-      .filter((f) => f.querySelector("[data-ed-frame-host], iframe"))
+      .filter((f) => f.querySelector("[data-ed-frame-host]"))
       .map((f) => f.getAttribute("data-frame") ?? "")
   );
 
 /**
- * Waits until every frame in `ids` shows its preview drawn: an iframe, and an `ed:rendered` from it
+ * Waits until every frame in `ids` shows its preview drawn: a host, and an `ed:rendered` from it
  * since it was put there. Answers how long after `since` the last one was, 0 when all already
  * were, or null on a timeout.
  */
@@ -457,7 +439,7 @@ const untilLive = async (
         const frame = document.querySelector(
           `[data-canvas] [data-frame="${CSS.escape(id)}"]`
         );
-        if (!frame?.querySelector("[data-ed-frame-host], iframe")) {
+        if (!frame?.querySelector("[data-ed-frame-host]")) {
           return null;
         }
         // Since its document last loaded: a preview moved back from where it was kept
@@ -546,12 +528,11 @@ const gesture = (page: Page, input: Gesture) =>
           const frame = document.querySelector(
             `[data-canvas] [data-frame="${CSS.escape(id)}"]`
           );
-          // A picture of the page stands in for it while its preview loads: not blank. A frame
-          // drawn in the editor's page keeps what it drew while it was parked.
-          if (frame?.querySelector("[data-snapshot], [data-ed-drawn]")) {
+          // A frame keeps what it drew while it was away.
+          if (frame?.querySelector("[data-ed-drawn]")) {
             return true;
           }
-          if (!frame?.querySelector("iframe")) {
+          if (!frame?.querySelector("[data-ed-frame-host]")) {
             return false;
           }
           const loaded = b.messages.findLast(

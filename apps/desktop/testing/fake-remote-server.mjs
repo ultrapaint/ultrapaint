@@ -2,8 +2,7 @@
 /**
  * Stands in for the server on the remote machine in the app's SSH tests, run through a real
  * `ssh` to a throwaway `sshd`. It takes the flags the app gives the server, answers
- * `/api/health` with its token and `preview` (a second port it listens on, as the preview does),
- * prints its ready line, and stops when stdin closes (`--stop-with-stdin`). A run file in the
+ * `/api/health` with its token, prints its ready line, and stops when stdin closes (`--stop-with-stdin`). A run file in the
  * session directory makes the next start attach to it, as the server's own does.
  *
  * It writes what it was given to `record.json` in the session directory, and appends `stopped`
@@ -56,18 +55,10 @@ writeFileSync(
 );
 
 const token = `token-${process.pid}`;
-const preview = createServer((_request, response) => {
-  response.end("the preview");
-});
-await new Promise((resolve) => preview.listen(0, "127.0.0.1", resolve));
-const previewUrl = `http://127.0.0.1:${preview.address().port}`;
-
 const server = createServer((request, response) => {
   response.setHeader("content-type", "application/json");
   if (request.url === "/api/health") {
-    response.end(
-      JSON.stringify({ ok: true, preview: previewUrl, token, working: 0 })
-    );
+    response.end(JSON.stringify({ ok: true, token, working: 0 }));
     return;
   }
   response.end(JSON.stringify({ path: request.url }));
