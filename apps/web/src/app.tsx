@@ -50,6 +50,7 @@ import {
 } from "./components/project-switcher.tsx";
 import { ResizeHandle, usePanelWidth } from "./components/resize-handle.tsx";
 import { openSetup, SetupDialog } from "./components/setup-dialog.tsx";
+import { ShellNotices } from "./components/shell-notices.tsx";
 import { ShortcutSheet } from "./components/shortcut-sheet.tsx";
 import { useOpenNodeLink } from "./lib/open-node-link.ts";
 import { useShortcuts } from "./lib/shortcuts.ts";
@@ -650,6 +651,7 @@ export const App = () => {
   return (
     <TooltipProvider delay={300}>
       <div className="flex h-full flex-col">
+        <ShellNotices />
         {settingsOpen ? (
           <Suspense fallback={null}>
             <SettingsPage />

@@ -17,6 +17,8 @@ import {
   shell,
 } from "electron";
 import { Channel, type ListedProject, type PickFolderOptions } from "./ipc.ts";
+import { LoginShell } from "./login-shell.ts";
+import { Notices } from "./notices.ts";
 import { OpenProject } from "./open-project.ts";
 import { ProjectServer } from "./project-server.ts";
 import { ProjectStore } from "./projects.ts";
@@ -98,8 +100,10 @@ const ElectronShell = Layer.succeed(
 );
 
 const runtime = ManagedRuntime.make(
-  OpenProject.layer(dataDir).pipe(
+  Layer.mergeAll(OpenProject.layer(dataDir), Notices.layer).pipe(
     Layer.provideMerge(ProjectStore.layer(dataDir)),
+    // Read once, as the app starts.
+    Layer.provideMerge(LoginShell.layer),
     Layer.provideMerge(
       ProjectServer.layer({
         args: serverArgs,
@@ -136,6 +140,8 @@ handle(Channel.pickFolder, async (options) => {
   });
   return picked.canceled ? null : (picked.filePaths[0] ?? null);
 });
+
+handle(Channel.notices, () => runtime.runPromise(Notices.use((n) => n.list)));
 
 handle(Channel.projectsList, () =>
   runtime.runPromise(

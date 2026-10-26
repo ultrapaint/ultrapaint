@@ -93,6 +93,11 @@ export class ServerConfig extends Context.Service<
        */
       readonly addresses: () => readonly string[];
       readonly home: string;
+      /**
+       * The Node the preview runs on: the one running the server, or, where that is Electron's
+       * own binary run as Node (the desktop app), the user's `node` on the `PATH` (D7).
+       */
+      readonly node: string;
       readonly path: string;
       /** The system's temporary directory, as `os.tmpdir()` says. */
       readonly tmpdir: string;

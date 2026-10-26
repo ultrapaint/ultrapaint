@@ -1,6 +1,7 @@
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import { Effect, FileSystem, Layer, Option } from "effect";
+import { LoginShell } from "./login-shell.ts";
 import { OpenProject } from "./open-project.ts";
 import { ProjectStore } from "./projects.ts";
 import {
@@ -19,6 +20,7 @@ const withApp = <A, E>(
     const recorded = makeRecorded();
     const app = OpenProject.layer(dir).pipe(
       Layer.provideMerge(ProjectStore.layer(dir)),
+      Layer.provideMerge(LoginShell.layerTest({ PATH: "/usr/bin" })),
       Layer.provideMerge(fakeServers(recorded)),
       Layer.provideMerge(fakeShell(recorded))
     );

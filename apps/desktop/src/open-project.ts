@@ -15,6 +15,7 @@ import {
   Semaphore,
 } from "effect";
 import type { ServerStartError, StoreError, UnknownProject } from "./errors.ts";
+import { LoginShell } from "./login-shell.ts";
 import { ProjectServer, type RunningServer } from "./project-server.ts";
 import { type Project, ProjectStore } from "./projects.ts";
 import { Shell } from "./shell.ts";
@@ -87,7 +88,8 @@ export class OpenProject extends Context.Service<
         const servers = yield* ProjectServer;
         const shell = yield* Shell;
         const path = yield* Path.Path;
-        const env: Readonly<Record<string, string>> = {};
+        // The terminal's PATH, so that the preview finds the user's Node and agents their tools.
+        const { env } = yield* LoginShell;
         // One switch at a time: a second click waits for the first to finish.
         const switching = yield* Semaphore.make(1);
         let open: Open | null = null;

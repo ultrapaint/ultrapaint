@@ -72,7 +72,7 @@ export class HostManager extends Context.Service<
     HostManager,
     Effect.gen(function* () {
       const paths = yield* RepoPaths;
-      const { host } = yield* ServerConfig;
+      const { host, machine } = yield* ServerConfig;
       const framework = yield* ProjectFramework;
       const styleSystem = yield* ProjectStyleSystem;
       const registry = yield* ComponentRegistry;
@@ -195,7 +195,7 @@ export class HostManager extends Context.Service<
         const handle = yield* spawner
           .spawn(
             ChildProcess.make(
-              process.execPath,
+              machine.node,
               [serve.script, ...serve.args, String(port), host],
               {
                 cwd: paths.anchorDir,

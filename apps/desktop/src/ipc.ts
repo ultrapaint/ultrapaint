@@ -3,6 +3,7 @@
  * the main process. Only the app's own window calls them.
  */
 export const Channel = {
+  notices: "ultrapaint:notices",
   pickFolder: "ultrapaint:pick-folder",
   projectsAdd: "ultrapaint:projects-add",
   projectsCurrent: "ultrapaint:projects-current",
@@ -21,4 +22,13 @@ export interface ListedProject {
   readonly detail?: string;
   readonly id: string;
   readonly name: string;
+}
+
+/** Something the app found the editor will miss (`ShellNotice` in the editor). */
+export interface ShellNotice {
+  readonly command?: string;
+  readonly detail: string;
+  readonly id: string;
+  readonly link?: { readonly label: string; readonly url: string };
+  readonly title: string;
 }

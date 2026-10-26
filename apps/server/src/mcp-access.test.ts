@@ -22,6 +22,7 @@ const accessIn = (home: string) =>
         machine: {
           addresses: () => [],
           home: homedir(),
+          node: process.execPath,
           path: process.env.PATH ?? "",
           tmpdir: tmpdir(),
           uid: process.getuid?.(),

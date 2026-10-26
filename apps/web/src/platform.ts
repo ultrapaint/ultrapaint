@@ -29,6 +29,20 @@ export interface ProjectSwitcher {
   readonly open: (id: string) => Promise<void>;
 }
 
+/**
+ * Something the shell found the editor will miss, and how to put it right: Node.js not
+ * installed, say. Shown as a banner over the editor until it is dismissed.
+ */
+export interface ShellNotice {
+  /** A command that puts it right, to copy. */
+  readonly command?: string;
+  readonly detail: string;
+  readonly id: string;
+  /** Where to read more or download what is missing; opens in the browser. */
+  readonly link?: { readonly label: string; readonly url: string };
+  readonly title: string;
+}
+
 export interface Platform {
   /**
    * The preview's URL as this window reaches it. The server names the preview by its address
@@ -37,6 +51,8 @@ export interface Platform {
    * the URL is used as it is.
    */
   readonly mapPreviewUrl?: (url: string) => string;
+  /** What the shell found missing on this machine; absent in a browser. */
+  readonly notices?: () => Promise<readonly ShellNotice[]>;
   /** A native folder picker; absent in a browser, where a path is typed. Null when cancelled. */
   readonly pickFolder?: (options?: {
     readonly defaultPath?: string;

@@ -12,6 +12,15 @@ import { resolveStorage } from "./storage-resolve.ts";
 /** The release workflow bumps it in the root `package.json`; the bundle carries it. */
 const VERSION = product.version;
 
+/**
+ * Started by the desktop app with Electron's own binary as Node (ADR 0031). The variable that
+ * makes it Node goes now, before anything is started: an agent, the preview or a shell command
+ * inheriting it would start Electron as Node in its turn, where it means to start an app. The
+ * preview runs on the user's own Node then (D7).
+ */
+const runAsNode = process.versions.electron !== undefined;
+delete process.env.ELECTRON_RUN_AS_NODE;
+
 /** The state directory a storage target has before the server starts, if it has one. */
 const stateDirOf = (storage: StorageTarget): string | undefined => {
   if (storage.mode === "managed") {
@@ -180,6 +189,7 @@ const serve = Command.make(
           `${hostname()}.local`,
         ],
         home: userHome,
+        node: runAsNode ? "node" : process.execPath,
         path: process.env.PATH ?? "",
         tmpdir: tmpdir(),
         uid: process.getuid?.(),

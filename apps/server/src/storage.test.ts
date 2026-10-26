@@ -445,6 +445,7 @@ describe("a configuration file that cannot be read", () => {
                 machine: {
                   addresses: () => [],
                   home: homedir(),
+                  node: process.execPath,
                   path: process.env.PATH ?? "",
                   tmpdir: tmpdir(),
                   uid: process.getuid?.(),
@@ -494,6 +495,7 @@ const settingsOf = (cwd: string, storage: StorageTarget) =>
         machine: {
           addresses: () => [],
           home: homedir(),
+          node: process.execPath,
           path: process.env.PATH ?? "",
           tmpdir: tmpdir(),
           uid: process.getuid?.(),

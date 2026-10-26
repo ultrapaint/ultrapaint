@@ -25,6 +25,7 @@ describe("the platform", () => {
     expect(browser.pickFolder).toBeUndefined();
     expect(browser.mapPreviewUrl).toBeUndefined();
     expect(browser.projects).toBeUndefined();
+    expect(browser.notices).toBeUndefined();
     expect(previewUrl(running)).toBe("http://127.0.0.1:5173");
   });
 
@@ -32,12 +33,21 @@ describe("the platform", () => {
     globals.ultrapaintPlatform = {
       mapPreviewUrl: (url: string) =>
         url.replace("127.0.0.1:5173", "127.0.0.1:61000"),
+      notices: () =>
+        Promise.resolve([
+          {
+            detail: "Install it.",
+            id: "node",
+            title: "Node.js is not installed",
+          },
+        ]),
       pickFolder: () => Promise.resolve("/Users/someone/Ultrapaint/Shop"),
       serverUrl: "ws://127.0.0.1:60000/ws",
     };
     const shell = platform();
     expect(shell.serverUrl).toBe("ws://127.0.0.1:60000/ws");
     expect(await shell.pickFolder?.()).toBe("/Users/someone/Ultrapaint/Shop");
+    expect((await shell.notices?.())?.map((n) => n.id)).toEqual(["node"]);
     expect(previewUrl(running)).toBe("http://127.0.0.1:61000");
     expect(previewUrl({ state: "starting" })).toBeNull();
   });

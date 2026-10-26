@@ -4,9 +4,16 @@
  * nothing of Electron reaches the page but these functions.
  */
 import { contextBridge, ipcRenderer } from "electron";
-import { Channel, type ListedProject, type PickFolderOptions } from "./ipc.ts";
+import {
+  Channel,
+  type ListedProject,
+  type PickFolderOptions,
+  type ShellNotice,
+} from "./ipc.ts";
 
 contextBridge.exposeInMainWorld("ultrapaintPlatform", {
+  notices: (): Promise<readonly ShellNotice[]> =>
+    ipcRenderer.invoke(Channel.notices),
   pickFolder: (options?: PickFolderOptions): Promise<string | null> =>
     ipcRenderer.invoke(Channel.pickFolder, options),
   projects: {
