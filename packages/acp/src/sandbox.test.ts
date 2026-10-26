@@ -70,6 +70,14 @@ describe("seatbeltProfile", () => {
     // Read-only paths stay read-only.
     expect(writes).not.toContain('(subpath "/Users/me/.nvm")');
   });
+
+  it("denies making a sealed path, as it denies writing a read-only one", () => {
+    const sealed = "/Users/me/code/app/.git";
+    const last = seatbeltProfile({ ...policy, readOnly: [], sealed: [sealed] })
+      .split("\n")
+      .at(-1);
+    expect(last).toBe(`(deny file-write* (subpath "${sealed}"))`);
+  });
 });
 
 const DARWIN = { platform: "darwin" };
@@ -110,6 +118,20 @@ describe("bubblewrapArgs", () => {
   it("hides the session bus and the user's runtime directory", () => {
     expect(args).toContain("--unsetenv DBUS_SESSION_BUS_ADDRESS");
     expect(args).toContain("--tmpfs /run/user/501");
+  });
+
+  it("seals a .git that is not there with an empty read-only directory, over the repository", () => {
+    const sealed = "/Users/me/code/app/.git";
+    const list = bubblewrapArgs({ ...policy, readOnly: [], sealed: [sealed] });
+    const at = list.lastIndexOf("--tmpfs");
+    expect(list.slice(at, at + 4)).toEqual([
+      "--tmpfs",
+      sealed,
+      "--remount-ro",
+      sealed,
+    ]);
+    // After the repository's writable bind, which it has to cover.
+    expect(at).toBeGreaterThan(list.indexOf(policy.root));
   });
 
   it("makes the session's temporary directory its /tmp, under what is bound back", () => {

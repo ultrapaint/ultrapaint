@@ -476,6 +476,26 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
     );
 
     it.effect(
+      "refuses to write in .git for the agent, which the sandbox keeps read-only",
+      () =>
+        Effect.gen(function* () {
+          const { repo } = yield* TestEnv;
+          const fs = yield* FileSystem.FileSystem;
+          const before = yield* fs.readFileString(
+            path.join(repo, ".git/config")
+          );
+          const threadId = yield* startThread;
+          yield* prompt(threadId, "write .git/config");
+          const { items } = yield* waitForThread(threadId, turnEnded);
+          assert.include(said(items).join("\n"), ".git/config is git's own");
+          assert.strictEqual(
+            yield* fs.readFileString(path.join(repo, ".git/config")),
+            before
+          );
+        })
+    );
+
+    it.effect(
       "keeps a terminal it runs for the agent inside the repository",
       () =>
         Effect.gen(function* () {

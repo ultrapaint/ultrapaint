@@ -89,10 +89,12 @@ page's origin.
 - The first snapshot of a project copies the files `.gitignore` keeps into the state directory;
   later ones cost what changed. A setup started by a version that kept its snapshots in git
   cannot be redone from them, and says so.
-- An agent in a folder without `.git` could create one. On macOS the sandbox's write denial on
-  `.git` holds whether it exists or not; on Linux the read-only bind applies only to a `.git` that
-  exists when the session starts, so a `.git` an agent creates is writable to it, and the editor
-  reads git there afterwards (0013's concern). To close before the desktop app ships on Linux.
+- An agent in a folder without `.git` could create one, with a `core.fsmonitor` the editor's next
+  `git status` would run outside the sandbox (0013's concern). On macOS the sandbox's write denial
+  on `.git` holds whether it exists or not. On Linux, where a read-only bind needs something to
+  bind, the sandbox seals a missing `.git` with an empty read-only directory, whose mount point it
+  removes when the session ends; and the editor refuses an agent's `fs/write_text_file` into any
+  `.git`, which it carries out outside the sandbox.
 - The Changes panel is to be redesigned; the revision history may take over much of it.
 - Packaging (Electron builds, signing, updates) is the cost 0017 avoided, and is taken now that
   there is a reason: macOS and Linux first, no updates until the repository is public.

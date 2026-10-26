@@ -225,6 +225,13 @@ export const makeAgentClient = Effect.fnUntraced(function* (
     writeTextFile: Effect.fn("ThreadService.writeTextFile")(
       function* (request) {
         const abs = yield* paths.resolve(request.path);
+        // The editor writes this file, outside the sandbox that keeps `.git` read-only: an agent
+        // asking it to write a git configuration or a hook would escape through git (0013).
+        if (paths.relative(abs).split(path.sep).includes(".git")) {
+          return yield* new ForbiddenPath({
+            message: `${paths.relative(abs)} is git's own: agents do not write in .git.`,
+          });
+        }
         if (
           writable !== undefined &&
           abs !== writable &&

@@ -153,3 +153,68 @@ describe("AgentSandbox, on a Linux machine with bubblewrap", () => {
       )
   );
 });
+
+describe("AgentSandbox, in a folder without .git", () => {
+  it.effect(
+    "keeps the agent from making one, and leaves no trace of the seal",
+    () =>
+      Effect.gen(function* () {
+        const sandbox = yield* AgentSandbox;
+        if (!(sandbox.available && process.platform === "linux")) {
+          return;
+        }
+        const fs = yield* FileSystem.FileSystem;
+        const root = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());
+        const tmpDir = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());
+        const result = yield* Effect.scoped(
+          Effect.gen(function* () {
+            const session = yield* sandbox.session({
+              config: {
+                args: [],
+                builtIn: false,
+                command: "agent",
+                env: {},
+                id: "a",
+                name: "A",
+              },
+              root,
+              tmpDir,
+            });
+            const launch = session.confine({
+              args: [
+                "-c",
+                [
+                  "mkdir -p .git/hooks 2>/dev/null || echo no-hooks",
+                  "echo '[core] fsmonitor = evil' > .git/config 2>/dev/null || echo no-config",
+                  "echo work > work.txt && echo wrote-work",
+                  "git rev-parse --is-inside-work-tree 2>/dev/null || echo no-repository",
+                ].join("\n"),
+              ],
+              command: "/bin/sh",
+              env: {},
+            });
+            return yield* runCommand(launch.command, [...launch.args], {
+              cwd: root,
+              env: launch.env,
+              timeout: "10 seconds",
+            });
+          })
+        );
+        assert.strictEqual(result.exitCode, 0, result.stderr);
+        const lines = result.stdout.trim().split("\n");
+        assert.includeMembers(lines, [
+          "no-hooks",
+          "no-config",
+          "wrote-work",
+          "no-repository",
+        ]);
+        // The rest of the folder is the agent's to write; the seal's mount point is gone.
+        assert.isTrue(yield* fs.exists(path.join(root, "work.txt")));
+        assert.isFalse(yield* fs.exists(path.join(root, ".git")));
+      }).pipe(
+        Effect.provide(
+          Layer.provideMerge(AgentSandbox.layerFor(machine), NodeServices.layer)
+        )
+      )
+  );
+});

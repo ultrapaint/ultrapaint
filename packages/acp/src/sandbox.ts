@@ -50,6 +50,15 @@ export interface SandboxPolicy {
    */
   readonly scratch: readonly string[];
   /**
+   * What must not come into being: the repository's `.git` where it has none. An agent that made
+   * one could put a `core.fsmonitor` in it, and the editor would run it with the next `git
+   * status`, outside the sandbox. Seatbelt denies writing a path whether it exists or not, so
+   * `readOnly` already covers it there; bubblewrap can only mount over something, so it mounts
+   * an empty read-only directory in its place. The mount point is made in the repository, and
+   * whoever asked for the seal removes it once the sandbox is gone. Applied after `readOnly`.
+   */
+  readonly sealed?: readonly string[] | undefined;
+  /**
    * A temporary directory of this session's own; also the agent's `TMPDIR`. On Linux it is the
    * sandbox's `/tmp` too, so nothing another program left in the machine's `/tmp` (an X server's
    * socket, another session's files) is in reach.
@@ -124,9 +133,12 @@ export const seatbeltProfile = (policy: SandboxPolicy): string => {
     `(allow file-read-data ${subpaths(reads)})`,
     '(deny file-write* (subpath "/"))',
     `(allow file-write* ${subpaths(writable)} (subpath "/dev"))`,
-    // Last, because the last rule that matches is the one Seatbelt applies.
-    ...(policy.readOnly.length > 0
-      ? [`(deny file-write* ${subpaths(outermost(policy.readOnly))})`]
+    // Last, because the last rule that matches is the one Seatbelt applies. A path that does not
+    // exist is denied all the same: nothing can be made there.
+    ...(policy.readOnly.length > 0 || (policy.sealed ?? []).length > 0
+      ? [
+          `(deny file-write* ${subpaths(outermost([...policy.readOnly, ...(policy.sealed ?? [])]))})`,
+        ]
       : []),
     ...((policy.rewritable ?? []).length > 0
       ? [`(allow file-write* ${subpaths(outermost(policy.rewritable ?? []))})`]
@@ -179,6 +191,13 @@ export const bubblewrapArgs = (policy: SandboxPolicy): string[] => {
     ...outermost(policy.readOnly).flatMap((path) => [
       "--ro-bind-try",
       path,
+      path,
+    ]),
+    // What has no file to bind read-only gets an empty directory, and that read-only.
+    ...outermost(policy.sealed ?? []).flatMap((path) => [
+      "--tmpfs",
+      path,
+      "--remount-ro",
       path,
     ]),
     // And over those, what is written again inside them.

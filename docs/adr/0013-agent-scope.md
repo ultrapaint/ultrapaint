@@ -100,8 +100,11 @@ the repository has; `git status`, `diff` and `log` work, and an agent cannot com
 stash. Everything the editor's own git commands could be made to run has to be written into
 `.git` first: hooks, `core.fsmonitor`, filter, textconv and diff drivers. The briefing tells a
 confined agent that commits are the user's, so it does not find out by failing. A folder without
-`.git` is told nothing of it; on Linux a `.git` an agent creates there is not read-only to it,
-which 0031 leaves to close.
+`.git` is told nothing of it, and cannot get one from the agent: Seatbelt's denial holds for a
+path that does not exist, and bubblewrap mounts an empty read-only directory where `.git` would
+be (its mount point, made in the folder, is removed when the session ends; an empty `.git` is no
+repository to git). The `fs/write_text_file` the editor carries out for an agent, outside the
+sandbox, refuses any path inside a `.git` as well.
 
 ## Why not the protocol or the agents' own settings
 

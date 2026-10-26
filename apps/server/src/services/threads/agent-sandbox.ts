@@ -16,7 +16,7 @@ import {
   sandboxLaunch,
 } from "@ultrapaint/acp/sandbox";
 import type { AgentConfig } from "@ultrapaint/contracts/threads";
-import { Context, Effect, FileSystem, Layer, Path } from "effect";
+import { Context, Effect, FileSystem, Layer, Path, type Scope } from "effect";
 import { ChildProcessSpawner } from "effect/process";
 import { ServerConfig } from "../../config.ts";
 import { runCommand } from "../../process.ts";
@@ -88,7 +88,9 @@ export class AgentSandbox extends Context.Service<
     readonly problem: string | undefined;
     /**
      * The sandbox for one session: `config` confined to `root`, with `tmpDir` as the only
-     * temporary directory it may write to. Where there is no sandbox, nothing is wrapped.
+     * temporary directory it may write to. Where there is no sandbox, nothing is wrapped. What
+     * the sandbox leaves in the repository (the mount point that seals a missing `.git`) goes
+     * when the scope closes.
      */
     readonly session: (options: {
       readonly config: AgentConfig;
@@ -99,7 +101,7 @@ export class AgentSandbox extends Context.Service<
        * thread's designs directory (ADR 0030).
        */
       readonly writable?: string | undefined;
-    }) => Effect.Effect<AgentSandboxSession>;
+    }) => Effect.Effect<AgentSandboxSession, never, Scope.Scope>;
   }
 >()("ultrapaint/server/AgentSandbox") {
   /**
@@ -323,6 +325,44 @@ export class AgentSandbox extends Context.Service<
               path.resolve(writable) !== path.resolve(root)
                 ? yield* bothNames(writable)
                 : null;
+            /*
+             * A repository without `.git` must not get one from the agent: the editor runs git
+             * there outside the sandbox, and a `core.fsmonitor` in it would run too. Seatbelt
+             * denies making it; bubblewrap seals it with an empty read-only directory, whose
+             * mount point is made in the repository and taken away after. An empty `.git` is no
+             * repository to git, which looks further up as it would without it. A design
+             * thread's repository is read-only around its designs, `.git` and all.
+             */
+            const sealed =
+              confined || tools.platform !== "linux"
+                ? []
+                : yield* Effect.filter(
+                    [root, ...rootAliases].map((name) =>
+                      path.join(name, ".git")
+                    ),
+                    (git) =>
+                      Effect.map(
+                        Effect.orElseSucceed(fs.exists(git), () => true),
+                        (there) => !there
+                      )
+                  );
+            yield* Effect.addFinalizer(() =>
+              Effect.forEach(
+                sealed,
+                (git) =>
+                  // Only while it is the empty directory the sandbox made: a repository made
+                  // since, by the user, is theirs.
+                  fs.readDirectory(git).pipe(
+                    Effect.flatMap((entries) =>
+                      entries.length === 0
+                        ? fs.remove(git, { recursive: true })
+                        : Effect.void
+                    ),
+                    Effect.ignore
+                  ),
+                { discard: true }
+              )
+            );
             const policy = {
               agentDirs: yield* resolveAll([
                 ...stateDirs.map((dir) => dir.replace(TRAILING_SLASH_RE, "")),
@@ -338,6 +378,7 @@ export class AgentSandbox extends Context.Service<
               ...(confined && { rewritable: confined }),
               root,
               scratch,
+              sealed,
               tmpDir,
             };
             const confine = (launch: AgentLaunch) =>
