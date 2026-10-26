@@ -45,18 +45,36 @@ export interface ShellNotice {
 
 /** How an agent stands on this machine, as the shell found it. */
 export interface PlatformAgent {
+  /** Whether the shell keeps an API key for it, which it signs in with. */
+  readonly apiKey?: boolean;
+  /** Whether the shell could keep a key for it: it takes one, and there is a keychain. */
+  readonly canKeepKey?: boolean;
   /** The executable set in the shell's settings, in place of the one on the PATH. */
   readonly customPath?: string;
   /** What was found, or what is missing and how to put it right. */
   readonly detail: string;
+  /** What the shell can download in its place, when it is missing: a release, its size in bytes. */
+  readonly download?: { readonly size: number; readonly version: string };
+  /** A download under way, or why the last one failed. */
+  readonly downloading?: {
+    readonly message?: string;
+    readonly phase: string;
+    readonly received: number;
+    readonly total: number;
+  };
   readonly executable?: string;
   /** The agent's id, as the server's agents have it: `claude-code`, `codex`. */
   readonly id: string;
   /** Where to read how to install it. */
   readonly install: string;
   readonly name: string;
-  /** Where the executable came from: the PATH, or the shell's settings. */
-  readonly source?: "path" | "setting";
+  /**
+   * How it signs in: by itself, in a terminal (Claude Code, which may not be signed in from
+   * here), or with ChatGPT through the shell (Codex).
+   */
+  readonly signIn?: "terminal" | "chatgpt";
+  /** Where the executable came from: the PATH, the shell's settings, or the shell's download. */
+  readonly source?: "path" | "setting" | "download";
   /** `ready`: found and signed in; `signed-out`: found; `missing`: not found. */
   readonly state: "ready" | "signed-out" | "missing";
   readonly version?: string;
@@ -64,14 +82,21 @@ export interface PlatformAgent {
 
 /**
  * The agents on this machine, as a shell that runs them finds them (the desktop app). A change
- * starts the project's server again, and the editor comes back where it was.
+ * to where an agent is, or to its key, starts the project's server again, and the editor comes
+ * back where it was.
  */
 export interface AgentSetup {
   /** Picks the agent's executable with the shell's own dialog. */
   readonly choosePath: (id: string) => Promise<void>;
   /** Goes back to the agent on the PATH. */
   readonly clearPath: (id: string) => Promise<void>;
+  /** Downloads the release `download` names; done once it is installed. */
+  readonly download: (id: string) => Promise<void>;
   readonly list: () => Promise<readonly PlatformAgent[]>;
+  /** Keeps the key the agent signs in with; `null` forgets it. */
+  readonly setApiKey: (id: string, key: string | null) => Promise<void>;
+  /** Signs in through the shell (`chatgpt`): the browser opens, and this ends once it is done. */
+  readonly signIn: (id: string) => Promise<void>;
 }
 
 export interface Platform {

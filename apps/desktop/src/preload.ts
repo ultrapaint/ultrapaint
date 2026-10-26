@@ -18,8 +18,14 @@ contextBridge.exposeInMainWorld("ultrapaintPlatform", {
       ipcRenderer.invoke(Channel.agentsChoosePath, id),
     clearPath: (id: string): Promise<void> =>
       ipcRenderer.invoke(Channel.agentsClearPath, id),
+    download: (id: string): Promise<void> =>
+      ipcRenderer.invoke(Channel.agentsDownload, id),
     list: (): Promise<readonly AgentStatus[]> =>
       ipcRenderer.invoke(Channel.agentsList),
+    setApiKey: (id: string, key: string | null): Promise<void> =>
+      ipcRenderer.invoke(Channel.agentsSetApiKey, id, key),
+    signIn: (id: string): Promise<void> =>
+      ipcRenderer.invoke(Channel.agentsSignIn, id),
   },
   notices: (): Promise<readonly ShellNotice[]> =>
     ipcRenderer.invoke(Channel.notices),

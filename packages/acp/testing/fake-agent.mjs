@@ -26,7 +26,7 @@
  * Sessions offer a `model` option, `fast` or `smart`, and the modes `ask` and `auto`.
  *
  * `FAKE_AGENT_LOAD=1` advertises `loadSession`; `FAKE_AGENT_AUTH=1` refuses `session/new` until
- * `authenticate` was called. Started with `--slow-start`, it takes two seconds to answer
+ * `authenticate` was called; `FAKE_AGENT_AUTH_METHOD` names its one way to authenticate. Started with `--slow-start`, it takes two seconds to answer
  * `initialize`, as an agent that boots slowly does; any other argument is left alone, so a test
  * can mark its processes to find them.
  */
@@ -284,7 +284,13 @@ agent({ name: "fake-agent" })
     await new Promise((resolve) => setTimeout(resolve, SLOW_START_MS));
     return {
       agentCapabilities: { loadSession: process.env.FAKE_AGENT_LOAD === "1" },
-      authMethods: [{ description: "test", id: "test-auth", name: "Test" }],
+      authMethods: [
+        {
+          description: "test",
+          id: process.env.FAKE_AGENT_AUTH_METHOD ?? "test-auth",
+          name: "Test",
+        },
+      ],
       protocolVersion: PROTOCOL_VERSION,
     };
   })

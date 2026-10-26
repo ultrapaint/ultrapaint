@@ -14,8 +14,11 @@ import {
   dialog,
   type IpcMainInvokeEvent,
   ipcMain,
+  safeStorage,
   shell,
 } from "electron";
+import { AgentDownloads } from "./agent-downloads.ts";
+import { releaseFor } from "./agent-releases.ts";
 import { AgentSettings } from "./agent-settings.ts";
 import { AGENTS, type AgentId, Agents, isAgentId } from "./agents.ts";
 import { Channel, type ListedProject, type PickFolderOptions } from "./ipc.ts";
@@ -24,6 +27,7 @@ import { Notices } from "./notices.ts";
 import { OpenProject } from "./open-project.ts";
 import { ProjectServer } from "./project-server.ts";
 import { ProjectStore } from "./projects.ts";
+import { SecretError, Secrets } from "./secrets.ts";
 import { Shell, type View } from "./shell.ts";
 
 // A data directory of its own, for trying the app without touching the user's.
@@ -109,6 +113,39 @@ const ElectronShell = Layer.succeed(
   })
 );
 
+/**
+ * The keychain Electron reaches. On Linux without a Secret Service or KWallet it falls back to a
+ * fixed password, which keeps nothing secret: no key is kept then.
+ */
+const keychain = () =>
+  safeStorage.isEncryptionAvailable() &&
+  (process.platform !== "linux" ||
+    safeStorage.getSelectedStorageBackend() !== "basic_text");
+
+const ElectronSecrets = Layer.sync(Secrets, () =>
+  Secrets.of({
+    available: keychain(),
+    decrypt: (sealed) =>
+      Effect.try({
+        catch: () =>
+          new SecretError({ message: "the key kept could not be read" }),
+        try: () => safeStorage.decryptString(Buffer.from(sealed, "base64")),
+      }),
+    encrypt: (plain) =>
+      keychain()
+        ? Effect.try({
+            catch: () =>
+              new SecretError({ message: "the key could not be encrypted" }),
+            try: () => safeStorage.encryptString(plain).toString("base64"),
+          })
+        : Effect.fail(
+            new SecretError({
+              message: "there is no keychain to keep the key in",
+            })
+          ),
+  })
+);
+
 const runtime = ManagedRuntime.make(
   Layer.mergeAll(OpenProject.layer(dataDir), Notices.layer).pipe(
     Layer.provideMerge(ProjectStore.layer(dataDir)),
@@ -119,6 +156,13 @@ const runtime = ManagedRuntime.make(
       })
     ),
     Layer.provideMerge(AgentSettings.layer(dataDir)),
+    Layer.provideMerge(
+      AgentDownloads.layer(path.join(dataDir, "agents"), {
+        "claude-code": releaseFor("claude-code"),
+        codex: releaseFor("codex"),
+      })
+    ),
+    Layer.provideMerge(ElectronSecrets),
     // Read once, as the app starts.
     Layer.provideMerge(LoginShell.layer),
     Layer.provideMerge(
@@ -195,6 +239,45 @@ handle(Channel.agentsChoosePath, async (id) => {
 });
 
 handle(Channel.agentsClearPath, (id) => changeAgent(id, undefined));
+
+/** Runs a change to an agent, then starts the project's server again to take it up. */
+const applyToAgent = <E>(
+  id: unknown,
+  change: (agent: AgentId) => Effect.Effect<unknown, E, Agents>
+) => {
+  const agent = String(id);
+  return runtime.runPromise(
+    isAgentId(agent)
+      ? Effect.andThen(
+          change(agent),
+          OpenProject.use((o) => o.restart)
+        )
+      : Effect.void
+  );
+};
+
+handle(Channel.agentsDownload, (id) =>
+  applyToAgent(id, (agent) => Agents.use((a) => a.download(agent)))
+);
+
+handle(Channel.agentsSetApiKey, (id, key) =>
+  applyToAgent(id, (agent) =>
+    Agents.use((a) =>
+      a.setApiKey(
+        agent,
+        typeof key === "string" && key.trim() ? key : undefined
+      )
+    )
+  )
+);
+
+// Codex keeps its sign-in itself: nothing to start again.
+handle(Channel.agentsSignIn, (id) => {
+  const agent = String(id);
+  return runtime.runPromise(
+    isAgentId(agent) ? Agents.use((a) => a.signIn(agent)) : Effect.void
+  );
+});
 
 handle(Channel.projectsList, () =>
   runtime.runPromise(

@@ -14,10 +14,11 @@ import {
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Markdown } from "../components/markdown.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
-import { platform } from "../platform.ts";
+import { type AgentSetup, type PlatformAgent, platform } from "../platform.ts";
 import { api } from "../state/connection.ts";
 import { readiness, useMachineAgents } from "../state/machine-agents.ts";
 import { reportError } from "../state/project.ts";
@@ -344,22 +345,173 @@ export const ChatDefaultsGroup = () => {
 };
 
 /** Where an agent's executable was found, for the row that says so. */
-const foundAt = (agent: {
-  readonly executable?: string;
-  readonly source?: string;
-  readonly version?: string;
-}) => {
-  const where =
-    agent.source === "setting"
-      ? `${agent.executable}, set here`
-      : `${agent.executable}, on your PATH`;
+const foundAt = (agent: PlatformAgent) => {
+  const where = {
+    download: `${agent.executable}, downloaded by the app`,
+    path: `${agent.executable}, on your PATH`,
+    setting: `${agent.executable}, set here`,
+  }[agent.source ?? "path"];
   return agent.version ? `${agent.version} at ${where}.` : `At ${where}.`;
+};
+
+const megabytes = (bytes: number) =>
+  `${Math.max(1, Math.round(bytes / 1e6))} MB`;
+
+/** How far a download got, in a word. */
+const downloadLabel = (progress: NonNullable<PlatformAgent["downloading"]>) => {
+  if (progress.phase === "verifying") {
+    return "Checking the download…";
+  }
+  if (progress.phase === "unpacking") {
+    return "Unpacking…";
+  }
+  return progress.total > 0
+    ? `Downloading… ${Math.floor((progress.received / progress.total) * 100)}%`
+    : "Downloading…";
+};
+
+/** A key for Claude Code, kept by the desktop app with the system's keychain. */
+const ApiKeyField = ({
+  busy,
+  onSave,
+}: {
+  busy: boolean;
+  onSave: (key: string) => void;
+}) => {
+  const [key, setKey] = useState("");
+  return (
+    <div className="flex w-full max-w-80 gap-1">
+      <Input
+        aria-label="API key"
+        autoComplete="off"
+        onChange={(e) => setKey(e.target.value)}
+        placeholder="sk-ant-…"
+        type="password"
+        value={key}
+      />
+      <Button
+        disabled={busy || key.trim() === ""}
+        onClick={() => onSave(key.trim())}
+        variant="outline"
+      >
+        Use the key
+      </Button>
+    </div>
+  );
+};
+
+/** One agent on this computer: where it is, whether it is signed in, and what can be done. */
+const MachineAgentRow = ({
+  agent,
+  busy,
+  change,
+  setup,
+}: {
+  agent: PlatformAgent;
+  busy: boolean;
+  change: (run: () => Promise<void>) => void;
+  setup: AgentSetup;
+}) => {
+  const progress = agent.downloading;
+  const downloading = progress !== undefined && progress.phase !== "failed";
+  const offersKey =
+    agent.canKeepKey === true && !agent.apiKey && agent.state === "signed-out";
+  return (
+    <Row
+      description={
+        <>
+          {agent.executable ? foundAt(agent) : null} {agent.detail}
+          {progress?.phase === "failed" ? (
+            <span className="mt-1 block text-destructive">
+              The download failed: {progress.message}
+            </span>
+          ) : null}
+          {agent.state === "missing" ? (
+            <>
+              {" "}
+              <a href={agent.install} rel="noreferrer" target="_blank">
+                How to install it
+              </a>
+              {agent.download
+                ? `, or download ${agent.download.version} into the app.`
+                : null}
+            </>
+          ) : null}
+        </>
+      }
+      title={agent.name}
+      wide
+    >
+      <div className="flex flex-col items-end gap-1.5">
+        <div className="flex flex-wrap items-center justify-end gap-1">
+          {downloading ? (
+            <span className="font-body text-muted-foreground">
+              {downloadLabel(progress)}
+            </span>
+          ) : null}
+          {agent.state === "missing" && agent.download && !downloading ? (
+            <Button
+              disabled={busy}
+              onClick={() => change(() => setup.download(agent.id))}
+              size="sm"
+            >
+              Download ({megabytes(agent.download.size)})
+            </Button>
+          ) : null}
+          {agent.state === "signed-out" && agent.signIn === "chatgpt" ? (
+            <Button
+              disabled={busy}
+              onClick={() => change(() => setup.signIn(agent.id))}
+              size="sm"
+            >
+              Sign in with ChatGPT
+            </Button>
+          ) : null}
+          {agent.apiKey ? (
+            <Button
+              disabled={busy}
+              onClick={() => change(() => setup.setApiKey(agent.id, null))}
+              size="sm"
+              variant="ghost"
+            >
+              Forget the key
+            </Button>
+          ) : null}
+          {agent.customPath ? (
+            <Button
+              disabled={busy}
+              onClick={() => change(() => setup.clearPath(agent.id))}
+              size="sm"
+              variant="ghost"
+            >
+              Use the PATH
+            </Button>
+          ) : null}
+          <Button
+            disabled={busy}
+            onClick={() => change(() => setup.choosePath(agent.id))}
+            size="sm"
+            variant="outline"
+          >
+            Choose…
+          </Button>
+        </div>
+        {offersKey ? (
+          <ApiKeyField
+            busy={busy}
+            onSave={(key) => change(() => setup.setApiKey(agent.id, key))}
+          />
+        ) : null}
+      </div>
+    </Row>
+  );
 };
 
 /**
  * The agents on this computer, as the desktop app finds them: installed or not, signed in or
- * not, and where. An agent not on the PATH can be pointed at; the change starts the project's
- * server again. Nothing in a browser.
+ * not, and where. A missing one can be downloaded into the app, or pointed at; Codex signs in
+ * with ChatGPT from here, Claude Code by itself in a terminal or with an API key. A change to
+ * where an agent is, or to its key, starts the project's server again. Nothing in a browser.
  */
 export const MachineAgentsGroup = () => {
   const setup = platform().agents;
@@ -368,12 +520,23 @@ export const MachineAgentsGroup = () => {
   useEffect(() => {
     useMachineAgents.getState().load().catch(reportError);
   }, []);
+  // While something runs (a download, a sign-in in the browser), how it goes is asked again.
+  useEffect(() => {
+    if (!busy) {
+      return;
+    }
+    const timer = setInterval(() => {
+      useMachineAgents.getState().load().catch(reportError);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [busy]);
   if (!setup) {
     return null;
   }
   const change = (run: () => Promise<void>) => {
     setBusy(true);
     run()
+      .catch(reportError)
       .then(() => useMachineAgents.getState().load())
       .catch(reportError)
       .finally(() => setBusy(false));
@@ -384,45 +547,13 @@ export const MachineAgentsGroup = () => {
       title="On this computer"
     >
       {Object.values(agents).map((agent) => (
-        <Row
-          description={
-            <>
-              {agent.executable ? foundAt(agent) : null} {agent.detail}
-              {agent.state === "missing" ? (
-                <>
-                  {" "}
-                  <a href={agent.install} rel="noreferrer" target="_blank">
-                    How to install it
-                  </a>
-                </>
-              ) : null}
-            </>
-          }
+        <MachineAgentRow
+          agent={agent}
+          busy={busy}
+          change={change}
           key={agent.id}
-          title={agent.name}
-          wide
-        >
-          <div className="flex flex-wrap items-center justify-end gap-1">
-            {agent.customPath ? (
-              <Button
-                disabled={busy}
-                onClick={() => change(() => setup.clearPath(agent.id))}
-                size="sm"
-                variant="ghost"
-              >
-                Use the PATH
-              </Button>
-            ) : null}
-            <Button
-              disabled={busy}
-              onClick={() => change(() => setup.choosePath(agent.id))}
-              size="sm"
-              variant="outline"
-            >
-              Choose…
-            </Button>
-          </div>
-        </Row>
+          setup={setup}
+        />
       ))}
     </Group>
   );

@@ -2,9 +2,11 @@ import path from "node:path";
 import { NodeServices } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, FileSystem, Layer } from "effect";
+import { AgentDownloads } from "./agent-downloads.ts";
 import { AgentSettings } from "./agent-settings.ts";
 import { Agents, electronReads, makeRuntime } from "./agents.ts";
 import { LoginShell } from "./login-shell.ts";
+import { Secrets } from "./secrets.ts";
 
 const layout = { adaptersDir: "/opt/app/adapters", node: "/opt/app/electron" };
 
@@ -99,6 +101,20 @@ const fakeAgents = (options: {
 const agentsOn = (searchPath: string, dataDir: string) =>
   Agents.layer(layout).pipe(
     Layer.provideMerge(AgentSettings.layer(dataDir)),
+    Layer.provideMerge(
+      AgentDownloads.layer(path.join(dataDir, "agents"), {
+        codex: {
+          entrypoint: "bin/codex",
+          kind: "tar-gz-package",
+          sha256: "0".repeat(64),
+          size: 1000,
+          target: "x86_64-test",
+          url: "http://127.0.0.1:9/codex.tar.gz",
+          version: "0.0.1",
+        },
+      })
+    ),
+    Layer.provideMerge(Secrets.layerTest),
     Layer.provide(LoginShell.layerTest({ PATH: searchPath })),
     Layer.provideMerge(NodeServices.layer)
   );
@@ -120,22 +136,26 @@ describe("Agents", () => {
         );
         expect(status).toEqual([
           {
+            apiKey: false,
+            canKeepKey: true,
             detail: "Signed in with claude.ai.",
             executable: path.join(bin, "claude"),
             id: "claude-code",
             install: "https://code.claude.com/docs/en/setup",
             name: "Claude Code",
+            signIn: "terminal",
             source: "path",
             state: "ready",
             version: "2.1.308",
           },
           {
             detail:
-              "Not signed in. Run `codex login` once in a terminal to sign in.",
+              "Not signed in. Sign in with ChatGPT below, or run `codex login` in a terminal.",
             executable: path.join(bin, "codex"),
             id: "codex",
             install: "https://developers.openai.com/codex/cli",
             name: "Codex",
+            signIn: "chatgpt",
             source: "path",
             state: "signed-out",
             version: "0.160.1",
@@ -184,6 +204,151 @@ describe("Agents", () => {
           "is not installed"
         );
         expect(result.runtime.reads).toContain(bin);
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+
+  it.effect(
+    "offers to download an agent not found, and finds it once downloaded",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const data = yield* fs.makeTempDirectoryScoped();
+        const status = yield* Effect.provide(
+          Agents.use((a) => a.status),
+          agentsOn("/nonexistent", data)
+        );
+        const codex = status.find((a) => a.id === "codex");
+        expect(codex?.state).toBe("missing");
+        expect(codex?.download).toEqual({ size: 1000, version: "0.0.1" });
+        // There is no release of Claude Code here to offer.
+        expect(
+          status.find((a) => a.id === "claude-code")?.download
+        ).toBeUndefined();
+
+        // As a download leaves it: the release's files, and the record beside them.
+        const bin = path.join(data, "agents", "codex", "0.0.1", "bin");
+        yield* fs.makeDirectory(bin, { recursive: true });
+        yield* fs.writeFileString(
+          path.join(bin, "codex"),
+          "#!/bin/sh\nexit 0\n"
+        );
+        yield* fs.chmod(path.join(bin, "codex"), 0o755);
+        yield* fs.writeFileString(
+          path.join(data, "agents", "codex", "installed.json"),
+          JSON.stringify({
+            executable: "0.0.1/bin/codex",
+            sha256: "x",
+            version: "0.0.1",
+          })
+        );
+        const located = yield* Effect.provide(
+          Agents.use((a) => a.locate("codex")),
+          agentsOn("/nonexistent", data)
+        );
+        expect(located).toEqual({
+          _tag: "Found",
+          executable: path.join(bin, "codex"),
+          source: "download",
+        });
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+
+  it.effect(
+    "signs Claude Code in with a key it keeps encrypted, and gives it to the adapter alone",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const bin = yield* fakeAgents({
+          claudeSignedIn: false,
+          codexSignedIn: true,
+        });
+        const data = yield* fs.makeTempDirectoryScoped();
+        const result = yield* Effect.gen(function* () {
+          const agents = yield* Agents;
+          yield* agents.setApiKey("claude-code", "sk-ant-secret");
+          const kept = yield* fs.readFileString(path.join(data, "agents.json"));
+          const keyed = {
+            kept,
+            runtime: yield* agents.runtime,
+            status: yield* agents.status,
+          };
+          yield* agents.setApiKey("claude-code", undefined);
+          return { ...keyed, forgotten: yield* agents.runtime };
+        }).pipe(Effect.provide(agentsOn(bin, data)));
+        expect(result.kept).not.toContain("sk-ant-secret");
+        expect(result.status[0]?.state).toBe("ready");
+        expect(result.status[0]?.apiKey).toBe(true);
+        expect(
+          result.runtime.agents["claude-code"]?.env.ANTHROPIC_API_KEY
+        ).toBe("sk-ant-secret");
+        expect(
+          result.runtime.agents.codex?.env.ANTHROPIC_API_KEY
+        ).toBeUndefined();
+        expect(
+          result.forgotten.agents["claude-code"]?.env.ANTHROPIC_API_KEY
+        ).toBeUndefined();
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+});
+
+/** The bundled layout, with Codex's adapter played by the fake ACP agent, on this Node. */
+const fakeAdapters = Effect.gen(function* () {
+  const fs = yield* FileSystem.FileSystem;
+  const dir = yield* fs.makeTempDirectoryScoped();
+  yield* fs.copyFile(
+    path.resolve(import.meta.dirname, "adapter-run.ts"),
+    path.join(dir, "run.mjs")
+  );
+  yield* fs.symlink(
+    path.resolve(
+      import.meta.dirname,
+      "../../../packages/acp/testing/fake-agent.mjs"
+    ),
+    path.join(dir, "codex-acp.mjs")
+  );
+  return { adaptersDir: dir, node: process.execPath };
+});
+
+describe("Agents.signIn", () => {
+  it.effect(
+    "signs Codex in through its adapter's ChatGPT method, and says when there is none",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const bin = yield* fakeAgents({
+          claudeSignedIn: true,
+          codexSignedIn: false,
+        });
+        const data = yield* fs.makeTempDirectoryScoped();
+        const adapters = yield* fakeAdapters;
+        const signInWith = (method: string) =>
+          Effect.provide(
+            Agents.use((a) => a.signIn("codex")),
+            Agents.layer(adapters).pipe(
+              Layer.provideMerge(AgentSettings.layer(data)),
+              Layer.provideMerge(
+                AgentDownloads.layer(path.join(data, "agents"), {})
+              ),
+              Layer.provideMerge(Secrets.layerTest),
+              Layer.provide(
+                LoginShell.layerTest({
+                  FAKE_AGENT_AUTH_METHOD: method,
+                  PATH: bin,
+                })
+              ),
+              Layer.provideMerge(NodeServices.layer)
+            )
+          );
+        yield* signInWith("chat-gpt");
+        const error = yield* Effect.flip(signInWith("api-key"));
+        expect(error.message).toContain("offers no ChatGPT sign-in");
+        const claude = yield* Effect.flip(
+          Effect.provide(
+            Agents.use((a) => a.signIn("claude-code")),
+            agentsOn(bin, data)
+          )
+        );
+        expect(claude.message).toContain("run `claude` once in a terminal");
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
   );
 });

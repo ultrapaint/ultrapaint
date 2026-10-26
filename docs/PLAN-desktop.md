@@ -94,7 +94,7 @@ Everything here helps the command too; nothing needs Electron.
       `npx`.
 - [x] 1.6 Agents detected (D8): `claude` and `codex` on the PATH or at a path set in settings,
       their sign-in checked; the agent picker says which are ready.
-- [ ] 1.7 An agent not found is offered as a download (D8): a pinned release for the platform,
+- [x] 1.7 An agent not found is offered as a download (D8): a pinned release for the platform,
       checked by its hash, into the app's data, with progress; then its sign-in (Codex through
       the adapter's ChatGPT flow, Claude Code through its own login or an API key).
 - [ ] 1.8 Packaging for macOS and Linux; a Release workflow job that builds them.
