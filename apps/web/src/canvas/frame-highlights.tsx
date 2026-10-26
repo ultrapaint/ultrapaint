@@ -13,6 +13,7 @@ import {
 } from "../lib/selection-kind.ts";
 import { rootOfFrame, useDocuments } from "../state/documents.ts";
 import { type Selection, useEditor, useInv } from "../state/editor.ts";
+import { screenPx } from "./camera.ts";
 import { ElementToolbar, GroupToolbar } from "./element-toolbar.tsx";
 import { TAG_HEIGHT } from "./element-toolbar-placement.ts";
 import { SelectionTag } from "./selection-tag.tsx";
@@ -53,7 +54,6 @@ const unionOf = (rects: readonly Rect[]): Rect | null => {
 
 /** The outlines of the hovered and the selected nodes, and an error the preview reported. */
 export const Highlights = ({ frameId }: { frameId: string }) => {
-  const inv = useInv();
   const selectedId = useSelectedIn(frameId);
   const alsoIds = useAlsoIn(frameId);
   const hoverId = useHoverIn(frameId);
@@ -103,13 +103,12 @@ export const Highlights = ({ frameId }: { frameId: string }) => {
   return (
     <>
       {hoverRect ? (
-        <Outline inv={inv} kind="hover" node={hoverNode} rect={hoverRect} />
+        <Outline kind="hover" node={hoverNode} rect={hoverRect} />
       ) : null}
       {selectedRect ? (
         <Outline
           bare={many}
           frame={frame}
-          inv={inv}
           kind="selection"
           node={selectedNode}
           rect={selectedRect}
@@ -118,7 +117,6 @@ export const Highlights = ({ frameId }: { frameId: string }) => {
       {others.map((o) => (
         <Outline
           bare
-          inv={inv}
           key={o.target.nodeId}
           kind="selection"
           node={o.node}
@@ -128,7 +126,6 @@ export const Highlights = ({ frameId }: { frameId: string }) => {
       {group?.rect ? (
         <GroupOutline
           frame={frame}
-          inv={inv}
           nodes={group.nodes}
           rect={group.rect}
           targets={group.targets}
@@ -137,7 +134,7 @@ export const Highlights = ({ frameId }: { frameId: string }) => {
       {hostError ? (
         <div
           className="absolute inset-x-0 bottom-0 flex items-start gap-2 bg-destructive/90 p-3 font-code text-white"
-          style={{ fontSize: 14 * inv, padding: 12 * inv }}
+          style={{ fontSize: screenPx(14), padding: screenPx(12) }}
         >
           <AlertTriangle className="size-4 shrink-0" />
           <pre className="whitespace-pre-wrap">{hostError}</pre>
@@ -153,17 +150,17 @@ export const Highlights = ({ frameId }: { frameId: string }) => {
  */
 const GroupOutline = ({
   frame,
-  inv,
   nodes,
   rect,
   targets,
 }: {
   frame: { height: number; width: number };
-  inv: number;
   nodes: readonly DesignNode[];
   rect: Rect;
   targets: readonly Selection[];
 }) => {
+  // The toolbar is placed by it: the room it takes depends on the zoom.
+  const inv = useInv();
   const color = kindColor("element");
   return (
     <div
@@ -214,7 +211,6 @@ const Outline = ({
   bare = false,
   frame = UNBOUNDED,
   rect,
-  inv,
   kind,
   node,
 }: {
@@ -223,10 +219,11 @@ const Outline = ({
   /** The frame's size, which the toolbar stays inside while it fits. */
   frame?: { height: number; width: number };
   rect: { x: number; y: number; width: number; height: number };
-  inv: number;
   kind: "hover" | "selection";
   node: DesignNode | null;
 }) => {
+  // The name and the toolbar are placed by it: the room they take depends on the zoom.
+  const inv = useInv();
   const tone = selectionKindOf(node);
   const color = kind === "selection" ? kindColor(tone) : kindHoverColor(tone);
   return (

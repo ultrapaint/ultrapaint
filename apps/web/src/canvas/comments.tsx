@@ -34,8 +34,9 @@ import {
 } from "../state/comments.ts";
 import { openMenuAt } from "../state/context-menu.ts";
 import { nodeIn, useDocuments } from "../state/documents.ts";
-import { useEditor, useInv } from "../state/editor.ts";
+import { useEditor } from "../state/editor.ts";
 import { bridgeFor } from "./bridge.ts";
+import { UNZOOM } from "./camera.ts";
 import { SendToAgent } from "./send-to-agent.tsx";
 
 /** The pin's shape as a cursor: its point, bottom left, is where the comment lands. */
@@ -104,15 +105,13 @@ const stop = (e: ReactPointerEvent) => e.stopPropagation();
  * pixels and scaled back by `inv` so they keep their size at any zoom.
  */
 export const FrameComments = ({
-  inv: own,
+  inv,
   page,
 }: {
-  /** The prototype's own scale; on the canvas, the canvas's zoom. */
+  /** The prototype's own scale; on the canvas, the canvas's zoom (`--inv`). */
   inv?: number;
   page: Page;
 }) => {
-  const canvasInv = useInv();
-  const inv = own ?? canvasInv;
   const visible = useComments((s) => s.visible);
   const open = useComments((s) => s.open);
   const draft = useComments((s) =>
@@ -153,7 +152,7 @@ const Anchor = ({
 }: {
   x: number;
   y: number;
-  inv: number;
+  inv: number | undefined;
   children: ReactNode;
 }) => (
   <div
@@ -161,7 +160,7 @@ const Anchor = ({
     style={{
       left: x,
       top: y,
-      transform: `scale(${inv})`,
+      transform: inv === undefined ? UNZOOM : `scale(${inv})`,
       transformOrigin: "0 0",
     }}
   >

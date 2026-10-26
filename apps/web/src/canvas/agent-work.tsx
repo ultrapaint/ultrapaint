@@ -17,8 +17,9 @@ import { AgentIcon } from "../components/agent-icon.tsx";
 import { type AgentWork, useAgents } from "../state/agents.ts";
 import { openMenuAt } from "../state/context-menu.ts";
 import { isNodeFrame, rootOfFrame, useDocuments } from "../state/documents.ts";
-import { useEditor, useInv } from "../state/editor.ts";
+import { useEditor } from "../state/editor.ts";
 import { bridgeFor } from "./bridge.ts";
+import { screenPx, UNZOOM } from "./camera.ts";
 
 /** Enough outlines to see where the work is; past that they only add noise. */
 const MAX_OUTLINES = 12;
@@ -96,15 +97,7 @@ export const useSkeletons = (frameId: string, skeletons: readonly string[]) => {
   }, [frameId, key]);
 };
 
-const Tag = ({
-  inv,
-  threadId,
-  work,
-}: {
-  inv: number;
-  threadId: string;
-  work: AgentWork;
-}) => {
+const Tag = ({ threadId, work }: { threadId: string; work: AgentWork }) => {
   const thread = useAgents((s) => s.threads.find((t) => t.id === threadId));
   const agent = useAgents((s) =>
     s.agents.find((a) => a.id === thread?.agentId)
@@ -132,7 +125,7 @@ const Tag = ({
       onContextMenu={(e) => openMenuAt(e, { kind: "thread", threadId })}
       style={{
         bottom: "100%",
-        transform: `translate(${-1 * inv}px, ${-1 * inv}px) scale(${inv})`,
+        transform: `translate(${screenPx(-1)}, ${screenPx(-1)}) ${UNZOOM}`,
         transformOrigin: "bottom left",
       }}
       title={thread?.title}
@@ -155,7 +148,6 @@ export const AgentWorkOverlay = ({
   pieces: readonly FrameWork[];
 }) => {
   const rects = useEditor((s) => s.rects[frameId]);
-  const inv = useInv();
   return (
     <>
       {pieces.map(({ nodeIds, threadId, work }) =>
@@ -171,8 +163,8 @@ export const AgentWorkOverlay = ({
               style={{
                 height: rect.height,
                 left: rect.x,
-                outline: `${2 * inv}px solid var(--agent)`,
-                outlineOffset: -1 * inv,
+                outline: `${screenPx(2)} solid var(--agent)`,
+                outlineOffset: screenPx(-1),
                 top: rect.y,
                 width: rect.width,
               }}
@@ -184,9 +176,7 @@ export const AgentWorkOverlay = ({
                     : "absolute inset-0 animate-agent-sweep bg-[linear-gradient(100deg,color-mix(in_srgb,var(--agent)_10%,transparent)_20%,color-mix(in_srgb,var(--agent)_28%,transparent)_45%,color-mix(in_srgb,var(--agent)_10%,transparent)_70%)] bg-size-[250%_100%]"
                 }
               />
-              {i === 0 ? (
-                <Tag inv={inv} threadId={threadId} work={work} />
-              ) : null}
+              {i === 0 ? <Tag threadId={threadId} work={work} /> : null}
             </div>
           );
         })

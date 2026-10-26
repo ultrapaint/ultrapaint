@@ -24,13 +24,14 @@ import {
   rootOfFrame,
   useDocuments,
 } from "../state/documents.ts";
-import { useEditor, useInv } from "../state/editor.ts";
+import { useEditor } from "../state/editor.ts";
 import { useInstances } from "../state/instances.ts";
 import { useDesignLookVersion } from "../state/look.ts";
 import { previewUrl, useProject } from "../state/project.ts";
 import { FramePresence } from "./agent-presence.tsx";
 import { AgentWorkOverlay, useFrameWork, useSkeletons } from "./agent-work.tsx";
 import { bridgeFor } from "./bridge.ts";
+import { screenPx, UNZOOM } from "./camera.ts";
 import { commentCursor, FrameComments } from "./comments.tsx";
 import { ToolbarLayer } from "./element-toolbar-placement.ts";
 import {
@@ -412,21 +413,18 @@ const Marquee = ({
   box,
 }: {
   box: { height: number; width: number; x: number; y: number };
-}) => {
-  const inv = useInv();
-  return (
-    <div
-      className="pointer-events-none absolute border border-selection bg-selection/10"
-      style={{
-        borderWidth: inv,
-        height: box.height,
-        left: box.x,
-        top: box.y,
-        width: box.width,
-      }}
-    />
-  );
-};
+}) => (
+  <div
+    className="pointer-events-none absolute border border-selection bg-selection/10"
+    style={{
+      borderWidth: screenPx(1),
+      height: box.height,
+      left: box.x,
+      top: box.y,
+      width: box.width,
+    }}
+  />
+);
 
 /** Whether the frame itself is selected: the page, or the node on the canvas it shows. */
 const useFrameSelected = (
@@ -452,26 +450,52 @@ const ResizeHandles = ({
   root: DesignNode | null;
 }) => {
   const isSelected = useFrameSelected(frameId, kind, root);
-  const inv = useInv();
   return CORNERS.map((corner) => (
+    <ResizeHandle
+      corner={corner}
+      frameId={frameId}
+      key={corner}
+      onDragStart={onDragStart}
+      shown={isSelected}
+    />
+  ));
+};
+
+/** One corner's handle; its size and distance from the corner are screen pixels. */
+const ResizeHandle = ({
+  corner,
+  frameId,
+  onDragStart,
+  shown,
+}: Pick<Props, "frameId" | "onDragStart"> & {
+  corner: Corner;
+  /** Shown whatever the pointer does: the frame is selected. */
+  shown: boolean;
+}) => {
+  // Off the corner by the same distance on screen at any zoom.
+  const off = screenPx(-6);
+  const north = corner[0] === "n";
+  const west = corner[1] === "w";
+  return (
     <div
       className={cn(
         "absolute rounded-sm bg-brand",
         corner === "nw" || corner === "se"
           ? "cursor-nwse-resize"
           : "cursor-nesw-resize",
-        !isSelected && "opacity-0 group-hover/frame:opacity-100"
+        !shown && "opacity-0 group-hover/frame:opacity-100"
       )}
-      key={corner}
       onPointerDown={(e) => onDragStart(e, frameId, "resize", corner)}
       style={{
-        [corner[0] === "n" ? "top" : "bottom"]: -6 * inv,
-        [corner[1] === "w" ? "left" : "right"]: -6 * inv,
-        height: 10 * inv,
-        width: 10 * inv,
+        bottom: north ? undefined : off,
+        height: screenPx(10),
+        left: west ? off : undefined,
+        right: west ? undefined : off,
+        top: north ? off : undefined,
+        width: screenPx(10),
       }}
     />
-  ));
+  );
 };
 
 /** The header's height and its distance from the frame, on screen. */
@@ -496,7 +520,6 @@ const FrameChrome = ({
   root: DesignNode | null;
 }) => {
   const isSelected = useFrameSelected(frameId, kind, root);
-  const inv = useInv();
   const [titleHover, setTitleHover] = useState(false);
   const selectFrame = () => {
     const store = useEditor.getState();
@@ -523,9 +546,9 @@ const FrameChrome = ({
           isSelected || isActive ? "text-foreground" : "text-muted-foreground"
         )}
         style={{
-          bottom: `calc(100% + ${HEADER_GAP * inv}px)`,
+          bottom: `calc(100% + ${screenPx(HEADER_GAP)})`,
           height: HEADER_HEIGHT,
-          transform: `scale(${inv})`,
+          transform: UNZOOM,
           transformOrigin: "bottom left",
         }}
       >
@@ -552,7 +575,6 @@ const FrameChrome = ({
       {kind === "page" && isSelected ? (
         <PageToolbar
           headerHeight={HEADER_GAP + HEADER_HEIGHT}
-          inv={inv}
           pageId={frameId}
         />
       ) : null}
@@ -560,11 +582,11 @@ const FrameChrome = ({
         <div
           className="pointer-events-none absolute inset-0"
           style={{
-            outline: `${(isSelected ? 2 : 1) * inv}px solid ${isSelected ? kindColor("element") : kindHoverColor("element")}`,
+            outline: `${screenPx(isSelected ? 2 : 1)} solid ${isSelected ? kindColor("element") : kindHoverColor("element")}`,
           }}
         />
       ) : null}
-      {kind === "page" && <FramePresence inv={inv} pageId={frameId} />}
+      {kind === "page" && <FramePresence pageId={frameId} />}
     </>
   );
 };

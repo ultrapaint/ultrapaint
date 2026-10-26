@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { presetOf, viewportPresets } from "../lib/presets.ts";
 import { useEditor } from "../state/editor.ts";
+import { screenPx, UNZOOM } from "./camera.ts";
 import { useDrag } from "./drag.ts";
 import { Divider, MoreButton } from "./element-toolbar.tsx";
 import { MenuHead, ValueTrigger } from "./element-toolbar-selects.tsx";
@@ -76,12 +77,10 @@ const ViewportSelect = ({
 /** Centred over the frame, above its header, at the same size on screen whatever the zoom. */
 export const PageToolbar = ({
   headerHeight,
-  inv,
   pageId,
 }: {
   /** The room the frame's header takes above it, on screen, which the toolbar sits over. */
   headerHeight: number;
-  inv: number;
   pageId: string;
 }) => {
   const preset = useEditor((s) => presetOf(s.frames[pageId]));
@@ -97,8 +96,8 @@ export const PageToolbar = ({
       onPointerDown={(e) => e.stopPropagation()}
       role="toolbar"
       style={{
-        bottom: `calc(100% + ${(headerHeight + 8) * inv}px)`,
-        transform: `scale(${inv}) translateX(-50%)`,
+        bottom: `calc(100% + ${screenPx(headerHeight + 8)})`,
+        transform: `${UNZOOM} translateX(-50%)`,
         transformOrigin: "bottom left",
       }}
     >

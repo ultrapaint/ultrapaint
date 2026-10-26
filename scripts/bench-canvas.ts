@@ -347,8 +347,43 @@ const mainThread = (events: TraceEvent[]) => {
   );
   const busy = tasks.reduce((a, e) => a + (e.dur ?? 0), 0) / 1000;
   const wall = (t1 - t0) / 1000;
+  const main = events
+    .filter(
+      (e) =>
+        e.ph === "X" &&
+        e.pid === pid &&
+        e.ts >= t0 &&
+        e.ts <= t1 &&
+        threads.get(`${e.pid}:${e.tid}`) === "CrRendererMain"
+    )
+    .sort((a, b) => a.ts - b.ts);
+  /** Milliseconds spent in these events, counting nested ones once. */
+  const spent = (names: readonly string[]) => {
+    let end = -1;
+    let sum = 0;
+    for (const e of main) {
+      if (names.includes(e.name) && e.ts >= end) {
+        end = e.ts + (e.dur ?? 0);
+        sum += e.dur ?? 0;
+      }
+    }
+    return Math.round(sum / 1000);
+  };
   return {
     busyPct: wall > 0 ? Math.round((busy / wall) * 100) : 0,
+    ms: {
+      layout: spent(["Layout"]),
+      paint: spent(["Paint", "PrePaint", "Layerize", "UpdateLayer"]),
+      script: spent([
+        "FunctionCall",
+        "EvaluateScript",
+        "TimerFire",
+        "FireAnimationFrame",
+        "EventDispatch",
+        "RunMicrotasks",
+      ]),
+      style: spent(["UpdateLayoutTree", "RecalculateStyles"]),
+    },
     longestTaskMs: Math.round(
       Math.max(0, ...tasks.map((e) => e.dur ?? 0)) / 1000
     ),

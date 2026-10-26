@@ -37,6 +37,7 @@ import {
 import { useProject } from "../state/project.ts";
 import { ensureEditable } from "../state/setup.ts";
 import { useFollowAgent } from "./agent-presence.tsx";
+import { useCamera, useFramesInView } from "./camera.ts";
 import {
   beginCreate,
   cancelCreate,
@@ -59,7 +60,6 @@ import {
 import { CreateOverlay, DragOverlay } from "./drag-overlay.tsx";
 import { EmptyState } from "./empty-state.tsx";
 import { type Corner, drawResized, Frame, useHostUrl } from "./frame.tsx";
-import { gridBackground } from "./grid.ts";
 import { isFrameLocked } from "./hit-test.ts";
 import { addImages, imageFiles } from "./items.ts";
 import { holdsFree, snapBox, snapPoint, snapToEdges } from "./snap.ts";
@@ -118,7 +118,7 @@ export const followLooseDrag = (
 export const Canvas = () => {
   useFollowAgent();
   const ref = useRef<HTMLDivElement>(null);
-  const view = useEditor((s) => s.view);
+  const layer = useRef<HTMLDivElement>(null);
   const frames = useEditor((s) => s.frames);
   const canvas = useEditor((s) => s.canvas);
   const mode = useEditor((s) => s.mode);
@@ -126,15 +126,13 @@ export const Canvas = () => {
   const allPages = useProject((s) => s.pages);
   const pages = allPages.filter((p) => p.canvas === canvas);
   const nodes = useDocuments((s) => canvasNodes(s.docs, canvas));
-  const sizes = useEditor((s) => s.sizes);
-  // A node on the canvas being dragged is in view: it is where the pointer is.
-  const dragged = useDrag((s) => s.dragged);
   const grid = useCanvasGrid((s) => s.visible);
   const hostUrl = useHostUrl();
   const [size, setSize] = useState({ height: 0, width: 0 });
   const [panning, setPanning] = useState(false);
-  // Nodes drawn where they are being resized to, or were let go of, until the document has them.
-  const held = useEditor((s) => s.held);
+  // Virtualisation: only the frames near the screen have a preview mounted.
+  const inView = useFramesInView(size);
+  useCamera(ref, layer, grid);
   const drag = useRef<
     | { kind: "pan"; startX: number; startY: number; vx: number; vy: number }
     | {
@@ -159,17 +157,27 @@ export const Canvas = () => {
     | null
   >(null);
 
+  // Where the canvas is in the window, read when it is laid out anyway: a wheel event reading it
+  // would make the browser lay out again what the last zoom changed, once per event.
+  const origin = useRef({ left: 0, top: 0 });
   useEffect(() => {
     const el = ref.current;
     if (!el) {
       return;
     }
-    const ro = new ResizeObserver(() =>
-      setSize({ height: el.clientHeight, width: el.clientWidth })
-    );
+    const measure = () => {
+      const rect = el.getBoundingClientRect();
+      origin.current = { left: rect.left, top: rect.top };
+      setSize({ height: el.clientHeight, width: el.clientWidth });
+    };
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
-    setSize({ height: el.clientHeight, width: el.clientWidth });
-    return () => ro.disconnect();
+    window.addEventListener("resize", measure);
+    measure();
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
   }, []);
 
   // Wheel: pan, or zoom with ctrl/meta (pinch gestures arrive with ctrlKey).
@@ -189,9 +197,8 @@ export const Canvas = () => {
       e.preventDefault();
       const { x, y, zoom } = nextView();
       if (e.ctrlKey || e.metaKey) {
-        const rect = el.getBoundingClientRect();
-        const cx = e.clientX - rect.left;
-        const cy = e.clientY - rect.top;
+        const cx = e.clientX - origin.current.left;
+        const cy = e.clientY - origin.current.top;
         const next = clampZoom(
           zoom * Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.002))
         );
@@ -578,26 +585,6 @@ export const Canvas = () => {
     }
   };
 
-  // Virtualisation: only mount iframes near the viewport.
-  const margin = 400;
-  const isVisible = (f: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  }) => {
-    const left = f.x * view.zoom + view.x;
-    const top = f.y * view.zoom + view.y;
-    const right = left + f.width * view.zoom;
-    const bottom = top + f.height * view.zoom;
-    return (
-      right > -margin &&
-      bottom > -margin &&
-      left < size.width + margin &&
-      top < size.height + margin
-    );
-  };
-
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: the canvas is the pointer's; its menu is on the context menu key too.
     <div
@@ -619,14 +606,12 @@ export const Canvas = () => {
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       ref={ref}
-      style={grid ? gridBackground(view) : undefined}
     >
+      {/* Moved by the camera, not by rendering: see `useCamera`. */}
       <div
         className="absolute top-0 left-0"
-        style={{
-          transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`,
-          transformOrigin: "0 0",
-        }}
+        ref={layer}
+        style={{ transformOrigin: "0 0" }}
       >
         {pages.map((page) => {
           const frame = frames[page.id];
@@ -642,17 +627,12 @@ export const Canvas = () => {
               kind="page"
               onDragStart={startFrameDrag}
               page={page}
-              visible={isVisible(frame)}
+              visible={inView.has(page.id)}
             />
           );
         })}
         {nodes.map((node) => {
           const frameId = nodeFrameOf(node.id);
-          const moving = dragged?.kind === "loose" && dragged.frame === frameId;
-          const box = {
-            ...nodeFrameLayout(node, sizes[frameId]),
-            ...held[frameId],
-          };
           return (
             <NodeFrame
               frameId={frameId}
@@ -660,7 +640,7 @@ export const Canvas = () => {
               key={frameId}
               node={node}
               onDragStart={startFrameDrag}
-              visible={moving || isVisible(box)}
+              visible={inView.has(frameId)}
             />
           );
         })}

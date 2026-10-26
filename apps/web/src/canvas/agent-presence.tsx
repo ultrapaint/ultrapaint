@@ -11,6 +11,7 @@ import { useAgents } from "../state/agents.ts";
 import { openMenuAt } from "../state/context-menu.ts";
 import { useEditor } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
+import { screenPx, UNZOOM } from "./camera.ts";
 
 const VERBS: Record<AgentActivity["action"], string> = {
   editing: "editing",
@@ -23,13 +24,7 @@ const VERBS: Record<AgentActivity["action"], string> = {
  * The outline and label of an agent working on one page. Drawn inside the frame's own chrome, at
  * a constant size whatever the zoom, the way the page's name is.
  */
-export const FramePresence = ({
-  inv,
-  pageId,
-}: {
-  inv: number;
-  pageId: string;
-}) => {
+export const FramePresence = ({ pageId }: { pageId: string }) => {
   const activity = useAgentActivity();
   const here = activityOnPage(activity, pageId);
   const threads = useAgents((s) => s.threads);
@@ -41,7 +36,7 @@ export const FramePresence = ({
     <>
       <div
         className="pointer-events-none absolute inset-0"
-        style={{ outline: `${2 * inv}px solid ${here.color}` }}
+        style={{ outline: `${screenPx(2)} solid ${here.color}` }}
       />
       {/* biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: a shortcut for the pointer; the strip under the canvas has the same menu. */}
       <div
@@ -51,8 +46,8 @@ export const FramePresence = ({
         }
         style={{
           backgroundColor: here.color,
-          bottom: `calc(100% + ${6 * inv}px)`,
-          transform: `scale(${inv})`,
+          bottom: `calc(100% + ${screenPx(6)})`,
+          transform: UNZOOM,
           transformOrigin: "bottom right",
         }}
       >
