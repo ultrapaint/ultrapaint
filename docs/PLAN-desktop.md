@@ -76,7 +76,7 @@ Everything here helps the command too; nothing needs Electron.
       before and after, ignoring what `.gitignore` ignores (or the ACP write events).
 - [x] 0.4 The snapshot store (D10) and the setup's snapshots on it; the setup lists the code's
       files with a walk that respects `.gitignore`. ADR 0023 amended.
-- [ ] 0.5 The run file (D5) and `--ready-json`: the server prints its URL, port and token as one
+- [x] 0.5 The run file (D5) and `--ready-json`: the server prints its URL, port and token as one
       line of JSON once it listens, for whatever started it.
 - [ ] 0.6 `Platform` grows the hooks the desktop fills: a folder picker, the preview URL mapped
       through a forwarded port, and the project switcher's place in the header.

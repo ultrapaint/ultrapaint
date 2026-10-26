@@ -119,7 +119,19 @@ export class ServerConfig extends Context.Service<
     /** Whether agents are given the editor's own MCP server to call. */
     readonly mcp: boolean;
     readonly port: number;
+    /**
+     * Whether the server says it is ready as one line of JSON on stdout, `{ url, port, token,
+     * pid }`, once it listens; its logs then go to stderr. For whatever started it: the desktop
+     * app, or a command over SSH (`--ready-json`).
+     */
+    readonly readyJson: boolean;
     readonly storage: StorageTarget;
+    /**
+     * This run's id, random: the run file, the ready line and `/api/health` carry it, so that
+     * whoever finds a run file can tell the server answering on its port is the one that wrote
+     * it. Not a secret and not a credential: the server has no authentication.
+     */
+    readonly token: string;
     /** User-level data that is only read, such as custom agents: `~/.ultrapaint`. */
     readonly userDir: string;
     readonly version: string;

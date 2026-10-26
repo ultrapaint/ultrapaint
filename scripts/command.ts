@@ -28,7 +28,17 @@ import { createRequire } from "node:module";
 import { networkInterfaces } from "node:os";
 import path from "node:path";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
-import { Console, Effect, FileSystem, Schedule, Stream } from "effect";
+import {
+  Console,
+  Deferred,
+  Effect,
+  Fiber,
+  FileSystem,
+  Option,
+  Schedule,
+  Schema,
+  Stream,
+} from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 /** Whether this is the package's bundled `cli.mjs` rather than a checkout's sources. */
@@ -82,6 +92,11 @@ FLAGS OF THE COMMAND
   With --dev, --host and --allowed-host apply to the editor's dev server too, and
   ULTRAPAINT_WEB_PORT is its port (default: the server's port plus one).
 `;
+
+/** The server's ready line: where it listens. */
+const decodeReady = Schema.decodeUnknownOption(
+  Schema.fromJsonString(Schema.Struct({ url: Schema.String }))
+);
 
 /** The value of `--name value` or `--name=value` in the arguments, if given. */
 const flagValue = (args: readonly string[], name: string) => {
@@ -248,6 +263,8 @@ export const main = (args: readonly string[]): void => {
   const open = !args.includes("--no-open");
   const serverArgs = args.filter((arg) => !OWN_FLAGS.has(arg));
   const informational = serverArgs.some((arg) => INFORMATIONAL.has(arg));
+  // Asked for by whoever runs the command: the ready line is passed on as it is.
+  const asked = serverArgs.includes("--ready-json");
 
   const serverPort = Number(
     flagValue(serverArgs, "--port") ??
@@ -275,43 +292,99 @@ export const main = (args: readonly string[]): void => {
   // Where the command was typed: the repository the user is in.
   const cwd = process.cwd();
 
-  const openBrowser = Effect.gen(function* () {
-    yield* answers(`${serverUrl}/api/health`);
-    if (dev) {
-      yield* answers(editorUrl);
-    }
-    yield* Console.log(`[ultrapaint] ${editorUrl}`);
-    for (const url of fromNetwork) {
-      yield* Console.log(`[ultrapaint] from the network: ${url}`);
-    }
-    if (!open) {
-      return;
-    }
-    const opener: Record<string, readonly string[]> = {
-      darwin: ["open", editorUrl],
-      win32: ["cmd", "/c", "start", "", editorUrl],
-    };
-    const [command = "xdg-open", ...rest] = opener[process.platform] ?? [
-      "xdg-open",
-      editorUrl,
-    ];
-    // No browser to open is no reason to stop: the address is printed above.
-    yield* Effect.ignore(run(command, rest, root));
-  }).pipe(
-    // Said once; the processes' own output says why.
-    Effect.catch(() =>
-      Console.log(`[ultrapaint] ${editorUrl} did not answer in two minutes`)
-    )
+  /**
+   * Where the editor is, once it answers: the server's ready line says so for a build; with
+   * `--dev`, the server and Vite are asked until they answer.
+   */
+  const editorReady = (ready: Deferred.Deferred<string>) =>
+    dev
+      ? Effect.gen(function* () {
+          yield* answers(`${serverUrl}/api/health`);
+          yield* answers(editorUrl);
+          return editorUrl;
+        })
+      : Deferred.await(ready).pipe(Effect.timeout("2 minutes"));
+
+  const openBrowser = (ready: Deferred.Deferred<string>) =>
+    Effect.gen(function* () {
+      const url = yield* editorReady(ready);
+      yield* Console.log(`[ultrapaint] ${url}`);
+      for (const address of fromNetwork) {
+        yield* Console.log(`[ultrapaint] from the network: ${address}`);
+      }
+      if (!open) {
+        return;
+      }
+      const opener: Record<string, readonly string[]> = {
+        darwin: ["open", url],
+        win32: ["cmd", "/c", "start", "", url],
+      };
+      const [command = "xdg-open", ...rest] = opener[process.platform] ?? [
+        "xdg-open",
+        url,
+      ];
+      // No browser to open is no reason to stop: the address is printed above.
+      yield* Effect.ignore(run(command, rest, root));
+    }).pipe(
+      // Said once; the processes' own output says why.
+      Effect.catch(() =>
+        Console.log(`[ultrapaint] ${editorUrl} did not answer in two minutes`)
+      )
+    );
+
+  /** The server, for `--help` and `--version`: its output is the answer. */
+  const inform = Effect.suspend(() =>
+    run(process.execPath, [...serverEntry(), ...serverArgs], cwd)
   );
 
-  /** The server from its sources, serving the built editor. */
-  const serve = Effect.suspend(() =>
-    run(
-      process.execPath,
-      [...serverEntry(), "--web-dist", webDist, ...serverArgs],
-      cwd
-    )
-  );
+  /**
+   * The server from its sources, serving the built editor. It says on stdout, in one line of
+   * JSON, where it listens once it does, and logs to stderr. A server already running for the
+   * project answers with its own line, from another process, and this one ends: the editor is
+   * that one's (PLAN-desktop D5).
+   */
+  const serve = (ready: Deferred.Deferred<string>) =>
+    Effect.gen(function* () {
+      const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+      const child = yield* spawner.spawn(
+        ChildProcess.make(
+          process.execPath,
+          [
+            ...serverEntry(),
+            "--web-dist",
+            webDist,
+            ...(asked ? [] : ["--ready-json"]),
+            ...serverArgs,
+          ],
+          {
+            cwd,
+            env: {},
+            extendEnv: true,
+            forceKillAfter: "3 seconds",
+            stderr: "inherit",
+            stdin: "ignore",
+          }
+        )
+      );
+      yield* child.stdout.pipe(
+        Stream.decodeText(),
+        Stream.splitLines,
+        Stream.runForEach((line) =>
+          Option.match(decodeReady(line), {
+            onNone: () => Console.log(line),
+            onSome: (found) =>
+              Effect.gen(function* () {
+                if (asked) {
+                  yield* Console.log(line);
+                }
+                yield* Deferred.succeed(ready, found.url);
+              }),
+          })
+        ),
+        Effect.forkScoped
+      );
+      return yield* child.exitCode;
+    });
 
   /**
    * The server under `tsx watch` and the editor under Vite, side by side. `tsx watch` restarts
@@ -378,7 +451,7 @@ export const main = (args: readonly string[]): void => {
 
   const program = Effect.gen(function* () {
     if (informational) {
-      process.exitCode = Number(yield* serve);
+      process.exitCode = Number(yield* inform);
       if (serverArgs.includes("--help") || serverArgs.includes("-h")) {
         yield* Console.log(OWN_HELP);
       }
@@ -391,13 +464,21 @@ export const main = (args: readonly string[]): void => {
       process.exitCode = 1;
       return;
     }
-    yield* Effect.forkScoped(openBrowser);
+    const ready = yield* Deferred.make<string>();
+    const opening = yield* Effect.forkScoped(openBrowser(ready));
     if (dev) {
       process.exitCode = yield* develop;
       return;
     }
     yield* ensureEditor;
-    process.exitCode = Number(yield* serve);
+    process.exitCode = Number(yield* serve(ready));
+    // A server that was running already ends this one at once: its editor is still opened.
+    if (process.exitCode === 0 && (yield* Deferred.isDone(ready))) {
+      yield* Fiber.join(opening).pipe(
+        Effect.timeout("10 seconds"),
+        Effect.ignore
+      );
+    }
   });
 
   program.pipe(

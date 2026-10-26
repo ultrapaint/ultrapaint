@@ -47,6 +47,7 @@ const program = Effect.gen(function* () {
         },
         mcp: true,
         port,
+        readyJson: false,
         // The repository's own configuration, read and never written; the threads' state in a
         // directory that goes with the run.
         storage: {
@@ -54,6 +55,7 @@ const program = Effect.gen(function* () {
           mode: "file",
           stateDir: userDir,
         },
+        token: "spike",
         userDir,
         version: "spike",
         webDist: undefined,

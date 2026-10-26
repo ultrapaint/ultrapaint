@@ -1,14 +1,37 @@
+import { randomBytes } from "node:crypto";
+import { createServer } from "node:net";
 import { homedir, hostname, networkInterfaces, tmpdir } from "node:os";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
-import { Config, Effect, Layer, Option } from "effect";
+import { Config, Console, Effect, Layer, Logger, Option } from "effect";
 import { Command, Flag } from "effect/cli";
 import product from "../../../package.json" with { type: "json" };
-import { ServerConfig } from "./config.ts";
+import { ServerConfig, type StorageTarget } from "./config.ts";
+import { liveRun } from "./run-file.ts";
 import { ServerLive } from "./server.ts";
 import { resolveStorage } from "./storage-resolve.ts";
 
 /** The release workflow bumps it in the root `package.json`; the bundle carries it. */
 const VERSION = product.version;
+
+/** The state directory a storage target has before the server starts, if it has one. */
+const stateDirOf = (storage: StorageTarget): string | undefined => {
+  if (storage.mode === "managed") {
+    return storage.home;
+  }
+  return storage.mode === "file" ? storage.stateDir : storage.sessionDir;
+};
+
+/** A port nothing listens on now, on the address the server is to bind. */
+const freePort = (host: string) =>
+  Effect.callback<number>((resume) => {
+    const probe = createServer();
+    probe.once("error", () => resume(Effect.succeed(0)));
+    probe.listen(0, host, () => {
+      const address = probe.address();
+      const port = typeof address === "object" && address ? address.port : 0;
+      probe.close(() => resume(Effect.succeed(port)));
+    });
+  });
 
 const serve = Command.make(
   "ultrapaint",
@@ -63,9 +86,15 @@ const serve = Command.make(
       Flag.withDefault(false)
     ),
     port: Flag.Int("port").pipe(
-      Flag.withDescription("Port to listen on"),
+      Flag.withDescription("Port to listen on; 0 picks a free one"),
       Flag.withFallbackConfig(Config.Int("ULTRAPAINT_PORT")),
       Flag.withDefault(4770)
+    ),
+    readyJson: Flag.Boolean("ready-json").pipe(
+      Flag.withDescription(
+        "Once listening, print one line of JSON on stdout with the URL, port, token and pid, and log to stderr; a server already running for the project prints its own line"
+      ),
+      Flag.withDefault(false)
     ),
     sessionDir: Flag.String("session-dir").pipe(
       Flag.withDescription(
@@ -90,6 +119,7 @@ const serve = Command.make(
     noDiscovery,
     noMcp,
     port,
+    readyJson,
     sessionDir,
     webDist,
   }) {
@@ -104,6 +134,21 @@ const serve = Command.make(
       sessionDir: Option.getOrUndefined(sessionDir),
       userHome,
     });
+    // A project's server runs once: a second start finds the first by its run file in the
+    // state directory, says where it is, and leaves it be (PLAN-desktop D5). An unsaved session
+    // has no state directory to find before it starts.
+    const known = stateDirOf(storage);
+    const running = known ? yield* liveRun(known) : Option.none();
+    if (Option.isSome(running)) {
+      // For people on stderr, so that stdout keeps to the ready line when one is asked for.
+      yield* Console.error(
+        `ultrapaint is running already for this project: ${running.value.url}`
+      );
+      if (readyJson) {
+        yield* Console.log(JSON.stringify(running.value));
+      }
+      return;
+    }
     const resolved = ServerConfig.of({
       allowedHosts: allowedHost,
       briefing: !noBriefing,
@@ -126,14 +171,19 @@ const serve = Command.make(
         uid: process.getuid?.(),
       },
       mcp: !noMcp,
-      port,
+      port: port === 0 ? yield* freePort(host) : port,
+      readyJson,
       storage,
+      token: randomBytes(16).toString("hex"),
       userDir,
       version: VERSION,
       webDist: Option.getOrUndefined(webDist),
     });
     return yield* Layer.launch(
       ServerLive.pipe(Layer.provide(Layer.succeed(ServerConfig, resolved)))
+    ).pipe(
+      // With the ready line on stdout, stdout carries nothing else.
+      Effect.provideService(Logger.LogToStderr, readyJson)
     );
   })
 ).pipe(Command.withDescription("Local backend of the ultrapaint editor"));

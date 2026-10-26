@@ -275,6 +275,8 @@ layer(Unsaved, { excludeTestServices: true, timeout: "60 seconds" })(
             yield* fs.readFileString(path.join(state, ".gitignore")),
             "*\n"
           );
+          // The run file too: a second start in the repository finds this server there.
+          assert.isTrue(yield* fs.exists(path.join(state, "run.json")));
 
           // Later changes go to the file, and a second save is refused.
           yield* client["settings.set"]({ ...settings, theme: "dark" });
@@ -449,11 +451,13 @@ describe("a configuration file that cannot be read", () => {
                 },
                 mcp: true,
                 port: yield* freePort,
+                readyJson: false,
                 storage: {
                   configPath,
                   mode: "file",
                   stateDir: `${dir}/.ultrapaint`,
                 },
+                token: "test",
                 userDir: dir,
                 version: "test",
                 webDist: undefined,
@@ -496,7 +500,9 @@ const settingsOf = (cwd: string, storage: StorageTarget) =>
         },
         mcp: false,
         port: 0,
+        readyJson: false,
         storage,
+        token: "test",
         userDir: cwd,
         version: "test",
         webDist: undefined,

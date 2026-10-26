@@ -6,7 +6,7 @@ import { ServerConfig, type StorageTarget } from "../config.ts";
 import { STATE_DIR_NAME } from "../storage-resolve.ts";
 import { runGit } from "./git.ts";
 
-/** What moves with the state when an unsaved session is saved. */
+/** What moves with the state when an unsaved session is saved: directories, and the run file. */
 const STATE_SUBDIRS = [
   "threads",
   "chat",
@@ -17,6 +17,8 @@ const STATE_SUBDIRS = [
   "imports",
   "design-system-setup",
   "store",
+  // The server's run file (PLAN-desktop D5): a second start finds it where the state now is.
+  "run.json",
 ] as const;
 
 /**

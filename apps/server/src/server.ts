@@ -27,6 +27,7 @@ import {
 import { EventBus } from "./events.ts";
 import { ProjectManager } from "./project.ts";
 import { RpcHandlers } from "./rpc-handlers.ts";
+import { Announce } from "./run-file.ts";
 import { DesignSystemSetupService } from "./services/design-system-setup.ts";
 import { DesignSystemSyncService } from "./services/design-system-sync.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
@@ -201,11 +202,12 @@ const FigmaImportRoute = HttpRouter.use(
 
 const HealthRoute = HttpRouter.use(
   Effect.fnUntraced(function* (router) {
-    const { version } = yield* ServerConfig;
+    const { token, version } = yield* ServerConfig;
+    // The token says which run answers: whoever read a run file checks it against this one.
     yield* router.add(
       "GET",
       "/api/health",
-      HttpServerResponse.json({ ok: true, version })
+      HttpServerResponse.json({ ok: true, token, version })
     );
   })
 );
@@ -381,7 +383,10 @@ const Routes = Layer.mergeAll(
  * between is dropped by Node and its client waits forever. Built the other way round, that gap
  * was the whole start of the services, and the command's health check fell into it.
  */
-export const ServerLive = HttpRouter.serve(Routes, {
+const Served = HttpRouter.serve(Routes, {
   disableListenLog: true,
   disableLogger: true,
-}).pipe(Layer.provide(HttpServerLive), Layer.provide(Services));
+}).pipe(Layer.provideMerge(HttpServerLive), Layer.provideMerge(Services));
+
+/** And once it all answers, the run file and the ready line say so (PLAN-desktop D5). */
+export const ServerLive = Announce.pipe(Layer.provide(Served));
