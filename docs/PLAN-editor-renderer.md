@@ -215,15 +215,40 @@ the renderer holds 471 MB.
       baseline, the `dtcg` Sync source and its step go; an older `design-system.json`, values in
       it, still reads.
 
-### Phase 6: captures, an experiment
+### Phase 6: captures, an experiment — built on `experiment/captures`, measured
 
-- [ ] 6.1 After an instance draws live, its DOM is serialised, keyed by component and props hash,
-      with markers for slots and text props; a `<canvas>` becomes a picture.
-- [ ] 6.2 Behind a flag, frames seen for the first time and frames far away draw from captures, and
-      go live when selected, edited or on screen for a while.
-- [ ] 6.3 Measured: the first draw after a project opens, memory, edits, how many components
-      capture well. Then one of: stay on L, keep captures as a cache, or a committed library with
-      the canvas drawing captures only (its own ADR).
+- [x] 6.1 After a frame draws live, what each instance drew is kept as markup
+      (`preview-core/captures.ts`), keyed by its component, its props and the box the design
+      gives it, with where its children went (`ed-slot`) and its text (`ed-text`) marked: another
+      page using the component with other children or another text draws from the same capture.
+      Tokens and looks are stylesheets and change no capture; a component's code changing drops
+      them all.
+- [x] 6.2 With `?captures=1`, a page whose instances all have captures is drawn as plain DOM,
+      without running a component; it goes live to edit a text in place or to take input. Hit
+      tests, measures and selection work on it as they do live (`data-ed-node`).
+- [x] 6.3 Measured on this machine (`pnpm bench:canvas --captures`):
+
+| | Live (L, main) | Captures |
+|---|---|---|
+| 50 frames, the canvas switched to and drawn | 6,239 ms | 877 ms |
+| 50 frames, renderer / all processes | 731 / 966 MB | 643 / 884 MB |
+| 50 frames, first load of the session | 2.1 s | 2.3 s (nothing is captured yet) |
+| Redesign, first load | 406 ms | 328 ms |
+| A page edited, until drawn (median) | 17 ms | 26 ms (the page is built again whole) |
+| Pan, zoom | the same within noise | |
+| Pictures, static against live | | 0% of pixels differ on the 7 pages drawn static |
+
+Captures are kept for the session only. Kept between sessions they would draw a page at once
+when a project opens, but a component's code changed while the editor was closed would show
+its old markup until the page goes live: the catalogue says when it was built, not what the
+components draw, and a hash of the component files would have to come from the server.
+
+What it says: a cache of captures pays where many frames are drawn cold (a big canvas opened or
+switched to: seven times faster, a tenth less memory), costs on edits (a page drawn from captures
+is built again whole, where React changes one node), and needs the server to say when the
+components changed before it can outlive a session. On canvases of ten pages L is as fast.
+Recommendation: stay on L; take captures up again, as a first-paint cache that goes live when
+idle, if canvases of fifty pages and more become common.
 
 ## Pitfalls
 

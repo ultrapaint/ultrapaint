@@ -148,6 +148,11 @@ export interface FrameRuntime {
 export interface MountFrameOptions {
   /** Canvas whose own assets relative image paths are looked for in first. */
   readonly canvas: string;
+  /**
+   * Draws the page from captures of its instances when it can, without running a component
+   * (PLAN-editor-renderer Phase 6, an experiment), and live once it has to be.
+   */
+  readonly captures?: boolean;
   readonly events: FrameEvents;
   /** Identifies the frame: a frame on the canvas, the prototype, a specimen. */
   readonly frame: string;

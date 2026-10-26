@@ -36,6 +36,8 @@ import {
 const { values: args } = parseArgs({
   options: {
     canvas: { default: "redesign", type: "string" },
+    // The captures experiment (PLAN-editor-renderer Phase 6): frames drawn from captures.
+    captures: { default: false, type: "boolean" },
     chrome: { type: "string" },
     other: { default: "samples", type: "string" },
     out: { type: "string" },
@@ -387,7 +389,10 @@ const launch = async () => {
 };
 
 const open = async (page: Page, canvas: string) => {
-  await page.goto(`${EDITOR}/?canvas=${canvas}`, { waitUntil: "load" });
+  await page.goto(
+    `${EDITOR}/?canvas=${canvas}${args.captures ? "&captures=1" : "&captures=0"}`,
+    { waitUntil: "load" }
+  );
   await page.waitForFunction(
     (c) => {
       const ed = (window as unknown as Partial<BenchWindow>).__ed;

@@ -25,6 +25,7 @@ import type {
   RenderSetup,
 } from "@ultrapaint/framework-api/browser";
 import { toCanvas, toPng } from "html-to-image";
+import { buildStatic, captureInstances, dropCaptures } from "./captures.ts";
 import { chainAt, directText, elementsOf, unionRect } from "./dom.ts";
 import { BODY_ATTRIBUTE } from "./frame-css.ts";
 import { elementAt, type HitScope } from "./hit.ts";
@@ -90,6 +91,8 @@ export const createPreview = (input: PreviewSetup): Preview => {
   const frames = new Set<{
     events: FrameEvents;
     mounted: Mounted;
+    /** The components changed: a page drawn from captures is drawn live. */
+    refresh: () => void;
   }>();
   const previewBase = new URL(input.designsRoot, location.href).pathname.split(
     "@fs"
@@ -99,7 +102,11 @@ export const createPreview = (input: PreviewSetup): Preview => {
   const preview: Preview = {
     mountFrame: (host, options) => {
       const frame = mountFrame(host, options, input, components);
-      const entry = { events: options.events, mounted: frame.mounted };
+      const entry = {
+        events: options.events,
+        mounted: frame.mounted,
+        refresh: frame.refresh,
+      };
       frames.add(entry);
       return {
         ...frame.runtime,
@@ -121,8 +128,10 @@ export const createPreview = (input: PreviewSetup): Preview => {
     },
     setComponents: (next) => {
       components = next;
+      dropCaptures();
       for (const frame of frames) {
         frame.mounted.setComponents(next);
+        frame.refresh();
       }
     },
   };
@@ -177,9 +186,16 @@ const mountFrame = (
   options: MountFrameOptions,
   input: PreviewSetup,
   components: PreviewSetup["components"]
-): { mounted: Mounted; runtime: FrameRuntime } => {
+): { mounted: Mounted; refresh: () => void; runtime: FrameRuntime } => {
   const { events } = options;
   const { body, root: canvas, shadow } = buildFrame(host, input.theme);
+  // What a page drawn from captures is drawn in, beside the live root, until it goes live.
+  const still = document.createElement("div");
+  still.setAttribute("data-ed-static", "");
+  body.prepend(still);
+  let live = !options.captures;
+  let last: RenderRequest | null = null;
+  let pendingEdit: string | null = null;
   if (options.still) {
     host.setAttribute("data-ed-still", "");
   }
@@ -257,6 +273,18 @@ const mountFrame = (
     components,
     navigate: (route) => events.navigateTo?.(route, false),
     onRendered: (renderId) => {
+      if (live && still.firstChild) {
+        still.replaceChildren();
+        canvas.style.display = "";
+      }
+      if (live && options.captures && last?.root) {
+        captureInstances(last.root, last.designSystem, shadow);
+      }
+      if (live && pendingEdit !== null) {
+        const id = pendingEdit;
+        pendingEdit = null;
+        queueMicrotask(() => startTextEdit(id));
+      }
       applySkeletons();
       events.rendered?.(renderId);
       scheduleRects();
@@ -272,14 +300,43 @@ const mountFrame = (
   const resize = new ResizeObserver(sendSize);
   resize.observe(canvas);
 
+  /** The page drawn by its components from now on; what is drawn from captures goes once it is. */
+  const goLive = () => {
+    if (live) {
+      return;
+    }
+    live = true;
+    if (last) {
+      mounted.render(last);
+    }
+  };
+
   const render = (request: RenderRequest) => {
     if (editing) {
       finishTextEdit(false);
     }
     activeFrame = body;
+    last = request;
     applyDefaults(body, request, input.theme);
     fill = request.root?.width === "fill";
     applyMode(request.mode);
+    if (!live && request.root && request.message === undefined) {
+      const drawn = buildStatic({
+        assetUrl,
+        designSystem: request.designSystem,
+        mode: request.mode,
+        pageHeight: "100cqh",
+        root: request.root,
+        specs: request.specs,
+      });
+      if (drawn) {
+        canvas.style.display = "none";
+        still.replaceChildren(drawn);
+        setup.onRendered(request.renderId);
+        return;
+      }
+      live = true;
+    }
     mounted.render(request);
   };
 
@@ -530,7 +587,14 @@ const mountFrame = (
   };
 
   const runtime: FrameRuntime = {
-    editText: startTextEdit,
+    editText: (nodeId) => {
+      if (live) {
+        startTextEdit(nodeId);
+        return;
+      }
+      pendingEdit = nodeId;
+      goLive();
+    },
     hitTest: (x, y) => {
       const at = placement();
       const el = unobserved(() =>
@@ -547,6 +611,9 @@ const mountFrame = (
     setInteractive: (next) => {
       if (editing && !next) {
         finishTextEdit(true);
+      }
+      if (next) {
+        goLive();
       }
       interactive = next;
       setInert();
@@ -574,5 +641,5 @@ const mountFrame = (
       scheduleRects();
     },
   };
-  return { mounted, runtime };
+  return { mounted, refresh: goLive, runtime };
 };

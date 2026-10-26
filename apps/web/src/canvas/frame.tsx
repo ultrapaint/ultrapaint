@@ -35,6 +35,7 @@ import { FramePresence } from "./agent-presence.tsx";
 import { AgentWorkOverlay, useFrameWork, useSkeletons } from "./agent-work.tsx";
 import { bridgeFor } from "./bridge.ts";
 import { screenPx, UNZOOM } from "./camera.ts";
+import { capturesOn } from "./captures-flag.ts";
 import { commentCursor, FrameComments } from "./comments.tsx";
 import { ToolbarLayer } from "./element-toolbar-placement.ts";
 import {
@@ -421,6 +422,7 @@ const PreviewHost = ({
         const bridge = bridgeFor(frameId);
         const runtime = preview.mountFrame(el, {
           canvas,
+          captures: capturesOn(),
           events: bridge.events(),
           frame: frameId,
         });
