@@ -50,10 +50,17 @@ img[data-ed-skeleton] { opacity: 0.35; }
  * scrollbars, which nothing of the editor's styles reaches. A page frame is a query container
  * of its size and contains what is fixed inside it; a node on the canvas (`fit`) is as big as
  * what it draws.
+ *
+ * The reset is a layer of its own, the frames' first: the application's rules on its document's
+ * root (`html`, Tailwind's preflight in `@layer base`) win over it as they win over the browser's
+ * defaults. Unlayered, it beat every layered rule, and a page lost its root's line height and
+ * type.
  */
 const BASE_CSS = `
+@layer ed-frame {
+  :host { all: initial; }
+}
 :host {
-  all: initial;
   display: block;
   position: relative;
   overflow: auto;

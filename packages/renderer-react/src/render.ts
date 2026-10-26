@@ -109,6 +109,8 @@ interface Scope {
    * editor does not read, so only the draft's instance can be selected.
    */
   readonly nodeAttribute: string;
+  /** A root path to one of the application's public files where the page finds it. */
+  readonly publicUrl: (url: string) => string;
   /** Where the render's elements are looked up: its document, or the frame's shadow root. */
   readonly root: ParentNode;
   readonly styles: Omit<StyleContext, "parent">;
@@ -214,6 +216,55 @@ const Missing = ({
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+
+const identity = (url: string) => url;
+
+/** `value` with its root paths to public files where the page finds them; itself where none is. */
+const publicUrlsIn = (
+  value: unknown,
+  publicUrl: (url: string) => string
+): unknown => {
+  if (typeof value === "string") {
+    return value.startsWith("/") ? publicUrl(value) : value;
+  }
+  if (!(Array.isArray(value) || isRecord(value))) {
+    return value;
+  }
+  const entries = Array.isArray(value)
+    ? value.map((item, i) => [i, item] as const)
+    : Object.entries(value);
+  let changed = false;
+  const next = entries.map(([key, item]) => {
+    const moved = publicUrlsIn(item, publicUrl);
+    changed ||= moved !== item;
+    return [key, moved] as const;
+  });
+  if (!changed) {
+    return value;
+  }
+  return Array.isArray(value)
+    ? next.map(([, item]) => item)
+    : Object.fromEntries(next);
+};
+
+/** By a node's props: the same object every render while the document's props stay the same. */
+const withPublicUrlsCache = new WeakMap<object, Record<string, unknown>>();
+
+/**
+ * An instance's props with every root path to one of the application's public files (a hero's
+ * `image`, the `cover` of each card of a list) where the editor's page finds it (ADR 0034).
+ */
+const withPublicUrls = (
+  props: Record<string, unknown>,
+  publicUrl: (url: string) => string
+) => {
+  let found = withPublicUrlsCache.get(props);
+  if (!found) {
+    found = publicUrlsIn(props, publicUrl) as Record<string, unknown>;
+    withPublicUrlsCache.set(props, found);
+  }
+  return found;
+};
 
 /** Whether the style asks for a box of its own, beyond the border-box every node gets. */
 const hasBox = (style: Style) =>
@@ -481,7 +532,7 @@ const ComponentInstanceView = ({
           })
         )
       : node.text;
-  const props = node.props ?? {};
+  const props = withPublicUrls(node.props ?? {}, scope.publicUrl);
   const onClickCapture = onLink(scope, node.link);
   const component = (extra: Record<string, unknown>) =>
     createElement(
@@ -813,6 +864,7 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
       learned: components.learned,
       navigate: setup.navigate,
       nodeAttribute: NODE_ATTRIBUTE,
+      publicUrl: setup.publicUrl ?? identity,
       root: lookup,
       styles,
     };
