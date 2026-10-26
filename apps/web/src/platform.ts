@@ -145,7 +145,11 @@ export interface NewDesigns {
    */
   readonly folderFor: (name: string) => Promise<string>;
   /** Opens a design whose writing stopped part of the way, as it is. */
-  readonly open: (folder: string, name: string) => Promise<void>;
+  readonly open: (
+    folder: string,
+    name: string,
+    template: NewDesignInput["template"]
+  ) => Promise<void>;
 }
 
 export interface Platform {

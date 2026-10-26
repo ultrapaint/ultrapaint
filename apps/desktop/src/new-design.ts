@@ -31,6 +31,9 @@ import { LoginShell } from "./login-shell.ts";
 import { OpenProject } from "./open-project.ts";
 import { type ServerLaunch, serverEnv } from "./project-server.ts";
 
+/** What the editor is opened with to know the design is new (`apps/web/src/lib/new-design.ts`). */
+export const NEW_DESIGN_PARAM = "new-design";
+
 /** Where new designs go unless the user picks another folder: `~/Ultrapaint`. */
 export const DESIGNS_HOME = "Ultrapaint";
 
@@ -77,7 +80,8 @@ export class NewDesigns extends Context.Service<
     /** Adds a design whose writing stopped to the list, and opens it as it is. */
     readonly open: (
       folder: string,
-      name: string
+      name: string,
+      template: NewDesignRequest["template"]
     ) => Effect.Effect<NewDesignOutcome>;
   }
 >()("ultrapaint/desktop/NewDesigns") {
@@ -214,42 +218,48 @@ export class NewDesigns extends Context.Service<
           return outcome;
         });
 
-        /** Adds it to the list and opens it, reporting the app's own last step. */
+        /**
+         * Adds it to the list and opens it, reporting the app's own last step. The editor is
+         * told it is a new design, and opens on Sync's define step (ADR 0025's scratch case).
+         */
         const open = Effect.fn("NewDesigns.open")(function* (
           folder: string,
           name: string,
+          template: NewDesignRequest["template"],
           report: (update: NewDesignUpdate) => Effect.Effect<void>
         ) {
           yield* report({ state: "active", step: "open" });
-          return yield* projects.openFolder(folder, name).pipe(
-            Effect.flatMap(({ opened }) =>
-              Effect.as(
-                report(
-                  opened
-                    ? { state: "done", step: "open" }
-                    : {
-                        detail:
-                          "The open project stays open, for its agent to finish. The design is in the list.",
-                        state: "skipped",
-                        step: "open",
-                      }
-                ),
-                {} satisfies NewDesignOutcome
+          return yield* projects
+            .openFolder(folder, name, { [NEW_DESIGN_PARAM]: template })
+            .pipe(
+              Effect.flatMap(({ opened }) =>
+                Effect.as(
+                  report(
+                    opened
+                      ? { state: "done", step: "open" }
+                      : {
+                          detail:
+                            "The open project stays open, for its agent to finish. The design is in the list.",
+                          state: "skipped",
+                          step: "open",
+                        }
+                  ),
+                  {} satisfies NewDesignOutcome
+                )
+              ),
+              Effect.catch((error) =>
+                Effect.as(
+                  report({
+                    detail: error.message,
+                    state: "failed",
+                    step: "open",
+                  }),
+                  {
+                    failed: { message: error.message, step: "open" },
+                  } satisfies NewDesignOutcome
+                )
               )
-            ),
-            Effect.catch((error) =>
-              Effect.as(
-                report({
-                  detail: error.message,
-                  state: "failed",
-                  step: "open",
-                }),
-                {
-                  failed: { message: error.message, step: "open" },
-                } satisfies NewDesignOutcome
-              )
-            )
-          );
+            );
         });
 
         return NewDesigns.of({
@@ -269,10 +279,16 @@ export class NewDesigns extends Context.Service<
               const written = yield* write(request, report);
               return written.failed
                 ? written
-                : yield* open(request.folder, request.name, report);
+                : yield* open(
+                    request.folder,
+                    request.name,
+                    request.template,
+                    report
+                  );
             }),
           folderFor,
-          open: (folder, name) => open(folder, name, () => Effect.void),
+          open: (folder, name, template) =>
+            open(folder, name, template, () => Effect.void),
         });
       })
     );

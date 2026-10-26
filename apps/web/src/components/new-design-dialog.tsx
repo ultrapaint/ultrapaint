@@ -198,7 +198,7 @@ const Form = ({ designs }: { designs: NewDesigns }) => {
   const openAsItIs = () => {
     setBusy(true);
     designs
-      .open(folder, title)
+      .open(folder, title, template)
       .catch((error: unknown) =>
         setFailed({ message: messageOf(error), step: "open" })
       )

@@ -53,6 +53,7 @@ import { ResizeHandle, usePanelWidth } from "./components/resize-handle.tsx";
 import { openSetup, SetupDialog } from "./components/setup-dialog.tsx";
 import { ShellNotices } from "./components/shell-notices.tsx";
 import { ShortcutSheet } from "./components/shortcut-sheet.tsx";
+import { openNewDesignOnSync } from "./lib/new-design.ts";
 import { useOpenNodeLink } from "./lib/open-node-link.ts";
 import { useShortcuts } from "./lib/shortcuts.ts";
 import { CanvasSwitcher } from "./panels/canvases.tsx";
@@ -541,6 +542,8 @@ export const App = () => {
       useComments.getState().bind();
       // The rail's Design system button says when the sync has something waiting.
       useSync.getState().load();
+      // A design the desktop app has just written opens on Sync's define step.
+      openNewDesignOnSync();
     }
   }, [configured]);
 

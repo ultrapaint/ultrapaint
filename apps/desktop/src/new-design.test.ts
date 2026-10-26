@@ -144,6 +144,11 @@ describe("a new design", () => {
             [["Acme", folder]]
           );
           assert.deepStrictEqual(recorded.events, ["start acme"]);
+          // The editor is told it is new: it opens on Sync's define step.
+          assert.deepStrictEqual(recorded.views.at(-1), {
+            _tag: "Editor",
+            url: "http://127.0.0.1/acme?new-design=starter",
+          });
         })
       ),
     30_000
@@ -175,7 +180,11 @@ describe("a new design", () => {
 
           // Written as far as it got, it opens as it is when asked.
           assert.deepStrictEqual(
-            yield* designs.open(path.join(home, "unfinished"), "Unfinished"),
+            yield* designs.open(
+              path.join(home, "unfinished"),
+              "Unfinished",
+              "blank"
+            ),
             {}
           );
           assert.deepStrictEqual(recorded.events, ["start unfinished"]);

@@ -47,8 +47,12 @@ contextBridge.exposeInMainWorld("ultrapaintPlatform", {
     },
     folderFor: (name: string): Promise<string> =>
       ipcRenderer.invoke(Channel.newDesignFolder, name),
-    open: (folder: string, name: string): Promise<NewDesignOutcome> =>
-      ipcRenderer.invoke(Channel.newDesignOpen, folder, name),
+    open: (
+      folder: string,
+      name: string,
+      template: NewDesignRequest["template"]
+    ): Promise<NewDesignOutcome> =>
+      ipcRenderer.invoke(Channel.newDesignOpen, folder, name, template),
   },
   notices: (): Promise<readonly ShellNotice[]> =>
     ipcRenderer.invoke(Channel.notices),

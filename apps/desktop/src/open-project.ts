@@ -71,7 +71,9 @@ export class OpenProject extends Context.Service<
      */
     readonly openFolder: (
       folder: string,
-      name?: string
+      name?: string,
+      /** For the editor, on its address: `new-design` for a design just written. */
+      query?: Readonly<Record<string, string>>
     ) => Effect.Effect<
       { readonly opened: boolean; readonly project: Project },
       StoreError | ServerStartError
@@ -145,7 +147,10 @@ export class OpenProject extends Context.Service<
 
         const launch = Effect.fn("OpenProject.launch")(function* (
           project: Project,
-          keepLocation = false
+          view: {
+            readonly keepLocation?: boolean;
+            readonly query?: Readonly<Record<string, string>> | undefined;
+          } = {}
         ) {
           const scope = yield* Scope.make();
           // Asked at each start: an agent installed or set up since is in the next one.
@@ -165,10 +170,14 @@ export class OpenProject extends Context.Service<
             );
           open = { project, scope, server };
           yield* store.opened(project.id);
+          const url = new URL(server.url);
+          for (const [key, value] of Object.entries(view.query ?? {})) {
+            url.searchParams.set(key, value);
+          }
           yield* shell.show({
             _tag: "Editor",
-            ...(keepLocation ? { keepLocation } : {}),
-            url: server.url,
+            ...(view.keepLocation ? { keepLocation: true } : {}),
+            url: view.query ? url.href : server.url,
           });
         });
 
@@ -183,22 +192,27 @@ export class OpenProject extends Context.Service<
           );
 
         /** Opens a project in place of the open one; false when the user kept that one. */
-        const openProject = (project: Project) =>
+        const openProject = (
+          project: Project,
+          query?: Readonly<Record<string, string>>
+        ) =>
           switching.withPermits(1)(
             Effect.flatMap(release("switch", true), (released) =>
               released
-                ? Effect.as(showFailure(launch(project)), true)
+                ? Effect.as(showFailure(launch(project, { query })), true)
                 : Effect.succeed(false)
             )
           );
 
         const openFolder = Effect.fn("OpenProject.openFolder")(function* (
           folder: string,
-          name?: string
+          name?: string,
+          query?: Readonly<Record<string, string>>
         ) {
           const project = yield* store.add(folder, name);
           const opened =
-            open?.project.id === project.id || (yield* openProject(project));
+            open?.project.id === project.id ||
+            (yield* openProject(project, query));
           return { opened, project };
         });
 
@@ -224,7 +238,7 @@ export class OpenProject extends Context.Service<
                 return;
               }
               if (yield* release("restart", true)) {
-                yield* showFailure(launch(was.project, true));
+                yield* showFailure(launch(was.project, { keepLocation: true }));
               }
             })
           ),

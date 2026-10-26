@@ -20,7 +20,7 @@ const messageOf = (error: unknown) =>
  * A spec for every component of a new application whose classes are read, its look the design's
  * (ADR 0029): the project is restyled in the editor and the code follows when it is implemented.
  */
-const adoptLooks = async () => {
+export const adoptLooks = async () => {
   const catalogue = await api().request("catalogue.get", { refresh: true });
   const { specs } = await api().request("specs.list", undefined);
   const known = new Set(

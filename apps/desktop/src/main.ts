@@ -369,9 +369,15 @@ handle(Channel.newDesignCreate, (request) =>
   )
 );
 
-handle(Channel.newDesignOpen, (folder, name) =>
+handle(Channel.newDesignOpen, (folder, name, template) =>
   runtime.runPromise(
-    NewDesigns.use((n) => n.open(String(folder), String(name)))
+    NewDesigns.use((n) =>
+      n.open(
+        String(folder),
+        String(name),
+        template === "starter" ? "starter" : "blank"
+      )
+    )
   )
 );
 
