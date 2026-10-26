@@ -44,6 +44,10 @@ import { ContextMenuHost } from "./components/context-menu-host.tsx";
 import { DialogHost } from "./components/dialogs.tsx";
 import { GitUserButton } from "./components/git-user.tsx";
 import { IconButton } from "./components/icon-button.tsx";
+import {
+  hasProjectSwitcher,
+  ProjectSwitcher,
+} from "./components/project-switcher.tsx";
 import { ResizeHandle, usePanelWidth } from "./components/resize-handle.tsx";
 import { openSetup, SetupDialog } from "./components/setup-dialog.tsx";
 import { ShortcutSheet } from "./components/shortcut-sheet.tsx";
@@ -310,28 +314,44 @@ const openSaveConfig = () => {
   }
 };
 
+/** The open project's name and branch, or the way to set one up. */
+const ProjectName = () => {
+  const info = useProject((s) => s.info);
+  if (!info.configured) {
+    return (
+      <button
+        className="min-w-0 flex-1 truncate text-left text-muted-foreground outline-none hover:text-foreground focus-visible:underline"
+        onClick={openSetup}
+        type="button"
+      >
+        No repository set up
+      </button>
+    );
+  }
+  return (
+    <div className="flex min-w-0 flex-1 flex-col" title={info.repoPath}>
+      <span className="truncate font-semibold">{info.name}</span>
+      {info.branch ? (
+        <span className="flex min-w-0 items-center gap-1 font-body text-muted-foreground">
+          <GitBranch className="size-3 shrink-0" />
+          <span className="truncate">{info.branch}</span>
+        </span>
+      ) : null}
+    </div>
+  );
+};
+
 const ProjectHeader = () => {
   const info = useProject((s) => s.info);
   return (
     <div className="flex h-12 shrink-0 items-center gap-1 border-b pr-1.5 pl-3">
-      {info.configured ? (
-        <div className="flex min-w-0 flex-1 flex-col" title={info.repoPath}>
-          <span className="truncate font-semibold">{info.name}</span>
-          {info.branch ? (
-            <span className="flex min-w-0 items-center gap-1 font-body text-muted-foreground">
-              <GitBranch className="size-3 shrink-0" />
-              <span className="truncate">{info.branch}</span>
-            </span>
-          ) : null}
+      {/* A shell with a list of projects puts its switcher where the name is (Platform). */}
+      {hasProjectSwitcher() ? (
+        <div className="min-w-0 flex-1">
+          <ProjectSwitcher />
         </div>
       ) : (
-        <button
-          className="min-w-0 flex-1 truncate text-left text-muted-foreground outline-none hover:text-foreground focus-visible:underline"
-          onClick={openSetup}
-          type="button"
-        >
-          No repository set up
-        </button>
+        <ProjectName />
       )}
       {info.storage.mode === "ephemeral" && (
         <IconButton

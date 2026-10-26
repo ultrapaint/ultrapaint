@@ -34,6 +34,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { OptionSelect } from "../components/option-select.tsx";
 import { startInit } from "../lib/start-thread.ts";
+import { platform } from "../platform.ts";
 import { api } from "../state/connection.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useEditor } from "../state/editor.ts";
@@ -431,6 +432,19 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     const repoPath = e.target.value;
     setDraft((d) => ({ ...d, repoPath }));
   };
+  // A shell with a native folder picker offers it beside the typed path (Platform).
+  const { pickFolder } = platform();
+  const chooseFolder = () =>
+    pickFolder?.({
+      defaultPath: draft.repoPath || undefined,
+      title: "The project's folder",
+    })
+      .then((repoPath) => {
+        if (repoPath) {
+          setDraft((d) => ({ ...d, repoPath }));
+        }
+      })
+      .catch((error: Error) => setProblems([error.message]));
   const onResolveFrom = (e: React.ChangeEvent<HTMLInputElement>) => {
     const resolveFrom = e.target.value.trim() || undefined;
     setDraft((d) => ({ ...d, resolveFrom }));
@@ -495,13 +509,20 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
           title="Repository path"
           wide
         >
-          <Input
-            id="settings-repo"
-            onChange={onRepoPath}
-            placeholder="/Users/you/code/repo"
-            readOnly={repoFromFile}
-            value={draft.repoPath}
-          />
+          <div className="flex gap-1">
+            <Input
+              id="settings-repo"
+              onChange={onRepoPath}
+              placeholder="/Users/you/code/repo"
+              readOnly={repoFromFile}
+              value={draft.repoPath}
+            />
+            {pickFolder && !repoFromFile ? (
+              <Button onClick={chooseFolder} variant="outline">
+                Choose…
+              </Button>
+            ) : null}
+          </div>
         </Row>
         <Row
           description="Relative to the repository. Pages are saved here as design documents (.page.json, one element per line), with the design system beside them. Changing it opens the project there; the pages already written stay where they are."

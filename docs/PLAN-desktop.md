@@ -78,7 +78,7 @@ Everything here helps the command too; nothing needs Electron.
       files with a walk that respects `.gitignore`. ADR 0023 amended.
 - [x] 0.5 The run file (D5) and `--ready-json`: the server prints its URL, port and token as one
       line of JSON once it listens, for whatever started it.
-- [ ] 0.6 `Platform` grows the hooks the desktop fills: a folder picker, the preview URL mapped
+- [x] 0.6 `Platform` grows the hooks the desktop fills: a folder picker, the preview URL mapped
       through a forwarded port, and the project switcher's place in the header.
 - [ ] 0.7 ADR 0031 (the desktop app), 0017 amended, the project goal and the README.
 
