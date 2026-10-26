@@ -59,7 +59,7 @@ export const ReadDesignSystem = Tool.make("read_design_system", {
 
 export const WriteDesignSystem = Tool.make("write_design_system", {
   description:
-    'Save design-system.json, which holds every token\'s value, and DESIGN.md when designMd is given; refused with the reason when invalid (get_document_format, kind "design-system"). A token is named without dashes ("color-primary"); a text style refers to it as "$color-primary".',
+    'Save the design system with every token\'s value, and DESIGN.md when designMd is given; refused with the reason when invalid (get_document_format, kind "design-system"). A token is named without dashes ("color-primary"); a text style refers to it as "$color-primary".',
   failure: Failure,
   parameters: Schema.Struct({
     /** The whole of DESIGN.md. */

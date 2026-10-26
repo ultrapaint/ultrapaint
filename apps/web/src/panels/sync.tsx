@@ -42,7 +42,6 @@ import { TokensStep } from "./sync-tokens.tsx";
 /** The source a step's tokens are compared from. */
 const TOKEN_STEP_SOURCES = {
   "design-tokens": "designMd",
-  "dtcg-tokens": "dtcg",
   "figma-tokens": "figma",
 } as const;
 
@@ -264,11 +263,7 @@ const PlanStep = ({
   if (step.kind === "import-frames") {
     return <FramesStep index={index} plan={plan} step={step} />;
   }
-  if (
-    step.kind === "figma-tokens" ||
-    step.kind === "design-tokens" ||
-    step.kind === "dtcg-tokens"
-  ) {
+  if (step.kind === "figma-tokens" || step.kind === "design-tokens") {
     return (
       <SyncCard index={index} step={step}>
         <TokensStep plan={plan} source={TOKEN_STEP_SOURCES[step.kind]} />

@@ -182,7 +182,7 @@ export type DocumentMatch = typeof DocumentMatch.Type;
  * What a side and the design system last agreed on: for `DESIGN.md`'s front matter (ADR 0027)
  * each mirrored value by its path in the document (`colors.primary`,
  * `typography.body.fontSize`) and what each of the document's tokens is in the design system,
- * by path; for the code and `design.tokens.json` (ADR 0028) each value by `name` and `name@theme`.
+ * by path; for the code (ADR 0028) each value by `name` and `name@theme`.
  */
 export const DocumentBaseline = Schema.Struct({
   agreed: Schema.Record(Schema.String, Schema.String),
@@ -204,12 +204,6 @@ export const DesignSystem = Schema.Struct({
   components: Schema.optional(Schema.Record(Schema.String, ComponentNotes)),
   /** What `DESIGN.md` and the design system last agreed on (ADR 0027). */
   designMd: Schema.optional(DocumentBaseline),
-  /**
-   * What `design.tokens.json` and the design system last agreed on (ADR 0028): the values the
-   * editor last wrote into it, by `name` and `name@theme`. Moved whenever the editor writes the
-   * file, so its own writes never read as another tool's.
-   */
-  designTokens: Schema.optional(DocumentBaseline),
   /** Elevation levels, lowest first. */
   elevation: Schema.optional(Schema.Array(ElevationLevel)),
   icons: Schema.optional(IconSet),
@@ -432,7 +426,10 @@ export const DesignSystemState = Schema.Struct({
    * they differ (ADR 0028); empty when they agree.
    */
   previewCss: Schema.optional(Schema.String),
-  /** Why `design-system.json` cannot be read, when it cannot. */
+  /**
+   * Why `design-system.json` cannot be read, when it cannot; or why `design.tokens.json`
+   * cannot, beside the design system read without its values (ADR 0035).
+   */
   problem: Schema.optional(Schema.String),
 });
 export type DesignSystemState = typeof DesignSystemState.Type;

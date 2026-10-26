@@ -208,8 +208,12 @@ the renderer holds 471 MB.
       of a glyph is one file drawn in `currentColor`, its pages say the colour, and they draw as
       they did (under 0.1% of pixels, all anti-aliasing). The inspector and the toolbar set it,
       and the iconography skill tells agents to.
-- [ ] 5.3 `design.tokens.json` becomes the only token file: token values move there,
-      `design-system.json` keeps the rest; the copy and its baseline go. Its own ADR, amending 0028.
+- [x] 5.3 `design.tokens.json` holds every token's value and `design-system.json` the rest (ADR
+      0035, amending 0028). The design system is the one with the other's values laid over it;
+      another tool's change to the tokens file is the design's value at once; a change in the
+      editor writes both, and nothing while the tokens file does not read. The `designTokens`
+      baseline, the `dtcg` Sync source and its step go; an older `design-system.json`, values in
+      it, still reads.
 
 ### Phase 6: captures, an experiment
 

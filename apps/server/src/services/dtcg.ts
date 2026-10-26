@@ -1,6 +1,7 @@
 /**
- * The design system in the Design Tokens Community Group's format, 2025.10 (ADR 0028): the export
- * that Style Dictionary, Tokens Studio and Figma's variables read. Pure.
+ * The design system's values in the Design Tokens Community Group's format, 2025.10: where they are
+ * kept (ADR 0035), beside `design-system.json`, and what Style Dictionary, Tokens Studio and
+ * Figma's variables read. Pure.
  *
  * Tokens are grouped by kind (`color`, `spacing`, `font-size`…) under their names without the
  * kind's prefix, so `color-primary-foreground` is `color.primary-foreground` and `--spacing` is
@@ -25,7 +26,7 @@ import {
 } from "@ultrapaint/contracts/tokens";
 import { parseColor } from "./token-values.ts";
 
-/** The export, in the designs directory next to `design-system.json`. */
+/** The values' file, in the designs directory next to `design-system.json`. */
 export const DESIGN_TOKENS_FILE = "design.tokens.json";
 
 const EXTENSION = "dev.ultrapaint";
@@ -905,8 +906,8 @@ export const tokensFromDesignTokens = (
 };
 
 /**
- * A Design Tokens file's tokens as a side the sync compares with the design system (ADR 0028):
- * one token per name, the other themes' values with it.
+ * A Design Tokens file's tokens as the design system takes them: one token per name, the other
+ * themes' values with it.
  */
 export const designTokensSide = (read: readonly ReadToken[]): SourceToken[] => {
   const byName = new Map<string, SourceToken>();
@@ -931,8 +932,8 @@ export const designTokensSide = (read: readonly ReadToken[]): SourceToken[] => {
 };
 
 /**
- * `design.tokens.json`'s text read as a side: its tokens and what could not be read, or the
- * reason it is no Design Tokens file at all.
+ * `design.tokens.json`'s text read: its tokens and what could not be read, or the reason it is no
+ * Design Tokens file at all.
  */
 export const readDesignTokens = (
   text: string

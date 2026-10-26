@@ -15,6 +15,7 @@ import { ServerConfig } from "../../config.ts";
 import { ProjectManager } from "../../project.ts";
 import { CatalogueService } from "../catalogue.ts";
 import { DesignSystemService } from "../design-system.ts";
+import { DESIGN_TOKENS_FILE } from "../dtcg.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { makePageTasks } from "./page-tasks.ts";
 import { makeSetupTasks } from "./setup-tasks.ts";
@@ -120,7 +121,9 @@ export class SlashCommands extends Context.Service<
             : `4. Write ${settings.designsDir}/${DESIGN_SYSTEM_FILE}, valid against this JSON Schema:
    ${designSystemSchema()}
    and ${DESIGN_MD_FILE} at the root of the repository, without front matter: the editor fills in
-   its tokens.`;
+   its tokens. Put every token's value in ${DESIGN_SYSTEM_FILE}, and delete
+   ${settings.designsDir}/${DESIGN_TOKENS_FILE} if there is one: the values the editor saved
+   last are there, and they win over the ones you write.`;
           return `${tools}
 2. Look at what the scan cannot see: the design system's packages (${libraries}), their READMEs,
    AGENTS.md and docs, Storybook stories, style guides, and how the application's own screens use

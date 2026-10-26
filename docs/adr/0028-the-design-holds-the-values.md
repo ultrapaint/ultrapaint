@@ -8,6 +8,11 @@ design, not the code). Plan: `docs/PLAN-design-source.md`.
 > export; agents bring the code up to the design through `handoff` and `/sync code`; and a
 > design's implementation waits on the tokens it uses that the code does not have yet.
 
+> Amended by [0035](0035-design-tokens-hold-the-values.md), 2026-10-26: `design.tokens.json`
+> holds the values and `design-system.json` the rest. It is no longer an export compared in
+> Sync: another tool's change to it is the design's value. The `designTokens` baseline and the
+> `dtcg` source go.
+
 ## Context
 
 Since 0025 a token's value was read from the code every time, and editing it in the editor wrote

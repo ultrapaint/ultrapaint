@@ -386,7 +386,7 @@ The user ran /sync code. The code has every value of the design: say so, and sto
 Bring the code up to the design (ADR 0028). The design system holds every token's value and the
 stylesheets follow it: a token changed in the design alone waits for the code, one changed in the
 code alone is offered to the design, and where both changed since they last agreed the user
-picks. ${where}Do not edit design-system.json or the stylesheets' tokens by hand.
+picks. ${where}Do not edit design-system.json, design.tokens.json or the stylesheets' tokens by hand.
 
 ${list("Tokens of the design that wait for the code:", toCode)}${list("Tokens changed in the code alone:", toDesign)}${list("Tokens changed on both sides:", conflicts)}${notes}
 ${codeSteps({ conflicts: conflicts.length, toCode: toCode.length, toDesign: toDesign.length })}

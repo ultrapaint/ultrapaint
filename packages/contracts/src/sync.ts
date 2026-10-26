@@ -29,7 +29,6 @@ export const SyncStepKind = Schema.Literals([
   "code-tokens",
   "design-md",
   "design-tokens",
-  "dtcg-tokens",
   "scaffold",
   "figma-tokens",
   "inventory",
@@ -127,18 +126,6 @@ export const SyncFacts = Schema.Struct({
   ),
   /** Whether `design-system.json` is there and reads. */
   designSystem: Schema.Boolean,
-  /**
-   * `design.tokens.json` against the design system (ADR 0028), when the file is there: tokens
-   * another tool changed in it alone, changed on both sides, and changed in the design system
-   * while the file kept its own (the file is behind).
-   */
-  designTokens: Schema.optional(
-    Schema.Struct({
-      behind: Schema.Number,
-      conflicts: Schema.Number,
-      toDesign: Schema.Number,
-    })
-  ),
   /** The newest Figma import, when there is one. */
   figma: Schema.optional(
     Schema.Struct({ id: Schema.String, name: Schema.String })
@@ -172,15 +159,10 @@ export type SyncPlan = typeof SyncPlan.Type;
 
 /**
  * Where tokens come from to be compared with the design system's (ADR 0028): the newest Figma
- * import (ADR 0025), `DESIGN.md`'s front matter (ADR 0027), the code, or `design.tokens.json`
- * (`dtcg`) as another tool left it.
+ * import (ADR 0025), `DESIGN.md`'s front matter (ADR 0027), or the code. `design.tokens.json`
+ * is no side: it holds the design's values (ADR 0035).
  */
-export const TokenSourceKind = Schema.Literals([
-  "figma",
-  "designMd",
-  "code",
-  "dtcg",
-]);
+export const TokenSourceKind = Schema.Literals(["figma", "designMd", "code"]);
 export type TokenSourceKind = typeof TokenSourceKind.Type;
 
 /** Who matched a source's token to the design system's: the rules, an agent, or the user. */

@@ -550,38 +550,6 @@ describe("the code against the design system (ADR 0028)", () => {
     expect(toCode).toEqual([{ name: "color-b", value: "#888" }]);
   });
 
-  it("asks to take what another tool changed in design.tokens.json, and says the file is behind", () => {
-    const steps = planOf({
-      drift: emptyDrift,
-      facts: {
-        ...facts,
-        designSystem: true,
-        designTokens: { behind: 1, conflicts: 0, toDesign: 2 },
-      },
-      figmaSynced: false,
-      setup: emptySetup(0),
-    });
-    const step = steps.find((s) => s.kind === "dtcg-tokens");
-    expect(step?.state).toBe("attention");
-    expect(step?.detail).toContain(
-      "2 tokens changed in design.tokens.json alone, by another tool"
-    );
-    expect(step?.detail).toContain(
-      "1 token of the design system it does not have yet"
-    );
-    const quiet = planOf({
-      drift: emptyDrift,
-      facts: {
-        ...facts,
-        designSystem: true,
-        designTokens: { behind: 0, conflicts: 0, toDesign: 0 },
-      },
-      figmaSynced: false,
-      setup: emptySetup(0),
-    });
-    expect(quiet.some((s) => s.kind === "dtcg-tokens")).toBe(false);
-  });
-
   it("changes a design system's tokens, adding the new ones where they belong", () => {
     const next = withTokenChanges(ds, [
       { name: "color-primary", value: "#123456" },

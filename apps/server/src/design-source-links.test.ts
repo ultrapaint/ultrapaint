@@ -1,5 +1,6 @@
 import path from "node:path";
 import { assert, layer } from "@effect/vitest";
+import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { ImplementationItem } from "@ultrapaint/contracts/implementation";
 import type { ThreadItem } from "@ultrapaint/contracts/threads";
 import { Effect, FileSystem } from "effect";
@@ -435,84 +436,122 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
     );
 
     it.effect(
-      "takes what another tool changed in design.tokens.json, without its own writes ever reading as such",
+      "keeps every value in design.tokens.json, and takes another tool's change to it as the design's (ADR 0035)",
       () =>
         Effect.gen(function* () {
           const { client, repo } = yield* TestEnv;
           const fs = yield* FileSystem.FileSystem;
-          const file = path.join(repo, "designs/design.tokens.json");
-          const outcomes = () =>
-            Effect.map(client["sync.tokens"]({ source: "dtcg" }), (c) =>
-              Object.fromEntries(
-                (c?.diffs ?? [])
-                  .filter((d) => d.outcome !== "same")
-                  .map((d) => [d.name, d.outcome])
-              )
+          const tokensFile = path.join(repo, "designs/design.tokens.json");
+          const systemFile = path.join(repo, "designs/design-system.json");
+          const tokensOf = (ds: DesignSystem | null) =>
+            new Map(
+              (ds?.colors ?? [])
+                .flatMap((g) => g.tokens)
+                .concat(ds?.radius ?? [])
+                .map((t) => [t.name, t.value])
             );
-          // The editor wrote the file with every change: nothing reads as another tool's.
-          assert.deepStrictEqual(yield* outcomes(), {});
-          const system = JSON.parse(
-            yield* fs.readFileString(
-              path.join(repo, "designs/design-system.json")
-            )
-          ) as { designTokens?: { agreed: Record<string, string> } };
-          assert.strictEqual(
-            system.designTokens?.agreed["color-brand"],
-            "#ff0000"
-          );
+          const current = () =>
+            Effect.map(client["designSystem.get"](), (s) => s.designSystem);
 
-          // Another tool changes the brand colour.
-          const json = JSON.parse(yield* fs.readFileString(file)) as {
+          // design-system.json keeps no value; the tokens file has them.
+          const written = (yield* fs.readFileString(systemFile)) as string;
+          const system = JSON.parse(written) as {
+            colors: { tokens: Record<string, unknown>[] }[];
+            designTokens?: unknown;
+            spacing: Record<string, unknown>;
+          };
+          assert.isTrue(
+            system.colors
+              .flatMap((g) => g.tokens)
+              .every((t) => !("value" in t || "values" in t))
+          );
+          assert.isUndefined(system.designTokens);
+          assert.isFalse("base" in system.spacing);
+          assert.include(yield* fs.readFileString(tokensFile), "#ff0000");
+          const before = yield* current();
+          assert.strictEqual(tokensOf(before).get("color-brand"), "#ff0000");
+
+          // Another tool changes the brand colour and adds one: both are the design's at once.
+          const json = JSON.parse(yield* fs.readFileString(tokensFile)) as {
             color: Record<string, unknown>;
           };
           json.color.brand = { $type: "color", $value: "#00ff00" };
-          yield* fs.writeFileString(file, `${JSON.stringify(json, null, 2)}\n`);
-          const plan = yield* waitFor(client["sync.plan"](), (p) =>
-            p.steps.some((s) => s.kind === "dtcg-tokens")
+          json.color.accent = { $type: "color", $value: "#123456" };
+          yield* fs.writeFileString(
+            tokensFile,
+            `${JSON.stringify(json, null, 2)}\n`
           );
-          assert.strictEqual(plan.facts.designTokens?.toDesign, 1);
-          assert.deepStrictEqual(yield* outcomes(), {
-            "color-brand": "to-design",
-          });
+          const taken = yield* waitFor(
+            current(),
+            (ds) => tokensOf(ds).get("color-brand") === "#00ff00"
+          );
+          assert.strictEqual(tokensOf(taken).get("color-accent"), "#123456");
 
-          // The editor writes the design system meanwhile: the file keeps what the tool wrote.
+          // A change in the editor writes both files, and loses nothing of either.
           yield* client["designSystem.setToken"]({
             name: "radius-card",
             value: "1rem",
           });
-          assert.include(yield* fs.readFileString(file), "#00ff00");
-          assert.deepStrictEqual(yield* outcomes(), {
-            "color-brand": "to-design",
-            "radius-card": "source-behind",
-          });
+          const after = yield* current();
+          const expected = new Map(tokensOf(taken)).set("radius-card", "1rem");
+          assert.deepStrictEqual(tokensOf(after), expected);
+          assert.deepStrictEqual(after?.typography, taken?.typography);
+          assert.deepStrictEqual(after?.spacing, taken?.spacing);
+          const tokensText = yield* fs.readFileString(tokensFile);
+          assert.include(tokensText, "#00ff00");
+          assert.include(tokensText, "#123456");
+          assert.notInclude(yield* fs.readFileString(systemFile), "#00ff00");
 
-          const applied = yield* client["sync.apply"]({
-            decisions: [],
-            source: "dtcg",
-          });
-          assert.strictEqual(applied.written, 1);
-          const ds = (yield* client["designSystem.get"]()).designSystem;
-          assert.strictEqual(
-            ds?.colors
-              .flatMap((g) => g.tokens)
-              .find((t) => t.name === "color-brand")?.value,
-            "#00ff00"
+          // A tokens file that does not read: the design system stays, says why, and is not
+          // written over it.
+          const good = tokensText;
+          yield* fs.writeFileString(tokensFile, "{");
+          const broken = yield* waitFor(client["designSystem.get"](), (s) =>
+            (s.problem ?? "").includes("design.tokens.json")
           );
-          // Written again from the design system: the design's change is in it, and they agree.
-          assert.deepStrictEqual(yield* outcomes(), {});
-          const after = JSON.parse(yield* fs.readFileString(file)) as {
-            radius: { card: { $value: unknown } };
+          assert.isNotNull(broken.designSystem);
+          const refused = yield* Effect.flip(
+            client["designSystem.setToken"]({
+              name: "radius-card",
+              value: "2rem",
+            })
+          );
+          assert.include(String(refused.message), "design.tokens.json");
+          assert.strictEqual(yield* fs.readFileString(tokensFile), "{");
+          yield* fs.writeFileString(tokensFile, good);
+          yield* waitFor(
+            client["designSystem.get"](),
+            (s) => s.problem === undefined
+          );
+
+          // A design-system.json written before ADR 0035, its values and the tokens file's old
+          // baseline in it, with no tokens file: it reads as it is, and the next change moves its
+          // values out.
+          const legacy = {
+            ...after,
+            designTokens: { agreed: {}, at: 0 },
           };
-          assert.deepStrictEqual(after.radius.card.$value, {
-            unit: "rem",
-            value: 1,
-          });
-          const settled = yield* waitFor(
-            client["sync.plan"](),
-            (p) => !p.steps.some((s) => s.kind === "dtcg-tokens")
+          yield* fs.writeFileString(
+            systemFile,
+            `${JSON.stringify(legacy, null, 2)}\n`
           );
-          assert.isUndefined(
-            settled.steps.find((s) => s.kind === "dtcg-tokens")
+          yield* fs.remove(tokensFile);
+          const read = yield* waitFor(
+            current(),
+            (ds) => tokensOf(ds).get("radius-card") === "1rem" && ds !== null
+          );
+          assert.deepStrictEqual(tokensOf(read), tokensOf(after));
+          yield* client["designSystem.setToken"]({
+            name: "color-accent",
+            value: "#654321",
+          });
+          assert.include(yield* fs.readFileString(tokensFile), "#00ff00");
+          const moved = yield* fs.readFileString(systemFile);
+          assert.notInclude(moved, "designTokens");
+          assert.notInclude(moved, "#00ff00");
+          assert.strictEqual(
+            tokensOf(yield* current()).get("color-accent"),
+            "#654321"
           );
         }),
       60_000

@@ -330,36 +330,6 @@ const codeStepsOf = (facts: SyncFacts): SyncStep[] => {
   ];
 };
 
-/**
- * `design.tokens.json` against the design system (ADR 0028): what another tool changed in it
- * alone, changed on both sides, or what the design system changed while the file kept its own.
- */
-const dtcgStepsOf = (facts: SyncFacts): SyncStep[] => {
-  const counts = facts.designTokens;
-  if (!counts || counts.behind + counts.toDesign + counts.conflicts === 0) {
-    return [];
-  }
-  const parts = [
-    counts.toDesign > 0
-      ? `${plural(counts.toDesign, "token")} changed in design.tokens.json alone, by another tool`
-      : null,
-    counts.conflicts > 0
-      ? `${plural(counts.conflicts, "token")} changed on both sides`
-      : null,
-    counts.behind > 0
-      ? `${plural(counts.behind, "token")} of the design system it does not have yet`
-      : null,
-  ].filter((p): p is string => p !== null);
-  return [
-    step(
-      "dtcg-tokens",
-      "Take design.tokens.json's changes into the design system",
-      "attention",
-      `${parts.join("; ")}. What the file changed is taken into the design system, you pick where both changed, and the file is written again from the design system.`
-    ),
-  ];
-};
-
 const stepsOf = (input: PlanInput): SyncStep[] => {
   const { drift, facts, figmaSynced, setup } = input;
   const kind = caseOf(facts);
@@ -369,7 +339,6 @@ const stepsOf = (input: PlanInput): SyncStep[] => {
     return [
       ...head,
       ...documentSteps(facts),
-      ...dtcgStepsOf(facts),
       describeStepOf(drift, facts),
       ...codeStepsOf(facts),
       ...(facts.figma
