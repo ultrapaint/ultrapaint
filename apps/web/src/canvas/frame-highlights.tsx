@@ -72,6 +72,13 @@ export const Highlights = ({
       s.sizes[frameId]?.width ??
       Number.POSITIVE_INFINITY
   );
+  const frameHeight = useEditor(
+    (s) =>
+      s.frames[frameId]?.height ??
+      s.sizes[frameId]?.height ??
+      Number.POSITIVE_INFINITY
+  );
+  const frame = { height: frameHeight, width: frameWidth };
   // This frame's document only: an edit elsewhere has nothing to outline here.
   const root = useDocuments((s) => rootOfFrame(s.docs, canvas, frameId));
   const selectedNode = selectedId === null ? null : findNode(root, selectedId);
@@ -113,7 +120,7 @@ export const Highlights = ({
       {selectedRect ? (
         <Outline
           bare={many}
-          frameWidth={frameWidth}
+          frame={frame}
           inv={inv}
           kind="selection"
           node={selectedNode}
@@ -134,7 +141,7 @@ export const Highlights = ({
       ))}
       {group?.rect ? (
         <GroupOutline
-          frameWidth={frameWidth}
+          frame={frame}
           inv={inv}
           nodes={group.nodes}
           rect={group.rect}
@@ -160,14 +167,14 @@ export const Highlights = ({
  * what they share; in Design, the box's size under it.
  */
 const GroupOutline = ({
-  frameWidth,
+  frame,
   inv,
   nodes,
   rect,
   targets,
   workspace,
 }: {
-  frameWidth: number;
+  frame: { height: number; width: number };
   inv: number;
   nodes: readonly DesignNode[];
   rect: Rect;
@@ -201,7 +208,7 @@ const GroupOutline = ({
             {nodes.length} selected
           </span>
           <GroupToolbar
-            frameWidth={frameWidth}
+            frame={frame}
             inv={inv}
             nodes={nodes}
             rect={rect}
@@ -226,6 +233,12 @@ const GroupOutline = ({
   );
 };
 
+/** A frame whose size is not known yet: nothing keeps the toolbar in. */
+const UNBOUNDED = {
+  height: Number.POSITIVE_INFINITY,
+  width: Number.POSITIVE_INFINITY,
+};
+
 /**
  * A node's outline, in the colour of what it is: blue for an element, purple for a component. In
  * Design the selection's size sits under it; in Vibe its name sits on its top-left edge, where the
@@ -233,7 +246,7 @@ const GroupOutline = ({
  */
 const Outline = ({
   bare = false,
-  frameWidth = Number.POSITIVE_INFINITY,
+  frame = UNBOUNDED,
   rect,
   inv,
   kind,
@@ -242,8 +255,8 @@ const Outline = ({
 }: {
   /** One of several selected: outlined only, the group carries the name and the toolbar. */
   bare?: boolean;
-  /** How wide the frame is, which the toolbar stays inside. */
-  frameWidth?: number;
+  /** The frame's size, which the toolbar stays inside while it fits. */
+  frame?: { height: number; width: number };
   rect: { x: number; y: number; width: number; height: number };
   inv: number;
   kind: "hover" | "selection";
@@ -286,12 +299,7 @@ const Outline = ({
             inv={inv}
             node={node}
           />
-          <ElementToolbar
-            frameWidth={frameWidth}
-            inv={inv}
-            node={node}
-            rect={rect}
-          />
+          <ElementToolbar frame={frame} inv={inv} node={node} rect={rect} />
         </>
       ) : null}
     </div>

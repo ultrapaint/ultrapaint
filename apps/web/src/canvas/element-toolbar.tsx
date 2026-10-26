@@ -10,7 +10,12 @@ import type { Rect } from "@ultrapaint/contracts/preview";
 import type { Thread } from "@ultrapaint/contracts/threads";
 import { nodeLabel } from "@ultrapaint/design-document/tree";
 import { Ellipsis, Group, MessageSquareText, Square } from "lucide-react";
-import type { MouseEvent as ReactMouseEvent } from "react";
+import {
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+  useContext,
+} from "react";
+import { createPortal } from "react-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,7 +38,7 @@ import { type MenuTarget, showMenu } from "../state/context-menu.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
 import { useDrag } from "./drag.ts";
 import { ChatButton, GroupChatButton } from "./element-toolbar-chat.tsx";
-import { usePlacement } from "./element-toolbar-placement.ts";
+import { ToolbarLayer, usePlacement } from "./element-toolbar-placement.ts";
 import {
   AlignSelect,
   MenuHead,
@@ -137,20 +142,41 @@ const AgentAtWork = ({ thread }: { thread: Thread }) => {
   );
 };
 
+/** A box over the element, in the frame's toolbar layer, that the toolbar hangs from. */
+const OverFrame = ({ children, rect }: { children: ReactNode; rect: Rect }) => {
+  const layer = useContext(ToolbarLayer);
+  return layer
+    ? createPortal(
+        <div
+          className="pointer-events-none absolute"
+          style={{
+            height: rect.height,
+            left: rect.x,
+            top: rect.y,
+            width: rect.width,
+          }}
+        >
+          {children}
+        </div>,
+        layer
+      )
+    : null;
+};
+
 export const ElementToolbar = ({
-  frameWidth,
+  frame,
   inv,
   node,
   rect,
 }: {
-  /** How wide the frame is, which clips what is drawn outside it. */
-  frameWidth: number;
+  /** The frame's size, which the toolbar stays inside while it fits. */
+  frame: { height: number; width: number };
   inv: number;
   node: DesignNode;
   /** Where the element is in the frame, which decides where the toolbar can go. */
   rect: Rect;
 }) => {
-  const [placeAt, placement] = usePlacement(rect, inv, frameWidth);
+  const [placeAt, placement] = usePlacement(rect, inv, frame);
   const selection = useEditor((s) => s.selection);
   const dragging = useDrag((s) => s.dragged !== null);
   const workedOnBy = useWorkOn(selection);
@@ -158,32 +184,34 @@ export const ElementToolbar = ({
     return null;
   }
   return (
-    <div
-      aria-label={`Toolbar of ${nodeLabel(node)}`}
-      className="pointer-events-auto absolute left-1/2 flex items-center gap-0.5 whitespace-nowrap rounded-[10px] border bg-popover p-0.5 text-popover-foreground shadow-lg"
-      data-element-toolbar
-      onPointerDown={(e) => e.stopPropagation()}
-      ref={placeAt}
-      role="toolbar"
-      style={placement}
-    >
-      {workedOnBy ? (
-        <AgentAtWork thread={workedOnBy} />
-      ) : (
-        <Targets.Provider value={[selection]}>
-          <Controls node={node} />
-          <Divider />
-          <ChatButton selection={selection} />
-        </Targets.Provider>
-      )}
-      <MoreButton
-        menu={{
-          frame: selection.frame,
-          kind: "node",
-          nodeId: selection.nodeId,
-        }}
-      />
-    </div>
+    <OverFrame rect={rect}>
+      <div
+        aria-label={`Toolbar of ${nodeLabel(node)}`}
+        className="pointer-events-auto absolute left-1/2 flex items-center gap-0.5 whitespace-nowrap rounded-[10px] border bg-popover p-0.5 text-popover-foreground shadow-lg"
+        data-element-toolbar
+        onPointerDown={(e) => e.stopPropagation()}
+        ref={placeAt}
+        role="toolbar"
+        style={placement}
+      >
+        {workedOnBy ? (
+          <AgentAtWork thread={workedOnBy} />
+        ) : (
+          <Targets.Provider value={[selection]}>
+            <Controls node={node} />
+            <Divider />
+            <ChatButton selection={selection} />
+          </Targets.Provider>
+        )}
+        <MoreButton
+          menu={{
+            frame: selection.frame,
+            kind: "node",
+            nodeId: selection.nodeId,
+          }}
+        />
+      </div>
+    </OverFrame>
   );
 };
 
@@ -236,19 +264,19 @@ const WRAPS = [
  * all of them at once; wrapping siblings in a row, a column or a group; all of them to the chat.
  */
 export const GroupToolbar = ({
-  frameWidth,
+  frame,
   inv,
   nodes,
   rect,
   targets,
 }: {
-  frameWidth: number;
+  frame: { height: number; width: number };
   inv: number;
   nodes: readonly DesignNode[];
   rect: Rect;
   targets: readonly Selection[];
 }) => {
-  const [placeAt, placement] = usePlacement(rect, inv, frameWidth);
+  const [placeAt, placement] = usePlacement(rect, inv, frame);
   const dragging = useDrag((s) => s.dragged !== null);
   const [first] = nodes;
   if (dragging || !first) {
@@ -256,60 +284,62 @@ export const GroupToolbar = ({
   }
   const siblings = areSiblings(targets);
   return (
-    <div
-      aria-label={`Toolbar of ${nodes.length} elements`}
-      className="pointer-events-auto absolute left-1/2 flex items-center gap-0.5 whitespace-nowrap rounded-[10px] border bg-popover p-0.5 text-popover-foreground shadow-lg"
-      data-element-toolbar
-      onPointerDown={(e) => e.stopPropagation()}
-      ref={placeAt}
-      role="toolbar"
-      style={placement}
-    >
-      <Targets.Provider value={targets}>
-        {sameKind(nodes) ? (
-          <>
-            <Controls node={first} />
-            <Divider />
-          </>
-        ) : null}
-        <DropdownMenu>
-          <ValueTrigger
-            icon={Group}
-            tooltip={
-              siblings
-                ? "Wrap them in"
-                : "Only siblings can be wrapped together"
-            }
-          >
-            Wrap in
-          </ValueTrigger>
-          <DropdownMenuContent className="w-40">
-            <DropdownMenuGroup>
-              <MenuHead name="wrap in" />
-              {WRAPS.map(([type, label]) => (
-                <DropdownMenuItem
-                  disabled={!siblings}
-                  key={type}
-                  onClick={() => wrapNodes(targets, type)}
-                >
-                  {label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <Divider />
-        <GroupChatButton targets={targets} />
-        {targets[0] ? (
-          <MoreButton
-            menu={{
-              frame: targets[0].frame,
-              kind: "node",
-              nodeId: targets[0].nodeId,
-            }}
-          />
-        ) : null}
-      </Targets.Provider>
-    </div>
+    <OverFrame rect={rect}>
+      <div
+        aria-label={`Toolbar of ${nodes.length} elements`}
+        className="pointer-events-auto absolute left-1/2 flex items-center gap-0.5 whitespace-nowrap rounded-[10px] border bg-popover p-0.5 text-popover-foreground shadow-lg"
+        data-element-toolbar
+        onPointerDown={(e) => e.stopPropagation()}
+        ref={placeAt}
+        role="toolbar"
+        style={placement}
+      >
+        <Targets.Provider value={targets}>
+          {sameKind(nodes) ? (
+            <>
+              <Controls node={first} />
+              <Divider />
+            </>
+          ) : null}
+          <DropdownMenu>
+            <ValueTrigger
+              icon={Group}
+              tooltip={
+                siblings
+                  ? "Wrap them in"
+                  : "Only siblings can be wrapped together"
+              }
+            >
+              Wrap in
+            </ValueTrigger>
+            <DropdownMenuContent className="w-40">
+              <DropdownMenuGroup>
+                <MenuHead name="wrap in" />
+                {WRAPS.map(([type, label]) => (
+                  <DropdownMenuItem
+                    disabled={!siblings}
+                    key={type}
+                    onClick={() => wrapNodes(targets, type)}
+                  >
+                    {label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Divider />
+          <GroupChatButton targets={targets} />
+          {targets[0] ? (
+            <MoreButton
+              menu={{
+                frame: targets[0].frame,
+                kind: "node",
+                nodeId: targets[0].nodeId,
+              }}
+            />
+          ) : null}
+        </Targets.Provider>
+      </div>
+    </OverFrame>
   );
 };

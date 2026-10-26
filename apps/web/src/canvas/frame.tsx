@@ -32,6 +32,7 @@ import { FramePresence } from "./agent-presence.tsx";
 import { AgentWorkOverlay, useFrameWork, useSkeletons } from "./agent-work.tsx";
 import { bridgeFor } from "./bridge.ts";
 import { commentCursor, FrameComments } from "./comments.tsx";
+import { ToolbarLayer } from "./element-toolbar-placement.ts";
 import {
   Highlights,
   idsOf,
@@ -113,6 +114,18 @@ export const drawResized = (
   }
 };
 
+/**
+ * How high a frame stacks over its neighbours. An open card and the selection's toolbar reach past
+ * the frame, and a node's frame shows what it draws past its edges: the neighbours must not cover
+ * them, and the toolbar is over everything else.
+ */
+const liftOf = (holdsSelection: boolean, reachesPast: boolean) => {
+  if (holdsSelection) {
+    return 2;
+  }
+  return reachesPast ? 1 : undefined;
+};
+
 /** A frame's corner, which resizing it drags while the opposite one stays put. */
 export type Corner = "nw" | "ne" | "sw" | "se";
 
@@ -180,6 +193,10 @@ export const Frame = memo(
       : null;
     const inv = 1 / zoom;
     const name = frameName(page, root);
+    // A callback ref: the selection's toolbar is drawn in it once it is there.
+    const [toolbarLayer, setToolbarLayer] = useState<HTMLDivElement | null>(
+      null
+    );
 
     // The bridge speaks for this frame while it is on screen and has a preview to load.
     usePreviewBridge(
@@ -313,8 +330,7 @@ export const Frame = memo(
           left: frame.x,
           top: frame.y,
           width: frame.width,
-          // An open card reaches past the frame; the neighbours must not cover it.
-          zIndex: holdsCard || isNode ? 1 : undefined,
+          zIndex: liftOf(selectedHere !== null, holdsCard || isNode),
         }}
       >
         <FrameChrome
@@ -391,7 +407,9 @@ export const Frame = memo(
               }}
             />
           ) : null}
-          <Highlights frameId={frameId} inv={inv} />
+          <ToolbarLayer.Provider value={toolbarLayer}>
+            <Highlights frameId={frameId} inv={inv} />
+          </ToolbarLayer.Provider>
         </div>
 
         {page ? <FrameComments inv={inv} page={page} /> : null}
@@ -402,6 +420,11 @@ export const Frame = memo(
           kind={kind}
           onDragStart={onDragStart}
           root={root}
+        />
+
+        <div
+          className="pointer-events-none absolute inset-0"
+          ref={setToolbarLayer}
         />
       </div>
     );
