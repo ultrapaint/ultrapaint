@@ -371,7 +371,7 @@ Answered 2026-10-27.
 |---|---|---|
 | S7 | Scope of the second round | The recommendation: L1 with R1, F1, S1, H1, L2. C1 and K1 wait for a repository that needs them |
 | S8 | The application's storage | In memory, empty at every load, shared by the frames |
-| S9 | A stuck page in the desktop app | Paused for its line, ended, and the window reloaded with the frame as a placeholder naming the line; no dialog |
+| S9 | A stuck page in the desktop app | Paused for its line, ended, and the window reloaded with the frame as a placeholder naming the line; no dialog. Built without the line (step 11): reading it costs every session the debugger |
 | S10 | Relative URLs | Under the preview's base, with the repository's `server.proxy` moved under it |
 
 ### Built (second round)
@@ -427,3 +427,16 @@ Answered 2026-10-27.
       385–417 ms (and 350–414 / 403–733 in five more), pan 16–19 / 15–20%, zoom 35–36 / 33–35%,
       renderer 418–423 / 420–422 MB. Switching back to Redesign spiked to 122–158 ms in some runs
       of both.
+- [x] 11. L2, not as decided (S9): the window does not name the line. Reading it means pausing
+      the page through the debugger, and `Debugger.enable` waits for a stuck thread (5 s of a
+      6 s loop, measured), so the debugger would have to be on from the start: the canvas then
+      loaded 385–476 ms against 334–404, the renderer held 480–494 MB against 397–422, and 570
+      scripts' source maps (27.6 MB) went to the main process. Ending only the script did not do
+      either: the page, let go on, beat again before it was loaded again, and the watchdog struck
+      its frame off as only slow; and a session attached once the thread is stuck waits for it.
+      What is built: the preload script beats every 250 ms; a page silent for 4 s that does not
+      answer a script either (a hidden window's timers are slowed, not its scripts) has its process
+      ended and is loaded again once it is gone; no dialog, Chrome's own hang event doing the same
+      if it comes first. Checked in the app itself, hidden (`ULTRAPAINT_DESKTOP_HIDDEN`), on the
+      fixture's freeze canvas: the page's process ended 6 s into its 8 s spin, the window loaded
+      again, the frame a placeholder, nothing drawn.

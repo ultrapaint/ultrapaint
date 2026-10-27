@@ -20,6 +20,9 @@ import {
 
 const info = ipcRenderer.sendSync(Channel.shellInfo) as ShellInfo;
 
+// The page's thread runs: silent, the main process ends the script holding it (`main.ts`).
+setInterval(() => ipcRenderer.send(Channel.beat), 250);
+
 /** What the app is doing for the open project, as it last said. */
 let { status } = info;
 const listeners = new Set<(next: ShellStatus | null) => void>();

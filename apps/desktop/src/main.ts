@@ -505,6 +505,82 @@ handle(Channel.newDesignOpen, (folder, name, template) =>
 const folderArgument = (argv: readonly string[]) =>
   argv.slice(app.isPackaged ? 1 : 2).find((arg) => !arg.startsWith("-"));
 
+/** How long the page's thread may be silent before the window asks whether it is stuck. */
+const SILENT_MS = 4000;
+/** How long a page that is not stuck takes at most to answer a script. */
+const ANSWER_MS = 1000;
+
+/**
+ * The repository's components run on the editor's thread (ADR 0034). The preview's server stops
+ * the loops of the repository's own code at 2.5 s; what it cannot see (a dependency's loop, an
+ * endless chain of promises) would stop the editor for good. The preload script beats every
+ * 250 ms. A page silent for 4 s that does not answer a script either (a hidden window's timers
+ * are slowed, its scripts are not) has its process ended and is loaded again. The watchdog wrote
+ * down the frame it was drawing at 3 s, which the editor then shows without drawing it
+ * (docs/PLAN-preview-sandbox.md, step 11). The process, not only the script: a page let go on
+ * after its script is ended beats again before it is loaded again, and the watchdog takes it for a
+ * page that was only slow. No dialog: there is nothing to decide, and Chrome's own comes later.
+ */
+const endStuckPages = (created: BrowserWindow) => {
+  const contents = created.webContents;
+  let lastBeat = Date.now();
+  let watching = false;
+  // Watched from the new page's first beat, which its preload script sends before the page's
+  // own scripts run: a page can be stuck before it has finished loading.
+  contents.ipc.on(Channel.beat, () => {
+    lastBeat = Date.now();
+    watching = true;
+  });
+  contents.on("did-start-loading", () => {
+    watching = false;
+  });
+  /** The process was ended here: loaded again once it is gone, not before (it would be ignored). */
+  let ended = false;
+  contents.on("render-process-gone", () => {
+    if (ended) {
+      ended = false;
+      contents.reload();
+    }
+  });
+  const end = () => {
+    if (!watching || contents.isDestroyed()) {
+      return;
+    }
+    watching = false;
+    ended = true;
+    contents.forcefullyCrashRenderer();
+  };
+  const check = async () => {
+    if (
+      !watching ||
+      contents.isDestroyed() ||
+      Date.now() - lastBeat < SILENT_MS
+    ) {
+      return;
+    }
+    const answered = await Promise.race([
+      contents.executeJavaScript("0", true).then(
+        () => true,
+        () => true
+      ),
+      new Promise<boolean>((resolve) =>
+        setTimeout(() => resolve(false), ANSWER_MS)
+      ),
+    ]);
+    if (answered) {
+      lastBeat = Date.now();
+    } else {
+      end();
+    }
+  };
+  const timer = setInterval(() => {
+    check().catch(() => undefined);
+  }, 500);
+  created.on("closed", () => clearInterval(timer));
+  // Chrome's own hang monitor, should it speak first.
+  created.on("unresponsive", end);
+};
+
 const makeWindow = () => {
   const created = new BrowserWindow({
     backgroundColor: "#1a1a1d",
@@ -541,36 +617,7 @@ const makeWindow = () => {
   created.on("closed", () => {
     window = null;
   });
-  // The repository's components run on the editor's thread (ADR 0034): a loop in one stops it for
-  // good. Loaded again, the editor shows the page that stopped it without drawing it (the
-  // watchdog wrote it down, docs/PLAN-preview-sandbox.md).
-  let asking = false;
-  created.on("unresponsive", () => {
-    if (asking) {
-      return;
-    }
-    asking = true;
-    dialog
-      .showMessageBox(created, {
-        buttons: ["Reload", "Wait"],
-        cancelId: 1,
-        defaultId: 0,
-        detail:
-          "A page of the design may be running code that never ends. Reloaded, the editor shows that page without drawing it.",
-        message: "The editor is not responding",
-        type: "warning",
-      })
-      .then(({ response }) => {
-        if (response === 0 && !created.isDestroyed()) {
-          created.webContents.forcefullyCrashRenderer();
-          created.webContents.reload();
-        }
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        asking = false;
-      });
-  });
+  endStuckPages(created);
   // Full screen draws no buttons: the title card takes their room back.
   created.on("enter-full-screen", () =>
     created.webContents.send(Channel.fullScreen, true)

@@ -9,6 +9,8 @@ export const Channel = {
   agentsList: "ultrapaint:agents-list",
   agentsSetApiKey: "ultrapaint:agents-set-api-key",
   agentsSignIn: "ultrapaint:agents-sign-in",
+  /** From the page, every 250 ms: its thread runs (`main.ts` ends a script that holds it). */
+  beat: "ultrapaint:beat",
   /** From the main process: the window went in or out of full screen. */
   fullScreen: "ultrapaint:full-screen",
   newDesignCreate: "ultrapaint:new-design-create",
