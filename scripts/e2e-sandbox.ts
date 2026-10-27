@@ -9,6 +9,7 @@
  * - the editor's address, title and head stay the editor's;
  * - a request to the application's own origin reaches its backend through the repository's
  *   proxy, not the editor's routes;
+ * - the application's storage is its own, the editor's keys and databases out of its reach;
  * - a frame's code reads the frame's width and scroll as the window's;
  * - the editor's CSS variables do not reach a frame;
  * - what nothing caught (a timer, a click in the prototype) is shown on its frame;
@@ -304,6 +305,40 @@ const guards = async (page: Page, url: string) => {
             ?.shadowRoot?.querySelector('[data-probe="fetch"]')?.textContent
       );
       return answer === "backend:/api/health" || `answered ${answer}`;
+    }
+  );
+
+  await check(
+    "the application's storage is its own, the editor's out of its reach",
+    async () => {
+      const seen = await page.evaluate(() => {
+        const text = document
+          .querySelector('[data-ed-frame-host="guards/storage.page.json"]')
+          ?.shadowRoot?.querySelector('[data-probe="storage"]')?.textContent;
+        return {
+          editor: {
+            canvas: localStorage.getItem("ultrapaint:canvas"),
+            theme: localStorage.getItem("theme"),
+          },
+          frame: text?.startsWith("{")
+            ? (JSON.parse(text) as {
+                databases: string[];
+                editorKey: string | null;
+                theme: string | null;
+              })
+            : null,
+        };
+      });
+      const { editor, frame } = seen;
+      return (
+        (frame !== null &&
+          frame.editorKey === null &&
+          frame.theme === "probe-dark" &&
+          !frame.databases.includes("ultrapaint-watchdog") &&
+          editor.canvas !== null &&
+          editor.theme === null) ||
+        JSON.stringify(seen)
+      );
     }
   );
 

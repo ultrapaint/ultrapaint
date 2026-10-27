@@ -20,7 +20,8 @@
  * - an animation frame it asks for is its frame's, and waits while that frame is parked or off
  *   the screen: a loop on a page nobody sees costs the editor nothing; a timer it sets runs as
  *   its frame's, so what the timer throws or listens to is that frame's too;
- * - a request it makes to the editor's origin goes to the preview's server (`requests.ts`).
+ * - a request it makes to the editor's origin goes to the preview's server (`requests.ts`), and
+ *   its storage is its own (`storage.ts`).
  *
  * Which frame is the one that was drawing or took input, as `media.ts` tells the window's size.
  */
@@ -33,6 +34,7 @@ import {
 } from "./portals.ts";
 import { guardRequests } from "./requests.ts";
 import { sourceLine } from "./source-lines.ts";
+import { guardStorage } from "./storage.ts";
 
 /** This module's own file, whose frames on the stack are the patch, not who called it. */
 const OWN = import.meta.url.split("?")[0] ?? "";
@@ -106,8 +108,17 @@ const FRAME_INPUT = new Set([
   "wheel",
 ]);
 
-/** Events about the editor's own page, never the preview's. */
-const DROPPED = new Set(["beforeunload", "hashchange", "popstate", "unload"]);
+/**
+ * Events about the editor's own page, never the preview's; `storage` tells of the editor's keys,
+ * which the preview's storage is not (`storage.ts`).
+ */
+const DROPPED = new Set([
+  "beforeunload",
+  "hashchange",
+  "popstate",
+  "storage",
+  "unload",
+]);
 
 /** Events of the window the frame stands for, told from the frame's host. */
 const RELAYED = new Set(["resize", "scroll"]);
@@ -743,6 +754,9 @@ export const installGuards = (test?: {
   guardAnimationFrames();
   guardTimers();
   guardRequests((patched) => onlyFromPreview(patched));
+  guardStorage((patched) =>
+    directlyFromPreview(patched as (...args: never[]) => unknown)
+  );
 };
 
 /**

@@ -104,6 +104,29 @@ export function FetchProbe() {
   );
 }
 
+/** What the application's storage holds, and what it keeps there: a theme, as providers do. */
+export function StorageProbe() {
+  const [held, setHeld] = useState("waiting");
+  useEffect(() => {
+    const editorKey = localStorage.getItem("ultrapaint:canvas");
+    localStorage.setItem("theme", "probe-dark");
+    indexedDB.databases().then((all) =>
+      setHeld(
+        JSON.stringify({
+          databases: all.map((d) => d.name),
+          editorKey,
+          theme: localStorage.getItem("theme"),
+        })
+      )
+    );
+  }, []);
+  return (
+    <pre data-probe="storage" style={{ padding: 16 }}>
+      {held}
+    </pre>
+  );
+}
+
 /** An "unsaved changes" guard. */
 export function LeaveProbe() {
   useEffect(() => {
