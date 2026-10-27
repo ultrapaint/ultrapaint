@@ -30,7 +30,19 @@ export const Channel = {
   /** From the main process: what the app is doing for the open project (`ShellStatus`). */
   shellStatus: "ultrapaint:shell-status",
   sshHosts: "ultrapaint:ssh-hosts",
+  /** Where the page was stuck when the window last ended it (`StoppedAt`); once. */
+  stoppedAt: "ultrapaint:stopped-at",
 } as const;
+
+/** Where the page was stuck when the window ended it (`StoppedAt` in the editor). */
+export interface StoppedAt {
+  /** The repository's line, as `src/page.tsx:12`, when the stack went through its code. */
+  readonly at?: string | undefined;
+  /** The stack of the script that held the page, as Chrome read it. */
+  readonly stack: string;
+  /** When it was ended, in milliseconds since the epoch. */
+  readonly time: number;
+}
 
 /** What the preload script needs to know before the page loads. */
 export interface ShellInfo {

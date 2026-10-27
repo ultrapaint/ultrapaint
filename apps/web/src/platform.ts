@@ -204,6 +204,19 @@ export interface WindowControls {
   readonly subscribe: (listener: (fullScreen: boolean) => void) => () => void;
 }
 
+/**
+ * Where the editor's page was stuck when the shell ended it (docs/PLAN-preview-sandbox.md,
+ * step 17): what held its thread, read by Chrome before the page was loaded again.
+ */
+export interface StoppedAt {
+  /** The repository's line, as `src/page.tsx:12`, when the stack went through its code. */
+  readonly at?: string;
+  /** The stack of the script that held the page. */
+  readonly stack: string;
+  /** When it was ended, in milliseconds since the epoch. */
+  readonly time: number;
+}
+
 export interface Platform {
   /** The agents on this machine; absent in a browser, where the server's own are all there is. */
   readonly agents?: AgentSetup;
@@ -222,6 +235,11 @@ export interface Platform {
   readonly serverUrl: string;
   /** What the shell is doing for the open project; absent in a browser. */
   readonly shellStatus?: ShellStatusSource;
+  /**
+   * Where the page was stuck when the shell last ended it, asked once as it loads again; absent in
+   * a browser, which cannot end a stuck page.
+   */
+  readonly stoppedAt?: () => Promise<StoppedAt | null>;
   /** The window's buttons over the page; absent in a browser and where the system draws the frame. */
   readonly windowControls?: WindowControls;
 }

@@ -1,7 +1,7 @@
 # Plan: guards around the preview in the editor's page
 
 Status: built, 2026-10-27: the first round (steps 1 to 6, under "Built") and the second (steps 7 to
-11, at the end, the desktop app's step without the line it was stuck on). Follows
+17, at the end; the desktop app names the line a stuck page was on since step 17). Follows
 [ADR 0034](adr/0034-frames-in-the-editors-page.md) and `docs/PLAN-editor-renderer.md`, whose
 "Pitfalls" it answers. The answers to its questions are under "Decisions".
 
@@ -372,7 +372,7 @@ Answered 2026-10-27.
 |---|---|---|
 | S7 | Scope of the second round | The recommendation: L1 with R1, F1, S1, H1, L2. C1 and K1 wait for a repository that needs them |
 | S8 | The application's storage | In memory, empty at every load, shared by the frames |
-| S9 | A stuck page in the desktop app | Paused for its line, ended, and the window reloaded with the frame as a placeholder naming the line; no dialog. Built without the line (step 11): reading it costs every session the debugger |
+| S9 | A stuck page in the desktop app | Paused for its line, ended, and the window reloaded with the frame as a placeholder naming the line; no dialog. Built without the line (step 11): reading it costs every session the debugger. The line came with step 17, at no cost |
 | S10 | Relative URLs | Under the preview's base, with the repository's `server.proxy` moved under it |
 
 ### Built (second round)
@@ -380,8 +380,8 @@ Answered 2026-10-27.
 2026-10-27, one commit a step, each benched against the commit before it, alternately.
 `pnpm e2e:sandbox` checks 23 things now.
 
-CSS-in-JS (C1) and HMR leftovers (K1), which S7 left, were asked for after (steps 12 and 14). Also left: the line a stuck page was on in the desktop app
-(step 11).
+CSS-in-JS (C1) and HMR leftovers (K1), which S7 left, were asked for after (steps 12 and 14), as
+was the line a stuck page was on in the desktop app, which step 11 left (step 17).
 
 - [x] 7. L1 and R1: `framework-react-vite/guard-code.ts`, a plugin of the preview's server after
       every other, on the repository's modules with a loop or `async` in them (`this.parse`, so
@@ -508,3 +508,20 @@ Steps 12 to 16 against the commit before them (97cc58c), alternately, on a machi
 (Redesign, 10 frames): load 374–432 / 374–478 ms, pan 18–21 / 16–21%, zoom 37–38 / 36–42%,
 switching back 31–45 ms (one 132) / 32–47 ms, renderer 371–382 / 368–372 MB. Step 12's zoom of
 40–44% was the machine's load, as its quiet pair said.
+
+- [x] 17. The desktop app names where a stuck page was (`apps/desktop/src/stopped-at.ts`), without
+      the debugger step 11 measured: Chrome reads the stack of the script that holds a page's
+      thread for its crash reports' proposed API (`collectJavaScriptCallStack`, behind the
+      feature `DocumentPolicyIncludeJSCallStacksInCrashReports`), for a page that opts in with
+      `Document-Policy: include-js-call-stacks-in-crash-reports`, which the app adds to the
+      editor's page. Nothing runs until the page is stuck; then it took 3 to 4 ms. The stack's
+      first module the preview's server marks as the repository's (`__edModuleStarts`, step 14)
+      is read again and its inline map followed back to the source (`source-lines.ts`). The page
+      loaded again asks for it once: the stack goes to its console, the line onto the frame
+      written down just before (within 10 s), kept with it for later loads, and shown on its
+      placeholder. On the fixture's freeze canvas, hidden: "Stuck at
+      src/components/probes.tsx:28", 5 s after the canvas opened. The spin is the callback on
+      line 29: V8 stops a script where a function starts or a loop goes round, and the module's
+      map has no point for the start of an arrow function, so the line can be the one before when
+      a callback begins its own line, as DevTools would say too. The editor's own code, or a
+      dependency's alone, names no line; the stack is still in the console.
