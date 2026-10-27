@@ -1,18 +1,25 @@
 /**
  * The document's mirrored values against the code's and against what the two last agreed on,
- * token by token (ADR 0027), as Figma's are compared (ADR 0025). Each value has a path:
+ * token by token (ADR 0027), by the rule every side is synced by
+ * (`@ultrapaint/contracts/agreement`), the document being the side. Each value has a path:
  * `colors.primary`, `rounded.md`, `spacing.base`, `typography.body.fontSize`.
  *
  * - The same on both sides, as Sync compares (`#3b82f6` and its `oklch()` are one colour): kept
  *   as the document writes it (a reference stays a reference).
  * - Changed in the code only, or new there: the document takes the code's.
- * - Changed in the document only, or new there, or taken out of it: held, for Sync to offer.
+ * - Taken out of the document: the code's is written back, as a side that leaves a token out
+ *   gets it back; the design system is where a token is taken out.
+ * - Changed in the document only, or new there: held, for Sync to offer.
  * - Changed on both sides: held, for the user to pick.
  *
  * With no agreement yet, a document that has no mirrored values takes them all, and one that
  * has some is held whole: it came from somewhere else and is matched first.
  */
-import { sameValue as sameCss } from "@ultrapaint/contracts/token-value";
+import {
+  agreedAfter,
+  agreedOn,
+  outcomeOf,
+} from "@ultrapaint/contracts/agreement";
 import {
   MIRRORED_GROUPS,
   type TokenGroups,
@@ -109,12 +116,6 @@ export const resolvedValues = (
   return out;
 };
 
-/** Two values that come to the same, as Sync compares them: `1.5` and `"1.5"` do. */
-const sameValue = (
-  a: number | string | undefined,
-  b: number | string | undefined
-) => a !== undefined && b !== undefined && sameCss(String(a), String(b));
-
 export interface Merged {
   /** What agreed after the merge, for the next one: the old value where one is held. */
   readonly agreed: Record<string, string>;
@@ -129,30 +130,13 @@ export interface Held {
   readonly code?: string;
   /** The document's value, when it has one. */
   readonly doc?: string;
-  /** - `doc`: changed, added or taken out in the document only. - `both`: changed on both sides. */
+  /** - `doc`: changed or added in the document only. - `both`: changed on both sides. */
   readonly kind: "both" | "doc";
   readonly path: string;
 }
 
 const str = (v: number | string | undefined) =>
   v === undefined ? undefined : String(v);
-
-/** What one value comes to: the same, the code's to take, or held as `doc` or `both`. */
-const outcomeOf = (
-  c: number | string | undefined,
-  d: number | string | undefined,
-  base: string | undefined
-): "both" | "code" | "doc" | "same" => {
-  if (sameValue(c, d)) {
-    return "same";
-  }
-  const docMoved = base === undefined ? d !== undefined : !sameValue(d, base);
-  if (!docMoved) {
-    return "code";
-  }
-  const codeMoved = base === undefined ? c !== undefined : !sameValue(c, base);
-  return codeMoved ? "both" : "doc";
-};
 
 export const mergeMirror = (
   doc: DesignMd,
@@ -181,29 +165,26 @@ export const mergeMirror = (
   const held: Held[] = [];
   const paths = [...new Set([...Object.keys(raw), ...Object.keys(ours)])];
   for (const path of paths) {
-    const c = ours[path];
-    const d = resolved[path];
-    const base = agreed?.[path];
-    const outcome = outcomeOf(c, d, base);
-    if (outcome === "code") {
-      // The document has what was agreed: the code moved alone, or took it out.
-      const written = oursRaw[path];
-      if (c !== undefined && written !== undefined) {
-        out[path] = written;
-        nextAgreed[path] = String(c);
-      }
-      continue;
+    const c = str(ours[path]);
+    const d = str(resolved[path]);
+    const before = agreedOn(agreed?.[path]);
+    const outcome = outcomeOf(d, c, before);
+    // The document is behind: the design system moved alone, or took it out, or the document did.
+    const written = outcome === "source-behind" ? oursRaw[path] : raw[path];
+    if (written !== undefined) {
+      out[path] = written;
     }
-    if (raw[path] !== undefined) {
-      out[path] = raw[path];
+    if (outcome === "to-design" || outcome === "conflict") {
+      held.push(heldOf(path, outcome === "conflict" ? "both" : "doc", c, d));
     }
-    if (outcome === "same") {
-      nextAgreed[path] = String(c);
-      continue;
-    }
-    held.push(heldOf(path, outcome, c, d));
-    if (base !== undefined) {
-      nextAgreed[path] = base;
+    const now = agreedAfter(
+      outcome === "source-behind" ? c : d,
+      c,
+      before,
+      false
+    );
+    if (now?.design !== undefined) {
+      nextAgreed[path] = now.design;
     }
   }
   return { agreed: nextAgreed, groups: unflatten(out), held };

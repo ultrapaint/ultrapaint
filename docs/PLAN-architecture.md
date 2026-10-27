@@ -136,3 +136,21 @@ callers and its tests share.
    compare as Sync does, so `#2b7fff` in DESIGN.md and Tailwind's `oklch(62.3% 0.214 259.815)`
    are the same rather than held; dtcg writes sRGB's `hex` beside every space (only sRGB, HSL and
    OKLCH had one) and reads named colours and hue units; durations compare across `s` and `ms`.
+4. **Sync engine** (`apps/server/src/services/sync-engine.ts`, the rule for one value in
+   `packages/contracts/src/agreement.ts`). `outcomeOf` and `agreedAfter` are the three-way rule
+   and the agreement it moves to, written once; `compareSide`, `changesOf`, `settledKeys`,
+   `agreementAfter`, `matchByRules` and `matchEntries` compare a `Side` (its tokens, its matches,
+   what was agreed, whether it waits for the design's values), work out the changes each way the
+   picks make, and check the matches given. The sides are adapters in `sync-sides.ts` (the code,
+   Figma, DESIGN.md: where each is read, written and its baseline kept, in its stored shape),
+   with their pure readings in `design-system-sync-rules.ts` (`codeSide`, `figmaSide`,
+   `documentSide`, `codeAgreement`, `figmaBaselineAfter`); `DesignSystemSyncService`'s `tokens`,
+   `apply` and `match` are one path for all three, and `settle`, DESIGN.md's apply and
+   `mergeMirror` move their baselines through the same rule. `outcomeOf`, `codeOutcomeOf`,
+   design-md's `outcomeOf`, `tokenChanges`, `codeChanges` and `FigmaSide` go. Also: a Figma
+   conflict the user settled by keeping the design's stays settled (it was asked again), and a
+   token the design system took out is no longer offered back from Figma after the next sync;
+   a token DESIGN.md takes out is written back by the mirror rather than held, as the code gets
+   one back on export; a token the design system took out that the code still has as agreed
+   waits for the code (an export takes it out) rather than asking; the code's values are taken
+   in the design system's units, as Figma's and DESIGN.md's were.

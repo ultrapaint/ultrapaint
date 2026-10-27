@@ -1,7 +1,10 @@
 /**
  * The sync's rules (ADR 0025), pure: which case a project is in, what drifted between the
- * design system and the code, and the steps that bring them together.
+ * design system and the code, and the steps that bring them together; and what each side (the
+ * code, Figma, DESIGN.md) is to the engine (`sync-engine.ts`): its tokens, how they match the
+ * design system's, and what its baseline keeps.
  */
+import { type Agreed, agreedOn } from "@ultrapaint/contracts/agreement";
 import type {
   DesignSystem,
   DocumentBaseline,
@@ -16,7 +19,6 @@ import {
   driftCount,
   emptyDrift,
   type FigmaMatch,
-  type FigmaMatchSource,
   type SyncBaseline,
   type SyncCase,
   type SyncDrift,
@@ -26,7 +28,6 @@ import {
   type SyncStepState,
   type TokenDecision,
   type TokenDiff,
-  type TokenOutcome,
 } from "@ultrapaint/contracts/sync";
 import {
   allTokens,
@@ -34,10 +35,17 @@ import {
   SPACING_BASE,
   tokenKindOf,
 } from "@ultrapaint/contracts/token-table";
-import { inCodeUnits, sameValue } from "@ultrapaint/contracts/token-value";
-import type { SourceToken, TokenChange } from "@ultrapaint/contracts/tokens";
+import type { SourceToken } from "@ultrapaint/contracts/tokens";
 import { SECTIONS } from "@ultrapaint/design-md/format";
 import { plural } from "@ultrapaint/shared/text";
+import {
+  agreementAfter,
+  compareSide,
+  type Match,
+  matchByRules,
+  type Side,
+  type SideToken,
+} from "./sync-engine.ts";
 
 /** A few names, then how many more. */
 const some = (names: readonly string[], shown = 4) =>
@@ -403,311 +411,6 @@ export const summaryOf = (
   return `${lead} Next: ${title}.`;
 };
 
-/** A token as Figma has it, named as pages name tokens (`@ultrapaint/figma-import/tokens`). */
-export interface FigmaSide {
-  /** The Figma token its default mode points at, by `variable`. */
-  readonly alias?: string;
-  readonly id?: string;
-  readonly kind: SourceToken["kind"];
-  readonly name: string;
-  readonly values: Readonly<Record<string, string>>;
-  readonly variable: string;
-}
-
-/** The key a Figma token's match is kept under: Figma's id, its place when it has none. */
-export const matchKeyOf = (token: {
-  readonly id?: string;
-  readonly variable: string;
-}) => token.id ?? token.variable;
-
-/** What a Figma token is in the design system (the code while there is none), and who said so. */
-export interface Matched {
-  readonly by: FigmaMatchSource;
-  /** The code's token; null when it is left out. */
-  readonly to: string | null;
-}
-
-/**
- * What each of Figma's tokens is among the tokens it is matched to, the design system's or the
- * code's while there is none, by `variable` (ADR 0025). What an agent or the user decided, kept
- * in the baseline, comes first. Rules then take only what is certain: there is a token of the
- * same name, or exactly one token of the kind with the same value; when several of Figma's come
- * to one token by value, the one that points at another (a semantic
- * colour over its palette entry) takes it, and a palette entry a matched token points at is left
- * out. The rest stays unmatched, and nothing of it is written.
- */
-export const matchFigma = (
-  figma: readonly FigmaSide[],
-  code: readonly SourceToken[],
-  saved: Readonly<Record<string, FigmaMatch>> | undefined
-): Map<string, Matched> => {
-  const own = code.filter((t) => t.own);
-  const declared = new Set(own.map((t) => t.name));
-  // A variable whose id changed (the file copied, a library published again) is found by place.
-  const byPlace = new Map(
-    Object.values(saved ?? {}).map((m) => [m.figma, m] as const)
-  );
-  const matched = new Map<string, Matched>();
-  const open: FigmaSide[] = [];
-  for (const token of figma) {
-    const found = saved?.[matchKeyOf(token)] ?? byPlace.get(token.variable);
-    if (found) {
-      matched.set(token.variable, { by: found.by, to: found.to });
-    } else if (declared.has(token.name)) {
-      matched.set(token.variable, { by: "rule", to: token.name });
-    } else {
-      open.push(token);
-    }
-  }
-  const taken = new Set([...matched.values()].map((m) => m.to));
-  const free = own.filter((t) => !taken.has(t.name));
-  for (const [variable, to] of matchByValue(open, free)) {
-    matched.set(variable, { by: "rule", to });
-  }
-  const pointedAt = new Set(
-    figma
-      .filter((t) => typeof matched.get(t.variable)?.to === "string")
-      .map((t) => t.alias)
-  );
-  for (const token of figma) {
-    if (!matched.has(token.variable) && pointedAt.has(token.variable)) {
-      matched.set(token.variable, { by: "rule", to: null });
-    }
-  }
-  return matched;
-};
-
-/**
- * Figma's tokens that have the value of exactly one code token of their kind, by `variable`:
- * where several come to one code token, the one that points at another takes it, if only one does.
- */
-const matchByValue = (
-  figma: readonly FigmaSide[],
-  code: readonly SourceToken[]
-): Map<string, string> => {
-  const byTarget = new Map<string, FigmaSide[]>();
-  for (const token of figma) {
-    const same = code.filter(
-      (t) => t.kind === token.kind && sameValue(token.values[""] ?? "", t.value)
-    );
-    const [target] = same;
-    if (same.length === 1 && target) {
-      byTarget.set(target.name, [...(byTarget.get(target.name) ?? []), token]);
-    }
-  }
-  const found = new Map<string, string>();
-  for (const [name, tokens] of byTarget) {
-    const aliases = tokens.filter((t) => t.alias !== undefined);
-    const [pick] = tokens.length === 1 ? tokens : aliases;
-    if (pick && (tokens.length === 1 || aliases.length === 1)) {
-      found.set(pick.variable, name);
-    }
-  }
-  return found;
-};
-
-const TOKEN_NAME_RE = /^[a-z][a-z0-9-]*[a-z0-9]$/;
-
-/**
- * Why a Figma token cannot be matched to a code token of that name, or null when it can: the
- * name has to be one the code could declare, of the token's kind.
- */
-export const matchProblem = (
-  token: Pick<FigmaSide, "kind" | "variable">,
-  to: string
-): string | null => {
-  if (!TOKEN_NAME_RE.test(to)) {
-    return `${to} is not a token name: lower case, words joined by dashes (color-primary)`;
-  }
-  const kind = tokenKindOf(to);
-  return kind === token.kind
-    ? null
-    : `${token.variable} is a ${token.kind} token and ${to} names a ${kind} one`;
-};
-
-/**
- * What one token's value comes to, the source's against the design system's and the last
- * agreement's (ADR 0028).
- */
-const outcomeOf = (
-  source: string,
-  design: string | undefined,
-  base: { readonly code?: string; readonly source?: string } | null
-): TokenOutcome => {
-  if (design !== undefined && sameValue(source, design)) {
-    return "same";
-  }
-  if (design === undefined) {
-    // The design system took out what was agreed: the source is behind.
-    return base?.code === undefined ? "to-design" : "source-behind";
-  }
-  if (base?.source === undefined) {
-    return "conflict";
-  }
-  const sourceChanged = !sameValue(source, base.source);
-  const designChanged = !sameValue(design, base.code);
-  if (sourceChanged && !designChanged) {
-    return "to-design";
-  }
-  if (designChanged && !sourceChanged) {
-    return "source-behind";
-  }
-  return "conflict";
-};
-
-/**
- * A source's tokens against the design system's, theme by theme, against what was agreed last.
- * Only a matched token is compared: an unmatched one is listed and left alone.
- */
-const compareSide = (
-  side: readonly FigmaSide[],
-  code: readonly SourceToken[],
-  matches: ReadonlyMap<string, Matched>,
-  baseOf: (
-    name: string,
-    theme: string,
-    token: FigmaSide
-  ) => { readonly code?: string; readonly source?: string } | null
-): TokenDiff[] => {
-  const declared = new Map(code.filter((t) => t.own).map((t) => [t.name, t]));
-  return side.flatMap((token) =>
-    Object.entries(token.values).map(([theme, value]): TokenDiff => {
-      const match = matches.get(token.variable);
-      const common = {
-        ...(token.alias && { alias: token.alias }),
-        kind: token.kind,
-        source: value,
-        ...(theme && { theme }),
-        variable: token.variable,
-      };
-      if (!match) {
-        return { ...common, name: token.name, outcome: "unmatched" };
-      }
-      if (match.to === null) {
-        return {
-          ...common,
-          by: match.by,
-          name: token.name,
-          outcome: "ignored",
-        };
-      }
-      const found = declared.get(match.to);
-      const current = theme === "" ? found?.value : found?.values?.[theme];
-      const base = baseOf(match.to, theme, token);
-      return {
-        ...common,
-        ...(base?.source !== undefined && { base: base.source }),
-        by: match.by,
-        ...(current !== undefined && { design: current }),
-        name: match.to,
-        outcome: outcomeOf(value, current, base),
-      };
-    })
-  );
-};
-
-/** Figma's tokens against the design system's, against the last sync with this file (ADR 0025). */
-export const compareFigma = (
-  figma: readonly FigmaSide[],
-  code: readonly SourceToken[],
-  baseline: SyncBaseline | null
-): TokenDiff[] =>
-  compareSide(
-    figma,
-    code,
-    matchFigma(figma, code, baseline?.matches),
-    (name, theme) => {
-      const key = baselineKey(name, theme || undefined);
-      return baseline
-        ? { code: baseline.code[key], source: baseline.figma[key] }
-        : null;
-    }
-  );
-
-/** DESIGN.md's tokens as a source: one value each, in the default theme (ADR 0027). */
-export const documentSide = (
-  tokens: readonly {
-    readonly alias?: string;
-    readonly kind: SourceToken["kind"];
-    readonly name: string;
-    readonly value: string;
-    readonly variable: string;
-  }[]
-): FigmaSide[] =>
-  tokens.map((t) => ({
-    ...(t.alias !== undefined && { alias: t.alias }),
-    kind: t.kind,
-    name: t.name,
-    values: { "": t.value },
-    variable: t.variable,
-  }));
-
-/** The matches DESIGN.md keeps, by path, as the matching reads them. */
-const documentMatches = (
-  baseline: DocumentBaseline | null
-): Record<string, FigmaMatch> =>
-  Object.fromEntries(
-    Object.entries(baseline?.matches ?? {}).map(([variable, m]) => [
-      variable,
-      { by: m.by, figma: variable, to: m.to },
-    ])
-  );
-
-/** What each of DESIGN.md's tokens is in the design system: the same rules as Figma's, by path. */
-export const matchDocument = (
-  side: readonly FigmaSide[],
-  code: readonly SourceToken[],
-  baseline: DocumentBaseline | null
-) => matchFigma(side, code, documentMatches(baseline));
-
-/**
- * DESIGN.md's tokens against the design system's. What the two agreed is one value by path: the
- * document's and the design system's were the same then.
- */
-export const compareDocument = (
-  side: readonly FigmaSide[],
-  code: readonly SourceToken[],
-  baseline: DocumentBaseline | null
-): TokenDiff[] =>
-  compareSide(
-    side,
-    code,
-    matchDocument(side, code, baseline),
-    (_name, _theme, token) => {
-      const agreed = baseline?.agreed[token.variable];
-      return agreed === undefined ? null : { code: agreed, source: agreed };
-    }
-  );
-
-/**
- * The changes to the design system a comparison comes to once the user has picked: everything
- * the source changed alone, and the conflicts the user gave to it, in the design system's units.
- */
-export const tokenChanges = (
-  diffs: readonly TokenDiff[],
-  decisions: readonly TokenDecision[]
-): TokenChange[] => {
-  const picked = new Map(
-    decisions.map((d) => [baselineKey(d.name, d.theme), d.take])
-  );
-  // Two of the source's tokens matched to one code token: the first one's value is written.
-  const changes = new Map<string, TokenChange>();
-  for (const d of diffs) {
-    const key = baselineKey(d.name, d.theme);
-    const taken =
-      d.outcome === "to-design" ||
-      (d.outcome === "conflict" && picked.get(key) === "source");
-    if (taken && d.source !== undefined && !changes.has(key)) {
-      changes.set(key, {
-        name: d.name,
-        ...(d.theme && { theme: d.theme }),
-        value: inCodeUnits(d.source, d.design),
-      });
-    }
-  }
-  return [...changes.values()];
-};
-
 /**
  * The design system's tokens as a side to compare with: every token it lists, the spacing base
  * as `spacing`, each with its value per theme. A token whose value is empty is left out.
@@ -738,86 +441,283 @@ export const valuesByKey = (
   return values;
 };
 
+/** A key of a baseline that keeps one value for both sides, as the engine reads it. */
+const oneValue =
+  (agreed: Readonly<Record<string, string>> | undefined) => (key: string) =>
+    agreedOn(agreed?.[key]);
+
+/** What two values last agreed on as a baseline keeps them, kept as one value each. */
+const asOneValue = (agreed: Readonly<Record<string, Agreed>>) =>
+  Object.fromEntries(
+    Object.entries(agreed).flatMap(([key, a]) =>
+      a.source === undefined ? [] : [[key, a.source] as const]
+    )
+  );
+
+/** Figma's side (ADR 0025) ---------------------------------------------------------------- */
+
+/** The key a Figma token's match is kept under: Figma's id, its place when it has none. */
+export const matchKeyOf = (token: {
+  readonly id?: string;
+  readonly variable: string;
+}) => token.id ?? token.variable;
+
+/**
+ * What each of Figma's tokens is in the design system (the code while there is none), by
+ * `variable`: the matches kept in the baseline by Figma's id first, by place for a variable
+ * whose id changed (the file copied, a library published again), then the rules.
+ */
+export const matchFigma = (
+  figma: readonly SideToken[],
+  design: readonly SourceToken[],
+  saved: Readonly<Record<string, FigmaMatch>> | undefined
+): Map<string, Match> => {
+  const byPlace = new Map(
+    Object.values(saved ?? {}).map((m) => [m.figma, m] as const)
+  );
+  return matchByRules(figma, design, (token) => {
+    const found = saved?.[matchKeyOf(token)] ?? byPlace.get(token.variable);
+    return found && { by: found.by, to: found.to };
+  });
+};
+
+/** What Figma and the design system each held for a value at the last sync, by key. */
+const figmaAgreed = (baseline: SyncBaseline | null) => (key: string) => {
+  const source = baseline?.figma[key];
+  const design = baseline?.code[key];
+  return source === undefined && design === undefined
+    ? null
+    : {
+        ...(design !== undefined && { design }),
+        ...(source !== undefined && { source }),
+      };
+};
+
+/** Figma's tokens as the engine compares them, against the last sync with this file. */
+export const figmaSide = (
+  figma: readonly SideToken[],
+  design: readonly SourceToken[],
+  baseline: SyncBaseline | null
+): Side => {
+  const agreed = figmaAgreed(baseline);
+  return {
+    agreed: (name, theme) => agreed(baselineKey(name, theme || undefined)),
+    matches: matchFigma(figma, design, baseline?.matches),
+    tokens: figma,
+  };
+};
+
+/** Figma's tokens against the design system's, against the last sync with this file (ADR 0025). */
+export const compareFigma = (
+  figma: readonly SideToken[],
+  design: readonly SourceToken[],
+  baseline: SyncBaseline | null
+): TokenDiff[] => compareSide(figmaSide(figma, design, baseline), design);
+
+/**
+ * The baseline a sync with Figma leaves: for every matched value, Figma's and the design
+ * system's now, a difference the sync settled kept as it is (Figma is never written), a conflict
+ * left open kept as it was agreed before; and what every token of the file is in the design
+ * system, the rules' matches too, so the code changing later does not move a token the user has
+ * seen written.
+ */
+export const figmaBaselineAfter = (input: {
+  readonly at: number;
+  /** The baseline the comparison was made against. */
+  readonly baseline: SyncBaseline | null;
+  /** The design system's tokens once the changes are written. */
+  readonly design: readonly SourceToken[];
+  readonly diffs: readonly TokenDiff[];
+  readonly file: string;
+  readonly settled: ReadonlySet<string>;
+  readonly side: Side;
+}): SyncBaseline => {
+  const source: Record<string, string> = {};
+  const keys: string[] = [];
+  for (const d of input.diffs) {
+    if (d.outcome === "unmatched" || d.outcome === "ignored") {
+      continue;
+    }
+    const key = baselineKey(d.name, d.theme);
+    keys.push(key);
+    if (d.source !== undefined && !(key in source)) {
+      source[key] = d.source;
+    }
+  }
+  const agreed = agreementAfter({
+    design: valuesByKey(input.design.filter((t) => t.own)),
+    keys,
+    previous: figmaAgreed(input.baseline),
+    settled: input.settled,
+    source,
+  });
+  const code: Record<string, string> = {};
+  const figma: Record<string, string> = {};
+  for (const [key, a] of Object.entries(agreed)) {
+    if (a.design !== undefined) {
+      code[key] = a.design;
+    }
+    if (a.source !== undefined) {
+      figma[key] = a.source;
+    }
+  }
+  return {
+    at: input.at,
+    code,
+    figma,
+    file: input.file,
+    matches: Object.fromEntries(
+      input.side.tokens
+        .flatMap((token) => {
+          const match = input.side.matches.get(token.variable);
+          return match
+            ? [
+                [
+                  matchKeyOf(token),
+                  {
+                    by: match.by ?? "rule",
+                    figma: token.variable,
+                    to: match.to,
+                  },
+                ] as const,
+              ]
+            : [];
+        })
+        .sort(([a], [b]) => a.localeCompare(b))
+    ),
+  };
+};
+
+/** DESIGN.md's side (ADR 0027) ------------------------------------------------------------- */
+
+/** DESIGN.md's tokens as a side's: one value each, in the default theme. */
+export const documentSideTokens = (
+  tokens: readonly {
+    readonly alias?: string;
+    readonly kind: SourceToken["kind"];
+    readonly name: string;
+    readonly value: string;
+    readonly variable: string;
+  }[]
+): SideToken[] =>
+  tokens.map((t) => ({
+    ...(t.alias !== undefined && { alias: t.alias }),
+    kind: t.kind,
+    name: t.name,
+    values: { "": t.value },
+    variable: t.variable,
+  }));
+
+/**
+ * DESIGN.md's tokens as the engine compares them: matched by the same rules as Figma's, the
+ * matches kept by path; what the two agreed is one value by path, the document's and the design
+ * system's being the same then.
+ */
+export const documentSide = (
+  tokens: readonly SideToken[],
+  design: readonly SourceToken[],
+  baseline: DocumentBaseline | null
+): Side => {
+  const agreed = oneValue(baseline?.agreed);
+  return {
+    agreed: (_name, _theme, token) => (token ? agreed(token.variable) : null),
+    matches: matchByRules(
+      tokens,
+      design,
+      (token) => baseline?.matches?.[token.variable]
+    ),
+    tokens,
+  };
+};
+
+/** DESIGN.md's tokens against the design system's, against what the two agreed (ADR 0027). */
+export const compareDocument = (
+  tokens: readonly SideToken[],
+  design: readonly SourceToken[],
+  baseline: DocumentBaseline | null
+): TokenDiff[] => compareSide(documentSide(tokens, design, baseline), design);
+
+/** The code's side (ADR 0028) -------------------------------------------------------------- */
+
+/**
+ * The code's tokens as the engine compares them. Both sides name tokens the same way, so each
+ * is the design system's of its name, and one the design system leaves out on purpose
+ * (`omitted`) is left out. A style system's own default counts as the code having the token when
+ * the design system lists it, but is never offered. The code waits for every value of the
+ * design system's it does not have, except the spacing base: a code that does not name it has
+ * the style system's.
+ */
+export const codeSide = (
+  code: readonly SourceToken[],
+  design: readonly SourceToken[],
+  baseline: DocumentBaseline | null,
+  omitted: ReadonlySet<string>
+): Side => {
+  const ours = valuesByKey(design);
+  const theirs = valuesByKey(code);
+  const listed = new Map(design.map((t) => [t.name, t] as const));
+  const tokens = code
+    .filter((t) => t.own || listed.has(t.name))
+    .map((t): SideToken => {
+      const values = Object.entries({ "": t.value, ...t.values }).filter(
+        ([theme]) => t.own || baselineKey(t.name, theme || undefined) in ours
+      );
+      return {
+        kind: listed.get(t.name)?.kind ?? t.kind,
+        name: t.name,
+        values: Object.fromEntries(values),
+        variable: t.name,
+      };
+    });
+  const agreed = oneValue(baseline?.agreed);
+  return {
+    agreed: (name, theme) => agreed(baselineKey(name, theme || undefined)),
+    matches: new Map(
+      tokens.map((t) => [
+        t.variable,
+        { to: omitted.has(t.name) && !listed.has(t.name) ? null : t.name },
+      ])
+    ),
+    tokens,
+    waitsFor: (key) => key !== SPACING_BASE || key in theirs,
+  };
+};
+
 /**
  * The code's tokens against the design system's (ADR 0028), theme by theme, against what the two
- * last agreed on. Both sides name tokens the same way, so nothing is matched:
- * - only the design system has it: waiting for the code (`source-behind`);
- * - only the code has it: new there (`to-design`), unless the design system leaves it out on
- *   purpose (`ignored`), or took it out after they agreed (`conflict`);
- * - both: changed on one side since they agreed, that side's; on both, or never agreed, the
- *   user's pick.
+ * last agreed on: only the design system has it, waiting for the code (`source-behind`); only
+ * the code, new there (`to-design`) unless left out on purpose (`ignored`); both, as the engine
+ * says.
  */
 export const compareCode = (
   code: readonly SourceToken[],
   design: readonly SourceToken[],
   baseline: DocumentBaseline | null,
   omitted: ReadonlySet<string>
-): TokenDiff[] => {
-  const ours = valuesByKey(design);
-  // A style system's own default counts as the code having the token, but is never offered.
-  const theirs = valuesByKey(code);
-  const own = valuesByKey(code.filter((t) => t.own));
-  const kinds = new Map(
-    [...code, ...design].map((t) => [t.name, t.kind] as const)
-  );
-  // The spacing base is the style system's step; a code that does not name it has the default.
-  const keys = [...new Set([...Object.keys(ours), ...Object.keys(own)])].filter(
-    (key) => key !== SPACING_BASE || key in theirs
-  );
-  return keys.sort().map((key): TokenDiff => {
-    const at = key.indexOf("@");
-    const name = at === -1 ? key : key.slice(0, at);
-    const theme = at === -1 ? undefined : key.slice(at + 1);
-    const designValue = ours[key];
-    const codeValue = theirs[key];
-    const base = baseline?.agreed[key];
-    const common = {
-      ...(base !== undefined && { base }),
-      ...(designValue !== undefined && { design: designValue }),
-      kind: kinds.get(name) ?? tokenKindOf(name),
-      name,
-      ...(codeValue !== undefined && { source: codeValue }),
-      ...(theme && { theme }),
-      variable: name,
-    };
-    return {
-      ...common,
-      outcome: codeOutcomeOf(designValue, codeValue, base, omitted.has(name)),
-    };
-  });
-};
+): TokenDiff[] =>
+  compareSide(codeSide(code, design, baseline, omitted), design);
 
-/** What one value of the code comes to against the design system's and their agreement. */
-const codeOutcomeOf = (
-  design: string | undefined,
-  code: string | undefined,
-  base: string | undefined,
-  omitted: boolean
-): TokenOutcome => {
-  if (code === undefined) {
-    return "source-behind";
-  }
-  if (design === undefined) {
-    if (omitted) {
-      return "ignored";
-    }
-    return base === undefined ? "to-design" : "conflict";
-  }
-  if (sameValue(code, design)) {
-    return "same";
-  }
-  if (base === undefined) {
-    return "conflict";
-  }
-  const codeChanged = !sameValue(code, base);
-  const designChanged = !sameValue(design, base);
-  if (codeChanged && !designChanged) {
-    return "to-design";
-  }
-  if (designChanged && !codeChanged) {
-    return "source-behind";
-  }
-  return "conflict";
+/**
+ * What the design system and the code agree on (ADR 0028), kept in `codeSync`: the last
+ * agreement, with every value they now share taken as agreed, and what neither has any more
+ * dropped. Worked out again whenever either is written.
+ */
+export const codeAgreement = (
+  ds: DesignSystem,
+  code: readonly SourceToken[]
+): DocumentBaseline => {
+  const previous = ds.codeSync;
+  return {
+    agreed: asOneValue(
+      agreementAfter({
+        design: valuesByKey(designTokensOf(ds)),
+        previous: oneValue(previous?.agreed),
+        source: valuesByKey(code),
+      })
+    ),
+    at: previous?.at ?? 0,
+    ...(previous?.matches && { matches: previous.matches }),
+  };
 };
 
 /** How many of a code comparison's tokens wait for each side, and for the user. */
@@ -826,49 +726,6 @@ export const codeCounts = (diffs: readonly TokenDiff[]) => ({
   toCode: diffs.filter((d) => d.outcome === "source-behind").length,
   toDesign: diffs.filter((d) => d.outcome === "to-design").length,
 });
-
-/**
- * What a code comparison comes to once the user has picked (ADR 0028): the changes to the
- * design system (what the code changed alone, the conflicts given to the code) and to the code
- * (what the design system changed alone, the conflicts given to it), one direction only when
- * asked. A token the design system took out after they agreed, given to the design system, is
- * taken out of the code.
- */
-export const codeChanges = (
-  diffs: readonly TokenDiff[],
-  decisions: readonly TokenDecision[],
-  only?: "export" | "import"
-): { readonly toCode: TokenChange[]; readonly toDesign: TokenChange[] } => {
-  const picked = new Map(
-    decisions.map((d) => [baselineKey(d.name, d.theme), d.take])
-  );
-  const toCode: TokenChange[] = [];
-  const toDesign: TokenChange[] = [];
-  for (const d of diffs) {
-    const pick = picked.get(baselineKey(d.name, d.theme));
-    const target = {
-      name: d.name,
-      ...(d.theme && { theme: d.theme }),
-    };
-    const importIt =
-      d.outcome === "to-design" ||
-      (d.outcome === "conflict" && pick === "source");
-    const exportIt =
-      d.outcome === "source-behind" ||
-      (d.outcome === "conflict" && pick === "design");
-    if (importIt && only !== "export" && d.source !== undefined) {
-      toDesign.push({ ...target, value: d.source });
-    }
-    if (exportIt && only !== "import") {
-      toCode.push(
-        d.design === undefined
-          ? { ...target, remove: true }
-          : { ...target, value: d.design }
-      );
-    }
-  }
-  return { toCode, toDesign };
-};
 
 /**
  * The diffs of a comparison for the tokens named, by name (every theme of it) or by
