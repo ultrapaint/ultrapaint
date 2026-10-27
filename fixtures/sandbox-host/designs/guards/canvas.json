@@ -1,0 +1,55 @@
+{
+  "frames": {
+    "hotkey.page.json": {
+      "height": 300,
+      "preset": "custom",
+      "width": 440,
+      "x": 0,
+      "y": 0
+    },
+    "window.page.json": {
+      "height": 300,
+      "preset": "custom",
+      "width": 390,
+      "x": 480,
+      "y": 0
+    },
+    "router.page.json": {
+      "height": 300,
+      "preset": "custom",
+      "width": 440,
+      "x": 960,
+      "y": 0
+    },
+    "head.page.json": {
+      "height": 300,
+      "preset": "custom",
+      "width": 440,
+      "x": 1440,
+      "y": 0
+    },
+    "leave.page.json": {
+      "height": 300,
+      "preset": "custom",
+      "width": 440,
+      "x": 0,
+      "y": 360
+    },
+    "err-timeout.page.json": {
+      "height": 300,
+      "preset": "custom",
+      "width": 440,
+      "x": 480,
+      "y": 360
+    },
+    "err-click.page.json": {
+      "height": 300,
+      "preset": "custom",
+      "width": 440,
+      "x": 960,
+      "y": 360
+    }
+  },
+  "name": "guards",
+  "version": 1
+}

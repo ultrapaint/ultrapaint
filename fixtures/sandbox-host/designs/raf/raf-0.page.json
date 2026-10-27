@@ -1,0 +1,21 @@
+{
+  "root": {
+    "type": "page",
+    "id": "root",
+    "fill": "#ffffff",
+    "gap": 0,
+    "children": [
+      {
+        "type": "instance",
+        "id": "i_raf_0",
+        "name": "RafProbe",
+        "component": "RafProbe",
+        "from": "@/components/probes",
+        "props": {
+          "work": 1
+        }
+      }
+    ]
+  },
+  "version": 1
+}
