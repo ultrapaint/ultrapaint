@@ -65,15 +65,25 @@ export const calledDirectlyFromPreview = (
 };
 
 /** A stack's first frame (`at f (url:1:2)`, or `f@url:1:2`): where an error was thrown. */
-const FRAME_RE = /(?:\bat\s.*?\(?|@)((?:https?:|\/)[^\s)]+?):(\d+):\d+\)?\s*$/m;
+const FRAME_RE =
+  /(?:\bat\s.*?\(?|@)((?:https?:|\/)[^\s)]+?):(\d+):(\d+)\)?\s*$/m;
+
+/** Where in the preview's modules an error was thrown. */
+export interface ThrownAt {
+  readonly column: number;
+  /** As the preview's server names it under its base. */
+  readonly file: string;
+  /** In the module as it was sent, not its source (`source-lines.ts`). */
+  readonly line: number;
+  /** The module's address, as the page loaded it. */
+  readonly url: string;
+}
 
 /**
  * Where an error was thrown when it was in the preview's own modules: the file, as the preview's
  * server names it under its base, and the line; null when it was the editor's.
  */
-export const thrownInPreview = (
-  stack: string | undefined
-): { readonly file: string; readonly line: number } | null => {
+export const thrownInPreview = (stack: string | undefined): ThrownAt | null => {
   const frame = stack ? FRAME_RE.exec(stack) : null;
   const url = frame?.[1];
   if (base === "" || !url) {
@@ -83,7 +93,12 @@ export const thrownInPreview = (
   if (!path.startsWith(base)) {
     return null;
   }
-  return { file: path.slice(base.length), line: Number(frame?.[2]) };
+  return {
+    column: Number(frame?.[3]),
+    file: path.slice(base.length),
+    line: Number(frame?.[2]),
+    url,
+  };
 };
 
 type Inserting = (this: Node, ...args: never[]) => unknown;

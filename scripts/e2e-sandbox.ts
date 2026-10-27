@@ -12,6 +12,7 @@
  * - what nothing caught (a timer, a click in the prototype) is shown on its frame;
  * - a loop that never ends, in a render or a click, is stopped and shown on its frame;
  * - a rejection is shown on the frame whose code made it, or on none when nothing says which;
+ *   what is shown names the line of the source, not of the module as the server sent it;
  * - reloading the editor asks nothing, whatever the page's "unsaved changes" guard says;
  * - a parked frame's animation waits, and goes on when the frame is seen again;
  * - a page that stopped the editor is a placeholder when the editor loads again.
@@ -19,7 +20,7 @@
  *   pnpm e2e:sandbox [--chrome /path/to/chrome]
  */
 import { type ChildProcess, spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
@@ -393,6 +394,16 @@ const guards = async (page: Page, url: string) => {
   });
 };
 
+/** The line (from 1) of the probes' source that follows the line holding `after` and holds `text`. */
+const probeLine = (after: string, text: string) => {
+  const lines = readFileSync(
+    path.join(ROOT, "fixtures/sandbox-host/src/components/probes.tsx"),
+    "utf8"
+  ).split("\n");
+  const from = lines.findIndex((l) => l.includes(after));
+  return lines.findIndex((l, i) => i > from && l.includes(text)) + 1;
+};
+
 const loops = async (page: Page, url: string) => {
   const errors = () =>
     page.evaluate(
@@ -463,8 +474,11 @@ const loops = async (page: Page, url: string) => {
           .setMode("select")
       );
       const shown = (await errors())["loops/loop-click.page.json"] ?? "";
+      const line = probeLine("const loopOnClick", "while (");
       return (
-        (shown.includes("Stopped a loop") && held < 5000) ||
+        (shown.includes("Stopped a loop") &&
+          shown.includes(`probes.tsx:${line}`) &&
+          held < 5000) ||
         `shown: ${shown}, held ${held} ms`
       );
     }
@@ -476,8 +490,10 @@ const loops = async (page: Page, url: string) => {
       const shown = await errors();
       const a = shown["loops/reject-a.page.json"] ?? "";
       const b = shown["loops/reject-b.page.json"] ?? "";
+      const line = probeLine("async function load", "throw new Error");
       return (
         (a.includes("rejected in a") &&
+          a.includes(`probes.tsx:${line}`) &&
           !a.includes("rejected in b") &&
           b.includes("rejected in b")) ||
         JSON.stringify(shown)

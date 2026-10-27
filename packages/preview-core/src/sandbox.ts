@@ -26,8 +26,10 @@
 import {
   calledDirectlyFromPreview,
   calledFromPreview,
+  type ThrownAt,
   thrownInPreview,
 } from "./portals.ts";
+import { sourceLine } from "./source-lines.ts";
 
 /** This module's own file, whose frames on the stack are the patch, not who called it. */
 const OWN = import.meta.url.split("?")[0] ?? "";
@@ -139,6 +141,7 @@ const strayListeners = new Set<(error: FrameError) => void>();
 let fromPreview = () => calledFromPreview([OWN]);
 let directlyFromPreview = calledDirectlyFromPreview;
 let thrownIn = thrownInPreview;
+let locate = sourceLine;
 
 /** Runs `f` as `frame`'s page code: what it asks of the window, throws or schedules is its. */
 const runAs = <T>(frame: GuardedFrame, f: () => T): T => {
@@ -522,28 +525,43 @@ const guardHead = () => {
  * to the editor alone (`onStrayError`). The console still has it.
  */
 const reportUncaught = () => {
-  const told = (error: unknown, fallback: string): FrameError | null => {
+  const told = (error: unknown, fallback: string) => {
     const stack = error instanceof Error ? error.stack : undefined;
     const where = thrownIn(stack);
     return where
       ? {
-          file: where.file,
-          line: where.line,
-          message: error instanceof Error ? error.message : fallback,
-          stack,
+          error: {
+            file: where.file,
+            line: where.line,
+            message: error instanceof Error ? error.message : fallback,
+            stack,
+          },
+          where,
         }
       : null;
   };
+  /** Told once its line is the source's. */
+  const tell = (
+    found: { error: FrameError; where: ThrownAt },
+    to: (error: FrameError) => void
+  ) => {
+    const { error, where } = found;
+    locate(where.url, where.line, where.column).then(
+      (line) => to({ ...error, line }),
+      () => to(error)
+    );
+  };
   window.addEventListener("error", (event) => {
-    const error = told(event.error, event.message);
-    if (error && current) {
-      current.error(error);
+    const found = told(event.error, event.message);
+    const frame = current;
+    if (found && frame) {
+      tell(found, frame.error);
     }
   });
   window.addEventListener("unhandledrejection", (event) => {
     const { reason } = event;
-    const error = told(reason, String(reason));
-    if (!error) {
+    const found = told(reason, String(reason));
+    if (!found) {
       return;
     }
     const marked =
@@ -552,13 +570,15 @@ const reportUncaught = () => {
         : undefined;
     const frame =
       marked ?? (frames.size === 1 ? [...frames.values()][0] : undefined);
-    if (frame) {
-      frame.error(error);
-      return;
-    }
-    for (const listener of strayListeners) {
-      listener(error);
-    }
+    tell(found, (error) => {
+      if (frame) {
+        frame.error(error);
+        return;
+      }
+      for (const listener of strayListeners) {
+        listener(error);
+      }
+    });
   });
 };
 
@@ -701,6 +721,7 @@ export const installGuards = (test?: {
     fromPreview = test.caller;
     directlyFromPreview = test.caller;
     thrownIn = test.thrown;
+    locate = (_url, line) => Promise.resolve(line);
   }
   if (installed || typeof window === "undefined") {
     return;
