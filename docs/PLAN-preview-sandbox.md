@@ -1,6 +1,6 @@
 # Plan: guards around the preview in the editor's page
 
-Status: accepted, 2026-10-27; being built step by step. Follows
+Status: accepted and built, 2026-10-27 (steps 1 to 6, below under "Built"). Follows
 [ADR 0034](adr/0034-frames-in-the-editors-page.md) and `docs/PLAN-editor-renderer.md`, whose
 "Pitfalls" it answers. The answers to its questions are under "Decisions".
 
@@ -242,6 +242,58 @@ change (Redesign, 10 frames, 4,287 layers):
 Zoom is busier than the ADR measured, before any of this plan; the cause is not known (the
 shell's cards landed since, and one run is noisy). Today's numbers are the ones to compare
 against, not the ADR's.
+
+## Built
+
+2026-10-27, one commit a step. `pnpm e2e:sandbox` checks all of it against `fixtures/sandbox-host`.
+
+- [x] 1. `preview-core/sandbox.ts`, installed by `createPreview`, each frame guarded by
+      `mountFrame`. A listener the preview's code puts on `window` or `document` for input hears
+      its own frame's events only (`composedPath()`, the frame that was drawing when it was added);
+      `beforeunload`, `unload`, `popstate`, `hashchange` are dropped, `on*` setters of them too;
+      `scroll` and `resize` are told from the frame's host, `scrollY` answering the frame while
+      they run. `history.pushState` of a path in a frame that takes input is the prototype's
+      navigation, any other write is dropped; `scrollTo` scrolls a frame that takes input.
+      `<title>`, `<meta>`, `<base>` and icon links go to a head outside the document;
+      `document.title` set by the preview is ignored. sacro-cuore's header rises as its page
+      scrolls in the prototype.
+- [x] 2. `error` and `unhandledrejection` thrown in the preview's modules (`thrownInPreview`: the
+      stack's first frame under the base) are told to the frame, shown on the canvas's banner and
+      on a new one in the prototype; `onUncaughtError` on each root. React's decoder link was not
+      needed: its messages carry the URL. A rejection carries nothing of where it came from: it
+      goes to the frame running when it surfaces, which may be another.
+- [x] 3. The editor's custom properties, read once off its `<html>` and `<body>`, are set to
+      `initial` in the frames' first layer. Redesign and the fixture draw as they did (under
+      0.005% of pixels, anti-aliasing).
+- [x] 4. `canvas/watchdog.ts` and its worker; `Preview.onRunning` says whose page code runs (the
+      frame drawing, or taking input, at most every 200 ms). Silence over 3 s while a frame's code
+      ran writes the frame to IndexedDB; the editor reads it before the preview loads and draws a
+      placeholder ("Draw anyway"); pictures wait for the next load. A page that was only slow is
+      struck off when the beat comes back. The desktop app asks to reload on `unresponsive`.
+- [x] 5. `requestAnimationFrame` asked for by the preview's code (its immediate caller read off one
+      stack frame, once per callback) is its frame's and held while the frame is not intersecting
+      the screen (parked or off it); pictures never are. `setTimeout` and `setInterval` run as
+      their frame's, and a marker before every instance makes its effects its frame's: a timer's
+      error lands on its own frame. Ten animating frames: 64% busy on screen as before, 0% parked
+      (61% before), resumed when seen.
+- [x] 6. `fixtures/sandbox-host` (a workspace package, React and Vite at `apps/web`'s versions) and
+      `pnpm e2e:sandbox`: twelve checks, an editor of its own on free ports, stopped through the
+      handle that started it.
+
+Measured against the commit before step 1, alternately on the same machine (Redesign, 10
+frames), with `pnpm bench:canvas`:
+
+| | Before (3db4bc0) | After |
+|---|---|---|
+| Load, every frame drawn | 352–376 ms | 349 ms |
+| Pan after load: busy | 16–17% | 17–19% |
+| Pan as frames draw: busy / script | 26–27% / 168–180 ms | 26–27% / 186–188 ms |
+| Zoom: busy | 34–36% | 34–35% |
+| Switching canvas and back | 39–151 ms | 41–155 ms |
+| Renderer / all processes | 418–423 / 681–688 MB | 418–419 / 684–685 MB |
+
+Reading the whole stack on every timer and animation frame the editor asked for cost 25 µs a call
+and 2 points of busy time while frames drew; one frame of stack, once per callback, took it back.
 
 ## Decisions
 
