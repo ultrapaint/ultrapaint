@@ -405,3 +405,11 @@ Answered 2026-10-27.
       runs synchronously) is left to the editor's origin, as before. The fixture's `/api/health`,
       which the editor's own server has a route for, now reaches the fixture's backend. Not
       benched: nothing on the canvas's way calls these.
+- [x] 9. S1: `preview-core/storage.ts`. `localStorage` and `sessionStorage` asked for by the
+      preview's code (its immediate caller, a dependency of the application included) are a
+      `Storage` in memory, one of each for every frame, empty at every load; its keys read and
+      written as properties too, and `instanceof Storage` holds. IndexedDB databases it opens
+      are named under a prefix new at every load, the last loads' deleted, and it lists only its
+      own. `storage` events, which tell of the editor's keys, are not heard. The fixture's
+      probe finds no editor key and no `ultrapaint-watchdog`, and its `theme` never reaches
+      the editor's storage.
