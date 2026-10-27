@@ -12,19 +12,31 @@
  * - `history` does not move the editor's address: a page pushed in a frame that takes input is
  *   the prototype following a link, anything else is dropped; `scrollTo` scrolls the frame;
  * - what goes into the head for the page's document (its `<title>`, its `<meta>`, its icons) and
- *   `document.title` are kept off the editor's.
+ *   `document.title` are kept off the editor's;
+ * - what the preview's code throws and nothing catches (in a handler, a timer, a promise) is told
+ *   to its frame, which the editor shows, instead of going by in the editor's console only.
  *
  * Which frame is the one that was drawing or took input, as `media.ts` tells the window's size.
  */
-import { calledFromPreview } from "./portals.ts";
+import { calledFromPreview, thrownInPreview } from "./portals.ts";
 
 /** This module's own file, whose frames on the stack are the patch, not who called it. */
 const OWN = import.meta.url.split("?")[0] ?? "";
+
+/** What a frame is told of an error its page's code threw. */
+export interface FrameError {
+  readonly file?: string | undefined;
+  readonly line?: number | undefined;
+  readonly message: string;
+  readonly stack?: string | undefined;
+}
 
 /** A frame as the guards know it. */
 export interface GuardedFrame {
   /** The frame is asked about: what its code reads of the window answers for it. */
   readonly asking: () => void;
+  /** Its page's code threw and nothing caught it. */
+  readonly error: (error: FrameError) => void;
   readonly host: HTMLElement;
   /** The frame takes input: the prototype, interact mode. */
   readonly interactive: () => boolean;
@@ -109,6 +121,7 @@ let current: GuardedFrame | null = null;
 let telling: GuardedFrame | null = null;
 let installed = false;
 let fromPreview = () => calledFromPreview([OWN]);
+let thrownIn = thrownInPreview;
 
 const call = (listener: Listener, self: unknown, event: Event) => {
   if (typeof listener === "function") {
@@ -452,17 +465,49 @@ const guardHead = () => {
 };
 
 /**
- * Puts the guards in place, once. `isPreview` says whether the code calling is the preview's;
- * by default its stack, as `portals.ts` reads it.
+ * What nothing caught: told to the frame that was drawing or took input when it was thrown in the
+ * preview's own modules. A click's handler is the clicked frame's; a timer's, the frame's that
+ * last drew. The console still has it.
  */
-export const installGuards = (isPreview?: () => boolean) => {
-  if (isPreview) {
-    fromPreview = isPreview;
+const reportUncaught = () => {
+  const report = (error: unknown, fallback: string) => {
+    const stack = error instanceof Error ? error.stack : undefined;
+    const where = thrownIn(stack);
+    if (!(where && current)) {
+      return;
+    }
+    current.error({
+      file: where.file,
+      line: where.line,
+      message: error instanceof Error ? error.message : fallback,
+      stack,
+    });
+  };
+  window.addEventListener("error", (event) =>
+    report(event.error, event.message)
+  );
+  window.addEventListener("unhandledrejection", (event) =>
+    report(event.reason, String(event.reason))
+  );
+};
+
+/**
+ * Puts the guards in place, once. By default the stack says whether the code calling is the
+ * preview's, and where an error was thrown, as `portals.ts` reads it; tests say it instead.
+ */
+export const installGuards = (test?: {
+  readonly caller: () => boolean;
+  readonly thrown: typeof thrownInPreview;
+}) => {
+  if (test) {
+    fromPreview = test.caller;
+    thrownIn = test.thrown;
   }
   if (installed || typeof window === "undefined") {
     return;
   }
   installed = true;
+  reportUncaught();
   guardListeners(window);
   guardListeners(document);
   guardHandlers();

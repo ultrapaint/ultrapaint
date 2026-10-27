@@ -13,7 +13,16 @@ const asPreview = <T>(f: () => T): T => {
   }
 };
 
-beforeAll(() => installGuards(() => preview));
+/** An error is the preview's when its stack names this file, as a module under the base would. */
+beforeAll(() =>
+  installGuards({
+    caller: () => preview,
+    thrown: (stack) =>
+      stack?.includes("preview-module.tsx")
+        ? { file: "src/preview-module.tsx", line: 3 }
+        : null,
+  })
+);
 
 const mounted: (() => void)[] = [];
 afterEach(() => {
@@ -32,14 +41,16 @@ const frame = (interactive = true) => {
   const button = document.createElement("button");
   shadow.append(button);
   const navigate = vi.fn<GuardedFrame["navigate"]>();
+  const error = vi.fn<GuardedFrame["error"]>();
   const guard = guardFrame({
     asking: () => undefined,
+    error,
     host,
     interactive: () => interactive,
     navigate,
   });
   mounted.push(guard.unmount);
-  return { button, guard, host, navigate };
+  return { button, error, guard, host, navigate };
 };
 
 const key = (target: EventTarget) =>
@@ -171,5 +182,37 @@ describe("the head", () => {
     expect(document.title).not.toBe("App");
     title.remove();
     style.remove();
+  });
+});
+
+describe("errors nothing caught", () => {
+  const thrown = (message: string, inPreview: boolean) => {
+    const error = new Error(message);
+    error.stack = `Error: ${message}\n    at f (http://x/${inPreview ? "preview-module.tsx" : "editor.tsx"}:3:1)`;
+    return error;
+  };
+
+  it("are told to the frame that was drawing when the preview's code threw them", () => {
+    const a = frame();
+    a.guard.asking();
+    window.dispatchEvent(
+      new ErrorEvent("error", { error: thrown("in a timer", true) })
+    );
+    expect(a.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        file: "src/preview-module.tsx",
+        line: 3,
+        message: "in a timer",
+      })
+    );
+  });
+
+  it("are left to the editor when its own code threw them", () => {
+    const a = frame();
+    a.guard.asking();
+    window.dispatchEvent(
+      new ErrorEvent("error", { error: thrown("the editor's", false) })
+    );
+    expect(a.error).not.toHaveBeenCalled();
   });
 });
