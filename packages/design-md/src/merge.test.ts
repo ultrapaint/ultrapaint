@@ -112,15 +112,27 @@ describe("mergeMirror", () => {
     expect(merged.held).toEqual([]);
   });
 
-  it("holds a token the document took out, until Sync settles it", () => {
+  it("writes back a token the document took out, as every side gets one back", () => {
     const merged = mergeMirror(
       doc("colors:\n  a: '#000'"),
       code({ a: "#000", b: "#111" }),
       { "colors.a": "#000", "colors.b": "#111" }
     );
-    expect(merged.groups.colors).toEqual({ a: "#000" });
+    expect(merged.groups.colors).toEqual({ a: "#000", b: "#111" });
+    expect(merged.held).toEqual([]);
+    expect(merged.agreed).toEqual({ "colors.a": "#000", "colors.b": "#111" });
+  });
+
+  it("takes out of the document what the design system took out, unless the document changed it", () => {
+    const merged = mergeMirror(
+      doc("colors:\n  a: '#000'\n  b: '#222'"),
+      code({}),
+      { "colors.a": "#000", "colors.b": "#111" }
+    );
+    expect(merged.groups.colors).toEqual({ b: "#222" });
     expect(merged.held).toEqual([
-      { code: "#111", kind: "doc", path: "colors.b" },
+      { doc: "#222", kind: "both", path: "colors.b" },
     ]);
+    expect(merged.agreed).toEqual({ "colors.b": "#111" });
   });
 });

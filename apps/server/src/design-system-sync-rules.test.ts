@@ -16,23 +16,38 @@ import type { SourceToken } from "@ultrapaint/contracts/tokens";
 import { describe, expect, it } from "vitest";
 import {
   caseOf,
-  codeChanges,
   codeCounts,
   codeDirection,
   compareCode,
   compareDocument,
   compareFigma,
   designTokensOf,
-  documentSide,
+  documentSideTokens,
   driftOf,
-  type FigmaSide,
+  figmaBaselineAfter,
+  figmaSide,
   matchFigma,
-  matchProblem,
   namedDiffs,
   planOf,
   summaryOf,
-  tokenChanges,
 } from "./services/design-system-sync-rules.ts";
+import {
+  changesOf,
+  matchProblem,
+  type SideToken,
+  settledKeys,
+} from "./services/sync-engine.ts";
+
+/** What a comparison takes into the design system once the user has picked. */
+const tokenChanges = (
+  ...args: Parameters<typeof changesOf>
+): readonly unknown[] => changesOf(...args).toDesign;
+
+/** What a code comparison comes to each way, as the code side writes it. */
+const codeChanges = (...args: Parameters<typeof changesOf>) => {
+  const { toDesign, toSource } = changesOf(...args);
+  return { toCode: toSource, toDesign };
+};
 
 const facts: SyncFacts = {
   app: true,
@@ -275,7 +290,7 @@ describe("matching Figma's tokens to the code's", () => {
     { kind: "color", name: "color-muted", own: true, value: "#e5e7eb" },
     { kind: "radius", name: "radius-card", own: true, value: "0.5rem" },
   ];
-  const figma: FigmaSide[] = [
+  const figma: SideToken[] = [
     {
       id: "1:1",
       kind: "color",
@@ -352,8 +367,49 @@ describe("matching Figma's tokens to the code's", () => {
     ]);
   });
 
+  it("keeps in the baseline what the user settled, and leaves an unpicked conflict open", () => {
+    const diffs = compareFigma(figma, code, null);
+    const picks = [{ name: "radius-card", take: "design" as const }];
+    const baseline = figmaBaselineAfter({
+      at: 1,
+      baseline: null,
+      design: code,
+      diffs,
+      file: "App",
+      settled: settledKeys(diffs, picks),
+      side: figmaSide(figma, code, null),
+    });
+    // Figma keeps its 12px; the design system its 0.5rem: the difference is what was agreed.
+    expect(baseline.code["radius-card"]).toBe("0.5rem");
+    expect(baseline.figma["radius-card"]).toBe("12px");
+    expect(baseline.matches?.["1:2"]).toEqual({
+      by: "rule",
+      figma: "Semantic/Action",
+      to: "color-primary",
+    });
+    expect(baseline.matches?.["1:4"]).toBeUndefined();
+    const again = compareFigma(figma, code, baseline);
+    expect(again.find((d) => d.name === "radius-card")?.outcome).toBe(
+      "source-behind"
+    );
+    const open = figmaBaselineAfter({
+      at: 1,
+      baseline: null,
+      design: code,
+      diffs,
+      file: "App",
+      settled: settledKeys(diffs, []),
+      side: figmaSide(figma, code, null),
+    });
+    expect(open.figma["radius-card"]).toBeUndefined();
+    expect(
+      compareFigma(figma, code, open).find((d) => d.name === "radius-card")
+        ?.outcome
+    ).toBe("conflict");
+  });
+
   it("only matches a name of the token's kind", () => {
-    const brand = figma[0] as FigmaSide;
+    const brand = figma[0] as SideToken;
     expect(matchProblem(brand, "color-brand")).toBeNull();
     expect(matchProblem(brand, "radius-card")).toContain("names a radius one");
     expect(matchProblem(brand, "Brand Blue")).toContain("not a token name");
@@ -366,7 +422,7 @@ describe("DESIGN.md's tokens against the code's (ADR 0027)", () => {
     { kind: "color", name: "color-ink", own: true, value: "#111111" },
     { kind: "radius", name: "radius-card", own: true, value: "0.75rem" },
   ];
-  const side = documentSide([
+  const side = documentSideTokens([
     {
       kind: "color",
       name: "color-primary",

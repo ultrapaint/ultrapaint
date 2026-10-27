@@ -6,7 +6,6 @@ import {
   type DesignFinding,
   type DesignSystem,
   type DesignSystemState,
-  type DocumentBaseline,
 } from "@ultrapaint/contracts/design-system";
 import { BadRequest } from "@ultrapaint/contracts/errors";
 import {
@@ -61,6 +60,7 @@ import {
   writeDesignSystem,
 } from "./design-system-files.ts";
 import {
+  codeAgreement,
   compareCode,
   designTokensOf,
   valuesByKey,
@@ -263,36 +263,11 @@ export class DesignSystemService extends Context.Service<
       );
       const codeTokensByName = Effect.map(codeRead, (read) => read.byName);
 
-      /**
-       * What the design system and the code agree on (ADR 0028): the last agreement, with every
-       * value they now share taken as agreed, and what neither has any more dropped.
-       */
+      /** What the design system and the code agree on, once either is written (ADR 0028). */
       const settle = (
         ds: DesignSystem,
         code: ReadonlyMap<string, SourceToken>
-      ): DocumentBaseline => {
-        const ours = valuesByKey(designTokensOf(ds));
-        const theirs = valuesByKey([...code.values()]);
-        const agreed: Record<string, string> = {};
-        for (const [key, value] of Object.entries(ds.codeSync?.agreed ?? {})) {
-          if (key in ours || key in theirs) {
-            agreed[key] = value;
-          }
-        }
-        for (const [key, value] of Object.entries(ours)) {
-          const other = theirs[key];
-          if (other !== undefined && sameValue(value, other)) {
-            agreed[key] = other;
-          }
-        }
-        return {
-          agreed: Object.fromEntries(
-            Object.entries(agreed).sort(([a], [b]) => a.localeCompare(b))
-          ),
-          at: ds.codeSync?.at ?? 0,
-          ...(ds.codeSync?.matches && { matches: ds.codeSync.matches }),
-        };
-      };
+      ) => codeAgreement(ds, [...code.values()]);
 
       /** The design tokens file beside the design system, absolute and repository-relative. */
       const tokensAbs = path.join(paths.designsDir, DESIGN_TOKENS_FILE);
