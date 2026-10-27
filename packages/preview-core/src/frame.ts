@@ -83,6 +83,23 @@ const ACTIVITY = ["pointerdown", "keydown", "focusin"] as const;
 /** The frame that last drew or took input: where a popup the page opens goes. */
 let activeFrame: Element | null = null;
 
+/** How often a frame whose code keeps running is told again. */
+const RUNNING_EVERY_MS = 200;
+const runningListeners = new Set<(frame: string) => void>();
+let running: { at: number; frame: string } | null = null;
+
+/** `frame`'s page code runs: told when it changes, and again now and then while it does. */
+const tellRunning = (frame: string) => {
+  const now = performance.now();
+  if (running?.frame === frame && now - running.at < RUNNING_EVERY_MS) {
+    return;
+  }
+  running = { at: now, frame };
+  for (const listener of runningListeners) {
+    listener(frame);
+  }
+};
+
 /**
  * The repository's components, ready to draw frames in the editor's page. Called once by the
  * generated entry, with the registry, the providers and where the preview's server is.
@@ -117,6 +134,12 @@ export const createPreview = (input: PreviewSetup): Preview => {
       for (const frame of frames) {
         frame.events.hmr?.();
       }
+    },
+    onRunning: (listener) => {
+      runningListeners.add(listener);
+      return () => {
+        runningListeners.delete(listener);
+      };
     },
     reportError: (error) => {
       for (const frame of frames) {
@@ -189,7 +212,10 @@ const mountFrame = (
   }
   const media = frameMedia(host, shadow);
   const sandbox = guardFrame({
-    asking: media.asking,
+    asking: () => {
+      media.asking();
+      tellRunning(options.frame);
+    },
     error: (error) => events.error?.(error),
     host,
     interactive: () => interactive,
@@ -199,6 +225,7 @@ const mountFrame = (
   const asking = () => {
     media.asking();
     sandbox.asking();
+    tellRunning(options.frame);
   };
 
   // ---- Where the frame is ----
