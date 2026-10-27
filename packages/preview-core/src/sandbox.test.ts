@@ -216,3 +216,28 @@ describe("errors nothing caught", () => {
     expect(a.error).not.toHaveBeenCalled();
   });
 });
+
+describe("timers", () => {
+  it("run as the frame whose code set them, whichever drew since", async () => {
+    const a = frame();
+    const b = frame();
+    a.guard.asking();
+    const failure = new Error("in a timer");
+    failure.stack =
+      "Error: in a timer\n    at f (http://x/preview-module.tsx:3:1)";
+    const thrown = new Promise<void>((resolve) => {
+      asPreview(() =>
+        setTimeout(() => {
+          window.dispatchEvent(new ErrorEvent("error", { error: failure }));
+          resolve();
+        }, 0)
+      );
+    });
+    b.guard.asking();
+    await thrown;
+    expect(a.error).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "in a timer" })
+    );
+    expect(b.error).not.toHaveBeenCalled();
+  });
+});

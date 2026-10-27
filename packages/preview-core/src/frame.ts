@@ -220,6 +220,7 @@ const mountFrame = (
     host,
     interactive: () => interactive,
     navigate: (route, replace) => events.navigateTo?.(route, replace),
+    still: options.still,
   });
   /** The frame is drawing or took input: what its code asks of the window is about it. */
   const asking = () => {

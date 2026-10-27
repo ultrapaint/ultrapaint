@@ -539,21 +539,28 @@ const ComponentInstanceView = ({
       : node.text;
   const props = withPublicUrls(node.props ?? {}, scope.publicUrl);
   const onClickCapture = onLink(scope, node.link);
+  // The marker goes first: its effects run just before the component's, so what those ask of
+  // the window, throw or schedule is this frame's, whichever frame drew since.
   const component = (extra: Record<string, unknown>) =>
     createElement(
-      Boundary,
-      {
-        key,
-        label: node.component,
-        nodeId: wrapped ? undefined : node.id,
-        resetKeys: [node, Resolved],
-      },
-      Resolved
-        ? createElement(Resolved, { ...props, ...extra }, content)
-        : createElement(Missing, {
-            ...extra,
-            text: `${node.component} is not in ${node.from}`,
-          })
+      Fragment,
+      null,
+      createElement(Drawing, { drawing: scope.drawing }),
+      createElement(
+        Boundary,
+        {
+          key,
+          label: node.component,
+          nodeId: wrapped ? undefined : node.id,
+          resetKeys: [node, Resolved],
+        },
+        Resolved
+          ? createElement(Resolved, { ...props, ...extra }, content)
+          : createElement(Missing, {
+              ...extra,
+              text: `${node.component} is not in ${node.from}`,
+            })
+      )
     );
 
   // What a component spec's stylesheet finds the instance by (ADR 0029).

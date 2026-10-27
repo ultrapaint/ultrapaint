@@ -14,11 +14,18 @@
  * - what goes into the head for the page's document (its `<title>`, its `<meta>`, its icons) and
  *   `document.title` are kept off the editor's;
  * - what the preview's code throws and nothing catches (in a handler, a timer, a promise) is told
- *   to its frame, which the editor shows, instead of going by in the editor's console only.
+ *   to its frame, which the editor shows, instead of going by in the editor's console only;
+ * - an animation frame it asks for is its frame's, and waits while that frame is parked or off
+ *   the screen: a loop on a page nobody sees costs the editor nothing; a timer it sets runs as
+ *   its frame's, so what the timer throws or listens to is that frame's too.
  *
  * Which frame is the one that was drawing or took input, as `media.ts` tells the window's size.
  */
-import { calledFromPreview, thrownInPreview } from "./portals.ts";
+import {
+  calledDirectlyFromPreview,
+  calledFromPreview,
+  thrownInPreview,
+} from "./portals.ts";
 
 /** This module's own file, whose frames on the stack are the patch, not who called it. */
 const OWN = import.meta.url.split("?")[0] ?? "";
@@ -42,6 +49,8 @@ export interface GuardedFrame {
   readonly interactive: () => boolean;
   /** A page the frame's code pushed: the prototype follows it. */
   readonly navigate: (route: string, replace: boolean) => void;
+  /** A picture: drawn wherever it is, its animation frames never held. */
+  readonly still?: boolean | undefined;
 }
 
 /** Events of the page's own input: heard from inside a frame only. */
@@ -119,9 +128,47 @@ const wrapped = new WeakMap<object, Map<string, EventListener>>();
 let current: GuardedFrame | null = null;
 /** The frame whose `scroll` or `resize` is being told: the window's position is its. */
 let telling: GuardedFrame | null = null;
+/** The frame whose callback the guards are calling: its page's code runs, no stack to read. */
+let carrying: GuardedFrame | null = null;
 let installed = false;
 let fromPreview = () => calledFromPreview([OWN]);
+let directlyFromPreview = calledDirectlyFromPreview;
 let thrownIn = thrownInPreview;
+
+/** Runs `f` as `frame`'s page code: what it asks of the window, throws or schedules is its. */
+const runAs = <T>(frame: GuardedFrame, f: () => T): T => {
+  const before = carrying;
+  carrying = frame;
+  current = frame;
+  frame.asking();
+  try {
+    return f();
+  } finally {
+    carrying = before;
+  }
+};
+
+/**
+ * Whether a callback is the preview's, by who first scheduled it: a loop or a debounce hands the
+ * same function again and again, and only the first time costs reading the stack.
+ */
+const previewCallbacks = new WeakMap<object, boolean>();
+
+/** The frame a scheduling call is for: the one whose code runs, or null for the editor's. */
+const schedulingFrame = (
+  patched: (...args: never[]) => unknown,
+  callback: object
+): GuardedFrame | null => {
+  if (carrying || !current) {
+    return carrying;
+  }
+  let isPreview = previewCallbacks.get(callback);
+  if (isPreview === undefined) {
+    isPreview = directlyFromPreview(patched);
+    previewCallbacks.set(callback, isPreview);
+  }
+  return isPreview ? current : null;
+};
 
 const call = (listener: Listener, self: unknown, event: Event) => {
   if (typeof listener === "function") {
@@ -153,8 +200,6 @@ const relay = (frame: GuardedFrame, type: string) => {
   const event = new Event(type);
   const before = telling;
   telling = frame;
-  current = frame;
-  frame.asking();
   try {
     for (const entry of [...relayed]) {
       if (
@@ -164,7 +209,7 @@ const relay = (frame: GuardedFrame, type: string) => {
         if (entry.once) {
           relayed.delete(entry);
         }
-        call(entry.listener, entry.target, event);
+        runAs(frame, () => call(entry.listener, entry.target, event));
       }
     }
   } finally {
@@ -240,9 +285,7 @@ const guardInput = (
     if (once) {
       forget();
     }
-    current = frame;
-    frame.asking();
-    call(listener, this, event);
+    runAs(frame, () => call(listener, this, event));
   };
   byKey.set(key, guarded);
   native.add(
@@ -493,6 +536,110 @@ const reportUncaught = () => {
   );
 };
 
+// ---- Animation frames and timers ----
+
+/** Ids of the animation frames asked for by the preview: apart from the browser's own. */
+const FIRST_FRAME_ID = 2 ** 30;
+let nextFrameId = FIRST_FRAME_ID;
+/** An animation frame the preview's code asked for: the browser's, or held while unseen. */
+interface Scheduled {
+  readonly callback: FrameRequestCallback;
+  readonly frame: GuardedFrame;
+  native: number | null;
+}
+const scheduled = new Map<number, Scheduled>();
+/** Frames off the screen or parked: their animation frames wait. */
+const unseen = new WeakSet<GuardedFrame>();
+let nativeFrame: typeof requestAnimationFrame = (callback) =>
+  requestAnimationFrame(callback);
+let nativeCancel: typeof cancelAnimationFrame = (id) =>
+  cancelAnimationFrame(id);
+
+/** Asks the browser for `id`'s animation frame, or holds it while its frame is unseen. */
+const place = (id: number, entry: Scheduled) => {
+  if (unseen.has(entry.frame)) {
+    entry.native = null;
+    return;
+  }
+  entry.native = nativeFrame((time) => {
+    if (scheduled.get(id) !== entry) {
+      return;
+    }
+    if (unseen.has(entry.frame)) {
+      entry.native = null;
+      return;
+    }
+    scheduled.delete(id);
+    runAs(entry.frame, () => entry.callback(time));
+  });
+};
+
+/** `frame` is seen again: what it held is asked for. */
+const release = (frame: GuardedFrame) => {
+  for (const [id, entry] of scheduled) {
+    if (entry.frame === frame && entry.native === null) {
+      place(id, entry);
+    }
+  }
+};
+
+const guardAnimationFrames = () => {
+  nativeFrame = window.requestAnimationFrame.bind(window);
+  nativeCancel = window.cancelAnimationFrame.bind(window);
+  const request = (callback: FrameRequestCallback): number => {
+    const frame = schedulingFrame(request, callback);
+    if (!frame) {
+      return nativeFrame(callback);
+    }
+    nextFrameId += 1;
+    const entry: Scheduled = { callback, frame, native: null };
+    scheduled.set(nextFrameId, entry);
+    place(nextFrameId, entry);
+    return nextFrameId;
+  };
+  window.requestAnimationFrame = request;
+  window.cancelAnimationFrame = (id: number) => {
+    const entry = scheduled.get(id);
+    if (!entry) {
+      nativeCancel(id);
+      return;
+    }
+    scheduled.delete(id);
+    if (entry.native !== null) {
+      nativeCancel(entry.native);
+    }
+  };
+};
+
+/** A timer the preview's code sets runs as its frame's code. */
+const guardTimers = () => {
+  for (const name of ["setTimeout", "setInterval"] as const) {
+    const native = window[name].bind(window) as (
+      handler: TimerHandler,
+      timeout?: number,
+      ...args: unknown[]
+    ) => number;
+    const set = (
+      handler: TimerHandler,
+      timeout?: number,
+      ...args: unknown[]
+    ): number => {
+      const frame =
+        typeof handler === "function" ? schedulingFrame(set, handler) : null;
+      if (!frame) {
+        return native(handler, timeout, ...args);
+      }
+      const run = handler as (...a: unknown[]) => unknown;
+      return native(
+        (...a: unknown[]) => runAs(frame, () => run(...a)),
+        timeout,
+        ...args
+      );
+    };
+    window[name] = set as never;
+  }
+};
+
 /**
  * Puts the guards in place, once. By default the stack says whether the code calling is the
  * preview's, and where an error was thrown, as `portals.ts` reads it; tests say it instead.
@@ -503,6 +650,7 @@ export const installGuards = (test?: {
 }) => {
   if (test) {
     fromPreview = test.caller;
+    directlyFromPreview = test.caller;
     thrownIn = test.thrown;
   }
   if (installed || typeof window === "undefined") {
@@ -516,6 +664,8 @@ export const installGuards = (test?: {
   guardScroll();
   guardHistory();
   guardHead();
+  guardAnimationFrames();
+  guardTimers();
 };
 
 /**
@@ -538,12 +688,31 @@ export const guardFrame = (frame: GuardedFrame) => {
     relay(frame, "resize");
   });
   resize.observe(frame.host);
+  // Off the screen or parked, it is not seen: its animation frames wait until it is.
+  const seen = new IntersectionObserver(([entry]) => {
+    if (frame.still || entry?.isIntersecting) {
+      unseen.delete(frame);
+      release(frame);
+    } else {
+      unseen.add(frame);
+    }
+  });
+  seen.observe(frame.host);
   return {
     asking: () => {
       current = frame;
     },
     unmount: () => {
       resize.disconnect();
+      seen.disconnect();
+      for (const [id, entry] of scheduled) {
+        if (entry.frame === frame) {
+          scheduled.delete(id);
+          if (entry.native !== null) {
+            nativeCancel(entry.native);
+          }
+        }
+      }
       frame.host.removeEventListener("scroll", onScroll);
       frames.delete(frame.host);
       for (const entry of relayed) {
