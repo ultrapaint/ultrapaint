@@ -195,6 +195,12 @@ export interface Preview {
   ) => FrameRuntime;
   /** The dev server updated modules: what was in error may draw now. */
   readonly notifyHmr: () => void;
+  /**
+   * Hears which frame's page code is running (drawing, or answering input), by the `frame` it
+   * was mounted with: what the editor's watchdog blames when the page stops the editor's thread.
+   * Told when it changes, and again at most every few hundred milliseconds while it runs.
+   */
+  readonly onRunning: (listener: (frame: string) => void) => () => void;
   /** A dev server error, reported to every frame. */
   readonly reportError: (error: {
     readonly file?: string | undefined;

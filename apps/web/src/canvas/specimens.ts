@@ -16,6 +16,7 @@ import {
 import type { FrameRuntime, Preview } from "@ultrapaint/framework-api/browser";
 import { bridgeFor } from "./bridge.ts";
 import { previewReady } from "./preview-module.ts";
+import { tryNextTime, useFrozen } from "./watchdog.ts";
 
 const FRAME = "specimen";
 const WIDTH = 1200;
@@ -59,7 +60,9 @@ const settle = () =>
  */
 const open = async (canvas: string) => {
   const preview = await previewReady();
-  if (!preview) {
+  // Pictures stopped the editor the last time: none are drawn until it loads again.
+  if (!preview || useFrozen.getState().frames.has(FRAME)) {
+    tryNextTime(FRAME);
     return null;
   }
   if (specimen?.preview === preview && specimen.canvas === canvas) {

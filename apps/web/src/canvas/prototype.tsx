@@ -46,9 +46,11 @@ import { useProject } from "../state/project.ts";
 import { bridgeFor } from "./bridge.ts";
 import { commentCursor, FrameComments, placeComment } from "./comments.tsx";
 import { formatHostError } from "./frame.tsx";
+import { FrozenPage } from "./frozen-page.tsx";
 import { HotspotLayer, HotspotsToggle, onPrototypePress } from "./hotspots.tsx";
 import { usePreview } from "./preview-module.ts";
 import { PreviewSurface } from "./preview-surface.tsx";
+import { useFrozen } from "./watchdog.ts";
 
 /** Room kept free around the page for the cards at the top and the bottom strip. */
 const inset = { bottom: 72, side: 32, top: 64 };
@@ -185,6 +187,9 @@ export const Prototype = () => {
   const [area, setArea] = useState({ height: 0, width: 0 });
   const [reloads, setReloads] = useState(0);
   const hasPages = canvas !== null && pages.some((p) => p.canvas === canvas);
+  const frozen = useFrozen(
+    (s) => canvas !== null && s.frames.has(frameIdOf(canvas))
+  );
   const hostError = useEditor((s) =>
     canvas === null ? null : (s.hostErrors[frameIdOf(canvas)] ?? null)
   );
@@ -252,7 +257,10 @@ export const Prototype = () => {
           style={{ height: size.height * scale, width: size.width * scale }}
         >
           <div className="relative h-full w-full overflow-hidden rounded-md bg-white shadow-2xl">
-            {canvas === null ? null : (
+            {canvas !== null && frozen ? (
+              <FrozenPage frame={frameIdOf(canvas)} />
+            ) : null}
+            {canvas === null || frozen ? null : (
               <PreviewSurface
                 canvas={canvas}
                 className="origin-top-left bg-white"
@@ -287,7 +295,7 @@ export const Prototype = () => {
               />
             )}
             {hostError ? (
-              <div className="absolute inset-x-0 bottom-0 flex items-start gap-2 bg-destructive/90 p-3 font-code text-white text-xs">
+              <div className="absolute inset-x-0 bottom-0 flex items-start gap-2 bg-destructive/90 p-3 font-code text-white">
                 <TriangleAlert className="size-4 shrink-0" />
                 <pre className="whitespace-pre-wrap">{hostError}</pre>
               </div>

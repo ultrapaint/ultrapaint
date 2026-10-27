@@ -6,6 +6,7 @@
 import type { Preview } from "@ultrapaint/framework-api/browser";
 import { useEffect, useSyncExternalStore } from "react";
 import { useProject } from "../state/project.ts";
+import { readFrozen, watchPreview } from "./watchdog.ts";
 
 interface PreviewModule {
   readonly onReloadRequest: (listener: () => void) => () => void;
@@ -25,11 +26,16 @@ const load = (entry: string) => {
   if (loading?.entry === entry) {
     return loading.module;
   }
-  const module = import(/* @vite-ignore */ entry) as Promise<PreviewModule>;
+  // The frames that froze the editor before are known before anything is drawn.
+  const module = Promise.all([
+    import(/* @vite-ignore */ entry) as Promise<PreviewModule>,
+    readFrozen(useProject.getState().info.repoPath ?? ""),
+  ]).then(([m]) => m);
   loading = { entry, module };
   module.then(
     (m) => {
       m.onReloadRequest(() => window.location.reload());
+      watchPreview(m.preview);
       loaded = { entry, preview: m.preview };
       for (const listener of listeners) {
         listener();

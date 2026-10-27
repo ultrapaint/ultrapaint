@@ -541,6 +541,36 @@ const makeWindow = () => {
   created.on("closed", () => {
     window = null;
   });
+  // The repository's components run on the editor's thread (ADR 0034): a loop in one stops it for
+  // good. Loaded again, the editor shows the page that stopped it without drawing it (the
+  // watchdog wrote it down, docs/PLAN-preview-sandbox.md).
+  let asking = false;
+  created.on("unresponsive", () => {
+    if (asking) {
+      return;
+    }
+    asking = true;
+    dialog
+      .showMessageBox(created, {
+        buttons: ["Reload", "Wait"],
+        cancelId: 1,
+        defaultId: 0,
+        detail:
+          "A page of the design may be running code that never ends. Reloaded, the editor shows that page without drawing it.",
+        message: "The editor is not responding",
+        type: "warning",
+      })
+      .then(({ response }) => {
+        if (response === 0 && !created.isDestroyed()) {
+          created.webContents.forcefullyCrashRenderer();
+          created.webContents.reload();
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        asking = false;
+      });
+  });
   // Full screen draws no buttons: the title card takes their room back.
   created.on("enter-full-screen", () =>
     created.webContents.send(Channel.fullScreen, true)

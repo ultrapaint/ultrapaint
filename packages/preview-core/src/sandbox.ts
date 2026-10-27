@@ -153,6 +153,7 @@ const relay = (frame: GuardedFrame, type: string) => {
   const event = new Event(type);
   const before = telling;
   telling = frame;
+  current = frame;
   frame.asking();
   try {
     for (const entry of [...relayed]) {
@@ -239,6 +240,7 @@ const guardInput = (
     if (once) {
       forget();
     }
+    current = frame;
     frame.asking();
     call(listener, this, event);
   };

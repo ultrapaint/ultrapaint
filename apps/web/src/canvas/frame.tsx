@@ -54,11 +54,13 @@ import {
   useHoverIn,
   useSelectedIn,
 } from "./frame-highlights.tsx";
+import { FrozenPage } from "./frozen-page.tsx";
 import { PageToolbar } from "./page-toolbar.tsx";
 import { usePreview } from "./preview-module.ts";
 import { parkPreview, placePreview, previewDrawn } from "./preview-pool.ts";
 import { useFrameBridge } from "./use-frame-bridge.ts";
 import { useFramePointer } from "./use-frame-pointer.ts";
+import { useFrozen } from "./watchdog.ts";
 
 /** An error of a frame's page as the editor writes it: the message, then where it was thrown. */
 export const formatHostError = (error: HostError) => {
@@ -211,8 +213,9 @@ export const Frame = memo(
     // A frame drawn once keeps its page while it is away from the screen: hidden where it is,
     // so coming back neither moves it nor lays it out again.
     const [kept, setKept] = useState(false);
-    const drawn = visible && preview !== null;
-    const hosted = (visible || kept) && preview !== null;
+    const frozen = useFrozen((s) => s.frames.has(frameId));
+    const drawn = visible && preview !== null && !frozen;
+    const hosted = (visible || kept) && preview !== null && !frozen;
     const name = frameName(page, root);
     // A page is drawn at its frame's width; a node on the canvas at its own.
     const drawnWidth = kind === "page" ? frame.width : undefined;
@@ -371,7 +374,8 @@ export const Frame = memo(
               preview={preview}
               title={name}
             />
-          ) : (
+          ) : null}
+          {(hosted && canvas !== null) || frozen ? null : (
             <div className="flex h-full items-center justify-center text-zinc-500">
               {running ? "" : "Preview host not running"}
             </div>
@@ -399,6 +403,12 @@ export const Frame = memo(
           <ToolbarLayer.Provider value={toolbarLayer}>
             <Highlights frameId={frameId} />
           </ToolbarLayer.Provider>
+          {/* Over the layers that select: its button takes the click. */}
+          {frozen ? (
+            <div className="absolute inset-0">
+              <FrozenPage frame={frameId} />
+            </div>
+          ) : null}
         </div>
 
         {page ? <FrameComments page={page} /> : null}
