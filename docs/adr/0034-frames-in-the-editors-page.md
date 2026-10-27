@@ -72,12 +72,13 @@ Measured on the Redesign canvas (10 frames, 4,287 layers) on the same machine:
   `scroll` and `resize` to its frame, the editor's address, title and head the editor's, and show
   what it throws on its frame (rejections by the frame their `async` function was called for),
   send its requests to the editor's origin to the preview's server and its proxy, give it storage
-  of its own in memory, and put what it writes to `<html>` and `<body>` and the styles its code
-  writes to the head (CSS-in-JS) on its frames. A loop in
-  the repository's own code throws after holding the editor 2.5 s (the preview's server checks
-  every loop); a loop it cannot see (a dependency's) still stops the editor while it runs, the
-  desktop app ending the page's process after 4 s, and the page is drawn as a placeholder the
-  next time.
+  of its own in memory, put what it writes to `<html>` and `<body>` and the styles it writes or
+  links in the head (CSS-in-JS, stylesheets) on its frames, and take back what a module's
+  top-level code added to the window when the module is edited. A loop, in the repository's code
+  or a dependency's (React's included), throws after holding the editor 2.5 s: the preview's
+  server checks every loop. What has no loop (an endless chain of promises, the browser's own
+  code spinning) still stops the editor while it runs, the desktop app ending the page's process
+  after 4 s, and the page is drawn as a placeholder the next time.
 - One copy of the application's modules serves every frame: a store made at module level (a
   cart, a query client) is the same in every frame and in the prototype. Accepted: it is what
   makes the frames cheap; only a frame of its own realm (an iframe) would keep them apart.
