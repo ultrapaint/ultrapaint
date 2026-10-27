@@ -44,10 +44,40 @@ const SCRIPT_FRAME_RE = /(?:https?:|\/)[^\s)]+:\d+:\d+/;
 export const previewBase = () => base;
 
 /**
- * Whether the preview's code alone is on the stack that called `patched`: its immediate caller
- * is the preview's own, and nothing under it is the editor's. Asked where the editor's own calls
- * may come through the preview's code: an application that wraps a global (`window.fetch`, for
- * its logging) is called by the editor too, and the immediate caller is then the application's.
+ * Whether a stack (its frames from the caller down) is the preview's call: its caller is the
+ * preview's own code, and below it, the first code that is not the preview's is the editor's
+ * bundle in the preview (`bundle`), through which the editor hands the preview its work (a frame to
+ * draw, a timer, an event), or nothing at all. The editor's own code found first instead called
+ * the preview's directly: an application's wrapper of a global (`window.fetch`, for its logging),
+ * which the call is the editor's through.
+ */
+export const previewCallOn = (
+  frames: readonly string[],
+  servedUnder: string,
+  bundle: string
+): boolean => {
+  const [caller] = frames;
+  if (
+    caller === undefined ||
+    caller.includes(bundle) ||
+    !caller.includes(servedUnder)
+  ) {
+    return false;
+  }
+  for (const frame of frames) {
+    if (frame.includes(bundle)) {
+      return true;
+    }
+    if (!frame.includes(servedUnder)) {
+      return false;
+    }
+  }
+  return true;
+};
+
+/**
+ * Whether the call to `patched` is the preview's, by its whole stack (`previewCallOn`). Asked where
+ * the editor's own calls may come through the preview's code.
  */
 export const calledOnlyFromPreview = (patched: object) => {
   const v8 = Error as {
@@ -66,12 +96,7 @@ export const calledOnlyFromPreview = (patched: object) => {
     .split("\n")
     .slice(1)
     .filter((line) => SCRIPT_FRAME_RE.test(line));
-  const [caller] = frames;
-  return (
-    caller !== undefined &&
-    !caller.includes(OWN) &&
-    frames.every((line) => line.includes(base))
-  );
+  return previewCallOn(frames, base, OWN);
 };
 
 const fromPreview = () => calledFromPreview();
