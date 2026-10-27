@@ -24,10 +24,18 @@ beforeAll(() =>
     caller: () => preview,
     thrown: (stack) =>
       stack?.includes("preview-module.tsx")
-        ? { file: "src/preview-module.tsx", line: 3 }
+        ? {
+            column: 1,
+            file: "src/preview-module.tsx",
+            line: 3,
+            url: "http://x/preview-module.tsx",
+          }
         : null,
   })
 );
+
+/** What is told of an error is told once its line is looked up: after a turn. */
+const settled = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 const mounted: (() => void)[] = [];
 afterEach(() => {
@@ -197,12 +205,13 @@ describe("errors nothing caught", () => {
     return error;
   };
 
-  it("are told to the frame that was drawing when the preview's code threw them", () => {
+  it("are told to the frame that was drawing when the preview's code threw them", async () => {
     const a = frame();
     a.guard.asking();
     window.dispatchEvent(
       new ErrorEvent("error", { error: thrown("in a timer", true) })
     );
+    await settled();
     expect(a.error).toHaveBeenCalledWith(
       expect.objectContaining({
         file: "src/preview-module.tsx",
@@ -212,12 +221,13 @@ describe("errors nothing caught", () => {
     );
   });
 
-  it("are left to the editor when its own code threw them", () => {
+  it("are left to the editor when its own code threw them", async () => {
     const a = frame();
     a.guard.asking();
     window.dispatchEvent(
       new ErrorEvent("error", { error: thrown("the editor's", false) })
     );
+    await settled();
     expect(a.error).not.toHaveBeenCalled();
   });
 });
@@ -243,7 +253,7 @@ describe("rejections", () => {
       Object.assign(new Event("unhandledrejection"), { reason })
     );
 
-  it("are told to the frame their async function was called for, whichever runs since", () => {
+  it("are told to the frame their async function was called for, whichever runs since", async () => {
     const a = frame();
     const b = frame();
     a.guard.asking();
@@ -252,19 +262,21 @@ describe("rejections", () => {
     b.guard.asking();
     guard().mark(error, called);
     surface(error);
+    await settled();
     expect(a.error).toHaveBeenCalledWith(
       expect.objectContaining({ message: "in a" })
     );
     expect(b.error).not.toHaveBeenCalled();
   });
 
-  it("are told to no frame when nothing says which", () => {
+  it("are told to no frame when nothing says which", async () => {
     const a = frame();
     const b = frame();
     a.guard.asking();
     const stray = vi.fn();
     const stop = onStrayError(stray);
     surface(rejected("in a chain"));
+    await settled();
     stop();
     expect(stray).toHaveBeenCalledWith(
       expect.objectContaining({ message: "in a chain" })
@@ -273,9 +285,10 @@ describe("rejections", () => {
     expect(b.error).not.toHaveBeenCalled();
   });
 
-  it("are the one frame's when only one is drawn", () => {
+  it("are the one frame's when only one is drawn", async () => {
     const a = frame();
     surface(rejected("alone"));
+    await settled();
     expect(a.error).toHaveBeenCalledWith(
       expect.objectContaining({ message: "alone" })
     );
@@ -300,6 +313,7 @@ describe("timers", () => {
     });
     b.guard.asking();
     await thrown;
+    await settled();
     expect(a.error).toHaveBeenCalledWith(
       expect.objectContaining({ message: "in a timer" })
     );

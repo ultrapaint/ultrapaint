@@ -390,3 +390,8 @@ Answered 2026-10-27.
       as a dependency's work would), which the check does not see and the watchdog still does.
       Redesign, before / after: load 371–403 / 366–384 ms, pan 17–19 / 16–18% busy, zoom 34–37 /
       34–37%, renderer 420–423 / 420–421 MB. sacro-cuore draws its four frames, no error.
+- [x] 7b. What a frame is told of an error names the source's line: a stack's lines are the
+      module's as the server sent it, after the React plugin and TypeScript (the loop in a click
+      was said to be at line 177, where the source has a `throw` 18 lines further up). The
+      module's inline source map, read once when something throws (`source-lines.ts`), takes it
+      back. Wrong since step 2; found by step 7's checks, which now say the line.
