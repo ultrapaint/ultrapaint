@@ -1,0 +1,117 @@
+# Plan: deeper modules, from the architecture review of 2026-10-27
+
+Status: in progress. One step per candidate of the review, built one after the other, each its
+own commit. The decisions it takes are recorded in
+[ADR 0037](adr/0037-deep-modules.md) when the last step lands, and in the ADRs a step amends
+(named in the step). The terms are in `GLOSSARY.md`.
+
+## Why
+
+The review found the services themselves well built and the friction in what joins them: the
+same knowledge written in several places (a token kind's prefix and list nine times, "busy" nine
+ways, the rule for "is this the page's code" five times), modules whose interface is shared
+mutable state, string protocols nothing checks (slash commands built by one caller and parsed
+by another, globals the server's generated code calls, IPC channels copied by hand), and logic
+that can only be tested end to end (thread behaviour through a child process, the guards through
+`pnpm e2e:sandbox`). Each step below gives one concept one module, with a small interface its
+callers and its tests share.
+
+## Decisions taken for the open questions
+
+- The steps keep every ADR's behaviour. Only ADR 0032's "the key handlers stay where they were"
+  is reversed (step 16), and ADR 0019's snapshots change their storage, not what they are
+  (step 5).
+- Named snapshots kept in the old format are imported into the snapshot store the first time
+  the snapshots are listed, then the old files are removed (step 5).
+- The page runtime contract (step 11) declares the globals' names and shapes once and both sides
+  import them. Reaching the guards through an import instead of a global is left out: the
+  dependency-only loop check must stay standalone, and nothing measured asks for it.
+- The renderer seam stays, by ADR 0011, with one adapter (step 13).
+- The setup step runner (B3's second half) is part of step 8.
+- `pnpm e2e:sandbox` stays out of CI (it needs a browser and a fixture's server); steps 9 and 10
+  move what it can into unit tests instead.
+
+## Steps
+
+### A. Design system and tokens
+
+1. **One token table.** A module in `packages/contracts` owns which list of `DesignSystem` holds
+   each token kind, its name prefix, the spacing base and font sizes' line heights: flatten, add,
+   set and remove by name, strip and lay over values. `listTokens`, `removeTokens`,
+   `withTokenChanges`, `tokenValues`, briefing's `tokensOf` and dtcg's placement go through it;
+   the adapters' prefix tables derive from it. Fixes the dropped tokens: a new token of a kind
+   other than colour, radius or spacing was filtered out by `listTokens`.
+2. **A pure codec for the design system's files.** Reading (`design-system.json`, the tokens
+   file, the code's tokens, the current design system) and writing (the two texts) move out of
+   `DesignSystemService`'s closures into one pure module; `dtcg.ts` is its format. Every member
+   gets the design system through the same reading.
+3. **One module for what a token value is.** Parsing a CSS value into a colour, a length, a
+   duration, a number or other, with equality, unit conversion and printing, in a shared package
+   used by the server, DTCG, DESIGN.md and Tailwind. One notion of "same value".
+4. **One engine for a side compared with its baseline.** Code, Figma and DESIGN.md become side
+   adapters (their tokens, how they match, where their baseline is kept); one engine computes the
+   outcomes, the changes a user's picks make, and moves the baseline forward, with step 3's
+   equality. DESIGN.md's mirror merge uses the same rule.
+5. **Named snapshots on the snapshot store.** `Snapshots` becomes a `designs` namespace on
+   `SnapshotStore`, keeping only its view of pages and canvases. Amends ADR 0019 (storage).
+
+### B. Agent threads
+
+6. **An agent-launcher seam.** A scoped service gives an `AcpAgent` for a launch: the live
+   adapter spawns it, a test adapter is a scripted in-memory agent. `ServerConfig.layerTest`.
+   Thread behaviour (queue, cancel, permissions, elicitation) gets `it.effect` tests with
+   `TestClock`; a few end-to-end tests keep the fake agent process.
+7. **A thread session module.** One module per thread owns the live state, the status
+   transitions, the turn cursor, the queue and the cards the agent waits on (open, resolve,
+   release all, remembered choices, shown count). `ThreadService` routes to it; "busy" is
+   defined once in contracts and used by the server and the web.
+8. **Typed agent tasks.** A tasks module takes a typed request (implement, adopt, sync, setup
+   step, …) and returns the task's text and the thread's purpose, or a typed failure. The slash
+   parser is one adapter in front of it; the handoff tool and the setup RPCs call it directly.
+   One page-naming rule, shared with the MCP lookup. A setup step runner starts, stops and redoes
+   a step with its thread, out of the RPC handlers.
+
+### C. Preview sandbox and frames
+
+9. **Provenance.** One module in preview-core owns the preview's base path (passed in), reading a
+   stack, and the rules each guard needs, named by purpose, plus "this module is the
+   repository's", which the desktop app shares. Tests run recorded stacks against each rule.
+10. **A typed page runtime contract.** The globals the server's generated code calls
+    (`__ultrapaintGuard`, `__edStyles`, `__edReload`, `__ED__`) and the module marker are declared
+    once; the templates, preview-core and the desktop app import them.
+11. **A sandbox kernel.** One owner for whose code runs (the turn) and for the order every
+    window, document, head and body patch is installed in; the head and body redirects share one
+    helper. `mountFrame` registers a frame once.
+12. **An editor-side frame module.** One module opens a frame: host, pool, freeze check,
+    interactive flag, skipped repeated draws, replay on re-attach, typed events and synchronous
+    queries. The message translation of `FrameBridge` and the unused `HostMessage` variants go.
+13. **The renderer interface has one host.** `RenderSetup`'s optional fields become required,
+    the head fallback goes, and the entry module moves into preview-core. Amends ADR 0011.
+
+### D. Web editor and desktop shell
+
+14. **The shell bridge as one table of capabilities.** Each capability is declared once, with
+    Schema'd input and output and whether a remote project shows it, in a package both apps
+    import; a generic exposer in the preload and a generic server in main. The stuck-page
+    watchdog becomes its own tested module.
+15. **One location module.** Canvas, route, variant, active page, the URL and the remembered
+    canvas, with "go to", "follow the frame", "went back" and "the pages changed"; nothing else
+    writes the URL. The camera moves out of `editor.ts`.
+16. **Key bindings declared once.** A binding (chord, scope, command) is declared next to its
+    command; the key handler, the palette, the shortcut sheet and the menus read it. Amends
+    ADR 0032.
+17. **One owner for an edit to a node.** Every node edit (inspector, Layers, drag, clipboard,
+    canvas) goes through `node-actions`, which applies the breakpoint rule of ADR 0036 and
+    reselects; tested through `fakeApi`.
+18. **Menu items carry their action.** Each item holds a typed action; fact gathering sits behind
+    the same interface and is tested from store fixtures.
+
+## Built
+
+1. **Token table** (`packages/contracts/src/token-table.ts`). `TOKEN_TABLE` names each kind's list
+   and prefixes; `allTokens`, `addTokens`, `removeTokens`, `withTokenChanges`, `stripValues`,
+   `layValues` and `fillValues` are the only code that walks the lists. A new token of any kind is
+   now listed where its kind goes (only colours, radii and spacings were). Also: `text-shadow-*`
+   is a shadow, no longer a font size; `design-system.json` no longer keeps named spacings'
+   values; briefing lists every kind; dtcg's `designTokensOf` is `designTokensDocument`. Left
+   alone: Tailwind's palette namespaces and DESIGN.md's mirror, which are their formats' own.

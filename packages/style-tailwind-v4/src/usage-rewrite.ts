@@ -12,6 +12,7 @@ import {
   type UsageLeft,
   type UsageValue,
 } from "@ultrapaint/contracts/design-system-setup";
+import { tokenPrefix } from "@ultrapaint/contracts/token-table";
 import type {
   UsageOccurrence,
   UsageReader,
@@ -32,16 +33,6 @@ const SPACES_RE = /\s+/g;
 const TRAILING_ZERO_RE = /\.0$/;
 const REGEX_CHARS_RE = /[.*+?^${}()|[\]\\]/g;
 const PX_PER_REM = 16;
-
-/** The prefix a kind's token names start with, and what is left of a token is a class's value. */
-const PREFIX: Partial<Record<UsageKind, string>> = {
-  color: "color-",
-  fontSize: "text-",
-  fontWeight: "font-weight-",
-  radius: "radius-",
-  shadow: "shadow-",
-  spacing: "spacing-",
-};
 
 /** `16px` and `1rem` as pixels; null for anything else. */
 const toPx = (value: string): number | null => {
@@ -174,7 +165,8 @@ const classValue = (kind: UsageKind, target: string): string | null => {
   if (kind === "zIndex") {
     return NUMBER_RE.test(target) ? target : null;
   }
-  const prefix = PREFIX[kind];
+  // What is left of a token past its kind's prefix is the class's value; an element has none.
+  const prefix = kind === "element" ? "" : tokenPrefix(kind);
   return prefix && target.startsWith(prefix)
     ? target.slice(prefix.length)
     : null;

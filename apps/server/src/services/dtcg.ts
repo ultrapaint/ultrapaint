@@ -14,16 +14,14 @@
  * `$type`. The other themes' values are under the extension's `themes`, encoded as `$value` is,
  * and their CSS under `themesCss` when the encoding does not say it exactly.
  */
+import type { DesignSystem, Token } from "@ultrapaint/contracts/design-system";
 import {
-  type DesignSystem,
-  mapTokens,
-  type Token,
-} from "@ultrapaint/contracts/design-system";
-import {
-  type SourceToken,
-  type TokenKind,
+  allTokens,
+  TOKEN_TABLE,
   tokenKindOf,
-} from "@ultrapaint/contracts/tokens";
+  tokenPrefix,
+} from "@ultrapaint/contracts/token-table";
+import type { SourceToken, TokenKind } from "@ultrapaint/contracts/tokens";
 import { parseColor } from "./token-values.ts";
 
 /** The values' file, in the designs directory next to `design-system.json`. */
@@ -36,24 +34,31 @@ type Rec = Record<string, unknown>;
 const isRec = (v: unknown): v is Rec =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
-/** Each kind's group in the file and the prefix its names start with, in the order written. */
-const KIND_GROUPS: readonly (readonly [TokenKind, string, string])[] = [
-  ["color", "color", "color-"],
-  ["spacing", "spacing", "spacing-"],
-  ["fontSize", "font-size", "text-"],
-  ["fontWeight", "font-weight", "font-weight-"],
-  ["font", "font-family", "font-"],
-  ["leading", "leading", "leading-"],
-  ["tracking", "tracking", "tracking-"],
-  ["radius", "radius", "radius-"],
-  ["shadow", "shadow", "shadow-"],
-  ["borderWidth", "border-width", "border-width-"],
-  ["breakpoint", "breakpoint", "breakpoint-"],
-  ["container", "container", "container-"],
-  ["easing", "easing", "ease-"],
-  ["duration", "duration", "duration-"],
-  ["animation", "animation", "animate-"],
-  ["other", "other", ""],
+/**
+ * Each kind's group in the file, named as the format's tools name them; the groups are written
+ * in the token table's order, `other` last.
+ */
+const GROUP_NAMES: Record<TokenKind, string> = {
+  animation: "animation",
+  borderWidth: "border-width",
+  breakpoint: "breakpoint",
+  color: "color",
+  container: "container",
+  duration: "duration",
+  easing: "easing",
+  font: "font-family",
+  fontSize: "font-size",
+  fontWeight: "font-weight",
+  leading: "leading",
+  other: "other",
+  radius: "radius",
+  shadow: "shadow",
+  spacing: "spacing",
+  tracking: "tracking",
+};
+const GROUP_ORDER: readonly string[] = [
+  ...TOKEN_TABLE.map((entry) => GROUP_NAMES[entry.kind]),
+  GROUP_NAMES.other,
 ];
 
 const LENGTH_RE = /^(-?\d*\.?\d+)(px|rem)$/;
@@ -509,28 +514,16 @@ interface Placed {
 }
 
 /** Every token of the design system once, `--spacing` first, with any fields beyond a token's. */
-const tokensOf = (ds: DesignSystem): { token: Token; extra: Rec }[] => {
-  const all: { token: Token; extra: Rec }[] = [
-    { extra: {}, token: { name: "spacing", value: ds.spacing.base } },
-  ];
-  mapTokens(ds, (token) => {
-    const { lineHeight, source } = token as Rec;
-    all.push({
-      extra: {
-        ...(typeof lineHeight === "string" && { lineHeight }),
-        ...(typeof source === "string" && { source }),
-      },
-      token,
-    });
-    return token;
-  });
-  const seen = new Set<string>();
-  return all.filter(({ token }) => {
-    const fresh = !seen.has(token.name);
-    seen.add(token.name);
-    return fresh;
-  });
-};
+const tokensOf = (ds: DesignSystem): { token: Token; extra: Rec }[] =>
+  allTokens(ds).map((token) => ({
+    extra: {
+      ...(typeof token.lineHeight === "string" && {
+        lineHeight: token.lineHeight,
+      }),
+      ...(typeof token.source === "string" && { source: token.source }),
+    },
+    token,
+  }));
 
 /** A token's key in its group: its name without the kind's prefix, `$root` for the group's own. */
 const keyOf = (name: string, group: string, prefix: string) => {
@@ -548,10 +541,8 @@ const place = (ds: DesignSystem): Placed[] => {
   const taken = new Set<string>();
   return tokensOf(ds).map(({ extra, token }) => {
     const kind = tokenKindOf(token.name);
-    const found = KIND_GROUPS.find(([k]) => k === kind);
-    const group = found?.[1] ?? "other";
-    const prefix = found?.[2] ?? "";
-    const base = keyOf(token.name, group, prefix);
+    const group = GROUP_NAMES[kind];
+    const base = keyOf(token.name, group, tokenPrefix(kind));
     let key = base;
     for (let n = 2; taken.has(`${group}.${key}`); n += 1) {
       key = `${base}-${n}`;
@@ -610,13 +601,15 @@ const tokenJson = (
  * The design system as a Design Tokens document (2025.10): a group for each kind of token, in a
  * fixed order, each token keeping the order the design system lists it in.
  */
-export const designTokensOf = (ds: DesignSystem): Record<string, unknown> => {
+export const designTokensDocument = (
+  ds: DesignSystem
+): Record<string, unknown> => {
   const placed = place(ds);
   const refs = new Map(
     placed.map((p) => [p.token.name, `${p.group}.${p.key}`])
   );
   const doc: Rec = {};
-  for (const [, group] of KIND_GROUPS) {
+  for (const group of GROUP_ORDER) {
     const tokens = placed.filter((p) => p.group === group);
     if (tokens.length > 0) {
       doc[group] = Object.fromEntries(
@@ -635,7 +628,7 @@ export const designTokensOf = (ds: DesignSystem): Record<string, unknown> => {
 
 /** `design.tokens.json` as it is written: two-space JSON with a trailing newline. */
 export const serialiseDesignTokens = (ds: DesignSystem): string =>
-  `${JSON.stringify(designTokensOf(ds), null, 2)}\n`;
+  `${JSON.stringify(designTokensDocument(ds), null, 2)}\n`;
 
 // Reading.
 
@@ -666,38 +659,41 @@ const COMPOSITE_TYPES = new Set([
 const groupKey = (name: string) =>
   name.toLowerCase().replace(GROUP_NORMAL_RE, "");
 
-/** The prefix a token's name takes from the group it is in, by the names tools give groups. */
+/** The kind of the tokens in a group, by the names tools give groups. */
+const GROUP_KINDS: Record<TokenKind, readonly string[]> = {
+  animation: ["animation", "animations", "animate"],
+  borderWidth: ["borderwidth", "borderwidths"],
+  breakpoint: ["breakpoint", "breakpoints", "screens"],
+  color: ["color", "colors", "colour", "colours"],
+  container: ["container", "containers"],
+  duration: ["duration", "durations"],
+  easing: ["easing", "easings", "ease"],
+  font: ["fontfamily", "fontfamilies", "font", "fonts"],
+  fontSize: ["fontsize", "fontsizes", "text"],
+  fontWeight: ["fontweight", "fontweights"],
+  leading: ["leading", "lineheight", "lineheights"],
+  other: ["other"],
+  radius: ["radius", "radii", "borderradius"],
+  shadow: ["shadow", "shadows", "boxshadow"],
+  spacing: ["spacing", "space", "spacings"],
+  tracking: ["tracking", "letterspacing"],
+};
+
+/** The prefix a token's name takes from the group it is in. */
 const GROUP_PREFIXES = new Map<string, string>(
-  (
-    [
-      ["color-", ["color", "colors", "colour", "colours"]],
-      ["spacing-", ["spacing", "space", "spacings"]],
-      ["text-", ["fontsize", "fontsizes", "text"]],
-      ["font-weight-", ["fontweight", "fontweights"]],
-      ["font-", ["fontfamily", "fontfamilies", "font", "fonts"]],
-      ["leading-", ["leading", "lineheight", "lineheights"]],
-      ["tracking-", ["tracking", "letterspacing"]],
-      ["radius-", ["radius", "radii", "borderradius"]],
-      ["shadow-", ["shadow", "shadows", "boxshadow"]],
-      ["border-width-", ["borderwidth", "borderwidths"]],
-      ["breakpoint-", ["breakpoint", "breakpoints", "screens"]],
-      ["container-", ["container", "containers"]],
-      ["ease-", ["easing", "easings", "ease"]],
-      ["duration-", ["duration", "durations"]],
-      ["animate-", ["animation", "animations", "animate"]],
-      ["", ["other"]],
-    ] as const
-  ).flatMap(([prefix, names]) => names.map((n) => [n, prefix] as const))
+  (Object.entries(GROUP_KINDS) as [TokenKind, readonly string[]][]).flatMap(
+    ([kind, names]) => names.map((n) => [n, tokenPrefix(kind)] as const)
+  )
 );
 
-/** The prefix a token's name takes from its `$type` when its group says nothing. */
-const TYPE_PREFIXES: Record<string, string> = {
-  color: "color-",
-  cubicBezier: "ease-",
-  duration: "duration-",
-  fontFamily: "font-",
-  fontWeight: "font-weight-",
-  shadow: "shadow-",
+/** The kind a token is of by its `$type`, when its group says nothing. */
+const TYPE_KINDS: Record<string, TokenKind> = {
+  color: "color",
+  cubicBezier: "easing",
+  duration: "duration",
+  fontFamily: "font",
+  fontWeight: "fontWeight",
+  shadow: "shadow",
 };
 
 const slug = (s: string) => s.trim().toLowerCase().replace(SLUG_RE, "-");
@@ -710,7 +706,9 @@ const nameFromPath = (
   const [top = "", ...rest] = segments;
   const prefix = GROUP_PREFIXES.get(groupKey(top));
   if (prefix === undefined) {
-    return `${TYPE_PREFIXES[type ?? ""] ?? ""}${segments.map(slug).join("-")}`;
+    const kind = TYPE_KINDS[type ?? ""];
+    const typed = kind === undefined ? "" : tokenPrefix(kind);
+    return `${typed}${segments.map(slug).join("-")}`;
   }
   if (rest.length === 0) {
     return prefix.replace(TRAILING_DASH_RE, "") || slug(top);

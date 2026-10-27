@@ -5,6 +5,7 @@
  * boolean, a string that is not a font, a number on no scale the name tells — is left out and
  * said in the notes. Pure and synchronous.
  */
+import { tokenPrefix } from "@ultrapaint/contracts/token-table";
 import type { TokenKind } from "@ultrapaint/contracts/tokens";
 import type { FigColor, FigNode, FigPaint } from "openfig-core";
 import { type FigFile, guidOf } from "./fig.ts";
@@ -52,20 +53,6 @@ const NUMBER_KINDS: readonly (readonly [RegExp, TokenKind])[] = [
   [/breakpoint|screen/, "breakpoint"],
   [/spacing|space|gap|padding|margin|inset/, "spacing"],
 ];
-
-const PREFIX: Partial<Record<TokenKind, string>> = {
-  borderWidth: "border-width-",
-  breakpoint: "breakpoint-",
-  color: "color-",
-  font: "font-",
-  fontSize: "text-",
-  fontWeight: "font-weight-",
-  leading: "leading-",
-  radius: "radius-",
-  shadow: "shadow-",
-  spacing: "spacing-",
-  tracking: "tracking-",
-};
 
 /** Words that only say what kind a token is: dropped from its name, the prefix says it. */
 const KIND_WORDS = new Set([
@@ -120,7 +107,7 @@ const LENGTH_KINDS = new Set<TokenKind>([
 
 /** `Colors/Primary/500` is `color-primary-500`; null when nothing is left to name it by. */
 export const tokenNameOf = (kind: TokenKind, path: string): string | null => {
-  const prefix = PREFIX[kind];
+  const prefix = tokenPrefix(kind);
   if (!prefix) {
     return null;
   }

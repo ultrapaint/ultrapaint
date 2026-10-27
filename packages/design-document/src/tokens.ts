@@ -5,9 +5,14 @@
  * so a variable Tailwind left out of the stylesheet still shows; the utility it becomes in code
  * follows from the same name.
  */
-import type { DesignSystem, Token } from "@ultrapaint/contracts/design-system";
+import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { ComponentSpec } from "@ultrapaint/contracts/specs";
+import {
+  allTokens,
+  lineHeightName,
+  SPACING_BASE,
+} from "@ultrapaint/contracts/token-table";
 import { childrenOf } from "./tree.ts";
 
 export const TOKEN_PREFIX = "$";
@@ -25,42 +30,20 @@ export const tokenName = (value: string): string =>
 /** `color-primary` → `$color-primary`. */
 export const tokenRef = (name: string): string => `${TOKEN_PREFIX}${name}`;
 
-/** Every token the design system defines, by name, with its default value. */
+/**
+ * Every token the design system defines, by name, with its default value: the spacing base as
+ * `spacing`, and a font size's line height as `text-sm--line-height`.
+ */
 export const tokenValues = (
   ds: DesignSystem | null | undefined
 ): Map<string, string> => {
   const values = new Map<string, string>();
-  if (!ds) {
-    return values;
-  }
-  const add = (tokens: readonly Token[] | undefined) => {
-    for (const token of tokens ?? []) {
-      values.set(token.name, token.value);
-    }
-  };
-  for (const group of ds.colors) {
-    add(group.tokens);
-  }
-  add(ds.radius);
-  add(ds.shadows);
-  add(ds.borderWidths);
-  add(ds.layout?.breakpoints);
-  add(ds.layout?.containers);
-  add(ds.motion?.durations);
-  add(ds.motion?.easings);
-  add(ds.motion?.animations);
-  add(ds.spacing.tokens);
-  add(ds.typography.fonts);
-  add(ds.typography.weights);
-  add(ds.typography.leading);
-  add(ds.typography.tracking);
-  for (const size of ds.typography.sizes) {
-    values.set(size.name, size.value);
-    if (size.lineHeight) {
-      values.set(`${size.name}--line-height`, size.lineHeight);
+  for (const token of ds ? allTokens(ds) : []) {
+    values.set(token.name, token.value);
+    if (token.lineHeight) {
+      values.set(lineHeightName(token.name), token.lineHeight);
     }
   }
-  values.set("spacing", ds.spacing.base);
   return values;
 };
 
@@ -92,7 +75,7 @@ export const makeTokenResolver = (
     // Tailwind v4 has no variable per spacing step: `p-4` is four times `--spacing`.
     const step: RegExpExecArray | null = SPACING_STEP_RE.exec(name);
     if (step && !values.has(name)) {
-      return `calc(${variable("spacing")} * ${step[1]})`;
+      return `calc(${variable(SPACING_BASE)} * ${step[1]})`;
     }
     return variable(name);
   };
@@ -126,7 +109,7 @@ export const tokensIn = (
       into.add(name);
       // A step of the spacing scale is a multiple of `--spacing`, which is the token behind it.
       if (SPACING_MULTIPLE_RE.test(name)) {
-        into.add("spacing");
+        into.add(SPACING_BASE);
       }
     }
   } else if (Array.isArray(value)) {

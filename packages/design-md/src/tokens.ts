@@ -3,6 +3,7 @@
  * them, so they can be matched to its tokens and compared (ADR 0027). `colors.primary` is
  * `color-primary`, `rounded.md` is `radius-md`, `spacing.base` is `spacing`.
  */
+import { SPACING_BASE, tokenPrefix } from "@ultrapaint/contracts/token-table";
 import type { TokenKind } from "@ultrapaint/contracts/tokens";
 import {
   MIRRORED_GROUPS,
@@ -212,10 +213,11 @@ const EDGE_DASHES_RE = /^-+|-+$/g;
 export const tokenKeyOf = (key: string): string =>
   key.toLowerCase().replace(KEY_RE, "-").replace(EDGE_DASHES_RE, "");
 
+/** The kind of token each group of the front matter holds, and its names' prefix in the code. */
 const PREFIXES = {
-  colors: { kind: "color", prefix: "color-" },
-  rounded: { kind: "radius", prefix: "radius-" },
-  spacing: { kind: "spacing", prefix: "spacing-" },
+  colors: { kind: "color", prefix: tokenPrefix("color") },
+  rounded: { kind: "radius", prefix: tokenPrefix("radius") },
+  spacing: { kind: "spacing", prefix: tokenPrefix("spacing") },
 } as const satisfies Partial<
   Record<MirroredGroup, { kind: TokenKind; prefix: string }>
 >;
@@ -226,7 +228,7 @@ export const codeNameOf = (
   key: string
 ): string =>
   group === "spacing" && key === "base"
-    ? "spacing"
+    ? SPACING_BASE
     : `${PREFIXES[group].prefix}${tokenKeyOf(key)}`;
 
 const MAX_REF_DEPTH = 10;
@@ -293,7 +295,7 @@ export const documentTokens = (
  * `color-accent` → `colors.accent`, `spacing` → `spacing.base`.
  */
 export const documentPathOf = (name: string): string | null => {
-  if (name === "spacing") {
+  if (name === SPACING_BASE) {
     return "spacing.base";
   }
   for (const [group, { prefix }] of Object.entries(PREFIXES)) {

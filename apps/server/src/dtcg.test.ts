@@ -1,11 +1,11 @@
 import {
   type DesignSystem,
-  designSystemTokenNames,
   emptyDesignSystem,
 } from "@ultrapaint/contracts/design-system";
+import { allTokens } from "@ultrapaint/contracts/token-table";
 import { describe, expect, it } from "vitest";
 import {
-  designTokensOf,
+  designTokensDocument,
   designTokensSide,
   readDesignTokens,
   serialiseDesignTokens,
@@ -89,8 +89,9 @@ describe("the Design Tokens export", () => {
       JSON.parse(serialiseDesignTokens(ds))
     );
     expect(notes).toEqual([]);
-    const expected = ["spacing", ...designSystemTokenNames(ds)].flatMap(
-      (name) => {
+    const expected = allTokens(ds)
+      .map((t) => t.name)
+      .flatMap((name) => {
         const token = [
           ...ds.colors.flatMap((g) => g.tokens),
           ...(ds.borderWidths ?? []),
@@ -116,13 +117,12 @@ describe("the Design Tokens export", () => {
             value: v,
           })),
         ];
-      }
-    );
+      });
     expect([...tokens].sort(byName)).toEqual(expected.sort(byName));
   });
 
   it("groups tokens by kind under their names without the prefix", () => {
-    const doc = designTokensOf(ds);
+    const doc = designTokensDocument(ds);
     expect(Object.keys(doc)).toEqual(
       [
         "color",
@@ -156,7 +156,7 @@ describe("the Design Tokens export", () => {
   });
 
   it("writes colours as the format's colour values", () => {
-    const doc = designTokensOf(ds);
+    const doc = designTokensDocument(ds);
     const primary = at(doc, "color", "primary");
     expect(primary.$type).toBe("color");
     expect(primary.$description).toBe("Buttons and links.");
@@ -199,7 +199,7 @@ describe("the Design Tokens export", () => {
   });
 
   it("writes dimensions, durations, weights, fonts and curves", () => {
-    const doc = designTokensOf(ds);
+    const doc = designTokensDocument(ds);
     expect(at(doc, "radius", "lg")).toMatchObject({
       $type: "dimension",
       $value: { unit: "rem", value: 0.5 },
@@ -238,7 +238,7 @@ describe("the Design Tokens export", () => {
   });
 
   it("keeps what the format has no type for as CSS", () => {
-    const doc = designTokensOf(ds);
+    const doc = designTokensDocument(ds);
     for (const token of [
       at(doc, "shadow", "sm"),
       at(doc, "animation", "spin"),
@@ -274,12 +274,12 @@ describe("the Design Tokens export", () => {
     expect(serialiseDesignTokens(darkFirst)).toBe(
       serialiseDesignTokens(lightFirst)
     );
-    const x = at(designTokensOf(darkFirst), "color", "x");
+    const x = at(designTokensDocument(darkFirst), "color", "x");
     expect(Object.keys(at(ext(x), "themes"))).toEqual(["light", "dark"]);
   });
 
   it("lets another tool's change of a value win over the CSS kept beside it", () => {
-    const doc = designTokensOf(ds) as Rec;
+    const doc = designTokensDocument(ds) as Rec;
     const foreground = at(doc, "color", "primary-foreground");
     foreground.$value = {
       colorSpace: "srgb",

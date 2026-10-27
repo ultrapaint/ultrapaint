@@ -89,36 +89,6 @@ export const FileEdit = Schema.Struct({
 });
 export type FileEdit = typeof FileEdit.Type;
 
-const KIND_PREFIXES: readonly (readonly [string, TokenKind])[] = [
-  ["color-", "color"],
-  ["font-weight-", "fontWeight"],
-  ["font-", "font"],
-  ["text-", "fontSize"],
-  ["leading-", "leading"],
-  ["tracking-", "tracking"],
-  ["radius-", "radius"],
-  ["inset-shadow-", "shadow"],
-  ["drop-shadow-", "shadow"],
-  ["text-shadow-", "shadow"],
-  ["shadow-", "shadow"],
-  ["border-width-", "borderWidth"],
-  ["breakpoint-", "breakpoint"],
-  ["container-", "container"],
-  ["ease-", "easing"],
-  ["duration-", "duration"],
-  ["animate-", "animation"],
-  ["spacing-", "spacing"],
-];
-
-/** What kind of token a name is, from the namespace it is in. */
-export const tokenKindOf = (name: string): TokenKind => {
-  if (name === "spacing") {
-    return "spacing";
-  }
-  const found = KIND_PREFIXES.find(([prefix]) => name.startsWith(prefix));
-  return found ? found[1] : "other";
-};
-
 /** The value a token has in a theme, falling back to the default theme's. */
 export const tokenValueIn = (token: SourceToken, theme?: string): string =>
   (theme ? token.values?.[theme] : undefined) ?? token.value;
