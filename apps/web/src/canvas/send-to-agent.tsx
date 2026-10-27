@@ -1,4 +1,5 @@
 import type { Comment, CommentReply } from "@ultrapaint/contracts/comments";
+import { isBusy } from "@ultrapaint/contracts/threads";
 import { cn } from "cn";
 import { Bot, MessageSquarePlus, Send } from "lucide-react";
 import { toast } from "sonner";
@@ -56,8 +57,7 @@ export const SendToAgent = ({
   small?: boolean;
 }) => {
   const current = useAgents((s) => s.threads.find((t) => t.id === s.current));
-  const busy =
-    current?.status === "running" || current?.status === "cancelling";
+  const busy = isBusy(current?.status);
   const whole = !(reply || single) && comment.replies.length > 0;
   // The first comment alone is the comment without the thread under it.
   const sent = single ? { ...comment, replies: [] } : comment;

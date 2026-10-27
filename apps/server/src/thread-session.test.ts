@@ -13,6 +13,10 @@ import { TestClock } from "effect/testing";
 import { ProjectManager } from "./project.ts";
 import { AgentDiscovery } from "./services/threads/agent-discovery.ts";
 import { ChatPreferences } from "./services/threads/chat-preferences.ts";
+import {
+  statusAfter,
+  ThreadSessions,
+} from "./services/threads/thread-session.ts";
 import { ThreadStore } from "./services/threads/thread-store.ts";
 import { ThreadService } from "./services/threads/threads.ts";
 import { ScriptedAgents } from "./testing/scripted-agents.ts";
@@ -621,6 +625,79 @@ describe("the queue", () => {
     }));
 });
 
+describe("the thread's status", () => {
+  it("moves only as a turn, a cancel, an exit and a session's end allow", () => {
+    assert.deepStrictEqual(statusAfter("idle", { _tag: "Prompted" }), {
+      error: undefined,
+      status: "running",
+    });
+    // A cancel stops a turn under way, and only that.
+    assert.deepStrictEqual(statusAfter("running", { _tag: "CancelAsked" }), {
+      status: "cancelling",
+    });
+    assert.isNull(statusAfter("idle", { _tag: "CancelAsked" }));
+    assert.isNull(statusAfter("error", { _tag: "CancelAsked" }));
+    // A cancel that outlived its turn takes the thread out of "cancelling", and only that.
+    assert.deepStrictEqual(
+      statusAfter("cancelling", { _tag: "CancelOutlived" }),
+      { status: "idle" }
+    );
+    assert.isNull(statusAfter("idle", { _tag: "CancelOutlived" }));
+    assert.isNull(statusAfter("running", { _tag: "CancelOutlived" }));
+    // An exit is a failure only while the agent works on a turn it was not asked to stop.
+    assert.deepStrictEqual(
+      statusAfter("running", { _tag: "AgentExited", reason: "7" }),
+      { error: "agent exited (7)", status: "error" }
+    );
+    assert.isNull(
+      statusAfter("cancelling", { _tag: "AgentExited", reason: "7" })
+    );
+    // A session's end leaves a failure shown.
+    assert.isNull(statusAfter("error", { _tag: "SessionClosed" }));
+    assert.deepStrictEqual(statusAfter("running", { _tag: "SessionClosed" }), {
+      status: "idle",
+    });
+  });
+
+  test("a cancel with no turn under way leaves the status alone", () =>
+    Effect.gen(function* () {
+      const threads = yield* ThreadService;
+      const agents = yield* ScriptedAgents;
+      const store = yield* ThreadStore;
+      // Nothing was ever sent: no agent is started to be told to stop.
+      const { id: fresh } = yield* threads.create("scripted");
+      yield* threads.cancel(fresh);
+      assert.strictEqual((yield* store.get(fresh))?.status, "idle");
+      assert.strictEqual(yield* agents.launched, 0);
+
+      // A turn that failed: the failure stays shown, and the agent is not asked to stop.
+      const { agent, threadId, turn } = yield* started();
+      yield* turn.fail("usage limit reached");
+      yield* threadWhen(threadId, (t) => t.status === "error");
+      yield* threads.cancel(threadId);
+      const failed = yield* store.get(threadId);
+      assert.strictEqual(failed?.status, "error");
+      assert.strictEqual(failed?.error, "usage limit reached");
+      assert.notInclude(methodsOf(yield* agent.calls), "session/cancel");
+    }));
+
+  test("a turn the user stops is idle once the agent has ended it", () =>
+    Effect.gen(function* () {
+      const threads = yield* ThreadService;
+      const store = yield* ThreadStore;
+      const { threadId, turn } = yield* started();
+      yield* threads.cancel(threadId);
+      assert.strictEqual((yield* store.get(threadId))?.status, "cancelling");
+      // A second cancel while the agent stops changes nothing.
+      yield* threads.cancel(threadId);
+      assert.strictEqual((yield* store.get(threadId))?.status, "cancelling");
+      yield* turn.cancelled;
+      yield* turn.end("cancelled");
+      const { thread } = yield* threadWhen(threadId, turnEnded);
+      assert.isUndefined(thread.error);
+    }));
+});
+
 describe("a permission request", () => {
   test("is answered by the user, and remembered when asked to", () =>
     Effect.gen(function* () {
@@ -765,7 +842,9 @@ describe("a question the agent waits on", () => {
           value: "integer",
         },
       ]);
-      assert.strictEqual(yield* threads.cardsShown(threadId), 1);
+      // A form sent now would come back with the card counted.
+      const { cards } = yield* (yield* ThreadSessions).of(threadId);
+      assert.strictEqual(yield* cards.formSent, "1");
       // Answered while the agent is still in its turn: it is waiting for exactly this.
       yield* threads.answer(threadId, card?.id ?? "", {
         plan: "pro",
@@ -822,7 +901,6 @@ describe("a question the agent waits on", () => {
 
   test("that cannot be drawn is declined, without a card", () =>
     Effect.gen(function* () {
-      const threads = yield* ThreadService;
       const { threadId, turn } = yield* started();
       const reply = yield* turn.elicit({
         elicitationId: "el_1",
@@ -835,7 +913,8 @@ describe("a question the agent waits on", () => {
       yield* turn.end();
       const { items } = yield* threadWhen(threadId, turnEnded);
       assert.notInclude(kinds(items), "question");
-      assert.strictEqual(yield* threads.cardsShown(threadId), 0);
+      const { cards } = yield* (yield* ThreadSessions).of(threadId);
+      assert.strictEqual(yield* cards.formSent, "0");
     }));
 });
 

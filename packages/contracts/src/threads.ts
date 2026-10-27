@@ -29,6 +29,11 @@ export const AgentConfig = Schema.Struct({
 });
 export type AgentConfig = typeof AgentConfig.Type;
 
+/**
+ * Where a thread is with its agent. The server writes `idle`, `running` (from the prompt on,
+ * the agent's start included), `cancelling` and `error`. `starting` and `closed` are no longer
+ * written; they stay in the schema the editor and stored threads were built against.
+ */
 export const ThreadStatus = Schema.Literals([
   "idle",
   "starting",
@@ -38,6 +43,13 @@ export const ThreadStatus = Schema.Literals([
   "closed",
 ]);
 export type ThreadStatus = typeof ThreadStatus.Type;
+
+/**
+ * The agent is on a turn, or stopping one: a prompt sent now waits in the thread's queue, the
+ * agent cannot be switched, and stopping the server would cut it off.
+ */
+export const isBusy = (status: ThreadStatus | undefined): boolean =>
+  status === "running" || status === "cancelling";
 
 /** A setting the agent's session offers: its model, reasoning effort, and the like. */
 export const ConfigOption = Schema.Struct({

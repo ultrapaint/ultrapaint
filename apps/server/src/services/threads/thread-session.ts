@@ -1,0 +1,861 @@
+/**
+ * A thread's session: what a thread is while the server runs, owned in one place. It keeps the
+ * live ACP session (started with the first prompt that needs one, in a scope forked from the
+ * open project, with the agent sandboxed, given its terminals and the editor's MCP server), the
+ * turn on its way to the agent and the one the agent works on with its cursor, the queue of
+ * prompts, the cards the agent waits on (`pending-cards.ts`) and the thread's status, which
+ * changes only through `statusAfter`. Closing the live scope, whoever does it, ends the agent
+ * process, its terminals and any card it still waits on.
+ *
+ * `ThreadSessions` keeps one per thread, made the first time the thread is asked for.
+ */
+import type {
+  AcpAgent,
+  ContentBlock,
+  McpServerConfig,
+} from "@ultrapaint/acp/acp-agent";
+import { makeTerminalManager } from "@ultrapaint/acp/terminal-manager";
+import {
+  AgentFailure,
+  type Conflict,
+  type ForbiddenPath,
+  type NotConfigured,
+  NotFound,
+} from "@ultrapaint/contracts/errors";
+import {
+  type Answers,
+  EDITOR_MCP_SERVER,
+  isBusy,
+  type PromptInput,
+  type QueuedPrompt,
+  type Thread,
+  type ThreadItem,
+  type ThreadStatus,
+} from "@ultrapaint/contracts/threads";
+import {
+  Clock,
+  Context,
+  Effect,
+  Exit,
+  Fiber,
+  Layer,
+  Path,
+  Scope,
+  Semaphore,
+} from "effect";
+import { ChildProcessSpawner } from "effect/process";
+import { AppLog } from "../../app-log.ts";
+import { connectHost, ServerConfig } from "../../config.ts";
+import { EventBus } from "../../events.ts";
+import { makeId } from "../../ids.ts";
+import { ListenPort } from "../../listen-port.ts";
+import { ProjectManager } from "../../project.ts";
+import { McpAccess } from "../mcp/access.ts";
+import { MCP_PATH, MCP_TOKEN_HEADER } from "../mcp/route.ts";
+import { RepoPaths } from "../repo-paths.ts";
+import { type TreeStamp, WorkingTree } from "../working-tree.ts";
+import { makeAgentClient } from "./agent-client.ts";
+import { AgentConfigs } from "./agent-configs.ts";
+import { AgentLauncher } from "./agent-launcher.ts";
+import {
+  agentFailure,
+  BOOLEAN_VALUES,
+  makeSessionOpener,
+} from "./agent-session.ts";
+import { Checkpoints } from "./checkpoints.ts";
+import { makePendingCards, type PendingCards } from "./pending-cards.ts";
+import { ThreadStore } from "./thread-store.ts";
+import {
+  emptyCursor,
+  mapConfigOptions,
+  projectUpdate,
+  type TurnCursor,
+  turnUsage,
+} from "./transcript.ts";
+import { makePromptContent, scopeOf, titleOf, UNTITLED } from "./turns.ts";
+
+export type ThreadFailure =
+  | NotFound
+  | NotConfigured
+  | Conflict
+  | ForbiddenPath
+  | AgentFailure;
+
+// ---- status ----
+
+/** What moves a thread's status. */
+export type StatusEvent =
+  /** A prompt opens a turn: the thread runs from here, its agent's start included. */
+  | { readonly _tag: "Prompted" }
+  /** The user stops the turn the agent works on; the agent ends it. */
+  | { readonly _tag: "CancelAsked" }
+  /** The agent was asked to stop a turn that had already ended. */
+  | { readonly _tag: "CancelOutlived" }
+  /** A turn is over: its end is in the transcript. */
+  | { readonly _tag: "TurnEnded" }
+  /** A turn, or the session it needed, went wrong. */
+  | { readonly _tag: "Failed"; readonly message: string }
+  /** The agent's process exited without being asked to. */
+  | { readonly _tag: "AgentExited"; readonly reason: string }
+  /** The session's scope closed, whoever closed it. */
+  | { readonly _tag: "SessionClosed" }
+  /** The thread's agent changed: the next prompt starts a session of the new one. */
+  | { readonly _tag: "AgentSwitched" };
+
+type StatusPatch = Pick<Thread, "status"> & Partial<Pick<Thread, "error">>;
+
+/**
+ * The status after an event, and the error with it; null leaves the thread as it is. A cancel
+ * stops only a turn under way. A cancel that outlived its turn takes the thread out of
+ * "cancelling", which nothing else would. An exit while the user stops the turn, or a session
+ * closing, is not a failure, and leaves a failure shown.
+ */
+export const statusAfter = (
+  status: ThreadStatus,
+  event: StatusEvent
+): StatusPatch | null => {
+  switch (event._tag) {
+    case "Prompted":
+      return { error: undefined, status: "running" };
+    case "CancelAsked":
+      return isBusy(status) ? { status: "cancelling" } : null;
+    case "CancelOutlived":
+      return status === "cancelling" ? { status: "idle" } : null;
+    case "TurnEnded":
+      return { status: "idle" };
+    case "Failed":
+      return { error: event.message, status: "error" };
+    case "AgentExited":
+      return status === "running"
+        ? { error: `agent exited (${event.reason})`, status: "error" }
+        : null;
+    case "SessionClosed":
+      return status === "error" ? null : { status: "idle" };
+    case "AgentSwitched":
+      return { error: undefined, status: "idle" };
+    default:
+      return null;
+  }
+};
+
+// ---- the session ----
+
+/** The live ACP session, while there is one. */
+interface Live {
+  readonly agent: AcpAgent;
+  /** The briefing, and the recap of what came before, go out once, with the first prompt. */
+  briefed: boolean;
+  /** While a stored session is replayed by `session/load`, its updates are not new items. */
+  replaying: boolean;
+  /** The session was loaded, so the agent has the conversation back. */
+  resumed: boolean;
+  readonly scope: Scope.Closeable;
+  /** The turn the agent works on: where its streamed chunks go. Null between turns. */
+  turn: TurnCursor | null;
+}
+
+export interface ThreadSession {
+  /**
+   * The user's answers to a question card: back to the agent waiting on its form, or, for a
+   * card it did not wait on, sent as a prompt of their own, which is how any ACP agent hears.
+   */
+  readonly answer: (
+    itemId: string,
+    answers: Answers
+  ) => Effect.Effect<void, ThreadFailure>;
+  /** Stops the turn: one on its way to the agent there, one the agent works on by asking it. */
+  readonly cancel: Effect.Effect<void, ThreadFailure>;
+  /** The cards the thread's agent waits on. */
+  readonly cards: PendingCards;
+  /** Removes the thread: a turn on its way, an agent booting and the live session stop. */
+  readonly delete: Effect.Effect<void>;
+  /** Sends a prompt; while the agent works, it waits in the thread's queue instead. */
+  readonly prompt: (input: PromptInput) => Effect.Effect<void, ThreadFailure>;
+  /** Sends the oldest queued prompt, unless the agent works. */
+  readonly sendQueued: Effect.Effect<void, ThreadFailure>;
+  /** On the live session when there is one, else kept for the one the next prompt starts. */
+  readonly setConfigOption: (
+    optionId: string,
+    value: string
+  ) => Effect.Effect<void, ThreadFailure>;
+  readonly setMode: (modeId: string) => Effect.Effect<void, ThreadFailure>;
+  /**
+   * The session ends with the agent it belongs to; the thread takes `patch` (its new agent and
+   * that agent's options) and is idle.
+   */
+  readonly switchAgent: (patch: Partial<Thread>) => Effect.Effect<void>;
+  /** Takes a queued prompt back out; null when it was already sent. */
+  readonly unqueue: (
+    id: string
+  ) => Effect.Effect<QueuedPrompt | null, ThreadFailure>;
+}
+
+const makeSessionFactory = Effect.fnUntraced(function* (deps: {
+  /** Runs work to completion even if the caller goes away. */
+  readonly detached: <A, E>(effect: Effect.Effect<A, E>) => Effect.Effect<A, E>;
+  readonly serviceScope: Scope.Scope;
+}) {
+  const { detached, serviceScope } = deps;
+  const store = yield* ThreadStore;
+  const agents = yield* AgentConfigs;
+  const launcher = yield* AgentLauncher;
+  const access = yield* McpAccess;
+  const checkpoints = yield* Checkpoints;
+  const { host, mcp: mcpEnabled } = yield* ServerConfig;
+  const listen = yield* ListenPort;
+  const project = yield* ProjectManager;
+  const events = yield* EventBus;
+  const log = yield* AppLog;
+  const path = yield* Path.Path;
+  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+  const client = yield* makeAgentClient();
+  const opener = yield* makeSessionOpener();
+  const content = yield* makePromptContent();
+  const newItemId = makeId("item");
+  const currentPaths = project.use(Effect.map(RepoPaths, (paths) => paths));
+
+  return (threadId: string): ThreadSession => {
+    let live: Live | null = null;
+    /** The session's start under way: deleting the thread stops its agent mid-boot. */
+    let booting: Fiber.Fiber<unknown, unknown> | null = null;
+    /** The turn still on its way to the agent: a cancel stops it there. */
+    let opening: Fiber.Fiber<void> | null = null;
+    // One session start, however many calls ask for it at once.
+    const starting = Semaphore.makeUnsafe(1);
+    // One prompt at a time, so two cannot both find the thread idle.
+    const prompting = Semaphore.makeUnsafe(1);
+    // Taking from the queue, one at a time: a prompt is sent once.
+    const taking = Semaphore.makeUnsafe(1);
+    const cards = makePendingCards(threadId, { log, newItemId, store });
+
+    /** The only way the thread's status changes; `extra` goes with it when it does. */
+    const transition = Effect.fnUntraced(function* (
+      event: StatusEvent,
+      extra: Partial<Thread> = {}
+    ) {
+      const thread = yield* store.get(threadId);
+      const patch = thread ? statusAfter(thread.status, event) : null;
+      if (patch) {
+        yield* store.update(threadId, { ...extra, ...patch });
+      }
+    });
+
+    // ---- the live session ----
+    const stopLive = Effect.suspend(() => {
+      const session = live;
+      live = null;
+      return session ? Scope.close(session.scope, Exit.void) : Effect.void;
+    });
+
+    const onUpdate = Effect.fnUntraced(function* (
+      session: Live,
+      update: Parameters<typeof projectUpdate>[0],
+      relative: (file: string) => string
+    ) {
+      if (session.replaying) {
+        return;
+      }
+      // Ids are drawn up front because the projection itself is pure and synchronous.
+      const ids = [yield* newItemId];
+      const projected = projectUpdate(update, {
+        hasItem: (itemId) => store.hasItem(threadId, itemId),
+        newId: () => ids.pop() ?? `item_${ids.length}`,
+        now: yield* Clock.currentTimeMillis,
+        relative,
+        turn: session.turn,
+      });
+      session.turn = projected.turn;
+      for (const action of projected.actions) {
+        if (action.type === "push") {
+          yield* store.push(threadId, action.item);
+        } else if (action.type === "patch") {
+          yield* store.patchItem(threadId, action.itemId, action.patch);
+        } else {
+          yield* store.update(threadId, action.patch);
+        }
+      }
+    });
+
+    const startIn = Effect.fnUntraced(function* (opened: {
+      scope: Scope.Closeable | null;
+    }) {
+      const thread = yield* store.get(threadId);
+      if (!thread) {
+        return yield* new NotFound({ message: `unknown thread ${threadId}` });
+      }
+      const projectScope = yield* project.scope;
+      const paths = yield* currentPaths;
+      const config = yield* agents.get(thread.agentId);
+
+      const scope = yield* Scope.fork(projectScope);
+      opened.scope = scope;
+      // A design thread writes its designs only; an implement thread, the repository (ADR 0030).
+      const writable =
+        thread.purpose === "implement" ? undefined : paths.designsDir;
+      const agent = yield* launcher
+        .launch({
+          config,
+          handlers: (confine) =>
+            Effect.map(
+              makeTerminalManager({
+                // A command we run for the agent must not reach further than one it runs itself.
+                confine,
+                onOutput: (terminalId, chunk) =>
+                  events.publish("agent.terminal", {
+                    chunk,
+                    terminalId,
+                    threadId,
+                  }),
+              }).pipe(
+                Effect.provideService(
+                  ChildProcessSpawner.ChildProcessSpawner,
+                  spawner
+                )
+              ),
+              (terminals) =>
+                client.handlersFor(
+                  config.name,
+                  paths,
+                  terminals,
+                  cards,
+                  writable
+                )
+            ),
+          root: paths.root,
+          writable,
+        })
+        .pipe(
+          Scope.provide(scope),
+          Effect.mapError(agentFailure),
+          Effect.onError(() => Scope.close(scope, Exit.void)),
+          Effect.tapError((error) =>
+            transition({ _tag: "Failed", message: error.message })
+          )
+        );
+      const session: Live = {
+        agent,
+        briefed: false,
+        replaying: false,
+        resumed: false,
+        scope,
+        turn: null,
+      };
+      live = session;
+
+      // Whoever closes the scope: nobody waits on a card forever, and a thread that was
+      // mid-turn does not stay "running".
+      yield* Scope.addFinalizer(
+        scope,
+        Effect.gen(function* () {
+          // The project scope can close this one directly, without going through `stopLive`.
+          if (live === session) {
+            live = null;
+          }
+          yield* cards.endSession;
+          yield* transition({ _tag: "SessionClosed" });
+        })
+      );
+      // An agent names a file by absolute path; the editor knows it by its path in the
+      // repository, and a path outside it is left as it came.
+      const relative = (file: string) =>
+        path.isAbsolute(file) ? paths.relative(file) : file;
+      yield* Effect.forkIn(
+        agent.consumeUpdates((n) => onUpdate(session, n.update, relative)),
+        scope
+      );
+      // An exit we did not ask for. Forked outside the session scope because it closes it.
+      yield* agent.exited.pipe(
+        Effect.flatMap(({ code, signal }) =>
+          Effect.gen(function* () {
+            if (live !== session) {
+              return;
+            }
+            yield* transition({
+              _tag: "AgentExited",
+              reason: String(signal ?? code),
+            });
+            yield* stopLive;
+          })
+        ),
+        Effect.forkIn(projectScope)
+      );
+
+      // The agent is told about the editor's own MCP server, with a token that dies with the
+      // session. `mcpCapabilities` is the agent saying it can reach one over http.
+      const mcpServers: McpServerConfig[] = [];
+      if (mcpEnabled) {
+        const token = yield* Scope.provide(access.issue(threadId), scope);
+        mcpServers.push({
+          headers: [{ name: MCP_TOKEN_HEADER, value: token }],
+          name: EDITOR_MCP_SERVER,
+          type: "http",
+          url: `http://${connectHost(host)}:${yield* listen.get}${MCP_PATH}`,
+        });
+      }
+
+      const { patch, resumed } = yield* opener
+        .open({
+          agent,
+          config,
+          mcpServers,
+          replaying: (on) =>
+            Effect.sync(() => {
+              session.replaying = on;
+            }),
+          root: paths.root,
+          thread,
+        })
+        .pipe(
+          Effect.tapError((error) =>
+            Effect.andThen(
+              stopLive,
+              transition({ _tag: "Failed", message: error.message })
+            )
+          )
+        );
+      session.resumed = resumed;
+      // The status is the prompt's: the session starts inside its turn.
+      yield* store.update(threadId, patch);
+      return session;
+    });
+
+    /**
+     * Starts the session. A start that does not finish (it failed, broke, or was stopped
+     * because the thread was deleted while its agent booted) closes what it opened: the agent
+     * process, its terminals and its MCP token.
+     */
+    const start = Effect.suspend(() => {
+      const opened: { scope: Scope.Closeable | null } = { scope: null };
+      return startIn(opened).pipe(
+        Effect.onError(() =>
+          Effect.suspend(() => {
+            const { scope } = opened;
+            if (scope === null) {
+              return Effect.void;
+            }
+            if (live?.scope === scope) {
+              live = null;
+            }
+            return Scope.close(scope, Exit.void);
+          })
+        )
+      );
+    });
+
+    const ensureLive = detached(
+      starting.withPermit(
+        Effect.suspend(() =>
+          live
+            ? Effect.succeed(live)
+            : Effect.withFiber((self) => {
+                booting = self;
+                return start.pipe(
+                  Effect.ensuring(
+                    Effect.sync(() => {
+                      if (booting === self) {
+                        booting = null;
+                      }
+                    })
+                  )
+                );
+              })
+        )
+      )
+    ).pipe(Effect.withSpan("ThreadService.ensureLive"));
+
+    const liveSession = Effect.gen(function* () {
+      const session = yield* ensureLive;
+      const sessionId = (yield* store.get(threadId))?.sessionId;
+      if (!sessionId) {
+        return yield* new AgentFailure({ message: "no session" });
+      }
+      return { session, sessionId };
+    });
+
+    /** The live session and its id, when the thread has one now; nothing is started. */
+    const current = Effect.map(store.get(threadId), (thread) =>
+      live && thread?.sessionId
+        ? { session: live, sessionId: thread.sessionId }
+        : null
+    );
+
+    // ---- turns ----
+
+    /** A turn that went wrong: the transcript says why, and the thread takes prompts again. */
+    const failTurn = (message: string) =>
+      Effect.gen(function* () {
+        yield* store.push(threadId, {
+          at: yield* Clock.currentTimeMillis,
+          id: yield* newItemId,
+          kind: "status",
+          text: `Turn failed: ${message}`,
+        });
+        yield* transition({ _tag: "Failed", message });
+      });
+
+    /** A bug of ours in a turn: logged, and the turn fails rather than stay "running". */
+    const turnBroke = (defect: unknown) => {
+      const message = defect instanceof Error ? defect.message : String(defect);
+      return Effect.andThen(
+        log.log("agent", "error", `a turn of ${threadId} broke: ${message}`),
+        failTurn(message)
+      );
+    };
+
+    const runTurn = (
+      session: Live,
+      sessionId: string,
+      blocks: ContentBlock[],
+      before: TreeStamp
+    ) =>
+      session.agent.prompt(sessionId, blocks).pipe(
+        // The response can overtake the last updates; the transcript must be complete first.
+        // Bounded, so a stalled consumer cannot keep the thread "running" forever.
+        Effect.tap(() =>
+          Effect.timeoutOption(session.agent.drained, "5 seconds")
+        ),
+        // The turn is over before its status says so: a cancel that sees no turn leaves the
+        // status alone, and one under way knows the turn ended without it.
+        Effect.ensuring(
+          Effect.sync(() => {
+            session.turn = null;
+          })
+        ),
+        Effect.matchEffect({
+          onFailure: (error) => failTurn(error.message),
+          onSuccess: (response) =>
+            Effect.gen(function* () {
+              const changedFiles = yield* project
+                .use(
+                  Effect.flatMap(WorkingTree, (tree) =>
+                    tree.changedSince(before)
+                  )
+                )
+                // Attribution is a nicety; a project closed meanwhile must not fail the turn.
+                .pipe(Effect.orElseSucceed((): string[] => []));
+              const usage = turnUsage((response as { _meta?: unknown })._meta);
+              yield* store.push(threadId, {
+                at: yield* Clock.currentTimeMillis,
+                changedFiles,
+                id: yield* newItemId,
+                kind: "turn_end",
+                stopReason: response.stopReason,
+                ...(usage ? { usage } : {}),
+              });
+              yield* transition({ _tag: "TurnEnded" });
+              // A turn the user stopped leaves the queue for them to send or drop.
+              if (response.stopReason !== "cancelled") {
+                yield* Effect.forkIn(
+                  Effect.ignore(
+                    Effect.suspend(() => sendQueued),
+                    { log: true }
+                  ),
+                  serviceScope
+                );
+              }
+            }),
+        }),
+        Effect.catchDefect(turnBroke)
+      );
+
+    /**
+     * A turn from the prompt to the agent: the session is started or resumed, told what it
+     * needs, and the designs are checkpointed. The thread already shows as running.
+     */
+    const openTurn = Effect.fnUntraced(function* (
+      input: PromptInput,
+      earlier: readonly ThreadItem[],
+      blocks: ContentBlock[]
+    ) {
+      const { session, sessionId } = yield* liveSession;
+      if (!session.briefed) {
+        session.briefed = true;
+        const purpose = (yield* store.get(threadId))?.purpose ?? "design";
+        blocks.unshift(
+          ...(yield* content.sessionContext(session.resumed, earlier, purpose))
+        );
+      }
+      // The folder's files before the turn, by time and size, to tell after it what it changed.
+      const before = yield* project
+        .use(Effect.flatMap(WorkingTree, (tree) => tree.stamp))
+        .pipe(Effect.orElseSucceed((): TreeStamp => new Map()));
+      // Not cut short by a cancel: a checkpoint half written is worse than a late cancel.
+      yield* Effect.uninterruptible(
+        checkpoints.create(threadId, `Before: ${input.text.slice(0, 60)}`)
+      );
+      session.turn = emptyCursor();
+      yield* Effect.forkIn(
+        runTurn(session, sessionId, blocks, before),
+        session.scope
+      );
+    });
+
+    /** Sent when the turn ends: the user need not wait to say what comes next. */
+    const enqueue = Effect.fnUntraced(function* (
+      thread: Thread,
+      input: PromptInput
+    ) {
+      const queued: QueuedPrompt = {
+        at: yield* Clock.currentTimeMillis,
+        attachments: input.attachments,
+        id: yield* newItemId,
+        text: input.text,
+      };
+      yield* store.update(threadId, {
+        queued: [...(thread.queued ?? []), queued],
+      });
+    });
+
+    /** A prompt, under `prompting`. */
+    const promptNow = Effect.fn("ThreadService.prompt")(function* (
+      input: PromptInput
+    ) {
+      const thread = yield* store.get(threadId);
+      if (!thread) {
+        return yield* new NotFound({ message: `unknown thread ${threadId}` });
+      }
+      if (isBusy(thread.status)) {
+        return yield* enqueue(thread, input);
+      }
+      const projectScope = yield* project.scope;
+      const paths = yield* currentPaths;
+      const { blocks, labels } = yield* content.attachmentBlocks(input, paths);
+      // `/init`, `/implement`: the agent is given the task, the transcript keeps what was typed.
+      const task = yield* content.taskFor(thread, input.text);
+      if (task !== null) {
+        blocks[0] = { text: task, type: "text" };
+      }
+      // A copy: the store's own list grows with the prompt about to be pushed.
+      const earlier = [...(yield* store.items(threadId))];
+      yield* store.push(threadId, {
+        at: yield* Clock.currentTimeMillis,
+        attachments: labels,
+        id: yield* newItemId,
+        kind: "user",
+        text: input.text,
+      });
+      const first = !earlier.some((i) => i.kind === "user");
+      const scope = first && !thread.scope ? scopeOf(input.attachments) : null;
+      yield* transition(
+        { _tag: "Prompted" },
+        {
+          ...(thread.title === UNTITLED && first
+            ? { title: titleOf(input.text) }
+            : {}),
+          ...(scope ? { scope } : {}),
+        }
+      );
+      // The request returns now. Whatever the agent takes to start is part of the turn, and
+      // the turn reports through the transcript.
+      const turn = Effect.withFiber((self) =>
+        openTurn(input, earlier, blocks).pipe(
+          Effect.catch((error) =>
+            transition({ _tag: "Failed", message: error.message })
+          ),
+          Effect.catchDefect(turnBroke),
+          Effect.onInterrupt(() =>
+            Effect.gen(function* () {
+              yield* store.push(threadId, {
+                at: yield* Clock.currentTimeMillis,
+                changedFiles: [],
+                id: yield* newItemId,
+                kind: "turn_end",
+                stopReason: "cancelled",
+              });
+              yield* transition({ _tag: "TurnEnded" });
+            })
+          ),
+          Effect.ensuring(
+            Effect.sync(() => {
+              if (opening === self) {
+                opening = null;
+              }
+            })
+          )
+        )
+      );
+      opening = yield* Effect.forkIn(turn, projectScope);
+    });
+
+    /** Stops a turn that has not reached the agent yet. Whether there was one. */
+    const stopOpening = Effect.suspend(() =>
+      opening
+        ? Effect.as(Fiber.interrupt(opening), true)
+        : Effect.succeed(false)
+    );
+
+    // ---- the queue ----
+    const takeQueued = Effect.fnUntraced(function* (id: string | null) {
+      const thread = yield* store.get(threadId);
+      if (!thread) {
+        return yield* new NotFound({ message: `unknown thread ${threadId}` });
+      }
+      const queue = thread.queued ?? [];
+      const taken = id === null ? queue[0] : queue.find((q) => q.id === id);
+      if (!taken) {
+        return null;
+      }
+      yield* store.update(threadId, {
+        queued: queue.filter((q) => q.id !== taken.id),
+      });
+      return taken;
+    });
+
+    // Typed: a turn that ends sends the next prompt, which opens a turn.
+    const sendQueued: Effect.Effect<void, ThreadFailure> = taking.withPermit(
+      Effect.gen(function* () {
+        const thread = yield* store.get(threadId);
+        if (isBusy(thread?.status)) {
+          return;
+        }
+        const next = yield* takeQueued(null);
+        if (next) {
+          yield* prompting.withPermit(
+            promptNow({
+              attachments: next.attachments,
+              text: next.text,
+              threadId,
+            })
+          );
+        }
+      })
+    );
+
+    // ---- what the user does ----
+    const answer = Effect.fn("ThreadService.answer")(function* (
+      itemId: string,
+      answers: Answers
+    ) {
+      const text = yield* cards.answer(itemId, answers);
+      if (text !== null) {
+        yield* promptNow({ attachments: [], text, threadId });
+      }
+    });
+
+    const cancel = Effect.gen(function* () {
+      if (yield* stopOpening) {
+        return;
+      }
+      const now = yield* current;
+      // Only a turn the agent is working on is stopped. One that has ended leaves the thread
+      // as it is: nothing would take it out of "cancelling" again.
+      if (now === null || now.session.turn === null) {
+        return;
+      }
+      const { session, sessionId } = now;
+      yield* transition({ _tag: "CancelAsked" });
+      // The client answers every permission request still open with `cancelled` (ACP), and
+      // will not wait for the forms it asked with either.
+      yield* cards.releaseAll;
+      // The agent ends the turn itself and answers the prompt with `cancelled`.
+      yield* Effect.mapError(session.agent.cancel(sessionId), agentFailure);
+      // Unless the turn ended on its own meanwhile, and its end has already been written.
+      if (session.turn === null) {
+        yield* transition({ _tag: "CancelOutlived" });
+      }
+    }).pipe(Effect.withSpan("ThreadService.cancel"));
+
+    const setConfigOption = Effect.fn("ThreadService.setConfigOption")(
+      function* (optionId: string, value: string) {
+        const chosen = (yield* store.get(threadId))?.configOptions?.map((o) =>
+          o.id === optionId ? { ...o, currentValue: value } : o
+        );
+        const now = yield* current;
+        // No session yet: the choice waits for the one the next prompt starts.
+        if (now === null) {
+          yield* store.update(threadId, { configOptions: chosen });
+          return;
+        }
+        const parsed = BOOLEAN_VALUES[value] ?? value;
+        const response = (yield* Effect.mapError(
+          now.session.agent.setConfigOption(now.sessionId, optionId, parsed),
+          agentFailure
+        )) as { configOptions?: unknown } | undefined;
+        yield* store.update(threadId, {
+          configOptions: mapConfigOptions(response?.configOptions) ?? chosen,
+        });
+      }
+    );
+
+    const setMode = Effect.fn("ThreadService.setMode")(function* (
+      modeId: string
+    ) {
+      const now = yield* current;
+      if (now !== null) {
+        yield* Effect.mapError(
+          now.session.agent.setMode(now.sessionId, modeId),
+          agentFailure
+        );
+      }
+      yield* store.update(threadId, { currentModeId: modeId });
+    });
+
+    return {
+      answer: (itemId, answers) =>
+        detached(prompting.withPermit(answer(itemId, answers))),
+      cancel,
+      cards,
+      delete: Effect.gen(function* () {
+        yield* stopOpening;
+        // Gone first, so that no session starts for it from here on.
+        yield* store.remove(threadId);
+        // An agent still booting is stopped there, with what its start opened.
+        if (booting) {
+          yield* Fiber.interrupt(booting);
+        }
+        yield* stopLive;
+      }),
+      prompt: (input) => detached(prompting.withPermit(promptNow(input))),
+      sendQueued: detached(sendQueued),
+      setConfigOption,
+      setMode,
+      switchAgent: (patch) =>
+        Effect.andThen(stopLive, transition({ _tag: "AgentSwitched" }, patch)),
+      unqueue: (id) => detached(taking.withPermit(takeQueued(id))),
+    };
+  };
+});
+
+/** Every thread's session, by thread, each made the first time its thread is asked for. */
+export class ThreadSessions extends Context.Service<
+  ThreadSessions,
+  {
+    /** The thread's session. */
+    readonly of: (threadId: string) => Effect.Effect<ThreadSession>;
+    /** Deletes the thread: its session stops what it has under way, and is forgotten. */
+    readonly delete: (threadId: string) => Effect.Effect<void>;
+  }
+>()("ultrapaint/server/ThreadSessions") {
+  static readonly layer = Layer.effect(
+    ThreadSessions,
+    Effect.gen(function* () {
+      const serviceScope = yield* Effect.scope;
+      /**
+       * Runs work to completion even if the caller goes away. RPC handlers are interrupted when
+       * their socket closes (a page reload is enough), and a session start or the opening of a
+       * turn that stops half way leaves the thread in a state nothing recovers from.
+       */
+      const detached = <A, E>(effect: Effect.Effect<A, E>) =>
+        Effect.flatMap(Effect.forkIn(effect, serviceScope), Fiber.join);
+      const make = yield* makeSessionFactory({ detached, serviceScope });
+      const sessions = new Map<string, ThreadSession>();
+      const of = (threadId: string) =>
+        Effect.sync(() => {
+          const known = sessions.get(threadId);
+          if (known) {
+            return known;
+          }
+          const made = make(threadId);
+          sessions.set(threadId, made);
+          return made;
+        });
+      return ThreadSessions.of({
+        delete: (threadId) =>
+          Effect.flatMap(of(threadId), (session) => session.delete).pipe(
+            Effect.ensuring(Effect.sync(() => sessions.delete(threadId)))
+          ),
+        of,
+      });
+    })
+  );
+}

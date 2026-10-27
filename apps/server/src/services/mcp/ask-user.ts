@@ -11,10 +11,10 @@
  * way: it is put in the thread, and the agent ends its turn to hear the answers as its next
  * prompt.
  */
-import { Effect, Layer, Schema, Stream } from "effect";
+import { Effect, Layer, Schema } from "effect";
 import { McpSchema, McpServer, Tool } from "effect/ai";
-import { EventBus } from "../../events.ts";
 import { answersOf, answersText, formOf } from "../threads/elicitation.ts";
+import { ThreadSessions } from "../threads/thread-session.ts";
 import { ThreadService } from "../threads/threads.ts";
 import { CallingThread } from "./access.ts";
 import { opt } from "./tool-helpers.ts";
@@ -78,22 +78,7 @@ export const AskUserToolLive = Layer.effectDiscard(
   Effect.gen(function* () {
     const server = yield* McpServer.McpServer;
     const threads = yield* ThreadService;
-    /**
-     * Threads whose agent turns forms down by itself. Codex does under full access: it declines
-     * every form unless its client says it shows them, which codex-acp does not yet.
-     */
-    const cannotWait = new Set<string>();
-    // A thread deleted takes its mark along.
-    yield* (yield* EventBus).subscribe("agent").pipe(
-      Stream.runForEach((event) =>
-        Effect.sync(() => {
-          if (event.type === "removed") {
-            cannotWait.delete(event.threadId);
-          }
-        })
-      ),
-      Effect.forkScoped
-    );
+    const sessions = yield* ThreadSessions;
 
     const ask = Effect.fn("AskUserTool.ask_user")(function* (payload: unknown) {
       const { questions } = yield* decodeParameters(payload ?? {}).pipe(
@@ -103,24 +88,30 @@ export const AskUserToolLive = Layer.effectDiscard(
       );
       const request = yield* McpSchema.McpRequestContext;
       const threadId = yield* Effect.service(CallingThread);
+      // The cards of the thread asking, which tell whether its agent's client shows forms.
+      const cards =
+        threadId === undefined
+          ? undefined
+          : (yield* sessions.of(threadId)).cards;
       const answered = request.inputResponses?.[ANSWERS];
       if (answered !== undefined) {
         // Declined, yet the thread showed no card since the form went out: the agent's own
-        // client turned it down, and the user never saw the questions.
-        const unseen =
-          answered.action === "decline" &&
-          threadId !== undefined &&
-          request.requestState === String(yield* threads.cardsShown(threadId));
-        if (!unseen) {
+        // client turned it down, and the user never saw the questions. Codex does under full
+        // access: it declines every form unless its client says it shows them, which codex-acp
+        // does not yet. The thread's agent is not asked with a form again.
+        const seen =
+          answered.action !== "decline" ||
+          cards === undefined ||
+          (yield* cards.declinedSeen(request.requestState));
+        if (seen) {
           return replyOf(questions, answered);
         }
-        cannotWait.add(threadId);
       }
       const canWait =
         answered === undefined &&
         request.protocolVersion === WAITING_REVISION &&
         request.clientCapabilities.elicitation !== undefined &&
-        !(threadId !== undefined && cannotWait.has(threadId));
+        (cards === undefined || (yield* cards.canWait));
       if (canWait) {
         return new McpSchema.InputRequired({
           inputRequests: {
@@ -133,10 +124,8 @@ export const AskUserToolLive = Layer.effectDiscard(
               },
             },
           },
-          // Comes back with the answers: how many cards the thread had shown when it asked.
-          requestState: String(
-            threadId === undefined ? 0 : yield* threads.cardsShown(threadId)
-          ),
+          // Comes back with the answers, for the thread to tell whether it showed the form.
+          requestState: cards === undefined ? "0" : yield* cards.formSent,
         });
       }
       if (threadId === undefined) {

@@ -2,7 +2,7 @@
  * The chat's list of threads: what each works on, as a picture, its name, its last line and where
  * it stands. Opening one gives the thread; the list is where the chat opens.
  */
-import type { Thread } from "@ultrapaint/contracts/threads";
+import { isBusy, type Thread } from "@ultrapaint/contracts/threads";
 import { cn } from "cn";
 import {
   CircleAlert,
@@ -66,9 +66,6 @@ const ago = (at: number, now: number): string => {
 const isToday = (at: number, now: number) =>
   new Date(at).toDateString() === new Date(now).toDateString();
 
-const isRunning = (t: Thread) =>
-  t.status === "running" || t.status === "starting";
-
 /** Where a thread's scope is: its page's URL, or its name when it has none, or the canvas. */
 const useScopeLabel = (thread: Thread) =>
   useProject((s) => {
@@ -121,7 +118,7 @@ export const ScopePicture = ({
 };
 
 const Status = ({ thread }: { thread: Thread }) => {
-  if (isRunning(thread)) {
+  if (isBusy(thread.status)) {
     return (
       <span className="flex shrink-0 items-center gap-1 font-medium text-agent">
         <Spinner className="size-3" />
@@ -308,12 +305,12 @@ export const ThreadList = () => {
   }, []);
   usePreviews(threads);
 
-  const running = threads.filter(isRunning).length;
+  const running = threads.filter((t) => isBusy(t.status)).length;
   const onPage = threads.filter((t) => t.scope?.file === pageFile).length;
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
     return threads.filter((t) => {
-      if (filter === "running" && !isRunning(t)) {
+      if (filter === "running" && !isBusy(t.status)) {
         return false;
       }
       if (filter === "page" && t.scope?.file !== pageFile) {

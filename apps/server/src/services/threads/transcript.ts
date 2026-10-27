@@ -1,6 +1,7 @@
 /**
  * Projection of ACP `session/update` notifications into the transcript the editor renders.
- * Pure: it returns what should happen and leaves persistence and publishing to the caller.
+ * Pure: it returns what should happen, and the turn's cursor after it, and leaves persistence,
+ * publishing and keeping the cursor to the caller.
  */
 import type { SessionNotification } from "@ultrapaint/acp/acp-agent";
 import type {
@@ -15,9 +16,9 @@ type SessionUpdate = SessionNotification["update"];
 
 /** Which transcript items the streaming chunks of the current turn are appended to. */
 export interface TurnCursor {
-  agentItemId: string | null;
-  planItemId: string | null;
-  thoughtItemId: string | null;
+  readonly agentItemId: string | null;
+  readonly planItemId: string | null;
+  readonly thoughtItemId: string | null;
 }
 
 export const emptyCursor = (): TurnCursor => ({
@@ -44,9 +45,20 @@ export interface ProjectionContext {
    * in the repository. Everything that crosses the wire is repository-relative.
    */
   readonly relative: (path: string) => string;
-  /** Mutated as chunks arrive. `null` outside a turn, where every chunk starts a new item. */
+  /** `null` outside a turn, where every chunk starts a new item. */
   readonly turn: TurnCursor | null;
 }
+
+/** What an update does to the transcript, and where the turn's next chunks go. */
+export interface Projection {
+  readonly actions: readonly TranscriptAction[];
+  readonly turn: TurnCursor | null;
+}
+
+const unmoved = (
+  actions: readonly TranscriptAction[],
+  ctx: ProjectionContext
+): Projection => ({ actions, turn: ctx.turn });
 
 /** A tool call's content as ACP sends it, before the editor's own shape. */
 interface RawToolContent {
@@ -200,19 +212,21 @@ const projectChunk = (
   kind: "agent" | "thought",
   text: string,
   ctx: ProjectionContext
-): TranscriptAction[] => {
+): Projection => {
   const key = kind === "agent" ? "agentItemId" : "thoughtItemId";
   const other = kind === "agent" ? "thoughtItemId" : "agentItemId";
   const open = ctx.turn?.[key];
   if (open) {
-    return [{ itemId: open, patch: appendText(kind, text), type: "patch" }];
+    return unmoved(
+      [{ itemId: open, patch: appendText(kind, text), type: "patch" }],
+      ctx
+    );
   }
   const item: ThreadItem = { at: ctx.now, id: ctx.newId(), kind, text };
-  if (ctx.turn) {
-    ctx.turn[key] = item.id;
-    ctx.turn[other] = null;
-  }
-  return [{ item, type: "push" }];
+  return {
+    actions: [{ item, type: "push" }],
+    turn: ctx.turn && { ...ctx.turn, [key]: item.id, [other]: null },
+  };
 };
 
 type ToolUpdate = Extract<
@@ -274,10 +288,7 @@ const projectToolUpdate = (
   ];
 };
 
-const projectPlan = (
-  u: SessionUpdate,
-  ctx: ProjectionContext
-): TranscriptAction[] => {
+const projectPlan = (u: SessionUpdate, ctx: ProjectionContext): Projection => {
   const raw = (u as { entries?: unknown }).entries;
   const entries = Array.isArray(raw)
     ? (raw as { content: string; priority?: string; status: string }[]).map(
@@ -290,13 +301,16 @@ const projectPlan = (
     : [];
   const open = ctx.turn?.planItemId;
   if (open) {
-    return [
-      {
-        itemId: open,
-        patch: (i) => (i.kind === "plan" ? { ...i, entries } : i),
-        type: "patch",
-      },
-    ];
+    return unmoved(
+      [
+        {
+          itemId: open,
+          patch: (i) => (i.kind === "plan" ? { ...i, entries } : i),
+          type: "patch",
+        },
+      ],
+      ctx
+    );
   }
   const item: ThreadItem = {
     at: ctx.now,
@@ -304,16 +318,16 @@ const projectPlan = (
     id: ctx.newId(),
     kind: "plan",
   };
-  if (ctx.turn) {
-    ctx.turn.planItemId = item.id;
-  }
-  return [{ item, type: "push" }];
+  return {
+    actions: [{ item, type: "push" }],
+    turn: ctx.turn && { ...ctx.turn, planItemId: item.id },
+  };
 };
 
 export const projectUpdate = (
   u: SessionUpdate,
   ctx: ProjectionContext
-): TranscriptAction[] => {
+): Projection => {
   switch (u.sessionUpdate) {
     case "agent_message_chunk":
       return projectChunk(
@@ -328,32 +342,42 @@ export const projectUpdate = (
         ctx
       );
     case "tool_call": {
-      if (ctx.turn) {
-        ctx.turn.agentItemId = null;
-        ctx.turn.thoughtItemId = null;
-      }
       const item = toolItem(u, ctx, { status: "pending", title: u.title });
-      return [{ item, type: "push" }];
+      // The text after a tool call is a new message, not the one before it.
+      return {
+        actions: [{ item, type: "push" }],
+        turn: ctx.turn && {
+          ...ctx.turn,
+          agentItemId: null,
+          thoughtItemId: null,
+        },
+      };
     }
     case "tool_call_update":
-      return projectToolUpdate(u, ctx);
+      return unmoved(projectToolUpdate(u, ctx), ctx);
     case "plan":
     case "plan_update":
       return projectPlan(u, ctx);
     case "current_mode_update":
-      return [{ patch: { currentModeId: u.currentModeId }, type: "thread" }];
+      return unmoved(
+        [{ patch: { currentModeId: u.currentModeId }, type: "thread" }],
+        ctx
+      );
     case "config_option_update":
-      return [
-        {
-          patch: { configOptions: mapConfigOptions(u.configOptions) },
-          type: "thread",
-        },
-      ];
+      return unmoved(
+        [
+          {
+            patch: { configOptions: mapConfigOptions(u.configOptions) },
+            type: "thread",
+          },
+        ],
+        ctx
+      );
     case "session_info_update": {
       const { title } = u as { title?: string | null };
-      return title ? [{ patch: { title }, type: "thread" }] : [];
+      return unmoved(title ? [{ patch: { title }, type: "thread" }] : [], ctx);
     }
     default:
-      return [];
+      return unmoved([], ctx);
   }
 };
