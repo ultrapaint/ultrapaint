@@ -177,9 +177,18 @@ const buildFrame = (host: HTMLElement, theme: string) => {
   return { body, root, shadow };
 };
 
+/** What the editor last put on each frame's body: what it replaces, not what the page's code put. */
+const shownOnBody = new WeakMap<
+  HTMLElement,
+  { readonly classes: readonly string[]; readonly style: readonly string[] }
+>();
+
+const SPACE_RE = /\s+/;
+
 /**
  * What the canvas draws every page in, on the frame's body, as an application sets it on its
- * root: popups the page opens are inside it too.
+ * root: popups the page opens are inside it too. Only the editor's own classes and style are
+ * replaced: what the page's code put there (a theme class, a modal's scroll lock) stays.
  */
 const applyDefaults = (
   body: HTMLElement,
@@ -189,15 +198,20 @@ const applyDefaults = (
   const { defaults } = request;
   const shown = defaults?.theme ?? theme;
   body.setAttribute("data-theme", shown);
+  const before = shownOnBody.get(body);
   // `dark` is a class to Tailwind, any other theme its `data-theme`: both are set.
-  body.className = defaults?.theme ?? "";
-  body.removeAttribute("style");
-  if (defaults) {
-    Object.assign(
-      body.style,
-      pageDefaultsStyle(defaults, makeStyleContext(request.designSystem))
-    );
+  const classes = (defaults?.theme ?? "").split(SPACE_RE).filter(Boolean);
+  body.classList.remove(...(before?.classes ?? []));
+  body.classList.add(...classes);
+  const style = body.style as unknown as Record<string, string>;
+  for (const property of before?.style ?? []) {
+    style[property] = "";
   }
+  const next = defaults
+    ? pageDefaultsStyle(defaults, makeStyleContext(request.designSystem))
+    : {};
+  Object.assign(body.style, next);
+  shownOnBody.set(body, { classes, style: Object.keys(next) });
 };
 
 const mountFrame = (
@@ -217,6 +231,7 @@ const mountFrame = (
       media.asking();
       tellRunning(options.frame);
     },
+    body,
     error: (error) => events.error?.(error),
     host,
     interactive: () => interactive,

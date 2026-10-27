@@ -3,14 +3,19 @@
  * stylesheet's media queries are turned into the frame's container queries (`frame-css.ts`);
  * this does the same for what a component asks in JavaScript: `matchMedia("(min-width: 768px)")`
  * and `innerWidth` answer for the frame the component is drawn in, and the query's listeners are
- * told when that frame is resized across it. Anything else (a hover, a colour scheme, the
- * editor's own code) is the window's, as it was.
+ * told when that frame is resized across it. `prefers-color-scheme` answers the frame's theme
+ * when it is light or dark, so a theme provider left on "system" picks what the canvas shows.
+ * Anything else (a hover, print, the editor's own code) is the window's, as it was.
  *
  * Which frame is asking is the one that is drawing (the renderer says so as it draws and as its
  * effects run) or the one that last took input: the same frame a popup is put in.
  */
 
-import { containerCondition, FRAME_CONTAINER } from "./frame-css.ts";
+import {
+  BODY_ATTRIBUTE,
+  containerCondition,
+  FRAME_CONTAINER,
+} from "./frame-css.ts";
 import { calledFromPreview } from "./portals.ts";
 
 /** This module's own file, whose frames on the stack are the patch, not who called it. */
@@ -97,6 +102,30 @@ const holds = (frame: FrameMedia, condition: string): boolean => {
   return getComputedStyle(frame.probe).getPropertyValue(slot).trim() === "1";
 };
 
+const SCHEME_RE =
+  /^\s*\(\s*prefers-color-scheme\s*:\s*(?:dark|light)\s*\)\s*$/i;
+
+/** The frame's theme when it is a colour scheme: what its body says it is drawn in. */
+const schemeOf = (frame: FrameMedia) => {
+  const theme = frame.host.shadowRoot
+    ?.querySelector(`[${BODY_ATTRIBUTE}]`)
+    ?.getAttribute("data-theme");
+  return theme === "dark" || theme === "light" ? theme : null;
+};
+
+/** What `media` asks of `frame`, when the frame answers it: its size, or its colour scheme. */
+const frameCondition = (
+  frame: FrameMedia,
+  media: string
+): (() => boolean) | null => {
+  if (SCHEME_RE.test(media)) {
+    const scheme = media.toLowerCase().includes("dark") ? "dark" : "light";
+    return schemeOf(frame) ? () => schemeOf(frame) === scheme : null;
+  }
+  const condition = containerCondition(media);
+  return condition ? () => holds(frame, condition) : null;
+};
+
 /** The frame the preview's code is asking for, or null: the editor, or no frame drawing. */
 const asking = (): FrameMedia | null =>
   current?.host.isConnected && calledFromPreview([OWN]) ? current : null;
@@ -109,13 +138,13 @@ const install = () => {
   const native = window.matchMedia.bind(window);
   window.matchMedia = (media: string): MediaQueryList => {
     const frame = asking();
-    const condition = frame ? containerCondition(media) : null;
-    if (!(frame && condition)) {
+    const read = frame ? frameCondition(frame, media) : null;
+    if (!(frame && read)) {
       return native(media);
     }
     let query = frame.queries.get(media);
     if (!query) {
-      query = new FrameQuery(media, () => holds(frame, condition));
+      query = new FrameQuery(media, read);
       frame.queries.set(media, query);
     }
     return query as unknown as MediaQueryList;

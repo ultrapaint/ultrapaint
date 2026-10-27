@@ -10,6 +10,8 @@
  * - a request to the application's own origin reaches its backend through the repository's
  *   proxy, not the editor's routes;
  * - the application's storage is its own, the editor's keys and databases out of its reach;
+ * - a theme class and a scroll lock land on their frame, not the editor, and a colour scheme
+ *   left to the system reads the frame's theme;
  * - a frame's code reads the frame's width and scroll as the window's;
  * - the editor's CSS variables do not reach a frame;
  * - what nothing caught (a timer, a click in the prototype) is shown on its frame;
@@ -150,6 +152,8 @@ const startEditor = async (
 const launch = (profile: string) =>
   chromium.launchPersistentContext(profile, {
     args: ["--disable-renderer-backgrounding"],
+    // The system prefers dark: a light frame's code reads light only because the frame says so.
+    colorScheme: "dark",
     executablePath: chromePath(),
     headless: true,
     viewport: { height: 1000, width: 1600 },
@@ -337,6 +341,46 @@ const guards = async (page: Page, url: string) => {
           !frame.databases.includes("ultrapaint-watchdog") &&
           editor.canvas !== null &&
           editor.theme === null) ||
+        JSON.stringify(seen)
+      );
+    }
+  );
+
+  await check(
+    "a theme class and a scroll lock land on their frame, not the editor",
+    async () => {
+      const seen = await page.evaluate(() => {
+        const host = document.querySelector(
+          '[data-ed-frame-host="guards/theme.page.json"]'
+        ) as HTMLElement | null;
+        const body = host?.shadowRoot?.querySelector(
+          "[data-ed-body]"
+        ) as HTMLElement | null;
+        return {
+          editor: {
+            locked: document.body.hasAttribute("data-scroll-locked"),
+            overflow: document.body.style.overflow,
+            scheme: document.documentElement.style.colorScheme,
+            theme: document.documentElement.classList.contains("probe-theme"),
+          },
+          frame: {
+            bodyTheme: body?.classList.contains("probe-theme") ?? false,
+            hostTheme: host?.classList.contains("probe-theme") ?? false,
+            locked: body?.getAttribute("data-scroll-locked") ?? null,
+            scheme: host?.shadowRoot?.querySelector('[data-probe="theme"]')
+              ?.textContent,
+          },
+        };
+      });
+      const { editor, frame } = seen;
+      return (
+        (!(editor.locked || editor.theme) &&
+          editor.overflow === "" &&
+          editor.scheme === "" &&
+          frame.hostTheme &&
+          frame.bodyTheme &&
+          frame.locked === "1" &&
+          frame.scheme === "light") ||
         JSON.stringify(seen)
       );
     }
