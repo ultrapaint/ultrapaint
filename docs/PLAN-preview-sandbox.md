@@ -392,6 +392,16 @@ Answered 2026-10-27.
       34–37%, renderer 420–423 / 420–421 MB. sacro-cuore draws its four frames, no error.
 - [x] 7b. What a frame is told of an error names the source's line: a stack's lines are the
       module's as the server sent it, after the React plugin and TypeScript (the loop in a click
-      was said to be at line 177, where the source has a `throw` 18 lines further up). The
+      was said to be at line 177, a `throw` 18 lines further down the source). The
       module's inline source map, read once when something throws (`source-lines.ts`), takes it
       back. Wrong since step 2; found by step 7's checks, which now say the line.
+- [x] 8. F1: `preview-core/requests.ts`. A request the preview's code makes to the editor's
+      origin (`fetch`, `XMLHttpRequest`, `EventSource`, `WebSocket`, `sendBeacon`) goes under the
+      base, and the preview's server takes the repository's `server.proxy` over with its keys under
+      the base and the base taken off again (`framework-react-vite/proxy.ts`). Whose request it is
+      is read off the whole stack, not its immediate caller: an application that wraps `fetch`
+      (logging, Sentry) is called by the editor too, whose requests must stay the editor's. A
+      request made where the editor's code is lower on the stack (a fetch in a render the editor
+      runs synchronously) is left to the editor's origin, as before. The fixture's `/api/health`,
+      which the editor's own server has a route for, now reaches the fixture's backend. Not
+      benched: nothing on the canvas's way calls these.

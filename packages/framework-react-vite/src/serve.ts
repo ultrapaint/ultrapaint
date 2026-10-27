@@ -34,6 +34,7 @@ import {
   splitPlugins,
   TAILWIND_PLUGIN_RE,
 } from "./inherit-plugins.ts";
+import { proxyUnder } from "./proxy.ts";
 import { PUBLIC_FILES_ID, prefixPublicUrls } from "./public-urls.ts";
 import { ultrapaintResolve } from "./resolve-plugin.ts";
 import { CLIENT_RE, CLIENT_STYLES_HOOK, patchClient } from "./vite-client.ts";
@@ -205,6 +206,9 @@ const inheritedConfig = async (api: Vite): Promise<UserConfig> => {
       alias: config.resolve?.alias,
       conditions: config.resolve?.conditions,
     },
+    // What the application asks its own origin for reaches its backend as in `vite dev`: the
+    // editor's page sends it under the base (`preview-core/requests.ts`).
+    server: { proxy: proxyUnder(config.server?.proxy, options.base) },
   };
 };
 

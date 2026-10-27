@@ -48,6 +48,13 @@
       "width": 440,
       "x": 960,
       "y": 360
+    },
+    "fetch.page.json": {
+      "height": 300,
+      "preset": "custom",
+      "width": 440,
+      "x": 1440,
+      "y": 360
     }
   },
   "name": "guards",

@@ -19,16 +19,19 @@
  *   server puts in the repository's code), and the editor's alone when nothing says whose;
  * - an animation frame it asks for is its frame's, and waits while that frame is parked or off
  *   the screen: a loop on a page nobody sees costs the editor nothing; a timer it sets runs as
- *   its frame's, so what the timer throws or listens to is that frame's too.
+ *   its frame's, so what the timer throws or listens to is that frame's too;
+ * - a request it makes to the editor's origin goes to the preview's server (`requests.ts`).
  *
  * Which frame is the one that was drawing or took input, as `media.ts` tells the window's size.
  */
 import {
   calledDirectlyFromPreview,
   calledFromPreview,
+  calledOnlyFromPreview,
   type ThrownAt,
   thrownInPreview,
 } from "./portals.ts";
+import { guardRequests } from "./requests.ts";
 import { sourceLine } from "./source-lines.ts";
 
 /** This module's own file, whose frames on the stack are the patch, not who called it. */
@@ -140,6 +143,7 @@ const marks = new WeakMap<object, GuardedFrame>();
 const strayListeners = new Set<(error: FrameError) => void>();
 let fromPreview = () => calledFromPreview([OWN]);
 let directlyFromPreview = calledDirectlyFromPreview;
+let onlyFromPreview: (patched: object) => boolean = calledOnlyFromPreview;
 let thrownIn = thrownInPreview;
 let locate = sourceLine;
 
@@ -720,6 +724,7 @@ export const installGuards = (test?: {
   if (test) {
     fromPreview = test.caller;
     directlyFromPreview = test.caller;
+    onlyFromPreview = test.caller;
     thrownIn = test.thrown;
     locate = (_url, line) => Promise.resolve(line);
   }
@@ -737,6 +742,7 @@ export const installGuards = (test?: {
   guardHead();
   guardAnimationFrames();
   guardTimers();
+  guardRequests((patched) => onlyFromPreview(patched));
 };
 
 /**

@@ -7,6 +7,8 @@
  *
  * - the application hears no key typed in the editor, and its own frame's keys still;
  * - the editor's address, title and head stay the editor's;
+ * - a request to the application's own origin reaches its backend through the repository's
+ *   proxy, not the editor's routes;
  * - a frame's code reads the frame's width and scroll as the window's;
  * - the editor's CSS variables do not reach a frame;
  * - what nothing caught (a timer, a click in the prototype) is shown on its frame;
@@ -22,6 +24,7 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
+import { createServer as createHttpServer, type Server } from "node:http";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -87,7 +90,22 @@ const freePort = () =>
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** An editor on the fixture host, in a process group of its own, stopped through its handle. */
-const startEditor = async (): Promise<{ stop: () => void; url: string }> => {
+/** The application's backend: answers every request with the path it was asked for. */
+const startBackend = () =>
+  new Promise<{ server: Server; url: string }>((resolve) => {
+    const server = createHttpServer((request, response) => {
+      response.end(`backend:${request.url}`);
+    });
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      const port = typeof address === "object" && address ? address.port : 0;
+      resolve({ server, url: `http://127.0.0.1:${port}` });
+    });
+  });
+
+const startEditor = async (
+  api: string
+): Promise<{ stop: () => void; url: string }> => {
   const port = await freePort();
   const web = await freePort();
   const child: ChildProcess = spawn(
@@ -100,6 +118,8 @@ const startEditor = async (): Promise<{ stop: () => void; url: string }> => {
         ...process.env,
         ULTRAPAINT_PORT: String(port),
         ULTRAPAINT_WEB_PORT: String(web),
+        // The fixture's Vite config proxies `/api` there.
+        SANDBOX_HOST_API: api,
       },
       stdio: "ignore",
     }
@@ -273,6 +293,19 @@ const guards = async (page: Page, url: string) => {
       JSON.stringify(head)
     );
   });
+
+  await check(
+    "a request to the application's own origin reaches its backend, not the editor",
+    async () => {
+      const answer = await page.evaluate(
+        () =>
+          document
+            .querySelector('[data-ed-frame-host="guards/fetch.page.json"]')
+            ?.shadowRoot?.querySelector('[data-probe="fetch"]')?.textContent
+      );
+      return answer === "backend:/api/health" || `answered ${answer}`;
+    }
+  );
 
   const windowProbe = () =>
     page.evaluate(() => {
@@ -602,7 +635,8 @@ const freeze = async (url: string) => {
 };
 
 const main = async () => {
-  const editor = await startEditor();
+  const backend = await startBackend();
+  const editor = await startEditor(backend.url);
   const profile = await mkdtemp(path.join(tmpdir(), "e2e-sandbox-"));
   try {
     const context = await launch(profile);
@@ -614,6 +648,7 @@ const main = async () => {
     await freeze(editor.url);
   } finally {
     editor.stop();
+    backend.server.close();
     await rm(profile, { force: true, recursive: true });
   }
   const failed = results.filter((r) => !r.ok).length;
