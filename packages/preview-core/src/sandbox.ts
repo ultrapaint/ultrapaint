@@ -20,11 +20,14 @@
  * - an animation frame it asks for is its frame's, and waits while that frame is parked or off
  *   the screen: a loop on a page nobody sees costs the editor nothing; a timer it sets runs as
  *   its frame's, so what the timer throws or listens to is that frame's too;
- * - a request it makes to the editor's origin goes to the preview's server (`requests.ts`), and
- *   its storage is its own (`storage.ts`).
+ * - a request it makes to the editor's origin goes to the preview's server (`requests.ts`), its
+ *   storage is its own (`storage.ts`), and what it writes to `<html>` and `<body>` is its frame's
+ *   (`document-elements.ts`).
  *
  * Which frame is the one that was drawing or took input, as `media.ts` tells the window's size.
  */
+
+import { guardDocumentElements } from "./document-elements.ts";
 import {
   calledDirectlyFromPreview,
   calledFromPreview,
@@ -51,6 +54,8 @@ export interface FrameError {
 export interface GuardedFrame {
   /** The frame is asked about: what its code reads of the window answers for it. */
   readonly asking: () => void;
+  /** The element standing for its page's `<body>`, inside its shadow root. */
+  readonly body?: HTMLElement | undefined;
   /** Its page's code threw and nothing caught it. */
   readonly error: (error: FrameError) => void;
   readonly host: HTMLElement;
@@ -757,6 +762,13 @@ export const installGuards = (test?: {
   guardStorage((patched) =>
     directlyFromPreview(patched as (...args: never[]) => unknown)
   );
+  guardDocumentElements((patched) => {
+    const frame = carrying ?? current;
+    return frame?.body &&
+      directlyFromPreview(patched as (...args: never[]) => unknown)
+      ? { body: frame.body, host: frame.host }
+      : null;
+  });
 };
 
 /**

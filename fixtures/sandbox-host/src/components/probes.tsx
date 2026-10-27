@@ -127,6 +127,29 @@ export function StorageProbe() {
   );
 }
 
+/**
+ * A theme provider's class and colour scheme on `<html>`, and a modal's scroll lock on `<body>`;
+ * the colour scheme a provider left on "system" reads.
+ */
+export function ThemeProbe() {
+  // Read as it draws: the frame drawing is the one asked about.
+  const [scheme] = useState(() =>
+    window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+  );
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.add("probe-theme");
+    root.style.colorScheme = "dark";
+    document.body.style.overflow = "hidden";
+    document.body.setAttribute("data-scroll-locked", "1");
+  }, []);
+  return (
+    <pre data-probe="theme" style={{ padding: 16 }}>
+      {scheme}
+    </pre>
+  );
+}
+
 /** An "unsaved changes" guard. */
 export function LeaveProbe() {
   useEffect(() => {

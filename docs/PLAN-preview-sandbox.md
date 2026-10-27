@@ -413,3 +413,17 @@ Answered 2026-10-27.
       own. `storage` events, which tell of the editor's keys, are not heard. The fixture's
       probe finds no editor key and no `ultrapaint-watchdog`, and its `theme` never reaches
       the editor's storage.
+- [x] 10. H1: `preview-core/document-elements.ts`, on the document's `<html>` and `<body>`
+      themselves. Classes and attributes the preview's code writes to `<html>` go to the frame's
+      host and its body element (`html.dark` is `:host(.dark)`; `.dark { … }` and `.dark *` match
+      only inside), its `style` to the host, which is what scrolls; `<body>` is the body element.
+      The host is the editor's element: the page adds and removes only its own classes there, and
+      its whole style written at once is dropped. The frame's body defaults (theme class, style)
+      now replace only what the editor put there, so a scroll lock survives a redraw.
+      `prefers-color-scheme` answers the frame's theme when it is light or dark (`media.ts`). With
+      the browser preferring dark, the fixture's light frame reads light, its class and scroll
+      lock are on its frame, and the editor's `<html>` and `<body>` are as they were.
+      Redesign, steps 8 to 10 against the commit before them, alternately: load 334–421 /
+      385–417 ms (and 350–414 / 403–733 in five more), pan 16–19 / 15–20%, zoom 35–36 / 33–35%,
+      renderer 418–423 / 420–422 MB. Switching back to Redesign spiked to 122–158 ms in some runs
+      of both.
