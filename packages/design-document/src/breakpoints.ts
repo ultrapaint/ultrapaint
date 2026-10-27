@@ -220,3 +220,68 @@ export const FIXED_FIELDS: ReadonlySet<string> = new Set([
   "x",
   "y",
 ]);
+
+/**
+ * Where a node is shown, as the one rule that says so: at every width, at none, from a
+ * breakpoint up, or below one. A node shown at some widths in another way is `custom`.
+ */
+export type Visibility =
+  | { readonly kind: "every" }
+  | { readonly kind: "none" }
+  | { readonly at: string; readonly kind: "from" }
+  | { readonly at: string; readonly kind: "below" }
+  | { readonly kind: "custom" };
+
+/** The rule a node's `hidden`, its own and its breakpoints', comes to. */
+export const visibilityOf = (
+  node: DesignNode,
+  breakpoints: readonly Breakpoint[]
+): Visibility => {
+  const levels = [null, ...breakpoints.map((b) => b.name)];
+  const shown = levels.map(
+    (name) => !resolveAtBreakpoint(node, breakpoints, name).hidden
+  );
+  if (shown.every(Boolean)) {
+    return { kind: "every" };
+  }
+  if (!shown.some(Boolean)) {
+    return { kind: "none" };
+  }
+  // One change only, at one breakpoint: shown from it up, or below it.
+  const changes = shown.flatMap((s, i) =>
+    i > 0 && s !== shown[i - 1] ? [i] : []
+  );
+  const [at] = changes;
+  const where = at === undefined ? undefined : levels[at];
+  if (changes.length !== 1 || !where) {
+    return { kind: "custom" };
+  }
+  return shown[0] ? { at: where, kind: "below" } : { at: where, kind: "from" };
+};
+
+/**
+ * The fields that show a node by `rule`: its own `hidden` and its `at` with every breakpoint's
+ * `hidden` taken out and the rule's put in, what is left empty gone (`null`, as an update
+ * removes a field).
+ */
+export const withVisibility = (
+  node: DesignNode,
+  rule: Exclude<Visibility, { kind: "custom" }>
+): { at: DesignNode["at"] | null; hidden: true | null } => {
+  const at: Record<string, Record<string, unknown>> = {};
+  for (const [name, fields] of Object.entries(
+    (node.at ?? {}) as Record<string, Record<string, unknown>>
+  )) {
+    const { hidden: _hidden, ...rest } = fields;
+    if (Object.keys(rest).length > 0) {
+      at[name] = rest;
+    }
+  }
+  if (rule.kind === "from" || rule.kind === "below") {
+    at[rule.at] = { ...at[rule.at], hidden: rule.kind === "below" };
+  }
+  return {
+    at: Object.keys(at).length > 0 ? (at as DesignNode["at"]) : null,
+    hidden: rule.kind === "none" || rule.kind === "from" ? true : null,
+  };
+};

@@ -137,9 +137,16 @@ inspector, the canvas toolbar, inline text and inserts.
 4. Order: moving a row in the layers moves it in the tree for every view; "Move here from md up"
    writes `order` instead, offered while a view above the base is the one edited.
 
-As built: visibility and order are the Breakpoints section's "Here" (Shown, Hidden) and "Order"
-(First, In place, Last) while a view above the base is edited. The layers' eye and dimming read
-the node at that view's breakpoint.
+As built (visibility):
+- Visibility is the Breakpoints section's **Shown at** select, in every view and on a page
+  without views. Its rules are every width, hidden everywhere, and from or below each breakpoint,
+  each listed with the class it writes.
+- A rule an agent wrote that the select cannot (a range) shows as Custom.
+- The eye stays the toggle for the view's own breakpoint, and the layers' eye and dimming read the
+  node at that breakpoint.
+
+As built (order): **Order** (First, In place, Last) is offered while a view above the base is
+edited.
 
 ### Phase 5: agents, MCP and the implementation
 

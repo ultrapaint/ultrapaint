@@ -1,16 +1,24 @@
 /**
  * The inspector's Breakpoints section (ADR 0036): which breakpoint an edit lands at, what the node
- * sets at each breakpoint (dimmed when the view shows a smaller one), a reset for each, and what
- * only a breakpoint decides: where the node is shown, and where it sits among its siblings.
+ * sets at each breakpoint (dimmed when the view shows a smaller one), a reset for each, the widths
+ * it is shown at (one rule, chosen from any view) and, in a view above the base, where it sits
+ * among its siblings.
  */
+import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { DesignNode, DocOp } from "@ultrapaint/contracts/document";
 import {
   type Breakpoint,
   breakpointAt,
-  resolveAtBreakpoint,
+  type Visibility,
+  visibilityOf,
+  withVisibility,
 } from "@ultrapaint/design-document/breakpoints";
 import { cn } from "cn";
 import { X } from "lucide-react";
+import {
+  OptionSelect,
+  type SelectOption,
+} from "../components/option-select.tsx";
 import { Row, Section } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import { useBreakpoints } from "../state/design-system.ts";
@@ -59,38 +67,86 @@ const resetAt = (
   applyOps(docOfFrame(frame, canvas), [op], `Reset ${field} at ${at}`);
 };
 
+/** What a rule is called in the select, and in the section's sentence. */
+const phraseOf = (rule: Visibility): string => {
+  switch (rule.kind) {
+    case "every":
+      return "Every width";
+    case "none":
+      return "Hidden everywhere";
+    case "from":
+      return `From ${rule.at} up`;
+    case "below":
+      return `Below ${rule.at}`;
+    default:
+      return "Custom";
+  }
+};
+
+const choiceOf = (rule: Visibility) =>
+  rule.kind === "from" || rule.kind === "below"
+    ? `${rule.kind}:${rule.at}`
+    : rule.kind;
+
+const ruleOf = (value: string): Visibility => {
+  const [kind, at] = value.split(":");
+  if ((kind === "from" || kind === "below") && at) {
+    return { at, kind };
+  }
+  return kind === "none" ? { kind: "none" } : { kind: "every" };
+};
+
 /**
- * Where a node is shown, as one phrase: "Shown from md up", "Shown below lg", nothing when it is
- * shown at every width.
+ * The rules a node can be shown by, each with the class the code writes for it: every width,
+ * none, and from or below each breakpoint. A rule the select cannot write (an agent's range) is
+ * listed as Custom while it holds.
  */
-export const visibilityOf = (
-  node: DesignNode,
-  breakpoints: readonly Breakpoint[]
-): string | null => {
-  const levels = [null, ...breakpoints.map((b) => b.name)];
-  const shown = levels.map(
-    (name) => !resolveAtBreakpoint(node, breakpoints, name).hidden
+const visibilityOptions = (
+  breakpoints: readonly Breakpoint[],
+  current: Visibility
+): SelectOption[] => [
+  { label: "Every width", value: "every" },
+  { description: "hidden", label: "Hidden everywhere", value: "none" },
+  ...breakpoints.map((b) => ({
+    description: `max-${b.name}:hidden`,
+    group: "From a breakpoint up",
+    label: `From ${b.name} up (${b.min}px)`,
+    value: `from:${b.name}`,
+  })),
+  ...breakpoints.map((b) => ({
+    description: `${b.name}:hidden`,
+    group: "Below a breakpoint",
+    label: `Below ${b.name} (${b.min}px)`,
+    value: `below:${b.name}`,
+  })),
+  ...(current.kind === "custom" ? [{ label: "Custom", value: "custom" }] : []),
+];
+
+/**
+ * Shows a node by one rule, whichever view it is chosen in: its own `hidden` and each
+ * breakpoint's are written together, as one step.
+ */
+const showBy = (frame: string, node: DesignNode, value: string) => {
+  if (value === "custom") {
+    return;
+  }
+  const rule = ruleOf(value);
+  const { canvas } = useEditor.getState();
+  applyOps(
+    docOfFrame(frame, canvas),
+    [
+      {
+        id: node.id,
+        op: "update",
+        // Plain JSON: the document's own fields, rewritten.
+        set: withVisibility(
+          node,
+          rule as Exclude<Visibility, { kind: "custom" }>
+        ) as unknown as Record<string, JsonValue>,
+      },
+    ],
+    `Show at ${phraseOf(rule).toLowerCase()}`
   );
-  if (shown.every(Boolean)) {
-    return null;
-  }
-  if (!shown.some(Boolean)) {
-    return "Hidden at every width";
-  }
-  const from = shown.indexOf(true);
-  const until = shown.indexOf(false, from);
-  const contiguous = until < 0 || !shown.slice(until).some(Boolean);
-  if (!contiguous) {
-    return "Shown at some widths";
-  }
-  const start = levels[from];
-  const end = until < 0 ? null : levels[until];
-  if (start === null) {
-    return `Shown below ${end}`;
-  }
-  return end === null
-    ? `Shown from ${start} up`
-    : `Shown from ${start} to below ${end}`;
 };
 
 const ORDER_OPTIONS = [
@@ -138,9 +194,6 @@ export const BreakpointSection = ({
       : (breakpointAt(breakpoints, width)?.name ?? null);
   const editing = views ? shown : null;
   const used = breakpoints.filter((b) => fieldsAt(own, b.name).length > 0);
-  if (!views && used.length === 0) {
-    return null;
-  }
   const holding = new Set(
     shown === null
       ? []
@@ -149,6 +202,11 @@ export const BreakpointSection = ({
           .map((b) => b.name)
   );
   const visibility = visibilityOf(own, breakpoints);
+  // What the eye already says, at every width, is left out of the sentence.
+  const said =
+    visibility.kind === "every" || visibility.kind === "none"
+      ? null
+      : `Shown ${phraseOf(visibility).toLowerCase()}.`;
   return (
     <Section title="Breakpoints">
       <p className="font-body text-muted-foreground">
@@ -160,7 +218,7 @@ export const BreakpointSection = ({
             <span className="font-code text-foreground">{editing}</span> and up.
           </>
         )}
-        {visibility ? ` ${visibility}.` : null}
+        {said ? ` ${said}` : null}
       </p>
       {used.map((b) => (
         <Row key={b.name} label={b.name}>
@@ -198,34 +256,22 @@ export const BreakpointSection = ({
           </div>
         </Row>
       ))}
+      <Row label="Shown at">
+        <OptionSelect
+          onChange={(v) => showBy(frame, own, v)}
+          options={visibilityOptions(breakpoints, visibility)}
+          size="sm"
+          value={choiceOf(visibility)}
+        />
+      </Row>
       {editing === null ? null : (
-        <>
-          <Row label="Here">
-            <Segmented
-              onChange={(v) => set("hidden", v === "hidden")}
-              options={[
-                {
-                  label: "Shown",
-                  title: `Shown from ${editing} up`,
-                  value: "shown",
-                },
-                {
-                  label: "Hidden",
-                  title: `Hidden from ${editing} up`,
-                  value: "hidden",
-                },
-              ]}
-              value={node.hidden ? "hidden" : "shown"}
-            />
-          </Row>
-          <Row label="Order">
-            <Segmented
-              onChange={(v) => set("order", ORDER_VALUE[v])}
-              options={[...ORDER_OPTIONS]}
-              value={orderChoice(node.order)}
-            />
-          </Row>
-        </>
+        <Row label="Order">
+          <Segmented
+            onChange={(v) => set("order", ORDER_VALUE[v])}
+            options={[...ORDER_OPTIONS]}
+            value={orderChoice(node.order)}
+          />
+        </Row>
       )}
     </Section>
   );

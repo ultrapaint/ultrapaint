@@ -1,5 +1,9 @@
 import { emptyDesignSystem } from "@ultrapaint/contracts/design-system";
-import type { PageNode, StackNode } from "@ultrapaint/contracts/document";
+import type {
+  DesignNode,
+  PageNode,
+  StackNode,
+} from "@ultrapaint/contracts/document";
 import { describe, expect, it } from "vitest";
 import {
   breakpointAt,
@@ -8,6 +12,8 @@ import {
   DEFAULT_BREAKPOINTS,
   resolveAt,
   sourceOf,
+  visibilityOf,
+  withVisibility,
 } from "./breakpoints.ts";
 import { makeIdGenerator } from "./ids.ts";
 import { applyOps } from "./ops.ts";
@@ -163,5 +169,63 @@ describe("writing at a breakpoint", () => {
       options()
     );
     expect(findNode(root, "b")?.at).toEqual({ lg: { props: { size: "lg" } } });
+  });
+});
+
+describe("visibility", () => {
+  const text = (fields: object) =>
+    ({
+      id: "t",
+      role: "paragraph",
+      text: "Hi",
+      type: "text",
+      ...fields,
+    }) as DesignNode;
+
+  it("reads the one rule a node's hidden comes to", () => {
+    const b = DEFAULT_BREAKPOINTS;
+    expect(visibilityOf(text({}), b)).toEqual({ kind: "every" });
+    expect(visibilityOf(text({ hidden: true }), b)).toEqual({ kind: "none" });
+    expect(
+      visibilityOf(text({ at: { md: { hidden: false } }, hidden: true }), b)
+    ).toEqual({ at: "md", kind: "from" });
+    expect(visibilityOf(text({ at: { lg: { hidden: true } } }), b)).toEqual({
+      at: "lg",
+      kind: "below",
+    });
+    expect(
+      visibilityOf(
+        text({ at: { lg: { hidden: true }, md: { hidden: true } } }),
+        b
+      )
+    ).toEqual({ at: "md", kind: "below" });
+    expect(
+      visibilityOf(
+        text({
+          at: { lg: { hidden: true }, md: { hidden: false } },
+          hidden: true,
+        }),
+        b
+      )
+    ).toEqual({ kind: "custom" });
+  });
+
+  it("writes a rule over whatever the breakpoints said, keeping their other fields", () => {
+    const node = text({
+      at: { lg: { hidden: true, size: 20 }, md: { hidden: false } },
+      hidden: true,
+    });
+    expect(withVisibility(node, { at: "md", kind: "below" })).toEqual({
+      at: { lg: { size: 20 }, md: { hidden: true } },
+      hidden: null,
+    });
+    expect(withVisibility(node, { kind: "every" })).toEqual({
+      at: { lg: { size: 20 } },
+      hidden: null,
+    });
+    expect(withVisibility(text({}), { at: "xl", kind: "from" })).toEqual({
+      at: { xl: { hidden: false } },
+      hidden: true,
+    });
   });
 });
