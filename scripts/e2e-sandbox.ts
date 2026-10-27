@@ -12,8 +12,8 @@
  * - the application's storage is its own, the editor's keys and databases out of its reach;
  * - a theme class and a scroll lock land on their frame, not the editor, and a colour scheme
  *   left to the system reads the frame's theme;
- * - styles the application's code writes (CSS-in-JS, StyleX as it develops) reach its frames, not
- *   the editor;
+ * - styles the application's code writes (CSS-in-JS, StyleX as it develops) and stylesheets it
+ *   links, its own and another site's, reach its frames, not the editor;
  * - a frame's code reads the frame's width and scroll as the window's;
  * - the editor's CSS variables do not reach a frame;
  * - what nothing caught (a timer, a click in the prototype) is shown on its frame;
@@ -97,10 +97,22 @@ const freePort = () =>
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** An editor on the fixture host, in a process group of its own, stopped through its handle. */
-/** The application's backend: answers every request with the path it was asked for. */
+/**
+ * The application's backend: answers every request with the path it was asked for, and serves
+ * a stylesheet of another site at `/cross.css`.
+ */
 const startBackend = () =>
   new Promise<{ server: Server; url: string }>((resolve) => {
     const server = createHttpServer((request, response) => {
+      if (request.url === "/cross.css") {
+        // A stylesheet of another site that allows being read, as a CDN's does.
+        response.setHeader("access-control-allow-origin", "*");
+        response.setHeader("content-type", "text/css");
+        response.end(
+          ".probe-cross-box { background-color: rgb(128, 0, 128); }"
+        );
+        return;
+      }
       response.end(`backend:${request.url}`);
     });
     server.listen(0, "127.0.0.1", () => {
@@ -434,6 +446,35 @@ const guards = async (page: Page, url: string) => {
     }
   );
 
+  await check(
+    "stylesheets the application's code links reach its frames, not the editor",
+    async () => {
+      const seen = await page.evaluate(() => {
+        const shadow = document.querySelector(
+          '[data-ed-frame-host="guards/link.page.json"]'
+        )?.shadowRoot;
+        const own = shadow?.querySelector('[data-probe="link-box"]');
+        const cross = shadow?.querySelector('[data-probe="cross-box"]');
+        return {
+          cross: cross ? getComputedStyle(cross).backgroundColor : null,
+          inHead: [...document.head.querySelectorAll("link")].filter(
+            (l) => l.href.includes("probe-link") || l.href.includes("cross.css")
+          ).length,
+          own: own ? getComputedStyle(own).backgroundColor : null,
+          // Its relative URL, made absolute against the stylesheet's address.
+          ownImage: own ? getComputedStyle(own).backgroundImage : null,
+        };
+      });
+      return (
+        (seen.own === "rgb(255, 165, 0)" &&
+          seen.ownImage?.includes("/preview/probe-dot.svg") &&
+          seen.cross === "rgb(128, 0, 128)" &&
+          seen.inHead === 0) ||
+        JSON.stringify(seen)
+      );
+    }
+  );
+
   const windowProbe = () =>
     page.evaluate(() => {
       const text = document
@@ -638,6 +679,19 @@ const loops = async (page: Page, url: string) => {
             ?.shadowRoot?.querySelector("#root") as HTMLElement | null
         )?.innerText ?? ""
     );
+  // Toasts last 10 s, less than the loops below hold the page: each is written down as it shows.
+  await page.addInitScript(() => {
+    const seen: string[] = [];
+    (window as unknown as { __toasts: string[] }).__toasts = seen;
+    new MutationObserver(() => {
+      for (const toast of document.querySelectorAll("[data-sonner-toast]")) {
+        const text = (toast as HTMLElement).innerText;
+        if (!seen.includes(text)) {
+          seen.push(text);
+        }
+      }
+    }).observe(document, { childList: true, subtree: true });
+  });
   const start = Date.now();
   await page.goto(`${url}/?canvas=loops`, { waitUntil: "load" });
   await page.waitForFunction(
@@ -684,6 +738,37 @@ const loops = async (page: Page, url: string) => {
   );
 
   await check(
+    "a rejection is shown on the frame whose code made it",
+    async () => {
+      const shown = await errors();
+      const a = shown["loops/reject-a.page.json"] ?? "";
+      const b = shown["loops/reject-b.page.json"] ?? "";
+      const line = probeLine("async function load", "throw new Error");
+      return (
+        (a.includes("rejected in a") &&
+          a.includes(`probes.tsx:${line}`) &&
+          !a.includes("rejected in b") &&
+          b.includes("rejected in b")) ||
+        JSON.stringify(shown)
+      );
+    }
+  );
+
+  await check(
+    "a rejection no frame can be said to make is shown on none",
+    async () => {
+      const onFrames = Object.values(await errors()).some((text) =>
+        text?.includes("rejected in a chain")
+      );
+      const toast = await page.evaluate(() =>
+        (window as unknown as { __toasts: string[] }).__toasts.some((text) =>
+          text.includes("rejected in a chain")
+        )
+      );
+      return (!onFrames && toast) || `on a frame ${onFrames}, toast ${toast}`;
+    }
+  );
+  await check(
     "a loop that never ends in a click is stopped and shown on its frame",
     async () => {
       await page.evaluate(() => {
@@ -718,36 +803,6 @@ const loops = async (page: Page, url: string) => {
           held < 5000) ||
         `shown: ${shown}, held ${held} ms`
       );
-    }
-  );
-
-  await check(
-    "a rejection is shown on the frame whose code made it",
-    async () => {
-      const shown = await errors();
-      const a = shown["loops/reject-a.page.json"] ?? "";
-      const b = shown["loops/reject-b.page.json"] ?? "";
-      const line = probeLine("async function load", "throw new Error");
-      return (
-        (a.includes("rejected in a") &&
-          a.includes(`probes.tsx:${line}`) &&
-          !a.includes("rejected in b") &&
-          b.includes("rejected in b")) ||
-        JSON.stringify(shown)
-      );
-    }
-  );
-
-  await check(
-    "a rejection no frame can be said to make is shown on none",
-    async () => {
-      const onFrames = Object.values(await errors()).some((text) =>
-        text?.includes("rejected in a chain")
-      );
-      const toast = await page.evaluate(() =>
-        document.body.innerText.includes("rejected in a chain")
-      );
-      return (!onFrames && toast) || `on a frame ${onFrames}, toast ${toast}`;
     }
   );
 };

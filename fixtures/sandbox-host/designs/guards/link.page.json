@@ -1,0 +1,19 @@
+{
+  "root": {
+    "type": "page",
+    "id": "root",
+    "fill": "#ffffff",
+    "gap": 0,
+    "children": [
+      {
+        "type": "instance",
+        "id": "i_link",
+        "name": "LinkProbe",
+        "component": "LinkProbe",
+        "from": "@/components/probes",
+        "props": {}
+      }
+    ]
+  },
+  "version": 1
+}

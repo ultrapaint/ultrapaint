@@ -193,6 +193,41 @@ export function CssInJsProbe() {
   );
 }
 
+/** The e2e's backend, another site: `vite.config.ts` defines it. */
+declare const __SANDBOX_BACKEND__: string;
+
+const linked = new Set<string>();
+const linkSheet = (href: string) => {
+  if (linked.has(href)) {
+    return;
+  }
+  linked.add(href);
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = href;
+  document.head.appendChild(link);
+};
+
+/** Stylesheets linked from script, as widgets load theirs: the page's own and another site's. */
+export function LinkProbe() {
+  useEffect(() => {
+    linkSheet("/probe-link.css");
+    if (__SANDBOX_BACKEND__) {
+      linkSheet(`${__SANDBOX_BACKEND__}/cross.css`);
+    }
+  }, []);
+  return (
+    <div style={{ padding: 16 }}>
+      <div className="probe-link-box" data-probe="link-box" />
+      <div
+        className="probe-cross-box"
+        data-probe="cross-box"
+        style={{ height: 40, width: 40 }}
+      />
+    </div>
+  );
+}
+
 /** An "unsaved changes" guard. */
 export function LeaveProbe() {
   useEffect(() => {
