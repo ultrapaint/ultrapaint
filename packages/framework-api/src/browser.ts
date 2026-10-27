@@ -201,6 +201,17 @@ export interface Preview {
    * Told when it changes, and again at most every few hundred milliseconds while it runs.
    */
   readonly onRunning: (listener: (frame: string) => void) => () => void;
+  /**
+   * Hears what the page's code threw and nothing caught when no frame can be said to be its: a
+   * rejection without its `async` function's mark, with more than one frame drawn.
+   */
+  readonly onStrayError: (
+    listener: (error: {
+      readonly file?: string | undefined;
+      readonly line?: number | undefined;
+      readonly message: string;
+    }) => void
+  ) => () => void;
   /** A dev server error, reported to every frame. */
   readonly reportError: (error: {
     readonly file?: string | undefined;

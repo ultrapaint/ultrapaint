@@ -17,12 +17,17 @@ const { log } = seen.__probe;
 const note = (probe: string, what: string, detail?: unknown) =>
   log.push({ detail, probe, what });
 
-/** Works for `ms` on the page's thread, as a heavy render or an animation's step does. */
+/**
+ * Works for `ms` on the page's thread, as a heavy render or an animation's step does. Without a
+ * loop of its own, as a dependency's work is: the preview's server checks the repository's own
+ * loops, which would stop this one at 2.5 s.
+ */
 const busy = (ms: number) => {
   const end = performance.now() + ms;
-  while (performance.now() < end) {
-    // the work itself
-  }
+  Array.prototype.find.call(
+    { length: 2 ** 32 - 1 },
+    () => performance.now() >= end
+  );
 };
 
 /** A document-level shortcut, as command palettes have. */
@@ -142,4 +147,64 @@ export function RafProbe({ work = 1 }: { work?: number }) {
 export function SpinProbe({ ms = 200 }: { ms?: number }) {
   busy(ms);
   return <p style={{ padding: 16 }}>spun {ms} ms</p>;
+}
+
+const loopOnClick = () => {
+  let turns = 0;
+  while (turns >= 0) {
+    turns += 1;
+  }
+};
+
+/** A loop that never ends: in its render, or when its button is clicked. */
+export function LoopProbe({ where = "click" }: { where?: string }) {
+  if (where === "render") {
+    let turns = 0;
+    while (turns >= 0) {
+      turns += 1;
+    }
+  }
+
+  return (
+    <button
+      data-probe="loop-on-click"
+      onClick={loopOnClick}
+      style={{ margin: 16 }}
+      type="button"
+    >
+      loops ({where})
+    </button>
+  );
+}
+
+async function load(label: string) {
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  throw new Error(`probe: rejected in ${label}`);
+}
+
+/**
+ * A rejection nothing handles, after a wait in which other frames draw: from an `async`
+ * function, or from a `.then` chain, which carries no mark.
+ */
+export function RejectProbe({
+  label = "",
+  via = "async",
+}: {
+  label?: string;
+  via?: string;
+}) {
+  useEffect(() => {
+    if (via === "then") {
+      fetch("/probe-missing").then(() => {
+        throw new Error(`probe: rejected in a chain ${label}`);
+      });
+    } else {
+      load(label);
+    }
+  }, [label, via]);
+  return (
+    <p style={{ padding: 16 }}>
+      rejects ({via} {label})
+    </p>
+  );
 }

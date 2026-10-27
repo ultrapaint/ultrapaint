@@ -1,6 +1,11 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { type GuardedFrame, guardFrame, installGuards } from "./sandbox.ts";
+import {
+  type GuardedFrame,
+  guardFrame,
+  installGuards,
+  onStrayError,
+} from "./sandbox.ts";
 
 /** Whether the code calling is the preview's: the tests say so instead of a stack. */
 let preview = false;
@@ -214,6 +219,66 @@ describe("errors nothing caught", () => {
       new ErrorEvent("error", { error: thrown("the editor's", false) })
     );
     expect(a.error).not.toHaveBeenCalled();
+  });
+});
+
+describe("rejections", () => {
+  /** What the guard in the repository's code calls (`virtual:ultrapaint/guard`). */
+  const guard = () =>
+    (
+      globalThis as unknown as {
+        __ultrapaintGuard: {
+          frame: () => unknown;
+          mark: (error: object, frame: unknown) => void;
+        };
+      }
+    ).__ultrapaintGuard;
+  const rejected = (message: string) => {
+    const error = new Error(message);
+    error.stack = `Error: ${message}\n    at f (http://x/preview-module.tsx:3:1)`;
+    return error;
+  };
+  const surface = (reason: unknown) =>
+    window.dispatchEvent(
+      Object.assign(new Event("unhandledrejection"), { reason })
+    );
+
+  it("are told to the frame their async function was called for, whichever runs since", () => {
+    const a = frame();
+    const b = frame();
+    a.guard.asking();
+    const called = guard().frame();
+    const error = rejected("in a");
+    b.guard.asking();
+    guard().mark(error, called);
+    surface(error);
+    expect(a.error).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "in a" })
+    );
+    expect(b.error).not.toHaveBeenCalled();
+  });
+
+  it("are told to no frame when nothing says which", () => {
+    const a = frame();
+    const b = frame();
+    a.guard.asking();
+    const stray = vi.fn();
+    const stop = onStrayError(stray);
+    surface(rejected("in a chain"));
+    stop();
+    expect(stray).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "in a chain" })
+    );
+    expect(a.error).not.toHaveBeenCalled();
+    expect(b.error).not.toHaveBeenCalled();
+  });
+
+  it("are the one frame's when only one is drawn", () => {
+    const a = frame();
+    surface(rejected("alone"));
+    expect(a.error).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "alone" })
+    );
   });
 });
 

@@ -373,3 +373,20 @@ Answered 2026-10-27.
 | S8 | The application's storage | In memory, empty at every load, shared by the frames |
 | S9 | A stuck page in the desktop app | Paused for its line, ended, and the window reloaded with the frame as a placeholder naming the line; no dialog |
 | S10 | Relative URLs | Under the preview's base, with the repository's `server.proxy` moved under it |
+
+### Built (second round)
+
+2026-10-27, one commit a step, each benched against the commit before it, alternately.
+
+- [x] 7. L1 and R1: `framework-react-vite/guard-code.ts`, a plugin of the preview's server after
+      every other, on the repository's modules with a loop or `async` in them (`this.parse`, so
+      any Vite from 5 on). A loop held 2.5 s throws `LoopError` where it runs: in a render the
+      page's own boundary draws it, in a click it is shown on the frame; the editor answered
+      again 2.5 s after the click. An `async` function marks what it rejects with the frame it was
+      called for; a `.then` chain carries no mark and, with more than one frame drawn, is a toast
+      of the editor's, not shown on a frame. `Promise.prototype.then` is left alone: patching it
+      would touch every promise the editor makes, and V8's own fast paths with them. The freeze
+      fixture spins without a loop of its own now (`Array.prototype.find` over a long array-like,
+      as a dependency's work would), which the check does not see and the watchdog still does.
+      Redesign, before / after: load 371–403 / 366–384 ms, pan 17–19 / 16–18% busy, zoom 34–37 /
+      34–37%, renderer 420–423 / 420–421 MB. sacro-cuore draws its four frames, no error.

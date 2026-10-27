@@ -1,0 +1,21 @@
+{
+  "root": {
+    "type": "page",
+    "id": "root",
+    "fill": "#ffffff",
+    "gap": 0,
+    "children": [
+      {
+        "type": "instance",
+        "id": "i_loop_render",
+        "name": "LoopProbe",
+        "component": "LoopProbe",
+        "from": "@/components/probes",
+        "props": {
+          "where": "render"
+        }
+      }
+    ]
+  },
+  "version": 1
+}

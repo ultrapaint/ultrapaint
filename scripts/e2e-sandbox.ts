@@ -10,6 +10,8 @@
  * - a frame's code reads the frame's width and scroll as the window's;
  * - the editor's CSS variables do not reach a frame;
  * - what nothing caught (a timer, a click in the prototype) is shown on its frame;
+ * - a loop that never ends, in a render or a click, is stopped and shown on its frame;
+ * - a rejection is shown on the frame whose code made it, or on none when nothing says which;
  * - reloading the editor asks nothing, whatever the page's "unsaved changes" guard says;
  * - a parked frame's animation waits, and goes on when the frame is seen again;
  * - a page that stopped the editor is a placeholder when the editor loads again.
@@ -391,6 +393,112 @@ const guards = async (page: Page, url: string) => {
   });
 };
 
+const loops = async (page: Page, url: string) => {
+  const errors = () =>
+    page.evaluate(
+      () =>
+        (window as unknown as CheckWindow).__ed.useEditor.getState().hostErrors
+    );
+  /** What the frame of the loop in a render draws: its page's error boundary. */
+  const renderFrame = () =>
+    page.evaluate(
+      () =>
+        (
+          document
+            .querySelector('[data-ed-frame-host="loops/loop-render.page.json"]')
+            ?.shadowRoot?.querySelector("#root") as HTMLElement | null
+        )?.innerText ?? ""
+    );
+  const start = Date.now();
+  await page.goto(`${url}/?canvas=loops`, { waitUntil: "load" });
+  await page.waitForFunction(
+    () =>
+      (
+        document
+          .querySelector('[data-ed-frame-host="loops/loop-render.page.json"]')
+          ?.shadowRoot?.querySelector("#root") as HTMLElement | null
+      )?.innerText.includes("Stopped a loop"),
+    undefined,
+    { timeout: 30_000 }
+  );
+  const loaded = Date.now() - start;
+  await page.waitForTimeout(1000);
+
+  await check(
+    "a loop that never ends in a render is stopped and shown on its frame",
+    async () => {
+      const shown = await renderFrame();
+      return (
+        (shown.includes("Stopped a loop") && loaded < 15_000) ||
+        `shown: ${shown}, loaded in ${loaded} ms`
+      );
+    }
+  );
+
+  await check(
+    "a loop that never ends in a click is stopped and shown on its frame",
+    async () => {
+      await page.evaluate(() => {
+        const ed = (window as unknown as CheckWindow).__ed;
+        ed.zoomToPage("loops/loop-click.page.json");
+        ed.useEditor.getState().setMode("interact");
+      });
+      await page.waitForTimeout(800);
+      const button = await centerIn(
+        page,
+        "loops/loop-click.page.json",
+        '[data-probe="loop-on-click"]'
+      );
+      if (!button) {
+        return "the frame's button is not on the screen";
+      }
+      const clicked = Date.now();
+      await page.mouse.click(button.x, button.y);
+      await page.evaluate(() => true);
+      const held = Date.now() - clicked;
+      await page.waitForTimeout(300);
+      await page.evaluate(() =>
+        (window as unknown as CheckWindow).__ed.useEditor
+          .getState()
+          .setMode("select")
+      );
+      const shown = (await errors())["loops/loop-click.page.json"] ?? "";
+      return (
+        (shown.includes("Stopped a loop") && held < 5000) ||
+        `shown: ${shown}, held ${held} ms`
+      );
+    }
+  );
+
+  await check(
+    "a rejection is shown on the frame whose code made it",
+    async () => {
+      const shown = await errors();
+      const a = shown["loops/reject-a.page.json"] ?? "";
+      const b = shown["loops/reject-b.page.json"] ?? "";
+      return (
+        (a.includes("rejected in a") &&
+          !a.includes("rejected in b") &&
+          b.includes("rejected in b")) ||
+        JSON.stringify(shown)
+      );
+    }
+  );
+
+  await check(
+    "a rejection no frame can be said to make is shown on none",
+    async () => {
+      const onFrames = Object.values(await errors()).some((text) =>
+        text?.includes("rejected in a chain")
+      );
+      const toast = await page.evaluate(() =>
+        document.body.innerText.includes("rejected in a chain")
+      );
+      return (!onFrames && toast) || `on a frame ${onFrames}, toast ${toast}`;
+    }
+  );
+};
+
 const animations = async (page: Page, url: string) => {
   await open(page, url, "raf");
   const frames = () =>
@@ -484,6 +592,7 @@ const main = async () => {
     const context = await launch(profile);
     const page = context.pages()[0] ?? (await context.newPage());
     await guards(page, editor.url);
+    await loops(page, editor.url);
     await animations(page, editor.url);
     await context.close();
     await freeze(editor.url);

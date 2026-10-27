@@ -1,0 +1,21 @@
+{
+  "root": {
+    "type": "page",
+    "id": "root",
+    "fill": "#ffffff",
+    "gap": 0,
+    "children": [
+      {
+        "type": "instance",
+        "id": "i_reject_b",
+        "name": "RejectProbe",
+        "component": "RejectProbe",
+        "from": "@/components/probes",
+        "props": {
+          "label": "b"
+        }
+      }
+    ]
+  },
+  "version": 1
+}

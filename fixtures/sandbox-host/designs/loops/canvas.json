@@ -1,0 +1,41 @@
+{
+  "frames": {
+    "loop-render.page.json": {
+      "height": 300,
+      "preset": "custom",
+      "width": 440,
+      "x": 0,
+      "y": 0
+    },
+    "loop-click.page.json": {
+      "height": 300,
+      "preset": "custom",
+      "width": 440,
+      "x": 480,
+      "y": 0
+    },
+    "reject-a.page.json": {
+      "height": 300,
+      "preset": "custom",
+      "width": 440,
+      "x": 960,
+      "y": 0
+    },
+    "reject-b.page.json": {
+      "height": 300,
+      "preset": "custom",
+      "width": 440,
+      "x": 1440,
+      "y": 0
+    },
+    "reject-then.page.json": {
+      "height": 300,
+      "preset": "custom",
+      "width": 440,
+      "x": 0,
+      "y": 360
+    }
+  },
+  "name": "loops",
+  "version": 1
+}

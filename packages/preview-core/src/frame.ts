@@ -31,7 +31,7 @@ import { elementAt, type HitScope } from "./hit.ts";
 import { frameMedia } from "./media.ts";
 import { routePortals } from "./portals.ts";
 import { publicUrlOf } from "./public-url.ts";
-import { guardFrame, installGuards } from "./sandbox.ts";
+import { guardFrame, installGuards, onStrayError } from "./sandbox.ts";
 import {
   adoptedSheets,
   frameSheets,
@@ -141,6 +141,7 @@ export const createPreview = (input: PreviewSetup): Preview => {
         runningListeners.delete(listener);
       };
     },
+    onStrayError,
     reportError: (error) => {
       for (const frame of frames) {
         frame.events.error?.(error);
