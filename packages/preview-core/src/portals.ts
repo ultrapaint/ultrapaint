@@ -37,6 +37,43 @@ export const calledFromPreview = (patches: readonly string[] = []) => {
   return caller.includes(base);
 };
 
+/** A stack frame that names a script, not the browser's own code (`at Array.map (<anonymous>)`). */
+const SCRIPT_FRAME_RE = /(?:https?:|\/)[^\s)]+:\d+:\d+/;
+
+/** The path the preview's modules are served under; empty until the preview starts. */
+export const previewBase = () => base;
+
+/**
+ * Whether the preview's code alone is on the stack that called `patched`: its immediate caller
+ * is the preview's own, and nothing under it is the editor's. Asked where the editor's own calls
+ * may come through the preview's code: an application that wraps a global (`window.fetch`, for
+ * its logging) is called by the editor too, and the immediate caller is then the application's.
+ */
+export const calledOnlyFromPreview = (patched: object) => {
+  const v8 = Error as {
+    captureStackTrace?: (target: object, above: unknown) => void;
+    stackTraceLimit?: number;
+  };
+  if (base === "" || !v8.captureStackTrace) {
+    return false;
+  }
+  const limit = v8.stackTraceLimit;
+  v8.stackTraceLimit = 200;
+  const holder: { stack?: string } = {};
+  v8.captureStackTrace(holder, patched);
+  v8.stackTraceLimit = limit;
+  const frames = (holder.stack ?? "")
+    .split("\n")
+    .slice(1)
+    .filter((line) => SCRIPT_FRAME_RE.test(line));
+  const [caller] = frames;
+  return (
+    caller !== undefined &&
+    !caller.includes(OWN) &&
+    frames.every((line) => line.includes(base))
+  );
+};
+
 const fromPreview = () => calledFromPreview();
 
 /**
@@ -105,13 +142,13 @@ type Inserting = (this: Node, ...args: never[]) => unknown;
 
 /**
  * Sends what the preview's modules append to the body into `frame()`'s portal layer, from now
- * on. `previewBase` is the path every module of the preview is served under.
+ * on. `servedUnder` is the path every module of the preview is served under.
  */
 export const routePortals = (
-  previewBase: string,
+  servedUnder: string,
   frame: () => Element | null
 ) => {
-  base = previewBase;
+  base = servedUnder;
   target = frame;
   if (installed || typeof document === "undefined") {
     return;

@@ -86,6 +86,24 @@ export function HeadProbe() {
   );
 }
 
+/**
+ * What the application's backend answers, asked as an application asks its own origin. The
+ * editor has an `/api/health` of its own.
+ */
+export function FetchProbe() {
+  const [answer, setAnswer] = useState("waiting");
+  useEffect(() => {
+    fetch("/api/health")
+      .then((response) => response.text())
+      .then(setAnswer, (error: unknown) => setAnswer(String(error)));
+  }, []);
+  return (
+    <pre data-probe="fetch" style={{ padding: 16 }}>
+      {answer}
+    </pre>
+  );
+}
+
 /** An "unsaved changes" guard. */
 export function LeaveProbe() {
   useEffect(() => {
