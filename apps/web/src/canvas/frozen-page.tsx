@@ -17,7 +17,7 @@ export const FrozenPage = ({ frame }: { frame: string }) => {
         forever. It is not drawn until you ask.
       </p>
       {at ? (
-        <p className="max-w-80 break-all font-mono text-xs">Stuck at {at}</p>
+        <p className="max-w-80 break-all font-mono">Stuck at {at}</p>
       ) : null}
       <Button onClick={() => drawAnyway(frame)} size="sm" variant="outline">
         Draw anyway
