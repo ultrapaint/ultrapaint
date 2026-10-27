@@ -1,11 +1,10 @@
 import { createServer } from "node:net";
-import { tmpdir } from "node:os";
 import { NodeServices } from "@effect/platform-node";
 import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
 import type { Settings } from "@ultrapaint/contracts/settings";
+import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
 import {
   Context,
-  type Duration,
   Effect,
   Fiber,
   FileSystem,
@@ -21,6 +20,7 @@ import { ServerConfig, type StorageTarget } from "../config.ts";
 import { runCommand } from "../process.ts";
 import { readRunFile } from "../run-file.ts";
 import { ServerLive } from "../server.ts";
+import { waitFor } from "./wait-for.ts";
 
 /** Where a storage target keeps its state, and with it the run file. */
 const stateDirOf = (storage: StorageTarget, home: string) => {
@@ -179,29 +179,15 @@ export const makeTestServer = (
 
       const server = ServerLive.pipe(
         Layer.provide(
-          Layer.succeed(ServerConfig, {
-            allowedHosts: [],
+          ServerConfig.layerTest({
             briefing: true,
             cwd: repo,
-            discovery: false,
-            host: "127.0.0.1",
-            machine: {
-              addresses: () => [],
-              // The fixture's home: the preview is generated under its cache, not the user's.
-              home,
-              node: process.execPath,
-              path: process.env.PATH ?? "",
-              tmpdir: tmpdir(),
-              uid: process.getuid?.(),
-            },
+            // The fixture's home: the preview is generated under its cache, not the user's.
+            machine: { home, path: process.env.PATH ?? "" },
             mcp: true,
             port: asked,
-            readyJson: false,
             storage,
-            token: "test",
             userDir: home,
-            version: "test",
-            webDist: undefined,
           })
         )
       );
@@ -279,13 +265,19 @@ export const nextEvent = <A, E, B, E2, R2>(
     return { event, result };
   });
 
-/** Waits until `condition` holds, asking again every 20 ms, and fails after `within`. */
-export const until = <E, R>(
-  condition: Effect.Effect<boolean, E, R>,
-  within: Duration.Input = "15 seconds"
+/** The thread and its transcript, asked for over the socket until `done` holds of them. */
+export const waitForThread = (
+  threadId: string,
+  done: (thread: Thread, items: readonly ThreadItem[]) => boolean
 ) =>
-  Effect.gen(function* () {
-    while (!(yield* condition)) {
-      yield* Effect.sleep("20 millis");
-    }
-  }).pipe(Effect.timeout(within));
+  Effect.flatMap(TestEnv, ({ client }) =>
+    waitFor(
+      Effect.all({
+        items: client["threads.items"]({ threadId }),
+        thread: Effect.map(client["threads.list"](), (all) =>
+          all.find((t) => t.id === threadId)
+        ),
+      }),
+      ({ items, thread }) => thread !== undefined && done(thread, items)
+    )
+  );

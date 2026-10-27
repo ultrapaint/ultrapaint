@@ -1,4 +1,4 @@
-import { homedir, tmpdir } from "node:os";
+import { homedir } from "node:os";
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import type { AgentRuntime } from "@ultrapaint/acp/runtime";
@@ -10,29 +10,12 @@ import { AgentConfigs } from "./services/threads/agent-configs.ts";
 const configsWith = (userDir: string, agentRuntime?: AgentRuntime) =>
   AgentConfigs.layer.pipe(
     Layer.provide(
-      Layer.succeed(ServerConfig, {
+      ServerConfig.layerTest({
         agentRuntime,
-        allowedHosts: [],
-        briefing: true,
         cwd: userDir,
-        discovery: false,
-        host: "127.0.0.1",
-        machine: {
-          addresses: () => [],
-          home: homedir(),
-          node: process.execPath,
-          path: "",
-          tmpdir: tmpdir(),
-          uid: process.getuid?.(),
-        },
-        mcp: true,
-        port: 0,
-        readyJson: false,
+        machine: { home: homedir() },
         storage: { home: userDir, mode: "managed" },
-        token: "test",
         userDir,
-        version: "test",
-        webDist: undefined,
       })
     )
   );

@@ -1,4 +1,3 @@
-import { tmpdir } from "node:os";
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import {
@@ -11,6 +10,7 @@ import { Effect, Exit, FileSystem, Layer, Scope } from "effect";
 import { ServerConfig } from "./config.ts";
 import { ServerLive } from "./server.ts";
 import { freePort, makeRepository } from "./testing/harness.ts";
+import { waitFor } from "./testing/wait-for.ts";
 
 /** Starts the server and returns the scope that stops it. */
 const startServer = (home: string, port: number) =>
@@ -19,28 +19,14 @@ const startServer = (home: string, port: number) =>
     yield* Layer.buildWithScope(
       ServerLive.pipe(
         Layer.provide(
-          Layer.succeed(ServerConfig, {
-            allowedHosts: [],
+          ServerConfig.layerTest({
             briefing: true,
             cwd: home,
-            discovery: false,
-            host: "127.0.0.1",
-            machine: {
-              addresses: () => [],
-              home,
-              node: process.execPath,
-              path: process.env.PATH ?? "",
-              tmpdir: tmpdir(),
-              uid: process.getuid?.(),
-            },
+            machine: { home, path: process.env.PATH ?? "" },
             mcp: true,
             port,
-            readyJson: false,
             storage: { home, mode: "managed" },
-            token: "test",
             userDir: home,
-            version: "test",
-            webDist: undefined,
           })
         )
       ),
@@ -49,10 +35,9 @@ const startServer = (home: string, port: number) =>
     return scope;
   });
 
+/** Until `condition` holds of the client's state, which it changes on its own. */
 const until = (condition: () => boolean) =>
-  Effect.repeat(Effect.sleep("20 millis"), { until: condition }).pipe(
-    Effect.timeout("15 seconds")
-  );
+  waitFor(Effect.sync(condition), Boolean);
 
 const open = (port: number) => {
   const states: ConnectionState[] = [];

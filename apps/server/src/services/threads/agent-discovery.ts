@@ -1,4 +1,4 @@
-import { type AcpHandlers, spawnAcpAgent } from "@ultrapaint/acp/acp-agent";
+import type { AcpHandlers } from "@ultrapaint/acp/acp-agent";
 import { AgentFailure } from "@ultrapaint/contracts/errors";
 import type { AgentConfig, AgentOptions } from "@ultrapaint/contracts/threads";
 import { Context, Effect, FileSystem, Layer } from "effect";
@@ -6,6 +6,7 @@ import { AppLog } from "../../app-log.ts";
 import { ServerConfig } from "../../config.ts";
 import { makeKeyedLock } from "../../keyed-lock.ts";
 import { AgentConfigs } from "./agent-configs.ts";
+import { AgentLauncher } from "./agent-launcher.ts";
 import { AgentSandbox } from "./agent-sandbox.ts";
 import { ChatPreferences } from "./chat-preferences.ts";
 import { ThreadStore } from "./thread-store.ts";
@@ -59,6 +60,7 @@ export class AgentDiscovery extends Context.Service<
       const { discovery } = yield* ServerConfig;
       const agents = yield* AgentConfigs;
       const sandbox = yield* AgentSandbox;
+      const launcher = yield* AgentLauncher;
       const preferences = yield* ChatPreferences;
       const store = yield* ThreadStore;
       const log = yield* AppLog;
@@ -74,14 +76,11 @@ export class AgentDiscovery extends Context.Service<
           const dir = yield* Effect.orDie(
             fs.makeTempDirectoryScoped({ prefix: "ultrapaint-discover-" })
           );
-          const confined = yield* sandbox.session({
+          const agent = yield* launcher.launch({
             config,
+            handlers: () => Effect.succeed(refusing),
             root: dir,
             tmpDir: dir,
-          });
-          const agent = yield* spawnAcpAgent(confined.launch, {
-            cwd: dir,
-            handlers: refusing,
           });
           yield* agent.initialize;
           // No `authenticate`: signing in is the user's to start, from a thread.

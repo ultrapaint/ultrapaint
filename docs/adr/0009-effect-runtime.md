@@ -7,6 +7,11 @@ at `4.0.0`, its final release, and the unstable modules left `effect/unstable/*`
 `packages/host-plugin` gave way to `preview-core` and `renderer-react` (ADR 0011), and the
 desktop shell, preload included, was removed (ADR 0017).
 
+Update, 2026-10-27: the seam that replaces the agent is `AgentLauncher`
+(`apps/server/src/services/threads/agent-launcher.ts`), which gives the `AcpAgent` of a launch:
+the live layer spawns it through the SDK, and a test plays one in memory
+(`packages/acp/src/scripted-agent.ts`).
+
 ## Decision
 
 The backend runs on the Effect 4 runtime (`4.0.0-rc.115`, pinned through the pnpm catalog).

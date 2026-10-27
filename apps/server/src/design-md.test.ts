@@ -2,6 +2,7 @@ import path from "node:path";
 import { assert, layer } from "@effect/vitest";
 import { Effect, FileSystem } from "effect";
 import { TestEnv, TestServer } from "./testing/harness.ts";
+import { waitFor } from "./testing/wait-for.ts";
 
 const THEME = `@theme {
   --color-brand: #2563eb;
@@ -309,11 +310,9 @@ export const Button = (props: { variant?: string; size?: string }): JSX.Element 
           yield* client["designSystem.placeDocument"]();
 
           // The catalogue is read in the background: the component tokens follow it.
-          let text = "";
-          for (let i = 0; i < 100 && !text.includes("components:"); i += 1) {
-            yield* Effect.sleep("100 millis");
-            text = yield* fs.readFileString(file);
-          }
+          const text = yield* waitFor(fs.readFileString(file), (t) =>
+            t.includes("components:")
+          );
           assert.include(
             text,
             [

@@ -1,4 +1,4 @@
-import { homedir, tmpdir } from "node:os";
+import { homedir } from "node:os";
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it, layer } from "@effect/vitest";
 import { Effect, Fiber, FileSystem, Layer, Path, Scope, Stream } from "effect";
@@ -16,6 +16,7 @@ import {
   subscribed,
   TestEnv,
 } from "./testing/harness.ts";
+import { waitFor } from "./testing/wait-for.ts";
 
 const tempDir = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
@@ -348,13 +349,10 @@ layer(Shared, { excludeTestServices: true, timeout: "60 seconds" })(
           `${repo}/ultrapaint.json`,
           JSON.stringify({ designsDir: "screens" })
         );
-        const followed = yield* Effect.gen(function* () {
-          while ((yield* client["project.info"]()).designsDir !== "screens") {
-            yield* Effect.sleep("100 millis");
-          }
-          return true;
-        }).pipe(Effect.timeoutOption("10 seconds"));
-        assert.strictEqual(followed._tag, "Some");
+        yield* waitFor(
+          client["project.info"](),
+          (info) => info.designsDir === "screens"
+        );
         assert.strictEqual(
           (yield* client["settings.get"]())?.designsDir,
           "screens"
@@ -380,20 +378,11 @@ layer(Appearing, { excludeTestServices: true, timeout: "60 seconds" })(
             legacy,
             JSON.stringify({ designsDir: "designs" })
           );
-          const followed = yield* Effect.gen(function* () {
-            for (;;) {
-              const info = yield* client["project.info"]();
-              if (info.storage.mode === "file" && info.configured) {
-                return info;
-              }
-              yield* Effect.sleep("100 millis");
-            }
-          }).pipe(Effect.timeoutOption("10 seconds"));
-          assert.strictEqual(followed._tag, "Some");
-          assert.strictEqual(
-            followed._tag === "Some" && followed.value.storage.configPath,
-            legacy
+          const followed = yield* waitFor(
+            client["project.info"](),
+            (now) => now.storage.mode === "file" && now.configured
           );
+          assert.strictEqual(followed.storage.configPath, legacy);
 
           const renamed = yield* client["settings.renameConfig"]();
           assert.strictEqual(renamed, `${repo}/ultrapaint.config.json`);
@@ -436,32 +425,17 @@ describe("a configuration file that cannot be read", () => {
         Layer.buildWithScope(
           ServerLive.pipe(
             Layer.provide(
-              Layer.succeed(ServerConfig, {
-                allowedHosts: [],
-                briefing: true,
+              ServerConfig.layerTest({
                 cwd: dir,
-                discovery: false,
-                host: "127.0.0.1",
-                machine: {
-                  addresses: () => [],
-                  home: homedir(),
-                  node: process.execPath,
-                  path: process.env.PATH ?? "",
-                  tmpdir: tmpdir(),
-                  uid: process.getuid?.(),
-                },
+                machine: { home: homedir(), path: process.env.PATH ?? "" },
                 mcp: true,
                 port: yield* freePort,
-                readyJson: false,
                 storage: {
                   configPath,
                   mode: "file",
                   stateDir: `${dir}/.ultrapaint`,
                 },
-                token: "test",
                 userDir: dir,
-                version: "test",
-                webDist: undefined,
               })
             )
           ),
@@ -486,28 +460,11 @@ const settingsOf = (cwd: string, storage: StorageTarget) =>
     Layer.provide(AppLog.layer),
     Layer.provide(EventBus.layer),
     Layer.provide(
-      Layer.succeed(ServerConfig, {
-        allowedHosts: [],
-        briefing: true,
+      ServerConfig.layerTest({
         cwd,
-        discovery: false,
-        host: "127.0.0.1",
-        machine: {
-          addresses: () => [],
-          home: homedir(),
-          node: process.execPath,
-          path: process.env.PATH ?? "",
-          tmpdir: tmpdir(),
-          uid: process.getuid?.(),
-        },
-        mcp: false,
-        port: 0,
-        readyJson: false,
+        machine: { home: homedir(), path: process.env.PATH ?? "" },
         storage,
-        token: "test",
         userDir: cwd,
-        version: "test",
-        webDist: undefined,
       })
     )
   );
@@ -620,14 +577,10 @@ layer(Detected, { excludeTestServices: true, timeout: "60 seconds" })(
     test.effect("opens the repository with what detection finds", () =>
       Effect.gen(function* () {
         const { client, repo } = yield* TestEnv;
-        const opened = yield* Effect.gen(function* () {
-          while (!(yield* client["project.info"]()).configured) {
-            yield* Effect.sleep("100 millis");
-          }
-          return yield* client["project.info"]();
-        }).pipe(Effect.timeoutOption("20 seconds"));
-        assert.strictEqual(opened._tag, "Some");
-        const info = opened._tag === "Some" ? opened.value : null;
+        const info = yield* waitFor(
+          client["project.info"](),
+          (opened) => opened.configured
+        );
         assert.strictEqual(info?.setup, "detected");
         assert.strictEqual(info?.designsDir, "designs");
         assert.strictEqual(info?.repoPath, repo);

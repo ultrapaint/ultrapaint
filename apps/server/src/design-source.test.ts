@@ -5,6 +5,7 @@ import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
 import { Effect, FileSystem } from "effect";
 import { TestEnv, TestServer } from "./testing/harness.ts";
 import { callMcp, initializeLegacy } from "./testing/mcp.ts";
+import { waitFor } from "./testing/wait-for.ts";
 
 const HOME = "home.page.json";
 
@@ -52,19 +53,6 @@ const toolText = (response: Response) =>
         ""
     )
   );
-
-/** Reads until `done` holds, every 100 ms, for up to fifteen seconds. */
-const waitFor = <A, E>(read: Effect.Effect<A, E>, done: (a: A) => boolean) =>
-  Effect.gen(function* () {
-    for (let i = 0; i < 150; i += 1) {
-      const a = yield* read;
-      if (done(a)) {
-        return a;
-      }
-      yield* Effect.sleep("100 millis");
-    }
-    return yield* Effect.die(new Error("timed out waiting"));
-  });
 
 layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
   "the design as the source, and its link to the code (ADR 0028–0030)",

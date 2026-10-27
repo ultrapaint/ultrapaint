@@ -2,7 +2,8 @@ import path from "node:path";
 import { assert, layer } from "@effect/vitest";
 import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
 import { Effect, FileSystem } from "effect";
-import { makeTestServer, TestEnv } from "./testing/harness.ts";
+import { makeTestServer, TestEnv, waitForThread } from "./testing/harness.ts";
+import { turnEnded } from "./testing/turns.ts";
 
 // A machine where git knows no one: whatever this one's global configuration says is not read.
 process.env.GIT_CONFIG_GLOBAL = "/dev/null";
@@ -13,26 +14,6 @@ const PlainFolder = makeTestServer(
   ({ home }) => Effect.succeed({ home, mode: "managed" }),
   { git: false }
 );
-
-const waitForTurn = (threadId: string) =>
-  Effect.gen(function* () {
-    const { client } = yield* TestEnv;
-    const read = Effect.gen(function* () {
-      const thread = (yield* client["threads.list"]()).find(
-        (t) => t.id === threadId
-      );
-      const items = yield* client["threads.items"]({ threadId });
-      return { items, thread };
-    });
-    return yield* read.pipe(
-      Effect.tap(() => Effect.sleep("25 millis")),
-      Effect.repeat({
-        until: ({ items, thread }) =>
-          thread?.status === "idle" && items.at(-1)?.kind === "turn_end",
-      }),
-      Effect.timeout("20 seconds")
-    );
-  });
 
 const said = (items: readonly ThreadItem[]) =>
   items.flatMap((i) => (i.kind === "agent" ? [i.text] : [])).join("\n");
@@ -46,7 +27,7 @@ const runTurn = (text: string) =>
       text,
       threadId: thread.id,
     });
-    return yield* waitForTurn(thread.id);
+    return yield* waitForThread(thread.id, turnEnded);
   });
 
 layer(PlainFolder, { excludeTestServices: true, timeout: "60 seconds" })(

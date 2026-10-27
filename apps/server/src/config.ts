@@ -1,5 +1,6 @@
+import { tmpdir } from "node:os";
 import type { AgentRuntime } from "@ultrapaint/acp/runtime";
-import { Context } from "effect";
+import { Context, Layer } from "effect";
 
 /**
  * Where settings and tool state go, decided once at startup.
@@ -150,4 +151,46 @@ export class ServerConfig extends Context.Service<
     /** Built web bundle to serve, when running outside the Vite dev server. */
     readonly webDist: string | undefined;
   }
->()("ultrapaint/server/ServerConfig") {}
+>()("ultrapaint/server/ServerConfig") {
+  /**
+   * A configuration for a test: loopback on port 0, nothing saved (an unsaved session), no
+   * discovery, briefing or MCP server, and the system's temporary directory for the home and
+   * the user directory. What a test cares about it says in `overrides`; `machine` is merged
+   * with the default one, so a test names only the fields it needs (its own home, the `PATH`).
+   */
+  static readonly layerTest = (
+    overrides: Partial<Omit<ServerConfig["Service"], "machine">> & {
+      readonly machine?: Partial<ServerConfig["Service"]["machine"]>;
+    } = {}
+  ) => {
+    const { machine, ...rest } = overrides;
+    return Layer.succeed(
+      ServerConfig,
+      ServerConfig.of({
+        allowedHosts: [],
+        briefing: false,
+        cwd: tmpdir(),
+        discovery: false,
+        host: "127.0.0.1",
+        mcp: false,
+        port: 0,
+        readyJson: false,
+        storage: { mode: "ephemeral" },
+        token: "test",
+        userDir: tmpdir(),
+        version: "test",
+        webDist: undefined,
+        ...rest,
+        machine: {
+          addresses: () => [],
+          home: tmpdir(),
+          node: process.execPath,
+          path: "",
+          tmpdir: tmpdir(),
+          uid: process.getuid?.(),
+          ...machine,
+        },
+      })
+    );
+  };
+}

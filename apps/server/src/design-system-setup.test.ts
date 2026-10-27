@@ -1,10 +1,10 @@
 import path from "node:path";
 import { assert, layer } from "@effect/vitest";
-import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
 import { Effect, FileSystem } from "effect";
 import { runCommand } from "./process.ts";
-import { TestEnv, TestServer } from "./testing/harness.ts";
+import { TestEnv, TestServer, waitForThread } from "./testing/harness.ts";
 import { callMcp } from "./testing/mcp.ts";
+import { said, turnEnded } from "./testing/turns.ts";
 
 const APP = `export const App = () => (
   <div className="bg-[#ff0000] p-4 text-gray-500">
@@ -15,29 +15,6 @@ const APP = `export const App = () => (
 
 const statuses = (setup: { readonly steps: readonly { status: string }[] }) =>
   setup.steps.map((s) => s.status);
-
-const waitForTurn = (threadId: string) =>
-  Effect.gen(function* () {
-    const { client } = yield* TestEnv;
-    const read = Effect.gen(function* () {
-      const thread = (yield* client["threads.list"]()).find(
-        (t: Thread) => t.id === threadId
-      );
-      const items = yield* client["threads.items"]({ threadId });
-      return { items, thread };
-    });
-    return yield* read.pipe(
-      Effect.tap(() => Effect.sleep("25 millis")),
-      Effect.repeat({
-        until: ({ items, thread }) =>
-          thread?.status === "idle" && items.at(-1)?.kind === "turn_end",
-      }),
-      Effect.timeout("20 seconds")
-    );
-  });
-
-const said = (items: readonly ThreadItem[]) =>
-  items.flatMap((i) => (i.kind === "agent" ? [i.text] : []));
 
 layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
   "the design-system setup",
@@ -124,7 +101,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             text: "/design-system define",
             threadId: threadId ?? "",
           });
-          const { items } = yield* waitForTurn(threadId ?? "");
+          const { items } = yield* waitForThread(threadId ?? "", turnEnded);
           assert.include(
             said(items).join("\n"),
             "task:design-system This is the Define step of the design-system setup, proposing a design system"
@@ -146,7 +123,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             text: "mcp",
             threadId,
           });
-          const { items } = yield* waitForTurn(threadId);
+          const { items } = yield* waitForThread(threadId, turnEnded);
           const reported = said(items).find((t) => t.startsWith("mcp:")) ?? "";
           const [, token] = reported.slice("mcp:".length).split("|");
           const call = (name: string, args: Record<string, unknown>) =>
@@ -306,7 +283,7 @@ const tokenOf = (threadId: string) =>
   Effect.gen(function* () {
     const { client } = yield* TestEnv;
     yield* client["threads.prompt"]({ attachments: [], text: "mcp", threadId });
-    const { items } = yield* waitForTurn(threadId);
+    const { items } = yield* waitForThread(threadId, turnEnded);
     const reported = said(items).find((t) => t.startsWith("mcp:")) ?? "";
     return reported.slice("mcp:".length).split("|")[1] ?? "";
   });
