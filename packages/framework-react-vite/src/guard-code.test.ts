@@ -2,12 +2,17 @@ import { parseAst } from "vite";
 import { describe, expect, it } from "vitest";
 import { GUARD_ID, GUARD_MODULE, guardCode } from "./guard-code.ts";
 
-const guard = (code: string) => {
+const guard = (code: string, markModule = false) => {
   let id = 0;
-  return guardCode(code, parseAst(code), () => {
-    id += 1;
-    return id;
-  });
+  return guardCode(
+    code,
+    parseAst(code),
+    () => {
+      id += 1;
+      return id;
+    },
+    { markModule }
+  );
 };
 
 const IMPORT_RE = /^import\{[^}]*\}from"[^"]*";/;

@@ -30,6 +30,7 @@
 
 import { holdStyle, holdStyleFirst, isHeld, isStyle } from "./css-in-js.ts";
 import { guardDocumentElements } from "./document-elements.ts";
+import { addedNow, moduleEnds, moduleStarts } from "./hmr-leftovers.ts";
 import {
   calledDirectlyFromPreview,
   calledFromPreview,
@@ -337,6 +338,12 @@ const guardListeners = (target: Window | Document) => {
     listener: Listener | null,
     options?: AddEventListenerOptions | boolean
   ) => {
+    // Added by a module's top-level code, it goes when a newer version of the module runs.
+    if (listener) {
+      addedNow(() =>
+        target.removeEventListener(type, listener, captureOf(options))
+      );
+    }
     if (
       !(
         listener &&
@@ -652,6 +659,8 @@ const answerGuard = () => {
         marks.set(error, frame);
       }
     },
+    moduleEnds,
+    moduleStarts,
   };
 };
 
@@ -745,15 +754,19 @@ const guardTimers = () => {
     ): number => {
       const frame =
         typeof handler === "function" ? schedulingFrame(set, handler) : null;
-      if (!frame) {
-        return native(handler, timeout, ...args);
-      }
       const run = handler as (...a: unknown[]) => unknown;
-      return native(
-        (...a: unknown[]) => runAs(frame, () => run(...a)),
-        timeout,
-        ...args
-      );
+      const id = frame
+        ? native(
+            (...a: unknown[]) => runAs(frame, () => run(...a)),
+            timeout,
+            ...args
+          )
+        : native(handler, timeout, ...args);
+      // Started by a module's top-level code, it stops when a newer version of the module runs.
+      if (name === "setInterval") {
+        addedNow(() => clearInterval(id));
+      }
+      return id;
     };
     window[name] = set as never;
   }

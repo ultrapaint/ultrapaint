@@ -6,7 +6,10 @@
  * - every loop's body starts with a check that throws once the thread has been held 2.5 s, an
  *   error shown on its frame as any other is, where the editor would have frozen;
  * - every `async` function notes the frame it was called for, and marks what it rejects with
- *   it: a rejection carries nothing of where it came from, and is told to its frame by that mark.
+ *   it: a rejection carries nothing of where it came from, and is told to its frame by that mark;
+ * - its top-level code says when it starts and ends: what it adds to the window while it runs (a
+ *   listener, an interval) is that version of the module's, taken off when Vite runs a newer
+ *   one (`preview-core/hmr-leftovers.ts`). Each update ran it again and stacked another.
  *
  * Applied to the repository's modules, not its dependencies, after they are JavaScript. Edits
  * insert text and never a line, so the lines of the stacks and of the source maps stay right.
@@ -58,6 +61,12 @@ export function loop(id) {
   }
 }
 const preview = () => globalThis.__ultrapaintGuard;
+export function moduleStarts(url) {
+  preview()?.moduleStarts(url);
+}
+export function moduleEnds(url) {
+  preview()?.moduleEnds(url);
+}
 export const frame = () => preview()?.frame() ?? null;
 export function mark(error, frame) {
   if (frame !== null && error !== null && typeof error === "object") {
@@ -179,19 +188,21 @@ const edits = (program: Node, nextId: () => number) => {
 };
 
 /**
- * `code` with its loops checked and its `async` functions marking what they reject; null when
- * it has neither. `program` is `code` parsed; `nextId` numbers the loops apart, across modules.
+ * `code` with its loops checked, its `async` functions marking what they reject and, with
+ * `markModule`, its top-level code saying when it starts and ends; null when there is nothing to
+ * do. `program` is `code` parsed, or null when it holds neither a loop nor `async`; `nextId`
+ * numbers the loops apart, across modules.
  */
 export const guardCode = (
   code: string,
   program: unknown,
-  nextId: () => number
+  nextId: () => number,
+  { markModule = true }: { readonly markModule?: boolean } = {}
 ): string | null => {
-  if (!isNode(program)) {
-    return null;
-  }
-  const { asyncs, found, loops } = edits(program, nextId);
-  if (found.length === 0) {
+  const { asyncs, found, loops } = isNode(program)
+    ? edits(program, nextId)
+    : { asyncs: false, found: [], loops: false };
+  if (found.length === 0 && !markModule) {
     return null;
   }
   found.sort(
@@ -203,13 +214,19 @@ export const guardCode = (
   const names = [
     ...(loops ? ["loop as __edLoop"] : []),
     ...(asyncs ? ["frame as __edFrame", "mark as __edMark"] : []),
+    ...(markModule
+      ? ["moduleStarts as __edModuleStarts", "moduleEnds as __edModuleEnds"]
+      : []),
   ];
-  // On the first line, before the code: no line moves.
-  let out = `import{${names.join(",")}}from"${GUARD_ID}";`;
+  // On the first line, before the code: no line moves. Imports are hoisted: the call runs as the
+  // module's own code starts, after what it imports.
+  let out = `import{${names.join(",")}}from"${GUARD_ID}";${markModule ? "__edModuleStarts(import.meta.url);" : ""}`;
   let from = 0;
   for (const edit of found) {
     out += code.slice(from, edit.at) + edit.text;
     from = edit.at;
   }
-  return out + code.slice(from);
+  out += code.slice(from);
+  // After the last line: a line comment there ends with it.
+  return markModule ? `${out}\n;__edModuleEnds(import.meta.url);` : out;
 };
