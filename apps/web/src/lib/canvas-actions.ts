@@ -11,7 +11,7 @@ import { usePagePicks } from "../state/page-picks.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { ensureEditable } from "../state/setup.ts";
 import { viewportSize } from "./shortcuts.ts";
-import { startCommand } from "./start-thread.ts";
+import { startTask } from "./start-thread.ts";
 
 export const canvasById = (id: string): Canvas | undefined =>
   useProject.getState().canvases.find((c) => c.id === id);
@@ -177,19 +177,19 @@ export const duplicateCanvasWithAgent = async (canvas: Canvas) => {
       name: name.trim(),
     });
     await showCanvas(copy.id);
-    await startCommand(redrawCommand(copy.id, instruction.trim()));
+    await startTask({
+      _tag: "Redraw",
+      canvas: copy.id,
+      ...(instruction.trim() && { change: instruction.trim() }),
+    });
   } catch (error) {
     reportError(error);
   }
 };
 
-/** The command that asks an agent to change every page of a canvas. */
-const redrawCommand = (canvasId: string, instruction: string) =>
-  `/redraw ${canvasId === "" ? '""' : canvasId} ${instruction}`;
-
 /** Asks an agent to draw a sheet of the design system's components into the canvas. */
 export const componentSheet = (canvas: Canvas) =>
-  startCommand(`/components ${canvas.id === "" ? '""' : canvas.id}`);
+  startTask({ _tag: "Components", canvas: canvas.id });
 
 export const deleteCanvas = async (canvas: Canvas) => {
   if (!ensureEditable()) {

@@ -8,6 +8,7 @@ import {
   SETUP_STEPS,
   type SetupStep,
 } from "@ultrapaint/contracts/design-system-setup";
+import { commandOf } from "@ultrapaint/contracts/tasks";
 import { cn } from "cn";
 import {
   ArrowRight,
@@ -403,7 +404,7 @@ export const SetupStepIntro = ({ threadId }: { threadId: string }) => {
     return null;
   }
   const title = SETUP_STEPS.find((d) => d.id === step.id)?.title ?? step.id;
-  const command = `/design-system ${step.id}`;
+  const command = commandOf({ _tag: "SetupStep", step: step.id });
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
       <span className="font-heading-xsmall">{title} starts when you send</span>

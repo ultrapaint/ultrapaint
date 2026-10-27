@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
-import { startCommand } from "../lib/start-thread.ts";
+import { startTask } from "../lib/start-thread.ts";
 import { api } from "../state/connection.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { applyPicks, Conflicts } from "./sync-tokens.tsx";
@@ -220,7 +220,7 @@ export const CodeTokensStep = ({ plan }: { plan: SyncPlan }) => {
         <Button
           className="self-start"
           disabled={busy !== null}
-          onClick={() => startCommand("/sync code")}
+          onClick={() => startTask({ _tag: "Sync", source: "code" })}
           size="sm"
           variant="ghost"
         >

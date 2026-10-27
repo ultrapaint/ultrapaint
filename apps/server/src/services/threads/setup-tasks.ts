@@ -4,21 +4,36 @@
  */
 import {
   type DefineMode,
-  DefineMode as DefineModeSchema,
   SETUP_STEPS,
+  setupStepOf,
 } from "@ultrapaint/contracts/design-system-setup";
 import type { NotConfigured } from "@ultrapaint/contracts/errors";
+import type { SetupStepTask } from "@ultrapaint/contracts/tasks";
 import { plural } from "@ultrapaint/shared/text";
-import { Effect, Schema } from "effect";
-import { ServerConfig } from "../../config.ts";
+import { Effect } from "effect";
 import { ProjectManager } from "../../project.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { DesignSystemSetupService } from "../design-system-setup.ts";
 import { inventoryBrief, mappingCounts } from "../design-system-setup-rules.ts";
 import { RepoPaths } from "../repo-paths.ts";
-import { DESIGN_MD_GUIDE, splitArgument, userAdds } from "./task-text.ts";
+import type { AgentWays } from "./agent-ways.ts";
+import {
+  DESIGN_MD_GUIDE,
+  needsTools,
+  taskFailure,
+  userAdds,
+} from "./task-text.ts";
 
-const isDefineMode = Schema.is(DefineModeSchema);
+const COMMAND = "design-system";
+
+/** What the user is told of a step that is not an agent's: where the setup is, and its steps. */
+export const STEPS_NEXT = `The steps an agent runs are ${SETUP_STEPS.filter(
+  (s) => s.agent
+)
+  .map((s) => s.id)
+  .join(
+    ", "
+  )}. The setup is in the Design system panel's Setup view, where each step is started in order; tell the user so, and stop.`;
 
 /** Values of the mapping a Map task lists, each way. */
 const MAP_LISTED = 200;
@@ -26,21 +41,15 @@ const MAP_LISTED = 200;
 export const makeSetupTasks = Effect.fnUntraced(function* (deps: {
   /** What `/init` asks for, which Define asks for too when it adopts the theme. */
   readonly importSteps: Effect.Effect<string, NotConfigured>;
+  readonly ways: AgentWays;
 }) {
-  const { importSteps } = deps;
+  const { importSteps, ways } = deps;
   const project = yield* ProjectManager;
   const setup = yield* DesignSystemSetupService;
-  const { mcp } = yield* ServerConfig;
-
   /** How an agent's step ends: it says so, and the user goes on from the Setup view. */
-  const finishing = (step: string) =>
-    mcp
-      ? `End by calling finish_setup_step with a summary of a few lines: what you wrote, and what you
-   were unsure of. The user reviews the step and goes on to the next one; ${step} is all this thread does.`
-      : `End with a summary of a few lines: what you wrote, and what you were unsure of. The user marks
-   the step done in the Setup view.`;
+  const finishing = ways.finishStep;
 
-  const defineAdopt = (extra: string, brief: string) =>
+  const defineAdopt = (extra: string | undefined, brief: string) =>
     Effect.map(
       importSteps,
       (steps) => `<ultrapaint-task command="design-system">
@@ -58,16 +67,17 @@ ${steps}
 ${userAdds(extra)}</ultrapaint-task>`
     );
 
-  const definePropose = (extra: string, brief: string, reason: string) =>
+  const definePropose = (
+    extra: string | undefined,
+    brief: string,
+    reason: string
+  ) =>
     project.use(
       Effect.gen(function* () {
         const { settings } = yield* RepoPaths;
         const stylesheets =
           settings.hostCss.join(", ") ||
           "none configured yet: ask the user which stylesheet sets up Tailwind";
-        const tools = mcp
-          ? "scan_design_system has what the theme declares; ask_user puts a card of questions to the user; write_design_system saves the result."
-          : "Without the editor's MCP server, read the code yourself, ask in the thread and write the files by hand.";
         return `<ultrapaint-task command="design-system">
 This is the Define step of the design-system setup, proposing a design system, which the user
 follows in the Design system panel's Setup view. The theme does not carry a design system yet (${reason}), so make one from
@@ -76,7 +86,7 @@ stylesheet and the design system's own: bringing the code onto the tokens is a l
 
 ${brief}
 
-${tools}
+${ways.proposeWith}
 
 1. Go through the values above kind by kind, and look at the screens that use the most of them
    to see what each colour, size and shadow is for.
@@ -106,21 +116,15 @@ ${userAdds(extra)}</ultrapaint-task>`;
       })
     );
 
-  /** Map and Migrate work through the editor's tools; without them they cannot. */
-  const needsTools = (step: string) =>
-    `<ultrapaint-task command="design-system">
-The user ran the ${step} step of the design-system setup, which works through the editor's MCP
-server, and the server was started without it. Tell the user to start it with MCP on, and stop.
-</ultrapaint-task>`;
-
-  const mapTask = (extra: string) =>
+  const mapTask = (extra: string | undefined) =>
     Effect.gen(function* () {
       const mapping = yield* setup.mapping;
       if (!mapping) {
-        return `<ultrapaint-task command="design-system">
-The user ran /design-system map, but Map has not started: there is no mapping yet. Tell the user
-to start Map from the Design system panel's Setup view, and stop.
-</ultrapaint-task>`;
+        return yield* taskFailure(
+          COMMAND,
+          "Map has not started: there is no mapping yet",
+          "Tell the user to start Map from the Design system panel's Setup view, and stop."
+        );
       }
       const counts = mappingCounts(mapping);
       const line = (e: (typeof mapping.entries)[number]) =>
@@ -165,7 +169,7 @@ tokens, ask_user puts a card of questions to the user.
 ${userAdds(extra)}</ultrapaint-task>`;
     });
 
-  const migrateTask = (extra: string) =>
+  const migrateTask = (extra: string | undefined) =>
     Effect.gen(function* () {
       const { steps } = yield* setup.get;
       const migrate = steps.find((s) => s.id === "migrate");
@@ -197,11 +201,11 @@ ${userAdds(extra)}</ultrapaint-task>`;
     });
 
   /** Define, adopting the theme or proposing one: as the user said, or as the step was started. */
-  const defineTask = (argument: string) =>
+  const defineTask = (
+    given: DefineMode | undefined,
+    extra: string | undefined
+  ) =>
     Effect.gen(function* () {
-      const { extra: words, target: first } = splitArgument(argument);
-      const given = isDefineMode(first) ? first : undefined;
-      const extra = given ? words : argument.trim();
       const state = yield* setup.get;
       const inventory = yield* setup.inventory;
       const { designSystem, document } = yield* project.use(
@@ -231,25 +235,30 @@ ${userAdds(extra)}</ultrapaint-task>`;
         : yield* defineAdopt(extra, brief);
     });
 
-  const designSystemStep = (argument: string) => {
-    const { extra, target } = splitArgument(argument);
-    if (target === "define") {
-      return defineTask(extra);
+  /** A step of the setup an agent runs, in its thread: Define, Map or Migrate. */
+  const setupStep = Effect.fnUntraced(function* ({
+    extra,
+    mode,
+    step,
+  }: SetupStepTask) {
+    if (step === "define") {
+      return yield* defineTask(mode, extra);
     }
-    if (target === "map" || target === "migrate") {
-      return mcp
-        ? (target === "map" ? mapTask : migrateTask)(extra)
-        : Effect.succeed(needsTools(target === "map" ? "Map" : "Migrate"));
+    if (step !== "map" && step !== "migrate") {
+      return yield* taskFailure(
+        COMMAND,
+        `${step} is not a step an agent runs`,
+        STEPS_NEXT
+      );
     }
-    const offered = SETUP_STEPS.filter((s) => s.agent)
-      .map((s) => s.id)
-      .join(", ");
-    return Effect.succeed(`<ultrapaint-task command="design-system">
-The user ran /design-system ${target}, which is not a step an agent runs. The steps that are: ${offered}.
-The setup is in the Design system panel's Setup view, where each step is started in order; tell the
-user so, and stop.
-</ultrapaint-task>`);
-  };
+    if (!ways.tools) {
+      return yield* needsTools(
+        COMMAND,
+        `the ${setupStepOf(step)?.title ?? step} step`
+      );
+    }
+    return yield* step === "map" ? mapTask(extra) : migrateTask(extra);
+  });
 
-  return { designSystemStep };
+  return { setupStep };
 });

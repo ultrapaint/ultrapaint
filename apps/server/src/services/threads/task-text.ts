@@ -1,12 +1,42 @@
 /**
- * What every task a slash command expands into is written with: how a command's argument reads,
- * what the user adds after it, and the formats an agent writes without the editor's tools.
+ * What every task is written with (`tasks.ts`): what the user adds, why a request cannot be a
+ * task, and the formats an agent writes without the editor's tools.
  */
 import { DesignSystem } from "@ultrapaint/contracts/design-system";
 import { PageDocument } from "@ultrapaint/contracts/document";
 import { Schema } from "effect";
 
-const WHITESPACE_RE = /\s+/;
+/**
+ * Why a request cannot be a task: what it names is not there, or it needs what this server or
+ * project does not have. `message` reads after "but" in a sentence and on its own as a tool's
+ * answer (`there is no canvas "nowhere"; the canvases are …`). `next` is what an agent the user
+ * asked tells them; a failure without one (no project open) is not the user's to mend.
+ */
+export class TaskFailure extends Schema.TaggedError<TaskFailure>()(
+  "TaskFailure",
+  {
+    /** The slash command the request is, without its slash: `implement`. */
+    command: Schema.String,
+    message: Schema.String,
+    next: Schema.optional(Schema.String),
+  }
+) {}
+
+/** A failure of a task's own: what the user ran cannot be done as asked, and what to tell them. */
+export const taskFailure = (command: string, message: string, next: string) =>
+  new TaskFailure({ command, message, next });
+
+/** A task that works only through the editor's MCP server, on a server started without it. */
+export const needsTools = (
+  command: string,
+  what: string,
+  next = "Tell the user to start it with MCP on, and stop."
+) =>
+  taskFailure(
+    command,
+    `${what} works through the editor's MCP server, and the server was started without it`,
+    next
+  );
 
 /** The design system's schema, for an agent that has to write the file without the tools. */
 export const designSystemSchema = () =>
@@ -17,14 +47,8 @@ export const pageSchema = () =>
   JSON.stringify(Schema.toJsonSchemaDocument(PageDocument));
 
 /** What the user typed after the command's argument, passed on as it is. */
-export const userAdds = (extra: string) =>
+export const userAdds = (extra: string | undefined) =>
   extra ? `\nThe user adds:\n${extra}\n` : "";
-
-/** A command's argument: its first word, and what the user adds after it. */
-export const splitArgument = (argument: string) => {
-  const [target = "", ...rest] = argument.trim().split(WHITESPACE_RE);
-  return { extra: rest.join(" "), target };
-};
 
 /**
  * How an agent writes DESIGN.md (ADR 0027): the open format's sections in its order, and what goes

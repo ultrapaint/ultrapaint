@@ -36,7 +36,7 @@ import { confirmDialog } from "../components/dialogs.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import { ValueField } from "../components/value-field.tsx";
-import { startCommand } from "../lib/start-thread.ts";
+import { startTask } from "../lib/start-thread.ts";
 import {
   type FieldTokenKind,
   Swatch,
@@ -670,7 +670,9 @@ const SpecDetail = ({
           )}
           <Button
             className="ml-auto"
-            onClick={() => startCommand(`/implement ${spec.component}`)}
+            onClick={() =>
+              startTask({ _tag: "Implement", target: spec.component })
+            }
             size="sm"
             variant="outline"
           >

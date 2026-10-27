@@ -21,7 +21,8 @@ import { codeDirection } from "../design-system-sync-rules.ts";
 import { DocumentService } from "../documents.ts";
 import { ImplementationService } from "../implementation.ts";
 import { SpecService } from "../specs.ts";
-import { SlashCommands } from "../threads/commands.ts";
+import { HANDOFF_ACTIONS } from "../threads/agent-ways.ts";
+import { AgentTasks } from "../threads/tasks.ts";
 import { makeLookup } from "./lookup.ts";
 import { missing, opt, reported, ToolFailure } from "./tool-helpers.ts";
 
@@ -30,14 +31,7 @@ export const Handoff = Tool.make("handoff", {
     'Designs and their code. action "list": what is ready or changed; "read": target\'s task; "mark": target implemented by files; "note": what target (its node) must do that a design cannot show (text); "export"/"import": token values design→code/code→design, the tokens named or all changed on one side.',
   failure: ToolFailure,
   parameters: Schema.Struct({
-    action: Schema.Literals([
-      "list",
-      "read",
-      "mark",
-      "note",
-      "export",
-      "import",
-    ]),
+    action: Schema.Literals(HANDOFF_ACTIONS),
     canvas: opt(Schema.String),
     files: opt(Schema.Array(Schema.String)),
     /** A page's node, or a spec's slot. */
@@ -72,7 +66,7 @@ const HandoffTools = Toolkit.make(Handoff);
 
 export const handoffToolHandlers = Effect.gen(function* () {
   const { pageAt, project } = yield* makeLookup;
-  const commands = yield* SlashCommands;
+  const tasks = yield* AgentTasks;
   const sync = yield* DesignSystemSyncService;
 
   /** The binding's name for what an agent named: a page by URL or file, or `spec:<Component>`. */
@@ -102,12 +96,12 @@ export const handoffToolHandlers = Effect.gen(function* () {
     };
   });
 
-  const read = Effect.fnUntraced(function* (id: string) {
-    const task = yield* commands.expand(`/implement ${id}`);
-    return task === null
-      ? yield* missing(`${id} cannot be read as a task`)
-      : { text: task };
-  });
+  /** The task that implements a design, or why there is none, in the failure's own words. */
+  const read = (id: string) =>
+    tasks.task({ _tag: "Implement", target: id }).pipe(
+      Effect.map(({ text }) => ({ text })),
+      Effect.catchTag("TaskFailure", (failure) => missing(failure.message))
+    );
 
   const mark = Effect.fnUntraced(function* (
     id: string,

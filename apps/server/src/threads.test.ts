@@ -324,19 +324,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             "task:implement Implement the page Home of the design (designs/home.page.json)"
           );
           assert.strictEqual(implement.thread?.purpose, "implement");
-
-          yield* prompt(threadId, '/components ""');
-          const components = yield* waitForThread(threadId, turnsEnded(3));
-          assert.include(
-            said(components.items).at(-1) ?? "",
-            "task:components Draw a sheet of this repository's design system into the canvas"
-          );
-          yield* prompt(threadId, "/redraw nowhere to wireframes");
-          const redraw = yield* waitForThread(threadId, turnsEnded(4));
-          assert.include(
-            said(redraw.items).at(-1) ?? "",
-            'task:redraw The user ran /redraw, but there is no canvas "nowhere".'
-          );
+          // Each command's task, with and without the tools, is tasks.test.ts's.
         })
     );
 

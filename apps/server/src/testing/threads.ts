@@ -2,12 +2,14 @@
  * `ThreadService` in-process, for a test that plays the agent (`scripted-agents.ts`): the thread
  * services the server builds, on a fixture folder and a home of their own, without the HTTP
  * server, the preview or the project's other services. The briefing and the slash commands are
- * stand-ins: the briefing says which purpose it was asked for, and `/name rest` stands for the
- * task `taskFor` writes. Two agents are configured, `scripted` and `other`.
+ * stand-ins: the briefing says which purpose it was asked for, and a command `/name rest` stands
+ * for the task `taskFor` writes, with the purpose of the request it reads as. Two agents are
+ * configured, `scripted` and `other`.
  */
 import { NodeServices } from "@effect/platform-node";
 import { NotConfigured } from "@ultrapaint/contracts/errors";
 import { defaultSettings } from "@ultrapaint/contracts/settings";
+import { parseCommand, taskPurpose } from "@ultrapaint/contracts/tasks";
 import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
 import {
   Context,
@@ -119,7 +121,17 @@ const commands = Layer.succeed(
       Effect.sync(() => {
         const match: RegExpExecArray | null = COMMAND_RE.exec(text.trim());
         const name = match?.[1];
-        return name === undefined ? null : taskFor(name, match?.[2]?.trim());
+        if (name === undefined) {
+          return null;
+        }
+        const parsed = parseCommand(text);
+        return {
+          purpose:
+            parsed?._tag === "Request"
+              ? taskPurpose(parsed.request)
+              : ("design" as const),
+          text: taskFor(name, match?.[2]?.trim()),
+        };
       }),
     list: [],
   })

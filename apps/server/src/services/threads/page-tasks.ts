@@ -1,7 +1,7 @@
 /**
- * The tasks of the commands that draw or implement pages: `/implement` a page in the
- * application's code, `/import-figma` an uploaded file as pages, `/redraw` a canvas another way,
- * and `/components` a sheet of the design system into a canvas.
+ * The tasks that draw or implement pages: implement a page or a component spec in the
+ * application's code, link pages built already to their code, an uploaded Figma file as pages, a
+ * canvas redrawn another way, and a sheet of the design system into a canvas.
  */
 import type { TextStyle } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
@@ -16,33 +16,29 @@ import {
   SPECS_DIR,
 } from "@ultrapaint/contracts/specs";
 import { baselineKey, type TokenDiff } from "@ultrapaint/contracts/sync";
+import type {
+  ComponentsTask,
+  ImplementTask,
+  ImportFigmaTask,
+  RedrawTask,
+} from "@ultrapaint/contracts/tasks";
 import { walk } from "@ultrapaint/design-document/tree";
-import { basePathOf, normaliseRoute } from "@ultrapaint/shared/route";
+import { basePathOf } from "@ultrapaint/shared/route";
 import { plural } from "@ultrapaint/shared/text";
 import { Effect } from "effect";
-import { ServerConfig } from "../../config.ts";
 import { ProjectManager } from "../../project.ts";
 import { CatalogueService } from "../catalogue.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { DocumentService } from "../documents.ts";
 import { FigmaImportService } from "../figma-import.ts";
 import { ImplementationService } from "../implementation.ts";
+import { pageNamed } from "../page-names.ts";
 import { PagesService } from "../pages.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { SpecService } from "../specs.ts";
 import { ProjectStyleSystem } from "../style-system.ts";
-import { pageSchema, splitArgument, userAdds } from "./task-text.ts";
-
-const QUOTED_ROOT = '""';
-/** `/implement --adopt`: link pages built already to their code, instead of implementing one. */
-const ADOPT_FLAG = "--adopt";
-const WORDS_RE = /\s+/;
-
-/** A canvas as a command names it: its id, `""` for the designs directory's own. */
-const canvasArgument = (argument: string) => {
-  const { extra, target } = splitArgument(argument);
-  return { extra, id: target === QUOTED_ROOT ? "" : target };
-};
+import { type AgentWays, handoffCall } from "./agent-ways.ts";
+import { needsTools, taskFailure, userAdds } from "./task-text.ts";
 
 const named = (id: string) => JSON.stringify(id);
 
@@ -61,9 +57,12 @@ const unknownCanvas = (
   command: string,
   id: string,
   canvases: readonly { readonly id: string; readonly name: string }[]
-) => `<ultrapaint-task command="${command}">
-The user ran /${command}, but there is no canvas ${named(id)}. The canvases are: ${canvases.map((c) => `${c.name} (${named(c.id)})`).join(", ") || "none"}. Ask which one.
-</ultrapaint-task>`;
+) =>
+  taskFailure(
+    command,
+    `there is no canvas ${named(id)}; the canvases are: ${canvases.map((c) => `${c.name} (${named(c.id)})`).join(", ") || "none"}`,
+    "Ask which one."
+  );
 
 const textStyles = (styles: readonly TextStyle[]) =>
   styles.length > 0
@@ -84,38 +83,6 @@ const specNamed = (
   return name ? specs.find((s) => s.component === name) : undefined;
 };
 
-/**
- * The page a command names: by its URL, which names the base page, or by its file, which names
- * a variant's page or one without a URL. Named by nothing, the only page there is.
- */
-const pageNamed = <
-  T extends {
-    readonly file: string;
-    readonly id: string;
-    readonly path: string;
-    readonly route?: string | undefined;
-    readonly state?: string | undefined;
-    readonly variant?: string | undefined;
-  },
->(
-  pages: readonly T[],
-  target: string
-): T | undefined => {
-  if (!target) {
-    return pages.length === 1 ? pages[0] : undefined;
-  }
-  if (target.startsWith("/")) {
-    const route = normaliseRoute(target);
-    return pages.find(
-      (p) =>
-        p.route === route && p.variant === undefined && p.state === undefined
-    );
-  }
-  return pages.find(
-    (p) => p.id === target || p.file === target || p.path === target
-  );
-};
-
 /** A page as a list shows it to an agent: its name, its URL or that it has none, its file. */
 const pageEntry = (page: {
   readonly file: string;
@@ -125,21 +92,28 @@ const pageEntry = (page: {
 }) =>
   `${page.name}${page.variant ? ` (variant ${page.variant})` : ""}, ${page.route ?? "no URL"}: ${page.file}`;
 
+/** A design to implement that the name does not settle: none, or pages of several canvases. */
 const unknownPage = (
   target: string,
+  canvases: readonly string[],
   pages: readonly Parameters<typeof pageEntry>[0][]
 ) => {
-  const which = target ? `no page is ${target}` : "did not say which";
-  return `<ultrapaint-task command="implement">
-The user asked to implement a page of the design, but ${which}. The pages are:
-${pages.map((p) => `- ${pageEntry(p)}`).join("\n") || "- none"}
-Ask which one.
-</ultrapaint-task>`;
+  let which = "it did not say which page";
+  if (canvases.length > 1) {
+    which = `${target} is a page in several canvases (${canvases.map(named).join(", ")})`;
+  } else if (target) {
+    which = `no page is ${target}`;
+  }
+  return taskFailure(
+    "implement",
+    `${which}; the pages are:\n${pages.map((p) => `- ${pageEntry(p)}`).join("\n") || "- none"}`,
+    "Ask which one."
+  );
 };
 
 /**
  * The pages a list of words names: a canvas's id (`""` for the designs directory's own) names
- * all its pages, anything else one page, by its id, file or URL.
+ * all its pages, anything else one page, by the one rule for page names.
  */
 const pagesOf = (
   words: readonly string[],
@@ -149,16 +123,15 @@ const pagesOf = (
   const picked = new Set<string>();
   const unknown: string[] = [];
   for (const word of words) {
-    const canvas = word === QUOTED_ROOT ? "" : word;
     const page = pageNamed(pages, word);
-    if (canvases.some((c) => c.id === canvas)) {
-      for (const p of pages.filter((each) => each.canvas === canvas)) {
+    if (canvases.some((c) => c.id === word)) {
+      for (const p of pages.filter((each) => each.canvas === word)) {
         picked.add(p.id);
       }
-    } else if (page) {
-      picked.add(page.id);
+    } else if (word !== "" && page._tag === "Found") {
+      picked.add(page.page.id);
     } else {
-      unknown.push(word);
+      unknown.push(word === "" ? named(word) : word);
     }
   }
   return { picked, unknown };
@@ -234,70 +207,72 @@ ${drafts}`;
 export const makePageTasks = Effect.fnUntraced(function* (deps: {
   /** What a task says first when the editor sees no components. */
   readonly componentsMissing: Effect.Effect<string>;
+  readonly ways: AgentWays;
 }) {
-  const { componentsMissing } = deps;
+  const { componentsMissing, ways } = deps;
   const project = yield* ProjectManager;
-  const { mcp } = yield* ServerConfig;
 
   /**
-   * `/implement` (ADR 0030): a page or a component spec turned into the application's code. A
+   * Implement (ADR 0030): a page or a component spec turned into the application's code. A
    * design implemented before is given with what changed since, its behaviour notes and its
    * states; the agent marks it implemented when it is done.
    */
-  const implement = (argument: string) =>
+  const implement = ({ canvas, extra, target }: ImplementTask) =>
     project.use(
       Effect.gen(function* () {
-        const { extra, target } = splitArgument(argument);
-        if (target === ADOPT_FLAG) {
-          return yield* adopt(extra);
-        }
         const specs = yield* (yield* SpecService).specs;
         const spec = specNamed(specs, target);
         if (spec) {
           return yield* implementSpec(spec, extra);
         }
         const { pages } = yield* (yield* PagesService).list;
-        const page = pageNamed(pages, target);
-        if (!page) {
-          return unknownPage(target, pages);
+        const found = pageNamed(pages, target, canvas);
+        if (found._tag !== "Found") {
+          return yield* unknownPage(
+            target,
+            found._tag === "Ambiguous" ? found.canvases : [],
+            pages
+          );
         }
-        return yield* implementPage(page, pages, specs, extra);
+        return yield* implementPage(found.page, pages, specs, extra);
       })
     );
 
   /**
-   * `/implement --adopt [canvas | page …]` (ADR 0030): pages the application has built already,
-   * linked to the files that implement them, without changing the code. What a project brought
-   * into the editor with its screens done starts from. Named by nothing, every page that is not
-   * linked yet.
+   * Adopt (ADR 0030): pages the application has built already, linked to the files that
+   * implement them, without changing the code. What a project brought into the editor with its
+   * screens done starts from. Named by nothing, every page that is not linked yet.
    */
-  const adopt = Effect.fnUntraced(function* (argument: string) {
-    const { canvases, pages } = yield* (yield* PagesService).list;
-    const { items } = yield* (yield* ImplementationService).list;
-    const bound = new Set(
-      items
-        .filter((i) => i.status === "implemented" || i.status === "changed")
-        .map((i) => i.target)
+  const adopt = (words: readonly string[]) =>
+    project.use(
+      Effect.gen(function* () {
+        const { canvases, pages } = yield* (yield* PagesService).list;
+        const { items } = yield* (yield* ImplementationService).list;
+        const bound = new Set(
+          items
+            .filter((i) => i.status === "implemented" || i.status === "changed")
+            .map((i) => i.target)
+        );
+        const { picked, unknown } = pagesOf(words, canvases, pages);
+        const chosen = pages.filter(
+          (p) => (words.length === 0 || picked.has(p.id)) && !bound.has(p.id)
+        );
+        if (chosen.length === 0) {
+          return yield* taskFailure(
+            "implement",
+            `${unknown.length > 0 ? `there is no canvas or page ${unknown.join(", ")}, and ` : ""}every page ${words.length > 0 ? "named " : ""}is linked already`,
+            "Say so, and stop."
+          );
+        }
+        return adoptTask(chosen, unknown);
+      })
     );
-    const words = argument.split(WORDS_RE).filter(Boolean);
-    const { picked, unknown } = pagesOf(words, canvases, pages);
-    const chosen = pages.filter(
-      (p) => (words.length === 0 || picked.has(p.id)) && !bound.has(p.id)
-    );
-    if (chosen.length === 0) {
-      return `<ultrapaint-task command="implement">
-The user asked to link pages of the design to the code that implements them, but ${unknown.length > 0 ? `there is no canvas or page ${unknown.join(", ")}, and ` : ""}every page ${words.length > 0 ? "named " : ""}is linked already. Say so, and stop.
-</ultrapaint-task>`;
-    }
+
+  const adoptTask = (chosen: readonly Page[], unknown: readonly string[]) => {
     const lines = chosen.map(
       (p) =>
         `- ${p.id}: ${p.name}${p.state ? ` in the ${p.state} state` : ""}${p.variant ? ` (variant ${p.variant})` : ""}, ${p.route ?? "no URL"}`
     );
-    const mark = mcp
-      ? `mark it implemented: handoff with action "mark", target the page's id as listed and files,
-   the repository files that draw it (the route's module, the screen's component, the components
-   only it uses). A state's page is implemented by the same files as its page.`
-      : "note its files: without the editor's MCP server the user marks each page in the inspector.";
     return `<ultrapaint-task command="implement">
 These pages of the design are built in the application already, and the editor does not know by
 which files. Find the code that implements each one and link them, so that from now on the editor
@@ -312,31 +287,24 @@ designs.${
 The pages, by id:
 ${lines.join("\n")}
 
-1. Find where the application's pages live and how its routes are declared. For each page above,
+${numbered([
+  `Find where the application's pages live and how its routes are declared. For each page above,
    find the screen that serves its URL; a page without a URL is matched by its name and what it
-   shows. Ask the user where you cannot tell, a few pages at a time.
-2. Where the code draws the same screen (read_page and get_screenshot show the design; the
-   layout, the sections and the components match, not every pixel), ${mark}
-3. Where the code draws something else, or nothing, leave the page unlinked: it is a design still
-   to implement.${
-     mcp
-       ? `
-4. If marking is refused because tokens the page uses have not reached the code, the design's
-   values are newer than the stylesheet's: ask the user whether to export them (handoff "export"
-   with their names) before marking, or to leave the page unlinked.`
-       : ""
-   }
-${mcp ? "5" : "4"}. End with a table: each page, the files that implement it or why it is left unlinked.
+   shows. Ask the user where you cannot tell, a few pages at a time.`,
+  `Where the code draws the same screen (read_page and get_screenshot show the design; the
+   layout, the sections and the components match, not every pixel), ${ways.linkBuilt}`,
+  `Where the code draws something else, or nothing, leave the page unlinked: it is a design still
+   to implement.`,
+  // Marking checks the tokens only through the tool.
+  ways.tools
+    ? `If marking is refused because tokens the page uses have not reached the code, the design's
+   values are newer than the stylesheet's: ask the user whether to export them (${handoffCall("export")}
+   and their names) before marking, or to leave the page unlinked.`
+    : null,
+  "End with a table: each page, the files that implement it or why it is left unlinked.",
+])}
 </ultrapaint-task>`;
-  });
-
-  /** How to say the design is done, through the editor's tool or to the user. */
-  const markStep = (target: string) =>
-    mcp
-      ? `Mark it implemented: call handoff with action "mark", target "${target}" and files, every
-   repository file you wrote or changed for it. The editor then knows which code implements it,
-   and tells the next implementation what changed.`
-      : "Tell the user which files implement it, so they can mark it implemented in the editor.";
+  };
 
   /**
    * The tokens a design relies on whose value has not reached the code (ADR 0028): listed, with
@@ -369,12 +337,9 @@ ${used.map(waitingLine).join("\n")}
 `;
     const ask =
       conflicted.size > 0
-        ? ` ${[...conflicted].join(", ")} changed on both sides: ask the user which value to keep, then ${mcp ? 'bring it over with "export" (the design\'s) or "import" (the code\'s) and its name' : "write that value into the stylesheet"}.`
+        ? ` ${[...conflicted].join(", ")} changed on both sides: ask the user which value to keep, then ${ways.settleTokens}.`
         : "";
-    const exportStep = mcp
-      ? `call handoff with action "export" and tokens ${JSON.stringify(plain)}: it writes the design's values into the stylesheets through the style system.`
-      : "write the design's value of each into the stylesheet where the token is declared.";
-    const write = plain.length > 0 ? exportStep : "";
+    const write = plain.length > 0 ? `${ways.exportTokens(plain)}.` : "";
     return {
       section,
       step: `Bring the tokens above over before writing the code: ${write}${ask}${rest}`,
@@ -410,7 +375,7 @@ ${used.map(waitingLine).join("\n")}
     page: Page,
     pages: readonly Page[],
     specs: readonly ComponentSpec[],
-    extra: string
+    extra: string | undefined
   ) {
     const state = yield* Effect.orElseSucceed(
       (yield* DocumentService).get(page.id),
@@ -456,7 +421,7 @@ ${numbered([
   `Implement each behaviour note with the application's own services, guards and data; ask the
    user where one is unclear rather than inventing it.`,
   "Run the repository's type check and linter on what you changed.",
-  markStep(page.id),
+  `Once it is done, ${ways.markImplemented(named(page.id))}`,
   "End with a short summary, and what the design asked for that the code could not do.",
 ])}
 ${userAdds(extra)}</ultrapaint-task>`;
@@ -464,7 +429,7 @@ ${userAdds(extra)}</ultrapaint-task>`;
 
   const implementSpec = Effect.fnUntraced(function* (
     spec: ComponentSpec,
-    extra: string
+    extra: string | undefined
   ) {
     const target = specTarget(spec.component);
     const before = yield* since(target);
@@ -510,25 +475,31 @@ ${numbered([
     ? "Implement each behaviour note in the component, with the application's own services and data; ask the user where one is unclear rather than inventing it."
     : null,
   "Run the repository's type check and linter on what you changed.",
-  markStep(target),
+  `Once it is done, ${ways.markImplemented(named(target))}`,
   "End with a short summary, and what the spec asked for that the code could not do.",
 ])}
 ${userAdds(extra)}</ultrapaint-task>`;
   });
 
-  const importFigma = (argument: string) =>
+  const importFigma = ({ extra, file }: ImportFigmaTask) =>
     project.use(
       Effect.gen(function* () {
-        const { extra, target } = splitArgument(argument);
         const figma = yield* FigmaImportService;
         const imports = yield* figma.list;
         const chosen =
-          imports.find((i) => i.id === target || i.name === target) ??
-          imports[0];
+          imports.find((i) => i.id === file || i.name === file) ?? imports[0];
         if (!chosen) {
-          return `<ultrapaint-task command="import-figma">
-The user asked to import a Figma file, but none has been uploaded. Tell them to use "Import Figma…" in the Pages panel, which takes a .fig file, and stop.
-</ultrapaint-task>`;
+          return yield* taskFailure(
+            "import-figma",
+            "no Figma file has been uploaded",
+            'Tell them to use "Import Figma…" in the Pages panel, which takes a .fig file, and stop.'
+          );
+        }
+        if (!ways.tools) {
+          return yield* needsTools(
+            "import-figma",
+            "writing the mapping of a Figma file's components"
+          );
         }
         const { designSystem } = yield* (yield* DesignSystemService).get;
         const frames = chosen.pages.flatMap((page) =>
@@ -551,19 +522,15 @@ The user asked to import a Figma file, but none has been uploaded. Tell them to 
                   : "; no component of a similar name here"
               }`
           );
-        const tools = mcp
-          ? `Through the ultrapaint MCP server: read_figma_import (the file: frames, components, candidates, the
-mapping so far), read_figma_component and read_figma_frame (one of them, with an outline of its layers),
-map_figma_component (what a Figma component becomes), write_figma_frame (a frame as a page), ask_user
-(a question card for the user), list_components and get_component (this repository's components).`
-          : `The import's file is in the state directory under imports/${chosen.id}; without the MCP server the
-mapping cannot be written, so tell the user to start the server with MCP on and stop.`;
         const missing = yield* componentsMissing;
         return `<ultrapaint-task command="import-figma">
 ${missing}Turn the Figma file "${chosen.name}" (import ${chosen.id}) into pages of this project, drawn with this
 repository's own components where it has them.
 
-${tools}
+Through the ultrapaint MCP server: read_figma_import (the file: frames, components, candidates, the
+mapping so far), read_figma_component and read_figma_frame (one of them, with an outline of its layers),
+map_figma_component (what a Figma component becomes), write_figma_frame (a frame as a page), ask_user
+(a question card for the user), list_components and get_component (this repository's components).
 
 The file has ${frames.length} frame${frames.length === 1 ? "" : "s"}: ${frames.join(", ") || "none"}.
 Its components, most used first:
@@ -601,32 +568,25 @@ ${userAdds(extra)}</ultrapaint-task>`;
       })
     );
 
-  const redraw = (argument: string) =>
+  const redraw = ({ canvas: id, change }: RedrawTask) =>
     project.use(
       Effect.gen(function* () {
-        const { extra, id } = canvasArgument(argument);
         const { canvases, pages } = yield* (yield* PagesService).list;
         const canvas = canvases.find((c) => c.id === id);
         if (!canvas) {
-          return unknownCanvas("redraw", id, canvases);
+          return yield* unknownCanvas("redraw", id, canvases);
         }
         const own = pages.filter((p) => p.canvas === id);
         const list = own.map((p) => `- ${pageEntry(p)}`).join("\n");
-        const tools = mcp
-          ? `Through the ultrapaint MCP server, always passing canvas: ${named(id)}: read_page and
-get_screenshot to see a page, apply_operations to change it, focus to show the user where you are,
-read_design_system, list_components and get_component for what the design system offers.`
-          : `Edit the files above directly; the editor validates each one and reports what is wrong. The
-page format: ${pageSchema()}`;
         return `<ultrapaint-task command="redraw">
 The canvas "${canvas.name}" (${named(id)}) is a copy the user made to take another way. Change every page of it as
 the user asks:
-${extra || "(the user did not say what to change: ask before changing anything)"}
+${change || "(the user did not say what to change: ask before changing anything)"}
 
 Its pages:
 ${list || "- none"}
 
-${tools}
+${ways.editPages(named(id))}
 
 1. Work page by page. Read the page and look at it before changing it.
 2. Change it in place: keep its URL, the links between the pages, and the ids of the nodes you
@@ -639,14 +599,13 @@ ${tools}
       })
     );
 
-  const components = (argument: string) =>
+  const components = ({ canvas: id, extra }: ComponentsTask) =>
     project.use(
       Effect.gen(function* () {
-        const { extra, id } = canvasArgument(argument);
         const { canvases, pages } = yield* (yield* PagesService).list;
         const canvas = canvases.find((c) => c.id === id);
         if (!canvas) {
-          return unknownCanvas("components", id, canvases);
+          return yield* unknownCanvas("components", id, canvases);
         }
         const { designSystem } = yield* (yield* DesignSystemService).get;
         const catalogue = yield* Effect.orElseSucceed(
@@ -698,5 +657,5 @@ ${userAdds(extra)}</ultrapaint-task>`;
       })
     );
 
-  return { components, implement, importFigma, redraw };
+  return { adopt, components, implement, importFigma, redraw };
 });

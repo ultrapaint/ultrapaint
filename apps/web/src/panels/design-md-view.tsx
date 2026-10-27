@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { Markdown } from "../components/markdown.tsx";
-import { startCommand, startInit } from "../lib/start-thread.ts";
+import { startInit, startTask } from "../lib/start-thread.ts";
 import { api } from "../state/connection.ts";
 import { reportError } from "../state/project.ts";
 
@@ -227,7 +227,7 @@ export const DesignMdView = ({
         ) : null}
         {empty > 0 && !document.legacy ? (
           <Button
-            onClick={() => startCommand("/sync describe")}
+            onClick={() => startTask({ _tag: "Sync", source: "describe" })}
             size="sm"
             variant="outline"
           >

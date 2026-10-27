@@ -1,5 +1,5 @@
 /**
- * The tasks of `/sync` (ADR 0025): what the code has that the design system does not list
+ * The tasks of the sync (ADR 0025): what the code has that the design system does not list
  * described in it, Figma's or DESIGN.md's tokens matched to the design system's (ADR 0027), the
  * code brought up to the design (ADR 0028), or, with none of these, where the editor's sync
  * stands.
@@ -9,30 +9,44 @@ import {
   type TokenDiff,
   type TokenSourceKind,
 } from "@ultrapaint/contracts/sync";
+import type { SyncTask } from "@ultrapaint/contracts/tasks";
 import { SECTIONS } from "@ultrapaint/design-md/format";
 import { mirrorOf } from "@ultrapaint/design-md/mirror";
 import { parse } from "@ultrapaint/design-md/parse";
 import { groupsOf } from "@ultrapaint/design-md/tokens";
 import { Effect } from "effect";
-import { ServerConfig } from "../../config.ts";
 import { ProjectManager } from "../../project.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { DesignSystemSyncService } from "../design-system-sync.ts";
 import { designTokensOf } from "../design-system-sync-rules.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { ProjectStyleSystem } from "../style-system.ts";
-import { DESIGN_MD_GUIDE, splitArgument, userAdds } from "./task-text.ts";
+import type { AgentWays } from "./agent-ways.ts";
+import {
+  DESIGN_MD_GUIDE,
+  needsTools,
+  taskFailure,
+  userAdds,
+} from "./task-text.ts";
+
+const COMMAND = "sync";
+
+/** What the user is told when there is no design system yet to sync. */
+const NO_DESIGN_SYSTEM =
+  "Tell them to open the Design system panel and press Sync, which starts one, and stop.";
 
 /** Tokens of each side a `/sync figma` task lists. */
 const FIGMA_LISTED = 300;
 
-export const makeSyncTasks = Effect.gen(function* () {
+export const makeSyncTasks = Effect.fnUntraced(function* (deps: {
+  readonly ways: AgentWays;
+}) {
+  const { ways } = deps;
   const project = yield* ProjectManager;
   const sync = yield* DesignSystemSyncService;
-  const { mcp } = yield* ServerConfig;
 
   /** `/sync describe`: the tokens and components of the code the design system does not list, described in it. */
-  const syncDescribe = (extra: string) =>
+  const syncDescribe = (extra: string | undefined) =>
     Effect.gen(function* () {
       const plan = yield* sync.plan;
       const { drift } = plan;
@@ -53,10 +67,11 @@ export const makeSyncTasks = Effect.gen(function* () {
           ? `${title}\n${items.map((i) => `- ${i}`).join("\n")}\n`
           : "";
       if (!plan.facts.designSystem) {
-        return `<ultrapaint-task command="sync">
-The user ran /sync describe, but there is no design system yet to describe the code in. Tell them
-to open the Design system panel and press Sync, which starts one, and stop.
-</ultrapaint-task>`;
+        return yield* taskFailure(
+          COMMAND,
+          "there is no design system yet to describe the code in",
+          NO_DESIGN_SYSTEM
+        );
       }
       const doc = plan.facts.designMd;
       const prose =
@@ -159,25 +174,26 @@ ${userAdds(extra)}</ultrapaint-task>`;
       ? `${lines.slice(0, FIGMA_LISTED).join("\n")}\n- and ${lines.length - FIGMA_LISTED} more, for a second run`
       : lines.join("\n") || "- none";
 
-  /** What the task says when a source's tokens cannot be matched here. */
+  /** Why a source's tokens cannot be matched here. */
   const unavailable = (source: TokenSourceKind, why: "mcp" | "none") => {
-    const command = source === "figma" ? "/sync figma" : "/sync design";
     if (why === "mcp") {
-      return `<ultrapaint-task command="sync">
-The user ran ${command}, which matches tokens through the editor's MCP server, and the server was
-started without it. Tell the user to start it with MCP on, or to match the tokens in the Design
-system panel's Sync view, and stop.
-</ultrapaint-task>`;
+      return needsTools(
+        COMMAND,
+        `matching ${source === "figma" ? "Figma's" : "DESIGN.md's"} tokens`,
+        "Tell the user to start it with MCP on, or to match the tokens in the Design system panel's Sync view, and stop."
+      );
     }
     return source === "figma"
-      ? `<ultrapaint-task command="sync">
-The user ran /sync figma, but no Figma file has been imported. Tell them to import one from the
-Design system panel's Sync view, and stop.
-</ultrapaint-task>`
-      : `<ultrapaint-task command="sync">
-The user ran /sync design, but there is no DESIGN.md at the root of the repository beside a design
-system. Tell them to open the Design system panel's Sync view, which moves or writes it, and stop.
-</ultrapaint-task>`;
+      ? taskFailure(
+          COMMAND,
+          "no Figma file has been imported",
+          "Tell them to import one from the Design system panel's Sync view, and stop."
+        )
+      : taskFailure(
+          COMMAND,
+          "there is no DESIGN.md at the root of the repository beside a design system",
+          "Tell them to open the Design system panel's Sync view, which moves or writes it, and stop."
+        );
   };
 
   /**
@@ -185,14 +201,14 @@ system. Tell them to open the Design system panel's Sync view, which moves or wr
    * code's while there is none), with the user, before anything of Figma's is written (ADR
    * 0025). Both lists come in the task.
    */
-  const syncFigma = (extra: string) =>
+  const syncFigma = (extra: string | undefined) =>
     Effect.gen(function* () {
-      if (!mcp) {
-        return unavailable("figma", "mcp");
+      if (!ways.tools) {
+        return yield* unavailable("figma", "mcp");
       }
       const comparison = yield* sync.tokens("figma");
       if (!comparison) {
-        return unavailable("figma", "none");
+        return yield* unavailable("figma", "none");
       }
       const { lines, unmatched } = sourceLines(comparison.diffs);
       const targetLines = (yield* targetTokens).map(
@@ -230,14 +246,14 @@ ${userAdds(extra)}</ultrapaint-task>`;
    * `/sync design`: an agent matches DESIGN.md's tokens to the design system's with the user,
    * and settles the text styles, which rules cannot (ADR 0027). Every list comes in the task.
    */
-  const syncDesign = (extra: string) =>
+  const syncDesign = (extra: string | undefined) =>
     Effect.gen(function* () {
-      if (!mcp) {
-        return unavailable("designMd", "mcp");
+      if (!ways.tools) {
+        return yield* unavailable("designMd", "mcp");
       }
       const comparison = yield* sync.tokens("designMd");
       if (!comparison) {
-        return unavailable("designMd", "none");
+        return yield* unavailable("designMd", "none");
       }
       const { lines, unmatched } = sourceLines(comparison.diffs);
       const targetLines = (yield* targetTokens).map(
@@ -306,23 +322,6 @@ ${userAdds(extra)}</ultrapaint-task>`;
   const codeLine = (d: TokenDiff) =>
     `- ${baselineKey(d.name, d.theme)}: code ${d.source ?? "(not declared)"}, design ${d.design ?? "(taken out)"}${d.base === undefined ? "" : `, agreed last ${d.base}`}`;
 
-  /** How `/sync code`'s steps are carried out: through handoff, or by the user in Sync. */
-  const codeHow = mcp
-    ? {
-        both: 'handoff with action "export" or "import" and tokens, the names',
-        exportAll:
-          'Export what waits for the code: handoff with action "export" and no tokens. It writes\n   the design\'s values into the stylesheets through the style system and moves the agreement.',
-        importAll:
-          'handoff with action "import" and no tokens takes them all into the design; "export" with\n   their names writes the design\'s values over them.',
-      }
-    : {
-        both: "the Design system panel's Sync view, where the user picks each one",
-        exportAll:
-          "The editor's MCP server is off, so the values cannot be written from here: tell the user\n   to press Export in the Design system panel's Sync view, or write each value above into the\n   stylesheet where the token is declared.",
-        importAll:
-          "the Sync view's Take button takes them into the design; to write the design's values over\n   them, write them into the stylesheet by hand.",
-      };
-
   /** `/sync code`'s numbered steps, for what the comparison has waiting on each side. */
   const codeSteps = (waiting: {
     readonly conflicts: number;
@@ -330,14 +329,16 @@ ${userAdds(extra)}</ultrapaint-task>`;
     readonly toDesign: number;
   }) => {
     const first =
-      waiting.toCode > 0 ? codeHow.exportAll : "Nothing waits for the code.";
+      waiting.toCode > 0
+        ? `Export what waits for the code: ${ways.exportTokens("all")}.`
+        : "Nothing waits for the code.";
     const second =
       waiting.toDesign > 0
-        ? `What the code changed alone is usually a fix someone made in the code: ask the user with ask_user\n   whether to keep it (the design takes it) or put the design's value back, a group at a time.\n   Then ${codeHow.importAll}`
+        ? `What the code changed alone is usually a fix someone made in the code: ask the user with ask_user\n   whether to keep it (the design takes it) or put the design's value back, a group at a time.\n   For those kept, ${ways.importTokens("named")}; for those put back, ${ways.exportTokens("named")}.`
         : "Nothing changed in the code alone.";
     const third =
       waiting.conflicts > 0
-        ? `For each token changed on both sides, ask the user which value to keep, with the design's\n   as the first option, then apply the picks with ${codeHow.both}.`
+        ? `For each token changed on both sides, ask the user which value to keep, with the design's\n   as the first option, then ${ways.settleTokens}.`
         : "Nothing changed on both sides.";
     return `1. ${first}
 2. ${second}
@@ -350,17 +351,18 @@ ${userAdds(extra)}</ultrapaint-task>`;
    * offered to the design, and the conflicts settled with the user. The lists come in the task;
    * the values are written through handoff, which the Sync view's buttons also come to.
    */
-  const syncCode = (extra: string) =>
+  const syncCode = (extra: string | undefined) =>
     Effect.gen(function* () {
       const comparison = yield* sync.tokens("code").pipe(
         // Nothing open, or the stylesheets not read: the task says there is nothing to compare.
         Effect.orElseSucceed(() => null)
       );
       if (!comparison) {
-        return `<ultrapaint-task command="sync">
-The user ran /sync code, but there is no design system yet to bring the code up to. Tell them to
-open the Design system panel and press Sync, which starts one, and stop.
-</ultrapaint-task>`;
+        return yield* taskFailure(
+          COMMAND,
+          "there is no design system yet to bring the code up to",
+          NO_DESIGN_SYSTEM
+        );
       }
       const by = (outcome: TokenDiff["outcome"]) =>
         comparison.diffs.filter((d) => d.outcome === outcome);
@@ -393,31 +395,32 @@ ${codeSteps({ conflicts: conflicts.length, toCode: toCode.length, toDesign: toDe
 ${userAdds(extra)}</ultrapaint-task>`;
     });
 
-  const syncCommand = (argument: string) => {
-    const { extra, target } = splitArgument(argument);
-    if (target === "code") {
-      return syncCode(extra);
-    }
-    if (target === "describe") {
-      return syncDescribe(extra);
-    }
-    if (target === "figma") {
-      return syncFigma(extra);
-    }
-    if (target === "design") {
-      return syncDesign(extra);
-    }
-    return Effect.map(
-      sync.plan,
-      (plan) => `<ultrapaint-task command="sync">
+  /** Where the editor's sync stands, when no source is named: its steps are the user's. */
+  const overview = Effect.map(
+    sync.plan,
+    (plan) => `<ultrapaint-task command="sync">
 The user ran /sync. The sync is the editor's: its steps are in the Design system panel, where the
 user starts each one. Where it stands: ${plan.summary}
 Its steps: ${plan.steps.map((s) => `${s.title} (${s.state})`).join("; ")}.
 Tell the user, in a sentence or two, what the next step is and that they start it from the panel;
 do not do the steps yourself, and stop.
 </ultrapaint-task>`
-    );
-  };
+  );
 
-  return { syncCommand };
+  const syncTask = Effect.fnUntraced(function* ({ extra, source }: SyncTask) {
+    switch (source) {
+      case "code":
+        return yield* syncCode(extra);
+      case "describe":
+        return yield* syncDescribe(extra);
+      case "figma":
+        return yield* syncFigma(extra);
+      case "design":
+        return yield* syncDesign(extra);
+      default:
+        return yield* overview;
+    }
+  });
+
+  return { sync: syncTask };
 });

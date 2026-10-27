@@ -2,7 +2,6 @@ import path from "node:path";
 import { assert, layer } from "@effect/vitest";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { ImplementationItem } from "@ultrapaint/contracts/implementation";
-import type { ThreadItem } from "@ultrapaint/contracts/threads";
 import { Effect, FileSystem } from "effect";
 import { TestEnv, TestServer } from "./testing/harness.ts";
 import { callMcp } from "./testing/mcp.ts";
@@ -90,27 +89,6 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           }),
           toolText
         );
-      });
-
-    /** A command sent in a new thread, and the first line of the task its agent received. */
-    const taskOf = (text: string) =>
-      Effect.gen(function* () {
-        const { client } = yield* TestEnv;
-        const thread = yield* client["threads.create"]({ agentId: "fake" });
-        yield* client["threads.prompt"]({
-          attachments: [],
-          text,
-          threadId: thread.id,
-        });
-        const items = yield* waitFor(
-          client["threads.items"]({ threadId: thread.id }),
-          (all: readonly ThreadItem[]) => all.some((i) => i.kind === "turn_end")
-        );
-        const listed = yield* client["threads.list"]();
-        return {
-          purpose: listed.find((t) => t.id === thread.id)?.purpose,
-          said: items.flatMap((i) => (i.kind === "agent" ? [i.text] : [])),
-        };
       });
 
     it.effect(
@@ -222,11 +200,6 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
             "`figma` match Figma's tokens to the design system's"
           );
           assert.notInclude(command?.description ?? "", "the code's");
-          const sync = yield* taskOf("/sync code");
-          assert.include(
-            sync.said.join("\n"),
-            "task:sync The user ran /sync code. The code has every value of the design"
-          );
         }),
       90_000
     );
@@ -388,7 +361,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
     );
 
     it.effect(
-      "marks pages ready at once, and has a design thread link pages built already to their code",
+      "marks pages ready at once",
       () =>
         Effect.gen(function* () {
           const { client } = yield* TestEnv;
@@ -411,14 +384,6 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
               .filter((id) => id !== HOME)
               .every((id) => statusOf(items, id)?.status === "ready")
           );
-
-          const adopt = yield* taskOf('/implement --adopt ""');
-          assert.include(
-            adopt.said.join("\n"),
-            "task:implement These pages of the design are built in the application already"
-          );
-          // Linking changes no code: the thread stays one that designs.
-          assert.isUndefined(adopt.purpose);
         }),
       60_000
     );

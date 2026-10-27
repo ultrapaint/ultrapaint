@@ -7,6 +7,7 @@ import {
   type DesignSystem,
   type DesignSystemState,
 } from "@ultrapaint/contracts/design-system";
+import type { DesignNode } from "@ultrapaint/contracts/document";
 import { BadRequest } from "@ultrapaint/contracts/errors";
 import {
   baselineKey,
@@ -20,6 +21,8 @@ import type {
   SourceToken,
   TokenChange,
 } from "@ultrapaint/contracts/tokens";
+import { breakpointsOf } from "@ultrapaint/design-document/breakpoints";
+import { type CodeOptions, toCode } from "@ultrapaint/design-document/code";
 import type { TokenGroups } from "@ultrapaint/design-md/format";
 import {
   mergeMirror,
@@ -132,6 +135,14 @@ export class DesignSystemService extends Context.Service<
     ) => Effect.Effect<{ readonly files: readonly string[] }, BadRequest>;
     /** The tokens the code declares now, through the style system. */
     readonly codeTokens: Effect.Effect<readonly SourceToken[]>;
+    /**
+     * A node of the designs as the application's code writes it: the markup the design
+     * document's, the classes the style system's (ADR 0024), at the design system's breakpoints.
+     */
+    readonly codeOf: (
+      node: DesignNode,
+      options: Omit<CodeOptions, "breakpoints">
+    ) => Effect.Effect<string>;
     /**
      * The code's tokens against the design system's (ADR 0028), against what the two last agreed
      * on; null without a design system. `read` says whether any stylesheet was read: without one
@@ -1133,6 +1144,13 @@ export class DesignSystemService extends Context.Service<
       return DesignSystemService.of({
         baseline,
         codeComparison,
+        codeOf: (node, options) =>
+          Effect.map(get, ({ designSystem: ds }) =>
+            toCode(node, styleSystem.nodeClasses(ds), {
+              ...options,
+              breakpoints: breakpointsOf(ds),
+            })
+          ),
         codeTokens: Effect.map(codeTokensByName, (code) => [...code.values()]),
         detect,
         get,

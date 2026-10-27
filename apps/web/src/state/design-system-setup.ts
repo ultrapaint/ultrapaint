@@ -14,6 +14,7 @@ import type {
   UsageMapping,
 } from "@ultrapaint/contracts/design-system-setup";
 import { setupStepOf } from "@ultrapaint/contracts/design-system-setup";
+import { commandOf } from "@ultrapaint/contracts/tasks";
 import { toast } from "sonner";
 import { create } from "zustand";
 import { confirmDialog } from "../components/dialogs.tsx";
@@ -264,13 +265,13 @@ export const useDesignSystemSetup = create<SetupStore>((set, get) => {
     start: async (step, mode) => {
       set({ busy: step });
       try {
-        const { setup, threadId } = await api().request("dsSetup.start", {
+        const { setup, task, threadId } = await api().request("dsSetup.start", {
           step,
           ...(mode && { mode }),
         });
         await take(setup);
         if (threadId) {
-          openStepThread(threadId, `/design-system ${step} `);
+          openStepThread(threadId, task ? `${commandOf(task)} ` : undefined);
         }
       } catch (error) {
         reportError(error);
