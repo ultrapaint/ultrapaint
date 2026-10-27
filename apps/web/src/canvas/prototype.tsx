@@ -45,6 +45,7 @@ import { useDesignLookVersion } from "../state/look.ts";
 import { useProject } from "../state/project.ts";
 import { bridgeFor } from "./bridge.ts";
 import { commentCursor, FrameComments, placeComment } from "./comments.tsx";
+import { formatHostError } from "./frame.tsx";
 import { HotspotLayer, HotspotsToggle, onPrototypePress } from "./hotspots.tsx";
 import { usePreview } from "./preview-module.ts";
 import { PreviewSurface } from "./preview-surface.tsx";
@@ -184,6 +185,9 @@ export const Prototype = () => {
   const [area, setArea] = useState({ height: 0, width: 0 });
   const [reloads, setReloads] = useState(0);
   const hasPages = canvas !== null && pages.some((p) => p.canvas === canvas);
+  const hostError = useEditor((s) =>
+    canvas === null ? null : (s.hostErrors[frameIdOf(canvas)] ?? null)
+  );
 
   useEffect(() => {
     const onReload = () => setReloads((n) => n + 1);
@@ -257,8 +261,17 @@ export const Prototype = () => {
                 // A reload draws the page anew, from the route the editor holds.
                 key={`${canvas}:${reloads}`}
                 onMessage={(msg) => {
+                  const { setHostError } = useEditor.getState();
                   if (msg.type === "ed:ready") {
                     renderRoute(canvas);
+                  }
+                  // What the page threw and nothing caught (a click's handler, a timer), until it
+                  // draws again or its code changes.
+                  if (msg.type === "ed:error") {
+                    setHostError(frameIdOf(canvas), formatHostError(msg.error));
+                  }
+                  if (msg.type === "ed:rendered" || msg.type === "ed:hmr") {
+                    setHostError(frameIdOf(canvas), null);
                   }
                   if (msg.type === "ed:navigateTo") {
                     followLink(msg.route, { push: !msg.replace });
@@ -273,6 +286,12 @@ export const Prototype = () => {
                 title={title}
               />
             )}
+            {hostError ? (
+              <div className="absolute inset-x-0 bottom-0 flex items-start gap-2 bg-destructive/90 p-3 font-code text-white text-xs">
+                <TriangleAlert className="size-4 shrink-0" />
+                <pre className="whitespace-pre-wrap">{hostError}</pre>
+              </div>
+            ) : null}
             {canvas === null ? null : (
               <HotspotLayer
                 frameId={frameIdOf(canvas)}

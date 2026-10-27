@@ -190,6 +190,7 @@ const mountFrame = (
   const media = frameMedia(host, shadow);
   const sandbox = guardFrame({
     asking: media.asking,
+    error: (error) => events.error?.(error),
     host,
     interactive: () => interactive,
     navigate: (route, replace) => events.navigateTo?.(route, replace),

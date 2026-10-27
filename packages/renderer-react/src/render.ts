@@ -793,7 +793,14 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
   const Providers = (setup.providers ?? PassThrough) as ComponentType<{
     children: ReactNode;
   }>;
-  const root = createRoot(canvas);
+  // What throws above the page's boundary (the providers) is the frame's, not the window's.
+  const root = createRoot(canvas, {
+    onUncaughtError: (error) =>
+      setup.reportError({
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      }),
+  });
   const lookup = canvas.getRootNode() as ParentNode;
   let components = componentsFor(setup.components);
   let last: RenderRequest | null = null;

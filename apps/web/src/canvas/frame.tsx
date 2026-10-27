@@ -60,7 +60,8 @@ import { parkPreview, placePreview, previewDrawn } from "./preview-pool.ts";
 import { useFrameBridge } from "./use-frame-bridge.ts";
 import { useFramePointer } from "./use-frame-pointer.ts";
 
-const formatHostError = (error: HostError) => {
+/** An error of a frame's page as the editor writes it: the message, then where it was thrown. */
+export const formatHostError = (error: HostError) => {
   if (!error.file) {
     return error.message;
   }

@@ -39,6 +39,28 @@ export const calledFromPreview = (patches: readonly string[] = []) => {
 
 const fromPreview = () => calledFromPreview();
 
+/** A stack's first frame (`at f (url:1:2)`, or `f@url:1:2`): where an error was thrown. */
+const FRAME_RE = /(?:\bat\s.*?\(?|@)((?:https?:|\/)[^\s)]+?):(\d+):\d+\)?\s*$/m;
+
+/**
+ * Where an error was thrown when it was in the preview's own modules: the file, as the preview's
+ * server names it under its base, and the line; null when it was the editor's.
+ */
+export const thrownInPreview = (
+  stack: string | undefined
+): { readonly file: string; readonly line: number } | null => {
+  const frame = stack ? FRAME_RE.exec(stack) : null;
+  const url = frame?.[1];
+  if (base === "" || !url) {
+    return null;
+  }
+  const path = new URL(url, location.href).pathname;
+  if (!path.startsWith(base)) {
+    return null;
+  }
+  return { file: path.slice(base.length), line: Number(frame?.[2]) };
+};
+
 type Inserting = (this: Node, ...args: never[]) => unknown;
 
 /**
