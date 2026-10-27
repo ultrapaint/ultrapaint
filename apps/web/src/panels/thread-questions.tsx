@@ -2,7 +2,11 @@
  * What an agent asks of the person: permissions to run a tool, and questions, answered on a card
  * in the transcript or, while they are open, over the composer.
  */
-import type { Answer, ThreadItem } from "@ultrapaint/contracts/threads";
+import {
+  type Answer,
+  isBusy,
+  type ThreadItem,
+} from "@ultrapaint/contracts/threads";
 import { cn } from "cn";
 import {
   Check,
@@ -251,10 +255,7 @@ const questionHint = (question: QuestionOf) => {
 
 /** Whether the thread's agent is at work, so answers that go as a prompt have to wait. */
 const useRunning = (threadId: string) =>
-  useAgents((s) => {
-    const status = s.threads.find((t) => t.id === threadId)?.status;
-    return status === "running" || status === "cancelling";
-  });
+  useAgents((s) => isBusy(s.threads.find((t) => t.id === threadId)?.status));
 
 /** Questions no longer waiting, as the thread keeps them: each with what came of it. */
 export const QuestionRecord = ({ item }: { item: QuestionItem }) => {

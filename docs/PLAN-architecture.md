@@ -191,3 +191,28 @@ callers and its tests share.
    timeout); `threads.test.ts` keeps 16 through the fake agent's process, the SDK and the
    sandbox, and `thread-lifecycle.test.ts` went into the two. The tests' polls go through one
    `waitFor` (`testing/wait-for.ts`), and the harness's `waitForThread` on it.
+7. **Thread session** (`apps/server/src/services/threads/thread-session.ts`, the cards in
+   `pending-cards.ts`, `isBusy` in `packages/contracts/src/threads.ts`). `ThreadSessions.of`
+   gives a thread's `ThreadSession`, made the first time it is asked for and forgotten with
+   `delete`; it alone holds the live ACP session (briefed, replaying, resumed), the turn on its
+   way, the agent booting, the turn's cursor, the queue and its three locks, and writes the
+   status, through `statusAfter` (a prompt, a cancel asked, a cancel that outlived its turn, a
+   turn's end, a failure, an exit, the session closing, the agent switched). `PendingCards` opens
+   and awaits each kind of card (`permission`, `elicitation`, `ask`), resolves one by its id
+   (`choose`, `answer`, which gives a card the agent did not wait on back as the prompt's text,
+   `decline`), lets go of all of them (`releaseAll` on a cancel, `endSession`, which also forgets
+   the choices remembered), and keeps the count of cards shown behind `formSent`, `declinedSeen`
+   and `canWait`, which `ask_user` asks instead of `cardsShown` and its own set of threads.
+   `ThreadService` makes threads, switches their agent and routes the rest to the session;
+   `cardsShown` leaves it. `live-sessions.ts` is gone: the session's start went into the
+   session, and opening the ACP session on the agent (load or new, signing in, options and mode)
+   into `agent-session.ts`. `turns.ts` keeps what a prompt sends (attachments, the task, the
+   briefing and recap, the title and scope); `agent-client.ts` keeps the host's file and terminal
+   handlers. `projectUpdate` returns the turn's cursor after the update rather than moving the
+   one it was given. `isBusy` (running or cancelling) is the server's queue, agent switch and
+   health count, and the web's composer, pickers, questions, comment sending, context menus and
+   chat list. `starting` and `closed` are never written and stay in the schema, with a note.
+   `pending-cards.test.ts` has 10 tests on the cards' interface; `thread-session.test.ts` gains
+   the status rules and a cancel with no turn under way. Also: the chat list shows a thread that
+   is being stopped as working, as the composer did; a cancel of a thread that failed no longer
+   writes "cancelling" over its failure while the turn's fiber unwinds.

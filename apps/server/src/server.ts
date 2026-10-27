@@ -8,6 +8,7 @@ import {
   LEGACY_CONFIG_FILE_NAME,
 } from "@ultrapaint/contracts/settings";
 import { applySuggestions } from "@ultrapaint/contracts/setup";
+import { isBusy } from "@ultrapaint/contracts/threads";
 import { Effect, Layer, Option, Stream } from "effect";
 import {
   HttpRouter,
@@ -51,6 +52,7 @@ import { ProjectBriefing } from "./services/threads/briefing.ts";
 import { ChatPreferences } from "./services/threads/chat-preferences.ts";
 import { Checkpoints } from "./services/threads/checkpoints.ts";
 import { SlashCommands } from "./services/threads/commands.ts";
+import { ThreadSessions } from "./services/threads/thread-session.ts";
 import { ThreadStore } from "./services/threads/thread-store.ts";
 import { ThreadService } from "./services/threads/threads.ts";
 
@@ -204,9 +206,6 @@ const FigmaImportRoute = HttpRouter.use(
   })
 );
 
-/** A thread whose agent is at work: stopping the server now would cut it off. */
-const BUSY = new Set(["starting", "running", "cancelling"]);
-
 const HealthRoute = HttpRouter.use(
   Effect.fnUntraced(function* (router) {
     const { token, version } = yield* ServerConfig;
@@ -222,7 +221,7 @@ const HealthRoute = HttpRouter.use(
           ok: true,
           token,
           version,
-          working: all.filter((t) => BUSY.has(t.status)).length,
+          working: all.filter((t) => isBusy(t.status)).length,
         })
       )
     );
@@ -369,6 +368,7 @@ const Boot = Layer.effectDiscard(
 );
 
 const Threads = ThreadService.layer.pipe(
+  Layer.provideMerge(ThreadSessions.layer),
   Layer.provideMerge(Snapshots.layer),
   Layer.provideMerge(Checkpoints.layer),
   Layer.provideMerge(AgentDiscovery.layer),

@@ -2,41 +2,34 @@
  * Agent threads. A thread has at most one ACP session at a time, with the target repository as
  * working directory, and starts it with the first prompt that needs one: creating a thread
  * spawns nothing, and the agent boots while the prompt already shows as running. The agent is
- * the thread's to change between prompts; the next session is then told what was said. Updates are projected into a transcript that the editor renders, permission
- * requests are routed to the UI, and every filesystem or terminal call the agent makes is
- * confined to the repository.
+ * the thread's to change between prompts; the next session is then told what was said.
  *
- * A live session is a scope forked from the open project: closing the project, deleting the
- * thread or shutting down ends the agent process, its terminals and any pending permission.
+ * What a thread does while the server runs (its session, turns, queue, status and the cards its
+ * agent waits on) is its session's (`thread-session.ts`); this service makes and lists threads
+ * and routes each call to the thread's session.
  */
 import { Conflict, NotFound } from "@ultrapaint/contracts/errors";
-import type {
-  Answers,
-  PromptInput,
-  Question,
-  QueuedPrompt,
-  Thread,
-  ThreadPurpose,
+import {
+  type Answers,
+  isBusy,
+  type PromptInput,
+  type Question,
+  type QueuedPrompt,
+  type Thread,
+  type ThreadPurpose,
 } from "@ultrapaint/contracts/threads";
-import { Clock, Context, Deferred, Effect, Fiber, Layer } from "effect";
+import { Clock, Context, Effect, Layer } from "effect";
 import { makeId } from "../../ids.ts";
-import { ProjectManager } from "../../project.ts";
-import { RepoPaths } from "../repo-paths.ts";
-import { DECLINE, makeAgentClient } from "./agent-client.ts";
 import { AgentConfigs } from "./agent-configs.ts";
 import { AgentDiscovery } from "./agent-discovery.ts";
 import { ChatPreferences } from "./chat-preferences.ts";
-import { answersText, contentOf } from "./elicitation.ts";
 import {
-  agentFailure,
-  BOOLEAN_VALUES,
-  CANCELLED,
-  makeLiveSessions,
   type ThreadFailure,
-} from "./live-sessions.ts";
+  type ThreadSession,
+  ThreadSessions,
+} from "./thread-session.ts";
 import { ThreadStore } from "./thread-store.ts";
-import { mapConfigOptions } from "./transcript.ts";
-import { makeTurns, UNTITLED } from "./turns.ts";
+import { UNTITLED } from "./turns.ts";
 
 const SWITCHED = "Switched to";
 
@@ -52,12 +45,6 @@ export class ThreadService extends Context.Service<
       itemId: string,
       answers: Answers
     ) => Effect.Effect<void, ThreadFailure>;
-    /**
-     * How many cards the thread's agent has waited on so far. A tool that asked and hears
-     * "declined" without this moving knows the user never saw its questions: the agent's own
-     * client turned them down.
-     */
-    readonly cardsShown: (threadId: string) => Effect.Effect<number>;
     /** The user will not answer a card the agent waits on. */
     readonly decline: (
       threadId: string,
@@ -116,132 +103,14 @@ export class ThreadService extends Context.Service<
       const agents = yield* AgentConfigs;
       const preferences = yield* ChatPreferences;
       const discovery = yield* AgentDiscovery;
-      const project = yield* ProjectManager;
-      const serviceScope = yield* Effect.scope;
-
-      /**
-       * Runs work to completion even if the caller goes away. RPC handlers are interrupted when
-       * their socket closes (a page reload is enough), and a session start or the opening of a
-       * turn that stops half way leaves the thread in a state nothing recovers from.
-       */
-      const detached = <A, E>(effect: Effect.Effect<A, E>) =>
-        Effect.flatMap(Effect.forkIn(effect, serviceScope), Fiber.join);
-
+      const sessions = yield* ThreadSessions;
       const newItemId = makeId("item");
-      const currentPaths = project.use(Effect.map(RepoPaths, (paths) => paths));
-      const client = yield* makeAgentClient(newItemId);
-      const { letGo, shown } = client;
-      const sessions = yield* makeLiveSessions({
-        client,
-        currentPaths,
-        detached,
-      });
-      const { booting, live, stop } = sessions;
-      const { opening, prompt, sendQueued, stopOpening, unqueue } =
-        yield* makeTurns({ currentPaths, newItemId, serviceScope, sessions });
 
-      // ---- questions ----
-      const ask = Effect.fn("ThreadService.ask")(function* (
+      /** What the thread's session does. */
+      const on = <A, E>(
         threadId: string,
-        questions: readonly Question[]
-      ) {
-        if (!(yield* store.get(threadId))) {
-          return yield* new NotFound({ message: `unknown thread ${threadId}` });
-        }
-        yield* store.push(threadId, {
-          answers: null,
-          at: yield* Clock.currentTimeMillis,
-          id: yield* newItemId,
-          kind: "question",
-          questions,
-        });
-      });
-
-      const answer = Effect.fn("ThreadService.answer")(function* (
-        threadId: string,
-        itemId: string,
-        answers: Answers
-      ) {
-        const card = (yield* store.items(threadId)).find(
-          (item) => item.id === itemId
-        );
-        if (card?.kind !== "question") {
-          return yield* new NotFound({
-            message: "the question is no longer in the thread",
-          });
-        }
-        if (card.answers !== null || card.outcome !== undefined) {
-          return yield* new Conflict({
-            message: "the questions were already answered",
-          });
-        }
-        if (card.elicitation !== undefined) {
-          // The agent waits within its turn: the answers go back to it, not as a prompt.
-          const waiting = live.get(threadId)?.asking.get(itemId);
-          if (waiting === undefined) {
-            return yield* new Conflict({
-              message: "the agent no longer waits for these answers",
-            });
-          }
-          yield* store.patchItem(threadId, itemId, (item) =>
-            item.kind === "question" ? { ...item, answers } : item
-          );
-          yield* Deferred.succeed(waiting.reply, {
-            action: "accept",
-            content: contentOf(waiting.questions, answers),
-          });
-          return;
-        }
-        yield* store.patchItem(threadId, itemId, (item) =>
-          item.kind === "question" ? { ...item, answers } : item
-        );
-        yield* prompt({
-          attachments: [],
-          text: answersText(card.questions, answers),
-          threadId,
-        });
-      });
-
-      const decline = Effect.fn("ThreadService.decline")(function* (
-        threadId: string,
-        itemId: string
-      ) {
-        const waiting = live.get(threadId)?.asking.get(itemId);
-        if (waiting === undefined) {
-          return yield* new NotFound({
-            message: "the agent no longer waits for these answers",
-          });
-        }
-        yield* store.patchItem(threadId, itemId, (item) =>
-          item.kind === "question"
-            ? { ...item, outcome: "declined" as const }
-            : item
-        );
-        yield* Deferred.succeed(waiting.reply, DECLINE);
-      });
-
-      const resolvePermission = Effect.fn("ThreadService.resolvePermission")(
-        function* (
-          threadId: string,
-          requestId: string,
-          optionId: string,
-          remember: boolean
-        ) {
-          const session = live.get(threadId);
-          const pending = session?.pending.get(requestId);
-          if (!(session && pending)) {
-            return yield* new NotFound({
-              message: "permission request is no longer pending",
-            });
-          }
-          if (remember) {
-            session.remembered.set(pending.rememberKey, optionId);
-          }
-          yield* Deferred.succeed(pending.decision, {
-            outcome: { optionId, outcome: "selected" },
-          });
-        }
-      );
+        call: (session: ThreadSession) => Effect.Effect<A, E>
+      ) => Effect.flatMap(sessions.of(threadId), call);
 
       const create = Effect.fn("ThreadService.create")(function* (
         agentId?: string,
@@ -289,7 +158,7 @@ export class ThreadService extends Context.Service<
         if (thread.agentId === agentId) {
           return;
         }
-        if (thread.status === "running" || thread.status === "cancelling") {
+        if (isBusy(thread.status)) {
           return yield* new Conflict({
             message: "the agent is still working on the previous prompt",
           });
@@ -298,19 +167,18 @@ export class ThreadService extends Context.Service<
         const options = yield* preferences.optionsFor(agentId);
         // A session belongs to its agent. The next one starts with the next prompt, and is
         // told what was said before it.
-        yield* stop(threadId);
-        yield* store.update(threadId, {
-          configOptions: undefined,
-          currentModeId: undefined,
-          modes: undefined,
-          sandboxed: undefined,
-          sandboxProblem: undefined,
-          ...options,
-          agentId,
-          error: undefined,
-          sessionId: undefined,
-          status: "idle",
-        });
+        yield* on(threadId, (session) =>
+          session.switchAgent({
+            configOptions: undefined,
+            currentModeId: undefined,
+            modes: undefined,
+            sandboxed: undefined,
+            sandboxProblem: undefined,
+            ...options,
+            agentId,
+            sessionId: undefined,
+          })
+        );
         if (options.configOptions === undefined) {
           yield* discovery.discoverInBackground(agentId);
         }
@@ -333,98 +201,28 @@ export class ThreadService extends Context.Service<
 
       return ThreadService.of({
         answer: (threadId, itemId, answers) =>
-          detached(
-            opening.withLock(threadId, answer(threadId, itemId, answers))
-          ),
-        ask,
-        cancel: Effect.fn("ThreadService.cancel")(function* (threadId: string) {
-          if (yield* stopOpening(threadId)) {
-            return;
-          }
-          const session = live.get(threadId);
-          const sessionId = (yield* store.get(threadId))?.sessionId;
-          // Only a turn the agent is working on is stopped. One that has ended leaves the thread
-          // as it is: nothing would take it out of "cancelling" again.
-          if (!(session && sessionId) || session.turn === null) {
-            return;
-          }
-          yield* store.update(threadId, { status: "cancelling" });
-          // The client answers every permission request still open with `cancelled` (ACP).
-          for (const pending of session.pending.values()) {
-            yield* Deferred.succeed(pending.decision, CANCELLED);
-          }
-          // It will not wait for the cards it asked with either.
-          yield* letGo(threadId, session);
-          // The agent ends the turn itself and answers the prompt with `cancelled`.
-          yield* Effect.mapError(session.agent.cancel(sessionId), agentFailure);
-          // Unless the turn ended on its own meanwhile, and its end has already been written.
-          if (
-            session.turn === null &&
-            (yield* store.get(threadId))?.status === "cancelling"
-          ) {
-            yield* store.update(threadId, { status: "idle" });
-          }
-        }),
-        cardsShown: (threadId) => Effect.sync(() => shown.get(threadId) ?? 0),
+          on(threadId, (session) => session.answer(itemId, answers)),
+        ask: (threadId, questions) =>
+          on(threadId, (session) => session.cards.ask(questions)),
+        cancel: (threadId) => on(threadId, (session) => session.cancel),
         create,
-        decline,
-        delete: Effect.fn("ThreadService.delete")(function* (threadId: string) {
-          yield* stopOpening(threadId);
-          // Gone first, so that no session starts for it from here on.
-          yield* store.remove(threadId);
-          shown.delete(threadId);
-          // An agent still booting is stopped there, with what its start opened.
-          const boot = booting.get(threadId);
-          if (boot) {
-            yield* Fiber.interrupt(boot);
-          }
-          yield* stop(threadId);
-        }),
+        decline: (threadId, itemId) =>
+          on(threadId, (session) => session.cards.decline(itemId)),
+        delete: sessions.delete,
         prompt: (input) =>
-          detached(opening.withLock(input.threadId, prompt(input))),
-        resolvePermission,
-        sendQueued: (threadId) => detached(sendQueued(threadId)),
+          on(input.threadId, (session) => session.prompt(input)),
+        resolvePermission: (threadId, requestId, optionId, remember) =>
+          on(threadId, (session) =>
+            session.cards.choose(requestId, optionId, remember)
+          ),
+        sendQueued: (threadId) => on(threadId, (session) => session.sendQueued),
         setAgent,
-        setConfigOption: Effect.fn("ThreadService.setConfigOption")(function* (
-          threadId: string,
-          optionId: string,
-          value: string
-        ) {
-          const current = (yield* store.get(threadId))?.configOptions;
-          const chosen = current?.map((o) =>
-            o.id === optionId ? { ...o, currentValue: value } : o
-          );
-          const session = live.get(threadId);
-          const sessionId = (yield* store.get(threadId))?.sessionId;
-          // No session yet: the choice waits for the one the next prompt starts.
-          if (!(session && sessionId)) {
-            yield* store.update(threadId, { configOptions: chosen });
-            return;
-          }
-          const parsed = BOOLEAN_VALUES[value] ?? value;
-          const response = (yield* Effect.mapError(
-            session.agent.setConfigOption(sessionId, optionId, parsed),
-            agentFailure
-          )) as { configOptions?: unknown } | undefined;
-          yield* store.update(threadId, {
-            configOptions: mapConfigOptions(response?.configOptions) ?? chosen,
-          });
-        }),
-        setMode: Effect.fn("ThreadService.setMode")(function* (
-          threadId: string,
-          modeId: string
-        ) {
-          const session = live.get(threadId);
-          const sessionId = (yield* store.get(threadId))?.sessionId;
-          if (session && sessionId) {
-            yield* Effect.mapError(
-              session.agent.setMode(sessionId, modeId),
-              agentFailure
-            );
-          }
-          yield* store.update(threadId, { currentModeId: modeId });
-        }),
-        unqueue: (threadId, id) => detached(unqueue(threadId, id)),
+        setConfigOption: (threadId, optionId, value) =>
+          on(threadId, (session) => session.setConfigOption(optionId, value)),
+        setMode: (threadId, modeId) =>
+          on(threadId, (session) => session.setMode(modeId)),
+        unqueue: (threadId, id) =>
+          on(threadId, (session) => session.unqueue(id)),
       });
     })
   );

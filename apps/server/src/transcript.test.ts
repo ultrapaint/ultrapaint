@@ -1,6 +1,10 @@
 import { describe, expect, it } from "@effect/vitest";
 import { migrateStored } from "./services/threads/thread-store.ts";
-import { projectUpdate, toolContent } from "./services/threads/transcript.ts";
+import {
+  emptyCursor,
+  projectUpdate,
+  toolContent,
+} from "./services/threads/transcript.ts";
 
 const REPO_RE = /^\/repo\/?/;
 
@@ -57,7 +61,9 @@ describe("toolContent", () => {
 
 describe("projectUpdate", () => {
   it("keeps the line of a location and makes its path repository-relative", () => {
-    const [action] = projectUpdate(
+    const {
+      actions: [action],
+    } = projectUpdate(
       {
         locations: [{ line: 42, path: "/repo/designs/index.tsx" }],
         sessionUpdate: "tool_call",
@@ -75,7 +81,9 @@ describe("projectUpdate", () => {
 
   it("leaves out a command's cd into the repository, and keeps one anywhere else", () => {
     const titleOf = (title: string) => {
-      const [action] = projectUpdate(
+      const {
+        actions: [action],
+      } = projectUpdate(
         {
           kind: "execute",
           sessionUpdate: "tool_call",
@@ -95,6 +103,43 @@ describe("projectUpdate", () => {
     );
     expect(titleOf("cd /tmp && ls")).toBe("cd /tmp && ls");
     expect(titleOf("cd /repo")).toBe("cd /repo");
+  });
+});
+
+describe("a turn's cursor", () => {
+  const chunk = (text: string) =>
+    ({
+      content: { text, type: "text" },
+      sessionUpdate: "agent_message_chunk",
+    }) as Parameters<typeof projectUpdate>[0];
+
+  it("is returned moved, and the cursor given is left as it was", () => {
+    const turn = emptyCursor();
+    const opened = projectUpdate(chunk("Hello "), { ...ctx, turn });
+    expect(opened.actions[0]?.type).toBe("push");
+    expect(opened.turn?.agentItemId).toBe("item_1");
+    expect(turn.agentItemId).toBeNull();
+    // The next chunk extends the message the cursor names.
+    const extended = projectUpdate(chunk("world"), {
+      ...ctx,
+      turn: opened.turn,
+    });
+    expect(extended.actions[0]?.type).toBe("patch");
+    expect(extended.turn).toBe(opened.turn);
+    // A tool call closes the message: what follows starts another.
+    const tool = projectUpdate(
+      {
+        sessionUpdate: "tool_call",
+        title: "Read",
+        toolCallId: "call_1",
+      } as Parameters<typeof projectUpdate>[0],
+      { ...ctx, turn: extended.turn }
+    );
+    expect(tool.turn?.agentItemId).toBeNull();
+  });
+
+  it("stays null outside a turn", () => {
+    expect(projectUpdate(chunk("late"), ctx).turn).toBeNull();
   });
 });
 

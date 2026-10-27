@@ -5,6 +5,7 @@
 import {
   type ConfigOption,
   defaultChoice,
+  isBusy,
   isEffortOption,
   isModelOption,
   namedChoices,
@@ -178,7 +179,7 @@ const AgentSub = ({ thread }: { thread: Thread }) => {
     useMachineAgents.getState().load().catch(reportError);
   }, []);
   const agent = agents.find((a) => a.id === thread.agentId);
-  const busy = thread.status === "running" || thread.status === "cancelling";
+  const busy = isBusy(thread.status);
   const onAgentChange = (agentId: unknown) => {
     if (agentId !== thread.agentId) {
       api()

@@ -3,11 +3,12 @@
  * prompts queued while the agent works.
  */
 import type { Page } from "@ultrapaint/contracts/pages";
-import type {
-  PromptAttachment,
-  QueuedPrompt,
-  SlashCommand,
-  Thread,
+import {
+  isBusy,
+  type PromptAttachment,
+  type QueuedPrompt,
+  type SlashCommand,
+  type Thread,
 } from "@ultrapaint/contracts/threads";
 import { nodeLabel } from "@ultrapaint/design-document/tree";
 import { cn } from "cn";
@@ -199,7 +200,7 @@ export const Composer = ({ thread }: { thread: Thread }) => {
   const workspace = useEditor((s) => s.workspace);
   const canvas = useEditor((s) => s.canvas);
   const shotFrame = shotFrameOf(workspace, canvas, page);
-  const running = thread.status === "running" || thread.status === "cancelling";
+  const running = isBusy(thread.status);
   const answering = useAnswering(thread.id);
 
   // While the agent works, what is sent waits in the thread's queue. One prompt at a time: a

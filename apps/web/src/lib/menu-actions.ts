@@ -6,6 +6,7 @@
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { ViewportPreset } from "@ultrapaint/contracts/pages";
+import { isBusy } from "@ultrapaint/contracts/threads";
 import { attachTextStyle } from "@ultrapaint/design-document/text-styles";
 import { tokenRef } from "@ultrapaint/design-document/tokens";
 import { basePathOf } from "@ultrapaint/shared/route";
@@ -258,8 +259,7 @@ export const entriesFor = (target: MenuTarget): Entry[] | null => {
         behaviour: comment.kind === "behaviour",
         current: current
           ? {
-              busy:
-                current.status === "running" || current.status === "cancelling",
+              busy: isBusy(current.status),
               title: current.title,
             }
           : null,
@@ -293,8 +293,7 @@ export const entriesFor = (target: MenuTarget): Entry[] | null => {
       return thread
         ? threadEntries({
             following: useAgents.getState().following === thread.id,
-            running:
-              thread.status === "running" || thread.status === "cancelling",
+            running: isBusy(thread.status),
             title: thread.title,
           })
         : null;

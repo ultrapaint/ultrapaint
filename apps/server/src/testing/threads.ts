@@ -34,6 +34,7 @@ import { ProjectBriefing } from "../services/threads/briefing.ts";
 import { ChatPreferences } from "../services/threads/chat-preferences.ts";
 import { Checkpoints } from "../services/threads/checkpoints.ts";
 import { SlashCommands } from "../services/threads/commands.ts";
+import { ThreadSessions } from "../services/threads/thread-session.ts";
 import { ThreadStore } from "../services/threads/thread-store.ts";
 import { ThreadService } from "../services/threads/threads.ts";
 import { WorkingTree } from "../services/working-tree.ts";
@@ -150,6 +151,7 @@ export const ThreadTest = Layer.unwrap(
       );
     }
     return ThreadService.layer.pipe(
+      Layer.provideMerge(ThreadSessions.layer),
       Layer.provideMerge(Checkpoints.layer),
       Layer.provideMerge(AgentDiscovery.layer),
       Layer.provideMerge(
