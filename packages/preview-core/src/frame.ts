@@ -31,6 +31,7 @@ import { elementAt, type HitScope } from "./hit.ts";
 import { frameMedia } from "./media.ts";
 import { routePortals } from "./portals.ts";
 import { publicUrlOf } from "./public-url.ts";
+import { guardFrame, installGuards } from "./sandbox.ts";
 import {
   adoptedSheets,
   frameSheets,
@@ -97,6 +98,7 @@ export const createPreview = (input: PreviewSetup): Preview => {
     "@fs"
   )[0] as string;
   routePortals(previewBase, () => activeFrame);
+  installGuards();
 
   const preview: Preview = {
     mountFrame: (host, options) => {
@@ -186,6 +188,17 @@ const mountFrame = (
     host.setAttribute("data-ed-still", "");
   }
   const media = frameMedia(host, shadow);
+  const sandbox = guardFrame({
+    asking: media.asking,
+    host,
+    interactive: () => interactive,
+    navigate: (route, replace) => events.navigateTo?.(route, replace),
+  });
+  /** The frame is drawing or took input: what its code asks of the window is about it. */
+  const asking = () => {
+    media.asking();
+    sandbox.asking();
+  };
 
   // ---- Where the frame is ----
   /** The frame's place on the screen and the canvas's zoom, which its pixels are scaled by. */
@@ -259,7 +272,7 @@ const mountFrame = (
   const setup: RenderSetup = {
     assetUrl,
     components,
-    drawing: media.asking,
+    drawing: asking,
     navigate: (route) => events.navigateTo?.(route, false),
     onRendered: (renderId) => {
       applySkeletons();
@@ -381,7 +394,7 @@ const mountFrame = (
   };
   const activity = () => {
     activeFrame = body;
-    media.asking();
+    asking();
   };
 
   /** A plain `<a href>` a component renders is a navigation the editor decides on. */
@@ -569,6 +582,7 @@ const mountFrame = (
       resize.disconnect();
       hostResize.disconnect();
       media.unmount();
+      sandbox.unmount();
       host.removeEventListener("scroll", scheduleRects);
       mounted.unmount();
       shadow.replaceChildren();
