@@ -8,8 +8,12 @@
  * - `manifests/<id>.json`: `{ "version": 1, "files": { "<path>": "<hash>" } }`, named by the hash
  *   of what it lists, so the same files are the same snapshot;
  * - `refs/<namespace>/<id>`: what keeps a manifest. A namespace is whoever records: the
- *   design-system setup of one project today, the revision history later. What no ref keeps is
- *   removed by `collect`, and the objects only it named with it.
+ *   design-system setup of one project, the named snapshots of the designs (ADR 0019), the
+ *   revision history later. What no ref keeps is removed by `collect`, and the objects only it
+ *   named with it;
+ * - `refs/<namespace>/<name>`: a ref the namespace names itself, holding
+ *   `{ "id": "<manifest>", "note": "…" }`. Two names of the same files are two refs, let go of
+ *   apart, and the note is what the namespace keeps of each (a named snapshot's name and date).
  */
 import type { RestoreEntry } from "@ultrapaint/contracts/design-system-setup";
 import {
@@ -40,6 +44,18 @@ export interface TreeChange {
   readonly status: "A" | "M" | "D";
 }
 
+/** Files given by their contents, by repo-relative path with forward slashes. */
+export interface Contents {
+  readonly [path: string]: string | Uint8Array;
+}
+
+/** A snapshot a namespace keeps under a name of its own, with its note of it. */
+export interface NamedSnapshot {
+  readonly id: string;
+  readonly name: string;
+  readonly note: string;
+}
+
 /** A snapshot, or a file's contents, that the store does not have (any longer). */
 export class SnapshotMissing extends Schema.TaggedError<SnapshotMissing>()(
   "SnapshotMissing",
@@ -55,8 +71,17 @@ export class SnapshotStoreFailed extends Schema.TaggedError<SnapshotStoreFailed>
 const ManifestJson = Schema.fromJsonString(Manifest);
 const decodeManifest = Schema.decodeUnknownEffect(ManifestJson);
 
+/** A named ref's file: the snapshot it keeps, and what the namespace notes of it. */
+const NamedRefJson = Schema.fromJsonString(
+  Schema.Struct({ id: Schema.String, note: Schema.String })
+);
+const decodeNamedRef = Schema.decodeUnknownEffect(NamedRefJson);
+const encodeNamedRef = Schema.encodeEffect(NamedRefJson);
+
 const HASH_RE = /^[0-9a-f]{64}$/;
 const NAMESPACE_RE = /^[a-z0-9-]+(?:\/[a-z0-9-]+)*$/;
+/** A ref's name, a manifest's id or one the namespace gave: no dots, so never a write's temporary file. */
+const REF_NAME_RE = /^[A-Za-z0-9_-]+$/;
 const SEPARATOR_RE = /[\\/]/g;
 
 /** Files read and written together while a snapshot is taken or put back. */
@@ -88,6 +113,33 @@ const manifestId = (files: Readonly<Record<string, string>>) =>
     )
   );
 
+const bytesOf = (content: string | Uint8Array) =>
+  typeof content === "string" ? new TextEncoder().encode(content) : content;
+
+/** What differs from the files of `before` to those of `after`, both by path to hash. */
+const changesOf = (
+  before: Readonly<Record<string, string>>,
+  after: Readonly<Record<string, string>>
+): TreeChange[] => {
+  const changes: TreeChange[] = [];
+  for (const [file, hash] of Object.entries(after)) {
+    const was = before[file];
+    if (was === undefined) {
+      changes.push({ path: file, status: "A" });
+    } else if (was !== hash) {
+      changes.push({ path: file, status: "M" });
+    }
+  }
+  for (const file of Object.keys(before)) {
+    if (after[file] === undefined) {
+      changes.push({ path: file, status: "D" });
+    }
+  }
+  return changes.sort((a, b) =>
+    a.path < b.path ? -1 : Number(a.path > b.path)
+  );
+};
+
 export class SnapshotStore extends Context.Service<
   SnapshotStore,
   {
@@ -100,6 +152,20 @@ export class SnapshotStore extends Context.Service<
       root: string,
       files: readonly string[]
     ) => Effect.Effect<string, SnapshotStoreFailed>;
+    /**
+     * Keeps files given by their contents, as `record` keeps those of a root. With `ref`, the
+     * snapshot is kept under the namespace's own name for it, with its note, rather than under
+     * its id. Answers the snapshot's id.
+     */
+    readonly recordContents: (
+      namespace: string,
+      files: Contents,
+      ref?: { readonly name: string; readonly note: string }
+    ) => Effect.Effect<string, SnapshotStoreFailed>;
+    /** The snapshots `namespace` keeps under names of its own; a ref that does not read is left out. */
+    readonly named: (
+      namespace: string
+    ) => Effect.Effect<readonly NamedSnapshot[]>;
     readonly read: (id: string) => Effect.Effect<Manifest, SnapshotMissing>;
     /** A file's contents as a snapshot has them, by the hash its manifest gives. */
     readonly readFile: (
@@ -110,6 +176,11 @@ export class SnapshotStore extends Context.Service<
       from: string,
       to: string
     ) => Effect.Effect<readonly TreeChange[], SnapshotMissing>;
+    /** The files that differ between snapshot `from` and `files`, as `files` has them. Keeps nothing. */
+    readonly changedFrom: (
+      from: string,
+      files: Contents
+    ) => Effect.Effect<readonly TreeChange[], SnapshotMissing>;
     /**
      * Puts files of `root` back as snapshot `id` has them, and removes those the entries say to.
      * The caller has checked the paths: the store writes where it is told.
@@ -119,10 +190,13 @@ export class SnapshotStore extends Context.Service<
       root: string,
       entries: readonly RestoreEntry[]
     ) => Effect.Effect<void, SnapshotMissing | SnapshotStoreFailed>;
-    /** Stops keeping snapshots for `namespace`; `collect` removes what nothing keeps. */
+    /**
+     * Stops keeping snapshots for `namespace`, by the refs' names (a snapshot's id, or the name
+     * it was recorded under); `collect` removes what nothing keeps.
+     */
     readonly release: (
       namespace: string,
-      ids: Iterable<string>
+      names: Iterable<string>
     ) => Effect.Effect<void>;
     /** Removes the manifests no namespace keeps, and the contents no kept manifest names. */
     readonly collect: Effect.Effect<void>;
@@ -155,6 +229,65 @@ export class SnapshotStore extends Context.Service<
       const failed = (what: string) => (error: { readonly message: string }) =>
         new SnapshotStoreFailed({ message: `${what}: ${error.message}` });
 
+      /** What is in a directory (with `recursive`, every entry below it); nothing when it is not there. */
+      const listUnder = (dir: string, recursive = true) =>
+        Effect.orElseSucceed(
+          fs.readDirectory(dir, { recursive }),
+          (): string[] => []
+        );
+
+      /** Keeps contents once, by their hash. Answers the hash. */
+      const keep = Effect.fnUntraced(function* (
+        store: string,
+        bytes: Uint8Array,
+        what: string
+      ) {
+        const hash = hashBytes(bytes);
+        const object = objectPath(store, hash);
+        if (!(yield* Effect.orElseSucceed(fs.exists(object), () => false))) {
+          yield* writeAtomic(object, bytes).pipe(
+            Effect.mapError(failed(`keeping ${what}`))
+          );
+        }
+        return hash;
+      });
+
+      /**
+       * Writes the manifest of `kept` unless the store has it, then the ref that keeps it: the
+       * snapshot's id, or the namespace's name for it with its note.
+       */
+      const keepManifest = Effect.fnUntraced(function* (
+        store: string,
+        namespace: string,
+        kept: Readonly<Record<string, string>>,
+        ref?: { readonly name: string; readonly note: string }
+      ) {
+        const id = manifestId(kept);
+        const manifest = manifestPath(store, id);
+        if (!(yield* Effect.orElseSucceed(fs.exists(manifest), () => false))) {
+          const sorted = Object.fromEntries(
+            Object.keys(kept)
+              .sort()
+              .map((file) => [file, kept[file]])
+          );
+          yield* writeAtomic(
+            manifest,
+            `${JSON.stringify({ files: sorted, version: 1 })}\n`
+          ).pipe(Effect.mapError(failed("writing a snapshot")));
+        }
+        const content =
+          ref === undefined
+            ? ""
+            : yield* encodeNamedRef({ id, note: ref.note }).pipe(
+                Effect.mapError(failed("noting a snapshot"))
+              );
+        yield* writeAtomic(
+          refPath(store, namespace, ref?.name ?? id),
+          content
+        ).pipe(Effect.mapError(failed("keeping a snapshot")));
+        return id;
+      });
+
       /** The file's hash, read again only when its time or size moved since the last time. */
       const hashOf = Effect.fnUntraced(function* (store: string, abs: string) {
         const info = yield* Effect.option(fs.stat(abs));
@@ -179,14 +312,7 @@ export class SnapshotStore extends Context.Service<
         if (Option.isNone(bytes)) {
           return null;
         }
-        const hash = hashBytes(bytes.value);
-        const object = objectPath(store, hash);
-        // The same contents are kept once.
-        if (!(yield* Effect.orElseSucceed(fs.exists(object), () => false))) {
-          yield* writeAtomic(object, bytes.value).pipe(
-            Effect.mapError(failed(`keeping ${abs}`))
-          );
-        }
+        const hash = yield* keep(store, bytes.value, abs);
         hashed.set(abs, {
           at: yield* Clock.currentTimeMillis,
           hash,
@@ -220,28 +346,84 @@ export class SnapshotStore extends Context.Service<
               kept[file] = hash;
             }
           }
-          const id = manifestId(kept);
-          const manifest = manifestPath(store, id);
-          if (
-            !(yield* Effect.orElseSucceed(fs.exists(manifest), () => false))
-          ) {
-            const sorted = Object.fromEntries(
-              Object.keys(kept)
-                .sort()
-                .map((file) => [file, kept[file]])
-            );
-            yield* writeAtomic(
-              manifest,
-              `${JSON.stringify({ files: sorted, version: 1 })}\n`
-            ).pipe(Effect.mapError(failed("writing a snapshot")));
-          }
-          yield* writeAtomic(refPath(store, namespace, id), "").pipe(
-            Effect.mapError(failed("keeping a snapshot"))
-          );
-          return id;
+          return yield* keepManifest(store, namespace, kept);
         },
         (effect) => lock.withPermits(1)(effect)
       );
+
+      const recordContents = Effect.fn("SnapshotStore.recordContents")(
+        function* (
+          namespace: string,
+          files: Contents,
+          ref?: { readonly name: string; readonly note: string }
+        ) {
+          yield* checkNamespace(namespace);
+          if (ref !== undefined && !REF_NAME_RE.test(ref.name)) {
+            return yield* new SnapshotStoreFailed({
+              message: `not a name a snapshot can be kept under: ${ref.name}`,
+            });
+          }
+          const store = yield* storeDir;
+          const hashes = yield* Effect.forEach(
+            Object.entries(files),
+            ([file, content]) =>
+              Effect.map(
+                keep(store, bytesOf(content), file),
+                (hash) => [file, hash] as const
+              ),
+            { concurrency: CONCURRENCY }
+          );
+          return yield* keepManifest(
+            store,
+            namespace,
+            Object.fromEntries(hashes),
+            ref
+          );
+        },
+        (effect) => lock.withPermits(1)(effect)
+      );
+
+      const isFile = (file: string) =>
+        Effect.orElseSucceed(
+          Effect.map(fs.stat(file), (info) => info.type === "File"),
+          () => false
+        );
+
+      /** What a ref keeps: its name when it is empty, the id it holds when it is named. */
+      const refOf = Effect.fnUntraced(function* (file: string) {
+        const content = yield* fs.readFileString(file);
+        if (content === "") {
+          return { id: path.basename(file), named: false, note: "" };
+        }
+        return { ...(yield* decodeNamedRef(content)), named: true };
+      });
+
+      const named = Effect.fn("SnapshotStore.named")(function* (
+        namespace: string
+      ) {
+        yield* checkNamespace(namespace);
+        const dir = path.join(yield* storeDir, "refs", namespace);
+        const out: NamedSnapshot[] = [];
+        for (const name of yield* listUnder(dir, false)) {
+          if (!REF_NAME_RE.test(name)) {
+            continue;
+          }
+          const file = path.join(dir, name);
+          if (!(yield* isFile(file))) {
+            continue;
+          }
+          const ref = yield* refOf(file).pipe(
+            Effect.tapError((error) =>
+              Effect.logWarning(`${file} does not read: ${error.message}`)
+            ),
+            Effect.option
+          );
+          if (Option.isSome(ref) && ref.value.named) {
+            out.push({ id: ref.value.id, name, note: ref.value.note });
+          }
+        }
+        return out;
+      });
 
       const missing = (id: string, what: string) => () =>
         new SnapshotMissing({
@@ -279,27 +461,22 @@ export class SnapshotStore extends Context.Service<
           if (from === to) {
             return [];
           }
-          const before = (yield* read(from)).files;
-          const after = (yield* read(to)).files;
-          const changes: TreeChange[] = [];
-          for (const [file, hash] of Object.entries(after)) {
-            const was = before[file];
-            if (was === undefined) {
-              changes.push({ path: file, status: "A" });
-            } else if (was !== hash) {
-              changes.push({ path: file, status: "M" });
-            }
-          }
-          for (const file of Object.keys(before)) {
-            if (after[file] === undefined) {
-              changes.push({ path: file, status: "D" });
-            }
-          }
-          return changes.sort((a, b) =>
-            a.path < b.path ? -1 : Number(a.path > b.path)
-          );
+          return changesOf((yield* read(from)).files, (yield* read(to)).files);
         }
       );
+
+      const changedFrom = Effect.fn("SnapshotStore.changedFrom")(function* (
+        from: string,
+        files: Contents
+      ) {
+        const after = Object.fromEntries(
+          Object.entries(files).map(([file, content]) => [
+            file,
+            hashBytes(bytesOf(content)),
+          ])
+        );
+        return changesOf((yield* read(from)).files, after);
+      });
 
       /** Writes the snapshot's contents over the file, keeping the permissions it had. */
       const putBack = Effect.fnUntraced(function* (abs: string, hash: string) {
@@ -343,34 +520,50 @@ export class SnapshotStore extends Context.Service<
       });
 
       const release = Effect.fn("SnapshotStore.release")(
-        function* (namespace: string, ids: Iterable<string>) {
+        function* (namespace: string, names: Iterable<string>) {
           yield* checkNamespace(namespace);
           const store = yield* storeDir;
-          for (const id of new Set(ids)) {
-            if (HASH_RE.test(id)) {
+          for (const name of new Set(names)) {
+            if (REF_NAME_RE.test(name)) {
               // A ref already gone is what was wanted.
-              yield* Effect.ignore(fs.remove(refPath(store, namespace, id)));
+              yield* Effect.ignore(fs.remove(refPath(store, namespace, name)));
             }
           }
         },
         (effect) => lock.withPermits(1)(effect)
       );
 
-      /** Every file under a directory, relative to it; nothing when it is not there. */
-      const listUnder = (dir: string) =>
-        Effect.orElseSucceed(
-          fs.readDirectory(dir, { recursive: true }),
-          (): string[] => []
-        );
+      /** The snapshots every namespace keeps; null when a ref does not read. */
+      const keptByRefs = Effect.fnUntraced(function* (store: string) {
+        const refs = path.join(store, "refs");
+        const kept = new Set<string>();
+        for (const entry of yield* listUnder(refs)) {
+          const file = path.join(refs, entry);
+          if (
+            !(REF_NAME_RE.test(path.basename(entry)) && (yield* isFile(file)))
+          ) {
+            continue;
+          }
+          const ref = yield* Effect.option(refOf(file));
+          if (Option.isNone(ref)) {
+            yield* Effect.logWarning(
+              `The snapshot store is not cleaned up: ${file} does not read.`
+            );
+            return null;
+          }
+          kept.add(ref.value.id);
+        }
+        return kept;
+      });
 
       const collect = Effect.gen(function* () {
         const store = yield* storeDir;
-        const kept = new Set(
-          (yield* listUnder(path.join(store, "refs"))).map((ref) =>
-            path.basename(ref)
-          )
-        );
-        const named = new Set<string>();
+        const kept = yield* keptByRefs(store);
+        if (kept === null) {
+          // Which snapshot a ref keeps is not known: nothing is removed on a guess.
+          return;
+        }
+        const listed = new Set<string>();
         for (const name of yield* listUnder(path.join(store, "manifests"))) {
           const id = path.basename(name, ".json");
           if (!kept.has(id)) {
@@ -380,13 +573,13 @@ export class SnapshotStore extends Context.Service<
           const manifest = yield* Effect.option(read(id));
           if (Option.isSome(manifest)) {
             for (const hash of Object.values(manifest.value.files)) {
-              named.add(hash);
+              listed.add(hash);
             }
           }
         }
         for (const name of yield* listUnder(path.join(store, "objects"))) {
           const hash = name.replace(SEPARATOR_RE, "");
-          if (HASH_RE.test(hash) && !named.has(hash)) {
+          if (HASH_RE.test(hash) && !listed.has(hash)) {
             yield* Effect.ignore(fs.remove(objectPath(store, hash)));
           }
         }
@@ -394,10 +587,13 @@ export class SnapshotStore extends Context.Service<
 
       return SnapshotStore.of({
         changedBetween,
+        changedFrom,
         collect,
+        named,
         read,
         readFile,
         record,
+        recordContents,
         release,
         restore,
       });

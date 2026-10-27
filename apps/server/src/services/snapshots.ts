@@ -26,7 +26,6 @@ import {
   Path,
   Schema,
 } from "effect";
-import { makeWriteAtomic } from "../atomic-write.ts";
 import { hashContent } from "../hash.ts";
 import { makeId } from "../ids.ts";
 import { ProjectManager } from "../project.ts";
@@ -40,24 +39,45 @@ import {
   parseCanvas,
 } from "./pages-layout.ts";
 import { RepoPaths } from "./repo-paths.ts";
+import { SnapshotStore, type TreeChange } from "./snapshot-store.ts";
 import { Storage } from "./storage.ts";
 import { Checkpoints, makeDesignFiles } from "./threads/checkpoints.ts";
 import { simpleDiff } from "./threads/diff.ts";
 
-const Kept = Schema.Struct({
-  files: Schema.Record(Schema.String, Schema.String),
-  /**
-   * The repository it was taken in. The state directory can serve several, one after the
-   * other; a snapshot is only seen, and put back, in its own. Absent in one kept before it was
-   * recorded.
-   */
+/** The snapshot store's namespace for the named snapshots of the designs. */
+const NAMESPACE = "designs";
+
+/**
+ * What the store's ref of a snapshot notes beside the files: the snapshot as it is listed, and
+ * the repository it was taken in. The state directory can serve several, one after the other;
+ * a snapshot is only seen, and put back, in its own. Absent in one kept before it was recorded.
+ */
+const Note = Schema.Struct({
   repo: Schema.optional(Schema.String),
   snapshot: Snapshot,
 });
-type Kept = typeof Kept.Type;
-const RecordJson = Schema.fromJsonString(Kept);
-const decodeRecord = Schema.decodeUnknownEffect(RecordJson);
-const encodeRecord = Schema.encodeEffect(RecordJson);
+type Note = typeof Note.Type;
+const NoteJson = Schema.fromJsonString(Note);
+const decodeNote = Schema.decodeUnknownEffect(NoteJson);
+const encodeNote = Schema.encodeEffect(NoteJson);
+
+/**
+ * A snapshot as it was kept before the snapshot store: one JSON file per snapshot under
+ * `<state>/snapshots`, with every design file's text. Read once, to move it into the store.
+ */
+const OldRecordJson = Schema.fromJsonString(
+  Schema.Struct({
+    files: Schema.Record(Schema.String, Schema.String),
+    repo: Schema.optional(Schema.String),
+    snapshot: Snapshot,
+  })
+);
+const decodeOldRecord = Schema.decodeUnknownEffect(OldRecordJson);
+
+/** A named snapshot: its note, and the store's snapshot of its files. */
+interface Kept extends Note {
+  readonly tree: string;
+}
 
 type RestoreFailure =
   | NotFound
@@ -73,21 +93,20 @@ type RestoreFailure =
  */
 const kept = (file: string) => basename(file) !== COMMENTS_FILE;
 
-/** Writes what a snapshot kept where it differs, and removes what it did not have. */
+/**
+ * Writes what a snapshot kept where the files differ from it, and removes what it did not
+ * have: `changes` go from the snapshot to now, `before` has the snapshot's text of each file
+ * changed or removed since.
+ */
 const putBack = Effect.fnUntraced(function* (
   tx: EditTransaction,
-  before: { readonly [file: string]: string },
-  current: { readonly [file: string]: string }
+  changes: readonly TreeChange[],
+  before: { readonly [file: string]: string }
 ) {
-  for (const [file, content] of Object.entries(before)) {
-    if (current[file] !== content) {
-      yield* tx.write(file, content);
-    }
-  }
-  for (const file of Object.keys(current)) {
-    if (!(file in before)) {
-      yield* tx.remove(file);
-    }
+  for (const change of changes) {
+    yield* change.status === "A"
+      ? tx.remove(change.path)
+      : tx.write(change.path, before[change.path] ?? "");
   }
 });
 
@@ -165,6 +184,11 @@ const documentsOf = Effect.fnUntraced(function* (
  * Named points in the history of the designs (ADR 0019): the text of every design file as it
  * was, kept in the state directory until deleted, to look at again or to go back to. A snapshot
  * is not a copy in the repository; git keeps what is committed, and this what is not yet.
+ *
+ * The files are kept in the tool's snapshot store, under the `designs` namespace: each snapshot
+ * is a ref named by its id whose note is its name, date and repository. What is here is the
+ * designs' view of one: its pages, canvases and documents, its diff with now, and putting it
+ * back through the undo journal.
  */
 export class Snapshots extends Context.Service<
   Snapshots,
@@ -188,11 +212,11 @@ export class Snapshots extends Context.Service<
     Snapshots,
     Effect.gen(function* () {
       const storage = yield* Storage;
+      const store = yield* SnapshotStore;
       const project = yield* ProjectManager;
       const checkpoints = yield* Checkpoints;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const writeAtomic = makeWriteAtomic(fs, path);
       const designFiles = Effect.map(
         makeDesignFiles(fs, path, project),
         (files) =>
@@ -200,27 +224,54 @@ export class Snapshots extends Context.Service<
             Object.entries(files).filter(([file]) => kept(file))
           )
       );
-      // Asked for on every write: saving an unsaved session moves the state directory.
-      const fileOf = (id: string) =>
-        Effect.map(storage.stateDir, (state) =>
-          path.join(state, "snapshots", `${id}.json`)
-        );
-      const dir = path.join(yield* storage.stateDir, "snapshots");
-      const store = new Map<string, Kept>();
 
-      yield* Effect.orDie(fs.makeDirectory(dir, { recursive: true }));
-      for (const name of yield* Effect.orDie(fs.readDirectory(dir))) {
-        if (!name.endsWith(".json")) {
-          continue;
+      /**
+       * Moves the snapshots kept in the old format into the store, with their ids, names and
+       * dates, and removes each file once its snapshot is in. One that cannot be moved stays
+       * where it is, and says why in the log; the next start tries it again.
+       */
+      const importOld = Effect.gen(function* () {
+        const dir = path.join(yield* storage.stateDir, "snapshots");
+        if (!(yield* Effect.orElseSucceed(fs.exists(dir), () => false))) {
+          return;
         }
-        // A snapshot that cannot be read is simply not offered.
-        const record = yield* fs
-          .readFileString(path.join(dir, name))
-          .pipe(Effect.flatMap(decodeRecord), Effect.option);
-        if (record._tag === "Some") {
-          store.set(record.value.snapshot.id, record.value);
+        const names = yield* fs.readDirectory(dir);
+        for (const name of names.filter((n) => n.endsWith(".json"))) {
+          const file = path.join(dir, name);
+          yield* fs.readFileString(file).pipe(
+            Effect.flatMap(decodeOldRecord),
+            Effect.flatMap(({ files, repo, snapshot }) =>
+              Effect.flatMap(
+                encodeNote({ ...(repo !== undefined && { repo }), snapshot }),
+                (note) =>
+                  store.recordContents(NAMESPACE, files, {
+                    name: snapshot.id,
+                    note,
+                  })
+              )
+            ),
+            Effect.andThen(fs.remove(file)),
+            Effect.catchTag(
+              ["PlatformError", "SchemaError", "SnapshotStoreFailed"],
+              (error) =>
+                Effect.logWarning(
+                  `The snapshot ${file} stays in the old format, not moved into the snapshot store: ${error.message}`
+                )
+            )
+          );
         }
-      }
+        if ((yield* fs.readDirectory(dir)).length === 0) {
+          // An empty directory left behind holds nothing; the next start finds it empty again.
+          yield* Effect.ignore(fs.remove(dir, { recursive: true }));
+        }
+      }).pipe(
+        Effect.catchTag("PlatformError", (error) =>
+          Effect.logWarning(
+            `The snapshots kept in the old format were not looked for: ${error.message}`
+          )
+        )
+      );
+      yield* importOld;
 
       /** The open repository's root; null when none is open. */
       const openRepo = project
@@ -228,15 +279,68 @@ export class Snapshots extends Context.Service<
         .pipe(Effect.orElseSucceed(() => null));
 
       /** Whether a snapshot belongs to the open repository, or says nothing of where it was taken. */
-      const ours = (record: Kept, repo: string | null) =>
-        record.repo === undefined || record.repo === repo;
+      const ours = (snapshot: Kept, repo: string | null) =>
+        snapshot.repo === undefined || snapshot.repo === repo;
+
+      /** Every snapshot of the open repository. */
+      const all = Effect.gen(function* () {
+        const repo = yield* openRepo;
+        const out: Kept[] = [];
+        for (const ref of yield* store.named(NAMESPACE)) {
+          // A snapshot whose note cannot be read is simply not offered.
+          const note = yield* Effect.option(decodeNote(ref.note));
+          if (note._tag === "Some" && note.value.snapshot.id === ref.name) {
+            const snapshot: Kept = { ...note.value, tree: ref.id };
+            if (ours(snapshot, repo)) {
+              out.push(snapshot);
+            }
+          }
+        }
+        return out;
+      });
 
       const find = Effect.fnUntraced(function* (id: string) {
-        const record = store.get(id);
-        if (!(record && ours(record, yield* openRepo))) {
+        const found = (yield* all).find((s) => s.snapshot.id === id);
+        if (!found) {
           return yield* new NotFound({ message: "unknown snapshot" });
         }
-        return record;
+        return found;
+      });
+
+      const gone = (error: { readonly message: string }) =>
+        new NotFound({
+          message: `The snapshot's files are no longer kept: ${error.message}`,
+        });
+
+      /** The text of `files` as the snapshot kept them; all of them when none are named. */
+      const textsOf = Effect.fnUntraced(function* (
+        snapshot: Kept,
+        files?: readonly string[]
+      ) {
+        const manifest = yield* store.read(snapshot.tree);
+        const wanted = files ?? Object.keys(manifest.files);
+        const decoder = new TextDecoder();
+        const texts: { [file: string]: string } = {};
+        for (const file of wanted) {
+          const hash = manifest.files[file];
+          if (hash !== undefined) {
+            texts[file] = decoder.decode(yield* store.readFile(hash));
+          }
+        }
+        return texts;
+      }, Effect.mapError(gone));
+
+      /** What changed from the snapshot to the design files now, and those files. */
+      const changesSince = Effect.fnUntraced(function* (snapshot: Kept) {
+        const current = yield* designFiles;
+        const changes = yield* store
+          .changedFrom(snapshot.tree, current)
+          .pipe(Effect.mapError(gone));
+        const before = yield* textsOf(
+          snapshot,
+          changes.filter((c) => c.status !== "A").map((c) => c.path)
+        );
+        return { before, changes, current };
       });
 
       const create = Effect.fn("Snapshots.create")(function* (
@@ -252,66 +356,55 @@ export class Snapshots extends Context.Service<
                 )
               );
         const repo = yield* openRepo;
-        const record: Kept = {
-          files,
-          ...(repo !== null && { repo }),
-          snapshot: {
-            at: yield* Clock.currentTimeMillis,
-            files: Object.keys(files).length,
-            id: yield* makeId("sn"),
-            name: name.trim() || "Snapshot",
-          },
+        const snapshot: Snapshot = {
+          at: yield* Clock.currentTimeMillis,
+          files: Object.keys(files).length,
+          id: yield* makeId("sn"),
+          name: name.trim() || "Snapshot",
         };
-        store.set(record.snapshot.id, record);
-        yield* encodeRecord(record).pipe(
-          Effect.flatMap((json) =>
-            Effect.flatMap(fileOf(record.snapshot.id), (file) =>
-              writeAtomic(file, json)
-            )
+        yield* encodeNote({ ...(repo !== null && { repo }), snapshot }).pipe(
+          Effect.flatMap((note) =>
+            store.recordContents(NAMESPACE, files, {
+              name: snapshot.id,
+              note,
+            })
           ),
           Effect.orDie
         );
-        return record.snapshot;
+        return snapshot;
       });
 
       const remove = Effect.fn("Snapshots.delete")(function* (id: string) {
         yield* find(id);
-        store.delete(id);
-        yield* Effect.ignore(
-          Effect.flatMap(fileOf(id), (file) => fs.remove(file, { force: true }))
-        );
+        yield* store.release(NAMESPACE, [id]);
+        yield* store.collect;
       });
 
       const diff = Effect.fn("Snapshots.diff")(function* (id: string) {
-        const record = yield* find(id);
-        const current = yield* designFiles;
-        const out: GitDiff[] = [];
-        const all = new Set([
-          ...Object.keys(record.files),
-          ...Object.keys(current),
-        ]);
-        for (const file of [...all].sort()) {
-          const before = record.files[file];
-          const after = current[file];
-          if (before !== after) {
-            out.push({
-              diff: simpleDiff(file, before ?? "", after ?? ""),
-              path: file,
-            });
-          }
-        }
-        return out;
+        const { before, changes, current } = yield* changesSince(
+          yield* find(id)
+        );
+        return changes.map(
+          (change): GitDiff => ({
+            diff: simpleDiff(
+              change.path,
+              before[change.path] ?? "",
+              current[change.path] ?? ""
+            ),
+            path: change.path,
+          })
+        );
       });
 
       /** Everything back as it was, through the undo journal: one step the user can take back. */
       const restore = Effect.fn("Snapshots.restore")(function* (id: string) {
-        const record = yield* find(id);
-        const current = yield* designFiles;
+        const snapshot = yield* find(id);
+        const { before, changes } = yield* changesSince(snapshot);
         yield* project.use(
           Effect.flatMap(EditService, (edit) =>
             edit.transaction(
-              `Restore the snapshot ${record.snapshot.name}`,
-              (tx) => putBack(tx, record.files, current)
+              `Restore the snapshot ${snapshot.snapshot.name}`,
+              (tx) => putBack(tx, changes, before)
             )
           )
         );
@@ -319,11 +412,11 @@ export class Snapshots extends Context.Service<
 
       /** The snapshot as the editor shows the designs, read off the files it kept. */
       const view = Effect.fn("Snapshots.view")(function* (id: string) {
-        const record = yield* find(id);
+        const snapshot = yield* find(id);
         const paths = yield* project.use(RepoPaths);
         const designs = paths.relative(paths.designsDir);
         const prefix = designs === "" ? "" : `${designs}/`;
-        const files = underDesigns(record.files, prefix);
+        const files = underDesigns(yield* textsOf(snapshot), prefix);
         const layouts = yield* layoutsOf(files);
         const list = pageListOf({
           fileOf: (rel) => `${prefix}${rel}`,
@@ -337,7 +430,7 @@ export class Snapshots extends Context.Service<
           documents: yield* documentsOf(files, list.pages, layouts),
           layouts,
           pages: list.pages,
-          snapshot: record.snapshot,
+          snapshot: snapshot.snapshot,
         } satisfies SnapshotView;
       });
 
@@ -345,11 +438,8 @@ export class Snapshots extends Context.Service<
         create,
         delete: remove,
         diff,
-        list: Effect.map(openRepo, (repo) =>
-          Array.from(store.values())
-            .filter((r) => ours(r, repo))
-            .map((r) => r.snapshot)
-            .sort((a, b) => b.at - a.at)
+        list: Effect.map(all, (snapshots) =>
+          snapshots.map((s) => s.snapshot).sort((a, b) => b.at - a.at)
         ),
         restore,
         view,
