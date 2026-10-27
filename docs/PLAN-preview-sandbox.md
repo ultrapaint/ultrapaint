@@ -378,11 +378,11 @@ Answered 2026-10-27.
 ### Built (second round)
 
 2026-10-27, one commit a step, each benched against the commit before it, alternately.
-`pnpm e2e:sandbox` checks 19 things now.
+`pnpm e2e:sandbox` checks 20 things now.
 
-Left, as S7 decided: CSS-in-JS (C1) and HMR leftovers (K1) wait for a repository that needs
-them. Also left: a relative URL the editor's own code is lower on the stack of (step 8); the line
-a stuck page was on in the desktop app (step 11).
+Left, as S7 decided: HMR leftovers (K1) wait for a repository that needs them; CSS-in-JS (C1)
+was asked for after (step 12). Also left: a relative URL the editor's own code is lower on the
+stack of (step 8); the line a stuck page was on in the desktop app (step 11).
 
 - [x] 7. L1 and R1: `framework-react-vite/guard-code.ts`, a plugin of the preview's server after
       every other, on the repository's modules with a loop or `async` in them (`this.parse`, so
@@ -446,3 +446,24 @@ a stuck page was on in the desktop app (step 11).
       if it comes first. Checked in the app itself, hidden (`ULTRAPAINT_DESKTOP_HIDDEN`), on the
       fixture's freeze canvas: the page's process ended 6 s into its 8 s spin, the window loaded
       again, the frame a placeholder, nothing drawn.
+- [x] 12. C1, asked for after the second round: `preview-core/css-in-js.ts`. A `<style>` the
+      preview's code puts in the head (by `appendChild`, `insertBefore`, `append`, `prepend`;
+      `removeChild` from the head finds it where it went) is held in a hidden shadow root of its
+      own, where it has a `sheet` and styles nothing. What it holds, as text (seen by a mutation
+      observer) or rule by rule (`insertRule` and `deleteRule`, which no observer sees, so the
+      sheets' own methods say so), is written again as the page's stylesheets are, each rule
+      once, into one sheet every frame adopts after the application's own, at most once a task.
+      Real emotion (11.14) and styled-components (6.6), in a copy of the fixture under `/tmp` not
+      kept: both wrote rule by rule, as in production; their boxes drew in their frames, a width
+      query became the frame's, styled-components' global `body` outlined the frame's body and
+      emotion's `<Global>` on `html` reached the host, the editor's head and body untouched. The
+      fixture's probe does what they do without the dependencies, and the fixture has StyleX
+      (0.19, its Babel plugin injecting at run time as it does while developing, on one file):
+      its rules reach the frame, its width query the frame's. StyleX's extracted CSS (its build,
+      its Vite plugin) is a stylesheet Vite loads, as the application's own. `<link
+      rel="stylesheet">` the page's code adds is left to the editor's head: another site's sheet
+      cannot be read. Redesign holds no such style; against the commit before, on the one pair of
+      runs on a quiet machine: load 392 / 391 ms, pan 17–19 / 17–19%, zoom 36 / 38%; the other
+      pairs ran while another thread's tests loaded the machine (load average 8), both sides
+      swinging (zoom 39–55%).
+

@@ -12,6 +12,8 @@
  * - the application's storage is its own, the editor's keys and databases out of its reach;
  * - a theme class and a scroll lock land on their frame, not the editor, and a colour scheme
  *   left to the system reads the frame's theme;
+ * - styles the application's code writes (CSS-in-JS, StyleX as it develops) reach its frames, not
+ *   the editor;
  * - a frame's code reads the frame's width and scroll as the window's;
  * - the editor's CSS variables do not reach a frame;
  * - what nothing caught (a timer, a click in the prototype) is shown on its frame;
@@ -381,6 +383,50 @@ const guards = async (page: Page, url: string) => {
           frame.bodyTheme &&
           frame.locked === "1" &&
           frame.scheme === "light") ||
+        JSON.stringify(seen)
+      );
+    }
+  );
+
+  await check(
+    "styles the application's code writes (CSS-in-JS, StyleX) reach its frames, not the editor",
+    async () => {
+      const seen = await page.evaluate(() => {
+        const shadow = document.querySelector(
+          '[data-ed-frame-host="guards/css-in-js.page.json"]'
+        )?.shadowRoot;
+        const stylexBox = document
+          .querySelector('[data-ed-frame-host="guards/stylex.page.json"]')
+          ?.shadowRoot?.querySelector('[data-probe="stylex"]');
+        const box = shadow?.querySelector('[data-probe="css-box"]');
+        const text = shadow?.querySelector('[data-probe="text-box"]');
+        const body = shadow?.querySelector("[data-ed-body]");
+        return {
+          editor: {
+            inHead: document.head.querySelectorAll(
+              'style[data-emotion="probe"], #_goober, style[data-stylex]'
+            ).length,
+            outline: getComputedStyle(document.body).outlineStyle,
+          },
+          frame: {
+            box: box ? getComputedStyle(box).backgroundColor : null,
+            outline: body ? getComputedStyle(body).outlineStyle : null,
+            // StyleX, its width query the frame's (440 px): dashed below 500.
+            stylex: stylexBox
+              ? `${getComputedStyle(stylexBox).backgroundColor} ${getComputedStyle(stylexBox).borderTopStyle}`
+              : null,
+            text: text ? getComputedStyle(text).color : null,
+          },
+        };
+      });
+      const { editor, frame } = seen;
+      return (
+        (frame.box === "rgb(255, 0, 0)" &&
+          frame.text === "rgb(0, 0, 255)" &&
+          frame.outline === "solid" &&
+          frame.stylex === "rgb(0, 160, 0) dashed" &&
+          editor.outline !== "solid" &&
+          editor.inHead === 0) ||
         JSON.stringify(seen)
       );
     }

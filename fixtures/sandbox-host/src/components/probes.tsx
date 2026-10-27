@@ -3,7 +3,7 @@
  * window, the address and the head, throw, animate, loop. Each writes down what it saw in
  * `window.__probe`, which `pnpm e2e:sandbox` reads (docs/PLAN-preview-sandbox.md).
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useInsertionEffect, useRef, useState } from "react";
 
 interface Entry {
   readonly detail?: unknown;
@@ -147,6 +147,49 @@ export function ThemeProbe() {
     <pre data-probe="theme" style={{ padding: 16 }}>
       {scheme}
     </pre>
+  );
+}
+
+/** A `<style>` in the head written rule by rule, as emotion and styled-components do in production. */
+let ruleSheet: CSSStyleSheet | null = null;
+const insertRule = (rule: string) => {
+  if (!ruleSheet) {
+    const tag = document.createElement("style");
+    tag.setAttribute("data-emotion", "probe");
+    document.head.appendChild(tag);
+    ruleSheet = tag.sheet;
+  }
+  ruleSheet?.insertRule(rule, ruleSheet.cssRules.length);
+};
+
+/** A `<style>` in the head written as text, as goober does. */
+let textNode: Text | null = null;
+const appendText = (css: string) => {
+  if (!textNode) {
+    const tag = document.createElement("style");
+    tag.id = "_goober";
+    textNode = tag.appendChild(document.createTextNode(" "));
+    document.head.appendChild(tag);
+  }
+  textNode.data += css;
+};
+
+/** Styles written as the page runs, as CSS-in-JS libraries write them: a component's and a global one. */
+export function CssInJsProbe() {
+  useInsertionEffect(() => {
+    insertRule(
+      ".probe-css-box { width: 40px; height: 40px; background-color: rgb(255, 0, 0); }"
+    );
+    insertRule("body { outline: 3px solid rgb(0, 128, 0); }");
+    appendText(".probe-text-box { color: rgb(0, 0, 255); }");
+  }, []);
+  return (
+    <div style={{ padding: 16 }}>
+      <div className="probe-css-box" data-probe="css-box" />
+      <p className="probe-text-box" data-probe="text-box">
+        text
+      </p>
+    </div>
   );
 }
 

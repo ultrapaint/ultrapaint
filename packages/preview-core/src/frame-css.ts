@@ -145,6 +145,13 @@ const writeRule = (rule: CSSRule, lifted: string[]): string => {
   return frameDeclarations(rule.cssText);
 };
 
+/** One rule of the page's, as a frame adopts it, and what of it the document must hold. */
+export const frameRule = (rule: CSSRule): FrameCss => {
+  const lifted: string[] = [];
+  const frame = writeRule(rule, lifted);
+  return { document: lifted.join("\n"), frame };
+};
+
 /** A stylesheet of the page, as a frame of the editor's page adopts it. */
 export const frameCss = (text: string): FrameCss => {
   const imports: string[] = [];

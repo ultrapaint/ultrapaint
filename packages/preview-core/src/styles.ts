@@ -5,7 +5,12 @@
  * application's stylesheets here instead of the editor's head (`installHooks`), keeps them up to
  * date as they change, and asks here before it reloads the page.
  */
-import { BODY_ATTRIBUTE, FRAME_CONTAINER, frameCss } from "./frame-css.ts";
+import {
+  BODY_ATTRIBUTE,
+  FRAME_CONTAINER,
+  type FrameCss,
+  frameCss,
+} from "./frame-css.ts";
 
 interface Hooks {
   readonly remove: (id: string) => void;
@@ -22,11 +27,16 @@ const parts = new Map<string, { document: string; frame: string }>();
 const sheets: {
   app: CSSStyleSheet | null;
   base: CSSStyleSheet | null;
+  /** What the application's code writes as it runs (`css-in-js.ts`). */
+  cssInJs: CSSStyleSheet | null;
   design: CSSStyleSheet | null;
-} = { app: null, base: null, design: null };
+} = { app: null, base: null, cssInJs: null, design: null };
 let designText = "";
 /** What of the design's stylesheet only the document can hold: its font faces. */
 let designDocument = "";
+let cssInJsText = "";
+/** What of the styles the application's code writes only the document can hold. */
+let cssInJsDocument = "";
 let documentStyle: HTMLStyleElement | null = null;
 let rebuildScheduled = false;
 const reloadListeners = new Set<() => void>();
@@ -120,10 +130,15 @@ const sheet = (key: keyof typeof sheets): CSSStyleSheet => {
   return found;
 };
 
-/** The sheets a frame adopts, in the order they apply: the design's last, so it wins. */
+/**
+ * The sheets a frame adopts, in the order they apply: what the application's code writes as it
+ * runs after its stylesheets, as its library appends it to the head after them; the design's
+ * last, so it wins.
+ */
 export const frameSheets = (): CSSStyleSheet[] => [
   sheet("base"),
   sheet("app"),
+  sheet("cssInJs"),
   sheet("design"),
 ];
 
@@ -137,7 +152,9 @@ const rebuild = () => {
     document.head.append(documentStyle);
   }
   const lifted = all.map((p) => p.document).filter(Boolean);
-  documentStyle.textContent = [...lifted, designDocument].join("\n");
+  documentStyle.textContent = [...lifted, cssInJsDocument, designDocument]
+    .filter(Boolean)
+    .join("\n");
 };
 
 const schedule = () => {
@@ -202,8 +219,21 @@ export const setDesignCss = (css: string) => {
   schedule();
 };
 
+/** What the application's code writes as it runs, for every frame: written again when it changed. */
+export const setCssInJs = (css: FrameCss) => {
+  if (css.frame !== cssInJsText) {
+    cssInJsText = css.frame;
+    sheet("cssInJs").replaceSync(css.frame);
+  }
+  if (css.document !== cssInJsDocument) {
+    cssInJsDocument = css.document;
+    schedule();
+  }
+};
+
 /** Every rule the frames adopt, for what reads the stylesheets: the tokens. */
 export const adoptedSheets = (): CSSStyleSheet[] => [
   sheet("app"),
+  sheet("cssInJs"),
   sheet("design"),
 ];
