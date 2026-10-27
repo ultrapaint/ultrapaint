@@ -381,8 +381,8 @@ Answered 2026-10-27.
 `pnpm e2e:sandbox` checks 20 things now.
 
 Left, as S7 decided: HMR leftovers (K1) wait for a repository that needs them; CSS-in-JS (C1)
-was asked for after (step 12). Also left: a relative URL the editor's own code is lower on the
-stack of (step 8); the line a stuck page was on in the desktop app (step 11).
+was asked for after (step 12). Also left: the line a stuck page was on in the desktop app
+(step 11).
 
 - [x] 7. L1 and R1: `framework-react-vite/guard-code.ts`, a plugin of the preview's server after
       every other, on the repository's modules with a loop or `async` in them (`this.parse`, so
@@ -466,4 +466,11 @@ stack of (step 8); the line a stuck page was on in the desktop app (step 11).
       runs on a quiet machine: load 392 / 391 ms, pan 17–19 / 17–19%, zoom 36 / 38%; the other
       pairs ran while another thread's tests loaded the machine (load average 8), both sides
       swinging (zoom 39–55%).
+- [x] 13. Step 8's requests, ruled by where the editor's code hands over rather than whether it is
+      on the stack at all (`previewCallOn`): below the preview's caller, the first code that is
+      not the preview's is the editor's bundle in the preview (the editor handing it a frame to
+      draw, a timer, an event) or nothing: the preview's request; the editor's own code instead
+      (it called an application's wrapper of `fetch`): the editor's. No draw is synchronous today
+      (no `flushSync`), so no request of the page's had the editor below it yet; a fixture probe
+      fetching in its render passed under both rules and was not kept. Unit-tested.
 
