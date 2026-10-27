@@ -19,6 +19,7 @@ import {
   type TokenMatchInput,
   type TokenSourceKind,
 } from "@ultrapaint/contracts/sync";
+import { withTokenChanges } from "@ultrapaint/contracts/token-table";
 import type { TokenChange } from "@ultrapaint/contracts/tokens";
 import type { TokenGroups } from "@ultrapaint/design-md/format";
 import { emptyGroups, SECTIONS } from "@ultrapaint/design-md/format";
@@ -68,7 +69,6 @@ import {
   planOf,
   summaryOf,
   tokenChanges,
-  withTokenChanges,
 } from "./design-system-sync-rules.ts";
 import { FigmaImportService } from "./figma-import.ts";
 import { RepoPaths } from "./repo-paths.ts";

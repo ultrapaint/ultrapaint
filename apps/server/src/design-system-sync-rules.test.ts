@@ -8,7 +8,11 @@ import {
   type SyncBaseline,
   type SyncFacts,
 } from "@ultrapaint/contracts/sync";
-import { type SourceToken, tokenKindOf } from "@ultrapaint/contracts/tokens";
+import {
+  tokenKindOf,
+  withTokenChanges,
+} from "@ultrapaint/contracts/token-table";
+import type { SourceToken } from "@ultrapaint/contracts/tokens";
 import { describe, expect, it } from "vitest";
 import {
   caseOf,
@@ -22,14 +26,12 @@ import {
   documentSide,
   driftOf,
   type FigmaSide,
-  listTokens,
   matchFigma,
   matchProblem,
   namedDiffs,
   planOf,
   summaryOf,
   tokenChanges,
-  withTokenChanges,
 } from "./services/design-system-sync-rules.ts";
 
 const facts: SyncFacts = {
@@ -433,7 +435,7 @@ describe("DESIGN.md's tokens against the code's (ADR 0027)", () => {
         },
       ],
     };
-    const listed = listTokens(system, [
+    const listed = withTokenChanges(system, [
       { name: "color-accent", value: "#b8422e" },
       { name: "radius-pill", value: "9999px" },
     ]);
@@ -573,5 +575,36 @@ describe("the code against the design system (ADR 0028)", () => {
     expect(designTokensOf(removed).map((t) => t.name)).not.toContain(
       "color-fresh"
     );
+  });
+
+  it("lists a new token of any kind where its kind goes, not only colours, radii and spacing", () => {
+    // A token only design.tokens.json has, or one set through setTokens, Figma or DESIGN.md.
+    const next = withTokenChanges(ds, [
+      { name: "text-xl", value: "1.25rem" },
+      { name: "shadow-lg", value: "0 10px 15px rgb(0 0 0 / 0.1)" },
+      { name: "font-weight-bold", value: "700" },
+      { name: "ease-out", value: "cubic-bezier(0, 0, 0.2, 1)" },
+      { name: "breakpoint-xl", value: "80rem" },
+      { name: "shadow-lg", theme: "dark", value: "none" },
+    ]);
+    expect(next.typography.sizes.map((t) => t.name)).toContain("text-xl");
+    expect(next.typography.weights.map((t) => t.name)).toContain(
+      "font-weight-bold"
+    );
+    expect(next.shadows.at(-1)).toEqual({
+      name: "shadow-lg",
+      value: "0 10px 15px rgb(0 0 0 / 0.1)",
+      values: { dark: "none" },
+    });
+    expect(next.motion?.easings?.map((t) => t.name)).toEqual(["ease-out"]);
+    expect(next.layout?.breakpoints?.map((t) => t.name)).toEqual([
+      "breakpoint-xl",
+    ]);
+    const side = new Map(designTokensOf(next).map((t) => [t.name, t]));
+    expect(side.get("text-xl")).toMatchObject({
+      kind: "fontSize",
+      value: "1.25rem",
+    });
+    expect(side.get("font-weight-bold")?.kind).toBe("fontWeight");
   });
 });

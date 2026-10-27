@@ -7,9 +7,6 @@ import {
   DesignSystem,
   type DesignSystemState,
   type DocumentBaseline,
-  mapTokenRecords,
-  mapTokens,
-  type Token,
 } from "@ultrapaint/contracts/design-system";
 import { BadRequest } from "@ultrapaint/contracts/errors";
 import {
@@ -17,6 +14,14 @@ import {
   SyncBaseline,
   type TokenComparison,
 } from "@ultrapaint/contracts/sync";
+import {
+  allTokens,
+  fillValues,
+  layValues,
+  stripValues,
+  withEmptyValues,
+  withTokenChanges,
+} from "@ultrapaint/contracts/token-table";
 import type {
   DesignTokenValue,
   SourceToken,
@@ -61,7 +66,6 @@ import {
   compareCode,
   designTokensOf,
   valuesByKey,
-  withTokenChanges,
 } from "./design-system-sync-rules.ts";
 import {
   DESIGN_TOKENS_FILE,
@@ -74,9 +78,6 @@ import { Storage } from "./storage.ts";
 import { ProjectStyleSystem } from "./style-system.ts";
 
 const decodeDesignSystem = Schema.decodeUnknownEffect(DesignSystem);
-
-const isRec = (v: unknown): v is Record<string, unknown> =>
-  typeof v === "object" && v !== null && !Array.isArray(v);
 
 const BaselineJson = Schema.fromJsonString(SyncBaseline);
 const decodeBaseline = Schema.decodeUnknownEffect(BaselineJson);
@@ -277,40 +278,7 @@ export class DesignSystemService extends Context.Service<
       const fillFromCode = (
         ds: DesignSystem,
         code: ReadonlyMap<string, SourceToken>
-      ): DesignSystem => {
-        const merged = mapTokens(ds, (t) => {
-          const found = code.get(t.name);
-          if (t.value !== "" || !found) {
-            return t;
-          }
-          return {
-            ...t,
-            value: found.value,
-            ...(found.values && !t.values && { values: found.values }),
-          };
-        });
-        const base = code.get("spacing")?.value;
-        return merged.spacing.base === "" && base !== undefined
-          ? { ...merged, spacing: { ...merged.spacing, base } }
-          : merged;
-      };
-
-      /**
-       * A design system's JSON with a value left out given as empty, the spacing base too, for
-       * the tokens file and then `fillFromCode` to fill in.
-       */
-      const withEmptyValues = (json: unknown) => {
-        const filled = mapTokenRecords(json, (t) =>
-          "value" in t ? t : { ...t, value: "" }
-        );
-        if (
-          !(isRec(filled) && isRec(filled.spacing)) ||
-          "base" in filled.spacing
-        ) {
-          return filled;
-        }
-        return { ...filled, spacing: { ...filled.spacing, base: "" } };
-      };
+      ): DesignSystem => fillValues(ds, (name) => code.get(name));
 
       /**
        * What the current design system says where a written one says nothing: a writer that read
@@ -323,28 +291,8 @@ export class DesignSystemService extends Context.Service<
         if (!current) {
           return ds;
         }
-        const known = new Map<string, Token>();
-        mapTokens(current, (t) => {
-          known.set(t.name, t);
-          return t;
-        });
-        const merged = mapTokens(ds, (t) => {
-          const found = known.get(t.name);
-          if (t.value !== "" || !found) {
-            return t;
-          }
-          return {
-            ...t,
-            value: found.value,
-            ...(found.values && !t.values && { values: found.values }),
-          };
-        });
-        return merged.spacing.base === "" && current.spacing.base !== ""
-          ? {
-              ...merged,
-              spacing: { ...merged.spacing, base: current.spacing.base },
-            }
-          : merged;
+        const known = new Map(allTokens(current).map((t) => [t.name, t]));
+        return fillValues(ds, (name) => known.get(name));
       };
 
       /**
@@ -383,19 +331,6 @@ export class DesignSystemService extends Context.Service<
       const tokensRel = paths.relative(tokensAbs);
 
       /**
-       * `design-system.json` as it is written (ADR 0035): everything but the tokens' values and
-       * the spacing base, which `design.tokens.json` holds.
-       */
-      const withoutValues = (ds: DesignSystem): Record<string, unknown> => {
-        const json = mapTokenRecords(
-          ds,
-          ({ value: _value, values: _values, ...t }) => t
-        ) as Record<string, unknown>;
-        const { base: _base, ...spacing } = ds.spacing;
-        return { ...json, spacing };
-      };
-
-      /**
        * The values of `design.tokens.json` laid over a design system read from `design-system.json`:
        * the file's value wins where both have one, and a token only the file has is listed where
        * its kind goes. Null for a file that is no Design Tokens file, with why.
@@ -411,13 +346,7 @@ export class DesignSystemService extends Context.Service<
         if ("problem" in read) {
           return { designSystem: ds, problem: read.problem };
         }
-        const changes: TokenChange[] = read.tokens.flatMap((t) => [
-          ...(t.value === "" ? [] : [{ name: t.name, value: t.value }]),
-          ...Object.entries(t.values ?? {})
-            .filter(([, value]) => value !== "")
-            .map(([theme, value]) => ({ name: t.name, theme, value })),
-        ]);
-        return { designSystem: withTokenChanges(ds, changes), problem: null };
+        return { designSystem: layValues(ds, read.tokens), problem: null };
       };
 
       /**
@@ -435,10 +364,7 @@ export class DesignSystemService extends Context.Service<
             message: `${tokensProblem}. The design system is written again once it reads.`,
           });
         }
-        yield* tx.write(
-          paths.relative(systemFile),
-          serialise(withoutValues(ds))
-        );
+        yield* tx.write(paths.relative(systemFile), serialise(stripValues(ds)));
         yield* tx.write(tokensRel, serialiseDesignTokens(ds));
       });
 

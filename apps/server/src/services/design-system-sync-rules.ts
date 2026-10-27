@@ -2,12 +2,9 @@
  * The sync's rules (ADR 0025), pure: which case a project is in, what drifted between the
  * design system and the code, and the steps that bring them together.
  */
-import {
-  type DesignSystem,
-  type DocumentBaseline,
-  designSystemTokenNames,
-  mapTokens,
-  type Token,
+import type {
+  DesignSystem,
+  DocumentBaseline,
 } from "@ultrapaint/contracts/design-system";
 import type {
   DesignSystemSetup,
@@ -32,10 +29,12 @@ import {
   type TokenOutcome,
 } from "@ultrapaint/contracts/sync";
 import {
-  type SourceToken,
-  type TokenChange,
+  allTokens,
+  listedTokens,
+  SPACING_BASE,
   tokenKindOf,
-} from "@ultrapaint/contracts/tokens";
+} from "@ultrapaint/contracts/token-table";
+import type { SourceToken, TokenChange } from "@ultrapaint/contracts/tokens";
 import { SECTIONS } from "@ultrapaint/design-md/format";
 import { plural } from "@ultrapaint/shared/text";
 import { inCodeUnits, sameValue } from "./token-values.ts";
@@ -58,7 +57,7 @@ export const driftOf = (
     return emptyDrift;
   }
   const omitted = new Set(ds.omitted ?? []);
-  const listed = new Set(designSystemTokenNames(ds));
+  const listed = new Set(listedTokens(ds).map((t) => t.name));
   const described = new Set(Object.keys(ds.components ?? {}));
   const have = new Set(components);
   return {
@@ -710,76 +709,20 @@ export const tokenChanges = (
 };
 
 /**
- * The design system with tokens the code was just given listed, so that DESIGN.md's front
- * matter, which mirrors what the design system lists, keeps them: a colour in the semantic group
- * (the first group when there is none), a radius and a spacing in theirs. `/sync describe` says
- * what each is for.
- */
-export const listTokens = (
-  ds: DesignSystem,
-  tokens: readonly { readonly name: string; readonly value: string }[]
-): DesignSystem => {
-  const colors = tokens.filter((t) => t.name.startsWith("color-"));
-  const radii = tokens.filter((t) => t.name.startsWith("radius-"));
-  const spacing = tokens.filter((t) => t.name.startsWith("spacing-"));
-  const semantic = Math.max(
-    0,
-    ds.colors.findIndex((g) => g.name.toLowerCase() === "semantic")
-  );
-  const into = () =>
-    ds.colors.length === 0
-      ? [{ name: "Colors", tokens: colors }]
-      : ds.colors.map((g, i) =>
-          i === semantic ? { ...g, tokens: [...g.tokens, ...colors] } : g
-        );
-  const groups = colors.length === 0 ? ds.colors : into();
-  return {
-    ...ds,
-    colors: groups,
-    radius: [...ds.radius, ...radii],
-    spacing: {
-      ...ds.spacing,
-      ...(spacing.length > 0 && {
-        tokens: [...(ds.spacing.tokens ?? []), ...spacing],
-      }),
-    },
-  };
-};
-
-/**
  * The design system's tokens as a side to compare with: every token it lists, the spacing base
  * as `spacing`, each with its value per theme. A token whose value is empty is left out.
  */
-export const designTokensOf = (ds: DesignSystem): SourceToken[] => {
-  const tokens: SourceToken[] = [];
-  const seen = new Set<string>();
-  const add = (
-    name: string,
-    value: string,
-    values?: Readonly<Record<string, string>>
-  ) => {
-    if (seen.has(name) || value === "") {
-      return;
-    }
-    seen.add(name);
-    tokens.push({
-      kind: tokenKindOf(name),
-      name,
+export const designTokensOf = (ds: DesignSystem): SourceToken[] =>
+  allTokens(ds)
+    .filter((t) => t.value !== "")
+    .map((t) => ({
+      kind: tokenKindOf(t.name),
+      name: t.name,
       own: true,
-      value,
-      ...(values &&
-        Object.keys(values).length > 0 && { values: { ...values } }),
-    });
-  };
-  if (ds.spacing.base) {
-    add("spacing", ds.spacing.base);
-  }
-  mapTokens(ds, (t) => {
-    add(t.name, t.value, t.values);
-    return t;
-  });
-  return tokens;
-};
+      value: t.value,
+      ...(t.values &&
+        Object.keys(t.values).length > 0 && { values: { ...t.values } }),
+    }));
 
 /** Every value of a list of tokens by `name` and `name@theme`, as a baseline keeps them. */
 export const valuesByKey = (
@@ -819,7 +762,7 @@ export const compareCode = (
   );
   // The spacing base is the style system's step; a code that does not name it has the default.
   const keys = [...new Set([...Object.keys(ours), ...Object.keys(own)])].filter(
-    (key) => key !== "spacing" || key in theirs
+    (key) => key !== SPACING_BASE || key in theirs
   );
   return keys.sort().map((key): TokenDiff => {
     const at = key.indexOf("@");
@@ -978,133 +921,5 @@ export const codeDirection = (
           })),
     left: names.length === 0 ? conflicts : [],
     unknown: names.filter((n) => !known.has(n)),
-  };
-};
-
-/**
- * A design system with token changes made to it: a value set where the token is listed, a token
- * not listed yet added where `listTokens` puts it (the default theme first), a removal taken out.
- */
-export const withTokenChanges = (
-  ds: DesignSystem,
-  changes: readonly TokenChange[]
-): DesignSystem => {
-  const byName = new Map<string, TokenChange[]>();
-  for (const c of changes) {
-    byName.set(c.name, [...(byName.get(c.name) ?? []), c]);
-  }
-  let spacingBase = ds.spacing.base;
-  const spacing = byName.get("spacing");
-  for (const c of spacing ?? []) {
-    if (c.theme === undefined && c.value !== undefined) {
-      spacingBase = c.value;
-    }
-  }
-  byName.delete("spacing");
-  const listed = new Set(designSystemTokenNames(ds));
-  const apply = (t: Token): Token => {
-    const own = byName.get(t.name);
-    if (!own) {
-      return t;
-    }
-    let next: Token = t;
-    for (const c of own) {
-      if (c.theme === undefined) {
-        next = c.value === undefined ? next : { ...next, value: c.value };
-      } else if (c.remove || c.value === undefined) {
-        const { [c.theme]: _gone, ...rest } = { ...next.values };
-        next = { ...next, values: rest };
-      } else {
-        next = { ...next, values: { ...next.values, [c.theme]: c.value } };
-      }
-    }
-    return next;
-  };
-  const removed = new Set(
-    changes.filter((c) => c.remove && c.theme === undefined).map((c) => c.name)
-  );
-  const changed = removeTokens(mapTokens(ds, apply), removed);
-  const added = [...byName.entries()]
-    .filter(([name]) => !(listed.has(name) || removed.has(name)))
-    .flatMap(([name, own]) => {
-      const value = own.find((c) => c.theme === undefined)?.value;
-      if (value === undefined) {
-        return [];
-      }
-      const values = Object.fromEntries(
-        own.flatMap((c) =>
-          c.theme !== undefined && c.value !== undefined
-            ? [[c.theme, c.value] as const]
-            : []
-        )
-      );
-      return [
-        {
-          name,
-          value,
-          ...(Object.keys(values).length > 0 && { values }),
-        },
-      ];
-    });
-  const withAdded = added.length > 0 ? listTokens(changed, added) : changed;
-  return spacingBase === ds.spacing.base
-    ? withAdded
-    : { ...withAdded, spacing: { ...withAdded.spacing, base: spacingBase } };
-};
-
-/** A design system without the tokens of these names, wherever it lists them. */
-const removeTokens = (
-  ds: DesignSystem,
-  names: ReadonlySet<string>
-): DesignSystem => {
-  if (names.size === 0) {
-    return ds;
-  }
-  const keep = <T extends { readonly name: string }>(list: readonly T[]) =>
-    list.filter((t) => !names.has(t.name));
-  const optional = <T extends { readonly name: string }>(
-    list: readonly T[] | undefined
-  ) => (list === undefined ? undefined : keep(list));
-  return {
-    ...ds,
-    ...(ds.borderWidths && { borderWidths: keep(ds.borderWidths) }),
-    colors: ds.colors.map((g) => ({ ...g, tokens: keep(g.tokens) })),
-    ...(ds.layout && {
-      layout: {
-        ...ds.layout,
-        ...(ds.layout.breakpoints && {
-          breakpoints: keep(ds.layout.breakpoints),
-        }),
-        ...(ds.layout.containers && { containers: keep(ds.layout.containers) }),
-      },
-    }),
-    ...(ds.motion && {
-      motion: {
-        ...ds.motion,
-        ...(ds.motion.durations && { durations: keep(ds.motion.durations) }),
-        ...(ds.motion.easings && { easings: keep(ds.motion.easings) }),
-        ...(ds.motion.animations && {
-          animations: keep(ds.motion.animations),
-        }),
-      },
-    }),
-    radius: keep(ds.radius),
-    shadows: keep(ds.shadows),
-    spacing: {
-      ...ds.spacing,
-      ...(ds.spacing.tokens && { tokens: keep(ds.spacing.tokens) }),
-    },
-    typography: {
-      ...ds.typography,
-      fonts: keep(ds.typography.fonts),
-      ...(ds.typography.leading && {
-        leading: optional(ds.typography.leading),
-      }),
-      sizes: keep(ds.typography.sizes),
-      ...(ds.typography.tracking && {
-        tracking: optional(ds.typography.tracking),
-      }),
-      weights: keep(ds.typography.weights),
-    },
   };
 };

@@ -10,13 +10,13 @@
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import {
-  type FileEdit,
-  type SourceToken,
-  type TokenChange,
-  type TokenOrigin,
-  type TokenSource,
-  tokenKindOf,
+import { tokenKindOf } from "@ultrapaint/contracts/token-table";
+import type {
+  FileEdit,
+  SourceToken,
+  TokenChange,
+  TokenOrigin,
+  TokenSource,
 } from "@ultrapaint/contracts/tokens";
 import type { DesignSystemContext } from "@ultrapaint/framework-api/node";
 import { toPosix } from "@ultrapaint/shared/path";

@@ -24,6 +24,7 @@ import {
   SPECS_DIR,
 } from "@ultrapaint/contracts/specs";
 import type { ThreadPurpose } from "@ultrapaint/contracts/threads";
+import { listedTokens } from "@ultrapaint/contracts/token-table";
 import { groupTextStyles } from "@ultrapaint/design-document/text-styles";
 import { Context, Effect, Layer } from "effect";
 import { ServerConfig } from "../../config.ts";
@@ -76,16 +77,7 @@ const componentLine = (component: ComponentMeta) => {
 const TOKEN_LIMIT = 80;
 
 const tokensOf = (ds: DesignSystem) => {
-  const names = [
-    ...ds.colors.flatMap((g) => g.tokens.map((t) => t.name)),
-    ...ds.typography.sizes.map((t) => t.name),
-    ...ds.typography.weights.map((t) => t.name),
-    ...ds.typography.fonts.map((t) => t.name),
-    ...ds.radius.map((t) => t.name),
-    ...ds.shadows.map((t) => t.name),
-    ...(ds.borderWidths ?? []).map((t) => t.name),
-    ...(ds.layout?.containers ?? []).map((t) => t.name),
-  ];
+  const names = listedTokens(ds).map((t) => t.name);
   const shown = names.slice(0, TOKEN_LIMIT).map((n) => `$${n}`);
   return `${shown.join(" ")}${names.length > shown.length ? ` (and ${names.length - shown.length} more)` : ""}`;
 };
