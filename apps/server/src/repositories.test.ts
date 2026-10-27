@@ -1,28 +1,13 @@
 import path from "node:path";
 import { assert, layer } from "@effect/vitest";
 import { Effect, FileSystem } from "effect";
-import { makeRepository, TestEnv, TestServer } from "./testing/harness.ts";
-
-/** Polls the thread until its turn has ended. */
-const turnEnded = (threadId: string) =>
-  Effect.gen(function* () {
-    const { client } = yield* TestEnv;
-    const read = Effect.gen(function* () {
-      const thread = (yield* client["threads.list"]()).find(
-        (t) => t.id === threadId
-      );
-      const items = yield* client["threads.items"]({ threadId });
-      return { items, thread };
-    });
-    return yield* read.pipe(
-      Effect.tap(() => Effect.sleep("25 millis")),
-      Effect.repeat({
-        until: ({ items, thread }) =>
-          thread?.status === "idle" && items.at(-1)?.kind === "turn_end",
-      }),
-      Effect.timeout("20 seconds")
-    );
-  });
+import {
+  makeRepository,
+  TestEnv,
+  TestServer,
+  waitForThread,
+} from "./testing/harness.ts";
+import { turnEnded } from "./testing/turns.ts";
 
 layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
   "one server, several repositories",
@@ -41,7 +26,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             text: "reply",
             threadId: thread.id,
           });
-          yield* turnEnded(thread.id);
+          yield* waitForThread(thread.id, turnEnded);
           const [checkpoint] = yield* client["checkpoints.list"]();
           assert.isDefined(checkpoint);
 

@@ -1,4 +1,3 @@
-import { tmpdir } from "node:os";
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import type { Framework, StyleSystem } from "@ultrapaint/framework-api/node";
@@ -12,6 +11,7 @@ import { ProjectFramework } from "./services/framework.ts";
 import { HostManager } from "./services/host.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
 import { ProjectStyleSystem } from "./services/style-system.ts";
+import { waitFor } from "./testing/wait-for.ts";
 
 /** A preview that starts, says its pid, and never listens. */
 const SILENT_PREVIEW = `import { writeFileSync } from "node:fs";
@@ -19,8 +19,14 @@ writeFileSync(process.argv[2], String(process.pid));
 setInterval(() => undefined, 1 << 30);
 `;
 
-/** Real time, while the test clock holds the host's own timers. */
-const wait = (ms: number) => TestClock.withLive(Effect.sleep(`${ms} millis`));
+/**
+ * Until `done` holds of what `read` gives, in real time while the test clock holds the host's
+ * own timers.
+ */
+const waitLive = <A, E, R>(
+  read: Effect.Effect<A, E, R>,
+  done: (a: A) => boolean
+) => TestClock.withLive(waitFor(read, done));
 
 /** Whether the process is there: `kill -0` throws when it is not. */
 const isAlive = (pid: number) =>
@@ -80,29 +86,11 @@ const withHost = <A, E>(
         log: () => Effect.void,
         recent: () => Effect.succeed([]),
       }),
-      Layer.succeed(ServerConfig, {
-        allowedHosts: [],
-        briefing: false,
+      ServerConfig.layerTest({
         cwd: repo,
-        discovery: false,
-        host: "127.0.0.1",
-        machine: {
-          addresses: () => [],
-          // The preview is generated under the home's cache: the fixture's, not the user's.
-          home: repo,
-          node: process.execPath,
-          path: process.env.PATH ?? "",
-          tmpdir: tmpdir(),
-          uid: process.getuid?.(),
-        },
-        mcp: false,
-        port: 0,
-        readyJson: false,
-        storage: { mode: "ephemeral" },
-        token: "test",
+        // The preview is generated under the home's cache: the fixture's, not the user's.
+        machine: { home: repo, path: process.env.PATH ?? "" },
         userDir: repo,
-        version: "test",
-        webDist: undefined,
       })
     );
     return yield* Effect.flatMap(HostManager, (host) =>
@@ -126,10 +114,8 @@ describe("the preview host", () => {
           const fs = yield* FileSystem.FileSystem;
           const first = yield* Effect.forkChild(host.start);
           // Up and probed: only the clock is left to run out.
-          while (!(yield* fs.exists(pidFile))) {
-            yield* wait(50);
-          }
-          yield* wait(300);
+          yield* waitLive(fs.exists(pidFile), Boolean);
+          yield* TestClock.withLive(Effect.sleep("300 millis"));
           const pid = Number(yield* fs.readFileString(pidFile));
           yield* TestClock.adjust("31 seconds");
           const status = yield* Fiber.join(first);
@@ -137,15 +123,11 @@ describe("the preview host", () => {
             error: "vite did not start listening within 30 s",
             state: "error",
           });
-          while (yield* isAlive(pid)) {
-            yield* wait(50);
-          }
+          yield* waitLive(isAlive(pid), (alive) => !alive);
 
           yield* fs.remove(pidFile);
           const second = yield* Effect.forkChild(host.start);
-          while (!(yield* fs.exists(pidFile))) {
-            yield* wait(50);
-          }
+          yield* waitLive(fs.exists(pidFile), Boolean);
           assert.strictEqual((yield* host.status).state, "starting");
           yield* TestClock.adjust("31 seconds");
           assert.strictEqual((yield* Fiber.join(second)).state, "error");

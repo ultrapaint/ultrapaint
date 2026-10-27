@@ -403,6 +403,24 @@ export class AgentSandbox extends Context.Service<
       })
     );
 
+  /** A machine without a sandbox, for a test: every agent runs as its configuration says. */
+  static readonly layerTest = Layer.succeed(
+    AgentSandbox,
+    AgentSandbox.of({
+      available: false,
+      problem: undefined,
+      session: ({ config }) =>
+        Effect.succeed({
+          confine: (launch: AgentLaunch) => launch,
+          launch: {
+            args: config.args,
+            command: config.command,
+            env: config.env,
+          },
+        }),
+    })
+  );
+
   /** For the machine the server resolved at startup. */
   static readonly layer = Layer.unwrap(
     Effect.gen(function* () {

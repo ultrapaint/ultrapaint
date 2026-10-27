@@ -1,4 +1,4 @@
-import { homedir, tmpdir } from "node:os";
+import { homedir } from "node:os";
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import { Effect, FileSystem, Layer, Path } from "effect";
@@ -16,28 +16,11 @@ const storeIn = (home: string) =>
     Layer.provide(AppLog.layer),
     Layer.provide(EventBus.layer),
     Layer.provide(
-      Layer.succeed(ServerConfig, {
-        allowedHosts: [],
-        briefing: true,
+      ServerConfig.layerTest({
         cwd: home,
-        discovery: false,
-        host: "127.0.0.1",
-        machine: {
-          addresses: () => [],
-          home: homedir(),
-          node: process.execPath,
-          path: process.env.PATH ?? "",
-          tmpdir: tmpdir(),
-          uid: process.getuid?.(),
-        },
-        mcp: false,
-        port: 0,
-        readyJson: false,
+        machine: { home: homedir() },
         storage: { home, mode: "managed" },
-        token: "test",
         userDir: home,
-        version: "test",
-        webDist: undefined,
       })
     )
   );

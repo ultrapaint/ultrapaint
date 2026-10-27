@@ -8,9 +8,9 @@ import {
   subscribed,
   TestEnv,
   TestServer,
-  until,
 } from "./testing/harness.ts";
 import { toolCaller } from "./testing/mcp.ts";
+import { waitFor } from "./testing/wait-for.ts";
 
 const SHA_RE = /^[0-9a-f]{40}$/;
 const HOME = "home.page.json";
@@ -238,7 +238,10 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
               }
               // The watcher has seen the edits' writes, which change no list.
               const { hash } = yield* client["documents.get"]({ doc: HOME });
-              yield* until(Effect.sync(() => seen.includes(hash)));
+              yield* waitFor(
+                Effect.sync(() => seen.includes(hash)),
+                Boolean
+              );
               yield* client["pages.create"]({
                 canvas: "",
                 name: "Listed twice",

@@ -4,12 +4,11 @@
  * server, and set to the options and mode the thread chose. Closing the scope, whoever does it,
  * ends the agent process, its terminals and any permission or question it still waits on.
  */
-import {
-  type AcpAgent,
-  type CreateElicitationResponse,
-  type McpServerConfig,
-  type RequestPermissionResponse,
-  spawnAcpAgent,
+import type {
+  AcpAgent,
+  CreateElicitationResponse,
+  McpServerConfig,
+  RequestPermissionResponse,
 } from "@ultrapaint/acp/acp-agent";
 import type { AcpError } from "@ultrapaint/acp/errors";
 import { makeTerminalManager } from "@ultrapaint/acp/terminal-manager";
@@ -26,15 +25,7 @@ import {
   type Question,
   withNamedChoices,
 } from "@ultrapaint/contracts/threads";
-import {
-  Deferred,
-  Effect,
-  Exit,
-  type Fiber,
-  FileSystem,
-  Path,
-  Scope,
-} from "effect";
+import { Deferred, Effect, Exit, type Fiber, Path, Scope } from "effect";
 import { ChildProcessSpawner } from "effect/process";
 import { AppLog } from "../../app-log.ts";
 import { connectHost, ServerConfig } from "../../config.ts";
@@ -47,6 +38,7 @@ import { MCP_PATH, MCP_TOKEN_HEADER } from "../mcp/route.ts";
 import type { RepoPaths } from "../repo-paths.ts";
 import type { AgentClient } from "./agent-client.ts";
 import { AgentConfigs } from "./agent-configs.ts";
+import { AgentLauncher } from "./agent-launcher.ts";
 import { AgentSandbox } from "./agent-sandbox.ts";
 import { ChatPreferences } from "./chat-preferences.ts";
 import { ThreadStore } from "./thread-store.ts";
@@ -123,6 +115,7 @@ export const makeLiveSessions = Effect.fnUntraced(function* (deps: {
   const store = yield* ThreadStore;
   const agents = yield* AgentConfigs;
   const sandbox = yield* AgentSandbox;
+  const launcher = yield* AgentLauncher;
   const access = yield* McpAccess;
   const { host, mcp: mcpEnabled } = yield* ServerConfig;
   const listen = yield* ListenPort;
@@ -130,7 +123,6 @@ export const makeLiveSessions = Effect.fnUntraced(function* (deps: {
   const project = yield* ProjectManager;
   const events = yield* EventBus;
   const log = yield* AppLog;
-  const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const live = new Map<string, Live>();
@@ -284,35 +276,40 @@ export const makeLiveSessions = Effect.fnUntraced(function* (deps: {
     opened.scope = scope;
     const holder: { session: Live | null } = { session: null };
     const boot = Effect.gen(function* () {
-      // The agent's only temporary directory, and it goes with the session.
-      const tmpDir = yield* Effect.orDie(
-        fs.makeTempDirectoryScoped({ prefix: "ultrapaint-agent-" })
-      );
       // A design thread writes its designs only; an implement thread, the repository (ADR 0030).
       const writable =
         thread.purpose === "implement" ? undefined : paths.designsDir;
-      const confined = yield* sandbox.session({
+      const agent = yield* launcher.launch({
         config,
+        handlers: (confine) =>
+          Effect.map(
+            makeTerminalManager({
+              // A command we run for the agent must not reach further than one it runs itself.
+              confine,
+              onOutput: (terminalId, chunk) =>
+                events.publish("agent.terminal", {
+                  chunk,
+                  terminalId,
+                  threadId,
+                }),
+            }).pipe(
+              Effect.provideService(
+                ChildProcessSpawner.ChildProcessSpawner,
+                spawner
+              )
+            ),
+            (terminals) =>
+              handlersFor(
+                threadId,
+                config.name,
+                paths,
+                terminals,
+                () => holder.session as Live,
+                writable
+              )
+          ),
         root: paths.root,
-        tmpDir,
         writable,
-      });
-      const terminals = yield* makeTerminalManager({
-        // A command we run for the agent must not reach further than one it runs itself.
-        confine: confined.confine,
-        onOutput: (terminalId, chunk) =>
-          events.publish("agent.terminal", { chunk, terminalId, threadId }),
-      });
-      const agent = yield* spawnAcpAgent(confined.launch, {
-        cwd: paths.root,
-        handlers: handlersFor(
-          threadId,
-          config.name,
-          paths,
-          terminals,
-          () => holder.session as Live,
-          writable
-        ),
       });
       const session: Live = {
         agent,
@@ -327,10 +324,7 @@ export const makeLiveSessions = Effect.fnUntraced(function* (deps: {
       };
       holder.session = session;
       return session;
-    }).pipe(
-      Scope.provide(scope),
-      Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner)
-    );
+    }).pipe(Scope.provide(scope));
     const session = yield* boot.pipe(
       Effect.mapError(agentFailure),
       Effect.onError(() => Scope.close(scope, Exit.void)),

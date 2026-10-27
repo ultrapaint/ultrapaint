@@ -1,7 +1,7 @@
 import { assert, layer } from "@effect/vitest";
-import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
 import { Effect, FileSystem, Path } from "effect";
-import { TestEnv, TestServer } from "./testing/harness.ts";
+import { TestEnv, TestServer, waitForThread } from "./testing/harness.ts";
+import { turnEnded } from "./testing/turns.ts";
 
 const FRONT_MATTER_RE = /^---\nextends: true\n---\n/;
 const EXTENDED_COLOUR_RE =
@@ -22,32 +22,6 @@ const SHIPPED = [
   "components",
   "accessibility",
 ];
-
-/** Polls the thread until `done` holds. */
-const waitForThread = (
-  threadId: string,
-  done: (thread: Thread, items: readonly ThreadItem[]) => boolean
-) =>
-  Effect.gen(function* () {
-    const { client } = yield* TestEnv;
-    const read = Effect.gen(function* () {
-      const thread = (yield* client["threads.list"]()).find(
-        (t) => t.id === threadId
-      );
-      const items = yield* client["threads.items"]({ threadId });
-      return { items, thread };
-    });
-    return yield* read.pipe(
-      Effect.tap(() => Effect.sleep("25 millis")),
-      Effect.repeat({
-        until: ({ items, thread }) => !!thread && done(thread, items),
-      }),
-      Effect.timeout("20 seconds")
-    );
-  });
-
-const turnEnded = (thread: Thread, items: readonly ThreadItem[]) =>
-  items.at(-1)?.kind === "turn_end" && thread.status === "idle";
 
 layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
   "design skills",

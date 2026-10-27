@@ -10,7 +10,7 @@ import {
   solid,
 } from "@ultrapaint/figma-import/testing/fixture";
 import { Effect, FileSystem, Path } from "effect";
-import { TestEnv, TestServer } from "./testing/harness.ts";
+import { TestEnv, TestServer, waitForThread } from "./testing/harness.ts";
 import { toolCaller } from "./testing/mcp.ts";
 
 /** A login frame using a Button component set with a Label property, and a picture. */
@@ -330,12 +330,12 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
             threadId: thread.id,
           });
           const settled = () =>
-            client["threads.items"]({ threadId: thread.id }).pipe(
-              Effect.tap(() => Effect.sleep("25 millis")),
-              Effect.repeat({
-                until: (all) => all.at(-1)?.kind === "turn_end",
-              }),
-              Effect.timeout("20 seconds")
+            Effect.map(
+              waitForThread(
+                thread.id,
+                (_, all) => all.at(-1)?.kind === "turn_end"
+              ),
+              (found) => found.items
             );
           const items = yield* settled();
           const said = items

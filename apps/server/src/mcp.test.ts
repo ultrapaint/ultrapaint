@@ -1,6 +1,11 @@
 import { assert, layer } from "@effect/vitest";
 import { Effect, Fiber, Stream } from "effect";
-import { subscribed, TestEnv, TestServer } from "./testing/harness.ts";
+import {
+  subscribed,
+  TestEnv,
+  TestServer,
+  waitForThread,
+} from "./testing/harness.ts";
 import { callMcp, initializeLegacy, toolCaller } from "./testing/mcp.ts";
 
 layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
@@ -95,12 +100,9 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         text: "mcp",
         threadId: thread.id,
       });
-      const items = yield* client["threads.items"]({
-        threadId: thread.id,
-      }).pipe(
-        Effect.tap(() => Effect.sleep("25 millis")),
-        Effect.repeat({ until: (all) => all.at(-1)?.kind === "turn_end" }),
-        Effect.timeout("20 seconds")
+      const items = yield* Effect.map(
+        waitForThread(thread.id, (_, all) => all.at(-1)?.kind === "turn_end"),
+        (found) => found.items
       );
       const said = items
         .map((i) => (i.kind === "agent" ? i.text : ""))
@@ -247,14 +249,12 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             text: "mcp",
             threadId: thread.id,
           });
-          const items = yield* client["threads.items"]({
-            threadId: thread.id,
-          }).pipe(
-            Effect.tap(() => Effect.sleep("25 millis")),
-            Effect.repeat({
-              until: (all) => all.at(-1)?.kind === "turn_end",
-            }),
-            Effect.timeout("20 seconds")
+          const items = yield* Effect.map(
+            waitForThread(
+              thread.id,
+              (_, all) => all.at(-1)?.kind === "turn_end"
+            ),
+            (found) => found.items
           );
           const said = items
             .map((i) => (i.kind === "agent" ? i.text : ""))
@@ -531,12 +531,9 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           text: "mcp",
           threadId: thread.id,
         });
-        const items = yield* client["threads.items"]({
-          threadId: thread.id,
-        }).pipe(
-          Effect.tap(() => Effect.sleep("25 millis")),
-          Effect.repeat({ until: (all) => all.at(-1)?.kind === "turn_end" }),
-          Effect.timeout("20 seconds")
+        const items = yield* Effect.map(
+          waitForThread(thread.id, (_, all) => all.at(-1)?.kind === "turn_end"),
+          (found) => found.items
         );
         const said = items
           .map((i) => (i.kind === "agent" ? i.text : ""))
@@ -570,12 +567,12 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             text: "mcp",
             threadId: thread.id,
           });
-          const items = yield* client["threads.items"]({
-            threadId: thread.id,
-          }).pipe(
-            Effect.tap(() => Effect.sleep("25 millis")),
-            Effect.repeat({ until: (all) => all.at(-1)?.kind === "turn_end" }),
-            Effect.timeout("20 seconds")
+          const items = yield* Effect.map(
+            waitForThread(
+              thread.id,
+              (_, all) => all.at(-1)?.kind === "turn_end"
+            ),
+            (found) => found.items
           );
           const said = items
             .map((i) => (i.kind === "agent" ? i.text : ""))

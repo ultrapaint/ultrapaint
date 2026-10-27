@@ -171,3 +171,23 @@ callers and its tests share.
    ids, names and dates, and each is removed once it is in; one that does not import stays and
    is logged, and is tried again at the next start. Also: two snapshots of the same files share
    their contents, and deleting one leaves the other whole.
+6. **Agent launcher** (`apps/server/src/services/threads/agent-launcher.ts`, the agent a test
+   plays in `packages/acp/src/scripted-agent.ts`). `AgentLauncher.launch` gives the `AcpAgent`
+   of a launch (the agent's configuration, its repository, the designs it may write, and the
+   handlers, made once its sandbox says how a command it asks for is confined) until the scope
+   closes; the live layer makes the temporary directory and the session's sandbox and spawns, as
+   live sessions and discovery each did, and both ask it now. `makeScriptedAgent` is an
+   `AcpAgent` in memory: an `AgentScript` for what it answers before a prompt (a start that
+   waits, `session/load` and its replay, signing in, the options and modes offered), each prompt
+   a `ScriptedTurn` the test plays (`update`, `say`, `think`, `requestPermission`, `elicit`,
+   `cancelled`, `end`, `fail`), and `exit`, `stopped` and the calls it received.
+   `testing/scripted-agents.ts` puts it behind the launcher; `testing/threads.ts` builds
+   `ThreadService` in-process on a fixture, with stand-ins for the project, the briefing and the
+   slash commands, and waits on the store's events (`threadWhen`). `ServerConfig.layerTest`
+   replaces the configurations the tests wrote out in full, and `AgentSandbox.layerTest` is a
+   machine without a sandbox. `thread-session.test.ts` has 32 tests on `TestClock` (the start
+   and the handshake, a turn, the queue, cancelling while booting and mid-turn, permissions,
+   questions, switching agents, an agent that exits, the project closing, discovery and its
+   timeout); `threads.test.ts` keeps 16 through the fake agent's process, the SDK and the
+   sandbox, and `thread-lifecycle.test.ts` went into the two. The tests' polls go through one
+   `waitFor` (`testing/wait-for.ts`), and the harness's `waitForThread` on it.
