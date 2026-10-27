@@ -4,6 +4,10 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  // The backend's address, which a stylesheet of another site is linked from.
+  define: {
+    __SANDBOX_BACKEND__: JSON.stringify(process.env.SANDBOX_HOST_API ?? ""),
+  },
   plugins: [
     react(),
     // StyleX as it develops: its rules injected at run time, into a `<style>` of the head.

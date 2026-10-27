@@ -378,7 +378,7 @@ Answered 2026-10-27.
 ### Built (second round)
 
 2026-10-27, one commit a step, each benched against the commit before it, alternately.
-`pnpm e2e:sandbox` checks 20 things now.
+`pnpm e2e:sandbox` checks 23 things now.
 
 CSS-in-JS (C1) and HMR leftovers (K1), which S7 left, were asked for after (steps 12 and 14). Also left: the line a stuck page was on in the desktop app
 (step 11).
@@ -493,3 +493,13 @@ CSS-in-JS (C1) and HMR leftovers (K1), which S7 left, were asked for after (step
       never came back. What still stops the editor in the browser: an endless chain of promises
       with no loop, and the browser's own code spinning (the freeze fixture's
       `Array.prototype.find`), which the watchdog answers on the next load.
+- [x] 16. A `<link rel="stylesheet">` the preview's code adds to the head is held as a `<style>`
+      is (step 12) and its rules mirrored once it has loaded; another site's, whose rules the page
+      may not read, is fetched (CORS) and written from its text, and left to the editor's head as
+      before when its site does not allow that. Relative URLs in either (a font, an image) are made
+      absolute against the stylesheet's address: the frames' sheet is not where it was. React
+      19's own `<link precedence>` already goes into the frame's shadow root and is not concerned.
+      The fixture links its own stylesheet (orange, an image beside it) and the e2e backend's
+      (another origin, purple): both drawn in the frame, nothing in the editor's head. The check
+      of a rejection's toast now writes toasts down as they show: the loops canvas holds the page
+      longer than a toast lasts since step 15.

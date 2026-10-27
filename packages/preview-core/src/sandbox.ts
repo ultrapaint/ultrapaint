@@ -511,7 +511,9 @@ const guardHead = () => {
       (node.tagName === "LINK" &&
         DOCUMENT_LINK_RE.test(node.getAttribute("rel") ?? ""))) &&
     fromPreview();
-  const heldStyle = (node: unknown): node is HTMLStyleElement =>
+  const heldStyle = (
+    node: unknown
+  ): node is HTMLLinkElement | HTMLStyleElement =>
     isStyle(node) && fromPreview();
   const appendChild = head.appendChild.bind(head);
   const insertBefore = head.insertBefore.bind(head);

@@ -83,6 +83,13 @@
       "width": 440,
       "x": 1440,
       "y": 720
+    },
+    "link.page.json": {
+      "height": 300,
+      "preset": "custom",
+      "width": 440,
+      "x": 480,
+      "y": 1080
     }
   },
   "name": "guards",
