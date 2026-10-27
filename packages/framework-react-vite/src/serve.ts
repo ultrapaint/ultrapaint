@@ -25,6 +25,7 @@ import {
   GUARD_MODULE,
   guardCode,
   MAY_GUARD_RE,
+  MAY_LOOP_RE,
 } from "./guard-code.ts";
 import {
   flattenPlugins,
@@ -305,12 +306,33 @@ const publicUrls = () => {
   };
 };
 
-/** Modules the guard is put in: the repository's own code, not its dependencies or ours. */
+/** Modules the guard is put in: JavaScript and what becomes it. */
 const SOURCE_RE = /\.(?:[cm]?[jt]sx?)$/;
+/** Dependencies: under `node_modules`, or prebundled into Vite's cache (in the generated directory). */
+const DEPENDENCY_RE = /\/node_modules\/|\/\.vite\/deps\//;
+/** Vite's own client and React's refresh runtime: the dev server's, not the application's. */
+const SERVER_CODE_RE =
+  /\/node_modules\/(?:vite|@vitejs)\/|\/@vite\/|@react-refresh/;
+
+const OURS = [options.dir, options.bundleDir].map((d) => posix(`${d}/`));
+
+/** What the guard does to module `id`: all of it to the repository's, its loops to a dependency's. */
+const guardedKind = (id: string): "dependency" | "source" | null => {
+  const file = posix(id.split("?")[0] ?? id);
+  if (id.startsWith("\0") || !SOURCE_RE.test(file) || SERVER_CODE_RE.test(id)) {
+    return null;
+  }
+  if (DEPENDENCY_RE.test(file)) {
+    return "dependency";
+  }
+  // The generated modules and our bundles are the editor's.
+  return OURS.some((d) => file.startsWith(d)) ? null : "source";
+};
 
 /**
- * The repository's loops checked and its `async` functions marking what they reject
- * (`guard-code.ts`): after every other plugin, on JavaScript.
+ * The repository's loops checked, its `async` functions marking what they reject and its modules
+ * saying where their top-level code runs; its dependencies' loops checked too (`guard-code.ts`):
+ * after every other plugin, on JavaScript.
  */
 const guardedCode = () => {
   let loops = 0;
@@ -318,7 +340,6 @@ const guardedCode = () => {
     loops += 1;
     return loops;
   };
-  const ours = [options.dir, options.bundleDir].map((d) => posix(`${d}/`));
   return {
     enforce: "post" as const,
     load(id: string) {
@@ -333,24 +354,26 @@ const guardedCode = () => {
       code: string,
       id: string
     ) {
-      const file = posix(id.split("?")[0] ?? id);
-      if (
-        id.startsWith("\0") ||
-        file.includes("/node_modules/") ||
-        !SOURCE_RE.test(file) ||
-        ours.some((d) => file.startsWith(d))
-      ) {
+      const kind = guardedKind(id);
+      if (kind === null) {
         return null;
       }
+      const dependency = kind === "dependency";
       let program: unknown = null;
-      if (MAY_GUARD_RE.test(code)) {
+      if ((dependency ? MAY_LOOP_RE : MAY_GUARD_RE).test(code)) {
         try {
           program = this.parse(code);
         } catch {
           // Not JavaScript Vite's parser reads: its loops are left as they are.
         }
       }
-      const next = guardCode(code, program, nextId);
+      // A dependency's loops are numbered 0: they never throw at once (`guard-code.ts`).
+      const next = guardCode(
+        code,
+        program,
+        dependency ? () => 0 : nextId,
+        dependency ? { markAsync: false, markModule: false } : {}
+      );
       return next === null ? null : { code: next, map: null };
     },
   };

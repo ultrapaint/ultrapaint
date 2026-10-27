@@ -34,6 +34,13 @@
       "width": 440,
       "x": 0,
       "y": 360
+    },
+    "loop-react.page.json": {
+      "height": 300,
+      "preset": "custom",
+      "width": 440,
+      "x": 480,
+      "y": 360
     }
   },
   "name": "loops",

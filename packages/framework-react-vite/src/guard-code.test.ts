@@ -100,5 +100,7 @@ describe("the guard module", () => {
     expect(performance.now() - start).toBeGreaterThan(2400);
     // Caught and run again in the same task, it throws at once.
     expect(() => loop(2)).toThrow("Stopped a loop");
+    // A dependency's loop does not: React runs its work loop again to draw the boundary.
+    expect(() => loop(0)).not.toThrow();
   });
 });

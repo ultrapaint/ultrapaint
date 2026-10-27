@@ -284,6 +284,19 @@ export function LoopProbe({ where = "click" }: { where?: string }) {
   );
 }
 
+/**
+ * A component that renders itself without end, each level taking 1 ms: React's own work loop
+ * never ends, a loop of a dependency's that the check in the repository's code never sees.
+ */
+export function RecursiveProbe({ depth = 0 }: { depth?: number }) {
+  busy(1);
+  return (
+    <div data-depth={depth}>
+      <RecursiveProbe depth={depth + 1} />
+    </div>
+  );
+}
+
 async function load(label: string) {
   await new Promise((resolve) => setTimeout(resolve, 50));
   throw new Error(`probe: rejected in ${label}`);
