@@ -84,12 +84,36 @@ const BASE_CSS = `
 ${SKELETON_CSS}
 `;
 
+/** Custom properties of the editor's own the frames keep: the camera's zoom above each host. */
+const KEPT_VARIABLE_RE = /^--(?:inv$|ed-)/;
+
+/**
+ * The editor's own custom properties, set back to nothing in every frame. They inherit through
+ * the host, which `all: initial` does not stop: a page whose stylesheets do not define `--primary`
+ * would draw with the editor's. In the frames' first layer, so whatever the page defines wins.
+ */
+const editorVariablesReset = (): string => {
+  const names = new Set<string>();
+  for (const el of [document.documentElement, document.body]) {
+    for (const name of Array.from(getComputedStyle(el))) {
+      if (name.startsWith("--") && !KEPT_VARIABLE_RE.test(name)) {
+        names.add(name);
+      }
+    }
+  }
+  if (names.size === 0) {
+    return "";
+  }
+  const reset = [...names].map((name) => `${name}: initial;`).join(" ");
+  return `@layer ed-frame {\n  :host { ${reset} }\n}\n`;
+};
+
 const sheet = (key: keyof typeof sheets): CSSStyleSheet => {
   let found = sheets[key];
   if (!found) {
     found = new CSSStyleSheet();
     if (key === "base") {
-      found.replaceSync(BASE_CSS);
+      found.replaceSync(`${BASE_CSS}\n${editorVariablesReset()}`);
     }
     sheets[key] = found;
   }
