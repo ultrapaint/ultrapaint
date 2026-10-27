@@ -67,8 +67,14 @@ Measured on the Redesign canvas (10 frames, 4,287 layers) on the same machine:
 
 - No iframe is left in the editor: the canvas, the prototype, the type samples, a component's
   matrix and every picture are frames of its page.
-- The application's code shares the editor's main thread. A document-level hotkey in it hears the
-  editor's keys; an infinite loop freezes the editor; hooks on `window` see the editor's window.
+- The application's code shares the editor's main thread and window. Guards where the two meet
+  (`docs/PLAN-preview-sandbox.md`, 2026-10-27) keep its listeners to its own frame's input, its
+  `scroll` and `resize` to its frame, the editor's address, title and head the editor's, and show
+  what it throws on its frame; a page whose code stops the editor is drawn as a placeholder the
+  next time. A loop still stops the editor while it runs: nothing on one thread can preempt it.
+- One copy of the application's modules serves every frame: a store made at module level (a
+  cart, a query client) is the same in every frame and in the prototype. Accepted: it is what
+  makes the frames cheap; only a frame of its own realm (an iframe) would keep them apart.
 - With 50 frames on screen a zoom keeps 60 fps but the editor busy (73%), mostly the frames'
   chrome; low-zoom pictures were not built, a picture of a page costing 0.6 to 2 s of the
   editor's thread.
