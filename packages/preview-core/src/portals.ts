@@ -39,6 +39,31 @@ export const calledFromPreview = (patches: readonly string[] = []) => {
 
 const fromPreview = () => calledFromPreview();
 
+/**
+ * Whether the code that called `patched` is the preview's own: its immediate caller, not the
+ * first outside the patches. The editor's bundle in the preview (this module's file) calling is
+ * the editor's: what it asks for is the editor's business, whoever called it.
+ */
+export const calledDirectlyFromPreview = (
+  patched: (...args: never[]) => unknown
+) => {
+  const v8 = Error as {
+    captureStackTrace?: (target: object, above: unknown) => void;
+    stackTraceLimit?: number;
+  };
+  if (base === "" || !v8.captureStackTrace) {
+    return false;
+  }
+  // One frame is all it reads: capturing the editor's deep stacks whole cost 25 µs a call.
+  const limit = v8.stackTraceLimit;
+  v8.stackTraceLimit = 1;
+  const holder: { stack?: string } = {};
+  v8.captureStackTrace(holder, patched);
+  v8.stackTraceLimit = limit;
+  const caller = holder.stack?.split("\n")[1] ?? "";
+  return caller.includes(base) && !caller.includes(OWN);
+};
+
 /** A stack's first frame (`at f (url:1:2)`, or `f@url:1:2`): where an error was thrown. */
 const FRAME_RE = /(?:\bat\s.*?\(?|@)((?:https?:|\/)[^\s)]+?):(\d+):\d+\)?\s*$/m;
 
