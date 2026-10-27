@@ -18,6 +18,7 @@
  * - the editor's CSS variables do not reach a frame;
  * - what nothing caught (a timer, a click in the prototype) is shown on its frame;
  * - a loop that never ends, in a render or a click, is stopped and shown on its frame;
+ * - what a module's own top-level code added to the window goes when the module is edited;
  * - a rejection is shown on the frame whose code made it, or on none when nothing says which;
  *   what is shown names the line of the source, not of the module as the server sent it;
  * - reloading the editor asks nothing, whatever the page's "unsaved changes" guard says;
@@ -28,7 +29,7 @@
  */
 import { type ChildProcess, spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer as createHttpServer, type Server } from "node:http";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
@@ -562,6 +563,64 @@ const probeLine = (after: string, text: string) => {
   return lines.findIndex((l, i) => i > from && l.includes(text)) + 1;
 };
 
+/** A module whose top-level code listens and ticks, edited twice while the page shows it. */
+const leftovers = async (page: Page, url: string) => {
+  const file = path.join(
+    ROOT,
+    "fixtures/sandbox-host/src/components/leftovers.tsx"
+  );
+  const source = await readFile(file, "utf8");
+  const shown = () =>
+    page.evaluate(
+      () =>
+        document
+          .querySelector('[data-ed-frame-host="hmr/leftovers.page.json"]')
+          ?.shadowRoot?.querySelector('[data-probe="leftovers"]')?.textContent
+    );
+  try {
+    await open(page, url, "hmr");
+    for (const version of [2, 3]) {
+      // biome-ignore lint/performance/noAwaitInLoops: one edit after the other, as a person makes them.
+      await writeFile(
+        file,
+        source.replace("VERSION = 1", `VERSION = ${version}`)
+      );
+      const end = Date.now() + 20_000;
+      // biome-ignore lint/performance/noAwaitInLoops: polling, one look at a time.
+      while ((await shown()) !== `leftovers v${version}` && Date.now() < end) {
+        await sleep(200);
+      }
+    }
+    await check(
+      "what a module's own code added goes when the module is edited",
+      async () => {
+        const version = await shown();
+        const counted = await page.evaluate(async () => {
+          const counts = (
+            window as unknown as {
+              __leftovers: { heard: number; ticks: number };
+            }
+          ).__leftovers;
+          counts.heard = 0;
+          counts.ticks = 0;
+          window.postMessage("leftover-probe", "*");
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          return { heard: counts.heard, ticks: counts.ticks };
+        });
+        // One listener and one 100 ms interval left: three of each without.
+        return (
+          (version === "leftovers v3" &&
+            counted.heard === 1 &&
+            counted.ticks <= 14) ||
+          `${version}: ${JSON.stringify(counted)}`
+        );
+      }
+    );
+  } finally {
+    await writeFile(file, source);
+  }
+};
+
 const loops = async (page: Page, url: string) => {
   const errors = () =>
     page.evaluate(
@@ -768,6 +827,7 @@ const main = async () => {
     const page = context.pages()[0] ?? (await context.newPage());
     await guards(page, editor.url);
     await loops(page, editor.url);
+    await leftovers(page, editor.url);
     await animations(page, editor.url);
     await context.close();
     await freeze(editor.url);

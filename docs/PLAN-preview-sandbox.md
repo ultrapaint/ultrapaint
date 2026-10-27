@@ -380,8 +380,7 @@ Answered 2026-10-27.
 2026-10-27, one commit a step, each benched against the commit before it, alternately.
 `pnpm e2e:sandbox` checks 20 things now.
 
-Left, as S7 decided: HMR leftovers (K1) wait for a repository that needs them; CSS-in-JS (C1)
-was asked for after (step 12). Also left: the line a stuck page was on in the desktop app
+CSS-in-JS (C1) and HMR leftovers (K1), which S7 left, were asked for after (steps 12 and 14). Also left: the line a stuck page was on in the desktop app
 (step 11).
 
 - [x] 7. L1 and R1: `framework-react-vite/guard-code.ts`, a plugin of the preview's server after
@@ -474,3 +473,12 @@ was asked for after (step 12). Also left: the line a stuck page was on in the de
       (no `flushSync`), so no request of the page's had the editor below it yet; a fixture probe
       fetching in its render passed under both rules and was not kept. Unit-tested.
 
+- [x] 14. K1: `preview-core/hmr-leftovers.ts`. The preview's server marks where each of the
+      repository's modules starts and ends its top-level code (the guard transform, now on every
+      module of the repository, parsing only those with a loop or `async`). A listener added to
+      `window` or `document` and an interval started while it runs are that version of the
+      module's; when Vite runs a newer one (`?t=`), the older versions' are taken off first.
+      What effects add is React's to take back and is left alone, as is what a dependency sets
+      up lazily for everyone. The fixture's module that listens and ticks at its top level, edited
+      twice: one listener and one interval left (heard once, 10 ticks a second); without, three
+      of each (3, 30).

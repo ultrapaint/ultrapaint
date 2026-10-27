@@ -338,17 +338,17 @@ const guardedCode = () => {
         id.startsWith("\0") ||
         file.includes("/node_modules/") ||
         !SOURCE_RE.test(file) ||
-        ours.some((d) => file.startsWith(d)) ||
-        !MAY_GUARD_RE.test(code)
+        ours.some((d) => file.startsWith(d))
       ) {
         return null;
       }
-      let program: unknown;
-      try {
-        program = this.parse(code);
-      } catch {
-        // Not JavaScript Vite's parser reads: left as it is, unguarded.
-        return null;
+      let program: unknown = null;
+      if (MAY_GUARD_RE.test(code)) {
+        try {
+          program = this.parse(code);
+        } catch {
+          // Not JavaScript Vite's parser reads: its loops are left as they are.
+        }
       }
       const next = guardCode(code, program, nextId);
       return next === null ? null : { code: next, map: null };
