@@ -1,4 +1,4 @@
 {
-  "order": ["guards", "raf", "calm", "freeze"],
+  "order": ["guards", "loops", "raf", "calm", "freeze"],
   "version": 1
 }

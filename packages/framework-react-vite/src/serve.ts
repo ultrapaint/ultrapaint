@@ -21,6 +21,12 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { ASSET_PATH, resolveAsset } from "./asset-route.ts";
 import {
+  GUARD_ID,
+  GUARD_MODULE,
+  guardCode,
+  MAY_GUARD_RE,
+} from "./guard-code.ts";
+import {
   flattenPlugins,
   has,
   REACT_PLUGIN_RE,
@@ -295,6 +301,57 @@ const publicUrls = () => {
   };
 };
 
+/** Modules the guard is put in: the repository's own code, not its dependencies or ours. */
+const SOURCE_RE = /\.(?:[cm]?[jt]sx?)$/;
+
+/**
+ * The repository's loops checked and its `async` functions marking what they reject
+ * (`guard-code.ts`): after every other plugin, on JavaScript.
+ */
+const guardedCode = () => {
+  let loops = 0;
+  const nextId = () => {
+    loops += 1;
+    return loops;
+  };
+  const ours = [options.dir, options.bundleDir].map((d) => posix(`${d}/`));
+  return {
+    enforce: "post" as const,
+    load(id: string) {
+      return id === `\0${GUARD_ID}` ? GUARD_MODULE : null;
+    },
+    name: "ultrapaint:guard",
+    resolveId(id: string) {
+      return id === GUARD_ID ? `\0${GUARD_ID}` : null;
+    },
+    transform(
+      this: { parse: (code: string) => unknown },
+      code: string,
+      id: string
+    ) {
+      const file = posix(id.split("?")[0] ?? id);
+      if (
+        id.startsWith("\0") ||
+        file.includes("/node_modules/") ||
+        !SOURCE_RE.test(file) ||
+        ours.some((d) => file.startsWith(d)) ||
+        !MAY_GUARD_RE.test(code)
+      ) {
+        return null;
+      }
+      let program: unknown;
+      try {
+        program = this.parse(code);
+      } catch {
+        // Not JavaScript Vite's parser reads: left as it is, unguarded.
+        return null;
+      }
+      const next = guardCode(code, program, nextId);
+      return next === null ? null : { code: next, map: null };
+    },
+  };
+};
+
 const MIME: Record<string, string> = {
   ".avif": "image/avif",
   ".gif": "image/gif",
@@ -376,6 +433,7 @@ const server = await vite.createServer(
       serveAsset,
       patchedClient,
       publicUrls(),
+      guardedCode(),
       ...(sparing(
         await flattenPlugins(extra),
         spared

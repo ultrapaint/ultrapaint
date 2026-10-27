@@ -14,7 +14,9 @@
  * - what goes into the head for the page's document (its `<title>`, its `<meta>`, its icons) and
  *   `document.title` are kept off the editor's;
  * - what the preview's code throws and nothing catches (in a handler, a timer, a promise) is told
- *   to its frame, which the editor shows, instead of going by in the editor's console only;
+ *   to its frame, which the editor shows, instead of going by in the editor's console only; a
+ *   rejection is its frame's by the mark its `async` function put on it (the guard the preview's
+ *   server puts in the repository's code), and the editor's alone when nothing says whose;
  * - an animation frame it asks for is its frame's, and waits while that frame is parked or off
  *   the screen: a loop on a page nobody sees costs the editor nothing; a timer it sets runs as
  *   its frame's, so what the timer throws or listens to is that frame's too.
@@ -131,6 +133,9 @@ let telling: GuardedFrame | null = null;
 /** The frame whose callback the guards are calling: its page's code runs, no stack to read. */
 let carrying: GuardedFrame | null = null;
 let installed = false;
+/** What the repository's `async` functions rejected with, by the frame they were called for. */
+const marks = new WeakMap<object, GuardedFrame>();
+const strayListeners = new Set<(error: FrameError) => void>();
 let fromPreview = () => calledFromPreview([OWN]);
 let directlyFromPreview = calledDirectlyFromPreview;
 let thrownIn = thrownInPreview;
@@ -510,30 +515,74 @@ const guardHead = () => {
 };
 
 /**
- * What nothing caught: told to the frame that was drawing or took input when it was thrown in the
- * preview's own modules. A click's handler is the clicked frame's; a timer's, the frame's that
- * last drew. The console still has it.
+ * What nothing caught, thrown in the preview's own modules: told to the frame it was thrown for.
+ * A click's handler and a timer run as their frame's; a rejection is its frame's by the mark its
+ * `async` function put on it, or, with one frame drawn, that frame's. A rejection nothing says
+ * the frame of is not given to the frame that happens to be running when it surfaces: it is told
+ * to the editor alone (`onStrayError`). The console still has it.
  */
 const reportUncaught = () => {
-  const report = (error: unknown, fallback: string) => {
+  const told = (error: unknown, fallback: string): FrameError | null => {
     const stack = error instanceof Error ? error.stack : undefined;
     const where = thrownIn(stack);
-    if (!(where && current)) {
+    return where
+      ? {
+          file: where.file,
+          line: where.line,
+          message: error instanceof Error ? error.message : fallback,
+          stack,
+        }
+      : null;
+  };
+  window.addEventListener("error", (event) => {
+    const error = told(event.error, event.message);
+    if (error && current) {
+      current.error(error);
+    }
+  });
+  window.addEventListener("unhandledrejection", (event) => {
+    const { reason } = event;
+    const error = told(reason, String(reason));
+    if (!error) {
       return;
     }
-    current.error({
-      file: where.file,
-      line: where.line,
-      message: error instanceof Error ? error.message : fallback,
-      stack,
-    });
+    const marked =
+      typeof reason === "object" && reason !== null
+        ? marks.get(reason)
+        : undefined;
+    const frame =
+      marked ?? (frames.size === 1 ? [...frames.values()][0] : undefined);
+    if (frame) {
+      frame.error(error);
+      return;
+    }
+    for (const listener of strayListeners) {
+      listener(error);
+    }
+  });
+};
+
+/** Hears what the preview's code threw that no frame can be told of. */
+export const onStrayError = (listener: (error: FrameError) => void) => {
+  strayListeners.add(listener);
+  return () => {
+    strayListeners.delete(listener);
   };
-  window.addEventListener("error", (event) =>
-    report(event.error, event.message)
-  );
-  window.addEventListener("unhandledrejection", (event) =>
-    report(event.reason, String(event.reason))
-  );
+};
+
+/**
+ * What the guard in the repository's code asks (`virtual:ultrapaint/guard`): the frame an
+ * `async` function is called for, and the mark on what it rejects with.
+ */
+const answerGuard = () => {
+  (globalThis as { __ultrapaintGuard?: unknown }).__ultrapaintGuard = {
+    frame: () => carrying ?? current,
+    mark: (error: object, frame: GuardedFrame) => {
+      if (!marks.has(error)) {
+        marks.set(error, frame);
+      }
+    },
+  };
 };
 
 // ---- Animation frames and timers ----
@@ -658,6 +707,7 @@ export const installGuards = (test?: {
   }
   installed = true;
   reportUncaught();
+  answerGuard();
   guardListeners(window);
   guardListeners(document);
   guardHandlers();
