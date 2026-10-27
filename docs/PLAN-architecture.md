@@ -22,7 +22,8 @@ callers and its tests share.
   is reversed (step 16), and ADR 0019's snapshots change their storage, not what they are
   (step 5).
 - Named snapshots kept in the old format are imported into the snapshot store the first time
-  the snapshots are listed, then the old files are removed (step 5).
+  the snapshots are read (when the service starts, before anything lists them), then the old
+  files are removed (step 5).
 - The page runtime contract (step 11) declares the globals' names and shapes once and both sides
   import them. Reaching the guards through an import instead of a global is left out: the
   dependency-only loop check must stay standalone, and nothing measured asks for it.
@@ -154,3 +155,19 @@ callers and its tests share.
    one back on export; a token the design system took out that the code still has as agreed
    waits for the code (an export takes it out) rather than asking; the code's values are taken
    in the design system's units, as Figma's and DESIGN.md's were.
+5. **Named snapshots on the snapshot store** (`apps/server/src/services/snapshots.ts` on
+   `snapshot-store.ts`). A named snapshot is a ref of the `designs` namespace named by its id,
+   whose note is its name, date, file count and repository; its files are the store's, kept
+   once by their contents. `create` is `recordContents`, `delete` is `release` and `collect`,
+   `diff` and `restore` go through `changedFrom` (the files that differ between a snapshot and
+   files given) and read only what changed; `restore` still writes through the undo journal,
+   as one step, so it does not use the store's own `restore`, which writes past it. `Snapshots`
+   keeps the designs' view: `view`'s pages, canvases, layouts and documents, the comments it
+   leaves out, the repository it was taken in. The store gains `recordContents` (files given
+   by their contents, optionally under a name of the namespace's own with a note),
+   `named` (a namespace's named refs) and `changedFrom`; `release` takes a ref's name, and
+   `collect` reads what a named ref keeps, removing nothing when a ref does not read. The old
+   format's files under `<state>/snapshots` are imported when the service starts, with their
+   ids, names and dates, and each is removed once it is in; one that does not import stays and
+   is logged, and is tried again at the next start. Also: two snapshots of the same files share
+   their contents, and deleting one leaves the other whole.

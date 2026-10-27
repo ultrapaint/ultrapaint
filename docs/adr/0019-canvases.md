@@ -5,6 +5,11 @@ tools take `canvas`) and 0015 (assets are shared).
 
 > Amended by [0030](0030-the-implementation-link.md), 2026-10-25: a canvas also lists `states`,
 > a page drawn again in a state of the same screen, which a link can open.
+>
+> Amended 2026-10-27 by [PLAN-architecture](../PLAN-architecture.md) step 5: named snapshots are
+> kept in the tool's snapshot store (0031), under its `designs` namespace, rather than one JSON
+> file each under `<state>/snapshots`. Only the format changes: what a snapshot is, keeps and
+> does is as below. Snapshots in the old format are imported when the server starts.
 
 ## Context
 
@@ -87,7 +92,8 @@ Only the preview's dev server can tell which file exists, so the preview asks it
 (`/@ultrapaint/asset?canvas=&src=`), and the server redirects to the file.
 
 **Snapshots are named points in history, not copies.** A snapshot keeps the text of every design
-file, as a checkpoint does (0008), under a name, in the state directory, until it is deleted:
+file, as a checkpoint does (0008), under a name, in the state directory (in the tool's snapshot
+store since 2026-10-27, as amended), until it is deleted:
 "the version shown to the client". The Changes panel saves one, keeps an agent turn's checkpoint
 as one, and lists them. A snapshot can be:
 

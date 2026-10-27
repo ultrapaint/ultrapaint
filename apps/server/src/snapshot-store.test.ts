@@ -206,4 +206,69 @@ describe("SnapshotStore", () => {
         })
       )
   );
+
+  it.effect(
+    "keeps given contents under names of a namespace's own, let go of apart",
+    () =>
+      withStore(({ stateDir }) =>
+        Effect.gen(function* () {
+          const path = yield* Path.Path;
+          const store = yield* SnapshotStore;
+          const files = {
+            "designs/a.txt": "a",
+            "designs/home.page.json": "{}",
+          };
+          const one = yield* store.recordContents("named", files, {
+            name: "sn_one",
+            note: "first",
+          });
+          const two = yield* store.recordContents("named", files, {
+            name: "sn_two",
+            note: "second",
+          });
+          assert.strictEqual(two, one);
+          // An unnamed ref of the same namespace is not one of its names.
+          yield* store.recordContents("named", { "b.txt": "b" });
+          assert.deepStrictEqual(
+            [...(yield* store.named("named"))].sort((a, b) =>
+              a.name.localeCompare(b.name)
+            ),
+            [
+              { id: one, name: "sn_one", note: "first" },
+              { id: one, name: "sn_two", note: "second" },
+            ]
+          );
+          assert.deepStrictEqual(
+            yield* store.changedFrom(one, {
+              "designs/a.txt": "a changed",
+              "designs/new.txt": new TextEncoder().encode("new"),
+            }),
+            [
+              { path: "designs/a.txt", status: "M" },
+              { path: "designs/home.page.json", status: "D" },
+              { path: "designs/new.txt", status: "A" },
+            ]
+          );
+          const refused = yield* Effect.flip(
+            store.recordContents("named", files, { name: "../out", note: "" })
+          );
+          assert.strictEqual(refused._tag, "SnapshotStoreFailed");
+
+          yield* store.release("named", ["sn_one"]);
+          yield* store.collect;
+          const kept = yield* store.read(one);
+          assert.lengthOf(Object.keys(kept.files), 2);
+          yield* store.release("named", ["sn_two"]);
+          yield* store.collect;
+          assert.strictEqual(
+            (yield* Effect.flip(store.read(one)))._tag,
+            "SnapshotMissing"
+          );
+          assert.lengthOf(
+            yield* filesUnder(path.join(stateDir, "store/objects")),
+            1
+          );
+        })
+      )
+  );
 });

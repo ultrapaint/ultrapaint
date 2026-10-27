@@ -268,7 +268,7 @@ layer(Unsaved, { excludeTestServices: true, timeout: "60 seconds" })(
           );
           assert.isTrue(
             yield* fs.exists(
-              path.join(state, "snapshots", `${snapshot.id}.json`)
+              path.join(state, "store", "refs", "designs", snapshot.id)
             )
           );
           assert.strictEqual(
