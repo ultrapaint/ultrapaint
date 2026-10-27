@@ -1,8 +1,8 @@
 # Plan: guards around the preview in the editor's page
 
-Status: proposed, 2026-10-26. Follows [ADR 0034](adr/0034-frames-in-the-editors-page.md) and
-`docs/PLAN-editor-renderer.md`, whose "Pitfalls" it answers. Nothing is built yet: the open
-questions at the end come first.
+Status: accepted, 2026-10-27; being built step by step. Follows
+[ADR 0034](adr/0034-frames-in-the-editors-page.md) and `docs/PLAN-editor-renderer.md`, whose
+"Pitfalls" it answers. The answers to its questions are under "Decisions".
 
 ## Why
 
@@ -44,7 +44,7 @@ at the Mobile device. `pnpm bench:canvas` ran on the Redesign canvas.
 | 1 | **Keys, editor → app.** A `keydown` listener on `document` or `window` hears every key typed in the editor: its shortcuts, its text fields, its chat. The app's `preventDefault` does not stop the editor (it never looks), so both act: the probe's Ctrl+Z ran the app's own undo beside the editor's | yes | no: neither repository listens on the document | high: command palettes, `useHotkeys`, `/` to search |
 | 2 | **Keys, app → editor.** Keys typed in a frame (prototype, interact) reaching the editor's shortcuts | already answered by `fromFrame` and `isTyping` | — | — |
 | 3 | **Focus.** In the prototype or interact mode, the app moves focus when it pleases: the probe's `/` hotkey, heard from the editor (1), pulled focus out of the editor into the frame. While designing, `inert` refuses it (autofocus and `focus()` did nothing) | yes | no | medium, mostly through 1 |
-| 4 | **`window` size, `matchMedia`, scroll.** Hooks read the editor's window: a 390 px frame read `innerWidth` 1600 and `(max-width: 640px)` false. sacro-cuore's header listens to `window` scroll: scrolling its page 600 px in the prototype left it flat | yes | **yes**, sacro-cuore's header in the prototype | high: shadcn's `useIsMobile`, sticky headers, scroll spies |
+| 4 | **`window` size, `matchMedia`, scroll.** Hooks read the editor's window: a 390 px frame read `innerWidth` 1600 and `(max-width: 640px)` false. sacro-cuore's header listens to `window` scroll: scrolling its page 600 px in the prototype left it flat. Since this was measured, ADR 0036 answers `matchMedia`, `innerWidth` and `innerHeight` for the frame that asks (`preview-core/media.ts`); scroll is left | yes | **yes**, sacro-cuore's header in the prototype | high: shadcn's `useIsMobile`, sticky headers, scroll spies |
 | 5 | **`location` and `history`.** The app reads the editor's URL (`/?canvas=…&route=…`), and writes it: the probe's `replaceState` on mount added `&tab=overview` to the editor's address bar. A `popstate` from the editor's own navigation reaches the app's routers | yes | no: sacro-cuore's links work without a router on the canvas | high: React Router's `BrowserRouter`, TanStack Router, `nuqs`, any filter synced to the URL |
 | 6 | **`document.head` and the title.** CSS-in-JS rules go to the editor's head: a component's class rule never reaches its frame (the probe's box stayed unstyled) and a global rule hits the editor (`body { outline }` drew on the editor). React 19 hoists `<title>` and `<meta>` into the editor's head; `document.title` renamed the editor's tab | yes | no: both repositories are Tailwind | high for emotion, styled-components, MUI, Chakra; medium for `<title>` |
 | 7 | **`<html>` and `<body>` themselves.** A theme provider's class and `color-scheme` land on the editor's `<html>`; a scroll lock's `overflow: hidden` and padding on the editor's body. sacro-cuore's Base UI sheet, opened in the prototype, marked the editor's panels `aria-hidden` and `data-base-ui-inert` while it was open (it put them back on closing; the editor stayed usable) | yes | mild: sacro-cuore's sheet | medium: next-themes, Radix and Base UI modals |
@@ -86,8 +86,8 @@ of proxies, as `@rollup/plugin-inject` does; React, ReactDOM and our bundles lef
 - Cost: high. A scope-aware rewrite on every module and in dependency optimisation, a long tail
   of semantics, and transform time on every start.
 - Performance: transform time at start; 2× on every proxied read.
-- Verdict: not now. Revisit only if repositories need per-frame `innerWidth` and `matchMedia` on
-  the design canvas.
+- Verdict: not now. Per-frame `innerWidth` and `matchMedia` came another way, by the caller's
+  stack and the frame drawing (`media.ts`, ADR 0036).
 
 ### B. ShadowRealm, Workers, worker-DOM
 
@@ -168,9 +168,11 @@ Performance: nothing on the canvas's draw, pan and zoom paths.
 ### F. Animations in parked frames (10)
 
 Wrap `requestAnimationFrame` for preview callers (one stack test per call: about 0.6 ms a second
-for ten 60 fps loops) and hold their callbacks while no frame is interactive, or run them at a low
-rate while designing. Cost: low to medium; it changes how the canvas looks (animations frozen or
-slow), which is a product choice. Not biting today (1% idle on Redesign).
+for ten 60 fps loops) and hold the callbacks of a frame that is parked or off the screen until it
+is shown again; frames on the screen animate as they do. A loop is the frame's that was drawing
+when it asked (the frame `media.ts` already knows), and a callback asked for from inside one of
+its own callbacks stays that frame's. Cost: low to medium. Not biting today (1% idle on Redesign),
+but chosen: a parked frame costs nothing.
 
 ### G. CSS crossing the boundary (18)
 
@@ -220,11 +222,11 @@ title, unsaved-changes prompts, a frozen page reopening forever):
 | 2 | Errors: `error` and `unhandledrejection` attributed by stack to the frame, root error callbacks, React's decoder link | 11 | low | none |
 | 3 | Editor variables reset at `:host` | 18 | very low | none expected; bench |
 | 4 | Watchdog Worker and the page that froze drawn as a placeholder; the desktop app's `unresponsive` | 9 | low | a message every 250 ms |
-| 5 | The fixture host as a test: Playwright against `pnpm dev`, one assertion per probe | regression | low | — |
+| 5 | Animation frames held while their frame is parked or off the screen | 10 | low | one stack test per animation frame asked for |
+| 6 | The fixture host in this repository as an end-to-end test: Playwright against `pnpm dev`, one assertion per probe | regression | low | — |
 
 Next, only when a repository needs them: CSS-in-JS mirroring (6, styles), `<html>`/`<body>` writes
-(7), HMR leftovers (12), storage and `fetch` (14, 15), parked animations (F), first-draw slicing
-(E, measured first), per-frame `matchMedia` on the canvas (A).
+(7), HMR leftovers (12), storage and `fetch` (14, 15), first-draw slicing (E, measured first).
 
 Each step is gated on `pnpm bench:canvas` against this baseline, taken on 2026-10-26 before any
 change (Redesign, 10 frames, 4,287 layers):
@@ -241,16 +243,15 @@ Zoom is busier than the ADR measured, before any of this plan; the cause is not 
 shell's cards landed since, and one run is noisy). Today's numbers are the ones to compare
 against, not the ADR's.
 
-## Open questions
+## Decisions
 
-1. Is the recommended set the right scope, or should CSS-in-JS mirroring and `<html>`/`<body>`
-   writes come in now rather than when a repository needs them?
-2. A page that froze the editor: drawn as a placeholder with "Draw anyway" on the next load, and
-   in the desktop app an offer to reload when the window stops responding. Agreed?
-3. Shared module state between frames (a cart in one frame is the cart in all): accepted as how
-   the canvas works now, written into the ADR?
-4. The iframe escape hatch stays unbuilt, a documented last resort?
-5. JavaScript animations while designing (F): leave them running, or slow or hold them when no
-   frame is interactive?
-6. The fixture host: committed as an end-to-end test fixture in this repository (with its own
-   small `package.json`), or kept in `~/Code/ultrapaint-lab`?
+Answered 2026-10-27.
+
+| # | Question | Answer |
+|---|---|---|
+| S1 | Scope of the first round | The recommended set, steps 1 to 6. CSS-in-JS mirroring and `<html>`/`<body>` writes wait for a repository that needs them |
+| S2 | A page that froze the editor | Drawn as a placeholder with "Draw anyway" on the next load; the desktop app offers to reload a window that stopped responding |
+| S3 | One copy of the app for every frame | Accepted, written into ADR 0034 as how the canvas works |
+| S4 | The iframe escape hatch | Not built; the documented last resort |
+| S5 | JavaScript animations | Held while their frame is parked or off the screen (step 5) |
+| S6 | The fixture host | In this repository, as an end-to-end test against `pnpm dev` (step 6) |
