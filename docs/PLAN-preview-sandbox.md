@@ -1,6 +1,7 @@
 # Plan: guards around the preview in the editor's page
 
-Status: first round accepted and built, 2026-10-27 (steps 1 to 6, below under "Built"); second round proposed and answered, not built (at the end). Follows
+Status: built, 2026-10-27: the first round (steps 1 to 6, under "Built") and the second (steps 7 to
+11, at the end, the desktop app's step without the line it was stuck on). Follows
 [ADR 0034](adr/0034-frames-in-the-editors-page.md) and `docs/PLAN-editor-renderer.md`, whose
 "Pitfalls" it answers. The answers to its questions are under "Decisions".
 
@@ -308,7 +309,7 @@ Answered 2026-10-27.
 | S5 | JavaScript animations | Held while their frame is parked or off the screen (step 5) |
 | S6 | The fixture host | In this repository, as an end-to-end test against `pnpm dev` (step 6) |
 
-## Second round: what the first left (proposed)
+## Second round: what the first left
 
 Investigated 2026-10-27, after steps 1 to 6. What is left, per collision of the inventory, with
 what was measured for it. The experiments ran in headless Chrome against small pages, not the
@@ -377,6 +378,11 @@ Answered 2026-10-27.
 ### Built (second round)
 
 2026-10-27, one commit a step, each benched against the commit before it, alternately.
+`pnpm e2e:sandbox` checks 19 things now.
+
+Left, as S7 decided: CSS-in-JS (C1) and HMR leftovers (K1) wait for a repository that needs
+them. Also left: a relative URL the editor's own code is lower on the stack of (step 8); the line
+a stuck page was on in the desktop app (step 11).
 
 - [x] 7. L1 and R1: `framework-react-vite/guard-code.ts`, a plugin of the preview's server after
       every other, on the repository's modules with a loop or `async` in them (`this.parse`, so

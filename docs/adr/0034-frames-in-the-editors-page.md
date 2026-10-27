@@ -70,8 +70,13 @@ Measured on the Redesign canvas (10 frames, 4,287 layers) on the same machine:
 - The application's code shares the editor's main thread and window. Guards where the two meet
   (`docs/PLAN-preview-sandbox.md`, 2026-10-27) keep its listeners to its own frame's input, its
   `scroll` and `resize` to its frame, the editor's address, title and head the editor's, and show
-  what it throws on its frame; a page whose code stops the editor is drawn as a placeholder the
-  next time. A loop still stops the editor while it runs: nothing on one thread can preempt it.
+  what it throws on its frame (rejections by the frame their `async` function was called for),
+  send its requests to the editor's origin to the preview's server and its proxy, give it storage
+  of its own in memory, and put what it writes to `<html>` and `<body>` on its frame. A loop in
+  the repository's own code throws after holding the editor 2.5 s (the preview's server checks
+  every loop); a loop it cannot see (a dependency's) still stops the editor while it runs, the
+  desktop app ending the page's process after 4 s, and the page is drawn as a placeholder the
+  next time.
 - One copy of the application's modules serves every frame: a store made at module level (a
   cart, a query client) is the same in every frame and in the prototype. Accepted: it is what
   makes the frames cheap; only a frame of its own realm (an iframe) would keep them apart.
