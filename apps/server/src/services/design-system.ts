@@ -4,7 +4,7 @@ import {
   DESIGN_SYSTEM_FILE,
   type DesignDocument,
   type DesignFinding,
-  DesignSystem,
+  type DesignSystem,
   type DesignSystemState,
   type DocumentBaseline,
 } from "@ultrapaint/contracts/design-system";
@@ -14,20 +14,12 @@ import {
   SyncBaseline,
   type TokenComparison,
 } from "@ultrapaint/contracts/sync";
-import {
-  allTokens,
-  fillValues,
-  layValues,
-  stripValues,
-  withEmptyValues,
-  withTokenChanges,
-} from "@ultrapaint/contracts/token-table";
+import { withTokenChanges } from "@ultrapaint/contracts/token-table";
 import type {
   DesignTokenValue,
   SourceToken,
   TokenChange,
 } from "@ultrapaint/contracts/tokens";
-import { serialise } from "@ultrapaint/design-document/factories";
 import type { TokenGroups } from "@ultrapaint/design-md/format";
 import {
   mergeMirror,
@@ -51,7 +43,6 @@ import {
   FileSystem,
   Layer,
   Path,
-  Result,
   Schema,
   Semaphore,
   Stream,
@@ -63,21 +54,22 @@ import { hashContent } from "../hash.ts";
 import { CatalogueService } from "./catalogue.ts";
 import { DesignMdLint } from "./design-md-lint.ts";
 import {
+  type DesignSystemRead,
+  readDesignSystem,
+  readGivenDesignSystem,
+  withAgreement,
+  writeDesignSystem,
+} from "./design-system-files.ts";
+import {
   compareCode,
   designTokensOf,
   valuesByKey,
 } from "./design-system-sync-rules.ts";
-import {
-  DESIGN_TOKENS_FILE,
-  readDesignTokens,
-  serialiseDesignTokens,
-} from "./dtcg.ts";
+import { DESIGN_TOKENS_FILE } from "./dtcg.ts";
 import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { Storage } from "./storage.ts";
 import { ProjectStyleSystem } from "./style-system.ts";
-
-const decodeDesignSystem = Schema.decodeUnknownEffect(DesignSystem);
 
 const BaselineJson = Schema.fromJsonString(SyncBaseline);
 const decodeBaseline = Schema.decodeUnknownEffect(BaselineJson);
@@ -272,30 +264,6 @@ export class DesignSystemService extends Context.Service<
       const codeTokensByName = Effect.map(codeRead, (read) => read.byName);
 
       /**
-       * The code's value where the design system has none: a file written before ADR 0028 left
-       * out the values of the tokens the code declared, and an agent may leave one out of a write.
-       */
-      const fillFromCode = (
-        ds: DesignSystem,
-        code: ReadonlyMap<string, SourceToken>
-      ): DesignSystem => fillValues(ds, (name) => code.get(name));
-
-      /**
-       * What the current design system says where a written one says nothing: a writer that read
-       * `design-system.json`, which keeps no values (ADR 0035), leaves them as they are.
-       */
-      const fillFromCurrent = (
-        ds: DesignSystem,
-        current: DesignSystem | null
-      ): DesignSystem => {
-        if (!current) {
-          return ds;
-        }
-        const known = new Map(allTokens(current).map((t) => [t.name, t]));
-        return fillValues(ds, (name) => known.get(name));
-      };
-
-      /**
        * What the design system and the code agree on (ADR 0028): the last agreement, with every
        * value they now share taken as agreed, and what neither has any more dropped.
        */
@@ -331,25 +299,6 @@ export class DesignSystemService extends Context.Service<
       const tokensRel = paths.relative(tokensAbs);
 
       /**
-       * The values of `design.tokens.json` laid over a design system read from `design-system.json`:
-       * the file's value wins where both have one, and a token only the file has is listed where
-       * its kind goes. Null for a file that is no Design Tokens file, with why.
-       */
-      const withDesignTokens = (
-        ds: DesignSystem,
-        text: string
-      ): {
-        readonly designSystem: DesignSystem;
-        readonly problem: string | null;
-      } => {
-        const read = readDesignTokens(text);
-        if ("problem" in read) {
-          return { designSystem: ds, problem: read.problem };
-        }
-        return { designSystem: layValues(ds, read.tokens), problem: null };
-      };
-
-      /**
        * Writes the design system: `design-system.json` without its values and `design.tokens.json`
        * with them. Refused while the tokens file cannot be read: writing it again would lose the
        * values it holds.
@@ -358,14 +307,15 @@ export class DesignSystemService extends Context.Service<
         tx: EditTransaction,
         ds: DesignSystem
       ) {
-        const { tokensProblem } = yield* filesCache.get;
+        const { tokensProblem } = yield* filesRead;
         if (tokensProblem !== null) {
           return yield* new BadRequest({
             message: `${tokensProblem}. The design system is written again once it reads.`,
           });
         }
-        yield* tx.write(paths.relative(systemFile), serialise(stripValues(ds)));
-        yield* tx.write(tokensRel, serialiseDesignTokens(ds));
+        const texts = writeDesignSystem(ds);
+        yield* tx.write(paths.relative(systemFile), texts.system);
+        yield* tx.write(tokensRel, texts.tokens);
       });
 
       /** Where a baseline waits for a design system to be written: the state, per repository. */
@@ -406,11 +356,11 @@ export class DesignSystemService extends Context.Service<
         };
       };
 
-      /** The files as they read, the design system decoded: kept until one of them changes. */
+      /** The files' texts as they read: kept until one of them changes. */
       const filesCache = makeStampedCache(
         fs,
         Effect.gen(function* () {
-          const [text, tokensText, rootDocument, legacyDocument] =
+          const [system, tokens, rootDocument, legacyDocument] =
             yield* Effect.all([
               readOptional(systemFile),
               readOptional(tokensAbs),
@@ -419,31 +369,6 @@ export class DesignSystemService extends Context.Service<
                 ? Effect.succeed(null)
                 : readOptional(legacyFile),
             ]);
-          const read =
-            text === null
-              ? null
-              : yield* Effect.result(
-                  Effect.flatMap(
-                    Effect.try({
-                      catch: (error) =>
-                        new BadRequest({
-                          message: `not JSON: ${String(error)}`,
-                        }),
-                      // A value the file leaves out is the code's, filled in below.
-                      try: () => withEmptyValues(JSON.parse(text) as unknown),
-                    }),
-                    decodeDesignSystem
-                  )
-                );
-          // The values are the tokens file's (ADR 0035).
-          const overlaid =
-            read?._tag === "Success" && tokensText !== null
-              ? withDesignTokens(read.success, tokensText)
-              : null;
-          const decoded = overlaid
-            ? Result.succeed(overlaid.designSystem)
-            : read;
-          const document = documentFound(rootDocument, legacyDocument);
           return {
             files: [
               systemFile,
@@ -452,13 +377,30 @@ export class DesignSystemService extends Context.Service<
               ...(legacyFile ? [legacyFile] : []),
             ],
             value: {
-              decoded,
-              document,
-              tokensProblem: overlaid?.problem ?? null,
+              document: documentFound(rootDocument, legacyDocument),
+              texts: { system, tokens },
             },
           };
         })
       );
+
+      /**
+       * The design system the files come to with the code's values (`design-system-files.ts`),
+       * and the document: kept until the files or the code change.
+       */
+      let lastRead: {
+        readonly code: ReadonlyMap<string, SourceToken>;
+        readonly files: Effect.Success<typeof filesCache.get>;
+        readonly read: DesignSystemRead;
+      } | null = null;
+      const filesRead = Effect.gen(function* () {
+        const files = yield* filesCache.get;
+        const code = yield* codeTokensByName;
+        if (!(lastRead?.files === files && lastRead.code === code)) {
+          lastRead = { code, files, read: readDesignSystem(files.texts, code) };
+        }
+        return { ...lastRead.read, document: files.document };
+      });
 
       /** The linter's findings for the last text it read: a get reads the same file again. */
       let linted: {
@@ -615,25 +557,17 @@ export class DesignSystemService extends Context.Service<
 
       const get: Effect.Effect<DesignSystemState> = Effect.gen(function* () {
         const {
-          decoded,
+          designSystem,
           document: found,
+          problem,
           tokensProblem,
-        } = yield* filesCache.get;
-        const code = yield* codeTokensByName;
-        const designSystem =
-          decoded?._tag === "Success"
-            ? fillFromCode(decoded.success, code)
-            : null;
+        } = yield* filesRead;
         const document = found ? yield* documentOf(found, designSystem) : null;
-        if (decoded?._tag === "Failure") {
-          return {
-            designSystem: null,
-            document,
-            problem: `${DESIGN_SYSTEM_FILE} is not valid: ${decoded.failure.message}`,
-          };
+        if (problem !== null) {
+          return { designSystem: null, document, problem };
         }
         const previewCss = designSystem
-          ? yield* previewCssOf(designSystem, code)
+          ? yield* previewCssOf(designSystem, yield* codeTokensByName)
           : "";
         return {
           designSystem,
@@ -781,24 +715,20 @@ export class DesignSystemService extends Context.Service<
         document?: string
       ) {
         const code = yield* codeTokensByName;
-        const decoded = yield* decodeDesignSystem(withEmptyValues(input)).pipe(
-          Effect.mapError(
-            (error) =>
-              new BadRequest({
-                message: `the design system is not valid: ${error.message}`,
-              })
-          )
-        );
         const before = yield* get;
+        const given = readGivenDesignSystem(input, {
+          code,
+          current: before.designSystem,
+        });
+        if ("problem" in given) {
+          return yield* new BadRequest({ message: given.problem });
+        }
+        const filled = given.designSystem;
         // A sync's baselines are the tool's, not the writer's: an agent rewriting the design
         // system without them keeps the ones there are, or the one waiting for a design system.
-        const kept = decoded.sync ?? (yield* baseline) ?? undefined;
-        const keptDocument = decoded.designMd ?? before.designSystem?.designMd;
-        const keptCode = decoded.codeSync ?? before.designSystem?.codeSync;
-        const filled = fillFromCode(
-          fillFromCurrent(decoded, before.designSystem),
-          code
-        );
+        const kept = filled.sync ?? (yield* baseline) ?? undefined;
+        const keptDocument = filled.designMd ?? before.designSystem?.designMd;
+        const keptCode = filled.codeSync ?? before.designSystem?.codeSync;
         const designSystem: DesignSystem = {
           ...filled,
           codeSync: settle(
@@ -806,11 +736,10 @@ export class DesignSystemService extends Context.Service<
             code
           ),
         };
-        const merged = designSystem;
         const written =
           document === undefined
             ? null
-            : yield* documentToWrite(document, merged);
+            : yield* documentToWrite(document, designSystem);
         const saved: DesignSystem = {
           ...designSystem,
           ...(kept && { sync: kept }),
@@ -846,19 +775,36 @@ export class DesignSystemService extends Context.Service<
       });
 
       /**
+       * What a side and the design system agree on, set in `design-system.json` outside the undo
+       * history. A file that does not read is left alone (get says why), and one taken away
+       * meanwhile stays away.
+       */
+      const amendAgreement = Effect.fnUntraced(function* (
+        side: "codeSync" | "designMd",
+        agreed: Readonly<Record<string, string>>
+      ) {
+        const at = yield* Clock.currentTimeMillis;
+        yield* edit.amend(paths.relative(systemFile), (content) => {
+          const next = withAgreement(content, side, agreed, at);
+          return next === null
+            ? Effect.fail("unread" as const)
+            : Effect.succeed([next, null] as const);
+        });
+      });
+
+      /**
        * `DESIGN.md`'s front matter brought up to the design system: the values the design system
        * changed alone written in, the agreement moved with them, both outside the undo history
        * (ADR 0027, 0028). A document in the designs directory waits for Sync to move it; one with
        * values of its own keeps them for Sync to offer.
        */
       const mirrorDocument = Effect.gen(function* () {
-        const { decoded, document: found } = yield* filesCache.get;
-        if (!(decoded?._tag === "Success" && found && !found.legacy)) {
+        const { designSystem: ds, document: found } = yield* filesRead;
+        if (!(ds && found && !found.legacy)) {
           return;
         }
-        const merged = fillFromCode(decoded.success, yield* codeTokensByName);
-        const mirror = (yield* mirrorFor(merged, found.text)).groups;
-        const agreed = agreedOf(decoded.success);
+        const mirror = (yield* mirrorFor(ds, found.text)).groups;
+        const agreed = agreedOf(ds);
         const rewrite = (content: string) => {
           const next = withMirror(
             content,
@@ -883,35 +829,7 @@ export class DesignSystemService extends Context.Service<
         ) {
           return;
         }
-        const at = yield* Clock.currentTimeMillis;
-        yield* edit.amend(paths.relative(systemFile), (content) =>
-          Effect.try({
-            catch: () => null,
-            try: () => {
-              if (content === null) {
-                throw new Error("gone");
-              }
-              const json = JSON.parse(content) as Record<string, unknown>;
-              const previous = json.designMd as
-                | { readonly matches?: unknown }
-                | undefined;
-              return serialise({
-                ...json,
-                designMd: {
-                  agreed: result.agreed,
-                  at,
-                  ...(previous?.matches !== undefined && {
-                    matches: previous.matches,
-                  }),
-                },
-              });
-            },
-          }).pipe(
-            // A file that does not read is left alone: get says why.
-            Effect.orElseSucceed(() => content),
-            Effect.map((next) => [next ?? "", null] as const)
-          )
-        );
+        yield* amendAgreement("designMd", result.agreed);
       }).pipe(
         mirrorWrites.withPermits(1),
         Effect.withSpan("DesignSystemService.mirrorDocument")
@@ -1112,13 +1030,11 @@ export class DesignSystemService extends Context.Service<
        * the undo history, as the stylesheets are (ADR 0028).
        */
       const settleWithCode = Effect.gen(function* () {
-        const { decoded } = yield* filesCache.get;
-        if (decoded?._tag !== "Success") {
+        const { designSystem: ds } = yield* filesRead;
+        if (!ds) {
           return;
         }
-        const code = yield* codeTokensByName;
-        const ds = fillFromCode(decoded.success, code);
-        const next = settle(ds, code);
+        const next = settle(ds, yield* codeTokensByName);
         const before = ds.codeSync?.agreed ?? {};
         const same =
           Object.keys(before).length === Object.keys(next.agreed).length &&
@@ -1126,23 +1042,7 @@ export class DesignSystemService extends Context.Service<
         if (same) {
           return;
         }
-        const at = yield* Clock.currentTimeMillis;
-        yield* edit.amend(paths.relative(systemFile), (content) =>
-          Effect.try({
-            catch: () => null,
-            try: () => {
-              if (content === null) {
-                throw new Error("gone");
-              }
-              const json = JSON.parse(content) as Record<string, unknown>;
-              return serialise({ ...json, codeSync: { ...next, at } });
-            },
-          }).pipe(
-            // A file that does not read is left alone: get says why.
-            Effect.orElseSucceed(() => content),
-            Effect.map((text) => [text ?? "", null] as const)
-          )
-        );
+        yield* amendAgreement("codeSync", next.agreed);
       }).pipe(Effect.withSpan("DesignSystemService.settleWithCode"));
 
       const writeCode = Effect.fn("DesignSystemService.writeCode")(
@@ -1219,7 +1119,7 @@ export class DesignSystemService extends Context.Service<
       // Whoever changes the files — an undo, an agent writing them by hand, a checkout.
       const names = new Set([
         paths.relative(systemFile),
-        // Another tool writing the design tokens file: Sync offers what it changed.
+        // Another tool writing the design tokens file: its values are the design's (ADR 0035).
         tokensRel,
         documentRel,
         ...(legacyFile ? [paths.relative(legacyFile)] : []),
