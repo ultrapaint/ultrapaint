@@ -1,47 +1,25 @@
 /**
- * CSS values as the format holds them. A colour is any CSS colour; a dimension is a number in
- * `px`, `em` or `rem`. The code writes values the format cannot hold (`var(--radius)`,
- * `calc(var(--radius) - 2px)`), so they are resolved first: variables from the code's tokens,
- * arithmetic on lengths worked out.
+ * CSS values as the format holds them. A colour is any CSS colour, as contracts' `isColor` reads
+ * one; a dimension is a number in `px`, `em` or `rem`. The code writes values the format cannot
+ * hold (`var(--radius)`, `calc(var(--radius) - 2px)`), so they are resolved first: variables from
+ * the code's tokens, arithmetic on lengths worked out.
  */
+import {
+  formatNumber,
+  parseLength,
+  parseNumber,
+  ROOT_PX,
+} from "@ultrapaint/contracts/token-value";
 
-const HEX_RE = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
-const COLOR_FUNCTION_RE =
-  /^(?:rgba?|hsla?|hwb|oklch|oklab|lch|lab|color-mix|color)\(.*\)$/is;
-const NAMED_RE = /^[a-z]+$/i;
-const NOT_COLORS = new Set([
-  "currentcolor",
-  "inherit",
-  "initial",
-  "none",
-  "revert",
-  "unset",
-]);
-const DIMENSION_RE = /^-?(?:\d+\.?\d*|\.\d+)(?:px|em|rem)$/;
-const NUMBER_RE = /^-?(?:\d+\.?\d*|\.\d+)$/;
-
-/** A colour the format holds: hex, a name, or a colour function with nothing left to resolve. */
-export const isColor = (value: string): boolean => {
-  const v = value.trim();
-  if (HEX_RE.test(v)) {
-    return true;
-  }
-  if (COLOR_FUNCTION_RE.test(v)) {
-    return !v.includes("var(");
-  }
-  return NAMED_RE.test(v) && !NOT_COLORS.has(v.toLowerCase());
-};
+const FORMAT_UNITS: ReadonlySet<string> = new Set(["em", "px", "rem"]);
 
 /** A number in `px`, `em` or `rem`. */
 export const isDimension = (value: string): boolean =>
-  DIMENSION_RE.test(value.trim());
+  FORMAT_UNITS.has(parseLength(value)?.unit ?? "");
 
 /** A unitless number, as a string the code wrote. */
 export const isPlainNumber = (value: string): boolean =>
-  NUMBER_RE.test(value.trim());
-
-/** A number written without float noise: 1.1111 rather than 1.1111111111. */
-export const formatNumber = (n: number): string => String(Number(n.toFixed(4)));
+  parseNumber(value) !== null;
 
 /** The index of the parenthesis that closes the one at `open`, or -1. */
 const closing = (text: string, open: number): number => {
@@ -126,7 +104,6 @@ interface Quantity {
   readonly unit: Unit;
 }
 
-const ROOT_PX = 16;
 const TOKEN_RE = /\s*(-?(?:\d+\.?\d*|\.\d+)(?:px|rem|em)?|infinity|[-+*/()])/iy;
 const QUANTITY_RE = /^(-?(?:\d+\.?\d*|\.\d+))(px|rem|em)?$/i;
 

@@ -34,10 +34,10 @@ import {
   SPACING_BASE,
   tokenKindOf,
 } from "@ultrapaint/contracts/token-table";
+import { inCodeUnits, sameValue } from "@ultrapaint/contracts/token-value";
 import type { SourceToken, TokenChange } from "@ultrapaint/contracts/tokens";
 import { SECTIONS } from "@ultrapaint/design-md/format";
 import { plural } from "@ultrapaint/shared/text";
-import { inCodeUnits, sameValue } from "./token-values.ts";
 
 /** A few names, then how many more. */
 const some = (names: readonly string[], shown = 4) =>

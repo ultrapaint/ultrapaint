@@ -8,6 +8,7 @@ import type {
   TextStyle,
   Token,
 } from "@ultrapaint/contracts/design-system";
+import { formatNumber, isColor } from "@ultrapaint/contracts/token-value";
 import {
   isToken,
   tokenName,
@@ -15,14 +16,7 @@ import {
 } from "@ultrapaint/design-document/tokens";
 import type { TokenGroups, Typography } from "./format.ts";
 import { documentPathOf, tokenKeyOf } from "./tokens.ts";
-import {
-  familyOf,
-  formatNumber,
-  isColor,
-  isDimension,
-  isPlainNumber,
-  resolveCss,
-} from "./values.ts";
+import { familyOf, isDimension, isPlainNumber, resolveCss } from "./values.ts";
 
 /** The font a text style without one is set in: Tailwind's, on the body. */
 const BODY_FONT = "font-sans";

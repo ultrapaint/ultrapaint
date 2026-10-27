@@ -3,7 +3,8 @@
  * token by token (ADR 0027), as Figma's are compared (ADR 0025). Each value has a path:
  * `colors.primary`, `rounded.md`, `spacing.base`, `typography.body.fontSize`.
  *
- * - The same on both sides: kept as the document writes it (a reference stays a reference).
+ * - The same on both sides, as Sync compares (`#3b82f6` and its `oklch()` are one colour): kept
+ *   as the document writes it (a reference stays a reference).
  * - Changed in the code only, or new there: the document takes the code's.
  * - Changed in the document only, or new there, or taken out of it: held, for Sync to offer.
  * - Changed on both sides: held, for the user to pick.
@@ -11,6 +12,7 @@
  * With no agreement yet, a document that has no mirrored values takes them all, and one that
  * has some is held whole: it came from somewhere else and is matched first.
  */
+import { sameValue as sameCss } from "@ultrapaint/contracts/token-value";
 import {
   MIRRORED_GROUPS,
   type TokenGroups,
@@ -107,11 +109,11 @@ export const resolvedValues = (
   return out;
 };
 
-/** Two values that say the same: `1.5` and `"1.5"` do. */
-export const sameValue = (
+/** Two values that come to the same, as Sync compares them: `1.5` and `"1.5"` do. */
+const sameValue = (
   a: number | string | undefined,
   b: number | string | undefined
-) => a !== undefined && b !== undefined && String(a) === String(b);
+) => a !== undefined && b !== undefined && sameCss(String(a), String(b));
 
 export interface Merged {
   /** What agreed after the merge, for the next one: the old value where one is held. */

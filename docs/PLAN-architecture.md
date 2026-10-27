@@ -125,3 +125,14 @@ callers and its tests share.
    `placeDocument` write a design system already read, so nothing is filled. Also: a
    `design-system.json` taken away while a baseline was moved was written back empty; it now
    stays away.
+3. **Token values** (`packages/contracts/src/token-value.ts`, in contracts as the one package the
+   server, DESIGN.md, Tailwind and Figma import all depend on). `parseValue` reads a colour (its
+   space and channels in that space's ranges, every space DTCG has plus CSS's named colours), a
+   length, a duration, a number or other; `sameValue`, `toSrgb`, `toPx`, `inCodeUnits`,
+   `printColor`, `printLength`, `isColor`. The server's `token-values.ts` is gone; dtcg keeps
+   only its encoding, design-md its `calc()` and the units the format holds, Tailwind's scan its
+   patterns for colours inside text, and Figma import's `normaliseColor` reads through it. Also:
+   DESIGN.md's mirror, the code's agreement, the preview's overrides and the document's put-back
+   compare as Sync does, so `#2b7fff` in DESIGN.md and Tailwind's `oklch(62.3% 0.214 259.815)`
+   are the same rather than held; dtcg writes sRGB's `hex` beside every space (only sRGB, HSL and
+   OKLCH had one) and reads named colours and hue units; durations compare across `s` and `ms`.
