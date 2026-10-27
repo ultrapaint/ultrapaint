@@ -115,3 +115,13 @@ callers and its tests share.
    is a shadow, no longer a font size; `design-system.json` no longer keeps named spacings'
    values; briefing lists every kind; dtcg's `designTokensOf` is `designTokensDocument`. Left
    alone: Tailwind's palette namespaces and DESIGN.md's mirror, which are their formats' own.
+2. **Design system files** (`apps/server/src/services/design-system-files.ts`). `readDesignSystem`
+   (the two texts and the code's tokens: the tokens file wins, a legacy file's own values, the
+   code's where neither has one, and why either file does not read), `readGivenDesignSystem` (a
+   writer's JSON, the current design system's values before the code's), `writeDesignSystem`
+   (the two texts) and `withAgreement` (a baseline set in `design-system.json`, outside the undo
+   history). `DesignSystemService` keeps the texts in its cache and the read until the files or
+   the code change; `get`, `mirrorDocument` and `settleWithCode` share it. `replace`, `save` and
+   `placeDocument` write a design system already read, so nothing is filled. Also: a
+   `design-system.json` taken away while a baseline was moved was written back empty; it now
+   stays away.
