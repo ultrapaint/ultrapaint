@@ -1,0 +1,21 @@
+{
+  "root": {
+    "type": "page",
+    "id": "root",
+    "fill": "#ffffff",
+    "gap": 0,
+    "children": [
+      {
+        "type": "instance",
+        "id": "i_err_timeout",
+        "name": "ErrorProbe",
+        "component": "ErrorProbe",
+        "from": "@/components/probes",
+        "props": {
+          "where": "timeout"
+        }
+      }
+    ]
+  },
+  "version": 1
+}

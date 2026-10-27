@@ -1,0 +1,499 @@
+/// <reference lib="dom" />
+/**
+ * `pnpm e2e:sandbox`: the guards between the preview's code and the editor's page
+ * (docs/PLAN-preview-sandbox.md), checked in a headless Chrome against the fixture host
+ * `fixtures/sandbox-host`, whose components do what applications do to the page. It starts an
+ * editor of its own on that host, on free ports, and stops it when done:
+ *
+ * - the application hears no key typed in the editor, and its own frame's keys still;
+ * - the editor's address, title and head stay the editor's;
+ * - a frame's code reads the frame's width and scroll as the window's;
+ * - the editor's CSS variables do not reach a frame;
+ * - what nothing caught (a timer, a click in the prototype) is shown on its frame;
+ * - reloading the editor asks nothing, whatever the page's "unsaved changes" guard says;
+ * - a parked frame's animation waits, and goes on when the frame is seen again;
+ * - a page that stopped the editor is a placeholder when the editor loads again.
+ *
+ *   pnpm e2e:sandbox [--chrome /path/to/chrome]
+ */
+import { type ChildProcess, spawn } from "node:child_process";
+import { existsSync } from "node:fs";
+import { mkdtemp, rm } from "node:fs/promises";
+import { createServer } from "node:net";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { parseArgs } from "node:util";
+import { type BrowserContext, chromium, type Page } from "playwright-core";
+
+const { values: args } = parseArgs({
+  options: { chrome: { type: "string" } },
+});
+
+const ROOT = path.resolve(import.meta.dirname, "..");
+const CONFIG = path.join(ROOT, "fixtures/sandbox-host/ultrapaint.config.json");
+const PROTOTYPE = "prototype:guards";
+
+interface Probe {
+  log: { detail?: unknown; probe: string; what: string }[];
+}
+interface EditorState {
+  canvas: string | null;
+  frames: Record<string, unknown>;
+  hostErrors: Record<string, string | null>;
+  navigate: (route: string) => void;
+  setMode: (mode: string) => void;
+  setWorkspace: (workspace: string) => void;
+}
+/** What the editor's page offers the check: its dev handle, and what the probes wrote. */
+interface CheckWindow {
+  __ed: {
+    openCanvas: (id: string) => void;
+    useEditor: { getState: () => EditorState };
+    zoomToPage: (page: string) => void;
+  };
+  __probe?: Probe;
+}
+
+const chromePath = () => {
+  const found = [
+    args.chrome,
+    process.env.CHROME_PATH,
+    "/usr/bin/google-chrome",
+    "/usr/bin/chromium",
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  ].find((c) => c && existsSync(c));
+  if (!found) {
+    throw new Error("No Chrome found: pass --chrome or set CHROME_PATH.");
+  }
+  return found;
+};
+
+const freePort = () =>
+  new Promise<number>((resolve, reject) => {
+    const server = createServer();
+    server.unref();
+    server.on("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      server.close(() =>
+        resolve(typeof address === "object" && address ? address.port : 0)
+      );
+    });
+  });
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** An editor on the fixture host, in a process group of its own, stopped through its handle. */
+const startEditor = async (): Promise<{ stop: () => void; url: string }> => {
+  const port = await freePort();
+  const web = await freePort();
+  const child: ChildProcess = spawn(
+    "pnpm",
+    ["dev", "--", "--config", CONFIG, "--no-open"],
+    {
+      cwd: ROOT,
+      detached: true,
+      env: {
+        ...process.env,
+        ULTRAPAINT_PORT: String(port),
+        ULTRAPAINT_WEB_PORT: String(web),
+      },
+      stdio: "ignore",
+    }
+  );
+  const stop = () => {
+    if (child.pid !== undefined && child.exitCode === null) {
+      process.kill(-child.pid, "SIGINT");
+    }
+  };
+  const url = `http://127.0.0.1:${web}`;
+  const end = Date.now() + 60_000;
+  while (Date.now() < end) {
+    // biome-ignore lint/performance/noAwaitInLoops: polling, one look at a time.
+    const up = await fetch(url).then(
+      (r) => r.ok,
+      () => false
+    );
+    if (up) {
+      return { stop, url };
+    }
+    await sleep(500);
+  }
+  stop();
+  throw new Error(`the editor did not answer at ${url}`);
+};
+
+const launch = (profile: string) =>
+  chromium.launchPersistentContext(profile, {
+    args: ["--disable-renderer-backgrounding"],
+    executablePath: chromePath(),
+    headless: true,
+    viewport: { height: 1000, width: 1600 },
+  });
+
+/** Opens `canvas` and waits until every frame on it has drawn its page. */
+const open = async (page: Page, url: string, canvas: string) => {
+  await page.goto(`${url}/?canvas=${canvas}`, { waitUntil: "load" });
+  await page.waitForFunction(
+    (c) => {
+      const ed = (window as unknown as Partial<CheckWindow>).__ed;
+      const hosts = [
+        ...document.querySelectorAll("[data-canvas] [data-ed-frame-host]"),
+      ];
+      return (
+        ed?.useEditor.getState().canvas === c &&
+        hosts.length > 0 &&
+        hosts.every(
+          (h) =>
+            (h.shadowRoot?.querySelector("#root")?.childElementCount ?? 0) > 0
+        )
+      );
+    },
+    canvas,
+    { timeout: 60_000 }
+  );
+  await page.waitForTimeout(500);
+};
+
+/** What the probes wrote down from `probe`, from entry `from` on. */
+const logOf = (page: Page, probe: string, from = 0) =>
+  page.evaluate(
+    ({ probe: name, from: start }) =>
+      ((window as unknown as CheckWindow).__probe?.log ?? [])
+        .slice(start)
+        .filter((e) => e.probe === name),
+    { from, probe }
+  );
+
+const logLength = (page: Page) =>
+  page.evaluate(
+    () => (window as unknown as CheckWindow).__probe?.log.length ?? 0
+  );
+
+/** The center of the first element matching `selector` inside a frame host, on the screen. */
+const centerIn = (page: Page, host: string, selector: string) =>
+  page.evaluate(
+    ({ host: id, selector: sel }) => {
+      const el = document
+        .querySelector(`[data-ed-frame-host="${CSS.escape(id)}"]`)
+        ?.shadowRoot?.querySelector(sel);
+      const box = el?.getBoundingClientRect();
+      return box
+        ? { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+        : null;
+    },
+    { host, selector }
+  );
+
+const results: { detail?: string; name: string; ok: boolean }[] = [];
+const check = async (name: string, run: () => Promise<string | true>) => {
+  try {
+    const outcome = await run();
+    results.push(
+      outcome === true
+        ? { name, ok: true }
+        : { detail: outcome, name, ok: false }
+    );
+  } catch (error) {
+    results.push({ detail: String(error), name, ok: false });
+  }
+  const last = results.at(-1);
+  console.log(
+    last?.ok
+      ? `✓ ${name}`
+      : `✗ ${name}${last?.detail ? `: ${last.detail}` : ""}`
+  );
+};
+
+const guards = async (page: Page, url: string) => {
+  const dialogs: string[] = [];
+  page.on("dialog", (d) => {
+    dialogs.push(d.type());
+    d.accept().catch(() => undefined);
+  });
+  await open(page, url, "guards");
+  const state = () =>
+    page.evaluate(() =>
+      (window as unknown as CheckWindow).__ed.useEditor.getState()
+    );
+
+  await check("the application hears no key typed in the editor", async () => {
+    const from = await logLength(page);
+    await page.mouse.click(800, 900);
+    await page.keyboard.press("/");
+    await page.keyboard.press("Control+z");
+    const heard = await logOf(page, "hotkey", from);
+    return heard.length === 0 || `heard ${JSON.stringify(heard)}`;
+  });
+
+  await check(
+    "the application hears the keys typed in its own frame",
+    async () => {
+      await page.evaluate(() => {
+        const ed = (window as unknown as CheckWindow).__ed;
+        ed.zoomToPage("guards/hotkey.page.json");
+        ed.useEditor.getState().setMode("interact");
+      });
+      await page.waitForTimeout(800);
+      const input = await centerIn(page, "guards/hotkey.page.json", "input");
+      if (!input) {
+        return "the frame's field is not on the screen";
+      }
+      const from = await logLength(page);
+      await page.mouse.click(input.x, input.y);
+      await page.keyboard.press("a");
+      const heard = await logOf(page, "hotkey", from);
+      await page.evaluate(() =>
+        (window as unknown as CheckWindow).__ed.useEditor
+          .getState()
+          .setMode("select")
+      );
+      return heard.length > 0 || "the frame's key was not heard";
+    }
+  );
+
+  await check("the editor's address stays the editor's", async () => {
+    const search = await page.evaluate(() => location.search);
+    return !search.includes("tab=") || `the address became ${search}`;
+  });
+
+  await check("the editor's title and head stay the editor's", async () => {
+    const head = await page.evaluate(() => ({
+      meta: document.head.querySelector('meta[name="probe-meta"]') !== null,
+      title: document.title,
+      titles: [...document.head.querySelectorAll("title")].map((t) => t.text),
+    }));
+    return (
+      (!head.meta &&
+        head.title !== "Probe app" &&
+        !head.titles.includes("Probe title")) ||
+      JSON.stringify(head)
+    );
+  });
+
+  const windowProbe = () =>
+    page.evaluate(() => {
+      const text = document
+        .querySelector('[data-ed-frame-host="guards/window.page.json"]')
+        ?.shadowRoot?.querySelector('[data-probe="window"]')?.textContent;
+      return text ? (JSON.parse(text) as Record<string, unknown>) : null;
+    });
+
+  await check(
+    "a frame's code reads the frame's width as the window's",
+    async () => {
+      const read = await windowProbe();
+      return (
+        (read?.innerWidth === 390 && read.phone === true) ||
+        JSON.stringify(read)
+      );
+    }
+  );
+
+  await check(
+    "a frame's scroll is its window's, never the editor's",
+    async () => {
+      await page.evaluate(() => {
+        const host = document.querySelector(
+          '[data-ed-frame-host="guards/window.page.json"]'
+        );
+        if (host) {
+          host.scrollTop = 120;
+        }
+      });
+      await page.waitForTimeout(400);
+      const read = await windowProbe();
+      const editor = await page.evaluate(() => window.scrollY);
+      return (
+        (read?.scrollY === 120 && editor === 0) ||
+        `${JSON.stringify(read)}, editor ${editor}`
+      );
+    }
+  );
+
+  await check("the editor's CSS variables do not reach a frame", async () => {
+    const values = await page.evaluate(() => {
+      const root = document
+        .querySelector("[data-canvas] [data-ed-frame-host]")
+        ?.shadowRoot?.querySelector("#root");
+      return {
+        editor: getComputedStyle(document.documentElement).getPropertyValue(
+          "--primary"
+        ),
+        frame: root
+          ? getComputedStyle(root).getPropertyValue("--primary")
+          : "no frame",
+      };
+    });
+    return (
+      (values.editor !== "" && values.frame === "") || JSON.stringify(values)
+    );
+  });
+
+  await check(
+    "an error thrown in a timer is shown on its own frame",
+    async () => {
+      const errors = (await state()).hostErrors;
+      const shown = errors["guards/err-timeout.page.json"] ?? "";
+      const elsewhere = Object.entries(errors).filter(
+        ([frame, text]) => frame !== "guards/err-timeout.page.json" && text
+      );
+      return (
+        (shown.includes("thrown in a timeout") && elsewhere.length === 0) ||
+        JSON.stringify(errors)
+      );
+    }
+  );
+
+  await check(
+    "an error thrown by a click in the prototype is shown",
+    async () => {
+      await page.evaluate(() => {
+        const editor = (
+          window as unknown as CheckWindow
+        ).__ed.useEditor.getState();
+        editor.setWorkspace("prototype");
+        editor.navigate("/err-click");
+      });
+      await page.waitForTimeout(2000);
+      const button = await centerIn(
+        page,
+        PROTOTYPE,
+        '[data-probe="throw-on-click"]'
+      );
+      if (!button) {
+        return "the prototype's button is not on the screen";
+      }
+      await page.mouse.click(button.x, button.y);
+      await page.waitForTimeout(300);
+      const shown = (await state()).hostErrors[PROTOTYPE] ?? "";
+      const banner = await page.evaluate(() =>
+        [...document.querySelectorAll("pre")].some((p) =>
+          p.textContent?.includes("thrown in a click handler")
+        )
+      );
+      await page.evaluate(() =>
+        (window as unknown as CheckWindow).__ed.useEditor
+          .getState()
+          .setWorkspace("design")
+      );
+      return (
+        (shown.includes("thrown in a click handler") && banner) ||
+        `shown: ${shown}`
+      );
+    }
+  );
+
+  await check("reloading the editor asks nothing", async () => {
+    await page.reload({ waitUntil: "load" });
+    await page.waitForTimeout(500);
+    return dialogs.length === 0 || `asked: ${dialogs.join(", ")}`;
+  });
+};
+
+const animations = async (page: Page, url: string) => {
+  await open(page, url, "raf");
+  const frames = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll("[data-ed-frame-host]")]
+        .filter((h) =>
+          (h as HTMLElement).dataset.edFrameHost?.startsWith("raf/")
+        )
+        .map((h) =>
+          Number(
+            (
+              h.shadowRoot?.querySelector(
+                '[data-probe="raf"]'
+              ) as HTMLElement | null
+            )?.dataset.frames ?? 0
+          )
+        )
+    );
+  await check(
+    "a parked frame's animation waits, and goes on when seen",
+    async () => {
+      await page.evaluate(() =>
+        (window as unknown as CheckWindow).__ed.openCanvas("calm")
+      );
+      await page.waitForTimeout(800);
+      const parked = await frames();
+      await page.waitForTimeout(1500);
+      const later = await frames();
+      await page.evaluate(() =>
+        (window as unknown as CheckWindow).__ed.openCanvas("raf")
+      );
+      await page.waitForTimeout(1500);
+      const back = await frames();
+      const waited = later.every((n, i) => n === parked[i]);
+      const resumed = back.some((n, i) => n > (later[i] ?? 0));
+      return (
+        (later.length > 0 && waited && resumed) ||
+        `parked ${parked}, 1.5 s later ${later}, back ${back}`
+      );
+    }
+  );
+};
+
+/** A page that stops the editor for 8 s: the browser is closed while it does. */
+const freeze = async (url: string) => {
+  const profile = await mkdtemp(path.join(tmpdir(), "e2e-sandbox-freeze-"));
+  let context: BrowserContext | null = null;
+  try {
+    context = await launch(profile);
+    const page = context.pages()[0] ?? (await context.newPage());
+    await page.goto(`${url}/?canvas=freeze`, { waitUntil: "load" });
+    const start = Date.now();
+    let stopped = false;
+    while (!stopped && Date.now() - start < 30_000) {
+      // biome-ignore lint/performance/noAwaitInLoops: polling, one look at a time.
+      const answer = await Promise.race([
+        page.evaluate(() => true),
+        sleep(1000).then(() => false),
+      ]);
+      stopped = !answer;
+      await sleep(100);
+    }
+    // The watchdog writes the frame down after 3 s of silence; the browser goes before 8.
+    await sleep(4000);
+    await context.close().catch(() => undefined);
+    context = await launch(profile);
+    const again = context.pages()[0] ?? (await context.newPage());
+    await again.goto(`${url}/?canvas=freeze`, { waitUntil: "load" });
+    await again.waitForTimeout(5000);
+    const shown = await again.evaluate(() => ({
+      drawn: document.querySelectorAll("[data-canvas] [data-ed-frame-host]")
+        .length,
+      placeholder: document.body.innerText.includes("stopped the editor"),
+    }));
+    await check(
+      "a page that stopped the editor is a placeholder after",
+      async () =>
+        (stopped && shown.placeholder && shown.drawn === 0) ||
+        `stopped ${stopped}, ${JSON.stringify(shown)}`
+    );
+  } finally {
+    await context?.close().catch(() => undefined);
+    await rm(profile, { force: true, recursive: true });
+  }
+};
+
+const main = async () => {
+  const editor = await startEditor();
+  const profile = await mkdtemp(path.join(tmpdir(), "e2e-sandbox-"));
+  try {
+    const context = await launch(profile);
+    const page = context.pages()[0] ?? (await context.newPage());
+    await guards(page, editor.url);
+    await animations(page, editor.url);
+    await context.close();
+    await freeze(editor.url);
+  } finally {
+    editor.stop();
+    await rm(profile, { force: true, recursive: true });
+  }
+  const failed = results.filter((r) => !r.ok).length;
+  console.log(`\n${results.length - failed} passed, ${failed} failed`);
+  process.exitCode = failed > 0 ? 1 : 0;
+};
+
+await main();
