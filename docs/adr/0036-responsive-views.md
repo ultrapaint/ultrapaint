@@ -41,7 +41,8 @@ width. Set back to what it inherits from below, a field loses its override. A pa
 views** is edited at the base, as before views existed, except a field the frame shows from a
 breakpoint's `at` (an agent wrote it), which is edited where its value comes from: what changes is
 what is seen. The inspector's Breakpoints section says where edits land, lists what the node sets
-at each breakpoint (dimmed above the view's), and resets each. Inserting, removing, moving and
+at each breakpoint (dimmed above the view's), and resets each. Where a node is shown is one rule
+chosen there from any view: at every width, nowhere, from a breakpoint up or below one. Inserting, removing, moving and
 wrapping nodes change the one tree every view draws; a node inserted in a view above the base is
 hidden below that view's breakpoint.
 
