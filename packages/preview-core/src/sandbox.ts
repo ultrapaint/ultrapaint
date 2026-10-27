@@ -12,7 +12,8 @@
  * - `history` does not move the editor's address: a page pushed in a frame that takes input is
  *   the prototype following a link, anything else is dropped; `scrollTo` scrolls the frame;
  * - what goes into the head for the page's document (its `<title>`, its `<meta>`, its icons) and
- *   `document.title` are kept off the editor's;
+ *   `document.title` are kept off the editor's, and the styles its code writes there reach its
+ *   frames instead (`css-in-js.ts`);
  * - what the preview's code throws and nothing catches (in a handler, a timer, a promise) is told
  *   to its frame, which the editor shows, instead of going by in the editor's console only; a
  *   rejection is its frame's by the mark its `async` function put on it (the guard the preview's
@@ -27,6 +28,7 @@
  * Which frame is the one that was drawing or took input, as `media.ts` tells the window's size.
  */
 
+import { holdStyle, holdStyleFirst, isHeld, isStyle } from "./css-in-js.ts";
 import { guardDocumentElements } from "./document-elements.ts";
 import {
   calledDirectlyFromPreview,
@@ -488,7 +490,10 @@ const guardHistory = () => {
   }
 };
 
-/** The page's document's title, meta and icons are kept off the editor's head. */
+/**
+ * The page's document's title, meta and icons are kept off the editor's head, and the styles its
+ * code writes go where the frames get them from (`css-in-js.ts`).
+ */
 const guardHead = () => {
   const { head } = document;
   /** Where they go instead: no document, so they do nothing, and their owner can remove them. */
@@ -499,32 +504,57 @@ const guardHead = () => {
       (node.tagName === "LINK" &&
         DOCUMENT_LINK_RE.test(node.getAttribute("rel") ?? ""))) &&
     fromPreview();
+  const heldStyle = (node: unknown): node is HTMLStyleElement =>
+    isStyle(node) && fromPreview();
   const appendChild = head.appendChild.bind(head);
   const insertBefore = head.insertBefore.bind(head);
   const append = head.append.bind(head);
   const prepend = head.prepend.bind(head);
+  const removeChild = head.removeChild.bind(head);
   Object.assign(head, {
     append(...nodes: (Node | string)[]) {
-      if (nodes.length === 1 && keptAside(nodes[0])) {
-        aside.append(nodes[0]);
-        return;
+      const [node] = nodes;
+      if (nodes.length === 1 && heldStyle(node)) {
+        holdStyle(node, null);
+      } else if (nodes.length === 1 && keptAside(node)) {
+        aside.append(node);
+      } else {
+        append(...nodes);
       }
-      append(...nodes);
     },
     appendChild<T extends Node>(node: T): T {
+      if (heldStyle(node)) {
+        holdStyle(node, null);
+        return node;
+      }
       return keptAside(node) ? aside.appendChild(node) : appendChild(node);
     },
     insertBefore<T extends Node>(node: T, child: Node | null): T {
+      if (heldStyle(node)) {
+        holdStyle(node, child);
+        return node;
+      }
       return keptAside(node)
         ? aside.appendChild(node)
         : insertBefore(node, child);
     },
     prepend(...nodes: (Node | string)[]) {
-      if (nodes.length === 1 && keptAside(nodes[0])) {
-        aside.prepend(nodes[0]);
-        return;
+      const [node] = nodes;
+      if (nodes.length === 1 && heldStyle(node)) {
+        holdStyleFirst(node);
+      } else if (nodes.length === 1 && keptAside(node)) {
+        aside.prepend(node);
+      } else {
+        prepend(...nodes);
       }
-      prepend(...nodes);
+    },
+    // A library removes what it put in the head from the head: it is elsewhere.
+    removeChild<T extends Node>(node: T): T {
+      if (node.parentNode !== head && (isHeld(node) || aside.contains(node))) {
+        node.parentNode?.removeChild(node);
+        return node;
+      }
+      return removeChild(node);
     },
   });
   around(document, Document.prototype, "title", (get, set) => ({

@@ -25,6 +25,7 @@ import type {
   RenderSetup,
 } from "@ultrapaint/framework-api/browser";
 import { toCanvas, toPng } from "html-to-image";
+import { watchHeldStyles } from "./css-in-js.ts";
 import { chainAt, directText, elementsOf, unionRect } from "./dom.ts";
 import { BODY_ATTRIBUTE } from "./frame-css.ts";
 import { elementAt, type HitScope } from "./hit.ts";
@@ -36,6 +37,7 @@ import {
   adoptedSheets,
   frameSheets,
   installHooks,
+  setCssInJs,
   setDesignCss,
 } from "./styles.ts";
 import { readTokens } from "./tokens.ts";
@@ -116,6 +118,7 @@ export const createPreview = (input: PreviewSetup): Preview => {
   )[0] as string;
   routePortals(previewBase, () => activeFrame);
   installGuards();
+  watchHeldStyles(setCssInJs);
 
   const preview: Preview = {
     mountFrame: (host, options) => {

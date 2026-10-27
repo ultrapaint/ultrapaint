@@ -69,6 +69,20 @@
       "width": 440,
       "x": 480,
       "y": 720
+    },
+    "css-in-js.page.json": {
+      "height": 300,
+      "preset": "custom",
+      "width": 440,
+      "x": 960,
+      "y": 720
+    },
+    "stylex.page.json": {
+      "height": 300,
+      "preset": "custom",
+      "width": 440,
+      "x": 1440,
+      "y": 720
     }
   },
   "name": "guards",

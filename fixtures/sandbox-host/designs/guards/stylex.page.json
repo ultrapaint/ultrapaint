@@ -1,0 +1,19 @@
+{
+  "root": {
+    "type": "page",
+    "id": "root",
+    "fill": "#ffffff",
+    "gap": 0,
+    "children": [
+      {
+        "type": "instance",
+        "id": "i_stylex",
+        "name": "StylexProbe",
+        "component": "StylexProbe",
+        "from": "@/components/stylex",
+        "props": {}
+      }
+    ]
+  },
+  "version": 1
+}
