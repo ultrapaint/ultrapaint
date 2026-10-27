@@ -1,6 +1,6 @@
 # Plan: guards around the preview in the editor's page
 
-Status: accepted and built, 2026-10-27 (steps 1 to 6, below under "Built"). Follows
+Status: first round accepted and built, 2026-10-27 (steps 1 to 6, below under "Built"); second round proposed and answered, not built (at the end). Follows
 [ADR 0034](adr/0034-frames-in-the-editors-page.md) and `docs/PLAN-editor-renderer.md`, whose
 "Pitfalls" it answers. The answers to its questions are under "Decisions".
 
@@ -307,3 +307,69 @@ Answered 2026-10-27.
 | S4 | The iframe escape hatch | Not built; the documented last resort |
 | S5 | JavaScript animations | Held while their frame is parked or off the screen (step 5) |
 | S6 | The fixture host | In this repository, as an end-to-end test against `pnpm dev` (step 6) |
+
+## Second round: what the first left (proposed)
+
+Investigated 2026-10-27, after steps 1 to 6. What is left, per collision of the inventory, with
+what was measured for it. The experiments ran in headless Chrome against small pages, not the
+editor; the numbers that matter for the canvas are to be taken with `pnpm bench:canvas` when a
+step is built.
+
+### What was measured
+
+- **Breaking a loop from outside the page.** Through the DevTools protocol, on a page stuck in
+  `while (true)`: `Debugger.pause` stopped it in 2–5 ms and named the function and line
+  (`stuck:4`, `go:3`); `Runtime.terminateExecution` ended it in 2 ms, and an endless chain of
+  microtasks in 16 ms. The page went on (its timers ticked, `evaluate` answered), but the `finally`
+  around the loop never ran: whatever the stack held half done (React's work loop, the guards'
+  `runAs`) stays half done. Electron reaches the same protocol through `webContents.debugger`.
+- **A check inside the application's loops.** A call at the start of every loop body that, every
+  1024 iterations, compares the time with the last beat of the page and throws once the thread has
+  been busy 2.5 s: it stopped the benchmark meant to measure it, which ran past that. Its cost is
+  about 5 ns an iteration (3·10⁷ empty iterations: 27 ms, 200 ms with the check; a component's
+  loop over 1,000 rows: 5 µs more). It needs the application's modules transformed; Vite gives
+  every plugin a parser (`this.parse`, from Vite 5's Rollup to Vite 8's Rolldown), and the
+  preview's server may run the repository's own Vite.
+- **What a rejection carries.** Four kinds (an `async` function that throws after an `await`, a
+  failed `fetch`, `JSON.parse` after an `await`, a `.then` chain that throws) all had the
+  application's file and line on their stack (`at Module.load (…/src/api.js:2:87)`), even the
+  failed `fetch`. The file is known; the frame is not, since every frame runs the same modules.
+- **sacro-cuore today.** `photo-picker.tsx` posts to `/modifica/foto`: a relative URL, which in
+  the editor reaches the editor's server (a 404, and in the packaged app its own routes). Its
+  toaster reads `next-themes`. No storage, no CSS-in-JS, no writes to `<html>` or `<body>`.
+
+### Options
+
+| # | What | Answers | Cost | Canvas cost |
+|---|---|---|---|---|
+| L1 | **Loop check.** The preview's server transforms the repository's own modules (not `node_modules`), only those with a loop in them: every `for`, `while` and `do` body starts with the check. A loop that holds the editor's thread 2.5 s throws "Stopped a loop at src/x.tsx:42 that held the editor 2.5 s", which shows on its frame as any error does. No freeze past 2.5 s, no reload, on the web and the desktop. Misses loops inside dependencies, React's own endless work (a component that renders itself) and chains of microtasks without a loop | 9 | medium | one parse per module with a loop; ~5 ns an iteration; load to be measured |
+| L2 | **Desktop: end what L1 misses.** The main process hears a beat over IPC; after 3 s of silence it pauses the page (the line it is stuck on), ends the script and reloads, the frame written down as step 4 does, the placeholder naming the line. Replaces the "not responding" dialog, which waits Chrome's 15 s or more and asks. Reloads rather than going on, as nothing in a half-finished draw can be trusted | 9 | low–medium | none |
+| R1 | **A rejection's frame, taken when the promise is made.** A promise made while a frame's code runs (`then`, `catch`, `finally`, `fetch`) is noted as that frame's: no stack test, only when a frame is known to be running. An `async` function of the repository's (L1's transform) notes its frame on entry and marks what it throws with it. `unhandledrejection` asks the promise, then the reason. When neither knows, the canvas names the file and line, not a frame it would have to guess | 11 | medium, with L1; high without | a weak-map entry per promise made by a frame's code |
+| F1 | **Relative URLs.** A relative URL asked for by the preview's code (`fetch`, `XMLHttpRequest`, `EventSource`, `WebSocket`) goes under the preview's base, never to the editor's own routes; the preview's server inherits the repository's `server.proxy` (moved under the base), so a backend that runs answers as in `vite dev` | 15 | low–medium | none |
+| S1 | **Storage.** `localStorage` and `sessionStorage` asked for by the preview's code are a stand-in, shared by the frames as the modules are; IndexedDB names are prefixed. Either kept in memory, empty at every load (a canvas draws the same each time: a stored "theme" or "onboarded" does not drift it), or kept per project under a prefix (a prototype remembers, as a browser would) | 14 | low | none: one stack test per `localStorage` read |
+| H1 | **`<html>` and `<body>`.** On those two elements themselves, not their prototypes: `classList`, `className`, `style`, `dataset` and the attribute methods called by the preview's code act on the frame's host and the frame's body element, which its stylesheet already maps `html` and `body` to (`html.dark` is said of the host). A theme provider's class and a modal's scroll lock land on their own frame. `prefers-color-scheme` is answered per frame from the frame's theme (`media.ts`), so `next-themes` picks the theme the editor shows | 7 | low–medium | a stack test on those calls only; the editor's own (a drag's cursor) pay it too |
+| C1 | **CSS-in-JS.** A `<style>` the preview's code puts in the head goes into a hidden shadow root (it gets a `sheet`, and styles nothing there); its rules, as text and as `insertRule` (emotion and styled-components insert rules, not text, in production), are rewritten as the page's stylesheets are and kept in one sheet every frame adopts. Global rules (`body { margin: 0 }`) reach the frames' bodies, not the editor's | 6 | medium | a rewrite per rule inserted |
+| K1 | **HMR leftovers.** Listeners and intervals added by a module's top-level code (the stack frame already read) are removed when Vite replaces that module. A wrapper around a global (`fetch`) is not undone | 12 | low | none |
+
+Not proposed: anything that runs the application off the editor's thread (the cross-site iframe,
+H above) while L1 and L2 cover the freezes it would; per-frame copies of the modules (S3 stands).
+
+### Recommendation
+
+L1 with R1 (one transform, two answers), then F1, S1, H1, and L2 for the desktop app. C1 and K1
+wait for a repository that needs them, as S1 decided; C1 first when one uses emotion or
+styled-components. Each step is benched against the commit before it, alternating runs, as in
+the first round. The fixture gets a probe and a check per step: an endless loop in a render and
+in a click, a rejected `fetch` in two frames, a relative `fetch`, a stored key, a theme class and
+a scroll lock.
+
+### Decisions
+
+Answered 2026-10-27.
+
+| # | Question | Answer |
+|---|---|---|
+| S7 | Scope of the second round | The recommendation: L1 with R1, F1, S1, H1, L2. C1 and K1 wait for a repository that needs them |
+| S8 | The application's storage | In memory, empty at every load, shared by the frames |
+| S9 | A stuck page in the desktop app | Paused for its line, ended, and the window reloaded with the frame as a placeholder naming the line; no dialog |
+| S10 | Relative URLs | Under the preview's base, with the repository's `server.proxy` moved under it |
