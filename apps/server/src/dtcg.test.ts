@@ -190,9 +190,11 @@ describe("the Design Tokens export", () => {
       colorSpace: "hsl",
       components: [210, 40, 96.1],
     });
+    // Every space has sRGB's hex beside, clamped into its gamut.
     expect(at(doc, "color", "wide").$value).toEqual({
       colorSpace: "display-p3",
       components: [1, 0.5, 0],
+      hex: "#ff7600",
     });
     // A `var()` of another token is an alias of it.
     expect(at(doc, "color", "ring").$value).toBe("{color.primary}");

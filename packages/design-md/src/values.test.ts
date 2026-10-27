@@ -1,32 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { familyOf, isColor, isDimension, resolveCss } from "./values.ts";
+import { familyOf, isDimension, resolveCss } from "./values.ts";
 
 const lookupOf =
   (values: Record<string, string>) =>
   (name: string): string | undefined =>
     values[name];
-
-describe("isColor", () => {
-  it("takes what CSS takes as a colour", () => {
-    for (const value of [
-      "#fff",
-      "#1A1C1Eff",
-      "oklch(0.205 0 0)",
-      "rgb(0 0 0 / 50%)",
-      "color-mix(in srgb, red 50%, blue)",
-      "cornflowerblue",
-      "transparent",
-    ]) {
-      expect(isColor(value), value).toBe(true);
-    }
-  });
-
-  it("refuses what is not one, or not resolved yet", () => {
-    for (const value of ["var(--primary)", "currentColor", "#ggg", "1px"]) {
-      expect(isColor(value), value).toBe(false);
-    }
-  });
-});
 
 describe("isDimension", () => {
   it("takes px, em and rem only", () => {

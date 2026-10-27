@@ -4,6 +4,7 @@
  * `color-primary`, `rounded.md` is `radius-md`, `spacing.base` is `spacing`.
  */
 import { SPACING_BASE, tokenPrefix } from "@ultrapaint/contracts/token-table";
+import { isColor } from "@ultrapaint/contracts/token-value";
 import type { TokenKind } from "@ultrapaint/contracts/tokens";
 import {
   MIRRORED_GROUPS,
@@ -12,7 +13,7 @@ import {
   type Typography,
 } from "./format.ts";
 import type { DesignMd } from "./parse.ts";
-import { isColor, isDimension } from "./values.ts";
+import { isDimension } from "./values.ts";
 
 const REF_RE = /^\{([^{}]+)\}$/;
 

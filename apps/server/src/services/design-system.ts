@@ -15,6 +15,7 @@ import {
   type TokenComparison,
 } from "@ultrapaint/contracts/sync";
 import { withTokenChanges } from "@ultrapaint/contracts/token-table";
+import { sameValue } from "@ultrapaint/contracts/token-value";
 import type {
   DesignTokenValue,
   SourceToken,
@@ -24,7 +25,6 @@ import type { TokenGroups } from "@ultrapaint/design-md/format";
 import {
   mergeMirror,
   resolvedValues,
-  sameValue,
   valuesOf,
 } from "@ultrapaint/design-md/merge";
 import {
@@ -649,7 +649,7 @@ export class DesignSystemService extends Context.Service<
         const given = resolvedValues(parse(text));
         const ours = valuesOf(mirror.groups);
         return Object.entries(given)
-          .filter(([key, value]) => !sameValue(value, ours[key]))
+          .filter(([key, value]) => !sameValue(String(value), ours[key]))
           .map(
             ([key, value]): DesignFinding => ({
               message:

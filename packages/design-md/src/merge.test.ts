@@ -85,6 +85,20 @@ describe("mergeMirror", () => {
     });
   });
 
+  it("takes a colour written in another space for the same, as Sync does", () => {
+    // Tailwind's blue-500 as a hex in the document and as the theme writes it in the code.
+    const merged = mergeMirror(
+      doc("colors:\n  primary: '#2b7fff'"),
+      code({ primary: "oklch(62.3% 0.214 259.815)" }),
+      {}
+    );
+    expect(merged.groups.colors).toEqual({ primary: "#2b7fff" });
+    expect(merged.held).toEqual([]);
+    expect(merged.agreed).toEqual({
+      "colors.primary": "oklch(62.3% 0.214 259.815)",
+    });
+  });
+
   it("keeps a reference that comes to the code's value", () => {
     const merged = mergeMirror(
       doc("colors:\n  blue: '#25e'\n  primary: '{colors.blue}'"),

@@ -13,6 +13,7 @@ import {
   type UsageValue,
 } from "@ultrapaint/contracts/design-system-setup";
 import { tokenPrefix } from "@ultrapaint/contracts/token-table";
+import { sameValue, toPx } from "@ultrapaint/contracts/token-value";
 import type {
   UsageOccurrence,
   UsageReader,
@@ -26,23 +27,10 @@ import {
   splitClass,
 } from "./usage-scan.ts";
 
-const LENGTH_RE = /^(-?\d*\.?\d+)(px|rem)$/;
 const NUMBER_RE = /^-?\d+(\.\d+)?$/;
 const SPACING_STEP_RE = /^spacing-(\d+(?:\.\d+)?)$/;
-const SPACES_RE = /\s+/g;
 const TRAILING_ZERO_RE = /\.0$/;
 const REGEX_CHARS_RE = /[.*+?^${}()|[\]\\]/g;
-const PX_PER_REM = 16;
-
-/** `16px` and `1rem` as pixels; null for anything else. */
-const toPx = (value: string): number | null => {
-  const match: RegExpExecArray | null = LENGTH_RE.exec(value.trim());
-  if (!match) {
-    return null;
-  }
-  const n = Number.parseFloat(match[1] ?? "");
-  return match[2] === "rem" ? n * PX_PER_REM : n;
-};
 
 /** `2` or `2.5`: a step written as Tailwind writes it. */
 const stepName = (step: number) =>
@@ -62,9 +50,6 @@ const tokenOfLength = (
   tokens: readonly { readonly name: string; readonly value: string }[],
   px: number
 ) => tokens.find((t) => toPx(t.value) === px)?.name;
-
-const normalise = (value: string) =>
-  value.trim().toLowerCase().replace(SPACES_RE, " ");
 
 /** A target settled by a rule, for one value. */
 type Rule = (
@@ -116,9 +101,7 @@ const byWeight: Rule = (value, ds) => {
 };
 
 const byShadow: Rule = (value, ds) => {
-  const name = ds.shadows.find(
-    (t) => normalise(t.value) === normalise(value.value)
-  )?.name;
+  const name = ds.shadows.find((t) => sameValue(t.value, value.value))?.name;
   return name ? { note: EXACT, target: name } : null;
 };
 

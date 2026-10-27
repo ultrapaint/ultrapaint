@@ -1,8 +1,10 @@
 /**
  * What the usage scan knows of Tailwind and the DOM, shared by reading the files and holding
  * their values against the design system: the utilities it reads, colours as they are written,
- * and the plain elements a library has a component for.
+ * and the plain elements a library has a component for. What a whole value is comes from
+ * contracts' `token-value`; the patterns here find colours inside a file's text.
  */
+import { parseColor } from "@ultrapaint/contracts/token-value";
 
 export const HEX_RE = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 export const FUNCTION_COLOR_RE =
@@ -159,12 +161,5 @@ export const normaliseColor = (value: string) => {
   return v.replace(SPACES_RE, " ");
 };
 
-export const isColorLiteral = (value: string) => {
-  const v = value.trim().toLowerCase();
-  if (HEX_RE.test(v) || NAMED_COLORS.has(v)) {
-    return true;
-  }
-  FUNCTION_COLOR_RE.lastIndex = 0;
-  const match: RegExpExecArray | null = FUNCTION_COLOR_RE.exec(v);
-  return match?.[0] === v;
-};
+/** A whole value that is a colour: hex, any CSS name, or a colour function of numbers. */
+export const isColorLiteral = (value: string) => parseColor(value) !== null;

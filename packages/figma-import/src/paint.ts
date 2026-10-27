@@ -3,11 +3,8 @@
  * design system's tokens where a token has exactly that colour.
  */
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
+import { hexOf, parseColor } from "@ultrapaint/contracts/token-value";
 import type { FigColor, FigPaint } from "openfig-core";
-
-const HEX_RE = /^#([0-9a-f]{3,8})$/i;
-const RGB_RE =
-  /^rgba?\(\s*([\d.]+)\s*[, ]\s*([\d.]+)\s*[, ]\s*([\d.]+)\s*(?:[,/]\s*([\d.%]+)\s*)?\)$/i;
 
 const channel = (value: number) =>
   Math.max(0, Math.min(255, Math.round(value * 255)));
@@ -44,49 +41,13 @@ export const solidColor = (
   return paint?.color ? cssColor(paint.color, paint.opacity ?? 1) : undefined;
 };
 
-/** A CSS colour as `#rrggbb` or `#rrggbbaa`, or null when it is not a hex or rgb colour. */
+/**
+ * A CSS colour as `#rrggbb` or `#rrggbbaa`, or null when it is not one written in sRGB (hex, a
+ * name, `rgb()`): a token in another space is not one Figma's colours match exactly.
+ */
 export const normaliseColor = (value: string): string | null => {
-  const trimmed = value.trim().toLowerCase();
-  const hex: RegExpExecArray | null = HEX_RE.exec(trimmed);
-  if (hex !== null) {
-    const [, digits = ""] = hex;
-    return normaliseHex(digits);
-  }
-  const rgb: RegExpExecArray | null = RGB_RE.exec(trimmed);
-  if (rgb !== null) {
-    const [, r = "0", g = "0", b = "0", a] = rgb;
-    return cssColor(
-      {
-        a: alphaOf(a),
-        b: Number(b) / 255,
-        g: Number(g) / 255,
-        r: Number(r) / 255,
-      },
-      1
-    );
-  }
-  return null;
-};
-
-const normaliseHex = (digits: string): string | null => {
-  if (digits.length === 3 || digits.length === 4) {
-    return normaliseColor(`#${[...digits].map((d) => d + d).join("")}`);
-  }
-  if (digits.length === 6) {
-    return `#${digits}`;
-  }
-  if (digits.length === 8) {
-    return digits.endsWith("ff") ? `#${digits.slice(0, 6)}` : `#${digits}`;
-  }
-  return null;
-};
-
-/** The alpha of an rgb() colour: a number, a percentage, or opaque when left out. */
-const alphaOf = (a: string | undefined): number => {
-  if (a === undefined) {
-    return 1;
-  }
-  return a.endsWith("%") ? Number(a.slice(0, -1)) / 100 : Number(a);
+  const color = parseColor(value);
+  return color?.space === "srgb" ? hexOf(color) : null;
 };
 
 /** Colour → `$token` for every colour token whose value is a plain hex or rgb colour. */

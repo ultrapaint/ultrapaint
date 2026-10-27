@@ -21,8 +21,19 @@ import {
   tokenKindOf,
   tokenPrefix,
 } from "@ultrapaint/contracts/token-table";
+import {
+  type Channel,
+  COLOR_SPACES,
+  type ColorSpace,
+  formatNumber,
+  hexOf,
+  parseColor,
+  parseLength,
+  parseNumber,
+  parseValue,
+  printColor,
+} from "@ultrapaint/contracts/token-value";
 import type { SourceToken, TokenKind } from "@ultrapaint/contracts/tokens";
-import { parseColor } from "./token-values.ts";
 
 /** The values' file, in the designs directory next to `design-system.json`. */
 export const DESIGN_TOKENS_FILE = "design.tokens.json";
@@ -61,15 +72,7 @@ const GROUP_ORDER: readonly string[] = [
   GROUP_NAMES.other,
 ];
 
-const LENGTH_RE = /^(-?\d*\.?\d+)(px|rem)$/;
-const DURATION_RE = /^(-?\d*\.?\d+)(ms|s)$/;
-const NUMBER_RE = /^-?\d*\.?\d+$/;
-const HEX_RE = /^#[0-9a-f]{3,8}$/i;
 const HEX6_RE = /^#[0-9a-f]{6}$/i;
-const COLOR_FN_RE =
-  /^(rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(([^()]*)\)$/i;
-const COMPONENT_RE = /^(-?\d*\.?\d+(?:e[-+]?\d+)?)(%|deg)?$/i;
-const LIST_RE = /[\s,]+/;
 const BEZIER_RE = /^cubic-bezier\(([^()]*)\)$/i;
 const VAR_RE = /^var\(\s*--([\w-]+)\s*\)$/;
 const ALIAS_RE = /^\{([^{}]+)\}$/;
@@ -80,7 +83,7 @@ const GROUP_NORMAL_RE = /[-_\s]/g;
 const TRAILING_DASH_RE = /-$/;
 
 const round = (n: number, places = 6) => Number(n.toFixed(places));
-const num = (n: number) => String(round(n));
+const num = (n: number) => formatNumber(n, 6);
 
 /** What the format holds for a CSS value: its `$type`, left out for an alias, and its `$value`. */
 interface Encoded {
@@ -90,46 +93,58 @@ interface Encoded {
 
 // Colours.
 
-type Component = number | "none";
+/** A colour value of the format: its space, channels and alpha as read, with sRGB's hex beside. */
+const encodeColor = (css: string): Rec | undefined => {
+  const color = parseColor(css);
+  if (!color) {
+    return undefined;
+  }
+  // sRGB's channels to four places, as eight bits need; other spaces' to six.
+  const places = color.space === "srgb" ? 4 : 6;
+  return {
+    colorSpace: color.space,
+    components: color.channels.map((c) =>
+      c === "none" ? c : round(c, places)
+    ),
+    ...(color.alpha < 1 && { alpha: round(color.alpha, 4) }),
+    hex: hexOf({ ...color, alpha: 1 }),
+  };
+};
 
-/** What 100% is for each component of a CSS colour function; NaN where a percentage is not allowed. */
-const PERCENT_SCALE: Record<string, readonly [number, number, number]> = {
-  color: [1, 1, 1],
-  hsl: [Number.NaN, 100, 100],
-  hwb: [Number.NaN, 100, 100],
-  lab: [100, 125, 125],
-  lch: [100, 150, Number.NaN],
-  oklab: [1, 0.4, 0.4],
-  oklch: [1, 0.4, Number.NaN],
-  rgb: [1, 1, 1],
+const isSpace = (space: unknown): space is ColorSpace =>
+  (COLOR_SPACES as readonly unknown[]).includes(space);
+const isChannel = (c: unknown): c is Channel =>
+  typeof c === "number" || c === "none";
+
+/** The CSS of a colour value of the format, null for one that is not. */
+const colorCss = (value: Rec): string | undefined => {
+  const { alpha, colorSpace: space, components, hex } = value;
+  if (
+    !(isSpace(space) && Array.isArray(components)) ||
+    components.length !== 3 ||
+    !components.every(isChannel)
+  ) {
+    return undefined;
+  }
+  const a = typeof alpha === "number" && alpha < 1 ? alpha : undefined;
+  const fromHex =
+    space === "srgb" && typeof hex === "string" && HEX6_RE.test(hex)
+      ? parseColor(hex)
+      : null;
+  if (fromHex) {
+    return hexOf({ ...fromHex, alpha: a ?? 1 });
+  }
+  const [c0, c1, c2] = components;
+  return printColor({
+    alpha: a ?? 1,
+    channels: [c0 ?? 0, c1 ?? 0, c2 ?? 0],
+    kind: "color",
+    space,
+  });
 };
-/** Which component is a hue, the one that may be written in degrees. */
-const HUE_INDEX: Record<string, number> = { hsl: 0, hwb: 0, lch: 2, oklch: 2 };
-const FUNCTION_SPACES: Record<string, string> = {
-  hsl: "hsl",
-  hsla: "hsl",
-  hwb: "hwb",
-  lab: "lab",
-  lch: "lch",
-  oklab: "oklab",
-  oklch: "oklch",
-  rgb: "srgb",
-  rgba: "srgb",
-};
-/** The legacy names of colour functions, which take the same components. */
-const LEGACY_NAMES: Record<string, string> = { hsla: "hsl", rgba: "rgb" };
-/** The spaces `color()` names that the format has, `xyz` being `xyz-d65`. */
-const PREDEFINED_SPACES: Record<string, string> = {
-  "a98-rgb": "a98-rgb",
-  "display-p3": "display-p3",
-  "prophoto-rgb": "prophoto-rgb",
-  rec2020: "rec2020",
-  srgb: "srgb",
-  "srgb-linear": "srgb-linear",
-  xyz: "xyz-d65",
-  "xyz-d50": "xyz-d50",
-  "xyz-d65": "xyz-d65",
-};
+
+// Everything else.
+
 const FONT_WEIGHT_KEYWORDS = new Set([
   "thin",
   "hairline",
@@ -151,170 +166,31 @@ const FONT_WEIGHT_KEYWORDS = new Set([
   "ultra-black",
 ]);
 
-const byte = (n: number) =>
-  Math.round(Math.max(0, Math.min(1, n)) * 255)
-    .toString(16)
-    .padStart(2, "0");
-
-const hexOf = (rgb: readonly number[]) =>
-  `#${rgb
-    .slice(0, 3)
-    .map((c) => byte(c))
-    .join("")}`;
-
-/** One component of a colour function, in the range the format gives its colour space. */
-const component = (part: string, fn: string, i: number): Component | null => {
-  if (part.toLowerCase() === "none") {
-    return "none";
-  }
-  const m: RegExpExecArray | null = COMPONENT_RE.exec(part);
-  if (!m?.[1]) {
-    return null;
-  }
-  const n = Number(m[1]);
-  if (m[2] === "%") {
-    const scale = PERCENT_SCALE[fn]?.[i] ?? Number.NaN;
-    return Number.isNaN(scale) ? null : round((n / 100) * scale);
-  }
-  if (m[2]) {
-    return HUE_INDEX[fn] === i ? n : null;
-  }
-  return fn === "rgb" ? round(n / 255, 4) : n;
-};
-
-const alphaOf = (part: string | undefined): number | null => {
-  if (part === undefined) {
-    return 1;
-  }
-  const m: RegExpExecArray | null = COMPONENT_RE.exec(part.trim());
-  if (!m?.[1] || m[2] === "deg") {
-    return null;
-  }
-  const n = Number(m[1]);
-  return m[2] === "%" ? n / 100 : n;
-};
-
-/** A colour value of the format, from hex or one of the three names `parseColor` knows. */
-const encodeSrgb = (css: string): Rec | undefined => {
-  if (!(HEX_RE.test(css) || ["white", "black", "transparent"].includes(css))) {
-    return undefined;
-  }
-  const rgba = parseColor(css);
-  if (!rgba) {
-    return undefined;
-  }
-  const alpha = round(rgba[3], 4);
-  return {
-    colorSpace: "srgb",
-    components: rgba.slice(0, 3).map((c) => round(c, 4)),
-    ...(alpha < 1 && { alpha }),
-    hex: hexOf(rgba),
-  };
-};
-
-const encodeColor = (css: string): Rec | undefined => {
-  const fn: RegExpExecArray | null = COLOR_FN_RE.exec(css);
-  if (!(fn?.[1] && fn[2] !== undefined)) {
-    return encodeSrgb(css.toLowerCase());
-  }
-  const name = fn[1].toLowerCase();
-  const [main = "", alphaPart, extra] = fn[2].split("/");
-  const parts = main.trim().split(LIST_RE).filter(Boolean);
-  const space =
-    name === "color"
-      ? PREDEFINED_SPACES[parts.shift()?.toLowerCase() ?? ""]
-      : FUNCTION_SPACES[name];
-  // The legacy `rgba(0, 0, 0, 0.5)` gives the alpha as a fourth component.
-  const legacyAlpha =
-    alphaPart === undefined && parts.length === 4 ? parts.pop() : alphaPart;
-  const components = parts.map((p, i) =>
-    component(p, LEGACY_NAMES[name] ?? name, i)
-  );
-  const alpha = alphaOf(legacyAlpha);
-  if (
-    space === undefined ||
-    extra !== undefined ||
-    components.length !== 3 ||
-    components.some((c) => c === null) ||
-    alpha === null
-  ) {
-    return undefined;
-  }
-  const rgba = space === "srgb" ? null : parseColor(css);
-  const hex =
-    space === "srgb" && components.every((c) => typeof c === "number")
-      ? hexOf(components as number[])
-      : rgba && hexOf(rgba);
-  return {
-    colorSpace: space,
-    components,
-    ...(alpha < 1 && { alpha: round(alpha, 4) }),
-    ...(hex && { hex }),
-  };
-};
-
-const componentText = (c: unknown, f: (n: number) => string) =>
-  typeof c === "number" ? f(c) : "none";
-
-/** The CSS of a colour value of the format, null for one that is not. */
-const colorCss = (value: Rec): string | undefined => {
-  const { alpha, colorSpace: space, components, hex } = value;
-  if (
-    typeof space !== "string" ||
-    !Array.isArray(components) ||
-    components.length !== 3 ||
-    !components.every((c) => typeof c === "number" || c === "none")
-  ) {
-    return undefined;
-  }
-  const a = typeof alpha === "number" && alpha < 1 ? alpha : undefined;
-  if (space === "srgb" && typeof hex === "string" && HEX6_RE.test(hex)) {
-    return `${hex.toLowerCase()}${a === undefined ? "" : byte(a)}`;
-  }
-  const slash = a === undefined ? "" : ` / ${num(a)}`;
-  const parts = (f: (n: number, i: number) => string) =>
-    components.map((c, i) => componentText(c, (n) => f(n, i))).join(" ");
-  switch (space) {
-    case "srgb":
-      return `rgb(${parts((n) => String(Math.round(n * 255)))}${slash})`;
-    case "hsl":
-    case "hwb":
-      return `${space}(${parts((n, i) => (i === 0 ? num(n) : `${num(n)}%`))}${slash})`;
-    case "lab":
-    case "lch":
-    case "oklab":
-    case "oklch":
-      return `${space}(${parts(num)}${slash})`;
-    default:
-      return `color(${space} ${parts(num)}${slash})`;
-  }
-};
-
-// Everything else.
-
 const encodeDimension = (css: string): Encoded | undefined => {
   if (css === "0") {
     return { type: "dimension", value: { unit: "px", value: 0 } };
   }
-  const m: RegExpExecArray | null = LENGTH_RE.exec(css);
-  return m?.[1]
-    ? { type: "dimension", value: { unit: m[2], value: Number(m[1]) } }
+  const length = parseLength(css);
+  return length && (length.unit === "px" || length.unit === "rem")
+    ? { type: "dimension", value: { unit: length.unit, value: length.value } }
     : undefined;
 };
 
 const encodeDuration = (css: string): Encoded | undefined => {
-  const m: RegExpExecArray | null = DURATION_RE.exec(css);
-  return m?.[1]
-    ? { type: "duration", value: { unit: m[2], value: Number(m[1]) } }
+  const value = parseValue(css);
+  return value.kind === "duration"
+    ? { type: "duration", value: { unit: value.unit, value: value.value } }
     : undefined;
 };
 
-const encodeNumber = (css: string): Encoded | undefined =>
-  NUMBER_RE.test(css) ? { type: "number", value: Number(css) } : undefined;
+const encodeNumber = (css: string): Encoded | undefined => {
+  const n = parseNumber(css);
+  return n === null ? undefined : { type: "number", value: n };
+};
 
 const encodeFontWeight = (css: string): Encoded | undefined => {
-  if (NUMBER_RE.test(css)) {
-    const n = Number(css);
+  const n = parseNumber(css);
+  if (n !== null) {
     return n >= 1 && n <= 1000 ? { type: "fontWeight", value: n } : undefined;
   }
   return FONT_WEIGHT_KEYWORDS.has(css)
@@ -357,11 +233,11 @@ const encodeFontFamily = (css: string): Encoded | undefined => {
 
 const encodeCubicBezier = (css: string): Encoded | undefined => {
   const m: RegExpExecArray | null = BEZIER_RE.exec(css);
-  const points = m?.[1]?.split(",").map((p) => p.trim());
-  if (!(points?.length === 4 && points.every((p) => NUMBER_RE.test(p)))) {
+  const points = m?.[1]?.split(",").map(parseNumber);
+  if (!(points?.length === 4 && points.every((p) => p !== null))) {
     return undefined;
   }
-  const [x1 = 0, y1 = 0, x2 = 0, y2 = 0] = points.map(Number);
+  const [x1 = 0, y1 = 0, x2 = 0, y2 = 0] = points;
   const inRange = (x: number) => x >= 0 && x <= 1;
   return inRange(x1) && inRange(x2)
     ? { type: "cubicBezier", value: [x1, y1, x2, y2] }
