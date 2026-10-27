@@ -78,7 +78,8 @@ Measured on the Redesign canvas (10 frames, 4,287 layers) on the same machine:
   or a dependency's (React's included), throws after holding the editor 2.5 s: the preview's
   server checks every loop. What has no loop (an endless chain of promises, the browser's own
   code spinning) still stops the editor while it runs, the desktop app ending the page's process
-  after 4 s, and the page is drawn as a placeholder the next time.
+  after 4 s, and the page is drawn as a placeholder the next time; in the desktop app the
+  placeholder names the line it was stuck on.
 - One copy of the application's modules serves every frame: a store made at module level (a
   cart, a query client) is the same in every frame and in the prototype. Accepted: it is what
   makes the frames cheap; only a frame of its own realm (an iframe) would keep them apart.

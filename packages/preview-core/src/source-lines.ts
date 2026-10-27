@@ -14,7 +14,7 @@ const BASE64 =
 const DIGIT = new Map([...BASE64].map((c, i) => [c, i]));
 
 /** For each line of the module, its segments: the column and the source line it comes from. */
-type Lines = readonly (readonly (readonly [number, number])[])[];
+export type Lines = readonly (readonly (readonly [number, number])[])[];
 
 /**
  * A segment's values, each relative to the one before it (base64 VLQ): five bits a digit, the
@@ -80,6 +80,17 @@ export const sourceLineIn = (
   return found ? found[1] + 1 : null;
 };
 
+/** The lines of the map a module's `code` carries inline; null when it has none. */
+export const inlineMapOf = (code: string): Lines | null => {
+  // biome-ignore lint/suspicious/noUnnecessaryConditions: null when the module has no inline map.
+  const [, inline = ""] = INLINE_MAP_RE.exec(code) ?? [];
+  if (inline === "") {
+    return null;
+  }
+  const { mappings } = JSON.parse(atob(inline)) as { mappings?: unknown };
+  return typeof mappings === "string" ? decodeMappings(mappings) : null;
+};
+
 const maps = new Map<string, Promise<Lines | null>>();
 
 const mapOf = (url: string) => {
@@ -87,17 +98,7 @@ const mapOf = (url: string) => {
   if (!map) {
     map = fetch(url)
       .then((response) => (response.ok ? response.text() : ""))
-      .then((code) => {
-        // biome-ignore lint/suspicious/noUnnecessaryConditions: null when the module has no inline map.
-        const [, inline = ""] = INLINE_MAP_RE.exec(code) ?? [];
-        if (inline === "") {
-          return null;
-        }
-        const { mappings } = JSON.parse(atob(inline)) as {
-          mappings?: unknown;
-        };
-        return typeof mappings === "string" ? decodeMappings(mappings) : null;
-      })
+      .then(inlineMapOf)
       .catch(() => null);
     maps.set(url, map);
   }

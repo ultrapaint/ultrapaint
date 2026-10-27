@@ -19,6 +19,7 @@ import {
   net,
   protocol,
   safeStorage,
+  session,
   shell,
 } from "electron";
 import { AgentDownloads } from "./agent-downloads.ts";
@@ -32,6 +33,7 @@ import {
   type PickFolderOptions,
   type ShellInfo,
   type ShellStatus,
+  type StoppedAt,
   type WindowControlsInfo,
 } from "./ipc.ts";
 import { LoginShell } from "./login-shell.ts";
@@ -45,6 +47,7 @@ import { SecretError, Secrets } from "./secrets.ts";
 import { Shell, type View } from "./shell.ts";
 import { readSshHosts } from "./ssh-hosts.ts";
 import { RemoteServers } from "./ssh-server.ts";
+import { stoppedAt } from "./stopped-at.ts";
 
 // A data directory of its own, for trying the app without touching the user's.
 if (process.env.ULTRAPAINT_DESKTOP_USER_DATA) {
@@ -53,6 +56,15 @@ if (process.env.ULTRAPAINT_DESKTOP_USER_DATA) {
     path.resolve(process.env.ULTRAPAINT_DESKTOP_USER_DATA)
   );
 }
+
+/**
+ * Chrome reads the stack of a script that holds a page's thread for a page that opts in, its
+ * crash reports' proposed API; the editor's does, by the header `start` adds (`endStuckPages`).
+ */
+app.commandLine.appendSwitch(
+  "enable-features",
+  "DocumentPolicyIncludeJSCallStacksInCrashReports"
+);
 
 /**
  * An SSH configuration in place of `~/.ssh/config`, for every `ssh` the app runs and for the
@@ -509,6 +521,13 @@ const folderArgument = (argv: readonly string[]) =>
 const SILENT_MS = 4000;
 /** How long a page that is not stuck takes at most to answer a script. */
 const ANSWER_MS = 1000;
+/** How long Chrome may take to read the stack of the script that holds a stuck page. */
+const STACK_MS = 500;
+/** A stack Chrome read, not why it could not (`Website owner has not opted in…`). */
+const STACK_RE = /^\s+at /m;
+
+const readModule = (url: string) =>
+  net.fetch(url).then((response) => (response.ok ? response.text() : ""));
 
 /**
  * The repository's components run on the editor's thread (ADR 0034). The preview's server stops
@@ -520,6 +539,10 @@ const ANSWER_MS = 1000;
  * (docs/PLAN-preview-sandbox.md, step 11). The process, not only the script: a page let go on
  * after its script is ended beats again before it is loaded again, and the watchdog takes it for a
  * page that was only slow. No dialog: there is nothing to decide, and Chrome's own comes later.
+ *
+ * Before it is ended, Chrome reads where its script is (`stopped-at.ts`), which the page loaded
+ * again asks for once: the editor names the line on the frame it holds back and writes the stack
+ * to the console.
  */
 const endStuckPages = (created: BrowserWindow) => {
   const contents = created.webContents;
@@ -542,13 +565,32 @@ const endStuckPages = (created: BrowserWindow) => {
       contents.reload();
     }
   });
-  const end = () => {
+  /** Where the page was stuck when it was last ended, until the page loaded again asks. */
+  let stopped: Promise<StoppedAt> | null = null;
+  contents.ipc.handle(Channel.stoppedAt, () => {
+    const found = stopped;
+    stopped = null;
+    return found;
+  });
+  const end = async () => {
     if (!watching || contents.isDestroyed()) {
       return;
     }
     watching = false;
     ended = true;
-    contents.forcefullyCrashRenderer();
+    const time = Date.now();
+    const stack = await Promise.race([
+      contents.mainFrame.collectJavaScriptCallStack().catch(() => undefined),
+      new Promise<undefined>((resolve) => setTimeout(resolve, STACK_MS)),
+    ]);
+    if (typeof stack === "string" && STACK_RE.test(stack)) {
+      stopped = stoppedAt(stack, readModule)
+        .catch(() => undefined)
+        .then((at) => ({ at, stack, time }));
+    }
+    if (!contents.isDestroyed()) {
+      contents.forcefullyCrashRenderer();
+    }
   };
   const check = async () => {
     if (
@@ -570,7 +612,7 @@ const endStuckPages = (created: BrowserWindow) => {
     if (answered) {
       lastBeat = Date.now();
     } else {
-      end();
+      await end();
     }
   };
   const timer = setInterval(() => {
@@ -578,7 +620,9 @@ const endStuckPages = (created: BrowserWindow) => {
   }, 500);
   created.on("closed", () => clearInterval(timer));
   // Chrome's own hang monitor, should it speak first.
-  created.on("unresponsive", end);
+  created.on("unresponsive", () => {
+    end().catch(() => undefined);
+  });
 };
 
 const makeWindow = () => {
@@ -631,6 +675,17 @@ const makeWindow = () => {
 const start = async () => {
   await app.whenReady();
   protocol.handle(APP_SCHEME, serveWeb);
+  // The editor's page lets Chrome read a stuck script's stack (`endStuckPages`).
+  session.defaultSession.webRequest.onHeadersReceived(
+    { types: ["mainFrame"], urls: ["http://*/*", "https://*/*"] },
+    ({ responseHeaders }, callback) =>
+      callback({
+        responseHeaders: {
+          ...responseHeaders,
+          "Document-Policy": ["include-js-call-stacks-in-crash-reports"],
+        },
+      })
+  );
   window = makeWindow();
   const folder = folderArgument(process.argv);
   await runtime.runPromise(

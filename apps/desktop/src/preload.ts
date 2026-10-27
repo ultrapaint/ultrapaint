@@ -16,6 +16,7 @@ import {
   type ShellInfo,
   type ShellNotice,
   type ShellStatus,
+  type StoppedAt,
 } from "./ipc.ts";
 
 const info = ipcRenderer.sendSync(Channel.shellInfo) as ShellInfo;
@@ -116,6 +117,8 @@ contextBridge.exposeInMainWorld("ultrapaintPlatform", {
     sshHosts: (): Promise<readonly string[]> =>
       ipcRenderer.invoke(Channel.sshHosts),
   },
+  stoppedAt: (): Promise<StoppedAt | null> =>
+    ipcRenderer.invoke(Channel.stoppedAt),
   ...(windowControls ? { windowControls } : {}),
   shellStatus: {
     current: (): ShellStatus | null => status,
