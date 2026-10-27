@@ -17,7 +17,8 @@
  * - a frame's code reads the frame's width and scroll as the window's;
  * - the editor's CSS variables do not reach a frame;
  * - what nothing caught (a timer, a click in the prototype) is shown on its frame;
- * - a loop that never ends, in a render or a click, is stopped and shown on its frame;
+ * - a loop that never ends, in a render or a click, in the repository's code or a dependency's,
+ *   is stopped and shown on its frame;
  * - what a module's own top-level code added to the window goes when the module is edited;
  * - a rejection is shown on the frame whose code made it, or on none when nothing says which;
  *   what is shown names the line of the source, not of the module as the server sent it;
@@ -659,6 +660,25 @@ const loops = async (page: Page, url: string) => {
       return (
         (shown.includes("Stopped a loop") && loaded < 15_000) ||
         `shown: ${shown}, loaded in ${loaded} ms`
+      );
+    }
+  );
+
+  await check(
+    "a dependency's loop that never ends (React rendering a component inside itself) is stopped",
+    async () => {
+      const shown = await page.evaluate(
+        () =>
+          (
+            document
+              .querySelector(
+                '[data-ed-frame-host="loops/loop-react.page.json"]'
+              )
+              ?.shadowRoot?.querySelector("#root") as HTMLElement | null
+          )?.innerText ?? ""
+      );
+      return (
+        shown.includes("Stopped a loop") || `shown: ${shown.slice(0, 200)}`
       );
     }
   );

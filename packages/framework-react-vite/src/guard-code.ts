@@ -11,8 +11,10 @@
  *   listener, an interval) is that version of the module's, taken off when Vite runs a newer
  *   one (`preview-core/hmr-leftovers.ts`). Each update ran it again and stacked another.
  *
- * Applied to the repository's modules, not its dependencies, after they are JavaScript. Edits
- * insert text and never a line, so the lines of the stacks and of the source maps stay right.
+ * Applied to the repository's modules after they are JavaScript, and the loop check alone to its
+ * dependencies (a loop there stops the editor as well, React's own on a component that renders
+ * itself). Edits insert text and never a line, so the lines of the stacks and of the source maps
+ * stay right.
  */
 
 /** The module the inserted code imports what it calls from. */
@@ -25,9 +27,11 @@ const LIMIT_MS = 2500;
  * The module itself, served as is. The loop check counts, and reads the clock every 1024
  * iterations: the time is the time since the first check of the task, which a message on a
  * channel of its own ends (a message is not held back in a tab in the background, as a timer is,
- * and is not run before an endless chain of microtasks ends). A loop that threw throws at once if
- * it runs again in the same task, so a loop that catches what it calls ends too; any other gets
- * its own 2.5 s. The frame is the preview's to say, once it is there.
+ * and is not run before an endless chain of microtasks ends). A loop of the repository's that
+ * threw throws at once if it runs again in the same task, so a loop that catches what it calls
+ * ends too; any other gets its own 2.5 s. A dependency's loop (numbered 0) never throws at once:
+ * React runs its work loop again to draw the error's boundary, for every frame. The frame is the
+ * preview's to say, once it is there.
  */
 export const GUARD_MODULE = `const LIMIT_MS = ${LIMIT_MS};
 let calls = 0;
@@ -40,7 +44,7 @@ channel.port1.onmessage = () => {
   stopped.clear();
 };
 function stop(id) {
-  stopped.add(id);
+  if (id !== 0) stopped.add(id);
   start = performance.now();
   const error = new Error("Stopped a loop that held the editor for ${LIMIT_MS / 1000} s");
   error.name = "LoopError";
@@ -78,6 +82,9 @@ export function mark(error, frame) {
 
 /** Whether a module may hold anything to guard: most hold neither a loop nor `async`. */
 export const MAY_GUARD_RE = /\b(?:async|do|for|while)\b/;
+
+/** Whether a dependency may hold a loop, the only thing guarded in one. */
+export const MAY_LOOP_RE = /\b(?:do|for|while)\b/;
 
 /** An ESTree node, as Rollup's and Rolldown's parsers give it: with its offsets. */
 interface Node {
@@ -147,7 +154,7 @@ const wrapBody = (
         { at: body.end, depth, opens: false, text: `${closing}}` },
       ];
 
-const edits = (program: Node, nextId: () => number) => {
+const edits = (program: Node, nextId: () => number, markAsync: boolean) => {
   const found: Edit[] = [];
   let loops = false;
   let asyncs = false;
@@ -156,6 +163,7 @@ const edits = (program: Node, nextId: () => number) => {
       loops = true;
       found.push(...wrapBody(node.body, depth, `__edLoop(${nextId()});`, ""));
     } else if (
+      markAsync &&
       FUNCTIONS.has(node.type) &&
       node.async === true &&
       node.generator !== true &&
@@ -188,19 +196,23 @@ const edits = (program: Node, nextId: () => number) => {
 };
 
 /**
- * `code` with its loops checked, its `async` functions marking what they reject and, with
- * `markModule`, its top-level code saying when it starts and ends; null when there is nothing to
- * do. `program` is `code` parsed, or null when it holds neither a loop nor `async`; `nextId`
- * numbers the loops apart, across modules.
+ * `code` with its loops checked and, unless told otherwise, its `async` functions marking what
+ * they reject and its top-level code saying when it starts and ends (a dependency's are not: it
+ * is not edited, and its rejections reach the repository's own functions); null when there is
+ * nothing to do. `program` is `code` parsed, or null when it holds neither a loop nor `async`;
+ * `nextId` numbers the loops apart, across modules.
  */
 export const guardCode = (
   code: string,
   program: unknown,
   nextId: () => number,
-  { markModule = true }: { readonly markModule?: boolean } = {}
+  {
+    markAsync = true,
+    markModule = true,
+  }: { readonly markAsync?: boolean; readonly markModule?: boolean } = {}
 ): string | null => {
   const { asyncs, found, loops } = isNode(program)
-    ? edits(program, nextId)
+    ? edits(program, nextId, markAsync)
     : { asyncs: false, found: [], loops: false };
   if (found.length === 0 && !markModule) {
     return null;

@@ -482,3 +482,14 @@ CSS-in-JS (C1) and HMR leftovers (K1), which S7 left, were asked for after (step
       up lazily for everyone. The fixture's module that listens and ticks at its top level, edited
       twice: one listener and one interval left (heard once, 10 ticks a second); without, three
       of each (3, 30).
+- [x] 15. The loop check in dependencies too: what the preview serves from `node_modules` and
+      what Vite prebundled (into its cache, which lies in the generated directory the guard
+      skipped), not Vite's client nor our bundles; loops only, no marks, no module markers.
+      React's module holds 282 checks. A dependency's loop never throws at once after a stop, as
+      the repository's do: React runs its work loop again to draw the error's boundary, for every
+      frame drawn in that task, and the first try left them all empty, the error told to another
+      frame. A component that renders itself without end (React's own work loop) is stopped at
+      2.5 s and drawn by the page's boundary, the other frames as they were; before, the editor
+      never came back. What still stops the editor in the browser: an endless chain of promises
+      with no loop, and the browser's own code spinning (the freeze fixture's
+      `Array.prototype.find`), which the watchdog answers on the next load.
