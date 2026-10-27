@@ -12,7 +12,7 @@ import { reportError, useProject } from "../state/project.ts";
 import { ensureEditable } from "../state/setup.ts";
 import { linksToPage } from "./links.ts";
 import { viewportSize } from "./shortcuts.ts";
-import { startCommand } from "./start-thread.ts";
+import { startTask } from "./start-thread.ts";
 
 /** What the warning on a page without a URL says, wherever it is shown. */
 export const NO_URL_HINT =
@@ -157,9 +157,16 @@ export const deletePage = async (page: Page) => {
   }
 };
 
-/** A page is named by its URL for the command when it has one, by its file otherwise. */
+/**
+ * A page is named by its URL, in its canvas, when it has one, by its id otherwise: the task's
+ * command reads `/implement /settings`, or `marketing:/pricing` in another canvas than the root.
+ */
 export const implementPage = (page: Page) =>
-  startCommand(`/implement ${page.route ?? page.id}`);
+  startTask(
+    page.route === undefined
+      ? { _tag: "Implement", target: page.id }
+      : { _tag: "Implement", canvas: page.canvas, target: page.route }
+  );
 
 /** The template a page starts from when none is picked, as the New page form has it. */
 export const DEFAULT_TEMPLATE = "centered";
@@ -275,10 +282,10 @@ export const setPagesReady = async (ids: readonly string[]) => {
 /**
  * Has an agent find the code that already implements pages and link them (ADR 0030), without
  * changing the code: how a project built before it came into the editor brings its pages in.
- * The words are canvases (`""` for the designs directory's own) or pages, by id.
+ * The targets are canvases (`""` for the designs directory's own) or pages, by id.
  */
-export const adoptPages = (words: readonly string[]) =>
-  startCommand(`/implement --adopt ${words.join(" ")}`);
+export const adoptPages = (targets: readonly string[]) =>
+  startTask({ _tag: "Adopt", targets });
 
 /**
  * Marks a design implemented by the files the user names, as it is now (ADR 0030): the next

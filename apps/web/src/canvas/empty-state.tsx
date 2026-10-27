@@ -17,7 +17,7 @@ import { openSetup } from "../components/setup-dialog.tsx";
 import { newCanvas } from "../lib/canvas-actions.ts";
 import { pickFigmaFile } from "../lib/import-figma.ts";
 import { newPage } from "../lib/page-actions.ts";
-import { startCommand, startInit } from "../lib/start-thread.ts";
+import { startInit, startPrompt } from "../lib/start-thread.ts";
 import { useCatalogue } from "../state/catalogue.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useEditor } from "../state/editor.ts";
@@ -246,7 +246,7 @@ const Starters = ({ canvas }: { canvas: string }) => {
             hint={withSystem ? o.uses.join(" · ") : "Plain wireframe"}
             key={o.starter.id}
             label={o.starter.label}
-            onClick={() => startCommand(starterPrompt(o, name, withSystem))}
+            onClick={() => startPrompt(starterPrompt(o, name, withSystem))}
             plain={!withSystem}
             style={style}
             thumb={o.starter.id}

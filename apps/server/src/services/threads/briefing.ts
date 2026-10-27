@@ -37,6 +37,7 @@ import { RepoPaths } from "../repo-paths.ts";
 import { SkillsService } from "../skills.ts";
 import { SpecService } from "../specs.ts";
 import { AgentSandbox } from "./agent-sandbox.ts";
+import { type AgentWays, agentWays } from "./agent-ways.ts";
 
 /** The styles under their groups: `headings: Heading xl, Heading lg; body: Body`. */
 const textStylesByGroup = (styles: readonly TextStyle[]) =>
@@ -130,15 +131,15 @@ const pagesListOf = (pages: PageList) => {
  * writes the designs only; behaviour the design cannot show is written down, not coded. An
  * implement thread writes the application from a design.
  */
-const roleOf = (purpose: ThreadPurpose, designsDir: string, mcp: boolean) =>
+const roleOf = (purpose: ThreadPurpose, designsDir: string, ways: AgentWays) =>
   purpose === "implement"
     ? `This thread implements: it turns designs into the application's code, and may write the
 whole repository. The design is what the UI looks like and which states it has; what it does is
-the code's. Token values are the design's: bring one the code does not have yet over ${mcp ? 'with handoff (action "export", its name)' : "by writing the design's value into the stylesheet"}, never the other way without asking. ${mcp ? 'When a design is implemented, mark it with handoff (action "mark", the files).' : "When a design is implemented, tell the user which files implement it."}`
+the code's. Token values are the design's: to bring one the code does not have yet over, ${ways.exportTokens("named")}; never the other way without asking. When a design is implemented, ${ways.markImplemented("the page, or spec:<Component>")}`
     : `This thread designs: it may write ${designsDir} only, not the application's code. The design is
 what the UI looks like and which states it has (an empty, loading or error state is a page of
 its own, orders@empty.page.json); what it does — data, permissions, validation, what a button
-calls — is the code's. When the user asks for behaviour, ${mcp ? 'write it down with handoff (action "note"): on the node it belongs to, or on a component\'s spec (target spec:<Component>, node a slot)' : "write it down as a comment on the node"}, and
+calls — is the code's. When the user asks for behaviour, ${ways.noteBehaviour}, and
 tell them it goes to the code when the design is implemented (the Implement button). Token values
 are the design's: change them in the design system, never in a stylesheet.`;
 
@@ -183,7 +184,7 @@ export class ProjectBriefing extends Context.Service<
     ProjectBriefing,
     Effect.gen(function* () {
       const project = yield* ProjectManager;
-      const { mcp } = yield* ServerConfig;
+      const ways = agentWays((yield* ServerConfig).mcp);
       const sandbox = yield* AgentSandbox;
 
       const build = Effect.fnUntraced(function* (purpose: ThreadPurpose) {
@@ -224,7 +225,7 @@ export class ProjectBriefing extends Context.Service<
         return `<ultrapaint>
 You are working in ultrapaint, a design tool. The user sees the designs you change, live, on
 its canvas, drawn with this repository's own design system.
-${roleOf(purpose, settings.designsDir, Boolean(mcp))}
+${roleOf(purpose, settings.designsDir, ways)}
 
 Designs live in ${settings.designsDir}, in canvases: a directory with a canvas.json is a canvas
 (the designs directory itself when there is only one), and each has its own pages, the URLs they
@@ -282,35 +283,9 @@ ${components.map(componentLine).join("\n")}`
     : `Components live in ${settings.libraryDirs.join(", ") || "this repository"}.`
 }
 
-${
-  mcp
-    ? `The "ultrapaint" MCP server is the editor itself. Change designs through it: read_page
-and read_canvas return a document with its ids, apply_operations changes it (insert, remove,
-move, update, setProps, wrap, unwrap, duplicate) — validated, shown on the canvas at once and
-undoable by the user. create_page adds a page (from a template of list_templates), rename_page
-renames it, duplicate_page copies it, delete_page deletes it with its variants, set_page_url sets
-or takes off its URL, and set_frame sizes its frame on the canvas (a long page needs a tall one to
-be seen whole). create_canvas makes a canvas, copy_pages copies or moves pages into another,
-set_home says which URL its prototype opens on, and list_links finds the links that lead
-nowhere — run it after changing URLs or deleting pages. Ask
-get_component for a component's props and an instance to start from, get_document_format for
-the whole format. list_comments, reply_to_comment and resolve_comment answer the user where
-they asked, and focus tells the canvas which page you are on so the user can watch you work;
-before changing nodes, pass their ids to focus as nodes with a few words as action, and the
-canvas shows your work on them. Tools name a page by its URL, or by its file when it has none.
-A node reference such as /orders#c_8x2k1q (or drafts.page.json#c_8x2k1q), which the user may
-paste, is a page and a node id.
-After a change, get_screenshot shows you the page or a node as it draws: look, and fix what is off.
-When a decision is the user's, ask_user puts your questions to them as a card with answers to
-pick, and its result is their answers. Only if it says the questions were shown instead, end your
-turn: the answers come as the next message.
-Prefer these to editing the JSON files yourself; if you do write a file, keep it valid.
+${ways.changingDesigns}
 
-`
-    : `Edit the .page.json files directly and keep them valid; every node needs a unique id.
-
-`
-}${specsOf(specs)}Your shell already starts in ${paths.root}, the repository: use paths relative to it, and
+${specsOf(specs)}Your shell already starts in ${paths.root}, the repository: use paths relative to it, and
 stay inside it. Changes land on the canvas as you make them, so make them one
 step at a time rather than rewriting a page wholesale. ultrapaint.config.json is the user's:
 never write it; when components or styles are missing, send the user to Sync in the Design

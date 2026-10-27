@@ -3,8 +3,9 @@
  * keeps where each step is, reads the code (the inventory, and the audits against the saved
  * design system), keeps the mapping and the migration's batches, and takes a snapshot of the
  * working tree when a step or a batch starts and ends, so that redoing a step or reverting a batch
- * can put back what it changed. Threads are the RPC handlers' to open and cancel: the commands
- * that expand a step's task read this service, and the thread service is built on those commands.
+ * can put back what it changed. Threads are the step runner's to open and cancel
+ * (`setup-steps.ts`): the tasks a step's thread expands read this service, and the thread
+ * service is built on them.
  */
 import type {
   DefineMode,

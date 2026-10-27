@@ -83,10 +83,12 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             (c) => c.name
           );
           assert.include(commands, "design-system");
-          const { setup, threadId } = yield* client["dsSetup.start"]({
+          const { setup, task, threadId } = yield* client["dsSetup.start"]({
             step: "define",
           });
           assert.isString(threadId);
+          // The thread's first prompt is the step's task, which the editor writes in its composer.
+          assert.deepStrictEqual(task, { _tag: "SetupStep", step: "define" });
           const [, define] = setup.steps;
           assert.strictEqual(define?.status, "active");
           assert.strictEqual(define?.mode, "propose");

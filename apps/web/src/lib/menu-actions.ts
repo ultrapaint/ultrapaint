@@ -535,7 +535,7 @@ const runCanvasEntry = (canvasId: string, id: string) => {
     .pages.filter((p) => p.canvas === canvas.id)
     .map((p) => p.id);
   const actions: Record<string, () => unknown> = {
-    adopt: () => adoptPages([canvas.id === "" ? '""' : canvas.id]),
+    adopt: () => adoptPages([canvas.id]),
     componentSheet: () => componentSheet(canvas),
     delete: () => deleteCanvas(canvas),
     duplicate: () => duplicateCanvas(canvas),

@@ -27,7 +27,7 @@ import { confirmDialog } from "../components/dialogs.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { pickFigmaFile } from "../lib/import-figma.ts";
-import { startCommand } from "../lib/start-thread.ts";
+import { startTask } from "../lib/start-thread.ts";
 import { useAgents } from "../state/agents.ts";
 import { api } from "../state/connection.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
@@ -179,7 +179,10 @@ const DescribeStep = ({ index, step }: { index: number; step: SyncStep }) => (
   <SyncCard index={index} step={step}>
     {step.state === "done" ? null : (
       <div className="flex flex-wrap gap-1.5">
-        <Button onClick={() => startCommand("/sync describe")} size="sm">
+        <Button
+          onClick={() => startTask({ _tag: "Sync", source: "describe" })}
+          size="sm"
+        >
           <Wand2 />
           Describe with an agent
         </Button>
@@ -203,7 +206,7 @@ const FramesStep = ({
       <div className="flex flex-wrap gap-1.5">
         {figma ? (
           <Button
-            onClick={() => startCommand(`/import-figma ${figma.id}`)}
+            onClick={() => startTask({ _tag: "ImportFigma", file: figma.id })}
             size="sm"
           >
             <Wand2 />

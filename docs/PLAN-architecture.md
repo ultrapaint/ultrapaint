@@ -216,3 +216,54 @@ callers and its tests share.
    the status rules and a cancel with no turn under way. Also: the chat list shows a thread that
    is being stopped as working, as the composer did; a cancel of a thread that failed no longer
    writes "cancelling" over its failure while the turn's fiber unwinds.
+8. **Typed agent tasks** (`apps/server/src/services/threads/tasks.ts`, the requests in
+   `packages/contracts/src/tasks.ts`, the page-naming rule in
+   `apps/server/src/services/page-names.ts`, the step runner in
+   `apps/server/src/services/setup-steps.ts`). `TaskRequest` is a tagged union of every task an
+   agent is given: `Init`, `Implement` (a target, a canvas to narrow a URL), `Adopt` (canvases
+   and pages), `ImportFigma`, `Redraw`, `Components`, `SetupStep` (a step, Define's mode) and
+   `Sync` (a source, or none for where the sync stands), each with what the user adds;
+   `taskPurpose` is the one rule for what a thread running it is for (implementing writes the
+   code, adopting does not). `AgentTasks.task` turns a request into `{ text, purpose }` or a
+   `TaskFailure` whose `message` says why (no page is `/nowhere`, the pages are …; a step that
+   works through the MCP server on a server without it) and whose `next` says what to tell the
+   user; a failure without `next` (no project open) is the project's. The slash command is one
+   adapter: `parseCommand` reads a prompt into a request (or a step that is not one, or null for
+   a prompt the editor does not know), `commandOf` writes a request back as the command, and
+   `SlashCommands.expand` gives the task with its purpose, a failure written as a task that tells
+   the user why, or, with no project, what was typed. `turns.ts` takes the purpose from it (its
+   `IMPLEMENT_RE` and the web's go), the handoff tool asks `AgentTasks` for a design's task and
+   returns the failure's reason, and `/init`'s task moved from `commands.ts` into `tasks.ts`.
+   What an agent does with and without the editor's MCP server is written once per capability
+   in `agent-ways.ts` (`agentWays(mcp)`: reading the theme, saving the design system, editing a
+   canvas's pages, the briefing's tools, marking a design implemented, linking a page built
+   already, exporting, importing and settling tokens, noting behaviour, finishing a setup step),
+   with `HANDOFF_ACTIONS` and `handoffCall` naming the tool's actions for its schema and every
+   text; the task modules and the briefing keep only whether a step exists without the tools.
+   `pageNamed` is the page a name means for the MCP lookup and the tasks alike: a URL names the
+   base page (a variant's is named by its file; a state's page serves no URL, so the two rules
+   did not differ there), a file, path or id any page, nothing the only page, a canvas narrows,
+   and a name pages of several canvases answer to is ambiguous rather than the first.
+   `SetupSteps` sits above `ThreadService` and `DesignSystemSetupService`: `start` creates the
+   step's thread, starts the step with it and deletes it when the step does not start, and
+   returns the step's first task as a request; `stop` and `redo` stop the turns of the threads
+   they move first. The RPC handlers route to it, and `code.write` to
+   `DesignSystemService.codeOf`. The web starts every task with `startTask(request)`, which
+   writes `commandOf(request)` in the new thread's composer for the user to add to, as ADR 0023
+   and the Implement buttons had it, and creates the thread with `taskPurpose`; a step's thread
+   gets the task `dsSetup.start` returns. The prompt RPC still takes text: what the web starts
+   is a draft the user edits before sending, so it stays a command the server parses. Tests:
+   `tasks.test.ts` reads each request's task on a fixture in-process (`testing/tasks.ts`), with
+   and without the MCP server, its purpose, its failures and the slash adapter's renderings;
+   contracts' `tasks.test.ts` the parser and the printer, each request read back as written;
+   `page-names.test.ts` the naming rule; `setup-steps.test.ts` the runner on the in-process
+   threads (a step that cannot start leaves no thread, stopping a step stops its turn).
+   `threads.test.ts`, `design-source-links.test.ts` and `design-system-setup.test.ts` keep one
+   end-to-end path each (a slash command, handoff's read, a step's thread). Also: `/implement`
+   with a URL that pages of several canvases serve says so rather than implementing the first
+   listed, and takes `canvas:/url`, which the Implement button writes; the failures of the tasks
+   read as one sentence (`The user ran /redraw, but there is no canvas "nowhere"; the canvases
+   are …. Ask which one.`); `/import-figma` without the MCP server is refused as Map is, rather
+   than given the import's directory; a tool given an empty page name in a project of one page
+   gets that page, as `/implement` did; the no-MCP texts of Sync's code step and of a page's
+   tokens say the same thing (write the value, or have the user press Export).

@@ -21,9 +21,6 @@ import { recapOf } from "./recap.ts";
 import { ThreadStore } from "./thread-store.ts";
 
 const DATA_URL_RE = /^data:([^;]+);base64,(.*)$/s;
-/** A prompt that asks for the application's code. */
-// `--adopt` only links pages to code built already: a design thread does that.
-const IMPLEMENT_RE = /^\/implement(?!\s+--adopt(?:\s|$))(?:\s|$)/;
 
 /** What a design thread whose agent is running is told when asked to implement. */
 const DESIGN_THREAD_IMPLEMENT = `<ultrapaint-task command="implement">
@@ -152,19 +149,25 @@ export const makePromptContent = Effect.fnUntraced(function* () {
   });
 
   /**
-   * The task a prompt stands for. `/implement` turns a thread that has not started its agent into
-   * an implement thread: its session is then started with the repository writable (ADR 0030).
-   * One already running keeps its sandbox, and is told to send the user to an implement thread.
+   * The task a prompt stands for. A task that implements turns a thread that has not started its
+   * agent into an implement thread: its session is then started with the repository writable
+   * (ADR 0030). One already running keeps its sandbox, and is told to send the user to an
+   * implement thread.
    */
   const taskFor = Effect.fnUntraced(function* (thread: Thread, text: string) {
-    if (!IMPLEMENT_RE.test(text.trim()) || thread.purpose === "implement") {
-      return yield* commands.expand(text);
+    const task = yield* commands.expand(text);
+    if (
+      task === null ||
+      task.purpose !== "implement" ||
+      thread.purpose === "implement"
+    ) {
+      return task?.text ?? null;
     }
     if (thread.sessionId !== undefined) {
       return DESIGN_THREAD_IMPLEMENT;
     }
     yield* store.update(thread.id, { purpose: "implement" });
-    return yield* commands.expand(text);
+    return task.text;
   });
 
   return { attachmentBlocks, sessionContext, taskFor };

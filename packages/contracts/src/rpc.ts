@@ -91,6 +91,7 @@ import {
   TokenMatchInput,
   TokenSourceKind,
 } from "./sync.ts";
+import { TaskRequest } from "./tasks.ts";
 import {
   AgentConfig,
   AgentEdited,
@@ -398,13 +399,16 @@ const requestRpcs = [
   }),
   /**
    * Starts a step once the ones before it are done: the inventory runs there and then; a step an
-   * agent does gets a thread, returned for the editor to open with the step's command.
+   * agent does gets a thread, returned for the editor to open with the step's task written in
+   * its composer.
    */
   Rpc.make("dsSetup.start", {
     error: Schema.Union([SetupError, ThreadError]),
     payload: { ...SetupStepRef, mode: Schema.optional(DefineMode) },
     success: Schema.Struct({
       setup: DesignSystemSetup,
+      /** What the step's thread is first asked, for the editor to write in its composer. */
+      task: Schema.NullOr(TaskRequest),
       threadId: Schema.NullOr(Schema.String),
     }),
   }),

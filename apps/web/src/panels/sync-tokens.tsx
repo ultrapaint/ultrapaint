@@ -29,7 +29,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { promptDialog } from "../components/dialogs.tsx";
 import { Segmented } from "../components/segmented.tsx";
-import { startCommand } from "../lib/start-thread.ts";
+import { startTask } from "../lib/start-thread.ts";
 import { api } from "../state/connection.ts";
 import { reportError } from "../state/project.ts";
 import { useSync } from "../state/sync.ts";
@@ -239,7 +239,10 @@ const Matches = ({
       <div className="flex flex-wrap gap-1.5">
         <Button
           onClick={() =>
-            startCommand(`/sync ${source === "designMd" ? "design" : source}`)
+            startTask({
+              _tag: "Sync",
+              source: source === "designMd" ? "design" : source,
+            })
           }
           size="sm"
           variant={unmatched.length > 0 ? "default" : "outline"}

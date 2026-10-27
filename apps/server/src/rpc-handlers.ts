@@ -1,11 +1,5 @@
-import {
-  type SetupStepId,
-  setupStepOf,
-} from "@ultrapaint/contracts/design-system-setup";
 import { specTarget } from "@ultrapaint/contracts/implementation";
 import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
-import { breakpointsOf } from "@ultrapaint/design-document/breakpoints";
-import { toCode } from "@ultrapaint/design-document/code";
 import { Effect } from "effect";
 import { AppLog } from "./app-log.ts";
 import { connectHost, ServerConfig } from "./config.ts";
@@ -30,10 +24,10 @@ import { ProfileService } from "./services/profile.ts";
 import { Screenshots } from "./services/screenshots.ts";
 import { SettingsService } from "./services/settings.ts";
 import { SetupService } from "./services/setup.ts";
+import { SetupSteps } from "./services/setup-steps.ts";
 import { SkillsService } from "./services/skills.ts";
 import { Snapshots } from "./services/snapshots.ts";
 import { SpecService } from "./services/specs.ts";
-import { ProjectStyleSystem } from "./services/style-system.ts";
 import { AgentConfigs } from "./services/threads/agent-configs.ts";
 import { AgentDiscovery } from "./services/threads/agent-discovery.ts";
 import { ChatPreferences } from "./services/threads/chat-preferences.ts";
@@ -65,6 +59,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const commands = yield* SlashCommands;
     const screenshots = yield* Screenshots;
     const dsSetup = yield* DesignSystemSetupService;
+    const setupSteps = yield* SetupSteps;
     const profile = yield* ProfileService;
     const sync = yield* DesignSystemSyncService;
     const { host: listenHost, mcp: mcpEnabled } = yield* ServerConfig;
@@ -109,23 +104,6 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       f: (s: ImplementationService["Service"]) => Effect.Effect<A, E>
     ) => project.use(Effect.flatMap(ImplementationService, f));
 
-    /**
-     * Stops the turns of the steps from `step` on that are under way, before the setup moves
-     * them: an agent still writing would undo the redo.
-     */
-    const stopThreads = (step: SetupStepId, only: boolean) =>
-      Effect.gen(function* () {
-        const { steps } = yield* dsSetup.get;
-        const from = steps.findIndex((s) => s.id === step);
-        const affected = only ? [steps[from]] : steps.slice(from);
-        for (const s of affected) {
-          if (s?.threadId !== undefined && s.status === "active") {
-            // A thread that is not working has no turn to cancel.
-            yield* Effect.ignore(threads.cancel(s.threadId));
-          }
-        }
-      });
-
     return UltrapaintRpcs.of({
       "agents.discover": ({ agentId }) => discovery.discover(agentId),
       "agents.list": () => agents.list,
@@ -150,21 +128,12 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "checkpoints.list": () => checkpoints.list,
       "checkpoints.revert": ({ id }) => checkpoints.revert(id),
 
-      "code.write": ({ component, instances, node, parent }) =>
-        project.use(
-          Effect.gen(function* () {
-            const styleSystem = yield* ProjectStyleSystem;
-            const { designSystem: ds } = yield* (yield* DesignSystemService)
-              .get;
-            // The markup is the design document's, the classes the style system's (ADR 0024).
-            const code = toCode(node, styleSystem.nodeClasses(ds), {
-              breakpoints: breakpointsOf(ds),
-              component,
-              instances,
-              parent,
-            });
-            return { code, language: "tsx" };
-          })
+      "code.write": ({ node, ...options }) =>
+        designSystem((d) =>
+          Effect.map(d.codeOf(node, options), (code) => ({
+            code,
+            language: "tsx",
+          }))
         ),
       "commands.list": () => Effect.succeed(commands.list),
       "comments.create": (input) => comments((c) => c.create(input)),
@@ -191,8 +160,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "dsSetup.get": () => dsSetup.get,
       "dsSetup.inventory": () => dsSetup.inventory,
       "dsSetup.mapping": () => dsSetup.mapping,
-      "dsSetup.redo": ({ step }) =>
-        Effect.andThen(stopThreads(step, false), dsSetup.redo(step)),
+      "dsSetup.redo": ({ step }) => setupSteps.redo(step),
       "dsSetup.redoPreview": ({ step }) => dsSetup.redoPreview(step),
       "dsSetup.resume": ({ step }) => dsSetup.resume(step),
       "dsSetup.revertBatch": ({ batchId }) => dsSetup.revertBatch(batchId),
@@ -201,28 +169,8 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
           mapping: r.mapping,
           problems: r.problems,
         })),
-      "dsSetup.start": Effect.fnUntraced(function* ({ mode, step }) {
-        const thread = setupStepOf(step)?.agent
-          ? yield* threads.create(
-              undefined,
-              `Design system: ${setupStepOf(step)?.title ?? step}`
-            )
-          : null;
-        const started = yield* dsSetup
-          .start(step, {
-            ...(mode && { mode }),
-            ...(thread && { threadId: thread.id }),
-          })
-          // A step that could not start leaves no empty thread behind.
-          .pipe(
-            Effect.tapError(() =>
-              thread ? threads.delete(thread.id) : Effect.void
-            )
-          );
-        return { setup: started, threadId: thread?.id ?? null };
-      }),
-      "dsSetup.stop": ({ step }) =>
-        Effect.andThen(stopThreads(step, true), dsSetup.stop(step)),
+      "dsSetup.start": ({ mode, step }) => setupSteps.start(step, mode),
+      "dsSetup.stop": ({ step }) => setupSteps.stop(step),
       "edit.redo": () => edit((e) => e.redo),
       "edit.state": () => edit((e) => e.state),
       "edit.undo": () => edit((e) => e.undo),

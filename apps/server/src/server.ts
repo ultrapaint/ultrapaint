@@ -41,6 +41,7 @@ import { ProfileService } from "./services/profile.ts";
 import { Screenshots } from "./services/screenshots.ts";
 import { SettingsService } from "./services/settings.ts";
 import { SetupService } from "./services/setup.ts";
+import { SetupSteps } from "./services/setup-steps.ts";
 import { SnapshotStore } from "./services/snapshot-store.ts";
 import { Snapshots } from "./services/snapshots.ts";
 import { Storage } from "./services/storage.ts";
@@ -52,6 +53,7 @@ import { ProjectBriefing } from "./services/threads/briefing.ts";
 import { ChatPreferences } from "./services/threads/chat-preferences.ts";
 import { Checkpoints } from "./services/threads/checkpoints.ts";
 import { SlashCommands } from "./services/threads/commands.ts";
+import { AgentTasks } from "./services/threads/tasks.ts";
 import { ThreadSessions } from "./services/threads/thread-session.ts";
 import { ThreadStore } from "./services/threads/thread-store.ts";
 import { ThreadService } from "./services/threads/threads.ts";
@@ -381,15 +383,17 @@ const Threads = ThreadService.layer.pipe(
       // The briefing says what the sandbox allows, so it is built on it.
       ProjectBriefing.layer.pipe(Layer.provideMerge(AgentSandbox.layer)),
       McpAccess.layer,
-      SlashCommands.layer
+      // The handoff tool asks for tasks too.
+      SlashCommands.layer.pipe(Layer.provideMerge(AgentTasks.layer))
     )
   )
 );
 
 /** Application services. Each is built once and shared by every route. */
-const Services = Threads.pipe(
-  // The commands that expand a step's task read the setup and the sync's plan, and the
-  // threads are built on them; the sync reads the setup.
+const Services = SetupSteps.layer.pipe(
+  // A step of the setup starts with its thread, so its runner sits above the threads; the
+  // tasks the threads expand read the setup and the sync's plan, and the sync reads the setup.
+  Layer.provideMerge(Threads),
   Layer.provideMerge(DesignSystemSyncService.layer),
   Layer.provideMerge(DesignSystemSetupService.layer),
   Layer.provideMerge(ProjectManager.layer),
