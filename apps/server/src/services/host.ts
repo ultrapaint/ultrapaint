@@ -1,6 +1,6 @@
-import { createServer } from "node:net";
 import { PREVIEW_BASE } from "@ultrapaint/contracts/preview";
 import type { HostStatus } from "@ultrapaint/contracts/project";
+import { servingPort } from "@ultrapaint/framework-api/serving";
 import {
   Context,
   Deferred,
@@ -10,7 +10,6 @@ import {
   FileSystem,
   Layer,
   Path,
-  Schedule,
   Schema,
   Scope,
   Semaphore,
@@ -30,24 +29,6 @@ import {
 import { ProjectFramework } from "./framework.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { ProjectStyleSystem } from "./style-system.ts";
-
-const freePort = (host: string) =>
-  Effect.callback<number, Error>((resume) => {
-    const server = createServer();
-    server.on("error", (error) => resume(Effect.fail(error)));
-    server.listen(0, host, () => {
-      const address = server.address();
-      const port = typeof address === "object" && address ? address.port : 0;
-      server.close(() => resume(Effect.succeed(port)));
-    });
-  });
-
-/** True once anything answers on the port; Vite replies before its first build finishes. */
-const probe = (url: string) =>
-  Effect.tryPromise(() => fetch(url, { method: "HEAD" })).pipe(
-    Effect.filterOrFail((res) => res.status < 500),
-    Effect.asVoid
-  );
 
 interface Running {
   readonly scope: Scope.Closeable;
@@ -203,18 +184,15 @@ export class HostManager extends Context.Service<
 
       // The last thing the preview said on stderr: why it exited, when it exits.
       let lastError = "";
-      const pipeOutput = (
-        stream: Stream.Stream<Uint8Array, unknown>,
-        level: "info" | "warn"
-      ) =>
+      const pipeErrors = (stream: Stream.Stream<Uint8Array, unknown>) =>
         stream.pipe(
           Stream.decodeText(),
           Stream.runForEach((chunk) => {
             const text = chunk.trimEnd();
-            if (level === "warn" && text !== "") {
+            if (text !== "") {
               lastError = text;
             }
-            return log.log("host", level, text);
+            return log.log("host", "warn", text);
           }),
           Effect.ignore
         );
@@ -230,15 +208,6 @@ export class HostManager extends Context.Service<
         lastError = "";
         yield* setStatus({ state: "starting" });
         const { entry, serve } = yield* generate;
-        const port = yield* freePort(host).pipe(
-          Effect.mapError(
-            (error) =>
-              new HostStartError({
-                message: `no port is free for the preview: ${error.message}`,
-              })
-          )
-        );
-        const url = `http://${connectHost(host)}:${port}${PREVIEW_BASE.slice(0, -1)}`;
 
         const scope = yield* Scope.fork(layerScope);
         const stopped = yield* Deferred.make<void>();
@@ -246,7 +215,8 @@ export class HostManager extends Context.Service<
           .spawn(
             ChildProcess.make(
               machine.node,
-              [serve.script, ...serve.args, String(port), host],
+              // No port: the preview binds one the system gives and says which (`servingLine`).
+              [serve.script, ...serve.args, host],
               {
                 cwd: paths.anchorDir,
                 // `pnpm` puts its own store on NODE_PATH; the preview must only see what the
@@ -277,8 +247,24 @@ export class HostManager extends Context.Service<
           );
         running = { scope };
         yield* Scope.addFinalizer(scope, Deferred.succeed(stopped, undefined));
-        yield* Effect.forkIn(pipeOutput(handle.stdout, "info"), scope);
-        yield* Effect.forkIn(pipeOutput(handle.stderr, "warn"), scope);
+        // The port the preview says it listens on, once it does: its ready signal.
+        const listening = yield* Deferred.make<number>();
+        yield* Effect.forkIn(
+          handle.stdout.pipe(
+            Stream.decodeText(),
+            Stream.splitLines,
+            Stream.runForEach((line) => {
+              const port = servingPort(line);
+              return Effect.andThen(
+                port === null ? Effect.void : Deferred.succeed(listening, port),
+                line.trim() === "" ? Effect.void : log.log("host", "info", line)
+              );
+            }),
+            Effect.ignore
+          ),
+          scope
+        );
+        yield* Effect.forkIn(pipeErrors(handle.stderr), scope);
 
         // An exit we did not ask for is an error the editor must see.
         const exited = handle.exitCode.pipe(
@@ -303,14 +289,11 @@ export class HostManager extends Context.Service<
           layerScope
         );
 
-        const outcome = yield* probe(url).pipe(
-          Effect.retry(Schedule.spaced("150 millis")),
+        const outcome = yield* Deferred.await(listening).pipe(
           Effect.timeoutOption("30 seconds"),
           Effect.map((ready) =>
-            ready._tag === "Some" ? ("ready" as const) : ("timeout" as const)
+            ready._tag === "Some" ? ready.value : ("timeout" as const)
           ),
-          // The retry never gives up on its own; the timeout is the only way out.
-          Effect.orElseSucceed(() => "timeout" as const),
           Effect.raceFirst(Effect.as(exited, "exited" as const))
         );
         if (outcome === "exited") {
@@ -330,9 +313,9 @@ export class HostManager extends Context.Service<
         return yield* setStatus({
           entry,
           pid: Number(handle.pid),
-          port,
+          port: outcome,
           state: "running",
-          url,
+          url: `http://${connectHost(host)}:${outcome}${PREVIEW_BASE.slice(0, -1)}`,
         });
       }).pipe(
         Effect.catchTag("HostStartError", (error) =>

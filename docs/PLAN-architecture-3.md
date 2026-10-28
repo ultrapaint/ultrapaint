@@ -1110,3 +1110,20 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
     reconnection test starts its second server on the first's port, which it needs, after the
     first let go of it; and the host picks the preview server's port the same way before Vite
     listens (`host.ts`), outside the tests. Full server runs: 449 tests, three in a row.
+15. **The preview server binds its own port and says it** (`apps/server/src/services/host.ts`,
+    `packages/framework-react-vite/src/serve.ts`, `packages/framework-api/src/serving.ts`). The
+    serve script is run with the host and no port (`node serve.mjs <options.json> [host]`): it
+    listens on port 0, Vite binding one the system gives, and once it listens prints
+    `servingLine(port)` on stdout, framework-api's one wording of the line both sides read. The
+    host reads the preview's stdout line by line, takes the port from that line
+    (`servingPort`) and is running on it; the line is its ready signal, in place of probing a URL
+    every 150 ms, with the same 30 s limit and the same error when the preview exits first.
+    Fixed: the host picked a free port, let go of it, and handed it to a preview that listened
+    only once it had generated its files, loaded Vite and built its config, a gap of seconds in
+    which anything else could take it (Vite then failed with `strictPort`). `freePort` and
+    `probe` go; stderr is still kept whole for the error an exit gives. `host.test.ts` has 1 test
+    more: a preview that listens on a port of its own and says it, the line split over two
+    writes, leaves the host running at that port and URL, and was given the host and no port; it
+    failed first (the host probed the port it had picked, and timed out). Left: with port 0
+    Vite itself makes sure the port is free on every interface before it binds it, a gap inside
+    one process of a few system calls.

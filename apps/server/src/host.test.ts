@@ -1,6 +1,7 @@
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import type { Framework, StyleSystem } from "@ultrapaint/framework-api/node";
+import { servingLine } from "@ultrapaint/framework-api/serving";
 import { Effect, Fiber, FileSystem, Layer, Path } from "effect";
 import { TestClock } from "effect/testing";
 import { AppLog } from "./app-log.ts";
@@ -20,6 +21,23 @@ setInterval(() => undefined, 1 << 30);
 `;
 
 /**
+ * A preview that listens on a port the system gives, writes what it was run with and where it
+ * listens, and says the port as the serve script does, the line in two writes.
+ */
+const LISTENING_PREVIEW = `import { writeFileSync } from "node:fs";
+import { createServer } from "node:http";
+const [file, ...rest] = process.argv.slice(2);
+const server = createServer((_, res) => res.end("preview"));
+server.listen(0, rest.at(-1), () => {
+  const { port } = server.address();
+  writeFileSync(file, JSON.stringify({ pid: process.pid, port, rest }));
+  const line = ${JSON.stringify(servingLine(0).slice(0, -1))} + port + "\\n";
+  process.stdout.write("starting\\n" + line.slice(0, 10));
+  setTimeout(() => process.stdout.write(line.slice(10)), 50);
+});
+`;
+
+/**
  * Until `done` holds of what `read` gives, in real time while the test clock holds the host's
  * own timers.
  */
@@ -35,9 +53,10 @@ const isAlive = (pid: number) =>
     Effect.orElseSucceed(() => false)
   );
 
-/** The host of a fixture repository whose preview is `SILENT_PREVIEW`. */
+/** The host of a fixture repository whose preview is `preview`'s source. */
 const withHost = <A, E>(
   current: ComponentRegistry["Service"]["current"],
+  preview: string,
   use: (
     host: HostManager["Service"],
     pidFile: string
@@ -50,7 +69,7 @@ const withHost = <A, E>(
     yield* fs.makeDirectory(path.join(repo, "designs"));
     const script = path.join(repo, "preview.mjs");
     const pidFile = path.join(repo, "preview.pid");
-    yield* fs.writeFileString(script, SILENT_PREVIEW);
+    yield* fs.writeFileString(script, preview);
     const framework = {
       preview: {
         generate: () =>
@@ -109,7 +128,7 @@ describe("the preview host", () => {
   it.effect(
     "stops a preview that never listens, and starts it again on the next start",
     () =>
-      withHost(Effect.succeed([]), (host, pidFile) =>
+      withHost(Effect.succeed([]), SILENT_PREVIEW, (host, pidFile) =>
         Effect.gen(function* () {
           const fs = yield* FileSystem.FileSystem;
           const first = yield* Effect.forkChild(host.start);
@@ -137,15 +156,48 @@ describe("the preview host", () => {
   );
 
   it.effect("reports a start that breaks as an error, not as starting", () =>
-    withHost(Effect.die(new Error("the registry broke")), (host) =>
-      Effect.gen(function* () {
-        const status = yield* host.start;
-        assert.deepStrictEqual(status, {
-          error: "the preview could not be started: the registry broke",
-          state: "error",
-        });
-        assert.deepStrictEqual(yield* host.status, status);
-      })
+    withHost(
+      Effect.die(new Error("the registry broke")),
+      SILENT_PREVIEW,
+      (host) =>
+        Effect.gen(function* () {
+          const status = yield* host.start;
+          assert.deepStrictEqual(status, {
+            error: "the preview could not be started: the registry broke",
+            state: "error",
+          });
+          assert.deepStrictEqual(yield* host.status, status);
+        })
     )
+  );
+
+  it.effect(
+    "is running on the port the preview says it listens on, given none",
+    () =>
+      withHost(Effect.succeed([]), LISTENING_PREVIEW, (host, infoFile) =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const status = yield* TestClock.withLive(host.start);
+          const ran = JSON.parse(yield* fs.readFileString(infoFile)) as {
+            pid: number;
+            port: number;
+            rest: string[];
+          };
+          // Only the host after the script's own arguments: no port picked beforehand.
+          assert.deepStrictEqual(ran.rest, ["127.0.0.1"]);
+          assert.deepStrictEqual(status, {
+            entry: "/preview/editor.ts",
+            pid: ran.pid,
+            port: ran.port,
+            state: "running",
+            url: `http://127.0.0.1:${ran.port}/preview`,
+          });
+          const answer = yield* Effect.promise(() =>
+            fetch(`http://127.0.0.1:${ran.port}/`).then((r) => r.text())
+          );
+          assert.strictEqual(answer, "preview");
+        })
+      ),
+    30_000
   );
 });

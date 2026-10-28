@@ -181,7 +181,8 @@ export interface PreviewBuilder {
   };
   /**
    * Files to write into `input.dir`, and the Node script that serves the preview: it is run
-   * from the anchor package with `args` followed by the port to listen on.
+   * from the anchor package with `args` followed by the host to listen on, binds a port the
+   * system gives and says which on stdout (`servingLine` in `serving.ts`).
    */
   readonly generate: (input: PreviewInput) => Promise<{
     /** The module the editor imports to draw its frames, as a path under `input.base`. */
