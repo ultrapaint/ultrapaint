@@ -38,7 +38,7 @@ import { startInit } from "../lib/start-thread.ts";
 import { platform } from "../platform.ts";
 import { api } from "../state/connection.ts";
 import { useDesignSystem } from "../state/design-system.ts";
-import { useEditor } from "../state/editor.ts";
+import { showLeftPanel } from "../state/panels.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { useWindowChrome } from "../state/window-controls.ts";
 import { placeDocument } from "./design-md-view.tsx";
@@ -119,7 +119,7 @@ const DesignSystemGroup = () => {
   }, [loaded]);
   const open = () => {
     useProject.getState().openSettings(false);
-    useEditor.getState().setLeftTab("designSystem");
+    showLeftPanel("designSystem");
   };
   const init = () => {
     useProject.getState().openSettings(false);

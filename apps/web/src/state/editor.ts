@@ -142,7 +142,6 @@ interface EditorStore {
   setFrame: (pageId: string, frame: FrameLayout, persist?: boolean) => void;
   setHostError: (frame: string, error: string | null) => void;
   setHover: (hover: EditorStore["hover"]) => void;
-  setLeftTab: (tab: EditorStore["leftTab"]) => void;
   setMode: (mode: Mode) => void;
   setPreset: (pageId: string, preset: ViewportPreset) => void;
   setRects: (frame: string, rects: Record<string, Rect>) => void;
@@ -559,11 +558,6 @@ export const useEditor = create<EditorStore>((set, get) => ({
         ? s
         : { hover }
     ),
-  // The left panels are the canvas's: one asked for from the prototype brings the canvas back.
-  setLeftTab: (leftTab) => {
-    get().setWorkspace("design");
-    set({ leftTab });
-  },
   setMode: (mode) => set({ mode }),
   setPreset: (pageId, preset) => {
     const f = get().frames[pageId];

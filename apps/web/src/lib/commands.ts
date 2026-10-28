@@ -26,7 +26,7 @@ import {
   type Workspace,
   workspaceOrder,
 } from "../state/editor.ts";
-import { openLeftPanel, showRightPanel, usePanels } from "../state/panels.ts";
+import { showLeftPanel, showRightPanel, usePanels } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import { newCanvas, openCanvas } from "./canvas-actions.ts";
 import { pickFigmaFile } from "./import-figma.ts";
@@ -270,7 +270,7 @@ const panelCommands = (): CommandSpec[] => [
     id: "newChat",
     keywords: "thread agent prompt ask",
     run: () => {
-      openLeftPanel("chat");
+      showLeftPanel("chat");
       createThread();
     },
     title: "New chat with an agent",
@@ -281,7 +281,7 @@ const panelCommands = (): CommandSpec[] => [
       id: `panel:${p.tab}`,
       ...(p.keywords ? { keywords: p.keywords } : {}),
       offered: () => onCanvas() && railTabs.includes(p.tab),
-      run: () => openLeftPanel(p.tab),
+      run: () => showLeftPanel(p.tab),
       title: `Show ${p.title}`,
     })
   ),
@@ -839,7 +839,7 @@ const chatCommand = (thread: Thread): Command => ({
   id: `thread:${thread.id}`,
   keywords: "chat thread agent",
   run: () => {
-    openLeftPanel("chat");
+    showLeftPanel("chat");
     useAgents.getState().open(thread.id);
   },
   title: thread.title,

@@ -562,3 +562,31 @@ unless the step says otherwise.
     `attachments.test.ts` gains 4 (files once and in order with a component's node, none, a
     comment pinned on a node, named or not, and one on its page); `thread-store.test.ts` reads
     files written running, starting and closed as idle (failing once the two left the schema).
+12. **Showing a left panel** (`apps/web/src/state/panels.ts`, beside `showRightPanel`).
+    `showLeftPanel(shown)` is the left side's one verb: a tab (`"assets"`), a thread in the chat
+    with its draft (`{ chat, draft }`, the chat by id, opened unless it is the one open, or the
+    thread itself when it was just created and has no transcript to read), a file's changes (`{
+    changes: path }`) or a node to rename in its Layers row (`{ layers: { rename } }`). It leaves
+    the prototype, sets the tab, brings the panel back when it was put away and leaves the request,
+    which waits until the panel takes it up: `useRequest(requested, onRequest, ready?)` (the one
+    waiting as the panel mounts, then each one while it is on screen) and `takeRequest(requested)`,
+    once each. `leftPanelShows(tab)` says whether a panel is the one on screen. One store of
+    requests (a diff, a rename, a draft by thread) replaces the three that did the same job in three
+    shapes: `layer-rename.ts` (a request and a count of mounted Layers panels), `diff-request.ts`,
+    and `useDrafts` with `takeDraft` in `start-thread.ts`, which is the same request keyed by
+    thread, so it went too. The editor's `setLeftTab` and `openLeftPanel` go; their 17 call sites
+    outside the panels module (10 of `setLeftTab`, 7 of `openLeftPanel`: Add to chat, starting a
+    thread or a task, opening a thread from a toast, the toolbar, the selection's tag, an agent's
+    badge or the palette, a step's thread and the steps, a turn's files changed, the settings'
+    Design system, the rail, the empty canvas and the palette's panels) call it, and the dev handle
+    gains it for `pnpm bench:canvas`. Also: with the left panel put away, Add to chat put a chip in
+    a chat nobody could see, and every one of those ways in but the rail, the empty canvas and the
+    palette switched the tab of a hidden panel; they bring it back. Rename typed the name into the
+    row of a Layers panel put away (it stays mounted, so it counted as open), and asks in a dialog,
+    as it does with another panel on screen; a thread asked for while it is the one open is no
+    longer read again. `panels.test.ts` (11, on `fakeApi` through the stores): a tab with the panels
+    put away, from the prototype, a thread and its draft taken once, the thread open left as it is,
+    one just created not read, Changes on the last file asked for, a rename for Layers, Add to chat
+    with the panel put away (failing first), and Rename in the row while Layers is on screen, in a
+    dialog with Layers put away (failing first, the panel counted as mounted) or another panel on
+    screen. `diff-request.test.ts` goes, its case now the Changes one there.

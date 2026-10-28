@@ -17,8 +17,8 @@ import {
 } from "lucide-react";
 import { useRef, useState } from "react";
 import { importFigma } from "../lib/import-figma.ts";
-import { useDrafts } from "../lib/start-thread.ts";
 import { useEditor } from "../state/editor.ts";
+import { showLeftPanel } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 
 interface Starter {
@@ -69,7 +69,7 @@ const useStarters = (): readonly Starter[] => {
 };
 
 const write = (threadId: string, text: string) =>
-  useDrafts.setState((s) => ({ drafts: { ...s.drafts, [threadId]: text } }));
+  showLeftPanel({ chat: threadId, draft: text });
 
 const StarterGroup = ({
   onToggle,

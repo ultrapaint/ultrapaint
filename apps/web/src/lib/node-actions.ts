@@ -42,7 +42,7 @@ import {
   useDocuments,
 } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
-import { requestInlineRename } from "../state/layer-rename.ts";
+import { leftPanelShows, showLeftPanel } from "../state/panels.ts";
 import { asDrawnIn, editedFrameOf, isSelected } from "../state/selection.ts";
 import { insertedAt, propsOpsAt, updateOpsAt } from "./breakpoint-edits.ts";
 import { isPageRoot } from "./menu-model.ts";
@@ -483,8 +483,8 @@ export const renameNodeTo = async (name: string, target?: Selection) => {
 };
 
 /**
- * Names the node: in its row of the layers panel when the panel is open, the way Figma does, and
- * in a dialog when it is not.
+ * Names the node: in its row of the layers panel when the panel is on screen, the way Figma does,
+ * and in a dialog when it is not (another panel, or the panel put away).
  */
 export const renameNode = async (target?: Selection) => {
   const current = selected(nodeContext(target));
@@ -499,7 +499,8 @@ export const renameNode = async (target?: Selection) => {
   ) {
     editor.select(at);
   }
-  if (requestInlineRename(at)) {
+  if (leftPanelShows("layers")) {
+    showLeftPanel({ layers: { rename: at } });
     return;
   }
   const name = await promptDialog({

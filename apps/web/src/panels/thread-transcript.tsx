@@ -40,8 +40,7 @@ import {
   workSummary,
 } from "../lib/thread-work.ts";
 import { terminalKey, useAgents } from "../state/agents.ts";
-import { requestDiff } from "../state/diff-request.ts";
-import { useEditor } from "../state/editor.ts";
+import { showLeftPanel } from "../state/panels.ts";
 import { Permission, QuestionRecord } from "./thread-questions.tsx";
 
 export const keyOfEntry = (entry: ThreadEntry) =>
@@ -170,10 +169,7 @@ const keyedEntries = <T extends { content: string }>(entries: readonly T[]) => {
 /** Opens the changes panel on the first of the files, where all of them are listed. */
 const openChanges = (files: readonly string[]) => {
   const [first] = files;
-  if (first) {
-    requestDiff(first);
-  }
-  useEditor.getState().setLeftTab("changes");
+  showLeftPanel(first ? { changes: first } : "changes");
 };
 
 /**
