@@ -24,7 +24,7 @@ callers and its tests share.
 - Named snapshots kept in the old format are imported into the snapshot store the first time
   the snapshots are read (when the service starts, before anything lists them), then the old
   files are removed (step 5).
-- The page runtime contract (step 11) declares the globals' names and shapes once and both sides
+- The page runtime contract (step 10) declares the globals' names and shapes once and both sides
   import them. Reaching the guards through an import instead of a global is left out: the
   dependency-only loop check must stay standalone, and nothing measured asks for it.
 - The renderer seam stays, by ADR 0011, with one adapter (step 13).
@@ -307,3 +307,27 @@ callers and its tests share.
    modules under the base of a stuck page's stack, not the editor's own; `guardedKind` tells the
    dev server's code by the file's path with its separators made `/`, as it did the rest.
    `pnpm e2e:sandbox` passes its 23 checks.
+10. **Page runtime contract** (`packages/contracts/src/page-runtime.ts`, in contracts as the one
+   package the preview's server, preview-core and the desktop app all depend on; it imports
+   nothing, so neither side takes the other's code). It names each global the generated code calls
+   (`GUARD_GLOBAL`, `STYLES_GLOBAL`, `RELOAD_GLOBAL`, `REGISTRY_GLOBAL`), declares its shape
+   (`PageGuard<Frame>`, `PageStyles`, `PageReload`, `PageRegistry`, together `PageRuntime`), lists
+   each shape's members in a record `satisfies`-checked to hold every one and nothing else
+   (`GUARD_MEMBERS`, `STYLES_MEMBERS`, `REGISTRY_MEMBERS`, all in `PAGE_RUNTIME`), and holds the
+   module mark (`MODULE_MARK_NAME`, the name the repository's modules call `moduleStarts` by, and
+   `MODULE_MARK`, moved out of `provenance.ts`). `installPageRuntime(globals)` defines globals
+   through `PageRuntime`, so a guard, a stylesheet hook or a registry that drifts from its shape
+   does not compile; `pageRuntime()` reads them. The templates interpolate the names and the
+   members: `GUARD_MODULE` calls `globalThis.__ultrapaintGuard` directly in each function rather
+   than through its `preview()`, `patchClient` the styles' `update` and `remove` and the reload,
+   the registry `setComponents`, and `guardCode` writes the mark from the constants. preview-core's
+   `answerGuard`, `installHooks` and `createPreview` define theirs with `installPageRuntime`
+   (styles' `Hooks` and `HookedGlobal` go), provenance's `isRepositoryModule` and with it the
+   desktop app's `stoppedAt` find the mark through it, and framework-api's `ComponentRegistry` is
+   its `ComponentModules`. The calls stay calls on globals, as decided. `page-runtime.test.ts`
+   reads the guard module, Vite's own client as patched and the registry for every global of
+   ours they read and every member they call on one (`.__ed…`, `.__ED__`, `.__ultrapaint…`), and
+   checks that the contract declares each and that each calls all its global's members; a member
+   renamed in a template fails it, one renamed in the contract fails the typecheck. The tests
+   that wrote the names out (`vite-client`, `sandbox`, `provenance`, `stopped-at`) take them from
+   the contract. `pnpm e2e:sandbox` passes its 23 checks.

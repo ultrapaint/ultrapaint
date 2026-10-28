@@ -31,6 +31,10 @@
  * the window's size.
  */
 
+import {
+  GUARD_GLOBAL,
+  installPageRuntime,
+} from "@ultrapaint/contracts/page-runtime";
 import { holdStyle, holdStyleFirst, isHeld, isStyle } from "./css-in-js.ts";
 import { guardDocumentElements } from "./document-elements.ts";
 import { addedNow, moduleEnds, moduleStarts } from "./hmr-leftovers.ts";
@@ -643,16 +647,18 @@ export const onStrayError = (listener: (error: FrameError) => void) => {
  * `async` function is called for, and the mark on what it rejects with.
  */
 const answerGuard = () => {
-  (globalThis as { __ultrapaintGuard?: unknown }).__ultrapaintGuard = {
-    frame: () => carrying ?? current,
-    mark: (error: object, frame: GuardedFrame) => {
-      if (!marks.has(error)) {
-        marks.set(error, frame);
-      }
+  installPageRuntime<GuardedFrame>({
+    [GUARD_GLOBAL]: {
+      frame: () => carrying ?? current,
+      mark: (error, frame) => {
+        if (!marks.has(error)) {
+          marks.set(error, frame);
+        }
+      },
+      moduleEnds,
+      moduleStarts,
     },
-    moduleEnds,
-    moduleStarts,
-  };
+  });
 };
 
 // ---- Animation frames and timers ----

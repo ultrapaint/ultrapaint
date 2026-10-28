@@ -6,6 +6,7 @@
  */
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
+import type { ComponentModules } from "@ultrapaint/contracts/page-runtime";
 import type { PageDefaults } from "@ultrapaint/contracts/pages";
 import type { InstanceDrawn, RenderMode } from "@ultrapaint/contracts/preview";
 import type { ComponentSpec } from "@ultrapaint/contracts/specs";
@@ -17,10 +18,8 @@ export const NODE_ATTRIBUTE = "data-ed-node";
 export const nodeSelector = (id: string) =>
   `[${NODE_ATTRIBUTE}="${CSS.escape(id)}"]`;
 
-/** The modules instances import, by the specifier a node's `from` names. */
-export type ComponentRegistry = Readonly<
-  Record<string, () => Promise<unknown>>
->;
+/** The modules instances import, as the registry hands them to the page (`page-runtime.ts`). */
+export type ComponentRegistry = ComponentModules;
 
 /** What the core hands a renderer once, when it mounts it. */
 export interface RenderSetup {

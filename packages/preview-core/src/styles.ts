@@ -6,21 +6,17 @@
  * date as they change, and asks here before it reloads the page.
  */
 import {
+  installPageRuntime,
+  type PageStyles,
+  RELOAD_GLOBAL,
+  STYLES_GLOBAL,
+} from "@ultrapaint/contracts/page-runtime";
+import {
   BODY_ATTRIBUTE,
   FRAME_CONTAINER,
   type FrameCss,
   frameCss,
 } from "./frame-css.ts";
-
-interface Hooks {
-  readonly remove: (id: string) => void;
-  readonly update: (id: string, css: string) => void;
-}
-
-interface HookedGlobal {
-  __edReload?: () => void;
-  __edStyles?: Hooks;
-}
 
 /** The application's stylesheets, by the module that loads each, as frames adopt them. */
 const parts = new Map<string, { document: string; frame: string }>();
@@ -164,7 +160,7 @@ const schedule = () => {
   }
 };
 
-const hooks: Hooks = {
+const hooks: PageStyles = {
   remove: (id) => {
     if (parts.delete(id)) {
       schedule();
@@ -182,17 +178,18 @@ const hooks: Hooks = {
  * of reloading the editor.
  */
 export const installHooks = () => {
-  const global = globalThis as HookedGlobal;
-  global.__edStyles = hooks;
-  global.__edReload = () => {
-    if (reloadListeners.size === 0) {
-      location.reload();
-      return;
-    }
-    for (const listener of reloadListeners) {
-      listener();
-    }
-  };
+  installPageRuntime({
+    [RELOAD_GLOBAL]: () => {
+      if (reloadListeners.size === 0) {
+        location.reload();
+        return;
+      }
+      for (const listener of reloadListeners) {
+        listener();
+      }
+    },
+    [STYLES_GLOBAL]: hooks,
+  });
 };
 
 /**

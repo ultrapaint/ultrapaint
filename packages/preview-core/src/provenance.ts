@@ -19,6 +19,7 @@
  * that read the code above a patch need V8's `Error.captureStackTrace`: without it they say the
  * editor's, and only `windowCall` tells the page's code.
  */
+import { MODULE_MARK } from "@ultrapaint/contracts/page-runtime";
 import { mappedLines } from "./source-lines.ts";
 
 /** One frame of a stack, top first. */
@@ -193,12 +194,10 @@ export const isRepositoryUrl = (url: string, base: string): boolean => {
 };
 
 /**
- * What the preview's server puts first in every module of the repository's, and in no other
+ * Whether the module at `url`, whose code is `code`, is the repository's own: its server says,
+ * with `MODULE_MARK`, which it puts first in every module of the repository's and in no other
  * (`framework-react-vite/guard-code.ts`, which `guardedKind` decides by the module's file).
  */
-export const MODULE_MARK = "__edModuleStarts(";
-
-/** Whether the module at `url`, whose code is `code`, is the repository's own: its server says. */
 export const isRepositoryModule = (
   url: string,
   code: string,
