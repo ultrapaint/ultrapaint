@@ -318,3 +318,42 @@ test, `server.test.ts`'s socket tests that `ProjectTest` could run).
    sets start in the md view over a centred base and an unset one and in the base view, which
    failed first with `null` at `md`. No render-free test reads both surfaces' use of a field:
    both are components.
+6. **The frame's host, the core's** (`packages/preview-core/src/frame-host.ts`). A frame's host
+   and body element have two writers, the editor and the page's code, each with its classes and
+   style properties apart (a style on an element of its own nobody sees); they are merged on the
+   element, the page's properties over the editor's, and only what changed is written, so the
+   host, which carries every `:host` rule, is not styled again for nothing. `showHost` writes how
+   the editor shows a frame: framework-api's `FrameShown` (class, style, title, `interactive`,
+   `away`), which `MountFrameOptions.shown` gives at first and `FrameRuntime.show` changes,
+   partly, in place of `setInteractive`; the core sets the host's pointer events with `inert` on
+   the body, and marks the host `data-ed-frame-host` with the frame's name. The guard of `<html>`
+   and `<body>` (`document-elements`) writes the page's classes and, through `pageStyleOf`, its
+   style properties as the page's (its `pageClasses` go); the body's defaults are the editor's
+   there (`frame.ts`'s `shownOnBody` goes). `editor-frame`'s `present()`, its pointer-events,
+   title and content-visibility writes and the park size it put on the host go: it keeps the
+   whole `FrameShown`, gives it to a frame mounted anew, tells a reopened one its class and style
+   again and a parked one its size, through `show`. Whether an event is from a frame is
+   `Preview.fromFrame`, a mounted frame's host on its path (`turn`'s `frameOfEvent`, which the
+   sandbox's listeners used already); the web's `from-frame` holds the preview loaded, and
+   `keys.ts` and the canvas ask it in place of reading `data-ed-frame-host`, which stays for the
+   e2e and bench scripts. Pictures (`specimens`) give their size in the open's style and are held
+   in an `aria-hidden` holder rather than writing the host. Fixed: a page's `dark` class and
+   `color-scheme` on `<html>` were wiped whenever the editor showed the host again (a parked
+   frame opened, a node frame's class changed), `html.dark` rules then matching no more while the
+   guard thought the class there. Also: the page's whole style written on its `<body>` (`style =
+   …`, `setAttribute` or `removeAttribute("style")`) replaces only its own, the canvas's defaults
+   staying (they were gone until the next render); a class the page takes off the body that the
+   editor put there too (a `dark` theme) stays; an element marked `data-ed-frame-host` that the
+   core did not draw is no frame to the editor's keys. Left: `data-ed-drawn`, which the bench
+   reads, is still `editor-frame`'s; where a host is placed (its holder, the parking lot) is the
+   editor's. The scripted renderer of `frame.test.ts` is preview-core's test adapter
+   (`@ultrapaint/preview-core/testing`, outside the editor's bundle): the real `createPreview`
+   in happy-dom, recorded stacks for whose code calls, a page script run as a frame draws, which
+   then says it drew. `editor-frame.test.ts` tests the host on it: a page's `dark` and
+   `color-scheme` kept on a parked frame opened again (failed first, the class gone), the host
+   marked and shown as asked, the park size, and `isTyping` true for a key from a prototype's
+   page and false for a stray marked element; the pool, drawing and events keep a fake preview,
+   which now never touches the host. `frame.test.ts` has 4 tests of the host (shown as asked, the
+   page's class and style kept when the editor shows it again, input off and on, an event from a
+   frame), `document-elements.test.ts` 2 more (the editor changing its own, the body's whole
+   style).

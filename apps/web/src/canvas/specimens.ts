@@ -21,6 +21,17 @@ const WIDTH = 1200;
 const HEIGHT = 900;
 
 let queue: Promise<unknown> = Promise.resolve();
+let holder: HTMLElement | null = null;
+
+/** What holds the frame: nothing a screen reader reads. */
+const holderOf = () => {
+  if (!holder) {
+    holder = document.createElement("div");
+    holder.setAttribute("aria-hidden", "true");
+    document.body.append(holder);
+  }
+  return holder;
+};
 
 /**
  * What a canvas draws every page in (`CanvasLayout.defaults`): the app hands the lookup in at
@@ -51,22 +62,24 @@ const settle = () =>
  * images are found elsewhere. Null while the preview is not running, or when pictures stopped
  * the editor the last time: none are drawn until it loads again.
  */
-const open = async (canvas: string): Promise<OpenedFrame | null> => {
+const open = async (
+  canvas: string,
+  width: number,
+  height: number
+): Promise<OpenedFrame | null> => {
   const preview = await previewReady();
   if (!preview) {
     return null;
   }
-  const opened = frameOf(FRAME).open({
+  return frameOf(FRAME).open({
     canvas,
-    holder: document.body,
+    holder: holderOf(),
     preview,
     retryFrozenNextLoad: true,
     still: true,
-    // Drawn, but nowhere the pointer or the eye goes.
-    style: `position:fixed;left:-20000px;top:0;width:${WIDTH}px;height:${HEIGHT}px`,
+    // Drawn at the picture's size, but nowhere the pointer or the eye goes.
+    style: `position:fixed;left:-20000px;top:0;width:${width}px;height:${height}px`,
   });
-  opened?.host.setAttribute("aria-hidden", "true");
-  return opened;
 };
 
 /** Waits for the frame to have drawn a render, however long its components take to load. */
@@ -110,12 +123,14 @@ export const drawSpecimen = (
   options: SpecimenOptions = {}
 ): Promise<string | null> => {
   const task = queue.then(async () => {
-    const frame = await open(options.canvas ?? "");
+    const frame = await open(
+      options.canvas ?? "",
+      options.width ?? WIDTH,
+      options.height ?? HEIGHT
+    );
     if (!frame) {
       return null;
     }
-    frame.host.style.width = `${options.width ?? WIDTH}px`;
-    frame.host.style.height = `${options.height ?? HEIGHT}px`;
     // A canvas whose defaults cannot be read is drawn in the stylesheet's own.
     let defaults: PageDefaults | undefined;
     try {

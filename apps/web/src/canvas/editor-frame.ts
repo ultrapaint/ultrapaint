@@ -1,14 +1,16 @@
 /**
  * The frames the editor draws pages in, shadow roots of its own page (ADR 0034): a frame of the
  * canvas, the prototype, the type samples, a component's matrix, the pictures. `frameOf(id)` is
- * the one handle on frame `id`; it opens the frame (`open`: its host, with `data-ed-frame-host`,
- * drawn by the preview), says what it says (`listen`, one listener per kind), tells it what to draw
+ * the one handle on frame `id`; it opens the frame (`open`: its host, placed in a holder and drawn
+ * by the preview), says what it says (`listen`, one listener per kind), tells it what to draw
  * (`render`, which skips what it shows already) and asks it what is where, answered at once
- * (`hitTest`, `measure`, `tokens`).
+ * (`hitTest`, `measure`, `tokens`). How its host is shown (its class, style, title, whether it
+ * takes input, whether it is away) it tells the preview, which writes the host (`show`) and keeps
+ * what the page's code writes to its `<html>` there apart from it.
  *
  * The handle outlives the frame it speaks to. What it was asked to keep (the nodes it watches,
- * the skeletons, whether it takes input, its title) is told again to the frame opened next, so a
- * caller says it once whether or not the frame is drawn yet.
+ * the skeletons, how its host is shown) is told again to the frame opened next, so a caller says
+ * it once whether or not the frame is drawn yet.
  *
  * A frame opened with `keep` (the canvas's) is parked when it is closed rather than thrown away
  * (ADR 0033, 0034): a frame that leaves the screen, a canvas switched away from or the prototype
@@ -30,6 +32,7 @@ import type {
   FrameEvents,
   FrameRect,
   FrameRuntime,
+  FrameShown,
   Preview,
 } from "@ultrapaint/framework-api/browser";
 import { useEffect, useLayoutEffect, useRef } from "react";
@@ -69,6 +72,7 @@ export interface RenderRequest {
 export interface OpenOptions {
   /** Whose images relative paths are: a canvas's own, else the shared ones. */
   readonly canvas: string;
+  /** The host's classes, shown whenever it is opened. */
   readonly className?: string;
   /** Where the host goes. */
   readonly holder: HTMLElement;
@@ -82,7 +86,7 @@ export interface OpenOptions {
   readonly retryFrozenNextLoad?: boolean;
   /** Drawn at once, without transitions: what pictures are taken of. */
   readonly still?: boolean;
-  /** The host's own style, written whenever it is opened. */
+  /** The host's own style, shown whenever it is opened. */
   readonly style?: string;
 }
 
@@ -106,16 +110,6 @@ interface Mount {
   readonly runtime: FrameRuntime;
   /** When it was last placed or parked, for the oldest to go first. */
   touched: number;
-}
-
-/** How a frame's host is shown. */
-interface ShownAs {
-  /** Off the screen: kept as it is, and skipped by the browser. */
-  away: boolean;
-  /** The page takes input; otherwise the pointer goes past it. */
-  interactive: boolean;
-  /** What the frame is read by. */
-  title: string;
 }
 
 /** What the frame was last told to draw, by which runtime. */
@@ -197,9 +191,11 @@ export class EditorFrame {
   private watched: readonly string[] = [];
   private skeletons: readonly string[] = [];
   /** How its host is shown, told again to a frame opened later. */
-  private readonly shownAs: ShownAs = {
+  private shownAs: FrameShown = {
     away: false,
+    className: "",
     interactive: false,
+    style: "",
     title: "",
   };
   /** The last render the frame said it drew; what it is told again it does not draw again. */
@@ -247,10 +243,19 @@ export class EditorFrame {
       m = null;
     }
     clock += 1;
+    this.shownAs = {
+      ...this.shownAs,
+      className: options.className ?? "",
+      style: options.style ?? "",
+    };
     if (m) {
       m.placed = true;
       m.touched = clock;
-      this.present(m.host, options);
+      // As it is asked for now: the size it was parked at goes.
+      m.runtime.show({
+        className: this.shownAs.className,
+        style: this.shownAs.style,
+      });
       if (m.host.parentElement !== options.holder) {
         options.holder.append(m.host);
       }
@@ -270,8 +275,6 @@ export class EditorFrame {
 
   private mountIn(options: OpenOptions): Mount {
     const host = document.createElement("div");
-    host.dataset.edFrameHost = this.id;
-    this.present(host, options);
     options.holder.append(host);
     // What the runtime says before `mountFrame` returns is heard, not counted as its drawing.
     let mounted: Mount | null = null;
@@ -279,6 +282,7 @@ export class EditorFrame {
       canvas: options.canvas,
       events: this.eventsOf(() => mounted),
       frame: this.id,
+      shown: this.shownAs,
       ...(options.still && { still: true }),
     });
     const m: Mount = {
@@ -300,9 +304,6 @@ export class EditorFrame {
     if (this.skeletons.length > 0) {
       runtime.skeleton(this.skeletons);
     }
-    if (this.shownAs.interactive) {
-      runtime.setInteractive(true);
-    }
     // A frame that never says it drew (a page that throws before it draws) does not hold the
     // queue.
     setTimeout(() => this.drewOn(m), LOAD_TIMEOUT_MS);
@@ -313,15 +314,6 @@ export class EditorFrame {
       }
     }
     return m;
-  }
-
-  /** The host's class, style, title and input as they are asked for now. */
-  private present(host: HTMLElement, options: OpenOptions) {
-    host.className = options.className ?? "";
-    host.style.cssText = options.style ?? "";
-    host.title = this.shownAs.title;
-    host.style.pointerEvents = this.shownAs.interactive ? "auto" : "none";
-    host.style.contentVisibility = this.shownAs.away ? "hidden" : "";
   }
 
   /** What a mount's runtime tells the frame, for its listeners. */
@@ -382,8 +374,15 @@ export class EditorFrame {
       return;
     }
     // Kept at the size it was drawn at: the page inside is not laid out again.
-    m.host.style.width = `${m.host.offsetWidth}px`;
-    m.host.style.height = `${m.host.offsetHeight}px`;
+    m.runtime.show({
+      style: [
+        this.shownAs.style,
+        `width: ${m.host.offsetWidth}px`,
+        `height: ${m.host.offsetHeight}px`,
+      ]
+        .filter(Boolean)
+        .join(";"),
+    });
     m.placed = false;
     clock += 1;
     m.touched = clock;
@@ -511,27 +510,22 @@ export class EditorFrame {
    * picture, which the pointer goes past.
    */
   setInteractive(interactive: boolean) {
-    this.shownAs.interactive = interactive;
-    if (this.mount) {
-      this.mount.host.style.pointerEvents = interactive ? "auto" : "none";
-      this.mount.runtime.setInteractive(interactive);
-    }
+    this.show({ interactive });
   }
 
   /** What the frame is read by. */
   setTitle(title: string) {
-    this.shownAs.title = title;
-    if (this.mount) {
-      this.mount.host.title = title;
-    }
+    this.show({ title });
   }
 
   /** Off the screen: kept as it is, and skipped by the browser. */
   setAway(away: boolean) {
-    this.shownAs.away = away;
-    if (this.mount) {
-      this.mount.host.style.contentVisibility = away ? "hidden" : "";
-    }
+    this.show({ away });
+  }
+
+  private show(shown: Partial<FrameShown>) {
+    this.shownAs = { ...this.shownAs, ...shown };
+    this.mount?.runtime.show(shown);
   }
 }
 

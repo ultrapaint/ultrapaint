@@ -1,65 +1,13 @@
 // @vitest-environment happy-dom
 import type {
   FrameRuntime,
-  RenderSetup,
-  RenderToCanvas,
+  FrameShown,
 } from "@ultrapaint/framework-api/browser";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { createPreview } from "./frame.ts";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { BODY_ATTRIBUTE } from "./frame-css.ts";
-import { install } from "./kernel.ts";
+import { scriptedPreview } from "./testing.ts";
 
-const ORIGIN = "http://127.0.0.1:4601";
-const BASE = "/preview/";
-const BUNDLE = `${ORIGIN}${BASE}@fs/ultrapaint/dist/editor.js`;
-const PAGE_MODULE = `${ORIGIN}${BASE}src/preview-module.tsx`;
-
-/** Recorded stacks of whoever calls a patch, the caller first. */
-const STACKS = {
-  editor: [`    at onKey (${ORIGIN}/assets/index.js:5:5)`],
-  page: [
-    `    at Page (${PAGE_MODULE}:3:1)`,
-    `    at draw (${BUNDLE}?v=3:1:2)`,
-    `    at canvas (${ORIGIN}/assets/index.js:5:5)`,
-  ],
-};
-
-/** The stack the guards read: the editor's, unless the page's code runs. */
-let calling: readonly string[] = STACKS.editor;
-const asPage = <T>(f: () => T): T => {
-  calling = STACKS.page;
-  try {
-    return f();
-  } finally {
-    calling = STACKS.editor;
-  }
-};
-
-/** What the page's code does when its frame is drawn: each test's. */
-let page: (setup: RenderSetup) => void = () => undefined;
-/** A renderer that runs the test's page code when asked to draw. */
-const mount: RenderToCanvas = (setup) => ({
-  render: () => page(setup),
-  setComponents: () => undefined,
-  unmount: () => undefined,
-});
-
-let preview: ReturnType<typeof createPreview>;
-beforeAll(() => {
-  install({
-    base: BASE,
-    ownScript: BUNDLE,
-    readModule: () => Promise.reject(new Error("no module in a test")),
-    stack: () => ["Error", ...calling].join("\n"),
-  });
-  preview = createPreview(mount, {
-    assets: `${ORIGIN}${BASE}@assets`,
-    components: {},
-    designsRoot: `${ORIGIN}${BASE}@fs/designs`,
-    providers: undefined,
-    theme: "light",
-  });
-});
+const { asPage, page, preview } = scriptedPreview();
 
 const opened: FrameRuntime[] = [];
 const added: (() => void)[] = [];
@@ -73,8 +21,12 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
-/** A frame of the canvas, mounted and taking input, drawn in `theme`. */
-const open = (name: string, theme: "dark" | "light") => {
+/** A frame of the canvas, mounted and shown as `shown` (taking input), drawn in `theme`. */
+const open = (
+  name: string,
+  theme: "dark" | "light",
+  shown: Partial<FrameShown> = { interactive: true }
+) => {
   const host = document.createElement("div");
   document.body.append(host);
   const navigateTo = vi.fn();
@@ -82,15 +34,15 @@ const open = (name: string, theme: "dark" | "light") => {
     canvas: "canvas",
     events: { navigateTo },
     frame: name,
+    shown,
   });
   opened.push(runtime);
-  runtime.setInteractive(true);
   const body = host.shadowRoot?.querySelector(
     `[${BODY_ATTRIBUTE}]`
   ) as HTMLElement;
   /** The editor draws the frame; `code` is what its page's code does meanwhile. */
-  const draw = (code: (setup: RenderSetup) => void) => {
-    page = code;
+  const draw = (code: Parameters<typeof page>[0]) => {
+    page(code);
     runtime.render({
       defaults: { theme },
       designSystem: null,
@@ -99,7 +51,7 @@ const open = (name: string, theme: "dark" | "light") => {
       root: null,
     });
   };
-  return { body, draw, navigateTo };
+  return { body, draw, host, navigateTo, runtime };
 };
 
 /** A listener the page's code puts on the document, taken off after the test. */
@@ -198,5 +150,87 @@ describe("a frame's turn", () => {
     expect(dark()).toBe(
       window.matchMedia("(prefers-color-scheme: dark)").matches
     );
+  });
+});
+
+describe("a frame's host", () => {
+  it("is shown as the editor asks: marked, its class, style and title, away", () => {
+    const { host, runtime } = open("a", "light", {
+      className: "block h-full",
+      style: "position: absolute; left: 4px",
+      title: "Home",
+    });
+    expect(host.getAttribute("data-ed-frame-host")).toBe("a");
+    expect([...host.classList]).toEqual(["block", "h-full"]);
+    expect(host.style.left).toBe("4px");
+    expect(host.title).toBe("Home");
+    runtime.show({ away: true, className: "block", style: "left: 8px" });
+    expect([...host.classList]).toEqual(["block"]);
+    expect(host.style.left).toBe("8px");
+    expect(host.style.position).toBe("");
+    expect(host.style.contentVisibility).toBe("hidden");
+    runtime.show({ away: false });
+    expect(host.style.contentVisibility).toBe("");
+    expect(host.title).toBe("Home");
+  });
+
+  it("keeps what the page's code put on its <html> when the editor shows it again", () => {
+    const { draw, host, runtime } = open("a", "light", {
+      className: "block",
+      style: "width: 10px",
+    });
+    draw(() =>
+      asPage(() => {
+        document.documentElement.classList.add("dark");
+        document.documentElement.style.colorScheme = "dark";
+      })
+    );
+    runtime.show({ className: "block bg-white", style: "width: 20px" });
+    expect([...host.classList].sort()).toEqual(["bg-white", "block", "dark"]);
+    expect(host.style.colorScheme).toBe("dark");
+    expect(host.style.width).toBe("20px");
+    // The page's code takes its own off, and only its own.
+    draw(() =>
+      asPage(() => {
+        document.documentElement.className = "";
+        document.documentElement.style.removeProperty("color-scheme");
+      })
+    );
+    expect([...host.classList].sort()).toEqual(["bg-white", "block"]);
+    expect(host.style.colorScheme).toBe("");
+    expect(host.style.width).toBe("20px");
+  });
+
+  it("takes input only while asked: the pointer and focus go past a picture", () => {
+    const { body, host, runtime } = open("a", "light", {});
+    expect(host.style.pointerEvents).toBe("none");
+    expect(body.hasAttribute("inert")).toBe(true);
+    runtime.show({ interactive: true });
+    expect(host.style.pointerEvents).toBe("auto");
+    expect(body.hasAttribute("inert")).toBe(false);
+    runtime.show({ interactive: false });
+    expect(host.style.pointerEvents).toBe("none");
+    expect(body.hasAttribute("inert")).toBe(true);
+  });
+
+  it("is where an event from the frame comes from, and nothing else is", () => {
+    const { body } = open("a", "light");
+    const outside = document.createElement("button");
+    document.body.append(outside);
+    const fromFrame: boolean[] = [];
+    const hear = (e: Event) => fromFrame.push(preview.fromFrame(e));
+    document.addEventListener("keydown", hear);
+    try {
+      key(body);
+      key(outside);
+      // A host the core does not draw, marked as one, is not a frame.
+      const stray = document.createElement("div");
+      stray.setAttribute("data-ed-frame-host", "stray");
+      document.body.append(stray);
+      key(stray);
+    } finally {
+      document.removeEventListener("keydown", hear);
+    }
+    expect(fromFrame).toEqual([true, false, false]);
   });
 });

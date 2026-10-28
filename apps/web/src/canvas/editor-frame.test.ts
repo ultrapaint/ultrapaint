@@ -5,7 +5,8 @@ import type {
   MountFrameOptions,
   Preview,
 } from "@ultrapaint/framework-api/browser";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { scriptedPreview } from "@ultrapaint/preview-core/testing";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { tryNextTime } = vi.hoisted(() => ({ tryNextTime: vi.fn() }));
 vi.mock("./watchdog.ts", async (original) => ({
@@ -24,10 +25,15 @@ interface Drawn {
   };
 }
 
-/** The preview-core runtime the module calls, drawing nothing. */
+/**
+ * A preview that draws nothing and never touches the host, for what the module decides itself:
+ * the pool, what it draws, what it hears. What the host shows is the core's, tested with the
+ * real one below.
+ */
 const fakePreview = () => {
   const drawn: Drawn[] = [];
   const preview: Preview = {
+    fromFrame: () => false,
     mountFrame: (host, options) => {
       const runtime = {
         editText: vi.fn(),
@@ -40,7 +46,7 @@ const fakePreview = () => {
         render: vi.fn(),
         screenshot: vi.fn(() => Promise.resolve("data:image/png;base64,")),
         scrollIntoView: vi.fn(),
-        setInteractive: vi.fn(),
+        show: vi.fn(),
         skeleton: vi.fn(),
         tokens: vi.fn(() => ({ "--color-primary": "red" })),
         unmount: vi.fn(),
@@ -92,7 +98,7 @@ beforeEach(async () => {
 });
 
 describe("a frame opened in the editor's page", () => {
-  it("puts a host marked with its id in the holder, and answers at once", () => {
+  it("puts a host in the holder, and answers at once", () => {
     const { drawn, preview } = fakePreview();
     const frame = m.frameOf("p1");
     // Asked before it is open: nothing there, without waiting.
@@ -102,7 +108,6 @@ describe("a frame opened in the editor's page", () => {
     const into = holder();
     const opened = frame.open({ canvas: "c", holder: into, preview });
     expect(opened?.host.parentElement).toBe(into);
-    expect(opened?.host.dataset.edFrameHost).toBe("p1");
     expect(only(drawn).options).toMatchObject({ canvas: "c", frame: "p1" });
     expect(frame.ready).toBe(true);
     expect(frame.hitTest(1, 2)).toEqual(["at 1,2"]);
@@ -136,36 +141,127 @@ describe("a frame opened in the editor's page", () => {
     ).not.toBeNull();
   });
 
-  it("tells a frame opened later what it was asked before: rects, skeletons, input, title", () => {
+  it("tells a frame opened later what it was asked before: rects, skeletons, how it is shown", () => {
     const { drawn, preview } = fakePreview();
     const frame = m.frameOf("p1");
     frame.watchRects(["a", "b"]);
     frame.skeleton(["s"]);
     frame.setInteractive(true);
     frame.setTitle("Home");
-    const opened = frame.open({ canvas: "c", holder: holder(), preview });
-    const { runtime } = only(drawn);
+    frame.setAway(true);
+    frame.open({ canvas: "c", className: "x", holder: holder(), preview });
+    const { options, runtime } = only(drawn);
     expect(runtime.watchRects).toHaveBeenCalledWith(["a", "b"]);
     expect(runtime.skeleton).toHaveBeenCalledWith(["s"]);
-    expect(runtime.setInteractive).toHaveBeenCalledWith(true);
-    expect(opened?.host.title).toBe("Home");
-    expect(opened?.host.style.pointerEvents).toBe("auto");
+    expect(options.shown).toEqual({
+      away: true,
+      className: "x",
+      interactive: true,
+      style: "",
+      title: "Home",
+    });
+    frame.setInteractive(false);
+    expect(runtime.show).toHaveBeenLastCalledWith({ interactive: false });
+  });
+});
+
+describe("the host, drawn by the preview core", () => {
+  const core = scriptedPreview();
+  afterEach(() => {
+    for (const id of opened.splice(0)) {
+      m.frameOf(id).drop();
+    }
+  });
+  const opened: string[] = [];
+  /** Frame `id` of the canvas, opened in the core, drawn with `code` as its page's. */
+  const openReal = (id: string, className = "block h-full w-full") => {
+    opened.push(id);
+    const frame = m.frameOf(id);
+    const open = () =>
+      frame.open({
+        canvas: "c",
+        className,
+        holder: holder(),
+        keep: true,
+        preview: core.preview,
+      });
+    return { frame, open };
+  };
+
+  it("keeps what the page put on its <html> when a parked frame is opened again", () => {
+    const { frame, open } = openReal("p1");
+    const first = open();
+    const host = first?.host as HTMLElement;
+    core.page(() =>
+      core.asPage(() => {
+        document.documentElement.classList.add("dark");
+        document.documentElement.style.colorScheme = "dark";
+      })
+    );
+    frame.render(page);
+    core.page(() => undefined);
+    expect(host.classList.contains("dark")).toBe(true);
+    // Drawn, parked and opened again: the editor shows it anew.
+    first?.close();
+    expect(frame.parkedAt()).not.toBeNull();
+    const again = open();
+    expect(again?.host).toBe(host);
+    expect(host.classList.contains("dark")).toBe(true);
+    expect(host.classList.contains("block")).toBe(true);
+    expect(host.style.colorScheme).toBe("dark");
   });
 
-  it("takes input only when asked, the runtime and the host alike", () => {
-    const { drawn, preview } = fakePreview();
-    const frame = m.frameOf("p1");
-    const opened = frame.open({ canvas: "c", holder: holder(), preview });
-    const { runtime } = only(drawn);
-    // A picture until asked: the pointer goes past it.
-    expect(opened?.host.style.pointerEvents).toBe("none");
-    expect(runtime.setInteractive).not.toHaveBeenCalled();
+  it("is marked with the frame's id, and shows its title and input as asked", () => {
+    const { frame, open } = openReal("p2");
+    frame.setTitle("Home");
     frame.setInteractive(true);
-    expect(runtime.setInteractive).toHaveBeenLastCalledWith(true);
-    expect(opened?.host.style.pointerEvents).toBe("auto");
+    const host = open()?.host as HTMLElement;
+    expect(host.dataset.edFrameHost).toBe("p2");
+    expect(host.title).toBe("Home");
+    expect(host.style.pointerEvents).toBe("auto");
+    // A picture: the pointer goes past it.
     frame.setInteractive(false);
-    expect(runtime.setInteractive).toHaveBeenLastCalledWith(false);
-    expect(opened?.host.style.pointerEvents).toBe("none");
+    expect(host.style.pointerEvents).toBe("none");
+    frame.setAway(true);
+    expect(host.style.contentVisibility).toBe("hidden");
+  });
+
+  it("is where the editor's keys leave an event alone: the core's frames, not a mark", async () => {
+    const { previewLoaded } = await import("./from-frame.ts");
+    const { isTyping } = await import("../lib/keys.ts");
+    previewLoaded(core.preview);
+    const { frame, open } = openReal("p4");
+    // The prototype: its page takes input.
+    frame.setInteractive(true);
+    const host = open()?.host as HTMLElement;
+    const inside = host.shadowRoot?.querySelector("#root") as HTMLElement;
+    const stray = holder();
+    stray.dataset.edFrameHost = "stray";
+    const typing: boolean[] = [];
+    const hear = (e: Event) => typing.push(isTyping(e));
+    document.addEventListener("keydown", hear);
+    try {
+      for (const target of [inside, stray]) {
+        target.dispatchEvent(
+          new KeyboardEvent("keydown", { bubbles: true, composed: true })
+        );
+      }
+    } finally {
+      document.removeEventListener("keydown", hear);
+    }
+    expect(typing).toEqual([true, false]);
+  });
+
+  it("keeps its size while parked, and is placed as asked when opened again", () => {
+    const { frame, open } = openReal("p3");
+    const first = open();
+    const host = first?.host as HTMLElement;
+    frame.render(page);
+    first?.close();
+    expect(host.style.width).toBe(`${host.offsetWidth}px`);
+    open();
+    expect(host.style.width).toBe("");
+    expect(host.classList.contains("block")).toBe(true);
   });
 });
 

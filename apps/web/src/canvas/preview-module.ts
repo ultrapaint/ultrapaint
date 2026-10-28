@@ -7,6 +7,7 @@ import type { Preview } from "@ultrapaint/framework-api/browser";
 import { useEffect, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { useProject } from "../state/project.ts";
+import { previewLoaded } from "./from-frame.ts";
 import { readFrozen, watchPreview } from "./watchdog.ts";
 
 interface PreviewModule {
@@ -48,6 +49,7 @@ const load = (entry: string) => {
         });
       });
       loaded = { entry, preview: m.preview };
+      previewLoaded(m.preview);
       for (const listener of listeners) {
         listener();
       }

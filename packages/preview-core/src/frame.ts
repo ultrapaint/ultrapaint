@@ -21,6 +21,7 @@ import type {
   FrameEvents,
   FrameRect,
   FrameRuntime,
+  FrameShown,
   Mounted,
   MountFrameOptions,
   Preview,
@@ -31,15 +32,18 @@ import type {
 import { toCanvas, toPng } from "html-to-image";
 import { chainAt, directText, elementsOf, unionRect } from "./dom.ts";
 import { BODY_ATTRIBUTE } from "./frame-css.ts";
+import { showHost, writeClasses, writeStyle } from "./frame-host.ts";
 import { elementAt, type HitScope } from "./hit.ts";
 import { install, register } from "./kernel.ts";
 import { renderSetup } from "./render-setup.ts";
 import { onStrayError } from "./sandbox.ts";
 import { adoptedSheets, frameSheets } from "./styles.ts";
 import { readTokens } from "./tokens.ts";
-import { onRunning } from "./turn.ts";
+import { frameOfEvent, onRunning } from "./turn.ts";
 
 const SKELETON_ATTRIBUTE = "data-ed-skeleton";
+/** A frame's host, marked with the frame's name. */
+const FRAME_HOST_ATTRIBUTE = "data-ed-frame-host";
 const INERT = "inert";
 
 /** Wider than this, a crop is drawn at the page's own resolution rather than doubled. */
@@ -98,6 +102,7 @@ export const createPreview = (
   install({ base: previewBase });
 
   const preview: Preview = {
+    fromFrame: (event) => frameOfEvent(event) !== null,
     mountFrame: (host, options) => {
       const frame = mountFrame(host, options, render, input, components);
       const entry = { events: options.events, mounted: frame.mounted };
@@ -152,18 +157,12 @@ const buildFrame = (host: HTMLElement, theme: string) => {
   return { body, root, shadow };
 };
 
-/** What the editor last put on each frame's body: what it replaces, not what the page's code put. */
-const shownOnBody = new WeakMap<
-  HTMLElement,
-  { readonly classes: readonly string[]; readonly style: readonly string[] }
->();
-
 const SPACE_RE = /\s+/;
 
 /**
  * What the canvas draws every page in, on the frame's body, as an application sets it on its
- * root: popups the page opens are inside it too. Only the editor's own classes and style are
- * replaced: what the page's code put there (a theme class, a modal's scroll lock) stays.
+ * root: popups the page opens are inside it too. They are the editor's classes and style there
+ * (`frame-host.ts`): what the page's code put (a theme class, a modal's scroll lock) stays.
  */
 const applyDefaults = (
   body: HTMLElement,
@@ -171,22 +170,29 @@ const applyDefaults = (
   theme: string
 ) => {
   const { defaults } = request;
-  const shown = defaults?.theme ?? theme;
-  body.setAttribute("data-theme", shown);
-  const before = shownOnBody.get(body);
+  body.setAttribute("data-theme", defaults?.theme ?? theme);
   // `dark` is a class to Tailwind, any other theme its `data-theme`: both are set.
-  const classes = (defaults?.theme ?? "").split(SPACE_RE).filter(Boolean);
-  body.classList.remove(...(before?.classes ?? []));
-  body.classList.add(...classes);
-  const style = body.style as unknown as Record<string, string>;
-  for (const property of before?.style ?? []) {
-    style[property] = "";
-  }
-  const next = defaults
-    ? pageDefaultsStyle(defaults, makeStyleContext(request.designSystem))
-    : {};
-  Object.assign(body.style, next);
-  shownOnBody.set(body, { classes, style: Object.keys(next) });
+  writeClasses(
+    body,
+    "editor",
+    (defaults?.theme ?? "").split(SPACE_RE).filter(Boolean)
+  );
+  writeStyle(
+    body,
+    "editor",
+    defaults
+      ? pageDefaultsStyle(defaults, makeStyleContext(request.designSystem))
+      : {}
+  );
+};
+
+/** How a frame is shown until the editor says otherwise: a picture, in view. */
+const NOT_SHOWN: FrameShown = {
+  away: false,
+  className: "",
+  interactive: false,
+  style: "",
+  title: "",
 };
 
 const mountFrame = (
@@ -198,15 +204,20 @@ const mountFrame = (
 ): { mounted: Mounted; runtime: FrameRuntime } => {
   const { events } = options;
   const { body, root: canvas, shadow } = buildFrame(host, input.theme);
+  // The editor's one rule for an event from a frame is the registered frames (`fromFrame`); the
+  // mark is what scripts and tests find a frame's host by.
+  host.setAttribute(FRAME_HOST_ATTRIBUTE, options.frame);
   if (options.still) {
     host.setAttribute("data-ed-still", "");
   }
+  let shown: FrameShown = { ...NOT_SHOWN, ...options.shown };
+  showHost(host, shown);
   // Its turn (`turn.ts`): drawing, drawn by the editor, or taking input.
   const kernel = register({
     body,
     error: (error) => events.error?.(error),
     host,
-    interactive: () => interactive,
+    interactive: () => shown.interactive,
     name: options.frame,
     navigate: (route, replace) => events.navigateTo?.(route, replace),
     shadow,
@@ -346,9 +357,8 @@ const mountFrame = (
   };
 
   // ---- Input ----
-  let interactive = false;
   const setInert = () => {
-    if (interactive || editing) {
+    if (shown.interactive || editing) {
       body.removeAttribute(INERT);
     } else {
       body.setAttribute(INERT, "");
@@ -376,7 +386,7 @@ const mountFrame = (
         return;
       }
     }
-    if (interactive) {
+    if (shown.interactive) {
       reportPress(e);
       return;
     }
@@ -553,11 +563,12 @@ const mountFrame = (
     scrollIntoView: (nodeId) => {
       elementsOf(nodeId, shadow)[0]?.scrollIntoView({ block: "nearest" });
     },
-    setInteractive: (next) => {
-      if (editing && !next) {
+    show: (next) => {
+      if (editing && next.interactive === false) {
         finishTextEdit(true);
       }
-      interactive = next;
+      shown = { ...shown, ...next };
+      showHost(host, shown);
       setInert();
     },
     skeleton: (nodeIds) => {
