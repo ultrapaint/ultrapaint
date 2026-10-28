@@ -1,24 +1,17 @@
-import type { ToolNames } from "../services/threads/agent-ways.ts";
+---
+name: components
+description: "The design system's components are the vocabulary. Compose with them before drawing anything of your own, and use them the way they were meant. Use when designing or reviewing an interface's components."
+---
 
-/**
- * Built-in skill. The file is the skill: its heading is the title, the paragraph after it the
- * summary. The tools it names are the editor's, when it offers them (`AgentWays.tools`).
- */
-export const components = (tools: ToolNames | null) => ({
-  name: "components",
-  text: `# Components
+# Components
 
 The design system's components are the vocabulary. Compose with them before drawing anything of
 your own, and use them the way they were meant.
 
 ## Look before you draw
 
-For a button, a field, a badge, a dialog or tabs, find the component in the palette and ${
-    tools
-      ? `ask
-\`${tools.get_component}\``
-      : "read its line among the components listed"
-  } for its props and variants. A copy drawn from rows and text matches nothing, and
+For a button, a field, a badge, a dialog or tabs, find the component in the palette and [with the editor's tools: ask
+`get_component` | without: read its line among the components listed] for its props and variants. A copy drawn from rows and text matches nothing, and
 gets implemented as nothing.
 
 ## Variants carry the meaning
@@ -29,8 +22,8 @@ system does not.
 
 ## The component owns its look
 
-Size an instance with \`width\` and \`height\`; restyle it only through its props and variants. When
-none fits, choose another component or ask the user. Text inside a component is its \`text\` or
+Size an instance with `width` and `height`; restyle it only through its props and variants. When
+none fits, choose another component or ask the user. Text inside a component is its `text` or
 its children.
 
 ## Forms are fields
@@ -40,11 +33,7 @@ fields share a row only when they are one thing: a city and its postcode.
 
 ## Real props
 
-${
-  tools
-    ? `Start from \`${tools.get_component}\`'s example and replace every placeholder in it with real content.`
-    : "Give every prop real content, never a placeholder."
-}
+[with the editor's tools: Start from `get_component`'s example and replace every placeholder in it with real content. | without: Give every prop real content, never a placeholder.]
 
 ## New pieces are named
 
@@ -56,8 +45,6 @@ card"). Tell the user it is new: it will need building as a component.
 | You see | Fix |
 | --- | --- |
 | A row with a fill, a radius and a text that looks like a button | A Button instance |
-| \`fill\`, \`radius\` or \`border\` set on an instance to restyle it | A variant or a prop |
+| `fill`, `radius` or `border` set on an instance to restyle it | A variant or a prop |
 | A text node laid over an instance | The instance's own text |
 | "Button" or "Label" left from an example | A real label |
-`,
-});

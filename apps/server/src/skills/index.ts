@@ -1,6 +1,7 @@
 /**
- * The design skills the tool ships, in the order agents are told them. One file per skill,
- * exporting its markdown: the heading is the title, the paragraph after it the summary.
+ * The design skills the tool ships, in the order agents are told them. Their source is
+ * `skills/design/<name>/SKILL.md` at the repository's root (see `render.ts`): the heading is the
+ * title, the paragraph after it the summary.
  *
  * A project replaces one with `<designsDir>/skills/<name>.md`, and the settings turn any off
  * (`SkillsService`). A skill names the editor's tools only through `tools` (`AgentWays.tools`),
@@ -14,40 +15,52 @@
  */
 
 import type { ToolNames } from "../services/threads/agent-ways.ts";
-import { accessibility } from "./accessibility.ts";
-import { borders } from "./borders.ts";
-import { color } from "./color.ts";
-import { components } from "./components.ts";
-import { content } from "./content.ts";
-import { elevation } from "./elevation.ts";
-import { hierarchy } from "./hierarchy.ts";
-import { iconography } from "./iconography.ts";
-import { layout } from "./layout.ts";
-import { motion } from "./motion.ts";
-import { spacing } from "./spacing.ts";
-import { states } from "./states.ts";
-import { typography } from "./typography.ts";
+import { designSkills } from "./design.generated.ts";
 
 interface BuiltInSkill {
   readonly name: string;
   readonly text: string;
 }
 
+/** The order agents are told them in: what the screen is for first, the details after. */
+const ORDER = [
+  "hierarchy",
+  "layout",
+  "spacing",
+  "typography",
+  "color",
+  "elevation",
+  "borders",
+  "iconography",
+  "motion",
+  "content",
+  "states",
+  "components",
+  "accessibility",
+] as const;
+
+export const SKILL_ORDER: readonly string[] = ORDER;
+
+/**
+ * What a skill's markdown says the editor's tools change: "[with the editor's tools: … | without:
+ * …]", so the same file reads whole to an agent elsewhere, which has not got them.
+ */
+const WAYS_RE = /\[with the editor's tools: ([\s\S]*?) \| without: ([\s\S]*?)\]/g;
+
+/** A skill's text for an agent with the editor's tools or without them. */
+export const withWays = (text: string, tools: ToolNames | null) =>
+  text.replace(WAYS_RE, (_, withTools: string, without: string) =>
+    tools ? withTools : without
+  );
+
+// Each has its folder: `skills.test.ts` holds the two in step.
 /** The skills, naming the editor's tools when they are offered. */
 export const builtInSkills = (
   tools: ToolNames | null
-): readonly BuiltInSkill[] => [
-  hierarchy,
-  layout(tools),
-  spacing,
-  typography,
-  color(tools),
-  elevation,
-  borders,
-  iconography,
-  motion,
-  content,
-  states,
-  components(tools),
-  accessibility,
-];
+): readonly BuiltInSkill[] =>
+  ORDER.flatMap((name) => {
+    const skill = designSkills[name];
+    return skill === undefined
+      ? []
+      : [{ name, text: withWays(skill.text, tools) }];
+  });

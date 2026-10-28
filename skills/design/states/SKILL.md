@@ -1,7 +1,9 @@
-/** Built-in skill. The file is the skill: its heading is the title, the paragraph after it the summary. */
-export const states = {
-  name: "states",
-  text: `# States
+---
+name: states
+description: "A screen is not one picture. Show the states it will actually be in, and design each of them, not only the one where everything is loaded and tidy. Use when designing or reviewing an interface's states."
+---
+
+# States
 
 A screen is not one picture. Show the states it will actually be in, and design each of them,
 not only the one where everything is loaded and tidy.
@@ -64,5 +66,3 @@ dismissed.
 | A banner at the top for one field's error | The error under the field |
 | A disabled submit with no reason given | Enabled; say what is missing on submit |
 | A name that only ever fits | One that wraps or truncates, drawn |
-`,
-} as const;

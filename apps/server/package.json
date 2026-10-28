@@ -9,6 +9,7 @@
   "scripts": {
     "build": "node --experimental-strip-types scripts/build.ts",
     "dev": "tsx watch --clear-screen=false src/bin.ts",
+    "skills": "node --experimental-strip-types scripts/skills.ts",
     "start": "tsx src/bin.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"

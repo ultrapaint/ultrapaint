@@ -1,7 +1,9 @@
-/** Built-in skill. The file is the skill: its heading is the title, the paragraph after it the summary. */
-export const content = {
-  name: "content",
-  text: `# Content
+---
+name: content
+description: "A design is judged with the words it will hold. Write real copy, at realistic lengths, in the product's voice, and say each thing the way the product always says it. Use when designing or reviewing an interface's content."
+---
+
+# Content
 
 A design is judged with the words it will hold. Write real copy, at realistic lengths, in the
 product's voice, and say each thing the way the product always says it.
@@ -22,7 +24,7 @@ Labels are nouns, buttons start with a verb naming what happens: "Invoices", "Se
 
 ## Confirmations name the consequence
 
-"Delete 3 invoices?" with \`Delete invoices\` and \`Cancel\`: the buttons alone answer the question.
+"Delete 3 invoices?" with `Delete invoices` and `Cancel`: the buttons alone answer the question.
 
 ## One voice, a tone for the moment
 
@@ -42,7 +44,7 @@ letters", not "No numbers or symbols". The user is never to blame.
 ## Empty states point forward
 
 What this place holds, how to fill it, one action: "No projects yet", "Projects keep your tasks
-and files together.", \`Create project\`. A filtered one names the query and a way out: "No
+and files together.", `Create project`. A filtered one names the query and a way out: "No
 results for ‘quarterly’. Clear filters".
 
 ## Links say where they go
@@ -67,7 +69,7 @@ when both touch and pointer apply.
 
 "2 Oct 2026" or "2 minutes ago", thousands separated, the currency with the amount: "€1,240.00".
 Relative times for what just happened, absolute ones for what is planned. A placeholder shows an
-example of the format, \`name@example.com\`.
+example of the format, `name@example.com`.
 
 ## Before you finish
 
@@ -80,6 +82,4 @@ example of the format, \`name@example.com\`.
 | "Something went wrong" | What happened and what to do |
 | "Click here" | Name the destination |
 | Two names for one thing | The one the product already uses |
-| A date as \`2026-10-02\` | "2 Oct 2026" |
-`,
-} as const;
+| A date as `2026-10-02` | "2 Oct 2026" |
