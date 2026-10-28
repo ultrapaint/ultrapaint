@@ -5,7 +5,7 @@
 import { rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { unlockedChain } from "../state/tree.ts";
-import { bridgeFor } from "./bridge.ts";
+import { frameOf } from "./editor-frame.ts";
 
 const frameRoot = (frameId: string) =>
   rootOfFrame(
@@ -18,12 +18,12 @@ const frameRoot = (frameId: string) =>
  * The nodes under a point of a frame, outermost first, that a click or a drag may take: the
  * chain stops short of the first locked one.
  */
-export const hitUnlocked = async (
+export const hitUnlocked = (
   frameId: string,
   x: number,
   y: number
-): Promise<readonly string[]> =>
-  unlockedChain(await bridgeFor(frameId).hitTest(x, y), frameRoot(frameId));
+): readonly string[] =>
+  unlockedChain(frameOf(frameId).hitTest(x, y), frameRoot(frameId));
 
 /** Whether a frame shows a locked node: one placed on the canvas and locked there. */
 export const isFrameLocked = (frameId: string) =>

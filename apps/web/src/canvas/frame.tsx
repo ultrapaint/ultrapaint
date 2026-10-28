@@ -43,9 +43,9 @@ import { useDesignLookVersion } from "../state/look.ts";
 import { previewRunning, useProject } from "../state/project.ts";
 import { FramePresence } from "./agent-presence.tsx";
 import { AgentWorkOverlay, useFrameWork, useSkeletons } from "./agent-work.tsx";
-import { bridgeFor } from "./bridge.ts";
 import { screenPx, UNZOOM } from "./camera.ts";
 import { commentCursor, FrameComments } from "./comments.tsx";
+import { frameOf, useFrameEvents, useFrameFrozen } from "./editor-frame.ts";
 import { ToolbarLayer } from "./element-toolbar-placement.ts";
 import {
   Highlights,
@@ -57,10 +57,7 @@ import {
 import { FrozenPage } from "./frozen-page.tsx";
 import { PageToolbar } from "./page-toolbar.tsx";
 import { usePreview } from "./preview-module.ts";
-import { parkPreview, placePreview, previewDrawn } from "./preview-pool.ts";
-import { useFrameBridge } from "./use-frame-bridge.ts";
 import { useFramePointer } from "./use-frame-pointer.ts";
-import { useFrozen } from "./watchdog.ts";
 
 /** An error of a frame's page as the editor writes it: the message, then where it was thrown. */
 export const formatHostError = (error: HostError) => {
@@ -124,7 +121,7 @@ const renderFrame = (
   const sized = root && size ? ({ ...root, ...size } as DesignNode) : root;
   const at =
     width ?? size?.width ?? (typeof root?.width === "number" ? root.width : 0);
-  bridgeFor(frameId).render({
+  frameOf(frameId).render({
     defaults: layout.defaults,
     designSystem,
     mode: kind === "page" ? "page" : "fit",
@@ -143,7 +140,7 @@ export const drawResized = (
   frameId: string,
   size?: { height: number; width: number }
 ) => {
-  if (bridgeFor(frameId).ready) {
+  if (frameOf(frameId).ready) {
     renderFrame(frameId, "node", undefined, size);
   }
 };
@@ -213,7 +210,7 @@ export const Frame = memo(
     // A frame drawn once keeps its page while it is away from the screen: hidden where it is,
     // so coming back neither moves it nor lays it out again.
     const [kept, setKept] = useState(false);
-    const frozen = useFrozen((s) => s.frames.has(frameId));
+    const frozen = useFrameFrozen(frameId);
     const drawn = visible && preview !== null && !frozen;
     const hosted = (visible || kept) && preview !== null && !frozen;
     const name = frameName(page, root);
@@ -225,46 +222,23 @@ export const Frame = memo(
       null
     );
 
-    // The bridge speaks for this frame while it is on screen and drawn.
-    useFrameBridge(drawn ? frameId : null, (msg, bridge) => {
-      const store = useEditor.getState;
-      switch (msg.type) {
-        case "ed:rendered":
-          previewDrawn(frameId);
-          setKept(true);
-          break;
-        case "ed:ready":
-          renderFrame(frameId, kind, drawnWidth);
-          // A frame taken back from the pool is told the current mode.
-          bridge.setInteractive(isInteractive(store()));
-          store().setHostError(frameId, null);
-          break;
-        case "ed:rects":
-          store().setRects(frameId, msg.rects);
-          break;
-        case "ed:size":
-          store().setSize(frameId, { height: msg.height, width: msg.width });
-          break;
-        case "ed:instances":
-          useInstances.getState().report(msg.instances);
-          break;
-        case "ed:hmr":
-          store().setHostError(frameId, null);
-          break;
-        case "ed:error":
-          store().setHostError(frameId, formatHostError(msg.error));
-          previewDrawn(frameId);
-          break;
-        case "ed:textCommit":
-          commitText(frameId, msg.nodeId, msg.text);
-          break;
-        case "ed:navigateTo":
-          // The frame keeps its page; the canvas brings the page the link leads to into view.
-          focusLink(msg.route);
-          break;
-        default:
-          break;
-      }
+    // What the frame says, heard while it is on screen and drawn.
+    useFrameEvents(drawn ? frameId : null, {
+      error: (error) => {
+        useEditor.getState().setHostError(frameId, formatHostError(error));
+      },
+      hmr: () => useEditor.getState().setHostError(frameId, null),
+      instances: (instances) => useInstances.getState().report(instances),
+      // The frame keeps its page; the canvas brings the page the link leads to into view.
+      navigateTo: (route) => focusLink(route),
+      ready: () => {
+        renderFrame(frameId, kind, drawnWidth);
+        useEditor.getState().setHostError(frameId, null);
+      },
+      rects: (rects) => useEditor.getState().setRects(frameId, rects),
+      rendered: () => setKept(true),
+      size: (size) => useEditor.getState().setSize(frameId, size),
+      textCommit: (nodeId, text) => commitText(frameId, nodeId, text),
     });
 
     // Whatever changed the document, the design system, the design's look or the breakpoint
@@ -272,8 +246,7 @@ export const Frame = memo(
     const look = useDesignLookVersion();
     // biome-ignore lint/correctness/useExhaustiveDependencies: the document is the dependency.
     useEffect(() => {
-      const bridge = bridgeFor(frameId);
-      if (drawn && bridge.ready) {
+      if (drawn && frameOf(frameId).ready) {
         renderFrame(frameId, kind, drawnWidth);
       }
     }, [
@@ -312,7 +285,7 @@ export const Frame = memo(
         ids.push(hoverHere);
       }
       ids.push(...idsOf(workIds));
-      bridgeFor(frameId).watchRects(ids);
+      frameOf(frameId).watchRects(ids);
     }, [frameId, selectedHere, alsoHere, hoverHere, root, workIds]);
 
     const {
@@ -453,45 +426,31 @@ const PreviewHost = ({
 }) => {
   const interactive = useEditor(isInteractive);
   const holder = useRef<HTMLDivElement>(null);
-  const host = useRef<HTMLElement | null>(null);
-  // Placed before the bridge listens to it, which happens in the frame's passive effects.
+  // Opened before the frame listens to it, which happens in the frame's passive effects; parked
+  // when it goes.
   useLayoutEffect(() => {
     if (!holder.current) {
       return;
     }
-    host.current = placePreview(
-      frameId,
+    return frameOf(frameId).open({
       canvas,
-      holder.current,
-      cn("block h-full w-full", isNode ? "bg-transparent" : "bg-white"),
-      (el) => {
-        const bridge = bridgeFor(frameId);
-        const runtime = preview.mountFrame(el, {
-          canvas,
-          events: bridge.events(),
-          frame: frameId,
-        });
-        bridge.attachRuntime(runtime);
-        return runtime;
-      }
-    );
-    return () => {
-      parkPreview(frameId);
-      host.current = null;
-    };
+      className: cn(
+        "block h-full w-full",
+        isNode ? "bg-transparent" : "bg-white"
+      ),
+      holder: holder.current,
+      keep: true,
+      preview,
+    })?.close;
   }, [frameId, canvas, isNode, preview]);
   useEffect(() => {
-    if (host.current) {
-      host.current.title = title;
-      host.current.style.pointerEvents = interactive ? "auto" : "none";
-    }
-    bridgeFor(frameId).setInteractive(interactive);
+    const frame = frameOf(frameId);
+    frame.setTitle(title);
+    frame.setInteractive(interactive);
   }, [frameId, title, interactive]);
   useLayoutEffect(() => {
-    if (host.current) {
-      host.current.style.contentVisibility = away ? "hidden" : "";
-    }
-  }, [away]);
+    frameOf(frameId).setAway(away);
+  }, [frameId, away]);
   // The camera writes the zoom on the layer as `--inv`, which everything under it inherits; pinned
   // on the holder, a zoom stops here: the host, whose style applies every `:host` rule of the
   // page's stylesheet (all of its tokens), is not styled again on every step.

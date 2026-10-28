@@ -1,11 +1,11 @@
-import type { HostMessage, Rect } from "@ultrapaint/contracts/preview";
+import type { Rect } from "@ultrapaint/contracts/preview";
 import { MousePointerClick } from "lucide-react";
 import { useEffect, useState } from "react";
 import { create } from "zustand";
 import { IconButton } from "../components/icon-button.tsx";
 import { linkedNodesOf } from "../lib/links.ts";
 import { useDocuments } from "../state/documents.ts";
-import { bridgeFor } from "./bridge.ts";
+import { frameOf } from "./editor-frame.ts";
 
 const SHOWN_KEY = "ultrapaint:hotspots";
 /** How long the hotspots stay up after a press that led nowhere. */
@@ -43,15 +43,15 @@ const flash = () => {
 };
 
 /**
- * What the prototype's preview says about presses: one that landed on no linked node shows
- * what can be pressed.
+ * A press in the prototype's page, on these nodes outermost first: one that landed on no linked
+ * node shows what can be pressed.
  */
-export const onPrototypePress = (msg: HostMessage, page: string | null) => {
-  if (msg.type !== "ed:pressed") {
-    return;
-  }
+export const onPrototypePress = (
+  nodeIds: readonly string[],
+  page: string | null
+) => {
   const linked = new Set(linkedNodesOf(page));
-  if (!msg.nodeIds.some((id) => linked.has(id))) {
+  if (!nodeIds.some((id) => linked.has(id))) {
     flash();
   }
 };
@@ -76,20 +76,13 @@ export const HotspotLayer = ({
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: the page's document is what has links.
   useEffect(() => {
-    const bridge = bridgeFor(frameId);
-    const ids = linkedNodesOf(page);
-    bridge.watchRects(ids);
-    const off = bridge.on((msg: HostMessage) => {
-      if (msg.type === "ed:ready") {
-        bridge.watchRects(ids);
-      }
-      if (msg.type === "ed:rects") {
-        setRects(msg.rects);
-      }
-    });
+    // Watched from now on, by the frame open now and the one opened after a reload.
+    const frame = frameOf(frameId);
+    frame.watchRects(linkedNodesOf(page));
+    const off = frame.listen({ rects: setRects });
     return () => {
       off();
-      bridge.watchRects([]);
+      frame.watchRects([]);
     };
   }, [frameId, page, root]);
 

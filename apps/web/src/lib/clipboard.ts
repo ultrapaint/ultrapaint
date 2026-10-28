@@ -159,7 +159,7 @@ export const pasteAt = async (
   if (!first) {
     return;
   }
-  const drop = await placementAt(at.x, at.y);
+  const drop = placementAt(at.x, at.y);
   if (!drop) {
     return;
   }

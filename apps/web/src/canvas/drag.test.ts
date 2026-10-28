@@ -2,8 +2,8 @@ import "../testing/fake-browser.ts";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Rect } from "@ultrapaint/contracts/preview";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { bridgeFor } from "./bridge.ts";
 import { type Drop, dropAt, dropEdits, dropInside } from "./drag.ts";
+import { frameOf } from "./editor-frame.ts";
 
 vi.mock(
   "../state/connection.ts",
@@ -198,7 +198,7 @@ describe("dropInside", () => {
 
 describe("dropAt", () => {
   const measured = (rects: Record<string, Rect>) =>
-    vi.spyOn(bridgeFor("p1"), "measure").mockResolvedValue(rects);
+    vi.spyOn(frameOf("p1"), "measure").mockReturnValue(rects);
 
   const list = column("list", [text("a"), text("b"), text("c")]);
   const spotOf = (node: DesignNode, exclude: string | null = null) => ({
@@ -209,47 +209,46 @@ describe("dropAt", () => {
     parent: list,
   });
 
-  it("drops beside a node that holds nothing, on the side the pointer is", async () => {
+  it("drops beside a node that holds nothing, on the side the pointer is", () => {
     measured({ a: rect(0, 0), b: rect(0, 20), c: rect(0, 40) });
-    await expect(dropAt(spotOf(text("b")), 10, 22)).resolves.toMatchObject({
+    expect(dropAt(spotOf(text("b")), 10, 22)).toMatchObject({
       index: 1,
       parent: "list",
     });
-    await expect(dropAt(spotOf(text("b")), 10, 38)).resolves.toMatchObject({
+    expect(dropAt(spotOf(text("b")), 10, 38)).toMatchObject({
       index: 2,
       parent: "list",
     });
   });
 
-  it("drops beside a container near its edges and inside it in its middle", async () => {
+  it("drops beside a container near its edges and inside it in its middle", () => {
     const inner = column("inner", [text("x")]);
     const parent = column("outer", [text("a"), inner]);
     measured({ a: rect(0, 0), inner: rect(0, 20, 100, 100), x: rect(0, 30) });
     const spot = { ...spotOf(inner), parent };
-    await expect(dropAt(spot, 10, 22)).resolves.toMatchObject({
+    expect(dropAt(spot, 10, 22)).toMatchObject({
       index: 1,
       parent: "outer",
     });
-    await expect(dropAt(spot, 10, 80)).resolves.toMatchObject({
+    expect(dropAt(spot, 10, 80)).toMatchObject({
       index: 1,
       parent: "inner",
     });
   });
 
-  it("leaves the dragged node out of the places to drop", async () => {
+  it("leaves the dragged node out of the places to drop", () => {
     measured({ a: rect(0, 0), c: rect(0, 40) });
     // "b" is the one dragged: after "c" is index 2 of what is left.
-    await expect(dropAt(spotOf(text("c"), "b"), 10, 58)).resolves.toMatchObject(
-      { index: 2, parent: "list" }
-    );
+    expect(dropAt(spotOf(text("c"), "b"), 10, 58)).toMatchObject({
+      index: 2,
+      parent: "list",
+    });
   });
 
-  it("offers nothing for a node the preview did not measure, or a lone leaf", async () => {
+  it("offers nothing for a node the preview did not measure, or a lone leaf", () => {
     measured({});
-    await expect(dropAt(spotOf(text("b")), 10, 22)).resolves.toBeNull();
+    expect(dropAt(spotOf(text("b")), 10, 22)).toBeNull();
     measured({ a: rect(0, 0) });
-    await expect(
-      dropAt({ ...spotOf(text("a")), parent: null }, 10, 5)
-    ).resolves.toBeNull();
+    expect(dropAt({ ...spotOf(text("a")), parent: null }, 10, 5)).toBeNull();
   });
 });

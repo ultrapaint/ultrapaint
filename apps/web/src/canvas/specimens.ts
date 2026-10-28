@@ -8,26 +8,18 @@
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { PageDefaults } from "@ultrapaint/contracts/pages";
-import type { HostMessage, RenderMode } from "@ultrapaint/contracts/preview";
+import type { RenderMode } from "@ultrapaint/contracts/preview";
 import {
   breakpointsOf,
   resolveAt,
 } from "@ultrapaint/design-document/breakpoints";
-import type { FrameRuntime, Preview } from "@ultrapaint/framework-api/browser";
-import { bridgeFor } from "./bridge.ts";
+import { frameOf, type OpenedFrame } from "./editor-frame.ts";
 import { previewReady } from "./preview-module.ts";
-import { tryNextTime, useFrozen } from "./watchdog.ts";
 
 const FRAME = "specimen";
 const WIDTH = 1200;
 const HEIGHT = 900;
 
-let specimen: {
-  canvas: string;
-  host: HTMLElement;
-  preview: Preview;
-  runtime: FrameRuntime;
-} | null = null;
 let queue: Promise<unknown> = Promise.resolve();
 
 /**
@@ -55,45 +47,34 @@ const settle = () =>
   ]);
 
 /**
- * The frame nobody sees, made once and kept; made again for another canvas, whose images are
- * found elsewhere. Null while the preview is not running.
+ * The frame nobody sees, kept from one picture to the next; drawn anew for another canvas, whose
+ * images are found elsewhere. Null while the preview is not running, or when pictures stopped
+ * the editor the last time: none are drawn until it loads again.
  */
-const open = async (canvas: string) => {
+const open = async (canvas: string): Promise<OpenedFrame | null> => {
   const preview = await previewReady();
-  // Pictures stopped the editor the last time: none are drawn until it loads again.
-  if (!preview || useFrozen.getState().frames.has(FRAME)) {
-    tryNextTime(FRAME);
+  if (!preview) {
     return null;
   }
-  if (specimen?.preview === preview && specimen.canvas === canvas) {
-    return specimen;
-  }
-  specimen?.runtime.unmount();
-  specimen?.host.remove();
-  const host = document.createElement("div");
-  host.setAttribute("aria-hidden", "true");
-  host.dataset.edFrameHost = FRAME;
-  // Drawn, but nowhere the pointer or the eye goes.
-  host.style.cssText = `position:fixed;left:-20000px;top:0;width:${WIDTH}px;height:${HEIGHT}px;pointer-events:none`;
-  document.body.append(host);
-  const bridge = bridgeFor(FRAME);
-  const runtime = preview.mountFrame(host, {
+  const opened = frameOf(FRAME).open({
     canvas,
-    events: bridge.events(),
-    frame: FRAME,
+    holder: document.body,
+    preview,
+    retryFrozenNextLoad: true,
     still: true,
+    // Drawn, but nowhere the pointer or the eye goes.
+    style: `position:fixed;left:-20000px;top:0;width:${WIDTH}px;height:${HEIGHT}px`,
   });
-  bridge.attachRuntime(runtime);
-  specimen = { canvas, host, preview, runtime };
-  return specimen;
+  opened?.host.setAttribute("aria-hidden", "true");
+  return opened;
 };
 
 /** Waits for the frame to have drawn a render, however long its components take to load. */
 const rendered = (renderId: number, timeoutMs: number) =>
   new Promise<boolean>((resolve) => {
-    const bridge = bridgeFor(FRAME);
+    const frame = frameOf(FRAME);
     // Told again what it shows, it does not draw it again.
-    if (bridge.renderedId >= renderId) {
+    if (frame.renderedId >= renderId) {
       resolve(true);
       return;
     }
@@ -101,12 +82,14 @@ const rendered = (renderId: number, timeoutMs: number) =>
       off();
       resolve(false);
     }, timeoutMs);
-    const off = bridge.on((msg: HostMessage) => {
-      if (msg.type === "ed:rendered" && msg.renderId >= renderId) {
-        clearTimeout(timer);
-        off();
-        resolve(true);
-      }
+    const off = frame.listen({
+      rendered: (id) => {
+        if (id >= renderId) {
+          clearTimeout(timer);
+          off();
+          resolve(true);
+        }
+      },
     });
   });
 
@@ -140,8 +123,7 @@ export const drawSpecimen = (
     } catch {
       defaults = undefined;
     }
-    const bridge = bridgeFor(FRAME);
-    const id = bridge.render({
+    const id = frameOf(FRAME).render({
       defaults,
       designSystem,
       mode: options.mode ?? "fit",
@@ -156,7 +138,7 @@ export const drawSpecimen = (
       return null;
     }
     await settle();
-    return await bridge.screenshot(options.nodeId);
+    return await frameOf(FRAME).screenshot(options.nodeId);
   });
   // A picture that failed fails alone; the next one in line is still drawn.
   queue = task.catch(() => null);

@@ -43,14 +43,12 @@ import { useDocuments } from "../state/documents.ts";
 import { pagesOfCanvas, useEditor } from "../state/editor.ts";
 import { useDesignLookVersion } from "../state/look.ts";
 import { useProject } from "../state/project.ts";
-import { bridgeFor } from "./bridge.ts";
 import { commentCursor, FrameComments, placeComment } from "./comments.tsx";
+import { frameOf } from "./editor-frame.ts";
 import { formatHostError } from "./frame.tsx";
-import { FrozenPage } from "./frozen-page.tsx";
 import { HotspotLayer, HotspotsToggle, onPrototypePress } from "./hotspots.tsx";
 import { usePreview } from "./preview-module.ts";
 import { PreviewSurface } from "./preview-surface.tsx";
-import { useFrozen } from "./watchdog.ts";
 
 /** Room kept free around the page for the cards at the top and the bottom strip. */
 const inset = { bottom: 72, side: 32, top: 64 };
@@ -102,7 +100,7 @@ const renderRoute = (canvas: string) => {
   const root = state?.root ?? null;
   // Drawn as the page is at the device's width: its breakpoints' values (ADR 0036).
   const { width } = presetSize[useDevice.getState().device];
-  bridgeFor(frameIdOf(canvas)).render({
+  frameOf(frameIdOf(canvas)).render({
     defaults: useEditor.getState().layout.defaults,
     designSystem,
     mode: "page",
@@ -187,9 +185,6 @@ export const Prototype = () => {
   const [area, setArea] = useState({ height: 0, width: 0 });
   const [reloads, setReloads] = useState(0);
   const hasPages = canvas !== null && pages.some((p) => p.canvas === canvas);
-  const frozen = useFrozen(
-    (s) => canvas !== null && s.frames.has(frameIdOf(canvas))
-  );
   const hostError = useEditor((s) =>
     canvas === null ? null : (s.hostErrors[frameIdOf(canvas)] ?? null)
   );
@@ -237,7 +232,7 @@ export const Prototype = () => {
   const look = useDesignLookVersion();
   // biome-ignore lint/correctness/useExhaustiveDependencies: what is drawn is the dependency.
   useEffect(() => {
-    if (canvas !== null && shown && bridgeFor(frameIdOf(canvas)).ready) {
+    if (canvas !== null && shown && frameOf(frameIdOf(canvas)).ready) {
       renderRoute(canvas);
     }
   }, [route, canvas, shown, document, designSystem, defaults, device, ...look]);
@@ -257,10 +252,7 @@ export const Prototype = () => {
           style={{ height: size.height * scale, width: size.width * scale }}
         >
           <div className="relative h-full w-full overflow-hidden rounded-md bg-white shadow-2xl">
-            {canvas !== null && frozen ? (
-              <FrozenPage frame={frameIdOf(canvas)} />
-            ) : null}
-            {canvas === null || frozen ? null : (
+            {canvas === null ? null : (
               <PreviewSurface
                 canvas={canvas}
                 className="origin-top-left bg-white"
@@ -268,23 +260,22 @@ export const Prototype = () => {
                 interactive
                 // A reload draws the page anew, from the route the editor holds.
                 key={`${canvas}:${reloads}`}
-                onMessage={(msg) => {
-                  const { setHostError } = useEditor.getState();
-                  if (msg.type === "ed:ready") {
-                    renderRoute(canvas);
-                  }
+                listeners={{
                   // What the page threw and nothing caught (a click's handler, a timer), until it
                   // draws again or its code changes.
-                  if (msg.type === "ed:error") {
-                    setHostError(frameIdOf(canvas), formatHostError(msg.error));
-                  }
-                  if (msg.type === "ed:rendered" || msg.type === "ed:hmr") {
-                    setHostError(frameIdOf(canvas), null);
-                  }
-                  if (msg.type === "ed:navigateTo") {
-                    followLink(msg.route, { push: !msg.replace });
-                  }
-                  onPrototypePress(msg, useEditor.getState().activePage);
+                  error: (error) =>
+                    useEditor
+                      .getState()
+                      .setHostError(frameIdOf(canvas), formatHostError(error)),
+                  hmr: () =>
+                    useEditor.getState().setHostError(frameIdOf(canvas), null),
+                  navigateTo: (to, replace) =>
+                    followLink(to, { push: !replace }),
+                  pressed: (nodeIds) =>
+                    onPrototypePress(nodeIds, useEditor.getState().activePage),
+                  ready: () => renderRoute(canvas),
+                  rendered: () =>
+                    useEditor.getState().setHostError(frameIdOf(canvas), null),
                 }}
                 style={{
                   height: size.height,
@@ -303,7 +294,6 @@ export const Prototype = () => {
             {canvas === null ? null : (
               <HotspotLayer
                 frameId={frameIdOf(canvas)}
-                // A frame drawn anew has a bridge of its own, which the layer has to listen to.
                 key={`hotspots:${canvas}:${reloads}`}
                 page={activePage}
                 scale={scale}

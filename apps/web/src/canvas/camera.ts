@@ -15,9 +15,9 @@ import {
 import { useDocuments } from "../state/documents.ts";
 import { allFrames, useEditor, viewTarget } from "../state/editor.ts";
 import { useDrag } from "./drag.ts";
+import { isWarm, LOADING_MAX, onPoolChange } from "./editor-frame.ts";
 import { gridBackground } from "./grid.ts";
 import { framesNear, framesToShow, NEAR_MARGIN } from "./mounting.ts";
-import { isWarm, LOADING_MAX, onPoolChange } from "./preview-pool.ts";
 
 interface View {
   x: number;

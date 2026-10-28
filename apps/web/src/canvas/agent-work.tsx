@@ -18,8 +18,8 @@ import { type AgentWork, useAgents } from "../state/agents.ts";
 import { openMenuAt } from "../state/context-menu.ts";
 import { isNodeFrame, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
-import { bridgeFor } from "./bridge.ts";
 import { screenPx, UNZOOM } from "./camera.ts";
+import { frameOf } from "./editor-frame.ts";
 
 /** Enough outlines to see where the work is; past that they only add noise. */
 const MAX_OUTLINES = 12;
@@ -93,7 +93,7 @@ export const useSkeletons = (frameId: string, skeletons: readonly string[]) => {
   const key = skeletons.join(" ");
   // biome-ignore lint/correctness/useExhaustiveDependencies: the key stands for the list.
   useEffect(() => {
-    bridgeFor(frameId).skeleton(skeletons);
+    frameOf(frameId).skeleton(skeletons);
   }, [frameId, key]);
 };
 
