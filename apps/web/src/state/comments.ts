@@ -1,4 +1,8 @@
-import type { Comment, CommentReply } from "@ultrapaint/contracts/comments";
+import type {
+  Comment,
+  CommentList,
+  CommentReply,
+} from "@ultrapaint/contracts/comments";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page } from "@ultrapaint/contracts/pages";
 import { nodeLabel } from "@ultrapaint/design-document/tree";
@@ -11,6 +15,7 @@ import { api } from "./connection.ts";
 import { pagesOfCanvas, useEditor } from "./editor.ts";
 import { goTo } from "./location.ts";
 import { reportError } from "./project.ts";
+import { follow } from "./server-data.ts";
 
 /** A comment being written: where it was placed, before it has any text. */
 export interface CommentDraft {
@@ -24,11 +29,11 @@ export interface CommentDraft {
 const VISIBLE_KEY = "ultrapaint:comments-visible";
 
 interface CommentsStore {
-  bind: () => void;
   canvas: string | null;
   /** Comments of the open canvas, resolved ones included. */
   comments: readonly Comment[];
   draft: CommentDraft | null;
+  /** Opens a canvas's comments. */
   load: (canvas: string) => Promise<void>;
   /** The comment whose card is open on the canvas. */
   open: string | null;
@@ -42,33 +47,13 @@ interface CommentsStore {
   visible: boolean;
 }
 
-let bound = false;
-
 export const useComments = create<CommentsStore>((set, get) => ({
-  bind: () => {
-    if (bound) {
-      return;
-    }
-    bound = true;
-    api().on("comments", ({ list, canvas }) => {
-      if (canvas === get().canvas) {
-        set({ comments: list.comments });
-      }
-    });
-  },
   canvas: null,
   comments: [],
   draft: null,
   load: async (canvas) => {
     set({ canvas, comments: [], draft: null, open: null });
-    try {
-      const { comments } = await api().request("comments.list", { canvas });
-      if (get().canvas === canvas) {
-        set({ comments });
-      }
-    } catch (error) {
-      reportError(error);
-    }
+    await commentsData.read().catch(reportError);
   },
   open: null,
   setDraft: (draft) => set({ draft, ...(draft && { open: null }) }),
@@ -82,6 +67,20 @@ export const useComments = create<CommentsStore>((set, get) => ({
   },
   visible: localStorage.getItem(VISIBLE_KEY) !== "false",
 }));
+
+/** The comments of the canvas open; a snapshot keeps none, so they stay the files' (ADR 0019). */
+const commentsData = follow({
+  apply: ({ comments }: CommentList) => useComments.setState({ comments }),
+  key: () => useComments.getState().canvas,
+  on: {
+    comments: ({ list, canvas }) => {
+      if (canvas === useComments.getState().canvas) {
+        useComments.setState({ comments: list.comments });
+      }
+    },
+  },
+  read: (canvas) => api().request("comments.list", { canvas }),
+});
 
 /** The page a comment is on, among the pages of the open canvas. */
 export const pageOfComment = (comment: Comment): Page | undefined =>

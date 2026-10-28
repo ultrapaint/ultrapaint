@@ -3,10 +3,15 @@
  * the design owns over their components, and the drafts in their instances' place. Kept up to date
  * from the server, whoever changes a file.
  */
-import type { ComponentSpec, SpecEntry } from "@ultrapaint/contracts/specs";
+import type {
+  ComponentSpec,
+  SpecEntry,
+  SpecList,
+} from "@ultrapaint/contracts/specs";
 import { create } from "zustand";
 import { api } from "./connection.ts";
 import { reportError } from "./project.ts";
+import { follow } from "./server-data.ts";
 
 interface SpecsStore {
   /** Every spec file, read or with its problem. */
@@ -17,31 +22,26 @@ interface SpecsStore {
   specs: readonly ComponentSpec[];
 }
 
-let bound = false;
-
 const fromEntries = (entries: readonly SpecEntry[]) => ({
   entries,
   loaded: true,
   specs: entries.flatMap((e) => (e.spec ? [e.spec] : [])),
 });
 
-export const useSpecs = create<SpecsStore>((set) => ({
+export const useSpecs = create<SpecsStore>(() => ({
   entries: [],
-  load: async () => {
-    if (!bound) {
-      bound = true;
-      api().on("specs", (list) => set(fromEntries(list.specs)));
-    }
-    try {
-      const list = await api().request("specs.list", undefined);
-      set(fromEntries(list.specs));
-    } catch (error) {
-      reportError(error);
-    }
-  },
+  load: () => specsData.read().catch(reportError),
   loaded: false,
   specs: [],
 }));
+
+const take = (list: SpecList) => useSpecs.setState(fromEntries(list.specs));
+
+const specsData = follow({
+  apply: take,
+  on: { specs: take },
+  read: () => api().request("specs.list", undefined),
+});
 
 /** The spec of a component, by name and module. */
 export const specOf = (

@@ -7,6 +7,7 @@ import type { SyncPlan } from "@ultrapaint/contracts/sync";
 import { create } from "zustand";
 import { api } from "./connection.ts";
 import { reportError } from "./project.ts";
+import { follow } from "./server-data.ts";
 
 interface SyncStore {
   /** Asks the server for the plan again: after a change the server may not have seen. */
@@ -16,17 +17,11 @@ interface SyncStore {
   reading: boolean;
 }
 
-let bound = false;
-
 export const useSync = create<SyncStore>((set) => ({
   load: async () => {
-    if (!bound) {
-      bound = true;
-      api().on("syncPlan", (plan) => set({ plan }));
-    }
     set({ reading: true });
     try {
-      set({ plan: await api().request("sync.plan", undefined) });
+      await syncData.read();
     } catch (error) {
       reportError(error);
     } finally {
@@ -36,6 +31,14 @@ export const useSync = create<SyncStore>((set) => ({
   plan: null,
   reading: false,
 }));
+
+const take = (plan: SyncPlan) => useSync.setState({ plan });
+
+const syncData = follow({
+  apply: take,
+  on: { syncPlan: take },
+  read: () => api().request("sync.plan", undefined),
+});
 
 /** Whether the plan has something the user should look at: what the rail's dot says. */
 export const syncWaiting = (plan: SyncPlan | null) =>

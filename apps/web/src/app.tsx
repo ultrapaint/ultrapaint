@@ -5,7 +5,6 @@ import {
   lazy,
   Suspense,
   useEffect,
-  useRef,
 } from "react";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
@@ -47,13 +46,10 @@ import { CodePanel } from "./panels/code.tsx";
 import { Inspector } from "./panels/inspector.tsx";
 import { SaveConfigDialog } from "./panels/save-config.tsx";
 import { Threads } from "./panels/threads.tsx";
-import { useAgents } from "./state/agents.ts";
 import { setView } from "./state/camera.ts";
 import { useCatalogue } from "./state/catalogue.ts";
 import { useComments } from "./state/comments.ts";
-import { useConnection } from "./state/connection.ts";
 import { useDesignSystem } from "./state/design-system.ts";
-import { bindDocuments } from "./state/documents.ts";
 import {
   canvasDefaults,
   type LeftTab,
@@ -69,8 +65,9 @@ import {
 } from "./state/location.ts";
 import { designLook } from "./state/look.ts";
 import { usePanels } from "./state/panels.ts";
-import { bindProjectEvents, useProject } from "./state/project.ts";
+import { reportError, useProject } from "./state/project.ts";
 import { bindScreenshots } from "./state/screenshots.ts";
+import { followServer } from "./state/server-data.ts";
 import { useSpecs } from "./state/specs.ts";
 import { useSync } from "./state/sync.ts";
 import { useWindowChrome } from "./state/window-controls.ts";
@@ -283,7 +280,6 @@ const RightPanel = ({
 };
 
 export const App = () => {
-  const connState = useConnection((s) => s.state);
   const error = useProject((s) => s.error);
   const configured = useProject((s) => s.info.configured);
   const projectName = useProject((s) => s.info.name);
@@ -307,21 +303,12 @@ export const App = () => {
   // The title and canvas cards span the left card when its panel is out.
   const titleWidth = leftHidden ? null : leftCard;
   const rightCover = hasRight ? EDGE + rightWidth + EDGE : 0;
-  const bound = useRef<boolean>(false);
   useKeymap();
   useOpenNodeLink();
 
-  useEffect(() => {
-    if (connState !== "open") {
-      return;
-    }
-    if (!bound.current) {
-      bindProjectEvents();
-      bindScreenshots();
-      bound.current = true;
-    }
-    useProject.getState().load();
-  }, [connState]);
+  // The server's data, read at every connection open and followed in between.
+  useEffect(() => followServer({ report: reportError }), []);
+  useEffect(() => bindScreenshots(), []);
 
   // The tab reads the project first, so several open projects stay apart in the tab strip.
   useEffect(() => {
@@ -334,17 +321,12 @@ export const App = () => {
   // Index the design system in the background so prop controls are typed.
   useEffect(() => {
     if (configured) {
-      bindDocuments();
       useDesignSystem.getState().load();
       useCatalogue.getState().load();
       useSpecs.getState().load();
       useImplementation.getState().load();
       provideDesignLook(designLook);
       provideCanvasDefaults(canvasDefaults);
-      // Agent events are followed from the start, not only while the chat is open: the badge
-      // over the tool strip reports turns that changed files.
-      useAgents.getState().bind();
-      useComments.getState().bind();
       // The rail's Design system button says when the sync has something waiting.
       useSync.getState().load();
       // A design the desktop app has just written opens on Sync's define step.

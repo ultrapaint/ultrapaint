@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { create } from "zustand";
 import { api } from "./connection.ts";
 import { reportError } from "./project.ts";
+import { follow } from "./server-data.ts";
 
 interface ImplementationStore {
   byTarget: Readonly<Record<string, ImplementationItem>>;
@@ -19,28 +20,25 @@ interface ImplementationStore {
   loaded: boolean;
 }
 
-let bound = false;
-
 const indexed = (list: ImplementationList) => ({
   byTarget: Object.fromEntries(list.items.map((i) => [i.target, i])),
   loaded: true,
 });
 
-export const useImplementation = create<ImplementationStore>((set) => ({
+export const useImplementation = create<ImplementationStore>(() => ({
   byTarget: {},
-  load: async () => {
-    if (!bound) {
-      bound = true;
-      api().on("implementation", (list) => set(indexed(list)));
-    }
-    try {
-      set(indexed(await api().request("implementation.list", undefined)));
-    } catch (error) {
-      reportError(error);
-    }
-  },
+  load: () => implementationData.read().catch(reportError),
   loaded: false,
 }));
+
+const take = (list: ImplementationList) =>
+  useImplementation.setState(indexed(list));
+
+const implementationData = follow({
+  apply: take,
+  on: { implementation: take },
+  read: () => api().request("implementation.list", undefined),
+});
 
 const statusWords = (item: ImplementationItem): string => {
   switch (item.status) {

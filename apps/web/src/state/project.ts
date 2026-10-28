@@ -1,6 +1,6 @@
 import { RequestError } from "@ultrapaint/client-runtime/connection";
 import type { UndoState } from "@ultrapaint/contracts/edit";
-import type { Canvas, Page } from "@ultrapaint/contracts/pages";
+import type { Canvas, Page, PageList } from "@ultrapaint/contracts/pages";
 import type {
   HostStatus,
   LogLine,
@@ -10,7 +10,7 @@ import type { Settings } from "@ultrapaint/contracts/settings";
 import { create } from "zustand";
 import { keptAsTheyWere } from "../lib/kept-as-they-were.ts";
 import { api } from "./connection.ts";
-import { viewedSnapshot } from "./snapshot-view.ts";
+import { follow } from "./server-data.ts";
 import { readUrl, writeSettingsSection } from "./url.ts";
 
 interface ProjectStore {
@@ -51,25 +51,13 @@ export const useProject = create<ProjectStore>((set, get) => ({
     storage: { mode: "managed" },
   },
   load: async () => {
-    const c = api();
     try {
-      const [info, settings] = await Promise.all([
-        c.request("project.info", undefined),
-        c.request("settings.get", undefined),
-      ]);
-      set({ info, loaded: true, settings });
-      if (info.configured) {
-        const [{ pages, canvases }, logs, undo] = await Promise.all([
-          c.request("pages.list", undefined),
-          c.request("logs.recent", undefined),
-          c.request("edit.state", undefined),
-        ]);
-        set(
-          viewedSnapshot() ? { logs, undo } : { canvases, logs, pages, undo }
-        );
+      await projectData.read();
+      if (projectOpen()) {
+        await Promise.all([pagesData.read(), historyData.read()]);
       }
     } catch (error) {
-      get().setError((error as Error).message);
+      reportError(error);
     }
   },
   loaded: false,
@@ -89,37 +77,67 @@ export const useProject = create<ProjectStore>((set, get) => ({
   undo: { canRedo: false, canUndo: false },
 }));
 
-/** Wires server events into the store once the connection is open. */
-export const bindProjectEvents = () => {
-  const c = api();
-  c.on("project", (info) => {
-    const before = useProject.getState().info;
-    useProject.setState({ info });
-    // A project opened by the server on its own (detected at start, a changed configuration
-    // file) brings settings and pages the editor has not read yet.
-    if (
-      info.configured &&
-      (!before.configured ||
-        before.repoPath !== info.repoPath ||
-        before.setup !== info.setup)
-    ) {
-      useProject.getState().load();
-    }
-  });
-  // A snapshot on screen keeps its own list; the files' is read again on going back to now.
-  c.on("pages", ({ canvases, pages }) => {
-    if (!viewedSnapshot()) {
-      useProject.setState((s) => ({
-        canvases: keptAsTheyWere(s.canvases, canvases),
-        pages: keptAsTheyWere(s.pages, pages),
-      }));
-    }
-  });
-  c.on("log", (line) =>
-    useProject.setState((s) => ({ logs: [...s.logs.slice(-499), line] }))
-  );
-  c.on("edit.state", (undo) => useProject.setState({ undo }));
-};
+/** Whether a project is open: what the pages, the documents and the rest belong to. */
+export const projectOpen = () => useProject.getState().info.configured;
+
+/** The project's info and settings: read first at every connection open. */
+const projectData = follow({
+  apply: ([info, settings]) =>
+    useProject.setState({ info, loaded: true, settings }),
+  atOpen: () => true,
+  on: {
+    project: (info) => {
+      const before = useProject.getState().info;
+      useProject.setState({ info });
+      // A project opened by the server on its own (detected at start, a changed configuration
+      // file) brings settings and pages the editor has not read yet.
+      if (
+        info.configured &&
+        (!before.configured ||
+          before.repoPath !== info.repoPath ||
+          before.setup !== info.setup)
+      ) {
+        useProject.getState().load();
+      }
+    },
+  },
+  read: () =>
+    Promise.all([
+      api().request("project.info", undefined),
+      api().request("settings.get", undefined),
+    ]),
+});
+
+const takePages = ({ canvases, pages }: PageList) =>
+  useProject.setState((s) => ({
+    canvases: keptAsTheyWere(s.canvases, canvases),
+    pages: keptAsTheyWere(s.pages, pages),
+  }));
+
+/** The canvases and their pages; a snapshot on screen shows its own. */
+const pagesData = follow({
+  apply: takePages,
+  atOpen: projectOpen,
+  on: { pages: takePages },
+  read: () => api().request("pages.list", undefined),
+  snapshot: (view) => ({ canvases: view.canvases, pages: view.pages }),
+});
+
+/** The server's log and where the undo history stands. */
+const historyData = follow({
+  apply: ([logs, undo]) => useProject.setState({ logs, undo }),
+  atOpen: projectOpen,
+  on: {
+    "edit.state": (undo) => useProject.setState({ undo }),
+    log: (line) =>
+      useProject.setState((s) => ({ logs: [...s.logs.slice(-499), line] })),
+  },
+  read: () =>
+    Promise.all([
+      api().request("logs.recent", undefined),
+      api().request("edit.state", undefined),
+    ]),
+});
 
 const notConfiguredListeners = new Set<() => void>();
 

@@ -11,6 +11,7 @@ import {
   terminalKey,
   useAgents,
 } from "./agents.ts";
+import { followServer } from "./server-data.ts";
 
 vi.mock(
   "./connection.ts",
@@ -35,10 +36,11 @@ const said = (id: string, text: string): ThreadItem => ({
 });
 
 const initial = useAgents.getState();
-useAgents.getState().bind();
 
 beforeEach(() => {
+  fakeApi.reset();
   useAgents.setState(initial, true);
+  return followServer({ report: () => undefined });
 });
 
 afterEach(() => {

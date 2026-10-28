@@ -27,6 +27,7 @@ import {
 } from "./documents.ts";
 import { followFrame } from "./location.ts";
 import { reportError, useProject } from "./project.ts";
+import { follow } from "./server-data.ts";
 import { viewedSnapshot } from "./snapshot-view.ts";
 import { readUrl, writeMode } from "./url.ts";
 import {
@@ -400,13 +401,25 @@ export const flushLayout = (): Promise<void> => {
   return saveLayout(useEditor.getState, useEditor.setState);
 };
 
+/**
+ * The layout of the canvas open, as saved: what an undo put back, what an agent or a branch
+ * switch changed. A snapshot on screen shows the one it kept.
+ */
+const layoutData = follow({
+  apply: (layout: CanvasLayout, canvas: string) =>
+    useEditor.getState().applyLayout(canvas, layout),
+  key: () => useEditor.getState().canvas,
+  on: {
+    canvas: ({ canvas, layout }) =>
+      useEditor.getState().applyLayout(canvas, layout),
+  },
+  read: (canvas) => api().request("canvas.get", { canvas }),
+  snapshot: (view, canvas): CanvasLayout =>
+    view.layouts[canvas] ?? { frames: {}, version: 1 },
+});
+
 /** A canvas's layout: the snapshot's when one is looked at, the server's otherwise. */
-export const layoutOf = async (canvas: string): Promise<CanvasLayout> => {
-  const snapshot = viewedSnapshot();
-  return snapshot
-    ? (snapshot.layouts[canvas] ?? { frames: {}, version: 1 })
-    : await api().request("canvas.get", { canvas });
-};
+export const layoutOf = layoutData.get;
 
 /** Nothing selected, hovered or picked with it: where a navigation leaves the selection. */
 export const unpicked = {
@@ -455,7 +468,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
   also: [],
   applyLayout: (canvas, layout) => {
     const s = get();
-    if (canvas !== s.canvas || persistTimer || viewedSnapshot()) {
+    if (canvas !== s.canvas || persistTimer) {
       return;
     }
     set({ frames: computeFrames(pagesOfCanvas(canvas), layout), layout });

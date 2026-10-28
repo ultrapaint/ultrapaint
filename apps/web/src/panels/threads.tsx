@@ -52,7 +52,6 @@ export const Threads = () => {
     if (!configured) {
       return;
     }
-    useAgents.getState().bind();
     useAgents.getState().load();
   }, [configured]);
 

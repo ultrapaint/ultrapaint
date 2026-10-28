@@ -7,7 +7,8 @@ import type {
 } from "@ultrapaint/contracts/settings";
 import type { SetupSuggestions } from "@ultrapaint/contracts/setup";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { bindProjectEvents, useProject } from "../state/project.ts";
+import { useProject } from "../state/project.ts";
+import { followServer } from "../state/server-data.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { detect, save, saveToFile, setUpDesigns } from "./settings-actions.ts";
 
@@ -63,9 +64,7 @@ const saving = (next: Settings) => {
   return ok;
 };
 
-bindProjectEvents();
-
-beforeEach(() => {
+beforeEach(async () => {
   fakeApi.reset();
   server = { info: openInfo({ mode: "managed" }), settings: running };
   useProject.setState({ info: server.info, settings: running });
@@ -77,6 +76,11 @@ beforeEach(() => {
   fakeApi.respond("setup.detect", () => found);
   fakeApi.respond("setup.createDesigns", () => ({ created: [] }));
   fakeApi.respond("settings.set", (next: Settings) => saving(next));
+  const stop = followServer({ report: () => undefined });
+  // What the editor reads as the connection opens is not what a test asks about.
+  await new Promise((settled) => setTimeout(settled));
+  fakeApi.calls.length = 0;
+  return stop;
 });
 
 describe("detecting", () => {

@@ -7,7 +7,6 @@ import {
   isBusy,
   type PromptAttachment,
   type QueuedPrompt,
-  type SlashCommand,
   type Thread,
 } from "@ultrapaint/contracts/threads";
 import { nodeLabel } from "@ultrapaint/design-document/tree";
@@ -64,6 +63,7 @@ import { nodeIn, useDocuments } from "../state/documents.ts";
 import { useEditor, type Workspace } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { isSendKey, useSendKey } from "../state/send-key.ts";
+import { useSlashCommands } from "../state/slash-commands.ts";
 import { useSync } from "../state/sync.ts";
 import { ModelPicker, ModePicker, roomyItems } from "./thread-pickers.tsx";
 import {
@@ -129,22 +129,13 @@ const shotFrameOf = (
 
 const COMMAND_QUERY_RE = /^\/([a-z-]*)$/;
 
-let commandsCache: readonly SlashCommand[] | null = null;
-
-/** The commands a prompt may start with, asked of the server once. */
+/** The commands a prompt may start with, read once for every composer. */
 const useCommands = () => {
-  const [commands, setCommands] = useState(commandsCache ?? []);
+  const commands = useSlashCommands((s) => s.commands);
   useEffect(() => {
-    if (commandsCache) {
-      return;
+    if (!useSlashCommands.getState().loaded) {
+      useSlashCommands.getState().load();
     }
-    api()
-      .request("commands.list", undefined)
-      .then((list) => {
-        commandsCache = list;
-        setCommands(list);
-      })
-      .catch(() => undefined);
   }, []);
   return commands;
 };

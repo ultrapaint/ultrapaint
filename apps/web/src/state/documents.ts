@@ -20,49 +20,24 @@ import { canvasIdOf } from "@ultrapaint/shared/canvas";
 import { create } from "zustand";
 import { api } from "./connection.ts";
 import { reportError, useProject } from "./project.ts";
+import { follow } from "./server-data.ts";
 import { ensureEditable } from "./setup.ts";
-import { viewedSnapshot } from "./snapshot-view.ts";
 
 interface DocumentsStore {
   canvas: string | null;
   docs: Record<string, DocumentState>;
-  /** Reads every document of the canvas. */
+  /** Opens a canvas's documents: every one of them, read. */
   load: (canvas: string) => Promise<void>;
   loaded: boolean;
   put: (state: DocumentState) => void;
 }
 
-let bound = false;
-
-export const useDocuments = create<DocumentsStore>((set, get) => ({
+export const useDocuments = create<DocumentsStore>((set) => ({
   canvas: null,
   docs: {},
   load: async (canvas) => {
     set({ canvas, docs: {}, loaded: false });
-    const snapshot = viewedSnapshot();
-    if (snapshot) {
-      set({
-        docs: Object.fromEntries(
-          snapshot.documents
-            .filter((s) => belongsTo(s.doc, canvas))
-            .map((s) => [s.doc, s])
-        ),
-        loaded: true,
-      });
-      return;
-    }
-    try {
-      const states = await api().request("documents.list", { canvas });
-      if (get().canvas !== canvas) {
-        return;
-      }
-      set({
-        docs: Object.fromEntries(states.map((s) => [s.doc, s])),
-        loaded: true,
-      });
-    } catch (error) {
-      reportError(error);
-    }
+    await documentsData.read().catch(reportError);
   },
   loaded: false,
   put: (state) =>
@@ -75,27 +50,34 @@ export const useDocuments = create<DocumentsStore>((set, get) => ({
     }),
 }));
 
-/** Follows every document change the server reports, whoever made it. */
-export const bindDocuments = () => {
-  if (bound) {
-    return;
-  }
-  bound = true;
-  api().on("document", (state) => {
-    if (viewedSnapshot()) {
-      return;
-    }
-    const { docs, canvas } = useDocuments.getState();
-    const known = docs[state.doc];
-    // A page of another canvas is not ours to show; one we already have is.
-    if (known?.hash === state.hash) {
-      return;
-    }
-    if (known || belongsTo(state.doc, canvas)) {
-      useDocuments.getState().put(state);
-    }
-  });
-};
+/**
+ * The documents of the canvas open, and every change the server reports, whoever made it; a
+ * snapshot on screen shows the ones it kept.
+ */
+const documentsData = follow({
+  apply: (states: readonly DocumentState[]) =>
+    useDocuments.setState({
+      docs: Object.fromEntries(states.map((s) => [s.doc, s])),
+      loaded: true,
+    }),
+  key: () => useDocuments.getState().canvas,
+  on: {
+    document: (state) => {
+      const { docs, canvas } = useDocuments.getState();
+      const known = docs[state.doc];
+      // A page of another canvas is not ours to show; one we already have is.
+      if (known?.hash === state.hash) {
+        return;
+      }
+      if (known || belongsTo(state.doc, canvas)) {
+        useDocuments.getState().put(state);
+      }
+    },
+  },
+  read: (canvas) => api().request("documents.list", { canvas }),
+  snapshot: (view, canvas) =>
+    view.documents.filter((s) => belongsTo(s.doc, canvas)),
+});
 
 /** Whether a document is the open canvas's: one of its pages, or its loose nodes. */
 export const belongsTo = (doc: string, canvas: string | null) => {

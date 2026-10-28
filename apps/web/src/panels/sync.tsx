@@ -299,7 +299,6 @@ export const SyncView = ({
       useDesignSystemSetup.getState().load();
     }
     // The setup's badges follow their steps' threads.
-    useAgents.getState().bind();
     if (useAgents.getState().threads.length === 0) {
       useAgents.getState().load();
     }
