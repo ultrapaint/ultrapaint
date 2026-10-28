@@ -8,8 +8,7 @@
  * Anything else (a hover, print, the editor's own code) is the window's, as it was.
  *
  * Whose code asks is told by the stack (`provenance.ts`, `windowCall`). Which frame is asking is
- * the one that is drawing (the renderer says so as it draws and as its effects run) or the one
- * that last took input: the same frame a popup is put in.
+ * the one whose turn it is (`turn.ts`): the same frame a popup is put in.
  */
 
 import {
@@ -18,6 +17,7 @@ import {
   FRAME_CONTAINER,
 } from "./frame-css.ts";
 import type { Provenance } from "./provenance.ts";
+import { askedFrame, type Frame } from "./turn.ts";
 
 const PROBE_ATTRIBUTE = "data-ed-media";
 
@@ -84,8 +84,8 @@ interface FrameMedia {
   readonly slots: Map<string, string>;
 }
 
-let current: FrameMedia | null = null;
-let provenance: Provenance | null = null;
+/** Each frame's answers, made when it is registered. */
+const answers = new WeakMap<Frame, FrameMedia>();
 
 /**
  * Whether `condition` holds in the frame: the probe, inside it, gets a custom property from a
@@ -125,16 +125,17 @@ const frameCondition = (
   return condition ? () => holds(frame, condition) : null;
 };
 
-/** The frame the preview's code is asking for, or null: the editor, or no frame drawing. */
-const asking = (): FrameMedia | null =>
-  current?.host.isConnected && provenance?.windowCall() ? current : null;
-
-/** Answers the window's size for the frames from now on, once; `rules` says whose code asks. */
-export const guardMedia = (rules: Provenance) => {
-  if (provenance || typeof window === "undefined") {
-    return;
-  }
-  provenance = rules;
+/**
+ * Answers the window's size for the frames from now on; `provenance` says whose code asks.
+ * Installed once, by the kernel.
+ */
+export const guardMedia = (provenance: Provenance) => {
+  /** The frame the preview's code is asking for, or null: the editor, or no frame drawing. */
+  const asking = (): FrameMedia | null => {
+    const frame = askedFrame();
+    const media = frame ? answers.get(frame) : undefined;
+    return media?.host.isConnected && provenance.windowCall() ? media : null;
+  };
   const native = window.matchMedia.bind(window);
   window.matchMedia = (media: string): MediaQueryList => {
     const frame = asking();
@@ -172,11 +173,11 @@ export const guardMedia = (rules: Provenance) => {
 };
 
 /**
- * Answers the window's size for `host`'s frame from now on, once `guardMedia` has put the
- * answers in place. `shadow` is the frame's shadow root, where the probe goes. Returns what says
- * the frame is drawing, and what forgets it.
+ * Answers the window's size for `frame` from now on, once `guardMedia` has put the answers in
+ * place; the probe goes in its shadow root. Returns what forgets it.
  */
-export const frameMedia = (host: HTMLElement, shadow: ShadowRoot) => {
+export const frameMedia = (registered: Frame) => {
+  const { host, shadow } = registered;
   const sheet = document.createElement("style");
   sheet.setAttribute(PROBE_ATTRIBUTE, "");
   const probe = document.createElement("div");
@@ -191,15 +192,8 @@ export const frameMedia = (host: HTMLElement, shadow: ShadowRoot) => {
     sheet,
     slots: new Map(),
   };
-  const place = () => {
-    if (sheet.parentNode !== shadow) {
-      shadow.append(sheet);
-    }
-    if (probe.parentNode !== shadow) {
-      shadow.append(probe);
-    }
-  };
-  place();
+  shadow.append(sheet, probe);
+  answers.set(registered, frame);
   let width = host.clientWidth;
   let height = host.clientHeight;
   const resize = new ResizeObserver(() => {
@@ -214,17 +208,9 @@ export const frameMedia = (host: HTMLElement, shadow: ShadowRoot) => {
   });
   resize.observe(host);
   return {
-    /** The frame is drawing or took input: what its code asks is about it. */
-    asking: () => {
-      current = frame;
-    },
-    /** Puts the probe back after the frame's content was replaced. */
-    place,
     unmount: () => {
       resize.disconnect();
-      if (current === frame) {
-        current = null;
-      }
+      answers.delete(registered);
     },
   };
 };
