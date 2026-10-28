@@ -17,11 +17,21 @@
  * stay right.
  */
 
+import {
+  GUARD_GLOBAL,
+  GUARD_MEMBERS,
+  MODULE_MARK,
+  MODULE_MARK_NAME,
+} from "@ultrapaint/contracts/page-runtime";
+
 /** The module the inserted code imports what it calls from. */
 export const GUARD_ID = "virtual:ultrapaint/guard";
 
 /** How long the thread may be held, in the code's loops, before they throw. */
 const LIMIT_MS = 2500;
+
+/** The guard's side in the page, read as each call is made: the preview defines it once there. */
+const GUARD = `globalThis.${GUARD_GLOBAL}`;
 
 /**
  * The module itself, served as is. The loop check counts, and reads the clock every 1024
@@ -64,17 +74,16 @@ export function loop(id) {
     stop(id);
   }
 }
-const preview = () => globalThis.__ultrapaintGuard;
 export function moduleStarts(url) {
-  preview()?.moduleStarts(url);
+  ${GUARD}?.${GUARD_MEMBERS.moduleStarts}(url);
 }
 export function moduleEnds(url) {
-  preview()?.moduleEnds(url);
+  ${GUARD}?.${GUARD_MEMBERS.moduleEnds}(url);
 }
-export const frame = () => preview()?.frame() ?? null;
+export const frame = () => ${GUARD}?.${GUARD_MEMBERS.frame}() ?? null;
 export function mark(error, frame) {
   if (frame !== null && error !== null && typeof error === "object") {
-    preview()?.mark(error, frame);
+    ${GUARD}?.${GUARD_MEMBERS.mark}(error, frame);
   }
   return error;
 }
@@ -260,12 +269,12 @@ export const guardCode = (
     ...(loops ? ["loop as __edLoop"] : []),
     ...(asyncs ? ["frame as __edFrame", "mark as __edMark"] : []),
     ...(markModule
-      ? ["moduleStarts as __edModuleStarts", "moduleEnds as __edModuleEnds"]
+      ? [`moduleStarts as ${MODULE_MARK_NAME}`, "moduleEnds as __edModuleEnds"]
       : []),
   ];
   // On the first line, before the code: no line moves. Imports are hoisted: the call runs as the
   // module's own code starts, after what it imports.
-  let out = `import{${names.join(",")}}from"${GUARD_ID}";${markModule ? "__edModuleStarts(import.meta.url);" : ""}`;
+  let out = `import{${names.join(",")}}from"${GUARD_ID}";${markModule ? `${MODULE_MARK}import.meta.url);` : ""}`;
   let from = 0;
   for (const edit of found) {
     out += code.slice(from, edit.at) + edit.text;

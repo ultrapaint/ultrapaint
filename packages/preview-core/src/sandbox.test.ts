@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { GUARD_GLOBAL, pageRuntime } from "@ultrapaint/contracts/page-runtime";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createProvenance } from "./provenance.ts";
 import {
@@ -268,15 +269,13 @@ describe("errors nothing caught", () => {
 
 describe("rejections", () => {
   /** What the guard in the repository's code calls (`virtual:ultrapaint/guard`). */
-  const guard = () =>
-    (
-      globalThis as unknown as {
-        __ultrapaintGuard: {
-          frame: () => unknown;
-          mark: (error: object, frame: unknown) => void;
-        };
-      }
-    ).__ultrapaintGuard;
+  const guard = () => {
+    const defined = pageRuntime()[GUARD_GLOBAL];
+    if (!defined) {
+      throw new Error("the guard is not defined");
+    }
+    return defined;
+  };
   const rejected = (message: string) => {
     const error = new Error(message);
     error.stack = `Error: ${message}\n    at f (${PAGE_MODULE}:3:1)`;

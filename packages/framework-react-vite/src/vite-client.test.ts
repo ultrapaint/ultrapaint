@@ -1,6 +1,10 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+import {
+  RELOAD_GLOBAL,
+  STYLES_GLOBAL,
+} from "@ultrapaint/contracts/page-runtime";
 import { describe, expect, it } from "vitest";
 import { CLIENT_RE, CLIENT_STYLES_HOOK, patchClient } from "./vite-client.ts";
 
@@ -23,8 +27,10 @@ describe("Vite's client in the editor's page", () => {
     expect(reloads).toBeGreaterThan(0);
     const patched = patchClient(code);
     expect(patched).not.toContain("\tlocation.reload();");
-    expect(patched.split("globalThis.__edReload").length - 1).toBe(reloads * 2);
+    expect(patched.split(`globalThis.${RELOAD_GLOBAL}`).length - 1).toBe(
+      reloads * 2
+    );
     expect(patched).toContain(CLIENT_STYLES_HOOK);
-    expect(patched).toContain("globalThis.__edStyles.remove(id)");
+    expect(patched).toContain(`globalThis.${STYLES_GLOBAL}.remove(id)`);
   });
 });

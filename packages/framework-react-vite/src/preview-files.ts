@@ -1,4 +1,8 @@
 import path from "node:path";
+import {
+  REGISTRY_GLOBAL,
+  REGISTRY_MEMBERS,
+} from "@ultrapaint/contracts/page-runtime";
 import type { PreviewInput } from "@ultrapaint/framework-api/node";
 import { toPosix } from "@ultrapaint/shared/path";
 import { ASSET_PATH } from "./asset-route.ts";
@@ -34,7 +38,7 @@ ${entries}
 if (import.meta.hot) {
   import.meta.hot.accept((next) => {
     if (next) {
-      (window as unknown as { __ED__?: { setComponents: (c: unknown) => void } }).__ED__?.setComponents(next.components);
+      (window as unknown as { ${REGISTRY_GLOBAL}?: { ${REGISTRY_MEMBERS.setComponents}: (c: unknown) => void } }).${REGISTRY_GLOBAL}?.${REGISTRY_MEMBERS.setComponents}(next.components);
     }
   });
 }

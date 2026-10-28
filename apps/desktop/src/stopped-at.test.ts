@@ -1,4 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
+import { MODULE_MARK } from "@ultrapaint/contracts/page-runtime";
 import { stoppedAt } from "./stopped-at.ts";
 
 const ORIGIN = "http://127.0.0.1:4800";
@@ -15,7 +16,7 @@ const servedUnder = (base: string) => {
     [`${ORIGIN}/assets/index.js`]: "editor();",
     [`${ORIGIN}${base}@fs/home/u/ultrapaint/dist/editor.js`]:
       "export const createPreview = () => {};",
-    [page]: `import{loop}from"${base}@id/__x00__virtual:ultrapaint/guard";__edModuleStarts(import.meta.url);spin();\nmore();\n//# sourceMappingURL=data:application/json;base64,${map}`,
+    [page]: `import{loop}from"${base}@id/__x00__virtual:ultrapaint/guard";${MODULE_MARK}import.meta.url);spin();\nmore();\n//# sourceMappingURL=data:application/json;base64,${map}`,
   };
   const read = (url: string) => {
     const code = modules[url];

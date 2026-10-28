@@ -1,3 +1,4 @@
+import { MODULE_MARK } from "@ultrapaint/contracts/page-runtime";
 import { describe, expect, it } from "vitest";
 import {
   createProvenance,
@@ -303,7 +304,7 @@ describe("the repository's modules", () => {
   it("are the ones the preview's server marked", () => {
     const url = `${served}@fs/home/u/lib/button.tsx`;
     expect(
-      isRepositoryModule(url, "__edModuleStarts(import.meta.url);", base)
+      isRepositoryModule(url, `${MODULE_MARK}import.meta.url);`, base)
     ).toBe(true);
     expect(isRepositoryModule(url, "export const createPreview", base)).toBe(
       false

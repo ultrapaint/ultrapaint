@@ -10,6 +10,10 @@
  */
 
 import {
+  installPageRuntime,
+  REGISTRY_GLOBAL,
+} from "@ultrapaint/contracts/page-runtime";
+import {
   makeStyleContext,
   pageDefaultsStyle,
 } from "@ultrapaint/design-document/css";
@@ -162,9 +166,9 @@ export const createPreview = (input: PreviewSetup): Preview => {
     },
   };
   // The registry module, rewritten as components are catalogued, hands itself over here.
-  (window as unknown as { __ED__: Pick<Preview, "setComponents"> }).__ED__ = {
-    setComponents: preview.setComponents,
-  };
+  installPageRuntime({
+    [REGISTRY_GLOBAL]: { setComponents: preview.setComponents },
+  });
   return preview;
 };
 
