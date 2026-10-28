@@ -86,6 +86,14 @@ review found.
   `BuiltInAgentId`; any other agent is a JSON file of the user's.
 - **Task**: what the editor asks an agent to do (implement a page, a setup step, a sync), named
   by a typed **task request**; a **slash command** is a request written as text.
+- **Design target**: what `/implement` and `handoff` name a design by (the server's
+  `design-targets`, by `designTargetNamed` beside `pageNamed`): `spec:Button`, or a bare component
+  name, is a component's spec; anything else is a page by the page rule, a canvas written first
+  (`marketing:/pricing`), a node reference's node kept (`/orders#c_8`). A miss says which kind it
+  looked for and lists that kind. The link to the code keys it by its **canonical target**, a
+  page's id or `spec:<Component>`. A design's **behaviour notes** (ADR 0030) are read and added
+  through it whichever way they are kept: a page's are comments pinned on it, resolved when done;
+  a component's are in its spec, deleted when done.
 - **Agent ways**: how an agent does what a task or the briefing asks of it, with the editor's MCP
   tools or without them (`agent-ways`): each capability worded both ways (ask the user, save the
   design system, mark a design implemented), and the tools by their own names (`tools`, none

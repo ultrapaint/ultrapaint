@@ -21,6 +21,7 @@ import { DesignMd } from "./services/design-md.ts";
 import { DesignSystemService } from "./services/design-system.ts";
 import { DesignSystemSetupService } from "./services/design-system-setup.ts";
 import { DesignSystemSyncService } from "./services/design-system-sync.ts";
+import { DesignTargets } from "./services/design-targets.ts";
 import { DocumentService } from "./services/documents.ts";
 import { EditService } from "./services/edit.ts";
 import { FigmaBaseline } from "./services/figma-baseline.ts";
@@ -90,8 +91,9 @@ export const projectLayer = (
   settings: Settings,
   host: Adapters<never>["host"]
 ) =>
-  // Pictures of the pages, drawn from the documents as they change.
-  PagePngs.layer.pipe(
+  // Pictures of the pages, drawn from the documents as they change; and what a design target
+  // names, with its behaviour notes in a spec or in comments (ADR 0030).
+  Layer.mergeAll(PagePngs.layer, DesignTargets.layer).pipe(
     // A spec read off the code is linked to its component's file (ADR 0029).
     Layer.provideMerge(SpecService.layer),
     // The link to the code reads the pages, their documents and the specs (ADR 0030).

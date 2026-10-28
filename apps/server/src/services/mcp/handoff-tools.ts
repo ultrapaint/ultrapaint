@@ -5,24 +5,22 @@
  * 0028). One tool: every agent carries every tool's schema on every turn.
  */
 
-import {
-  type ImplementationItem,
-  isSpecTarget,
-  SPEC_TARGET_PREFIX,
-} from "@ultrapaint/contracts/implementation";
+import type { ImplementationItem } from "@ultrapaint/contracts/implementation";
 import { baselineKey } from "@ultrapaint/contracts/sync";
-import { findNode, nodeLabel } from "@ultrapaint/design-document/tree";
 import { plural } from "@ultrapaint/shared/text";
 import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
-import { CommentsService } from "../comments.ts";
+import { ProjectManager } from "../../project.ts";
 import { DesignSystemSyncService } from "../design-system-sync.ts";
+import {
+  type DesignTarget,
+  DesignTargets,
+  targetId,
+} from "../design-targets.ts";
 import { ImplementationService } from "../implementation.ts";
-import { SpecService } from "../specs.ts";
 import { codeDirection } from "../sync-readings.ts";
 import { HANDOFF_ACTIONS } from "../threads/agent-ways.ts";
 import { AgentTasks } from "../threads/tasks.ts";
-import { makeLookup } from "./lookup.ts";
 import { missing, opt, reported, ToolFailure } from "./tool-helpers.ts";
 
 export const Handoff = Tool.make("handoff", {
@@ -64,12 +62,13 @@ const lineOf = (item: ImplementationItem) => {
 const HandoffTools = Toolkit.make(Handoff);
 
 export const handoffToolHandlers = Effect.gen(function* () {
-  const { documents, pageAt, project } = yield* makeLookup;
+  const project = yield* ProjectManager;
   const implementation = project.service(ImplementationService);
+  const designTargets = project.service(DesignTargets);
   const tasks = yield* AgentTasks;
   const sync = yield* DesignSystemSyncService;
 
-  /** The binding's name for what an agent named: a page by URL or file, or `spec:<Component>`. */
+  /** The design an agent named, by the one rule for design targets. */
   const targetOf = Effect.fnUntraced(function* (
     target: string | undefined,
     canvas: string | undefined
@@ -77,10 +76,7 @@ export const handoffToolHandlers = Effect.gen(function* () {
     if (!target) {
       return yield* missing("say which design with target");
     }
-    if (isSpecTarget(target)) {
-      return target;
-    }
-    return (yield* pageAt(target, canvas)).id;
+    return yield* reported(designTargets((d) => d.resolve(target, canvas)));
   });
 
   const list = Effect.gen(function* () {
@@ -118,48 +114,24 @@ export const handoffToolHandlers = Effect.gen(function* () {
   });
 
   /**
-   * A behaviour note on a node of a page, or on a component's spec (a slot of it, named as the
-   * node): what the code must do that a design cannot show.
+   * A behaviour note on a page or one of its nodes, or on a component's spec (a slot of it,
+   * named as the node): what the code must do that a design cannot show.
    */
   const note = Effect.fnUntraced(function* (
-    id: string,
-    canvas: string | undefined,
+    target: DesignTarget,
     node: string | undefined,
     text: string | undefined
   ) {
     if (!text) {
       return yield* missing("say in text what the code must do");
     }
-    if (isSpecTarget(id)) {
-      const component = id.slice(SPEC_TARGET_PREFIX.length);
-      yield* reported(
-        project.service(SpecService)((specs) =>
-          specs.addNote(component, text, node)
-        )
-      );
-      return { text: `Noted on ${component}${node ? ` (${node})` : ""}.` };
-    }
-    const page = yield* pageAt(id, canvas);
-    const { root } = yield* documents((d) => d.get(page.id));
-    const found = node ? findNode(root, node) : null;
-    if (node && !found) {
-      return yield* missing(`no node ${node} in ${page.file}`);
-    }
-    yield* reported(
-      project.service(CommentsService)((comments) =>
-        comments.create({
-          canvas: page.canvas,
-          element: found ? nodeLabel(found) : null,
-          kind: "behaviour",
-          nodeId: found?.id ?? null,
-          page: page.path,
-          text,
-          x: 0,
-          y: 0,
-        })
-      )
+    const added = yield* reported(
+      designTargets((d) => d.addNote(target, text, node))
     );
-    return { text: `Noted on ${page.file}${found ? ` (${found.id})` : ""}.` };
+    const on =
+      target._tag === "Spec" ? target.spec.component : target.page.file;
+    const where = added.nodeId ?? added.element;
+    return { text: `Noted on ${on}${where ? ` (${where})` : ""}.` };
   });
 
   /**
@@ -226,14 +198,14 @@ export const handoffToolHandlers = Effect.gen(function* () {
       if (action === "export" || action === "import") {
         return yield* tokensTo(action, tokens ?? []);
       }
-      const id = yield* targetOf(target, canvas);
+      const named = yield* targetOf(target, canvas);
       if (action === "read") {
-        return yield* read(id);
+        return yield* read(targetId(named));
       }
       if (action === "mark") {
-        return yield* mark(id, files);
+        return yield* mark(targetId(named), files);
       }
-      return yield* note(id, canvas, node, text);
+      return yield* note(named, node, text);
     }),
   });
 });
