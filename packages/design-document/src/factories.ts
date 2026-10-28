@@ -14,8 +14,8 @@ import type {
 import { type IdGenerator, idPrefix, makeIdGenerator } from "./ids.ts";
 import { componentTakesChildren, DOCUMENT_VERSION } from "./tree.ts";
 
-/** The primitives the Assets panel offers above the design system's components. */
-export const PRIMITIVES = [
+/** The elements the Assets panel offers above the primitives (ADR 0040): layout, text, images. */
+export const ELEMENTS = [
   { id: "column", name: "Column" },
   { id: "row", name: "Row" },
   { id: "group", name: "Group" },
@@ -24,7 +24,7 @@ export const PRIMITIVES = [
   { id: "image", name: "Image" },
 ] as const;
 
-export type PrimitiveId = (typeof PRIMITIVES)[number]["id"];
+export type ElementId = (typeof ELEMENTS)[number]["id"];
 
 /** Placeholder picture for an image nobody has chosen yet: a grey box, inline. */
 export const PLACEHOLDER_IMAGE =
@@ -33,10 +33,7 @@ export const PLACEHOLDER_IMAGE =
     '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200" viewBox="0 0 320 200"><rect width="320" height="200" fill="#e4e4e7"/><path d="M120 130l30-36 24 28 16-18 30 26z" fill="#a1a1aa"/><circle cx="130" cy="78" r="12" fill="#a1a1aa"/></svg>'
   );
 
-export const newPrimitive = (
-  id: PrimitiveId,
-  next: IdGenerator
-): DesignNode => {
+export const newElement = (id: ElementId, next: IdGenerator): DesignNode => {
   switch (id) {
     case "row":
       return {

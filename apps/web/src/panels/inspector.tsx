@@ -67,7 +67,6 @@ import {
   tokensWaiting,
   useImplementation,
 } from "../state/implementation.ts";
-import { useInstances } from "../state/instances.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { useInspected } from "../state/selection.ts";
 import { ComponentProps } from "./component-props.tsx";
@@ -82,13 +81,13 @@ import {
   set,
   sharedOf,
   TextInput,
-  Warning,
 } from "./inspector-fields.tsx";
 import {
   LayoutSection,
   SidesSection,
   SizeSection,
 } from "./inspector-layout.tsx";
+import { SlotsSection } from "./inspector-slots.tsx";
 import { TextSection } from "./inspector-text.tsx";
 
 export const Inspector = () => {
@@ -111,7 +110,7 @@ export const Inspector = () => {
       {node.type === "page" && nodes.length === 1 && (
         <PageSection frame={frame} />
       )}
-      {oneComponent(nodes) && <InstanceSection nodes={nodes} />}
+      {oneComponent(nodes) && <InstanceSection frame={frame} nodes={nodes} />}
       {allOf(nodes, "text") && <TextSection nodes={nodes} />}
       {allOf(nodes, "image") && <ImageSection nodes={nodes} />}
       {allStacks(nodes) && <LayoutSection nodes={nodes} />}
@@ -463,7 +462,13 @@ const sharedProps = (nodes: readonly InstanceNode[]) => {
   return { mixed, props };
 };
 
-const InstanceSection = ({ nodes }: { nodes: readonly InstanceNode[] }) => {
+const InstanceSection = ({
+  frame,
+  nodes,
+}: {
+  frame: string;
+  nodes: readonly InstanceNode[];
+}) => {
   const [node] = nodes;
   if (!node) {
     return null;
@@ -472,7 +477,6 @@ const InstanceSection = ({ nodes }: { nodes: readonly InstanceNode[] }) => {
   return (
     <>
       <Section title="Component">
-        {nodes.length === 1 && <WrappedWarning node={node} />}
         <Row label="Name">
           <span className="truncate font-medium text-component">
             {node.component}
@@ -503,22 +507,9 @@ const InstanceSection = ({ nodes }: { nodes: readonly InstanceNode[] }) => {
         node={{ ...node, props }}
         onSet={(name, value) => setPropsOfSelection({ [name]: value })}
       />
+      {nodes.length === 1 && <SlotsSection frame={frame} node={node} />}
     </>
   );
-};
-
-/**
- * A component that keeps its props to itself cannot take the node's size, padding or fill: the
- * canvas draws them on a box around it, and the code has to do the same.
- */
-const WrappedWarning = ({ node }: { node: InstanceNode }) => {
-  const wrapped = useInstances((s) => s.drawn[node.id]?.wrapped ?? false);
-  return wrapped ? (
-    <Warning>
-      {node.component} does not pass its props on to what it draws, so its size,
-      padding and fill are drawn on a box around it.
-    </Warning>
-  ) : null;
 };
 
 // ---- Image ----

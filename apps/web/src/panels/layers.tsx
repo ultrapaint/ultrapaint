@@ -1019,6 +1019,14 @@ const LayerRow = ({
           onRename={(name) => renameNodeTo(name, target)}
           shared={shared}
         />
+        {node.slot && !renaming ? (
+          <span
+            className="shrink-0 truncate font-body text-muted-foreground/80"
+            title={`Fills the ${node.slot} slot of its primitive`}
+          >
+            {node.slot}
+          </span>
+        ) : null}
         {node.link && !renaming ? <LinkTag link={node.link} /> : null}
       </span>
       {renaming ? null : <RowControls row={row} />}
