@@ -444,3 +444,52 @@ unless the step says otherwise.
    path does not run; a key and a sign-in through the app are refused in its own words; and the
    hint for each kind of descriptor. The desktop's 107 tests stay green (the status's `signIn`
    expected as `signInWith`).
+9. **Data the server pushes** (`apps/web/src/state/server-data.ts`, the fake in
+   `apps/web/src/testing/fake-api.ts`). A store declares each piece of the server's data it holds
+   with `follow({ read, apply, on, key?, snapshot?, atOpen? })`: how it is read, what the store
+   does with what was read, the events that bring news of it, what of it is followed now (the
+   canvas open), what a snapshot keeps in its place, and whether it is read at every open from
+   the first; `follow` gives `read()` (from the source in force, into the store), `get(key)`
+   (the value, left to the caller: `layoutOf`) and `stop()`. `followServer({ report })` (app.tsx,
+   once) is the one subscription to the connection's events, which it hands to the pieces that
+   declared them, and reads at every connection open, the one open now included: the pieces read
+   `atOpen` in turn (the project's info, then its pages and its log and undo state while a
+   project is open), then every other piece asked for since, at once; a read answered for a key
+   no longer chosen is dropped. `viewSnapshot(view)` puts a snapshot on screen or, with null,
+   goes back to now: the pieces a snapshot keeps (the pages, the documents, the layouts: what
+   ADR 0019 says it keeps) read from it instead of the server, their news held back, and are read
+   again from the source now in force; the rest (comments, the design system, the threads) stay
+   live. Live and the snapshot are the two sources; `openSnapshot` and `closeSnapshot` set
+   where to go back to and call it. The project, its pages and history, the documents, the
+   canvas's layout (out of `canvas.tsx`'s effect), comments, the design system, the catalogue,
+   specs, implementation, sync, agents, the design-system setup, skills and the slash commands
+   (a store, `slash-commands.ts`, where `thread-composer` kept a module-level cache) are pieces;
+   the Changes panel follows git's status and the files' changes as a piece while it is shown
+   (`stop` on unmount), and the settings' chat defaults read the agents from the agents' store.
+   `bindProjectEvents`, `bindDocuments`, the stores' `bind`, nine `let bound` flags, the
+   open-effect in app.tsx and its `bound` ref go; hand-wired `api().on(` sites go from 21 in 12
+   files to one (`screenshots.ts`, a request the server makes of an editor, not data: nothing of
+   it is read again, a snapshot does not stop it) besides the module's own; `viewedSnapshot()`
+   calls from 8 to 2, the two rules that nothing is saved while one is on screen (`saveLayout`,
+   `ensureEditable`). Left alone: Sync's token comparisons (`sync.tokens`, read again as the
+   followed plan moves, per step on screen), and the settings' agent options and chat defaults
+   (the form's own, read as the page opens). `fakeApi` is typed by contracts' `rpc`: a request's
+   input and answer and an event's payload are the server's (`respond("logs.recent", () => undo)`
+   does not compile); a request nobody answered fails rather than giving `undefined`; it stands
+   in for the connection's store too (`disconnect`, `connect`: requests fail and events are lost
+   while it is down); `reset` forgets the calls, the answers, the listeners and the connection's
+   watchers, which `followServer` binds again in each test. Also: after a reconnect only the
+   project was read again, so whatever the server sent while the editor was away (a document an
+   agent changed, the design system, the plan, a thread's items, comments) stayed missing until
+   something else read it; a move of a frame still waiting to be saved when a snapshot opened was
+   dropped, and is saved first; leaving a snapshot no longer reads the project's info, settings,
+   log and undo state again, only what the snapshot kept. `server-data.test.ts` has 8 tests on
+   `fakeApi` through the stores: the first open reads the project; a reconnect reads every
+   followed store again after the server moved and its news was lost (15 pieces, failing when an
+   open reads only the project); the news between opens; an answer for a canvas no longer open
+   dropped; stopping; a snapshot shows what it keeps, holds back the files' news and leaves the
+   design system live, is read again from itself at an open, and going back reads the files as
+   they are now and follows them again. `fake-api.test.ts` has 4 (typed answers and refusals, the
+   contracts' types the compiler holds a test to, a reset that resets, a connection down).
+   `agents.test.ts` and `settings-actions.test.ts` follow through `followServer` after each
+   reset, and `new-design.test.ts` answers with whole catalogue entries and the setup's readings.

@@ -4,7 +4,6 @@
  */
 import type { CustomiseMode, Skill } from "@ultrapaint/contracts/skills";
 import {
-  type AgentConfig,
   type AgentOptions,
   type ChatDefaults,
   isModelOption,
@@ -19,6 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { Markdown } from "../components/markdown.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { type AgentSetup, type PlatformAgent, platform } from "../platform.ts";
+import { useAgents } from "../state/agents.ts";
 import { api } from "../state/connection.ts";
 import { readiness, useMachineAgents } from "../state/machine-agents.ts";
 import { reportError } from "../state/project.ts";
@@ -238,21 +238,21 @@ export const SendKeyGroup = () => {
  * user's, not the project's, and a thread can still switch both in its composer.
  */
 export const ChatDefaultsGroup = () => {
-  const [agents, setAgents] = useState<readonly AgentConfig[]>([]);
+  const agents = useAgents((s) => s.agents);
   // Which are installed and signed in on this computer, where the shell can tell (Platform).
   const machine = useMachineAgents((s) => s.agents);
   const [known, setKnown] = useState<readonly AgentOptions[]>([]);
   const [defaults, setDefaults] = useState<ChatDefaults | null>(null);
   /** Why the chosen agent could not list its models, once it has been asked. */
   const [unlisted, setUnlisted] = useState<Record<string, string>>({});
+  // The agents are the chat's list; what each offers and the defaults are this form's own.
   useEffect(() => {
+    useAgents.getState().load();
     Promise.all([
-      api().request("agents.list", undefined),
       api().request("agents.options", undefined),
       api().request("chat.defaults", undefined),
     ])
-      .then(([configs, options, stored]) => {
-        setAgents(configs);
+      .then(([options, stored]) => {
         setKnown(options);
         setDefaults(stored);
       })

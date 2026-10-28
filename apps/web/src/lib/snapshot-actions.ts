@@ -7,10 +7,10 @@ import type { Snapshot } from "@ultrapaint/contracts/snapshots";
 import { toast } from "sonner";
 import { confirmDialog, promptDialog } from "../components/dialogs.tsx";
 import { api } from "../state/connection.ts";
-import { useDocuments } from "../state/documents.ts";
-import { useEditor } from "../state/editor.ts";
+import { flushLayout, useEditor } from "../state/editor.ts";
 import { goTo } from "../state/location.ts";
 import { reportError, useProject } from "../state/project.ts";
+import { viewSnapshot } from "../state/server-data.ts";
 import { useSnapshotView } from "../state/snapshot-view.ts";
 
 /** Asks for a name and keeps the designs as they are now, or as a checkpoint kept them. */
@@ -46,19 +46,19 @@ export const saveSnapshot = async (
 export const openSnapshot = async (snapshot: Snapshot) => {
   try {
     const view = await api().request("snapshots.view", { id: snapshot.id });
+    // A move still waiting to be saved is the files', and is saved before they leave the screen.
+    await flushLayout();
     const editor = useEditor.getState();
-    const { live } = useSnapshotView.getState();
-    useSnapshotView.setState({
-      // Opening another snapshot from one keeps the way back to now.
-      live: live ?? {
+    // Opening another snapshot from one keeps the way back to now.
+    useSnapshotView.setState((s) => ({
+      live: s.live ?? {
         canvas: editor.canvas,
         page: editor.activePage,
         route: editor.route,
         variant: editor.variant,
       },
-      view,
-    });
-    useProject.setState({ canvases: view.canvases, pages: view.pages });
+    }));
+    await viewSnapshot(view);
     const canvas =
       view.canvases.find((c) => c.id === editor.canvas)?.id ??
       view.canvases[0]?.id ??
@@ -69,7 +69,6 @@ export const openSnapshot = async (snapshot: Snapshot) => {
       route: editor.route,
       variant: editor.variant,
     });
-    await useDocuments.getState().load(canvas);
   } catch (error) {
     reportError(error);
   }
@@ -78,8 +77,9 @@ export const openSnapshot = async (snapshot: Snapshot) => {
 /** Back to the designs as they are. */
 export const closeSnapshot = async () => {
   const { live } = useSnapshotView.getState();
-  useSnapshotView.setState({ live: null, view: null });
-  await useProject.getState().load();
+  useSnapshotView.setState({ live: null });
+  // What did not read again is said, and the editor goes back to now all the same.
+  await viewSnapshot(null).catch(reportError);
   const { canvases } = useProject.getState();
   const canvas =
     canvases.find((c) => c.id === live?.canvas)?.id ?? canvases[0]?.id ?? "";
@@ -89,7 +89,6 @@ export const closeSnapshot = async () => {
     route: live?.route ?? null,
     variant: live?.variant ?? null,
   });
-  await useDocuments.getState().load(canvas);
 };
 
 export const restoreSnapshot = async (snapshot: Snapshot) => {

@@ -15,7 +15,6 @@ import { updateNodes } from "../lib/node-actions.ts";
 import { nextView, setViewSoon } from "../state/camera.ts";
 import { snapsToGrid, useCanvasGrid } from "../state/canvas-grid.ts";
 import { useComments } from "../state/comments.ts";
-import { api } from "../state/connection.ts";
 import { openMenuAt } from "../state/context-menu.ts";
 import {
   canvasNodes,
@@ -215,15 +214,6 @@ export const Canvas = () => {
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
-
-  // The layout as saved: what an undo put back, what an agent or a branch switch changed.
-  useEffect(
-    () =>
-      api().on("canvas", ({ layout, canvas: changed }) =>
-        useEditor.getState().applyLayout(changed, layout)
-      ),
-    []
-  );
 
   // Where the pointer last was over the canvas: a pasted image lands there.
   const lastPointer = useRef<{ x: number; y: number } | null>(null);

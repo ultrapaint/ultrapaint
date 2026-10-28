@@ -32,8 +32,11 @@ const draw = async (request: ScreenshotRequest) => {
       };
 };
 
-/** Answers the server's requests for as long as the editor runs. */
-export const bindScreenshots = () => {
+/**
+ * Answers the server's requests until what it returns is called. A request, not data: nothing of
+ * it is read again at a connection open, and a snapshot on screen does not stop it.
+ */
+export const bindScreenshots = () =>
   api().on("screenshot", (request) => {
     draw(request)
       .catch((error: unknown) => ({
@@ -48,4 +51,3 @@ export const bindScreenshots = () => {
       // The request is gone when the server stopped waiting; there is nobody left to tell.
       .catch(() => undefined);
   });
-};

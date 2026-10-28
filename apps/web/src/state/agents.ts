@@ -1,6 +1,7 @@
 import {
   type AgentConfig,
   type AgentEdited,
+  type AgentEvent,
   type AgentFocus,
   summarise,
   type Thread,
@@ -9,12 +10,12 @@ import {
 import { create } from "zustand";
 import { api } from "./connection.ts";
 import { reportError } from "./project.ts";
+import { follow } from "./server-data.ts";
 
 interface AgentsStore {
   agents: readonly AgentConfig[];
   /** Back from a thread to the list of threads; the thread's session goes on. */
   back: () => void;
-  bind: () => void;
   /** Files agent turns changed while the app was open, until they are looked at. */
   changed: readonly string[];
   clearChanged: (files?: readonly string[]) => void;
@@ -162,106 +163,9 @@ const TERMINAL_TAIL = 8000;
 export const terminalKey = (threadId: string, terminalId: string) =>
   `${threadId}/${terminalId}`;
 
-let bound = false;
-
-export const useAgents = create<AgentsStore>((set, get) => ({
+export const useAgents = create<AgentsStore>((set) => ({
   agents: [],
   back: () => set({ view: "list" }),
-  bind: () => {
-    if (bound) {
-      return;
-    }
-    bound = true;
-    api().on("agent.focus", (ev) => {
-      set((s) => {
-        const focused = { ...s.focused, [ev.threadId]: ev.pageId };
-        const { nodeIds } = ev;
-        if (!nodeIds?.length) {
-          return { focused };
-        }
-        const work = focusedWork(s.working[ev.threadId], { ...ev, nodeIds });
-        return { focused, working: { ...s.working, [ev.threadId]: work } };
-      });
-    });
-    api().on("agent.edited", (ev) => {
-      set((s) => ({
-        working: {
-          ...s.working,
-          [ev.threadId]: editedWork(s.working[ev.threadId], ev),
-        },
-      }));
-    });
-    api().on("agent.terminal", (ev) => {
-      const key = terminalKey(ev.threadId, ev.terminalId);
-      set((s) => ({
-        terminals: {
-          ...s.terminals,
-          [key]: ((s.terminals[key] ?? "") + ev.chunk).slice(-TERMINAL_TAIL),
-        },
-      }));
-    });
-    api().on("agent", (ev) => {
-      if (ev.type === "thread") {
-        set((s) => {
-          const exists = s.threads.some((t) => t.id === ev.thread.id);
-          // The summary is derived when the list is read; an update carries none.
-          const threads = exists
-            ? s.threads.map((t) =>
-                t.id === ev.thread.id ? { summary: t.summary, ...ev.thread } : t
-              )
-            : [ev.thread, ...s.threads];
-          const work = s.working[ev.thread.id];
-          const stopped =
-            ev.thread.status !== "running" && ev.thread.status !== "starting";
-          if (work && stopped && !work.done) {
-            finishWork(ev.thread.id);
-          }
-          // The open thread is being looked at: its news is not news.
-          if (s.view === "thread" && s.current === ev.thread.id) {
-            const seen = { ...s.seen, [ev.thread.id]: ev.thread.updatedAt };
-            writeSeen(seen);
-            return { current: s.current, seen, threads };
-          }
-          return { current: s.current ?? ev.thread.id, threads };
-        });
-      } else if (ev.type === "item") {
-        const { item } = ev;
-        set((s) => {
-          const items = [...(s.items[ev.threadId] ?? []), item];
-          return {
-            changed:
-              item.kind === "turn_end"
-                ? [...new Set([...s.changed, ...item.changedFiles])]
-                : s.changed,
-            items: { ...s.items, [ev.threadId]: items },
-            threads: summarised(s.threads, ev.threadId, items),
-          };
-        });
-      } else if (ev.type === "itemUpdate") {
-        set((s) => {
-          const items = (s.items[ev.threadId] ?? []).map((i) =>
-            i.id === ev.item.id ? ev.item : i
-          );
-          return {
-            items: { ...s.items, [ev.threadId]: items },
-            threads: summarised(s.threads, ev.threadId, items),
-          };
-        });
-      } else if (ev.type === "removed") {
-        set((s) => {
-          const threads = s.threads.filter((t) => t.id !== ev.threadId);
-          const gone = s.current === ev.threadId;
-          return {
-            ...withoutThread(s, ev.threadId),
-            current: gone ? null : s.current,
-            following: s.following === ev.threadId ? null : s.following,
-            threads,
-            view: gone ? ("list" as const) : s.view,
-          };
-        });
-      }
-    });
-  },
   changed: [],
   clearChanged: (files) =>
     set((s) => ({
@@ -271,22 +175,7 @@ export const useAgents = create<AgentsStore>((set, get) => ({
   focused: {},
   following: null,
   items: {},
-  load: async () => {
-    try {
-      const [agents, threads] = await Promise.all([
-        api().request("agents.list", undefined),
-        api().request("threads.list", undefined),
-      ]);
-      set({ agents, threads });
-      // The chat opens on the list; a thread is opened by choice.
-      const { current, view } = get();
-      if (current && view === "thread") {
-        await get().open(current);
-      }
-    } catch (error) {
-      reportError(error);
-    }
-  },
+  load: () => agentsData.read().catch(reportError),
   open: async (threadId) => {
     if (!threadId) {
       set({ current: null, view: "list" });
@@ -322,6 +211,138 @@ export const useAgents = create<AgentsStore>((set, get) => ({
   view: "list",
   working: {},
 }));
+
+/** A thread's news: itself changed, an item added or updated, or the thread gone. */
+const takeAgentEvent = (ev: AgentEvent) => {
+  const set = useAgents.setState;
+  if (ev.type === "thread") {
+    set((s) => {
+      const exists = s.threads.some((t) => t.id === ev.thread.id);
+      // The summary is derived when the list is read; an update carries none.
+      const threads = exists
+        ? s.threads.map((t) =>
+            t.id === ev.thread.id ? { summary: t.summary, ...ev.thread } : t
+          )
+        : [ev.thread, ...s.threads];
+      const work = s.working[ev.thread.id];
+      const stopped =
+        ev.thread.status !== "running" && ev.thread.status !== "starting";
+      if (work && stopped && !work.done) {
+        finishWork(ev.thread.id);
+      }
+      // The open thread is being looked at: its news is not news.
+      if (s.view === "thread" && s.current === ev.thread.id) {
+        const seen = { ...s.seen, [ev.thread.id]: ev.thread.updatedAt };
+        writeSeen(seen);
+        return { current: s.current, seen, threads };
+      }
+      return { current: s.current ?? ev.thread.id, threads };
+    });
+  } else if (ev.type === "item") {
+    const { item } = ev;
+    set((s) => {
+      const items = [...(s.items[ev.threadId] ?? []), item];
+      return {
+        changed:
+          item.kind === "turn_end"
+            ? [...new Set([...s.changed, ...item.changedFiles])]
+            : s.changed,
+        items: { ...s.items, [ev.threadId]: items },
+        threads: summarised(s.threads, ev.threadId, items),
+      };
+    });
+  } else if (ev.type === "itemUpdate") {
+    set((s) => {
+      const items = (s.items[ev.threadId] ?? []).map((i) =>
+        i.id === ev.item.id ? ev.item : i
+      );
+      return {
+        items: { ...s.items, [ev.threadId]: items },
+        threads: summarised(s.threads, ev.threadId, items),
+      };
+    });
+  } else if (ev.type === "removed") {
+    set((s) => {
+      const threads = s.threads.filter((t) => t.id !== ev.threadId);
+      const gone = s.current === ev.threadId;
+      return {
+        ...withoutThread(s, ev.threadId),
+        current: gone ? null : s.current,
+        following: s.following === ev.threadId ? null : s.following,
+        threads,
+        view: gone ? ("list" as const) : s.view,
+      };
+    });
+  }
+};
+
+/** What the agents' piece reads: the transcript only of a thread open in the chat. */
+interface AgentsRead {
+  readonly agents: readonly AgentConfig[];
+  readonly items: {
+    readonly items: readonly ThreadItem[];
+    readonly threadId: string;
+  } | null;
+  readonly threads: readonly Thread[];
+}
+
+/**
+ * The agents, the threads and the transcript of the one open, and what the agents say as they
+ * work: followed from the start, not only while the chat is open, as the badge over the tool
+ * strip reports turns that changed files.
+ */
+const agentsData = follow({
+  apply: ({ agents, items, threads }: AgentsRead) =>
+    useAgents.setState((s) => ({
+      agents,
+      threads,
+      ...(items && { items: { ...s.items, [items.threadId]: items.items } }),
+    })),
+  on: {
+    agent: takeAgentEvent,
+    "agent.edited": (ev) =>
+      useAgents.setState((s) => ({
+        working: {
+          ...s.working,
+          [ev.threadId]: editedWork(s.working[ev.threadId], ev),
+        },
+      })),
+    "agent.focus": (ev) =>
+      useAgents.setState((s) => {
+        const focused = { ...s.focused, [ev.threadId]: ev.pageId };
+        const { nodeIds } = ev;
+        if (!nodeIds?.length) {
+          return { focused };
+        }
+        const work = focusedWork(s.working[ev.threadId], { ...ev, nodeIds });
+        return { focused, working: { ...s.working, [ev.threadId]: work } };
+      }),
+    "agent.terminal": (ev) => {
+      const key = terminalKey(ev.threadId, ev.terminalId);
+      useAgents.setState((s) => ({
+        terminals: {
+          ...s.terminals,
+          [key]: ((s.terminals[key] ?? "") + ev.chunk).slice(-TERMINAL_TAIL),
+        },
+      }));
+    },
+  },
+  read: async (): Promise<AgentsRead> => {
+    // The chat opens on the list; a thread is opened by choice, and its transcript read again.
+    const { current, view } = useAgents.getState();
+    const open = view === "thread" ? current : null;
+    const [agents, threads, items] = await Promise.all([
+      api().request("agents.list", undefined),
+      api().request("threads.list", undefined),
+      open ? api().request("threads.items", { threadId: open }) : null,
+    ]);
+    return {
+      agents,
+      items: open && items ? { items, threadId: open } : null,
+      threads,
+    };
+  },
+});
 
 /** Marks a thread's work done, and takes it off the canvas a moment later. */
 export const finishWork = (threadId: string) => {

@@ -1,4 +1,5 @@
 import "../testing/fake-browser.ts";
+import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
 import {
   type DesignSystemSetup,
   emptySetup,
@@ -36,15 +37,46 @@ const withInventory = (
   };
 };
 
+/** A component of the catalogue, with its `cva` classes when it has them. */
+const component = (
+  name: string,
+  importFrom: string,
+  styles?: ComponentMeta["styles"]
+): ComponentMeta => ({
+  category: "ui",
+  file: `src/components/ui/${name.toLowerCase()}.tsx`,
+  group: "ui",
+  importFrom,
+  name,
+  props: [],
+  snippet: `<${name} />`,
+  storyIds: [],
+  variants: {},
+  ...(styles && { styles }),
+});
+
 const answerSetup = () => {
   fakeApi.respond("dsSetup.get", () => withInventory("todo"));
-  fakeApi.respond("dsSetup.start", () => ({ setup: withInventory("review") }));
+  fakeApi.respond("dsSetup.inventory", () => null);
+  fakeApi.respond("dsSetup.audit", () => null);
+  fakeApi.respond("dsSetup.mapping", () => null);
+  fakeApi.respond("dsSetup.start", () => ({
+    setup: withInventory("review"),
+    task: null,
+    threadId: null,
+  }));
   fakeApi.respond("dsSetup.complete", () => withInventory("done"));
   fakeApi.respond("catalogue.get", () => ({
+    builtAt: 0,
     components: [
-      { importFrom: "@/components/ui/button", name: "Button", styles: {} },
-      { importFrom: "@/components/ui/card", name: "Card" },
+      component("Button", "@/components/ui/button", {
+        base: "",
+        classes: {},
+        defaults: {},
+      }),
+      component("Card", "@/components/ui/card"),
     ],
+    coverage: { total: 2, usable: 2 },
   }));
   fakeApi.respond("specs.list", () => ({ specs: [] }));
 };

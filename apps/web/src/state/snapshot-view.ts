@@ -1,7 +1,8 @@
 /**
  * A snapshot opened to look at (ADR 0019). While one is open the editor shows the canvases,
  * pages and documents it kept instead of the files as they are, nothing is saved, and the
- * server's news about the files waits until the editor goes back to now.
+ * server's news about the files waits until the editor goes back to now. `viewSnapshot`
+ * (`server-data.ts`) puts one on screen, switching what the editor reads.
  */
 import type { SnapshotView } from "@ultrapaint/contracts/snapshots";
 import { create } from "zustand";

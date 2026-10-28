@@ -14,6 +14,7 @@ import {
 import { create } from "zustand";
 import { api } from "./connection.ts";
 import { reportError } from "./project.ts";
+import { follow } from "./server-data.ts";
 
 interface DesignSystemStore extends DesignSystemState {
   /** Runs the fixed-rule scan and saves what it finds. */
@@ -22,8 +23,6 @@ interface DesignSystemStore extends DesignSystemState {
   load: () => Promise<void>;
   loaded: boolean;
 }
-
-let bound = false;
 
 export const useDesignSystem = create<DesignSystemStore>((set) => ({
   designSystem: null,
@@ -40,22 +39,19 @@ export const useDesignSystem = create<DesignSystemStore>((set) => ({
   },
   detecting: false,
   document: null,
-  load: async () => {
-    if (!bound) {
-      bound = true;
-      api().on("designSystem", (state) =>
-        set({ ...state, loaded: true, problem: state.problem })
-      );
-    }
-    try {
-      const state = await api().request("designSystem.get", undefined);
-      set({ ...state, loaded: true, problem: state.problem });
-    } catch (error) {
-      reportError(error);
-    }
-  },
+  load: () => designSystemData.read().catch(reportError),
   loaded: false,
 }));
+
+// `problem` is set even when absent: a design system that reads again clears the last one's.
+const take = (state: DesignSystemState) =>
+  useDesignSystem.setState({ ...state, loaded: true, problem: state.problem });
+
+const designSystemData = follow({
+  apply: take,
+  on: { designSystem: take },
+  read: () => api().request("designSystem.get", undefined),
+});
 
 const breakpointCache = new WeakMap<DesignSystem, readonly Breakpoint[]>();
 

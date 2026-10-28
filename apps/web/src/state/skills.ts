@@ -10,6 +10,7 @@ import type {
 import { create } from "zustand";
 import { api } from "./connection.ts";
 import { reportError } from "./project.ts";
+import { follow } from "./server-data.ts";
 
 interface SkillsStore extends SkillList {
   /** Starts a project file for a built-in skill: a copy of it, or a stub that extends it. */
@@ -18,9 +19,7 @@ interface SkillsStore extends SkillList {
   loaded: boolean;
 }
 
-let bound = false;
-
-export const useSkills = create<SkillsStore>((set) => ({
+export const useSkills = create<SkillsStore>(() => ({
   customise: async (name, mode) => {
     try {
       return await api().request("skills.customise", { mode, name });
@@ -30,18 +29,15 @@ export const useSkills = create<SkillsStore>((set) => ({
     }
   },
   dir: "",
-  load: async () => {
-    if (!bound) {
-      bound = true;
-      api().on("skills", (state) => set({ ...state, loaded: true }));
-    }
-    try {
-      const state = await api().request("skills.list", undefined);
-      set({ ...state, loaded: true });
-    } catch (error) {
-      reportError(error);
-    }
-  },
+  load: () => skillsData.read().catch(reportError),
   loaded: false,
   skills: [],
 }));
+
+const take = (list: SkillList) => useSkills.setState({ ...list, loaded: true });
+
+const skillsData = follow({
+  apply: take,
+  on: { skills: take },
+  read: () => api().request("skills.list", undefined),
+});

@@ -23,6 +23,7 @@ import { useAgents } from "./agents.ts";
 import { api } from "./connection.ts";
 import { useEditor } from "./editor.ts";
 import { reportError } from "./project.ts";
+import { follow } from "./server-data.ts";
 
 interface SetupStore {
   /** The code read against the saved design system, by Map and Verify. */
@@ -54,8 +55,6 @@ interface SetupStore {
 const LISTED = 8;
 /** The steps that read the code: when one of them moves, what it read is fetched again. */
 const READING_STEPS: readonly SetupStepId[] = ["inventory", "map", "verify"];
-
-let bound = false;
 
 /** Opens a step's thread in the chat, with its command in the composer when it is new. */
 export const openStepThread = (threadId: string, draft?: string) => {
@@ -112,26 +111,44 @@ const confirmPutBack = (options: {
     title: options.title,
   });
 
+/** What the reading steps found. */
+const readReadings = async () => {
+  const [inventory, audit, mapping] = await Promise.all([
+    api().request("dsSetup.inventory", undefined),
+    api().request("dsSetup.audit", undefined),
+    api().request("dsSetup.mapping", undefined),
+  ]);
+  return { audit, inventory, mapping };
+};
+
+/** Takes the setup the server says, and what it read when a reading step moved. */
+const take = async (setup: DesignSystemSetup) => {
+  const moved =
+    readingsOf(setup) !== readingsOf(useDesignSystemSetup.getState().setup);
+  useDesignSystemSetup.setState({ setup });
+  if (moved) {
+    useDesignSystemSetup.setState(await readReadings());
+  }
+};
+
+/** The setup and what its reading steps found, as the server moves them, whoever moved them. */
+const setupData = follow({
+  apply: (
+    read: Pick<SetupStore, "audit" | "inventory" | "mapping" | "setup">
+  ) => useDesignSystemSetup.setState({ ...read, loaded: true }),
+  on: {
+    dsSetup: (setup) => {
+      take(setup).catch(reportError);
+    },
+    dsSetupMapping: (mapping) => useDesignSystemSetup.setState({ mapping }),
+  },
+  read: async () => {
+    const setup = await api().request("dsSetup.get", undefined);
+    return { ...(await readReadings()), setup };
+  },
+});
+
 export const useDesignSystemSetup = create<SetupStore>((set, get) => {
-  /** What the reading steps found, fetched again. */
-  const fetchReadings = async () => {
-    const [inventory, audit, mapping] = await Promise.all([
-      api().request("dsSetup.inventory", undefined),
-      api().request("dsSetup.audit", undefined),
-      api().request("dsSetup.mapping", undefined),
-    ]);
-    set({ audit, inventory, mapping });
-  };
-
-  /** Takes the setup the server says, and what it read when a reading step moved. */
-  const take = async (setup: DesignSystemSetup) => {
-    const moved = readingsOf(setup) !== readingsOf(get().setup);
-    set({ setup });
-    if (moved) {
-      await fetchReadings();
-    }
-  };
-
   /** Runs one request; the store follows the server's events for the rest. */
   const run = async (
     busy: string,
@@ -172,22 +189,7 @@ export const useDesignSystemSetup = create<SetupStore>((set, get) => {
     complete: (step) =>
       run(step, () => api().request("dsSetup.complete", { step })),
     inventory: null,
-    load: async () => {
-      if (!bound) {
-        bound = true;
-        api().on("dsSetup", (setup) => {
-          take(setup).catch(reportError);
-        });
-        api().on("dsSetupMapping", (mapping) => set({ mapping }));
-      }
-      try {
-        const setup = await api().request("dsSetup.get", undefined);
-        await fetchReadings();
-        set({ loaded: true, setup });
-      } catch (error) {
-        reportError(error);
-      }
-    },
+    load: () => setupData.read().catch(reportError),
     loaded: false,
     mapping: null,
     redo: async (step) => {

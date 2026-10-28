@@ -7,6 +7,7 @@ import { takesChildren } from "@ultrapaint/design-document/tree";
 import { create } from "zustand";
 import { api } from "./connection.ts";
 import { reportError } from "./project.ts";
+import { follow } from "./server-data.ts";
 
 interface CatalogueStore {
   catalogue: Catalogue | null;
@@ -19,8 +20,11 @@ export const useCatalogue = create<CatalogueStore>((set) => ({
   load: async (refresh = false) => {
     set({ loading: true });
     try {
-      const catalogue = await api().request("catalogue.get", { refresh });
-      set({ catalogue });
+      if (refresh) {
+        set({ catalogue: await api().request("catalogue.get", { refresh }) });
+      } else {
+        await catalogueData.read();
+      }
     } catch (error) {
       reportError(error);
     } finally {
@@ -29,6 +33,12 @@ export const useCatalogue = create<CatalogueStore>((set) => ({
   },
   loading: false,
 }));
+
+/** The components the repository offers, as the server last scanned them. */
+const catalogueData = follow({
+  apply: (catalogue: Catalogue) => useCatalogue.setState({ catalogue }),
+  read: () => api().request("catalogue.get", { refresh: false }),
+});
 
 /** The catalogue's entry for an instance: the same export from the same module, else by name. */
 export const componentMetaOf = (

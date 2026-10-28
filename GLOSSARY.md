@@ -80,6 +80,12 @@ module.
 ## Editor and shell
 
 - **Location**: where the editor is: canvas, page, route, variant, with the URL.
+- **Server data**: what the editor holds of the server's, each **piece** declared by its store
+  with `follow` (how it is read, what the store does with it, the events that bring news of it)
+  and followed by one module, `server-data`: the events reach it, it is read again at every
+  connection open once asked for, the project's first, and an answer for a canvas no longer open
+  is dropped. A snapshot on screen is the other **source** of what it keeps (the pages, the
+  documents, the layouts), whose news waits until the editor goes back to now (ADR 0019).
 - **Command**: something the editor does, in one list the palette, the shortcut sheet and the
   menus read (ADR 0032); a **binding** is a command's chord and the scope it works in.
 - **Menu action**: what a context-menu item does, a typed value run by `runMenuAction`.

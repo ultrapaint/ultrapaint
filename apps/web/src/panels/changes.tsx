@@ -45,6 +45,7 @@ import { useAgents } from "../state/agents.ts";
 import { api } from "../state/connection.ts";
 import { takeDiffRequest, useDiffRequest } from "../state/diff-request.ts";
 import { reportError, useProject } from "../state/project.ts";
+import { follow } from "../state/server-data.ts";
 import { useSnapshotView } from "../state/snapshot-view.ts";
 
 const DIFF_MARKER_RE = /^[+\-@]/;
@@ -176,26 +177,28 @@ export const Changes = () => {
     return useDiffRequest.subscribe(take);
   }, [configured]);
 
+  // Followed while the panel is shown: read now, at every connection open, and as files change.
   useEffect(() => {
     if (!configured) {
       return;
     }
-    const loadInitial = async () => {
-      await onFilesChanged();
-    };
-    loadInitial();
-    // Git's own news only where there is a repository to have any.
-    const offGit = repository ? api().on("git", onStatus) : () => undefined;
     // A save, a checkout or an agent changes many files at once: one refresh for all of them.
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const offFile = api().on("file.changed", () => {
-      clearTimeout(timer);
-      timer = setTimeout(onFilesChanged, FILES_SETTLE_MS);
+    const changes = follow({
+      on: {
+        "file.changed": () => {
+          clearTimeout(timer);
+          timer = setTimeout(onFilesChanged, FILES_SETTLE_MS);
+        },
+        // Git's own news only where there is a repository to have any.
+        ...(repository && { git: onStatus }),
+      },
+      read: () => onFilesChanged(),
     });
+    changes.read();
     return () => {
       clearTimeout(timer);
-      offGit();
-      offFile();
+      changes.stop();
     };
   }, [configured, repository]);
 
