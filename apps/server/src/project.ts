@@ -1,6 +1,17 @@
-import { NotConfigured } from "@ultrapaint/contracts/errors";
+import {
+  type BadRequest,
+  type Conflict,
+  NotConfigured,
+} from "@ultrapaint/contracts/errors";
 import type { ProjectInfo } from "@ultrapaint/contracts/project";
-import type { Settings } from "@ultrapaint/contracts/settings";
+import {
+  defaultSettings,
+  type PersistInput,
+  type PersistResult,
+  Settings,
+  type SettingsValidation,
+} from "@ultrapaint/contracts/settings";
+import { applySuggestions } from "@ultrapaint/contracts/setup";
 import {
   Context,
   Effect,
@@ -9,6 +20,7 @@ import {
   type FileSystem,
   Layer,
   Path,
+  Schema,
   Scope,
   Semaphore,
   Stream,
@@ -38,6 +50,7 @@ import { ProfileService } from "./services/profile.ts";
 import { RepoPaths } from "./services/repo-paths.ts";
 import type { Screenshots } from "./services/screenshots.ts";
 import { SettingsService } from "./services/settings.ts";
+import { SetupService } from "./services/setup.ts";
 import type { SkillsService } from "./services/skills.ts";
 import type { SpecService } from "./services/specs.ts";
 import { Storage } from "./services/storage.ts";
@@ -91,27 +104,62 @@ export type ProjectLayer = (
 interface OpenProject {
   readonly scope: Scope.Closeable;
   readonly services: Context.Context<ProjectServices>;
+  /** The settings it was opened with: the settings in force. */
+  readonly settings: Settings;
 }
 
 const notConfigured = () =>
   new NotConfigured({ message: "no target repository configured" });
 
+const equivalentSettings = Schema.toEquivalence(Settings);
+
+/** A field left out of settings is the same as one set to nothing, as on the wire. */
+const withoutUnset = (settings: Settings) =>
+  Object.fromEntries(
+    Object.entries(settings).filter(([, value]) => value !== undefined)
+  ) as Settings;
+
+/** Whether two settings run the same project: equal field by field, whatever their keys' order. */
+const sameSettings = (a: Settings, b: Settings) =>
+  equivalentSettings(withoutUnset(a), withoutUnset(b));
+
 /**
- * Owns the one open project. The project is a layer built into its own scope: the preview
- * host, the file watcher and every agent session live there, so changing the settings or
- * shutting down closes all of them together.
+ * Owns the one open project and the settings in force. The project is a layer built into its
+ * own scope: the preview host, the file watcher and every agent session live there, so changing
+ * the settings or shutting down closes all of them together.
+ *
+ * Whatever puts settings in force (a save, a configuration file saved or renamed, detection at
+ * start, someone else's change to the file) comes through here, and one rule decides what
+ * happens: the project is opened when none is, opened again when it runs other settings, and
+ * left as it is when it runs these, its preview and undo history with it. The editor is told of
+ * the project's info whenever what it is made of changes: the settings and where they are kept,
+ * the preview, git, the user's profile.
  */
 export class ProjectManager extends Context.Service<
   ProjectManager,
   {
+    /**
+     * Opens the repository the server started in with the settings detection proposes, unless
+     * someone set settings in the meantime: theirs win.
+     */
+    readonly adoptDetected: (repo: string) => Effect.Effect<void>;
+    /**
+     * Puts these settings in force: opens the project they describe, or opens it again when it
+     * runs other settings, or leaves it be. `why` is what the log says of an opening.
+     */
+    readonly apply: (settings: Settings, why: string) => Effect.Effect<void>;
     readonly close: Effect.Effect<void>;
     readonly info: Effect.Effect<ProjectInfo>;
-    /** Closes the open project, if any, and opens the one the settings describe. */
-    readonly open: (settings: Settings) => Effect.Effect<void>;
-    /** Tells the editor the project changed; saving a configuration changes the storage. */
-    readonly publishInfo: Effect.Effect<void>;
+    /** Saves an unsaved session to a configuration file, and puts its settings in force. */
+    readonly persist: (
+      input: PersistInput
+    ) => Effect.Effect<PersistResult, BadRequest | Conflict>;
+    /** Renames a configuration file still under its old name; returns the new path. */
+    readonly renameConfig: Effect.Effect<string, BadRequest | Conflict>;
     /** Scope of the open project, for work that must end when the project does. */
     readonly scope: Effect.Effect<Scope.Scope, NotConfigured>;
+    /** Validates and, when valid, saves the settings and puts them in force. */
+    readonly set: (settings: Settings) => Effect.Effect<SettingsValidation>;
     /** Runs an effect against the open project. */
     readonly use: <A, E>(
       effect: Effect.Effect<A, E, ProjectServices>
@@ -128,11 +176,18 @@ export class ProjectManager extends Context.Service<
         const log = yield* AppLog;
         const storage = yield* Storage;
         const settingsService = yield* SettingsService;
+        const setup = yield* SetupService;
         const profile = yield* ProfileService;
         const managerScope = yield* Effect.scope;
         // open and close never interleave.
         const lifecycle = yield* Semaphore.make(1);
+        // What is in force is decided by one caller at a time: a save made while detection
+        // reads the repository lands before or after the detected settings, never between.
+        const inForce = yield* Semaphore.make(1);
+        const publishing = yield* Semaphore.make(1);
         let current: OpenProject | null = null;
+        // The info the editor was last told, to tell it only of a change.
+        let published: string | null = null;
 
         const use = <A, E>(
           effect: Effect.Effect<A, E, ProjectServices>
@@ -182,8 +237,17 @@ export class ProjectManager extends Context.Service<
           };
         });
 
-        const publishInfo = Effect.flatMap(info, (value) =>
-          events.publish("project", value)
+        /** Tells the editor the project's info, when it is not what it was last told. */
+        const publishInfo = publishing.withPermits(1)(
+          Effect.gen(function* () {
+            const value = yield* info;
+            const text = JSON.stringify(value);
+            if (text === published) {
+              return;
+            }
+            published = text;
+            yield* events.publish("project", value);
+          })
         );
 
         const closeCurrent = Effect.suspend(() => {
@@ -205,12 +269,13 @@ export class ProjectManager extends Context.Service<
                   Effect.provideContext(requirements),
                   Effect.onError(() => Scope.close(scope, Exit.void))
                 );
-                current = { scope, services };
+                current = { scope, services, settings };
+                // The preview's status and a repository made are what the project's info reads.
                 const host = Context.get(services, HostManager);
-                // Every host status change is a project change for the editor.
-                yield* host.changes.pipe(
+                const git = Context.get(services, GitService);
+                yield* Stream.merge(host.changes, git.changes).pipe(
                   Stream.runForEach(() => publishInfo),
-                  Effect.forkIn(scope)
+                  Effect.forkIn(scope, { startImmediately: true })
                 );
                 yield* Effect.forkIn(host.start, scope);
               })
@@ -235,16 +300,141 @@ export class ProjectManager extends Context.Service<
               Effect.withSpan("ProjectManager.open")
             );
 
+        /** The one rule: open when nothing runs these settings, else only say what changed. */
+        const putInForce = Effect.fnUntraced(function* (
+          settings: Settings,
+          why: string
+        ) {
+          if (current && sameSettings(current.settings, settings)) {
+            // Where the settings are kept, or whose they are, may have changed.
+            return yield* publishInfo;
+          }
+          yield* log.log(
+            "server",
+            "info",
+            `opening ${settings.repoPath}: ${why}`
+          );
+          yield* open(settings);
+        });
+
+        const apply = (settings: Settings, why: string) =>
+          inForce
+            .withPermits(1)(putInForce(settings, why))
+            .pipe(Effect.withSpan("ProjectManager.apply"));
+
+        const set = Effect.fn("ProjectManager.set")(function* (
+          settings: Settings
+        ) {
+          return yield* inForce.withPermits(1)(
+            Effect.gen(function* () {
+              const validation = yield* settingsService.set(settings);
+              const saved = yield* settingsService.get;
+              if (validation.ok && saved) {
+                yield* putInForce(saved, "settings saved");
+              }
+              return validation;
+            })
+          );
+        });
+
+        const persist = Effect.fn("ProjectManager.persist")(function* (
+          input: PersistInput
+        ) {
+          return yield* inForce.withPermits(1)(
+            Effect.gen(function* () {
+              const result = yield* settingsService.persist(input);
+              const saved = yield* settingsService.get;
+              if (result.validation.ok && saved) {
+                yield* putInForce(saved, "settings saved to a file");
+              }
+              return result;
+            })
+          );
+        });
+
+        const renameConfig = inForce
+          .withPermits(1)(Effect.tap(settingsService.renameConfig, publishInfo))
+          .pipe(Effect.withSpan("ProjectManager.renameConfig"));
+
+        const adoptDetected = Effect.fn("ProjectManager.adoptDetected")(
+          function* (repo: string) {
+            const found = yield* setup.detect(repo).pipe(
+              // A repository that cannot be read is left for the setup to ask about.
+              Effect.catchTag("BadRequest", (error) =>
+                Effect.as(
+                  log.log(
+                    "server",
+                    "warn",
+                    `could not detect ${repo}: ${error.message}`
+                  ),
+                  null
+                )
+              )
+            );
+            if (!found) {
+              return;
+            }
+            const candidate = applySuggestions(defaultSettings(repo), found);
+            yield* inForce.withPermits(1)(
+              Effect.gen(function* () {
+                // Settings someone set while the repository was read are in force already.
+                if (yield* settingsService.get) {
+                  return;
+                }
+                const validation = yield* settingsService.adopt(candidate);
+                const adopted = yield* settingsService.get;
+                if (!(validation.ok && adopted)) {
+                  return yield* log.log(
+                    "server",
+                    "info",
+                    `${repo} needs setting up: ${validation.problems.join(" ")}`
+                  );
+                }
+                yield* log.log(
+                  "server",
+                  "info",
+                  `opened ${repo} with detected settings; save them to keep them`
+                );
+                if (adopted.libraryDirs.length === 0) {
+                  yield* log.log(
+                    "server",
+                    "warn",
+                    "no components were found: Sync in the Design system panel asks where they are"
+                  );
+                }
+                yield* putInForce(adopted, "detected settings");
+              })
+            );
+          }
+        );
+
+        // The configuration file changed under us (an editor, a branch switch), or one appeared
+        // for an unsaved session: follow it. The user's profile is part of the info. Started at
+        // once, each has subscribed by the time the layer is built.
+        yield* settingsService.changes.pipe(
+          Stream.runForEach((next) =>
+            apply(next, "the configuration file changed")
+          ),
+          Effect.forkIn(managerScope, { startImmediately: true })
+        );
+        yield* profile.changes.pipe(
+          Stream.runForEach(() => publishInfo),
+          Effect.forkIn(managerScope, { startImmediately: true })
+        );
+
         return ProjectManager.of({
+          adoptDetected,
+          apply,
           close: lifecycle.withPermits(1)(closeCurrent),
           info,
-          open,
-          publishInfo,
+          persist,
+          renameConfig,
           scope: Effect.suspend(() =>
             current
               ? Effect.succeed(current.scope)
               : Effect.fail(notConfigured())
           ),
+          set,
           use,
         });
       })

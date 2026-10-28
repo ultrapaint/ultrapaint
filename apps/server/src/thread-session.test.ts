@@ -315,7 +315,7 @@ describe("a thread's session", () => {
       // A thread that was mid-turn does not stay running.
       assert.strictEqual((yield* store.get(threadId))?.status, "idle");
 
-      yield* project.open(defaultSettings(repo));
+      yield* project.apply(defaultSettings(repo), "the test's settings");
       yield* send(threadId, "again");
       const next = yield* agents.next;
       yield* Effect.andThen(next.nextTurn, (t) => t.end());

@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { confirmDialog } from "../components/dialogs.tsx";
-import { api } from "../state/connection.ts";
+import { saveToFile } from "../lib/settings-actions.ts";
 import { useProject } from "../state/project.ts";
 
 const TRAILING_SLASH_RE = /\/+$/;
@@ -53,15 +53,10 @@ const SaveConfigForm = ({ settings }: { settings: Settings }) => {
 
   const persist = async (overwrite: boolean): Promise<void> => {
     try {
-      const result = await api().request("settings.persist", {
-        configPath,
-        overwrite,
-        settings,
-      });
+      const result = await saveToFile({ configPath, overwrite, settings });
       setProblems(result.validation.problems);
       if (result.validation.ok) {
         setSaved(result);
-        await useProject.getState().load();
       }
     } catch (error) {
       if (error instanceof RequestError && error.code === "conflict") {

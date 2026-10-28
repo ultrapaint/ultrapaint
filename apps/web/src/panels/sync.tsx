@@ -5,7 +5,6 @@
  * describing what changed, Figma's tokens and frames, a new application — around them.
  */
 import { SETUP_STEPS } from "@ultrapaint/contracts/design-system-setup";
-import { applySuggestions } from "@ultrapaint/contracts/setup";
 import type { SyncPlan, SyncStep } from "@ultrapaint/contracts/sync";
 import { cn } from "cn";
 import {
@@ -27,9 +26,9 @@ import { confirmDialog } from "../components/dialogs.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { pickFigmaFile } from "../lib/import-figma.ts";
+import { detect, save } from "../lib/settings-actions.ts";
 import { startTask } from "../lib/start-thread.ts";
 import { useAgents } from "../state/agents.ts";
-import { api } from "../state/connection.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { useSync } from "../state/sync.ts";
@@ -113,12 +112,8 @@ const applyDetected = async () => {
     return;
   }
   try {
-    const found = await api().request("setup.detect", {
-      repoPath: settings.repoPath,
-    });
-    const next = applySuggestions(settings, {
-      ...found,
-      designsDirs: [settings.designsDir],
+    const { settings: next } = await detect(settings, {
+      keepDesignsDir: true,
     });
     const lines = [
       `Components: ${next.libraryDirs.join(", ") || "none found"}`,
@@ -133,11 +128,11 @@ const applyDetected = async () => {
     if (!ok) {
       return;
     }
-    const validation = await api().request("settings.set", next);
-    if (validation.ok) {
+    const problems = await save(next);
+    if (problems.length === 0) {
       toast.success("Settings applied: the editor reads your code again.");
     } else {
-      toast.error(validation.problems.join(" "));
+      toast.error(problems.join(" "));
     }
   } catch (error) {
     reportError(error);

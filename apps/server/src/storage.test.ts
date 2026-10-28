@@ -1,7 +1,16 @@
 import { homedir } from "node:os";
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it, layer } from "@effect/vitest";
-import { Effect, Fiber, FileSystem, Layer, Path, Scope, Stream } from "effect";
+import {
+  Effect,
+  Fiber,
+  FileSystem,
+  Layer,
+  Option,
+  Path,
+  Scope,
+  Stream,
+} from "effect";
 import { AppLog } from "./app-log.ts";
 import { ServerConfig, type StorageTarget } from "./config.ts";
 import { EventBus } from "./events.ts";
@@ -13,6 +22,7 @@ import {
   freePort,
   makeRepository,
   makeTestServer,
+  nextEvent,
   subscribed,
   TestEnv,
 } from "./testing/harness.ts";
@@ -340,6 +350,39 @@ layer(Shared, { excludeTestServices: true, timeout: "60 seconds" })(
         })
     );
 
+    test.effect(
+      "keeps the project open when the file is written again with what runs",
+      () =>
+        Effect.gen(function* () {
+          const { client, repo } = yield* TestEnv;
+          const fs = yield* FileSystem.FileSystem;
+          const configPath = `${repo}/ultrapaint.json`;
+          yield* waitFor(client["project.info"](), (info) => info.configured);
+          yield* client["documents.apply"]({
+            edits: [
+              {
+                doc: "home.page.json",
+                ops: [{ id: "heading", op: "update", set: { name: "Title" } }],
+              },
+            ],
+            label: "Name the title",
+          });
+          // The same settings, written another way: an editor that reformats the file.
+          const same = JSON.parse(yield* fs.readFileString(configPath));
+          yield* fs.writeFileString(configPath, JSON.stringify(same));
+          yield* waitFor(client["logs.recent"](), (lines) =>
+            lines.some((line) => line.text === `reloaded ${configPath}`)
+          );
+          yield* waitFor(client["project.info"](), (info) => info.configured);
+          // Reopening would have started a new undo history.
+          assert.strictEqual(
+            (yield* client["edit.state"]()).undoLabel,
+            "Name the title"
+          );
+          yield* client["edit.undo"]();
+        })
+    );
+
     test.effect("follows a change someone else makes to the file", () =>
       Effect.gen(function* () {
         const { client, repo } = yield* TestEnv;
@@ -585,12 +628,40 @@ layer(Detected, { excludeTestServices: true, timeout: "60 seconds" })(
         assert.strictEqual(info?.designsDir, "designs");
         assert.strictEqual(info?.repoPath, repo);
 
-        // Applying settings makes them the saved ones.
+        // Applying them makes them the saved ones: the editor is told, and the project that runs
+        // them stays open. The preview has settled first, so what tells the editor is the
+        // settings, not the preview's next status.
+        yield* waitFor(
+          client["project.info"](),
+          (opened) =>
+            opened.host.state === "error" || opened.host.state === "running"
+        );
+        yield* client["documents.apply"]({
+          edits: [
+            {
+              doc: "home.page.json",
+              ops: [{ id: "heading", op: "update", set: { name: "Title" } }],
+            },
+          ],
+          label: "Name the title",
+        });
         const settings = yield* client["settings.get"]();
         assert.isNotNull(settings);
         if (settings) {
-          assert.isTrue((yield* client["settings.set"](settings)).ok);
+          const { event, result } = yield* nextEvent(
+            client["events.project"]().pipe(
+              Stream.filter((told) => told.setup === "saved")
+            ),
+            client["settings.set"](settings)
+          );
+          assert.isTrue(result.ok);
+          assert.isTrue(Option.isSome(event));
         }
+        // Reopening would have started a new undo history.
+        assert.strictEqual(
+          (yield* client["edit.state"]()).undoLabel,
+          "Name the title"
+        );
         assert.strictEqual((yield* client["project.info"]()).setup, "saved");
       })
     );

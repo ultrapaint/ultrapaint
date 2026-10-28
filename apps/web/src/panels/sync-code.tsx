@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
+import { save } from "../lib/settings-actions.ts";
 import { startTask } from "../lib/start-thread.ts";
 import { api } from "../state/connection.ts";
 import { reportError, useProject } from "../state/project.ts";
@@ -87,16 +88,12 @@ const AutoExport = () => {
   const auto = settings.codeTokens === "auto";
   const toggle = async (on: boolean) => {
     try {
-      const validation = await api().request("settings.set", {
+      const problems = await save({
         ...settings,
         codeTokens: on ? "auto" : "manual",
       });
-      if (validation.ok) {
-        useProject.setState({
-          settings: { ...settings, codeTokens: on ? "auto" : "manual" },
-        });
-      } else {
-        toast.error(validation.problems.join(" "));
+      if (problems.length > 0) {
+        toast.error(problems.join(" "));
       }
     } catch (error) {
       reportError(error);
