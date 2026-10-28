@@ -205,11 +205,12 @@ export class DesignSystemService extends Context.Service<
       const serially = writes.withPermits(1);
 
       /**
-       * DESIGN.md's front matter brought up to the design system as the files read now: inside
-       * a write, or under its lock, so a reading made before a write never follows after it.
+       * DESIGN.md's front matter brought up to the design system as the files read when its
+       * turn comes: inside a write, or under its lock, so a reading made before a write (or
+       * before DESIGN.md was placed) never follows after it.
        */
-      const mirror = Effect.flatMap(filesRead, ({ designSystem }) =>
-        designMd.follow(designSystem)
+      const mirror = designMd.follow(
+        Effect.map(filesRead, ({ designSystem }) => designSystem)
       );
 
       const get: Effect.Effect<DesignSystemState> = Effect.gen(function* () {

@@ -178,7 +178,10 @@ unless the step says otherwise.
    (`write`, `setTokens`, `replace`) and what follows from it on disk (DESIGN.md's front matter,
    the code with `codeTokens: auto`) run one at a time under one lock and are done when the call
    returns; the loop's mirror runs under the same lock, so it never follows a design system read
-   before a write. Also: the editor hears of a change once, about 50 ms after it (a token set
+   before a write. `DesignMd.follow` reads the design system once its turn comes under DESIGN.md's
+   own lock, which placing it and editing a section take too, and a document the design system
+   agrees on nothing with yet moves no baseline: the loop no longer wipes the baseline a placing
+   has just set. Also: the editor hears of a change once, about 50 ms after it (a token set
    with `codeTokens: auto` was published two or three times, the first before the call returned),
    only that being coalesced; two token sets at once no longer race to save; placing DESIGN.md sets its
    baseline in `design-system.json` as the file has it rather than writing both files again, and
