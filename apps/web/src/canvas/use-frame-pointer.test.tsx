@@ -12,6 +12,7 @@ import { useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { useDrag } from "./drag.ts";
+import { cancelGesture } from "./frame-gesture.ts";
 import { useFramePointer } from "./use-frame-pointer.ts";
 
 vi.mock(
@@ -19,10 +20,13 @@ vi.mock(
   async () => (await import("../testing/fake-api.ts")).connectionModule
 );
 
-/** The page's preview: the text `t1` under every point, where it is drawn. */
+/** What the page's preview has under every point: the text `t1` unless a test says otherwise. */
+const under = vi.hoisted(() => ({ chain: ["home-root", "t1"] }));
+
+/** The page's preview: `under` at every point, the text `t1` where it is drawn. */
 vi.mock("./editor-frame.ts", () => ({
   frameOf: () => ({
-    hitTest: () => ["home-root", "t1"],
+    hitTest: () => under.chain,
     measure: () => ({ t1: { height: 20, width: 50, x: 10, y: 10 } }),
   }),
 }));
@@ -33,7 +37,10 @@ vi.mock("./editor-frame.ts", () => ({
 
 const HOME = "home.page.json";
 const root: DesignNode = {
-  children: [{ id: "t1", role: "paragraph", text: "Hi", type: "text" }],
+  children: [
+    { id: "t1", role: "paragraph", text: "Hi", type: "text" },
+    { id: "t2", role: "paragraph", text: "There", type: "text" },
+  ],
   id: "home-root",
   type: "page",
 } as DesignNode;
@@ -78,56 +85,57 @@ const current = (): Handlers => {
   return handlers;
 };
 
+let mounted: Root;
+
+beforeEach(() => {
+  fakeApi.reset();
+  fakeApi.respond("documents.apply", () => ({ created: [], documents: [] }));
+  useProject.setState({
+    canvases: [{ home: "/", id: "main", name: "Main", variants: [] }],
+    info: {
+      configured: true,
+      host: { state: "stopped" },
+      storage: { mode: "managed" },
+    },
+    pages: [
+      {
+        canvas: "main",
+        file: `designs/${HOME}`,
+        id: HOME,
+        name: "home",
+        path: HOME,
+      },
+    ],
+  });
+  useDocuments.setState({ docs: { [HOME]: homeDoc } });
+  useEditor.setState({
+    canvas: "main",
+    frames: {
+      [HOME]: { height: 900, preset: "desktop", width: 1440, x: 0, y: 0 },
+    },
+    selection: { frame: HOME, nodeId: "t1" },
+    view: { x: 0, y: 0, zoom: 1 },
+  });
+  useDrag.setState({ dragged: null, drop: null });
+  mounted = createRoot(document.createElement("div"));
+  act(() =>
+    mounted.render(
+      <Probe
+        report={(h) => {
+          handlers = h;
+        }}
+      />
+    )
+  );
+});
+
+afterEach(() => {
+  act(() => mounted.unmount());
+  handlers = null;
+  under.chain = ["home-root", "t1"];
+});
+
 describe("a node dragged inside a page", () => {
-  let mounted: Root;
-
-  beforeEach(() => {
-    fakeApi.reset();
-    fakeApi.respond("documents.apply", () => ({ created: [], documents: [] }));
-    useProject.setState({
-      canvases: [{ home: "/", id: "main", name: "Main", variants: [] }],
-      info: {
-        configured: true,
-        host: { state: "stopped" },
-        storage: { mode: "managed" },
-      },
-      pages: [
-        {
-          canvas: "main",
-          file: `designs/${HOME}`,
-          id: HOME,
-          name: "home",
-          path: HOME,
-        },
-      ],
-    });
-    useDocuments.setState({ docs: { [HOME]: homeDoc } });
-    useEditor.setState({
-      canvas: "main",
-      frames: {
-        [HOME]: { height: 900, preset: "desktop", width: 1440, x: 0, y: 0 },
-      },
-      selection: { frame: HOME, nodeId: "t1" },
-      view: { x: 0, y: 0, zoom: 1 },
-    });
-    useDrag.setState({ dragged: null, drop: null });
-    mounted = createRoot(document.createElement("div"));
-    act(() =>
-      mounted.render(
-        <Probe
-          report={(h) => {
-            handlers = h;
-          }}
-        />
-      )
-    );
-  });
-
-  afterEach(() => {
-    act(() => mounted.unmount());
-    handlers = null;
-  });
-
   it("is put back when the browser takes the pointer away", async () => {
     current().onPointerDown(pointerAt(20, 20));
     // Off the page, over the empty canvas: let go there, it would land on the canvas.
@@ -155,5 +163,30 @@ describe("a node dragged inside a page", () => {
         fakeApi.calls.filter((c) => c.method === "documents.apply")
       ).toHaveLength(1)
     );
+  });
+});
+
+describe("a marquee", () => {
+  it("is put away by Escape: nothing drawn, the selection as it was", async () => {
+    under.chain = ["home-root"];
+    useEditor.setState({ selection: { frame: HOME, nodeId: "t2" } });
+    act(() => current().onPointerDown(pointerAt(0, 0)));
+    act(() => current().onPointerMove(pointerAt(40, 30)));
+    act(() => current().onPointerMove(pointerAt(80, 60)));
+    await act(() => new Promise((drawn) => requestAnimationFrame(drawn)));
+    expect(current().marquee).toEqual({ height: 60, width: 80, x: 0, y: 0 });
+    let stopped = false;
+    act(() => {
+      stopped = cancelGesture();
+    });
+    expect(stopped).toBe(true);
+    expect(current().marquee).toBeNull();
+    // Nothing is left to put away, and its release selects nothing.
+    expect(cancelGesture()).toBe(false);
+    act(() => current().onPointerUp());
+    expect(useEditor.getState().selection).toEqual({
+      frame: HOME,
+      nodeId: "t2",
+    });
   });
 });

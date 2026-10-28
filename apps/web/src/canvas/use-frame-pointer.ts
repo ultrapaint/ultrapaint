@@ -31,6 +31,7 @@ import {
   useDrag,
 } from "./drag.ts";
 import { frameOf } from "./editor-frame.ts";
+import { drawingMarquee } from "./frame-gesture.ts";
 import { hitUnlocked } from "./hit-test.ts";
 import { holdsFree } from "./snap.ts";
 
@@ -291,8 +292,7 @@ export const useFramePointer = ({
     const { target } = p;
     if (!target) {
       if (kind === "page") {
-        marqueeIn.current = currentRoot();
-        marqueeFrom.current = p.at;
+        beginMarquee(currentRoot(), p.at);
       }
       return;
     }
@@ -301,8 +301,7 @@ export const useFramePointer = ({
       isContainer(target.node) &&
       !isSelected(frameId, target.node.id)
     ) {
-      marqueeIn.current = target.node;
-      marqueeFrom.current = p.at;
+      beginMarquee(target.node, p.at);
       return;
     }
     // What is dragged is what is selected, as it would be after a click on it.
@@ -313,8 +312,24 @@ export const useFramePointer = ({
     beginDrag(target, p.x, p.y, p.last.alt, p.last.free);
     moveDrag(p.last.x, p.last.y, p.last.alt, p.last.free);
   };
+  /**
+   * A marquee is drawn in `within` from `from`, until the pointer is let go or Escape puts it
+   * away (`cancelGesture`), which leaves the selection as it was.
+   */
+  const beginMarquee = (
+    within: DesignNode | null,
+    from: { x: number; y: number }
+  ) => {
+    marqueeIn.current = within;
+    marqueeFrom.current = from;
+    drawingMarquee(() => {
+      press.current = null;
+      endMarquee(false);
+    });
+  };
   /** The marquee stops being drawn; whether it selects what it touches is `selects`. */
   const endMarquee = (selects: boolean) => {
+    drawingMarquee(null);
     marqueeFrom.current = null;
     const waiting = marqueeTo.current;
     marqueeTo.current = null;
