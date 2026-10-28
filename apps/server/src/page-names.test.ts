@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { type NamedPage, pageNamed } from "./services/page-names.ts";
+import {
+  designTargetNamed,
+  type NamedPage,
+  pageNamed,
+} from "./services/page-names.ts";
 
 const page = (
   canvas: string,
@@ -66,5 +70,86 @@ describe("pageNamed", () => {
       route: "/orders",
     });
     expect(found([sketch, pricing], "", "marketing")).toBe(pricing.id);
+  });
+});
+
+describe("designTargetNamed", () => {
+  const marketing = page("marketing", "pricing.page.json", {
+    route: "/pricing",
+  });
+  const pages = [home, bold, orders, sketch, marketing];
+  const specs = [{ component: "Button" }, { component: "Card" }];
+
+  const target = (name: string, canvas?: string) => {
+    const named = designTargetNamed(pages, specs, name, canvas);
+    switch (named._tag) {
+      case "Page":
+        return named.nodeId === undefined
+          ? named.page.id
+          : `${named.page.id} ${named.nodeId}`;
+      case "Spec":
+        return `spec ${named.spec.component}`;
+      default:
+        return named;
+    }
+  };
+
+  it.each([
+    ["Button", "spec Button"],
+    [" spec:Card ", "spec Card"],
+    ["spec:Nope", { _tag: "Missing", kind: "spec", route: null }],
+    ["Nope", { _tag: "Missing", kind: "spec", route: null }],
+    ["/", home.id],
+    ["/orders", orders.id],
+    ["orders.page.json", orders.id],
+    ["designs/sketch.page.json", sketch.id],
+    ["home@bold.page.json", bold.id],
+    ["/pricing", marketing.id],
+    ["marketing:/pricing", marketing.id],
+    ["marketing:pricing.page.json", marketing.id],
+    [":/pricing", { _tag: "Missing", kind: "page", route: null }],
+    ["/orders#c_8", `${orders.id} c_8`],
+    ["marketing:/pricing#c_9", `${marketing.id} c_9`],
+    ["sketch.page.json#c_1", `${sketch.id} c_1`],
+    ["canvas#c_1", { _tag: "Missing", kind: "page", route: null }],
+    ["/nowhere", { _tag: "Missing", kind: "page", route: "/nowhere" }],
+    ["/nowhere#c_1", { _tag: "Missing", kind: "page", route: "/nowhere" }],
+    ["nowhere.page.json", { _tag: "Missing", kind: "page", route: null }],
+    ["", { _tag: "Missing", kind: "page", route: null }],
+  ] as const)("names %j as %j", (name, expected) => {
+    expect(target(name)).toEqual(expected);
+  });
+
+  it("narrows a page to the canvas given, which a canvas the name says gives way to", () => {
+    expect(target("/pricing", "")).toEqual({
+      _tag: "Missing",
+      kind: "page",
+      route: "/pricing",
+    });
+    expect(target("marketing:/pricing", "")).toEqual({
+      _tag: "Missing",
+      kind: "page",
+      route: "/pricing",
+    });
+    expect(target("Button", "marketing")).toBe("spec Button");
+    expect(target("", "marketing")).toBe(marketing.id);
+  });
+
+  it("is ambiguous across canvases unless one is named", () => {
+    const both = [
+      ...pages,
+      page("marketing", "home.page.json", { route: "/" }),
+    ];
+    expect(designTargetNamed(both, specs, "/")).toEqual({
+      _tag: "Ambiguous",
+      canvases: ["", "marketing"],
+    });
+    expect(designTargetNamed(both, specs, "/#c_1")).toMatchObject({
+      _tag: "Ambiguous",
+    });
+    expect(designTargetNamed(both, specs, "marketing:/")).toMatchObject({
+      _tag: "Page",
+      page: { canvas: "marketing" },
+    });
   });
 });

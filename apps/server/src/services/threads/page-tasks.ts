@@ -6,10 +6,7 @@
 import { familyOf } from "@ultrapaint/contracts/canvas-layout";
 import type { TextStyle } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import {
-  SPEC_TARGET_PREFIX,
-  specTarget,
-} from "@ultrapaint/contracts/implementation";
+import { specTarget } from "@ultrapaint/contracts/implementation";
 import type { Page } from "@ultrapaint/contracts/pages";
 import {
   type ComponentSpec,
@@ -29,9 +26,10 @@ import { Effect } from "effect";
 import { ProjectManager } from "../../project.ts";
 import { CatalogueService } from "../catalogue.ts";
 import { DesignSystemService } from "../design-system.ts";
+import { DesignTargets, pageEntry } from "../design-targets.ts";
 import { DocumentService } from "../documents.ts";
 import { FigmaImportService } from "../figma-import.ts";
-import { ImplementationService } from "../implementation.ts";
+import { ImplementationService, type Note } from "../implementation.ts";
 import { pageNamed } from "../page-names.ts";
 import { PagesService } from "../pages.ts";
 import { RepoPaths } from "../repo-paths.ts";
@@ -71,45 +69,6 @@ Text styles of the design system:
 ${styles.map((style) => `- ${style.name}: ${JSON.stringify(style)}`).join("\n")}
 `
     : "";
-
-/** The spec a command names: `spec:Button`, or the component's name. */
-const specNamed = (
-  specs: readonly ComponentSpec[],
-  target: string
-): ComponentSpec | undefined => {
-  const name = target.startsWith(SPEC_TARGET_PREFIX)
-    ? target.slice(SPEC_TARGET_PREFIX.length)
-    : target;
-  return name ? specs.find((s) => s.component === name) : undefined;
-};
-
-/** A page as a list shows it to an agent: its name, its URL or that it has none, its file. */
-const pageEntry = (page: {
-  readonly file: string;
-  readonly name: string;
-  readonly route?: string | undefined;
-  readonly variant?: string | undefined;
-}) =>
-  `${page.name}${page.variant ? ` (variant ${page.variant})` : ""}, ${page.route ?? "no URL"}: ${page.file}`;
-
-/** A design to implement that the name does not settle: none, or pages of several canvases. */
-const unknownPage = (
-  target: string,
-  canvases: readonly string[],
-  pages: readonly Parameters<typeof pageEntry>[0][]
-) => {
-  let which = "it did not say which page";
-  if (canvases.length > 1) {
-    which = `${target} is a page in several canvases (${canvases.map(named).join(", ")})`;
-  } else if (target) {
-    which = `no page is ${target}`;
-  }
-  return taskFailure(
-    "implement",
-    `${which}; the pages are:\n${pages.map((p) => `- ${pageEntry(p)}`).join("\n") || "- none"}`,
-    "Ask which one."
-  );
-};
 
 /**
  * The pages a list of words names: a canvas's id (`""` for the designs directory's own) names
@@ -161,11 +120,7 @@ const whereOf = (page: Page) => {
 };
 
 const notesSection = (
-  notes: readonly {
-    readonly element: string | null;
-    readonly nodeId: string | null;
-    readonly text: string;
-  }[],
+  notes: readonly Note[],
   on: "page" | "component" = "page"
 ) => {
   if (notes.length === 0) {
@@ -251,21 +206,21 @@ export const makePageTasks = Effect.fnUntraced(function* (deps: {
   const implement = ({ canvas, extra, target }: ImplementTask) =>
     project.use(
       Effect.gen(function* () {
-        const specs = yield* (yield* SpecService).specs;
-        const spec = specNamed(specs, target);
-        if (spec) {
-          return yield* implementSpec(spec, extra);
+        const designTargets = yield* DesignTargets;
+        const design = yield* designTargets
+          .resolve(target, canvas)
+          .pipe(
+            Effect.mapError((miss) =>
+              taskFailure("implement", miss.message, "Ask which one.")
+            )
+          );
+        const notes = yield* designTargets.notes(design);
+        if (design._tag === "Spec") {
+          return yield* implementSpec(design.spec, notes, extra);
         }
         const { pages } = yield* (yield* PagesService).list;
-        const found = pageNamed(pages, target, canvas);
-        if (found._tag !== "Found") {
-          return yield* unknownPage(
-            target,
-            found._tag === "Ambiguous" ? found.canvases : [],
-            pages
-          );
-        }
-        return yield* implementPage(found.page, pages, specs, extra);
+        const specs = yield* (yield* SpecService).specs;
+        return yield* implementPage(design.page, pages, specs, notes, extra);
       })
     );
 
@@ -407,6 +362,7 @@ ${used.map(waitingLine).join("\n")}
     page: Page,
     pages: readonly Page[],
     specs: readonly ComponentSpec[],
+    notes: readonly Note[],
     extra: string | undefined
   ) {
     const state = yield* Effect.orElseSucceed(
@@ -416,7 +372,6 @@ ${used.map(waitingLine).join("\n")}
     const { designSystem } = yield* (yield* DesignSystemService).get;
     const { codeRules } = yield* ProjectStyleSystem;
     const styles = designSystem?.typography.styles ?? [];
-    const notes = yield* (yield* ImplementationService).notes(page);
     const before = yield* since(page.id);
     const states = familyOf(pages, page).filter(
       (p) => p.state !== undefined && p.id !== page.id
@@ -456,12 +411,12 @@ ${userAdds(extra)}</ultrapaint-task>`;
 
   const implementSpec = Effect.fnUntraced(function* (
     spec: ComponentSpec,
+    notes: readonly Note[],
     extra: string | undefined
   ) {
     const target = specTarget(spec.component);
     const before = yield* since(target);
     const tokens = yield* tokensFor(target);
-    const notes = spec.notes ?? [];
     const { codeRules } = yield* ProjectStyleSystem;
     const catalogue = yield* Effect.orElseSucceed(
       (yield* CatalogueService).get(false),
@@ -481,10 +436,7 @@ Its behaviour stays as it is: only its classes change${notes.length > 0 ? ", and
 ${intro}
 
 ${before}
-${notesSection(
-  notes.map((n) => ({ element: n.slot ?? null, nodeId: null, text: n.text })),
-  "component"
-)}${tokens.section}
+${notesSection(notes, "component")}${tokens.section}
 The spec: \`base\` is what every instance starts from; \`variants\` per prop and value; \`states\`
 (hover, focus, active, disabled, open, checked, invalid) are the state classes (\`hover:\`,
 \`focus-visible:\`, \`active:\`, \`disabled:\`, \`data-open:\` or \`data-[state=open]:\`, \`data-checked:\`,

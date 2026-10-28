@@ -157,10 +157,10 @@ describe("tasks, with the editor's MCP server", () => {
               next: "Ask which one.",
             }
           );
-          assert.include(
+          assert.strictEqual(
             (yield* failureOf({ _tag: "Implement", target: "spec:Nope" }))
               .message,
-            "no page is spec:Nope"
+            "no component spec is spec:Nope; there are no component specs"
           );
           assert.deepStrictEqual(
             yield* failureOf({ _tag: "Redraw", canvas: "nowhere" }),

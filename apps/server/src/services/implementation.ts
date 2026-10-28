@@ -81,12 +81,36 @@ export interface Note {
   readonly text: string;
 }
 
-const noteOf = (c: Comment): Note => ({
+/** A page's behaviour note, a comment pinned on it (ADR 0030). */
+export const commentNote = (c: Comment): Note => ({
   element: c.element,
   id: c.id,
   nodeId: c.nodeId,
   text: c.text,
 });
+
+/** A page's open behaviour notes: the comments of its canvas pinned on it, a resolved one done. */
+export const pageNotes = (page: Page, comments: readonly Comment[]): Note[] =>
+  comments
+    .filter(
+      (c) => c.page === page.path && c.kind === "behaviour" && !c.resolved
+    )
+    .map(commentNote);
+
+/** A component's behaviour note as a page's reads: its slot where a node's name would be. */
+export const specNote = (n: SpecNote): Note => ({
+  element: n.slot ?? null,
+  id: n.id,
+  nodeId: null,
+  text: n.text,
+});
+
+/**
+ * A component's behaviour notes (ADR 0029), kept in its spec. Deleted rather than resolved, so
+ * every one is open.
+ */
+export const specNotes = (spec: ComponentSpec): Note[] =>
+  (spec.notes ?? []).map(specNote);
 
 /** What a page was when it was implemented, or a spec. */
 export type Implemented =
@@ -155,14 +179,6 @@ const usesOf = (snapshot: Implemented, ctx: TokenContext): Set<string> =>
 const waitingOf = (snapshot: Implemented, ctx: TokenContext): string[] =>
   [...usesOf(snapshot, ctx)].filter((name) => ctx.waiting.has(name)).sort();
 
-/** A component's behaviour note as a page's reads, its slot where a node's name would be. */
-const specNoteOf = (n: SpecNote): Note => ({
-  element: n.slot ?? null,
-  id: n.id,
-  nodeId: null,
-  text: n.text,
-});
-
 /** What changed between a design as it was implemented and as it is, a line each. */
 const changedLines = (before: Implemented, now: Implemented): string[] => {
   if (before.kind === "page" && now.kind === "page") {
@@ -173,11 +189,11 @@ const changedLines = (before: Implemented, now: Implemented): string[] => {
     ];
   }
   if (before.kind === "spec" && now.kind === "spec") {
-    const { notes: was = [], ...look } = before.spec;
-    const { notes: is = [], ...after } = now.spec;
+    const { notes: _was, ...look } = before.spec;
+    const { notes: _is, ...after } = now.spec;
     return [
       ...describeSpecChanges(look, after),
-      ...describeNoteChanges(was.map(specNoteOf), is.map(specNoteOf)),
+      ...describeNoteChanges(specNotes(before.spec), specNotes(now.spec)),
     ];
   }
   return [];
@@ -246,7 +262,10 @@ export class ImplementationService extends Context.Service<
     readonly item: (
       target: string
     ) => Effect.Effect<ImplementationItem, NotFound>;
-    /** A design as it is now, for an implementation task. */
+    /**
+     * A design as it is now, for an implementation task, by its canonical target: a page's id
+     * or `spec:<Component>`. A name an agent or a user wrote is `DesignTargets.resolve`'s.
+     */
     readonly current: (target: string) => Effect.Effect<Current, NotFound>;
     /** The design as it was implemented, and the binding, when it was. */
     readonly implemented: (target: string) => Effect.Effect<{
@@ -256,8 +275,6 @@ export class ImplementationService extends Context.Service<
     readonly changes: (
       target: string
     ) => Effect.Effect<ImplementationChanges, NotFound>;
-    /** The open behaviour notes of a page (ADR 0030). */
-    readonly notes: (page: Page) => Effect.Effect<readonly Note[]>;
     /**
      * The design system's tokens whose value has not reached the code (ADR 0028): those the
      * design relies on, each with its comparison per theme, and how many others wait.
@@ -338,16 +355,7 @@ export class ImplementationService extends Context.Service<
 
       const notes = (page: Page) =>
         comments.list(page.canvas).pipe(
-          Effect.map((pinned) =>
-            pinned.comments
-              .filter(
-                (comment) =>
-                  comment.page === page.path &&
-                  comment.kind === "behaviour" &&
-                  !comment.resolved
-              )
-              .map(noteOf)
-          ),
+          Effect.map((pinned) => pageNotes(page, pinned.comments)),
           Effect.orElseSucceed((): Note[] => [])
         );
 
@@ -364,10 +372,10 @@ export class ImplementationService extends Context.Service<
         if (!root) {
           return null;
         }
-        const pageNotes = yield* notes(page);
-        const snapshot: Implemented = { kind: "page", notes: pageNotes, root };
+        const open = yield* notes(page);
+        const snapshot: Implemented = { kind: "page", notes: open, root };
         const found: Current = {
-          hash: hashContent(stableJson({ notes: pageNotes, root })),
+          hash: hashContent(stableJson({ notes: open, root })),
           name: pageName(page),
           page,
           snapshot,
@@ -406,7 +414,7 @@ export class ImplementationService extends Context.Service<
           return specCurrent(spec);
         }
         const { pages: all } = yield* pages.list;
-        const page = all.find((p) => p.id === target || p.file === target);
+        const page = all.find((p) => p.id === target);
         const found = page ? yield* pageCurrent(page) : null;
         if (!found) {
           return yield* new NotFound({
@@ -805,7 +813,6 @@ export class ImplementationService extends Context.Service<
         list,
         mark,
         markAll,
-        notes,
         setReady,
         setReadyAll,
         tokens,

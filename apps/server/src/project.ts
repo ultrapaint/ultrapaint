@@ -36,6 +36,7 @@ import type { CommentsService } from "./services/comments.ts";
 import type { ComponentRegistry } from "./services/component-registry.ts";
 import type { DesignMd } from "./services/design-md.ts";
 import type { DesignSystemService } from "./services/design-system.ts";
+import type { DesignTargets } from "./services/design-targets.ts";
 import type { DocumentService } from "./services/documents.ts";
 import type { EditService } from "./services/edit.ts";
 import type { FigmaBaseline } from "./services/figma-baseline.ts";
@@ -66,6 +67,7 @@ export type ProjectServices =
   | ComponentRegistry
   | DesignMd
   | DesignSystemService
+  | DesignTargets
   | DocumentService
   | EditService
   | FigmaBaseline

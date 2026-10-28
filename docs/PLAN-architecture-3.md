@@ -785,3 +785,48 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
     moving only once the canvas is on screen; a node beside the pages waiting for its document;
     a wait given up for a newer reveal; and a thread's Show of a page and of a node on another
     canvas. The two Show tests failed first on the old `showScope` (the canvas stayed `main`).
+15. **A design target, named once** (`apps/server/src/services/design-targets.ts`,
+    `services/page-names.ts`). `designTargetNamed(pages, specs, name, canvas?)`, beside
+    `pageNamed`, says which design a name means: `spec:Button`, or a name no page could have (no
+    `/`, `#` or `.page.json`, so `Button`), names the component's spec; anything else is a page by
+    `pageNamed`'s rule, a canvas written first (`marketing:/pricing`, `marketing:pricing.page.json`)
+    included, and a node reference (`/orders#c_8`) names its page and keeps its node. It answers
+    the page (with its node), the spec, a miss of one kind (`Missing{kind}`, with the URL a page's
+    name was read as), or the canvases a page's name is ambiguous across (`/` in two canvases);
+    the canvas given narrows the pages, over one the name says. Pages are named by URL or file
+    and specs by component, so the two never answer to one name and "spec wins" decided nothing.
+    The `DesignTargets` service, above the specs, the comments and the link to the code (in the
+    project's layer, beside `PagePngs`), `resolve`s a name to a `DesignTarget`, a miss saying the
+    kind it looked for and listing that kind (the pages with their URL and file, the component
+    specs), reads a design's open behaviour notes (`notes`) and adds one (`addNote`), on a page's
+    node (the reference's or `node`, the two refused when they differ) or a spec's slot, whichever
+    way they are kept: a page's as comments pinned on it (resolved when done), a component's in
+    its spec (deleted when done). One reader each, in `implementation.ts`: `pageNotes` (with
+    `commentNote`) and `specNotes` (with `specNote`), which the design's hash and its diff read
+    too; `noteOf`, `specNoteOf`, `ImplementationService.notes` and page-tasks' own mapping go.
+    `/implement` and `handoff`'s `read`, `mark` and `note` resolve through it; page-tasks'
+    `specNamed` and `unknownPage` go (`pageEntry` moved), as do handoff's `isSpecTarget` branch,
+    its use of `pageAt` and its comment and spec writing. `ImplementationService.current` takes
+    the canonical target only, a page's id or `spec:<Component>` (it also took a page's file,
+    which no caller passed); `targetId` gives it. Fixed: `handoff`'s `note` on `/orders#c_8` with
+    no `node` pinned the note to the whole page ("Noted on designs/orders.page.json."); `read`,
+    `mark` and `note` with a bare `Button` (what the Components panel sends `/implement`) failed
+    with "no page file Button; call list_pages"; `/implement spec:Nope` said "no page is
+    spec:Nope" and listed the pages. Also: `/implement` takes a node reference and a canvas
+    written first, and `handoff` a canvas written first without a node; a node reference and a
+    different `node` are refused ("the target names the node c_8, and node says c_9: say one");
+    `handoff`'s misses list the pages or the specs in place of pointing to `list_pages`, and a
+    page in several canvases lists the pages (it said to pass `canvas`); a bare name that is no
+    spec says how a page is named ("no component spec is orders (a page is named by its URL or
+    its file)"), where `/implement orders` listed the pages; a node beside the pages
+    (`canvas#c_1`) is no page; a note on a spec's `root` answers "Noted on Button." (it said
+    "(root)"). Left: the other tools' `pageAt` keeps its own messages and does not take
+    `marketing:/pricing` without a node. No tool's description or schema changed (the listing's
+    budget is as it was). `page-names.test.ts` has 3 table tests of `designTargetNamed` (21 names,
+    the canvas given, ambiguity), which failed first with the function missing.
+    `design-targets.test.ts` has 4 tests on `ProjectTest` through `callTool` and `AgentTasks`: a
+    note on `/home#heading` lands on the node; a node reference and another `node` are refused
+    and `read` takes a node reference; `read`, `note` and `mark` with `Button` succeed, and
+    `/implement` by either name carries the note from the spec; misses of each kind, `/implement
+    spec:Nope` naming the specs. All four failed first. `tasks.test.ts`'s `spec:Nope` reads the
+    new miss; the socket tests of `handoff` (`design-source*.test.ts`) pass unchanged.
