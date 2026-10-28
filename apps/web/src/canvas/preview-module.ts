@@ -7,6 +7,7 @@ import type { EditorEntry, Preview } from "@ultrapaint/framework-api/browser";
 import { useEffect, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { useProject } from "../state/project.ts";
+import { describePageError } from "./editor-frame.ts";
 import { previewLoaded } from "./from-frame.ts";
 import { readFrozen, watchPreview } from "./watchdog.ts";
 
@@ -35,11 +36,8 @@ const load = (entry: string) => {
       watchPreview(m.preview);
       // A rejection no frame can be said to be the source of: shown once, not on a guessed frame.
       m.preview.onStrayError((error) => {
-        const where = error.file
-          ? `${error.file}${error.line ? `:${error.line}` : ""}`
-          : "";
         toast.error("The page's code failed", {
-          description: where ? `${error.message}\n${where}` : error.message,
+          description: describePageError(error),
           duration: 10_000,
         });
       });

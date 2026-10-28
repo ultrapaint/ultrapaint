@@ -234,3 +234,36 @@ describe("a frame's host", () => {
     expect(fromFrame).toEqual([true, false, false]);
   });
 });
+
+describe("a frame's error", () => {
+  it("is the page's when its renderer reports it, the dev server's when the preview is told", () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const error = vi.fn();
+    const runtime = preview.mountFrame(host, {
+      canvas: "canvas",
+      events: { error },
+      frame: "a",
+    });
+    opened.push(runtime);
+    page((setup) => setup.reportError({ message: "drawn badly" }));
+    runtime.render({
+      designSystem: null,
+      mode: "page",
+      renderId: 1,
+      root: null,
+    });
+    expect(error).toHaveBeenLastCalledWith({
+      message: "drawn badly",
+      source: "page",
+    });
+    page(() => undefined);
+    preview.reportError({ file: "/src/a.tsx", line: 2, message: "Unexpected" });
+    expect(error).toHaveBeenLastCalledWith({
+      file: "/src/a.tsx",
+      line: 2,
+      message: "Unexpected",
+      source: "dev-server",
+    });
+  });
+});

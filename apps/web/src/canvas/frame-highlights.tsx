@@ -18,6 +18,7 @@ import { rootOfFrame, useDocuments } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
 import { useFrameBreakpoint, useSelectedIn } from "../state/selection.ts";
 import { screenPx } from "./camera.ts";
+import { describePageError, useFrameError } from "./editor-frame.ts";
 import { ElementToolbar, GroupToolbar } from "./element-toolbar.tsx";
 import { TAG_HEIGHT } from "./element-toolbar-placement.ts";
 import { SelectionTag } from "./selection-tag.tsx";
@@ -46,7 +47,7 @@ export const Highlights = ({ frameId }: { frameId: string }) => {
   const madeHere = useEditor((s) => s.selection?.frame === frameId);
   const hoverId = useHoverIn(frameId);
   const rects = useEditor((s) => s.rects[frameId]);
-  const hostError = useEditor((s) => s.hostErrors[frameId]);
+  const pageError = useFrameError(frameId);
   const canvas = useEditor((s) => s.canvas);
   const frameWidth = useEditor(
     (s) =>
@@ -123,13 +124,15 @@ export const Highlights = ({ frameId }: { frameId: string }) => {
           targets={group.targets}
         />
       ) : null}
-      {hostError ? (
+      {pageError ? (
         <div
           className="absolute inset-x-0 bottom-0 flex items-start gap-2 bg-destructive/90 p-3 font-code text-white"
           style={{ fontSize: screenPx(14), padding: screenPx(12) }}
         >
           <AlertTriangle className="size-4 shrink-0" />
-          <pre className="whitespace-pre-wrap">{hostError}</pre>
+          <pre className="whitespace-pre-wrap">
+            {describePageError(pageError)}
+          </pre>
         </div>
       ) : null}
     </>

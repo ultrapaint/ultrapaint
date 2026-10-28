@@ -466,3 +466,132 @@ describe("the pool", () => {
     }
   });
 });
+
+describe("a frame's error", () => {
+  const thrown = { message: "boom", source: "page" } as const;
+  const broken = {
+    file: "/src/card.tsx",
+    line: 3,
+    message: "Unexpected token",
+    source: "dev-server",
+  } as const;
+  /** Another document each time: the frame draws it again. */
+  const another = () => ({ ...page, root: { ...root } });
+
+  it("is kept whoever listens: there when a listener comes, and after one leaves and comes back", () => {
+    const { drawn, preview } = fakePreview();
+    const frame = m.frameOf("p1");
+    frame.open({ canvas: "c", holder: holder(), preview });
+    const changes = vi.fn();
+    frame.onErrorChange(changes);
+    // Nobody listens to the frame.
+    only(drawn).events.error?.(thrown);
+    expect(changes).toHaveBeenCalledOnce();
+    const off = frame.listen({ ready: () => undefined });
+    expect(frame.error).toEqual(thrown);
+    off();
+    expect(frame.error).toEqual(thrown);
+    frame.listen({ ready: () => undefined });
+    expect(frame.error).toEqual(thrown);
+  });
+
+  it("is a page's until the frame draws again, not by the draw it was thrown in", () => {
+    const { drawn, preview } = fakePreview();
+    const frame = m.frameOf("p1");
+    frame.open({ canvas: "c", holder: holder(), preview });
+    const { events } = only(drawn);
+    const first = frame.render(page);
+    // A render error is told before its render says it reached the screen.
+    events.error?.(thrown);
+    events.rendered?.(first);
+    expect(frame.error).toEqual(thrown);
+    events.rendered?.(frame.render(another()));
+    expect(frame.error).toBeNull();
+  });
+
+  it("is the dev server's until the next update, whatever the frame draws", () => {
+    const { drawn, preview } = fakePreview();
+    const frame = m.frameOf("p1");
+    frame.open({ canvas: "c", holder: holder(), preview });
+    const { events } = only(drawn);
+    events.error?.(broken);
+    events.rendered?.(frame.render(another()));
+    expect(frame.error).toEqual(broken);
+    events.hmr?.();
+    expect(frame.error).toBeNull();
+    // An update clears a page's error too.
+    events.error?.(thrown);
+    events.hmr?.();
+    expect(frame.error).toBeNull();
+  });
+
+  it("is held by a parked frame, and goes with the frame dropped", () => {
+    const { drawn, preview } = fakePreview();
+    const frame = m.frameOf("p1");
+    const opened = frame.open({
+      canvas: "c",
+      holder: holder(),
+      keep: true,
+      preview,
+    });
+    const { events } = only(drawn);
+    events.rendered?.(frame.render(page));
+    events.error?.(broken);
+    opened?.close();
+    expect(frame.parkedAt()).not.toBeNull();
+    expect(frame.error).toEqual(broken);
+    const changes = vi.fn();
+    frame.onErrorChange(changes);
+    frame.drop();
+    expect(frame.error).toBeNull();
+    expect(changes).toHaveBeenCalledOnce();
+    // What the page it threw away says is no longer the frame's.
+    frame.open({ canvas: "c", holder: holder(), preview });
+    events.error?.(thrown);
+    expect(frame.error).toBeNull();
+  });
+
+  it("is written as its message, then where it was thrown", () => {
+    expect(m.describePageError(thrown)).toBe("boom");
+    expect(m.describePageError(broken)).toBe(
+      "Unexpected token\n/src/card.tsx:3"
+    );
+    expect(
+      m.describePageError({ ...broken, line: undefined, source: "page" })
+    ).toBe("Unexpected token\n/src/card.tsx");
+  });
+});
+
+describe("a frame's events handed on", () => {
+  it("are every kind a frame says", () => {
+    type Handed = ReturnType<typeof m.forwardTo>;
+    const calls: string[] = [];
+    const every: Handed = {
+      error: () => calls.push("error"),
+      hmr: () => calls.push("hmr"),
+      instances: () => calls.push("instances"),
+      navigateTo: () => calls.push("navigateTo"),
+      pressed: () => calls.push("pressed"),
+      ready: () => calls.push("ready"),
+      rects: () => calls.push("rects"),
+      rendered: () => calls.push("rendered"),
+      size: () => calls.push("size"),
+      textCommit: () => calls.push("textCommit"),
+    };
+    const handed = m.forwardTo(() => every);
+    handed.error({ message: "m", source: "page" });
+    handed.hmr();
+    handed.instances({});
+    handed.navigateTo("/", false);
+    handed.pressed([]);
+    handed.ready();
+    handed.rects({});
+    handed.rendered(1);
+    handed.size({ height: 1, width: 1 });
+    handed.textCommit("n", "t");
+    expect(calls).toEqual(Object.keys(every));
+    // @ts-expect-error: a kind left out does not compile.
+    const partial: Handed = { ...every, hmr: undefined };
+    expect(partial).toBeDefined();
+  });
+});
