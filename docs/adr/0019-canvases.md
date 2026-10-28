@@ -6,7 +6,7 @@ tools take `canvas`) and 0015 (assets are shared).
 > Amended by [0030](0030-the-implementation-link.md), 2026-10-25: a canvas also lists `states`,
 > a page drawn again in a state of the same screen, which a link can open.
 >
-> Amended 2026-10-27 by [PLAN-architecture](../PLAN-architecture.md) step 5: named snapshots are
+> Amended by [0037](0037-deep-modules.md), 2026-10-27 ([PLAN-architecture](../PLAN-architecture.md) step 5): named snapshots are
 > kept in the tool's snapshot store (0031), under its `designs` namespace, rather than one JSON
 > file each under `<state>/snapshots`. Only the format changes: what a snapshot is, keeps and
 > does is as below. Snapshots in the old format are imported when the server starts.

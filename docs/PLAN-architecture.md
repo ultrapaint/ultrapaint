@@ -1,9 +1,8 @@
 # Plan: deeper modules, from the architecture review of 2026-10-27
 
-Status: in progress. One step per candidate of the review, built one after the other, each its
-own commit. The decisions it takes are recorded in
-[ADR 0037](adr/0037-deep-modules.md) when the last step lands, and in the ADRs a step amends
-(named in the step). The terms are in `GLOSSARY.md`.
+Status: built, 2026-10-28: steps 1 to 18, one commit each, under "Built". The decisions are
+recorded in [ADR 0037](adr/0037-deep-modules.md) and in the ADRs a step amends (0011, 0019,
+0032). The terms are in `GLOSSARY.md`.
 
 ## Why
 
