@@ -1,0 +1,155 @@
+# Plan: deeper modules, the third review (2026-10-28)
+
+Status: planned, 2026-10-28. Steps 1 to 8 are to be built one commit each, written under "Built" as
+they land; "To investigate" is looked at one candidate at a time before anything of it is planned.
+The decisions are recorded in [ADR 0039](adr/0039-deep-modules-third-review.md). Follows
+[ADR 0037](adr/0037-deep-modules.md) and [ADR 0038](adr/0038-deep-modules-second-review.md), whose
+31 steps ([PLAN-architecture.md](PLAN-architecture.md), [PLAN-architecture-2.md](PLAN-architecture-2.md))
+are not proposed again. The terms are in `GLOSSARY.md`.
+
+## Why
+
+A third review, over the whole repository, found concepts still written in several places, and
+rules that live in one big file with no test reaching them. Where copies drifted, the review
+traced a bug by reading the code (not reproduced; each step writes the failing test first):
+
+- the task texts name the editor's tools by string about 51 times, past `agent-ways`, so with
+  the MCP server off Define, `/components` and `/sync describe` still tell the agent to call
+  `ask_user` and `write_design_system`;
+- the inspector and the element toolbar each read and write about ten node fields by hand, and
+  their align disagrees (one writes `"start"`, the other `null`; a mix shows "Mixed" and "Left");
+- three modules write a frame's host, and reopening a parked frame wipes a `dark` class the
+  page's code put on `<html>`;
+- checkpoints kept a format of their own: a revert bypasses the edit journal (not undoable),
+  says nothing of a file it removes, and puts the comments back;
+- Tailwind's scales, keywords and class grammar are written in four files of the style adapter,
+  and no test reads a written class back;
+- "the token with this value" is looked up four times with four equalities, so `#2b7fff` is no
+  token in the usage inventory and `blue-500` in Sync;
+- what the generated editor entry exports and the order it starts in are in string templates;
+- the preview server's Vite config and its four plugins are assembled in a script no test imports.
+
+Each step gives one concept one module with an interface its callers and its tests share, and
+keeps every ADR's behaviour unless the step says otherwise.
+
+## Steps
+
+### A. Server
+
+1. **The editor's tools, named once for the agent.** Every tool a task text, the briefing or a
+   service's message tells an agent to call is named through `agent-ways` (or the module it
+   grows into), which knows whether the editor's toolkits are offered and says what the text
+   asks for in their absence (answer in the reply and end the turn rather than `ask_user`; write
+   the files by hand rather than `write_design_system`; or refuse what only a tool can do). A
+   name is the tool's own (`Tool.make`'s), so renaming a tool fails to compile or fails a test,
+   as `HANDOFF_ACTIONS` already does for the handoff's actions. No literal tool name is left in
+   `page-tasks`, `setup-tasks`, `sync-tasks`, `tasks`, `briefing` or `implementation`. One test
+   over every task request, on `ProjectTest` with the MCP server on and off: every tool a text
+   names is in the offered toolkits, and none is named when they are not. The tool listing's
+   character budget (`mcp.test.ts`) is not touched.
+2. **Checkpoints in the snapshot store.** A turn's checkpoint is a ref of a third namespace of
+   the snapshot store (beside `designs` and `setup`): one format, one garbage collection (its
+   last-30 rule kept as the namespace's), content kept once. A revert puts the designs back as a
+   snapshot's restore does, through `EditService.transaction` (one undo step), publishing
+   `file.changed` for what it writes and what it removes. The comments file is left out, as a
+   snapshot leaves it (decided 2026-10-28: reverting a turn never deletes comments written
+   since). `openRepo`/`ours` and `simpleDiff` are written once; `Snapshots.create(name,
+   checkpoint)` names a ref rather than converting a format. The checkpoints kept in the old
+   JSON files are moved in once, as `importOld` does for snapshots. Tests on `ProjectTest`, off
+   the socket: a revert is undone in one step, a removed file is published, comments survive a
+   revert, two turns share content. Amends ADR 0008.
+
+### B. Packages
+
+3. **Tailwind's utilities, one vocabulary in the adapter.** One module of `style-tailwind-v4`
+   knows Tailwind's utilities: how a class splits into variants, utility, value, arbitrary value
+   and its type hint and `!`; the default scales (text sizes, weights, radii, shadows, with the
+   weights' numbers); the keywords both ways (`full` ↔ `100%`, colour keywords). The Code tab's
+   writer (`node-classes`), the spec reader (`component-spec`), DESIGN.md's component reader
+   (`component-style`) and the usage inventory (`usage-classify`, `usage-vocabulary`) call it;
+   their tables and regexes go. A round-trip test over the fixtures: a node's declarations
+   written as classes and read back as spec fields give the same values. Behind ADR 0024's seam;
+   no ADR changes.
+4. **The token with this value.** The token table answers which tokens of a kind hold a value,
+   by token-value's `sameValue`. Figma's paint matching, the usage inventory, the usage rewrite
+   and the Sync engine call it and keep only their tie-break (Figma and the inventory: the first
+   in the design's order; Sync: one match only). Figma matches in every colour space (decided
+   2026-10-28): an oklch token now matches a Figma hex of the same colour. The web's leftover
+   arbitrary-class check (`[` in a field's value) goes or reads the lookup. One table test in
+   contracts (hex, oklch, named colours, rem against px, shadows); the callers' tests check
+   their policy. Applies ADR 0037's "one notion of the same value".
+
+### C. Web
+
+5. **A node's fields, one table for the inspector and the toolbar.** A pure module over
+   `DesignNode` declares each field both surfaces edit (align, text style, colour, fill, tint,
+   radius, shadow, gap, props, and whatever else both draw): how several nodes' values are read
+   as one (with the field's default, `MIXED` when they differ), what a value written means
+   (what counts as unset), its undo label and its options (token options built once). The
+   inspector and the element toolbar draw it; their read/write pairs, the second colour-token
+   list and the `as unknown as Record` casts go. Fixes align: unset and `"start"` are one
+   value, written as unset. Table tests over node fixtures, where neither surface had a test.
+
+### D. Preview
+
+6. **The frame's host, the core's.** preview-core owns a frame's host element. The editor says
+   how a frame is shown (its class, style, title, whether it takes input, whether it is away)
+   through the frame runtime, and the core keeps what the page's code writes to `<html>` and
+   `<body>` (classes, single style properties) apart from it, so neither wipes the other.
+   `editor-frame`'s `present()` and its pointer-events writes go to the core; "is this event
+   from a frame" has one rule (the core's registered frames), which `keys.ts` uses. The scripted
+   renderer of `frame.test.ts` becomes a shared test adapter, and `editor-frame.test.ts` runs
+   against the real `createPreview` in happy-dom. Fixes a page's `dark` class lost when its
+   parked frame is opened again. Amends ADR 0034 (who owns the host).
+7. **The preview server's config, a module.** One function of `framework-react-vite` builds the
+   preview server's Vite config from its options and a loaded Vite: the inherited config, the
+   plugins in their order and `enforce` (`patchedClient`, `publicUrls`, `guardedCode`,
+   `serveAsset`), the virtual ids. `serve.ts` keeps reading argv, loading Vite, listening and
+   stopping. Tests run Vite in middleware mode over `fixtures/sandbox-host` and call
+   `transformRequest`: the repository's code is guarded, a dependency gets the loop checks
+   only, public URLs are prefixed, the client is patched, `virtual:ultrapaint/guard` loads.
+   The hard-coded `"editor.ts"` and `"components.ts"` read `EDITOR_FILE` and `COMPONENTS_FILE`.
+8. **The editor entry, declared.** `framework-api/browser` declares what the generated editor
+   entry exports (`preview`, `onReloadRequest`) and what the editor bundle exports
+   (`createPreview`, `installHooks`, `onReloadRequest`); `build.ts`'s list and the web's private
+   `PreviewModule` read it. preview-core gives one start-up call that installs the hooks, creates
+   the preview once the modules have run and wires Vite's `vite:afterUpdate` and `vite:error`,
+   so the template shrinks to its imports and that call, and the order is stated in code once
+   (the comments in `preview-files.ts` and `kernel.ts` go). A test reads `previewFiles()`'s
+   output for the names it exports and imports; the start-up order gets a happy-dom test.
+   Amends ADR 0011 and 0037's page-runtime line; the framework seam stays.
+
+## To investigate
+
+Each is looked at by itself, in this order, before anything of it is planned: does the friction
+hold up, what would the module be, what is the smallest step.
+
+1. **Naming a token from another tool, and placing it by kind** (`apps/server/src/services/dtcg.ts`,
+   `packages/figma-import/src/tokens.ts`, `packages/style-tailwind-v4/src/design-system-scan.ts`,
+   contracts' `token-table`). Three readers keep their own words for a kind: DTCG's
+   `GROUP_KINDS`/`TYPE_KINDS`, Figma's `NUMBER_KINDS`/`KIND_WORDS`, the scan's `NAMESPACES` (a
+   copy of the token table). Figma's `Corner/sm` is `radius-sm` from a `.fig` and `corner-sm` of
+   no kind from a DTCG export; the scan drops `--inset-shadow-*`, `--drop-shadow-*` and
+   `--text-shadow-*`, which `tokenKindOf` calls shadows.
+2. **What a page frame draws, and when it is drawn again** (`canvas/frame.tsx`,
+   `canvas/prototype.tsx`, the specimens of `panels/design-system.tsx` and
+   `panels/design-components.tsx`): the render input, the hand-kept dependency lists, the host
+   errors' lifecycle; with the page error's six declarations and the frame events listed by hand.
+3. **Frame gestures on the canvas** (`canvas/canvas.tsx`, `state/editor.ts`): moving and sizing a
+   frame and sizing a node on the canvas, where a cancelled pointer saves the move, Escape does
+   not cancel, and the order of saves leaks to the caller.
+4. **A design target** (`implementation.ts`, `page-tasks.ts`, `handoff-tools.ts`, `comments.ts`,
+   `specs.ts`): "a page or a spec" named by three rules in four places, and behaviour notes
+   stored two ways.
+5. **The desktop window** (`apps/desktop/src/main.ts`, `preload.ts`, `stuck-pages.ts`): the
+   stuck-page watch, the title bar, the navigation policy, the view's URL and the quit sequence
+   behind a port with Electron as its adapter.
+
+Smaller, looked at alongside the nearest of these: the Changes panel's history as a followed store;
+one `reveal(target)` verb on the canvas; `ThreadService`'s forwards and `setAgent`'s busy check
+outside the session's permits; one watch of each frame's host; the setup's `revertBatch` past
+`SetupSteps`; `mountFrame`'s closure; the leftovers of ADR 0038's flows (`checkMapping`, the
+scaffold's theme in a handler, the MCP endpoint built twice, `designTokensSide` used only by its
+test, `server.test.ts`'s socket tests that `ProjectTest` could run).
+
+## Built

@@ -3,7 +3,8 @@
 The names this repository's modules are given, for the concepts they own. The decisions behind
 them are in `docs/adr/`; [ADR 0037](docs/adr/0037-deep-modules.md) says why each concept has one
 module, and [ADR 0038](docs/adr/0038-deep-modules-second-review.md) gives the ones it left
-half-done theirs.
+half-done theirs, and [ADR 0039](docs/adr/0039-deep-modules-third-review.md) the ones a third
+review found.
 
 ## Design
 
