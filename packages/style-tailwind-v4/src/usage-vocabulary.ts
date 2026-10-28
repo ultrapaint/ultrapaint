@@ -151,7 +151,11 @@ export const ELEMENT_COMPONENTS: Record<string, readonly string[]> = {
   textarea: ["Textarea"],
 };
 
-/** `#ABC` → `#aabbcc`; functional colours lower-cased with single spaces. */
+/**
+ * How the inventory lists a colour written out, so one written two ways counts once: `#ABC` →
+ * `#aabbcc`, a colour function lower-cased with single spaces. The token that holds it is the
+ * token table's to find.
+ */
 export const normaliseColor = (value: string) => {
   const v = value.trim().toLowerCase();
   if (HEX_RE.test(v) && (v.length === 4 || v.length === 5)) {

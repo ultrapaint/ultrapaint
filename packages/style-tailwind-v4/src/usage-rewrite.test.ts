@@ -204,4 +204,26 @@ describe("the rules of the mapping", () => {
       "element button → Button",
     ]);
   });
+
+  it("takes the first token that holds a value, in the design system's order", () => {
+    const twice: DesignSystem = {
+      ...designSystem,
+      radius: [{ name: "radius-card", value: "8px" }, ...designSystem.radius],
+    };
+    const suggested = usage.suggest(
+      [
+        {
+          count: 1,
+          examples: [],
+          files: 1,
+          kind: "radius",
+          locations: [],
+          status: "raw",
+          value: "0.5rem",
+        },
+      ],
+      twice
+    );
+    expect(suggested.map((s) => s.target)).toEqual(["radius-card"]);
+  });
 });

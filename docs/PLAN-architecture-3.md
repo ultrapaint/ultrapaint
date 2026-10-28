@@ -255,3 +255,33 @@ test, `server.test.ts`'s socket tests that `ProjectTest` could run).
    its number; left out are the breakpoints, margins, minimum and maximum sizes, layout, line
    height, tracking, font family, text align, a side's border or a corner's radius, and a value
    a property starts at, which the writer does not write.
+4. **The token with this value** (`packages/contracts/src/token-table.ts`). `tokensByValue(tokens)`
+   is a lookup, `(kind, value)`, of every token of the kind that holds the value by token-value's
+   notion of the same value, in the order the tokens were given (a design system's is
+   `listedTokens`'s or `tokensOfKind`'s); a token's kind is its own where it says one (Sync's
+   `SourceToken`), else its name's. Each token's value is read once and a value asked for again is
+   answered from what was found: `sameValue` is now its two halves, `comparable` (the value read,
+   a colour's sRGB worked out once) and `sameAs`, which the lookup calls. Each caller keeps only
+   its tie-break: Figma's `makeTokenMatcher` takes the first colour token, and its `normaliseColor`
+   (sRGB only, exact) goes; the usage inventory's `knownOf` has `colorsByValue` in place of
+   `colorByValue` (text normalised, exact) and takes the first, `normaliseColor` staying only as
+   how it lists a colour written out (the mapping's key); the usage rewrite's `tokenOfLength`
+   (pixels, exact), its weights' trimmed text and its shadows' `sameValue` go for one rule over
+   the design system's tokens, read once per `suggest`, the first; Sync's `matchByValue` asks the
+   lookup and keeps one match only. On the web, `isArbitraryClass` (a `[` in a class) went: a
+   field's values are document values since the inspector stopped writing classes, so a raw `13`
+   or `#ff0000` was never marked. `isOutsideDesignSystem` says a value is outside when it is set,
+   no token reference (`$…`) and none of the field's options (`16px` read as the spacing step
+   `16`); `ValueField` gives it to the style combobox as `outside`, which marks the field and a
+   typed value ("Use arbitrary"), and no longer checks the options, which never are. Also: an
+   oklch token now matches a Figma hex of the same colour (decided 2026-10-28), `bg-[#2b7fff]` is
+   Tailwind's `blue-500` in the inventory as in Sync, and Figma and the inventory take a colour
+   within a step of 255 per channel (`#3b82f7` finds a token of `#3b82f6`), the rewrite a length
+   within a hundredth of a pixel and a zero as any zero, as `sameValue` always did. A table test
+   in `token-table.test.ts`: a hex and an oklch of one colour (both, in order), a named colour, an
+   alpha, rem against px, a shadow spaced and cased otherwise, a weight, a kind mismatch, a kind a
+   token says. Each caller's test checks its policy: the inventory's (the first of an oklch and a
+   hex token) and Figma's (an `oklch(1 0 0)` token before a `#FFF` one) failed first, taking the
+   hex token after it and the palette's white; the rewrite's takes the first of two radii; Sync's
+   is `design-system-sync-rules`' one value. `value-field.test.ts` failed first (no check read a
+   value); `normaliseColor`'s test in figma-import goes.

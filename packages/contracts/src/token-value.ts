@@ -3,8 +3,9 @@
  * something else, with the one notion of "the same value" everything that compares tokens uses
  * (ADR 0025): `#3b82f6` and `oklch(0.623 0.188 259.8)` are one colour, `12px` and `0.75rem` one
  * length, `1s` and `1000ms` one duration. Sync, DESIGN.md's mirror, the code's agreement and the
- * setup's rules all compare through `sameValue`; DTCG, DESIGN.md and Tailwind read values through
- * `parseValue` and keep only their formats' own encodings.
+ * setup's rules all compare through `sameValue`, and the token table finds the tokens that hold a
+ * value through `comparable` and `sameAs`, its two halves; DTCG, DESIGN.md and Tailwind read
+ * values through `parseValue` and keep only their formats' own encodings.
  *
  * A colour keeps the space it is written in and its channels in that space's own ranges, as CSS
  * gives a percentage of them and as the DTCG format keeps them: sRGB's from 0 to 1 (hex, names,
@@ -611,29 +612,55 @@ const isZero = (v: TokenValue) =>
   (v.kind === "number" || v.kind === "length" || v.kind === "duration") &&
   v.value === 0;
 
-const sameParsed = (a: TokenValue, b: TokenValue): boolean => {
-  if (a.kind === "color" && b.kind === "color") {
-    const ca = toSrgb(a);
-    const cb = toSrgb(b);
+/**
+ * A value read once to be compared with many: what `sameValue` compares, so a list of tokens is
+ * read once and not for every value it is held against (the token table's `tokensByValue`).
+ */
+export interface Comparable {
+  /** A colour's four sRGB channels, its alpha last; null for anything else. */
+  readonly srgb: readonly [number, number, number, number] | null;
+  /** Its text but for case, spacing and `0px` for `0`. */
+  readonly text: string;
+  readonly value: TokenValue;
+}
+
+/** A value read to be compared, `sameAs` with another. */
+export const comparable = (css: string): Comparable => {
+  const value = parseValue(css);
+  return {
+    srgb: value.kind === "color" ? toSrgb(value) : null,
+    text: normalised(css),
+    value,
+  };
+};
+
+const sameParsed = (a: Comparable, b: Comparable): boolean => {
+  if (a.srgb && b.srgb) {
+    const cb = b.srgb;
     // One step of 255 either way is rounding, not a different colour.
-    return ca.every((n, i) => Math.abs(n - (cb[i] ?? 0)) <= 1.5 / 255);
+    return a.srgb.every((n, i) => Math.abs(n - (cb[i] ?? 0)) <= 1.5 / 255);
   }
-  if (a.kind === "length" && b.kind === "length") {
-    const pa = toPx(a);
-    const pb = toPx(b);
+  const [va, vb] = [a.value, b.value];
+  if (va.kind === "length" && vb.kind === "length") {
+    const pa = toPx(va);
+    const pb = toPx(vb);
     if (pa !== null && pb !== null) {
       return Math.abs(pa - pb) < 0.01;
     }
-    return a.unit === b.unit && Math.abs(a.value - b.value) < 0.0001;
+    return va.unit === vb.unit && Math.abs(va.value - vb.value) < 0.0001;
   }
-  if (a.kind === "duration" && b.kind === "duration") {
-    return Math.abs(ms(a) - ms(b)) < 0.01;
+  if (va.kind === "duration" && vb.kind === "duration") {
+    return Math.abs(ms(va) - ms(vb)) < 0.01;
   }
-  if (a.kind === "number" && b.kind === "number") {
-    return Math.abs(a.value - b.value) < 0.0001;
+  if (va.kind === "number" && vb.kind === "number") {
+    return Math.abs(va.value - vb.value) < 0.0001;
   }
   return false;
 };
+
+/** Whether two values read by `comparable` come to the same thing, as `sameValue` says. */
+export const sameAs = (a: Comparable, b: Comparable): boolean =>
+  (isZero(a.value) && isZero(b.value)) || sameParsed(a, b) || a.text === b.text;
 
 /**
  * Whether two token values come to the same thing: one colour within a step of 255 per channel
@@ -643,17 +670,10 @@ const sameParsed = (a: TokenValue, b: TokenValue): boolean => {
 export const sameValue = (
   a: string | undefined,
   b: string | undefined
-): boolean => {
-  if (a === undefined || b === undefined) {
-    return a === b;
-  }
-  const pa = parseValue(a);
-  const pb = parseValue(b);
-  if (isZero(pa) && isZero(pb)) {
-    return true;
-  }
-  return sameParsed(pa, pb) || normalised(a) === normalised(b);
-};
+): boolean =>
+  a === undefined || b === undefined
+    ? a === b
+    : sameAs(comparable(a), comparable(b));
 
 /**
  * A source's value (Figma's) written the way the token is written now, in the design system or

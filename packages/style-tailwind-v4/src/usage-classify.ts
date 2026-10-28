@@ -7,7 +7,13 @@ import type {
   UsageKind,
   UsageStatus,
 } from "@ultrapaint/contracts/design-system-setup";
-import { spacingStepOf } from "@ultrapaint/contracts/token-table";
+import {
+  type ListedToken,
+  spacingStepOf,
+  tokensByValue,
+  tokensOfKind,
+  type ValueLookup,
+} from "@ultrapaint/contracts/token-table";
 import type {
   UsageContext,
   UsageOccurrence,
@@ -101,9 +107,9 @@ export interface Classified {
 }
 
 export interface Known {
-  /** Each colour value, normalised, and the first colour token that has it. */
-  readonly colorByValue: Map<string, string>;
   readonly colors: Set<string>;
+  /** The colour tokens that hold a colour, in the design system's order. */
+  readonly colorsByValue: ValueLookup<ListedToken>;
   readonly layers: Set<string>;
   readonly radii: Set<string>;
   readonly shadows: Set<string>;
@@ -122,24 +128,10 @@ export const knownOf = (
   const keep = (name: string) => mine === null || mine.has(name);
   const names = (tokens: readonly { readonly name: string }[] | undefined) =>
     new Set((tokens ?? []).map((t) => t.name).filter(keep));
-  const colorTokens = new Map<string, string>();
-  for (const group of ds.colors) {
-    for (const token of group.tokens) {
-      if (keep(token.name)) {
-        colorTokens.set(token.name, token.value);
-      }
-    }
-  }
-  const colorByValue = new Map<string, string>();
-  for (const [name, value] of colorTokens) {
-    const normalised = normaliseColor(value);
-    if (!colorByValue.has(normalised)) {
-      colorByValue.set(normalised, name);
-    }
-  }
+  const colorTokens = tokensOfKind(ds, "color").filter((t) => keep(t.name));
   return {
-    colorByValue,
-    colors: new Set(colorTokens.keys()),
+    colors: new Set(colorTokens.map((t) => t.name)),
+    colorsByValue: tokensByValue(colorTokens),
     layers: new Set(
       (ds.elevation ?? []).flatMap((level) =>
         level.layer === undefined ? [] : [String(level.layer)]
@@ -154,15 +146,14 @@ export const knownOf = (
 };
 
 const rawColor = (known: Known, literal: string): Classified => {
-  const value = normaliseColor(literal);
-  // The colour token whose value is exactly this literal.
-  const token = known.colorByValue.get(value);
+  // The first colour token that holds it, in whatever space either is written.
+  const [token] = known.colorsByValue("color", literal);
   return {
     kind: "color",
     literal: literal.trim(),
     status: "raw",
-    value,
-    ...(token !== undefined && { token }),
+    value: normaliseColor(literal),
+    ...(token !== undefined && { token: token.name }),
   };
 };
 

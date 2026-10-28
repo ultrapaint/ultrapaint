@@ -17,7 +17,10 @@ review found.
   **spacing scale** is the base's multiples: a **step** (`spacing-4`, a class's `p-4`) is 4 × the
   base, which no list holds and only a named spacing (`spacing-gutter`) overrides; the **named
   steps** are the ones a designer is offered. A token's **short name** is its name without its
-  kind's prefix (`card` for `color-card`).
+  kind's prefix (`card` for `color-card`). **The tokens with a value** are the tokens of a kind
+  that hold it, by the token value's notion of the same value, in the design's order
+  (`tokensByValue`); which of several to take is the caller's (Figma and the usage inventory the
+  first, Sync only one).
 - **Token value**: what a token holds, read as a colour, a length, a duration, a number or text
   (contracts' `token-value`), with one notion of the same value, a length in pixels, and the
   code's `var()` and `calc()` worked out.

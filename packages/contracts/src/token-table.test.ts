@@ -23,6 +23,7 @@ import {
   tokenKindOf,
   tokenOf,
   tokenPrefix,
+  tokensByValue,
   tokensOfKind,
   withEmptyValues,
   withTokenChanges,
@@ -329,5 +330,47 @@ describe("the spacing scale", () => {
     expect(spacingLength("4px", 2.5)).toBe("10px");
     expect(spacingLength(undefined, 4)).toBe("1rem");
     expect(spacingLength("var(--x)", 4)).toBeNull();
+  });
+});
+
+describe("the tokens with a value", () => {
+  it("finds every token of the kind that holds it, in the order given, by the one notion of the same value", () => {
+    const ds = addTokens(emptyDesignSystem(), [
+      { name: "color-primary", value: "oklch(62.3% 0.214 259.815)" },
+      { name: "color-blue-500", value: "#2b7fff" },
+      { name: "color-white", value: "white" },
+      { name: "color-overlay", value: "rgb(0 0 0 / 0.5)" },
+      { name: "radius-md", value: "0.375rem" },
+      { name: "spacing-gutter", value: "6px" },
+      { name: "shadow-md", value: "0 4px 6px rgb(0 0 0 / 0.1)" },
+      { name: "font-weight-bold", value: "700" },
+    ]);
+    const byValue = tokensByValue(listedTokens(ds));
+    const names = (kind: Parameters<typeof byValue>[0], value: string) =>
+      byValue(kind, value).map((t) => t.name);
+
+    // A hex and an oklch() of one colour, both, in the design's order.
+    expect(names("color", "#2B7FFF")).toEqual([
+      "color-primary",
+      "color-blue-500",
+    ]);
+    expect(names("color", "#fff")).toEqual(["color-white"]);
+    expect(names("color", "#00000080")).toEqual(["color-overlay"]);
+    expect(names("color", "#2563eb")).toEqual([]);
+    // A length in pixels against rem; a kind is its own.
+    expect(names("radius", "6px")).toEqual(["radius-md"]);
+    expect(names("spacing", "0.375rem")).toEqual(["spacing-gutter"]);
+    expect(names("fontSize", "6px")).toEqual([]);
+    expect(names("shadow", "0 4px  6px RGB(0 0 0 / 0.1)")).toEqual([
+      "shadow-md",
+    ]);
+    expect(names("fontWeight", "700.0")).toEqual(["font-weight-bold"]);
+    // A token that says its kind is of that kind, whatever its name.
+    expect(
+      tokensByValue([{ kind: "radius", name: "rounded", value: "4px" }])(
+        "radius",
+        "0.25rem"
+      ).map((t) => t.name)
+    ).toEqual(["rounded"]);
   });
 });

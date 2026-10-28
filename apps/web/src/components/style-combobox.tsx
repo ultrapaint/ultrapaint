@@ -16,7 +16,7 @@ export interface StyleOption {
   description?: string;
   label: string;
   preview?: React.ReactNode;
-  /** The class the option writes, e.g. `pt-4`. */
+  /** The value the option sets, e.g. `$color-primary` or `16`. */
   value: string;
 }
 
@@ -24,16 +24,6 @@ interface Item extends StyleOption {
   /** Built from the query rather than taken from the design system's options. */
   custom?: boolean;
 }
-
-// Leading variants, which may hold brackets of their own: `group-data-[size=sm]:hover:`.
-const VARIANTS_RE = /^(?:[^:[\]]*(?:\[[^\]]*\])?[^:[\]]*:)+/;
-
-/**
- * `p-[13px]`, `hover:bg-[#ff0000]`, `[mask-type:alpha]`: a value outside the design system's
- * scale. Brackets in a variant alone (`group-data-[size=sm]:px-4`) don't count.
- */
-const isArbitraryClass = (cls: string | undefined): boolean =>
-  cls ? cls.replace(VARIANTS_RE, "").includes("[") : false;
 
 const ArbitraryDot = ({ className }: { className?: string }) => (
   <span
@@ -47,9 +37,9 @@ const matches = (o: StyleOption, q: string) =>
 
 interface StyleComboboxProps {
   className?: string;
-  /** The class currently setting the value, if any. */
+  /** The value currently set, if any. */
   current: string | undefined;
-  /** Class for a free-form query, or null when the query can't become one. */
+  /** Value for a free-form query, or null when the query can't become one. */
   custom?: (query: string) => string | null;
   disabled?: boolean;
   /** Text shown while closed when `current` is not one of the options, e.g. the computed value. */
@@ -62,6 +52,8 @@ interface StyleComboboxProps {
   leading?: React.ReactNode;
   onPick: (cls: string) => void;
   options: readonly StyleOption[];
+  /** Whether a value is outside the design system, marked so; none is when it is left out. */
+  outside?: (value: string) => boolean;
   title?: string;
 }
 
@@ -69,9 +61,9 @@ interface StyleComboboxProps {
 type Activation = "focus" | "open";
 
 /**
- * Searchable field over the classes a style can take. The list is the design system's options;
- * when the query matches none of them, `custom` turns it into a class (usually arbitrary) offered
- * last and marked, so the defined values stay the easy path.
+ * Searchable field over the values a style can take. The list is the design system's options;
+ * when the query matches none of them, `custom` turns it into a value offered last, and marked
+ * when it is `outside` the design system, so the defined values stay the easy path.
  *
  * It is drawn as a plain field that looks the same until it is focused or clicked: the inspector
  * shows thirty of them and is drawn again for each selection, and a combobox is costly to set up
@@ -101,6 +93,7 @@ const IdleCombobox = ({
   leading,
   onActivate,
   options,
+  outside,
   title,
 }: StyleComboboxProps & { onActivate: (how: Activation) => void }) => {
   const selected = options.find((o) => o.value === current) ?? null;
@@ -143,7 +136,7 @@ const IdleCombobox = ({
             {hint}
           </span>
         ) : null}
-        {isArbitraryClass(current) ? <ArbitraryDot /> : null}
+        {current && outside?.(current) ? <ArbitraryDot /> : null}
         <button
           aria-label="Open"
           className={TRIGGER_CLASS}
@@ -171,6 +164,7 @@ const ActiveCombobox = ({
   leading,
   onPick,
   options,
+  outside,
   title,
 }: StyleComboboxProps & { activated: Activation }) => {
   const [open, setOpen] = useState(activated === "open");
@@ -183,7 +177,7 @@ const ActiveCombobox = ({
   }, []);
   const [query, setQuery] = useState("");
   const selected = options.find((o) => o.value === current) ?? null;
-  const arbitrary = isArbitraryClass(current);
+  const arbitrary = current ? (outside?.(current) ?? false) : false;
 
   const q = query.trim().toLowerCase();
   let items: Item[] = q ? options.filter((o) => matches(o, q)) : [...options];
@@ -287,7 +281,10 @@ const ActiveCombobox = ({
               value={item}
             >
               {item.custom ? (
-                <ArbitraryItem item={item} />
+                <ArbitraryItem
+                  arbitrary={outside?.(item.value) ?? false}
+                  item={item}
+                />
               ) : (
                 <Option item={item} />
               )}
@@ -306,22 +303,24 @@ const Option = ({ item }: { item: StyleOption }) => (
     <span className="ml-auto flex items-center gap-1.5 pl-3 font-code text-muted-foreground">
       {item.description ? <span>{item.description}</span> : null}
       {item.description === item.value ? null : <span>{item.value}</span>}
-      {isArbitraryClass(item.value) ? <ArbitraryDot /> : null}
     </span>
   </>
 );
 
-const ArbitraryItem = ({ item }: { item: Item }) => {
-  const arbitrary = isArbitraryClass(item.value);
-  return (
-    <>
-      {arbitrary ? <ArbitraryDot /> : null}
-      <span className={cn("truncate", arbitrary && "text-warning")}>
-        {arbitrary ? "Use arbitrary" : "Use"}
-      </span>
-      <span className="ml-auto pl-3 font-code text-muted-foreground">
-        {item.value}
-      </span>
-    </>
-  );
-};
+const ArbitraryItem = ({
+  arbitrary,
+  item,
+}: {
+  arbitrary: boolean;
+  item: Item;
+}) => (
+  <>
+    {arbitrary ? <ArbitraryDot /> : null}
+    <span className={cn("truncate", arbitrary && "text-warning")}>
+      {arbitrary ? "Use arbitrary" : "Use"}
+    </span>
+    <span className="ml-auto pl-3 font-code text-muted-foreground">
+      {item.value}
+    </span>
+  </>
+);
