@@ -22,6 +22,7 @@
 import { Schema } from "effect";
 import { CodeLocation, NewDesignStep } from "./new-design.ts";
 import { ScaffoldTemplate } from "./setup.ts";
+import { BuiltInAgentId } from "./threads.ts";
 
 /**
  * What the shell is doing for the open project that the editor cannot see: reconnecting to the
@@ -65,10 +66,6 @@ export const ShellNotice = Schema.Struct({
 });
 export type ShellNotice = typeof ShellNotice.Type;
 
-/** The agents the desktop app brings an adapter for, as the server's agents name them. */
-export const MachineAgentId = Schema.Literals(["claude-code", "codex"]);
-export type MachineAgentId = typeof MachineAgentId.Type;
-
 /** How an agent stands on this machine, as the shell found it. */
 export const PlatformAgent = Schema.Struct({
   /** Whether the shell keeps an API key for it, which it signs in with (Claude Code). */
@@ -93,15 +90,16 @@ export const PlatformAgent = Schema.Struct({
     })
   ),
   executable: Schema.optional(Schema.String),
-  id: MachineAgentId,
+  /** The built-in agents are the ones the desktop app brings an adapter for. */
+  id: BuiltInAgentId,
   /** Where to read how to install it. */
   install: Schema.String,
   name: Schema.String,
   /**
-   * How it signs in: by itself, in a terminal (Claude Code, which may not be signed in from
-   * here), or with ChatGPT through the shell (Codex).
+   * What the shell can sign it in with, through its adapter (`ChatGPT` for Codex); absent, it
+   * signs in by itself, in a terminal (Claude Code, which may not be signed in from here).
    */
-  signIn: Schema.optional(Schema.Literals(["terminal", "chatgpt"])),
+  signInWith: Schema.optional(Schema.String),
   /** Where the executable came from: the PATH, the shell's settings, or the shell's download. */
   source: Schema.optional(Schema.Literals(["path", "setting", "download"])),
   /** `ready`: found and signed in; `signed-out`: found; `missing`: not found. */
@@ -253,21 +251,21 @@ const state = <Value extends Schema.Constraint>(
  */
 export const SHELL_BRIDGE = {
   /** Picks the agent's executable with the shell's own dialog; the server starts again. */
-  "agents.choosePath": invoke([MachineAgentId], Schema.Void, LOCAL),
+  "agents.choosePath": invoke([BuiltInAgentId], Schema.Void, LOCAL),
   /** Goes back to the agent on the PATH; the server starts again. */
-  "agents.clearPath": invoke([MachineAgentId], Schema.Void, LOCAL),
+  "agents.clearPath": invoke([BuiltInAgentId], Schema.Void, LOCAL),
   /** Downloads the release `download` names; done once it is installed. */
-  "agents.download": invoke([MachineAgentId], Schema.Void, LOCAL),
+  "agents.download": invoke([BuiltInAgentId], Schema.Void, LOCAL),
   /** How each agent stands on this machine. */
   "agents.list": invoke([], Schema.Array(PlatformAgent), LOCAL),
   /** Keeps the key the agent signs in with; `null` forgets it. The server starts again. */
   "agents.setApiKey": invoke(
-    [MachineAgentId, Schema.NullOr(Schema.String)],
+    [BuiltInAgentId, Schema.NullOr(Schema.String)],
     Schema.Void,
     LOCAL
   ),
   /** Signs in through the shell (`chatgpt`): the browser opens, and this ends once it is done. */
-  "agents.signIn": invoke([MachineAgentId], Schema.Void, LOCAL),
+  "agents.signIn": invoke([BuiltInAgentId], Schema.Void, LOCAL),
   /**
    * Writes a new design, telling the listener how each step goes, then opens it in place of the
    * open project, which the shell stops (asking first when an agent is working). Answers with the

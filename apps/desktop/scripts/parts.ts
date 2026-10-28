@@ -14,6 +14,7 @@ import {
 } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { BUILT_IN_AGENTS, type BuiltInAgent } from "@ultrapaint/acp/built-in";
 import { build } from "esbuild";
 
 export const desktopDir = path.resolve(import.meta.dirname, "..");
@@ -113,43 +114,37 @@ export const buildWeb = () => {
 /**
  * The built-in agents' ACP adapters, each bundled into one file (PLAN-desktop D8), with the
  * script that starts them on Electron's binary. The agents' own native binaries are left out
- * (`ignoredOptionalDependencies`): they are the user's, or downloaded when asked for.
+ * (`ignoredOptionalDependencies`, and the packages each descriptor names): they are the user's,
+ * or downloaded when asked for.
  */
-export const ADAPTERS = {
-  "claude-agent-acp": "@agentclientprotocol/claude-agent-acp/dist/index.js",
-  "codex-acp": "@agentclientprotocol/codex-acp/dist/index.js",
-} as const;
-
 export const buildAdapters = async () => {
   const out = path.join(appDir, "adapters");
   const require = createRequire(path.join(desktopDir, "package.json"));
   mkdirSync(out, { recursive: true });
-  const bundleOne = async (name: string, entry: string) => {
-    const source = require.resolve(entry);
+  const bundleOne = async ({ adapter }: BuiltInAgent) => {
+    const source = require.resolve(`${adapter.package}/${adapter.entry}`);
     // Codex's adapter is a bundle already, with its own `require`; Claude's is plain ESM.
     const bundled = readFileSync(source, "utf8").includes("__createRequire");
     await build({
       ...(bundled ? {} : { banner: { js: requireBanner } }),
       bundle: true,
       entryPoints: [source],
-      external: ["@anthropic-ai/claude-agent-sdk-*", "@openai/codex-*"],
+      external: [...adapter.external],
       format: "esm",
       legalComments: "none",
       logLevel: "error",
       minify: true,
-      outfile: path.join(out, `${name}.mjs`),
+      outfile: path.join(out, `${adapter.bundle}.mjs`),
       platform: "node",
       target: "node24",
     });
     // Its licence goes with it.
     cpSync(
       path.join(path.dirname(source), "..", "LICENSE"),
-      path.join(out, `${name}.LICENSE`)
+      path.join(out, `${adapter.bundle}.LICENSE`)
     );
   };
-  await Promise.all(
-    Object.entries(ADAPTERS).map(([name, entry]) => bundleOne(name, entry))
-  );
+  await Promise.all(Object.values(BUILT_IN_AGENTS).map(bundleOne));
   await build({
     bundle: true,
     entryPoints: [path.join(desktopDir, "src", "adapter-run.ts")],

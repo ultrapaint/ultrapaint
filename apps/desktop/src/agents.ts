@@ -2,7 +2,9 @@
  * The built-in agents as the app runs them (PLAN-desktop D8): their ACP adapters bundled into
  * the app and started on Electron's own binary, each told where its agent is. The agent is found
  * as T3 Code finds it: at the path set in the app's settings, or on the login shell's PATH. Its
- * sign-in is asked of the agent itself, so the editor can say which agents are ready.
+ * sign-in is asked of the agent itself, so the editor can say which agents are ready. What each
+ * agent is (its program, adapter, sign-in, key and variables) is its descriptor in acp's
+ * `built-in`; nothing here names one.
  *
  * The servers the app starts are handed the runtime (`ULTRAPAINT_AGENT_RUNTIME`), asked again at
  * each start, so a change applies to the next start of a project.
@@ -11,11 +13,16 @@ import { realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { type AcpHandlers, spawnAcpAgent } from "@ultrapaint/acp/acp-agent";
+import {
+  BUILT_IN_AGENTS,
+  type BuiltInAgent,
+  type BuiltInAgents,
+  type ExecutableSource,
+  type SignInAnswer,
+} from "@ultrapaint/acp/built-in";
 import type { AgentRuntime, RuntimeAgent } from "@ultrapaint/acp/runtime";
-import type {
-  MachineAgentId,
-  PlatformAgent,
-} from "@ultrapaint/contracts/shell-bridge";
+import type { PlatformAgent } from "@ultrapaint/contracts/shell-bridge";
+import type { BuiltInAgentId } from "@ultrapaint/contracts/threads";
 import { Context, Effect, Layer, Option, Schema } from "effect";
 import { ChildProcessSpawner } from "effect/process";
 import { AgentDownloads, DownloadError } from "./agent-downloads.ts";
@@ -25,36 +32,6 @@ import type { StoreError } from "./errors.ts";
 import { LoginShell } from "./login-shell.ts";
 import { type SecretError, Secrets } from "./secrets.ts";
 import { findExecutable, isExecutable } from "./which.ts";
-
-/** The built-in agents the app brings an adapter for. */
-export const AGENTS = {
-  "claude-code": {
-    adapter: "claude-agent-acp.mjs",
-    /** claude-agent-acp's `claudeCliPath()` takes it before its own SDK's binary. */
-    executableEnv: "CLAUDE_CODE_EXECUTABLE",
-    install: "https://code.claude.com/docs/en/setup",
-    name: "Claude Code",
-    program: "claude",
-    /**
-     * No sign-in button: a third-party product may not offer claude.ai sign-in without
-     * Anthropic's approval. The user signs in with Claude Code itself, or gives an API key.
-     */
-    signIn:
-      "Sign in with Claude Code: run `claude` once in a terminal, or give an API key below.",
-  },
-  codex: {
-    adapter: "codex-acp.mjs",
-    /** codex-acp runs it in place of the `@openai/codex` it depends on. */
-    executableEnv: "CODEX_PATH",
-    install: "https://developers.openai.com/codex/cli",
-    name: "Codex",
-    program: "codex",
-    signIn: "Sign in with ChatGPT below, or run `codex login` in a terminal.",
-  },
-} as const satisfies Record<MachineAgentId, unknown>;
-/** One of the agents the editor's `Platform` names (`MachineAgentId`). */
-export type AgentId = keyof typeof AGENTS;
-export const AGENT_IDS = Object.keys(AGENTS) as AgentId[];
 
 /** Where the app's own parts are. */
 export interface AppLayout {
@@ -93,28 +70,28 @@ export interface FoundAgent {
 }
 
 /**
- * The runtime for the agents found: each adapter, told where its agent is; an agent not found
- * still gets its adapter, which then fails to start with `hints`' word on how to install it.
+ * The runtime for the agents found: each built-in agent's adapter, told where its agent is; an
+ * agent not found still gets its adapter, which then fails to start with `hints`' word on how to
+ * install it.
  */
 export const makeRuntime = (
   layout: AppLayout,
-  found: Readonly<Partial<Record<AgentId, FoundAgent>>>,
-  hints: Readonly<Partial<Record<AgentId, string>>> = {}
+  found: Readonly<Partial<Record<BuiltInAgentId, FoundAgent>>>,
+  hints: Readonly<Partial<Record<BuiltInAgentId, string>>> = {},
+  agents: BuiltInAgents = BUILT_IN_AGENTS
 ): AgentRuntime => {
-  const agents: Record<string, RuntimeAgent> = {};
-  for (const id of AGENT_IDS) {
-    const agent = found[id];
-    const hint = hints[id];
-    agents[id] = {
-      adapter: path.join(layout.adaptersDir, AGENTS[id].adapter),
-      env: agent
-        ? { ...agent.env, [AGENTS[id].executableEnv]: agent.executable }
-        : {},
+  const adapters: Record<string, RuntimeAgent> = {};
+  for (const agent of Object.values(agents)) {
+    const at = found[agent.id];
+    const hint = hints[agent.id];
+    adapters[agent.id] = {
+      adapter: path.join(layout.adaptersDir, `${agent.adapter.bundle}.mjs`),
+      env: at ? { ...at.env, [agent.executable.env]: at.executable } : {},
       ...(hint === undefined ? {} : { hint }),
     };
   }
   return {
-    agents,
+    agents: adapters,
     node: layout.node,
     reads: [
       ...new Set([
@@ -135,53 +112,9 @@ export type Located =
   | {
       readonly _tag: "Found";
       readonly executable: string;
-      readonly source: "path" | "setting" | "download";
+      readonly source: ExecutableSource;
     }
   | { readonly _tag: "Missing"; readonly reason: string };
-
-const ClaudeAuth = Schema.fromJsonString(
-  Schema.Struct({
-    authMethod: Schema.optional(Schema.String),
-    loggedIn: Schema.Boolean,
-  })
-);
-const decodeClaudeAuth = Schema.decodeUnknownOption(ClaudeAuth);
-
-/** What `claude auth status` says, as a sign-in: its JSON, or failing that its exit code. */
-export const claudeSignIn = (result: {
-  readonly exitCode: number;
-  readonly stdout: string;
-}) =>
-  Option.match(decodeClaudeAuth(result.stdout.trim()), {
-    onNone: () => ({ how: undefined, signedIn: result.exitCode === 0 }),
-    onSome: (auth) => ({
-      how:
-        {
-          api_key: "with an API key",
-          "claude.ai": "with claude.ai",
-          none: undefined,
-        }[auth.authMethod ?? "none"] ?? auth.authMethod,
-      signedIn: auth.loggedIn,
-    }),
-  });
-
-const LOGGED_IN_RE = /^Logged in using (.+)$/;
-
-/** What `codex login status` says: signed in when it exits 0, and how, in its own words. */
-export const codexSignIn = (result: {
-  readonly exitCode: number;
-  readonly stderr: string;
-  readonly stdout: string;
-}) => {
-  const line = `${result.stdout}\n${result.stderr}`
-    .split("\n")
-    .map((l) => LOGGED_IN_RE.exec(l.trim()))
-    .find((match) => match !== null);
-  return {
-    how: result.exitCode === 0 && line?.[1] ? `with ${line[1]}` : undefined,
-    signedIn: result.exitCode === 0,
-  };
-};
 
 const VERSION_RE = /\d+\.\d+\.\d+[\w.-]*/;
 
@@ -216,33 +149,57 @@ const refusing: AcpHandlers = {
 /** How long the user has to sign in, in the browser, before the app gives up waiting. */
 const SIGN_IN_TIMEOUT = "10 minutes";
 
+/**
+ * What a signed-out agent's status tells the user to do: sign in through the app where its
+ * adapter can, else by themselves; or give a key here, or in their shell where no keychain could
+ * keep one.
+ */
+export const signInHint = (agent: BuiltInAgent, keychain: boolean) => {
+  const { adapter, yourself } = agent.signIn;
+  const signIn = adapter
+    ? `Sign in with ${adapter.with} below, or ${yourself}`
+    : `Sign in with ${agent.name}: ${yourself}`;
+  if (agent.apiKeyEnv === undefined) {
+    return `${signIn}.`;
+  }
+  return keychain
+    ? `${signIn}, or give an API key below.`
+    : `${signIn}, or set ${agent.apiKeyEnv} in your shell's startup file.`;
+};
+
 export class Agents extends Context.Service<
   Agents,
   {
     /** Downloads the agent's pinned release into the app's data (D8): the executable. */
-    readonly download: (id: AgentId) => Effect.Effect<string, DownloadError>;
+    readonly download: (
+      id: BuiltInAgentId
+    ) => Effect.Effect<string, DownloadError>;
     /** Where an agent's executable is, if anywhere. */
-    readonly locate: (id: AgentId) => Effect.Effect<Located>;
+    readonly locate: (id: BuiltInAgentId) => Effect.Effect<Located>;
     /** The runtime for the next server the app starts. */
     readonly runtime: Effect.Effect<AgentRuntime>;
     /**
-     * Keeps the key Claude Code signs in with, encrypted by the keychain; `undefined` forgets it.
-     * Given to Claude Code's adapter alone, as `ANTHROPIC_API_KEY`.
+     * Keeps the key an agent signs in with (Claude Code's), encrypted by the keychain;
+     * `undefined` forgets it. Given to its adapter alone, in the variable its descriptor names.
      */
     readonly setApiKey: (
-      id: AgentId,
+      id: BuiltInAgentId,
       key: string | undefined
     ) => Effect.Effect<void, StoreError | SecretError | SignInError>;
     /**
-     * Signs Codex in with ChatGPT through its adapter's own flow, which opens the browser; done
-     * once the user has.
+     * Signs an agent in through its adapter's own method (Codex's ChatGPT), which opens the
+     * browser; done once the user has.
      */
-    readonly signIn: (id: AgentId) => Effect.Effect<void, SignInError>;
+    readonly signIn: (id: BuiltInAgentId) => Effect.Effect<void, SignInError>;
     /** How each agent stands: found, signed in, or what can be done about it. */
     readonly status: Effect.Effect<readonly PlatformAgent[]>;
   }
 >()("ultrapaint/desktop/Agents") {
-  static readonly layer = (layout: AppLayout) =>
+  /** The built-in agents, or those a test describes. */
+  static readonly layer = (
+    layout: AppLayout,
+    agents: BuiltInAgents = BUILT_IN_AGENTS
+  ) =>
     Layer.effect(
       Agents,
       Effect.gen(function* () {
@@ -252,11 +209,14 @@ export class Agents extends Context.Service<
         const secrets = yield* Secrets;
         const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
         const searchPath = env.PATH ?? "";
-        const settingOf = (id: AgentId) =>
+        const all: readonly BuiltInAgent[] = Object.values(agents);
+        const settingOf = (id: BuiltInAgentId) =>
           Effect.orElseSucceed(settings.get(id), (): AgentSetting => ({}));
 
-        const locate = Effect.fn("Agents.locate")(function* (id: AgentId) {
-          const agent = AGENTS[id];
+        const locate = Effect.fn("Agents.locate")(function* (
+          id: BuiltInAgentId
+        ) {
+          const { program } = agents[id].executable;
           const setting = yield* settingOf(id);
           if (setting.path !== undefined) {
             return (yield* isExecutable(setting.path))
@@ -271,7 +231,7 @@ export class Agents extends Context.Service<
                 } as Located);
           }
           // The user's own first; the one the app downloaded only where there is none.
-          const onPath = yield* findExecutable(agent.program, searchPath);
+          const onPath = yield* findExecutable(program, searchPath);
           if (Option.isSome(onPath)) {
             return {
               _tag: "Found",
@@ -283,7 +243,7 @@ export class Agents extends Context.Service<
           return Option.match(downloaded, {
             onNone: (): Located => ({
               _tag: "Missing",
-              reason: `\`${agent.program}\` is not on your PATH.`,
+              reason: `\`${program}\` is not on your PATH.`,
             }),
             onSome: (executable): Located => ({
               _tag: "Found",
@@ -294,7 +254,7 @@ export class Agents extends Context.Service<
         });
 
         /** The key kept for the agent, decrypted; none when there is none or it cannot be read. */
-        const apiKeyOf = (id: AgentId) =>
+        const apiKeyOf = (id: BuiltInAgentId) =>
           Effect.flatMap(settingOf(id), (setting) =>
             setting.apiKey === undefined
               ? Effect.succeed(Option.none<string>())
@@ -312,7 +272,7 @@ export class Agents extends Context.Service<
           );
 
         /** What the settings can do for a missing agent: download it, and how far that got. */
-        const offerFor = Effect.fnUntraced(function* (id: AgentId) {
+        const offerFor = Effect.fnUntraced(function* (id: BuiltInAgentId) {
           const release = downloads.offer(id);
           const progress = yield* downloads.progress(id);
           return {
@@ -332,44 +292,38 @@ export class Agents extends Context.Service<
           };
         });
 
-        const signInOf = Effect.fnUntraced(function* (
-          id: AgentId,
-          executable: string
-        ) {
-          const auth =
-            id === "claude-code"
-              ? yield* ask(executable, ["auth", "status"])
-              : yield* ask(executable, ["login", "status"]);
-          return Option.match(auth, {
-            onNone: () => ({ how: undefined, signedIn: false }),
-            onSome: id === "claude-code" ? claudeSignIn : codexSignIn,
-          });
-        });
+        /** Asks the agent whether it is signed in, as its descriptor says to. */
+        const signInOf = (agent: BuiltInAgent, executable: string) =>
+          Effect.map(
+            ask(executable, agent.signIn.status),
+            Option.match({
+              onNone: (): SignInAnswer => ({ how: undefined, signedIn: false }),
+              onSome: agent.signIn.parse,
+            })
+          );
 
         /** What every status of the agent says, found or not. */
-        const commonOf = (id: AgentId, setting: AgentSetting) => ({
+        const commonOf = (agent: BuiltInAgent, setting: AgentSetting) => ({
           ...(setting.path === undefined ? {} : { customPath: setting.path }),
-          ...(id === "claude-code"
-            ? {
+          ...(agent.apiKeyEnv === undefined
+            ? {}
+            : {
                 apiKey: setting.apiKey !== undefined,
                 canKeepKey: secrets.available,
-              }
+              }),
+          id: agent.id,
+          install: agent.executable.install,
+          name: agent.name,
+          ...(agent.signIn.adapter
+            ? { signInWith: agent.signIn.adapter.with }
             : {}),
-          id,
-          install: AGENTS[id].install,
-          name: AGENTS[id].name,
-          signIn:
-            id === "claude-code" ? ("terminal" as const) : ("chatgpt" as const),
         });
 
         /** Whether a found agent is ready: its own sign-in, or the key kept for it. */
         const signInState = (
-          id: AgentId,
+          agent: BuiltInAgent,
           keyed: boolean,
-          answer: {
-            readonly how: string | undefined;
-            readonly signedIn: boolean;
-          }
+          answer: SignInAnswer
         ): Pick<PlatformAgent, "detail" | "state"> => {
           if (keyed) {
             return {
@@ -384,21 +338,22 @@ export class Agents extends Context.Service<
             };
           }
           // Without a keychain no key is kept here: the shell's own variable is the way.
-          const how =
-            id === "claude-code" && !secrets.available
-              ? "Sign in with Claude Code: run `claude` once in a terminal, or set ANTHROPIC_API_KEY in your shell's startup file."
-              : AGENTS[id].signIn;
-          return { detail: `Not signed in. ${how}`, state: "signed-out" };
+          return {
+            detail: `Not signed in. ${signInHint(agent, secrets.available)}`,
+            state: "signed-out",
+          };
         };
 
-        const statusOf = Effect.fn("Agents.statusOf")(function* (id: AgentId) {
-          const located = yield* locate(id);
-          const setting = yield* settingOf(id);
-          const common = commonOf(id, setting);
+        const statusOf = Effect.fn("Agents.statusOf")(function* (
+          agent: BuiltInAgent
+        ) {
+          const located = yield* locate(agent.id);
+          const setting = yield* settingOf(agent.id);
+          const common = commonOf(agent, setting);
           if (located._tag === "Missing") {
             return {
               ...common,
-              ...(yield* offerFor(id)),
+              ...(yield* offerFor(agent.id)),
               detail: `Not installed: ${located.reason}`,
               state: "missing",
             } satisfies PlatformAgent;
@@ -406,7 +361,7 @@ export class Agents extends Context.Service<
           const [version, signIn] = yield* Effect.all(
             [
               ask(located.executable, ["--version"]),
-              signInOf(id, located.executable),
+              signInOf(agent, located.executable),
             ],
             { concurrency: 2 }
           );
@@ -421,62 +376,61 @@ export class Agents extends Context.Service<
               { onNone: () => ({}), onSome: (v) => ({ version: v }) }
             ),
             ...signInState(
-              id,
-              id === "claude-code" && setting.apiKey !== undefined,
+              agent,
+              agent.apiKeyEnv !== undefined && setting.apiKey !== undefined,
               signIn
             ),
           } satisfies PlatformAgent;
         });
 
-        /** What an agent's adapter is told besides where the agent is. */
+        /** What an agent's adapter is told besides where the agent is: its key, its variables. */
         const envOf = Effect.fnUntraced(function* (
-          id: AgentId,
-          source: "path" | "setting" | "download"
+          agent: BuiltInAgent,
+          source: ExecutableSource
         ) {
-          if (id !== "claude-code") {
-            return {};
-          }
-          const key = yield* apiKeyOf(id);
+          const key =
+            agent.apiKeyEnv === undefined
+              ? Option.none<string>()
+              : yield* apiKeyOf(agent.id);
           return {
-            ...(Option.isSome(key) ? { ANTHROPIC_API_KEY: key.value } : {}),
-            // The release the app downloaded stays the one it checked: Claude Code updating
-            // itself would also put a launcher in the user's ~/.local/bin.
-            ...(source === "download" ? { DISABLE_AUTOUPDATER: "1" } : {}),
+            ...(agent.apiKeyEnv !== undefined && Option.isSome(key)
+              ? { [agent.apiKeyEnv]: key.value }
+              : {}),
+            ...agent.env?.[source],
           };
         });
 
         const runtime = Effect.gen(function* () {
-          const found: Partial<Record<AgentId, FoundAgent>> = {};
-          const hints: Partial<Record<AgentId, string>> = {};
-          for (const id of AGENT_IDS) {
-            const agent = AGENTS[id];
-            const located = yield* locate(id);
+          const found: Partial<Record<BuiltInAgentId, FoundAgent>> = {};
+          const hints: Partial<Record<BuiltInAgentId, string>> = {};
+          for (const agent of all) {
+            const located = yield* locate(agent.id);
             if (located._tag === "Found") {
-              found[id] = {
-                env: yield* envOf(id, located.source),
+              found[agent.id] = {
+                env: yield* envOf(agent, located.source),
                 executable: located.executable,
               };
             } else {
-              hints[id] =
-                `${agent.name} is not installed: ${located.reason} Install it (${agent.install}), download it or set where it is in Settings, under Agents.`;
+              hints[agent.id] =
+                `${agent.name} is not installed: ${located.reason} Install it (${agent.executable.install}), download it or set where it is in Settings, under Agents.`;
             }
           }
-          return makeRuntime(layout, found, hints);
+          return makeRuntime(layout, found, hints, agents);
         });
 
         const setApiKey = Effect.fn("Agents.setApiKey")(function* (
-          id: AgentId,
+          id: BuiltInAgentId,
           key: string | undefined
         ) {
-          if (id !== "claude-code") {
+          const agent: BuiltInAgent = agents[id];
+          if (agent.apiKeyEnv === undefined) {
             return yield* new SignInError({
-              message: `${AGENTS[id].name} takes no API key here`,
+              message: `${agent.name} takes no API key here`,
             });
           }
           if (key !== undefined && !secrets.available) {
             return yield* new SignInError({
-              message:
-                "This computer has no keychain to keep the key in. Set ANTHROPIC_API_KEY in your shell's startup file instead.",
+              message: `This computer has no keychain to keep the key in. Set ${agent.apiKeyEnv} in your shell's startup file instead.`,
             });
           }
           const sealed =
@@ -488,59 +442,60 @@ export class Agents extends Context.Service<
         });
 
         const signIn = Effect.fn("Agents.signIn")(
-          function* (id: AgentId) {
-            if (id !== "codex") {
+          function* (id: BuiltInAgentId) {
+            const agent: BuiltInAgent = agents[id];
+            const method = agent.signIn.adapter;
+            if (method === undefined) {
               return yield* new SignInError({
-                message:
-                  "Claude Code signs in by itself: run `claude` once in a terminal.",
+                message: `${agent.name} signs in by itself: ${agent.signIn.yourself}.`,
               });
             }
             const located = yield* locate(id);
             if (located._tag === "Missing") {
               return yield* new SignInError({
-                message: `Codex is not installed: ${located.reason}`,
+                message: `${agent.name} is not installed: ${located.reason}`,
               });
             }
-            const runtimeAgent = makeRuntime(layout, {
-              codex: { executable: located.executable },
-            });
-            const agent = yield* spawnAcpAgent(
+            const launch = makeRuntime(
+              layout,
+              { [id]: { executable: located.executable } },
+              {},
+              agents
+            );
+            const adapter = yield* spawnAcpAgent(
               {
-                args: [
-                  runtimeAgent.wrapper,
-                  runtimeAgent.agents.codex?.adapter ?? "",
-                ],
+                args: [launch.wrapper, launch.agents[id]?.adapter ?? ""],
                 command: layout.node,
                 env: {
                   ...env,
-                  ...runtimeAgent.agents.codex?.env,
+                  ...launch.agents[id]?.env,
                   ELECTRON_RUN_AS_NODE: "1",
                 },
               },
               { cwd: tmpdir(), handlers: refusing }
             );
-            const init = yield* agent.initialize;
-            if (!init.authMethods?.some((m) => m.id === "chat-gpt")) {
+            const init = yield* adapter.initialize;
+            if (!init.authMethods?.some((m) => m.id === method.method)) {
               return yield* new SignInError({
-                message:
-                  "This Codex adapter offers no ChatGPT sign-in: run `codex login` in a terminal.",
+                message: `This ${agent.name} adapter offers no ${method.with} sign-in: ${agent.signIn.yourself}.`,
               });
             }
             // The adapter opens the browser and answers once the sign-in is done there.
-            yield* agent.authenticate("chat-gpt");
+            yield* adapter.authenticate(method.method);
           },
           Effect.scoped,
           Effect.timeout(SIGN_IN_TIMEOUT),
-          Effect.mapError((error) =>
-            error._tag === "SignInError"
-              ? error
-              : new SignInError({
-                  message:
-                    error._tag === "TimeoutError"
-                      ? `The sign-in was not finished within ${SIGN_IN_TIMEOUT}.`
-                      : `Codex could not sign in: ${error.message}`,
-                })
-          )
+          (effect, id) =>
+            Effect.mapError(effect, (error) =>
+              error._tag === "SignInError"
+                ? error
+                : new SignInError({
+                    message:
+                      error._tag === "TimeoutError"
+                        ? `The sign-in was not finished within ${SIGN_IN_TIMEOUT}.`
+                        : `${agents[id].name} could not sign in: ${error.message}`,
+                  })
+            )
         );
 
         return Agents.of({
@@ -549,7 +504,7 @@ export class Agents extends Context.Service<
           runtime,
           setApiKey,
           signIn,
-          status: Effect.forEach(AGENT_IDS, statusOf, { concurrency: 2 }),
+          status: Effect.forEach(all, statusOf, { concurrency: 2 }),
         });
       })
     );

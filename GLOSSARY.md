@@ -52,6 +52,12 @@ module.
   (`PendingCards`, ADR 0022).
 - **Agent launcher**: the seam an agent is started through: its sandboxed process (ADR 0013),
   or a scripted in-memory agent in tests.
+- **Built-in agent**: an agent that ships with the tool (Claude Code, Codex), each one
+  **descriptor** in acp's `built-in`: how the command launches it through `npx`, the ACP adapter
+  the desktop app bundles in its place, its program, how it is asked whether it is signed in and
+  what its answer says, a sign-in through its adapter, the variable a key goes in, and its
+  variables by where the app found it (ADRs 0004, 0031). Their ids are contracts'
+  `BuiltInAgentId`; any other agent is a JSON file of the user's.
 - **Task**: what the editor asks an agent to do (implement a page, a setup step, a sync), named
   by a typed **task request**; a **slash command** is a request written as text.
 - **Setup step**: one of the design system's five set-up steps (ADR 0023), run with its thread

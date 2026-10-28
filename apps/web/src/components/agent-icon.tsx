@@ -1,4 +1,6 @@
+import { BuiltInAgentId } from "@ultrapaint/contracts/threads";
 import { cn } from "cn";
+import { Schema } from "effect";
 import { Bot } from "lucide-react";
 import type { SVGProps } from "react";
 
@@ -32,12 +34,17 @@ const OpenAIMark = ({ className, ...props }: SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-const MARKS: Record<string, typeof ClaudeMark> = {
+type Mark = typeof ClaudeMark;
+
+/** A mark for each built-in agent. */
+const MARKS: { readonly [Id in BuiltInAgentId]: Mark } = {
   "claude-code": ClaudeMark,
   codex: OpenAIMark,
 };
 
-/** The agent's own mark, for the agents we know; a generic one for the rest. */
+const isBuiltIn = Schema.is(BuiltInAgentId);
+
+/** The agent's own mark, for the built-in agents; a generic one for the rest. */
 export const AgentIcon = ({
   agentId,
   className,
@@ -45,6 +52,6 @@ export const AgentIcon = ({
   agentId: string;
   className?: string;
 }) => {
-  const Mark = MARKS[agentId];
+  const Mark = isBuiltIn(agentId) ? MARKS[agentId] : undefined;
   return Mark ? <Mark className={className} /> : <Bot className={className} />;
 };
