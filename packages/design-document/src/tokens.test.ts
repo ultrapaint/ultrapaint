@@ -16,6 +16,13 @@ describe("the tokens a design relies on", () => {
     ]).toEqual(["color-border", "color-primary", "spacing-4", "spacing"]);
   });
 
+  it("takes a named spacing for itself, not for a step of the base", () => {
+    expect([
+      ...tokensIn({ gap: "$spacing-4x", padding: "$spacing-gutter" }),
+    ]).toEqual(["spacing-4x", "spacing-gutter"]);
+    expect([...tokensIn("$spacing-2.5")]).toEqual(["spacing-2.5", "spacing"]);
+  });
+
   it("takes in the text styles its texts are set in and the specs whose look it owns", () => {
     const page: PageNode = {
       children: [

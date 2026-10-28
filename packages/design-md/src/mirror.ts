@@ -8,7 +8,11 @@ import type {
   TextStyle,
   Token,
 } from "@ultrapaint/contracts/design-system";
-import { formatNumber, isColor } from "@ultrapaint/contracts/token-value";
+import {
+  formatNumber,
+  isColor,
+  resolveCss,
+} from "@ultrapaint/contracts/token-value";
 import {
   isToken,
   tokenName,
@@ -16,7 +20,9 @@ import {
 } from "@ultrapaint/design-document/tokens";
 import type { TokenGroups, Typography } from "./format.ts";
 import { documentPathOf, tokenKeyOf } from "./tokens.ts";
-import { familyOf, isDimension, isPlainNumber, resolveCss } from "./values.ts";
+import { familyOf, isDimension, isPlainNumber } from "./values.ts";
+
+const DASHES_RE = /^--/;
 
 /** The font a text style without one is set in: Tailwind's, on the body. */
 const BODY_FONT = "font-sans";
@@ -60,6 +66,12 @@ const groupOf = <A>(
   return out;
 };
 
+/** A variable of the code (`--radius`) as the design system's token of its name. */
+const variableIn =
+  (values: ReadonlyMap<string, string>) =>
+  (variable: string): string | undefined =>
+    values.get(variable.replace(DASHES_RE, ""));
+
 const LENGTH = "a length in px, em or rem";
 const lengthOf = (value: string) => (isDimension(value) ? value : null);
 const spacingOf = (value: string): number | string | null => {
@@ -84,7 +96,7 @@ export const mirrorOf = (
   const values = tokenValues(ds);
   const notes: string[] = [];
   const resolve = (name: string, value: string): string | null => {
-    const resolved = resolveCss(value, (n) => values.get(n));
+    const resolved = resolveCss(value, variableIn(values));
     if (resolved === null) {
       notes.push(`${name}: ${value} does not resolve to a value.`);
     }
@@ -144,7 +156,7 @@ const settingOf = (
     return `${formatNumber(setting)}px`;
   }
   const raw = isToken(setting) ? values.get(tokenName(setting)) : setting;
-  return raw === undefined ? null : resolveCss(raw, (name) => values.get(name));
+  return raw === undefined ? null : resolveCss(raw, variableIn(values));
 };
 
 const typographyOf = (
@@ -302,7 +314,7 @@ const componentValue = (
     }
     const raw = values.get(name);
     const resolved =
-      raw === undefined ? null : resolveCss(raw, (n) => values.get(n));
+      raw === undefined ? null : resolveCss(raw, variableIn(values));
     return resolved === null
       ? null
       : componentValue(prop, resolved, has, values);

@@ -1,9 +1,9 @@
+import { resolveVars } from "@ultrapaint/contracts/token-value";
 import { describe, expect, it } from "vitest";
 import {
   applyThemeDeclaration,
   masked,
   parseStylesheet,
-  resolveVars,
 } from "./stylesheet.ts";
 
 const declared = (css: string) =>
@@ -83,62 +83,6 @@ describe("reading a stylesheet", () => {
         v === "--background" ? "#fff" : undefined
       )
     ).toBe("#fff");
-  });
-});
-
-describe("following var()", () => {
-  const vars = new Map([
-    ["--known", "1px"],
-    ["--alias", "var(--known)"],
-    ["--a", "var(--b)"],
-    ["--b", "var(--a, 2px)"],
-  ]);
-  const resolve = (value: string) => resolveVars(value, (n) => vars.get(n));
-
-  it("resolves each reference on its own, an unknown one included", () => {
-    expect(resolve("var(--unknown) var(--known)")).toBe("var(--unknown) 1px");
-    expect(resolve("var(--alias) var(--alias) var(--alias)")).toBe(
-      "1px 1px 1px"
-    );
-    expect(resolve("var(--unknown, var(--alias))")).toBe("1px");
-    expect(resolve("var(--unknown, rgb(0 0 0 / 0.5))")).toBe(
-      "rgb(0 0 0 / 0.5)"
-    );
-  });
-
-  it("ends a cycle at the fallback, or leaves the reference as written", () => {
-    expect(resolve("var(--a)")).toBe("2px");
-    const loop = new Map([
-      ["--x", "var(--y)"],
-      ["--y", "var(--x)"],
-    ]);
-    expect(resolveVars("var(--x)", (n) => loop.get(n))).toBe("var(--x)");
-  });
-
-  it("follows a variable once however often it is met, and stops a value growing without end", () => {
-    const fanOut = new Map(
-      Array.from({ length: 60 }, (_, i) => [
-        `--f${i}`,
-        `var(--f${i + 1}) var(--f${i + 1})`,
-      ])
-    );
-    fanOut.set("--f60", "1px");
-    let lookups = 0;
-    const out = resolveVars("var(--f0)", (n) => {
-      lookups += 1;
-      return fanOut.get(n);
-    });
-    expect(lookups).toBe(61);
-    expect(out.startsWith("1px 1px 1px")).toBe(true);
-    expect(out.length).toBeLessThanOrEqual(10_000);
-  });
-
-  it("goes deeper than a fixed number of steps", () => {
-    const chain = new Map(
-      Array.from({ length: 30 }, (_, i) => [`--v${i}`, `var(--v${i + 1})`])
-    );
-    chain.set("--v30", "end");
-    expect(resolveVars("var(--v0)", (n) => chain.get(n))).toBe("end");
   });
 });
 

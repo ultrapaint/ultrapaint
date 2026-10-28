@@ -10,7 +10,10 @@
  * gives a percentage of them and as the DTCG format keeps them: sRGB's from 0 to 1 (hex, names,
  * `rgb()` and `color(srgb …)` alike), HSL's and HWB's saturation and lightness from 0 to 100, Lab's
  * lightness from 0 to 100, OKLab's from 0 to 1, a hue in degrees. A root `rem` is 16px.
- * Pure and synchronous.
+ *
+ * What the code writes that a token cannot hold is worked out here too: `var()` followed through
+ * the code's variables (`resolveVars`), a `calc()` of lengths (`resolveCalc`), both at once
+ * (`resolveCss`). Pure and synchronous.
  */
 
 /** The colour spaces read: CSS's colour functions and the spaces `color()` names. */
@@ -567,13 +570,28 @@ export const printLength = (length: {
   readonly unit: LengthUnit;
 }): string => `${formatNumber(length.value)}${length.unit}`;
 
-/** A length in pixels, a `rem` being 16; null for a length in any other unit, or none. */
-export const toPx = (value: Length | string): number | null => {
+/**
+ * A length in pixels, a `rem` being 16; null for a length in any other unit, or none (a plain
+ * number is not a length). An `em` is the size of the font around it, which a token does not
+ * know, so it counts only when `em` says how many pixels it is: in a media query, or for a value
+ * drawn at the root's size, it is `ROOT_PX`. Comparing tokens leaves it out, so `1em` is never
+ * `16px`.
+ */
+export const toPx = (
+  value: Length | string,
+  { em }: { readonly em?: number } = {}
+): number | null => {
   const length = typeof value === "string" ? parseLength(value) : value;
-  if (length?.unit === "px") {
-    return length.value;
+  switch (length?.unit) {
+    case "px":
+      return length.value;
+    case "rem":
+      return length.value * ROOT_PX;
+    case "em":
+      return em === undefined ? null : length.value * em;
+    default:
+      return null;
   }
-  return length?.unit === "rem" ? length.value * ROOT_PX : null;
 };
 
 const normalised = (value: string) =>
@@ -581,6 +599,12 @@ const normalised = (value: string) =>
 
 /** A duration in milliseconds. */
 const ms = (d: Duration) => (d.unit === "s" ? d.value * 1000 : d.value);
+
+/** A duration in milliseconds, `0.2s` → 200; null for anything else. */
+export const toMs = (css: string): number | null => {
+  const v = parseValue(css);
+  return v.kind === "duration" ? ms(v) : null;
+};
 
 /** A zero of any unit, or none. */
 const isZero = (v: TokenValue) =>
@@ -641,4 +665,314 @@ export const inCodeUnits = (source: string, code: string | undefined) => {
     return printLength({ unit: "rem", value: px / ROOT_PX });
   }
   return source;
+};
+
+// Variables and arithmetic: what the code writes that a token's value cannot hold.
+
+const NAME_CHAR_RE = /[\w-]/;
+
+/** Where a quoted string that opens at `i` ends: the index of its closing quote. */
+const stringEnd = (text: string, i: number): number => {
+  const quote = text[i];
+  let j = i + 1;
+  while (j < text.length && text[j] !== quote) {
+    j += text[j] === "\\" ? 2 : 1;
+  }
+  return j;
+};
+
+/** Where the parenthesis that opens at `open` closes, strings respected; -1 when it does not. */
+const closingParen = (text: string, open: number): number => {
+  let depth = 0;
+  let i = open;
+  while (i < text.length) {
+    const char = text[i];
+    if (char === "\\") {
+      i += 1;
+    } else if (char === '"' || char === "'") {
+      i = stringEnd(text, i);
+    } else if (char === "(") {
+      depth += 1;
+    } else if (char === ")") {
+      depth -= 1;
+      if (depth === 0) {
+        return i;
+      }
+    }
+    i += 1;
+  }
+  return -1;
+};
+
+/** Where the first comma outside parentheses is; -1 when there is none. */
+const topLevelComma = (text: string): number => {
+  let depth = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    if (char === "(") {
+      depth += 1;
+    } else if (char === ")") {
+      depth -= 1;
+    } else if (char === "," && depth === 0) {
+      return i;
+    }
+  }
+  return -1;
+};
+
+/** The `var()` that starts at `at`: where it closes, the variable and the fallback it names. */
+const referenceAt = (text: string, at: number) => {
+  const close = closingParen(text, at + 3);
+  if (close === -1) {
+    return null;
+  }
+  const inside = text.slice(at + 4, close);
+  const comma = topLevelComma(inside);
+  return {
+    close,
+    fallback: comma === -1 ? undefined : inside.slice(comma + 1).trim(),
+    variable: (comma === -1 ? inside : inside.slice(0, comma)).trim(),
+  };
+};
+
+/** Where the next `var(` of a text is that is not the end of a longer name; -1 when none is. */
+const nextVar = (text: string, from: number): number => {
+  let at = text.indexOf("var(", from);
+  while (at > 0 && NAME_CHAR_RE.test(text[at - 1] ?? "")) {
+    at = text.indexOf("var(", at + 4);
+  }
+  return at;
+};
+
+/** How long a value followed through its variables may grow before the rest is left as written. */
+const MAX_RESOLVED = 10_000;
+
+/** A value followed through its variables, and whether a `var()` was left as written. */
+interface Followed {
+  /** A cycle cut it short: what it ends at depends on the path it was reached by. */
+  readonly cyclic: boolean;
+  /** A reference is left as written: unknown with no fallback, a cycle, unclosed or too long. */
+  readonly left: boolean;
+  readonly out: string;
+}
+
+const followVars = (
+  value: string,
+  lookup: (variable: string) => string | undefined
+): Followed => {
+  /** What a variable ends at, when that did not depend on the path it was reached by. */
+  const memo = new Map<string, Followed>();
+
+  /** What one `var()` ends at, from the variables on the path to it. */
+  const follow = (
+    ref: { fallback: string | undefined; variable: string },
+    written: string,
+    seen: ReadonlySet<string>
+  ): Followed => {
+    const known = memo.get(ref.variable);
+    if (known !== undefined) {
+      return known;
+    }
+    const met = seen.has(ref.variable);
+    const found = met ? undefined : lookup(ref.variable);
+    if (found !== undefined) {
+      const inner = walk(found, new Set([...seen, ref.variable]));
+      if (!inner.cyclic) {
+        memo.set(ref.variable, inner);
+      }
+      return inner;
+    }
+    if (ref.fallback === undefined) {
+      return { cyclic: met, left: true, out: written };
+    }
+    const inner = walk(ref.fallback, seen);
+    return { ...inner, cyclic: met || inner.cyclic };
+  };
+
+  const walk = (text: string, seen: ReadonlySet<string>): Followed => {
+    let out = "";
+    let cyclic = false;
+    let left = false;
+    let from = 0;
+    let at = nextVar(text, 0);
+    let ref = at === -1 ? null : referenceAt(text, at);
+    while (ref) {
+      const written = text.slice(at, ref.close + 1);
+      const followed = follow(ref, written, seen);
+      cyclic ||= followed.cyclic;
+      const fits = out.length + followed.out.length <= MAX_RESOLVED;
+      left ||= followed.left || !fits;
+      out += text.slice(from, at) + (fits ? followed.out : written);
+      from = ref.close + 1;
+      at = nextVar(text, from);
+      ref = at === -1 ? null : referenceAt(text, at);
+    }
+    // A `var(` that does not close is left as written.
+    return { cyclic, left: left || at !== -1, out: out + text.slice(from) };
+  };
+  return walk(value, new Set());
+};
+
+/**
+ * A value with every `var()` in it followed to what it ends at, each on its own, `lookup` given
+ * the variable as written (`--radius`): an unknown variable takes its fallback, or stays as
+ * written, and the others are still followed. A variable met again on its own path is a cycle
+ * and is treated as unknown. What a variable ends at is followed once (`--a: var(--b) var(--b)`
+ * many levels deep stays quick), and a value that would grow past `MAX_RESOLVED` keeps its
+ * remaining references as written.
+ */
+export const resolveVars = (
+  value: string,
+  lookup: (variable: string) => string | undefined
+): string => followVars(value, lookup).out;
+
+/** A number of a `calc()` in its unit, `""` for a plain number. */
+interface Quantity {
+  readonly n: number;
+  readonly unit: "" | "em" | "px" | "rem";
+}
+
+const CALC_TOKEN_RE =
+  /\s*(-?(?:\d+\.?\d*|\.\d+)(?:px|rem|em)?|infinity|[-+*/()])/iy;
+const CALC_QUANTITY_RE = /^(-?(?:\d+\.?\d*|\.\d+))(px|rem|em)?$/i;
+
+const calcTokens = (text: string): string[] | null => {
+  const tokens: string[] = [];
+  CALC_TOKEN_RE.lastIndex = 0;
+  while (CALC_TOKEN_RE.lastIndex < text.length) {
+    const start = CALC_TOKEN_RE.lastIndex;
+    // Typed by hand: the linter otherwise takes the result for non-null.
+    const match: RegExpExecArray | null = CALC_TOKEN_RE.exec(text);
+    const token = match === null ? undefined : match[1];
+    if (token === undefined) {
+      return text.slice(start).trim() === "" ? tokens : null;
+    }
+    tokens.push(token.toLowerCase());
+  }
+  return tokens;
+};
+
+/** One number of a `calc()`: a length, a plain number, or infinity. */
+const quantityOf = (token: string): Quantity | null => {
+  if (token === "infinity") {
+    return { n: Number.POSITIVE_INFINITY, unit: "" };
+  }
+  const match: RegExpExecArray | null = CALC_QUANTITY_RE.exec(token);
+  if (match === null) {
+    return null;
+  }
+  const [, n = "", unit = ""] = match;
+  return { n: Number(n), unit: unit.toLowerCase() as Quantity["unit"] };
+};
+
+/** Two lengths in one unit: `rem` and `px` meet in pixels; `em` meets only `em`. */
+const together = (a: Quantity, b: Quantity): [Quantity, Quantity] | null => {
+  if (a.unit === b.unit) {
+    return [a, b];
+  }
+  const px = (q: Quantity): Quantity | null => {
+    if (q.unit === "px") {
+      return q;
+    }
+    return q.unit === "rem" ? { n: q.n * ROOT_PX, unit: "px" } : null;
+  };
+  const pa = px(a);
+  const pb = px(b);
+  return pa && pb ? [pa, pb] : null;
+};
+
+/** `a op b`, when the units allow it: a length times a number, a length over one, two lengths summed. */
+const combine = (a: Quantity, op: string, b: Quantity): Quantity | null => {
+  if (op === "*") {
+    return a.unit !== "" && b.unit !== ""
+      ? null
+      : { n: a.n * b.n, unit: a.unit || b.unit };
+  }
+  if (op === "/" && b.unit === "") {
+    return { n: a.n / b.n, unit: a.unit };
+  }
+  const both = together(a, b);
+  if (!both) {
+    return null;
+  }
+  const [x, y] = both;
+  if (op === "/") {
+    return { n: x.n / y.n, unit: "" };
+  }
+  return { n: op === "+" ? x.n + y.n : x.n - y.n, unit: x.unit };
+};
+
+/** `calc()`'s arithmetic on lengths and numbers: `+ - * /` and parentheses. */
+const evaluate = (tokens: readonly string[]): Quantity | null => {
+  let i = 0;
+  const next = () => {
+    const token = tokens[i];
+    i += 1;
+    return token;
+  };
+  const primary = (): Quantity | null => {
+    const token = next();
+    if (token === "(") {
+      const inner = sum();
+      return next() === ")" ? inner : null;
+    }
+    if (token === "-") {
+      const inner = primary();
+      return inner && { n: -inner.n, unit: inner.unit };
+    }
+    return token === undefined ? null : quantityOf(token);
+  };
+  const chain = (
+    operand: () => Quantity | null,
+    ops: readonly string[]
+  ): Quantity | null => {
+    let left = operand();
+    while (left && ops.includes(tokens[i] ?? "")) {
+      const op = next() ?? "";
+      const right = operand();
+      left = right && combine(left, op, right);
+    }
+    return left;
+  };
+  const product = () => chain(primary, ["*", "/"]);
+  const sum = (): Quantity | null => chain(product, ["+", "-"]);
+  const result = sum();
+  return i === tokens.length ? result : null;
+};
+
+/** What an infinite length (`calc(infinity * 1px)`, Tailwind's `rounded-full`) is written as. */
+export const INFINITE_PX = "9999px";
+
+/**
+ * A `calc()` of lengths and numbers worked out, `calc(0.625rem - 4px)` → `6px`: lengths in `px`,
+ * `rem` and `em` (`em` meets only `em`), numbers and `infinity`. A value that is no `calc()`
+ * is as it is; null when it cannot be worked out (`calc(100% - 2px)`).
+ */
+export const resolveCalc = (value: string): string | null => {
+  const v = value.trim();
+  if (!(v.startsWith("calc(") && closingParen(v, 4) === v.length - 1)) {
+    return v;
+  }
+  const tokens = calcTokens(v.slice(5, -1));
+  const result = tokens && evaluate(tokens);
+  if (!result) {
+    return null;
+  }
+  if (!Number.isFinite(result.n)) {
+    return result.unit === "px" ? INFINITE_PX : null;
+  }
+  return `${formatNumber(result.n)}${result.unit}`;
+};
+
+/**
+ * A value of the code as plain CSS: every `var()` followed through `lookup` (given the variable
+ * as written), then a `calc()` of lengths worked out. Null when a variable is left unknown, in
+ * a cycle, or the arithmetic cannot be worked out.
+ */
+export const resolveCss = (
+  value: string,
+  lookup: (variable: string) => string | undefined
+): string | null => {
+  const followed = followVars(value.trim(), lookup);
+  return followed.left ? null : resolveCalc(followed.out);
 };

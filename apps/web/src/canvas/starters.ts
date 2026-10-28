@@ -5,6 +5,7 @@
  */
 import type { Catalogue } from "@ultrapaint/contracts/catalogue";
 import type { DesignSystem, Token } from "@ultrapaint/contracts/design-system";
+import { tokensOfKind } from "@ultrapaint/contracts/token-table";
 
 export type StarterId =
   | "article"
@@ -190,7 +191,7 @@ const radiusOf = (tokens: readonly Token[]) => {
 const FONT_NAMES = ["font-heading", "font-display", "font-sans", "font-body"];
 
 const fontOf = (ds: DesignSystem) => {
-  const { fonts } = ds.typography;
+  const fonts = tokensOfKind(ds, "font");
   const font =
     FONT_NAMES.map((n) => fonts.find((f) => f.name === n)).find(Boolean) ??
     fonts[0];
@@ -199,14 +200,14 @@ const fontOf = (ds: DesignSystem) => {
 };
 
 export const starterTheme = (ds: DesignSystem): StarterTheme => {
-  const colours = ds.colors.flatMap((g) => g.tokens);
+  const colours = tokensOfKind(ds, "color");
   return {
     accent: colour(colours, "primary", "brand", "accent"),
     border: colour(colours, "border", "input"),
     card: colour(colours, "card", "surface", "background"),
     font: fontOf(ds),
     foreground: colour(colours, "foreground", "text"),
-    radius: radiusOf(ds.radius),
+    radius: radiusOf(tokensOfKind(ds, "radius")),
     surface: colour(colours, "background", "surface"),
   };
 };

@@ -1,15 +1,15 @@
 /**
  * The one reading of a stylesheet the Tailwind v4 package shares: its blocks and declarations with
- * their offsets, quoted strings and parentheses respected (`url("data:…;…")` is one value), how
- * Tailwind's theme treats `initial`, and `var()` followed to what it ends at. The design-system
- * scan, the token reader and writer and the usage scan all read CSS through it, so they agree.
+ * their offsets, quoted strings and parentheses respected (`url("data:…;…")` is one value), and how
+ * Tailwind's theme treats `initial`. The design-system scan, the token reader and writer and the
+ * usage scan all read CSS through it, so they agree; `var()` is followed by contracts'
+ * `resolveVars`.
  */
 
 /** A name a declaration is written to: a custom property, `--color-*` included, or a property. */
 const NAME_RE = /^\s*(--[\w*-]*|-?[a-zA-Z][\w-]*)\s*:/;
 const AT_STATEMENT_RE = /^\s*@([\w-]+)\s*/;
 const NON_NEWLINE_RE = /[^\n]/g;
-const NAME_CHAR_RE = /[\w-]/;
 
 /** One declaration of a stylesheet, with where its value and the whole of it are written. */
 export interface Declaration {
@@ -293,136 +293,4 @@ export const applyThemeDeclaration = (
   } else if (!name.includes("*")) {
     vars.set(name, value);
   }
-};
-
-/** Where the parenthesis that opens at `open` closes, strings respected; -1 when it does not. */
-const closingParen = (text: string, open: number): number => {
-  let depth = 0;
-  let i = open;
-  while (i < text.length) {
-    const char = text[i];
-    if (char === "\\") {
-      i += 1;
-    } else if (char === '"' || char === "'") {
-      i = stringEnd(text, i);
-    } else if (char === "(") {
-      depth += 1;
-    } else if (char === ")") {
-      depth -= 1;
-      if (depth === 0) {
-        return i;
-      }
-    }
-    i += 1;
-  }
-  return -1;
-};
-
-/** Where the first comma outside parentheses is; -1 when there is none. */
-const topLevelComma = (text: string): number => {
-  let depth = 0;
-  for (let i = 0; i < text.length; i += 1) {
-    const char = text[i];
-    if (char === "(") {
-      depth += 1;
-    } else if (char === ")") {
-      depth -= 1;
-    } else if (char === "," && depth === 0) {
-      return i;
-    }
-  }
-  return -1;
-};
-
-/** The `var()` that starts at `at`: where it closes, the variable and the fallback it names. */
-const referenceAt = (text: string, at: number) => {
-  const close = closingParen(text, at + 3);
-  if (close === -1) {
-    return null;
-  }
-  const inside = text.slice(at + 4, close);
-  const comma = topLevelComma(inside);
-  return {
-    close,
-    fallback: comma === -1 ? undefined : inside.slice(comma + 1).trim(),
-    variable: (comma === -1 ? inside : inside.slice(0, comma)).trim(),
-  };
-};
-
-/** Where the next `var(` of a text is that is not the end of a longer name; -1 when none is. */
-const nextVar = (text: string, from: number): number => {
-  let at = text.indexOf("var(", from);
-  while (at > 0 && NAME_CHAR_RE.test(text[at - 1] ?? "")) {
-    at = text.indexOf("var(", at + 4);
-  }
-  return at;
-};
-
-/** How long a value followed through its variables may grow before the rest is left as written. */
-const MAX_RESOLVED = 10_000;
-
-/**
- * A value with every `var()` in it followed to what it ends at, each on its own: an unknown
- * variable takes its fallback, or stays as written, and the others are still followed. A
- * variable met again on its own path is a cycle and is treated as unknown. What a variable ends
- * at is followed once (`--a: var(--b) var(--b)` many levels deep stays quick), and a value that
- * would grow past `MAX_RESOLVED` keeps its remaining references as written.
- */
-export const resolveVars = (
-  value: string,
-  lookup: (variable: string) => string | undefined
-): string => {
-  /** What a variable ends at, when that did not depend on the path it was reached by. */
-  const memo = new Map<string, string>();
-  interface Followed {
-    /** A cycle cut it short: what it ends at depends on the path it was reached by. */
-    readonly cyclic: boolean;
-    readonly out: string;
-  }
-
-  /** What one `var()` ends at, from the variables on the path to it. */
-  const follow = (
-    ref: { fallback: string | undefined; variable: string },
-    written: string,
-    seen: ReadonlySet<string>
-  ): Followed => {
-    const known = memo.get(ref.variable);
-    if (known !== undefined) {
-      return { cyclic: false, out: known };
-    }
-    const met = seen.has(ref.variable);
-    const found = met ? undefined : lookup(ref.variable);
-    if (found !== undefined) {
-      const inner = walk(found, new Set([...seen, ref.variable]));
-      if (!inner.cyclic) {
-        memo.set(ref.variable, inner.out);
-      }
-      return inner;
-    }
-    if (ref.fallback === undefined) {
-      return { cyclic: met, out: written };
-    }
-    const inner = walk(ref.fallback, seen);
-    return { cyclic: met || inner.cyclic, out: inner.out };
-  };
-
-  const walk = (text: string, seen: ReadonlySet<string>): Followed => {
-    let out = "";
-    let cyclic = false;
-    let from = 0;
-    let at = nextVar(text, 0);
-    let ref = at === -1 ? null : referenceAt(text, at);
-    while (ref) {
-      const written = text.slice(at, ref.close + 1);
-      const followed = follow(ref, written, seen);
-      cyclic ||= followed.cyclic;
-      const fits = out.length + followed.out.length <= MAX_RESOLVED;
-      out += text.slice(from, at) + (fits ? followed.out : written);
-      from = ref.close + 1;
-      at = nextVar(text, from);
-      ref = at === -1 ? null : referenceAt(text, at);
-    }
-    return { cyclic, out: out + text.slice(from) };
-  };
-  return walk(value, new Set()).out;
 };

@@ -7,6 +7,7 @@ import type {
   UsageKind,
   UsageStatus,
 } from "@ultrapaint/contracts/design-system-setup";
+import { spacingStepOf } from "@ultrapaint/contracts/token-table";
 import type {
   UsageContext,
   UsageOccurrence,
@@ -27,7 +28,6 @@ const HEX_IN_RE = /#(?:[0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3,4})\b/gi;
 const WHOLE_VAR_RE = /^var\(\s*--([\w-]+)\s*(?:,[^)]*)?\)$/;
 const VAR_ALL_RE = /var\(\s*--([\w-]+)/g;
 const PALETTE_RE = /^[a-z]+-\d{2,3}$/;
-const STEP_RE = /^(\d+(\.\d+)?|px)$/;
 const NUMBER_RE = /^-?\d+(\.\d+)?$/;
 const LENGTH_RE = /^-?\d*\.?\d+(px|rem|em)$/;
 const LENGTH_IN_RE = /-?\d*\.?\d+(px|rem|em)\b/g;
@@ -330,8 +330,8 @@ const classifyRadius = (value: string, known: Known): Classified | null => {
 };
 
 const classifySpacing = (value: string, known: Known): Classified | null => {
-  if (STEP_RE.test(value)) {
-    // Every multiple of the base is on the scale: `p-4` is four steps of `--spacing`.
+  // Every multiple of the base is on the scale: `p-4` is four steps of `--spacing`.
+  if (value === "px" || spacingStepOf(`spacing-${value}`) !== null) {
     return value === "0"
       ? null
       : { kind: "spacing", status: "system", value: `spacing ${value}` };

@@ -2,9 +2,9 @@ import {
   type DesignSystem,
   emptyDesignSystem,
 } from "@ultrapaint/contracts/design-system";
+import { SPACING_STEPS } from "@ultrapaint/contracts/token-table";
 import { describe, expect, it } from "vitest";
 import { mapTargetsOf } from "./map-targets.ts";
-import { SPACING_SCALE } from "./spacing.ts";
 
 const token = (name: string) => ({ name, value: "1" });
 
@@ -41,7 +41,7 @@ describe("mapTargetsOf", () => {
 
   it("offers a length the steps of the spacing scale before the spacing tokens", () => {
     expect(mapTargetsOf("spacing", ds, [])).toEqual([
-      ...SPACING_SCALE.map((s) => `spacing-${s}`),
+      ...SPACING_STEPS.map((s) => `spacing-${s}`),
       "spacing-gutter",
     ]);
   });

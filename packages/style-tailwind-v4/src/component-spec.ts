@@ -24,6 +24,7 @@ import {
   type SpecState,
   type SpecStyle,
 } from "@ultrapaint/contracts/specs";
+import { spacingStepOf } from "@ultrapaint/contracts/token-table";
 import type { SourceToken } from "@ultrapaint/contracts/tokens";
 import type {
   ComponentStyles,
@@ -42,7 +43,6 @@ const CLASS_RE =
 const VARIABLE_RE = /^\((--[\w-]+)\)$/;
 /** The data type an arbitrary value is marked with: `[color:var(--x)]`, `[length:2px]`. */
 const HINT_RE = /^([a-z-]+):(.+)$/;
-const STEP_RE = /^\d+(?:\.\d+)?$/;
 const INTEGER_RE = /^\d+$/;
 const NUMBER_RE = /^-?\d*\.?\d+$/;
 const PERCENT_RE = /^(-?\d*\.?\d+)%$/;
@@ -204,9 +204,8 @@ const spacingOf = (value: string, { names }: Reading): Length | null => {
   if (value === "px") {
     return "1px";
   }
-  return STEP_RE.test(value) || names.has(`spacing-${value}`)
-    ? `$spacing-${value}`
-    : null;
+  const name = `spacing-${value}`;
+  return spacingStepOf(name) !== null || names.has(name) ? `$${name}` : null;
 };
 
 /** A width or a height: a spacing step, a container, or a keyword. */
@@ -444,10 +443,7 @@ export const componentSpec = (
   styles: ComponentStyles,
   tokens: readonly SourceToken[]
 ): SpecFromCode => {
-  const reading: Reading = {
-    base: tokens.find((t) => t.name === "spacing")?.value ?? "0.25rem",
-    names: new Set(tokens.map((t) => t.name)),
-  };
+  const reading: Reading = { names: new Set(tokens.map((t) => t.name)) };
   const states = new Map<SpecState, Draft>();
   /** Reads a class list into `into`, and its state classes into the states when `stateful`. */
   const read = (classes: string, into: Draft, stateful: boolean) => {

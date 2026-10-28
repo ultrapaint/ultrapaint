@@ -3,7 +3,7 @@
  * `.gitignore` keeps (no git needed), as the style system reads them, against the saved design system or, before there is one, the
  * theme's scan.
  */
-import type { DesignSystem } from "@ultrapaint/contracts/design-system";
+import { emptyDesignSystem } from "@ultrapaint/contracts/design-system";
 import type {
   UsageContext,
   UsageReader,
@@ -20,16 +20,6 @@ import { ProjectStyleSystem } from "./style-system.ts";
 import { WorkingTree } from "./working-tree.ts";
 
 const TRAILING_SLASH_RE = /\/+$/;
-
-/** What the inventory is read against when there is neither a design system nor a theme. */
-const emptyTheme: DesignSystem = {
-  colors: [],
-  radius: [],
-  shadows: [],
-  spacing: { base: "0.25rem" },
-  typography: { fonts: [], sizes: [], styles: [], weights: [] },
-  version: 1,
-};
 
 /** Bigger than this, a source file is generated or bundled, not written. */
 const MAX_SOURCE_BYTES = 512 * 1024;
@@ -86,7 +76,7 @@ export const makeCodebaseReader = Effect.gen(function* () {
         );
         const ctx: UsageContext = {
           components,
-          designSystem: saved ?? theme?.designSystem ?? emptyTheme,
+          designSystem: saved ?? theme?.designSystem ?? emptyDesignSystem(),
           libraryDirs: paths.settings.libraryDirs.map((d) =>
             toPosix(d).replace(TRAILING_SLASH_RE, "")
           ),

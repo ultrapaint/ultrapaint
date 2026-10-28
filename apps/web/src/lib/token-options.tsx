@@ -3,11 +3,17 @@
  * sizes with the value they resolve to, spacing as the steps of its scale in pixels.
  */
 import type { DesignSystem, Token } from "@ultrapaint/contracts/design-system";
+import {
+  SPACING_STEPS,
+  shortName,
+  spacingBasePx,
+  spacingStepName,
+  tokensOfKind,
+} from "@ultrapaint/contracts/token-table";
 import type { TokenKind } from "@ultrapaint/contracts/tokens";
-import { tokenRef, toPixels } from "@ultrapaint/design-document/tokens";
+import { tokenRef } from "@ultrapaint/design-document/tokens";
 import type { StyleOption } from "../components/style-combobox.tsx";
 import { useDesignSystem } from "../state/design-system.ts";
-import { SPACING_SCALE } from "./spacing.ts";
 
 export const Swatch = ({ color }: { color: string | undefined }) => (
   <span
@@ -16,87 +22,62 @@ export const Swatch = ({ color }: { color: string | undefined }) => (
   />
 );
 
-const tokenOption = (token: Token, prefix: string): StyleOption => ({
+const tokenOption = (token: Token): StyleOption => ({
   description: token.value,
-  label: token.name.startsWith(prefix)
-    ? token.name.slice(prefix.length)
-    : token.name,
+  label: shortName(token.name),
   value: tokenRef(token.name),
 });
 
 /** The kinds of token a style field of a node picks from. */
-export type FieldTokenKind = Extract<
-  TokenKind,
-  | "borderWidth"
-  | "color"
-  | "container"
-  | "font"
-  | "fontSize"
-  | "fontWeight"
-  | "leading"
-  | "radius"
-  | "shadow"
-  | "spacing"
-  | "tracking"
->;
+export const FIELD_TOKEN_KINDS = [
+  "borderWidth",
+  "color",
+  "container",
+  "font",
+  "fontSize",
+  "fontWeight",
+  "leading",
+  "radius",
+  "shadow",
+  "spacing",
+  "tracking",
+] as const satisfies readonly TokenKind[];
+export type FieldTokenKind = (typeof FIELD_TOKEN_KINDS)[number];
 
-const tokenOptions = (
+/** A kind's options: its tokens by their short names, spacing first as the scale's named steps. */
+export const tokenOptions = (
   ds: DesignSystem | null,
   kind: FieldTokenKind
 ): StyleOption[] => {
   if (kind === "spacing") {
-    const base = toPixels(ds?.spacing.base ?? "0.25rem") ?? 4;
+    const base = spacingBasePx(ds?.spacing.base);
     return [
-      ...SPACING_SCALE.map((step) => ({
-        description: `spacing-${step}`,
+      ...SPACING_STEPS.map((step) => ({
+        description: spacingStepName(step),
         label: String(step * base),
         value: String(step * base),
       })),
-      ...(ds?.spacing.tokens ?? []).map((t) => tokenOption(t, "spacing-")),
+      ...tokensOfKind(ds, kind).map(tokenOption),
     ];
   }
-  if (!ds) {
-    return [];
+  if (kind === "color") {
+    // A colour says which group it is of.
+    return (ds?.colors ?? []).flatMap((group) =>
+      group.tokens.map((t) => ({
+        ...tokenOption(t),
+        description: group.name,
+        preview: <Swatch color={t.value} />,
+      }))
+    );
   }
-  switch (kind) {
-    case "color":
-      return ds.colors.flatMap((group) =>
-        group.tokens.map((t) => ({
-          ...tokenOption(t, "color-"),
-          description: group.name,
-          preview: <Swatch color={t.value} />,
-        }))
-      );
-    case "radius":
-      return ds.radius.map((t) => tokenOption(t, "radius-"));
-    case "shadow":
-      return ds.shadows.map((t) => tokenOption(t, "shadow-"));
-    case "borderWidth":
-      return (ds.borderWidths ?? []).map((t) =>
-        tokenOption(t, "border-width-")
-      );
-    case "container":
-      return (ds.layout?.containers ?? []).map((t) =>
-        tokenOption(t, "container-")
-      );
-    case "fontSize":
-      return ds.typography.sizes.map((t) => tokenOption(t, "text-"));
-    case "fontWeight":
-      return ds.typography.weights.map((t) => tokenOption(t, "font-weight-"));
-    case "font":
-      return ds.typography.fonts.map((t) => ({
-        ...tokenOption(t, "font-"),
-        description: t.value.split(",")[0]?.replaceAll('"', ""),
-      }));
-    case "leading":
-      return (ds.typography.leading ?? []).map((t) =>
-        tokenOption(t, "leading-")
-      );
-    default:
-      return (ds.typography.tracking ?? []).map((t) =>
-        tokenOption(t, "tracking-")
-      );
-  }
+  return tokensOfKind(ds, kind).map((t) =>
+    kind === "font"
+      ? {
+          ...tokenOption(t),
+          description: t.value.split(",")[0]?.replaceAll('"', ""),
+        }
+      : tokenOption(t)
+  );
 };
 
 export const useTokenOptions = (kind: FieldTokenKind) =>
@@ -115,6 +96,5 @@ export const useColorOf = (value: unknown): string | undefined => {
     return value;
   }
   const name = value.slice(1);
-  return ds?.colors.flatMap((g) => g.tokens).find((t) => t.name === name)
-    ?.value;
+  return tokensOfKind(ds, "color").find((t) => t.name === name)?.value;
 };

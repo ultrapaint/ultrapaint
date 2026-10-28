@@ -57,6 +57,19 @@ describe("breakpoints", () => {
     ]);
   });
 
+  it("reads a breakpoint in em as a media query does, and leaves out one that is no length", () => {
+    const ds = {
+      ...emptyDesignSystem(),
+      layout: {
+        breakpoints: [
+          { name: "breakpoint-md", value: "48em" },
+          { name: "breakpoint-bare", value: "900" },
+        ],
+      },
+    };
+    expect(breakpointsOf(ds)).toEqual([{ min: 768, name: "md" }]);
+  });
+
   it("finds the breakpoint a width falls in: none below the first", () => {
     expect(breakpointAt(DEFAULT_BREAKPOINTS, 390)).toBeNull();
     expect(breakpointAt(DEFAULT_BREAKPOINTS, 768)?.name).toBe("md");

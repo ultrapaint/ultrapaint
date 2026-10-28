@@ -3,7 +3,10 @@ import {
   targetsOf,
   type UsageKind,
 } from "@ultrapaint/contracts/design-system-setup";
-import { SPACING_SCALE } from "./spacing.ts";
+import {
+  SPACING_STEPS,
+  spacingStepName,
+} from "@ultrapaint/contracts/token-table";
 
 /**
  * What a value of a kind may become, as Map offers it: the targets the server accepts, with the
@@ -20,6 +23,6 @@ export const mapTargetsOf = (
   }
   const targets = targetsOf(kind, ds, components);
   return kind === "spacing"
-    ? [...SPACING_SCALE.map((s) => `spacing-${s}`), ...targets]
+    ? [...SPACING_STEPS.map(spacingStepName), ...targets]
     : targets;
 };

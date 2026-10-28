@@ -11,9 +11,14 @@ module.
   value) (ADRs 0028, 0035). Read and written by the server's `design-system-files` codec.
 - **Token**: a named value of the design system (`color-primary`, `text-xl`, `radius-md`), of a
   **kind** its name's prefix says. The **token table** (contracts' `token-table`) says which list
-  of the design system holds each kind; the **spacing base** is the token named `spacing`.
+  of the design system holds each kind; the **spacing base** is the token named `spacing`. The
+  **spacing scale** is the base's multiples: a **step** (`spacing-4`, a class's `p-4`) is 4 × the
+  base, which no list holds and only a named spacing (`spacing-gutter`) overrides; the **named
+  steps** are the ones a designer is offered. A token's **short name** is its name without its
+  kind's prefix (`card` for `color-card`).
 - **Token value**: what a token holds, read as a colour, a length, a duration, a number or text
-  (contracts' `token-value`), with one notion of the same value.
+  (contracts' `token-value`), with one notion of the same value, a length in pixels, and the
+  code's `var()` and `calc()` worked out.
 - **Side**: somewhere else a design system's tokens live: the code, Figma, DESIGN.md (ADRs 0025,
   0027, 0028). Each is compared with the design against its **baseline**, what the two last
   agreed on; the **agreement** rule gives a token's outcome. The **sync engine** compares any

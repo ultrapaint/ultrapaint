@@ -10,7 +10,11 @@ import {
   parseValue,
   printColor,
   printLength,
+  resolveCalc,
+  resolveCss,
+  resolveVars,
   sameValue,
+  toMs,
   toPx,
   toSrgb,
 } from "./token-value.ts";
@@ -196,6 +200,12 @@ describe("converting and printing", () => {
     expect(toPx("1.5rem")).toBe(24);
     expect(toPx("13px")).toBe(13);
     expect(toPx("1em")).toBeNull();
+    expect(toPx("3em", { em: 16 })).toBe(48);
+    expect(toPx("4")).toBeNull();
+    expect(toPx("50%")).toBeNull();
+    expect(toMs("0.2s")).toBe(200);
+    expect(toMs("150ms")).toBe(150);
+    expect(toMs("4px")).toBeNull();
     expect(inCodeUnits("12px", "0.5rem")).toBe("0.75rem");
     expect(inCodeUnits("10px", "1rem")).toBe("0.625rem");
     expect(inCodeUnits("12px", "8px")).toBe("12px");
@@ -216,5 +226,102 @@ describe("converting and printing", () => {
       "color(display-p3 1 0.5 0)"
     );
     expect(printLength({ unit: "rem", value: 1 / 3 })).toBe("0.3333rem");
+  });
+});
+
+describe("following var()", () => {
+  const vars = new Map([
+    ["--known", "1px"],
+    ["--alias", "var(--known)"],
+    ["--a", "var(--b)"],
+    ["--b", "var(--a, 2px)"],
+  ]);
+  const resolve = (value: string) => resolveVars(value, (n) => vars.get(n));
+
+  it("resolves each reference on its own, an unknown one included", () => {
+    expect(resolve("var(--unknown) var(--known)")).toBe("var(--unknown) 1px");
+    expect(resolve("var(--alias) var(--alias) var(--alias)")).toBe(
+      "1px 1px 1px"
+    );
+    expect(resolve("var(--unknown, var(--alias))")).toBe("1px");
+    expect(resolve("var(--unknown, rgb(0 0 0 / 0.5))")).toBe(
+      "rgb(0 0 0 / 0.5)"
+    );
+  });
+
+  it("ends a cycle at the fallback, or leaves the reference as written", () => {
+    expect(resolve("var(--a)")).toBe("2px");
+    const loop = new Map([
+      ["--x", "var(--y)"],
+      ["--y", "var(--x)"],
+    ]);
+    expect(resolveVars("var(--x)", (n) => loop.get(n))).toBe("var(--x)");
+  });
+
+  it("follows a variable once however often it is met, and stops a value growing without end", () => {
+    const fanOut = new Map(
+      Array.from({ length: 60 }, (_, i) => [
+        `--f${i}`,
+        `var(--f${i + 1}) var(--f${i + 1})`,
+      ])
+    );
+    fanOut.set("--f60", "1px");
+    let lookups = 0;
+    const out = resolveVars("var(--f0)", (n) => {
+      lookups += 1;
+      return fanOut.get(n);
+    });
+    expect(lookups).toBe(61);
+    expect(out.startsWith("1px 1px 1px")).toBe(true);
+    expect(out.length).toBeLessThanOrEqual(10_000);
+  });
+
+  it("goes deeper than a fixed number of steps", () => {
+    const chain = new Map(
+      Array.from({ length: 30 }, (_, i) => [`--v${i}`, `var(--v${i + 1})`])
+    );
+    chain.set("--v30", "end");
+    expect(resolveVars("var(--v0)", (n) => chain.get(n))).toBe("end");
+  });
+});
+
+describe("a value of the code as plain CSS", () => {
+  const values = new Map([
+    ["--primary", "oklch(0.205 0 0)"],
+    ["--radius", "0.625rem"],
+    ["--ring", "var(--primary)"],
+    ["--x", "var(--y)"],
+    ["--y", "var(--x)"],
+  ]);
+  const resolve = (value: string) => resolveCss(value, (v) => values.get(v));
+
+  it("follows variables through each other, or gives none for one it cannot follow", () => {
+    expect(resolve("var(--ring)")).toBe("oklch(0.205 0 0)");
+    expect(resolve("var(--nope, #fff)")).toBe("#fff");
+    expect(resolve("var(--nope)")).toBeNull();
+    expect(resolve("var(--x)")).toBeNull();
+    expect(resolve("var(--primary")).toBeNull();
+    const chain = new Map(
+      Array.from({ length: 30 }, (_, i) => [`--v${i}`, `var(--v${i + 1})`])
+    );
+    chain.set("--v30", "2px");
+    expect(resolveCss("var(--v0)", (v) => chain.get(v))).toBe("2px");
+  });
+
+  it("works out the arithmetic of shadcn's radii and Tailwind's line heights", () => {
+    expect(resolve("calc(var(--radius) - 4px)")).toBe("6px");
+    expect(resolve("calc(var(--radius) + 4px)")).toBe("14px");
+    expect(resolveCalc("calc(2.5 / 2.25)")).toBe("1.1111");
+    expect(resolveCalc("calc(1rem * 1.5)")).toBe("1.5rem");
+    expect(resolveCalc("calc((1rem + 2px) * 2)")).toBe("36px");
+    expect(resolveCalc("calc(infinity * 1px)")).toBe("9999px");
+    expect(resolveCalc("calc(1em + 1em)")).toBe("2em");
+    expect(resolveCalc("12px")).toBe("12px");
+  });
+
+  it("gives up on what it cannot work out", () => {
+    expect(resolveCalc("calc(1em + 2px)")).toBeNull();
+    expect(resolveCalc("calc(100% - 2px)")).toBeNull();
+    expect(resolveCalc("calc(2px * 3px)")).toBeNull();
   });
 });
