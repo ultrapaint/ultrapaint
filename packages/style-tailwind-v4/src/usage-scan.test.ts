@@ -103,6 +103,33 @@ describe("the inventory of a project's code", () => {
     expect(values).toHaveLength(15);
   });
 
+  it("takes a colour written out as the first token that holds it, in any space", () => {
+    const palette: DesignSystem = {
+      ...designSystem,
+      colors: [
+        ...designSystem.colors,
+        {
+          name: "Palette",
+          tokens: [
+            { name: "color-blue-500", value: "oklch(62.3% 0.214 259.815)" },
+            { name: "color-sky", value: "#2b7fff" },
+          ],
+        },
+      ],
+    };
+    expect(
+      valuesOf(
+        {
+          "src/app.tsx": `export const A = () => <div className="bg-[#2b7fff] text-[#3B82F6]" />;`,
+        },
+        { ...saved, designSystem: palette }
+      )
+    ).toEqual([
+      "color raw #2b7fff → color-blue-500 ×1",
+      "color raw #3b82f6 → color-primary ×1",
+    ]);
+  });
+
   it("reads a variable with its type as the token it names", () => {
     expect(
       valuesOf({

@@ -7,7 +7,7 @@ import { candidatesFor } from "./candidates.ts";
 import { convertComponent, convertFrame } from "./convert.ts";
 import { readFig } from "./fig.ts";
 import { outlineOf } from "./outline.ts";
-import { makeTokenMatcher, normaliseColor } from "./paint.ts";
+import { makeTokenMatcher } from "./paint.ts";
 import { identity, makeFixture, PNG_BYTES, solid } from "./testing/fixture.ts";
 import { weightOf } from "./text.ts";
 
@@ -294,7 +294,7 @@ describe("converting a frame", () => {
     expect(shown.root.children[3]).toMatchObject({ text: "Sign in" });
   });
 
-  it("writes colours the design system has a token for as that token", () => {
+  it("writes colours the design system has a token for as the first that holds it, in any space", () => {
     const file = loginFile();
     const frame = file.pages[0]?.frames[0];
     if (!frame) {
@@ -305,10 +305,11 @@ describe("converting a frame", () => {
         {
           name: "Semantic",
           tokens: [
-            { name: "color-background", value: "#FFF" },
+            { name: "color-background", value: "oklch(1 0 0)" },
             { name: "color-primary", value: "rgb(51, 102, 255)" },
           ],
         },
+        { name: "Palette", tokens: [{ name: "color-white", value: "#FFF" }] },
       ],
       radius: [],
       shadows: [],
@@ -473,13 +474,6 @@ describe("helpers", () => {
     expect(weightOf("Semi Bold Italic")).toBe(600);
     expect(weightOf("Regular")).toBeUndefined();
     expect(weightOf("ExtraBold")).toBe(800);
-  });
-
-  it("normalises colours", () => {
-    expect(normaliseColor("#FFF")).toBe("#ffffff");
-    expect(normaliseColor("rgb(51, 102, 255)")).toBe("#3366ff");
-    expect(normaliseColor("rgba(0 0 0 / 50%)")).toBe("#00000080");
-    expect(normaliseColor("oklch(0.5 0.1 200)")).toBeNull();
   });
 
   it("suggests the repository's components by name", () => {

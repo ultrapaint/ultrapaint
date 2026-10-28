@@ -38,6 +38,21 @@ const parseValue = (option: string): JsonValue => {
   return trimmed;
 };
 
+/**
+ * Whether a field's value, or a value typed in it, is outside the design system: set, and neither
+ * a token (`$radius-lg`) nor one of the values the field offers (a step of the spacing scale,
+ * `16px` as `16`; `fill`).
+ */
+export const isOutsideDesignSystem = (
+  option: string,
+  options: readonly StyleOption[]
+): boolean => {
+  const value = optionOf(parseValue(option));
+  return (
+    value !== "" && !isToken(value) && !options.some((o) => o.value === value)
+  );
+};
+
 /** How a value reads in a field: a token by its name, pixels as a number. */
 export const displayOf = (value: JsonValue | undefined): string => {
   if (value === undefined || value === null) {
@@ -94,6 +109,7 @@ export const ValueField = ({
       leading={leading}
       onPick={(picked) => onChange(parseValue(picked))}
       options={withUnset}
+      outside={(option) => isOutsideDesignSystem(option, options)}
       title={title}
     />
   );

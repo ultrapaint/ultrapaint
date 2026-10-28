@@ -6,7 +6,9 @@
  * module rather than naming the lists itself, so a kind is never left out of one of them.
  *
  * It owns the spacing scale too: a page's `$spacing-4` and a class's `p-4` are 4 × the spacing
- * base, a step no list holds, which only a named spacing (`spacing-gutter`) overrides.
+ * base, a step no list holds, which only a named spacing (`spacing-gutter`) overrides. And it
+ * answers which tokens of a kind hold a value (`tokensByValue`), for Figma's colours, the code's
+ * values written out and Sync's matches alike.
  *
  * Pure, and works on a design system's JSON before it is decoded where it says so: a file written
  * after ADR 0035 keeps no values, and one written before it may lack some.
@@ -18,10 +20,13 @@ import type {
   Token,
 } from "./design-system.ts";
 import {
+  type Comparable,
+  comparable,
   formatNumber,
   parseLength,
   printLength,
   ROOT_PX,
+  sameAs,
   toPx,
 } from "./token-value.ts";
 import type { TokenChange, TokenKind } from "./tokens.ts";
@@ -280,6 +285,52 @@ export const tokenOf = (
   name: string
 ): ListedToken | undefined =>
   ds ? allTokens(ds).find((t) => t.name === name) : undefined;
+
+/** A token held against a value: of its own kind when it says one, else its name's. */
+export interface ValuedToken {
+  readonly kind?: TokenKind;
+  readonly name: string;
+  readonly value: string;
+}
+
+/** The tokens of a kind that hold a value, in the order they were given. */
+export type ValueLookup<T extends ValuedToken> = (
+  kind: TokenKind,
+  value: string
+) => readonly T[];
+
+/**
+ * Which of these tokens of a kind hold a value, by token-value's notion of the same value
+ * (`sameValue`): `#2b7fff` finds a colour written `oklch(62.3% 0.214 259.815)`, `6px` a radius of
+ * `0.375rem`. Every token found, in the order given (a design system's is `listedTokens`'s or
+ * `tokensOfKind`'s); which of several to take is the caller's. Each token's value is read once,
+ * and a value asked for again is answered from what was found.
+ */
+export const tokensByValue = <T extends ValuedToken>(
+  tokens: readonly T[]
+): ValueLookup<T> => {
+  const byKind = new Map<TokenKind, [T, Comparable][]>();
+  for (const t of tokens) {
+    const kind = t.kind ?? tokenKindOf(t.name);
+    const own = byKind.get(kind) ?? [];
+    own.push([t, comparable(t.value)]);
+    byKind.set(kind, own);
+  }
+  const found = new Map<string, readonly T[]>();
+  return (kind, value) => {
+    const key = `${kind} ${value}`;
+    const known = found.get(key);
+    if (known) {
+      return known;
+    }
+    const wanted = comparable(value);
+    const same = (byKind.get(kind) ?? []).flatMap(([t, c]) =>
+      sameAs(c, wanted) ? [t] : []
+    );
+    found.set(key, same);
+    return same;
+  };
+};
 
 /** The JSON with `tokens` at the end of the list at `path`, the objects on the way made. */
 const appendAt = (

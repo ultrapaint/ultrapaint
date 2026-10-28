@@ -1,9 +1,12 @@
 /**
  * Colours as Figma keeps them (floats 0–1, an opacity per paint) into CSS, and back into the
- * design system's tokens where a token has exactly that colour.
+ * design system's tokens where a token holds that colour.
  */
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
-import { hexOf, parseColor } from "@ultrapaint/contracts/token-value";
+import {
+  tokensByValue,
+  tokensOfKind,
+} from "@ultrapaint/contracts/token-table";
 import type { FigColor, FigPaint } from "openfig-core";
 
 const channel = (value: number) =>
@@ -41,32 +44,21 @@ export const solidColor = (
   return paint?.color ? cssColor(paint.color, paint.opacity ?? 1) : undefined;
 };
 
-/**
- * A CSS colour as `#rrggbb` or `#rrggbbaa`, or null when it is not one written in sRGB (hex, a
- * name, `rgb()`): a token in another space is not one Figma's colours match exactly.
- */
-export const normaliseColor = (value: string): string | null => {
-  const color = parseColor(value);
-  return color?.space === "srgb" ? hexOf(color) : null;
-};
-
-/** Colour → `$token` for every colour token whose value is a plain hex or rgb colour. */
+/** Colour → `$token` for a colour a token holds; any other colour as it is. */
 export type TokenMatcher = (color: string) => string;
 
+/**
+ * The colour token that holds a colour, in whatever space either is written (the token table's
+ * `tokensByValue`): the first in the design system's order, semantic groups coming first.
+ */
 export const makeTokenMatcher = (
   designSystem: DesignSystem | null | undefined
 ): TokenMatcher => {
-  const byColor = new Map<string, string>();
-  for (const group of designSystem?.colors ?? []) {
-    for (const token of group.tokens) {
-      const colour = normaliseColor(token.value);
-      // The first token with a colour keeps it: semantic groups come first in the file.
-      if (colour !== null && !byColor.has(colour)) {
-        byColor.set(colour, `$${token.name}`);
-      }
-    }
-  }
-  return (color) => byColor.get(normaliseColor(color) ?? "") ?? color;
+  const byValue = tokensByValue(tokensOfKind(designSystem, "color"));
+  return (color) => {
+    const [first] = byValue("color", color);
+    return first ? `$${first.name}` : color;
+  };
 };
 
 export const noTokens: TokenMatcher = (color) => color;

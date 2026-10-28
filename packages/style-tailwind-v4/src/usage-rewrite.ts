@@ -13,14 +13,17 @@ import {
   type UsageValue,
 } from "@ultrapaint/contracts/design-system-setup";
 import {
+  type ListedToken,
+  listedTokens,
   spacingBasePx,
   spacingStepAt,
   spacingStepName,
   spacingStepOf,
   tokenPrefix,
-  tokensOfKind,
+  tokensByValue,
+  type ValueLookup,
 } from "@ultrapaint/contracts/token-table";
-import { sameValue, toPx } from "@ultrapaint/contracts/token-value";
+import { toPx } from "@ultrapaint/contracts/token-value";
 import type {
   UsageOccurrence,
   UsageReader,
@@ -38,16 +41,16 @@ import { printClass } from "./utilities.ts";
 const NUMBER_RE = /^-?\d+(\.\d+)?$/;
 const REGEX_CHARS_RE = /[.*+?^${}()|[\]\\]/g;
 
-/** The token of a kind whose value is this length, in pixels. */
-const tokenOfLength = (
-  tokens: readonly { readonly name: string; readonly value: string }[],
-  px: number
-) => tokens.find((t) => toPx(t.value) === px)?.name;
+/** What a rule settles a value against: the design system, and its tokens by value. */
+interface Against {
+  readonly byValue: ValueLookup<ListedToken>;
+  readonly ds: DesignSystem;
+}
 
 /** A target settled by a rule, for one value. */
 type Rule = (
   value: UsageValue,
-  ds: DesignSystem
+  against: Against
 ) => { readonly note: string; readonly target: string } | null;
 
 const EXACT = "Exactly the token's value";
@@ -64,7 +67,7 @@ const byToken: Rule = (value) => {
 };
 
 /** A length on the spacing scale, as its step: 16px is `spacing-4` on a 4px base; a zero is none. */
-const bySpacing: Rule = (value, ds) => {
+const bySpacing: Rule = (value, { ds }) => {
   const px = Math.abs(toPx(value.value) ?? 0);
   const base = spacingBasePx(ds.spacing.base);
   const step = spacingStepAt(px, base);
@@ -76,32 +79,15 @@ const bySpacing: Rule = (value, ds) => {
       };
 };
 
-/** A length equal to a token's, in pixels. */
-const byLength =
-  (
-    tokensOf: (ds: DesignSystem) => readonly { name: string; value: string }[]
-  ): Rule =>
-  (value, ds) => {
-    const px = toPx(value.value);
-    const name = px === null ? undefined : tokenOfLength(tokensOf(ds), px);
-    return name ? { note: EXACT, target: name } : null;
+/** The first token of a kind that holds the value: `14px` is `text-sm` of `0.875rem`. */
+const byValueOf =
+  (kind: "fontSize" | "fontWeight" | "radius" | "shadow"): Rule =>
+  (value, { byValue }) => {
+    const [first] = byValue(kind, value.value);
+    return first ? { note: EXACT, target: first.name } : null;
   };
 
-const byWeight: Rule = (value, ds) => {
-  const name = tokensOfKind(ds, "fontWeight").find(
-    (w) => w.value.trim() === value.value
-  )?.name;
-  return name ? { note: EXACT, target: name } : null;
-};
-
-const byShadow: Rule = (value, ds) => {
-  const name = tokensOfKind(ds, "shadow").find((t) =>
-    sameValue(t.value, value.value)
-  )?.name;
-  return name ? { note: EXACT, target: name } : null;
-};
-
-const byLayer: Rule = (value, ds) => {
+const byLayer: Rule = (value, { ds }) => {
   const level = (ds.elevation ?? []).find(
     (l) => String(l.layer) === value.value
   );
@@ -113,10 +99,10 @@ const byLayer: Rule = (value, ds) => {
 const RULES: Record<UsageKind, Rule> = {
   color: byToken,
   element: byToken,
-  fontSize: byLength((ds) => tokensOfKind(ds, "fontSize")),
-  fontWeight: byWeight,
-  radius: byLength((ds) => tokensOfKind(ds, "radius")),
-  shadow: byShadow,
+  fontSize: byValueOf("fontSize"),
+  fontWeight: byValueOf("fontWeight"),
+  radius: byValueOf("radius"),
+  shadow: byValueOf("shadow"),
   spacing: bySpacing,
   zIndex: byLayer,
 };
@@ -124,20 +110,22 @@ const RULES: Record<UsageKind, Rule> = {
 /** Only values written out are settled by a rule: Tailwind's own are a judgement. */
 const suggestOne = (
   value: UsageValue,
-  ds: DesignSystem
+  against: Against
 ): UsageSuggestion | null => {
   if (value.status !== "raw") {
     return null;
   }
-  const settled = RULES[value.kind](value, ds);
+  const settled = RULES[value.kind](value, against);
   return settled ? { kind: value.kind, value: value.value, ...settled } : null;
 };
 
-const suggest: UsageReader["suggest"] = (values, ds) =>
-  values.flatMap((v) => {
-    const one = suggestOne(v, ds);
+const suggest: UsageReader["suggest"] = (values, ds) => {
+  const against = { byValue: tokensByValue(listedTokens(ds)), ds };
+  return values.flatMap((v) => {
+    const one = suggestOne(v, against);
     return one ? [one] : [];
   });
+};
 
 /** A target as the value of a class of its kind: `color-primary` is `primary` in `bg-primary`. */
 const classValue = (kind: UsageKind, target: string): string | null => {

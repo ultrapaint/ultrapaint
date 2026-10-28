@@ -21,8 +21,8 @@ import {
   type TokenDiff,
   type TokenMatchInput,
 } from "@ultrapaint/contracts/sync";
-import { tokenKindOf } from "@ultrapaint/contracts/token-table";
-import { inCodeUnits, sameValue } from "@ultrapaint/contracts/token-value";
+import { tokenKindOf, tokensByValue } from "@ultrapaint/contracts/token-table";
+import { inCodeUnits } from "@ultrapaint/contracts/token-value";
 import type {
   SourceToken,
   TokenChange,
@@ -436,11 +436,10 @@ const matchByValue = (
   tokens: readonly SideToken[],
   design: readonly SourceToken[]
 ): Map<string, string> => {
+  const byValue = tokensByValue(design);
   const byTarget = new Map<string, SideToken[]>();
   for (const token of tokens) {
-    const same = design.filter(
-      (t) => t.kind === token.kind && sameValue(token.values[""] ?? "", t.value)
-    );
+    const same = byValue(token.kind, token.values[""] ?? "");
     const [target] = same;
     if (same.length === 1 && target) {
       byTarget.set(target.name, [...(byTarget.get(target.name) ?? []), token]);
