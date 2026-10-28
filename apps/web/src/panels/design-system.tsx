@@ -48,7 +48,6 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { frameOf, useFrameDrawing } from "../canvas/editor-frame.ts";
-import { usePreview } from "../canvas/preview-module.ts";
 import { PreviewSurface } from "../canvas/preview-surface.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
@@ -263,7 +262,6 @@ const typeSpecimen = (ds: DesignSystem, q: string): DesignNode => {
 };
 
 export const TypeSpecimen = ({ ds, q }: { ds: DesignSystem; q: string }) => {
-  const running = usePreview() !== null;
   const ref = useRef<HTMLDivElement>(null);
   const frame = "design-system:typography";
   const look = useDesignLook();
@@ -292,13 +290,6 @@ export const TypeSpecimen = ({ ds, q }: { ds: DesignSystem; q: string }) => {
       showMenu(target, anchor);
     }
   };
-  if (!running) {
-    return (
-      <div className="px-3 py-2 font-body text-muted-foreground">
-        The preview is not running; type samples are drawn by it.
-      </div>
-    );
-  }
   return (
     <div className="overflow-hidden px-3 py-2">
       {/* biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: the samples are one picture; the inspector sets the same styles. */}

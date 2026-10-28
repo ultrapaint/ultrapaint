@@ -59,7 +59,7 @@ import {
   UploadAssetInput,
 } from "./pages.ts";
 import { InstanceDrawn } from "./preview.ts";
-import { HostStatus, LogLine, ProjectInfo } from "./project.ts";
+import { LogLine, ProjectInfo } from "./project.ts";
 import { ScreenshotRequest, ScreenshotResult } from "./screenshots.ts";
 import {
   PersistInput,
@@ -200,7 +200,6 @@ const requestRpcs = [
   }),
 
   Rpc.make("project.info", { success: ProjectInfo }),
-  Rpc.make("host.start", { error: NotConfigured, success: HostStatus }),
   Rpc.make("logs.recent", { success: Schema.Array(LogLine) }),
 
   Rpc.make("pages.list", { error: NotConfigured, success: PageList }),

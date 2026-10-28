@@ -254,18 +254,14 @@ const FilterMenu = ({
 /** Keeps the pictures in step with the threads and their documents, a moment after they settle. */
 const usePreviews = (threads: readonly Thread[]) => {
   const docs = useDocuments((s) => s.docs);
-  const host = useProject((s) => s.info.host.state);
   // A document that changed is drawn again: its hash is what the picture is kept by.
   // biome-ignore lint/correctness/useExhaustiveDependencies: docs is what the pictures are drawn from.
   useEffect(() => {
-    if (host !== "running") {
-      return;
-    }
     const timer = setTimeout(() => {
       refreshPreviews(threads.filter((t) => t.scope)).catch(() => undefined);
     }, 600);
     return () => clearTimeout(timer);
-  }, [threads, docs, host]);
+  }, [threads, docs]);
 };
 
 const Section = ({

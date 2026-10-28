@@ -149,17 +149,13 @@ describe("the code's side", () => {
           const second = yield* code;
           assert.notStrictEqual(second, first);
           assert.strictEqual(second.byName.get("color-ink")?.value, "#222222");
-          // Sync, its plan and the preview read the same.
+          // Sync and its plan read the same.
           const compared = yield* sync.tokens("code");
           assert.deepStrictEqual(
             compared?.diffs.map((d) => [d.name, d.outcome, d.source]),
             [["color-ink", "to-design", "#222222"]]
           );
           assert.strictEqual((yield* sync.plan).facts.codeTokens?.toDesign, 1);
-          const state = inProject(
-            Effect.flatMap(DesignSystemService, (d) => d.get)
-          );
-          assert.include((yield* state).previewCss ?? "", "#111827");
 
           // The design takes the code's value, then changes, and the export writes it: the
           // agreement moves with each.
@@ -187,8 +183,6 @@ describe("the code's side", () => {
             (system.codeSync as { agreed: unknown }).agreed,
             { "color-ink": "#444444" }
           );
-          // The preview no longer draws the design's ink over the code's.
-          assert.notInclude((yield* state).previewCss ?? "", "--color-ink");
         })
     );
   });

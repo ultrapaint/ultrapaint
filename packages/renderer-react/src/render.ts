@@ -1,10 +1,7 @@
 /**
- * Draws design documents with the target repository's own React. This module is bundled with
- * `react` left as an import, so it is the repository's copy — the one its design system uses —
- * that renders, and an instance is the real component, imported through the generated registry.
- *
- * The providers are mounted once and stay mounted: a new document is drawn under them, so what
- * a provider holds survives an edit and a navigation, as it does in the real application.
+ * Draws design documents in the editor's frames, with the editor's own React (ADR 0040): a page's
+ * nodes as elements, an instance as one of the editor's primitives (on Base UI) or as a draft's
+ * tree. Nothing of the repository's is loaded or run.
  */
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
@@ -12,7 +9,6 @@ import type { InstanceDrawn } from "@ultrapaint/contracts/preview";
 import { DRAFT_FROM, PRIMITIVES_FROM } from "@ultrapaint/contracts/spec-names";
 import type { ComponentSpec } from "@ultrapaint/contracts/specs";
 import {
-  AROUND_INSTANCE,
   layoutOf,
   makeStyleContext,
   maskOf,
@@ -30,10 +26,8 @@ import {
 } from "@ultrapaint/design-document/spec";
 import { childrenOf } from "@ultrapaint/design-document/tree";
 import {
-  type ComponentRegistry,
   type Mounted,
   NODE_ATTRIBUTE,
-  nodeSelector,
   type RenderRequest,
   type RenderSetup,
   type RenderToCanvas,
@@ -46,16 +40,11 @@ import {
 } from "@ultrapaint/primitives/frame";
 import {
   Component,
-  type ComponentType,
   createContext,
   createElement,
-  Fragment,
-  lazy,
   type ReactNode,
-  Suspense,
   startTransition,
   useContext,
-  useEffect,
   useLayoutEffect,
   useMemo,
   useSyncExternalStore,
@@ -94,7 +83,7 @@ const MESSAGE_STYLE = {
     '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
   fontSize: 13,
   justifyContent: "center",
-  minHeight: "100vh",
+  minHeight: "100cqh",
 } as const;
 
 /** The attribute the nodes of a draft's tree are marked with: not the page's, so not selectable. */
@@ -103,27 +92,16 @@ const DRAFT_NODE_ATTRIBUTE = "data-ed-draft-node";
 /** What every node of one render needs, handed down without threading it through props. */
 interface Scope {
   readonly assetUrl: (src: string) => string;
-  readonly componentOf: (
-    node: InstanceNode
-  ) => ComponentType<Record<string, unknown>> | null;
   /** The trees of the draft components (ADR 0029), by component name. */
   readonly drafts: ReadonlyMap<string, DesignNode>;
-  /** Says the render's components are drawing: what they ask of the window is the frame's. */
-  readonly drawing: () => void;
-  /** How each instance was drawn, which the instance reads and its effect writes. */
-  readonly instances: InstanceStore;
-  /** What earlier instances of a component taught: whether it wraps, how it lays out. */
-  readonly learned: Learned;
   readonly navigate: (route: string) => void;
   /**
    * What a node's id is written in: the page's attribute, or, inside a draft's tree, one the
    * editor does not read, so only the draft's instance can be selected.
    */
   readonly nodeAttribute: string;
-  /** A root path to one of the application's public files where the page finds it. */
-  readonly publicUrl: (url: string) => string;
-  /** Where the render's elements are looked up: the frame's shadow root. */
-  readonly root: ParentNode;
+  /** Tells the editor how an instance lays its children out, once it is drawn. */
+  readonly report: (nodeId: string, drawn: InstanceDrawn) => void;
   readonly styles: Omit<StyleContext, "parent">;
 }
 
@@ -148,8 +126,8 @@ const sameKeys = (a: readonly unknown[], b: readonly unknown[]) =>
   a.length === b.length && a.every((key, i) => Object.is(key, b[i]));
 
 /**
- * Keeps one component that throws from taking the rest of the page with it. The error stays
- * until what is drawn changes, a prop fixed or the component reloaded, and is then tried again.
+ * Keeps one part that throws from taking the rest of the page with it. The error stays until what
+ * is drawn changes, and is then tried again.
  */
 class Boundary extends Component<BoundaryProps, BoundaryState> {
   override state: BoundaryState = {
@@ -192,15 +170,12 @@ class Boundary extends Component<BoundaryProps, BoundaryState> {
   }
 }
 
-const PassThrough = ({ children }: { children: ReactNode }) =>
-  createElement(Fragment, null, children);
-
 const Message = ({ text }: { text: string }) =>
   createElement("div", { style: MESSAGE_STYLE }, text);
 
 /**
- * Stands in for a component that cannot be found. It keeps what the renderer gives an instance
- * (the node's id, its box, a link's handler) and drops the component's own props.
+ * Stands in for an instance of nothing the editor has: a component of the repository's from
+ * before ADR 0040, or a primitive's name misspelt. It keeps the node's marks and its box.
  */
 const Missing = ({
   onClickCapture,
@@ -225,84 +200,9 @@ const Missing = ({
     text
   );
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
-/** `value` with its root paths to public files where the page finds them; itself where none is. */
-const publicUrlsIn = (
-  value: unknown,
-  publicUrl: (url: string) => string
-): unknown => {
-  if (typeof value === "string") {
-    return value.startsWith("/") ? publicUrl(value) : value;
-  }
-  if (!(Array.isArray(value) || isRecord(value))) {
-    return value;
-  }
-  const entries = Array.isArray(value)
-    ? value.map((item, i) => [i, item] as const)
-    : Object.entries(value);
-  let changed = false;
-  const next = entries.map(([key, item]) => {
-    const moved = publicUrlsIn(item, publicUrl);
-    changed ||= moved !== item;
-    return [key, moved] as const;
-  });
-  if (!changed) {
-    return value;
-  }
-  return Array.isArray(value)
-    ? next.map(([, item]) => item)
-    : Object.fromEntries(next);
-};
-
-/** By a node's props: the same object every render while the document's props stay the same. */
-const withPublicUrlsCache = new WeakMap<object, Record<string, unknown>>();
-
-/**
- * An instance's props with every root path to one of the application's public files (a hero's
- * `image`, the `cover` of each card of a list) where the editor's page finds it (ADR 0034).
- */
-const withPublicUrls = (
-  props: Record<string, unknown>,
-  publicUrl: (url: string) => string
-) => {
-  let found = withPublicUrlsCache.get(props);
-  if (!found) {
-    found = publicUrlsIn(props, publicUrl) as Record<string, unknown>;
-    withPublicUrlsCache.set(props, found);
-  }
-  return found;
-};
-
-/** Whether the style asks for a box of its own, beyond the border-box every node gets. */
-const hasBox = (style: Style) =>
-  Object.keys(style).some((key) => key !== "boxSizing" && key !== "cursor");
-
 /** Whether the style sets anything at all beyond the border-box every node gets. */
 const setsAnything = (style: Style) =>
   Object.keys(style).some((key) => key !== "boxSizing");
-
-/** How an instance's children are laid out; never `free`, which is the root of a render's. */
-type ChildLayout = InstanceDrawn["layout"];
-
-/** The box an element's children are laid out in: past any `display: contents` in between. */
-const containerOf = (el: Element): Element | null => {
-  let parent = el.parentElement;
-  while (parent && getComputedStyle(parent).display === "contents") {
-    parent = parent.parentElement;
-  }
-  return parent;
-};
-
-/** How an element lays out its children, in the format's terms: a flexbox, or anything else. */
-const layoutOfElement = (el: Element): ChildLayout => {
-  const style = getComputedStyle(el);
-  if (style.display !== "flex" && style.display !== "inline-flex") {
-    return "block";
-  }
-  return style.flexDirection.startsWith("column") ? "column" : "row";
-};
 
 const onLink = (scope: Scope, link: string | undefined) =>
   link
@@ -340,7 +240,7 @@ const NodeView = ({
         style,
       };
   if (node.type === "instance") {
-    // A node that becomes another component starts over: what was learned was about the old one.
+    // A node that becomes another component starts over.
     return createElement(InstanceView, {
       key: `${node.from}#${node.component}`,
       node,
@@ -377,29 +277,40 @@ const NodeView = ({
   );
 };
 
-/**
- * An instance is the design system's own component, and its box fields are the component's: the
- * style, the node's id and a link's handler are given to it as props, which a component that
- * passes its props on to its root element (what nearly every design system does) puts on that
- * element. Sized, padded or filled, it is the component that is, as it is in the code
- * (`className` on the component), and the component stays the direct child of its parent, which
- * its own selectors (`*:`, `has-[>…]`, `:first-child`, grid placement) count on.
- *
- * A component that keeps its props to itself is found out after the first commit, when the id is
- * nowhere in the DOM, and drawn inside a wrapper instead: one with no box of its own
- * (`display: contents`) when the node sets none, otherwise one that carries the box and stretches
- * the component across it. It is the one case where the canvas and the code differ, and the
- * editor is told.
- *
- * What the instance's children are sized against is the element that holds them: a Card that is
- * a flex column grows a child that fills its height, as it would in the application. It is read
- * off the DOM after each commit, and a change draws the children again before the frame is
- * painted.
- */
+/** A tree with its first text node's text replaced. */
+const withFirstText = (tree: DesignNode, text: string): DesignNode => {
+  let done = false;
+  const visit = (node: DesignNode): DesignNode => {
+    if (done) {
+      return node;
+    }
+    if (node.type === "text") {
+      done = true;
+      return { ...node, text };
+    }
+    if ("children" in node && node.children) {
+      return {
+        ...node,
+        children: node.children.map(visit),
+      } as DesignNode;
+    }
+    return node;
+  };
+  return visit(tree);
+};
+
+/** The marks every instance's element carries: its id, and what a spec finds it by. */
+const marksOf = (scope: Scope, node: InstanceNode) => ({
+  [scope.nodeAttribute]: node.id,
+  [COMPONENT_ATTRIBUTE]: node.component,
+  [VARIANT_ATTRIBUTE]: variantAttributeOf(node.props),
+  "data-ed-instance": node.component,
+});
+
 /**
  * A draft component's instance (ADR 0029): the draft's tree drawn in its place, its root carrying
  * the instance's id, marks and box, so the instance is what is selected, and the spec's styles
- * reach it as they reach a component. The instance's text replaces the tree's first text.
+ * reach it as they reach a primitive. The instance's text replaces the tree's first text.
  */
 const DraftView = ({
   node,
@@ -410,12 +321,7 @@ const DraftView = ({
 }): ReactNode => {
   const scope = useContext(ScopeContext) as Scope;
   const tree = scope.drafts.get(node.component);
-  const marks = {
-    [scope.nodeAttribute]: node.id,
-    [COMPONENT_ATTRIBUTE]: node.component,
-    [VARIANT_ATTRIBUTE]: variantAttributeOf(node.props),
-    "data-ed-instance": node.component,
-  };
+  const marks = marksOf(scope, node);
   if (!tree) {
     return createElement(Missing, {
       ...marks,
@@ -444,49 +350,12 @@ const DraftView = ({
   );
 };
 
-/** A tree with its first text node's text replaced. */
-const withFirstText = (tree: DesignNode, text: string): DesignNode => {
-  let done = false;
-  const visit = (node: DesignNode): DesignNode => {
-    if (done) {
-      return node;
-    }
-    if (node.type === "text") {
-      done = true;
-      return { ...node, text };
-    }
-    if ("children" in node && node.children) {
-      return {
-        ...node,
-        children: node.children.map(visit),
-      } as DesignNode;
-    }
-    return node;
-  };
-  return visit(tree);
-};
-
-const InstanceView = ({
-  node,
-  style,
-}: {
-  node: InstanceNode;
-  style: Style;
-}): ReactNode => {
-  if (node.from === DRAFT_FROM) {
-    return createElement(DraftView, { node, style });
-  }
-  if (node.from === PRIMITIVES_FROM) {
-    return createElement(PrimitiveView, { node, style });
-  }
-  return createElement(ComponentInstanceView, { node, style });
-};
-
 /**
  * One of the editor's own primitives (ADR 0040). It takes its instance's props, and its children
  * by the slot each names: the ones that name none are its children, the others go in `slots`,
  * each laid out as its slot lays out. The node's id, marks and box go on the element the
- * primitive draws as the instance; a primitive always takes them, so nothing is learned.
+ * primitive draws as the instance; how its children are laid out is the catalogue's, and the
+ * editor is told it.
  */
 const PrimitiveView = ({
   node,
@@ -498,12 +367,12 @@ const PrimitiveView = ({
   const scope = useContext(ScopeContext) as Scope;
   const Primitive = PRIMITIVE_COMPONENTS[node.component];
   const meta = primitiveOf(node.component);
-  const marks = {
-    [scope.nodeAttribute]: node.id,
-    [COMPONENT_ATTRIBUTE]: node.component,
-    [VARIANT_ATTRIBUTE]: variantAttributeOf(node.props),
-    "data-ed-instance": node.component,
-  };
+  const fallback = meta && slotFor(meta, undefined);
+  const layout = fallback?.layout ?? "block";
+  useLayoutEffect(() => {
+    scope.report(node.id, { layout, wrapped: false });
+  }, [scope, node.id, layout]);
+  const marks = marksOf(scope, node);
   if (!(Primitive && meta)) {
     return createElement(Missing, {
       ...marks,
@@ -514,7 +383,7 @@ const PrimitiveView = ({
   const bySlot = new Map<string, ReactNode[]>();
   const children = childrenOf(node);
   for (const child of children) {
-    const slot = slotFor(meta, child.slot) ?? slotFor(meta, undefined);
+    const slot = slotFor(meta, child.slot) ?? fallback;
     if (!slot) {
       continue;
     }
@@ -525,7 +394,6 @@ const PrimitiveView = ({
     });
     bySlot.set(slot.name, [...(bySlot.get(slot.name) ?? []), drawn]);
   }
-  const fallback = slotFor(meta, undefined);
   const slots: Record<string, ReactNode> = {};
   let content: ReactNode =
     children.length === 0 && node.text !== undefined ? node.text : undefined;
@@ -553,7 +421,7 @@ const PrimitiveView = ({
   );
 };
 
-const ComponentInstanceView = ({
+const InstanceView = ({
   node,
   style,
 }: {
@@ -561,125 +429,20 @@ const ComponentInstanceView = ({
   style: Style;
 }): ReactNode => {
   const scope = useContext(ScopeContext) as Scope;
-  // The component draws next: a `matchMedia` it calls is about this frame (ADR 0036).
-  scope.drawing();
-  const Resolved = scope.componentOf(node);
-  const key = `${node.from}#${node.component}`;
-  const { instances, learned } = scope;
-  const seen = useSyncExternalStore(
-    (listener) => instances.subscribe(node.id, listener),
-    () => instances.get(node.id)
-  );
-  // What was seen of another component, or of this one before its module was reloaded, is
-  // asked again; until then, what other instances of the component showed is the guess.
-  const known = seen?.component === Resolved ? seen : undefined;
-  const wrapped = known?.wrapped ?? learned.wraps.has(key);
-  const layout = known?.layout ?? learned.layouts.get(key) ?? "block";
-  const children = childrenOf(node);
-  const firstChild = children[0]?.id;
-
-  const attribute = scope.nodeAttribute;
-  const selectorOf = (id: string) =>
-    attribute === NODE_ATTRIBUTE
-      ? nodeSelector(id)
-      : `[${attribute}="${CSS.escape(id)}"]`;
-  useLayoutEffect(() => {
-    const own = scope.root.querySelector(selectorOf(node.id));
-    if (!(wrapped || own)) {
-      // The id went nowhere: the component does not pass its props on.
-      instances.set(node.id, { component: Resolved, layout, wrapped: true });
-      return;
-    }
-    if (wrapped && own && own.childElementCount > 0) {
-      // The wrapper holds what the component drew, none of it carrying the id: the component
-      // keeps its props to itself whatever it is given. One that drew nothing tells nothing.
-      learned.wraps.add(key);
-    }
-    const child =
-      firstChild === undefined
-        ? null
-        : scope.root.querySelector(selectorOf(firstChild));
-    const container = child ? containerOf(child) : null;
-    const next = container ? layoutOfElement(container) : layout;
-    if (container) {
-      learned.layouts.set(key, next);
-    }
-    instances.set(node.id, { component: Resolved, layout: next, wrapped });
-  });
-
-  const content =
-    children.length > 0
-      ? children.map((child) =>
-          createElement(NodeView, {
-            key: child.id,
-            node: child,
-            parent: layout,
-          })
-        )
-      : node.text;
-  const props = withPublicUrls(node.props ?? {}, scope.publicUrl);
-  const onClickCapture = onLink(scope, node.link);
-  // The marker goes first: its effects run just before the component's, so what those ask of
-  // the window, throw or schedule is this frame's, whichever frame drew since.
-  const component = (extra: Record<string, unknown>) =>
-    createElement(
-      Fragment,
-      null,
-      createElement(Drawing, { drawing: scope.drawing }),
-      createElement(
-        Boundary,
-        {
-          key,
-          label: node.component,
-          nodeId: wrapped ? undefined : node.id,
-          resetKeys: [node, Resolved],
-        },
-        Resolved
-          ? createElement(Resolved, { ...props, ...extra }, content)
-          : createElement(Missing, {
-              ...extra,
-              text: `${node.component} is not in ${node.from}`,
-            })
-      )
-    );
-
-  // What a component spec's stylesheet finds the instance by (ADR 0029).
-  const marks = {
-    [COMPONENT_ATTRIBUTE]: node.component,
-    [VARIANT_ATTRIBUTE]: variantAttributeOf(props),
-  };
-  if (!wrapped) {
-    const own = isRecord(props.style) ? props.style : {};
-    return component({
-      [attribute]: node.id,
-      "data-ed-instance": node.component,
-      ...marks,
-      ...(onClickCapture && { onClickCapture }),
-      ...(setsAnything(style) && { style: { ...own, ...style } }),
-    });
+  if (node.from === DRAFT_FROM) {
+    return createElement(DraftView, { node, style });
   }
-  const wrapperStyle = hasBox(style)
-    ? { ...AROUND_INSTANCE, ...style }
-    : { display: "contents" };
-  return createElement(
-    "div",
-    {
-      [attribute]: node.id,
-      "data-ed-instance": node.component,
-      ...marks,
-      "data-ed-wrapper": "",
-      onClickCapture,
-      style: wrapperStyle,
-    },
-    component({})
-  );
+  if (node.from === PRIMITIVES_FROM) {
+    return createElement(PrimitiveView, { node, style });
+  }
+  return createElement(Missing, {
+    ...marksOf(scope, node),
+    style,
+    text: `${node.component} is a component of the repository's: the canvas draws primitives`,
+  });
 };
 
-/**
- * Tells the core once a render is on the screen, so rects are measured on what is there. It sits
- * inside the one boundary that waits for the components to load, after the page: its effect runs
- * only once everything the render needs has arrived.
- */
+/** Tells the core once a render is on the screen, so rects are measured on what is there. */
 const Rendered = ({
   onRendered,
   renderId,
@@ -690,18 +453,6 @@ const Rendered = ({
   useLayoutEffect(() => {
     onRendered(renderId);
   }, [onRendered, renderId]);
-  return null;
-};
-
-/**
- * Says the frame is drawing, before the providers and the page are and as the render's effects
- * run: the first thing drawn, its effects run first. What a component's effect asks of the window (`matchMedia`,
- * `innerWidth`) is then about this frame, whichever frame was drawn last (ADR 0036).
- */
-const Drawing = ({ drawing }: { drawing: () => void }) => {
-  drawing();
-  useLayoutEffect(drawing);
-  useEffect(drawing);
   return null;
 };
 
@@ -724,182 +475,7 @@ const FrameScope = ({
   return createElement(PrimitiveFrameProvider, { frame: value }, children);
 };
 
-/** What instances of a component have shown about it, by `from#component`. */
-interface Learned {
-  /** How the element holding its children lays them out, the last time it was seen. */
-  readonly layouts: Map<string, ChildLayout>;
-  /** Components that keep their props to themselves and are drawn inside a wrapper. */
-  readonly wraps: Set<string>;
-}
-
-/** How one instance was drawn, and for which component: a reloaded module is asked again. */
-interface InstanceSeen extends InstanceDrawn {
-  readonly component: unknown;
-}
-
-interface InstanceStore {
-  readonly get: (nodeId: string) => InstanceSeen | undefined;
-  /** Records what an instance's effect found; the instance draws again when it changed. */
-  readonly set: (nodeId: string, seen: InstanceSeen) => void;
-  readonly subscribe: (nodeId: string, listener: () => void) => () => void;
-}
-
-/**
- * How instances were drawn, outside React: an instance can only know it once it is in the
- * DOM, so its effect writes it here and the instance, subscribed, draws again before the frame
- * is painted. What changed is reported to the editor too.
- */
-const makeInstanceStore = (
-  report: (nodeId: string, drawn: InstanceDrawn) => void
-): InstanceStore => {
-  const seen = new Map<string, InstanceSeen>();
-  const listeners = new Map<string, Set<() => void>>();
-  return {
-    get: (nodeId) => seen.get(nodeId),
-    set: (nodeId, next) => {
-      const before = seen.get(nodeId);
-      if (
-        before !== undefined &&
-        before.component === next.component &&
-        before.layout === next.layout &&
-        before.wrapped === next.wrapped
-      ) {
-        return;
-      }
-      seen.set(nodeId, next);
-      if (before?.layout !== next.layout || before.wrapped !== next.wrapped) {
-        report(nodeId, { layout: next.layout, wrapped: next.wrapped });
-      }
-      for (const listener of listeners.get(nodeId) ?? []) {
-        listener();
-      }
-    },
-    subscribe: (nodeId, listener) => {
-      const set = listeners.get(nodeId) ?? new Set();
-      set.add(listener);
-      listeners.set(nodeId, set);
-      return () => {
-        set.delete(listener);
-        if (set.size === 0) {
-          listeners.delete(nodeId);
-        }
-      };
-    },
-  };
-};
-
-/**
- * One lazy component per module and export, kept while the registry keeps the module, with
- * what its instances taught: a new instance starts from it instead of drawing twice.
- */
-const makeComponents = (initial: ComponentRegistry): Components => {
-  let registry = initial;
-  const cache = new Map<string, ComponentType<Record<string, unknown>>>();
-  const learned: Learned = { layouts: new Map(), wraps: new Set() };
-  const componentOf = (node: InstanceNode) => {
-    const load = registry[node.from];
-    if (!load) {
-      return null;
-    }
-    const key = `${node.from}#${node.component}`;
-    const cached = cache.get(key);
-    if (cached) {
-      return cached;
-    }
-    const component = lazy(async () => {
-      const module = (await load()) as Record<string, unknown>;
-      const found =
-        module[node.component] ??
-        (node.component === "default" ? module.default : undefined);
-      return {
-        default:
-          (found as ComponentType<Record<string, unknown>> | undefined) ??
-          ((props: Record<string, unknown>) =>
-            createElement(Missing, {
-              ...props,
-              text: `${node.from} has no export ${node.component}`,
-            })),
-      };
-    });
-    cache.set(key, component);
-    return component;
-  };
-  /** The loaders already started, so each module is asked for once. */
-  const started = new Set<() => Promise<unknown>>();
-  /**
-   * Starts loading every module the tree's instances come from, all at once. Drawn, each
-   * component loads only once React reaches it, and one inside another waits for the outer one:
-   * a page of nested components loaded them one after the other.
-   */
-  const preload = (root: DesignNode) => {
-    const walk = (node: DesignNode) => {
-      if (node.type === "instance") {
-        const load = registry[node.from];
-        if (load && !started.has(load)) {
-          started.add(load);
-          // A module that fails is reported where its instance is drawn.
-          load().catch(() => undefined);
-        }
-      }
-      for (const child of childrenOf(node)) {
-        walk(child);
-      }
-    };
-    walk(root);
-  };
-  /** How many times the registry was replaced: a reloaded module may no longer throw. */
-  let replaced = 0;
-  const replace = (next: ComponentRegistry) => {
-    replaced += 1;
-    for (const key of cache.keys()) {
-      const from = key.slice(0, key.lastIndexOf("#"));
-      if (next[from] !== registry[from]) {
-        cache.delete(key);
-        learned.layouts.delete(key);
-        learned.wraps.delete(key);
-      }
-    }
-    registry = next;
-  };
-  return {
-    componentOf,
-    generation: () => replaced,
-    learned,
-    preload,
-    replace,
-  };
-};
-
-interface Components {
-  readonly componentOf: (
-    node: InstanceNode
-  ) => ComponentType<Record<string, unknown>> | null;
-  readonly generation: () => number;
-  readonly learned: Learned;
-  readonly preload: (root: DesignNode) => void;
-  readonly replace: (next: ComponentRegistry) => void;
-}
-
-/**
- * The components of a registry, shared by everything drawn from it: frames of the editor's page
- * all draw from the one registry, and a component loaded for one draws in the next at once,
- * without waiting (React holds back what suspends, even for a module already there).
- */
-const shared = new WeakMap<ComponentRegistry, Components>();
-const componentsFor = (registry: ComponentRegistry): Components => {
-  let found = shared.get(registry);
-  if (!found) {
-    found = makeComponents(registry);
-    shared.set(registry, found);
-  }
-  return found;
-};
-
 export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
-  const Providers = (setup.providers ?? PassThrough) as ComponentType<{
-    children: ReactNode;
-  }>;
-  // What throws above the page's boundary (the providers) is the frame's, not the window's.
   const root = createRoot(canvas, {
     onUncaughtError: (error) =>
       setup.reportError({
@@ -907,18 +483,15 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
         stack: error instanceof Error ? error.stack : undefined,
       }),
   });
-  const lookup = canvas.getRootNode() as ParentNode;
-  let components = componentsFor(setup.components);
-  let last: RenderRequest | null = null;
   let designSystem: DesignSystem | null = null;
   let styles = makeStyleContext(null);
   let specs: readonly ComponentSpec[] | undefined;
   let drafts: ReadonlyMap<string, DesignNode> = new Map();
   const onError = (error: Error) =>
     setup.reportError({ message: error.message, stack: error.stack });
-  const { drawing } = setup;
 
-  // How instances were drawn goes to the editor once a frame, and only what changed.
+  // How instances lay out their children goes to the editor once a frame, and only what changed.
+  const told = new Map<string, InstanceDrawn>();
   let unsent: Record<string, InstanceDrawn> = {};
   let sendScheduled = false;
   const sendInstances = () => {
@@ -928,13 +501,17 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
     setup.reportInstances(drawn);
   };
   const report = (nodeId: string, drawn: InstanceDrawn) => {
+    const before = told.get(nodeId);
+    if (before?.layout === drawn.layout && before.wrapped === drawn.wrapped) {
+      return;
+    }
+    told.set(nodeId, drawn);
     unsent[nodeId] = drawn;
     if (!sendScheduled) {
       sendScheduled = true;
       requestAnimationFrame(sendInstances);
     }
   };
-  const instances = makeInstanceStore(report);
 
   let first = true;
   /** What the request changes of the design system, the specs and the design's stylesheet. */
@@ -957,8 +534,8 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
       );
     }
     tokenCss = request.styles;
-    // The design's own stylesheet (ADR 0028, 0029): the tokens' values over the code's and the
-    // component specs, which the core puts after every other sheet of the frames.
+    // The design's own stylesheet (ADR 0028, 0029): every token's value and the component specs,
+    // which the core puts after every other sheet of the frames.
     if (restyled) {
       setup.setDesignCss(
         [tokenCss ?? "", specCss(specs ?? [], styles)]
@@ -969,25 +546,16 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
   };
 
   const draw = (request: RenderRequest) => {
-    last = request;
     restyle(request);
     const scope: Scope = {
       assetUrl: setup.assetUrl,
-      componentOf: components.componentOf,
       drafts,
-      drawing,
-      instances,
-      learned: components.learned,
       navigate: setup.navigate,
       nodeAttribute: NODE_ATTRIBUTE,
-      publicUrl: setup.publicUrl,
-      root: lookup,
+      report,
       styles,
     };
     const { root: node } = request;
-    if (node) {
-      components.preload(node);
-    }
     let body: ReactNode;
     if (request.message !== undefined || node === null) {
       body = createElement(Message, {
@@ -1005,40 +573,25 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
       body = createElement(NodeView, { node, parent: "free" });
     }
     const tree = createElement(
-      Fragment,
-      null,
-      createElement(Drawing, { drawing }),
+      FrameScope,
+      { frame: setup.frame },
       createElement(
-        FrameScope,
-        { frame: setup.frame },
+        ScopeContext.Provider,
+        { value: scope },
         createElement(
-          Providers,
-          null,
-          createElement(
-            ScopeContext.Provider,
-            { value: scope },
-            // One boundary for the whole render: a component still loading holds the render back
-            // (a transition keeps the last one on screen meanwhile) instead of drawing a placeholder.
-            createElement(
-              Suspense,
-              { fallback: null },
-              createElement(
-                Boundary,
-                {
-                  key: "page",
-                  label: "The page",
-                  onError,
-                  resetKeys: [request, components.generation()],
-                },
-                body
-              ),
-              createElement(Rendered, {
-                onRendered: setup.onRendered,
-                renderId: request.renderId,
-              })
-            )
-          )
-        )
+          Boundary,
+          {
+            key: "page",
+            label: "The page",
+            onError,
+            resetKeys: [request],
+          },
+          body
+        ),
+        createElement(Rendered, {
+          onRendered: setup.onRendered,
+          renderId: request.renderId,
+        })
       )
     );
     if (first) {
@@ -1051,18 +604,6 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
 
   const mounted: Mounted = {
     render: draw,
-    setComponents: (next) => {
-      const known = shared.get(next);
-      if (known) {
-        components = known;
-      } else {
-        components.replace(next);
-        shared.set(next, components);
-      }
-      if (last) {
-        draw(last);
-      }
-    },
     unmount: () => root.unmount(),
   };
   return mounted;

@@ -161,7 +161,6 @@ const setUp = () => {
     ],
     info: {
       configured: true,
-      host: { state: "stopped" },
       storage: { mode: "managed" },
     },
     pages: [

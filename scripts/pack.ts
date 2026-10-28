@@ -2,8 +2,7 @@
  * `pnpm pack:local`: the `ultrapaint` command as a package that runs in any repository without
  * this checkout, written to `dist/ultrapaint-<version>.tgz`. It holds the command bundled as
  * `cli.mjs`, the server's bundle in `server/` and the editor's build in `web/`. Installing it
- * fetches only what is loaded from disk at runtime: Vite and its React plugin, which the
- * preview falls back to when the repository has none, and TypeScript 5.
+ * fetches nothing: the canvas draws the editor's own primitives (ADR 0040).
  *
  * `pnpm add -g ./dist/ultrapaint-<version>.tgz` puts the command on the PATH. The package
  * is private, so it cannot be published by mistake while the name is not chosen.
@@ -20,8 +19,6 @@ import path from "node:path";
 import { buildSync } from "esbuild";
 
 interface PackageJson {
-  dependencies?: Record<string, string>;
-  devDependencies?: Record<string, string>;
   version?: string;
 }
 
@@ -38,16 +35,6 @@ const sh = (command: string, args: readonly string[], cwd = root) =>
     .trim();
 
 const { version } = readJson(path.join(root, "package.json"));
-const server = readJson(path.join(serverDir, "package.json"));
-/** The range the server is built and tested with, so the package gets the same. */
-const range = (name: string) => {
-  const found = server.dependencies?.[name] ?? server.devDependencies?.[name];
-  if (!found) {
-    throw new Error(`${name} is not a dependency of @ultrapaint/server`);
-  }
-  return found;
-};
-
 console.log("[pack] building the server and the editor");
 execFileSync("pnpm", ["-F", "@ultrapaint/server", "build"], {
   cwd: root,
@@ -88,11 +75,6 @@ writeFileSync(
   `${JSON.stringify(
     {
       bin: { "ultrapaint": "cli.mjs" },
-      dependencies: {
-        "@vitejs/plugin-react": range("@vitejs/plugin-react"),
-        "typescript-api": range("typescript-api"),
-        vite: range("vite"),
-      },
       description:
         "A design tool for teams that work with coding agents, run in the repository",
       engines: { node: ">=24" },

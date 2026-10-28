@@ -44,11 +44,7 @@ import { goTo } from "../state/location.ts";
 import { useDesignLook } from "../state/look.ts";
 import { useProject } from "../state/project.ts";
 import { commentCursor, FrameComments, placeComment } from "./comments.tsx";
-import {
-  describePageError,
-  useFrameDrawing,
-  useFrameError,
-} from "./editor-frame.ts";
+import { useFrameDrawing, useFrameError } from "./editor-frame.ts";
 import { HotspotLayer, HotspotsToggle, onPrototypePress } from "./hotspots.tsx";
 import { pageRequest } from "./page-request.ts";
 import { usePreview } from "./preview-module.ts";
@@ -268,9 +264,7 @@ export const Prototype = () => {
             {pageError ? (
               <div className="absolute inset-x-0 bottom-0 flex items-start gap-2 bg-destructive/90 p-3 font-code text-white">
                 <TriangleAlert className="size-4 shrink-0" />
-                <pre className="whitespace-pre-wrap">
-                  {describePageError(pageError)}
-                </pre>
+                <pre className="whitespace-pre-wrap">{pageError.message}</pre>
               </div>
             ) : null}
             {canvas === null ? null : (

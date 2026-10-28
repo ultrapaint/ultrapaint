@@ -27,7 +27,6 @@ import {
   ServerConfig,
 } from "./config.ts";
 import { ListenPort } from "./listen-port.ts";
-import { PreviewProxy } from "./preview-proxy.ts";
 import { ProjectManager } from "./project.ts";
 import { RpcHandlers } from "./rpc-handlers.ts";
 import { Announce } from "./run-file.ts";
@@ -219,23 +218,14 @@ const StaticRoute = Layer.unwrap(
 // The editor holds a WebSocket open for as long as it runs. The default shutdown first waits
 // (20 s) for connections to drain, which a live socket never does. Closing the request scopes is
 // what ends those sockets, so the wait is skipped.
-// `/preview/` goes to the open project's preview server before the router sees it (ADR 0034).
 const HttpServerLive = Layer.unwrap(
   Effect.gen(function* () {
     const { host, port } = yield* ServerConfig;
-    const proxy = yield* PreviewProxy;
-    return NodeHttpServer.layer(
-      () => {
-        const server = createServer();
-        proxy.attach(server);
-        return server;
-      },
-      {
-        disablePreemptiveShutdown: true,
-        host,
-        port,
-      }
-    );
+    return NodeHttpServer.layer(createServer, {
+      disablePreemptiveShutdown: true,
+      host,
+      port,
+    });
   })
 );
 

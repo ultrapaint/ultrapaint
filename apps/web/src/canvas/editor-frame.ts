@@ -27,9 +27,6 @@
  * Only so many are kept: the one not seen for longest goes first. New frames draw a few at a time
  * (`mounting.ts`), the nearest to the middle of the screen first: `isWarm` and `onPoolChange` say
  * which have drawn.
- *
- * A frame whose page froze the editor the last time it ran (`watchdog.ts`) is not opened: the
- * caller shows `FrozenPage` (`useFrameFrozen`), whose button draws it anyway.
  */
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
@@ -51,7 +48,6 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { DesignLook } from "../state/look.ts";
-import { tryNextTime, useFrozen } from "./watchdog.ts";
 
 /** How many frames stay drawn while they are off the canvas. */
 export const PARKED_MAX = 32;
@@ -93,11 +89,6 @@ export interface OpenOptions {
   /** Parked when closed, for when it comes back: the canvas's frames. Otherwise thrown away. */
   readonly keep?: boolean;
   readonly preview: Preview;
-  /**
-   * A frozen frame is not drawn now and is tried again at the next load, rather than waiting to
-   * be asked: the pictures, which nobody sees.
-   */
-  readonly retryFrozenNextLoad?: boolean;
   /** Drawn at once, without transitions: what pictures are taken of. */
   readonly still?: boolean;
   /** The host's own style, shown whenever it is opened. */
@@ -274,16 +265,9 @@ export class EditorFrame {
 
   /**
    * Puts the frame's host in `options.holder`: the one kept for it when it was opened with the
-   * same preview and canvas, moved there as it is, or a new one drawn by the preview. Null when
-   * the frame froze the editor before.
+   * same preview and canvas, moved there as it is, or a new one drawn by the preview.
    */
-  open(options: OpenOptions): OpenedFrame | null {
-    if (useFrozen.getState().frames.has(this.id)) {
-      if (options.retryFrozenNextLoad) {
-        tryNextTime(this.id);
-      }
-      return null;
-    }
+  open(options: OpenOptions): OpenedFrame {
     let m = this.mount;
     if (m && (m.preview !== options.preview || m.canvas !== options.canvas)) {
       this.drop();
@@ -389,10 +373,6 @@ export class EditorFrame {
         const during = this.shown?.renderId ?? this.rendered;
         this.fail({ during, error });
         tell("error", (l) => l.error?.(error));
-      },
-      hmr: () => {
-        this.fail(null);
-        tell("hmr", (l) => l.hmr?.());
       },
       instances: (instances) =>
         tell("instances", (l) => l.instances?.(instances)),
@@ -616,20 +596,11 @@ export const useFrameError = (id: string | null): PageError | null => {
   );
 };
 
-/** A page's error as the editor writes it: the message, then where it was thrown. */
-export const describePageError = (error: PageError) => {
-  if (!error.file) {
-    return error.message;
-  }
-  const line = error.line ? `:${error.line}` : "";
-  return `${error.message}\n${error.file}${line}`;
-};
-
-/** Every frame's error, described, by frame: what `pnpm e2e:sandbox` reads. */
+/** Every frame's error, by frame. */
 export const frameErrors = (): Readonly<Record<string, string>> =>
   Object.fromEntries(
     [...frames.values()].flatMap((frame) =>
-      frame.error ? [[frame.id, describePageError(frame.error)]] : []
+      frame.error ? [[frame.id, frame.error.message]] : []
     )
   );
 
@@ -644,10 +615,6 @@ export const onPoolChange = (listener: () => void) => {
   };
 };
 
-/** Whether the frame froze the editor the last time it ran, and waits to be drawn anyway. */
-export const useFrameFrozen = (id: string | null) =>
-  useFrozen((s) => id !== null && s.frames.has(id));
-
 /**
  * Listeners that call the latest of `latest()`'s, whatever it is when the frame speaks: every
  * kind, so one left out does not compile.
@@ -656,7 +623,6 @@ export const forwardTo = (
   latest: () => FrameListeners
 ): Required<FrameListeners> => ({
   error: (error) => latest().error?.(error),
-  hmr: () => latest().hmr?.(),
   instances: (instances) => latest().instances?.(instances),
   navigateTo: (route, replace) => latest().navigateTo?.(route, replace),
   pressed: (nodeIds) => latest().pressed?.(nodeIds),

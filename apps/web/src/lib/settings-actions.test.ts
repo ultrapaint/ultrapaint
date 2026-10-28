@@ -31,7 +31,6 @@ const running: Settings = {
 const openInfo = (storage: ProjectInfo["storage"]): ProjectInfo => ({
   configured: true,
   designsDir: "designs",
-  host: { state: "running" },
   name: "shop",
   repoPath: REPO,
   setup: "saved",
@@ -145,7 +144,6 @@ describe("saving the settings", () => {
     server = {
       info: {
         configured: false,
-        host: { state: "stopped" },
         storage: { mode: "ephemeral" },
       },
       settings: null,

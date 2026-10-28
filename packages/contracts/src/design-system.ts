@@ -428,11 +428,6 @@ export const DesignSystemState = Schema.Struct({
    */
   notes: Schema.optional(Schema.Array(Schema.String)),
   /**
-   * The stylesheet that gives the code's variables the design's values in the preview, where
-   * they differ (ADR 0028); empty when they agree.
-   */
-  previewCss: Schema.optional(Schema.String),
-  /**
    * Why `design-system.json` cannot be read, when it cannot; or why `design.tokens.json`
    * cannot, beside the design system read without its values (ADR 0035).
    */

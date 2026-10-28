@@ -73,7 +73,6 @@ import { ComponentProps } from "../panels/component-props.tsx";
 import { useCatalogue } from "../state/catalogue.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useEditor } from "../state/editor.ts";
-import { previewRunning, useProject } from "../state/project.ts";
 import { drawSpecimen, pictureKey } from "./specimens.ts";
 import { Targets, useTargetNodes } from "./toolbar-targets.ts";
 
@@ -167,13 +166,12 @@ const useVariantPreviews = (
   open: boolean
 ) => {
   const ds = useDesignSystem((s) => s.designSystem);
-  const host = useProject((s) => previewRunning(s.info.host));
   const canvas = useEditor((s) => s.canvas) ?? "";
   const builtAt = useCatalogue((s) => s.catalogue?.builtAt ?? 0);
   const [pictures, setPictures] = useState<Record<string, string | null>>({});
   const optionsKey = options.join("|");
   useEffect(() => {
-    if (!(open && host)) {
+    if (!open) {
       return;
     }
     let live = true;
@@ -213,7 +211,7 @@ const useVariantPreviews = (
     return () => {
       live = false;
     };
-  }, [open, host, ds, canvas, builtAt, optionsKey, node, name]);
+  }, [open, ds, canvas, builtAt, optionsKey, node, name]);
   return (option: string) => pictures[option] ?? null;
 };
 

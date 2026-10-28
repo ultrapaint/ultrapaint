@@ -7,7 +7,6 @@ import { Effect, Fiber, FileSystem, Option, Stream } from "effect";
 import { EventBus } from "./events.ts";
 import { ProjectManager } from "./project.ts";
 import { DesignSystemService } from "./services/design-system.ts";
-import { HostManager } from "./services/host.ts";
 import { EditorTools } from "./services/mcp/tools.ts";
 import { PagesService } from "./services/pages.ts";
 import { callTool, ProjectFixture, ProjectTest } from "./testing/project.ts";
@@ -48,21 +47,6 @@ const designSystem = <A, E>(
 
 describe("a project in-process", () => {
   layer(ProjectTest(), { excludeTestServices: true })((it) => {
-    it.effect(
-      "opens with a preview that was asked to start and spawned nothing",
-      () =>
-        Effect.gen(function* () {
-          const project = yield* ProjectManager;
-          const info = yield* project.info;
-          assert.isTrue(info.configured);
-          assert.deepStrictEqual(info.host, { state: "running" });
-          const status = yield* project.use(
-            Effect.flatMap(HostManager, (host) => host.status)
-          );
-          assert.isUndefined(status.pid);
-        })
-    );
-
     it.effect("makes, renames and lists pages, and writes their files", () =>
       Effect.gen(function* () {
         const { repo } = yield* ProjectFixture;

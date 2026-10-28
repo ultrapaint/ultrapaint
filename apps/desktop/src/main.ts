@@ -9,15 +9,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { NodeServices } from "@effect/platform-node";
 import type { StateName } from "@ultrapaint/contracts/shell-bridge";
-import {
-  Effect,
-  Exit,
-  Layer,
-  ManagedRuntime,
-  Option,
-  Schema,
-  Scope,
-} from "effect";
+import { Effect, Layer, ManagedRuntime, Option, Schema } from "effect";
 import {
   app,
   BrowserWindow,
@@ -26,7 +18,6 @@ import {
   net,
   protocol,
   safeStorage,
-  session,
   shell,
   type WebContents,
 } from "electron";
@@ -34,7 +25,7 @@ import { AgentDownloads } from "./agent-downloads.ts";
 import { releasesFor } from "./agent-releases.ts";
 import { AgentSettings } from "./agent-settings.ts";
 import { Agents } from "./agents.ts";
-import { BEAT_CHANNEL, type BridgeInfo, INFO_CHANNEL } from "./bridge.ts";
+import { type BridgeInfo, INFO_CHANNEL } from "./bridge.ts";
 import {
   type BridgeStates,
   bridgeInfo,
@@ -53,7 +44,6 @@ import { RemoteProjects } from "./remote-project.ts";
 import { SecretError, Secrets } from "./secrets.ts";
 import { Shell, type View } from "./shell.ts";
 import { RemoteServers } from "./ssh-server.ts";
-import { type StuckPageWatch, watchStuckPage } from "./stuck-pages.ts";
 
 // A data directory of its own, for trying the app without touching the user's.
 if (process.env.ULTRAPAINT_DESKTOP_USER_DATA) {
@@ -62,15 +52,6 @@ if (process.env.ULTRAPAINT_DESKTOP_USER_DATA) {
     path.resolve(process.env.ULTRAPAINT_DESKTOP_USER_DATA)
   );
 }
-
-/**
- * Chrome reads the stack of a script that holds a page's thread for a page that opts in, its
- * crash reports' proposed API; the editor's does, by the header `start` adds (`stuck-pages.ts`).
- */
-app.commandLine.appendSwitch(
-  "enable-features",
-  "DocumentPolicyIncludeJSCallStacksInCrashReports"
-);
 
 /**
  * An SSH configuration in place of `~/.ssh/config`, for every `ssh` the app runs and for the
@@ -289,9 +270,6 @@ const runtime = ManagedRuntime.make(
 const fromWindow = (sender: WebContents) =>
   window !== null && sender === window.webContents;
 
-/** The stuck-page watchdog of the window's page (`stuck-pages.ts`), while the window is open. */
-let watch: StuckPageWatch | null = null;
-
 /** What the preload script asks before the page loads: synchronous for the page. */
 ipcMain.on(INFO_CHANNEL, (event) => {
   if (!fromWindow(event.sender)) {
@@ -311,7 +289,6 @@ serveBridge({
   handlers: bridgeHandlers({
     home: app.getPath("home"),
     sshConfig: sshConfig ?? path.join(app.getPath("home"), ".ssh", "config"),
-    stoppedAt: Effect.suspend(() => watch?.stoppedAt ?? Effect.succeed(null)),
   }),
   ipc: ipcMain,
   remote: remoteOpen,
@@ -321,44 +298,6 @@ serveBridge({
 /** A folder named on the command line, after the app's own path in development. */
 const folderArgument = (argv: readonly string[]) =>
   argv.slice(app.isPackaged ? 1 : 2).find((arg) => !arg.startsWith("-"));
-
-const readModule = (url: string) =>
-  net.fetch(url).then((response) => (response.ok ? response.text() : ""));
-
-/** Watches the window's page for a script that holds it, until the window is closed. */
-const watchForStuckPages = (created: BrowserWindow) => {
-  const contents = created.webContents;
-  const scope = Scope.makeUnsafe();
-  const watched = Effect.runSync(
-    watchStuckPage(
-      {
-        answer: () => contents.executeJavaScript("0", true),
-        callStack: () =>
-          Promise.resolve(contents.mainFrame.collectJavaScriptCallStack()).then(
-            (stack) => (typeof stack === "string" ? stack : undefined)
-          ),
-        destroyed: () => contents.isDestroyed(),
-        end: () => contents.forcefullyCrashRenderer(),
-        reload: () => contents.reload(),
-      },
-      readModule
-    ).pipe(Scope.provide(scope))
-  );
-  watch = watched;
-  contents.ipc.on(BEAT_CHANNEL, () => Effect.runSync(watched.beat));
-  contents.on("did-start-loading", () => Effect.runSync(watched.loading));
-  contents.on("render-process-gone", () => Effect.runSync(watched.gone));
-  // Chrome's own hang monitor, should it speak first.
-  created.on("unresponsive", () => {
-    Effect.runFork(watched.unresponsive);
-  });
-  created.on("closed", () => {
-    if (watch === watched) {
-      watch = null;
-    }
-    Effect.runFork(Scope.close(scope, Exit.void));
-  });
-};
 
 const makeWindow = () => {
   const created = new BrowserWindow({
@@ -396,7 +335,6 @@ const makeWindow = () => {
   created.on("closed", () => {
     window = null;
   });
-  watchForStuckPages(created);
   // Full screen draws no buttons: the title card takes their room back.
   if (ownTitleBar) {
     created.on("enter-full-screen", () =>
@@ -412,17 +350,6 @@ const makeWindow = () => {
 const start = async () => {
   await app.whenReady();
   protocol.handle(APP_SCHEME, serveWeb);
-  // The editor's page lets Chrome read a stuck script's stack (`stuck-pages.ts`).
-  session.defaultSession.webRequest.onHeadersReceived(
-    { types: ["mainFrame"], urls: ["http://*/*", "https://*/*"] },
-    ({ responseHeaders }, callback) =>
-      callback({
-        responseHeaders: {
-          ...responseHeaders,
-          "Document-Policy": ["include-js-call-stacks-in-crash-reports"],
-        },
-      })
-  );
   window = makeWindow();
   const folder = folderArgument(process.argv);
   await runtime.runPromise(

@@ -22,11 +22,7 @@ const thePreview = (): Preview => {
     installFrameViewport();
     preview = createPreview(renderToCanvas, {
       assets: ASSET_ROUTE,
-      components: {},
       css: PRIMITIVES_CSS,
-      designsRoot: ASSET_ROUTE,
-      providers: undefined,
-      sandboxed: false,
       theme: "light",
     });
     previewLoaded(preview);

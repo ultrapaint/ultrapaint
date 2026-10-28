@@ -30,7 +30,6 @@ import {
 } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
 import { useFrameDrawing } from "../canvas/editor-frame.ts";
-import { usePreview } from "../canvas/preview-module.ts";
 import { PreviewSurface } from "../canvas/preview-surface.tsx";
 import { confirmDialog } from "../components/dialogs.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
@@ -243,7 +242,6 @@ export const Matrix = ({
   meta: ComponentMeta | undefined;
   spec: ComponentSpec;
 }) => {
-  const running = usePreview() !== null;
   const ds = useDesignSystem((s) => s.designSystem);
   const { specs, styles } = useDesignLook();
   const frame = "design-system:components";
@@ -263,13 +261,6 @@ export const Matrix = ({
       [ds, meta, spec, specs, styles]
     )
   );
-  if (!running) {
-    return (
-      <div className="px-3 py-2 font-body text-muted-foreground">
-        The preview is not running; the component is drawn by it.
-      </div>
-    );
-  }
   return (
     // A spec with many fields and notes overflows the panel: the matrix keeps its height.
     <div className="shrink-0 overflow-hidden rounded-md border bg-white">

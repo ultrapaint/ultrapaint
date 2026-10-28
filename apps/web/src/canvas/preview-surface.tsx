@@ -9,9 +9,7 @@ import {
   type FrameListeners,
   frameOf,
   useFrameEvents,
-  useFrameFrozen,
 } from "./editor-frame.ts";
-import { FrozenPage } from "./frozen-page.tsx";
 import { usePreview } from "./preview-module.ts";
 
 const NO_LISTENERS: FrameListeners = {};
@@ -42,11 +40,10 @@ export const PreviewSurface = ({
   title?: string;
 }) => {
   const preview = usePreview();
-  const frozen = useFrameFrozen(frameId);
   const holder = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const el = holder.current;
-    if (!preview || frozen || !el) {
+    if (!el) {
       return;
     }
     return frameOf(frameId).open({
@@ -54,8 +51,8 @@ export const PreviewSurface = ({
       className: hostClassName,
       holder: el,
       preview,
-    })?.close;
-  }, [preview, frozen, frameId, canvas, hostClassName]);
+    }).close;
+  }, [preview, frameId, canvas, hostClassName]);
   // What changes without drawing the page anew: the title it is read by, whether it takes input.
   useLayoutEffect(() => {
     const frame = frameOf(frameId);
@@ -63,8 +60,5 @@ export const PreviewSurface = ({
     frame.setInteractive(interactive);
   }, [frameId, interactive, title]);
   useFrameEvents(frameId, listeners ?? NO_LISTENERS);
-  if (frozen) {
-    return <FrozenPage frame={frameId} />;
-  }
   return <div className={className} ref={holder} style={style} />;
 };

@@ -1,16 +1,8 @@
 /**
- * The stylesheets every frame of the editor's page adopts (ADR 0034): the application's, as its
- * dev server loads them, and the design's (the tokens' values and the component specs, ADR 0028
- * and 0029). Each is parsed once and shared by every frame. Vite's client hands the
- * application's stylesheets here instead of the editor's head (`installHooks`), keeps them up to
- * date as they change, and asks here before it reloads the page.
+ * The stylesheets every frame of the editor's page adopts (ADR 0034, 0040): the frame's own base,
+ * the components' look (the primitives'), and the design's (every token's value and the component
+ * specs, ADR 0028 and 0029). Each is parsed once and shared by every frame.
  */
-import {
-  installPageRuntime,
-  type PageStyles,
-  RELOAD_GLOBAL,
-  STYLES_GLOBAL,
-} from "@ultrapaint/contracts/page-runtime";
 import {
   BODY_ATTRIBUTE,
   FRAME_CONTAINER,
@@ -18,24 +10,20 @@ import {
   frameCss,
 } from "./frame-css.ts";
 
-/** The application's stylesheets, by the module that loads each, as frames adopt them. */
-const parts = new Map<string, { document: string; frame: string }>();
 const sheets: {
-  app: CSSStyleSheet | null;
   base: CSSStyleSheet | null;
-  /** What the application's code writes as it runs (`css-in-js.ts`). */
-  cssInJs: CSSStyleSheet | null;
+  /** The components' own look: the primitives' (ADR 0040). */
+  components: CSSStyleSheet | null;
   design: CSSStyleSheet | null;
-} = { app: null, base: null, cssInJs: null, design: null };
+} = { base: null, components: null, design: null };
+let componentsText = "";
 let designText = "";
-/** What of the design's stylesheet only the document can hold: its font faces. */
-let designDocument = "";
-let cssInJsText = "";
-/** What of the styles the application's code writes only the document can hold. */
-let cssInJsDocument = "";
+/** What of the stylesheets only the document can hold: their font faces. */
+let lifted: { components: string; design: string } = {
+  components: "",
+  design: "",
+};
 let documentStyle: HTMLStyleElement | null = null;
-let rebuildScheduled = false;
-const reloadListeners = new Set<() => void>();
 
 const SKELETON_CSS = `
 [data-ed-skeleton] {
@@ -57,10 +45,8 @@ img[data-ed-skeleton] { opacity: 0.35; }
  * of its size and contains what is fixed inside it; a node on the canvas (`fit`) is as big as
  * what it draws.
  *
- * The reset is a layer of its own, the frames' first: the application's rules on its document's
- * root (`html`, Tailwind's preflight in `@layer base`) win over it as they win over the browser's
- * defaults. Unlayered, it beat every layered rule, and a page lost its root's line height and
- * type.
+ * The reset is a layer of its own, the frames' first: every later rule on the page's root (the
+ * primitives' layer, the design's tokens) wins over it as it would over the browser's defaults.
  */
 const BASE_CSS = `
 @layer ed-frame {
@@ -126,120 +112,52 @@ const sheet = (key: keyof typeof sheets): CSSStyleSheet => {
   return found;
 };
 
-/**
- * The sheets a frame adopts, in the order they apply: what the application's code writes as it
- * runs after its stylesheets, as its library appends it to the head after them; the design's
- * last, so it wins.
- */
+/** The sheets a frame adopts, in the order they apply: the design's last, so it wins. */
 export const frameSheets = (): CSSStyleSheet[] => [
   sheet("base"),
-  sheet("app"),
-  sheet("cssInJs"),
+  sheet("components"),
   sheet("design"),
 ];
 
-const rebuild = () => {
-  rebuildScheduled = false;
-  const all = [...parts.values()];
-  sheet("app").replaceSync(all.map((p) => p.frame).join("\n"));
+/** Font faces and registered properties go to the editor's document, where the frames see them. */
+const liftToDocument = () => {
   if (!documentStyle) {
     documentStyle = document.createElement("style");
     documentStyle.setAttribute("data-ed-preview", "");
     document.head.append(documentStyle);
   }
-  const lifted = all.map((p) => p.document).filter(Boolean);
-  documentStyle.textContent = [...lifted, cssInJsDocument, designDocument]
+  documentStyle.textContent = [lifted.components, lifted.design]
     .filter(Boolean)
     .join("\n");
 };
 
-const schedule = () => {
-  if (!rebuildScheduled) {
-    rebuildScheduled = true;
-    queueMicrotask(rebuild);
+const write = (key: "components" | "design", css: string) => {
+  const made: FrameCss = css ? frameCss(css) : { document: "", frame: "" };
+  sheet(key).replaceSync(made.frame);
+  if (made.document !== lifted[key]) {
+    lifted = { ...lifted, [key]: made.document };
+    liftToDocument();
   }
 };
 
-const hooks: PageStyles = {
-  remove: (id) => {
-    if (parts.delete(id)) {
-      schedule();
-    }
-  },
-  update: (id, css) => {
-    parts.set(id, frameCss(css));
-    schedule();
-  },
-};
-
-/**
- * Put in place before the application's stylesheets load: Vite's client, patched by the
- * preview's server, calls them instead of writing `<style>` into the editor's head and instead
- * of reloading the editor.
- */
-export const installHooks = () => {
-  installPageRuntime({
-    [RELOAD_GLOBAL]: () => {
-      if (reloadListeners.size === 0) {
-        location.reload();
-        return;
-      }
-      for (const listener of reloadListeners) {
-        listener();
-      }
-    },
-    [STYLES_GLOBAL]: hooks,
-  });
-};
-
-/**
- * Hears when the dev server can only bring the page up to date by loading it again: its
- * dependencies were bundled anew, or it started again. The modules the editor's page holds are
- * then out of date, which only loading the page again changes.
- */
-export const onReloadRequest = (listener: () => void) => {
-  reloadListeners.add(listener);
-  return () => {
-    reloadListeners.delete(listener);
-  };
-};
-
-/**
- * The components' own stylesheet (ADR 0040: the primitives' look), first among the frames'
- * stylesheets, the same for every frame.
- */
+/** The components' own stylesheet, the same for every frame: written again only when it changed. */
 export const setComponentsCss = (css: string) => {
-  parts.set("ed:components", frameCss(css));
-  schedule();
+  if (css !== componentsText) {
+    componentsText = css;
+    write("components", css);
+  }
 };
 
 /** The design's stylesheet, the same for every frame: written again only when it changed. */
 export const setDesignCss = (css: string) => {
-  if (css === designText) {
-    return;
-  }
-  designText = css;
-  const made = css ? frameCss(css) : { document: "", frame: "" };
-  designDocument = made.document;
-  sheet("design").replaceSync(made.frame);
-  schedule();
-};
-
-/** What the application's code writes as it runs, for every frame: written again when it changed. */
-export const setCssInJs = (css: FrameCss) => {
-  if (css.frame !== cssInJsText) {
-    cssInJsText = css.frame;
-    sheet("cssInJs").replaceSync(css.frame);
-  }
-  if (css.document !== cssInJsDocument) {
-    cssInJsDocument = css.document;
-    schedule();
+  if (css !== designText) {
+    designText = css;
+    write("design", css);
   }
 };
 
 /** Every rule the frames adopt, for what reads the stylesheets: the tokens. */
 export const adoptedSheets = (): CSSStyleSheet[] => [
-  sheet("app"),
-  sheet("cssInJs"),
+  sheet("components"),
   sheet("design"),
 ];

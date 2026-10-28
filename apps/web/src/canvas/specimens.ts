@@ -75,7 +75,6 @@ const open = async (
     canvas,
     holder: holderOf(),
     preview,
-    retryFrozenNextLoad: true,
     still: true,
     // Drawn at the picture's size, but nowhere the pointer or the eye goes.
     style: `position:fixed;left:-20000px;top:0;width:${width}px;height:${height}px`,

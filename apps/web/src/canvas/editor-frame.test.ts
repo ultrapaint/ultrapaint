@@ -8,12 +8,6 @@ import type {
 import { scriptedPreview } from "@ultrapaint/preview-core/testing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { tryNextTime } = vi.hoisted(() => ({ tryNextTime: vi.fn() }));
-vi.mock("./watchdog.ts", async (original) => ({
-  ...(await original<typeof import("./watchdog.ts")>()),
-  tryNextTime,
-}));
-
 /** A frame the fake preview drew: its runtime, which keeps what it is asked, and its events. */
 interface Drawn {
   readonly events: FrameEvents;
@@ -55,11 +49,6 @@ const fakePreview = () => {
       drawn.push({ events: options.events, host, options, runtime });
       return runtime;
     },
-    notifyHmr: () => undefined,
-    onRunning: () => () => undefined,
-    onStrayError: () => () => undefined,
-    reportError: () => undefined,
-    setComponents: () => undefined,
   };
   return { drawn, preview };
 };
@@ -72,10 +61,7 @@ const page = { designSystem: null, look, mode: "page" as const, root };
 const load = async () => {
   vi.resetModules();
   document.body.innerHTML = "";
-  tryNextTime.mockClear();
-  const frames = await import("./editor-frame.ts");
-  const { useFrozen } = await import("./watchdog.ts");
-  return { ...frames, useFrozen };
+  return await import("./editor-frame.ts");
 };
 
 const holder = () => {
@@ -115,30 +101,6 @@ describe("a frame opened in the editor's page", () => {
       n: { height: 1, width: 2, x: 3, y: 4 },
     });
     expect(frame.tokens()).toEqual({ "--color-primary": "red" });
-  });
-
-  it("is not opened while it froze the editor, and pictures try again next time", () => {
-    const { drawn, preview } = fakePreview();
-    m.useFrozen.setState({ frames: new Map([["stuck", undefined]]) });
-    expect(
-      m.frameOf("stuck").open({ canvas: "c", holder: holder(), preview })
-    ).toBeNull();
-    expect(tryNextTime).not.toHaveBeenCalled();
-    expect(
-      m.frameOf("stuck").open({
-        canvas: "c",
-        holder: holder(),
-        preview,
-        retryFrozenNextLoad: true,
-      })
-    ).toBeNull();
-    expect(tryNextTime).toHaveBeenCalledWith("stuck");
-    expect(drawn).toHaveLength(0);
-    // Drawn anyway: it opens.
-    m.useFrozen.setState({ frames: new Map() });
-    expect(
-      m.frameOf("stuck").open({ canvas: "c", holder: holder(), preview })
-    ).not.toBeNull();
   });
 
   it("tells a frame opened later what it was asked before: rects, skeletons, how it is shown", () => {
@@ -187,29 +149,6 @@ describe("the host, drawn by the preview core", () => {
       });
     return { frame, open };
   };
-
-  it("keeps what the page put on its <html> when a parked frame is opened again", () => {
-    const { frame, open } = openReal("p1");
-    const first = open();
-    const host = first?.host as HTMLElement;
-    core.page(() =>
-      core.asPage(() => {
-        document.documentElement.classList.add("dark");
-        document.documentElement.style.colorScheme = "dark";
-      })
-    );
-    frame.render(page);
-    core.page(() => undefined);
-    expect(host.classList.contains("dark")).toBe(true);
-    // Drawn, parked and opened again: the editor shows it anew.
-    first?.close();
-    expect(frame.parkedAt()).not.toBeNull();
-    const again = open();
-    expect(again?.host).toBe(host);
-    expect(host.classList.contains("dark")).toBe(true);
-    expect(host.classList.contains("block")).toBe(true);
-    expect(host.style.colorScheme).toBe("dark");
-  });
 
   it("is marked with the frame's id, and shows its title and input as asked", () => {
     const { frame, open } = openReal("p2");
@@ -317,7 +256,7 @@ describe("what a frame says", () => {
     events.rects?.({ a: { height: 1, width: 1, x: 0, y: 0 } });
     events.textCommit?.("t", "Hello");
     // A kind nobody listens for is let go of.
-    events.hmr?.();
+    events.size?.({ height: 1, width: 1 });
     expect(heard).toEqual(["ready", "rects a", "text t Hello"]);
     const late: string[] = [];
     frame.listen({ ready: () => late.push("ready") });
@@ -468,12 +407,6 @@ describe("the pool", () => {
 
 describe("a frame's error", () => {
   const thrown = { message: "boom", source: "page" } as const;
-  const broken = {
-    file: "/src/card.tsx",
-    line: 3,
-    message: "Unexpected token",
-    source: "dev-server",
-  } as const;
   /** Another document each time: the frame draws it again. */
   const another = () => ({ ...page, root: { ...root } });
 
@@ -508,22 +441,6 @@ describe("a frame's error", () => {
     expect(frame.error).toBeNull();
   });
 
-  it("is the dev server's until the next update, whatever the frame draws", () => {
-    const { drawn, preview } = fakePreview();
-    const frame = m.frameOf("p1");
-    frame.open({ canvas: "c", holder: holder(), preview });
-    const { events } = only(drawn);
-    events.error?.(broken);
-    events.rendered?.(frame.render(another()));
-    expect(frame.error).toEqual(broken);
-    events.hmr?.();
-    expect(frame.error).toBeNull();
-    // An update clears a page's error too.
-    events.error?.(thrown);
-    events.hmr?.();
-    expect(frame.error).toBeNull();
-  });
-
   it("is held by a parked frame, and goes with the frame dropped", () => {
     const { drawn, preview } = fakePreview();
     const frame = m.frameOf("p1");
@@ -535,10 +452,10 @@ describe("a frame's error", () => {
     });
     const { events } = only(drawn);
     events.rendered?.(frame.render(page));
-    events.error?.(broken);
+    events.error?.(thrown);
     opened?.close();
     expect(frame.parkedAt()).not.toBeNull();
-    expect(frame.error).toEqual(broken);
+    expect(frame.error).toEqual(thrown);
     const changes = vi.fn();
     frame.onErrorChange(changes);
     frame.drop();
@@ -549,16 +466,6 @@ describe("a frame's error", () => {
     events.error?.(thrown);
     expect(frame.error).toBeNull();
   });
-
-  it("is written as its message, then where it was thrown", () => {
-    expect(m.describePageError(thrown)).toBe("boom");
-    expect(m.describePageError(broken)).toBe(
-      "Unexpected token\n/src/card.tsx:3"
-    );
-    expect(
-      m.describePageError({ ...broken, line: undefined, source: "page" })
-    ).toBe("Unexpected token\n/src/card.tsx");
-  });
 });
 
 describe("a frame's events handed on", () => {
@@ -567,7 +474,6 @@ describe("a frame's events handed on", () => {
     const calls: string[] = [];
     const every: Handed = {
       error: () => calls.push("error"),
-      hmr: () => calls.push("hmr"),
       instances: () => calls.push("instances"),
       navigateTo: () => calls.push("navigateTo"),
       pressed: () => calls.push("pressed"),
@@ -579,7 +485,6 @@ describe("a frame's events handed on", () => {
     };
     const handed = m.forwardTo(() => every);
     handed.error({ message: "m", source: "page" });
-    handed.hmr();
     handed.instances({});
     handed.navigateTo("/", false);
     handed.pressed([]);
@@ -590,7 +495,7 @@ describe("a frame's events handed on", () => {
     handed.textCommit("n", "t");
     expect(calls).toEqual(Object.keys(every));
     // @ts-expect-error: a kind left out does not compile.
-    const partial: Handed = { ...every, hmr: undefined };
+    const partial: Handed = { ...every, size: undefined };
     expect(partial).toBeDefined();
   });
 });

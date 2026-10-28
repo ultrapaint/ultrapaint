@@ -20,7 +20,6 @@ export type {
   ShellNotice,
   ShellPlatform,
   ShellStatus,
-  StoppedAt,
 } from "@ultrapaint/contracts/shell-bridge";
 
 /**

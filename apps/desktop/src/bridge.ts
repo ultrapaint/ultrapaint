@@ -23,12 +23,6 @@ export const progressChannelOf = (name: CapabilityName) =>
 /** Synchronous, as the page loads: what the page is shown (`BridgeInfo`). */
 export const INFO_CHANNEL = "ultrapaint:bridge-info";
 
-/** From the page, every `BEAT_MS`: its thread runs (`stuck-pages.ts` ends a script that holds it). */
-export const BEAT_CHANNEL = "ultrapaint:beat";
-
-/** How often the page beats on `BEAT_CHANNEL`. */
-export const BEAT_MS = 250;
-
 /** A capability the page is shown, as the main process names it for the preload. */
 export type ShownCapability =
   | {

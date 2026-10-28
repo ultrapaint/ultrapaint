@@ -17,7 +17,6 @@ import { type Adapters, ApplicationLayer } from "../composition.ts";
 import { ServerConfig } from "../config.ts";
 import { ListenPort } from "../listen-port.ts";
 import { ProjectManager } from "../project.ts";
-import { HostManager } from "../services/host.ts";
 import { CallingThread } from "../services/mcp/access.ts";
 import { ToolkitHandlers } from "../services/mcp/route.ts";
 import { AgentSandbox } from "../services/threads/agent-sandbox.ts";
@@ -30,7 +29,6 @@ export const TEST_PORT = 1;
 /** The tests' adapters: a preview that is never started, agents the test plays, no sandbox. */
 export const TestAdapters = {
   agents: Layer.mergeAll(ScriptedAgents.layer, AgentSandbox.layerTest),
-  host: HostManager.layerTest,
 } satisfies Adapters<ScriptedAgents | AgentSandbox>;
 
 /** The project the test opened: its folder, its home, and the settings it was opened with. */

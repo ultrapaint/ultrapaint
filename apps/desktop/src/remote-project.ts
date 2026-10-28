@@ -1,8 +1,8 @@
 /**
  * The open project's server when the project is on another machine (PLAN-desktop D12): a
  * connection, the server started there or attached to, and its port forwarded here, as one
- * `RunningServer` the window loads the editor from. The preview comes through the server's own
- * port (`/preview/`, ADR 0034): it is the one port forwarded. `ssh-server.ts` makes each part;
+ * `RunningServer` the window loads the editor from: the server's port is the one port forwarded.
+ * `ssh-server.ts` makes each part;
  * this keeps them together for as long as the project is open.
  *
  * A connection that drops, or a server that stops, is made again: with a growing wait between

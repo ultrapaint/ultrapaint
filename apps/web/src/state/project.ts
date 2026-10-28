@@ -1,11 +1,7 @@
 import { RequestError } from "@ultrapaint/client-runtime/connection";
 import type { UndoState } from "@ultrapaint/contracts/edit";
 import type { Canvas, Page, PageList } from "@ultrapaint/contracts/pages";
-import type {
-  HostStatus,
-  LogLine,
-  ProjectInfo,
-} from "@ultrapaint/contracts/project";
+import type { LogLine, ProjectInfo } from "@ultrapaint/contracts/project";
 import type { Settings } from "@ultrapaint/contracts/settings";
 import { create } from "zustand";
 import { keptAsTheyWere } from "../lib/kept-as-they-were.ts";
@@ -35,19 +31,11 @@ interface ProjectStore {
   undo: UndoState;
 }
 
-/**
- * Whether the project's preview runs: what the frames are drawn with (ADR 0034), from the
- * editor's own origin, wherever the editor was opened.
- */
-export const previewRunning = (host: HostStatus): boolean =>
-  host.state === "running" && host.entry !== undefined;
-
 export const useProject = create<ProjectStore>((set, get) => ({
   canvases: [],
   error: null,
   info: {
     configured: false,
-    host: { state: "stopped" },
     storage: { mode: "managed" },
   },
   load: async () => {

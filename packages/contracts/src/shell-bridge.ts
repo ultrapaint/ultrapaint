@@ -36,20 +36,6 @@ export const ShellStatus = Schema.Struct({
 export type ShellStatus = typeof ShellStatus.Type;
 
 /**
- * Where the editor's page was stuck when the shell ended it (docs/PLAN-preview-sandbox.md,
- * step 17): what held its thread, read by Chrome before the page was loaded again.
- */
-export const StoppedAt = Schema.Struct({
-  /** The repository's line, as `src/page.tsx:12`, when the stack went through its code. */
-  at: Schema.optional(Schema.String),
-  /** The stack of the script that held the page, as Chrome read it. */
-  stack: Schema.String,
-  /** When it was ended, in milliseconds since the epoch. */
-  time: Schema.Number,
-});
-export type StoppedAt = typeof StoppedAt.Type;
-
-/**
  * Something the shell found the editor will miss, and how to put it right: Node.js not
  * installed, say. Shown as a banner over the editor until it is dismissed.
  */
@@ -323,8 +309,6 @@ export const SHELL_BRIDGE = {
   "projects.sshHosts": invoke([], Schema.Array(Schema.String)),
   /** What the shell is doing for the open project; null when nothing. */
   shellStatus: state(Schema.NullOr(ShellStatus)),
-  /** Where the page was stuck when the shell last ended it, asked once as it loads again. */
-  stoppedAt: invoke([], Schema.NullOr(StoppedAt)),
   /** The window's buttons over the page; not shown where the system draws the frame. */
   windowControls: state(WindowControlsState),
 } as const satisfies Record<string, Capability>;

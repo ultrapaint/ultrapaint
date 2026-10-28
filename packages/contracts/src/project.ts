@@ -1,20 +1,6 @@
 import { Schema } from "effect";
 import { Settings, StorageInfo } from "./settings.ts";
 
-export const HostStatus = Schema.Struct({
-  /**
-   * The module the editor imports to draw its frames in its own page (ADR 0034), as a path on
-   * the editor's own origin: `/preview/@fs/…/editor.ts`.
-   */
-  entry: Schema.optional(Schema.String),
-  error: Schema.optional(Schema.String),
-  pid: Schema.optional(Schema.Number),
-  port: Schema.optional(Schema.Number),
-  state: Schema.Literals(["stopped", "starting", "running", "error"]),
-  url: Schema.optional(Schema.String),
-});
-export type HostStatus = typeof HostStatus.Type;
-
 /** Who git says the user is in the repository: not an account, only its configuration. */
 export const GitUser = Schema.Struct({
   email: Schema.optional(Schema.String),
@@ -35,7 +21,6 @@ export const ProjectInfo = Schema.Struct({
   gitRepository: Schema.optional(Schema.Boolean),
   /** `user.name` and `user.email` from the repository's git configuration, when set. */
   gitUser: Schema.optional(GitUser),
-  host: HostStatus,
   name: Schema.optional(Schema.String),
   repoPath: Schema.optional(Schema.String),
   /**

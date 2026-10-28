@@ -65,7 +65,6 @@ describe("exposeBridge", () => {
       [channelOf("pickFolder")],
     ]);
     assert.isFunction(platform.notices);
-    assert.isFunction(platform.stoppedAt);
     assert.isFunction(platform.newDesign?.create);
     // Not given by the main process: the system draws the window's frame.
     assert.isUndefined(platform.windowControls);

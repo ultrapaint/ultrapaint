@@ -229,7 +229,6 @@ describe("serveBridge", () => {
   it("registers a channel for every call, none for the states", () => {
     const listeners = served(sender([]));
     assert.isTrue(listeners.has(channelOf("projects.open")));
-    assert.isTrue(listeners.has(channelOf("stoppedAt")));
     assert.isFalse(listeners.has(channelOf("shellStatus")));
     assert.isFalse(listeners.has(channelOf("windowControls")));
   });

@@ -3,20 +3,18 @@
  * place. `server.ts` serves the application layer with the server's adapters; the tests build
  * the same layers with their own (`testing/project.ts`, `testing/threads.ts`).
  *
- * The adapters are the seams that have a second one for tests: the preview of an open project
- * (`HostManager`) and how an agent is started and confined (`AgentLauncher`, `AgentSandbox`).
+ * The adapters are the seams that have a second one for tests: how an agent is started and
+ * confined (`AgentLauncher`, `AgentSandbox`).
  */
 import type { Settings } from "@ultrapaint/contracts/settings";
 import { Layer } from "effect";
 import { AppLog } from "./app-log.ts";
 import { EventBus } from "./events.ts";
 import { ListenPort } from "./listen-port.ts";
-import { PreviewProxy } from "./preview-proxy.ts";
 import { ProjectManager, type ProjectRequirements } from "./project.ts";
 import { CatalogueService } from "./services/catalogue.ts";
 import { CodeSide } from "./services/code-side.ts";
 import { CommentsService } from "./services/comments.ts";
-import { ComponentRegistry } from "./services/component-registry.ts";
 import { DesignMd } from "./services/design-md.ts";
 import { DesignSystemService } from "./services/design-system.ts";
 import { DesignSystemSetupService } from "./services/design-system-setup.ts";
@@ -28,7 +26,6 @@ import { FigmaBaseline } from "./services/figma-baseline.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
 import { ProjectFramework } from "./services/framework.ts";
 import { GitService } from "./services/git.ts";
-import { HostManager } from "./services/host.ts";
 import { ImplementationService } from "./services/implementation.ts";
 import { McpAccess } from "./services/mcp/access.ts";
 import { PagePngs } from "./services/page-pngs.ts";
@@ -60,14 +57,6 @@ import { ThreadService } from "./services/threads/threads.ts";
 import { Thumbnails } from "./services/thumbnails.ts";
 import { WorkingTree } from "./services/working-tree.ts";
 
-/** What the preview of an open project is built on: the project's services below it. */
-type HostRequirements =
-  | ProjectRequirements
-  | ComponentRegistry
-  | ProjectFramework
-  | ProjectStyleSystem
-  | RepoPaths;
-
 /** What the agents' adapters are built on: the server's own services and the project. */
 type AgentRequirements = ProjectRequirements | ProjectManager;
 
@@ -77,20 +66,15 @@ type AgentRequirements = ProjectRequirements | ProjectManager;
  */
 export interface Adapters<Agents> {
   readonly agents: Layer.Layer<Agents, never, AgentRequirements>;
-  readonly host: Layer.Layer<HostManager, never, HostRequirements>;
 }
 
-/** The server's adapters: the preview's process, the sandboxed agent process. */
+/** The server's adapters: the sandboxed agent process. */
 export const ServerAdapters = {
   agents: AgentLauncher.layer.pipe(Layer.provideMerge(AgentSandbox.layer)),
-  host: HostManager.layer,
 } satisfies Adapters<AgentLauncher | AgentSandbox>;
 
-/** The services of the project the settings describe, with the preview `host` gives. */
-export const projectLayer = (
-  settings: Settings,
-  host: Adapters<never>["host"]
-) =>
+/** The services of the project the settings describe. */
+export const projectLayer = (settings: Settings) =>
   // Pictures of the pages, drawn from the documents as they change; and what a design target
   // names, with its behaviour notes in a spec or in comments (ADR 0030).
   Layer.mergeAll(PagePngs.layer, DesignTargets.layer).pipe(
@@ -111,7 +95,6 @@ export const projectLayer = (
       Layer.mergeAll(
         CatalogueService.layer,
         CodeSide.layer,
-        host,
         PagesService.layer,
         Thumbnails.layer,
         WorkingTree.layer
@@ -123,7 +106,6 @@ export const projectLayer = (
     Layer.provideMerge(GitService.layer),
     // One journal for every change the editor makes, documents and canvas included.
     Layer.provideMerge(EditService.layer),
-    Layer.provideMerge(ComponentRegistry.layer),
     Layer.provideMerge(
       Layer.mergeAll(ProjectFramework.layer, ProjectStyleSystem.layer)
     ),
@@ -132,7 +114,7 @@ export const projectLayer = (
 
 /**
  * The services every other one is built on: the settings, the storage, the log and the events,
- * the port the server listens on and the preview's proxy. None of them needs a project.
+ * and the port the server listens on. None of them needs a project.
  */
 export const Foundation = ProfileService.layer.pipe(
   Layer.provideMerge(SnapshotStore.layer),
@@ -142,8 +124,7 @@ export const Foundation = ProfileService.layer.pipe(
   Layer.provideMerge(Storage.layer),
   Layer.provideMerge(AppLog.layer),
   Layer.provideMerge(EventBus.layer),
-  Layer.provideMerge(ListenPort.layer),
-  Layer.provideMerge(PreviewProxy.layer)
+  Layer.provideMerge(ListenPort.layer)
 );
 
 /**
@@ -181,8 +162,6 @@ export const ApplicationLayer = <Agents>(adapters: Adapters<Agents>) =>
     Layer.provideMerge(DesignSystemSyncService.layer),
     Layer.provideMerge(DesignSystemSetupService.layer),
     Layer.provideMerge(adapters.agents),
-    Layer.provideMerge(
-      ProjectManager.layer((settings) => projectLayer(settings, adapters.host))
-    ),
+    Layer.provideMerge(ProjectManager.layer(projectLayer)),
     Layer.provideMerge(Foundation)
   );

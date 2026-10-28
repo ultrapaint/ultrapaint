@@ -151,19 +151,6 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
     );
 
     it.effect(
-      "reports a host that cannot start as a status, not a failure",
-      () =>
-        Effect.gen(function* () {
-          const { client } = yield* TestEnv;
-          // Nothing in the fixture depends on react; the editor must learn that, and what to
-          // change, from the status.
-          const status = yield* client["host.start"]();
-          assert.strictEqual(status.state, "error");
-          assert.include(status.error ?? "", "react cannot be resolved");
-        })
-    );
-
-    it.effect(
       "lists the pages of the one canvas and pushes the list when one is created",
       () =>
         Effect.gen(function* () {
