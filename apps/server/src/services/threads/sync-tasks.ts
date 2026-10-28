@@ -16,11 +16,10 @@ import { parse } from "@ultrapaint/design-md/parse";
 import { groupsOf } from "@ultrapaint/design-md/tokens";
 import { Effect } from "effect";
 import { ProjectManager } from "../../project.ts";
+import { CodeSide } from "../code-side.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { DesignSystemSyncService } from "../design-system-sync.ts";
-import { designTokensOf } from "../design-system-sync-rules.ts";
-import { RepoPaths } from "../repo-paths.ts";
-import { ProjectStyleSystem } from "../style-system.ts";
+import { targetTokens } from "../sync-sides.ts";
 import type { AgentWays } from "./agent-ways.ts";
 import {
   DESIGN_MD_GUIDE,
@@ -50,18 +49,10 @@ export const makeSyncTasks = Effect.fnUntraced(function* (deps: {
     Effect.gen(function* () {
       const plan = yield* sync.plan;
       const { drift } = plan;
-      const tokens = yield* project.use(
-        Effect.gen(function* () {
-          const paths = yield* RepoPaths;
-          return (yield* ProjectStyleSystem).readTokens({
-            anchorDir: paths.anchorDir,
-            root: paths.root,
-            settings: paths.settings,
-          }).tokens;
-        })
+      const { byName } = yield* project.use(
+        Effect.flatMap(CodeSide, (code) => code.tokens)
       );
-      const declaredValue = (name: string) =>
-        tokens.find((t) => t.name === name)?.value ?? "";
+      const declaredValue = (name: string) => byName.get(name)?.value ?? "";
       const list = (title: string, items: readonly string[]) =>
         items.length > 0
           ? `${title}\n${items.map((i) => `- ${i}`).join("\n")}\n`
@@ -148,26 +139,8 @@ ${userAdds(extra)}</ultrapaint-task>`;
     return { lines, unmatched };
   };
 
-  /**
-   * The tokens a source is matched to: the design system's (ADR 0028), or the code's while there
-   * is no design system yet.
-   */
-  const targetTokens = project.use(
-    Effect.gen(function* () {
-      const { designSystem } = yield* (yield* DesignSystemService).get;
-      if (designSystem) {
-        return designTokensOf(designSystem);
-      }
-      const paths = yield* RepoPaths;
-      return (yield* ProjectStyleSystem)
-        .readTokens({
-          anchorDir: paths.anchorDir,
-          root: paths.root,
-          settings: paths.settings,
-        })
-        .tokens.filter((t) => t.own);
-    })
-  );
+  /** The tokens a source is matched to, as Sync compares it (`sync-sides.ts`). */
+  const targets = project.use(targetTokens);
 
   const listed = (lines: readonly string[]) =>
     lines.length > FIGMA_LISTED
@@ -211,7 +184,7 @@ ${userAdds(extra)}</ultrapaint-task>`;
         return yield* unavailable("figma", "none");
       }
       const { lines, unmatched } = sourceLines(comparison.diffs);
-      const targetLines = (yield* targetTokens).map(
+      const targetLines = (yield* targets).map(
         (t) => `- ${t.name}: ${t.value}`
       );
       return `<ultrapaint-task command="sync">
@@ -256,7 +229,7 @@ ${userAdds(extra)}</ultrapaint-task>`;
         return yield* unavailable("designMd", "none");
       }
       const { lines, unmatched } = sourceLines(comparison.diffs);
-      const targetLines = (yield* targetTokens).map(
+      const targetLines = (yield* targets).map(
         (t) => `- ${t.name}: ${t.value}`
       );
       const styles = yield* project.use(

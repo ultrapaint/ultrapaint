@@ -221,8 +221,23 @@ describe("an agreement set in design-system.json", () => {
       other: true,
     });
     expect(
-      JSON.parse(withAgreement(text, "designMd", {}, 7) ?? "").designMd
-    ).toEqual({ agreed: {}, at: 7 });
+      JSON.parse(
+        withAgreement(text, "designMd", { "colors.a": "#000" }, 7) ?? ""
+      ).designMd
+    ).toEqual({ agreed: { "colors.a": "#000" }, at: 7 });
+  });
+
+  it("leaves the file as it is when the side agrees on the same values already", () => {
+    const text = json({
+      codeSync: { agreed: { "color-a": "#000" }, at: 1 },
+      other: true,
+    });
+    expect(withAgreement(text, "codeSync", { "color-a": "#000" }, 5)).toBe(
+      text
+    );
+    // None kept is nothing agreed.
+    expect(withAgreement(text, "designMd", {}, 5)).toBe(text);
+    expect(withAgreement(text, "codeSync", {}, 5)).not.toBe(text);
   });
 
   it("leaves a file that is not there or does not read alone", () => {

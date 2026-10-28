@@ -47,6 +47,7 @@ import {
 } from "effect";
 import { EventBus } from "../events.ts";
 import { hashContent } from "../hash.ts";
+import { CodeSide } from "./code-side.ts";
 import { CommentsService } from "./comments.ts";
 import { DesignSystemService } from "./design-system.ts";
 import { DocumentService } from "./documents.ts";
@@ -313,6 +314,7 @@ export class ImplementationService extends Context.Service<
       const comments = yield* CommentsService;
       const specService = yield* SpecService;
       const designSystems = yield* DesignSystemService;
+      const code = yield* CodeSide;
       const fileAbs = path.join(paths.designsDir, IMPLEMENTATION_FILE);
       const fileRel = paths.relative(fileAbs);
 
@@ -420,7 +422,10 @@ export class ImplementationService extends Context.Service<
       /** The design system, the specs and what waits for the code, for a list of designs. */
       const tokenContext: Effect.Effect<TokenContext> = Effect.gen(
         function* () {
-          const comparison = yield* designSystems.codeComparison;
+          const { designSystem } = yield* designSystems.get;
+          const comparison = designSystem
+            ? yield* code.comparison(designSystem)
+            : null;
           const waiting = new Map<string, TokenDiff[]>();
           // No stylesheet read: nothing can be said to be missing from it.
           for (const d of comparison?.read ? comparison.diffs : []) {
@@ -429,7 +434,7 @@ export class ImplementationService extends Context.Service<
             }
           }
           return {
-            designSystem: (yield* designSystems.get).designSystem,
+            designSystem,
             specs: yield* specService.specs,
             waiting,
           };

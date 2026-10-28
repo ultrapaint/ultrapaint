@@ -4,12 +4,12 @@
  * where its tokens and its baseline come from and where they go; the engine (`sync-engine.ts`)
  * works out the outcomes, the changes and where the two agree after, the same for every side.
  *
- * - The code is matched by name, and its baseline (`codeSync`) is moved by the design system
- *   service whenever either is written.
- * - Figma is never written: its baseline (`sync`, or the state directory's while there is no
- *   design system) keeps both sides' values and the matches, by Figma's id.
- * - DESIGN.md is rewritten in the design system's names with its values, and its baseline
- *   (`designMd`) is what its mirror agrees on.
+ * - The code (`CodeSide`) is matched by name, and its baseline (`codeSync`) is moved whenever
+ *   either is written.
+ * - Figma is never written: its baseline (`sync`, or `FigmaBaseline`'s while there is no design
+ *   system) keeps both sides' values and the matches, by Figma's id, for one file.
+ * - DESIGN.md (`DesignMd`) is rewritten in the design system's names with its values, and its
+ *   baseline (`designMd`) is what its mirror agrees on.
  */
 import type {
   DesignSystem,
@@ -37,7 +37,17 @@ import { renameRefs, withMirror } from "@ultrapaint/design-md/write";
 import { plural } from "@ultrapaint/shared/text";
 import { Clock, Effect } from "effect";
 import type { ProjectServices } from "../project.ts";
+import { CodeSide } from "./code-side.ts";
+import { DesignMd, documentBaseline } from "./design-md.ts";
 import { DesignSystemService } from "./design-system.ts";
+import { FigmaBaseline } from "./figma-baseline.ts";
+import { FigmaImportService } from "./figma-import.ts";
+import {
+  compareSide,
+  type GivenMatch,
+  type SideChanges,
+  type SideToken,
+} from "./sync-engine.ts";
 import {
   compareDocument,
   compareFigma,
@@ -46,16 +56,7 @@ import {
   figmaBaselineAfter,
   figmaSide,
   matchKeyOf,
-} from "./design-system-sync-rules.ts";
-import { FigmaImportService } from "./figma-import.ts";
-import { RepoPaths } from "./repo-paths.ts";
-import { ProjectStyleSystem } from "./style-system.ts";
-import {
-  compareSide,
-  type GivenMatch,
-  type SideChanges,
-  type SideToken,
-} from "./sync-engine.ts";
+} from "./sync-readings.ts";
 
 interface Written {
   readonly files: readonly string[];
@@ -86,7 +87,8 @@ export interface SideReading {
   ) => Effect.Effect<Written, BadRequest, ProjectServices>;
 }
 
-export interface SyncSide {
+/** A side adapter: how one side is read, matched and kept. */
+export interface SideAdapter {
   /** Matched by name, so there is nothing to match. */
   readonly byName: boolean;
   /** Why nothing can be taken or matched, when there is no such side. */
@@ -110,38 +112,36 @@ const unsaved =
     new BadRequest({ message: `${what}: ${error.message}` });
 
 /**
- * The tokens a side is compared with: the design system's (ADR 0028), or the code's while there
- * is no design system yet, which is then made from the code.
+ * The tokens a side is compared with, and is matched to: the design system's (ADR 0028), or the
+ * code's own while there is no design system yet, which is then made from the code. A style
+ * system's default the code does not declare is none of them.
  */
-const targetTokens = Effect.gen(function* () {
+export const targetTokens = Effect.gen(function* () {
   const { designSystem: ds } = yield* (yield* DesignSystemService).get;
   if (ds) {
     return designTokensOf(ds);
   }
-  const paths = yield* RepoPaths;
-  return (yield* ProjectStyleSystem).readTokens({
-    anchorDir: paths.anchorDir,
-    root: paths.root,
-    settings: paths.settings,
-  }).tokens;
+  const { tokens } = yield* (yield* CodeSide).tokens;
+  return tokens.filter((t) => t.own);
 });
 
 /** The code (ADR 0028): what it changed taken into the design system, the design's written to it. */
-export const codeSide: SyncSide = {
+export const codeAdapter: SideAdapter = {
   byName: true,
   missing: () =>
     "There is no design system yet to compare the code with: Sync makes one.",
   read: Effect.gen(function* () {
     const service = yield* DesignSystemService;
-    const found = yield* service.codeComparison;
-    if (!found) {
+    const code = yield* CodeSide;
+    const { designSystem: ds } = yield* service.get;
+    if (!ds) {
       return null;
     }
-    const { read: _read, ...comparison } = found;
+    const { read: _read, ...comparison } = yield* code.comparison(ds);
     return {
       comparison,
       matching: null,
-      // The design system service moves `codeSync` with every write, of either side.
+      // `codeSync` moves with every write, of either side.
       write: ({ toDesign, toSource }) =>
         Effect.gen(function* () {
           const taken =
@@ -150,7 +150,7 @@ export const codeSide: SyncSide = {
               : { files: nothing };
           const written =
             toSource.length > 0
-              ? yield* service.writeCode(toSource)
+              ? yield* code.write(toSource, (yield* service.get).designSystem)
               : { files: nothing };
           return {
             files: [...new Set([...taken.files, ...written.files])],
@@ -162,11 +162,38 @@ export const codeSide: SyncSide = {
 };
 
 /**
+ * What the last sync with a Figma file agreed on: the design system's baseline, or the one
+ * waiting for a design system. A baseline from another Figma file says nothing about this one.
+ */
+export const figmaBaselineOf = (file: string) =>
+  Effect.gen(function* () {
+    const { designSystem } = yield* (yield* DesignSystemService).get;
+    const stored =
+      designSystem?.sync ?? (yield* (yield* FigmaBaseline).pending);
+    return stored?.file === file ? stored : null;
+  });
+
+/**
+ * Keeps a sync's baseline with Figma: in `design-system.json` when there is one, else until
+ * there is.
+ */
+const saveFigmaBaseline = Effect.fnUntraced(function* (next: SyncBaseline) {
+  const service = yield* DesignSystemService;
+  const waiting = yield* FigmaBaseline;
+  const { designSystem } = yield* service.get;
+  if (!designSystem) {
+    return yield* waiting.wait(next);
+  }
+  yield* service.write({ ...designSystem, sync: next });
+  yield* waiting.clear;
+});
+
+/**
  * The newest Figma import (ADR 0025): what it changed taken into the design system, or into the
  * code while there is no design system yet, which is then made from the code. Figma is not
  * written.
  */
-export const figmaImportSide: SyncSide = {
+export const figmaAdapter: SideAdapter = {
   byName: false,
   missing: (doing) => `There is no Figma import to ${doing} tokens from.`,
   read: Effect.gen(function* () {
@@ -185,9 +212,7 @@ export const figmaImportSide: SyncSide = {
     );
     const design = yield* targetTokens;
     const service = yield* DesignSystemService;
-    const stored = yield* service.baseline;
-    // A baseline from another Figma file says nothing about this one.
-    const baseline = stored?.file === latest.name ? stored : null;
+    const baseline = yield* figmaBaselineOf(latest.name);
     const side = figmaSide(figma.tokens, design, baseline);
     const diffs = compareSide(side, design);
     const file = latest.name;
@@ -228,9 +253,9 @@ export const figmaImportSide: SyncSide = {
             const pending = after.some(
               (d) => d.outcome === "to-design" || d.outcome === "conflict"
             );
-            yield* service
-              .saveBaseline(pending ? { ...next, at: 0 } : next)
-              .pipe(Effect.mapError(unsaved("the matches could not be saved")));
+            yield* saveFigmaBaseline(pending ? { ...next, at: 0 } : next).pipe(
+              Effect.mapError(unsaved("the matches could not be saved"))
+            );
             return after;
           }),
         tokens: figma.tokens,
@@ -243,22 +268,20 @@ export const figmaImportSide: SyncSide = {
           if (toDesign.length > 0) {
             ({ files } = ds
               ? yield* service.setTokens(toDesign, `Take ${file}'s tokens`)
-              : yield* service.writeCode(toDesign));
+              : yield* (yield* CodeSide).write(toDesign, null));
           }
           // Where Figma and the design system stand now, for the next sync to compare with.
-          yield* service
-            .saveBaseline(
-              figmaBaselineAfter({
-                at: yield* Clock.currentTimeMillis,
-                baseline,
-                design: yield* targetTokens,
-                diffs,
-                file,
-                settled,
-                side,
-              })
-            )
-            .pipe(Effect.mapError(unsaved("the baseline could not be saved")));
+          yield* saveFigmaBaseline(
+            figmaBaselineAfter({
+              at: yield* Clock.currentTimeMillis,
+              baseline,
+              design: yield* targetTokens,
+              diffs,
+              file,
+              settled,
+              side,
+            })
+          ).pipe(Effect.mapError(unsaved("the baseline could not be saved")));
           return { files, written: toDesign.length };
         }),
     } satisfies SideReading;
@@ -346,7 +369,7 @@ const noDocument =
  * design system's names, its references with it, what was left out taken out of it, and what is
  * still unmatched kept. With `codeTokens: auto` the code follows.
  */
-export const designMdSide: SyncSide = {
+export const designMdAdapter: SideAdapter = {
   byName: false,
   missing: () => noDocument,
   read: Effect.gen(function* () {
@@ -382,11 +405,9 @@ export const designMdSide: SyncSide = {
                 delete matches[variable];
               }
             }
-            const next = {
-              // Matches saved before anything is taken are no agreement yet (`at` 0).
-              ...(baseline ?? { agreed: {}, at: 0 }),
+            const next = documentBaseline(baseline, {
               matches: sorted(matches),
-            };
+            });
             yield* service
               .write({ ...ds, designMd: next } satisfies DesignSystem)
               .pipe(Effect.mapError(unsaved("the matches could not be saved")));
@@ -403,7 +424,7 @@ export const designMdSide: SyncSide = {
           if (!current) {
             return yield* new BadRequest({ message: noDocument });
           }
-          const mirror = yield* service.mirror(listed, current.text);
+          const mirror = yield* (yield* DesignMd).mirror(listed, current.text);
           const text = documentAfter(current.text, diffs, mirror);
           if (text === null) {
             return yield* new BadRequest({
@@ -417,11 +438,16 @@ export const designMdSide: SyncSide = {
             mirror,
             listed.designMd?.agreed ?? {}
           );
+          // Its matches were by the document's names, which are the design system's now.
           yield* service
             .replace(
               {
                 ...listed,
-                designMd: { agreed, at: yield* Clock.currentTimeMillis },
+                designMd: documentBaseline(listed.designMd, {
+                  agreed,
+                  at: yield* Clock.currentTimeMillis,
+                  matches: null,
+                }),
               },
               text,
               `Take ${current.path}'s tokens into the design system`
@@ -429,11 +455,10 @@ export const designMdSide: SyncSide = {
             .pipe(
               Effect.mapError(unsaved(`${current.path} could not be written`))
             );
-          const paths = yield* RepoPaths;
-          const code =
-            toDesign.length > 0 && paths.settings.codeTokens === "auto"
-              ? yield* service.writeCode(toDesign)
-              : { files: nothing };
+          const { designSystem: taken } = yield* service.get;
+          const code = taken
+            ? yield* (yield* CodeSide).follow(toDesign, taken)
+            : { files: nothing };
           return {
             files: [current.path, ...code.files],
             written: toDesign.length,
@@ -444,8 +469,8 @@ export const designMdSide: SyncSide = {
 };
 
 /** Each side by the name callers give it. */
-export const syncSides: Readonly<Record<TokenSourceKind, SyncSide>> = {
-  code: codeSide,
-  designMd: designMdSide,
-  figma: figmaImportSide,
+export const syncSides: Readonly<Record<TokenSourceKind, SideAdapter>> = {
+  code: codeAdapter,
+  designMd: designMdAdapter,
+  figma: figmaAdapter,
 };

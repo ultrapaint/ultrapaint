@@ -45,7 +45,7 @@ import {
 import { EventBus } from "../events.ts";
 import { makeId } from "../ids.ts";
 import { CatalogueService } from "./catalogue.ts";
-import { DesignSystemService } from "./design-system.ts";
+import { CodeSide } from "./code-side.ts";
 import { DocumentService } from "./documents.ts";
 import { type EditFailure, EditService } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
@@ -151,7 +151,7 @@ export class SpecService extends Context.Service<
       const path = yield* Path.Path;
       const catalogue = yield* CatalogueService;
       const styleSystem = yield* ProjectStyleSystem;
-      const designSystem = yield* DesignSystemService;
+      const code = yield* CodeSide;
       const documents = yield* DocumentService;
       const dir = path.join(paths.designsDir, SPECS_DIR);
 
@@ -314,7 +314,7 @@ export class SpecService extends Context.Service<
           meta,
           all,
           look,
-          yield* designSystem.codeTokens,
+          (yield* code.tokens).tokens,
           (yield* specs).find((s) => s.component === meta.name)
         );
         return yield* save(spec, `Read the ${meta.name} spec from the code`);
@@ -336,7 +336,7 @@ export class SpecService extends Context.Service<
         const open = components.filter(
           (c) => c.styles !== undefined && !have.has(c.name)
         );
-        const tokens = yield* designSystem.codeTokens;
+        const { tokens } = yield* code.tokens;
         const read = yield* Effect.forEach(open, (meta) =>
           Effect.map(
             specFromCode(meta, components, look, tokens, undefined),

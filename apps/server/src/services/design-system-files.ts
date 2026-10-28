@@ -30,7 +30,7 @@ import {
   withEmptyValues,
 } from "@ultrapaint/contracts/token-table";
 import { serialise } from "@ultrapaint/design-document/factories";
-import { Schema } from "effect";
+import { Predicate, Schema } from "effect";
 import { readDesignTokens, serialiseDesignTokens } from "./dtcg.ts";
 
 const decodeDesignSystem = Schema.decodeUnknownResult(DesignSystem);
@@ -150,10 +150,23 @@ export const writeDesignSystem = (
   tokens: serialiseDesignTokens(ds),
 });
 
+/** Whether a baseline kept in the file agrees on the same values: nothing agreed is `{}`. */
+const sameAgreement = (
+  kept: unknown,
+  agreed: Readonly<Record<string, string>>
+): boolean => {
+  const before = Predicate.isObject(kept) ? Object.entries(kept) : [];
+  return (
+    before.length === Object.keys(agreed).length &&
+    before.every(([key, value]) => agreed[key] === value)
+  );
+};
+
 /**
  * `design-system.json`'s text with what one side and the design system agree on set, the
  * matches the file keeps for it kept, everything else as the file has it: a baseline moved
- * outside the undo history (ADR 0027, 0028). Null for a file that is not there or does not read.
+ * outside the undo history (ADR 0027, 0028). The text as it is when the side agrees on the same
+ * values already; null for a file that is not there or does not read.
  */
 export const withAgreement = (
   text: string | null,
@@ -175,7 +188,12 @@ export const withAgreement = (
     return null;
   }
   const record = json as Record<string, unknown>;
-  const previous = record[side] as { readonly matches?: unknown } | undefined;
+  const previous = record[side] as
+    | { readonly agreed?: unknown; readonly matches?: unknown }
+    | undefined;
+  if (sameAgreement(previous?.agreed, agreed)) {
+    return text;
+  }
   return serialise({
     ...record,
     [side]: {

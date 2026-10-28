@@ -15,28 +15,30 @@ import {
 import type { SourceToken } from "@ultrapaint/contracts/tokens";
 import { describe, expect, it } from "vitest";
 import {
+  changesOf,
+  matchProblem,
+  namedDiffs,
+  type SideToken,
+  settledKeys,
+} from "./services/sync-engine.ts";
+import {
   caseOf,
   codeCounts,
+  driftOf,
+  planOf,
+  summaryOf,
+} from "./services/sync-plan.ts";
+import {
   codeDirection,
   compareCode,
   compareDocument,
   compareFigma,
   designTokensOf,
   documentSideTokens,
-  driftOf,
   figmaBaselineAfter,
   figmaSide,
   matchFigma,
-  namedDiffs,
-  planOf,
-  summaryOf,
-} from "./services/design-system-sync-rules.ts";
-import {
-  changesOf,
-  matchProblem,
-  type SideToken,
-  settledKeys,
-} from "./services/sync-engine.ts";
+} from "./services/sync-readings.ts";
 
 /** What a comparison takes into the design system once the user has picked. */
 const tokenChanges = (

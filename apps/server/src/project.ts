@@ -19,11 +19,14 @@ import type { ServerConfig } from "./config.ts";
 import { EventBus } from "./events.ts";
 import type { PreviewProxy } from "./preview-proxy.ts";
 import type { CatalogueService } from "./services/catalogue.ts";
+import type { CodeSide } from "./services/code-side.ts";
 import type { CommentsService } from "./services/comments.ts";
 import type { ComponentRegistry } from "./services/component-registry.ts";
+import type { DesignMd } from "./services/design-md.ts";
 import type { DesignSystemService } from "./services/design-system.ts";
 import type { DocumentService } from "./services/documents.ts";
 import type { EditService } from "./services/edit.ts";
+import type { FigmaBaseline } from "./services/figma-baseline.ts";
 import type { FigmaImportService } from "./services/figma-import.ts";
 import type { ProjectFramework } from "./services/framework.ts";
 import { GitService } from "./services/git.ts";
@@ -45,11 +48,14 @@ import type { WorkingTree } from "./services/working-tree.ts";
 /** Everything that exists once a target repository is configured. */
 export type ProjectServices =
   | CatalogueService
+  | CodeSide
   | CommentsService
   | ComponentRegistry
+  | DesignMd
   | DesignSystemService
   | DocumentService
   | EditService
+  | FigmaBaseline
   | FigmaImportService
   | GitService
   | HostManager

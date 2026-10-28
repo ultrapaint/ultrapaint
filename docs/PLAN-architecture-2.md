@@ -136,3 +136,55 @@ unless the step says otherwise.
    `set_frame` past Home's view); `editor.test.ts` has 7 more (views in `computeFrames`,
    `addView` beside, numbered and below, on no frame, `removeView` with its selection,
    `applyLayout` for the open canvas, another and while a save waits).
+3. **The Sync sides own what they know** (`apps/server/src/services/code-side.ts`,
+   `design-md.ts`, `figma-baseline.ts`; the pure rules in `sync-plan.ts` and `sync-readings.ts`).
+   `CodeSide` owns the code's tokens: `tokens` (the one read through the style system, kept until
+   a stylesheet it came from changes, which DESIGN.md's mirror, the design system's values, Sync,
+   its plan and its watcher, the sync tasks and the specs all use), `refresh` and `changes`,
+   `scan`, `agreement(ds)` (the `codeSync` a write of the design saves), `comparison(ds)` (the one
+   call of `compareCode`), `previewCss(ds)`, `write(changes, against)` (every stylesheet or none,
+   a file written put back when a later one fails, the agreement moved against the design given)
+   and `follow` (`codeTokens: auto`, once). `DesignMd` owns DESIGN.md: its `file`, the
+   `document` as the editor shows it with what is held and the linter's findings, `mirror`,
+   `toWrite` (a writer's document with its baseline), `follow` (the front matter brought up to
+   the design system and its baseline moved, outside the undo history), `place`, `setSection`,
+   `refresh` (the components' classes) and `changes`; `documentBaseline` makes every DESIGN.md
+   baseline a design system is written with (a writer's document, the matches saved, the tokens
+   taken, which forgets the matches). `FigmaBaseline` keeps the baseline waiting in the state
+   directory; Figma's adapter keeps it in `design-system.json` once there is one
+   (`saveFigmaBaseline`) and says what the last sync with a file agreed on (`figmaBaselineOf`, a
+   baseline of another file being none), which the plan reads too. `targetTokens`, the tokens a
+   side is matched to, is written once in `sync-sides.ts` and the `/sync figma` and `/sync
+   design` tasks list it. `DesignSystemService` keeps the design: `get`, `refresh`, `scan`,
+   `detect`, `codeOf`, `write`, `setToken`, `setTokens` and `replace`, 9 members where it had 17
+   (`codeTokens`, `codeComparison` and `writeCode` are `CodeSide`'s, `mirror`, `placeDocument`
+   and `setSection` `DesignMd`'s, `baseline` and `saveBaseline` Figma's adapter's). It publishes
+   `designSystem` in one place, a loop that hears its two files, DESIGN.md and the code change,
+   whoever changed them; the seven publishes after each write and the sync's watcher publishing
+   the state it refreshed go. `withAgreement` leaves `design-system.json` as it is when the side
+   agrees on the same values already, the check the code's and DESIGN.md's moves each wrote by
+   hand. The plan (`driftOf`, `caseOf`, `planOf`, `summaryOf`, `codeCounts`) and the sides'
+   readings (`designTokensOf`, `codeSide`, `figmaSide`, `documentSide` and their comparisons,
+   `codeAgreement`, `figmaBaselineAfter`, `codeDirection`) are two modules; `namedDiffs` is the
+   engine's. The adapters are `codeAdapter`, `figmaAdapter` and `designMdAdapter` (a
+   `SideAdapter`), so `codeSide` is only the code's reading. `readTokens(` is called in one place
+   where it was in six, and `{anchorDir, root, settings}` is built in three where it was in
+   eleven (the other two are the preview's). `design-system.ts` is 438 lines where it was 1176
+   (`code-side.ts` 332, `design-md.ts` 493, `figma-baseline.ts` 68); `design-system-sync-rules.ts`
+   (782) is `sync-plan.ts` (397) and `sync-readings.ts` (379). The target tokens differed only on
+   paper: the adapters' list kept the style system's defaults and the tasks' did not, but every
+   use in the adapters (the engine's comparison and rules, Figma's baseline, the targets) took
+   only the code's own, so no outcome changed; the one list takes the code's own. Also: the
+   editor hears of a change once, about 50 ms after it (a token set with `codeTokens: auto` was
+   published two or three times, the first before the call returned); placing DESIGN.md sets its
+   baseline in `design-system.json` as the file has it rather than writing both files again, and
+   leaves it as it was when they share no value; a Figma baseline waiting in the state directory
+   is removed with `force`. `design-system-sides.test.ts` has 6 tests on `ProjectTest`: the code
+   written all or nothing (a `fileSystem` option of `ProjectTest` fails the second stylesheet's
+   rename, and the first is put back), the one read seen by every reader once a stylesheet
+   changes by hand and the agreement moved by an import and an export, Sync's Figma comparison
+   and the `/sync figma` task matching to the code's own tokens past Tailwind's defaults, Figma's
+   baseline waiting, none for another file, then taken in by a design system written, DESIGN.md's
+   baseline moved by placing and by the mirror, and `documentBaseline`'s matches kept, forgotten
+   and saved before anything is agreed. `design-system-files.test.ts` has 1 more (`withAgreement`
+   with the same values).

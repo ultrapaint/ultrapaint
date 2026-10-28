@@ -41,6 +41,8 @@ export class ProjectFixture extends Context.Service<
 >()("ultrapaint/server/testing/ProjectFixture") {}
 
 export interface ProjectTestOptions {
+  /** The file system every service is given, changed by the test: a write made to fail. */
+  readonly fileSystem?: (fs: FileSystem.FileSystem) => FileSystem.FileSystem;
   /** Files written into the fixture before the project opens, by their path in it. */
   readonly files?: Readonly<Record<string, string>>;
   /** A git repository with the fixture committed; a plain folder without. */
@@ -101,7 +103,16 @@ export const ProjectTest = (options: ProjectTestOptions = {}) =>
         )
       );
     })
-  ).pipe(Layer.provideMerge(NodeServices.layer));
+  ).pipe(
+    Layer.provideMerge(
+      options.fileSystem
+        ? Layer.effect(
+            FileSystem.FileSystem,
+            Effect.map(FileSystem.FileSystem, options.fileSystem)
+          ).pipe(Layer.provideMerge(NodeServices.layer))
+        : NodeServices.layer
+    )
+  );
 
 /**
  * One of the editor's MCP tools, called as an agent's call reaches its handler: the parameters

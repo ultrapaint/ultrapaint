@@ -8,6 +8,7 @@ import { ListenPort } from "./listen-port.ts";
 import { ProjectManager } from "./project.ts";
 import { CatalogueService } from "./services/catalogue.ts";
 import { CommentsService } from "./services/comments.ts";
+import { DesignMd } from "./services/design-md.ts";
 import { DesignSystemService } from "./services/design-system.ts";
 import { DesignSystemSetupService } from "./services/design-system-setup.ts";
 import { DesignSystemSyncService } from "./services/design-system-sync.ts";
@@ -85,6 +86,9 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const designSystem = <A, E>(
       f: (s: DesignSystemService["Service"]) => Effect.Effect<A, E>
     ) => project.use(Effect.flatMap(DesignSystemService, f));
+    const designMd = <A, E>(
+      f: (s: DesignMd["Service"]) => Effect.Effect<A, E>
+    ) => project.use(Effect.flatMap(DesignMd, f));
     const thumbnails = <A, E>(
       f: (s: Thumbnails["Service"]) => Effect.Effect<A, E>
     ) => project.use(Effect.flatMap(Thumbnails, f));
@@ -146,9 +150,14 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "comments.update": (input) => comments((c) => c.update(input)),
       "designSystem.detect": () => designSystem((d) => d.detect),
       "designSystem.get": () => designSystem((d) => d.get),
-      "designSystem.placeDocument": () => designSystem((d) => d.placeDocument),
+      "designSystem.placeDocument": () =>
+        designSystem((d) =>
+          Effect.flatMap(d.get, ({ designSystem: ds }) =>
+            designMd((m) => m.place(ds))
+          )
+        ),
       "designSystem.setSection": ({ name, text }) =>
-        designSystem((d) => d.setSection(name, text)),
+        designMd((m) => m.setSection(name, text)),
       "designSystem.setToken": (change) =>
         designSystem((d) => d.setToken(change)),
       "documents.apply": (input) => documents((d) => d.apply(input)),

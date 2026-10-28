@@ -36,23 +36,20 @@ import { EventBus } from "../events.ts";
 import { makeWalk } from "../fs-walk.ts";
 import { ProjectManager } from "../project.ts";
 import { CatalogueService } from "./catalogue.ts";
+import { CodeSide } from "./code-side.ts";
 import { DesignSystemService } from "./design-system.ts";
 import { DesignSystemSetupService } from "./design-system-setup.ts";
-import {
-  caseOf,
-  codeCounts,
-  compareCode,
-  designTokensOf,
-  driftOf,
-  namedDiffs,
-  planOf,
-  summaryOf,
-} from "./design-system-sync-rules.ts";
 import { FigmaImportService } from "./figma-import.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { ProjectStyleSystem } from "./style-system.ts";
-import { changesOf, matchEntries, settledKeys } from "./sync-engine.ts";
-import { syncSides } from "./sync-sides.ts";
+import {
+  changesOf,
+  matchEntries,
+  namedDiffs,
+  settledKeys,
+} from "./sync-engine.ts";
+import { caseOf, codeCounts, driftOf, planOf, summaryOf } from "./sync-plan.ts";
+import { figmaBaselineOf, syncSides } from "./sync-sides.ts";
 
 const STYLESHEET_RE = /\.css$/;
 /** What a component is written in. */
@@ -199,28 +196,15 @@ export class DesignSystemSyncService extends Context.Service<
             // A catalogue that cannot be built reads as no components, which the plan says.
             Effect.orElseSucceed((): string[] => [])
           );
-          const source = yield* Effect.sync(() =>
-            styleSystem.readTokens({
-              anchorDir: paths.anchorDir,
-              root: paths.root,
-              settings,
-            })
-          );
-          const designSystem = yield* DesignSystemService;
-          const state = yield* designSystem.get;
+          const code = yield* CodeSide;
+          const source = yield* code.tokens;
+          const state = yield* (yield* DesignSystemService).get;
           const latest = yield* (yield* FigmaImportService).latest;
           const ds = state.designSystem;
-          const codeTokens =
-            ds && source.files.length > 0
-              ? codeCounts(
-                  compareCode(
-                    source.tokens,
-                    designTokensOf(ds),
-                    ds.codeSync ?? null,
-                    new Set(ds.omitted ?? [])
-                  )
-                )
-              : undefined;
+          const comparison = ds ? yield* code.comparison(ds) : null;
+          const codeTokens = comparison?.read
+            ? codeCounts(comparison.diffs)
+            : undefined;
           const facts: SyncFacts = {
             app: yield* hasApp(paths.anchorDir),
             components: components.length,
@@ -245,11 +229,10 @@ export class DesignSystemSyncService extends Context.Service<
             tokens: source.tokens.filter((t) => t.own).length,
             ...(codeTokens && { codeTokens }),
           };
-          const baseline = yield* designSystem.baseline;
+          const baseline = latest ? yield* figmaBaselineOf(latest.name) : null;
           const figmaSynced =
             latest !== null &&
             baseline !== null &&
-            baseline.file === latest.name &&
             baseline.at >= latest.createdAt;
           return {
             drift: driftOf(
@@ -291,12 +274,7 @@ export class DesignSystemSyncService extends Context.Service<
       const codeDirs = project.use(
         Effect.gen(function* () {
           const paths = yield* RepoPaths;
-          const styleSystem = yield* ProjectStyleSystem;
-          const source = styleSystem.readTokens({
-            anchorDir: paths.anchorDir,
-            root: paths.root,
-            settings: paths.settings,
-          });
+          const source = yield* (yield* CodeSide).tokens;
           return [
             ...new Set([
               ...source.files
@@ -334,16 +312,14 @@ export class DesignSystemSyncService extends Context.Service<
           Stream.debounce("150 millis"),
           Stream.runForEach(() =>
             Effect.gen(function* () {
-              // The preview draws the design over the code's values: the editor hears they changed.
-              yield* project
-                .use(Effect.flatMap(DesignSystemService, (d) => d.refresh))
-                .pipe(
-                  Effect.flatMap((state) =>
-                    events.publish("designSystem", state)
-                  ),
-                  (effect) =>
-                    survive(effect, "the design system could not be re-read")
-                );
+              // The preview draws the design over the code's values, and DESIGN.md mirrors the
+              // components' classes: both are read again, and the editor hears of it.
+              yield* survive(
+                project.use(
+                  Effect.flatMap(DesignSystemService, (d) => d.refresh)
+                ),
+                "the design system could not be re-read"
+              );
               yield* PubSub.publish(pokes, undefined);
             })
           )

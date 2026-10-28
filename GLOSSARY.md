@@ -17,7 +17,13 @@ module.
 - **Side**: somewhere else a design system's tokens live: the code, Figma, DESIGN.md (ADRs 0025,
   0027, 0028). Each is compared with the design against its **baseline**, what the two last
   agreed on; the **agreement** rule gives a token's outcome. The **sync engine** compares any
-  side; a **side adapter** says how one side is read, matched and kept.
+  side, with what each side is to it in `sync-readings`; a **side adapter** (`sync-sides`) says
+  how one side is read, matched and kept. Each side owns what it knows: the **code side**
+  (`CodeSide`) the code's tokens, read once for every caller, its stylesheets written all or
+  nothing, its agreement and the preview's CSS; `DesignMd` the document, its **mirror** of the
+  tokens, its baseline and its lint; `FigmaBaseline` Figma's baseline while there is no design
+  system. The **target tokens** a side is matched to are the design's, else the code's own. The
+  **sync plan** (`sync-plan`) is the steps that bring the design system and the code together.
 - **Page**: a design document, `.page.json`, of a **canvas** (ADRs 0015, 0019, 0020). A page is
   drawn in a **frame**, and in **views** of other widths beside it (ADR 0036); an edit lands at
   the **breakpoint** of the view it is made in. A page's **family** is its base page with its
