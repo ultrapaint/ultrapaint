@@ -44,6 +44,8 @@ import { frameOfEvent, onRunning } from "./turn.ts";
 const SKELETON_ATTRIBUTE = "data-ed-skeleton";
 /** A frame's host, marked with the frame's name. */
 const FRAME_HOST_ATTRIBUTE = "data-ed-frame-host";
+/** A frame's host once its page has drawn: what it shows is the page's, not a blank. */
+const DRAWN_ATTRIBUTE = "data-ed-drawn";
 const INERT = "inert";
 
 /** Wider than this, a crop is drawn at the page's own resolution rather than doubled. */
@@ -205,7 +207,8 @@ const mountFrame = (
   const { events } = options;
   const { body, root: canvas, shadow } = buildFrame(host, input.theme);
   // The editor's one rule for an event from a frame is the registered frames (`fromFrame`); the
-  // mark is what scripts and tests find a frame's host by.
+  // marks (this one, and `data-ed-drawn` once it has drawn) are what scripts and tests find a
+  // frame's host by.
   host.setAttribute(FRAME_HOST_ATTRIBUTE, options.frame);
   if (options.still) {
     host.setAttribute("data-ed-still", "");
@@ -284,6 +287,9 @@ const mountFrame = (
     components,
     drawing: kernel.ask,
     rendered: (renderId) => {
+      if (!host.hasAttribute(DRAWN_ATTRIBUTE)) {
+        host.setAttribute(DRAWN_ATTRIBUTE, "");
+      }
       applySkeletons();
       events.rendered?.(renderId);
       scheduleRects();

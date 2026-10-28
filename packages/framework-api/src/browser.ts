@@ -180,7 +180,7 @@ export interface MountFrameOptions {
   readonly events: FrameEvents;
   /**
    * Identifies the frame: a frame on the canvas, the prototype, a specimen. Its host is marked
-   * with it (`data-ed-frame-host`).
+   * with it (`data-ed-frame-host`), and marked `data-ed-drawn` once its page has drawn.
    */
   readonly frame: string;
   /** How it is shown at first: a picture, in view, with no class, style or title of its own. */

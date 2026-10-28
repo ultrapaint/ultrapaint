@@ -280,8 +280,6 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
 
 ## Follow-ups found while building
 
-- `toggleAttribute("class", true)` from the page's code adds a class named `true`; the web still
-  writes `data-ed-drawn` on the host for the bench script (step 6).
 - `pnpm e2e:sandbox` fails 6 to 8 of its 23 checks, the same before steps 6 to 8 (checked on
   e9de144 in a separate worktree): a frame's keys, the repository's proxy, CSS-in-JS styles, the
   editor's variables, the prototype's click error, a loop in a click, and (flaky) a frame's width
@@ -1025,3 +1023,19 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
    answered from what the lookup found in another. What a file is rewritten to is as it was.
    `usage-rewrite.test.ts`' tests make a rewriter, one of them rewriting a component and a
    stylesheet with the same one; they failed first (no `rewriter`).
+8. **The page's `toggleAttribute` as the DOM's, and the host marked drawn by the core**
+   (`packages/preview-core/src/document-elements.ts`, `frame.ts`). The page's
+   `toggleAttribute(name, force)` on `<html>` or `<body>` behaves as the DOM's: toggled on, an
+   attribute keeps its value (or is there, empty), toggled off it goes, and it answers whether
+   it is there. For `class` and `style` that is the page's own classes and style: on leaves them,
+   off clears them, the editor's left. Any other attribute is toggled on the host and the body
+   alike, as the body (what it is read from) has it, with the force given to each. Fixed:
+   `toggleAttribute("class", true)` replaced the page's classes by a class named `true`, and an
+   attribute the editor had on the host alone (a `toggleAttribute("data-mode")` with no force)
+   was taken off the host and put on the body. Also: `data-ed-drawn`, which the bench reads, is
+   the core's: it marks the host once its page has drawn (a frame that only threw is no longer
+   marked); `editor-frame` no longer writes the host, and `MountFrameOptions.frame` says so.
+   `document-elements.test.ts` has 3 tests more (`class` toggled on keeps `dark` and adds no
+   `true`, off clears the page's; an attribute toggled with no force alike on host and body;
+   `style` toggled on keeps the body's style); the first two failed first. `frame.test.ts` has 1
+   test more: the host is marked drawn once its page has drawn; it failed first.

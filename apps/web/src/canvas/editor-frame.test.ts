@@ -354,7 +354,6 @@ describe("the pool", () => {
     expect(m.isWarm("p1")).toBe(false);
     events.rendered?.(frame.render(page));
     expect(m.isWarm("p1")).toBe(true);
-    expect(host.dataset.edDrawn).toBe("");
     expect(changes).toHaveBeenCalledTimes(1);
     frame.watchRects(["a"]);
     opened?.close();

@@ -154,6 +154,13 @@ describe("a frame's turn", () => {
 });
 
 describe("a frame's host", () => {
+  it("is marked drawn once its page has drawn", () => {
+    const { draw, host } = open("a", "light");
+    expect(host.hasAttribute("data-ed-drawn")).toBe(false);
+    draw(() => undefined);
+    expect(host.getAttribute("data-ed-drawn")).toBe("");
+  });
+
   it("is shown as the editor asks: marked, its class, style and title, away", () => {
     const { host, runtime } = open("a", "light", {
       className: "block h-full",
