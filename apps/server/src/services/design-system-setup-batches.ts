@@ -56,12 +56,13 @@ export const makeMigrateBatches = (deps: {
     write: boolean
   ) {
     const files: NextBatch["files"][number][] = [];
+    const rewrite = code.usage.rewriter(code.ctx, table);
     for (const file of batch.files) {
       const text = yield* code.read(file);
       if (text === null) {
         continue;
       }
-      const out = code.usage.rewrite(file, text, code.ctx, table);
+      const out = rewrite(file, text);
       if (write && out.changes > 0) {
         yield* code.write(file, out.text);
       }
