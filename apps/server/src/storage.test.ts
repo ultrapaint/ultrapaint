@@ -628,13 +628,7 @@ layer(Detected, { excludeTestServices: true, timeout: "60 seconds" })(
         assert.strictEqual(info?.repoPath, repo);
 
         // Applying them makes them the saved ones: the editor is told, and the project that runs
-        // them stays open. The preview has settled first, so what tells the editor is the
-        // settings, not the preview's next status.
-        yield* waitFor(
-          client["project.info"](),
-          (opened) =>
-            opened.host.state === "error" || opened.host.state === "running"
-        );
+        // them stays open.
         yield* client["documents.apply"]({
           edits: [
             {

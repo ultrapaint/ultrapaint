@@ -1,30 +1,23 @@
 /**
- * The preview in the editor's own page (ADR 0034). The repository's components are loaded once,
- * by the generated entry, and every frame of the canvas is a shadow root drawn with them: no
- * iframe, no document of its own, no message to wait for. What the iframe's runtime answered
- * over `postMessage` (where things are, what is under a point, a picture) a frame answers when
- * asked, from the DOM as it is.
+ * The frames of the editor's own page (ADR 0034, 0040). Every frame of the canvas is a shadow
+ * root, drawn by the editor's renderer with the editor's primitives: no iframe, no document of
+ * its own, no message to wait for, and nothing of the repository's running. What a frame is asked
+ * (where things are, what is under a point, a picture) it answers from the DOM as it is.
  *
- * A frame's coordinates are the page's own pixels, as they were in an iframe: the canvas's zoom
- * and where the frame is on the screen are taken out of everything it measures.
+ * A frame's coordinates are the page's own pixels: the canvas's zoom and where the frame is on the
+ * screen are taken out of everything it measures.
  */
 
-import {
-  installPageRuntime,
-  REGISTRY_GLOBAL,
-} from "@ultrapaint/contracts/page-runtime";
 import {
   makeStyleContext,
   pageDefaultsStyle,
 } from "@ultrapaint/design-document/css";
 import type {
-  FrameEvents,
   FrameRect,
   FrameRuntime,
   FrameShown,
   Mounted,
   MountFrameOptions,
-  PageError,
   Preview,
   PreviewSetup,
   RenderRequest,
@@ -35,12 +28,9 @@ import { chainAt, directText, elementsOf, unionRect } from "./dom.ts";
 import { BODY_ATTRIBUTE } from "./frame-css.ts";
 import { showHost, writeClasses, writeStyle } from "./frame-host.ts";
 import { elementAt, type HitScope } from "./hit.ts";
-import { install, register } from "./kernel.ts";
 import { renderSetup } from "./render-setup.ts";
-import { onStrayError } from "./sandbox.ts";
 import { adoptedSheets, frameSheets, setComponentsCss } from "./styles.ts";
 import { readTokens } from "./tokens.ts";
-import { frameOfEvent, onRunning } from "./turn.ts";
 
 const SKELETON_ATTRIBUTE = "data-ed-skeleton";
 /** A frame's host, marked with the frame's name. */
@@ -83,91 +73,31 @@ const GUARDED = [
   "submit",
 ] as const;
 
-/** Events that say which frame the user is working in: where a popup it opens belongs. */
-const ACTIVITY = ["pointerdown", "keydown", "focusin"] as const;
-
-/**
- * The repository's components, ready to draw frames in the editor's page with `render`. Called
- * once by the generated entry, through the bundle's entry (`editor.ts`), with the registry, the
- * providers and where the preview's server is.
- */
+/** The editor's frames, drawn with `render`; created once, by the editor's page. */
 export const createPreview = (
   render: RenderToCanvas,
   input: PreviewSetup
 ): Preview => {
-  let { components } = input;
-  const frames = new Set<{
-    events: FrameEvents;
-    mounted: Mounted;
-  }>();
-  /** The dev server's error until its next update: a frame mounted meanwhile is told it too. */
-  let devServerError: PageError | null = null;
-  const sandboxed = input.sandboxed !== false;
-  if (sandboxed) {
-    const previewBase = new URL(
-      input.designsRoot,
-      location.href
-    ).pathname.split("@fs")[0] as string;
-    // Whose code calls is told the same way by every guard: the base, and the editor's bundle.
-    install({ base: previewBase });
-  }
   if (input.css) {
     setComponentsCss(input.css);
   }
   /** The hosts of the mounted frames: an event with one on its path is from a frame. */
   const hosts = new Set<EventTarget>();
-
-  const preview: Preview = {
+  return {
     fromFrame: (event) =>
-      sandboxed
-        ? frameOfEvent(event) !== null
-        : event.composedPath().some((target) => hosts.has(target)),
+      event.composedPath().some((target) => hosts.has(target)),
     mountFrame: (host, options) => {
-      const frame = mountFrame(host, options, render, input, components);
-      const entry = { events: options.events, mounted: frame.mounted };
-      frames.add(entry);
+      const frame = mountFrame(host, options, render, input);
       hosts.add(host);
-      if (devServerError) {
-        options.events.error?.(devServerError);
-      }
       return {
         ...frame.runtime,
         unmount: () => {
-          frames.delete(entry);
           hosts.delete(host);
           frame.runtime.unmount();
         },
       };
     },
-    notifyHmr: () => {
-      devServerError = null;
-      for (const frame of frames) {
-        frame.events.hmr?.();
-      }
-    },
-    onRunning,
-    onStrayError,
-    reportError: (error) => {
-      const told: PageError = { ...error, source: "dev-server" };
-      devServerError = told;
-      for (const frame of frames) {
-        frame.events.error?.(told);
-      }
-    },
-    setComponents: (next) => {
-      components = next;
-      for (const frame of frames) {
-        frame.mounted.setComponents(next);
-      }
-    },
   };
-  // The registry module, rewritten as components are catalogued, hands itself over here.
-  if (sandboxed) {
-    installPageRuntime({
-      [REGISTRY_GLOBAL]: { setComponents: preview.setComponents },
-    });
-  }
-  return preview;
 };
 
 /** The frame's body and root elements, as an iframe's document would have them. */
@@ -215,9 +145,6 @@ const applyDefaults = (
   );
 };
 
-/** The handle of a frame nothing guards. */
-const UNGUARDED = { ask: () => undefined, unmount: () => undefined };
-
 /** How a frame is shown until the editor says otherwise: a picture, in view. */
 const NOT_SHOWN: FrameShown = {
   away: false,
@@ -231,8 +158,7 @@ const mountFrame = (
   host: HTMLElement,
   options: MountFrameOptions,
   draw: RenderToCanvas,
-  input: PreviewSetup,
-  components: PreviewSetup["components"]
+  input: PreviewSetup
 ): { mounted: Mounted; runtime: FrameRuntime } => {
   const { events } = options;
   const { body, root: canvas, shadow } = buildFrame(host, input.theme);
@@ -245,22 +171,6 @@ const mountFrame = (
   }
   let shown: FrameShown = { ...NOT_SHOWN, ...options.shown };
   showHost(host, shown);
-  // Its turn (`turn.ts`): drawing, drawn by the editor, or taking input. The editor's own
-  // components (ADR 0040) need no turn: nothing of theirs is guarded.
-  const kernel =
-    input.sandboxed === false
-      ? UNGUARDED
-      : register({
-          body,
-          error: (error) => events.error?.(error),
-          host,
-          interactive: () => shown.interactive,
-          name: options.frame,
-          navigate: (route, replace) => events.navigateTo?.(route, replace),
-          shadow,
-          still: Boolean(options.still),
-        });
-
   // ---- Where the frame is ----
   /** The frame's place on the screen and the canvas's zoom, which its pixels are scaled by. */
   const placement = () => {
@@ -320,8 +230,6 @@ const mountFrame = (
   /** Who hears the frame start or stop running: the primitives, which run only then. */
   const interactiveListeners = new Set<() => void>();
   const setup = renderSetup(input, options, {
-    components,
-    drawing: kernel.ask,
     frame: {
       container: body,
       host,
@@ -349,8 +257,6 @@ const mountFrame = (
     if (editing) {
       finishTextEdit(false);
     }
-    // What the page's code asks as it draws, a popup included, is this frame's from here.
-    kernel.ask();
     applyDefaults(body, request, input.theme);
     fill = request.root?.width === "fill";
     applyMode(request.mode);
@@ -558,9 +464,6 @@ const mountFrame = (
   for (const type of GUARDED) {
     shadow.addEventListener(type, guard, true);
   }
-  for (const type of ACTIVITY) {
-    shadow.addEventListener(type, kernel.ask, true);
-  }
   shadow.addEventListener("click", interceptLinks);
   setInert();
 
@@ -640,7 +543,6 @@ const mountFrame = (
       mo.disconnect();
       resize.disconnect();
       hostResize.disconnect();
-      kernel.unmount();
       host.removeEventListener("scroll", scheduleRects);
       mounted.unmount();
       shadow.replaceChildren();

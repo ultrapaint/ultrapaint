@@ -7,20 +7,13 @@
     "./*": "./src/*.ts"
   },
   "scripts": {
-    "build": "node --experimental-strip-types scripts/build.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@ultrapaint/contracts": "workspace:*",
     "@ultrapaint/framework-api": "workspace:*",
-    "@ultrapaint/preview-core": "workspace:*",
-    "@ultrapaint/renderer-react": "workspace:*",
-    "@ultrapaint/shared": "workspace:*",
-    "@vitejs/plugin-react": "^6.1.1",
-    "esbuild": "^0.28.2",
-    "typescript-api": "npm:typescript@^5.9.3",
-    "vite": "^8.3.0"
+    "@ultrapaint/shared": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

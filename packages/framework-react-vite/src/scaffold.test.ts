@@ -2,7 +2,6 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { buildCatalogue, catalogueSourceFiles } from "./catalogue-extract.ts";
 import { detect } from "./detect.ts";
 import { scaffold } from "./scaffold.ts";
 
@@ -31,17 +30,6 @@ const slotsOf = (source: string) =>
   [...source.matchAll(/data-slot="([a-z-]+)"/g)].map(([, slot]) => slot);
 
 /** React's types as far as the catalogue needs them: what a component returns, what it takes. */
-const REACT_TYPES = `export = React;
-export as namespace React;
-declare namespace React {
-  interface ReactElement { props: unknown }
-  type ComponentProps<T extends string> = { className?: string; children?: unknown };
-  namespace JSX {
-    interface Element extends ReactElement {}
-    interface IntrinsicElements { [name: string]: unknown }
-  }
-}
-`;
 
 describe("a new application", () => {
   it("is one the setup recognises: the app, its own components, its stylesheet", () => {
@@ -222,40 +210,5 @@ describe("its components", () => {
     expect(ui("checkbox")).toContain("data-checked:bg-primary");
     expect(ui("select")).toContain("data-highlighted:bg-accent");
     expect(ui("tabs")).toContain("data-active:bg-background");
-  });
-
-  it("are read by the catalogue: the button's variant classes and defaults", () => {
-    const root = written({
-      ...app,
-      "node_modules/@types/react/index.d.ts": REACT_TYPES,
-      "node_modules/@types/react/package.json": JSON.stringify({
-        name: "@types/react",
-        types: "index.d.ts",
-      }),
-    });
-    const ctx = {
-      componentPackages: [],
-      libraryDirs: [path.join(root, "src/components")],
-      root,
-    };
-    const { components } = buildCatalogue(ctx, catalogueSourceFiles(ctx));
-    const button = components.find((c) => c.name === "Button");
-    expect(button?.importFrom).toBe("@/components/ui/button");
-    expect(Object.keys(button?.styles?.classes.variant ?? {}).sort()).toEqual([
-      "default",
-      "destructive",
-      "ghost",
-      "link",
-      "outline",
-      "secondary",
-    ]);
-    expect(button?.styles?.classes.variant?.default).toContain("bg-primary");
-    expect(button?.styles?.defaults).toEqual({
-      size: "default",
-      variant: "default",
-    });
-    expect(
-      components.find((c) => c.name === "Badge")?.styles?.defaults
-    ).toEqual({ variant: "default" });
   });
 });

@@ -1,7 +1,0 @@
-{
-  "designsDir": "designs",
-  "hostCss": [],
-  "libraryDirs": ["src/components"],
-  "resolveFrom": ".",
-  "theme": "light"
-}

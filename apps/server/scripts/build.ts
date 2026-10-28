@@ -1,21 +1,13 @@
 /**
- * The server as a bundle that runs without the workspace: `dist/bin.mjs`, the catalogue's
- * worker next to it, and the preview's bundles in `dist/preview/`, where a bundled server looks
- * for them. Effect is bundled in; only TypeScript 5, which the catalogue loads from disk at
- * runtime, stays a dependency of whoever ships the bundle; the DESIGN.md linter's configuration
- * is copied beside it, where the linter looks. esbuild is imported only to build the
- * preview's bundles from sources, which a bundled server never does.
+ * The server as a bundle that runs without the workspace: `dist/bin.mjs`, Effect bundled in, and
+ * the DESIGN.md linter's configuration copied beside it, where the linter looks.
  */
-import { cpSync, rmSync } from "node:fs";
+import { cpSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 
 const serverDir = path.resolve(import.meta.dirname, "..");
-const frameworkDir = path.resolve(
-  serverDir,
-  "../../packages/framework-react-vite"
-);
 // `--outdir <dir>`: somewhere else than `dist`, as the desktop app stages its own copy.
 const outdirFlag = process.argv.indexOf("--outdir");
 const dist =
@@ -30,11 +22,7 @@ await build({
   },
   bundle: true,
   entryNames: "[name]",
-  entryPoints: [
-    path.join(serverDir, "src/bin.ts"),
-    path.join(frameworkDir, "src/catalogue-worker.ts"),
-  ],
-  external: ["esbuild", "typescript-api"],
+  entryPoints: [path.join(serverDir, "src/bin.ts")],
   format: "esm",
   logLevel: "warning",
   outdir: dist,
@@ -50,8 +38,4 @@ cpSync(
   path.join(dist, "spec-config.yaml")
 );
 
-rmSync(path.join(dist, "preview"), { force: true, recursive: true });
-cpSync(path.join(frameworkDir, "dist"), path.join(dist, "preview"), {
-  recursive: true,
-});
 console.log("server built");

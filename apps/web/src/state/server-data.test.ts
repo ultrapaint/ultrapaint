@@ -145,7 +145,6 @@ const server = { v: 1 };
 
 const info = (): ProjectInfo => ({
   configured: true,
-  host: { state: "stopped" },
   name: `shop ${server.v}`,
   settings: { ...settings, libraryDirs: [`src/v${server.v}`] },
   storage: { mode: "managed" },
@@ -173,7 +172,7 @@ const answerAll = () => {
   fakeApi.respond("designSystem.get", () => ({
     designSystem: null,
     document: null,
-    previewCss: `css ${v()}`,
+    problem: `css ${v()}`,
   }));
   fakeApi.respond("catalogue.get", () => ({
     builtAt: v(),
@@ -207,7 +206,7 @@ const held = () => ({
   checkpoints: useKept.getState().checkpoints?.map((c) => c.id),
   commands: useSlashCommands.getState().commands.length,
   comments: useComments.getState().comments.map((c) => c.text),
-  designSystem: useDesignSystem.getState().previewCss,
+  designSystem: useDesignSystem.getState().problem,
   documents: useDocuments.getState().docs["home.page.json"]?.hash,
   implementation: Object.keys(useImplementation.getState().byTarget),
   layout: useEditor.getState().layout.frames["home.page.json"]?.x,
@@ -296,7 +295,7 @@ describe("following the server", () => {
     fakeApi.emit("designSystem", {
       designSystem: null,
       document: null,
-      previewCss: "css 2",
+      problem: "css 2",
     });
     expect(held()).toEqual(heldAt(1));
     fakeApi.connect();
@@ -429,7 +428,7 @@ describe("a snapshot on screen", () => {
     fakeApi.emit("designSystem", {
       designSystem: null,
       document: null,
-      previewCss: "css 9",
+      problem: "css 9",
     });
     fakeApi.emit("snapshots", [snapshot("sn9"), snapshot("sn1")]);
     expect(held()).toMatchObject({

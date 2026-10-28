@@ -29,11 +29,9 @@ import type { ChildProcessSpawner } from "effect/process";
 import { AppLog } from "./app-log.ts";
 import type { ServerConfig } from "./config.ts";
 import { EventBus } from "./events.ts";
-import type { PreviewProxy } from "./preview-proxy.ts";
 import type { CatalogueService } from "./services/catalogue.ts";
 import type { CodeSide } from "./services/code-side.ts";
 import type { CommentsService } from "./services/comments.ts";
-import type { ComponentRegistry } from "./services/component-registry.ts";
 import type { DesignMd } from "./services/design-md.ts";
 import type { DesignSystemService } from "./services/design-system.ts";
 import type { DesignTargets } from "./services/design-targets.ts";
@@ -43,7 +41,6 @@ import type { FigmaBaseline } from "./services/figma-baseline.ts";
 import type { FigmaImportService } from "./services/figma-import.ts";
 import type { ProjectFramework } from "./services/framework.ts";
 import { GitService } from "./services/git.ts";
-import { HostManager } from "./services/host.ts";
 import type { ImplementationService } from "./services/implementation.ts";
 import type { PagePngs } from "./services/page-pngs.ts";
 import type { PagesService } from "./services/pages.ts";
@@ -64,7 +61,6 @@ export type ProjectServices =
   | CatalogueService
   | CodeSide
   | CommentsService
-  | ComponentRegistry
   | DesignMd
   | DesignSystemService
   | DesignTargets
@@ -73,7 +69,6 @@ export type ProjectServices =
   | FigmaBaseline
   | FigmaImportService
   | GitService
-  | HostManager
   | ImplementationService
   | PagePngs
   | ProjectFramework
@@ -88,7 +83,6 @@ export type ProjectServices =
 /** What the services of an open project are built on: the server's own services. */
 export type ProjectRequirements =
   | AppLog
-  | PreviewProxy
   | ChildProcessSpawner.ChildProcessSpawner
   | EventBus
   | FileSystem.FileSystem
@@ -214,7 +208,6 @@ export class ProjectManager extends Context.Service<
           Effect.gen(function* () {
             const paths = yield* RepoPaths;
             const git = yield* GitService;
-            const host = yield* HostManager;
             const gitRepository = yield* git.repository;
             return {
               // A detached HEAD or a broken git must not hide the rest of the project.
@@ -225,7 +218,6 @@ export class ProjectManager extends Context.Service<
               designsDir: paths.settings.designsDir,
               gitRepository,
               gitUser: yield* git.user,
-              host: yield* host.status,
               name: path.basename(paths.root),
               repoPath: paths.root,
               setup: (yield* settingsService.detected)
@@ -236,7 +228,6 @@ export class ProjectManager extends Context.Service<
         ).pipe(
           Effect.orElseSucceed(() => ({
             configured: false,
-            host: { state: "stopped" as const },
           }))
         );
         const info: Effect.Effect<ProjectInfo> = Effect.gen(function* () {
@@ -283,14 +274,12 @@ export class ProjectManager extends Context.Service<
                   Effect.onError(() => Scope.close(scope, Exit.void))
                 );
                 current = { scope, services, settings };
-                // The preview's status and a repository made are what the project's info reads.
-                const host = Context.get(services, HostManager);
+                // A repository made is what the project's info reads.
                 const git = Context.get(services, GitService);
-                yield* Stream.merge(host.changes, git.changes).pipe(
+                yield* git.changes.pipe(
                   Stream.runForEach(() => publishInfo),
                   Effect.forkIn(scope, { startImmediately: true })
                 );
-                yield* Effect.forkIn(host.start, scope);
               })
             )
             .pipe(

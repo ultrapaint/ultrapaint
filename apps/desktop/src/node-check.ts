@@ -1,7 +1,7 @@
 /**
- * The user's Node (PLAN-desktop D7): the preview runs the project's components with it, and a
- * project's packages are installed with it. The app does not bring one; a missing or too old
- * Node is said up front, with how to install it, rather than as a preview that fails to start.
+ * The user's Node (PLAN-desktop D7): a new application's packages are installed with it, and its
+ * dev server runs with it. The app does not bring one; a missing or too old Node is said up
+ * front, with how to install it, rather than as an install that fails.
  */
 
 import type { ShellNotice } from "@ultrapaint/contracts/shell-bridge";
@@ -9,7 +9,7 @@ import { Effect, Option } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { findExecutable } from "./which.ts";
 
-/** What the preview's Vite needs: `^20.19.0 || >=22.12.0`. */
+/** What a new application's Vite needs: `^20.19.0 || >=22.12.0`. */
 const MINIMUM = { major: 22, minor: 12 };
 const SUPPORTED_20 = { major: 20, minor: 19 };
 

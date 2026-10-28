@@ -102,7 +102,6 @@ beforeEach(() => {
     canvases: [{ home: "/", id: "main", name: "Main", variants: [] }],
     info: {
       configured: true,
-      host: { state: "stopped" },
       storage: { mode: "managed" },
     },
     pages: [],

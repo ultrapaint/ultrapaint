@@ -41,7 +41,7 @@ import { rulesOf, tailwindTheme } from "./testing.ts";
 import { parseClass, printClass, WEIGHT_STEPS } from "./utilities.ts";
 
 const ROOT = join(import.meta.dirname, "../../..");
-const PAGE_DIRS = ["fixtures", "docs/designs"];
+const PAGE_DIRS = ["docs/designs"];
 const UPPER_RE = /[A-Z]/g;
 const TW_VAR_RE = /var\((--tw-[\w-]+)\)/g;
 const PROPERTY_RE =

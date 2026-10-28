@@ -25,7 +25,6 @@ import {
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
-import type { ProjectInfo } from "@ultrapaint/contracts/project";
 import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
 import {
   isEditorMcpCall,
@@ -256,30 +255,6 @@ const firstOptions = (card: QuestionCard) =>
     card.questions.map((q) => [q.id, q.options[0]?.id ?? "yes"])
   );
 
-/** Pictures are drawn by the preview, which starts with the project and takes a moment. */
-const waitForPreview = <E, R>(info: Effect.Effect<ProjectInfo, E, R>) =>
-  Effect.gen(function* () {
-    const host = yield* info.pipe(
-      Effect.map((project) => project.host),
-      Effect.tap(() => Effect.sleep("500 millis")),
-      Effect.repeat({
-        until: (status) =>
-          status.state === "running" || status.state === "error",
-      }),
-      Effect.timeoutOption("2 minutes")
-    );
-    if (host._tag === "Some" && host.value.state === "running") {
-      return;
-    }
-    const why =
-      host._tag === "None"
-        ? "still starting after two minutes"
-        : (host.value.error ?? host.value.state);
-    yield* Effect.logWarning(
-      `the preview is not running (${why}): every get_screenshot will fail`
-    );
-  });
-
 const program = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
   yield* buildEditor;
@@ -339,7 +314,6 @@ const program = Effect.gen(function* () {
       theme: "light",
     });
     yield* Effect.log(`settings: ${JSON.stringify(validation)}`);
-    yield* waitForPreview(client["project.info"]());
     yield* openEditor(`http://127.0.0.1:${port}/`);
 
     /** Polls until the thread is done with the turn it was given. */

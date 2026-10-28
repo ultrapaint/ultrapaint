@@ -1,8 +1,6 @@
 packages:
   - apps/*
   - packages/*
-  # Hosts the end-to-end checks draw (`pnpm e2e:sandbox`): not shipped.
-  - fixtures/*
 
 catalog:
   '@effect/platform-node': 4.0.0

@@ -1,18 +1,14 @@
 /**
- * The editor draws the pictures agents ask for: the server has no browser, and the preview here
- * draws with the repository's own stylesheet and components. Every open editor is asked; the
- * one that cannot draw says why, so the server is not left waiting on it.
+ * The editor draws the pictures agents ask for: the server has no browser, and the frames here
+ * draw with the editor's own primitives (ADR 0040). Every open editor is asked; the one that
+ * cannot draw says why, so the server is not left waiting on it.
  */
 import type { ScreenshotRequest } from "@ultrapaint/contracts/screenshots";
 import { drawSpecimen } from "../canvas/specimens.ts";
 import { api } from "./connection.ts";
 import { useDesignSystem } from "./design-system.ts";
-import { previewRunning, useProject } from "./project.ts";
 
 const draw = async (request: ScreenshotRequest) => {
-  if (!previewRunning(useProject.getState().info.host)) {
-    return { problem: "the editor's preview is not running" };
-  }
   const dataUrl = await drawSpecimen(
     request.root,
     useDesignSystem.getState().designSystem,

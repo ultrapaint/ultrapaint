@@ -1,7 +1,0 @@
-/* Linked by the fixture's LinkProbe from script, as a widget loads its stylesheet. */
-.probe-link-box {
-  width: 40px;
-  height: 40px;
-  background-color: rgb(255, 165, 0);
-  background-image: url(./probe-dot.svg);
-}

@@ -21,8 +21,6 @@ import {
   type Recorded,
 } from "./testing.ts";
 
-const STOPPED = { at: "src/page.tsx:6", stack: "    at Spin", time: 1 };
-
 /** Agents as the test layer has them, whose downloads and keys are recorded in `asked`. */
 const fakeAgents = (asked: string[]) =>
   Layer.effect(
@@ -95,7 +93,6 @@ const withHandlers = <A, E>(
     const handlers = bridgeHandlers({
       home: "/home/u",
       sshConfig,
-      stoppedAt: Effect.succeed(STOPPED),
     });
     return yield* body(handlers, recorded, asked).pipe(Effect.provide(app));
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
@@ -258,7 +255,6 @@ describe("the bridge's handlers", () => {
           (yield* handlers.notices()).map((n) => n.id),
           ["node"]
         );
-        assert.deepStrictEqual(yield* handlers.stoppedAt(), STOPPED);
       })
     )
   );

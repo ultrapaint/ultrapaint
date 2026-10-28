@@ -220,13 +220,9 @@ export class DesignSystemService extends Context.Service<
         if (problem !== null) {
           return { designSystem: null, document, problem };
         }
-        const previewCss = designSystem
-          ? yield* code.previewCss(designSystem)
-          : "";
         return {
           designSystem,
           document,
-          ...(previewCss && { previewCss }),
           ...(tokensProblem !== null && {
             problem: `${tokensProblem}: the values are design-system.json's and the code's until it reads`,
           }),

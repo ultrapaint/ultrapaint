@@ -14,7 +14,6 @@ import { DocumentService } from "./services/documents.ts";
 import { EditService } from "./services/edit.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
 import { GitService } from "./services/git.ts";
-import { HostManager } from "./services/host.ts";
 import { ImplementationService } from "./services/implementation.ts";
 import { McpAccess } from "./services/mcp/access.ts";
 import { PagesService } from "./services/pages.ts";
@@ -66,7 +65,6 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const comments = project.service(CommentsService);
     const edit = project.service(EditService);
     const git = project.service(GitService);
-    const host = project.service(HostManager);
     const documents = project.service(DocumentService);
     const designSystem = project.service(DesignSystemService);
     const designMd = project.service(DesignMd);
@@ -184,7 +182,6 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
 
       "git.status": () => git((g) => g.status),
       health: () => Effect.succeed({ ok: true, version: config.version }),
-      "host.start": () => host((h) => h.start),
       "implementation.changes": ({ target }) =>
         implementation((s) => s.changes(target)),
       "implementation.list": () => implementation((s) => s.list),

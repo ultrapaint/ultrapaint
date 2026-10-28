@@ -18,7 +18,7 @@ import { rootOfFrame, useDocuments } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
 import { useFrameBreakpoint, useSelectedIn } from "../state/selection.ts";
 import { screenPx } from "./camera.ts";
-import { describePageError, useFrameError } from "./editor-frame.ts";
+import { useFrameError } from "./editor-frame.ts";
 import { ElementToolbar, GroupToolbar } from "./element-toolbar.tsx";
 import { TAG_HEIGHT } from "./element-toolbar-placement.ts";
 import { SelectionTag } from "./selection-tag.tsx";
@@ -132,9 +132,7 @@ export const Highlights = ({ frameId }: { frameId: string }) => {
           style={{ fontSize: screenPx(14), padding: screenPx(12) }}
         >
           <AlertTriangle className="size-4 shrink-0" />
-          <pre className="whitespace-pre-wrap">
-            {describePageError(pageError)}
-          </pre>
+          <pre className="whitespace-pre-wrap">{pageError.message}</pre>
         </div>
       ) : null}
     </>

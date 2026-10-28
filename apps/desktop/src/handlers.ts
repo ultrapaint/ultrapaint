@@ -6,7 +6,6 @@
  * services' test layers.
  */
 import { BUILT_IN_AGENTS } from "@ultrapaint/acp/built-in";
-import type { StoppedAt } from "@ultrapaint/contracts/shell-bridge";
 import type { BuiltInAgentId } from "@ultrapaint/contracts/threads";
 import { Effect, type FileSystem, Option, type Path } from "effect";
 import { AgentSettings } from "./agent-settings.ts";
@@ -25,8 +24,6 @@ export interface HandlerOptions {
   readonly home: string;
   /** The SSH configuration whose hosts are suggested. */
   readonly sshConfig: string;
-  /** Where the page was stuck when the window last ended it, once (`stuck-pages.ts`). */
-  readonly stoppedAt: Effect.Effect<StoppedAt | null>;
 }
 
 /** What the handlers run on. */
@@ -131,5 +128,4 @@ export const bridgeHandlers = (
     ),
   "projects.open": (id) => OpenProject.use((o) => o.open(id)),
   "projects.sshHosts": () => readSshHosts(options.sshConfig, options.home),
-  stoppedAt: () => options.stoppedAt,
 });

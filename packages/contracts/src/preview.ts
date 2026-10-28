@@ -7,14 +7,6 @@ import { Schema } from "effect";
  * per kind, not a message.
  */
 
-/**
- * The path the preview is served under, on the preview's server and on the editor's, which
- * forwards it there (ADR 0034): the editor imports the preview's modules from its own origin, and
- * a machine reached over SSH forwards one port. The desktop app reads a stuck page's modules by
- * it (`preview-core/provenance.ts`).
- */
-export const PREVIEW_BASE = "/preview/";
-
 /** A box in a frame's own coordinates: the page's pixels, whatever the canvas's zoom. */
 export interface Rect {
   readonly height: number;
@@ -25,10 +17,9 @@ export interface Rect {
 
 /**
  * How the preview drew an instance. `layout` is how the element holding the instance's children
- * lays them out, which their `fill` and `hug` are relative to: a component that is a flex column
- * grows a child that fills its height. `wrapped` says the component does not pass the props it
- * is given on to its root element, so its box is drawn on a wrapper around it instead of on the
- * component, and the code has to do the same.
+ * lays them out, which their `fill` and `hug` are relative to: a primitive whose default slot is
+ * a column grows a child that fills its height. `wrapped` is false for every primitive, which
+ * takes its box on its own element (ADR 0040).
  */
 export const InstanceDrawn = Schema.Struct({
   layout: Schema.Literals(["row", "column", "block"]),

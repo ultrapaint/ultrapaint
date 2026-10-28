@@ -7,7 +7,7 @@
     "ultrapaint": "./src/bin.ts"
   },
   "scripts": {
-    "build": "pnpm -F @ultrapaint/framework-react-vite build && node --experimental-strip-types scripts/build.ts",
+    "build": "node --experimental-strip-types scripts/build.ts",
     "dev": "tsx watch --clear-screen=false src/bin.ts",
     "start": "tsx src/bin.ts",
     "test": "vitest run",
@@ -26,11 +26,8 @@
     "@ultrapaint/shared": "workspace:*",
     "@ultrapaint/style-tailwind-v4": "workspace:*",
     "@google/design.md": "0.4.0",
-    "@vitejs/plugin-react": "^6.1.1",
     "effect": "catalog:",
-    "ignore": "^7.0.14",
-    "typescript-api": "npm:typescript@^5.9.3",
-    "vite": "^8.3.0"
+    "ignore": "^7.0.14"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",

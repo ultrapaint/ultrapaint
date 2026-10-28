@@ -113,8 +113,6 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           );
           const state = yield* client["designSystem.get"]();
           assert.strictEqual(brand(state), "#1d4ed8");
-          // The preview draws the design's value over the code's.
-          assert.include(state.previewCss ?? "", "#1d4ed8");
 
           const compare = () => client["sync.tokens"]({ source: "code" });
           const outcome = (comparison: TokenComparison | null, name: string) =>

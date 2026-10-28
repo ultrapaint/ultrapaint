@@ -1,12 +1,11 @@
 /**
- * What a renderer gives the preview, in the editor's page (ADR 0034). The preview core knows the
- * DOM and nothing about any UI framework; drawing a design document with the framework the design
- * system is written in is the renderer's, the way Storybook's preview only knows a renderer's
- * `renderToCanvas`.
+ * What a renderer gives the preview, in the editor's page (ADR 0034, 0040). The preview core knows
+ * the DOM and nothing about React; drawing a design document is the renderer's, the way
+ * Storybook's preview only knows a renderer's `renderToCanvas`. Both are the editor's own: the
+ * frames draw the editor's primitives, and nothing of the repository's runs in them.
  */
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import type { ComponentModules } from "@ultrapaint/contracts/page-runtime";
 import type { PageDefaults } from "@ultrapaint/contracts/pages";
 import type { InstanceDrawn, RenderMode } from "@ultrapaint/contracts/preview";
 import type { ComponentSpec } from "@ultrapaint/contracts/specs";
@@ -18,9 +17,6 @@ export const NODE_ATTRIBUTE = "data-ed-node";
 export const nodeSelector = (id: string) =>
   `[${NODE_ATTRIBUTE}="${CSS.escape(id)}"]`;
 
-/** The modules instances import, as the registry hands them to the page (`page-runtime.ts`). */
-export type ComponentRegistry = ComponentModules;
-
 /**
  * What the core hands a renderer once, when it mounts it in a frame of the editor's page (ADR
  * 0034): the one host there is, so every field is given.
@@ -28,12 +24,6 @@ export type ComponentRegistry = ComponentModules;
 export interface RenderSetup {
   /** URL of an image a node shows: a path inside the canvas, or a URL as it is. */
   readonly assetUrl: (src: string) => string;
-  readonly components: ComponentRegistry;
-  /**
-   * The render's components are drawing, or their effects running: what they ask of the window's
-   * size is the frame's (ADR 0036). Called often; it only says so.
-   */
-  readonly drawing: () => void;
   /**
    * The frame the render draws in (ADR 0040): its body, where the primitives' popups go, its
    * host, and whether it runs (the prototype, interact mode) or is designed.
@@ -45,10 +35,6 @@ export interface RenderSetup {
   readonly onRendered: (renderId: number) => void;
   /** The height a page fills at least: its frame's (`100cqh`), as a page fills its window. */
   readonly pageHeight: string;
-  /** Default export of the providers module from the settings, when there is one. */
-  readonly providers: unknown;
-  /** A root path to one of the application's public files where the page finds it; others as they are. */
-  readonly publicUrl: (url: string) => string;
   /** Reports a render error to the editor: the page's. */
   readonly reportError: (error: Pick<PageError, "message" | "stack">) => void;
   /** How instances were drawn, by node id: the ones that changed since the last report. */
@@ -72,16 +58,12 @@ export interface RenderFrame {
 }
 
 /**
- * What went wrong in a frame's page, and where when it can be told: the page's code threw it
- * (drawing, or in a handler or a timer, and nothing caught it) or the dev server could not bring a
- * module up to date. The editor keeps a frame's latest one: the page's until the frame draws again
- * or the modules change, the dev server's until they change (`editor-frame.ts`).
+ * What went wrong drawing a frame's page: a primitive or the renderer threw. The editor keeps a
+ * frame's latest one until the frame draws again (`editor-frame.ts`).
  */
 export interface PageError {
-  readonly file?: string | undefined;
-  readonly line?: number | undefined;
   readonly message: string;
-  readonly source: "page" | "dev-server";
+  readonly source: "page";
   readonly stack?: string | undefined;
 }
 
@@ -97,15 +79,13 @@ export interface RenderRequest {
   readonly root: DesignNode | null;
   /** The component specs (ADR 0029): drawn over their components, drafts in their instances' place. */
   readonly specs?: readonly ComponentSpec[] | undefined;
-  /** CSS the design puts after the code's: the tokens' values where they differ (ADR 0028). */
+  /** The design's own stylesheet: every token's value, in every theme (ADR 0028, 0040). */
   readonly styles?: string | undefined;
 }
 
-/** A mounted canvas: the providers stay put, what is under them is drawn again on request. */
+/** A mounted canvas, drawn again on request. */
 export interface Mounted {
   readonly render: (request: RenderRequest) => void;
-  /** The registry changed: the dev server added a module. */
-  readonly setComponents: (components: ComponentRegistry) => void;
   readonly unmount: () => void;
 }
 
@@ -125,8 +105,6 @@ export interface FrameRect {
 /** What a frame tells the editor (ADR 0034): called directly, in the editor's own page. */
 export interface FrameEvents {
   readonly error?: (error: PageError) => void;
-  /** The dev server brought modules up to date: an error shown may be gone. */
-  readonly hmr?: () => void;
   /** How instances were drawn, by node id: the ones that changed since the last call. */
   readonly instances?: (
     instances: Readonly<Record<string, InstanceDrawn>>
@@ -206,41 +184,17 @@ export interface MountFrameOptions {
   readonly still?: boolean;
 }
 
-/**
- * What the generated entry hands the preview core in the editor's page. The renderer is not
- * among it: the bundle's entry (preview-core's `editor.ts`) is given it when the framework
- * builds the bundle.
- */
+/** What the editor gives the preview core, once. */
 export interface PreviewSetup {
-  /** Where the preview's server answers which file an image of a canvas is. */
+  /** Where the server answers which file an image of a canvas is (`/api/asset`). */
   readonly assets: string;
-  readonly components: ComponentRegistry;
   /** The components' own stylesheet, which every frame adopts first (ADR 0040). */
   readonly css?: string | undefined;
-  /** URL of the designs directory on the preview's server. */
-  readonly designsRoot: string;
-  readonly providers: unknown;
-  /**
-   * The application's public directory, which it names files in from the root (`/media/a.webp`):
-   * its entries (a directory's ending in `/`), served under `base` in the editor's page.
-   */
-  readonly publicFiles?: PublicFiles | undefined;
-  /**
-   * Whether the page's code is the repository's, guarded where it meets the editor's page (ADR
-   * 0034); false when the editor draws its own components (ADR 0040). True when left out.
-   */
-  readonly sandboxed?: boolean | undefined;
-  /** Written on every frame as `data-theme`, as it was on an iframe's document. */
+  /** Written on every frame as `data-theme`. */
   readonly theme: string;
 }
 
-/** The entries of the application's public directory and where the editor's page finds them. */
-export interface PublicFiles {
-  readonly base: string;
-  readonly entries: readonly string[];
-}
-
-/** The repository's components, ready to draw frames in the editor's page. */
+/** The editor's frames: what draws a page in a shadow root of the editor's page. */
 export interface Preview {
   /**
    * Whether `event` comes from inside one of its frames: a page in the prototype, a text being
@@ -256,76 +210,4 @@ export interface Preview {
     host: HTMLElement,
     options: MountFrameOptions
   ) => FrameRuntime;
-  /** The dev server updated modules: what was in error may draw now. */
-  readonly notifyHmr: () => void;
-  /**
-   * Hears which frame's page code is running (drawing, or answering input), by the `frame` it
-   * was mounted with: what the editor's watchdog blames when the page stops the editor's thread.
-   * Told when it changes, and again at most every few hundred milliseconds while it runs.
-   */
-  readonly onRunning: (listener: (frame: string) => void) => () => void;
-  /**
-   * Hears what the page's code threw and nothing caught when no frame can be said to be its: a
-   * rejection without its `async` function's mark, with more than one frame drawn.
-   */
-  readonly onStrayError: (listener: (error: PageError) => void) => () => void;
-  /**
-   * A dev server error, reported to every frame as the dev server's, and to every frame mounted
-   * until the next update (`notifyHmr`).
-   */
-  readonly reportError: (
-    error: Pick<PageError, "file" | "line" | "message">
-  ) => void;
-  readonly setComponents: (components: ComponentRegistry) => void;
-}
-
-/**
- * What the generated editor entry exports, as the editor's page imports it (named for the
- * framework that writes it in `editor-exports.ts`): the preview, and hearing when only loading
- * the page again brings it up to date (the dev server's dependencies bundled anew, or its start
- * again).
- */
-export interface EditorEntry {
-  readonly onReloadRequest: (listener: () => void) => () => void;
-  readonly preview: Preview;
-}
-
-/** What the dev server tells the generated entry and the start-up hears, by event. */
-export interface DevServerEvents {
-  /** Modules were brought up to date. */
-  readonly "vite:afterUpdate": unknown;
-  /** A module could not be brought up to date. */
-  readonly "vite:error": {
-    readonly err: {
-      readonly id?: string | undefined;
-      readonly loc?: { readonly line: number } | undefined;
-      readonly message: string;
-    };
-  };
-}
-
-/** The dev server's events, as the generated entry has them (`import.meta.hot`). */
-export interface DevServerHot {
-  readonly on: <E extends keyof DevServerEvents>(
-    event: E,
-    listener: (payload: DevServerEvents[E]) => void
-  ) => void;
-}
-
-/**
- * What the editor bundle exports to the generated entry (named in `editor-exports.ts`):
- * preview-core's start-up, given the framework's renderer when the framework builds the bundle
- * (ADR 0011).
- */
-export interface EditorBundle {
-  /**
-   * Starts the preview in the editor's page, in its one order (preview-core's `editor.ts`): the
-   * page runtime first, then `load`, which imports the page's modules (its stylesheets, the
-   * registry, the providers) and whose default export is the setup, then the preview, which
-   * hears the dev server through `hot`. The entry exports what it gives.
-   */
-  readonly startPreview: (
-    load: () => Promise<{ readonly default: PreviewSetup }>,
-    hot?: DevServerHot | undefined
-  ) => Promise<EditorEntry>;
 }

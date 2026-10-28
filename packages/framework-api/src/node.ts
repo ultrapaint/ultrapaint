@@ -1,8 +1,8 @@
 /**
  * What a framework and a style system give the server, on the Node side. A framework is the UI
- * library and its bundler: how components are catalogued and how the preview is built. A style
- * system is what the tokens and classes are written in (ADR 0024): how the tokens are read and
- * written back, what the code uses, and what the preview's stylesheet needs. The server knows
+ * library and its bundler: where an application is and how a new one is written (the canvas
+ * draws the editor's own primitives, ADR 0040). A style system is what the tokens and classes are
+ * written in (ADR 0024): how the tokens are read and written back, and what the code uses. The server knows
  * repositories, files, design documents and the editor's protocol; everything else comes
  * through these two interfaces, as a Storybook framework package (`@storybook/react-vite`)
  * does for Storybook's core.
@@ -21,36 +21,12 @@ import type { SetupSuggestions } from "@ultrapaint/contracts/setup";
 import type { ComponentSpec } from "@ultrapaint/contracts/specs";
 import type {
   ComponentStyle,
-  DesignTokenValue,
   FileEdit,
   SourceToken,
   StyleSystemId,
   TokenChange,
   TokenSource,
 } from "@ultrapaint/contracts/tokens";
-
-/** Plain data, so the whole context can be handed to a worker thread. */
-export interface CatalogueContext {
-  readonly componentPackages: readonly string[];
-  /** Absolute paths, already checked to be inside the repository. */
-  readonly libraryDirs: readonly string[];
-  /** Repository root; component files are reported relative to it. */
-  readonly root: string;
-}
-
-export interface CatalogueBuilder {
-  /** Changes whenever the result could: the files, their timestamps, the extractor's version. */
-  readonly cacheKey: (
-    ctx: CatalogueContext,
-    files: readonly string[]
-  ) => string;
-  readonly sourceFiles: (ctx: CatalogueContext) => string[];
-  /**
-   * Module run on a worker thread with `{ ctx, files }` as its worker data; it posts the
-   * `Catalogue`. Extraction takes seconds on a real design system.
-   */
-  readonly workerUrl: URL;
-}
 
 export interface DesignSystemContext {
   /** Package the pages resolve their imports from. Absolute. */
@@ -149,52 +125,6 @@ export interface UsageReader {
   ) => UsageInventory;
 }
 
-export interface PreviewInput {
-  /** Package the pages resolve their imports from. Absolute. */
-  readonly anchorDir: string;
-  /**
-   * The path the preview is served under, `/preview/`, which the editor's server forwards to
-   * it: the editor loads the preview's modules from its own origin (ADR 0034).
-   */
-  readonly base: string;
-  /** Specifiers of the component modules the preview must be able to import. */
-  readonly components: readonly string[];
-  /** Absolute. */
-  readonly designsDir: string;
-  /** The generated directory the preview is served from, outside the repository. Absolute. */
-  readonly dir: string;
-  /** Repository root. Absolute. */
-  readonly root: string;
-  readonly settings: Settings;
-  /** What the style system puts in the preview's stylesheet, line by line. */
-  readonly styles: readonly string[];
-}
-
-export interface PreviewBuilder {
-  /**
-   * The module listing the component modules instances import, rewritten into `input.dir`
-   * under `file` whenever the list grows; the preview picks it up without a reload.
-   */
-  readonly components: {
-    readonly file: string;
-    readonly render: (specifiers: readonly string[]) => string;
-  };
-  /**
-   * Files to write into `input.dir`, and the Node script that serves the preview: it is run
-   * from the anchor package with `args` followed by the host to listen on, binds a port the
-   * system gives and says which on stdout (`servingLine` in `serving.ts`).
-   */
-  readonly generate: (input: PreviewInput) => Promise<{
-    /** The module the editor imports to draw its frames, as a path under `input.base`. */
-    readonly entry: string;
-    readonly files: Record<string, string>;
-    readonly serve: {
-      readonly args: readonly string[];
-      readonly script: string;
-    };
-  }>;
-}
-
 /** What a framework recognises in a repository; null when the repository is not its kind. */
 export type Detect = (
   root: string
@@ -204,11 +134,9 @@ export type Detect = (
 > | null;
 
 export interface Framework {
-  readonly catalogue: CatalogueBuilder;
   /** Synchronous and read-only: it looks at manifests and file names, never runs anything. */
   readonly detect: Detect;
   readonly id: string;
-  readonly preview: PreviewBuilder;
   /** A new application to start from, for a repository that has none (phase 6 of the sync). */
   readonly scaffold?: Scaffold;
 }
@@ -218,12 +146,6 @@ export interface StyleSuggestions {
   readonly cssEntries: readonly string[];
   /** Which Tailwind the stylesheets set up; only v4 is read. */
   readonly tailwind: "v4" | "v3" | "none";
-}
-
-/** The preview's stylesheet is written into `dir`; its imports are relative to it. */
-export interface PreviewStyleContext extends DesignSystemContext {
-  /** The generated directory the preview is served from. Absolute. */
-  readonly dir: string;
 }
 
 /** A component's `cva` classes as the catalogue reads them: the base, each member's, the defaults. */
@@ -271,20 +193,6 @@ export interface StyleSystem {
    * agents to. Pure.
    */
   readonly nodeClasses: (designSystem: DesignSystem | null) => ClassWriter;
-  /**
-   * Lines of the preview's stylesheet: the repository's own stylesheets imported, and whatever
-   * makes every token a custom property the preview can draw with.
-   */
-  readonly previewCss: (ctx: PreviewStyleContext) => readonly string[];
-  /**
-   * A stylesheet that gives the code's variables the design's values (ADR 0028): placed
-   * unlayered after the code's CSS in the preview, the repository's components draw with
-   * `tokens`. Plain CSS; empty when there is nothing to set.
-   */
-  readonly previewTokenCss: (
-    ctx: DesignSystemContext,
-    tokens: readonly DesignTokenValue[]
-  ) => string;
   /** Every token the code declares, with where each value is written. */
   readonly readTokens: (ctx: DesignSystemContext) => TokenSource;
   /**

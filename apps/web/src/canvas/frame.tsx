@@ -31,21 +31,14 @@ import {
 import { useEditor } from "../state/editor.ts";
 import { useInstances } from "../state/instances.ts";
 import { useDesignLook } from "../state/look.ts";
-import { previewRunning, useProject } from "../state/project.ts";
 import { useFrameBreakpoint, useSelectedIn } from "../state/selection.ts";
 import { FramePresence } from "./agent-presence.tsx";
 import { AgentWorkOverlay, useFrameWork, useSkeletons } from "./agent-work.tsx";
 import { screenPx, UNZOOM } from "./camera.ts";
 import { commentCursor, FrameComments } from "./comments.tsx";
-import {
-  frameOf,
-  useFrameDrawing,
-  useFrameEvents,
-  useFrameFrozen,
-} from "./editor-frame.ts";
+import { frameOf, useFrameDrawing, useFrameEvents } from "./editor-frame.ts";
 import { ToolbarLayer } from "./element-toolbar-placement.ts";
 import { Highlights, useHoverIn } from "./frame-highlights.tsx";
-import { FrozenPage } from "./frozen-page.tsx";
 import { pageRequest } from "./page-request.ts";
 import { PageToolbar } from "./page-toolbar.tsx";
 import { usePreview } from "./preview-module.ts";
@@ -132,7 +125,6 @@ const useWatchedRects = (
 export const Frame = memo(
   ({ frameId, kind, page, frame, visible, onDragStart }: Props) => {
     const preview = usePreview();
-    const running = useProject((s) => previewRunning(s.info.host));
     // Only what is selected or hovered in this frame: elsewhere it is no business of this one.
     const selectedHere = useSelectedIn(frameId);
     const hoverHere = useHoverIn(frameId);
@@ -155,9 +147,8 @@ export const Frame = memo(
     // A frame drawn once keeps its page while it is away from the screen: hidden where it is,
     // so coming back neither moves it nor lays it out again.
     const [kept, setKept] = useState(false);
-    const frozen = useFrameFrozen(frameId);
-    const drawn = visible && preview !== null && !frozen;
-    const hosted = (visible || kept) && preview !== null && !frozen;
+    const drawn = visible;
+    const hosted = visible || kept;
     const name = frameName(page, root);
     // A callback ref: the selection's toolbar is drawn in it once it is there.
     const [toolbarLayer, setToolbarLayer] = useState<HTMLDivElement | null>(
@@ -271,11 +262,6 @@ export const Frame = memo(
               title={name}
             />
           ) : null}
-          {(hosted && canvas !== null) || frozen ? null : (
-            <div className="flex h-full items-center justify-center text-zinc-500">
-              {running ? "" : "Preview host not running"}
-            </div>
-          )}
           <SelectLayer
             name={name}
             onClick={onSelectClick}
@@ -300,12 +286,6 @@ export const Frame = memo(
           <ToolbarLayer.Provider value={toolbarLayer}>
             <Highlights frameId={frameId} />
           </ToolbarLayer.Provider>
-          {/* Over the layers that select: its button takes the click. */}
-          {frozen ? (
-            <div className="absolute inset-0">
-              <FrozenPage frame={frameId} />
-            </div>
-          ) : null}
         </div>
 
         {page ? <FrameComments page={page} /> : null}
@@ -365,7 +345,7 @@ const PreviewHost = ({
       holder: holder.current,
       keep: true,
       preview,
-    })?.close;
+    }).close;
   }, [frameId, canvas, isNode, preview]);
   useEffect(() => {
     const frame = frameOf(frameId);

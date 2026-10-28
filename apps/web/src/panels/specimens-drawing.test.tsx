@@ -12,14 +12,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useSpecs } from "../state/specs.ts";
 import { Matrix } from "./design-components.tsx";
-import { TypeSpecimen } from "./design-system.tsx";
 
 vi.mock(
   "../state/connection.ts",
   async () => (await import("../testing/fake-api.ts")).connectionModule
 );
 
-/** The preview `usePreview` answers: none until a test gives one, as the project's host runs. */
+/** The preview `usePreview` answers: the one the test gives. */
 const current = vi.hoisted(() => {
   let preview: Preview | null = null;
   const listeners = new Set<() => void>();
@@ -71,11 +70,6 @@ const fakePreview = () => {
         unmount: () => undefined,
         watchRects: () => undefined,
       }) satisfies FrameRuntime,
-    notifyHmr: () => undefined,
-    onRunning: () => () => undefined,
-    onStrayError: () => () => undefined,
-    reportError: () => undefined,
-    setComponents: () => undefined,
   } satisfies Preview;
   return { preview, renders };
 };
@@ -121,7 +115,7 @@ const show = (element: ReactNode) => {
 const setPreview = (preview: Preview | null) => act(() => current.set(preview));
 
 beforeEach(() => {
-  useDesignSystem.setState({ designSystem: ds, previewCss: undefined });
+  useDesignSystem.setState({ designSystem: ds });
   useSpecs.setState({ specs: [] });
 });
 
@@ -133,32 +127,6 @@ afterEach(() => {
 });
 
 describe("a specimen's drawing", () => {
-  it("draws the type samples again when the preview comes back", () => {
-    const first = fakePreview();
-    setPreview(first.preview);
-    show(<TypeSpecimen ds={ds} q="" />);
-    expect(first.renders).toHaveLength(1);
-
-    // The preview stops and starts again: the frame is thrown away and opened anew.
-    setPreview(null);
-    const second = fakePreview();
-    setPreview(second.preview);
-    expect(second.renders).toHaveLength(1);
-    expect(second.renders[0]?.root).toEqual(first.renders[0]?.root);
-  });
-
-  it("draws the matrix again when the preview comes back", () => {
-    const first = fakePreview();
-    setPreview(first.preview);
-    show(<Matrix meta={undefined} spec={specOf("Button")} />);
-    expect(first.renders).toHaveLength(1);
-
-    setPreview(null);
-    const second = fakePreview();
-    setPreview(second.preview);
-    expect(second.renders).toHaveLength(1);
-  });
-
   it("draws the matrix again when another component's spec changes, and not for nothing", () => {
     const { preview, renders } = fakePreview();
     setPreview(preview);

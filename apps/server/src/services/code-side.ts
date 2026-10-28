@@ -14,13 +14,8 @@ import {
   type DocumentBaseline,
 } from "@ultrapaint/contracts/design-system";
 import { BadRequest } from "@ultrapaint/contracts/errors";
-import { baselineKey, type TokenComparison } from "@ultrapaint/contracts/sync";
-import { sameValue } from "@ultrapaint/contracts/token-value";
-import type {
-  DesignTokenValue,
-  SourceToken,
-  TokenChange,
-} from "@ultrapaint/contracts/tokens";
+import type { TokenComparison } from "@ultrapaint/contracts/sync";
+import type { SourceToken, TokenChange } from "@ultrapaint/contracts/tokens";
 import type { DesignSystemScan } from "@ultrapaint/framework-api/node";
 import {
   Clock,
@@ -39,12 +34,7 @@ import { withAgreement } from "./design-system-files.ts";
 import { EditService } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { ProjectStyleSystem } from "./style-system.ts";
-import {
-  codeAgreement,
-  compareCode,
-  designTokensOf,
-  valuesByKey,
-} from "./sync-readings.ts";
+import { codeAgreement, compareCode, designTokensOf } from "./sync-readings.ts";
 
 /** The tokens the code declares, as the style system reads them. */
 export interface CodeTokens {
@@ -90,11 +80,6 @@ export class CodeSide extends Context.Service<
      * agreed on: what waits for the code, what the code changed alone, and what both changed.
      */
     readonly comparison: (ds: DesignSystem) => Effect.Effect<CodeComparison>;
-    /**
-     * The stylesheet that gives the code's variables the design's values in the preview, for
-     * the tokens where they differ; empty when they agree.
-     */
-    readonly previewCss: (ds: DesignSystem) => Effect.Effect<string>;
     /**
      * Token changes written to the stylesheets where the style system declares them (the
      * export): all of them or, when one file cannot be written, none. With a design system,
@@ -174,43 +159,6 @@ export class CodeSide extends Context.Service<
             targets: design.map((t) => ({ kind: t.kind, name: t.name })),
           };
         });
-
-      /** The last preview stylesheet, kept until what it is made from changes. */
-      let previewMemo: { readonly key: string; readonly css: string } | null =
-        null;
-      const previewCss = Effect.fnUntraced(function* (ds: DesignSystem) {
-        const declared = valuesByKey((yield* tokens).tokens);
-        const differing: DesignTokenValue[] = [];
-        for (const t of designTokensOf(ds)) {
-          const themes: [string, string][] = [
-            ["", t.value],
-            ...Object.entries(t.values ?? {}),
-          ];
-          for (const [theme, value] of themes) {
-            const theirs = declared[baselineKey(t.name, theme || undefined)];
-            if (theirs === undefined || !sameValue(value, theirs)) {
-              differing.push({ name: t.name, ...(theme && { theme }), value });
-            }
-          }
-        }
-        const key = JSON.stringify(differing);
-        if (previewMemo?.key === key) {
-          return previewMemo.css;
-        }
-        return yield* Effect.try(() =>
-          differing.length === 0
-            ? ""
-            : styleSystem.previewTokenCss(context, differing)
-        ).pipe(
-          Effect.tap((css) =>
-            Effect.sync(() => {
-              previewMemo = { css, key };
-            })
-          ),
-          // Stylesheets that cannot be read draw the code's values, which is what they say.
-          Effect.orElseSucceed(() => "")
-        );
-      });
 
       const readOptional = (file: string) =>
         Effect.orElseSucceed(
@@ -319,7 +267,6 @@ export class CodeSide extends Context.Service<
           paths.settings.codeTokens === "auto" && changes.length > 0
             ? write(changes, against)
             : Effect.succeed({ files: [] }),
-        previewCss,
         refresh: cache.clear.pipe(
           Effect.andThen(PubSub.publish(changed, undefined))
         ),

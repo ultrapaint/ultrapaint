@@ -45,7 +45,7 @@ import { useDesignSystem } from "../state/design-system.ts";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { useDesignLook } from "../state/look.ts";
-import { previewRunning, useProject } from "../state/project.ts";
+import { useProject } from "../state/project.ts";
 import { ensureEditable } from "../state/setup.ts";
 
 type View = "list" | "grid";
@@ -178,7 +178,6 @@ const useThumbnails = (
   components: readonly ComponentMeta[],
   active: boolean
 ) => {
-  const host = useProject((s) => previewRunning(s.info.host));
   const builtAt = useCatalogue((s) => s.catalogue?.builtAt ?? 0);
   const designSystem = useDesignSystem((s) => s.designSystem);
   // The design's look over the code's draws them too (ADR 0028, 0029).
@@ -218,7 +217,7 @@ const useThumbnails = (
   }, [key, active]);
 
   useEffect(() => {
-    if (!(active && host && loadedKey === key)) {
+    if (!(active && loadedKey === key)) {
       return;
     }
     let cancelled = false;
@@ -243,7 +242,7 @@ const useThumbnails = (
     return () => {
       cancelled = true;
     };
-  }, [active, host, loadedKey, key, names]);
+  }, [active, loadedKey, key, names]);
 
   return thumbnails;
 };
