@@ -34,11 +34,10 @@ import { groups, type Reading, radiusOf } from "./component-style.ts";
 import {
   arbitraryOf,
   COLOR_KEYWORDS,
+  lengthKeywords,
   parseClass,
   RADIUS_STEPS,
-  SCREEN_KEYWORDS,
   SHADOW_STEPS,
-  SIZE_KEYWORDS,
   splitModifier,
   TEXT_STEPS,
   utilityReader,
@@ -114,16 +113,15 @@ const spacingOf = (value: string, { names }: Reading): Length | null => {
   return spacingStepOf(name) !== null || names.has(name) ? `$${name}` : null;
 };
 
-/** A width or a height: a spacing step, a container, or a keyword, the screen's on its axis. */
+/** A width or a height: a spacing step, a container, or a keyword the utility takes. */
 const sizeOf = (
   value: string,
   reading: Reading,
-  axis?: "h" | "w"
+  utility: "h" | "size" | "w"
 ): Length | null =>
   spacingOf(value, reading) ??
   (reading.names.has(`container-${value}`) ? `$container-${value}` : null) ??
-  SIZE_KEYWORDS.css(value) ??
-  (axis === undefined ? undefined : SCREEN_KEYWORDS[axis].css(value)) ??
+  lengthKeywords(utility).css(value) ??
   null;
 
 const fontSizeOf = (value: string, { names }: Reading): Length | null =>
@@ -275,9 +273,9 @@ const readPadding =
   };
 
 const readSize =
-  (fields: readonly ("height" | "width")[], axis?: "h" | "w") =>
+  (fields: readonly ("height" | "width")[], utility: "h" | "size" | "w") =>
   (d: Draft, value: string, reading: Reading) => {
-    const size = sizeOf(value, reading, axis);
+    const size = sizeOf(value, reading, utility);
     for (const field of fields) {
       set(d, field, size);
     }
@@ -299,7 +297,7 @@ const READERS: Readonly<
   pt: readPadding(["top"]),
   px: readPadding(["right", "left"]),
   py: readPadding(["top", "bottom"]),
-  size: readSize(["height", "width"]),
+  size: readSize(["height", "width"], "size"),
   text: readText,
   w: readSize(["width"], "w"),
 };

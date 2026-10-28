@@ -280,8 +280,6 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
 
 ## Follow-ups found while building
 
-- The class writer can write a size keyword on any spacing utility (`gap-full`), which Tailwind
-  does not compile (step 3).
 - `usage-rewrite.rewrite` builds a token lookup per file (step 4).
 - `toggleAttribute("class", true)` from the page's code adds a class named `true`; the web still
   writes `data-ed-drawn` on the host for the bench script (step 6).
@@ -1000,3 +998,22 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
    tools, `read_page` reads `<canvas>:/pricing`, and misses by URL, by URL in a canvas given and
    by file say so and list the pages; it failed first. `page-names.test.ts` has a table test of
    `pageTargetNamed` (8 names).
+6. **A length's keyword, only where Tailwind takes it** (`packages/style-tailwind-v4/src/utilities.ts`).
+   `lengthKeywords(utility)` gives the keywords each length utility takes, as Tailwind v4.3
+   compiles them (checked by compiling each pair): a width, a height and their minimums a size by
+   name (`auto`, `fit`, `full`, `max`, `min`) and the viewport's lengths in either unit (`dvh`,
+   `dvw`, `lvh`, `lvw`, `svh`, `svw`), `screen` in their own axis's and a height the line's
+   (`lh`); a maximum no `auto` but `none`; `size` no `screen`; a margin `auto` only; a gap or a
+   padding none. `SIZE_KEYWORDS` and `SCREEN_KEYWORDS` go. The writer (`node-classes`' `spacing`)
+   and the spec reader (`component-spec`'s `sizeOf`, by `w`, `h` or `size`) ask it. Fixed: a gap,
+   a padding or a margin of `100%`, `fit-content`, `min-content` or `max-content` (and a gap or a
+   padding of `auto`) was written as a keyword class Tailwind does not have (`gap-full`,
+   `p-auto`, `m-fit`), so it set nothing; it is the value in brackets (`gap-[100%]`), and a
+   maximum of `auto` is `max-w-[auto]`. Also: `100dvh` as a width is `w-dvh`, `none` as a maximum
+   `max-w-none`, `1lh` as a height `h-lh`, and the spec reader reads them back. `node-classes.test.ts`
+   has 2 tests more: a gap of `100%` is `gap-[100%]`, and 11 length properties at 10 values
+   each are written as one class Tailwind compiles to that declaration; both failed first (25
+   classes compiled to nothing). `utilities.test.ts`' keyword test compiles 24 utilities with 14
+   keywords and checks the vocabulary says what Tailwind does. The tests compile through
+   `testing.ts` (Tailwind's theme, what each class sets), which `canvas-and-code.test.ts` now
+   uses too; its check that Tailwind compiles every class the writer gives the fixtures stays.

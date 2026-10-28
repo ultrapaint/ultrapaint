@@ -23,10 +23,9 @@ import {
 import { isToken, tokenName } from "@ultrapaint/design-document/tokens";
 import {
   COLOR_KEYWORDS,
+  lengthKeywords,
   printArbitrary,
   printClass,
-  SCREEN_KEYWORDS,
-  SIZE_KEYWORDS,
   weightStepOf,
 } from "./utilities.ts";
 
@@ -106,7 +105,7 @@ const fromToken = (
 /**
  * A length on the spacing scale: a number is the step it lands on (16 over a 4px base is `4`)
  * and pixels only when it is off the scale, which is what brackets say, as the briefing asks of
- * agents.
+ * agents. A keyword only where the utility takes it (`w-full`, but `gap-[100%]`).
  */
 const spacing = (
   prefix: string,
@@ -122,12 +121,7 @@ const spacing = (
   if (value.trim() === "0") {
     return `${prefix}-0`;
   }
-  const axis = prefix.at(-1);
-  const keyword =
-    SIZE_KEYWORDS.keyword(value) ??
-    (axis === "w" || axis === "h"
-      ? SCREEN_KEYWORDS[axis].keyword(value)
-      : undefined);
+  const keyword = lengthKeywords(prefix).keyword(value);
   if (keyword !== undefined) {
     return `${prefix}-${keyword}`;
   }
