@@ -19,7 +19,6 @@ import { SettingsService } from "./services/settings.ts";
 import { Storage } from "./services/storage.ts";
 import { resolveStorage } from "./storage-resolve.ts";
 import {
-  freePort,
   makeRepository,
   makeTestServer,
   nextEvent,
@@ -472,7 +471,7 @@ describe("a configuration file that cannot be read", () => {
                 cwd: dir,
                 machine: { home: homedir(), path: process.env.PATH ?? "" },
                 mcp: true,
-                port: yield* freePort,
+                port: 0,
                 storage: {
                   configPath,
                   mode: "file",

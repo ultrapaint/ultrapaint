@@ -1,12 +1,15 @@
 import path from "node:path";
 import { assert, describe, layer } from "@effect/vitest";
-import { Effect, Fiber, FileSystem, Option, Stream } from "effect";
+import { Effect, Fiber, FileSystem, Layer, Option, Stream } from "effect";
 import { EventBus } from "./events.ts";
 import { ProjectManager, type ProjectServices } from "./project.ts";
 import { EditService } from "./services/edit.ts";
 import { COLLECT_EVERY, SnapshotStore } from "./services/snapshot-store.ts";
 import { Snapshots } from "./services/snapshots.ts";
-import { Checkpoints } from "./services/threads/checkpoints.ts";
+import {
+  Checkpoints,
+  CheckpointsKept,
+} from "./services/threads/checkpoints.ts";
 import { ThreadService } from "./services/threads/threads.ts";
 import { ProjectFixture, ProjectTest } from "./testing/project.ts";
 import { ScriptedAgents } from "./testing/scripted-agents.ts";
@@ -56,8 +59,14 @@ const checkpoint = (label: string) =>
 const revert = (id: string) =>
   Effect.flatMap(Checkpoints, (checkpoints) => checkpoints.revert(id));
 
+/** Fewer checkpoints kept than the server's 30: a test past them takes as many turns fewer. */
+const KEPT = 3;
+
 describe("agent turn checkpoints", () => {
-  layer(ProjectTest(), { excludeTestServices: true })((it) => {
+  layer(
+    ProjectTest().pipe(Layer.provide(Layer.succeed(CheckpointsKept, KEPT))),
+    { excludeTestServices: true }
+  )((it) => {
     it.effect(
       "compares with now, and reverts as one step that undo takes back",
       () =>
@@ -177,15 +186,15 @@ describe("agent turn checkpoints", () => {
       })
     );
 
-    it.effect("keeps the last 30", () =>
+    it.effect("keeps the last ones, as many as it is given", () =>
       Effect.gen(function* () {
         const checkpoints = yield* Checkpoints;
         const store = yield* SnapshotStore;
-        for (let i = 0; i < 31; i += 1) {
+        for (let i = 0; i < KEPT + 1; i += 1) {
           yield* checkpoints.create("t-2", `Before: turn ${i}`);
         }
-        assert.lengthOf(yield* checkpoints.list, 30);
-        assert.lengthOf(yield* store.named("checkpoints"), 30);
+        assert.lengthOf(yield* checkpoints.list, KEPT);
+        assert.lengthOf(yield* store.named("checkpoints"), KEPT);
       })
     );
 
@@ -215,7 +224,7 @@ describe("agent turn checkpoints", () => {
           const only = yield* hashOf(first);
           const shared = yield* hashOf(second);
           // Enough turns that both are let go of, and the store collected since.
-          for (let i = 0; i < 30 + COLLECT_EVERY; i += 1) {
+          for (let i = 0; i < KEPT + COLLECT_EVERY; i += 1) {
             yield* checkpoints.create("t-3", `Before: later turn ${i}`);
           }
           const ids = (yield* checkpoints.list).map((c) => c.id);

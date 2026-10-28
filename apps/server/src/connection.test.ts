@@ -6,33 +6,42 @@ import {
   RequestError,
 } from "@ultrapaint/client-runtime/connection";
 import type { Settings } from "@ultrapaint/contracts/settings";
-import { Effect, Exit, FileSystem, Layer, Scope } from "effect";
+import { Context, Effect, Exit, FileSystem, Layer, Scope } from "effect";
 import { ServerConfig } from "./config.ts";
+import { ListenPort } from "./listen-port.ts";
 import { ServerLive } from "./server.ts";
-import { freePort, makeRepository } from "./testing/harness.ts";
+import { makeRepository } from "./testing/harness.ts";
 import { waitFor } from "./testing/wait-for.ts";
 
-/** Starts the server and returns the scope that stops it. */
+/**
+ * Starts the server on `port` (0: one the system gives it) and returns the scope that stops it,
+ * and the port it listens on.
+ */
 const startServer = (home: string, port: number) =>
   Effect.gen(function* () {
     const scope = yield* Scope.make();
-    yield* Layer.buildWithScope(
-      ServerLive.pipe(
-        Layer.provide(
-          ServerConfig.layerTest({
-            briefing: true,
-            cwd: home,
-            machine: { home, path: process.env.PATH ?? "" },
-            mcp: true,
-            port,
-            storage: { home, mode: "managed" },
-            userDir: home,
-          })
-        )
+    const services = yield* Layer.buildWithScope(
+      Layer.merge(
+        ServerLive.pipe(
+          Layer.provide(
+            ServerConfig.layerTest({
+              briefing: true,
+              cwd: home,
+              machine: { home, path: process.env.PATH ?? "" },
+              mcp: true,
+              port,
+              storage: { home, mode: "managed" },
+              userDir: home,
+            })
+          )
+        ),
+        // The server's own: a layer is built once for the whole of a build.
+        ListenPort.layer
       ),
       scope
     );
-    return scope;
+    const listening = yield* Context.get(services, ListenPort).get;
+    return { port: listening, scope };
   });
 
 /** Until `condition` holds of the client's state, which it changes on its own. */
@@ -56,8 +65,7 @@ describe("Connection", () => {
         const fs = yield* FileSystem.FileSystem;
         const home = yield* fs.makeTempDirectoryScoped();
         const repo = yield* makeRepository;
-        const port = yield* freePort;
-        const server = yield* startServer(home, port);
+        const { port, scope: server } = yield* startServer(home, 0);
         yield* Effect.addFinalizer(() => Scope.close(server, Exit.void));
         const { connection, states } = open(port);
         yield* Effect.addFinalizer(() => Effect.sync(() => connection.close()));
@@ -101,8 +109,7 @@ describe("Connection", () => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const home = yield* fs.makeTempDirectoryScoped();
-        const port = yield* freePort;
-        const first = yield* startServer(home, port);
+        const { port, scope: first } = yield* startServer(home, 0);
         const { connection, states } = open(port);
         yield* Effect.addFinalizer(() => Effect.sync(() => connection.close()));
         yield* until(() => connection.state === "open");
@@ -117,7 +124,8 @@ describe("Connection", () => {
 
         const logs: string[] = [];
         connection.on("log", (line) => logs.push(line.text));
-        const second = yield* startServer(home, port);
+        // Again on its port, which the client comes back to.
+        const { scope: second } = yield* startServer(home, port);
         yield* Effect.addFinalizer(() => Scope.close(second, Exit.void));
         yield* until(() => connection.state === "open");
         assert.isAbove(states.filter((s) => s === "open").length, 1);

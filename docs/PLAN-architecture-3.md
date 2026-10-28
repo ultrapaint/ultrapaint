@@ -1095,3 +1095,18 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
     the open canvas's). `reveal.test.ts` has 1 test more: Show on a thread scoped to a title
     inside a card beside the pages of another canvas opens that canvas and selects the title in
     the card's frame; it failed first (the canvas stayed the open one).
+14. **The flaky server tests: fewer turns, and no port picked beforehand**
+    (`apps/server/src/services/threads/checkpoints.ts`, `testing/harness.ts`). How many
+    checkpoints are kept is `CheckpointsKept`, a reference that is 30 unless a layer gives
+    another; `checkpoints.test.ts`' turn tests give 3, so the test that lets go of a checkpoint's
+    content takes 13 turns rather than 40 (about 70 ms rather than 340 alone; it timed out at 5 s
+    once in a full run), and "keeps the last 30" keeps the last 3 of 4. Nothing changes outside
+    the tests. Every test server binds port 0 itself (`makeTestServer`, `anyPort` going, and
+    `connection.test.ts`' and `storage.test.ts`' servers): the harness's `freePort` picked a port,
+    let go of it and handed it to a server that listened only once its services were built, a gap
+    in which a server of another test file, run alongside, could take it ("port already in use").
+    The port is read from the server's `ListenPort`, shared with the test's layer (a layer is
+    built once for a whole build), rather than from the run file; `freePort` goes. Left: the
+    reconnection test starts its second server on the first's port, which it needs, after the
+    first let go of it; and the host picks the preview server's port the same way before Vite
+    listens (`host.ts`), outside the tests. Full server runs: 449 tests, three in a row.
