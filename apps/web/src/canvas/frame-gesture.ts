@@ -14,6 +14,8 @@ import { isNodeFrame, NODE_FRAME_PREFIX } from "../state/documents.ts";
 import {
   allFrames,
   type Box,
+  doneDrawingFrame,
+  drawingFrame,
   hold,
   holdUntil,
   showFrame,
@@ -157,8 +159,15 @@ const followFrame = (
 ) => {
   let moved = false;
   follow({
-    // Shown where it was, as saved; nothing is sent.
-    cancel: () => showFrame(pageId, start),
+    // Shown where it was, as saved, or as a layout pushed meanwhile has it; nothing is sent.
+    cancel: () => {
+      const pushed = doneDrawingFrame();
+      if (pushed) {
+        showFrame(pushed.page, pushed.frame);
+      } else {
+        showFrame(pageId, start);
+      }
+    },
     move: (e) => {
       const { dx, dy } = movedBy(from, e);
       // With the grid on, what is moved or resized snaps to it unless ⌘/Ctrl is held.
@@ -178,14 +187,21 @@ const followFrame = (
         preset: "custom",
       });
     },
+    // Saved as drawn, the save winning over a layout pushed meanwhile; not moved, shown as
+    // that layout has it.
     up: () => {
+      const pushed = doneDrawingFrame();
       const s = useEditor.getState();
       const f = s.frames[pageId];
       if (moved && f) {
         s.setFrame(pageId, { ...f, ...roundBox(f) });
+      } else if (pushed) {
+        showFrame(pushed.page, pushed.frame);
       }
     },
   });
+  // After `follow`, which puts back a gesture before it: that one is done drawing its frame.
+  drawingFrame(pageId);
 };
 
 /**

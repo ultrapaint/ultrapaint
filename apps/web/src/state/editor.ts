@@ -375,6 +375,46 @@ const withSaving = (canvas: string, layout: CanvasLayout): CanvasLayout => {
       };
 };
 
+/**
+ * The page a frame gesture draws (moved or sized, a view of it included), and its frame as a
+ * layout pushed meanwhile has it: the push leaves the page as the gesture draws it, as it does a
+ * page whose save is in flight. The gesture's save, once let go, wins; the push after its answer
+ * brings the page current.
+ */
+let gesture: { readonly page: string; pushed: FrameLayout | null } | null =
+  null;
+
+/** A frame gesture draws `frame` from now on, until `doneDrawingFrame`. */
+export const drawingFrame = (frame: string) => {
+  gesture = { page: pageOfFrame(frame), pushed: null };
+};
+
+/**
+ * The frame gesture is over. Answers its page's frame as a layout pushed meanwhile has it, with
+ * the page's id, for a gesture put back to show; null when none was pushed.
+ */
+export const doneDrawingFrame = (): {
+  frame: FrameLayout;
+  page: string;
+} | null => {
+  const done = gesture;
+  gesture = null;
+  return done?.pushed ? { frame: done.pushed, page: done.page } : null;
+};
+
+/** `frames` computed from a layout, with the page a gesture draws as `drawn` has it. */
+const withGesture = (
+  frames: Record<string, FrameLayout>,
+  drawn: Record<string, FrameLayout>
+): Record<string, FrameLayout> => {
+  const shown = gesture ? drawn[gesture.page] : undefined;
+  if (!(gesture && shown)) {
+    return frames;
+  }
+  gesture.pushed = frames[gesture.page] ?? null;
+  return framesWith(frames, gesture.page, shown);
+};
+
 /** A page's frame as the layout saves it: its views kept only when it has some. */
 const savedFrame = ({ views, ...frame }: FrameLayout): FrameLayout =>
   views && views.length > 0 ? { ...frame, views } : frame;
@@ -497,7 +537,13 @@ export const useEditor = create<EditorStore>((set, get) => ({
       return;
     }
     const layout = withSaving(canvas, pushed);
-    set({ frames: computeFrames(pagesOfCanvas(canvas), layout), layout });
+    set({
+      frames: withGesture(
+        computeFrames(pagesOfCanvas(canvas), layout),
+        get().frames
+      ),
+      layout,
+    });
   },
   canvas: null,
   frames: {},
