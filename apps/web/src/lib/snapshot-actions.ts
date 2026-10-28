@@ -1,6 +1,7 @@
 /**
  * Named points in the history of the designs (ADR 0019): saved from the Changes panel, opened
- * to look at as they were, compared with now, and restored as one undo step.
+ * to look at as they were, compared with now, and restored as one undo step. The list follows
+ * the server's news of it (`state/kept.ts`): nothing here reads it again.
  */
 import type { Checkpoint } from "@ultrapaint/contracts/git";
 import type { Snapshot } from "@ultrapaint/contracts/snapshots";
@@ -121,16 +122,12 @@ export const deleteSnapshot = async (snapshot: Snapshot) => {
     title: `Delete the snapshot ${snapshot.name}?`,
   });
   if (!ok) {
-    return false;
+    return;
   }
   if (useSnapshotView.getState().view?.snapshot.id === snapshot.id) {
     await closeSnapshot();
   }
-  try {
-    await api().request("snapshots.delete", { id: snapshot.id });
-    return true;
-  } catch (error) {
-    reportError(error);
-    return false;
-  }
+  await api()
+    .request("snapshots.delete", { id: snapshot.id })
+    .catch(reportError);
 };

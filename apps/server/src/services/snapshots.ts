@@ -11,6 +11,7 @@ import { canvasDocOf, canvasRoot } from "@ultrapaint/design-document/tree";
 import { CANVAS_FILE, CANVASES_FILE } from "@ultrapaint/shared/canvas";
 import { basename, humanise } from "@ultrapaint/shared/path";
 import { Clock, Context, Effect, Layer, Schema } from "effect";
+import { EventBus } from "../events.ts";
 import { hashContent } from "../hash.ts";
 import { makeId } from "../ids.ts";
 import { ProjectManager } from "../project.ts";
@@ -133,7 +134,9 @@ const documentsOf = Effect.fnUntraced(function* (
  * The files are kept in the tool's snapshot store, under the `designs` namespace: each snapshot
  * is a ref named by its id whose note is its name, date and repository, written as a
  * checkpoint's is (`design-refs`). Keeping a checkpoint names its files again rather than
- * copying them. What is here is the designs' view of one: its pages, canvases and documents.
+ * copying them. The editor is told the list whenever one is saved or deleted (`snapshots`),
+ * from whichever tab. What is here is the designs' view of one: its pages, canvases and
+ * documents.
  */
 export class Snapshots extends Context.Service<
   Snapshots,
@@ -158,10 +161,13 @@ export class Snapshots extends Context.Service<
     Effect.gen(function* () {
       const project = yield* ProjectManager;
       const checkpoints = yield* Checkpoints;
-      const refs = yield* makeDesignRefs<Note>({
-        idOf: (note) => note.snapshot.id,
+      const events = yield* EventBus;
+      const refs = yield* makeDesignRefs({
+        idOf: (note: Note) => note.snapshot.id,
+        listed: (note) => note.snapshot,
         namespace: NAMESPACE,
         note: Schema.fromJsonString(Note),
+        publish: (list) => events.publish("snapshots", list),
         what: "snapshot",
       });
 
@@ -250,9 +256,7 @@ export class Snapshots extends Context.Service<
         create,
         delete: remove,
         diff,
-        list: Effect.map(refs.ofOpenRepo, (snapshots) =>
-          snapshots.map((s) => s.snapshot).sort((a, b) => b.at - a.at)
-        ),
+        list: refs.list,
         restore,
         view,
       });

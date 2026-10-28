@@ -7,7 +7,9 @@ import { EditService } from "./services/edit.ts";
 import { SnapshotStore } from "./services/snapshot-store.ts";
 import { Snapshots } from "./services/snapshots.ts";
 import { Checkpoints } from "./services/threads/checkpoints.ts";
+import { ThreadService } from "./services/threads/threads.ts";
 import { ProjectFixture, ProjectTest } from "./testing/project.ts";
+import { ScriptedAgents } from "./testing/scripted-agents.ts";
 
 const HOME_FILE = "designs/home.page.json";
 const ABOUT_FILE = "designs/about.page.json";
@@ -248,6 +250,77 @@ describe("agent turn checkpoints", () => {
           yield* checkpoints.revert("cp_old_1");
           assert.isNull(yield* read(HOME_FILE));
           assert.strictEqual(yield* read(COMMENTS), comments);
+        })
+    );
+  });
+
+  /** An agent the test plays, configured as a user's is in the state directory. */
+  const scripted = JSON.stringify({
+    args: [],
+    command: "scripted",
+    id: "scripted",
+    name: "Scripted",
+  });
+
+  // Without the MCP server: its address waits for a port the server listens on, and no test
+  // listens.
+  layer(
+    ProjectTest({ mcp: false, state: { "agents/scripted.json": scripted } }),
+    { excludeTestServices: true }
+  )((it) => {
+    it.effect(
+      "publishes the checkpoints with a turn's, though the turn writes no design file",
+      () =>
+        Effect.gen(function* () {
+          const events = yield* EventBus;
+          const threads = yield* ThreadService;
+          const agents = yield* ScriptedAgents;
+          // Started at once, the fiber has subscribed by the time the fork returns.
+          const published = yield* Effect.forkScoped(
+            Stream.runHead(events.subscribe("checkpoints")),
+            { startImmediately: true }
+          );
+          const { id } = yield* threads.create("scripted");
+          yield* threads.prompt({
+            attachments: [],
+            text: "Only look",
+            threadId: id,
+          });
+          const turn = yield* (yield* agents.next).nextTurn;
+          yield* turn.end();
+          const list = Option.getOrNull(
+            yield* Fiber.join(published).pipe(Effect.timeout("2 seconds"))
+          );
+          assert.deepStrictEqual(
+            list?.map((c) => [c.label, c.threadId]),
+            [["Before: Only look", id]]
+          );
+          assert.deepStrictEqual(
+            list,
+            yield* Effect.flatMap(Checkpoints, (c) => c.list)
+          );
+        })
+    );
+
+    it.effect(
+      "publishes the snapshots when one is made and when it is deleted",
+      () =>
+        Effect.gen(function* () {
+          const events = yield* EventBus;
+          const snapshots = yield* Snapshots;
+          const published = yield* Effect.forkScoped(
+            Stream.runCollect(Stream.take(events.subscribe("snapshots"), 2)),
+            { startImmediately: true }
+          );
+          const made = yield* snapshots.create("Shown to the client");
+          yield* snapshots.delete(made.id);
+          const lists = yield* Fiber.join(published).pipe(
+            Effect.timeout("2 seconds")
+          );
+          assert.deepStrictEqual(
+            lists.map((list) => list.map((s) => s.id)),
+            [[made.id], []]
+          );
         })
     );
   });

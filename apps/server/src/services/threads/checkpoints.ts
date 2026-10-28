@@ -1,6 +1,7 @@
 import type { NotConfigured, NotFound } from "@ultrapaint/contracts/errors";
 import { Checkpoint, type GitDiff } from "@ultrapaint/contracts/git";
 import { Clock, Context, Effect, Layer, Schema } from "effect";
+import { EventBus } from "../../events.ts";
 import { makeId } from "../../ids.ts";
 import { type DesignRef, keepsFile, makeDesignRefs } from "../design-refs.ts";
 import type { EditFailure } from "../edit.ts";
@@ -35,7 +36,9 @@ const decodeOldRecord = Schema.decodeUnknownEffect(
 /**
  * The designs as they were before each agent turn (ADR 0008), to compare with now and to go
  * back to. Each is a ref of the snapshot store's `checkpoints` namespace, as a named snapshot is
- * one of `designs`: a file unchanged from one turn to the next is kept once.
+ * one of `designs`: a file unchanged from one turn to the next is kept once. The editor is told
+ * the list as a turn takes one and as the oldest go (`checkpoints`), whether the turn writes or
+ * not.
  */
 export class Checkpoints extends Context.Service<
   Checkpoints,
@@ -64,10 +67,14 @@ export class Checkpoints extends Context.Service<
   static readonly layer = Layer.effect(
     Checkpoints,
     Effect.gen(function* () {
-      const refs = yield* makeDesignRefs<Note>({
-        idOf: (note) => note.checkpoint.id,
+      const events = yield* EventBus;
+      const refs = yield* makeDesignRefs({
+        idOf: (note: Note) => note.checkpoint.id,
+        keepLast: KEEP,
+        listed: (note) => note.checkpoint,
         namespace: NAMESPACE,
         note: Schema.fromJsonString(Note),
+        publish: (list) => events.publish("checkpoints", list),
         what: "checkpoint",
       });
 
@@ -83,16 +90,6 @@ export class Checkpoints extends Context.Service<
           },
         }))
       );
-
-      /** The last 30 are kept, whichever repository they were taken in. */
-      const collect = Effect.gen(function* () {
-        const oldest = (yield* refs.every)
-          .sort((a, b) => a.checkpoint.at - b.checkpoint.at)
-          .slice(0, -KEEP);
-        if (oldest.length > 0) {
-          yield* refs.release(oldest.map((ref) => ref.checkpoint.id));
-        }
-      });
 
       const create = Effect.fn("Checkpoints.create")(function* (
         threadId: string,
@@ -111,7 +108,6 @@ export class Checkpoints extends Context.Service<
           },
           files
         );
-        yield* collect;
       });
 
       const diff = Effect.fn("Checkpoints.diff")(function* (id: string) {
@@ -130,9 +126,7 @@ export class Checkpoints extends Context.Service<
         create,
         diff,
         find: refs.find,
-        list: Effect.map(refs.ofOpenRepo, (kept) =>
-          kept.map((ref) => ref.checkpoint).sort((a, b) => b.at - a.at)
-        ),
+        list: refs.list,
         revert,
       });
     })

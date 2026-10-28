@@ -43,9 +43,10 @@ import {
 } from "../lib/snapshot-actions.ts";
 import { useAgents } from "../state/agents.ts";
 import { api } from "../state/connection.ts";
+import { useKept } from "../state/kept.ts";
 import { useRequest } from "../state/panels.ts";
 import { reportError, useProject } from "../state/project.ts";
-import { follow } from "../state/server-data.ts";
+import { type Followed, follow } from "../state/server-data.ts";
 import { useSnapshotView } from "../state/snapshot-view.ts";
 
 const DIFF_MARKER_RE = /^[+\-@]/;
@@ -82,70 +83,71 @@ export const Changes = () => {
   useEffect(() => {
     useAgents.getState().clearChanged();
   }, []);
+  const repoPath = useProject((s) => s.info.repoPath);
   const [status, setStatus] = useState<GitStatus | null>(null);
   const [diff, setDiff] = useState<GitDiff | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState("");
-  const [checkpoints, setCheckpoints] = useState<readonly Checkpoint[]>([]);
-  const [snapshots, setSnapshots] = useState<readonly Snapshot[] | null>(null);
+  const checkpoints = useKept((s) => s.checkpoints);
+  const snapshots = useKept((s) => s.snapshots);
   const [cpDiff, setCpDiff] = useState<CheckpointDiff | null>(null);
   const [busy, setBusy] = useState(false);
+  const statusData = useRef<Followed<GitStatus, undefined> | null>(null);
 
-  /**
-   * Counts the refreshes, and the statuses taken in from them or from the server: an answer that
-   * arrives after a later one is older news, and is dropped.
-   */
-  const asked = useRef({ refresh: 0, status: 0 });
-  const takeStatus = (s: GitStatus) => {
-    asked.current.status += 1;
+  /** Git's status, with the files no longer changed unticked. */
+  const takeStatus = useEffectEvent((s: GitStatus) => {
     setStatus(s);
-  };
+    setSelected(
+      (prev) =>
+        new Set(
+          Array.from(prev).filter((p) => s.files.some((f) => f.path === p))
+        )
+    );
+  });
 
-  /** Git's status, apart: a git that fails or is not there leaves the history to show. */
-  const refreshStatus = async (ticket: { refresh: number; status: number }) => {
-    if (!repository) {
-      setStatus(null);
+  // The history, read as the panel opens on a repository and followed from then on.
+  useEffect(() => {
+    if (configured && repoPath !== undefined) {
+      useKept.getState().load();
+    }
+  }, [configured, repoPath]);
+
+  // Git's status, followed while the panel is shown on a repository: read now, at every
+  // connection open, on git's own news, and as files change. A git that fails or is not there
+  // leaves the history to show.
+  useEffect(() => {
+    if (!(configured && repository)) {
       return;
     }
-    try {
-      const s = await api().request("git.status", undefined);
-      if (
-        ticket.refresh !== asked.current.refresh ||
-        ticket.status !== asked.current.status
-      ) {
-        return;
-      }
-      takeStatus(s);
-      setSelected(
-        (prev) =>
-          new Set(
-            Array.from(prev).filter((p) => s.files.some((f) => f.path === p))
-          )
-      );
-    } catch (error) {
-      reportError(error);
-    }
-  };
-
-  const refresh = async () => {
-    asked.current.refresh += 1;
-    const ticket = { ...asked.current };
-    const history = async () => {
-      try {
-        const [cps, sns] = await Promise.all([
-          api().request("checkpoints.list", undefined),
-          api().request("snapshots.list", undefined),
-        ]);
-        if (ticket.refresh !== asked.current.refresh) {
-          return;
-        }
-        setCheckpoints(cps);
-        setSnapshots(sns);
-      } catch (error) {
-        reportError(error);
-      }
+    // A save, a checkout or an agent changes many files at once: one read for all of them.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const gitStatus = follow({
+      apply: (s) => takeStatus(s),
+      on: {
+        "file.changed": () => {
+          clearTimeout(timer);
+          timer = setTimeout(
+            () => gitStatus.read().catch(reportError),
+            FILES_SETTLE_MS
+          );
+        },
+        git: (s) => takeStatus(s),
+      },
+      read: () => api().request("git.status", undefined),
+      whole: ["git"],
+    });
+    statusData.current = gitStatus;
+    gitStatus.read().catch(reportError);
+    return () => {
+      clearTimeout(timer);
+      gitStatus.stop();
+      statusData.current = null;
     };
-    await Promise.all([history(), refreshStatus(ticket)]);
+  }, [configured, repository]);
+
+  const refresh = () => {
+    statusData.current?.read().catch(reportError);
+    useKept.getState().load();
   };
 
   const showDiff = async (path: string) => {
@@ -158,36 +160,8 @@ export const Changes = () => {
     }
   };
 
-  const onFilesChanged = useEffectEvent(refresh);
-  const onStatus = useEffectEvent(takeStatus);
-
   // A file asked for from elsewhere, before the panel was open or while it is.
   useRequest("diff", showDiff, configured);
-
-  // Followed while the panel is shown: read now, at every connection open, and as files change.
-  useEffect(() => {
-    if (!configured) {
-      return;
-    }
-    // A save, a checkout or an agent changes many files at once: one refresh for all of them.
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const changes = follow({
-      on: {
-        "file.changed": () => {
-          clearTimeout(timer);
-          timer = setTimeout(onFilesChanged, FILES_SETTLE_MS);
-        },
-        // Git's own news only where there is a repository to have any.
-        ...(repository && { git: onStatus }),
-      },
-      read: () => onFilesChanged(),
-    });
-    changes.read();
-    return () => {
-      clearTimeout(timer);
-      changes.stop();
-    };
-  }, [configured, repository]);
 
   const commit = async () => {
     // Enter again while a commit is on its way is not a second commit.
@@ -202,7 +176,6 @@ export const Changes = () => {
       setMessage((current) => (current === sent ? "" : current));
       setSelected((current) => tickedAfterCommit(current, paths));
       setDiff(null);
-      await refresh();
     } catch (error) {
       reportError(error);
     }
@@ -234,11 +207,13 @@ export const Changes = () => {
   if (!configured) {
     return <SetupEmpty />;
   }
-  if (snapshots === null || (repository && !status)) {
+  // Without a repository, a status read before is not this folder's.
+  const shown = repository ? status : null;
+  if (snapshots === null || checkpoints === null || (repository && !shown)) {
     return <PanelEmpty>Loading…</PanelEmpty>;
   }
 
-  const files = status?.files ?? [];
+  const files = shown?.files ?? [];
   const design = files.filter((f) => f.design);
   const other = files.filter((f) => !f.design);
   const openDiffs = cpDiff?.diffs ?? (diff ? [diff] : null);
@@ -247,9 +222,9 @@ export const Changes = () => {
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-1 border-b px-2 py-1.5 text-muted-foreground">
         <span className="flex-1 truncate">
-          {status ? (
+          {shown ? (
             <>
-              on <span className="text-foreground">{status.branch}</span> ·{" "}
+              on <span className="text-foreground">{shown.branch}</span> ·{" "}
               {files.length} changed
             </>
           ) : (
@@ -260,7 +235,7 @@ export const Changes = () => {
           <RefreshCw />
         </IconButton>
       </div>
-      {status ? (
+      {shown ? (
         <>
           <div className="max-h-[45%] min-h-0 overflow-auto">
             <FileGroup
@@ -317,17 +292,8 @@ export const Changes = () => {
           <DiffView diffs={openDiffs} />
         ) : (
           <>
-            <Snapshots
-              onChange={refresh}
-              onShowDiff={setCpDiff}
-              snapshots={snapshots}
-            />
-            <Checkpoints
-              checkpoints={checkpoints}
-              onKeep={refresh}
-              onRevert={refresh}
-              onShowDiff={setCpDiff}
-            />
+            <Snapshots onShowDiff={setCpDiff} snapshots={snapshots} />
+            <Checkpoints checkpoints={checkpoints} onShowDiff={setCpDiff} />
           </>
         )}
       </div>
@@ -347,19 +313,13 @@ export const Changes = () => {
  * were, compared with now, restored.
  */
 const Snapshots = ({
-  onChange,
   onShowDiff,
   snapshots,
 }: {
-  onChange: () => Promise<void>;
   onShowDiff: (diff: CheckpointDiff) => void;
   snapshots: readonly Snapshot[];
 }) => {
-  const save = async () => {
-    if (await saveSnapshot()) {
-      await onChange();
-    }
-  };
+  const save = () => saveSnapshot();
   return (
     <div className="border-b p-2">
       <div className="mb-1 flex items-center gap-1 font-heading-xsmall text-muted-foreground uppercase">
@@ -378,7 +338,6 @@ const Snapshots = ({
       {snapshots.map((snapshot) => (
         <SnapshotRow
           key={snapshot.id}
-          onChange={onChange}
           onShowDiff={onShowDiff}
           snapshot={snapshot}
         />
@@ -388,11 +347,9 @@ const Snapshots = ({
 };
 
 const SnapshotRow = ({
-  onChange,
   onShowDiff,
   snapshot,
 }: {
-  onChange: () => Promise<void>;
   onShowDiff: (diff: CheckpointDiff) => void;
   snapshot: Snapshot;
 }) => {
@@ -403,11 +360,7 @@ const SnapshotRow = ({
       .request("snapshots.diff", { id })
       .then((diffs) => onShowDiff({ diffs, id }))
       .catch(reportError);
-  const remove = async () => {
-    if (await deleteSnapshot(snapshot)) {
-      await onChange();
-    }
-  };
+  const remove = () => deleteSnapshot(snapshot);
   return (
     <div className="group flex items-center gap-0.5 py-0.5">
       <Button
@@ -439,7 +392,7 @@ const SnapshotRow = ({
         <GitCompareArrows />
       </IconButton>
       <IconButton
-        onClick={() => restoreSnapshot(snapshot).then(onChange)}
+        onClick={() => restoreSnapshot(snapshot)}
         size="icon-sm"
         tooltip="Restore the designs to it"
       >
@@ -454,14 +407,10 @@ const SnapshotRow = ({
 
 const Checkpoints = ({
   checkpoints,
-  onKeep,
   onShowDiff,
-  onRevert,
 }: {
   checkpoints: readonly Checkpoint[];
-  onKeep: () => Promise<void>;
   onShowDiff: (diff: CheckpointDiff) => void;
-  onRevert: () => Promise<void>;
 }) => (
   <div className="p-2">
     <div className="mb-1 flex items-center gap-1 font-heading-xsmall text-muted-foreground uppercase">
@@ -473,33 +422,19 @@ const Checkpoints = ({
       </div>
     )}
     {checkpoints.map((c) => (
-      <CheckpointRow
-        checkpoint={c}
-        key={c.id}
-        onKeep={onKeep}
-        onRevert={onRevert}
-        onShowDiff={onShowDiff}
-      />
+      <CheckpointRow checkpoint={c} key={c.id} onShowDiff={onShowDiff} />
     ))}
   </div>
 );
 
 const CheckpointRow = ({
   checkpoint,
-  onKeep,
   onShowDiff,
-  onRevert,
 }: {
   checkpoint: Checkpoint;
-  onKeep: () => Promise<void>;
   onShowDiff: (diff: CheckpointDiff) => void;
-  onRevert: () => Promise<void>;
 }) => {
-  const keep = async () => {
-    if (await saveSnapshot(checkpoint)) {
-      await onKeep();
-    }
-  };
+  const keep = () => saveSnapshot(checkpoint);
   const { id } = checkpoint;
   const show = () =>
     api()
@@ -515,10 +450,7 @@ const CheckpointRow = ({
       title: "Revert to this checkpoint?",
     });
     if (ok) {
-      api()
-        .request("checkpoints.revert", { id })
-        .then(onRevert)
-        .catch(reportError);
+      api().request("checkpoints.revert", { id }).catch(reportError);
     }
   };
   return (

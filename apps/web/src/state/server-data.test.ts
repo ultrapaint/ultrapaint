@@ -2,6 +2,7 @@ import "../testing/fake-browser.ts";
 import type { Comment } from "@ultrapaint/contracts/comments";
 import { emptySetup } from "@ultrapaint/contracts/design-system-setup";
 import type { DocumentState } from "@ultrapaint/contracts/document";
+import type { Checkpoint } from "@ultrapaint/contracts/git";
 import type { ImplementationItem } from "@ultrapaint/contracts/implementation";
 import type {
   CanvasLayout,
@@ -10,7 +11,7 @@ import type {
 } from "@ultrapaint/contracts/pages";
 import type { ProjectInfo } from "@ultrapaint/contracts/project";
 import type { Settings } from "@ultrapaint/contracts/settings";
-import type { SnapshotView } from "@ultrapaint/contracts/snapshots";
+import type { Snapshot, SnapshotView } from "@ultrapaint/contracts/snapshots";
 import { emptyDrift, type SyncPlan } from "@ultrapaint/contracts/sync";
 import type { Thread } from "@ultrapaint/contracts/threads";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -23,6 +24,7 @@ import { useDesignSystemSetup } from "./design-system-setup.ts";
 import { useDocuments } from "./documents.ts";
 import { layoutOf, useEditor } from "./editor.ts";
 import { useImplementation } from "./implementation.ts";
+import { useKept } from "./kept.ts";
 import { useProject } from "./project.ts";
 import { followServer, viewSnapshot } from "./server-data.ts";
 import { useSkills } from "./skills.ts";
@@ -114,6 +116,21 @@ const plan = (at: number): SyncPlan => ({
   summary: "",
 });
 
+const checkpoint = (id: string): Checkpoint => ({
+  at: 1,
+  files: [],
+  id,
+  label: `Before: ${id}`,
+  threadId: "t1",
+});
+
+const snapshot = (id: string): Snapshot => ({
+  at: 1,
+  files: 1,
+  id,
+  name: id,
+});
+
 const thread = (id: string): Thread => ({
   agentId: "claude-code",
   createdAt: 1,
@@ -147,6 +164,8 @@ const answerAll = () => {
   fakeApi.respond("edit.state", () => ({ canRedo: false, canUndo: v() > 1 }));
   fakeApi.respond("documents.list", () => [doc(`h${v()}`)]);
   fakeApi.respond("canvas.get", () => layoutAt(100 * v()));
+  fakeApi.respond("checkpoints.list", () => [checkpoint(`cp${v()}`)]);
+  fakeApi.respond("snapshots.list", () => [snapshot(`sn${v()}`)]);
   fakeApi.respond("comments.list", () => ({
     comments: [comment(`c${v()}`)],
     version: 1,
@@ -185,6 +204,7 @@ const answerAll = () => {
 const held = () => ({
   agents: useAgents.getState().threads.map((t) => t.id),
   catalogue: useCatalogue.getState().catalogue?.builtAt,
+  checkpoints: useKept.getState().checkpoints?.map((c) => c.id),
   commands: useSlashCommands.getState().commands.length,
   comments: useComments.getState().comments.map((c) => c.text),
   designSystem: useDesignSystem.getState().previewCss,
@@ -196,6 +216,7 @@ const held = () => ({
   settings: useProject.getState().settings?.libraryDirs,
   setup: useDesignSystemSetup.getState().setup?.updatedAt,
   skills: useSkills.getState().dir,
+  snapshots: useKept.getState().snapshots?.map((s) => s.id),
   specs: useSpecs.getState().entries.map((e) => e.file),
   sync: useSync.getState().plan?.at,
   undo: useProject.getState().undo.canUndo,
@@ -204,6 +225,7 @@ const held = () => ({
 const heldAt = (v: number) => ({
   agents: [`t${v}`],
   catalogue: v,
+  checkpoints: [`cp${v}`],
   commands: v,
   comments: [`c${v}`],
   designSystem: `css ${v}`,
@@ -215,6 +237,7 @@ const heldAt = (v: number) => ({
   settings: [`src/v${v}`],
   setup: v,
   skills: `skills ${v}`,
+  snapshots: [`sn${v}`],
   specs: [`v${v}.spec.json`],
   sync: v,
   undo: v > 1,
@@ -237,6 +260,7 @@ const openEditor = async () => {
     useDesignSystemSetup.getState().load(),
     useSkills.getState().load(),
     useSlashCommands.getState().load(),
+    useKept.getState().load(),
   ]);
   // The canvas opens with the layout it read, as `goTo` does.
   useEditor.getState().applyLayout("", await layoutOf(""));
@@ -320,6 +344,56 @@ describe("following the server", () => {
     expect(useDocuments.getState().docs).toEqual({});
   });
 
+  it("follows the checkpoints and snapshots the server publishes, whoever made them", async () => {
+    await openEditor();
+    fakeApi.calls.length = 0;
+    fakeApi.emit("checkpoints", [checkpoint("cp7"), checkpoint("cp1")]);
+    fakeApi.emit("snapshots", []);
+    expect(held()).toMatchObject({
+      checkpoints: ["cp7", "cp1"],
+      snapshots: [],
+    });
+    expect(fakeApi.calls).toEqual([]);
+  });
+
+  it("drops an answer older than the server's news of it", async () => {
+    await openEditor();
+    let answer: (list: Checkpoint[]) => void = () => undefined;
+    fakeApi.respond(
+      "checkpoints.list",
+      () =>
+        new Promise((resolve) => {
+          answer = resolve;
+        })
+    );
+    fakeApi.respond("snapshots.list", () => [snapshot("sn1")]);
+    const reading = useKept.getState().load();
+    // A turn takes a checkpoint while the list is on its way, older than the turn.
+    fakeApi.emit("checkpoints", [checkpoint("cp8"), checkpoint("cp1")]);
+    answer([checkpoint("cp1")]);
+    await reading;
+    expect(held().checkpoints).toEqual(["cp8", "cp1"]);
+  });
+
+  it("drops an answer older than one taken already", async () => {
+    await openEditor();
+    const answers: ((list: Checkpoint[]) => void)[] = [];
+    fakeApi.respond(
+      "checkpoints.list",
+      () =>
+        new Promise((resolve) => {
+          answers.push(resolve);
+        })
+    );
+    const first = useKept.getState().load();
+    const second = useKept.getState().load();
+    answers[1]?.([checkpoint("cp9")]);
+    await second;
+    answers[0]?.([checkpoint("cp1")]);
+    await first;
+    expect(held().checkpoints).toEqual(["cp9"]);
+  });
+
   it("stops following when asked: the news and the opens reach nobody", async () => {
     await openEditor();
     stop();
@@ -357,11 +431,13 @@ describe("a snapshot on screen", () => {
       document: null,
       previewCss: "css 9",
     });
+    fakeApi.emit("snapshots", [snapshot("sn9"), snapshot("sn1")]);
     expect(held()).toMatchObject({
       designSystem: "css 9",
       documents: "kept",
       layout: -50,
       pages: ["Home kept"],
+      snapshots: ["sn9", "sn1"],
     });
   });
 
