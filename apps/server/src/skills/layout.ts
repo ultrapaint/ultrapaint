@@ -1,5 +1,10 @@
-/** Built-in skill. The file is the skill: its heading is the title, the paragraph after it the summary. */
-export const layout = {
+import type { ToolNames } from "../services/threads/agent-ways.ts";
+
+/**
+ * Built-in skill. The file is the skill: its heading is the title, the paragraph after it the
+ * summary. The tools it names are the editor's, when it offers them (`AgentWays.tools`).
+ */
+export const layout = (tools: ToolNames | null) => ({
   name: "layout",
   text: `# Layout
 
@@ -31,8 +36,12 @@ sidebar. Bound a box with \`minWidth\` and \`maxWidth\` rather than fixing it.
 
 ## Collapse late, and say what moves
 
-Check the page at the design system's breakpoints, or at \`390\` and \`1440\` with
-\`get_screenshot\`'s \`width\`. Keep the wide layout as long as it genuinely fits. At each
+Check the page at the design system's breakpoints, or at \`390\` and \`1440\`${
+    tools
+      ? ` with
+\`${tools.get_screenshot}\`'s \`width\``
+      : ""
+  }. Keep the wide layout as long as it genuinely fits. At each
 breakpoint, something moves: a side panel becomes a sheet, columns stack, a table becomes a
 list.
 
@@ -43,8 +52,12 @@ then say what changes from a breakpoint up in \`at\`, as Tailwind's \`md:\` does
 \`{op: "update", id, at: "md", set: {type: "row", gap: "$spacing-6"}}\`. A breakpoint can change
 any style field, a text's \`text\`, an instance's \`props\`, \`hidden\` and \`order\`; the tree
 itself is the same. Something only a wide screen has is \`hidden: true\` with
-\`at: {lg: {hidden: false}}\`; never draw a second page for the phone. Give the page views at the
-widths you check (\`set_frame\`'s \`views: [390, 1440]\`) so the user sees them side by side.
+\`at: {lg: {hidden: false}}\`; never draw a second page for the phone.${
+    tools
+      ? ` Give the page views at the
+widths you check (\`${tools.set_frame}\`'s \`views: [390, 1440]\`) so the user sees them side by side.`
+      : ""
+  }
 
 ## The primary action stays reachable
 
@@ -80,4 +93,4 @@ settings, onboarding, empty states.
 | A row of cards ending exactly at the scroller's edge | Size them so the next one peeks |
 | Two nested regions that both scroll | One scroll region |
 `,
-} as const;
+});

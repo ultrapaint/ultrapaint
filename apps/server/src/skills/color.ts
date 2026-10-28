@@ -1,12 +1,18 @@
-/** Built-in skill. The file is the skill: its heading is the title, the paragraph after it the summary. */
-export const color = {
+import { DESIGN_TOKENS_FILE } from "../services/dtcg.ts";
+import type { ToolNames } from "../services/threads/agent-ways.ts";
+
+/**
+ * Built-in skill. The file is the skill: its heading is the title, the paragraph after it the
+ * summary. The tools it names are the editor's, when it offers them (`AgentWays.tools`).
+ */
+export const color = (tools: ToolNames | null) => ({
   name: "color",
   text: `# Colour
 
 Colour is meaning first. Use the design system's semantic tokens for what a thing is, and reach
 into a palette only when the semantic set has nothing for it.
 
-Colour has exact answers, so compute them: \`read_design_system\` gives every token's value in
+Colour has exact answers, so compute them: \`${tools ? tools.read_design_system : DESIGN_TOKENS_FILE}\` gives every token's value in
 every theme. A contrast you did not compute is a guess.
 
 ## Tokens by role
@@ -68,4 +74,4 @@ values in each theme the design system has.
 | A status colour as decoration or a chart series | Neutral, or the chart colours |
 | Hard-coded white or grey text on a coloured fill | The fill's foreground pair |
 `,
-} as const;
+});

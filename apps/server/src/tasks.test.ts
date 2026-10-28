@@ -17,7 +17,6 @@ import { SpecService } from "./services/specs.ts";
 import { ProjectBriefing } from "./services/threads/briefing.ts";
 import { SlashCommands } from "./services/threads/commands.ts";
 import { AgentTasks } from "./services/threads/tasks.ts";
-import { builtInSkills } from "./skills/index.ts";
 import { ProjectFixture, ProjectTest } from "./testing/project.ts";
 
 const task = (request: TaskRequest) =>
@@ -470,16 +469,31 @@ describe("the editor's tools in what an agent is told", () => {
   const refused = (read: readonly Read[]) =>
     read.filter((r) => !r.task).map((r) => r.of);
 
-  /**
-   * A project on either server. The design skills are left out of the briefing: they are
-   * documents a project may replace, and they name the tools in their own words.
-   */
-  const project = (mcp: boolean) =>
-    ProjectTest({
-      git: true,
-      mcp,
-      settings: { skills: { disabled: builtInSkills.map((s) => s.name) } },
-    });
+  /** A project on either server, its briefing with the built-in design skills. */
+  const project = (mcp: boolean) => ProjectTest({ git: true, mcp });
+
+  /** The built-in skills that name tools, by a line each says with the tools and without. */
+  const skillLines = {
+    color: [
+      "compute them: `read_design_system` gives every token's value in",
+      "compute them: `design.tokens.json` gives every token's value in",
+    ],
+    components: [
+      "ask\n`get_component` for its props and variants.",
+      "read its code for its props and variants.",
+    ],
+    layout: [
+      "or at `390` and `1440` with\n`get_screenshot`'s `width`.",
+      "or at `390` and `1440`. Keep",
+    ],
+  } as const;
+
+  /** The briefings' text, where the design skills are told. */
+  const briefings = (read: readonly Read[]) =>
+    read
+      .filter((r) => r.of.endsWith("briefing"))
+      .map((r) => r.text)
+      .join("\n");
 
   layer(project(true), { excludeTestServices: true })((it) => {
     it.effect("names only the tools the server offers, by their names", () =>
@@ -507,6 +521,10 @@ describe("the editor's tools in what an agent is told", () => {
             "write_figma_frame",
           ]
         );
+        // The skills keep their words with the tools, which the design evals were tuned to.
+        for (const [withTools] of Object.values(skillLines)) {
+          assert.include(briefings(after), withTools);
+        }
       })
     );
   });
@@ -532,6 +550,9 @@ describe("the editor's tools in what an agent is told", () => {
           ),
           []
         );
+        for (const [, withoutTools] of Object.values(skillLines)) {
+          assert.include(briefings(after), withoutTools);
+        }
       })
     );
   });
