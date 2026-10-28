@@ -64,7 +64,9 @@ review found.
   namespace in the tool's **snapshot store**. A **checkpoint**, the designs before an agent's
   turn (ADR 0008), is a ref of its `checkpoints` namespace, the last 30 kept. Both keep every
   design file but the comments, are compared with now and put back one way (`design-refs`: one
-  undo step), and keeping a checkpoint as a snapshot names its files again.
+  undo step), and keeping a checkpoint as a snapshot names its files again. Whenever one is kept
+  or let go of, the server publishes the open repository's list of that kind (`checkpoints`,
+  `snapshots`), which the Changes panel follows (`kept`).
 
 ## Agents
 
@@ -141,9 +143,11 @@ review found.
 - **Server data**: what the editor holds of the server's, each **piece** declared by its store
   with `follow` (how it is read, what the store does with it, the events that bring news of it)
   and followed by one module, `server-data`: the events reach it, it is read again at every
-  connection open once asked for, the project's first, and an answer for a canvas no longer open
-  is dropped. A snapshot on screen is the other **source** of what it keeps (the pages, the
-  documents, the layouts), whose news waits until the editor goes back to now (ADR 0019).
+  connection open once asked for, the project's first, an answer for a canvas no longer open
+  is dropped, and so is an answer older than one taken or than an event that brings the whole
+  piece (`whole`: the checkpoints, the snapshots, git's status). A snapshot on screen is the
+  other **source** of what it keeps (the pages, the documents, the layouts), whose news waits
+  until the editor goes back to now (ADR 0019).
 - **Frame gesture**: moving or sizing a page's frame, or sizing a node on the canvas, from the
   press on its name or corner to the release (the web's `frame-gesture`): drawn as it goes, saved
   once when let go (a page's frame rounded to the pixel, a node in one "Resize" edit). A cancelled

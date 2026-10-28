@@ -3,7 +3,8 @@
  * checkpoint (ADR 0008) both are. Each kind is a namespace of the store, with one ref per point
  * kept, named by its id, whose note says what it is and the repository it was taken in. What is
  * written here once serves both: the design files as they are now, which refs the open
- * repository has, their diff with now, and putting one back through the undo journal.
+ * repository has, their diff with now, putting one back through the undo journal, and telling
+ * the editor the open repository's list whenever a ref is kept or let go of, whoever did it.
  */
 import { type NotConfigured, NotFound } from "@ultrapaint/contracts/errors";
 import type { GitDiff } from "@ultrapaint/contracts/git";
@@ -34,22 +35,31 @@ interface Located {
 /** A point of the designs kept: its note, and the store's snapshot of its files. */
 export type DesignRef<N> = N & { readonly tree: string };
 
-export interface DesignRefsOptions<N extends Located> {
+export interface DesignRefsOptions<N extends Located, I> {
   /** The id the note gives its ref's name. */
   readonly idOf: (note: N) => string;
+  /** How many are kept, of every repository together: past that, the oldest are let go of. */
+  readonly keepLast?: number;
+  /** One as the editor lists it, from its note. */
+  readonly listed: (note: N) => I;
   readonly namespace: string;
   /** The note, as its ref keeps it. */
   readonly note: Schema.Codec<N, string>;
+  /** Tells the editor the open repository's list, newest first: after every change to it. */
+  readonly publish: (list: readonly I[]) => Effect.Effect<void>;
   /** What one is called in a message: "snapshot", "checkpoint". */
   readonly what: string;
 }
 
 /** The designs kept in one namespace of the snapshot store. */
-export const makeDesignRefs = <N extends Located>(
-  options: DesignRefsOptions<N>
+export const makeDesignRefs = <
+  N extends Located,
+  I extends { readonly at: number },
+>(
+  options: DesignRefsOptions<N, I>
 ) =>
   Effect.gen(function* () {
-    const { idOf, namespace, what } = options;
+    const { idOf, listed, namespace, what } = options;
     const store = yield* SnapshotStore;
     const project = yield* ProjectManager;
     const storage = yield* Storage;
@@ -114,6 +124,32 @@ export const makeDesignRefs = <N extends Located>(
       );
     });
 
+    /** The open repository's, as the editor lists them: newest first. */
+    const list = Effect.map(ofOpenRepo, (refs) =>
+      refs.map(listed).sort((a, b) => b.at - a.at)
+    );
+
+    const publish = Effect.flatMap(list, options.publish);
+
+    /** Lets go of the refs, and of the files only they kept. */
+    const letGo = Effect.fnUntraced(function* (ids: Iterable<string>) {
+      yield* store.release(namespace, ids);
+      yield* store.collect;
+    });
+
+    /** Past the number kept, the oldest go, whichever repository they were taken in. */
+    const keepLast = Effect.gen(function* () {
+      if (options.keepLast === undefined) {
+        return;
+      }
+      const oldest = (yield* every)
+        .sort((a, b) => listed(a).at - listed(b).at)
+        .slice(0, -options.keepLast);
+      if (oldest.length > 0) {
+        yield* letGo(oldest.map(idOf));
+      }
+    });
+
     const find = Effect.fnUntraced(function* (id: string) {
       const found = (yield* ofOpenRepo).find((ref) => idOf(ref) === id);
       if (!found) {
@@ -135,6 +171,8 @@ export const makeDesignRefs = <N extends Located>(
       yield* store
         .recordContents(namespace, files, { name: idOf(note), note: noted })
         .pipe(Effect.orDie);
+      yield* keepLast;
+      yield* publish;
     });
 
     const gone = (error: { readonly message: string }) =>
@@ -153,12 +191,14 @@ export const makeDesignRefs = <N extends Located>(
             SnapshotStoreFailed: Effect.die,
           })
         );
+      yield* keepLast;
+      yield* publish;
     });
 
     /** Lets go of the refs, and of the files only they kept. */
     const release = Effect.fnUntraced(function* (ids: Iterable<string>) {
-      yield* store.release(namespace, ids);
-      yield* store.collect;
+      yield* letGo(ids);
+      yield* publish;
     });
 
     /** The text of `files` as the ref kept them; all of them when none are named. */
@@ -296,12 +336,11 @@ export const makeDesignRefs = <N extends Located>(
     return {
       designFiles,
       diff,
-      every,
       find,
       importOld,
       keep,
+      list,
       name: nameTree,
-      ofOpenRepo,
       putBack,
       release,
       textsOf,

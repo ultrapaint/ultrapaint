@@ -1,7 +1,7 @@
 # Plan: deeper modules, the third review (2026-10-28)
 
-Status: steps 1 to 8 built, 2026-10-28, one commit each, under "Built". The other candidates
-were investigated one at a time ("Investigated") and planned as steps 9 to 18, being built.
+Status: steps 1 to 18 built, 2026-10-28, one commit each, under "Built". Steps 9 to 18 were
+planned from the candidates investigated one at a time ("Investigated").
 The decisions are recorded in [ADR 0039](adr/0039-deep-modules-third-review.md). Follows
 [ADR 0037](adr/0037-deep-modules.md) and [ADR 0038](adr/0038-deep-modules-second-review.md), whose
 31 steps ([PLAN-architecture.md](PLAN-architecture.md), [PLAN-architecture-2.md](PLAN-architecture-2.md))
@@ -295,6 +295,8 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
   e9de144 in a separate worktree): a frame's keys, the repository's proxy, CSS-in-JS styles, the
   editor's variables, the prototype's click error, a loop in a click, and (flaky) a frame's width
   and scroll.
+- On `ProjectTest` with the MCP server on, a prompt never reaches the agent: its endpoint waits
+  for the port the server listens on (`ListenPort`), and no test listens (step 18).
 
 ## Built
 
@@ -893,3 +895,38 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
     no. The first two failed first (the signal's stop still waiting after the second); the third
     fails with the join taken out (a second question, answered yes, stops the server). The
     refused-quit test reads the signal's stop the same way.
+18. **The checkpoints and snapshots, followed** (`apps/server/src/services/design-refs.ts`,
+    `apps/web/src/state/kept.ts`). `makeDesignRefs` is given how a ref is listed (`listed`, its
+    `at` the order) and how its list is told (`publish`): `keep`, `name` and `release`, the only
+    places either history is written, tell the editor the open repository's list, newest first,
+    once each, and `list` is that list, which `Checkpoints.list` and `Snapshots.list` are. The
+    last-30 rule is the namespace's `keepLast`, applied in `keep` before the list is told, so a
+    turn past 30 publishes once; `Checkpoints`' own `collect` and `every` outside `design-refs`
+    go. contracts has two events, `checkpoints` and `snapshots` (each the whole list of its kind,
+    as `checkpoints.list` and `snapshots.list` answer; `history` already names the log and undo
+    state). The web's `kept` store follows both like any server data (read when the Changes
+    panel opens on a repository, again at every connection open, live while a snapshot is on
+    screen, since a snapshot keeps no history); the panel reads it, and its tickets
+    (`asked.current`), `refresh`'s history half and the `onChange`, `onKeep` and `onRevert`
+    callbacks threaded through `Snapshots`, `SnapshotRow`, `Checkpoints` and `CheckpointRow` go;
+    `snapshot-actions` reads nothing again and `deleteSnapshot` answers nothing. `server-data`
+    takes answers in the order their reads began: one older than an answer taken is dropped, and
+    a piece's `whole` events (those bringing the whole of it, as a read does) make a read begun
+    before them older too. Git's status stays read on `file.changed` (after 250 ms of quiet) and
+    taken from `git`, a piece the panel follows while shown (`whole: ["git"]`), so its tickets go
+    the same way. Fixed: a turn that writes no design file left its checkpoint off the list until
+    some file changed; a snapshot saved or deleted in another tab was missed; a checkpoint let go
+    of by the last-30 rule stayed listed and failed with NotFound when clicked; an older read of
+    the history could land after newer news. Also: the history is read again when another
+    repository opens (it waited for a file to change); a `git` event unticks the files no longer
+    changed, as a read did; after a commit the panel takes the status the commit publishes
+    rather than reading it again; the Refresh button still reads both. `checkpoints.test.ts` has
+    2 tests more on `ProjectTest` (an agent of the state directory's, the MCP server off): a
+    prompt whose turn writes nothing publishes the list with its checkpoint, the same as
+    `Checkpoints.list`; a snapshot made and deleted publishes twice, with it and without. Both
+    failed first (nothing published within two seconds). `server-data.test.ts` reads the
+    checkpoints and snapshots with every store at an open, follows their events (nothing read)
+    and keeps the snapshots live under a snapshot on screen, and has 2 tests that failed first:
+    an answer older than the server's news is dropped, and one older than an answer taken.
+    `snapshot-actions.test.ts`: a snapshot saved and deleted shows in the history by the server's
+    news alone, no list read.

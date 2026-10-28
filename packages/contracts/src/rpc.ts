@@ -890,6 +890,8 @@ export const eventSchemas = {
   "agent.focus": AgentFocus,
   "agent.terminal": AgentTerminalOutput,
   canvas: Schema.Struct({ canvas: Schema.String, layout: CanvasLayout }),
+  /** The open repository's agent turn checkpoints, newest first: one taken, or let go of. */
+  checkpoints: Schema.Array(Checkpoint),
   comments: Schema.Struct({ canvas: Schema.String, list: CommentList }),
   designSystem: DesignSystemState,
   /** A document changed: an edit, an undo, an agent, a branch switch. */
@@ -910,6 +912,8 @@ export const eventSchemas = {
   screenshot: ScreenshotRequest,
   /** A skill file changed, or the settings turned one on or off. */
   skills: SkillList,
+  /** The open repository's named snapshots, newest first: one saved, or deleted. */
+  snapshots: Schema.Array(Snapshot),
   /** A spec file changed (ADR 0029). */
   specs: SpecList,
   /** The sync's plan, worked out again because something it reads changed. */
@@ -931,6 +935,10 @@ const eventRpcs = [
     success: eventSchemas["agent.terminal"],
   }),
   Rpc.make("events.canvas", { stream: true, success: eventSchemas.canvas }),
+  Rpc.make("events.checkpoints", {
+    stream: true,
+    success: eventSchemas.checkpoints,
+  }),
   Rpc.make("events.document", { stream: true, success: eventSchemas.document }),
   Rpc.make("events.designSystem", {
     stream: true,
@@ -965,6 +973,10 @@ const eventRpcs = [
     success: eventSchemas.screenshot,
   }),
   Rpc.make("events.skills", { stream: true, success: eventSchemas.skills }),
+  Rpc.make("events.snapshots", {
+    stream: true,
+    success: eventSchemas.snapshots,
+  }),
   Rpc.make("events.syncPlan", {
     stream: true,
     success: eventSchemas.syncPlan,

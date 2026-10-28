@@ -12,6 +12,8 @@
  *   pieces read `atOpen` are read first, one after the other, at the first open too.
  * - A piece of something chosen (the documents of the canvas open) reads what its `key` names
  *   now, and an answer for what is no longer chosen is dropped.
+ * - Answers are taken in the order their reads began: one older than an answer taken, or than
+ *   an event that brings the whole piece (`whole`: the checkpoints, git's status), is dropped.
  * - A snapshot on screen (ADR 0019) keeps the canvases with their pages, the documents and the
  *   layouts: each piece of those reads from the snapshot instead of the server, the live and the
  *   snapshot's being its two sources, and its news is held back until the editor goes back to
@@ -48,6 +50,11 @@ export interface Piece<T, K = undefined> {
   readonly read: (key: K) => Promise<T>;
   /** What a snapshot keeps in its place, for what a snapshot keeps. */
   readonly snapshot?: (view: SnapshotView, key: K) => T;
+  /**
+   * The events of `on` that bring the whole of it, as a read does (a state, not news of a
+   * change): an answer to a read begun before one of them is older, and is dropped.
+   */
+  readonly whole?: readonly EventName[];
 }
 
 export interface Followed<T, K> {
@@ -62,7 +69,11 @@ export interface Followed<T, K> {
 interface Entry {
   /** Asked for once: read again at every open. */
   asked: boolean;
+  /** The reads begun and the whole states pushed, counted: how new each is. */
+  begun: number;
   readonly piece: Piece<unknown, unknown>;
+  /** How new what the store took last is: an answer older than that is dropped. */
+  taken: number;
 }
 
 /** Every piece followed, in the order declared: the order the pieces read `atOpen` are read in. */
@@ -78,16 +89,24 @@ const fromSource = <T, K>(piece: Piece<T, K>, key: K): Promise<T> => {
     : piece.read(key);
 };
 
-const readEntry = async ({ piece }: Entry) => {
+const readEntry = async (entry: Entry) => {
+  const { piece } = entry;
   const key = piece.key ? piece.key() : undefined;
   if (key === null) {
     return;
   }
+  entry.begun += 1;
+  const at = entry.begun;
   const value = await fromSource(piece, key);
   // Something else was chosen while it was on its way.
   if (piece.key && !Object.is(piece.key(), key)) {
     return;
   }
+  // Newer news of it came while it was on its way.
+  if (at < entry.taken) {
+    return;
+  }
+  entry.taken = at;
   piece.apply?.(value, key);
 };
 
@@ -97,7 +116,9 @@ export const follow = <T, K = undefined>(
 ): Followed<T, K> => {
   const entry: Entry = {
     asked: false,
+    begun: 0,
     piece: piece as Piece<unknown, unknown>,
+    taken: 0,
   };
   entries.add(entry);
   return {
@@ -118,9 +139,14 @@ export const follow = <T, K = undefined>(
 /** An event, to every piece that declared it; a snapshot on screen holds back what it keeps. */
 const dispatch = (event: EventName, payload: unknown) => {
   const keptBy = viewed() !== null;
-  for (const { piece } of entries) {
+  for (const entry of entries) {
+    const { piece } = entry;
     const handler = piece.on?.[event] as ((p: unknown) => void) | undefined;
     if (handler && !(keptBy && piece.snapshot)) {
+      if (piece.whole?.includes(event)) {
+        entry.begun += 1;
+        entry.taken = entry.begun;
+      }
       handler(payload);
     }
   }
