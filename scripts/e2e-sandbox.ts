@@ -63,7 +63,10 @@ interface CheckWindow {
     goTo: (to: { route: string }) => void;
     openCanvas: (id: string) => void;
     useEditor: { getState: () => EditorState };
-    zoomToPage: (page: string) => void;
+    useProject: { getState: () => { pages: { id: string }[] } };
+    zoomToFit: () => void;
+    /** Takes the project's page, not its id. */
+    zoomToPage: (page: { id: string }) => void;
   };
   __probe?: Probe;
 }
@@ -96,6 +99,26 @@ const freePort = () =>
   });
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Reads until `done` holds of what `read` gives, or `timeout` ms have passed: what the page does
+ * after an action (a request answered, a style mirrored, an error caught) is waited for, never
+ * slept on. Gives the last read, which the check then judges and reports.
+ */
+const readUntil = async <A>(
+  read: () => Promise<A>,
+  done: (value: A) => boolean,
+  timeout = 10_000
+): Promise<A> => {
+  const end = Date.now() + timeout;
+  let value = await read();
+  while (!done(value) && Date.now() < end) {
+    // biome-ignore lint/performance/noAwaitInLoops: polling, one look at a time.
+    await sleep(100);
+    value = await read();
+  }
+  return value;
+};
 
 /** An editor on the fixture host, in a process group of its own, stopped through its handle. */
 /**
@@ -176,29 +199,59 @@ const launch = (profile: string) =>
     viewport: { height: 1000, width: 1600 },
   });
 
-/** Opens `canvas` and waits until every frame on it has drawn its page. */
-const open = async (page: Page, url: string, canvas: string) => {
-  await page.goto(`${url}/?canvas=${canvas}`, { waitUntil: "load" });
-  await page.waitForFunction(
+/**
+ * Waits until `canvas` is open and every one of its frames is on the canvas, its page drawn.
+ * Frames are drawn a few at a time, and one off the screen only once the camera is there: the
+ * frames already drawn are not all of them.
+ */
+const allDrawn = (page: Page, canvas: string) =>
+  page.waitForFunction(
     (c) => {
       const ed = (window as unknown as Partial<CheckWindow>).__ed;
-      const hosts = [
-        ...document.querySelectorAll("[data-canvas] [data-ed-frame-host]"),
-      ];
+      const state = ed?.useEditor.getState();
+      const ids = Object.keys(state?.frames ?? {});
       return (
-        ed?.useEditor.getState().canvas === c &&
-        hosts.length > 0 &&
-        hosts.every(
-          (h) =>
-            (h.shadowRoot?.querySelector("#root")?.childElementCount ?? 0) > 0
+        state?.canvas === c &&
+        ids.length > 0 &&
+        ids.every((id) =>
+          document
+            .querySelector(
+              `[data-canvas] [data-ed-frame-host="${CSS.escape(id)}"]`
+            )
+            ?.hasAttribute("data-ed-drawn")
         )
       );
     },
     canvas,
     { timeout: 60_000 }
   );
-  await page.waitForTimeout(500);
+
+/**
+ * Reads until `judge` passes what `read` gives (see `readUntil`): true, or what was wrong with
+ * the last read.
+ */
+const judged = async <A>(
+  read: () => Promise<A>,
+  judge: (value: A) => true | string
+): Promise<true | string> =>
+  judge(await readUntil(read, (v) => judge(v) === true));
+
+/** Opens `canvas` and waits until every frame on it has drawn its page. */
+const open = async (page: Page, url: string, canvas: string) => {
+  await page.goto(`${url}/?canvas=${canvas}`, { waitUntil: "load" });
+  await allDrawn(page, canvas);
 };
+
+/** Has the camera bring the page `id` into view, as Zoom to page does. */
+const zoomToPage = (page: Page, id: string) =>
+  page.evaluate((pageId) => {
+    const ed = (window as unknown as CheckWindow).__ed;
+    const target = ed.useProject.getState().pages.find((p) => p.id === pageId);
+    if (!target) {
+      throw new Error(`no page ${pageId}`);
+    }
+    ed.zoomToPage(target);
+  }, id);
 
 /** What the probes wrote down from `probe`, from entry `from` on. */
 const logOf = (page: Page, probe: string, from = 0) =>
@@ -215,20 +268,47 @@ const logLength = (page: Page) =>
     () => (window as unknown as CheckWindow).__probe?.log.length ?? 0
   );
 
-/** The center of the first element matching `selector` inside a frame host, on the screen. */
-const centerIn = (page: Page, host: string, selector: string) =>
-  page.evaluate(
-    ({ host: id, selector: sel }) => {
-      const el = document
-        .querySelector(`[data-ed-frame-host="${CSS.escape(id)}"]`)
-        ?.shadowRoot?.querySelector(sel);
-      const box = el?.getBoundingClientRect();
-      return box
-        ? { x: box.x + box.width / 2, y: box.y + box.height / 2 }
-        : null;
-    },
-    { host, selector }
-  );
+/**
+ * The center of the first element matching `selector` inside a frame host, once a click there
+ * reaches it: on the screen, the camera still (the same place twice in a row), the frame taking
+ * input and nothing over it. Null when it does not within 10 s.
+ */
+const centerIn = async (page: Page, host: string, selector: string) => {
+  const read = () =>
+    page.evaluate(
+      ({ host: id, selector: sel }) => {
+        const frame = document.querySelector(
+          `[data-ed-frame-host="${CSS.escape(id)}"]`
+        );
+        const el = frame?.shadowRoot?.querySelector(sel);
+        if (!(frame?.shadowRoot && el)) {
+          return null;
+        }
+        const box = el.getBoundingClientRect();
+        const x = box.x + box.width / 2;
+        const y = box.y + box.height / 2;
+        const hit = frame.shadowRoot.elementFromPoint(x, y);
+        return {
+          reached:
+            document.elementFromPoint(x, y) === frame &&
+            hit !== null &&
+            el.contains(hit) &&
+            el.closest("[inert]") === null,
+          x,
+          y,
+        };
+      },
+      { host, selector }
+    );
+  let last = "";
+  const point = await readUntil(read, (p) => {
+    const at = JSON.stringify(p && [p.x, p.y]);
+    const still = at === last;
+    last = at;
+    return p?.reached === true && still;
+  });
+  return point?.reached ? { x: point.x, y: point.y } : null;
+};
 
 const results: { detail?: string; name: string; ok: boolean }[] = [];
 const check = async (name: string, run: () => Promise<string | true>) => {
@@ -272,12 +352,12 @@ const guards = async (page: Page, url: string) => {
   await check(
     "the application hears the keys typed in its own frame",
     async () => {
-      await page.evaluate(() => {
-        const ed = (window as unknown as CheckWindow).__ed;
-        ed.zoomToPage("guards/hotkey.page.json");
-        ed.useEditor.getState().setMode("interact");
-      });
-      await page.waitForTimeout(800);
+      await zoomToPage(page, "guards/hotkey.page.json");
+      await page.evaluate(() =>
+        (window as unknown as CheckWindow).__ed.useEditor
+          .getState()
+          .setMode("interact")
+      );
       const input = await centerIn(page, "guards/hotkey.page.json", "input");
       if (!input) {
         return "the frame's field is not on the screen";
@@ -285,12 +365,18 @@ const guards = async (page: Page, url: string) => {
       const from = await logLength(page);
       await page.mouse.click(input.x, input.y);
       await page.keyboard.press("a");
-      const heard = await logOf(page, "hotkey", from);
-      await page.evaluate(() =>
-        (window as unknown as CheckWindow).__ed.useEditor
-          .getState()
-          .setMode("select")
+      const heard = await readUntil(
+        () => logOf(page, "hotkey", from),
+        (h) => h.length > 0,
+        2000
       );
+      await page.evaluate(() => {
+        const ed = (window as unknown as CheckWindow).__ed;
+        ed.useEditor.getState().setMode("select");
+        // Every frame of the canvas on the screen again, for the checks that read them.
+        ed.zoomToFit();
+      });
+      await allDrawn(page, "guards");
       return heard.length > 0 || "the frame's key was not heard";
     }
   );
@@ -317,11 +403,15 @@ const guards = async (page: Page, url: string) => {
   await check(
     "a request to the application's own origin reaches its backend, not the editor",
     async () => {
-      const answer = await page.evaluate(
+      const answer = await readUntil(
         () =>
-          document
-            .querySelector('[data-ed-frame-host="guards/fetch.page.json"]')
-            ?.shadowRoot?.querySelector('[data-probe="fetch"]')?.textContent
+          page.evaluate(
+            () =>
+              document
+                .querySelector('[data-ed-frame-host="guards/fetch.page.json"]')
+                ?.shadowRoot?.querySelector('[data-probe="fetch"]')?.textContent
+          ),
+        (a) => a === "backend:/api/health"
       );
       return answer === "backend:/api/health" || `answered ${answer}`;
     }
@@ -329,147 +419,166 @@ const guards = async (page: Page, url: string) => {
 
   await check(
     "the application's storage is its own, the editor's out of its reach",
-    async () => {
-      const seen = await page.evaluate(() => {
-        const text = document
-          .querySelector('[data-ed-frame-host="guards/storage.page.json"]')
-          ?.shadowRoot?.querySelector('[data-probe="storage"]')?.textContent;
-        return {
-          editor: {
-            canvas: localStorage.getItem("ultrapaint:canvas"),
-            theme: localStorage.getItem("theme"),
-          },
-          frame: text?.startsWith("{")
-            ? (JSON.parse(text) as {
-                databases: string[];
-                editorKey: string | null;
-                theme: string | null;
-              })
-            : null,
-        };
-      });
-      const { editor, frame } = seen;
-      return (
-        (frame !== null &&
-          frame.editorKey === null &&
-          frame.theme === "probe-dark" &&
-          !frame.databases.includes("ultrapaint-watchdog") &&
-          editor.canvas !== null &&
-          editor.theme === null) ||
-        JSON.stringify(seen)
-      );
-    }
+    async () =>
+      judged(
+        () =>
+          page.evaluate(() => {
+            const text = document
+              .querySelector('[data-ed-frame-host="guards/storage.page.json"]')
+              ?.shadowRoot?.querySelector(
+                '[data-probe="storage"]'
+              )?.textContent;
+            return {
+              editor: {
+                canvas: localStorage.getItem("ultrapaint:canvas"),
+                theme: localStorage.getItem("theme"),
+              },
+              frame: text?.startsWith("{")
+                ? (JSON.parse(text) as {
+                    databases: string[];
+                    editorKey: string | null;
+                    theme: string | null;
+                  })
+                : null,
+            };
+          }),
+        (seen) => {
+          const { editor, frame } = seen;
+          return (
+            (frame !== null &&
+              frame.editorKey === null &&
+              frame.theme === "probe-dark" &&
+              !frame.databases.includes("ultrapaint-watchdog") &&
+              editor.canvas !== null &&
+              editor.theme === null) ||
+            JSON.stringify(seen)
+          );
+        }
+      )
   );
 
   await check(
     "a theme class and a scroll lock land on their frame, not the editor",
-    async () => {
-      const seen = await page.evaluate(() => {
-        const host = document.querySelector(
-          '[data-ed-frame-host="guards/theme.page.json"]'
-        ) as HTMLElement | null;
-        const body = host?.shadowRoot?.querySelector(
-          "[data-ed-body]"
-        ) as HTMLElement | null;
-        return {
-          editor: {
-            locked: document.body.hasAttribute("data-scroll-locked"),
-            overflow: document.body.style.overflow,
-            scheme: document.documentElement.style.colorScheme,
-            theme: document.documentElement.classList.contains("probe-theme"),
-          },
-          frame: {
-            bodyTheme: body?.classList.contains("probe-theme") ?? false,
-            hostTheme: host?.classList.contains("probe-theme") ?? false,
-            locked: body?.getAttribute("data-scroll-locked") ?? null,
-            scheme: host?.shadowRoot?.querySelector('[data-probe="theme"]')
-              ?.textContent,
-          },
-        };
-      });
-      const { editor, frame } = seen;
-      return (
-        (!(editor.locked || editor.theme) &&
-          editor.overflow === "" &&
-          editor.scheme === "" &&
-          frame.hostTheme &&
-          frame.bodyTheme &&
-          frame.locked === "1" &&
-          frame.scheme === "light") ||
-        JSON.stringify(seen)
-      );
-    }
+    async () =>
+      judged(
+        () =>
+          page.evaluate(() => {
+            const host = document.querySelector(
+              '[data-ed-frame-host="guards/theme.page.json"]'
+            ) as HTMLElement | null;
+            const body = host?.shadowRoot?.querySelector(
+              "[data-ed-body]"
+            ) as HTMLElement | null;
+            return {
+              editor: {
+                locked: document.body.hasAttribute("data-scroll-locked"),
+                overflow: document.body.style.overflow,
+                scheme: document.documentElement.style.colorScheme,
+                theme:
+                  document.documentElement.classList.contains("probe-theme"),
+              },
+              frame: {
+                bodyTheme: body?.classList.contains("probe-theme") ?? false,
+                hostTheme: host?.classList.contains("probe-theme") ?? false,
+                locked: body?.getAttribute("data-scroll-locked") ?? null,
+                scheme: host?.shadowRoot?.querySelector('[data-probe="theme"]')
+                  ?.textContent,
+              },
+            };
+          }),
+        (seen) => {
+          const { editor, frame } = seen;
+          return (
+            (!(editor.locked || editor.theme) &&
+              editor.overflow === "" &&
+              editor.scheme === "" &&
+              frame.hostTheme &&
+              frame.bodyTheme &&
+              frame.locked === "1" &&
+              frame.scheme === "light") ||
+            JSON.stringify(seen)
+          );
+        }
+      )
   );
 
   await check(
     "styles the application's code writes (CSS-in-JS, StyleX) reach its frames, not the editor",
-    async () => {
-      const seen = await page.evaluate(() => {
-        const shadow = document.querySelector(
-          '[data-ed-frame-host="guards/css-in-js.page.json"]'
-        )?.shadowRoot;
-        const stylexBox = document
-          .querySelector('[data-ed-frame-host="guards/stylex.page.json"]')
-          ?.shadowRoot?.querySelector('[data-probe="stylex"]');
-        const box = shadow?.querySelector('[data-probe="css-box"]');
-        const text = shadow?.querySelector('[data-probe="text-box"]');
-        const body = shadow?.querySelector("[data-ed-body]");
-        return {
-          editor: {
-            inHead: document.head.querySelectorAll(
-              'style[data-emotion="probe"], #_goober, style[data-stylex]'
-            ).length,
-            outline: getComputedStyle(document.body).outlineStyle,
-          },
-          frame: {
-            box: box ? getComputedStyle(box).backgroundColor : null,
-            outline: body ? getComputedStyle(body).outlineStyle : null,
-            // StyleX, its width query the frame's (440 px): dashed below 500.
-            stylex: stylexBox
-              ? `${getComputedStyle(stylexBox).backgroundColor} ${getComputedStyle(stylexBox).borderTopStyle}`
-              : null,
-            text: text ? getComputedStyle(text).color : null,
-          },
-        };
-      });
-      const { editor, frame } = seen;
-      return (
-        (frame.box === "rgb(255, 0, 0)" &&
-          frame.text === "rgb(0, 0, 255)" &&
-          frame.outline === "solid" &&
-          frame.stylex === "rgb(0, 160, 0) dashed" &&
-          editor.outline !== "solid" &&
-          editor.inHead === 0) ||
-        JSON.stringify(seen)
+    () => {
+      return judged(
+        () =>
+          page.evaluate(() => {
+            const shadow = document.querySelector(
+              '[data-ed-frame-host="guards/css-in-js.page.json"]'
+            )?.shadowRoot;
+            const stylexBox = document
+              .querySelector('[data-ed-frame-host="guards/stylex.page.json"]')
+              ?.shadowRoot?.querySelector('[data-probe="stylex"]');
+            const box = shadow?.querySelector('[data-probe="css-box"]');
+            const text = shadow?.querySelector('[data-probe="text-box"]');
+            const body = shadow?.querySelector("[data-ed-body]");
+            return {
+              editor: {
+                inHead: document.head.querySelectorAll(
+                  'style[data-emotion="probe"], #_goober, style[data-stylex]'
+                ).length,
+                outline: getComputedStyle(document.body).outlineStyle,
+              },
+              frame: {
+                box: box ? getComputedStyle(box).backgroundColor : null,
+                outline: body ? getComputedStyle(body).outlineStyle : null,
+                // StyleX, its width query the frame's (440 px): dashed below 500.
+                stylex: stylexBox
+                  ? `${getComputedStyle(stylexBox).backgroundColor} ${getComputedStyle(stylexBox).borderTopStyle}`
+                  : null,
+                text: text ? getComputedStyle(text).color : null,
+              },
+            };
+          }),
+        (seen) => {
+          const { editor, frame } = seen;
+          return (
+            (frame.box === "rgb(255, 0, 0)" &&
+              frame.text === "rgb(0, 0, 255)" &&
+              frame.outline === "solid" &&
+              frame.stylex === "rgb(0, 160, 0) dashed" &&
+              editor.outline !== "solid" &&
+              editor.inHead === 0) ||
+            JSON.stringify(seen)
+          );
+        }
       );
     }
   );
 
   await check(
     "stylesheets the application's code links reach its frames, not the editor",
-    async () => {
-      const seen = await page.evaluate(() => {
-        const shadow = document.querySelector(
-          '[data-ed-frame-host="guards/link.page.json"]'
-        )?.shadowRoot;
-        const own = shadow?.querySelector('[data-probe="link-box"]');
-        const cross = shadow?.querySelector('[data-probe="cross-box"]');
-        return {
-          cross: cross ? getComputedStyle(cross).backgroundColor : null,
-          inHead: [...document.head.querySelectorAll("link")].filter(
-            (l) => l.href.includes("probe-link") || l.href.includes("cross.css")
-          ).length,
-          own: own ? getComputedStyle(own).backgroundColor : null,
-          // Its relative URL, made absolute against the stylesheet's address.
-          ownImage: own ? getComputedStyle(own).backgroundImage : null,
-        };
-      });
-      return (
-        (seen.own === "rgb(255, 165, 0)" &&
-          seen.ownImage?.includes("/preview/probe-dot.svg") &&
-          seen.cross === "rgb(128, 0, 128)" &&
-          seen.inHead === 0) ||
-        JSON.stringify(seen)
+    () => {
+      return judged(
+        () =>
+          page.evaluate(() => {
+            const shadow = document.querySelector(
+              '[data-ed-frame-host="guards/link.page.json"]'
+            )?.shadowRoot;
+            const own = shadow?.querySelector('[data-probe="link-box"]');
+            const cross = shadow?.querySelector('[data-probe="cross-box"]');
+            return {
+              cross: cross ? getComputedStyle(cross).backgroundColor : null,
+              inHead: [...document.head.querySelectorAll("link")].filter(
+                (l) =>
+                  l.href.includes("probe-link") || l.href.includes("cross.css")
+              ).length,
+              own: own ? getComputedStyle(own).backgroundColor : null,
+              // Its relative URL, made absolute against the stylesheet's address.
+              ownImage: own ? getComputedStyle(own).backgroundImage : null,
+            };
+          }),
+        (seen) =>
+          (seen.own === "rgb(255, 165, 0)" &&
+            seen.ownImage?.includes("/preview/probe-dot.svg") &&
+            seen.cross === "rgb(128, 0, 128)" &&
+            seen.inHead === 0) ||
+          JSON.stringify(seen)
       );
     }
   );
@@ -484,13 +593,13 @@ const guards = async (page: Page, url: string) => {
 
   await check(
     "a frame's code reads the frame's width as the window's",
-    async () => {
-      const read = await windowProbe();
-      return (
-        (read?.innerWidth === 390 && read.phone === true) ||
-        JSON.stringify(read)
-      );
-    }
+    async () =>
+      judged(
+        windowProbe,
+        (read) =>
+          (read?.innerWidth === 390 && read.phone === true) ||
+          JSON.stringify(read)
+      )
   );
 
   await check(
@@ -504,12 +613,14 @@ const guards = async (page: Page, url: string) => {
           host.scrollTop = 120;
         }
       });
-      await page.waitForTimeout(400);
-      const read = await windowProbe();
-      const editor = await page.evaluate(() => window.scrollY);
-      return (
-        (read?.scrollY === 120 && editor === 0) ||
-        `${JSON.stringify(read)}, editor ${editor}`
+      return judged(
+        async () => ({
+          editor: await page.evaluate(() => window.scrollY),
+          read: await windowProbe(),
+        }),
+        ({ editor, read }) =>
+          (read?.scrollY === 120 && editor === 0) ||
+          `${JSON.stringify(read)}, editor ${editor}`
       );
     }
   );
@@ -533,10 +644,8 @@ const guards = async (page: Page, url: string) => {
     );
   });
 
-  await check(
-    "an error thrown in a timer is shown on its own frame",
-    async () => {
-      const errors = await frameErrors();
+  await check("an error thrown in a timer is shown on its own frame", () =>
+    judged(frameErrors, (errors) => {
       const shown = errors["guards/err-timeout.page.json"] ?? "";
       const elsewhere = Object.entries(errors).filter(
         ([frame, text]) => frame !== "guards/err-timeout.page.json" && text
@@ -545,7 +654,7 @@ const guards = async (page: Page, url: string) => {
         (shown.includes("thrown in a timeout") && elsewhere.length === 0) ||
         JSON.stringify(errors)
       );
-    }
+    })
   );
 
   await check(
@@ -556,7 +665,6 @@ const guards = async (page: Page, url: string) => {
         ed.useEditor.getState().setWorkspace("prototype");
         ed.goTo({ route: "/err-click" });
       });
-      await page.waitForTimeout(2000);
       const button = await centerIn(
         page,
         PROTOTYPE,
@@ -566,28 +674,31 @@ const guards = async (page: Page, url: string) => {
         return "the prototype's button is not on the screen";
       }
       await page.mouse.click(button.x, button.y);
-      await page.waitForTimeout(300);
-      const shown = (await frameErrors())[PROTOTYPE] ?? "";
-      const banner = await page.evaluate(() =>
-        [...document.querySelectorAll("pre")].some((p) =>
-          p.textContent?.includes("thrown in a click handler")
-        )
+      const verdict = await judged(
+        async () => ({
+          banner: await page.evaluate(() =>
+            [...document.querySelectorAll("pre")].some((p) =>
+              p.textContent?.includes("thrown in a click handler")
+            )
+          ),
+          shown: (await frameErrors())[PROTOTYPE] ?? "",
+        }),
+        ({ banner, shown }) =>
+          (shown.includes("thrown in a click handler") && banner) ||
+          `shown: ${shown}, banner ${banner}`
       );
       await page.evaluate(() =>
         (window as unknown as CheckWindow).__ed.useEditor
           .getState()
           .setWorkspace("design")
       );
-      return (
-        (shown.includes("thrown in a click handler") && banner) ||
-        `shown: ${shown}`
-      );
+      return verdict;
     }
   );
 
   await check("reloading the editor asks nothing", async () => {
+    // A guard that asked would have opened its dialog before the page unloaded.
     await page.reload({ waitUntil: "load" });
-    await page.waitForTimeout(500);
     return dialogs.length === 0 || `asked: ${dialogs.join(", ")}`;
   });
 };
@@ -699,7 +810,6 @@ const loops = async (page: Page, url: string) => {
     { timeout: 30_000 }
   );
   const loaded = Date.now() - start;
-  await page.waitForTimeout(1000);
 
   await check(
     "a loop that never ends in a render is stopped and shown on its frame",
@@ -714,30 +824,29 @@ const loops = async (page: Page, url: string) => {
 
   await check(
     "a dependency's loop that never ends (React rendering a component inside itself) is stopped",
-    async () => {
-      const shown = await page.evaluate(
+    () =>
+      judged(
         () =>
-          (
-            document
-              .querySelector(
-                '[data-ed-frame-host="loops/loop-react.page.json"]'
-              )
-              ?.shadowRoot?.querySelector("#root") as HTMLElement | null
-          )?.innerText ?? ""
-      );
-      return (
-        shown.includes("Stopped a loop") || `shown: ${shown.slice(0, 200)}`
-      );
-    }
+          page.evaluate(
+            () =>
+              (
+                document
+                  .querySelector(
+                    '[data-ed-frame-host="loops/loop-react.page.json"]'
+                  )
+                  ?.shadowRoot?.querySelector("#root") as HTMLElement | null
+              )?.innerText ?? ""
+          ),
+        (shown) =>
+          shown.includes("Stopped a loop") || `shown: ${shown.slice(0, 200)}`
+      )
   );
 
-  await check(
-    "a rejection is shown on the frame whose code made it",
-    async () => {
-      const shown = await errors();
+  await check("a rejection is shown on the frame whose code made it", () => {
+    const line = probeLine("async function load", "throw new Error");
+    return judged(errors, (shown) => {
       const a = shown["loops/reject-a.page.json"] ?? "";
       const b = shown["loops/reject-b.page.json"] ?? "";
-      const line = probeLine("async function load", "throw new Error");
       return (
         (a.includes("rejected in a") &&
           a.includes(`probes.tsx:${line}`) &&
@@ -745,32 +854,34 @@ const loops = async (page: Page, url: string) => {
           b.includes("rejected in b")) ||
         JSON.stringify(shown)
       );
-    }
-  );
+    });
+  });
 
-  await check(
-    "a rejection no frame can be said to make is shown on none",
-    async () => {
-      const onFrames = Object.values(await errors()).some((text) =>
-        text?.includes("rejected in a chain")
-      );
-      const toast = await page.evaluate(() =>
-        (window as unknown as { __toasts: string[] }).__toasts.some((text) =>
-          text.includes("rejected in a chain")
-        )
-      );
-      return (!onFrames && toast) || `on a frame ${onFrames}, toast ${toast}`;
-    }
+  await check("a rejection no frame can be said to make is shown on none", () =>
+    judged(
+      async () => ({
+        onFrames: Object.values(await errors()).some((text) =>
+          text?.includes("rejected in a chain")
+        ),
+        toast: await page.evaluate(() =>
+          (window as unknown as { __toasts: string[] }).__toasts.some((text) =>
+            text.includes("rejected in a chain")
+          )
+        ),
+      }),
+      ({ onFrames, toast }) =>
+        (!onFrames && toast) || `on a frame ${onFrames}, toast ${toast}`
+    )
   );
   await check(
     "a loop that never ends in a click is stopped and shown on its frame",
     async () => {
-      await page.evaluate(() => {
-        const ed = (window as unknown as CheckWindow).__ed;
-        ed.zoomToPage("loops/loop-click.page.json");
-        ed.useEditor.getState().setMode("interact");
-      });
-      await page.waitForTimeout(800);
+      await zoomToPage(page, "loops/loop-click.page.json");
+      await page.evaluate(() =>
+        (window as unknown as CheckWindow).__ed.useEditor
+          .getState()
+          .setMode("interact")
+      );
       const button = await centerIn(
         page,
         "loops/loop-click.page.json",
@@ -783,41 +894,44 @@ const loops = async (page: Page, url: string) => {
       await page.mouse.click(button.x, button.y);
       await page.evaluate(() => true);
       const held = Date.now() - clicked;
-      await page.waitForTimeout(300);
+      const line = probeLine("const loopOnClick", "while (");
+      const verdict = await judged(
+        async () => (await errors())["loops/loop-click.page.json"] ?? "",
+        (shown) =>
+          (shown.includes("Stopped a loop") &&
+            shown.includes(`probes.tsx:${line}`) &&
+            held < 5000) ||
+          `shown: ${shown}, held ${held} ms`
+      );
       await page.evaluate(() =>
         (window as unknown as CheckWindow).__ed.useEditor
           .getState()
           .setMode("select")
       );
-      const shown = (await errors())["loops/loop-click.page.json"] ?? "";
-      const line = probeLine("const loopOnClick", "while (");
-      return (
-        (shown.includes("Stopped a loop") &&
-          shown.includes(`probes.tsx:${line}`) &&
-          held < 5000) ||
-        `shown: ${shown}, held ${held} ms`
-      );
+      return verdict;
     }
   );
 };
 
 const animations = async (page: Page, url: string) => {
   await open(page, url, "raf");
+  /** How many frames each animation has drawn, by its frame (parked or not). */
   const frames = () =>
     page.evaluate(() =>
-      [...document.querySelectorAll("[data-ed-frame-host]")]
-        .filter((h) =>
-          (h as HTMLElement).dataset.edFrameHost?.startsWith("raf/")
-        )
-        .map((h) =>
-          Number(
-            (
-              h.shadowRoot?.querySelector(
-                '[data-probe="raf"]'
-              ) as HTMLElement | null
-            )?.dataset.frames ?? 0
-          )
-        )
+      Object.fromEntries(
+        [...document.querySelectorAll("[data-ed-frame-host]")]
+          .map((h): [string, number] => [
+            (h as HTMLElement).dataset.edFrameHost ?? "",
+            Number(
+              (
+                h.shadowRoot?.querySelector(
+                  '[data-probe="raf"]'
+                ) as HTMLElement | null
+              )?.dataset.frames ?? 0
+            ),
+          ])
+          .filter(([id]) => id.startsWith("raf/"))
+      )
     );
   await check(
     "a parked frame's animation waits, and goes on when seen",
@@ -825,20 +939,27 @@ const animations = async (page: Page, url: string) => {
       await page.evaluate(() =>
         (window as unknown as CheckWindow).__ed.openCanvas("calm")
       );
-      await page.waitForTimeout(800);
+      // The other canvas drawn: the animations' frames are parked.
+      await allDrawn(page, "calm");
       const parked = await frames();
-      await page.waitForTimeout(1500);
+      // Held for a while, which only time can say.
+      await sleep(1500);
       const later = await frames();
       await page.evaluate(() =>
         (window as unknown as CheckWindow).__ed.openCanvas("raf")
       );
-      await page.waitForTimeout(1500);
-      const back = await frames();
-      const waited = later.every((n, i) => n === parked[i]);
-      const resumed = back.some((n, i) => n > (later[i] ?? 0));
+      await allDrawn(page, "raf");
+      const back = await readUntil(frames, (counts) =>
+        Object.entries(counts).some(([id, n]) => n > (later[id] ?? 0))
+      );
+      const ids = Object.keys(later);
+      const waited = ids.every((id) => later[id] === parked[id]);
+      const resumed = ids.some((id) => (back[id] ?? 0) > (later[id] ?? 0));
+      const all = (counts: Record<string, number>) =>
+        ids.map((id) => counts[id]).join(",");
       return (
-        (later.length > 0 && waited && resumed) ||
-        `parked ${parked}, 1.5 s later ${later}, back ${back}`
+        (ids.length > 0 && waited && resumed) ||
+        `parked ${all(parked)}, 1.5 s later ${all(later)}, back ${all(back)}`
       );
     }
   );
@@ -869,12 +990,16 @@ const freeze = async (url: string) => {
     context = await launch(profile);
     const again = context.pages()[0] ?? (await context.newPage());
     await again.goto(`${url}/?canvas=freeze`, { waitUntil: "load" });
-    await again.waitForTimeout(5000);
-    const shown = await again.evaluate(() => ({
-      drawn: document.querySelectorAll("[data-canvas] [data-ed-frame-host]")
-        .length,
-      placeholder: document.body.innerText.includes("stopped the editor"),
-    }));
+    const shown = await readUntil(
+      () =>
+        again.evaluate(() => ({
+          drawn: document.querySelectorAll("[data-canvas] [data-ed-frame-host]")
+            .length,
+          placeholder: document.body.innerText.includes("stopped the editor"),
+        })),
+      (seen) => seen.placeholder,
+      15_000
+    );
     await check(
       "a page that stopped the editor is a placeholder after",
       async () =>

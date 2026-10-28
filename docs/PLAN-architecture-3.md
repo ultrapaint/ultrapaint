@@ -280,10 +280,7 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
 
 ## Follow-ups found while building
 
-- `pnpm e2e:sandbox` fails 6 to 8 of its 23 checks, the same before steps 6 to 8 (checked on
-  e9de144 in a separate worktree): a frame's keys, the repository's proxy, CSS-in-JS styles, the
-  editor's variables, the prototype's click error, a loop in a click, and (flaky) a frame's width
-  and scroll.
+None open.
 
 ## Built
 
@@ -1127,3 +1124,29 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
     failed first (the host probed the port it had picked, and timed out). Left: with port 0
     Vite itself makes sure the port is free on every interface before it binds it, a gap inside
     one process of a few system calls.
+16. **`pnpm e2e:sandbox` passes its 23 checks, waiting for what it reads**
+    (`scripts/e2e-sandbox.ts`). The 8 checks that failed (a frame's keys, the repository's
+    proxy, CSS-in-JS and StyleX, a frame's width and scroll, the editor's variables, the
+    prototype's click error, a loop in a click) had one cause, a stale check: the script called
+    the dev handle's `zoomToPage` with a page's id where it takes the project's page, and the
+    canvas then selected `undefined`, which threw (`startsWith` of undefined) and took the
+    editor's tree down with every frame on it. What followed read frames that were gone or had
+    never been drawn: the frames are drawn a few at a time, and `open` waited only for those
+    already on the canvas, so whether the window's frame was among them varied (the flaky width
+    and scroll). StyleX was not `fs.allow`: its frame was among those never drawn, and Vite
+    serves its runtime pre-bundled. Since step 14 (b61e8d5, found by running each commit's e2e
+    against the same dependencies) `reveal({ page: undefined })` waits for no frame and the
+    checks passed without the camera ever moving, the hotkey's and the loop's frames happening to
+    be on the screen. Fixed in the check: `zoomToPage` is given the page (as `bench:canvas`
+    does), and the camera now goes there (zoom 1.57); `open` and `allDrawn` wait for every frame
+    of the canvas to be on it and drawn (`data-ed-drawn`), and after the hotkey's frame the
+    canvas is fitted again and drawn before the next checks read it. The fixed sleeps go for
+    conditions: `centerIn` waits until a click at the element reaches it (on the screen, the
+    camera still, the frame taking input, nothing over it); `readUntil` and `judged` read until a
+    check passes or 10 s are gone and report the last read (a request's answer, mirrored styles,
+    a frame's width and scroll, errors in a timer, a click, a rejection and a loop, a module's
+    loop, the placeholder after a freeze); the animations' check waits for the other canvas
+    drawn rather than 800 ms and reads each animation by its frame, not its place in the
+    document. Left: what is measured over time (an animation held 1.5 s, a module's interval
+    for 1 s, the watchdog's 3 s) and the editor's ports, which the script picks before `pnpm
+    dev` listens. Three runs in a row: 23 of 23.
