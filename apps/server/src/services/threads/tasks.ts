@@ -16,7 +16,6 @@ import type { ThreadPurpose } from "@ultrapaint/contracts/threads";
 import { Context, Effect, Layer } from "effect";
 import { ServerConfig } from "../../config.ts";
 import { ProjectManager } from "../../project.ts";
-import { CatalogueService } from "../catalogue.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { agentWays } from "./agent-ways.ts";
@@ -111,48 +110,19 @@ export class AgentTasks extends Context.Service<
        * agent must not try to fix them itself (it has guessed paths before); the user does, in
        * the Sync view, which detects them.
        */
-      const componentsMissing = project
-        .use(
-          Effect.gen(function* () {
-            const { settings } = yield* RepoPaths;
-            const count =
-              settings.libraryDirs.length === 0
-                ? 0
-                : yield* (yield* CatalogueService).get(false).pipe(
-                    Effect.map((c) => c.components.length),
-                    Effect.orElseSucceed(() => 0)
-                  );
-            if (count > 0) {
-              return "";
-            }
-            const where =
-              settings.libraryDirs.length === 0
-                ? "no component directory is configured"
-                : `${settings.libraryDirs.join(", ")} has no components the editor can read`;
-            return `Before anything else: the editor sees no components (${where}). Do not write or edit
-ultrapaint.config.json or any other configuration to fix it. Tell the user to open the Design
-system panel and press Sync, which finds the components and asks them to confirm, then stop.
-Go on without components only if the user says the project has none.
-
-`;
-          })
-        )
-        .pipe(Effect.orElseSucceed(() => ""));
-
       const init = (extra: string | undefined) =>
-        Effect.zipWith(
+        Effect.map(
           importSteps,
-          componentsMissing,
-          (steps, missing) => `<ultrapaint-task command="init">
-${missing}Import this repository's design system into ultrapaint, so that designs are drawn with its
-tokens and components and every agent knows its conventions. Only Tailwind v4 is supported.
+          (steps) => `<ultrapaint-task command="init">
+Import this repository's design system into ultrapaint, so that designs are drawn with its
+tokens and every agent knows its conventions. Only Tailwind v4 is supported.
 
 ${steps}
 5. End with a short summary: what you wrote, and what you were unsure of.
 ${userAdds(extra)}</ultrapaint-task>`
         );
 
-      const pageTasks = yield* makePageTasks({ componentsMissing, ways });
+      const pageTasks = yield* makePageTasks({ ways });
       const { setupStep } = yield* makeSetupTasks({ importSteps, ways });
       const { sync } = yield* makeSyncTasks({ ways });
 

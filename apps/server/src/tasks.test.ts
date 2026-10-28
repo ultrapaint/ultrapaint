@@ -94,8 +94,8 @@ describe("tasks, with the editor's MCP server", () => {
         assert.strictEqual(init.purpose, "design");
         assert.include(init.text, '<ultrapaint-task command="init">');
         assert.include(init.text, "1. Call scan_design_system.");
-        // No component directory is configured: the configuration is not the agent's to fix.
-        assert.include(init.text, "the editor sees no components");
+        // The primitives are always there: nothing to configure first.
+        assert.notInclude(init.text, "the editor sees no components");
 
         const implement = yield* task({ _tag: "Implement", target: "/home" });
         assert.strictEqual(implement.purpose, "implement");

@@ -150,19 +150,12 @@ const setupStepOf = (
   title: SETUP_TITLES[id],
 });
 
-/** The settings step, when the settings point nowhere: no components, no stylesheet. */
+/** The settings step, when the settings point nowhere: no stylesheet. */
 const settingsSteps = (facts: SyncFacts): SyncStep[] => {
   if (!facts.app) {
     return [];
   }
   const missing = [
-    facts.libraryDirs.length === 0 ? "no component directory is set" : null,
-    // An empty component directory is a project with no components yet, not a wrong setting.
-    facts.libraryDirs.length > 0 &&
-    facts.components === 0 &&
-    facts.librarySources !== 0
-      ? `${facts.libraryDirs.join(", ")} has no components the editor can read`
-      : null,
     facts.stylesheets === 0 ? "no stylesheet is set" : null,
   ].filter((p): p is string => p !== null);
   return missing.length === 0
