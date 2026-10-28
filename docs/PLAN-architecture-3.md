@@ -563,3 +563,58 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
    bundle and serves the entry: the bundle's import and the setup's dynamic import under the base,
    the hot context, and the setup's stylesheet, registry and public files. `pnpm e2e:sandbox`
    passes the same 15 checks as before the change (8 failed before it too).
+9. **A token from another tool, named and placed once** (`packages/contracts/src/token-naming.ts`).
+   `foreignToken(path, hint)` gives the kind and the design's name of a token another tool
+   writes, from its path's segments and a hint of what the value is (`ValueHint`: the Design
+   Tokens format's `color`, `shadow`, `fontFamily`, `fontWeight`, `duration`, `cubicBezier`,
+   `dimension`, `number`, Figma's `string`, or null), or why it is left out; `numberCss(kind, n)`
+   reads a number of a length kind (spacing, font size, tracking, radius, border width,
+   breakpoint, container) in pixels. A hint that names a value type decides the kind; for a
+   dimension, a number, a text or no type the path's words decide among the kinds that can hold
+   it (the longest phrase found, then the earliest). Each kind's words are one record keyed by
+   every kind the design system lists (`Record<Exclude<TokenKind, "other">, …>`, so a new kind
+   fails to compile): its own (`corner`, `rounded`, `radii`; `space`; `stroke`; `font size`,
+   `text`), which say the kind and leave the name, the ones that say it and stay (`gap`,
+   `padding`, `margin`, `inset` for spacing), and the quiet ones a text kind drops
+   (`typography`, `type`, `font`, `text`); the prefix is the token table's. A name drops only the
+   found kind's words and the words that say where a token sits in the other tool (`primitives`,
+   `semantic`, `tokens`, `theme`, `global`), and a word said twice; spacing with nothing left is
+   the spacing base; a name that would read as another kind (a font family `Font/Weight/Bold`)
+   is left out. Figma's reader gives it the variable's collection and name, Figma's unnamed
+   collections taken out, with `COLOR`, `FLOAT` or `STRING`, and a style's name with `color` or
+   `shadow`; its `NUMBER_KINDS`, `KIND_WORDS`, `LENGTH_KINDS`, `FONT_PATH_RE` and exported
+   `tokenNameOf` go. The Design Tokens reader (`dtcg.ts`, in the server) gives it the path and
+   `$type` (an alias's the type of the token it points at); its `GROUP_KINDS`, `TYPE_KINDS`,
+   `GROUP_PREFIXES` and `nameFromPath` go, a token of the file's own extension keeps its name,
+   and what it leaves out is one note per reason. Its notes reach the Design system panel:
+   `readDesignSystem` gives `tokensNotes`, `DesignSystemState` has `notes`, and the panel lists
+   them under the problem line, muted (there was no place for them; this is the smallest). The
+   scan (`design-system-scan`) places a theme variable by `tokenKindOf` and lays every kind but
+   the colours (its palettes) and font sizes (with their line heights) into the design system
+   with `addTokens`, each kind in its order; `NAMESPACES` and `moreFoundations` go. The token
+   table names `default-transition-duration` a duration (`TokenKindEntry.names`, whole names
+   beside the prefixes). Name and kind changes: a Design Tokens `Corner.sm` dimension is
+   `radius-sm` (it was `corner-sm`, of no kind, dropped without a word); `text.primary` of
+   `$type: color` is `color-text-primary` (a text size); `font.size.sm` is `text-sm` (a font
+   family); a token of a kind no word or type says (`size.small`, an opacity) is left out with a
+   note (it was named after its path and dropped); a camel-cased or underscored key is split
+   (`primaryForeground` is `primary-foreground`); a number of a length kind is in pixels;
+   `global`, `semantic` and the other place words leave the name. Figma's `Color/Text/Primary`
+   is `color-text-primary` beside `Color/Primary`'s `color-primary` (they collided), as
+   `Color/Border/Default` keeps `border`; `Text/Line height/Body` stays `leading-body`; a
+   tracking number is in pixels (it was bare); `Font size/Base` is `text-base` (`base` was
+   dropped, leaving nothing); `Spacing` alone is the spacing base; a camel-cased segment is
+   split. Figma tokens already matched are kept by their Figma id, so only new names change. The
+   scan lists the repository's own `--inset-shadow-*`, `--drop-shadow-*` and `--text-shadow-*`
+   under shadows (Tailwind's defaults of them stay out, as its palette does when the repository
+   has colours), so `/init` no longer leaves them undescribed; `starterElevation` takes only
+   `shadow-*`. `token-naming.test.ts` is the table: 35 paths and hints to a kind and name, 6 left
+   out, a name for every kind's own word, and the pixels rule. Each reader's test checks its
+   syntax: `dtcg.test.ts` reads a `$type` over the group's word, an alias's type, a `Corner`
+   dimension and a number of a radius (failed first: `text.primary` a text size, `corner-sm`);
+   `design-system-files.test.ts` lists a `Corner.sm` added by another tool under radius and gives
+   the note of what it left out (failed first); Figma's `tokens.test.ts` reads an unnamed
+   collection's `Color/Primary`, `Color/Text/Primary` and `Rounded/lg` as three tokens and notes a
+   boolean (failed first, one `color-primary`); the scan's test lists the repository's own drop,
+   inset and text shadows, not Tailwind's, a `default-transition-duration`, and every token the
+   repository declares listed (failed first). The tests of `tokenNameOf` go.

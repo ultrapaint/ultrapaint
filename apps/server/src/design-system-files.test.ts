@@ -46,6 +46,7 @@ describe("the design system's files", () => {
     expect(readDesignSystem(texts, none)).toEqual({
       designSystem: ds,
       problem: null,
+      tokensNotes: [],
       tokensProblem: null,
     });
     const read = readDesignSystem(texts, none).designSystem;
@@ -115,6 +116,25 @@ describe("the design system's files", () => {
     ]);
   });
 
+  it("lists another tool's token where its kind goes, and says what it left out", () => {
+    const written = writeDesignSystem(ds);
+    const { system } = written;
+    // Another tool adds two tokens of its own to the file.
+    const tokens = json({
+      ...JSON.parse(written.tokens),
+      Corner: { sm: { $type: "dimension", $value: { unit: "px", value: 4 } } },
+      opacity: { half: { $type: "number", $value: 0.5 } },
+    });
+    const read = readDesignSystem({ system, tokens }, none);
+    expect(read.designSystem?.radius).toEqual([
+      { name: "radius-lg", value: "0.5rem" },
+      { name: "radius-sm", value: "4px" },
+    ]);
+    expect(read.tokensNotes).toEqual([
+      expect.stringContaining("`opacity.half`"),
+    ]);
+  });
+
   it("says why a tokens file does not read, the values design-system.json's and the code's meanwhile", () => {
     const read = readDesignSystem(
       { system: json(ds), tokens: "{ not json" },
@@ -143,6 +163,7 @@ describe("the design system's files", () => {
       problem: expect.stringContaining(
         "design-system.json is not valid: not JSON"
       ),
+      tokensNotes: [],
       tokensProblem: null,
     });
     expect(
@@ -152,6 +173,7 @@ describe("the design system's files", () => {
     expect(readDesignSystem({ system: null, tokens: null }, none)).toEqual({
       designSystem: null,
       problem: null,
+      tokensNotes: [],
       tokensProblem: null,
     });
   });

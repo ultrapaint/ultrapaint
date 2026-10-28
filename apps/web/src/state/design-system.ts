@@ -42,9 +42,15 @@ export const useDesignSystem = create<DesignSystemStore>((set) => ({
   loaded: false,
 }));
 
-// `problem` is set even when absent: a design system that reads again clears the last one's.
+// `problem` and `notes` are set even when absent: a design system that reads again clears the
+// last one's.
 const take = (state: DesignSystemState) =>
-  useDesignSystem.setState({ ...state, loaded: true, problem: state.problem });
+  useDesignSystem.setState({
+    ...state,
+    loaded: true,
+    notes: state.notes,
+    problem: state.problem,
+  });
 
 const designSystemData = follow({
   apply: take,

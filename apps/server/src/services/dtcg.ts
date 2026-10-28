@@ -16,6 +16,11 @@
  */
 import type { DesignSystem, Token } from "@ultrapaint/contracts/design-system";
 import {
+  foreignToken,
+  numberCss,
+  type ValueHint,
+} from "@ultrapaint/contracts/token-naming";
+import {
   allTokens,
   TOKEN_TABLE,
   tokenKindOf,
@@ -78,9 +83,6 @@ const VAR_RE = /^var\(\s*--([\w-]+)\s*\)$/;
 const ALIAS_RE = /^\{([^{}]+)\}$/;
 const KEY_UNSAFE_RE = /[.{}]/g;
 const PLAIN_FAMILY_RE = /^[a-z0-9-]+$/i;
-const SLUG_RE = /[^a-z0-9_-]+/g;
-const GROUP_NORMAL_RE = /[-_\s]/g;
-const TRAILING_DASH_RE = /-$/;
 
 const round = (n: number, places = 6) => Number(n.toFixed(places));
 const num = (n: number) => formatNumber(n, 6);
@@ -532,65 +534,25 @@ const COMPOSITE_TYPES = new Set([
   "typography",
 ]);
 
-const groupKey = (name: string) =>
-  name.toLowerCase().replace(GROUP_NORMAL_RE, "");
+/** The types of the format that say what a value is, as token-naming's hints. */
+const HINTS: ReadonlySet<string> = new Set<NonNullable<ValueHint>>([
+  "color",
+  "cubicBezier",
+  "dimension",
+  "duration",
+  "fontFamily",
+  "fontWeight",
+  "number",
+  "shadow",
+]);
 
-/** The kind of the tokens in a group, by the names tools give groups. */
-const GROUP_KINDS: Record<TokenKind, readonly string[]> = {
-  animation: ["animation", "animations", "animate"],
-  borderWidth: ["borderwidth", "borderwidths"],
-  breakpoint: ["breakpoint", "breakpoints", "screens"],
-  color: ["color", "colors", "colour", "colours"],
-  container: ["container", "containers"],
-  duration: ["duration", "durations"],
-  easing: ["easing", "easings", "ease"],
-  font: ["fontfamily", "fontfamilies", "font", "fonts"],
-  fontSize: ["fontsize", "fontsizes", "text"],
-  fontWeight: ["fontweight", "fontweights"],
-  leading: ["leading", "lineheight", "lineheights"],
-  other: ["other"],
-  radius: ["radius", "radii", "borderradius"],
-  shadow: ["shadow", "shadows", "boxshadow"],
-  spacing: ["spacing", "space", "spacings"],
-  tracking: ["tracking", "letterspacing"],
-};
+const hintOf = (type: string | undefined): ValueHint =>
+  type !== undefined && HINTS.has(type) ? (type as ValueHint) : null;
 
-/** The prefix a token's name takes from the group it is in. */
-const GROUP_PREFIXES = new Map<string, string>(
-  (Object.entries(GROUP_KINDS) as [TokenKind, readonly string[]][]).flatMap(
-    ([kind, names]) => names.map((n) => [n, tokenPrefix(kind)] as const)
-  )
-);
-
-/** The kind a token is of by its `$type`, when its group says nothing. */
-const TYPE_KINDS: Record<string, TokenKind> = {
-  color: "color",
-  cubicBezier: "easing",
-  duration: "duration",
-  fontFamily: "font",
-  fontWeight: "fontWeight",
-  shadow: "shadow",
-};
-
-const slug = (s: string) => s.trim().toLowerCase().replace(SLUG_RE, "-");
-
-/** A name for a token of another tool's file: the kind's prefix and its path joined with `-`. */
-const nameFromPath = (
-  segments: readonly string[],
-  type: string | undefined
-) => {
-  const [top = "", ...rest] = segments;
-  const prefix = GROUP_PREFIXES.get(groupKey(top));
-  if (prefix === undefined) {
-    const kind = TYPE_KINDS[type ?? ""];
-    const typed = kind === undefined ? "" : tokenPrefix(kind);
-    return `${typed}${segments.map(slug).join("-")}`;
-  }
-  if (rest.length === 0) {
-    return prefix.replace(TRAILING_DASH_RE, "") || slug(top);
-  }
-  return `${prefix}${rest.map(slug).join("-")}`;
-};
+/** A token's name and kind: its own, kept in the extension, or token-naming's from its path. */
+type Named =
+  | { readonly exact: boolean; readonly kind: TokenKind; readonly name: string }
+  | { readonly skipped: string };
 
 const collect = (
   node: Rec,
@@ -640,11 +602,52 @@ const canonical = (value: unknown): string =>
   );
 
 /**
+ * The file's tokens by path: a token's type (its own or its group's, else that of the token its
+ * alias points at), and its name, the one kept in the extension or token-naming's from its path
+ * and type. A composite token has none.
+ */
+const namesOf = (entries: readonly Entry[]) => {
+  const byPath = new Map(entries.map((e) => [e.path, e]));
+  const target = (ref: string) => byPath.get(ref) ?? byPath.get(`${ref}.$root`);
+  const typeOf = (e: Entry, seen = new Set<string>()): string | undefined => {
+    if (e.type !== undefined || seen.has(e.path)) {
+      return e.type;
+    }
+    seen.add(e.path);
+    const alias: RegExpExecArray | null =
+      typeof e.node.$value === "string" ? ALIAS_RE.exec(e.node.$value) : null;
+    const to = alias?.[1] === undefined ? undefined : target(alias[1]);
+    return to && typeOf(to, seen);
+  };
+  const isComposite = (e: Entry) => COMPOSITE_TYPES.has(typeOf(e) ?? "");
+  const named = new Map<string, Named>();
+  for (const e of entries) {
+    const { name } = extensionOf(e.node);
+    if (typeof name === "string") {
+      named.set(e.path, { exact: true, kind: tokenKindOf(name), name });
+    } else if (!isComposite(e)) {
+      const found = foreignToken(e.segments, hintOf(typeOf(e)));
+      named.set(e.path, "name" in found ? { ...found, exact: false } : found);
+    }
+  }
+  return { isComposite, named, target, typeOf };
+};
+
+/** One note for the tokens token-naming left out for one reason, by the reason. */
+const leftOutNotes = (unnamed: ReadonlyMap<string, readonly string[]>) =>
+  [...unnamed].map(
+    ([reason, paths]) =>
+      `${paths.map((p) => `\`${p}\``).join(", ")}: ${reason}, so ${paths.length === 1 ? "it is" : "they are"} left out.`
+  );
+
+/**
  * A Design Tokens file's tokens as CSS values, the default theme's and every other theme's. A
  * file this module wrote reads back exactly: the names are in the extension, and the CSS kept
  * there is used when the structured value still says the same thing (a tool that changed the
- * value wins). Another tool's file is read by its paths (`color.blue.500` is `color-blue-500`),
- * its aliases resolved within the file. `notes` says what could not be read.
+ * value wins). Another tool's token is named by token-naming from its path and its type (an
+ * alias's the type of the token it points at): `color.blue.500` is `color-blue-500`, a `Corner.sm`
+ * dimension `radius-sm`, and a number of a length kind is in pixels. Its aliases are resolved
+ * within the file. `notes` says what could not be read or was left out.
  */
 export const tokensFromDesignTokens = (
   json: unknown
@@ -663,14 +666,22 @@ export const tokensFromDesignTokens = (
   }
   const entries: Entry[] = [];
   collect(json, [], undefined, entries, notes);
-  const byPath = new Map(entries.map((e) => [e.path, e]));
-  const nameOf = (e: Entry) => {
-    const { name } = extensionOf(e.node);
-    return typeof name === "string" ? name : nameFromPath(e.segments, e.type);
+  const { isComposite, named, target, typeOf } = namesOf(entries);
+  const nameOf = (e: Entry): string | undefined => {
+    const found = named.get(e.path);
+    return found && "name" in found ? found.name : undefined;
   };
-  const refs = new Map(entries.map((e) => [nameOf(e), e.path]));
+  const refs = new Map(
+    entries.flatMap((e) => {
+      const name = nameOf(e);
+      return name === undefined ? [] : [[name, e.path] as const];
+    })
+  );
 
-  /** The CSS a value says, the CSS kept beside it when the two still agree. */
+  /**
+   * The CSS a value says, the CSS kept beside it when the two still agree; another tool's number
+   * of a length kind in pixels.
+   */
   const read = (
     e: Entry,
     value: unknown,
@@ -678,10 +689,14 @@ export const tokensFromDesignTokens = (
     resolve: Resolve
   ): string | undefined => {
     if (typeof kept === "string") {
-      const encoded = encode(tokenKindOf(nameOf(e)), kept, refs);
+      const encoded = encode(tokenKindOf(nameOf(e) ?? ""), kept, refs);
       if (canonical(encoded?.value ?? kept) === canonical(value)) {
         return kept;
       }
+    }
+    const own = named.get(e.path);
+    if (typeof value === "number" && own && "name" in own && !own.exact) {
+      return numberCss(own.kind, value);
     }
     return cssOf(value, resolve);
   };
@@ -691,27 +706,27 @@ export const tokensFromDesignTokens = (
   const resolverFor =
     (at: string): Resolve =>
     (ref) => {
-      const target = byPath.get(ref) ?? byPath.get(`${ref}.$root`);
-      if (!target) {
+      const to = target(ref);
+      if (!to) {
         notes.add(
           `\`${at}\`: {${ref}} is no token of the file, so it is left out.`
         );
         return;
       }
-      if (resolving.has(target.path)) {
+      if (resolving.has(to.path)) {
         notes.add(
           `\`${at}\`: {${ref}} refers back to itself, so it is left out.`
         );
         return;
       }
-      return defaultValue(target);
+      return defaultValue(to);
     };
   const defaultValue = (e: Entry): string | undefined => {
     if (resolved.has(e.path)) {
       return resolved.get(e.path);
     }
     resolving.add(e.path);
-    const value = COMPOSITE_TYPES.has(e.type ?? "")
+    const value = isComposite(e)
       ? undefined
       : read(e, e.node.$value, extensionOf(e.node).css, resolverFor(e.path));
     resolving.delete(e.path);
@@ -738,45 +753,46 @@ export const tokensFromDesignTokens = (
   };
 
   const tokens: ReadToken[] = [];
-  const named = new Set<string>();
-  const unknownKinds: string[] = [];
+  const taken = new Set<string>();
+  /** The paths left out for a reason token-naming gives, by the reason. */
+  const unnamed = new Map<string, string[]>();
   for (const e of entries) {
-    const name = nameOf(e);
-    if (named.has(name)) {
+    const found = named.get(e.path);
+    if (found === undefined || isComposite(e)) {
+      notes.add(
+        `\`${e.path}\`: a ${typeOf(e)} value is several properties at once, which no token holds, so it is left out.`
+      );
+      continue;
+    }
+    if ("skipped" in found) {
+      unnamed.set(found.skipped, [
+        ...(unnamed.get(found.skipped) ?? []),
+        e.path,
+      ]);
+      continue;
+    }
+    const { name } = found;
+    if (taken.has(name)) {
       notes.add(
         `\`${e.path}\` is named ${name} as another token is, so it is left out.`
       );
       continue;
     }
-    named.add(name);
+    taken.add(name);
     const before = notes.size;
     const value = defaultValue(e);
     if (value === undefined) {
       if (notes.size === before) {
         notes.add(
-          COMPOSITE_TYPES.has(e.type ?? "")
-            ? `\`${e.path}\`: a ${e.type} value is several properties at once, which no token holds, so it is left out.`
-            : `\`${e.path}\`: its value could not be read as CSS, so it is left out.`
+          `\`${e.path}\`: its value could not be read as CSS, so it is left out.`
         );
       }
       continue;
     }
     tokens.push({ name, value });
-    if (
-      typeof extensionOf(e.node).name !== "string" &&
-      tokenKindOf(name) === "other"
-    ) {
-      unknownKinds.push(name);
-    }
     tokens.push(...themeTokens(e, name));
   }
-
-  if (unknownKinds.length > 0) {
-    notes.add(
-      `These are in no group or of no type that says what kind of token they are, so they are named after their paths: ${unknownKinds.join(", ")}.`
-    );
-  }
-  return { notes: [...notes], tokens };
+  return { notes: [...notes, ...leftOutNotes(unnamed)], tokens };
 };
 
 /**

@@ -423,6 +423,11 @@ export const DesignSystemState = Schema.Struct({
   /** `DESIGN.md`, when there is one. */
   document: Schema.NullOr(DesignDocument),
   /**
+   * What `design.tokens.json` holds that the design system could not take: a token of no kind it
+   * lists, a value that does not read as CSS, an alias to nothing.
+   */
+  notes: Schema.optional(Schema.Array(Schema.String)),
+  /**
    * The stylesheet that gives the code's variables the design's values in the preview, where
    * they differ (ADR 0028); empty when they agree.
    */

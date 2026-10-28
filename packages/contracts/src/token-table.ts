@@ -107,6 +107,8 @@ export interface TokenKindEntry {
    * whose `tokens` are the list.
    */
   readonly list: readonly string[];
+  /** Whole names of the kind beside its prefixes: Tailwind's `default-transition-duration`. */
+  readonly names?: readonly string[];
   /** The prefixes its names start with, the kind's own first. */
   readonly prefixes: readonly [string, ...string[]];
 }
@@ -153,7 +155,13 @@ export const TOKEN_TABLE: readonly TokenKindEntry[] = [
     prefixes: ["container-"],
   },
   { kind: "easing", list: ["motion", "easings"], prefixes: ["ease-"] },
-  { kind: "duration", list: ["motion", "durations"], prefixes: ["duration-"] },
+  {
+    kind: "duration",
+    list: ["motion", "durations"],
+    // Tailwind's own duration for `transition`, when nothing else says how long.
+    names: ["default-transition-duration"],
+    prefixes: ["duration-"],
+  },
   { kind: "animation", list: ["motion", "animations"], prefixes: ["animate-"] },
 ];
 
@@ -165,7 +173,8 @@ const BY_PREFIX = TOKEN_TABLE.flatMap((entry) =>
 const entryOf = (name: string): TokenKindEntry | undefined =>
   name === SPACING_BASE
     ? undefined
-    : BY_PREFIX.find(([prefix]) => name.startsWith(prefix))?.[1];
+    : (TOKEN_TABLE.find((entry) => entry.names?.includes(name)) ??
+      BY_PREFIX.find(([prefix]) => name.startsWith(prefix))?.[1]);
 
 /** What kind of token a name is, from the namespace it is in. */
 export const tokenKindOf = (name: string): TokenKind =>

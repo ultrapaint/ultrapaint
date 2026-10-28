@@ -354,7 +354,6 @@ describe("reading another tool's Design Tokens", () => {
         { name: "color-brand", value: "rgb(0 102 204)" },
         { name: "color-accent", value: "rgb(0 102 204)" },
         { name: "color-wide", value: "oklch(0.7 0.1 none / 0.5)" },
-        { name: "size-small", value: "8px" },
         { name: "spacing", value: "0.25rem" },
         { name: "font-body", value: '"Open Sans", sans-serif' },
         { name: "duration-motion-quick", value: "0.2s" },
@@ -368,7 +367,33 @@ describe("reading another tool's Design Tokens", () => {
     expect(notes).toHaveLength(3);
     expect(notes[0]).toContain("{colors.red.500} is no token");
     expect(notes[1]).toContain("typography");
-    expect(notes[2]).toContain("size-small");
+    expect(notes[2]).toContain("`size.small`");
+  });
+
+  it("takes the kind a token's type says over its path's words, and the path's for a dimension", () => {
+    const { notes, tokens } = tokensFromDesignTokens({
+      Corner: { sm: { $type: "dimension", $value: { unit: "px", value: 4 } } },
+      font: {
+        size: {
+          sm: { $type: "dimension", $value: { unit: "rem", value: 0.875 } },
+        },
+      },
+      radius: { card: { $type: "number", $value: 12 } },
+      text: {
+        primary: { $type: "color", $value: "#111111" },
+        secondary: { $value: "{text.primary}" },
+      },
+    });
+    expect([...tokens].sort(byName)).toEqual(
+      [
+        { name: "color-text-primary", value: "#111111" },
+        { name: "color-text-secondary", value: "#111111" },
+        { name: "radius-card", value: "12px" },
+        { name: "radius-sm", value: "4px" },
+        { name: "text-sm", value: "0.875rem" },
+      ].sort(byName)
+    );
+    expect(notes).toEqual([]);
   });
 
   it("notes an alias that refers back to itself, and a file that is not one", () => {
