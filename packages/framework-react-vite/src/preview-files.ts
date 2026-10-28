@@ -113,7 +113,12 @@ export const previewFiles = (
     : "const Providers = undefined;";
 
   // The hooks are in place before the stylesheet's module runs: Vite's client hands what it
-  // loads to the editor's frames instead of the editor's head.
+  // loads to the editor's frames instead of the editor's head. They are a module of their own,
+  // imported first, because an entry's imports all run before its body: `host.css` and the
+  // repository's modules (whose stylesheets the client also loads) run before `createPreview`,
+  // and a stylesheet the client loads with no hooks in place goes to the editor's head, never to
+  // a frame. Only the hooks run this early; the guards wait for `createPreview` (preview-core's
+  // `kernel.ts` says why).
   const editorHooks = `import { installHooks } from ${JSON.stringify(fsUrl(bundles.editor))};
 
 installHooks();

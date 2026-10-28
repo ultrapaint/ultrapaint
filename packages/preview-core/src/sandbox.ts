@@ -27,45 +27,30 @@
  *
  * Listeners, `on*` handlers, scroll, history and the head ask `windowCall`; timers and animation
  * frames `scheduling`; requests `request`; storage `storage`; `<html>` and `<body>` `domWrite`;
- * errors `thrownAt`. Which frame is the one that was drawing or took input, as `media.ts` tells
- * the window's size.
+ * errors `thrownAt`. Which frame is the one whose turn it is (`turn.ts`), as for the window's
+ * size and the popups; the kernel installs them, in its order (`kernel.ts`).
  */
 
 import {
   GUARD_GLOBAL,
   installPageRuntime,
 } from "@ultrapaint/contracts/page-runtime";
-import { holdStyle, holdStyleFirst, isHeld, isStyle } from "./css-in-js.ts";
-import { guardDocumentElements } from "./document-elements.ts";
+import { holdStyle, holdStyleFirst, isStyle } from "./css-in-js.ts";
 import { addedNow, moduleEnds, moduleStarts } from "./hmr-leftovers.ts";
+import { redirectInsertions } from "./insertions.ts";
 import type { Provenance, ThrownAt } from "./provenance.ts";
-import { guardRequests } from "./requests.ts";
-import { guardStorage } from "./storage.ts";
-
-/** What a frame is told of an error its page's code threw. */
-export interface FrameError {
-  readonly file?: string | undefined;
-  readonly line?: number | undefined;
-  readonly message: string;
-  readonly stack?: string | undefined;
-}
-
-/** A frame as the guards know it. */
-export interface GuardedFrame {
-  /** The frame is asked about: what its code reads of the window answers for it. */
-  readonly asking: () => void;
-  /** The element standing for its page's `<body>`, inside its shadow root. */
-  readonly body?: HTMLElement | undefined;
-  /** Its page's code threw and nothing caught it. */
-  readonly error: (error: FrameError) => void;
-  readonly host: HTMLElement;
-  /** The frame takes input: the prototype, interact mode. */
-  readonly interactive: () => boolean;
-  /** A page the frame's code pushed: the prototype follows it. */
-  readonly navigate: (route: string, replace: boolean) => void;
-  /** A picture: drawn wherever it is, its animation frames never held. */
-  readonly still?: boolean | undefined;
-}
+import {
+  askedFrame,
+  carriedFrame,
+  type Frame,
+  type FrameError,
+  frameOfHost,
+  onlyFrame,
+  relayedFrame,
+  relaying,
+  runAs,
+  turnFrame,
+} from "./turn.ts";
 
 /** Events of the page's own input: heard from inside a frame only. */
 const FRAME_INPUT = new Set([
@@ -139,37 +124,17 @@ interface Relayed {
   readonly listener: Listener;
   readonly once: boolean;
   /** The frame that was drawing when it was added; null for any. */
-  readonly owner: GuardedFrame | null;
+  readonly owner: Frame | null;
   readonly target: EventTarget;
   readonly type: string;
 }
 
-const frames = new Map<HTMLElement, GuardedFrame>();
 const relayed = new Set<Relayed>();
 /** The listener a guarded one was wrapped in, by target, type and capture. */
 const wrapped = new WeakMap<object, Map<string, EventListener>>();
-let current: GuardedFrame | null = null;
-/** The frame whose `scroll` or `resize` is being told: the window's position is its. */
-let telling: GuardedFrame | null = null;
-/** The frame whose callback the guards are calling: its page's code runs, no stack to read. */
-let carrying: GuardedFrame | null = null;
-let installed = false;
 /** What the repository's `async` functions rejected with, by the frame they were called for. */
-const marks = new WeakMap<object, GuardedFrame>();
+const marks = new WeakMap<object, Frame>();
 const strayListeners = new Set<(error: FrameError) => void>();
-
-/** Runs `f` as `frame`'s page code: what it asks of the window, throws or schedules is its. */
-const runAs = <T>(frame: GuardedFrame, f: () => T): T => {
-  const before = carrying;
-  carrying = frame;
-  current = frame;
-  frame.asking();
-  try {
-    return f();
-  } finally {
-    carrying = before;
-  }
-};
 
 /**
  * Whether a callback is the preview's, by who first scheduled it: a loop or a debounce hands the
@@ -182,16 +147,18 @@ const schedulingFrame = (
   provenance: Provenance,
   patched: (...args: never[]) => unknown,
   callback: object
-): GuardedFrame | null => {
-  if (carrying || !current) {
-    return carrying;
+): Frame | null => {
+  const carried = carriedFrame();
+  const asked = askedFrame();
+  if (carried || !asked) {
+    return carried;
   }
   let isPreview = previewCallbacks.get(callback);
   if (isPreview === undefined) {
     isPreview = provenance.scheduling(patched);
     previewCallbacks.set(callback, isPreview);
   }
-  return isPreview ? current : null;
+  return isPreview ? asked : null;
 };
 
 const call = (listener: Listener, self: unknown, event: Event) => {
@@ -209,9 +176,9 @@ const keyOf = (target: EventTarget, type: string, capture: boolean) =>
   `${target === window ? "w" : "d"}:${type}:${capture ? 1 : 0}`;
 
 /** The frame an event comes from: the frame host on its path. */
-const frameOf = (event: Event): GuardedFrame | null => {
+const frameOf = (event: Event): Frame | null => {
   for (const node of event.composedPath()) {
-    const frame = frames.get(node as HTMLElement);
+    const frame = frameOfHost(node);
     if (frame) {
       return frame;
     }
@@ -220,11 +187,9 @@ const frameOf = (event: Event): GuardedFrame | null => {
 };
 
 /** Tells `frame`'s window listeners of `type`, as the window would have. */
-const relay = (frame: GuardedFrame, type: string) => {
+const relay = (frame: Frame, type: string) => {
   const event = new Event(type);
-  const before = telling;
-  telling = frame;
-  try {
+  relaying(frame, () => {
     for (const entry of [...relayed]) {
       if (
         entry.type === type &&
@@ -236,9 +201,7 @@ const relay = (frame: GuardedFrame, type: string) => {
         runAs(frame, () => call(entry.listener, entry.target, event));
       }
     }
-  } finally {
-    telling = before;
-  }
+  });
 };
 
 const findRelayed = (target: EventTarget, type: string, listener: Listener) =>
@@ -270,7 +233,7 @@ const relayListener = (
   const entry: Relayed = {
     listener,
     once: typeof options === "object" && Boolean(options.once),
-    owner: current,
+    owner: askedFrame(),
     target,
     type,
   };
@@ -287,7 +250,7 @@ const guardInput = (
   listener: Listener,
   options?: AddEventListenerOptions | boolean
 ) => {
-  const owner = current;
+  const owner = askedFrame();
   const capture = captureOf(options);
   const byKey = wrapped.get(listener) ?? new Map<string, EventListener>();
   wrapped.set(listener, byKey);
@@ -323,7 +286,10 @@ const guardInput = (
 };
 
 /** Puts a listener the preview's code adds to `window` or `document` behind the guard. */
-const guardListeners = (target: Window | Document, provenance: Provenance) => {
+export const guardListeners = (
+  target: Window | Document,
+  provenance: Provenance
+) => {
   const add = target.addEventListener.bind(target) as Add;
   const remove = target.removeEventListener.bind(target) as Remove;
   target.addEventListener = (
@@ -404,7 +370,7 @@ const around = (
 };
 
 /** The window's handlers the preview's code may not set: the editor's leaving and history. */
-const guardHandlers = (provenance: Provenance) => {
+export const guardHandlers = (provenance: Provenance) => {
   for (const type of DROPPED) {
     around(window, Window.prototype, `on${type}`, (get, set) => ({
       get,
@@ -418,7 +384,7 @@ const guardHandlers = (provenance: Provenance) => {
 };
 
 /** While a frame's `scroll` is told, the window's position is the frame's. */
-const guardScroll = (provenance: Provenance) => {
+export const guardScroll = (provenance: Provenance) => {
   for (const [property, side] of [
     ["scrollY", "scrollTop"],
     ["pageYOffset", "scrollTop"],
@@ -426,7 +392,10 @@ const guardScroll = (provenance: Provenance) => {
     ["pageXOffset", "scrollLeft"],
   ] as const) {
     around(window, Window.prototype, property, (get) => ({
-      get: () => (telling ? telling.host[side] : get()),
+      get: () => {
+        const told = relayedFrame();
+        return told ? told.host[side] : get();
+      },
     }));
   }
   for (const name of ["scroll", "scrollTo", "scrollBy"] as const) {
@@ -437,8 +406,9 @@ const guardScroll = (provenance: Provenance) => {
         return;
       }
       // A frame that is a picture is not scrolled by its page; the editor never is.
-      if (current?.interactive()) {
-        (current.host[name] as (...a: unknown[]) => void)(...args);
+      const frame = askedFrame();
+      if (frame?.interactive()) {
+        (frame.host[name] as (...a: unknown[]) => void)(...args);
       }
     }) as never;
   }
@@ -461,7 +431,7 @@ const routeOf = (url: string | URL | null | undefined): string | null => {
 };
 
 /** The page's code never moves the editor's address or its history. */
-const guardHistory = (provenance: Provenance) => {
+export const guardHistory = (provenance: Provenance) => {
   const { history } = window;
   const push = history.pushState.bind(history);
   const replace = history.replaceState.bind(history);
@@ -471,8 +441,9 @@ const guardHistory = (provenance: Provenance) => {
       return;
     }
     const route = routeOf(url);
-    if (route !== null && current?.interactive()) {
-      current.navigate(route, false);
+    const frame = askedFrame();
+    if (route !== null && frame?.interactive()) {
+      frame.navigate(route, false);
     }
   };
   history.replaceState = (data, unused, url) => {
@@ -494,70 +465,32 @@ const guardHistory = (provenance: Provenance) => {
  * The page's document's title, meta and icons are kept off the editor's head, and the styles its
  * code writes go where the frames get them from (`css-in-js.ts`).
  */
-const guardHead = (provenance: Provenance) => {
-  const { head } = document;
+export const guardHead = (provenance: Provenance) => {
   /** Where they go instead: no document, so they do nothing, and their owner can remove them. */
   const aside = document.createElement("head");
-  const keptAside = (node: unknown): node is Element =>
+  const documentOnly = (node: Node) =>
     node instanceof Element &&
     (DOCUMENT_ONLY.has(node.tagName) ||
       (node.tagName === "LINK" &&
-        DOCUMENT_LINK_RE.test(node.getAttribute("rel") ?? ""))) &&
-    provenance.windowCall();
-  const heldStyle = (
-    node: unknown
-  ): node is HTMLLinkElement | HTMLStyleElement =>
-    isStyle(node) && provenance.windowCall();
-  const appendChild = head.appendChild.bind(head);
-  const insertBefore = head.insertBefore.bind(head);
-  const append = head.append.bind(head);
-  const prepend = head.prepend.bind(head);
-  const removeChild = head.removeChild.bind(head);
-  Object.assign(head, {
-    append(...nodes: (Node | string)[]) {
-      const [node] = nodes;
-      if (nodes.length === 1 && heldStyle(node)) {
-        holdStyle(node, null);
-      } else if (nodes.length === 1 && keptAside(node)) {
-        aside.append(node);
-      } else {
-        append(...nodes);
-      }
-    },
-    appendChild<T extends Node>(node: T): T {
-      if (heldStyle(node)) {
-        holdStyle(node, null);
-        return node;
-      }
-      return keptAside(node) ? aside.appendChild(node) : appendChild(node);
-    },
-    insertBefore<T extends Node>(node: T, child: Node | null): T {
-      if (heldStyle(node)) {
-        holdStyle(node, child);
-        return node;
-      }
-      return keptAside(node)
-        ? aside.appendChild(node)
-        : insertBefore(node, child);
-    },
-    prepend(...nodes: (Node | string)[]) {
-      const [node] = nodes;
-      if (nodes.length === 1 && heldStyle(node)) {
+        DOCUMENT_LINK_RE.test(node.getAttribute("rel") ?? "")));
+  redirectInsertions(document.head, (node, at) => {
+    if (isStyle(node) && provenance.windowCall()) {
+      if (at === "first") {
         holdStyleFirst(node);
-      } else if (nodes.length === 1 && keptAside(node)) {
-        aside.prepend(node);
       } else {
-        prepend(...nodes);
+        holdStyle(node, at);
       }
-    },
-    // A library removes what it put in the head from the head: it is elsewhere.
-    removeChild<T extends Node>(node: T): T {
-      if (node.parentNode !== head && (isHeld(node) || aside.contains(node))) {
-        node.parentNode?.removeChild(node);
-        return node;
-      }
-      return removeChild(node);
-    },
+      return true;
+    }
+    if (!(documentOnly(node) && provenance.windowCall())) {
+      return false;
+    }
+    if (at === "first") {
+      aside.prepend(node);
+    } else {
+      aside.appendChild(node);
+    }
+    return true;
   });
   around(document, Document.prototype, "title", (get, set) => ({
     get,
@@ -576,7 +509,7 @@ const guardHead = (provenance: Provenance) => {
  * the frame of is not given to the frame that happens to be running when it surfaces: it is told
  * to the editor alone (`onStrayError`). The console still has it.
  */
-const reportUncaught = (provenance: Provenance) => {
+export const reportUncaught = (provenance: Provenance) => {
   const told = (error: unknown, fallback: string) => {
     const stack = error instanceof Error ? error.stack : undefined;
     const where = provenance.thrownAt(stack);
@@ -605,7 +538,7 @@ const reportUncaught = (provenance: Provenance) => {
   };
   window.addEventListener("error", (event) => {
     const found = told(event.error, event.message);
-    const frame = current;
+    const frame = askedFrame();
     if (found && frame) {
       tell(found, frame.error);
     }
@@ -620,8 +553,7 @@ const reportUncaught = (provenance: Provenance) => {
       typeof reason === "object" && reason !== null
         ? marks.get(reason)
         : undefined;
-    const frame =
-      marked ?? (frames.size === 1 ? [...frames.values()][0] : undefined);
+    const frame = marked ?? onlyFrame();
     tell(found, (error) => {
       if (frame) {
         frame.error(error);
@@ -646,10 +578,10 @@ export const onStrayError = (listener: (error: FrameError) => void) => {
  * What the guard in the repository's code asks (`virtual:ultrapaint/guard`): the frame an
  * `async` function is called for, and the mark on what it rejects with.
  */
-const answerGuard = () => {
-  installPageRuntime<GuardedFrame>({
+export const answerGuard = () => {
+  installPageRuntime<Frame>({
     [GUARD_GLOBAL]: {
-      frame: () => carrying ?? current,
+      frame: turnFrame,
       mark: (error, frame) => {
         if (!marks.has(error)) {
           marks.set(error, frame);
@@ -669,12 +601,12 @@ let nextFrameId = FIRST_FRAME_ID;
 /** An animation frame the preview's code asked for: the browser's, or held while unseen. */
 interface Scheduled {
   readonly callback: FrameRequestCallback;
-  readonly frame: GuardedFrame;
+  readonly frame: Frame;
   native: number | null;
 }
 const scheduled = new Map<number, Scheduled>();
 /** Frames off the screen or parked: their animation frames wait. */
-const unseen = new WeakSet<GuardedFrame>();
+const unseen = new WeakSet<Frame>();
 let nativeFrame: typeof requestAnimationFrame = (callback) =>
   requestAnimationFrame(callback);
 let nativeCancel: typeof cancelAnimationFrame = (id) =>
@@ -700,7 +632,7 @@ const place = (id: number, entry: Scheduled) => {
 };
 
 /** `frame` is seen again: what it held is asked for. */
-const release = (frame: GuardedFrame) => {
+const release = (frame: Frame) => {
   for (const [id, entry] of scheduled) {
     if (entry.frame === frame && entry.native === null) {
       place(id, entry);
@@ -708,7 +640,7 @@ const release = (frame: GuardedFrame) => {
   }
 };
 
-const guardAnimationFrames = (provenance: Provenance) => {
+export const guardAnimationFrames = (provenance: Provenance) => {
   nativeFrame = window.requestAnimationFrame.bind(window);
   nativeCancel = window.cancelAnimationFrame.bind(window);
   const request = (callback: FrameRequestCallback): number => {
@@ -737,7 +669,7 @@ const guardAnimationFrames = (provenance: Provenance) => {
 };
 
 /** A timer the preview's code sets runs as its frame's code. */
-const guardTimers = (provenance: Provenance) => {
+export const guardTimers = (provenance: Provenance) => {
   for (const name of ["setTimeout", "setInterval"] as const) {
     const native = window[name].bind(window) as (
       handler: TimerHandler,
@@ -772,40 +704,10 @@ const guardTimers = (provenance: Provenance) => {
 };
 
 /**
- * Puts the guards in place, once. `provenance` says whose code calls each, by the rule its
- * purpose needs, and where an error was thrown; a test gives it a recorded stack.
+ * Guards `frame` from now on: its `scroll` and `resize` are told to its listeners, its animation
+ * frames wait while it is not seen. Returns what forgets it.
  */
-export const installGuards = (provenance: Provenance) => {
-  if (installed || typeof window === "undefined") {
-    return;
-  }
-  installed = true;
-  reportUncaught(provenance);
-  answerGuard();
-  guardListeners(window, provenance);
-  guardListeners(document, provenance);
-  guardHandlers(provenance);
-  guardScroll(provenance);
-  guardHistory(provenance);
-  guardHead(provenance);
-  guardAnimationFrames(provenance);
-  guardTimers(provenance);
-  guardRequests(provenance);
-  guardStorage(provenance.storage);
-  guardDocumentElements((patched) => {
-    const frame = carrying ?? current;
-    return frame?.body && provenance.domWrite(patched)
-      ? { body: frame.body, host: frame.host }
-      : null;
-  });
-};
-
-/**
- * Guards `frame` from now on. Returns what says it is the frame being asked about (drawing, or
- * taking input), and what forgets it.
- */
-export const guardFrame = (frame: GuardedFrame) => {
-  frames.set(frame.host, frame);
+export const guardFrame = (frame: Frame) => {
   const onScroll = () => relay(frame, "scroll");
   frame.host.addEventListener("scroll", onScroll, { passive: true });
   let width = frame.host.clientWidth;
@@ -831,9 +733,6 @@ export const guardFrame = (frame: GuardedFrame) => {
   });
   seen.observe(frame.host);
   return {
-    asking: () => {
-      current = frame;
-    },
     unmount: () => {
       resize.disconnect();
       seen.disconnect();
@@ -846,14 +745,10 @@ export const guardFrame = (frame: GuardedFrame) => {
         }
       }
       frame.host.removeEventListener("scroll", onScroll);
-      frames.delete(frame.host);
       for (const entry of relayed) {
         if (entry.owner === frame) {
           relayed.delete(entry);
         }
-      }
-      if (current === frame) {
-        current = null;
       }
     },
   };

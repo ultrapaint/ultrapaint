@@ -29,23 +29,15 @@ import type {
   RenderSetup,
 } from "@ultrapaint/framework-api/browser";
 import { toCanvas, toPng } from "html-to-image";
-import { watchHeldStyles } from "./css-in-js.ts";
 import { chainAt, directText, elementsOf, unionRect } from "./dom.ts";
 import { BODY_ATTRIBUTE } from "./frame-css.ts";
 import { elementAt, type HitScope } from "./hit.ts";
-import { frameMedia, guardMedia } from "./media.ts";
-import { routePortals } from "./portals.ts";
-import { createProvenance } from "./provenance.ts";
+import { install, register } from "./kernel.ts";
 import { publicUrlOf } from "./public-url.ts";
-import { guardFrame, installGuards, onStrayError } from "./sandbox.ts";
-import {
-  adoptedSheets,
-  frameSheets,
-  installHooks,
-  setCssInJs,
-  setDesignCss,
-} from "./styles.ts";
+import { onStrayError } from "./sandbox.ts";
+import { adoptedSheets, frameSheets, setDesignCss } from "./styles.ts";
 import { readTokens } from "./tokens.ts";
+import { onRunning } from "./turn.ts";
 
 const ABSOLUTE_URL_RE = /^(?:[a-z][a-z\d+.-]*:|\/)/i;
 const LEADING_DOT_SLASH_RE = /^\.\//;
@@ -87,32 +79,11 @@ const GUARDED = [
 /** Events that say which frame the user is working in: where a popup it opens belongs. */
 const ACTIVITY = ["pointerdown", "keydown", "focusin"] as const;
 
-/** The frame that last drew or took input: where a popup the page opens goes. */
-let activeFrame: Element | null = null;
-
-/** How often a frame whose code keeps running is told again. */
-const RUNNING_EVERY_MS = 200;
-const runningListeners = new Set<(frame: string) => void>();
-let running: { at: number; frame: string } | null = null;
-
-/** `frame`'s page code runs: told when it changes, and again now and then while it does. */
-const tellRunning = (frame: string) => {
-  const now = performance.now();
-  if (running?.frame === frame && now - running.at < RUNNING_EVERY_MS) {
-    return;
-  }
-  running = { at: now, frame };
-  for (const listener of runningListeners) {
-    listener(frame);
-  }
-};
-
 /**
  * The repository's components, ready to draw frames in the editor's page. Called once by the
  * generated entry, with the registry, the providers and where the preview's server is.
  */
 export const createPreview = (input: PreviewSetup): Preview => {
-  installHooks();
   let { components } = input;
   const frames = new Set<{
     events: FrameEvents;
@@ -122,11 +93,7 @@ export const createPreview = (input: PreviewSetup): Preview => {
     "@fs"
   )[0] as string;
   // Whose code calls is told the same way by every guard: the base, and the editor's bundle.
-  const provenance = createProvenance({ base: previewBase });
-  routePortals(provenance, () => activeFrame);
-  installGuards(provenance);
-  guardMedia(provenance);
-  watchHeldStyles(setCssInJs);
+  install({ base: previewBase });
 
   const preview: Preview = {
     mountFrame: (host, options) => {
@@ -146,12 +113,7 @@ export const createPreview = (input: PreviewSetup): Preview => {
         frame.events.hmr?.();
       }
     },
-    onRunning: (listener) => {
-      runningListeners.add(listener);
-      return () => {
-        runningListeners.delete(listener);
-      };
-    },
+    onRunning,
     onStrayError,
     reportError: (error) => {
       for (const frame of frames) {
@@ -236,25 +198,17 @@ const mountFrame = (
   if (options.still) {
     host.setAttribute("data-ed-still", "");
   }
-  const media = frameMedia(host, shadow);
-  const sandbox = guardFrame({
-    asking: () => {
-      media.asking();
-      tellRunning(options.frame);
-    },
+  // Its turn (`turn.ts`): drawing, drawn by the editor, or taking input.
+  const kernel = register({
     body,
     error: (error) => events.error?.(error),
     host,
     interactive: () => interactive,
+    name: options.frame,
     navigate: (route, replace) => events.navigateTo?.(route, replace),
-    still: options.still,
+    shadow,
+    still: Boolean(options.still),
   });
-  /** The frame is drawing or took input: what its code asks of the window is about it. */
-  const asking = () => {
-    media.asking();
-    sandbox.asking();
-    tellRunning(options.frame);
-  };
 
   // ---- Where the frame is ----
   /** The frame's place on the screen and the canvas's zoom, which its pixels are scaled by. */
@@ -328,7 +282,7 @@ const mountFrame = (
   const setup: RenderSetup = {
     assetUrl,
     components,
-    drawing: asking,
+    drawing: kernel.ask,
     navigate: (route) => events.navigateTo?.(route, false),
     onRendered: (renderId) => {
       applySkeletons();
@@ -351,7 +305,8 @@ const mountFrame = (
     if (editing) {
       finishTextEdit(false);
     }
-    activeFrame = body;
+    // What the page's code asks as it draws, a popup included, is this frame's from here.
+    kernel.ask();
     applyDefaults(body, request, input.theme);
     fill = request.root?.width === "fill";
     applyMode(request.mode);
@@ -447,10 +402,6 @@ const mountFrame = (
     if (e.cancelable) {
       e.preventDefault();
     }
-  };
-  const activity = () => {
-    activeFrame = body;
-    asking();
   };
 
   /** A plain `<a href>` a component renders is a navigation the editor decides on. */
@@ -563,7 +514,7 @@ const mountFrame = (
     shadow.addEventListener(type, guard, true);
   }
   for (const type of ACTIVITY) {
-    shadow.addEventListener(type, activity, true);
+    shadow.addEventListener(type, kernel.ask, true);
   }
   shadow.addEventListener("click", interceptLinks);
   setInert();
@@ -637,14 +588,10 @@ const mountFrame = (
       mo.disconnect();
       resize.disconnect();
       hostResize.disconnect();
-      media.unmount();
-      sandbox.unmount();
+      kernel.unmount();
       host.removeEventListener("scroll", scheduleRects);
       mounted.unmount();
       shadow.replaceChildren();
-      if (activeFrame === body) {
-        activeFrame = null;
-      }
     },
     watchRects: (nodeIds) => {
       watched = [...nodeIds];

@@ -1,13 +1,9 @@
 // @vitest-environment happy-dom
 import { GUARD_GLOBAL, pageRuntime } from "@ultrapaint/contracts/page-runtime";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { createProvenance } from "./provenance.ts";
-import {
-  type GuardedFrame,
-  guardFrame,
-  installGuards,
-  onStrayError,
-} from "./sandbox.ts";
+import { install, register } from "./kernel.ts";
+import { onStrayError } from "./sandbox.ts";
+import type { Frame } from "./turn.ts";
 
 const ORIGIN = "http://127.0.0.1:4601";
 const BASE = "/preview/";
@@ -56,14 +52,12 @@ const reached = vi.fn((_input: RequestInfo | URL) =>
 
 beforeAll(() => {
   window.fetch = reached as typeof fetch;
-  installGuards(
-    createProvenance({
-      base: BASE,
-      ownScript: BUNDLE,
-      readModule: () => Promise.reject(new Error("no module in a test")),
-      stack: () => ["Error", ...calling].join("\n"),
-    })
-  );
+  install({
+    base: BASE,
+    ownScript: BUNDLE,
+    readModule: () => Promise.reject(new Error("no module in a test")),
+    stack: () => ["Error", ...calling].join("\n"),
+  });
 });
 
 /** What is told of an error is told once its line is looked up: after a turn. */
@@ -77,6 +71,7 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
+let named = 0;
 /** A frame host with a shadow root holding a button, guarded. */
 const frame = (interactive = true) => {
   const host = document.createElement("div");
@@ -87,15 +82,18 @@ const frame = (interactive = true) => {
   const button = document.createElement("button");
   body.append(button);
   shadow.append(body);
-  const navigate = vi.fn<GuardedFrame["navigate"]>();
-  const error = vi.fn<GuardedFrame["error"]>();
-  const guard = guardFrame({
-    asking: () => undefined,
+  const navigate = vi.fn<Frame["navigate"]>();
+  const error = vi.fn<Frame["error"]>();
+  named += 1;
+  const guard = register({
     body,
     error,
     host,
     interactive: () => interactive,
+    name: `frame ${named}`,
     navigate,
+    shadow,
+    still: false,
   });
   mounted.push(guard.unmount);
   return { body, button, error, guard, host, navigate };
@@ -110,7 +108,7 @@ describe("listeners on the document", () => {
   it("hear the keys of their own frame, never the editor's", () => {
     const a = frame();
     const heard = vi.fn();
-    a.guard.asking();
+    a.guard.ask();
     asPreview(() => document.addEventListener("keydown", heard));
     const field = document.createElement("input");
     document.body.append(field);
@@ -127,7 +125,7 @@ describe("listeners on the document", () => {
     const a = frame();
     const b = frame();
     const heard = vi.fn();
-    a.guard.asking();
+    a.guard.ask();
     asPreview(() => document.addEventListener("keydown", heard));
     key(b.button);
     expect(heard).not.toHaveBeenCalled();
@@ -137,7 +135,7 @@ describe("listeners on the document", () => {
   it("count `once` on the frame's events only", () => {
     const a = frame();
     const heard = vi.fn();
-    a.guard.asking();
+    a.guard.ask();
     asPreview(() =>
       document.addEventListener("keydown", heard, { once: true })
     );
@@ -174,7 +172,7 @@ describe("the window", () => {
     const onScroll = () => {
       seen = window.scrollY;
     };
-    a.guard.asking();
+    a.guard.ask();
     asPreview(() => window.addEventListener("scroll", onScroll));
     // happy-dom lays nothing out: the host says where it scrolled to.
     Object.defineProperty(a.host, "scrollTop", { value: 120 });
@@ -187,7 +185,7 @@ describe("the window", () => {
   it("scrolls the frame that takes input, never the editor", () => {
     const a = frame();
     const scrollTo = vi.spyOn(a.host, "scrollTo");
-    a.guard.asking();
+    a.guard.ask();
     asPreview(() => window.scrollTo(0, 0));
     expect(scrollTo).toHaveBeenCalledWith(0, 0);
   });
@@ -197,7 +195,7 @@ describe("history", () => {
   it("is left alone, a page pushed in the prototype followed", () => {
     const a = frame();
     const before = location.href;
-    a.guard.asking();
+    a.guard.ask();
     asPreview(() => history.replaceState(null, "", "?tab=overview"));
     asPreview(() => history.pushState(null, "", "/about"));
     expect(location.href).toBe(before);
@@ -206,7 +204,7 @@ describe("history", () => {
 
   it("is not followed from a frame that is a picture", () => {
     const a = frame(false);
-    a.guard.asking();
+    a.guard.ask();
     asPreview(() => history.pushState(null, "", "/about"));
     expect(a.navigate).not.toHaveBeenCalled();
   });
@@ -242,7 +240,7 @@ describe("errors nothing caught", () => {
 
   it("are told to the frame that was drawing when the preview's code threw them", async () => {
     const a = frame();
-    a.guard.asking();
+    a.guard.ask();
     window.dispatchEvent(
       new ErrorEvent("error", { error: thrown("in a timer", true) })
     );
@@ -258,7 +256,7 @@ describe("errors nothing caught", () => {
 
   it("are left to the editor when its own code threw them", async () => {
     const a = frame();
-    a.guard.asking();
+    a.guard.ask();
     window.dispatchEvent(
       new ErrorEvent("error", { error: thrown("the editor's", false) })
     );
@@ -289,10 +287,10 @@ describe("rejections", () => {
   it("are told to the frame their async function was called for, whichever runs since", async () => {
     const a = frame();
     const b = frame();
-    a.guard.asking();
+    a.guard.ask();
     const called = guard().frame();
     const error = rejected("in a");
-    b.guard.asking();
+    b.guard.ask();
     guard().mark(error, called);
     surface(error);
     await settled();
@@ -305,7 +303,7 @@ describe("rejections", () => {
   it("are told to no frame when nothing says which", async () => {
     const a = frame();
     const b = frame();
-    a.guard.asking();
+    a.guard.ask();
     const stray = vi.fn();
     const stop = onStrayError(stray);
     surface(rejected("in a chain"));
@@ -332,7 +330,7 @@ describe("timers", () => {
   it("run as the frame whose code set them, whichever drew since", async () => {
     const a = frame();
     const b = frame();
-    a.guard.asking();
+    a.guard.ask();
     const failure = new Error("in a timer");
     failure.stack = `Error: in a timer\n    at f (${PAGE_MODULE}:3:1)`;
     const thrown = new Promise<void>((resolve) => {
@@ -343,7 +341,7 @@ describe("timers", () => {
         }, 0)
       );
     });
-    b.guard.asking();
+    b.guard.ask();
     await thrown;
     await settled();
     expect(a.error).toHaveBeenCalledWith(
@@ -357,7 +355,7 @@ describe("each guard's rule", () => {
   it("a listener the editor's bundle adds for the page's code is the page's", () => {
     const a = frame();
     const heard = vi.fn();
-    a.guard.asking();
+    a.guard.ask();
     as(STACKS.bundle, () => document.addEventListener("keydown", heard));
     key(document.body);
     expect(heard).not.toHaveBeenCalled();
@@ -369,7 +367,7 @@ describe("each guard's rule", () => {
   it("a timer the editor's bundle sets is the editor's, though the page's code called it", async () => {
     const a = frame();
     const b = frame();
-    a.guard.asking();
+    a.guard.ask();
     const failure = new Error("in the editor's timer");
     failure.stack = `Error: in the editor's timer\n    at f (${PAGE_MODULE}:3:1)`;
     const thrown = new Promise<void>((resolve) => {
@@ -380,7 +378,7 @@ describe("each guard's rule", () => {
         }, 0)
       );
     });
-    b.guard.asking();
+    b.guard.ask();
     await thrown;
     await settled();
     // Not run as a's: the error goes to the frame asked about last.
@@ -410,7 +408,7 @@ describe("each guard's rule", () => {
 
   it("a write to <html> is its frame's when the page's code writes, the editor's when the bundle does", () => {
     const a = frame();
-    a.guard.asking();
+    a.guard.ask();
     const html = document.documentElement;
     as(STACKS.page, () => html.classList.add("dark"));
     expect(a.host.classList.contains("dark")).toBe(true);

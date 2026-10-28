@@ -83,7 +83,6 @@ const fetchSheet = (link: HTMLLinkElement) => {
 let holder: ShadowRoot | null = null;
 let scheduled = false;
 let tell: (css: FrameCss) => void = () => undefined;
-let watching = false;
 
 const rebuild = () => {
   scheduled = false;
@@ -170,16 +169,13 @@ export const holdStyleFirst = (style: Held) =>
   holdStyle(style, holderRoot().firstChild);
 
 /**
- * Tells `listener` the held styles as the frames have them, whenever they change; once. Rules
+ * Tells `listener` the held styles as the frames have them, whenever they change. Rules
  * inserted and deleted one by one are not seen by an observer of the elements: the sheets'
- * own methods say so.
+ * own methods say so. Installed once, by the kernel; the holder itself is made with the first
+ * style held, so a page that writes none adds nothing to the editor's document.
  */
 export const watchHeldStyles = (listener: (css: FrameCss) => void) => {
   tell = listener;
-  if (watching) {
-    return;
-  }
-  watching = true;
   const proto = CSSStyleSheet.prototype;
   for (const name of ["insertRule", "deleteRule"] as const) {
     const native = proto[name] as (...args: unknown[]) => unknown;

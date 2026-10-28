@@ -331,3 +331,45 @@ callers and its tests share.
    renamed in a template fails it, one renamed in the contract fails the typecheck. The tests
    that wrote the names out (`vite-client`, `sandbox`, `provenance`, `stopped-at`) take them from
    the contract. `pnpm e2e:sandbox` passes its 23 checks.
+11. **Sandbox kernel** (`packages/preview-core/src/kernel.ts`, the turn in `turn.ts`, the
+   redirect in `insertions.ts`). `turn.ts` holds whose page code runs, once: the frames mounted
+   (by host), the frame asked about last (`askedFrame`: drawing, drawn by the editor, taking input
+   or called back), the one whose callback a guard calls (`carriedFrame`, and `turnFrame` for
+   either), the one whose `scroll` or `resize` is told (`relayedFrame`, through `relaying`), and
+   the watchdog's notice (`onRunning`, told on every `ask`). `ask(frame)` and `runAs(frame, f)`
+   are the only writers; the guards, `media.ts`, `portals.ts` and `<html>`/`<body>`'s writes read
+   it. `install({ base, … })` takes `ProvenanceOptions`, makes the provenance and puts every patch
+   in place behind one flag, in an order its doc comment lists with its reasons: the page runtime
+   (styles and reload, the guard), what nothing caught, the window's and document's listeners,
+   handlers, scroll and history, scheduling, requests and storage, the head and the sheets'
+   `insertRule`, the body's popups and `<html>`/`<body>`, the window's size. Within it only the
+   error listeners need to come before `addEventListener` is guarded; what matters is that it runs
+   in `createPreview`, after the repository's modules and Vite's client first ran, as before. The
+   generated entry's `editor-hooks.ts` before `host.css` is still needed (an entry's imports run
+   before its body, and a stylesheet loaded before the hooks goes to the editor's head) and is
+   explained in `preview-files.ts`. `register(frame)` adds a `Frame` (host, shadow, body, name,
+   error, interactive, navigate, still) and gives one `FrameHandle` (`ask`, `unmount`);
+   `mountFrame` uses it for the renderer's `drawing`, its input and `render`, and builds no
+   `asking` of its own. Gone: frame.ts's `activeFrame`, `running` and `tellRunning`, sandbox's
+   `frames`, `current`, `telling`, `carrying`, `runAs`, `installed` and `installGuards`, `GuardedFrame`
+   (`FrameError` moved to `turn.ts`), media's `current` and `provenance`, portals' `installed` and
+   `target`, css-in-js's `watching`, and media's unused `place`; sandbox's guards are exported for
+   the kernel to call. `redirectInsertions(parent, elsewhere)` patches an element's `append`,
+   `appendChild`, `insertBefore`, `prepend` and `removeChild`: a node inserted alone is offered to
+   `elsewhere` with where it was asked to go, and one put elsewhere is taken from where it is when
+   its owner removes it; the body's popups and the head's held styles and title, meta and icons
+   use it. css-in-js's holder (an element, not a patch) is still made with the first held style.
+   `frame.test.ts` mounts frames through `createPreview` with a renderer that runs the test's page
+   code on recorded stacks: a popup, `prefers-color-scheme`, a document listener and a timer drawn
+   in one frame are its together, the timer's after another frame drew, and the watchdog hears
+   `a`, `b`, `a`; a frame the editor drew last without its renderer saying so gets the popups, the
+   media query, the listener and `history.pushState` alike; a popup with no frame asked stays on
+   the editor's body. `sandbox.test.ts` registers its frames with the kernel. Also: `render` makes
+   its frame the turn for every guard, not only for popups, so `matchMedia`, `innerWidth`, a
+   listener added, `scrollTo` and `history` in code that runs before its renderer says it draws are
+   the frame drawn last, as its popups were; a frame's callback (a timer, a listener) opens its
+   popups in that frame rather than in the one that last drew; a node kept aside from the head
+   that its owner moved elsewhere is removed from there, as a popup was. `pnpm bench:canvas` on
+   the Redesign canvas before and after: load 469 / 429 ms, pan 18–19% / 18–19% busy, zoom 40% /
+   40%, Layers' select p50 108 / 111 ms, memory 771 / 771 MB. `pnpm e2e:sandbox` passes its 23
+   checks.
