@@ -15,7 +15,6 @@ import {
   paletteCommands,
   searchCommands,
 } from "../lib/commands.ts";
-import { keysLabel } from "../lib/keys.ts";
 
 const usePalette = create<{ open: boolean }>(() => ({ open: false }));
 
@@ -69,7 +68,7 @@ const Row = ({
     {grouped ? null : (
       <span className="shrink-0 text-muted-foreground">{command.group}</span>
     )}
-    {command.keys ? <Kbd>{keysLabel(command.keys)}</Kbd> : null}
+    {command.keys ? <Kbd>{command.keys}</Kbd> : null}
   </div>
 );
 

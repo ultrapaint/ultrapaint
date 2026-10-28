@@ -39,9 +39,9 @@ import {
   TitleCard,
   TopActions,
 } from "./components/title-bar.tsx";
+import { useKeymap } from "./lib/keymap.ts";
 import { openNewDesignOnSync } from "./lib/new-design.ts";
 import { useOpenNodeLink } from "./lib/open-node-link.ts";
-import { useShortcuts } from "./lib/shortcuts.ts";
 import { CanvasCard } from "./panels/canvases.tsx";
 import { CodePanel } from "./panels/code.tsx";
 import { Inspector } from "./panels/inspector.tsx";
@@ -308,7 +308,7 @@ export const App = () => {
   const titleWidth = leftHidden ? null : leftCard;
   const rightCover = hasRight ? EDGE + rightWidth + EDGE : 0;
   const bound = useRef<boolean>(false);
-  useShortcuts();
+  useKeymap();
   useOpenNodeLink();
 
   useEffect(() => {

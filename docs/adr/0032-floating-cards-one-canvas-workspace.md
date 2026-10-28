@@ -4,6 +4,13 @@ Status: accepted, 2026-10-26. Amends 0018 (the element toolbar is no longer Vibe
 0020 (the Pages panel stays the prototype's; the canvases are switched at the top of the left
 panel). Builds on 0031 (the desktop app's window).
 
+> Amended 2026-10-28 (`docs/PLAN-architecture.md`, step 16). The key handlers no longer stay
+> where they were: a key is declared once, with its command in `lib/commands.ts`, as a chord
+> (`mod+shift+z`) and the scope it works in (anywhere, outside text fields, on the canvas, or a
+> focused row of the Layers panel). The one key handler, the palette, the shortcut sheet, the
+> menus and the tooltips read it, so a key shown is a key that works, and the Layers rows' keys
+> are in the sheet.
+
 ## Context
 
 The editor had three workspaces: Vibe (the canvas and the chat, with a toolbar of design-system

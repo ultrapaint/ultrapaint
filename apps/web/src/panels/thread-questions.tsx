@@ -35,7 +35,7 @@ import {
   type QuestionOf,
   takesTyping,
 } from "../lib/answers.ts";
-import { shortcutLabel } from "../lib/keys.ts";
+import { chordLabel } from "../lib/keys.ts";
 import { useAgents } from "../state/agents.ts";
 import {
   declineQuestions,
@@ -536,7 +536,7 @@ export const AnswerButtons = ({
         onClick={() => advance(answering, threadId, running)}
         onMouseDown={keepFocus}
         size="sm"
-        title={shortcutLabel("⌘↩")}
+        title={chordLabel("mod+enter")}
       >
         {last ? "Send answers" : "Next question"}
       </Button>

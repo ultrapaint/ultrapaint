@@ -70,7 +70,7 @@ import {
   ContextMenuSubContent,
   ContextMenuSubTrigger,
 } from "@/components/ui/context-menu";
-import { shortcutLabel } from "../lib/keys.ts";
+import { keysOf } from "../lib/commands.ts";
 import { entriesFor, runEntry } from "../lib/menu-actions.ts";
 import type { Entry } from "../lib/menu-model.ts";
 import { useAgents } from "../state/agents.ts";
@@ -222,6 +222,7 @@ const Entries = ({
       }
       default: {
         const Icon = iconOf(entry.id, entry.label);
+        const keys = entry.command ? keysOf(entry.command) : undefined;
         return (
           <ContextMenuItem
             disabled={entry.disabled}
@@ -232,11 +233,7 @@ const Entries = ({
             {Icon ? <Icon /> : null}
             <span className="truncate">{entry.label}</span>
             {entry.checked ? <Check className="ml-auto" /> : null}
-            {entry.shortcut ? (
-              <ContextMenuShortcut>
-                {shortcutLabel(entry.shortcut)}
-              </ContextMenuShortcut>
-            ) : null}
+            {keys ? <ContextMenuShortcut>{keys}</ContextMenuShortcut> : null}
           </ContextMenuItem>
         );
       }

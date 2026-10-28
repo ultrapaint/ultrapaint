@@ -6,8 +6,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Kbd } from "@/components/ui/kbd";
-import { commandGroups, shortcuts } from "../lib/commands.ts";
-import { keysLabel } from "../lib/keys.ts";
+import { commandGroups, keysOf, shortcuts } from "../lib/commands.ts";
 
 const useShortcutSheet = create<{ open: boolean }>(() => ({
   open: false,
@@ -15,6 +14,12 @@ const useShortcutSheet = create<{ open: boolean }>(() => ({
 
 export const openShortcutSheet = () =>
   useShortcutSheet.setState({ open: true });
+
+/** A command's keys, as this platform writes them, for a tooltip or a menu; nothing for none. */
+export const CommandKeys = ({ id }: { id: string }) => {
+  const keys = keysOf(id);
+  return keys ? <Kbd>{keys}</Kbd> : null;
+};
 
 /** The sheet `?` opens: what every key does, as this platform writes it. */
 export const ShortcutSheet = () => {
@@ -47,7 +52,7 @@ export const ShortcutSheet = () => {
                   key={title}
                 >
                   <span>{title}</span>
-                  <Kbd>{keysLabel(keys)}</Kbd>
+                  <Kbd>{keys}</Kbd>
                 </div>
               ))}
             </section>

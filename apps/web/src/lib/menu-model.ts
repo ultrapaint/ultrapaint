@@ -19,7 +19,8 @@ export type Entry =
       /** What the item does; `wrap:row`, `apply:fill` and the like carry their argument. */
       id: string;
       label: string;
-      shortcut?: string;
+      /** The editor's command it is, whose keys it shows (`commands.ts`). */
+      command?: string;
       disabled?: boolean;
       destructive?: boolean;
       /** Marked as the current choice among its neighbours. */
@@ -140,7 +141,7 @@ export const nodeEntries = (f: NodeFacts): Entry[] => {
     item("ask", "Add to chat"),
     item("askNew", "Add to a new chat"),
     node.type === "text" &&
-      item("editText", "Edit text", { ...one, shortcut: "⏎" }),
+      item("editText", "Edit text", { ...one, command: "editText" }),
     item("rename", "Rename…", one),
     item("viewCode", "View code", one),
     f.onPage && item("comment", "Comment on this", one),
@@ -151,22 +152,25 @@ export const nodeEntries = (f: NodeFacts): Entry[] => {
       item("makeDraft", "Make a draft component…", one),
     linkEntries(f),
     f.parentSelectable &&
-      item("selectParent", "Select parent", { ...one, shortcut: "Esc" }),
+      item("selectParent", "Select parent", {
+        ...one,
+        command: "selectParent",
+      }),
     separator,
     item("copyLink", "Copy link to element", one),
     item("copyRef", "Copy element ID", one),
     separator,
-    !root && item("copy", "Copy", { shortcut: "⌘C" }),
-    !root && item("cut", "Cut", { shortcut: "⌘X" }),
-    item("paste", "Paste", { disabled: !f.canPaste, shortcut: "⌘V" }),
-    !root && item("duplicate", "Duplicate", { shortcut: "⌘D" }),
+    !root && item("copy", "Copy", { command: "copy" }),
+    !root && item("cut", "Cut", { command: "cut" }),
+    item("paste", "Paste", { command: "paste", disabled: !f.canPaste }),
+    !root && item("duplicate", "Duplicate", { command: "duplicate" }),
     separator,
     !root && {
       disabled: !f.wrappable,
       entries: [
-        item("wrap:group", "Group", { shortcut: "⌘G" }),
-        item("wrap:row", "Row", { shortcut: "⌥⌘G" }),
-        item("wrap:column", "Column", { shortcut: "⇧⌘G" }),
+        item("wrap:group", "Group", { command: "wrap:group" }),
+        item("wrap:row", "Row", { command: "wrap:row" }),
+        item("wrap:column", "Column", { command: "wrap:column" }),
       ],
       id: "wrap",
       kind: "submenu",
@@ -187,12 +191,12 @@ export const nodeEntries = (f: NodeFacts): Entry[] => {
     },
     item("toggleHidden", f.hidden ? "Show" : "Hide"),
     !root && item("toggleLocked", node.locked ? "Unlock" : "Lock"),
-    item("zoomTo", "Zoom to selection", { shortcut: "⇧2" }),
+    item("zoomTo", "Zoom to selection", { command: "zoomSelection" }),
     separator,
     !root &&
       item("delete", several ? `Delete ${f.count} elements` : "Delete", {
+        command: "delete",
         destructive: true,
-        shortcut: "⌫",
       }),
   ]);
 };
@@ -302,8 +306,8 @@ export const pageEntries = (f: PageFacts): Entry[] => {
     f.onCanvas && item("zoomTo", "Zoom to page"),
     f.onCanvas &&
       item("paste", "Paste into page", {
+        command: "paste",
         disabled: !f.canPaste,
-        shortcut: "⌘V",
       }),
     f.onCanvas && {
       entries: viewportPresets.map((p) =>
@@ -382,24 +386,24 @@ export interface CanvasFacts {
 
 export const canvasEntries = (f: CanvasFacts): Entry[] =>
   tidy([
-    item("paste", "Paste here", { disabled: !f.canPaste, shortcut: "⌘V" }),
+    item("paste", "Paste here", { command: "paste", disabled: !f.canPaste }),
     separator,
     item("newPage", "New page…"),
     item("importFigma", "Import a Figma file…"),
     separator,
-    item("zoomFit", "Zoom to fit", { shortcut: "⇧1" }),
-    item("zoom100", "Zoom to 100%", { shortcut: "⇧0" }),
+    item("zoomFit", "Zoom to fit", { command: "zoomFit" }),
+    item("zoom100", "Zoom to 100%", { command: "zoom100" }),
     separator,
     item(
       "toggleComments",
       f.commentsVisible ? "Hide comments" : "Show comments",
-      { shortcut: "⇧C" }
+      { command: "toggleComments" }
     ),
     item("toggleGrid", f.gridVisible ? "Hide grid" : "Show grid", {
-      shortcut: "⌘'",
+      command: "grid",
     }),
-    item("tool:text", "Text tool", { shortcut: "T" }),
-    item("tool:group", "Group tool", { shortcut: "G" }),
+    item("tool:text", "Text tool", { command: "tool:text" }),
+    item("tool:group", "Group tool", { command: "tool:group" }),
   ]);
 
 // ---- Comments ----

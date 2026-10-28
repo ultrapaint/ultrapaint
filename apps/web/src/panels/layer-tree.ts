@@ -189,7 +189,7 @@ export type TreeMove =
   | { readonly collapse: string };
 
 /** The keys the tree moves on; the panel keeps them from the canvas, which has its own. */
-export const TREE_KEYS: ReadonlySet<string> = new Set([
+const TREE_KEYS: ReadonlySet<string> = new Set([
   "ArrowDown",
   "ArrowUp",
   "ArrowRight",

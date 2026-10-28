@@ -10,12 +10,11 @@ import {
   Undo2,
 } from "lucide-react";
 import type { MouseEvent } from "react";
-import { Kbd } from "@/components/ui/kbd";
 import { initialOf, relativeTime, repliesLabel } from "../canvas/comments.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { SetupEmpty } from "../components/setup-dialog.tsx";
-import { shortcutLabel } from "../lib/keys.ts";
+import { CommandKeys } from "../components/shortcut-sheet.tsx";
 import {
   revealComment,
   updateComment,
@@ -72,7 +71,7 @@ export const Comments = () => {
           tooltip={
             <>
               {visible ? "Hide comments" : "Show comments"}{" "}
-              <Kbd>{shortcutLabel("⇧C")}</Kbd>
+              <CommandKeys id="toggleComments" />
             </>
           }
         >
@@ -83,8 +82,8 @@ export const Comments = () => {
         <PanelEmpty icon={<MessageCircle />}>
           {comments.length === 0 ? (
             <>
-              No comments yet. Pick the comment tool <Kbd>C</Kbd> and click
-              anywhere on a page.
+              No comments yet. Pick the comment tool{" "}
+              <CommandKeys id="tool:comment" /> and click anywhere on a page.
             </>
           ) : (
             "Every comment is resolved."
