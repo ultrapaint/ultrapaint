@@ -2,10 +2,12 @@
  * The project open in the window (PLAN-desktop D3): one at a time. Opening another stops the
  * server of the one open and starts the next one's; the window then shows its editor. A server
  * with an agent at work is stopped only once the user says so (D3, D13); a server the app
- * attached to, rather than started (D5), is left running.
+ * attached to, rather than started (D5), is left running. A signal (SIGINT, SIGTERM) asks
+ * nobody: it answers a question on screen no and stops the server at once.
  */
 import {
   Context,
+  Deferred,
   Effect,
   Exit,
   Layer,
@@ -110,7 +112,10 @@ export class OpenProject extends Context.Service<
     readonly start: Effect.Effect<void, StoreError>;
     /**
      * Stops the open project's server, as the app quits. With `ask`, an agent at work is the
-     * user's to stop: false when they would rather it went on, and nothing is stopped.
+     * user's to stop: false when they would rather it went on, and nothing is stopped; a second
+     * stop while the question is on screen asks nothing more and has its answer. Without, a
+     * signal's: a question on screen (a quit's, a switch's or a restart's) is answered no, and
+     * any asked after it, and the server stops at once.
      */
     readonly stop: (options: {
       readonly ask: boolean;
@@ -133,6 +138,22 @@ export class OpenProject extends Context.Service<
         // One switch at a time: a second click waits for the first to finish.
         const switching = yield* Semaphore.make(1);
         let open: Open | null = null;
+        // Done once a signal stops the app: no question is answered yes after it.
+        const signalled = yield* Deferred.make<void>();
+        // The quit being asked, whose answer a second close or Cmd-Q meanwhile waits for.
+        let quitAsked: Deferred.Deferred<boolean> | null = null;
+
+        /** Asks the user, unless a signal came first or comes while the question is on screen. */
+        const confirm = (question: ReturnType<typeof stopQuestion>) =>
+          Effect.flatMap(Deferred.isDone(signalled), (cut) =>
+            cut
+              ? Effect.succeed(false)
+              : Effect.raceFirst(
+                  shell.confirm(question),
+                  // Interrupted, the shell takes the question off the screen.
+                  Effect.as(Deferred.await(signalled), false)
+                )
+          );
 
         /**
          * Lets go of the open project: its server stops, unless the app only attached to it.
@@ -149,7 +170,7 @@ export class OpenProject extends Context.Service<
           const working =
             ask && !was.server.attached ? yield* was.server.working : 0;
           if (working > 0) {
-            const agree = yield* shell.confirm(
+            const agree = yield* confirm(
               stopQuestion(action, working, was.project.name)
             );
             if (!agree) {
@@ -257,6 +278,28 @@ export class OpenProject extends Context.Service<
           return { opened, project };
         });
 
+        /** A quit the user is asked about; a second one meanwhile has the first's answer. */
+        const askToQuit = Effect.suspend(() => {
+          if (quitAsked) {
+            return Deferred.await(quitAsked);
+          }
+          const asked = Deferred.makeUnsafe<boolean>();
+          quitAsked = asked;
+          return Effect.onExit(
+            switching.withPermits(1)(release("quit", true)),
+            (exit) => {
+              quitAsked = null;
+              return Deferred.done(asked, exit);
+            }
+          );
+        });
+
+        /** A signal's quit: a question on screen is answered no, then the server stops. */
+        const stopAtOnce = Effect.andThen(
+          Deferred.succeed(signalled, undefined),
+          switching.withPermits(1)(release("quit", false))
+        );
+
         return OpenProject.of({
           add: Effect.gen(function* () {
             const folder = yield* shell.pickFolder({
@@ -294,7 +337,7 @@ export class OpenProject extends Context.Service<
             // A project that cannot start leaves the window on the welcome page, saying why.
             yield* Effect.ignore(openProject(last.value));
           }),
-          stop: ({ ask }) => switching.withPermits(1)(release("quit", ask)),
+          stop: ({ ask }) => (ask ? askToQuit : stopAtOnce),
         });
       })
     );

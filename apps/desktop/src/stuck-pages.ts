@@ -2,10 +2,10 @@
  * The repository's components run on the editor's thread (ADR 0034). The preview's server stops
  * the loops of the repository's own code at 2.5 s; what it cannot see (a dependency's loop, an
  * endless chain of promises) would stop the editor for good. The preload script beats every
- * 250 ms. A page silent for 4 s that does not answer a script either (a hidden window's timers
- * are slowed, its scripts are not) has its process ended and is loaded again. The watchdog wrote
- * down the frame it was drawing at 3 s, which the editor then shows without drawing it
- * (docs/PLAN-preview-sandbox.md, step 11). The process, not only the script: a page let go on
+ * `BEAT_MS` (`bridge.ts`). A page silent for 4 s that does not answer a script either (a hidden
+ * window's timers are slowed, its scripts are not) has its process ended and is loaded again.
+ * The watchdog wrote down the frame it was drawing at 3 s, which the editor then shows without
+ * drawing it (docs/PLAN-preview-sandbox.md, step 11). The process, not only the script: a page let go on
  * after its script is ended beats again before it is loaded again, and the watchdog takes it for a
  * page that was only slow. No dialog: there is nothing to decide, and Chrome's own comes later.
  *
