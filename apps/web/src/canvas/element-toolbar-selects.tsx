@@ -4,25 +4,15 @@
  * alone; the menu it opens says what it sets.
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
-import type {
-  DesignSystem,
-  TextStyle,
-} from "@ultrapaint/contracts/design-system";
+import type { TextStyle } from "@ultrapaint/contracts/design-system";
 import type {
   DesignNode,
   InstanceNode,
+  TextAlign,
   TextNode,
 } from "@ultrapaint/contracts/document";
-import {
-  shortName,
-  spacingBasePx,
-  tokensOfKind,
-} from "@ultrapaint/contracts/token-table";
-import {
-  attachTextStyle,
-  groupTextStyles,
-} from "@ultrapaint/design-document/text-styles";
-import { tokenRef } from "@ultrapaint/design-document/tokens";
+import { spacingBasePx } from "@ultrapaint/contracts/token-table";
+import { groupTextStyles } from "@ultrapaint/design-document/text-styles";
 import {
   ALargeSmall,
   BetweenHorizontalStart,
@@ -60,11 +50,17 @@ import {
 import {
   type Control,
   propValue,
-  type TokenField,
   tokenLabel,
 } from "../lib/element-controls.ts";
 import { LruMap } from "../lib/lru.ts";
-import { setPropsOfNodes, updateNodes } from "../lib/node-actions.ts";
+import { setField, setPropsOfNodes } from "../lib/node-actions.ts";
+import {
+  ALIGN,
+  sharedField,
+  TEXT_STYLE,
+  TOKEN_FIELDS,
+  type TokenFieldName,
+} from "../lib/node-fields.ts";
 import {
   labelOf,
   MIXED,
@@ -72,6 +68,7 @@ import {
   sharedValue,
 } from "../lib/shared-value.ts";
 import { TOOLBAR_SPACING } from "../lib/spacing.ts";
+import { colorGroups, tokenOptions } from "../lib/token-options.tsx";
 import { ComponentProps } from "../panels/component-props.tsx";
 import { useCatalogue } from "../state/catalogue.ts";
 import { useDesignSystem } from "../state/design-system.ts";
@@ -83,7 +80,7 @@ import { Targets, useTargetNodes } from "./toolbar-targets.ts";
 const NO_STYLES: readonly TextStyle[] = [];
 
 const FIELD: Record<
-  TokenField,
+  TokenFieldName,
   { icon: LucideIcon; name: string; utility: string }
 > = {
   color: { icon: ALargeSmall, name: "color", utility: "text" },
@@ -93,16 +90,6 @@ const FIELD: Record<
   shadow: { icon: Copy, name: "shadow", utility: "shadow" },
   tint: { icon: Palette, name: "tint", utility: "bg" },
 };
-
-const colorTokens = (ds: DesignSystem | null) =>
-  (ds?.colors ?? []).map((group) => ({
-    name: group.name,
-    tokens: group.tokens.map((t) => ({
-      label: shortName(t.name),
-      swatch: t.value,
-      value: tokenRef(t.name),
-    })),
-  }));
 
 /** The trigger of every select: an icon or a swatch, the value, a chevron. */
 export const ValueTrigger = ({
@@ -298,20 +285,11 @@ export const TextStyleSelect = ({ node }: { node: TextNode }) => {
   const styles =
     useDesignSystem((s) => s.designSystem?.typography.styles) ?? NO_STYLES;
   const style = styles.find((s) => s.name === node.textStyle);
-  const mixedStyles =
-    sharedValue(
-      useTargetNodes().map((n) =>
-        n.type === "text" ? (n.textStyle ?? "") : ""
-      )
-    ) === MIXED;
+  const mixedStyles = sharedField(TEXT_STYLE, useTargetNodes()) === MIXED;
   const onValue = (v: unknown) => {
     const next = styles.find((s) => s.name === v);
     if (next) {
-      updateNodes(
-        targets,
-        attachTextStyle(next),
-        `Set the text in ${next.name}`
-      );
+      setField(TEXT_STYLE, next, targets);
     }
   };
   return (
@@ -361,7 +339,7 @@ export const TextStyleSelect = ({ node }: { node: TextNode }) => {
   );
 };
 
-const ALIGNS: readonly [string, LucideIcon, string][] = [
+const ALIGNS: readonly [TextAlign, LucideIcon, string][] = [
   ["start", TextAlignStart, "Left"],
   ["center", TextAlignCenter, "Centre"],
   ["end", TextAlignEnd, "Right"],
@@ -369,12 +347,10 @@ const ALIGNS: readonly [string, LucideIcon, string][] = [
 
 export const AlignSelect = ({ node }: { node: TextNode }) => {
   const targets = useContext(Targets);
-  const shared = sharedValue(
-    useTargetNodes().map((n) =>
-      n.type === "text" ? (n.align ?? "start") : "start"
-    )
+  const value = labelOf(
+    sharedField(ALIGN, useTargetNodes()),
+    ALIGN.read(node) ?? "start"
   );
-  const value = labelOf(shared, node.align ?? "start");
   const found = ALIGNS.find(([v]) => v === value);
   const icon = found?.[1] ?? TextAlignStart;
   const label = found?.[2] ?? MIXED_LABEL;
@@ -387,13 +363,12 @@ export const AlignSelect = ({ node }: { node: TextNode }) => {
         <DropdownMenuGroup>
           <MenuHead name="align" />
           <DropdownMenuRadioGroup
-            onValueChange={(v) =>
-              updateNodes(
-                targets,
-                { align: v === "start" ? null : String(v) },
-                "Align the text"
-              )
-            }
+            onValueChange={(v) => {
+              const align = ALIGNS.find(([a]) => a === v)?.[0];
+              if (align) {
+                setField(ALIGN, align, targets);
+              }
+            }}
             value={value}
           >
             {ALIGNS.map(([v, Icon, l]) => (
@@ -420,45 +395,28 @@ export const TokenSelect = ({
   const ds = useDesignSystem((s) => s.designSystem);
   const base = spacingBasePx(ds?.spacing.base);
   const field = FIELD[control.field];
-  const raw = (node as unknown as Record<string, JsonValue | undefined>)[
-    control.field
-  ];
-  const label = labelOf(
-    sharedValue(
-      useTargetNodes().map((n) =>
-        tokenLabel(
-          control.field,
-          (n as unknown as Record<string, JsonValue | undefined>)[
-            control.field
-          ],
-          base
-        )
-      )
-    ),
-    tokenLabel(control.field, raw, base)
-  );
-  const set = (value: JsonValue) =>
-    updateNodes(
-      targets,
-      { [control.field]: value },
-      `Change the ${field.name}`
-    );
-  const colors = control.token === "color" ? colorTokens(ds) : [];
+  const def = TOKEN_FIELDS[control.field];
+  const raw = def.read(node);
+  const shared = sharedField(def, useTargetNodes());
+  const label =
+    shared === MIXED ? MIXED_LABEL : tokenLabel(control.field, shared, base);
+  const set = (value: JsonValue) => setField(def, value, targets);
+  const colors = def.options === "color" ? colorGroups(ds) : [];
   const swatch =
-    control.token === "color"
-      ? (colors.flatMap((g) => g.tokens).find((t) => t.value === raw)?.swatch ??
-        (typeof raw === "string" ? raw : "transparent"))
+    def.options === "color"
+      ? (colors.flatMap((g) => g.options).find((t) => t.value === raw)
+          ?.swatch ?? (typeof raw === "string" ? raw : "transparent"))
       : undefined;
   const current = raw === undefined || raw === null ? "" : String(raw);
 
   let items: ReactNode;
-  if (control.token === "color") {
+  if (def.options === "color") {
     items = colors.map((group) => (
       <DropdownMenuGroup key={group.name}>
         <DropdownMenuLabel className="font-body font-normal">
           {group.name}
         </DropdownMenuLabel>
-        {group.tokens.map((t) => (
+        {group.options.map((t) => (
           <DropdownMenuRadioItem key={t.value} value={t.value}>
             <span
               className="size-3.5 shrink-0 rounded-full border border-foreground/20"
@@ -472,7 +430,7 @@ export const TokenSelect = ({
         ))}
       </DropdownMenuGroup>
     ));
-  } else if (control.token === "spacing") {
+  } else if (def.options === "spacing") {
     items = TOOLBAR_SPACING.map((step) => (
       <DropdownMenuRadioItem key={step} value={String(step * base)}>
         <span
@@ -486,25 +444,22 @@ export const TokenSelect = ({
       </DropdownMenuRadioItem>
     ));
   } else {
-    items = tokensOfKind(ds, control.token).map((t) => {
-      const short = shortName(t.name);
-      return (
-        <DropdownMenuRadioItem key={t.name} value={tokenRef(t.name)}>
-          <span className="flex-1 font-mono">
-            {field.utility}-{short}
-          </span>
-          <span className="max-w-24 truncate font-body text-muted-foreground">
-            {t.value}
-          </span>
-        </DropdownMenuRadioItem>
-      );
-    });
+    items = tokenOptions(ds, def.options).map((t) => (
+      <DropdownMenuRadioItem key={t.value} value={t.value}>
+        <span className="flex-1 font-mono">
+          {field.utility}-{t.label}
+        </span>
+        <span className="max-w-24 truncate font-body text-muted-foreground">
+          {t.description}
+        </span>
+      </DropdownMenuRadioItem>
+    ));
   }
 
   return (
     <DropdownMenu>
       <ValueTrigger
-        icon={control.token === "color" ? undefined : field.icon}
+        icon={def.options === "color" ? undefined : field.icon}
         swatch={swatch}
         tooltip={field.name}
       >
@@ -514,9 +469,7 @@ export const TokenSelect = ({
         <DropdownMenuGroup>
           <MenuHead
             name={field.name}
-            source={
-              control.token === "color" ? "--color-*" : `--${control.token}`
-            }
+            source={def.options === "color" ? "--color-*" : `--${def.options}`}
           />
           <DropdownMenuRadioGroup
             onValueChange={(v) => {
@@ -524,7 +477,7 @@ export const TokenSelect = ({
               if (text === "") {
                 set(null);
               } else {
-                set(control.token === "spacing" ? Number(text) : text);
+                set(def.options === "spacing" ? Number(text) : text);
               }
             }}
             value={current}

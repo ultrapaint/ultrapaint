@@ -8,15 +8,7 @@ import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { shortName, spacingStepAt } from "@ultrapaint/contracts/token-table";
 import { isToken, tokenName } from "@ultrapaint/design-document/tokens";
-import type { FieldTokenKind } from "./token-options.tsx";
-
-export type TokenField =
-  | "color"
-  | "fill"
-  | "gap"
-  | "radius"
-  | "shadow"
-  | "tint";
+import type { TokenFieldName } from "./node-fields.ts";
 
 export type Control =
   | {
@@ -27,20 +19,13 @@ export type Control =
   | { readonly kind: "textStyle" }
   | { readonly kind: "align" }
   | { readonly kind: "spacing" }
-  | {
-      readonly field: TokenField;
-      readonly kind: "token";
-      readonly token: FieldTokenKind;
-    };
+  /** A field of `node-fields`, which says which tokens it offers. */
+  | { readonly field: TokenFieldName; readonly kind: "token" };
 
 /** A component's props the toolbar shows before "+ n". */
 export const SHOWN_PROPS = 2;
 
-const token = (field: TokenField, kind: FieldTokenKind): Control => ({
-  field,
-  kind: "token",
-  token: kind,
-});
+const token = (field: TokenFieldName): Control => ({ field, kind: "token" });
 
 export const controlsOf = (
   node: DesignNode,
@@ -62,36 +47,32 @@ export const controlsOf = (
     case "text":
       return {
         more: [],
-        shown: [
-          { kind: "textStyle" },
-          token("color", "color"),
-          { kind: "align" },
-        ],
+        shown: [{ kind: "textStyle" }, token("color"), { kind: "align" }],
       };
     case "image":
       return {
         more: [],
-        shown: [token("tint", "color"), token("radius", "radius")],
+        shown: [token("tint"), token("radius")],
       };
     case "group":
       return {
         more: [],
         shown: [
-          token("fill", "color"),
-          token("radius", "radius"),
+          token("fill"),
+          token("radius"),
           { kind: "spacing" },
-          token("shadow", "shadow"),
+          token("shadow"),
         ],
       };
     default:
       return {
         more: [],
         shown: [
-          token("fill", "color"),
-          token("radius", "radius"),
+          token("fill"),
+          token("radius"),
           { kind: "spacing" },
-          token("gap", "spacing"),
-          token("shadow", "shadow"),
+          token("gap"),
+          token("shadow"),
         ],
       };
   }
@@ -118,7 +99,7 @@ export const propValue = (
  * spacing scale as its step (`4` for 16px on a 4px base), `none` when unset.
  */
 export const tokenLabel = (
-  field: TokenField,
+  field: TokenFieldName,
   value: JsonValue | undefined,
   spacingBase: number
 ): string => {

@@ -18,6 +18,7 @@ import { currentBreakpoints } from "../state/design-system.ts";
 import { pageOfFrame } from "../state/documents.ts";
 import { type EditorState, useEditor } from "../state/editor.ts";
 import { frameBreakpoint, useFrameBreakpoint } from "../state/selection.ts";
+import { unsetValueOf } from "./node-fields.ts";
 
 const viewsIn = (frames: EditorState["frames"], frame: string) =>
   (frames[pageOfFrame(frame)]?.views?.length ?? 0) > 0;
@@ -53,6 +54,32 @@ const groupBy = (
 };
 
 /**
+ * What setting `key` to `value` writes at a breakpoint, over the fields the node has below it.
+ * Unset, a field a node is drawn with a value without (a text's align, start) is that value
+ * there: taking the override away would show what is below instead.
+ */
+const writtenAt = (
+  node: DesignNode,
+  key: string,
+  value: JsonValue,
+  inherited: Fields | null
+): JsonValue => {
+  const unset = unsetValueOf(node, key);
+  const written = value === null ? (unset ?? null) : value;
+  if (inherited === null) {
+    return written;
+  }
+  // Shown again at a breakpoint is `hidden: false` there, not the field taken away.
+  if (key === "hidden") {
+    const hides = value === true;
+    return hides === (inherited.hidden === true) ? null : hides;
+  }
+  // Back to what it inherits: the breakpoint no longer sets it.
+  const same = written !== null && sameJson(inherited[key] ?? unset, written);
+  return same ? null : written;
+};
+
+/**
  * The operations that set `set` on `node` as edited in `frame`: at the frame's breakpoint, the
  * node's own fields, or where each field's value comes from, as the module says.
  */
@@ -77,17 +104,13 @@ export const updateOpsAt = (
       // No views: the base, or the breakpoint the value shown comes from.
       const from =
         shown === null ? null : sourceOf(node, key, breakpoints, shown);
-      return [key, value, from] as const;
+      return [
+        key,
+        from === null ? value : writtenAt(node, key, value, null),
+        from,
+      ] as const;
     }
-    // Shown again at a breakpoint is `hidden: false` there, not the field taken away.
-    if (key === "hidden") {
-      const hides = value === true;
-      const hiddenBelow = inherited?.hidden === true;
-      return [key, hides === hiddenBelow ? null : hides, target] as const;
-    }
-    // Back to what it inherits: the breakpoint no longer sets it.
-    const same = value !== null && sameJson(inherited?.[key], value);
-    return [key, same ? null : value, target] as const;
+    return [key, writtenAt(node, key, value, inherited), target] as const;
   });
   return [...groupBy(entries)].map(([at, fields]) => ({
     ...(at !== null && { at }),

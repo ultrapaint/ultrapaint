@@ -44,6 +44,13 @@ export const FIELD_TOKEN_KINDS = [
 ] as const satisfies readonly TokenKind[];
 export type FieldTokenKind = (typeof FIELD_TOKEN_KINDS)[number];
 
+/** The colour tokens as options in their groups, each with the colour its swatch shows. */
+export const colorGroups = (ds: DesignSystem | null) =>
+  (ds?.colors ?? []).map((group) => ({
+    name: group.name,
+    options: group.tokens.map((t) => ({ ...tokenOption(t), swatch: t.value })),
+  }));
+
 /** A kind's options: its tokens by their short names, spacing first as the scale's named steps. */
 export const tokenOptions = (
   ds: DesignSystem | null,
@@ -62,11 +69,11 @@ export const tokenOptions = (
   }
   if (kind === "color") {
     // A colour says which group it is of.
-    return (ds?.colors ?? []).flatMap((group) =>
-      group.tokens.map((t) => ({
-        ...tokenOption(t),
+    return colorGroups(ds).flatMap((group) =>
+      group.options.map(({ swatch, ...option }) => ({
+        ...option,
         description: group.name,
-        preview: <Swatch color={t.value} />,
+        preview: <Swatch color={swatch} />,
       }))
     );
   }

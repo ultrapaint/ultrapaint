@@ -10,7 +10,6 @@ import {
 } from "@ultrapaint/contracts/design-system";
 import type { TextNode } from "@ultrapaint/contracts/document";
 import {
-  attachTextStyle,
   detachTextStyle,
   groupTextStyles,
   matchTextStyle,
@@ -26,7 +25,13 @@ import { IconButton } from "../components/icon-button.tsx";
 import { OptionSelect } from "../components/option-select.tsx";
 import { Row, Section } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";
-import { updateSelection } from "../lib/node-actions.ts";
+import { setField, updateSelection } from "../lib/node-actions.ts";
+import {
+  ALIGN,
+  sharedField,
+  TEXT_STYLE,
+  TOKEN_FIELDS,
+} from "../lib/node-fields.ts";
 import {
   MIXED,
   type Shared,
@@ -92,8 +97,7 @@ const TextStyleRow = ({
       }))
     ),
   ];
-  const attach = (next: TextStyle) =>
-    updateSelection(attachTextStyle(next), `Set the text in ${next.name}`);
+  const attach = (next: TextStyle) => setField(TEXT_STYLE, next);
   const detach = () =>
     setTexts("Detach the text style", (n) =>
       detachTextStyle(n, styleOf(styles, n))
@@ -111,7 +115,7 @@ const TextStyleRow = ({
     }
     return setTexts("Set the texts in their styles", (n) => {
       const next = matchTextStyle(n, styles);
-      return next ? attachTextStyle(next) : {};
+      return next ? TEXT_STYLE.write(next) : {};
     });
   };
   const stale = typeof named === "string" && style === undefined;
@@ -151,7 +155,7 @@ const TextStyleRow = ({
 export const TextSection = ({ nodes }: { nodes: readonly TextNode[] }) => {
   const ds = useDesignSystem((s) => s.designSystem);
   const styles = ds?.typography.styles ?? [];
-  const named = sharedValue(nodes.map((n) => n.textStyle));
+  const named = sharedField(TEXT_STYLE, nodes);
   const style =
     typeof named === "string"
       ? styles.find((s) => s.name === named)
@@ -226,16 +230,14 @@ export const TextSection = ({ nodes }: { nodes: readonly TextNode[] }) => {
       <Row label="Tracking">{setting("tracking", "tracking")}</Row>
       <Row label="Colour">
         <ColorField
-          field="color"
-          {...shownAs(
-            sharedOf(nodes, (n) => n.color),
-            "Inherited"
-          )}
+          field={TOKEN_FIELDS.color}
+          nodes={nodes}
+          placeholder="Inherited"
         />
       </Row>
       <Row label="Align">
         <Segmented
-          onChange={(v) => set("align", v)}
+          onChange={(v) => setField(ALIGN, v)}
           options={[
             {
               label: <AlignLeft className="size-3" />,
@@ -253,7 +255,7 @@ export const TextSection = ({ nodes }: { nodes: readonly TextNode[] }) => {
               value: "end",
             },
           ]}
-          value={nullIfMixed(sharedOf(nodes, (n) => n.align))}
+          value={nullIfMixed(sharedField(ALIGN, nodes))}
         />
       </Row>
     </Section>

@@ -48,6 +48,7 @@ import {
   unwrapSelection,
   wrapSelection,
 } from "../lib/node-actions.ts";
+import { TOKEN_FIELDS } from "../lib/node-fields.ts";
 import { copyNodeRef } from "../lib/node-links.ts";
 import {
   editPageUrl,
@@ -593,11 +594,9 @@ const ImageSection = ({ nodes }: { nodes: readonly ImageNode[] }) => {
       </Row>
       <Row label="Tint">
         <ColorField
-          field="tint"
-          {...shownAs(
-            sharedOf(nodes, (n) => n.tint),
-            "Its own colours"
-          )}
+          field={TOKEN_FIELDS.tint}
+          nodes={nodes}
+          placeholder="Its own colours"
         />
       </Row>
     </Section>

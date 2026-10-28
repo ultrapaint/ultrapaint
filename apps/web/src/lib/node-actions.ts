@@ -46,6 +46,7 @@ import { leftPanelShows, showLeftPanel } from "../state/panels.ts";
 import { asDrawnIn, editedFrameOf, isSelected } from "../state/selection.ts";
 import { insertedAt, propsOpsAt, updateOpsAt } from "./breakpoint-edits.ts";
 import { isPageRoot } from "./menu-model.ts";
+import type { NodeField } from "./node-fields.ts";
 
 interface Context {
   readonly activePage: string | null;
@@ -592,6 +593,16 @@ export const updateNodes = (
   label = "Change"
 ) =>
   applyToEach(targets, (node) => [{ id: node.id, op: "update", set }], label);
+
+/**
+ * Sets a field of the table both the inspector and the element toolbar edit (`node-fields`) on
+ * these nodes, the selection's when none are given, under the field's own undo label.
+ */
+export const setField = <Write>(
+  field: NodeField<JsonValue, Write>,
+  value: Write,
+  targets: readonly Selection[] = actedOn()
+) => updateNodes(targets, field.write(value), field.label(value));
 
 /**
  * Sets fields of each of these nodes, worked out from the node itself. A node given nothing to
