@@ -12,6 +12,10 @@ cluster go). Plan: `docs/PLAN-editor-renderer.md`.
 > apart from the editor's, so showing a parked frame again keeps the page's theme class. An
 > event is from a frame when a host the core drew is on its path.
 
+> Superseded in part by [0040](0040-the-editors-own-primitives.md), 2026-10-28: the frames draw the
+> editor's own primitives, run by the editor's React; the repository's components, the preview's
+> server, `/preview/` and the guards go. The frames stay shadow roots of the editor's page.
+
 ## Context
 
 The canvas draws pages with the repository's real components, the design's tokens (0028) and
