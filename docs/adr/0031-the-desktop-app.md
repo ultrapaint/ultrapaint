@@ -9,6 +9,15 @@ changed in the server and the editor, and what Phases 1, 2 and 3 added.
 > preview through its own server (`/preview/`), so over SSH the app forwards the server's port
 > alone. `Platform.mapPreviewUrl`, the preload's synchronous IPC and the forward made again when
 > the preview moves are gone. The user's Node still runs the preview's Vite.
+>
+> Amended 2026-10-28 ([PLAN-architecture-2](../PLAN-architecture-2.md), step 8): a built-in
+> agent is one descriptor in acp's `built-in` (its `npx` launch, its adapter's package and bundle,
+> its program and the variable that names it to the adapter, its sign-in probe and parser, a
+> sign-in through its adapter, its key's variable, its variables by where it was found). The
+> server's launches, the app's `Agents`, the bundling of the adapters and the downloads read the
+> list; the ids are contracts' `BuiltInAgentId`, which the list must name exactly. The pinned
+> releases stay the app's own table, keyed by those ids. The bridge says what the app signs an
+> agent in with (`signInWith: "ChatGPT"`) rather than `signIn: "chatgpt" | "terminal"`.
 
 ## Context
 

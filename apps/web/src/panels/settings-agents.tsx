@@ -458,13 +458,13 @@ const MachineAgentRow = ({
               Download ({megabytes(agent.download.size)})
             </Button>
           ) : null}
-          {agent.state === "signed-out" && agent.signIn === "chatgpt" ? (
+          {agent.state === "signed-out" && agent.signInWith ? (
             <Button
               disabled={busy}
               onClick={() => change(() => setup.signIn(agent.id))}
               size="sm"
             >
-              Sign in with ChatGPT
+              Sign in with {agent.signInWith}
             </Button>
           ) : null}
           {agent.apiKey ? (

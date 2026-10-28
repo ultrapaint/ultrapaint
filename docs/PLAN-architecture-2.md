@@ -396,3 +396,48 @@ unless the step says otherwise.
    (`flex-1` is `fill` along whichever axis the parent runs) needs a parent a component's classes
    do not have, so only Tailwind's weight and size names would be shared, and they stay where each
    reads them.
+8. **A built-in agent is one descriptor** (`packages/acp/src/built-in.ts`, with
+   `built-in/claude-code.ts` and `built-in/codex.ts`). A `BuiltInAgent` says everything the tool
+   knows of one agent: its `adapter` (the package, the versions `npx` may run, the file that
+   starts it, its bundle's name in the app and the agent's own native packages the bundle leaves
+   out), its `executable` (the program on the PATH, the variable that names it to the adapter,
+   where to read how to install it), its `signIn` (the arguments that ask whether it is signed in,
+   the parser of the answer, how the user signs in by themselves, and a sign-in through the
+   adapter, its ACP method and what it is with), `apiKeyEnv` when it takes a key from the app,
+   `env` by where the app found it (`download`: `DISABLE_AUTOUPDATER` for Claude Code) and the
+   rest of its `launch` (`authHint`, `env` and ADR 0013's `stateDirs`, `sandboxEnv`,
+   `sandboxMeta`). `BUILT_IN_AGENTS` holds each under its id, checked by the compiler to name
+   exactly contracts' `BuiltInAgentId`, every one under its own: contracts sits below acp, and the
+   shell bridge names the ids on the wire, so the ids are the one thing declared there.
+   `launchOf` and `builtInLaunches` give the `npx` launches the server lists (`configs.ts`
+   goes). The desktop reads the list: `Agents.layer(layout, agents)` and `makeRuntime` iterate
+   it and ask each descriptor (the probe, its parser, the key's variable, the variables by
+   source, the adapter's method), `signInHint` writes the settings' sentence from what a
+   descriptor offers, `buildAdapters` bundles each descriptor's adapter (`ADAPTERS` goes), and
+   `main.ts` hands the downloads `releasesFor()`, this machine's release of each. The releases
+   stay the app's own table (`agent-releases.ts`), keyed by `BuiltInAgentId` and made to name
+   every one: only the app downloads an agent, and the server, built on acp too, has no use for
+   the digests of a dozen binaries. `MachineAgentId` is `BuiltInAgentId`; the web's marks are a
+   map over it, read through `Schema.is`. Nothing outside a descriptor branches on an agent's id:
+   the desktop's `agents.ts` tested an id against `"claude-code"` or `"codex"` 9 times and, where
+   it was not Claude Code, gave any agent Codex's `login status`, its parser, its ChatGPT sign-in
+   and its hint; it has none (526 lines where it was 571). Of the source lines that wrote either
+   id outside the descriptors (tests, spikes and comments aside) there were 23 and are 5: the
+   ids in contracts, the release table's two keys and the web's two marks, each a table the
+   compiler holds to the ids. The bridge's `PlatformAgent.signIn` (`"terminal" | "chatgpt"`) is
+   `signInWith` (`"ChatGPT"`, absent for an agent that signs in by itself), and the settings'
+   button says "Sign in with" what it names, so the bridge no longer knows ChatGPT. Also:
+   `claude auth status` signed out (`authMethod: "none"`) read as signed in `"none"` rather than
+   no way at all, which nothing showed, as only a signed-in agent says how; each adapter's bundle
+   leaves out its own agent's native packages rather than both agents'. `built-in.test.ts` has 5
+   tests: the parsers on what `claude auth status` and `codex login status` printed (Claude Code
+   2.1.311 signed in with claude.ai, with a key and signed out; codex-cli 0.164.0 signed in and
+   out, its warning line included; the account's details changed), the fallback to the exit
+   code, the list against the ids, and the `npx` launches as `configs.ts` wrote them.
+   `agents.test.ts` has 4 more on a fake third descriptor beside the two (the app runs on a list
+   it does not ship): its status asks `whoami`, not Codex's or Claude Code's probe (the fake
+   answers both as signed in), and offers neither a key nor a sign-in; its adapter is told where
+   it is, with its downloaded release's variable and no key, and says how to install it when its
+   path does not run; a key and a sign-in through the app are refused in its own words; and the
+   hint for each kind of descriptor. The desktop's 107 tests stay green (the status's `signIn`
+   expected as `signInWith`).

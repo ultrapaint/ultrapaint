@@ -1,4 +1,4 @@
-import { builtInAgents } from "@ultrapaint/acp/configs";
+import { builtInLaunches } from "@ultrapaint/acp/built-in";
 import { withRuntime } from "@ultrapaint/acp/runtime";
 import { Json } from "@ultrapaint/contracts/base";
 import { NotFound } from "@ultrapaint/contracts/errors";
@@ -77,7 +77,7 @@ export class AgentConfigs extends Context.Service<
         );
         return [
           // The desktop app's adapters in place of `npx`, when it brought them.
-          ...builtInAgents.map((agent) => withRuntime(agent, agentRuntime)),
+          ...builtInLaunches.map((agent) => withRuntime(agent, agentRuntime)),
           ...custom.flatMap((c) => (c._tag === "Some" ? [c.value] : [])),
         ];
       });

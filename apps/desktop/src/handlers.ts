@@ -5,10 +5,12 @@
  * of Electron: the dialogs go through `Shell`, so the handlers run in tests on `fakeShell` and the
  * services' test layers.
  */
+import { BUILT_IN_AGENTS } from "@ultrapaint/acp/built-in";
 import type { StoppedAt } from "@ultrapaint/contracts/shell-bridge";
+import type { BuiltInAgentId } from "@ultrapaint/contracts/threads";
 import { Effect, type FileSystem, Option, type Path } from "effect";
 import { AgentSettings } from "./agent-settings.ts";
-import { AGENTS, type AgentId, Agents } from "./agents.ts";
+import { Agents } from "./agents.ts";
 import type { BridgeHandlers } from "./bridge-server.ts";
 import { NewDesigns } from "./new-design.ts";
 import { Notices } from "./notices.ts";
@@ -53,7 +55,7 @@ const thenRestart = <A, E, R>(change: Effect.Effect<A, E, R>) =>
   );
 
 /** Where the agent's executable is: the one picked, or the PATH's with `undefined`. */
-const setAgentPath = (id: AgentId, executable: string | undefined) =>
+const setAgentPath = (id: BuiltInAgentId, executable: string | undefined) =>
   thenRestart(
     AgentSettings.use((s) =>
       s.update(id, (setting) => ({ ...setting, path: executable }))
@@ -66,7 +68,9 @@ export const bridgeHandlers = (
   "agents.choosePath": (id) =>
     Effect.gen(function* () {
       const shell = yield* Shell;
-      const picked = yield* shell.pickFile(`Where is ${AGENTS[id].name}?`);
+      const picked = yield* shell.pickFile(
+        `Where is ${BUILT_IN_AGENTS[id].name}?`
+      );
       if (Option.isSome(picked)) {
         yield* setAgentPath(id, picked.value);
       }
@@ -78,7 +82,7 @@ export const bridgeHandlers = (
     thenRestart(
       Agents.use((a) => a.setApiKey(id, key?.trim() ? key : undefined))
     ),
-  // Codex keeps its sign-in itself: nothing to start again.
+  // The agent keeps its sign-in itself: nothing to start again.
   "agents.signIn": (id) => Agents.use((a) => a.signIn(id)),
   "newDesign.create": (input, report) =>
     NewDesigns.use((n) => n.create(input, report)),

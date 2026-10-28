@@ -7,7 +7,7 @@
 import { tmpdir } from "node:os";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { spawnAcpAgent } from "@ultrapaint/acp/acp-agent";
-import { builtInAgents } from "@ultrapaint/acp/configs";
+import { builtInLaunches } from "@ultrapaint/acp/built-in";
 import { Effect, FileSystem, Layer } from "effect";
 import { runCommand } from "../src/process.ts";
 import { AgentSandbox } from "../src/services/threads/agent-sandbox.ts";
@@ -17,7 +17,7 @@ const agentId = process.argv[2] ?? "claude-code";
 const program = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
   const sandbox = yield* AgentSandbox;
-  const config = builtInAgents.find((a) => a.id === agentId);
+  const config = builtInLaunches.find((a) => a.id === agentId);
   if (!config) {
     return yield* Effect.die(`unknown agent ${agentId}`);
   }

@@ -4,6 +4,10 @@
  * vendors' own release manifests. A download that does not match is thrown away. Raising a
  * version means taking the new figures from the same places.
  *
+ * A table of the app's own, beside the agents' descriptors (acp's `built-in`) and keyed by their
+ * ids, which it must name every one of: only the app downloads an agent, and the server, built on
+ * acp too, has no use for the digests of a dozen binaries.
+ *
  * - Claude Code, from Anthropic's native installer's bucket (what `claude.ai/install.sh`
  *   fetches): `<base>/<version>/manifest.zst.json` lists the compressed binary of each
  *   platform, `manifest.json` the binary itself.
@@ -11,6 +15,8 @@
  *   `codex` binary with its companions), its digest as GitHub lists it. 0.160 is the line the
  *   bundled codex-acp is built against.
  */
+
+import type { BuiltInAgentId } from "@ultrapaint/contracts/threads";
 
 export interface ClaudeRelease {
   readonly kind: "zst-binary";
@@ -167,7 +173,7 @@ export const RELEASES = {
       160_785_122
     ),
   },
-} as const satisfies Record<string, Record<string, AgentRelease>>;
+} as const satisfies Record<BuiltInAgentId, Record<string, AgentRelease>>;
 
 /** Whether this Linux runs on musl rather than glibc: Node says which C library it was built on. */
 export const isMusl = () => {
@@ -184,9 +190,13 @@ export const platformKey = (
   musl: boolean = isMusl()
 ) => `${platform}-${arch}${musl ? "-musl" : ""}`;
 
-/** The release of `agent` for this machine, when there is one. */
-export const releaseFor = (
-  agent: keyof typeof RELEASES,
+/** The release of each agent for this machine, where there is one. */
+export const releasesFor = (
   key: string = platformKey()
-): AgentRelease | undefined =>
-  (RELEASES[agent] as Readonly<Record<string, AgentRelease>>)[key];
+): Readonly<Record<string, AgentRelease | undefined>> =>
+  Object.fromEntries(
+    Object.entries(RELEASES).map(([agent, releases]) => [
+      agent,
+      (releases as Readonly<Record<string, AgentRelease>>)[key],
+    ])
+  );

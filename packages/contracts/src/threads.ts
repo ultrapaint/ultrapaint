@@ -1,6 +1,14 @@
 import { Schema } from "effect";
 import { FileId, Json } from "./base.ts";
 
+/**
+ * The agents that ship built in, each declared once by its descriptor in acp's `built-in`
+ * (`BUILT_IN_AGENTS`, which must name exactly these). Their ids are here, below acp, because the
+ * desktop's shell bridge names them on the wire.
+ */
+export const BuiltInAgentId = Schema.Literals(["claude-code", "codex"]);
+export type BuiltInAgentId = typeof BuiltInAgentId.Type;
+
 export const AgentConfig = Schema.Struct({
   args: Schema.Array(Schema.String),
   authHint: Schema.optional(Schema.String),

@@ -1,10 +1,15 @@
 import path from "node:path";
 import { NodeServices } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
+import {
+  BUILT_IN_AGENTS,
+  type BuiltInAgent,
+  type BuiltInAgents,
+} from "@ultrapaint/acp/built-in";
 import { Effect, FileSystem, Layer } from "effect";
 import { AgentDownloads } from "./agent-downloads.ts";
 import { AgentSettings } from "./agent-settings.ts";
-import { Agents, electronReads, makeRuntime } from "./agents.ts";
+import { Agents, electronReads, makeRuntime, signInHint } from "./agents.ts";
 import { LoginShell } from "./login-shell.ts";
 import { Secrets } from "./secrets.ts";
 
@@ -143,7 +148,6 @@ describe("Agents", () => {
             id: "claude-code",
             install: "https://code.claude.com/docs/en/setup",
             name: "Claude Code",
-            signIn: "terminal",
             source: "path",
             state: "ready",
             version: "2.1.308",
@@ -155,7 +159,7 @@ describe("Agents", () => {
             id: "codex",
             install: "https://developers.openai.com/codex/cli",
             name: "Codex",
-            signIn: "chatgpt",
+            signInWith: "ChatGPT",
             source: "path",
             state: "signed-out",
             version: "0.160.1",
@@ -351,4 +355,204 @@ describe("Agents.signIn", () => {
         expect(claude.message).toContain("run `claude` once in a terminal");
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
   );
+});
+
+/**
+ * A third built-in agent, as a descriptor says it: a program of its own, asked `whoami` whether
+ * it is signed in, with no key and no sign-in through its adapter, and a variable of its own when
+ * downloaded. Nothing in the app may treat it as Claude Code or Codex.
+ */
+const third = {
+  adapter: {
+    bundle: "third-acp",
+    entry: "dist/index.js",
+    external: [],
+    package: "third-acp",
+    range: "^1.0.0",
+  },
+  env: { download: { THIRD_PINNED: "1" } },
+  executable: {
+    env: "THIRD_PATH",
+    install: "https://example.com/third",
+    program: "third",
+  },
+  // Not an id the shell bridge names: the app is run here on a list it does not ship.
+  id: "third" as BuiltInAgent["id"],
+  launch: { env: {} },
+  name: "Third",
+  signIn: {
+    parse: (output) => ({
+      how: output.stdout.trim() || undefined,
+      signedIn: output.exitCode === 0,
+    }),
+    status: ["whoami"],
+    yourself: "run `third login` in a terminal",
+  },
+} satisfies BuiltInAgent;
+const threeAgents = {
+  ...BUILT_IN_AGENTS,
+  third,
+} as unknown as BuiltInAgents;
+
+describe("Agents on a third descriptor", () => {
+  /** `third` on the PATH: it answers `whoami` only, as signed in or not. */
+  const fakeThird = (dir: string, signedIn: boolean) =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const file = path.join(dir, "third");
+      yield* fs.writeFileString(
+        file,
+        [
+          "#!/bin/sh",
+          'if [ "$1" = "--version" ]; then echo "third 1.2.3"; exit 0; fi',
+          signedIn
+            ? 'if [ "$1" = "whoami" ]; then echo "as me@example.com"; exit 0; fi'
+            : 'if [ "$1" = "whoami" ]; then exit 1; fi',
+          // Codex's probe, or Claude Code's, would be taken for a sign-in here.
+          'echo "Logged in using ChatGPT"; echo \'{"loggedIn": true}\'; exit 0',
+        ].join("\n")
+      );
+      yield* fs.chmod(file, 0o755);
+    });
+
+  const threeOn = (searchPath: string, dataDir: string) =>
+    Agents.layer(layout, threeAgents).pipe(
+      Layer.provideMerge(AgentSettings.layer(dataDir)),
+      Layer.provideMerge(
+        AgentDownloads.layer(path.join(dataDir, "agents"), {})
+      ),
+      Layer.provideMerge(Secrets.layerTest),
+      Layer.provide(LoginShell.layerTest({ PATH: searchPath })),
+      Layer.provideMerge(NodeServices.layer)
+    );
+
+  it.effect(
+    "asks it whether it is signed in its own way, and offers neither a key nor ChatGPT",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const bin = yield* fakeAgents({
+          claudeSignedIn: true,
+          codexSignedIn: true,
+        });
+        yield* fakeThird(bin, false);
+        const data = yield* fs.makeTempDirectoryScoped();
+        const status = yield* Effect.provide(
+          Agents.use((a) => a.status),
+          threeOn(bin, data)
+        );
+        expect(status.map((a) => a.id)).toEqual([
+          "claude-code",
+          "codex",
+          "third",
+        ]);
+        expect(status[2]).toEqual({
+          detail:
+            "Not signed in. Sign in with Third: run `third login` in a terminal.",
+          executable: path.join(bin, "third"),
+          id: "third",
+          install: "https://example.com/third",
+          name: "Third",
+          source: "path",
+          state: "signed-out",
+          version: "1.2.3",
+        });
+
+        yield* fakeThird(bin, true);
+        const signedIn = yield* Effect.provide(
+          Agents.use((a) => a.status),
+          threeOn(bin, data)
+        );
+        expect(signedIn[2]?.detail).toBe("Signed in as me@example.com.");
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+
+  it.effect(
+    "starts its adapter told where it is, with the variables of where it was found, and no key",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const bin = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());
+        yield* fakeThird(bin, true);
+        const data = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());
+        const runtimeOn = (searchPath: string) =>
+          Effect.provide(
+            Agents.use((a) => a.runtime),
+            threeOn(searchPath, data)
+          );
+        const onPath = yield* runtimeOn(bin);
+        expect(onPath.agents.third).toEqual({
+          adapter: "/opt/app/adapters/third-acp.mjs",
+          env: { THIRD_PATH: path.join(bin, "third") },
+        });
+        // Claude Code and Codex are not on this PATH: their adapters say how to install them.
+        expect(onPath.agents.codex?.hint).toContain("Codex is not installed");
+
+        // As a download leaves it: the release's executable, and the record beside it.
+        const release = path.join(data, "agents", "third", "1.0.0");
+        yield* fs.makeDirectory(release, { recursive: true });
+        yield* fs.copyFile(
+          path.join(bin, "third"),
+          path.join(release, "third")
+        );
+        yield* fs.chmod(path.join(release, "third"), 0o755);
+        yield* fs.writeFileString(
+          path.join(data, "agents", "third", "installed.json"),
+          JSON.stringify({
+            executable: "1.0.0/third",
+            sha256: "x",
+            version: "1.0.0",
+          })
+        );
+        const downloaded = yield* runtimeOn("/nonexistent");
+        expect(downloaded.agents.third?.env).toEqual({
+          THIRD_PATH: path.join(release, "third"),
+          THIRD_PINNED: "1",
+        });
+
+        yield* Effect.provide(
+          AgentSettings.use((s) =>
+            s.update("third", () => ({ path: "/nowhere/third" }))
+          ),
+          AgentSettings.layer(data)
+        );
+        const missing = yield* runtimeOn(bin);
+        expect(missing.agents.third?.hint).toBe(
+          "Third is not installed: /nowhere/third, set in the app's settings, is not a program that runs. Install it (https://example.com/third), download it or set where it is in Settings, under Agents."
+        );
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+
+  it.effect(
+    "refuses a key and a sign-in through the app, saying how it signs in",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const data = yield* fs.makeTempDirectoryScoped();
+        const id = "third" as BuiltInAgent["id"];
+        const errors = yield* Effect.gen(function* () {
+          const agents = yield* Agents;
+          return {
+            key: yield* Effect.flip(agents.setApiKey(id, "sk-third")),
+            signIn: yield* Effect.flip(agents.signIn(id)),
+          };
+        }).pipe(Effect.provide(threeOn("/nonexistent", data)));
+        expect(errors.key.message).toBe("Third takes no API key here");
+        expect(errors.signIn.message).toBe(
+          "Third signs in by itself: run `third login` in a terminal."
+        );
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+
+  it("says what to do by what the descriptor offers", () => {
+    expect(signInHint(third, true)).toBe(
+      "Sign in with Third: run `third login` in a terminal."
+    );
+    expect(signInHint(BUILT_IN_AGENTS["claude-code"], false)).toBe(
+      "Sign in with Claude Code: run `claude` once in a terminal, or set ANTHROPIC_API_KEY in your shell's startup file."
+    );
+    expect(signInHint(BUILT_IN_AGENTS.codex, true)).toBe(
+      "Sign in with ChatGPT below, or run `codex login` in a terminal."
+    );
+  });
 });

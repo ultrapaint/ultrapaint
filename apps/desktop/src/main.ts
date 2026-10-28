@@ -31,7 +31,7 @@ import {
   type WebContents,
 } from "electron";
 import { AgentDownloads } from "./agent-downloads.ts";
-import { releaseFor } from "./agent-releases.ts";
+import { releasesFor } from "./agent-releases.ts";
 import { AgentSettings } from "./agent-settings.ts";
 import { Agents } from "./agents.ts";
 import { BEAT_CHANNEL, type BridgeInfo, INFO_CHANNEL } from "./bridge.ts";
@@ -268,10 +268,7 @@ const runtime = ManagedRuntime.make(
     ),
     Layer.provideMerge(AgentSettings.layer(dataDir)),
     Layer.provideMerge(
-      AgentDownloads.layer(path.join(dataDir, "agents"), {
-        "claude-code": releaseFor("claude-code"),
-        codex: releaseFor("codex"),
-      })
+      AgentDownloads.layer(path.join(dataDir, "agents"), releasesFor())
     ),
     Layer.provideMerge(ElectronSecrets),
     Layer.provideMerge(RemoteProjects.layer),
