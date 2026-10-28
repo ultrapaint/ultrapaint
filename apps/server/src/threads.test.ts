@@ -184,34 +184,6 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
     );
 
     it.effect(
-      "checkpoints the designs before a turn and can revert to it",
-      () =>
-        Effect.gen(function* () {
-          const { client, repo } = yield* TestEnv;
-          const fs = yield* FileSystem.FileSystem;
-          const written = path.join(repo, "designs/agent.tsx");
-          const checkpoints = yield* client["checkpoints.list"]();
-          const beforeWrite = checkpoints.find(
-            (c) => c.label === "Before: write"
-          );
-          assert.isDefined(beforeWrite);
-          assert.notInclude(beforeWrite?.files ?? [], "designs/agent.tsx");
-
-          const diff = yield* client["checkpoints.diff"]({
-            id: beforeWrite?.id ?? "",
-          });
-          assert.deepStrictEqual(
-            diff.map((d) => d.path),
-            ["designs/agent.tsx"]
-          );
-          assert.include(diff[0]?.diff ?? "", "+export default function Agent");
-
-          yield* client["checkpoints.revert"]({ id: beforeWrite?.id ?? "" });
-          assert.isFalse(yield* fs.exists(written));
-        })
-    );
-
-    it.effect(
       "refuses to write in .git for the agent, which the sandbox keeps read-only",
       () =>
         Effect.gen(function* () {

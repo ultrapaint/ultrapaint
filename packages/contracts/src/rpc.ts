@@ -720,8 +720,9 @@ const requestRpcs = [
     payload: { id: Schema.String },
     success: Schema.Array(GitDiff),
   }),
+  /** The design files put back as the checkpoint kept them: one undo step. */
   Rpc.make("checkpoints.revert", {
-    error: CheckpointError,
+    error: EditError,
     payload: { id: Schema.String },
   }),
 

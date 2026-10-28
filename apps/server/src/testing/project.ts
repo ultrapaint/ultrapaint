@@ -52,6 +52,11 @@ export interface ProjectTestOptions {
   /** Settings the project is opened with, over the fixture's own. */
   readonly settings?: Partial<Settings>;
   /**
+   * Files written into the state directory (the home, as `managed` keeps it) before the server
+   * starts, by their path in it: what an earlier version of the server left there.
+   */
+  readonly state?: Readonly<Record<string, string>>;
+  /**
    * Where the settings are kept: a home directory's file (`managed`, the default), or nowhere,
    * an unsaved session started in the fixture (`ephemeral`). The project is opened either way,
    * with nothing saved.
@@ -71,12 +76,23 @@ export const ProjectTest = (options: ProjectTestOptions = {}) =>
       const path = yield* Path.Path;
       const home = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());
       const repo = yield* makeFixture({ git: options.git ?? false });
-      for (const [file, content] of Object.entries(options.files ?? {})) {
-        yield* fs.makeDirectory(path.dirname(path.join(repo, file)), {
-          recursive: true,
-        });
-        yield* fs.writeFileString(path.join(repo, file), content);
-      }
+      const writeUnder = (
+        dir: string,
+        files: Readonly<Record<string, string>>
+      ) =>
+        Effect.forEach(
+          Object.entries(files),
+          ([file, content]) =>
+            Effect.andThen(
+              fs.makeDirectory(path.dirname(path.join(dir, file)), {
+                recursive: true,
+              }),
+              fs.writeFileString(path.join(dir, file), content)
+            ),
+          { discard: true }
+        );
+      yield* writeUnder(repo, options.files ?? {});
+      yield* writeUnder(home, options.state ?? {});
       const settings: Settings = {
         ...defaultSettings(repo),
         designsDir: "designs",

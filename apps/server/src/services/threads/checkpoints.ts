@@ -1,71 +1,42 @@
-import type { NotConfigured } from "@ultrapaint/contracts/errors";
-import { type ForbiddenPath, NotFound } from "@ultrapaint/contracts/errors";
+import type { NotConfigured, NotFound } from "@ultrapaint/contracts/errors";
 import { Checkpoint, type GitDiff } from "@ultrapaint/contracts/git";
-import {
-  Clock,
-  Context,
-  Effect,
-  FileSystem,
-  Layer,
-  Path,
-  Schema,
-} from "effect";
-import { makeWriteAtomic } from "../../atomic-write.ts";
-import { EventBus } from "../../events.ts";
-import { makeWalk } from "../../fs-walk.ts";
-import { hashContent } from "../../hash.ts";
+import { Clock, Context, Effect, Layer, Schema } from "effect";
 import { makeId } from "../../ids.ts";
-import { ProjectManager } from "../../project.ts";
-import { RepoPaths } from "../repo-paths.ts";
-import { Storage } from "../storage.ts";
-import { simpleDiff } from "./diff.ts";
+import { type DesignRef, keepsFile, makeDesignRefs } from "../design-refs.ts";
+import type { EditFailure } from "../edit.ts";
 
+/** The snapshot store's namespace for the checkpoints taken before agent turns. */
+const NAMESPACE = "checkpoints";
+
+/** How many checkpoints are kept, of every repository together: the oldest go first. */
 const KEEP = 30;
-const DESIGN_FILE_RE = /\.(tsx?|json|css|md)$/;
 
-/**
- * Repo-relative path to content for every text file of the designs directory: what a checkpoint
- * and a snapshot keep. Images are left out; they are not in the undo journal either.
- */
-export const makeDesignFiles = (
-  fs: FileSystem.FileSystem,
-  path: Path.Path,
-  project: ProjectManager["Service"]
-) => {
-  const walk = makeWalk(fs, path);
-  return project.use(
-    Effect.gen(function* () {
-      const paths = yield* RepoPaths;
-      const files = yield* walk(paths.designsDir, {
-        includeFile: (name) => DESIGN_FILE_RE.test(name),
-        skipDir: (name) => name === "node_modules" || name.startsWith("."),
-      });
-      const entries = yield* Effect.forEach(files, (abs) =>
-        Effect.map(
-          Effect.orElseSucceed(fs.readFileString(abs), () => ""),
-          (content) => [paths.relative(abs), content] as const
-        )
-      );
-      return Object.fromEntries(entries) as { [file: string]: string };
-    })
-  );
-};
-
-const Record = Schema.Struct({
+/** What the store's ref of a checkpoint notes beside the files. */
+const Note = Schema.Struct({
   checkpoint: Checkpoint,
-  files: Schema.Record(Schema.String, Schema.String),
-  /**
-   * The repository it was taken in. The state directory can serve several, one after the
-   * other; a checkpoint is only seen in its own. Absent in one kept before it was recorded.
-   */
   repo: Schema.optional(Schema.String),
 });
-type Record = typeof Record.Type;
-const RecordJson = Schema.fromJsonString(Record);
-const decodeRecord = Schema.decodeUnknownEffect(RecordJson);
-const encodeRecord = Schema.encodeEffect(RecordJson);
+type Note = typeof Note.Type;
 
-/** Snapshots of the designs directory taken before each agent turn (ADR 0008). */
+/**
+ * A checkpoint as it was kept before the snapshot store: one JSON file per checkpoint under
+ * `<state>/checkpoints`, with every design file's text. Read once, to move it into the store.
+ */
+const decodeOldRecord = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(
+    Schema.Struct({
+      checkpoint: Checkpoint,
+      files: Schema.Record(Schema.String, Schema.String),
+      repo: Schema.optional(Schema.String),
+    })
+  )
+);
+
+/**
+ * The designs as they were before each agent turn (ADR 0008), to compare with now and to go
+ * back to. Each is a ref of the snapshot store's `checkpoints` namespace, as a named snapshot is
+ * one of `designs`: a file unchanged from one turn to the next is kept once.
+ */
 export class Checkpoints extends Context.Service<
   Checkpoints,
   {
@@ -76,158 +47,91 @@ export class Checkpoints extends Context.Service<
     readonly diff: (
       id: string
     ) => Effect.Effect<GitDiff[], NotFound | NotConfigured>;
-    /** What the checkpoint kept: repo-relative path to content. */
-    readonly files: (
+    /** The checkpoint of the open repository, with the store's snapshot of its files. */
+    readonly find: (
       id: string
-    ) => Effect.Effect<{ readonly [file: string]: string }, NotFound>;
+    ) => Effect.Effect<
+      DesignRef<{ readonly checkpoint: Checkpoint }>,
+      NotFound
+    >;
     readonly list: Effect.Effect<Checkpoint[]>;
+    /** The designs put back as the checkpoint kept them: one undo step. */
     readonly revert: (
       id: string
-    ) => Effect.Effect<void, NotFound | NotConfigured | ForbiddenPath>;
+    ) => Effect.Effect<void, NotConfigured | EditFailure>;
   }
 >()("ultrapaint/server/Checkpoints") {
   static readonly layer = Layer.effect(
     Checkpoints,
     Effect.gen(function* () {
-      const storage = yield* Storage;
-      const project = yield* ProjectManager;
-      const events = yield* EventBus;
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const writeAtomic = makeWriteAtomic(fs, path);
-      // Asked for on every write: saving an unsaved session moves the state directory.
-      const fileOf = (id: string) =>
-        Effect.map(storage.stateDir, (state) =>
-          path.join(state, "checkpoints", `${id}.json`)
-        );
-      const dir = path.join(yield* storage.stateDir, "checkpoints");
-      const store = new Map<string, Record>();
+      const refs = yield* makeDesignRefs<Note>({
+        idOf: (note) => note.checkpoint.id,
+        namespace: NAMESPACE,
+        note: Schema.fromJsonString(Note),
+        what: "checkpoint",
+      });
 
-      yield* Effect.orDie(fs.makeDirectory(dir, { recursive: true }));
-      const names = yield* Effect.orDie(fs.readDirectory(dir));
-      for (const name of names.filter((n) => n.endsWith(".json"))) {
-        // A checkpoint that cannot be read is simply not offered.
-        const record = yield* fs
-          .readFileString(path.join(dir, name))
-          .pipe(Effect.flatMap(decodeRecord), Effect.option);
-        if (record._tag === "Some") {
-          store.set(record.value.checkpoint.id, record.value);
+      yield* refs.importOld("checkpoints", (text) =>
+        Effect.map(decodeOldRecord(text), ({ checkpoint, files, repo }) => ({
+          files,
+          note: {
+            checkpoint: {
+              ...checkpoint,
+              files: checkpoint.files.filter(keepsFile),
+            },
+            ...(repo !== undefined && { repo }),
+          },
+        }))
+      );
+
+      /** The last 30 are kept, whichever repository they were taken in. */
+      const collect = Effect.gen(function* () {
+        const oldest = (yield* refs.every)
+          .sort((a, b) => a.checkpoint.at - b.checkpoint.at)
+          .slice(0, -KEEP);
+        if (oldest.length > 0) {
+          yield* refs.release(oldest.map((ref) => ref.checkpoint.id));
         }
-      }
-
-      const designFiles = makeDesignFiles(fs, path, project);
-
-      /** The open repository's root; null when none is open. */
-      const openRepo = project
-        .use(Effect.map(RepoPaths, (paths) => paths.root))
-        .pipe(Effect.orElseSucceed(() => null));
-
-      /** Whether a checkpoint belongs to the open repository, or says nothing of where it was taken. */
-      const ours = (record: Record, repo: string | null) =>
-        record.repo === undefined || record.repo === repo;
-
-      const find = Effect.fnUntraced(function* (id: string) {
-        const record = store.get(id);
-        if (!(record && ours(record, yield* openRepo))) {
-          return yield* new NotFound({ message: "unknown checkpoint" });
-        }
-        return record;
       });
 
       const create = Effect.fn("Checkpoints.create")(function* (
         threadId: string,
         label: string
       ) {
-        const files = yield* designFiles;
-        const repo = yield* openRepo;
-        const record: Record = {
-          checkpoint: {
-            at: yield* Clock.currentTimeMillis,
-            files: Object.keys(files),
-            id: yield* makeId("cp"),
-            label,
-            threadId,
+        const files = yield* refs.designFiles;
+        yield* refs.keep(
+          {
+            checkpoint: {
+              at: yield* Clock.currentTimeMillis,
+              files: Object.keys(files),
+              id: yield* makeId("cp"),
+              label,
+              threadId,
+            },
           },
-          files,
-          ...(repo !== null && { repo }),
-        };
-        store.set(record.checkpoint.id, record);
-        yield* encodeRecord(record).pipe(
-          Effect.flatMap((json) =>
-            Effect.flatMap(fileOf(record.checkpoint.id), (file) =>
-              writeAtomic(file, json)
-            )
-          ),
-          Effect.orDie
+          files
         );
-        const oldest = Array.from(store.values())
-          .sort((a, b) => a.checkpoint.at - b.checkpoint.at)
-          .slice(0, -KEEP);
-        for (const old of oldest) {
-          store.delete(old.checkpoint.id);
-          yield* Effect.ignore(
-            Effect.flatMap(fileOf(old.checkpoint.id), (file) =>
-              fs.remove(file, { force: true })
-            )
-          );
-        }
+        yield* collect;
       });
 
       const diff = Effect.fn("Checkpoints.diff")(function* (id: string) {
-        const record = yield* find(id);
-        const current = yield* designFiles;
-        const all = new Set([
-          ...Object.keys(record.files),
-          ...Object.keys(current),
-        ]);
-        const out: GitDiff[] = [];
-        for (const file of all) {
-          const before = record.files[file];
-          const after = current[file];
-          if (before !== after) {
-            out.push({
-              diff: simpleDiff(file, before ?? "", after ?? ""),
-              path: file,
-            });
-          }
-        }
-        return out;
+        return yield* refs.diff(yield* refs.find(id));
       });
 
       const revert = Effect.fn("Checkpoints.revert")(function* (id: string) {
-        const record = yield* find(id);
-        const current = yield* designFiles;
-        const resolve = (file: string) =>
-          project.use(
-            Effect.flatMap(RepoPaths, (paths) => paths.resolve(file))
-          );
-        for (const [file, content] of Object.entries(record.files)) {
-          if (current[file] !== content) {
-            yield* Effect.orDie(writeAtomic(yield* resolve(file), content));
-            yield* events.publish("file.changed", {
-              file,
-              hash: hashContent(content),
-            });
-          }
-        }
-        for (const file of Object.keys(current)) {
-          if (!(file in record.files)) {
-            yield* Effect.orDie(
-              fs.remove(yield* resolve(file), { force: true })
-            );
-          }
-        }
+        const ref = yield* refs.find(id);
+        yield* refs.putBack(
+          ref,
+          `Revert to the checkpoint ${ref.checkpoint.label}`
+        );
       });
 
       return Checkpoints.of({
         create,
         diff,
-        files: (id) => Effect.map(find(id), (record) => record.files),
-        list: Effect.map(openRepo, (repo) =>
-          Array.from(store.values())
-            .filter((r) => ours(r, repo))
-            .map((r) => r.checkpoint)
-            .sort((a, b) => b.at - a.at)
+        find: refs.find,
+        list: Effect.map(refs.ofOpenRepo, (kept) =>
+          kept.map((ref) => ref.checkpoint).sort((a, b) => b.at - a.at)
         ),
         revert,
       });
