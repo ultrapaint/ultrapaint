@@ -1,7 +1,7 @@
 # Plan: deeper modules, the third review (2026-10-28)
 
-Status: built, 2026-10-28: steps 1 to 8, one commit each, under "Built"; "To investigate" is
-looked at one candidate at a time before anything of it is planned.
+Status: built, 2026-10-28: steps 1 to 8, one commit each, under "Built". The other candidates
+were investigated one at a time ("Investigated"); their steps wait for the user's answers.
 The decisions are recorded in [ADR 0039](adr/0039-deep-modules-third-review.md). Follows
 [ADR 0037](adr/0037-deep-modules.md) and [ADR 0038](adr/0038-deep-modules-second-review.md), whose
 31 steps ([PLAN-architecture.md](PLAN-architecture.md), [PLAN-architecture-2.md](PLAN-architecture-2.md))
@@ -119,38 +119,100 @@ keeps every ADR's behaviour unless the step says otherwise.
    output for the names it exports and imports; the start-up order gets a happy-dom test.
    Amends ADR 0011 and 0037's page-runtime line; the framework seam stays.
 
-## To investigate
+## Investigated
 
-Each is looked at by itself, in this order, before anything of it is planned: does the friction
-hold up, what would the module be, what is the smallest step.
+Each candidate was looked at by itself on 2026-10-28, after steps 1 to 8 were built, reading the
+code and reproducing what could be reproduced in a scratch script. The bugs are the investigators'
+findings; those marked "reproduced" were run, the others read. Nothing below is built; the steps
+proposed wait for the user's answers to the questions each lists.
 
-1. **Naming a token from another tool, and placing it by kind** (`apps/server/src/services/dtcg.ts`,
-   `packages/figma-import/src/tokens.ts`, `packages/style-tailwind-v4/src/design-system-scan.ts`,
-   contracts' `token-table`). Three readers keep their own words for a kind: DTCG's
-   `GROUP_KINDS`/`TYPE_KINDS`, Figma's `NUMBER_KINDS`/`KIND_WORDS`, the scan's `NAMESPACES` (a
-   copy of the token table). Figma's `Corner/sm` is `radius-sm` from a `.fig` and `corner-sm` of
-   no kind from a DTCG export; the scan drops `--inset-shadow-*`, `--drop-shadow-*` and
-   `--text-shadow-*`, which `tokenKindOf` calls shadows.
-2. **What a page frame draws, and when it is drawn again** (`canvas/frame.tsx`,
-   `canvas/prototype.tsx`, the specimens of `panels/design-system.tsx` and
-   `panels/design-components.tsx`): the render input, the hand-kept dependency lists, the host
-   errors' lifecycle; with the page error's six declarations and the frame events listed by hand.
-3. **Frame gestures on the canvas** (`canvas/canvas.tsx`, `state/editor.ts`): moving and sizing a
-   frame and sizing a node on the canvas, where a cancelled pointer saves the move, Escape does
-   not cancel, and the order of saves leaks to the caller.
-4. **A design target** (`implementation.ts`, `page-tasks.ts`, `handoff-tools.ts`, `comments.ts`,
-   `specs.ts`): "a page or a spec" named by three rules in four places, and behaviour notes
-   stored two ways.
-5. **The desktop window** (`apps/desktop/src/main.ts`, `preload.ts`, `stuck-pages.ts`): the
-   stuck-page watch, the title bar, the navigation policy, the view's URL and the quit sequence
-   behind a port with Electron as its adapter.
+1. **A token from another tool** (`dtcg.ts`, `figma-import/src/tokens.ts`,
+   `design-system-scan.ts`). Holds up, and is worse than the review said. Three vocabularies
+   (DTCG's `GROUP_KINDS`/`TYPE_KINDS`/`nameFromPath`, Figma's `NUMBER_KINDS`/`KIND_WORDS`/
+   `tokenNameOf`, the scan's `NAMESPACES`, a drifted copy of the token table). Reproduced: a DTCG
+   `Corner.sm` (`dimension`) is `corner-sm` of kind `other`, which `addTokens` drops without a
+   word (`design-system-files` drops the reader's notes); Figma's `Color/Text/Primary` is
+   `color-primary`, colliding with `Color/Primary`, and Sync's rules take the same name as a sure
+   match; the scan drops the repository's own `--inset-shadow-*`, `--drop-shadow-*` and
+   `--text-shadow-*`, which `driftOf` then reports as undescribed right after `/init`. DTCG's group
+   word also beats `$type` (`text.primary` of `$type: color` is a text size). Proposed step: a
+   sibling of the token table in contracts, `token-naming`, says the kind a foreign path and
+   value hint name and the design's name for it; Figma's and the DTCG reader keep their syntax;
+   the scan places by `tokenKindOf` and `NAMESPACES` goes. `dtcg.ts` stays in the server.
+   Questions: which words a name drops (recommended: only the found kind's own, so
+   `color-text-primary`); gap, padding and margin as spacing kept in the name
+   (`spacing-gap-md`); `$type` wins over the group word where it names a value type; inset, drop
+   and text shadows stay shadows, the repository's own kept, Tailwind's defaults out; the DTCG
+   reader's notes reach the Design system panel; `default-transition-duration` a duration.
+2. **What a frame draws** (`frame.tsx`, `prototype.tsx`, the specimens). The canvas's and the
+   prototype's redraw lists are complete; the friction holds, the bugs are elsewhere. A frame's
+   error lives only while its view listens: panned away and back, its banner goes while the module
+   is still broken, and frames off screen or parked never show it; the canvas and the prototype
+   clear it at different moments. The specimens' `ready` state never goes back, so a specimen's
+   frame dropped and opened again (the preview restarting) stays blank, and the components'
+   matrix does not redraw when another spec changes. The error is declared six times; the frame
+   events' fan-out compiles with a kind left out. The host's watching is fine. Proposed steps: a
+   frame's error kept by `editor-frame` whoever listens, one `PageError`, the fan-out typed over
+   every kind; then `useFrameDrawing` for the canvas, the prototype and the specimens (and
+   `pageRequest` for the first two), the `biome-ignore` lists and `drawResized` gone. Questions:
+   when an error ends (recommended: a dev-server error at the next update, a page error at the
+   next draw or update); off-screen frames show a dev-server error (recommended: yes); the
+   specimens in scope for the drawing only.
+3. **Frame gestures** (`canvas.tsx`, `state/editor.ts`). Cancel and Escape are inconsistencies
+   (three different cancel behaviours today) more than bugs. The save of the layout is where the
+   bugs are: `applyLayout` drops a pushed layout while the save timer waits and `saveLayout` sends
+   every frame of the canvas, so a page an agent's `set_frame` moved within about 400 ms of the
+   user moving another goes back; a second drag soon after the first saves an unrounded position
+   as an undo step; and the timer no longer has anything to coalesce. Proposed steps:
+   `frame-gesture` owns moving and sizing a frame and sizing a node on the canvas, sharing the
+   window-following helper with `followLooseDrag`; then the layout saved as it changes, only the
+   pages changed sent, a push applied to every frame without a save in flight. `reveal(target)`
+   is its own small step (a thread's Show on another canvas's page does nothing today).
+   Questions: a cancelled pointer and Escape put a gesture back (recommended: yes, every gesture);
+   the debounce goes (recommended: yes); touch and pen left out.
+4. **A design target** (`implementation.ts`, `page-tasks.ts`, `handoff-tools.ts`). A page and a
+   spec cannot collide (pages are named by file or URL), so the precedence decides nothing; the
+   three rules still disagree: handoff's `note` on `/orders#c_8` lands on the whole page, a bare
+   `Button` (which the Components panel sends) works for `/implement` and fails for `handoff`.
+   Notes are read three times. Proposed step: `designTargetNamed` beside `pageNamed` and a
+   `DesignTargets` service over specs, comments and the implementation link. Separately, two real
+   bugs: `setAgent` checks busy outside the session's `prompting` permit, so switching the agent
+   just as a prompt is sent can lose the prompt or show the thread idle while it runs; and Revert
+   is offered on the setup batch Migrate is working on, past `SetupSteps`. Proposed step: the
+   switch checked under the permit, `SetupSteps.revertBatch` stopping the turn first, the MCP
+   endpoint built once in `McpAccess`, `checkMapping` in `FigmaImportService.map`. The other ADR
+   0038 leftovers are fine. Questions: a bare component name legal everywhere (recommended: yes);
+   reverting the active batch stops the turn then reverts (recommended) or is refused.
+5. **The desktop window** (`main.ts`). No port: it would have one adapter, and the window's logic
+   already sits behind `Shell` and `WatchedContents`. One real bug, reproduced on the real
+   `OpenProject.layer`: a SIGINT or SIGTERM waits for an answer to a "stop the server?" question
+   on screen, though the comment says it does not, so a logout hangs until someone clicks.
+   Proposed steps: `OpenProject.stop({ ask: false })` answers an open question "no" and stops at
+   once (with the stuck pages' beat shared as `BEAT_MS`); and the Changes panel's history
+   followed: the server publishes the open repository's checkpoints and snapshots from the
+   snapshot store's writes, the web's history store follows them, and the panel's tickets and
+   threaded refresh callbacks go (a turn that writes no design file leaves its checkpoint off the
+   list today, and a checkpoint pruned by the last-30 rule fails when clicked). The navigation,
+   URL and path policies are fine (`serveWeb` contains `..` in every form tried; a malformed `%`
+   throws in its handler).
 
-Smaller, looked at alongside the nearest of these: the Changes panel's history as a followed store;
-one `reveal(target)` verb on the canvas; `ThreadService`'s forwards and `setAgent`'s busy check
-outside the session's permits; one watch of each frame's host; the setup's `revertBatch` past
-`SetupSteps`; `mountFrame`'s closure; the leftovers of ADR 0038's flows (`checkMapping`, the
-scaffold's theme in a handler, the MCP endpoint built twice, `designTokensSide` used only by its
-test, `server.test.ts`'s socket tests that `ProjectTest` could run).
+## Follow-ups found while building
+
+- The built-in skills (`apps/server/src/skills/`) still name tools by string; projects can replace
+  them and the design evals may be tuned to their wording (step 1).
+- Some tool answers only an agent with the tools reads still name tools as strings
+  (`figma-import.ts`, `design-md.ts`, `design-system-setup-batches.ts`, the MCP route's
+  instructions) (step 1).
+- Past 30 checkpoints every turn runs a full `collect` of the snapshot store (step 2).
+- The class writer can write a size keyword on any spacing utility (`gap-full`), which Tailwind
+  does not compile (step 3).
+- `usage-rewrite.rewrite` builds a token lookup per file (step 4).
+- `toggleAttribute("class", true)` from the page's code adds a class named `true`; the web still
+  writes `data-ed-drawn` on the host for the bench script (step 6).
+- `pnpm e2e:sandbox` fails 6 to 8 of its 23 checks, the same before steps 6 to 8 (checked on
+  e9de144 in a separate worktree): a frame's keys, the repository's proxy, CSS-in-JS styles, the
+  editor's variables, the prototype's click error, a loop in a click, and (flaky) a frame's width
+  and scroll.
 
 ## Built
 
