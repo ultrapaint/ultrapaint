@@ -1,11 +1,18 @@
 /**
- * The layers panel's tree as data: its rows, what a filter leaves of them, the rows that can be
- * seen, and where the arrow keys go among those, the way the WAI-ARIA tree pattern has it. Pure,
- * so that it can be read — and tested — without an editor.
+ * The layers panel's tree as data: its rows, what a filter leaves of them, which rows are folded
+ * and the ones a selection unfolds, the rows that can be seen, where the arrow keys go among
+ * those, the way the WAI-ARIA tree pattern has it, and where a row dragged onto another lands.
+ * Pure, so that it can be read — and tested — without an editor; the panel draws it and forwards
+ * its events to it.
  */
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page } from "@ultrapaint/contracts/pages";
-import { childrenOf, nodeLabel } from "@ultrapaint/design-document/tree";
+import {
+  childrenOf,
+  findPath,
+  nodeLabel,
+} from "@ultrapaint/design-document/tree";
+import type { Place } from "../lib/node-actions.ts";
 
 /** A row of the panel and the rows written under it. */
 export interface LayerItem {
@@ -97,6 +104,29 @@ export const filterLayers = (
   return q === "" ? items : narrow(items, q);
 };
 
+/** The rows from the top of the tree down to the one a key names, null when it names none. */
+const pathTo = (
+  items: readonly LayerItem[],
+  key: string
+): readonly LayerItem[] | null => {
+  for (const item of items) {
+    if (item.key === key) {
+      return [item];
+    }
+    const below = pathTo(item.children, key);
+    if (below) {
+      return [item, ...below];
+    }
+  }
+  return null;
+};
+
+/** The row a key names, wherever it is in the tree. */
+export const findItem = (
+  items: readonly LayerItem[],
+  key: string
+): LayerItem | null => pathTo(items, key)?.at(-1) ?? null;
+
 /** Whether a row is open, showing the rows under it when it has some. */
 export type IsOpen = (item: LayerItem) => boolean;
 
@@ -106,15 +136,93 @@ export const openUnless =
   (item) =>
     !folded.has(item.key);
 
-/**
- * The pages open and the layers in them folded, but for the rows flipped from that: how the panel
- * starts out, the way Figma lists the top layers of each frame. A canvas of thousands of layers
- * then lists a few dozen rows until one is opened.
- */
-export const pagesOpen =
+/** The pages open and the layers in them folded, but for the rows flipped from that. */
+const pagesOpen =
   (flipped: ReadonlySet<string>): IsOpen =>
   (item) =>
     (item.page !== undefined) !== flipped.has(item.key);
+
+/**
+ * Which rows are folded. The panel starts out with the pages open and the layers in them folded,
+ * the way Figma lists the top layers of each frame, so that a canvas of thousands of layers lists
+ * a few dozen rows until one is opened; `flipped` holds the rows opened or folded against that.
+ * What a filter finds starts out open instead, every row of it in sight, and `foldedInFilter`
+ * holds the rows folded among it until the filter changes. The filter typed is part of it, as it
+ * says which of the two the rows fold by.
+ */
+export interface Folds {
+  readonly flipped: ReadonlySet<string>;
+  readonly foldedInFilter: ReadonlySet<string>;
+  /** What is typed into the filter, as it is typed. */
+  readonly query: string;
+}
+
+/** How the panel starts out: no filter, and nothing flipped. */
+export const NO_FOLDS: Folds = {
+  flipped: new Set(),
+  foldedInFilter: new Set(),
+  query: "",
+};
+
+const filtering = (folds: Folds) => folds.query.trim() !== "";
+
+/** Whether a row is open, by the folds: the filter's while one is typed, else the panel's own. */
+export const isOpenIn = (folds: Folds): IsOpen =>
+  filtering(folds)
+    ? openUnless(folds.foldedInFilter)
+    : pagesOpen(folds.flipped);
+
+/** The folds with another filter typed: what it finds all starts out open. */
+export const withQuery = (folds: Folds, query: string): Folds => ({
+  ...folds,
+  foldedInFilter: new Set(),
+  query,
+});
+
+/** Opens or folds each of the rows, from whichever way it is now. */
+export const flip = (folds: Folds, keys: readonly string[]): Folds => {
+  const inFilter = filtering(folds);
+  const next = new Set(inFilter ? folds.foldedInFilter : folds.flipped);
+  for (const key of keys) {
+    if (!next.delete(key)) {
+      next.add(key);
+    }
+  }
+  return inFilter
+    ? { ...folds, foldedInFilter: next }
+    : { ...folds, flipped: next };
+};
+
+const sameKeys = (a: ReadonlySet<string>, b: ReadonlySet<string>) =>
+  a.size === b.size && [...a].every((key) => b.has(key));
+
+/**
+ * The folds with the way down to a row open, the filter's as the panel's, so that it can be
+ * seen: the rows it is written under, its page among them, but not the row itself. The same
+ * folds when they were open already, or the key names no row.
+ */
+export const revealed = (
+  folds: Folds,
+  items: readonly LayerItem[],
+  key: string
+): Folds => {
+  const above = pathTo(items, key)?.slice(0, -1) ?? [];
+  const flipped = new Set(folds.flipped);
+  const foldedInFilter = new Set(folds.foldedInFilter);
+  for (const item of above) {
+    // A page opens by default, a layer when flipped.
+    if (item.page) {
+      flipped.delete(item.key);
+    } else {
+      flipped.add(item.key);
+    }
+    foldedInFilter.delete(item.key);
+  }
+  return sameKeys(flipped, folds.flipped) &&
+    sameKeys(foldedInFilter, folds.foldedInFilter)
+    ? folds
+    : { ...folds, flipped, foldedInFilter };
+};
 
 /** Whether a row shows the rows under it: it has some, and is open. */
 export const isExpanded = (item: LayerItem, isOpen: IsOpen) =>
@@ -261,4 +369,115 @@ export const oneLevelFolded = (rows: readonly VisibleRow[]): string[] => {
   const open = rows.filter((r) => r.expanded);
   const outer = new Set(open.map((r) => r.parent));
   return open.filter((r) => !outer.has(r.key)).map((r) => r.key);
+};
+
+/** Where a row dragged over another lands: just above it, inside it at the top, or just below. */
+export type DropPosition = "before" | "inside" | "after";
+
+/**
+ * Whether a dragged row may land on another: a node's row, onto a page or another node's row,
+ * not onto itself or anything inside it.
+ */
+const mayDrop = (dragged: LayerItem, over: LayerItem) => {
+  const { node } = dragged;
+  if (dragged.page || !(node && over.node)) {
+    return false;
+  }
+  if (over.page) {
+    return true;
+  }
+  return !(
+    node.id === over.node.id ||
+    (dragged.frame === over.frame && findPath(node, over.node.id) !== null)
+  );
+};
+
+/**
+ * Where a dragged row would land on another, the pointer `y` of the way down it (0 at its top, 1
+ * at its bottom): inside a node that `holds` children while over the middle of its row, else
+ * before or after it by the half the pointer is over; inside a page wherever over its row. Null
+ * where it may not land.
+ */
+export const dropPositionAt = (
+  dragged: LayerItem,
+  over: LayerItem,
+  y: number,
+  holds: (node: DesignNode) => boolean
+): DropPosition | null => {
+  if (!(mayDrop(dragged, over) && over.node)) {
+    return null;
+  }
+  if (over.page || (holds(over.node) && y > 0.3 && y < 0.7)) {
+    return "inside";
+  }
+  return y <= 0.5 ? "before" : "after";
+};
+
+/** Where among its siblings a dropped layer goes, the dragged one left out. */
+const dropIndex = (
+  siblings: readonly DesignNode[],
+  dragged: string,
+  over: string,
+  position: DropPosition
+) => {
+  if (position === "inside") {
+    return 0;
+  }
+  const at = siblings
+    .filter((c) => c.id !== dragged)
+    .findIndex((c) => c.id === over);
+  return position === "before" ? at : at + 1;
+};
+
+/** How far below the node on the canvas it is dropped beside a layer lands. */
+const BELOW = 40;
+
+/**
+ * Where a row dropped on another lands, as node-actions places it: before or after it among its
+ * siblings, the dragged one left out, or inside it at the top, across documents too. Beside a
+ * node on the canvas it goes onto the canvas, at that place among its nodes; one that was not on
+ * the canvas's top level, which has no point there, lands just below that node. `editedIn` names
+ * the frame an edit to a row's node is made in: a page's row stands for every view of it
+ * (ADR 0036). Null where the row may not land.
+ */
+export const dropOf = (
+  items: readonly LayerItem[],
+  dragged: LayerItem,
+  over: LayerItem,
+  position: DropPosition,
+  editedIn: (frame: string) => string = (frame) => frame
+): Place | null => {
+  const { node } = dragged;
+  const target = over.node;
+  if (
+    !(mayDrop(dragged, over) && node && target) ||
+    (over.page && position !== "inside")
+  ) {
+    return null;
+  }
+  const into = position === "inside" ? target : over.parent;
+  const onCanvas = items.flatMap((item) =>
+    item.page || !item.node ? [] : [item.node]
+  );
+  const index = dropIndex(
+    into ? childrenOf(into) : onCanvas,
+    node.id,
+    target.id,
+    position
+  );
+  if (into) {
+    return {
+      frame: editedIn(over.frame),
+      index,
+      kind: "into",
+      parent: into.id,
+    };
+  }
+  return {
+    ...(dragged.parent !== null && {
+      at: { x: target.x ?? 0, y: (target.y ?? 0) + BELOW },
+    }),
+    index,
+    kind: "canvas",
+  };
 };

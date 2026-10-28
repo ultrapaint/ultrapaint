@@ -1,17 +1,18 @@
 /**
- * Rows of the layers panel dragged onto each other: where a dragged layer would land, kept in a
- * store of its own.
+ * Rows of the layers panel dragged onto each other: the drag events read into where a dragged
+ * layer would land (`dropPositionAt`), kept in a store of its own, and the drop handed to the
+ * panel.
  */
-import type { DesignNode } from "@ultrapaint/contracts/document";
-import { findPath } from "@ultrapaint/design-document/tree";
 import type { DragEvent } from "react";
 import { create } from "zustand";
 import { holdsChildren } from "../state/catalogue.ts";
-import type { Row, Shared } from "./layers.tsx";
+import {
+  type DropPosition,
+  dropPositionAt,
+  type LayerItem,
+} from "./layer-tree.ts";
 
 const LAYERS_MIME = "application/ultrapaint-layer";
-
-export type DropPosition = "before" | "inside" | "after";
 
 interface DropTarget {
   key: string;
@@ -26,7 +27,7 @@ const useLayerDrop = create<{ target: DropTarget | null }>(() => ({
   target: null,
 }));
 
-export const setDropTarget = (
+const setDropTarget = (
   next: DropTarget | null | ((d: DropTarget | null) => DropTarget | null)
 ) =>
   useLayerDrop.setState((s) => {
@@ -41,71 +42,54 @@ export const setDropTarget = (
 export const useDropHere = (key: string) =>
   useLayerDrop((s) => (s.target?.key === key ? s.target.position : null));
 
-/** Where among its siblings a dropped layer goes, the dragged one left out. */
-export const dropIndex = (
-  siblings: readonly DesignNode[],
-  dragged: string,
-  target: string,
-  position: DropPosition
-) => {
-  if (position === "inside") {
-    return 0;
-  }
-  const at = siblings
-    .filter((c) => c.id !== dragged)
-    .findIndex((c) => c.id === target);
-  return position === "before" ? at : at + 1;
-};
+/** What the rows share while one is dragged: the row picked up, and what a drop on a row does. */
+export interface Dragging {
+  drag: LayerItem | null;
+  onDrop: (over: LayerItem, position: DropPosition) => Promise<void>;
+  setDrag: (item: LayerItem | null) => void;
+}
 
-const dropPositionAt = (node: DesignNode, y: number): DropPosition => {
-  if (holdsChildren(node) && y > 0.3 && y < 0.7) {
-    return "inside";
-  }
-  return y <= 0.5 ? "before" : "after";
-};
-
-/**
- * What a node's row does while a row is dragged: it is picked up, and the dragged one is dropped
- * before it, after it or into it.
- */
-export const rowDrag = (row: Row, key: string, shared: Shared) => {
-  const { frame, node } = row;
+/** What a row does while another is dragged over it: it says where that one would land, and takes it. */
+export const rowDrop = (item: LayerItem, dragging: Dragging) => {
+  const { key } = item;
   const onDragOver = (e: DragEvent<HTMLDivElement>) => {
-    const dragged = shared.drag;
-    if (!dragged || dragged.node.id === node.id) {
+    if (!dragging.drag) {
       return;
     }
-    // Not into itself or anything inside it.
-    if (dragged.frame === frame && findPath(dragged.node, node.id) !== null) {
-      return;
-    }
-    e.preventDefault();
     const r = e.currentTarget.getBoundingClientRect();
     const y = (e.clientY - r.top) / r.height;
-    setDropTarget({ key, position: dropPositionAt(node, y) });
-  };
-  const onDragStart = (e: DragEvent<HTMLDivElement>) => {
-    shared.setDrag(row);
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData(LAYERS_MIME, node.id);
+    const position = dropPositionAt(dragging.drag, item, y, holdsChildren);
+    if (position) {
+      e.preventDefault();
+      setDropTarget({ key, position });
+    }
   };
   const onDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const t = useLayerDrop.getState().target;
     setDropTarget(null);
     if (t?.key === key) {
-      shared.onDrop(row, t.position);
+      dragging.onDrop(item, t.position);
     }
-    shared.setDrag(null);
+    dragging.setDrag(null);
   };
   return {
-    onDragEnd: () => {
-      shared.setDrag(null);
-      setDropTarget(null);
-    },
     onDragLeave: () => setDropTarget((d) => (d?.key === key ? null : d)),
     onDragOver,
-    onDragStart,
     onDrop,
   };
 };
+
+/** What a node's row does while a row is dragged: it is picked up, and takes the dragged one. */
+export const rowDrag = (item: LayerItem, dragging: Dragging) => ({
+  ...rowDrop(item, dragging),
+  onDragEnd: () => {
+    dragging.setDrag(null);
+    setDropTarget(null);
+  },
+  onDragStart: (e: DragEvent<HTMLDivElement>) => {
+    dragging.setDrag(item);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData(LAYERS_MIME, item.node?.id ?? item.key);
+  },
+});

@@ -1,6 +1,8 @@
 # Plan: deeper modules, the second review (2026-10-28)
 
-Status: in progress. Follows [ADR 0037](adr/0037-deep-modules.md) and
+Status: built, 2026-10-28: steps 1 to 13, one commit each, under "Built". The decisions are
+recorded in [ADR 0038](adr/0038-deep-modules-second-review.md) and in the ADRs a step amends (0024,
+0029, 0031). Follows [ADR 0037](adr/0037-deep-modules.md) and
 [PLAN-architecture.md](PLAN-architecture.md), whose 18 steps are not proposed again. The terms are
 in `GLOSSARY.md`.
 
@@ -590,3 +592,40 @@ unless the step says otherwise.
     with the panel put away (failing first), and Rename in the row while Layers is on screen, in a
     dialog with Layers put away (failing first, the panel counted as mounted) or another panel on
     screen. `diff-request.test.ts` goes, its case now the Changes one there.
+13. **Layers' drop and reveal** (`apps/web/src/panels/layer-tree.ts`). The tree's module grows
+    rather than a sibling: a fold, a reveal and a drop are read off the same rows (`LayerItem`, its
+    frame, node, parent and page) as its filter, its visible rows and its keys, and a reveal walks
+    the tree as `findItem`, which moves in from the panel. Folding was two states, `flipped` and
+    `foldedInFilter`, with the setter chosen by whether a filter was typed; they are one value,
+    `Folds`: the rows flipped from how the panel starts out (pages open, layers folded), those
+    folded among what a filter finds (open to start), and the filter typed, which says which of
+    the two the rows fold by. `isOpenIn(folds)` is the one rule (`pagesOpen` is private),
+    `flip(folds, keys)` is a chevron, the heading's one level more or less and the arrow keys
+    (the tree's moves open only a folded row and fold only an open one, so the panel's
+    `setRowOpen` goes), `withQuery` types a filter, and `revealed(folds, items, key)` opens the
+    rows above a row, its page among them, not the row itself, giving back the same folds when
+    nothing opens.
+    `dropPositionAt(dragged, over, y, holds)` reads where over a row a drag would land and
+    `dropOf(items, dragged, over, position, editedIn)` gives node-actions' `Place` or null, by one
+    rule (`mayDrop`): a node's row, onto a page's row (inside only) or another node's row, not
+    onto itself or anything inside it; beside a node on the canvas it goes onto the canvas at that
+    index, 40px below that node when it was not on the canvas's top level. `layer-drag.ts` is the
+    drag events' adapter, the drop target's store with `rowDrag` and `rowDrop`, which a page's row
+    uses rather than its own drag-over and drop; it imports `layer-tree` rather than `layers.tsx`,
+    so the cycle goes: a drag holds the `LayerItem`, `Row` keeps only the frame and node a row's
+    controls need, and `Dragging` is what the rows share for a drag, the panel's `Shared` extending
+    it. `layers.tsx` goes from 1214 to 1061 lines: the path walk of the reveal, the place of a drop,
+    a page row's drop, `findItem`, `withKey`, the two folding setters and `setRowOpen` leave it.
+    Also: a layer dragged out of a node on the canvas to beside another landed at the canvas's
+    origin, only a page's being given a point, and lands below that node as a page's does; the
+    selection revealed while a filter is typed opens the rows folded among what it found as well
+    as the panel's own, which showed only once the filter was cleared. The scroll to a row asked
+    for marks the request it scrolled to rather than clearing it from its effect, which the React
+    compiler's lint flagged once the panel changed. Not tried by hand in a running editor.
+    `layer-tree.test.ts` gains 13 (31): what a filter folds, kept apart from the panel's and
+    forgotten as it changes; a reveal opening the page and the layers above, not the node, and a
+    node on the canvas, the same folds when open or not there, and the rows folded in a filter
+    (failing first); a drop onto itself or inside it refused, before, inside and after by where
+    over the row, on a page's row, among siblings without the dragged one, in the view edited, a
+    page's layer 40px below a node on the canvas, a node on the canvas reordered where it is, and
+    a node's layer out of a node on the canvas given a point (failing first).

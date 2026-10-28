@@ -9,12 +9,7 @@
  */
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page } from "@ultrapaint/contracts/pages";
-import {
-  childrenOf,
-  findPath,
-  nodeKind,
-  nodeLabel,
-} from "@ultrapaint/design-document/tree";
+import { nodeKind, nodeLabel } from "@ultrapaint/design-document/tree";
 import { cn } from "cn";
 import {
   ChevronDown,
@@ -31,7 +26,6 @@ import {
   X,
 } from "lucide-react";
 import {
-  type DragEvent,
   type FocusEvent,
   type KeyboardEvent,
   type MouseEvent,
@@ -63,7 +57,6 @@ import { renamePageTo } from "../lib/page-actions.ts";
 import { openMenuAt, showMenu, useContextMenu } from "../state/context-menu.ts";
 import {
   canvasNodes,
-  isNodeFrame,
   nodeFrameOf,
   pageOfFrame,
   useDocuments,
@@ -77,27 +70,28 @@ import {
   useIsSelected,
 } from "../state/selection.ts";
 import { InlineInput } from "./canvases.tsx";
+import { type Dragging, rowDrag, rowDrop, useDropHere } from "./layer-drag.ts";
 import {
   type DropPosition,
-  dropIndex,
-  rowDrag,
-  setDropTarget,
-  useDropHere,
-} from "./layer-drag.ts";
-import {
+  dropOf,
+  type Folds,
   filterLayers,
+  findItem,
+  flip,
+  isOpenIn,
   type LayerItem,
   layerKey,
   looseItem,
+  NO_FOLDS,
   oneLevelFolded,
   oneLevelOpen,
-  openUnless,
   pageItem,
   pageKey,
-  pagesOpen,
+  revealed,
   treeMove,
   type VisibleRow,
   visibleRows,
+  withQuery,
 } from "./layer-tree.ts";
 import { offsetsOf, useListWindow, windowOf } from "./list-window.ts";
 
@@ -106,33 +100,13 @@ const ROW_PAD = 8;
 const INDENT = 12;
 const CHEVRON_CENTER = 8;
 
-/** A row of the panel that names a node: the node, where it sits, and what may be done with it. */
-export interface Row {
-  /** The frame the node is shown in. */
+/** A node's row: the node, and the frame it is shown in. */
+interface Row {
   frame: string;
   node: DesignNode;
-  /** The node it is inside, or null for the top of a page or of the canvas. */
-  parent: DesignNode | null;
 }
 
 const clearHover = () => useEditor.getState().setHover(null);
-
-/** The item a key names, wherever it is in the tree. */
-const findItem = (
-  items: readonly LayerItem[],
-  key: string
-): LayerItem | null => {
-  for (const item of items) {
-    if (item.key === key) {
-      return item;
-    }
-    const found = findItem(item.children, key);
-    if (found) {
-      return found;
-    }
-  }
-  return null;
-};
 
 /** The row a key names, once it is drawn. */
 const rowElement = (list: HTMLElement | null, key: string) =>
@@ -184,17 +158,6 @@ const tabStopOf = (
   rows[0]?.key ??
   null;
 
-/** A set with the key in it, or out of it. */
-const withKey = (set: ReadonlySet<string>, key: string, present: boolean) => {
-  const next = new Set(set);
-  if (present) {
-    next.add(key);
-  } else {
-    next.delete(key);
-  }
-  return next;
-};
-
 /** The treeitem a key was pressed on, or the focus went to; null for a field or a button in it. */
 const treeItemKey = (target: EventTarget) => {
   const element = target as HTMLElement;
@@ -204,46 +167,22 @@ const treeItemKey = (target: EventTarget) => {
 };
 
 /**
- * Opens the way down to the selection whenever it changes: its page, and the layers it is inside,
- * not the selected one itself. It is adjusted during render rather than in an effect, so the
- * opened tree paints in the same pass; `onReveal` hears of the row, which takes the tree's focus
- * and is scrolled to.
+ * Opens the way down to the selection whenever it changes (`revealed`). It is adjusted during
+ * render rather than in an effect, so the opened tree paints in the same pass; `onReveal` hears of
+ * the row, which takes the tree's focus and is scrolled to.
  */
-const useRevealSelection = ({
-  flipped,
-  onReveal,
-  rootOf,
-  setFlipped,
-}: {
-  flipped: ReadonlySet<string>;
-  onReveal: (key: string) => void;
-  rootOf: (frame: string) => { page: boolean; root: DesignNode | null };
-  setFlipped: (next: ReadonlySet<string>) => void;
-}) => {
+const useRevealSelection = (
+  items: readonly LayerItem[],
+  setFolds: (next: (folds: Folds) => Folds) => void,
+  onReveal: (key: string) => void
+) => {
   const selection = useEditor((s) => s.selection);
-  const [revealed, setRevealed] = useState<Selection | null>(null);
-  if (selection && selection !== revealed) {
-    setRevealed(selection);
-    const frame = pageOfFrame(selection.frame);
-    onReveal(layerKey(frame, selection.nodeId));
-    const { page, root } = rootOf(frame);
-    const path = findPath(root, selection.nodeId);
-    if (path) {
-      // A page opens by default, a layer when flipped. A page's root is the page's own row.
-      const next = new Set(flipped);
-      if (page) {
-        next.delete(pageKey(frame));
-      }
-      for (const n of path.slice(page ? 1 : 0, -1)) {
-        next.add(layerKey(frame, n.id));
-      }
-      if (
-        next.size !== flipped.size ||
-        [...next].some((k) => !flipped.has(k))
-      ) {
-        setFlipped(next);
-      }
-    }
+  const [revealedFor, setRevealedFor] = useState<Selection | null>(null);
+  if (selection && selection !== revealedFor) {
+    setRevealedFor(selection);
+    const key = layerKey(pageOfFrame(selection.frame), selection.nodeId);
+    onReveal(key);
+    setFolds((folds) => revealed(folds, items, key));
   }
 };
 
@@ -360,17 +299,11 @@ export const Layers = () => {
   const loaded = useDocuments((s) => s.loaded);
   const selection = useEditor((s) => s.selection);
   const selectedPage = useEditor((s) => s.selectedPage);
-  /** The rows open or folded against how the panel starts out: see `pagesOpen`. */
-  const [flipped, setFlipped] = useState<ReadonlySet<string>>(new Set());
-  /** What is folded while a filter is typed: everything it finds starts out open. */
-  const [foldedInFilter, setFoldedInFilter] = useState<ReadonlySet<string>>(
-    new Set()
-  );
-  const [query, setQuery] = useState("");
+  const [folds, setFolds] = useState<Folds>(NO_FOLDS);
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const [drag, setDrag] = useState<Row | null>(null);
+  const [drag, setDrag] = useState<LayerItem | null>(null);
   /** A row to scroll to once it is drawn, and whether it takes the focus. */
   const [scrollTo, setScrollTo] = useState<{
     focus: boolean;
@@ -392,17 +325,11 @@ export const Layers = () => {
     };
   }, [allPages, canvas, docs]);
 
-  const filtering = query.trim() !== "";
-  const setFolding = filtering ? setFoldedInFilter : setFlipped;
+  const { query } = folds;
   const shown = useMemo(() => filterLayers(items, query), [items, query]);
-  const isOpen = filtering ? openUnless(foldedInFilter) : pagesOpen(flipped);
   const rows = useMemo(
-    () =>
-      visibleRows(
-        shown,
-        filtering ? openUnless(foldedInFilter) : pagesOpen(flipped)
-      ),
-    [shown, filtering, foldedInFilter, flipped]
+    () => visibleRows(shown, isOpenIn(folds)),
+    [shown, folds]
   );
   const tabStop = tabStopOf(rows, [
     focusKey,
@@ -439,30 +366,18 @@ export const Layers = () => {
   const lineOf = (key: string) =>
     lines.findIndex((l) => l.kind === "row" && l.row.key === key);
 
-  useRevealSelection({
-    flipped,
-    onReveal: (key) => {
-      setFocusKey(key);
-      setScrollTo({ focus: false, key });
-    },
-    rootOf: (frame) => {
-      const doc = docs[pageOfFrame(frame)];
-      if (doc) {
-        return { page: true, root: doc.root ?? null };
-      }
-      return {
-        page: false,
-        root: nodes.find((n) => nodeFrameOf(n.id) === frame) ?? null,
-      };
-    },
-    setFlipped,
+  useRevealSelection(items, setFolds, (key) => {
+    setFocusKey(key);
+    setScrollTo({ focus: false, key });
   });
 
   /** A row to focus once it is drawn: a row off screen is drawn after the list scrolls to it. */
   const pendingFocus = useRef<string | null>(null);
+  /** The last row asked for that was scrolled to: each is scrolled to once. */
+  const scrolled = useRef<typeof scrollTo>(null);
   // A row asked for is scrolled to once it is a line of the list, and takes the focus if asked.
   useEffect(() => {
-    if (scrollTo) {
+    if (scrollTo && scrollTo !== scrolled.current) {
       const index = lines.findIndex(
         (l) => l.kind === "row" && l.row.key === scrollTo.key
       );
@@ -471,7 +386,7 @@ export const Layers = () => {
           LIST_PAD + (tops[index] as number),
           LIST_PAD + (tops[index + 1] as number)
         );
-        setScrollTo(null);
+        scrolled.current = scrollTo;
         if (scrollTo.focus) {
           pendingFocus.current = scrollTo.key;
         }
@@ -490,36 +405,16 @@ export const Layers = () => {
   useRequest("rename", (target) => {
     const key = layerKey(target.frame, target.nodeId);
     if (findItem(shown, key) === null) {
-      setQuery("");
+      setFolds((f) => withQuery(f, ""));
     }
     setRenaming(key);
     setScrollTo({ focus: false, key });
   });
 
-  const toggle = (key: string) =>
-    setFolding((prev) => withKey(prev, key, !prev.has(key)));
-
-  /** Opens or folds each of the rows, from whichever way it is now. */
-  const flipRows = (keys: readonly string[]) =>
-    setFolding((prev) => {
-      const next = new Set(prev);
-      for (const key of keys) {
-        if (!next.delete(key)) {
-          next.add(key);
-        }
-      }
-      return next;
-    });
+  const flipRows = (keys: readonly string[]) => setFolds((f) => flip(f, keys));
+  const toggle = (key: string) => flipRows([key]);
   const toOpen = oneLevelOpen(rows);
   const toFold = oneLevelFolded(rows);
-
-  /** Opens or folds a row, whichever way it is by default. */
-  const setRowOpen = (key: string, open: boolean) => {
-    const item = findItem(shown, key);
-    if (item && isOpen(item) !== open) {
-      toggle(key);
-    }
-  };
 
   const focusRow = (key: string) => {
     setFocusKey(key);
@@ -539,36 +434,12 @@ export const Layers = () => {
     }
   };
 
-  /** Moves the dragged row next to, or into, the target row: across documents too. */
-  const onDrop = async (target: Row, position: DropPosition) => {
-    if (!drag) {
-      return;
+  /** Moves the dragged row where it is dropped (`dropOf`). */
+  const onDrop = async (over: LayerItem, position: DropPosition) => {
+    const place = drag && dropOf(items, drag, over, position, rowFrame);
+    if (drag?.node && place) {
+      await moveNode({ frame: drag.frame, nodeId: drag.node.id }, place);
     }
-    const into = position === "inside" ? target.node : target.parent;
-    const index = dropIndex(
-      into ? childrenOf(into) : nodes,
-      drag.node.id,
-      target.node.id,
-      position
-    );
-    await moveNode(
-      { frame: drag.frame, nodeId: drag.node.id },
-      into
-        ? {
-            frame: rowFrame(target.frame),
-            index,
-            kind: "into",
-            parent: into.id,
-          }
-        : {
-            // From a page onto the canvas beside a node on it: just below that one.
-            ...(!isNodeFrame(drag.frame) && {
-              at: { x: target.node.x ?? 0, y: (target.node.y ?? 0) + 40 },
-            }),
-            index,
-            kind: "canvas",
-          }
-    );
   };
 
   /** Walks the tree from a row: the focus moves, or a row opens or folds. */
@@ -576,10 +447,9 @@ export const Layers = () => {
     const move = treeMove(rows, key, pressed);
     if (move && "focus" in move) {
       focusRow(move.focus);
-    } else if (move && "expand" in move) {
-      setRowOpen(move.expand, true);
     } else if (move) {
-      setRowOpen(move.collapse, false);
+      // A row is opened only when folded, and folded only when open.
+      toggle("expand" in move ? move.expand : move.collapse);
     }
   };
 
@@ -607,10 +477,7 @@ export const Layers = () => {
     }
   };
 
-  const onQuery = (next: string) => {
-    setQuery(next);
-    setFoldedInFilter(new Set());
-  };
+  const onQuery = (next: string) => setFolds((f) => withQuery(f, next));
 
   const onFilterDown = () => {
     const [first] = rows;
@@ -706,13 +573,10 @@ export const Layers = () => {
   );
 };
 
-export interface Shared {
-  drag: Row | null;
+interface Shared extends Dragging {
   endRename: (key: string) => void;
-  onDrop: (target: Row, position: DropPosition) => Promise<void>;
   /** The row whose name is being typed. */
   renaming: string | null;
-  setDrag: (row: Row | null) => void;
   setRenaming: (key: string | null) => void;
   /** The one row Tab reaches. */
   tabStop: string | null;
@@ -833,31 +697,16 @@ const PageRow = ({
 }) => {
   const page = item.page as Page;
   const problem = useDocuments((s) => s.docs[page.id]?.problem);
-  const root = item.node;
   const { key } = item;
   const selected = useEditor((s) => s.selectedPage === page.id);
   const dropHere = useDropHere(key);
+  const dropHandlers = rowDrop(item, shared);
   const select = () => {
     useEditor.getState().selectPage(page.id);
   };
   const onContextMenu = (e: MouseEvent) => {
     select();
     openMenuAt(e, { kind: "page", pageId: page.id });
-  };
-  const onDragOver = (e: DragEvent<HTMLDivElement>) => {
-    if (!(shared.drag && root)) {
-      return;
-    }
-    e.preventDefault();
-    setDropTarget({ key, position: "inside" });
-  };
-  const onDropHere = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setDropTarget(null);
-    if (root) {
-      shared.onDrop({ frame: page.id, node: root, parent: null }, "inside");
-    }
-    shared.setDrag(null);
   };
   const row = (
     // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions lint/a11y/useKeyWithClickEvents: the treeitem around it takes the keys, through the tree.
@@ -872,9 +721,7 @@ const PageRow = ({
       )}
       data-row={key}
       onClick={select}
-      onDragLeave={() => setDropTarget(null)}
-      onDragOver={onDragOver}
-      onDrop={onDropHere}
+      {...dropHandlers}
       style={{ paddingLeft: ROW_PAD }}
     >
       <Chevron
@@ -1097,7 +944,7 @@ const LayerRow = ({
   const { frame, key } = item;
   const { guides, hiddenAbove } = visible;
   const node = item.node as DesignNode;
-  const row: Row = { frame, node, parent: item.parent };
+  const row: Row = { frame, node };
   const hasChildren = item.children.length > 0;
   const selected = useIsSelected(frame, node.id);
   const hovered = useEditor(
@@ -1107,7 +954,7 @@ const LayerRow = ({
       s.hover.nodeId === node.id
   );
   const dropHere = useDropHere(key);
-  const dragHandlers = rowDrag(row, key, shared);
+  const dragHandlers = rowDrag(item, shared);
   const renaming = shared.renaming === key;
   const label = nodeLabel(node);
   const target = { frame, nodeId: node.id };

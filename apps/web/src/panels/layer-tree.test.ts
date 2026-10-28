@@ -2,18 +2,27 @@ import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page } from "@ultrapaint/contracts/pages";
 import { describe, expect, it } from "vitest";
 import {
+  type DropPosition,
+  dropOf,
+  dropPositionAt,
+  type Folds,
   filterLayers,
+  findItem,
+  flip,
+  isOpenIn,
   type LayerItem,
   looseItem,
+  NO_FOLDS,
   oneLevelFolded,
   oneLevelOpen,
   openUnless,
   pageItem,
   pageKey,
-  pagesOpen,
+  revealed,
   treeMove,
   type VisibleRow,
   visibleRows,
+  withQuery,
 } from "./layer-tree.ts";
 
 const text = (id: string, words: string): DesignNode => ({
@@ -162,9 +171,13 @@ describe("one level at a time", () => {
   });
 });
 
+/** The keys of the rows that can be seen with these folds. */
+const seen = (folds: Folds, list: readonly LayerItem[] = items) =>
+  visibleRows(list, isOpenIn(folds)).map((r) => r.key);
+
 describe("how the panel starts out", () => {
   it("opens the pages and folds the layers in them", () => {
-    const rows = visibleRows(items, pagesOpen(new Set()));
+    const rows = visibleRows(items, isOpenIn(NO_FOLDS));
     expect(rows.map((r) => r.key)).toEqual([
       "home#page",
       "home#hero",
@@ -174,9 +187,7 @@ describe("how the panel starts out", () => {
   });
 
   it("opens a layer that was flipped, and folds a page that was", () => {
-    expect(
-      visibleRows(items, pagesOpen(new Set(["home#hero"]))).map((r) => r.key)
-    ).toEqual([
+    expect(seen(flip(NO_FOLDS, ["home#hero"]))).toEqual([
       "home#page",
       "home#hero",
       "home#title",
@@ -184,11 +195,10 @@ describe("how the panel starts out", () => {
       "home#footer",
       "node:note#note",
     ]);
-    expect(
-      visibleRows(items, pagesOpen(new Set([pageKey("home")]))).map(
-        (r) => r.key
-      )
-    ).toEqual(["home#page", "node:note#note"]);
+    expect(seen(flip(NO_FOLDS, [pageKey("home")]))).toEqual([
+      "home#page",
+      "node:note#note",
+    ]);
   });
 
   it("says where each row sits among its siblings and what it is drawn under", () => {
@@ -196,6 +206,189 @@ describe("how the panel starts out", () => {
     const title = rows.find((r) => r.key === "home#title");
     expect(title?.guides).toEqual(["home#page", "home#hero"]);
     expect([title?.position, title?.siblings]).toEqual([1, 2]);
+  });
+});
+
+describe("folding while a filter is typed", () => {
+  const typed = withQuery(NO_FOLDS, "o");
+
+  it("starts out with every row open, the panel's own folds kept aside", () => {
+    expect(seen(typed)).toEqual(outline(items).map((key) => key.trim()));
+    const folded = flip(typed, ["home#hero"]);
+    expect(seen(folded)).not.toContain("home#title");
+    expect(folded.flipped).toBe(NO_FOLDS.flipped);
+  });
+
+  it("forgets what was folded in it as the filter changes, and goes back to the panel's", () => {
+    const folded = flip(NO_FOLDS, ["home#footer"]);
+    const inFilter = flip(withQuery(folded, "o"), ["home#hero"]);
+    expect(seen(withQuery(inFilter, "ow"))).toContain("home#title");
+    expect(seen(withQuery(inFilter, ""))).toEqual([
+      "home#page",
+      "home#hero",
+      "home#footer",
+      "home#legal",
+      "node:note#note",
+    ]);
+  });
+});
+
+describe("revealing the selection", () => {
+  it("opens its page and the layers it is inside, but not the selected one", () => {
+    const pageFolded = flip(NO_FOLDS, [pageKey("home")]);
+    expect(seen(revealed(pageFolded, items, "home#title"))).toEqual([
+      "home#page",
+      "home#hero",
+      "home#title",
+      "home#cta",
+      "home#footer",
+      "node:note#note",
+    ]);
+    expect(seen(revealed(pageFolded, items, "home#hero"))).toEqual([
+      "home#page",
+      "home#hero",
+      "home#footer",
+      "node:note#note",
+    ]);
+  });
+
+  it("opens a node on the canvas that the selected one is inside", () => {
+    const card = looseItem(
+      "node:card",
+      column("card", [text("caption", "A caption")])
+    );
+    expect(
+      seen(revealed(NO_FOLDS, [card], "node:card#caption"), [card])
+    ).toEqual(["node:card#card", "node:card#caption"]);
+  });
+
+  it("leaves the folds as they are when the way down is open, or the row is not there", () => {
+    expect(revealed(NO_FOLDS, items, "home#hero")).toBe(NO_FOLDS);
+    expect(revealed(NO_FOLDS, items, "home#gone")).toBe(NO_FOLDS);
+  });
+
+  it("opens the rows folded among what a filter found", () => {
+    const folded = flip(withQuery(NO_FOLDS, "o"), ["home#page", "home#hero"]);
+    const shown = revealed(folded, items, "home#title");
+    expect(seen(shown)).toContain("home#title");
+    // Once the filter is cleared the way down is open too.
+    expect(seen(withQuery(shown, ""))).toContain("home#title");
+  });
+});
+
+describe("dropping a layer", () => {
+  /** The page as above; on the canvas a note, and a card holding a caption. */
+  const tree: LayerItem[] = [
+    pageItem(page, root),
+    looseItem("node:note", { ...text("note", "Remember"), x: 100, y: 200 }),
+    looseItem("node:card", {
+      ...column("card", [text("caption", "A caption")]),
+      x: 400,
+      y: 50,
+    }),
+  ];
+  const row = (key: string) => findItem(tree, key) as LayerItem;
+  const holds = (node: DesignNode) => node.type === "column";
+  const positionsOver = (dragged: string, over: string) =>
+    [0.1, 0.3, 0.5, 0.7, 0.9].map((y) =>
+      dropPositionAt(row(dragged), row(over), y, holds)
+    );
+
+  it("refuses a layer onto itself or anything inside it", () => {
+    expect(positionsOver("home#hero", "home#hero")).toEqual(
+      new Array(5).fill(null)
+    );
+    expect(positionsOver("home#hero", "home#title")).toEqual(
+      new Array(5).fill(null)
+    );
+    for (const position of ["before", "inside", "after"] as const) {
+      expect(
+        dropOf(tree, row("home#hero"), row("home#title"), position)
+      ).toBeNull();
+      expect(
+        dropOf(tree, row("home#hero"), row("home#hero"), position)
+      ).toBeNull();
+    }
+  });
+
+  it("goes into a container over the middle of its row, else before or after it", () => {
+    expect(positionsOver("home#title", "home#footer")).toEqual([
+      "before",
+      "before",
+      "inside",
+      "after",
+      "after",
+    ]);
+    expect(positionsOver("home#title", "home#legal")).toEqual([
+      "before",
+      "before",
+      "before",
+      "after",
+      "after",
+    ]);
+    expect(positionsOver("home#title", pageKey("home"))).toEqual(
+      new Array(5).fill("inside")
+    );
+  });
+
+  it("lands before or after a layer among its siblings, the dragged one left out, or inside at the top", () => {
+    const drop = (dragged: string, over: string, position: DropPosition) =>
+      dropOf(tree, row(dragged), row(over), position);
+    expect(drop("home#title", "home#cta", "after")).toEqual({
+      frame: "home",
+      index: 1,
+      kind: "into",
+      parent: "hero",
+    });
+    expect(drop("home#title", "home#footer", "before")).toEqual({
+      frame: "home",
+      index: 1,
+      kind: "into",
+      parent: "root",
+    });
+    expect(drop("home#cta", "home#footer", "inside")).toEqual({
+      frame: "home",
+      index: 0,
+      kind: "into",
+      parent: "footer",
+    });
+  });
+
+  it("puts a layer dropped on a page's row at the top of the page, in the view edited", () => {
+    const inView = (frame: string) => (frame === "home" ? "home#md" : frame);
+    expect(
+      dropOf(
+        tree,
+        row("node:note#note"),
+        row(pageKey("home")),
+        "inside",
+        inView
+      )
+    ).toEqual({ frame: "home#md", index: 0, kind: "into", parent: "root" });
+    expect(
+      dropOf(tree, row("node:note#note"), row(pageKey("home")), "after")
+    ).toBeNull();
+  });
+
+  it("moves a page's layer onto the canvas 40px below the node it is dropped beside", () => {
+    expect(
+      dropOf(tree, row("home#hero"), row("node:note#note"), "after")
+    ).toEqual({ at: { x: 100, y: 240 }, index: 1, kind: "canvas" });
+    expect(
+      dropOf(tree, row("home#hero"), row("node:card#card"), "before")
+    ).toEqual({ at: { x: 400, y: 90 }, index: 1, kind: "canvas" });
+  });
+
+  it("reorders a node on the canvas among the others, leaving it where it is", () => {
+    expect(
+      dropOf(tree, row("node:note#note"), row("node:card#card"), "after")
+    ).toEqual({ index: 1, kind: "canvas" });
+  });
+
+  it("gives a layer taken out of a node on the canvas a point below the one it is dropped beside", () => {
+    expect(
+      dropOf(tree, row("node:card#caption"), row("node:note#note"), "before")
+    ).toEqual({ at: { x: 100, y: 240 }, index: 0, kind: "canvas" });
   });
 });
 
