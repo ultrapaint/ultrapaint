@@ -28,7 +28,7 @@ import {
 const CANVAS_WIDTH = 1200;
 const CANVAS_HEIGHT = 900;
 
-const GetScreenshot = Tool.make("get_screenshot", {
+export const GetScreenshot = Tool.make("get_screenshot", {
   description:
     "A picture of a page, or of one node, as the repository draws it: look after a change; fix spacing, alignment, overflow, contrast. Drawn at its frame's size, or at width. node may be a node reference (/orders#c_8x2k1q) alone; a loose node needs loose: true. Needs the editor open in a browser.",
   parameters: Schema.Struct({

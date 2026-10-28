@@ -16,7 +16,7 @@ import { DesignSystemService } from "../design-system.ts";
 import { DesignSystemSetupService } from "../design-system-setup.ts";
 import { inventoryBrief, mappingCounts } from "../design-system-setup-rules.ts";
 import { RepoPaths } from "../repo-paths.ts";
-import type { AgentWays } from "./agent-ways.ts";
+import type { AgentWays, ToolNames } from "./agent-ways.ts";
 import {
   DESIGN_MD_GUIDE,
   needsTools,
@@ -100,23 +100,24 @@ ${ways.proposeWith}
    - Type: the sizes in use made a scale, the weights in use, and the text styles (headings, body,
  captions, labels).
    - Radii, shadows and the z-index layers: the few in use, on Tailwind's names (radius-md, shadow-lg).
-3. Put the decisions to the user with ask_user, a few questions a card: the brand colour, which
-   near-duplicates are one colour, what to call them, the base of the scale. Give the values (hex,
-   px) in the options and your choice first. Wait for the answers.
+3. Put the decisions to the user ${ways.askUser}, a few questions at a time: the brand colour,
+   which near-duplicates are one colour, what to call them, the base of the scale. Give the values
+   (hex, px) in the options and your choice first. Wait for the answers.
 4. Write the tokens into the stylesheet the preview imports (${stylesheets}) as @theme variables:
    --color-*, --spacing, --text-*, --font-weight-*, --radius-*, --shadow-*. Keep what it has. A
    colour that changes with the theme is a custom property set in :root and .dark and named in
    \`@theme inline\` (--color-primary: var(--primary)).
-5. Call scan_design_system again and save the result with write_design_system, curated as /init
-   does: semantic colours first with what each is for, the text styles, the components with their
-   category and example props, the elevation levels. And DESIGN.md: ${DESIGN_MD_GUIDE}
+5. ${ways.readTheme(stylesheets, "")} Curate the design system as /init does: semantic colours
+   first with what each is for, the text styles, the components with their category and example
+   props, the elevation levels. And DESIGN.md: ${DESIGN_MD_GUIDE}
    Its Do's and Don'ts say what the code must stop doing.
-6. ${finishing("Define")}
+6. ${ways.saveDesignSystem(settings.designsDir)}
+7. ${finishing("Define")}
 ${userAdds(extra)}</ultrapaint-task>`;
       })
     );
 
-  const mapTask = (extra: string | undefined) =>
+  const mapTask = (tools: ToolNames, extra: string | undefined) =>
     Effect.gen(function* () {
       const mapping = yield* setup.mapping;
       if (!mapping) {
@@ -146,8 +147,8 @@ The mapping has ${plural(mapping.entries.length, "value")} off the system: the r
 exactly, ${counts.undecided} are undecided and ${counts.kept} kept. Each is its kind, its value, how
 often it is used, how it is written and where first.${open.length > 0 ? `\n\nUndecided, most used first:\n${open.join("\n")}` : ""}${settled.length > 0 ? `\n\nSettled by the rules (change any that is wrong):\n${settled.join("\n")}` : ""}
 
-map_values saves decisions and says how many are left undecided, read_design_system has the
-tokens, ask_user puts a card of questions to the user.
+${tools.map_values} saves decisions and says how many are left undecided, ${tools.read_design_system} has the
+tokens, ${tools.ask_user} puts a card of questions to the user.
 
 1. Read the design system, then the undecided values kind by kind. Where a value's role is not
    clear from how it is written, open the file where it is used.
@@ -160,16 +161,16 @@ tokens, ask_user puts a card of questions to the user.
    - the component, for a plain element whose job the library's component does (target Button).
    - kept as it is (keep: true), with a note on why, for a value that has to stay: a brand colour
  outside the system, an offset a layout depends on, an element the component cannot replace.
-3. Ask the user with ask_user where the meaning is not yours to decide (which grey is the muted
+3. Ask the user ${ways.askUser} where the meaning is not yours to decide (which grey is the muted
    one, whether a colour is the brand's), a few values a card, your choice first. Wait for the
    answers.
-4. Save the decisions with map_values, up to 50 a call; it says what it could not take and why.
+4. Save the decisions with ${tools.map_values}, up to 50 a call; it says what it could not take and why.
    Leave nothing undecided that is used more than once.
 5. ${finishing("Map")}
 ${userAdds(extra)}</ultrapaint-task>`;
     });
 
-  const migrateTask = (extra: string | undefined) =>
+  const migrateTask = (tools: ToolNames, extra: string | undefined) =>
     Effect.gen(function* () {
       const { steps } = yield* setup.get;
       const migrate = steps.find((s) => s.id === "migrate");
@@ -183,7 +184,7 @@ batch's files.
 
 ${batches.length === 0 ? "There are no batches: nothing the mapping settles is left in the code." : `${plural(batches.length, "batch", "batches")}, ${left.length} still to do: ${left.map((b) => `${b.dir} (${plural(b.files.length, "file")})`).join(", ")}.`}
 
-1. Call next_batch. It rewrites what the mapping settles mechanically (classes, style values,
+1. Call ${tools.next_batch}. It rewrites what the mapping settles mechanically (classes, style values,
    stylesheet declarations) and returns, file by file, what is left: each use with what the
    mapping says it becomes as target, or no target where the mapping has not decided.
 2. Rewrite what is left in the batch's files yourself:
@@ -194,7 +195,7 @@ ${batches.length === 0 ? "There are no batches: nothing the mapping settles is l
    - a use without a target stays as it is, and so does whatever the mapping keeps.
 3. Run the repository's type check and linter (package.json says how) and fix what the batch
    broke.
-4. Call next_batch again with done: one line on what you did and what you left. It ends the
+4. Call ${tools.next_batch} again with done: one line on what you did and what you left. It ends the
    batch and gives you the next, until it says no batch is left.
 5. ${finishing("Migrate")}
 ${userAdds(extra)}</ultrapaint-task>`;
@@ -214,7 +215,7 @@ ${userAdds(extra)}</ultrapaint-task>`;
       // A DESIGN.md from elsewhere (Stitch, a designer) is what the product is meant to be.
       const intent =
         document && !designSystem
-          ? `\n\nThe repository has a DESIGN.md (${document.path}), which read_design_system returns: it says what the product is meant to look like, with tokens in its front matter. Propose from it first, keep what its prose says, and keep its sections; its tokens are matched to the design system's in Sync afterwards.`
+          ? `\n\nThe repository has a DESIGN.md (${document.path}): it says what the product is meant to look like, with tokens in its front matter. Propose from it first, keep what its prose says, and keep its sections; its tokens are matched to the design system's in Sync afterwards.`
           : "";
       const brief = `${
         inventory
@@ -251,13 +252,16 @@ ${userAdds(extra)}</ultrapaint-task>`;
         STEPS_NEXT
       );
     }
-    if (!ways.tools) {
+    const { tools } = ways;
+    if (!tools) {
       return yield* needsTools(
         COMMAND,
         `the ${setupStepOf(step)?.title ?? step} step`
       );
     }
-    return yield* step === "map" ? mapTask(extra) : migrateTask(extra);
+    return yield* step === "map"
+      ? mapTask(tools, extra)
+      : migrateTask(tools, extra);
   });
 
   return { setupStep };

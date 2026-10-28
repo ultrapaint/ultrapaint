@@ -19,6 +19,7 @@ import { ProjectManager } from "../../project.ts";
 import { CodeSide } from "../code-side.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { DesignSystemSyncService } from "../design-system-sync.ts";
+import { RepoPaths } from "../repo-paths.ts";
 import { targetTokens } from "../sync-sides.ts";
 import type { AgentWays } from "./agent-ways.ts";
 import {
@@ -49,8 +50,14 @@ export const makeSyncTasks = Effect.fnUntraced(function* (deps: {
     Effect.gen(function* () {
       const plan = yield* sync.plan;
       const { drift } = plan;
-      const { byName } = yield* project.use(
-        Effect.flatMap(CodeSide, (code) => code.tokens)
+      const { byName, designsDir } = yield* project.use(
+        Effect.gen(function* () {
+          const code = yield* (yield* CodeSide).tokens;
+          return {
+            byName: code.byName,
+            designsDir: (yield* RepoPaths).settings.designsDir,
+          };
+        })
       );
       const declaredValue = (name: string) => byName.get(name)?.value ?? "";
       const list = (title: string, items: readonly string[]) =>
@@ -91,20 +98,21 @@ ${list(
   "Components of the code it says nothing about:",
   drift.componentsUndescribed
 )}${list("Components it notes that the code no longer has:", drift.componentsGone)}${prose ? `\n${prose}\n` : ""}
-1. read_design_system for the design system and DESIGN.md.
+1. Read the design system and DESIGN.md: ${ways.readDesignSystem(designsDir)}.
 2. Each new token: find where the code uses it, put it in the group it belongs to and say in
    \`description\` what it is for. A token the product has on purpose but designers should not
    reach for goes into \`omitted\` instead.
 3. Do not take a token out because the code does not declare it: the code is behind, and Sync
    exports it.
-4. Each new component: get_component for its props; give it a \`category\`, a \`description\` and
+4. Each new component: ${ways.readComponent} for its props; give it a \`category\`, a \`description\` and
    \`exampleProps\` that make it render something meaningful. Take out the notes of a component gone.
 5. DESIGN.md: say in its prose what changed above, and write what it does not say yet. Prose that
    is not in the format's sections is put in them, keeping what it says; a section the format does
    not know stays, after the others. ${DESIGN_MD_GUIDE}
-6. Where what something is for is the user's to say, ask with ask_user, a few at a time.
-7. Save with write_design_system, the design system and the whole of DESIGN.md as designMd; then a
-   short summary of what changed.
+6. Where what something is for is the user's to say, ask the user ${ways.askUser}, a few at
+   a time.
+7. ${ways.saveDesignSystem(designsDir)}
+8. End with a short summary of what changed.
 ${userAdds(extra)}</ultrapaint-task>`;
     });
 
@@ -176,7 +184,8 @@ ${userAdds(extra)}</ultrapaint-task>`;
    */
   const syncFigma = (extra: string | undefined) =>
     Effect.gen(function* () {
-      if (!ways.tools) {
+      const { tools } = ways;
+      if (!tools) {
         return yield* unavailable("figma", "mcp");
       }
       const comparison = yield* sync.tokens("figma");
@@ -206,9 +215,9 @@ ${listed(lines)}
    - left out, for what the application does not use: a palette step only other variables point
  at, a variable only Figma needs.
    Look at how the components use the tokens in the code when a name or a role is unclear.
-2. Ask the user with ask_user where the meaning is theirs to say, a group at a time (the brand
+2. Ask the user ${ways.askUser} where the meaning is theirs to say, a group at a time (the brand
    scale, the greys, the semantic colours), with your proposal as the first option.
-3. Record the decisions with map_values: kind "figma", value the Figma variable as listed above,
+3. Record the decisions with ${tools.map_values}: kind "figma", value the Figma variable as listed above,
    target the token it is, or keep: true to leave it out.
 4. Do not write the stylesheets or the design system's values. Finish by telling the user to review
    the matches in the Design system panel's Sync view and to press Write there.
@@ -221,7 +230,8 @@ ${userAdds(extra)}</ultrapaint-task>`;
    */
   const syncDesign = (extra: string | undefined) =>
     Effect.gen(function* () {
-      if (!ways.tools) {
+      const { tools } = ways;
+      if (!tools) {
         return yield* unavailable("designMd", "mcp");
       }
       const comparison = yield* sync.tokens("designMd");
@@ -277,14 +287,14 @@ ${listed(styleLines(styles.ours))}
 1. Match each unmatched token: a token of the design system when it is the same thing (the same
    role, not only the same value), a new token named the way it names its tokens, or left out.
    Read the document's prose: it says what each colour is for.
-2. Ask the user with ask_user where the meaning is theirs to say, a group at a time, with your
+2. Ask the user ${ways.askUser} where the meaning is theirs to say, a group at a time, with your
    proposal as the first option.
-3. Record the decisions with map_values: kind "design", value the token's place as listed above
+3. Record the decisions with ${tools.map_values}: kind "design", value the token's place as listed above
    (\`colors.tertiary\`), target the design system's token, or keep: true to leave it out.
 4. The text styles are several tokens each, so they are yours to settle with the user: a style of
    the document becomes a text style of design-system.json named so its key comes out the same
    (\`headline-lg\` is "Headline lg"), set in its tokens; where it needs a size, weight or line
-   height the design system does not have, add the token to it. Save with write_design_system,
+   height the design system does not have, add the token to it. Save with ${tools.write_design_system},
    passing the design system and the whole of DESIGN.md as it is.
 5. Do not write the colours, radii or spacing yourself. Finish by telling the
    user to review the matches in the Design system panel's Sync view and to press Write there.
@@ -307,7 +317,7 @@ ${userAdds(extra)}</ultrapaint-task>`;
         : "Nothing waits for the code.";
     const second =
       waiting.toDesign > 0
-        ? `What the code changed alone is usually a fix someone made in the code: ask the user with ask_user\n   whether to keep it (the design takes it) or put the design's value back, a group at a time.\n   For those kept, ${ways.importTokens("named")}; for those put back, ${ways.exportTokens("named")}.`
+        ? `What the code changed alone is usually a fix someone made in the code: ask the user ${ways.askUser}\n   whether to keep it (the design takes it) or put the design's value back, a group at a time.\n   For those kept, ${ways.importTokens("named")}; for those put back, ${ways.exportTokens("named")}.`
         : "Nothing changed in the code alone.";
     const third =
       waiting.conflicts > 0

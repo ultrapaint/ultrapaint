@@ -1,12 +1,23 @@
 import path from "node:path";
 import { assert, describe, layer } from "@effect/vitest";
-import type { TaskRequest } from "@ultrapaint/contracts/tasks";
+import { commandOf, type TaskRequest } from "@ultrapaint/contracts/tasks";
+import { makeFixture as makeFigma } from "@ultrapaint/figma-import/testing/fixture";
 import { Effect, FileSystem } from "effect";
 import { ProjectManager } from "./project.ts";
 import { DesignSystemService } from "./services/design-system.ts";
+import { DesignSystemSetupService } from "./services/design-system-setup.ts";
+import { FigmaImportService } from "./services/figma-import.ts";
+import { AskUser } from "./services/mcp/ask-user.ts";
+import { FigmaTools } from "./services/mcp/figma-tools.ts";
+import { GetScreenshot } from "./services/mcp/screenshot.ts";
+import { SetupTools } from "./services/mcp/setup-tools.ts";
+import { EditorTools } from "./services/mcp/tools.ts";
 import { PagesService } from "./services/pages.ts";
+import { SpecService } from "./services/specs.ts";
+import { ProjectBriefing } from "./services/threads/briefing.ts";
 import { SlashCommands } from "./services/threads/commands.ts";
 import { AgentTasks } from "./services/threads/tasks.ts";
+import { builtInSkills } from "./skills/index.ts";
 import { ProjectFixture, ProjectTest } from "./testing/project.ts";
 
 const task = (request: TaskRequest) =>
@@ -38,6 +49,32 @@ const withDesignSystem = Effect.gen(function* () {
   const project = yield* ProjectManager;
   yield* project.use(Effect.flatMap(DesignSystemService, (d) => d.detect));
 });
+
+/** A DESIGN.md of the same token, beside the design system. */
+const DESIGN_MD = `---
+name: Fixture
+colors:
+  ink: "#111827"
+---
+
+## Overview
+
+A fixture.
+`;
+
+/** A component the code does not have yet, drawn in the design. */
+const DRAFT_CARD = {
+  base: {},
+  component: "Card",
+  defaults: {},
+  draft: { children: [], id: "card", type: "group" },
+  from: "#draft",
+  look: "design",
+  slots: [],
+  states: {},
+  variants: {},
+  version: 1,
+};
 
 /** The design's value of a token changed, so that it waits for the code. */
 const designChanges = Effect.gen(function* () {
@@ -242,7 +279,6 @@ describe("tasks, without the editor's MCP server", () => {
         const init = yield* textOf({ _tag: "Init" });
         assert.include(init, "1. Read the stylesheets the preview imports");
         assert.include(init, "valid against this JSON Schema");
-        assert.notInclude(init, "scan_design_system");
 
         const implement = yield* task({ _tag: "Implement", target: "/home" });
         assert.strictEqual(implement.purpose, "implement");
@@ -250,7 +286,6 @@ describe("tasks, without the editor's MCP server", () => {
           implement.text,
           "Once it is done, tell the user which files implement it, so they can mark it implemented in the editor."
         );
-        assert.notInclude(implement.text, "handoff");
 
         const adopt = yield* textOf({ _tag: "Adopt", targets: [] });
         assert.include(
@@ -258,7 +293,6 @@ describe("tasks, without the editor's MCP server", () => {
           "note its files: without the editor's MCP server"
         );
         assert.include(adopt, "4. End with a table");
-        assert.notInclude(adopt, "handoff");
 
         assert.include(
           yield* textOf({ _tag: "Redraw", canvas: "" }),
@@ -304,11 +338,203 @@ describe("tasks, without the editor's MCP server", () => {
             sync,
             "Export what waits for the code: write the design's value of each into the stylesheet"
           );
-          assert.notInclude(sync, "handoff");
         })
       );
     }
   );
+});
+
+describe("the editor's tools in what an agent is told", () => {
+  /** Requests of every kind: one left out does not compile. */
+  const requests: {
+    readonly [T in TaskRequest["_tag"]]: readonly Extract<
+      TaskRequest,
+      { _tag: T }
+    >[];
+  } = {
+    Adopt: [{ _tag: "Adopt", targets: [] }],
+    Components: [{ _tag: "Components", canvas: "" }],
+    Implement: [
+      { _tag: "Implement", target: "/home" },
+      { _tag: "Implement", target: "spec:Card" },
+    ],
+    ImportFigma: [{ _tag: "ImportFigma" }],
+    Init: [{ _tag: "Init" }],
+    Redraw: [{ _tag: "Redraw", canvas: "" }],
+    SetupStep: [
+      { _tag: "SetupStep", mode: "adopt", step: "define" },
+      { _tag: "SetupStep", mode: "propose", step: "define" },
+      { _tag: "SetupStep", step: "inventory" },
+      { _tag: "SetupStep", step: "map" },
+      { _tag: "SetupStep", step: "migrate" },
+    ],
+    Sync: [
+      { _tag: "Sync" },
+      { _tag: "Sync", source: "describe" },
+      { _tag: "Sync", source: "figma" },
+      { _tag: "Sync", source: "design" },
+      { _tag: "Sync", source: "code" },
+    ],
+  };
+
+  /** The tools the editor's MCP server offers, by the names their definitions give them. */
+  const offered = new Set<string>([
+    ...Object.keys(EditorTools.tools),
+    ...Object.keys(FigmaTools.tools),
+    ...Object.keys(SetupTools.tools),
+    AskUser.name,
+    GetScreenshot.name,
+  ]);
+
+  /**
+   * The tools a text names: every word written the way the tools are named (`ask_user`), and
+   * `handoff`. `focus` is a tool and a state of a component's spec too, so it is not counted.
+   */
+  const toolsNamed = (text: string) => [
+    ...new Set([
+      ...(text.match(/\b[a-z]+(?:_[a-z]+)+\b/g) ?? []),
+      ...(text.match(/\bhandoff\b/g) ?? []),
+    ]),
+  ];
+
+  interface Read {
+    /** The request, or the briefing. */
+    readonly of: string;
+    /** Whether it is a task, rather than why the request is none. */
+    readonly task: boolean;
+    readonly text: string;
+  }
+
+  /** What an agent reads of every request, and of the briefing for each purpose. */
+  const everything = Effect.gen(function* () {
+    const tasks = yield* AgentTasks;
+    const read: Read[] = [];
+    for (const request of Object.values(requests).flat()) {
+      read.push(
+        yield* tasks.task(request).pipe(
+          Effect.map(({ text }) => ({ task: true, text })),
+          Effect.catchTag("TaskFailure", (f) =>
+            Effect.succeed({ task: false, text: `${f.message}. ${f.next}` })
+          ),
+          Effect.map((r) => ({ of: commandOf(request), ...r }))
+        )
+      );
+    }
+    const briefing = yield* ProjectBriefing;
+    for (const purpose of ["design", "implement"] as const) {
+      const text = (yield* briefing.text(purpose)) ?? "";
+      read.push({ of: `the ${purpose} briefing`, task: true, text });
+    }
+    return read;
+  });
+
+  /** A Figma file of one frame. */
+  const figmaFile = () => {
+    const f = makeFigma();
+    f.add(f.page, { name: "Login", size: { x: 400, y: 600 }, type: "FRAME" });
+    return f.build();
+  };
+
+  /**
+   * Everything a task tells of: a design system read from the code with DESIGN.md beside it, a
+   * token changed on each side, a Figma file, a draft component, and Map under way.
+   */
+  const everythingThere = Effect.gen(function* () {
+    yield* withDesignSystem;
+    const { repo } = yield* ProjectFixture;
+    const fs = yield* FileSystem.FileSystem;
+    yield* designChanges;
+    yield* fs.writeFileString(
+      path.join(repo, "styles/app.css"),
+      THEME.replace("#111827", "#222222")
+    );
+    yield* fs.writeFileString(path.join(repo, "DESIGN.md"), DESIGN_MD);
+    yield* Effect.flatMap(ProjectManager, (opened) =>
+      opened.use(
+        Effect.gen(function* () {
+          yield* (yield* DesignSystemService).refresh;
+          yield* (yield* FigmaImportService).create("login.fig", figmaFile());
+          yield* (yield* SpecService).write(DRAFT_CARD);
+        })
+      )
+    );
+    const setup = yield* DesignSystemSetupService;
+    yield* setup.start("inventory", {});
+    yield* setup.complete("inventory");
+    yield* setup.start("define", { threadId: "define" });
+    yield* setup.complete("define");
+    yield* setup.start("map", { threadId: "map" });
+  });
+
+  /** What the server refuses, by request, once everything is there. */
+  const refused = (read: readonly Read[]) =>
+    read.filter((r) => !r.task).map((r) => r.of);
+
+  /**
+   * A project on either server. The design skills are left out of the briefing: they are
+   * documents a project may replace, and they name the tools in their own words.
+   */
+  const project = (mcp: boolean) =>
+    ProjectTest({
+      git: true,
+      mcp,
+      settings: { skills: { disabled: builtInSkills.map((s) => s.name) } },
+    });
+
+  layer(project(true), { excludeTestServices: true })((it) => {
+    it.effect("names only the tools the server offers, by their names", () =>
+      Effect.gen(function* () {
+        const before = yield* everything;
+        yield* everythingThere;
+        const after = yield* everything;
+        assert.deepStrictEqual(refused(after), ["/design-system inventory"]);
+        const named = [...before, ...after].flatMap((r) =>
+          toolsNamed(r.text).map((tool) => ({ of: r.of, tool }))
+        );
+        assert.deepStrictEqual(
+          named
+            .filter(({ tool }) => !offered.has(tool))
+            .map(({ of, tool }) => `${of} names ${tool}`),
+          []
+        );
+        assert.includeMembers(
+          named.map(({ tool }) => tool),
+          [
+            "ask_user",
+            "handoff",
+            "map_values",
+            "next_batch",
+            "write_figma_frame",
+          ]
+        );
+      })
+    );
+  });
+
+  layer(project(false), { excludeTestServices: true })((it) => {
+    it.effect("names no tool when the server offers none", () =>
+      Effect.gen(function* () {
+        const before = yield* everything;
+        yield* everythingThere;
+        const after = yield* everything;
+        // What only the tools can do is refused, and said so.
+        assert.deepStrictEqual(refused(after), [
+          "/import-figma",
+          "/design-system inventory",
+          "/design-system map",
+          "/design-system migrate",
+          "/sync figma",
+          "/sync design",
+        ]);
+        assert.deepStrictEqual(
+          [...before, ...after].flatMap((r) =>
+            toolsNamed(r.text).map((tool) => `${r.of} names ${tool}`)
+          ),
+          []
+        );
+      })
+    );
+  });
 });
 
 describe("slash commands", () => {

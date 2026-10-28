@@ -55,6 +55,7 @@ import { type EditFailure, EditService } from "./edit.ts";
 import { PagesService } from "./pages.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { readSpecs, specsIn } from "./specs.ts";
+import { handoffCall } from "./threads/agent-ways.ts";
 
 const decodeFile = Schema.decodeUnknownEffect(
   Schema.fromJsonString(ImplementationFile)
@@ -628,7 +629,7 @@ export class ImplementationService extends Context.Service<
         const waiting = faithful && ctx ? waitingOf(found.snapshot, ctx) : [];
         if (waiting.length > 0) {
           return yield* new BadRequest({
-            message: `${found.name} uses tokens whose design value has not reached the code: ${waiting.join(", ")}. Bring them over first (handoff "export" with their names; where both sides changed one, ask the user which value to keep), then mark it.`,
+            message: `${found.name} uses tokens whose design value has not reached the code: ${waiting.join(", ")}. Bring them over first (${handoffCall("export", "tokens, their names")}; where both sides changed one, ask the user which value to keep), then mark it.`,
           });
         }
         const checked = yield* Effect.forEach(files, (file) =>

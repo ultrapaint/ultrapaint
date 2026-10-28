@@ -153,3 +153,39 @@ scaffold's theme in a handler, the MCP endpoint built twice, `designTokensSide` 
 test, `server.test.ts`'s socket tests that `ProjectTest` could run).
 
 ## Built
+
+1. **The editor's tools, named once for the agent** (`apps/server/src/services/threads/agent-ways.ts`).
+   `ToolName` is the name of every tool the MCP server offers, read from the toolkits' types
+   (`EditorTools`, `FigmaTools`, `SetupTools`) and the two tools registered on the server itself
+   (`AskUser`, `GetScreenshot`, now exported); `ToolNames` maps each to itself, and the one
+   record of them fails to compile when a tool is renamed, added or taken out. `AgentWays.tools`
+   is that record with the server and null without it (it was a boolean), so a text that names a
+   tool has checked the tools are there: Map, Migrate, `/import-figma`, `/sync figma` and `/sync
+   design`, which refuse without them, take the names from it, as do the steps that only one
+   task words (Adopt's look at a page, `/components`' pages and frames, a draft's instances, the
+   briefing's warning on `fill`). `handoffCall` reads the tool's name too. What several texts ask
+   is worded both ways in a capability: `askUser` (with `ask_user`, or in the reply, ending the
+   turn), `readDesignSystem`, `readComponent`, and `readTheme` and `saveDesignSystem`, which are
+   steps' texts now that Define's proposal and `/sync describe` use them too. The literal names
+   in `page-tasks`, `setup-tasks`, `sync-tasks`, `tasks`, `briefing` and `implementation` go,
+   and the style system's code rules no longer name `list_pages`. Also: without the MCP server,
+   Define's proposal reads the theme itself, asks in its reply and writes the design system's
+   files by hand; `/components` writes the pages' files (with the page format), leaves the frames
+   to the user and does not look at screenshots; `/sync describe` reads the files and the
+   components' code, asks in its reply and writes the files by hand; `/sync code` asks in its
+   reply; Adopt reads the page's file; a draft's instances are changed in the pages' files; the
+   briefing no longer says `apply_operations` warns; and `/init` and Define tell of a design
+   system imported before (the paragraph was dropped). With it, Define's proposal and `/sync
+   describe` save with `write_design_system`'s whole instructions, and a DESIGN.md is pointed to
+   by its path rather than by `read_design_system`. Left as they are: the built-in skills
+   (layout, components, color) name `get_screenshot`, `set_frame`, `get_component` and
+   `read_design_system`, and the answers of tools that only an agent with the tools reads
+   (`figma-import`, `design-md`, `design-system-setup-batches`, the MCP instructions) name tools
+   by string. `tasks.test.ts` has 2 more tests, over requests of every kind (a kind left out does
+   not compile) on `ProjectTest`, before and after a project has a design system with DESIGN.md,
+   tokens changed on both sides, a Figma file, a draft component and Map under way, with the
+   briefing for each purpose and the skills left out: with the MCP server every tool a text
+   names is one it offers, and only `/design-system inventory` is refused; without it no tool is
+   named, and exactly the five that need the tools are refused. The second failed first, with
+   tools named 34 times in Adopt, `/components`, both Implement tasks, Define's proposal, `/sync
+   describe` and the briefing; four `notInclude` checks it covers go.

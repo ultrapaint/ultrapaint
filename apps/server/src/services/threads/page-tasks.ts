@@ -38,7 +38,7 @@ import { RepoPaths } from "../repo-paths.ts";
 import { SpecService } from "../specs.ts";
 import { ProjectStyleSystem } from "../style-system.ts";
 import { type AgentWays, handoffCall } from "./agent-ways.ts";
-import { needsTools, taskFailure, userAdds } from "./task-text.ts";
+import { needsTools, pageSchema, taskFailure, userAdds } from "./task-text.ts";
 
 const named = (id: string) => JSON.stringify(id);
 
@@ -204,6 +204,37 @@ them as they are; their look is implemented on its own (/implement <Component>),
 ${drafts}`;
 };
 
+/**
+ * How `/components` draws its sheet: through the tools, or by writing the pages' files, which
+ * the user sizes on the canvas.
+ */
+const sheetSteps = (ways: AgentWays, canvas: string, designsDir: string) => {
+  const { tools } = ways;
+  const create = tools
+    ? `Create them with ${tools.create_page} and
+   canvas: ${named(canvas)}`
+    : `Write each as a .page.json file in ${canvas === "" ? designsDir : `${designsDir}/${canvas}`}`;
+  return numbered([
+    `Read the design system for each component's category, description and example props
+   (${ways.readDesignSystem(designsDir)}), and ${ways.readComponent} for its props and variants.`,
+    `One page per category named "Components <category>" ("Components forms"), or one page named
+   "Components" when there are fewer than a dozen components. ${create}, without a URL: a sheet is not a screen of the application.`,
+    `In a page, per component: its name as a heading and one line on what it is for, in the design
+   system's text styles; under them a row that wraps, with one instance for each value of each
+   variant prop (a Button in each variant; for two variant props, one row per value of the first).
+   Give every instance its example props and text so it draws something, and show the states it
+   has (disabled, loading, invalid) where they change how it looks.${tools ? "" : ` The page format: ${pageSchema()}`}`,
+    tools
+      ? `Size each page's frame with ${tools.set_frame}, 1440 wide and tall enough to show the whole sheet.`
+      : null,
+    tools
+      ? `Look at every page with ${tools.get_screenshot} and fix what is off: overlaps, clipped content,
+   instances that draw nothing.`
+      : null,
+    `End with a short summary: the pages written, and the components you could not draw and why.${tools ? "" : " Tell the user to size each page's frame on the canvas, 1440 wide and tall enough to show the whole sheet."}`,
+  ]);
+};
+
 export const makePageTasks = Effect.fnUntraced(function* (deps: {
   /** What a task says first when the editor sees no components. */
   readonly componentsMissing: Effect.Effect<string>;
@@ -269,6 +300,7 @@ export const makePageTasks = Effect.fnUntraced(function* (deps: {
     );
 
   const adoptTask = (chosen: readonly Page[], unknown: readonly string[]) => {
+    const { tools } = ways;
     const lines = chosen.map(
       (p) =>
         `- ${p.id}: ${p.name}${p.state ? ` in the ${p.state} state` : ""}${p.variant ? ` (variant ${p.variant})` : ""}, ${p.route ?? "no URL"}`
@@ -291,12 +323,12 @@ ${numbered([
   `Find where the application's pages live and how its routes are declared. For each page above,
    find the screen that serves its URL; a page without a URL is matched by its name and what it
    shows. Ask the user where you cannot tell, a few pages at a time.`,
-  `Where the code draws the same screen (read_page and get_screenshot show the design; the
+  `Where the code draws the same screen (${tools ? `${tools.read_page} and ${tools.get_screenshot} show the design` : "its file is the design"}; the
    layout, the sections and the components match, not every pixel), ${ways.linkBuilt}`,
   `Where the code draws something else, or nothing, leave the page unlinked: it is a design still
    to implement.`,
   // Marking checks the tokens only through the tool.
-  ways.tools
+  tools
     ? `If marking is refused because tokens the page uses have not reached the code, the design's
    values are newer than the stylesheet's: ask the user whether to export them (${handoffCall("export")}
    and their names) before marking, or to leave the page unlinked.`
@@ -464,7 +496,7 @@ ${codeRules}
 ${numbered([
   tokens.step,
   spec.draft
-    ? 'Write the component, then replace the draft\'s instances in the pages with it: apply_operations, update from and component of each instance whose from is "#draft".'
+    ? `Write the component, then replace the draft's instances in the pages with it: ${ways.tools ? `${ways.tools.apply_operations}, update` : "in each page's file, change"} from and component of each instance whose from is "#draft".`
     : "Change the component's classes (its cva base, variants and sizes, and the state classes) so it draws as the spec says. Keep its props and behaviour.",
   notes.length > 0
     ? "Implement each behaviour note in the component, with the application's own services and data; ask the user where one is unclear rather than inventing it."
@@ -490,7 +522,8 @@ ${userAdds(extra)}</ultrapaint-task>`;
             'Tell them to use "Import Figma…" in the Pages panel, which takes a .fig file, and stop.'
           );
         }
-        if (!ways.tools) {
+        const { tools } = ways;
+        if (!tools) {
           return yield* needsTools(
             "import-figma",
             "writing the mapping of a Figma file's components"
@@ -522,10 +555,10 @@ ${userAdds(extra)}</ultrapaint-task>`;
 ${missing}Turn the Figma file "${chosen.name}" (import ${chosen.id}) into pages of this project, drawn with this
 repository's own components where it has them.
 
-Through the ultrapaint MCP server: read_figma_import (the file: frames, components, candidates, the
-mapping so far), read_figma_component and read_figma_frame (one of them, with an outline of its layers),
-map_figma_component (what a Figma component becomes), write_figma_frame (a frame as a page), ask_user
-(a question card for the user), list_components and get_component (this repository's components).
+Through the ultrapaint MCP server: ${tools.read_figma_import} (the file: frames, components, candidates, the
+mapping so far), ${tools.read_figma_component} and ${tools.read_figma_frame} (one of them, with an outline of its layers),
+${tools.map_figma_component} (what a Figma component becomes), ${tools.write_figma_frame} (a frame as a page), ${tools.ask_user}
+(a question card for the user), ${tools.list_components} and ${tools.get_component} (this repository's components).
 
 The file has ${frames.length} frame${frames.length === 1 ? "" : "s"}: ${frames.join(", ") || "none"}.
 Its components, most used first:
@@ -533,29 +566,29 @@ ${components.join("\n") || "- none"}
 ${chosen.warnings.length > 0 ? `\nWhat the reading could not carry over:\n${chosen.warnings.map((w) => `- ${w}`).join("\n")}\n` : ""}
 ${
   designSystem
-    ? "The design system is imported: read_design_system has its tokens and each component's notes."
-    : "There is no design system yet; components come from list_components. Afterwards, point the user to Sync in the Design system panel, which makes one."
+    ? `The design system is imported: ${tools.read_design_system} has its tokens and each component's notes.`
+    : `There is no design system yet; components come from ${tools.list_components}. Afterwards, point the user to Sync in the Design system panel, which makes one.`
 }
 
-1. Read the import (read_figma_import) and the repository's components (list_components). For each Figma
+1. Read the import (${tools.read_figma_import}) and the repository's components (${tools.list_components}). For each Figma
    component, most used first, decide what it becomes:
    - It is one of this repository's components when the name and the variants say so (a Button with
  Size and Type variants is the repository's Button). Read the repository component with
- get_component for its props, then map it with map_figma_component: the variants and text
+ ${tools.get_component} for its props, then map it with ${tools.map_figma_component}: the variants and text
  properties to its props (propMap), constants to props, the label to text.
    - It is custom when nothing here does the job: map it as {kind:"expand"} and its layers are kept.
    - Decorative ones (a status bar, a cursor, a placeholder image) are {kind:"skip"}.
    Where you cannot tell — a candidate that only looks alike, two candidates, a component this
-   repository may have under another name — ask the user with ask_user, up to four components per
+   repository may have under another name — ask the user ${ways.askUser}, up to four components per
    card, each with the candidates as options, "Custom: keep its layers" and "Skip" among them, and
    allowOther for a name you did not think of. Carry on with the answers it returns (if it says the
    questions were shown instead, end your turn; they come as the next message). Do not ask about
    what the names settle.
-2. Once every used component is decided, write each frame with write_figma_frame, in the canvas the
+2. Once every used component is decided, write each frame with ${tools.write_figma_frame}, in the canvas the
    user works in. A screen of the application gets a URL that fits its name ("Login" is /login,
    "Home" is /); a frame that is not a screen (a component sheet, a style guide) gets none, and ask
    whether to import it at all.
-3. Look at each page with get_screenshot and mend what the rules got wrong with apply_operations:
+3. Look at each page with ${tools.get_screenshot} and mend what the rules got wrong with ${tools.apply_operations}:
    colours the design system has a token for that came through as hex, sizes that should be "fill"
    or "hug", texts that should be set in a text style. Keep the page close to the Figma frame.
 4. End with a short summary: the pages written, the mapping, and what to look at by hand.
@@ -622,32 +655,21 @@ ${ways.editPages(named(id))}
                 p.route?.startsWith("/components") === true)
           )
           .map((p) => p.file);
+        const { tools } = ways;
+        const { designsDir } = (yield* RepoPaths).settings;
         return `<ultrapaint-task command="components">
 Draw a sheet of this repository's design system into the canvas "${canvas.name}" (${named(id)}): every component a
 designer would place, in each of its variants, so the canvas shows what there is to design with.
 
 The components, with their category and variants:
-${known.join("\n") || "- none found: call list_components"}
+${known.join("\n") || `- none found${tools ? `: call ${tools.list_components}` : ""}`}
 ${
   sheets.length > 0
     ? `\nThe canvas has sheets already (${sheets.join(", ")}): bring them up to date rather than drawing them again —
 add what is missing, take out what the design system no longer has.\n`
     : ""
 }
-1. Read the design system (read_design_system) for each component's category, description and
-   example props, and get_component for its props and variants.
-2. One page per category named "Components <category>" ("Components forms"), or one page named
-   "Components" when there are fewer than a dozen components. Create them with create_page and
-   canvas: ${named(id)}, without a URL: a sheet is not a screen of the application.
-3. In a page, per component: its name as a heading and one line on what it is for, in the design
-   system's text styles; under them a row that wraps, with one instance for each value of each
-   variant prop (a Button in each variant; for two variant props, one row per value of the first).
-   Give every instance its example props and text so it draws something, and show the states it
-   has (disabled, loading, invalid) where they change how it looks.
-4. Size each page's frame with set_frame, 1440 wide and tall enough to show the whole sheet.
-5. Look at every page with get_screenshot and fix what is off: overlaps, clipped content,
-   instances that draw nothing.
-6. End with a short summary: the pages written, and the components you could not draw and why.
+${sheetSteps(ways, id, designsDir)}
 ${userAdds(extra)}</ultrapaint-task>`;
       })
     );
