@@ -618,3 +618,38 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
    boolean (failed first, one `color-primary`); the scan's test lists the repository's own drop,
    inset and text shadows, not Tailwind's, a `default-transition-duration`, and every token the
    repository declares listed (failed first). The tests of `tokenNameOf` go.
+10. **A frame's error, kept by the frame** (`apps/web/src/canvas/editor-frame.ts`,
+    `packages/framework-api/src/browser.ts`). framework-api declares `PageError` once: its
+    message, file, line and stack, and its `source`, `"page"` (the page's code threw and nothing
+    caught it) or `"dev-server"` (a module could not be brought up to date). `FrameEvents.error`,
+    `Preview.onStrayError`, `RenderSetup.reportError` and `Preview.reportError` take it or a part
+    of it, and the core says whose: the renderer's report and what the sandbox finds thrown are the
+    page's, `Preview.reportError` the dev server's. contracts' `HostError`, preview-core's
+    `FrameError` and the four inline copies go. `EditorFrame` keeps its mount's latest error
+    whoever listens (`error`, `onErrorChange`, and `useFrameError(id)` for React): the page's until
+    the frame draws again, a render asked after the error (React reports a render's error before
+    the render says it reached the screen, so that render does not clear it), or an update
+    (`hmr`); the dev server's until an update; on screen, off it or parked; gone when the frame
+    is dropped, and what a page thrown away since says is not taken. `describePageError` writes one
+    (the message, then the file and line) for the canvas's banner (`Highlights`), the prototype's
+    and the stray-error toast; `formatHostError` and the toast's own formatting go. The store's
+    `hostErrors` and `setHostError` go, as do the listeners that set and cleared it (both
+    views' `error` and `hmr`, the canvas's clearing on `ready`, the prototype's on `rendered`). `eventsOf` and `forwardTo` answer
+    `Required<FrameEvents>` and `Required<FrameListeners>`, so a kind left out fails to compile.
+    The dev handle has `frameErrors()`, which `pnpm e2e:sandbox` reads in place of `hostErrors`.
+    Fixed: a canvas frame panned away and back lost its banner while its module was still broken
+    (cleared on `ready`), and one off the screen or parked never showed it; the prototype cleared
+    a page's render error as soon as it was reported. Also: the canvas clears a page's error when
+    the frame draws again (it kept it until an update or until it came back on screen); the
+    prototype keeps a dev-server error while its page draws, until an update; a frame's error
+    goes when its frame is dropped (the prototype reloaded, a parked frame trimmed). Left: a frame
+    mounted after a dev-server error is not told it. `editor-frame.test.ts` has 6 tests on the
+    fake preview: an error reported with nobody listening is there when a listener comes and after
+    one leaves and comes back; a page's error stays through the render it was told during and goes
+    with the next; the dev server's stays through a draw and goes with an update, as a page's
+    does; a parked frame holds it, dropping clears it and the dropped page's error is not taken;
+    `describePageError`; `forwardTo` hands on every kind, a record without one failing to compile
+    (`@ts-expect-error`). The first four failed first. preview-core's `frame.test.ts` reads the
+    source of a renderer's report and of `reportError`, and `editor.test.ts` and
+    `sandbox.test.ts` the dev server's and the page's (failed first). `pnpm e2e:sandbox` passes
+    the same 15 checks as before (the error checks reading `frameErrors()`).

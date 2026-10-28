@@ -35,6 +35,7 @@ import {
   GUARD_GLOBAL,
   installPageRuntime,
 } from "@ultrapaint/contracts/page-runtime";
+import type { PageError } from "@ultrapaint/framework-api/browser";
 import { holdStyle, holdStyleFirst, isStyle } from "./css-in-js.ts";
 import { addedNow, moduleEnds, moduleStarts } from "./hmr-leftovers.ts";
 import { redirectInsertions } from "./insertions.ts";
@@ -43,7 +44,6 @@ import {
   askedFrame,
   carriedFrame,
   type Frame,
-  type FrameError,
   frameOfEvent,
   onlyFrame,
   relayedFrame,
@@ -134,7 +134,7 @@ const relayed = new Set<Relayed>();
 const wrapped = new WeakMap<object, Map<string, EventListener>>();
 /** What the repository's `async` functions rejected with, by the frame they were called for. */
 const marks = new WeakMap<object, Frame>();
-const strayListeners = new Set<(error: FrameError) => void>();
+const strayListeners = new Set<(error: PageError) => void>();
 
 /**
  * Whether a callback is the preview's, by who first scheduled it: a loop or a debounce hands the
@@ -499,7 +499,10 @@ export const guardHead = (provenance: Provenance) => {
  * to the editor alone (`onStrayError`). The console still has it.
  */
 export const reportUncaught = (provenance: Provenance) => {
-  const told = (error: unknown, fallback: string) => {
+  const told = (
+    error: unknown,
+    fallback: string
+  ): { error: PageError; where: ThrownAt } | null => {
     const stack = error instanceof Error ? error.stack : undefined;
     const where = provenance.thrownAt(stack);
     return where
@@ -508,6 +511,7 @@ export const reportUncaught = (provenance: Provenance) => {
             file: where.file,
             line: where.line,
             message: error instanceof Error ? error.message : fallback,
+            source: "page",
             stack,
           },
           where,
@@ -516,8 +520,8 @@ export const reportUncaught = (provenance: Provenance) => {
   };
   /** Told once its line is the source's. */
   const tell = (
-    found: { error: FrameError; where: ThrownAt },
-    to: (error: FrameError) => void
+    found: { error: PageError; where: ThrownAt },
+    to: (error: PageError) => void
   ) => {
     const { error, where } = found;
     provenance.sourceLine(where).then(
@@ -556,7 +560,7 @@ export const reportUncaught = (provenance: Provenance) => {
 };
 
 /** Hears what the preview's code threw that no frame can be told of. */
-export const onStrayError = (listener: (error: FrameError) => void) => {
+export const onStrayError = (listener: (error: PageError) => void) => {
   strayListeners.add(listener);
   return () => {
     strayListeners.delete(listener);

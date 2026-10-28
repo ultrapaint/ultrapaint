@@ -45,8 +45,7 @@ import { goTo } from "../state/location.ts";
 import { useDesignLookVersion } from "../state/look.ts";
 import { useProject } from "../state/project.ts";
 import { commentCursor, FrameComments, placeComment } from "./comments.tsx";
-import { frameOf } from "./editor-frame.ts";
-import { formatHostError } from "./frame.tsx";
+import { describePageError, frameOf, useFrameError } from "./editor-frame.ts";
 import { HotspotLayer, HotspotsToggle, onPrototypePress } from "./hotspots.tsx";
 import { usePreview } from "./preview-module.ts";
 import { PreviewSurface } from "./preview-surface.tsx";
@@ -186,9 +185,9 @@ export const Prototype = () => {
   const [area, setArea] = useState({ height: 0, width: 0 });
   const [reloads, setReloads] = useState(0);
   const hasPages = canvas !== null && pages.some((p) => p.canvas === canvas);
-  const hostError = useEditor((s) =>
-    canvas === null ? null : (s.hostErrors[frameIdOf(canvas)] ?? null)
-  );
+  // What the page threw and nothing caught (a click's handler, a timer), until it draws again
+  // or its code changes; what the dev server could not compile, until its code changes.
+  const pageError = useFrameError(canvas === null ? null : frameIdOf(canvas));
 
   useEffect(() => {
     const onReload = () => setReloads((n) => n + 1);
@@ -262,21 +261,11 @@ export const Prototype = () => {
                 // A reload draws the page anew, from the route the editor holds.
                 key={`${canvas}:${reloads}`}
                 listeners={{
-                  // What the page threw and nothing caught (a click's handler, a timer), until it
-                  // draws again or its code changes.
-                  error: (error) =>
-                    useEditor
-                      .getState()
-                      .setHostError(frameIdOf(canvas), formatHostError(error)),
-                  hmr: () =>
-                    useEditor.getState().setHostError(frameIdOf(canvas), null),
                   navigateTo: (to, replace) =>
                     followLink(to, { push: !replace }),
                   pressed: (nodeIds) =>
                     onPrototypePress(nodeIds, useEditor.getState().activePage),
                   ready: () => renderRoute(canvas),
-                  rendered: () =>
-                    useEditor.getState().setHostError(frameIdOf(canvas), null),
                 }}
                 style={{
                   height: size.height,
@@ -286,10 +275,12 @@ export const Prototype = () => {
                 title={title}
               />
             )}
-            {hostError ? (
+            {pageError ? (
               <div className="absolute inset-x-0 bottom-0 flex items-start gap-2 bg-destructive/90 p-3 font-code text-white">
                 <TriangleAlert className="size-4 shrink-0" />
-                <pre className="whitespace-pre-wrap">{hostError}</pre>
+                <pre className="whitespace-pre-wrap">
+                  {describePageError(pageError)}
+                </pre>
               </div>
             ) : null}
             {canvas === null ? null : (

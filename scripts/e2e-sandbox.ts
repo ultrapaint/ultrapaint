@@ -52,13 +52,14 @@ interface Probe {
 interface EditorState {
   canvas: string | null;
   frames: Record<string, unknown>;
-  hostErrors: Record<string, string | null>;
   setMode: (mode: string) => void;
   setWorkspace: (workspace: string) => void;
 }
 /** What the editor's page offers the check: its dev handle, and what the probes wrote. */
 interface CheckWindow {
   __ed: {
+    /** Every frame's error, described, by frame. */
+    frameErrors: () => Record<string, string>;
     goTo: (to: { route: string }) => void;
     openCanvas: (id: string) => void;
     useEditor: { getState: () => EditorState };
@@ -256,10 +257,8 @@ const guards = async (page: Page, url: string) => {
     d.accept().catch(() => undefined);
   });
   await open(page, url, "guards");
-  const state = () =>
-    page.evaluate(() =>
-      (window as unknown as CheckWindow).__ed.useEditor.getState()
-    );
+  const frameErrors = () =>
+    page.evaluate(() => (window as unknown as CheckWindow).__ed.frameErrors());
 
   await check("the application hears no key typed in the editor", async () => {
     const from = await logLength(page);
@@ -537,7 +536,7 @@ const guards = async (page: Page, url: string) => {
   await check(
     "an error thrown in a timer is shown on its own frame",
     async () => {
-      const errors = (await state()).hostErrors;
+      const errors = await frameErrors();
       const shown = errors["guards/err-timeout.page.json"] ?? "";
       const elsewhere = Object.entries(errors).filter(
         ([frame, text]) => frame !== "guards/err-timeout.page.json" && text
@@ -568,7 +567,7 @@ const guards = async (page: Page, url: string) => {
       }
       await page.mouse.click(button.x, button.y);
       await page.waitForTimeout(300);
-      const shown = (await state()).hostErrors[PROTOTYPE] ?? "";
+      const shown = (await frameErrors())[PROTOTYPE] ?? "";
       const banner = await page.evaluate(() =>
         [...document.querySelectorAll("pre")].some((p) =>
           p.textContent?.includes("thrown in a click handler")
@@ -663,10 +662,7 @@ const leftovers = async (page: Page, url: string) => {
 
 const loops = async (page: Page, url: string) => {
   const errors = () =>
-    page.evaluate(
-      () =>
-        (window as unknown as CheckWindow).__ed.useEditor.getState().hostErrors
-    );
+    page.evaluate(() => (window as unknown as CheckWindow).__ed.frameErrors());
   /** What the frame of the loop in a render draws: its page's error boundary. */
   const renderFrame = () =>
     page.evaluate(

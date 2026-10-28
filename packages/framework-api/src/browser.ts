@@ -44,17 +44,28 @@ export interface RenderSetup {
   readonly providers: unknown;
   /** A root path to one of the application's public files where the page finds it; others as they are. */
   readonly publicUrl: (url: string) => string;
-  /** Reports a render error to the editor. */
-  readonly reportError: (error: {
-    readonly message: string;
-    readonly stack?: string | undefined;
-  }) => void;
+  /** Reports a render error to the editor: the page's. */
+  readonly reportError: (error: Pick<PageError, "message" | "stack">) => void;
   /** How instances were drawn, by node id: the ones that changed since the last report. */
   readonly reportInstances: (
     instances: Readonly<Record<string, InstanceDrawn>>
   ) => void;
   /** The design's own stylesheet (ADR 0028, 0029), which the core keeps for every frame. */
   readonly setDesignCss: (css: string) => void;
+}
+
+/**
+ * What went wrong in a frame's page, and where when it can be told: the page's code threw it
+ * (drawing, or in a handler or a timer, and nothing caught it) or the dev server could not bring a
+ * module up to date. The editor keeps a frame's latest one: the page's until the frame draws again
+ * or the modules change, the dev server's until they change (`editor-frame.ts`).
+ */
+export interface PageError {
+  readonly file?: string | undefined;
+  readonly line?: number | undefined;
+  readonly message: string;
+  readonly source: "page" | "dev-server";
+  readonly stack?: string | undefined;
 }
 
 /** One thing to draw. */
@@ -96,12 +107,7 @@ export interface FrameRect {
 
 /** What a frame tells the editor (ADR 0034): called directly, in the editor's own page. */
 export interface FrameEvents {
-  readonly error?: (error: {
-    readonly file?: string | undefined;
-    readonly line?: number | undefined;
-    readonly message: string;
-    readonly stack?: string | undefined;
-  }) => void;
+  readonly error?: (error: PageError) => void;
   /** The dev server brought modules up to date: an error shown may be gone. */
   readonly hmr?: () => void;
   /** How instances were drawn, by node id: the ones that changed since the last call. */
@@ -238,19 +244,11 @@ export interface Preview {
    * Hears what the page's code threw and nothing caught when no frame can be said to be its: a
    * rejection without its `async` function's mark, with more than one frame drawn.
    */
-  readonly onStrayError: (
-    listener: (error: {
-      readonly file?: string | undefined;
-      readonly line?: number | undefined;
-      readonly message: string;
-    }) => void
-  ) => () => void;
-  /** A dev server error, reported to every frame. */
-  readonly reportError: (error: {
-    readonly file?: string | undefined;
-    readonly line?: number | undefined;
-    readonly message: string;
-  }) => void;
+  readonly onStrayError: (listener: (error: PageError) => void) => () => void;
+  /** A dev server error, reported to every frame as the dev server's. */
+  readonly reportError: (
+    error: Pick<PageError, "file" | "line" | "message">
+  ) => void;
   readonly setComponents: (components: ComponentRegistry) => void;
 }
 

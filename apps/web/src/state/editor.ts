@@ -112,7 +112,6 @@ interface EditorStore {
    * them: while one is resized, and once one is let go, until the document has it.
    */
   held: Record<string, Partial<Box>>;
-  hostErrors: Record<string, string | null>;
   hover: Selection | null;
   layout: CanvasLayout;
   leftTab: LeftTab;
@@ -140,7 +139,6 @@ interface EditorStore {
    * without views keeps the ones it has.
    */
   setFrame: (pageId: string, frame: FrameLayout, persist?: boolean) => void;
-  setHostError: (frame: string, error: string | null) => void;
   setHover: (hover: EditorStore["hover"]) => void;
   setMode: (mode: Mode) => void;
   setPreset: (pageId: string, preset: ViewportPreset) => void;
@@ -476,7 +474,6 @@ export const useEditor = create<EditorStore>((set, get) => ({
   canvas: null,
   frames: {},
   held: {},
-  hostErrors: {},
   hover: null,
   layout: { frames: {}, version: 1 },
   leftTab: "chat",
@@ -549,8 +546,6 @@ export const useEditor = create<EditorStore>((set, get) => ({
       persistLayout(get, set);
     }
   },
-  setHostError: (pageId, error) =>
-    set((s) => ({ hostErrors: { ...s.hostErrors, [pageId]: error } })),
   // The pointer reports the same node many times a second; only a change is news.
   setHover: (hover) =>
     set((s) =>

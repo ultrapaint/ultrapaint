@@ -116,6 +116,11 @@ review found.
   style, title, input, away) and the page's code writes its own classes and style properties
   there, each kept apart, neither taking the other's off. An event is **from a frame** when a
   host the core drew is on its path.
+- **Page error**: what went wrong in a frame's page (framework-api's `PageError`): the page's code
+  threw and nothing caught it, or the dev server could not bring a module up to date. The editor
+  frame keeps its latest, whoever listens and on screen or parked: the page's until the frame
+  draws again or the modules change, the dev server's until they change. One no frame can be said
+  to be the source of is a toast.
 
 ## Editor and shell
 

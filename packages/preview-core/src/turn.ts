@@ -10,21 +10,14 @@
  * Whether it is the page's code that asks at all is not the turn's: the caller's stack says
  * (`provenance.ts`).
  */
-
-/** What a frame is told of an error its page's code threw. */
-export interface FrameError {
-  readonly file?: string | undefined;
-  readonly line?: number | undefined;
-  readonly message: string;
-  readonly stack?: string | undefined;
-}
+import type { PageError } from "@ultrapaint/framework-api/browser";
 
 /** A frame as the guards know it. */
 export interface Frame {
   /** The element standing for its page's `<body>`, inside its shadow root: where popups go. */
   readonly body: HTMLElement;
   /** Its page's code threw and nothing caught it. */
-  readonly error: (error: FrameError) => void;
+  readonly error: (error: PageError) => void;
   readonly host: HTMLElement;
   /** The frame takes input: the prototype, interact mode. */
   readonly interactive: () => boolean;

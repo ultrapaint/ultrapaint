@@ -1,6 +1,5 @@
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page, ViewportPreset } from "@ultrapaint/contracts/pages";
-import type { HostError } from "@ultrapaint/contracts/preview";
 import { resolveAt } from "@ultrapaint/design-document/breakpoints";
 import { findNode, nodeLabel } from "@ultrapaint/design-document/tree";
 import type { Preview } from "@ultrapaint/framework-api/browser";
@@ -46,15 +45,6 @@ import { FrozenPage } from "./frozen-page.tsx";
 import { PageToolbar } from "./page-toolbar.tsx";
 import { usePreview } from "./preview-module.ts";
 import { useFramePointer } from "./use-frame-pointer.ts";
-
-/** An error of a frame's page as the editor writes it: the message, then where it was thrown. */
-export const formatHostError = (error: HostError) => {
-  if (!error.file) {
-    return error.message;
-  }
-  const line = error.line ? `:${error.line}` : "";
-  return `${error.message}\n${error.file}${line}`;
-};
 
 /**
  * Writes an inline text edit from the preview back into the document, at the breakpoint of the
@@ -200,19 +190,13 @@ export const Frame = memo(
       null
     );
 
-    // What the frame says, heard while it is on screen and drawn.
+    // What the frame says, heard while it is on screen and drawn. Its error the frame keeps,
+    // whoever listens (`Highlights`).
     useFrameEvents(drawn ? frameId : null, {
-      error: (error) => {
-        useEditor.getState().setHostError(frameId, formatHostError(error));
-      },
-      hmr: () => useEditor.getState().setHostError(frameId, null),
       instances: (instances) => useInstances.getState().report(instances),
       // The frame keeps its page; the canvas brings the page the link leads to into view.
       navigateTo: (route) => focusLink(route),
-      ready: () => {
-        renderFrame(frameId, kind, drawnWidth);
-        useEditor.getState().setHostError(frameId, null);
-      },
+      ready: () => renderFrame(frameId, kind, drawnWidth),
       rects: (rects) => useEditor.getState().setRects(frameId, rects),
       rendered: () => setKept(true),
       size: (size) => useEditor.getState().setSize(frameId, size),

@@ -12,6 +12,10 @@
  * the skeletons, how its host is shown) is told again to the frame opened next, so a caller says
  * it once whether or not the frame is drawn yet.
  *
+ * It keeps the frame's latest error (`error`, `useFrameError`), whoever listens, on screen or
+ * parked: the page's until the frame draws again or the modules change, the dev server's until
+ * they change; a frame thrown away has none.
+ *
  * A frame opened with `keep` (the canvas's) is parked when it is closed rather than thrown away
  * (ADR 0033, 0034): a frame that leaves the screen, a canvas switched away from or the prototype
  * opened takes its frames off the canvas, and a frame that comes back takes its own again, as it
@@ -33,9 +37,16 @@ import type {
   FrameRect,
   FrameRuntime,
   FrameShown,
+  PageError,
   Preview,
 } from "@ultrapaint/framework-api/browser";
-import { useEffect, useLayoutEffect, useRef } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 import type { DesignLook } from "../state/look.ts";
 import { tryNextTime, useFrozen } from "./watchdog.ts";
 
@@ -200,6 +211,12 @@ export class EditorFrame {
   };
   /** The last render the frame said it drew; what it is told again it does not draw again. */
   private rendered = 0;
+  /** Its latest error, and the render it was told during: only a later one draws again. */
+  private failure: {
+    readonly during: number;
+    readonly error: PageError;
+  } | null = null;
+  private readonly errorListeners = new Set<() => void>();
 
   constructor(id: string) {
     this.id = id;
@@ -213,6 +230,33 @@ export class EditorFrame {
   /** The last render the frame said it drew. */
   get renderedId() {
     return this.rendered;
+  }
+
+  /**
+   * What went wrong in the frame's page, whoever listened when it was told: a page's error until
+   * the frame draws again or the modules change, the dev server's until they change. Null when
+   * nothing did, or the frame is not open.
+   */
+  get error(): PageError | null {
+    return this.failure?.error ?? null;
+  }
+
+  /** Hears whenever `error` changes. Answers the function that stops it. */
+  onErrorChange(listener: () => void): () => void {
+    this.errorListeners.add(listener);
+    return () => {
+      this.errorListeners.delete(listener);
+    };
+  }
+
+  private fail(failure: EditorFrame["failure"]) {
+    if (failure === this.failure) {
+      return;
+    }
+    this.failure = failure;
+    for (const listener of this.errorListeners) {
+      listener();
+    }
   }
 
   /** It has drawn since it was opened: it shows at once when placed. */
@@ -316,8 +360,11 @@ export class EditorFrame {
     return m;
   }
 
-  /** What a mount's runtime tells the frame, for its listeners. */
-  private eventsOf(mount: () => Mount | null): FrameEvents {
+  /**
+   * What a mount's runtime tells the frame, for its listeners: every kind, so one left out does
+   * not compile. Its error the frame keeps.
+   */
+  private eventsOf(mount: () => Mount | null): Required<FrameEvents> {
     const tell = (
       kind: keyof FrameEvents,
       call: (l: FrameListeners) => void
@@ -329,10 +376,21 @@ export class EditorFrame {
     };
     return {
       error: (error) => {
-        this.drewOn(mount());
+        const m = mount();
+        // Said by a page thrown away since (an error is told once its line is looked up).
+        if (m !== null && m !== this.mount) {
+          return;
+        }
+        this.drewOn(m);
+        // Told during a render, before it says it drew: that render does not clear it.
+        const during = this.shown?.renderId ?? this.rendered;
+        this.fail({ during, error });
         tell("error", (l) => l.error?.(error));
       },
-      hmr: () => tell("hmr", (l) => l.hmr?.()),
+      hmr: () => {
+        this.fail(null);
+        tell("hmr", (l) => l.hmr?.());
+      },
       instances: (instances) =>
         tell("instances", (l) => l.instances?.(instances)),
       navigateTo: (route, replace) =>
@@ -342,6 +400,10 @@ export class EditorFrame {
       rendered: (renderId) => {
         this.rendered = Math.max(this.rendered, renderId);
         this.drewOn(mount());
+        const { failure } = this;
+        if (failure?.error.source === "page" && renderId > failure.during) {
+          this.fail(null);
+        }
         tell("rendered", (l) => l.rendered?.(renderId));
       },
       size: (size) => tell("size", (l) => l.size?.(size)),
@@ -400,6 +462,7 @@ export class EditorFrame {
     this.shown = null;
     m.runtime.unmount();
     m.host.remove();
+    this.fail(null);
     poolChanged();
   }
 
@@ -539,6 +602,35 @@ export const frameOf = (id: string): EditorFrame => {
   return frame;
 };
 
+/** Frame `id`'s error (`EditorFrame.error`) as it changes; null for no frame. */
+export const useFrameError = (id: string | null): PageError | null => {
+  const subscribe = useCallback(
+    (listener: () => void) =>
+      id === null ? () => undefined : frameOf(id).onErrorChange(listener),
+    [id]
+  );
+  return useSyncExternalStore(subscribe, () =>
+    id === null ? null : frameOf(id).error
+  );
+};
+
+/** A page's error as the editor writes it: the message, then where it was thrown. */
+export const describePageError = (error: PageError) => {
+  if (!error.file) {
+    return error.message;
+  }
+  const line = error.line ? `:${error.line}` : "";
+  return `${error.message}\n${error.file}${line}`;
+};
+
+/** Every frame's error, described, by frame: what `pnpm e2e:sandbox` reads. */
+export const frameErrors = (): Readonly<Record<string, string>> =>
+  Object.fromEntries(
+    [...frames.values()].flatMap((frame) =>
+      frame.error ? [[frame.id, describePageError(frame.error)]] : []
+    )
+  );
+
 /** Whether a frame has drawn: it shows at once when placed. */
 export const isWarm = (id: string) => frames.get(id)?.warm === true;
 
@@ -554,8 +646,13 @@ export const onPoolChange = (listener: () => void) => {
 export const useFrameFrozen = (id: string | null) =>
   useFrozen((s) => id !== null && s.frames.has(id));
 
-/** Listeners that call the latest of `latest()`'s, whatever it is when the frame speaks. */
-export const forwardTo = (latest: () => FrameListeners): FrameListeners => ({
+/**
+ * Listeners that call the latest of `latest()`'s, whatever it is when the frame speaks: every
+ * kind, so one left out does not compile.
+ */
+export const forwardTo = (
+  latest: () => FrameListeners
+): Required<FrameListeners> => ({
   error: (error) => latest().error?.(error),
   hmr: () => latest().hmr?.(),
   instances: (instances) => latest().instances?.(instances),

@@ -23,14 +23,6 @@ export interface Rect {
   readonly y: number;
 }
 
-/** What a frame's page threw, and where, when it can be told. */
-export interface HostError {
-  readonly file?: string | undefined;
-  readonly line?: number | undefined;
-  readonly message: string;
-  readonly stack?: string | undefined;
-}
-
 /**
  * How the preview drew an instance. `layout` is how the element holding the instance's children
  * lays them out, which their `fill` and `hug` are relative to: a component that is a flex column

@@ -124,7 +124,7 @@ export const createPreview = (
     onStrayError,
     reportError: (error) => {
       for (const frame of frames) {
-        frame.events.error?.(error);
+        frame.events.error?.({ ...error, source: "dev-server" });
       }
     },
     setComponents: (next) => {

@@ -53,7 +53,7 @@ export const renderSetup = (
     pageHeight: "100cqh",
     providers: input.providers,
     publicUrl,
-    reportError: (error) => events.error?.(error),
+    reportError: (error) => events.error?.({ ...error, source: "page" }),
     reportInstances: (instances) => events.instances?.(instances),
     setDesignCss,
   };

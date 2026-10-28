@@ -250,6 +250,7 @@ describe("errors nothing caught", () => {
         file: "src/preview-module.tsx",
         line: 3,
         message: "in a timer",
+        source: "page",
       })
     );
   });

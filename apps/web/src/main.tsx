@@ -1,6 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { App } from "./app.tsx";
-import { frameOf } from "./canvas/editor-frame.ts";
+import { frameErrors, frameOf } from "./canvas/editor-frame.ts";
 import { openCanvas } from "./lib/canvas-actions.ts";
 import { zoomToPage } from "./lib/page-actions.ts";
 import { BillingPage } from "./pages/billing.tsx";
@@ -19,6 +19,8 @@ import "./styles.css";
 if (import.meta.env.DEV) {
   (window as unknown as { __ed: unknown }).__ed = {
     api,
+    // What `pnpm e2e:sandbox` reads the frames' errors by.
+    frameErrors,
     frameOf,
     goTo,
     // What `pnpm bench:canvas` drives the canvas with.

@@ -79,6 +79,7 @@ describe("the editor bundle's start-up", () => {
       file: "/src/card.tsx",
       line: 3,
       message: "Unexpected",
+      source: "dev-server",
     });
     frame.unmount();
   });
