@@ -12,6 +12,7 @@ const EXTENDED_COLOUR_RE =
 
 const SHIPPED = [
   "hierarchy",
+  "restraint",
   "layout",
   "patterns",
   "spacing",

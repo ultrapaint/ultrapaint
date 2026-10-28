@@ -26,6 +26,7 @@ interface BuiltInSkill {
 /** The order agents are told them in: what the screen is for first, the details after. */
 const ORDER = [
   "hierarchy",
+  "restraint",
   "layout",
   "patterns",
   "spacing",

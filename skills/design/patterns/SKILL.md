@@ -1,6 +1,6 @@
 ---
 name: patterns
-description: "How a well-made product builds each kind of screen (dialogs, settings, menus, dashboards, tables, forms, navigation, marketing pages), counted over 600 pieces of Untitled UI. Use before designing one of those kinds of screen, for its usual structure, grouping, amount of text and actions."
+description: "How well-made products build each kind of screen (dialogs, settings, menus, dashboards, tables, forms, navigation, landing pages), counted over 600 pieces of Untitled UI and 844 SaaS landing pages. Use before designing one of those kinds of screen, for its usual structure, grouping, amount of text and actions."
 ---
 
 # Patterns
@@ -23,7 +23,7 @@ The references are in `references/`, one file per kind of screen:
 | A table, its filters and pagination | `tables.md` |
 | Sign-in, sign-up, onboarding, a contact form | `forms.md` |
 | A sidebar, a footer | `navigation.md` |
-| A landing page, pricing, an FAQ | `marketing.md` |
+| A landing page: its hero, features, pricing, FAQ, testimonials, closing call and footer | `landing-pages.md`, then `marketing.md` |
 | A profile, a team page | `profiles.md` |
 | A calendar, a date picker | `pickers.md` |
 | A toast, a notification panel, an AI chat, a file manager | `toasts-notifications-chat.md` |
