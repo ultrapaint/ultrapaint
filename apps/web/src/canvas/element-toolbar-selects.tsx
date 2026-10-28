@@ -65,6 +65,12 @@ import {
 } from "../lib/element-controls.ts";
 import { LruMap } from "../lib/lru.ts";
 import { setPropsOfNodes, updateNodes } from "../lib/node-actions.ts";
+import {
+  labelOf,
+  MIXED,
+  MIXED_LABEL,
+  sharedValue,
+} from "../lib/shared-value.ts";
 import { TOOLBAR_SPACING } from "../lib/spacing.ts";
 import { ComponentProps } from "../panels/component-props.tsx";
 import { useCatalogue } from "../state/catalogue.ts";
@@ -75,13 +81,6 @@ import { drawSpecimen, pictureKey } from "./specimens.ts";
 import { Targets, useTargetNodes } from "./toolbar-targets.ts";
 
 const NO_STYLES: readonly TextStyle[] = [];
-
-/** One value when every node has it, `mixed` when they differ. */
-const MIXED = "mixed";
-const shared = (values: readonly string[], fallback: string) => {
-  const [first = fallback] = values;
-  return values.every((v) => v === first) ? first : MIXED;
-};
 
 const FIELD: Record<
   TokenField,
@@ -243,11 +242,13 @@ export const PropSelect = ({
   const targets = useContext(Targets);
   const [open, setOpen] = useState(false);
   const nodes = useTargetNodes();
-  const value = shared(
-    nodes.map((n) =>
-      n.type === "instance"
-        ? propValue(n.props, control.name, control.options)
-        : ""
+  const value = labelOf(
+    sharedValue(
+      nodes.map((n) =>
+        n.type === "instance"
+          ? propValue(n.props, control.name, control.options)
+          : ""
+      )
     ),
     propValue(node.props, control.name, control.options)
   );
@@ -298,11 +299,10 @@ export const TextStyleSelect = ({ node }: { node: TextNode }) => {
     useDesignSystem((s) => s.designSystem?.typography.styles) ?? NO_STYLES;
   const style = styles.find((s) => s.name === node.textStyle);
   const mixedStyles =
-    shared(
+    sharedValue(
       useTargetNodes().map((n) =>
         n.type === "text" ? (n.textStyle ?? "") : ""
-      ),
-      ""
+      )
     ) === MIXED;
   const onValue = (v: unknown) => {
     const next = styles.find((s) => s.name === v);
@@ -317,7 +317,9 @@ export const TextStyleSelect = ({ node }: { node: TextNode }) => {
   return (
     <DropdownMenu>
       <ValueTrigger icon={ALargeSmall} tooltip="Text style">
-        {mixedStyles ? MIXED : (style?.name ?? node.textStyle ?? "No style")}
+        {mixedStyles
+          ? MIXED_LABEL
+          : (style?.name ?? node.textStyle ?? "No style")}
       </ValueTrigger>
       <DropdownMenuContent className="w-60">
         <DropdownMenuGroup>
@@ -367,15 +369,15 @@ const ALIGNS: readonly [string, LucideIcon, string][] = [
 
 export const AlignSelect = ({ node }: { node: TextNode }) => {
   const targets = useContext(Targets);
-  const value = shared(
+  const shared = sharedValue(
     useTargetNodes().map((n) =>
       n.type === "text" ? (n.align ?? "start") : "start"
-    ),
-    node.align ?? "start"
+    )
   );
+  const value = labelOf(shared, node.align ?? "start");
   const found = ALIGNS.find(([v]) => v === value);
   const icon = found?.[1] ?? TextAlignStart;
-  const label = found?.[2] ?? MIXED;
+  const label = found?.[2] ?? MIXED_LABEL;
   return (
     <DropdownMenu>
       <ValueTrigger icon={icon} tooltip="Alignment">
@@ -421,12 +423,16 @@ export const TokenSelect = ({
   const raw = (node as unknown as Record<string, JsonValue | undefined>)[
     control.field
   ];
-  const label = shared(
-    useTargetNodes().map((n) =>
-      tokenLabel(
-        control.field,
-        (n as unknown as Record<string, JsonValue | undefined>)[control.field],
-        base
+  const label = labelOf(
+    sharedValue(
+      useTargetNodes().map((n) =>
+        tokenLabel(
+          control.field,
+          (n as unknown as Record<string, JsonValue | undefined>)[
+            control.field
+          ],
+          base
+        )
       )
     ),
     tokenLabel(control.field, raw, base)

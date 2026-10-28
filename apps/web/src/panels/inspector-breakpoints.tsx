@@ -7,7 +7,6 @@
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import {
   type Breakpoint,
-  breakpointAt,
   type Visibility,
   visibilityOf,
 } from "@ultrapaint/design-document/breakpoints";
@@ -19,15 +18,12 @@ import {
 } from "../components/option-select.tsx";
 import { Row, Section } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";
+import { useEditingBreakpoint } from "../lib/breakpoint-edits.ts";
 import { resetAt, showBy } from "../lib/node-actions.ts";
 import { useBreakpoints } from "../state/design-system.ts";
-import {
-  isNodeFrame,
-  nodeIn,
-  pageOfFrame,
-  useDocuments,
-} from "../state/documents.ts";
+import { isNodeFrame, nodeIn, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { useFrameBreakpoint } from "../state/selection.ts";
 import { set } from "./inspector-fields.tsx";
 
 /** What a node sets at a breakpoint, field by field; an instance's props one by one. */
@@ -145,18 +141,11 @@ export const BreakpointSection = ({
   const canvas = useEditor((s) => s.canvas);
   const own = useDocuments((s) => nodeIn(s.docs, canvas, frame, node.id));
   const breakpoints = useBreakpoints();
-  const width = useEditor((s) => s.frames[frame]?.width);
-  const views = useEditor(
-    (s) => (s.frames[pageOfFrame(frame)]?.views?.length ?? 0) > 0
-  );
+  const shown = useFrameBreakpoint(frame);
+  const editing = useEditingBreakpoint(frame);
   if (!own || isNodeFrame(frame) || own.type === "page") {
     return null;
   }
-  const shown =
-    width === undefined
-      ? null
-      : (breakpointAt(breakpoints, width)?.name ?? null);
-  const editing = views ? shown : null;
   const used = breakpoints.filter((b) => fieldsAt(own, b.name).length > 0);
   const holding = new Set(
     shown === null

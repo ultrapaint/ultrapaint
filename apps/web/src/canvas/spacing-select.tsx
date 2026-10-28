@@ -21,6 +21,7 @@ import {
 import { SidesIcon } from "../components/sides-icon.tsx";
 import { displayOf, ValueField } from "../components/value-field.tsx";
 import { updateNodesWith } from "../lib/node-actions.ts";
+import { labelOf, sharedValue } from "../lib/shared-value.ts";
 import {
   axesSplit,
   type Side,
@@ -173,9 +174,10 @@ const SidesRow = ({
 
 export const SpacingSelect = () => {
   const nodes = useTargetNodes();
-  const labels = nodes.map((n) => sidesLabel(fieldOf(n, "padding"), displayOf));
-  const [first = "0"] = labels;
-  const label = labels.every((l) => l === first) ? first : "mixed";
+  const label = labelOf(
+    sharedValue(nodes.map((n) => sidesLabel(fieldOf(n, "padding"), displayOf))),
+    "0"
+  );
   return (
     <Popover>
       <Tooltip>

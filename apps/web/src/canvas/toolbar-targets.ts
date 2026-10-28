@@ -1,19 +1,12 @@
 /** The nodes the Vibe toolbar's controls change, shared by the toolbar and its popovers. */
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { createContext, useContext } from "react";
-import { nodeIn, useDocuments } from "../state/documents.ts";
-import { type Selection, useEditor } from "../state/editor.ts";
+import type { Selection } from "../state/editor.ts";
+import { useDrawnNodes } from "../state/selection.ts";
 
 /** The selection the controls change: one node or several. */
 export const Targets = createContext<readonly Selection[]>([]);
 
-/** The nodes the toolbar changes, as the documents have them now. */
-export const useTargetNodes = (): readonly DesignNode[] => {
-  const targets = useContext(Targets);
-  const docs = useDocuments((s) => s.docs);
-  const canvas = useEditor((s) => s.canvas);
-  return targets.flatMap((t) => {
-    const node = nodeIn(docs, canvas, t.frame, t.nodeId);
-    return node ? [node] : [];
-  });
-};
+/** The nodes the toolbar changes, as their view draws them: its breakpoint's values (ADR 0036). */
+export const useTargetNodes = (): readonly DesignNode[] =>
+  useDrawnNodes(useContext(Targets));

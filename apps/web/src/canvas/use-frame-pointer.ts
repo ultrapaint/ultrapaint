@@ -20,6 +20,7 @@ import { useComments } from "../state/comments.ts";
 import { holdMenu, openMenuAt, showMenu } from "../state/context-menu.ts";
 import { nodeIn, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { selectForMenu, useEditor } from "../state/editor.ts";
+import { isSelected, selectedIn } from "../state/selection.ts";
 import { stepInto } from "../state/tree.ts";
 import { beginDrag, type Dragged, endDrag, moveDrag, useDrag } from "./drag.ts";
 import { frameOf } from "./editor-frame.ts";
@@ -98,9 +99,7 @@ export const useFramePointer = ({
   const nodeAt = (e: ReactPointerEvent | ReactMouseEvent) => {
     const { x, y } = toFrame(e);
     const chain = hitUnlocked(frameId, x, y);
-    const store = useEditor.getState();
-    const selected =
-      store.selection?.frame === frameId ? store.selection.nodeId : null;
+    const [selected = null] = selectedIn(frameId);
     return stepInto(chain, currentRoot(), selected, e.altKey);
   };
   const onMove = (e: ReactPointerEvent) => {
@@ -164,9 +163,7 @@ export const useFramePointer = ({
    */
   const pickAt = (x: number, y: number, alt: boolean) => {
     const chain = hitUnlocked(frameId, x, y);
-    const store = useEditor.getState();
-    const selected =
-      store.selection?.frame === frameId ? store.selection.nodeId : null;
+    const [selected = null] = selectedIn(frameId);
     return selected !== null && chain.includes(selected)
       ? selected
       : stepInto(chain, currentRoot(), selected, alt);
@@ -225,13 +222,6 @@ export const useFramePointer = ({
   const marqueeTo = useRef<{ request: number; rect: Rect } | null>(null);
   const marqueeFrom = useRef<{ x: number; y: number } | null>(null);
   const marqueeIn = useRef<DesignNode | null>(null);
-  const isSelected = (id: string) => {
-    const { also: others, selection: primary } = useEditor.getState();
-    return (
-      (primary?.frame === frameId && primary.nodeId === id) ||
-      others.some((a) => a.frame === frameId && a.nodeId === id)
-    );
-  };
   const dragging = useRef<boolean>(false);
   const onPointerDown = (e: ReactPointerEvent) => {
     if (e.button !== 0) {
@@ -302,7 +292,7 @@ export const useFramePointer = ({
     if (
       target.kind === "node" &&
       isContainer(target.node) &&
-      !isSelected(target.node.id)
+      !isSelected(frameId, target.node.id)
     ) {
       marqueeIn.current = target.node;
       marqueeFrom.current = p.at;

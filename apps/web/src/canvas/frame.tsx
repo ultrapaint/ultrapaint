@@ -22,11 +22,7 @@ import { updateNodes } from "../lib/node-actions.ts";
 import { kindColor, kindHoverColor } from "../lib/selection-kind.ts";
 import { useComments } from "../state/comments.ts";
 import { openMenuAt } from "../state/context-menu.ts";
-import {
-  breakpointsFor,
-  useBreakpointAt,
-  useDesignSystem,
-} from "../state/design-system.ts";
+import { breakpointsFor, useDesignSystem } from "../state/design-system.ts";
 import {
   isNodeFrame,
   pageOfFrame,
@@ -38,19 +34,14 @@ import { useEditor } from "../state/editor.ts";
 import { useInstances } from "../state/instances.ts";
 import { useDesignLookVersion } from "../state/look.ts";
 import { previewRunning, useProject } from "../state/project.ts";
+import { useFrameBreakpoint, useSelectedIn } from "../state/selection.ts";
 import { FramePresence } from "./agent-presence.tsx";
 import { AgentWorkOverlay, useFrameWork, useSkeletons } from "./agent-work.tsx";
 import { screenPx, UNZOOM } from "./camera.ts";
 import { commentCursor, FrameComments } from "./comments.tsx";
 import { frameOf, useFrameEvents, useFrameFrozen } from "./editor-frame.ts";
 import { ToolbarLayer } from "./element-toolbar-placement.ts";
-import {
-  Highlights,
-  idsOf,
-  useAlsoIn,
-  useHoverIn,
-  useSelectedIn,
-} from "./frame-highlights.tsx";
+import { Highlights, useHoverIn } from "./frame-highlights.tsx";
 import { FrozenPage } from "./frozen-page.tsx";
 import { PageToolbar } from "./page-toolbar.tsx";
 import { usePreview } from "./preview-module.ts";
@@ -179,7 +170,6 @@ export const Frame = memo(
     const running = useProject((s) => previewRunning(s.info.host));
     // Only what is selected or hovered in this frame: elsewhere it is no business of this one.
     const selectedHere = useSelectedIn(frameId);
-    const alsoHere = useAlsoIn(frameId);
     const hoverHere = useHoverIn(frameId);
     const canvas = useEditor((s) => s.canvas);
     const root = useDocuments((s) => rootOfFrame(s.docs, canvas, frameId));
@@ -204,7 +194,7 @@ export const Frame = memo(
     const name = frameName(page, root);
     // A page is drawn at its frame's width; a node on the canvas at its own.
     const drawnWidth = kind === "page" ? frame.width : undefined;
-    const breakpoint = useBreakpointAt(drawnWidth);
+    const breakpoint = useFrameBreakpoint(frameId);
     // A callback ref: the selection's toolbar is drawn in it once it is there.
     const [toolbarLayer, setToolbarLayer] = useState<HTMLDivElement | null>(
       null
@@ -251,7 +241,8 @@ export const Frame = memo(
 
     // A selection whose node is gone (an undo, an agent) is let go of.
     useEffect(() => {
-      if (selectedHere !== null && root && !findNode(root, selectedHere)) {
+      const [lead] = selectedHere;
+      if (lead !== undefined && root && !findNode(root, lead)) {
         useEditor.getState().select(null);
       }
     }, [selectedHere, root]);
@@ -266,15 +257,13 @@ export const Frame = memo(
     // biome-ignore lint/correctness/useExhaustiveDependencies: `root` is there to send it again.
     useEffect(() => {
       const ids: string[] = [];
-      if (selectedHere !== null) {
-        ids.push(selectedHere, ...idsOf(alsoHere));
-      }
+      ids.push(...selectedHere);
       if (hoverHere !== null) {
         ids.push(hoverHere);
       }
-      ids.push(...idsOf(workIds));
+      ids.push(...(workIds === "" ? [] : workIds.split(" ")));
       frameOf(frameId).watchRects(ids);
-    }, [frameId, selectedHere, alsoHere, hoverHere, root, workIds]);
+    }, [frameId, selectedHere, hoverHere, root, workIds]);
 
     const {
       marquee,
@@ -551,8 +540,8 @@ const Marquee = ({
  * The breakpoint a page's frame or view is drawn at, once the page has views (ADR 0036), and on a
  * view the button that takes it away.
  */
-const ViewBadge = ({ frameId, width }: { frameId: string; width: number }) => {
-  const breakpoint = useBreakpointAt(width);
+const ViewBadge = ({ frameId }: { frameId: string }) => {
+  const breakpoint = useFrameBreakpoint(frameId);
   const isView = viewOfFrame(frameId) !== null;
   const hasViews = useEditor(
     (s) => (s.frames[pageOfFrame(frameId)]?.views?.length ?? 0) > 0
@@ -732,7 +721,7 @@ const FrameChrome = ({
             {Math.round(frame.width)} × {Math.round(frame.height)}
           </span>
         )}
-        {kind === "page" && <ViewBadge frameId={frameId} width={frame.width} />}
+        {kind === "page" && <ViewBadge frameId={frameId} />}
       </div>
       {kind === "page" && isSelected && viewOfFrame(frameId) === null ? (
         <PageToolbar

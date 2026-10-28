@@ -8,7 +8,6 @@ import type {
 } from "@ultrapaint/contracts/design-system";
 import {
   type Breakpoint,
-  breakpointAt,
   breakpointsOf,
 } from "@ultrapaint/design-document/breakpoints";
 import { create } from "zustand";
@@ -76,11 +75,3 @@ export const currentBreakpoints = () =>
 
 export const useBreakpoints = () =>
   useDesignSystem((s) => breakpointsFor(s.designSystem));
-
-/** The breakpoint a width falls in, by name; null at the base or without a width. */
-export const useBreakpointAt = (width: number | undefined) =>
-  useDesignSystem((s) =>
-    width === undefined
-      ? null
-      : (breakpointAt(breakpointsFor(s.designSystem), width)?.name ?? null)
-  );

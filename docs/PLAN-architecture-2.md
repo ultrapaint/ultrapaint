@@ -493,3 +493,45 @@ unless the step says otherwise.
    contracts' types the compiler holds a test to, a reset that resets, a connection down).
    `agents.test.ts` and `settings-actions.test.ts` follow through `followServer` after each
    reset, and `new-design.test.ts` answers with whole catalogue entries and the setup's readings.
+10. **The selection, as its view draws it** (`apps/web/src/state/selection.ts`). A selection is
+    of nodes of a page and every view of the page shows it, by one rule (`showsIn`: the same
+    page); it is in the view it was made in (`selection.frame`), whose breakpoint its fields are
+    shown and edited at and where its toolbar hangs (ADR 0036). `selectedIn(frame)` (the ids a
+    frame outlines, the lead first) and `isSelected(frame, id)`, with their hooks, are what the
+    outlines, the frames' rect watching, the pointer's step-into, press and marquee, Layers' rows,
+    node-actions' `actedOn` and the editor's `selectMany`, `toggleSelected` and `selectForMenu`
+    read; `pickedIn(frame)` takes the selection, every node of it, to another view of its page.
+    `frameBreakpoint(frame)` and `useFrameBreakpoint` are the breakpoint a frame is at: a page's
+    frame or view by its width, a node on the canvas by its own fixed width, else the base.
+    `drawnNodes(targets)` (`useDrawnNodes`, which the toolbar's `useTargetNodes` is) and
+    `inspected()` (`useInspected`, the inspector's) give the nodes as that frame draws them;
+    `asDrawnIn`, `useDrawnIn` and `editedFrameOf` moved in from `breakpoint-edits`, which keeps
+    where an edit lands (`editingBreakpoint`, now with `useEditingBreakpoint` for the Breakpoints
+    section). What several share is `sharedValue`, with one sentinel, `MIXED`, and `labelOf` for
+    a select's trigger; the toolbar's `"mixed"` string and the padding select's own comparison go.
+    Call sites with their own "selected here" rule: 10 (two rules: by page in the highlights,
+    Layers and `selectMany`; by exact frame in the pointer's three, `toggleSelected`,
+    `selectForMenu`, `actedOn` and `removeView`) to 1. Places that worked out a frame's
+    breakpoint: 6 (`frameBreakpoint` and `useDrawnIn` in breakpoint-edits, the inspector, its
+    Breakpoints section, `useBreakpointAt` with the highlights' own rule for a node's frame, used
+    by the frame and its badge too) to 1; the renderer, the prototype and the specimens still
+    resolve at the width they draw at. `useSelectedIn` gives the same empty list to every frame
+    of another page and a shallow-compared one to the page's, so a pointer move costs
+    O(selection) per frame as before. `pnpm bench:canvas` was not run: it drives a running
+    `pnpm dev` in Chrome. Also: the element toolbar's values (alignment, text style, tokens,
+    props, padding) inside a view were the base's, and are the view's; Shift-click in another
+    view of the page started the selection over, and adds to it, the selection going to that
+    view; a right-click on a selected node in another view kept the selection only in its own
+    frame, and now keeps it anywhere it is shown, taken to that view so the menu acts at its
+    breakpoint (Layers' right-click names the view the selection is in); a Layers row's eye,
+    lock and menu on a node of a selection made in a view acted on the row alone, and act on the
+    selection, as in the page's own frame; a node on the canvas at a fixed width was drawn at
+    the breakpoint its width falls in but inspected, outlined and edited at the base, and is
+    all four at its breakpoint; taking a view away kept only the lead of a selection in it.
+    `selection.test.ts` has 13 tests from store fixtures, no React: the breakpoint of a page's
+    frame, a view at md and one below the first breakpoint, a frame not drawn, a node on the
+    canvas with and without a fixed width, and the design system's own breakpoints; Shift-click
+    in a second and a third view of a page (failing first), in another page; a right-click in
+    another view; the outlines of each view and Layers' rows agreeing; the toolbar's nodes in an
+    md view at md (failing first) and the inspector's at the view they were selected in.
+    `editor.test.ts`'s `removeView` keeps the others selected (failing first).

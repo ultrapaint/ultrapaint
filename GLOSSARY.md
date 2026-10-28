@@ -35,7 +35,8 @@ module.
   classes, Tailwind's with its `md:` and `max-md:` variants (ADR 0024).
 - **Page**: a design document, `.page.json`, of a **canvas** (ADRs 0015, 0019, 0020). A page is
   drawn in a **frame**, and in **views** of other widths beside it (ADR 0036); an edit lands at
-  the **breakpoint** of the view it is made in. A page's **family** is its base page with its
+  the **breakpoint** of the view it is made in. The breakpoint a frame is at is the one its width
+  falls in, a node on the canvas's its own fixed width (the web's `frameBreakpoint`). A page's **family** is its base page with its
   variants and states, which are named after it and move and go with it (`familyOf`).
 - **Canvas layout**: where frames go on a canvas, with one gap (contracts' `canvas-layout`): a
   new frame past every frame and its views, a page the layout does not place yet where the
@@ -86,6 +87,12 @@ module.
   connection open once asked for, the project's first, and an answer for a canvas no longer open
   is dropped. A snapshot on screen is the other **source** of what it keeps (the pages, the
   documents, the layouts), whose news waits until the editor goes back to now (ADR 0019).
+- **Selection**: the nodes of a page the user picked, which every view of the page shows, by one
+  rule (the web's `selection`): a Shift-click in another view adds to it. It is in the view it was
+  made in, whose breakpoint its fields are shown and edited at; a node of it Shift-clicked or
+  right-clicked in another view takes it there. The inspector, the element toolbar, the outlines
+  and Layers read the selected nodes as that view draws them, and what several share as one value
+  or `MIXED`.
 - **Command**: something the editor does, in one list the palette, the shortcut sheet and the
   menus read (ADR 0032); a **binding** is a command's chord and the scope it works in.
 - **Menu action**: what a context-menu item does, a typed value run by `runMenuAction`.

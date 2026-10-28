@@ -27,6 +27,7 @@ import {
 } from "./documents.ts";
 import { followFrame } from "./location.ts";
 import { reportError, useProject } from "./project.ts";
+import { isSelected, pickedIn, showsIn } from "./selection.ts";
 import { follow } from "./server-data.ts";
 import { viewedSnapshot } from "./snapshot-view.ts";
 import { readUrl, writeMode } from "./url.ts";
@@ -490,9 +491,12 @@ export const useEditor = create<EditorStore>((set, get) => ({
     if (view === null || !page) {
       return;
     }
-    const s = get();
-    if (s.selection && s.selection.frame === frame) {
-      s.select({ ...s.selection, frame: pageId });
+    // A selection in it goes on in the page's own frame, all of it.
+    if (get().selection?.frame === frame) {
+      const picked = pickedIn(pageId, get());
+      if (picked) {
+        set(picked);
+      }
     }
     get().setFrame(pageId, {
       ...page,
@@ -522,7 +526,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
     const frame = get().selection?.frame ?? first.frame;
     set({
       also: rest
-        .filter((s) => pageOfFrame(s.frame) === pageOfFrame(first.frame))
+        .filter((s) => showsIn(first.frame, s.frame))
         .map((s) => ({ ...s, frame })),
     });
   },
@@ -625,11 +629,13 @@ export const useEditor = create<EditorStore>((set, get) => ({
     if (hidesSelection(get)) {
       return;
     }
-    const { also, selection } = get();
-    if (!selection || selection.frame !== target.frame) {
+    // Another view of the page shows the selection: the node is added there, and the rest with it.
+    const picked = pickedIn(target.frame, get());
+    if (!picked?.selection) {
       get().select(target);
       return;
     }
+    const { also, selection } = picked;
     const same = (a: Selection) => a.nodeId === target.nodeId;
     if (same(selection)) {
       // The last one added before it takes its place.
@@ -654,17 +660,20 @@ const hidesSelection = (get: () => EditorStore) =>
   get().workspace === "prototype";
 
 /**
- * Selects a node for a right-click. One that is already selected keeps the selection as it is:
- * the menu then acts on all of it, as a menu does in Figma.
+ * Selects a node for a right-click. One that is already selected keeps the selection, in the view
+ * it is clicked in: the menu then acts on all of it, as a menu does in Figma, at that view's
+ * breakpoint.
  */
 export const selectForMenu = (target: Selection) => {
-  const { also, select, selection } = useEditor.getState();
-  const same = (s: Selection) =>
-    s.frame === target.frame && s.nodeId === target.nodeId;
-  if (selection && (same(selection) || also.some(same))) {
+  const editor = useEditor.getState();
+  if (!isSelected(target.frame, target.nodeId, editor)) {
+    editor.select(target);
     return;
   }
-  select(target);
+  const picked = pickedIn(target.frame, editor);
+  if (picked?.selection && picked.selection !== editor.selection) {
+    useEditor.setState(picked);
+  }
 };
 
 /** What a canvas draws every page in (`CanvasLayout.defaults`): the open one's, or the server's. */

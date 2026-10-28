@@ -13,53 +13,18 @@ import {
   selectionKindOf,
 } from "../lib/selection-kind.ts";
 import { useInv } from "../state/camera.ts";
-import { useBreakpointAt, useBreakpoints } from "../state/design-system.ts";
-import {
-  isNodeFrame,
-  pageOfFrame,
-  rootOfFrame,
-  useDocuments,
-} from "../state/documents.ts";
+import { useBreakpoints } from "../state/design-system.ts";
+import { rootOfFrame, useDocuments } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
+import { useFrameBreakpoint, useSelectedIn } from "../state/selection.ts";
 import { screenPx } from "./camera.ts";
 import { ElementToolbar, GroupToolbar } from "./element-toolbar.tsx";
 import { TAG_HEIGHT } from "./element-toolbar-placement.ts";
 import { SelectionTag } from "./selection-tag.tsx";
 
-/** Whether a selection made in `frame` shows in `here`: the same frame, or a view of its page. */
-const showsIn = (frame: string | undefined, here: string) =>
-  frame !== undefined && pageOfFrame(frame) === pageOfFrame(here);
-
-/**
- * The node selected in this frame, if the selection is here: a node selected in one view of a
- * page is outlined in every view of it (ADR 0036).
- */
-export const useSelectedIn = (frameId: string) =>
-  useEditor((s) =>
-    showsIn(s.selection?.frame, frameId) ? (s.selection?.nodeId ?? null) : null
-  );
-
-/** Whether the selection was made in this very frame: the one its toolbar hangs in. */
-const useSelectionMadeIn = (frameId: string) =>
-  useEditor((s) => s.selection?.frame === frameId);
-
-/**
- * The others selected with it in this frame, as their ids joined by spaces: a string, so the
- * frames the selection is not in see nothing change.
- */
-export const useAlsoIn = (frameId: string) =>
-  useEditor((s) =>
-    showsIn(s.selection?.frame, frameId)
-      ? s.also.map((a) => a.nodeId).join(" ")
-      : ""
-  );
-
 /** The node hovered in this frame, if the pointer is over one here. */
 export const useHoverIn = (frameId: string) =>
   useEditor((s) => (s.hover?.frame === frameId ? s.hover.nodeId : null));
-
-export const idsOf = (joined: string): string[] =>
-  joined === "" ? [] : joined.split(" ");
 
 /** The box around several rects. */
 const unionOf = (rects: readonly Rect[]): Rect | null => {
@@ -75,10 +40,10 @@ const unionOf = (rects: readonly Rect[]): Rect | null => {
 
 /** The outlines of the hovered and the selected nodes, and an error the preview reported. */
 export const Highlights = ({ frameId }: { frameId: string }) => {
-  const selectedId = useSelectedIn(frameId);
-  // Another view of the page outlines the selection; its toolbar is the view's it was made in.
-  const madeHere = useSelectionMadeIn(frameId);
-  const alsoIds = useAlsoIn(frameId);
+  // A node selected in one view of a page is outlined in every view of it (ADR 0036); its
+  // toolbar is the view's it was made in.
+  const [selectedId = null, ...alsoIds] = useSelectedIn(frameId);
+  const madeHere = useEditor((s) => s.selection?.frame === frameId);
   const hoverId = useHoverIn(frameId);
   const rects = useEditor((s) => s.rects[frameId]);
   const hostError = useEditor((s) => s.hostErrors[frameId]);
@@ -99,9 +64,7 @@ export const Highlights = ({ frameId }: { frameId: string }) => {
   // This frame's document only: an edit elsewhere has nothing to outline here. As the frame
   // draws it: a row from a breakpoint on is named a row there (ADR 0036).
   const own = useDocuments((s) => rootOfFrame(s.docs, canvas, frameId));
-  const breakpoint = useBreakpointAt(
-    isNodeFrame(frameId) ? undefined : frameWidth
-  );
+  const breakpoint = useFrameBreakpoint(frameId);
   const breakpoints = useBreakpoints();
   const root = own && resolveAtBreakpoint(own, breakpoints, breakpoint);
   const selectedNode = selectedId === null ? null : findNode(root, selectedId);
@@ -110,7 +73,7 @@ export const Highlights = ({ frameId }: { frameId: string }) => {
   const hoverRect =
     hoverId !== null && hoverId !== selectedId ? rects?.[hoverId] : undefined;
   // Several selected: each is outlined, and what they share hangs over the box around them.
-  const others = idsOf(alsoIds).flatMap((nodeId) => {
+  const others = alsoIds.flatMap((nodeId) => {
     const node = findNode(root, nodeId);
     const rect = rects?.[nodeId];
     return node && rect
