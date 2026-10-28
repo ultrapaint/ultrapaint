@@ -1,5 +1,4 @@
 import { presetSize } from "@ultrapaint/contracts/pages";
-import { resolveAt } from "@ultrapaint/design-document/breakpoints";
 import { basePathOf } from "@ultrapaint/shared/route";
 import { cn } from "cn";
 import {
@@ -38,15 +37,20 @@ import {
   prototypeDevices,
 } from "../lib/presets.ts";
 import { toggleCommenting, useComments } from "../state/comments.ts";
-import { breakpointsFor, useDesignSystem } from "../state/design-system.ts";
+import { useDesignSystem } from "../state/design-system.ts";
 import { useDocuments } from "../state/documents.ts";
 import { pagesOfCanvas, useEditor } from "../state/editor.ts";
 import { goTo } from "../state/location.ts";
-import { useDesignLookVersion } from "../state/look.ts";
+import { useDesignLook } from "../state/look.ts";
 import { useProject } from "../state/project.ts";
 import { commentCursor, FrameComments, placeComment } from "./comments.tsx";
-import { describePageError, frameOf, useFrameError } from "./editor-frame.ts";
+import {
+  describePageError,
+  useFrameDrawing,
+  useFrameError,
+} from "./editor-frame.ts";
 import { HotspotLayer, HotspotsToggle, onPrototypePress } from "./hotspots.tsx";
+import { pageRequest } from "./page-request.ts";
 import { usePreview } from "./preview-module.ts";
 import { PreviewSurface } from "./preview-surface.tsx";
 
@@ -84,30 +88,9 @@ const pickDevice = (next: readonly unknown[]) => {
 /** The one frame of a prototype. Navigating swaps the page inside it, it is never drawn anew. */
 export const frameIdOf = (canvas: string) => `prototype:${canvas}`;
 
-/** Tells the prototype what the route shows: the page serving it, in the design system. */
-const renderRoute = (canvas: string) => {
-  const { activePage, route } = useEditor.getState();
-  const state = activePage
-    ? useDocuments.getState().docs[activePage]
-    : undefined;
-  let message: string | undefined;
-  if (!activePage) {
-    message = route === null ? "No page" : `No page serves ${route}`;
-  } else if (state?.problem !== undefined) {
-    message = `This page cannot be read: ${state.problem}`;
-  }
-  const { designSystem } = useDesignSystem.getState();
-  const root = state?.root ?? null;
-  // Drawn as the page is at the device's width: its breakpoints' values (ADR 0036).
-  const { width } = presetSize[useDevice.getState().device];
-  frameOf(frameIdOf(canvas)).render({
-    defaults: useEditor.getState().layout.defaults,
-    designSystem,
-    mode: "page",
-    root: root && resolveAt(root, breakpointsFor(designSystem), width),
-    ...(message !== undefined && { message }),
-  });
-};
+/** What the prototype says when no page serves the route the editor holds. */
+const noPage = (route: string | null) =>
+  route === null ? "No page" : `No page serves ${route}`;
 
 /** A press beside the page lets go of the comment open on it, or of the one being written. */
 const closeComments = (e: ReactPointerEvent) => {
@@ -223,19 +206,27 @@ export const Prototype = () => {
   // The frame only exists once the area is measured, which is after the first render.
   const shown = content === null && canvas !== null && scale > 0;
 
-  // The editor holds the route; the preview draws the page serving it, without reloading.
+  // The editor holds the route; the preview draws the page serving it, without reloading, as
+  // it is at the device's width (its breakpoints' values, ADR 0036), in the design system.
   const document = useDocuments((s) =>
     activePage ? s.docs[activePage] : undefined
   );
   const designSystem = useDesignSystem((s) => s.designSystem);
   const defaults = useEditor((s) => s.layout.defaults);
-  const look = useDesignLookVersion();
-  // biome-ignore lint/correctness/useExhaustiveDependencies: what is drawn is the dependency.
-  useEffect(() => {
-    if (canvas !== null && shown && frameOf(frameIdOf(canvas)).ready) {
-      renderRoute(canvas);
-    }
-  }, [route, canvas, shown, document, designSystem, defaults, device, ...look]);
+  const look = useDesignLook();
+  useFrameDrawing(
+    shown ? frameIdOf(canvas) : null,
+    pageRequest({
+      absent: activePage ? undefined : noPage(route),
+      defaults,
+      designSystem,
+      look,
+      mode: "page",
+      problem: document?.problem,
+      root: document?.root ?? null,
+      width: size.width,
+    })
+  );
 
   return (
     <div
@@ -265,7 +256,6 @@ export const Prototype = () => {
                     followLink(to, { push: !replace }),
                   pressed: (nodeIds) =>
                     onPrototypePress(nodeIds, useEditor.getState().activePage),
-                  ready: () => renderRoute(canvas),
                 }}
                 style={{
                   height: size.height,

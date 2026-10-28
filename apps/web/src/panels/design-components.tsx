@@ -19,7 +19,7 @@ import {
 } from "@ultrapaint/contracts/specs";
 import { STATE_ATTRIBUTE } from "@ultrapaint/design-document/spec";
 import { ArrowLeft, Code2, Trash2, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,7 @@ import {
   NativeSelectOption,
 } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
-import { frameOf } from "../canvas/editor-frame.ts";
+import { useFrameDrawing } from "../canvas/editor-frame.ts";
 import { usePreview } from "../canvas/preview-module.ts";
 import { PreviewSurface } from "../canvas/preview-surface.tsx";
 import { confirmDialog } from "../components/dialogs.tsx";
@@ -47,7 +47,7 @@ import { useCatalogue } from "../state/catalogue.ts";
 import { api } from "../state/connection.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { statusLabel, useImplementation } from "../state/implementation.ts";
-import { designLook } from "../state/look.ts";
+import { useDesignLook } from "../state/look.ts";
 import { reportError } from "../state/project.ts";
 import { useSpecs } from "../state/specs.ts";
 
@@ -236,7 +236,7 @@ const matrixOf = (
 };
 
 /** The spec drawn live, with the edits not saved yet. */
-const Matrix = ({
+export const Matrix = ({
   meta,
   spec,
 }: {
@@ -245,27 +245,24 @@ const Matrix = ({
 }) => {
   const running = usePreview() !== null;
   const ds = useDesignSystem((s) => s.designSystem);
-  const [ready, setReady] = useState(false);
+  const { specs, styles } = useDesignLook();
   const frame = "design-system:components";
-  useEffect(() => {
-    if (!ready) {
-      return;
-    }
-    const look = designLook();
-    frameOf(frame).render({
-      designSystem: ds,
-      look: {
-        // The spec being edited stands in for the saved one.
-        specs: [
-          ...look.specs.filter((s) => s.component !== spec.component),
-          spec,
-        ],
-        styles: look.styles,
-      },
-      mode: "fit",
-      root: matrixOf(spec, meta, spec.component),
-    });
-  }, [ready, ds, spec, meta]);
+  useFrameDrawing(
+    frame,
+    useMemo(
+      () => ({
+        designSystem: ds,
+        look: {
+          // The spec being edited stands in for the saved one.
+          specs: [...specs.filter((s) => s.component !== spec.component), spec],
+          styles,
+        },
+        mode: "fit" as const,
+        root: matrixOf(spec, meta, spec.component),
+      }),
+      [ds, meta, spec, specs, styles]
+    )
+  );
   if (!running) {
     return (
       <div className="px-3 py-2 font-body text-muted-foreground">
@@ -280,7 +277,6 @@ const Matrix = ({
         className="w-full"
         frameId={frame}
         hostClassName="block w-full"
-        listeners={{ ready: () => setReady(true) }}
         title={`${spec.component} in its variants and states`}
       />
     </div>

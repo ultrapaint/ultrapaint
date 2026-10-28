@@ -111,6 +111,11 @@ review found.
   order.
 - **Editor frame**: a frame as the editor opens it, with the holder its host goes in, the pool
   that parks it and the watchdog's freeze check (`editor-frame`).
+- **A frame's request**: what a view tells a frame to draw (`RenderRequest`): the tree, the mode,
+  the design system, the canvas's defaults, the design's look, and what is said in place of a
+  page. `useFrameDrawing` draws it once the frame is open, whenever it changes and in a frame
+  opened anew; a page's, for the canvas and the prototype, is `pageRequest`'s: the page at the
+  frame's width, a node on the canvas at the size it is held at.
 - **A frame's host**: the element a frame's shadow root is on, the page's `<html>`; the editor
   places it, the core writes it (`frame-host`). The editor says how the frame is **shown** (class,
   style, title, input, away) and the page's code writes its own classes and style properties
