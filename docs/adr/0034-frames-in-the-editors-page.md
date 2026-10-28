@@ -5,6 +5,13 @@ framework package stay). Amends 0015 (the preview draws the documents the editor
 called directly), 0031 (one port forwarded over SSH) and 0033 (the iframe pool and the agent
 cluster go). Plan: `docs/PLAN-editor-renderer.md`.
 
+> Amended by [0039](0039-deep-modules-third-review.md), 2026-10-28 ([PLAN-architecture-3](../PLAN-architecture-3.md)
+> step 6): the preview core owns a frame's host. The editor places it and says how the frame is
+> shown (its class, style, title, whether it takes input, whether it is away) through the frame's
+> runtime; the core writes it, and keeps what the page's code writes to `<html>` and `<body>`
+> apart from the editor's, so showing a parked frame again keeps the page's theme class. An
+> event is from a frame when a host the core drew is on its path.
+
 ## Context
 
 The canvas draws pages with the repository's real components, the design's tokens (0028) and

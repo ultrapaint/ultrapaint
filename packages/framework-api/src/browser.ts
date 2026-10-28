@@ -139,8 +139,8 @@ export interface FrameRuntime {
   /** A PNG of what the frame draws, or of one node of it in place. */
   readonly screenshot: (nodeId?: string) => Promise<string | null>;
   readonly scrollIntoView: (nodeId: string) => void;
-  /** Whether the page responds to input: the prototype, interact mode. */
-  readonly setInteractive: (interactive: boolean) => void;
+  /** How the frame is shown from now on: what is left out stays as it was. */
+  readonly show: (shown: Partial<FrameShown>) => void;
   /** Nodes an agent is rewriting, drawn as placeholders until it is done. */
   readonly skeleton: (nodeIds: readonly string[]) => void;
   /** The CSS custom properties the stylesheets define, resolved in the frame's theme. */
@@ -151,12 +151,34 @@ export interface FrameRuntime {
   readonly watchRects: (nodeIds: readonly string[]) => void;
 }
 
+/**
+ * How the editor shows a frame, which the core writes on its host. What the page's code writes to
+ * its `<html>` lands on the host too, and is kept apart: neither takes the other's off.
+ */
+export interface FrameShown {
+  /** Off the screen: kept as it is, and skipped by the browser. */
+  readonly away: boolean;
+  /** The host's classes. */
+  readonly className: string;
+  /** The page responds to input: the prototype, interact mode. Otherwise the pointer goes past. */
+  readonly interactive: boolean;
+  /** The host's own style, as a style attribute writes it. */
+  readonly style: string;
+  /** What the frame is read by. */
+  readonly title: string;
+}
+
 export interface MountFrameOptions {
   /** Canvas whose own assets relative image paths are looked for in first. */
   readonly canvas: string;
   readonly events: FrameEvents;
-  /** Identifies the frame: a frame on the canvas, the prototype, a specimen. */
+  /**
+   * Identifies the frame: a frame on the canvas, the prototype, a specimen. Its host is marked
+   * with it (`data-ed-frame-host`).
+   */
   readonly frame: string;
+  /** How it is shown at first: a picture, in view, with no class, style or title of its own. */
+  readonly shown?: Partial<FrameShown>;
   /** Drawn at once, without transitions: what pictures are taken of. */
   readonly still?: boolean;
 }
@@ -190,7 +212,16 @@ export interface PublicFiles {
 
 /** The repository's components, ready to draw frames in the editor's page. */
 export interface Preview {
-  /** Draws a frame into `host`, which it gives a shadow root; `unmount` gives it back empty. */
+  /**
+   * Whether `event` comes from inside one of its frames: a page in the prototype, a text being
+   * edited in place. It is the page's, as an event inside an iframe never reached the editor.
+   */
+  readonly fromFrame: (event: Event) => boolean;
+  /**
+   * Draws a frame into `host`, which it gives a shadow root and writes from then on (how it is
+   * shown, `FrameRuntime.show`); `unmount` gives it back empty. Where the host is placed is the
+   * editor's.
+   */
   readonly mountFrame: (
     host: HTMLElement,
     options: MountFrameOptions

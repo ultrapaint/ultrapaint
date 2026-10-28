@@ -10,7 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { fromFrame, isTyping } from "../lib/keys.ts";
+import { isTyping } from "../lib/keys.ts";
 import { updateNodes } from "../lib/node-actions.ts";
 import { nextView, setViewSoon } from "../state/camera.ts";
 import { snapsToGrid, useCanvasGrid } from "../state/canvas-grid.ts";
@@ -58,6 +58,7 @@ import {
 import { CreateOverlay, DragOverlay } from "./drag-overlay.tsx";
 import { EmptyState } from "./empty-state.tsx";
 import { type Corner, drawResized, Frame } from "./frame.tsx";
+import { fromFrame } from "./from-frame.ts";
 import { isFrameLocked } from "./hit-test.ts";
 import { addImages, imageFiles } from "./items.ts";
 import { holdsFree, snapBox, snapPoint, snapToEdges } from "./snap.ts";

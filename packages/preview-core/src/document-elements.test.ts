@@ -4,6 +4,7 @@ import {
   type FrameElements,
   guardDocumentElements,
 } from "./document-elements.ts";
+import { writeClasses, writeStyle } from "./frame-host.ts";
 
 /** The frame whose code calls, or null for the editor's: the tests say so instead of a stack. */
 let calling: FrameElements | null = null;
@@ -18,12 +19,14 @@ const asFrame = <T>(elements: FrameElements, f: () => T): T => {
 
 beforeAll(() => guardDocumentElements(() => calling));
 
+/** A frame's elements, as the editor shows them. */
 const frame = (): FrameElements => {
   const host = document.createElement("div");
-  host.className = "absolute editor-placed";
-  host.style.left = "40px";
+  writeClasses(host, "editor", ["absolute", "editor-placed"]);
+  writeStyle(host, "editor", "left: 40px");
   const body = document.createElement("div");
-  body.className = "light";
+  writeClasses(body, "editor", ["light"]);
+  writeStyle(body, "editor", { background: "white" });
   return { body, host };
 };
 
@@ -68,6 +71,25 @@ describe("the page's <html>", () => {
     expect(document.documentElement.style.colorScheme).toBe("");
   });
 
+  it("keeps the page's classes and style when the editor changes its own", () => {
+    const a = frame();
+    asFrame(a, () => {
+      document.documentElement.classList.add("dark");
+      document.documentElement.style.setProperty("color-scheme", "dark");
+    });
+    writeClasses(a.host, "editor", ["relative"]);
+    writeStyle(a.host, "editor", "top: 2px");
+    expect([...a.host.classList].sort()).toEqual(["dark", "relative"]);
+    expect(a.host.style.colorScheme).toBe("dark");
+    expect(a.host.style.left).toBe("");
+    expect(a.host.style.top).toBe("2px");
+    // The page's class that is the editor's too stays the editor's.
+    writeClasses(a.body, "editor", ["dark"]);
+    asFrame(a, () => document.documentElement.classList.remove("dark"));
+    expect(a.host.classList.contains("dark")).toBe(false);
+    expect(a.body.classList.contains("dark")).toBe(true);
+  });
+
   it("is the editor's when the editor writes it", () => {
     document.documentElement.classList.add("editor-dark");
     expect(document.documentElement.classList.contains("editor-dark")).toBe(
@@ -87,5 +109,19 @@ describe("the page's <body>", () => {
     expect(a.body.getAttribute("data-scroll-locked")).toBe("1");
     expect(document.body.style.overflow).toBe("");
     expect(document.body.hasAttribute("data-scroll-locked")).toBe(false);
+  });
+
+  it("is the page's whole style on the frame's body, the editor's left", () => {
+    const a = frame();
+    asFrame(a, () => {
+      document.body.style.overflow = "hidden";
+      document.body.setAttribute("style", "padding-right: 15px");
+    });
+    expect(a.body.style.overflow).toBe("");
+    expect(a.body.style.paddingRight).toBe("15px");
+    expect(a.body.style.background).toBe("white");
+    asFrame(a, () => document.body.removeAttribute("style"));
+    expect(a.body.style.paddingRight).toBe("");
+    expect(a.body.style.background).toBe("white");
   });
 });

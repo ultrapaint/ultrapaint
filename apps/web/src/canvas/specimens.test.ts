@@ -29,7 +29,7 @@ const fakePreview = (picture: string | null) => {
           queueMicrotask(() => options.events.rendered?.(request.renderId));
         },
         screenshot: () => Promise.resolve(picture),
-        setInteractive: () => undefined,
+        show: () => undefined,
         skeleton: () => undefined,
         unmount: () => undefined,
         watchRects: () => undefined,
@@ -52,6 +52,7 @@ beforeEach(() => {
   vi.stubGlobal("document", {
     body: { append: () => undefined },
     createElement: () => ({
+      append: () => undefined,
       dataset: {},
       remove: () => undefined,
       setAttribute: () => undefined,

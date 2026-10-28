@@ -10,13 +10,23 @@
  *   `.dark *` match inside the frame only there;
  * - `<body>` is the frame's body element.
  *
- * The host is the editor's element, placed by its classes and its inline style: the page's code
- * adds and removes its own classes there, never replaces the editor's, and its whole `style`
- * written at once (`style = "…"`, `setAttribute("style")`) is dropped. What it reads is read off
- * the frame's body element, which holds the frame's theme as an application's root does.
+ * Both are written by the editor too, which shows the frame: what the page's code writes is kept
+ * apart from it (`frame-host.ts`), its classes and style properties merged over the editor's, so
+ * the page replaces its own classes and never the editor's, and the editor showing the frame
+ * again keeps the page's. The host is placed by the editor's style: the page's whole `style`
+ * written at once there (`style = "…"`, `setAttribute("style")`) is dropped; on the body it
+ * replaces the page's own. What it reads is read off the frame's body element, which holds the
+ * frame's theme as an application's root does.
  *
  * Patched on the two elements themselves, not their prototypes: no other element pays for it.
  */
+
+import {
+  pageStyleOf,
+  toggleClasses,
+  writeClasses,
+  writeStyle,
+} from "./frame-host.ts";
 
 /** The frame's stand-ins for the document's elements. */
 export interface FrameElements {
@@ -31,48 +41,30 @@ interface Targets {
   readonly read: HTMLElement;
   /** What its `style` is. */
   readonly styled: HTMLElement;
-  /** Whether its whole style may be written at once: not the host's, which places the frame. */
+  /** Whether its whole style may be written at once: not the host's, which the editor places. */
   readonly wholeStyle: boolean;
 }
-
-/** The classes the page's code put on each element: what replacing its classes takes off. */
-const pageClasses = new WeakMap<HTMLElement, Set<string>>();
-const classesOf = (element: HTMLElement) => {
-  let classes = pageClasses.get(element);
-  if (!classes) {
-    classes = new Set();
-    pageClasses.set(element, classes);
-  }
-  return classes;
-};
 
 const SPACE_RE = /\s+/;
 const tokensOf = (value: string) => value.split(SPACE_RE).filter(Boolean);
 
 const addClasses = (elements: readonly HTMLElement[], tokens: string[]) => {
   for (const element of elements) {
-    element.classList.add(...tokens);
-    for (const token of tokens) {
-      classesOf(element).add(token);
-    }
+    toggleClasses(element, "page", tokens, true);
   }
 };
 
 const removeClasses = (elements: readonly HTMLElement[], tokens: string[]) => {
   for (const element of elements) {
-    element.classList.remove(...tokens);
-    for (const token of tokens) {
-      classesOf(element).delete(token);
-    }
+    toggleClasses(element, "page", tokens, false);
   }
 };
 
 /** The page's classes replaced by `value`, the editor's left. */
 const setClasses = (elements: readonly HTMLElement[], value: string) => {
   for (const element of elements) {
-    removeClasses([element], [...classesOf(element)]);
+    writeClasses(element, "page", tokensOf(value));
   }
-  addClasses(elements, tokensOf(value));
 };
 
 /** A `DOMTokenList` over the targets: written to each, read from one. */
@@ -163,6 +155,35 @@ const descriptorOf = (element: object, property: string) => {
   }
 };
 
+/** Whether attribute method `name` leaves `attribute` on `element`: set, or toggled on. */
+const leavesOn = (
+  element: HTMLElement,
+  name: (typeof ATTRIBUTE_METHODS)[number],
+  attribute: string,
+  args: unknown[]
+) =>
+  name === "setAttribute" ||
+  (name === "toggleAttribute" &&
+    Boolean(args[1] ?? !element.hasAttribute(attribute)));
+
+/** `class` or `style` written by an attribute method: the page's own, the editor's left. */
+const writtenOnFrame = (
+  { marked, read, styled, wholeStyle }: Targets,
+  name: (typeof ATTRIBUTE_METHODS)[number],
+  attribute: "class" | "style",
+  args: unknown[]
+) => {
+  const on = leavesOn(read, name, attribute, args);
+  const value = on ? String(args[1] ?? "") : "";
+  if (attribute === "class") {
+    setClasses(marked, value);
+  } else if (wholeStyle && (name === "setAttribute" || !on)) {
+    // On the host, the page's whole style is never written at once.
+    writeStyle(styled, "page", value);
+  }
+  return name === "toggleAttribute" ? on : undefined;
+};
+
 /** An attribute method called by the page's code, on its frame's targets. */
 const attributeOnFrame = (
   targets: Targets,
@@ -170,23 +191,15 @@ const attributeOnFrame = (
   args: unknown[]
 ): unknown => {
   const attribute = String(args[0]).toLowerCase();
-  const { marked, read, styled, wholeStyle } = targets;
+  const { marked, read } = targets;
   if (name === "getAttribute" || name === "hasAttribute") {
     return (read[name] as (...a: unknown[]) => unknown).apply(read, args);
   }
-  if (attribute === "class") {
-    const on =
-      name === "setAttribute" ||
-      (name === "toggleAttribute" && (args[1] ?? !read.hasAttribute("class")));
-    setClasses(marked, on ? String(args[1] ?? "") : "");
-    return name === "toggleAttribute" ? Boolean(on) : undefined;
-  }
-  let onto = marked;
-  if (attribute === "style") {
-    onto = wholeStyle ? [styled] : [];
+  if (attribute === "class" || attribute === "style") {
+    return writtenOnFrame(targets, name, attribute, args);
   }
   let answer: unknown;
-  for (const target of onto) {
+  for (const target of marked) {
     answer = (target[name] as (...a: unknown[]) => unknown).apply(target, args);
   }
   return answer;
@@ -245,11 +258,9 @@ const guardElement = (
   });
   accessors("dataset", { get: datasetOver });
   accessors("style", {
-    get: (targets) => targets.styled.style,
+    get: (targets) => pageStyleOf(targets.styled, targets.wholeStyle),
     set: (targets, value) => {
-      if (targets.wholeStyle) {
-        targets.styled.style.cssText = String(value);
-      }
+      pageStyleOf(targets.styled, targets.wholeStyle).cssText = String(value);
     },
   });
   for (const name of ATTRIBUTE_METHODS) {

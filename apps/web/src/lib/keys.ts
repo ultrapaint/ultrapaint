@@ -19,6 +19,7 @@
  * A chord that differs by platform is written once for each (`{ mac: "ctrl+1", other: "alt+1" }`):
  * on a Mac ⌘1 is the browser's, elsewhere Ctrl+1 never reaches the page.
  */
+import { fromFrame } from "../canvas/from-frame.ts";
 
 const MAC_RE = /Mac|iPhone|iPad|iPod/;
 
@@ -205,19 +206,9 @@ export const overlayOpen = () =>
   ) !== null;
 
 /**
- * The event comes from inside a frame of the canvas, drawn in the editor's page (ADR 0034): a
- * page in the prototype, a text being edited in place. It is the page's, as it was when a frame
- * was an iframe whose events never reached the editor.
+ * The event is aimed at a field that takes keys of its own: text, a select, an editable node, or
+ * a page in a frame (`fromFrame`).
  */
-export const fromFrame = (e: Event) =>
-  e
-    .composedPath?.()
-    .some(
-      (node) =>
-        node instanceof Element && node.hasAttribute("data-ed-frame-host")
-    ) ?? false;
-
-/** The event is aimed at a field that takes keys of its own: text, a select, an editable node. */
 export const isTyping = (e: Event) => {
   if (fromFrame(e)) {
     return true;

@@ -117,8 +117,19 @@ export const turnFrame = (): Frame | null => carried ?? asked;
 export const relayedFrame = (): Frame | null => relayed;
 
 /** The frame `host` holds, when it is one. */
-export const frameOfHost = (host: unknown): Frame | undefined =>
+const frameOfHost = (host: unknown): Frame | undefined =>
   frames.get(host as HTMLElement);
+
+/** The frame an event comes from: the host of a mounted frame on its path, or null. */
+export const frameOfEvent = (event: Event): Frame | null => {
+  for (const node of event.composedPath()) {
+    const frame = frameOfHost(node);
+    if (frame) {
+      return frame;
+    }
+  }
+  return null;
+};
 
 /** The only frame mounted, when there is exactly one. */
 export const onlyFrame = (): Frame | undefined =>

@@ -97,8 +97,13 @@ review found.
   **kernel** installs every guard in one order.
 - **Page runtime**: the globals the server's generated code calls in the page
   (contracts' `page-runtime`).
-- **Editor frame**: a frame as the editor opens it, with its host, the pool that parks it and
-  the watchdog's freeze check (`editor-frame`).
+- **Editor frame**: a frame as the editor opens it, with the holder its host goes in, the pool
+  that parks it and the watchdog's freeze check (`editor-frame`).
+- **A frame's host**: the element a frame's shadow root is on, the page's `<html>`; the editor
+  places it, the core writes it (`frame-host`). The editor says how the frame is **shown** (class,
+  style, title, input, away) and the page's code writes its own classes and style properties
+  there, each kept apart, neither taking the other's off. An event is **from a frame** when a
+  host the core drew is on its path.
 
 ## Editor and shell
 

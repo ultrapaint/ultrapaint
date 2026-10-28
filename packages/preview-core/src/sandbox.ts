@@ -44,7 +44,7 @@ import {
   carriedFrame,
   type Frame,
   type FrameError,
-  frameOfHost,
+  frameOfEvent,
   onlyFrame,
   relayedFrame,
   relaying,
@@ -175,17 +175,6 @@ const captureOf = (options?: AddEventListenerOptions | boolean) =>
 const keyOf = (target: EventTarget, type: string, capture: boolean) =>
   `${target === window ? "w" : "d"}:${type}:${capture ? 1 : 0}`;
 
-/** The frame an event comes from: the frame host on its path. */
-const frameOf = (event: Event): Frame | null => {
-  for (const node of event.composedPath()) {
-    const frame = frameOfHost(node);
-    if (frame) {
-      return frame;
-    }
-  }
-  return null;
-};
-
 /** Tells `frame`'s window listeners of `type`, as the window would have. */
 const relay = (frame: Frame, type: string) => {
   const event = new Event(type);
@@ -265,7 +254,7 @@ const guardInput = (
     native.remove(type, guarded, capture);
   };
   const guarded = function (this: unknown, event: Event) {
-    const frame = frameOf(event);
+    const frame = frameOfEvent(event);
     if (!frame || (owner !== null && owner !== frame)) {
       return;
     }
