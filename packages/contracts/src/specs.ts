@@ -17,6 +17,7 @@ import {
 // biome-ignore lint/performance/noBarrelFile: the names live apart so the preview loads no schema; the specs' users find them here too.
 export {
   DRAFT_FROM,
+  PRIMITIVES_FROM,
   ROOT_SLOT,
   SPEC_EXTENSION,
   SPEC_STATES,

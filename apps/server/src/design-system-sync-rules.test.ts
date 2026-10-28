@@ -130,31 +130,14 @@ describe("drift between the design system and the code", () => {
 });
 
 describe("the plan", () => {
-  it("asks for the settings first when no component is found", () => {
+  it("asks for nothing about components: the canvas draws the editor's primitives", () => {
     const steps = planOf({
       drift: emptyDrift,
       facts: { ...facts, components: 0, libraryDirs: [] },
       figmaSynced: false,
       setup: emptySetup(0),
     });
-    expect(steps[0]).toMatchObject({ kind: "settings", state: "attention" });
-    expect(steps[0]?.detail).toContain("no component directory is set");
-  });
-
-  it("takes an empty component directory for a project with no components yet", () => {
-    const plan = (librarySources: number) =>
-      planOf({
-        drift: emptyDrift,
-        facts: { ...facts, components: 0, librarySources, tokens: 0 },
-        figmaSynced: false,
-        setup: emptySetup(0),
-      });
-    // A blank new design: its directory is there, with nothing in it yet.
-    expect(plan(0)[0]).toMatchObject({ kind: "inventory" });
-    // Files the editor reads no component from: the setting may point at the wrong place.
-    expect(plan(3)[0]?.detail).toContain(
-      "front/src/components has no components the editor can read"
-    );
+    expect(steps.map((s) => s.kind)).not.toContain("settings");
   });
 
   it("goes through the setup for code, Figma's tokens first when there is a file", () => {

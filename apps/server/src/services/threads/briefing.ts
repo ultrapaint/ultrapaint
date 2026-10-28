@@ -21,6 +21,7 @@ import { writesGit } from "@ultrapaint/contracts/settings";
 import {
   type ComponentSpec,
   DRAFT_FROM,
+  PRIMITIVES_FROM,
   SPECS_DIR,
 } from "@ultrapaint/contracts/specs";
 import type { ThreadPurpose } from "@ultrapaint/contracts/threads";
@@ -67,11 +68,21 @@ and stashes are the user's${writes ? ", made from the editor" : ""}.`
 /** Enough of the components to choose from; the agent reads the rest when it needs to. */
 const COMPONENT_LIMIT = 60;
 
+/** A primitive as the agent picks one: its variants, and the slots its children can fill. */
 const componentLine = (component: ComponentMeta) => {
   const variants = Object.entries(component.variants)
     .map(([name, members]) => `${name}: ${members.join("|")}`)
     .join(", ");
-  return `- ${component.name} (${component.importFrom})${variants ? ` — ${variants}` : ""}`;
+  const slots = (component.slots ?? [])
+    .filter((slot) => slot.holds !== undefined)
+    .map((slot) =>
+      slot.holds === "default" ? `${slot.name} (default)` : slot.name
+    )
+    .join(", ");
+  const about = [variants, slots && `slots: ${slots}`]
+    .filter(Boolean)
+    .join("; ");
+  return `- ${component.name}${about ? ` — ${about}` : ""}`;
 };
 
 /** Enough of the tokens to design with; the agent reads the rest from the design system. */
@@ -224,7 +235,7 @@ export class ProjectBriefing extends Context.Service<
 
         return `<ultrapaint>
 You are working in ultrapaint, a design tool. The user sees the designs you change, live, on
-its canvas, drawn with this repository's own design system.
+its canvas, drawn with ultrapaint's own primitives in this design system's tokens and looks.
 ${roleOf(purpose, settings.designsDir, ways)}
 
 Designs live in ${settings.designsDir}, in canvases: a directory with a canvas.json is a canvas
@@ -246,8 +257,11 @@ variant. It holds a tree of nodes, each with an id:
   design system (its size, weight and line height as one thing: prefer this) or its own size,
   weight, lineHeight, font, tracking; and color, align.
 - image: src (assets/<file>: the canvas's own assets/ when it has that file, the shared assets/ at the root of the designs directory otherwise; or a URL), alt, fit.
-- instance: a component of the design system — component (export name), from (module), props,
-  and text or children.
+- instance: one of ultrapaint's primitives (listed below) — component (its name), from
+  "${PRIMITIVES_FROM}", props, and text or children. A child names the slot of its primitive it
+  fills ("slot": "dialog-footer"); the rest fill the default slot. An overlay (Select, Menu,
+  Popover, Tooltip, Dialog, Toast) is drawn open where its props say "open": true; its trigger
+  is a slot or its children.
 Every node may have width/height ("fill", "hug" or pixels), min/max sizes, padding, margin, fill
 (background), border, radius, shadow, opacity, hidden, locked (only the editor reads it: the
 user locked it against stray clicks; leave it), and link: where the prototype goes when
@@ -278,9 +292,9 @@ ${
 }${craft}${conventions}
 ${
   components.length > 0
-    ? `Components you can place${more > 0 ? ` (${more} more in ${settings.libraryDirs.join(", ")})` : ""}:
+    ? `Primitives you can place${more > 0 ? ` (${more} more: list them with the tools)` : ""}:
 ${components.map(componentLine).join("\n")}`
-    : `Components live in ${settings.libraryDirs.join(", ") || "this repository"}.`
+    : ""
 }
 
 ${ways.changingDesigns}
@@ -288,8 +302,7 @@ ${ways.changingDesigns}
 ${specsOf(specs)}Your shell already starts in ${paths.root}, the repository: use paths relative to it, and
 stay inside it. Changes land on the canvas as you make them, so make them one
 step at a time rather than rewriting a page wholesale. ultrapaint.config.json is the user's:
-never write it; when components or styles are missing, send the user to Sync in the Design
-system panel.${dotGitNote(sandbox.available, gitRepository, writesGit(settings))}
+never write it; when styles are missing, send the user to Sync in the Design system panel.${dotGitNote(sandbox.available, gitRepository, writesGit(settings))}
 </ultrapaint>`;
       });
 

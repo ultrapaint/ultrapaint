@@ -1,6 +1,6 @@
 /**
  * The tools of the design system and the components: the design system as recorded, read from
- * the stylesheets or written, and the repository's components with an instance to start from.
+ * the stylesheets or written, and the editor's primitives with an instance to start from.
  */
 import { Json } from "@ultrapaint/contracts/base";
 import type { DesignFinding } from "@ultrapaint/contracts/design-system";
@@ -76,7 +76,7 @@ export const WriteDesignSystem = Tool.make("write_design_system", {
 
 export const ListComponents = Tool.make("list_components", {
   description:
-    "The repository's components, with their import and variants; match narrows the list. Prefer them to plain HTML.",
+    "ultrapaint's primitives, their variants and slots; match narrows the list. Prefer them to plain HTML.",
   failure: Failure,
   parameters: Schema.Struct({
     /** Narrows the list; leave empty for all of them. */
@@ -87,7 +87,7 @@ export const ListComponents = Tool.make("list_components", {
 
 export const GetComponent = Tool.make("get_component", {
   description:
-    "One component in full: its import, every prop with its type, its variants, and an instance node to start from.",
+    "One primitive in full: every prop with its type, its variants, its slots and an instance node to start from.",
   failure: Failure,
   parameters: Schema.Struct({ name: Schema.String }),
   success: Schema.Struct({

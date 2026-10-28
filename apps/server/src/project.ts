@@ -397,13 +397,6 @@ export class ProjectManager extends Context.Service<
                   "info",
                   `opened ${repo} with detected settings; save them to keep them`
                 );
-                if (adopted.libraryDirs.length === 0) {
-                  yield* log.log(
-                    "server",
-                    "warn",
-                    "no components were found: Sync in the Design system panel asks where they are"
-                  );
-                }
                 yield* putInForce(adopted, "detected settings");
               })
             );

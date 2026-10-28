@@ -10,6 +10,7 @@ import { specTarget } from "@ultrapaint/contracts/implementation";
 import type { Page } from "@ultrapaint/contracts/pages";
 import {
   type ComponentSpec,
+  PRIMITIVES_FROM,
   SPEC_EXTENSION,
   SPECS_DIR,
 } from "@ultrapaint/contracts/specs";
@@ -94,6 +95,31 @@ const pagesOf = (
     }
   }
   return { picked, unknown };
+};
+
+/** What a spec's implementation is: a draft to create, a primitive's look, or a component's. */
+const specIntro = (
+  spec: ComponentSpec,
+  notes: readonly Note[],
+  file: string | undefined,
+  libraryDirs: readonly string[]
+) => {
+  const specFile = `${SPECS_DIR}/${spec.component}${SPEC_EXTENSION}`;
+  const asked = notes.length > 0;
+  if (spec.draft) {
+    return `Implement ${spec.component}, a draft component of the design (${specFile}): the code does not have it
+yet. Create it in the components directory (${libraryDirs.join(", ") || "where the application keeps its components"}), from the draft's
+tree, with a prop for what varies, in the shape the other components have.`;
+  }
+  if (spec.from === PRIMITIVES_FROM) {
+    return `Implement the look of the ${spec.component} primitive as its spec says (${specFile}), on the
+application's own ${spec.component}: find the component the application uses for it, whatever library it is
+written with (Base UI, Radix, shadcn, MUI…), and give each of its parts the look of the matching slot,
+in each variant and state, as closely as the library allows. Where the application has none, create
+it, on Base UI when the application has no library of its own. Its behaviour stays the library's${asked ? ", with what its behaviour notes ask" : ""}.`;
+  }
+  return `Implement the look of ${spec.component} as its spec says (${specFile}), in its code${file ? ` (${file})` : ""}.
+Its behaviour stays as it is: only its classes change${asked ? ", and what its behaviour notes ask" : ""}.`;
 };
 
 /** The components a tree uses, by name. */
@@ -192,10 +218,9 @@ const sheetSteps = (ways: AgentWays, canvas: string, designsDir: string) => {
 
 export const makePageTasks = Effect.fnUntraced(function* (deps: {
   /** What a task says first when the editor sees no components. */
-  readonly componentsMissing: Effect.Effect<string>;
   readonly ways: AgentWays;
 }) {
-  const { componentsMissing, ways } = deps;
+  const { ways } = deps;
   const project = yield* ProjectManager;
 
   /**
@@ -398,8 +423,11 @@ ${numbered([
   `Find where the application's pages live and how its routes are declared${before.startsWith("It was") ? ", starting from the files that implement it" : ""}. If it is not clear
    where this page belongs, ask the user before writing anything.`,
   tokens.step,
-  `Write the page with the design system's components and the application's existing layouts;
-   do not copy the design node by node where a component already does the job.`,
+  `Write the page with the application's own components and existing layouts; do not copy the
+   design node by node where a component already does the job. Each instance is one of
+   ultrapaint's primitives (from "${PRIMITIVES_FROM}"): write it as the application's own component
+   for it, its slots as that component's parts (a Dialog's "dialog-footer" is its footer), and
+   where the application has none, write one in its component library's way.`,
   `Implement each behaviour note with the application's own services, guards and data; ask the
    user where one is unclear rather than inventing it.`,
   "Run the repository's type check and linter on what you changed.",
@@ -426,12 +454,12 @@ ${userAdds(extra)}</ultrapaint-task>`;
       (c) => c.name === spec.component && c.importFrom === spec.from
     );
     const paths = yield* RepoPaths;
-    const intro = spec.draft
-      ? `Implement ${spec.component}, a draft component of the design (${SPECS_DIR}/${spec.component}${SPEC_EXTENSION}): the code does not have it
-yet. Create it in the components directory (${paths.settings.libraryDirs.join(", ") || "where the application keeps its components"}), from the draft's
-tree, with a prop for what varies, in the shape the other components have.`
-      : `Implement the look of ${spec.component} as its spec says (${SPECS_DIR}/${spec.component}${SPEC_EXTENSION}), in its code${meta ? ` (${meta.file})` : ""}.
-Its behaviour stays as it is: only its classes change${notes.length > 0 ? ", and what its behaviour notes ask" : ""}.`;
+    const intro = specIntro(
+      spec,
+      notes,
+      meta?.file,
+      paths.settings.libraryDirs
+    );
     return `<ultrapaint-task command="implement">
 ${intro}
 
@@ -499,18 +527,17 @@ ${userAdds(extra)}</ultrapaint-task>`;
               }${
                 c.candidates.length > 0
                   ? `; might be ${c.candidates.map((k) => k.name).join(" or ")}`
-                  : "; no component of a similar name here"
+                  : "; no primitive of a similar name"
               }`
           );
-        const missing = yield* componentsMissing;
         return `<ultrapaint-task command="import-figma">
-${missing}Turn the Figma file "${chosen.name}" (import ${chosen.id}) into pages of this project, drawn with this
-repository's own components where it has them.
+Turn the Figma file "${chosen.name}" (import ${chosen.id}) into pages of this project, drawn with
+ultrapaint's primitives where they fit.
 
 Through the ultrapaint MCP server: ${tools.read_figma_import} (the file: frames, components, candidates, the
 mapping so far), ${tools.read_figma_component} and ${tools.read_figma_frame} (one of them, with an outline of its layers),
 ${tools.map_figma_component} (what a Figma component becomes), ${tools.write_figma_frame} (a frame as a page), ${tools.ask_user}
-(a question card for the user), ${tools.list_components} and ${tools.get_component} (this repository's components).
+(a question card for the user), ${tools.list_components} and ${tools.get_component} (ultrapaint's primitives).
 
 The file has ${frames.length} frame${frames.length === 1 ? "" : "s"}: ${frames.join(", ") || "none"}.
 Its components, most used first:
@@ -522,10 +549,10 @@ ${
     : `There is no design system yet; components come from ${tools.list_components}. Afterwards, point the user to Sync in the Design system panel, which makes one.`
 }
 
-1. Read the import (${tools.read_figma_import}) and the repository's components (${tools.list_components}). For each Figma
+1. Read the import (${tools.read_figma_import}) and the primitives (${tools.list_components}). For each Figma
    component, most used first, decide what it becomes:
-   - It is one of this repository's components when the name and the variants say so (a Button with
- Size and Type variants is the repository's Button). Read the repository component with
+   - It is one of the primitives when the name and the variants say so (a Button with
+ Size and Type variants is the Button primitive). Read the primitive with
  ${tools.get_component} for its props, then map it with ${tools.map_figma_component}: the variants and text
  properties to its props (propMap), constants to props, the label to text.
    - It is custom when nothing here does the job: map it as {kind:"expand"} and its layers are kept.
