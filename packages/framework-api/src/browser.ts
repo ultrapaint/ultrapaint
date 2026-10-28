@@ -245,7 +245,10 @@ export interface Preview {
    * rejection without its `async` function's mark, with more than one frame drawn.
    */
   readonly onStrayError: (listener: (error: PageError) => void) => () => void;
-  /** A dev server error, reported to every frame as the dev server's. */
+  /**
+   * A dev server error, reported to every frame as the dev server's, and to every frame mounted
+   * until the next update (`notifyHmr`).
+   */
   readonly reportError: (
     error: Pick<PageError, "file" | "line" | "message">
   ) => void;

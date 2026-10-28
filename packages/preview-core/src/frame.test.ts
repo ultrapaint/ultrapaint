@@ -18,6 +18,8 @@ afterEach(() => {
   for (const remove of added.splice(0)) {
     remove();
   }
+  // A dev-server error a test left is gone with the next update.
+  preview.notifyHmr();
   document.body.replaceChildren();
 });
 
@@ -272,5 +274,32 @@ describe("a frame's error", () => {
       message: "Unexpected",
       source: "dev-server",
     });
+  });
+
+  it("is the dev server's for a frame mounted after it, until the next update", () => {
+    const mountWith = (error: () => void) => {
+      const host = document.createElement("div");
+      document.body.append(host);
+      opened.push(
+        preview.mountFrame(host, {
+          canvas: "canvas",
+          events: { error },
+          frame: "b",
+        })
+      );
+    };
+    preview.reportError({ file: "/src/a.tsx", line: 2, message: "Unexpected" });
+    const before = vi.fn();
+    mountWith(before);
+    expect(before).toHaveBeenCalledExactlyOnceWith({
+      file: "/src/a.tsx",
+      line: 2,
+      message: "Unexpected",
+      source: "dev-server",
+    });
+    preview.notifyHmr();
+    const after = vi.fn();
+    mountWith(after);
+    expect(after).not.toHaveBeenCalled();
   });
 });
