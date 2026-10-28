@@ -8,6 +8,7 @@ import {
   frameBottom,
   frameRight,
   placeFrame,
+  placeFrameAt,
   placeView,
   sizeFrame,
   viewIdFor,
@@ -124,6 +125,55 @@ describe("placeFrame", () => {
         }
       }
     }
+  });
+});
+
+describe("placeFrameAt", () => {
+  const home = frame(0, 0, 1440, 900, [view("w390", 1520, 0)]);
+  // Where a copy of Home goes beside it: a gap past its view.
+  const beside = 1520 + 390 + FRAME_GAP;
+
+  it.each([
+    ["nothing", { home }, beside],
+    [
+      "a page further down",
+      { home, low: frame(beside, 900 + FRAME_GAP) },
+      beside,
+    ],
+    [
+      "a page there",
+      { home, pricing: frame(beside, 0) },
+      beside + 1440 + FRAME_GAP,
+    ],
+    [
+      "a page closer than the gap",
+      { home, pricing: frame(beside + 1440 + FRAME_GAP - 1, 0, 400) },
+      beside + 1440 + FRAME_GAP - 1 + 400 + FRAME_GAP,
+    ],
+    [
+      "another page's view",
+      {
+        home,
+        low: frame(0, 2000, 1440, 900, [view("w390", beside, -1500)]),
+      },
+      beside + 390 + FRAME_GAP,
+    ],
+    [
+      "a page where the frame's own view would be",
+      { home, phone: frame(beside + 1520, 0, 390, 844) },
+      beside + 1520 + 390 + FRAME_GAP,
+    ],
+  ])("beside a page, with %s there", (_, frames, x) => {
+    expect(placeFrameAt(frames, { ...home, x: beside })).toEqual({
+      ...home,
+      x,
+      y: 0,
+    });
+  });
+
+  it("keeps the spot asked for when nothing is in its way", () => {
+    const spot = { ...frame(0, 900 + FRAME_GAP), preset: "desktop" as const };
+    expect(placeFrameAt({ home }, spot)).toBe(spot);
   });
 });
 

@@ -7,6 +7,7 @@
 import {
   drawnFrame,
   type FrameSize,
+  familyOf,
   sizeFrame,
 } from "@ultrapaint/contracts/canvas-layout";
 import { BadRequest, Conflict, NotFound } from "@ultrapaint/contracts/errors";
@@ -21,11 +22,7 @@ import {
 } from "@ultrapaint/contracts/pages";
 import { ROOT_CANVAS } from "@ultrapaint/shared/canvas";
 import { slugOf } from "@ultrapaint/shared/path";
-import {
-  basePathOf,
-  matchRoute,
-  normaliseRoute,
-} from "@ultrapaint/shared/route";
+import { matchRoute, normaliseRoute } from "@ultrapaint/shared/route";
 import { Effect } from "effect";
 import { COMMENTS_FILE, type CommentsService } from "./comments.ts";
 import type { EditTransaction } from "./edit.ts";
@@ -328,15 +325,13 @@ export const makeCanvasOperations = (
       });
     }
     // A base page's variants and states are drawings of it, and go wherever it goes.
-    const bases = new Set(
+    const families = new Set(
       picked
         .filter((p) => p.variant === undefined && p.state === undefined)
-        .map((p) => p.path)
+        .flatMap((p) => familyOf(all.pages, p))
     );
     const chosen = all.pages.filter(
-      (p) =>
-        p.canvas === from &&
-        (ids.includes(p.id) || bases.has(basePathOf(p.path)))
+      (p) => ids.includes(p.id) || families.has(p)
     );
     const creating = "name" in target;
     const targetName = creating

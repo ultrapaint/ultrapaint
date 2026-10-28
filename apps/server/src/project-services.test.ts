@@ -224,6 +224,83 @@ describe("a project in-process", () => {
     );
   });
 
+  const PRICING = JSON.stringify(renderTemplate("blank", "Pricing"));
+  // Home, its view, and Pricing a gap past it: where a copy of Home beside it would go.
+  const HOME_THEN_PRICING: CanvasLayout = {
+    ...HOME_WITH_A_VIEW,
+    frames: {
+      ...HOME_WITH_A_VIEW.frames,
+      "pricing.page.json": {
+        height: 900,
+        preset: "desktop",
+        width: 1440,
+        x: 1520 + 390 + 80,
+        y: 0,
+      },
+    },
+  };
+  layer(
+    ProjectTest({
+      files: {
+        "designs/canvas.json": JSON.stringify(HOME_THEN_PRICING),
+        "designs/pricing.page.json": PRICING,
+      },
+    }),
+    { excludeTestServices: true }
+  )((it) => {
+    it.effect(
+      "puts a copy beside its page when that is free, else past every page",
+      () =>
+        Effect.gen(function* () {
+          const copy = yield* pages((p) => p.duplicate("pricing.page.json"));
+          const crowded = yield* pages((p) => p.duplicate("home.page.json"));
+          const frames = yield* framesNow;
+          // Nothing past Pricing: its copy goes beside it.
+          assert.deepStrictEqual(frames[copy.path], {
+            ...HOME_THEN_PRICING.frames["pricing.page.json"],
+            x: 1990 + 1440 + 80,
+          });
+          // Pricing is beside Home: Home's copy, with its view, goes past Pricing's copy.
+          assert.deepStrictEqual(frames[crowded.path], {
+            ...HOME_WITH_A_VIEW.frames["home.page.json"],
+            x: 3510 + 1440 + 80,
+          });
+        })
+    );
+  });
+
+  layer(
+    ProjectTest({
+      files: {
+        // Pricing a little lower than Home: on no row of Home's, but beside it.
+        "designs/canvas.json": JSON.stringify({
+          ...HOME_THEN_PRICING,
+          frames: {
+            ...HOME_THEN_PRICING.frames,
+            "pricing.page.json": {
+              ...HOME_THEN_PRICING.frames["pricing.page.json"],
+              y: 40,
+            },
+          },
+        }),
+        "designs/pricing.page.json": PRICING,
+      },
+    }),
+    { excludeTestServices: true }
+  )((it) => {
+    it.effect("puts a state past every page when its row's end is taken", () =>
+      Effect.gen(function* () {
+        const state = yield* pages((p) =>
+          p.createState("home.page.json", "open")
+        );
+        assert.deepStrictEqual((yield* framesNow)[state.path], {
+          ...HOME_WITH_A_VIEW.frames["home.page.json"],
+          x: 1990 + 1440 + 80,
+        });
+      })
+    );
+  });
+
   const DEFAULTS = { fill: "$color-background", theme: "dark" };
   layer(
     ProjectTest({

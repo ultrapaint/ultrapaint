@@ -40,8 +40,9 @@ half-done theirs.
   falls in, a node on the canvas's its own fixed width (the web's `frameBreakpoint`). A page's **family** is its base page with its
   variants and states, which are named after it and move and go with it (`familyOf`).
 - **Canvas layout**: where frames go on a canvas, with one gap (contracts' `canvas-layout`): a
-  new frame past every frame and its views, a page the layout does not place yet where the
-  editor draws it, a new view beside its page and the view's name.
+  new frame past every frame and its views, a copy, variant or state beside its page when nothing
+  is there, a page the layout does not place yet where the editor draws it, a new view beside its
+  page and the view's name.
 - **Snapshot**: a named point in the designs' history (ADR 0019), a ref of the `designs`
   namespace in the tool's **snapshot store**.
 
