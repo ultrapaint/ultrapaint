@@ -7,9 +7,8 @@
  * The order, and why:
  *
  * 1. The page runtime the generated code calls: the styles and the reload Vite's client asks
- *    (`installHooks`: the generated entry has put them in place already, before the first
- *    stylesheet loaded, `framework-react-vite/preview-files.ts`; again is a no-op), and the guard
- *    the repository's modules call (`answerGuard`).
+ *    (`installHooks`, which the start-up has put in place already, `editor.ts`; again is a
+ *    no-op), and the guard the repository's modules call (`answerGuard`).
  * 2. What nothing caught (`reportUncaught`): listened to with the window's own
  *    `addEventListener`, before that is guarded, so the kernel's own listeners never pass a guard.
  * 3. The window's and the document's listeners, the window's `on*` handlers, its scroll and its
@@ -27,13 +26,8 @@
  * step needs another before it but 2. The order is fixed so that it is read in one place and runs
  * the same every time. Nothing installs itself on first use any more; only css-in-js's holder (an
  * element, not a patch) is made with the first style held, so a page that writes none adds
- * nothing to the editor's document.
- *
- * What does matter is when `install` runs: `createPreview` calls it once the generated entry's
- * imports have run, the repository's modules and Vite's client among them, so their first
- * top-level code runs before the guards, as it always did (Vite's client is served under the
- * base too, and its own listeners and socket are not the page's); a module the dev server
- * replaces runs under them.
+ * nothing to the editor's document. When `install` runs, through `createPreview`, is the
+ * start-up's (`editor.ts`).
  */
 
 import { watchHeldStyles } from "./css-in-js.ts";

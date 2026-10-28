@@ -43,7 +43,7 @@ import {
   splitPlugins,
   TAILWIND_PLUGIN_RE,
 } from "./inherit-plugins.ts";
-import { COMPONENTS_FILE, EDITOR_FILE } from "./preview-files.ts";
+import { COMPONENTS_FILE, EDITOR_FILE, SETUP_FILE } from "./preview-files.ts";
 import { proxyUnder } from "./proxy.ts";
 import { PUBLIC_FILES_ID, prefixPublicUrls } from "./public-urls.ts";
 import { ultrapaintResolve } from "./resolve-plugin.ts";
@@ -489,6 +489,7 @@ export const serveConfig = async ({
       warmup: {
         clientFiles: [
           path.join(options.dir, EDITOR_FILE),
+          path.join(options.dir, SETUP_FILE),
           path.join(options.dir, COMPONENTS_FILE),
         ],
       },

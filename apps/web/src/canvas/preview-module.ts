@@ -3,19 +3,14 @@
  * preview's server generates, imported once from the editor's origin, which forwards
  * `/preview/` to it. Every frame of the canvas draws with what it returns.
  */
-import type { Preview } from "@ultrapaint/framework-api/browser";
+import type { EditorEntry, Preview } from "@ultrapaint/framework-api/browser";
 import { useEffect, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { useProject } from "../state/project.ts";
 import { previewLoaded } from "./from-frame.ts";
 import { readFrozen, watchPreview } from "./watchdog.ts";
 
-interface PreviewModule {
-  readonly onReloadRequest: (listener: () => void) => () => void;
-  readonly preview: Preview;
-}
-
-let loading: { entry: string; module: Promise<PreviewModule> } | null = null;
+let loading: { entry: string; module: Promise<EditorEntry> } | null = null;
 let loaded: { entry: string; preview: Preview } | null = null;
 const listeners = new Set<() => void>();
 
@@ -30,7 +25,7 @@ const load = (entry: string) => {
   }
   // The frames that froze the editor before are known before anything is drawn.
   const module = Promise.all([
-    import(/* @vite-ignore */ entry) as Promise<PreviewModule>,
+    import(/* @vite-ignore */ entry) as Promise<EditorEntry>,
     readFrozen(useProject.getState().info.repoPath ?? ""),
   ]).then(([m]) => m);
   loading = { entry, module };

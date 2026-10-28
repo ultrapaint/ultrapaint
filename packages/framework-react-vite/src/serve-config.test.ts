@@ -8,10 +8,17 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { defaultSettings } from "@ultrapaint/contracts/settings";
 import type { ViteDevServer } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { PreviewBundles } from "./build.ts";
 import { GUARD_ID, GUARD_MODULE } from "./guard-code.ts";
-import { COMPONENTS_FILE, EDITOR_FILE } from "./preview-files.ts";
+import {
+  COMPONENTS_FILE,
+  EDITOR_FILE,
+  previewFiles,
+  SETUP_FILE,
+} from "./preview-files.ts";
 import { PUBLIC_FILES_ID } from "./public-urls.ts";
 import {
   anchorModules,
@@ -32,8 +39,12 @@ const NUMBERED_LOOP_RE = /__edLoop\([1-9]/;
 const REACT_DEP_RE =
   /"\/preview(\/@fs\/[^"]*\/\.vite\/deps\/react\.js\?v=\w+)"/;
 
+/** A module of the generated directory's that is not the entry's. */
+const LOOP_FILE = "loop.ts";
+
 let server: ViteDevServer;
 let generated: string;
+let bundles: PreviewBundles;
 const logged: string[] = [];
 
 /** A module as the preview's server sends it, by its URL under the root. */
@@ -47,15 +58,38 @@ beforeAll(async () => {
   const bundleDir = path.join(tmp, "bundles");
   mkdirSync(generated);
   mkdirSync(bundleDir);
+  const designsDir = path.join(anchor, "designs");
+  bundles = {
+    dir: bundleDir,
+    editor: path.join(bundleDir, "editor.js"),
+    serve: path.join(bundleDir, "serve.mjs"),
+  };
   writeFileSync(
-    path.join(generated, EDITOR_FILE),
+    bundles.editor,
+    "export const startPreview = async () => ({});\n"
+  );
+  const files = previewFiles(
+    {
+      anchorDir: anchor,
+      base: BASE,
+      components: [],
+      designsDir,
+      dir: generated,
+      root: anchor,
+      settings: defaultSettings(anchor),
+      styles: [],
+    },
+    bundles,
+    false
+  );
+  for (const [file, text] of Object.entries(files)) {
+    writeFileSync(path.join(generated, file), text);
+  }
+  // A module of the editor's own with a loop, which no guard should touch.
+  writeFileSync(
+    path.join(generated, LOOP_FILE),
     "export const editor = async () => { for (;;) break; };\n"
   );
-  writeFileSync(
-    path.join(generated, COMPONENTS_FILE),
-    "export const components = {};\n"
-  );
-  const designsDir = path.join(anchor, "designs");
   const options = realOptions({
     anchorDir: anchor,
     base: BASE,
@@ -162,10 +196,26 @@ describe("the preview server's config", () => {
   });
 
   it("leaves the generated modules alone", async () => {
-    const code = await served(`/@fs${path.join(generated, EDITOR_FILE)}`);
+    const code = await served(`/@fs${path.join(generated, LOOP_FILE)}`);
     expect(code).toContain("for (;;) break;");
     expect(code).not.toContain("__edLoop");
     expect(code).not.toContain("__edModuleEnds");
+  });
+
+  it("serves the editor entry: the bundle, then its setup, with the dev server's events", async () => {
+    const entry = await served(`/@fs${path.join(generated, EDITOR_FILE)}`);
+    expect(entry).toContain(`from "${BASE}@fs${bundles.editor}"`);
+    expect(entry).toContain(
+      `import("${BASE}@fs${path.join(generated, SETUP_FILE)}")`
+    );
+    expect(entry).toContain("import.meta.hot = __vite__createHotContext(");
+    expect(entry).not.toContain("__edModuleEnds");
+    const setup = await served(`/@fs${path.join(generated, SETUP_FILE)}`);
+    expect(setup).toContain(`"${BASE}@fs${path.join(generated, "host.css")}"`);
+    expect(setup).toContain(
+      `"${BASE}@fs${path.join(generated, COMPONENTS_FILE)}"`
+    );
+    expect(setup).toContain(`"${BASE}@id/__x00__${PUBLIC_FILES_ID}"`);
   });
 
   it("patches Vite's client for the editor's page", async () => {

@@ -97,6 +97,11 @@ review found.
   **kernel** installs every guard in one order.
 - **Page runtime**: the globals the server's generated code calls in the page
   (contracts' `page-runtime`).
+- **Editor entry**: the module the preview's server generates for the editor's page to import,
+  exporting the preview (framework-api's `EditorEntry`). The **editor bundle** is preview-core's
+  start-up given the framework's renderer (`EditorBundle`): `startPreview` puts the page runtime
+  in place, runs the page's modules, then creates the preview and hears the dev server, in that
+  order.
 - **Editor frame**: a frame as the editor opens it, with the holder its host goes in, the pool
   that parks it and the watchdog's freeze check (`editor-frame`).
 - **A frame's host**: the element a frame's shadow root is on, the page's `<html>`; the editor
