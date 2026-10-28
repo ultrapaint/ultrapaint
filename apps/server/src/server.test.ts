@@ -2,6 +2,7 @@ import { request } from "node:http";
 import path from "node:path";
 import { assert, layer } from "@effect/vitest";
 import type { DesignNode } from "@ultrapaint/contracts/document";
+import { slashCommands } from "@ultrapaint/contracts/tasks";
 import { Effect, FileSystem, Stream } from "effect";
 import {
   nextEvent,
@@ -849,20 +850,26 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
       })
     );
 
-    it.effect("offers the commands a prompt may start with", () =>
-      Effect.gen(function* () {
-        const { client } = yield* TestEnv;
-        const names = (yield* client["commands.list"]()).map((c) => c.name);
-        assert.deepStrictEqual(names, [
-          "init",
-          "implement",
-          "import-figma",
-          "redraw",
-          "components",
-          "design-system",
-          "sync",
-        ]);
-      })
+    it.effect(
+      "offers the commands a prompt may start with, as contracts declares them",
+      () =>
+        Effect.gen(function* () {
+          const { client } = yield* TestEnv;
+          const offered = yield* client["commands.list"]();
+          assert.deepStrictEqual(offered, slashCommands);
+          assert.deepStrictEqual(
+            offered.map((c) => c.name),
+            [
+              "init",
+              "implement",
+              "import-figma",
+              "redraw",
+              "components",
+              "design-system",
+              "sync",
+            ]
+          );
+        })
     );
 
     it.effect(

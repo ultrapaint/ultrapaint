@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  commandNameOf,
   commandOf,
   parseCommand,
+  slashCommands,
   type TaskRequest,
   taskPurpose,
 } from "./tasks.ts";
@@ -108,35 +110,72 @@ describe("parseCommand", () => {
   });
 });
 
-describe("commandOf", () => {
-  const requests: readonly TaskRequest[] = [
-    { _tag: "Init" },
-    { _tag: "Init", extra: "keep the brand blue" },
-    { _tag: "Implement", target: "/settings/billing" },
-    { _tag: "Implement", canvas: "marketing", target: "/pricing" },
-    { _tag: "Implement", extra: "with tests", target: "spec:Button" },
-    { _tag: "Adopt", targets: [] },
-    { _tag: "Adopt", targets: ["", "marketing", "orders.page.json"] },
-    { _tag: "ImportFigma" },
-    { _tag: "ImportFigma", file: "f1" },
-    { _tag: "Redraw", canvas: "", change: "to wireframes" },
-    { _tag: "Redraw", canvas: "copy" },
-    { _tag: "Components", canvas: "" },
-    { _tag: "SetupStep", step: "define" },
-    { _tag: "SetupStep", mode: "adopt", step: "define" },
-    { _tag: "SetupStep", extra: "the forms first", step: "migrate" },
-    { _tag: "Sync" },
-    { _tag: "Sync", source: "design" },
-    { _tag: "Sync", extra: "only colours", source: "figma" },
-  ];
+describe("the slash commands", () => {
+  /** Requests of every kind: one left out does not compile. */
+  const examples: {
+    readonly [T in TaskRequest["_tag"]]: readonly Extract<
+      TaskRequest,
+      { _tag: T }
+    >[];
+  } = {
+    Adopt: [
+      { _tag: "Adopt", targets: [] },
+      { _tag: "Adopt", targets: ["", "marketing", "orders.page.json"] },
+    ],
+    Components: [
+      { _tag: "Components", canvas: "" },
+      { _tag: "Components", canvas: "drafts", extra: "buttons first" },
+    ],
+    Implement: [
+      { _tag: "Implement", target: "/settings/billing" },
+      { _tag: "Implement", canvas: "marketing", target: "/pricing" },
+      { _tag: "Implement", extra: "with tests", target: "spec:Button" },
+    ],
+    ImportFigma: [
+      { _tag: "ImportFigma" },
+      { _tag: "ImportFigma", file: "f1" },
+      { _tag: "ImportFigma", extra: "the icons too", file: "f1" },
+    ],
+    Init: [{ _tag: "Init" }, { _tag: "Init", extra: "keep the brand blue" }],
+    Redraw: [
+      { _tag: "Redraw", canvas: "", change: "to wireframes" },
+      { _tag: "Redraw", canvas: "copy" },
+    ],
+    SetupStep: [
+      { _tag: "SetupStep", step: "define" },
+      { _tag: "SetupStep", mode: "adopt", step: "define" },
+      { _tag: "SetupStep", extra: "the forms first", step: "migrate" },
+    ],
+    Sync: [
+      { _tag: "Sync" },
+      { _tag: "Sync", source: "design" },
+      { _tag: "Sync", extra: "only colours", source: "figma" },
+    ],
+  };
+  const requests = Object.values(examples).flat();
 
-  it("writes a request as the command read back as it", () => {
-    for (const request of requests) {
-      expect(parseCommand(commandOf(request))).toEqual({
-        _tag: "Request",
-        request,
-      });
+  it.each(requests.map((request) => [commandOf(request), request] as const))(
+    "reads %s back as the request it was written for",
+    (text, request) => {
+      expect(parseCommand(text)).toEqual({ _tag: "Request", request });
     }
+  );
+
+  it("offers exactly the commands that write a request, each once", () => {
+    const offered = slashCommands.map((c) => c.name);
+    expect(new Set(offered).size).toBe(offered.length);
+    expect([...new Set(requests.map(commandNameOf))].sort()).toEqual(
+      [...offered].sort()
+    );
+    expect(offered).toEqual([
+      "init",
+      "implement",
+      "import-figma",
+      "redraw",
+      "components",
+      "design-system",
+      "sync",
+    ]);
   });
 
   it("writes the commands the composer shows", () => {
