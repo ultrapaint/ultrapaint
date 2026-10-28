@@ -56,13 +56,24 @@ const TokenGate = HttpRouter.middleware(
   })
 );
 
+/**
+ * The handlers of the toolkits the server offers, which a test calls in-process
+ * (`testing/project.ts`). The screenshot and `ask_user` are registered on the MCP server
+ * itself: they answer with a picture, and ask the client for a form.
+ */
+export const ToolkitHandlers = Layer.mergeAll(
+  EditorToolsLive,
+  FigmaToolsLive,
+  SetupToolsLive
+);
+
 const Tools = Layer.mergeAll(
-  McpServer.toolkit(EditorTools).pipe(Layer.provide(EditorToolsLive)),
-  McpServer.toolkit(FigmaTools).pipe(Layer.provide(FigmaToolsLive)),
-  McpServer.toolkit(SetupTools).pipe(Layer.provide(SetupToolsLive)),
+  McpServer.toolkit(EditorTools),
+  McpServer.toolkit(FigmaTools),
+  McpServer.toolkit(SetupTools),
   ScreenshotToolLive,
   AskUserToolLive
-);
+).pipe(Layer.provide(ToolkitHandlers));
 
 /**
  * What an agent is told when it connects (ADR 0030): the designs lead and the code follows, and

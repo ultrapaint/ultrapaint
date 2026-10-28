@@ -1,0 +1,131 @@
+/**
+ * The server's services in-process, a project open on a fixture: what `server.ts` serves, built
+ * by the same composition root with the tests' adapters. The preview is never started
+ * (`HostManager.layerTest`) and the agents are the ones a test plays (`ScriptedAgents`). No
+ * HTTP server and no socket: a test asks a service for what it wants, and calls the editor's MCP
+ * tools as an agent's call reaches them, with `callTool`.
+ */
+import { NodeServices } from "@effect/platform-node";
+import {
+  defaultSettings,
+  type Settings,
+} from "@ultrapaint/contracts/settings";
+import { Context, Effect, FileSystem, Layer, Path, Stream } from "effect";
+import type { Tool, Toolkit } from "effect/ai";
+import { type Adapters, ApplicationLayer } from "../composition.ts";
+import { ServerConfig } from "../config.ts";
+import { ProjectManager } from "../project.ts";
+import { HostManager } from "../services/host.ts";
+import { CallingThread } from "../services/mcp/access.ts";
+import { ToolkitHandlers } from "../services/mcp/route.ts";
+import { AgentSandbox } from "../services/threads/agent-sandbox.ts";
+import { makeFixture } from "./harness.ts";
+import { ScriptedAgents } from "./scripted-agents.ts";
+
+/** The tests' adapters: a preview that is never started, agents the test plays, no sandbox. */
+export const TestAdapters = {
+  agents: Layer.mergeAll(ScriptedAgents.layer, AgentSandbox.layerTest),
+  host: HostManager.layerTest,
+} satisfies Adapters<ScriptedAgents | AgentSandbox>;
+
+/** The project the test opened: its folder, its home, and the settings it was opened with. */
+export class ProjectFixture extends Context.Service<
+  ProjectFixture,
+  {
+    readonly home: string;
+    readonly repo: string;
+    /** Opens the project again with these settings changed, as saving them does. */
+    readonly reopen: (changes: Partial<Settings>) => Effect.Effect<void>;
+    readonly settings: Settings;
+  }
+>()("ultrapaint/server/testing/ProjectFixture") {}
+
+export interface ProjectTestOptions {
+  /** Files written into the fixture before the project opens, by their path in it. */
+  readonly files?: Readonly<Record<string, string>>;
+  /** A git repository with the fixture committed; a plain folder without. */
+  readonly git?: boolean;
+  /** Whether the server runs the editor's MCP server, which the tasks and briefing tell of. */
+  readonly mcp?: boolean;
+  /** Settings the project is opened with, over the fixture's own. */
+  readonly settings?: Partial<Settings>;
+}
+
+/**
+ * Every service of the server, with a project open on a fresh fixture (`makeFixture`: a designs
+ * package with a Home page, a component in `ui/`) and the editor's MCP tools' handlers. Build
+ * one per test, or per group that shares it.
+ */
+export const ProjectTest = (options: ProjectTestOptions = {}) =>
+  Layer.unwrap(
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const home = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());
+      const repo = yield* makeFixture({ git: options.git ?? false });
+      for (const [file, content] of Object.entries(options.files ?? {})) {
+        yield* fs.makeDirectory(path.dirname(path.join(repo, file)), {
+          recursive: true,
+        });
+        yield* fs.writeFileString(path.join(repo, file), content);
+      }
+      const settings: Settings = {
+        ...defaultSettings(repo),
+        designsDir: "designs",
+        ...options.settings,
+      };
+      const opened = Layer.effect(
+        ProjectFixture,
+        Effect.gen(function* () {
+          const project = yield* ProjectManager;
+          yield* project.open(settings);
+          return ProjectFixture.of({
+            home,
+            reopen: (changes) => project.open({ ...settings, ...changes }),
+            repo,
+            settings,
+          });
+        })
+      );
+      return opened.pipe(
+        Layer.provideMerge(ToolkitHandlers),
+        Layer.provideMerge(ApplicationLayer(TestAdapters)),
+        Layer.provideMerge(
+          ServerConfig.layerTest({
+            cwd: repo,
+            machine: { home },
+            mcp: options.mcp ?? true,
+            storage: { home, mode: "managed" },
+            userDir: home,
+          })
+        )
+      );
+    })
+  ).pipe(Layer.provideMerge(NodeServices.layer));
+
+/**
+ * One of the editor's MCP tools, called as an agent's call reaches its handler: the parameters
+ * decoded, the handler run, its answer or its failure back. `thread` is the calling thread, as
+ * the token an agent connects with says; without one the call is an agent's from outside the
+ * editor.
+ */
+export const callTool = <
+  Tools extends Record<string, Tool.Any>,
+  Name extends keyof Tools & string,
+>(
+  toolkit: Toolkit.Toolkit<Tools>,
+  name: Name,
+  parameters: Tool.ParametersEncoded<Tools[Name]>,
+  thread?: string
+) =>
+  Effect.gen(function* () {
+    const handlers = yield* toolkit;
+    const results = yield* handlers.handle(name, parameters);
+    const last = yield* Stream.runLast(results);
+    if (last._tag === "None" || last.value.isFailure) {
+      return yield* Effect.die(new Error(`${name} gave no answer`));
+    }
+    // A tool fails in the error channel (its failure mode is "error"), so what it gives is its
+    // success.
+    return last.value.result as Tool.Success<Tools[Name]>;
+  }).pipe(Effect.provideService(CallingThread, thread));

@@ -60,3 +60,11 @@ module.
 - **Menu action**: what a context-menu item does, a typed value run by `runMenuAction`.
 - **Shell bridge**: the desktop shell's capabilities, one table the web's `Platform` is typed
   from (ADR 0031).
+
+## Server
+
+- **Composition root**: what the server is made of, each service on the ones below it, in
+  `composition.ts`: the foundation, the open project's layer, the threads and the application
+  layer. It is built with **adapters**, the seams that have a test's second one: the preview's
+  host and the agents' launcher with its sandbox. `ProjectTest` builds the same application in
+  a test, a project open on a fixture, and `callTool` calls an MCP tool's handler in-process.

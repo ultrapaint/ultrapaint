@@ -1,13 +1,13 @@
 import path from "node:path";
 import { assert, describe, layer } from "@effect/vitest";
 import type { TaskRequest } from "@ultrapaint/contracts/tasks";
-import { Effect, FileSystem, Layer } from "effect";
+import { Effect, FileSystem } from "effect";
 import { ProjectManager } from "./project.ts";
 import { DesignSystemService } from "./services/design-system.ts";
 import { PagesService } from "./services/pages.ts";
 import { SlashCommands } from "./services/threads/commands.ts";
 import { AgentTasks } from "./services/threads/tasks.ts";
-import { TaskFixture, TasksTest } from "./testing/tasks.ts";
+import { ProjectFixture, ProjectTest } from "./testing/project.ts";
 
 const task = (request: TaskRequest) =>
   Effect.flatMap(AgentTasks, (tasks) => tasks.task(request));
@@ -30,7 +30,7 @@ const THEME = `@theme {
 
 /** The fixture with a stylesheet, and a design system read from it. */
 const withDesignSystem = Effect.gen(function* () {
-  const { reopen, repo } = yield* TaskFixture;
+  const { reopen, repo } = yield* ProjectFixture;
   const fs = yield* FileSystem.FileSystem;
   yield* fs.makeDirectory(path.join(repo, "styles"), { recursive: true });
   yield* fs.writeFileString(path.join(repo, "styles/app.css"), THEME);
@@ -50,7 +50,7 @@ const designChanges = Effect.gen(function* () {
 });
 
 describe("tasks, with the editor's MCP server", () => {
-  layer(TasksTest({ mcp: true }), { excludeTestServices: true })((it) => {
+  layer(ProjectTest({ mcp: true }), { excludeTestServices: true })((it) => {
     it.effect("gives each request its task and its thread's purpose", () =>
       Effect.gen(function* () {
         const init = yield* task({ _tag: "Init" });
@@ -172,7 +172,7 @@ describe("tasks, with the editor's MCP server", () => {
     );
   });
 
-  layer(TasksTest({ mcp: true }), { excludeTestServices: true })(
+  layer(ProjectTest({ mcp: true }), { excludeTestServices: true })(
     "with pages of several canvases",
     (it) => {
       it.effect(
@@ -212,7 +212,7 @@ describe("tasks, with the editor's MCP server", () => {
     }
   );
 
-  layer(TasksTest({ mcp: true }), { excludeTestServices: true })(
+  layer(ProjectTest({ mcp: true }), { excludeTestServices: true })(
     "with a design system",
     (it) => {
       it.effect("brings the code up to the design through handoff", () =>
@@ -236,7 +236,7 @@ describe("tasks, with the editor's MCP server", () => {
 });
 
 describe("tasks, without the editor's MCP server", () => {
-  layer(TasksTest({ mcp: false }), { excludeTestServices: true })((it) => {
+  layer(ProjectTest({ mcp: false }), { excludeTestServices: true })((it) => {
     it.effect("says how to do each thing by hand", () =>
       Effect.gen(function* () {
         const init = yield* textOf({ _tag: "Init" });
@@ -292,7 +292,7 @@ describe("tasks, without the editor's MCP server", () => {
     );
   });
 
-  layer(TasksTest({ mcp: false }), { excludeTestServices: true })(
+  layer(ProjectTest({ mcp: false }), { excludeTestServices: true })(
     "with a design system",
     (it) => {
       it.effect("has the user bring the code up to the design", () =>
@@ -312,13 +312,10 @@ describe("tasks, without the editor's MCP server", () => {
 });
 
 describe("slash commands", () => {
-  const Commands = SlashCommands.layer.pipe(
-    Layer.provideMerge(TasksTest({ mcp: true }))
-  );
   const expand = (text: string) =>
     Effect.flatMap(SlashCommands, (commands) => commands.expand(text));
 
-  layer(Commands, { excludeTestServices: true })((it) => {
+  layer(ProjectTest({ mcp: true }), { excludeTestServices: true })((it) => {
     it.effect("gives a command's task, with its thread's purpose", () =>
       Effect.gen(function* () {
         const implement = yield* expand("/implement /home");
@@ -354,7 +351,7 @@ The user ran /redraw, but there is no canvas "nowhere"; the canvases are: Design
     );
   });
 
-  layer(Commands, { excludeTestServices: true })(
+  layer(ProjectTest({ mcp: true }), { excludeTestServices: true })(
     "with no project open",
     (it) => {
       it.effect("sends what was typed when no task can be prepared", () =>

@@ -73,6 +73,28 @@ export class HostManager extends Context.Service<
     readonly status: Effect.Effect<HostStatus>;
   }
 >()("ultrapaint/server/HostManager") {
+  /**
+   * A preview that is never started, for a project opened in a test: nothing is generated and
+   * no process is spawned. It is stopped until asked to start, then running at no address, so
+   * the editor's server forwards `/preview/` to nothing.
+   */
+  static readonly layerTest = Layer.effect(
+    HostManager,
+    Effect.gen(function* () {
+      const status = yield* SubscriptionRef.make<HostStatus>({
+        state: "stopped",
+      });
+      return HostManager.of({
+        changes: SubscriptionRef.changes(status),
+        start: SubscriptionRef.updateAndGet(
+          status,
+          (): HostStatus => ({ state: "running" })
+        ),
+        status: SubscriptionRef.get(status),
+      });
+    })
+  );
+
   static readonly layer = Layer.effect(
     HostManager,
     Effect.gen(function* () {

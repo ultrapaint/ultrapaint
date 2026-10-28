@@ -19,6 +19,7 @@ import {
 } from "effect/http";
 import { RpcSerialization, RpcServer } from "effect/rpc";
 import { AppLog } from "./app-log.ts";
+import { ApplicationLayer, ServerAdapters } from "./composition.ts";
 import {
   connectHost,
   hostNameOf,
@@ -26,37 +27,17 @@ import {
   isLoopback,
   ServerConfig,
 } from "./config.ts";
-import { EventBus } from "./events.ts";
 import { ListenPort } from "./listen-port.ts";
 import { PreviewProxy } from "./preview-proxy.ts";
 import { ProjectManager } from "./project.ts";
 import { RpcHandlers } from "./rpc-handlers.ts";
 import { Announce } from "./run-file.ts";
-import { DesignSystemSetupService } from "./services/design-system-setup.ts";
-import { DesignSystemSyncService } from "./services/design-system-sync.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
-import { McpAccess } from "./services/mcp/access.ts";
 import { McpRoute } from "./services/mcp/route.ts";
-import { ProfileService } from "./services/profile.ts";
-import { Screenshots } from "./services/screenshots.ts";
 import { SettingsService } from "./services/settings.ts";
 import { SetupService } from "./services/setup.ts";
-import { SetupSteps } from "./services/setup-steps.ts";
-import { SnapshotStore } from "./services/snapshot-store.ts";
-import { Snapshots } from "./services/snapshots.ts";
 import { Storage } from "./services/storage.ts";
-import { AgentConfigs } from "./services/threads/agent-configs.ts";
-import { AgentDiscovery } from "./services/threads/agent-discovery.ts";
-import { AgentLauncher } from "./services/threads/agent-launcher.ts";
-import { AgentSandbox } from "./services/threads/agent-sandbox.ts";
-import { ProjectBriefing } from "./services/threads/briefing.ts";
-import { ChatPreferences } from "./services/threads/chat-preferences.ts";
-import { Checkpoints } from "./services/threads/checkpoints.ts";
-import { SlashCommands } from "./services/threads/commands.ts";
-import { AgentTasks } from "./services/threads/tasks.ts";
-import { ThreadSessions } from "./services/threads/thread-session.ts";
 import { ThreadStore } from "./services/threads/thread-store.ts";
-import { ThreadService } from "./services/threads/threads.ts";
 
 /**
  * Every request names this server by one of its own names. A website the user has open can
@@ -369,46 +350,6 @@ const Boot = Layer.effectDiscard(
   })
 );
 
-const Threads = ThreadService.layer.pipe(
-  Layer.provideMerge(ThreadSessions.layer),
-  Layer.provideMerge(Snapshots.layer),
-  Layer.provideMerge(Checkpoints.layer),
-  Layer.provideMerge(AgentDiscovery.layer),
-  Layer.provideMerge(AgentLauncher.layer),
-  Layer.provideMerge(
-    Layer.mergeAll(
-      ThreadStore.layer,
-      AgentConfigs.layer,
-      ChatPreferences.layer,
-      // The briefing says what the sandbox allows, so it is built on it.
-      ProjectBriefing.layer.pipe(Layer.provideMerge(AgentSandbox.layer)),
-      McpAccess.layer,
-      // The handoff tool asks for tasks too.
-      SlashCommands.layer.pipe(Layer.provideMerge(AgentTasks.layer))
-    )
-  )
-);
-
-/** Application services. Each is built once and shared by every route. */
-const Services = SetupSteps.layer.pipe(
-  // A step of the setup starts with its thread, so its runner sits above the threads; the
-  // tasks the threads expand read the setup and the sync's plan, and the sync reads the setup.
-  Layer.provideMerge(Threads),
-  Layer.provideMerge(DesignSystemSyncService.layer),
-  Layer.provideMerge(DesignSystemSetupService.layer),
-  Layer.provideMerge(ProjectManager.layer),
-  Layer.provideMerge(ProfileService.layer),
-  Layer.provideMerge(SnapshotStore.layer),
-  Layer.provideMerge(Screenshots.layer),
-  Layer.provideMerge(SettingsService.layer),
-  Layer.provideMerge(SetupService.layer),
-  Layer.provideMerge(Storage.layer),
-  Layer.provideMerge(AppLog.layer),
-  Layer.provideMerge(EventBus.layer),
-  Layer.provideMerge(ListenPort.layer),
-  Layer.provideMerge(PreviewProxy.layer)
-);
-
 const Routes = Layer.mergeAll(
   HostGuard,
   RpcRoute,
@@ -430,7 +371,10 @@ const Routes = Layer.mergeAll(
 const Served = HttpRouter.serve(Routes, {
   disableListenLog: true,
   disableLogger: true,
-}).pipe(Layer.provideMerge(Listening), Layer.provideMerge(Services));
+}).pipe(
+  Layer.provideMerge(Listening),
+  Layer.provideMerge(ApplicationLayer(ServerAdapters))
+);
 
 /** And once it all answers, the run file and the ready line say so (PLAN-desktop D5). */
 export const ServerLive = Announce.pipe(Layer.provide(Served));
