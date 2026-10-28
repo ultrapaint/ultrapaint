@@ -1059,3 +1059,14 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
     send the same rects again, and a selection given again as a new array with the same nodes
     sends nothing. No test: the effect is the canvas's wiring, and what the frame measures on a
     render is preview-core's, tested there.
+11. **Escape stops a marquee** (`apps/web/src/canvas/use-frame-pointer.ts`, `frame-gesture.ts`).
+    A marquee a frame draws is held in `frame-gesture` while it is drawn (`drawingMarquee`), so
+    `cancelGesture`, which Escape calls, puts it away as it does a frame gesture, a drag or a
+    group being drawn: nothing is drawn any more, its release selects nothing, and the click
+    that ends it is no click; Escape goes no further. Fixed: Escape during a marquee went on to
+    the canvas's other keys (letting go of the selection) while the marquee stayed drawn and
+    selected what it touched on release. `use-frame-pointer.test.tsx` has 1 test more: a
+    marquee drawn over a page with another node selected, `cancelGesture` answers that it put
+    one away, the marquee is gone, a second answers nothing, and the release leaves the
+    selection as it was; it failed first (nothing to put away). What the preview has under the
+    pointer is the test's to say.

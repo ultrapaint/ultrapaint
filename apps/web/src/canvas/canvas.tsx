@@ -236,8 +236,8 @@ export const Canvas = () => {
     }
   }, [mode]);
 
-  // Escape puts back whatever the pointer is doing: a frame moved or sized, a drag, a group being
-  // drawn (the tool stays picked). It goes no further then.
+  // Escape puts back whatever the pointer is doing: a frame moved or sized, a drag, a marquee, a
+  // group being drawn (the tool stays picked). It goes no further then.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && cancelGesture()) {

@@ -4,7 +4,8 @@
  * window, snaps to the grid or the frames around it, and is saved once when it is let go: a page's
  * frame rounded to the pixel (`setFrame`), a node in one "Resize" edit. A cancelled pointer or
  * Escape puts it back as it was, and saves nothing. A node on the canvas moved by its name is a
- * drag (`drag.ts`, which knows where it lands), followed the same way.
+ * drag (`drag.ts`, which knows where it lands), followed the same way. Escape puts away a marquee
+ * a frame draws (`use-frame-pointer.ts`) through here too.
  */
 import type { FrameLayout } from "@ultrapaint/contracts/pages";
 import { updateNodes } from "../lib/node-actions.ts";
@@ -46,6 +47,17 @@ interface Press extends PointerAt {
 /** What puts back the gesture being followed and stops following it; null when there is none. */
 let putBack: (() => void) | null = null;
 
+/** What stops the marquee being drawn in a frame, selecting nothing; null when none is. */
+let stopMarquee: (() => void) | null = null;
+
+/**
+ * A marquee is drawn in a frame from now on, `stop` putting it away (Escape); null once it is
+ * done. The frame follows it on its own layer, which holds the pointer.
+ */
+export const drawingMarquee = (stop: (() => void) | null) => {
+  stopMarquee = stop;
+};
+
 /** Whether a gesture follows the pointer: what the canvas would show under it waits. */
 export const isFollowing = () => putBack !== null;
 
@@ -81,21 +93,23 @@ const follow = (gesture: {
 };
 
 /**
- * Puts back whatever the pointer is doing on the canvas: a frame gesture, a drag, a group or a
- * text being drawn. Whether there was one: Escape stops there when there was.
+ * Puts back whatever the pointer is doing on the canvas: a frame gesture, a drag, a marquee, a
+ * group or a text being drawn. Whether there was one: Escape stops there when there was.
  */
 export const cancelGesture = (): boolean => {
   const following = putBack !== null;
+  const marquee = stopMarquee !== null;
   const dragged = useDrag.getState().dragged !== null;
   const creating = useCreate.getState().from !== null;
   putBack?.();
+  stopMarquee?.();
   if (dragged) {
     cancelDrag();
   }
   if (creating) {
     cancelCreate();
   }
-  return following || dragged || creating;
+  return following || marquee || dragged || creating;
 };
 
 /** Drags a node on the canvas by its name: put back, it stays where it was. */
