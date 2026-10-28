@@ -22,6 +22,8 @@ const SHIPPED = [
   "content",
   "states",
   "components",
+  "design-system",
+  "picture",
   "accessibility",
 ];
 
