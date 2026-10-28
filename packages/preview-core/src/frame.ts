@@ -51,9 +51,16 @@ const SHARP_CROP_WIDTH = 800;
 
 /**
  * Every image of a canvas is one URL told apart by its query, and html-to-image caches what it
- * fetched by the URL without its query unless told otherwise.
+ * fetched by the URL without its query unless told otherwise. An image it cannot fetch (a server
+ * that sends no CORS header, as avatar services often do) draws as a grey placeholder: without
+ * one, that image failed the whole picture, and every `get_screenshot` of its page.
  */
-const PICTURE_OPTIONS = { cacheBust: true, includeQueryParams: true };
+const PICTURE_OPTIONS = {
+  cacheBust: true,
+  imagePlaceholder:
+    "data:image/gif;base64,R0lGODlhAQABAIAAAMzMzAAAACH5BAAAAAAALAAAAAABAAEAAAICRAEAOw==",
+  includeQueryParams: true,
+};
 
 /** Events a frame stops while it is a picture or an element of it is being edited. */
 const GUARDED = [
