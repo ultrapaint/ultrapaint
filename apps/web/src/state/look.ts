@@ -4,6 +4,7 @@
  * render; a preview draws again when it changes.
  */
 import type { ComponentSpec } from "@ultrapaint/contracts/specs";
+import { useMemo } from "react";
 import { useDesignSystem } from "./design-system.ts";
 import { useSpecs } from "./specs.ts";
 
@@ -18,9 +19,9 @@ export const designLook = (): DesignLook => ({
   styles: useDesignSystem.getState().previewCss ?? "",
 });
 
-/** Something that changes whenever the look does, for an effect to draw again on. */
-export const useDesignLookVersion = () => {
-  const styles = useDesignSystem((s) => s.previewCss);
+/** The look as it changes: a new one only when the specs or the styles do. */
+export const useDesignLook = (): DesignLook => {
+  const styles = useDesignSystem((s) => s.previewCss ?? "");
   const specs = useSpecs((s) => s.specs);
-  return [styles, specs] as const;
+  return useMemo(() => ({ specs, styles }), [specs, styles]);
 };

@@ -653,3 +653,38 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
     source of a renderer's report and of `reportError`, and `editor.test.ts` and
     `sandbox.test.ts` the dev server's and the page's (failed first). `pnpm e2e:sandbox` passes
     the same 15 checks as before (the error checks reading `frameErrors()`).
+11. **What a frame draws, said once** (`apps/web/src/canvas/page-request.ts`,
+    `apps/web/src/canvas/editor-frame.ts`). `useFrameDrawing(id, request)` draws a frame's request
+    (`RenderRequest`, the look now given by every view) as soon as the frame is open, whenever the
+    request changes and whenever the frame is opened anew, while neither is null; `render` already
+    compared the request's parts with what the frame shows, so a request built afresh with the
+    same parts draws nothing. `pageRequest` builds a page's for the canvas and the prototype from
+    the tree, why its file cannot be read (`problem`) or what is said for no page (`absent`), the
+    design system, the canvas's defaults, the look, the mode, the width and the box a node on the
+    canvas is held at: the tree at the width's breakpoint (`resolveAt`, which gives the same tree
+    within one), a node with no width at its held width or its own, and the held box's size laid
+    over it, the same object while the size is. The canvas's `Frame` and the prototype call them;
+    `renderFrame`, `renderRoute`, their `ready` listeners and both `biome-ignore`d redraw lists
+    go, as does `drawResized`: a node resized on the canvas is drawn at the box the canvas holds
+    (`held`), which the store already had for its frame, until the document has it. The type
+    specimen and the components' matrix memoise their request (`useMemo` over what they draw),
+    the matrix's look with the spec being edited in place of the saved one; their `ready` state
+    goes and `PreviewSurface`'s `listeners` are optional. `useDesignLook` (the look, a new one only
+    when the specs or the styles change) replaces `useDesignLookVersion`. Fixed: a specimen whose
+    frame was thrown away and opened again (the preview stopped and started) stayed blank, as
+    its `ready` state never went back; the matrix did not draw again when another component's
+    spec changed (a card inside the button kept its old look). Also: the type samples are drawn
+    with the look they are given and again when it changes (they took the look of the moment
+    the design system or the search changed). Left: the canvas's rect watching keeps its
+    `biome-ignore`d list (the document there only sends the watched nodes again, nothing is
+    drawn). There is no React render test setup in `apps/web`: `specimens-drawing.test.tsx`
+    renders the real `TypeSpecimen` and `Matrix` (now exported) with `react-dom/client` and
+    `act` in happy-dom, no dependency added, over a fake preview and `usePreview` mocked: each
+    draws again in a frame opened after the preview stops and starts (both failed first, nothing
+    drawn); the matrix draws again when another spec changes (failed first) and not when drawn
+    again with the same spec, and draws the edited spec in place of the saved one.
+    `page-request.test.ts` has 12 table tests: the defaults, design system and look; nothing,
+    a read problem or no page said; four widths to their breakpoint's values; the same tree
+    within a breakpoint; a node at its own width; a node held at a size, at that size's
+    breakpoint, the same tree held again; a node held only where it was let go as its document
+    has it.

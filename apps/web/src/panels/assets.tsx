@@ -44,7 +44,7 @@ import { openMenuAt } from "../state/context-menu.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
-import { useDesignLookVersion } from "../state/look.ts";
+import { useDesignLook } from "../state/look.ts";
 import { previewRunning, useProject } from "../state/project.ts";
 import { ensureEditable } from "../state/setup.ts";
 
@@ -182,9 +182,9 @@ const useThumbnails = (
   const builtAt = useCatalogue((s) => s.catalogue?.builtAt ?? 0);
   const designSystem = useDesignSystem((s) => s.designSystem);
   // The design's look over the code's draws them too (ADR 0028, 0029).
-  const [styles, specs] = useDesignLookVersion();
+  const { specs, styles } = useDesignLook();
   const key = hashOf(
-    `${builtAt}:${JSON.stringify(designSystem?.components ?? {})}:${JSON.stringify(designSystem?.colors ?? [])}:${styles ?? ""}:${JSON.stringify(specs)}`
+    `${builtAt}:${JSON.stringify(designSystem?.components ?? {})}:${JSON.stringify(designSystem?.colors ?? [])}:${styles}:${JSON.stringify(specs)}`
   );
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
   const [loadedKey, setLoadedKey] = useState<string | null>(null);

@@ -39,7 +39,7 @@ import {
   Wand2,
 } from "lucide-react";
 import type * as React from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,7 +47,7 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@/components/ui/input-group";
-import { frameOf } from "../canvas/editor-frame.ts";
+import { frameOf, useFrameDrawing } from "../canvas/editor-frame.ts";
 import { usePreview } from "../canvas/preview-module.ts";
 import { PreviewSurface } from "../canvas/preview-surface.tsx";
 import { IconButton } from "../components/icon-button.tsx";
@@ -65,6 +65,7 @@ import {
 } from "../state/context-menu.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useDesignSystemSetup } from "../state/design-system-setup.ts";
+import { useDesignLook } from "../state/look.ts";
 import { useProject } from "../state/project.ts";
 import { useSync } from "../state/sync.ts";
 import { ComponentsView } from "./design-components.tsx";
@@ -261,20 +262,23 @@ const typeSpecimen = (ds: DesignSystem, q: string): DesignNode => {
   };
 };
 
-const TypeSpecimen = ({ ds, q }: { ds: DesignSystem; q: string }) => {
+export const TypeSpecimen = ({ ds, q }: { ds: DesignSystem; q: string }) => {
   const running = usePreview() !== null;
   const ref = useRef<HTMLDivElement>(null);
-  const [ready, setReady] = useState(false);
   const frame = "design-system:typography";
-  useEffect(() => {
-    if (ready) {
-      frameOf(frame).render({
+  const look = useDesignLook();
+  useFrameDrawing(
+    frame,
+    useMemo(
+      () => ({
         designSystem: ds,
-        mode: "fit",
+        look,
+        mode: "fit" as const,
         root: typeSpecimen(ds, q),
-      });
-    }
-  }, [ready, ds, q]);
+      }),
+      [ds, look, q]
+    )
+  );
   // The samples are one picture: which one was right-clicked is asked of the preview.
   const onContextMenu = (e: React.MouseEvent) => {
     const anchor = holdMenu(e);
@@ -307,7 +311,6 @@ const TypeSpecimen = ({ ds, q }: { ds: DesignSystem; q: string }) => {
           className="w-full"
           frameId={frame}
           hostClassName="block w-full"
-          listeners={{ ready: () => setReady(true) }}
           title="Type samples"
         />
       </div>

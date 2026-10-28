@@ -57,7 +57,7 @@ import {
 } from "./drag.ts";
 import { CreateOverlay, DragOverlay } from "./drag-overlay.tsx";
 import { EmptyState } from "./empty-state.tsx";
-import { type Corner, drawResized, Frame } from "./frame.tsx";
+import { type Corner, Frame } from "./frame.tsx";
 import { fromFrame } from "./from-frame.ts";
 import { isFrameLocked } from "./hit-test.ts";
 import { addImages, imageFiles } from "./items.ts";
@@ -483,12 +483,8 @@ export const Canvas = () => {
         width: next.width,
       });
       d.to = next;
+      // Its frame draws it at that size too, or it would be cropped by its frame.
       hold(nodeFrameOf(d.nodeId), next);
-      // The preview draws it at that size too, or it would be cropped by its frame.
-      drawResized(nodeFrameOf(d.nodeId), {
-        height: next.height,
-        width: next.width,
-      });
     } else if (d.kind === "move") {
       const moved = { ...d.frame, x: d.frame.x + dx, y: d.frame.y + dy };
       s.setFrame(d.pageId, placeFrame(moved, d.pageId, onGrid, e), false);
@@ -532,7 +528,7 @@ export const Canvas = () => {
           { height, width, x, y },
           "Resize"
         )
-      ).then(() => drawResized(frame));
+      );
       return;
     }
     if (d && d.kind !== "pan") {

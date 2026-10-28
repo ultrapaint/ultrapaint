@@ -12,6 +12,9 @@
  * the skeletons, how its host is shown) is told again to the frame opened next, so a caller says
  * it once whether or not the frame is drawn yet.
  *
+ * What a view draws in a frame it says once, as a request (`useFrameDrawing`): drawn as soon as
+ * the frame is open, again whenever the request changes, and again in a frame opened anew.
+ *
  * It keeps the frame's latest error (`error`, `useFrameError`), whoever listens, on screen or
  * parked: the page's until the frame draws again or the modules change, the dev server's until
  * they change; a frame thrown away has none.
@@ -683,4 +686,29 @@ export const useFrameEvents = (
     }
     return frameOf(id).listen(forwardTo(() => latest.current));
   }, [id]);
+};
+
+/**
+ * Draws `request` in frame `id` as soon as the frame is open, whenever the request changes and
+ * whenever the frame is opened anew (the preview started again, the frame thrown away), while
+ * neither is null. What the frame shows already it is not told again (`render` compares the
+ * request's parts), so a request built afresh with the same parts draws nothing: a caller builds
+ * it from parts that are the same objects while nothing changed.
+ */
+export const useFrameDrawing = (
+  id: string | null,
+  request: RenderRequest | null
+) => {
+  useFrameEvents(id, {
+    ready: () => {
+      if (id !== null && request !== null) {
+        frameOf(id).render(request);
+      }
+    },
+  });
+  useEffect(() => {
+    if (id !== null && request !== null && frameOf(id).ready) {
+      frameOf(id).render(request);
+    }
+  }, [id, request]);
 };

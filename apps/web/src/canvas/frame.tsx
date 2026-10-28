@@ -1,6 +1,5 @@
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page, ViewportPreset } from "@ultrapaint/contracts/pages";
-import { resolveAt } from "@ultrapaint/design-document/breakpoints";
 import { findNode, nodeLabel } from "@ultrapaint/design-document/tree";
 import type { Preview } from "@ultrapaint/framework-api/browser";
 import { cn } from "cn";
@@ -21,7 +20,7 @@ import { updateNodes } from "../lib/node-actions.ts";
 import { kindColor, kindHoverColor } from "../lib/selection-kind.ts";
 import { useComments } from "../state/comments.ts";
 import { openMenuAt } from "../state/context-menu.ts";
-import { breakpointsFor, useDesignSystem } from "../state/design-system.ts";
+import { useDesignSystem } from "../state/design-system.ts";
 import {
   isNodeFrame,
   pageOfFrame,
@@ -31,17 +30,23 @@ import {
 } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { useInstances } from "../state/instances.ts";
-import { useDesignLookVersion } from "../state/look.ts";
+import { useDesignLook } from "../state/look.ts";
 import { previewRunning, useProject } from "../state/project.ts";
 import { useFrameBreakpoint, useSelectedIn } from "../state/selection.ts";
 import { FramePresence } from "./agent-presence.tsx";
 import { AgentWorkOverlay, useFrameWork, useSkeletons } from "./agent-work.tsx";
 import { screenPx, UNZOOM } from "./camera.ts";
 import { commentCursor, FrameComments } from "./comments.tsx";
-import { frameOf, useFrameEvents, useFrameFrozen } from "./editor-frame.ts";
+import {
+  frameOf,
+  useFrameDrawing,
+  useFrameEvents,
+  useFrameFrozen,
+} from "./editor-frame.ts";
 import { ToolbarLayer } from "./element-toolbar-placement.ts";
 import { Highlights, useHoverIn } from "./frame-highlights.tsx";
 import { FrozenPage } from "./frozen-page.tsx";
+import { pageRequest } from "./page-request.ts";
 import { PageToolbar } from "./page-toolbar.tsx";
 import { usePreview } from "./preview-module.ts";
 import { useFramePointer } from "./use-frame-pointer.ts";
@@ -68,50 +73,6 @@ const frameName = (page: Page | undefined, root: DesignNode | null) => {
       : `${page.name} · ${page.variant}`;
   }
   return root ? nodeLabel(root) : "";
-};
-
-/**
- * Tells a preview what its frame shows now: the document as it is at the frame's width (its
- * breakpoints' values, ADR 0036), in the design system. A node on the canvas is as wide as it
- * is drawn, or as its own fixed width; otherwise it is the smallest screen's.
- */
-const renderFrame = (
-  frameId: string,
-  kind: "page" | "node",
-  width: number | undefined,
-  size?: { height: number; width: number }
-) => {
-  const { canvas, layout } = useEditor.getState();
-  const state = isNodeFrame(frameId)
-    ? null
-    : useDocuments.getState().docs[pageOfFrame(frameId)];
-  const root = rootOfFrame(useDocuments.getState().docs, canvas, frameId);
-  const { designSystem } = useDesignSystem.getState();
-  const sized = root && size ? ({ ...root, ...size } as DesignNode) : root;
-  const at =
-    width ?? size?.width ?? (typeof root?.width === "number" ? root.width : 0);
-  frameOf(frameId).render({
-    defaults: layout.defaults,
-    designSystem,
-    mode: kind === "page" ? "page" : "fit",
-    root: sized && resolveAt(sized, breakpointsFor(designSystem), at),
-    ...(state?.problem !== undefined && {
-      message: `This page cannot be read: ${state.problem}`,
-    }),
-  });
-};
-
-/**
- * Draws a node on the canvas at the size it is being resized to, which the document has only once
- * the pointer lets go; without a size, at the document's.
- */
-export const drawResized = (
-  frameId: string,
-  size?: { height: number; width: number }
-) => {
-  if (frameOf(frameId).ready) {
-    renderFrame(frameId, "node", undefined, size);
-  }
 };
 
 /**
@@ -168,6 +129,8 @@ export const Frame = memo(
     );
     const designSystem = useDesignSystem((s) => s.designSystem);
     const defaults = useEditor((s) => s.layout.defaults);
+    const held = useEditor((s) => s.held[frameId]);
+    const look = useDesignLook();
     const holdsCard = useComments(
       (s) =>
         s.draft?.pageId === frameId ||
@@ -182,9 +145,6 @@ export const Frame = memo(
     const drawn = visible && preview !== null && !frozen;
     const hosted = (visible || kept) && preview !== null && !frozen;
     const name = frameName(page, root);
-    // A page is drawn at its frame's width; a node on the canvas at its own.
-    const drawnWidth = kind === "page" ? frame.width : undefined;
-    const breakpoint = useFrameBreakpoint(frameId);
     // A callback ref: the selection's toolbar is drawn in it once it is there.
     const [toolbarLayer, setToolbarLayer] = useState<HTMLDivElement | null>(
       null
@@ -196,32 +156,28 @@ export const Frame = memo(
       instances: (instances) => useInstances.getState().report(instances),
       // The frame keeps its page; the canvas brings the page the link leads to into view.
       navigateTo: (route) => focusLink(route),
-      ready: () => renderFrame(frameId, kind, drawnWidth),
       rects: (rects) => useEditor.getState().setRects(frameId, rects),
       rendered: () => setKept(true),
       size: (size) => useEditor.getState().setSize(frameId, size),
       textCommit: (nodeId, text) => commitText(frameId, nodeId, text),
     });
 
-    // Whatever changed the document, the design system, the design's look or the breakpoint
-    // the frame's width falls in, the preview draws it again.
-    const look = useDesignLookVersion();
-    // biome-ignore lint/correctness/useExhaustiveDependencies: the document is the dependency.
-    useEffect(() => {
-      if (drawn && frameOf(frameId).ready) {
-        renderFrame(frameId, kind, drawnWidth);
-      }
-    }, [
-      frameId,
-      kind,
-      drawn,
-      root,
-      problem,
-      designSystem,
-      defaults,
-      breakpoint,
-      ...look,
-    ]);
+    // The document at the frame's width, in the design system and the design's look, drawn
+    // while it is on screen. A page is as wide as its frame; a node on the canvas as it is held
+    // while it is resized, or as its own width.
+    useFrameDrawing(
+      drawn ? frameId : null,
+      pageRequest({
+        defaults,
+        designSystem,
+        held,
+        look,
+        mode: kind === "page" ? "page" : "fit",
+        problem,
+        root,
+        width: kind === "page" ? frame.width : undefined,
+      })
+    );
 
     // A selection whose node is gone (an undo, an agent) is let go of.
     useEffect(() => {

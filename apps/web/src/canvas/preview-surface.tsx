@@ -14,6 +14,8 @@ import {
 import { FrozenPage } from "./frozen-page.tsx";
 import { usePreview } from "./preview-module.ts";
 
+const NO_LISTENERS: FrameListeners = {};
+
 export const PreviewSurface = ({
   canvas = "",
   className,
@@ -31,8 +33,11 @@ export const PreviewSurface = ({
   hostClassName?: string;
   /** The page takes input: the prototype. Otherwise it is a picture. */
   interactive?: boolean;
-  /** What the page says; `ready` once it is drawn in and listened to. */
-  listeners: FrameListeners;
+  /**
+   * What the page says; `ready` once it is drawn in and listened to. What it draws its caller
+   * says with `useFrameDrawing`.
+   */
+  listeners?: FrameListeners;
   style?: CSSProperties;
   title?: string;
 }) => {
@@ -57,7 +62,7 @@ export const PreviewSurface = ({
     frame.setTitle(title ?? "");
     frame.setInteractive(interactive);
   }, [frameId, interactive, title]);
-  useFrameEvents(frameId, listeners);
+  useFrameEvents(frameId, listeners ?? NO_LISTENERS);
   if (frozen) {
     return <FrozenPage frame={frameId} />;
   }
