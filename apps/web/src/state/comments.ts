@@ -5,9 +5,11 @@ import { nodeLabel } from "@ultrapaint/design-document/tree";
 import { create } from "zustand";
 import { viewportSize } from "../lib/shortcuts.ts";
 import { useAgents } from "./agents.ts";
+import { setView } from "./camera.ts";
 import { commentPrompt, commentThreadTitle } from "./comment-prompt.ts";
 import { api } from "./connection.ts";
 import { pagesOfCanvas, useEditor } from "./editor.ts";
+import { goTo } from "./location.ts";
 import { reportError } from "./project.ts";
 
 /** A comment being written: where it was placed, before it has any text. */
@@ -218,7 +220,7 @@ export const revealComment = (comment: Comment) => {
   const page = pageOfComment(comment);
   const editor = useEditor.getState();
   if (page && editor.workspace === "prototype") {
-    editor.openPage(page.id);
+    goTo({ page: page.id });
     showComments();
     useComments.getState().setOpen(comment.id);
     return;
@@ -230,7 +232,7 @@ export const revealComment = (comment: Comment) => {
   showComments();
   const viewport = viewportSize();
   const { zoom } = editor.view;
-  editor.setView({
+  setView({
     x: viewport.x + viewport.width / 2 - (frame.x + comment.x) * zoom,
     y: viewport.height / 2 - (frame.y + comment.y) * zoom,
   });

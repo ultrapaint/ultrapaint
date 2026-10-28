@@ -2,17 +2,9 @@ import "../testing/fake-browser.ts";
 import type { DocumentState } from "@ultrapaint/contracts/document";
 import type { CanvasLayout, Page } from "@ultrapaint/contracts/pages";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { zoomBy } from "../lib/shortcuts.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { useDocuments } from "./documents.ts";
-import {
-  computeFrames,
-  landingOf,
-  nextView,
-  type Selection,
-  setViewSoon,
-  useEditor,
-} from "./editor.ts";
+import { computeFrames, type Selection, useEditor } from "./editor.ts";
 import { useProject } from "./project.ts";
 
 vi.mock(
@@ -82,43 +74,6 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
-});
-
-describe("landingOf", () => {
-  const all = [home, pricing, boldPricing, draft];
-  const base = [home, pricing, draft];
-
-  it("opens on the page asked for when it serves no URL", () => {
-    expect(landingOf(all, base, "/", draft.id)).toEqual({
-      landing: null,
-      shown: draft.id,
-    });
-  });
-
-  it("opens on the page serving the route", () => {
-    expect(landingOf(all, base, "/pricing", null)).toEqual({
-      landing: "/pricing",
-      shown: pricing.id,
-    });
-  });
-
-  it("goes to the first URL served when the route has no page", () => {
-    expect(landingOf(all, base, "/gone", null)).toEqual({
-      landing: "/",
-      shown: home.id,
-    });
-  });
-
-  it("falls back to a page without a URL, then to nothing", () => {
-    expect(landingOf([draft], [draft], "/", null)).toEqual({
-      landing: null,
-      shown: draft.id,
-    });
-    expect(landingOf([], [], "/x", null)).toEqual({
-      landing: "/x",
-      shown: null,
-    });
-  });
 });
 
 describe("computeFrames", () => {
@@ -196,36 +151,6 @@ describe("selection", () => {
   });
 });
 
-describe("followFrame", () => {
-  it("goes to the route and variant of a page selected in", () => {
-    useEditor.setState({ activePage: home.id, route: "/", variant: null });
-    useEditor.getState().select({ frame: boldPricing.id, nodeId: "x" });
-    expect(useEditor.getState()).toMatchObject({
-      activePage: boldPricing.id,
-      route: "/pricing",
-      variant: "bold",
-    });
-  });
-
-  it("goes to a page without a URL as itself", () => {
-    useEditor.getState().selectPage(draft.id);
-    expect(useEditor.getState()).toMatchObject({
-      activePage: draft.id,
-      route: null,
-      selectedPage: draft.id,
-    });
-  });
-
-  it("stays where it is for a node on the canvas", () => {
-    useEditor.setState({ activePage: pricing.id, route: "/pricing" });
-    useEditor.getState().select({ frame: "node:n1", nodeId: "n1" });
-    expect(useEditor.getState()).toMatchObject({
-      activePage: pricing.id,
-      route: "/pricing",
-    });
-  });
-});
-
 describe("setWorkspace", () => {
   it("puts the selection aside in the prototype and finds it again without what was deleted", () => {
     useDocuments.setState({
@@ -260,122 +185,5 @@ describe("setWorkspace", () => {
     useEditor.setState({ leftTab: "changes", workspace: "design" });
     useEditor.getState().setWorkspace("prototype");
     expect(useEditor.getState().leftTab).toBe("changes");
-  });
-});
-
-describe("openCanvas", () => {
-  it("opens the last canvas asked for, whichever layout arrives last", async () => {
-    let answerMain: (layout: CanvasLayout) => void = () => undefined;
-    fakeApi.respond("canvas.get", ({ canvas }: { canvas: string }) =>
-      canvas === "main"
-        ? new Promise<CanvasLayout>((resolve) => {
-            answerMain = resolve;
-          })
-        : layoutOf()
-    );
-    const first = useEditor.getState().openCanvas("main");
-    const second = useEditor.getState().openCanvas("other");
-    await second;
-    answerMain(layoutOf());
-    await first;
-    expect(useEditor.getState().canvas).toBe("other");
-    expect(useEditor.getState().activePage).toBe(other.id);
-  });
-
-  it("saves a move still waiting to be saved to the canvas it was made on", async () => {
-    vi.useFakeTimers();
-    useEditor.setState({
-      canvas: "main",
-      frames: computeFrames([home], layoutOf()),
-    });
-    useEditor.getState().setFrame(home.id, {
-      height: 900,
-      preset: "desktop",
-      width: 1440,
-      x: 300,
-      y: 40,
-    });
-    await useEditor.getState().openCanvas("other");
-    const saves = fakeApi.calls.filter((c) => c.method === "canvas.set");
-    expect(saves).toEqual([
-      {
-        input: {
-          canvas: "main",
-          frames: {
-            [home.path]: {
-              height: 900,
-              preset: "desktop",
-              width: 1440,
-              x: 300,
-              y: 40,
-            },
-          },
-        },
-        method: "canvas.set",
-      },
-    ]);
-    // Nothing is left to save onto the canvas opened.
-    await vi.advanceTimersByTimeAsync(1000);
-    expect(fakeApi.calls.filter((c) => c.method === "canvas.set")).toHaveLength(
-      1
-    );
-  });
-});
-
-describe("setViewSoon", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-    vi.stubGlobal("requestAnimationFrame", (cb: () => void) =>
-      setTimeout(cb, 16)
-    );
-    vi.stubGlobal("cancelAnimationFrame", (id: number) => clearTimeout(id));
-    useEditor.setState({ view: { x: 0, y: 0, zoom: 1 } });
-  });
-
-  it("takes every change of a frame in one, each going on from the last", () => {
-    let changes = 0;
-    const off = useEditor.subscribe(() => {
-      changes += 1;
-    });
-    setViewSoon({ x: nextView().x - 10 });
-    setViewSoon({ x: nextView().x - 10, zoom: 2 });
-    expect(useEditor.getState().view).toEqual({ x: 0, y: 0, zoom: 1 });
-    vi.advanceTimersByTime(16);
-    off();
-    expect(changes).toBe(1);
-    expect(useEditor.getState().view).toEqual({ x: -20, y: 0, zoom: 2 });
-  });
-
-  it("gives way to a fit, which nothing waiting lands on afterwards", () => {
-    useEditor.setState({
-      frames: {
-        [home.id]: { height: 400, preset: "custom", width: 800, x: 0, y: 0 },
-      },
-    });
-    setViewSoon({ x: 999 });
-    useEditor.getState().zoomToFit({ height: 520, width: 920, x: 0 });
-    const fitted = useEditor.getState().view;
-    expect(fitted).toEqual({ x: 60, y: 60, zoom: 1 });
-    vi.advanceTimersByTime(16);
-    expect(useEditor.getState().view).toEqual(fitted);
-  });
-
-  it("zooms with the keys from a pan still waiting for its frame", () => {
-    vi.stubGlobal("document", { querySelector: () => null });
-    vi.stubGlobal("window", { ...window, innerHeight: 400, innerWidth: 944 });
-    setViewSoon({ x: -100 });
-    zoomBy(2);
-    // Around the middle of the 400 by 400 left between the panels, from x -100.
-    expect(useEditor.getState().view).toEqual({ x: -400, y: -200, zoom: 2 });
-    vi.advanceTimersByTime(16);
-    expect(useEditor.getState().view).toEqual({ x: -400, y: -200, zoom: 2 });
-  });
-
-  it("gives way to a view set outright, which keeps what was waiting", () => {
-    setViewSoon({ x: 50 });
-    useEditor.getState().setView({ zoom: 3 });
-    expect(useEditor.getState().view).toEqual({ x: 50, y: 0, zoom: 3 });
-    vi.advanceTimersByTime(16);
-    expect(useEditor.getState().view).toEqual({ x: 50, y: 0, zoom: 3 });
   });
 });

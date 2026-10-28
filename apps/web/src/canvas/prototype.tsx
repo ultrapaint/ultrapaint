@@ -41,6 +41,7 @@ import { toggleCommenting, useComments } from "../state/comments.ts";
 import { breakpointsFor, useDesignSystem } from "../state/design-system.ts";
 import { useDocuments } from "../state/documents.ts";
 import { pagesOfCanvas, useEditor } from "../state/editor.ts";
+import { goTo } from "../state/location.ts";
 import { useDesignLookVersion } from "../state/look.ts";
 import { useProject } from "../state/project.ts";
 import { commentCursor, FrameComments, placeComment } from "./comments.tsx";
@@ -367,7 +368,7 @@ export const PrototypeBar = () => {
     (s) => s.canvases.find((c) => c.id === canvas)?.variants ?? NO_VARIANTS
   );
   const pickVariant = (next: string) =>
-    useEditor.getState().setVariant(next === BASE ? null : next);
+    goTo({ variant: next === BASE ? null : next });
 
   return (
     <div className="floating pointer-events-auto flex items-center gap-1 p-1">

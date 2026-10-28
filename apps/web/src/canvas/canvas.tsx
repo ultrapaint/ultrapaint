@@ -12,6 +12,7 @@ import {
   useState,
 } from "react";
 import { fromFrame, isTyping } from "../lib/keys.ts";
+import { nextView, setViewSoon } from "../state/camera.ts";
 import { snapsToGrid, useCanvasGrid } from "../state/canvas-grid.ts";
 import { useComments } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
@@ -30,9 +31,7 @@ import {
   type Box,
   hold,
   holdUntil,
-  nextView,
   nodeFrameLayout,
-  setViewSoon,
   useEditor,
 } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";

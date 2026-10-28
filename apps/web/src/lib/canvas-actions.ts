@@ -5,8 +5,10 @@
 import type { Canvas, Page } from "@ultrapaint/contracts/pages";
 import { toast } from "sonner";
 import { confirmDialog, promptDialog } from "../components/dialogs.tsx";
+import { setView, zoomToFit } from "../state/camera.ts";
 import { api } from "../state/connection.ts";
-import { type OpenAt, useEditor } from "../state/editor.ts";
+import { useEditor } from "../state/editor.ts";
+import { type GoTo, goTo } from "../state/location.ts";
 import { usePagePicks } from "../state/page-picks.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { ensureEditable } from "../state/setup.ts";
@@ -28,18 +30,18 @@ const views = new Map<string, { x: number; y: number; zoom: number }>();
  * Opens a canvas the way the list does: at the view it was left at, or fitted to what is on it
  * the first time, as Figma keeps a view per page.
  */
-const showCanvas = async (id: string, at?: OpenAt) => {
+const showCanvas = async (id: string, at?: Omit<GoTo, "canvas">) => {
   const editor = useEditor.getState();
   if (editor.canvas !== null) {
     views.set(editor.canvas, editor.view);
   }
   usePagePicks.getState().clear();
-  await editor.openCanvas(id, at);
+  await goTo({ ...at, canvas: id });
   const kept = views.get(id);
   if (kept) {
-    useEditor.getState().setView(kept);
+    setView(kept);
   } else {
-    useEditor.getState().zoomToFit(viewportSize());
+    zoomToFit(viewportSize());
   }
 };
 
@@ -316,9 +318,8 @@ export const newVariant = async (page: Page, variant?: string) => {
       id: page.id,
       variant: name.trim(),
     });
-    const editor = useEditor.getState();
-    editor.setVariant(created.variant ?? null);
-    editor.openPage(created.id, { push: false });
+    goTo({ variant: created.variant ?? null });
+    goTo({ page: created.id }, { push: false });
   } catch (error) {
     reportError(error);
   }

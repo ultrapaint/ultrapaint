@@ -4,6 +4,7 @@
  * into view. The parameter is then dropped: the selection is the editor's state, not the link's.
  */
 import { useEffect, useRef } from "react";
+import { zoomToSelection } from "../state/camera.ts";
 import { frameOfCanvasNode, nodeIn, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { clearNodeParam, readUrl } from "../state/url.ts";
@@ -33,8 +34,6 @@ export const useOpenNodeLink = () => {
     const editor = useEditor.getState();
     editor.select({ frame, nodeId });
     // The frame's size is known a moment after its page is laid out.
-    requestAnimationFrame(() =>
-      useEditor.getState().zoomToSelection(viewportSize())
-    );
+    requestAnimationFrame(() => zoomToSelection(viewportSize()));
   }, [loaded, activePage, canvas]);
 };

@@ -7,18 +7,11 @@ import type {
 } from "@ultrapaint/contracts/pages";
 import { presetSize } from "@ultrapaint/contracts/pages";
 import type { Rect } from "@ultrapaint/contracts/preview";
-import {
-  basePathOf,
-  matchRoute,
-  normaliseRoute,
-  pagesInVariant,
-} from "@ultrapaint/shared/route";
 import { create } from "zustand";
 import { sizeForPreset } from "../lib/presets.ts";
 import { api } from "./connection.ts";
 import {
   canvasNodes,
-  isNodeFrame,
   isViewFrame,
   nodeFrameOf,
   nodeIn,
@@ -27,9 +20,10 @@ import {
   viewFrameOf,
   viewOfFrame,
 } from "./documents.ts";
+import { followFrame } from "./location.ts";
 import { reportError, useProject } from "./project.ts";
 import { viewedSnapshot } from "./snapshot-view.ts";
-import { readUrl, writeMode, writeUrl } from "./url.ts";
+import { readUrl, writeMode } from "./url.ts";
 import {
   emptyMemory,
   modeFor,
@@ -70,16 +64,6 @@ export const railTabs: readonly LeftTab[] = [
 ];
 
 /**
- * Where to open a canvas: at a URL of its router, or on a page (its id) that serves none, in a
- * variant. Left out, the canvas opens on its home.
- */
-export interface OpenAt {
-  page?: string | null;
-  route?: string | null;
-  variant?: string | null;
-}
-
-/**
  * What the right panel shows: the selection's fields, the code it stands for, or the canvas's
  * comments.
  */
@@ -94,20 +78,11 @@ export interface Selection {
   nodeId: string;
 }
 
-/**
- * The part of the canvas nothing covers, in the canvas's own coordinates: `x` is where it begins,
- * past the left panel floating over the canvas's left edge.
- */
-export interface Viewport {
-  height: number;
-  width: number;
-  x: number;
-}
-
 interface EditorStore {
   /**
-   * The page serving the current route, or the page without a URL the editor was opened on:
-   * what the prototype shows and agents are about.
+   * The page serving the current route, or the page without a URL the editor is on: what the
+   * prototype shows and agents are about. Where the editor is (`activePage`, `canvas`, `route`,
+   * `variant`) is written by `location.ts` alone.
    */
   activePage: string | null;
   /** Draws a page again at another width beside its frame; the new view's frame id. */
@@ -137,14 +112,6 @@ interface EditorStore {
   /** What the workspaces not shown were left with: their tools, the canvas's selection. */
   memory: WorkspaceMemory;
   mode: Mode;
-  /** Goes to a route of the open canvas. Every navigation is an entry in the editor's history. */
-  navigate: (route: string, options?: { push?: boolean }) => void;
-  openCanvas: (canvas: string, at?: OpenAt) => Promise<void>;
-  /**
-   * Goes to a page of the open canvas: to its URL when it has one, which is a navigation like any
-   * other, or to the page itself, which no link could have led to.
-   */
-  openPage: (pageId: string, options?: { push?: boolean }) => void;
   rects: Record<string, Record<string, Rect>>;
   /** Takes a view of a page away, by its frame id. */
   removeView: (frame: string) => void;
@@ -176,77 +143,28 @@ interface EditorStore {
   /** The drawn size of a node on the canvas, as its preview measured it. */
   setSize: (frame: string, size: { height: number; width: number }) => void;
   setSpacePan: (spacePan: boolean) => void;
-  /** The variant the router serves its routes in; `null` is the base. A navigation of its own. */
-  setVariant: (variant: string | null) => void;
-  setView: (view: Partial<EditorStore["view"]>) => void;
   setWorkspace: (workspace: Workspace) => void;
   /** Measured sizes of the frames of nodes on the canvas. */
   sizes: Record<string, { height: number; width: number }>;
   /** Space is held: the canvas pans whatever the current mode. */
   spacePan: boolean;
-  /** Puts the page that serves the current route back in step with the page list. */
-  syncActivePage: () => void;
   /** Adds a node to the selection, or takes it out when it is in it: Shift-click. */
   toggleSelected: (selection: Selection) => void;
   /** The variant the router is in: its pages serve their routes, the base's the rest. */
   variant: string | null;
+  /** Where the canvas is looked at from; `camera.ts` alone moves it. */
   view: { x: number; y: number; zoom: number };
   workspace: Workspace;
-  zoomToFit: (viewport: Viewport) => void;
-  zoomToSelection: (viewport: Viewport) => void;
 }
 
+/** What the editor's store holds, for the modules that write a part of it. */
+export type EditorState = EditorStore;
+
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
-/** Counts the canvases asked for: only the last one asked for is opened. */
-let opening = 0;
-
-/**
- * Where a canvas opens: the page without a URL it was asked for, as it is, or the page serving
- * the route. A canvas whose route has no page opens on whatever page it does have: one with a
- * URL first, as the prototype can go on from it.
- */
-export const landingOf = (
-  all: readonly Page[],
-  served: readonly Page[],
-  target: string,
-  pageId: string | null
-): { landing: string | null; shown: string | null } => {
-  const asked = pageId === null ? undefined : all.find((p) => p.id === pageId);
-  if (asked && asked.route === undefined) {
-    return { landing: null, shown: asked.id };
-  }
-  const match = matchRoute(served, target);
-  if (match) {
-    return { landing: target, shown: match.entry.id };
-  }
-  const routed = served.find((p) => p.route !== undefined);
-  if (routed?.route !== undefined) {
-    return { landing: routed.route, shown: routed.id };
-  }
-  const [first] = served;
-  return first
-    ? { landing: null, shown: first.id }
-    : { landing: target, shown: null };
-};
-
 export const pagesOfCanvas = (canvas: string | null): readonly Page[] =>
   canvas === null
     ? []
     : useProject.getState().pages.filter((p) => p.canvas === canvas);
-
-/**
- * The page a route is served by in a variant, matched the way the preview's router matches it:
- * the variant's own page for the route when it has one, the base page otherwise.
- */
-const pageAt = (
-  canvas: string | null,
-  route: string | null,
-  variant: string | null
-): Page | null =>
-  route === null
-    ? null
-    : (matchRoute(pagesInVariant(pagesOfCanvas(canvas), variant), route)
-        ?.entry ?? null);
 
 /** Where a node placed on the canvas is drawn: its own position, its measured or fixed size. */
 export const nodeFrameLayout = (
@@ -548,6 +466,41 @@ export const flushLayout = (): Promise<void> => {
   return saveLayout(useEditor.getState, useEditor.setState);
 };
 
+/** A canvas's layout: the snapshot's when one is looked at, the server's otherwise. */
+export const layoutOf = async (canvas: string): Promise<CanvasLayout> => {
+  const snapshot = viewedSnapshot();
+  return snapshot
+    ? (snapshot.layouts[canvas] ?? { frames: {}, version: 1 })
+    : await api().request("canvas.get", { canvas });
+};
+
+/** Nothing selected, hovered or picked with it: where a navigation leaves the selection. */
+export const unpicked = {
+  also: [],
+  hover: null,
+  selectedPage: null,
+  selection: null,
+} satisfies Partial<EditorStore>;
+
+/**
+ * What the editor holds of a canvas it opens with `layout`: its frames, nothing held or measured
+ * yet, and nothing put aside from another canvas.
+ */
+export const openedCanvas = (
+  canvas: string,
+  layout: CanvasLayout
+): Partial<EditorStore> => {
+  const { canvas: open, memory } = useEditor.getState();
+  return {
+    frames: computeFrames(pagesOfCanvas(canvas), layout),
+    held: {},
+    layout,
+    memory: canvas === open ? memory : { ...memory, putAside: null },
+    rects: {},
+    sizes: {},
+  };
+};
+
 export const useEditor = create<EditorStore>((set, get) => ({
   activePage: null,
   addView: (pageId, width, height) => {
@@ -582,120 +535,6 @@ export const useEditor = create<EditorStore>((set, get) => ({
   leftTab: "chat",
   memory: emptyMemory,
   mode: modeFor(workspaceInUrl(), undefined),
-
-  navigate: (route, options) => {
-    const next = normaliseRoute(route);
-    const { canvas, variant } = get();
-    set({
-      activePage: pageAt(canvas, next, variant)?.id ?? null,
-      also: [],
-      hover: null,
-      route: next,
-      selectedPage: null,
-      selection: null,
-    });
-    writeUrl(
-      { canvas, page: null, route: next, variant },
-      options?.push ?? true
-    );
-  },
-
-  openCanvas: async (canvas, at = {}) => {
-    const { page, route, variant = null } = at;
-    opening += 1;
-    const asked = opening;
-    // A move still waiting to be saved belongs to the canvas being left: it is saved now, while
-    // the frames are still that canvas's.
-    flushLayout();
-    try {
-      const snapshot = viewedSnapshot();
-      const layout = snapshot
-        ? (snapshot.layouts[canvas] ?? { frames: {}, version: 1 as const })
-        : await api().request("canvas.get", { canvas });
-      // Another canvas was asked for while this one's layout was on its way.
-      if (asked !== opening) {
-        return;
-      }
-      const all = useProject
-        .getState()
-        .pages.filter((p) => p.canvas === canvas);
-      const info = useProject.getState().canvases.find((s) => s.id === canvas);
-      // A variant the canvas no longer has is the base.
-      const kept =
-        variant !== null && info?.variants.includes(variant) ? variant : null;
-      const { landing, shown } = landingOf(
-        all,
-        pagesInVariant(all, kept),
-        normaliseRoute(route ?? info?.home ?? "/"),
-        page ?? null
-      );
-      if (useDocuments.getState().canvas !== canvas) {
-        useDocuments.getState().load(canvas);
-      }
-      const { memory } = get();
-      set({
-        activePage: shown,
-        also: [],
-        canvas,
-        frames: computeFrames(all, layout),
-        held: {},
-        hover: null,
-        layout,
-        // What was put aside of another canvas is nothing this one has.
-        memory:
-          canvas === get().canvas ? memory : { ...memory, putAside: null },
-        rects: {},
-        route: landing,
-        selectedPage: null,
-        selection: null,
-        sizes: {},
-        variant: kept,
-      });
-      writeUrl(
-        {
-          canvas,
-          page: landing === null ? shown : null,
-          route: landing,
-          variant: kept,
-        },
-        false
-      );
-      localStorage.setItem("ultrapaint:canvas", canvas);
-    } catch (error) {
-      reportError(error);
-    }
-  },
-  openPage: (pageId, options) => {
-    const { activePage, canvas, route, variant } = get();
-    const page = pagesOfCanvas(canvas).find((p) => p.id === pageId);
-    if (!page) {
-      return;
-    }
-    const pageVariant = page.variant ?? null;
-    if (page.route !== undefined) {
-      if (variant !== pageVariant) {
-        set({ variant: pageVariant });
-      }
-      // Already there: stay on the route, and on the parameters it was reached with.
-      if (activePage !== page.id || route === null) {
-        get().navigate(page.route, options);
-      }
-      return;
-    }
-    set({
-      activePage: page.id,
-      also: [],
-      hover: null,
-      route: null,
-      selectedPage: null,
-      selection: null,
-      variant: pageVariant,
-    });
-    writeUrl(
-      { canvas, page: page.id, route: null, variant: pageVariant },
-      options?.push ?? true
-    );
-  },
   rects: {},
   removeView: (frame) => {
     const view = viewOfFrame(frame);
@@ -721,7 +560,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
     }
     set({ also: [], selectedPage: null, selection });
     if (selection) {
-      followFrame(get, set, selection.frame);
+      followFrame(selection.frame);
     }
   },
   selectedPage: null,
@@ -751,7 +590,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
       selection: null,
     });
     if (pageId) {
-      followFrame(get, set, pageId);
+      followFrame(pageId);
     }
   },
   setFrame: (pageId, frame, persist = true) => {
@@ -798,35 +637,6 @@ export const useEditor = create<EditorStore>((set, get) => ({
         : { sizes: { ...s.sizes, [frame]: size } };
     }),
   setSpacePan: (spacePan) => set({ spacePan }),
-  setVariant: (variant) => {
-    const { activePage, canvas, route } = get();
-    if (route === null) {
-      // On a page without a URL: the same page, drawn for the variant when it is.
-      const pages = pagesOfCanvas(canvas);
-      const base = basePathOf(
-        pages.find((p) => p.id === activePage)?.path ?? ""
-      );
-      const own = pages.filter((p) => basePathOf(p.path) === base);
-      const shown =
-        own.find((p) => (p.variant ?? null) === variant) ??
-        own.find((p) => p.variant === undefined);
-      set({ activePage: shown?.id ?? activePage, variant });
-      writeUrl(
-        { canvas, page: shown?.id ?? activePage, route: null, variant },
-        true
-      );
-      return;
-    }
-    set({ activePage: pageAt(canvas, route, variant)?.id ?? null, variant });
-    writeUrl({ canvas, page: null, route, variant }, true);
-  },
-  setView: (view) => {
-    // Said outright, it goes over whatever was waiting for the next frame.
-    const base = nextView();
-    cancelPendingView();
-    land();
-    set({ view: { ...base, ...view } });
-  },
   setWorkspace: (workspace) => {
     const s = get();
     if (workspace === s.workspace) {
@@ -864,24 +674,6 @@ export const useEditor = create<EditorStore>((set, get) => ({
   },
   sizes: {},
   spacePan: false,
-  syncActivePage: () => {
-    const { activePage, canvas, route, variant } = get();
-    if (route === null) {
-      const page = pagesOfCanvas(canvas).find((p) => p.id === activePage);
-      if (page?.route !== undefined) {
-        // The page was given a URL: the editor is at it now.
-        set({ route: page.route });
-        writeUrl({ canvas, page: null, route: page.route, variant }, false);
-      } else if (!page) {
-        set({ activePage: null });
-      }
-      return;
-    }
-    const id = pageAt(canvas, route, variant)?.id ?? null;
-    if (id !== get().activePage) {
-      set({ activePage: id });
-    }
-  },
   toggleSelected: (target) => {
     if (hidesSelection(get)) {
       return;
@@ -908,230 +700,11 @@ export const useEditor = create<EditorStore>((set, get) => ({
   variant: null,
   view: { x: 80, y: 80, zoom: 0.5 },
   workspace: workspaceInUrl(),
-  zoomToFit: (viewport) => {
-    const frames = Object.values(allFrames());
-    if (frames.length === 0) {
-      return;
-    }
-    fitTo(set, viewport, frames);
-  },
-  zoomToSelection: (viewport) => {
-    const { selection, selectedPage, rects } = get();
-    const frames = allFrames();
-    const pageFrame = selectedPage ? frames[selectedPage] : undefined;
-    if (pageFrame) {
-      fitTo(set, viewport, [pageFrame], true);
-      return;
-    }
-    if (!selection) {
-      return;
-    }
-    const frame = frames[selection.frame];
-    const rect = rects[selection.frame]?.[selection.nodeId];
-    if (!frame) {
-      return;
-    }
-    const target = rect
-      ? {
-          height: rect.height,
-          width: rect.width,
-          x: frame.x + rect.x,
-          y: frame.y + rect.y,
-        }
-      : frame;
-    fitTo(set, viewport, [target], true);
-  },
 }));
-
-type View = EditorStore["view"];
-
-/**
- * How many canvas pixels make one on screen. What is drawn in the zoomed layer at a constant size
- * on screen (names, handles, outlines) is scaled by it. Only what draws such things reads it, so a
- * zoom redraws them and not the frames around them.
- */
-export const useInv = () => useEditor((s) => 1 / s.view.zoom);
-
-/** Where the canvas is being panned or zoomed to, until the next frame draws it. */
-let pendingView: View | null = null;
-let viewFrame: number | null = null;
-
-const cancelPendingView = () => {
-  if (viewFrame !== null) {
-    cancelAnimationFrame(viewFrame);
-    viewFrame = null;
-  }
-  pendingView = null;
-};
-
-/** A move of the camera on its way, and where it goes. */
-let flight: { frame: number; to: View } | null = null;
-
-/** Where the camera is moving to, while it moves: what is there loads first. */
-export const viewTarget = (): View | null => flight?.to ?? null;
-
-/** Stops a move of the camera where it is: the user took the canvas, or another move began. */
-const land = () => {
-  if (flight) {
-    cancelAnimationFrame(flight.frame);
-    flight = null;
-  }
-};
-
-const FLIGHT_MS = 320;
-
-const easeInOut = (k: number) =>
-  k < 0.5 ? 4 * k * k * k : 1 - (-2 * k + 2) ** 3 / 2;
-
-/**
- * Moves the camera to `to` over a third of a second, the point in the middle of `viewport`
- * gliding while the zoom changes evenly in scale, so the way from one place to the other is
- * seen. At once when the system asks for reduced motion.
- */
-const flyTo = (
-  set: (partial: Partial<EditorStore>) => void,
-  to: View,
-  viewport: Viewport
-) => {
-  cancelPendingView();
-  land();
-  const from = useEditor.getState().view;
-  const still =
-    typeof requestAnimationFrame === "undefined" ||
-    typeof matchMedia === "undefined" ||
-    matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (still || (from.x === to.x && from.y === to.y && from.zoom === to.zoom)) {
-    set({ view: to });
-    return;
-  }
-  // The screen point that stays the middle of what is seen, in the canvas at each end.
-  const mx = viewport.x + viewport.width / 2;
-  const my = viewport.height / 2;
-  const a = { x: (mx - from.x) / from.zoom, y: (my - from.y) / from.zoom };
-  const b = { x: (mx - to.x) / to.zoom, y: (my - to.y) / to.zoom };
-  const za = Math.log(from.zoom);
-  const zb = Math.log(to.zoom);
-  let start: number | null = null;
-  const step = (now: number) => {
-    start ??= now;
-    const k = Math.min(1, (now - start) / FLIGHT_MS);
-    if (k >= 1 || !flight) {
-      flight = null;
-      set({ view: to });
-      return;
-    }
-    const e = easeInOut(k);
-    const zoom = Math.exp(za + (zb - za) * e);
-    const cx = a.x + (b.x - a.x) * e;
-    const cy = a.y + (b.y - a.y) * e;
-    set({ view: { x: mx - cx * zoom, y: my - cy * zoom, zoom } });
-    flight.frame = requestAnimationFrame(step);
-  };
-  flight = { frame: requestAnimationFrame(step), to };
-};
-
-/** The view as the next frame will draw it: what a wheel or a drag goes on from. */
-export const nextView = (): View => pendingView ?? useEditor.getState().view;
-
-/**
- * Pans or zooms the canvas on the next frame. A wheel or a pointer reports many times a frame,
- * and the canvas is drawn once a frame: it takes them all in one change.
- */
-export const setViewSoon = (view: Partial<View>) => {
-  land();
-  pendingView = { ...nextView(), ...view };
-  viewFrame ??= requestAnimationFrame(() => {
-    viewFrame = null;
-    const next = pendingView;
-    pendingView = null;
-    if (next) {
-      useEditor.setState({ view: next });
-    }
-  });
-};
 
 /** Nothing shows a selection in the prototype, so nothing may be selected there. */
 const hidesSelection = (get: () => EditorStore) =>
   get().workspace === "prototype";
-
-/**
- * Working inside a frame is being on its route, in its variant: the editor is only ever at one
- * place at a time, and the layers, the inspector and the prototype all read the route. It is not
- * a navigation the user asked for, so it replaces the history entry instead of adding one.
- */
-const followFrame = (
-  get: () => EditorStore,
-  set: (partial: Partial<EditorStore>) => void,
-  frame: string
-) => {
-  if (isNodeFrame(frame)) {
-    return;
-  }
-  const pageId = pageOfFrame(frame);
-  const { activePage, canvas, route, variant } = get();
-  const page = pagesOfCanvas(canvas).find((p) => p.id === pageId);
-  const pageVariant = page?.variant ?? null;
-  if (!page) {
-    return;
-  }
-  if (page.route === undefined) {
-    if (activePage === page.id && route === null) {
-      return;
-    }
-    set({ activePage: page.id, route: null, variant: pageVariant });
-    writeUrl(
-      { canvas, page: page.id, route: null, variant: pageVariant },
-      false
-    );
-    return;
-  }
-  if (page.route === route && pageVariant === variant) {
-    return;
-  }
-  set({ activePage: page.id, route: page.route, variant: pageVariant });
-  writeUrl(
-    { canvas, page: null, route: page.route, variant: pageVariant },
-    false
-  );
-};
-
-const fitTo = (
-  set: (partial: Partial<EditorStore>) => void,
-  viewport: Viewport,
-  boxes: { x: number; y: number; width: number; height: number }[],
-  /** Glides there, rather than being there at once. */
-  glide = false
-) => {
-  const x1 = Math.min(...boxes.map((b) => b.x));
-  const y1 = Math.min(...boxes.map((b) => b.y));
-  const x2 = Math.max(...boxes.map((b) => b.x + b.width));
-  const y2 = Math.max(...boxes.map((b) => b.y + b.height));
-  const pad = 60;
-  const zoom = Math.min(
-    4,
-    Math.max(
-      0.05,
-      Math.min(
-        (viewport.width - pad * 2) / (x2 - x1),
-        (viewport.height - pad * 2) / (y2 - y1)
-      )
-    )
-  );
-  const view = {
-    x: viewport.x + (viewport.width - (x2 - x1) * zoom) / 2 - x1 * zoom,
-    y: (viewport.height - (y2 - y1) * zoom) / 2 - y1 * zoom,
-    zoom,
-  };
-  if (glide) {
-    flyTo(set, view, viewport);
-    return;
-  }
-  // A fit takes the whole view: a pan or zoom still waiting for the next frame (a trackpad's
-  // inertia) would otherwise land on top of it.
-  cancelPendingView();
-  land();
-  set({ view });
-};
 
 /**
  * Selects a node for a right-click. One that is already selected keeps the selection as it is:

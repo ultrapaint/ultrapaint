@@ -104,6 +104,7 @@ interface BenchWindow {
   };
   __ed: {
     openCanvas: (id: string) => void;
+    setView: (v: Partial<View>) => void;
     useDocuments: {
       getState: () => {
         docs: Record<string, { root?: TreeNode | null }>;
@@ -116,14 +117,13 @@ interface BenchWindow {
         select: (s: { frame: string; nodeId: string } | null) => void;
         setHover: (s: { frame: string; nodeId: string } | null) => void;
         setLeftTab: (tab: string) => void;
-        setView: (v: Partial<View>) => void;
         view: View;
-        zoomToFit: (v: Box) => void;
       };
     };
     useProject: {
       getState: () => { pages: { canvas: string; id: string }[] };
     };
+    zoomToFit: (v: Box) => void;
     zoomToPage: (page: unknown) => void;
   };
 }
@@ -658,20 +658,13 @@ const blankAfter = async (
 const fitAll = async (page: Page) => {
   const box = await viewport(page);
   await page.evaluate(
-    (vp) =>
-      (window as unknown as BenchWindow).__ed.useEditor
-        .getState()
-        .zoomToFit(vp),
+    (vp) => (window as unknown as BenchWindow).__ed.zoomToFit(vp),
     box
   );
 };
 
 const setView = (page: Page, to: Partial<View>) =>
-  page.evaluate(
-    (v) =>
-      (window as unknown as BenchWindow).__ed.useEditor.getState().setView(v),
-    to
-  );
+  page.evaluate((v) => (window as unknown as BenchWindow).__ed.setView(v), to);
 
 const resetCounts = (page: Page) =>
   page.evaluate(() => {

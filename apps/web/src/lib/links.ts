@@ -12,8 +12,10 @@ import {
 } from "@ultrapaint/shared/link";
 import { basePathOf } from "@ultrapaint/shared/route";
 import { toast } from "sonner";
+import { zoomToSelection } from "../state/camera.ts";
 import { useDocuments } from "../state/documents.ts";
 import { pagesOfCanvas, useEditor } from "../state/editor.ts";
+import { goTo } from "../state/location.ts";
 import { viewportSize } from "./shortcuts.ts";
 
 /**
@@ -32,7 +34,7 @@ export const followLink = (link: string, options?: { push?: boolean }) => {
     return;
   }
   if (target?.kind === "url") {
-    editor.navigate(target.route, options);
+    goTo({ route: target.route }, options);
     return;
   }
   const pages = pagesOfCanvas(editor.canvas);
@@ -51,7 +53,7 @@ export const followLink = (link: string, options?: { push?: boolean }) => {
             p.variant === editor.variant && basePathOf(p.path) === page.path
         )
       : undefined;
-  editor.openPage((drawn ?? page).id, options);
+  goTo({ page: (drawn ?? page).id }, options);
 };
 
 /**
@@ -68,7 +70,7 @@ export const focusLink = (link: string) => {
   const page = pageOfLink(pagesOfCanvas(editor.canvas), link);
   if (page) {
     editor.selectPage(page.id);
-    editor.zoomToSelection(viewportSize());
+    zoomToSelection(viewportSize());
   } else if (target?.kind !== "back") {
     toast.error("This link leads nowhere", {
       description: `${link} is not a page of this canvas.`,
