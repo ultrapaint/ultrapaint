@@ -228,6 +228,26 @@ describe("componentSpec", () => {
     });
   });
 
+  it("reads the screen's sizes, a variable with its type and `!` after a variant", () => {
+    const { base, states } = componentSpec(
+      {
+        base: "h-screen w-dvw border-(length:--edge) text-(length:--text-x) hover:!bg-accent",
+        classes: {},
+        defaults: {},
+      },
+      tokens
+    );
+    expect(base).toEqual({
+      root: {
+        border: { width: "var(--edge)" },
+        fontSize: "var(--text-x)",
+        height: "100vh",
+        width: "100dvw",
+      },
+    });
+    expect(states).toEqual({ hover: { root: { fill: "$color-accent" } } });
+  });
+
   it("gives empty fields for classes that set nothing", () => {
     expect(
       componentSpec(

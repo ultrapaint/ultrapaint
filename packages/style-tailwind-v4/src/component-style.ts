@@ -14,12 +14,15 @@ import type {
   ComponentStyle,
   SourceToken,
 } from "@ultrapaint/contracts/tokens";
+import {
+  arbitraryOf,
+  parseClass,
+  splitModifier,
+  utilityReader,
+} from "./utilities.ts";
 
-const CLASS_RE = /^(bg|text|rounded|p|px|py|h|w|size)(?:-(.+))?$/;
-const ARBITRARY_RE = /^\[(.+)\]$/;
 const LENGTH_RE = /^(-?\d*\.?\d+)(px|rem|em)$/;
 const SPACES_RE = /\s+/;
-const IMPORTANT_RE = /^!|!$/g;
 
 /** The groups of `re` in `text`, or none. */
 export const groups = (
@@ -31,17 +34,31 @@ export const groups = (
   return match === null ? [] : match.slice(1);
 };
 
-/** What is inside `[…]`, for an arbitrary value. */
-export const arbitraryOf = (value: string) => groups(ARBITRARY_RE, value)[0];
-
 export interface Reading {
   /** The spacing base the code declares, when it reads lengths off the scale. */
   readonly base?: string | undefined;
   readonly names: ReadonlySet<string>;
 }
 
-const colourOf = (value: string, { names }: Reading) => {
+/** An arbitrary value's CSS when it is of `type` or not marked; null when it is of another. */
+const arbitraryAs = (value: string, type: string) => {
   const arbitrary = arbitraryOf(value);
+  if (arbitrary === undefined) {
+    return;
+  }
+  return arbitrary.hint === undefined || arbitrary.hint === type
+    ? arbitrary.css
+    : null;
+};
+
+/** An arbitrary length, `[6px]`; null for anything else in brackets. */
+const arbitraryLength = (value: string) => {
+  const css = arbitraryAs(value, "length");
+  return css === undefined || css === null || LENGTH_RE.test(css) ? css : null;
+};
+
+const colourOf = (value: string, { names }: Reading) => {
+  const arbitrary = arbitraryAs(value, "color");
   if (arbitrary !== undefined) {
     return arbitrary;
   }
@@ -49,9 +66,9 @@ const colourOf = (value: string, { names }: Reading) => {
 };
 
 const lengthOf = (value: string, { base, names }: Reading) => {
-  const arbitrary = arbitraryOf(value);
+  const arbitrary = arbitraryLength(value);
   if (arbitrary !== undefined) {
-    return LENGTH_RE.test(arbitrary) ? arbitrary : null;
+    return arbitrary;
   }
   if (value === "px") {
     return "1px";
@@ -77,10 +94,7 @@ export const radiusOf = (value: string | undefined, { names }: Reading) => {
   if (value === "full") {
     return "9999px";
   }
-  const arbitrary = arbitraryOf(value);
-  return arbitrary !== undefined && LENGTH_RE.test(arbitrary)
-    ? arbitrary
-    : null;
+  return arbitraryLength(value) ?? null;
 };
 
 /** Each utility read: the property it sets, and its value; null for nothing the format holds. */
@@ -104,6 +118,8 @@ const READERS: Readonly<
   w: (v, r) => (v ? ["width", lengthOf(v, r)] : null),
 };
 
+const readUtility = utilityReader(Object.keys(READERS));
+
 export const componentStyle = (
   classes: string,
   tokens: readonly SourceToken[]
@@ -113,13 +129,18 @@ export const componentStyle = (
     names: new Set(tokens.map((t) => t.name)),
   };
   const found = new Map<string, string>();
-  for (const raw of classes.split(SPACES_RE)) {
-    const cls = raw.replace(IMPORTANT_RE, "");
-    if (cls === "" || cls.includes(":") || cls.includes("/")) {
+  for (const cls of classes.split(SPACES_RE)) {
+    const { negative, utility, variants } = parseClass(cls);
+    const parts = readUtility(utility);
+    if (
+      parts === null ||
+      negative ||
+      variants.length > 0 ||
+      (parts.value !== undefined && splitModifier(parts.value).modifier !== "")
+    ) {
       continue;
     }
-    const [use, value] = groups(CLASS_RE, cls);
-    const read = use === undefined ? null : READERS[use]?.(value, reading);
+    const read = READERS[parts.use]?.(parts.value, reading);
     // A later class wins, as it does in the class list.
     if (read && read[1] !== null) {
       found.set(read[0], read[1]);

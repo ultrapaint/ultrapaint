@@ -54,21 +54,17 @@ const valuesOf = (files: Record<string, string>, ctx?: UsageContext) =>
   );
 
 describe("reading a class", () => {
-  it("takes the variants, the importance and the opacity off", () => {
+  it("reads the utilities the scan knows, a colour's opacity off and a fraction kept", () => {
     expect(readClass("hover:md:bg-blue-500/50")).toEqual({
       use: "bg",
       value: "blue-500",
     });
-    expect(readClass("!px-4")).toEqual({ use: "px", value: "4" });
     expect(readClass("-mt-2")).toEqual({ use: "mt", value: "2" });
     expect(readClass("[&>svg]:rounded-t-lg")).toEqual({
       use: "rounded-t",
       value: "lg",
     });
-    expect(readClass("data-[state=open]:bg-[#FFF]")).toEqual({
-      use: "bg",
-      value: "[#FFF]",
-    });
+    expect(readClass("shadow")).toEqual({ use: "shadow", value: "" });
     expect(readClass("left-1/2")).toEqual({ use: "left", value: "1/2" });
     expect(readClass("flex")).toBeNull();
     expect(readClass("toggle-x")).toBeNull();
@@ -105,6 +101,17 @@ describe("the inventory of a project's code", () => {
     );
     // text-left, mx-auto and flex are not values of a design system.
     expect(values).toHaveLength(15);
+  });
+
+  it("reads a variable with its type as the token it names", () => {
+    expect(
+      valuesOf({
+        "src/app.tsx": `export const A = () => <div className="border-(color:--background) bg-(--primary)" />;`,
+      })
+    ).toEqual([
+      "color system color-background → color-background ×1",
+      "color system color-primary → color-primary ×1",
+    ]);
   });
 
   it("reads inline styles, colour constants and the stylesheets outside the theme", () => {

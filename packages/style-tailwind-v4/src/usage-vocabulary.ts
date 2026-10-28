@@ -1,8 +1,9 @@
 /**
  * What the usage scan knows of Tailwind and the DOM, shared by reading the files and holding
  * their values against the design system: the utilities it reads, colours as they are written,
- * and the plain elements a library has a component for. What a whole value is comes from
- * contracts' `token-value`; the patterns here find colours inside a file's text.
+ * and the plain elements a library has a component for. How a class is written and Tailwind's
+ * scales are `utilities`'; what a whole value is comes from contracts' `token-value`; the
+ * patterns here find colours inside a file's text.
  */
 import { parseColor } from "@ultrapaint/contracts/token-value";
 
@@ -44,7 +45,7 @@ export const NAMED_COLORS = new Set([
   "yellow",
 ]);
 
-/** The utilities read, longest first so `gap-x` wins over `gap`. */
+/** The utilities read; `utilities` matches the longest first, so `gap-x` wins over `gap`. */
 const COLOR_UTILITIES = [
   "ring-offset",
   "inset-shadow",
@@ -124,14 +125,12 @@ const RADIUS_UTILITIES = [
   "rounded",
 ];
 export const UTILITIES = [
-  ...new Set([
-    ...COLOR_UTILITIES,
-    ...SPACING_UTILITIES,
-    ...RADIUS_UTILITIES,
-    "font",
-    "z",
-  ]),
-].sort((a, b) => b.length - a.length);
+  ...COLOR_UTILITIES,
+  ...SPACING_UTILITIES,
+  ...RADIUS_UTILITIES,
+  "font",
+  "z",
+];
 export const COLOR_SET = new Set(COLOR_UTILITIES);
 export const SPACING_SET = new Set(SPACING_UTILITIES);
 export const RADIUS_SET = new Set(RADIUS_UTILITIES);
