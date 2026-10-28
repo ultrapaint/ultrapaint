@@ -204,6 +204,15 @@ export const onReloadRequest = (listener: () => void) => {
   };
 };
 
+/**
+ * The components' own stylesheet (ADR 0040: the primitives' look), first among the frames'
+ * stylesheets, the same for every frame.
+ */
+export const setComponentsCss = (css: string) => {
+  parts.set("ed:components", frameCss(css));
+  schedule();
+};
+
 /** The design's stylesheet, the same for every frame: written again only when it changed. */
 export const setDesignCss = (css: string) => {
   if (css === designText) {

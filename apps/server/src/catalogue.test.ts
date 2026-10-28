@@ -1,29 +1,22 @@
-import { pathToFileURL } from "node:url";
-import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
-import { Effect, Exit, FileSystem, Path } from "effect";
-import { TestClock } from "effect/testing";
-import { buildInWorker } from "./services/catalogue.ts";
+import { PRIMITIVES_FROM } from "@ultrapaint/contracts/spec-names";
+import { Effect } from "effect";
+import { CatalogueService } from "./services/catalogue.ts";
 
-describe("the catalogue worker", () => {
-  it.effect("fails a build whose worker ends without a catalogue", () =>
+describe("the catalogue", () => {
+  it.effect("is the editor's primitives, whatever the repository holds", () =>
     Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const dir = yield* fs.makeTempDirectoryScoped();
-      const script = path.join(dir, "silent-worker.mjs");
-      // Ends at once, exit code 0, having sent nothing.
-      yield* fs.writeFileString(script, "export {};\n");
-      const exit = yield* buildInWorker(
-        pathToFileURL(script),
-        { componentPackages: [], libraryDirs: [], root: dir },
-        []
-      ).pipe(
-        Effect.timeoutOption("3 seconds"),
-        TestClock.withLive,
-        Effect.exit
+      const catalogue = yield* (yield* CatalogueService).get(false);
+      const names = catalogue.components.map((c) => c.name);
+      assert.includeMembers(names, ["Button", "Dialog", "Select", "Menu"]);
+      assert.isTrue(
+        catalogue.components.every((c) => c.importFrom === PRIMITIVES_FROM)
       );
-      assert.isTrue(Exit.hasDies(exit));
-    }).pipe(Effect.provide(NodeServices.layer))
+      const dialog = catalogue.components.find((c) => c.name === "Dialog");
+      assert.deepStrictEqual(
+        dialog?.slots?.filter((s) => s.holds !== undefined).map((s) => s.name),
+        ["trigger", "dialog-header", "dialog-content", "dialog-footer"]
+      );
+    }).pipe(Effect.provide(CatalogueService.layer))
   );
 });

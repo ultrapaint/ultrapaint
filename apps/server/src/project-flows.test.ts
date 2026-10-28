@@ -13,28 +13,6 @@ import { PagesService } from "./services/pages.ts";
 import { SpecService } from "./services/specs.ts";
 import { ProjectFixture, ProjectTest } from "./testing/project.ts";
 
-const THEME = `@theme {
-  --color-brand: #2563eb;
-  --color-ink: #111827;
-}
-`;
-
-const BUTTON = `declare namespace JSX { interface Element {} }
-declare const cva: (base: string, config?: unknown) => (props?: unknown) => JSX.Element;
-const buttonVariants = cva("inline-flex h-9 px-4 bg-brand text-ink hover:bg-ink");
-export const Button = (props: { variant?: string }): JSX.Element => buttonVariants(props);
-`;
-
-/** A project whose catalogue has a cva Button in `designs/ui`, over a stylesheet's tokens. */
-const withButton = () =>
-  ProjectTest({
-    files: { "designs/ui/button.tsx": BUTTON, "styles/app.css": THEME },
-    settings: {
-      hostCss: ["../../styles/app.css"],
-      libraryDirs: ["designs/ui"],
-    },
-  });
-
 /** The status of a spec's link to its code, and the files it is linked to. */
 const linkOf = (component: string) =>
   Effect.flatMap(ProjectManager, (project) =>
@@ -55,46 +33,26 @@ const nextEvent = <A, E, R>(name: "git", effect: Effect.Effect<A, E, R>) =>
   });
 
 describe("flows in the services", () => {
-  layer(withButton(), { excludeTestServices: true })((it) => {
+  layer(ProjectTest(), { excludeTestServices: true })((it) => {
     it.effect(
-      "links a spec read from the code alone to its component's file, unless it keeps behaviour notes",
+      "links a primitive's spec to no file: what implements its look is found when it is implemented",
       () =>
         Effect.gen(function* () {
           const project = yield* ProjectManager;
           const spec = project.service(SpecService);
           const read = yield* spec((s) => s.fromCode("Button", undefined));
           assert.strictEqual(read.spec?.look, "code");
-          assert.deepStrictEqual(yield* linkOf("Button"), {
-            files: ["designs/ui/button.tsx"],
-            status: "implemented",
+          assert.deepStrictEqual((yield* linkOf("Button")).files, []);
+          assert.notStrictEqual(
+            (yield* linkOf("Button")).status,
+            "implemented"
+          );
+          // A primitive has no classes of the code's to read: reading every spec reads none.
+          assert.deepStrictEqual(yield* spec((s) => s.fromCodeAll()), {
+            linked: 0,
+            read: 0,
           });
-          // A note is what the code must still be told to do: read again, the spec keeps it and
-          // is not taken as implemented by the code.
-          yield* spec((s) => s.addNote("Button", "Submits its form"));
-          yield* spec((s) => s.fromCode("Button", undefined, "design"));
-          assert.strictEqual((yield* linkOf("Button")).status, "changed");
         })
-    );
-  });
-
-  layer(withButton(), { excludeTestServices: true })((it) => {
-    it.effect("reads every spec from the code, each linked to its file", () =>
-      Effect.gen(function* () {
-        const project = yield* ProjectManager;
-        const spec = project.service(SpecService);
-        assert.deepStrictEqual(yield* spec((s) => s.fromCodeAll()), {
-          linked: 1,
-          read: 1,
-        });
-        assert.deepStrictEqual(yield* linkOf("Button"), {
-          files: ["designs/ui/button.tsx"],
-          status: "implemented",
-        });
-        assert.deepStrictEqual(yield* spec((s) => s.fromCodeAll()), {
-          linked: 0,
-          read: 0,
-        });
-      })
     );
   });
 

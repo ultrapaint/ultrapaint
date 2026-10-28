@@ -1,97 +1,42 @@
 /**
- * The repository's components, loaded into the editor's own page (ADR 0034): the module the
- * preview's server generates, imported once from the editor's origin, which forwards
- * `/preview/` to it. Every frame of the canvas draws with what it returns.
+ * The preview the editor draws its frames with (ADR 0040): the editor's own primitives, on Base
+ * UI, drawn by the editor's own React in every frame. Nothing is loaded from the repository: a
+ * project with no code at all draws the same.
  */
-import type { EditorEntry, Preview } from "@ultrapaint/framework-api/browser";
-import { useEffect, useSyncExternalStore } from "react";
-import { toast } from "sonner";
-import { useProject } from "../state/project.ts";
-import { describePageError } from "./editor-frame.ts";
+
+import type { Preview } from "@ultrapaint/framework-api/browser";
+import { createPreview } from "@ultrapaint/preview-core/frame";
+import { installFrameViewport } from "@ultrapaint/primitives/frame-viewport";
+import { PRIMITIVES_CSS } from "@ultrapaint/primitives/look";
+import { renderToCanvas } from "@ultrapaint/renderer-react/render";
 import { previewLoaded } from "./from-frame.ts";
-import { readFrozen, watchPreview } from "./watchdog.ts";
 
-let loading: { entry: string; module: Promise<EditorEntry> } | null = null;
-let loaded: { entry: string; preview: Preview } | null = null;
-const listeners = new Set<() => void>();
+/** Where the server answers which file an image of a canvas is. */
+const ASSET_ROUTE = "/api/asset";
 
-/**
- * Imports the preview's entry, once per entry. The dev server asks for the page to be loaded
- * again when the modules it holds are out of date (its dependencies bundled anew, the server
- * started again): the editor's page is then loaded again, which is the only way to drop them.
- */
-const load = (entry: string) => {
-  if (loading?.entry === entry) {
-    return loading.module;
+let preview: Preview | null = null;
+
+/** The one preview of the editor's page, made the first time it is asked for. */
+const thePreview = (): Preview => {
+  if (!preview) {
+    installFrameViewport();
+    preview = createPreview(renderToCanvas, {
+      assets: ASSET_ROUTE,
+      components: {},
+      css: PRIMITIVES_CSS,
+      designsRoot: ASSET_ROUTE,
+      providers: undefined,
+      sandboxed: false,
+      theme: "light",
+    });
+    previewLoaded(preview);
   }
-  // The frames that froze the editor before are known before anything is drawn.
-  const module = Promise.all([
-    import(/* @vite-ignore */ entry) as Promise<EditorEntry>,
-    readFrozen(useProject.getState().info.repoPath ?? ""),
-  ]).then(([m]) => m);
-  loading = { entry, module };
-  module.then(
-    (m) => {
-      m.onReloadRequest(() => window.location.reload());
-      watchPreview(m.preview);
-      // A rejection no frame can be said to be the source of: shown once, not on a guessed frame.
-      m.preview.onStrayError((error) => {
-        toast.error("The page's code failed", {
-          description: describePageError(error),
-          duration: 10_000,
-        });
-      });
-      loaded = { entry, preview: m.preview };
-      previewLoaded(m.preview);
-      for (const listener of listeners) {
-        listener();
-      }
-    },
-    () => {
-      // Tried again on the next start of the preview's server.
-      if (loading?.entry === entry) {
-        loading = null;
-      }
-    }
-  );
-  return module;
+  return preview;
 };
 
-const subscribe = (listener: () => void) => {
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
-};
-const snapshot = () => loaded;
+/** The preview the frames draw with. */
+export const usePreview = (): Preview => thePreview();
 
-/** The preview while the project's runs and its module has loaded; null until then. */
-export const usePreview = (): Preview | null => {
-  const entry = useProject((s) =>
-    s.info.host.state === "running" ? (s.info.host.entry ?? null) : null
-  );
-  useEffect(() => {
-    if (entry !== null) {
-      load(entry).catch(() => undefined);
-    }
-  }, [entry]);
-  const current = useSyncExternalStore(subscribe, snapshot);
-  return entry !== null && current?.entry === entry ? current.preview : null;
-};
-
-/**
- * The preview, once its module has loaded; null when the project's preview is not running or
- * its module could not be loaded. For what draws outside React: pictures, screenshots.
- */
-export const previewReady = async (): Promise<Preview | null> => {
-  const { host } = useProject.getState().info;
-  if (host.state !== "running" || !host.entry) {
-    return null;
-  }
-  try {
-    return (await load(host.entry)).preview;
-  } catch {
-    // Not loaded: no picture is drawn, and the next one tries again.
-    return null;
-  }
-};
+/** The preview, for what draws outside React: pictures, screenshots. */
+export const previewReady = (): Promise<Preview> =>
+  Promise.resolve(thePreview());

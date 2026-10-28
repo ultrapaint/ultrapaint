@@ -38,7 +38,7 @@ import { elementAt, type HitScope } from "./hit.ts";
 import { install, register } from "./kernel.ts";
 import { renderSetup } from "./render-setup.ts";
 import { onStrayError } from "./sandbox.ts";
-import { adoptedSheets, frameSheets } from "./styles.ts";
+import { adoptedSheets, frameSheets, setComponentsCss } from "./styles.ts";
 import { readTokens } from "./tokens.ts";
 import { frameOfEvent, onRunning } from "./turn.ts";
 
@@ -48,6 +48,8 @@ const FRAME_HOST_ATTRIBUTE = "data-ed-frame-host";
 /** A frame's host once its page has drawn: what it shows is the page's, not a blank. */
 const DRAWN_ATTRIBUTE = "data-ed-drawn";
 const INERT = "inert";
+/** On a frame's body while it runs. */
+const LIVE = "data-ed-live";
 
 /** Wider than this, a crop is drawn at the page's own resolution rather than doubled. */
 const SHARP_CROP_WIDTH = 800;
@@ -100,18 +102,31 @@ export const createPreview = (
   }>();
   /** The dev server's error until its next update: a frame mounted meanwhile is told it too. */
   let devServerError: PageError | null = null;
-  const previewBase = new URL(input.designsRoot, location.href).pathname.split(
-    "@fs"
-  )[0] as string;
-  // Whose code calls is told the same way by every guard: the base, and the editor's bundle.
-  install({ base: previewBase });
+  const sandboxed = input.sandboxed !== false;
+  if (sandboxed) {
+    const previewBase = new URL(
+      input.designsRoot,
+      location.href
+    ).pathname.split("@fs")[0] as string;
+    // Whose code calls is told the same way by every guard: the base, and the editor's bundle.
+    install({ base: previewBase });
+  }
+  if (input.css) {
+    setComponentsCss(input.css);
+  }
+  /** The hosts of the mounted frames: an event with one on its path is from a frame. */
+  const hosts = new Set<EventTarget>();
 
   const preview: Preview = {
-    fromFrame: (event) => frameOfEvent(event) !== null,
+    fromFrame: (event) =>
+      sandboxed
+        ? frameOfEvent(event) !== null
+        : event.composedPath().some((target) => hosts.has(target)),
     mountFrame: (host, options) => {
       const frame = mountFrame(host, options, render, input, components);
       const entry = { events: options.events, mounted: frame.mounted };
       frames.add(entry);
+      hosts.add(host);
       if (devServerError) {
         options.events.error?.(devServerError);
       }
@@ -119,6 +134,7 @@ export const createPreview = (
         ...frame.runtime,
         unmount: () => {
           frames.delete(entry);
+          hosts.delete(host);
           frame.runtime.unmount();
         },
       };
@@ -146,9 +162,11 @@ export const createPreview = (
     },
   };
   // The registry module, rewritten as components are catalogued, hands itself over here.
-  installPageRuntime({
-    [REGISTRY_GLOBAL]: { setComponents: preview.setComponents },
-  });
+  if (sandboxed) {
+    installPageRuntime({
+      [REGISTRY_GLOBAL]: { setComponents: preview.setComponents },
+    });
+  }
   return preview;
 };
 
@@ -197,6 +215,9 @@ const applyDefaults = (
   );
 };
 
+/** The handle of a frame nothing guards. */
+const UNGUARDED = { ask: () => undefined, unmount: () => undefined };
+
 /** How a frame is shown until the editor says otherwise: a picture, in view. */
 const NOT_SHOWN: FrameShown = {
   away: false,
@@ -224,17 +245,21 @@ const mountFrame = (
   }
   let shown: FrameShown = { ...NOT_SHOWN, ...options.shown };
   showHost(host, shown);
-  // Its turn (`turn.ts`): drawing, drawn by the editor, or taking input.
-  const kernel = register({
-    body,
-    error: (error) => events.error?.(error),
-    host,
-    interactive: () => shown.interactive,
-    name: options.frame,
-    navigate: (route, replace) => events.navigateTo?.(route, replace),
-    shadow,
-    still: Boolean(options.still),
-  });
+  // Its turn (`turn.ts`): drawing, drawn by the editor, or taking input. The editor's own
+  // components (ADR 0040) need no turn: nothing of theirs is guarded.
+  const kernel =
+    input.sandboxed === false
+      ? UNGUARDED
+      : register({
+          body,
+          error: (error) => events.error?.(error),
+          host,
+          interactive: () => shown.interactive,
+          name: options.frame,
+          navigate: (route, replace) => events.navigateTo?.(route, replace),
+          shadow,
+          still: Boolean(options.still),
+        });
 
   // ---- Where the frame is ----
   /** The frame's place on the screen and the canvas's zoom, which its pixels are scaled by. */
@@ -292,9 +317,20 @@ const mountFrame = (
     }
   };
 
+  /** Who hears the frame start or stop running: the primitives, which run only then. */
+  const interactiveListeners = new Set<() => void>();
   const setup = renderSetup(input, options, {
     components,
     drawing: kernel.ask,
+    frame: {
+      container: body,
+      host,
+      interactive: () => shown.interactive,
+      onInteractive: (listener) => {
+        interactiveListeners.add(listener);
+        return () => interactiveListeners.delete(listener);
+      },
+    },
     rendered: (renderId) => {
       if (!host.hasAttribute(DRAWN_ATTRIBUTE)) {
         host.setAttribute(DRAWN_ATTRIBUTE, "");
@@ -378,6 +414,8 @@ const mountFrame = (
     } else {
       body.setAttribute(INERT, "");
     }
+    // What a pointer does shows only in a frame that runs (the primitives' look, ADR 0040).
+    body.toggleAttribute(LIVE, shown.interactive);
   };
 
   const reportPress = (e: Event) => {
@@ -582,9 +620,15 @@ const mountFrame = (
       if (editing && next.interactive === false) {
         finishTextEdit(true);
       }
+      const wasInteractive = shown.interactive;
       shown = { ...shown, ...next };
       showHost(host, shown);
       setInert();
+      if (shown.interactive !== wasInteractive) {
+        for (const listener of interactiveListeners) {
+          listener();
+        }
+      }
     },
     skeleton: (nodeIds) => {
       skeletons = [...nodeIds];

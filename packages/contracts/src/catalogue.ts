@@ -35,6 +35,20 @@ export const ComponentMeta = Schema.Struct({
   importFrom: Schema.String,
   name: Schema.String,
   props: Schema.Array(PropMeta),
+  /**
+   * Its parts (ADR 0040), the root first: a primitive's, by `data-slot`. A slot that `holds`
+   * nodes is filled by the instance's children that name it; `default` takes the rest.
+   */
+  slots: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        holds: Schema.optional(Schema.Literals(["nodes", "default"])),
+        label: Schema.String,
+        layout: Schema.optional(Schema.Literals(["row", "column", "block"])),
+        name: Schema.String,
+      })
+    )
+  ),
   /** Default JSX snippet for insertion. */
   snippet: Schema.String,
   /** Storybook story ids usable as previews. */

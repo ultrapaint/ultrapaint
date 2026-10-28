@@ -314,7 +314,12 @@ export class SpecService extends Context.Service<
               try: () => styleSystem.componentSpec(styles, tokens),
             })
           : { base: {}, defaults: {}, states: {}, variants: {} };
-        const parts = yield* slotsFor(meta, all);
+        // A primitive's parts are the catalogue's (ADR 0040); a component of the code's, its file's.
+        const parts = meta.slots
+          ? meta.slots
+              .map((slot) => slot.name)
+              .filter((name) => name !== ROOT_SLOT)
+          : yield* slotsFor(meta, all);
         // Read again, a spec keeps its behaviour notes: they are not the code's look.
         const notes = kept?.notes;
         return {
@@ -354,7 +359,9 @@ export class SpecService extends Context.Service<
           spec,
           `Read the ${meta.name} spec from the code`
         );
-        if (!spec.notes) {
+        // A primitive has no file of the repository's to be linked to: what implements its look
+        // is found when it is implemented.
+        if (!spec.notes && meta.file !== "") {
           yield* link([{ file: meta.file, spec }]);
         }
         return entry;

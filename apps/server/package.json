@@ -22,6 +22,7 @@
     "@ultrapaint/figma-import": "workspace:*",
     "@ultrapaint/framework-api": "workspace:*",
     "@ultrapaint/framework-react-vite": "workspace:*",
+    "@ultrapaint/primitives": "workspace:*",
     "@ultrapaint/shared": "workspace:*",
     "@ultrapaint/style-tailwind-v4": "workspace:*",
     "@google/design.md": "0.4.0",

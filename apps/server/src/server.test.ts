@@ -757,25 +757,23 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
     );
 
     it.effect(
-      "builds the component catalogue off the main thread",
+      "answers the catalogue with the editor's primitives, whatever the repository holds",
       () =>
         Effect.gen(function* () {
           const { client, settings } = yield* TestEnv;
           yield* client["settings.set"]({ ...settings, libraryDirs: ["ui"] });
           const catalogue = yield* client["catalogue.get"]({ refresh: true });
           const button = catalogue.components.find((c) => c.name === "Button");
-          assert.strictEqual(button?.file, "ui/button.tsx");
+          assert.strictEqual(button?.importFrom, "@ultrapaint/primitives");
           assert.deepStrictEqual(
-            button?.props.map((p) => [p.name, p.type.kind, p.required]),
+            button?.props.map((p) => [p.name, p.type.kind]),
             [
-              ["disabled", "boolean", false],
-              ["label", "string", true],
-              ["variant", "enum", false],
+              ["variant", "enum"],
+              ["size", "enum"],
+              ["disabled", "boolean"],
+              ["loading", "boolean"],
             ]
           );
-          // The second call is served from the cache and returns the same build.
-          const again = yield* client["catalogue.get"]({ refresh: false });
-          assert.strictEqual(again.builtAt, catalogue.builtAt);
         }),
       30_000
     );
