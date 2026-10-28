@@ -14,6 +14,7 @@
  * values, and ends on a "Before you finish" table of what to look for and what fixes it.
  */
 
+import { hashContent } from "../hash.ts";
 import type { ToolNames } from "../services/threads/agent-ways.ts";
 import { designSkills } from "./design.generated.ts";
 
@@ -26,6 +27,7 @@ interface BuiltInSkill {
 const ORDER = [
   "hierarchy",
   "layout",
+  "patterns",
   "spacing",
   "typography",
   "color",
@@ -66,3 +68,32 @@ export const builtInSkills = (
       ? []
       : [{ name, text: withWays(skill.text, tools) }];
   });
+
+/** The files a built-in skill has agents read when they need them, by skill and file name. */
+export const skillReferences: Readonly<
+  Record<string, Readonly<Record<string, string>>>
+> = Object.fromEntries(
+  Object.entries(designSkills).flatMap(([name, skill]) =>
+    Object.keys(skill.references).length > 0 ? [[name, skill.references]] : []
+  )
+);
+
+/**
+ * Where this machine keeps the skills' references written out for agents to read: the user's
+ * cache, one directory per version of them, so two versions of the tool do not mix theirs. The
+ * agent sandbox lets agents read it.
+ */
+export const referencesDirOf = (
+  home: string,
+  join: (...parts: string[]) => string
+) =>
+  join(
+    home,
+    ".cache",
+    "ultrapaint",
+    "skills",
+    hashContent(JSON.stringify(skillReferences))
+  );
+
+/** How a skill names its references folder; the briefing gives the folder written out instead. */
+export const REFERENCES_MENTION = "`references/`";

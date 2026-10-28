@@ -6,12 +6,14 @@ import { ProjectRpc } from "./testing/project.ts";
 import { turnEnded } from "./testing/turns.ts";
 
 const FRONT_MATTER_RE = /^---\nextends: true\n---\n/;
+const REFERENCES_DIR_RE = /The references are in `([^`]+)\/`/;
 const EXTENDED_COLOUR_RE =
   /semantic tokens[\s\S]*Blue is the brand; never use it for status\.\n$/;
 
 const SHIPPED = [
   "hierarchy",
   "layout",
+  "patterns",
   "spacing",
   "typography",
   "color",
@@ -176,8 +178,9 @@ describe("design skills", () => {
     "tells the agent the skills that are on, before the project's conventions",
     () =>
       Effect.gen(function* () {
-        const { client, repo, settings } = yield* TestEnv;
+        const { client, home, repo, settings } = yield* TestEnv;
         const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
         yield* fs.writeFileString(
           `${repo}/DESIGN.md`,
           "## Colors\n\nBlue is the brand.\n"
@@ -202,6 +205,18 @@ describe("design skills", () => {
         assert.isBelow(
           told.indexOf("# Hierarchy"),
           told.indexOf("Blue is the brand.")
+        );
+
+        // The patterns' references are named where they are written, outside the project.
+        // Typed by hand: the linter otherwise takes the match for non-null.
+        const found: RegExpExecArray | null = REFERENCES_DIR_RE.exec(told);
+        const named = found?.[1] ?? "";
+        assert.isTrue(
+          named.startsWith(path.join(home, ".cache", "ultrapaint"))
+        );
+        assert.include(
+          yield* fs.readFileString(path.join(named, "dialogs.md")),
+          "# Dialogs"
         );
       }),
     30_000

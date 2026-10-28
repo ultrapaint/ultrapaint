@@ -20,6 +20,7 @@ import { Context, Effect, FileSystem, Layer, Path, type Scope } from "effect";
 import { ChildProcessSpawner } from "effect/process";
 import { ServerConfig } from "../../config.ts";
 import { runCommand } from "../../process.ts";
+import { referencesDirOf } from "../../skills/index.ts";
 
 /** Interpreters and version managers a shell reaches for. Read only. */
 const COMMON_TOOLCHAIN = [
@@ -446,8 +447,13 @@ export class AgentSandbox extends Context.Service<
   static readonly layer = Layer.unwrap(
     Effect.gen(function* () {
       const { agentRuntime, machine } = yield* ServerConfig;
+      const path = yield* Path.Path;
       return AgentSandbox.layerFor(machine, {
-        reads: agentRuntime?.reads ?? [],
+        // The design skills' references, which a skill has agents read when they need them.
+        reads: [
+          ...(agentRuntime?.reads ?? []),
+          referencesDirOf(machine.home, path.join),
+        ],
       });
     })
   );

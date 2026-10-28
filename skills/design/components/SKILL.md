@@ -62,7 +62,7 @@ that opens one. An icon alone is for a toolbar too narrow for the field.
 
 ## Real props
 
-[with the editor's tools: [with the editor's tools: Start from `get_component`'s example and replace every placeholder in it with real content. | without: Give every prop real content, never a placeholder.] | without: Give every prop real content, never a placeholder.]
+[with the editor's tools: Start from `get_component`'s example and replace every placeholder in it with real content. | without: Give every prop real content, never a placeholder.]
 
 ## New pieces are named
 
