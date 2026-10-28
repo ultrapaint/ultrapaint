@@ -40,5 +40,5 @@ export const codeRules = `How the design maps to code (Tailwind v4):
   one, and of the shared assets/ at the root of the designs directory otherwise — copy it to
   where the application keeps images.
 - link: the application's own router link. A page file (pricing.page.json) links to the URL that
-  page serves (list_pages says which); a URL links to itself; "back" goes back in the router's
+  page serves (its canvas.json says which); a URL links to itself; "back" goes back in the router's
   history; another site is a plain anchor. A link to a page without a URL: ask where it goes.`;

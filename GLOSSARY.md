@@ -67,6 +67,10 @@ review found.
   `BuiltInAgentId`; any other agent is a JSON file of the user's.
 - **Task**: what the editor asks an agent to do (implement a page, a setup step, a sync), named
   by a typed **task request**; a **slash command** is a request written as text.
+- **Agent ways**: how an agent does what a task or the briefing asks of it, with the editor's MCP
+  tools or without them (`agent-ways`): each capability worded both ways (ask the user, save the
+  design system, mark a design implemented), and the tools by their own names (`tools`, none
+  without the server). A text names a tool only through them.
 - **Setup step**: one of the design system's five set-up steps (ADR 0023), run with its thread
   by `SetupSteps`.
 

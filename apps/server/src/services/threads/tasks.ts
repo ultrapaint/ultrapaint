@@ -59,18 +59,18 @@ export class AgentTasks extends Context.Service<
           const before = `${
             designSystem
               ? `
-   A design system was imported before: read_design_system returns it with DESIGN.md. Update
+   A design system was imported before: ${ways.readDesignSystem(settings.designsDir)}. Update
    it rather than start over, and ask only about what changed.`
               : ""
           }${
             document && !designSystem
               ? `
-   The repository has a DESIGN.md (${document.path}), which read_design_system returns: it says
-   what the product is meant to look like. Start from it, keep what it says, and keep its
-   sections; its tokens are compared with the design system's in Sync afterwards.`
+   The repository has a DESIGN.md (${document.path}): it says what the product is meant to
+   look like. Start from it, keep what it says, and keep its sections; its tokens are compared
+   with the design system's in Sync afterwards.`
               : ""
           }`;
-          return `${ways.readTheme(settings.hostCss.join(", ") || "none configured yet", before)}
+          return `1. ${ways.readTheme(settings.hostCss.join(", ") || "none configured yet", before)}
 2. Look at what the scan cannot see: the design system's packages (${libraries}), their READMEs,
    AGENTS.md and docs, Storybook stories, style guides, and how the application's own screens use
    the tokens and components.
@@ -78,7 +78,7 @@ export class AgentTasks extends Context.Service<
    time, and wait for the answers: what the application is and who uses it, which colours are
    the brand and which are semantic, which text styles the product uses, what to always or never
    do. Skip what you already know.
-${ways.saveDesignSystem(settings.designsDir)}
+4. ${ways.saveDesignSystem(settings.designsDir)}
    - colors: groups of tokens, the semantic colours first ("Semantic"), then one group per
      palette. Keep only what the product uses; say in \`description\` what a colour is for.
    - typography.styles: the named text styles the product uses, each one a size, a weight and

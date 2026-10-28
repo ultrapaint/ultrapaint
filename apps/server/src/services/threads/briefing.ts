@@ -74,7 +74,7 @@ const componentLine = (component: ComponentMeta) => {
   return `- ${component.name} (${component.importFrom})${variants ? ` — ${variants}` : ""}`;
 };
 
-/** Enough of the tokens to design with; `read_design_system` has the rest. */
+/** Enough of the tokens to design with; the agent reads the rest from the design system. */
 const TOKEN_LIMIT = 80;
 
 const tokensOf = (ds: DesignSystem) => {
@@ -259,7 +259,7 @@ siblings is the parent's gap, and margin is for the one child that stands apart.
 Numbers are pixels; "$name" is a design token, the Tailwind v4 variable --name.
 An instance's width, height, padding and fill are the component's own, on the canvas as in the
 code: size a component with them, not with a className prop. "fill" takes the room the parent
-leaves, so a parent whose size follows its content has none to give; apply_operations warns.
+leaves, so a parent whose size follows its content has none to give${ways.tools ? `; ${ways.tools.apply_operations} warns` : ""}.
 
 Pages that exist now, with the URL each serves:
 ${pagesListOf(pages)}
