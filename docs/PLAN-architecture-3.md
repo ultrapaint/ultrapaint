@@ -981,3 +981,22 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
    test of the file does; the turn's failed first (the prompt waited for
    the port, and the test timed out). `tasks.test.ts`' tests without the server stay so: they
    test that.
+5. **The other tools name a page by the design target's rule** (`apps/server/src/services/page-names.ts`,
+   `services/mcp/lookup.ts`). `pageTargetNamed(pages, name, canvas?)` is the page half of
+   `designTargetNamed`, which now calls it: `pageNamed`'s rule, a canvas written first
+   (`marketing:/pricing`) included, a node reference naming its page and keeping its node, a
+   node beside the pages (`canvas#c_1`) answered as `Loose`; a bare name stays a page's (an id or
+   a file), since these tools name no spec. `pageMissed` words a miss for both, from what
+   `DesignTargets.resolve` wrote: "no page is X" (in the canvas given), or the canvases a name is
+   a page in, then every page with its URL and file; `pageEntry` moves beside it (page-tasks
+   reads it there). The tools' `pageAt` asks them, and keeps only its own answer to a node
+   beside the pages (pass `loose: true`). Fixed: every tool that takes a page (`read_page`,
+   `apply_operations`, `focus`, `get_screenshot`, the page and canvas tools) refused
+   `marketing:/pricing` without a node ("no page file marketing:/pricing; call list_pages to see
+   the pages"). Also: their misses list the pages in place of pointing to `list_pages` ("no page
+   serves /x" is "no page is /x; the pages are: …"), and a page in several canvases lists them
+   rather than saying to pass `canvas`. No tool's description or schema changed.
+   `design-targets.test.ts` has 1 test more on `ProjectTest`: in a second canvas made by the
+   tools, `read_page` reads `<canvas>:/pricing`, and misses by URL, by URL in a canvas given and
+   by file say so and list the pages; it failed first. `page-names.test.ts` has a table test of
+   `pageTargetNamed` (8 names).

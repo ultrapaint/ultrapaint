@@ -1,7 +1,8 @@
 /**
- * Which page a name means, the one rule for an agent's tool (`mcp/lookup.ts`) and for a task
- * (`threads/page-tasks.ts`), and which design (`designTargetNamed`): a page or a component spec.
- * Pure.
+ * Which page a name means, the one rule for an agent's tool (`mcp/lookup.ts`, by
+ * `pageTargetNamed`) and for a task (`threads/page-tasks.ts`), and which design
+ * (`designTargetNamed`): a page or a component spec; and what a miss of a page says
+ * (`pageMissed`). Pure.
  *
  * - A URL names the base page that serves it in its canvas's prototype: not a variant's page,
  *   which serves the same URL and is named by its file, and not a state's page, which serves
@@ -66,6 +67,45 @@ export const pageNamed = <T extends NamedPage>(
   };
 };
 
+/** A page's name inside a canvas named first: `marketing:/pricing`, `marketing:pricing.page.json`. */
+const IN_CANVAS_RE = /^([\w.-]+):(\/\S*|[^\s#/:][^\s#:]*\.page\.json)$/;
+
+/** What a page's name names: the page, maybe one of its nodes. */
+export type PageTargetNamed<P> =
+  | { readonly _tag: "Page"; readonly nodeId?: string; readonly page: P }
+  /** A node on the canvas beside the pages (`canvas#c_1`), which is no page. */
+  | { readonly _tag: "Loose"; readonly nodeId: string }
+  /** No page answers to it; `route` is the URL it was read as, null for a file or nothing. */
+  | { readonly _tag: "Missing"; readonly route: string | null }
+  /** Pages of several canvases answer to it, by canvas. */
+  | { readonly _tag: "Ambiguous"; readonly canvases: readonly string[] };
+
+/**
+ * Which page a name means, as an agent writes it: by `pageNamed`'s rule, a canvas written first
+ * included (`marketing:/pricing`), and a node reference (`/orders#c_8`) names its page and keeps
+ * its node. The canvas given narrows the pages, over one the name says.
+ */
+export const pageTargetNamed = <P extends NamedPage>(
+  pages: readonly P[],
+  name: string,
+  canvas?: string
+): PageTargetNamed<P> => {
+  const where = name.trim();
+  const ref = parseNodeRef(where);
+  if (ref?.page === null) {
+    return { _tag: "Loose", nodeId: ref.nodeId };
+  }
+  const inCanvas = ref ? null : IN_CANVAS_RE.exec(where);
+  const page = ref?.page ?? inCanvas?.[2] ?? where;
+  const found = pageNamed(pages, page, canvas ?? ref?.canvas ?? inCanvas?.[1]);
+  if (found._tag !== "Found") {
+    return found;
+  }
+  return ref
+    ? { _tag: "Page", nodeId: ref.nodeId, page: found.page }
+    : { _tag: "Page", page: found.page };
+};
+
 /** What a design target names: a page, maybe one of its nodes, or a component's spec. */
 export type DesignTargetNamed<P, S> =
   | { readonly _tag: "Page"; readonly nodeId?: string; readonly page: P }
@@ -82,16 +122,14 @@ export type DesignTargetNamed<P, S> =
   /** Pages of several canvases answer to it, by canvas. */
   | { readonly _tag: "Ambiguous"; readonly canvases: readonly string[] };
 
-/** A page's name inside a canvas named first: `marketing:/pricing`, `marketing:pricing.page.json`. */
-const IN_CANVAS_RE = /^([\w.-]+):(\/\S*|[^\s#/:][^\s#:]*\.page\.json)$/;
-
 /**
  * Which design a name means, for `/implement`, `handoff` and the link to the code (ADR 0030):
  *
  * - `spec:Button`, or a name no page could have (`Button`: no `/`, `#` or `.page.json`), names
  *   the component's spec;
- * - anything else is a page, by `pageNamed`'s rule, a canvas written first included
- *   (`marketing:/pricing`); a node reference (`/orders#c_8`) names its page and keeps its node.
+ * - anything else is a page, by `pageTargetNamed`'s rule: a canvas written first included
+ *   (`marketing:/pricing`), a node reference (`/orders#c_8`) naming its page and keeping its
+ *   node.
  *
  * Pages are named by URL or file and specs by component, so the two never answer to one name.
  * The canvas given narrows the pages, over one the name says.
@@ -106,10 +144,8 @@ export const designTargetNamed = <
   canvas?: string
 ): DesignTargetNamed<P, S> => {
   const where = name.trim();
-  const ref = parseNodeRef(where);
-  const inCanvas = ref ? null : IN_CANVAS_RE.exec(where);
   const isPage =
-    ref !== null ||
+    parseNodeRef(where) !== null ||
     where === "" ||
     where.includes("/") ||
     where.endsWith(".page.json");
@@ -122,18 +158,50 @@ export const designTargetNamed = <
       ? { _tag: "Spec", spec }
       : { _tag: "Missing", kind: "spec", route: null };
   }
-  if (ref?.page === null) {
+  const found = pageTargetNamed(pages, where, canvas);
+  if (found._tag === "Loose") {
     // A node on the canvas beside the pages is no design.
     return { _tag: "Missing", kind: "page", route: null };
-  }
-  const page = ref?.page ?? inCanvas?.[2] ?? where;
-  const found = pageNamed(pages, page, canvas ?? ref?.canvas ?? inCanvas?.[1]);
-  if (found._tag === "Found") {
-    return ref
-      ? { _tag: "Page", nodeId: ref.nodeId, page: found.page }
-      : { _tag: "Page", page: found.page };
   }
   return found._tag === "Missing"
     ? { _tag: "Missing", kind: "page", route: found.route }
     : found;
+};
+
+/** A page as a list shows it: its name, its URL or that it has none, its file. */
+export const pageEntry = (page: {
+  readonly file: string;
+  readonly name: string;
+  readonly route?: string | undefined;
+  readonly variant?: string | undefined;
+}) =>
+  `${page.name}${page.variant ? ` (variant ${page.variant})` : ""}, ${page.route ?? "no URL"}: ${page.file}`;
+
+const quoted = (id: string) => JSON.stringify(id);
+
+/** Items of a kind, one a line, or that there are none. */
+export const listedAs = (lines: readonly string[], kind: string) =>
+  lines.length > 0
+    ? `the ${kind} are:\n${lines.map((line) => `- ${line}`).join("\n")}`
+    : `there are no ${kind}`;
+
+/**
+ * What a miss of a page's name says, for a tool and a design target alike: the name, in the
+ * canvas given, or the canvases it is a page in; then every page.
+ */
+export const pageMissed = (
+  pages: readonly (NamedPage & { readonly name: string })[],
+  missed:
+    | { readonly _tag: "Missing" }
+    | { readonly _tag: "Ambiguous"; readonly canvases: readonly string[] },
+  name: string,
+  canvas?: string
+) => {
+  const all = listedAs(pages.map(pageEntry), "pages");
+  if (missed._tag === "Ambiguous") {
+    return `${name} is a page in several canvases (${missed.canvases.map(quoted).join(", ")}); ${all}`;
+  }
+  const where = name.trim();
+  const inCanvas = canvas === undefined ? "" : ` in canvas ${quoted(canvas)}`;
+  return `${where === "" ? "it did not say which page" : `no page is ${where}${inCanvas}`}; ${all}`;
 };
