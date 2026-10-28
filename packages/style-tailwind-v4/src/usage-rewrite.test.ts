@@ -60,7 +60,7 @@ describe("rewriting a file onto the design system", () => {
   <div className={cn("hover:bg-[#3B82F6]/50 !p-[13px] top-[-10px] -mt-[13px]", "text-gray-500 rounded-[6px] text-[14px] z-[999] bg-[#d97757]")} />
 );
 `;
-    const out = usage.rewrite("src/a.tsx", text, ctx, mapping);
+    const out = usage.rewriter(ctx, mapping)("src/a.tsx", text);
     expect(out.text).toContain(
       `cn("hover:bg-primary/50 !p-3 -top-2.5 -mt-3", "text-muted-foreground rounded-sm text-sm z-50 bg-[#d97757]")`
     );
@@ -71,7 +71,9 @@ describe("rewriting a file onto the design system", () => {
   it("rewrites inline styles and stylesheet declarations onto variables", () => {
     const tsx = `export const A = () => <div style={{ color: "#333", padding: 12, zIndex: 999 }} />;
 `;
-    const out = usage.rewrite("src/a.tsx", tsx, ctx, mapping);
+    // One run's rewriter for every file, the design system's tokens read once.
+    const rewrite = usage.rewriter(ctx, mapping);
+    const out = rewrite("src/a.tsx", tsx);
     expect(out.text).toContain(
       `style={{ color: "var(--color-primary)", padding: "calc(var(--spacing) * 3)", zIndex: 50 }}`
     );
@@ -81,7 +83,7 @@ describe("rewriting a file onto the design system", () => {
   @apply rounded-[6px];
 }
 `;
-    const sheet = usage.rewrite("src/a.css", css, ctx, mapping);
+    const sheet = rewrite("src/a.css", css);
     expect(sheet.text).toBe(`.card {
   border: 1px solid var(--color-muted-foreground);
   padding: 14px --spacing(1);
@@ -111,7 +113,7 @@ describe("rewriting a file onto the design system", () => {
   margin: 16px -16px !important;
 }
 `;
-    const sheet = usage.rewrite("src/a.css", css, ctx, negative);
+    const sheet = usage.rewriter(ctx, negative)("src/a.css", css);
     expect(sheet.text).toBe(`.a {
   margin-top: calc(--spacing(4) * -1);
   margin: --spacing(4) calc(--spacing(4) * -1) !important;
@@ -119,7 +121,7 @@ describe("rewriting a file onto the design system", () => {
 `);
     const tsx = `export const A = () => <div style={{ marginTop: -16, marginLeft: "-16px", padding: 16 }} />;
 `;
-    const inline = usage.rewrite("src/a.tsx", tsx, ctx, negative);
+    const inline = usage.rewriter(ctx, negative)("src/a.tsx", tsx);
     expect(inline.text).toContain(
       `style={{ marginTop: "calc(var(--spacing) * -4)", marginLeft: "calc(var(--spacing) * -4)", padding: "calc(var(--spacing) * 4)" }}`
     );
@@ -130,7 +132,7 @@ describe("rewriting a file onto the design system", () => {
     const text = `const COLORS = ["#3b82f6"];
 export const A = () => <button onClick={go}>Go</button>;
 `;
-    const out = usage.rewrite("src/a.tsx", text, ctx, mapping);
+    const out = usage.rewriter(ctx, mapping)("src/a.tsx", text);
     expect(out.changes).toBe(0);
     expect(out.text).toBe(text);
     expect(out.left).toEqual([
@@ -153,7 +155,7 @@ export const A = () => <button onClick={go}>Go</button>;
 
   it("does not touch a string with an escape, whose text is not where it reads", () => {
     const text = `const a = "bg-[#3b82f6] \\u0070-4";\n`;
-    const out = usage.rewrite("src/a.ts", text, ctx, mapping);
+    const out = usage.rewriter(ctx, mapping)("src/a.ts", text);
     expect(out.text).toBe(text);
     expect(out.left.map((l) => l.target)).toEqual(["color-primary"]);
   });

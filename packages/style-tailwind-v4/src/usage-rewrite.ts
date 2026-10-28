@@ -285,29 +285,31 @@ const rewriteUse = (
   return { edit: { end: use.end, start: use.start, text }, left };
 };
 
-const rewrite: UsageReader["rewrite"] = (file, text, ctx, mapping) => {
+const rewriter: UsageReader["rewriter"] = (ctx, mapping) => {
   const known = knownOf(ctx.designSystem, ctx.ownTokens);
-  const edits: Edit[] = [];
-  const left: UsageLeft[] = [];
-  for (const use of scanning.scanFile(file, text)) {
-    const values = classify(use, known, ctx, file).filter(
-      (v) => v.status !== "system"
-    );
-    if (values.length === 0) {
-      continue;
+  return (file, text) => {
+    const edits: Edit[] = [];
+    const left: UsageLeft[] = [];
+    for (const use of scanning.scanFile(file, text)) {
+      const values = classify(use, known, ctx, file).filter(
+        (v) => v.status !== "system"
+      );
+      if (values.length === 0) {
+        continue;
+      }
+      const result = rewriteUse(use, values, mapping);
+      left.push(...result.left);
+      if (result.edit) {
+        edits.push(result.edit);
+      }
     }
-    const result = rewriteUse(use, values, mapping);
-    left.push(...result.left);
-    if (result.edit) {
-      edits.push(result.edit);
+    let next = text;
+    for (const edit of [...edits].sort((a, b) => b.start - a.start)) {
+      next = next.slice(0, edit.start) + edit.text + next.slice(edit.end);
     }
-  }
-  let next = text;
-  for (const edit of [...edits].sort((a, b) => b.start - a.start)) {
-    next = next.slice(0, edit.start) + edit.text + next.slice(edit.end);
-  }
-  return { changes: edits.length, left, text: next };
+    return { changes: edits.length, left, text: next };
+  };
 };
 
 /** What the server reaches of the code's usage, through the `Framework` interface. */
-export const usage: UsageReader = { ...scanning, rewrite, suggest };
+export const usage: UsageReader = { ...scanning, rewriter, suggest };

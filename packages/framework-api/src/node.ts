@@ -122,16 +122,15 @@ export interface UsageReader {
   /** Whether a repo-relative file is application source to read. */
   readonly includes: (file: string) => boolean;
   /**
-   * One file rewritten onto the design system where the mapping (keyed by `mappingKey`, null for
-   * a value kept as it is) settles it and the rewrite is mechanical: classes, style values and
-   * stylesheet declarations. Pure.
+   * A run's rewrite of files onto the design system where the mapping (keyed by `mappingKey`,
+   * null for a value kept as it is) settles it and the rewrite is mechanical: classes, style
+   * values and stylesheet declarations. Made once per run, so the design system is read once
+   * for every file. Pure.
    */
-  readonly rewrite: (
-    file: string,
-    text: string,
+  readonly rewriter: (
     ctx: UsageContext,
     mapping: ReadonlyMap<string, string | null>
-  ) => UsageRewrite;
+  ) => (file: string, text: string) => UsageRewrite;
   /** Every use in one file. Synchronous and pure: the server reads the file. */
   readonly scanFile: (file: string, text: string) => readonly UsageOccurrence[];
   /** What the values off the system become where a rule settles it: an exact match. */

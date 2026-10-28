@@ -225,9 +225,9 @@ export class DesignSystemSetupService extends Context.Service<
             return yield* refuse("There is no mapping: Map makes it first.");
           }
           const code = yield* codebase(true);
-          const table = mappingTable(mapping);
+          const rewrite = code.usage.rewriter(code.ctx, mappingTable(mapping));
           const touched = yield* eachSource(code, (file, text) => {
-            const out = code.usage.rewrite(file, text, code.ctx, table);
+            const out = rewrite(file, text);
             const settled =
               out.changes > 0 || out.left.some((l) => l.target !== undefined);
             return settled ? file : null;

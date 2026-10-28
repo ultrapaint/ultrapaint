@@ -280,7 +280,6 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
 
 ## Follow-ups found while building
 
-- `usage-rewrite.rewrite` builds a token lookup per file (step 4).
 - `toggleAttribute("class", true)` from the page's code adds a class named `true`; the web still
   writes `data-ed-drawn` on the host for the bench script (step 6).
 - `pnpm e2e:sandbox` fails 6 to 8 of its 23 checks, the same before steps 6 to 8 (checked on
@@ -1017,3 +1016,12 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
    keywords and checks the vocabulary says what Tailwind does. The tests compile through
    `testing.ts` (Tailwind's theme, what each class sets), which `canvas-and-code.test.ts` now
    uses too; its check that Tailwind compiles every class the writer gives the fixtures stays.
+7. **The usage rewrite reads the design system once a run** (`packages/framework-api/src/node.ts`,
+   `packages/style-tailwind-v4/src/usage-rewrite.ts`). `UsageReader.rewrite(file, text, ctx,
+   mapping)` is `rewriter(ctx, mapping)`, which reads the design system's tokens (`knownOf`, the
+   colours' lookup by value with them) once and gives the rewrite of one file; Migrate's pass
+   over the sources and a batch's rewrite (`design-system-setup.ts`,
+   `design-system-setup-batches.ts`) make one per run, so a colour asked for in one file is
+   answered from what the lookup found in another. What a file is rewritten to is as it was.
+   `usage-rewrite.test.ts`' tests make a rewriter, one of them rewriting a component and a
+   stylesheet with the same one; they failed first (no `rewriter`).
