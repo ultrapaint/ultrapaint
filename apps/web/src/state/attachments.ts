@@ -86,6 +86,10 @@ export const clearChips = (threadId: string, sent: readonly Chip[]) =>
     };
   });
 
+/** A canvas's own file, which holds its nodes beside the pages: its `canvas.json`. */
+const canvasFileOf = (designsDir: string, canvas: string) =>
+  `${designsDir}/${canvas ? `${canvas}/` : ""}canvas.json`;
+
 /** The file a node of a frame lives in: its page's, or the canvas's own for a loose node. */
 export const fileOfFrame = (frame: string): string | null => {
   const page = useProject.getState().pages.find((p) => p.id === frame);
@@ -97,7 +101,19 @@ export const fileOfFrame = (frame: string): string | null => {
   if (designsDir === undefined || canvas === null) {
     return null;
   }
-  return `${designsDir}/${canvas ? `${canvas}/` : ""}canvas.json`;
+  return canvasFileOf(designsDir, canvas);
+};
+
+/** The canvas whose own file `file` is (`fileOfFrame`'s for a loose node), or null. */
+export const canvasOfFile = (file: string): string | null => {
+  const { canvases, settings } = useProject.getState();
+  const designsDir = settings?.designsDir;
+  if (designsDir === undefined) {
+    return null;
+  }
+  return (
+    canvases.find((c) => canvasFileOf(designsDir, c.id) === file)?.id ?? null
+  );
 };
 
 export const nodeChip = (

@@ -75,6 +75,28 @@ const canvasDoc: DocumentState = {
     type: "group",
   } as DocumentState["root"],
 };
+/** The canvas `other`'s nodes beside its pages: a card holding a title. */
+const OTHER_CANVAS = canvasDocOf("other");
+const otherCanvasDoc: DocumentState = {
+  doc: OTHER_CANVAS,
+  hash: `${OTHER_CANVAS}@0`,
+  root: {
+    children: [
+      {
+        children: [{ id: "n3", role: "heading", text: "Card", type: "text" }],
+        height: 100,
+        id: "n2",
+        type: "group",
+        width: 200,
+        x: 2000,
+        y: 0,
+      },
+    ],
+    id: "canvas-root",
+    type: "group",
+  } as DocumentState["root"],
+};
+
 /** The node beside the pages fitted: as close as the camera goes, 4. */
 const NODE_IN_VIEW = { x: -40, y: -220, zoom: 4 };
 
@@ -182,5 +204,22 @@ describe("showScope", () => {
     expect(editor.canvas).toBe("other");
     expect(editor.selection).toEqual({ frame: about.id, nodeId: "title" });
     expect(editor.view).toEqual(ABOUT_IN_VIEW);
+  });
+
+  it("goes to a thread's node beside the pages of another canvas", async () => {
+    useProject.setState({
+      settings: { designsDir: "designs" } as ReturnType<
+        typeof useProject.getState
+      >["settings"],
+    });
+    fakeApi.respond("documents.list", ({ canvas }) =>
+      canvas === "other" ? [otherCanvasDoc] : []
+    );
+    await showScope(
+      thread({ file: "designs/other/canvas.json", name: "Card", nodeId: "n3" })
+    );
+    const editor = useEditor.getState();
+    expect(editor.canvas).toBe("other");
+    expect(editor.selection).toEqual({ frame: "node:n2", nodeId: "n3" });
   });
 });
