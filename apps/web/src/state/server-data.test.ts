@@ -130,6 +130,7 @@ const info = (): ProjectInfo => ({
   configured: true,
   host: { state: "stopped" },
   name: `shop ${server.v}`,
+  settings: { ...settings, libraryDirs: [`src/v${server.v}`] },
   storage: { mode: "managed" },
 });
 
@@ -141,7 +142,6 @@ const pagesNow = (): PageList => ({
 const answerAll = () => {
   const v = () => server.v;
   fakeApi.respond("project.info", info);
-  fakeApi.respond("settings.get", () => settings);
   fakeApi.respond("pages.list", pagesNow);
   fakeApi.respond("logs.recent", () => []);
   fakeApi.respond("edit.state", () => ({ canRedo: false, canUndo: v() > 1 }));
@@ -193,6 +193,7 @@ const held = () => ({
   layout: useEditor.getState().layout.frames["home.page.json"]?.x,
   pages: useProject.getState().pages.map((p) => p.name),
   project: useProject.getState().info.name,
+  settings: useProject.getState().settings?.libraryDirs,
   setup: useDesignSystemSetup.getState().setup?.updatedAt,
   skills: useSkills.getState().dir,
   specs: useSpecs.getState().entries.map((e) => e.file),
@@ -211,6 +212,7 @@ const heldAt = (v: number) => ({
   layout: 100 * v,
   pages: [`Home ${v}`],
   project: `shop ${v}`,
+  settings: [`src/v${v}`],
   setup: v,
   skills: `skills ${v}`,
   specs: [`v${v}.spec.json`],
@@ -285,6 +287,20 @@ describe("following the server", () => {
     fakeApi.emit("document", doc("h7"));
     fakeApi.emit("canvas", { canvas: "", layout: layoutAt(700) });
     expect(held()).toMatchObject({ documents: "h7", layout: 700, sync: 7 });
+  });
+
+  it("follows the settings in force when nothing else of the project changes", async () => {
+    await openEditor();
+    fakeApi.calls.length = 0;
+    // Someone else changed the configuration file's components' directories: the same project.
+    fakeApi.emit("project", {
+      ...info(),
+      settings: { ...settings, libraryDirs: ["src/ui"] },
+    });
+    expect(useProject.getState().settings?.libraryDirs).toEqual(["src/ui"]);
+    expect(fakeApi.calls).not.toContainEqual(
+      expect.objectContaining({ method: "project.info" })
+    );
   });
 
   it("drops an answer for a canvas no longer open", async () => {

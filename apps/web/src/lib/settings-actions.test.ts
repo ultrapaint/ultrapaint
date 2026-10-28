@@ -52,6 +52,12 @@ const found: SetupSuggestions = {
 /** What the server holds: the settings it saved and the project's info. */
 let server: { info: ProjectInfo; settings: Settings | null };
 
+/** The project's info as the server tells it, with the settings in force. */
+const told = (): ProjectInfo => ({
+  ...server.info,
+  ...(server.settings && { settings: server.settings }),
+});
+
 const ok: SettingsValidation = { ok: true, problems: [] };
 
 /**
@@ -60,7 +66,7 @@ const ok: SettingsValidation = { ok: true, problems: [] };
  */
 const saving = (next: Settings) => {
   server = { ...server, settings: next };
-  fakeApi.emit("project", server.info);
+  fakeApi.emit("project", told());
   return ok;
 };
 
@@ -68,8 +74,7 @@ beforeEach(async () => {
   fakeApi.reset();
   server = { info: openInfo({ mode: "managed" }), settings: running };
   useProject.setState({ info: server.info, settings: running });
-  fakeApi.respond("project.info", () => server.info);
-  fakeApi.respond("settings.get", () => server.settings);
+  fakeApi.respond("project.info", told);
   fakeApi.respond("pages.list", () => ({ canvases: [], pages: [] }));
   fakeApi.respond("logs.recent", () => []);
   fakeApi.respond("edit.state", () => ({ canRedo: false, canUndo: false }));
@@ -148,7 +153,7 @@ describe("saving the settings", () => {
     useProject.setState({ info: server.info, settings: null });
     fakeApi.respond("settings.set", (next: Settings) => {
       server = { info: openInfo({ mode: "ephemeral" }), settings: next };
-      fakeApi.emit("project", server.info);
+      fakeApi.emit("project", told());
       return ok;
     });
     const detection = await detect(REPO);

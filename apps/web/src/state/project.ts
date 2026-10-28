@@ -80,17 +80,21 @@ export const useProject = create<ProjectStore>((set, get) => ({
 /** Whether a project is open: what the pages, the documents and the rest belong to. */
 export const projectOpen = () => useProject.getState().info.configured;
 
-/** The project's info and settings: read first at every connection open. */
+/** The project's info, with the settings in force: read first at every connection open. */
 const projectData = follow({
-  apply: ([info, settings]) =>
-    useProject.setState({ info, loaded: true, settings }),
+  apply: (info) =>
+    useProject.setState({
+      info,
+      loaded: true,
+      settings: info.settings ?? null,
+    }),
   atOpen: () => true,
   on: {
     project: (info) => {
       const before = useProject.getState().info;
-      useProject.setState({ info });
+      useProject.setState({ info, settings: info.settings ?? null });
       // A project opened by the server on its own (detected at start, a changed configuration
-      // file) brings settings and pages the editor has not read yet.
+      // file) brings pages the editor has not read yet; the settings come with the info.
       if (
         info.configured &&
         (!before.configured ||
@@ -101,11 +105,7 @@ const projectData = follow({
       }
     },
   },
-  read: () =>
-    Promise.all([
-      api().request("project.info", undefined),
-      api().request("settings.get", undefined),
-    ]),
+  read: () => api().request("project.info", undefined),
 });
 
 const takePages = ({ canvases, pages }: PageList) =>

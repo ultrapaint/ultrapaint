@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { StorageInfo } from "./settings.ts";
+import { Settings, StorageInfo } from "./settings.ts";
 
 export const HostStatus = Schema.Struct({
   /**
@@ -38,6 +38,11 @@ export const ProjectInfo = Schema.Struct({
   host: HostStatus,
   name: Schema.optional(Schema.String),
   repoPath: Schema.optional(Schema.String),
+  /**
+   * The settings in force, as `settings.get` gives them: the editor is told of any change, a
+   * field the rest of the info does not carry (`libraryDirs`) included. Absent when none are set.
+   */
+  settings: Schema.optional(Settings),
   /**
    * Where the open project's settings came from: `saved` by someone, or `detected` from the
    * repository the server was started in, because nothing was saved.

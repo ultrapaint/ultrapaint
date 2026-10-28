@@ -122,5 +122,6 @@ half-done theirs.
 - **Settings in force**: the settings the open project runs, which `ProjectManager` alone puts
   in force, whoever asks (a save, a session saved to a file, a file renamed or changed by someone
   else, detection at start): the project is opened, opened again when it runs other settings, or
-  left as it is, by one rule. It tells the editor the project's info whenever what the info is
-  made of changes. The editor saves through `settings-actions`, which reads the project again.
+  left as it is, by one rule. It tells the editor the project's info, the settings in force
+  among it, whenever what the info is made of changes. The editor saves through
+  `settings-actions`, which reads the project again.
