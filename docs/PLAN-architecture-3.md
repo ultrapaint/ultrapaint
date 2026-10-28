@@ -280,9 +280,6 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
 
 ## Follow-ups found while building
 
-- Some tool answers only an agent with the tools reads still name tools as strings
-  (`figma-import.ts`, `design-md.ts`, `design-system-setup-batches.ts`, the MCP route's
-  instructions) (step 1).
 - Past 30 checkpoints every turn runs a full `collect` of the snapshot store (step 2).
 - The class writer can write a size keyword on any spacing utility (`gap-full`), which Tailwind
   does not compile (step 3).
@@ -945,3 +942,18 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
    now brief with the built-in skills (they were turned off) and read a line of each of the three
    both ways; without the server it failed first, the briefings naming `get_screenshot`,
    `set_frame`, `read_design_system` and `get_component`.
+2. **Tool answers name tools through `agent-ways`** (`apps/server/src/services/threads/agent-ways.ts`).
+   The record of the tools' names is exported as `TOOLS`, for what only an agent with the tools
+   reads: what a tool answers and what the MCP server tells its clients (a text an agent may read
+   without the server still takes `AgentWays.tools`). The MCP route's instructions (`handoff`,
+   with `handoffCall` for its "list", `apply_operations`, `write_design_system`), Figma's misses
+   (`list_figma_imports`, `list_components`), DESIGN.md's front matter given other values
+   (`write_design_system`), Migrate's finish with no batch under way (`next_batch`),
+   `get_component`'s miss (`list_components`), `set_home` on a page with no URL
+   (`set_page_url`), the screenshot's misses (`read_canvas`, `read_page`) and `ask_user` without
+   a form or a thread name them from it, so renaming a tool fails to compile there too. Every
+   text is as it was. Left: the tools' descriptions (`Tool.make`'s, and the page tools' guide)
+   still name other tools by string, since the record is typed from the toolkits those
+   descriptions are part of (reading it there is a cycle the compiler refuses); and
+   `lookup.ts`' `list_pages`, which follow-up 5 replaces. `tasks.test.ts`' test with the MCP
+   server reads the instructions too: every tool they name is offered.

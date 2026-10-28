@@ -9,6 +9,7 @@ import { DesignSystemSetupService } from "./services/design-system-setup.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
 import { AskUser } from "./services/mcp/ask-user.ts";
 import { FigmaTools } from "./services/mcp/figma-tools.ts";
+import { MCP_INSTRUCTIONS } from "./services/mcp/route.ts";
 import { GetScreenshot } from "./services/mcp/screenshot.ts";
 import { SetupTools } from "./services/mcp/setup-tools.ts";
 import { EditorTools } from "./services/mcp/tools.ts";
@@ -502,7 +503,13 @@ describe("the editor's tools in what an agent is told", () => {
         yield* everythingThere;
         const after = yield* everything;
         assert.deepStrictEqual(refused(after), ["/design-system inventory"]);
-        const named = [...before, ...after].flatMap((r) =>
+        // What an agent outside the editor is told when it connects.
+        const instructions = {
+          of: "the MCP server's instructions",
+          task: true,
+          text: MCP_INSTRUCTIONS,
+        };
+        const named = [...before, ...after, instructions].flatMap((r) =>
           toolsNamed(r.text).map((tool) => ({ of: r.of, tool }))
         );
         assert.deepStrictEqual(

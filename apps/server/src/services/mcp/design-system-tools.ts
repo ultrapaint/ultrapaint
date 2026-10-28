@@ -10,6 +10,7 @@ import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
 import { CatalogueService } from "../catalogue.ts";
 import { DesignSystemService } from "../design-system.ts";
+import { TOOLS } from "../threads/agent-ways.ts";
 import { makeLookup } from "./lookup.ts";
 import {
   AnyJson,
@@ -130,7 +131,7 @@ export const designSystemToolHandlers = Effect.gen(function* () {
       const component = catalogue.components.find((c) => c.name === name);
       if (!component) {
         return yield* missing(
-          `no component named ${name}; call list_components to see what there is`
+          `no component named ${name}; call ${TOOLS.list_components} to see what there is`
         );
       }
       const { designSystem: ds } = yield* designSystem((d) => d.get);

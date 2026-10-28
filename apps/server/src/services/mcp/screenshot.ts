@@ -15,6 +15,7 @@ import { Effect, Layer, Schema } from "effect";
 import { McpSchema, McpServer, Tool } from "effect/ai";
 import { PagesService } from "../pages.ts";
 import { Screenshots } from "../screenshots.ts";
+import { TOOLS } from "../threads/agent-ways.ts";
 import { makeLookup } from "./lookup.ts";
 import {
   finite,
@@ -71,7 +72,7 @@ export const ScreenshotToolLive = Layer.effectDiscard(
     }: Parameters) {
       if (node === undefined) {
         return yield* missing(
-          "say which node on the canvas with `node`; read_canvas lists them"
+          `say which node on the canvas with \`node\`; ${TOOLS.read_canvas} lists them`
         );
       }
       const inCanvas = yield* canvasOf(canvas);
@@ -79,7 +80,7 @@ export const ScreenshotToolLive = Layer.effectDiscard(
       const placed = findPath(state.root, node)?.[1];
       if (!placed) {
         return yield* missing(
-          `no node ${node} on the canvas; read_canvas lists them`
+          `no node ${node} on the canvas; ${TOOLS.read_canvas} lists them`
         );
       }
       const bytes = yield* reported(
@@ -109,7 +110,7 @@ export const ScreenshotToolLive = Layer.effectDiscard(
       }
       if (node !== undefined && !findNode(state.root, node)) {
         return yield* missing(
-          `no node ${node} on ${page.route ?? page.file}; read_page lists them`
+          `no node ${node} on ${page.route ?? page.file}; ${TOOLS.read_page} lists them`
         );
       }
       const layout = yield* reported(

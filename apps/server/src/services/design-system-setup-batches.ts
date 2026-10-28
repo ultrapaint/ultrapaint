@@ -17,6 +17,7 @@ import {
   stepIn,
   withStep,
 } from "./design-system-setup-store.ts";
+import { TOOLS } from "./threads/agent-ways.ts";
 
 export const makeMigrateBatches = (deps: {
   readonly codebase: Effect.Success<typeof makeCodebaseReader>["codebase"];
@@ -127,7 +128,7 @@ export const makeMigrateBatches = (deps: {
       const current = batches.find((b) => b.status === "active");
       if (!current) {
         return yield* refuse(
-          "No batch is under way: next_batch takes the next one."
+          `No batch is under way: ${TOOLS.next_batch} takes the next one.`
         );
       }
       const batch: MigrationBatch = {
