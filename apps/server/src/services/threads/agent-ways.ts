@@ -30,8 +30,12 @@ export type ToolName =
 /** The editor's tools, each by its own name: a text writes `${tools.ask_user}`. */
 export type ToolNames = { readonly [N in ToolName]: N };
 
-/** Every tool the server offers: one renamed, added or taken out fails to compile here. */
-const TOOLS: ToolNames = {
+/**
+ * Every tool the server offers: one renamed, added or taken out fails to compile here. A text an
+ * agent may read without the server takes them from `AgentWays.tools`; what a tool answers, and
+ * what the MCP server tells its clients, only an agent with the tools reads, and names them here.
+ */
+export const TOOLS: ToolNames = {
   apply_operations: "apply_operations",
   ask_user: "ask_user",
   copy_pages: "copy_pages",

@@ -60,6 +60,7 @@ import type { EditFailure } from "./edit.ts";
 import { PagesService } from "./pages.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { Storage } from "./storage.ts";
+import { TOOLS } from "./threads/agent-ways.ts";
 
 const IMPORTS_DIR = "imports";
 const FILE_NAME = "file.fig";
@@ -272,7 +273,7 @@ export class FigmaImportService extends Context.Service<
         );
         if (text._tag === "None") {
           return yield* new NotFound({
-            message: `no Figma import ${id}; list_figma_imports has the ones there are`,
+            message: `no Figma import ${id}; ${TOOLS.list_figma_imports} has the ones there are`,
           });
         }
         // A summary that does not read is that import's problem alone: the list leaves it out,
@@ -456,7 +457,7 @@ export class FigmaImportService extends Context.Service<
             .map((c) => c.name)
             .slice(0, 5);
           return yield* new NotFound({
-            message: `no component named ${mapping.component} in this repository${close.length > 0 ? `; close: ${close.join(", ")}` : ""}. list_components has them all, or map it as {kind:"expand"} to keep the Figma layers.`,
+            message: `no component named ${mapping.component} in this repository${close.length > 0 ? `; close: ${close.join(", ")}` : ""}. ${TOOLS.list_components} has them all, or map it as {kind:"expand"} to keep the Figma layers.`,
           });
         }
         const { designSystem: saved } = yield* designSystem.get;

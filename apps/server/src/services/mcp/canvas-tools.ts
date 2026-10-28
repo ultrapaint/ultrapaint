@@ -11,6 +11,7 @@ import {
 import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
 import type { CopyTarget } from "../pages.ts";
+import { TOOLS } from "../threads/agent-ways.ts";
 import { makeLookup } from "./lookup.ts";
 import {
   missing,
@@ -227,7 +228,7 @@ export const canvasToolHandlers = Effect.gen(function* () {
       const page = yield* pageAt(route, canvas);
       if (page.route === undefined) {
         return yield* missing(
-          `${page.file} serves no URL, and a prototype opens on one; give it one with set_page_url first`
+          `${page.file} serves no URL, and a prototype opens on one; give it one with ${TOOLS.set_page_url} first`
         );
       }
       const home = page.route;

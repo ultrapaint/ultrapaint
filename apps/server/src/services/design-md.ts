@@ -54,6 +54,7 @@ import { withAgreement } from "./design-system-files.ts";
 import { type EditFailure, EditService } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { ProjectStyleSystem } from "./style-system.ts";
+import { TOOLS } from "./threads/agent-ways.ts";
 
 /** DESIGN.md as it was found: at the root, or in the designs directory (`legacy`). */
 interface Found {
@@ -104,7 +105,7 @@ const putBack = (text: string, mirror: TokenGroups) => {
         message:
           ours[key] === undefined
             ? `${key} (${String(value)}) is not a token of the design system, and was left out: the token groups are filled in from the design system.`
-            : `${key} was given as ${String(value)}; the design system's ${String(ours[key])} is kept. Change values in the design system (write_design_system), not in DESIGN.md's front matter.`,
+            : `${key} was given as ${String(value)}; the design system's ${String(ours[key])} is kept. Change values in the design system (${TOOLS.write_design_system}), not in DESIGN.md's front matter.`,
         path: key,
         severity: "warning",
       })

@@ -13,6 +13,7 @@
  */
 import { Effect, Layer, Schema } from "effect";
 import { McpSchema, McpServer, Tool } from "effect/ai";
+import { TOOLS } from "../threads/agent-ways.ts";
 import { answersOf, answersText, formOf } from "../threads/elicitation.ts";
 import { ThreadSessions } from "../threads/thread-session.ts";
 import { ThreadService } from "../threads/threads.ts";
@@ -130,7 +131,7 @@ export const AskUserToolLive = Layer.effectDiscard(
       }
       if (threadId === undefined) {
         return said(
-          "ask_user needs a client that shows forms, or a thread of the editor; ask in your own conversation instead",
+          `${TOOLS.ask_user} needs a client that shows forms, or a thread of the editor; ask in your own conversation instead`,
           true
         );
       }

@@ -9,6 +9,7 @@ import { EDITOR_MCP_SERVER } from "@ultrapaint/contracts/threads";
 import { Effect, Layer } from "effect";
 import { McpProtocol, McpServer } from "effect/ai";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
+import { handoffCall, TOOLS } from "../threads/agent-ways.ts";
 import {
   CallingThread,
   MCP_PATH,
@@ -85,17 +86,17 @@ const Tools = Layer.mergeAll(
  */
 export const MCP_INSTRUCTIONS = `ultrapaint keeps this repository's designs: pages, component specs and the design system, in the
 designs directory. The design is what the UI looks like and which states it has; the code is what
-it does. The design leads, and the code follows it through the handoff tool:
-- Before implementing UI, call handoff with action "list" to see what is ready or changed since it
+it does. The design leads, and the code follows it through the ${TOOLS.handoff} tool:
+- Before implementing UI, call ${handoffCall("list")} to see what is ready or changed since it
   was implemented, and "read" with its target for the task, which says what changed.
 - Token values live in the design system; the stylesheets follow it. The task names the tokens
-  a design uses that the code does not have yet: bring them over with handoff "export" and their
+  a design uses that the code does not have yet: bring them over with ${TOOLS.handoff} "export" and their
   names ("import" takes the code's value into the design instead, when the user says so).
-- After implementing a page or a component, call handoff "mark" with the files that implement it.
+- After implementing a page or a component, call ${TOOLS.handoff} "mark" with the files that implement it.
 - When the code has to do something a design cannot show (a permission, a validation, a call),
-  or when you change UI in a way the design does not say, call handoff "note" on the page's node,
+  or when you change UI in a way the design does not say, call ${TOOLS.handoff} "note" on the page's node,
   or on a component's spec (target "spec:Button", node one of its slots).
-- Change a design only through the tools (apply_operations, write_design_system), never by
+- Change a design only through the tools (${TOOLS.apply_operations}, ${TOOLS.write_design_system}), never by
   editing its JSON by hand; change token values in the design system, not in the stylesheet.`;
 
 export const McpRoute = Tools.pipe(
