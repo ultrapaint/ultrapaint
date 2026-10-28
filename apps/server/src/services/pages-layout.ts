@@ -71,15 +71,16 @@ const sortedKeys = <T>(record: Readonly<Record<string, T>>) =>
   );
 
 /**
- * `canvas.json` as it is written: what it is called first, keys sorted, and no empty list. The
- * routes are written even when there are none, since their absence means a canvas from before
- * pages had optional URLs.
+ * `canvas.json` as it is written: what its pages are drawn in and what it is called first, keys
+ * sorted, and no empty list. The routes are written even when there are none, since their absence
+ * means a canvas from before pages had optional URLs.
  */
 export const renderCanvas = (layout: CanvasLayout) => {
   const nodes = layout.nodes ?? [];
   const variants = layout.variants ?? [];
   const states = layout.states ?? [];
   return serialiseDocument({
+    ...(layout.defaults !== undefined && { defaults: layout.defaults }),
     ...(layout.name !== undefined && { name: layout.name }),
     ...(layout.home !== undefined && { home: layout.home }),
     ...(variants.length > 0 && { variants }),
