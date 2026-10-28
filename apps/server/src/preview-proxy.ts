@@ -2,6 +2,7 @@ import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { request as httpRequest } from "node:http";
 import { connect } from "node:net";
 import type { Duplex } from "node:stream";
+import { PREVIEW_BASE } from "@ultrapaint/contracts/preview";
 import { Context, Effect, Layer } from "effect";
 import {
   connectHost,
@@ -10,13 +11,7 @@ import {
   ServerConfig,
 } from "./config.ts";
 
-/**
- * The path the preview is served under, on the preview's server and on this one, which forwards
- * it there (ADR 0034): the editor imports the preview's modules from its own origin, and a
- * machine reached over SSH forwards one port.
- */
-export const PREVIEW_BASE = "/preview/";
-
+/** Under the base the preview is served under (`PREVIEW_BASE`). */
 const isPreview = (url: string | undefined) =>
   url !== undefined &&
   (url === PREVIEW_BASE.slice(0, -1) || url.startsWith(PREVIEW_BASE));

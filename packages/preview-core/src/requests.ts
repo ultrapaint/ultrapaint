@@ -7,9 +7,10 @@
  * and answers anything else as it answers a file it does not have.
  *
  * `fetch`, `XMLHttpRequest`, `EventSource`, `WebSocket` and `navigator.sendBeacon`. Whose call it is
- * is told by the whole stack: an application that wraps `fetch` is called by the editor too.
+ * is told by the whole stack (`provenance.ts`, `request`): an application that wraps `fetch` is
+ * called by the editor too.
  */
-import { previewBase } from "./portals.ts";
+import type { Provenance } from "./provenance.ts";
 
 /** The function or class standing in for a native one: frames above it on a stack are its. */
 type Patched = object;
@@ -47,12 +48,12 @@ export const underPreview = (
   return parsed.href;
 };
 
-/** Puts the preview's requests under its base, once. `isPreview` says whose call it is. */
-export const guardRequests = (isPreview: (patched: Patched) => boolean) => {
+/** Puts the preview's requests under its base, once; `provenance` says whose call it is. */
+export const guardRequests = (provenance: Provenance) => {
   /** Where `url` goes when `patched` was called by the preview's code; null when it goes as asked. */
   const moved = (url: string | URL, patched: Patched) => {
-    const next = underPreview(url, previewBase(), location.href);
-    return next !== null && isPreview(patched) ? next : null;
+    const next = underPreview(url, provenance.base, location.href);
+    return next !== null && provenance.request(patched) ? next : null;
   };
 
   const nativeFetch = window.fetch;

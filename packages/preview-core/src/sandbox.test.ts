@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { createProvenance } from "./provenance.ts";
 import {
   type GuardedFrame,
   guardFrame,
@@ -7,32 +8,62 @@ import {
   onStrayError,
 } from "./sandbox.ts";
 
-/** Whether the code calling is the preview's: the tests say so instead of a stack. */
-let preview = false;
-const asPreview = <T>(f: () => T): T => {
-  preview = true;
+const ORIGIN = "http://127.0.0.1:4601";
+const BASE = "/preview/";
+const BUNDLE = `${ORIGIN}${BASE}@fs/ultrapaint/dist/editor.js`;
+/** A module of the page's, under the base. */
+const PAGE_MODULE = `${ORIGIN}${BASE}src/preview-module.tsx`;
+
+/** Recorded stacks of whoever calls a patch, the caller first. */
+const STACKS = {
+  /** The editor's bundle, called by the page's code (the registry handing itself over). */
+  bundle: [
+    `    at setComponents (${BUNDLE}?v=3:1:2)`,
+    `    at registry (${PAGE_MODULE}:3:1)`,
+  ],
+  editor: [`    at onKey (${ORIGIN}/assets/index.js:5:5)`],
+  /** The page's code, which the editor handed a frame to draw. */
+  page: [
+    `    at Page (${PAGE_MODULE}:3:1)`,
+    `    at renderWithHooks (${ORIGIN}${BASE}node_modules/.vite/deps/react-dom.js:9:1)`,
+    `    at draw (${BUNDLE}?v=3:1:2)`,
+    `    at canvas (${ORIGIN}/assets/index.js:5:5)`,
+  ],
+  /** The page's wrapper of a global (its logging), called by the editor's own code. */
+  wrapper: [
+    `    at loggedFetch (${PAGE_MODULE}:3:1)`,
+    `    at api (${ORIGIN}/assets/index.js:5:5)`,
+  ],
+};
+
+/** The stack the guards read: the editor's, unless a test says whose code calls. */
+let calling: readonly string[] = STACKS.editor;
+const as = <T>(stack: readonly string[], f: () => T): T => {
+  calling = stack;
   try {
     return f();
   } finally {
-    preview = false;
+    calling = STACKS.editor;
   }
 };
+const asPreview = <T>(f: () => T): T => as(STACKS.page, f);
 
-/** An error is the preview's when its stack names this file, as a module under the base would. */
-beforeAll(() =>
-  installGuards({
-    caller: () => preview,
-    thrown: (stack) =>
-      stack?.includes("preview-module.tsx")
-        ? {
-            column: 1,
-            file: "src/preview-module.tsx",
-            line: 3,
-            url: "http://x/preview-module.tsx",
-          }
-        : null,
-  })
+/** What the guards' requests reach: the editor's `fetch`, as the window had it. */
+const reached = vi.fn((_input: RequestInfo | URL) =>
+  Promise.resolve(new Response(""))
 );
+
+beforeAll(() => {
+  window.fetch = reached as typeof fetch;
+  installGuards(
+    createProvenance({
+      base: BASE,
+      ownScript: BUNDLE,
+      readModule: () => Promise.reject(new Error("no module in a test")),
+      stack: () => ["Error", ...calling].join("\n"),
+    })
+  );
+});
 
 /** What is told of an error is told once its line is looked up: after a turn. */
 const settled = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -51,19 +82,22 @@ const frame = (interactive = true) => {
   host.setAttribute("data-ed-frame-host", "");
   document.body.append(host);
   const shadow = host.attachShadow({ mode: "open" });
+  const body = document.createElement("div");
   const button = document.createElement("button");
-  shadow.append(button);
+  body.append(button);
+  shadow.append(body);
   const navigate = vi.fn<GuardedFrame["navigate"]>();
   const error = vi.fn<GuardedFrame["error"]>();
   const guard = guardFrame({
     asking: () => undefined,
+    body,
     error,
     host,
     interactive: () => interactive,
     navigate,
   });
   mounted.push(guard.unmount);
-  return { button, error, guard, host, navigate };
+  return { body, button, error, guard, host, navigate };
 };
 
 const key = (target: EventTarget) =>
@@ -201,7 +235,7 @@ describe("the head", () => {
 describe("errors nothing caught", () => {
   const thrown = (message: string, inPreview: boolean) => {
     const error = new Error(message);
-    error.stack = `Error: ${message}\n    at f (http://x/${inPreview ? "preview-module.tsx" : "editor.tsx"}:3:1)`;
+    error.stack = `Error: ${message}\n    at f (${inPreview ? PAGE_MODULE : `${ORIGIN}/assets/index.js`}:3:1)`;
     return error;
   };
 
@@ -245,7 +279,7 @@ describe("rejections", () => {
     ).__ultrapaintGuard;
   const rejected = (message: string) => {
     const error = new Error(message);
-    error.stack = `Error: ${message}\n    at f (http://x/preview-module.tsx:3:1)`;
+    error.stack = `Error: ${message}\n    at f (${PAGE_MODULE}:3:1)`;
     return error;
   };
   const surface = (reason: unknown) =>
@@ -301,8 +335,7 @@ describe("timers", () => {
     const b = frame();
     a.guard.asking();
     const failure = new Error("in a timer");
-    failure.stack =
-      "Error: in a timer\n    at f (http://x/preview-module.tsx:3:1)";
+    failure.stack = `Error: in a timer\n    at f (${PAGE_MODULE}:3:1)`;
     const thrown = new Promise<void>((resolve) => {
       asPreview(() =>
         setTimeout(() => {
@@ -318,5 +351,74 @@ describe("timers", () => {
       expect.objectContaining({ message: "in a timer" })
     );
     expect(b.error).not.toHaveBeenCalled();
+  });
+});
+
+describe("each guard's rule", () => {
+  it("a listener the editor's bundle adds for the page's code is the page's", () => {
+    const a = frame();
+    const heard = vi.fn();
+    a.guard.asking();
+    as(STACKS.bundle, () => document.addEventListener("keydown", heard));
+    key(document.body);
+    expect(heard).not.toHaveBeenCalled();
+    key(a.button);
+    expect(heard).toHaveBeenCalledTimes(1);
+    as(STACKS.bundle, () => document.removeEventListener("keydown", heard));
+  });
+
+  it("a timer the editor's bundle sets is the editor's, though the page's code called it", async () => {
+    const a = frame();
+    const b = frame();
+    a.guard.asking();
+    const failure = new Error("in the editor's timer");
+    failure.stack = `Error: in the editor's timer\n    at f (${PAGE_MODULE}:3:1)`;
+    const thrown = new Promise<void>((resolve) => {
+      as(STACKS.bundle, () =>
+        setTimeout(() => {
+          window.dispatchEvent(new ErrorEvent("error", { error: failure }));
+          resolve();
+        }, 0)
+      );
+    });
+    b.guard.asking();
+    await thrown;
+    await settled();
+    // Not run as a's: the error goes to the frame asked about last.
+    expect(a.error).not.toHaveBeenCalled();
+    expect(b.error).toHaveBeenCalledOnce();
+  });
+
+  it("a request is the page's by the whole stack, the editor's through the page's wrapper", () => {
+    as(STACKS.page, () => window.fetch("/api/health"));
+    expect(reached.mock.lastCall?.[0]).toBe(
+      `${location.origin}/preview/api/health`
+    );
+    as(STACKS.wrapper, () => window.fetch("/api/health"));
+    expect(reached.mock.lastCall?.[0]).toBe("/api/health");
+  });
+
+  it("storage is the page's own when its code asks, the editor's when the bundle does", () => {
+    as(STACKS.page, () => window.localStorage.setItem("theme", "dark"));
+    expect(window.localStorage.getItem("theme")).toBeNull();
+    expect(as(STACKS.page, () => window.localStorage.getItem("theme"))).toBe(
+      "dark"
+    );
+    expect(
+      as(STACKS.bundle, () => window.localStorage.getItem("theme"))
+    ).toBeNull();
+  });
+
+  it("a write to <html> is its frame's when the page's code writes, the editor's when the bundle does", () => {
+    const a = frame();
+    a.guard.asking();
+    const html = document.documentElement;
+    as(STACKS.page, () => html.classList.add("dark"));
+    expect(a.host.classList.contains("dark")).toBe(true);
+    expect(html.classList.contains("dark")).toBe(false);
+    as(STACKS.bundle, () => html.classList.add("dragging"));
+    expect(html.classList.contains("dragging")).toBe(true);
+    expect(a.host.classList.contains("dragging")).toBe(false);
+    html.classList.remove("dragging");
   });
 });

@@ -8,8 +8,8 @@
  *   every frame, as the application's modules are one copy for every frame (ADR 0034);
  * - IndexedDB databases are named apart, anew at every load, the last loads' deleted.
  *
- * Whose code asks is told by its immediate caller, as `requests.ts` does not need to: nothing
- * wraps `localStorage` for the editor.
+ * Whose code asks is told by its immediate caller (`provenance.ts`, `storage`): nothing wraps
+ * `localStorage` for the editor.
  */
 
 /** What a database the preview's code opens is named under. */

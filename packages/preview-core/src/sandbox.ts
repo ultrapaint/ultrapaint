@@ -2,7 +2,7 @@
  * Guards between the preview's code and the editor's page (`docs/PLAN-preview-sandbox.md`). The
  * repository's components run in the editor's own page (ADR 0034): one `window`, one `document`,
  * one URL. What an iframe kept apart is kept apart here at the few places the two meet, told by
- * the caller's stack as `portals.ts` does:
+ * the caller's stack, each guard by the rule of `provenance.ts` its purpose needs:
  *
  * - a listener the preview's code puts on `window` or `document` hears the keys, the pointer and
  *   the focus of its own frame only, never the editor's; it never hears the editor leave
@@ -25,25 +25,18 @@
  *   storage is its own (`storage.ts`), and what it writes to `<html>` and `<body>` is its frame's
  *   (`document-elements.ts`).
  *
- * Which frame is the one that was drawing or took input, as `media.ts` tells the window's size.
+ * Listeners, `on*` handlers, scroll, history and the head ask `windowCall`; timers and animation
+ * frames `scheduling`; requests `request`; storage `storage`; `<html>` and `<body>` `domWrite`;
+ * errors `thrownAt`. Which frame is the one that was drawing or took input, as `media.ts` tells
+ * the window's size.
  */
 
 import { holdStyle, holdStyleFirst, isHeld, isStyle } from "./css-in-js.ts";
 import { guardDocumentElements } from "./document-elements.ts";
 import { addedNow, moduleEnds, moduleStarts } from "./hmr-leftovers.ts";
-import {
-  calledDirectlyFromPreview,
-  calledFromPreview,
-  calledOnlyFromPreview,
-  type ThrownAt,
-  thrownInPreview,
-} from "./portals.ts";
+import type { Provenance, ThrownAt } from "./provenance.ts";
 import { guardRequests } from "./requests.ts";
-import { sourceLine } from "./source-lines.ts";
 import { guardStorage } from "./storage.ts";
-
-/** This module's own file, whose frames on the stack are the patch, not who called it. */
-const OWN = import.meta.url.split("?")[0] ?? "";
 
 /** What a frame is told of an error its page's code threw. */
 export interface FrameError {
@@ -160,11 +153,6 @@ let installed = false;
 /** What the repository's `async` functions rejected with, by the frame they were called for. */
 const marks = new WeakMap<object, GuardedFrame>();
 const strayListeners = new Set<(error: FrameError) => void>();
-let fromPreview = () => calledFromPreview([OWN]);
-let directlyFromPreview = calledDirectlyFromPreview;
-let onlyFromPreview: (patched: object) => boolean = calledOnlyFromPreview;
-let thrownIn = thrownInPreview;
-let locate = sourceLine;
 
 /** Runs `f` as `frame`'s page code: what it asks of the window, throws or schedules is its. */
 const runAs = <T>(frame: GuardedFrame, f: () => T): T => {
@@ -187,6 +175,7 @@ const previewCallbacks = new WeakMap<object, boolean>();
 
 /** The frame a scheduling call is for: the one whose code runs, or null for the editor's. */
 const schedulingFrame = (
+  provenance: Provenance,
   patched: (...args: never[]) => unknown,
   callback: object
 ): GuardedFrame | null => {
@@ -195,7 +184,7 @@ const schedulingFrame = (
   }
   let isPreview = previewCallbacks.get(callback);
   if (isPreview === undefined) {
-    isPreview = directlyFromPreview(patched);
+    isPreview = provenance.scheduling(patched);
     previewCallbacks.set(callback, isPreview);
   }
   return isPreview ? current : null;
@@ -330,7 +319,7 @@ const guardInput = (
 };
 
 /** Puts a listener the preview's code adds to `window` or `document` behind the guard. */
-const guardListeners = (target: Window | Document) => {
+const guardListeners = (target: Window | Document, provenance: Provenance) => {
   const add = target.addEventListener.bind(target) as Add;
   const remove = target.removeEventListener.bind(target) as Remove;
   target.addEventListener = (
@@ -347,7 +336,7 @@ const guardListeners = (target: Window | Document) => {
     if (
       !(
         listener &&
-        fromPreview() &&
+        provenance.windowCall() &&
         (DROPPED.has(type) || RELAYED.has(type) || FRAME_INPUT.has(type))
       )
     ) {
@@ -411,12 +400,12 @@ const around = (
 };
 
 /** The window's handlers the preview's code may not set: the editor's leaving and history. */
-const guardHandlers = () => {
+const guardHandlers = (provenance: Provenance) => {
   for (const type of DROPPED) {
     around(window, Window.prototype, `on${type}`, (get, set) => ({
       get,
       set: (value) => {
-        if (!fromPreview()) {
+        if (!provenance.windowCall()) {
           set(value);
         }
       },
@@ -425,7 +414,7 @@ const guardHandlers = () => {
 };
 
 /** While a frame's `scroll` is told, the window's position is the frame's. */
-const guardScroll = () => {
+const guardScroll = (provenance: Provenance) => {
   for (const [property, side] of [
     ["scrollY", "scrollTop"],
     ["pageYOffset", "scrollTop"],
@@ -439,7 +428,7 @@ const guardScroll = () => {
   for (const name of ["scroll", "scrollTo", "scrollBy"] as const) {
     const native = window[name].bind(window) as (...args: unknown[]) => void;
     window[name] = ((...args: unknown[]) => {
-      if (!fromPreview()) {
+      if (!provenance.windowCall()) {
         native(...args);
         return;
       }
@@ -468,12 +457,12 @@ const routeOf = (url: string | URL | null | undefined): string | null => {
 };
 
 /** The page's code never moves the editor's address or its history. */
-const guardHistory = () => {
+const guardHistory = (provenance: Provenance) => {
   const { history } = window;
   const push = history.pushState.bind(history);
   const replace = history.replaceState.bind(history);
   history.pushState = (data, unused, url) => {
-    if (!fromPreview()) {
+    if (!provenance.windowCall()) {
       push(data, unused, url);
       return;
     }
@@ -483,14 +472,14 @@ const guardHistory = () => {
     }
   };
   history.replaceState = (data, unused, url) => {
-    if (!fromPreview()) {
+    if (!provenance.windowCall()) {
       replace(data, unused, url);
     }
   };
   for (const name of ["back", "forward", "go"] as const) {
     const native = history[name].bind(history) as (...args: unknown[]) => void;
     history[name] = ((...args: unknown[]) => {
-      if (!fromPreview()) {
+      if (!provenance.windowCall()) {
         native(...args);
       }
     }) as never;
@@ -501,7 +490,7 @@ const guardHistory = () => {
  * The page's document's title, meta and icons are kept off the editor's head, and the styles its
  * code writes go where the frames get them from (`css-in-js.ts`).
  */
-const guardHead = () => {
+const guardHead = (provenance: Provenance) => {
   const { head } = document;
   /** Where they go instead: no document, so they do nothing, and their owner can remove them. */
   const aside = document.createElement("head");
@@ -510,11 +499,11 @@ const guardHead = () => {
     (DOCUMENT_ONLY.has(node.tagName) ||
       (node.tagName === "LINK" &&
         DOCUMENT_LINK_RE.test(node.getAttribute("rel") ?? ""))) &&
-    fromPreview();
+    provenance.windowCall();
   const heldStyle = (
     node: unknown
   ): node is HTMLLinkElement | HTMLStyleElement =>
-    isStyle(node) && fromPreview();
+    isStyle(node) && provenance.windowCall();
   const appendChild = head.appendChild.bind(head);
   const insertBefore = head.insertBefore.bind(head);
   const append = head.append.bind(head);
@@ -569,7 +558,7 @@ const guardHead = () => {
   around(document, Document.prototype, "title", (get, set) => ({
     get,
     set: (value) => {
-      if (!fromPreview()) {
+      if (!provenance.windowCall()) {
         set(value);
       }
     },
@@ -583,10 +572,10 @@ const guardHead = () => {
  * the frame of is not given to the frame that happens to be running when it surfaces: it is told
  * to the editor alone (`onStrayError`). The console still has it.
  */
-const reportUncaught = () => {
+const reportUncaught = (provenance: Provenance) => {
   const told = (error: unknown, fallback: string) => {
     const stack = error instanceof Error ? error.stack : undefined;
-    const where = thrownIn(stack);
+    const where = provenance.thrownAt(stack);
     return where
       ? {
           error: {
@@ -605,7 +594,7 @@ const reportUncaught = () => {
     to: (error: FrameError) => void
   ) => {
     const { error, where } = found;
-    locate(where.url, where.line, where.column).then(
+    provenance.sourceLine(where).then(
       (line) => to({ ...error, line }),
       () => to(error)
     );
@@ -713,11 +702,11 @@ const release = (frame: GuardedFrame) => {
   }
 };
 
-const guardAnimationFrames = () => {
+const guardAnimationFrames = (provenance: Provenance) => {
   nativeFrame = window.requestAnimationFrame.bind(window);
   nativeCancel = window.cancelAnimationFrame.bind(window);
   const request = (callback: FrameRequestCallback): number => {
-    const frame = schedulingFrame(request, callback);
+    const frame = schedulingFrame(provenance, request, callback);
     if (!frame) {
       return nativeFrame(callback);
     }
@@ -742,7 +731,7 @@ const guardAnimationFrames = () => {
 };
 
 /** A timer the preview's code sets runs as its frame's code. */
-const guardTimers = () => {
+const guardTimers = (provenance: Provenance) => {
   for (const name of ["setTimeout", "setInterval"] as const) {
     const native = window[name].bind(window) as (
       handler: TimerHandler,
@@ -755,7 +744,9 @@ const guardTimers = () => {
       ...args: unknown[]
     ): number => {
       const frame =
-        typeof handler === "function" ? schedulingFrame(set, handler) : null;
+        typeof handler === "function"
+          ? schedulingFrame(provenance, set, handler)
+          : null;
       const run = handler as (...a: unknown[]) => unknown;
       const id = frame
         ? native(
@@ -775,42 +766,29 @@ const guardTimers = () => {
 };
 
 /**
- * Puts the guards in place, once. By default the stack says whether the code calling is the
- * preview's, and where an error was thrown, as `portals.ts` reads it; tests say it instead.
+ * Puts the guards in place, once. `provenance` says whose code calls each, by the rule its
+ * purpose needs, and where an error was thrown; a test gives it a recorded stack.
  */
-export const installGuards = (test?: {
-  readonly caller: () => boolean;
-  readonly thrown: typeof thrownInPreview;
-}) => {
-  if (test) {
-    fromPreview = test.caller;
-    directlyFromPreview = test.caller;
-    onlyFromPreview = test.caller;
-    thrownIn = test.thrown;
-    locate = (_url, line) => Promise.resolve(line);
-  }
+export const installGuards = (provenance: Provenance) => {
   if (installed || typeof window === "undefined") {
     return;
   }
   installed = true;
-  reportUncaught();
+  reportUncaught(provenance);
   answerGuard();
-  guardListeners(window);
-  guardListeners(document);
-  guardHandlers();
-  guardScroll();
-  guardHistory();
-  guardHead();
-  guardAnimationFrames();
-  guardTimers();
-  guardRequests((patched) => onlyFromPreview(patched));
-  guardStorage((patched) =>
-    directlyFromPreview(patched as (...args: never[]) => unknown)
-  );
+  guardListeners(window, provenance);
+  guardListeners(document, provenance);
+  guardHandlers(provenance);
+  guardScroll(provenance);
+  guardHistory(provenance);
+  guardHead(provenance);
+  guardAnimationFrames(provenance);
+  guardTimers(provenance);
+  guardRequests(provenance);
+  guardStorage(provenance.storage);
   guardDocumentElements((patched) => {
     const frame = carrying ?? current;
-    return frame?.body &&
-      directlyFromPreview(patched as (...args: never[]) => unknown)
+    return frame?.body && provenance.domWrite(patched)
       ? { body: frame.body, host: frame.host }
       : null;
   });

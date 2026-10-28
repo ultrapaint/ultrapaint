@@ -29,8 +29,9 @@ import { watchHeldStyles } from "./css-in-js.ts";
 import { chainAt, directText, elementsOf, unionRect } from "./dom.ts";
 import { BODY_ATTRIBUTE } from "./frame-css.ts";
 import { elementAt, type HitScope } from "./hit.ts";
-import { frameMedia } from "./media.ts";
+import { frameMedia, guardMedia } from "./media.ts";
 import { routePortals } from "./portals.ts";
+import { createProvenance } from "./provenance.ts";
 import { publicUrlOf } from "./public-url.ts";
 import { guardFrame, installGuards, onStrayError } from "./sandbox.ts";
 import {
@@ -116,8 +117,11 @@ export const createPreview = (input: PreviewSetup): Preview => {
   const previewBase = new URL(input.designsRoot, location.href).pathname.split(
     "@fs"
   )[0] as string;
-  routePortals(previewBase, () => activeFrame);
-  installGuards();
+  // Whose code calls is told the same way by every guard: the base, and the editor's bundle.
+  const provenance = createProvenance({ base: previewBase });
+  routePortals(provenance, () => activeFrame);
+  installGuards(provenance);
+  guardMedia(provenance);
   watchHeldStyles(setCssInJs);
 
   const preview: Preview = {

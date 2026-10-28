@@ -6,6 +6,14 @@ import { Schema } from "effect";
  * frame is called directly; these are the messages its bridge hands what it says on as.
  */
 
+/**
+ * The path the preview is served under, on the preview's server and on the editor's, which
+ * forwards it there (ADR 0034): the editor imports the preview's modules from its own origin, and
+ * a machine reached over SSH forwards one port. The desktop app reads a stuck page's modules by
+ * it (`preview-core/provenance.ts`).
+ */
+export const PREVIEW_BASE = "/preview/";
+
 export const Rect = Schema.Struct({
   height: Schema.Number,
   width: Schema.Number,

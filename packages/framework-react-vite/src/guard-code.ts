@@ -80,6 +80,39 @@ export function mark(error, frame) {
 }
 `;
 
+/** Modules the guard is put in: JavaScript and what becomes it. */
+const SOURCE_RE = /\.(?:[cm]?[jt]sx?)$/;
+/** Dependencies: under `node_modules`, or prebundled into Vite's cache (in the generated directory). */
+const DEPENDENCY_RE = /\/node_modules\/|\/\.vite\/deps\//;
+/** Vite's own client and React's refresh runtime: the dev server's, not the application's. */
+const SERVER_CODE_RE =
+  /\/node_modules\/(?:vite|@vitejs)\/|\/@vite\/|@react-refresh/;
+
+/**
+ * What the guard does to module `id`: all of it to the repository's (`source`), its loops to a
+ * dependency's; nothing to what is not JavaScript, to the dev server's own code, or to what lies
+ * in `editorDirs` (the generated modules and our bundles, each ending in `/`). The server's side of
+ * "is this the page's code": the module it calls `source` is the one it marks, which the browser's
+ * side and the desktop app take for the repository's (`preview-core/provenance.ts`).
+ */
+export const guardedKind = (
+  id: string,
+  editorDirs: readonly string[]
+): "dependency" | "source" | null => {
+  const file = (id.split("?")[0] ?? id).replaceAll("\\", "/");
+  if (
+    id.startsWith("\0") ||
+    !SOURCE_RE.test(file) ||
+    SERVER_CODE_RE.test(file)
+  ) {
+    return null;
+  }
+  if (DEPENDENCY_RE.test(file)) {
+    return "dependency";
+  }
+  return editorDirs.some((d) => file.startsWith(d)) ? null : "source";
+};
+
 /** Whether a module may hold anything to guard: most hold neither a loop nor `async`. */
 export const MAY_GUARD_RE = /\b(?:async|do|for|while)\b/;
 
