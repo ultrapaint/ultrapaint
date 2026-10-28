@@ -36,6 +36,8 @@ const ORDER = [
   "content",
   "states",
   "components",
+  "design-system",
+  "picture",
   "accessibility",
 ] as const;
 
