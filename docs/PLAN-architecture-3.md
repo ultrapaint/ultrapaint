@@ -1039,3 +1039,12 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
    `true`, off clears the page's; an attribute toggled with no force alike on host and body;
    `style` toggled on keeps the body's style); the first two failed first. `frame.test.ts` has 1
    test more: the host is marked drawn once its page has drawn; it failed first.
+9. **A frame mounted after a dev-server error is told it** (`packages/preview-core/src/frame.ts`).
+   The preview keeps the dev server's last error until its next update (`notifyHmr`) and tells
+   it to a frame mounted meanwhile, as it mounts, as `editor-frame` keeps it for a frame already
+   mounted (step 10). Fixed: a frame opened after a dev-server error (scrolled into view, the
+   prototype opened, a specimen drawn) showed no error and drew what it could until the next
+   update, while the frames already open showed it. `Preview.reportError` says so.
+   `frame.test.ts` has 1 test more: a frame mounted after an error is told it once as the dev
+   server's, and one mounted after the next update is told nothing; it failed first. The file's
+   tests end with an update, so an error one leaves is no other's.

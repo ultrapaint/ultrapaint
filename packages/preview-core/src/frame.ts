@@ -24,6 +24,7 @@ import type {
   FrameShown,
   Mounted,
   MountFrameOptions,
+  PageError,
   Preview,
   PreviewSetup,
   RenderRequest,
@@ -97,6 +98,8 @@ export const createPreview = (
     events: FrameEvents;
     mounted: Mounted;
   }>();
+  /** The dev server's error until its next update: a frame mounted meanwhile is told it too. */
+  let devServerError: PageError | null = null;
   const previewBase = new URL(input.designsRoot, location.href).pathname.split(
     "@fs"
   )[0] as string;
@@ -109,6 +112,9 @@ export const createPreview = (
       const frame = mountFrame(host, options, render, input, components);
       const entry = { events: options.events, mounted: frame.mounted };
       frames.add(entry);
+      if (devServerError) {
+        options.events.error?.(devServerError);
+      }
       return {
         ...frame.runtime,
         unmount: () => {
@@ -118,6 +124,7 @@ export const createPreview = (
       };
     },
     notifyHmr: () => {
+      devServerError = null;
       for (const frame of frames) {
         frame.events.hmr?.();
       }
@@ -125,8 +132,10 @@ export const createPreview = (
     onRunning,
     onStrayError,
     reportError: (error) => {
+      const told: PageError = { ...error, source: "dev-server" };
+      devServerError = told;
       for (const frame of frames) {
-        frame.events.error?.({ ...error, source: "dev-server" });
+        frame.events.error?.(told);
       }
     },
     setComponents: (next) => {
