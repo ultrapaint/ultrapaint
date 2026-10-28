@@ -96,6 +96,10 @@ module.
   right-clicked in another view takes it there. The inspector, the element toolbar, the outlines
   and Layers read the selected nodes as that view draws them, and what several share as one value
   or `MIXED`.
+- **Layers' tree**: the Layers panel's rows as data (the web's `layer-tree`): what a filter leaves
+  of them, their **folds** (the rows flipped from pages open and layers folded, or folded among
+  what a filter finds), the way down to the selection a reveal opens, and where a dragged row
+  lands, as a node-actions `Place`. The panel draws it and forwards its events.
 - **Showing a panel**: one verb a side, which brings a panel put away back and leaves the
   prototype (ADR 0032): `showRightPanel(tab)`, and `showLeftPanel` a tab of the rail's with what
   it is asked to show there, a **request** (a thread and its draft, a file's changes, a node to
