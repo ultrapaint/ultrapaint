@@ -1,7 +1,9 @@
-/** Built-in skill. The file is the skill: its heading is the title, the paragraph after it the summary. */
-export const hierarchy = {
-  name: "hierarchy",
-  text: `# Hierarchy
+---
+name: hierarchy
+description: "Every screen has one thing it is for. Make that the first thing the eye lands on, and rank everything else below it. Use when designing or reviewing an interface's hierarchy."
+---
+
+# Hierarchy
 
 Every screen has one thing it is for. Make that the first thing the eye lands on, and rank
 everything else below it.
@@ -53,5 +55,3 @@ Past three containers deep, a heading and a gap say more than another box.
 | The key figure below its metadata | Move it to the top of its group |
 | A card in a card in a card | Replace the inner containers with a heading and a gap |
 | Delete beside Save in the same style | Destructive variant, moved apart |
-`,
-} as const;

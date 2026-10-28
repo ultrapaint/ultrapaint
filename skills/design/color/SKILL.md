@@ -1,24 +1,20 @@
-import { DESIGN_TOKENS_FILE } from "../services/dtcg.ts";
-import type { ToolNames } from "../services/threads/agent-ways.ts";
+---
+name: color
+description: "Colour is meaning first. Use the design system's semantic tokens for what a thing is, and reach into a palette only when the semantic set has nothing for it. Use when designing or reviewing an interface's color."
+---
 
-/**
- * Built-in skill. The file is the skill: its heading is the title, the paragraph after it the
- * summary. The tools it names are the editor's, when it offers them (`AgentWays.tools`).
- */
-export const color = (tools: ToolNames | null) => ({
-  name: "color",
-  text: `# Colour
+# Colour
 
 Colour is meaning first. Use the design system's semantic tokens for what a thing is, and reach
 into a palette only when the semantic set has nothing for it.
 
-Colour has exact answers, so compute them: \`${tools ? tools.read_design_system : DESIGN_TOKENS_FILE}\` gives every token's value in
+Colour has exact answers, so compute them: [with the editor's tools: `read_design_system` | without: `design.tokens.json`] gives every token's value in
 every theme. A contrast you did not compute is a guess.
 
 ## Tokens by role
 
 Surfaces, text and borders come from semantic tokens: background, foreground, muted, border,
-primary, destructive and their pairs. A palette colour (\`"$color-blue-500"\`) on a screen is a
+primary, destructive and their pairs. A palette colour (`"$color-blue-500"`) on a screen is a
 decision the design system did not make; use one only where DESIGN.md's Colors section does.
 
 ## A token only in its role
@@ -35,7 +31,7 @@ Headings, icons and borders stay neutral.
 
 ## One colour, one meaning
 
-A hue means one thing across the product, and hues within about \`15°\` of each other count as the
+A hue means one thing across the product, and hues within about `15°` of each other count as the
 same one. If the accent means interactive, static text in it invites clicks.
 
 ## Status colours report status
@@ -51,8 +47,8 @@ what reads in every theme. Text over a photograph sits on a scrim or a solid sur
 ## States are steps of one role
 
 Hover and pressed are a shade of the same fill: the hover tokens when the system has them, the
-fill at \`90%\` opacity when it has not. Selected is the accent's subtle fill, focus is the ring
-colour, disabled is \`50%\` opacity. A state brings no new hue.
+fill at `90%` opacity when it has not. Selected is the accent's subtle fill, focus is the ring
+colour, disabled is `50%` opacity. A state brings no new hue.
 
 ## Charts
 
@@ -68,10 +64,8 @@ values in each theme the design system has.
 
 | You see | Fix |
 | --- | --- |
-| A hex or \`rgb()\` value in \`fill\`, \`color\` or \`border\` | The semantic token for that role |
+| A hex or `rgb()` value in `fill`, `color` or `border` | The semantic token for that role |
 | A palette token in a component's colours | The semantic token it stands for |
 | The accent on headings, icons or dividers | Neutral; the accent stays on the action and the selection |
 | A status colour as decoration or a chart series | Neutral, or the chart colours |
 | Hard-coded white or grey text on a coloured fill | The fill's foreground pair |
-`,
-});
