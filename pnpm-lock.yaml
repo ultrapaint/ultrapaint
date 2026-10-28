@@ -445,6 +445,9 @@ importers:
       '@ultrapaint/framework-api':
         specifier: workspace:*
         version: link:../framework-api
+      '@ultrapaint/preview-core':
+        specifier: workspace:*
+        version: link:../preview-core
       '@ultrapaint/renderer-react':
         specifier: workspace:*
         version: link:../renderer-react
@@ -507,10 +510,10 @@ importers:
       '@ultrapaint/framework-api':
         specifier: workspace:*
         version: link:../framework-api
+    devDependencies:
       '@ultrapaint/preview-core':
         specifier: workspace:*
         version: link:../preview-core
-    devDependencies:
       '@types/react':
         specifier: ^19.3.0
         version: 19.3.0

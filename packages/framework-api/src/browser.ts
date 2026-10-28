@@ -21,7 +21,10 @@ export const nodeSelector = (id: string) =>
 /** The modules instances import, as the registry hands them to the page (`page-runtime.ts`). */
 export type ComponentRegistry = ComponentModules;
 
-/** What the core hands a renderer once, when it mounts it. */
+/**
+ * What the core hands a renderer once, when it mounts it in a frame of the editor's page (ADR
+ * 0034): the one host there is, so every field is given.
+ */
 export interface RenderSetup {
   /** URL of an image a node shows: a path inside the canvas, or a URL as it is. */
   readonly assetUrl: (src: string) => string;
@@ -30,31 +33,28 @@ export interface RenderSetup {
    * The render's components are drawing, or their effects running: what they ask of the window's
    * size is the frame's (ADR 0036). Called often; it only says so.
    */
-  readonly drawing?: () => void;
+  readonly drawing: () => void;
   /** A node with a link was pressed. */
   readonly navigate: (route: string) => void;
   /** A render reached the screen. */
   readonly onRendered: (renderId: number) => void;
-  /** The height a page fills at least: the window's (`100vh`), or the frame's (`100cqh`). */
-  readonly pageHeight?: string;
+  /** The height a page fills at least: its frame's (`100cqh`), as a page fills its window. */
+  readonly pageHeight: string;
   /** Default export of the providers module from the settings, when there is one. */
   readonly providers: unknown;
   /** A root path to one of the application's public files where the page finds it; others as they are. */
-  readonly publicUrl?: (url: string) => string;
+  readonly publicUrl: (url: string) => string;
   /** Reports a render error to the editor. */
   readonly reportError: (error: {
     readonly message: string;
     readonly stack?: string | undefined;
   }) => void;
   /** How instances were drawn, by node id: the ones that changed since the last report. */
-  readonly reportInstances?: (
+  readonly reportInstances: (
     instances: Readonly<Record<string, InstanceDrawn>>
   ) => void;
-  /**
-   * The design's own stylesheet (ADR 0028, 0029), when the core keeps one for every frame:
-   * otherwise the renderer puts it in the document's head.
-   */
-  readonly setDesignCss?: (css: string) => void;
+  /** The design's own stylesheet (ADR 0028, 0029), which the core keeps for every frame. */
+  readonly setDesignCss: (css: string) => void;
 }
 
 /** One thing to draw. */
@@ -161,14 +161,17 @@ export interface MountFrameOptions {
   readonly still?: boolean;
 }
 
-/** What the generated entry hands the preview core in the editor's page. */
+/**
+ * What the generated entry hands the preview core in the editor's page. The renderer is not
+ * among it: the bundle's entry (preview-core's `editor.ts`) is given it when the framework
+ * builds the bundle.
+ */
 export interface PreviewSetup {
   /** Where the preview's server answers which file an image of a canvas is. */
   readonly assets: string;
   readonly components: ComponentRegistry;
   /** URL of the designs directory on the preview's server. */
   readonly designsRoot: string;
-  readonly mount: RenderToCanvas;
   readonly providers: unknown;
   /**
    * The application's public directory, which it names files in from the root (`/media/a.webp`):

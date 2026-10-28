@@ -2,6 +2,15 @@
 
 Status: accepted, 2026-09-17. Supersedes 0001 and 0006; builds on 0002, 0003 and 0007.
 
+> Amended 2026-10-28 (`docs/PLAN-architecture.md`, step 13). The seams stay, each with its one
+> adapter (one framework, one renderer, one style system), as decided. The renderer's interface
+> describes one host, the editor's page: `RenderSetup` gives the design's stylesheet to the core
+> (`setDesignCss`), says when the frame draws and how high a page is at least (its frame's), and
+> no renderer puts a sheet in the document's head. The entry of the module the editor's page
+> loads is preview-core's (`editor.ts`), which takes a `RenderToCanvas`; the framework's build
+> gives it its renderer, so the renderer depends on `framework-api`'s interface and not on the
+> core, as Storybook's does.
+
 > Amended by [0034](0034-frames-in-the-editors-page.md), 2026-10-26. The split stands; the iframe
 > goes. The preview core and the renderer run in the editor's own page, loaded once from the
 > preview's server through the editor's server (`/preview/`), and draw every frame in a shadow

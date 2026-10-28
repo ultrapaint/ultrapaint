@@ -704,7 +704,7 @@ keeps its settings in `~/.ultrapaint` unless it is given `--config` or `--epheme
 - `packages/contracts` — Effect Schema for everything on the wire, the document format included, and the `RpcGroup` that is the editor's API.
 - `packages/design-document` — the document format's pure code: tree walks, ids, the operations every edit is made of, tokens and the CSS a node is drawn with, a node's JSX with the classes a style system writes.
 - `packages/framework-api` — what a renderer gives the preview, and what a framework and a style system give the server.
-- `packages/preview-core` — the framework-neutral runtime injected into every preview iframe: what to draw, measuring, hit-testing, text editing, the prototype's navigation.
+- `packages/preview-core` — the framework-neutral runtime of the frames drawn in the editor's page, and the entry of the module it loads, given a renderer: what to draw, measuring, hit-testing, text editing, the prototype's navigation, the sandbox's guards.
 - `packages/renderer-react` — draws design documents with the repository's own React and components (`renderToCanvas`).
 - `packages/figma-import` — reads a `.fig` file: its frames to design documents by fixed rules, with a mapping that says what each Figma component becomes, and its variables and styles as tokens.
 - `packages/framework-react-vite` — the Node side for React + Vite: catalogue extraction, repository detection, the preview server and its component registry, and the application a repository can start from.

@@ -26,21 +26,19 @@ import type {
   Preview,
   PreviewSetup,
   RenderRequest,
-  RenderSetup,
+  RenderToCanvas,
 } from "@ultrapaint/framework-api/browser";
 import { toCanvas, toPng } from "html-to-image";
 import { chainAt, directText, elementsOf, unionRect } from "./dom.ts";
 import { BODY_ATTRIBUTE } from "./frame-css.ts";
 import { elementAt, type HitScope } from "./hit.ts";
 import { install, register } from "./kernel.ts";
-import { publicUrlOf } from "./public-url.ts";
+import { renderSetup } from "./render-setup.ts";
 import { onStrayError } from "./sandbox.ts";
-import { adoptedSheets, frameSheets, setDesignCss } from "./styles.ts";
+import { adoptedSheets, frameSheets } from "./styles.ts";
 import { readTokens } from "./tokens.ts";
 import { onRunning } from "./turn.ts";
 
-const ABSOLUTE_URL_RE = /^(?:[a-z][a-z\d+.-]*:|\/)/i;
-const LEADING_DOT_SLASH_RE = /^\.\//;
 const SKELETON_ATTRIBUTE = "data-ed-skeleton";
 const INERT = "inert";
 
@@ -80,10 +78,14 @@ const GUARDED = [
 const ACTIVITY = ["pointerdown", "keydown", "focusin"] as const;
 
 /**
- * The repository's components, ready to draw frames in the editor's page. Called once by the
- * generated entry, with the registry, the providers and where the preview's server is.
+ * The repository's components, ready to draw frames in the editor's page with `render`. Called
+ * once by the generated entry, through the bundle's entry (`editor.ts`), with the registry, the
+ * providers and where the preview's server is.
  */
-export const createPreview = (input: PreviewSetup): Preview => {
+export const createPreview = (
+  render: RenderToCanvas,
+  input: PreviewSetup
+): Preview => {
   let { components } = input;
   const frames = new Set<{
     events: FrameEvents;
@@ -97,7 +99,7 @@ export const createPreview = (input: PreviewSetup): Preview => {
 
   const preview: Preview = {
     mountFrame: (host, options) => {
-      const frame = mountFrame(host, options, input, components);
+      const frame = mountFrame(host, options, render, input, components);
       const entry = { events: options.events, mounted: frame.mounted };
       frames.add(entry);
       return {
@@ -190,6 +192,7 @@ const applyDefaults = (
 const mountFrame = (
   host: HTMLElement,
   options: MountFrameOptions,
+  draw: RenderToCanvas,
   input: PreviewSetup,
   components: PreviewSetup["components"]
 ): { mounted: Mounted; runtime: FrameRuntime } => {
@@ -236,19 +239,6 @@ const mountFrame = (
   /** Whether a `fit` render takes the frame's width, and wraps in it, rather than its own. */
   let fill = false;
 
-  const publicUrl = publicUrlOf(input.publicFiles);
-  const assetUrl = (src: string) => {
-    if (ABSOLUTE_URL_RE.test(src)) {
-      return publicUrl(src);
-    }
-    const file = src.replace(LEADING_DOT_SLASH_RE, "");
-    if (options.canvas) {
-      const query = new URLSearchParams({ canvas: options.canvas, src: file });
-      return `${input.assets}?${query.toString()}`;
-    }
-    return `${input.designsRoot}/${file}`;
-  };
-
   let lastSize = { height: -1, width: -1 };
   const sendSize = () => {
     if (mode !== "fit") {
@@ -279,25 +269,17 @@ const mountFrame = (
     }
   };
 
-  const setup: RenderSetup = {
-    assetUrl,
+  const setup = renderSetup(input, options, {
     components,
     drawing: kernel.ask,
-    navigate: (route) => events.navigateTo?.(route, false),
-    onRendered: (renderId) => {
+    rendered: (renderId) => {
       applySkeletons();
       events.rendered?.(renderId);
       scheduleRects();
       requestAnimationFrame(sendSize);
     },
-    pageHeight: "100cqh",
-    providers: input.providers,
-    publicUrl,
-    reportError: (error) => events.error?.(error),
-    reportInstances: (instances) => events.instances?.(instances),
-    setDesignCss,
-  };
-  const mounted = input.mount(setup, canvas);
+  });
+  const mounted = draw(setup, canvas);
   const resize = new ResizeObserver(sendSize);
   resize.observe(canvas);
 
