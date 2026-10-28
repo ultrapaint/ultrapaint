@@ -1,8 +1,10 @@
 /**
  * What the composer of each thread sends along with its next prompt, as chips: nodes attached
- * from the canvas (Add to chat, a layer dragged in, the right-click menu), pages, a screenshot.
- * A store, not the composer's state: the canvas adds to it while the chat may be closed.
+ * from the canvas (Add to chat, a layer dragged in, the right-click menu) and pages. A store, not
+ * the composer's state: the canvas adds to it while the chat may be closed. `attachmentsOf` says
+ * what chips go with a prompt as, a comment sent to an agent's included.
  */
+import type { Comment } from "@ultrapaint/contracts/comments";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page } from "@ultrapaint/contracts/pages";
 import type { PromptAttachment } from "@ultrapaint/contracts/threads";
@@ -27,23 +29,16 @@ export type Chip =
       readonly kind: "page";
       readonly name: string;
       readonly pageId: string;
-    }
-  | { readonly frameId: string; readonly kind: "shot"; readonly name: string };
+    };
 
 /** The key of a node's chip, known from where the node is without the node itself. */
 export const nodeKey = (frame: string, nodeId: string) =>
   `node:${frame}#${nodeId}`;
 
-export const chipKey = (chip: Chip): string => {
-  switch (chip.kind) {
-    case "node":
-      return nodeKey(chip.frame, chip.nodeId);
-    case "page":
-      return `page:${chip.pageId}`;
-    default:
-      return `shot:${chip.frameId}`;
-  }
-};
+export const chipKey = (chip: Chip): string =>
+  chip.kind === "node"
+    ? nodeKey(chip.frame, chip.nodeId)
+    : `page:${chip.pageId}`;
 
 interface AttachmentsStore {
   byThread: Record<string, readonly Chip[]>;
@@ -171,4 +166,42 @@ export const chipOfAttachment = (attachment: PromptAttachment): Chip | null => {
         nodeId: attachment.nodeId,
       }
     : null;
+};
+
+/** A comment's chip: the node it is pinned on, by the name the comment gives it, or its page. */
+export const chipOfComment = (comment: Comment, page: Page): Chip =>
+  comment.nodeId
+    ? {
+        component: false,
+        file: page.file,
+        frame: page.id,
+        kind: "node",
+        name: comment.element ?? "node",
+        nodeId: comment.nodeId,
+      }
+    : pageChip(page);
+
+/**
+ * What a prompt carries for its chips: each page's file, and each node with the file it lives in,
+ * a file once however many of its nodes go. A screenshot is the composer's to add.
+ */
+export const attachmentsOf = (chips: readonly Chip[]): PromptAttachment[] => {
+  const attachments: PromptAttachment[] = [];
+  const files = new Set<string>();
+  for (const chip of chips) {
+    if (!files.has(chip.file)) {
+      files.add(chip.file);
+      attachments.push({ kind: "file", path: chip.file });
+    }
+    if (chip.kind === "node") {
+      attachments.push({
+        file: chip.file,
+        kind: "selection",
+        name: chip.name,
+        nodeId: chip.nodeId,
+        ...(chip.component ? { component: true } : {}),
+      });
+    }
+  }
+  return attachments;
 };

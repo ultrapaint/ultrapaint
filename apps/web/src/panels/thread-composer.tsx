@@ -3,11 +3,11 @@
  * prompts queued while the agent works.
  */
 import type { Page } from "@ultrapaint/contracts/pages";
-import {
-  isBusy,
-  type PromptAttachment,
-  type QueuedPrompt,
-  type Thread,
+import { parseCommand } from "@ultrapaint/contracts/tasks";
+import type {
+  PromptAttachment,
+  QueuedPrompt,
+  Thread,
 } from "@ultrapaint/contracts/threads";
 import { nodeLabel } from "@ultrapaint/design-document/tree";
 import { cn } from "cn";
@@ -45,9 +45,11 @@ import { frameIdOf } from "../canvas/prototype.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { chordLabel } from "../lib/keys.ts";
 import { takeDraft, useDrafts } from "../lib/start-thread.ts";
+import { threadView } from "../lib/thread-view.ts";
 import { useAgents } from "../state/agents.ts";
 import {
   addChip,
+  attachmentsOf,
   type Chip,
   chipKey,
   chipOfAttachment,
@@ -75,46 +77,30 @@ import {
 } from "./thread-questions.tsx";
 
 /**
- * What a prompt carries, from the composer's chips: each node with the file it lives in, each page,
- * and a screenshot when one was asked for.
+ * What a prompt carries, from the composer's chips, and a screenshot when one was asked for.
  */
 const collectAttachments = async (
   chips: readonly Chip[],
   shotOf: { frameId: string; name: string } | null
-) => {
-  const attachments: PromptAttachment[] = [];
-  const files = new Set<string>();
-  const addFile = (path: string) => {
-    if (!files.has(path)) {
-      files.add(path);
-      attachments.push({ kind: "file", path });
-    }
-  };
-  for (const chip of chips) {
-    if (chip.kind === "page") {
-      addFile(chip.file);
-    } else if (chip.kind === "node") {
-      addFile(chip.file);
-      attachments.push({
-        file: chip.file,
-        kind: "selection",
-        name: chip.name,
-        nodeId: chip.nodeId,
-        ...(chip.component ? { component: true } : {}),
-      });
-    }
-  }
-  if (shotOf) {
-    const dataUrl = await frameOf(shotOf.frameId).screenshot();
-    if (dataUrl) {
-      attachments.push({
-        dataUrl,
-        kind: "image",
-        name: `${shotOf.name} screenshot`,
-      });
-    }
-  }
-  return attachments;
+): Promise<PromptAttachment[]> => {
+  const attachments = attachmentsOf(chips);
+  const dataUrl = shotOf ? await frameOf(shotOf.frameId).screenshot() : null;
+  return shotOf && dataUrl
+    ? [
+        ...attachments,
+        { dataUrl, kind: "image", name: `${shotOf.name} screenshot` },
+      ]
+    : attachments;
+};
+
+/** `/sync` with no source asks where the sync stands, which the editor shows: its Sync view. */
+const opensSync = (text: string) => {
+  const parsed = parseCommand(text);
+  return (
+    parsed?._tag === "Request" &&
+    parsed.request._tag === "Sync" &&
+    parsed.request.source === undefined
+  );
 };
 
 /** In the prototype the whole canvas is one frame; on the canvas every page has its own. */
@@ -191,7 +177,7 @@ export const Composer = ({ thread }: { thread: Thread }) => {
   const workspace = useEditor((s) => s.workspace);
   const canvas = useEditor((s) => s.canvas);
   const shotFrame = shotFrameOf(workspace, canvas, page);
-  const running = isBusy(thread.status);
+  const running = threadView(thread).busy;
   const answering = useAnswering(thread.id);
 
   // While the agent works, what is sent waits in the thread's queue. One prompt at a time: a
@@ -201,8 +187,8 @@ export const Composer = ({ thread }: { thread: Thread }) => {
     if (busy || !sent.trim()) {
       return;
     }
-    // `/sync` alone is the editor's: it opens the Sync view rather than starting a turn.
-    if (sent.trim() === "/sync") {
+    // Where the sync stands is the editor's to show: the Sync view opens rather than a turn.
+    if (opensSync(sent)) {
       setText("");
       showSetup();
       useSync.getState().load();
@@ -571,12 +557,10 @@ const SendButtons = ({
   </>
 );
 
-const chipTitle = (chip: Chip) => {
-  if (chip.kind === "node") {
-    return `${chip.name} in ${chip.file}`;
-  }
-  return chip.kind === "page" ? `Page file: ${chip.file}` : chip.name;
-};
+const chipTitle = (chip: Chip) =>
+  chip.kind === "node"
+    ? `${chip.name} in ${chip.file}`
+    : `Page file: ${chip.file}`;
 
 /**
  * An attachment of the next prompt. A node takes its selection colour, purple for a component;

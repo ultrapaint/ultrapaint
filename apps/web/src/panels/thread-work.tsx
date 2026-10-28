@@ -49,14 +49,11 @@ const useElapsed = (since: number | undefined) => {
 /** The bottom of a running thread: the agent is working, and has been for this long. */
 export const WorkingIndicator = ({
   since,
-  starting,
 }: {
   /** When the prompt that started the turn was sent. */
   since: number | undefined;
-  starting: boolean;
 }) => {
   const elapsed = useElapsed(since);
-  const label = starting ? "Starting the agent" : "Working";
   return (
     <div
       aria-live="polite"
@@ -64,7 +61,7 @@ export const WorkingIndicator = ({
       role="status"
     >
       <WorkingMark />
-      <span className="min-w-0 truncate text-shimmer">{label}…</span>
+      <span className="min-w-0 truncate text-shimmer">Working…</span>
       {elapsed ? (
         <span className="ml-auto shrink-0 font-body text-muted-foreground/70 tabular-nums">
           {elapsed}

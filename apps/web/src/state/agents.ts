@@ -8,6 +8,7 @@ import {
   type ThreadItem,
 } from "@ultrapaint/contracts/threads";
 import { create } from "zustand";
+import { threadView } from "../lib/thread-view.ts";
 import { api } from "./connection.ts";
 import { reportError } from "./project.ts";
 import { follow } from "./server-data.ts";
@@ -225,9 +226,7 @@ const takeAgentEvent = (ev: AgentEvent) => {
           )
         : [ev.thread, ...s.threads];
       const work = s.working[ev.thread.id];
-      const stopped =
-        ev.thread.status !== "running" && ev.thread.status !== "starting";
-      if (work && stopped && !work.done) {
+      if (work && !threadView(ev.thread).busy && !work.done) {
         finishWork(ev.thread.id);
       }
       // The open thread is being looked at: its news is not news.

@@ -11,6 +11,7 @@ import {
   type Thread,
   type ThreadItem,
 } from "@ultrapaint/contracts/threads";
+import { threadView } from "./thread-view.ts";
 
 type AgentAction = "editing" | "reading" | "running" | "thinking";
 
@@ -117,7 +118,7 @@ export const agentActivity = (
   focused: Record<string, string> = {}
 ): readonly AgentActivity[] =>
   threads
-    .filter((thread) => thread.status === "running")
+    .filter((thread) => threadView(thread).busy)
     .map((thread) => {
       const tool = openToolCall(items[thread.id] ?? []);
       const places = tool?.locations ?? [];

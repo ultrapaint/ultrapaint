@@ -535,3 +535,30 @@ unless the step says otherwise.
     another view; the outlines of each view and Layers' rows agreeing; the toolbar's nodes in an
     md view at md (failing first) and the inspector's at the view they were selected in.
     `editor.test.ts`'s `removeView` keeps the others selected (failing first).
+11. **How a thread is shown** (`apps/web/src/lib/thread-view.ts`, a prompt's attachments in
+    `apps/web/src/state/attachments.ts`). `threadView(thread)` gives `busy` (contracts'
+    `isBusy`), `waiting` (its summary asks the user), `failed`, and the `label` and `tone` a list
+    says it in (Working, Your turn, Stopped; working before a question before a failure), a
+    thread not there being idle; `someBusy(threads)` is the rail's dot. The chat list's status,
+    count and Running filter, the rail's dot, the thread's working indicator, streaming items,
+    error and starters, the canvas's agent activity, the palette's chats, a setup step's badge
+    and the end of an agent's work on the canvas read it: raw status checks in the web go from 14
+    in 7 files to the one in `threadView`. `attachmentsOf(chips)` is what a prompt carries for
+    its chips, each file once before the first of its nodes; the composer adds a screenshot to
+    it, and a comment sent to an agent is its chip (`chipOfComment`: the node it is pinned on, by
+    the comment's name for it, or its page). The composer reads `/sync` through contracts'
+    `parseCommand`: a Sync request with no source opens the Sync view. `starting` and `closed`
+    leave `ThreadStatus`: nothing wrote them, and the thread store sets a thread file's status to
+    idle before decoding it, rather than after, so a file with one still reads. The chip of a
+    screenshot, which nothing made, goes, and `WorkingIndicator`'s "Starting the agent" with it.
+    Also: a thread being stopped showed as working in the chat list and the composer but put no
+    dot on the rail, was left out of the canvas's agent activity and the palette said "chat" of
+    it, its last item stopped streaming and its working indicator went, and a setup step's badge
+    said "Under way"; it is working in all of them until it stops, and an agent's work on the
+    canvas ends then rather than when the stop is asked. `/sync` followed by a word that is not a
+    source asked the agent, and opens the Sync view, the request the server would read it as.
+    Tests: `thread-view.test.ts` (10: a table of each status with and without a question, a
+    thread not there, and the rail's dot for a stopping thread, failing first);
+    `attachments.test.ts` gains 4 (files once and in order with a component's node, none, a
+    comment pinned on a node, named or not, and one on its page); `thread-store.test.ts` reads
+    files written running, starting and closed as idle (failing once the two left the schema).

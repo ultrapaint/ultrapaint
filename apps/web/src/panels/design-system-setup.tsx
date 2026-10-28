@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Segmented } from "../components/segmented.tsx";
+import { threadView } from "../lib/thread-view.ts";
 import { useAgents } from "../state/agents.ts";
 import {
   openStepThread,
@@ -54,10 +55,11 @@ const useStepState = (step: SetupStep, open: boolean) => {
     return { label: "Stopped", tone: "muted" as const };
   }
   if (step.status === "active") {
-    if (thread?.status === "running" || thread?.status === "starting") {
+    const { busy, waiting } = threadView(thread);
+    if (busy) {
       return { label: "Working", tone: "working" as const };
     }
-    return thread?.summary?.waiting
+    return waiting
       ? { label: "Waiting for you", tone: "attention" as const }
       : { label: "Under way", tone: "working" as const };
   }
