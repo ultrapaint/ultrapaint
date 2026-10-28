@@ -34,6 +34,11 @@ export interface RenderSetup {
    * size is the frame's (ADR 0036). Called often; it only says so.
    */
   readonly drawing: () => void;
+  /**
+   * The frame the render draws in (ADR 0040): its body, where the primitives' popups go, its
+   * host, and whether it runs (the prototype, interact mode) or is designed.
+   */
+  readonly frame: RenderFrame;
   /** A node with a link was pressed. */
   readonly navigate: (route: string) => void;
   /** A render reached the screen. */
@@ -52,6 +57,18 @@ export interface RenderSetup {
   ) => void;
   /** The design's own stylesheet (ADR 0028, 0029), which the core keeps for every frame. */
   readonly setDesignCss: (css: string) => void;
+}
+
+/** The frame a render draws in, as its renderer sees it. */
+export interface RenderFrame {
+  /** The frame's body element: what a popup is portalled into, so it stays in its frame. */
+  readonly container: HTMLElement;
+  /** The frame's host: an event from inside the frame has it on its path. */
+  readonly host: HTMLElement;
+  /** Whether the frame runs, taking input: the prototype, interact mode. */
+  readonly interactive: () => boolean;
+  /** Hears when it starts or stops running. */
+  readonly onInteractive: (listener: () => void) => () => void;
 }
 
 /**
@@ -198,6 +215,8 @@ export interface PreviewSetup {
   /** Where the preview's server answers which file an image of a canvas is. */
   readonly assets: string;
   readonly components: ComponentRegistry;
+  /** The components' own stylesheet, which every frame adopts first (ADR 0040). */
+  readonly css?: string | undefined;
   /** URL of the designs directory on the preview's server. */
   readonly designsRoot: string;
   readonly providers: unknown;
@@ -206,6 +225,11 @@ export interface PreviewSetup {
    * its entries (a directory's ending in `/`), served under `base` in the editor's page.
    */
   readonly publicFiles?: PublicFiles | undefined;
+  /**
+   * Whether the page's code is the repository's, guarded where it meets the editor's page (ADR
+   * 0034); false when the editor draws its own components (ADR 0040). True when left out.
+   */
+  readonly sandboxed?: boolean | undefined;
   /** Written on every frame as `data-theme`, as it was on an iframe's document. */
   readonly theme: string;
 }

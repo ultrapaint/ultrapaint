@@ -1,6 +1,7 @@
 import path from "node:path";
 import { assert, layer } from "@effect/vitest";
 import type { ImplementationItem } from "@ultrapaint/contracts/implementation";
+import { PRIMITIVES_FROM } from "@ultrapaint/contracts/spec-names";
 import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
 import { Effect, FileSystem } from "effect";
 import { TestEnv, TestServer } from "./testing/harness.ts";
@@ -8,28 +9,6 @@ import { callMcp, initializeLegacy } from "./testing/mcp.ts";
 import { waitFor } from "./testing/wait-for.ts";
 
 const HOME = "home.page.json";
-
-const THEME = `@theme {
-  --color-brand: #2563eb;
-  --color-ink: #111827;
-  --radius-card: 0.75rem;
-}
-`;
-
-const BUTTON = `declare namespace JSX { interface Element {} }
-declare const cva: (base: string, config?: unknown) => (props?: unknown) => JSX.Element;
-const buttonVariants = cva("inline-flex rounded-card h-9 px-4 bg-brand text-ink hover:bg-ink disabled:opacity-50", {
-  variants: {
-    variant: { default: "", danger: "bg-ink text-brand" },
-    size: { default: "", lg: "h-12 px-6" },
-  },
-  defaultVariants: { variant: "default", size: "default" },
-});
-export const Button = (props: { variant?: string; size?: string }): JSX.Element => {
-  void '<span data-slot="button-icon" />';
-  return buttonVariants(props);
-};
-`;
 
 const statusOf = (items: readonly ImplementationItem[], target: string) =>
   items.find((i) => i.target === target);
@@ -286,52 +265,23 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
     );
 
     it.effect(
-      "reads a component's spec off its classes, and makes a draft of a node",
+      "starts a primitive's spec from its parts, and makes a draft of a node",
       () =>
         Effect.gen(function* () {
-          const { client, repo, settings } = yield* TestEnv;
+          const { client, repo } = yield* TestEnv;
           const fs = yield* FileSystem.FileSystem;
-          yield* fs.makeDirectory(path.join(repo, "styles"), {
-            recursive: true,
-          });
-          yield* fs.writeFileString(path.join(repo, "styles/app.css"), THEME);
-          yield* fs.makeDirectory(path.join(repo, "designs/ui"), {
-            recursive: true,
-          });
-          yield* fs.writeFileString(
-            path.join(repo, "designs/ui/button.tsx"),
-            BUTTON
-          );
-          yield* client["settings.set"]({
-            ...settings,
-            hostCss: ["../../styles/app.css"],
-            libraryDirs: ["designs/ui"],
-          });
-          yield* client["designSystem.detect"]();
-          yield* waitFor(client["catalogue.get"]({ refresh: false }), (c) =>
-            c.components.some((m) => m.name === "Button")
-          );
-
+          // A primitive (ADR 0040): nothing of the repository's is read, its parts are the
+          // catalogue's, and its look starts as the primitive's own.
           const read = yield* client["specs.fromCode"]({ component: "Button" });
           const { spec } = read;
           assert.strictEqual(read.file, "specs/Button.spec.json");
           assert.strictEqual(spec?.look, "code");
+          assert.strictEqual(spec?.from, PRIMITIVES_FROM);
           assert.deepStrictEqual(
             spec?.slots.map((s) => s.name),
-            ["root", "button-icon"]
+            ["root", "button-spinner"]
           );
-          assert.strictEqual(spec?.base.root?.fill, "$color-brand");
-          assert.strictEqual(spec?.base.root?.radius, "$radius-card");
-          assert.strictEqual(
-            spec?.variants.variant?.danger?.root?.fill,
-            "$color-ink"
-          );
-          assert.strictEqual(spec?.states.hover?.root?.fill, "$color-ink");
-          assert.strictEqual(spec?.states.disabled?.root?.opacity, 0.5);
-          assert.deepStrictEqual(spec?.defaults, {
-            size: "default",
-            variant: "default",
-          });
+          assert.deepStrictEqual(spec?.base, {});
 
           // The design takes the look over.
           if (!spec) {

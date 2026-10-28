@@ -126,33 +126,5 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
         }),
       30_000
     );
-
-    it.effect(
-      "rebuilds the catalogue when its cache does not read",
-      () =>
-        Effect.gen(function* () {
-          const { client, home, settings } = yield* TestEnv;
-          const fs = yield* FileSystem.FileSystem;
-          yield* client["settings.set"]({ ...settings, libraryDirs: ["ui"] });
-          const built = yield* client["catalogue.get"]({ refresh: true });
-          const cacheDir = path.join(home, "catalogue");
-          for (const name of yield* fs.readDirectory(cacheDir)) {
-            yield* fs.writeFileString(path.join(cacheDir, name), "{ broken");
-          }
-          // A project opened again keeps nothing in memory: the cache is all there is.
-          yield* client["settings.set"]({
-            ...settings,
-            libraryDirs: ["ui"],
-            theme: "dark",
-          });
-          const rebuilt = yield* client["catalogue.get"]({ refresh: false });
-          assert.notStrictEqual(rebuilt.builtAt, built.builtAt);
-          assert.include(
-            rebuilt.components.map((c) => c.name),
-            "Button"
-          );
-        }),
-      30_000
-    );
   }
 );

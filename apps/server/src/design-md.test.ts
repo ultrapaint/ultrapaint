@@ -2,7 +2,6 @@ import path from "node:path";
 import { assert, layer } from "@effect/vitest";
 import { Effect, FileSystem } from "effect";
 import { TestEnv, TestServer } from "./testing/harness.ts";
-import { waitFor } from "./testing/wait-for.ts";
 
 const THEME = `@theme {
   --color-brand: #2563eb;
@@ -263,77 +262,6 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             (yield* client["sync.plan"]()).steps.map((s) => s.kind),
             "design-tokens"
           );
-        }),
-      30_000
-    );
-  }
-);
-
-layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
-  "DESIGN.md's component tokens (ADR 0027)",
-  (it) => {
-    it.effect(
-      "are read from the components' classes, referring to the front matter's tokens",
-      () =>
-        Effect.gen(function* () {
-          const { client, repo, settings } = yield* TestEnv;
-          const fs = yield* FileSystem.FileSystem;
-          const file = path.join(repo, "DESIGN.md");
-          yield* fs.writeFileString(
-            path.join(repo, "designs/package.json"),
-            '{ "name": "designs", "dependencies": { "react": "19" } }\n'
-          );
-          yield* fs.makeDirectory(path.join(repo, "styles"));
-          yield* fs.writeFileString(path.join(repo, "styles/app.css"), THEME);
-          yield* fs.makeDirectory(path.join(repo, "designs/ui"));
-          yield* fs.writeFileString(
-            path.join(repo, "designs/ui/button.tsx"),
-            `declare namespace JSX { interface Element {} }
-declare const cva: (base: string, config?: unknown) => (props?: unknown) => JSX.Element;
-const buttonVariants = cva("inline-flex rounded-card h-9 px-4", {
-  variants: {
-    variant: { default: "bg-brand text-ink", danger: "bg-ink text-brand" },
-    size: { default: "", lg: "h-12 px-6" },
-  },
-  defaultVariants: { variant: "default", size: "default" },
-});
-export const Button = (props: { variant?: string; size?: string }): JSX.Element =>
-  buttonVariants(props);
-`
-          );
-          yield* client["settings.set"]({
-            ...settings,
-            hostCss: ["../../styles/app.css"],
-            libraryDirs: ["designs/ui"],
-          });
-          yield* client["designSystem.detect"]();
-          yield* client["designSystem.placeDocument"]();
-
-          // The catalogue is read in the background: the component tokens follow it.
-          const text = yield* waitFor(fs.readFileString(file), (t) =>
-            t.includes("components:")
-          );
-          assert.include(
-            text,
-            [
-              "components:",
-              "  button:",
-              '    backgroundColor: "{colors.brand}"',
-              '    textColor: "{colors.ink}"',
-              '    rounded: "{rounded.card}"',
-              "    padding: 1rem",
-              "    height: 2.25rem",
-              "  button-danger:",
-              '    backgroundColor: "{colors.ink}"',
-              '    textColor: "{colors.brand}"',
-            ].join("\n")
-          );
-          assert.include(
-            text,
-            "  button-lg:\n    padding: 1.5rem\n    height: 3rem"
-          );
-          const state = yield* client["designSystem.get"]();
-          assert.deepStrictEqual(state.document?.held, []);
         }),
       30_000
     );

@@ -242,7 +242,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
     );
 
     it.effect(
-      "starts a blank application: no components, and no settings to put right for it",
+      "starts a blank application: no settings to put right for it",
       () =>
         Effect.gen(function* () {
           const { client, repo, settings } = yield* TestEnv;
@@ -265,8 +265,6 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           });
           assert.isTrue(validation.ok);
           const plan = yield* client["sync.plan"]();
-          assert.strictEqual(plan.facts.components, 0);
-          assert.strictEqual(plan.facts.librarySources, 0);
           assert.notInclude(
             plan.steps.map((s) => s.kind),
             "settings"

@@ -13,7 +13,8 @@
   "dependencies": {
     "@ultrapaint/contracts": "workspace:*",
     "@ultrapaint/design-document": "workspace:*",
-    "@ultrapaint/framework-api": "workspace:*"
+    "@ultrapaint/framework-api": "workspace:*",
+    "@ultrapaint/primitives": "workspace:*"
   },
   "devDependencies": {
     "@ultrapaint/preview-core": "workspace:*",

@@ -9,7 +9,7 @@
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 import type { InstanceDrawn } from "@ultrapaint/contracts/preview";
-import { DRAFT_FROM } from "@ultrapaint/contracts/spec-names";
+import { DRAFT_FROM, PRIMITIVES_FROM } from "@ultrapaint/contracts/spec-names";
 import type { ComponentSpec } from "@ultrapaint/contracts/specs";
 import {
   AROUND_INSTANCE,
@@ -38,6 +38,12 @@ import {
   type RenderSetup,
   type RenderToCanvas,
 } from "@ultrapaint/framework-api/browser";
+import { primitiveOf, slotFor } from "@ultrapaint/primitives/catalogue";
+import { PRIMITIVE_COMPONENTS } from "@ultrapaint/primitives/components";
+import {
+  type PrimitiveFrame,
+  PrimitiveFrameProvider,
+} from "@ultrapaint/primitives/frame";
 import {
   Component,
   type ComponentType,
@@ -51,6 +57,7 @@ import {
   useContext,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useSyncExternalStore,
 } from "react";
 import { createRoot } from "react-dom/client";
@@ -469,7 +476,81 @@ const InstanceView = ({
   if (node.from === DRAFT_FROM) {
     return createElement(DraftView, { node, style });
   }
+  if (node.from === PRIMITIVES_FROM) {
+    return createElement(PrimitiveView, { node, style });
+  }
   return createElement(ComponentInstanceView, { node, style });
+};
+
+/**
+ * One of the editor's own primitives (ADR 0040). It takes its instance's props, and its children
+ * by the slot each names: the ones that name none are its children, the others go in `slots`,
+ * each laid out as its slot lays out. The node's id, marks and box go on the element the
+ * primitive draws as the instance; a primitive always takes them, so nothing is learned.
+ */
+const PrimitiveView = ({
+  node,
+  style,
+}: {
+  node: InstanceNode;
+  style: Style;
+}): ReactNode => {
+  const scope = useContext(ScopeContext) as Scope;
+  const Primitive = PRIMITIVE_COMPONENTS[node.component];
+  const meta = primitiveOf(node.component);
+  const marks = {
+    [scope.nodeAttribute]: node.id,
+    [COMPONENT_ATTRIBUTE]: node.component,
+    [VARIANT_ATTRIBUTE]: variantAttributeOf(node.props),
+    "data-ed-instance": node.component,
+  };
+  if (!(Primitive && meta)) {
+    return createElement(Missing, {
+      ...marks,
+      style,
+      text: `${node.component} is not one of the primitives`,
+    });
+  }
+  const bySlot = new Map<string, ReactNode[]>();
+  const children = childrenOf(node);
+  for (const child of children) {
+    const slot = slotFor(meta, child.slot) ?? slotFor(meta, undefined);
+    if (!slot) {
+      continue;
+    }
+    const drawn = createElement(NodeView, {
+      key: child.id,
+      node: child,
+      parent: slot.layout ?? "block",
+    });
+    bySlot.set(slot.name, [...(bySlot.get(slot.name) ?? []), drawn]);
+  }
+  const fallback = slotFor(meta, undefined);
+  const slots: Record<string, ReactNode> = {};
+  let content: ReactNode =
+    children.length === 0 && node.text !== undefined ? node.text : undefined;
+  for (const [name, drawn] of bySlot) {
+    if (name === fallback?.name) {
+      content = drawn;
+    } else {
+      slots[name] = drawn;
+    }
+  }
+  return createElement(
+    Boundary,
+    { label: node.component, nodeId: node.id, resetKeys: [node] },
+    createElement(
+      Primitive,
+      {
+        ...(node.props ?? {}),
+        ...marks,
+        ...(node.link && { onClickCapture: onLink(scope, node.link) }),
+        slots,
+        ...(setsAnything(style) && { style }),
+      },
+      content
+    )
+  );
 };
 
 const ComponentInstanceView = ({
@@ -622,6 +703,25 @@ const Drawing = ({ drawing }: { drawing: () => void }) => {
   useLayoutEffect(drawing);
   useEffect(drawing);
   return null;
+};
+
+/** The frame the primitives draw in, running or designed as the frame is (ADR 0040). */
+const FrameScope = ({
+  children,
+  frame,
+}: {
+  children?: ReactNode;
+  frame: RenderSetup["frame"];
+}) => {
+  const interactive = useSyncExternalStore(
+    frame.onInteractive,
+    frame.interactive
+  );
+  const value = useMemo<PrimitiveFrame>(
+    () => ({ container: frame.container, host: frame.host, interactive }),
+    [frame, interactive]
+  );
+  return createElement(PrimitiveFrameProvider, { frame: value }, children);
 };
 
 /** What instances of a component have shown about it, by `from#component`. */
@@ -909,30 +1009,34 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
       null,
       createElement(Drawing, { drawing }),
       createElement(
-        Providers,
-        null,
+        FrameScope,
+        { frame: setup.frame },
         createElement(
-          ScopeContext.Provider,
-          { value: scope },
-          // One boundary for the whole render: a component still loading holds the render back
-          // (a transition keeps the last one on screen meanwhile) instead of drawing a placeholder.
+          Providers,
+          null,
           createElement(
-            Suspense,
-            { fallback: null },
+            ScopeContext.Provider,
+            { value: scope },
+            // One boundary for the whole render: a component still loading holds the render back
+            // (a transition keeps the last one on screen meanwhile) instead of drawing a placeholder.
             createElement(
-              Boundary,
-              {
-                key: "page",
-                label: "The page",
-                onError,
-                resetKeys: [request, components.generation()],
-              },
-              body
-            ),
-            createElement(Rendered, {
-              onRendered: setup.onRendered,
-              renderId: request.renderId,
-            })
+              Suspense,
+              { fallback: null },
+              createElement(
+                Boundary,
+                {
+                  key: "page",
+                  label: "The page",
+                  onError,
+                  resetKeys: [request, components.generation()],
+                },
+                body
+              ),
+              createElement(Rendered, {
+                onRendered: setup.onRendered,
+                renderId: request.renderId,
+              })
+            )
           )
         )
       )

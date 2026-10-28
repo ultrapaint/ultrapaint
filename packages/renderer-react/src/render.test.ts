@@ -104,6 +104,12 @@ const draw = async (
       {
         components: registry,
         drawing: () => undefined,
+        frame: {
+          container: canvas,
+          host: canvas,
+          interactive: () => false,
+          onInteractive: () => () => undefined,
+        },
         rendered: (id) => {
           waiting.get(id)?.();
           resolve();

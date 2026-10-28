@@ -23,7 +23,7 @@ const buttonVariants = cva("inline-flex rounded-card h-9 px-4 bg-brand text-ink 
   defaultVariants: { variant: "default" },
 });
 export const Button = (props: { variant?: string }): JSX.Element => {
-  void '<span data-slot="button-icon" />';
+  void '<span data-slot="button-spinner" />';
   return buttonVariants(props);
 };
 `;
@@ -205,30 +205,29 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
     );
 
     it.effect(
-      "reads every component's spec off the code, linked to its file, and keeps a component's behaviour notes",
+      "keeps a primitive's behaviour notes in its spec, and tells the implementation of them",
       () =>
         Effect.gen(function* () {
           const { client } = yield* TestEnv;
-          const read = yield* client["specs.fromCodeAll"]({});
-          assert.deepStrictEqual(read, { linked: 1, read: 1 });
+          yield* client["specs.fromCode"]({ component: "Button" });
+          // What implements a primitive's look is the application's own component (ADR 0040).
+          yield* client["implementation.mark"]({
+            files: ["designs/ui/button.tsx"],
+            target: "spec:Button",
+          });
           const button = statusOf(
             (yield* client["implementation.list"]()).items,
             "spec:Button"
           );
           assert.strictEqual(button?.status, "implemented");
           assert.deepStrictEqual(button?.files, ["designs/ui/button.tsx"]);
-          // Read again, nothing is left to read.
-          assert.deepStrictEqual(yield* client["specs.fromCodeAll"]({}), {
-            linked: 0,
-            read: 0,
-          });
 
           const note = yield* client["specs.addNote"]({
             component: "Button",
-            slot: "button-icon",
+            slot: "button-spinner",
             text: "Spins while the action runs",
           });
-          assert.strictEqual(note.slot, "button-icon");
+          assert.strictEqual(note.slot, "button-spinner");
           assert.include(
             yield* handoff({
               action: "note",
@@ -251,7 +250,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
           });
           assert.include(
             changed.text,
-            "- new behaviour note on button-icon: Spins while the action runs"
+            "- new behaviour note on button-spinner: Spins while the action runs"
           );
           assert.include(
             changed.text,
@@ -269,7 +268,10 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
             target: "spec:Button",
           });
           assert.include(task, "Behaviour notes on the component");
-          assert.include(task, "- on button-icon: Spins while the action runs");
+          assert.include(
+            task,
+            "- on button-spinner: Spins while the action runs"
+          );
           assert.include(
             task,
             "Implement each behaviour note in the component"

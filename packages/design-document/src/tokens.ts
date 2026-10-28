@@ -145,3 +145,47 @@ export const tokensUsed = (
   visit(root);
   return used;
 };
+
+const THEME_NAME_RE = /[^\w-]/g;
+
+/** What a theme's values apply under: its class (`.dark`, Tailwind's) and its `data-theme`. */
+const themeSelector = (theme: string) => {
+  const name = theme.replace(THEME_NAME_RE, "");
+  return `.${name}, [data-theme~="${name}"]`;
+};
+
+/**
+ * Every token of the design system as the custom property it is (`--color-primary`), on the
+ * page's root, and each other theme's values under that theme (ADR 0040): the frames draw with
+ * the design's values alone, the primitives' look and every node's style alike. A font size's
+ * line height is `--text-sm--line-height`, as Tailwind names it.
+ */
+export const designTokenCss = (ds: DesignSystem | null | undefined): string => {
+  if (!ds) {
+    return "";
+  }
+  const base: string[] = [];
+  const themed = new Map<string, string[]>();
+  for (const token of allTokens(ds)) {
+    if (token.value === "") {
+      continue;
+    }
+    base.push(`  --${token.name}: ${token.value};`);
+    const { lineHeight } = token as { lineHeight?: string };
+    if (lineHeight) {
+      base.push(`  --${lineHeightName(token.name)}: ${lineHeight};`);
+    }
+    for (const [theme, value] of Object.entries(token.values ?? {})) {
+      const list = themed.get(theme) ?? [];
+      list.push(`  --${token.name}: ${value};`);
+      themed.set(theme, list);
+    }
+  }
+  return [
+    ...(base.length > 0 ? [`:root {\n${base.join("\n")}\n}`] : []),
+    ...[...themed].map(
+      ([theme, declarations]) =>
+        `${themeSelector(theme)} {\n${declarations.join("\n")}\n}`
+    ),
+  ].join("\n\n");
+};

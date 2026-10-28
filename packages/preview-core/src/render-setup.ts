@@ -7,6 +7,7 @@ import type {
   ComponentRegistry,
   MountFrameOptions,
   PreviewSetup,
+  RenderFrame,
   RenderSetup,
 } from "@ultrapaint/framework-api/browser";
 import { publicUrlOf } from "./public-url.ts";
@@ -20,6 +21,8 @@ export interface FrameDrawing {
   readonly components: ComponentRegistry;
   /** The frame's turn (`turn.ts`): its renderer says it draws. */
   readonly drawing: () => void;
+  /** The frame itself: its body, its host, whether it runs. */
+  readonly frame: RenderFrame;
   /** A render reached the screen: the frame's own work, then the editor told. */
   readonly rendered: (renderId: number) => void;
 }
@@ -37,16 +40,15 @@ export const renderSetup = (
       return publicUrl(src);
     }
     const file = src.replace(LEADING_DOT_SLASH_RE, "");
-    if (options.canvas) {
-      const query = new URLSearchParams({ canvas: options.canvas, src: file });
-      return `${input.assets}?${query.toString()}`;
-    }
-    return `${input.designsRoot}/${file}`;
+    // Without a canvas, the shared file at the root of the designs directory.
+    const query = new URLSearchParams({ canvas: options.canvas, src: file });
+    return `${input.assets}?${query.toString()}`;
   };
   return {
     assetUrl,
     components: frame.components,
     drawing: frame.drawing,
+    frame: frame.frame,
     navigate: (route) => events.navigateTo?.(route, false),
     onRendered: frame.rendered,
     // A frame is the page's window: what fills the window's height fills the frame's.

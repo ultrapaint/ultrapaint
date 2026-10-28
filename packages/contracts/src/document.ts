@@ -129,6 +129,11 @@ export interface BoxFields {
   readonly radius?: Length | undefined;
   /** A shadow token (`"$shadow-md"`) or a CSS box-shadow. */
   readonly shadow?: string | undefined;
+  /**
+   * The part of its parent primitive it fills (ADR 0040): a slot's name (`dialog-footer`). A
+   * child that names none fills the primitive's default slot.
+   */
+  readonly slot?: string | undefined;
   readonly width?: Size | undefined;
   /** Position on the canvas; only a node placed directly on the canvas has one. */
   readonly x?: number | undefined;
@@ -156,6 +161,7 @@ type Fixed =
   | "locked"
   | "name"
   | "role"
+  | "slot"
   | "type"
   | "x"
   | "y";
@@ -285,6 +291,12 @@ const boxFields = {
   padding: Schema.optional(Padding),
   radius: Schema.optional(Length),
   shadow: Schema.optional(Schema.String),
+  slot: Schema.optional(
+    Schema.String.annotate({
+      description:
+        "The part of its parent primitive this child fills, by the slot's name (\"dialog-footer\"); a child without one fills the primitive's default slot.",
+    })
+  ),
   width: Schema.optional(Size),
   x: Schema.optional(Schema.Number),
   y: Schema.optional(Schema.Number),
@@ -303,6 +315,7 @@ const {
   link: _link,
   locked: _locked,
   name: _name,
+  slot: _slot,
   x: _x,
   y: _y,
   ...boxOverride

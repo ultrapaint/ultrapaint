@@ -17,6 +17,7 @@ import {
 } from "effect/http";
 import { RpcSerialization, RpcServer } from "effect/rpc";
 import { AppLog } from "./app-log.ts";
+import { AssetRoute } from "./asset-route.ts";
 import { ApplicationLayer, ServerAdapters } from "./composition.ts";
 import {
   connectHost,
@@ -307,6 +308,7 @@ const Routes = Layer.mergeAll(
   RpcRoute,
   HealthRoute,
   FigmaImportRoute,
+  AssetRoute,
   McpRoute,
   StaticRoute,
   Boot
