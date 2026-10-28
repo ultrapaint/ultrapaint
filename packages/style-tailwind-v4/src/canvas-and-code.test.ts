@@ -7,7 +7,6 @@
  * classes and read by it, comes back the same.
  */
 import { readdirSync, readFileSync } from "node:fs";
-import { createRequire } from "node:module";
 import { join } from "node:path";
 import { emptyDesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
@@ -38,14 +37,12 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { componentSpec } from "./component-spec.ts";
 import { groups } from "./component-style.ts";
 import { tailwindClasses } from "./node-classes.ts";
+import { rulesOf, tailwindTheme } from "./testing.ts";
 import { parseClass, printClass, WEIGHT_STEPS } from "./utilities.ts";
 
 const ROOT = join(import.meta.dirname, "../../..");
 const PAGE_DIRS = ["fixtures", "docs/designs"];
 const UPPER_RE = /[A-Z]/g;
-const DECLARATION_RE = /([\w-]+)\s*:\s*([^;]+);/g;
-const RULE_RE = /\.((?:\\.|[^\s{,])+)\s*\{([^{}]*)\}/g;
-const ESCAPE_RE = /\\(.)/g;
 const TW_VAR_RE = /var\((--tw-[\w-]+)\)/g;
 const PROPERTY_RE =
   /@property (--tw-[\w-]+)\s*\{[^}]*initial-value:\s*([^;]+);/g;
@@ -337,9 +334,6 @@ const writtenNodes = (file: string, root: DesignNode): Written[] => {
   });
 };
 
-/** What a utility sets, longhand by longhand, as Tailwind compiles it. */
-type Compiled = ReadonlyMap<string, ReadonlyMap<string, string>>;
-
 /**
  * Tailwind's utilities with its own theme and the tokens the pages name, as the application's
  * stylesheet declares them (their values do not matter: classes are compared by variable).
@@ -348,11 +342,7 @@ const compiled = async (
   utilities: readonly string[],
   tokens: ReadonlySet<string>
 ) => {
-  const require = createRequire(import.meta.url);
-  const themeCss = readFileSync(
-    require.resolve("tailwindcss/theme.css"),
-    "utf8"
-  );
+  const themeCss = tailwindTheme();
   const theme = new Map(
     Array.from(themeCss.matchAll(THEME_RE), (m) => [m[1] ?? "", m[2] ?? ""])
   );
@@ -373,17 +363,7 @@ const compiled = async (
   const out = built
     .split("@layer properties {")[0]
     ?.replace(PROPERTY_BLOCK_RE, "");
-  const sets = new Map<string, Map<string, string>>();
-  for (const m of (out ?? "").matchAll(RULE_RE)) {
-    const declarations = new Map<string, string>();
-    for (const [, property = "", value = ""] of (m[2] ?? "").matchAll(
-      DECLARATION_RE
-    )) {
-      declarations.set(property, value.trim());
-    }
-    sets.set((m[1] ?? "").replace(ESCAPE_RE, "$1"), declarations);
-  }
-  return { initial, sets: sets as Compiled, theme };
+  return { initial, sets: rulesOf(out ?? ""), theme };
 };
 
 /** Whether a value is several, `8px 16px`, rather than one, `calc(var(--spacing) * 4)`. */

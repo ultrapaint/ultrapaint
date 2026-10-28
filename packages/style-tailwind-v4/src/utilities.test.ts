@@ -1,16 +1,14 @@
-import { readFileSync } from "node:fs";
-import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
+import { compiledClasses, tailwindTheme } from "./testing.ts";
 import {
   arbitraryOf,
   COLOR_KEYWORDS,
+  lengthKeywords,
   parseClass,
   printArbitrary,
   printClass,
   RADIUS_STEPS,
-  SCREEN_KEYWORDS,
   SHADOW_STEPS,
-  SIZE_KEYWORDS,
   splitModifier,
   TEXT_STEPS,
   utilityReader,
@@ -22,10 +20,7 @@ const THEME_VAR_RE = /^\s*--([\w-]+):\s*([^;]+);/gm;
 
 /** The variables of Tailwind's own default theme, deprecated ones left out. */
 const defaultTheme = () => {
-  const [css = ""] = readFileSync(
-    createRequire(import.meta.url).resolve("tailwindcss/theme.css"),
-    "utf8"
-  ).split("/* Deprecated */");
+  const [css = ""] = tailwindTheme().split("/* Deprecated */");
   return new Map(
     Array.from(css.matchAll(THEME_VAR_RE), (m) => [
       m[1] ?? "",
@@ -148,14 +143,32 @@ describe("Tailwind's default scales", () => {
 });
 
 describe("keywords", () => {
-  it("say a size both ways, the screen's on its own axis", () => {
-    expect(SIZE_KEYWORDS.css("full")).toBe("100%");
-    expect(SIZE_KEYWORDS.keyword("100%")).toBe("full");
-    expect(SIZE_KEYWORDS.keyword("fit-content")).toBe("fit");
-    expect(SIZE_KEYWORDS.css("screen")).toBeUndefined();
-    expect(SCREEN_KEYWORDS.h.css("screen")).toBe("100vh");
-    expect(SCREEN_KEYWORDS.w.keyword("100dvw")).toBe("dvw");
-    expect(SCREEN_KEYWORDS.w.keyword("100vh")).toBeUndefined();
+  it("say a length on the utilities Tailwind takes them on, as it compiles them", async () => {
+    const utilities = [
+      ...["w", "h", "size", "min-w", "min-h", "max-w", "max-h"],
+      ...["m", "mx", "my", "mt", "mr", "mb", "ml"],
+      ...["gap", "gap-x", "gap-y", "p", "px", "py", "pt", "pr", "pb", "pl"],
+    ];
+    const names = [
+      ...["auto", "fit", "full", "max", "min", "none", "screen", "lh"],
+      ...["dvh", "dvw", "lvh", "lvw", "svh", "svw"],
+    ];
+    const pairs = utilities.flatMap((utility) =>
+      names.map((name) => ({ cls: `${utility}-${name}`, name, utility }))
+    );
+    const rules = await compiledClasses(pairs.map((p) => p.cls));
+    for (const { cls, name, utility } of pairs) {
+      const [value] = [...(rules.get(cls)?.values() ?? [])];
+      expect([cls, lengthKeywords(utility).css(name)]).toEqual([cls, value]);
+    }
+    // And the other way: a value is the keyword of the utility it is written on.
+    expect(lengthKeywords("w").keyword("100%")).toBe("full");
+    expect(lengthKeywords("h").keyword("100VH")).toBe("screen");
+    expect(lengthKeywords("w").keyword("100vh")).toBeUndefined();
+    expect(lengthKeywords("w").keyword("100dvh")).toBe("dvh");
+    expect(lengthKeywords("max-w").keyword("auto")).toBeUndefined();
+    expect(lengthKeywords("mt").keyword("auto")).toBe("auto");
+    expect(lengthKeywords("gap").keyword("100%")).toBeUndefined();
   });
 
   it("say a colour both ways: black and white as Tailwind's theme has them", () => {

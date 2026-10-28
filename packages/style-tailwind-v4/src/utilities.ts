@@ -239,20 +239,63 @@ const keywords = (
   };
 };
 
-/** The sizes a width or a height says by name, `w-full`, `h-fit`. */
-export const SIZE_KEYWORDS = keywords({
-  auto: "auto",
+/** The sizes a length utility says by name, `w-full`, `h-fit`; a maximum's without `auto`. */
+const FITS = {
   fit: "fit-content",
   full: "100%",
   max: "max-content",
   min: "min-content",
-});
-
-/** The screen's lengths, which a width and a height each say in their own unit. */
-export const SCREEN_KEYWORDS: Readonly<Record<"h" | "w", Keywords>> = {
-  h: keywords({ dvh: "100dvh", screen: "100vh" }),
-  w: keywords({ dvw: "100dvw", screen: "100vw" }),
 };
+const SIZES = { auto: "auto", ...FITS };
+
+/** The viewport's lengths, which a width and a height each take in either axis's unit. */
+const VIEWPORT = {
+  dvh: "100dvh",
+  dvw: "100dvw",
+  lvh: "100lvh",
+  lvw: "100lvw",
+  svh: "100svh",
+  svw: "100svw",
+};
+
+const NO_KEYWORDS = keywords({});
+const WIDTH = { ...SIZES, ...VIEWPORT, screen: "100vw" };
+const HEIGHT = { ...SIZES, ...VIEWPORT, lh: "1lh", screen: "100vh" };
+const MARGIN = keywords({ auto: "auto" });
+
+/**
+ * The keywords each length utility takes, as Tailwind v4 compiles them: a width or a height
+ * (and its minimum) a size by name and the viewport's lengths, `screen` in its own axis's unit
+ * and a height the line's (`lh`); a maximum no `auto` but `none`; `size` no `screen`; a margin
+ * `auto` only. A gap or a padding takes none (`gap-full` is no class). `px` is the spacing
+ * scale's, not a keyword.
+ */
+const LENGTH_KEYWORDS: Readonly<Record<string, Keywords>> = {
+  h: keywords(HEIGHT),
+  m: MARGIN,
+  "max-h": keywords({
+    ...FITS,
+    ...VIEWPORT,
+    lh: "1lh",
+    none: "none",
+    screen: "100vh",
+  }),
+  "max-w": keywords({ ...FITS, ...VIEWPORT, none: "none", screen: "100vw" }),
+  mb: MARGIN,
+  "min-h": keywords(HEIGHT),
+  "min-w": keywords(WIDTH),
+  ml: MARGIN,
+  mr: MARGIN,
+  mt: MARGIN,
+  mx: MARGIN,
+  my: MARGIN,
+  size: keywords({ ...SIZES, ...VIEWPORT }),
+  w: keywords(WIDTH),
+};
+
+/** The keywords a length utility takes, `w` → `full`, `screen`, …; none for `gap` or `p`. */
+export const lengthKeywords = (utility: string): Keywords =>
+  LENGTH_KEYWORDS[utility] ?? NO_KEYWORDS;
 
 /**
  * The colours a colour utility names without a token: `black` and `white`, Tailwind's theme's

@@ -9,6 +9,7 @@ import {
 } from "@ultrapaint/design-document/css";
 import { describe, expect, it } from "vitest";
 import { tailwindClasses } from "./node-classes.ts";
+import { compiledClasses } from "./testing.ts";
 
 const ds = {
   ...emptyDesignSystem(),
@@ -231,6 +232,61 @@ describe("a colour's keyword", () => {
     expect(responsive([null, { background: "#ffffff" }])).toEqual([
       "bg-[#ffffff]",
     ]);
+  });
+});
+
+const UPPER_RE = /[A-Z]/g;
+
+describe("a length's keyword", () => {
+  it("is written on a utility Tailwind takes it on, and the value in brackets elsewhere", () => {
+    expect(responsive([null, { gap: "100%" }])).toEqual(["gap-[100%]"]);
+    expect(responsive([null, { padding: "auto", width: "100%" }])).toEqual([
+      "p-[auto]",
+      "w-full",
+    ]);
+  });
+
+  it("gives every length a class Tailwind compiles to it", async () => {
+    const properties = [
+      "gap",
+      "width",
+      "height",
+      "minWidth",
+      "minHeight",
+      "maxWidth",
+      "maxHeight",
+      "padding",
+      "paddingTop",
+      "margin",
+      "marginLeft",
+    ];
+    const values = [
+      "100%",
+      "100vw",
+      "100vh",
+      "100dvw",
+      "100dvh",
+      "auto",
+      "fit-content",
+      "min-content",
+      "max-content",
+      "none",
+    ];
+    const written = properties.flatMap((property) =>
+      values.map((value) => ({
+        classes: responsive([null, { [property]: value }]),
+        property: property.replace(UPPER_RE, (c) => `-${c.toLowerCase()}`),
+        value,
+      }))
+    );
+    const rules = await compiledClasses(written.flatMap((w) => w.classes));
+    const wrong = written
+      .filter(
+        ({ classes: [cls = "", ...more], property, value }) =>
+          more.length > 0 || rules.get(cls)?.get(property) !== value
+      )
+      .map((w) => `${w.property}: ${w.value} as ${w.classes.join(" ")}`);
+    expect(wrong).toEqual([]);
   });
 });
 
