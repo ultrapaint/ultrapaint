@@ -92,9 +92,10 @@ export const projectLayer = (
 ) =>
   // Pictures of the pages, drawn from the documents as they change.
   PagePngs.layer.pipe(
+    // A spec read off the code is linked to its component's file (ADR 0029).
+    Layer.provideMerge(SpecService.layer),
     // The link to the code reads the pages, their documents and the specs (ADR 0030).
     Layer.provideMerge(ImplementationService.layer),
-    Layer.provideMerge(SpecService.layer),
     Layer.provideMerge(
       Layer.mergeAll(DocumentService.layer, FigmaImportService.layer)
     ),
@@ -108,7 +109,6 @@ export const projectLayer = (
       Layer.mergeAll(
         CatalogueService.layer,
         CodeSide.layer,
-        GitService.layer,
         host,
         PagesService.layer,
         Thumbnails.layer,
@@ -117,6 +117,8 @@ export const projectLayer = (
     ),
     // A page renamed, moved or deleted takes its comments along, in the same undo step.
     Layer.provideMerge(CommentsService.layer),
+    // Comments are signed with git's user name as it is when each is made.
+    Layer.provideMerge(GitService.layer),
     // One journal for every change the editor makes, documents and canvas included.
     Layer.provideMerge(EditService.layer),
     Layer.provideMerge(ComponentRegistry.layer),

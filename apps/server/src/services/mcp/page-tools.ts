@@ -5,10 +5,8 @@
  */
 
 import { Json } from "@ultrapaint/contracts/base";
-import { familyOf } from "@ultrapaint/contracts/canvas-layout";
 import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
-import { PagesService } from "../pages.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { makeLookup } from "./lookup.ts";
 import {
@@ -200,14 +198,9 @@ export const pageToolHandlers = Effect.gen(function* () {
       route,
       template,
     }) {
-      const page = yield* reported(
-        project.use(
-          Effect.flatMap(PagesService, (pages) =>
-            Effect.flatMap(canvasOf(canvas), (id) =>
-              pages.create(id, { name, route }, template)
-            )
-          )
-        )
+      const id = yield* canvasOf(canvas);
+      const page = yield* pagesService((pages) =>
+        pages.create(id, { name, route }, template)
       );
       const state = yield* documents((d) => d.get(page.id));
       return {
@@ -222,14 +215,8 @@ export const pageToolHandlers = Effect.gen(function* () {
       canvas,
     }) {
       const page = yield* pageAt(route, canvas);
-      const { pages } = yield* reported(pagesOf);
-      // What goes with it, as the editor deletes it: a base page's variants and states.
-      const variants =
-        page.variant === undefined && page.state === undefined
-          ? familyOf(pages, page).filter((p) => p.id !== page.id)
-          : [];
-      yield* pagesService((service) => service.delete(page.id));
-      return { deleted: [page.file, ...variants.map((p) => p.file)] };
+      const gone = yield* pagesService((service) => service.delete(page.id));
+      return { deleted: gone.map((p) => p.file) };
     }),
 
     duplicate_page: Effect.fn("EditorTools.duplicate_page")(function* ({
@@ -286,11 +273,7 @@ export const pageToolHandlers = Effect.gen(function* () {
       name,
     }) {
       const page = yield* pageAt(route, canvas);
-      const moved = yield* reported(
-        project.use(
-          Effect.flatMap(PagesService, (pages) => pages.rename(page.id, name))
-        )
-      );
+      const moved = yield* pagesService((pages) => pages.rename(page.id, name));
       return { file: moved.file };
     }),
 
@@ -305,17 +288,8 @@ export const pageToolHandlers = Effect.gen(function* () {
       const page = yield* pageAt(route, canvas);
       // Sized from the layout as it is when the frame is written, and that frame alone
       // written: the others may have moved since the agent last looked.
-      const frame = yield* reported(
-        project.use(
-          Effect.flatMap(PagesService, (pages) =>
-            pages.setFrame(page.canvas, page.path, {
-              height,
-              preset,
-              views,
-              width,
-            })
-          )
-        )
+      const frame = yield* pagesService((pages) =>
+        pages.setFrame(page.canvas, page.path, { height, preset, views, width })
       );
       return { file: page.file, height: frame.height, width: frame.width };
     }),
@@ -326,10 +300,8 @@ export const pageToolHandlers = Effect.gen(function* () {
       url,
     }) {
       const page = yield* pageAt(route, canvas);
-      const changed = yield* reported(
-        project.use(
-          Effect.flatMap(PagesService, (pages) => pages.setRoute(page.id, url))
-        )
+      const changed = yield* pagesService((pages) =>
+        pages.setRoute(page.id, url)
       );
       return {
         file: changed.file,

@@ -28,7 +28,7 @@ import { makeExists } from "../fs-exists.ts";
 import { toPosix } from "../hash.ts";
 import { makeId, safeCanvasId } from "../ids.ts";
 import { type EditFailure, EditService, type EditTransaction } from "./edit.ts";
-import { runGit } from "./git.ts";
+import { GitService } from "./git.ts";
 import { ProfileService } from "./profile.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
@@ -132,17 +132,14 @@ export class CommentsService extends Context.Service<
         return yield* paths.resolve(file);
       });
 
-      // The name comments are signed with: git's, else the display name of the user's profile.
-      // Without either they are unsigned.
+      // The name comments are signed with: git's as it is now, else the display name of the
+      // user's profile. Without either they are unsigned.
       const profile = yield* ProfileService;
-      const gitName = yield* runGit(paths.root, ["config", "user.name"]).pipe(
-        Effect.map((r) => (r.exitCode === 0 ? r.stdout.trim() || null : null)),
-        Effect.orElseSucceed(() => null)
-      );
-      const authorNow = Effect.map(
-        profile.get,
-        ({ displayName }) => gitName ?? displayName ?? null
-      );
+      const git = yield* GitService;
+      const authorNow = Effect.gen(function* () {
+        const { name } = yield* git.user;
+        return name ?? (yield* profile.get).displayName ?? null;
+      });
 
       const list = Effect.fn("CommentsService.list")(function* (
         canvas: string

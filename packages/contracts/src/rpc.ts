@@ -791,7 +791,8 @@ const requestRpcs = [
   }),
   /**
    * A component's spec read off its code (its cva classes) through the style system, saved
-   * with the look given (`code` when absent): a mirror until someone takes the look over.
+   * with the look given (`code` when absent): a mirror until someone takes the look over. It
+   * is linked to its component's file as implemented, unless it keeps behaviour notes (ADR 0030).
    */
   Rpc.make("specs.fromCode", {
     error: EditError,

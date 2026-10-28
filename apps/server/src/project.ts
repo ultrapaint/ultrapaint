@@ -164,6 +164,15 @@ export class ProjectManager extends Context.Service<
     readonly use: <A, E>(
       effect: Effect.Effect<A, E, ProjectServices>
     ) => Effect.Effect<A, E | NotConfigured>;
+    /**
+     * One service of the open project, for a caller that asks it many things:
+     * `const pages = project.service(PagesService)`, then `pages((p) => p.list)`.
+     */
+    readonly service: <I extends ProjectServices, S>(
+      key: Context.Key<I, S>
+    ) => <A, E>(
+      f: (service: S) => Effect.Effect<A, E>
+    ) => Effect.Effect<A, E | NotConfigured>;
   }
 >()("ultrapaint/server/ProjectManager") {
   static readonly layer = (projectLayer: ProjectLayer) =>
@@ -434,6 +443,7 @@ export class ProjectManager extends Context.Service<
               ? Effect.succeed(current.scope)
               : Effect.fail(notConfigured())
           ),
+          service: (key) => (f) => use(Effect.flatMap(key, f)),
           set,
           use,
         });

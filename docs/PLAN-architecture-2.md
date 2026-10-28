@@ -235,3 +235,43 @@ unless the step says otherwise.
    a file reads the project again). `design-md.test.ts` waits for DESIGN.md to follow a token set
    rather than reading it at once: since step 3 it follows in the loop that hears the change, just
    after `setToken` returns, and the read flaked under load.
+5. **Flows in the services** (`SpecService`, `FigmaImportService`, `GitService`,
+   `CommentsService`, `PagesService` and `ProjectManager.service`). A spec read off the code is
+   linked by `SpecService` on both paths: `fromCode(component, from, look?)` saves the spec and
+   links it to its component's file as implemented, unless it keeps behaviour notes, which the
+   code is not read for (ADR 0029 amended); `fromCodeAll(look?)` answers `{linked, read}`; `look`
+   is `code` when none is given, in the service rather than twice in the handlers. The specs'
+   files are read by one function, `readSpecs` (with `specsIn`), which `SpecService` and
+   `ImplementationService` share, so the link no longer depends on `SpecService` and
+   `SpecService` sits above it in the project layer. `FigmaImportService.latestTokens` is the
+   newest import with its tokens (a file that does not read fails with its name), which Figma's
+   Sync side reads, and `theme` its default theme's values by name, which `setup.scaffold` hands
+   the new application; the plan's facts keep reading `latest`, the summary alone, as they need
+   no tokens. `GitService` tells the editor git's status after every change it makes (a commit,
+   `git init`), a status that cannot be read leaving the change as it is. `CommentsService`
+   signs a comment with `GitService.user` as it is when the comment is made (it read
+   `git config user.name` once, at the project's opening), so `GitService` sits below it.
+   `PagesService.delete` answers with the pages it deleted, the page first, then its variants and
+   states, which `delete_page` gives back rather than working out the family itself.
+   `ProjectManager.service(key)` is one of the open project's services for a caller that asks it
+   many things (`const pages = project.service(PagesService)`, then `pages((p) => p.list)`): the
+   handlers' 14 accessors are one line each, and `comment-tools`, `handoff-tools` and
+   `page-tools` use it or the lookup's accessors where they wrapped `project.use` by hand (12 of
+   the tools' 24 sites); the other 12 stay, the lookup's and the tools' own accessors and single
+   calls, which read no shorter through it. `map_values` keeps
+   its routing: it packs two services' decisions (Sync's matches, the setup's mapping) into one
+   tool to spare the agent's tool budget, and neither service holds a rule about the other.
+   `set_frame`'s layout went in step 2. `rpc-handlers.ts` is 311 lines where it was 374,
+   `page-tools.ts` 312 (340), `comment-tools.ts` 105 (116), `handoff-tools.ts` 239 (249),
+   `setup-tools.ts` 158 as it was. Of the handlers, 6 held a decision (`specs.fromCode`'s
+   default, `specs.fromCodeAll`, `git.commit`, `setup.scaffold`, `designSystem.placeDocument`,
+   `mcp.connection`); 2 do (`placeDocument` reads the design system for DESIGN.md, which sits
+   below it, and `mcp.connection` puts the server's own address together), with `setup.scaffold`
+   falling back to the template's theme when no project is open; the others route, some reshaping
+   an answer for the wire. Also: a spec read from the code alone (the Components tab's "Read from
+   the code", a new application's specs) was left unlinked; a comment kept the git user name the
+   project was opened with. `project-flows.test.ts` has 6 tests on `ProjectTest`: a spec read
+   alone is linked and, keeping a note, left changed (failing first); every spec read, linked and
+   not read again; a page deleted with its variant answers both (failing first); the newest Figma
+   import's theme, and none without one; a commit publishes git's status (failing first); a
+   comment is signed with the git user name changed after the project opened (failing first).

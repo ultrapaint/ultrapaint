@@ -17,7 +17,6 @@ import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
 import { CommentsService } from "../comments.ts";
 import { DesignSystemSyncService } from "../design-system-sync.ts";
-import { DocumentService } from "../documents.ts";
 import { ImplementationService } from "../implementation.ts";
 import { SpecService } from "../specs.ts";
 import { codeDirection } from "../sync-readings.ts";
@@ -65,7 +64,8 @@ const lineOf = (item: ImplementationItem) => {
 const HandoffTools = Toolkit.make(Handoff);
 
 export const handoffToolHandlers = Effect.gen(function* () {
-  const { pageAt, project } = yield* makeLookup;
+  const { documents, pageAt, project } = yield* makeLookup;
+  const implementation = project.service(ImplementationService);
   const tasks = yield* AgentTasks;
   const sync = yield* DesignSystemSyncService;
 
@@ -84,9 +84,7 @@ export const handoffToolHandlers = Effect.gen(function* () {
   });
 
   const list = Effect.gen(function* () {
-    const { items } = yield* reported(
-      project.use(Effect.flatMap(ImplementationService, (s) => s.list))
-    );
+    const { items } = yield* reported(implementation((s) => s.list));
     const shown = items.filter((i) => i.status !== "draft");
     return {
       text:
@@ -113,10 +111,8 @@ export const handoffToolHandlers = Effect.gen(function* () {
       );
     }
     const item = yield* reported(
-      project.use(
-        // What an agent marks has to draw as designed: no token of it waiting for the code.
-        Effect.flatMap(ImplementationService, (s) => s.mark(id, files, true))
-      )
+      // What an agent marks has to draw as designed: no token of it waiting for the code.
+      implementation((s) => s.mark(id, files, true))
     );
     return { text: lineOf(item) };
   });
@@ -137,36 +133,30 @@ export const handoffToolHandlers = Effect.gen(function* () {
     if (isSpecTarget(id)) {
       const component = id.slice(SPEC_TARGET_PREFIX.length);
       yield* reported(
-        project.use(
-          Effect.flatMap(SpecService, (specs) =>
-            specs.addNote(component, text, node)
-          )
+        project.service(SpecService)((specs) =>
+          specs.addNote(component, text, node)
         )
       );
       return { text: `Noted on ${component}${node ? ` (${node})` : ""}.` };
     }
     const page = yield* pageAt(id, canvas);
-    const { root } = yield* reported(
-      project.use(Effect.flatMap(DocumentService, (d) => d.get(page.id)))
-    );
+    const { root } = yield* documents((d) => d.get(page.id));
     const found = node ? findNode(root, node) : null;
     if (node && !found) {
       return yield* missing(`no node ${node} in ${page.file}`);
     }
     yield* reported(
-      project.use(
-        Effect.flatMap(CommentsService, (comments) =>
-          comments.create({
-            canvas: page.canvas,
-            element: found ? nodeLabel(found) : null,
-            kind: "behaviour",
-            nodeId: found?.id ?? null,
-            page: page.path,
-            text,
-            x: 0,
-            y: 0,
-          })
-        )
+      project.service(CommentsService)((comments) =>
+        comments.create({
+          canvas: page.canvas,
+          element: found ? nodeLabel(found) : null,
+          kind: "behaviour",
+          nodeId: found?.id ?? null,
+          page: page.path,
+          text,
+          x: 0,
+          y: 0,
+        })
       )
     );
     return { text: `Noted on ${page.file}${found ? ` (${found.id})` : ""}.` };
