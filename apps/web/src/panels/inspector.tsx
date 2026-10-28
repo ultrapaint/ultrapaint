@@ -15,10 +15,6 @@ import type {
   InstanceNode,
 } from "@ultrapaint/contracts/document";
 import type { Page, ViewportPreset } from "@ultrapaint/contracts/pages";
-import {
-  breakpointAt,
-  resolveAtBreakpoint,
-} from "@ultrapaint/design-document/breakpoints";
 import { nodeKind, nodeLabel } from "@ultrapaint/design-document/tree";
 import { cn } from "cn";
 import {
@@ -35,7 +31,6 @@ import {
   Upload,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { IconButton } from "../components/icon-button.tsx";
@@ -63,13 +58,7 @@ import {
 import { presetOf, viewportPresets } from "../lib/presets.ts";
 import { MIXED, sharedValue, shownAs } from "../lib/shared-value.ts";
 import { api } from "../state/connection.ts";
-import { useBreakpoints } from "../state/design-system.ts";
-import {
-  isNodeFrame,
-  nodeIn,
-  rootOfFrame,
-  useDocuments,
-} from "../state/documents.ts";
+import { isNodeFrame } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import {
   exportTokens,
@@ -79,6 +68,7 @@ import {
 } from "../state/implementation.ts";
 import { useInstances } from "../state/instances.ts";
 import { reportError, useProject } from "../state/project.ts";
+import { useInspected } from "../state/selection.ts";
 import { ComponentProps } from "./component-props.tsx";
 import { AppearanceSection } from "./inspector-appearance.tsx";
 import { BreakpointSection } from "./inspector-breakpoints.tsx";
@@ -99,42 +89,6 @@ import {
   SizeSection,
 } from "./inspector-layout.tsx";
 import { TextSection } from "./inspector-text.tsx";
-
-/**
- * The nodes the inspector is about: every one selected, the one it shows first leading; or the
- * root of the selected page.
- */
-const useInspected = () => {
-  const selection = useEditor((s) => s.selection);
-  const also = useEditor((s) => s.also);
-  const selectedPage = useEditor((s) => s.selectedPage);
-  const canvas = useEditor((s) => s.canvas);
-  const frame = selection?.frame ?? selectedPage;
-  // The fields as the frame draws them: its breakpoint's values (ADR 0036).
-  const breakpoints = useBreakpoints();
-  const width = useEditor((s) =>
-    frame === null ? undefined : s.frames[frame]?.width
-  );
-  const shown = width === undefined ? null : breakpointAt(breakpoints, width);
-  const nodes = useDocuments(
-    useShallow((s): DesignNode[] => {
-      const at = (found: DesignNode) =>
-        resolveAtBreakpoint(found, breakpoints, shown?.name ?? null);
-      if (selection) {
-        return [selection, ...also].flatMap((t) => {
-          const node = nodeIn(s.docs, canvas, t.frame, t.nodeId);
-          return node ? [at(node)] : [];
-        });
-      }
-      const root = selectedPage
-        ? rootOfFrame(s.docs, canvas, selectedPage)
-        : null;
-      return root ? [at(root)] : [];
-    })
-  );
-  const [node] = nodes;
-  return node && frame ? { frame, node, nodes } : null;
-};
 
 export const Inspector = () => {
   const inspected = useInspected();

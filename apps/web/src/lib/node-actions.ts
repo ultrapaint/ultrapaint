@@ -43,13 +43,8 @@ import {
 } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
 import { requestInlineRename } from "../state/layer-rename.ts";
-import {
-  asDrawnIn,
-  editedFrameOf,
-  insertedAt,
-  propsOpsAt,
-  updateOpsAt,
-} from "./breakpoint-edits.ts";
+import { asDrawnIn, editedFrameOf, isSelected } from "../state/selection.ts";
+import { insertedAt, propsOpsAt, updateOpsAt } from "./breakpoint-edits.ts";
 import { isPageRoot } from "./menu-model.ts";
 
 interface Context {
@@ -106,10 +101,7 @@ export const selected = (ctx: Context = liveContext()) => {
 export const actedOn = (target?: Selection): Selection[] => {
   const all = allSelected();
   if (target) {
-    const among = all.some(
-      (s) => s.frame === target.frame && s.nodeId === target.nodeId
-    );
-    return among ? all : [target];
+    return isSelected(target.frame, target.nodeId) ? all : [target];
   }
   if (all.length > 0) {
     return all;

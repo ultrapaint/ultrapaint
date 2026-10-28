@@ -51,7 +51,6 @@ import {
 import { IconButton } from "../components/icon-button.tsx";
 import { NodeIcon } from "../components/node-icon.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
-import { editedFrameOf, useDrawnIn } from "../lib/breakpoint-edits.ts";
 import { scopeKeyDown } from "../lib/keymap.ts";
 import { describeLink } from "../lib/links.ts";
 import {
@@ -76,6 +75,11 @@ import {
   useLayerRename,
 } from "../state/layer-rename.ts";
 import { useProject } from "../state/project.ts";
+import {
+  editedFrameOf,
+  useDrawnIn,
+  useIsSelected,
+} from "../state/selection.ts";
 import { InlineInput } from "./canvases.tsx";
 import {
   type DropPosition,
@@ -1117,13 +1121,7 @@ const LayerRow = ({
   const node = item.node as DesignNode;
   const row: Row = { frame, node, parent: item.parent };
   const hasChildren = item.children.length > 0;
-  const selected = useEditor(
-    (s) =>
-      (s.selection !== null &&
-        pageOfFrame(s.selection.frame) === frame &&
-        s.selection.nodeId === node.id) ||
-      s.also.some((a) => pageOfFrame(a.frame) === frame && a.nodeId === node.id)
-  );
+  const selected = useIsSelected(frame, node.id);
   const hovered = useEditor(
     (s) =>
       s.hover !== null &&
@@ -1141,7 +1139,7 @@ const LayerRow = ({
   const onClick = (e: MouseEvent) => selectItem(item, e.shiftKey);
   const onMouseEnter = () => useEditor.getState().setHover(target);
   const onContextMenu = (e: MouseEvent) => {
-    selectForMenu(target);
+    selectForMenu({ frame: rowFrame(frame), nodeId: node.id });
     openMenuAt(e, { frame, kind: "node", nodeId: node.id });
   };
 

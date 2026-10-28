@@ -190,11 +190,15 @@ describe("a page's views", () => {
       },
     });
     const view = viewFrameOf(home.id, "w390");
-    useEditor.getState().select({ frame: view, nodeId: "a" });
+    useEditor.getState().selectMany([
+      { frame: view, nodeId: "a" },
+      { frame: view, nodeId: "b" },
+    ]);
     useEditor.getState().removeView(view);
     const s = useEditor.getState();
     expect(s.frames[view]).toBeUndefined();
     expect(s.selection).toEqual({ frame: home.id, nodeId: "a" });
+    expect(s.also).toEqual([{ frame: home.id, nodeId: "b" }]);
     expect((await saved())?.[home.path]).not.toHaveProperty("views");
   });
 });

@@ -9,64 +9,32 @@
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { DesignNode, DocOp } from "@ultrapaint/contracts/document";
 import {
-  type Breakpoint,
-  breakpointAt,
   breakpointBelow,
   FIXED_FIELDS,
   resolveAtBreakpoint,
   sourceOf,
 } from "@ultrapaint/design-document/breakpoints";
-import { currentBreakpoints, useBreakpoints } from "../state/design-system.ts";
-import { isNodeFrame, isViewFrame, pageOfFrame } from "../state/documents.ts";
-import { type Selection, useEditor } from "../state/editor.ts";
+import { currentBreakpoints } from "../state/design-system.ts";
+import { pageOfFrame } from "../state/documents.ts";
+import { type EditorState, useEditor } from "../state/editor.ts";
+import { frameBreakpoint, useFrameBreakpoint } from "../state/selection.ts";
 
-/** The breakpoint a frame is drawn at, by its width; null at the base or for a node's frame. */
-export const frameBreakpoint = (
-  frame: string,
-  breakpoints: readonly Breakpoint[] = currentBreakpoints()
-): string | null => {
-  if (isNodeFrame(frame)) {
-    return null;
-  }
-  const box = useEditor.getState().frames[frame];
-  return box ? (breakpointAt(breakpoints, box.width)?.name ?? null) : null;
-};
-
-/**
- * The frame an edit named by a page's own frame is made in: the view of that page the selection
- * is in, if it is in one. The layers panel names pages, not views.
- */
-export const editedFrameOf = (selection: Selection | null, frame: string) =>
-  selection &&
-  isViewFrame(selection.frame) &&
-  pageOfFrame(selection.frame) === frame
-    ? selection.frame
-    : frame;
-
-/** A node as the frame it is edited in draws it, for what is drawn of it outside the canvas. */
-export const useDrawnIn = (node: DesignNode, frame: string): DesignNode => {
-  const width = useEditor(
-    (s) => s.frames[editedFrameOf(s.selection, frame)]?.width
-  );
-  const breakpoints = useBreakpoints();
-  const name =
-    width === undefined
-      ? null
-      : (breakpointAt(breakpoints, width)?.name ?? null);
-  return resolveAtBreakpoint(node, breakpoints, name);
-};
-
-/** A node as a frame draws it: its fields at the frame's breakpoint. */
-export const asDrawnIn = (node: DesignNode, frame: string): DesignNode =>
-  resolveAtBreakpoint(node, currentBreakpoints(), frameBreakpoint(frame));
+const viewsIn = (frames: EditorState["frames"], frame: string) =>
+  (frames[pageOfFrame(frame)]?.views?.length ?? 0) > 0;
 
 /** Whether the page a frame shows is drawn in views: its edits then land where they are made. */
 export const hasViews = (frame: string) =>
-  (useEditor.getState().frames[pageOfFrame(frame)]?.views?.length ?? 0) > 0;
+  viewsIn(useEditor.getState().frames, frame);
 
 /** The breakpoint what is edited in a frame lands at: null for the node's own fields. */
 export const editingBreakpoint = (frame: string): string | null =>
   hasViews(frame) ? frameBreakpoint(frame) : null;
+
+/** `editingBreakpoint` for a component. */
+export const useEditingBreakpoint = (frame: string): string | null => {
+  const shown = useFrameBreakpoint(frame);
+  return useEditor((s) => viewsIn(s.frames, frame)) ? shown : null;
+};
 
 const sameJson = (a: unknown, b: unknown) =>
   JSON.stringify(a) === JSON.stringify(b);
@@ -94,7 +62,7 @@ export const updateOpsAt = (
   set: Fields
 ): DocOp[] => {
   const breakpoints = currentBreakpoints();
-  const shown = frameBreakpoint(frame, breakpoints);
+  const shown = frameBreakpoint(frame);
   const target = hasViews(frame) ? shown : null;
   const below = target === null ? null : breakpointBelow(breakpoints, target);
   const inherited =
@@ -139,7 +107,7 @@ export const propsOpsAt = (
     return [];
   }
   const breakpoints = currentBreakpoints();
-  const shown = frameBreakpoint(frame, breakpoints);
+  const shown = frameBreakpoint(frame);
   const target = hasViews(frame) ? shown : null;
   const inheritedProps =
     target === null

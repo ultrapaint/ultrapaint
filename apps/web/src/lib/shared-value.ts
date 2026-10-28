@@ -59,3 +59,14 @@ export const shownAs = <T>(
   shared === MIXED
     ? { placeholder: "Mixed", value: undefined }
     : { placeholder, value: shared };
+
+/** What a select shows in place of a value the nodes do not agree on. */
+export const MIXED_LABEL = "mixed";
+
+/** What a select shows for a shared value: the value, `fallback` when none is given. */
+export const labelOf = (shared: Shared<string>, fallback: string): string => {
+  if (shared === MIXED) {
+    return MIXED_LABEL;
+  }
+  return shared ?? fallback;
+};
