@@ -21,19 +21,23 @@ import {
   type LeftTab,
   type Mode,
   pagesOfCanvas,
-  type RightTab,
   railTabs,
   useEditor,
   type Workspace,
   workspaceOrder,
 } from "../state/editor.ts";
-import { openLeftPanel, usePanels } from "../state/panels.ts";
+import { openLeftPanel, showRightPanel, usePanels } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import { newCanvas, openCanvas } from "./canvas-actions.ts";
 import { pickFigmaFile } from "./import-figma.ts";
 import { type Keys, keysLabel } from "./keys.ts";
-import { entriesFor, runEntry } from "./menu-actions.ts";
-import type { Entry } from "./menu-model.ts";
+import {
+  type MenuAction,
+  type MenuEntry,
+  menuFor,
+  runMenuAction,
+} from "./menu-actions.ts";
+import type { Item } from "./menu-model.ts";
 import {
   deleteSelection,
   duplicateSelection,
@@ -190,12 +194,6 @@ const pickTool = (tool: Mode) => {
   }
 };
 
-const showRight = (tab: RightTab) => {
-  editor().setWorkspace("design");
-  editor().setRightTab(tab);
-  usePanels.getState().setHidden({ right: false });
-};
-
 /** Does something to every node selected, as one undo step; nothing when none is. */
 const toSelection = (act: () => unknown) => () => {
   if (!editor().selection) {
@@ -291,7 +289,7 @@ const panelCommands = (): CommandSpec[] => [
     id: "right:design",
     keywords: "inspector properties style",
     offered: onCanvas,
-    run: () => showRight("design"),
+    run: () => showRightPanel("design"),
     title: "Show the inspector",
   },
   {
@@ -299,7 +297,7 @@ const panelCommands = (): CommandSpec[] => [
     id: "right:code",
     keywords: "jsx tailwind source",
     offered: onCanvas,
-    run: () => showRight("code"),
+    run: () => showRightPanel("code"),
     title: "Show the code",
   },
   {
@@ -307,7 +305,7 @@ const panelCommands = (): CommandSpec[] => [
     id: "right:comments",
     keywords: "feedback notes pins",
     offered: onCanvas,
-    run: () => showRight("comments"),
+    run: () => showRightPanel("comments"),
     title: "Show the comments",
   },
   {
@@ -733,6 +731,15 @@ export const keysOf = (id: string): string | undefined => {
   return keys ? keysLabel(keys) : undefined;
 };
 
+/**
+ * Runs a command by its id, as the palette does: a menu item that is one. False when there is no
+ * such command, or it has nothing to run (the clipboard's).
+ */
+export const runCommand = (id: string): unknown => {
+  const command = commandList().find((c) => c.id === id);
+  return command?.run ? command.run() : false;
+};
+
 /** A command as the palette lists it, with what it is called now. */
 const paletteCommand = (c: CommandSpec): Command => ({
   group: c.group,
@@ -765,34 +772,29 @@ const under = (path: string, label: string) =>
   path ? `${path} › ${label}` : label;
 
 /** A menu item as a command of the selection, with the keys of the command it is. */
-const itemCommand = (
-  e: Extract<Entry, { kind: "item" }>,
-  run: (id: string) => void,
-  path: string
-): Command => {
+const itemCommand = (e: Item<MenuAction>, path: string): Command => {
   const keys = e.command ? keysOf(e.command) : undefined;
+  const title = under(path, e.label);
   return {
     ...(e.destructive ? { destructive: true } : {}),
     group: "Selection",
-    id: `menu:${e.id}`,
+    id: `menu:${title}`,
     ...(keys ? { keys } : {}),
-    run: () => run(e.id),
-    title: under(path, e.label),
+    run: () => {
+      runMenuAction(e.action);
+    },
+    title,
   };
 };
 
 /** A menu's items as commands, a submenu's under its own name: `Wrap in › Row`. */
-const flatten = (
-  entries: readonly Entry[],
-  run: (id: string) => void,
-  path = ""
-): Command[] =>
+const flatten = (entries: readonly MenuEntry[], path = ""): Command[] =>
   entries.flatMap((e): Command[] => {
     if (e.kind === "item" && !e.disabled) {
-      return [itemCommand(e, run, path)];
+      return [itemCommand(e, path)];
     }
     if (e.kind === "submenu" && !e.disabled) {
-      return flatten(e.entries, run, under(path, e.label));
+      return flatten(e.entries, under(path, e.label));
     }
     return [];
   });
@@ -816,10 +818,8 @@ const selectionTarget = (): MenuTarget | null => {
 /** The selection's menu, item by item. */
 export const selectionCommands = (): Command[] => {
   const target = selectionTarget();
-  const entries = target ? entriesFor(target) : null;
-  return target && entries
-    ? flatten(entries, (id) => runEntry(target, id))
-    : [];
+  const entries = target ? menuFor(target) : null;
+  return entries ? flatten(entries) : [];
 };
 
 const goToPageCommand = (page: Page): Command => ({

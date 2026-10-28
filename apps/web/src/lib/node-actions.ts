@@ -156,11 +156,12 @@ export const deleteSelection = (target?: Selection) =>
 export const duplicateSelection = (target?: Selection) =>
   duplicateNodes(actedOn(target));
 
+/** What nodes are wrapped in. */
+export type Wrapper = "row" | "column" | "group";
+
 /** Puts the selected nodes in a new row, column or group, where the first of them was. */
-export const wrapSelection = (
-  type: "row" | "column" | "group",
-  target?: Selection
-) => wrapNodes(actedOn(target), type);
+export const wrapSelection = (type: Wrapper, target?: Selection) =>
+  wrapNodes(actedOn(target), type);
 
 export const unwrapSelection = (target?: Selection) =>
   unwrapNodes(actedOn(target));
@@ -690,7 +691,7 @@ export const areSiblings = (targets: readonly Selection[]) => {
 /** Puts sibling nodes into a new row, column or group, where the first of them was. */
 export const wrapNodes = async (
   targets: readonly Selection[],
-  type: "row" | "column" | "group"
+  type: Wrapper
 ) => {
   const found = nodesOf(targets).filter((f) => !isPageRoot(f.node));
   const [first] = found;

@@ -49,14 +49,14 @@ describe("the viewport presets", () => {
     const items =
       submenu?.kind === "submenu"
         ? submenu.entries.flatMap((e) =>
-            e.kind === "item" ? [{ checked: e.checked, id: e.id }] : []
+            e.kind === "item" ? [{ action: e.action, checked: e.checked }] : []
           )
         : [];
     expect(items).toEqual([
-      { checked: false, id: "preset:mobile" },
-      { checked: false, id: "preset:tablet" },
-      { checked: false, id: "preset:desktop" },
-      { checked: true, id: "preset:custom" },
+      { action: { kind: "preset", preset: "mobile" }, checked: false },
+      { action: { kind: "preset", preset: "tablet" }, checked: false },
+      { action: { kind: "preset", preset: "desktop" }, checked: false },
+      { action: { kind: "preset", preset: "custom" }, checked: true },
     ]);
   });
 });
