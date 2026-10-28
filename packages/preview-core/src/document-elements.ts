@@ -164,9 +164,14 @@ const leavesOn = (
 ) =>
   name === "setAttribute" ||
   (name === "toggleAttribute" &&
-    Boolean(args[1] ?? !element.hasAttribute(attribute)));
+    (args[1] === undefined
+      ? !element.hasAttribute(attribute)
+      : Boolean(args[1])));
 
-/** `class` or `style` written by an attribute method: the page's own, the editor's left. */
+/**
+ * `class` or `style` written by an attribute method: the page's own, the editor's left. Toggled
+ * on, an attribute keeps its value (or is there, empty), as the DOM's `toggleAttribute` does.
+ */
 const writtenOnFrame = (
   { marked, read, styled, wholeStyle }: Targets,
   name: (typeof ATTRIBUTE_METHODS)[number],
@@ -174,14 +179,17 @@ const writtenOnFrame = (
   args: unknown[]
 ) => {
   const on = leavesOn(read, name, attribute, args);
-  const value = on ? String(args[1] ?? "") : "";
+  if (name === "toggleAttribute" && on) {
+    return true;
+  }
+  const value = on ? String(args[1]) : "";
   if (attribute === "class") {
     setClasses(marked, value);
-  } else if (wholeStyle && (name === "setAttribute" || !on)) {
+  } else if (wholeStyle) {
     // On the host, the page's whole style is never written at once.
     writeStyle(styled, "page", value);
   }
-  return name === "toggleAttribute" ? on : undefined;
+  return name === "toggleAttribute" ? false : undefined;
 };
 
 /** An attribute method called by the page's code, on its frame's targets. */
@@ -197,6 +205,14 @@ const attributeOnFrame = (
   }
   if (attribute === "class" || attribute === "style") {
     return writtenOnFrame(targets, name, attribute, args);
+  }
+  if (name === "toggleAttribute") {
+    // Toggled as the element it is read from has it, so its targets stay alike.
+    const on = leavesOn(read, name, attribute, args);
+    for (const target of marked) {
+      target.toggleAttribute(attribute, on);
+    }
+    return on;
   }
   let answer: unknown;
   for (const target of marked) {

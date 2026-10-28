@@ -419,7 +419,6 @@ export class EditorFrame {
   private drewOn(m: Mount | null) {
     if (m !== null && this.mount === m && !m.drawn) {
       m.drawn = true;
-      m.host.dataset.edDrawn = "";
       poolChanged();
     }
   }
