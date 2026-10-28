@@ -336,6 +336,12 @@ describe("DESIGN.md's side", () => {
               (system.designMd as { agreed: Record<string, string> }).agreed
           );
           assert.strictEqual((yield* agreed)["colors.ink"], "#111827");
+          // A mirror working from the design system as it read before the placing (the
+          // editor's loop, under load) agrees on nothing yet, and leaves the baseline alone.
+          yield* inProject(
+            Effect.flatMap(DesignMd, (m) => m.follow(Effect.succeed(ds)))
+          );
+          assert.strictEqual((yield* agreed)["colors.ink"], "#111827");
 
           // Read as soon as the call returns, while the editor has not been told yet: DESIGN.md
           // and, with `codeTokens: auto`, the code are written already.

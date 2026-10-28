@@ -149,12 +149,16 @@ export class DesignMd extends Context.Service<
       BadRequest
     >;
     /**
-     * The front matter brought up to `ds`: the values the design system changed alone written
+     * The front matter brought up to the design system: the values it changed alone written
      * in, the baseline moved with them, both outside the undo history (ADR 0027, 0028). A
      * document in the designs directory waits for Sync to move it; one with values of its own
-     * keeps them for Sync to offer.
+     * keeps them for Sync to offer; one the design system agrees on nothing with yet is left
+     * to Sync. `read` gives the design system once DESIGN.md's turn comes, after whatever
+     * placed or edited it: a design system read before a baseline was placed never moves it.
      */
-    readonly follow: (ds: DesignSystem | null) => Effect.Effect<void>;
+    readonly follow: (
+      read: Effect.Effect<DesignSystem | null>
+    ) => Effect.Effect<void>;
     /**
      * Puts DESIGN.md at the root of the repository, in one undo step: the designs directory's
      * moved there, or a first one made from `ds`, its front matter filled in; the baseline from
@@ -196,7 +200,8 @@ export class DesignMd extends Context.Service<
       const legacyFile = legacyCandidate === rootFile ? null : legacyCandidate;
       const systemFile = path.join(paths.designsDir, DESIGN_SYSTEM_FILE);
       const systemRel = paths.relative(systemFile);
-      const writes = yield* Semaphore.make(1);
+      // Whatever writes DESIGN.md or its baseline, one at a time.
+      const serially = (yield* Semaphore.make(1)).withPermits(1);
 
       const readOptional = (abs: string) =>
         Effect.orElseSucceed(
@@ -347,7 +352,8 @@ export class DesignMd extends Context.Service<
       });
 
       const follow = Effect.fnUntraced(
-        function* (ds: DesignSystem | null) {
+        function* (read: Effect.Effect<DesignSystem | null>) {
+          const ds = yield* read;
           const found = yield* current;
           if (!(ds && found && !found.legacy)) {
             return;
@@ -368,6 +374,10 @@ export class DesignMd extends Context.Service<
               : Effect.succeed([rewrite(content), null] as const)
           );
           const after = mergeMirror(parse(found.text), groups, agreed).agreed;
+          if (agreed === null && Object.keys(after).length === 0) {
+            // Nothing agreed yet, and nothing now: Sync matches the document first.
+            return;
+          }
           const now = yield* Clock.currentTimeMillis;
           // The baseline beside it, unless the file does not read (reading it says why).
           yield* edit.amend(systemRel, (content) => {
@@ -377,7 +387,7 @@ export class DesignMd extends Context.Service<
               : Effect.succeed([next, null] as const);
           });
         },
-        (effect) => writes.withPermits(1)(effect),
+        serially,
         Effect.ignore({ log: true }),
         Effect.withSpan("DesignMd.follow")
       );
@@ -443,7 +453,7 @@ export class DesignMd extends Context.Service<
             })
         );
         return { path: file };
-      });
+      }, serially);
 
       const setSection = Effect.fn("DesignMd.setSection")(function* (
         name: string,
@@ -458,7 +468,7 @@ export class DesignMd extends Context.Service<
         yield* edit.transaction(`Edit DESIGN.md's ${name}`, (tx) =>
           tx.write(found.path, withSection(found.text, name, text))
         );
-      });
+      }, serially);
 
       const names = new Set([
         file,
