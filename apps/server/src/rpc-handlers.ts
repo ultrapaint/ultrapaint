@@ -215,12 +215,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
           })
         ),
       "git.diff": ({ path }) => git((g) => g.diff(path)),
-      "git.init": () =>
-        Effect.andThen(
-          git((g) => g.init),
-          // The folder is a repository now: the editor reads its status from here on.
-          project.publishInfo
-        ),
+      "git.init": () => git((g) => g.init),
 
       "git.status": () => git((g) => g.status),
       health: () => Effect.succeed({ ok: true, version: config.version }),
@@ -276,44 +271,16 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "pages.setRoute": ({ id, route }) => pages((s) => s.setRoute(id, route)),
       "pages.templates": () => pages((s) => Effect.succeed(s.templates)),
       "profile.get": () => profile.get,
-      "profile.set": (input) =>
-        Effect.tap(profile.set(input), () => project.publishInfo),
+      "profile.set": (input) => profile.set(input),
 
       "project.info": () => project.info,
 
       "screenshots.deliver": (result) => screenshots.deliver(result),
 
       "settings.get": () => settings.get,
-      "settings.persist": Effect.fnUntraced(function* (input) {
-        const before = yield* settings.get;
-        const result = yield* settings.persist(input);
-        const saved = yield* settings.get;
-        if (result.validation.ok && saved) {
-          const { configured } = yield* project.info;
-          // Saving what is already running must not restart the preview.
-          if (!configured || JSON.stringify(before) !== JSON.stringify(saved)) {
-            yield* project.open(saved);
-          }
-          yield* project.publishInfo;
-        }
-        return result;
-      }),
-      "settings.renameConfig": () =>
-        Effect.tap(settings.renameConfig, () => project.publishInfo),
-      "settings.set": Effect.fnUntraced(function* (input) {
-        const before = yield* settings.get;
-        const validation = yield* settings.set(input);
-        const saved = yield* settings.get;
-        if (validation.ok && saved) {
-          const { configured } = yield* project.info;
-          // Setting what is already running must not restart the preview, nor drop the
-          // project's undo history.
-          if (!configured || JSON.stringify(before) !== JSON.stringify(saved)) {
-            yield* project.open(saved);
-          }
-        }
-        return validation;
-      }),
+      "settings.persist": (input) => project.persist(input),
+      "settings.renameConfig": () => project.renameConfig,
+      "settings.set": (input) => project.set(input),
       "settings.validate": (input) => settings.validate(input),
       "setup.createDesigns": (input) => setup.createDesigns(input),
       "setup.detect": ({ repoPath }) => setup.detect(repoPath),

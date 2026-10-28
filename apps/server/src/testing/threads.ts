@@ -46,8 +46,8 @@ export const briefingFor = (purpose: string) =>
 
 /**
  * The project as threads use it: the fixture's paths and its working tree, open from the start.
- * `close` ends its scope, and every session with it, and `open` opens it again, as saving the
- * settings does. A project service threads do not use is not there.
+ * `close` ends its scope, and every session with it, and `apply` opens it again, as saving
+ * other settings does. A project service threads do not use is not there.
  */
 const projectOf = (repo: string) =>
   Layer.effect(
@@ -71,19 +71,27 @@ const projectOf = (repo: string) =>
         return open ? Scope.close(open, Exit.void) : Effect.void;
       });
       return ProjectManager.of({
-        close,
-        info: Effect.die(new Error("thread tests have no project info")),
-        open: () =>
+        adoptDetected: () =>
+          Effect.die(new Error("thread tests detect nothing")),
+        // Whatever the settings, the fixture's project opens again.
+        apply: () =>
           Effect.andThen(
             close,
             Effect.map(Scope.fork(managerScope), (scope) => {
               current = scope;
             })
           ),
-        publishInfo: Effect.void,
+        close,
+        info: Effect.die(new Error("thread tests have no project info")),
+        persist: () =>
+          Effect.die(new Error("thread tests save no configuration")),
+        renameConfig: Effect.die(
+          new Error("thread tests save no configuration")
+        ),
         scope: Effect.suspend(() =>
           current ? Effect.succeed(current) : Effect.fail(notConfigured)
         ),
+        set: () => Effect.die(new Error("thread tests save no settings")),
         use: <A, E>(effect: Effect.Effect<A, E, ProjectServices>) =>
           Effect.suspend(
             (): Effect.Effect<A, E | NotConfigured> =>

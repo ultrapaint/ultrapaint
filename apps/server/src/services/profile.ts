@@ -1,6 +1,16 @@
 import { BadRequest } from "@ultrapaint/contracts/errors";
 import { UserProfile } from "@ultrapaint/contracts/settings";
-import { Context, Effect, FileSystem, Layer, Path, Ref, Schema } from "effect";
+import {
+  Context,
+  Effect,
+  FileSystem,
+  Layer,
+  Path,
+  PubSub,
+  Ref,
+  Schema,
+  Stream,
+} from "effect";
 import { AppLog } from "../app-log.ts";
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { ServerConfig } from "../config.ts";
@@ -21,6 +31,8 @@ const PROFILE_FILE = "profile.json";
 export class ProfileService extends Context.Service<
   ProfileService,
   {
+    /** The profile each time it is set. */
+    readonly changes: Stream.Stream<UserProfile>;
     readonly get: Effect.Effect<UserProfile>;
     readonly set: (
       profile: UserProfile
@@ -53,6 +65,7 @@ export class ProfileService extends Context.Service<
         )
       );
       const current = yield* Ref.make<UserProfile>(yield* read);
+      const changes = yield* PubSub.unbounded<UserProfile>();
 
       const set = Effect.fn("ProfileService.set")(function* (
         profile: UserProfile
@@ -69,10 +82,15 @@ export class ProfileService extends Context.Service<
           )
         );
         yield* Ref.set(current, next);
+        yield* PubSub.publish(changes, next);
         return next;
       });
 
-      return ProfileService.of({ get: Ref.get(current), set });
+      return ProfileService.of({
+        changes: Stream.fromPubSub(changes),
+        get: Ref.get(current),
+        set,
+      });
     })
   );
 }

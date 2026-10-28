@@ -34,7 +34,7 @@ export class ProjectFixture extends Context.Service<
   {
     readonly home: string;
     readonly repo: string;
-    /** Opens the project again with these settings changed, as saving them does. */
+    /** Puts the settings with these changed in force, as saving them does. */
     readonly reopen: (changes: Partial<Settings>) => Effect.Effect<void>;
     readonly settings: Settings;
   }
@@ -51,6 +51,12 @@ export interface ProjectTestOptions {
   readonly mcp?: boolean;
   /** Settings the project is opened with, over the fixture's own. */
   readonly settings?: Partial<Settings>;
+  /**
+   * Where the settings are kept: a home directory's file (`managed`, the default), or nowhere,
+   * an unsaved session started in the fixture (`ephemeral`). The project is opened either way,
+   * with nothing saved.
+   */
+  readonly storage?: "managed" | "ephemeral";
 }
 
 /**
@@ -80,10 +86,11 @@ export const ProjectTest = (options: ProjectTestOptions = {}) =>
         ProjectFixture,
         Effect.gen(function* () {
           const project = yield* ProjectManager;
-          yield* project.open(settings);
+          yield* project.apply(settings, "the test's settings");
           return ProjectFixture.of({
             home,
-            reopen: (changes) => project.open({ ...settings, ...changes }),
+            reopen: (changes) =>
+              project.apply({ ...settings, ...changes }, "the test's settings"),
             repo,
             settings,
           });
@@ -97,7 +104,10 @@ export const ProjectTest = (options: ProjectTestOptions = {}) =>
             cwd: repo,
             machine: { home },
             mcp: options.mcp ?? true,
-            storage: { home, mode: "managed" },
+            storage:
+              options.storage === "ephemeral"
+                ? { mode: "ephemeral" }
+                : { home, mode: "managed" },
             userDir: home,
           })
         )

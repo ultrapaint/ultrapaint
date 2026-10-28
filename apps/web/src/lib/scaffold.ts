@@ -11,7 +11,7 @@ import {
 import { toast } from "sonner";
 import { promptDialog } from "../components/dialogs.tsx";
 import { api } from "../state/connection.ts";
-import { useProject } from "../state/project.ts";
+import { save } from "./settings-actions.ts";
 
 const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
@@ -70,15 +70,11 @@ export const startApplication = async (options: {
       repoPath: options.repoPath,
     });
     const base = options.settings ?? defaultSettings(options.repoPath);
-    const validation = await api().request("settings.set", {
-      ...base,
-      ...made.settings,
-    });
-    if (!validation.ok) {
-      toast.error(validation.problems.join(" "), { id });
+    const problems = await save({ ...base, ...made.settings });
+    if (problems.length > 0) {
+      toast.error(problems.join(" "), { id });
       return false;
     }
-    await useProject.getState().load();
     // The new application's components are restyled in the editor (ADR 0029).
     adoptLooks().catch(() => undefined);
     if (made.installed) {

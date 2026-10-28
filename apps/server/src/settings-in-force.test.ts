@@ -1,0 +1,212 @@
+import { assert, describe, layer } from "@effect/vitest";
+import type { ProjectInfo } from "@ultrapaint/contracts/project";
+import type { Settings } from "@ultrapaint/contracts/settings";
+import { Effect, Fiber, Option, Stream } from "effect";
+import { EventBus } from "./events.ts";
+import { ProjectManager } from "./project.ts";
+import { DocumentService } from "./services/documents.ts";
+import { EditService } from "./services/edit.ts";
+import { GitService } from "./services/git.ts";
+import { ProfileService } from "./services/profile.ts";
+import { RepoPaths } from "./services/repo-paths.ts";
+import { SettingsService } from "./services/settings.ts";
+import { ProjectFixture, ProjectTest } from "./testing/project.ts";
+
+/** A package detection recognises as the designs: it depends on React. */
+const DETECTED_PACKAGE = `${JSON.stringify({
+  dependencies: { react: "^19.0.0" },
+  name: "designs",
+})}\n`;
+
+/** An edit the undo history keeps, so a project opened again shows by its empty history. */
+const nameTheTitle = Effect.flatMap(ProjectManager, (project) =>
+  project.use(
+    Effect.flatMap(DocumentService, (documents) =>
+      documents.apply({
+        edits: [
+          {
+            doc: "home.page.json",
+            ops: [{ id: "heading", op: "update", set: { name: "Title" } }],
+          },
+        ],
+        label: "Name the title",
+      })
+    )
+  )
+);
+
+const undoLabel = Effect.flatMap(ProjectManager, (project) =>
+  project.use(
+    Effect.map(
+      Effect.flatMap(EditService, (edit) => edit.state),
+      (state) => state.undoLabel
+    )
+  )
+);
+
+/** The settings the open project runs. */
+const running = Effect.flatMap(ProjectManager, (project) =>
+  project.use(Effect.map(RepoPaths, (paths) => paths.settings))
+);
+
+const projectScope = Effect.flatMap(ProjectManager, (project) => project.scope);
+
+/**
+ * The first project info the editor is told of that `holds`, once `trigger` has run. Started
+ * at once, the subscription is in place before the trigger runs.
+ */
+const toldOf = <A, E, R>(
+  holds: (info: ProjectInfo) => boolean,
+  trigger: Effect.Effect<A, E, R>
+) =>
+  Effect.gen(function* () {
+    const events = yield* EventBus;
+    const told = yield* Effect.forkScoped(
+      Stream.runHead(Stream.filter(events.subscribe("project"), holds)).pipe(
+        Effect.timeout("10 seconds")
+      ),
+      { startImmediately: true }
+    );
+    const result = yield* trigger;
+    return { result, told: Option.getOrUndefined(yield* Fiber.join(told)) };
+  });
+
+describe("the settings in force", () => {
+  layer(ProjectTest(), { excludeTestServices: true })((it) => {
+    it.effect(
+      "leaves the project open when it is given the settings it runs",
+      () =>
+        Effect.gen(function* () {
+          const project = yield* ProjectManager;
+          const { settings } = yield* ProjectFixture;
+          const scope = yield* projectScope;
+          yield* nameTheTitle;
+          // The same settings with their keys in another order, and a field set to nothing.
+          const reordered: Settings = {
+            componentPackages: settings.componentPackages,
+            designsDir: settings.designsDir,
+            hostCss: settings.hostCss,
+            libraryDirs: settings.libraryDirs,
+            repoPath: settings.repoPath,
+            resolveFrom: undefined,
+            theme: settings.theme,
+          };
+          assert.isTrue((yield* project.set(reordered)).ok);
+          assert.strictEqual(yield* projectScope, scope);
+          assert.strictEqual(yield* undoLabel, "Name the title");
+
+          // Other settings open it again.
+          assert.isTrue(
+            (yield* project.set({ ...settings, theme: "dark" })).ok
+          );
+          assert.notStrictEqual(yield* projectScope, scope);
+          assert.strictEqual((yield* running).theme, "dark");
+          assert.isUndefined(yield* undoLabel);
+        })
+    );
+  });
+
+  layer(
+    ProjectTest({
+      files: { "designs/package.json": DETECTED_PACKAGE },
+      storage: "ephemeral",
+    }),
+    { excludeTestServices: true }
+  )((it) => {
+    it.effect(
+      "tells the editor when detected settings are saved, and keeps the project open",
+      () =>
+        Effect.gen(function* () {
+          const project = yield* ProjectManager;
+          const settings = yield* SettingsService;
+          const { repo } = yield* ProjectFixture;
+          yield* project.adoptDetected(repo);
+          assert.strictEqual((yield* project.info).setup, "detected");
+          const detected = yield* settings.get;
+          assert.isNotNull(detected);
+          const scope = yield* projectScope;
+          yield* nameTheTitle;
+
+          if (detected) {
+            const { told } = yield* toldOf(
+              (info) => info.setup === "saved",
+              project.set(detected)
+            );
+            assert.isDefined(told);
+          }
+          assert.strictEqual(yield* projectScope, scope);
+          assert.strictEqual(yield* undoLabel, "Name the title");
+
+          // Saved to a file, the session keeps its project and the editor is told where.
+          const configPath = `${repo}/ultrapaint.config.json`;
+          const { result, told } = yield* toldOf(
+            (info) => info.storage.mode === "file",
+            project.persist({ configPath, settings: yield* running })
+          );
+          assert.isTrue(result.validation.ok);
+          assert.strictEqual(told?.storage.configPath, configPath);
+          assert.strictEqual(yield* projectScope, scope);
+          assert.strictEqual(yield* undoLabel, "Name the title");
+        })
+    );
+  });
+
+  layer(
+    ProjectTest({
+      files: { "designs/package.json": DETECTED_PACKAGE },
+      storage: "ephemeral",
+    }),
+    { excludeTestServices: true }
+  )((it) => {
+    it.effect("puts a user's settings in force over detection", () =>
+      Effect.gen(function* () {
+        const project = yield* ProjectManager;
+        const { repo, settings } = yield* ProjectFixture;
+        // Detection reads the repository while the user saves: whichever lands first, the
+        // user's settings are the ones in force.
+        const detecting = yield* Effect.forkScoped(
+          project.adoptDetected(repo),
+          {
+            startImmediately: true,
+          }
+        );
+        assert.isTrue((yield* project.set({ ...settings, theme: "dark" })).ok);
+        yield* Fiber.join(detecting);
+        assert.strictEqual((yield* running).theme, "dark");
+        const info = yield* project.info;
+        assert.strictEqual(info.setup, "saved");
+
+        // Detected later, nothing replaces them either.
+        const scope = yield* projectScope;
+        yield* project.adoptDetected(repo);
+        assert.strictEqual(yield* projectScope, scope);
+        assert.strictEqual((yield* running).theme, "dark");
+      })
+    );
+  });
+
+  layer(ProjectTest({ git: false, settings: { git: "on" } }), {
+    excludeTestServices: true,
+  })((it) => {
+    it.effect(
+      "tells the editor of the user's name and of a repository made",
+      () =>
+        Effect.gen(function* () {
+          const project = yield* ProjectManager;
+          const profile = yield* ProfileService;
+          const named = yield* toldOf(
+            (info) => info.displayName === "Ada",
+            profile.set({ displayName: "Ada" })
+          );
+          assert.isDefined(named.told);
+
+          assert.isFalse((yield* project.info).gitRepository);
+          const made = yield* toldOf(
+            (info) => info.gitRepository === true,
+            project.use(Effect.flatMap(GitService, (git) => git.init))
+          );
+          assert.isDefined(made.told);
+        })
+    );
+  });
+});

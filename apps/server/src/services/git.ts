@@ -5,7 +5,7 @@ import type {
   GitStatus,
 } from "@ultrapaint/contracts/git";
 import { writesGit } from "@ultrapaint/contracts/settings";
-import { Context, Effect, Layer, Semaphore } from "effect";
+import { Context, Effect, Layer, PubSub, Semaphore, Stream } from "effect";
 import { ChildProcessSpawner } from "effect/process";
 import { runCommand } from "../process.ts";
 import { RepoPaths } from "./repo-paths.ts";
@@ -72,6 +72,8 @@ export class GitService extends Context.Service<
   GitService,
   {
     readonly branch: Effect.Effect<string, CommandFailed>;
+    /** Each time `init` makes the project's folder a repository. */
+    readonly changes: Stream.Stream<void>;
     /**
      * Whether git is installed and the project's folder is in a repository: what git says is
      * read only then. Asked each time, since a repository can be made while the project is open.
@@ -193,18 +195,21 @@ export class GitService extends Context.Service<
         Effect.orElseSucceed(() => false)
       );
 
+      const changes = yield* PubSub.unbounded<void>();
       const init = Effect.gen(function* () {
         yield* writable("make this folder a repository");
         if (yield* repository) {
           return;
         }
         yield* run(["init", "--quiet"]);
+        yield* PubSub.publish(changes, undefined);
       }).pipe(Effect.withSpan("GitService.init"));
 
       return GitService.of({
         branch: Effect.map(run(["rev-parse", "--abbrev-ref", "HEAD"]), (out) =>
           out.trim()
         ),
+        changes: Stream.fromPubSub(changes),
         commit,
         diff,
         init,

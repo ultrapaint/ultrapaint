@@ -4,7 +4,6 @@ import {
   type Settings,
 } from "@ultrapaint/contracts/settings";
 import {
-  applySuggestions,
   describeSuggestions,
   type SetupSuggestions,
 } from "@ultrapaint/contracts/setup";
@@ -35,7 +34,7 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { startApplication } from "../lib/scaffold.ts";
-import { api } from "../state/connection.ts";
+import { detect, setUpDesigns } from "../lib/settings-actions.ts";
 import { showSetup as showSync } from "../state/design-system-setup.ts";
 import { useProject } from "../state/project.ts";
 import { dismissInit, useSetup } from "../state/setup.ts";
@@ -121,11 +120,10 @@ const ConfigureForm = () => {
     if (saved || !repoPath) {
       return;
     }
-    api()
-      .request("setup.detect", { repoPath })
-      .then((suggestions) => {
-        setFound(suggestions);
-        setDraft(applySuggestions(defaultSettings(repoPath), suggestions));
+    detect(defaultSettings(repoPath))
+      .then((detection) => {
+        setFound(detection.found);
+        setDraft(detection.settings);
       })
       .catch((error: Error) => {
         setProblems([error.message]);
@@ -144,16 +142,9 @@ const ConfigureForm = () => {
     }
     setBusy(true);
     try {
-      // The designs directory is created when it is not there yet; nothing else is written.
-      await api().request("setup.createDesigns", {
-        designsDir: draft.designsDir,
-        repoPath: draft.repoPath,
-        resolveFrom: draft.resolveFrom,
-      });
-      const validation = await api().request("settings.set", draft);
-      setProblems(validation.problems);
-      if (validation.ok) {
-        await useProject.getState().load();
+      const refused = await setUpDesigns(draft);
+      setProblems(refused);
+      if (refused.length === 0) {
         openSync();
       }
     } catch (error) {

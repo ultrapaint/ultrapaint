@@ -7,7 +7,6 @@ import {
   writesGit,
 } from "@ultrapaint/contracts/settings";
 import {
-  applySuggestions,
   describeSuggestions,
   type SetupSuggestions,
 } from "@ultrapaint/contracts/setup";
@@ -33,6 +32,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { OptionSelect } from "../components/option-select.tsx";
+import { detect, save, setUpDesigns } from "../lib/settings-actions.ts";
 import { startInit } from "../lib/start-thread.ts";
 import { platform } from "../platform.ts";
 import { api } from "../state/connection.ts";
@@ -414,12 +414,11 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     setBusy(true);
     let ok = false;
     try {
-      const v = await api().request("settings.set", draft);
-      setProblems(v.problems);
-      ({ ok } = v);
+      const refused = await save(draft);
+      setProblems(refused);
+      ok = refused.length === 0;
       if (ok) {
         useProject.getState().openSettings(false);
-        await useProject.getState().load();
       }
     } catch (error) {
       setProblems([(error as Error).message]);
@@ -428,7 +427,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     return ok;
   };
   // The design system is offered at the first edit, by the setup dialog.
-  const save = async () => {
+  const saveAndOpen = async () => {
     await apply();
   };
   const saveToFile = async () => {
@@ -443,11 +442,10 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     if (!draft.repoPath) {
       return;
     }
-    api()
-      .request("setup.detect", { repoPath: draft.repoPath })
-      .then((suggestions) => {
-        setFound(suggestions);
-        setDraft((d) => applySuggestions(d, suggestions));
+    detect(draft)
+      .then((detection) => {
+        setFound(detection.found);
+        setDraft(detection.settings);
         setProblems([]);
       })
       .catch((error: Error) => setProblems([error.message]));
@@ -458,11 +456,10 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     if (!firstRepoPath) {
       return;
     }
-    api()
-      .request("setup.detect", { repoPath: firstRepoPath })
-      .then((suggestions) => {
-        setFound(suggestions);
-        setDraft((d) => applySuggestions(d, suggestions));
+    detect(defaultSettings(firstRepoPath))
+      .then((detection) => {
+        setFound(detection.found);
+        setDraft(detection.settings);
       })
       // The form works without suggestions; a repository that cannot be read says so on save.
       .catch(() => setFound(null));
@@ -471,12 +468,11 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
   const createDesigns = async () => {
     setBusy(true);
     try {
-      await api().request("setup.createDesigns", {
-        designsDir: draft.designsDir,
-        repoPath: draft.repoPath,
-        resolveFrom: draft.resolveFrom,
-      });
-      await apply();
+      const refused = await setUpDesigns(draft);
+      setProblems(refused);
+      if (refused.length === 0) {
+        useProject.getState().openSettings(false);
+      }
     } catch (error) {
       setProblems([(error as Error).message]);
     }
@@ -825,7 +821,7 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
                     Save to file…
                   </Button>
                 ) : null}
-                <Button disabled={busy} onClick={save}>
+                <Button disabled={busy} onClick={saveAndOpen}>
                   {saveLabel}
                 </Button>
               </div>
