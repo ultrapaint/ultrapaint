@@ -22,7 +22,14 @@ import { nodeIn, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { selectForMenu, useEditor } from "../state/editor.ts";
 import { isSelected, selectedIn } from "../state/selection.ts";
 import { stepInto } from "../state/tree.ts";
-import { beginDrag, type Dragged, endDrag, moveDrag, useDrag } from "./drag.ts";
+import {
+  beginDrag,
+  cancelDrag,
+  type Dragged,
+  endDrag,
+  moveDrag,
+  useDrag,
+} from "./drag.ts";
 import { frameOf } from "./editor-frame.ts";
 import { hitUnlocked } from "./hit-test.ts";
 import { holdsFree } from "./snap.ts";
@@ -306,24 +313,44 @@ export const useFramePointer = ({
     beginDrag(target, p.x, p.y, p.last.alt, p.last.free);
     moveDrag(p.last.x, p.last.y, p.last.alt, p.last.free);
   };
+  /** The marquee stops being drawn; whether it selects what it touches is `selects`. */
+  const endMarquee = (selects: boolean) => {
+    marqueeFrom.current = null;
+    const waiting = marqueeTo.current;
+    marqueeTo.current = null;
+    if (waiting) {
+      cancelAnimationFrame(waiting.request);
+    }
+    const drawn = waiting?.rect ?? marquee;
+    setMarquee(null);
+    if (drawn && selects) {
+      selectInMarquee(drawn);
+    } else {
+      marqueeIn.current = null;
+    }
+  };
   const onPointerUp = () => {
     press.current = null;
     if (marqueeFrom.current) {
-      marqueeFrom.current = null;
-      const waiting = marqueeTo.current;
-      marqueeTo.current = null;
-      if (waiting) {
-        cancelAnimationFrame(waiting.request);
-      }
-      const drawn = waiting?.rect ?? marquee;
-      setMarquee(null);
-      if (drawn) {
-        selectInMarquee(drawn);
-      }
+      endMarquee(true);
       return;
     }
     if (useDrag.getState().dragged) {
       endDrag();
+    }
+  };
+  /**
+   * The browser took the pointer away: what is dragged goes back where it was, as a node on the
+   * canvas does, and a marquee selects nothing.
+   */
+  const onPointerCancel = () => {
+    press.current = null;
+    if (marqueeFrom.current) {
+      endMarquee(false);
+      return;
+    }
+    if (useDrag.getState().dragged) {
+      cancelDrag();
     }
   };
 
@@ -434,6 +461,7 @@ export const useFramePointer = ({
     onContextMenu,
     onDoubleClick,
     onPlaceComment,
+    onPointerCancel,
     onPointerDown,
     onPointerLeave,
     onPointerMove,

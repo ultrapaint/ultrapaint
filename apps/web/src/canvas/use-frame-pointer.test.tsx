@@ -1,0 +1,159 @@
+// @vitest-environment happy-dom
+import type {
+  DesignNode,
+  DocumentState,
+} from "@ultrapaint/contracts/document";
+import type { PointerEvent as ReactPointerEvent } from "react";
+import { act, useEffect } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useDocuments } from "../state/documents.ts";
+import { useEditor } from "../state/editor.ts";
+import { useProject } from "../state/project.ts";
+import { fakeApi } from "../testing/fake-api.ts";
+import { useDrag } from "./drag.ts";
+import { useFramePointer } from "./use-frame-pointer.ts";
+
+vi.mock(
+  "../state/connection.ts",
+  async () => (await import("../testing/fake-api.ts")).connectionModule
+);
+
+/** The page's preview: the text `t1` under every point, where it is drawn. */
+vi.mock("./editor-frame.ts", () => ({
+  frameOf: () => ({
+    hitTest: () => ["home-root", "t1"],
+    measure: () => ({ t1: { height: 20, width: 50, x: 10, y: 10 } }),
+  }),
+}));
+
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
+
+const HOME = "home.page.json";
+const root: DesignNode = {
+  children: [{ id: "t1", role: "paragraph", text: "Hi", type: "text" }],
+  id: "home-root",
+  type: "page",
+} as DesignNode;
+const homeDoc: DocumentState = { doc: HOME, hash: `${HOME}@0`, root };
+
+type Handlers = ReturnType<typeof useFramePointer>;
+let handlers: Handlers | null = null;
+
+/** Hands on the handlers of each render, as the frame would use them. */
+const Probe = ({ report }: { report: (h: Handlers) => void }) => {
+  const latest = useFramePointer({
+    canvas: "main",
+    frame: { x: 0, y: 0 },
+    frameId: HOME,
+    kind: "page",
+    root,
+  });
+  useEffect(() => report(latest));
+  return null;
+};
+
+const pointerAt = (clientX: number, clientY: number) =>
+  ({
+    altKey: false,
+    button: 0,
+    clientX,
+    clientY,
+    ctrlKey: false,
+    currentTarget: {
+      getBoundingClientRect: () => ({ left: 0, top: 0 }),
+      setPointerCapture: () => undefined,
+    },
+    metaKey: false,
+    pointerId: 1,
+    shiftKey: false,
+  }) as unknown as ReactPointerEvent;
+
+const current = (): Handlers => {
+  if (!handlers) {
+    throw new Error("the probe has not rendered");
+  }
+  return handlers;
+};
+
+describe("a node dragged inside a page", () => {
+  let mounted: Root;
+
+  beforeEach(() => {
+    fakeApi.reset();
+    fakeApi.respond("documents.apply", () => ({ created: [], documents: [] }));
+    useProject.setState({
+      canvases: [{ home: "/", id: "main", name: "Main", variants: [] }],
+      info: {
+        configured: true,
+        host: { state: "stopped" },
+        storage: { mode: "managed" },
+      },
+      pages: [
+        {
+          canvas: "main",
+          file: `designs/${HOME}`,
+          id: HOME,
+          name: "home",
+          path: HOME,
+        },
+      ],
+    });
+    useDocuments.setState({ docs: { [HOME]: homeDoc } });
+    useEditor.setState({
+      canvas: "main",
+      frames: {
+        [HOME]: { height: 900, preset: "desktop", width: 1440, x: 0, y: 0 },
+      },
+      selection: { frame: HOME, nodeId: "t1" },
+      view: { x: 0, y: 0, zoom: 1 },
+    });
+    useDrag.setState({ dragged: null, drop: null });
+    mounted = createRoot(document.createElement("div"));
+    act(() =>
+      mounted.render(
+        <Probe
+          report={(h) => {
+            handlers = h;
+          }}
+        />
+      )
+    );
+  });
+
+  afterEach(() => {
+    act(() => mounted.unmount());
+    handlers = null;
+  });
+
+  it("is put back when the browser takes the pointer away", async () => {
+    current().onPointerDown(pointerAt(20, 20));
+    // Off the page, over the empty canvas: let go there, it would land on the canvas.
+    current().onPointerMove(pointerAt(2000, 2000));
+    expect(useDrag.getState()).toMatchObject({
+      dragged: { kind: "node" },
+      drop: { kind: "canvas" },
+    });
+    current().onPointerCancel();
+    expect(useDrag.getState().dragged).toBeNull();
+    // The pointerup that may still come lands nothing.
+    current().onPointerUp();
+    await Promise.resolve();
+    expect(fakeApi.calls.filter((c) => c.method === "documents.apply")).toEqual(
+      []
+    );
+  });
+
+  it("lands where it is let go", async () => {
+    current().onPointerDown(pointerAt(20, 20));
+    current().onPointerMove(pointerAt(2000, 2000));
+    current().onPointerUp();
+    await vi.waitFor(() =>
+      expect(
+        fakeApi.calls.filter((c) => c.method === "documents.apply")
+      ).toHaveLength(1)
+    );
+  });
+});

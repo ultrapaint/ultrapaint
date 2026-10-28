@@ -212,6 +212,7 @@ export const Frame = memo(
       onContextMenu,
       onDoubleClick,
       onPlaceComment,
+      onPointerCancel,
       onPointerDown,
       onPointerLeave,
       onPointerMove,
@@ -276,6 +277,7 @@ export const Frame = memo(
             onContextMenu={onContextMenu}
             onDoubleClick={onDoubleClick}
             onGone={onSelectLayerGone}
+            onPointerCancel={onPointerCancel}
             onPointerDown={onPointerDown}
             onPointerLeave={onPointerLeave}
             onPointerMove={onPointerMove}
@@ -389,6 +391,7 @@ const SelectLayer = ({
   onContextMenu,
   onDoubleClick,
   onGone,
+  onPointerCancel,
   onPointerDown,
   onPointerLeave,
   onPointerMove,
@@ -400,6 +403,7 @@ const SelectLayer = ({
   onDoubleClick: LayerHandler<ReactMouseEvent>;
   /** Called as the layer goes away: the pointer resting on it then sends no leave. */
   onGone: () => void;
+  onPointerCancel: () => void;
   onPointerDown: LayerHandler<ReactPointerEvent>;
   onPointerLeave: LayerHandler<ReactPointerEvent>;
   onPointerMove: LayerHandler<ReactPointerEvent>;
@@ -422,7 +426,7 @@ const SelectLayer = ({
       onClick={onClick}
       onContextMenu={onContextMenu}
       onDoubleClick={onDoubleClick}
-      onPointerCancel={onPointerUp}
+      onPointerCancel={onPointerCancel}
       onPointerDown={onPointerDown}
       onPointerLeave={onPointerLeave}
       onPointerMove={onPointerMove}

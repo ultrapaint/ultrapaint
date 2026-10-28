@@ -135,10 +135,11 @@ interface EditorStore {
   selectMany: (selections: readonly Selection[]) => void;
   selectPage: (pageId: string | null) => void;
   /**
-   * Sets a frame: a page's (its views move with it) or a view's (ADR 0036). A page's frame given
-   * without views keeps the ones it has.
+   * Sets a frame and saves the layout: a page's (its views move with it) or a view's (ADR 0036).
+   * A page's frame given without views keeps the ones it has. A frame gesture shows the frame as
+   * it goes (`showFrame`) and sets it once when it is let go.
    */
-  setFrame: (pageId: string, frame: FrameLayout, persist?: boolean) => void;
+  setFrame: (pageId: string, frame: FrameLayout) => void;
   setHover: (hover: EditorStore["hover"]) => void;
   setMode: (mode: Mode) => void;
   setPreset: (pageId: string, preset: ViewportPreset) => void;
@@ -225,6 +226,13 @@ export const hold = (frame: string, box: Partial<Box> | null) =>
     const { [frame]: _released, ...held } = s.held;
     return { held };
   });
+
+/**
+ * Draws a frame at `frame` without saving it, as `setFrame` places it: a frame gesture's frame
+ * while the pointer moves it, and where it was when the gesture is put back.
+ */
+export const showFrame = (pageId: string, frame: FrameLayout) =>
+  useEditor.setState((s) => ({ frames: framesWith(s.frames, pageId, frame) }));
 
 /**
  * Keeps a node on the canvas at `box` while `commit` takes it to its document, then leaves it to
@@ -540,11 +548,9 @@ export const useEditor = create<EditorStore>((set, get) => ({
       followFrame(pageId);
     }
   },
-  setFrame: (pageId, frame, persist = true) => {
-    set((s) => ({ frames: framesWith(s.frames, pageId, frame) }));
-    if (persist) {
-      persistLayout(get, set);
-    }
+  setFrame: (pageId, frame) => {
+    showFrame(pageId, frame);
+    persistLayout(get, set);
   },
   // The pointer reports the same node many times a second; only a change is news.
   setHover: (hover) =>

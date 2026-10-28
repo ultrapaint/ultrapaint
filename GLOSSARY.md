@@ -136,6 +136,11 @@ review found.
   connection open once asked for, the project's first, and an answer for a canvas no longer open
   is dropped. A snapshot on screen is the other **source** of what it keeps (the pages, the
   documents, the layouts), whose news waits until the editor goes back to now (ADR 0019).
+- **Frame gesture**: moving or sizing a page's frame, or sizing a node on the canvas, from the
+  press on its name or corner to the release (the web's `frame-gesture`): drawn as it goes, saved
+  once when let go (a page's frame rounded to the pixel, a node in one "Resize" edit). A cancelled
+  pointer or Escape puts back whatever the pointer is doing, a drag or a group being drawn too, and
+  saves nothing.
 - **Selection**: the nodes of a page the user picked, which every view of the page shows, by one
   rule (the web's `selection`): a Shift-click in another view adds to it. It is in the view it was
   made in, whose breakpoint its fields are shown and edited at; a node of it Shift-clicked or

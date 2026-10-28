@@ -52,12 +52,14 @@ export const Highlights = ({ frameId }: { frameId: string }) => {
   const frameWidth = useEditor(
     (s) =>
       s.frames[frameId]?.width ??
+      s.held[frameId]?.width ??
       s.sizes[frameId]?.width ??
       Number.POSITIVE_INFINITY
   );
   const frameHeight = useEditor(
     (s) =>
       s.frames[frameId]?.height ??
+      s.held[frameId]?.height ??
       s.sizes[frameId]?.height ??
       Number.POSITIVE_INFINITY
   );

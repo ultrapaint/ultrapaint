@@ -688,3 +688,35 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
     within a breakpoint; a node at its own width; a node held at a size, at that size's
     breakpoint, the same tree held again; a node held only where it was let go as its document
     has it.
+12. **Frame gestures, one module** (`apps/web/src/canvas/frame-gesture.ts`). A press on a frame's
+    name or corner begins its gesture (`beginFrameGesture`, the frames' `onDragStart`): a page's
+    frame (or a view's) moved or sized, a node on the canvas sized, a node on the canvas moved by
+    its name a drag as before (`followLooseDrag`, which moved here), a locked one only selected.
+    Each follows the pointer on the window through one helper, which puts back a gesture whose
+    pointerup never came before the next begins. A page's frame is drawn as it goes with
+    `showFrame` (the store's frames, nothing sent) and set once when let go, rounded
+    (`setFrame`, one `canvas.set`); a node is held at its size as it goes (`hold`) and kept there
+    until its one "Resize" edit lands (`holdUntil`). A cancelled pointer puts the gesture back:
+    the frame shown where it was, the node held as it was before (its document's size when it was
+    not, which its frame draws again). `cancelGesture()` puts back whatever the pointer is doing,
+    this gesture, a drag (`useDrag`) or a group or text being drawn (`useCreate`), and says
+    whether there was one: the canvas's Escape stops there when there was. `resizeFrom` and
+    `placeFrame` moved here with it. The `useRef` union leaves `Canvas`, which keeps only where a
+    pan began; `setFrame`'s `persist` flag goes (it always saves), and the node's resize no
+    longer writes its measured size (`setSize`): the outlines clip at the box it is held at.
+    Fixed: a cancelled pointer saved a page's frame where the pointer had taken it, and a node's
+    resize as a "Resize" edit; Escape did nothing to a frame being moved or sized (and went on to
+    the other Escape handlers). Also: a node dragged inside a page is put back on a cancelled pointer
+    (`useFramePointer`'s `onPointerCancel`; it was dropped where the pointer was, onto the canvas
+    when over nothing), and a marquee cancelled selects nothing; Escape on a node dragged on the
+    canvas stops following the window too; a click on a frame's name without moving it no longer
+    saves the layout. Left: touch and pen (no `touch-action`), Escape on a marquee, the layout's
+    save timer (step 13). `canvas.test.ts` goes: `frame-gesture.test.ts` has its helpers' tests
+    and 7 more through `useEditor` and `fakeApi`, the window's listeners stubbed: a move sends one
+    `canvas.set`, rounded, on release; a cancelled pointer and Escape put the frame back and send
+    nothing; Escape puts back a drag and a group being drawn; a node's resize holds it and sends
+    one "Resize" edit; a cancelled one sends none and holds nothing; a click on a frame's name
+    sends nothing. They failed first with the module missing; the old gestures lived in `Canvas`,
+    which no test rendered. `use-frame-pointer.test.tsx` renders the hook in happy-dom over a
+    stand-in preview: a node dragged off its page and cancelled is put back and sends no edit
+    (failed first: the hook had no cancel), and let go there it lands.
