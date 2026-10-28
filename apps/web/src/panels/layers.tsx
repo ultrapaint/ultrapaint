@@ -4,7 +4,8 @@
  * selects what it names on the canvas, and rows are dragged to move nodes — inside a page,
  * between pages, onto the canvas and back. A layer is renamed in its row, hidden and locked from
  * it, and found by typing into the filter above the tree. The tree answers the keyboard as the
- * WAI-ARIA tree pattern has it: the arrows walk and fold it, Enter selects, F2 renames.
+ * WAI-ARIA tree pattern has it: the arrows walk and fold it, Enter selects, F2 renames. Its keys
+ * are the command list's (`focusBindings.layersRow`); the tree hosts their scope.
  */
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page } from "@ultrapaint/contracts/pages";
@@ -52,6 +53,7 @@ import { IconButton } from "../components/icon-button.tsx";
 import { NodeIcon } from "../components/node-icon.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
 import { editedFrameOf, useDrawnIn } from "../lib/breakpoint-edits.ts";
+import { scopeKeyDown } from "../lib/keymap.ts";
 import { describeLink } from "../lib/links.ts";
 import { renameNodeTo, setHidden, setLocked } from "../lib/node-actions.ts";
 import { renamePageTo } from "../lib/page-actions.ts";
@@ -92,7 +94,6 @@ import {
   pageItem,
   pageKey,
   pagesOpen,
-  TREE_KEYS,
   treeMove,
   type VisibleRow,
   visibleRows,
@@ -191,36 +192,6 @@ const withKey = (set: ReadonlySet<string>, key: string, present: boolean) => {
     next.delete(key);
   }
   return next;
-};
-
-/** The node a row names, as the selection would. */
-const at = (item: LayerItem): Selection | undefined =>
-  item.node ? { frame: item.frame, nodeId: item.node.id } : undefined;
-
-/**
- * Keys that do something to the focused row itself, past walking the tree: Enter and Space select
- * it, Shift adding it to the rest; F2 renames it; ⇧⌘H and ⇧⌘L hide and lock it, as in Figma.
- * Returns whether the key was one of them.
- */
-const rowAction = (
-  e: KeyboardEvent<HTMLDivElement>,
-  item: LayerItem,
-  rename: (key: string) => void
-) => {
-  const command = (e.metaKey || e.ctrlKey) && e.shiftKey && !item.page;
-  const letter = e.key.toLowerCase();
-  if (e.key === "Enter" || e.key === " ") {
-    selectItem(item, e.shiftKey);
-  } else if (e.key === "F2") {
-    rename(item.key);
-  } else if (command && letter === "h") {
-    setHidden(!item.node?.hidden, at(item));
-  } else if (command && letter === "l") {
-    setLocked(!item.node?.locked, at(item));
-  } else {
-    return false;
-  }
-  return true;
 };
 
 /** The treeitem a key was pressed on, or the focus went to; null for a field or a button in it. */
@@ -628,29 +599,24 @@ export const Layers = () => {
     } else if (move) {
       setRowOpen(move.collapse, false);
     }
-    return true;
   };
 
   /**
    * The tree's keys, for whichever row has the focus. They are kept from the canvas, whose own
    * arrows walk the selection and whose Enter edits text.
    */
-  const onTreeKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+  const onTreeKeyDown = scopeKeyDown("layersRow", (e) => {
     const key = treeItemKey(e.target);
     const item = key === null ? null : findItem(shown, key);
-    if (!item) {
-      return;
-    }
-    const plain = !(e.metaKey || e.ctrlKey || e.altKey || e.shiftKey);
-    const handled =
-      plain && TREE_KEYS.has(e.key)
-        ? walkFrom(item.key, e.key)
-        : rowAction(e, item, setRenaming);
-    if (handled) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-  };
+    return item
+      ? {
+          item,
+          rename: () => setRenaming(item.key),
+          select: (add) => selectItem(item, add),
+          walk: (pressed) => walkFrom(item.key, pressed),
+        }
+      : null;
+  });
 
   const onTreeFocus = (e: FocusEvent<HTMLDivElement>) => {
     const key = treeItemKey(e.target);

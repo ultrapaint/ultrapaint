@@ -1,13 +1,17 @@
 /**
- * Everything the editor can be asked to do from the command palette (⌘K), and every key it
- * answers to, in one list: the palette runs the commands, and the shortcut sheet lists their
- * keys. The palette adds what depends on the moment beside them: the selection's own menu, the
- * pages, the canvases and the chats. Keys are written once, the Mac way, and shown as the
- * platform writes them.
+ * Everything the editor can be asked to do, in one list, with the keys that do it. The command
+ * palette (⌘K) runs a command; the key handler (`keymap.ts`) runs the same `run` when one of its
+ * keys is pressed where the key works; the shortcut sheet, the palette, the menus and the
+ * buttons' tooltips show its keys from here. Some commands are keys only: they act on what is
+ * selected or on what has the focus (a row of the Layers panel), so the palette has nothing to
+ * run for them. The palette adds what depends on the moment beside them: the selection's own
+ * menu, the pages, the canvases and the chats. A key is written once, as a chord (`keys.ts`).
  */
 import type { Page } from "@ultrapaint/contracts/pages";
 import type { Thread } from "@ultrapaint/contracts/threads";
+import { openCommandPalette } from "../components/command-palette.tsx";
 import { openShortcutSheet } from "../components/shortcut-sheet.tsx";
+import type { LayerItem } from "../panels/layer-tree.ts";
 import { useAgents } from "../state/agents.ts";
 import { setView, zoomToFit, zoomToSelection } from "../state/camera.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
@@ -21,20 +25,38 @@ import {
   railTabs,
   useEditor,
   type Workspace,
+  workspaceOrder,
 } from "../state/editor.ts";
 import { openLeftPanel, usePanels } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import { newCanvas, openCanvas } from "./canvas-actions.ts";
 import { pickFigmaFile } from "./import-figma.ts";
+import { type Keys, keysLabel } from "./keys.ts";
 import { entriesFor, runEntry } from "./menu-actions.ts";
 import type { Entry } from "./menu-model.ts";
+import {
+  deleteSelection,
+  duplicateSelection,
+  setHidden,
+  setLocked,
+  wrapSelection,
+} from "./node-actions.ts";
 import { goToPage, newPage, zoomToPage } from "./page-actions.ts";
-import { undoOrRedo, viewportSize, zoomBy } from "./shortcuts.ts";
+import {
+  dismiss,
+  editSelectedText,
+  openSelectionMenuByKey,
+  undoOrRedo,
+  viewportSize,
+  walkSelection,
+  zoomBy,
+} from "./shortcuts.ts";
 import { createThread } from "./start-thread.ts";
 
 /** The sections of the palette and of the shortcut sheet, in the order they are shown. */
 export const commandGroups = [
   "Selection",
+  "Layers",
   "Agents",
   "Panels",
   "Tools",
@@ -45,21 +67,91 @@ export const commandGroups = [
 ] as const;
 export type CommandGroup = (typeof commandGroups)[number];
 
-/** A key the editor answers to, as the shortcut sheet lists it. */
-export interface Shortcut {
+/**
+ * Where the window's keys work: `always` in a text field too, for what nothing is typed with;
+ * `editor` outside text fields, in either workspace; `canvas` outside text fields on the canvas,
+ * as the prototype shows no selection and leaves the browser its zoom keys. No key works while a
+ * dialog, a menu or the settings page is open.
+ */
+export type WindowScope = "always" | "editor" | "canvas";
+
+/** A row of the Layers panel, which a key is pressed on. */
+export interface LayerRow {
+  item: LayerItem;
+  rename: () => void;
+  /** Selects what it names, Shift adding it to the rest. */
+  select: (add: boolean) => void;
+  /** Moves the tree's focus from it, or opens or folds it, by an arrow, Home or End. */
+  walk: (key: string) => void;
+}
+
+/**
+ * The scopes something with the focus hosts: their keys go before the window's while it has the
+ * focus, and its host says what the key is pressed on (`scopeKeyDown` in `keymap.ts`).
+ */
+export interface FocusTargets {
+  layersRow: LayerRow;
+}
+export type FocusScope = keyof FocusTargets;
+
+/** A command's keys, and what reads them. */
+interface Bound {
+  /** Chords that do the same, not shown: Delete beside ⌫. */
+  also?: readonly Keys[];
   group: CommandGroup;
-  /** The keys, the Mac way: `⇧⌘Z`, `⌃1`. */
-  keys: string;
+  /** What a menu item names to show the keys of what it does. */
+  id: string;
+  /** Its chords, as the sheet, the palette and the menus show them. */
+  keys?: readonly Keys[];
+}
+
+/**
+ * What a key does. It gives back false when there was nothing to do it to, and the key is left to
+ * the browser; anything else, and the key was the editor's. `pressed` is the key's
+ * `KeyboardEvent.key`, for a command of several keys.
+ */
+type Run = (pressed?: string) => unknown;
+
+/** A command of the editor's, run by the palette and by its keys in the window. */
+export type CommandSpec = Bound & {
+  keywords?: string;
+  /** Whether the palette offers it now: always when not said. */
+  offered?: () => boolean;
+  /** Where its keys work; `editor` when not said. */
+  scope?: WindowScope;
+  /** Its name in the shortcut sheet, which lists it at any moment: said once, plainly. */
+  sheetTitle?: string;
+  /** Its name, read as the palette opens: it can say what it would do now. */
+  title: string | (() => string);
+} & (
+    | { clipboard?: never; run: Run }
+    | {
+        /**
+         * The browser turns the chord into a clipboard event, which the editor takes
+         * (`useClipboardEvents`): the key handler leaves it to the browser.
+         */
+        clipboard: "copy" | "cut" | "paste";
+        run?: never;
+      }
+  );
+
+/** A key of what has the focus, given what it is pressed on. */
+export interface FocusBinding<S extends FocusScope> extends Bound {
+  keys: readonly Keys[];
+  /** As a command's `Run`, on what the key was pressed on. */
+  run: (target: FocusTargets[S], pressed: string) => unknown;
+  scope: S;
   title: string;
 }
 
+/** A command as the palette lists it. */
 export interface Command {
   destructive?: boolean;
   /** Further words on the right of its title: where a page is, who a chat is with. */
   detail?: string;
   group: CommandGroup;
   id: string;
-  /** Its shortcut, the Mac way; listed in the sheet too. */
+  /** Its keys, as this platform writes them. */
   keys?: string;
   /** Other words it is found by. */
   keywords?: string;
@@ -67,10 +159,24 @@ export interface Command {
   title: string;
 }
 
+/** A key the editor answers to, as the shortcut sheet lists it. */
+export interface Shortcut {
+  group: CommandGroup;
+  /** As this platform writes them: `⇧⌘Z`, `Ctrl+Shift+Z`. */
+  keys: string;
+  title: string;
+}
+
 const editor = () => useEditor.getState();
 const onCanvas = () => editor().workspace === "design";
+/** A key that acts on what is selected or pressed in: the palette has nothing to run. */
+const keyOnly = () => false;
 
-/** Picks a tool of the canvas; commenting shows the comments too. */
+/**
+ * Picks a tool of the canvas; commenting shows the comments too. The prototype is clicked through
+ * or commented on: C goes in and out of commenting there, as its button in the bar does. The tool
+ * keys and the palette both come here.
+ */
 const pickTool = (tool: Mode) => {
   if (editor().workspace === "prototype") {
     if (tool === "comment") {
@@ -90,6 +196,15 @@ const showRight = (tab: RightTab) => {
   usePanels.getState().setHidden({ right: false });
 };
 
+/** Does something to every node selected, as one undo step; nothing when none is. */
+const toSelection = (act: () => unknown) => () => {
+  if (!editor().selection) {
+    return false;
+  }
+  act();
+  return true;
+};
+
 const leftPanels: readonly {
   tab: LeftTab;
   title: string;
@@ -106,315 +221,542 @@ const leftPanels: readonly {
   { keywords: "history diff git", tab: "changes", title: "Changes" },
 ];
 
+/** The canvas's tools; commenting is the prototype's too. */
 const tools: readonly { keys: string; title: string; tool: Mode }[] = [
-  { keys: "V", title: "Select", tool: "select" },
-  { keys: "G", title: "Group: draw a container", tool: "group" },
-  { keys: "T", title: "Text", tool: "text" },
+  { keys: "v", title: "Select", tool: "select" },
+  { keys: "g", title: "Group: draw a container", tool: "group" },
+  { keys: "t", title: "Text", tool: "text" },
   {
-    keys: "I",
+    keys: "i",
     title: "Use components: press their buttons, open their menus",
     tool: "interact",
   },
-  { keys: "H", title: "Pan, or hold Space", tool: "pan" },
-  { keys: "C", title: "Comment", tool: "comment" },
+  { keys: "h", title: "Pan, or hold Space", tool: "pan" },
+  { keys: "c", title: "Comment", tool: "comment" },
 ];
 
-const workspaces: readonly { title: string; workspace: Workspace }[] = [
-  { title: "Canvas", workspace: "design" },
-  { title: "Prototype: click through the design", workspace: "prototype" },
+const workspaceTitles: Record<Workspace, string> = {
+  design: "Canvas",
+  prototype: "Prototype: click through the design",
+};
+
+const toolCommand = (t: (typeof tools)[number]): CommandSpec => {
+  const both = t.tool === "comment";
+  return {
+    group: "Tools",
+    id: `tool:${t.tool}`,
+    keys: [t.keys],
+    ...(both ? {} : { offered: onCanvas }),
+    run: () => pickTool(t.tool),
+    scope: both ? "editor" : "canvas",
+    title: t.title,
+  };
+};
+
+const workspaceCommand = (w: Workspace, i: number): CommandSpec => ({
+  group: "View",
+  id: `workspace:${w}`,
+  // ⌃1–2 on a Mac, Alt+1–2 elsewhere: the browser keeps ⌘ on a Mac and Ctrl elsewhere for its
+  // tabs.
+  keys: [{ mac: `ctrl+${i + 1}`, other: `alt+${i + 1}` }],
+  keywords: w === "prototype" ? "play preview" : "design edit",
+  run: () => editor().setWorkspace(w),
+  scope: "always",
+  title: workspaceTitles[w],
+});
+
+const panelCommands = (): CommandSpec[] => [
+  {
+    group: "Agents",
+    id: "newChat",
+    keywords: "thread agent prompt ask",
+    run: () => {
+      openLeftPanel("chat");
+      createThread();
+    },
+    title: "New chat with an agent",
+  },
+  ...leftPanels.map(
+    (p): CommandSpec => ({
+      group: "Panels",
+      id: `panel:${p.tab}`,
+      ...(p.keywords ? { keywords: p.keywords } : {}),
+      offered: () => onCanvas() && railTabs.includes(p.tab),
+      run: () => openLeftPanel(p.tab),
+      title: `Show ${p.title}`,
+    })
+  ),
+  {
+    group: "Panels",
+    id: "right:design",
+    keywords: "inspector properties style",
+    offered: onCanvas,
+    run: () => showRight("design"),
+    title: "Show the inspector",
+  },
+  {
+    group: "Panels",
+    id: "right:code",
+    keywords: "jsx tailwind source",
+    offered: onCanvas,
+    run: () => showRight("code"),
+    title: "Show the code",
+  },
+  {
+    group: "Panels",
+    id: "right:comments",
+    keywords: "feedback notes pins",
+    offered: onCanvas,
+    run: () => showRight("comments"),
+    title: "Show the comments",
+  },
+  {
+    group: "Panels",
+    id: "toggleLeft",
+    keywords: "sidebar",
+    run: () => usePanels.getState().toggleLeft(),
+    title: () =>
+      usePanels.getState().left ? "Show the left panel" : "Hide the left panel",
+  },
+  {
+    group: "Panels",
+    id: "toggleRight",
+    keywords: "sidebar inspector code",
+    offered: onCanvas,
+    run: () => usePanels.getState().toggleRight(),
+    title: () =>
+      usePanels.getState().right
+        ? "Show the right panel"
+        : "Hide the right panel",
+  },
+  {
+    group: "Panels",
+    id: "toggleAll",
+    // As in Figma. Nothing is typed with it, so it works in a text field too; by the key's place
+    // as well, a layout may type something else there.
+    keys: ["mod+\\"],
+    keywords: "sidebar focus",
+    run: () => usePanels.getState().toggleAll(),
+    scope: "always",
+    title: "Hide or show the panels",
+  },
 ];
 
-/** The commands that make sense now: the panels the workspace offers, the canvas's tools on it. */
-export const commands = (): Command[] => {
-  const { workspace } = editor();
-  const panels = usePanels.getState();
-  const { settings, info } = useProject.getState();
-  const offered = workspace === "design" ? railTabs : [];
-  const list: Command[] = [
-    {
-      group: "Agents",
-      id: "newChat",
-      keywords: "thread agent prompt ask",
-      run: () => {
-        openLeftPanel("chat");
-        createThread();
-      },
-      title: "New chat with an agent",
+const viewCommands = (): CommandSpec[] => [
+  ...workspaceOrder.map(workspaceCommand),
+  {
+    group: "View",
+    id: "zoomFit",
+    keys: ["shift+1"],
+    offered: onCanvas,
+    run: () => zoomToFit(viewportSize()),
+    scope: "canvas",
+    title: "Zoom to fit",
+  },
+  {
+    group: "View",
+    id: "zoomSelection",
+    keys: ["shift+2"],
+    offered: onCanvas,
+    run: () => zoomToSelection(viewportSize()),
+    scope: "canvas",
+    title: "Zoom to the selection",
+  },
+  {
+    group: "View",
+    id: "zoom100",
+    keys: ["shift+0"],
+    offered: onCanvas,
+    run: () => setView({ zoom: 1 }),
+    scope: "canvas",
+    title: "Zoom to 100%",
+  },
+  {
+    also: ["mod+plus"],
+    group: "View",
+    id: "zoomIn",
+    keys: ["mod+="],
+    offered: onCanvas,
+    run: () => zoomBy(1.25),
+    scope: "canvas",
+    title: "Zoom in",
+  },
+  {
+    group: "View",
+    id: "zoomOut",
+    keys: ["mod+-"],
+    offered: onCanvas,
+    run: () => zoomBy(0.8),
+    scope: "canvas",
+    title: "Zoom out",
+  },
+  {
+    group: "View",
+    id: "grid",
+    // As in Figma: by the key's place too, a layout may type something else there.
+    keys: ["mod+'"],
+    keywords: "snap",
+    offered: onCanvas,
+    run: () => useCanvasGrid.getState().toggle(),
+    scope: "canvas",
+    sheetTitle: "Show or hide the grid; what is moved snaps to it",
+    title: () =>
+      useCanvasGrid.getState().visible ? "Hide the grid" : "Show the grid",
+  },
+];
+
+const projectCommands = (): CommandSpec[] => [
+  {
+    group: "Project",
+    id: "newPage",
+    offered: () => useProject.getState().info.configured,
+    run: () => {
+      newPage();
     },
-    ...leftPanels
-      .filter((p) => offered.includes(p.tab))
-      .map(
-        (p): Command => ({
-          group: "Panels",
-          id: `panel:${p.tab}`,
-          ...(p.keywords ? { keywords: p.keywords } : {}),
-          run: () => openLeftPanel(p.tab),
-          title: `Show ${p.title}`,
-        })
-      ),
-    ...(onCanvas()
-      ? [
-          {
-            group: "Panels",
-            id: "right:design",
-            keywords: "inspector properties style",
-            run: () => showRight("design"),
-            title: "Show the inspector",
-          } satisfies Command,
-          {
-            group: "Panels",
-            id: "right:code",
-            keywords: "jsx tailwind source",
-            run: () => showRight("code"),
-            title: "Show the code",
-          } satisfies Command,
-          {
-            group: "Panels",
-            id: "right:comments",
-            keywords: "feedback notes pins",
-            run: () => showRight("comments"),
-            title: "Show the comments",
-          } satisfies Command,
-        ]
-      : []),
-    {
-      group: "Panels",
-      id: "toggleLeft",
-      keywords: "sidebar",
-      run: () => panels.toggleLeft(),
-      title: panels.left ? "Show the left panel" : "Hide the left panel",
+    title: "New page…",
+  },
+  {
+    group: "Project",
+    id: "newCanvas",
+    offered: () => useProject.getState().info.configured,
+    run: () => {
+      newCanvas();
     },
-    ...(onCanvas()
-      ? [
-          {
-            group: "Panels",
-            id: "toggleRight",
-            keywords: "sidebar inspector code",
-            run: () => panels.toggleRight(),
-            title: panels.right
-              ? "Show the right panel"
-              : "Hide the right panel",
-          } satisfies Command,
-        ]
-      : []),
-    {
-      group: "Panels",
-      id: "toggleAll",
-      keys: "⌘\\",
-      keywords: "sidebar focus",
-      run: () => panels.toggleAll(),
-      title: "Hide or show the panels",
-    },
-    ...workspaces.map(
-      (w, i): Command => ({
-        group: "View",
-        id: `workspace:${w.workspace}`,
-        keys: `⌃${i + 1}`,
-        keywords: w.workspace === "prototype" ? "play preview" : "design edit",
-        run: () => editor().setWorkspace(w.workspace),
-        title: w.title,
-      })
-    ),
-    ...(workspace === "design"
-      ? tools.map(
-          (t): Command => ({
-            group: "Tools",
-            id: `tool:${t.tool}`,
-            keys: t.keys,
-            run: () => pickTool(t.tool),
-            title: t.title,
-          })
-        )
-      : [
-          {
-            group: "Tools",
-            id: "tool:comment",
-            keys: "C",
-            run: () => pickTool("comment"),
-            title: "Comment",
-          } satisfies Command,
-        ]),
+    title: "New canvas…",
+  },
+  {
+    group: "Project",
+    id: "importFigma",
+    keywords: "fig",
+    offered: () => useProject.getState().info.configured,
+    run: pickFigmaFile,
+    title: "Import a Figma file…",
+  },
+  {
+    group: "Project",
+    id: "settings",
+    keywords: "preferences configuration repository",
+    run: () => useProject.getState().openSettings(true),
+    title: () =>
+      useProject.getState().settings ? "Settings" : "Set up the project",
+  },
+  {
+    group: "Project",
+    id: "shortcuts",
+    keys: ["?"],
+    keywords: "keyboard keys help",
+    run: openShortcutSheet,
+    title: "Keyboard shortcuts",
+  },
+];
+
+/**
+ * The keys that act on what is selected or on what the key is pressed in: no command of the
+ * palette's, which offers the selection's own menu instead.
+ */
+const keyOnlyCommands = (): CommandSpec[] => [
+  {
+    group: "Project",
+    id: "palette",
+    keys: ["mod+k"],
+    offered: keyOnly,
+    run: openCommandPalette,
+    scope: "always",
+    title: "Every command",
+  },
+  {
+    clipboard: "copy",
+    group: "Edit",
+    id: "copy",
+    keys: ["mod+c"],
+    offered: keyOnly,
+    scope: "canvas",
+    title: "Copy",
+  },
+  {
+    clipboard: "cut",
+    group: "Edit",
+    id: "cut",
+    keys: ["mod+x"],
+    offered: keyOnly,
+    scope: "canvas",
+    title: "Cut",
+  },
+  {
+    clipboard: "paste",
+    group: "Edit",
+    id: "paste",
+    keys: ["mod+v"],
+    offered: keyOnly,
+    scope: "canvas",
+    title: "Paste",
+  },
+  {
+    group: "Selection",
+    id: "duplicate",
+    keys: ["mod+d"],
+    offered: keyOnly,
+    run: toSelection(() => duplicateSelection()),
+    scope: "canvas",
+    title: "Duplicate",
+  },
+  {
+    group: "Selection",
+    id: "wrap:group",
+    keys: ["mod+g"],
+    offered: keyOnly,
+    run: toSelection(() => wrapSelection("group")),
+    scope: "canvas",
+    title: "Wrap in a group",
+  },
+  {
+    group: "Selection",
+    id: "wrap:row",
+    keys: ["mod+alt+g"],
+    offered: keyOnly,
+    run: toSelection(() => wrapSelection("row")),
+    scope: "canvas",
+    title: "Wrap in a row",
+  },
+  {
+    group: "Selection",
+    id: "wrap:column",
+    keys: ["mod+shift+g"],
+    offered: keyOnly,
+    run: toSelection(() => wrapSelection("column")),
+    scope: "canvas",
+    title: "Wrap in a column",
+  },
+  {
+    also: ["delete", "mod+backspace"],
+    group: "Selection",
+    id: "delete",
+    keys: ["backspace"],
+    offered: keyOnly,
+    run: toSelection(() => deleteSelection()),
+    scope: "canvas",
+    title: "Delete",
+  },
+  {
+    group: "Selection",
+    id: "editText",
+    keys: ["enter"],
+    offered: keyOnly,
+    run: editSelectedText,
+    scope: "canvas",
+    title: "Edit the text",
+  },
+  {
+    // An open comment, the prototype's commenting and a selected page are let go of first.
+    group: "Selection",
+    id: "selectParent",
+    keys: ["escape"],
+    offered: keyOnly,
+    run: () => dismiss() || walkSelection("Escape"),
+    title: "Select the parent",
+  },
+  {
+    group: "Selection",
+    id: "selectSibling",
+    keys: ["arrowup", "arrowdown"],
+    offered: keyOnly,
+    run: (pressed) => walkSelection(pressed ?? ""),
+    scope: "canvas",
+    title: "Select the previous or next element",
+  },
+  {
+    group: "Selection",
+    id: "selectDepth",
+    keys: ["arrowleft", "arrowright"],
+    offered: keyOnly,
+    run: (pressed) => walkSelection(pressed ?? ""),
+    scope: "canvas",
+    title: "Select the parent or the first child",
+  },
+  {
+    // On the canvas only, which has no field: a focused row of a panel gets the browser's own
+    // contextmenu event instead, and opens its own.
+    also: ["contextmenu"],
+    group: "Selection",
+    id: "selectionMenu",
+    keys: ["shift+f10"],
+    offered: keyOnly,
+    run: openSelectionMenuByKey,
+    scope: "always",
+    title: "Open the element's menu",
+  },
+];
+
+/** Every command of the window, built once, when it is first asked for. */
+let built: readonly CommandSpec[] | null = null;
+export const commandList = (): readonly CommandSpec[] => {
+  built ??= [
+    ...panelCommands(),
+    ...tools.map(toolCommand),
     {
       group: "Tools",
       id: "toggleComments",
-      keys: "⇧C",
+      keys: ["shift+c"],
       run: () => useComments.getState().toggleVisible(),
-      title: useComments.getState().visible ? "Hide comments" : "Show comments",
+      sheetTitle: "Show or hide comments",
+      title: () =>
+        useComments.getState().visible ? "Hide comments" : "Show comments",
     },
     {
       group: "Edit",
       id: "undo",
-      keys: "⌘Z",
-      run: () => undoOrRedo(false),
+      keys: ["mod+z"],
+      run: () => {
+        undoOrRedo(false);
+      },
       title: "Undo",
     },
     {
       group: "Edit",
       id: "redo",
-      keys: "⇧⌘Z",
-      run: () => undoOrRedo(true),
+      keys: ["mod+shift+z"],
+      run: () => {
+        undoOrRedo(true);
+      },
       title: "Redo",
     },
-    ...(onCanvas()
-      ? [
-          {
-            group: "View",
-            id: "zoomFit",
-            keys: "⇧1",
-            run: () => zoomToFit(viewportSize()),
-            title: "Zoom to fit",
-          } satisfies Command,
-          {
-            group: "View",
-            id: "zoomSelection",
-            keys: "⇧2",
-            run: () => zoomToSelection(viewportSize()),
-            title: "Zoom to the selection",
-          } satisfies Command,
-          {
-            group: "View",
-            id: "zoom100",
-            keys: "⇧0",
-            run: () => setView({ zoom: 1 }),
-            title: "Zoom to 100%",
-          } satisfies Command,
-          {
-            group: "View",
-            id: "zoomIn",
-            keys: "⌘=",
-            run: () => zoomBy(1.25),
-            title: "Zoom in",
-          } satisfies Command,
-          {
-            group: "View",
-            id: "zoomOut",
-            keys: "⌘-",
-            run: () => zoomBy(0.8),
-            title: "Zoom out",
-          } satisfies Command,
-          {
-            group: "View",
-            id: "grid",
-            keys: "⌘'",
-            keywords: "snap",
-            run: () => useCanvasGrid.getState().toggle(),
-            title: useCanvasGrid.getState().visible
-              ? "Hide the grid"
-              : "Show the grid",
-          } satisfies Command,
-        ]
-      : []),
-    ...(info.configured
-      ? [
-          {
-            group: "Project",
-            id: "newPage",
-            run: () => {
-              newPage();
-            },
-            title: "New page…",
-          } satisfies Command,
-          {
-            group: "Project",
-            id: "newCanvas",
-            run: () => {
-              newCanvas();
-            },
-            title: "New canvas…",
-          } satisfies Command,
-          {
-            group: "Project",
-            id: "importFigma",
-            keywords: "fig",
-            run: pickFigmaFile,
-            title: "Import a Figma file…",
-          } satisfies Command,
-        ]
-      : []),
-    {
-      group: "Project",
-      id: "settings",
-      keywords: "preferences configuration repository",
-      run: () => useProject.getState().openSettings(true),
-      title: settings ? "Settings" : "Set up the project",
-    },
-    {
-      group: "Project",
-      id: "shortcuts",
-      keys: "?",
-      keywords: "keyboard keys help",
-      run: openShortcutSheet,
-      title: "Keyboard shortcuts",
-    },
+    ...viewCommands(),
+    ...projectCommands(),
+    ...keyOnlyCommands(),
   ];
-  return list;
+  return built;
+};
+
+const rowNode = (row: LayerRow) => {
+  const { item } = row;
+  return item.page || !item.node
+    ? null
+    : { at: { frame: item.frame, nodeId: item.node.id }, node: item.node };
 };
 
 /**
- * Keys the editor answers to that are no command of their own: they act on what is selected or
- * on what the key is pressed in, so the palette has nothing to run for them.
+ * The keys of what has the focus, by scope. A row of the Layers panel answers them as the WAI-ARIA
+ * tree pattern has it: the arrows walk and fold the tree, Enter and Space select, F2 renames;
+ * ⇧⌘H and ⇧⌘L hide and lock, as in Figma.
  */
-export const keyOnlyShortcuts: readonly Shortcut[] = [
-  { group: "Project", keys: "⌘K", title: "Every command" },
-  { group: "Edit", keys: "⌘C", title: "Copy" },
-  { group: "Edit", keys: "⌘X", title: "Cut" },
-  { group: "Edit", keys: "⌘V", title: "Paste" },
-  { group: "Selection", keys: "⌘D", title: "Duplicate" },
-  { group: "Selection", keys: "⌘G", title: "Wrap in a group" },
-  { group: "Selection", keys: "⌥⌘G", title: "Wrap in a row" },
-  { group: "Selection", keys: "⇧⌘G", title: "Wrap in a column" },
-  { group: "Selection", keys: "⌫", title: "Delete" },
-  { group: "Selection", keys: "↩", title: "Edit the text" },
-  { group: "Selection", keys: "Esc", title: "Select the parent" },
-  {
-    group: "Selection",
-    keys: "↑ ↓",
-    title: "Select the previous or next element",
-  },
-  {
-    group: "Selection",
-    keys: "← →",
-    title: "Select the parent or the first child",
-  },
-  { group: "Selection", keys: "⇧F10", title: "Open the element's menu" },
+export const focusBindings: {
+  readonly [S in FocusScope]: readonly FocusBinding<S>[];
+} = {
+  layersRow: [
+    {
+      group: "Layers",
+      id: "layers:walk",
+      keys: ["arrowup", "arrowdown", "home", "end"],
+      run: (row, pressed) => row.walk(pressed),
+      scope: "layersRow",
+      title: "Go to the previous, next, first or last layer",
+    },
+    {
+      group: "Layers",
+      id: "layers:fold",
+      keys: ["arrowleft", "arrowright"],
+      run: (row, pressed) => row.walk(pressed),
+      scope: "layersRow",
+      title: "Fold or open a layer, or go to its parent or first child",
+    },
+    {
+      also: ["space"],
+      group: "Layers",
+      id: "layers:select",
+      keys: ["enter"],
+      run: (row) => row.select(false),
+      scope: "layersRow",
+      title: "Select the layer",
+    },
+    {
+      also: ["shift+space"],
+      group: "Layers",
+      id: "layers:add",
+      keys: ["shift+enter"],
+      run: (row) => row.select(true),
+      scope: "layersRow",
+      title: "Add the layer to the selection",
+    },
+    {
+      group: "Layers",
+      id: "layers:rename",
+      keys: ["f2"],
+      run: (row) => row.rename(),
+      scope: "layersRow",
+      title: "Rename the layer",
+    },
+    {
+      group: "Layers",
+      id: "layers:hide",
+      keys: ["mod+shift+h"],
+      run: (row) => {
+        const named = rowNode(row);
+        if (!named) {
+          return false;
+        }
+        setHidden(!named.node.hidden, named.at);
+        return true;
+      },
+      scope: "layersRow",
+      title: "Hide or show the layer",
+    },
+    {
+      group: "Layers",
+      id: "layers:lock",
+      keys: ["mod+shift+l"],
+      run: (row) => {
+        const named = rowNode(row);
+        if (!named) {
+          return false;
+        }
+        setLocked(!named.node.locked, named.at);
+        return true;
+      },
+      scope: "layersRow",
+      title: "Lock or unlock the layer",
+    },
+  ],
+};
+
+const titleOf = (c: CommandSpec) =>
+  typeof c.title === "string" ? c.title : c.title();
+
+/** Every binding with keys: the window's commands, then what has the focus. */
+const everyBinding = (): readonly (Bound & { title: string })[] => [
+  ...commandList().map((c) => ({ ...c, title: c.sheetTitle ?? titleOf(c) })),
+  ...Object.values(focusBindings).flat(),
 ];
 
-/** Every key, in the palette's groups: the commands' own and the ones that act on the moment. */
-export const shortcuts = (): Shortcut[] => {
-  const all: Shortcut[] = [
-    ...commandsForSheet().flatMap((c) =>
-      c.keys ? [{ group: c.group, keys: c.keys, title: c.title }] : []
-    ),
-    ...keyOnlyShortcuts,
-  ];
-  return commandGroups.flatMap((g) => all.filter((s) => s.group === g));
+/** The keys of a command, as this platform writes them; none when it has none. */
+export const keysOf = (id: string): string | undefined => {
+  const keys = everyBinding().find((b) => b.id === id)?.keys;
+  return keys ? keysLabel(keys) : undefined;
 };
 
-/**
- * The sheet lists every key, not only what the moment offers: the canvas's tools and zoom in
- * the prototype too, under their plain names.
- */
-const commandsForSheet = (): Command[] => {
-  const now = commands();
-  const seen = new Set(now.map((c) => c.id));
-  const canvasOnly: Command[] = [
-    ...tools.map(
-      (t): Command => ({
-        group: "Tools",
-        id: `tool:${t.tool}`,
-        keys: t.keys,
-        run: () => undefined,
-        title: t.title,
-      })
-    ),
-  ];
-  const plain: Record<string, string> = {
-    grid: "Show or hide the grid; what is moved snaps to it",
-    toggleComments: "Show or hide comments",
-  };
-  return [...now, ...canvasOnly.filter((c) => !seen.has(c.id))].map((c) =>
-    plain[c.id] ? { ...c, title: plain[c.id] as string } : c
+/** A command as the palette lists it, with what it is called now. */
+const paletteCommand = (c: CommandSpec): Command => ({
+  group: c.group,
+  id: c.id,
+  ...(c.keys ? { keys: keysLabel(c.keys) } : {}),
+  ...(c.keywords ? { keywords: c.keywords } : {}),
+  run: () => {
+    c.run?.();
+  },
+  title: titleOf(c),
+});
+
+/** The commands that make sense now: the panels the workspace offers, the canvas's tools on it. */
+export const commands = (): Command[] =>
+  commandList()
+    .filter((c) => c.offered?.() ?? true)
+    .map(paletteCommand);
+
+/** Every key, in the palette's groups, whatever the moment offers: the sheet lists them all. */
+export const shortcuts = (): Shortcut[] => {
+  const all = everyBinding().flatMap((b): Shortcut[] =>
+    b.keys ? [{ group: b.group, keys: keysLabel(b.keys), title: b.title }] : []
   );
+  return commandGroups.flatMap((g) => all.filter((s) => s.group === g));
 };
 
 // ---- What depends on the moment ----
@@ -422,19 +764,22 @@ const commandsForSheet = (): Command[] => {
 const under = (path: string, label: string) =>
   path ? `${path} › ${label}` : label;
 
-/** A menu item as a command of the selection. */
+/** A menu item as a command of the selection, with the keys of the command it is. */
 const itemCommand = (
   e: Extract<Entry, { kind: "item" }>,
   run: (id: string) => void,
   path: string
-): Command => ({
-  ...(e.destructive ? { destructive: true } : {}),
-  group: "Selection",
-  id: `menu:${e.id}`,
-  ...(e.shortcut ? { keys: e.shortcut } : {}),
-  run: () => run(e.id),
-  title: under(path, e.label),
-});
+): Command => {
+  const keys = e.command ? keysOf(e.command) : undefined;
+  return {
+    ...(e.destructive ? { destructive: true } : {}),
+    group: "Selection",
+    id: `menu:${e.id}`,
+    ...(keys ? { keys } : {}),
+    run: () => run(e.id),
+    title: under(path, e.label),
+  };
+};
 
 /** A menu's items as commands, a submenu's under its own name: `Wrap in › Row`. */
 const flatten = (

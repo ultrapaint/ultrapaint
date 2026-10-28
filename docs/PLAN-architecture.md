@@ -550,3 +550,47 @@ callers and its tests share.
    a URL that is gone gives way to where the canvas opens rather than leaving no page with the URL
    still naming it; a page already shown at its URL in another variant writes the variant to the
    URL too.
+16. **Key bindings** (the bindings in `apps/web/src/lib/commands.ts`, the chords in `keys.ts`, the
+   handler in `keymap.ts`). A command declares its keys with it: `keys` (the chords shown),
+   `also` (the same, not shown: Delete beside ⌫, ⌘+ beside ⌘=, the menu key beside ⇧F10) and
+   `scope`: `always` (in a text field too: ⌘K, ⌘\, the workspace keys, the menu key), `editor`
+   (outside text fields, in either workspace) or `canvas` (outside text fields, on the canvas). No
+   key works while a dialog, a menu or the settings page is open, as before. The command list is
+   one table built once, each command with `offered` (whether the palette lists it now), a title
+   read as the palette opens and a `sheetTitle`; the keys that act on the selection (duplicate,
+   wrap, delete, edit the text, Escape, the arrows, the menu key) are commands the palette does
+   not offer, and copy, cut and paste name the clipboard event the browser turns them into. A
+   chord is written in words (`mod+shift+z`, `shift+1`, `?`, `f2`), parsed once by `parseChord`,
+   shown by `chordLabel` the way the platform writes it (`⇧⌘Z`, `Ctrl+Shift+Z`) and matched by
+   `matchesChord`: `mod` is ⌘ on a Mac and Ctrl elsewhere when shown, either when pressed (as
+   before); a letter by what it types, and by its place with Alt; a digit by its place, so ⇧1 is
+   whatever Shift types there; a symbol by what it types whatever Shift did (`?`), `'` and `\` by
+   their place too; every modifier not named must be up. A chord that differs by platform is one
+   for each (`{ mac: "ctrl+1", other: "alt+1" }`). `useKeymap` is the window's one listener
+   (`pressWindowKey`: the scopes the key reaches, the binding of its chord, its command's `run`,
+   the palette's own, and the default prevented unless it gave back false, as ⌘D with nothing
+   selected does), with the clipboard's events. A focus scope's host passes what the key is pressed
+   on: the Layers tree's keydown is `scopeKeyDown("layersRow", row)`, over `focusBindings.layersRow`
+   (walk and fold, select, add, F2, ⇧⌘H, ⇧⌘L), whose keys go first and stop there. Menu items name
+   the command they are (`command: "duplicate"`) and the menu, the palette, the sheet, the toolbar,
+   the title bar and the Comments panel show `keysOf(id)`. `toolKeys`, `handleModeKey` (the second
+   copy of C's two meanings: `pickTool` is the one), the eleven `handle…` functions of the old listener, `rowAction`,
+   `keyOnlyShortcuts`, `commandsForSheet`, the menus' `shortcut:` strings, `shortcutLabel`,
+   `keysLabel` of Mac strings and `holdsWorkspaceModifier` go; `shortcuts.ts` keeps what the keys
+   do (`walkSelection`, `dismiss`, `editSelectedText`, `openSelectionMenuByKey`, undo, the zoom).
+   The sheet gains a Layers section, which it did not list. Tests: `keys.test.ts` (labels on a Mac
+   and elsewhere, each platform's chord, parsing and refusing, ⌘ and Ctrl for `mod` and ⌃ told
+   from it, modifiers up, digits and letters by place, symbols whatever Shift did, named keys) and
+   `keymap.test.ts` in happy-dom: every chord of every binding, built as a US keyboard presses it on
+   a Mac and elsewhere (`testing/key-events.ts`), is its own binding in its scope and no other in a
+   scope reached with it; pressed, it runs the command's `run` and prevents the default; the
+   clipboard's are left to the browser; a Layers row's keys run on the row and stop, and one the
+   row does not take, or pressed in a field of it, goes on; a text field keeps all but `always`,
+   a dialog or the settings everything, the prototype the canvas's keys; C picks commenting and
+   shows the comments on the canvas, goes in and out of it in the prototype, by the key and by the
+   palette, and is not ⇧C; the sheet lists the Layers keys and every key once; every command a menu
+   names has keys. Also: a chord is exact, so a tool letter with Shift or Alt, ⌘↩, ⇧↑, ⌥⌘Z,
+   ⌥⌘', ⌘? and ⌘ with a Layers row's Enter no longer do what the plain key does; ⇧0 zooms to 100%
+   on a US keyboard, where Shift types `)` there and it never did, and ⇧1 and ⇧2 on layouts whose
+   Shift types the digit; ⌘⌫ deletes, as it did, as an `also` of Delete; the menu shows Enter as
+   ↩, as the sheet does.

@@ -17,13 +17,11 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
-import { Kbd } from "@/components/ui/kbd";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { keysLabel, shortcutLabel } from "../lib/keys.ts";
 import { useEditor } from "../state/editor.ts";
 import { usePanels } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
@@ -32,6 +30,7 @@ import { openCommandPalette } from "./command-palette.tsx";
 import { IconButton } from "./icon-button.tsx";
 import { hasProjectSwitcher, ProjectSwitcher } from "./project-switcher.tsx";
 import { openSetup } from "./setup-dialog.tsx";
+import { CommandKeys } from "./shortcut-sheet.tsx";
 
 /** Where the cards sit: this far from the window's edges, and this tall. */
 export const EDGE = 8;
@@ -104,13 +103,14 @@ const Unsaved = () => {
 /** A button of the top cards, with its tooltip and key under it. */
 const TopButton = ({
   children,
-  keys,
+  command,
   label,
   onClick,
   pressed,
 }: {
   children: ReactNode;
-  keys?: string;
+  /** The command it is, whose keys the tooltip shows. */
+  command?: string;
   label: string;
   onClick: () => void;
   pressed?: boolean;
@@ -131,7 +131,7 @@ const TopButton = ({
     </TooltipTrigger>
     <TooltipContent side="bottom">
       {label}
-      {keys ? <Kbd>{keysLabel(keys)}</Kbd> : null}
+      {command ? <CommandKeys id={command} /> : null}
     </TooltipContent>
   </Tooltip>
 );
@@ -235,14 +235,14 @@ export const TopActions = () => {
         >
           <Search className="size-4" />
           <span>Commands</span>
-          <Kbd>{shortcutLabel("⌘K")}</Kbd>
+          <CommandKeys id="palette" />
         </TooltipTrigger>
         <TooltipContent side="bottom">
           Everything the editor can do, by name
         </TooltipContent>
       </Tooltip>
       <TopButton
-        keys={prototype ? "⌃1" : "⌃2"}
+        command={prototype ? "workspace:design" : "workspace:prototype"}
         label={prototype ? "Back to the canvas" : "Prototype: click through"}
         onClick={togglePrototype}
         pressed={prototype}

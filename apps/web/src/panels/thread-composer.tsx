@@ -44,7 +44,7 @@ import {
 import { frameOf } from "../canvas/editor-frame.ts";
 import { frameIdOf } from "../canvas/prototype.tsx";
 import { IconButton } from "../components/icon-button.tsx";
-import { shortcutLabel } from "../lib/keys.ts";
+import { chordLabel } from "../lib/keys.ts";
 import { takeDraft, useDrafts } from "../lib/start-thread.ts";
 import { useAgents } from "../state/agents.ts";
 import {
@@ -571,8 +571,8 @@ const SendButtons = ({
       size="icon-sm"
       title={
         running
-          ? `Queue for when the turn ends (${shortcutLabel("⌘↩")})`
-          : `Send (${shortcutLabel("⌘↩")})`
+          ? `Queue for when the turn ends (${chordLabel("mod+enter")})`
+          : `Send (${chordLabel("mod+enter")})`
       }
     >
       {running ? <ListPlus /> : <ArrowUp />}

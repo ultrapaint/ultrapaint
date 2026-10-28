@@ -31,7 +31,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { IconButton } from "../components/icon-button.tsx";
-import { shortcutLabel } from "../lib/keys.ts";
+import { CommandKeys } from "../components/shortcut-sheet.tsx";
+import { keysOf } from "../lib/commands.ts";
 import { undoOrRedo, viewportSize, zoomBy } from "../lib/shortcuts.ts";
 import {
   zoomToFit as fitAll,
@@ -55,7 +56,7 @@ const modes: {
     label: "Select",
     tooltip: (
       <>
-        Select <Kbd>V</Kbd>
+        Select <CommandKeys id="tool:select" />
       </>
     ),
     value: "select",
@@ -65,7 +66,8 @@ const modes: {
     label: "Group",
     tooltip: (
       <>
-        Group <Kbd>G</Kbd> · draw one, or click for the default size
+        Group <CommandKeys id="tool:group" /> · draw one, or click for the
+        default size
       </>
     ),
     value: "group",
@@ -75,7 +77,7 @@ const modes: {
     label: "Text",
     tooltip: (
       <>
-        Text <Kbd>T</Kbd>
+        Text <CommandKeys id="tool:text" />
       </>
     ),
     value: "text",
@@ -85,8 +87,8 @@ const modes: {
     label: "Use components",
     tooltip: (
       <>
-        Use components <Kbd>I</Kbd> · press their buttons, open their menus.
-        Links are followed in Prototype.
+        Use components <CommandKeys id="tool:interact" /> · press their buttons,
+        open their menus. Links are followed in Prototype.
       </>
     ),
     value: "interact",
@@ -96,7 +98,7 @@ const modes: {
     label: "Pan",
     tooltip: (
       <>
-        Pan <Kbd>H</Kbd> or hold <Kbd>Space</Kbd>
+        Pan <CommandKeys id="tool:pan" /> or hold <Kbd>Space</Kbd>
       </>
     ),
     value: "pan",
@@ -106,8 +108,8 @@ const modes: {
     label: "Comment",
     tooltip: (
       <>
-        Comment <Kbd>C</Kbd> · show or hide comments{" "}
-        <Kbd>{shortcutLabel("⇧C")}</Kbd>
+        Comment <CommandKeys id="tool:comment" /> · show or hide comments{" "}
+        <CommandKeys id="toggleComments" />
       </>
     ),
     value: "comment",
@@ -177,18 +179,20 @@ export const ZoomControl = () => {
           <DropdownMenuGroup>
             <DropdownMenuItem onClick={zoomToFit}>
               Zoom to fit
-              <DropdownMenuShortcut>{shortcutLabel("⇧1")}</DropdownMenuShortcut>
+              <DropdownMenuShortcut>{keysOf("zoomFit")}</DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={zoomToSelection}>
               Zoom to selection
-              <DropdownMenuShortcut>{shortcutLabel("⇧2")}</DropdownMenuShortcut>
+              <DropdownMenuShortcut>
+                {keysOf("zoomSelection")}
+              </DropdownMenuShortcut>
             </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
             <DropdownMenuItem onClick={toggleGrid}>
               {grid ? "Hide grid" : "Show grid"}
-              <DropdownMenuShortcut>{shortcutLabel("⌘'")}</DropdownMenuShortcut>
+              <DropdownMenuShortcut>{keysOf("grid")}</DropdownMenuShortcut>
             </DropdownMenuItem>
           </DropdownMenuGroup>
         </DropdownMenuContent>
@@ -248,7 +252,7 @@ export const Toolbar = () => {
         tooltip={
           <>
             Undo{undo.undoLabel ? ` · ${undo.undoLabel}` : ""}{" "}
-            <Kbd>{shortcutLabel("⌘Z")}</Kbd>
+            <CommandKeys id="undo" />
           </>
         }
       >
@@ -262,7 +266,7 @@ export const Toolbar = () => {
         side="right"
         tooltip={
           <>
-            Redo <Kbd>{shortcutLabel("⇧⌘Z")}</Kbd>
+            Redo <CommandKeys id="redo" />
           </>
         }
       >

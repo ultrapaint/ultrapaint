@@ -1,51 +1,24 @@
+/**
+ * What the editor's keys do that is no store's own: undo and redo through the server, walking the
+ * selection's tree, letting go of what Escape lets go of, editing a text, the selection's menu,
+ * the clipboard's events, and the zoom kept to the part of the canvas the panels leave. Which key
+ * does what is the command list's (`commands.ts`); `keymap.ts` hears the keys.
+ */
 import { childrenOf } from "@ultrapaint/design-document/tree";
 import { useEffect } from "react";
 import { frameOf } from "../canvas/editor-frame.ts";
-import { openCommandPalette } from "../components/command-palette.tsx";
-import { openShortcutSheet } from "../components/shortcut-sheet.tsx";
-import {
-  nextView,
-  setView,
-  type Viewport,
-  zoomToFit,
-  zoomToSelection,
-} from "../state/camera.ts";
-import { useCanvasGrid } from "../state/canvas-grid.ts";
-import { toggleCommenting, useComments } from "../state/comments.ts";
+import { nextView, setView, type Viewport } from "../state/camera.ts";
+import { useComments } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
 import { showMenu } from "../state/context-menu.ts";
 import { pathIn, useDocuments } from "../state/documents.ts";
-import {
-  allFrames,
-  flushLayout,
-  type Mode,
-  useEditor,
-  workspaceOrder,
-} from "../state/editor.ts";
-import { usePanels } from "../state/panels.ts";
+import { allFrames, flushLayout, useEditor } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { onCopyEvent, onPasteEvent } from "./clipboard.ts";
-import { holdsWorkspaceModifier, isTyping } from "./keys.ts";
-import {
-  deleteSelection,
-  duplicateSelection,
-  selected,
-  wrapSelection,
-} from "./node-actions.ts";
-
-/**
- * Dialogs, menus and select popups are not page-blocking the way native confirm/prompt were, so
- * while one is open keys must not reach the canvas (Backspace would delete the selection behind
- * it). They are only mounted while open; focus can stay on the trigger, so the target is no guide.
- */
-const overlayOpen = () =>
-  document.querySelector(
-    '[role="dialog"],[role="alertdialog"],[role="menu"],[role="listbox"]'
-  ) !== null;
+import { isTyping, overlayOpen } from "./keys.ts";
+import { selected } from "./node-actions.ts";
 
 type EditorState = ReturnType<typeof useEditor.getState>;
-
-const NAV_KEYS = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Escape"];
 
 /** Steps back or forward through everything the editor changed, files and canvas alike. */
 export const undoOrRedo = async (redo: boolean) => {
@@ -59,183 +32,26 @@ export const undoOrRedo = async (redo: boolean) => {
   }
 };
 
-const wrapperOf = (e: KeyboardEvent): "row" | "column" | "group" => {
-  if (e.altKey) {
-    return "row";
-  }
-  return e.shiftKey ? "column" : "group";
-};
-
-/** Editing shortcuts are exclusive: returns true when the key was consumed. */
-const handleEditKey = (e: KeyboardEvent, s: EditorState, meta: boolean) => {
-  if (meta && e.key.toLowerCase() === "z") {
-    e.preventDefault();
-    undoOrRedo(e.shiftKey);
-    return true;
-  }
-  // The prototype shows no selection, so nothing may be done to one there.
-  if (s.workspace === "prototype") {
+/** Edits the selected text in place; false when what is selected is no text. */
+export const editSelectedText = () => {
+  const { selection } = useEditor.getState();
+  if (!selection || selected()?.node.type !== "text") {
     return false;
   }
-  // Every node selected is duplicated, wrapped or deleted, as one undo step.
-  if (meta && e.key.toLowerCase() === "d" && s.selection) {
-    e.preventDefault();
-    duplicateSelection();
-    return true;
-  }
-  // ⌘G wraps in a group, ⌥⌘G in a row, ⇧⌘G in a column.
-  if (meta && e.key.toLowerCase() === "g" && s.selection) {
-    e.preventDefault();
-    wrapSelection(wrapperOf(e));
-    return true;
-  }
-  if ((e.key === "Backspace" || e.key === "Delete") && s.selection) {
-    e.preventDefault();
-    deleteSelection();
-    return true;
-  }
-  if (e.key === "Enter" && s.selection) {
-    const current = selected();
-    if (current?.node.type === "text") {
-      e.preventDefault();
-      frameOf(s.selection.frame).editText(s.selection.nodeId);
-      return true;
-    }
-  }
-  return false;
-};
-
-/** The canvas's tools, by the key that picks them. */
-const toolKeys: Record<string, Mode> = {
-  g: "group",
-  h: "pan",
-  i: "interact",
-  t: "text",
-  v: "select",
-};
-
-const handleModeKey = (e: KeyboardEvent, s: EditorState, meta: boolean) => {
-  const key = e.key.toLowerCase();
-  if (meta) {
-    return;
-  }
-  if (key === "c" && e.shiftKey) {
-    useComments.getState().toggleVisible();
-    return;
-  }
-  // The prototype is clicked through, or commented on: the canvas's tools mean nothing there,
-  // and C goes in and out of commenting, as its button in the bar does.
-  if (s.workspace === "prototype") {
-    if (key === "c") {
-      toggleCommenting();
-    }
-    return;
-  }
-  const tool = toolKeys[key];
-  if (tool) {
-    s.setMode(tool);
-  }
-  if (key === "c") {
-    s.setMode("comment");
-    if (!useComments.getState().visible) {
-      useComments.getState().toggleVisible();
-    }
-  }
-};
-
-/** `?` opens the sheet of every shortcut. Exclusive: returns true when the key was consumed. */
-const handleHelpKey = (e: KeyboardEvent) => {
-  if (e.key !== "?") {
-    return false;
-  }
-  e.preventDefault();
-  openShortcutSheet();
-  return true;
-};
-
-/** The digit a key event is, by where it sits: Alt turns `1` into another character on some layouts. */
-const DIGIT_RE = /^Digit([1-9])$/;
-
-/**
- * ⌃1–2 on a Mac, Alt+1–2 elsewhere, jump to a workspace: the browser keeps ⌘ on a Mac and Ctrl
- * elsewhere for its tabs. Exclusive: returns true when the key was consumed.
- */
-const handleWorkspaceKey = (e: KeyboardEvent, s: EditorState) => {
-  if (!holdsWorkspaceModifier(e)) {
-    return false;
-  }
-  const match: RegExpExecArray | null = DIGIT_RE.exec(e.code);
-  const next = match ? workspaceOrder[Number(match[1]) - 1] : undefined;
-  if (!next) {
-    return false;
-  }
-  e.preventDefault();
-  s.setWorkspace(next);
+  frameOf(selection.frame).editText(selection.nodeId);
   return true;
 };
 
 /**
- * ⌘K (Ctrl+K) opens the command palette, from a text field too; exclusive: returns true when
- * the key was consumed.
+ * Walks the selection's tree by an arrow: up and down through siblings, left to the parent, right
+ * into the children; Escape goes to the parent, or lets go at the top. On the canvas only: the
+ * prototype shows no selection. False when nothing selected is in a tree.
  */
-const handlePaletteKey = (e: KeyboardEvent) => {
-  const meta = e.metaKey || e.ctrlKey;
-  if (!meta || e.altKey || e.shiftKey || e.key.toLowerCase() !== "k") {
-    return false;
-  }
-  e.preventDefault();
-  openCommandPalette();
-  return true;
-};
-
-/**
- * ⌘\ (Ctrl+\) puts the side panels away, or brings them back, as in Figma. Nothing is typed with
- * it, so it works in a text field too; exclusive: returns true when the key was consumed.
- */
-const handlePanelsKey = (e: KeyboardEvent) => {
-  const meta = e.metaKey || e.ctrlKey;
-  if (!meta || e.altKey || e.shiftKey) {
-    return false;
-  }
-  if (e.key !== "\\" && e.code !== "Backslash") {
-    return false;
-  }
-  e.preventDefault();
-  usePanels.getState().toggleAll();
-  return true;
-};
-
-const handleZoomKey = (e: KeyboardEvent, meta: boolean) => {
-  const viewport = viewportSize();
-  if (e.shiftKey && e.key === "!") {
-    zoomToFit(viewport);
-  }
-  if (e.shiftKey && e.key === "@") {
-    zoomToSelection(viewport);
-  }
-  if (e.shiftKey && e.key === "0") {
-    setView({ zoom: 1 });
-  }
-  if (meta && (e.key === "=" || e.key === "+")) {
-    e.preventDefault();
-    zoomBy(1.25);
-  }
-  if (meta && e.key === "-") {
-    e.preventDefault();
-    zoomBy(0.8);
-  }
-  // ⌘' (Ctrl+'), as in Figma: by the key's place, a layout may type something else there.
-  if (meta && !e.shiftKey && (e.key === "'" || e.code === "Quote")) {
-    e.preventDefault();
-    useCanvasGrid.getState().toggle();
-  }
-};
-
-// Tree navigation: up and down through siblings, left to the parent, right into the children.
-const handleTreeNavigation = (e: KeyboardEvent, s: EditorState) => {
+export const walkSelection = (key: string) => {
+  const s = useEditor.getState();
   const { selection } = s;
-  if (!(selection && NAV_KEYS.includes(e.key))) {
-    return;
+  if (s.workspace === "prototype" || !selection) {
+    return false;
   }
   const path = pathIn(
     useDocuments.getState().docs,
@@ -245,18 +61,17 @@ const handleTreeNavigation = (e: KeyboardEvent, s: EditorState) => {
   );
   const node = path?.at(-1);
   if (!node) {
-    return;
+    return false;
   }
-  e.preventDefault();
   const parent = path?.at(-2);
   const go = (id: string) => s.select({ frame: selection.frame, nodeId: id });
-  if (e.key === "Escape" || e.key === "ArrowLeft") {
+  if (key === "Escape" || key === "ArrowLeft") {
     if (parent && parent.type !== "page") {
       go(parent.id);
-    } else if (e.key === "Escape") {
+    } else if (key === "Escape") {
       s.select(null);
     }
-  } else if (e.key === "ArrowRight") {
+  } else if (key === "ArrowRight") {
     const [child] = childrenOf(node);
     if (child) {
       go(child.id);
@@ -264,37 +79,27 @@ const handleTreeNavigation = (e: KeyboardEvent, s: EditorState) => {
   } else if (parent) {
     const siblings = childrenOf(parent);
     const idx = siblings.findIndex((c) => c.id === node.id);
-    const sib = siblings[idx + (e.key === "ArrowDown" ? 1 : -1)];
+    const sib = siblings[idx + (key === "ArrowDown" ? 1 : -1)];
     if (sib) {
       go(sib.id);
     }
   }
+  return true;
 };
 
 /**
- * Zooming and walking the tree are the canvas's. The prototype is drawn at its own size and
- * shows no selection; the browser keeps its own zoom keys there.
+ * What Escape lets go of before the selection: an open comment, or one being written; the
+ * prototype's commenting, which has no other tool to pick in its place; a selected page. False
+ * when there was none of them.
  */
-const handleCanvasKey = (e: KeyboardEvent, s: EditorState, meta: boolean) => {
-  if (s.workspace === "prototype") {
-    return;
-  }
-  handleZoomKey(e, meta);
-  handleTreeNavigation(e, s);
-};
-
-/**
- * Escape closes an open comment, or gives up on one being written, before it lets go of a
- * selected page. Returns true when the key was consumed.
- */
-const handleEscape = (s: EditorState) => {
+export const dismiss = () => {
+  const s = useEditor.getState();
   const comments = useComments.getState();
   if (comments.draft || comments.open) {
     comments.setDraft(null);
     comments.setOpen(null);
     return true;
   }
-  // The prototype has no other tool to pick in place of commenting: Escape puts it down.
   if (s.workspace === "prototype" && s.mode === "comment") {
     s.setMode("interact");
     return true;
@@ -351,15 +156,9 @@ const onCanvasFocus = () =>
   document.activeElement === document.body ||
   document.activeElement?.closest("[data-canvas]") !== null;
 
-/** Exclusive: returns true when the key opened a menu. */
-const handleMenuKey = (e: KeyboardEvent, s: EditorState) => {
-  const menuKey = e.key === "ContextMenu" || (e.shiftKey && e.key === "F10");
-  if (menuKey && onCanvasFocus() && openSelectionMenu(s)) {
-    e.preventDefault();
-    return true;
-  }
-  return false;
-};
+/** The menu key, or ⇧F10, while the canvas has the focus; false when it opened no menu. */
+export const openSelectionMenuByKey = () =>
+  onCanvasFocus() && openSelectionMenu(useEditor.getState());
 
 /** A clipboard event the editor may take: nothing typed in, no text selected, no overlay. */
 const clipboardIsOurs = (e: ClipboardEvent) =>
@@ -372,7 +171,7 @@ const clipboardIsOurs = (e: ClipboardEvent) =>
   );
 
 /** ⌘C, ⌘X and ⌘V copy, cut and paste nodes, through the system clipboard. */
-const useClipboardEvents = () => {
+export const useClipboardEvents = () => {
   useEffect(() => {
     const onCopy = (e: ClipboardEvent) => {
       if (clipboardIsOurs(e)) {
@@ -392,43 +191,6 @@ const useClipboardEvents = () => {
       window.removeEventListener("cut", onCopy);
       window.removeEventListener("paste", onPaste);
     };
-  }, []);
-};
-
-export const useShortcuts = () => {
-  useClipboardEvents();
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      // The settings page replaces the editor: nothing on it is there to be acted on.
-      if (overlayOpen() || useProject.getState().settingsOpen) {
-        return;
-      }
-      const s = useEditor.getState();
-      // Neither a menu, a workspace switch, the palette nor the panels mean anything to a text
-      // field: they work while typing too (the menu key only on the canvas, which has no field).
-      if (
-        handleMenuKey(e, s) ||
-        handleWorkspaceKey(e, s) ||
-        handlePaletteKey(e) ||
-        handlePanelsKey(e)
-      ) {
-        return;
-      }
-      if (isTyping(e) || handleHelpKey(e)) {
-        return;
-      }
-      const meta = e.metaKey || e.ctrlKey;
-      if (handleEditKey(e, s, meta)) {
-        return;
-      }
-      if (e.key === "Escape" && handleEscape(s)) {
-        return;
-      }
-      handleModeKey(e, s, meta);
-      handleCanvasKey(e, s, meta);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
   }, []);
 };
 

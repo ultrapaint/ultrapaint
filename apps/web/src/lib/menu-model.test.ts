@@ -338,8 +338,8 @@ describe("the canvas menu", () => {
     const entries = (gridVisible: boolean) =>
       canvasEntries({ canPaste: true, commentsVisible: true, gridVisible });
     expect(find(entries(false), "toggleGrid")).toMatchObject({
+      command: "grid",
       label: "Show grid",
-      shortcut: "⌘'",
     });
     expect(find(entries(true), "toggleGrid")).toMatchObject({
       label: "Hide grid",
