@@ -310,12 +310,9 @@ describe("agent turn checkpoints", () => {
     name: "Scripted",
   });
 
-  // Without the MCP server: its address waits for a port the server listens on, and no test
-  // listens.
-  layer(
-    ProjectTest({ mcp: false, state: { "agents/scripted.json": scripted } }),
-    { excludeTestServices: true }
-  )((it) => {
+  layer(ProjectTest({ state: { "agents/scripted.json": scripted } }), {
+    excludeTestServices: true,
+  })((it) => {
     it.effect(
       "publishes the checkpoints with a turn's, though the turn writes no design file",
       () =>

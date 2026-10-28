@@ -3,7 +3,8 @@
  * by the same composition root with the tests' adapters. The preview is never started
  * (`HostManager.layerTest`) and the agents are the ones a test plays (`ScriptedAgents`). No
  * HTTP server and no socket: a test asks a service for what it wants, and calls the editor's MCP
- * tools as an agent's call reaches them, with `callTool`.
+ * tools as an agent's call reaches them, with `callTool`. The server says it listens on
+ * `TEST_PORT`, so a thread's MCP address is known and its prompts reach the scripted agent.
  */
 import { NodeServices } from "@effect/platform-node";
 import {
@@ -14,6 +15,7 @@ import { Context, Effect, FileSystem, Layer, Path, Stream } from "effect";
 import type { Tool, Toolkit } from "effect/ai";
 import { type Adapters, ApplicationLayer } from "../composition.ts";
 import { ServerConfig } from "../config.ts";
+import { ListenPort } from "../listen-port.ts";
 import { ProjectManager } from "../project.ts";
 import { HostManager } from "../services/host.ts";
 import { CallingThread } from "../services/mcp/access.ts";
@@ -21,6 +23,9 @@ import { ToolkitHandlers } from "../services/mcp/route.ts";
 import { AgentSandbox } from "../services/threads/agent-sandbox.ts";
 import { makeFixture } from "./harness.ts";
 import { ScriptedAgents } from "./scripted-agents.ts";
+
+/** The port a test's server says it listens on: nothing does, and no scripted agent connects. */
+export const TEST_PORT = 1;
 
 /** The tests' adapters: a preview that is never started, agents the test plays, no sandbox. */
 export const TestAdapters = {
@@ -112,7 +117,10 @@ export const ProjectTest = (options: ProjectTestOptions = {}) =>
           });
         })
       );
-      return opened.pipe(
+      const listening = Layer.effectDiscard(
+        Effect.flatMap(ListenPort, (port) => port.listening(TEST_PORT))
+      );
+      return Layer.mergeAll(opened, listening).pipe(
         Layer.provideMerge(ToolkitHandlers),
         Layer.provideMerge(ApplicationLayer(TestAdapters)),
         Layer.provideMerge(

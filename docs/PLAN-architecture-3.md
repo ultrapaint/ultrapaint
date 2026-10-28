@@ -289,8 +289,6 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
   e9de144 in a separate worktree): a frame's keys, the repository's proxy, CSS-in-JS styles, the
   editor's variables, the prototype's click error, a loop in a click, and (flaky) a frame's width
   and scroll.
-- On `ProjectTest` with the MCP server on, a prompt never reaches the agent: its endpoint waits
-  for the port the server listens on (`ListenPort`), and no test listens (step 18).
 
 ## Built
 
@@ -975,3 +973,11 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
    `checkpoints.test.ts` has 1 test more: after 40 turns more, a file only a released checkpoint
    had is gone from the store, and one a snapshot shares with a released checkpoint is still
    read and diffed.
+4. **`ProjectTest` says it listens** (`apps/server/src/testing/project.ts`). The test's server
+   says it listens on `TEST_PORT` (1, where nothing listens and no scripted agent connects) once
+   it is built, as `server.ts` does once its socket is open, so `McpAccess.endpoint` answers and
+   a prompt reaches the scripted agent with the MCP server on. Nothing changes outside the
+   tests. `checkpoints.test.ts`' two tests of step 18 run with the MCP server on, as every other
+   test of the file does; the turn's failed first (the prompt waited for
+   the port, and the test timed out). `tasks.test.ts`' tests without the server stay so: they
+   test that.
