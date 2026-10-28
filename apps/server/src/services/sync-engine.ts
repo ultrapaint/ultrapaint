@@ -4,7 +4,7 @@
  * to; the matches an agent or the user gives; and where the two agree once a sync is written.
  *
  * A side is the code, Figma or DESIGN.md. Its adapter (`sync-sides.ts`, with the pure readings
- * in `design-system-sync-rules.ts`) says what its tokens are, what each is in the design system
+ * in `sync-readings.ts`) says what its tokens are, what each is in the design system
  * (by name for the code; by the rules and the saved matches for Figma and DESIGN.md) and where
  * its baseline is kept; the rule for one value is `@ultrapaint/contracts/agreement`, which
  * DESIGN.md's mirror uses too.
@@ -174,6 +174,23 @@ export const compareSide = (
   );
   return [...diffs, ...waitingOf(side, declared, covered, waitsFor)].sort(
     byKey
+  );
+};
+
+/**
+ * The diffs of a comparison for the tokens named, by name (every theme of it) or by
+ * `name@theme`; every diff when none is named.
+ */
+export const namedDiffs = (
+  diffs: readonly TokenDiff[],
+  names: readonly string[]
+): TokenDiff[] => {
+  if (names.length === 0) {
+    return [...diffs];
+  }
+  const wanted = new Set(names);
+  return diffs.filter(
+    (d) => wanted.has(d.name) || wanted.has(baselineKey(d.name, d.theme))
   );
 };
 

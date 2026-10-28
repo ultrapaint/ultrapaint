@@ -14,13 +14,16 @@ import { ListenPort } from "./listen-port.ts";
 import { PreviewProxy } from "./preview-proxy.ts";
 import { ProjectManager, type ProjectRequirements } from "./project.ts";
 import { CatalogueService } from "./services/catalogue.ts";
+import { CodeSide } from "./services/code-side.ts";
 import { CommentsService } from "./services/comments.ts";
 import { ComponentRegistry } from "./services/component-registry.ts";
+import { DesignMd } from "./services/design-md.ts";
 import { DesignSystemService } from "./services/design-system.ts";
 import { DesignSystemSetupService } from "./services/design-system-setup.ts";
 import { DesignSystemSyncService } from "./services/design-system-sync.ts";
 import { DocumentService } from "./services/documents.ts";
 import { EditService } from "./services/edit.ts";
+import { FigmaBaseline } from "./services/figma-baseline.ts";
 import { FigmaImportService } from "./services/figma-import.ts";
 import { ProjectFramework } from "./services/framework.ts";
 import { GitService } from "./services/git.ts";
@@ -98,9 +101,13 @@ export const projectLayer = (
     Layer.provideMerge(
       Layer.mergeAll(DesignSystemService.layer, SkillsService.layer)
     ),
+    // The design system's sides: DESIGN.md mirrors it with the code's tokens and the
+    // components' classes; Figma's baseline waits for it.
+    Layer.provideMerge(Layer.mergeAll(DesignMd.layer, FigmaBaseline.layer)),
     Layer.provideMerge(
       Layer.mergeAll(
         CatalogueService.layer,
+        CodeSide.layer,
         GitService.layer,
         host,
         PagesService.layer,
