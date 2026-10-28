@@ -3,13 +3,17 @@
  * exporting its markdown: the heading is the title, the paragraph after it the summary.
  *
  * A project replaces one with `<designsDir>/skills/<name>.md`, and the settings turn any off
- * (`SkillsService`).
+ * (`SkillsService`). A skill names the editor's tools only through `tools` (`AgentWays.tools`),
+ * null without the MCP server, and says otherwise what to do without them; a project's own
+ * file is left as it was written.
  *
  * Agents are told them all at once, so each rule lives in one skill and the others leave it
  * there: grouping by space is spacing's, contrast thresholds accessibility's, the measure
  * typography's, reduced motion motion's. Each skill names principles under headings, with exact
  * values, and ends on a "Before you finish" table of what to look for and what fixes it.
  */
+
+import type { ToolNames } from "../services/threads/agent-ways.ts";
 import { accessibility } from "./accessibility.ts";
 import { borders } from "./borders.ts";
 import { color } from "./color.ts";
@@ -29,18 +33,21 @@ export interface BuiltInSkill {
   readonly text: string;
 }
 
-export const builtInSkills: readonly BuiltInSkill[] = [
+/** The skills, naming the editor's tools when they are offered. */
+export const builtInSkills = (
+  tools: ToolNames | null
+): readonly BuiltInSkill[] => [
   hierarchy,
-  layout,
+  layout(tools),
   spacing,
   typography,
-  color,
+  color(tools),
   elevation,
   borders,
   iconography,
   motion,
   content,
   states,
-  components,
+  components(tools),
   accessibility,
 ];

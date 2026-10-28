@@ -1,5 +1,10 @@
-/** Built-in skill. The file is the skill: its heading is the title, the paragraph after it the summary. */
-export const components = {
+import type { ToolNames } from "../services/threads/agent-ways.ts";
+
+/**
+ * Built-in skill. The file is the skill: its heading is the title, the paragraph after it the
+ * summary. The tools it names are the editor's, when it offers them (`AgentWays.tools`).
+ */
+export const components = (tools: ToolNames | null) => ({
   name: "components",
   text: `# Components
 
@@ -8,8 +13,12 @@ your own, and use them the way they were meant.
 
 ## Look before you draw
 
-For a button, a field, a badge, a dialog or tabs, find the component in the palette and ask
-\`get_component\` for its props and variants. A copy drawn from rows and text matches nothing, and
+For a button, a field, a badge, a dialog or tabs, find the component in the palette and ${
+    tools
+      ? `ask
+\`${tools.get_component}\``
+      : "read its code"
+  } for its props and variants. A copy drawn from rows and text matches nothing, and
 gets implemented as nothing.
 
 ## Variants carry the meaning
@@ -31,7 +40,11 @@ fields share a row only when they are one thing: a city and its postcode.
 
 ## Real props
 
-Start from \`get_component\`'s example and replace every placeholder in it with real content.
+${
+  tools
+    ? `Start from \`${tools.get_component}\`'s example and replace every placeholder in it with real content.`
+    : "Give every prop real content, never a placeholder."
+}
 
 ## New pieces are named
 
@@ -47,4 +60,4 @@ card"). Tell the user it is new: it will need building as a component.
 | A text node laid over an instance | The instance's own text |
 | "Button" or "Label" left from an example | A real label |
 `,
-} as const;
+});

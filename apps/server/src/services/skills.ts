@@ -9,11 +9,13 @@ import {
   type SkillList,
 } from "@ultrapaint/contracts/skills";
 import { Context, Effect, FileSystem, Layer, Path, Stream } from "effect";
+import { ServerConfig } from "../config.ts";
 import { EventBus } from "../events.ts";
 import { toPosix } from "../hash.ts";
 import { builtInSkills } from "../skills/index.ts";
 import { type EditFailure, EditService } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
+import { agentWays } from "./threads/agent-ways.ts";
 
 /** What a file that extends a built-in starts as: the user writes the rest. */
 const extendStub = (title: string) => `---
@@ -57,6 +59,10 @@ export class SkillsService extends Context.Service<
       const dir = path.join(paths.designsDir, SKILLS_DIR);
       const relDir = paths.relative(dir);
       const disabled = new Set(paths.settings.skills?.disabled ?? []);
+      // Worded for the tools the server offers: without them, none is named.
+      const builtIns = builtInSkills(
+        agentWays((yield* ServerConfig).mcp).tools
+      );
 
       const fileOf = (name: string) =>
         toPosix(path.join(relDir, `${name}${SKILL_EXTENSION}`));
@@ -112,13 +118,13 @@ export class SkillsService extends Context.Service<
 
       const list: Effect.Effect<SkillList> = Effect.gen(function* () {
         const own = yield* projectFiles;
-        const skills = builtInSkills.map((skill) => {
+        const skills = builtIns.map((skill) => {
           const file = own.get(skill.name);
           return file === undefined
             ? builtIn(skill.name, skill.text)
             : fromFile(skill.name, file, skill.text);
         });
-        const known = new Set(builtInSkills.map((s) => s.name));
+        const known = new Set(builtIns.map((s) => s.name));
         for (const [name, file] of own) {
           if (!known.has(name)) {
             skills.push(fromFile(name, file));

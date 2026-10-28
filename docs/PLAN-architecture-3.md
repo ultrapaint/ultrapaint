@@ -280,8 +280,6 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
 
 ## Follow-ups found while building
 
-- The built-in skills (`apps/server/src/skills/`) still name tools by string; projects can replace
-  them and the design evals may be tuned to their wording (step 1).
 - Some tool answers only an agent with the tools reads still name tools as strings
   (`figma-import.ts`, `design-md.ts`, `design-system-setup-batches.ts`, the MCP route's
   instructions) (step 1).
@@ -930,3 +928,20 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
     an answer older than the server's news is dropped, and one older than an answer taken.
     `snapshot-actions.test.ts`: a snapshot saved and deleted shows in the history by the server's
     news alone, no list read.
+
+## Follow-ups built
+
+1. **The built-in skills name tools through `agent-ways`** (`apps/server/src/skills/`). Layout,
+   components and colour are functions of `AgentWays.tools`, and `builtInSkills(tools)` gives the
+   list; `SkillsService` words them for the server it runs in, so the briefing, the Skills panel
+   and a copy made to replace one say what the server offers. With the MCP server their text is
+   as it was, word for word and line for line (the design evals may be tuned to it); without it
+   no tool is named: layout checks the page at `390` and `1440` without `get_screenshot`'s
+   `width` and leaves out giving the page views with `set_frame`, components reads a
+   component's code for its props and variants and gives every prop real content (in place of
+   starting from `get_component`'s example), and colour computes from `design.tokens.json` (in
+   place of `read_design_system`). A project's own skill files are left as the project wrote
+   them. `tasks.test.ts`' two tests over every task request and the briefings, MCP on and off,
+   now brief with the built-in skills (they were turned off) and read a line of each of the three
+   both ways; without the server it failed first, the briefings naming `get_screenshot`,
+   `set_frame`, `read_design_system` and `get_component`.
