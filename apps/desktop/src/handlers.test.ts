@@ -1,0 +1,282 @@
+import { NodeServices } from "@effect/platform-node";
+import { assert, describe, it } from "@effect/vitest";
+import { Effect, FileSystem, Layer, Path } from "effect";
+import { AgentSettings } from "./agent-settings.ts";
+import { Agents, makeRuntime } from "./agents.ts";
+import {
+  bridgeHandlers,
+  type HandlerServices,
+  remoteOpen,
+} from "./handlers.ts";
+import { LoginShell } from "./login-shell.ts";
+import { NewDesigns } from "./new-design.ts";
+import { Notices } from "./notices.ts";
+import { OpenProject } from "./open-project.ts";
+import { ProjectStore } from "./projects.ts";
+import {
+  fakeRemoteProjects,
+  fakeServers,
+  fakeShell,
+  makeRecorded,
+  type Recorded,
+} from "./testing.ts";
+
+const STOPPED = { at: "src/page.tsx:6", stack: "    at Spin", time: 1 };
+
+/** Agents as the test layer has them, whose downloads and keys are recorded in `asked`. */
+const fakeAgents = (asked: string[]) =>
+  Layer.effect(
+    Agents,
+    Effect.gen(function* () {
+      const agents = yield* Agents;
+      return Agents.of({
+        ...agents,
+        download: (id) =>
+          Effect.sync(() => {
+            asked.push(`download ${id}`);
+            return `/agents/${id}`;
+          }),
+        setApiKey: (id, key) =>
+          Effect.sync(() => asked.push(`key ${id} ${key ?? "forgotten"}`)),
+      });
+    })
+  ).pipe(
+    Layer.provide(
+      Agents.layerTest(
+        makeRuntime({ adaptersDir: "/app/adapters", node: "/app/electron" }, {})
+      )
+    )
+  );
+
+/** The handlers on the app's services, with fakes for Electron, the servers and the agents. */
+const withHandlers = <A, E>(
+  body: (
+    handlers: ReturnType<typeof bridgeHandlers>,
+    recorded: Recorded,
+    asked: string[]
+  ) => Effect.Effect<A, E, HandlerServices>,
+  sshConfig = "/nowhere/config"
+) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const dir = yield* fs.makeTempDirectoryScoped();
+    const recorded = makeRecorded();
+    const asked: string[] = [];
+    const app = Layer.mergeAll(
+      Layer.succeed(
+        NewDesigns,
+        NewDesigns.of({
+          create: (request, report) =>
+            Effect.as(report({ state: "active", step: "folder" }), {
+              failed: { message: request.name, step: "install" },
+            }),
+          folderFor: (name) => Effect.succeed(`/home/u/Ultrapaint/${name}`),
+          open: () => Effect.succeed({}),
+        })
+      ),
+      Layer.succeed(
+        Notices,
+        Notices.of({
+          list: Effect.succeed([
+            { detail: "Install it.", id: "node", title: "No Node.js" },
+          ]),
+        })
+      ),
+      OpenProject.layer(dir)
+    ).pipe(
+      Layer.provideMerge(ProjectStore.layer(dir)),
+      Layer.provideMerge(AgentSettings.layer(dir)),
+      Layer.provideMerge(LoginShell.layerTest({ PATH: "/usr/bin" })),
+      Layer.provideMerge(fakeAgents(asked)),
+      Layer.provideMerge(fakeServers(recorded)),
+      Layer.provideMerge(fakeRemoteProjects(recorded)),
+      Layer.provideMerge(fakeShell(recorded))
+    );
+    const handlers = bridgeHandlers({
+      home: "/home/u",
+      sshConfig,
+      stoppedAt: Effect.succeed(STOPPED),
+    });
+    return yield* body(handlers, recorded, asked).pipe(Effect.provide(app));
+  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
+
+describe("the bridge's handlers", () => {
+  it.effect("list the projects with where each is, and the open one", () =>
+    withHandlers((handlers, recorded) =>
+      Effect.gen(function* () {
+        const store = yield* ProjectStore;
+        const shop = yield* store.add("/work/shop");
+        yield* store.addRemote({ host: "devbox", path: "~/site" });
+        assert.isNull(yield* handlers["projects.current"]());
+        yield* handlers["projects.open"](shop.id);
+        assert.strictEqual(yield* handlers["projects.current"](), shop.id);
+        const listed = yield* handlers["projects.list"]();
+        assert.deepStrictEqual(
+          listed.map((p) => [p.name, p.detail]),
+          [
+            ["shop", "/work/shop"],
+            ["site", "devbox:~/site"],
+          ]
+        );
+        assert.deepStrictEqual(recorded.events, ["start shop"]);
+      })
+    )
+  );
+
+  it.effect(
+    "give a remote project's wrong fields back as the problem, and open a right one",
+    () =>
+      withHandlers((handlers, recorded) =>
+        Effect.gen(function* () {
+          const wrong = yield* handlers["projects.addRemote"]({
+            host: "devbox",
+            path: "site",
+          });
+          assert.include(wrong.problem ?? "", "is not a folder's full path");
+          assert.deepStrictEqual(recorded.events, []);
+          assert.deepStrictEqual(
+            yield* handlers["projects.addRemote"]({
+              host: "devbox",
+              path: "~/site",
+            }),
+            {}
+          );
+          assert.deepStrictEqual(recorded.events, ["start devbox:site"]);
+          assert.isTrue(yield* remoteOpen);
+          // One that cannot be reached is the welcome page's to say, not the dialog's.
+          assert.deepStrictEqual(
+            yield* handlers["projects.addRemote"]({
+              host: "down",
+              path: "/srv/site",
+            }),
+            {}
+          );
+        })
+      )
+  );
+
+  it.effect("tell a local project from a remote one", () =>
+    withHandlers((handlers) =>
+      Effect.gen(function* () {
+        assert.isFalse(yield* remoteOpen);
+        const store = yield* ProjectStore;
+        yield* handlers["projects.open"]((yield* store.add("/work/shop")).id);
+        assert.isFalse(yield* remoteOpen);
+      })
+    )
+  );
+
+  it.effect(
+    "keep the agent's executable picked and start the server again; cancelled, change nothing",
+    () =>
+      withHandlers((handlers, recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const settings = yield* AgentSettings;
+          yield* handlers["projects.open"]((yield* store.add("/work/shop")).id);
+          yield* handlers["agents.choosePath"]("claude-code");
+          assert.deepStrictEqual(recorded.pickers, ["Where is Claude Code?"]);
+          assert.deepStrictEqual(yield* settings.get("claude-code"), {});
+          assert.deepStrictEqual(recorded.events, ["start shop"]);
+          recorded.picks.push("/opt/claude");
+          yield* handlers["agents.choosePath"]("claude-code");
+          assert.strictEqual(
+            (yield* settings.get("claude-code")).path,
+            "/opt/claude"
+          );
+          assert.deepStrictEqual(recorded.events, [
+            "start shop",
+            "stop shop",
+            "start shop",
+          ]);
+          yield* handlers["agents.clearPath"]("claude-code");
+          assert.isUndefined((yield* settings.get("claude-code")).path);
+          assert.strictEqual(recorded.events.length, 5);
+        })
+      )
+  );
+
+  it.effect(
+    "forget a blank key, and download before the server starts again",
+    () =>
+      withHandlers((handlers, _recorded, asked) =>
+        Effect.gen(function* () {
+          yield* handlers["agents.setApiKey"]("claude-code", "  ");
+          yield* handlers["agents.setApiKey"]("claude-code", "sk-1");
+          yield* handlers["agents.setApiKey"]("claude-code", null);
+          yield* handlers["agents.download"]("codex");
+          assert.deepStrictEqual(asked, [
+            "key claude-code forgotten",
+            "key claude-code sk-1",
+            "key claude-code forgotten",
+            "download codex",
+          ]);
+        })
+      )
+  );
+
+  it.effect("pick a folder, titled when the page gives none", () =>
+    withHandlers((handlers, recorded) =>
+      Effect.gen(function* () {
+        assert.isNull(yield* handlers.pickFolder(undefined));
+        recorded.picks.push("/work/new");
+        assert.strictEqual(
+          yield* handlers.pickFolder({ title: "Where does it go?" }),
+          "/work/new"
+        );
+        assert.deepStrictEqual(recorded.pickers, [
+          "Choose a folder",
+          "Where does it go?",
+        ]);
+      })
+    )
+  );
+
+  it.effect("write a new design with its steps, and pass the rest on", () =>
+    withHandlers((handlers) =>
+      Effect.gen(function* () {
+        const steps: unknown[] = [];
+        const outcome = yield* handlers["newDesign.create"](
+          {
+            code: "app",
+            folder: "/f",
+            git: false,
+            name: "Shop",
+            template: "blank",
+          },
+          (step) => Effect.sync(() => steps.push(step))
+        );
+        assert.deepStrictEqual(outcome, {
+          failed: { message: "Shop", step: "install" },
+        });
+        assert.deepStrictEqual(steps, [{ state: "active", step: "folder" }]);
+        assert.strictEqual(
+          yield* handlers["newDesign.folderFor"]("Shop"),
+          "/home/u/Ultrapaint/Shop"
+        );
+        assert.deepStrictEqual(
+          (yield* handlers.notices()).map((n) => n.id),
+          ["node"]
+        );
+        assert.deepStrictEqual(yield* handlers.stoppedAt(), STOPPED);
+      })
+    )
+  );
+
+  it.effect("suggest the SSH configuration's hosts", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const dir = yield* fs.makeTempDirectoryScoped();
+      const config = path.join(dir, "config");
+      yield* fs.writeFileString(config, "Host devbox\nHost *.internal\n");
+      yield* withHandlers(
+        (handlers) =>
+          Effect.map(handlers["projects.sshHosts"](), (hosts) =>
+            assert.deepStrictEqual(hosts, ["devbox"])
+          ),
+        config
+      );
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
+});

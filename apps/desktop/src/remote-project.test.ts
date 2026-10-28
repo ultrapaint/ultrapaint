@@ -1,4 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
+import type { ShellStatus } from "@ultrapaint/contracts/shell-bridge";
 import { Deferred, Duration, Effect, Exit, Fiber, Layer, Scope } from "effect";
 import { TestClock } from "effect/testing";
 import type { SshProject } from "./projects.ts";
@@ -7,7 +8,6 @@ import {
   RemoteProjects,
   reconnectDelay,
 } from "./remote-project.ts";
-import type { ShellStatus } from "./shell.ts";
 import { SshError } from "./ssh.ts";
 import { type Connection, RemoteServers } from "./ssh-server.ts";
 

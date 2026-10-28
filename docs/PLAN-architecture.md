@@ -444,3 +444,60 @@ callers and its tests share.
    exports are as they were, so the server, the web and the desktop app do not change.
    `pnpm -F @ultrapaint/framework-react-vite build` builds the bundle, and a second build with
    nothing changed finds it current. `pnpm e2e:sandbox` passes its 23 checks.
+14. **Shell bridge** (`packages/contracts/src/shell-bridge.ts`, the preload's side in
+   `apps/desktop/src/bridge.ts`, the main process's in `bridge-server.ts`, the handlers in
+   `handlers.ts`, the watchdog in `stuck-pages.ts`). `SHELL_BRIDGE` is one table of the desktop
+   app's capabilities, each by its name, which is its path in `Platform` (`projects.open`): an
+   `invoke` (a Schema'd tuple of arguments, a Schema'd answer, and for `newDesign.create` a
+   `progress` it tells a listener given after them) or a `state` (a Schema'd value the main
+   process holds and tells as it changes: `shellStatus`, `windowControls`), and whether a project
+   on another machine shows it (`agents.*` and `notices` are this machine's). The shared types are
+   its Schemas, once: `ShellStatus`, `StoppedAt`, `ShellNotice`, `PlatformAgent` (its `id` the
+   `MachineAgentId` the app's `AGENTS` are checked to hold), `PlatformProject`,
+   `RemoteProjectRequest`, `NewDesignInput`, `NewDesignStepId`, `NewDesignUpdate`,
+   `NewDesignOutcome`, `WindowControlsState`; desktop's `NewDesignRequest` Schema, main's
+   `RemoteRequest` and the copies in `ipc.ts`, `shell.ts` and the web's `platform.ts` go.
+   `ShellPlatform` is the type the table gives (`Exposed` per kind, `Nested` by the dotted
+   names), and the web's `Platform` is `Partial<ShellPlatform>` with `serverUrl`; `AgentSetup`,
+   `ProjectSwitcher`, `NewDesigns`, `ShellStatusSource` and `WindowControls` are its parts, so a
+   capability added, renamed or retyped in the table is what the editor compiles against.
+   `exposeBridge(ipc, info)` builds the object the preload exposes from what the main process
+   says is shown (`BridgeInfo`, asked synchronously as the page loads), each at its path, a
+   state's value with it; it takes only the table's types, so the preload carries no Schema
+   (bundled with it, loading Effect's Schema costs the page about 58 ms on every load; the
+   preload is 2 KB, from 5). `bridgeInfo(remote, states)` is the one place a remote project hides
+   this machine's capabilities, where the preload dropped `agents` and main emptied `notices`, and
+   `answer` refuses them too (`HiddenCapability`). `serveBridge` registers every invoke from a
+   `BridgeHandlers<R>` record, answers only the app's window, decodes the arguments by the
+   capability's Schema (`BridgeInputError`, which the page reads as its message), runs the
+   handler, encodes its answer and sends its steps to the caller. `bridgeHandlers(options)` is
+   that record as plain Effects over the app's services: the `String(id)`s, the `isAgentId`
+   checks and the hand decoding go, and the dialogs go through `Shell`, which gains `pickFile`
+   and a `pickFolder` with a default path. `watchStuckPage(contents, read)` is main's
+   `endStuckPages` as a scoped Effect over `WatchedContents` (answer a script, read the stack,
+   end, reload, destroyed), its timers on the `Clock` (silent 4 s, a second to answer, half a
+   second for the stack, a look every half second, now one after another rather than
+   overlapping); main hands it Electron's contents and closes its scope with the window, and
+   `stoppedAt` is the bridge's like any capability. `ipc.ts`, the preload's hand wrappers and its
+   own status and full-screen listeners are gone. Tests: contracts' `shell-bridge.test.ts` (a
+   group is shown or hidden whole, what a remote project hides, no deeper nesting);
+   `bridge-server.test.ts` (input its Schema refuses, an unknown agent, a field missing, the
+   handler given the input decoded, a remote project's hidden capability, the steps encoded, a
+   failure's message, the information shown, only the app's window answered and the steps sent
+   to it); `bridge.test.ts` (each capability at its path on its channel, what a remote project
+   leaves out, a call's listener told until it is answered and not sent, a state as it loads and
+   as it changes); `handlers.test.ts` on `fakeShell`, the fake servers and the services' layers
+   (projects listed and opened, a remote project's problem and opening, local or remote, an
+   agent's path picked or cancelled and the server started again, a blank key forgotten, the
+   folder picker's title, a new design's steps, notices, the stuck page, the SSH hosts);
+   `stuck-pages.test.ts` on the `TestClock` (a page that beats, one ended past the limit with its
+   line kept once and loaded again once, a stack Chrome could not read, a silent page that answers,
+   one that beats again in time, a window destroyed while asked, the scope closed mid-check,
+   Chrome's hang monitor). Also: an agent id the app does not know is refused rather than
+   ignored; `notices` is not given to a remote project's editor rather than answering nothing;
+   the window's buttons are `windowControls.current()`, one state, rather than `fullScreen()`
+   and `inset`; a project switcher always has `add`, `addRemote` and `sshHosts`. The app run
+   hidden on `fixtures/sandbox-host`: the editor loads, the platform holds every capability but
+   `windowControls` (Linux), `projects.current` and `list`, `agents.list`, `notices`,
+   `stoppedAt` and `shellStatus` answer, a wrong argument comes back as `BridgeInputError`, and a
+   page held by a loop is ended and loaded again, the editor writing the stack it was stopped at.

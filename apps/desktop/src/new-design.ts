@@ -5,11 +5,13 @@
  * user's Node and pnpm or npm install it). Each line it prints is a step for the dialog; once it
  * is written, the folder joins the project list and opens in place of the open project.
  */
-import {
-  CodeLocation,
-  NewDesignProgressLine,
-} from "@ultrapaint/contracts/new-design";
-import { ScaffoldTemplate } from "@ultrapaint/contracts/setup";
+import { NewDesignProgressLine } from "@ultrapaint/contracts/new-design";
+import type {
+  NewDesignInput,
+  NewDesignOutcome,
+  NewDesignStepId,
+  NewDesignUpdate,
+} from "@ultrapaint/contracts/shell-bridge";
 import {
   Context,
   Effect,
@@ -22,11 +24,6 @@ import {
   Stream,
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import type {
-  NewDesignOutcome,
-  NewDesignStepId,
-  NewDesignUpdate,
-} from "./ipc.ts";
 import { LoginShell } from "./login-shell.ts";
 import { OpenProject } from "./open-project.ts";
 import { type ServerLaunch, serverEnv } from "./project-server.ts";
@@ -36,16 +33,6 @@ export const NEW_DESIGN_PARAM = "new-design";
 
 /** Where new designs go unless the user picks another folder: `~/Ultrapaint`. */
 export const DESIGNS_HOME = "Ultrapaint";
-
-/** The dialog's request, as it crosses from the page. */
-export const NewDesignRequest = Schema.Struct({
-  code: CodeLocation,
-  folder: Schema.String,
-  git: Schema.Boolean,
-  name: Schema.String,
-  template: ScaffoldTemplate,
-});
-export type NewDesignRequest = typeof NewDesignRequest.Type;
 
 const decodeLine = Schema.decodeUnknownOption(NewDesignProgressLine);
 
@@ -69,7 +56,7 @@ export class NewDesigns extends Context.Service<
      * opens it. The step that failed, when one did; what the steps before it did stays.
      */
     readonly create: (
-      request: NewDesignRequest,
+      request: NewDesignInput,
       report: (update: NewDesignUpdate) => Effect.Effect<void>
     ) => Effect.Effect<NewDesignOutcome>;
     /**
@@ -81,7 +68,7 @@ export class NewDesigns extends Context.Service<
     readonly open: (
       folder: string,
       name: string,
-      template: NewDesignRequest["template"]
+      template: NewDesignInput["template"]
     ) => Effect.Effect<NewDesignOutcome>;
   }
 >()("ultrapaint/desktop/NewDesigns") {
@@ -122,7 +109,7 @@ export class NewDesigns extends Context.Service<
 
         /** `ultrapaint new`, its steps reported as it prints them. */
         const write = Effect.fn("NewDesigns.write")(function* (
-          request: NewDesignRequest,
+          request: NewDesignInput,
           report: (update: NewDesignUpdate) => Effect.Effect<void>
         ): Effect.fn.Return<NewDesignOutcome> {
           // What the lines said so far: the step it is on, and the one that failed.
@@ -225,7 +212,7 @@ export class NewDesigns extends Context.Service<
         const open = Effect.fn("NewDesigns.open")(function* (
           folder: string,
           name: string,
-          template: NewDesignRequest["template"],
+          template: NewDesignInput["template"],
           report: (update: NewDesignUpdate) => Effect.Effect<void>
         ) {
           yield* report({ state: "active", step: "open" });

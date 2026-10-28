@@ -11,11 +11,12 @@
  * it died, or attached to if it still runs; the window loads the editor again only when it is
  * another server, or another port.
  */
+
+import type { ShellStatus } from "@ultrapaint/contracts/shell-bridge";
 import { Context, Duration, Effect, Exit, Layer, Result, Scope } from "effect";
 import { ServerStartError } from "./errors.ts";
 import { agentsWorking, type RunningServer } from "./project-server.ts";
 import type { SshProject } from "./projects.ts";
-import type { ShellStatus } from "./shell.ts";
 import type { SshError } from "./ssh.ts";
 import {
   answers,

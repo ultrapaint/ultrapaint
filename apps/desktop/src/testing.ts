@@ -1,16 +1,19 @@
 /** Fakes of what the app's services ask of Electron and of the server, for tests. */
+import type { ShellStatus } from "@ultrapaint/contracts/shell-bridge";
 import { Effect, Layer, Option } from "effect";
 import { ServerStartError } from "./errors.ts";
 import { ProjectServer, type ServerOptions } from "./project-server.ts";
 import { RemoteProjects } from "./remote-project.ts";
-import { Shell, type ShellStatus, type View } from "./shell.ts";
+import { Shell, type View } from "./shell.ts";
 
 /** What the fakes saw, in order. */
 export interface Recorded {
   /** Answers the next `confirm` questions get; true when there are none left. */
   answers: boolean[];
   events: string[];
-  /** Folders the next pickers return; cancelled when there are none left. */
+  /** The titles of the pickers opened, in order. */
+  pickers: string[];
+  /** Paths the next pickers return; cancelled when there are none left. */
   picks: string[];
   questions: string[];
   /** What the window was told the app is doing, `null` once it is done. */
@@ -23,6 +26,7 @@ export interface Recorded {
 export const makeRecorded = (): Recorded => ({
   answers: [],
   events: [],
+  pickers: [],
   picks: [],
   questions: [],
   statuses: [],
@@ -39,8 +43,16 @@ export const fakeShell = (recorded: Recorded) =>
           recorded.questions.push(message);
           return recorded.answers.shift() ?? true;
         }),
-      pickFolder: () =>
-        Effect.sync(() => Option.fromNullishOr(recorded.picks.shift())),
+      pickFile: (title) =>
+        Effect.sync(() => {
+          recorded.pickers.push(title);
+          return Option.fromNullishOr(recorded.picks.shift());
+        }),
+      pickFolder: ({ title }) =>
+        Effect.sync(() => {
+          recorded.pickers.push(title);
+          return Option.fromNullishOr(recorded.picks.shift());
+        }),
       show: (view) => Effect.sync(() => recorded.views.push(view)),
       status: (status) => Effect.sync(() => recorded.statuses.push(status)),
     })

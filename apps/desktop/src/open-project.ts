@@ -259,7 +259,9 @@ export class OpenProject extends Context.Service<
 
         return OpenProject.of({
           add: Effect.gen(function* () {
-            const folder = yield* shell.pickFolder("Add a project folder");
+            const folder = yield* shell.pickFolder({
+              title: "Add a project folder",
+            });
             return Option.isNone(folder)
               ? Option.none()
               : Option.some((yield* openFolder(folder.value)).project);

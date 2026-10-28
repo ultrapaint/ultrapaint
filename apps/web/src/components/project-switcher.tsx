@@ -44,8 +44,8 @@ const SwitcherSelect = ({ switcher }: { switcher: Switcher }) => {
       openRemoteProject();
       return;
     }
-    const next = id === ADD ? switcher.add?.() : switcher.open(id);
-    next?.catch(reportError);
+    const next = id === ADD ? switcher.add() : switcher.open(id);
+    next.catch(reportError);
   };
   return (
     <OptionSelect
@@ -58,7 +58,7 @@ const SwitcherSelect = ({ switcher }: { switcher: Switcher }) => {
           value: p.id,
         })),
         ...(canMakeNewDesigns() ? [{ label: "New design…", value: NEW }] : []),
-        ...(switcher.add ? [{ label: "Add a project…", value: ADD }] : []),
+        { label: "Add a project…", value: ADD },
         ...(canAddRemoteProjects()
           ? [{ label: "Open over SSH…", value: REMOTE }]
           : []),
