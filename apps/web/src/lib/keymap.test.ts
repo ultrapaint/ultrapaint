@@ -367,7 +367,7 @@ describe("the menus", () => {
       return e.kind === "submenu" ? named(e.entries) : [];
     });
 
-  it("show the keys of the commands their items are", () => {
+  it("name commands there are, whose keys they show", () => {
     const node = { id: "cta", text: "Go", type: "text" } as never;
     const all = [
       ...named(
@@ -405,11 +405,7 @@ describe("the menus", () => {
       ),
     ];
     expect(all.length).toBeGreaterThan(10);
-    const ids = new Set(
-      commandList()
-        .filter((c) => c.keys)
-        .map((c: CommandSpec) => c.id)
-    );
+    const ids = new Set(commandList().map((c: CommandSpec) => c.id));
     for (const id of all) {
       expect(ids, id).toContain(id);
     }

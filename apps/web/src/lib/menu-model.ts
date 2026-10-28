@@ -1,7 +1,8 @@
 /**
  * What each context menu holds, as data: the items a target offers, which are there at all and
- * which are only greyed out. Pure, over the facts the host reads off the stores, so a menu can
- * be read — and tested — without an editor. What an item does is `menu-actions.ts`'s.
+ * which are only greyed out, and what each does, as a typed action with its argument
+ * (`{ kind: "wrap", in: "row" }`). Pure, over the facts read off the stores, so a menu can be
+ * read — and tested — without an editor. `menu-actions.ts` reads the facts and runs the actions.
  */
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { ViewportPreset } from "@ultrapaint/contracts/pages";
@@ -11,42 +12,73 @@ import {
   nodeLabel,
 } from "@ultrapaint/design-document/tree";
 import type { MenuTokenKind } from "../state/context-menu.ts";
+import type { Arrangement, Wrapper } from "./node-actions.ts";
 import { viewportPresets } from "./presets.ts";
 
-export type Entry =
-  | {
-      kind: "item";
-      /** What the item does; `wrap:row`, `apply:fill` and the like carry their argument. */
-      id: string;
-      label: string;
-      /** The editor's command it is, whose keys it shows (`commands.ts`). */
-      command?: string;
-      disabled?: boolean;
-      destructive?: boolean;
-      /** Marked as the current choice among its neighbours. */
-      checked?: boolean;
-    }
+export interface Item<A> {
+  /** What the item does, with what it does it with. */
+  action: A;
+  /** Marked as the current choice among its neighbours. */
+  checked?: boolean;
+  /** The editor's command it is, whose keys it shows (`commands.ts`). */
+  command?: string;
+  destructive?: boolean;
+  disabled?: boolean;
+  kind: "item";
+  label: string;
+}
+
+/** The submenus, by what they gather: their icon is told by it. */
+export type SubmenuId =
+  | "apply"
+  | "arrange"
+  | "copyTo"
+  | "link"
+  | "moveTo"
+  | "preset"
+  | "send"
+  | "state"
+  | "variant"
+  | "wrap";
+
+export type Entry<A = unknown> =
+  | Item<A>
   | { kind: "separator" }
   | { kind: "label"; label: string }
   | {
       kind: "submenu";
-      id: string;
+      id: SubmenuId;
       label: string;
       disabled?: boolean;
-      entries: readonly Entry[];
+      entries: readonly Entry<A>[];
     };
 
-const item = (
+const item = <A>(
+  action: A,
+  label: string,
+  more: Omit<Item<A>, "action" | "kind" | "label"> = {}
+): Item<A> => ({ action, kind: "item", label, ...more });
+
+const separator = { kind: "separator" } as const;
+
+/** An item that runs one of the editor's commands, and shows its keys. */
+export interface CommandAction {
+  /** The command's id in `commands.ts`. */
+  id: string;
+  kind: "command";
+}
+
+const commandItem = (
   id: string,
   label: string,
-  more: Omit<Extract<Entry, { kind: "item" }>, "kind" | "id" | "label"> = {}
-): Entry => ({ id, kind: "item", label, ...more });
-
-const separator: Entry = { kind: "separator" };
+  more: Omit<Item<CommandAction>, "action" | "command" | "kind" | "label"> = {}
+) => item({ id, kind: "command" } as const, label, { command: id, ...more });
 
 /** No separator at either end, and never two in a row: optional items leave gaps. */
-export const tidy = (entries: readonly (Entry | false | null)[]): Entry[] => {
-  const out: Entry[] = [];
+export const tidy = <A>(
+  entries: readonly (Entry<A> | false | null)[]
+): Entry<A>[] => {
+  const out: Entry<A>[] = [];
   for (const e of entries) {
     if (!e) {
       continue;
@@ -65,7 +97,49 @@ export const tidy = (entries: readonly (Entry | false | null)[]): Entry[] => {
   return out;
 };
 
+/** The same menu, each action made another: bound to the target it acts on. */
+export const mapActions = <A, B>(
+  entries: readonly Entry<A>[],
+  to: (action: A) => B
+): Entry<B>[] =>
+  entries.map((e): Entry<B> => {
+    switch (e.kind) {
+      case "item":
+        return { ...e, action: to(e.action) };
+      case "submenu":
+        return { ...e, entries: mapActions(e.entries, to) };
+      default:
+        return e;
+    }
+  });
+
 // ---- Nodes ----
+
+export type NodeAction =
+  | { kind: "ask"; newChat: boolean }
+  | { kind: "editText" }
+  | { kind: "rename" }
+  | { kind: "viewCode" }
+  | { kind: "comment" }
+  | { kind: "makeDraft" }
+  /** Leads to a page, by its file, or `back`; `null` takes the link away. */
+  | { kind: "link"; to: string | null }
+  /** Asks for a URL or another site to lead to. */
+  | { kind: "linkUrl" }
+  | { kind: "selectParent" }
+  | { kind: "copyLink" }
+  | { kind: "copyRef" }
+  | { kind: "copy" }
+  | { kind: "cut" }
+  | { kind: "paste" }
+  | { kind: "duplicate" }
+  | { kind: "wrap"; in: Wrapper }
+  | { kind: "unwrap" }
+  | { kind: "arrange"; to: Arrangement }
+  | { kind: "hide"; hidden: boolean }
+  | { kind: "lock"; locked: boolean }
+  | { kind: "zoomTo" }
+  | { kind: "delete" };
 
 export interface NodeFacts {
   /** Something copied that can be pasted. */
@@ -93,24 +167,28 @@ export interface NodeFacts {
 }
 
 /**
- * Where a node can lead in the prototype: a page (`link:<file>`), back, a URL or another site,
- * or nowhere. Only a node in a page has one: one beside the pages is never in the prototype.
+ * Where a node can lead in the prototype: a page, back, a URL or another site, or nowhere. Only
+ * a node in a page has one: one beside the pages is never in the prototype.
  */
-const linkEntries = (f: NodeFacts): Entry | false => {
+const linkEntries = (f: NodeFacts): Entry<NodeAction> | false => {
   if (!f.onPage || f.node.type === "page") {
     return false;
   }
   const { link } = f.node;
+  const to = (target: string | null): NodeAction => ({
+    kind: "link",
+    to: target,
+  });
   return {
-    entries: tidy([
+    entries: tidy<NodeAction>([
       ...(f.linkTargets ?? []).map((p) =>
-        item(`link:${p.path}`, p.name, { checked: link === p.path })
+        item(to(p.path), p.name, { checked: link === p.path })
       ),
       (f.linkTargets ?? []).length > 0 && separator,
-      item("link:back", "Back", { checked: link === "back" }),
-      item("link:url", "A URL or another site…"),
+      item(to("back"), "Back", { checked: link === "back" }),
+      item({ kind: "linkUrl" }, "A URL or another site…"),
       link !== undefined && separator,
-      link !== undefined && item("link:none", "Remove link"),
+      link !== undefined && item(to(null), "Remove link"),
     ]),
     id: "link",
     kind: "submenu",
@@ -128,7 +206,7 @@ const headingOf = (node: DesignNode) => {
 /** A page's root is the page: it is not copied, moved, deleted or duplicated as a node. */
 export const isPageRoot = (node: DesignNode) => node.type === "page";
 
-export const nodeEntries = (f: NodeFacts): Entry[] => {
+export const nodeEntries = (f: NodeFacts): Entry<NodeAction>[] => {
   const { node } = f;
   const root = isPageRoot(node);
   const several = f.count > 1;
@@ -136,72 +214,126 @@ export const nodeEntries = (f: NodeFacts): Entry[] => {
   const one = { disabled: several };
   const first = f.index <= 0;
   const last = f.index >= f.siblings - 1;
-  return tidy([
+  return tidy<NodeAction>([
     { kind: "label", label: several ? `${f.count} selected` : headingOf(node) },
-    item("ask", "Add to chat"),
-    item("askNew", "Add to a new chat"),
+    item({ kind: "ask", newChat: false }, "Add to chat"),
+    item({ kind: "ask", newChat: true }, "Add to a new chat"),
     node.type === "text" &&
-      item("editText", "Edit text", { ...one, command: "editText" }),
-    item("rename", "Rename…", one),
-    item("viewCode", "View code", one),
-    f.onPage && item("comment", "Comment on this", one),
+      item({ kind: "editText" }, "Edit text", {
+        ...one,
+        command: "editText",
+      }),
+    item({ kind: "rename" }, "Rename…", one),
+    item({ kind: "viewCode" }, "View code", one),
+    f.onPage && item({ kind: "comment" }, "Comment on this", one),
     // A part of the page made a component the code does not have yet (ADR 0029).
     f.onPage &&
       !root &&
       !(node.type === "instance" && node.from === "#draft") &&
-      item("makeDraft", "Make a draft component…", one),
+      item({ kind: "makeDraft" }, "Make a draft component…", one),
     linkEntries(f),
     f.parentSelectable &&
-      item("selectParent", "Select parent", {
+      item({ kind: "selectParent" }, "Select parent", {
         ...one,
         command: "selectParent",
       }),
     separator,
-    item("copyLink", "Copy link to element", one),
-    item("copyRef", "Copy element ID", one),
+    item({ kind: "copyLink" }, "Copy link to element", one),
+    item({ kind: "copyRef" }, "Copy element ID", one),
     separator,
-    !root && item("copy", "Copy", { command: "copy" }),
-    !root && item("cut", "Cut", { command: "cut" }),
-    item("paste", "Paste", { command: "paste", disabled: !f.canPaste }),
-    !root && item("duplicate", "Duplicate", { command: "duplicate" }),
+    !root && item({ kind: "copy" }, "Copy", { command: "copy" }),
+    !root && item({ kind: "cut" }, "Cut", { command: "cut" }),
+    item({ kind: "paste" }, "Paste", {
+      command: "paste",
+      disabled: !f.canPaste,
+    }),
+    !root && item({ kind: "duplicate" }, "Duplicate", { command: "duplicate" }),
     separator,
     !root && {
       disabled: !f.wrappable,
-      entries: [
-        item("wrap:group", "Group", { command: "wrap:group" }),
-        item("wrap:row", "Row", { command: "wrap:row" }),
-        item("wrap:column", "Column", { command: "wrap:column" }),
-      ],
+      entries: (
+        [
+          ["group", "Group"],
+          ["row", "Row"],
+          ["column", "Column"],
+        ] as const
+      ).map(([into, label]) =>
+        item({ in: into, kind: "wrap" }, label, {
+          command: `wrap:${into}`,
+        })
+      ),
       id: "wrap",
       kind: "submenu",
       label: "Wrap in",
     },
-    !root && isContainer(node) && item("unwrap", "Unwrap"),
+    !root && isContainer(node) && item({ kind: "unwrap" }, "Unwrap"),
     !root && {
       disabled: several || f.siblings < 2,
       entries: [
-        item("arrange:up", "Move up", { disabled: first }),
-        item("arrange:down", "Move down", { disabled: last }),
-        item("arrange:top", "Move to the top", { disabled: first }),
-        item("arrange:bottom", "Move to the bottom", { disabled: last }),
+        item({ kind: "arrange", to: "up" }, "Move up", {
+          disabled: first,
+        }),
+        item({ kind: "arrange", to: "down" }, "Move down", {
+          disabled: last,
+        }),
+        item({ kind: "arrange", to: "top" }, "Move to the top", {
+          disabled: first,
+        }),
+        item({ kind: "arrange", to: "bottom" }, "Move to the bottom", {
+          disabled: last,
+        }),
       ],
       id: "arrange",
       kind: "submenu",
       label: "Arrange",
     },
-    item("toggleHidden", f.hidden ? "Show" : "Hide"),
-    !root && item("toggleLocked", node.locked ? "Unlock" : "Lock"),
-    item("zoomTo", "Zoom to selection", { command: "zoomSelection" }),
+    item({ hidden: !f.hidden, kind: "hide" }, f.hidden ? "Show" : "Hide"),
+    !root &&
+      item(
+        { kind: "lock", locked: !node.locked },
+        node.locked ? "Unlock" : "Lock"
+      ),
+    item({ kind: "zoomTo" }, "Zoom to selection", {
+      command: "zoomSelection",
+    }),
     separator,
     !root &&
-      item("delete", several ? `Delete ${f.count} elements` : "Delete", {
-        command: "delete",
-        destructive: true,
-      }),
+      item(
+        { kind: "delete" },
+        several ? `Delete ${f.count} elements` : "Delete",
+        { command: "delete", destructive: true }
+      ),
   ]);
 };
 
 // ---- Pages ----
+
+export type PageAction =
+  | { kind: "goTo" }
+  | { kind: "zoomTo" }
+  | { kind: "paste" }
+  | { kind: "preset"; preset: ViewportPreset }
+  | { kind: "rename" }
+  | { kind: "setUrl" }
+  | { kind: "removeUrl" }
+  | { kind: "duplicate" }
+  /** Draws the page for a variant of the canvas's, or for one asked for (`null`). */
+  | { kind: "variant"; variant: string | null }
+  /** Draws the page in a state of the canvas's, or in one asked for (`null`). */
+  | { kind: "state"; state: string | null }
+  /**
+   * Copies or moves the pages into another canvas (`""` is the designs directory's own), or
+   * into a new one asked for (`null`).
+   */
+  | { canvas: string | null; kind: "copyTo"; move: boolean }
+  | { kind: "implement" }
+  | { kind: "adopt" }
+  | { kind: "ready"; ready: boolean }
+  | { kind: "readyAll" }
+  | { kind: "markImplemented" }
+  | { kind: "unlink" }
+  | { kind: "comment" }
+  | { kind: "delete" };
 
 export interface PageFacts {
   canPaste: boolean;
@@ -227,15 +359,14 @@ export interface PageFacts {
   variantsFree: readonly string[];
 }
 
-/**
- * Into another canvas, or a new one: `copyTo:@<id>` (the root canvas is `copyTo:@`),
- * `copyTo:new`, and the same for a move.
- */
-const canvasTargets = (verb: "copyTo" | "moveTo", f: PageFacts): Entry[] =>
-  tidy([
-    ...f.canvases.map((c) => item(`${verb}:@${c.id}`, c.name)),
+/** Into another canvas, or a new one. */
+const canvasTargets = (move: boolean, f: PageFacts): Entry<PageAction>[] =>
+  tidy<PageAction>([
+    ...f.canvases.map((c) =>
+      item<PageAction>({ canvas: c.id, kind: "copyTo", move }, c.name)
+    ),
     f.canvases.length > 0 && separator,
-    item(`${verb}:new`, "New canvas…"),
+    item<PageAction>({ canvas: null, kind: "copyTo", move }, "New canvas…"),
   ]);
 
 /** Whether the page is a base page, not a variant's or a state's drawing of one. */
@@ -243,24 +374,31 @@ const isBasePage = (f: PageFacts) =>
   f.variant === undefined && f.state === undefined;
 
 /** A base page drawn again: for a variant of the prototype, or in a state (ADR 0030). */
-const drawingEntries = (f: PageFacts): (Entry | false)[] =>
+const drawingEntries = (f: PageFacts): Entry<PageAction>[] =>
   isBasePage(f)
     ? [
         {
-          entries: tidy([
-            ...f.variantsFree.map((v) => item(`variant:${v}`, v)),
+          entries: tidy<PageAction>([
+            ...f.variantsFree.map((v) =>
+              item<PageAction>({ kind: "variant", variant: v }, v)
+            ),
             f.variantsFree.length > 0 && separator,
-            item("variant:new", "New variant…"),
+            item<PageAction>(
+              { kind: "variant", variant: null },
+              "New variant…"
+            ),
           ]),
           id: "variant",
           kind: "submenu",
           label: "Draw a variant",
         },
         {
-          entries: tidy([
-            ...f.statesFree.map((v) => item(`state:${v}`, v)),
+          entries: tidy<PageAction>([
+            ...f.statesFree.map((v) =>
+              item<PageAction>({ kind: "state", state: v }, v)
+            ),
             f.statesFree.length > 0 && separator,
-            item("state:new", "New state…"),
+            item<PageAction>({ kind: "state", state: null }, "New state…"),
           ]),
           id: "state",
           kind: "submenu",
@@ -273,79 +411,96 @@ const drawingEntries = (f: PageFacts): (Entry | false)[] =>
  * The page and the code that implements it (ADR 0030); several pages picked, all of them at once:
  * marked ready, or linked by an agent to the code that already implements them.
  */
-const codeEntries = (f: PageFacts): (Entry | false)[] => {
+const codeEntries = (f: PageFacts): (Entry<PageAction> | false)[] => {
   if (f.count > 1) {
     return [
-      item("readyAll", `Mark ${f.count} pages ready to implement`),
-      item("adopt", `Find the code of ${f.count} pages with an agent`),
+      item({ kind: "readyAll" }, `Mark ${f.count} pages ready to implement`),
+      item(
+        { kind: "adopt" },
+        `Find the code of ${f.count} pages with an agent`
+      ),
     ];
   }
   const bound =
     f.implementation === "implemented" || f.implementation === "changed";
   return [
-    item("implement", "Implement with an agent"),
-    !bound && item("adopt", "Find its code with an agent"),
-    f.implementation === "draft" && item("ready", "Mark ready to implement"),
-    f.implementation === "ready" && item("notReady", "Mark not ready"),
+    item({ kind: "implement" }, "Implement with an agent"),
+    !bound && item({ kind: "adopt" }, "Find its code with an agent"),
+    f.implementation === "draft" &&
+      item({ kind: "ready", ready: true }, "Mark ready to implement"),
+    f.implementation === "ready" &&
+      item({ kind: "ready", ready: false }, "Mark not ready"),
     item(
-      "markImplemented",
+      { kind: "markImplemented" },
       bound ? "Mark implemented again…" : "Mark implemented…"
     ),
-    bound && item("unlink", "Unlink from its code"),
+    bound && item({ kind: "unlink" }, "Unlink from its code"),
   ];
 };
 
-export const pageEntries = (f: PageFacts): Entry[] => {
+export const pageEntries = (f: PageFacts): Entry<PageAction>[] => {
   const pages = f.count === 1 ? "page" : `${f.count} pages`;
-  return tidy([
+  return tidy<PageAction>([
     {
       kind: "label",
       label: `${f.name}${f.variant ? ` · ${f.variant}` : ""}${f.state ? ` · ${f.state}` : ""} · ${f.route ?? "no URL"}`,
     },
-    item("goTo", f.route ? `Go to ${f.route}` : "Go to page"),
-    f.onCanvas && item("zoomTo", "Zoom to page"),
+    item({ kind: "goTo" }, f.route ? `Go to ${f.route}` : "Go to page"),
+    f.onCanvas && item({ kind: "zoomTo" }, "Zoom to page"),
     f.onCanvas &&
-      item("paste", "Paste into page", {
+      item({ kind: "paste" }, "Paste into page", {
         command: "paste",
         disabled: !f.canPaste,
       }),
     f.onCanvas && {
       entries: viewportPresets.map((p) =>
-        item(`preset:${p.value}`, p.label, { checked: f.preset === p.value })
+        item<PageAction>({ kind: "preset", preset: p.value }, p.label, {
+          checked: f.preset === p.value,
+        })
       ),
       id: "preset",
       kind: "submenu",
       label: "Viewport",
     },
     separator,
-    f.variant === undefined &&
-      f.state === undefined &&
-      item("rename", "Rename…"),
-    item("setUrl", f.route ? "Change URL…" : "Set URL…"),
-    f.route !== undefined && item("removeUrl", "Remove URL"),
-    item("duplicate", "Duplicate page"),
+    isBasePage(f) && item({ kind: "rename" }, "Rename…"),
+    item({ kind: "setUrl" }, f.route ? "Change URL…" : "Set URL…"),
+    f.route !== undefined && item({ kind: "removeUrl" }, "Remove URL"),
+    item({ kind: "duplicate" }, "Duplicate page"),
     ...drawingEntries(f),
     {
-      entries: canvasTargets("copyTo", f),
+      entries: canvasTargets(false, f),
       id: "copyTo",
       kind: "submenu",
       label: `Copy ${pages} to canvas`,
     },
     {
-      entries: canvasTargets("moveTo", f),
+      entries: canvasTargets(true, f),
       id: "moveTo",
       kind: "submenu",
       label: `Move ${pages} to canvas`,
     },
     separator,
     ...codeEntries(f),
-    f.onCanvas && item("comment", "Add a comment"),
+    f.onCanvas && item({ kind: "comment" }, "Add a comment"),
     separator,
-    item("delete", "Delete page…", { destructive: true }),
+    item({ kind: "delete" }, "Delete page…", { destructive: true }),
   ]);
 };
 
 // ---- Canvases ----
+
+export type CanvasEntryAction =
+  | { kind: "openCanvas" }
+  | { kind: "rename" }
+  | { kind: "duplicate" }
+  | { kind: "duplicateWithAgent" }
+  | { kind: "componentSheet" }
+  | { kind: "readyAll" }
+  | { kind: "adopt" }
+  /** Up (-1) or down (1) the list. */
+  | { by: -1 | 1; kind: "move" }
+  | { kind: "delete" };
 
 export interface CanvasEntryFacts {
   /** It is the one on screen. */
@@ -356,21 +511,23 @@ export interface CanvasEntryFacts {
   only: boolean;
 }
 
-export const canvasListEntries = (f: CanvasEntryFacts): Entry[] =>
-  tidy([
-    !f.current && item("openCanvas", "Open"),
-    item("rename", "Rename…"),
-    item("duplicate", "Duplicate…"),
-    item("duplicateWithAgent", "Duplicate with an agent…"),
-    item("componentSheet", "Draw the components with an agent"),
+export const canvasListEntries = (
+  f: CanvasEntryFacts
+): Entry<CanvasEntryAction>[] =>
+  tidy<CanvasEntryAction>([
+    !f.current && item({ kind: "openCanvas" }, "Open"),
+    item({ kind: "rename" }, "Rename…"),
+    item({ kind: "duplicate" }, "Duplicate…"),
+    item({ kind: "duplicateWithAgent" }, "Duplicate with an agent…"),
+    item({ kind: "componentSheet" }, "Draw the components with an agent"),
     separator,
-    item("readyAll", "Mark every page ready to implement"),
-    item("adopt", "Find the pages' code with an agent"),
+    item({ kind: "readyAll" }, "Mark every page ready to implement"),
+    item({ kind: "adopt" }, "Find the pages' code with an agent"),
     separator,
-    item("moveUp", "Move up", { disabled: f.first }),
-    item("moveDown", "Move down", { disabled: f.last }),
+    item({ by: -1, kind: "move" }, "Move up", { disabled: f.first }),
+    item({ by: 1, kind: "move" }, "Move down", { disabled: f.last }),
     separator,
-    item("delete", "Delete canvas…", {
+    item({ kind: "delete" }, "Delete canvas…", {
       destructive: true,
       disabled: f.only,
     }),
@@ -378,71 +535,88 @@ export const canvasListEntries = (f: CanvasEntryFacts): Entry[] =>
 
 // ---- The canvas ----
 
+/** Pastes at the point clicked; the rest are the editor's commands. */
+export type CanvasAction = { kind: "paste" } | CommandAction;
+
 export interface CanvasFacts {
   canPaste: boolean;
   commentsVisible: boolean;
   gridVisible: boolean;
 }
 
-export const canvasEntries = (f: CanvasFacts): Entry[] =>
-  tidy([
-    item("paste", "Paste here", { command: "paste", disabled: !f.canPaste }),
-    separator,
-    item("newPage", "New page…"),
-    item("importFigma", "Import a Figma file…"),
-    separator,
-    item("zoomFit", "Zoom to fit", { command: "zoomFit" }),
-    item("zoom100", "Zoom to 100%", { command: "zoom100" }),
-    separator,
-    item(
-      "toggleComments",
-      f.commentsVisible ? "Hide comments" : "Show comments",
-      { command: "toggleComments" }
-    ),
-    item("toggleGrid", f.gridVisible ? "Hide grid" : "Show grid", {
-      command: "grid",
+export const canvasEntries = (f: CanvasFacts): Entry<CanvasAction>[] =>
+  tidy<CanvasAction>([
+    item({ kind: "paste" }, "Paste here", {
+      command: "paste",
+      disabled: !f.canPaste,
     }),
-    item("tool:text", "Text tool", { command: "tool:text" }),
-    item("tool:group", "Group tool", { command: "tool:group" }),
+    separator,
+    commandItem("newPage", "New page…"),
+    commandItem("importFigma", "Import a Figma file…"),
+    separator,
+    commandItem("zoomFit", "Zoom to fit"),
+    commandItem("zoom100", "Zoom to 100%"),
+    separator,
+    commandItem(
+      "toggleComments",
+      f.commentsVisible ? "Hide comments" : "Show comments"
+    ),
+    commandItem("grid", f.gridVisible ? "Hide grid" : "Show grid"),
+    commandItem("tool:text", "Text tool"),
+    commandItem("tool:group", "Group tool"),
   ]);
 
 // ---- Comments ----
+
+export type CommentAction =
+  | { kind: "open" }
+  | { kind: "selectElement" }
+  | { kind: "resolve"; resolved: boolean }
+  /** A behaviour note (ADR 0030), or a plain comment. */
+  | { behaviour: boolean; kind: "note" }
+  /** To the chat in use, by its id, or to a new one (`null`). */
+  | { kind: "send"; threadId: string | null }
+  | { kind: "copyText" }
+  | { kind: "delete" };
 
 export interface CommentFacts {
   /** A behaviour note (ADR 0030) rather than talk about the design. */
   behaviour?: boolean;
   /** The chat in use, when there is one; `busy` while its agent works. */
-  current: { busy: boolean; title: string } | null;
+  current: { busy: boolean; id: string; title: string } | null;
   /** It is pinned on an element, which can be selected. */
   hasElement: boolean;
   resolved: boolean;
 }
 
-export const commentEntries = (f: CommentFacts): Entry[] =>
-  tidy([
-    item("open", "Open"),
-    f.hasElement && item("selectElement", "Select the element"),
-    item("resolve", f.resolved ? "Reopen" : "Resolve"),
+export const commentEntries = (f: CommentFacts): Entry<CommentAction>[] =>
+  tidy<CommentAction>([
+    item({ kind: "open" }, "Open"),
+    f.hasElement && item({ kind: "selectElement" }, "Select the element"),
     item(
-      "kind",
+      { kind: "resolve", resolved: !f.resolved },
+      f.resolved ? "Reopen" : "Resolve"
+    ),
+    item(
+      { behaviour: !f.behaviour, kind: "note" },
       f.behaviour ? "Make it a plain comment" : "Make it a behaviour note"
     ),
     {
       entries: [
-        item(
-          "send:current",
+        item<CommentAction>(
+          { kind: "send", threadId: f.current?.id ?? null },
           f.current ? `Current chat · ${f.current.title}` : "Current chat",
           { disabled: !f.current || f.current.busy }
         ),
-        item("send:new", "New chat"),
+        item<CommentAction>({ kind: "send", threadId: null }, "New chat"),
       ],
       id: "send",
       kind: "submenu",
       label: "Send to an agent",
     },
-    item("copyText", "Copy text"),
+    item({ kind: "copyText" }, "Copy text"),
     separator,
-    item("delete", "Delete…", { destructive: true }),
+    item({ kind: "delete" }, "Delete…", { destructive: true }),
   ]);
 
 // ---- Tokens ----
@@ -534,6 +708,13 @@ const appliedTo = (selected: readonly DesignNode[], none: string) => {
     : `Apply to ${selected.length} elements`;
 };
 
+export type TokenAction =
+  | { kind: "copyRef" }
+  | { kind: "copyValue" }
+  | { kind: "edit" }
+  /** Sets the field of every node selected to the token. */
+  | { field: TokenField["field"]; kind: "apply" };
+
 export interface TokenFacts {
   kind: MenuTokenKind;
   name: string;
@@ -542,17 +723,19 @@ export interface TokenFacts {
   value: string;
 }
 
-export const tokenEntries = (f: TokenFacts): Entry[] => {
+export const tokenEntries = (f: TokenFacts): Entry<TokenAction>[] => {
   const fields = sharedTokenFields(f.kind, f.selected);
-  return tidy([
-    item("copyRef", `Copy $${f.name}`),
-    item("copyValue", `Copy ${f.value}`),
+  return tidy<TokenAction>([
+    item({ kind: "copyRef" }, `Copy $${f.name}`),
+    item({ kind: "copyValue" }, `Copy ${f.value}`),
     // The value is the code's (ADR 0025): it is changed where the code declares it.
-    item("edit", "Edit the value in the code…"),
+    item({ kind: "edit" }, "Edit the value in the code…"),
     separator,
     {
       disabled: fields.length === 0,
-      entries: fields.map((t) => item(`apply:${t.field}`, t.label)),
+      entries: fields.map((t) =>
+        item<TokenAction>({ field: t.field, kind: "apply" }, t.label)
+      ),
       id: "apply",
       kind: "submenu",
       label: appliedTo(f.selected, "Apply to the selection"),
@@ -560,24 +743,31 @@ export const tokenEntries = (f: TokenFacts): Entry[] => {
   ]);
 };
 
+export type TextStyleAction = { kind: "apply" } | { kind: "copyName" };
+
 export const textStyleEntries = (f: {
   name: string;
   /** What is selected, which the style is applied to when every one of it is text. */
   selected: readonly DesignNode[];
-}): Entry[] => {
+}): Entry<TextStyleAction>[] => {
   const texts =
     f.selected.length > 0 && f.selected.every((n) => n.type === "text");
   return [
-    item(
-      "apply:textStyle",
+    item<TextStyleAction>(
+      { kind: "apply" },
       appliedTo(texts ? f.selected : [], "Apply to the selected text"),
       { disabled: !texts }
     ),
-    item("copyName", `Copy ${f.name}`),
+    item<TextStyleAction>({ kind: "copyName" }, `Copy ${f.name}`),
   ];
 };
 
 // ---- The Assets panel ----
+
+export type ComponentAction =
+  | { kind: "insert" }
+  | { kind: "insertCanvas" }
+  | { kind: "copyName" };
 
 export interface ComponentFacts {
   isComponent: boolean;
@@ -587,17 +777,24 @@ export interface ComponentFacts {
   target: string | null;
 }
 
-export const componentEntries = (f: ComponentFacts): Entry[] =>
-  tidy([
-    item("insert", f.target ? `Insert into ${f.target}` : "Insert", {
+export const componentEntries = (f: ComponentFacts): Entry<ComponentAction>[] =>
+  tidy<ComponentAction>([
+    item({ kind: "insert" }, f.target ? `Insert into ${f.target}` : "Insert", {
       disabled: f.target === null,
     }),
-    f.onCanvas && item("insertCanvas", "Insert on the canvas"),
+    f.onCanvas && item({ kind: "insertCanvas" }, "Insert on the canvas"),
     f.isComponent && separator,
-    f.isComponent && item("copyName", `Copy ${f.name}`),
+    f.isComponent && item({ kind: "copyName" }, `Copy ${f.name}`),
   ]);
 
 // ---- Threads ----
+
+export type ThreadAction =
+  | { kind: "open" }
+  /** Follows it on the canvas, or stops. */
+  | { follow: boolean; kind: "follow" }
+  | { kind: "stop" }
+  | { kind: "delete" };
 
 export interface ThreadFacts {
   following: boolean;
@@ -605,12 +802,15 @@ export interface ThreadFacts {
   title: string;
 }
 
-export const threadEntries = (f: ThreadFacts): Entry[] =>
-  tidy([
+export const threadEntries = (f: ThreadFacts): Entry<ThreadAction>[] =>
+  tidy<ThreadAction>([
     { kind: "label", label: f.title },
-    item("open", "Open in chat"),
-    item("follow", f.following ? "Stop following" : "Follow on the canvas"),
-    f.running && item("stop", "Stop the turn"),
+    item({ kind: "open" }, "Open in chat"),
+    item(
+      { follow: !f.following, kind: "follow" },
+      f.following ? "Stop following" : "Follow on the canvas"
+    ),
+    f.running && item({ kind: "stop" }, "Stop the turn"),
     separator,
-    item("delete", "Delete thread…", { destructive: true }),
+    item({ kind: "delete" }, "Delete thread…", { destructive: true }),
   ]);

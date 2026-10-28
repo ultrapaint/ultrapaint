@@ -605,3 +605,13 @@ callers and its tests share.
    `insertAllAt` go. `node-actions.test.ts` (20) runs the stores on `fakeApi`, answered by the
    server's own `applyOps`. Also: an Alt-copy dropped into a view above the base is hidden below it, as a paste
    is; a Layers drop keeps the selection in the view it was in; a paste at a point is "Paste".
+18. **Menu items carry their action** (`apps/web/src/lib/menu-model.ts`, `menu-actions.ts`). An
+   item holds a typed action with its argument (`{ kind: "wrap", in: "row" }`, `{ kind: "copyTo",
+   canvas: "", move: true }`), each menu's a union of its own; `menuFor(target)` reads the facts
+   off the stores and binds the items to the target (`{ on, target, act }`), and `runMenuAction`
+   runs one, an exhaustive switch a case per kind. The canvas menu's commands run the command's own
+   `run` (`runCommand`). The six `actions[id]?.()` tables, `argOf`, the items' ids (an icon is told
+   by the action, a submenu's by its typed id) and `viewCode` (`showRightPanel`, the palette's) go.
+   `menu-actions.test.ts` (17) builds node, page and canvas menus from the stores on `fakeApi` and
+   runs their items; a table every kind must be in, and a sweep running each once. Also: Hide, Lock,
+   Resolve and Follow do what the menu said when it opened; a draft component's failure is shown.

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { type LeftTab, useEditor } from "./editor.ts";
+import { type LeftTab, type RightTab, useEditor } from "./editor.ts";
 
 /**
  * Whether the side panels are put away, for a clear look at the canvas. A preference of this
@@ -60,4 +60,12 @@ export const openLeftPanel = (tab: LeftTab) => {
   if (usePanels.getState().left) {
     usePanels.getState().setHidden({ left: false });
   }
+};
+
+/** Shows a tab of the right panel, on the canvas, bringing the panel back when it was put away. */
+export const showRightPanel = (tab: RightTab) => {
+  const editor = useEditor.getState();
+  editor.setWorkspace("design");
+  editor.setRightTab(tab);
+  usePanels.getState().setHidden({ right: false });
 };

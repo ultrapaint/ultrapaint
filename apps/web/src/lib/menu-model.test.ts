@@ -38,24 +38,49 @@ const facts = (over: Partial<NodeFacts> = {}): NodeFacts => ({
   ...over,
 });
 
-/** Every item id of a menu, submenus flattened. */
-const ids = (entries: readonly Entry[]): string[] =>
-  entries.flatMap((e) => {
+type Action = { kind: string } & Record<string, unknown>;
+
+/** Every entry of a menu, a submenu's after it. */
+const all = (entries: readonly Entry[]): Entry[] =>
+  entries.flatMap((e) => (e.kind === "submenu" ? [e, ...all(e.entries)] : [e]));
+
+/** What each item does and each submenu gathers, in order. */
+const kinds = (entries: readonly Entry[]): string[] =>
+  all(entries).flatMap((e) => {
     if (e.kind === "item") {
-      return [e.id];
+      return [(e.action as Action).kind];
     }
-    return e.kind === "submenu" ? [e.id, ...ids(e.entries)] : [];
+    return e.kind === "submenu" ? [e.id] : [];
   });
 
-const find = (entries: readonly Entry[], id: string) =>
-  entries
-    .flatMap((e) => (e.kind === "submenu" ? [e, ...e.entries] : [e]))
-    .find((e) => "id" in e && e.id === id);
+/** Whether an action is the one described: every field said is as said. */
+const matches = (action: unknown, what: Action) =>
+  Object.entries(what).every(
+    ([key, value]) => (action as Action)[key] === value
+  );
+
+/** The submenu of an id or the first item of an action's kind, or the item of that action. */
+const find = (entries: readonly Entry[], what: string | Action) =>
+  all(entries).find((e) => {
+    if (typeof what !== "string") {
+      return e.kind === "item" && matches(e.action, what);
+    }
+    return (
+      (e.kind === "submenu" && e.id === what) ||
+      (e.kind === "item" && (e.action as Action).kind === what)
+    );
+  });
+
+/** A submenu's entries, an item by its action and the rest by their kind. */
+const inside = (entry: Entry | undefined) =>
+  entry?.kind === "submenu"
+    ? entry.entries.map((e) => (e.kind === "item" ? e.action : e.kind))
+    : [];
 
 describe("tidy", () => {
   it("drops separators at the ends, doubled ones and left-out items", () => {
     const sep: Entry = { kind: "separator" };
-    const a: Entry = { id: "a", kind: "item", label: "A" };
+    const a: Entry = { action: "a", kind: "item", label: "A" };
     expect(tidy([sep, a, false, sep, null, sep, a, sep])).toEqual([a, sep, a]);
   });
 });
@@ -69,22 +94,26 @@ describe("the node menu", () => {
         node: linked,
       })
     );
-    expect(find(entries, "link:pricing.page.json")).toMatchObject({
+    expect(
+      find(entries, { kind: "link", to: "pricing.page.json" })
+    ).toMatchObject({
       checked: true,
     });
-    expect(ids(entries)).toContain("link:none");
-    expect(ids(nodeEntries(facts({ onPage: false })))).not.toContain("link");
+    expect(find(entries, { kind: "link", to: null })).toMatchObject({
+      label: "Remove link",
+    });
+    expect(kinds(nodeEntries(facts({ onPage: false })))).not.toContain("link");
   });
 
   it("offers text editing on text only, and unwrapping on containers only", () => {
-    expect(ids(nodeEntries(facts({ node: text })))).toContain("editText");
-    expect(ids(nodeEntries(facts({ node: text })))).not.toContain("unwrap");
-    expect(ids(nodeEntries(facts()))).toContain("unwrap");
-    expect(ids(nodeEntries(facts()))).not.toContain("editText");
+    expect(kinds(nodeEntries(facts({ node: text })))).toContain("editText");
+    expect(kinds(nodeEntries(facts({ node: text })))).not.toContain("unwrap");
+    expect(kinds(nodeEntries(facts()))).toContain("unwrap");
+    expect(kinds(nodeEntries(facts()))).not.toContain("editText");
   });
 
   it("leaves out what cannot be done to a page's root", () => {
-    const got = ids(
+    const got = kinds(
       nodeEntries(facts({ node: page, parentSelectable: false }))
     );
     for (const id of [
@@ -102,8 +131,12 @@ describe("the node menu", () => {
 
   it("greys out moves that go nowhere", () => {
     const first = nodeEntries(facts({ index: 0 }));
-    expect(find(first, "arrange:up")).toMatchObject({ disabled: true });
-    expect(find(first, "arrange:down")).toMatchObject({ disabled: false });
+    expect(find(first, { kind: "arrange", to: "up" })).toMatchObject({
+      disabled: true,
+    });
+    expect(find(first, { kind: "arrange", to: "down" })).toMatchObject({
+      disabled: false,
+    });
     const only = nodeEntries(facts({ index: 0, siblings: 1 }));
     expect(find(only, "arrange")).toMatchObject({ disabled: true });
   });
@@ -118,7 +151,7 @@ describe("the node menu", () => {
   });
 
   it("comments only on a page, and selects a parent only when there is one", () => {
-    const loose = ids(
+    const loose = kinds(
       nodeEntries(facts({ onPage: false, parentSelectable: false }))
     );
     expect(loose).not.toContain("comment");
@@ -126,25 +159,20 @@ describe("the node menu", () => {
   });
 
   it("locks a node, and unlocks a locked one, but not a page", () => {
-    expect(find(nodeEntries(facts()), "toggleLocked")).toMatchObject({
+    expect(find(nodeEntries(facts()), "lock")).toMatchObject({
       label: "Lock",
     });
     expect(
-      find(
-        nodeEntries(facts({ node: { ...row, locked: true } })),
-        "toggleLocked"
-      )
+      find(nodeEntries(facts({ node: { ...row, locked: true } })), "lock")
     ).toMatchObject({ label: "Unlock" });
-    expect(
-      find(nodeEntries(facts({ node: page })), "toggleLocked")
-    ).toBeUndefined();
+    expect(find(nodeEntries(facts({ node: page })), "lock")).toBeUndefined();
   });
 
   it("says Show when every node it acts on is hidden", () => {
-    expect(
-      find(nodeEntries(facts({ hidden: true })), "toggleHidden")
-    ).toMatchObject({ label: "Show" });
-    expect(find(nodeEntries(facts()), "toggleHidden")).toMatchObject({
+    expect(find(nodeEntries(facts({ hidden: true })), "hide")).toMatchObject({
+      label: "Show",
+    });
+    expect(find(nodeEntries(facts()), "hide")).toMatchObject({
       label: "Hide",
     });
   });
@@ -178,13 +206,13 @@ describe("the node menu, several selected", () => {
 
   it("keeps what acts on all of them", () => {
     for (const id of [
-      "ask",
-      "askNew",
+      { kind: "ask", newChat: false },
+      { kind: "ask", newChat: true },
       "copy",
       "cut",
       "duplicate",
       "wrap",
-      "toggleHidden",
+      "hide",
       "delete",
     ]) {
       expect(find(several, id)).not.toMatchObject({ disabled: true });
@@ -221,16 +249,20 @@ describe("the page menu", () => {
   };
 
   it("marks the current viewport", () => {
-    expect(find(pageEntries(base), "preset:mobile")).toMatchObject({
+    expect(
+      find(pageEntries(base), { kind: "preset", preset: "mobile" })
+    ).toMatchObject({
       checked: true,
     });
-    expect(find(pageEntries(base), "preset:desktop")).toMatchObject({
+    expect(
+      find(pageEntries(base), { kind: "preset", preset: "desktop" })
+    ).toMatchObject({
       checked: false,
     });
   });
 
   it("keeps to what the prototype can show", () => {
-    const got = ids(pageEntries({ ...base, onCanvas: false }));
+    const got = kinds(pageEntries({ ...base, onCanvas: false }));
     expect(got).not.toContain("zoomTo");
     expect(got).not.toContain("preset");
     expect(got).toContain("rename");
@@ -240,35 +272,39 @@ describe("the page menu", () => {
   it("copies and moves into the other canvases, the root one among them", () => {
     const copy = find(pageEntries(base), "copyTo");
     expect(copy).toMatchObject({ label: "Copy page to canvas" });
-    const into =
-      copy?.kind === "submenu"
-        ? copy.entries.map((e) => ("id" in e ? e.id : e.kind))
-        : [];
-    expect(into).toEqual(["copyTo:@", "separator", "copyTo:new"]);
+    expect(inside(copy)).toEqual([
+      { canvas: "", kind: "copyTo", move: false },
+      "separator",
+      { canvas: null, kind: "copyTo", move: false },
+    ]);
+    expect(inside(find(pageEntries(base), "moveTo"))).toContainEqual({
+      canvas: "",
+      kind: "copyTo",
+      move: true,
+    });
     expect(find(pageEntries({ ...base, count: 3 }), "moveTo")).toMatchObject({
       label: "Move 3 pages to canvas",
     });
   });
 
   it("draws a base page for a variant, and a variant's page for none", () => {
-    const variants = find(pageEntries(base), "variant");
-    expect(
-      variants?.kind === "submenu"
-        ? variants.entries.map((e) => ("id" in e ? e.id : e.kind))
-        : []
-    ).toEqual(["variant:bold", "separator", "variant:new"]);
-    expect(ids(pageEntries({ ...base, variant: "bold" }))).not.toContain(
+    expect(inside(find(pageEntries(base), "variant"))).toEqual([
+      { kind: "variant", variant: "bold" },
+      "separator",
+      { kind: "variant", variant: null },
+    ]);
+    expect(kinds(pageEntries({ ...base, variant: "bold" }))).not.toContain(
       "variant"
     );
   });
 
   it("links one page to its code, or brings several in at once (ADR 0030)", () => {
-    const one = ids(pageEntries(base));
+    const one = kinds(pageEntries(base));
     expect(one).toContain("implement");
     expect(one).toContain("adopt");
     expect(one).toContain("ready");
     expect(
-      ids(pageEntries({ ...base, implementation: "implemented" }))
+      kinds(pageEntries({ ...base, implementation: "implemented" }))
     ).not.toContain("adopt");
     const several = pageEntries({ ...base, count: 3 });
     expect(find(several, "readyAll")).toMatchObject({
@@ -277,8 +313,8 @@ describe("the page menu", () => {
     expect(find(several, "adopt")).toMatchObject({
       label: "Find the code of 3 pages with an agent",
     });
-    expect(ids(several)).not.toContain("implement");
-    expect(ids(several)).not.toContain("markImplemented");
+    expect(kinds(several)).not.toContain("implement");
+    expect(kinds(several)).not.toContain("markImplemented");
   });
 });
 
@@ -286,8 +322,8 @@ describe("the menu of a canvas in the list", () => {
   const base = { current: false, first: false, last: false, only: false };
 
   it("opens another canvas, and keeps the last one from being deleted", () => {
-    expect(ids(canvasListEntries(base))).toContain("openCanvas");
-    expect(ids(canvasListEntries({ ...base, current: true }))).not.toContain(
+    expect(kinds(canvasListEntries(base))).toContain("openCanvas");
+    expect(kinds(canvasListEntries({ ...base, current: true }))).not.toContain(
       "openCanvas"
     );
     expect(
@@ -308,12 +344,15 @@ describe("the menu of a canvas in the list", () => {
 
   it("moves only where there is room", () => {
     expect(
-      find(canvasListEntries({ ...base, first: true }), "moveUp")
+      find(canvasListEntries({ ...base, first: true }), {
+        by: -1,
+        kind: "move",
+      })
     ).toMatchObject({
       disabled: true,
     });
     expect(
-      find(canvasListEntries({ ...base, last: true }), "moveDown")
+      find(canvasListEntries({ ...base, last: true }), { by: 1, kind: "move" })
     ).toMatchObject({
       disabled: true,
     });
@@ -329,7 +368,7 @@ describe("the canvas menu", () => {
           commentsVisible: true,
           gridVisible: false,
         }),
-        "toggleComments"
+        { id: "toggleComments", kind: "command" }
       )
     ).toMatchObject({ label: "Hide comments" });
   });
@@ -337,11 +376,13 @@ describe("the canvas menu", () => {
   it("names the grid toggle after what it does", () => {
     const entries = (gridVisible: boolean) =>
       canvasEntries({ canPaste: true, commentsVisible: true, gridVisible });
-    expect(find(entries(false), "toggleGrid")).toMatchObject({
-      command: "grid",
-      label: "Show grid",
-    });
-    expect(find(entries(true), "toggleGrid")).toMatchObject({
+    expect(find(entries(false), { id: "grid", kind: "command" })).toMatchObject(
+      {
+        command: "grid",
+        label: "Show grid",
+      }
+    );
+    expect(find(entries(true), { id: "grid", kind: "command" })).toMatchObject({
       label: "Hide grid",
     });
   });
@@ -350,18 +391,24 @@ describe("the canvas menu", () => {
 describe("the comment menu", () => {
   it("sends to the current session only when it is free", () => {
     const busy = commentEntries({
-      current: { busy: true, title: "Work" },
+      current: { busy: true, id: "t1", title: "Work" },
       hasElement: false,
       resolved: false,
     });
-    expect(find(busy, "send:current")).toMatchObject({ disabled: true });
-    expect(ids(busy)).not.toContain("selectElement");
+    expect(find(busy, { kind: "send", threadId: "t1" })).toMatchObject({
+      disabled: true,
+    });
+    expect(kinds(busy)).not.toContain("selectElement");
     const none = commentEntries({
       current: null,
       hasElement: true,
       resolved: true,
     });
-    expect(find(none, "send:current")).toMatchObject({ disabled: true });
+    expect(find(none, "send")).toMatchObject({ label: "Send to an agent" });
+    expect(find(none, { kind: "send" })).toMatchObject({
+      disabled: true,
+      label: "Current chat",
+    });
     expect(find(none, "resolve")).toMatchObject({ label: "Reopen" });
   });
 });
@@ -406,9 +453,9 @@ describe("tokens", () => {
       value: "0.5rem",
     });
     expect(find(got, "apply")).toMatchObject({ disabled: true });
-    expect(ids(got)).toContain("copyRef");
+    expect(kinds(got)).toContain("copyRef");
     // Its value is the code's, edited there.
-    expect(ids(got)).toContain("edit");
+    expect(kinds(got)).toContain("edit");
   });
 
   it("fit only the fields every selected node has", () => {
@@ -434,12 +481,12 @@ describe("text styles", () => {
   it("apply when every selected node is text", () => {
     const other: DesignNode = { ...text, id: "t2" };
     const texts = textStyleEntries({ name: "Body", selected: [text, other] });
-    expect(find(texts, "apply:textStyle")).toMatchObject({
+    expect(find(texts, "apply")).toMatchObject({
       disabled: false,
       label: "Apply to 2 elements",
     });
     const mixed = textStyleEntries({ name: "Body", selected: [text, row] });
-    expect(find(mixed, "apply:textStyle")).toMatchObject({ disabled: true });
+    expect(find(mixed, "apply")).toMatchObject({ disabled: true });
   });
 });
 
@@ -452,6 +499,6 @@ describe("the Assets menu", () => {
       target: null,
     });
     expect(find(got, "insert")).toMatchObject({ disabled: true });
-    expect(ids(got)).not.toContain("copyName");
+    expect(kinds(got)).not.toContain("copyName");
   });
 });

@@ -3,6 +3,7 @@
  * pointer or against the element it was opened from. Mounted once, beside the dialogs.
  */
 
+import type { ViewportPreset } from "@ultrapaint/contracts/pages";
 import {
   ArrowDown,
   ArrowDownToLine,
@@ -27,7 +28,6 @@ import {
   Focus,
   FolderInput,
   Group,
-  Link,
   Lock,
   LockOpen,
   type LucideIcon,
@@ -71,8 +71,13 @@ import {
   ContextMenuSubTrigger,
 } from "@/components/ui/context-menu";
 import { keysOf } from "../lib/commands.ts";
-import { entriesFor, runEntry } from "../lib/menu-actions.ts";
-import type { Entry } from "../lib/menu-model.ts";
+import {
+  type MenuAction,
+  type MenuEntry,
+  menuFor,
+  runMenuAction,
+} from "../lib/menu-actions.ts";
+import type { SubmenuId } from "../lib/menu-model.ts";
 import { useAgents } from "../state/agents.ts";
 import { useComments } from "../state/comments.ts";
 import {
@@ -85,24 +90,15 @@ import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
 
-const ICONS: Record<string, LucideIcon> = {
-  apply: Paintbrush,
-  "apply:textStyle": Paintbrush,
-  arrange: ArrowUpDown,
-  "arrange:bottom": ArrowDownToLine,
-  "arrange:down": ArrowDown,
-  "arrange:top": ArrowUpToLine,
-  "arrange:up": ArrowUp,
-  ask: Bot,
-  askNew: BotMessageSquare,
-  comment: MessageSquarePlus,
+type ActKind = MenuAction["act"]["kind"];
+
+/** The icon of an item, by what it does; those that differ by their argument are told below. */
+const ICONS: Partial<Record<ActKind, LucideIcon>> = {
   componentSheet: Shapes,
   copy: Copy,
   copyName: Copy,
   copyRef: Copy,
-  copyRoute: Link,
   copyText: Copy,
-  copyTo: Copy,
   copyValue: Copy,
   cut: Scissors,
   delete: Trash2,
@@ -113,51 +109,87 @@ const ICONS: Record<string, LucideIcon> = {
   implement: Code,
   insert: Plus,
   insertCanvas: SquarePlus,
-  moveDown: ArrowDown,
-  moveTo: FolderInput,
-  moveUp: ArrowUp,
-  newPage: FilePlus2,
   open: MessageSquare,
   openCanvas: ArrowRight,
   paste: ClipboardPaste,
-  preset: MonitorSmartphone,
-  "preset:desktop": Monitor,
-  "preset:mobile": Smartphone,
-  "preset:tablet": Tablet,
   rename: TextCursorInput,
   selectElement: SquareDashedMousePointer,
   selectParent: CornerLeftUp,
-  send: Send,
-  "send:current": MessageSquarePlus,
-  "send:new": Bot,
   stop: Square,
-  toggleComments: MessageSquare,
-  "tool:group": SquareDashed,
-  "tool:text": Type,
   unwrap: Ungroup,
-  variant: Split,
   viewCode: FileCode,
-  wrap: Group,
-  "wrap:column": Rows3,
-  "wrap:group": Group,
-  "wrap:row": Columns3,
-  zoom100: ZoomIn,
-  zoomFit: Maximize,
   zoomTo: Focus,
 };
 
-/** Items that say one thing or its opposite have an icon for each. */
-const iconOf = (id: string, label: string): LucideIcon | undefined => {
-  if (id === "toggleHidden" || id === "follow") {
-    return label === "Show" || label.startsWith("Follow") ? Eye : EyeOff;
+const SUBMENU_ICONS: Partial<Record<SubmenuId, LucideIcon>> = {
+  apply: Paintbrush,
+  arrange: ArrowUpDown,
+  copyTo: Copy,
+  moveTo: FolderInput,
+  preset: MonitorSmartphone,
+  send: Send,
+  variant: Split,
+  wrap: Group,
+};
+
+/** The commands' own, by their id in `commands.ts`. */
+const COMMAND_ICONS: Record<string, LucideIcon> = {
+  newPage: FilePlus2,
+  toggleComments: MessageSquare,
+  "tool:group": SquareDashed,
+  "tool:text": Type,
+  zoom100: ZoomIn,
+  zoomFit: Maximize,
+};
+
+const WRAP_ICONS = { column: Rows3, group: Group, row: Columns3 } as const;
+
+const ARRANGE_ICONS = {
+  bottom: ArrowDownToLine,
+  down: ArrowDown,
+  top: ArrowUpToLine,
+  up: ArrowUp,
+} as const;
+
+const PRESET_ICONS: Partial<Record<ViewportPreset, LucideIcon>> = {
+  desktop: Monitor,
+  mobile: Smartphone,
+  tablet: Tablet,
+};
+
+const iconOf = ({ act }: MenuAction): LucideIcon | undefined => {
+  switch (act.kind) {
+    case "ask":
+      return act.newChat ? BotMessageSquare : Bot;
+    case "comment":
+      return MessageSquarePlus;
+    case "wrap":
+      return WRAP_ICONS[act.in];
+    case "arrange":
+      return ARRANGE_ICONS[act.to];
+    case "preset":
+      return PRESET_ICONS[act.preset];
+    case "move":
+      return act.by < 0 ? ArrowUp : ArrowDown;
+    // Items that say one thing or its opposite have an icon for each.
+    case "hide":
+      return act.hidden ? EyeOff : Eye;
+    case "follow":
+      return act.follow ? Eye : EyeOff;
+    case "lock":
+      return act.locked ? Lock : LockOpen;
+    case "resolve":
+      return act.resolved ? CircleCheck : Undo2;
+    case "send":
+      return act.threadId === null ? Bot : MessageSquarePlus;
+    // A text style's; a token's go in the fields of its submenu, which has the icon.
+    case "apply":
+      return "field" in act ? undefined : Paintbrush;
+    case "command":
+      return COMMAND_ICONS[act.id];
+    default:
+      return ICONS[act.kind];
   }
-  if (id === "toggleLocked") {
-    return label === "Lock" ? Lock : LockOpen;
-  }
-  if (id === "resolve") {
-    return label === "Reopen" ? Undo2 : CircleCheck;
-  }
-  return ICONS[id];
 };
 
 const pointAnchor = (anchor: MenuAnchor) =>
@@ -181,18 +213,12 @@ const finalFocus = () => {
   return back;
 };
 
-const choose = (target: MenuTarget, id: string) => {
+const choose = (action: MenuAction) => {
   chosen = true;
-  runEntry(target, id);
+  runMenuAction(action);
 };
 
-const Entries = ({
-  entries,
-  target,
-}: {
-  entries: readonly Entry[];
-  target: MenuTarget;
-}) =>
+const Entries = ({ entries }: { entries: readonly MenuEntry[] }) =>
   entries.map((entry, i) => {
     switch (entry.kind) {
       case "separator":
@@ -207,7 +233,7 @@ const Entries = ({
           </ContextMenuGroup>
         );
       case "submenu": {
-        const Icon = iconOf(entry.id, entry.label);
+        const Icon = SUBMENU_ICONS[entry.id];
         return (
           <ContextMenuSub key={entry.id}>
             <ContextMenuSubTrigger disabled={entry.disabled}>
@@ -215,19 +241,20 @@ const Entries = ({
               {entry.label}
             </ContextMenuSubTrigger>
             <ContextMenuSubContent className="min-w-40">
-              <Entries entries={entry.entries} target={target} />
+              <Entries entries={entry.entries} />
             </ContextMenuSubContent>
           </ContextMenuSub>
         );
       }
       default: {
-        const Icon = iconOf(entry.id, entry.label);
+        const Icon = iconOf(entry.action);
         const keys = entry.command ? keysOf(entry.command) : undefined;
         return (
           <ContextMenuItem
             disabled={entry.disabled}
-            key={entry.id}
-            onClick={() => choose(target, entry.id)}
+            // biome-ignore lint/suspicious/noArrayIndexKey: a menu is drawn as it was read, and two canvases may share a name.
+            key={`item-${i}`}
+            onClick={() => choose(entry.action)}
             variant={entry.destructive ? "destructive" : "default"}
           >
             {Icon ? <Icon /> : null}
@@ -256,7 +283,7 @@ const useCloseWhenStale = (target: MenuTarget | null, open: boolean) => {
       return;
     }
     const stale = () => {
-      if (entriesFor(target) === null) {
+      if (menuFor(target) === null) {
         closeMenu();
       }
     };
@@ -286,7 +313,7 @@ export const ContextMenuHost = () => {
   const target = request?.target ?? null;
   useCloseWhenStale(target, open);
   // What the menu holds is read when it opens; it is not a view that follows the editor.
-  const entries = target ? entriesFor(target) : null;
+  const entries = target ? menuFor(target) : null;
   const onElement = request?.anchor instanceof Element;
   return (
     <ContextMenu onOpenChange={onOpenChange} open={open && !!entries}>
@@ -301,7 +328,7 @@ export const ContextMenuHost = () => {
           side={onElement ? "bottom" : "right"}
           sideOffset={onElement ? 4 : 0}
         >
-          <Entries entries={entries} target={request.target} />
+          <Entries entries={entries} />
         </ContextMenuContent>
       ) : null}
     </ContextMenu>
