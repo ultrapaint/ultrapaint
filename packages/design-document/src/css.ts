@@ -1,8 +1,10 @@
 /**
- * How a node looks, as inline CSS. The renderer draws every node with the style this returns,
- * so this is the one place the meaning of the format's layout fields is written down: `fill`
- * and `hug`, alignment on both axes, tokens. Style objects are camelCased CSS properties with
- * string values, which React and the DOM both take.
+ * How a node looks, as CSS. A node's fields are given their meaning here once: `fill` and `hug`,
+ * alignment on both axes, text styles, tokens. `declarationsOf` says it as declarations with
+ * tokens kept by name, which a style system writes as classes (ADR 0024); `nodeStyle` is what
+ * the renderer draws every node with, the same declarations with tokens as their variables.
+ * Style objects are camelCased CSS properties with string values, which React and the DOM both
+ * take.
  */
 
 import type {
@@ -11,17 +13,22 @@ import type {
 } from "@ultrapaint/contracts/design-system";
 import type {
   DesignNode,
-  Length,
   Padding,
   Size,
   TextNode,
 } from "@ultrapaint/contracts/document";
+import type {
+  Declarations,
+  DeclaredValue,
+} from "@ultrapaint/contracts/node-style";
 import type { PageDefaults } from "@ultrapaint/contracts/pages";
+import { lineHeightName } from "@ultrapaint/contracts/token-table";
 import {
   isToken,
   makeTokenResolver,
   type TokenResolver,
   tokenName,
+  tokenRef,
 } from "./tokens.ts";
 
 export type Style = Record<string, string>;
@@ -104,27 +111,40 @@ export const runsInRow = (
   return a && b ? b.x >= a.x + a.width / 2 && b.y < a.y + a.height / 2 : false;
 };
 
+type Declared = Record<string, DeclaredValue>;
+
+/** A page as tall as the screen: `min-h-screen` in the code, its frame on the canvas. */
+const SCREEN_HEIGHT = "100vh";
+
+/**
+ * The element around a component that keeps its props to itself: a column that stretches the
+ * component across, the instance's own declarations over it. The canvas and the code draw it so.
+ */
+export const AROUND_INSTANCE: Declarations = {
+  display: "flex",
+  flexDirection: "column",
+};
+
 /** Padding or margin, on every side at once or side by side. */
-const sidesStyle = (
+const sidesDeclared = (
   property: "padding" | "margin",
-  value: Padding,
-  css: (v: Length) => string
-): Style => {
+  value: Padding
+): Declared => {
   if (typeof value === "number" || typeof value === "string") {
-    return { [property]: css(value) };
+    return { [property]: value };
   }
-  const out: Style = {};
+  const out: Declared = {};
   if (value.top !== undefined) {
-    out[`${property}Top`] = css(value.top);
+    out[`${property}Top`] = value.top;
   }
   if (value.right !== undefined) {
-    out[`${property}Right`] = css(value.right);
+    out[`${property}Right`] = value.right;
   }
   if (value.bottom !== undefined) {
-    out[`${property}Bottom`] = css(value.bottom);
+    out[`${property}Bottom`] = value.bottom;
   }
   if (value.left !== undefined) {
-    out[`${property}Left`] = css(value.left);
+    out[`${property}Left`] = value.left;
   }
   return out;
 };
@@ -133,11 +153,11 @@ const sidesStyle = (
  * One axis of a node's size. Along the parent's main axis `fill` grows into the free room;
  * across it, it stretches; in a group it is the whole width or height.
  */
-const sizeStyle = (
+const sizeDeclared = (
   axis: "width" | "height",
   size: Size | undefined,
   parent: ParentLayout
-): Style => {
+): Declared => {
   if (size === undefined) {
     return {};
   }
@@ -146,9 +166,7 @@ const sizeStyle = (
     (parent === "column" && axis === "height");
   const flex = parent === "row" || parent === "column";
   if (typeof size === "number") {
-    return main
-      ? { [axis]: `${size}px`, flexShrink: "0" }
-      : { [axis]: `${size}px` };
+    return main ? { [axis]: size, flexShrink: "0" } : { [axis]: size };
   }
   if (size === "hug") {
     return main
@@ -166,88 +184,71 @@ const sizeStyle = (
   return flex ? { alignSelf: "stretch" } : { [axis]: "100%" };
 };
 
-/** Box, size and position fields every node shares. */
-const boxStyle = (node: DesignNode, ctx: StyleContext): Style => {
-  const { css } = ctx.resolver;
-  const style: Style = { boxSizing: "border-box" };
-  Object.assign(
-    style,
-    sizeStyle("width", node.width, ctx.parent),
-    sizeStyle("height", node.height, ctx.parent)
-  );
-  if (node.minWidth !== undefined) {
-    style.minWidth = css(node.minWidth);
+/** How a node lays out its children: a stack's flex, a tinted image's block. */
+const layoutDeclared = (node: DesignNode): Declared => {
+  if (node.type === "image") {
+    // A span, which the reset leaves inline, unlike an image.
+    return node.tint === undefined
+      ? {}
+      : { display: "block", maxWidth: "100%" };
   }
-  if (node.maxWidth !== undefined) {
-    style.maxWidth = css(node.maxWidth);
+  if (node.type !== "page" && node.type !== "row" && node.type !== "column") {
+    return {};
   }
-  if (node.minHeight !== undefined) {
-    style.minHeight = css(node.minHeight);
-  }
-  if (node.maxHeight !== undefined) {
-    style.maxHeight = css(node.maxHeight);
-  }
-  if (node.padding !== undefined) {
-    Object.assign(style, sidesStyle("padding", node.padding, css));
-  }
-  if (node.margin !== undefined) {
-    Object.assign(style, sidesStyle("margin", node.margin, css));
-  }
-  if (node.fill !== undefined) {
-    style.background = css(node.fill);
-  }
-  if (node.border) {
-    const { color, width } = node.border;
-    style.borderStyle = node.border.style ?? "solid";
-    style.borderWidth = css(width ?? 1);
-    style.borderColor = color === undefined ? "currentColor" : css(color);
-  }
-  if (node.radius !== undefined) {
-    style.borderRadius = css(node.radius);
-  }
-  if (node.shadow !== undefined) {
-    style.boxShadow = css(node.shadow);
-  }
-  if (node.opacity !== undefined) {
-    style.opacity = String(node.opacity);
-  }
-  if (node.order !== undefined) {
-    style.order = String(node.order);
-  }
-  if (node.link) {
-    style.cursor = "pointer";
-  }
-  if (node.hidden) {
-    style.display = "none";
-  }
-  return style;
-};
-
-const stackStyle = (
-  node: Extract<DesignNode, { type: "page" | "row" | "column" }>,
-  css: (v: Length) => string
-): Style => {
-  const style: Style = {
+  const out: Declared = {
     display: "flex",
     flexDirection: node.type === "row" ? "row" : "column",
   };
-  if (node.gap !== undefined) {
-    style.gap = css(node.gap);
-  }
-  if (node.align) {
-    style.justifyContent = JUSTIFY[node.align] ?? "flex-start";
-  }
-  if (node.crossAlign) {
-    style.alignItems = ITEMS[node.crossAlign] ?? "stretch";
+  if (node.type === "page" && node.minHeight === undefined) {
+    out.minHeight = SCREEN_HEIGHT;
   }
   if (node.wrap) {
-    style.flexWrap = "wrap";
+    out.flexWrap = "wrap";
   }
-  return style;
+  if (node.align) {
+    out.justifyContent = JUSTIFY[node.align] ?? "flex-start";
+  }
+  if (node.crossAlign) {
+    out.alignItems = ITEMS[node.crossAlign] ?? "stretch";
+  }
+  if (node.gap !== undefined) {
+    out.gap = node.gap;
+  }
+  return out;
+};
+
+/** Size, spacing and place fields every node shares. */
+const boxDeclared = (node: DesignNode, parent: ParentLayout): Declared => {
+  const out: Declared = {
+    ...sizeDeclared("width", node.width, parent),
+    ...sizeDeclared("height", node.height, parent),
+  };
+  if (node.minWidth !== undefined) {
+    out.minWidth = node.minWidth;
+  }
+  if (node.maxWidth !== undefined) {
+    out.maxWidth = node.maxWidth;
+  }
+  if (node.minHeight !== undefined) {
+    out.minHeight = node.minHeight;
+  }
+  if (node.maxHeight !== undefined) {
+    out.maxHeight = node.maxHeight;
+  }
+  if (node.padding !== undefined) {
+    Object.assign(out, sidesDeclared("padding", node.padding));
+  }
+  if (node.margin !== undefined) {
+    Object.assign(out, sidesDeclared("margin", node.margin));
+  }
+  if (node.order !== undefined) {
+    out.order = String(node.order);
+  }
+  return out;
 };
 
 /** Type settings: the text style first, then what the node sets itself. */
-export const typeSettingsOf = (node: TextNode, ctx: StyleContext) => {
+const typeSettingsOf = (node: TextNode, ctx: StyleContext) => {
   const base = node.textStyle ? ctx.textStyles.get(node.textStyle) : undefined;
   return {
     font: node.font ?? base?.font,
@@ -258,54 +259,144 @@ export const typeSettingsOf = (node: TextNode, ctx: StyleContext) => {
   };
 };
 
-const lineHeightStyle = (
+const lineHeightOf = (
   lineHeight: TextNode["lineHeight"],
-  size: TextNode["size"],
-  css: (v: Length) => string
-): string | undefined => {
+  size: TextNode["size"]
+): DeclaredValue | undefined => {
   if (lineHeight !== undefined) {
     // A bare number is a multiple of the font size, as in CSS, not pixels.
     return typeof lineHeight === "number" && lineHeight < 4
       ? String(lineHeight)
-      : css(lineHeight);
+      : lineHeight;
   }
   // A Tailwind font size token brings the line height it is paired with.
   return size !== undefined && isToken(size)
-    ? css(`$${tokenName(size)}--line-height`)
+    ? tokenRef(lineHeightName(tokenName(size)))
     : undefined;
 };
 
-const textStyle = (node: TextNode, ctx: StyleContext): Style => {
-  const { css } = ctx.resolver;
+const textDeclared = (node: TextNode, ctx: StyleContext): Declared => {
   const { font, lineHeight, size, tracking, weight } = typeSettingsOf(
     node,
     ctx
   );
-  const style: Style = { margin: "0", whiteSpace: "pre-wrap" };
-  if (size !== undefined) {
-    style.fontSize = css(size);
+  const out: Declared = {};
+  if (font !== undefined) {
+    out.fontFamily = font;
   }
-  const leading = lineHeightStyle(lineHeight, size, css);
-  if (leading !== undefined) {
-    style.lineHeight = leading;
+  if (size !== undefined) {
+    out.fontSize = size;
   }
   if (weight !== undefined) {
-    style.fontWeight =
-      typeof weight === "number" ? String(weight) : css(weight);
+    out.fontWeight = typeof weight === "number" ? String(weight) : weight;
   }
-  if (font !== undefined) {
-    style.fontFamily = css(font);
+  const leading = lineHeightOf(lineHeight, size);
+  if (leading !== undefined) {
+    out.lineHeight = leading;
   }
   if (tracking !== undefined) {
-    style.letterSpacing = css(tracking);
+    out.letterSpacing = tracking;
   }
   if (node.color !== undefined) {
-    style.color = css(node.color);
+    out.color = node.color;
   }
   if (node.align) {
-    style.textAlign = TEXT_ALIGN[node.align] ?? "left";
+    out.textAlign = TEXT_ALIGN[node.align] ?? "left";
   }
-  return style;
+  // The canvas keeps every space typed (`baseStyle`); the code asks for the line breaks.
+  if (node.text.includes("\n")) {
+    out.whiteSpace = "pre-wrap";
+  }
+  return out;
+};
+
+/** How a tinted image's file covers its box, as `fit` says of an image's pixels. */
+const MASK_SIZE: Record<string, string> = {
+  contain: "contain",
+  cover: "cover",
+  fill: "100% 100%",
+};
+
+/** Fill, border, corners, shadow and opacity; whether the node is shown at all. */
+const appearanceDeclared = (node: DesignNode): Declared => {
+  const out: Declared = {};
+  const tint = node.type === "image" ? node.tint : undefined;
+  // A tinted image is its shape filled with the tint: the file is the mask (`maskOf`).
+  const fill = tint ?? node.fill;
+  if (fill !== undefined) {
+    out.background = fill;
+  }
+  if (node.border) {
+    const { color, width } = node.border;
+    out.borderWidth = width ?? 1;
+    out.borderStyle = node.border.style ?? "solid";
+    out.borderColor = color ?? "currentColor";
+  }
+  if (node.radius !== undefined) {
+    out.borderRadius = node.radius;
+  }
+  if (node.shadow !== undefined) {
+    out.boxShadow = node.shadow;
+  }
+  if (node.opacity !== undefined) {
+    out.opacity = String(node.opacity);
+  }
+  if (node.type === "image" && tint === undefined) {
+    out.objectFit = node.fit ?? "cover";
+  }
+  if (node.type === "image" && tint !== undefined) {
+    out.maskPosition = "center";
+    out.maskRepeat = "no-repeat";
+    out.maskSize = MASK_SIZE[node.fit ?? "contain"] ?? "contain";
+  }
+  if (node.hidden) {
+    out.display = "none";
+  }
+  return out;
+};
+
+/**
+ * What a node's fields say of its look, as CSS declarations with tokens kept by name: the one
+ * place the format's layout fields are given a meaning (`fill` and `hug` against the parent's
+ * axis, alignment, a text style under the node's own settings, a tint). The canvas draws them
+ * (`nodeStyle`) and a style system writes them as classes (`ClassWriter`). In the order the code
+ * lists them: layout, size and spacing, type, then appearance.
+ */
+export const declarationsOf = (
+  node: DesignNode,
+  ctx: StyleContext
+): Declarations => ({
+  ...layoutDeclared(node),
+  ...boxDeclared(node, ctx.parent),
+  ...(node.type === "text" ? textDeclared(node, ctx) : {}),
+  ...appearanceDeclared(node),
+});
+
+/**
+ * What the canvas draws a node with besides its declarations, which the code leaves to the
+ * application: what a reset gives an element there (Tailwind's preflight: `border-box`, no margin
+ * on a text, an image a block no wider than its box), a group's `div`, the pointer of the anchor a
+ * link is written as, a text's spaces kept as typed, and a page as wide as its frame.
+ */
+export const baseStyle = (node: DesignNode): Style => {
+  const style: Style = { boxSizing: "border-box" };
+  if (node.link) {
+    style.cursor = "pointer";
+  }
+  switch (node.type) {
+    case "page":
+      return { ...style, width: "100%" };
+    case "group":
+      return { ...style, display: "block" };
+    case "text":
+      return { ...style, margin: "0", whiteSpace: "pre-wrap" };
+    case "image":
+      return node.tint === undefined
+        ? { ...style, display: "block", maxWidth: "100%" }
+        : style;
+    default:
+      return style;
+  }
 };
 
 /** The style of what holds a canvas's pages: its defaults (`CanvasLayout.defaults`) as CSS. */
@@ -327,60 +418,32 @@ export const pageDefaultsStyle = (
   if (defaults.size !== undefined) {
     style.fontSize = css(defaults.size);
   }
-  const leading = lineHeightStyle(defaults.leading, defaults.size, css);
+  const leading = lineHeightOf(defaults.leading, defaults.size);
   if (leading !== undefined) {
-    style.lineHeight = leading;
+    style.lineHeight = css(leading);
   }
   return style;
 };
 
-/** The inline style a node is drawn with. */
-export const nodeStyle = (node: DesignNode, ctx: StyleContext): Style => {
-  const { css } = ctx.resolver;
-  const box = boxStyle(node, ctx);
-  switch (node.type) {
-    case "page":
-      return {
-        minHeight: "100%",
-        width: "100%",
-        ...stackStyle(node, css),
-        ...box,
-      };
-    case "row":
-    case "column":
-      return { ...stackStyle(node, css), ...box };
-    case "group":
-      return { display: "block", ...box };
-    case "text":
-      return { ...textStyle(node, ctx), ...box };
-    case "image":
-      // A tinted image is its shape filled with the tint: the file is the mask (`maskOf`).
-      return node.tint === undefined
-        ? {
-            display: "block",
-            maxWidth: "100%",
-            objectFit: node.fit ?? "cover",
-            ...box,
-          }
-        : {
-            display: "block",
-            maxWidth: "100%",
-            ...box,
-            background: css(node.tint),
-            maskPosition: "center",
-            maskRepeat: "no-repeat",
-            maskSize: MASK_SIZE[node.fit ?? "contain"] ?? "contain",
-          };
-    default:
-      return box;
-  }
-};
+/** Declarations as the canvas draws them: a token as its variable, a number as pixels. */
+const resolved = (declarations: Declarations, resolver: TokenResolver): Style =>
+  Object.fromEntries(
+    Object.entries(declarations).map(([property, value]) => [
+      property,
+      resolver.css(value),
+    ])
+  );
 
-/** How a tinted image's file covers its box, as `fit` says of an image's pixels. */
-const MASK_SIZE: Record<string, string> = {
-  contain: "contain",
-  cover: "cover",
-  fill: "100% 100%",
+/** The inline style a node is drawn with: its declarations over what the canvas draws besides. */
+export const nodeStyle = (node: DesignNode, ctx: StyleContext): Style => {
+  const style = {
+    ...baseStyle(node),
+    ...resolved(declarationsOf(node, ctx), ctx.resolver),
+  };
+  // A page's frame stands for the screen: as tall as the screen is as tall as the frame.
+  return node.type === "page" && style.minHeight === SCREEN_HEIGHT
+    ? { ...style, minHeight: "100%" }
+    : style;
 };
 
 /** The mask a tinted image is drawn with: its file, as a CSS image. */

@@ -29,6 +29,10 @@ module.
   tokens, its baseline and its lint; `FigmaBaseline` Figma's baseline while there is no design
   system. The **target tokens** a side is matched to are the design's, else the code's own. The
   **sync plan** (`sync-plan`) is the steps that bring the design system and the code together.
+- **Node style**: what a node's fields mean, as CSS declarations at the base and at each
+  breakpoint, tokens kept by name (design-document's `declarationsOf`). The canvas draws them,
+  over what it draws besides (`baseStyle`); a style system's **class writer** writes them as its
+  classes, Tailwind's with its `md:` and `max-md:` variants (ADR 0024).
 - **Page**: a design document, `.page.json`, of a **canvas** (ADRs 0015, 0019, 0020). A page is
   drawn in a **frame**, and in **views** of other widths beside it (ADR 0036); an edit lands at
   the **breakpoint** of the view it is made in. A page's **family** is its base page with its

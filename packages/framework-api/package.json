@@ -11,8 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@ultrapaint/contracts": "workspace:*",
-    "@ultrapaint/design-document": "workspace:*"
+    "@ultrapaint/contracts": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

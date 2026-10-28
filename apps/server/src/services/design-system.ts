@@ -441,6 +441,7 @@ export class DesignSystemService extends Context.Service<
             toCode(node, styleSystem.nodeClasses(ds), {
               ...options,
               breakpoints: breakpointsOf(ds),
+              designSystem: ds,
             })
           ),
         detect,

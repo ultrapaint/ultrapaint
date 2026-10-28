@@ -3,43 +3,34 @@
  * it into, its look in the classes of the project's style system. The application's code is
  * still written by an agent, in the repository's own conventions (ADR 0015); this is the
  * reference translation the editor shows, so a user can see what a design means before an agent
- * writes it. The markup, the imports and the names are the same whatever the style system; the
- * classes are its own, through a `ClassWriter` (ADR 0024): Tailwind v4's is
- * `@ultrapaint/style-tailwind-v4/node-classes`.
+ * writes it. The markup, the imports, the names and each element's declarations at every
+ * breakpoint (`css.ts`) are the same whatever the style system; the classes are its own, through
+ * a `ClassWriter` (ADR 0024): Tailwind v4's is `@ultrapaint/style-tailwind-v4/node-classes`.
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
+import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
+import type {
+  ClassWriter,
+  Declarations,
+} from "@ultrapaint/contracts/node-style";
 import type { InstanceDrawn } from "@ultrapaint/contracts/preview";
 import {
   type Breakpoint,
   breakpointsUsed,
   resolveAtBreakpoint,
 } from "./breakpoints.ts";
-import { layoutOf, maskOf, type ParentLayout, tagOf } from "./css.ts";
+import {
+  AROUND_INSTANCE,
+  declarationsOf,
+  layoutOf,
+  makeStyleContext,
+  maskOf,
+  type ParentLayout,
+  type StyleContext,
+  tagOf,
+} from "./css.ts";
 import { childrenOf, nodeLabel, walk } from "./tree.ts";
-
-/**
- * How a style system writes a node's look as classes (ADR 0024), its design system's styles made
- * once for every node.
- */
-export interface ClassWriter {
-  /** The classes a node is written with, its parent laying it out as `parent`. */
-  readonly classes: (
-    node: DesignNode,
-    parent: ParentLayout
-  ) => readonly string[];
-  /**
-   * What a class sets, as a name its other values share (`gap-4` and `gap-6` are `gap`): a class
-   * of a breakpoint takes over from one of the same group below it (ADR 0036). Left out, the
-   * class's name up to its value.
-   */
-  readonly group?: (cls: string) => string;
-  /**
-   * The classes of the element put around an instance whose component keeps its props to
-   * itself, given the instance's own: a column that stretches it across, as the canvas draws it.
-   */
-  readonly wrapper: (classes: readonly string[]) => readonly string[];
-}
 
 const INDENT = "  ";
 /** Past this width an opening tag puts each attribute on a line of its own. */
@@ -64,6 +55,8 @@ export interface CodeOptions {
    * Left out, the page is written as its markup alone.
    */
   readonly component?: string | undefined;
+  /** The design system the node is drawn with, whose text styles a text is set in. */
+  readonly designSystem?: DesignSystem | null | undefined;
   /**
    * The `href` a link is written with: a link naming a page file is the URL that page serves.
    * Left out, the link is written as it is.
@@ -85,13 +78,14 @@ interface Writing {
   /** The tree at each level, by node id: the base first, then each breakpoint it sets. */
   readonly at: readonly ReadonlyMap<string, DesignNode>[];
   readonly classes: ClassWriter;
-  readonly group: (cls: string) => string;
   readonly hrefOf: (link: string) => string;
   readonly instances: Readonly<Record<string, InstanceDrawn>>;
   /** The base (null), then the breakpoints the tree sets anything at, smallest first. */
   readonly levels: readonly (string | null)[];
   /** The name each instance's component is imported as (`importKey`), unique in the file. */
   readonly localNames: ReadonlyMap<string, string>;
+  /** The design system's text styles and tokens, made once. */
+  readonly styles: StyleContext;
 }
 
 // ---- Imports ----
@@ -272,82 +266,6 @@ const propAttributes = (
 
 // ---- Breakpoints ----
 
-const VALUE_START_RE = /-(?:\[|\()/;
-const LEADING_DASH_RE = /^-/;
-
-/** `gap-4` → `gap`, `min-w-0` → `min-w`, `bg-[#fff]` → `bg`: a class's name up to its value. */
-const prefixGroup = (cls: string) => {
-  // A negative margin is the same group as the margin: `-mt-2`, `mt-4`.
-  const head = (cls.split(VALUE_START_RE)[0] ?? cls).replace(
-    LEADING_DASH_RE,
-    ""
-  );
-  const dash = head.lastIndexOf("-");
-  return dash > 0 ? head.slice(0, dash) : head;
-};
-
-/** A class from the level it starts at up to the one it stops at (null: every one above). */
-interface Run {
-  readonly cls: string;
-  end: number | null;
-  readonly start: number;
-  /** Classes of its group it took over from, which stop where it does. */
-  readonly under: Run[];
-}
-
-const stop = (run: Run, at: number) => {
-  if (run.end === null) {
-    run.end = at;
-  }
-  for (const under of run.under) {
-    stop(under, at);
-  }
-};
-
-/**
- * A node's classes at every level as one list, mobile-first (ADR 0036): the base's as they are,
- * then what each breakpoint adds with its prefix (`md:gap-6`). A class that a breakpoint drops
- * without one of its group taking over is bounded (`max-md:flex-col`, `md:max-lg:hidden`).
- */
-export const responsiveClasses = (
-  levels: readonly (string | null)[],
-  sets: readonly (readonly string[])[],
-  group: (cls: string) => string = prefixGroup
-): string[] => {
-  if (sets.length <= 1) {
-    return [...(sets[0] ?? [])];
-  }
-  const runs: Run[] = [];
-  const active = new Map<string, Run>();
-  sets.forEach((set, level) => {
-    const now = new Set(set);
-    const added = set
-      .filter((cls) => !active.has(cls))
-      .map((cls): Run => ({ cls, end: null, start: level, under: [] }));
-    for (const run of [...active.values()]) {
-      if (now.has(run.cls)) {
-        continue;
-      }
-      active.delete(run.cls);
-      const over = added.find((a) => group(a.cls) === group(run.cls));
-      if (over) {
-        over.under.push(run);
-      } else {
-        stop(run, level);
-      }
-    }
-    for (const run of added) {
-      runs.push(run);
-      active.set(run.cls, run);
-    }
-  });
-  return runs.map(({ cls, end, start }) => {
-    const from = start === 0 ? "" : `${levels[start]}:`;
-    const to = end === null ? "" : `max-${levels[end]}:`;
-    return `${from}${to}${cls}`;
-  });
-};
-
 /** A node at a level: as the tree is drawn at that breakpoint. */
 const nodeAt = (node: DesignNode, w: Writing, level: number): DesignNode =>
   w.at[level]?.get(node.id) ?? node;
@@ -398,19 +316,18 @@ const contentOf = (node: DesignNode): string => {
   }
 };
 
-/** The classes a node is styled with at a level: a tinted image's tint is its background. */
-const classesAt = (
-  node: DesignNode,
+/** An element's classes, from its declarations at each level with `around`'s under them. */
+const classesOf = (
   w: Writing,
-  parent: ParentLayout
-): string[] => {
-  const styled =
-    node.type === "image" && node.tint !== undefined
-      ? { ...node, fill: node.tint }
-      : node;
-  const classes = [...w.classes.classes(styled, parent)];
-  return node.hidden ? [...classes, "hidden"] : classes;
-};
+  styles: readonly Declarations[],
+  around: Declarations = {}
+): readonly string[] =>
+  w.classes.classes(
+    styles.map((declarations, level) => ({
+      breakpoint: w.levels[level] ?? null,
+      declarations: { ...around, ...declarations },
+    }))
+  );
 
 /**
  * A node as JSX. One whose text, picture or props differ between breakpoints is written once
@@ -418,8 +335,8 @@ const classesAt = (
  */
 const jsxOf = (node: DesignNode, w: Writing, parents: Parents): Child[] => {
   const levels = w.levels.map((_, level) => nodeAt(node, w, level));
-  const sets = levels.map((n, level) =>
-    classesAt(n, w, parents[level] ?? "free")
+  const styles = levels.map((n, level) =>
+    declarationsOf(n, { ...w.styles, parent: parents[level] ?? "free" })
   );
   const contents = levels.map(contentOf);
   const runs: number[][] = [];
@@ -432,7 +349,7 @@ const jsxOf = (node: DesignNode, w: Writing, parents: Parents): Child[] => {
     }
   });
   if (runs.length === 1) {
-    return [jsxShowing(node, w, responsiveClasses(w.levels, sets, w.group))];
+    return [jsxShowing(node, w, styles)];
   }
   return runs.flatMap((run) => {
     const first = run[0] ?? 0;
@@ -441,26 +358,23 @@ const jsxOf = (node: DesignNode, w: Writing, parents: Parents): Child[] => {
     if (shown.hidden && run.every((level) => levels[level]?.hidden)) {
       return [];
     }
-    // Outside its run, the element is hidden, with the classes of the run's nearest end.
-    const runSets = sets.map((set, level) => {
-      if (run.includes(level)) {
-        return set;
-      }
-      const near = sets[level < first ? first : lastLevel] ?? [];
-      return near.includes("hidden") ? near : [...near, "hidden"];
-    });
-    return [
-      jsxShowing(shown, w, responsiveClasses(w.levels, runSets, w.group)),
-    ];
+    // Outside its run, the element is hidden, styled as the run's nearest end.
+    const runStyles = styles.map((style, level) =>
+      run.includes(level)
+        ? style
+        : { ...styles[level < first ? first : lastLevel], display: "none" }
+    );
+    return [jsxShowing(shown, w, runStyles)];
   });
 };
 
-/** A node as JSX with its classes already written, what it shows as `node` has it. */
+/** A node as JSX with its declarations at each level, what it shows as `node` has it. */
 const jsxShowing = (
   node: DesignNode,
   w: Writing,
-  classes: readonly string[]
+  styles: readonly Declarations[]
 ): Child => {
+  const classes = classesOf(w, styles);
   switch (node.type) {
     case "text":
       return linked(
@@ -507,13 +421,17 @@ const jsxShowing = (
         return linked(
           node,
           w,
-          element("div", classAttribute(w.classes.wrapper(classes)), [
-            element(
-              tagOfInstance(node, w),
-              propAttributes(node.props, []),
-              content
-            ),
-          ])
+          element(
+            "div",
+            classAttribute(classesOf(w, styles, AROUND_INSTANCE)),
+            [
+              element(
+                tagOfInstance(node, w),
+                propAttributes(node.props, []),
+                content
+              ),
+            ]
+          )
         );
       }
       return linked(
@@ -622,11 +540,11 @@ export const toCode = (
   const writing: Writing = {
     at,
     classes,
-    group: classes.group ?? prefixGroup,
     hrefOf: options.hrefOf ?? ((link: string) => link),
     instances: options.instances ?? {},
     levels,
     localNames,
+    styles: makeStyleContext(options.designSystem),
   };
   // A node hidden everywhere is still written when it is the one asked for.
   const shown: Writing = rootHidden

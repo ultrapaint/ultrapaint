@@ -11,6 +11,15 @@ Status: accepted, 2026-10-06. Amends 0011 (framework packages) and 0015 (the des
 > node, and of the element around an instance that keeps its props), which
 > `@ultrapaint/design-document/code` writes its JSX with; the server writes the tab's code
 > (`code.write`), so the editor no longer knows Tailwind's utilities.
+>
+> Amended 2026-10-28 (`docs/PLAN-architecture-2.md`, step 7): a `ClassWriter` (contracts'
+> `node-style`) takes declarations, not nodes. `classes(styles)` is given an element's CSS
+> declarations at the base and at each breakpoint, tokens kept by name, as
+> `@ultrapaint/design-document/css` says them (`declarationsOf`, which the canvas draws too), and
+> gives its classes, the breakpoints written as the style system's own variants. `group` and
+> `wrapper` go: what a node's fields mean (`fill` and `hug`, a text style, a tint, the column
+> around a component that keeps its props) is design-document's alone, and Tailwind's `md:` and
+> `max-md:` are its adapter's. `framework-api` no longer depends on design-document.
 
 ## Context
 
@@ -40,7 +49,7 @@ A React app can be styled with Tailwind, StyleX or Emotion alike.
 | `previewCss` | Lines of the preview's stylesheet, so every token is a custom property there |
 | `usage` | What the code uses, for the setup's inventory, map and migrate |
 | `codeRules` | How a token and a page's fields become code, for agents implementing a page |
-| `nodeClasses` | The classes a node is written with in the Code tab, the same rules as `codeRules` (added later) |
+| `nodeClasses` | The classes an element of the Code tab is written with, from its declarations at each breakpoint, the same rules as `codeRules` (added later) |
 
 **The tokens are neutral.** `@ultrapaint/contracts/tokens` has the model the server speaks: a
 token's name is the one pages use without the `$` (`color-primary`), with its kind, its value

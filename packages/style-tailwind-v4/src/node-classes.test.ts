@@ -1,8 +1,14 @@
 import { emptyDesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode, PageNode } from "@ultrapaint/contracts/document";
+import type { Declarations } from "@ultrapaint/contracts/node-style";
 import { toCode as writeCode } from "@ultrapaint/design-document/code";
+import {
+  declarationsOf,
+  makeStyleContext,
+  type ParentLayout,
+} from "@ultrapaint/design-document/css";
 import { describe, expect, it } from "vitest";
-import { classesOf, tailwindClasses } from "./node-classes.ts";
+import { tailwindClasses } from "./node-classes.ts";
 
 const ds = {
   ...emptyDesignSystem(),
@@ -34,7 +40,30 @@ const toCode = (
   node: DesignNode,
   designSystem: typeof ds,
   options?: Parameters<typeof writeCode>[2]
-) => writeCode(node, tailwindClasses(designSystem), options);
+) =>
+  writeCode(node, tailwindClasses(designSystem), { designSystem, ...options });
+
+/** The classes of a node at every width, its parent laying it out as `parent`. */
+const classesOf = (
+  node: DesignNode,
+  designSystem: typeof ds,
+  parent: ParentLayout = "free"
+) =>
+  tailwindClasses(designSystem).classes([
+    {
+      breakpoint: null,
+      declarations: declarationsOf(
+        node,
+        makeStyleContext(designSystem, parent)
+      ),
+    },
+  ]);
+
+/** The classes of declarations given at the base, then at each breakpoint. */
+const responsive = (...levels: (readonly [string | null, Declarations])[]) =>
+  tailwindClasses(ds).classes(
+    levels.map(([breakpoint, declarations]) => ({ breakpoint, declarations }))
+  );
 
 describe("classesOf", () => {
   it("writes tokens as the utilities Tailwind generates from their names", () => {
@@ -469,7 +498,7 @@ describe("breakpoints", () => {
     { min: 1024, name: "lg" },
   ];
   const write = (node: DesignNode) =>
-    writeCode(node, tailwindClasses(ds), { breakpoints });
+    writeCode(node, tailwindClasses(ds), { breakpoints, designSystem: ds });
 
   it("writes what a node sets at a breakpoint with its prefix, mobile-first", () => {
     const node: DesignNode = {
@@ -525,5 +554,101 @@ describe("breakpoints", () => {
     expect(write(node)).toBe(
       `<p className="md:-order-1">First on a wide screen</p>`
     );
+  });
+});
+
+describe("a breakpoint's classes", () => {
+  it("take over from those below that set what they set, and bound the rest", () => {
+    expect(
+      responsive(
+        [null, { alignSelf: "flex-start", gap: 16, width: "fit-content" }],
+        ["md", { alignSelf: "stretch", gap: 24 }],
+        ["lg", { gap: 16, width: 200 }]
+      )
+    ).toEqual([
+      // Taken over at md, and the one that took over stops at lg: so does it.
+      "max-lg:self-start",
+      "gap-4",
+      "max-md:w-fit",
+      "md:max-lg:self-stretch",
+      "md:gap-6",
+      "lg:gap-4",
+      "lg:w-50",
+    ]);
+  });
+
+  it("are taken over by a shorthand that sets them all", () => {
+    expect(
+      responsive(
+        [null, { flexShrink: "0", paddingLeft: 12, paddingRight: 8 }],
+        [
+          "md",
+          {
+            flexBasis: "0%",
+            flexGrow: "1",
+            flexShrink: "1",
+            paddingLeft: 8,
+            paddingRight: 8,
+          },
+        ]
+      )
+    ).toEqual(["shrink-0", "pl-3", "pr-2", "md:flex-1", "md:px-2"]);
+  });
+});
+
+describe("what the canvas draws", () => {
+  it("keeps a node's own minimum where a fill would set none", () => {
+    const node: DesignNode = {
+      children: [],
+      id: "g",
+      minWidth: 26,
+      type: "group",
+      width: "fill",
+    };
+    expect(classesOf(node, ds, "row")).toEqual(["flex-1", "min-w-6.5"]);
+  });
+
+  it("writes a tinted image as a block masked by its file", () => {
+    const icon: DesignNode = {
+      height: 16,
+      id: "i",
+      src: "assets/icons/check.svg",
+      tint: "$color-muted",
+      type: "image",
+      width: 16,
+    };
+    expect(classesOf(icon, ds)).toEqual([
+      "block",
+      "max-w-full",
+      "w-4",
+      "h-4",
+      "bg-muted",
+      "mask-center",
+      "mask-no-repeat",
+      "mask-contain",
+    ]);
+    expect(classesOf({ ...icon, fit: "fill" }, ds)).toContain(
+      "[mask-size:100%_100%]"
+    );
+  });
+
+  it("tells Tailwind what a value is where it could read another", () => {
+    const node: DesignNode = {
+      font: "$heading",
+      id: "t",
+      maxWidth: "100vh",
+      role: "paragraph",
+      size: "$spacing-4",
+      text: "Hi",
+      type: "text",
+      weight: "bold",
+    };
+    expect(classesOf(node, ds)).toEqual([
+      "max-w-[100vh]",
+      "font-(family-name:--heading)",
+      "text-(length:--spacing-4)",
+      "font-[weight:bold]",
+      "leading-(--spacing-4--line-height)",
+    ]);
   });
 });

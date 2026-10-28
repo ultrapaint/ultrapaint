@@ -15,6 +15,7 @@ import type {
   UsageLeft,
   UsageValue,
 } from "@ultrapaint/contracts/design-system-setup";
+import type { ClassWriter } from "@ultrapaint/contracts/node-style";
 import type { Settings } from "@ultrapaint/contracts/settings";
 import type { SetupSuggestions } from "@ultrapaint/contracts/setup";
 import type { ComponentSpec } from "@ultrapaint/contracts/specs";
@@ -27,7 +28,6 @@ import type {
   TokenChange,
   TokenSource,
 } from "@ultrapaint/contracts/tokens";
-import type { ClassWriter } from "@ultrapaint/design-document/code";
 
 /** Plain data, so the whole context can be handed to a worker thread. */
 export interface CatalogueContext {
