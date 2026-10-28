@@ -1070,3 +1070,16 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
     one away, the marquee is gone, a second answers nothing, and the release leaves the
     selection as it was; it failed first (nothing to put away). What the preview has under the
     pointer is the test's to say.
+12. **A layout pushed mid-gesture leaves the frame where the pointer has it**
+    (`apps/web/src/state/editor.ts`, `canvas/frame-gesture.ts`). While a frame is moved or
+    sized (`drawingFrame`, until `doneDrawingFrame`), a layout the server pushes leaves its page
+    as the gesture draws it, as it does a page whose save is in flight, and keeps what the push
+    said of it: let go after a move, the gesture's save wins and the push after its answer brings
+    the page current; put back (Escape, a cancelled pointer) or let go where it was pressed, the
+    page is drawn as the push has it rather than where it was before the gesture. Fixed: a push
+    with no save in flight (an agent's move, an undo elsewhere) drew the frame at the pushed place
+    until the pointer next moved, and a gesture put back after one drew it where the push had
+    undone it. `frame-gesture.test.ts` has 3 tests more, with `fakeApi.emit("canvas", …)`: a push
+    mid-move keeps the frame at the pointer, the release sends the moved frame and the next push
+    moves it; put back after a push, the frame is where the push put it, nothing sent; let go
+    unmoved after a push, likewise. The first two failed first.

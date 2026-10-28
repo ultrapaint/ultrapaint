@@ -10,6 +10,7 @@ import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { useDocuments } from "../state/documents.ts";
 import { layoutSaved, useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
+import { followServer } from "../state/server-data.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { useCreate } from "./create-tool.ts";
 import { useDrag } from "./drag.ts";
@@ -285,6 +286,67 @@ describe("a frame gesture", () => {
     expect(cancelGesture()).toBe(false);
     await layoutSaved();
     expect(saved()).toEqual([]);
+  });
+
+  describe("with a layout pushed meanwhile", () => {
+    let stop: () => void = () => undefined;
+    const push = (frame: FrameLayout) =>
+      fakeApi.emit("canvas", {
+        canvas: "main",
+        layout: { frames: { [home.path]: frame }, version: 1 },
+      });
+
+    beforeEach(async () => {
+      stop = followServer({ report: () => undefined });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      useEditor.setState({ frames: { [home.id]: start } });
+    });
+
+    afterEach(() => stop());
+
+    it("draws the frame where the pointer has it, and its save wins", async () => {
+      beginFrameGesture(press(0, 0), home.id, "move");
+      fire("pointermove", 300, 200);
+      push(frameAt(900, 900));
+      expect(useEditor.getState().frames[home.id]).toMatchObject({
+        x: 300,
+        y: 200,
+      });
+      fire("pointerup", 300, 200);
+      await layoutSaved();
+      expect(saved()).toEqual([{ [home.path]: frameAt(300, 200) }]);
+      // The next push, once the save is answered, brings it current.
+      push(frameAt(900, 900));
+      expect(useEditor.getState().frames[home.id]).toMatchObject({
+        x: 900,
+        y: 900,
+      });
+    });
+
+    it("put back, draws the frame where the push put it", async () => {
+      beginFrameGesture(press(0, 0), home.id, "move");
+      fire("pointermove", 300, 200);
+      push(frameAt(900, 900));
+      expect(cancelGesture()).toBe(true);
+      expect(useEditor.getState().frames[home.id]).toMatchObject({
+        x: 900,
+        y: 900,
+      });
+      await layoutSaved();
+      expect(saved()).toEqual([]);
+    });
+
+    it("let go where it was pressed, draws the frame where the push put it", async () => {
+      beginFrameGesture(press(0, 0), home.id, "move");
+      push(frameAt(900, 900));
+      fire("pointerup", 0, 0);
+      expect(useEditor.getState().frames[home.id]).toMatchObject({
+        x: 900,
+        y: 900,
+      });
+      await layoutSaved();
+      expect(saved()).toEqual([]);
+    });
   });
 
   it("Escape puts back a drag and a group being drawn too", () => {
