@@ -11,6 +11,10 @@ Status: accepted, 2026-10-25. Builds on 0015 (instances render the repository's 
 > linked to its component's file too, unless it keeps behaviour notes, which the code is not
 > read for.
 
+> Amended by [0040](0040-the-editors-own-primitives.md), 2026-10-28: the components are the
+> editor's primitives, whose specs start from their parts over a default look; nothing is read off
+> cva classes, and a primitive's spec is implemented on the application's own component.
+
 ## Context
 
 Pages are drawn with the repository's real components, which is what makes a design look like

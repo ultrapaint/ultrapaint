@@ -106,22 +106,21 @@ review found.
 
 ## Preview
 
-- **Preview**: the repository's own components running in the editor's page (ADR 0034).
-- **Provenance**: whose code is calling, the page's or the editor's, by a rule named for what a
-  guard guards.
-- **Guard**: a patch that keeps the page's code to its frame (its listeners, timers, requests,
-  storage, head and body).
-- **Turn** (of the preview): the frame whose page code is running, held by `turn`; the
-  **kernel** installs every guard in one order.
-- **Page runtime**: the globals the server's generated code calls in the page
-  (contracts' `page-runtime`).
-- **Editor entry**: the module the preview's server generates for the editor's page to import,
-  exporting the preview (framework-api's `EditorEntry`). The **editor bundle** is preview-core's
-  start-up given the framework's renderer (`EditorBundle`): `startPreview` puts the page runtime
-  in place, runs the page's modules, then creates the preview and hears the dev server, in that
-  order.
-- **Editor frame**: a frame as the editor opens it, with the holder its host goes in, the pool
-  that parks it and the watchdog's freeze check (`editor-frame`).
+- **Primitive**: one of the editor's own components (`packages/primitives`, ADR 0040): Button,
+  Input, Select, Menu, Popover, Tooltip, Dialog, Toast and the rest, on Base UI, run by the
+  editor's React. An instance names one with `from: "@ultrapaint/primitives"`. Its **catalogue**
+  entry says its props, variant axes, parts (`data-slot`), slots, states and **layer**: in the
+  page's flow (`inline`), anchored above it (`anchored`) or over it (`blocking`). Its look is its
+  default look (`look.ts`) under its spec (0029).
+- **Slot**: a part of a primitive that holds nodes (a Dialog's `trigger`, `dialog-header`,
+  `dialog-content`, `dialog-footer`): an instance's child fills the slot it names (`slot`), the
+  rest fill the **default** slot.
+- **Element**: a layout, text or image node the Assets panel offers above the primitives
+  (`ELEMENTS`, `newElement`).
+- **Preview**: what draws the editor's frames: preview-core's frames, the renderer, the primitives.
+  Nothing of the repository's runs in it.
+- **Editor frame**: a frame as the editor opens it, with the holder its host goes in and the pool
+  that parks it (`editor-frame`).
 - **A frame's request**: what a view tells a frame to draw (`RenderRequest`): the tree, the mode,
   the design system, the canvas's defaults, the design's look, and what is said in place of a
   page. `useFrameDrawing` draws it once the frame is open, whenever it changes and in a frame
@@ -129,14 +128,12 @@ review found.
   frame's width, a node on the canvas at the size it is held at.
 - **A frame's host**: the element a frame's shadow root is on, the page's `<html>`; the editor
   places it, the core writes it (`frame-host`). The editor says how the frame is **shown** (class,
-  style, title, input, away) and the page's code writes its own classes and style properties
-  there, each kept apart, neither taking the other's off. An event is **from a frame** when a
-  host the core drew is on its path.
-- **Page error**: what went wrong in a frame's page (framework-api's `PageError`): the page's code
-  threw and nothing caught it, or the dev server could not bring a module up to date. The editor
-  frame keeps its latest, whoever listens and on screen or parked: the page's until the frame
-  draws again or the modules change, the dev server's until they change. One no frame can be said
-  to be the source of is a toast.
+  style, title, input, away). An event is **from a frame** when a host the core drew is on its
+  path. A frame **runs** while it takes input (the prototype, interact mode): its primitives
+  behave, kept to the frame; designed, it is inert and its overlays are open where the design says.
+- **Page error**: what went wrong drawing a frame's page (framework-api's `PageError`): a part
+  threw. The editor frame keeps its latest, whoever listens and on screen or parked, until the
+  frame draws again.
 
 ## Editor and shell
 

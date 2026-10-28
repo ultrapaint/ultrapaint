@@ -1,14 +1,15 @@
 # ultrapaint
 
 ultrapaint is a local-first design tool for teams that work with coding agents. The canvas is
-drawn with your real design system — its Tailwind v4 theme and its React components — the
-designs live in your repository as plain JSON documents, and agents such as Claude Code and Codex
-work on them next to you over [ACP](https://agentclientprotocol.com), then turn them into your
-application's own code.
+drawn with ultrapaint's own primitives — buttons, fields, selects, menus, popovers, dialogs, on
+Base UI — in your design system's tokens and looks; the designs live in your repository as plain
+JSON documents, and agents such as Claude Code and Codex work on them next to you over
+[ACP](https://agentclientprotocol.com), then turn them into your application's own code, with
+your own components.
 
 Nothing is installed in your repository and nothing leaves your machine: the tool runs a local
-server, reads your components where they are, and writes pages as `.page.json` files you review
-and commit like any other file.
+server, draws the canvas itself, runs none of your code, and writes pages as `.page.json` files
+you review and commit like any other file. A project with no code at all designs the same.
 
 ## Why teams move to ultrapaint
 
@@ -20,8 +21,8 @@ then bring the code onto it a directory at a time, every batch undoable.
 
 **Your designs live in Figma.** Import the `.fig` file. Its variables and styles become your
 design system's tokens, light and dark (your Tailwind theme's, written where they belong, when
-the project has no design system yet), and its frames become pages drawn with your real
-components, not pictures of them. Import the file again after the designer changes it, and only
+the project has no design system yet), and its frames become pages drawn with the primitives,
+not pictures of them. Import the file again after the designer changes it, and only
 what changed comes across; where the design system changed too, you pick.
 
 **Your design system and your code drift apart.** Someone changes a colour in the frontend
@@ -36,7 +37,7 @@ Tailwind v4 with a set of components to design with, its theme taken from your F
 you have one. Then design, and have an agent implement the pages in it.
 
 **Your team works with coding agents.** Claude Code and Codex design on the canvas next to you,
-with your components and your tokens, ask you on cards when a decision is yours, and turn a
+with the primitives and your tokens, ask you on cards when a decision is yours, and turn a
 finished page into your application's own code with your conventions. The editor remembers
 which code implements which page, and the next implementation is told only what changed.
 
@@ -214,9 +215,9 @@ pnpm desktop:dev -- ~/code/your-repo            # opening a folder, which joins 
 
 Start `ultrapaint` inside a repository and the setup looks at it for you: it proposes where
 your components are — a component library package, or your application's own
-`src/components` (an app in `front/` gets `front/src/components`) — the package the pages
-resolve their imports from, the stylesheet that sets up your design system, and a directory for
-the designs (`docs/designs` unless you already have one). Confirm or change the proposals, and
+`src/components` (an app in `front/` gets `front/src/components`), which agents read when they
+implement — the stylesheet that sets up your design system, and a directory for the designs
+(`docs/designs` unless you already have one). Confirm or change the proposals, and
 the canvas opens with **Sync**, which takes you on from there. A repository with no React
 application gets **Start a new application here** instead.
 
@@ -225,10 +226,8 @@ stylesheets set up Tailwind v3 or no Tailwind at all. Styling is a separate adap
 framework, so StyleX or Emotion would be another one, not a rewrite
 ([ADR 0024](docs/adr/0024-style-systems.md)).
 
-Nothing is installed for the designs. Their components are imported the way the package you
-picked imports them, and render with your repository's own React and Vite. That package is the
-only one that needs a `package.json`: a repository whose root has none, with the application in
-`front/`, is set up with **Resolve imports from** `front`.
+Nothing is installed for the designs, and none of your code runs: the canvas draws the editor's
+own primitives in your design system's tokens.
 
 Started like this, without a configuration file, the top bar says **Not saved**: your settings
 and agent threads go away when the tool stops. Click it to save an `ultrapaint.config.json` in
@@ -290,8 +289,8 @@ keeps its login and sessions:
 ## Agents ask the editor
 
 An agent in a thread is told about the project when it starts — where the designs are, how pages
-route, what the component palette is — and is given the editor's own MCP server to ask the rest:
-the pages and their routes, a component's props and variants, the comments left on the canvas. It
+route, what the primitives are — and is given the editor's own MCP server to ask the rest:
+the pages and their routes, a primitive's props, variants and slots, the comments left on the canvas. It
 can add and rename pages through it, answer a comment where it was left, say which page it is
 working on so you can watch it, and take a screenshot of a page or a node to check its own work.
 Screenshots are drawn by the editor's preview, so the editor has to be open in a browser. When a
@@ -300,7 +299,7 @@ you can also decline. Any MCP server the agent uses can ask you the same way.
 
 While it works, what it changes shows on the canvas: the elements take the agents' pink, with its
 name and what it is doing on their edge, and the text it is rewriting turns to placeholders until
-it is done. A selection is blue, or purple when it is a component of your library.
+it is done. A selection is blue, or purple when it is a primitive.
 
 **Chats** lists your chats, each with a picture of what it works on, its last line, and whether it
 is working or waiting for you. The element you select has a toolbar over it with what
@@ -330,7 +329,7 @@ A design is not code. It is a small tree of nodes, the way a design tool sees it
 | `group` | A plain container that only holds and styles its children |
 | `text` | A heading (level 1–6) or a paragraph |
 | `image` | A picture from the space's `assets/` directory |
-| `instance` | A component of your design system, with its props |
+| `instance` | One of ultrapaint's primitives, with its props; its children fill its slots |
 
 Sizes are `fill`, `hug` or pixels, and every colour, radius, shadow, spacing and type setting can
 be a token of your design system (`"$color-primary"`, `"$text-lg"`, `"$spacing-4"`), so the
@@ -368,7 +367,8 @@ buttons sit in the project's card, and dragging the cards at the top moves the w
 
 When a page is ready, **Implement** in the Pages panel (or `/implement <url or file>` in a thread) asks
 an agent to write it in your application with your own components and conventions: the tokens
-become the matching Tailwind v4 classes, instances become your components. The inspector's
+become the matching Tailwind v4 classes, each primitive your application's own component for it
+(written in its library's way where it has none). The inspector's
 **Code** tab shows the same translation for the selected element, written by the server through
 the project's style system.
 
@@ -412,18 +412,27 @@ but it keeps the link between the two:
   implemented, writing a behaviour note on a page or a component, and exporting the design's
   token values to the code (or importing the code's).
 
-### Components: behaviour from the code, look from the design
+### Primitives: the editor's components, your look
 
-A component's behaviour is always its code's: the dialog opens, the menu keeps focus. Its look
-can be the design's ([ADR 0029](docs/adr/0029-component-specs.md)). The Design system panel's
-**Components** tab lists every component with who owns its look. Open one to read its spec off
-its classes and to **take the look over**: the panel draws it live in each variant and state
-(hover, focus, disabled, open, checked…), and the fields set any part of it (`data-slot`) in the
-base, a variant or a state, in your tokens. The canvas draws the component that way everywhere,
-and **Implement** has an agent write the look into its classes. A part of a page can also be made
-a **draft component** (its menu): a component the code does not have yet, used on pages until it
-is implemented. An application started from the editor begins with every component's look the
-design's.
+The canvas draws ultrapaint's own primitives ([ADR 0040](docs/adr/0040-the-editors-own-primitives.md)):
+Button, Badge, Avatar, Card, Separator, Input, Textarea, Checkbox, Switch, Tabs, Select, Menu,
+Popover, Tooltip, Dialog and Toast, on Base UI. Select one and the inspector lists its props and
+its **slots** — a Dialog's trigger, header, content and footer — with what fills each and a **+**
+that adds a text, a row, a column or a button to it; Layers shows the slot each child fills. A
+row in a dialog's footer, aligned right, with two buttons, is a standard footer.
+
+Each frame is a page of its own: a select opens inside it, a dialog's backdrop covers it alone,
+and a dialog is a sheet at the bottom of a narrow frame. While you design, an overlay is drawn
+open where its `open` prop says, and nothing in the frame takes the pointer; in the prototype and
+with the interact tool the primitives behave (a menu opens, items take the hover, Escape and a
+click outside close it), each in its own frame.
+
+A primitive's look is yours. The Design system panel's **Components** tab lists them: open one
+to **take the look over**, and the panel draws it live in each variant and state (hover, focus,
+disabled, open, checked…) while the fields set any part of it in your tokens. **Implement** has an
+agent give your application's own component that look, in whatever library it is written with. A
+part of a page can also be made a **draft component** (its menu): a component of your own, made of
+primitives, used on pages until it is implemented.
 
 ## The design system
 
@@ -551,7 +560,7 @@ A project takes a skill over with a markdown file in `skills/` inside the design
 first heading is its title and the paragraph after it the summary Settings show.
 
 The **Design system** panel shows them: swatches per theme, type specimens in your own fonts,
-spacing, radius, shadows, elevation, border widths, layout and motion tokens, and the icon set. The **Assets** panel lists your components or shows them as a
+spacing, radius, shadows, elevation, border widths, layout and motion tokens, and the icon set. The **Assets** panel lists the primitives or shows them as a
 grid of thumbnails, drawn with the example props.
 
 ## Importing a Figma file
@@ -563,7 +572,7 @@ followed, and colour and shadow styles, named the way your code names tokens
 (`Colors/Primary/500` is `color-primary-500`), compared with your code as above.
 
 Then **Map and write the pages** opens a thread with `/import-figma` in its composer. The agent
-decides, component by component, what each Figma component becomes: one of your components,
+decides, component by component, what each Figma component becomes: one of the primitives,
 with its variants and text properties mapped to props; a custom one, kept as the layers it is
 made of; or left out. Where the names do not settle it, the agent asks you in the thread, with
 the likely candidates to pick from, and carries on with your answers. Each frame is then written
@@ -620,7 +629,7 @@ type after it is added to it.
 | `/implement <page>` | An agent writes a page (by URL or file), or a component's spec (`/implement Button`), in your application, with your components and conventions |
 | `/implement --adopt [canvas or pages]` | An agent links pages already built in your application to the files that implement them, changing no code |
 | `/redraw <canvas> <what to change>` | Changes every page of a canvas, a copy made to go another way |
-| `/components <canvas>` | Draws a sheet of your components, in each of their variants, into a canvas |
+| `/components <canvas>` | Draws a sheet of the primitives, in each of their variants, into a canvas |
 | `/design-system <step>` | Runs a step of the setup in its thread: `define`, `map` or `migrate` (Sync opens these for you) |
 
 ### In the editor
@@ -647,13 +656,12 @@ type after it is added to it.
 | Field | What it is |
 |---|---|
 | `designsDir` | Where the pages are (`docs/designs`) |
-| `resolveFrom` | The package the pages import from as if they were its files: your app (`front`) |
-| `libraryDirs` | Where the components are (`front/src/components`) |
+| `resolveFrom` | The package your application is (`front`), for its stylesheets' imports |
+| `libraryDirs` | Where your components are (`front/src/components`), for agents that implement |
 | `componentPackages` | Package names whose exports are your components, for a library that is a package |
-| `hostCss` | The stylesheets the preview imports, relative to `<designsDir>/.ultrapaint` |
+| `hostCss` | The stylesheets that set up your design system, whose tokens Sync reads and writes |
 | `styleSystem` | What the tokens are written in: `tailwind-v4` (the default, and the only one today) |
-| `theme` | `light` or `dark` for the preview |
-| `providersModule` | A module of the designs directory whose default export wraps every page |
+| `theme` | `light` or `dark` for the canvas |
 | `pagePngs` | `true` to keep a PNG of every page beside its file (off by default) |
 | `git` | `on` to let the tool commit and run `git init` (off by default); a repository is read either way |
 | `skills.disabled` | Design skills agents are not told |
