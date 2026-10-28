@@ -186,13 +186,15 @@ const ElectronShell = Layer.succeed(
   Shell,
   Shell.of({
     confirm: ({ action, detail, message }) =>
-      Effect.promise(async () => {
+      // Interrupted (a signal answered it), the box closes as if cancelled.
+      Effect.promise(async (signal) => {
         const options = {
           buttons: [action, "Cancel"],
           cancelId: 1,
           defaultId: 1,
           detail,
           message,
+          signal,
           type: "question" as const,
         };
         const answer = window
@@ -456,22 +458,20 @@ if (app.requestSingleInstanceLock()) {
 
 /*
  * Closing the window quits (D13). The server the app started stops first, once the user agreed
- * to stop agents at work in it; a signal does not wait for an answer. `quitting` lets the close
- * and the quit through once that is done.
+ * to stop agents at work in it (a second close or Cmd-Q meanwhile has the same answer); a signal
+ * does not wait for an answer, and answers no to a question already on screen (`OpenProject`).
+ * `quitting` lets the close and the quit through once that is done.
  */
 let quitting = false;
-let asking = false;
 const quit = (ask: boolean) => {
-  // A signal is not held up by a question already on screen.
-  if (quitting || (asking && ask)) {
+  if (quitting) {
     return;
   }
-  asking = asking || ask;
   runtime
     .runPromise(OpenProject.use((o) => o.stop({ ask })))
     .then(async (stopped) => {
-      asking = false;
-      if (!stopped) {
+      // Not stopped, or another quit got there first.
+      if (!stopped || quitting) {
         return;
       }
       quitting = true;

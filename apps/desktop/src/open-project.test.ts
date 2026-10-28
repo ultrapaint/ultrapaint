@@ -1,6 +1,7 @@
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
-import { Effect, FileSystem, Layer, Option } from "effect";
+import { Deferred, Effect, Fiber, FileSystem, Layer, Option } from "effect";
+import { TestClock } from "effect/testing";
 import { Agents, makeRuntime } from "./agents.ts";
 import { LoginShell } from "./login-shell.ts";
 import { OpenProject } from "./open-project.ts";
@@ -37,6 +38,30 @@ const withApp = <A, E>(
     );
     return yield* body(recorded).pipe(Effect.provide(app));
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
+
+/**
+ * A signal's stop (SIGINT, SIGTERM): it waits for no answer, so it is given a second of the test
+ * clock, a tenth at a time; none when it was still waiting then.
+ */
+const signal = Effect.fnUntraced(function* (open: OpenProject["Service"]) {
+  const stopping = yield* Effect.forkChild(
+    Effect.timeoutOption(open.stop({ ask: false }), "1 second"),
+    { startImmediately: true }
+  );
+  for (let tenth = 0; tenth < 10; tenth += 1) {
+    yield* TestClock.adjust("100 millis");
+  }
+  return yield* Fiber.join(stopping);
+});
+
+/** Lets the fibers forked run until a question is on screen (the store reads files first). */
+const asked = Effect.fnUntraced(function* (recorded: Recorded) {
+  while (recorded.questions.length === 0) {
+    yield* Effect.promise(
+      () => new Promise<void>((resolve) => setImmediate(resolve))
+    );
+  }
+});
 
 describe("OpenProject", () => {
   it.effect("asks for a first project when there is none", () =>
@@ -151,11 +176,104 @@ describe("OpenProject", () => {
             busy.id
           );
           assert.deepStrictEqual(recorded.events, ["start busy"]);
-          // Quitting asks the same; a signal does not wait for an answer.
+          // Quitting asks the same; a signal then stops without asking.
           recorded.answers.push(false);
           assert.isFalse(yield* open.stop({ ask: true }));
-          assert.isTrue(yield* open.stop({ ask: false }));
+          assert.deepStrictEqual(yield* signal(open), Option.some(true));
           assert.deepStrictEqual(recorded.events, ["start busy", "stop busy"]);
+          assert.strictEqual(recorded.questions.length, 2);
+        })
+      )
+  );
+
+  it.effect(
+    "a second close while the quit's question is on screen asks nothing more",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProject;
+          const busy = yield* store.add("/work/busy");
+          yield* open.open(busy.id);
+          recorded.working.busy = 1;
+          const answer = yield* Deferred.make<boolean>();
+          recorded.answers.push(Deferred.await(answer));
+          const closing = yield* Effect.forkChild(open.stop({ ask: true }), {
+            startImmediately: true,
+          });
+          const again = yield* Effect.forkChild(open.stop({ ask: true }), {
+            startImmediately: true,
+          });
+          yield* Deferred.succeed(answer, false);
+          assert.isFalse(yield* Fiber.join(closing));
+          assert.isFalse(yield* Fiber.join(again));
+          assert.deepStrictEqual(recorded.questions, [
+            "An agent is working in busy",
+          ]);
+          assert.deepStrictEqual(recorded.events, ["start busy"]);
+          // Asked again once that one is answered.
+          recorded.answers.push(false);
+          assert.isFalse(yield* open.stop({ ask: true }));
+          assert.strictEqual(recorded.questions.length, 2);
+        })
+      )
+  );
+
+  it.effect(
+    "a signal answers a quit's question on screen no and stops the server",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProject;
+          const busy = yield* store.add("/work/busy");
+          yield* open.open(busy.id);
+          recorded.working.busy = 1;
+          // The window closed, then Cmd-Q, while the question is on screen: asked once.
+          recorded.answers.push(Effect.never);
+          const closing = yield* Effect.forkChild(open.stop({ ask: true }), {
+            startImmediately: true,
+          });
+          const quitting = yield* Effect.forkChild(open.stop({ ask: true }), {
+            startImmediately: true,
+          });
+          assert.deepStrictEqual(recorded.questions, [
+            "An agent is working in busy",
+          ]);
+          assert.deepStrictEqual(yield* signal(open), Option.some(true));
+          assert.isFalse(yield* Fiber.join(closing));
+          assert.isFalse(yield* Fiber.join(quitting));
+          assert.deepStrictEqual(recorded.events, ["start busy", "stop busy"]);
+          assert.strictEqual(recorded.questions.length, 1);
+          assert.isTrue(Option.isNone(yield* open.current));
+        })
+      )
+  );
+
+  it.effect(
+    "a signal cuts a switch's question short: no switch, and the server stops",
+    () =>
+      withApp((recorded) =>
+        Effect.gen(function* () {
+          const store = yield* ProjectStore;
+          const open = yield* OpenProject;
+          const busy = yield* store.add("/work/busy");
+          const other = yield* store.add("/work/other");
+          yield* open.open(busy.id);
+          recorded.working.busy = 2;
+          recorded.answers.push(Effect.never);
+          const switching = yield* Effect.forkChild(open.open(other.id));
+          yield* asked(recorded);
+          assert.deepStrictEqual(recorded.questions, [
+            "2 agents are working in busy",
+          ]);
+          assert.deepStrictEqual(yield* signal(open), Option.some(true));
+          yield* Fiber.join(switching);
+          assert.deepStrictEqual(recorded.events, ["start busy", "stop busy"]);
+          assert.isTrue(Option.isNone(yield* open.current));
+          // Asked after the signal, nothing is put on screen.
+          yield* open.open(other.id);
+          assert.strictEqual(recorded.questions.length, 1);
         })
       )
   );

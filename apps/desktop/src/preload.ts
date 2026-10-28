@@ -8,6 +8,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 import {
   BEAT_CHANNEL,
+  BEAT_MS,
   type BridgeInfo,
   exposeBridge,
   INFO_CHANNEL,
@@ -16,7 +17,7 @@ import {
 const info = ipcRenderer.sendSync(INFO_CHANNEL) as BridgeInfo;
 
 // The page's thread runs: silent, the main process ends the script holding it (`stuck-pages.ts`).
-setInterval(() => ipcRenderer.send(BEAT_CHANNEL), 250);
+setInterval(() => ipcRenderer.send(BEAT_CHANNEL), BEAT_MS);
 
 contextBridge.exposeInMainWorld(
   "ultrapaintPlatform",

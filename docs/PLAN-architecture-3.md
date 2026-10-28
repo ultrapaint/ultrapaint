@@ -866,3 +866,30 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
     "cancelling"), and a done batch is reverted with the turn left running. All four failed
     first. `mcp-access.test.ts` gives the access its port; the socket test of the Figma tools
     passes unchanged.
+17. **A signal does not wait for an answer** (`apps/desktop/src/open-project.ts`). `OpenProject`
+    asks its stop questions through one `confirm`, raced against a signal: `stop({ ask: false })`
+    (SIGINT, SIGTERM) marks the app signalled, which answers no to the question on screen, a
+    quit's, a switch's or a restart's, so the side asking lets go of the switching permit; the
+    signal's stop then takes it and stops the server at once, and a question asked after it is
+    answered no without being shown. `stop({ ask: true })` while a quit's question is on screen
+    asks nothing more and has that question's answer (`quitAsked`), which `main.ts`'s `asking`
+    flag did: the flag goes, `quit` keeps `quitting` (set by the first quit that stopped the
+    server, so a second one answered the same does not quit again), and its comment that a
+    signal is not held up by a question on screen is now true. The stuck pages' beat is
+    `BEAT_MS` beside `BEAT_CHANNEL` in `bridge.ts`, which the preload sends on and
+    `stuck-pages.ts`' doc and test name in place of 250 ms. Fixed: a SIGINT or SIGTERM (a
+    logout, `kill`) with a quit's or a switch's question on screen waited for someone to answer
+    it, or for SIGKILL, and the servers' scopes never closed. Also: the question cut short by a
+    signal closes, as if cancelled: the shell's `confirm` gives Electron's message box the abort
+    signal of its interruption (on macOS not a box with no parent window, which runs
+    synchronously; the app's window is its parent whenever there is one). Otherwise as before: a double close, Cmd-Q while asking and
+    a quit refused. `fakeShell`'s answers take an effect, an answer
+    given later (`Effect.never`, one never given). `open-project.test.ts` has 3 tests more, the
+    signal's stop given a second of `TestClock` at most: with a quit's question that is never
+    answered on screen and a second close forked, the signal's stop stops the server, both
+    asking stops answer false and one question was asked; a switch's question cut short by a
+    signal, the switch not made, the server stopped and a switch asked afterwards shown nothing;
+    a second close while the quit's question waits for the user's no asks nothing and has the
+    no. The first two failed first (the signal's stop still waiting after the second); the third
+    fails with the join taken out (a second question, answered yes, stops the server). The
+    refused-quit test reads the signal's stop the same way.

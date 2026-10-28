@@ -2,6 +2,7 @@ import { assert, describe, it } from "@effect/vitest";
 import { MODULE_MARK } from "@ultrapaint/contracts/page-runtime";
 import { Effect, Exit, Scope } from "effect";
 import { TestClock } from "effect/testing";
+import { BEAT_MS } from "./bridge.ts";
 import { type WatchedContents, watchStuckPage } from "./stuck-pages.ts";
 
 const PAGE = "http://127.0.0.1:4800/preview/src/page.tsx?t=1";
@@ -59,7 +60,7 @@ describe("watchStuckPage", () => {
       const watch = yield* watchStuckPage(contents, read);
       for (let beat = 0; beat < 40; beat += 1) {
         yield* watch.beat;
-        yield* advance(250);
+        yield* advance(BEAT_MS);
       }
       assert.deepStrictEqual([page.asked, page.ended], [0, 0]);
       assert.isNull(yield* watch.stoppedAt);

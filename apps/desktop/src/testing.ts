@@ -8,8 +8,11 @@ import { Shell, type View } from "./shell.ts";
 
 /** What the fakes saw, in order. */
 export interface Recorded {
-  /** Answers the next `confirm` questions get; true when there are none left. */
-  answers: boolean[];
+  /**
+   * Answers the next `confirm` questions get; true when there are none left. An effect is an
+   * answer given later: `Effect.never` leaves the question on screen.
+   */
+  answers: (boolean | Effect.Effect<boolean>)[];
   events: string[];
   /** The titles of the pickers opened, in order. */
   pickers: string[];
@@ -39,9 +42,10 @@ export const fakeShell = (recorded: Recorded) =>
     Shell,
     Shell.of({
       confirm: ({ message }) =>
-        Effect.sync(() => {
+        Effect.suspend(() => {
           recorded.questions.push(message);
-          return recorded.answers.shift() ?? true;
+          const answer = recorded.answers.shift() ?? true;
+          return typeof answer === "boolean" ? Effect.succeed(answer) : answer;
         }),
       pickFile: (title) =>
         Effect.sync(() => {
