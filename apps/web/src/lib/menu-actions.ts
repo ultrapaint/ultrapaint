@@ -11,7 +11,7 @@ import { attachTextStyle } from "@ultrapaint/design-document/text-styles";
 import { tokenRef } from "@ultrapaint/design-document/tokens";
 import { basePathOf } from "@ultrapaint/shared/route";
 import { toast } from "sonner";
-import { canvasPoint, insertAt } from "../canvas/drag.ts";
+import { canvasPoint } from "../canvas/drag.ts";
 import { frameOf } from "../canvas/editor-frame.ts";
 import { sendComment } from "../canvas/send-to-agent.tsx";
 import { confirmDialog, promptDialog } from "../components/dialogs.tsx";
@@ -81,6 +81,7 @@ import {
   deleteSelection,
   duplicateSelection,
   insertNode,
+  insertNodesAt,
   insertTarget,
   nodeContext,
   nodesOf,
@@ -676,7 +677,7 @@ const insertOnCanvas = (node: DesignNode) => {
   const { x, width, height } = viewportSize();
   const r = el?.getBoundingClientRect() ?? { left: 0, top: 0 };
   const at = canvasPoint(r.left + x + width / 2, r.top + height / 2);
-  return insertAt({ kind: "canvas" }, node, placeOnCanvas(at));
+  return insertNodesAt({ at: placeOnCanvas(at), kind: "canvas" }, [node]);
 };
 
 const runComponent = (

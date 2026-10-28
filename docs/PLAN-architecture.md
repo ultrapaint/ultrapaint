@@ -594,3 +594,14 @@ callers and its tests share.
    on a US keyboard, where Shift types `)` there and it never did, and ⇧1 and ⇧2 on layouts whose
    Shift types the digit; ⌘⌫ deletes, as it did, as an `also` of Delete; the menu shows Enter as
    ↩, as the sheet does.
+17. **Node edits** (`apps/web/src/lib/node-actions.ts`). It is the only caller of `applyEdits`: a
+   caller names the nodes (`Selection`s) and the frame an edit is made in, a `Place` (`into` a
+   frame's container at an index, or onto the `canvas` at a point), and node-actions lands it by
+   ADR 0036 and selects what it made or moved (`selectLanded`, once). `insertNodesAt` (Assets
+   drops, the create tool, pastes, Alt-copies, images), `moveNode` (drags, Layers drops, a node
+   moved around the canvas), `resetAt` and `showBy` (named breakpoints, sent as they are) join
+   the field, tree and arrange actions; text typed in place and a canvas node's resize are
+   `updateNodes`. `applyOps`, `dropEdits`, `layerMoveEdits`, `insertAt` and clipboard's
+   `insertAllAt` go. `node-actions.test.ts` (20) runs the stores on `fakeApi`, answered by the
+   server's own `applyOps`. Also: an Alt-copy dropped into a view above the base is hidden below it, as a paste
+   is; a Layers drop keeps the selection in the view it was in; a paste at a point is "Paste".

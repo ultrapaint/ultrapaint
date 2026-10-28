@@ -2,7 +2,7 @@ import "../testing/fake-browser.ts";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Rect } from "@ultrapaint/contracts/preview";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type Drop, dropAt, dropEdits, dropInside } from "./drag.ts";
+import { dropAt, dropInside } from "./drag.ts";
 import { frameOf } from "./editor-frame.ts";
 
 vi.mock(
@@ -41,85 +41,6 @@ const frame = { height: 900, width: 1440, x: 0, y: 0 };
 
 afterEach(() => {
   vi.restoreAllMocks();
-});
-
-describe("dropEdits", () => {
-  const node: DesignNode = { ...text("n"), x: 5, y: 6 };
-  const into: Drop = {
-    box: null,
-    frame: "p1",
-    index: 2,
-    kind: "into",
-    line: null,
-    parent: "list",
-  };
-  const onCanvas: Drop = { kind: "canvas" };
-  const at = { x: 40, y: 50 };
-
-  it("inserts something new where it lands, without a canvas position inside a page", () => {
-    expect(dropEdits(into, node, null, "p1", at, false)).toEqual({
-      edits: [
-        {
-          doc: "p1",
-          ops: [{ index: 2, node: text("n"), op: "insert", parent: "list" }],
-        },
-      ],
-      label: "Insert",
-    });
-  });
-
-  it("puts what lands on the canvas where it was let go", () => {
-    const { edits } = dropEdits(onCanvas, text("n"), null, "c", at, false);
-    expect(edits[0]?.ops[0]).toEqual({
-      index: undefined,
-      node: { ...text("n"), ...at },
-      op: "insert",
-      parent: null,
-    });
-  });
-
-  it("copies with an insert alone", () => {
-    expect(dropEdits(into, node, "p2", "p1", at, true).label).toBe("Copy");
-    expect(dropEdits(into, node, "p2", "p1", at, true).edits).toHaveLength(1);
-  });
-
-  it("moves within one document, and places it when it lands on the canvas", () => {
-    expect(dropEdits(into, node, "p1", "p1", at, false)).toEqual({
-      edits: [
-        {
-          doc: "p1",
-          ops: [{ id: "n", index: 2, op: "move", parent: "list" }],
-        },
-      ],
-      label: "Move",
-    });
-    expect(
-      dropEdits(onCanvas, node, "c", "c", at, false).edits[0]?.ops
-    ).toEqual([
-      { id: "n", index: undefined, op: "move", parent: null },
-      { id: "n", op: "update", set: at },
-    ]);
-  });
-
-  it("takes it out of one document and puts it in the other", () => {
-    expect(dropEdits(onCanvas, node, "p1", "c", at, false)).toEqual({
-      edits: [
-        { doc: "p1", ops: [{ id: "n", op: "remove" }] },
-        {
-          doc: "c",
-          ops: [
-            {
-              index: undefined,
-              node: { ...node, ...at },
-              op: "insert",
-              parent: null,
-            },
-          ],
-        },
-      ],
-      label: "Move onto the canvas",
-    });
-  });
 });
 
 describe("dropInside", () => {

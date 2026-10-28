@@ -4,14 +4,12 @@
  * it is shown at (one rule, chosen from any view) and, in a view above the base, where it sits
  * among its siblings.
  */
-import type { JsonValue } from "@ultrapaint/contracts/base";
-import type { DesignNode, DocOp } from "@ultrapaint/contracts/document";
+import type { DesignNode } from "@ultrapaint/contracts/document";
 import {
   type Breakpoint,
   breakpointAt,
   type Visibility,
   visibilityOf,
-  withVisibility,
 } from "@ultrapaint/design-document/breakpoints";
 import { cn } from "cn";
 import { X } from "lucide-react";
@@ -21,10 +19,9 @@ import {
 } from "../components/option-select.tsx";
 import { Row, Section } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";
+import { resetAt, showBy } from "../lib/node-actions.ts";
 import { useBreakpoints } from "../state/design-system.ts";
 import {
-  applyOps,
-  docOfFrame,
   isNodeFrame,
   nodeIn,
   pageOfFrame,
@@ -46,25 +43,6 @@ const fieldsAt = (node: DesignNode, name: string): string[] => {
       ? Object.keys(value).map((prop) => `props.${prop}`)
       : [key]
   );
-};
-
-/** Takes a field a breakpoint sets away: the node shows what it inherits there again. */
-const resetAt = (
-  frame: string,
-  node: DesignNode,
-  at: string,
-  field: string
-) => {
-  const { canvas } = useEditor.getState();
-  const op: DocOp = field.startsWith("props.")
-    ? {
-        at,
-        id: node.id,
-        op: "setProps",
-        props: { [field.slice("props.".length)]: null },
-      }
-    : { at, id: node.id, op: "update", set: { [field]: null } };
-  applyOps(docOfFrame(frame, canvas), [op], `Reset ${field} at ${at}`);
 };
 
 /** What a rule is called in the select, and in the section's sentence. */
@@ -122,29 +100,15 @@ const visibilityOptions = (
   ...(current.kind === "custom" ? [{ label: "Custom", value: "custom" }] : []),
 ];
 
-/**
- * Shows a node by one rule, whichever view it is chosen in: its own `hidden` and each
- * breakpoint's are written together, as one step.
- */
-const showBy = (frame: string, node: DesignNode, value: string) => {
+/** Shows a node by the rule chosen, as one step. */
+const showByChoice = (frame: string, node: DesignNode, value: string) => {
   if (value === "custom") {
     return;
   }
-  const rule = ruleOf(value);
-  const { canvas } = useEditor.getState();
-  applyOps(
-    docOfFrame(frame, canvas),
-    [
-      {
-        id: node.id,
-        op: "update",
-        // Plain JSON: the document's own fields, rewritten.
-        set: withVisibility(
-          node,
-          rule as Exclude<Visibility, { kind: "custom" }>
-        ) as unknown as Record<string, JsonValue>,
-      },
-    ],
+  const rule = ruleOf(value) as Exclude<Visibility, { kind: "custom" }>;
+  showBy(
+    { frame, nodeId: node.id },
+    rule,
     `Show at ${phraseOf(rule).toLowerCase()}`
   );
 };
@@ -245,7 +209,9 @@ export const BreakpointSection = ({
                 <button
                   aria-label={`Reset ${field} at ${b.name}`}
                   className="flex size-4 cursor-pointer items-center justify-center rounded text-muted-foreground hover:bg-background hover:text-foreground"
-                  onClick={() => resetAt(frame, own, b.name, field)}
+                  onClick={() =>
+                    resetAt({ frame, nodeId: own.id }, b.name, field)
+                  }
                   title={`Reset ${field} at ${b.name}: inherit it from below`}
                   type="button"
                 >
@@ -258,7 +224,7 @@ export const BreakpointSection = ({
       ))}
       <Row label="Shown at">
         <OptionSelect
-          onChange={(v) => showBy(frame, own, v)}
+          onChange={(v) => showByChoice(frame, own, v)}
           options={visibilityOptions(breakpoints, visibility)}
           size="sm"
           value={choiceOf(visibility)}

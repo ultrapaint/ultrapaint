@@ -1,8 +1,8 @@
 /**
  * Rows of the layers panel dragged onto each other: where a dragged layer would land, kept in a
- * store of its own, and the edits that move it there, inside a document or from one to another.
+ * store of its own.
  */
-import type { DesignNode, DocumentEdit } from "@ultrapaint/contracts/document";
+import type { DesignNode } from "@ultrapaint/contracts/document";
 import { findPath } from "@ultrapaint/design-document/tree";
 import type { DragEvent } from "react";
 import { create } from "zustand";
@@ -55,32 +55,6 @@ export const dropIndex = (
     .filter((c) => c.id !== dragged)
     .findIndex((c) => c.id === target);
   return position === "before" ? at : at + 1;
-};
-
-/** A move within one document, or out of one into another. */
-export const layerMoveEdits = (move: {
-  destination: string;
-  index: number;
-  node: DesignNode;
-  /** The container it goes into; null for the top of the canvas. */
-  parent: string | null;
-  source: string;
-  /** The layer it was dropped at. */
-  target: DesignNode;
-}): DocumentEdit[] => {
-  const { destination, index, node, parent, source, target } = move;
-  if (source === destination) {
-    return [{ doc: source, ops: [{ id: node.id, index, op: "move", parent }] }];
-  }
-  // Onto the canvas beside another node on it: just below that one.
-  const placed =
-    parent === null
-      ? { ...node, x: target.x ?? 0, y: (target.y ?? 0) + 40 }
-      : node;
-  return [
-    { doc: source, ops: [{ id: node.id, op: "remove" }] },
-    { doc: destination, ops: [{ index, node: placed, op: "insert", parent }] },
-  ];
 };
 
 const dropPositionAt = (node: DesignNode, y: number): DropPosition => {

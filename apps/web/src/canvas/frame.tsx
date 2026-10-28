@@ -17,8 +17,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { updateOpsAt } from "../lib/breakpoint-edits.ts";
 import { focusLink } from "../lib/links.ts";
+import { updateNodes } from "../lib/node-actions.ts";
 import { kindColor, kindHoverColor } from "../lib/selection-kind.ts";
 import { useComments } from "../state/comments.ts";
 import { openMenuAt } from "../state/context-menu.ts";
@@ -28,10 +28,7 @@ import {
   useDesignSystem,
 } from "../state/design-system.ts";
 import {
-  applyOps,
-  docOfFrame,
   isNodeFrame,
-  nodeIn,
   pageOfFrame,
   rootOfFrame,
   useDocuments,
@@ -72,17 +69,8 @@ export const formatHostError = (error: HostError) => {
  * Writes an inline text edit from the preview back into the document, at the breakpoint of the
  * view it was typed in (ADR 0036).
  */
-const commitText = (frame: string, nodeId: string, text: string) => {
-  const { canvas } = useEditor.getState();
-  const node = nodeIn(useDocuments.getState().docs, canvas, frame, nodeId);
-  applyOps(
-    docOfFrame(frame, canvas),
-    node
-      ? updateOpsAt(node, frame, { text })
-      : [{ id: nodeId, op: "update", set: { text } }],
-    "Edit text"
-  );
-};
+const commitText = (frame: string, nodeId: string, text: string) =>
+  updateNodes([{ frame, nodeId }], { text }, "Edit text");
 
 const isInteractive = (s: { mode: string; spacePan: boolean }) =>
   s.mode === "interact" && !s.spacePan;

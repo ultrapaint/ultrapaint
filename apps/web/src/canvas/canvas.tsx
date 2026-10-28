@@ -1,6 +1,5 @@
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { FrameLayout } from "@ultrapaint/contracts/pages";
-import { canvasDocOf } from "@ultrapaint/design-document/tree";
 import { cn } from "cn";
 import {
   type ComponentProps,
@@ -12,13 +11,13 @@ import {
   useState,
 } from "react";
 import { fromFrame, isTyping } from "../lib/keys.ts";
+import { updateNodes } from "../lib/node-actions.ts";
 import { nextView, setViewSoon } from "../state/camera.ts";
 import { snapsToGrid, useCanvasGrid } from "../state/canvas-grid.ts";
 import { useComments } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
 import { openMenuAt } from "../state/context-menu.ts";
 import {
-  applyOps,
   canvasNodes,
   isNodeFrame,
   NODE_FRAME_PREFIX,
@@ -537,9 +536,9 @@ export const Canvas = () => {
       const { height, width, x, y } = resized;
       // The box stays where it was let go until the document has it, then the document draws it.
       holdUntil(frame, resized, () =>
-        applyOps(
-          canvasDocOf(current),
-          [{ id: d.nodeId, op: "update", set: { height, width, x, y } }],
+        updateNodes(
+          [{ frame, nodeId: d.nodeId }],
+          { height, width, x, y },
           "Resize"
         )
       ).then(() => drawResized(frame));

@@ -10,7 +10,6 @@
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Page } from "@ultrapaint/contracts/pages";
 import {
-  canvasDocOf,
   childrenOf,
   findPath,
   nodeKind,
@@ -55,14 +54,17 @@ import { PanelEmpty } from "../components/panel.tsx";
 import { editedFrameOf, useDrawnIn } from "../lib/breakpoint-edits.ts";
 import { scopeKeyDown } from "../lib/keymap.ts";
 import { describeLink } from "../lib/links.ts";
-import { renameNodeTo, setHidden, setLocked } from "../lib/node-actions.ts";
+import {
+  moveNode,
+  renameNodeTo,
+  setHidden,
+  setLocked,
+} from "../lib/node-actions.ts";
 import { renamePageTo } from "../lib/page-actions.ts";
 import { openMenuAt, showMenu, useContextMenu } from "../state/context-menu.ts";
 import {
-  applyEdits,
   canvasNodes,
-  docOfFrame,
-  frameOfCanvasNode,
+  isNodeFrame,
   nodeFrameOf,
   pageOfFrame,
   useDocuments,
@@ -78,7 +80,6 @@ import { InlineInput } from "./canvases.tsx";
 import {
   type DropPosition,
   dropIndex,
-  layerMoveEdits,
   rowDrag,
   setDropTarget,
   useDropHere,
@@ -137,6 +138,10 @@ const findItem = (
 const rowElement = (list: HTMLElement | null, key: string) =>
   list?.querySelector<HTMLElement>(`[data-key="${CSS.escape(key)}"]`) ?? null;
 
+/** The frame a row's node is in: a row names the page, and the view of it the selection is in. */
+const rowFrame = (frame: string) =>
+  editedFrameOf(useEditor.getState().selection, frame);
+
 /** Selects what a row names: the page as a whole, or the node, Shift adding it to the rest. */
 const selectItem = (item: LayerItem, add: boolean) => {
   const editor = useEditor.getState();
@@ -147,11 +152,7 @@ const selectItem = (item: LayerItem, add: boolean) => {
   if (!item.node) {
     return;
   }
-  // A row names the page; the selection stays in the view of it it is in (ADR 0036).
-  const at = {
-    frame: editedFrameOf(editor.selection, item.frame),
-    nodeId: item.node.id,
-  };
+  const at = { frame: rowFrame(item.frame), nodeId: item.node.id };
   if (add) {
     editor.toggleSelected(at);
   } else {
@@ -558,35 +559,34 @@ export const Layers = () => {
 
   /** Moves the dragged row next to, or into, the target row: across documents too. */
   const onDrop = async (target: Row, position: DropPosition) => {
-    if (!drag || canvas === null) {
+    if (!drag) {
       return;
     }
     const into = position === "inside" ? target.node : target.parent;
-    const intoFrame = target.frame;
-    const siblings = into ? childrenOf(into) : nodes;
-    const source = docOfFrame(drag.frame, canvas);
-    const destination = into
-      ? docOfFrame(intoFrame, canvas)
-      : canvasDocOf(canvas);
-    const edits = layerMoveEdits({
-      destination,
-      index: dropIndex(siblings, drag.node.id, target.node.id, position),
-      node: drag.node,
-      parent: into?.id ?? null,
-      source,
-      target: target.node,
-    });
-    const result = await applyEdits(edits, "Move");
-    if (result) {
-      const { docs: after } = useDocuments.getState();
-      const frame =
-        destination === canvasDocOf(canvas)
-          ? frameOfCanvasNode(after, canvas, drag.node.id)
-          : intoFrame;
-      if (frame) {
-        useEditor.getState().select({ frame, nodeId: drag.node.id });
-      }
-    }
+    const index = dropIndex(
+      into ? childrenOf(into) : nodes,
+      drag.node.id,
+      target.node.id,
+      position
+    );
+    await moveNode(
+      { frame: drag.frame, nodeId: drag.node.id },
+      into
+        ? {
+            frame: rowFrame(target.frame),
+            index,
+            kind: "into",
+            parent: into.id,
+          }
+        : {
+            // From a page onto the canvas beside a node on it: just below that one.
+            ...(!isNodeFrame(drag.frame) && {
+              at: { x: target.node.x ?? 0, y: (target.node.y ?? 0) + 40 },
+            }),
+            index,
+            kind: "canvas",
+          }
+    );
   };
 
   /** Walks the tree from a row: the focus moves, or a row opens or folds. */

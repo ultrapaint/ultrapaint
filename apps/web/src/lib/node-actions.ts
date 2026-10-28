@@ -1,13 +1,27 @@
 /**
- * What the editor does to the selected nodes, from the keyboard, the layers panel, the inspector,
- * the Assets panel and the context menu alike. Each is one request to the server and one undo step,
- * however many nodes it changes. An action takes the node it is for, and the rest of the
- * selection with it when the node is selected; the selection when it is not given one. Renaming,
- * selecting a parent and arranging are about one node: the one the inspector shows.
+ * Every edit the editor makes to nodes, from the keyboard, the layers panel, the inspector, the
+ * Assets panel, the context menu, the clipboard and the canvas's drags alike: nothing else sends
+ * the documents operations. Each is one request to the server and one undo step, however many
+ * nodes it changes. An action takes the node it is for, and the rest of the selection with it when
+ * the node is selected; the selection when it is not given one. Renaming, selecting a parent and
+ * arranging are about one node: the one the inspector shows.
+ *
+ * A caller says which frame an edit is made in, and this module says where it lands (ADR 0036): a
+ * field at the breakpoint of the view, a node inserted in a view above the base hidden below it.
+ * Moving, wrapping and removing change the one tree every view draws. What an edit makes or moves
+ * is selected afterwards, in the frame that shows it.
  */
 
 import type { JsonValue } from "@ultrapaint/contracts/base";
-import type { DesignNode, DocOp } from "@ultrapaint/contracts/document";
+import type {
+  DesignNode,
+  DocOp,
+  DocumentEdit,
+} from "@ultrapaint/contracts/document";
+import {
+  type Visibility,
+  withVisibility,
+} from "@ultrapaint/design-document/breakpoints";
 import {
   canvasDocOf,
   childrenOf,
@@ -18,7 +32,6 @@ import { promptDialog } from "../components/dialogs.tsx";
 import { holdsChildren } from "../state/catalogue.ts";
 import {
   applyEdits,
-  applyOps,
   canvasNodes,
   docOfFrame,
   frameOfCanvasNode,
@@ -152,26 +165,20 @@ export const wrapSelection = (
 export const unwrapSelection = (target?: Selection) =>
   unwrapNodes(actedOn(target));
 
-/** Selects a node the server just made, in whichever frame now shows it. */
-const selectCreated = (doc: string, frame: string, id: string) => {
-  const { canvas } = useEditor.getState();
-  const target =
-    canvas !== null && doc === canvasDocOf(canvas)
-      ? frameOfCanvasNode(useDocuments.getState().docs, canvas, id)
-      : frame;
-  if (target) {
-    useEditor.getState().select({ frame: target, nodeId: id });
-  }
-};
-
-/** Selects the nodes the server just made, as many of them as one frame shows. */
-const selectAllCreated = (
+/**
+ * Selects the nodes an edit made or moved, in the frame that now shows them: the frame given in a
+ * page, each one's own on the canvas; as many of them as one frame shows.
+ */
+const selectLanded = (
   doc: string,
-  frame: string,
+  frame: string | null,
   ids: readonly string[]
 ) => {
   const { canvas } = useEditor.getState();
   const { docs } = useDocuments.getState();
+  if (ids.length === 0) {
+    return;
+  }
   const loose = canvas !== null && doc === canvasDocOf(canvas);
   useEditor.getState().selectMany(
     ids.flatMap((id) => {
@@ -179,6 +186,148 @@ const selectAllCreated = (
       return shown ? [{ frame: shown, nodeId: id }] : [];
     })
   );
+};
+
+interface Point {
+  readonly x: number;
+  readonly y: number;
+}
+
+/**
+ * Where nodes go: into a container of a frame, at an index among its children (at the end
+ * without one), or onto the canvas, at a point (where they are without one) and an index among
+ * its nodes. The frame is the one the edit is made in: a view's says where an insert lands.
+ */
+export type Place =
+  | {
+      readonly frame: string;
+      readonly index?: number;
+      readonly kind: "into";
+      readonly parent: string;
+    }
+  | { readonly at?: Point; readonly index?: number; readonly kind: "canvas" };
+
+const docOfPlace = (place: Place, canvas: string) =>
+  place.kind === "into" ? docOfFrame(place.frame, canvas) : canvasDocOf(canvas);
+
+/** How far each node put onto the canvas after the first lands from the one before. */
+const CASCADE = 24;
+
+/**
+ * A node as it goes to a place, the `i`th of those put there together: in a page without the
+ * position it had on the canvas; on the canvas at the point, each a little below and to the right
+ * of the one before.
+ */
+const placedAt = (node: DesignNode, place: Place, i: number): DesignNode => {
+  if (place.kind === "into") {
+    const { x: _x, y: _y, ...unplaced } = node;
+    return unplaced as DesignNode;
+  }
+  return place.at
+    ? {
+        ...node,
+        x: Math.round(place.at.x + i * CASCADE),
+        y: Math.round(place.at.y + i * CASCADE),
+      }
+    : node;
+};
+
+/**
+ * Inserts nodes at a place, side by side, and selects them: something new, pasted or copied.
+ * Resolves to the ids the server gave them, none when nothing was inserted.
+ */
+export const insertNodesAt = async (
+  place: Place,
+  nodes: readonly DesignNode[],
+  label = "Insert"
+): Promise<readonly string[]> => {
+  const { canvas } = useEditor.getState();
+  if (canvas === null || nodes.length === 0) {
+    return [];
+  }
+  const doc = docOfPlace(place, canvas);
+  const ops = nodes.map(
+    (node, i): DocOp => ({
+      ...(place.index !== undefined && { index: place.index + i }),
+      // In a view above the base, it shows from the view's breakpoint up (ADR 0036).
+      node:
+        place.kind === "into"
+          ? insertedAt(placedAt(node, place, i), place.frame)
+          : placedAt(node, place, i),
+      op: "insert",
+      parent: place.kind === "into" ? place.parent : null,
+    })
+  );
+  const result = await applyEdits([{ doc, ops }], label);
+  const created = result?.created ?? [];
+  selectLanded(doc, place.kind === "into" ? place.frame : null, created);
+  return created;
+};
+
+/**
+ * Moves a node to a place, in its document or out of it into another, and selects it there. A
+ * node on the canvas moved to a point of it, and no other place among its nodes, only changes
+ * where it is, and stays selected as it was.
+ */
+export const moveNode = async (target: Selection, place: Place) => {
+  const { canvas } = useEditor.getState();
+  const [found] = nodesOf([target]);
+  if (canvas === null || !found) {
+    return;
+  }
+  const { doc: source, node } = found;
+  const { id } = node;
+  const doc = docOfPlace(place, canvas);
+  const at = place.kind === "canvas" ? place.at : undefined;
+  const loose = canvasNodes(useDocuments.getState().docs, canvas).some(
+    (n) => n.id === id
+  );
+  if (loose && place.kind === "canvas" && place.index === undefined) {
+    if (at) {
+      await applyEdits(
+        [{ doc, ops: [{ id, op: "update", set: { x: at.x, y: at.y } }] }],
+        "Move on the canvas"
+      );
+    }
+    return;
+  }
+  const parent = place.kind === "into" ? place.parent : null;
+  const index = place.index === undefined ? undefined : { index: place.index };
+  const moved: DocumentEdit[] =
+    source === doc
+      ? [
+          {
+            doc,
+            ops: [
+              { id, ...index, op: "move", parent },
+              ...(at
+                ? [{ id, op: "update" as const, set: { x: at.x, y: at.y } }]
+                : []),
+            ],
+          },
+        ]
+      : [
+          { doc: source, ops: [{ id, op: "remove" }] },
+          {
+            doc,
+            ops: [
+              {
+                ...index,
+                node: placedAt(node, place, 0),
+                op: "insert",
+                parent,
+              },
+            ],
+          },
+        ];
+  const label =
+    source !== doc && place.kind === "canvas" ? "Move onto the canvas" : "Move";
+  const result = await applyEdits(moved, label);
+  if (result) {
+    selectLanded(doc, place.kind === "into" ? place.frame : null, [
+      result.created[0] ?? id,
+    ]);
+  }
 };
 
 /**
@@ -234,28 +383,21 @@ export const insertTarget = (
  * are laid out with the others: where they stood on the canvas, if they were there, no longer
  * means anything.
  */
-export const insertNodes = async (
+export const insertNodes = (
   nodes: readonly DesignNode[],
   ctx: Context = liveContext(),
   label = "Insert"
 ) => {
   const target = insertTarget(ctx);
-  if (!target || nodes.length === 0) {
-    return;
+  if (!target) {
+    return [];
   }
-  const ops = nodes.map((node, i): DocOp => {
-    const { x: _x, y: _y, ...unplaced } = node;
-    return {
-      ...(target.index !== undefined && { index: target.index + i }),
-      node: insertedAt(unplaced as DesignNode, target.frame),
-      op: "insert",
-      parent: target.parent,
-    };
-  });
-  const result = await applyOps(target.doc, ops, label);
-  if (result && result.created.length > 0) {
-    selectAllCreated(target.doc, target.frame, result.created);
-  }
+  const { frame, index, parent } = target;
+  return insertNodesAt(
+    { frame, kind: "into", parent, ...(index !== undefined && { index }) },
+    nodes,
+    label
+  );
 };
 
 /** Inserts a node where `insertTarget` says, and selects it. */
@@ -308,9 +450,9 @@ export const arrangeNode = async (to: Arrangement, target?: Selection) => {
   if (index === at) {
     return;
   }
-  await applyOps(
-    current.doc,
-    [{ id: current.node.id, index, op: "move", parent: parent?.id ?? null }],
+  await applyToEach(
+    [{ frame: current.frame, nodeId: current.node.id }],
+    (node) => [{ id: node.id, index, op: "move", parent: parent?.id ?? null }],
     "Arrange"
   );
 };
@@ -340,9 +482,9 @@ export const renameNodeTo = async (name: string, target?: Selection) => {
   ) {
     return;
   }
-  await applyOps(
-    current.doc,
-    [{ id: current.node.id, op: "update", set: { name: trimmed } }],
+  await updateNodes(
+    [{ frame: current.frame, nodeId: current.node.id }],
+    { name: trimmed },
     "Rename"
   );
 };
@@ -397,18 +539,27 @@ export const nodesOf = (targets: readonly Selection[]) => {
   });
 };
 
-/** The same operations for each node, one undo step for all of them. */
+/**
+ * The same operations for each node, one undo step for all of them. A field lands at the
+ * breakpoint of the view it is edited in (ADR 0036), and what an edit works out from the node
+ * (the rest of its border) is the node as drawn there; `asStored` is for the edits that name
+ * their breakpoints themselves, which are worked out from the node as it is stored and sent as
+ * they are.
+ */
 const applyToEach = (
   targets: readonly Selection[],
   opsOf: (node: DesignNode) => DocOp[],
-  label: string
+  label: string,
+  asStored = false
 ) => {
   const byDoc = new Map<string, DocOp[]>();
   const { selection } = useEditor.getState();
   for (const { doc, frame: named, node } of nodesOf(targets)) {
+    if (asStored) {
+      byDoc.set(doc, [...(byDoc.get(doc) ?? []), ...opsOf(node)]);
+      continue;
+    }
     const frame = editedFrameOf(selection, named);
-    // A field lands at the breakpoint of the view it is edited in (ADR 0036).
-    // What an edit works out from the node (the rest of its border) is the node as drawn there.
     const ops = opsOf(asDrawnIn(node, frame)).flatMap((op): DocOp[] => {
       if (op.op === "update" && op.at === undefined) {
         return updateOpsAt(node, frame, op.set);
@@ -505,8 +656,8 @@ const duplicateNodes = async (targets: readonly Selection[]) => {
     (node) => (isPageRoot(node) ? [] : [{ id: node.id, op: "duplicate" }]),
     labelFor("Duplicate", copied.length)
   );
-  if (first && result && result.created.length > 0) {
-    selectAllCreated(first.doc, first.frame, result.created);
+  if (first && result) {
+    selectLanded(first.doc, first.frame, result.created);
   }
 };
 
@@ -546,13 +697,62 @@ export const wrapNodes = async (
   if (!first || found.some((f) => f.doc !== first.doc)) {
     return;
   }
-  const result = await applyOps(
-    first.doc,
-    [{ ids: found.map((f) => f.node.id), op: "wrap", type }],
+  const result = await applyEdits(
+    [
+      {
+        doc: first.doc,
+        ops: [{ ids: found.map((f) => f.node.id), op: "wrap", type }],
+      },
+    ],
     `Wrap in a ${type}`
   );
-  const id = result?.created[0];
-  if (id) {
-    selectCreated(first.doc, first.frame, id);
+  if (result) {
+    selectLanded(first.doc, first.frame, result.created.slice(0, 1));
   }
 };
+
+// ---- At a breakpoint named ----
+
+/**
+ * Takes away what a node sets for a field at a breakpoint (`props.<name>` for a prop): it shows
+ * what it inherits there again, whichever view it is done from.
+ */
+export const resetAt = (target: Selection, at: string, field: string) =>
+  applyToEach(
+    [target],
+    (node): DocOp[] => [
+      field.startsWith("props.")
+        ? {
+            at,
+            id: node.id,
+            op: "setProps",
+            props: { [field.slice("props.".length)]: null },
+          }
+        : { at, id: node.id, op: "update", set: { [field]: null } },
+    ],
+    `Reset ${field} at ${at}`,
+    true
+  );
+
+/**
+ * Shows a node by one rule, whichever view it is chosen in: its own `hidden` and each
+ * breakpoint's are written together.
+ */
+export const showBy = (
+  target: Selection,
+  rule: Exclude<Visibility, { kind: "custom" }>,
+  label: string
+) =>
+  applyToEach(
+    [target],
+    (node) => [
+      {
+        id: node.id,
+        op: "update",
+        // Plain JSON: the document's own fields, rewritten.
+        set: withVisibility(node, rule) as unknown as Record<string, JsonValue>,
+      },
+    ],
+    label,
+    true
+  );
