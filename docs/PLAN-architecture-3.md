@@ -189,3 +189,29 @@ test, `server.test.ts`'s socket tests that `ProjectTest` could run).
    named, and exactly the five that need the tools are refused. The second failed first, with
    tools named 34 times in Adopt, `/components`, both Implement tasks, Define's proposal, `/sync
    describe` and the briefing; four `notInclude` checks it covers go.
+2. **Checkpoints in the snapshot store** (`apps/server/src/services/design-refs.ts`,
+   `threads/checkpoints.ts`). A turn's checkpoint is a ref of the snapshot store's `checkpoints`
+   namespace, named by its id, whose note is the `Checkpoint` the Changes panel lists and the
+   repository it was taken in; a file unchanged from one turn to the next is kept once, and the
+   last 30 (of every repository, as before) are kept by letting go of the oldest refs and
+   collecting. `makeDesignRefs(namespace, note)` is what a named snapshot and a checkpoint share:
+   the design files now (the comments left out), the refs of the open repository (`openRepo` and
+   `ours` once), finding one, keeping files or naming a snapshot the store has, the diff with now
+   (`simpleDiff`'s loop once), putting one back through `EditService.transaction`, and moving an
+   older format's JSON files in (`importOld`, once for both). `SnapshotStore.name` keeps a
+   manifest it has under another ref, so `Snapshots.create(name, checkpoint)` names the
+   checkpoint's files rather than copying them, and `Checkpoints.files` goes for `find`. Also: a
+   revert is one undo step ("Revert to the checkpoint …"), publishes `file.changed` for every
+   file it writes or removes (the designs' watcher told only of pages and the files it follows),
+   and leaves the comments file as it is; a checkpoint no longer keeps the comments, and one
+   moved in from `<state>/checkpoints/*.json` drops them (one that does not read stays, and the
+   log says why); `checkpoints.revert` fails as `snapshots.restore` does (`EditError`), and the
+   Changes panel's confirmation says undo takes it back and the comments stay; a checkpoint's
+   diffs come in path order. `ProjectTest` can write files into the state directory before the
+   server starts. `checkpoints.test.ts` has 7 tests on `ProjectTest`: compared and reverted,
+   then undone in one step; a component the revert removes is published; comments written since
+   survive; two turns keep a file's content once; kept as a snapshot, the same manifest under
+   two names; the last 30; the old format moved in. All seven failed first (the undo found no
+   step, the removal was never published, the comments were in the diff). The socket test of a
+   revert in `threads.test.ts` goes; `thread-session.test.ts` breaks the store rather than the
+   checkpoints directory to fail a turn's checkpoint.

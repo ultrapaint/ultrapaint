@@ -45,7 +45,10 @@ review found.
   is there, a page the layout does not place yet where the editor draws it, a new view beside its
   page and the view's name.
 - **Snapshot**: a named point in the designs' history (ADR 0019), a ref of the `designs`
-  namespace in the tool's **snapshot store**.
+  namespace in the tool's **snapshot store**. A **checkpoint**, the designs before an agent's
+  turn (ADR 0008), is a ref of its `checkpoints` namespace, the last 30 kept. Both keep every
+  design file but the comments, are compared with now and put back one way (`design-refs`: one
+  undo step), and keeping a checkpoint as a snapshot names its files again.
 
 ## Agents
 

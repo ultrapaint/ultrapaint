@@ -9,7 +9,7 @@
  *   of what it lists, so the same files are the same snapshot;
  * - `refs/<namespace>/<id>`: what keeps a manifest. A namespace is whoever records: the
  *   design-system setup of one project, the named snapshots of the designs (ADR 0019), the
- *   revision history later. What no ref keeps is removed by `collect`, and the objects only it
+ *   checkpoints taken before agent turns (ADR 0008), the revision history later. What no ref keeps is removed by `collect`, and the objects only it
  *   named with it;
  * - `refs/<namespace>/<name>`: a ref the namespace names itself, holding
  *   `{ "id": "<manifest>", "note": "…" }`. Two names of the same files are two refs, let go of
@@ -162,6 +162,15 @@ export class SnapshotStore extends Context.Service<
       files: Contents,
       ref?: { readonly name: string; readonly note: string }
     ) => Effect.Effect<string, SnapshotStoreFailed>;
+    /**
+     * Keeps snapshot `id`, which the store has, under `namespace`'s own name for it with its
+     * note: the same files named again, by another namespace or the same one.
+     */
+    readonly name: (
+      namespace: string,
+      id: string,
+      ref: { readonly name: string; readonly note: string }
+    ) => Effect.Effect<void, SnapshotMissing | SnapshotStoreFailed>;
     /** The snapshots `namespace` keeps under names of its own; a ref that does not read is left out. */
     readonly named: (
       namespace: string
@@ -252,6 +261,35 @@ export class SnapshotStore extends Context.Service<
         return hash;
       });
 
+      /** Writes the ref that keeps snapshot `id`: under its id, or the namespace's name with its note. */
+      const keepRef = Effect.fnUntraced(function* (
+        store: string,
+        namespace: string,
+        id: string,
+        ref?: { readonly name: string; readonly note: string }
+      ) {
+        const content =
+          ref === undefined
+            ? ""
+            : yield* encodeNamedRef({ id, note: ref.note }).pipe(
+                Effect.mapError(failed("noting a snapshot"))
+              );
+        yield* writeAtomic(
+          refPath(store, namespace, ref?.name ?? id),
+          content
+        ).pipe(Effect.mapError(failed("keeping a snapshot")));
+      });
+
+      /** A name a namespace can keep a snapshot under. */
+      const checkName = (name: string) =>
+        REF_NAME_RE.test(name)
+          ? Effect.void
+          : Effect.fail(
+              new SnapshotStoreFailed({
+                message: `not a name a snapshot can be kept under: ${name}`,
+              })
+            );
+
       /**
        * Writes the manifest of `kept` unless the store has it, then the ref that keeps it: the
        * snapshot's id, or the namespace's name for it with its note.
@@ -275,16 +313,7 @@ export class SnapshotStore extends Context.Service<
             `${JSON.stringify({ files: sorted, version: 1 })}\n`
           ).pipe(Effect.mapError(failed("writing a snapshot")));
         }
-        const content =
-          ref === undefined
-            ? ""
-            : yield* encodeNamedRef({ id, note: ref.note }).pipe(
-                Effect.mapError(failed("noting a snapshot"))
-              );
-        yield* writeAtomic(
-          refPath(store, namespace, ref?.name ?? id),
-          content
-        ).pipe(Effect.mapError(failed("keeping a snapshot")));
+        yield* keepRef(store, namespace, id, ref);
         return id;
       });
 
@@ -358,10 +387,8 @@ export class SnapshotStore extends Context.Service<
           ref?: { readonly name: string; readonly note: string }
         ) {
           yield* checkNamespace(namespace);
-          if (ref !== undefined && !REF_NAME_RE.test(ref.name)) {
-            return yield* new SnapshotStoreFailed({
-              message: `not a name a snapshot can be kept under: ${ref.name}`,
-            });
+          if (ref !== undefined) {
+            yield* checkName(ref.name);
           }
           const store = yield* storeDir;
           const hashes = yield* Effect.forEach(
@@ -443,6 +470,21 @@ export class SnapshotStore extends Context.Service<
             Effect.mapError(missing(id, "snapshot"))
           );
       });
+
+      const nameSnapshot = Effect.fn("SnapshotStore.name")(
+        function* (
+          namespace: string,
+          id: string,
+          ref: { readonly name: string; readonly note: string }
+        ) {
+          yield* checkNamespace(namespace);
+          yield* checkName(ref.name);
+          // A ref of a manifest the store does not have would keep nothing.
+          yield* read(id);
+          yield* keepRef(yield* storeDir, namespace, id, ref);
+        },
+        (effect) => lock.withPermits(1)(effect)
+      );
 
       const readFile = Effect.fn("SnapshotStore.readFile")(function* (
         hash: string
@@ -589,6 +631,7 @@ export class SnapshotStore extends Context.Service<
         changedBetween,
         changedFrom,
         collect,
+        name: nameSnapshot,
         named,
         read,
         readFile,

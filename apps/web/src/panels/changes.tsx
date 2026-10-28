@@ -510,7 +510,7 @@ const CheckpointRow = ({
     const ok = await confirmDialog({
       confirmLabel: "Revert",
       description:
-        "Design files are restored to their state at this checkpoint. Files added since are removed.",
+        "Design files are restored to their state at this checkpoint, and files added since are removed. It is one step: undo takes it back. Comments stay as they are.",
       destructive: true,
       title: "Revert to this checkpoint?",
     });

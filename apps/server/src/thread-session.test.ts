@@ -505,11 +505,11 @@ describe("a turn", () => {
       const agents = yield* ScriptedAgents;
       const { home } = yield* ThreadFixture;
       const fs = yield* FileSystem.FileSystem;
-      const checkpoints = path.join(home, "checkpoints");
+      const store = path.join(home, "store");
       const { id: threadId } = yield* threads.create("scripted");
       // The checkpoint taken before the turn cannot be written: an I/O error, a defect.
-      yield* fs.remove(checkpoints, { recursive: true });
-      yield* fs.writeFileString(checkpoints, "not a directory");
+      yield* fs.remove(store, { force: true, recursive: true });
+      yield* fs.writeFileString(store, "not a directory");
       yield* send(threadId, "hello");
       const agent = yield* agents.next;
       const broken = yield* threadWhen(threadId, (t) => t.status === "error");
@@ -518,8 +518,8 @@ describe("a turn", () => {
         last?.kind === "status" && last.text.startsWith("Turn failed:")
       );
 
-      yield* fs.remove(checkpoints);
-      yield* fs.makeDirectory(checkpoints);
+      yield* fs.remove(store);
+      yield* fs.makeDirectory(store);
       yield* send(threadId, "again");
       yield* Effect.andThen(agent.nextTurn, (t) => t.end());
       yield* threadWhen(threadId, turnsEnded(1));
