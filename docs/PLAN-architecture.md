@@ -267,3 +267,43 @@ callers and its tests share.
    than given the import's directory; a tool given an empty page name in a project of one page
    gets that page, as `/implement` did; the no-MCP texts of Sync's code step and of a page's
    tokens say the same thing (write the value, or have the user press Export).
+9. **Provenance** (`packages/preview-core/src/provenance.ts`, the server's side in
+   `packages/framework-react-vite/src/guard-code.ts`). `createProvenance({ base, ownScript,
+   stack, readModule })` is given the base when the preview starts (`createPreview`, from the
+   designs' root), not set by `routePortals` as it went by; its doc comment states the assumption
+   every rule rests on: the editor's code in the preview is one file, the bundle, whose frames are
+   the editor's wherever they are, any other module under the base the page's. The rules are
+   named by what a guard needs, each with its reason and the sandbox plan's step: `windowCall`
+   (the first caller outside the bundle: listeners and `on*` handlers, scroll, history, the head
+   and the title, popups on the body, `matchMedia` and the window's size), `scheduling`,
+   `storage` and `domWrite` (the immediate caller, one frame: timers and animation frames,
+   storage, `<html>` and `<body>`), `request` (the whole stack, down to where the editor handed
+   over); `thrownAt` is where an error was thrown and `sourceLine` its source's line, through
+   `source-lines.ts`'s `mappedLines(read)`, which replaces its `fetch` and its cache of modules
+   kept for the page. `readStack` reads V8's frames (and SpiderMonkey's); `fileUnder`,
+   `isRepositoryUrl` and `isRepositoryModule` (the address under the base, not a dependency's or
+   the dev server's, and the server's mark in its code, `MODULE_MARK`) are pure and imported by
+   the desktop app. `portals.ts` keeps only the popups, `calledFromPreview`,
+   `calledDirectlyFromPreview`, `calledOnlyFromPreview`, `previewCallOn`, `thrownInPreview` and
+   `previewBase` go, and with them sandbox's three swappable copies and the `OWN` of sandbox and
+   `media.ts`; `installGuards(provenance)`, `routePortals(provenance, …)`,
+   `guardRequests(provenance)` and `guardMedia(provenance)` take it. The test seam is the stack:
+   a test gives `stack` a recorded V8 stack and runs the real rules. `provenance.test.ts` runs
+   nine recorded stacks (the editor's alone, the page's alone, the page's called back through
+   the bundle, the bundle called by the page, a dependency under `node_modules/.vite` handed its
+   work through the bundle, the page's wrapper called by the editor, the editor's code inside
+   the page's callback, the browser's own frame first, an edited module with its map inline)
+   against every rule under `/preview/` and a base of three segments, the live V8 stack once,
+   the thrown position mapped back through an inline map, and the repository's modules;
+   `sandbox.test.ts` drives its guards with recorded stacks and gains one test a rule (a
+   listener and a timer the bundle adds for the page's code, the first the page's, the second
+   the editor's; a request through the page's wrapper; storage; `<html>`). The desktop app's
+   `stoppedAt(stack, read, base)` asks the shared predicate and names the path under the whole
+   base, which it takes from `PREVIEW_BASE`, now in `packages/contracts/src/preview.ts` for the
+   server and the app. `guardedKind(id, editorDirs)` moved out of `serve.ts`, which runs as it
+   is imported, into `guard-code.ts`, and is tested. Also: a frame is the page's when its
+   script's path starts with the base, not when its line holds the base anywhere; the file an
+   error names is decoded (`my page.tsx`, not `my%20page.tsx`); the desktop app reads only the
+   modules under the base of a stuck page's stack, not the editor's own; `guardedKind` tells the
+   dev server's code by the file's path with its separators made `/`, as it did the rest.
+   `pnpm e2e:sandbox` passes its 23 checks.

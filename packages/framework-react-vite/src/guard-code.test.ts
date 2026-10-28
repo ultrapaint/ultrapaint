@@ -1,6 +1,11 @@
 import { parseAst } from "vite";
 import { describe, expect, it } from "vitest";
-import { GUARD_ID, GUARD_MODULE, guardCode } from "./guard-code.ts";
+import {
+  GUARD_ID,
+  GUARD_MODULE,
+  guardCode,
+  guardedKind,
+} from "./guard-code.ts";
 
 const guard = (code: string, markModule = false) => {
   let id = 0;
@@ -102,5 +107,43 @@ describe("the guard module", () => {
     expect(() => loop(2)).toThrow("Stopped a loop");
     // A dependency's loop does not: React runs its work loop again to draw the boundary.
     expect(() => loop(0)).not.toThrow();
+  });
+});
+
+describe("guardedKind", () => {
+  const GENERATED = "/home/u/.cache/ultrapaint/preview/designs-1a2b/";
+  const BUNDLES = "/home/u/ultrapaint/packages/framework-react-vite/dist/";
+  const kind = (id: string) => guardedKind(id, [GENERATED, BUNDLES]);
+
+  it("guards all of the repository's own JavaScript, a library's beside it too", () => {
+    expect(kind("/home/u/shop/src/page.tsx")).toBe("source");
+    expect(kind("/home/u/shop/src/page.tsx?t=17")).toBe("source");
+    expect(kind("/home/u/shop/packages/ui/button.mjs")).toBe("source");
+    expect(kind("C:\\shop\\src\\page.jsx")).toBe("source");
+  });
+
+  it("checks only the loops of a dependency, installed or prebundled", () => {
+    expect(kind("/home/u/shop/node_modules/react-dom/client.js")).toBe(
+      "dependency"
+    );
+    expect(kind(`${GENERATED}.vite/deps/react-dom_client.js?v=1a2b`)).toBe(
+      "dependency"
+    );
+    expect(kind("C:\\shop\\node_modules\\swr\\index.mjs")).toBe("dependency");
+  });
+
+  it("leaves the editor's modules, the dev server's and what is not JavaScript", () => {
+    expect(kind(`${GENERATED}entry.tsx`)).toBeNull();
+    expect(kind(`${BUNDLES}editor.js`)).toBeNull();
+    expect(
+      kind("/home/u/shop/node_modules/vite/dist/client/client.mjs")
+    ).toBeNull();
+    expect(
+      kind("/home/u/shop/node_modules/@vitejs/plugin-react/refresh.js")
+    ).toBeNull();
+    expect(kind("/@react-refresh")).toBeNull();
+    expect(kind(`\0${GUARD_ID}`)).toBeNull();
+    expect(kind("/home/u/shop/src/page.css")).toBeNull();
+    expect(kind("/home/u/shop/src/data.json")).toBeNull();
   });
 });

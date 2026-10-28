@@ -1,4 +1,5 @@
 import { createServer } from "node:net";
+import { PREVIEW_BASE } from "@ultrapaint/contracts/preview";
 import type { HostStatus } from "@ultrapaint/contracts/project";
 import {
   Context,
@@ -20,7 +21,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { AppLog } from "../app-log.ts";
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { connectHost, ServerConfig } from "../config.ts";
-import { PREVIEW_BASE, PreviewProxy } from "../preview-proxy.ts";
+import { PreviewProxy } from "../preview-proxy.ts";
 import {
   ComponentRegistry,
   LEGACY_PREVIEW_DIR,

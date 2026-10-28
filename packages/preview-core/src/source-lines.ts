@@ -91,26 +91,24 @@ export const inlineMapOf = (code: string): Lines | null => {
   return typeof mappings === "string" ? decodeMappings(mappings) : null;
 };
 
-const maps = new Map<string, Promise<Lines | null>>();
-
-const mapOf = (url: string) => {
-  let map = maps.get(url);
-  if (!map) {
-    map = fetch(url)
-      .then((response) => (response.ok ? response.text() : ""))
-      .then(inlineMapOf)
-      .catch(() => null);
-    maps.set(url, map);
-  }
-  return map;
-};
-
-/** The source's line for `line` and `column` of the module at `url`; `line` when unknown. */
-export const sourceLine = async (
-  url: string,
-  line: number,
-  column: number
-): Promise<number> => {
-  const lines = await mapOf(url);
-  return (lines && sourceLineIn(lines, line, column)) ?? line;
+/**
+ * The source's line for `line` and `column` of the module at `url` (`line` when the module has no
+ * map that says), each module read once by `read`.
+ */
+export const mappedLines = (read: (url: string) => Promise<string>) => {
+  const maps = new Map<string, Promise<Lines | null>>();
+  const mapOf = (url: string) => {
+    let map = maps.get(url);
+    if (!map) {
+      map = read(url)
+        .then(inlineMapOf)
+        .catch(() => null);
+      maps.set(url, map);
+    }
+    return map;
+  };
+  return async (url: string, line: number, column: number): Promise<number> => {
+    const lines = await mapOf(url);
+    return (lines && sourceLineIn(lines, line, column)) ?? line;
+  };
 };

@@ -8,6 +8,7 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { NodeServices } from "@effect/platform-node";
+import { PREVIEW_BASE } from "@ultrapaint/contracts/preview";
 import { Effect, Layer, ManagedRuntime, Option, Schema } from "effect";
 import {
   app,
@@ -584,7 +585,7 @@ const endStuckPages = (created: BrowserWindow) => {
       new Promise<undefined>((resolve) => setTimeout(resolve, STACK_MS)),
     ]);
     if (typeof stack === "string" && STACK_RE.test(stack)) {
-      stopped = stoppedAt(stack, readModule)
+      stopped = stoppedAt(stack, readModule, PREVIEW_BASE)
         .catch(() => undefined)
         .then((at) => ({ at, stack, time }));
     }

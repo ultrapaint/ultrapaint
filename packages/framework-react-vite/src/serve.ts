@@ -24,6 +24,7 @@ import {
   GUARD_ID,
   GUARD_MODULE,
   guardCode,
+  guardedKind,
   MAY_GUARD_RE,
   MAY_LOOP_RE,
 } from "./guard-code.ts";
@@ -306,28 +307,8 @@ const publicUrls = () => {
   };
 };
 
-/** Modules the guard is put in: JavaScript and what becomes it. */
-const SOURCE_RE = /\.(?:[cm]?[jt]sx?)$/;
-/** Dependencies: under `node_modules`, or prebundled into Vite's cache (in the generated directory). */
-const DEPENDENCY_RE = /\/node_modules\/|\/\.vite\/deps\//;
-/** Vite's own client and React's refresh runtime: the dev server's, not the application's. */
-const SERVER_CODE_RE =
-  /\/node_modules\/(?:vite|@vitejs)\/|\/@vite\/|@react-refresh/;
-
+/** The generated modules and our bundles: the editor's, never guarded. */
 const OURS = [options.dir, options.bundleDir].map((d) => posix(`${d}/`));
-
-/** What the guard does to module `id`: all of it to the repository's, its loops to a dependency's. */
-const guardedKind = (id: string): "dependency" | "source" | null => {
-  const file = posix(id.split("?")[0] ?? id);
-  if (id.startsWith("\0") || !SOURCE_RE.test(file) || SERVER_CODE_RE.test(id)) {
-    return null;
-  }
-  if (DEPENDENCY_RE.test(file)) {
-    return "dependency";
-  }
-  // The generated modules and our bundles are the editor's.
-  return OURS.some((d) => file.startsWith(d)) ? null : "source";
-};
 
 /**
  * The repository's loops checked, its `async` functions marking what they reject and its modules
@@ -354,7 +335,7 @@ const guardedCode = () => {
       code: string,
       id: string
     ) {
-      const kind = guardedKind(id);
+      const kind = guardedKind(id, OURS);
       if (kind === null) {
         return null;
       }

@@ -7,8 +7,9 @@
  * when it is light or dark, so a theme provider left on "system" picks what the canvas shows.
  * Anything else (a hover, print, the editor's own code) is the window's, as it was.
  *
- * Which frame is asking is the one that is drawing (the renderer says so as it draws and as its
- * effects run) or the one that last took input: the same frame a popup is put in.
+ * Whose code asks is told by the stack (`provenance.ts`, `windowCall`). Which frame is asking is
+ * the one that is drawing (the renderer says so as it draws and as its effects run) or the one
+ * that last took input: the same frame a popup is put in.
  */
 
 import {
@@ -16,10 +17,8 @@ import {
   containerCondition,
   FRAME_CONTAINER,
 } from "./frame-css.ts";
-import { calledFromPreview } from "./portals.ts";
+import type { Provenance } from "./provenance.ts";
 
-/** This module's own file, whose frames on the stack are the patch, not who called it. */
-const OWN = import.meta.url.split("?")[0] ?? "";
 const PROBE_ATTRIBUTE = "data-ed-media";
 
 /** One query asked in one frame: a `MediaQueryList` of the frame's size. */
@@ -86,7 +85,7 @@ interface FrameMedia {
 }
 
 let current: FrameMedia | null = null;
-let installed = false;
+let provenance: Provenance | null = null;
 
 /**
  * Whether `condition` holds in the frame: the probe, inside it, gets a custom property from a
@@ -128,13 +127,14 @@ const frameCondition = (
 
 /** The frame the preview's code is asking for, or null: the editor, or no frame drawing. */
 const asking = (): FrameMedia | null =>
-  current?.host.isConnected && calledFromPreview([OWN]) ? current : null;
+  current?.host.isConnected && provenance?.windowCall() ? current : null;
 
-const install = () => {
-  if (installed || typeof window === "undefined") {
+/** Answers the window's size for the frames from now on, once; `rules` says whose code asks. */
+export const guardMedia = (rules: Provenance) => {
+  if (provenance || typeof window === "undefined") {
     return;
   }
-  installed = true;
+  provenance = rules;
   const native = window.matchMedia.bind(window);
   window.matchMedia = (media: string): MediaQueryList => {
     const frame = asking();
@@ -172,11 +172,11 @@ const install = () => {
 };
 
 /**
- * Answers the window's size for `host`'s frame from now on. `shadow` is the frame's shadow root,
- * where the probe goes. Returns what says the frame is drawing, and what forgets it.
+ * Answers the window's size for `host`'s frame from now on, once `guardMedia` has put the
+ * answers in place. `shadow` is the frame's shadow root, where the probe goes. Returns what says
+ * the frame is drawing, and what forgets it.
  */
 export const frameMedia = (host: HTMLElement, shadow: ShadowRoot) => {
-  install();
   const sheet = document.createElement("style");
   sheet.setAttribute(PROBE_ATTRIBUTE, "");
   const probe = document.createElement("div");
