@@ -3,14 +3,12 @@
  * node placed where they were dropped, the next one to the right of the one before.
  */
 
-import { canvasDocOf } from "@ultrapaint/design-document/tree";
+import { insertNodesAt } from "../lib/node-actions.ts";
 import { placeOnCanvas } from "../state/canvas-grid.ts";
 import { api } from "../state/connection.ts";
-import { applyOps } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { reportError } from "../state/project.ts";
 import { ensureEditable } from "../state/setup.ts";
-import { frameOfNode } from "./drag.ts";
 
 /** Widest an image lands at, in canvas units; a screenshot would otherwise cover everything. */
 const MAX_IMAGE_WIDTH = 480;
@@ -63,30 +61,21 @@ export const addImages = async (
         data,
         name: file.name || `image.${file.type.split("/")[1] ?? "png"}`,
       });
-      const result = await applyOps(
-        canvasDocOf(canvas),
+      await insertNodesAt(
+        // On the grid when it is on, the next image too.
+        { at: placeOnCanvas({ x, y: at.y }), kind: "canvas" },
         [
           {
-            node: {
-              alt: file.name,
-              height: Math.round(natural.height * scale),
-              id: "img",
-              src,
-              type: "image",
-              width,
-              // On the grid when it is on, the next image too.
-              ...placeOnCanvas({ x, y: at.y }),
-            },
-            op: "insert",
-            parent: null,
+            alt: file.name,
+            height: Math.round(natural.height * scale),
+            id: "img",
+            src,
+            type: "image",
+            width,
           },
         ],
         "Add an image"
       );
-      const id = result?.created[0];
-      if (id) {
-        useEditor.getState().select({ frame: frameOfNode(id), nodeId: id });
-      }
       x += width + 40;
     } catch (error) {
       reportError(error);

@@ -10,25 +10,26 @@
  * the canvas lands on the grid, unless ⌘/Ctrl is held.
  */
 
-import type { DesignNode, DocumentEdit } from "@ultrapaint/contracts/document";
+import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { Rect } from "@ultrapaint/contracts/preview";
 import { runsInRow } from "@ultrapaint/design-document/css";
 import {
   canvasDocOf,
   childrenOf,
-  findNode,
   findPath,
 } from "@ultrapaint/design-document/tree";
 import { create } from "zustand";
-import { insertedAt } from "../lib/breakpoint-edits.ts";
+import {
+  insertNodesAt,
+  moveNode,
+  nodesOf,
+  type Place,
+} from "../lib/node-actions.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { holdsChildren } from "../state/catalogue.ts";
 import {
-  applyEdits,
   docOfFrame,
-  frameOfCanvasNode,
   isNodeFrame,
-  nodeFrameOf,
   rootOfFrame,
   useDocuments,
 } from "../state/documents.ts";
@@ -371,113 +372,9 @@ const round = (p: { x: number; y: number }) => ({
   y: Math.round(p.y),
 });
 
-/** Selects what a drop left behind: the node where it landed. */
-const selectLanded = (drop: Drop, id: string | undefined) => {
-  if (!id) {
-    return;
-  }
-  const { docs } = useDocuments.getState();
-  const { canvas } = useEditor.getState();
-  const frame =
-    drop.kind === "into" && !isNodeFrame(drop.frame)
-      ? drop.frame
-      : frameOfCanvasNode(docs, canvas, id);
-  if (frame) {
-    useEditor.getState().select({ frame, nodeId: id });
-  }
-};
-
-/** A node on the canvas moved around it, or copied beside itself. */
-const moveLoose = async (
-  canvas: string,
-  node: DesignNode,
-  at: { x: number; y: number },
-  copy: boolean
-) => {
-  if (copy) {
-    const result = await applyEdits(
-      [
-        {
-          doc: canvas,
-          ops: [{ node: { ...node, ...at }, op: "insert", parent: null }],
-        },
-      ],
-      "Copy on the canvas"
-    );
-    selectLanded({ kind: "canvas" }, result?.created[0]);
-    return;
-  }
-  await applyEdits(
-    [{ doc: canvas, ops: [{ id: node.id, op: "update", set: at }] }],
-    "Move on the canvas"
-  );
-};
-
-/** What a drop carries, and the document it leaves (none for a new node). */
-const carried = (
-  dragged: Dragged,
-  created: DesignNode | undefined,
-  canvasDoc: string,
-  canvas: string
-): { node: DesignNode | null; source: string | null } => {
-  if (dragged.kind === "node") {
-    return { node: dragged.node, source: docOfFrame(dragged.frame, canvas) };
-  }
-  if (dragged.kind === "loose") {
-    const { docs } = useDocuments.getState();
-    return {
-      node: findNode(docs[canvasDoc]?.root, dragged.nodeId),
-      source: canvasDoc,
-    };
-  }
-  return { node: created ?? null, source: null };
-};
-
-/** The edits a drop makes: an insert, a move within one document, or a move between two. */
-export const dropEdits = (
-  drop: Drop,
-  node: DesignNode,
-  source: string | null,
-  target: string,
-  at: { x: number; y: number },
-  copy: boolean
-): { edits: DocumentEdit[]; label: string } => {
-  const parent = drop.kind === "into" ? drop.parent : null;
-  const index = drop.kind === "into" ? drop.index : undefined;
-  const { x: _x, y: _y, ...unplaced } = node;
-  // A new node dropped into a view above the base shows from its breakpoint up (ADR 0036).
-  let placed: DesignNode =
-    drop.kind === "canvas" ? { ...node, ...at } : (unplaced as DesignNode);
-  if (drop.kind === "into" && source === null) {
-    placed = insertedAt(placed, drop.frame);
-  }
-  const insert: DocumentEdit = {
-    doc: target,
-    ops: [{ index, node: placed, op: "insert", parent }],
-  };
-  if (source === null) {
-    return { edits: [insert], label: "Insert" };
-  }
-  if (copy) {
-    return { edits: [insert], label: "Copy" };
-  }
-  if (source === target) {
-    const moved: DocumentEdit = {
-      doc: target,
-      ops: [
-        { id: node.id, index, op: "move", parent },
-        ...(drop.kind === "canvas"
-          ? [{ id: node.id, op: "update" as const, set: at }]
-          : []),
-      ],
-    };
-    return { edits: [moved], label: "Move" };
-  }
-  return {
-    edits: [{ doc: source, ops: [{ id: node.id, op: "remove" }] }, insert],
-    label: drop.kind === "canvas" ? "Move onto the canvas" : "Move",
-  };
-};
+/** The place a drop puts something, `at` being where it lands on the canvas. */
+export const placeOfDrop = (drop: Drop, at: { x: number; y: number }): Place =>
+  drop.kind === "canvas" ? { at, kind: "canvas" } : drop;
 
 /** Carries the drop out. `created` is the node an Assets drag inserts. */
 export const endDrag = async (created?: DesignNode) => {
@@ -494,7 +391,10 @@ export const endDrag = async (created?: DesignNode) => {
   await (landing ?? land());
 };
 
-/** The edits a drop makes, and the selection it leaves. */
+/**
+ * What a drop does: a node from the Assets panel inserted, one dragged copied or moved. A node on
+ * the canvas let go over the canvas moves to where it was let go.
+ */
 const carryOut = async (
   dragged: Dragged | null,
   drop: Drop | null,
@@ -506,70 +406,41 @@ const carryOut = async (
   if (!dragged || canvas === null) {
     return;
   }
-  const canvasDoc = canvasDocOf(canvas);
-
-  if (dragged.kind === "loose" && drop?.kind !== "into") {
-    const { docs } = useDocuments.getState();
-    const node = findNode(docs[canvasDoc]?.root, dragged.nodeId);
-    if (node) {
-      await moveLoose(canvasDoc, node, at, copy);
+  if (dragged.kind === "new") {
+    if (drop && created) {
+      await insertNodesAt(placeOfDrop(drop, at), [created]);
     }
     return;
   }
-
-  const { node, source } = carried(dragged, created, canvasDoc, canvas);
-  if (!(node && drop)) {
+  const target =
+    dragged.kind === "loose"
+      ? { frame: dragged.frame, nodeId: dragged.nodeId }
+      : { frame: dragged.frame, nodeId: dragged.node.id };
+  const place =
+    dragged.kind === "loose" && drop?.kind !== "into"
+      ? ({ at, kind: "canvas" } as const)
+      : drop && placeOfDrop(drop, at);
+  if (!place) {
     return;
   }
-  const target =
-    drop.kind === "into" ? docOfFrame(drop.frame, canvas) : canvasDoc;
-  const { edits, label } = dropEdits(drop, node, source, target, at, copy);
-  const result = await applyEdits(edits, label);
-  if (result) {
-    selectLanded(drop, result.created[0] ?? node.id);
+  if (copy) {
+    const [node] = nodesOf([target]);
+    if (node) {
+      await insertNodesAt(
+        place,
+        [node.node],
+        dragged.kind === "loose" && place.kind === "canvas"
+          ? "Copy on the canvas"
+          : "Copy"
+      );
+    }
+    return;
   }
+  await moveNode(target, place);
 };
-
-/** The frame a node of the canvas lands in, for a selection after a drop. */
-export const frameOfNode = (id: string) =>
-  frameOfCanvasNode(
-    useDocuments.getState().docs,
-    useEditor.getState().canvas,
-    id
-  ) ?? nodeFrameOf(id);
 
 // ---- Placing something new without a drag ----
 
 /** Where something new put at this canvas point would land. */
 export const placementAt = (x: number, y: number) =>
   resolveDrop(x, y, { kind: "new", name: "" });
-
-/**
- * Inserts a new node where `drop` says, `at` being its position when it lands on the canvas, and
- * selects it. Resolves to its id, or null when nothing was inserted.
- */
-export const insertAt = async (
-  drop: Drop,
-  node: DesignNode,
-  at: { x: number; y: number }
-): Promise<string | null> => {
-  const { canvas } = useEditor.getState();
-  if (canvas === null) {
-    return null;
-  }
-  const canvasDoc = canvasDocOf(canvas);
-  const target =
-    drop.kind === "into" ? docOfFrame(drop.frame, canvas) : canvasDoc;
-  const { edits, label } = dropEdits(
-    drop,
-    node,
-    null,
-    target,
-    round(at),
-    false
-  );
-  const result = await applyEdits(edits, label);
-  const id = result?.created[0] ?? null;
-  selectLanded(drop, id ?? undefined);
-  return id;
-};

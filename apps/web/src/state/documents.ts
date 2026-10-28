@@ -6,7 +6,6 @@
  */
 import type {
   DesignNode,
-  DocOp,
   DocumentEdit,
   DocumentState,
 } from "@ultrapaint/contracts/document";
@@ -111,7 +110,10 @@ export const belongsTo = (doc: string, canvas: string | null) => {
   return canvasOfDoc(doc) === null && canvasIdOf(ids, doc) === canvas;
 };
 
-/** Applies operations as one undo step; the documents come back and replace the old ones. */
+/**
+ * Applies operations as one undo step; the documents come back and replace the old ones. The
+ * editor's edits to nodes are `lib/node-actions.ts`'s, which knows where each lands.
+ */
 export const applyEdits = async (
   edits: readonly DocumentEdit[],
   label?: string
@@ -133,9 +135,6 @@ export const applyEdits = async (
     return null;
   }
 };
-
-export const applyOps = (doc: string, ops: readonly DocOp[], label?: string) =>
-  applyEdits([{ doc, ops }], label);
 
 // ---- Frames ----
 

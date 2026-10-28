@@ -9,10 +9,11 @@ import type { DesignNode } from "@ultrapaint/contracts/document";
 import { newPrimitive } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { create } from "zustand";
+import { insertNodesAt } from "../lib/node-actions.ts";
 import { placeOnCanvas } from "../state/canvas-grid.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useEditor } from "../state/editor.ts";
-import { canvasPoint, type Drop, insertAt, placementAt } from "./drag.ts";
+import { canvasPoint, type Drop, placementAt, placeOfDrop } from "./drag.ts";
 import { type EditorFrame, frameOf } from "./editor-frame.ts";
 
 export type CreateTool = "group" | "text";
@@ -143,7 +144,9 @@ export const endCreate = async (tool: CreateTool) => {
       ? groupNode(box, drop)
       : newPrimitive("paragraph", makeIdGenerator());
   useEditor.getState().setMode("select");
-  const id = await insertAt(drop, node, { x: box.x, y: box.y });
+  const [id] = await insertNodesAt(placeOfDrop(drop, { x: box.x, y: box.y }), [
+    node,
+  ]);
   if (id && tool === "text") {
     await editWhenDrawn(id);
   }

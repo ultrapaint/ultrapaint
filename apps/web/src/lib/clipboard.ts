@@ -5,26 +5,19 @@
  * step. Ids are the server's to settle: an insert keeps a pasted node's ids unless they are taken.
  */
 
-import type { DesignNode, DocOp } from "@ultrapaint/contracts/document";
-import { canvasDocOf, nodeLabel } from "@ultrapaint/design-document/tree";
+import type { DesignNode } from "@ultrapaint/contracts/document";
+import { nodeLabel } from "@ultrapaint/design-document/tree";
 import { toast } from "sonner";
 import { create } from "zustand";
-import { type Drop, insertAt, placementAt } from "../canvas/drag.ts";
+import { placementAt, placeOfDrop } from "../canvas/drag.ts";
 import { placeOnCanvas } from "../state/canvas-grid.ts";
-import {
-  applyEdits,
-  docOfFrame,
-  frameOfCanvasNode,
-  isNodeFrame,
-  nodeIn,
-  useDocuments,
-} from "../state/documents.ts";
+import { nodeIn, useDocuments } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
-import { insertedAt } from "./breakpoint-edits.ts";
 import {
   actedOn,
   deleteNodes,
   insertNodes,
+  insertNodesAt,
   nodeContext,
   outermost,
   pageContext,
@@ -34,9 +27,6 @@ import { nodesFromText, textOfNodes } from "./node-text.ts";
 export const useClipboard = create<{ nodes: readonly DesignNode[] }>(() => ({
   nodes: [],
 }));
-
-/** How far each node pasted onto the canvas after the first lands from the one before. */
-const CASCADE = 24;
 
 /**
  * Keeps the nodes to paste. `write` puts them on the system clipboard too; a copy event does
@@ -103,51 +93,6 @@ export const pasteIntoPage = (
 ) => insertNodes(nodes, pageContext(pageId), "Paste");
 
 /**
- * Several nodes where a drop says: side by side in a container, or on the canvas each a little
- * below and to the right of the one before. Selected as they land, as many as one frame shows.
- */
-const insertAllAt = async (
-  drop: Drop,
-  nodes: readonly DesignNode[],
-  at: { x: number; y: number }
-) => {
-  const { canvas } = useEditor.getState();
-  if (canvas === null) {
-    return;
-  }
-  const doc =
-    drop.kind === "into" ? docOfFrame(drop.frame, canvas) : canvasDocOf(canvas);
-  const ops = nodes.map((node, i): DocOp => {
-    if (drop.kind === "canvas") {
-      const placed = {
-        x: Math.round(at.x + i * CASCADE),
-        y: Math.round(at.y + i * CASCADE),
-      };
-      return { node: { ...node, ...placed }, op: "insert", parent: null };
-    }
-    const { x: _x, y: _y, ...unplaced } = node;
-    return {
-      index: drop.index + i,
-      node: insertedAt(unplaced as DesignNode, drop.frame),
-      op: "insert",
-      parent: drop.parent,
-    };
-  });
-  const result = await applyEdits([{ doc, ops }], "Paste");
-  if (!result) {
-    return;
-  }
-  const { docs } = useDocuments.getState();
-  const inPage = drop.kind === "into" && !isNodeFrame(drop.frame);
-  useEditor.getState().selectMany(
-    result.created.flatMap((id) => {
-      const frame = inPage ? drop.frame : frameOfCanvasNode(docs, canvas, id);
-      return frame ? [{ frame, nodeId: id }] : [];
-    })
-  );
-};
-
-/**
  * Pastes at a point of the canvas: into what is under it in a page, as a drop there would, or
  * onto the canvas itself, the top left corner of the first node at the point.
  */
@@ -155,19 +100,14 @@ export const pasteAt = async (
   at: { x: number; y: number },
   nodes = useClipboard.getState().nodes
 ) => {
-  const [first] = nodes;
-  if (!first) {
-    return;
-  }
-  const drop = placementAt(at.x, at.y);
+  const drop = nodes.length > 0 ? placementAt(at.x, at.y) : null;
   if (!drop) {
     return;
   }
-  // On the canvas it lands on the grid when the grid is on; in a page, the page places it.
+  // On the canvas it lands on the grid when the grid is on, each a little below and to the right
+  // of the one before; in a page, side by side where the page places them.
   const placed = drop.kind === "canvas" ? placeOnCanvas(at) : at;
-  await (nodes.length === 1
-    ? insertAt(drop, first, placed)
-    : insertAllAt(drop, nodes, placed));
+  await insertNodesAt(placeOfDrop(drop, placed), nodes, "Paste");
 };
 
 /** A copy event: the selected nodes go onto the clipboard. True when they were taken. */
