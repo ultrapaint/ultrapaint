@@ -4,7 +4,7 @@ import { Effect, Fiber, FileSystem, Option, Stream } from "effect";
 import { EventBus } from "./events.ts";
 import { ProjectManager, type ProjectServices } from "./project.ts";
 import { EditService } from "./services/edit.ts";
-import { SnapshotStore } from "./services/snapshot-store.ts";
+import { COLLECT_EVERY, SnapshotStore } from "./services/snapshot-store.ts";
 import { Snapshots } from "./services/snapshots.ts";
 import { Checkpoints } from "./services/threads/checkpoints.ts";
 import { ThreadService } from "./services/threads/threads.ts";
@@ -19,6 +19,7 @@ const COMMENTS = "designs/comments.json";
 const NEW_FILE = "designs/agent.tsx";
 const SECOND_FILE = "designs/second.page.json";
 const KEPT_FILE = "designs/kept.page.json";
+const ONLY_FILE = "designs/only.md";
 
 /** An effect of the open project's services, run in it. */
 const inProject = <A, E>(effect: Effect.Effect<A, E, ProjectServices>) =>
@@ -186,6 +187,53 @@ describe("agent turn checkpoints", () => {
         assert.lengthOf(yield* checkpoints.list, 30);
         assert.lengthOf(yield* store.named("checkpoints"), 30);
       })
+    );
+
+    it.effect(
+      "lets go of a checkpoint's own content in time, and keeps what a snapshot shares",
+      () =>
+        Effect.gen(function* () {
+          const { repo } = yield* ProjectFixture;
+          const fs = yield* FileSystem.FileSystem;
+          const checkpoints = yield* Checkpoints;
+          const store = yield* SnapshotStore;
+          yield* write(ONLY_FILE, "only one turn had this\n");
+          const first = yield* checkpoint("Before: the turn with a file");
+          yield* write(ONLY_FILE, "a snapshot has this\n");
+          const second = yield* checkpoint("Before: the turn kept");
+          const snapshot = yield* Effect.flatMap(Snapshots, (s) =>
+            s.create("Kept by the user", second)
+          );
+          yield* fs.remove(path.join(repo, ONLY_FILE));
+          const hashOf = (id: string) =>
+            Effect.gen(function* () {
+              const ref = (yield* store.named("checkpoints")).find(
+                (r) => r.name === id
+              );
+              return (yield* store.read(ref?.id ?? "")).files[ONLY_FILE] ?? "";
+            });
+          const only = yield* hashOf(first);
+          const shared = yield* hashOf(second);
+          // Enough turns that both are let go of, and the store collected since.
+          for (let i = 0; i < 30 + COLLECT_EVERY; i += 1) {
+            yield* checkpoints.create("t-3", `Before: later turn ${i}`);
+          }
+          const ids = (yield* checkpoints.list).map((c) => c.id);
+          assert.notInclude(ids, first);
+          assert.notInclude(ids, second);
+          assert.isTrue(yield* Effect.isFailure(store.readFile(only)));
+          assert.strictEqual(
+            new TextDecoder().decode(yield* store.readFile(shared)),
+            "a snapshot has this\n"
+          );
+          const diffs = yield* Effect.flatMap(Snapshots, (s) =>
+            s.diff(snapshot.id)
+          );
+          assert.include(
+            diffs.map((d) => d.path),
+            ONLY_FILE
+          );
+        })
     );
   });
 

@@ -131,12 +131,6 @@ export const makeDesignRefs = <
 
     const publish = Effect.flatMap(list, options.publish);
 
-    /** Lets go of the refs, and of the files only they kept. */
-    const letGo = Effect.fnUntraced(function* (ids: Iterable<string>) {
-      yield* store.release(namespace, ids);
-      yield* store.collect;
-    });
-
     /** Past the number kept, the oldest go, whichever repository they were taken in. */
     const keepLast = Effect.gen(function* () {
       if (options.keepLast === undefined) {
@@ -146,7 +140,7 @@ export const makeDesignRefs = <
         .sort((a, b) => listed(a).at - listed(b).at)
         .slice(0, -options.keepLast);
       if (oldest.length > 0) {
-        yield* letGo(oldest.map(idOf));
+        yield* store.release(namespace, oldest.map(idOf));
       }
     });
 
@@ -195,9 +189,9 @@ export const makeDesignRefs = <
       yield* publish;
     });
 
-    /** Lets go of the refs, and of the files only they kept. */
+    /** Lets go of the refs; the store removes the files only they kept in time. */
     const release = Effect.fnUntraced(function* (ids: Iterable<string>) {
-      yield* letGo(ids);
+      yield* store.release(namespace, ids);
       yield* publish;
     });
 

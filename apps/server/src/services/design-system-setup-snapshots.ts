@@ -69,7 +69,6 @@ export const makeSetupSnapshots = Effect.gen(function* () {
       return;
     }
     yield* store.release(yield* namespace, dropped);
-    yield* store.collect;
   });
 
   /**
