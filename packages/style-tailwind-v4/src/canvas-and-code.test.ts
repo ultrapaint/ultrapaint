@@ -3,13 +3,20 @@
  * designs, as they are and with overrides at the breakpoints, every declaration the canvas draws
  * a node with is set by a class the writer gives it, to the same value, as Tailwind itself
  * compiles that class at that width; and every property a class sets is one the canvas draws.
+ * And the classes read back: what the spec reader models of a node's declarations, written as
+ * classes and read by it, comes back the same.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { emptyDesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import type { StyleAt } from "@ultrapaint/contracts/node-style";
+import type {
+  Declarations,
+  DeclaredValue,
+  StyleAt,
+} from "@ultrapaint/contracts/node-style";
+import type { SpecStyle } from "@ultrapaint/contracts/specs";
 import { spacingStepOf } from "@ultrapaint/contracts/token-table";
 import {
   breakpointsUsed,
@@ -28,8 +35,10 @@ import { tokensIn } from "@ultrapaint/design-document/tokens";
 import { childrenOf, walk } from "@ultrapaint/design-document/tree";
 import { compile } from "tailwindcss";
 import { beforeAll, describe, expect, it } from "vitest";
+import { componentSpec } from "./component-spec.ts";
 import { groups } from "./component-style.ts";
 import { tailwindClasses } from "./node-classes.ts";
+import { parseClass, printClass, WEIGHT_STEPS } from "./utilities.ts";
 
 const ROOT = join(import.meta.dirname, "../../..");
 const PAGE_DIRS = ["fixtures", "docs/designs"];
@@ -188,23 +197,10 @@ const normal = (
   return v.replace(COMMA_RE, ",").toLowerCase();
 };
 
-/** A class's variants and its utility, brackets kept whole. */
+/** A class's variants, and its utility as Tailwind names the rule it compiles. */
 const split = (cls: string) => {
-  const parts: string[] = [];
-  let depth = 0;
-  let from = 0;
-  for (let i = 0; i < cls.length; i += 1) {
-    const char = cls[i];
-    if (char === "[" || char === "(") {
-      depth += 1;
-    } else if (char === "]" || char === ")") {
-      depth -= 1;
-    } else if (char === ":" && depth === 0) {
-      parts.push(cls.slice(from, i));
-      from = i + 1;
-    }
-  }
-  return { utility: cls.slice(from), variants: parts };
+  const { variants, ...utility } = parseClass(cls);
+  return { utility: printClass(utility), variants };
 };
 
 /** Whether a class applies at a width, and from which width it takes over. */
@@ -546,5 +542,156 @@ describe("the canvas and the Code tab", () => {
     }
     expect(problems.slice(0, 20)).toEqual([]);
     expect(written.length).toBeGreaterThan(4000);
+  });
+});
+
+/** The spec field each declaration the spec reader models is read into. */
+const SPEC_FIELDS: Readonly<Record<string, string>> = {
+  background: "fill",
+  borderColor: "border.color",
+  borderRadius: "radius",
+  borderStyle: "border.style",
+  borderWidth: "border.width",
+  boxShadow: "shadow",
+  color: "color",
+  fontSize: "fontSize",
+  fontWeight: "fontWeight",
+  gap: "gap",
+  height: "height",
+  opacity: "opacity",
+  paddingBottom: "padding.bottom",
+  paddingLeft: "padding.left",
+  paddingRight: "padding.right",
+  paddingTop: "padding.top",
+  width: "width",
+};
+const SIDES = ["Top", "Right", "Bottom", "Left"] as const;
+
+/** A node's declarations the spec reader models, by the spec field they are read into. */
+const modelled = (declarations: Declarations): Map<string, DeclaredValue> => {
+  const out = new Map<string, DeclaredValue>();
+  for (const [property, value] of Object.entries(declarations)) {
+    if (property === "padding") {
+      for (const side of SIDES) {
+        out.set(`padding.${side.toLowerCase()}`, value);
+      }
+    }
+    const field = SPEC_FIELDS[property];
+    // The writer leaves out a value the property starts at, and a solid style with a width.
+    const unwritten =
+      INITIAL[kebab(property)] === String(value) ||
+      (property === "borderStyle" &&
+        value === "solid" &&
+        "borderWidth" in declarations);
+    // A spec has one border width and one radius: not a side's or a corner's.
+    const perSide =
+      (property === "borderWidth" || property === "borderRadius") &&
+      typeof value === "string" &&
+      spacedAtTop(value.trim());
+    if (field !== undefined && !(unwritten || perSide)) {
+      out.set(field, value);
+    }
+  }
+  return out;
+};
+
+/** A spec's fields by the same names, a padding on every side as its sides. */
+const fieldsOf = (style: SpecStyle | undefined): Map<string, DeclaredValue> => {
+  const out = new Map<string, DeclaredValue>();
+  for (const [field, value] of Object.entries(style ?? {})) {
+    if (
+      field === "border" ||
+      (field === "padding" && typeof value === "object")
+    ) {
+      for (const [part, v] of Object.entries(value as object)) {
+        out.set(`${field}.${part}`, v as DeclaredValue);
+      }
+    } else if (field === "padding") {
+      for (const side of SIDES) {
+        out.set(`padding.${side.toLowerCase()}`, value as DeclaredValue);
+      }
+    } else {
+      out.set(field, value as DeclaredValue);
+    }
+  }
+  return out;
+};
+
+const PIXELS_RE = /^(-?[\d.]+)px$/;
+
+/**
+ * A value as both sides can be compared: a number and a length in pixels as the number, a step
+ * of the spacing scale as its pixels (a 4px step), a weight's step as its number, a variable as
+ * the token it names.
+ */
+const comparable = (value: DeclaredValue): string => {
+  if (typeof value === "number") {
+    return String(value);
+  }
+  const v = value.trim();
+  const [pixels] = groups(PIXELS_RE, v);
+  if (pixels !== undefined) {
+    return String(Number(pixels));
+  }
+  const step = v.startsWith("$") ? spacingStepOf(v.slice(1)) : null;
+  if (step !== null) {
+    return String(step * 4);
+  }
+  const weight = v.startsWith("$font-weight-")
+    ? WEIGHT_STEPS.get(v.slice("$font-weight-".length))
+    : undefined;
+  if (weight !== undefined) {
+    return String(weight);
+  }
+  const [variable] = groups(VARIABLE_RE, v);
+  return variable === undefined ? v : `$${variable.slice(2)}`;
+};
+
+describe("the Code tab's classes, read back", () => {
+  it("give the spec reader a node's every declaration it models, the same", () => {
+    const roots = pages();
+    const tokens = [...tokensIn([...roots.map((r) => r.root), ds])].map(
+      (name) => ({ kind: "other" as const, name, own: true, value: "x" })
+    );
+    const problems: string[] = [];
+    let compared = 0;
+    for (const { file, root } of roots) {
+      const parents = new Map<string, ParentLayout>([[root.id, "free"]]);
+      for (const node of walk(root)) {
+        for (const child of childrenOf(node)) {
+          parents.set(
+            child.id,
+            node.type === "instance" ? "block" : layoutOf(node)
+          );
+        }
+        const declarations = declarationsOf(
+          node,
+          makeStyleContext(ds, parents.get(node.id) ?? "free")
+        );
+        const classes = writer.classes([{ breakpoint: null, declarations }]);
+        const read = fieldsOf(
+          componentSpec(
+            { base: classes.join(" "), classes: {}, defaults: {} },
+            tokens
+          ).base.root
+        );
+        const declared = modelled(declarations);
+        for (const field of new Set([...declared.keys(), ...read.keys()])) {
+          const [a, b] = [declared.get(field), read.get(field)];
+          compared += 1;
+          if (
+            a === undefined ||
+            b === undefined ||
+            comparable(a) !== comparable(b)
+          ) {
+            problems.push(
+              `${file} ${node.id}: ${field} is ${a} declared, ${b} read (${classes.join(" ")})`
+            );
+          }
+        }
+      }
+    }
+    expect(problems.slice(0, 60)).toEqual([]);
+    expect(compared).toBeGreaterThan(10_000);
   });
 });

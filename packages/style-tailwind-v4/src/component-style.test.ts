@@ -41,6 +41,19 @@ describe("componentStyle", () => {
     ).toEqual({ backgroundColor: "#f7f5f2", rounded: "6px", size: "2rem" });
   });
 
+  it("reads a value whose brackets hold a type, a slash or a space", () => {
+    expect(
+      componentStyle(
+        "bg-[color:var(--brand)] text-[rgb(0_0_0/0.5)] h-[length:2rem] w-[color:red]",
+        tokens
+      )
+    ).toEqual({
+      backgroundColor: "var(--brand)",
+      height: "2rem",
+      textColor: "rgb(0 0 0/0.5)",
+    });
+  });
+
   it("lets a later class win, as the class list does", () => {
     expect(
       componentStyle("bg-primary bg-[#fff] rounded-md rounded-none", tokens)

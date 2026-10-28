@@ -33,6 +33,7 @@ import {
   scanning,
   splitClass,
 } from "./usage-scan.ts";
+import { printClass } from "./utilities.ts";
 
 const NUMBER_RE = /^-?\d+(\.\d+)?$/;
 const REGEX_CHARS_RE = /[.*+?^${}()|[\]\\]/g;
@@ -161,11 +162,12 @@ const rewriteClass = (
   if (!(parts && next)) {
     return null;
   }
-  // `top-[-10px]` is `-top-2.5`; `-mt-[13px]` stays negative.
-  const negative = parts.negative !== value.value.startsWith("-");
-  const bang = (where: "before" | "after") =>
-    parts.important === where ? "!" : "";
-  return `${parts.variants}${bang("before")}${negative ? "-" : ""}${parts.use}-${next}${parts.modifier}${bang("after")}`;
+  return printClass({
+    ...parts,
+    // `top-[-10px]` is `-top-2.5`; `-mt-[13px]` stays negative.
+    negative: parts.negative !== value.value.startsWith("-"),
+    utility: `${parts.use}-${next}${parts.modifier}`,
+  });
 };
 
 /**

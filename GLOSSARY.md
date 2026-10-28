@@ -35,6 +35,12 @@ review found.
   breakpoint, tokens kept by name (design-document's `declarationsOf`). The canvas draws them,
   over what it draws besides (`baseStyle`); a style system's **class writer** writes them as its
   classes, Tailwind's with its `md:` and `max-md:` variants (ADR 0024).
+- **Utility vocabulary**: Tailwind's utilities as the class writer and every reader of classes
+  in the style adapter speak them (style-tailwind-v4's `utilities`): how a class is written (its
+  variants, `!`, sign, utility and value, a colour's opacity, an **arbitrary value** and its
+  type), the steps of Tailwind's default scales, and the keywords a utility takes, both ways
+  (`w-full` is `100%`). What a class means stays the reader's: a spec's field, DESIGN.md's
+  token, the usage inventory's kind.
 - **Page**: a design document, `.page.json`, of a **canvas** (ADRs 0015, 0019, 0020). A page is
   drawn in a **frame**, and in **views** of other widths beside it (ADR 0036); an edit lands at
   the **breakpoint** of the view it is made in. The breakpoint a frame is at is the one its width

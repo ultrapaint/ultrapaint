@@ -215,3 +215,43 @@ test, `server.test.ts`'s socket tests that `ProjectTest` could run).
    step, the removal was never published, the comments were in the diff). The socket test of a
    revert in `threads.test.ts` goes; `thread-session.test.ts` breaks the store rather than the
    checkpoints directory to fail a turn's checkpoint.
+3. **Tailwind's utilities, one vocabulary in the adapter** (`packages/style-tailwind-v4/src/utilities.ts`).
+   `parseClass` takes a class apart into its variants (brackets and parentheses kept whole), a
+   `!` before or after, its sign and its utility, and `printClass` puts one back together;
+   `utilityReader(names)` reads a utility as the longest of a reader's names and its value;
+   `splitModifier` takes a colour's opacity off; `arbitraryOf` reads `[…]`, `(--x)` and
+   `(type:--x)` as CSS with its type (an underscore a space, but in a URL), and `printArbitrary`
+   writes one. `TEXT_STEPS`, `WEIGHT_STEPS` (with each weight's number, `weightStepOf` the other
+   way), `RADIUS_STEPS` and `SHADOW_STEPS` are Tailwind v4's default theme; `SIZE_KEYWORDS`,
+   `SCREEN_KEYWORDS` (by axis) and `COLOR_KEYWORDS` give a keyword's CSS and a value's keyword.
+   The class writer (`node-classes`: its weights, its length, screen and colour keywords, its
+   arbitrary values and variants), the spec reader (`component-spec`: its `CLASS_RE`, `split`,
+   hint, variable and `!` patterns, scales and keywords), DESIGN.md's reader (`component-style`:
+   its `CLASS_RE`, brackets and `!`) and the usage inventory (`usage-class`'s splitting,
+   `usage-classify`'s default scales and arbitrary values, `usage-vocabulary`'s utilities no
+   longer sorted by hand, `usage-rewrite`'s class put back) call it, as does the canvas test in
+   place of its own splitter; what a class means stays each reader's. Where the copies
+   disagreed, Tailwind v4 decides, each with a test that failed first: the spec reader reads
+   `h-screen`, `h-dvh`, `w-screen` and `w-dvw` (which the writer writes), a variable with its
+   type (`border-(length:--x)`, `text-(length:--x)`, which the writer writes for a token of
+   another namespace) and a `!` after a variant (`hover:!bg-accent`); DESIGN.md's reader reads a
+   class whose brackets hold a colon, a slash or a type (`bg-[color:var(--x)]`,
+   `text-[rgb(0_0_0/0.5)]`: it skipped any class with `:` or `/`), keeps a typed value to its
+   type, takes an underscore for a space and `bg-(--x)` for `bg-[var(--x)]`; the writer writes
+   `#000` and `#fff`, Tailwind's values of `black` and `white` that the spec reader reads them
+   as, as `bg-black` and `bg-white` (`#ffffff` stays a value); the inventory reads `(color:--x)`
+   as the token it names, and a bare `rounded-t` or `border-x` as that utility rather than
+   `rounded` with a value `t` (which it classified as nothing). Left: the inventory's layers
+   (`z-0` to `z-50`) and the colours that are no decision stay `usage-classify`'s, which no
+   other module reads; the writer still puts a size keyword on any spacing utility (`gap-full`
+   for a `100%` gap, which Tailwind does not have). `utilities.test.ts` has 9 table tests: the
+   grammar both ways, the scales and the weights' numbers against `tailwindcss/theme.css` (its
+   deprecated block left out), the keywords both ways; `usage-scan`'s class test keeps what the
+   scan's own utilities decide. `canvas-and-code.test.ts` reads the Code tab's classes back:
+   over every page of the fixtures and designs, a node's base declarations the spec models
+   (fill, colour, font size and weight, gap, width, height, opacity, padding by side, border
+   width, style and colour, radius, shadow), written by the writer and read by `componentSpec`,
+   come back the same, about 14,000 fields, a step compared as its pixels and a weight's name as
+   its number; left out are the breakpoints, margins, minimum and maximum sizes, layout, line
+   height, tracking, font family, text align, a side's border or a corner's radius, and a value
+   a property starts at, which the writer does not write.

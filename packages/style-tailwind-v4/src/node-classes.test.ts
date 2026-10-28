@@ -216,6 +216,24 @@ describe("classesOf", () => {
   });
 });
 
+describe("a colour's keyword", () => {
+  it("is written for the CSS keyword and for Tailwind's own value of it", () => {
+    expect(
+      responsive([
+        null,
+        {
+          background: "#000",
+          borderColor: "white",
+          color: "#FFF",
+        },
+      ])
+    ).toEqual(["bg-black", "border-white", "text-white"]);
+    expect(responsive([null, { background: "#ffffff" }])).toEqual([
+      "bg-[#ffffff]",
+    ]);
+  });
+});
+
 describe("a border's width", () => {
   it("is Tailwind's utility for whole pixels, and an arbitrary value otherwise", () => {
     const widths = [1.5, 3].map((width) =>

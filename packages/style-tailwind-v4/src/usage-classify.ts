@@ -16,13 +16,19 @@ import {
   COLOR_SET,
   ELEMENT_COMPONENTS,
   FUNCTION_COLOR_RE,
-  HEX_RE,
   isColorLiteral,
   NAMED_COLORS,
   normaliseColor,
   RADIUS_SET,
   SPACING_SET,
 } from "./usage-vocabulary.ts";
+import {
+  arbitraryOf,
+  RADIUS_STEPS,
+  SHADOW_STEPS,
+  TEXT_STEPS,
+  WEIGHT_STEPS,
+} from "./utilities.ts";
 
 const HEX_IN_RE = /#(?:[0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3,4})\b/gi;
 const WHOLE_VAR_RE = /^var\(\s*--([\w-]+)\s*(?:,[^)]*)?\)$/;
@@ -31,48 +37,8 @@ const PALETTE_RE = /^[a-z]+-\d{2,3}$/;
 const NUMBER_RE = /^-?\d+(\.\d+)?$/;
 const LENGTH_RE = /^-?\d*\.?\d+(px|rem|em)$/;
 const LENGTH_IN_RE = /-?\d*\.?\d+(px|rem|em)\b/g;
-const TYPE_HINT_RE = /^([a-z-]+):(.+)$/;
-const UNDERSCORE_RE = /_/g;
 const DASHED_RE = /-([a-z])/g;
 
-/** Tailwind's own scales, which a design system has unless it says otherwise. */
-const DEFAULT_SIZES = new Set([
-  "xs",
-  "sm",
-  "base",
-  "lg",
-  "xl",
-  "2xl",
-  "3xl",
-  "4xl",
-  "5xl",
-  "6xl",
-  "7xl",
-  "8xl",
-  "9xl",
-]);
-const DEFAULT_WEIGHTS = new Set([
-  "thin",
-  "extralight",
-  "light",
-  "normal",
-  "medium",
-  "semibold",
-  "bold",
-  "extrabold",
-  "black",
-]);
-const DEFAULT_RADII = new Set([
-  "xs",
-  "sm",
-  "md",
-  "lg",
-  "xl",
-  "2xl",
-  "3xl",
-  "4xl",
-]);
-const DEFAULT_SHADOWS = new Set(["2xs", "xs", "sm", "md", "lg", "xl", "2xl"]);
 const DEFAULT_LAYERS = new Set(["0", "10", "20", "30", "40", "50"]);
 /** Colours that are not a decision: nothing to put on the design system. */
 const NO_COLOR = new Set(["transparent", "current", "inherit", "none"]);
@@ -234,33 +200,17 @@ const wholeVar = (inside: string) => {
 const isComputed = (inside: string) =>
   inside.includes("var(") || inside.includes("calc(") || inside.includes("--");
 
-/** `[…]` of an arbitrary class: its inside with underscores as spaces, and its type hint. */
-const arbitrary = (value: string) => {
-  if (!(value.startsWith("[") && value.endsWith("]"))) {
-    if (value.startsWith("(") && value.endsWith(")")) {
-      return { hint: "", inside: `var(${value.slice(1, -1)})` };
-    }
-    return null;
-  }
-  const inside = value.slice(1, -1).replace(UNDERSCORE_RE, " ").trim();
-  const hinted: RegExpExecArray | null = TYPE_HINT_RE.exec(inside);
-  if (hinted && !inside.startsWith("var(") && !HEX_RE.test(inside)) {
-    return { hint: hinted[1] ?? "", inside: hinted[2] ?? "" };
-  }
-  return { hint: "", inside };
-};
-
 const classifyColor = (value: string, known: Known): Classified | null => {
-  const free = arbitrary(value);
+  const free = arbitraryOf(value);
   if (free) {
-    if (free.hint && free.hint !== "color") {
+    if (free.hint !== undefined && free.hint !== "color") {
       return null;
     }
-    const named = wholeVar(free.inside);
+    const named = wholeVar(free.css);
     if (named) {
       return fromVar("color", named, known.colors);
     }
-    return isColorLiteral(free.inside) ? rawColor(known, free.inside) : null;
+    return isColorLiteral(free.css) ? rawColor(known, free.css) : null;
   }
   if (NO_COLOR.has(value)) {
     return null;
@@ -286,20 +236,21 @@ const classifyScale = (
   value: string,
   prefix: string,
   known: Set<string>,
-  defaults: Set<string>
+  /** Tailwind's own steps of the scale, which a design system has unless it says otherwise. */
+  defaults: { readonly has: (step: string) => boolean }
 ): Classified | null => {
-  const free = arbitrary(value);
+  const free = arbitraryOf(value);
   if (free) {
-    const named = wholeVar(free.inside);
+    const named = wholeVar(free.css);
     if (named) {
       return fromVar(kind, named, known);
     }
     if (kind === "shadow") {
-      return free.inside === "none"
+      return free.css === "none"
         ? null
-        : { kind, status: "raw", value: free.inside };
+        : { kind, status: "raw", value: free.css };
     }
-    return rawLength(kind, free.inside);
+    return rawLength(kind, free.css);
   }
   const token = prefix ? `${prefix}-${value}` : prefix;
   if (known.has(token)) {
@@ -316,7 +267,7 @@ const classifyShadow = (value: string, known: Known): Classified | null => {
   }
   return value === "none" || value === "inner"
     ? null
-    : classifyScale("shadow", value, "shadow", known.shadows, DEFAULT_SHADOWS);
+    : classifyScale("shadow", value, "shadow", known.shadows, SHADOW_STEPS);
 };
 
 const classifyRadius = (value: string, known: Known): Classified | null => {
@@ -326,7 +277,7 @@ const classifyRadius = (value: string, known: Known): Classified | null => {
   if (value === "") {
     return { kind: "radius", status: "default", value: "radius" };
   }
-  return classifyScale("radius", value, "radius", known.radii, DEFAULT_RADII);
+  return classifyScale("radius", value, "radius", known.radii, RADIUS_STEPS);
 };
 
 const classifySpacing = (value: string, known: Known): Classified | null => {
@@ -336,13 +287,13 @@ const classifySpacing = (value: string, known: Known): Classified | null => {
       ? null
       : { kind: "spacing", status: "system", value: `spacing ${value}` };
   }
-  const free = arbitrary(value);
+  const free = arbitraryOf(value);
   if (free) {
-    const named = wholeVar(free.inside);
+    const named = wholeVar(free.css);
     if (named) {
       return fromVar("spacing", named, known.spacing);
     }
-    return isComputed(free.inside) ? null : rawLength("spacing", free.inside);
+    return isComputed(free.css) ? null : rawLength("spacing", free.css);
   }
   const token = `spacing-${value}`;
   return known.spacing.has(token)
@@ -351,10 +302,10 @@ const classifySpacing = (value: string, known: Known): Classified | null => {
 };
 
 const classifyLayer = (value: string, known: Known): Classified | null => {
-  const free = arbitrary(value);
+  const free = arbitraryOf(value);
   if (free) {
-    return NUMBER_RE.test(free.inside)
-      ? { kind: "zIndex", status: "raw", value: free.inside }
+    return NUMBER_RE.test(free.css)
+      ? { kind: "zIndex", status: "raw", value: free.css }
       : null;
   }
   if (known.layers.has(value)) {
@@ -372,7 +323,7 @@ const classifyOther = (
   known: Known
 ): Classified | null => {
   if (use === "text") {
-    return classifyScale("fontSize", value, "text", known.sizes, DEFAULT_SIZES);
+    return classifyScale("fontSize", value, "text", known.sizes, TEXT_STEPS);
   }
   if (use === "shadow") {
     return classifyShadow(value, known);
@@ -383,7 +334,7 @@ const classifyOther = (
       value,
       "font-weight",
       known.weights,
-      DEFAULT_WEIGHTS
+      WEIGHT_STEPS
     );
   }
   if (RADIUS_SET.has(use)) {

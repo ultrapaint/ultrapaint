@@ -30,19 +30,21 @@ import type {
   ComponentStyles,
   SpecFromCode,
 } from "@ultrapaint/framework-api/node";
+import { groups, type Reading, radiusOf } from "./component-style.ts";
 import {
   arbitraryOf,
-  groups,
-  type Reading,
-  radiusOf,
-} from "./component-style.ts";
+  COLOR_KEYWORDS,
+  parseClass,
+  RADIUS_STEPS,
+  SCREEN_KEYWORDS,
+  SHADOW_STEPS,
+  SIZE_KEYWORDS,
+  splitModifier,
+  TEXT_STEPS,
+  utilityReader,
+  WEIGHT_STEPS,
+} from "./utilities.ts";
 
-const CLASS_RE =
-  /^(bg|text|font|border|rounded|p|px|py|pt|pr|pb|pl|h|w|size|gap|shadow|opacity)(?:-(.+))?$/;
-/** A value written as a variable, Tailwind v4's `p-(--gutter)`. */
-const VARIABLE_RE = /^\((--[\w-]+)\)$/;
-/** The data type an arbitrary value is marked with: `[color:var(--x)]`, `[length:2px]`. */
-const HINT_RE = /^([a-z-]+):(.+)$/;
 const INTEGER_RE = /^\d+$/;
 const NUMBER_RE = /^-?\d*\.?\d+$/;
 const PERCENT_RE = /^(-?\d*\.?\d+)%$/;
@@ -50,65 +52,9 @@ const PERCENT_RE = /^(-?\d*\.?\d+)%$/;
 const LENGTH_LIKE_RE =
   /^(?:-?\d*\.?\d+(?:px|r?em|%|vh|vw|svh|dvh|ch|ex|pt|cqw|cqh)|(?:calc|clamp|min|max)\(.*\))$/;
 const SPACES_RE = /\s+/;
-const IMPORTANT_RE = /^!|!$/g;
 const QUOTES_RE = /["']/g;
-const UNDERSCORES_RE = /_/g;
-const BRACKETED_RE = /\[[^\]]*\]|\([^)]*\)/g;
 
-/** Tailwind's own scales, named as tokens even where the theme read did not list them. */
-const TEXT_STEPS = new Set([
-  "xs",
-  "sm",
-  "base",
-  "lg",
-  "xl",
-  "2xl",
-  "3xl",
-  "4xl",
-  "5xl",
-  "6xl",
-  "7xl",
-  "8xl",
-  "9xl",
-]);
-const WEIGHT_STEPS = new Set([
-  "thin",
-  "extralight",
-  "light",
-  "normal",
-  "medium",
-  "semibold",
-  "bold",
-  "extrabold",
-  "black",
-]);
-const RADIUS_STEPS = new Set([
-  "xs",
-  "sm",
-  "md",
-  "lg",
-  "xl",
-  "2xl",
-  "3xl",
-  "4xl",
-]);
-const SHADOW_STEPS = new Set(["2xs", "xs", "sm", "md", "lg", "xl", "2xl"]);
 const BORDER_STYLES = new Set(["solid", "dashed", "dotted"]);
-
-const COLOUR_KEYWORDS: Readonly<Record<string, string>> = {
-  black: "#000",
-  current: "currentColor",
-  inherit: "inherit",
-  transparent: "transparent",
-  white: "#fff",
-};
-const SIZE_KEYWORDS: Readonly<Record<string, string>> = {
-  auto: "auto",
-  fit: "fit-content",
-  full: "100%",
-  max: "max-content",
-  min: "min-content",
-};
 
 /** The state a variant is, as the headless libraries and the browser say it. */
 const STATE_OF: Readonly<Record<string, SpecState>> = {
@@ -131,48 +77,8 @@ const STATE_OF: Readonly<Record<string, SpecState>> = {
   hover: "hover",
 };
 
-/** A class's variants and its utility: `data-[state=open]:bg-accent`, brackets kept whole. */
-const split = (
-  cls: string
-): { readonly utility: string; readonly variants: readonly string[] } => {
-  const parts: string[] = [];
-  let depth = 0;
-  let from = 0;
-  for (let i = 0; i < cls.length; i += 1) {
-    const char = cls[i];
-    if (char === "[" || char === "(") {
-      depth += 1;
-    } else if (char === "]" || char === ")") {
-      depth = Math.max(0, depth - 1);
-    } else if (char === ":" && depth === 0) {
-      parts.push(cls.slice(from, i));
-      from = i + 1;
-    }
-  }
-  return { utility: cls.slice(from), variants: parts };
-};
-
-/** An arbitrary value as CSS, with its type when it is marked with one; none for a scale step. */
-const customOf = (
-  value: string
-): { readonly css: string; readonly hint?: string } | undefined => {
-  const [variable] = groups(VARIABLE_RE, value);
-  if (variable !== undefined) {
-    return { css: `var(${variable})` };
-  }
-  const inner = arbitraryOf(value);
-  if (inner === undefined) {
-    return;
-  }
-  const [hint, rest] = groups(HINT_RE, inner);
-  const raw = hint !== undefined && rest !== undefined ? rest : inner;
-  // Tailwind writes a space as `_`, except inside a URL.
-  const css = raw.includes("url(") ? raw : raw.replace(UNDERSCORES_RE, " ");
-  return hint !== undefined && rest !== undefined ? { css, hint } : { css };
-};
-
 const colourOf = (value: string, { names }: Reading): string | null => {
-  const custom = customOf(value);
+  const custom = arbitraryOf(value);
   if (custom !== undefined) {
     return custom.hint === undefined || custom.hint === "color"
       ? custom.css
@@ -181,12 +87,12 @@ const colourOf = (value: string, { names }: Reading): string | null => {
   if (names.has(`color-${value}`)) {
     return `$color-${value}`;
   }
-  return COLOUR_KEYWORDS[value] ?? null;
+  return COLOR_KEYWORDS.css(value) ?? null;
 };
 
 /** A length an arbitrary value holds; none when it names something else (`[color:…]`). */
 const customLengthOf = (value: string): string | null | undefined => {
-  const custom = customOf(value);
+  const custom = arbitraryOf(value);
   if (custom === undefined) {
     return;
   }
@@ -208,11 +114,16 @@ const spacingOf = (value: string, { names }: Reading): Length | null => {
   return spacingStepOf(name) !== null || names.has(name) ? `$${name}` : null;
 };
 
-/** A width or a height: a spacing step, a container, or a keyword. */
-const sizeOf = (value: string, reading: Reading): Length | null =>
+/** A width or a height: a spacing step, a container, or a keyword, the screen's on its axis. */
+const sizeOf = (
+  value: string,
+  reading: Reading,
+  axis?: "h" | "w"
+): Length | null =>
   spacingOf(value, reading) ??
   (reading.names.has(`container-${value}`) ? `$container-${value}` : null) ??
-  SIZE_KEYWORDS[value] ??
+  SIZE_KEYWORDS.css(value) ??
+  (axis === undefined ? undefined : SCREEN_KEYWORDS[axis].css(value)) ??
   null;
 
 const fontSizeOf = (value: string, { names }: Reading): Length | null =>
@@ -222,7 +133,7 @@ const fontWeightOf = (value: string, { names }: Reading): Length | null => {
   if (WEIGHT_STEPS.has(value) || names.has(`font-weight-${value}`)) {
     return `$font-weight-${value}`;
   }
-  const custom = customOf(value);
+  const custom = arbitraryOf(value);
   if (
     custom === undefined ||
     (custom.hint !== undefined && custom.hint !== "number")
@@ -246,7 +157,7 @@ const shadowOf = (value: string | undefined, { names }: Reading) => {
   if (SHADOW_STEPS.has(value) || names.has(`shadow-${value}`)) {
     return `$shadow-${value}`;
   }
-  const custom = customOf(value);
+  const custom = arbitraryOf(value);
   return custom !== undefined &&
     (custom.hint === undefined || custom.hint === "shadow")
     ? custom.css
@@ -254,7 +165,7 @@ const shadowOf = (value: string | undefined, { names }: Reading) => {
 };
 
 const opacityOf = (value: string): number | null => {
-  const raw = customOf(value)?.css ?? value;
+  const raw = arbitraryOf(value)?.css ?? value;
   const [percent] = groups(PERCENT_RE, raw);
   let amount: number | null = null;
   if (percent !== undefined) {
@@ -291,7 +202,7 @@ const readBorder = (
   } else if (BORDER_STYLES.has(value)) {
     d.border.style = value as NonNullable<Border["style"]>;
   } else {
-    const custom = customOf(value);
+    const custom = arbitraryOf(value);
     if (
       custom !== undefined &&
       (custom.hint === "length" ||
@@ -314,7 +225,7 @@ const readText = (d: Draft, value: string, reading: Reading): void => {
     d.fields.fontSize = size;
     return;
   }
-  const custom = customOf(value);
+  const custom = arbitraryOf(value);
   if (
     custom !== undefined &&
     (custom.hint === "length" ||
@@ -364,9 +275,9 @@ const readPadding =
   };
 
 const readSize =
-  (fields: readonly ("height" | "width")[]) =>
+  (fields: readonly ("height" | "width")[], axis?: "h" | "w") =>
   (d: Draft, value: string, reading: Reading) => {
-    const size = sizeOf(value, reading);
+    const size = sizeOf(value, reading, axis);
     for (const field of fields) {
       set(d, field, size);
     }
@@ -379,7 +290,7 @@ const READERS: Readonly<
   bg: (d, v, r) => set(d, "fill", colourOf(v, r)),
   font: (d, v, r) => set(d, "fontWeight", fontWeightOf(v, r)),
   gap: (d, v, r) => set(d, "gap", spacingOf(v, r)),
-  h: readSize(["height"]),
+  h: readSize(["height"], "h"),
   opacity: (d, v) => set(d, "opacity", opacityOf(v)),
   p: readPadding(["top", "right", "bottom", "left"]),
   pb: readPadding(["bottom"]),
@@ -390,19 +301,30 @@ const READERS: Readonly<
   py: readPadding(["top", "bottom"]),
   size: readSize(["height", "width"]),
   text: readText,
-  w: readSize(["width"]),
+  w: readSize(["width"], "w"),
 };
+
+const readUtility = utilityReader([
+  ...Object.keys(READERS),
+  "border",
+  "rounded",
+  "shadow",
+]);
 
 /** Sets what one utility says on a slot's draft; a utility a spec has no field for does nothing. */
 const apply = (d: Draft, utility: string, reading: Reading): void => {
-  const [use, value] = groups(CLASS_RE, utility);
+  const read = readUtility(utility);
+  if (read === null) {
+    return;
+  }
+  const { use, value } = read;
   if (use === "border") {
     readBorder(d, value, reading);
   } else if (use === "rounded") {
     set(d, "radius", radiusFieldOf(value, reading));
   } else if (use === "shadow") {
     set(d, "shadow", shadowOf(value, reading));
-  } else if (use !== undefined && value !== undefined) {
+  } else if (value !== undefined) {
     READERS[use]?.(d, value, reading);
   }
 };
@@ -447,10 +369,14 @@ export const componentSpec = (
   const states = new Map<SpecState, Draft>();
   /** Reads a class list into `into`, and its state classes into the states when `stateful`. */
   const read = (classes: string, into: Draft, stateful: boolean) => {
-    for (const raw of classes.split(SPACES_RE)) {
-      const { utility, variants } = split(raw.replace(IMPORTANT_RE, ""));
+    for (const cls of classes.split(SPACES_RE)) {
+      const { negative, utility, variants } = parseClass(cls);
       // `bg-primary/90`: a colour with an opacity, which a field cannot hold.
-      if (utility === "" || utility.replace(BRACKETED_RE, "").includes("/")) {
+      if (
+        utility === "" ||
+        negative ||
+        splitModifier(utility).modifier !== ""
+      ) {
         continue;
       }
       const [variant, ...more] = variants;

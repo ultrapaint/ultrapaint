@@ -21,49 +21,18 @@ import {
   spacingStepAt,
 } from "@ultrapaint/contracts/token-table";
 import { isToken, tokenName } from "@ultrapaint/design-document/tokens";
+import {
+  COLOR_KEYWORDS,
+  printArbitrary,
+  printClass,
+  SCREEN_KEYWORDS,
+  SIZE_KEYWORDS,
+  weightStepOf,
+} from "./utilities.ts";
 
-const WHITESPACE_RE = /\s+/g;
 const UPPER_RE = /[A-Z]/g;
 const NUMBER_RE = /^-?\d*\.?\d+$/;
 const KEYWORD_HEAD_RE = /^(?:flex|space)-/;
-
-/** Tailwind v4's own names for the font weights, which a number set in the document maps to. */
-const WEIGHTS: Record<number, string> = {
-  100: "thin",
-  200: "extralight",
-  300: "light",
-  400: "normal",
-  500: "medium",
-  600: "semibold",
-  700: "bold",
-  800: "extrabold",
-  900: "black",
-};
-
-/** CSS lengths that have a utility of their own, on either axis. */
-const LENGTH_KEYWORDS: Record<string, string> = {
-  "0": "0",
-  "100%": "full",
-  auto: "auto",
-  "fit-content": "fit",
-  "max-content": "max",
-  "min-content": "min",
-};
-
-/** The screen's lengths, which a width and a height say with their own unit. */
-const SCREEN_KEYWORDS: Record<"h" | "w", Record<string, string>> = {
-  h: { "100dvh": "dvh", "100vh": "screen" },
-  w: { "100dvw": "dvw", "100vw": "screen" },
-};
-
-const COLOR_KEYWORDS: Record<string, string> = {
-  black: "black",
-  currentColor: "current",
-  currentcolor: "current",
-  inherit: "inherit",
-  transparent: "transparent",
-  white: "white",
-};
 
 /** Values a declaration starts at, which need no class: a reset leaves them so. */
 const INITIAL: Record<string, string> = {
@@ -91,9 +60,9 @@ type Rule = (value: DeclaredValue, rest: Rest, scale: Scale) => Utility[];
 
 const one = (cls: string, ...sets: string[]): Utility[] => [{ cls, sets }];
 
-/** CSS in an arbitrary value: Tailwind reads an underscore as the space a class cannot hold. */
-const arbitrary = (prefix: string, value: string) =>
-  `${prefix}-[${value.trim().replace(WHITESPACE_RE, "_")}]`;
+/** CSS in an arbitrary value, with the type Tailwind is to read it as when it could read another. */
+const arbitrary = (prefix: string, value: string, type?: string) =>
+  `${prefix}-${printArbitrary(value, type)}`;
 
 /** A declared value as CSS: a token as its variable, a number as pixels. */
 const cssOf = (value: DeclaredValue): string => {
@@ -109,10 +78,7 @@ const arbitraryProperty = (
   value: DeclaredValue
 ): Utility[] => {
   const name = property.replace(UPPER_RE, (c) => `-${c.toLowerCase()}`);
-  return one(
-    `[${name}:${cssOf(value).trim().replace(WHITESPACE_RE, "_")}]`,
-    property
-  );
+  return one(printArbitrary(cssOf(value), name), property);
 };
 
 /**
@@ -153,11 +119,14 @@ const spacing = (
       ? arbitrary(prefix, `${value}px`)
       : `${prefix}-${step}`;
   }
+  if (value.trim() === "0") {
+    return `${prefix}-0`;
+  }
   const axis = prefix.at(-1);
   const keyword =
-    LENGTH_KEYWORDS[value.trim()] ??
+    SIZE_KEYWORDS.keyword(value) ??
     (axis === "w" || axis === "h"
-      ? SCREEN_KEYWORDS[axis][value.trim()]
+      ? SCREEN_KEYWORDS[axis].keyword(value)
       : undefined);
   if (keyword !== undefined) {
     return `${prefix}-${keyword}`;
@@ -186,7 +155,7 @@ const color =
   (prefix: string, property: string): Rule =>
   (value) => {
     const text = String(value).trim();
-    const keyword = COLOR_KEYWORDS[text];
+    const keyword = COLOR_KEYWORDS.keyword(text);
     if (keyword !== undefined) {
       return one(`${prefix}-${keyword}`, property);
     }
@@ -326,7 +295,7 @@ const fontSize: Rule = (value, rest) => {
     return one(arbitrary("text", `${value}px`), "fontSize");
   }
   if (!isToken(value)) {
-    return one(arbitrary("text", `length:${value}`), "fontSize");
+    return one(arbitrary("text", value, "length"), "fontSize");
   }
   const cls = fromToken("text", value, ["text"], "length");
   // Tailwind's `text-lg` sets the line height its size is paired with; a variable sets none.
@@ -341,7 +310,7 @@ const fontSize: Rule = (value, rest) => {
 const fontWeight: Rule = (value) => {
   const text = String(value);
   if (NUMBER_RE.test(text)) {
-    const name = WEIGHTS[Number(text)];
+    const name = weightStepOf(Number(text));
     return one(
       name === undefined ? arbitrary("font", text) : `font-${name}`,
       "fontWeight"
@@ -350,7 +319,7 @@ const fontWeight: Rule = (value) => {
   return one(
     isToken(text)
       ? fromToken("font", text, ["font-weight"])
-      : arbitrary("font", `weight:${text}`),
+      : arbitrary("font", text, "weight"),
     "fontWeight"
   );
 };
@@ -360,7 +329,7 @@ const fontFamily: Rule = (value) => {
   return one(
     isToken(text)
       ? fromToken("font", text, ["font"], "family-name")
-      : arbitrary("font", `family-name:${text}`),
+      : arbitrary("font", text, "family-name"),
     "fontFamily"
   );
 };
@@ -579,11 +548,15 @@ const responsive = (
       active.set(run.utility.cls, run);
     }
   });
-  return runs.map(({ end, start, utility }) => {
-    const from = start === 0 ? "" : `${levels[start]}:`;
-    const to = end === null ? "" : `max-${levels[end]}:`;
-    return `${from}${to}${utility.cls}`;
-  });
+  return runs.map(({ end, start, utility }) =>
+    printClass({
+      utility: utility.cls,
+      variants: [
+        ...(start === 0 ? [] : [`${levels[start]}`]),
+        ...(end === null ? [] : [`max-${levels[end]}`]),
+      ],
+    })
+  );
 };
 
 /** How Tailwind v4 writes a design's nodes, its spacing step made once. */
