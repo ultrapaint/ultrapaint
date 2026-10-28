@@ -44,32 +44,33 @@ export const saveToFile = async (
   return result;
 };
 
-/** What detection found in a repository, and the settings it proposes. */
+/** What detection found in a repository, and how it proposes to change settings. */
 export interface Detection {
   readonly found: SetupSuggestions;
-  readonly settings: Settings;
+  /**
+   * `draft` with where the components, the stylesheets and the package the pages resolve from
+   * are, and where the pages go unless `keepDesignsDir`; every other field as `draft` has it.
+   * Given the draft as it is when detection answers, it keeps what was typed meanwhile, and is a
+   * state updater as it is.
+   */
+  readonly onto: (draft: Settings) => Settings;
 }
 
-/**
- * Reads the repository `base` points at and proposes settings: `base` with where the
- * components, the stylesheets and the package the pages resolve from are, and where the pages
- * go unless `keepDesignsDir`.
- */
+/** Reads the repository at `repoPath` for what it proposes. */
 export const detect = async (
-  base: Settings,
+  repoPath: string,
   options: { readonly keepDesignsDir?: boolean } = {}
 ): Promise<Detection> => {
-  const found = await api().request("setup.detect", {
-    repoPath: base.repoPath,
-  });
+  const found = await api().request("setup.detect", { repoPath });
   return {
     found,
-    settings: applySuggestions(
-      base,
-      options.keepDesignsDir
-        ? { ...found, designsDirs: [base.designsDir] }
-        : found
-    ),
+    onto: (draft) =>
+      applySuggestions(
+        draft,
+        options.keepDesignsDir
+          ? { ...found, designsDirs: [draft.designsDir] }
+          : found
+      ),
   };
 };
 

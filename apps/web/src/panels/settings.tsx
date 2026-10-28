@@ -442,10 +442,10 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     if (!draft.repoPath) {
       return;
     }
-    detect(draft)
+    detect(draft.repoPath)
       .then((detection) => {
         setFound(detection.found);
-        setDraft(detection.settings);
+        setDraft(detection.onto);
         setProblems([]);
       })
       .catch((error: Error) => setProblems([error.message]));
@@ -456,10 +456,10 @@ const SettingsForm = ({ saved }: { saved: Settings | null }) => {
     if (!firstRepoPath) {
       return;
     }
-    detect(defaultSettings(firstRepoPath))
+    detect(firstRepoPath)
       .then((detection) => {
         setFound(detection.found);
-        setDraft(detection.settings);
+        setDraft(detection.onto);
       })
       // The form works without suggestions; a repository that cannot be read says so on save.
       .catch(() => setFound(null));

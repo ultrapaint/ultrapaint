@@ -189,41 +189,44 @@ unless the step says otherwise.
    and saved before anything is agreed. `design-system-files.test.ts` has 1 more (`withAgreement`
    with the same values).
 4. **Settings in force** (`ProjectManager` in `apps/server/src/project.ts`, the web's side in
-   `apps/web/src/lib/settings-actions.ts`). `ProjectManager` owns the settings the open project
-   runs as well as the project: `apply(settings, why)` (open when nothing runs them, open again
-   when the project runs other settings, else leave it and only publish what changed), `set`,
-   `persist`, `renameConfig` and `adoptDetected(repo)` (detect, apply the suggestions, adopt and
-   open, unless someone set settings in the meantime), and it follows the configuration file
-   itself. One sameness rule, the `Settings` schema's equivalence with a field left out the same
-   as one set to nothing; the open project keeps the settings it was opened with. Whatever puts
-   settings in force runs under one semaphore, so a save made while detection reads the
-   repository lands before or after the detected settings, never between. The project's info is
-   published from one place whenever what it is made of changes, and only when it did: the
-   settings and where they are kept, the preview's status, a repository made (`GitService.changes`)
-   and the user's profile (`ProfileService.changes`). `publishInfo` and `open` leave the interface;
-   the handlers of `settings.set`, `settings.persist`, `settings.renameConfig`, `profile.set` and
-   `git.init` only route, and `Boot` calls `apply` or `adoptDetected` (the detection, its logs and
-   following the file moved out of `server.ts`). `ProjectTest` opens its project with `apply` and
-   takes a `storage` option (`ephemeral`, an unsaved session in the fixture). On the web,
-   `save(next)` saves and reads the project again, returning the problems; `saveToFile` does so
-   for `settings.persist`; `detect(base, {keepDesignsDir})` gives what detection found and the
-   settings it proposes; `setUpDesigns(next)` creates the designs directory and saves. The settings
-   page, the setup dialog, Sync's "Detect and apply", its code-tokens switch, a new application
-   and the save-to-file dialog call them, where they read the project again, patched the store by
-   hand or did nothing. Also: settings that were the same but listed their keys in another order
-   (`JSON.stringify` compared them) reopened the project, so saving detected settings as they were
-   restarted the preview and dropped the undo history; a configuration file written again with
+   `apps/web/src/lib/settings-actions.ts`). `ProjectManager` owns the settings the open project runs
+   as well as the project: `apply(settings, why)` (open when nothing runs them, open again when the
+   project runs other settings, else leave it and only publish what changed), `set`, `persist`,
+   `renameConfig` and `adoptDetected(repo)` (detect, apply the suggestions, adopt and open, unless
+   someone set settings in the meantime), and it follows the configuration file itself. One sameness
+   rule, the `Settings` schema's equivalence with a field left out the same as one set to nothing;
+   the open project keeps the settings it was opened with. Whatever puts settings in force runs
+   under one semaphore, so a save made while detection reads the repository lands before or after
+   the detected settings, never between. The project's info is published from one place whenever
+   what it is made of changes, and only when it did: the settings and where they are kept, the
+   preview's status, a repository made (`GitService.changes`) and the user's profile
+   (`ProfileService.changes`). `publishInfo` and `open` leave the interface; the handlers of
+   `settings.set`, `settings.persist`, `settings.renameConfig`, `profile.set` and `git.init` only
+   route, and `Boot` calls `apply` or `adoptDetected` (the detection, its logs and following the
+   file moved out of `server.ts`). `ProjectTest` opens its project with `apply` and takes a
+   `storage` option (`ephemeral`, an unsaved session in the fixture). On the web, `save(next)` saves
+   and reads the project again, returning the problems; `saveToFile` does so for `settings.persist`;
+   `detect(repoPath, {keepDesignsDir})` gives what detection found and `onto(draft)`, the draft with
+   its suggestions, so a form merges them into the draft as it is when detection answers and keeps
+   what was typed meanwhile; `setUpDesigns(next)` creates the designs directory and saves. The
+   settings page, the setup dialog, Sync's "Detect and apply", its code-tokens switch, a new
+   application and the save-to-file dialog call them, where they read the project again, patched the
+   store by hand or did nothing. Also: settings that were the same but listed their keys in another
+   order (`JSON.stringify` compared them) reopened the project, so saving detected settings as they
+   were restarted the preview and dropped the undo history; a configuration file written again with
    the settings that run (an editor reformatting it) reopened the project too; saving detected
-   settings now tells the editor they are saved; after Sync's "Detect and apply" or the
-   code-tokens switch the editor kept the settings it had, since the `project` event reloads only
-   when the repository, `configured` or `setup` changes. `storage.test.ts` has 2 failing-first tests
-   through the harness (a file rewritten with the same settings keeps the undo history; saving
-   detected settings keeps the project open and publishes `setup: saved`);
-   `settings-in-force.test.ts` has 4 on `ProjectTest` (the same settings in another order keep the
-   project and its history, other settings reopen it; detected settings saved and then a session
-   saved to a file keep the project and publish `saved` and the file; a user's save racing
-   detection is the one in force, and a later detection replaces nothing; the profile and
-   `git init` publish the info). `settings-actions.test.ts` has 5 with `fakeApi` (Sync's detection
-   applied and the switch leave the store as the server has it, failing first; a refused save
-   changes nothing; setting up the designs creates the directory, then saves; saving to a file
-   reads the project again).
+   settings now tells the editor they are saved; after Sync's "Detect and apply" or the code-tokens
+   switch the editor kept the settings it had, since the `project` event reloads only when the
+   repository, `configured` or `setup` changes. `storage.test.ts` has 2 failing-first tests through
+   the harness (a file rewritten with the same settings keeps the undo history; saving detected
+   settings keeps the project open and publishes `setup: saved`); `settings-in-force.test.ts` has 4
+   on `ProjectTest` (the same settings in another order keep the project and its history, other
+   settings reopen it; detected settings saved and then a session saved to a file keep the project
+   and publish `saved` and the file; a user's save racing detection is the one in force, and a later
+   detection replaces nothing; the profile and `git init` publish the info).
+   `settings-actions.test.ts` has 6 with `fakeApi` (a field typed while detection runs is kept;
+   Sync's detection applied and the switch leave the store as the server has it, failing first; a
+   refused save changes nothing; setting up the designs creates the directory, then saves; saving to
+   a file reads the project again). `design-md.test.ts` waits for DESIGN.md to follow a token set
+   rather than reading it at once: since step 3 it follows in the loop that hears the change, just
+   after `setToken` returns, and the read flaked under load.

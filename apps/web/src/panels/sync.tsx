@@ -112,9 +112,10 @@ const applyDetected = async () => {
     return;
   }
   try {
-    const { settings: next } = await detect(settings, {
+    const detection = await detect(settings.repoPath, {
       keepDesignsDir: true,
     });
+    const next = detection.onto(settings);
     const lines = [
       `Components: ${next.libraryDirs.join(", ") || "none found"}`,
       `Stylesheets: ${next.hostCss.join(", ") || "none found"}`,

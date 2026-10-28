@@ -120,10 +120,10 @@ const ConfigureForm = () => {
     if (saved || !repoPath) {
       return;
     }
-    detect(defaultSettings(repoPath))
+    detect(repoPath)
       .then((detection) => {
         setFound(detection.found);
-        setDraft(detection.settings);
+        setDraft(detection.onto(defaultSettings(repoPath)));
       })
       .catch((error: Error) => {
         setProblems([error.message]);

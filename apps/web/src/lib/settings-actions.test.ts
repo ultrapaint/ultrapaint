@@ -79,12 +79,37 @@ beforeEach(() => {
   fakeApi.respond("settings.set", (next: Settings) => saving(next));
 });
 
+describe("detecting", () => {
+  it("keeps what was typed in the draft while the repository was read", async () => {
+    let answer: (found: SetupSuggestions) => void = () => undefined;
+    fakeApi.respond(
+      "setup.detect",
+      () =>
+        new Promise<SetupSuggestions>((resolve) => {
+          answer = resolve;
+        })
+    );
+    let draft: Settings = running;
+    const detecting = detect(REPO);
+    // The settings page's form, typed in while the server reads the repository.
+    draft = { ...draft, storybookUrl: "http://localhost:6006", theme: "dark" };
+    answer(found);
+    draft = (await detecting).onto(draft);
+    expect(draft.storybookUrl).toBe("http://localhost:6006");
+    expect(draft.theme).toBe("dark");
+    expect(draft.designsDir).toBe("docs/designs");
+    expect(draft.libraryDirs).toEqual(["src/ui"]);
+    expect(fakeApi.calls[0]?.input).toEqual({ repoPath: REPO });
+  });
+});
+
 describe("saving the settings", () => {
   it("leaves the store holding what the server saved, when Sync applies detection", async () => {
-    const detection = await detect(running, { keepDesignsDir: true });
-    expect(detection.settings.designsDir).toBe("designs");
-    expect(detection.settings.libraryDirs).toEqual(["src/ui"]);
-    expect(await save(detection.settings)).toEqual([]);
+    const detection = await detect(REPO, { keepDesignsDir: true });
+    const next = detection.onto(running);
+    expect(next.designsDir).toBe("designs");
+    expect(next.libraryDirs).toEqual(["src/ui"]);
+    expect(await save(next)).toEqual([]);
     expect(useProject.getState().settings).toEqual(server.settings);
     expect(useProject.getState().settings?.libraryDirs).toEqual(["src/ui"]);
   });
@@ -122,8 +147,8 @@ describe("saving the settings", () => {
       fakeApi.emit("project", server.info);
       return ok;
     });
-    const { settings } = await detect({ ...running, designsDir: "" });
-    expect(await setUpDesigns(settings)).toEqual([]);
+    const detection = await detect(REPO);
+    expect(await setUpDesigns(detection.onto(running))).toEqual([]);
     expect(fakeApi.calls.map((c) => c.method).slice(0, 3)).toEqual([
       "setup.detect",
       "setup.createDesigns",
