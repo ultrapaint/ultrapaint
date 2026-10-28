@@ -1,10 +1,13 @@
 /**
  * The camera: where the canvas is looked at from (`view` in the editor's store, which this
  * module alone writes) and how it moves there. A pan or a zoom waits for the next frame and takes
- * every change of that frame in one; a fit is there at once, a zoom to the selection glides. Each
- * gives way to the next: a move said outright drops what was waiting and lands what was flying.
- * `canvas/camera.ts` draws the view onto the canvas.
+ * every change of that frame in one; a fit is there at once, a zoom to the selection glides, at
+ * once or once its frame is laid out. Each gives way to the next: a move said outright drops what
+ * was waiting and lands what was flying. A move is fitted into what of the canvas is seen, which
+ * the canvas on screen measures (`measureViewportWith`). `canvas/camera.ts` draws the view onto
+ * the canvas.
  */
+import { useDocuments } from "./documents.ts";
 import { allFrames, useEditor } from "./editor.ts";
 
 export interface View {
@@ -22,6 +25,38 @@ export interface Viewport {
   width: number;
   x: number;
 }
+
+/** How what of the canvas is seen is measured, while the canvas is on screen. */
+let measure: (() => Viewport) | null = null;
+const shownListeners = new Set<() => void>();
+
+/**
+ * The canvas on screen says how what of it is seen is measured (its element, less the panels
+ * floating over its edges), until the answer is called: it left the screen, for the prototype.
+ * A test measures with a stub.
+ */
+export const measureViewportWith = (measured: () => Viewport) => {
+  measure = measured;
+  for (const listener of shownListeners) {
+    listener();
+  }
+  return () => {
+    if (measure === measured) {
+      measure = null;
+    }
+  };
+};
+
+/**
+ * The part of the canvas that can be seen: what is fitted or zoomed into belongs there. Without a
+ * canvas on screen, the window less the panels' usual width.
+ */
+export const viewportSize = (): Viewport =>
+  measure?.() ?? {
+    height: window.innerHeight,
+    width: window.innerWidth - 544,
+    x: 0,
+  };
 
 /**
  * How many canvas pixels make one on screen. What is drawn in the zoomed layer at a constant size
@@ -50,8 +85,15 @@ let flight: { frame: number; to: View } | null = null;
 /** Where the camera is moving to, while it moves: what is there loads first. */
 export const viewTarget = (): View | null => flight?.to ?? null;
 
-/** Stops a move of the camera where it is: the user took the canvas, or another move began. */
+/** Gives up a move waiting for its frame to be laid out (`zoomToSelectionOnceLaidOut`). */
+let stopWaiting: () => void = () => undefined;
+
+/**
+ * Stops a move of the camera where it is, or one waiting to begin: the user took the canvas, or
+ * another move began.
+ */
 const land = () => {
+  stopWaiting();
   if (flight) {
     cancelAnimationFrame(flight.frame);
     flight = null;
@@ -171,17 +213,18 @@ const fitTo = (
   show(view);
 };
 
-/** Fits everything on the canvas, pages and nodes, into `viewport`. */
-export const zoomToFit = (viewport: Viewport) => {
+/** Fits everything on the canvas, pages and nodes, into what of it is seen. */
+export const zoomToFit = () => {
   const frames = Object.values(allFrames());
   if (frames.length === 0) {
     return;
   }
-  fitTo(viewport, frames);
+  fitTo(viewportSize(), frames);
 };
 
 /** Glides to the page selected, or the node selected: its rect when measured, its frame else. */
-export const zoomToSelection = (viewport: Viewport) => {
+export const zoomToSelection = () => {
+  const viewport = viewportSize();
   const { selection, selectedPage, rects } = useEditor.getState();
   const frames = allFrames();
   const pageFrame = selectedPage ? frames[selectedPage] : undefined;
@@ -206,4 +249,49 @@ export const zoomToSelection = (viewport: Viewport) => {
       }
     : frame;
   fitTo(viewport, [target], true);
+};
+
+/**
+ * Glides to the selection once `frame` is laid out: the canvas on screen (the prototype left, the
+ * panels beside it placed) and the frame's box known, a node beside the pages once its document
+ * is read. The frame need not be drawn: one off screen is drawn once the camera is there. Gives
+ * way to any move of the camera meanwhile, this one asked again included, and gives up when the
+ * canvas changes or the prototype opens.
+ */
+export const zoomToSelectionOnceLaidOut = (frame: string) => {
+  land();
+  const { canvas } = useEditor.getState();
+  const offs: (() => void)[] = [];
+  const stop = () => {
+    for (const off of offs.splice(0)) {
+      off();
+    }
+    if (stopWaiting === stop) {
+      stopWaiting = () => undefined;
+    }
+  };
+  /** Whether it is done waiting, there or given up. */
+  const check = (): boolean => {
+    const editor = useEditor.getState();
+    if (editor.canvas !== canvas || editor.workspace !== "design") {
+      stop();
+      return true;
+    }
+    if (!(measure && allFrames()[frame])) {
+      return false;
+    }
+    stop();
+    zoomToSelection();
+    return true;
+  };
+  if (check()) {
+    return;
+  }
+  shownListeners.add(check);
+  offs.push(
+    () => shownListeners.delete(check),
+    useEditor.subscribe(check),
+    useDocuments.subscribe(check)
+  );
+  stopWaiting = stop;
 };

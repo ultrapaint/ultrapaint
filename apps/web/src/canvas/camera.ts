@@ -12,7 +12,11 @@ import {
   useRef,
   useState,
 } from "react";
-import { viewTarget } from "../state/camera.ts";
+import {
+  measureViewportWith,
+  type Viewport,
+  viewTarget,
+} from "../state/camera.ts";
 import { useDocuments } from "../state/documents.ts";
 import { allFrames, useEditor } from "../state/editor.ts";
 import { useDrag } from "./drag.ts";
@@ -94,12 +98,45 @@ const follow = (
   };
 };
 
-/** Moves the canvas's layer of frames and its grid with the view: see `follow`. */
+/** How far a panel floating over one edge of the canvas reaches into it; a hidden one, not at all. */
+const coverOf = (rect: DOMRect, side: "left" | "right") => {
+  const panel = document
+    .querySelector(`[data-canvas-cover="${side}"]`)
+    ?.getBoundingClientRect();
+  if (!panel || panel.width === 0) {
+    return 0;
+  }
+  return Math.max(
+    0,
+    side === "left" ? panel.right - rect.left : rect.right - panel.left
+  );
+};
+
+/**
+ * The part of the canvas that can be seen, in the canvas's own coordinates: the side panels float
+ * over the canvas's edges, and what is fitted or zoomed into belongs in what is left between them.
+ */
+const seenOf = (el: HTMLElement): Viewport => {
+  const rect = el.getBoundingClientRect();
+  const left = coverOf(rect, "left");
+  const right = coverOf(rect, "right");
+  return { height: rect.height, width: rect.width - left - right, x: left };
+};
+
+/**
+ * Moves the canvas's layer of frames and its grid with the view (see `follow`), and measures what
+ * of the canvas is seen for the camera while it is on screen: from the moment it is laid out, as
+ * the panels beside it are, before the browser paints.
+ */
 export const useCamera = (
   canvas: RefObject<HTMLDivElement | null>,
   layer: RefObject<HTMLDivElement | null>,
   grid: boolean
 ) => {
+  useLayoutEffect(() => {
+    const el = canvas.current;
+    return el ? measureViewportWith(() => seenOf(el)) : undefined;
+  }, [canvas]);
   useLayoutEffect(() => {
     if (!(canvas.current && layer.current)) {
       return;

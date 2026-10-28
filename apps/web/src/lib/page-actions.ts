@@ -6,14 +6,13 @@ import type { Page, ViewportPreset } from "@ultrapaint/contracts/pages";
 import { slugOf } from "@ultrapaint/shared/path";
 import { toast } from "sonner";
 import { confirmDialog, promptDialog } from "../components/dialogs.tsx";
-import { zoomToSelection } from "../state/camera.ts";
 import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
 import { goTo } from "../state/location.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { ensureEditable } from "../state/setup.ts";
 import { linksToPage } from "./links.ts";
-import { viewportSize } from "./shortcuts.ts";
+import { reveal } from "./reveal.ts";
 import { startTask } from "./start-thread.ts";
 
 /** What the warning on a page without a URL says, wherever it is shown. */
@@ -26,11 +25,8 @@ export const pageById = (id: string): Page | undefined =>
 /** Goes to the page, unless it is already on screen with the parameters it was reached with. */
 export const goToPage = (page: Page) => goTo({ page: page.id });
 
-export const zoomToPage = (page: Page) => {
-  const editor = useEditor.getState();
-  editor.selectPage(page.id);
-  zoomToSelection(viewportSize());
-};
+/** Brings the page's frame into view on the canvas, selected. */
+export const zoomToPage = (page: Page) => reveal({ page: page.id });
 
 export const setPagePreset = (page: Page, preset: ViewportPreset) =>
   useEditor.getState().setPreset(page.id, preset);

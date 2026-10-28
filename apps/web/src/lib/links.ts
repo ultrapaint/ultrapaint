@@ -12,11 +12,10 @@ import {
 } from "@ultrapaint/shared/link";
 import { basePathOf } from "@ultrapaint/shared/route";
 import { toast } from "sonner";
-import { zoomToSelection } from "../state/camera.ts";
 import { useDocuments } from "../state/documents.ts";
 import { pagesOfCanvas, useEditor } from "../state/editor.ts";
 import { goTo } from "../state/location.ts";
-import { viewportSize } from "./shortcuts.ts";
+import { reveal } from "./reveal.ts";
 
 /**
  * Goes where a link pressed in the prototype leads: a page of the canvas, at its URL or as it is
@@ -69,8 +68,7 @@ export const focusLink = (link: string) => {
   const editor = useEditor.getState();
   const page = pageOfLink(pagesOfCanvas(editor.canvas), link);
   if (page) {
-    editor.selectPage(page.id);
-    zoomToSelection(viewportSize());
+    reveal({ page: page.id });
   } else if (target?.kind !== "back") {
     toast.error("This link leads nowhere", {
       description: `${link} is not a page of this canvas.`,

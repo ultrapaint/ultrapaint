@@ -5,14 +5,11 @@
  */
 import { useEffect, useRef } from "react";
 import { type AgentActivity, activityOnPage } from "../lib/agent-activity.ts";
-import { viewportSize } from "../lib/shortcuts.ts";
+import { reveal } from "../lib/reveal.ts";
 import { useAgentActivityOf } from "../state/agent-activity.ts";
 import { useAgents } from "../state/agents.ts";
-import { zoomToSelection } from "../state/camera.ts";
 import { openMenuAt } from "../state/context-menu.ts";
-import { useEditor } from "../state/editor.ts";
-import { goTo } from "../state/location.ts";
-import { reportError, useProject } from "../state/project.ts";
+import { useProject } from "../state/project.ts";
 import { screenPx, UNZOOM } from "./camera.ts";
 
 const VERBS: Record<AgentActivity["action"], string> = {
@@ -81,25 +78,9 @@ export const useFollowAgent = () => {
       return;
     }
     lastPage.current = target;
-    const editor = useEditor.getState();
-    const page = pages.find((p) => p.id === target);
-    if (!page) {
-      return;
+    if (pages.some((p) => p.id === target)) {
+      reveal({ page: target });
     }
-    if (editor.canvas !== page.canvas) {
-      goTo({
-        canvas: page.canvas,
-        page: page.id,
-        route: page.route ?? null,
-      }).catch(reportError);
-      return;
-    }
-    if (editor.workspace === "prototype") {
-      goTo({ page: page.id });
-      return;
-    }
-    editor.selectPage(page.id);
-    zoomToSelection(viewportSize());
   }, [target, pages]);
 
   useEffect(() => {

@@ -7,7 +7,7 @@
 import { childrenOf } from "@ultrapaint/design-document/tree";
 import { useEffect } from "react";
 import { frameOf } from "../canvas/editor-frame.ts";
-import { nextView, setView, type Viewport } from "../state/camera.ts";
+import { nextView, setView, viewportSize } from "../state/camera.ts";
 import { useComments } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
 import { showMenu } from "../state/context-menu.ts";
@@ -192,35 +192,6 @@ export const useClipboardEvents = () => {
       window.removeEventListener("paste", onPaste);
     };
   }, []);
-};
-
-/** How far a panel floating over one edge of the canvas reaches into it; a hidden one, not at all. */
-const coverOf = (rect: DOMRect, side: "left" | "right") => {
-  const panel = document
-    .querySelector(`[data-canvas-cover="${side}"]`)
-    ?.getBoundingClientRect();
-  if (!panel || panel.width === 0) {
-    return 0;
-  }
-  return Math.max(
-    0,
-    side === "left" ? panel.right - rect.left : rect.right - panel.left
-  );
-};
-
-/**
- * The part of the canvas that can be seen, in the canvas's own coordinates: the side panels float
- * over the canvas's edges, and what is fitted or zoomed into belongs in what is left between them.
- */
-export const viewportSize = (): Viewport => {
-  const el = document.querySelector("[data-canvas]");
-  if (!el) {
-    return { height: window.innerHeight, width: window.innerWidth - 544, x: 0 };
-  }
-  const rect = el.getBoundingClientRect();
-  const left = coverOf(rect, "left");
-  const right = coverOf(rect, "right");
-  return { height: rect.height, width: rect.width - left - right, x: left };
 };
 
 export const zoomBy = (k: number) => {

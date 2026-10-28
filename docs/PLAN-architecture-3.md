@@ -750,3 +750,38 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
     failed first (nothing sent before the timer, the push dropped); the undo one passed, as
     `flushLayout` already waited for the save it started. `location.test.ts`'s save on leaving a
     canvas reads as one save sent at once.
+14. **Bringing something into view** (`apps/web/src/lib/reveal.ts`). `reveal(target)` takes a
+    page's frame (`{ page }`) or a node of a frame (a `Selection`): it leaves the prototype,
+    opens the canvas the page is on when it is another (`goTo`, at the page), selects it there
+    (`selectPage` or `select`), and has the camera glide to it once its frame is laid out
+    (`zoomToSelectionOnceLaidOut`). Laid out is known from the stores, not waited for by a
+    frame: the canvas on screen and the frame's box known (`allFrames`), a node beside the pages
+    once its document is read; the frame need not be drawn, as one off screen is drawn once the
+    camera is there. A move of the camera meanwhile gives the wait up (`land`), another reveal's
+    included, as does the canvas changing or the prototype opening; a reveal whose canvas was
+    overtaken by another goes no further. What of the canvas is seen is the camera's to read:
+    the canvas on screen measures it for the camera (`measureViewportWith`, from `useCamera`'s
+    layout effect, the panels beside it placed), so `zoomToFit()` and `zoomToSelection()` take
+    no viewport, `viewportSize` moved from `shortcuts` to `state/camera.ts`, and a test measures
+    with a stub. The page's Zoom to page (`zoomToPage`), a link pressed on the canvas
+    (`focusLink`), a node link opening the editor (`useOpenNodeLink`), a thread's Show
+    (`showScope`), following an agent (`useFollowAgent`), a node's Zoom to selection and a
+    comment's Select element from the prototype call it, each keeping its own: the link's toast,
+    the node link's lookup, a comment's Select element on the canvas only selecting. Both
+    `requestAnimationFrame` waits, the prototype branches of `showScope` and `useFollowAgent`,
+    and every caller's `viewportSize()` go. Fixed: a thread's Show on a page of another canvas
+    (the threads panel lists every canvas's) selected a page this canvas does not draw and did
+    not move; it opens that canvas, selects the page or node and glides to it. Also: following
+    an agent onto another canvas selects its page and glides there (it only opened the canvas);
+    a node link and a reveal from the prototype leave it for the canvas; a node beside the pages
+    whose document is not read yet is zoomed to once it is, and a reveal from the prototype once
+    the canvas is laid out rather than a frame later; `pnpm bench:canvas` fits into what the side
+    cards leave seen, as Shift+1 does, rather than the whole canvas. Left: a thread scoped to a
+    node beside the pages of another canvas (its scope names the canvas's file, not the canvas)
+    is shown only from its canvas; a comment's reveal (`revealComment`) pans to its pin without
+    selecting, as before. `reveal.test.ts` has 7 tests through the stores and `fakeApi`, the
+    viewport stubbed: a page of the open canvas; a node of a page on another canvas (canvas
+    switched, page shown, selection and camera); from the prototype, which it leaves, the camera
+    moving only once the canvas is on screen; a node beside the pages waiting for its document;
+    a wait given up for a newer reveal; and a thread's Show of a page and of a node on another
+    canvas. The two Show tests failed first on the old `showScope` (the canvas stayed `main`).
