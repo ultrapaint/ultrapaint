@@ -1,9 +1,9 @@
 import path from "node:path";
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
+import type { NewDesignUpdate } from "@ultrapaint/contracts/shell-bridge";
 import { Effect, FileSystem, Layer, Schema } from "effect";
 import { Agents, makeRuntime } from "./agents.ts";
-import type { NewDesignUpdate } from "./ipc.ts";
 import { LoginShell } from "./login-shell.ts";
 import { DESIGNS_HOME, folderNameOf, NewDesigns } from "./new-design.ts";
 import { OpenProject } from "./open-project.ts";

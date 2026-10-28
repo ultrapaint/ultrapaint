@@ -35,8 +35,7 @@ export const openRemoteProject = () =>
   useRemoteProject.setState({ shown: true });
 
 /** Whether the shell opens folders on other machines. */
-export const canAddRemoteProjects = () =>
-  platform().projects?.addRemote !== undefined;
+export const canAddRemoteProjects = () => platform().projects !== undefined;
 
 const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
@@ -52,7 +51,7 @@ const Form = ({ projects }: { projects: ProjectSwitcher }) => {
 
   useEffect(() => {
     projects
-      .sshHosts?.()
+      .sshHosts()
       .then(setHosts)
       // No suggestions is no reason not to type a host.
       .catch(() => setHosts([]));
@@ -62,12 +61,12 @@ const Form = ({ projects }: { projects: ProjectSwitcher }) => {
     setBusy(true);
     setProblem(null);
     try {
-      const result = await projects.addRemote?.({
+      const result = await projects.addRemote({
         command: command.trim(),
         host,
         path,
       });
-      if (result?.problem) {
+      if (result.problem) {
         setProblem(result.problem);
       }
     } catch (error) {
@@ -177,7 +176,7 @@ const Form = ({ projects }: { projects: ProjectSwitcher }) => {
 export const RemoteProjectDialog = () => {
   const shown = useRemoteProject((s) => s.shown);
   const { projects } = platform();
-  if (!projects?.addRemote) {
+  if (!projects) {
     return null;
   }
   return (

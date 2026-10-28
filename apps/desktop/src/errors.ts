@@ -21,3 +21,19 @@ export class UnknownProject extends Schema.TaggedError<UnknownProject>()(
     return `no project ${this.id} in the list`;
   }
 }
+
+/** The page called a capability of the shell bridge with what its input does not take. */
+export class BridgeInputError extends Schema.TaggedError<BridgeInputError>()(
+  "BridgeInputError",
+  { capability: Schema.String, message: Schema.String }
+) {}
+
+/** The page called a capability the open project does not show: this machine's, for a remote one. */
+export class HiddenCapability extends Schema.TaggedError<HiddenCapability>()(
+  "HiddenCapability",
+  { capability: Schema.String }
+) {
+  override get message() {
+    return `${this.capability} is not shown for a project on another machine`;
+  }
+}

@@ -12,13 +12,16 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { type AcpHandlers, spawnAcpAgent } from "@ultrapaint/acp/acp-agent";
 import type { AgentRuntime, RuntimeAgent } from "@ultrapaint/acp/runtime";
+import type {
+  MachineAgentId,
+  PlatformAgent,
+} from "@ultrapaint/contracts/shell-bridge";
 import { Context, Effect, Layer, Option, Schema } from "effect";
 import { ChildProcessSpawner } from "effect/process";
 import { AgentDownloads, DownloadError } from "./agent-downloads.ts";
 import { type AgentSetting, AgentSettings } from "./agent-settings.ts";
 import { runCommand } from "./command.ts";
 import type { StoreError } from "./errors.ts";
-import type { AgentStatus } from "./ipc.ts";
 import { LoginShell } from "./login-shell.ts";
 import { type SecretError, Secrets } from "./secrets.ts";
 import { findExecutable, isExecutable } from "./which.ts";
@@ -48,11 +51,10 @@ export const AGENTS = {
     program: "codex",
     signIn: "Sign in with ChatGPT below, or run `codex login` in a terminal.",
   },
-} as const;
+} as const satisfies Record<MachineAgentId, unknown>;
+/** One of the agents the editor's `Platform` names (`MachineAgentId`). */
 export type AgentId = keyof typeof AGENTS;
 export const AGENT_IDS = Object.keys(AGENTS) as AgentId[];
-
-export const isAgentId = (id: string): id is AgentId => id in AGENTS;
 
 /** Where the app's own parts are. */
 export interface AppLayout {
@@ -237,7 +239,7 @@ export class Agents extends Context.Service<
      */
     readonly signIn: (id: AgentId) => Effect.Effect<void, SignInError>;
     /** How each agent stands: found, signed in, or what can be done about it. */
-    readonly status: Effect.Effect<readonly AgentStatus[]>;
+    readonly status: Effect.Effect<readonly PlatformAgent[]>;
   }
 >()("ultrapaint/desktop/Agents") {
   static readonly layer = (layout: AppLayout) =>
@@ -368,7 +370,7 @@ export class Agents extends Context.Service<
             readonly how: string | undefined;
             readonly signedIn: boolean;
           }
-        ): Pick<AgentStatus, "detail" | "state"> => {
+        ): Pick<PlatformAgent, "detail" | "state"> => {
           if (keyed) {
             return {
               detail: "Signs in with the API key given here.",
@@ -399,7 +401,7 @@ export class Agents extends Context.Service<
               ...(yield* offerFor(id)),
               detail: `Not installed: ${located.reason}`,
               state: "missing",
-            } satisfies AgentStatus;
+            } satisfies PlatformAgent;
           }
           const [version, signIn] = yield* Effect.all(
             [
@@ -423,7 +425,7 @@ export class Agents extends Context.Service<
               id === "claude-code" && setting.apiKey !== undefined,
               signIn
             ),
-          } satisfies AgentStatus;
+          } satisfies PlatformAgent;
         });
 
         /** What an agent's adapter is told besides where the agent is. */

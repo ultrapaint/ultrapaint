@@ -29,9 +29,9 @@ import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import {
   type NewDesignInput,
-  type NewDesignProgress,
-  type NewDesignStep,
+  type NewDesignStepId,
   type NewDesigns,
+  type NewDesignUpdate,
   platform,
 } from "../platform.ts";
 import { Segmented } from "./segmented.tsx";
@@ -44,7 +44,7 @@ export const openNewDesign = () => useNewDesign.setState({ shown: true });
 /** Whether the shell writes designs from nothing. */
 export const canMakeNewDesigns = () => platform().newDesign !== undefined;
 
-const STEP_LABELS: Record<NewDesignStep, string> = {
+const STEP_LABELS: Record<NewDesignStepId, string> = {
   folder: "Make the folder",
   git: "Commit it to git",
   install: "Install the packages",
@@ -67,7 +67,7 @@ const CODE_DESCRIPTIONS = {
 const messageOf = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
-const StepIcon = ({ state }: { state: NewDesignProgress["state"] | null }) => {
+const StepIcon = ({ state }: { state: NewDesignUpdate["state"] | null }) => {
   if (state === "active") {
     return <Spinner />;
   }
@@ -90,9 +90,9 @@ const Steps = ({
   progress,
 }: {
   git: boolean;
-  progress: Partial<Record<NewDesignStep, NewDesignProgress>>;
+  progress: Partial<Record<NewDesignStepId, NewDesignUpdate>>;
 }) => {
-  const steps: NewDesignStep[] = [
+  const steps: NewDesignStepId[] = [
     "folder",
     "write",
     "install",
@@ -135,14 +135,14 @@ const Form = ({ designs }: { designs: NewDesigns }) => {
   const [code, setCode] = useState<NewDesignInput["code"]>("app");
   const [git, setGit] = useState(false);
   const [progress, setProgress] = useState<
-    Partial<Record<NewDesignStep, NewDesignProgress>>
+    Partial<Record<NewDesignStepId, NewDesignUpdate>>
   >({});
   const [busy, setBusy] = useState(false);
   // Written, and not opened in place of a project the user kept open.
   const [finished, setFinished] = useState(false);
   const [failed, setFailed] = useState<{
     message: string;
-    step: NewDesignStep;
+    step: NewDesignStepId;
   } | null>(null);
   const title = name.trim() || "Untitled";
 

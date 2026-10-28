@@ -3,9 +3,10 @@
  * project's packages are installed with it. The app does not bring one; a missing or too old
  * Node is said up front, with how to install it, rather than as a preview that fails to start.
  */
+
+import type { ShellNotice } from "@ultrapaint/contracts/shell-bridge";
 import { Effect, Option } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import type { ShellNotice } from "./ipc.ts";
 import { findExecutable } from "./which.ts";
 
 /** What the preview's Vite needs: `^20.19.0 || >=22.12.0`. */

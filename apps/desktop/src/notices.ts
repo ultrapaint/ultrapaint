@@ -3,9 +3,10 @@
  * (`Platform.notices`): Node.js, so far. Asked each time the editor loads: a Node installed
  * since is found, on the `PATH` the login shell gave at start.
  */
+
+import type { ShellNotice } from "@ultrapaint/contracts/shell-bridge";
 import { Context, Effect, Layer, Option } from "effect";
 import { ChildProcessSpawner } from "effect/process";
-import type { ShellNotice } from "./ipc.ts";
 import { LoginShell } from "./login-shell.ts";
 import { checkNode, nodeNotice } from "./node-check.ts";
 

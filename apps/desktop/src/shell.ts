@@ -2,6 +2,7 @@
  * What the app's logic asks of Electron: what the window shows, and the native dialogs. The main
  * process implements it; tests put a fake in its place.
  */
+import type { ShellStatus } from "@ultrapaint/contracts/shell-bridge";
 import { Context, type Effect, type Option } from "effect";
 
 /** What the window shows: a project's editor, or the page that asks for a first project. */
@@ -17,16 +18,6 @@ export type View =
     }
   | { readonly _tag: "Welcome"; readonly problem?: string | undefined };
 
-/**
- * What the app is doing for the open project that the editor cannot see: reconnecting to the
- * machine a remote project is on, say. Shown over the canvas until it is cleared.
- */
-export interface ShellStatus {
-  /** Why, at more length: the error the last attempt met. */
-  readonly detail?: string | undefined;
-  readonly message: string;
-}
-
 export class Shell extends Context.Service<
   Shell,
   {
@@ -36,12 +27,19 @@ export class Shell extends Context.Service<
       readonly detail: string;
       readonly message: string;
     }) => Effect.Effect<boolean>;
-    /** The native folder picker; nothing when it is cancelled. */
-    readonly pickFolder: (
-      title: string
-    ) => Effect.Effect<Option.Option<string>>;
+    /** The native file picker, for an executable; nothing when it is cancelled. */
+    readonly pickFile: (title: string) => Effect.Effect<Option.Option<string>>;
+    /** The native folder picker, at `defaultPath` when given; nothing when it is cancelled. */
+    readonly pickFolder: (options: {
+      readonly defaultPath?: string | undefined;
+      readonly title: string;
+    }) => Effect.Effect<Option.Option<string>>;
     readonly show: (view: View) => Effect.Effect<void>;
-    /** Tells the window what the app is doing for the open project; `null` when nothing. */
+    /**
+     * Tells the window what the app is doing for the open project (`shellStatus`, which the page
+     * reads as it loads too); `null` when nothing. A remote project's reconnection, say: shown
+     * over the canvas until it is cleared.
+     */
     readonly status: (status: ShellStatus | null) => Effect.Effect<void>;
   }
 >()("ultrapaint/desktop/Shell") {}

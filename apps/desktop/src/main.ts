@@ -8,47 +8,52 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { NodeServices } from "@effect/platform-node";
-import { PREVIEW_BASE } from "@ultrapaint/contracts/preview";
-import { Effect, Layer, ManagedRuntime, Option, Schema } from "effect";
+import type { StateName } from "@ultrapaint/contracts/shell-bridge";
+import {
+  Effect,
+  Exit,
+  Layer,
+  ManagedRuntime,
+  Option,
+  Schema,
+  Scope,
+} from "effect";
 import {
   app,
   BrowserWindow,
   dialog,
-  type IpcMainEvent,
-  type IpcMainInvokeEvent,
   ipcMain,
   net,
   protocol,
   safeStorage,
   session,
   shell,
+  type WebContents,
 } from "electron";
 import { AgentDownloads } from "./agent-downloads.ts";
 import { releaseFor } from "./agent-releases.ts";
 import { AgentSettings } from "./agent-settings.ts";
-import { AGENTS, type AgentId, Agents, isAgentId } from "./agents.ts";
+import { Agents } from "./agents.ts";
+import { BEAT_CHANNEL, type BridgeInfo, INFO_CHANNEL } from "./bridge.ts";
 import {
-  Channel,
-  type ListedProject,
-  type NewDesignUpdate,
-  type PickFolderOptions,
-  type ShellInfo,
-  type ShellStatus,
-  type StoppedAt,
-  type WindowControlsInfo,
-} from "./ipc.ts";
+  type BridgeStates,
+  bridgeInfo,
+  type StateValue,
+  serveBridge,
+  stateMessage,
+} from "./bridge-server.ts";
+import { bridgeHandlers, remoteOpen } from "./handlers.ts";
 import { LoginShell } from "./login-shell.ts";
-import { NewDesignRequest, NewDesigns } from "./new-design.ts";
+import { NewDesigns } from "./new-design.ts";
 import { Notices } from "./notices.ts";
 import { OpenProject } from "./open-project.ts";
 import { ProjectServer } from "./project-server.ts";
-import { ProjectStore, projectDetail, remoteInputOf } from "./projects.ts";
+import { ProjectStore } from "./projects.ts";
 import { RemoteProjects } from "./remote-project.ts";
 import { SecretError, Secrets } from "./secrets.ts";
 import { Shell, type View } from "./shell.ts";
-import { readSshHosts } from "./ssh-hosts.ts";
 import { RemoteServers } from "./ssh-server.ts";
-import { stoppedAt } from "./stopped-at.ts";
+import { type StuckPageWatch, watchStuckPage } from "./stuck-pages.ts";
 
 // A data directory of its own, for trying the app without touching the user's.
 if (process.env.ULTRAPAINT_DESKTOP_USER_DATA) {
@@ -60,7 +65,7 @@ if (process.env.ULTRAPAINT_DESKTOP_USER_DATA) {
 
 /**
  * Chrome reads the stack of a script that holds a page's thread for a page that opts in, its
- * crash reports' proposed API; the editor's does, by the header `start` adds (`endStuckPages`).
+ * crash reports' proposed API; the editor's does, by the header `start` adds (`stuck-pages.ts`).
  */
 app.commandLine.appendSwitch(
   "enable-features",
@@ -97,10 +102,22 @@ const TRAFFIC_LIGHTS = { x: 22, y: 24 };
 /** Where the editor's content may begin past the buttons: their width (52px) and a gap. */
 const CONTROLS_INSET = TRAFFIC_LIGHTS.x + 52 + 12;
 
-const windowControls = (): WindowControlsInfo | null =>
-  ownTitleBar
-    ? { fullScreen: window?.isFullScreen() ?? false, inset: CONTROLS_INSET }
-    : null;
+/**
+ * What the window tells the page as it changes (the bridge's states), kept for a page that loads
+ * meanwhile: what the app is doing for the open project, and the window's buttons on a Mac.
+ */
+const states: BridgeStates = {
+  shellStatus: null,
+  ...(ownTitleBar
+    ? { windowControls: { fullScreen: false, inset: CONTROLS_INSET } }
+    : {}),
+};
+
+const tell = <K extends StateName>(name: K, value: StateValue<K>) => {
+  states[name] = value;
+  const { channel, value: encoded } = stateMessage(name, value);
+  window?.webContents.send(channel, encoded);
+};
 
 /**
  * The editor's build, served to the window under the app's own scheme for the pages that have no
@@ -154,8 +171,16 @@ const showView = (view: View) =>
     Effect.catchDefect(() => Effect.void)
   );
 
-/** What the app last told the window it is doing, for a page that loads meanwhile. */
-let shellStatus: ShellStatus | null = null;
+/** The native picker, over the window when there is one; nothing when it is cancelled. */
+const pickPath = (options: Electron.OpenDialogOptions) =>
+  Effect.promise(async () => {
+    const picked = window
+      ? await dialog.showOpenDialog(window, options)
+      : await dialog.showOpenDialog(options);
+    return Option.fromNullishOr(
+      picked.canceled ? undefined : picked.filePaths[0]
+    );
+  });
 
 const ElectronShell = Layer.succeed(
   Shell,
@@ -175,27 +200,16 @@ const ElectronShell = Layer.succeed(
           : await dialog.showMessageBox(options);
         return answer.response === 0;
       }),
-    pickFolder: (title) =>
-      Effect.promise(async () => {
-        const options = {
-          properties: ["openDirectory", "createDirectory"] as Array<
-            "openDirectory" | "createDirectory"
-          >,
-          title,
-        };
-        const picked = window
-          ? await dialog.showOpenDialog(window, options)
-          : await dialog.showOpenDialog(options);
-        return Option.fromNullishOr(
-          picked.canceled ? undefined : picked.filePaths[0]
-        );
+    pickFile: (title) =>
+      pickPath({ properties: ["openFile", "showHiddenFiles"], title }),
+    pickFolder: ({ defaultPath, title }) =>
+      pickPath({
+        ...(defaultPath ? { defaultPath } : {}),
+        properties: ["openDirectory", "createDirectory"],
+        title,
       }),
     show: showView,
-    status: (status) =>
-      Effect.sync(() => {
-        shellStatus = status;
-        window?.webContents.send(Channel.shellStatus, status);
-      }),
+    status: (status) => Effect.sync(() => tell("shellStatus", status)),
   })
 );
 
@@ -272,357 +286,78 @@ const runtime = ManagedRuntime.make(
   )
 );
 
-/** Whether a message comes from the app's own window. */
-const fromWindow = (event: IpcMainEvent) =>
-  window !== null && event.sender === window.webContents;
+/** Whether a message comes from the app's own window: only it may call the main process. */
+const fromWindow = (sender: WebContents) =>
+  window !== null && sender === window.webContents;
+
+/** The stuck-page watchdog of the window's page (`stuck-pages.ts`), while the window is open. */
+let watch: StuckPageWatch | null = null;
 
 /** What the preload script asks before the page loads: synchronous for the page. */
-ipcMain.on(Channel.shellInfo, (event) => {
-  const info: ShellInfo = {
-    remote: false,
-    status: null,
-    windowControls: windowControls(),
-  };
-  if (!fromWindow(event)) {
-    event.returnValue = info;
+ipcMain.on(INFO_CHANNEL, (event) => {
+  if (!fromWindow(event.sender)) {
+    event.returnValue = { shown: [] } satisfies BridgeInfo;
     return;
   }
   runtime
-    .runPromise(OpenProject.use((o) => o.current))
-    .then((current) => {
-      event.returnValue = {
-        remote: Option.isSome(current) && current.value.kind === "ssh",
-        status: shellStatus,
-        windowControls: windowControls(),
-      } satisfies ShellInfo;
-    })
-    .catch(() => {
-      event.returnValue = info;
+    .runPromise(remoteOpen)
+    .catch(() => false)
+    .then((remote) => {
+      event.returnValue = bridgeInfo(remote, states);
     });
 });
 
-/** Only the app's own window may call the main process. */
-const handle = <A>(
-  channel: string,
-  respond: (...args: unknown[]) => Promise<A>
-) =>
-  ipcMain.handle(channel, (event: IpcMainInvokeEvent, ...args: unknown[]) => {
-    if (!window || event.sender !== window.webContents) {
-      return Promise.reject(new Error("not the app's window"));
-    }
-    return respond(...args);
-  });
-
-handle(Channel.pickFolder, async (options) => {
-  const { defaultPath, title } = (options ?? {}) as PickFolderOptions;
-  if (!window) {
-    return null;
-  }
-  const picked = await dialog.showOpenDialog(window, {
-    ...(defaultPath ? { defaultPath } : {}),
-    properties: ["openDirectory", "createDirectory"],
-    title: title ?? "Choose a folder",
-  });
-  return picked.canceled ? null : (picked.filePaths[0] ?? null);
+serveBridge({
+  fromWindow,
+  handlers: bridgeHandlers({
+    home: app.getPath("home"),
+    sshConfig: sshConfig ?? path.join(app.getPath("home"), ".ssh", "config"),
+    stoppedAt: Effect.suspend(() => watch?.stoppedAt ?? Effect.succeed(null)),
+  }),
+  ipc: ipcMain,
+  remote: remoteOpen,
+  run: (effect) => runtime.runPromise(effect),
 });
-
-// What this machine lacks is no matter to a project whose server runs on another one.
-handle(Channel.notices, () =>
-  runtime.runPromise(
-    Effect.flatMap(
-      OpenProject.use((o) => o.current),
-      (current) =>
-        Option.isSome(current) && current.value.kind === "ssh"
-          ? Effect.succeed([])
-          : Notices.use((n) => n.list)
-    )
-  )
-);
-
-handle(Channel.agentsList, () =>
-  runtime.runPromise(Agents.use((a) => a.status))
-);
-
-/** A change to an agent's settings, applied by starting the project's server again. */
-const changeAgent = (id: unknown, executable: string | undefined) => {
-  const agent = String(id);
-  return runtime.runPromise(
-    Effect.gen(function* () {
-      if (!isAgentId(agent)) {
-        return;
-      }
-      yield* AgentSettings.use((s) =>
-        s.update(agent, (setting) => ({ ...setting, path: executable }))
-      );
-      yield* OpenProject.use((o) => o.restart);
-    })
-  );
-};
-
-handle(Channel.agentsChoosePath, async (id) => {
-  if (!window) {
-    return;
-  }
-  const picked = await dialog.showOpenDialog(window, {
-    properties: ["openFile", "showHiddenFiles"],
-    title: `Where is ${AGENTS[String(id) as AgentId]?.name ?? "the agent"}?`,
-  });
-  const [file] = picked.filePaths;
-  if (!picked.canceled && file) {
-    await changeAgent(id, file);
-  }
-});
-
-handle(Channel.agentsClearPath, (id) => changeAgent(id, undefined));
-
-/** Runs a change to an agent, then starts the project's server again to take it up. */
-const applyToAgent = <E>(
-  id: unknown,
-  change: (agent: AgentId) => Effect.Effect<unknown, E, Agents>
-) => {
-  const agent = String(id);
-  return runtime.runPromise(
-    isAgentId(agent)
-      ? Effect.andThen(
-          change(agent),
-          OpenProject.use((o) => o.restart)
-        )
-      : Effect.void
-  );
-};
-
-handle(Channel.agentsDownload, (id) =>
-  applyToAgent(id, (agent) => Agents.use((a) => a.download(agent)))
-);
-
-handle(Channel.agentsSetApiKey, (id, key) =>
-  applyToAgent(id, (agent) =>
-    Agents.use((a) =>
-      a.setApiKey(
-        agent,
-        typeof key === "string" && key.trim() ? key : undefined
-      )
-    )
-  )
-);
-
-// Codex keeps its sign-in itself: nothing to start again.
-handle(Channel.agentsSignIn, (id) => {
-  const agent = String(id);
-  return runtime.runPromise(
-    isAgentId(agent) ? Agents.use((a) => a.signIn(agent)) : Effect.void
-  );
-});
-
-handle(Channel.projectsList, () =>
-  runtime.runPromise(
-    Effect.map(
-      ProjectStore.use((store) => store.list),
-      (projects) =>
-        projects.map(
-          (p): ListedProject => ({
-            detail: projectDetail(p),
-            id: p.id,
-            name: p.name,
-          })
-        )
-    )
-  )
-);
-
-handle(Channel.projectsCurrent, () =>
-  runtime.runPromise(
-    Effect.map(
-      OpenProject.use((o) => o.current),
-      (current) => Option.getOrNull(current)?.id ?? null
-    )
-  )
-);
-
-handle(Channel.projectsOpen, (id) =>
-  runtime.runPromise(OpenProject.use((o) => o.open(String(id))))
-);
-
-handle(Channel.projectsAdd, () =>
-  runtime.runPromise(Effect.asVoid(OpenProject.use((o) => o.add)))
-);
-
-const RemoteRequest = Schema.Struct({
-  command: Schema.optional(Schema.String),
-  host: Schema.String,
-  path: Schema.String,
-});
-const decodeRemoteRequest = Schema.decodeUnknownEffect(RemoteRequest);
-
-/**
- * Adds a folder on another machine and opens it. What is wrong with the fields comes back to
- * the dialog; a project that does not open shows why on the welcome page, as any project does.
- */
-handle(Channel.projectsAddRemote, (request) =>
-  runtime.runPromise(
-    Effect.gen(function* () {
-      const fields = yield* decodeRemoteRequest(request);
-      const checked = remoteInputOf(fields);
-      if ("problem" in checked) {
-        return { problem: checked.problem };
-      }
-      yield* Effect.ignore(OpenProject.use((o) => o.addRemote(checked.input)));
-      return {};
-    })
-  )
-);
-
-handle(Channel.sshHosts, () =>
-  runtime.runPromise(
-    readSshHosts(
-      sshConfig ?? path.join(app.getPath("home"), ".ssh", "config"),
-      app.getPath("home")
-    )
-  )
-);
-
-const decodeNewDesign = Schema.decodeUnknownEffect(NewDesignRequest);
-
-handle(Channel.newDesignFolder, (name) =>
-  runtime.runPromise(NewDesigns.use((n) => n.folderFor(String(name ?? ""))))
-);
-
-/** Writes a new design, its steps sent to the window as they go, then opens it. */
-handle(Channel.newDesignCreate, (request) =>
-  runtime.runPromise(
-    Effect.flatMap(decodeNewDesign(request), (decoded) =>
-      NewDesigns.use((n) =>
-        n.create(decoded, (update: NewDesignUpdate) =>
-          Effect.sync(() =>
-            window?.webContents.send(Channel.newDesignProgress, update)
-          )
-        )
-      )
-    )
-  )
-);
-
-handle(Channel.newDesignOpen, (folder, name, template) =>
-  runtime.runPromise(
-    NewDesigns.use((n) =>
-      n.open(
-        String(folder),
-        String(name),
-        template === "starter" ? "starter" : "blank"
-      )
-    )
-  )
-);
 
 /** A folder named on the command line, after the app's own path in development. */
 const folderArgument = (argv: readonly string[]) =>
   argv.slice(app.isPackaged ? 1 : 2).find((arg) => !arg.startsWith("-"));
 
-/** How long the page's thread may be silent before the window asks whether it is stuck. */
-const SILENT_MS = 4000;
-/** How long a page that is not stuck takes at most to answer a script. */
-const ANSWER_MS = 1000;
-/** How long Chrome may take to read the stack of the script that holds a stuck page. */
-const STACK_MS = 500;
-/** A stack Chrome read, not why it could not (`Website owner has not opted in…`). */
-const STACK_RE = /^\s+at /m;
-
 const readModule = (url: string) =>
   net.fetch(url).then((response) => (response.ok ? response.text() : ""));
 
-/**
- * The repository's components run on the editor's thread (ADR 0034). The preview's server stops
- * the loops of the repository's own code at 2.5 s; what it cannot see (a dependency's loop, an
- * endless chain of promises) would stop the editor for good. The preload script beats every
- * 250 ms. A page silent for 4 s that does not answer a script either (a hidden window's timers
- * are slowed, its scripts are not) has its process ended and is loaded again. The watchdog wrote
- * down the frame it was drawing at 3 s, which the editor then shows without drawing it
- * (docs/PLAN-preview-sandbox.md, step 11). The process, not only the script: a page let go on
- * after its script is ended beats again before it is loaded again, and the watchdog takes it for a
- * page that was only slow. No dialog: there is nothing to decide, and Chrome's own comes later.
- *
- * Before it is ended, Chrome reads where its script is (`stopped-at.ts`), which the page loaded
- * again asks for once: the editor names the line on the frame it holds back and writes the stack
- * to the console.
- */
-const endStuckPages = (created: BrowserWindow) => {
+/** Watches the window's page for a script that holds it, until the window is closed. */
+const watchForStuckPages = (created: BrowserWindow) => {
   const contents = created.webContents;
-  let lastBeat = Date.now();
-  let watching = false;
-  // Watched from the new page's first beat, which its preload script sends before the page's
-  // own scripts run: a page can be stuck before it has finished loading.
-  contents.ipc.on(Channel.beat, () => {
-    lastBeat = Date.now();
-    watching = true;
-  });
-  contents.on("did-start-loading", () => {
-    watching = false;
-  });
-  /** The process was ended here: loaded again once it is gone, not before (it would be ignored). */
-  let ended = false;
-  contents.on("render-process-gone", () => {
-    if (ended) {
-      ended = false;
-      contents.reload();
-    }
-  });
-  /** Where the page was stuck when it was last ended, until the page loaded again asks. */
-  let stopped: Promise<StoppedAt> | null = null;
-  contents.ipc.handle(Channel.stoppedAt, () => {
-    const found = stopped;
-    stopped = null;
-    return found;
-  });
-  const end = async () => {
-    if (!watching || contents.isDestroyed()) {
-      return;
-    }
-    watching = false;
-    ended = true;
-    const time = Date.now();
-    const stack = await Promise.race([
-      contents.mainFrame.collectJavaScriptCallStack().catch(() => undefined),
-      new Promise<undefined>((resolve) => setTimeout(resolve, STACK_MS)),
-    ]);
-    if (typeof stack === "string" && STACK_RE.test(stack)) {
-      stopped = stoppedAt(stack, readModule, PREVIEW_BASE)
-        .catch(() => undefined)
-        .then((at) => ({ at, stack, time }));
-    }
-    if (!contents.isDestroyed()) {
-      contents.forcefullyCrashRenderer();
-    }
-  };
-  const check = async () => {
-    if (
-      !watching ||
-      contents.isDestroyed() ||
-      Date.now() - lastBeat < SILENT_MS
-    ) {
-      return;
-    }
-    const answered = await Promise.race([
-      contents.executeJavaScript("0", true).then(
-        () => true,
-        () => true
-      ),
-      new Promise<boolean>((resolve) =>
-        setTimeout(() => resolve(false), ANSWER_MS)
-      ),
-    ]);
-    if (answered) {
-      lastBeat = Date.now();
-    } else {
-      await end();
-    }
-  };
-  const timer = setInterval(() => {
-    check().catch(() => undefined);
-  }, 500);
-  created.on("closed", () => clearInterval(timer));
+  const scope = Scope.makeUnsafe();
+  const watched = Effect.runSync(
+    watchStuckPage(
+      {
+        answer: () => contents.executeJavaScript("0", true),
+        callStack: () =>
+          Promise.resolve(contents.mainFrame.collectJavaScriptCallStack()).then(
+            (stack) => (typeof stack === "string" ? stack : undefined)
+          ),
+        destroyed: () => contents.isDestroyed(),
+        end: () => contents.forcefullyCrashRenderer(),
+        reload: () => contents.reload(),
+      },
+      readModule
+    ).pipe(Scope.provide(scope))
+  );
+  watch = watched;
+  contents.ipc.on(BEAT_CHANNEL, () => Effect.runSync(watched.beat));
+  contents.on("did-start-loading", () => Effect.runSync(watched.loading));
+  contents.on("render-process-gone", () => Effect.runSync(watched.gone));
   // Chrome's own hang monitor, should it speak first.
   created.on("unresponsive", () => {
-    end().catch(() => undefined);
+    Effect.runFork(watched.unresponsive);
+  });
+  created.on("closed", () => {
+    if (watch === watched) {
+      watch = null;
+    }
+    Effect.runFork(Scope.close(scope, Exit.void));
   });
 };
 
@@ -662,21 +397,23 @@ const makeWindow = () => {
   created.on("closed", () => {
     window = null;
   });
-  endStuckPages(created);
+  watchForStuckPages(created);
   // Full screen draws no buttons: the title card takes their room back.
-  created.on("enter-full-screen", () =>
-    created.webContents.send(Channel.fullScreen, true)
-  );
-  created.on("leave-full-screen", () =>
-    created.webContents.send(Channel.fullScreen, false)
-  );
+  if (ownTitleBar) {
+    created.on("enter-full-screen", () =>
+      tell("windowControls", { fullScreen: true, inset: CONTROLS_INSET })
+    );
+    created.on("leave-full-screen", () =>
+      tell("windowControls", { fullScreen: false, inset: CONTROLS_INSET })
+    );
+  }
   return created;
 };
 
 const start = async () => {
   await app.whenReady();
   protocol.handle(APP_SCHEME, serveWeb);
-  // The editor's page lets Chrome read a stuck script's stack (`endStuckPages`).
+  // The editor's page lets Chrome read a stuck script's stack (`stuck-pages.ts`).
   session.defaultSession.webRequest.onHeadersReceived(
     { types: ["mainFrame"], urls: ["http://*/*", "https://*/*"] },
     ({ responseHeaders }, callback) =>

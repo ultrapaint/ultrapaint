@@ -87,8 +87,8 @@ const Welcome = () => {
             New design…
           </Button>
         ) : null}
-        {projects?.add ? (
-          <Button onClick={() => projects.add?.().catch(say)} variant="outline">
+        {projects ? (
+          <Button onClick={() => projects.add().catch(say)} variant="outline">
             <FolderPlus />
             Add a project folder…
           </Button>

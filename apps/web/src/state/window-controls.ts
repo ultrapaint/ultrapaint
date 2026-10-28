@@ -17,12 +17,13 @@ export interface WindowChrome {
 /** The window's buttons as they are now: none in full screen. */
 export const useWindowChrome = (): WindowChrome => {
   const controls = platform().windowControls;
+  // A boolean, which React compares by value: across the shell's bridge each read is a copy.
   const fullScreen = useSyncExternalStore(
     controls?.subscribe ?? never,
-    () => controls?.fullScreen() ?? false
+    () => controls?.current().fullScreen ?? false
   );
   if (!controls) {
     return { drag: false, inset: 0 };
   }
-  return { drag: true, inset: fullScreen ? 0 : controls.inset };
+  return { drag: true, inset: fullScreen ? 0 : controls.current().inset };
 };
