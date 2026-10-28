@@ -3,8 +3,13 @@ import type { DocumentState } from "@ultrapaint/contracts/document";
 import type { CanvasLayout, Page } from "@ultrapaint/contracts/pages";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi } from "../testing/fake-api.ts";
-import { useDocuments } from "./documents.ts";
-import { computeFrames, type Selection, useEditor } from "./editor.ts";
+import { useDocuments, viewFrameOf } from "./documents.ts";
+import {
+  computeFrames,
+  flushLayout,
+  type Selection,
+  useEditor,
+} from "./editor.ts";
 import { useProject } from "./project.ts";
 
 vi.mock(
@@ -98,8 +103,130 @@ describe("computeFrames", () => {
       y: 50,
     });
     // Past the right edge of the saved one, a gap apart, in page order.
-    expect(frames[home.id]).toMatchObject({ preset: "desktop", x: 1520, y: 0 });
-    expect(frames[draft.id]).toMatchObject({ x: 1520 + 1440 + 120 });
+    expect(frames[home.id]).toMatchObject({ preset: "desktop", x: 1480, y: 0 });
+    expect(frames[draft.id]).toMatchObject({ x: 1480 + 1440 + 80 });
+  });
+
+  it("draws a page's views as frames of their own, and lines the others past them", () => {
+    const frames = computeFrames(
+      [home, pricing],
+      layoutOf({
+        [pricing.path]: {
+          height: 500,
+          preset: "custom",
+          views: [{ height: 844, id: "w390", width: 390, x: 480, y: 0 }],
+          width: 400,
+          x: 1000,
+          y: 50,
+        },
+      })
+    );
+    expect(frames[viewFrameOf(pricing.id, "w390")]).toEqual({
+      height: 844,
+      preset: "custom",
+      width: 390,
+      x: 1480,
+      y: 50,
+    });
+    expect(frames[home.id]).toMatchObject({ x: 1480 + 390 + 80 });
+  });
+});
+
+describe("a page's views", () => {
+  const desktop = (x: number, y = 0) => ({
+    height: 900,
+    preset: "desktop" as const,
+    width: 1440,
+    x,
+    y,
+  });
+  const open = (frames: CanvasLayout["frames"]) =>
+    useEditor.setState({
+      frames: computeFrames([home, pricing], layoutOf(frames)),
+    });
+  const saved = async () => {
+    await flushLayout();
+    const call = fakeApi.calls.findLast((c) => c.method === "canvas.set");
+    return (call?.input as { frames: CanvasLayout["frames"] } | undefined)
+      ?.frames;
+  };
+
+  it("addView puts a view right of the page and its views, named by its width", async () => {
+    open({ [home.path]: desktop(0), [pricing.path]: desktop(0, 2000) });
+    const first = useEditor.getState().addView(home.id, 390);
+    const second = useEditor.getState().addView(home.id, 390, 600);
+    expect([first, second]).toEqual([
+      viewFrameOf(home.id, "w390"),
+      viewFrameOf(home.id, "w390-2"),
+    ]);
+    expect((await saved())?.[home.path]?.views).toEqual([
+      { height: 900, id: "w390", width: 390, x: 1520, y: 0 },
+      { height: 600, id: "w390-2", width: 390, x: 1520 + 390 + 80, y: 0 },
+    ]);
+  });
+
+  it("addView puts a view under the page when another page is to its right", () => {
+    open({ [home.path]: desktop(0), [pricing.path]: desktop(1520) });
+    useEditor.getState().addView(home.id, 768, 1024);
+    expect(useEditor.getState().frames[viewFrameOf(home.id, "w768")]).toEqual({
+      height: 1024,
+      preset: "custom",
+      width: 768,
+      x: 0,
+      y: 980,
+    });
+  });
+
+  it("addView on a frame the canvas does not have adds nothing", () => {
+    open({});
+    expect(useEditor.getState().addView("nowhere.page.json", 390)).toBeNull();
+  });
+
+  it("removeView takes the view out, and a selection in it to the page's frame", async () => {
+    open({
+      [home.path]: {
+        ...desktop(0),
+        views: [{ height: 844, id: "w390", width: 390, x: 1520, y: 0 }],
+      },
+    });
+    const view = viewFrameOf(home.id, "w390");
+    useEditor.getState().select({ frame: view, nodeId: "a" });
+    useEditor.getState().removeView(view);
+    const s = useEditor.getState();
+    expect(s.frames[view]).toBeUndefined();
+    expect(s.selection).toEqual({ frame: home.id, nodeId: "a" });
+    expect((await saved())?.[home.path]).not.toHaveProperty("views");
+  });
+});
+
+describe("applyLayout", () => {
+  const moved = layoutOf({
+    [home.path]: { height: 900, preset: "desktop", width: 1440, x: 300, y: 0 },
+  });
+
+  it("draws the open canvas's frames from a layout the server sent", () => {
+    useEditor.getState().applyLayout("main", moved);
+    const s = useEditor.getState();
+    expect(s.layout).toBe(moved);
+    expect(s.frames[home.id]).toMatchObject({ x: 300 });
+    // Pricing, saved nowhere, is the first page past Home.
+    expect(s.frames[pricing.id]).toMatchObject({ x: 300 + 1440 + 80 });
+  });
+
+  it("leaves the frames alone for another canvas, and while a change waits to be saved", async () => {
+    useEditor.getState().applyLayout("other", moved);
+    expect(useEditor.getState().frames).toEqual({});
+    useEditor.setState({ frames: computeFrames([home], layoutOf()) });
+    useEditor.getState().setFrame(home.id, {
+      height: 900,
+      preset: "desktop",
+      width: 1440,
+      x: 50,
+      y: 0,
+    });
+    useEditor.getState().applyLayout("main", moved);
+    expect(useEditor.getState().frames[home.id]).toMatchObject({ x: 50 });
+    await flushLayout();
   });
 });
 

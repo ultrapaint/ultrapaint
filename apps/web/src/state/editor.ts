@@ -1,3 +1,9 @@
+import {
+  type Box,
+  canvasFrames,
+  placeView,
+  viewIdFor,
+} from "@ultrapaint/contracts/canvas-layout";
 import type {
   CanvasLayout,
   FrameLayout,
@@ -5,7 +11,6 @@ import type {
   Page,
   ViewportPreset,
 } from "@ultrapaint/contracts/pages";
-import { presetSize } from "@ultrapaint/contracts/pages";
 import type { Rect } from "@ultrapaint/contracts/preview";
 import { create } from "zustand";
 import { sizeForPreset } from "../lib/presets.ts";
@@ -207,13 +212,7 @@ const sameRects = (
   );
 };
 
-/** A box on the canvas, in the canvas's own coordinates. */
-export interface Box {
-  height: number;
-  width: number;
-  x: number;
-  y: number;
-}
+export type { Box } from "@ultrapaint/contracts/canvas-layout";
 
 /** Draws a node on the canvas at `box` whatever its document says; without one, as it says. */
 export const hold = (frame: string, box: Partial<Box> | null) =>
@@ -287,9 +286,6 @@ const placeViews = (
   return out;
 };
 
-/** Room between a frame and the view beside it. */
-const VIEW_GAP = 80;
-
 /** The frames once `id`, a page's frame or one of its views, is `box`. */
 const framesWith = (
   frames: Record<string, FrameLayout>,
@@ -324,90 +320,28 @@ const framesWith = (
   return placeViews({ ...frames, [pageId]: { ...page, views } });
 };
 
-const overlaps = (a: Box, b: Box) =>
-  a.x < b.x + b.width + VIEW_GAP &&
-  b.x < a.x + a.width + VIEW_GAP &&
-  a.y < b.y + b.height + VIEW_GAP &&
-  b.y < a.y + a.height + VIEW_GAP;
+/** The pages' own frames, each with its views, without the views' own boxes. */
+const pageFrames = (
+  frames: Record<string, FrameLayout>
+): Record<string, FrameLayout> =>
+  Object.fromEntries(Object.entries(frames).filter(([id]) => !isViewFrame(id)));
 
 /**
- * Where a new view of a page goes, counted from its frame: to the right of the frame and of its
- * views; below them when another page is there, and further down until nothing is in the way.
+ * The pages' frames, by page id, where `canvas-layout` has the editor draw them: where the
+ * layout has them, the rest in a row to the right of them.
  */
-const freeSpotFor = (
-  frames: Record<string, FrameLayout>,
-  pageId: string,
-  size: { height: number; width: number }
-): { x: number; y: number } => {
-  const page = frames[pageId] as FrameLayout;
-  const own: Box[] = [
-    page,
-    ...(page.views ?? []).map((v) => ({
-      ...v,
-      x: page.x + v.x,
-      y: page.y + v.y,
-    })),
-  ];
-  const others = Object.entries(frames).flatMap(([id, f]) =>
-    pageOfFrame(id) === pageId ? [] : [f]
-  );
-  const blocking = (spot: Box) => others.filter((f) => overlaps(spot, f));
-  const right = Math.max(...own.map((f) => f.x + f.width)) + VIEW_GAP;
-  let box: Box = { ...size, x: right, y: page.y };
-  if (blocking(box).length === 0) {
-    return { x: box.x - page.x, y: 0 };
-  }
-  box = {
-    ...size,
-    x: page.x,
-    y: Math.max(...own.map((f) => f.y + f.height)) + VIEW_GAP,
-  };
-  for (let found = blocking(box); found.length > 0; found = blocking(box)) {
-    box = {
-      ...box,
-      y: Math.max(...found.map((f) => f.y + f.height)) + VIEW_GAP,
-    };
-  }
-  return { x: box.x - page.x, y: box.y - page.y };
-};
-
-/** A view's id: what its width is, told apart from the page's others. */
-const viewIdFor = (width: number, taken: readonly FrameView[]) => {
-  const base = `w${Math.round(width)}`;
-  let id = base;
-  for (let n = 2; taken.some((v) => v.id === id); n += 1) {
-    id = `${base}-${n}`;
-  }
-  return id;
-};
-
-/** The pages' frames: where the layout has them, the rest in a row to the right of them. */
 export const computeFrames = (
   pages: readonly Page[],
   layout: CanvasLayout
 ): Record<string, FrameLayout> => {
+  const byPath = canvasFrames(
+    pages.map((p) => p.path),
+    layout.frames
+  );
+  const idOf = new Map(pages.map((p) => [p.path, p.id]));
   const frames: Record<string, FrameLayout> = {};
-  let cursorX = 0;
-  for (const page of pages) {
-    const saved = layout.frames[page.path];
-    if (saved) {
-      frames[page.id] = saved;
-      cursorX = Math.max(cursorX, saved.x + saved.width + 120);
-    }
-  }
-  for (const page of pages) {
-    if (frames[page.id]) {
-      continue;
-    }
-    const size = presetSize.desktop;
-    frames[page.id] = {
-      height: size.height,
-      preset: "desktop",
-      width: size.width,
-      x: cursorX,
-      y: 0,
-    };
-    cursorX += size.width + 120;
+  for (const [path, frame] of Object.entries(byPath)) {
+    frames[idOf.get(path) ?? path] = frame;
   }
   return placeViews(frames);
 };
@@ -512,7 +446,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
     const size = { height: height ?? page.height, width: Math.round(width) };
     const view: FrameView = {
       ...size,
-      ...freeSpotFor(get().frames, pageId, size),
+      ...placeView(pageFrames(get().frames), pageId, size),
       id: viewIdFor(width, views),
     };
     get().setFrame(pageId, { ...page, views: [...views, view] });

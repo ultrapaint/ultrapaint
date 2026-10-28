@@ -4,6 +4,11 @@
  * sit. Each runs as one undo step and sends the editors the list it leaves.
  */
 
+import {
+  drawnFrame,
+  type FrameSize,
+  sizeFrame,
+} from "@ultrapaint/contracts/canvas-layout";
 import { BadRequest, Conflict, NotFound } from "@ultrapaint/contracts/errors";
 import {
   ASSETS_DIR,
@@ -524,12 +529,10 @@ export const makeCanvasOperations = (
   const setFrame = Effect.fn("PagesService.setFrame")(function* (
     canvas: string,
     pagePath: string,
-    frame: (
-      before: FrameLayout | undefined,
-      frames: CanvasLayout["frames"]
-    ) => FrameLayout
+    size: FrameSize
   ) {
-    const page = (yield* list).pages.find(
+    const all = yield* list;
+    const page = all.pages.find(
       (p) => p.canvas === canvas && p.path === pagePath
     );
     if (!page) {
@@ -537,11 +540,18 @@ export const makeCanvasOperations = (
         message: `page not found: ${pagePath}`,
       });
     }
+    const drawn = all.pages
+      .filter((p) => p.canvas === canvas)
+      .map((p) => p.path);
     return yield* edit.transaction(`Size ${page.name}`, (tx) =>
       Effect.gen(function* () {
-        // The layout as it is now, so nothing written since is put back.
+        // The layout as it is now, so nothing written since is put back. A page with no frame
+        // saved yet is sized where the editor draws it.
         const layout = yield* readCanvas(canvas);
-        const next = frame(layout.frames[pagePath], layout.frames);
+        const next = sizeFrame(
+          drawnFrame(drawn, layout.frames, pagePath),
+          size
+        );
         yield* tx.write(
           yield* canvasFile(canvas),
           renderCanvas({

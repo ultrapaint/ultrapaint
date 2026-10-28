@@ -5,12 +5,7 @@
  */
 
 import { Json } from "@ultrapaint/contracts/base";
-import {
-  type FrameLayout,
-  type FrameView,
-  presetSize,
-} from "@ultrapaint/contracts/pages";
-import { basePathOf } from "@ultrapaint/shared/route";
+import { familyOf } from "@ultrapaint/contracts/canvas-layout";
 import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
 import { PagesService } from "../pages.ts";
@@ -75,42 +70,6 @@ export const ListPages = Tool.make("list_pages", {
   failure: Failure,
   success: Schema.Struct({ pages: Schema.Array(PageSummary) }),
 }).annotate(Tool.Readonly, true);
-
-/**
- * A page's views at these widths (ADR 0036), side by side to the right of its frame: one it had
- * at a width keeps its id and its height, a new one is as tall as the frame.
- */
-const viewsAt = (
-  widths: readonly number[],
-  before: readonly FrameView[],
-  frameWidth: number,
-  frameHeight: number
-): FrameView[] => {
-  let x = frameWidth;
-  const taken = new Set<string>();
-  return widths.map((width) => {
-    const rounded = Math.round(width);
-    const had = before.find((v) => v.width === rounded && !taken.has(v.id));
-    let id = had?.id ?? `w${rounded}`;
-    for (let n = 2; !had && taken.has(id); n += 1) {
-      id = `w${rounded}-${n}`;
-    }
-    taken.add(id);
-    x += VIEW_GAP;
-    const view: FrameView = {
-      height: had?.height ?? frameHeight,
-      id,
-      width: rounded,
-      x,
-      y: 0,
-    };
-    x += rounded;
-    return view;
-  });
-};
-
-/** Room between a page's frame and its views. */
-const VIEW_GAP = 80;
 
 export const SetFrame = Tool.make("set_frame", {
   description:
@@ -264,15 +223,10 @@ export const pageToolHandlers = Effect.gen(function* () {
     }) {
       const page = yield* pageAt(route, canvas);
       const { pages } = yield* reported(pagesOf);
-      // What goes with it, as the editor deletes it: a base page's variants.
+      // What goes with it, as the editor deletes it: a base page's variants and states.
       const variants =
-        page.variant === undefined
-          ? pages.filter(
-              (p) =>
-                p.canvas === page.canvas &&
-                p.id !== page.id &&
-                basePathOf(p.path) === page.path
-            )
+        page.variant === undefined && page.state === undefined
+          ? familyOf(pages, page).filter((p) => p.id !== page.id)
           : [];
       yield* pagesService((service) => service.delete(page.id));
       return { deleted: [page.file, ...variants.map((p) => p.file)] };
@@ -349,41 +303,17 @@ export const pageToolHandlers = Effect.gen(function* () {
       width,
     }) {
       const page = yield* pageAt(route, canvas);
-      // Worked out from the layout as it is when the frame is written, and that frame alone
+      // Sized from the layout as it is when the frame is written, and that frame alone
       // written: the others may have moved since the agent last looked.
-      const sized = (
-        before: FrameLayout | undefined,
-        frames: Readonly<Record<string, FrameLayout>>
-      ): FrameLayout => {
-        const size = preset
-          ? presetSize[preset]
-          : (before ?? presetSize.desktop);
-        // A page with no frame saved yet goes to the right of the others.
-        const right = Math.max(
-          0,
-          ...Object.values(frames).map((f) => f.x + f.width + 120)
-        );
-        const frameHeight = height ?? size.height;
-        const frameWidth = width ?? size.width;
-        const kept = views
-          ? viewsAt(views, before?.views ?? [], frameWidth, frameHeight)
-          : before?.views;
-        return {
-          height: frameHeight,
-          preset:
-            width === undefined && height === undefined && preset
-              ? preset
-              : "custom",
-          ...(kept && kept.length > 0 && { views: kept }),
-          width: frameWidth,
-          x: before?.x ?? right,
-          y: before?.y ?? 0,
-        };
-      };
       const frame = yield* reported(
         project.use(
           Effect.flatMap(PagesService, (pages) =>
-            pages.setFrame(page.canvas, page.path, sized)
+            pages.setFrame(page.canvas, page.path, {
+              height,
+              preset,
+              views,
+              width,
+            })
           )
         )
       );

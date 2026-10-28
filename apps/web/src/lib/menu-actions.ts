@@ -4,12 +4,13 @@
  * action bound to the target; `runMenuAction` does what an action says, one case for each. What
  * the menus hold is `menu-model.ts`'s.
  */
+
 import type { JsonValue } from "@ultrapaint/contracts/base";
+import { familyOf } from "@ultrapaint/contracts/canvas-layout";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { isBusy } from "@ultrapaint/contracts/threads";
 import { attachTextStyle } from "@ultrapaint/design-document/text-styles";
 import { tokenRef } from "@ultrapaint/design-document/tokens";
-import { basePathOf } from "@ultrapaint/shared/route";
 import { toast } from "sonner";
 import { canvasPoint } from "../canvas/drag.ts";
 import { frameOf } from "../canvas/editor-frame.ts";
@@ -217,10 +218,7 @@ const pageMenu = (pageId: string) => {
   }
   const { canvases, pages } = useProject.getState();
   // The page's drawings so far: the same screen in the same canvas.
-  const drawings = pages.filter(
-    (p) =>
-      p.canvas === page.canvas && basePathOf(p.path) === basePathOf(page.path)
-  );
+  const drawings = familyOf(pages, page);
   const drawn = new Set(drawings.flatMap((p) => p.variant ?? []));
   const stated = new Set(drawings.flatMap((p) => p.state ?? []));
   const canvas = canvases.find((c) => c.id === page.canvas);

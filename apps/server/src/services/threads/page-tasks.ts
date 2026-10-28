@@ -3,6 +3,7 @@
  * application's code, link pages built already to their code, an uploaded Figma file as pages, a
  * canvas redrawn another way, and a sheet of the design system into a canvas.
  */
+import { familyOf } from "@ultrapaint/contracts/canvas-layout";
 import type { TextStyle } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import {
@@ -23,7 +24,6 @@ import type {
   RedrawTask,
 } from "@ultrapaint/contracts/tasks";
 import { walk } from "@ultrapaint/design-document/tree";
-import { basePathOf } from "@ultrapaint/shared/route";
 import { plural } from "@ultrapaint/shared/text";
 import { Effect } from "effect";
 import { ProjectManager } from "../../project.ts";
@@ -386,13 +386,8 @@ ${used.map(waitingLine).join("\n")}
     const styles = designSystem?.typography.styles ?? [];
     const notes = yield* (yield* ImplementationService).notes(page);
     const before = yield* since(page.id);
-    const base = basePathOf(page.path);
-    const states = pages.filter(
-      (p) =>
-        p.canvas === page.canvas &&
-        p.state !== undefined &&
-        basePathOf(p.path) === base &&
-        p.id !== page.id
+    const states = familyOf(pages, page).filter(
+      (p) => p.state !== undefined && p.id !== page.id
     );
     const owned = specs.filter(
       (s) => usedComponents(state?.root).has(s.component) && s.look === "design"

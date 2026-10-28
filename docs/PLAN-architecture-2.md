@@ -106,3 +106,33 @@ unless the step says otherwise.
    calling thread's event) are called without a socket. The same calls through the harness take
    about 720 ms with its server and project up, in-process about 420 ms; a call once the project
    is open takes tens of milliseconds either way. The 23 harness test files stay as they are.
+2. **Canvas layout** (`packages/contracts/src/canvas-layout.ts`, in contracts beside the frame
+   types, which now depends on shared for `basePathOf`). `FRAME_GAP`, `boxesOf`, `frameRight`
+   and `frameBottom` (a frame with its views), `placeFrame` (a new frame at the top, past every
+   frame and its views), `canvasFrames` and `drawnFrame` (every page's frame as the editor draws
+   it: the saved one, else the desktop's size in a row past the saved ones, in the pages'
+   order), `sizeFrame` and `FrameSize` (a preset, pixels and the widths of its views),
+   `viewsAt`, `viewIdFor` (`w390`, then `w390-2`), `placeView` (right of the page and its
+   views, else below them and down past whatever is in the way) and `familyOf` (the base page
+   with its variants and states). The server's new page, duplicate, variant and state, the
+   `set_frame` and `delete_page` tools, the implement task's states, the editor's
+   `computeFrames` and `addView`, and the page menu's drawings call it; `pages-layout`'s and
+   `page-tools`' copies and the editor's `freeSpotFor`, `viewIdFor` and gap go.
+   `PagesService.setFrame(canvas, page, size)` takes a `FrameSize` and sizes the frame where it
+   is, or where the editor draws it when none is saved, rather than running the tool's layout
+   callback. One gap, 80: every placement on the server and both views' gaps used it; 120 was
+   only the editor's row of unplaced pages and `set_frame`'s frame for one, kept equal so the
+   tool sized an unplaced page where the editor drew it, and both now read `canvasFrames`. An
+   unplaced page is drawn 40 px closer to the one before it; nothing saved moves. Also: a new
+   page's frame (`write_figma_frame`) and a page sized by `set_frame` with no frame saved
+   landed on the rightmost page's views, and now go past them; `set_frame` puts such a page
+   where the editor draws it (it took the first unplaced page's place, however many came
+   before); the editor's row of unplaced pages starts past the saved pages' views; `set_frame`
+   with only `views` keeps the frame's preset (it made it custom). `canvas-layout.test.ts` has
+   30 table tests (extents, `placeFrame` on four canvases and never on a frame or view of a
+   scattered one, `canvasFrames`, `drawnFrame`, `sizeFrame`, view names and ids kept, three
+   `placeView` cases, the family of a base, a variant, a state and a page in a folder);
+   `project-services.test.ts` has 2 failing-first tests through `ProjectTest` (`createWith` and
+   `set_frame` past Home's view); `editor.test.ts` has 7 more (views in `computeFrames`,
+   `addView` beside, numbered and below, on no frame, `removeView` with its selection,
+   `applyLayout` for the open canvas, another and while a save waits).

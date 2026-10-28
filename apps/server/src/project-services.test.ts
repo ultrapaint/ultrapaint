@@ -1,6 +1,8 @@
 import path from "node:path";
 import { assert, describe, layer } from "@effect/vitest";
+import type { CanvasLayout } from "@ultrapaint/contracts/pages";
 import { allTokens } from "@ultrapaint/contracts/token-table";
+import { renderTemplate } from "@ultrapaint/design-document/factories";
 import { Effect, Fiber, FileSystem, Option, Stream } from "effect";
 import { EventBus } from "./events.ts";
 import { ProjectManager } from "./project.ts";
@@ -14,6 +16,21 @@ const THEME = `@theme {
   --color-ink: #111827;
 }
 `;
+
+/** A canvas whose Home page has a frame at the origin and a phone's view beside it. */
+const HOME_WITH_A_VIEW: CanvasLayout = {
+  frames: {
+    "home.page.json": {
+      height: 900,
+      preset: "desktop",
+      views: [{ height: 844, id: "w390", width: 390, x: 1520, y: 0 }],
+      width: 1440,
+      x: 0,
+      y: 0,
+    },
+  },
+  version: 1,
+};
 
 const pages = <A, E>(
   f: (service: PagesService["Service"]) => Effect.Effect<A, E>
@@ -137,6 +154,71 @@ describe("a project in-process", () => {
               path.join(repo, "designs/design.tokens.json")
             ),
             "#333333"
+          );
+        })
+    );
+  });
+
+  // Each on a project of its own: the frames one test makes would be in the other's way.
+  const withHomeView = () =>
+    ProjectTest({
+      files: { "designs/canvas.json": JSON.stringify(HOME_WITH_A_VIEW) },
+    });
+  const framesNow = pages((p) => p.readCanvas("")).pipe(
+    Effect.map((layout) => layout.frames)
+  );
+
+  layer(withHomeView(), { excludeTestServices: true })((it) => {
+    it.effect("places a new page's frame past the other pages' views", () =>
+      Effect.gen(function* () {
+        yield* pages((p) =>
+          p.createWith(
+            "",
+            { name: "Login" },
+            renderTemplate("blank", "Login"),
+            { height: 600, width: 400 }
+          )
+        );
+        // Home's view ends at 1520 + 390: the new frame starts a gap past it.
+        assert.deepStrictEqual((yield* framesNow)["login.page.json"], {
+          height: 600,
+          preset: "custom",
+          width: 400,
+          x: 1520 + 390 + 80,
+          y: 0,
+        });
+      })
+    );
+  });
+
+  layer(withHomeView(), { excludeTestServices: true })((it) => {
+    it.effect(
+      "sizes a page with no frame where the editor draws it, its views beside it",
+      () =>
+        Effect.gen(function* () {
+          yield* pages((p) => p.create("", { name: "Plans" }, "blank"));
+          const sized = yield* callTool(EditorTools, "set_frame", {
+            route: "plans.page.json",
+            views: [390],
+          });
+          assert.deepStrictEqual(sized, {
+            file: "designs/plans.page.json",
+            height: 900,
+            width: 1440,
+          });
+          const frames = yield* framesNow;
+          assert.deepStrictEqual(frames["plans.page.json"], {
+            height: 900,
+            preset: "desktop",
+            views: [{ height: 900, id: "w390", width: 390, x: 1520, y: 0 }],
+            width: 1440,
+            x: 1520 + 390 + 80,
+            y: 0,
+          });
+          // Home's frame and its view are left as they were.
+          assert.deepStrictEqual(
+            frames["home.page.json"],
+            HOME_WITH_A_VIEW.frames["home.page.json"]
           );
         })
     );
