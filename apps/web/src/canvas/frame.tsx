@@ -115,6 +115,20 @@ interface Props {
   visible: boolean;
 }
 
+/**
+ * The nodes whose rects a frame reports (hover, selection, agents' work; null for none), told
+ * when they change: the frame measures them again whenever it draws.
+ */
+const useWatchedRects = (
+  frameId: string,
+  nodeIds: readonly (string | null)[]
+) => {
+  const watched = nodeIds.filter((id) => id !== null).join(" ");
+  useEffect(() => {
+    frameOf(frameId).watchRects(watched === "" ? [] : watched.split(" "));
+  }, [frameId, watched]);
+};
+
 export const Frame = memo(
   ({ frameId, kind, page, frame, visible, onDragStart }: Props) => {
     const preview = usePreview();
@@ -190,20 +204,11 @@ export const Frame = memo(
     // What agents are changing here: outlined on the canvas, skeletons in the preview.
     const work = useFrameWork(frameId);
     useSkeletons(frameId, work.skeletons);
-    const workIds = work.pieces.flatMap((p) => p.nodeIds).join(" ");
-
-    // Rect watching for hover, selection and agents' work; sent again whenever the document
-    // changes.
-    // biome-ignore lint/correctness/useExhaustiveDependencies: `root` is there to send it again.
-    useEffect(() => {
-      const ids: string[] = [];
-      ids.push(...selectedHere);
-      if (hoverHere !== null) {
-        ids.push(hoverHere);
-      }
-      ids.push(...(workIds === "" ? [] : workIds.split(" ")));
-      frameOf(frameId).watchRects(ids);
-    }, [frameId, selectedHere, hoverHere, root, workIds]);
+    useWatchedRects(frameId, [
+      ...selectedHere,
+      hoverHere,
+      ...work.pieces.flatMap((p) => p.nodeIds),
+    ]);
 
     const {
       marquee,

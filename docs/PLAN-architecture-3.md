@@ -1048,3 +1048,14 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
    `frame.test.ts` has 1 test more: a frame mounted after an error is told it once as the dev
    server's, and one mounted after the next update is told nothing; it failed first. The file's
    tests end with an update, so an error one leaves is no other's.
+10. **The canvas's rect watching, said by what it watches** (`apps/web/src/canvas/frame.tsx`).
+    The effect that tells a frame which nodes to measure (the selection, the hovered node, the
+    agents' work) is `useWatchedRects`, which depends on those nodes' ids, joined, and nothing
+    else: its `biome-ignore`d
+    list, which had the page's document in it to send the same nodes again on every change of
+    the document, goes. The frame measures what it watches again whenever it draws (preview-core
+    schedules its rects on each render, sending them when they changed), so a change of the
+    document still moves the outlines; it no longer resets what the frame last sent and makes it
+    send the same rects again, and a selection given again as a new array with the same nodes
+    sends nothing. No test: the effect is the canvas's wiring, and what the frame measures on a
+    render is preview-core's, tested there.
