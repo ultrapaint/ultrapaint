@@ -29,7 +29,7 @@ import {
   specNote,
   specNotes,
 } from "./implementation.ts";
-import { designTargetNamed } from "./page-names.ts";
+import { designTargetNamed, listedAs, pageMissed } from "./page-names.ts";
 import { PagesService } from "./pages.ts";
 import { SpecService } from "./specs.ts";
 
@@ -41,22 +41,6 @@ export type DesignTarget =
 /** The target the link to the code keys a design by: a page's id, or `spec:<Component>`. */
 export const targetId = (target: DesignTarget) =>
   target._tag === "Spec" ? specTarget(target.spec.component) : target.page.id;
-
-/** A page as a list shows it: its name, its URL or that it has none, its file. */
-export const pageEntry = (page: {
-  readonly file: string;
-  readonly name: string;
-  readonly route?: string | undefined;
-  readonly variant?: string | undefined;
-}) =>
-  `${page.name}${page.variant ? ` (variant ${page.variant})` : ""}, ${page.route ?? "no URL"}: ${page.file}`;
-
-const quoted = (id: string) => JSON.stringify(id);
-
-const listed = (lines: readonly string[], kind: string) =>
-  lines.length > 0
-    ? `the ${kind} are:\n${lines.map((line) => `- ${line}`).join("\n")}`
-    : `there are no ${kind}`;
 
 export class DesignTargets extends Context.Service<
   DesignTargets,
@@ -104,10 +88,9 @@ export class DesignTargets extends Context.Service<
         if (named._tag === "Page" || named._tag === "Spec") {
           return named satisfies DesignTarget;
         }
-        const allPages = listed(pages.map(pageEntry), "pages");
         if (named._tag === "Ambiguous") {
           return yield* new BadRequest({
-            message: `${name} is a page in several canvases (${named.canvases.map(quoted).join(", ")}); ${allPages}`,
+            message: pageMissed(pages, named, name),
           });
         }
         const where = name.trim();
@@ -116,16 +99,14 @@ export class DesignTargets extends Context.Service<
             ? ""
             : " (a page is named by its URL or its file)";
           return yield* new NotFound({
-            message: `no component spec is ${where}${bare}; ${listed(
+            message: `no component spec is ${where}${bare}; ${listedAs(
               specs.map((s) => s.component),
               "component specs"
             )}`,
           });
         }
-        const inCanvas =
-          canvas === undefined ? "" : ` in canvas ${quoted(canvas)}`;
         return yield* new NotFound({
-          message: `${where === "" ? "it did not say which page" : `no page is ${where}${inCanvas}`}; ${allPages}`,
+          message: pageMissed(pages, named, name, canvas),
         });
       });
 

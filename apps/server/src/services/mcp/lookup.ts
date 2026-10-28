@@ -1,8 +1,7 @@
-import { parseNodeRef } from "@ultrapaint/shared/node-ref";
 import { Effect } from "effect";
 import { ProjectManager } from "../../project.ts";
 import { DocumentService } from "../documents.ts";
-import { pageNamed } from "../page-names.ts";
+import { pageMissed, pageTargetNamed } from "../page-names.ts";
 import { PagesService } from "../pages.ts";
 import { missing, reported } from "./tool-helpers.ts";
 
@@ -43,37 +42,25 @@ export const makeLookup = Effect.gen(function* () {
   /**
    * A page by URL or by file (repository-relative, designs-relative or inside its canvas), in the
    * canvas named, or in the only canvas that has it, by the one rule for page names
-   * (`page-names.ts`). A node reference (`/orders#c_1`,
-   * `marketing:/pricing#c_1`, `drafts.page.json#c_1`) names its page as well.
+   * (`pageTargetNamed`): a canvas written first (`marketing:/pricing`) and a node reference
+   * (`/orders#c_1`, `marketing:/pricing#c_1`, `drafts.page.json#c_1`) name their page as well.
+   * A miss says it as a design target's does, the pages listed.
    */
   const pageAt = Effect.fnUntraced(function* (
     given: string,
-    givenCanvas: string | undefined
+    canvas: string | undefined
   ) {
-    const ref = parseNodeRef(given);
-    if (ref && ref.page === null) {
+    const { pages } = yield* reported(pagesOf);
+    const named = pageTargetNamed(pages, given, canvas);
+    if (named._tag === "Page") {
+      return named.page;
+    }
+    if (named._tag === "Loose") {
       return yield* missing(
         `${given} is a node on the canvas beside the pages; pass \`loose: true\` instead of a page`
       );
     }
-    const where = (ref?.page ?? given).trim();
-    const canvas = givenCanvas ?? ref?.canvas;
-    const { pages } = yield* reported(pagesOf);
-    const named = pageNamed(pages, where, canvas);
-    if (named._tag === "Found") {
-      return named.page;
-    }
-    if (named._tag === "Ambiguous") {
-      return yield* missing(
-        `${where} is a page in several canvases (${named.canvases.map(quoted).join(", ")}); say which with \`canvas\``
-      );
-    }
-    const inCanvas = canvas === undefined ? "" : ` in canvas ${quoted(canvas)}`;
-    return yield* missing(
-      named.route === null
-        ? `no page file ${where}${inCanvas}; call list_pages to see the pages`
-        : `no page serves ${named.route}${inCanvas}; call list_pages to see the pages and their URLs (a page without a URL is named by its file)`
-    );
+    return yield* missing(pageMissed(pages, named, given, canvas));
   });
 
   const documents = <A, E extends { readonly message: string }>(

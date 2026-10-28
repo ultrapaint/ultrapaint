@@ -3,6 +3,7 @@ import {
   designTargetNamed,
   type NamedPage,
   pageNamed,
+  pageTargetNamed,
 } from "./services/page-names.ts";
 
 const page = (
@@ -151,5 +152,26 @@ describe("designTargetNamed", () => {
       _tag: "Page",
       page: { canvas: "marketing" },
     });
+  });
+});
+
+describe("pageTargetNamed", () => {
+  const marketing = page("marketing", "pricing.page.json", {
+    route: "/pricing",
+  });
+  const pages = [home, orders, sketch, marketing];
+
+  /** A page as a tool names it: a bare name is a page's too, never a spec. */
+  it.each([
+    ["marketing:/pricing", { _tag: "Page", page: marketing }],
+    ["marketing:pricing.page.json", { _tag: "Page", page: marketing }],
+    ["orders.page.json", { _tag: "Page", page: orders }],
+    [orders.id, { _tag: "Page", page: orders }],
+    ["/orders#c_8", { _tag: "Page", nodeId: "c_8", page: orders }],
+    ["canvas#c_1", { _tag: "Loose", nodeId: "c_1" }],
+    ["Button", { _tag: "Missing", route: null }],
+    ["marketing:/nowhere", { _tag: "Missing", route: "/nowhere" }],
+  ] as const)("names %j as %j", (name, expected) => {
+    expect(pageTargetNamed(pages, name)).toEqual(expected);
   });
 });

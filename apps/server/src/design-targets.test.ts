@@ -153,4 +153,49 @@ describe("a design target, named once", () => {
       })
     );
   });
+
+  layer(ProjectTest(), { excludeTestServices: true })((it) => {
+    it.effect("names a page for the other tools by the same rule", () =>
+      Effect.gen(function* () {
+        const { id } = yield* callTool(EditorTools, "create_canvas", {
+          name: "Marketing",
+        });
+        yield* callTool(EditorTools, "create_page", {
+          canvas: id,
+          name: "Pricing",
+          route: "/pricing",
+        });
+        // A canvas written first, as a node reference has it, without a node.
+        const read = yield* callTool(EditorTools, "read_page", {
+          route: `${id}:/pricing`,
+        });
+        assert.strictEqual(read.file, `designs/${id}/pricing.page.json`);
+        const miss = (route: string, canvas?: string) =>
+          Effect.map(
+            Effect.flip(
+              callTool(EditorTools, "read_page", {
+                route,
+                ...(canvas === undefined ? {} : { canvas }),
+              })
+            ),
+            ({ message }) => message
+          );
+        const pages = `the pages are:\n- Home, /home: designs/home.page.json\n- Pricing, /pricing: designs/${id}/pricing.page.json`;
+        assert.strictEqual(
+          yield* miss("/nowhere"),
+          `no page is /nowhere; ${pages}`
+        );
+        assert.strictEqual(
+          yield* miss("/home", id),
+          `no page is /home in canvas "${id}"; ${pages}`
+        );
+        assert.strictEqual(
+          yield* miss("nowhere.page.json"),
+          `no page is nowhere.page.json; ${pages}`
+        );
+        // A node beside the pages is no page: the tools take it with loose.
+        assert.include(yield* miss("canvas#c_1"), "pass `loose: true`");
+      })
+    );
+  });
 });
