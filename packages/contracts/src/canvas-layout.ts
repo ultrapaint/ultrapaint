@@ -47,6 +47,13 @@ export const frameRight = (frame: FrameLayout) =>
 export const frameBottom = (frame: FrameLayout) =>
   Math.max(...boxesOf(frame).map((b) => b.y + b.height));
 
+/** Whether two boxes are closer than the gap: one placed there would crowd the other. */
+const crowds = (a: Box, b: Box) =>
+  a.x < b.x + b.width + FRAME_GAP &&
+  b.x < a.x + a.width + FRAME_GAP &&
+  a.y < b.y + b.height + FRAME_GAP &&
+  b.y < a.y + a.height + FRAME_GAP;
+
 /**
  * A new frame on a canvas: at the top, to the right of every frame and its views, so it lands on
  * none. The first is at the origin.
@@ -59,6 +66,22 @@ export const placeFrame = (
   const x =
     placed.length === 0 ? 0 : Math.max(...placed.map(frameRight)) + FRAME_GAP;
   return { ...frame, x, y: 0 };
+};
+
+/**
+ * A frame at the spot it asks for, by a page it is drawn from (a copy beside its page, a variant
+ * under it, a state across from it), when neither it nor its views crowd a frame or view there;
+ * else where `placeFrame` puts a new frame, past everything.
+ */
+export const placeFrameAt = (
+  frames: Frames,
+  frame: FrameLayout
+): FrameLayout => {
+  const others = Object.values(frames).flatMap(boxesOf);
+  const crowded = boxesOf(frame).some((box) =>
+    others.some((other) => crowds(box, other))
+  );
+  return crowded ? placeFrame(frames, frame) : frame;
 };
 
 /**
@@ -170,13 +193,6 @@ export const viewsAt = (
   }
   return views;
 };
-
-/** Whether two boxes are closer than the gap: one placed there would crowd the other. */
-const crowds = (a: Box, b: Box) =>
-  a.x < b.x + b.width + FRAME_GAP &&
-  b.x < a.x + a.width + FRAME_GAP &&
-  a.y < b.y + b.height + FRAME_GAP &&
-  b.y < a.y + a.height + FRAME_GAP;
 
 /**
  * Where a new view of a page goes, counted from its frame: to the right of the frame and of its

@@ -10,6 +10,7 @@ import {
   frameBottom,
   frameRight,
   placeFrame,
+  placeFrameAt,
 } from "@ultrapaint/contracts/canvas-layout";
 import type { Comment } from "@ultrapaint/contracts/comments";
 import type { PageDocument } from "@ultrapaint/contracts/document";
@@ -325,13 +326,14 @@ export const makePageOperations = (
         yield* updateRoutes(tx, all, page.canvas, (routes) => routes);
         yield* updateFrames(tx, page.canvas, (frames) => {
           const frame = frames[page.path];
+          // Beside its page, unless another page or its views are there.
           return frame
             ? {
                 ...frames,
-                [copyPath]: {
+                [copyPath]: placeFrameAt(frames, {
                   ...frame,
                   x: frameRight(frame) + FRAME_GAP,
-                },
+                }),
               }
             : null;
         });
@@ -370,6 +372,7 @@ export const makePageOperations = (
           const listed = layout.variants ?? [];
           const frame = layout.frames[page.path] ?? layout.frames[basePath];
           // Under the lowest frame of the page's column: a variant reads down from its base.
+          // Past everything when another page or its views are there.
           const below = frame
             ? Math.max(
                 ...Object.values(layout.frames)
@@ -380,7 +383,13 @@ export const makePageOperations = (
           return {
             ...layout,
             frames: frame
-              ? { ...layout.frames, [variantPath]: { ...frame, y: below } }
+              ? {
+                  ...layout.frames,
+                  [variantPath]: placeFrameAt(layout.frames, {
+                    ...frame,
+                    y: below,
+                  }),
+                }
               : layout.frames,
             variants: listed.includes(name) ? listed : [...listed, name],
           };
@@ -393,8 +402,9 @@ export const makePageOperations = (
 
   /**
    * The page drawn again in a state (ADR 0030): a copy of the base page in the state's file,
-   * its frame to the right of the page's row, the state listed in the canvas's `states`. A name
-   * the canvas uses for a variant is refused: a file is one or the other.
+   * its frame to the right of the page's row (past everything when that is taken), the state
+   * listed in the canvas's `states`. A name the canvas uses for a variant is refused: a file is
+   * one or the other.
    */
   const createState = Effect.fn("PagesService.createState")(function* (
     id: string,
@@ -434,6 +444,7 @@ export const makePageOperations = (
           const listed = current.states ?? [];
           const frame = current.frames[basePath];
           // To the right of everything on the page's row: a state reads across from its base.
+          // Past everything when another page or its views are there.
           const right = frame
             ? Math.max(
                 ...Object.values(current.frames)
@@ -444,7 +455,13 @@ export const makePageOperations = (
           return {
             ...current,
             frames: frame
-              ? { ...current.frames, [statePath]: { ...frame, x: right } }
+              ? {
+                  ...current.frames,
+                  [statePath]: placeFrameAt(current.frames, {
+                    ...frame,
+                    x: right,
+                  }),
+                }
               : current.frames,
             states: listed.includes(name) ? listed : [...listed, name],
           };

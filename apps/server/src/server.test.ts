@@ -1088,6 +1088,21 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
       () =>
         Effect.gen(function* () {
           const { client } = yield* TestEnv;
+          // Log in, left on Home by the tests before, goes beside it: under Home is free.
+          const before = yield* client["canvas.get"]({ canvas: "" });
+          yield* client["canvas.set"]({
+            canvas: "",
+            frames: {
+              ...before.frames,
+              "log-in.page.json": {
+                height: 844,
+                preset: "mobile",
+                width: 390,
+                x: 2000,
+                y: 0,
+              },
+            },
+          });
           const variant = yield* client["pages.createVariant"]({
             id: HOME,
             variant: "Bold",

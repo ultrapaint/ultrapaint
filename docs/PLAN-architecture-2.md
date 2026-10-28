@@ -629,3 +629,20 @@ unless the step says otherwise.
     over the row, on a page's row, among siblings without the dragged one, in the view edited, a
     page's layer 40px below a node on the canvas, a node on the canvas reordered where it is, and
     a node's layer out of a node on the canvas given a point (failing first).
+
+## Follow-ups
+
+1. **The canvas layout finished** (`packages/contracts/src/canvas-layout.ts`). `placeFrameAt`
+   puts a frame drawn from a page at the spot it asks for (a copy beside its page, a variant
+   under its column, a state past its row) when neither it nor its views crowd a frame or view
+   there, and else where `placeFrame` puts a new frame, past everything; the server's duplicate,
+   variant and state call it. `copyTo` takes a base page's drawings with `familyOf` rather than
+   comparing base paths itself. Also: a page duplicated landed right beside the original, on the
+   page or the views drawn there, and a state at its row's end on a page a little lower; both go
+   past every page when their spot is taken, and where they went when it is free.
+   `canvas-layout.test.ts` has 7 more (37): the spot kept with nothing or a page further down,
+   moved for a page there, one closer than the gap, another page's view and a page where the
+   copy's own view would be. `project-services.test.ts` has 2 failing-first tests through
+   `ProjectTest` (a copy beside its page and Home's copy past Pricing; a state past a page a
+   little lower than its row). `server.test.ts`'s variant test moves Log in beside Home first:
+   an earlier test left its frame under Home, where the variant landed on it.
