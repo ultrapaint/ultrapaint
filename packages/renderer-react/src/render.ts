@@ -114,7 +114,7 @@ interface Scope {
   readonly nodeAttribute: string;
   /** A root path to one of the application's public files where the page finds it. */
   readonly publicUrl: (url: string) => string;
-  /** Where the render's elements are looked up: its document, or the frame's shadow root. */
+  /** Where the render's elements are looked up: the frame's shadow root. */
   readonly root: ParentNode;
   readonly styles: Omit<StyleContext, "parent">;
 }
@@ -219,8 +219,6 @@ const Missing = ({
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
-
-const identity = (url: string) => url;
 
 /** `value` with its root paths to public files where the page finds them; itself where none is. */
 const publicUrlsIn = (
@@ -815,27 +813,9 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
   let styles = makeStyleContext(null);
   let specs: readonly ComponentSpec[] | undefined;
   let drafts: ReadonlyMap<string, DesignNode> = new Map();
-  /**
-   * The design's own stylesheet (ADR 0028, 0029): the tokens' values over the code's and the
-   * component specs, after everything else in the document so it wins without `!important`.
-   */
-  const sheet = document.createElement("style");
-  sheet.setAttribute("data-ed-design", "");
-  const placeSheet = (css: string) => {
-    if (setup.setDesignCss) {
-      setup.setDesignCss(css);
-      return;
-    }
-    if (sheet.textContent !== css) {
-      sheet.textContent = css;
-    }
-    if (sheet.parentNode !== document.head || sheet.nextSibling !== null) {
-      document.head.append(sheet);
-    }
-  };
   const onError = (error: Error) =>
     setup.reportError({ message: error.message, stack: error.stack });
-  const drawing = setup.drawing ?? (() => undefined);
+  const { drawing } = setup;
 
   // How instances were drawn goes to the editor once a frame, and only what changed.
   let unsent: Record<string, InstanceDrawn> = {};
@@ -844,7 +824,7 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
     sendScheduled = false;
     const drawn = unsent;
     unsent = {};
-    setup.reportInstances?.(drawn);
+    setup.reportInstances(drawn);
   };
   const report = (nodeId: string, drawn: InstanceDrawn) => {
     unsent[nodeId] = drawn;
@@ -876,8 +856,10 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
       );
     }
     tokenCss = request.styles;
+    // The design's own stylesheet (ADR 0028, 0029): the tokens' values over the code's and the
+    // component specs, which the core puts after every other sheet of the frames.
     if (restyled) {
-      placeSheet(
+      setup.setDesignCss(
         [tokenCss ?? "", specCss(specs ?? [], styles)]
           .filter(Boolean)
           .join("\n\n")
@@ -897,7 +879,7 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
       learned: components.learned,
       navigate: setup.navigate,
       nodeAttribute: NODE_ATTRIBUTE,
-      publicUrl: setup.publicUrl ?? identity,
+      publicUrl: setup.publicUrl,
       root: lookup,
       styles,
     };
@@ -914,7 +896,7 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
       body = createElement(NodeView, {
         node: {
           ...node,
-          minHeight: node.minHeight ?? setup.pageHeight ?? "100vh",
+          minHeight: node.minHeight ?? setup.pageHeight,
         },
         parent: "free",
       });

@@ -7,6 +7,8 @@ import type {
   Mounted,
   RenderRequest,
 } from "@ultrapaint/framework-api/browser";
+import { renderSetup } from "@ultrapaint/preview-core/render-setup";
+import { adoptedSheets } from "@ultrapaint/preview-core/styles";
 import { type CSSProperties, createElement, type ReactNode } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { renderToCanvas } from "./render.ts";
@@ -71,7 +73,10 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
-/** Draws a node and waits until it is on the screen and the instances are reported. */
+/**
+ * Draws a node with the setup a frame of the editor's page gives its renderer, and waits until
+ * it is on the screen and the instances are reported.
+ */
 const draw = async (
   root: DesignNode,
   extra: Pick<RenderRequest, "specs" | "styles"> = {}
@@ -82,21 +87,30 @@ const draw = async (
   const navigated: string[] = [];
   const waiting = new Map<number, () => void>();
   const rendered = new Promise<void>((resolve) => {
-    mounted = renderToCanvas(
+    const setup = renderSetup(
       {
-        assetUrl: (src) => src,
+        assets: "/preview/@assets",
+        designsRoot: "/preview/@fs/designs",
+        providers: undefined,
+        theme: "light",
+      },
+      {
+        canvas: "",
+        events: {
+          instances: (instances) => Object.assign(reports, instances),
+          navigateTo: (route) => navigated.push(route),
+        },
+      },
+      {
         components: registry,
-        navigate: (route) => navigated.push(route),
-        onRendered: (id) => {
+        drawing: () => undefined,
+        rendered: (id) => {
           waiting.get(id)?.();
           resolve();
         },
-        providers: undefined,
-        reportError: () => undefined,
-        reportInstances: (instances) => Object.assign(reports, instances),
-      },
-      canvas
+      }
     );
+    mounted = renderToCanvas(setup, canvas);
     mounted.render({
       designSystem: null,
       mode: "page",
@@ -249,7 +263,7 @@ describe("the design's stylesheet and specs (ADR 0028, 0029)", () => {
     expect(card?.getAttribute("data-ed-v")).toBe("size:lg variant:outline");
   });
 
-  it("puts the tokens' CSS and the specs' after everything else in the document", async () => {
+  it("gives the frames the tokens' CSS and the specs' as the design's sheet, the last", async () => {
     const spec: ComponentSpec = {
       ...emptySpec("Card", FROM),
       base: { root: { fill: "#ff0000" } },
@@ -258,11 +272,14 @@ describe("the design's stylesheet and specs (ADR 0028, 0029)", () => {
       specs: [spec],
       styles: ":root { --primary: #123456; }",
     });
-    const sheet = document.head.lastElementChild;
-    expect(sheet?.hasAttribute("data-ed-design")).toBe(true);
-    expect(sheet?.textContent).toContain("--primary: #123456");
-    expect(sheet?.textContent).toContain('[data-ed-c="Card"]');
-    expect(sheet?.textContent).toContain("background-color: #ff0000");
+    const design = Array.from(adoptedSheets().at(-1)?.cssRules ?? [])
+      .map((rule) => rule.cssText)
+      .join("\n");
+    // The document's root is the frame's host.
+    expect(design).toContain(":host");
+    expect(design).toContain("--primary: #123456");
+    expect(design).toContain('[data-ed-c="Card"]');
+    expect(design).toContain("background-color: #ff0000");
   });
 
   it("draws a draft from its tree, only its instance selectable", async () => {

@@ -420,3 +420,27 @@ callers and its tests share.
    `pnpm bench:canvas` on the Redesign canvas before and after: load 463 / 471 ms, pan 18–19% /
    18–19% busy, zoom 40% / 40%, Layers' select p50 80 / 91–112 ms (two runs; step 11 measured
    108 / 111), memory 749 / 767 MB. `pnpm e2e:sandbox` passes its 23 checks.
+13. **One host for the renderer** (`packages/framework-api/src/browser.ts`, the entry in
+   `packages/preview-core/src/editor.ts`, the setup in `render-setup.ts`). `RenderSetup` describes
+   the frame of the editor's page and nothing else: `drawing`, `pageHeight`, `publicUrl`,
+   `reportInstances` and `setDesignCss` are required, so renderer-react's `<style data-ed-design>`
+   appended to the document's head when no core kept the design's sheet goes, with its fallbacks
+   (a `drawing` that did nothing, `100vh` for a page's height, an identity `publicUrl`, a report
+   of instances that could be left out). `renderSetup(input, options, frame)` makes the setup a
+   frame mounts its renderer with (the assets' and public files' URLs, the height, the frame's
+   events, the design's sheet), out of `mountFrame`, which gives it its turn and what follows a
+   render. `editorPreview(render)` is the entry of the module the editor's page loads
+   (`createPreview`, `installHooks`, `onReloadRequest`); `createPreview` takes the renderer as its
+   first argument, and `PreviewSetup`, what the generated entry hands over, no longer holds
+   `mount`. framework-react-vite's build pairs them, as ADR 0011's framework package does: the
+   editor bundle's entry is two lines given to esbuild as text, preview-core's `editorPreview`
+   called with renderer-react's `renderToCanvas` (the metafile's `<stdin>` is left out of the
+   inputs that tell a stale bundle). renderer-react's `editor.ts` is gone and it imports
+   `framework-api`'s interface alone: preview-core is a dependency of the framework package and
+   only a development dependency of the renderer, for its test. `render.test.ts` draws with
+   `renderSetup`'s setup, and reads the design's sheet where the frames adopt it, rewritten for
+   them (`:root` is `:host`); `frame.test.ts` gives `createPreview` its renderer. The seams stay,
+   with one adapter each, by ADR 0011, which is amended. The generated entry and the bundle's
+   exports are as they were, so the server, the web and the desktop app do not change.
+   `pnpm -F @ultrapaint/framework-react-vite build` builds the bundle, and a second build with
+   nothing changed finds it current. `pnpm e2e:sandbox` passes its 23 checks.

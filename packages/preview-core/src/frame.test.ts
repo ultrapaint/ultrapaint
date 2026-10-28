@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 import type {
   FrameRuntime,
-  PreviewSetup,
   RenderSetup,
+  RenderToCanvas,
 } from "@ultrapaint/framework-api/browser";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createPreview } from "./frame.ts";
@@ -38,7 +38,7 @@ const asPage = <T>(f: () => T): T => {
 /** What the page's code does when its frame is drawn: each test's. */
 let page: (setup: RenderSetup) => void = () => undefined;
 /** A renderer that runs the test's page code when asked to draw. */
-const mount: PreviewSetup["mount"] = (setup) => ({
+const mount: RenderToCanvas = (setup) => ({
   render: () => page(setup),
   setComponents: () => undefined,
   unmount: () => undefined,
@@ -52,11 +52,10 @@ beforeAll(() => {
     readModule: () => Promise.reject(new Error("no module in a test")),
     stack: () => ["Error", ...calling].join("\n"),
   });
-  preview = createPreview({
+  preview = createPreview(mount, {
     assets: `${ORIGIN}${BASE}@assets`,
     components: {},
     designsRoot: `${ORIGIN}${BASE}@fs/designs`,
-    mount,
     providers: undefined,
     theme: "light",
   });
@@ -140,7 +139,7 @@ describe("a frame's turn", () => {
     /** What the page's code was answered, drawn in a, in b, and in a's timer. */
     const seen: { a?: Seen; b?: Seen; timer?: Promise<Seen> } = {};
     a.draw((setup) => {
-      setup.drawing?.();
+      setup.drawing();
       seen.a = { dark: dark(), popup: popup() };
       heard = pageListener("keydown");
       seen.timer = new Promise((resolve) => {
@@ -150,7 +149,7 @@ describe("a frame's turn", () => {
       });
     });
     b.draw((setup) => {
-      setup.drawing?.();
+      setup.drawing();
       seen.b = { dark: dark(), popup: popup() };
     });
 
@@ -172,7 +171,7 @@ describe("a frame's turn", () => {
   it("is the frame the editor drew last, for its popups and its guards alike", () => {
     const a = open("a", "dark");
     const b = open("b", "light");
-    a.draw((setup) => setup.drawing?.());
+    a.draw((setup) => setup.drawing());
     // A renderer that draws later says nothing as it is asked to: the frame drawn is b already.
     b.draw(() => undefined);
     const heard = pageListener("keydown");
@@ -190,7 +189,7 @@ describe("a frame's turn", () => {
 
   it("is nobody's once the frame went: a popup stays on the editor's body", () => {
     const a = open("a", "dark");
-    a.draw((setup) => setup.drawing?.());
+    a.draw((setup) => setup.drawing());
     for (const runtime of opened.splice(0)) {
       runtime.unmount();
     }

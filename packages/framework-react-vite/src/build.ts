@@ -16,8 +16,8 @@ export interface PreviewBundles {
   /** Directory of the browser bundles; the preview server is allowed to serve from it. */
   readonly dir: string;
   /**
-   * ES module the editor's page loads (ADR 0034): the preview core's frames and the renderer,
-   * `createPreview`; `react` stays an import, so it is the repository's.
+   * ES module the editor's page loads (ADR 0034): preview-core's entry (`editor.ts`) given this
+   * framework's renderer, `createPreview`; `react` stays an import, so it is the repository's.
    */
   readonly editor: string;
   /** Node script that serves the preview. */
@@ -97,6 +97,23 @@ export const buildFingerprint = (
 const sourceOf = (specifier: string) =>
   fileURLToPath(import.meta.resolve(specifier));
 
+/** What esbuild names the entry it is given as text in its metafile: no file to watch. */
+const STDIN = "<stdin>";
+
+/**
+ * The editor bundle's entry: preview-core's, given the renderer this framework draws with. The
+ * framework pairs the two (ADR 0011), so neither imports the other.
+ */
+const editorEntry = (core: string, renderer: string) =>
+  [
+    `import { editorPreview } from ${JSON.stringify(core)};`,
+    `import { renderToCanvas } from ${JSON.stringify(renderer)};`,
+    "",
+    "export const { createPreview, installHooks, onReloadRequest } =",
+    "  editorPreview(renderToCanvas);",
+    "",
+  ].join("\n");
+
 /**
  * Bundles what runs outside this process: the serve script (Node, run from the target
  * repository) and the module the editor's page loads. Each is self-contained, so the target
@@ -108,7 +125,10 @@ export const buildPreviewBundles = async (
   if (!fromSource) {
     return bundles;
   }
-  const editorSource = sourceOf("@ultrapaint/renderer-react/editor");
+  const editorSource = editorEntry(
+    sourceOf("@ultrapaint/preview-core/editor"),
+    sourceOf("@ultrapaint/renderer-react/render")
+  );
   const outputs = [bundles.editor, bundles.serve];
   // Paths in the metafile are relative to the working directory: this one, made explicit.
   const common = {
@@ -130,11 +150,11 @@ export const buildPreviewBundles = async (
     },
     {
       ...common,
-      entryPoints: [editorSource],
       external: ["react", "react-dom", "react-dom/client"],
       format: "esm",
       outfile: bundles.editor,
       platform: "browser",
+      stdin: { contents: editorSource, loader: "ts", resolveDir: here },
       target: "es2022",
     },
   ] satisfies BuildOptions[];
@@ -152,7 +172,9 @@ export const buildPreviewBundles = async (
   if (stale) {
     const results = await Promise.all(options.map((o) => build(o)));
     const inputs = new Set(
-      results.flatMap((r) => Object.keys(r.metafile?.inputs ?? {}))
+      results
+        .flatMap((r) => Object.keys(r.metafile?.inputs ?? {}))
+        .filter((input) => input !== STDIN)
     );
     mkdirSync(path.dirname(inputsFile), { recursive: true });
     writeFileSync(
