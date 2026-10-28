@@ -7,6 +7,7 @@ import type {
 import { writesGit } from "@ultrapaint/contracts/settings";
 import { Context, Effect, Layer, PubSub, Semaphore, Stream } from "effect";
 import { ChildProcessSpawner } from "effect/process";
+import { EventBus } from "../events.ts";
 import { runCommand } from "../process.ts";
 import { RepoPaths } from "./repo-paths.ts";
 
@@ -84,7 +85,10 @@ export class GitService extends Context.Service<
       readonly email?: string;
       readonly name?: string;
     }>;
-    /** Commits the files; refused unless writing to git is on in the settings. */
+    /**
+     * Commits the files; refused unless writing to git is on in the settings. Like every change
+     * this service makes to the repository, the editor is told the status after it.
+     */
     readonly commit: (
       message: string,
       paths: readonly string[]
@@ -104,6 +108,7 @@ export class GitService extends Context.Service<
     GitService,
     Effect.gen(function* () {
       const paths = yield* RepoPaths;
+      const events = yield* EventBus;
       const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
       // `git status` and friends are cheap; a few at once is plenty.
       const processes = yield* Semaphore.make(8);
@@ -124,6 +129,12 @@ export class GitService extends Context.Service<
         run(["status", "--porcelain=v1", "-b", "-z", "--untracked-files=all"]),
         (out) => parseStatus(out, paths.isInDesigns)
       ).pipe(Effect.withSpan("GitService.status"));
+
+      /** The editor told the status after a change made here; the change stands if it cannot be read. */
+      const publishStatus = Effect.ignore(
+        Effect.flatMap(status, (now) => events.publish("git", now)),
+        { log: true }
+      );
 
       const diff = Effect.fn("GitService.diff")(function* (rel: string) {
         const abs = yield* paths.resolve(rel);
@@ -166,7 +177,9 @@ export class GitService extends Context.Service<
           "--",
           ...files,
         ]);
-        return (yield* run(["rev-parse", "HEAD"])).trim();
+        const sha = (yield* run(["rev-parse", "HEAD"])).trim();
+        yield* publishStatus;
+        return sha;
       });
 
       // An unset key exits 1, which only means the value is absent.
@@ -203,6 +216,7 @@ export class GitService extends Context.Service<
         }
         yield* run(["init", "--quiet"]);
         yield* PubSub.publish(changes, undefined);
+        yield* publishStatus;
       }).pipe(Effect.withSpan("GitService.init"));
 
       return GitService.of({

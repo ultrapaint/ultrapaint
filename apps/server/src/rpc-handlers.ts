@@ -1,4 +1,3 @@
-import { specTarget } from "@ultrapaint/contracts/implementation";
 import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
 import { Effect } from "effect";
 import { AppLog } from "./app-log.ts";
@@ -66,47 +65,20 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const { host: listenHost, mcp: mcpEnabled } = yield* ServerConfig;
     const listen = yield* ListenPort;
 
-    const pages = <A, E>(
-      f: (s: PagesService["Service"]) => Effect.Effect<A, E>
-    ) => project.use(Effect.flatMap(PagesService, f));
-    const comments = <A, E>(
-      f: (s: CommentsService["Service"]) => Effect.Effect<A, E>
-    ) => project.use(Effect.flatMap(CommentsService, f));
-    const edit = <A, E>(
-      f: (s: EditService["Service"]) => Effect.Effect<A, E>
-    ) => project.use(Effect.flatMap(EditService, f));
-    const git = <A, E>(f: (s: GitService["Service"]) => Effect.Effect<A, E>) =>
-      project.use(Effect.flatMap(GitService, f));
-    const host = <A, E>(
-      f: (s: HostManager["Service"]) => Effect.Effect<A, E>
-    ) => project.use(Effect.flatMap(HostManager, f));
-    const documents = <A, E>(
-      f: (s: DocumentService["Service"]) => Effect.Effect<A, E>
-    ) => project.use(Effect.flatMap(DocumentService, f));
-    const designSystem = <A, E>(
-      f: (s: DesignSystemService["Service"]) => Effect.Effect<A, E>
-    ) => project.use(Effect.flatMap(DesignSystemService, f));
-    const designMd = <A, E>(
-      f: (s: DesignMd["Service"]) => Effect.Effect<A, E>
-    ) => project.use(Effect.flatMap(DesignMd, f));
-    const thumbnails = <A, E>(
-      f: (s: Thumbnails["Service"]) => Effect.Effect<A, E>
-    ) => project.use(Effect.flatMap(Thumbnails, f));
-    const skills = <A, E>(
-      f: (s: SkillsService["Service"]) => Effect.Effect<A, E>
-    ) => project.use(Effect.flatMap(SkillsService, f));
-    const catalogue = <A, E>(
-      f: (s: CatalogueService["Service"]) => Effect.Effect<A, E>
-    ) => project.use(Effect.flatMap(CatalogueService, f));
-    const figma = <A, E>(
-      f: (s: FigmaImportService["Service"]) => Effect.Effect<A, E>
-    ) => project.use(Effect.flatMap(FigmaImportService, f));
-    const specs = <A, E>(
-      f: (s: SpecService["Service"]) => Effect.Effect<A, E>
-    ) => project.use(Effect.flatMap(SpecService, f));
-    const implementation = <A, E>(
-      f: (s: ImplementationService["Service"]) => Effect.Effect<A, E>
-    ) => project.use(Effect.flatMap(ImplementationService, f));
+    const pages = project.service(PagesService);
+    const comments = project.service(CommentsService);
+    const edit = project.service(EditService);
+    const git = project.service(GitService);
+    const host = project.service(HostManager);
+    const documents = project.service(DocumentService);
+    const designSystem = project.service(DesignSystemService);
+    const designMd = project.service(DesignMd);
+    const thumbnails = project.service(Thumbnails);
+    const skills = project.service(SkillsService);
+    const catalogue = project.service(CatalogueService);
+    const figma = project.service(FigmaImportService);
+    const specs = project.service(SpecService);
+    const implementation = project.service(ImplementationService);
 
     return UltrapaintRpcs.of({
       "agents.discover": ({ agentId }) => discovery.discover(agentId),
@@ -207,13 +179,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "events.syncPlan": () => events.subscribe("syncPlan"),
       "figma.list": () => figma((f) => f.list),
       "git.commit": ({ message, paths }) =>
-        git((g) =>
-          Effect.gen(function* () {
-            const sha = yield* g.commit(message, paths);
-            yield* events.publish("git", yield* g.status);
-            return { sha };
-          })
-        ),
+        git((g) => Effect.map(g.commit(message, paths), (sha) => ({ sha }))),
       "git.diff": ({ path }) => git((g) => g.diff(path)),
       "git.init": () => git((g) => g.init),
 
@@ -263,7 +229,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
         pages((s) => s.createState(id, state)),
       "pages.createVariant": ({ id, variant }) =>
         pages((s) => s.createVariant(id, variant)),
-      "pages.delete": ({ id }) => pages((s) => s.delete(id)),
+      "pages.delete": ({ id }) => pages((s) => Effect.asVoid(s.delete(id))),
       "pages.duplicate": ({ id }) => pages((s) => s.duplicate(id)),
 
       "pages.list": () => pages((s) => s.list),
@@ -284,28 +250,12 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "settings.validate": (input) => settings.validate(input),
       "setup.createDesigns": (input) => setup.createDesigns(input),
       "setup.detect": ({ repoPath }) => setup.detect(repoPath),
-      "setup.scaffold": Effect.fnUntraced(function* (input) {
-        // A Figma file imported already gives the new application its theme.
-        const tokens = yield* figma((f) =>
-          Effect.gen(function* () {
-            const latest = yield* f.latest;
-            if (!latest) {
-              return {};
-            }
-            const set = yield* f.tokens(latest.id);
-            return Object.fromEntries(
-              set.tokens.flatMap((t) => {
-                const value = t.values[""];
-                return value === undefined ? [] : [[t.name, value] as const];
-              })
-            );
-          })
-        ).pipe(
+      "setup.scaffold": (input) =>
+        figma((f) => f.theme).pipe(
           // No project open, or a file that does not read: the template's own theme.
-          Effect.orElseSucceed((): Record<string, string> => ({}))
-        );
-        return yield* setup.scaffold(input, tokens);
-      }),
+          Effect.orElseSucceed((): Record<string, string> => ({})),
+          Effect.flatMap((theme) => setup.scaffold(input, theme))
+        ),
       "skills.customise": ({ mode, name }) =>
         skills((s) => s.customise(name, mode)),
       "skills.list": () => skills((s) => s.list),
@@ -321,21 +271,8 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "specs.draftFrom": ({ id, name, nodeId }) =>
         specs((s) => s.draftFrom(id, nodeId, name)),
       "specs.fromCode": ({ component, from, look }) =>
-        specs((s) => s.fromCode(component, from, look ?? "code")),
-      "specs.fromCodeAll": ({ look }) =>
-        Effect.gen(function* () {
-          const read = yield* specs((s) => s.fromCodeAll(look ?? "code"));
-          // Read off the code, each spec is what its component's file draws: implemented by it.
-          const linked = yield* implementation((s) =>
-            s.markAll(
-              read.map(({ file, spec }) => ({
-                files: [file],
-                target: specTarget(spec.component),
-              }))
-            )
-          );
-          return { linked, read: read.length };
-        }),
+        specs((s) => s.fromCode(component, from, look)),
+      "specs.fromCodeAll": ({ look }) => specs((s) => s.fromCodeAll(look)),
       "specs.list": () => specs((s) => s.list),
       "specs.remove": ({ component }) => specs((s) => s.remove(component)),
       "specs.write": ({ spec }) => specs((s) => s.write(spec)),

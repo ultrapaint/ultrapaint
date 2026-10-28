@@ -194,6 +194,22 @@ export class FigmaImportService extends Context.Service<
     ) => Effect.Effect<FigmaTokenSet, ImportFailure>;
     /** The most recent import, or null when there is none. */
     readonly latest: Effect.Effect<FigmaImport | null>;
+    /**
+     * The most recent import with its tokens, or null when there is none: what Sync compares
+     * with the design (ADR 0025). A file that does not read fails with its name.
+     */
+    readonly latestTokens: Effect.Effect<
+      {
+        readonly file: FigmaImport;
+        readonly tokens: FigmaTokenSet;
+      } | null,
+      BadRequest
+    >;
+    /**
+     * The most recent import's tokens with their default theme's values, by name: the theme a
+     * new application starts with. Empty when there is no import.
+     */
+    readonly theme: Effect.Effect<Record<string, string>, BadRequest>;
     readonly list: Effect.Effect<readonly FigmaImport[]>;
     /** Says what a component becomes; null forgets the decision. */
     readonly map: (
@@ -607,14 +623,41 @@ export class FigmaImportService extends Context.Service<
         return readFigmaTokens(file);
       });
 
+      const latestTokens = Effect.gen(function* () {
+        const file = yield* latest;
+        if (!file) {
+          return null;
+        }
+        const read = yield* tokens(file.id).pipe(
+          Effect.mapError(
+            (error) =>
+              new BadRequest({
+                message: `${file.name} could not be read: ${error.message}`,
+              })
+          )
+        );
+        return { file, tokens: read };
+      }).pipe(Effect.withSpan("FigmaImportService.latestTokens"));
+
+      const theme = Effect.map(latestTokens, (newest) =>
+        Object.fromEntries(
+          (newest?.tokens.tokens ?? []).flatMap((t) => {
+            const value = t.values[""];
+            return value === undefined ? [] : [[t.name, value] as const];
+          })
+        )
+      );
+
       return FigmaImportService.of({
         component,
         create,
         frame,
         get,
         latest,
+        latestTokens,
         list,
         map,
+        theme,
         tokens,
         writeFrame,
       });

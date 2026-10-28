@@ -197,19 +197,11 @@ export const figmaAdapter: SideAdapter = {
   byName: false,
   missing: (doing) => `There is no Figma import to ${doing} tokens from.`,
   read: Effect.gen(function* () {
-    const imports = yield* FigmaImportService;
-    const latest = yield* imports.latest;
-    if (!latest) {
+    const newest = yield* (yield* FigmaImportService).latestTokens;
+    if (!newest) {
       return null;
     }
-    const figma = yield* imports.tokens(latest.id).pipe(
-      Effect.mapError(
-        (error) =>
-          new BadRequest({
-            message: `${latest.name} could not be read: ${error.message}`,
-          })
-      )
-    );
+    const { file: latest, tokens: figma } = newest;
     const design = yield* targetTokens;
     const service = yield* DesignSystemService;
     const baseline = yield* figmaBaselineOf(latest.name);

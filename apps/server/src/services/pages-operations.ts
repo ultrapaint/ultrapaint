@@ -460,7 +460,9 @@ export const makePageOperations = (
     const { page } = yield* byId(id, all);
     // A base page's variants and states are drawings of it: they would be left serving nothing.
     const base = page.variant === undefined && page.state === undefined;
-    const going = base ? familyOf(all.pages, page) : [page];
+    const going = base
+      ? [page, ...familyOf(all.pages, page).filter((p) => p.id !== page.id)]
+      : [page];
     const gone = new Set(going.map((p) => p.path));
     const drawings = [
       going.some((p) => p.variant !== undefined) ? "variants" : null,
@@ -498,6 +500,7 @@ export const makePageOperations = (
       })
     );
     yield* publishList;
+    return going;
   });
 
   return {

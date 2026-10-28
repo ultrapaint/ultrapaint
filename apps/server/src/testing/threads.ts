@@ -70,6 +70,17 @@ const projectOf = (repo: string) =>
         current = null;
         return open ? Scope.close(open, Exit.void) : Effect.void;
       });
+      const use = <A, E>(effect: Effect.Effect<A, E, ProjectServices>) =>
+        Effect.suspend(
+          (): Effect.Effect<A, E | NotConfigured> =>
+            current
+              ? Effect.provideContext(
+                  effect,
+                  // Only what threads use; any other service is missing, and says so.
+                  services as Context.Context<unknown> as Context.Context<ProjectServices>
+                )
+              : Effect.fail(notConfigured)
+        );
       return ProjectManager.of({
         adoptDetected: () =>
           Effect.die(new Error("thread tests detect nothing")),
@@ -91,18 +102,9 @@ const projectOf = (repo: string) =>
         scope: Effect.suspend(() =>
           current ? Effect.succeed(current) : Effect.fail(notConfigured)
         ),
+        service: (key) => (f) => use(Effect.flatMap(key, f)),
         set: () => Effect.die(new Error("thread tests save no settings")),
-        use: <A, E>(effect: Effect.Effect<A, E, ProjectServices>) =>
-          Effect.suspend(
-            (): Effect.Effect<A, E | NotConfigured> =>
-              current
-                ? Effect.provideContext(
-                    effect,
-                    // Only what threads use; any other service is missing, and says so.
-                    services as Context.Context<unknown> as Context.Context<ProjectServices>
-                  )
-                : Effect.fail(notConfigured)
-          ),
+        use,
       });
     })
   );

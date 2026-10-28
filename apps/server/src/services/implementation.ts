@@ -54,7 +54,7 @@ import { DocumentService } from "./documents.ts";
 import { type EditFailure, EditService } from "./edit.ts";
 import { PagesService } from "./pages.ts";
 import { RepoPaths } from "./repo-paths.ts";
-import { SpecService } from "./specs.ts";
+import { readSpecs, specsIn } from "./specs.ts";
 
 const decodeFile = Schema.decodeUnknownEffect(
   Schema.fromJsonString(ImplementationFile)
@@ -312,11 +312,17 @@ export class ImplementationService extends Context.Service<
       const pages = yield* PagesService;
       const documents = yield* DocumentService;
       const comments = yield* CommentsService;
-      const specService = yield* SpecService;
       const designSystems = yield* DesignSystemService;
       const code = yield* CodeSide;
       const fileAbs = path.join(paths.designsDir, IMPLEMENTATION_FILE);
       const fileRel = paths.relative(fileAbs);
+      // The specs as their files have them; read here, since `SpecService` links a spec it
+      // reads off the code through this service.
+      const specsNow = readSpecs(paths.designsDir).pipe(
+        Effect.map(specsIn),
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path)
+      );
 
       const readFile = fs.readFileString(fileAbs).pipe(
         Effect.flatMap(decodeFile),
@@ -380,7 +386,7 @@ export class ImplementationService extends Context.Service<
       const everything = Effect.gen(function* () {
         const { pages: all } = yield* pages.list;
         const fromPages = yield* Effect.forEach(all, pageCurrent);
-        const specs = yield* specService.specs;
+        const specs = yield* specsNow;
         return [
           ...fromPages.filter((c): c is Current => c !== null),
           ...specs.map(specCurrent),
@@ -392,9 +398,7 @@ export class ImplementationService extends Context.Service<
       ) {
         if (isSpecTarget(target)) {
           const name = target.slice(SPEC_TARGET_PREFIX.length);
-          const spec = (yield* specService.specs).find(
-            (s) => s.component === name
-          );
+          const spec = (yield* specsNow).find((s) => s.component === name);
           if (!spec) {
             return yield* new NotFound({ message: `no spec for ${name}` });
           }
@@ -435,7 +439,7 @@ export class ImplementationService extends Context.Service<
           }
           return {
             designSystem,
-            specs: yield* specService.specs,
+            specs: yield* specsNow,
             waiting,
           };
         }

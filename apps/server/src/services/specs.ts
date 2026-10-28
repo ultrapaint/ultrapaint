@@ -13,6 +13,7 @@ import {
   type Conflict,
   NotFound,
 } from "@ultrapaint/contracts/errors";
+import { specTarget } from "@ultrapaint/contracts/implementation";
 import {
   ComponentSpec,
   DRAFT_FROM,
@@ -48,6 +49,7 @@ import { CatalogueService } from "./catalogue.ts";
 import { CodeSide } from "./code-side.ts";
 import { DocumentService } from "./documents.ts";
 import { type EditFailure, EditService } from "./edit.ts";
+import { ImplementationService } from "./implementation.ts";
 import { RepoPaths } from "./repo-paths.ts";
 import { ProjectStyleSystem } from "./style-system.ts";
 
@@ -98,6 +100,50 @@ const PLACEMENT_FIELDS = [
   "y",
 ] as const;
 
+/**
+ * The specs in a designs directory, each read and validated, or the problem with it: the one
+ * reading of the files, which the link to the code (ADR 0030) shares with the service.
+ */
+export const readSpecs = (designsDir: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const dir = path.join(designsDir, SPECS_DIR);
+    const readEntry = (name: string) =>
+      Effect.gen(function* () {
+        const file = `${SPECS_DIR}/${name}`;
+        const text = yield* fs.readFileString(path.join(dir, name));
+        const json = yield* Effect.try({
+          catch: (error) => `not JSON: ${String(error)}`,
+          try: () => JSON.parse(text) as unknown,
+        });
+        const spec = yield* decodeSpec(json).pipe(
+          Effect.mapError((error) => error.message)
+        );
+        return { file, spec } satisfies SpecEntry;
+      }).pipe(
+        Effect.catch((problem) =>
+          Effect.succeed({
+            file: `${SPECS_DIR}/${name}`,
+            problem: typeof problem === "string" ? problem : problem.message,
+          } satisfies SpecEntry)
+        )
+      );
+    const names = yield* fs.readDirectory(dir).pipe(
+      // No specs yet: the directory comes with the first.
+      Effect.orElseSucceed((): string[] => [])
+    );
+    const entries = yield* Effect.forEach(
+      names.filter((n) => n.endsWith(SPEC_EXTENSION)).sort(),
+      readEntry
+    );
+    return { specs: entries } satisfies SpecList;
+  });
+
+/** The specs of a list that read. */
+export const specsIn = (list: SpecList): ComponentSpec[] =>
+  list.specs.flatMap((e) => (e.spec ? [e.spec] : []));
+
 export class SpecService extends Context.Service<
   SpecService,
   {
@@ -105,21 +151,27 @@ export class SpecService extends Context.Service<
     /** The specs that read, by component: what the preview and the briefing use. */
     readonly specs: Effect.Effect<readonly ComponentSpec[]>;
     readonly write: (spec: unknown) => Effect.Effect<SpecEntry, EditFailure>;
+    /**
+     * A component's spec read off its code, saved with the look given (`code` when none). Read
+     * off the code, the spec is what its component's file draws, so it is linked to that file
+     * as implemented (ADR 0030); one that keeps behaviour notes keeps its link as it was, since
+     * what a note asks of the code is not read off it.
+     */
     readonly fromCode: (
       component: string,
       from: string | undefined,
-      look: SpecLook
-    ) => Effect.Effect<SpecEntry, EditFailure | NotFound>;
+      look?: SpecLook
+    ) => Effect.Effect<SpecEntry, EditFailure>;
     /**
      * A spec read off the code for every component with classes to read and no spec yet, in one
-     * undo step: how a project whose components are built already comes in. Answers with each
-     * spec and the file of its component.
+     * undo step, each linked to its component's file as implemented: how a project whose
+     * components are built already comes in. Answers with how many were read and linked.
      */
-    readonly fromCodeAll: (look: SpecLook) => Effect.Effect<
-      readonly {
-        readonly file: string;
-        readonly spec: ComponentSpec;
-      }[],
+    readonly fromCodeAll: (look?: SpecLook) => Effect.Effect<
+      {
+        readonly linked: number;
+        readonly read: number;
+      },
       EditFailure
     >;
     readonly remove: (
@@ -153,6 +205,7 @@ export class SpecService extends Context.Service<
       const styleSystem = yield* ProjectStyleSystem;
       const code = yield* CodeSide;
       const documents = yield* DocumentService;
+      const implementation = yield* ImplementationService;
       const dir = path.join(paths.designsDir, SPECS_DIR);
 
       /** A spec file's path inside the designs directory and in the repository. */
@@ -163,42 +216,13 @@ export class SpecService extends Context.Service<
         ),
       });
 
-      const readEntry = (name: string) =>
-        Effect.gen(function* () {
-          const file = `${SPECS_DIR}/${name}`;
-          const text = yield* fs.readFileString(path.join(dir, name));
-          const json = yield* Effect.try({
-            catch: (error) => `not JSON: ${String(error)}`,
-            try: () => JSON.parse(text) as unknown,
-          });
-          const spec = yield* decodeSpec(json).pipe(
-            Effect.mapError((error) => error.message)
-          );
-          return { file, spec } satisfies SpecEntry;
-        }).pipe(
-          Effect.catch((problem) =>
-            Effect.succeed({
-              file: `${SPECS_DIR}/${name}`,
-              problem: typeof problem === "string" ? problem : problem.message,
-            } satisfies SpecEntry)
-          )
-        );
-
-      const list: Effect.Effect<SpecList> = Effect.gen(function* () {
-        const names = yield* fs.readDirectory(dir).pipe(
-          // No specs yet: the directory comes with the first.
-          Effect.orElseSucceed((): string[] => [])
-        );
-        const entries = yield* Effect.forEach(
-          names.filter((n) => n.endsWith(SPEC_EXTENSION)).sort(),
-          readEntry
-        );
-        return { specs: entries };
-      }).pipe(Effect.withSpan("SpecService.list"));
-
-      const specs = Effect.map(list, (l) =>
-        l.specs.flatMap((e) => (e.spec ? [e.spec] : []))
+      const list: Effect.Effect<SpecList> = readSpecs(paths.designsDir).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+        Effect.withSpan("SpecService.list")
       );
+
+      const specs = Effect.map(list, specsIn);
 
       const publish = Effect.flatMap(list, (l) => events.publish("specs", l));
 
@@ -304,10 +328,19 @@ export class SpecService extends Context.Service<
         } satisfies ComponentSpec;
       });
 
+      /** Specs read off the code, each linked to the file of its component as implemented. */
+      const link = (read: readonly { file: string; spec: ComponentSpec }[]) =>
+        implementation.markAll(
+          read.map(({ file, spec }) => ({
+            files: [file],
+            target: specTarget(spec.component),
+          }))
+        );
+
       const fromCode = Effect.fn("SpecService.fromCode")(function* (
         component: string,
         from: string | undefined,
-        look: SpecLook
+        look: SpecLook = "code"
       ) {
         const { all, meta } = yield* metaOf(component, from);
         const spec = yield* specFromCode(
@@ -317,11 +350,18 @@ export class SpecService extends Context.Service<
           (yield* code.tokens).tokens,
           (yield* specs).find((s) => s.component === meta.name)
         );
-        return yield* save(spec, `Read the ${meta.name} spec from the code`);
+        const entry = yield* save(
+          spec,
+          `Read the ${meta.name} spec from the code`
+        );
+        if (!spec.notes) {
+          yield* link([{ file: meta.file, spec }]);
+        }
+        return entry;
       });
 
       const fromCodeAll = Effect.fn("SpecService.fromCodeAll")(function* (
-        look: SpecLook
+        look: SpecLook = "code"
       ) {
         const { components } = yield* catalogue.get(false).pipe(
           Effect.mapError(
@@ -343,20 +383,21 @@ export class SpecService extends Context.Service<
             (spec) => ({ file: meta.file, spec })
           )
         );
-        if (read.length > 0) {
-          yield* edit.transaction(
-            `Read ${read.length} spec${read.length === 1 ? "" : "s"} from the code`,
-            (tx) =>
-              Effect.forEach(
-                read,
-                ({ spec }) =>
-                  tx.write(fileOf(spec.component).repo, serialise(spec)),
-                { discard: true }
-              )
-          );
-          yield* publish;
+        if (read.length === 0) {
+          return { linked: 0, read: 0 };
         }
-        return read;
+        yield* edit.transaction(
+          `Read ${read.length} spec${read.length === 1 ? "" : "s"} from the code`,
+          (tx) =>
+            Effect.forEach(
+              read,
+              ({ spec }) =>
+                tx.write(fileOf(spec.component).repo, serialise(spec)),
+              { discard: true }
+            )
+        );
+        yield* publish;
+        return { linked: yield* link(read), read: read.length };
       });
 
       const remove = Effect.fn("SpecService.remove")(function* (

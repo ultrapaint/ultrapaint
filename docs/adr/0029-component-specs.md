@@ -6,6 +6,10 @@ Status: accepted, 2026-10-25. Builds on 0015 (instances render the repository's 
 
 > Amended 2026-10-25 (second round): a spec keeps the component's behaviour notes (`notes`),
 > and every spec can be read off the code at once, linked to its component's file.
+>
+> Amended 2026-10-28 (`docs/PLAN-architecture-2.md`, step 5): a spec read off the code alone is
+> linked to its component's file too, unless it keeps behaviour notes, which the code is not
+> read for.
 
 ## Context
 

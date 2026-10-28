@@ -56,6 +56,7 @@ const CommentTools = Toolkit.make(ListComments, ReplyToComment, ResolveComment);
 
 export const commentToolHandlers = Effect.gen(function* () {
   const { canvasOf, project } = yield* makeLookup;
+  const comments = project.service(CommentsService);
 
   return CommentTools.of({
     list_comments: Effect.fn("EditorTools.list_comments")(function* ({
@@ -63,11 +64,7 @@ export const commentToolHandlers = Effect.gen(function* () {
       canvas,
     }) {
       const id = yield* canvasOf(canvas);
-      const list = yield* reported(
-        project.use(
-          Effect.flatMap(CommentsService, (comments) => comments.list(id))
-        )
-      );
+      const list = yield* reported(comments((c) => c.list(id)));
       return {
         comments: list.comments
           .filter((comment) => includeResolved || !comment.resolved)
@@ -89,11 +86,7 @@ export const commentToolHandlers = Effect.gen(function* () {
     }) {
       const inCanvas = yield* canvasOf(canvas);
       const comment = yield* reported(
-        project.use(
-          Effect.flatMap(CommentsService, (comments) =>
-            comments.reply({ canvas: inCanvas, id, text })
-          )
-        )
+        comments((c) => c.reply({ canvas: inCanvas, id, text }))
       );
       return { replies: comment.replies.length };
     }),
@@ -104,11 +97,7 @@ export const commentToolHandlers = Effect.gen(function* () {
     }) {
       const inCanvas = yield* canvasOf(canvas);
       const comment = yield* reported(
-        project.use(
-          Effect.flatMap(CommentsService, (comments) =>
-            comments.update({ canvas: inCanvas, id, resolved: true })
-          )
-        )
+        comments((c) => c.update({ canvas: inCanvas, id, resolved: true }))
       );
       return { resolved: comment.resolved };
     }),
