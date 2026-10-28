@@ -69,11 +69,7 @@ import {
   useDocuments,
 } from "../state/documents.ts";
 import { type Selection, selectForMenu, useEditor } from "../state/editor.ts";
-import {
-  openLayersPanel,
-  takeRenameRequest,
-  useLayerRename,
-} from "../state/layer-rename.ts";
+import { useRequest } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import {
   editedFrameOf,
@@ -249,25 +245,6 @@ const useRevealSelection = ({
       }
     }
   }
-};
-
-/**
- * While the panel is open, Rename from a menu types the new name into the row: `onRequest` hears
- * of the node, once for each time it is asked.
- */
-const useRenameRequests = (onRequest: (target: Selection) => void) => {
-  const request = useLayerRename((s) => s.request);
-  const [taken, setTaken] = useState<Selection | null>(null);
-  if (request && request !== taken) {
-    setTaken(request);
-    onRequest(request);
-  }
-  useEffect(() => {
-    if (request) {
-      takeRenameRequest();
-    }
-  }, [request]);
-  useEffect(() => openLayersPanel(), []);
 };
 
 /** The field above the tree that narrows it to the layers whose name holds what is typed. */
@@ -509,7 +486,8 @@ export const Layers = () => {
   });
 
   // A row the filter hides is shown again to be renamed.
-  useRenameRequests((target) => {
+  // While the panel is on screen, Rename from a menu types the new name into the row.
+  useRequest("rename", (target) => {
     const key = layerKey(target.frame, target.nodeId);
     if (findItem(shown, key) === null) {
       setQuery("");

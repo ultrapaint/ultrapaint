@@ -15,6 +15,7 @@ import { zoomToSelection } from "../state/camera.ts";
 import { frameOfCanvasNode, useDocuments } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
 import { goTo } from "../state/location.ts";
+import { showLeftPanel } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import { viewportSize } from "./shortcuts.ts";
 import { createThread } from "./start-thread.ts";
@@ -48,8 +49,7 @@ export const addToChat = async (
   for (const chip of chips) {
     addChip(thread.id, chip);
   }
-  useEditor.getState().setLeftTab("chat");
-  await useAgents.getState().open(thread.id);
+  await showLeftPanel({ chat: thread.id });
 };
 
 /** Takes elements back out of the open thread's composer. */

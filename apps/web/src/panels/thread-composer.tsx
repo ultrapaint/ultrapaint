@@ -44,7 +44,6 @@ import { frameOf } from "../canvas/editor-frame.ts";
 import { frameIdOf } from "../canvas/prototype.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { chordLabel } from "../lib/keys.ts";
-import { takeDraft, useDrafts } from "../lib/start-thread.ts";
 import { threadView } from "../lib/thread-view.ts";
 import { useAgents } from "../state/agents.ts";
 import {
@@ -63,6 +62,7 @@ import { api } from "../state/connection.ts";
 import { showSetup } from "../state/design-system-setup.ts";
 import { nodeIn, useDocuments } from "../state/documents.ts";
 import { useEditor, type Workspace } from "../state/editor.ts";
+import { takeRequest, useRequest } from "../state/panels.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { isSendKey, useSendKey } from "../state/send-key.ts";
 import { useSlashCommands } from "../state/slash-commands.ts";
@@ -127,23 +127,12 @@ const useCommands = () => {
 };
 
 export const Composer = ({ thread }: { thread: Thread }) => {
-  const [text, setText] = useState(() => takeDraft(thread.id));
+  const [text, setText] = useState(
+    () => takeRequest({ draft: thread.id }) ?? ""
+  );
   const sendKey = useSendKey((s) => s.sendKey);
   // A draft that arrives after the composer is on screen, from a thread started elsewhere.
-  useEffect(() => {
-    const take = () => {
-      const draft = takeDraft(thread.id);
-      if (draft) {
-        setText(draft);
-      }
-    };
-    take();
-    return useDrafts.subscribe((s) => {
-      if (s.drafts[thread.id]) {
-        take();
-      }
-    });
-  }, [thread.id]);
+  useRequest({ draft: thread.id }, setText);
   const chips = useChips(thread.id);
   /** Implicit context the user took out of this prompt, by chip key. */
   const [dismissed, setDismissed] = useState<readonly string[]>([]);

@@ -23,6 +23,7 @@ import { useAgents } from "../state/agents.ts";
 import { fileOfFrame, useAttachments } from "../state/attachments.ts";
 import { pathIn, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { showLeftPanel } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 
 /** How the selected node is in a chat, if it is: attached to the open thread, or what one was started on. */
@@ -166,10 +167,7 @@ export const SelectionTag = ({
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={() => {
-                  useEditor.getState().setLeftTab("chat");
-                  useAgents.getState().open(thread.id);
-                }}
+                onClick={() => showLeftPanel({ chat: thread.id })}
               >
                 <MessageSquare />
                 <span className="truncate">Open “{thread.title}”</span>

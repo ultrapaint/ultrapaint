@@ -21,7 +21,7 @@ import { startInit, startPrompt } from "../lib/start-thread.ts";
 import { useCatalogue } from "../state/catalogue.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useEditor } from "../state/editor.ts";
-import { openLeftPanel } from "../state/panels.ts";
+import { showLeftPanel } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import { StarterThumb, thumbStyle } from "./starter-thumbs.tsx";
 import {
@@ -41,7 +41,7 @@ interface Action {
 const NO_CANVAS: readonly Action[] = [
   { icon: Frame, label: "New canvas…", run: newCanvas },
   { icon: FileUp, label: "Import a Figma file…", run: pickFigmaFile },
-  { icon: Sparkles, label: "Ask an agent", run: () => openLeftPanel("chat") },
+  { icon: Sparkles, label: "Ask an agent", run: () => showLeftPanel("chat") },
 ];
 
 // What is pressed on the canvas is the button's, not the start of a pan or a marquee.
@@ -183,7 +183,7 @@ const OtherWay = () => (
   <div className="flex items-center gap-1.5 text-muted-foreground">
     <button
       className="pointer-events-auto flex items-center gap-1.5 hover:text-foreground"
-      onClick={() => openLeftPanel("chat")}
+      onClick={() => showLeftPanel("chat")}
       onPointerDown={keepFromCanvas}
       type="button"
     >
@@ -193,7 +193,7 @@ const OtherWay = () => (
     <span aria-hidden>·</span>
     <button
       className="pointer-events-auto flex items-center gap-1.5 hover:text-foreground"
-      onClick={() => openLeftPanel("assets")}
+      onClick={() => showLeftPanel("assets")}
       onPointerDown={keepFromCanvas}
       type="button"
     >

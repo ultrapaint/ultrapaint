@@ -25,7 +25,8 @@ import { addToChat, removeFromChat } from "../lib/add-to-chat.ts";
 import { isAttached } from "../lib/chat-link.ts";
 import { useAgents } from "../state/agents.ts";
 import { useAttachments } from "../state/attachments.ts";
-import { type Selection, useEditor } from "../state/editor.ts";
+import type { Selection } from "../state/editor.ts";
+import { showLeftPanel } from "../state/panels.ts";
 import { useChatLink } from "./selection-tag.tsx";
 
 /** ⌘ on a Mac, Ctrl elsewhere: the key that sends an element to a new chat. */
@@ -141,8 +142,7 @@ export const ChatButton = ({ selection }: { selection: Selection }) => {
     } else if (link?.attached) {
       removeFromChat(selection);
     } else if (link) {
-      useEditor.getState().setLeftTab("chat");
-      useAgents.getState().open(link.thread.id);
+      showLeftPanel({ chat: link.thread.id });
     } else {
       addToChat(selection);
     }

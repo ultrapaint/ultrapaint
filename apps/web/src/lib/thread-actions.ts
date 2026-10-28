@@ -6,14 +6,11 @@ import { toast } from "sonner";
 import { confirmDialog } from "../components/dialogs.tsx";
 import { useAgents } from "../state/agents.ts";
 import { api } from "../state/connection.ts";
-import { useEditor } from "../state/editor.ts";
+import { showLeftPanel } from "../state/panels.ts";
 import { reportError } from "../state/project.ts";
 
 /** Every workspace has the chat on its rail; the thread opens there. */
-export const openChat = (threadId: string) => {
-  useEditor.getState().setLeftTab("chat");
-  useAgents.getState().open(threadId).catch(reportError);
-};
+export const openChat = (threadId: string) => showLeftPanel({ chat: threadId });
 
 export const stopThread = (threadId: string) =>
   api()

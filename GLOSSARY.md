@@ -96,6 +96,10 @@ module.
   right-clicked in another view takes it there. The inspector, the element toolbar, the outlines
   and Layers read the selected nodes as that view draws them, and what several share as one value
   or `MIXED`.
+- **Showing a panel**: one verb a side, which brings a panel put away back and leaves the
+  prototype (ADR 0032): `showRightPanel(tab)`, and `showLeftPanel` a tab of the rail's with what
+  it is asked to show there, a **request** (a thread and its draft, a file's changes, a node to
+  rename in its Layers row) that waits until the panel takes it up (`useRequest`).
 - **Command**: something the editor does, in one list the palette, the shortcut sheet and the
   menus read (ADR 0032); a **binding** is a command's chord and the scope it works in.
 - **Menu action**: what a context-menu item does, a typed value run by `runMenuAction`.

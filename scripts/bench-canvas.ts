@@ -105,6 +105,7 @@ interface BenchWindow {
   __ed: {
     openCanvas: (id: string) => void;
     setView: (v: Partial<View>) => void;
+    showLeftPanel: (tab: string) => Promise<void>;
     useDocuments: {
       getState: () => {
         docs: Record<string, { root?: TreeNode | null }>;
@@ -116,7 +117,6 @@ interface BenchWindow {
         frames: Record<string, Box>;
         select: (s: { frame: string; nodeId: string } | null) => void;
         setHover: (s: { frame: string; nodeId: string } | null) => void;
-        setLeftTab: (tab: string) => void;
         view: View;
       };
     };
@@ -896,7 +896,7 @@ const benchLayers = async (page: Page, cdp: CDPSession): Promise<Result> => {
       const picked = targets.filter((_t, i) => i % stride === 0).slice(0, 12);
       performance.mark("bench-start");
       const opened = performance.now();
-      editor().setLeftTab("layers");
+      w.__ed.showLeftPanel("layers");
       while (
         document.querySelector('[role="treeitem"]') === null &&
         performance.now() - opened < 20_000
@@ -919,7 +919,7 @@ const benchLayers = async (page: Page, cdp: CDPSession): Promise<Result> => {
       performance.mark("bench-end");
       editor().select(null);
       editor().setHover(null);
-      editor().setLeftTab("chat");
+      await w.__ed.showLeftPanel("chat");
       return {
         hover,
         nodes: targets.length,

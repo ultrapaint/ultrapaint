@@ -18,10 +18,8 @@ import { commandOf } from "@ultrapaint/contracts/tasks";
 import { toast } from "sonner";
 import { create } from "zustand";
 import { confirmDialog } from "../components/dialogs.tsx";
-import { useDrafts } from "../lib/start-thread.ts";
-import { useAgents } from "./agents.ts";
 import { api } from "./connection.ts";
-import { useEditor } from "./editor.ts";
+import { showLeftPanel } from "./panels.ts";
 import { reportError } from "./project.ts";
 import { follow } from "./server-data.ts";
 
@@ -57,20 +55,12 @@ const LISTED = 8;
 const READING_STEPS: readonly SetupStepId[] = ["inventory", "map", "verify"];
 
 /** Opens a step's thread in the chat, with its command in the composer when it is new. */
-export const openStepThread = (threadId: string, draft?: string) => {
-  if (draft) {
-    useDrafts.setState((s) => ({ drafts: { ...s.drafts, [threadId]: draft } }));
-  }
-  useEditor.getState().setLeftTab("chat");
-  useAgents
-    .getState()
-    .open(threadId)
-    .catch(() => undefined);
-};
+export const openStepThread = (threadId: string, draft?: string) =>
+  showLeftPanel({ chat: threadId, ...(draft ? { draft } : {}) });
 
 /** Back from a step's thread to the steps. */
 export const showSetup = () => {
-  useEditor.getState().setLeftTab("designSystem");
+  showLeftPanel("designSystem");
   useDesignSystemSetup.getState().show(true);
 };
 

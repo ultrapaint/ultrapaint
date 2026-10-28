@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { someBusy } from "../lib/thread-view.ts";
 import { useAgents } from "../state/agents.ts";
 import { type LeftTab, railTabs, useEditor } from "../state/editor.ts";
-import { openLeftPanel, usePanels } from "../state/panels.ts";
+import { showLeftPanel, usePanels } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import { syncWaiting, useSync } from "../state/sync.ts";
 import { GitUserButton } from "./git-user.tsx";
@@ -107,7 +107,7 @@ const RailButton = ({ value }: { value: LeftTab }) => {
     if (active) {
       usePanels.getState().setHidden({ left: true });
     } else {
-      openLeftPanel(value);
+      showLeftPanel(value);
     }
   };
   return (

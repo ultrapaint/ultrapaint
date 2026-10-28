@@ -10,31 +10,9 @@ import {
   taskPurpose,
 } from "@ultrapaint/contracts/tasks";
 import type { ThreadPurpose } from "@ultrapaint/contracts/threads";
-import { create } from "zustand";
-import { useAgents } from "../state/agents.ts";
 import { api } from "../state/connection.ts";
-import { useEditor } from "../state/editor.ts";
+import { showLeftPanel } from "../state/panels.ts";
 import { reportError } from "../state/project.ts";
-
-/**
- * Prompt text carried into a thread's composer. A store, not a map read once: the thread's
- * composer can be on screen before the draft is known (the server announces the thread before
- * it answers the request that created it), and then takes the draft when it arrives.
- */
-export const useDrafts = create<{ drafts: Record<string, string> }>(() => ({
-  drafts: {},
-}));
-
-export const takeDraft = (threadId: string) => {
-  const draft = useDrafts.getState().drafts[threadId] ?? "";
-  if (draft) {
-    useDrafts.setState((s) => {
-      const { [threadId]: _taken, ...rest } = s.drafts;
-      return { drafts: rest };
-    });
-  }
-  return draft;
-};
 
 /**
  * Creates a thread and opens it, its composer holding `draft`. Without an agent the server picks
@@ -51,10 +29,7 @@ export const createThread = async (
       // A thread that starts by implementing may write the application (ADR 0030).
       ...(purpose === "implement" && { purpose }),
     });
-    if (draft) {
-      useDrafts.setState((s) => ({ drafts: { ...s.drafts, [t.id]: draft } }));
-    }
-    useAgents.getState().show(t);
+    await showLeftPanel({ chat: t, draft });
     return t;
   } catch (error) {
     reportError(error);
@@ -67,7 +42,7 @@ export const createThread = async (
  * designs when not given). The chat is the canvas's: from the prototype, the canvas comes back.
  */
 export const startPrompt = async (text: string, purpose?: ThreadPurpose) => {
-  useEditor.getState().setLeftTab("chat");
+  showLeftPanel("chat");
   await createThread(text.endsWith(" ") ? text : `${text} `, {
     ...(purpose && { purpose }),
   });

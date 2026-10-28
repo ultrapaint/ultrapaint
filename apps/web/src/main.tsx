@@ -12,6 +12,7 @@ import { api } from "./state/connection.ts";
 import { useDocuments } from "./state/documents.ts";
 import { useEditor } from "./state/editor.ts";
 import { goTo } from "./state/location.ts";
+import { showLeftPanel } from "./state/panels.ts";
 import { useProject } from "./state/project.ts";
 import "./styles.css";
 
@@ -23,6 +24,7 @@ if (import.meta.env.DEV) {
     // What `pnpm bench:canvas` drives the canvas with.
     openCanvas,
     setView,
+    showLeftPanel,
     useAgents,
     useAttachments,
     useDocuments,

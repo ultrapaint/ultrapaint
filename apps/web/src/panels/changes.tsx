@@ -43,7 +43,7 @@ import {
 } from "../lib/snapshot-actions.ts";
 import { useAgents } from "../state/agents.ts";
 import { api } from "../state/connection.ts";
-import { takeDiffRequest, useDiffRequest } from "../state/diff-request.ts";
+import { useRequest } from "../state/panels.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { follow } from "../state/server-data.ts";
 import { useSnapshotView } from "../state/snapshot-view.ts";
@@ -160,22 +160,9 @@ export const Changes = () => {
 
   const onFilesChanged = useEffectEvent(refresh);
   const onStatus = useEffectEvent(takeStatus);
-  const onShowDiffRequest = useEffectEvent(showDiff);
 
   // A file asked for from elsewhere, before the panel was open or while it is.
-  useEffect(() => {
-    if (!configured) {
-      return;
-    }
-    const take = async ({ path }: { path: string | null }) => {
-      if (path !== null) {
-        takeDiffRequest();
-        await onShowDiffRequest(path);
-      }
-    };
-    take(useDiffRequest.getState());
-    return useDiffRequest.subscribe(take);
-  }, [configured]);
+  useRequest("diff", showDiff, configured);
 
   // Followed while the panel is shown: read now, at every connection open, and as files change.
   useEffect(() => {
