@@ -3,8 +3,8 @@
 Status: accepted, 2026-10-28. Follows 0037 and 0038, whose rule it applies again. Amends 0008 (a
 checkpoint is a ref of the snapshot store, and a revert is one undo step that leaves the comments),
 0011 and 0037's page-runtime line (the generated editor entry's exports and start-up are declared
-and run in code) and 0034 (the core owns a frame's host). Plan: `docs/PLAN-architecture-3.md`,
-steps 1 to 8. The terms are in `GLOSSARY.md`.
+and run in code), 0025 (how a token from another tool is named) and 0034 (the core owns a frame's
+host). Plan: `docs/PLAN-architecture-3.md`, steps 1 to 18. The terms are in `GLOSSARY.md`.
 
 ## Context
 
@@ -44,6 +44,28 @@ Each such concept has one module, with an interface its callers and its tests sh
 - **The editor entry.** framework-api declares what the generated entry and the editor bundle
   export; preview-core runs the start-up in one call.
 
+The candidates the review could not settle at once were investigated one at a time, and each
+has one module too:
+
+- **A token from another tool.** contracts' `token-naming` names it and finds its kind from the
+  path and what the value is, for Figma and the Design Tokens file; the format's type decides
+  where it says what the value is, a name drops only its kind's own words, and the scan places
+  the code's tokens by the token table.
+- **A frame's error and its drawing.** `editor-frame` keeps a frame's error whoever listens, of
+  one `PageError` type; one hook draws a frame's request whenever it changes, for the canvas, the
+  prototype and the specimens.
+- **Frame gestures and the layout.** One module moves and sizes frames, and a cancelled or
+  escaped gesture is put back; the layout is saved as it changes, only what changed, so a layout
+  pushed meanwhile is kept; `reveal` brings a target into view.
+- **A design target.** One rule names a page or a spec, a bare component name included, and one
+  service reads and adds its behaviour notes. A thread's agent is switched, and a setup batch
+  reverted, only once its turn is not running.
+- **The desktop app's stop and the history.** A signal answers an open question "no" and stops;
+  the server publishes the checkpoints and snapshots, which the Changes panel follows.
+
+The desktop window gets no port: it would have one adapter, and its logic already sits behind
+`Shell` and `WatchedContents`.
+
 0037's rule on seams stands: no seam is added with one adapter. The frame's host gains a test
 adapter (the scripted renderer under `createPreview` in happy-dom) beside the real renderer.
 
@@ -58,6 +80,9 @@ adapter (the scripted renderer under `createPreview` in happy-dom) beside the re
   compile or fails a test rather than failing at run time.
 - What the preview server does to a module is tested in the test run, not only by
   `pnpm e2e:sandbox`.
-- The review's other candidates (a token's name from another tool, a frame's drawing, frame
-  gestures, a design target, the desktop window) are investigated one at a time before they are
-  planned.
+- The investigated candidates' bugs are fixed the same way: a Design Tokens `Corner.sm` dropped,
+  Figma's `Color/Text/Primary` taken for the brand colour, the repository's inset, drop and text
+  shadows dropped by `/init`, a frame's error lost when it is panned away, a specimen blank after
+  the preview restarts, a layout an agent pushed undone by a save, a note on a node reference
+  landing on its page, a prompt lost to an agent switched as it was sent, a batch reverted under
+  the agent writing it, a signal waiting for an answer, a turn's checkpoint missing from Changes.
