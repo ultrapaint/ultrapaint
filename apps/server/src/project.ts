@@ -239,9 +239,11 @@ export class ProjectManager extends Context.Service<
         );
         const info: Effect.Effect<ProjectInfo> = Effect.gen(function* () {
           const { displayName } = yield* profile.get;
+          const settings = yield* settingsService.get;
           return {
             ...(yield* openInfo),
             ...(displayName === undefined ? {} : { displayName }),
+            ...(settings === null ? {} : { settings }),
             storage: yield* storage.info,
           };
         });
@@ -314,16 +316,16 @@ export class ProjectManager extends Context.Service<
           settings: Settings,
           why: string
         ) {
-          if (current && sameSettings(current.settings, settings)) {
-            // Where the settings are kept, or whose they are, may have changed.
-            return yield* publishInfo;
+          if (!(current && sameSettings(current.settings, settings))) {
+            yield* log.log(
+              "server",
+              "info",
+              `opening ${settings.repoPath}: ${why}`
+            );
+            yield* open(settings);
           }
-          yield* log.log(
-            "server",
-            "info",
-            `opening ${settings.repoPath}: ${why}`
-          );
-          yield* open(settings);
+          // The settings, where they are kept, or whose they are may have changed.
+          yield* publishInfo;
         });
 
         const apply = (settings: Settings, why: string) =>

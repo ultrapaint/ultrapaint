@@ -18,9 +18,9 @@ import { api } from "../state/connection.ts";
 import { useProject } from "../state/project.ts";
 
 /**
- * Saves the settings, and reads the project again: the server's `project` event says only when
- * another repository opened, and a save can change any field. Returns what is wrong with them,
- * nothing when they were saved.
+ * Saves the settings, and reads the project again: the server's `project` event brings the
+ * settings, but may come after the answer, and the pages are read again only when another
+ * repository opened. Returns what is wrong with them, nothing when they were saved.
  */
 export const save = async (next: Settings): Promise<readonly string[]> => {
   const validation = await api().request("settings.set", next);

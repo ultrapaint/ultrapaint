@@ -646,3 +646,19 @@ unless the step says otherwise.
    `ProjectTest` (a copy beside its page and Home's copy past Pricing; a state past a page a
    little lower than its row). `server.test.ts`'s variant test moves Log in beside Home first:
    an earlier test left its frame under Home, where the variant landed on it.
+2. **The settings in force reach the web** (`ProjectInfo` in `packages/contracts/src/project.ts`,
+   `ProjectManager` in `apps/server/src/project.ts`, the web's side in
+   `apps/web/src/state/project.ts`). The project's info carries the settings in force
+   (`settings`, as `settings.get` gives them), so `ProjectManager`'s one publish point tells the
+   editor of any change to them, with no event of their own; `putInForce` publishes after opening
+   as well as when it leaves the project, rather than waiting for the preview's status to move.
+   The web's project piece reads `project.info` alone and takes the settings from it, at every
+   connection open and from each `project` event; `settings.get` stays for the server's tests.
+   Also: a configuration file changed by someone else in a field the info did not carry
+   (`libraryDirs`) reopened the project, but the editor kept the settings it had until it was
+   reloaded. `settings-in-force.test.ts` has 1 failing-first test on `ProjectTest` (a session
+   saved to a file whose `libraryDirs` change by hand tells the editor the new settings);
+   `server-data.test.ts` has 1 failing-first test (the store follows a `project` event that
+   changes only the settings, reading nothing) and reads the settings again at a reconnect with
+   the other 15 pieces; `settings-actions.test.ts` and `menu-actions.test.ts` answer the info
+   with the settings.

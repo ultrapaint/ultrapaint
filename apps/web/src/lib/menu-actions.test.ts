@@ -122,12 +122,14 @@ const lastEdit = () => {
 };
 
 /** What the editor reads of the project, which a test leaves alone: as it was. */
-const READS = ["project.info", "settings.get", "logs.recent", "edit.state"];
+const READS = ["project.info", "logs.recent", "edit.state"];
 
 /** The project as the server tells it again after a change. */
 const serveProject = () => {
-  fakeApi.respond("project.info", () => useProject.getState().info);
-  fakeApi.respond("settings.get", () => useProject.getState().settings);
+  fakeApi.respond("project.info", () => {
+    const { info, settings } = useProject.getState();
+    return { ...info, ...(settings && { settings }) };
+  });
   fakeApi.respond("pages.list", () => {
     const { canvases, pages } = useProject.getState();
     return { canvases, pages };
