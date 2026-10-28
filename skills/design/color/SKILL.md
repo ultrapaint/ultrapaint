@@ -25,9 +25,26 @@ rather than borrowing one.
 
 ## One accent
 
-The primary colour marks the primary action and the current selection. On a button it is the
-fill, with its foreground pair for the label; accent text on a neutral button reads as a link.
-Headings, icons and borders stay neutral.
+The primary colour marks the primary action and a chosen option: a selected card, a switch that is
+on, a checked box. The current place (the active navigation item, the active tab) takes the design
+system's selected style, a neutral fill or a solid brand fill as DESIGN.md says; where the system
+draws something solid, keep it solid. On a button the accent is the fill, with its foreground pair
+for the label; accent text on a neutral button reads as a link. Headings, icons and borders stay
+neutral.
+
+## Two text colours, clearly apart
+
+The foreground is near-black, `15:1` or more against its background. Muted text sits as light as
+legibility allows: about `4.5–5.5:1`. Compute both from [with the editor's tools: `read_design_system` | without: `design.tokens.json`]. When the muted token
+is darker than about `6:1`, the two levels blur; say so to the user, and set descriptions and
+metadata in muted all the same.
+
+## Badges are neutral, their mark is coloured
+
+A status or change badge (Paid, Active, ↗ 1.2%) sits on a neutral fill that differs from its
+card's surface (a muted grey on a white card), with the foreground or muted text; only its small
+mark is coloured: the green dot, the green arrow. Blurred, the screen shows no coloured block
+where a badge is. A filter for that status repeats the same dot.
 
 ## One colour, one meaning
 
@@ -37,7 +54,12 @@ same one. If the accent means interactive, static text in it invites clicks.
 ## Status colours report status
 
 Success, warning and destructive say that something happened or will. They stay off decoration
-and off chart series.
+and off chart series. Categories (calendar events, tags) take their own hues from the palette;
+one may be green or orange, in a shade that is not the status token. Each category keeps its
+own tint; flattening them to one accent and grey loses what they say.
+
+A secondary link (help, a handle in running text) is muted or foreground and underlined, not the
+accent in bold.
 
 ## Text on a colour takes its pair
 
@@ -53,7 +75,9 @@ colour, disabled is `50%` opacity. A state brings no new hue.
 ## Charts
 
 The chart colours, in their order. Sequential data is one hue from light to dark; diverging data
-is two hues around a neutral midpoint.
+is two hues around a neutral midpoint. One series is often one hue: the current period solid, the
+previous dashed, a forecast hatched. When the styling tells the series apart, there is no legend;
+a tooltip names what is under the pointer.
 
 ## Every theme
 
@@ -67,5 +91,7 @@ values in each theme the design system has.
 | A hex or `rgb()` value in `fill`, `color` or `border` | The semantic token for that role |
 | A palette token in a component's colours | The semantic token it stands for |
 | The accent on headings, icons or dividers | Neutral; the accent stays on the action and the selection |
+| A badge on a tinted green or red fill | A neutral fill; only its dot or arrow is coloured |
+| A legend for series the line styles already tell apart | Remove it |
 | A status colour as decoration or a chart series | Neutral, or the chart colours |
 | Hard-coded white or grey text on a coloured fill | The fill's foreground pair |

@@ -14,8 +14,9 @@ cannot, the brief is unclear: ask the user.
 ## One primary action
 
 One action per screen takes the primary variant. The others take the secondary, outline or ghost
-variants by how often they are used. A destructive action sits apart from the primary, at the
-far end or in a menu. Past three secondary actions, the rest go behind a "More" menu.
+variants by how often they are used. A screen whose job is reading, a dashboard, may have none. A
+destructive action sits apart from the primary, at the far end or in a menu. Past three secondary
+actions, the rest go behind a "More" menu.
 
 ## The squint test
 
@@ -37,9 +38,12 @@ whole page sits in its header.
 
 ## Order follows use
 
-What the user reads first goes first; what they do most goes where the hand already is. In a
-row, the identifying content leads and metadata and actions trail. The one number the user came
-for sits at the top of its group, larger than its label.
+What the user reads first goes first; what they do most goes where the hand already is. In a row,
+the identifying content leads and metadata and actions trail. The one number the user came for
+sits at the top of its group, larger and heavier than its label; a small muted label may sit above
+it. A price is a large figure at regular weight beside a small muted unit; an old price sits above
+it, struck through, muted, at about half its size. A featured item (the recommended plan) stands
+out by its surface, inverted or filled; its action stays the primary button.
 
 ## Nesting stops at three levels
 
@@ -52,6 +56,7 @@ Past three containers deep, a heading and a gap say more than another box.
 | Two buttons in the primary variant on one screen | Keep the one the screen is for; the other becomes secondary |
 | The title repeated in the first paragraph or a card heading | Cut the repeat |
 | A small label above a heading ("Features", "School · Desio") | Cut it; what it adds goes below the heading or in the page header |
+| A group of navigation items or settings rows under a bold heading | A small muted label: the group's name, quiet |
 | The key figure below its metadata | Move it to the top of its group |
 | A card in a card in a card | Replace the inner containers with a heading and a gap |
 | Delete beside Save in the same style | Destructive variant, moved apart |

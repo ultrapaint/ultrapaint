@@ -37,7 +37,8 @@ surfaces; pick each radius on its own.
 
 ## Square where it meets
 
-Tables, full-bleed images, a page's own edges and any side that touches another element stay
+Full-bleed images, a page's own edges and any side that touches another element stay square. A
+table inside a card takes the card's radius on its outer corners; its rows and cells stay
 square. A segmented group rounds only its outer corners.
 
 ## Images take a hairline
@@ -53,4 +54,4 @@ grey reads as dirt on the edge. In code it is an `outline` with `-1px` offset.
 | A card and the button inside it with the same radius | Outer radius less the padding |
 | A border colour as hex | The border token for its role |
 | Buttons and fields with different radii | The default radius for both |
-| Rounded corners on a full-bleed image or a table | Square |
+| Rounded corners on a full-bleed image or a bare table | Square |

@@ -76,6 +76,9 @@ example of the format, `name@example.com`.
 | You see | Fix |
 | --- | --- |
 | Lorem ipsum, "Title", "Item 1" | Real copy |
+| A legend on a chart, a title over a block its tabs already name | Delete it; shrinking is not enough |
+| "vs last year" after a change, "Enabled" beside a switch, "17 rows" under a table, "5 of 5" over a stepper, a title over a toolbar | Remove it: the thing beside it already says so |
+| A plain value ("Moderate") turned into a coloured status badge | Plain text, as the brief writes it |
 | Title Case On Buttons | Sentence case |
 | "Submit", "OK" or "Yes" on a consequential action | Verb and object: "Send invoice" |
 | "Are you sure?" | Name what is lost |

@@ -33,8 +33,9 @@ status icon takes the status colour and sits beside a word. Its image node says 
 
 ## Outline by default, filled when active
 
-Where the set has both, outline is the resting state and filled marks the selected one: the
-active tab, a saved bookmark.
+Where the set has both, outline is the resting state and filled marks a chosen one: a saved
+bookmark, a checked option. In navigation the current item is marked by its row's fill. When the
+design system's icons are filled, every icon of a region is filled: one style per region.
 
 ## A label by default
 
@@ -52,8 +53,10 @@ play triangle centred by its box looks off; nudge it `1–2px` toward its point.
 
 ## Icons where they speed recognition
 
-Navigation, actions and status. Headings, list items and body text go without; an icon on each
-one says nothing and costs attention.
+Top-level navigation, menu actions, status, and the magnifier in a search field. Across a group
+it is all rows or none. Headings, page headers, banners, dropdown triggers, child rows of a tree,
+names (people take avatars), plain links and body text go without; an icon there says nothing
+and costs attention.
 
 ## Before you finish
 
@@ -64,4 +67,7 @@ one says nothing and costs attention.
 | An accent-coloured icon beside a neutral label | The label's colour |
 | An icon-only button without a tooltip | Add the tooltip and the accessible name |
 | The same icon for two actions | One icon per meaning |
-| An icon on every list item | Remove them |
+| Icons on headings, child rows, names or plain links | Remove them |
+| A folder before every item of a file tree | The chevron alone |
+| Icons on some rows of a menu and not others | All or none |
+| Icons on several buttons of a page header | Text only; an icon stays on at most one |
