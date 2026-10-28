@@ -1083,3 +1083,15 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
     mid-move keeps the frame at the pointer, the release sends the moved frame and the next push
     moves it; put back after a push, the frame is where the push put it, nothing sent; let go
     unmoved after a push, likewise. The first two failed first.
+13. **A thread's node beside the pages of another canvas is shown there**
+    (`apps/web/src/lib/reveal.ts`, `add-to-chat.ts`, `state/attachments.ts`). Such a thread's
+    scope names its canvas's own file (`<designs>/<canvas>/canvas.json`), not a page: Show
+    finds the canvas by it (`canvasOfFile`, beside `fileOfFrame`, which writes it), and `reveal`
+    takes a node beside the pages of a canvas (`{ canvas, nodeId }`): it opens the canvas, waits
+    for its documents to be read, and selects the node in whichever of its frames holds it (a
+    node inside a group placed there included), then the camera goes to it. A node the canvas no
+    longer holds is left alone, as is a reveal another one or a switch of canvas took over.
+    Fixed: Show on such a thread did nothing from any other canvas (the node was looked for among
+    the open canvas's). `reveal.test.ts` has 1 test more: Show on a thread scoped to a title
+    inside a card beside the pages of another canvas opens that canvas and selects the title in
+    the card's frame; it failed first (the canvas stayed the open one).

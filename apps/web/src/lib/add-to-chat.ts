@@ -7,12 +7,12 @@ import type { Thread } from "@ultrapaint/contracts/threads";
 import { useAgents } from "../state/agents.ts";
 import {
   addChip,
+  canvasOfFile,
   chipOfSelection,
   nodeKey,
   removeChip,
 } from "../state/attachments.ts";
-import { frameOfCanvasNode, useDocuments } from "../state/documents.ts";
-import { type Selection, useEditor } from "../state/editor.ts";
+import type { Selection } from "../state/editor.ts";
 import { showLeftPanel } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
 import { reveal } from "./reveal.ts";
@@ -70,13 +70,14 @@ export const showScope = (thread: Thread) => {
   if (!scope) {
     return;
   }
-  const { canvas } = useEditor.getState();
   const page = useProject.getState().pages.find((p) => p.file === scope.file);
   if (scope.nodeId === undefined) {
     return page ? reveal({ page: page.id }) : undefined;
   }
-  const frame =
-    page?.id ??
-    frameOfCanvasNode(useDocuments.getState().docs, canvas, scope.nodeId);
-  return frame ? reveal({ frame, nodeId: scope.nodeId }) : undefined;
+  if (page) {
+    return reveal({ frame: page.id, nodeId: scope.nodeId });
+  }
+  // A node beside the pages: the scope names its canvas's own file.
+  const canvas = canvasOfFile(scope.file);
+  return canvas === null ? undefined : reveal({ canvas, nodeId: scope.nodeId });
 };
