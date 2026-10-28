@@ -33,12 +33,8 @@ import {
 import { IconButton } from "../components/icon-button.tsx";
 import { CommandKeys } from "../components/shortcut-sheet.tsx";
 import { keysOf } from "../lib/commands.ts";
-import { undoOrRedo, viewportSize, zoomBy } from "../lib/shortcuts.ts";
-import {
-  zoomToFit as fitAll,
-  zoomToSelection as fitSelection,
-  nextView,
-} from "../state/camera.ts";
+import { undoOrRedo, zoomBy } from "../lib/shortcuts.ts";
+import { nextView, zoomToFit, zoomToSelection } from "../state/camera.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { useComments } from "../state/comments.ts";
 import { type Mode, useEditor } from "../state/editor.ts";
@@ -132,8 +128,6 @@ const onModeChange = (next: readonly unknown[]) => {
 
 const zoomOut = () => zoomBy(0.8);
 const zoomIn = () => zoomBy(1.25);
-const zoomToFit = () => fitAll(viewportSize());
-const zoomToSelection = () => fitSelection(viewportSize());
 const toggleGrid = () => useCanvasGrid.getState().toggle();
 
 const ZoomPresetItem = ({ pct }: { pct: number }) => {

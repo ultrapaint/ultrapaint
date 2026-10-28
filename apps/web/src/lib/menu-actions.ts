@@ -17,7 +17,7 @@ import { sendComment } from "../canvas/send-to-agent.tsx";
 import { confirmDialog, promptDialog } from "../components/dialogs.tsx";
 import { askLinkUrl } from "../components/link-field.tsx";
 import { useAgents } from "../state/agents.ts";
-import { zoomToSelection } from "../state/camera.ts";
+import { viewportSize } from "../state/camera.ts";
 import { placeOnCanvas, useCanvasGrid } from "../state/canvas-grid.ts";
 import {
   deleteComment,
@@ -126,7 +126,7 @@ import {
   unlinkImplementation,
   zoomToPage,
 } from "./page-actions.ts";
-import { viewportSize } from "./shortcuts.ts";
+import { reveal } from "./reveal.ts";
 import { deleteThread, openChat, stopThread } from "./thread-actions.ts";
 import { editTokenValue } from "./token-edit.ts";
 
@@ -393,15 +393,11 @@ const commentOn = (target: Selection, at?: Point) => {
  * is selected on the canvas, in the design workspace, and brought into view.
  */
 const selectCommented = (pageId: string, nodeId: string) => {
-  const editor = useEditor.getState();
-  if (editor.workspace !== "prototype") {
-    select({ frame: pageId, nodeId });
-    return;
+  const target = { frame: pageId, nodeId };
+  if (useEditor.getState().workspace === "prototype") {
+    return reveal(target);
   }
-  editor.setWorkspace("design");
-  select({ frame: pageId, nodeId });
-  // The canvas is laid out the frame after it is shown.
-  requestAnimationFrame(() => zoomToSelection(viewportSize()));
+  return select(target);
 };
 
 /** Sets where a node leads: a page's file or back; `null` for nowhere. */
@@ -503,8 +499,7 @@ const runNode = (target: TargetOf<"node">, act: NodeAction): unknown => {
     case "lock":
       return setLocked(act.locked, sel);
     case "zoomTo":
-      select(sel);
-      return zoomToSelection(viewportSize());
+      return reveal(sel);
     case "delete":
       return deleteSelection(sel);
     default:

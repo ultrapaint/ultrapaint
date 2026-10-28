@@ -12,7 +12,6 @@ import { type GoTo, goTo } from "../state/location.ts";
 import { usePagePicks } from "../state/page-picks.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { ensureEditable } from "../state/setup.ts";
-import { viewportSize } from "./shortcuts.ts";
 import { startTask } from "./start-thread.ts";
 
 export const canvasById = (id: string): Canvas | undefined =>
@@ -41,7 +40,7 @@ const showCanvas = async (id: string, at?: Omit<GoTo, "canvas">) => {
   if (kept) {
     setView(kept);
   } else {
-    zoomToFit(viewportSize());
+    zoomToFit();
   }
 };
 

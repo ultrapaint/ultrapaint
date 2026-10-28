@@ -161,6 +161,11 @@ review found.
   prototype (ADR 0032): `showRightPanel(tab)`, and `showLeftPanel` a tab of the rail's with what
   it is asked to show there, a **request** (a thread and its draft, a file's changes, a node to
   rename in its Layers row) that waits until the panel takes it up (`useRequest`).
+- **Revealing**: bringing a page's frame or a node into view, the canvas's counterpart of showing
+  a panel (the web's `reveal`): the canvas it is on is opened, the prototype left, it is
+  selected, and the camera glides to it once its frame is **laid out**, the canvas on screen and
+  the frame's box known (a node beside the pages once its document is read), drawn or not. A move
+  of the camera meanwhile, another reveal's included, gives it up.
 - **Command**: something the editor does, in one list the palette, the shortcut sheet and the
   menus read (ADR 0032); a **binding** is a command's chord and the scope it works in.
 - **Menu action**: what a context-menu item does, a typed value run by `runMenuAction`.

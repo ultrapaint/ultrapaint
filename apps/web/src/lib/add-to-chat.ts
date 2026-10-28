@@ -11,13 +11,11 @@ import {
   nodeKey,
   removeChip,
 } from "../state/attachments.ts";
-import { zoomToSelection } from "../state/camera.ts";
 import { frameOfCanvasNode, useDocuments } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
-import { goTo } from "../state/location.ts";
 import { showLeftPanel } from "../state/panels.ts";
 import { useProject } from "../state/project.ts";
-import { viewportSize } from "./shortcuts.ts";
+import { reveal } from "./reveal.ts";
 import { createThread } from "./start-thread.ts";
 
 /** The thread an element added now goes to: the one open in the chat, if one is. */
@@ -64,36 +62,21 @@ export const removeFromChat = (selection: Selection | readonly Selection[]) => {
 };
 
 /**
- * Brings a thread's scope into view on the canvas, selected. The prototype selects nothing: it
- * goes to the scope's page.
+ * Brings a thread's scope into view on the canvas, selected: its page, or its node, on whichever
+ * canvas it is.
  */
 export const showScope = (thread: Thread) => {
   const { scope } = thread;
   if (!scope) {
     return;
   }
-  const editor = useEditor.getState();
+  const { canvas } = useEditor.getState();
   const page = useProject.getState().pages.find((p) => p.file === scope.file);
-  if (editor.workspace === "prototype") {
-    if (page) {
-      goTo({ page: page.id });
-    }
-    return;
+  if (scope.nodeId === undefined) {
+    return page ? reveal({ page: page.id }) : undefined;
   }
-  if (page && scope.nodeId === undefined) {
-    editor.selectPage(page.id);
-  } else if (scope.nodeId !== undefined) {
-    const frame =
-      page?.id ??
-      frameOfCanvasNode(
-        useDocuments.getState().docs,
-        editor.canvas,
-        scope.nodeId
-      );
-    if (!frame) {
-      return;
-    }
-    editor.select({ frame, nodeId: scope.nodeId });
-  }
-  zoomToSelection(viewportSize());
+  const frame =
+    page?.id ??
+    frameOfCanvasNode(useDocuments.getState().docs, canvas, scope.nodeId);
+  return frame ? reveal({ frame, nodeId: scope.nodeId }) : undefined;
 };

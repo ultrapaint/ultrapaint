@@ -123,7 +123,7 @@ interface BenchWindow {
     useProject: {
       getState: () => { pages: { canvas: string; id: string }[] };
     };
-    zoomToFit: (v: Box) => void;
+    zoomToFit: () => void;
     zoomToPage: (page: unknown) => void;
   };
 }
@@ -403,13 +403,6 @@ const open = async (page: Page, canvas: string) => {
   }
 };
 
-/** The part of the canvas the side cards leave free, as `zoomToFit` takes it. */
-const viewport = (page: Page) =>
-  page.evaluate(() => {
-    const el = document.querySelector("[data-canvas]") as HTMLElement;
-    return { height: el.clientHeight, width: el.clientWidth, x: 0, y: 0 };
-  });
-
 const now = (page: Page) =>
   page.evaluate(() => performance.timeOrigin + performance.now());
 
@@ -655,13 +648,9 @@ const blankAfter = async (
   }, came);
 };
 
-const fitAll = async (page: Page) => {
-  const box = await viewport(page);
-  await page.evaluate(
-    (vp) => (window as unknown as BenchWindow).__ed.zoomToFit(vp),
-    box
-  );
-};
+/** Fits the canvas into what of it the side cards leave seen, as Shift+1 does. */
+const fitAll = (page: Page) =>
+  page.evaluate(() => (window as unknown as BenchWindow).__ed.zoomToFit());
 
 const setView = (page: Page, to: Partial<View>) =>
   page.evaluate((v) => (window as unknown as BenchWindow).__ed.setView(v), to);

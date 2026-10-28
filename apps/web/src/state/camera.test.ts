@@ -2,7 +2,13 @@ import "../testing/fake-browser.ts";
 import type { Page } from "@ultrapaint/contracts/pages";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { zoomBy } from "../lib/shortcuts.ts";
-import { nextView, setView, setViewSoon, zoomToFit } from "./camera.ts";
+import {
+  measureViewportWith,
+  nextView,
+  setView,
+  setViewSoon,
+  zoomToFit,
+} from "./camera.ts";
 import { useEditor } from "./editor.ts";
 import { useProject } from "./project.ts";
 
@@ -67,7 +73,9 @@ describe("setViewSoon", () => {
       },
     });
     setViewSoon({ x: 999 });
-    zoomToFit({ height: 520, width: 920, x: 0 });
+    const hide = measureViewportWith(() => ({ height: 520, width: 920, x: 0 }));
+    zoomToFit();
+    hide();
     const fitted = useEditor.getState().view;
     expect(fitted).toEqual({ x: 60, y: 60, zoom: 1 });
     vi.advanceTimersByTime(16);
