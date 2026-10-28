@@ -1,7 +1,7 @@
 # Plan: deeper modules, the third review (2026-10-28)
 
-Status: planned, 2026-10-28. Steps 1 to 8 are to be built one commit each, written under "Built" as
-they land; "To investigate" is looked at one candidate at a time before anything of it is planned.
+Status: built, 2026-10-28: steps 1 to 8, one commit each, under "Built"; "To investigate" is
+looked at one candidate at a time before anything of it is planned.
 The decisions are recorded in [ADR 0039](adr/0039-deep-modules-third-review.md). Follows
 [ADR 0037](adr/0037-deep-modules.md) and [ADR 0038](adr/0038-deep-modules-second-review.md), whose
 31 steps ([PLAN-architecture.md](PLAN-architecture.md), [PLAN-architecture-2.md](PLAN-architecture-2.md))
@@ -382,3 +382,40 @@ test, `server.test.ts`'s socket tests that `ProjectTest` could run).
    bundled it: one served from its own path outside the fixture's root is outside `fs.allow`.
    Left to `pnpm e2e:sandbox`: the image route (a middleware, which needs a request) and the
    anchor without React's plugin or with Tailwind's, which the fixture is not.
+8. **The editor entry, declared** (`packages/preview-core/src/editor.ts`,
+   `packages/framework-api/src/editor-exports.ts`). framework-api's `browser` declares what the
+   generated entry exports (`EditorEntry`: `preview`, `onReloadRequest`, which the web's
+   `preview-module` imports it as, its private `PreviewModule` gone) and what the editor bundle
+   exports (`EditorBundle`: `startPreview`), with the dev server's events the start-up hears
+   (`DevServerHot`, `vite:afterUpdate` and `vite:error`). Their names, which the framework writes
+   the entry and builds the bundle with in Node, are `editor-exports`' lists, outside `browser`
+   because the server compiles without the DOM; a type test holds each list to its interface's
+   keys, so a name renamed, added or left out on either side fails `pnpm typecheck`. `build.ts`'s
+   bundle entry (`bundleEntry`, now exported) and `previewFiles`' entry export the lists' names.
+   `startPreview(load, hot)` is the start-up, its order written once in code and its doc: the page
+   runtime (`installHooks`), then `load`, which imports the page's modules and gives the setup,
+   then `createPreview`, which installs the guards, then the dev server's updates and errors told
+   to every frame; it returns the entry's exports. The generated entry is the bundle's import and
+   that call (`export const { onReloadRequest, preview } = await startPreview(() =>
+   import("./preview-setup.ts"), import.meta.hot)`), and `preview-setup.ts` (`SETUP_FILE`) holds
+   what it imported before: `host.css`, the registry, the public files and the providers, its
+   default export the `PreviewSetup`. The order holds as before, by a stronger rule: the entry's
+   only static import is the bundle, so nothing of the page's runs before the hooks, where it
+   took `editor-hooks.ts` imported first (it goes); the page's modules still run before the
+   guards. The comments of `preview-files.ts` and `kernel.ts` on the order go for the start-up's.
+   The bundle no longer exports `createPreview` and `installHooks`; the preview server warms up
+   the setup module too (Vite pre-transforms only static imports). Also: the page's modules are
+   requested once the bundle has run rather than with it, one round trip later on the server's
+   own machine. `preview-files.test.ts` (4 tests) reads `previewFiles()`' output and the bundle's
+   entry with Vite's parser: the entry exports `EDITOR_ENTRY_EXPORTS`, imports only the bundle
+   and only names of `EDITOR_BUNDLE_EXPORTS`, and imports one generated module dynamically, whose
+   default export the setup is, with the stylesheet, the registry and the providers; the bundle's
+   entry exports `EDITOR_BUNDLE_EXPORTS`. It failed first against the old template (the
+   hooks' module and the page's modules imported statically), and a name renamed in the template
+   fails it. `editor.test.ts` in happy-dom starts the real bundle: the hooks in place and the guards
+   not yet when the page's modules run (failed with the hooks moved after `load`), the dev
+   server's update and error reaching a frame's `hmr` and `error`, and the dev server's reload
+   reaching `onReloadRequest`. `serve-config.test.ts` writes `previewFiles()`' output and a stub
+   bundle and serves the entry: the bundle's import and the setup's dynamic import under the base,
+   the hot context, and the setup's stylesheet, registry and public files. `pnpm e2e:sandbox`
+   passes the same 15 checks as before the change (8 failed before it too).

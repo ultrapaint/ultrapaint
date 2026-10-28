@@ -253,3 +253,54 @@ export interface Preview {
   }) => void;
   readonly setComponents: (components: ComponentRegistry) => void;
 }
+
+/**
+ * What the generated editor entry exports, as the editor's page imports it (named for the
+ * framework that writes it in `editor-exports.ts`): the preview, and hearing when only loading
+ * the page again brings it up to date (the dev server's dependencies bundled anew, or its start
+ * again).
+ */
+export interface EditorEntry {
+  readonly onReloadRequest: (listener: () => void) => () => void;
+  readonly preview: Preview;
+}
+
+/** What the dev server tells the generated entry and the start-up hears, by event. */
+export interface DevServerEvents {
+  /** Modules were brought up to date. */
+  readonly "vite:afterUpdate": unknown;
+  /** A module could not be brought up to date. */
+  readonly "vite:error": {
+    readonly err: {
+      readonly id?: string | undefined;
+      readonly loc?: { readonly line: number } | undefined;
+      readonly message: string;
+    };
+  };
+}
+
+/** The dev server's events, as the generated entry has them (`import.meta.hot`). */
+export interface DevServerHot {
+  readonly on: <E extends keyof DevServerEvents>(
+    event: E,
+    listener: (payload: DevServerEvents[E]) => void
+  ) => void;
+}
+
+/**
+ * What the editor bundle exports to the generated entry (named in `editor-exports.ts`):
+ * preview-core's start-up, given the framework's renderer when the framework builds the bundle
+ * (ADR 0011).
+ */
+export interface EditorBundle {
+  /**
+   * Starts the preview in the editor's page, in its one order (preview-core's `editor.ts`): the
+   * page runtime first, then `load`, which imports the page's modules (its stylesheets, the
+   * registry, the providers) and whose default export is the setup, then the preview, which
+   * hears the dev server through `hot`. The entry exports what it gives.
+   */
+  readonly startPreview: (
+    load: () => Promise<{ readonly default: PreviewSetup }>,
+    hot?: DevServerHot | undefined
+  ) => Promise<EditorEntry>;
+}

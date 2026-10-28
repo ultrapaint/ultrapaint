@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { EDITOR_BUNDLE_EXPORTS } from "@ultrapaint/framework-api/editor-exports";
 import type { BuildOptions } from "esbuild";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -17,7 +18,7 @@ export interface PreviewBundles {
   readonly dir: string;
   /**
    * ES module the editor's page loads (ADR 0034): preview-core's entry (`editor.ts`) given this
-   * framework's renderer, `createPreview`; `react` stays an import, so it is the repository's.
+   * framework's renderer, `startPreview`; `react` stays an import, so it is the repository's.
    */
   readonly editor: string;
   /** Node script that serves the preview. */
@@ -102,15 +103,16 @@ const STDIN = "<stdin>";
 
 /**
  * The editor bundle's entry: preview-core's, given the renderer this framework draws with. The
- * framework pairs the two (ADR 0011), so neither imports the other.
+ * framework pairs the two (ADR 0011), so neither imports the other; the bundle exports what
+ * framework-api declares (`EditorBundle`).
  */
-const editorEntry = (core: string, renderer: string) =>
+export const bundleEntry = (core: string, renderer: string) =>
   [
-    `import { editorPreview } from ${JSON.stringify(core)};`,
+    `import { editorBundle } from ${JSON.stringify(core)};`,
     `import { renderToCanvas } from ${JSON.stringify(renderer)};`,
     "",
-    "export const { createPreview, installHooks, onReloadRequest } =",
-    "  editorPreview(renderToCanvas);",
+    `export const { ${EDITOR_BUNDLE_EXPORTS.join(", ")} } =`,
+    "  editorBundle(renderToCanvas);",
     "",
   ].join("\n");
 
@@ -125,7 +127,7 @@ export const buildPreviewBundles = async (
   if (!fromSource) {
     return bundles;
   }
-  const editorSource = editorEntry(
+  const editorSource = bundleEntry(
     sourceOf("@ultrapaint/preview-core/editor"),
     sourceOf("@ultrapaint/renderer-react/render")
   );
