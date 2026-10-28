@@ -2,13 +2,14 @@
  * The tasks an agent is given, as typed requests: implement a design, link pages built already
  * to their code, import a Figma file, redraw a canvas, draw a component sheet, run a step of the
  * design-system setup, sync. The server turns a request into the task's text
- * (`apps/server/src/services/threads/tasks.ts`); a slash command is one way to write a request,
- * read by `parseCommand` and written by `commandOf`, so the editor that puts a command in a
- * composer and the server that reads it back share one form.
+ * (`apps/server/src/services/threads/tasks.ts`); a slash command is one way to write a request.
+ * Each command is declared once here, with how it is offered, read and written: the catalogue the
+ * server serves (`slashCommands`), `parseCommand` and `commandOf` derive from it, so the editor
+ * that puts a command in a composer and the server that reads it back share one form.
  */
 import { Schema } from "effect";
 import { DefineMode, SetupStepId } from "./design-system-setup.ts";
-import type { ThreadPurpose } from "./threads.ts";
+import type { SlashCommand, ThreadPurpose } from "./threads.ts";
 
 /** What the user typed after a command's argument, passed on to the agent as it is. */
 const Extra = Schema.optional(Schema.String);
@@ -96,29 +97,6 @@ export const TaskRequest = Schema.Union([
 ]);
 export type TaskRequest = typeof TaskRequest.Type;
 
-/** The slash command a request is written as, without its slash. */
-export const commandNameOf = (request: TaskRequest): string => {
-  switch (request._tag) {
-    case "Init":
-      return "init";
-    case "Implement":
-    case "Adopt":
-      return "implement";
-    case "ImportFigma":
-      return "import-figma";
-    case "Redraw":
-      return "redraw";
-    case "Components":
-      return "components";
-    case "SetupStep":
-      return "design-system";
-    case "Sync":
-      return "sync";
-    default:
-      return request satisfies never;
-  }
-};
-
 /**
  * What a thread running the task is for (ADR 0030): implementing writes the application, so it
  * starts its agent with the repository writable. Linking pages built already changes no code.
@@ -145,33 +123,220 @@ const isSyncSource = Schema.is(SyncSource);
 const written = (...words: readonly (string | undefined)[]) =>
   words.filter((w): w is string => w !== undefined && w !== "").join(" ");
 
+/** The first word of an argument, and the rest of it. */
+const splitWord = (argument: string) => {
+  const [first = "", ...rest] = argument.trim().split(WHITESPACE_RE);
+  return { first, rest: rest.join(" ") };
+};
+
+/** An optional field of a request, left out when the command has nothing for it. */
+const given = <K extends string>(key: K, text: string) =>
+  (text === "" ? {} : { [key]: text }) as { readonly [P in K]?: string };
+
+type RequestTag = TaskRequest["_tag"];
+type RequestOf<T extends RequestTag> = Extract<TaskRequest, { _tag: T }>;
+/** What a command's argument is written as: its words, an empty one left out. */
+type Words = readonly (string | undefined)[];
+
+/**
+ * A slash command as it is declared: its name, how its argument is written and what it does, as
+ * the composer offers it; the requests it is written for, how its argument is read as one of
+ * them (or why it names none, as a clause), and how one is written back.
+ */
+interface CommandDeclaration<T extends RequestTag> {
+  readonly argument?: string;
+  readonly description: string;
+  readonly name: string;
+  readonly parse: (
+    argument: string
+  ) => RequestOf<T> | { readonly invalid: string };
+  readonly print: (request: RequestOf<T>) => Words;
+  readonly requests: readonly T[];
+}
+
+/** A command declared, as the catalogue, the parser and the printer use it whatever it writes. */
+interface Command {
+  readonly entry: SlashCommand;
+  readonly name: string;
+  readonly parse: (argument: string) => ParsedCommand;
+  /** The words after the command's name, for a request it is written for; null for another. */
+  readonly print: (request: TaskRequest) => Words | null;
+}
+
+const command = <T extends RequestTag>(
+  declared: CommandDeclaration<T>
+): Command => {
+  const { argument, description, name, parse, print, requests } = declared;
+  const writes = (request: TaskRequest): request is RequestOf<T> =>
+    (requests as readonly RequestTag[]).includes(request._tag);
+  return {
+    entry: { ...(argument !== undefined && { argument }), description, name },
+    name,
+    parse: (text) => {
+      const read = parse(text);
+      return "invalid" in read
+        ? { _tag: "Invalid", command: name, message: read.invalid }
+        : { _tag: "Request", request: read };
+    },
+    print: (request) => (writes(request) ? print(request) : null),
+  };
+};
+
+/** Every slash command, in the order the composer offers them. */
+const COMMANDS: readonly Command[] = [
+  command({
+    description:
+      "Import the repository's design system: tokens, text styles, components and conventions",
+    name: "init",
+    parse: (argument) => ({ _tag: "Init", ...given("extra", argument) }),
+    print: (request) => [request.extra],
+    requests: ["Init"],
+  }),
+  command({
+    argument: "<page | component> | --adopt [canvas | page…]",
+    description:
+      "Turn a page or a component of the design into the application's own code; `--adopt` links pages built already to the files that implement them",
+    name: "implement",
+    parse: (argument) => {
+      const { first, rest } = splitWord(argument);
+      if (first === ADOPT_FLAG) {
+        return {
+          _tag: "Adopt",
+          targets: rest.split(WHITESPACE_RE).filter(Boolean).map(canvasOfWord),
+        };
+      }
+      const inCanvas: RegExpExecArray | null = IN_CANVAS_RE.exec(first);
+      return {
+        _tag: "Implement",
+        target: inCanvas?.[2] ?? first,
+        ...given("canvas", inCanvas?.[1] ?? ""),
+        ...given("extra", rest),
+      };
+    },
+    print: (request) =>
+      request._tag === "Adopt"
+        ? [ADOPT_FLAG, ...request.targets.map(canvasWord)]
+        : [
+            request.canvas
+              ? `${request.canvas}:${request.target}`
+              : request.target,
+            request.extra,
+          ],
+    requests: ["Implement", "Adopt"],
+  }),
+  command({
+    description:
+      "Turn an imported Figma file into pages, with its components replaced by the repository's",
+    name: "import-figma",
+    parse: (argument) => {
+      const { first, rest } = splitWord(argument);
+      return {
+        _tag: "ImportFigma",
+        ...given("file", first),
+        ...given("extra", rest),
+      };
+    },
+    print: (request) => [request.file, request.extra],
+    requests: ["ImportFigma"],
+  }),
+  command({
+    argument: "<canvas> <what to change>",
+    description:
+      "Change every page of a canvas, a copy made to take another way: to wireframes, to finished screens",
+    name: "redraw",
+    parse: (argument) => {
+      const { first, rest } = splitWord(argument);
+      return {
+        _tag: "Redraw",
+        canvas: canvasOfWord(first),
+        ...given("change", rest),
+      };
+    },
+    print: (request) => [canvasWord(request.canvas), request.change],
+    requests: ["Redraw"],
+  }),
+  command({
+    argument: "<canvas>",
+    description:
+      "Draw a sheet of the design system's components, in each of their variants, into a canvas",
+    name: "components",
+    parse: (argument) => {
+      const { first, rest } = splitWord(argument);
+      return {
+        _tag: "Components",
+        canvas: canvasOfWord(first),
+        ...given("extra", rest),
+      };
+    },
+    print: (request) => [canvasWord(request.canvas), request.extra],
+    requests: ["Components"],
+  }),
+  command({
+    argument: "<step>",
+    description:
+      "Run a step of the design-system setup (Design system → Setup): define, map or migrate",
+    name: "design-system",
+    parse: (argument) => {
+      const { first, rest } = splitWord(argument);
+      if (!isSetupStep(first)) {
+        return {
+          invalid: first
+            ? `${first} is not a step of the setup`
+            : "it did not say which step",
+        };
+      }
+      const { first: mode, rest: words } = splitWord(rest);
+      return first === "define" && isDefineMode(mode)
+        ? { _tag: "SetupStep", mode, step: first, ...given("extra", words) }
+        : { _tag: "SetupStep", step: first, ...given("extra", rest) };
+    },
+    print: (request) => [request.step, request.mode, request.extra],
+    requests: ["SetupStep"],
+  }),
+  command({
+    argument: "[describe | figma | design | code]",
+    description:
+      "Bring the design system and the code together: opens Sync; `describe` has an agent describe what changed, `figma` match Figma's tokens to the design system's, `design` DESIGN.md's, `code` bring the code up to the design",
+    name: "sync",
+    parse: (argument) => {
+      const { first, rest } = splitWord(argument);
+      // Any other word is not a source: where the sync stands is what is asked.
+      return isSyncSource(first)
+        ? { _tag: "Sync", source: first, ...given("extra", rest) }
+        : { _tag: "Sync" };
+    },
+    print: (request) => [request.source, request.extra],
+    requests: ["Sync"],
+  }),
+];
+
+/**
+ * The slash commands a prompt may start with, as the composer offers them after a `/`: what the
+ * server's `commands.list` answers.
+ */
+export const slashCommands: readonly SlashCommand[] = COMMANDS.map(
+  (c) => c.entry
+);
+
+/** The command a request is written as, and its words. Every request has one: the tests write each. */
+const writing = (request: TaskRequest) => {
+  for (const { name, print } of COMMANDS) {
+    const words = print(request);
+    if (words) {
+      return { name, words };
+    }
+  }
+  return { name: "", words: [] };
+};
+
+/** The slash command a request is written as, without its slash. */
+export const commandNameOf = (request: TaskRequest): string =>
+  writing(request).name;
+
 /** The slash command a request is written as, which `parseCommand` reads back as the request. */
 export const commandOf = (request: TaskRequest): string => {
-  const name = `/${commandNameOf(request)}`;
-  switch (request._tag) {
-    case "Init":
-      return written(name, request.extra);
-    case "Implement":
-      return written(
-        name,
-        request.canvas ? `${request.canvas}:${request.target}` : request.target,
-        request.extra
-      );
-    case "Adopt":
-      return written(name, ADOPT_FLAG, ...request.targets.map(canvasWord));
-    case "ImportFigma":
-      return written(name, request.file, request.extra);
-    case "Redraw":
-      return written(name, canvasWord(request.canvas), request.change);
-    case "Components":
-      return written(name, canvasWord(request.canvas), request.extra);
-    case "SetupStep":
-      return written(name, request.step, request.mode, request.extra);
-    case "Sync":
-      return written(name, request.source, request.extra);
-    default:
-      return request satisfies never;
-  }
+  const { name, words } = writing(request);
+  return written(`/${name}`, ...words);
 };
 
 /** A command that names something it cannot: what the agent tells the user instead. */
@@ -187,98 +352,12 @@ export type ParsedCommand =
   | { readonly _tag: "Request"; readonly request: TaskRequest }
   | InvalidCommand;
 
-/** The first word of an argument, and the rest of it. */
-const splitWord = (argument: string) => {
-  const [first = "", ...rest] = argument.trim().split(WHITESPACE_RE);
-  return { first, rest: rest.join(" ") };
-};
-
-/** An optional field of a request, left out when the command has nothing for it. */
-const given = <K extends string>(key: K, text: string) =>
-  (text === "" ? {} : { [key]: text }) as { readonly [P in K]?: string };
-
-const requestOf = (request: TaskRequest): ParsedCommand => ({
-  _tag: "Request",
-  request,
-});
-
 /**
  * The request a prompt's text stands for when it starts with a command the editor knows, or null
  * (it then goes to the agent as it is, which may have commands of its own).
  */
 export const parseCommand = (text: string): ParsedCommand | null => {
   const match: RegExpExecArray | null = COMMAND_RE.exec(text.trim());
-  const name = match?.[1];
-  const argument = match?.[2]?.trim() ?? "";
-  const { first, rest } = splitWord(argument);
-  switch (name) {
-    case "init":
-      return requestOf({ _tag: "Init", ...given("extra", argument) });
-    case "implement": {
-      if (first === ADOPT_FLAG) {
-        return requestOf({
-          _tag: "Adopt",
-          targets: rest.split(WHITESPACE_RE).filter(Boolean).map(canvasOfWord),
-        });
-      }
-      const inCanvas: RegExpExecArray | null = IN_CANVAS_RE.exec(first);
-      return requestOf({
-        _tag: "Implement",
-        target: inCanvas?.[2] ?? first,
-        ...given("canvas", inCanvas?.[1] ?? ""),
-        ...given("extra", rest),
-      });
-    }
-    case "import-figma":
-      return requestOf({
-        _tag: "ImportFigma",
-        ...given("file", first),
-        ...given("extra", rest),
-      });
-    case "redraw":
-      return requestOf({
-        _tag: "Redraw",
-        canvas: canvasOfWord(first),
-        ...given("change", rest),
-      });
-    case "components":
-      return requestOf({
-        _tag: "Components",
-        canvas: canvasOfWord(first),
-        ...given("extra", rest),
-      });
-    case "design-system": {
-      if (!isSetupStep(first)) {
-        return {
-          _tag: "Invalid",
-          command: name,
-          message: first
-            ? `${first} is not a step of the setup`
-            : "it did not say which step",
-        };
-      }
-      const { first: mode, rest: words } = splitWord(rest);
-      return first === "define" && isDefineMode(mode)
-        ? requestOf({
-            _tag: "SetupStep",
-            mode,
-            step: first,
-            ...given("extra", words),
-          })
-        : requestOf({
-            _tag: "SetupStep",
-            step: first,
-            ...given("extra", rest),
-          });
-    }
-    case "sync":
-      // Any other word is not a source: where the sync stands is what is asked.
-      return requestOf(
-        isSyncSource(first)
-          ? { _tag: "Sync", source: first, ...given("extra", rest) }
-          : { _tag: "Sync" }
-      );
-    default:
-      return null;
-  }
+  const found = COMMANDS.find((c) => c.name === match?.[1]);
+  return found ? found.parse(match?.[2]?.trim() ?? "") : null;
 };

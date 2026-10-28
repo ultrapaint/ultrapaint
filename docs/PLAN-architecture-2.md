@@ -662,3 +662,15 @@ unless the step says otherwise.
    changes only the settings, reading nothing) and reads the settings again at a reconnect with
    the other 15 pieces; `settings-actions.test.ts` and `menu-actions.test.ts` answer the info
    with the settings.
+3. **Slash commands declared once** (`packages/contracts/src/tasks.ts`). Each command is one
+   declaration (`command({...})`): its name, its argument's syntax and its description as the
+   composer offers it, the requests it is written for, how its argument is read as one of them
+   (or why it names none) and how one is written back. `slashCommands` (the catalogue the
+   server's `commands.list` answers, which the web's `slash-commands` store follows),
+   `parseCommand`, `commandOf` and `commandNameOf` derive from the list; the server's
+   `SLASH_COMMANDS` and the two switches over a command's name and a request's tag go, and
+   `SlashCommands` keeps what needs the server, a command's task and its failures. Behaviour
+   unchanged. `tasks.test.ts` writes requests of every kind (a kind left out does not compile)
+   and reads each back as itself, 20 cases where it looped over 18, and checks that the catalogue
+   offers exactly the commands that write a request, each once; `server.test.ts` checks that
+   `commands.list` answers the declared catalogue as it is.
