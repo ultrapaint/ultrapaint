@@ -1,5 +1,4 @@
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import type { FrameLayout } from "@ultrapaint/contracts/pages";
 import { cn } from "cn";
 import {
   type ComponentProps,
@@ -11,27 +10,17 @@ import {
   useState,
 } from "react";
 import { isTyping } from "../lib/keys.ts";
-import { updateNodes } from "../lib/node-actions.ts";
 import { nextView, setViewSoon } from "../state/camera.ts";
-import { snapsToGrid, useCanvasGrid } from "../state/canvas-grid.ts";
+import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { useComments } from "../state/comments.ts";
 import { openMenuAt } from "../state/context-menu.ts";
 import {
   canvasNodes,
-  isNodeFrame,
-  NODE_FRAME_PREFIX,
   nodeFrameOf,
   useDocuments,
   viewFrameOf,
 } from "../state/documents.ts";
-import {
-  allFrames,
-  type Box,
-  hold,
-  holdUntil,
-  nodeFrameLayout,
-  useEditor,
-} from "../state/editor.ts";
+import { nodeFrameLayout, useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
 import { ensureEditable } from "../state/setup.ts";
 import { useFollowAgent } from "./agent-presence.tsx";
@@ -57,62 +46,17 @@ import {
 } from "./drag.ts";
 import { CreateOverlay, DragOverlay } from "./drag-overlay.tsx";
 import { EmptyState } from "./empty-state.tsx";
-import { type Corner, Frame } from "./frame.tsx";
+import { Frame } from "./frame.tsx";
+import {
+  beginFrameGesture,
+  cancelGesture,
+  isFollowing,
+} from "./frame-gesture.ts";
 import { fromFrame } from "./from-frame.ts";
-import { isFrameLocked } from "./hit-test.ts";
 import { addImages, imageFiles } from "./items.ts";
-import { holdsFree, snapBox, snapPoint, snapToEdges } from "./snap.ts";
+import { holdsFree } from "./snap.ts";
 
 const clampZoom = (z: number) => Math.min(4, Math.max(0.05, z));
-
-interface PointerAt {
-  altKey: boolean;
-  clientX: number;
-  clientY: number;
-  ctrlKey: boolean;
-  metaKey: boolean;
-}
-
-/**
- * Drags a node on the canvas by its name, following the pointer on the window. A drag still
- * followed (its pointerup never came) is put back before this one begins: put back after, it
- * would take the new drag with it. `following` holds what puts the drag back.
- */
-export const followLooseDrag = (
-  following: { current: (() => void) | null },
-  node: { frame: string; nodeId: string; origin: { x: number; y: number } },
-  e: PointerAt
-) => {
-  following.current?.();
-  beginDrag(
-    { ...node, kind: "loose" },
-    e.clientX,
-    e.clientY,
-    e.altKey,
-    holdsFree(e)
-  );
-  const move = (ev: PointerEvent) =>
-    moveDrag(ev.clientX, ev.clientY, ev.altKey, holdsFree(ev));
-  const stop = () => {
-    window.removeEventListener("pointermove", move);
-    window.removeEventListener("pointerup", up);
-    window.removeEventListener("pointercancel", cancel);
-    following.current = null;
-  };
-  const up = () => {
-    stop();
-    endDrag();
-  };
-  // The browser took the pointer away: the node goes back where it was.
-  const cancel = () => {
-    stop();
-    cancelDrag();
-  };
-  following.current = cancel;
-  window.addEventListener("pointermove", move);
-  window.addEventListener("pointerup", up);
-  window.addEventListener("pointercancel", cancel);
-};
 
 export const Canvas = () => {
   useFollowAgent();
@@ -131,29 +75,13 @@ export const Canvas = () => {
   // Virtualisation: only the frames near the screen have a preview mounted.
   const inView = useFramesInView(size);
   useCamera(ref, layer, grid);
-  const drag = useRef<
-    | { kind: "pan"; startX: number; startY: number; vx: number; vy: number }
-    | {
-        kind: "move" | "resize";
-        corner: Corner;
-        pageId: string;
-        startX: number;
-        startY: number;
-        frame: FrameLayout;
-      }
-    | {
-        /** Resizing a node on the canvas gives it a fixed size. */
-        kind: "resize-node";
-        corner: Corner;
-        nodeId: string;
-        startX: number;
-        startY: number;
-        box: Box;
-        /** The box it is resized to, once the pointer has moved. */
-        to: Box | null;
-      }
-    | null
-  >(null);
+  /** The canvas being panned by the pointer: where it was pressed and where the view was then. */
+  const panFrom = useRef<{
+    startX: number;
+    startY: number;
+    vx: number;
+    vy: number;
+  } | null>(null);
 
   // Where the canvas is in the window, read when it is laid out anyway: a wheel event reading it
   // would make the browser lay out again what the last zoom changed, once per event.
@@ -308,19 +236,13 @@ export const Canvas = () => {
     }
   }, [mode]);
 
-  // Escape puts back whatever is being dragged.
+  // Escape puts back whatever the pointer is doing: a frame moved or sized, a drag, a group being
+  // drawn (the tool stays picked). It goes no further then.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && useDrag.getState().dragged) {
+      if (e.key === "Escape" && cancelGesture()) {
         e.preventDefault();
         e.stopImmediatePropagation();
-        cancelDrag();
-      }
-      // A group being drawn is dropped; the tool stays picked.
-      if (e.key === "Escape" && useCreate.getState().from) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        cancelCreate();
       }
     };
     window.addEventListener("keydown", onKey, true);
@@ -377,8 +299,7 @@ export const Canvas = () => {
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     setPanning(true);
     const from = nextView();
-    drag.current = {
-      kind: "pan",
+    panFrom.current = {
       startX: e.clientX,
       startY: e.clientY,
       vx: from.x,
@@ -386,121 +307,25 @@ export const Canvas = () => {
     };
   };
 
-  /** Puts back a node on the canvas being dragged by its name, and stops following the pointer. */
-  const looseDrag = useRef<(() => void) | null>(null);
-  // A canvas that goes away mid-drag leaves nothing listening to the window.
-  useEffect(() => () => looseDrag.current?.(), []);
-
-  // Stable identity (only touches refs and the store) so memoized Frames skip re-rendering while panning.
-  const startFrameDrag = (
-    e: ReactPointerEvent,
-    pageId: string,
-    kind: "move" | "resize",
-    corner: Corner = "se"
-  ) => {
-    const s = useEditor.getState();
-    // Let the event reach the canvas, which pans.
-    if (e.button === 1 || s.spacePan || s.mode === "pan") {
-      return;
-    }
-    e.preventDefault();
-    e.stopPropagation();
-    if (isNodeFrame(pageId)) {
-      const nodeId = pageId.slice(NODE_FRAME_PREFIX.length);
-      const box = allFrames()[pageId];
-      if (!box) {
-        return;
-      }
-      s.select({ frame: pageId, nodeId });
-      // A locked node is picked up by its name, and stays where it is and the size it is.
-      if (isFrameLocked(pageId)) {
-        return;
-      }
-      if (kind === "move") {
-        followLooseDrag(
-          looseDrag,
-          { frame: pageId, nodeId, origin: { x: box.x, y: box.y } },
-          e
-        );
-        return;
-      }
-      ref.current?.setPointerCapture(e.pointerId);
-      drag.current = {
-        box,
-        corner,
-        kind: "resize-node",
-        nodeId,
-        startX: e.clientX,
-        startY: e.clientY,
-        to: null,
-      };
-      return;
-    }
-    const frame = s.frames[pageId];
-    if (!frame) {
-      return;
-    }
-    ref.current?.setPointerCapture(e.pointerId);
-    drag.current = {
-      corner,
-      frame,
-      kind,
-      pageId,
-      startX: e.clientX,
-      startY: e.clientY,
-    };
-    s.selectPage(pageId);
-  };
+  // A canvas that goes away mid-gesture leaves nothing listening to the window.
+  useEffect(
+    () => () => {
+      cancelGesture();
+    },
+    []
+  );
 
   const onPointerMove = (e: ReactPointerEvent) => {
     lastPointer.current = canvasPoint(e.clientX, e.clientY);
-    const d = drag.current;
-    if (!d) {
-      if (isCreateTool(mode) && !spacePan) {
-        moveCreate(e.clientX, e.clientY, holdsFree(e));
-        hoverCreate(e.clientX, e.clientY);
-      }
-      return;
-    }
-    const s = useEditor.getState();
-    const { zoom } = s.view;
-    const dx = (e.clientX - d.startX) / zoom;
-    const dy = (e.clientY - d.startY) / zoom;
-    // With the grid on, what is moved or resized snaps to it unless ⌘/Ctrl is held.
-    const onGrid = snapsToGrid(holdsFree(e));
-    if (d.kind === "pan") {
+    const p = panFrom.current;
+    if (p) {
       setViewSoon({
-        x: d.vx + (e.clientX - d.startX),
-        y: d.vy + (e.clientY - d.startY),
+        x: p.vx + (e.clientX - p.startX),
+        y: p.vy + (e.clientY - p.startY),
       });
-    } else if (d.kind === "resize-node") {
-      const resized = resizeFrom(d.box, d.corner, dx, dy, 8, e.shiftKey);
-      const next = roundBox(
-        onGrid ? snapBox(resized, d.box, d.corner, 8, e.shiftKey) : resized
-      );
-      s.setSize(nodeFrameOf(d.nodeId), {
-        height: next.height,
-        width: next.width,
-      });
-      d.to = next;
-      // Its frame draws it at that size too, or it would be cropped by its frame.
-      hold(nodeFrameOf(d.nodeId), next);
-    } else if (d.kind === "move") {
-      const moved = { ...d.frame, x: d.frame.x + dx, y: d.frame.y + dy };
-      s.setFrame(d.pageId, placeFrame(moved, d.pageId, onGrid, e), false);
-    } else {
-      const resized = resizeFrom(d.frame, d.corner, dx, dy, 120, e.shiftKey);
-      s.setFrame(
-        d.pageId,
-        {
-          ...d.frame,
-          ...(onGrid
-            ? snapBox(resized, d.frame, d.corner, 120, e.shiftKey)
-            : resized),
-          preset: "custom",
-        },
-        false
-      );
+    } else if (isCreateTool(mode) && !spacePan && !isFollowing()) {
+      moveCreate(e.clientX, e.clientY, holdsFree(e));
+      hoverCreate(e.clientX, e.clientY);
     }
   };
 
@@ -509,41 +334,8 @@ export const Canvas = () => {
       endCreate(mode);
       return;
     }
-    const d = drag.current;
-    drag.current = null;
+    panFrom.current = null;
     setPanning(false);
-    if (d?.kind === "resize-node") {
-      const frame = nodeFrameOf(d.nodeId);
-      const { canvas: current } = useEditor.getState();
-      const resized = d.to;
-      if (!resized || current === null) {
-        hold(frame, null);
-        return;
-      }
-      const { height, width, x, y } = resized;
-      // The box stays where it was let go until the document has it, then the document draws it.
-      holdUntil(frame, resized, () =>
-        updateNodes(
-          [{ frame, nodeId: d.nodeId }],
-          { height, width, x, y },
-          "Resize"
-        )
-      );
-      return;
-    }
-    if (d && d.kind !== "pan") {
-      const s = useEditor.getState();
-      const f = s.frames[d.pageId];
-      if (f) {
-        s.setFrame(d.pageId, {
-          ...f,
-          height: Math.round(f.height),
-          width: Math.round(f.width),
-          x: Math.round(f.x),
-          y: Math.round(f.y),
-        });
-      }
-    }
   };
 
   /**
@@ -561,9 +353,11 @@ export const Canvas = () => {
     }
   };
 
+  // A group or a text being drawn is dropped; a pan stops where it is.
   const onPointerCancel = () => {
     cancelCreate();
-    onPointerUp();
+    panFrom.current = null;
+    setPanning(false);
   };
   // Where a tool would put something is shown only while the pointer is over the canvas.
   const onPointerLeave = () => {
@@ -619,7 +413,7 @@ export const Canvas = () => {
                     frameId={id}
                     key={id}
                     kind="page"
-                    onDragStart={startFrameDrag}
+                    onDragStart={beginFrameGesture}
                     page={page}
                     visible={inView.has(id)}
                   />,
@@ -634,7 +428,7 @@ export const Canvas = () => {
               frameId={frameId}
               key={frameId}
               node={node}
-              onDragStart={startFrameDrag}
+              onDragStart={beginFrameGesture}
               visible={inView.has(frameId)}
             />
           );
@@ -695,68 +489,3 @@ const NodeFrame = memo(
   }
 );
 NodeFrame.displayName = "NodeFrame";
-
-/**
- * The box left once `corner` is dragged by (dx, dy): the opposite corner stays where it was, and
- * neither side goes under `min`. Keeping the ratio (Shift), the side the pointer moved further
- * decides.
- */
-export const resizeFrom = (
-  box: Box,
-  corner: Corner,
-  dx: number,
-  dy: number,
-  min: number,
-  keepRatio: boolean
-): Box => {
-  const west = corner.endsWith("w");
-  const north = corner.startsWith("n");
-  let width = Math.max(min, box.width + (west ? -dx : dx));
-  let height = Math.max(min, box.height + (north ? -dy : dy));
-  if (keepRatio) {
-    const sx = width / box.width;
-    const sy = height / box.height;
-    const k = Math.max(
-      Math.abs(sx - 1) > Math.abs(sy - 1) ? sx : sy,
-      min / Math.min(box.width, box.height)
-    );
-    width = box.width * k;
-    height = box.height * k;
-  }
-  return {
-    height,
-    width,
-    x: west ? box.x + box.width - width : box.x,
-    y: north ? box.y + box.height - height : box.y,
-  };
-};
-
-const roundBox = (b: Box): Box => ({
-  height: Math.round(b.height),
-  width: Math.round(b.width),
-  x: Math.round(b.x),
-  y: Math.round(b.y),
-});
-
-/**
- * Where a page frame being moved goes: on the grid when it snaps, otherwise against the edges of
- * the frames around it, unless Shift or ⌘/Ctrl is held.
- */
-export const placeFrame = (
-  f: FrameLayout,
-  pageId: string,
-  onGrid: boolean,
-  e: Pick<ReactPointerEvent, "ctrlKey" | "metaKey" | "shiftKey">
-): FrameLayout => {
-  if (onGrid) {
-    return { ...f, ...snapPoint(f) };
-  }
-  if (e.shiftKey || holdsFree(e)) {
-    return f;
-  }
-  const s = useEditor.getState();
-  const others = Object.entries(s.frames)
-    .filter(([id]) => id !== pageId)
-    .map(([, o]) => o);
-  return snapToEdges(f, others, 8 / s.view.zoom);
-};
