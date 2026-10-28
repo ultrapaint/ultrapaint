@@ -78,3 +78,31 @@ unless the step says otherwise.
     and which rows a reveal unfolds; `layers.tsx` draws and forwards.
 
 ## Built
+
+1. **Composition root** (`apps/server/src/composition.ts`, the tests' side in
+   `apps/server/src/testing/project.ts`). `Foundation` (the settings, the storage, the log, the
+   events, the port and the preview's proxy), `projectLayer(settings, host)` (the open project's
+   services, moved out of `project.ts`), `ThreadsLayer` (the threads, on a briefing, slash
+   commands, a launcher and a sandbox given below them) and `ApplicationLayer(adapters)` (all of
+   it, `SetupSteps` on top) are built in one module. `Adapters` are the seams that have a test's
+   second adapter: `host` (`HostManager.layer`, or `HostManager.layerTest`, which spawns nothing
+   and reports the preview stopped, then running at no address once started) and `agents`
+   (`AgentLauncher` with `AgentSandbox`, or `ScriptedAgents` with `AgentSandbox.layerTest`).
+   `server.ts` serves `ApplicationLayer(ServerAdapters)`; `ProjectManager.layer` takes the
+   project layer it opens, so the root decides which preview a project gets. The MCP route
+   exports `ToolkitHandlers`, the handlers of the editor's, Figma's and the setup's toolkits.
+   `ProjectTest(options)` is `ApplicationLayer(TestAdapters)` with a project open on a fresh
+   fixture (files written into it, settings over its own, git or not, the MCP server or not) and
+   the toolkits' handlers; `ProjectFixture` gives its folder, its home, its settings and
+   `reopen`. `callTool(toolkit, name, parameters, thread?)` runs a tool's handler as an agent's
+   call reaches it, the parameters decoded and `CallingThread` provided, and gives its answer or
+   its failure. The hand-kept copies go: `testing/tasks.ts` (`tasks.test.ts` runs on
+   `ProjectTest`, its slash commands no longer built beside it) and `testing/threads.ts`'s own
+   stack (`ThreadTest` is `ThreadsLayer` on `Foundation`, its stand-ins for the project, the
+   briefing and the commands kept). Also: a project opened by the tasks' tests no longer starts
+   the Vite preview. `project-services.test.ts` has 4 in-process tests: the project opens with
+   the test preview, `PagesService` makes, renames and lists pages, `DesignSystemService` reads
+   the code's tokens and sets one, and `list_pages`, `create_page` (refused) and `focus` (the
+   calling thread's event) are called without a socket. The same calls through the harness take
+   about 720 ms with its server and project up, in-process about 420 ms; a call once the project
+   is open takes tens of milliseconds either way. The 23 harness test files stay as they are.

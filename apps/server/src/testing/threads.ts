@@ -1,7 +1,8 @@
 /**
  * `ThreadService` in-process, for a test that plays the agent (`scripted-agents.ts`): the thread
- * services the server builds, on a fixture folder and a home of their own, without the HTTP
- * server, the preview or the project's other services. The briefing and the slash commands are
+ * services as the composition root builds them (`ThreadsLayer`), with the tests' agents, on a
+ * fixture folder and a home of their own, without the HTTP server, the preview or the project's
+ * other services. The briefing and the slash commands are
  * stand-ins: the briefing says which purpose it was asked for, and a command `/name rest` stands
  * for the task `taskFor` writes, with the purpose of the request it reads as. Two agents are
  * configured, `scripted` and `other`.
@@ -21,27 +22,17 @@ import {
   Scope,
   Stream,
 } from "effect";
-import { AppLog } from "../app-log.ts";
+import { Foundation, ThreadsLayer } from "../composition.ts";
 import { ServerConfig } from "../config.ts";
 import { EventBus } from "../events.ts";
-import { ListenPort } from "../listen-port.ts";
 import { ProjectManager, type ProjectServices } from "../project.ts";
-import { McpAccess } from "../services/mcp/access.ts";
 import { RepoPaths } from "../services/repo-paths.ts";
-import { Storage } from "../services/storage.ts";
-import { AgentConfigs } from "../services/threads/agent-configs.ts";
-import { AgentDiscovery } from "../services/threads/agent-discovery.ts";
-import { AgentSandbox } from "../services/threads/agent-sandbox.ts";
 import { ProjectBriefing } from "../services/threads/briefing.ts";
-import { ChatPreferences } from "../services/threads/chat-preferences.ts";
-import { Checkpoints } from "../services/threads/checkpoints.ts";
 import { SlashCommands } from "../services/threads/commands.ts";
-import { ThreadSessions } from "../services/threads/thread-session.ts";
 import { ThreadStore } from "../services/threads/thread-store.ts";
-import { ThreadService } from "../services/threads/threads.ts";
 import { WorkingTree } from "../services/working-tree.ts";
 import { makeFixture } from "./harness.ts";
-import { ScriptedAgents } from "./scripted-agents.ts";
+import { TestAdapters } from "./project.ts";
 
 /** Where the test's threads work: the fixture folder, and the home their state is kept in. */
 export class ThreadFixture extends Context.Service<
@@ -162,28 +153,12 @@ export const ThreadTest = Layer.unwrap(
         JSON.stringify({ args: [], command: id, id, name })
       );
     }
-    return ThreadService.layer.pipe(
-      Layer.provideMerge(ThreadSessions.layer),
-      Layer.provideMerge(Checkpoints.layer),
-      Layer.provideMerge(AgentDiscovery.layer),
+    return ThreadsLayer.pipe(
       Layer.provideMerge(
-        Layer.mergeAll(
-          ThreadStore.layer,
-          AgentConfigs.layer,
-          ChatPreferences.layer,
-          briefing,
-          McpAccess.layer,
-          commands
-        )
-      ),
-      Layer.provideMerge(
-        Layer.mergeAll(ScriptedAgents.layer, AgentSandbox.layerTest)
+        Layer.mergeAll(briefing, commands, TestAdapters.agents)
       ),
       Layer.provideMerge(projectOf(repo)),
-      Layer.provideMerge(AppLog.layer),
-      Layer.provideMerge(
-        Layer.mergeAll(Storage.layer, EventBus.layer, ListenPort.layer)
-      ),
+      Layer.provideMerge(Foundation),
       Layer.provideMerge(
         ServerConfig.layerTest({
           briefing: true,
