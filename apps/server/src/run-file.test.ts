@@ -85,9 +85,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
 );
 
 layer(
-  makeTestServer(({ home }) => Effect.succeed({ home, mode: "managed" }), {
-    anyPort: true,
-  }),
+  makeTestServer(({ home }) => Effect.succeed({ home, mode: "managed" })),
   { excludeTestServices: true, timeout: "60 seconds" }
 )("a server started on port 0", (test) => {
   test.effect(

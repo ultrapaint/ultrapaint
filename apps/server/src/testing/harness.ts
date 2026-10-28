@@ -1,4 +1,3 @@
-import { createServer } from "node:net";
 import { NodeServices } from "@effect/platform-node";
 import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
 import type { Settings } from "@ultrapaint/contracts/settings";
@@ -9,7 +8,6 @@ import {
   Fiber,
   FileSystem,
   Layer,
-  Option,
   Path,
   type PlatformError,
   Stream,
@@ -17,18 +15,10 @@ import {
 import { RpcClient, type RpcClientError, RpcSerialization } from "effect/rpc";
 import { Socket } from "effect/socket";
 import { ServerConfig, type StorageTarget } from "../config.ts";
+import { ListenPort } from "../listen-port.ts";
 import { runCommand } from "../process.ts";
-import { readRunFile } from "../run-file.ts";
 import { ServerLive } from "../server.ts";
 import { waitFor } from "./wait-for.ts";
-
-/** Where a storage target keeps its state, and with it the run file. */
-const stateDirOf = (storage: StorageTarget, home: string) => {
-  if (storage.mode === "file") {
-    return storage.stateDir;
-  }
-  return storage.mode === "managed" ? storage.home : home;
-};
 
 const HOME_PAGE = `${JSON.stringify(
   {
@@ -63,15 +53,6 @@ export function Button(props: ButtonProps) {
   return props.disabled ? null : null;
 }
 `;
-
-export const freePort = Effect.callback<number>((resume) => {
-  const server = createServer();
-  server.listen(0, "127.0.0.1", () => {
-    const address = server.address();
-    const port = typeof address === "object" && address ? address.port : 0;
-    server.close(() => resume(Effect.succeed(port)));
-  });
-});
 
 /**
  * A throwaway project folder with a designs package and one page. With `git`, a repository
@@ -124,9 +105,11 @@ export class TestEnv extends Context.Service<
 >()("ultrapaint/server/testing/TestEnv") {}
 
 /**
- * The real server on a free loopback port with its own home directory, a fixture repository
- * and a real RPC client over WebSocket. The fake ACP agent is registered as `fake`, and as
- * `fake-auth` and `fake-load` with the matching behaviour switched on.
+ * The real server on a loopback port with its own home directory, a fixture repository and a
+ * real RPC client over WebSocket. The fake ACP agent is registered as `fake`, and as `fake-auth`
+ * and `fake-load` with the matching behaviour switched on. The server binds port 0 itself, as
+ * the desktop app starts it: a port picked beforehand and let go of could be taken by another
+ * test's server before this one listens.
  */
 export const makeTestServer = (
   /** Runs before the server starts, so it can also put a configuration file in place. */
@@ -138,11 +121,8 @@ export const makeTestServer = (
     PlatformError.PlatformError,
     FileSystem.FileSystem
   >,
-  /**
-   * `git: false` makes the fixture a plain folder, without `git init`. `anyPort` starts the
-   * server with port 0, as the desktop app does, and the client finds the port in the run file.
-   */
-  options: { readonly anyPort?: boolean; readonly git?: boolean } = {}
+  /** `git: false` makes the fixture a plain folder, without `git init`. */
+  options: { readonly git?: boolean } = {}
 ) =>
   Layer.unwrap(
     Effect.gen(function* () {
@@ -150,7 +130,6 @@ export const makeTestServer = (
       const path = yield* Path.Path;
       const home = yield* fs.makeTempDirectoryScoped();
       const repo = yield* makeFixture({ git: options.git ?? true });
-      const asked = options.anyPort ? 0 : yield* freePort;
       const storage = yield* Effect.orDie(storageFor({ home, repo }));
       const fakeAgent = path.resolve(
         import.meta.dirname,
@@ -185,19 +164,14 @@ export const makeTestServer = (
             // The fixture's home: the preview is generated under its cache, not the user's.
             machine: { home, path: process.env.PATH ?? "" },
             mcp: true,
-            port: asked,
+            port: 0,
             storage,
             userDir: home,
           })
         )
       );
-      /** The port the server listens on, which the run file says once it does. */
-      const listening =
-        asked === 0
-          ? Effect.map(readRunFile(stateDirOf(storage, home)), (run) =>
-              Option.match(run, { onNone: () => 0, onSome: (r) => r.port })
-            )
-          : Effect.succeed(asked);
+      /** The port the server listens on, once it does. */
+      const listening = Effect.flatMap(ListenPort, (port) => port.get);
       const protocol = Layer.unwrap(
         Effect.map(listening, (port) =>
           RpcClient.layerProtocolSocket().pipe(
@@ -228,8 +202,13 @@ export const makeTestServer = (
           })
         )
       );
-      // The client connects only after the server layer is up.
-      return env.pipe(Layer.provide(protocol), Layer.provide(server));
+      // The client connects only after the server layer is up. Its `ListenPort` is the
+      // server's: a layer is built once for the whole of a build.
+      return env.pipe(
+        Layer.provide(protocol),
+        Layer.provide(ListenPort.layer),
+        Layer.provide(server)
+      );
     })
   ).pipe(Layer.provideMerge(NodeServices.layer));
 

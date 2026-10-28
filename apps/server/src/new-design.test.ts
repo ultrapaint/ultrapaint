@@ -268,21 +268,19 @@ describe("a new design", () => {
 });
 
 /** The server on a new design, found by its configuration, as the desktop app starts it. */
-const OnNewDesign = makeTestServer(
-  ({ home }) =>
-    Effect.gen(function* () {
-      const folder = path.join(home, "Acme");
-      yield* create({ folder });
-      const { storage } = yield* resolveStorage({
-        config: undefined,
-        cwd: folder,
-        ephemeral: false,
-        home: undefined,
-        userHome: folder,
-      });
-      return storage;
-    }).pipe(Effect.provide(Live), Effect.orDie),
-  { anyPort: true }
+const OnNewDesign = makeTestServer(({ home }) =>
+  Effect.gen(function* () {
+    const folder = path.join(home, "Acme");
+    yield* create({ folder });
+    const { storage } = yield* resolveStorage({
+      config: undefined,
+      cwd: folder,
+      ephemeral: false,
+      home: undefined,
+      userHome: folder,
+    });
+    return storage;
+  }).pipe(Effect.provide(Live), Effect.orDie)
 );
 
 layer(OnNewDesign, { excludeTestServices: true, timeout: "60 seconds" })(

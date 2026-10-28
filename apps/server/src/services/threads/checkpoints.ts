@@ -9,8 +9,14 @@ import type { EditFailure } from "../edit.ts";
 /** The snapshot store's namespace for the checkpoints taken before agent turns. */
 const NAMESPACE = "checkpoints";
 
-/** How many checkpoints are kept, of every repository together: the oldest go first. */
-const KEEP = 30;
+/**
+ * How many checkpoints are kept, of every repository together: the oldest go first. 30; a test
+ * that goes past it gives fewer, so it takes as many turns fewer.
+ */
+export const CheckpointsKept: Context.Reference<number> =
+  Context.Reference<number>("ultrapaint/server/CheckpointsKept", {
+    defaultValue: () => 30,
+  });
 
 /** What the store's ref of a checkpoint notes beside the files. */
 const Note = Schema.Struct({
@@ -70,7 +76,7 @@ export class Checkpoints extends Context.Service<
       const events = yield* EventBus;
       const refs = yield* makeDesignRefs({
         idOf: (note: Note) => note.checkpoint.id,
-        keepLast: KEEP,
+        keepLast: yield* CheckpointsKept,
         listed: (note) => note.checkpoint,
         namespace: NAMESPACE,
         note: Schema.fromJsonString(Note),
