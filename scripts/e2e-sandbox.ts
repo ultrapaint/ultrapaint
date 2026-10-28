@@ -53,13 +53,13 @@ interface EditorState {
   canvas: string | null;
   frames: Record<string, unknown>;
   hostErrors: Record<string, string | null>;
-  navigate: (route: string) => void;
   setMode: (mode: string) => void;
   setWorkspace: (workspace: string) => void;
 }
 /** What the editor's page offers the check: its dev handle, and what the probes wrote. */
 interface CheckWindow {
   __ed: {
+    goTo: (to: { route: string }) => void;
     openCanvas: (id: string) => void;
     useEditor: { getState: () => EditorState };
     zoomToPage: (page: string) => void;
@@ -553,11 +553,9 @@ const guards = async (page: Page, url: string) => {
     "an error thrown by a click in the prototype is shown",
     async () => {
       await page.evaluate(() => {
-        const editor = (
-          window as unknown as CheckWindow
-        ).__ed.useEditor.getState();
-        editor.setWorkspace("prototype");
-        editor.navigate("/err-click");
+        const ed = (window as unknown as CheckWindow).__ed;
+        ed.useEditor.getState().setWorkspace("prototype");
+        ed.goTo({ route: "/err-click" });
       });
       await page.waitForTimeout(2000);
       const button = await centerIn(

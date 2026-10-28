@@ -7,9 +7,11 @@ import { BillingPage } from "./pages/billing.tsx";
 import { PricingPage } from "./pages/pricing.tsx";
 import { useAgents } from "./state/agents.ts";
 import { useAttachments } from "./state/attachments.ts";
+import { setView, zoomToFit } from "./state/camera.ts";
 import { api } from "./state/connection.ts";
 import { useDocuments } from "./state/documents.ts";
 import { useEditor } from "./state/editor.ts";
+import { goTo } from "./state/location.ts";
 import { useProject } from "./state/project.ts";
 import "./styles.css";
 
@@ -17,13 +19,16 @@ if (import.meta.env.DEV) {
   (window as unknown as { __ed: unknown }).__ed = {
     api,
     frameOf,
+    goTo,
     // What `pnpm bench:canvas` drives the canvas with.
     openCanvas,
+    setView,
     useAgents,
     useAttachments,
     useDocuments,
     useEditor,
     useProject,
+    zoomToFit,
     zoomToPage,
   };
 }

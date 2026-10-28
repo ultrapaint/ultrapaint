@@ -11,8 +11,10 @@ import {
   nodeKey,
   removeChip,
 } from "../state/attachments.ts";
+import { zoomToSelection } from "../state/camera.ts";
 import { frameOfCanvasNode, useDocuments } from "../state/documents.ts";
 import { type Selection, useEditor } from "../state/editor.ts";
+import { goTo } from "../state/location.ts";
 import { useProject } from "../state/project.ts";
 import { viewportSize } from "./shortcuts.ts";
 import { createThread } from "./start-thread.ts";
@@ -74,7 +76,7 @@ export const showScope = (thread: Thread) => {
   const page = useProject.getState().pages.find((p) => p.file === scope.file);
   if (editor.workspace === "prototype") {
     if (page) {
-      editor.openPage(page.id);
+      goTo({ page: page.id });
     }
     return;
   }
@@ -93,5 +95,5 @@ export const showScope = (thread: Thread) => {
     }
     editor.select({ frame, nodeId: scope.nodeId });
   }
-  editor.zoomToSelection(viewportSize());
+  zoomToSelection(viewportSize());
 };

@@ -3,6 +3,13 @@ import { useEffect } from "react";
 import { frameOf } from "../canvas/editor-frame.ts";
 import { openCommandPalette } from "../components/command-palette.tsx";
 import { openShortcutSheet } from "../components/shortcut-sheet.tsx";
+import {
+  nextView,
+  setView,
+  type Viewport,
+  zoomToFit,
+  zoomToSelection,
+} from "../state/camera.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { toggleCommenting, useComments } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
@@ -12,9 +19,7 @@ import {
   allFrames,
   flushLayout,
   type Mode,
-  nextView,
   useEditor,
-  type Viewport,
   workspaceOrder,
 } from "../state/editor.ts";
 import { usePanels } from "../state/panels.ts";
@@ -200,16 +205,16 @@ const handlePanelsKey = (e: KeyboardEvent) => {
   return true;
 };
 
-const handleZoomKey = (e: KeyboardEvent, s: EditorState, meta: boolean) => {
+const handleZoomKey = (e: KeyboardEvent, meta: boolean) => {
   const viewport = viewportSize();
   if (e.shiftKey && e.key === "!") {
-    s.zoomToFit(viewport);
+    zoomToFit(viewport);
   }
   if (e.shiftKey && e.key === "@") {
-    s.zoomToSelection(viewport);
+    zoomToSelection(viewport);
   }
   if (e.shiftKey && e.key === "0") {
-    s.setView({ zoom: 1 });
+    setView({ zoom: 1 });
   }
   if (meta && (e.key === "=" || e.key === "+")) {
     e.preventDefault();
@@ -274,7 +279,7 @@ const handleCanvasKey = (e: KeyboardEvent, s: EditorState, meta: boolean) => {
   if (s.workspace === "prototype") {
     return;
   }
-  handleZoomKey(e, s, meta);
+  handleZoomKey(e, meta);
   handleTreeNavigation(e, s);
 };
 
@@ -464,7 +469,7 @@ export const zoomBy = (k: number) => {
   const cy = height / 2;
   const next = Math.min(4, Math.max(0.05, view.zoom * k));
   const r = next / view.zoom;
-  useEditor.getState().setView({
+  setView({
     x: cx - (cx - view.x) * r,
     y: cy - (cy - view.y) * r,
     zoom: next,

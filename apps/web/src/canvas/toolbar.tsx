@@ -33,9 +33,14 @@ import {
 import { IconButton } from "../components/icon-button.tsx";
 import { shortcutLabel } from "../lib/keys.ts";
 import { undoOrRedo, viewportSize, zoomBy } from "../lib/shortcuts.ts";
+import {
+  zoomToFit as fitAll,
+  zoomToSelection as fitSelection,
+  nextView,
+} from "../state/camera.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { useComments } from "../state/comments.ts";
-import { type Mode, nextView, useEditor } from "../state/editor.ts";
+import { type Mode, useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
 
 /** `label` names the tool for a screen reader, as the tooltip names it on screen. */
@@ -125,9 +130,8 @@ const onModeChange = (next: readonly unknown[]) => {
 
 const zoomOut = () => zoomBy(0.8);
 const zoomIn = () => zoomBy(1.25);
-const zoomToFit = () => useEditor.getState().zoomToFit(viewportSize());
-const zoomToSelection = () =>
-  useEditor.getState().zoomToSelection(viewportSize());
+const zoomToFit = () => fitAll(viewportSize());
+const zoomToSelection = () => fitSelection(viewportSize());
 const toggleGrid = () => useCanvasGrid.getState().toggle();
 
 const ZoomPresetItem = ({ pct }: { pct: number }) => {

@@ -9,6 +9,7 @@ import { confirmDialog, promptDialog } from "../components/dialogs.tsx";
 import { api } from "../state/connection.ts";
 import { useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
+import { goTo } from "../state/location.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { useSnapshotView } from "../state/snapshot-view.ts";
 
@@ -62,7 +63,8 @@ export const openSnapshot = async (snapshot: Snapshot) => {
       view.canvases.find((c) => c.id === editor.canvas)?.id ??
       view.canvases[0]?.id ??
       "";
-    await editor.openCanvas(canvas, {
+    await goTo({
+      canvas,
       page: editor.activePage,
       route: editor.route,
       variant: editor.variant,
@@ -81,7 +83,8 @@ export const closeSnapshot = async () => {
   const { canvases } = useProject.getState();
   const canvas =
     canvases.find((c) => c.id === live?.canvas)?.id ?? canvases[0]?.id ?? "";
-  await useEditor.getState().openCanvas(canvas, {
+  await goTo({
+    canvas,
     page: live?.page ?? null,
     route: live?.route ?? null,
     variant: live?.variant ?? null,

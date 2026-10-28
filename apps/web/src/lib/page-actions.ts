@@ -6,8 +6,10 @@ import type { Page, ViewportPreset } from "@ultrapaint/contracts/pages";
 import { slugOf } from "@ultrapaint/shared/path";
 import { toast } from "sonner";
 import { confirmDialog, promptDialog } from "../components/dialogs.tsx";
+import { zoomToSelection } from "../state/camera.ts";
 import { api } from "../state/connection.ts";
 import { useEditor } from "../state/editor.ts";
+import { goTo } from "../state/location.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { ensureEditable } from "../state/setup.ts";
 import { linksToPage } from "./links.ts";
@@ -22,12 +24,12 @@ export const pageById = (id: string): Page | undefined =>
   useProject.getState().pages.find((p) => p.id === id);
 
 /** Goes to the page, unless it is already on screen with the parameters it was reached with. */
-export const goToPage = (page: Page) => useEditor.getState().openPage(page.id);
+export const goToPage = (page: Page) => goTo({ page: page.id });
 
 export const zoomToPage = (page: Page) => {
   const editor = useEditor.getState();
   editor.selectPage(page.id);
-  editor.zoomToSelection(viewportSize());
+  zoomToSelection(viewportSize());
 };
 
 export const setPagePreset = (page: Page, preset: ViewportPreset) =>
@@ -59,7 +61,7 @@ export const setPageUrl = async (page: Page, value: string) => {
     const editor = useEditor.getState();
     if (editor.activePage === page.id) {
       await useProject.getState().load();
-      editor.openPage(changed.id, { push: false });
+      goTo({ page: changed.id }, { push: false });
     }
   } catch (error) {
     reportError(error);
@@ -103,7 +105,7 @@ export const renamePageTo = async (page: Page, name: string) => {
     const editor = useEditor.getState();
     if (editor.activePage === page.id && renamed.route === undefined) {
       await useProject.getState().load();
-      editor.openPage(renamed.id, { push: false });
+      goTo({ page: renamed.id }, { push: false });
     }
   } catch (error) {
     reportError(error);
@@ -192,7 +194,7 @@ export const createPage = async (input: {
       ...(route !== null && { route }),
     });
     await useProject.getState().load();
-    useEditor.getState().openPage(page.id);
+    goTo({ page: page.id });
     return page;
   } catch (error) {
     reportError(error);
@@ -242,7 +244,7 @@ export const newState = async (page: Page, state?: string) => {
       id: page.id,
       state: name.trim(),
     });
-    useEditor.getState().openPage(created.id, { push: false });
+    goTo({ page: created.id }, { push: false });
   } catch (error) {
     reportError(error);
   }

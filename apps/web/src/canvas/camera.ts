@@ -12,8 +12,9 @@ import {
   useRef,
   useState,
 } from "react";
+import { viewTarget } from "../state/camera.ts";
 import { useDocuments } from "../state/documents.ts";
-import { allFrames, useEditor, viewTarget } from "../state/editor.ts";
+import { allFrames, useEditor } from "../state/editor.ts";
 import { useDrag } from "./drag.ts";
 import { isWarm, LOADING_MAX, onPoolChange } from "./editor-frame.ts";
 import { gridBackground } from "./grid.ts";

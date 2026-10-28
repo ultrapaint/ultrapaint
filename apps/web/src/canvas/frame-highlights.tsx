@@ -12,6 +12,7 @@ import {
   kindHoverColor,
   selectionKindOf,
 } from "../lib/selection-kind.ts";
+import { useInv } from "../state/camera.ts";
 import { useBreakpointAt, useBreakpoints } from "../state/design-system.ts";
 import {
   isNodeFrame,
@@ -19,7 +20,7 @@ import {
   rootOfFrame,
   useDocuments,
 } from "../state/documents.ts";
-import { type Selection, useEditor, useInv } from "../state/editor.ts";
+import { type Selection, useEditor } from "../state/editor.ts";
 import { screenPx } from "./camera.ts";
 import { ElementToolbar, GroupToolbar } from "./element-toolbar.tsx";
 import { TAG_HEIGHT } from "./element-toolbar-placement.ts";

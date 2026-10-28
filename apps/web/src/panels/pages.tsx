@@ -11,6 +11,7 @@ import {
   tokensWaiting,
   useImplementation,
 } from "../state/implementation.ts";
+import { goTo } from "../state/location.ts";
 import { useProject } from "../state/project.ts";
 
 interface Entry {
@@ -126,7 +127,7 @@ const rowClass = (active: boolean) =>
       : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
   );
 
-const openPage = (page: Page) => useEditor.getState().openPage(page.id);
+const openPage = (page: Page) => goTo({ page: page.id });
 
 const PageRow = ({ entry, home }: { entry: Entry; home: string }) => {
   const { page } = entry;

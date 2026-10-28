@@ -1,8 +1,9 @@
 import type { Rect } from "@ultrapaint/contracts/preview";
 import { nodeLabel } from "@ultrapaint/design-document/tree";
 import type { ReactNode } from "react";
+import { useInv } from "../state/camera.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
-import { useEditor, useInv } from "../state/editor.ts";
+import { useEditor } from "../state/editor.ts";
 import { boxOf, isCreateTool, useCreate } from "./create-tool.ts";
 import { landingPoint, useDrag } from "./drag.ts";
 

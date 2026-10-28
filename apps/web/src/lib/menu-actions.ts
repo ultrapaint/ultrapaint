@@ -17,6 +17,7 @@ import { sendComment } from "../canvas/send-to-agent.tsx";
 import { confirmDialog, promptDialog } from "../components/dialogs.tsx";
 import { askLinkUrl } from "../components/link-field.tsx";
 import { useAgents } from "../state/agents.ts";
+import { setView, zoomToFit, zoomToSelection } from "../state/camera.ts";
 import { placeOnCanvas, useCanvasGrid } from "../state/canvas-grid.ts";
 import {
   deleteComment,
@@ -356,14 +357,12 @@ const selectCommented = (pageId: string, nodeId: string) => {
   editor.setWorkspace("design");
   select({ frame: pageId, nodeId });
   // The canvas is laid out the frame after it is shown.
-  requestAnimationFrame(() =>
-    useEditor.getState().zoomToSelection(viewportSize())
-  );
+  requestAnimationFrame(() => zoomToSelection(viewportSize()));
 };
 
 const zoomToNode = (target: Selection) => {
   select(target);
-  useEditor.getState().zoomToSelection(viewportSize());
+  zoomToSelection(viewportSize());
 };
 
 const editText = (target: Selection) => {
@@ -559,8 +558,8 @@ const runCanvas = (at: Point, id: string) => {
     toggleGrid: () => useCanvasGrid.getState().toggle(),
     "tool:group": () => editor.setMode("group"),
     "tool:text": () => editor.setMode("text"),
-    zoom100: () => editor.setView({ zoom: 1 }),
-    zoomFit: () => editor.zoomToFit(viewportSize()),
+    zoom100: () => setView({ zoom: 1 }),
+    zoomFit: () => zoomToFit(viewportSize()),
   };
   actions[id]?.();
 };

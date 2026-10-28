@@ -9,6 +9,7 @@ import type { Page } from "@ultrapaint/contracts/pages";
 import type { Thread } from "@ultrapaint/contracts/threads";
 import { openShortcutSheet } from "../components/shortcut-sheet.tsx";
 import { useAgents } from "../state/agents.ts";
+import { setView, zoomToFit, zoomToSelection } from "../state/camera.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { toggleCommenting, useComments } from "../state/comments.ts";
 import type { MenuTarget } from "../state/context-menu.ts";
@@ -260,21 +261,21 @@ export const commands = (): Command[] => {
             group: "View",
             id: "zoomFit",
             keys: "⇧1",
-            run: () => editor().zoomToFit(viewportSize()),
+            run: () => zoomToFit(viewportSize()),
             title: "Zoom to fit",
           } satisfies Command,
           {
             group: "View",
             id: "zoomSelection",
             keys: "⇧2",
-            run: () => editor().zoomToSelection(viewportSize()),
+            run: () => zoomToSelection(viewportSize()),
             title: "Zoom to the selection",
           } satisfies Command,
           {
             group: "View",
             id: "zoom100",
             keys: "⇧0",
-            run: () => editor().setView({ zoom: 1 }),
+            run: () => setView({ zoom: 1 }),
             title: "Zoom to 100%",
           } satisfies Command,
           {

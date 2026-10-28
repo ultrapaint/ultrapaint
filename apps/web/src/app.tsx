@@ -48,6 +48,7 @@ import { Inspector } from "./panels/inspector.tsx";
 import { SaveConfigDialog } from "./panels/save-config.tsx";
 import { Threads } from "./panels/threads.tsx";
 import { useAgents } from "./state/agents.ts";
+import { setView } from "./state/camera.ts";
 import { useCatalogue } from "./state/catalogue.ts";
 import { useComments } from "./state/comments.ts";
 import { useConnection } from "./state/connection.ts";
@@ -61,13 +62,17 @@ import {
   type Workspace,
 } from "./state/editor.ts";
 import { useImplementation } from "./state/implementation.ts";
+import {
+  followHistory,
+  openStartCanvas,
+  pagesChanged,
+} from "./state/location.ts";
 import { designLook } from "./state/look.ts";
 import { usePanels } from "./state/panels.ts";
 import { bindProjectEvents, useProject } from "./state/project.ts";
 import { bindScreenshots } from "./state/screenshots.ts";
 import { useSpecs } from "./state/specs.ts";
 import { useSync } from "./state/sync.ts";
-import { onUrlChange, readUrl, tidyUrl, writeMode } from "./state/url.ts";
 import { useWindowChrome } from "./state/window-controls.ts";
 
 /*
@@ -354,91 +359,21 @@ export const App = () => {
     }
   }, [configured, canvas]);
 
-  // Open the canvas and route the URL asks for, or the last one, or the first.
+  // The canvas the URL names, or the last one, or the first; the first view opens a margin past
+  // the panel's edge, as the canvas starts behind it.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the canvases known and the one open decide.
   useEffect(() => {
-    if (!configured || canvases.length === 0 || canvas !== null) {
-      return;
+    if (configured && openStartCanvas()) {
+      setView({ x: leftCover + 80 });
     }
-    const url = readUrl();
-    const saved = localStorage.getItem("ultrapaint:canvas");
-    const ids = canvases.map((s) => s.id);
-    // The designs directory's own canvas is named "", which the URL leaves out: a link with a
-    // route and no canvas is a route of that canvas.
-    const urlCanvas =
-      url.canvas ??
-      (ids.includes("") && (url.route !== "/" || url.page !== null)
-        ? ""
-        : null);
-    let target = ids[0] ?? "";
-    if (urlCanvas !== null && ids.includes(urlCanvas)) {
-      target = urlCanvas;
-    } else if (saved !== null && ids.includes(saved)) {
-      target = saved;
-    }
-    useEditor
-      .getState()
-      .openCanvas(
-        target,
-        urlCanvas === target
-          ? { page: url.page, route: url.route, variant: url.variant }
-          : {}
-      );
-    // The canvas starts behind the panel, so the first view opens a margin past the panel's edge.
-    useEditor.getState().setView({ x: leftCover + 80 });
   }, [configured, canvases, canvas, leftCover]);
 
-  // Recompute frames when the page list changes for the open canvas; a canvas deleted while
-  // open gives way to the first one left.
-  useEffect(() => {
-    if (canvas === null) {
-      return;
-    }
-    const { activePage, frames, route, variant } = useEditor.getState();
-    if (canvases.length > 0 && !canvases.some((c) => c.id === canvas)) {
-      useEditor.getState().openCanvas(canvases[0]?.id ?? "");
-      return;
-    }
-    const inCanvas = pages.filter((p) => p.canvas === canvas);
-    const missing = inCanvas.some((p) => !frames[p.id]);
-    const extra = Object.keys(frames).some(
-      (id) => !inCanvas.find((p) => p.id === id)
-    );
-    if (missing || extra) {
-      useEditor
-        .getState()
-        .openCanvas(canvas, { page: activePage, route, variant });
-    } else {
-      useEditor.getState().syncActivePage();
-    }
-  }, [pages, canvases, canvas]);
+  // The page list changed: the editor stays where it was, or gives way when that is gone.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the list and the canvas are the news.
+  useEffect(() => pagesChanged(), [pages, canvases, canvas]);
 
   // The browser's back and forward buttons are the prototype's.
-  useEffect(() => {
-    tidyUrl();
-    return onUrlChange((url) => {
-      const editor = useEditor.getState();
-      if (url.canvas !== null && url.canvas !== editor.canvas) {
-        editor.openCanvas(url.canvas, {
-          page: url.page,
-          route: url.route,
-          variant: url.variant,
-        });
-      } else {
-        if (url.variant !== editor.variant) {
-          useEditor.setState({ variant: url.variant });
-        }
-        if (url.route === null) {
-          if (url.page !== null) {
-            editor.openPage(url.page, { push: false });
-          }
-        } else {
-          editor.navigate(url.route, { push: false });
-        }
-      }
-      // Back and forward walk the routes, not the workspace: an older entry may name another.
-      writeMode(editor.workspace);
-    });
-  }, []);
+  useEffect(() => followHistory(), []);
 
   // Errors surface as toasts; the store slot is only a hand-off from non-React code.
   useEffect(() => {

@@ -8,8 +8,10 @@ import { type AgentActivity, activityOnPage } from "../lib/agent-activity.ts";
 import { viewportSize } from "../lib/shortcuts.ts";
 import { useAgentActivityOf } from "../state/agent-activity.ts";
 import { useAgents } from "../state/agents.ts";
+import { zoomToSelection } from "../state/camera.ts";
 import { openMenuAt } from "../state/context-menu.ts";
 import { useEditor } from "../state/editor.ts";
+import { goTo } from "../state/location.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { screenPx, UNZOOM } from "./camera.ts";
 
@@ -85,17 +87,19 @@ export const useFollowAgent = () => {
       return;
     }
     if (editor.canvas !== page.canvas) {
-      editor
-        .openCanvas(page.canvas, { page: page.id, route: page.route ?? null })
-        .catch(reportError);
+      goTo({
+        canvas: page.canvas,
+        page: page.id,
+        route: page.route ?? null,
+      }).catch(reportError);
       return;
     }
     if (editor.workspace === "prototype") {
-      editor.openPage(page.id);
+      goTo({ page: page.id });
       return;
     }
     editor.selectPage(page.id);
-    editor.zoomToSelection(viewportSize());
+    zoomToSelection(viewportSize());
   }, [target, pages]);
 
   useEffect(() => {

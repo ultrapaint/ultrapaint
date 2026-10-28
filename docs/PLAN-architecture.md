@@ -501,3 +501,52 @@ callers and its tests share.
    `windowControls` (Linux), `projects.current` and `list`, `agents.list`, `notices`,
    `stoppedAt` and `shellStatus` answer, a wrong argument comes back as `BridgeInputError`, and a
    page held by a loop is ended and loaded again, the editor writing the stack it was stopped at.
+15. **Location** (`apps/web/src/state/location.ts`, the camera in `apps/web/src/state/camera.ts`).
+   Where the editor is (the canvas, the route, the variant and `activePage`) is one fact, and
+   `location.ts` alone writes it, through one `arrive(place, history, also)` that sets the place
+   with what changes with it and writes the URL to match, a page in it only at no URL; the URL and
+   the canvas remembered for the next start (`ultrapaint:canvas`) are its persistence, and
+   nothing else calls `writeUrl`. The four stay fields of the editor's store, so that a canvas
+   opened is one change with its frames and the forty-odd modules that read them read one store.
+   `goTo({ canvas?, page?, route?, variant? }, { push? })` is the one verb: with a canvas it opens
+   it (its layout read again when it is the one open) where `landingOf` lands, in a variant it
+   has, replacing the entry; without, on the open canvas, a page by its id (at its URL when it has
+   one, in its variant; one already shown at its URL stays on the parameters it was reached
+   with), a URL in the variant given or the one the editor is in, or a variant alone, the same
+   place drawn in it, each an entry of the history unless `push` is false. `followFrame(frame)`
+   (the page selected in, from `select` and `selectPage`), `pagesChanged()` (a canvas deleted
+   while open gives way to the first left, a page added or gone opens the canvas again where it
+   is, otherwise the editor catches up: a page shown without a URL that has one now is at it, one
+   that is gone gives way to where the canvas opens, the page serving the route is the list's),
+   `openStartCanvas()` (the canvas the URL names at its place, the one remembered, or the first)
+   and `followHistory()` (back and forward: `wentTo(url)`, the canvas of the entry opened at it,
+   then the workspace written back) replace. The policy is written once in its doc comment: a
+   navigation pushes and lets the selection go (`unpicked`, from `editor.ts`, in the same change);
+   opening a canvas, following a frame and catching up replace and, but for the canvas, keep the
+   selection. The store's `navigate`, `openCanvas`, `openPage`, `setVariant` and `syncActivePage`
+   go, with `OpenAt`, `pageAt`, `landingOf`, `opening`, the eight `writeUrl` calls and the five
+   copies of the selection's reset; `editor.ts` keeps how it holds a canvas (`layoutOf`, a
+   snapshot's or the server's, and `openedCanvas`: frames, nothing held or measured, nothing put
+   aside from another canvas). app.tsx's three effects are calls (`openStartCanvas`,
+   `pagesChanged`, `followHistory`), and back's `useEditor.setState({ variant })` goes. The camera
+   (`pendingView`, `viewFrame`, `flight`, `flyTo`, `fitTo`) is `camera.ts`'s, the only writer of
+   `view`: `setView`, `setViewSoon`, `nextView`, `viewTarget`, `zoomToFit`, `zoomToSelection`,
+   `useInv`, `View` and `Viewport`; `canvas/camera.ts` still draws it. editor.ts goes from 1160
+   lines to 733, app.tsx from 559 to 494. The dev handle gains `goTo`, `setView` and `zoomToFit`,
+   which `pnpm e2e:sandbox` and `pnpm bench:canvas` drive instead of the store's. The URLs are as
+   they were. Tests: `location.test.ts` (34) on the fake browser, whose history now keeps its
+   entries and tells `popstate` on back and forward, checks after every verb that the URL and
+   `activePage` agree with the place: the start from the URL (a URL, a page without one, the
+   designs directory's canvas named by a route alone), from the canvas remembered, from neither, a
+   URL naming a canvas, a page or a URL that is not there; pushing and replacing; a page in its
+   variant, a variant alone, a page already shown; a canvas opened, the last asked for, a move
+   saved to the canvas it was made on; back and forward restoring the page, the URL and the
+   variant, opening an entry's canvas, keeping the workspace; following a page, a view, a page
+   without a URL and a node on the canvas; a canvas deleted, a page added, given a URL or gone, the
+   page serving the route changed. `pnpm e2e:sandbox` passes its 23 checks. `landingOf`'s, `followFrame`'s and `openCanvas`'s tests moved
+   from `editor.test.ts`, and `setViewSoon`'s into `camera.test.ts`. Also: the page list changing
+   no longer opens again a canvas whose pages have views (a view's frame counted as a page that
+   was gone), which read its layout again and let the selection go each time; a page shown without
+   a URL that is gone gives way to where the canvas opens rather than leaving no page with the URL
+   still naming it; a page already shown at its URL in another variant writes the variant to the
+   URL too.
