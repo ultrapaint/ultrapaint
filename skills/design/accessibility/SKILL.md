@@ -34,8 +34,10 @@ A small icon button reaches its target with padding, and neighbouring targets ne
 
 ## Visible labels
 
-Every field has a visible label; a placeholder is only an example. An error is tied to its field
-and says how to fix it. Mark whichever of required or optional is rarer, and explain the mark.
+Every field has a visible label; a placeholder is only an example. Two fields need no label of
+their own: a search field with its magnifier, and a field whose row label names it. An error is
+tied to its field and says how to fix it. Mark whichever of required or optional is rarer, and
+explain the mark.
 
 ## Real structure
 

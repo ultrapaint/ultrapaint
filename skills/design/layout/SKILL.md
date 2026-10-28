@@ -65,6 +65,13 @@ its radius.
 The page scrolls, or one region of it does. A horizontal scroller lets the next item peek
 `16–32px` past its edge, so it reads as scrollable.
 
+## Settings are rows
+
+A settings page is a stack of rows split by hairlines: the label and at most one muted line on
+the left, about a third of the width, the control on the right. A row that only shows a value
+reads it as text with an Edit action; it becomes a field when edited. On a phone the two sides
+stack.
+
 ## Density follows the task
 
 Compact where the user works: tables, toolbars, editors. Open where they read or decide:
