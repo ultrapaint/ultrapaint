@@ -13,7 +13,12 @@ import { Context, Effect, FileSystem, Layer, Path, Stream } from "effect";
 import { ServerConfig } from "../config.ts";
 import { EventBus } from "../events.ts";
 import { toPosix } from "../hash.ts";
-import { builtInSkills } from "../skills/index.ts";
+import {
+  builtInSkills,
+  REFERENCES_MENTION,
+  referencesDirOf,
+  skillReferences,
+} from "../skills/index.ts";
 import { DesignFiles } from "./design-files.ts";
 import { type EditFailure, EditService } from "./edit.ts";
 import { RepoPaths } from "./repo-paths.ts";
@@ -78,7 +83,34 @@ export class SkillsService extends Context.Service<
       const disabled = new Set(paths.settings.skills?.disabled ?? []);
       const summaries = paths.settings.skills?.briefing === "summaries";
       // As the settings show them: worded for the tools the server offers.
-      const { mcp } = yield* ServerConfig;
+      const { machine, mcp } = yield* ServerConfig;
+      const referencesDir = referencesDirOf(machine.home, path.join);
+
+      /*
+       * The references written where agents read them, once per server. One that cannot be
+       * written leaves its skill pointing at nothing, which costs the agent the reference and
+       * nothing else: the thread goes on.
+       */
+      const references = yield* Effect.cached(
+        Effect.forEach(Object.entries(skillReferences), ([skill, files]) =>
+          Effect.gen(function* () {
+            const into = path.join(referencesDir, skill);
+            yield* fs.makeDirectory(into, { recursive: true });
+            yield* Effect.forEach(Object.entries(files), ([file, text]) =>
+              fs.writeFileString(path.join(into, file), text)
+            );
+          })
+        ).pipe(Effect.ignore)
+      );
+
+      /** A built-in skill's text, its references folder named where it is written. */
+      const withReferences = (name: string, text: string) =>
+        name in skillReferences
+          ? text.replaceAll(
+              REFERENCES_MENTION,
+              `\`${path.join(referencesDir, name)}/\``
+            )
+          : text;
 
       const fileOf = (name: string) =>
         toPosix(path.join(relDir, `${name}${SKILL_EXTENSION}`));
@@ -88,7 +120,7 @@ export class SkillsService extends Context.Service<
         extends: false,
         name,
         source: "built-in",
-        text,
+        text: withReferences(name, text),
         ...describeSkill(name, text),
       });
 
@@ -166,6 +198,7 @@ export class SkillsService extends Context.Service<
       const briefing = Effect.fn("SkillsService.briefing")(function* (
         tools: boolean
       ): Effect.fn.Return<SkillsTold> {
+        yield* references;
         const { skills } = yield* listFor(tools);
         const listed: string[] = [];
         const whole: string[] = [];

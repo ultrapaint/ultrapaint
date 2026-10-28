@@ -13,6 +13,12 @@ run it after an edit. Agents are told every skill at once in each thread's brief
 order `apps/server/src/skills/index.ts` gives; a project still replaces or extends one with
 `<designsDir>/skills/<name>.md`.
 
+A skill's `references/` are not in the briefing: the server writes them to the user's cache
+(`~/.cache/ultrapaint/skills/<version>/<skill>/`), the agent sandbox lets agents read that folder,
+and the skill's mention of `` `references/` `` names it instead, so an agent reads the file for the
+screen at hand when it needs it. `patterns` is such a skill: how a well-made product builds each
+kind of screen, counted.
+
 Each skill names principles under headings, with exact values, and ends on a "Before you
 finish" table of what to look for and what fixes it. A rule lives in one skill and the others
 leave it there.

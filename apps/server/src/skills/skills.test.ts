@@ -38,10 +38,16 @@ describe("design skills", () => {
       AskUser.name,
       GetScreenshot.name,
     ]);
-    const without = builtInSkills(null).map((s) => s.text).join("\n");
-    const withTools = builtInSkills(TOOLS).map((s) => s.text).join("\n");
+    const without = builtInSkills(null)
+      .map((s) => s.text)
+      .join("\n");
+    const withTools = builtInSkills(TOOLS)
+      .map((s) => s.text)
+      .join("\n");
     assert.notInclude(without, "editor's tools:");
     assert.notInclude(withTools, "editor's tools:");
+    assert.notInclude(without, "| without:");
+    assert.notInclude(withTools, "| without:");
     for (const name of tools) {
       assert.notInclude(without, `\`${name}\``);
     }
