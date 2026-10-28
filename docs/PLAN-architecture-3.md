@@ -1,7 +1,7 @@
 # Plan: deeper modules, the third review (2026-10-28)
 
-Status: built, 2026-10-28: steps 1 to 8, one commit each, under "Built". The other candidates
-were investigated one at a time ("Investigated"); their steps wait for the user's answers.
+Status: steps 1 to 8 built, 2026-10-28, one commit each, under "Built". The other candidates
+were investigated one at a time ("Investigated") and planned as steps 9 to 18, being built.
 The decisions are recorded in [ADR 0039](adr/0039-deep-modules-third-review.md). Follows
 [ADR 0037](adr/0037-deep-modules.md) and [ADR 0038](adr/0038-deep-modules-second-review.md), whose
 31 steps ([PLAN-architecture.md](PLAN-architecture.md), [PLAN-architecture-2.md](PLAN-architecture-2.md))
@@ -119,12 +119,94 @@ keeps every ADR's behaviour unless the step says otherwise.
    output for the names it exports and imports; the start-up order gets a happy-dom test.
    Amends ADR 0011 and 0037's page-runtime line; the framework seam stays.
 
+### E. The candidates investigated
+
+Planned 2026-10-28 from "Investigated" below, with the user's answers (the recommended ones).
+
+9. **A token from another tool, named and placed once.** contracts' `token-naming`, beside the
+   token table, says what kind a path another tool writes names, and the design's name for it,
+   from the path and a hint of what the value is: the words each kind goes by elsewhere
+   (`corner`, `rounded`, `radii`; `gap`, `padding`, `space`; `stroke`), each kind's words checked
+   against the table so a new kind fails to compile. The format's type decides wherever it says
+   what the value is (colour, shadow, font family, duration, cubic Bézier); the path's words
+   decide only for a dimension or a number, a number of a length kind read in pixels. A name drops
+   only the found kind's own words (`Color/Text/Primary` is `color-text-primary`, `Rounded/lg` is
+   `radius-lg`); gap, padding and margin name spacing and stay in the name (`spacing-gap-md`).
+   Figma's reader and the Design Tokens reader give it a path and a hint and keep their syntax;
+   `NUMBER_KINDS`, `KIND_WORDS`, `GROUP_KINDS`, `TYPE_KINDS` and `nameFromPath` go. The reader's
+   notes of what it could not take reach the Design system panel rather than being dropped. The
+   scan places a theme variable by `tokenKindOf` and the table's lists (`NAMESPACES` goes): the
+   repository's own `--inset-shadow-*`, `--drop-shadow-*` and `--text-shadow-*` are shadows,
+   Tailwind's defaults of those stay out as its palette does, and `default-transition-duration`
+   is a duration. `dtcg.ts` stays in the server. Failing first: a Design Tokens file's
+   `Corner.sm` (`dimension`) is `radius-sm`; Figma's `Color/Text/Primary` beside `Color/Primary`
+   gives two tokens; a scan of a repository with its own `--drop-shadow-glow` lists it under
+   shadows and `driftOf` finds nothing undescribed; `text.primary` of `$type: color` is a colour.
+   Amends ADR 0025's naming.
+10. **A frame's error, kept by the frame.** framework-api declares `PageError` once, with its
+    source (the page's code or the dev server); `HostError`, `FrameError` and the inline copies
+    go, and it is formatted once. `editor-frame` keeps a mount's error whoever listens: a page
+    error until the frame draws again or an update arrives, a dev-server error until the next
+    update, and frames off screen or parked hold it too; it is cleared when the frame is dropped.
+    The canvas, the prototype and the stray-error toast read it. `eventsOf` and `forwardTo` are
+    typed over every kind of `FrameEvents`, so a kind left out fails to compile. Failing first:
+    an error reported with nobody listening is there when a listener comes; it survives a
+    listener leaving and coming back; a draw clears a page error but not a dev-server one.
+11. **What a frame draws, said once.** `useFrameDrawing(id, request)` draws a frame's request on
+    `ready` and whenever the request changes, for the canvas, the prototype and the specimens
+    (the type specimen, the components' matrix); `pageRequest` builds a page's request for the
+    first two, a node held at its dragged size included (`drawResized` goes). The specimens'
+    `ready` state and every `biome-ignore`d dependency list go. Failing first: a specimen's frame
+    dropped and opened again draws again; the matrix draws again when a spec changes.
+12. **Frame gestures, one module.** Moving and sizing a frame, and sizing a node on the canvas,
+    are `frame-gesture`'s, which shares the window-following helper with `followLooseDrag`. It
+    saves once on release (a rounded `setFrame`, or one node edit); `pointercancel` and Escape
+    put any gesture back, a node dragged inside a page included, as a canvas node's drag does
+    today. The `useRef` union leaves `Canvas`, and `setFrame`'s `persist` flag goes. Touch and pen
+    stay out. Failing first, through `useEditor` and `fakeApi`: a cancel and Escape send nothing
+    and put the frame back; a move sends one rounded `canvas.set`; a cancelled node resize sends
+    no edit.
+13. **The layout saved as it changes.** No timer: a frame's change is saved at once, sending only
+    the pages that changed; a layout the server pushes applies to every frame without a save in
+    flight; undo waits for the saves in flight. Failing first, with `fakeApi.emit("canvas", …)`:
+    a push moving page B while A's save is in flight keeps B; `canvas.set` sends only A.
+14. **Bringing something into view.** `reveal(target)` switches canvas, leaves the prototype,
+    selects, and moves the camera once the frame is laid out; the seven places that select and
+    zoom call it. Failing first: a thread's Show on a page of another canvas goes there.
+15. **A design target, named once.** `designTargetNamed` beside `pageNamed` names a page or a
+    spec for `/implement`, `handoff` and the implementation link: a bare component name or
+    `spec:` names a spec (legal everywhere), otherwise the page rule, a node reference keeping its
+    node (a node reference and a conflicting `node` refused); a miss says which kind is missing.
+    `ImplementationService.current` takes canonical targets. `DesignTargets` reads and adds a
+    target's behaviour notes whichever way they are stored. Failing first, on `ProjectTest`:
+    handoff's `note` on `/home#<id>` lands on the node; `read`, `mark` and `note` with a bare spec
+    name succeed; `/implement spec:Nope` names the specs.
+16. **Agent switches and batch reverts wait for the turn.** `ThreadSession` decides a switch of
+    agent under its `prompting` permit, refusing it while a prompt is accepted or a turn runs.
+    `SetupSteps.revertBatch` stops the turn working on the batch first and waits for it to end
+    (bounded), as redo does; the RPC goes through it. The MCP endpoint is built once, in
+    `McpAccess`; `checkMapping` moves into `FigmaImportService.map`. Failing first: `setAgent`
+    while a prompt is held answers a conflict and the thread stays running; reverting the active
+    batch stops its turn before the files go back.
+17. **A signal does not wait for an answer.** `OpenProject.stop({ ask: false })` answers "no" to
+    a question on screen (a quit's or a switch's) and stops at once; `main.ts`'s `asking` goes.
+    The stuck pages' beat is `BEAT_MS` beside `BEAT_CHANNEL`, which the preload and the stuck
+    pages' test read. Failing first, on the existing fakes: with a confirm that never answers and
+    a quit forked, the signal's stop returns and the server's stop is recorded; a switch's
+    question cut short by a signal.
+18. **The checkpoints and snapshots, followed.** The server publishes the open repository's
+    checkpoints and snapshots from the snapshot store's writes (a state, not a ping); the web's
+    store follows it like any server data, the Changes panel reads it, and its tickets and
+    threaded refresh callbacks go. Git status stays read on `file.changed`. Failing first, on
+    `ProjectTest`: a turn that writes nothing publishes a list with its checkpoint; a snapshot
+    made and deleted publishes twice.
+
 ## Investigated
 
 Each candidate was looked at by itself on 2026-10-28, after steps 1 to 8 were built, reading the
 code and reproducing what could be reproduced in a scratch script. The bugs are the investigators'
 findings; those marked "reproduced" were run, the others read. Nothing below is built; the steps
-proposed wait for the user's answers to the questions each lists.
+proposed are planned as steps 9 to 18 with the recommended answers, which the user took.
 
 1. **A token from another tool** (`dtcg.ts`, `figma-import/src/tokens.ts`,
    `design-system-scan.ts`). Holds up, and is worse than the review said. Three vocabularies
