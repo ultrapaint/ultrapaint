@@ -226,7 +226,10 @@ export const useDesignSystemSetup = create<SetupStore>((set, get) => {
         .setup?.steps.find((s) => s.id === "migrate")
         ?.batches?.find((b) => b.id === batchId);
       const ok = await confirmPutBack({
-        after: "The batch goes back on the list, for the agent to take again.",
+        after:
+          batch?.status === "active"
+            ? "The agent's turn is stopped first, and the batch goes back on the list for it to take again."
+            : "The batch goes back on the list, for the agent to take again.",
         files,
         since: "before the batch was migrated",
         title: `Revert ${batch?.dir ?? "the batch"}?`,

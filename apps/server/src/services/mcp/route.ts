@@ -9,15 +9,18 @@ import { EDITOR_MCP_SERVER } from "@ultrapaint/contracts/threads";
 import { Effect, Layer } from "effect";
 import { McpProtocol, McpServer } from "effect/ai";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
-import { CallingThread, McpAccess } from "./access.ts";
+import {
+  CallingThread,
+  MCP_PATH,
+  MCP_TOKEN_HEADER,
+  McpAccess,
+} from "./access.ts";
 import { AskUserToolLive } from "./ask-user.ts";
 import { FigmaTools, FigmaToolsLive } from "./figma-tools.ts";
 import { ScreenshotToolLive } from "./screenshot.ts";
 import { SetupTools, SetupToolsLive } from "./setup-tools.ts";
 import { EditorTools, EditorToolsLive } from "./tools.ts";
 
-export const MCP_PATH = "/mcp";
-export const MCP_TOKEN_HEADER = "x-ultrapaint-token";
 const MCP_VERSION_HEADER = "mcp-protocol-version";
 
 /**

@@ -16,8 +16,6 @@ import {
 } from "@ultrapaint/contracts/figma";
 import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
-import { CatalogueService } from "../catalogue.ts";
-import { DesignSystemService } from "../design-system.ts";
 import { FigmaImportService } from "../figma-import.ts";
 import { makeLookup } from "./lookup.ts";
 import {
@@ -179,53 +177,6 @@ export const FigmaToolsLive = FigmaTools.toLayer(
       );
     });
 
-    /** The catalogue entry a mapping names, and what it does not know about the mapping's props. */
-    const checkMapping = Effect.fnUntraced(function* (
-      mapping: ComponentMapping
-    ) {
-      if (mapping.kind !== "component") {
-        return { mapping, notes: [] as string[] };
-      }
-      const catalogue = yield* reported(
-        project.use(Effect.flatMap(CatalogueService, (c) => c.get(false)))
-      );
-      const component = catalogue.components.find(
-        (c) => c.name === mapping.component
-      );
-      if (!component) {
-        const close = catalogue.components
-          .filter((c) =>
-            c.name.toLowerCase().includes(mapping.component.toLowerCase())
-          )
-          .map((c) => c.name)
-          .slice(0, 5);
-        return yield* missing(
-          `no component named ${mapping.component} in this repository${close.length > 0 ? `; close: ${close.join(", ")}` : ""}. list_components has them all, or map it as {kind:"expand"} to keep the Figma layers.`
-        );
-      }
-      const { designSystem } = yield* reported(
-        project.use(Effect.flatMap(DesignSystemService, (d) => d.get))
-      );
-      const from =
-        mapping.from ??
-        designSystem?.components?.[component.name]?.from ??
-        component.importFrom;
-      const known = new Set(component.props.map((p) => p.name));
-      const named = [
-        ...Object.keys(mapping.props ?? {}),
-        ...Object.values(mapping.propMap ?? {}).flatMap((rule) =>
-          rule.prop === undefined ? [] : [rule.prop]
-        ),
-      ];
-      const notes = named
-        .filter((prop) => !known.has(prop))
-        .map(
-          (prop) =>
-            `${component.name} does not declare a prop ${prop}; it is passed on anyway`
-        );
-      return { mapping: { ...mapping, from }, notes };
-    });
-
     return {
       list_figma_imports: Effect.fn("FigmaTools.list_figma_imports")(
         function* () {
@@ -249,27 +200,27 @@ export const FigmaToolsLive = FigmaTools.toLayer(
       map_figma_component: Effect.fn("FigmaTools.map_figma_component")(
         function* ({ component, import: id, mapping }) {
           const entry = yield* importOf(id);
-          let decided: ComponentMapping | null = null;
-          let notes: string[] = [];
-          if (mapping !== null) {
-            const raw = yield* decodeMapping(mapping).pipe(
-              Effect.mapError(
-                (error) =>
-                  new ToolFailure({
-                    message: `the mapping is not valid: ${error.message}`,
-                  })
-              )
-            );
-            ({ mapping: decided, notes } = yield* checkMapping(raw));
-          }
-          const next = yield* imports((s) =>
-            s.map(entry.id, component, decided)
-          );
+          const given =
+            mapping === null
+              ? null
+              : yield* decodeMapping(mapping).pipe(
+                  Effect.mapError(
+                    (error) =>
+                      new ToolFailure({
+                        message: `the mapping is not valid: ${error.message}`,
+                      })
+                  )
+                );
+          const {
+            file,
+            mapping: decided,
+            notes,
+          } = yield* imports((s) => s.map(entry.id, component, given));
           return {
             mapping: decided,
             notes,
-            undecided: next.components
-              .filter((c) => !(c.key in next.mapping))
+            undecided: file.components
+              .filter((c) => !(c.key in file.mapping))
               .map((c) => c.key),
           };
         }

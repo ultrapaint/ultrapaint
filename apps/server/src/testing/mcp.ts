@@ -4,7 +4,7 @@
  * session to open: every request says which revision it is and what the client can do.
  */
 import { Effect } from "effect";
-import { MCP_TOKEN_HEADER } from "../services/mcp/route.ts";
+import { MCP_TOKEN_HEADER } from "../services/mcp/access.ts";
 
 const PROTOCOL = "2026-07-28";
 const JSON_RPC = { "content-type": "application/json" };

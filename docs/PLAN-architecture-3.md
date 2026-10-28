@@ -830,3 +830,39 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
     `/implement` by either name carries the note from the spec; misses of each kind, `/implement
     spec:Nope` naming the specs. All four failed first. `tasks.test.ts`'s `spec:Nope` reads the
     new miss; the socket tests of `handoff` (`design-source*.test.ts`) pass unchanged.
+16. **Agent switches and batch reverts wait for the turn** (`apps/server/src/services/threads/thread-session.ts`,
+    `services/setup-steps.ts`). `ThreadSession.switchAgent(patch, note)` decides a switch under
+    the session's `prompting` permit, taken only if it is free: while a prompt is being accepted
+    (its task and attachments written, the thread not yet running) or a turn runs, it answers
+    `Conflict` ("the agent is still working on the previous prompt", what the web already shows
+    for a busy thread); otherwise it stops the live session, makes the thread idle with its new
+    agent and writes the "Switched to" note (replacing one left by a switch before), so a prompt
+    can no longer be half accepted while its agent changes. `ThreadService.setAgent` names the
+    agent, reads its options and delegates; its own busy check, read off the store outside the
+    permit, goes. `ThreadSession.stop` (and `ThreadService.stop`) asks the agent to stop its turn
+    and waits for the thread to leave busy, re-read whenever the store publishes, ten seconds at
+    most (`TURN_END_WAIT`). `SetupSteps.revertBatch` stops Migrate's turn first when the batch is
+    the one under way, waits, then has the setup put its files back; a done batch leaves the turn
+    alone; the RPC goes through it rather than the setup. Redo shares the wait: the threads of the
+    steps it moves are stopped together and waited for before the files go back; stop still only
+    asks (what the step did is kept). `McpAccess.endpoint` gives the MCP server's URL, once the
+    server listens, and the token's header; `MCP_PATH` and `MCP_TOKEN_HEADER` move from the route
+    to `access.ts`, and the thread's session and `mcp.connection` no longer build the URL
+    themselves. `checkMapping` moves into `FigmaImportService.map`, which answers the mapping as
+    kept (its `from` resolved), the import after it and the notes on props the component does
+    not declare; `map_figma_component` only decodes and calls it. Fixed: picking another agent
+    while a prompt was being accepted switched it, and the prompt went to the new agent; with the
+    switch's reads in between it could close the session under the turn just opened (no
+    `turn_end`) or leave the thread idle while a turn ran (read, not reproduced); Revert on the
+    batch Migrate was working on put the files back while the agent still wrote. Also: the
+    Revert confirmation of the batch under way says the agent's turn is stopped first; a redo,
+    or a revert of the batch under way, takes up to ten seconds longer when the agent is slow to
+    stop, and goes ahead after them. No tool's description or schema changed. Failing first:
+    `thread-session.test.ts`'s `setAgent` while a `/hold` prompt is accepted (`HeldTask` in
+    `testing/threads.ts` holds its task until the test lets it go) answers `Conflict`, and the
+    prompt's turn runs on the same agent and ends; `setup-steps.test.ts` has 3 tests: the batch
+    under way goes back only once its turn was asked to stop and has ended (the thread idle when
+    the files go back), after ten seconds at most of a turn that does not end (still
+    "cancelling"), and a done batch is reverted with the turn left running. All four failed
+    first. `mcp-access.test.ts` gives the access its port; the socket test of the Figma tools
+    passes unchanged.

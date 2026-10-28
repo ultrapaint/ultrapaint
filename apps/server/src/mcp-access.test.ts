@@ -3,6 +3,7 @@ import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import { Effect, FileSystem, Layer, Path } from "effect";
 import { ServerConfig } from "./config.ts";
+import { ListenPort } from "./listen-port.ts";
 import { McpAccess } from "./services/mcp/access.ts";
 import { Storage } from "./services/storage.ts";
 
@@ -11,7 +12,7 @@ const TOKEN_RE = /^mcp_[A-Za-z0-9_-]{43}$/;
 /** The access rules alone, with the project's state in `home`. */
 const accessIn = (home: string) =>
   McpAccess.layer.pipe(
-    Layer.provide(Storage.layer),
+    Layer.provide(Layer.mergeAll(Storage.layer, ListenPort.layer)),
     Layer.provide(
       ServerConfig.layerTest({
         cwd: home,

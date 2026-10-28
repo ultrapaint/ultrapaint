@@ -1,9 +1,8 @@
 import { UltrapaintRpcs } from "@ultrapaint/contracts/rpc";
 import { Effect } from "effect";
 import { AppLog } from "./app-log.ts";
-import { connectHost, ServerConfig } from "./config.ts";
+import { ServerConfig } from "./config.ts";
 import { EventBus } from "./events.ts";
-import { ListenPort } from "./listen-port.ts";
 import { ProjectManager } from "./project.ts";
 import { CatalogueService } from "./services/catalogue.ts";
 import { CommentsService } from "./services/comments.ts";
@@ -18,7 +17,6 @@ import { GitService } from "./services/git.ts";
 import { HostManager } from "./services/host.ts";
 import { ImplementationService } from "./services/implementation.ts";
 import { McpAccess } from "./services/mcp/access.ts";
-import { MCP_PATH, MCP_TOKEN_HEADER } from "./services/mcp/route.ts";
 import { PagesService } from "./services/pages.ts";
 import { ProfileService } from "./services/profile.ts";
 import { Screenshots } from "./services/screenshots.ts";
@@ -62,8 +60,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
     const setupSteps = yield* SetupSteps;
     const profile = yield* ProfileService;
     const sync = yield* DesignSystemSyncService;
-    const { host: listenHost, mcp: mcpEnabled } = yield* ServerConfig;
-    const listen = yield* ListenPort;
+    const { mcp: mcpEnabled } = yield* ServerConfig;
 
     const pages = project.service(PagesService);
     const comments = project.service(CommentsService);
@@ -144,7 +141,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "dsSetup.redo": ({ step }) => setupSteps.redo(step),
       "dsSetup.redoPreview": ({ step }) => dsSetup.redoPreview(step),
       "dsSetup.resume": ({ step }) => dsSetup.resume(step),
-      "dsSetup.revertBatch": ({ batchId }) => dsSetup.revertBatch(batchId),
+      "dsSetup.revertBatch": ({ batchId }) => setupSteps.revertBatch(batchId),
       "dsSetup.setMapping": ({ changes }) =>
         Effect.map(dsSetup.setMapping(changes, "user"), (r) => ({
           mapping: r.mapping,
@@ -205,7 +202,7 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
       "mcp.connection": () =>
         Effect.map(
           Effect.all({
-            port: listen.get,
+            endpoint: access.endpoint,
             tokens: mcpEnabled
               ? Effect.all({
                   replaced: access.replaced,
@@ -213,12 +210,12 @@ export const RpcHandlers = UltrapaintRpcs.toLayer(
                 })
               : Effect.succeed({ replaced: false, token: "" }),
           }),
-          ({ port, tokens: { replaced, token } }) => ({
+          ({ endpoint: { header, url }, tokens: { replaced, token } }) => ({
             enabled: mcpEnabled,
-            header: MCP_TOKEN_HEADER,
+            header,
             replaced,
             token,
-            url: `http://${connectHost(listenHost)}:${port}${MCP_PATH}`,
+            url,
           })
         ),
       "pages.copyTo": ({ ids, move, target }) =>

@@ -1,8 +1,9 @@
 /**
  * The design-system setup's steps with their threads (ADR 0023): a step an agent runs starts
  * with a thread of its own and names the task its first prompt sends, and stopping or redoing a
- * step stops the turns of the threads it moves first. It sits above the setup and the threads:
- * the tasks the threads expand read the setup, so the setup cannot open a thread itself.
+ * step, or reverting Migrate's batch under way, stops the turns of the threads it moves first. It
+ * sits above the setup and the threads: the tasks the threads expand read the setup, so the
+ * setup cannot open a thread itself.
  */
 import {
   type DefineMode,
@@ -44,10 +45,18 @@ export class SetupSteps extends Context.Service<
     ) => Effect.Effect<DesignSystemSetup, SetupFailure>;
     /**
      * Puts back what this step and the later ones changed and takes them back to todo, once the
-     * turns of their threads are stopped: an agent still writing would undo the redo.
+     * turns of their threads are stopped and have ended: an agent still writing would undo the
+     * redo.
      */
     readonly redo: (
       step: SetupStepId
+    ) => Effect.Effect<DesignSystemSetup, SetupFailure>;
+    /**
+     * Puts back what a batch of Migrate changed and takes it back to todo; the batch under way
+     * once Migrate's turn is stopped and has ended, for the same reason.
+     */
+    readonly revertBatch: (
+      batchId: string
     ) => Effect.Effect<DesignSystemSetup, SetupFailure>;
   }
 >()("ultrapaint/server/SetupSteps") {
@@ -57,20 +66,48 @@ export class SetupSteps extends Context.Service<
       const setup = yield* DesignSystemSetupService;
       const threads = yield* ThreadService;
 
-      /** Stops the turns under way of the step, or of the step and every one after it. */
-      const stopTurns = Effect.fnUntraced(function* (
+      /** The threads of the active steps among the step, or the step and every one after it. */
+      const threadsOf = Effect.fnUntraced(function* (
         step: SetupStepId,
         only: boolean
       ) {
         const { steps } = yield* setup.get;
         const from = steps.findIndex((s) => s.id === step);
         const affected = only ? [steps[from]] : steps.slice(from);
-        for (const s of affected) {
-          if (s?.threadId !== undefined && s.status === "active") {
-            // A thread that is not working has no turn to cancel.
-            yield* Effect.ignore(threads.cancel(s.threadId));
-          }
+        return affected.flatMap((s) =>
+          s?.threadId !== undefined && s.status === "active" ? [s.threadId] : []
+        );
+      });
+
+      const stop = Effect.fn("SetupSteps.stop")(function* (step: SetupStepId) {
+        for (const threadId of yield* threadsOf(step, true)) {
+          // A thread that is not working has no turn to cancel. What the step did is kept, so
+          // nothing waits for the turn to end.
+          yield* Effect.ignore(threads.cancel(threadId));
         }
+        return yield* setup.stop(step);
+      });
+
+      const redo = Effect.fn("SetupSteps.redo")(function* (step: SetupStepId) {
+        yield* Effect.forEach(yield* threadsOf(step, false), threads.stop, {
+          concurrency: "unbounded",
+          discard: true,
+        });
+        return yield* setup.redo(step);
+      });
+
+      const revertBatch = Effect.fn("SetupSteps.revertBatch")(function* (
+        batchId: string
+      ) {
+        const migrate = (yield* setup.get).steps.find(
+          (s) => s.id === "migrate"
+        );
+        const batch = migrate?.batches?.find((b) => b.id === batchId);
+        // Only the batch under way is being written; a done one is Migrate's past.
+        if (batch?.status === "active" && migrate?.threadId !== undefined) {
+          yield* threads.stop(migrate.threadId);
+        }
+        return yield* setup.revertBatch(batchId);
       });
 
       const start = Effect.fn("SetupSteps.start")(function* (
@@ -98,12 +135,7 @@ export class SetupSteps extends Context.Service<
         };
       });
 
-      return SetupSteps.of({
-        redo: (step) =>
-          Effect.andThen(stopTurns(step, false), setup.redo(step)),
-        start,
-        stop: (step) => Effect.andThen(stopTurns(step, true), setup.stop(step)),
-      });
+      return SetupSteps.of({ redo, revertBatch, start, stop });
     })
   );
 }

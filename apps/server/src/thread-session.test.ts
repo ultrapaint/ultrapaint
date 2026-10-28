@@ -22,6 +22,7 @@ import { ThreadService } from "./services/threads/threads.ts";
 import { ScriptedAgents } from "./testing/scripted-agents.ts";
 import {
   briefingFor,
+  HeldTask,
   ThreadFixture,
   ThreadTest,
   type ThreadTestServices,
@@ -961,6 +962,31 @@ describe("switching a thread's agent", () => {
       yield* send(threadId, "more");
       const second = yield* other.nextTurn;
       assert.deepStrictEqual(second.texts, ["more"]);
+    }));
+
+  test("is refused while a prompt is being accepted, whose turn goes on", () =>
+    Effect.gen(function* () {
+      const threads = yield* ThreadService;
+      const store = yield* ThreadStore;
+      const held = yield* HeldTask;
+      const { agent, threadId, turn } = yield* started();
+      yield* turn.end();
+      yield* threadWhen(threadId, turnEnded);
+      // The next prompt is accepted but not running yet: its task is still being written.
+      const sending = yield* Effect.forkChild(send(threadId, "/hold"));
+      yield* Deferred.await(held.reached);
+      const refused = yield* Effect.flip(threads.setAgent(threadId, "other"));
+      assert.strictEqual(refused._tag, "Conflict");
+      yield* Deferred.succeed(held.release, undefined);
+      yield* Fiber.join(sending);
+      assert.strictEqual((yield* store.get(threadId))?.status, "running");
+      // The same session takes it, and the turn ends as any does.
+      const next = yield* agent.nextTurn;
+      assert.include(next.texts.at(-1) ?? "", taskFor("hold"));
+      yield* next.end();
+      const { thread } = yield* threadWhen(threadId, turnsEnded(2));
+      assert.strictEqual(thread.agentId, "scripted");
+      assert.strictEqual(thread.status, "idle");
     }));
 });
 
