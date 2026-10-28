@@ -8,7 +8,7 @@ import { canvasDocOf } from "@ultrapaint/design-document/tree";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
 import { useDocuments } from "../state/documents.ts";
-import { flushLayout, useEditor } from "../state/editor.ts";
+import { layoutSaved, useEditor } from "../state/editor.ts";
 import { useProject } from "../state/project.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { useCreate } from "./create-tool.ts";
@@ -243,7 +243,7 @@ describe("a frame gesture", () => {
 
   afterEach(async () => {
     cancelGesture();
-    await flushLayout();
+    await layoutSaved();
     vi.unstubAllGlobals();
   });
 
@@ -257,7 +257,7 @@ describe("a frame gesture", () => {
     });
     fire("pointerup", 30.3, 40.7);
     expect(listeners.size).toBe(0);
-    await flushLayout();
+    await layoutSaved();
     expect(saved()).toEqual([{ [home.path]: { ...start, x: 30, y: 41 } }]);
   });
 
@@ -271,7 +271,7 @@ describe("a frame gesture", () => {
     fire("pointercancel");
     expect(useEditor.getState().frames[home.id]).toEqual(start);
     expect(listeners.size).toBe(0);
-    await flushLayout();
+    await layoutSaved();
     expect(saved()).toEqual([]);
   });
 
@@ -283,7 +283,7 @@ describe("a frame gesture", () => {
     expect(listeners.size).toBe(0);
     // Nothing is left to put back, and nothing to stop the key for.
     expect(cancelGesture()).toBe(false);
-    await flushLayout();
+    await layoutSaved();
     expect(saved()).toEqual([]);
   });
 
@@ -352,7 +352,7 @@ describe("a frame gesture", () => {
   it("a click on a frame's name saves nothing", async () => {
     beginFrameGesture(press(0, 0), home.id, "move");
     fire("pointerup", 0, 0);
-    await flushLayout();
+    await layoutSaved();
     expect(saved()).toEqual([]);
     expect(useEditor.getState().selectedPage).toBe(home.id);
   });

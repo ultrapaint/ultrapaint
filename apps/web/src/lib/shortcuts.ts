@@ -12,7 +12,7 @@ import { useComments } from "../state/comments.ts";
 import { api } from "../state/connection.ts";
 import { showMenu } from "../state/context-menu.ts";
 import { pathIn, useDocuments } from "../state/documents.ts";
-import { allFrames, flushLayout, useEditor } from "../state/editor.ts";
+import { allFrames, layoutSaved, useEditor } from "../state/editor.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { onCopyEvent, onPasteEvent } from "./clipboard.ts";
 import { isTyping, overlayOpen } from "./keys.ts";
@@ -23,7 +23,7 @@ type EditorState = ReturnType<typeof useEditor.getState>;
 /** Steps back or forward through everything the editor changed, files and canvas alike. */
 export const undoOrRedo = async (redo: boolean) => {
   try {
-    await flushLayout();
+    await layoutSaved();
     await (redo
       ? api().request("edit.redo", undefined)
       : api().request("edit.undo", undefined));

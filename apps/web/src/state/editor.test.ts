@@ -2,15 +2,18 @@ import "../testing/fake-browser.ts";
 import type { DocumentState } from "@ultrapaint/contracts/document";
 import type { CanvasLayout, Page } from "@ultrapaint/contracts/pages";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { undoOrRedo } from "../lib/shortcuts.ts";
 import { fakeApi } from "../testing/fake-api.ts";
 import { useDocuments, viewFrameOf } from "./documents.ts";
 import {
   computeFrames,
-  flushLayout,
+  layoutSaved,
   type Selection,
+  showFrame,
   useEditor,
 } from "./editor.ts";
 import { useProject } from "./project.ts";
+import { followServer } from "./server-data.ts";
 
 vi.mock(
   "./connection.ts",
@@ -60,6 +63,9 @@ const doc = (id: string, childIds: readonly string[]): DocumentState => ({
 });
 
 const initial = useEditor.getState();
+
+/** Lets what the answers given set off run its course. */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 beforeEach(() => {
   fakeApi.reset();
@@ -145,7 +151,7 @@ describe("a page's views", () => {
       frames: computeFrames([home, pricing], layoutOf(frames)),
     });
   const saved = async () => {
-    await flushLayout();
+    await layoutSaved();
     const call = fakeApi.calls.findLast((c) => c.method === "canvas.set");
     return (call?.input as { frames: CanvasLayout["frames"] } | undefined)
       ?.frames;
@@ -217,20 +223,135 @@ describe("applyLayout", () => {
     expect(s.frames[pricing.id]).toMatchObject({ x: 300 + 1440 + 80 });
   });
 
-  it("leaves the frames alone for another canvas, and while a change waits to be saved", async () => {
+  it("leaves the frames alone for another canvas", () => {
     useEditor.getState().applyLayout("other", moved);
     expect(useEditor.getState().frames).toEqual({});
-    useEditor.setState({ frames: computeFrames([home], layoutOf()) });
-    useEditor.getState().setFrame(home.id, {
-      height: 900,
-      preset: "desktop",
-      width: 1440,
-      x: 50,
-      y: 0,
+  });
+});
+
+describe("saving the layout", () => {
+  const desktop = (x: number, y = 0) => ({
+    height: 900,
+    preset: "desktop" as const,
+    width: 1440,
+    x,
+    y,
+  });
+  // Every page of the canvas has its frame saved.
+  const saved = layoutOf({
+    [home.path]: desktop(0),
+    [pricing.path]: desktop(0, 2000),
+    [boldPricing.path]: desktop(0, 4000),
+    [draft.path]: desktop(0, 6000),
+  });
+  const pushed = (frames: CanvasLayout["frames"]) =>
+    fakeApi.emit("canvas", {
+      canvas: "main",
+      layout: layoutOf({ ...saved.frames, ...frames }),
     });
-    useEditor.getState().applyLayout("main", moved);
-    expect(useEditor.getState().frames[home.id]).toMatchObject({ x: 50 });
-    await flushLayout();
+  const sets = () =>
+    fakeApi.calls.filter((c) => c.method === "canvas.set").map((c) => c.input);
+  const frameOf = (id: string) => useEditor.getState().frames[id];
+  /** The answers to the saves sent, in order, held until the test gives them. */
+  let answers: (() => void)[] = [];
+  let stop: () => void = () => undefined;
+
+  beforeEach(async () => {
+    answers = [];
+    fakeApi.respond(
+      "canvas.set",
+      () =>
+        new Promise<void>((resolve) => {
+          answers.push(resolve);
+        })
+    );
+    stop = followServer({ report: () => undefined });
+    await settle();
+    useEditor.getState().applyLayout("main", saved);
+  });
+
+  // A save left in flight would keep its page in the next test.
+  afterEach(async () => {
+    stop();
+    vi.useRealTimers();
+    for (const answer of answers) {
+      answer();
+    }
+    await layoutSaved();
+  });
+
+  it("saves a frame at once, sending only its page, as it was set", async () => {
+    vi.useFakeTimers();
+    useEditor.getState().setFrame(home.id, desktop(50));
+    expect(sets()).toEqual([
+      { canvas: "main", frames: { [home.path]: desktop(50) } },
+    ]);
+    // A gesture showing it elsewhere since saves nothing.
+    showFrame(home.id, { ...desktop(50), x: 73.4 });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(sets()).toHaveLength(1);
+  });
+
+  it("sends the pages drawn where no frame is saved, so they stay where they are drawn", () => {
+    useEditor
+      .getState()
+      .applyLayout("main", layoutOf({ [home.path]: desktop(0) }));
+    const drawn = useEditor.getState().frames;
+    useEditor.getState().setFrame(home.id, desktop(5000));
+    expect(sets()).toEqual([
+      {
+        canvas: "main",
+        frames: {
+          [boldPricing.path]: drawn[boldPricing.id],
+          [draft.path]: drawn[draft.id],
+          [home.path]: desktop(5000),
+          [pricing.path]: drawn[pricing.id],
+        },
+      },
+    ]);
+  });
+
+  it("follows a push for a page while another page's save is in flight", () => {
+    useEditor.getState().setFrame(home.id, desktop(50));
+    pushed({ [pricing.path]: desktop(3000, 2000) });
+    expect(frameOf(pricing.id)).toMatchObject({ x: 3000 });
+    expect(frameOf(home.id)).toMatchObject({ x: 50 });
+    expect(useEditor.getState().layout.frames[home.path]).toEqual(desktop(50));
+  });
+
+  it("keeps a page where it was put while its save is in flight, and follows it once answered", async () => {
+    useEditor.getState().setFrame(home.id, desktop(50));
+    // Read before the save landed: the old place.
+    pushed({});
+    expect(frameOf(home.id)).toMatchObject({ x: 50 });
+    answers[0]?.();
+    await layoutSaved();
+    expect(frameOf(home.id)).toMatchObject({ x: 50 });
+    // An agent moved it since.
+    pushed({ [home.path]: desktop(900) });
+    expect(frameOf(home.id)).toMatchObject({ x: 900 });
+  });
+
+  it("keeps a page while a second save of it is in flight, the first answered", async () => {
+    useEditor.getState().setFrame(home.id, desktop(50));
+    useEditor.getState().setFrame(home.id, desktop(70));
+    answers[0]?.();
+    await settle();
+    pushed({ [home.path]: desktop(50) });
+    expect(frameOf(home.id)).toMatchObject({ x: 70 });
+    answers[1]?.();
+    await layoutSaved();
+  });
+
+  it("undoes once the saves in flight are answered", async () => {
+    fakeApi.respond("edit.undo", () => null);
+    useEditor.getState().setFrame(home.id, desktop(50));
+    const undone = undoOrRedo(false);
+    await settle();
+    expect(fakeApi.calls.map((c) => c.method)).not.toContain("edit.undo");
+    answers[0]?.();
+    await undone;
+    expect(fakeApi.calls.map((c) => c.method).at(-1)).toBe("edit.undo");
   });
 });
 
