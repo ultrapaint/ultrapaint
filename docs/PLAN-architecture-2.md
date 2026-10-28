@@ -1,0 +1,80 @@
+# Plan: deeper modules, the second review (2026-10-28)
+
+Status: in progress. Follows [ADR 0037](adr/0037-deep-modules.md) and
+[PLAN-architecture.md](PLAN-architecture.md), whose 18 steps are not proposed again. The terms are
+in `GLOSSARY.md`.
+
+## Why
+
+A second review, after ADR 0037's steps, found what they left half-done and concepts still written
+in several places: what each Sync side knows still sat in `DesignSystemService`; where a frame
+goes on a canvas was decided in four places with two gaps; nine web stores wired themselves to the
+server and only the project was read again after a reconnect; "selected here" had two rules and
+"which breakpoint" six; the spacing scale and a length in pixels were still copied across five
+packages and the web never used the token table; a project service could only be tested through a
+socket. Each step gives one concept one module with an interface its callers and its tests share,
+writes a failing test first for each bug the review suspected, and keeps every ADR's behaviour
+unless the step says otherwise.
+
+## Steps
+
+### A. Server
+
+1. **One composition root, a project test layer.** The application layer and the project layer
+   are built in one module the server and the tests import (the hand-kept copies in
+   `testing/tasks.ts` and `testing/threads.ts` go). `HostManager.layerTest` starts no preview,
+   the host seam's second adapter; a `ProjectTest(fixture)` layer reaches any project service and
+   the MCP toolkits' handlers in-process.
+2. **One canvas layout module.** A pure module in a shared package places a new frame (counting
+   its views), places views, names a view and lists a page's family; the server's pages modules,
+   the MCP tools and the web's `computeFrames` call it. One gap. `PagesService.setFrame` takes
+   sizes and views rather than a layout callback. Fixes a new frame landing on the rightmost
+   page's views.
+3. **The Sync sides own what they know.** `DesignSystemService` keeps the design (read, write,
+   `setTokens`, `replace`, undo, one publish per change). A code side owns the code's tokens
+   (the cached read, the all-or-nothing write, the agreement, the preview CSS); DESIGN.md's module
+   owns its document, mirror and baseline; the Figma side owns its baseline file. The target
+   tokens ("the design's, else the code's own") and the Figma "another file" rule are written
+   once; `design-system-sync-rules.ts` splits into the plan and the sides' readings.
+4. **Settings in force.** One server module applies settings (open, reopen or nothing, decided
+   once) and publishes the project's info whenever what it is made of changes; the RPC handlers
+   and boot call it. The web's `settings-actions` saves and refreshes the store in one place, and
+   holds "detect, apply suggestions, create designs, save".
+5. **Flows in the services, not the adapters.** A spec read from the code is linked by its
+   service on every path; the newest Figma import's theme is read by one function; a commit
+   publishes the git status from `GitService`; a page's deletion returns what it removed; the
+   comments' author comes from `GitService.user`. The RPC handlers and MCP tools route.
+
+### B. Packages
+
+6. **The token table finished.** `token-table` owns the spacing scale (step from a name, a name
+   from a step, a step from a length, the base in px with its one default, the named steps);
+   `token-value` owns a length in px, `var()` resolution and `calc` on lengths. The copies in
+   design-document, style-tailwind-v4, design-md, the server and the web go; the web reads token
+   kinds through the token table.
+7. **A node's style, cut at declarations.** design-document gives a node's CSS declarations per
+   breakpoint, tokens kept by name; the Tailwind class writer maps declarations to classes and
+   owns the variant prefixes. Layout rules are written once. Amends ADR 0024's `ClassWriter`.
+8. **A built-in agent is one descriptor.** Each built-in agent (Claude Code, Codex) is one
+   descriptor in `acp`: launch, adapter bundle, sign-in command and its parser, API-key variable,
+   extra environment, releases. The desktop's agents, its parts script, its downloads and
+   `MachineAgentId` derive from the list. Amends ADR 0031.
+
+### C. Web
+
+9. **Data the server pushes.** One module subscribes, reads, reads again at every connection
+   open, and switches its source to a viewed snapshot; stores declare what they follow. Live and
+   snapshot are its two adapters. `fakeApi` is typed and its `reset` resets.
+10. **The selection, as its view draws it.** One selection module answers "selected here", the
+    breakpoint a frame is at, and the selected nodes as their view draws them with their shared
+    value; the inspector, the toolbar, the highlights and Layers read it. Fixes the toolbar's
+    values inside a view and Shift-click across views of a page.
+11. **How a thread is shown.** `threadView(thread)` gives busy, label, tone, waiting and failed;
+    `attachmentsOf` builds a prompt's attachments. No raw status checks remain.
+12. **Showing a left panel.** One `show(...)` verb unhides the left panel, leaves the prototype
+    and delivers its request (a chat and its draft, a diff, a rename); the three request stores
+    go.
+13. **Layers' drop and reveal.** `layer-tree` decides where a drop lands (node-actions' `Place`)
+    and which rows a reveal unfolds; `layers.tsx` draws and forwards.
+
+## Built
