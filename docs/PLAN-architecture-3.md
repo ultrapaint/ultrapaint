@@ -720,3 +720,33 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
     which no test rendered. `use-frame-pointer.test.tsx` renders the hook in happy-dom over a
     stand-in preview: a node dragged off its page and cancelled is put back and sends no edit
     (failed first: the hook had no cancel), and let go there it lands.
+13. **The layout saved as it changes** (`apps/web/src/state/editor.ts`). No timer: `setFrame`
+    saves at once, one `canvas.set` and one undo step, sending its page's frame (a view's
+    change its page's, with its views) and the pages drawn where no frame of theirs is saved yet,
+    which would otherwise move with it once the layout comes back, rather than every frame of
+    the canvas. The server already merged a partial `frames` map page by page, replacing a page's
+    whole entry, so a view removed is said by its page's frame without it; neither the RPC nor
+    the server changed. The saves the server has not answered are kept, each with its canvas and
+    what it sent: a layout pushed (`applyLayout`) or read when a canvas opens (`openedCanvas`)
+    applies to every page but those, which stay as last sent (`withSaving`), and the push after
+    the answer brings them current. `layoutSaved()` waits for the saves in flight; it replaces
+    `flushLayout`, for undo and redo and for opening a snapshot (whose layout must not be drawn
+    with a live save over it), and opening another canvas no longer flushes (nothing waits).
+    `persistTimer`, `persistLayout` and `saveLayout` go. Fixed: a page an agent's `set_frame` or
+    another editor moved within about 400 ms and a round trip of the user moving another page
+    went back to the editor's old copy, on screen and on disk (the whole canvas was sent, and
+    the push dropped while the timer waited); a second gesture begun within 400 ms of the first's
+    release saved its unrounded in-between place as an undo step. Also: two quick changes
+    (two views added, two presets) are two undo steps where they were one; a page's frame is on
+    disk as soon as it is let go. Left: a push that arrives during a gesture, with no save in
+    flight, still draws the frame at the pushed place until the pointer next moves, as before.
+    `editor.test.ts` has 6 tests in place of the one that kept the frames while a change waited,
+    through `followServer` and `fakeApi.emit("canvas", …)` with the saves' answers held: a frame
+    is sent at once, only its page, as it was set (a gesture showing it elsewhere since sends
+    nothing more); the pages drawn where nothing saves them are sent with it; a push moving page
+    B while A's save is in flight moves B and keeps A; a push with A's old place while its save
+    is in flight keeps A, and one after the answer moves it; A stays through a push while its
+    second save is in flight, its first answered; an undo waits for the save. The first five
+    failed first (nothing sent before the timer, the push dropped); the undo one passed, as
+    `flushLayout` already waited for the save it started. `location.test.ts`'s save on leaving a
+    canvas reads as one save sent at once.

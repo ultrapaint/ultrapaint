@@ -353,7 +353,7 @@ describe("goTo", () => {
     expect(outOfStep()).toEqual([]);
   });
 
-  it("saves a move still waiting to be saved to the canvas it was made on", async () => {
+  it("saves a move to the canvas it was made on, another canvas opened right after", async () => {
     vi.useFakeTimers();
     useEditor.setState({ frames: computeFrames([home], layoutOf()) });
     const moved = {
@@ -371,7 +371,7 @@ describe("goTo", () => {
         method: "canvas.set",
       },
     ]);
-    // Nothing is left to save onto the canvas opened.
+    // Nothing is saved later onto the canvas opened.
     await vi.advanceTimersByTimeAsync(1000);
     expect(fakeApi.calls.filter((c) => c.method === "canvas.set")).toHaveLength(
       1

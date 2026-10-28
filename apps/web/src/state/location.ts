@@ -29,7 +29,6 @@ import {
 } from "./documents.ts";
 import {
   type EditorState,
-  flushLayout,
   layoutOf,
   openedCanvas,
   pagesOfCanvas,
@@ -173,9 +172,6 @@ const landingPlace = (canvas: string, to: GoTo): Place => {
 const openCanvas = async (canvas: string, to: GoTo) => {
   opening += 1;
   const asked = opening;
-  // A move still waiting to be saved belongs to the canvas being left: it is saved now, while
-  // the frames are still that canvas's.
-  flushLayout();
   try {
     const layout = await layoutOf(canvas);
     // Another canvas was asked for while this one's layout was on its way.

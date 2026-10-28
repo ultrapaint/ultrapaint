@@ -100,8 +100,8 @@ interface EditorStore {
    */
   also: readonly Selection[];
   /**
-   * Follows the layout as saved: an undo, an agent, a branch switch. Frames the editor is still
-   * about to save are its own and stay.
+   * Follows the layout as saved: an undo, an agent, a branch switch. A page whose save the server
+   * has not answered yet stays where the editor put it; the push after the answer brings it.
    */
   applyLayout: (canvas: string, layout: CanvasLayout) => void;
   canvas: string | null;
@@ -135,9 +135,9 @@ interface EditorStore {
   selectMany: (selections: readonly Selection[]) => void;
   selectPage: (pageId: string | null) => void;
   /**
-   * Sets a frame and saves the layout: a page's (its views move with it) or a view's (ADR 0036).
-   * A page's frame given without views keeps the ones it has. A frame gesture shows the frame as
-   * it goes (`showFrame`) and sets it once when it is let go.
+   * Sets a frame and saves it at once: a page's (its views move with it) or a view's, in its
+   * page's frame (ADR 0036). A page's frame given without views keeps the ones it has. A frame
+   * gesture shows the frame as it goes (`showFrame`) and sets it once when it is let go.
    */
   setFrame: (pageId: string, frame: FrameLayout) => void;
   setHover: (hover: EditorStore["hover"]) => void;
@@ -165,7 +165,6 @@ interface EditorStore {
 /** What the editor's store holds, for the modules that write a part of it. */
 export type EditorState = EditorStore;
 
-let persistTimer: ReturnType<typeof setTimeout> | null = null;
 export const pagesOfCanvas = (canvas: string | null): readonly Page[] =>
   canvas === null
     ? []
@@ -353,58 +352,78 @@ export const computeFrames = (
   return placeViews(frames);
 };
 
-/** Saves the frames as they are now: one undo step on the server. */
-const saveLayout = (
+/** A save of a canvas's frames the server has not answered yet: the frames it sent, by path. */
+interface Save {
+  readonly canvas: string;
+  readonly done: Promise<void>;
+  readonly frames: Readonly<Record<string, FrameLayout>>;
+}
+
+const saving = new Set<Save>();
+
+/**
+ * `layout` with the frames whose saves are in flight as the editor sent them, the latest sent
+ * of a page winning: what the server will have once it answers. The same layout when none are.
+ */
+const withSaving = (canvas: string, layout: CanvasLayout): CanvasLayout => {
+  const sent = [...saving].filter((save) => save.canvas === canvas);
+  return sent.length === 0
+    ? layout
+    : {
+        ...layout,
+        frames: Object.assign({}, layout.frames, ...sent.map((s) => s.frames)),
+      };
+};
+
+/** A page's frame as the layout saves it: its views kept only when it has some. */
+const savedFrame = ({ views, ...frame }: FrameLayout): FrameLayout =>
+  views && views.length > 0 ? { ...frame, views } : frame;
+
+/**
+ * Saves `frame`'s page as it is drawn now, one undo step on the server, with the pages drawn
+ * where no frame of theirs is saved: drawn after the saved ones, they would move with it.
+ */
+const saveFrame = (
   get: () => EditorStore,
-  set: (p: Partial<EditorStore>) => void
-): Promise<void> => {
+  set: (p: Partial<EditorStore>) => void,
+  frame: string
+) => {
   const { frames, layout, canvas } = get();
   // A snapshot's frames move on screen and nowhere else.
   if (canvas === null || viewedSnapshot()) {
-    return Promise.resolve();
+    return;
   }
-  const pages = pagesOfCanvas(canvas);
-  const layoutFrames: Record<string, FrameLayout> = {};
-  for (const [id, f] of Object.entries(frames)) {
-    // A view's box is its page's to save, in the page's frame.
-    const page = pages.find((p) => p.id === id);
-    if (page) {
-      const { views, ...frame } = f;
-      layoutFrames[page.path] =
-        views && views.length > 0 ? { ...frame, views } : frame;
+  const changed = pageOfFrame(frame);
+  const sent: Record<string, FrameLayout> = {};
+  for (const page of pagesOfCanvas(canvas)) {
+    const drawn = frames[page.id];
+    if (drawn && (page.id === changed || !(page.path in layout.frames))) {
+      sent[page.path] = savedFrame(drawn);
     }
   }
-  set({ layout: { ...layout, frames: layoutFrames } });
-  return api()
-    .request("canvas.set", { canvas, frames: layoutFrames })
-    .catch(reportError);
-};
-
-/** Saves the layout a moment after the last change, so a drag is one step and not fifty. */
-const persistLayout = (
-  get: () => EditorStore,
-  set: (p: Partial<EditorStore>) => void
-) => {
-  if (persistTimer) {
-    clearTimeout(persistTimer);
+  if (Object.keys(sent).length === 0) {
+    return;
   }
-  persistTimer = setTimeout(() => {
-    persistTimer = null;
-    saveLayout(get, set);
-  }, 400);
+  set({ layout: { ...layout, frames: { ...layout.frames, ...sent } } });
+  const save: Save = {
+    canvas,
+    done: api()
+      .request("canvas.set", { canvas, frames: sent })
+      .then(() => undefined, reportError)
+      .finally(() => {
+        saving.delete(save);
+      }),
+    frames: sent,
+  };
+  saving.add(save);
 };
 
 /**
- * Saves at once what is waiting to be saved. An undo right after a move has to find the move
- * in the journal, not have it land after the undo.
+ * Waits for the layout's saves in flight: an undo right after a move has to find the move in
+ * the journal, not have it land after the undo.
  */
-export const flushLayout = (): Promise<void> => {
-  if (!persistTimer) {
-    return Promise.resolve();
-  }
-  clearTimeout(persistTimer);
-  persistTimer = null;
-  return saveLayout(useEditor.getState, useEditor.setState);
+export const layoutSaved = async (): Promise<void> => {
+  await Promise.all([...saving].map((save) => save.done));
 };
 
 /**
@@ -444,10 +463,11 @@ export const openedCanvas = (
   layout: CanvasLayout
 ): Partial<EditorStore> => {
   const { canvas: open, memory } = useEditor.getState();
+  const saved = withSaving(canvas, layout);
   return {
-    frames: computeFrames(pagesOfCanvas(canvas), layout),
+    frames: computeFrames(pagesOfCanvas(canvas), saved),
     held: {},
-    layout,
+    layout: saved,
     memory: canvas === open ? memory : { ...memory, putAside: null },
     rects: {},
     sizes: {},
@@ -472,11 +492,11 @@ export const useEditor = create<EditorStore>((set, get) => ({
     return viewFrameOf(pageId, view.id);
   },
   also: [],
-  applyLayout: (canvas, layout) => {
-    const s = get();
-    if (canvas !== s.canvas || persistTimer) {
+  applyLayout: (canvas, pushed) => {
+    if (canvas !== get().canvas) {
       return;
     }
+    const layout = withSaving(canvas, pushed);
     set({ frames: computeFrames(pagesOfCanvas(canvas), layout), layout });
   },
   canvas: null,
@@ -550,7 +570,7 @@ export const useEditor = create<EditorStore>((set, get) => ({
   },
   setFrame: (pageId, frame) => {
     showFrame(pageId, frame);
-    persistLayout(get, set);
+    saveFrame(get, set, pageId);
   },
   // The pointer reports the same node many times a second; only a change is news.
   setHover: (hover) =>

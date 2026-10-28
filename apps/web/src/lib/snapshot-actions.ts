@@ -7,7 +7,7 @@ import type { Snapshot } from "@ultrapaint/contracts/snapshots";
 import { toast } from "sonner";
 import { confirmDialog, promptDialog } from "../components/dialogs.tsx";
 import { api } from "../state/connection.ts";
-import { flushLayout, useEditor } from "../state/editor.ts";
+import { layoutSaved, useEditor } from "../state/editor.ts";
 import { goTo } from "../state/location.ts";
 import { reportError, useProject } from "../state/project.ts";
 import { viewSnapshot } from "../state/server-data.ts";
@@ -46,8 +46,8 @@ export const saveSnapshot = async (
 export const openSnapshot = async (snapshot: Snapshot) => {
   try {
     const view = await api().request("snapshots.view", { id: snapshot.id });
-    // A move still waiting to be saved is the files', and is saved before they leave the screen.
-    await flushLayout();
+    // A move still being saved is the files': it lands before the snapshot's layout is drawn.
+    await layoutSaved();
     const editor = useEditor.getState();
     // Opening another snapshot from one keeps the way back to now.
     useSnapshotView.setState((s) => ({
