@@ -19,7 +19,6 @@ import "./styles.css";
 if (import.meta.env.DEV) {
   (window as unknown as { __ed: unknown }).__ed = {
     api,
-    // What `pnpm e2e:sandbox` reads the frames' errors by.
     frameErrors,
     frameOf,
     goTo,

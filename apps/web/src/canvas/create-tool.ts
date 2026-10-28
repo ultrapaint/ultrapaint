@@ -7,7 +7,7 @@
  */
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { tokenOf } from "@ultrapaint/contracts/token-table";
-import { newPrimitive } from "@ultrapaint/design-document/factories";
+import { newElement } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { create } from "zustand";
 import { insertNodesAt } from "../lib/node-actions.ts";
@@ -94,7 +94,7 @@ const groupNode = (box: ReturnType<typeof boxOf>, drop: Drop): DesignNode => {
     ? { height: Math.round(box.height), width: Math.round(box.width) }
     : DEFAULT_GROUP;
   return {
-    ...newPrimitive("group", makeIdGenerator()),
+    ...newElement("group", makeIdGenerator()),
     ...size,
     ...(drop.kind === "canvas" && { fill: canvasFill() }),
   } as DesignNode;
@@ -140,7 +140,7 @@ export const endCreate = async (tool: CreateTool) => {
   const node =
     tool === "group"
       ? groupNode(box, drop)
-      : newPrimitive("paragraph", makeIdGenerator());
+      : newElement("paragraph", makeIdGenerator());
   useEditor.getState().setMode("select");
   const [id] = await insertNodesAt(placeOfDrop(drop, { x: box.x, y: box.y }), [
     node,

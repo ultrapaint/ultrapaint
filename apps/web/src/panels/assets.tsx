@@ -6,10 +6,10 @@
 import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import {
+  ELEMENTS,
+  type ElementId,
+  newElement,
   newInstance,
-  newPrimitive,
-  PRIMITIVES,
-  type PrimitiveId,
 } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { cn } from "cn";
@@ -51,7 +51,7 @@ import { ensureEditable } from "../state/setup.ts";
 type View = "list" | "grid";
 const VIEW_KEY = "ultrapaint:assets-view";
 
-const PRIMITIVE_ICONS: Record<PrimitiveId, React.ReactNode> = {
+const ELEMENT_ICONS: Record<ElementId, React.ReactNode> = {
   column: <ArrowDown className="size-3.5" />,
   group: <Group className="size-3.5" />,
   heading: <Heading className="size-3.5" />,
@@ -106,17 +106,17 @@ const entryHandlers = (
   },
 });
 
-const Primitives = () => (
+const Elements = () => (
   <div className="grid grid-cols-3 gap-1 border-b p-2">
-    {PRIMITIVES.map((p) => (
+    {ELEMENTS.map((p) => (
       <button
         className="flex flex-col items-center gap-1 rounded-md border bg-background/40 px-1 py-2 font-body text-muted-foreground hover:border-ring hover:text-foreground"
         key={p.id}
         title={`Insert ${articled(p.name.toLowerCase())}`}
         type="button"
-        {...entryHandlers(() => newPrimitive(p.id, nextId()), p.name, false)}
+        {...entryHandlers(() => newElement(p.id, nextId()), p.name, false)}
       >
-        {PRIMITIVE_ICONS[p.id]}
+        {ELEMENT_ICONS[p.id]}
         {p.name}
       </button>
     ))}
@@ -358,7 +358,7 @@ export const Assets = () => {
         )}
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
-        {!q && <Primitives />}
+        {!q && <Elements />}
         {catalogue ? null : (
           <div className="p-3 font-body text-muted-foreground">
             {loading
