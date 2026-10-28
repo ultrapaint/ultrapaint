@@ -20,7 +20,11 @@ module.
   side; a **side adapter** says how one side is read, matched and kept.
 - **Page**: a design document, `.page.json`, of a **canvas** (ADRs 0015, 0019, 0020). A page is
   drawn in a **frame**, and in **views** of other widths beside it (ADR 0036); an edit lands at
-  the **breakpoint** of the view it is made in.
+  the **breakpoint** of the view it is made in. A page's **family** is its base page with its
+  variants and states, which are named after it and move and go with it (`familyOf`).
+- **Canvas layout**: where frames go on a canvas, with one gap (contracts' `canvas-layout`): a
+  new frame past every frame and its views, a page the layout does not place yet where the
+  editor draws it, a new view beside its page and the view's name.
 - **Snapshot**: a named point in the designs' history (ADR 0019), a ref of the `designs`
   namespace in the tool's **snapshot store**.
 

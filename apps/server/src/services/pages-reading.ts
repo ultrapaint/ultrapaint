@@ -9,7 +9,6 @@ import {
   type CanvasLayout,
   type CanvasOrder,
   emptyCanvasLayout,
-  type FrameLayout,
   type PageList,
 } from "@ultrapaint/contracts/pages";
 import { serialise } from "@ultrapaint/design-document/factories";
@@ -35,7 +34,6 @@ import { EditService, type EditTransaction } from "./edit.ts";
 import {
   canvasIdsIn,
   decodeOrder,
-  FRAME_GAP,
   followHome,
   IGNORED_DIRS,
   pageListOf,
@@ -334,19 +332,6 @@ export const makePagesReading = Effect.gen(function* () {
       return { ...rest, ...(home !== undefined && { home }), routes };
     });
 
-  /** Beside the rightmost frame of the canvas, so a new page never lands on another. */
-  const placeFrame = (
-    frames: CanvasLayout["frames"],
-    size: { readonly height: number; readonly width: number }
-  ): FrameLayout => {
-    const placed = Object.values(frames);
-    const x =
-      placed.length === 0
-        ? 0
-        : Math.max(...placed.map((f) => f.x + f.width)) + FRAME_GAP;
-    return { ...size, preset: "custom", x, y: 0 };
-  };
-
   return {
     byId,
     canvasById,
@@ -364,7 +349,6 @@ export const makePagesReading = Effect.gen(function* () {
     list,
     path,
     paths,
-    placeFrame,
     /** What the editors were last sent, as `publishList` keeps it. */
     published: () => published,
     publishList,

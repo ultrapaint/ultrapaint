@@ -1,3 +1,4 @@
+import type { FrameSize } from "@ultrapaint/contracts/canvas-layout";
 import type { PageDocument } from "@ultrapaint/contracts/document";
 import type { Conflict, NotFound } from "@ultrapaint/contracts/errors";
 import type {
@@ -101,16 +102,14 @@ export class PagesService extends Context.Service<
       name: string
     ) => Effect.Effect<Page, PagesFailure>;
     /**
-     * Sets one page's frame from the one it has, if any, and the others; every other frame,
-     * and whatever else the layout holds, stays as it is at that moment. Answers with the frame.
+     * Sizes one page's frame where it is, or where the editor draws it when it has none saved
+     * yet (`canvas-layout`'s `sizeFrame`); every other frame, and whatever else the layout
+     * holds, stays as it is at that moment. Answers with the frame.
      */
     readonly setFrame: (
       canvas: string,
       pagePath: string,
-      frame: (
-        before: FrameLayout | undefined,
-        frames: CanvasLayout["frames"]
-      ) => FrameLayout
+      size: FrameSize
     ) => Effect.Effect<FrameLayout, PagesFailure>;
     /** The URL the canvas's prototype opens on, which a page of it must serve. */
     readonly setHome: (

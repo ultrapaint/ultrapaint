@@ -4,6 +4,13 @@
  * deleting it. Each runs as one undo step, carries the page's comments, frame and links along,
  * and sends the editors the list it leaves.
  */
+import {
+  FRAME_GAP,
+  familyOf,
+  frameBottom,
+  frameRight,
+  placeFrame,
+} from "@ultrapaint/contracts/canvas-layout";
 import type { Comment } from "@ultrapaint/contracts/comments";
 import type { PageDocument } from "@ultrapaint/contracts/document";
 import { BadRequest, Conflict, NotFound } from "@ultrapaint/contracts/errors";
@@ -27,12 +34,7 @@ import type { CommentsService } from "./comments.ts";
 import type { EditTransaction } from "./edit.ts";
 import type { NewPage } from "./pages.ts";
 import { idOf, makeBindings } from "./pages-bindings.ts";
-import {
-  FRAME_GAP,
-  frameBottom,
-  frameRight,
-  mapLinks,
-} from "./pages-layout.ts";
+import { mapLinks } from "./pages-layout.ts";
 import type { PagesReading } from "./pages-reading.ts";
 
 export const makePageOperations = (
@@ -51,7 +53,6 @@ export const makePageOperations = (
     list,
     path,
     paths,
-    placeFrame,
     publishList,
     readCanvas,
     root,
@@ -97,7 +98,7 @@ export const makePageOperations = (
         if (frame) {
           yield* updateFrames(tx, canvas, (frames) => ({
             ...frames,
-            [pagePath]: placeFrame(frames, frame),
+            [pagePath]: placeFrame(frames, { ...frame, preset: "custom" }),
           }));
         }
       })
@@ -195,9 +196,7 @@ export const makePageOperations = (
     }
     const targetPath = yield* freePagePath(page.canvas, dir, trimmed);
     // The page's variants and states are named after it, and go with it.
-    const moving = all.pages.filter(
-      (p) => p.canvas === page.canvas && basePathOf(p.path) === page.path
-    );
+    const moving = familyOf(all.pages, page);
     const moves = new Map(
       moving.map((p) => {
         const suffix = p.variant ?? p.state;
@@ -461,11 +460,7 @@ export const makePageOperations = (
     const { page } = yield* byId(id, all);
     // A base page's variants and states are drawings of it: they would be left serving nothing.
     const base = page.variant === undefined && page.state === undefined;
-    const going = base
-      ? all.pages.filter(
-          (p) => p.canvas === page.canvas && basePathOf(p.path) === page.path
-        )
-      : [page];
+    const going = base ? familyOf(all.pages, page) : [page];
     const gone = new Set(going.map((p) => p.path));
     const drawings = [
       going.some((p) => p.variant !== undefined) ? "variants" : null,
