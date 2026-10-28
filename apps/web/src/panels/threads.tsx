@@ -27,6 +27,7 @@ import { IconButton } from "../components/icon-button.tsx";
 import { SetupEmpty } from "../components/setup-dialog.tsx";
 import { showScope } from "../lib/add-to-chat.ts";
 import { toggleFollowing } from "../lib/thread-actions.ts";
+import { threadView } from "../lib/thread-view.ts";
 import { groupWork } from "../lib/thread-work.ts";
 import { useAgents } from "../state/agents.ts";
 import { openMenuAt } from "../state/context-menu.ts";
@@ -178,10 +179,10 @@ const ThreadView = ({
   items: readonly ThreadItem[];
 }) => {
   const entries = useMemo(() => groupWork(items), [items]);
-  const running = thread.status === "running";
+  const { busy, failed } = threadView(thread);
   const last = items.at(-1);
   const since = items.findLast((i) => i.kind === "user")?.at;
-  const fresh = items.length === 0 && thread.status === "idle";
+  const fresh = items.length === 0 && !(busy || failed);
   const stepThread = useDesignSystemSetup(
     (s) =>
       s.setup?.steps.some(
@@ -210,19 +211,14 @@ const ThreadView = ({
                     <Entry
                       entry={entry}
                       last={last}
-                      running={running}
+                      running={busy}
                       threadId={thread.id}
                     />
                   </MessageScrollerItem>
                 ))}
-                {/* Also while the agent is still starting: that is part of the turn. */}
-                {(running || thread.status === "starting") && (
-                  <WorkingIndicator
-                    since={since}
-                    starting={thread.status === "starting"}
-                  />
-                )}
-                {thread.status === "error" && (
+                {/* While a turn runs, the agent's start included, or is being stopped. */}
+                {busy ? <WorkingIndicator since={since} /> : null}
+                {failed ? (
                   <Alert variant="destructive">
                     <CircleAlert />
                     <AlertTitle>The agent stopped</AlertTitle>
@@ -230,7 +226,7 @@ const ThreadView = ({
                       {thread.error}
                     </AlertDescription>
                   </Alert>
-                )}
+                ) : null}
               </MessageScrollerContent>
             </MessageScrollerViewport>
             <MessageScrollerButton />

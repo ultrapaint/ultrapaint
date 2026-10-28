@@ -107,4 +107,42 @@ describe("ThreadStore", () => {
         assert.strictEqual(yield* written, "abcd");
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
   );
+
+  it.effect(
+    "reads a thread written while its agent ran, or with a status no longer written, as idle",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const home = yield* fs.makeTempDirectoryScoped();
+        yield* fs.makeDirectory(path.join(home, "threads"));
+        const written = (id: string, status: string) =>
+          fs.writeFileString(
+            path.join(home, "threads", `${id}.json`),
+            JSON.stringify({
+              items: [],
+              thread: {
+                agentId: "fake",
+                createdAt: 0,
+                id,
+                status,
+                title: id,
+                updatedAt: 0,
+              },
+            })
+          );
+        yield* written("thread_a_00001", "running");
+        yield* written("thread_b_00001", "starting");
+        yield* written("thread_c_00001", "closed");
+        const threads = yield* Effect.gen(function* () {
+          const store = yield* ThreadStore;
+          return yield* store.list;
+        }).pipe(Effect.provide(storeIn(home)));
+        assert.deepStrictEqual(threads.map((t) => [t.id, t.status]).sort(), [
+          ["thread_a_00001", "idle"],
+          ["thread_b_00001", "idle"],
+          ["thread_c_00001", "idle"],
+        ]);
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer))
+  );
 });

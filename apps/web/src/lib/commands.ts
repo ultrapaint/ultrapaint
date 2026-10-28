@@ -56,6 +56,7 @@ import {
   zoomBy,
 } from "./shortcuts.ts";
 import { createThread } from "./start-thread.ts";
+import { threadView } from "./thread-view.ts";
 
 /** The sections of the palette and of the shortcut sheet, in the order they are shown. */
 export const commandGroups = [
@@ -833,7 +834,7 @@ const goToPageCommand = (page: Page): Command => ({
 });
 
 const chatCommand = (thread: Thread): Command => ({
-  detail: thread.status === "running" ? "working" : "chat",
+  detail: threadView(thread).busy ? "working" : "chat",
   group: "Go to",
   id: `thread:${thread.id}`,
   keywords: "chat thread agent",

@@ -76,6 +76,21 @@ export const migrateStored = (stored: unknown): unknown => {
   };
 };
 
+/**
+ * A thread as it is read at start: idle, whatever its file says, since no session survives a
+ * restart. Set before the file is decoded, so a status no longer written (`starting`, `closed`)
+ * reads too.
+ */
+const atRest = (stored: unknown): unknown => {
+  const thread =
+    typeof stored === "object" && stored !== null
+      ? (stored as { thread?: unknown }).thread
+      : undefined;
+  return typeof thread === "object" && thread !== null
+    ? { ...(stored as object), thread: { ...thread, status: "idle" } }
+    : stored;
+};
+
 /** How long a patched transcript may wait before it is written. */
 const FLUSH_DELAY = "250 millis";
 
@@ -135,16 +150,15 @@ export class ThreadStore extends Context.Service<
       for (const name of names.filter((n) => n.endsWith(".json"))) {
         yield* fs.readFileString(path.join(dir, name)).pipe(
           Effect.flatMap(parseJson),
-          Effect.map(migrateStored),
+          Effect.map((json) => atRest(migrateStored(json))),
           Effect.flatMap(decodeStored),
           // Its id names the file it is written back to.
           Effect.tap((stored) => safeFileId("thread", stored.thread.id)),
           Effect.tap((stored) =>
             Effect.sync(() => {
-              // No session survives a restart, whatever the file says.
               threads.set(stored.thread.id, {
                 items: [...stored.items],
-                thread: { ...stored.thread, status: "idle" },
+                thread: stored.thread,
               });
             })
           ),

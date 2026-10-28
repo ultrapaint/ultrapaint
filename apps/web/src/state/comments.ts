@@ -9,6 +9,7 @@ import { nodeLabel } from "@ultrapaint/design-document/tree";
 import { create } from "zustand";
 import { viewportSize } from "../lib/shortcuts.ts";
 import { useAgents } from "./agents.ts";
+import { attachmentsOf, chipOfComment } from "./attachments.ts";
 import { setView } from "./camera.ts";
 import { commentPrompt, commentThreadTitle } from "./comment-prompt.ts";
 import { api } from "./connection.ts";
@@ -252,19 +253,7 @@ export const sendToAgent = async (
   reply?: CommentReply
 ): Promise<{ id: string; title: string } | null> => {
   const page = pageOfComment(comment);
-  const attachments = [
-    ...(page ? [{ kind: "file" as const, path: page.file }] : []),
-    ...(page && comment.nodeId
-      ? [
-          {
-            file: page.file,
-            kind: "selection" as const,
-            name: comment.element ?? "node",
-            nodeId: comment.nodeId,
-          },
-        ]
-      : []),
-  ];
+  const attachments = attachmentsOf(page ? [chipOfComment(comment, page)] : []);
   try {
     const thread =
       "threadId" in target

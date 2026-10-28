@@ -38,17 +38,15 @@ export const AgentConfig = Schema.Struct({
 export type AgentConfig = typeof AgentConfig.Type;
 
 /**
- * Where a thread is with its agent. The server writes `idle`, `running` (from the prompt on,
- * the agent's start included), `cancelling` and `error`. `starting` and `closed` are no longer
- * written; they stay in the schema the editor and stored threads were built against.
+ * Where a thread is with its agent: `idle`, `running` (from the prompt on, the agent's start
+ * included), `cancelling` and `error`. A thread file read at start is idle whatever it says, so
+ * one written with an older status (`starting`, `closed`) still reads.
  */
 export const ThreadStatus = Schema.Literals([
   "idle",
-  "starting",
   "running",
   "cancelling",
   "error",
-  "closed",
 ]);
 export type ThreadStatus = typeof ThreadStatus.Type;
 

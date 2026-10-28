@@ -2,7 +2,7 @@
  * The chat's list of threads: what each works on, as a picture, its name, its last line and where
  * it stands. Opening one gives the thread; the list is where the chat opens.
  */
-import { isBusy, type Thread } from "@ultrapaint/contracts/threads";
+import type { Thread } from "@ultrapaint/contracts/threads";
 import { cn } from "cn";
 import {
   CircleAlert,
@@ -26,6 +26,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { AgentIcon } from "../components/agent-icon.tsx";
 import { createThread } from "../lib/start-thread.ts";
+import { threadView } from "../lib/thread-view.ts";
 import { isUnread, useAgents } from "../state/agents.ts";
 import { openMenuAt } from "../state/context-menu.ts";
 import { useDocuments } from "../state/documents.ts";
@@ -117,32 +118,32 @@ export const ScopePicture = ({
   );
 };
 
+const TONE_CLASS = {
+  attention: "text-warning",
+  failed: "text-destructive",
+  working: "text-agent",
+} as const;
+
 const Status = ({ thread }: { thread: Thread }) => {
-  if (isBusy(thread.status)) {
-    return (
-      <span className="flex shrink-0 items-center gap-1 font-medium text-agent">
-        <Spinner className="size-3" />
-        {thread.status === "starting" ? "Starting" : "Working"}
-      </span>
-    );
+  const { label, tone } = threadView(thread);
+  if (label === null || tone === null) {
+    return null;
   }
-  if (thread.summary?.waiting) {
-    return (
-      <span className="flex shrink-0 items-center gap-1 font-medium text-warning">
+  return (
+    <span
+      className={cn(
+        "flex shrink-0 items-center gap-1 font-medium",
+        TONE_CLASS[tone]
+      )}
+    >
+      {tone === "working" ? <Spinner className="size-3" /> : null}
+      {tone === "attention" ? (
         <span className="size-1.5 rounded-full bg-warning" />
-        Your turn
-      </span>
-    );
-  }
-  if (thread.status === "error") {
-    return (
-      <span className="flex shrink-0 items-center gap-1 font-medium text-destructive">
-        <CircleAlert className="size-3" />
-        Stopped
-      </span>
-    );
-  }
-  return null;
+      ) : null}
+      {tone === "failed" ? <CircleAlert className="size-3" /> : null}
+      {label}
+    </span>
+  );
 };
 
 const ThreadRow = ({
@@ -305,12 +306,12 @@ export const ThreadList = () => {
   }, []);
   usePreviews(threads);
 
-  const running = threads.filter((t) => isBusy(t.status)).length;
+  const running = threads.filter((t) => threadView(t).busy).length;
   const onPage = threads.filter((t) => t.scope?.file === pageFile).length;
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
     return threads.filter((t) => {
-      if (filter === "running" && !isBusy(t.status)) {
+      if (filter === "running" && !threadView(t).busy) {
         return false;
       }
       if (filter === "page" && t.scope?.file !== pageFile) {

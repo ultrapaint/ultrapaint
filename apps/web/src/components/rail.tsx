@@ -9,6 +9,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { someBusy } from "../lib/thread-view.ts";
 import { useAgents } from "../state/agents.ts";
 import { type LeftTab, railTabs, useEditor } from "../state/editor.ts";
 import { openLeftPanel, usePanels } from "../state/panels.ts";
@@ -86,7 +87,7 @@ const RailButton = ({ value }: { value: LeftTab }) => {
   // Agents: one is working. Changes: an agent's turn changed files nobody looked at yet.
   const agentDot = useAgents((s) => {
     if (value === "chat") {
-      return s.threads.some((t) => t.status === "running");
+      return someBusy(s.threads);
     }
     return value === "changes" && s.changed.length > 0;
   });

@@ -48,7 +48,10 @@ module.
 
 - **Thread**: a conversation with an agent about a scope; a **turn** is one prompt and what the
   agent does with it. A thread's **session** (`ThreadSession`) holds its live state and status;
-  a thread is **busy** while a turn runs or is being stopped (`isBusy`).
+  a thread is **busy** while a turn runs or is being stopped (`isBusy`). How a thread is shown
+  (busy, waiting on the user, failed, and the word a list, a dot or a badge says) is the web's
+  `threadView`; what a prompt carries for its chips, a comment sent to an agent's included, is
+  `attachmentsOf`.
 - **Card**: what the agent waits on the user for, a permission or a question
   (`PendingCards`, ADR 0022).
 - **Agent launcher**: the seam an agent is started through: its sandboxed process (ADR 0013),
