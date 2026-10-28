@@ -68,6 +68,7 @@ describe("the token table", () => {
     expect(tokenKindOf("font-sans")).toBe("font");
     expect(tokenKindOf("text-shadow-sm")).toBe("shadow");
     expect(tokenKindOf("text-sm")).toBe("fontSize");
+    expect(tokenKindOf("default-transition-duration")).toBe("duration");
     expect(tokenKindOf(SPACING_BASE)).toBe("spacing");
     expect(tokenKindOf("z-modal")).toBe("other");
     expect(tokenPrefix("other")).toBe("");

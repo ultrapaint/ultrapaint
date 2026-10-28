@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFig } from "./fig.ts";
 import { makeFixture, solid } from "./testing/fixture.ts";
-import { readFigmaTokens, tokenNameOf } from "./tokens.ts";
+import { readFigmaTokens } from "./tokens.ts";
 
 const guid = (localID: number) => ({ localID, sessionID: 9 });
 const mode = (localID: number, name: string) => ({
@@ -108,21 +108,45 @@ const file = () => {
 };
 
 describe("the tokens of a Figma file", () => {
-  it("names them as the code does", () => {
-    expect(tokenNameOf("color", "Colors/Primary/500")).toBe(
-      "color-primary-500"
-    );
-    expect(tokenNameOf("radius", "Primitives/Radius/Card")).toBe("radius-card");
-    expect(tokenNameOf("fontSize", "Typography/Font size/Body LG")).toBe(
-      "text-body-lg"
-    );
-    expect(tokenNameOf("color", "Colors")).toBeNull();
-    // What Figma calls a collection nobody named, and a word said twice, are left out.
-    expect(tokenNameOf("color", "Collection 1/Brand/50")).toBe(
-      "color-brand-50"
-    );
-    expect(tokenNameOf("color", "Color/Danger/Danger")).toBe("color-danger");
-    expect(tokenNameOf("spacing", "Spacing/Grid/2/2")).toBe("spacing-grid-2-2");
+  it("names a variable by its collection and its name, a collection nobody named left out", () => {
+    const fixture = makeFixture();
+    const unnamed = fixture.add(fixture.internal, {
+      guid: guid(1),
+      name: "Collection 1",
+      type: "VARIABLE_SET",
+      variableSetModes: [mode(2, "Mode 1")],
+    } as never);
+    const variable = (
+      localID: number,
+      name: string,
+      type: string,
+      data: unknown
+    ) =>
+      fixture.add(fixture.internal, {
+        guid: guid(localID),
+        name,
+        type: "VARIABLE",
+        variableDataValues: {
+          entries: [{ modeID: guid(2), variableData: data }],
+        },
+        variableResolvedType: type,
+        variableSetID: { guid: unnamed },
+      } as never);
+    variable(10, "Color/Primary", "COLOR", color(0, 0, 1));
+    variable(11, "Color/Text/Primary", "COLOR", color(0, 0, 0));
+    variable(12, "Rounded/lg", "FLOAT", float(8));
+    variable(13, "Flags/Beta", "BOOLEAN", {
+      dataType: "BOOLEAN",
+      resolvedDataType: "BOOLEAN",
+      value: { boolValue: true },
+    });
+    const set = readFigmaTokens(readFig(fixture.build()));
+    expect(set.tokens.map((t) => [t.name, t.values[""], t.variable])).toEqual([
+      ["color-primary", "#0000ff", "Collection 1/Color/Primary"],
+      ["color-text-primary", "#000000", "Collection 1/Color/Text/Primary"],
+      ["radius-lg", "8px", "Collection 1/Rounded/lg"],
+    ]);
+    expect(set.notes.join(" ")).toContain("Collection 1/Flags/Beta");
   });
 
   it("reads variables mode by mode, follows aliases, and takes colour and shadow styles", () => {

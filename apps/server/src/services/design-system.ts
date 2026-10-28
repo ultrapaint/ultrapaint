@@ -214,7 +214,8 @@ export class DesignSystemService extends Context.Service<
       );
 
       const get: Effect.Effect<DesignSystemState> = Effect.gen(function* () {
-        const { designSystem, problem, tokensProblem } = yield* filesRead;
+        const { designSystem, problem, tokensNotes, tokensProblem } =
+          yield* filesRead;
         const document = yield* designMd.document(designSystem);
         if (problem !== null) {
           return { designSystem: null, document, problem };
@@ -228,6 +229,9 @@ export class DesignSystemService extends Context.Service<
           ...(previewCss && { previewCss }),
           ...(tokensProblem !== null && {
             problem: `${tokensProblem}: the values are design-system.json's and the code's until it reads`,
+          }),
+          ...(tokensNotes.length > 0 && {
+            notes: tokensNotes.map((n) => `${DESIGN_TOKENS_FILE}: ${n}`),
           }),
         };
       }).pipe(Effect.withSpan("DesignSystemService.get"));

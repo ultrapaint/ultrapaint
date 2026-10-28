@@ -1,11 +1,17 @@
 /**
  * The tokens a Figma file defines (ADR 0025): its variables, mode by mode, and its colour and
- * shadow styles, named the way the code names tokens (`Colors/Primary/500` is `color-primary-500`).
+ * shadow styles, named the way the code names tokens by contracts' token-naming
+ * (`Colors/Primary/500` is `color-primary-500`, a number of a length kind is in pixels).
  * Variables win over a style of the same name. What has no place among the code's tokens — a
  * boolean, a string that is not a font, a number on no scale the name tells — is left out and
  * said in the notes. Pure and synchronous.
  */
-import { tokenPrefix } from "@ultrapaint/contracts/token-table";
+import {
+  foreignToken,
+  type ListedKind,
+  numberCss,
+  type ValueHint,
+} from "@ultrapaint/contracts/token-naming";
 import type { TokenKind } from "@ultrapaint/contracts/tokens";
 import type { FigColor, FigNode, FigPaint } from "openfig-core";
 import { type FigFile, guidOf } from "./fig.ts";
@@ -32,110 +38,31 @@ export interface FigmaTokenSet {
   readonly tokens: readonly FigmaToken[];
 }
 
-const SEGMENT_RE = /[^a-z0-9]+/g;
-const NUMBER_WORD_RE = /^\d+$/;
 /** The names Figma gives a collection nobody named: they say nothing about the token. */
 const UNNAMED_SET_RE = /^(collection|variables|untitled)( ?\d+)?$/i;
-const EDGE_DASH_RE = /^-+|-+$/g;
 /** Mode names that are the default theme, whatever the file calls it. */
 const DEFAULT_MODE_RE = /^(light|default|mode ?1|value|base)$/i;
-/** A string variable is a font when its collection or name says so. */
-const FONT_PATH_RE = /font|family|typeface/i;
 
-/** What a number variable is, from the words in its collection and name. */
-const NUMBER_KINDS: readonly (readonly [RegExp, TokenKind])[] = [
-  [/radius|radii|corner|rounded/, "radius"],
-  [/border.?width|stroke/, "borderWidth"],
-  [/font.?size|text.?size|type.?scale|size.?text/, "fontSize"],
-  [/font.?weight|weight/, "fontWeight"],
-  [/line.?height|leading/, "leading"],
-  [/letter.?spacing|tracking/, "tracking"],
-  [/breakpoint|screen/, "breakpoint"],
-  [/spacing|space|gap|padding|margin|inset/, "spacing"],
-];
-
-/** Words that only say what kind a token is: dropped from its name, the prefix says it. */
-const KIND_WORDS = new Set([
-  "color",
-  "colors",
-  "colour",
-  "colours",
-  "radius",
-  "radii",
-  "corner",
-  "spacing",
-  "space",
-  "font",
-  "fonts",
-  "size",
-  "sizes",
-  "weight",
-  "weights",
-  "typography",
-  "type",
-  "text",
-  "shadow",
-  "shadows",
-  "effect",
-  "effects",
-  "border",
-  "width",
-  "line",
-  "height",
-  "leading",
-  "letter",
-  "tracking",
-  "breakpoint",
-  "breakpoints",
-  "primitives",
-  "primitive",
-  "tokens",
-  "token",
-  "semantic",
-  "theme",
-  "global",
-  "base",
-]);
-
-const LENGTH_KINDS = new Set<TokenKind>([
-  "radius",
-  "borderWidth",
-  "fontSize",
-  "breakpoint",
-  "spacing",
-]);
-
-/** `Colors/Primary/500` is `color-primary-500`; null when nothing is left to name it by. */
-export const tokenNameOf = (kind: TokenKind, path: string): string | null => {
-  const prefix = tokenPrefix(kind);
-  if (!prefix) {
-    return null;
-  }
-  const words = path
-    .split("/")
-    .filter((s) => !UNNAMED_SET_RE.test(s.trim()))
-    .flatMap((s) =>
-      s
-        .toLowerCase()
-        .replace(SEGMENT_RE, "-")
-        .replace(EDGE_DASH_RE, "")
-        .split("-")
-    )
-    .filter((s) => s !== "" && !KIND_WORDS.has(s))
-    // `Danger/Danger` is one danger; `Grid/2/2` keeps its numbers.
-    .filter((s, i, all) => s !== all[i - 1] || NUMBER_WORD_RE.test(s));
-  return words.length === 0 ? null : `${prefix}${words.join("-")}`;
+/** What a variable's type says its value is; a boolean is no token's. */
+const HINTS: Readonly<Record<string, ValueHint>> = {
+  COLOR: "color",
+  FLOAT: "number",
+  STRING: "string",
 };
 
-const numberKindOf = (path: string): TokenKind | null => {
-  const lower = path.toLowerCase();
-  return NUMBER_KINDS.find(([re]) => re.test(lower))?.[1] ?? null;
-};
-
-/** A number as CSS for its kind: pixels for lengths, as it is for a weight or a ratio. */
-const numberCss = (kind: TokenKind, value: number): string => {
-  const rounded = Math.round(value * 1000) / 1000;
-  return LENGTH_KINDS.has(kind) ? `${rounded}px` : String(rounded);
+/**
+ * A variable's or a style's kind and name from where it is in Figma (`Colors/Primary/500` is
+ * `color-primary-500`), a collection nobody named left out; null when it is left out.
+ */
+const named = (
+  path: string,
+  hint: ValueHint
+): { readonly kind: ListedKind; readonly name: string } | null => {
+  const found = foreignToken(
+    path.split("/").filter((s) => !UNNAMED_SET_RE.test(s.trim())),
+    hint
+  );
+  return "name" in found ? found : null;
 };
 
 interface VariableValue {
@@ -147,9 +74,10 @@ interface VariableValue {
 
 interface Variable {
   readonly id: string;
-  readonly kind: TokenKind | null;
   readonly path: string;
   readonly set: string;
+  /** Its kind and name as a token, null when it is none. */
+  readonly token: { readonly kind: ListedKind; readonly name: string } | null;
   readonly type: string;
   /** Mode id → value. */
   readonly values: ReadonlyMap<string, VariableValue>;
@@ -207,14 +135,8 @@ const variableOf = (node: FigNode, setName: string): Variable | null => {
   }
   const type = String(field(node, "variableResolvedType") ?? "");
   const path = `${setName}/${node.name ?? ""}`;
-  let kind: TokenKind | null = null;
-  if (type === "COLOR") {
-    kind = "color";
-  } else if (type === "FLOAT") {
-    kind = numberKindOf(path);
-  } else if (type === "STRING" && FONT_PATH_RE.test(path)) {
-    kind = "font";
-  }
+  const hint = HINTS[type];
+  const token = hint === undefined ? null : named(path, hint);
   const entries = listOf(field(field(node, "variableDataValues"), "entries"));
   const values = new Map<string, VariableValue>();
   for (const entry of entries) {
@@ -223,7 +145,7 @@ const variableOf = (node: FigNode, setName: string): Variable | null => {
       values.set(mode, variableValueOf(field(entry, "variableData")));
     }
   }
-  return { id, kind, path, set, type, values };
+  return { id, path, set, token, type, values };
 };
 
 /** The CSS a variable's value comes to in a mode, aliases followed. */
@@ -320,16 +242,14 @@ const readVariables = (file: FigFile, notes: string[]): FigmaToken[] => {
   const tokens: FigmaToken[] = [];
   const skipped: string[] = [];
   for (const variable of variables.values()) {
-    const name = variable.kind
-      ? tokenNameOf(variable.kind, variable.path)
-      : null;
-    if (!(variable.kind && name)) {
+    const { token } = variable;
+    if (!token) {
       skipped.push(variable.path);
       continue;
     }
     const values = themeValuesOf(
       variable,
-      variable.kind,
+      token.kind,
       modes.get(variable.set) ?? [],
       resolve
     );
@@ -339,8 +259,8 @@ const readVariables = (file: FigFile, notes: string[]): FigmaToken[] => {
       tokens.push({
         ...(target && { alias: target.path }),
         id: variable.id,
-        kind: variable.kind,
-        name,
+        kind: token.kind,
+        name: token.name,
         values,
         variable: variable.path,
       });
@@ -391,24 +311,22 @@ const readStyles = (file: FigFile): FigmaToken[] => {
         field(node, "fillPaints") as readonly FigPaint[] | undefined,
         "SOLID"
       );
-      const name = tokenNameOf("color", path);
-      if (paint?.color && name) {
+      const token = named(path, "color");
+      if (paint?.color && token) {
         tokens.push({
           ...(id && { id }),
-          kind: "color",
-          name,
+          ...token,
           values: { "": cssColor(paint.color, paint.opacity ?? 1) },
           variable: path,
         });
       }
     } else if (type === "EFFECT") {
       const css = shadowCss(listOf(field(node, "effects")));
-      const name = tokenNameOf("shadow", path);
-      if (css && name) {
+      const token = named(path, "shadow");
+      if (css && token) {
         tokens.push({
           ...(id && { id }),
-          kind: "shadow",
-          name,
+          ...token,
           values: { "": css },
           variable: path,
         });

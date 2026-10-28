@@ -50,6 +50,8 @@ export interface DesignSystemRead {
   readonly designSystem: DesignSystem | null;
   /** Why `design-system.json` does not read. */
   readonly problem: string | null;
+  /** What `design.tokens.json` holds that could not be read or was left out (`dtcg.ts`). */
+  readonly tokensNotes: readonly string[];
   /**
    * Why `design.tokens.json` does not read: until it does, the values are `design-system.json`'s
    * and the code's, and writing the files would lose the ones it holds.
@@ -80,7 +82,12 @@ export const readDesignSystem = (
   code: CodeValues
 ): DesignSystemRead => {
   if (texts.system === null) {
-    return { designSystem: null, problem: null, tokensProblem: null };
+    return {
+      designSystem: null,
+      problem: null,
+      tokensNotes: [],
+      tokensProblem: null,
+    };
   }
   let json: unknown;
   try {
@@ -89,6 +96,7 @@ export const readDesignSystem = (
     return {
       designSystem: null,
       problem: `${DESIGN_SYSTEM_FILE} is not valid: not JSON: ${String(error)}`,
+      tokensNotes: [],
       tokensProblem: null,
     };
   }
@@ -97,6 +105,7 @@ export const readDesignSystem = (
     return {
       designSystem: null,
       problem: `${DESIGN_SYSTEM_FILE} is not valid: ${system.problem}`,
+      tokensNotes: [],
       tokensProblem: null,
     };
   }
@@ -105,6 +114,7 @@ export const readDesignSystem = (
     return {
       designSystem: fillFromCode(system.designSystem, code),
       problem: null,
+      tokensNotes: [],
       tokensProblem: tokens.problem,
     };
   }
@@ -114,6 +124,7 @@ export const readDesignSystem = (
   return {
     designSystem: fillFromCode(laid, code),
     problem: null,
+    tokensNotes: tokens?.notes ?? [],
     tokensProblem: null,
   };
 };

@@ -16,7 +16,12 @@ import {
   type Token,
   type TokenGroup,
 } from "@ultrapaint/contracts/design-system";
-import { DEFAULT_SPACING_BASE } from "@ultrapaint/contracts/token-table";
+import {
+  addTokens,
+  DEFAULT_SPACING_BASE,
+  SPACING_BASE,
+  tokenKindOf,
+} from "@ultrapaint/contracts/token-table";
 import {
   parseNumber,
   ROOT_PX,
@@ -24,6 +29,7 @@ import {
   toMs,
   toPx,
 } from "@ultrapaint/contracts/token-value";
+import type { TokenKind } from "@ultrapaint/contracts/tokens";
 import type {
   DesignSystemContext,
   DesignSystemScan,
@@ -348,6 +354,16 @@ const variablesOf = (
   return out;
 };
 
+/**
+ * Tailwind's defaults a design system leaves out, as it does its palette once the repository has
+ * colours of its own: its inset, drop and text shadows, which the repository's are kept beside.
+ */
+const DEFAULTS_LEFT_OUT = [
+  "--inset-shadow-",
+  "--drop-shadow-",
+  "--text-shadow-",
+];
+
 /** The theme variables that make tokens: Tailwind's defaults that are left, then the repository's. */
 const themeTokensOf = (
   defaultThemeVars: ReadonlyMap<string, string>,
@@ -357,7 +373,8 @@ const themeTokensOf = (
   const all = new Map<string, string>();
   for (const [k, v] of defaultThemeVars) {
     // Tailwind's whole palette only when the repository has no colours of its own.
-    if (!(k.startsWith("--color-") && ownColors)) {
+    const palette = k.startsWith("--color-") && ownColors;
+    if (!(palette || DEFAULTS_LEFT_OUT.some((p) => k.startsWith(p)))) {
       all.set(k, v);
     }
   }
@@ -365,48 +382,26 @@ const themeTokensOf = (
   return all;
 };
 
-/** Where a theme variable's token goes, by its Tailwind v4 namespace. First match wins. */
-const NAMESPACES = [
-  ["font-weight-", "weights"],
-  ["font-", "fonts"],
-  ["leading-", "leading"],
-  ["tracking-", "tracking"],
-  ["radius-", "radius"],
-  ["shadow-", "shadows"],
-  ["spacing-", "spacing"],
-  ["border-width-", "borderWidths"],
-  ["breakpoint-", "breakpoints"],
-  ["container-", "containers"],
-  ["ease-", "easings"],
-  ["animate-", "animations"],
-  ["duration-", "durations"],
-  // Tailwind's own duration for `transition`, when nothing else says how long.
-  ["default-transition-duration", "durations"],
-] as const;
+/** The order a kind's tokens are listed in: by name, but where a name does not sort. */
+const ORDERS: Partial<Record<TokenKind, (a: Token, b: Token) => number>> = {
+  borderWidth: byLength,
+  breakpoint: byLength,
+  container: byLength,
+  duration: byLength,
+  fontWeight: (a, b) => Number.parseFloat(a.value) - Number.parseFloat(b.value),
+};
 
-type Bucket = (typeof NAMESPACES)[number][1];
-
-/** The theme's tokens sorted into what the design system shows. */
+/**
+ * The theme's tokens sorted into what the design system shows, each by its kind (the token
+ * table's): the colours into Tailwind's palettes and the rest, a font size with its line height,
+ * every other kind in its order. A variable of no kind the table knows is left out.
+ */
 const classify = (
   all: ReadonlyMap<string, string>,
   token: (name: string, raw: string) => Token,
   resolveDefault: (value: string) => string
 ) => {
-  const buckets: Record<Bucket, Token[]> = {
-    animations: [],
-    borderWidths: [],
-    breakpoints: [],
-    containers: [],
-    durations: [],
-    easings: [],
-    fonts: [],
-    leading: [],
-    radius: [],
-    shadows: [],
-    spacing: [],
-    tracking: [],
-    weights: [],
-  };
+  const byKind = new Map<TokenKind, Token[]>();
   const palettes = new Map<string, Token[]>();
   const semantic: Token[] = [];
   const sizes: FontSizeToken[] = [];
@@ -427,22 +422,25 @@ const classify = (
     if (name.includes("--")) {
       continue;
     }
-    const bucket = NAMESPACES.find(([prefix]) => name.startsWith(prefix))?.[1];
-    if (name.startsWith("color-")) {
+    const kind = tokenKindOf(name);
+    if (name === SPACING_BASE) {
+      spacingBase = resolveDefault(raw);
+    } else if (kind === "color") {
       color(name, raw);
-    } else if (name.startsWith("text-") && !name.startsWith("text-shadow-")) {
+    } else if (kind === "fontSize") {
       const lineHeight = all.get(`${variable}--line-height`);
       sizes.push({
         ...token(name, raw),
         ...(lineHeight && { lineHeight: resolveDefault(lineHeight) }),
       });
-    } else if (name === "spacing") {
-      spacingBase = resolveDefault(raw);
-    } else if (bucket) {
-      buckets[bucket].push(token(name, raw));
+    } else if (kind !== "other") {
+      byKind.set(kind, [...(byKind.get(kind) ?? []), token(name, raw)]);
     }
   }
-  return { ...buckets, palettes, semantic, sizes, spacingBase };
+  const of = (kind: TokenKind) =>
+    (byKind.get(kind) ?? []).sort(ORDERS[kind] ?? byName);
+  const sorted = [...byKind.keys()].flatMap(of);
+  return { of, palettes, semantic, sizes, sorted, spacingBase };
 };
 
 const VAR_ONLY_RE = /^var\(\s*--[\w-]+\s*\)$/;
@@ -473,51 +471,6 @@ export const inlineThemeAliases = (
     }
   }
   return aliases;
-};
-
-/** Border widths, elevation, icons, layout and motion: each left out when the theme has none. */
-const moreFoundations = (found: {
-  readonly animations: Token[];
-  readonly borderWidths: Token[];
-  readonly breakpoints: Token[];
-  readonly colors: readonly TokenGroup[];
-  readonly containers: Token[];
-  readonly durations: Token[];
-  readonly easings: Token[];
-  readonly iconDirs: readonly string[];
-  readonly shadows: readonly Token[];
-}): Pick<
-  DesignSystem,
-  "borderWidths" | "elevation" | "icons" | "layout" | "motion"
-> => {
-  const sorted = (tokens: Token[], order: (a: Token, b: Token) => number) =>
-    tokens.length > 0 ? tokens.sort(order) : undefined;
-  const borderWidths = sorted(found.borderWidths, byLength);
-  const breakpoints = sorted(found.breakpoints, byLength);
-  const containers = sorted(found.containers, byLength);
-  const animations = sorted(found.animations, byName);
-  const durations = sorted(found.durations, byLength);
-  const easings = sorted(found.easings, byName);
-  const elevation = starterElevation(found);
-  const icons = iconSetOf(found.iconDirs);
-  return {
-    ...(borderWidths && { borderWidths }),
-    ...(elevation.length > 0 && { elevation }),
-    ...(icons && { icons }),
-    ...((breakpoints || containers) && {
-      layout: {
-        ...(breakpoints && { breakpoints }),
-        ...(containers && { containers }),
-      },
-    }),
-    ...((animations || durations || easings) && {
-      motion: {
-        ...(animations && { animations }),
-        ...(durations && { durations }),
-        ...(easings && { easings }),
-      },
-    }),
-  };
 };
 
 /**
@@ -592,25 +545,11 @@ export const scanDesignSystem = (
     };
   };
 
-  const {
-    animations,
-    borderWidths,
-    breakpoints,
-    containers,
-    durations,
-    easings,
-    fonts,
-    leading,
-    palettes,
-    radius,
-    semantic,
-    shadows,
-    sizes,
-    spacing,
-    spacingBase,
-    tracking,
-    weights,
-  } = classify(all, token, resolveDefault);
+  const { of, palettes, semantic, sizes, sorted, spacingBase } = classify(
+    all,
+    token,
+    resolveDefault
+  );
 
   const colors: TokenGroup[] = [
     ...(semantic.length > 0
@@ -626,54 +565,47 @@ export const scanDesignSystem = (
   if (colors.length === 0) {
     notes.push("No colour tokens were found in the @theme blocks.");
   }
-  const styles = starterTextStyles({ fonts, leading, sizes, weights });
+  const styles = starterTextStyles({
+    fonts: of("font"),
+    leading: of("leading"),
+    sizes,
+    weights: of("fontWeight"),
+  });
   notes.push(
     styles.length > 0
       ? "The text styles are a starter scale built from the theme's sizes, weights and leading; the product's own styles, component categories and example props cannot be read from CSS: ask the user or read the components."
       : "Text styles, component categories and example props cannot be read from CSS; ask the user or read the components."
   );
 
-  const sorted = shadows.sort(byName);
-  const more = moreFoundations({
-    animations,
-    borderWidths,
-    breakpoints,
-    colors,
-    containers,
-    durations,
-    easings,
-    iconDirs: [ctx.anchorDir, ctx.root],
-    shadows: sorted,
-  });
-  if (more.elevation) {
+  const elevation = starterElevation({ colors, shadows: of("shadow") });
+  if (elevation.length > 0) {
     notes.push(
       "The elevation levels are a starter built from the surface colours and shadows the theme has; ask the user which surfaces and shadows the product pairs, and the z-index of each layer."
     );
   }
+  const icons = iconSetOf([ctx.anchorDir, ctx.root]);
 
-  const designSystem: DesignSystem = {
-    ...more,
-    colors,
-    radius: radius.sort(byName),
-    shadows: sorted,
-    source: `Tailwind v4 theme in ${found.files.map((f) => path.relative(ctx.root, f)).join(", ") || "no stylesheet"}`,
-    spacing: {
-      base: spacingBase,
-      ...(spacing.length > 0 && { tokens: spacing.sort(byName) }),
+  // Every kind but the colours and sizes goes where the token table lists it.
+  const designSystem: DesignSystem = addTokens(
+    {
+      ...(elevation.length > 0 && { elevation }),
+      ...(icons && { icons }),
+      colors,
+      radius: [],
+      shadows: [],
+      source: `Tailwind v4 theme in ${found.files.map((f) => path.relative(ctx.root, f)).join(", ") || "no stylesheet"}`,
+      spacing: { base: spacingBase },
+      ...(themeNames.length > 0 && { themes: ["light", ...themeNames] }),
+      typography: {
+        fonts: [],
+        sizes: sizes.sort((a, b) => lengthOf(a.value) - lengthOf(b.value)),
+        styles,
+        weights: [],
+      },
+      version: 1,
     },
-    ...(themeNames.length > 0 && { themes: ["light", ...themeNames] }),
-    typography: {
-      fonts: fonts.sort(byName),
-      ...(leading.length > 0 && { leading: leading.sort(byName) }),
-      sizes: sizes.sort((a, b) => lengthOf(a.value) - lengthOf(b.value)),
-      styles,
-      ...(tracking.length > 0 && { tracking: tracking.sort(byName) }),
-      weights: weights.sort(
-        (a, b) => Number.parseFloat(a.value) - Number.parseFloat(b.value)
-      ),
-    },
-    version: 1,
-  };
+    sorted
+  );
   return {
     designSystem,
     files: found.files.map((f) =>

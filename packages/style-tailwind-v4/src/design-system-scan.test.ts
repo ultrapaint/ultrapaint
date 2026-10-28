@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { defaultSettings } from "@ultrapaint/contracts/settings";
+import { listedTokens } from "@ultrapaint/contracts/token-table";
 import { afterAll, describe, expect, it } from "vitest";
 import {
   inlineThemeAliases,
@@ -317,6 +318,50 @@ describe("scanning a Tailwind v4 design system", () => {
       { name: "radius-card", value: "12px" },
     ]);
     expect(everything.designSystem.typography.fonts).toEqual([]);
+  });
+
+  it("places every token by the token table: the repository's own inset, drop and text shadows are shadows", () => {
+    const root = repository({
+      "app.css": `@import "tailwindcss";
+@theme {
+  --color-brand: #f00;
+  --drop-shadow-glow: 0 0 8px rgb(255 0 0 / 0.5);
+  --inset-shadow-well: inset 0 1px 2px rgb(0 0 0 / 0.1);
+  --text-shadow-soft: 0 1px 1px rgb(0 0 0 / 0.2);
+  --shadow-card: 0 1px 3px rgb(0 0 0 / 0.1);
+  --default-transition-duration: 200ms;
+}`,
+      "node_modules/tailwindcss/package.json": '{"name":"tailwindcss"}',
+      "node_modules/tailwindcss/theme.css": `@theme default {
+  --drop-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.15);
+  --inset-shadow-xs: inset 0 1px 1px rgb(0 0 0 / 0.05);
+  --text-shadow-sm: 0px 1px 0px rgb(0 0 0 / 0.075);
+  --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.1);
+}`,
+    });
+    const scan = scanDesignSystem({
+      anchorDir: root,
+      root,
+      settings: {
+        ...defaultSettings(root),
+        designsDir: ".",
+        hostCss: ["../app.css"],
+      },
+    });
+    // Tailwind's own inset, drop and text shadows stay out, as its palette does.
+    expect(scan.designSystem.shadows.map((t) => t.name)).toEqual([
+      "drop-shadow-glow",
+      "inset-shadow-well",
+      "shadow-card",
+      "shadow-sm",
+      "text-shadow-soft",
+    ]);
+    expect(scan.designSystem.motion?.durations).toEqual([
+      { name: "default-transition-duration", value: "200ms" },
+    ]);
+    // Nothing the repository declares is left undescribed.
+    const listed = new Set(listedTokens(scan.designSystem).map((t) => t.name));
+    expect(scan.ownTokens.filter((name) => !listed.has(name))).toEqual([]);
   });
 
   it("sorts type sizes by length, rem and px alike", () => {

@@ -655,6 +655,7 @@ export const DesignSystemPanel = () => {
   const designSystem = useDesignSystem((s) => s.designSystem);
   const document = useDesignSystem((s) => s.document);
   const problem = useDesignSystem((s) => s.problem);
+  const notes = useDesignSystem((s) => s.notes);
   const loaded = useDesignSystem((s) => s.loaded);
   const detecting = useDesignSystem((s) => s.detecting);
   const [q, setQuery] = useState("");
@@ -771,6 +772,13 @@ export const DesignSystemPanel = () => {
         <div className="border-b px-3 py-1.5 font-body text-destructive">
           {problem}
         </div>
+      ) : null}
+      {notes && notes.length > 0 ? (
+        <ul className="max-h-24 overflow-auto border-b px-3 py-1.5 font-body text-muted-foreground">
+          {notes.map((note) => (
+            <li key={note}>{note}</li>
+          ))}
+        </ul>
       ) : null}
       <div className="min-h-0 flex-1 overflow-auto">
         {tab === "tokens" ? (

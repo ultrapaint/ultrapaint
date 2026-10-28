@@ -21,6 +21,13 @@ review found.
   that hold it, by the token value's notion of the same value, in the design's order
   (`tokensByValue`); which of several to take is the caller's (Figma and the usage inventory the
   first, Sync only one).
+- **Token naming**: how a token another tool writes (a Figma variable or style, a Design Tokens
+  file's token) becomes one of the design's: its **foreign path** (`Color/Text/Primary`,
+  `font.size.sm`) and a **value hint** (what the tool says the value is) give its kind and name
+  (contracts' `token-naming`). A hint that names a value type decides the kind; for a dimension,
+  a number or a text the path's words do. The name is the kind's prefix and the path's words
+  without the kind's own (`Corner/sm` is `radius-sm`, `Gap/md` `spacing-gap-md`); a number of a
+  length kind is in pixels. A path no word or type places is **left out**, with a note.
 - **Token value**: what a token holds, read as a colour, a length, a duration, a number or text
   (contracts' `token-value`), with one notion of the same value, a length in pixels, and the
   code's `var()` and `calc()` worked out.
