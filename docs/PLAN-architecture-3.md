@@ -280,7 +280,6 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
 
 ## Follow-ups found while building
 
-- Past 30 checkpoints every turn runs a full `collect` of the snapshot store (step 2).
 - The class writer can write a size keyword on any spacing utility (`gap-full`), which Tailwind
   does not compile (step 3).
 - `usage-rewrite.rewrite` builds a token lookup per file (step 4).
@@ -957,3 +956,22 @@ proposed are planned as steps 9 to 18 with the recommended answers, which the us
    descriptions are part of (reading it there is a cycle the compiler refuses); and
    `lookup.ts`' `list_pages`, which follow-up 5 replaces. `tasks.test.ts`' test with the MCP
    server reads the instructions too: every tool they name is offered.
+3. **The snapshot store collects once every ten refs let go of** (`apps/server/src/services/snapshot-store.ts`).
+   Collecting reads every ref and every kept manifest and lists every object, so past 30
+   checkpoints each turn paid for the whole store (every snapshot kept and the setup's
+   snapshots of the project included) to free the few files that turn changed. `release` now
+   collects itself, at the first release of a run (so what an earlier run left goes then) and
+   then once every `COLLECT_EVERY` (10) refs let go of; `collect` leaves the store's interface,
+   and `design-refs`' `letGo` and the setup's call of it go. A turn past 30 pays a tenth of a
+   collection, and what is left over meanwhile is at most the content only the last nine refs
+   let go of kept. Chosen over collecting only when a release can free something, which needs
+   the same scan to know, and over collecting when idle, which leaves the same work in the
+   background and a timer to test. Behaviour: a checkpoint let go of, or a snapshot deleted,
+   keeps its files in the store until the collection that follows; it leaves the list at once.
+   `snapshot-store.test.ts` has 1 test more: the first release of a run collects, the next nine
+   leave the released manifests in place, the tenth removes them all and the content they
+   alone named, and the content a snapshot of another namespace shares stays; it failed first
+   (nothing was collected), and the two tests that called `collect` let go of refs instead.
+   `checkpoints.test.ts` has 1 test more: after 40 turns more, a file only a released checkpoint
+   had is gone from the store, and one a snapshot shares with a released checkpoint is still
+   read and diffed.

@@ -1,7 +1,7 @@
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import { Effect, FileSystem, Layer, Path } from "effect";
-import { SnapshotStore } from "./services/snapshot-store.ts";
+import { COLLECT_EVERY, SnapshotStore } from "./services/snapshot-store.ts";
 import { Storage } from "./services/storage.ts";
 
 const SNAPSHOT_ID_RE = /^[0-9a-f]{64}$/;
@@ -31,6 +31,10 @@ const withStore = <A, E>(
       Effect.provide(SnapshotStore.layer.pipe(Layer.provide(storage)))
     );
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
+
+/** Names of refs no namespace has, to let go of: a release that counts and frees nothing. */
+const fillers = (n: number) =>
+  Array.from({ length: n }, (_, i) => `filler_${i}`);
 
 /** Every file under a directory, relative to it. */
 const filesUnder = (dir: string) =>
@@ -192,8 +196,8 @@ describe("SnapshotStore", () => {
           const objects = path.join(stateDir, "store/objects");
           assert.lengthOf(yield* filesUnder(objects), 3);
 
+          // The first release of a run collects what an earlier one left.
           yield* store.release("one", [first]);
-          yield* store.collect;
           assert.strictEqual(
             (yield* Effect.flip(store.read(first)))._tag,
             "SnapshotMissing"
@@ -255,11 +259,11 @@ describe("SnapshotStore", () => {
           assert.strictEqual(refused._tag, "SnapshotStoreFailed");
 
           yield* store.release("named", ["sn_one"]);
-          yield* store.collect;
           const kept = yield* store.read(one);
           assert.lengthOf(Object.keys(kept.files), 2);
           yield* store.release("named", ["sn_two"]);
-          yield* store.collect;
+          // Collected with the next ones let go of.
+          yield* store.release("named", fillers(COLLECT_EVERY));
           assert.strictEqual(
             (yield* Effect.flip(store.read(one)))._tag,
             "SnapshotMissing"
@@ -267,6 +271,57 @@ describe("SnapshotStore", () => {
           assert.lengthOf(
             yield* filesUnder(path.join(stateDir, "store/objects")),
             1
+          );
+        })
+      )
+  );
+
+  it.effect(
+    "collects once every so many refs let go of, keeping what another ref names",
+    () =>
+      withStore(({ stateDir }) =>
+        Effect.gen(function* () {
+          const path = yield* Path.Path;
+          const store = yield* SnapshotStore;
+          const objects = path.join(stateDir, "store/objects");
+          const gone = (id: string) => Effect.isFailure(store.read(id));
+          // A snapshot of the designs keeps the content one of the turns had too.
+          const kept = yield* store.recordContents(
+            "designs",
+            { "a.txt": "turn 0" },
+            { name: "sn_kept", note: "" }
+          );
+          const turns: string[] = [];
+          for (let i = 0; i <= COLLECT_EVERY; i += 1) {
+            turns.push(
+              yield* store.recordContents(
+                "checkpoints",
+                { "a.txt": `turn ${i}`, "b.txt": "shared" },
+                { name: `cp_${i}`, note: "" }
+              )
+            );
+          }
+          // The first release of a run collects: what an earlier run left is gone.
+          yield* store.release("checkpoints", ["cp_0"]);
+          assert.isTrue(yield* gone(turns[0] ?? ""));
+          assert.lengthOf(yield* filesUnder(objects), COLLECT_EVERY + 2);
+          // The next ones are let go of one at a time, and nothing is looked for in between.
+          for (let i = 1; i < COLLECT_EVERY; i += 1) {
+            yield* store.release("checkpoints", [`cp_${i}`]);
+            assert.isFalse(yield* gone(turns[i] ?? ""));
+          }
+          yield* store.release("checkpoints", [`cp_${COLLECT_EVERY}`]);
+          for (const id of turns) {
+            assert.isTrue(yield* gone(id));
+          }
+          // Only the snapshot's content is left, which the turn it shares with did not take.
+          const { files } = yield* store.read(kept);
+          assert.lengthOf(yield* filesUnder(objects), 1);
+          assert.strictEqual(
+            new TextDecoder().decode(
+              yield* store.readFile(files["a.txt"] ?? "")
+            ),
+            "turn 0"
           );
         })
       )

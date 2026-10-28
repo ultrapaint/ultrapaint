@@ -9,8 +9,9 @@
  *   of what it lists, so the same files are the same snapshot;
  * - `refs/<namespace>/<id>`: what keeps a manifest. A namespace is whoever records: the
  *   design-system setup of one project, the named snapshots of the designs (ADR 0019), the
- *   checkpoints taken before agent turns (ADR 0008), the revision history later. What no ref keeps is removed by `collect`, and the objects only it
- *   named with it;
+ *   checkpoints taken before agent turns (ADR 0008), the revision history later. What no ref
+ *   keeps is removed, and the objects only it named with it, once every `COLLECT_EVERY` refs
+ *   let go of;
  * - `refs/<namespace>/<name>`: a ref the namespace names itself, holding
  *   `{ "id": "<manifest>", "note": "…" }`. Two names of the same files are two refs, let go of
  *   apart, and the note is what the namespace keeps of each (a named snapshot's name and date).
@@ -83,6 +84,15 @@ const NAMESPACE_RE = /^[a-z0-9-]+(?:\/[a-z0-9-]+)*$/;
 /** A ref's name, a manifest's id or one the namespace gave: no dots, so never a write's temporary file. */
 const REF_NAME_RE = /^[A-Za-z0-9_-]+$/;
 const SEPARATOR_RE = /[\\/]/g;
+
+/**
+ * How many refs are let go of between two collections. Collecting reads every ref and kept
+ * manifest and lists every object, so doing it at every release (past 30 checkpoints, every
+ * turn) costs what the whole store holds; once every so many, a turn pays that share of it, and
+ * what is left over meanwhile is at most the content only these refs kept. The first release
+ * of a run collects, so what an earlier run left over goes then.
+ */
+export const COLLECT_EVERY = 10;
 
 /** Files read and written together while a snapshot is taken or put back. */
 const CONCURRENCY = 16;
@@ -201,14 +211,14 @@ export class SnapshotStore extends Context.Service<
     ) => Effect.Effect<void, SnapshotMissing | SnapshotStoreFailed>;
     /**
      * Stops keeping snapshots for `namespace`, by the refs' names (a snapshot's id, or the name
-     * it was recorded under); `collect` removes what nothing keeps.
+     * it was recorded under). The manifests no namespace keeps, and the contents no kept
+     * manifest names, are removed at the first release of a run and then once every
+     * `COLLECT_EVERY` refs let go of.
      */
     readonly release: (
       namespace: string,
       names: Iterable<string>
     ) => Effect.Effect<void>;
-    /** Removes the manifests no namespace keeps, and the contents no kept manifest names. */
-    readonly collect: Effect.Effect<void>;
   }
 >()("ultrapaint/server/SnapshotStore") {
   static readonly layer = Layer.effect(
@@ -223,6 +233,8 @@ export class SnapshotStore extends Context.Service<
       const lock = yield* Semaphore.make(1);
       /** Hashes taken before, by absolute path, so an unchanged file is not read again. */
       const hashed = new Map<string, Hashed>();
+      /** Refs let go of since the last collection: at first, as many as make one. */
+      let released = COLLECT_EVERY;
 
       // Asked each time: saving an unsaved session moves the state directory.
       const storeDir = Effect.map(storage.stateDir, (dir) =>
@@ -561,20 +573,6 @@ export class SnapshotStore extends Context.Service<
         );
       });
 
-      const release = Effect.fn("SnapshotStore.release")(
-        function* (namespace: string, names: Iterable<string>) {
-          yield* checkNamespace(namespace);
-          const store = yield* storeDir;
-          for (const name of new Set(names)) {
-            if (REF_NAME_RE.test(name)) {
-              // A ref already gone is what was wanted.
-              yield* Effect.ignore(fs.remove(refPath(store, namespace, name)));
-            }
-          }
-        },
-        (effect) => lock.withPermits(1)(effect)
-      );
-
       /** The snapshots every namespace keeps; null when a ref does not read. */
       const keptByRefs = Effect.fnUntraced(function* (store: string) {
         const refs = path.join(store, "refs");
@@ -598,8 +596,10 @@ export class SnapshotStore extends Context.Service<
         return kept;
       });
 
-      const collect = Effect.gen(function* () {
-        const store = yield* storeDir;
+      /** Removes the manifests no namespace keeps, and the contents no kept manifest names. */
+      const collect = Effect.fn("SnapshotStore.collect")(function* (
+        store: string
+      ) {
         const kept = yield* keptByRefs(store);
         if (kept === null) {
           // Which snapshot a ref keeps is not known: nothing is removed on a guess.
@@ -625,12 +625,30 @@ export class SnapshotStore extends Context.Service<
             yield* Effect.ignore(fs.remove(objectPath(store, hash)));
           }
         }
-      }).pipe(lock.withPermits(1), Effect.withSpan("SnapshotStore.collect"));
+      });
+
+      const release = Effect.fn("SnapshotStore.release")(
+        function* (namespace: string, names: Iterable<string>) {
+          yield* checkNamespace(namespace);
+          const store = yield* storeDir;
+          for (const name of new Set(names)) {
+            if (REF_NAME_RE.test(name)) {
+              // A ref already gone is what was wanted.
+              yield* Effect.ignore(fs.remove(refPath(store, namespace, name)));
+              released += 1;
+            }
+          }
+          if (released >= COLLECT_EVERY) {
+            released = 0;
+            yield* collect(store);
+          }
+        },
+        (effect) => lock.withPermits(1)(effect)
+      );
 
       return SnapshotStore.of({
         changedBetween,
         changedFrom,
-        collect,
         name: nameSnapshot,
         named,
         read,
