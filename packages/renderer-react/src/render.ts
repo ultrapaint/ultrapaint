@@ -12,6 +12,7 @@ import type { InstanceDrawn } from "@ultrapaint/contracts/preview";
 import { DRAFT_FROM } from "@ultrapaint/contracts/spec-names";
 import type { ComponentSpec } from "@ultrapaint/contracts/specs";
 import {
+  AROUND_INSTANCE,
   layoutOf,
   makeStyleContext,
   maskOf,
@@ -577,7 +578,7 @@ const ComponentInstanceView = ({
     });
   }
   const wrapperStyle = hasBox(style)
-    ? { display: "flex", flexDirection: "column", ...style }
+    ? { ...AROUND_INSTANCE, ...style }
     : { display: "contents" };
   return createElement(
     "div",

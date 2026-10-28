@@ -1,34 +1,31 @@
 /**
- * A node of a design as Tailwind v4 utilities (ADR 0024): the classes the inspector's Code tab
- * writes and the rules agents implement a page by (`code-rules.ts`) describe. It reads the fields
- * the way `@ultrapaint/design-document/css` draws them, and says what the canvas draws in the
- * utilities that draw the same. The JSX around the classes is the design document's own
- * (`@ultrapaint/design-document/code`), which takes this as its `ClassWriter`. Pure.
+ * A node's look as Tailwind v4 utilities (ADR 0024): the classes the inspector's Code tab writes
+ * and the rules agents implement a page by (`code-rules.ts`) describe. What a node's fields mean
+ * is `@ultrapaint/design-document/css`'s, which gives the node's declarations at each breakpoint
+ * with tokens kept by name; this writes each declaration as the utility that sets it, several as
+ * the one that sets them all (`flex-1`, `px-2`, `text-lg` with its line height), CSS no utility
+ * says as an arbitrary property (`[mask-size:100%_100%]`), and the breakpoints as Tailwind's
+ * variants (`md:`, `max-md:`). The JSX around the classes is the design document's own
+ * (`@ultrapaint/design-document/code`). Pure.
  */
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type {
-  DesignNode,
-  Length,
-  Padding,
-  Size,
-  TextNode,
-} from "@ultrapaint/contracts/document";
+  ClassWriter,
+  Declarations,
+  DeclaredValue,
+  StyleAt,
+} from "@ultrapaint/contracts/node-style";
 import {
-  shortName,
+  lineHeightName,
   spacingBasePx,
   spacingStepAt,
-  tokensOfKind,
 } from "@ultrapaint/contracts/token-table";
-import type { ClassWriter } from "@ultrapaint/design-document/code";
-import {
-  makeStyleContext,
-  type ParentLayout,
-  type StyleContext,
-  typeSettingsOf,
-} from "@ultrapaint/design-document/css";
 import { isToken, tokenName } from "@ultrapaint/design-document/tokens";
 
 const WHITESPACE_RE = /\s+/g;
+const UPPER_RE = /[A-Z]/g;
+const NUMBER_RE = /^-?\d*\.?\d+$/;
+const KEYWORD_HEAD_RE = /^(?:flex|space)-/;
 
 /** Tailwind v4's own names for the font weights, which a number set in the document maps to. */
 const WEIGHTS: Record<number, string> = {
@@ -43,17 +40,20 @@ const WEIGHTS: Record<number, string> = {
   900: "black",
 };
 
-/** CSS lengths that have a utility of their own. */
+/** CSS lengths that have a utility of their own, on either axis. */
 const LENGTH_KEYWORDS: Record<string, string> = {
   "0": "0",
   "100%": "full",
-  "100dvh": "dvh",
-  "100vh": "screen",
-  "100vw": "screen",
   auto: "auto",
   "fit-content": "fit",
   "max-content": "max",
   "min-content": "min",
+};
+
+/** The screen's lengths, which a width and a height say with their own unit. */
+const SCREEN_KEYWORDS: Record<"h" | "w", Record<string, string>> = {
+  h: { "100dvh": "dvh", "100vh": "screen" },
+  w: { "100dvw": "dvw", "100vw": "screen" },
 };
 
 const COLOR_KEYWORDS: Record<string, string> = {
@@ -65,59 +65,100 @@ const COLOR_KEYWORDS: Record<string, string> = {
   white: "white",
 };
 
-const JUSTIFY: Record<string, string> = {
-  around: "justify-around",
-  between: "justify-between",
-  center: "justify-center",
-  end: "justify-end",
-  start: "justify-start",
+/** Values a declaration starts at, which need no class: a reset leaves them so. */
+const INITIAL: Record<string, string> = {
+  borderColor: "currentColor",
+  flexDirection: "row",
+  flexGrow: "0",
+  flexWrap: "nowrap",
 };
 
-const TEXT_ALIGN: Record<string, string> = {
-  center: "text-center",
-  end: "text-right",
-  start: "text-left",
-};
-
-/** CSS in an arbitrary value: Tailwind reads an underscore as the canvas a class cannot hold. */
-const arbitrary = (prefix: string, value: string) =>
-  `${prefix}-[${value.trim().replace(WHITESPACE_RE, "_")}]`;
-
-/**
- * A token as a utility. A token of the namespace the utility reads (`$color-primary` for `bg`)
- * is the utility Tailwind generates from it, `bg-primary`; one of another namespace is still
- * the variable, `bg-(--radius-lg)`.
- */
-const fromToken = (
-  prefix: string,
-  token: string,
-  namespaces: readonly string[]
-) => {
-  const name = tokenName(token);
-  const namespace = namespaces.find((ns) => name.startsWith(`${ns}-`));
-  return namespace === undefined
-    ? `${prefix}-(--${name})`
-    : `${prefix}-${name.slice(namespace.length + 1)}`;
-};
+/** A utility and the properties it sets, which say what a breakpoint's class takes over from. */
+interface Utility {
+  readonly cls: string;
+  readonly sets: readonly string[];
+}
 
 interface Scale {
   /** Pixels of one spacing step, `--spacing`. */
   readonly step: number;
 }
 
+/** The declarations of a node not written yet, which a utility setting several takes from. */
+type Rest = Map<string, DeclaredValue>;
+
+type Rule = (value: DeclaredValue, rest: Rest, scale: Scale) => Utility[];
+
+const one = (cls: string, ...sets: string[]): Utility[] => [{ cls, sets }];
+
+/** CSS in an arbitrary value: Tailwind reads an underscore as the space a class cannot hold. */
+const arbitrary = (prefix: string, value: string) =>
+  `${prefix}-[${value.trim().replace(WHITESPACE_RE, "_")}]`;
+
+/** A declared value as CSS: a token as its variable, a number as pixels. */
+const cssOf = (value: DeclaredValue): string => {
+  if (typeof value === "number") {
+    return `${value}px`;
+  }
+  return isToken(value) ? `var(--${tokenName(value)})` : value;
+};
+
+/** A declaration no utility says, as Tailwind's arbitrary property: `[mask-size:100%_100%]`. */
+const arbitraryProperty = (
+  property: string,
+  value: DeclaredValue
+): Utility[] => {
+  const name = property.replace(UPPER_RE, (c) => `-${c.toLowerCase()}`);
+  return one(
+    `[${name}:${cssOf(value).trim().replace(WHITESPACE_RE, "_")}]`,
+    property
+  );
+};
+
+/**
+ * A token as a utility. A token of the namespace the utility reads (`$color-primary` for `bg`)
+ * is the utility Tailwind generates from it, `bg-primary`; one of another namespace is still
+ * the variable, `bg-(--radius-lg)`, with the type Tailwind is to read it as when it could read
+ * another (`text-(length:--x)` is a size, not a colour).
+ */
+const fromToken = (
+  prefix: string,
+  token: string,
+  namespaces: readonly string[],
+  type?: string
+) => {
+  const name = tokenName(token);
+  const namespace = namespaces.find((ns) => name.startsWith(`${ns}-`));
+  if (namespace !== undefined) {
+    return `${prefix}-${name.slice(namespace.length + 1)}`;
+  }
+  return type === undefined
+    ? `${prefix}-(--${name})`
+    : `${prefix}-(${type}:--${name})`;
+};
+
 /**
  * A length on the spacing scale: a number is the step it lands on (16 over a 4px base is `4`)
  * and pixels only when it is off the scale, which is what brackets say, as the briefing asks of
  * agents.
  */
-const spacing = (prefix: string, value: Length, scale: Scale): string => {
+const spacing = (
+  prefix: string,
+  value: DeclaredValue,
+  scale: Scale
+): string => {
   if (typeof value === "number") {
     const step = spacingStepAt(value, scale.step);
     return step === null
       ? arbitrary(prefix, `${value}px`)
       : `${prefix}-${step}`;
   }
-  const keyword = LENGTH_KEYWORDS[value.trim()];
+  const axis = prefix.at(-1);
+  const keyword =
+    LENGTH_KEYWORDS[value.trim()] ??
+    (axis === "w" || axis === "h"
+      ? SCREEN_KEYWORDS[axis][value.trim()]
+      : undefined);
   if (keyword !== undefined) {
     return `${prefix}-${keyword}`;
   }
@@ -126,444 +167,435 @@ const spacing = (prefix: string, value: Length, scale: Scale): string => {
     : arbitrary(prefix, value);
 };
 
-const color = (prefix: string, value: string): string => {
-  const keyword = COLOR_KEYWORDS[value.trim()];
-  if (keyword !== undefined) {
-    return `${prefix}-${keyword}`;
-  }
-  return isToken(value)
-    ? fromToken(prefix, value, ["color"])
-    : arbitrary(prefix, value);
-};
-
-const radius = (value: Length): string => {
-  if (typeof value === "number") {
-    if (value === 0) {
-      return "rounded-none";
-    }
-    return value >= 9999 ? "rounded-full" : arbitrary("rounded", `${value}px`);
-  }
-  return isToken(value)
-    ? fromToken("rounded", value, ["radius"])
-    : arbitrary("rounded", value);
-};
-
-const shadow = (value: string): string => {
-  if (value.trim() === "none") {
-    return "shadow-none";
-  }
-  return isToken(value)
-    ? fromToken("shadow", value, ["shadow"])
-    : arbitrary("shadow", value);
-};
-
 /** A spacing class that may go below zero, as a margin can: `-mt-2`. */
-const signedSpacing = (prefix: string, value: Length, scale: Scale): string =>
+const signedSpacing = (
+  prefix: string,
+  value: DeclaredValue,
+  scale: Scale
+): string =>
   typeof value === "number" && value < 0
     ? `-${spacing(prefix, -value, scale)}`
     : spacing(prefix, value, scale);
 
-/** Padding (`p`) or margin (`m`): one class for every side, one per axis, else one per side. */
-const sidesClasses = (
-  letter: "p" | "m",
-  value: Padding,
-  scale: Scale
-): string[] => {
-  const cls = (suffix: string, v: Length) =>
-    signedSpacing(`${letter}${suffix}`, v, scale);
-  if (typeof value === "number" || typeof value === "string") {
-    return [cls("", value)];
-  }
-  const { bottom, left, right, top } = value;
-  const out: string[] = [];
-  if (top !== undefined && top === bottom && left === top && right === top) {
-    return [cls("", top)];
-  }
-  if (left !== undefined && left === right) {
-    out.push(cls("x", left));
-  } else {
-    if (left !== undefined) {
-      out.push(cls("l", left));
-    }
-    if (right !== undefined) {
-      out.push(cls("r", right));
-    }
-  }
-  if (top !== undefined && top === bottom) {
-    out.push(cls("y", top));
-  } else {
-    if (top !== undefined) {
-      out.push(cls("t", top));
-    }
-    if (bottom !== undefined) {
-      out.push(cls("b", bottom));
-    }
-  }
-  return out;
-};
+const length =
+  (prefix: string, property: string): Rule =>
+  (value, _rest, scale) =>
+    one(spacing(prefix, value, scale), property);
 
-/** One axis of a node's size, as `sizeStyle` in `css.ts` draws it. */
-const sizeClasses = (
-  axis: "w" | "h",
-  size: Size | undefined,
-  parent: ParentLayout,
-  scale: Scale
-): string[] => {
-  if (size === undefined) {
-    return [];
-  }
-  const main =
-    (parent === "row" && axis === "w") || (parent === "column" && axis === "h");
-  const flex = parent === "row" || parent === "column";
-  if (typeof size === "number") {
-    const fixed = spacing(axis, size, scale);
-    return main ? [fixed, "shrink-0"] : [fixed];
-  }
-  if (size === "hug") {
-    if (main) {
-      return [`${axis}-fit`, "shrink-0"];
+const color =
+  (prefix: string, property: string): Rule =>
+  (value) => {
+    const text = String(value).trim();
+    const keyword = COLOR_KEYWORDS[text];
+    if (keyword !== undefined) {
+      return one(`${prefix}-${keyword}`, property);
     }
-    return flex ? [`${axis}-fit`, "self-start"] : [`${axis}-fit`];
-  }
-  if (main) {
-    return ["flex-1", `min-${axis}-0`];
-  }
-  return flex ? ["self-stretch"] : [`${axis}-full`];
-};
+    return one(
+      isToken(text)
+        ? fromToken(prefix, text, ["color"])
+        : arbitrary(prefix, text),
+      property
+    );
+  };
 
-const borderClasses = (node: DesignNode): string[] => {
-  const { border } = node;
-  if (!border) {
-    return [];
+/**
+ * A keyword Tailwind names a utility after, of `values` (`items-center`, `justify-between` for
+ * `space-between`, `items-start` for `flex-start`); anything else as CSS.
+ */
+const named =
+  (property: string, prefix: string, values: string): Rule =>
+  (value) => {
+    const text = String(value);
+    return values.split(" ").includes(text)
+      ? one(`${prefix}-${text.replace(KEYWORD_HEAD_RE, "")}`, property)
+      : arbitraryProperty(property, value);
+  };
+
+// ---- Shorthands ----
+
+const SIDES = ["Top", "Right", "Bottom", "Left"] as const;
+type Side = (typeof SIDES)[number];
+
+/**
+ * Padding (`p`) or margin (`m`) side by side: one class for every side, one per axis, else one
+ * per side. The first side met takes the others.
+ */
+const sides =
+  (property: "padding" | "margin", letter: "p" | "m", side: Side): Rule =>
+  (value, rest, scale) => {
+    const at: Partial<Record<Side, DeclaredValue>> = { [side]: value };
+    for (const other of SIDES) {
+      const name = `${property}${other}`;
+      const v = rest.get(name);
+      if (v !== undefined) {
+        at[other] = v;
+        rest.delete(name);
+      }
+    }
+    const cls = (suffix: string, v: DeclaredValue, ...over: Side[]) =>
+      one(
+        signedSpacing(`${letter}${suffix}`, v, scale),
+        ...over.map((s) => `${property}${s}`)
+      );
+    /** Two opposite sides: one class when they are the same, else one each (`pl`, `pr`). */
+    const pair = (suffix: string, a: Side, b: Side): Utility[] => {
+      const [first, second] = [at[a], at[b]];
+      if (first !== undefined && first === second) {
+        return cls(suffix, first, a, b);
+      }
+      return [
+        ...(first === undefined
+          ? []
+          : cls(a[0]?.toLowerCase() ?? "", first, a)),
+        ...(second === undefined
+          ? []
+          : cls(b[0]?.toLowerCase() ?? "", second, b)),
+      ];
+    };
+    const { Bottom: bottom, Left: left, Right: right, Top: top } = at;
+    if (top !== undefined && top === bottom && left === top && right === top) {
+      return cls("", top, ...SIDES);
+    }
+    return [...pair("x", "Left", "Right"), ...pair("y", "Top", "Bottom")];
+  };
+
+const sideRules = (property: "padding" | "margin", letter: "p" | "m") =>
+  Object.fromEntries(
+    SIDES.map((side) => [`${property}${side}`, sides(property, letter, side)])
+  );
+
+/** Padding or margin on every side at once: `p-4`, `-m-2`. */
+const sidesAtOnce =
+  (property: "padding" | "margin", letter: "p" | "m"): Rule =>
+  (value, _rest, scale) =>
+    one(
+      signedSpacing(letter, value, scale),
+      ...SIDES.map((side) => `${property}${side}`)
+    );
+
+/** `flex-1` for what grows into the free room; `shrink-0` for what does not shrink. */
+const flex =
+  (property: "flexBasis" | "flexGrow" | "flexShrink"): Rule =>
+  (value, rest) => {
+    const of = (name: string) =>
+      name === property ? String(value) : String(rest.get(name));
+    if (
+      of("flexGrow") === "1" &&
+      of("flexShrink") === "1" &&
+      of("flexBasis") === "0%"
+    ) {
+      rest.delete("flexBasis");
+      rest.delete("flexGrow");
+      rest.delete("flexShrink");
+      return one("flex-1", "flexGrow", "flexShrink", "flexBasis");
+    }
+    return property === "flexShrink" && value === "0"
+      ? one("shrink-0", property)
+      : arbitraryProperty(property, value);
+  };
+
+/** A border's width, its style with it when it is solid, Tailwind's own. */
+const borderWidth: Rule = (value, rest) => {
+  if (rest.get("borderStyle") === "solid") {
+    rest.delete("borderStyle");
   }
-  const out: string[] = [];
-  const { width } = border;
-  if (width === undefined || width === 1) {
-    out.push("border");
-  } else if (typeof width === "number") {
+  const sets = ["borderWidth", "borderStyle"];
+  if (value === 1) {
+    return one("border", ...sets);
+  }
+  if (typeof value === "number") {
     // Tailwind has a utility for a whole number of pixels only.
-    out.push(
-      Number.isInteger(width) && width >= 0
-        ? `border-${width}`
-        : arbitrary("border", `${width}px`)
-    );
-  } else {
-    out.push(
-      isToken(width)
-        ? `border-(length:--${tokenName(width)})`
-        : arbitrary("border", width)
+    return one(
+      Number.isInteger(value) && value >= 0
+        ? `border-${value}`
+        : arbitrary("border", `${value}px`),
+      ...sets
     );
   }
-  if (border.style === "dashed" || border.style === "dotted") {
-    out.push(`border-${border.style}`);
-  }
-  // Left out, Tailwind v4's border is the current colour, which is what the canvas draws.
-  if (border.color !== undefined) {
-    out.push(color("border", border.color));
-  }
-  return out;
-};
-
-// ---- Typography ----
-
-const fontSize = (value: Length): string => {
-  if (typeof value === "number") {
-    return arbitrary("text", `${value}px`);
-  }
-  return isToken(value)
-    ? fromToken("text", value, ["text"])
-    : arbitrary("text", `length:${value}`);
-};
-
-const lineHeight = (value: Length, scale: Scale): string => {
-  // A bare number below 4 is a multiple of the font size, as in CSS and in the canvas.
-  if (typeof value === "number") {
-    return value < 4
-      ? arbitrary("leading", String(value))
-      : spacing("leading", value, scale);
-  }
-  return isToken(value)
-    ? fromToken("leading", value, ["leading"])
-    : arbitrary("leading", value);
-};
-
-const fontWeight = (value: Length): string => {
-  if (typeof value === "number") {
-    const name = WEIGHTS[value];
-    return name === undefined
-      ? arbitrary("font", String(value))
-      : `font-${name}`;
-  }
-  return isToken(value)
-    ? fromToken("font", value, ["font-weight"])
-    : arbitrary("font", value);
-};
-
-const fontFamily = (value: string): string =>
-  isToken(value)
-    ? fromToken("font", value, ["font"])
-    : arbitrary("font", `family-name:${value}`);
-
-const tracking = (value: Length): string => {
-  if (typeof value === "number") {
-    return arbitrary("tracking", `${value}px`);
-  }
-  return isToken(value)
-    ? fromToken("tracking", value, ["tracking"])
-    : arbitrary("tracking", value);
-};
-
-/** A text style's settings with the node's own over them, as the canvas sets the text. */
-const textClasses = (
-  node: TextNode,
-  ctx: StyleContext,
-  scale: Scale
-): string[] => {
-  const settings = typeSettingsOf(node, ctx);
-  const out: string[] = [];
-  if (settings.font !== undefined) {
-    out.push(fontFamily(settings.font));
-  }
-  if (settings.size !== undefined) {
-    out.push(fontSize(settings.size));
-  }
-  if (settings.weight !== undefined) {
-    out.push(fontWeight(settings.weight));
-  }
-  if (settings.lineHeight !== undefined) {
-    out.push(lineHeight(settings.lineHeight, scale));
-  }
-  if (settings.tracking !== undefined) {
-    out.push(tracking(settings.tracking));
-  }
-  if (node.color !== undefined) {
-    out.push(color("text", node.color));
-  }
-  if (node.align) {
-    out.push(TEXT_ALIGN[node.align] ?? "text-left");
-  }
-  // The canvas keeps the line breaks typed into the text; the application has to ask for them.
-  if (node.text.includes("\n")) {
-    out.push("whitespace-pre-wrap");
-  }
-  return out;
-};
-
-// ---- Node classes ----
-
-const layoutClasses = (node: DesignNode, scale: Scale): string[] => {
-  if (node.type !== "page" && node.type !== "row" && node.type !== "column") {
-    return [];
-  }
-  const out = node.type === "row" ? ["flex"] : ["flex", "flex-col"];
-  if (node.type === "page" && node.minHeight === undefined) {
-    out.push("min-h-screen");
-  }
-  if (node.wrap) {
-    out.push("flex-wrap");
-  }
-  if (node.align) {
-    out.push(JUSTIFY[node.align] ?? "justify-start");
-  }
-  if (node.crossAlign) {
-    out.push(`items-${node.crossAlign}`);
-  }
-  if (node.gap !== undefined) {
-    out.push(spacing("gap", node.gap, scale));
-  }
-  return out;
-};
-
-const boxClasses = (
-  node: DesignNode,
-  parent: ParentLayout,
-  scale: Scale
-): string[] => {
-  const out = [
-    ...sizeClasses("w", node.width, parent, scale),
-    ...sizeClasses("h", node.height, parent, scale),
-  ];
-  if (node.minWidth !== undefined) {
-    out.push(spacing("min-w", node.minWidth, scale));
-  }
-  if (node.maxWidth !== undefined) {
-    out.push(spacing("max-w", node.maxWidth, scale));
-  }
-  if (node.minHeight !== undefined) {
-    out.push(spacing("min-h", node.minHeight, scale));
-  }
-  if (node.maxHeight !== undefined) {
-    out.push(spacing("max-h", node.maxHeight, scale));
-  }
-  if (node.padding !== undefined) {
-    out.push(...sidesClasses("p", node.padding, scale));
-  }
-  if (node.margin !== undefined) {
-    out.push(...sidesClasses("m", node.margin, scale));
-  }
-  if (node.order !== undefined) {
-    const { order } = node;
-    out.push(order < 0 ? `-order-${-order}` : `order-${order}`);
-  }
-  return out;
-};
-
-const appearanceClasses = (node: DesignNode): string[] => {
-  const out: string[] = [];
-  if (node.fill !== undefined) {
-    out.push(color("bg", node.fill));
-  }
-  out.push(...borderClasses(node));
-  if (node.radius !== undefined) {
-    out.push(radius(node.radius));
-  }
-  if (node.shadow !== undefined) {
-    out.push(shadow(node.shadow));
-  }
-  if (node.opacity !== undefined) {
-    out.push(`opacity-${Math.round(node.opacity * 100)}`);
-  }
-  if (node.type === "image") {
-    out.push(`object-${node.fit ?? "cover"}`);
-  }
-  return out;
-};
-
-/** The utilities a node is written with, the design system's styles and scale made already. */
-const classesWith = (
-  node: DesignNode,
-  styles: Omit<StyleContext, "parent">,
-  scale: Scale,
-  parent: ParentLayout
-): string[] => {
-  const classes = [
-    ...layoutClasses(node, scale),
-    ...boxClasses(node, parent, scale),
-    ...(node.type === "text"
-      ? textClasses(node, { ...styles, parent }, scale)
-      : []),
-    ...appearanceClasses(node),
-  ];
-  return [...new Set(classes)];
-};
-
-/** The utilities a node is written with: layout, size, spacing, type, then appearance. */
-export const classesOf = (
-  node: DesignNode,
-  ds: DesignSystem | null | undefined,
-  parent: ParentLayout = "free"
-): string[] =>
-  classesWith(
-    node,
-    makeStyleContext(ds),
-    { step: spacingBasePx(ds?.spacing.base) },
-    parent
+  return one(
+    isToken(value)
+      ? `border-(length:--${tokenName(value)})`
+      : arbitrary("border", value),
+    ...sets
   );
-
-/** Tailwind's own font sizes, which `text-*` names beside the design system's. */
-const FONT_SIZES = new Set([
-  "xs",
-  "sm",
-  "base",
-  "lg",
-  "xl",
-  "2xl",
-  "3xl",
-  "4xl",
-  "5xl",
-  "6xl",
-  "7xl",
-  "8xl",
-  "9xl",
-]);
-const WEIGHT_NAMES = new Set(Object.values(WEIGHTS));
-const DISPLAY_RE = /^(?:flex|hidden|block|inline|inline-flex|grid|contents)$/;
-const DIRECTION_RE = /^flex-(?:row|col)(?:-reverse)?$/;
-const WRAP_RE = /^flex-(?:wrap|nowrap|wrap-reverse)$/;
-const FLEX_RE = /^flex-(?:\d+|auto|initial|none)$/;
-const TEXT_ALIGN_RE = /^text-(?:left|center|right|justify|start|end)$/;
-const BORDER_STYLE_RE = /^border-(?:solid|dashed|dotted|double|none)$/;
-const BORDER_WIDTH_RE = /^border(?:-\d+|-\(length:.*|-\[\d.*)?$/;
-const ARBITRARY_NUMBER_RE = /^[a-z-]+-\[(?:length:|\d|\.)/;
-const ORDER_RE = /^-?order-/;
-const VALUE_START_RE = /-(?:\[|\()/;
-const LEADING_DASH_RE = /^-/;
-
-/** Utilities whose name alone says what they set, whatever their prefix shares. */
-const FIXED_GROUPS: readonly (readonly [RegExp, string])[] = [
-  [DISPLAY_RE, "display"],
-  [DIRECTION_RE, "flex-direction"],
-  [WRAP_RE, "flex-wrap"],
-  [FLEX_RE, "flex"],
-  [ORDER_RE, "order"],
-  [TEXT_ALIGN_RE, "text-align"],
-  [BORDER_STYLE_RE, "border-style"],
-];
-
-/** `text-lg` is a size, `text-primary` a colour. */
-const textGroup = (cls: string, sizes: ReadonlySet<string>) =>
-  sizes.has(cls.slice(5)) || ARBITRARY_NUMBER_RE.test(cls)
-    ? "font-size"
-    : "text-color";
-
-/** `font-bold` is a weight, `font-sans` a family. */
-const fontGroup = (cls: string) => {
-  const value = cls.slice(5);
-  return WEIGHT_NAMES.has(value) ||
-    value.startsWith("weight-") ||
-    value.startsWith("(--font-weight") ||
-    ARBITRARY_NUMBER_RE.test(cls)
-    ? "font-weight"
-    : "font-family";
 };
 
-/** A class's name up to its value: `gap-4` → `gap`, `-mt-2` → `mt`. */
-const prefixGroup = (cls: string) => {
-  // A negative margin is the same group as the margin: `-mt-2`, `mt-4`.
-  const head = (cls.split(VALUE_START_RE)[0] ?? cls).replace(
-    LEADING_DASH_RE,
-    ""
+/** A font size, with the line height of its token when that is the line height. */
+const fontSize: Rule = (value, rest) => {
+  if (typeof value === "number") {
+    return one(arbitrary("text", `${value}px`), "fontSize");
+  }
+  if (!isToken(value)) {
+    return one(arbitrary("text", `length:${value}`), "fontSize");
+  }
+  const cls = fromToken("text", value, ["text"], "length");
+  // Tailwind's `text-lg` sets the line height its size is paired with; a variable sets none.
+  const paired = `$${lineHeightName(tokenName(value))}`;
+  if (!cls.includes("(") && rest.get("lineHeight") === paired) {
+    rest.delete("lineHeight");
+    return one(cls, "fontSize", "lineHeight");
+  }
+  return one(cls, "fontSize");
+};
+
+const fontWeight: Rule = (value) => {
+  const text = String(value);
+  if (NUMBER_RE.test(text)) {
+    const name = WEIGHTS[Number(text)];
+    return one(
+      name === undefined ? arbitrary("font", text) : `font-${name}`,
+      "fontWeight"
+    );
+  }
+  return one(
+    isToken(text)
+      ? fromToken("font", text, ["font-weight"])
+      : arbitrary("font", `weight:${text}`),
+    "fontWeight"
   );
-  const dash = head.lastIndexOf("-");
-  return dash > 0 ? head.slice(0, dash) : head;
+};
+
+const fontFamily: Rule = (value) => {
+  const text = String(value);
+  return one(
+    isToken(text)
+      ? fromToken("font", text, ["font"], "family-name")
+      : arbitrary("font", `family-name:${text}`),
+    "fontFamily"
+  );
+};
+
+const lineHeight: Rule = (value, _rest, scale) => {
+  if (typeof value === "number") {
+    return one(spacing("leading", value, scale), "lineHeight");
+  }
+  return one(
+    isToken(value)
+      ? fromToken("leading", value, ["leading"])
+      : arbitrary("leading", value),
+    "lineHeight"
+  );
+};
+
+const letterSpacing: Rule = (value) => {
+  if (typeof value === "number") {
+    return one(arbitrary("tracking", `${value}px`), "letterSpacing");
+  }
+  return one(
+    isToken(value)
+      ? fromToken("tracking", value, ["tracking"])
+      : arbitrary("tracking", value),
+    "letterSpacing"
+  );
+};
+
+const radius: Rule = (value) => {
+  if (typeof value === "number") {
+    if (value === 0) {
+      return one("rounded-none", "borderRadius");
+    }
+    return one(
+      value >= 9999 ? "rounded-full" : arbitrary("rounded", `${value}px`),
+      "borderRadius"
+    );
+  }
+  return one(
+    isToken(value)
+      ? fromToken("rounded", value, ["radius"])
+      : arbitrary("rounded", value),
+    "borderRadius"
+  );
+};
+
+const shadow: Rule = (value) => {
+  const text = String(value).trim();
+  if (text === "none") {
+    return one("shadow-none", "boxShadow");
+  }
+  return one(
+    isToken(text)
+      ? fromToken("shadow", text, ["shadow"])
+      : arbitrary("shadow", text),
+    "boxShadow"
+  );
+};
+
+const opacity: Rule = (value) => {
+  const text = String(value);
+  return NUMBER_RE.test(text)
+    ? one(`opacity-${Math.round(Number(text) * 100)}`, "opacity")
+    : arbitraryProperty("opacity", value);
+};
+
+const order: Rule = (value) => {
+  const text = String(value);
+  if (!NUMBER_RE.test(text)) {
+    return arbitraryProperty("order", value);
+  }
+  const n = Number(text);
+  return one(n < 0 ? `-order-${-n}` : `order-${n}`, "order");
+};
+
+const display: Rule = (value) => {
+  if (value === "none") {
+    return one("hidden", "display");
+  }
+  return value === "block" || value === "flex"
+    ? one(value, "display")
+    : arbitraryProperty("display", value);
+};
+
+/** Each property a node's declarations set, as the utilities that write it. */
+const RULES: Record<string, Rule> = {
+  alignItems: named(
+    "alignItems",
+    "items",
+    "baseline center flex-end flex-start stretch"
+  ),
+  alignSelf: named("alignSelf", "self", "center flex-end flex-start stretch"),
+  background: color("bg", "background"),
+  borderColor: color("border", "borderColor"),
+  borderRadius: radius,
+  borderStyle: named("borderStyle", "border", "dashed dotted solid"),
+  borderWidth,
+  boxShadow: shadow,
+  color: color("text", "color"),
+  display,
+  flexBasis: flex("flexBasis"),
+  flexDirection: (value) =>
+    value === "column"
+      ? one("flex-col", "flexDirection")
+      : arbitraryProperty("flexDirection", value),
+  flexGrow: flex("flexGrow"),
+  flexShrink: flex("flexShrink"),
+  flexWrap: named("flexWrap", "flex", "wrap"),
+  fontFamily,
+  fontSize,
+  fontWeight,
+  gap: length("gap", "gap"),
+  height: length("h", "height"),
+  justifyContent: named(
+    "justifyContent",
+    "justify",
+    "center flex-end flex-start space-around space-between"
+  ),
+  letterSpacing,
+  lineHeight,
+  margin: sidesAtOnce("margin", "m"),
+  maskPosition: named("maskPosition", "mask", "center"),
+  maskRepeat: named("maskRepeat", "mask", "no-repeat"),
+  maskSize: named("maskSize", "mask", "contain cover"),
+  maxHeight: length("max-h", "maxHeight"),
+  maxWidth: length("max-w", "maxWidth"),
+  minHeight: length("min-h", "minHeight"),
+  minWidth: length("min-w", "minWidth"),
+  objectFit: named("objectFit", "object", "contain cover fill"),
+  opacity,
+  order,
+  padding: sidesAtOnce("padding", "p"),
+  ...sideRules("padding", "p"),
+  ...sideRules("margin", "m"),
+  textAlign: named("textAlign", "text", "center left right"),
+  whiteSpace: named("whiteSpace", "whitespace", "pre-wrap"),
+  width: length("w", "width"),
+};
+
+/** A node's declarations at one level as utilities, in the order they are declared. */
+const utilitiesOf = (declarations: Declarations, scale: Scale): Utility[] => {
+  const rest: Rest = new Map(Object.entries(declarations));
+  const out: Utility[] = [];
+  for (const [property, value] of Object.entries(declarations)) {
+    if (!rest.has(property)) {
+      continue;
+    }
+    rest.delete(property);
+    if (INITIAL[property] === String(value)) {
+      continue;
+    }
+    const rule = RULES[property];
+    out.push(
+      ...(rule ? rule(value, rest, scale) : arbitraryProperty(property, value))
+    );
+  }
+  return out;
+};
+
+// ---- Breakpoints ----
+
+/** A utility from the level it starts at up to the one it stops at (null: every one above). */
+interface Run {
+  end: number | null;
+  readonly start: number;
+  /** Utilities it took over from, which stop where it does. */
+  readonly under: Run[];
+  readonly utility: Utility;
+}
+
+const stop = (run: Run, at: number) => {
+  if (run.end === null) {
+    run.end = at;
+  }
+  for (const under of run.under) {
+    stop(under, at);
+  }
 };
 
 /**
- * What a class sets, as one name for every value of it (ADR 0036): `md:gap-6` takes over from
- * `gap-4`, and `flex-wrap` does not from `flex-col`. The utilities whose prefix is shared by
- * several properties (`flex-*`, `text-*`, `font-*`, `border-*`) are told apart here.
+ * A node's utilities at every level as one list, mobile-first (ADR 0036): the base's as they
+ * are, then what each breakpoint adds with its variant (`md:gap-6`). A utility a breakpoint drops
+ * goes on under those that set everything it set (`gap-4` under `md:gap-6`), and is bounded
+ * otherwise (`max-md:flex-col`, `md:max-lg:hidden`).
  */
-const groupOf = (sizes: ReadonlySet<string>) => (cls: string) => {
-  const fixed = FIXED_GROUPS.find(([re]) => re.test(cls));
-  if (fixed) {
-    return fixed[1];
-  }
-  if (cls.startsWith("text-")) {
-    return textGroup(cls, sizes);
-  }
-  if (cls.startsWith("font-")) {
-    return fontGroup(cls);
-  }
-  if (cls === "border" || cls.startsWith("border-")) {
-    return BORDER_WIDTH_RE.test(cls) ? "border-width" : "border-color";
-  }
-  return prefixGroup(cls);
+const responsive = (
+  levels: readonly (string | null)[],
+  sets: readonly (readonly Utility[])[]
+): string[] => {
+  const runs: Run[] = [];
+  const active = new Map<string, Run>();
+  sets.forEach((set, level) => {
+    const now = new Set(set.map((u) => u.cls));
+    const added = set
+      .filter((u) => !active.has(u.cls))
+      .map((utility): Run => ({ end: null, start: level, under: [], utility }));
+    const covered = new Set(added.flatMap((run) => run.utility.sets));
+    for (const run of [...active.values()]) {
+      if (now.has(run.utility.cls)) {
+        continue;
+      }
+      active.delete(run.utility.cls);
+      const { sets: its } = run.utility;
+      if (its.every((p) => covered.has(p))) {
+        for (const over of added) {
+          if (over.utility.sets.some((p) => its.includes(p))) {
+            over.under.push(run);
+          }
+        }
+      } else {
+        stop(run, level);
+      }
+    }
+    for (const run of added) {
+      runs.push(run);
+      active.set(run.utility.cls, run);
+    }
+  });
+  return runs.map(({ end, start, utility }) => {
+    const from = start === 0 ? "" : `${levels[start]}:`;
+    const to = end === null ? "" : `max-${levels[end]}:`;
+    return `${from}${to}${utility.cls}`;
+  });
 };
 
-/** How Tailwind v4 writes a design's nodes, its styles and spacing step made once. */
+/** How Tailwind v4 writes a design's nodes, its spacing step made once. */
 export const tailwindClasses = (
   ds: DesignSystem | null | undefined
 ): ClassWriter => {
-  const styles = makeStyleContext(ds);
   const scale = { step: spacingBasePx(ds?.spacing.base) };
-  const sizes = new Set([
-    ...FONT_SIZES,
-    ...tokensOfKind(ds, "fontSize").map((t) => shortName(t.name)),
-  ]);
   return {
-    classes: (node, parent) => classesWith(node, styles, scale, parent),
-    group: groupOf(sizes),
-    // A column that stretches the component across, as the canvas draws it.
-    wrapper: (classes) => ["flex", "flex-col", ...classes],
+    classes: (styles: readonly StyleAt[]) =>
+      responsive(
+        styles.map((s) => s.breakpoint),
+        styles.map((s) => utilitiesOf(s.declarations, scale))
+      ),
   };
 };

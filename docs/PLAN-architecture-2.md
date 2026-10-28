@@ -331,3 +331,68 @@ unless the step says otherwise.
    `breakpoints.test.ts` (failing first) pin `tokensIn` and an `em` or bare breakpoint;
    `token-options.test.ts` checks a token of every field kind appears in the pickers' options by
    its short name, the named steps over the base, a colour's group and a font's family.
+7. **A node's style, cut at declarations** (`packages/design-document/src/css.ts`, contracts'
+   `node-style.ts`, `packages/style-tailwind-v4/src/node-classes.ts`). `declarationsOf(node, ctx)`
+   says what a node's fields mean as CSS declarations, tokens kept by name and a number pixels, in
+   the order the code lists them: a stack's flex, `fill` and `hug` against the parent's axis, the
+   sides, a text style under the node's own settings with a size token's paired line height, a
+   tint as the fill with its mask, `hidden`. The canvas draws them: `nodeStyle` is the
+   declarations with tokens as their variables over `baseStyle`, what the canvas draws besides and
+   the code leaves to the application (`border-box`, a text's margin and its typed spaces, an
+   image's block, a group's `div`, a link's pointer, a page as wide as its frame), a page as tall
+   as the screen being as tall as its frame. `AROUND_INSTANCE` is the column around a component
+   that keeps its props, which the renderer and the code both lay the instance's own over. A
+   `ClassWriter` is in contracts (`framework-api` no longer depends on design-document) and has
+   one member, `classes(styles)`: an element's declarations at the base and at each breakpoint
+   in, its classes out. `toCode` hands it every element's declarations at each level (it takes
+   the `designSystem` for the text styles), an element written once per run of widths having
+   `display: none` outside its run. Tailwind's writer says each declaration as the utility that
+   sets it, several as the one that sets them all (`flex-1`, `px-2`, `p-4`, `border`, `text-lg`
+   with its line height), a value at its initial value as none, and anything else as an arbitrary
+   property (`[mask-size:100%_100%]`). Each utility knows the properties it sets, so a
+   breakpoint's class takes over from those below that set nothing else (`gap-4` under
+   `md:gap-6`, `shrink-0` under `md:flex-1`) and the others are bounded (`max-md:flex-col`); the
+   variants are written there. What went: `sizeClasses`, `layoutClasses`, `textClasses` and the
+   `typeSettingsOf` they read (the layout rules written a second time), `groupOf` with its eleven
+   patterns and its font-size and weight sets (a class's property guessed from its name),
+   `code.ts`'s `responsiveClasses` and `prefixGroup` (Tailwind's variants written outside the
+   adapter), and `group` and `wrapper` from the interface. `node-classes.ts` is 601 lines where
+   it was 569: the layout rules and the guessing went, the breakpoint runs moved in from
+   `code.ts` (577 lines, 659 before) and each property's utilities are a table;
+   `css.ts` is 466 (403). A baseline of the Code tab's output (a script kept out of the
+   repository) over the 42 pages of `fixtures/` and `docs/designs`, as they are and with
+   overrides at the breakpoints made the same way each run, 9,102 nodes, was taken before and
+   after: 7,443 are written the same, 1,659 not, 559 of them as the pages are and all of those
+   tinted icons. The fixes, where the classes disagreed with the canvas: a tinted icon (1,118)
+   was written `object-cover`, an `object-fit` its span does not have, and without its block,
+   width and mask, now `block max-w-full … mask-center mask-no-repeat mask-contain`; a node with
+   its own `minWidth` filling a row from a breakpoint (8) was written `md:min-w-0` beside it,
+   which won there, and keeps its own as the canvas does. The same CSS spelled otherwise: a node
+   hidden below a breakpoint (410) is `hidden md:flex` for `flex max-md:hidden`, and a class a
+   breakpoint's shorthand sets everything of (278, `pl-3 pr-2` under `md:px-2`) is left unbounded
+   or bounded where that shorthand stops, the same utility with another `max-` only. Also, from
+   no fixture: a weight that is not a number (`bold`) was a font family (`font-[bold]`), now
+   `font-[weight:bold]`; a size, or a family, named by a token of another kind was a colour
+   (`text-(--x)`) or a weight (`font-(--x)`), now `text-(length:--x)` and
+   `font-(family-name:--x)`, and such a size no longer takes the line height a `text-*` utility
+   would have set; `100vh` as a width (or `100vw` as a height) was `w-screen` and is an arbitrary
+   value; a node hidden at some width has `hidden` where its display class is rather than both;
+   on the canvas, a page whose own `minHeight` is `100vh` is as tall as its frame rather than the
+   editor's window. `canvas-and-code.test.ts` checks the canvas and the Code tab cannot drift: over
+   every node of the same pages and overrides, at each width the page sets, every declaration the
+   canvas draws (past `baseStyle` and initial values) is set by a class active there, to the same
+   value, as Tailwind 4.3.3 compiles that class (`tailwindcss` is a dev dependency of the package:
+   `--tw-*` variables and `@property` defaults followed, the class of the widest variant winning),
+   and every property a class sets is one the canvas draws; it fails when a step, a keyword, a
+   border's style or a node's own minimum is written wrong. `node-classes.test.ts`'s 22 literal
+   tests are unchanged and green, with 5 more (the breakpoint runs moved from `code.test.ts`, a
+   shorthand taking over at a breakpoint, a node's own minimum kept, a tinted icon, values Tailwind
+   could read as another type); `code.test.ts` writes with a writer that prints declarations (2
+   rewritten, 2 more: the declarations at each level, `display: none` outside an element's run);
+   `css.test.ts` has 4 more for `declarationsOf` and `baseStyle`. Left alone: `component-spec.ts`
+   reads a component's `cva` classes back into a spec's fields under state variants (`hover:`,
+   `data-open:`), against the code's own tokens and Tailwind's default scales; the table runs from
+   declarations to utilities given a design system, and the way back from declarations to fields
+   (`flex-1` is `fill` along whichever axis the parent runs) needs a parent a component's classes
+   do not have, so only Tailwind's weight and size names would be shared, and they stay where each
+   reads them.

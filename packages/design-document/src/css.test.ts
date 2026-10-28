@@ -2,6 +2,8 @@ import { emptyDesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { describe, expect, it } from "vitest";
 import {
+  baseStyle,
+  declarationsOf,
   makeStyleContext,
   nodeStyle,
   pageDefaultsStyle,
@@ -101,6 +103,74 @@ describe("nodeStyle", () => {
       margin: "0",
     });
     expect(tagOf(node)).toBe("h2");
+  });
+});
+
+describe("declarationsOf", () => {
+  it("says a node's look as CSS, tokens kept by name and pixels as numbers", () => {
+    const node: DesignNode = {
+      children: [],
+      fill: "$color-primary",
+      gap: "$spacing-4",
+      id: "r",
+      padding: { left: 8, top: 4 },
+      type: "row",
+      width: "hug",
+    };
+    expect(declarationsOf(node, makeStyleContext(ds, "row"))).toEqual({
+      background: "$color-primary",
+      display: "flex",
+      flexDirection: "row",
+      flexGrow: "0",
+      flexShrink: "0",
+      gap: "$spacing-4",
+      paddingLeft: 8,
+      paddingTop: 4,
+      width: "fit-content",
+    });
+  });
+
+  it("sets a text in its style, a token's size with the line height it is paired with", () => {
+    const node: DesignNode = {
+      id: "t",
+      role: "heading",
+      text: "Two\nlines",
+      textStyle: "Title",
+      type: "text",
+    };
+    expect(declarationsOf(node, makeStyleContext(ds))).toEqual({
+      fontSize: "$text-lg",
+      fontWeight: "700",
+      lineHeight: "$text-lg--line-height",
+      whiteSpace: "pre-wrap",
+    });
+  });
+
+  it("keeps a node's own minimum over the one a fill sets", () => {
+    const node: DesignNode = {
+      children: [],
+      id: "g",
+      minWidth: 26,
+      type: "group",
+      width: "fill",
+    };
+    expect(declarationsOf(node, makeStyleContext(ds, "row"))).toMatchObject({
+      flexGrow: "1",
+      minWidth: 26,
+    });
+  });
+
+  it("is what the canvas draws, over what it draws besides", () => {
+    const page: DesignNode = { children: [], id: "p", type: "page" };
+    const ctx = makeStyleContext(ds);
+    expect(declarationsOf(page, ctx).minHeight).toBe("100vh");
+    // In its frame, the screen is the frame.
+    expect(nodeStyle(page, ctx)).toEqual({
+      ...baseStyle(page),
+      display: "flex",
+      flexDirection: "column",
+      minHeight: "100%",
+    });
   });
 });
 

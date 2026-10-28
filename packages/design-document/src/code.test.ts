@@ -1,16 +1,17 @@
 import type { DesignNode, PageNode } from "@ultrapaint/contracts/document";
+import type { ClassWriter } from "@ultrapaint/contracts/node-style";
 import { describe, expect, it } from "vitest";
-import {
-  type ClassWriter,
-  pageComponentName,
-  responsiveClasses,
-  toCode,
-} from "./code.ts";
+import { pageComponentName, toCode } from "./code.ts";
 
-/** A style system that writes each node's type and its parent's layout, to see where they go. */
+/** A style system that writes each declaration as a class, to see what it is given. */
 const writer: ClassWriter = {
-  classes: (node, parent) => [`is-${node.type}`, `in-${parent}`],
-  wrapper: (classes) => ["around", ...classes],
+  classes: (styles) =>
+    styles.flatMap(({ breakpoint, declarations }) =>
+      Object.entries(declarations).map(
+        ([property, value]) =>
+          `${breakpoint === null ? "" : `${breakpoint}/`}${property}:${value}`
+      )
+    ),
 };
 
 describe("toCode", () => {
@@ -18,14 +19,24 @@ describe("toCode", () => {
     const page: PageNode = {
       children: [
         {
-          children: [{ id: "t", role: "heading", text: "Hi", type: "text" }],
+          children: [
+            {
+              id: "t",
+              role: "heading",
+              text: "Hi",
+              type: "text",
+              width: "fill",
+            },
+          ],
           id: "row",
           type: "row",
+          width: "fill",
         },
         {
           component: "Button",
           from: "@acme/ui/button",
           id: "b",
+          padding: 8,
           text: "Go",
           type: "instance",
         },
@@ -38,23 +49,24 @@ describe("toCode", () => {
 
 export default function HomePage() {
   return (
-    <div className="is-page in-free">
-      <div className="is-row in-column">
-        <h1 className="is-text in-row">Hi</h1>
+    <div className="display:flex flexDirection:column minHeight:100vh">
+      <div className="display:flex flexDirection:row alignSelf:stretch">
+        <h1 className="flexBasis:0% flexGrow:1 flexShrink:1 minWidth:0">Hi</h1>
       </div>
-      <Button className="is-instance in-column">Go</Button>
+      <Button className="padding:8">Go</Button>
     </div>
   );
 }`
     );
   });
 
-  it("puts the classes of a component that keeps its props on the element around it", () => {
+  it("puts the classes of a component that keeps its props on the column around it", () => {
     const node: DesignNode = {
       component: "Card",
       from: "@acme/ui/card",
       id: "card",
       type: "instance",
+      width: 320,
     };
     expect(
       toCode(node, writer, {
@@ -63,7 +75,7 @@ export default function HomePage() {
       })
     ).toBe(`import { Card } from "@acme/ui/card";
 
-<div className="around is-instance in-column">
+<div className="display:flex flexDirection:column width:320">
   <Card />
 </div>`);
   });
@@ -72,8 +84,7 @@ export default function HomePage() {
 describe("a tinted image", () => {
   it("is written as its file masking its tint, the tint taking the fill's classes", () => {
     const fills: ClassWriter = {
-      classes: (node) => [`bg-${node.fill ?? "none"}`],
-      wrapper: (classes) => classes,
+      classes: ([base]) => [`bg-${base?.declarations.background ?? "none"}`],
     };
     const icon: DesignNode = {
       alt: "Check",
@@ -102,26 +113,42 @@ describe("pageComponentName", () => {
   });
 });
 
-describe("responsiveClasses", () => {
-  it("lets a class of a breakpoint take over from one of its group, and bounds the rest", () => {
-    expect(
-      responsiveClasses(
-        [null, "md", "lg"],
-        [
-          ["gap-4", "self-start", "w-fit"],
-          ["gap-6", "self-stretch"],
-          ["gap-4", "w-50"],
-        ]
-      )
-    ).toEqual([
-      "gap-4",
-      // Taken over at md, and the one that took over stops at lg: so does it.
-      "max-lg:self-start",
-      "max-md:w-fit",
-      "md:gap-6",
-      "md:max-lg:self-stretch",
-      "lg:gap-4",
-      "lg:w-50",
-    ]);
+describe("breakpoints", () => {
+  const breakpoints = [
+    { min: 768, name: "md" },
+    { min: 1024, name: "lg" },
+  ];
+
+  it("gives the style system a node's declarations at each breakpoint the tree sets", () => {
+    const node: DesignNode = {
+      at: { lg: { gap: 32 } },
+      children: [
+        { at: { md: { width: 200 } }, children: [], id: "a", type: "group" },
+      ],
+      gap: 16,
+      id: "s",
+      type: "column",
+    };
+    expect(toCode(node, writer, { breakpoints })).toBe(
+      `<div
+  className="display:flex flexDirection:column gap:16 md/display:flex md/flexDirection:column md/gap:16 lg/display:flex lg/flexDirection:column lg/gap:32"
+>
+  <div className="md/width:200 lg/width:200" />
+</div>`
+    );
+  });
+
+  it("hides an element written once per run of widths outside its run", () => {
+    const node: DesignNode = {
+      at: { md: { text: "Wide" } },
+      id: "t",
+      role: "paragraph",
+      text: "Narrow",
+      type: "text",
+    };
+    expect(toCode(node, writer, { breakpoints })).toBe(
+      `<p className="md/display:none">Narrow</p>
+<p className="display:none">Wide</p>`
+    );
   });
 });
