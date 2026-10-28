@@ -275,3 +275,59 @@ unless the step says otherwise.
    not read again; a page deleted with its variant answers both (failing first); the newest Figma
    import's theme, and none without one; a commit publishes git's status (failing first); a
    comment is signed with the git user name changed after the project opened (failing first).
+6. **The token table finished** (`packages/contracts/src/token-table.ts` and `token-value.ts`).
+   `token-table` owns the spacing scale: `DEFAULT_SPACING_BASE` (`0.25rem`, the one default),
+   `SPACING_STEPS` (the named steps a designer is offered, the web's `SPACING_SCALE`),
+   `spacingStepOf(name)` (`spacing-2.5` → 2.5; null for a named spacing, `spacing-4x` included),
+   `spacingStepName(step)`, `spacingBasePx(base)` (one step in pixels, an `em` as the root's, 4
+   when there is no base or it is no positive length), `spacingStepAt(px, basePx)` (the whole or
+   half step a length lands on) and `spacingLength(base, step)` (a step in the base's own unit,
+   `0.25rem` × 9 → `2.25rem`). It reads a kind for every caller too: `tokensOfKind(ds, kind)`,
+   `shortName(name)` (without the kind's own prefix: `card`, `lg`; `inset-shadow-sm` kept) and
+   `tokenOf(ds, name)` (the spacing base included). `token-value` owns a length in pixels:
+   `toPx(value, {em})` counts `px` and `rem`, an `em` only when the caller says what one is (a
+   media query's, a value drawn at the root's size: `ROOT_PX`), so comparing tokens never takes
+   `1em` for `16px`, and a plain number is no length; `toMs` a duration. It follows `var()`
+   (`resolveVars`, the Tailwind package's: an unknown variable or a cycle left as written, each
+   variable followed once) and works out a `calc()` of lengths (`resolveCalc`, DESIGN.md's), and
+   `resolveCss` does both and gives none when a variable is left: the two callers differed only
+   in that, so one walk answers both, the second through what it left. The copies go: the
+   spacing step's regex (7 where there was 1: `SPACING_STEP_RE` in design-document, Tailwind's
+   rewrite and the setup's rules, the looser `SPACING_MULTIPLE_RE`, the three `STEP_RE` of a
+   class's value), the base's fallback (11 lines of `"0.25rem"` or `?? 4`, the server's own
+   empty theme being `emptyDesignSystem()`), the two `spacingStep`s, `spacingBaseOf` and
+   `steps`, design-document's `toPixels` and the scan's `lengthOf` conversion (its sort key is
+   `toPx ?? toMs`), design-md's `substitute` and `calculate` with their parser (`values.ts` 213
+   lines shorter) and `stylesheet.ts`'s `resolveVars` (136). `targetsOf`, Tailwind's rewrite
+   rules, the class writer's font sizes and the breakpoints read their lists through
+   `tokensOfKind`. Left alone: `component-style`'s `lengthOf` (a class's value as DESIGN.md's
+   length) and design-md's `lengthOf` (a dimension the format holds) convert nothing to pixels;
+   Tailwind's `rounded` default (`0.25rem`) is a radius, not the base. On the web, 12 files read
+   the token table where none did: the inspector's options (`tokenOptions`, exported with
+   `FIELD_TOKEN_KINDS`) are the named steps over `spacingBasePx` and each kind's tokens by
+   `shortName`, where a switch named each kind's list and prefix; the toolbar's labels and
+   selects, the Design system panel (its sections, bars, base and elevation previews),
+   `token-edit`'s value (a 15-list walk), the starters, a group's fill, Map's targets and the
+   settings' count call it. The two `COLOR_PREFIX_RE`s and the toolbar's prefix table go;
+   `spacing.ts` keeps only the toolbar's few steps. Of 48 direct walks of the lists in the web 5
+   are left: the colour pickers and the panel draw colours by group, a cache key and a local
+   name. Source is 16 lines shorter (+675 −691), the tests 128 longer. Also: `tokensIn` read
+   `$spacing-2.5` as `spacing-2` and `$spacing-4x` as a step of the base, so the tokens a design
+   relies on (ADR 0028) named a token that is not there and the base where it was not used, and
+   now names `spacing-2.5` and `spacing-4x` alone; a breakpoint written as a plain number
+   (`900`) is no longer a breakpoint, one in `em` is still the root's; the Design system panel's
+   bars, the spacing base and the editor's labels no longer read a plain number as pixels, and a
+   base of `0` is 4 in the web as in the code (the toolbar divided by it); the scan sorts a
+   scale in `em` at 16px a unit; the class writer and the toolbar's label take a length a thousandth
+   of a step off a half step as that step; a component's classes are read off a base in any
+   length unit; DESIGN.md's mirror follows a variable more than 10 deep and reads `var()` with
+   quoted strings as the Tailwind scan does; the toolbar's label takes any kind's prefix off,
+   `token-edit` offers the spacing base's value, and an elevation previews a token of any kind.
+   `token-table.test.ts` has 44 more (each kind listed and shortened, the short name kept, step
+   names, the named steps read back, the base from 10 values, the step of 8 lengths, a step's
+   length); `token-value.test.ts` has the `var()` suite moved from the Tailwind package and 3
+   more for `resolveCss` and `resolveCalc` (unknowns, cycles, an unclosed `var(`, 30 deep,
+   shadcn's radii, units that do not meet); `tokens.test.ts` (failing first) and
+   `breakpoints.test.ts` (failing first) pin `tokensIn` and an `em` or bare breakpoint;
+   `token-options.test.ts` checks a token of every field kind appears in the pickers' options by
+   its short name, the named steps over the base, a colour's group and a font's family.

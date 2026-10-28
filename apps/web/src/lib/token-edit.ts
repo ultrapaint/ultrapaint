@@ -3,6 +3,7 @@
  * changes the design system, one undo step, and the code follows on export, or at once with
  * `codeTokens: auto`. The toast that reports it puts the old value back.
  */
+import { tokenOf } from "@ultrapaint/contracts/token-table";
 import { toast } from "sonner";
 import { promptDialog } from "../components/dialogs.tsx";
 import { api } from "../state/connection.ts";
@@ -17,30 +18,8 @@ const setToken = (name: string, value: string | null) =>
   );
 
 /** The default theme's value of a token, as the design system has it from the code. */
-const defaultValueOf = (name: string): string | undefined => {
-  const ds = useDesignSystem.getState().designSystem;
-  if (!ds) {
-    return undefined;
-  }
-  const lists = [
-    ...ds.colors.flatMap((g) => g.tokens),
-    ...ds.radius,
-    ...ds.shadows,
-    ...(ds.borderWidths ?? []),
-    ...(ds.spacing.tokens ?? []),
-    ...ds.typography.sizes,
-    ...ds.typography.weights,
-    ...ds.typography.fonts,
-    ...(ds.typography.leading ?? []),
-    ...(ds.typography.tracking ?? []),
-    ...(ds.layout?.breakpoints ?? []),
-    ...(ds.layout?.containers ?? []),
-    ...(ds.motion?.durations ?? []),
-    ...(ds.motion?.easings ?? []),
-    ...(ds.motion?.animations ?? []),
-  ];
-  return lists.find((t) => t.name === name)?.value;
-};
+const defaultValueOf = (name: string): string | undefined =>
+  tokenOf(useDesignSystem.getState().designSystem, name)?.value;
 
 export const editTokenValue = async (name: string, shown: string) => {
   if (!ensureEditable()) {

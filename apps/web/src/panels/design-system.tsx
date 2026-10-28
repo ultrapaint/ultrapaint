@@ -16,12 +16,19 @@ import {
   type TokenGroup,
 } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
+import {
+  shortName,
+  spacingBasePx,
+  tokenOf,
+  tokensOfKind,
+} from "@ultrapaint/contracts/token-table";
+import { ROOT_PX, toPx } from "@ultrapaint/contracts/token-value";
+import type { TokenKind } from "@ultrapaint/contracts/tokens";
 import { groupTextStyles } from "@ultrapaint/design-document/text-styles";
 import {
   isToken,
   tokenName,
   tokenRef,
-  toPixels,
 } from "@ultrapaint/design-document/tokens";
 import {
   Check,
@@ -63,8 +70,6 @@ import { useSync } from "../state/sync.ts";
 import { ComponentsView } from "./design-components.tsx";
 import { DesignMdView, SectionProse } from "./design-md-view.tsx";
 import { SyncView } from "./sync.tsx";
-
-const COLOR_PREFIX_RE = /^color-/;
 
 const copy = (text: string) => {
   navigator.clipboard?.writeText(text).then(
@@ -118,12 +123,12 @@ const Swatches = ({
                 value,
               })
             }
-            title={`${token.name}: ${value}${token.description ? `\n${token.description}` : ""}\nbg-${token.name.replace(COLOR_PREFIX_RE, "")}`}
+            title={`${token.name}: ${value}${token.description ? `\n${token.description}` : ""}\nbg-${shortName(token.name)}`}
             type="button"
           >
             <span className="h-9 w-full" style={{ background: value }} />
             <span className="truncate px-1 pt-0.5 font-body text-foreground/90">
-              {token.name.replace(COLOR_PREFIX_RE, "")}
+              {shortName(token.name)}
             </span>
             <span className="truncate px-1 pb-0.5 font-code text-muted-foreground leading-4">
               {value}
@@ -140,7 +145,7 @@ const stylesMatching = (ds: DesignSystem, q: string) =>
   ds.typography.styles.filter((s) => matches({ name: s.name, value: "" }, q));
 
 const sizesMatching = (ds: DesignSystem, q: string) =>
-  ds.typography.sizes.filter((s) => matches(s, q));
+  tokensOfKind(ds, "fontSize").filter((s) => matches(s, q));
 
 const SAMPLE_ID_RE = /^(?:style|size|sample|label)-(\d+)$/;
 
@@ -362,9 +367,7 @@ const resolveIn = (
   }
   const name = tokenName(value);
   const themes = ds.themes ?? ["light"];
-  const token = [...ds.colors.flatMap((g) => g.tokens), ...ds.shadows].find(
-    (t) => t.name === name
-  );
+  const token = tokenOf(ds, name);
   return token ? valueIn(token, theme, themes) : undefined;
 };
 
@@ -407,16 +410,19 @@ const ElevationRows = ({
   </div>
 );
 
+/** A length in pixels as the panel draws it, an `em` at the root's size. */
+const pxOf = (value: string) => toPx(value, { em: ROOT_PX }) ?? 0;
+
 /** A length as a bar, its widest at the panel's preview column. */
 const LengthBar = ({ max, value }: { max: number; value: string }) => (
   <span
     className="h-2 rounded-sm bg-brand/60"
-    style={{ width: Math.max(2, ((toPixels(value) ?? 0) / max) * 56) }}
+    style={{ width: Math.max(2, (pxOf(value) / max) * 56) }}
   />
 );
 
 const widest = (tokens: readonly Token[]) =>
-  Math.max(1, ...tokens.map((t) => toPixels(t.value) ?? 0));
+  Math.max(1, ...tokens.map((t) => pxOf(t.value)));
 
 const Contents = ({
   document,
@@ -436,10 +442,10 @@ const Contents = ({
   const groups = ds.colors
     .map((g) => ({ ...g, tokens: g.tokens.filter((t) => matches(t, q)) }))
     .filter((g) => g.tokens.length > 0);
-  const base = toPixels(ds.spacing.base) ?? 4;
-  const radius = ds.radius.filter((t) => matches(t, q));
-  const shadows = ds.shadows.filter((t) => matches(t, q));
-  const fonts = ds.typography.fonts.filter((t) => matches(t, q));
+  const base = spacingBasePx(ds.spacing.base);
+  const radius = tokensOfKind(ds, "radius").filter((t) => matches(t, q));
+  const shadows = tokensOfKind(ds, "shadow").filter((t) => matches(t, q));
+  const fonts = tokensOfKind(ds, "font").filter((t) => matches(t, q));
   return (
     <>
       <Heading>Colours</Heading>
@@ -477,7 +483,7 @@ const Contents = ({
             />
           </div>
         ))}
-        {(ds.spacing.tokens ?? []).map((t) => (
+        {tokensOfKind(ds, "spacing").map((t) => (
           // biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/noNoninteractiveElementInteractions: a shortcut for the pointer; the inspector's fields take the same tokens.
           <div
             className="flex items-center gap-2"
@@ -549,17 +555,17 @@ const MoreFoundations = ({
   q: string;
   theme: string;
 }) => {
-  const filter = (tokens: readonly Token[] | undefined) =>
-    (tokens ?? []).filter((t) => matches(t, q));
+  const filter = (kind: TokenKind) =>
+    tokensOfKind(ds, kind).filter((t) => matches(t, q));
   const levels = (ds.elevation ?? []).filter(
     (l) => !q || l.name.toLowerCase().includes(q)
   );
-  const borderWidths = filter(ds.borderWidths);
-  const breakpoints = filter(ds.layout?.breakpoints);
-  const containers = filter(ds.layout?.containers);
-  const easings = filter(ds.motion?.easings);
-  const durations = filter(ds.motion?.durations);
-  const animations = filter(ds.motion?.animations);
+  const borderWidths = filter("borderWidth");
+  const breakpoints = filter("breakpoint");
+  const containers = filter("container");
+  const easings = filter("easing");
+  const durations = filter("duration");
+  const animations = filter("animation");
   const motion = [...easings, ...durations, ...animations];
   return (
     <>

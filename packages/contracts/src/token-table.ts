@@ -5,6 +5,9 @@
  * Everything that walks, adds, changes or takes out a design system's tokens goes through this
  * module rather than naming the lists itself, so a kind is never left out of one of them.
  *
+ * It owns the spacing scale too: a page's `$spacing-4` and a class's `p-4` are 4 × the spacing
+ * base, a step no list holds, which only a named spacing (`spacing-gutter`) overrides.
+ *
  * Pure, and works on a design system's JSON before it is decoded where it says so: a file written
  * after ADR 0035 keeps no values, and one written before it may lack some.
  */
@@ -14,10 +17,79 @@ import type {
   FontSizeToken,
   Token,
 } from "./design-system.ts";
+import {
+  formatNumber,
+  parseLength,
+  printLength,
+  ROOT_PX,
+  toPx,
+} from "./token-value.ts";
 import type { TokenChange, TokenKind } from "./tokens.ts";
 
 /** The spacing base's name: `--spacing`, the step every spacing utility multiplies. */
 export const SPACING_BASE = "spacing";
+
+/** The spacing base a design system that sets none has: Tailwind's, a step of 4px. */
+export const DEFAULT_SPACING_BASE = "0.25rem";
+const DEFAULT_BASE_PX = 0.25 * ROOT_PX;
+
+/**
+ * The steps of the spacing scale that have a name of their own (`p-4`, `gap-0.5`), each a
+ * multiple of the spacing base. Tailwind takes any multiple; these are the ones a designer is
+ * offered, the same wherever a spacing is picked.
+ */
+export const SPACING_STEPS: readonly number[] = [
+  0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 20, 24,
+  28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 72, 80, 96,
+];
+
+const SPACING_STEP_RE = /^spacing-(\d+(?:\.\d+)?)$/;
+
+/**
+ * The step of the spacing scale a name is, `spacing-4` → 4, `spacing-2.5` → 2.5: a multiple of the
+ * base, as `$spacing-4` in a page and `p-4` in a class (whose value is the name's step). Null for
+ * a named spacing (`spacing-gutter`, `spacing-4x`), the base itself and any other name.
+ */
+export const spacingStepOf = (name: string): number | null => {
+  const step: RegExpExecArray | null = SPACING_STEP_RE.exec(name);
+  return step?.[1] === undefined ? null : Number(step[1]);
+};
+
+/** The name of a step of the spacing scale: 4 → `spacing-4`, 2.5 → `spacing-2.5`. */
+export const spacingStepName = (step: number): string =>
+  `${SPACING_BASE}-${formatNumber(step)}`;
+
+/**
+ * One step of the spacing scale in pixels: the base's length (an `em` as the root's), else the
+ * default's 4 when there is no base or it is no positive length.
+ */
+export const spacingBasePx = (base: string | null | undefined): number => {
+  const px = base ? toPx(base, { em: ROOT_PX }) : null;
+  return px !== null && px > 0 ? px : DEFAULT_BASE_PX;
+};
+
+/**
+ * The step of the spacing scale a length in pixels is, 16 → 4 on a 4px base: a whole or half
+ * step. Tailwind takes any quarter of one, but past the half steps its scale has always had
+ * (`p-2.5`) a length reads as off the grid; null for one.
+ */
+export const spacingStepAt = (px: number, basePx: number): number | null => {
+  const step = px / basePx;
+  const half = Math.round(step * 2) / 2;
+  return Math.abs(half - step) < 0.001 ? half : null;
+};
+
+/**
+ * A step's length in the base's own unit, 9 steps of `0.25rem` → `2.25rem`; the default's when
+ * there is no base, null when the base is no length.
+ */
+export const spacingLength = (
+  base: string | null | undefined,
+  step: number
+): string | null => {
+  const length = parseLength(base || DEFAULT_SPACING_BASE);
+  return length && printLength({ ...length, value: length.value * step });
+};
 
 /** What a font size's line height is called beside it: `text-sm--line-height`. */
 export const lineHeightName = (name: string): string => `${name}--line-height`;
@@ -98,6 +170,14 @@ export const tokenKindOf = (name: string): TokenKind =>
 export const tokenPrefix = (kind: TokenKind): string =>
   TOKEN_TABLE.find((entry) => entry.kind === kind)?.prefixes[0] ?? "";
 
+/** A token's name without its kind's own prefix, as a picker shows it: `color-card` → `card`. */
+export const shortName = (name: string): string => {
+  const prefix = tokenPrefix(tokenKindOf(name));
+  return prefix !== "" && name.startsWith(prefix)
+    ? name.slice(prefix.length)
+    : name;
+};
+
 /** A token as a list holds it: a font size has its line height, a font where it is loaded from. */
 export type ListedToken = Token &
   Partial<Pick<FontSizeToken, "lineHeight">> &
@@ -167,6 +247,18 @@ export const listedTokens = (ds: DesignSystem): ListedToken[] =>
   ) as ListedToken[];
 
 /**
+ * The tokens a design system lists of one kind, in its list's order: the colours of every group,
+ * the named spacings without the base. None for `other`.
+ */
+export const tokensOfKind = (
+  ds: DesignSystem | null | undefined,
+  kind: TokenKind
+): ListedToken[] => {
+  const entry = TOKEN_TABLE.find((e) => e.kind === kind);
+  return ds && entry ? (listsAt(ds, entry.list).flat() as ListedToken[]) : [];
+};
+
+/**
  * Every token of a design system once, each with its other themes' values: the spacing base
  * first, as `spacing`, then what the lists hold. A name listed twice is the first one.
  */
@@ -181,6 +273,13 @@ export const allTokens = (ds: DesignSystem): ListedToken[] => {
     return fresh;
   });
 };
+
+/** A token of a design system by its name, the spacing base as `spacing`, with its values. */
+export const tokenOf = (
+  ds: DesignSystem | null | undefined,
+  name: string
+): ListedToken | undefined =>
+  ds ? allTokens(ds).find((t) => t.name === name) : undefined;
 
 /** The JSON with `tokens` at the end of the list at `path`, the objects on the way made. */
 const appendAt = (

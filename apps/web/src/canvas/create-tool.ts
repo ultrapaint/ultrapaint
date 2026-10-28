@@ -6,6 +6,7 @@
  * Select, as in every design tool.
  */
 import type { DesignNode } from "@ultrapaint/contracts/document";
+import { tokenOf } from "@ultrapaint/contracts/token-table";
 import { newPrimitive } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { create } from "zustand";
@@ -84,10 +85,7 @@ export const cancelCreate = () =>
 /** On the canvas a group stands alone, like a frame: it gets the design's background. */
 const canvasFill = () => {
   const ds = useDesignSystem.getState().designSystem;
-  const named = ds?.colors.some((g) =>
-    g.tokens.some((t) => t.name === "color-background")
-  );
-  return named ? "$color-background" : "#ffffff";
+  return tokenOf(ds, "color-background") ? "$color-background" : "#ffffff";
 };
 
 const groupNode = (box: ReturnType<typeof boxOf>, drop: Drop): DesignNode => {

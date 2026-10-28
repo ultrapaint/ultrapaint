@@ -11,6 +11,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { tokenKindOf } from "@ultrapaint/contracts/token-table";
+import { resolveVars } from "@ultrapaint/contracts/token-value";
 import type {
   FileEdit,
   SourceToken,
@@ -33,7 +34,6 @@ import {
   isReset,
   parseStylesheet,
   resetCovers,
-  resolveVars,
 } from "./stylesheet.ts";
 
 const ALIAS_RE = /^var\(\s*(--[\w-]+)\s*\)$/;

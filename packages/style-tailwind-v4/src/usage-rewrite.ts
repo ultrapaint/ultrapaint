@@ -12,7 +12,14 @@ import {
   type UsageLeft,
   type UsageValue,
 } from "@ultrapaint/contracts/design-system-setup";
-import { tokenPrefix } from "@ultrapaint/contracts/token-table";
+import {
+  spacingBasePx,
+  spacingStepAt,
+  spacingStepName,
+  spacingStepOf,
+  tokenPrefix,
+  tokensOfKind,
+} from "@ultrapaint/contracts/token-table";
 import { sameValue, toPx } from "@ultrapaint/contracts/token-value";
 import type {
   UsageOccurrence,
@@ -28,22 +35,7 @@ import {
 } from "./usage-scan.ts";
 
 const NUMBER_RE = /^-?\d+(\.\d+)?$/;
-const SPACING_STEP_RE = /^spacing-(\d+(?:\.\d+)?)$/;
-const TRAILING_ZERO_RE = /\.0$/;
 const REGEX_CHARS_RE = /[.*+?^${}()|[\]\\]/g;
-
-/** `2` or `2.5`: a step written as Tailwind writes it. */
-const stepName = (step: number) =>
-  Number.isInteger(step)
-    ? String(step)
-    : step.toFixed(1).replace(TRAILING_ZERO_RE, "");
-
-/** A length on the spacing scale, as its step: 16px is `spacing-4` on a 4px base. */
-const spacingStep = (px: number, base: number) => {
-  const step = Math.abs(px) / base;
-  const half = Math.round(step * 2) / 2;
-  return Math.abs(half - step) < 0.001 && half > 0 ? half : null;
-};
 
 /** The token of a kind whose value is this length, in pixels. */
 const tokenOfLength = (
@@ -70,15 +62,16 @@ const byToken: Rule = (value) => {
   };
 };
 
+/** A length on the spacing scale, as its step: 16px is `spacing-4` on a 4px base; a zero is none. */
 const bySpacing: Rule = (value, ds) => {
-  const px = toPx(value.value);
-  const base = toPx(ds.spacing.base) ?? 4;
-  const step = px === null ? null : spacingStep(px, base);
-  return step === null
+  const px = Math.abs(toPx(value.value) ?? 0);
+  const base = spacingBasePx(ds.spacing.base);
+  const step = spacingStepAt(px, base);
+  return step === null || step === 0
     ? null
     : {
-        note: `On the scale: ${Math.abs(px ?? 0)}px is ${stepName(step)} × ${base}px`,
-        target: `spacing-${stepName(step)}`,
+        note: `On the scale: ${px}px is ${step} × ${base}px`,
+        target: spacingStepName(step),
       };
 };
 
@@ -94,14 +87,16 @@ const byLength =
   };
 
 const byWeight: Rule = (value, ds) => {
-  const name = ds.typography.weights.find(
+  const name = tokensOfKind(ds, "fontWeight").find(
     (w) => w.value.trim() === value.value
   )?.name;
   return name ? { note: EXACT, target: name } : null;
 };
 
 const byShadow: Rule = (value, ds) => {
-  const name = ds.shadows.find((t) => sameValue(t.value, value.value))?.name;
+  const name = tokensOfKind(ds, "shadow").find((t) =>
+    sameValue(t.value, value.value)
+  )?.name;
   return name ? { note: EXACT, target: name } : null;
 };
 
@@ -117,9 +112,9 @@ const byLayer: Rule = (value, ds) => {
 const RULES: Record<UsageKind, Rule> = {
   color: byToken,
   element: byToken,
-  fontSize: byLength((ds) => ds.typography.sizes),
+  fontSize: byLength((ds) => tokensOfKind(ds, "fontSize")),
   fontWeight: byWeight,
-  radius: byLength((ds) => ds.radius),
+  radius: byLength((ds) => tokensOfKind(ds, "radius")),
   shadow: byShadow,
   spacing: bySpacing,
   zIndex: byLayer,
@@ -190,12 +185,11 @@ const cssValue = (
   if (kind === "element") {
     return null;
   }
-  const step: RegExpExecArray | null = SPACING_STEP_RE.exec(target);
-  if (kind === "spacing" && step && where === "inline") {
-    return `calc(var(--spacing) * ${negative ? "-" : ""}${step[1]})`;
+  const step = kind === "spacing" ? spacingStepOf(target) : null;
+  if (step !== null && where === "inline") {
+    return `calc(var(--spacing) * ${negative ? "-" : ""}${step})`;
   }
-  const css =
-    kind === "spacing" && step ? `--spacing(${step[1]})` : `var(--${target})`;
+  const css = step === null ? `var(--${target})` : `--spacing(${step})`;
   return negative ? `calc(${css} * -1)` : css;
 };
 

@@ -15,6 +15,7 @@ import {
   type UsageKind,
   type UsageMapping,
 } from "@ultrapaint/contracts/design-system-setup";
+import { spacingStepOf } from "@ultrapaint/contracts/token-table";
 import type { UsageSuggestion } from "@ultrapaint/framework-api/node";
 import { plural } from "@ultrapaint/shared/text";
 
@@ -26,7 +27,6 @@ const SUMMARY_KINDS = 3;
 const BATCH_FILES = 12;
 /** Tokens a refusal lists before it stops. */
 const LISTED_TOKENS = 12;
-const SPACING_STEP_RE = /^spacing-\d+(\.\d+)?$/;
 const NUMBER_RE = /^-?\d+$/;
 
 const offOf = (inventory: UsageInventory, kind: UsageKind) => {
@@ -134,7 +134,7 @@ export const targetProblem = (
   ds: DesignSystem,
   components: readonly string[]
 ): string | null => {
-  if (kind === "spacing" && SPACING_STEP_RE.test(target)) {
+  if (kind === "spacing" && spacingStepOf(target) !== null) {
     return null;
   }
   if (kind === "zIndex" && NUMBER_RE.test(target)) {

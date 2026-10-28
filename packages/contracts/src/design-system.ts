@@ -9,6 +9,7 @@
 import { Schema } from "effect";
 import { Json } from "./base.ts";
 import { SyncBaseline } from "./sync.ts";
+import { DEFAULT_SPACING_BASE } from "./token-table.ts";
 
 export const DESIGN_SYSTEM_FILE = "design-system.json";
 /**
@@ -366,7 +367,7 @@ export const emptyDesignSystem = (): DesignSystem => ({
   colors: [],
   radius: [],
   shadows: [],
-  spacing: { base: "0.25rem" },
+  spacing: { base: DEFAULT_SPACING_BASE },
   typography: { fonts: [], sizes: [], styles: [], weights: [] },
   version: 1,
 });

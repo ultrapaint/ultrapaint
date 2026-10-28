@@ -12,13 +12,11 @@ import {
   allTokens,
   lineHeightName,
   SPACING_BASE,
+  spacingStepOf,
 } from "@ultrapaint/contracts/token-table";
 import { childrenOf } from "./tree.ts";
 
 export const TOKEN_PREFIX = "$";
-
-const SPACING_STEP_RE = /^spacing-(\d+(?:\.\d+)?)$/;
-const PLAIN_NUMBER_RE = /^-?[\d.]+$/;
 
 export const isToken = (value: unknown): value is string =>
   typeof value === "string" && value.startsWith(TOKEN_PREFIX);
@@ -73,29 +71,16 @@ export const makeTokenResolver = (
     }
     const name = tokenName(value);
     // Tailwind v4 has no variable per spacing step: `p-4` is four times `--spacing`.
-    const step: RegExpExecArray | null = SPACING_STEP_RE.exec(name);
-    if (step && !values.has(name)) {
-      return `calc(${variable(SPACING_BASE)} * ${step[1]})`;
+    const step = spacingStepOf(name);
+    if (step !== null && !values.has(name)) {
+      return `calc(${variable(SPACING_BASE)} * ${step})`;
     }
     return variable(name);
   };
   return { css, valueOf: (name) => values.get(name) };
 };
 
-/** Pixels of a CSS length the design system writes, `0.25rem` → 4; null when unknown. */
-export const toPixels = (value: string, rootSize = 16): number | null => {
-  const n = Number.parseFloat(value);
-  if (!Number.isFinite(n)) {
-    return null;
-  }
-  if (value.endsWith("rem") || value.endsWith("em")) {
-    return n * rootSize;
-  }
-  return value.endsWith("px") || PLAIN_NUMBER_RE.test(value.trim()) ? n : null;
-};
-
-const TOKEN_REF_RE = /^\$([a-z0-9][\w-]*)/i;
-const SPACING_MULTIPLE_RE = /^spacing-\d/;
+const TOKEN_REF_RE = /^\$([a-z0-9][\w.-]*)/i;
 
 /** Every token a value names, however deep in it: `"$color-primary"` anywhere, by name. */
 export const tokensIn = (
@@ -108,7 +93,7 @@ export const tokensIn = (
     if (name) {
       into.add(name);
       // A step of the spacing scale is a multiple of `--spacing`, which is the token behind it.
-      if (SPACING_MULTIPLE_RE.test(name)) {
+      if (spacingStepOf(name) !== null) {
         into.add(SPACING_BASE);
       }
     }

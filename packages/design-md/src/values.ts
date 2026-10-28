@@ -1,15 +1,10 @@
 /**
  * CSS values as the format holds them. A colour is any CSS colour, as contracts' `isColor` reads
  * one; a dimension is a number in `px`, `em` or `rem`. The code writes values the format cannot
- * hold (`var(--radius)`, `calc(var(--radius) - 2px)`), so they are resolved first: variables from
- * the code's tokens, arithmetic on lengths worked out.
+ * hold (`var(--radius)`, `calc(var(--radius) - 2px)`), so they are resolved first, by contracts'
+ * `resolveCss`: variables from the code's tokens, arithmetic on lengths worked out.
  */
-import {
-  formatNumber,
-  parseLength,
-  parseNumber,
-  ROOT_PX,
-} from "@ultrapaint/contracts/token-value";
+import { parseLength, parseNumber } from "@ultrapaint/contracts/token-value";
 
 const FORMAT_UNITS: ReadonlySet<string> = new Set(["em", "px", "rem"]);
 
@@ -20,22 +15,6 @@ export const isDimension = (value: string): boolean =>
 /** A unitless number, as a string the code wrote. */
 export const isPlainNumber = (value: string): boolean =>
   parseNumber(value) !== null;
-
-/** The index of the parenthesis that closes the one at `open`, or -1. */
-const closing = (text: string, open: number): number => {
-  let depth = 0;
-  for (let i = open; i < text.length; i += 1) {
-    if (text[i] === "(") {
-      depth += 1;
-    } else if (text[i] === ")") {
-      depth -= 1;
-      if (depth === 0) {
-        return i;
-      }
-    }
-  }
-  return -1;
-};
 
 /** The first comma of `text` that is not inside parentheses, or -1. */
 const topLevelComma = (text: string): number => {
@@ -51,195 +30,6 @@ const topLevelComma = (text: string): number => {
     }
   }
   return -1;
-};
-
-const MAX_DEPTH = 10;
-const DASHES_RE = /^--/;
-
-/**
- * `var(--name)` replaced by the token's value, recursively, its fallback when the token is
- * unknown; null when a variable resolves to nothing.
- */
-const substitute = (
-  value: string,
-  lookup: (name: string) => string | undefined,
-  depth: number
-): string | null => {
-  if (depth > MAX_DEPTH) {
-    return null;
-  }
-  const at = value.indexOf("var(");
-  if (at < 0) {
-    return value;
-  }
-  const open = at + "var".length;
-  const end = closing(value, open);
-  if (end < 0) {
-    return null;
-  }
-  const inner = value.slice(open + 1, end);
-  const comma = topLevelComma(inner);
-  const name = (comma < 0 ? inner : inner.slice(0, comma))
-    .trim()
-    .replace(DASHES_RE, "");
-  const fallback = comma < 0 ? undefined : inner.slice(comma + 1).trim();
-  const found = lookup(name) ?? fallback;
-  if (found === undefined) {
-    return null;
-  }
-  const replaced = substitute(found, lookup, depth + 1);
-  if (replaced === null) {
-    return null;
-  }
-  return substitute(
-    `${value.slice(0, at)}${replaced}${value.slice(end + 1)}`,
-    lookup,
-    depth + 1
-  );
-};
-
-type Unit = "" | "em" | "px" | "rem";
-interface Quantity {
-  readonly n: number;
-  readonly unit: Unit;
-}
-
-const TOKEN_RE = /\s*(-?(?:\d+\.?\d*|\.\d+)(?:px|rem|em)?|infinity|[-+*/()])/iy;
-const QUANTITY_RE = /^(-?(?:\d+\.?\d*|\.\d+))(px|rem|em)?$/i;
-
-const tokenise = (text: string): string[] | null => {
-  const tokens: string[] = [];
-  TOKEN_RE.lastIndex = 0;
-  while (TOKEN_RE.lastIndex < text.length) {
-    const start = TOKEN_RE.lastIndex;
-    // Typed by hand: the linter otherwise takes the result for non-null.
-    const match: RegExpExecArray | null = TOKEN_RE.exec(text);
-    const token = match === null ? undefined : match[1];
-    if (token === undefined) {
-      return text.slice(start).trim() === "" ? tokens : null;
-    }
-    tokens.push(token.toLowerCase());
-  }
-  return tokens;
-};
-
-/** Two lengths in one unit: `rem` and `px` meet in pixels; `em` meets only `em`. */
-const together = (a: Quantity, b: Quantity): [Quantity, Quantity] | null => {
-  if (a.unit === b.unit) {
-    return [a, b];
-  }
-  const px = (q: Quantity): Quantity | null => {
-    if (q.unit === "px") {
-      return q;
-    }
-    return q.unit === "rem" ? { n: q.n * ROOT_PX, unit: "px" } : null;
-  };
-  const pa = px(a);
-  const pb = px(b);
-  return pa && pb ? [pa, pb] : null;
-};
-
-/** One number of a `calc()`: a length, a plain number, or infinity. */
-const quantityOf = (token: string): Quantity | null => {
-  if (token === "infinity") {
-    return { n: Number.POSITIVE_INFINITY, unit: "" };
-  }
-  const match: RegExpExecArray | null = QUANTITY_RE.exec(token);
-  if (match === null) {
-    return null;
-  }
-  const [, n = "", unit = ""] = match;
-  return { n: Number(n), unit: unit.toLowerCase() as Unit };
-};
-
-/** `a op b`, when the units allow it: a length times a number, a length over one, two lengths summed. */
-const combine = (a: Quantity, op: string, b: Quantity): Quantity | null => {
-  if (op === "*") {
-    return a.unit !== "" && b.unit !== ""
-      ? null
-      : { n: a.n * b.n, unit: a.unit || b.unit };
-  }
-  if (op === "/" && b.unit === "") {
-    return { n: a.n / b.n, unit: a.unit };
-  }
-  const both = together(a, b);
-  if (!both) {
-    return null;
-  }
-  const [x, y] = both;
-  if (op === "/") {
-    return { n: x.n / y.n, unit: "" };
-  }
-  return { n: op === "+" ? x.n + y.n : x.n - y.n, unit: x.unit };
-};
-
-/** `calc()`'s arithmetic on lengths and numbers: `+ - * /` and parentheses. */
-const evaluate = (tokens: readonly string[]): Quantity | null => {
-  let i = 0;
-  const next = () => {
-    const token = tokens[i];
-    i += 1;
-    return token;
-  };
-  const primary = (): Quantity | null => {
-    const token = next();
-    if (token === "(") {
-      const inner = sum();
-      return next() === ")" ? inner : null;
-    }
-    if (token === "-") {
-      const inner = primary();
-      return inner && { n: -inner.n, unit: inner.unit };
-    }
-    return token === undefined ? null : quantityOf(token);
-  };
-  const chain = (
-    operand: () => Quantity | null,
-    ops: readonly string[]
-  ): Quantity | null => {
-    let left = operand();
-    while (left && ops.includes(tokens[i] ?? "")) {
-      const op = next() ?? "";
-      const right = operand();
-      left = right && combine(left, op, right);
-    }
-    return left;
-  };
-  const product = () => chain(primary, ["*", "/"]);
-  const sum = (): Quantity | null => chain(product, ["+", "-"]);
-  const result = sum();
-  return i === tokens.length ? result : null;
-};
-
-/** What a radius the code makes infinite (`calc(infinity * 1px)`) is written as. */
-const INFINITE_PX = "9999px";
-
-const calculate = (value: string): string | null => {
-  const v = value.trim();
-  if (!(v.startsWith("calc(") && closing(v, 4) === v.length - 1)) {
-    return v;
-  }
-  const tokens = tokenise(v.slice(5, -1));
-  const result = tokens && evaluate(tokens);
-  if (!result) {
-    return null;
-  }
-  if (!Number.isFinite(result.n)) {
-    return result.unit === "px" ? INFINITE_PX : null;
-  }
-  return `${formatNumber(result.n)}${result.unit}`;
-};
-
-/**
- * A value of the code as plain CSS: variables replaced by the tokens' values, a `calc()` of
- * lengths worked out. Null when something cannot be resolved.
- */
-export const resolveCss = (
-  value: string,
-  lookup: (name: string) => string | undefined
-): string | null => {
-  const substituted = substitute(value.trim(), lookup, 0);
-  return substituted === null ? null : calculate(substituted);
 };
 
 const QUOTED_RE = /^(["'])(.*)\1$/;

@@ -7,7 +7,8 @@
  */
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
-import { toPixels } from "./tokens.ts";
+import { shortName, tokensOfKind } from "@ultrapaint/contracts/token-table";
+import { ROOT_PX, toPx } from "@ultrapaint/contracts/token-value";
 import { childrenOf } from "./tree.ts";
 
 export interface Breakpoint {
@@ -26,8 +27,6 @@ export const DEFAULT_BREAKPOINTS: readonly Breakpoint[] = [
   { min: 1536, name: "2xl" },
 ];
 
-const TOKEN_PREFIX = "breakpoint-";
-
 /** What the base, below every breakpoint, is called where a breakpoint's name would be. */
 export const BASE_NAME = "base";
 
@@ -35,11 +34,10 @@ export const BASE_NAME = "base";
 export const breakpointsOf = (
   ds: DesignSystem | null | undefined
 ): readonly Breakpoint[] => {
-  const found = (ds?.layout?.breakpoints ?? []).flatMap((token) => {
-    const min = toPixels(token.value);
-    const name = token.name.startsWith(TOKEN_PREFIX)
-      ? token.name.slice(TOKEN_PREFIX.length)
-      : token.name;
+  const found = tokensOfKind(ds, "breakpoint").flatMap((token) => {
+    // A media query's `em` is the root's.
+    const min = toPx(token.value, { em: ROOT_PX });
+    const name = shortName(token.name);
     return min === null || name === "" ? [] : [{ min, name }];
   });
   return found.length > 0

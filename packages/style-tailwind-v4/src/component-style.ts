@@ -5,6 +5,11 @@
  * (`hover:`, `dark:`, `md:`) is another state, and a colour with an opacity (`bg-primary/90`) is
  * not one the format can hold.
  */
+import {
+  SPACING_BASE,
+  spacingLength,
+  spacingStepOf,
+} from "@ultrapaint/contracts/token-table";
 import type {
   ComponentStyle,
   SourceToken,
@@ -12,7 +17,6 @@ import type {
 
 const CLASS_RE = /^(bg|text|rounded|p|px|py|h|w|size)(?:-(.+))?$/;
 const ARBITRARY_RE = /^\[(.+)\]$/;
-const STEP_RE = /^\d+(?:\.\d+)?$/;
 const LENGTH_RE = /^(-?\d*\.?\d+)(px|rem|em)$/;
 const SPACES_RE = /\s+/;
 const IMPORTANT_RE = /^!|!$/g;
@@ -30,17 +34,9 @@ export const groups = (
 /** What is inside `[…]`, for an arbitrary value. */
 export const arbitraryOf = (value: string) => groups(ARBITRARY_RE, value)[0];
 
-/** `n` steps of the spacing base: `0.25rem` × 9 → `2.25rem`. */
-const steps = (base: string, n: number): string | null => {
-  const [amount, unit] = groups(LENGTH_RE, base.trim());
-  if (amount === undefined || unit === undefined) {
-    return null;
-  }
-  return `${Number((Number(amount) * n).toFixed(4))}${unit}`;
-};
-
 export interface Reading {
-  readonly base: string;
+  /** The spacing base the code declares, when it reads lengths off the scale. */
+  readonly base?: string | undefined;
   readonly names: ReadonlySet<string>;
 }
 
@@ -60,10 +56,12 @@ const lengthOf = (value: string, { base, names }: Reading) => {
   if (value === "px") {
     return "1px";
   }
-  if (names.has(`spacing-${value}`)) {
-    return `$spacing-${value}`;
+  const name = `spacing-${value}`;
+  if (names.has(name)) {
+    return `$${name}`;
   }
-  return STEP_RE.test(value) ? steps(base, Number(value)) : null;
+  const step = spacingStepOf(name);
+  return step === null ? null : spacingLength(base, step);
 };
 
 export const radiusOf = (value: string | undefined, { names }: Reading) => {
@@ -111,7 +109,7 @@ export const componentStyle = (
   tokens: readonly SourceToken[]
 ): ComponentStyle => {
   const reading: Reading = {
-    base: tokens.find((t) => t.name === "spacing")?.value ?? "0.25rem",
+    base: tokens.find((t) => t.name === SPACING_BASE)?.value,
     names: new Set(tokens.map((t) => t.name)),
   };
   const found = new Map<string, string>();

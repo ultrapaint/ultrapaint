@@ -13,6 +13,12 @@ import type {
   Size,
   TextNode,
 } from "@ultrapaint/contracts/document";
+import {
+  shortName,
+  spacingBasePx,
+  spacingStepAt,
+  tokensOfKind,
+} from "@ultrapaint/contracts/token-table";
 import type { ClassWriter } from "@ultrapaint/design-document/code";
 import {
   makeStyleContext,
@@ -20,11 +26,7 @@ import {
   type StyleContext,
   typeSettingsOf,
 } from "@ultrapaint/design-document/css";
-import {
-  isToken,
-  tokenName,
-  toPixels,
-} from "@ultrapaint/design-document/tokens";
+import { isToken, tokenName } from "@ultrapaint/design-document/tokens";
 
 const WHITESPACE_RE = /\s+/g;
 
@@ -105,16 +107,15 @@ interface Scale {
 
 /**
  * A length on the spacing scale: a number is the step it lands on (16 over a 4px base is `4`)
- * and pixels only when it is off the scale, as the briefing asks of agents.
+ * and pixels only when it is off the scale, which is what brackets say, as the briefing asks of
+ * agents.
  */
 const spacing = (prefix: string, value: Length, scale: Scale): string => {
   if (typeof value === "number") {
-    const steps = value / scale.step;
-    // Tailwind v4 takes any quarter of a step, but past the half steps its scale has always had
-    // (`p-2.5`), a value reads as off the grid, which is what brackets say.
-    return Number.isInteger(steps * 2)
-      ? `${prefix}-${steps}`
-      : arbitrary(prefix, `${value}px`);
+    const step = spacingStepAt(value, scale.step);
+    return step === null
+      ? arbitrary(prefix, `${value}px`)
+      : `${prefix}-${step}`;
   }
   const keyword = LENGTH_KEYWORDS[value.trim()];
   if (keyword !== undefined) {
@@ -452,12 +453,12 @@ export const classesOf = (
   ds: DesignSystem | null | undefined,
   parent: ParentLayout = "free"
 ): string[] =>
-  classesWith(node, makeStyleContext(ds), { step: spacingStep(ds) }, parent);
-
-const spacingStep = (ds: DesignSystem | null | undefined) => {
-  const step = toPixels(ds?.spacing.base ?? "0.25rem");
-  return step && step > 0 ? step : 4;
-};
+  classesWith(
+    node,
+    makeStyleContext(ds),
+    { step: spacingBasePx(ds?.spacing.base) },
+    parent
+  );
 
 /** Tailwind's own font sizes, which `text-*` names beside the design system's. */
 const FONT_SIZES = new Set([
@@ -554,12 +555,10 @@ export const tailwindClasses = (
   ds: DesignSystem | null | undefined
 ): ClassWriter => {
   const styles = makeStyleContext(ds);
-  const scale = { step: spacingStep(ds) };
+  const scale = { step: spacingBasePx(ds?.spacing.base) };
   const sizes = new Set([
     ...FONT_SIZES,
-    ...(ds?.typography.sizes ?? []).map((t) =>
-      t.name.startsWith("text-") ? t.name.slice(5) : t.name
-    ),
+    ...tokensOfKind(ds, "fontSize").map((t) => shortName(t.name)),
   ]);
   return {
     classes: (node, parent) => classesWith(node, styles, scale, parent),

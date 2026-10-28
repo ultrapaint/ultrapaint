@@ -3,6 +3,7 @@ import { type DesignSystem, emptyDesignSystem } from "./design-system.ts";
 import {
   addTokens,
   allTokens,
+  DEFAULT_SPACING_BASE,
   fillValues,
   layValues,
   lineHeightName,
@@ -10,10 +11,19 @@ import {
   mapTokenRecords,
   removeTokens,
   SPACING_BASE,
+  SPACING_STEPS,
+  shortName,
+  spacingBasePx,
+  spacingLength,
+  spacingStepAt,
+  spacingStepName,
+  spacingStepOf,
   stripValues,
   TOKEN_TABLE,
   tokenKindOf,
+  tokenOf,
   tokenPrefix,
+  tokensOfKind,
   withEmptyValues,
   withTokenChanges,
 } from "./token-table.ts";
@@ -235,5 +245,89 @@ describe("a design system's values", () => {
       allTokens(themed).filter((t) => t.name !== "radius-x")
     );
     expect(fillValues(empty, () => undefined)).toEqual(empty);
+  });
+});
+
+describe("reading a kind", () => {
+  it.each(TOKEN_TABLE.map((e) => [e.kind] as const))(
+    "lists the %s tokens, by their short names",
+    (kind) => {
+      expect(tokensOfKind(full, kind).map((t) => t.name)).toEqual([
+        nameOf(kind),
+      ]);
+      expect(shortName(nameOf(kind))).toBe("x");
+    }
+  );
+
+  it("keeps a name its kind's own prefix does not start, and finds the spacing base", () => {
+    expect(shortName("inset-shadow-sm")).toBe("inset-shadow-sm");
+    expect(shortName(SPACING_BASE)).toBe(SPACING_BASE);
+    expect(shortName("brand")).toBe("brand");
+    expect(tokensOfKind(full, "other")).toEqual([]);
+    expect(tokensOfKind(null, "color")).toEqual([]);
+    expect(tokenOf(full, SPACING_BASE)?.value).toBe(DEFAULT_SPACING_BASE);
+    expect(tokenOf(full, "radius-x")?.value).toBe("1");
+    expect(tokenOf(full, "radius-y")).toBeUndefined();
+  });
+});
+
+describe("the spacing scale", () => {
+  it.each([
+    ["spacing-4", 4],
+    ["spacing-0", 0],
+    ["spacing-2.5", 2.5],
+    ["spacing-gutter", null],
+    ["spacing-4x", null],
+    ["spacing--4", null],
+    [SPACING_BASE, null],
+    ["radius-4", null],
+  ] as const)("reads %s as the step %s", (name, step) => {
+    expect(spacingStepOf(name)).toBe(step);
+  });
+
+  it("names a step as Tailwind writes it, and every named step reads back", () => {
+    expect(spacingStepName(4)).toBe("spacing-4");
+    expect(spacingStepName(0.5)).toBe("spacing-0.5");
+    for (const step of SPACING_STEPS) {
+      expect(spacingStepOf(spacingStepName(step))).toBe(step);
+    }
+    expect([...SPACING_STEPS].sort((a, b) => a - b)).toEqual(SPACING_STEPS);
+    expect(SPACING_STEPS).toContain(3.5);
+    expect(SPACING_STEPS).toContain(96);
+  });
+
+  it.each([
+    [undefined, 4],
+    ["", 4],
+    [DEFAULT_SPACING_BASE, 4],
+    ["0.5rem", 8],
+    ["3px", 3],
+    ["0.25em", 4],
+    ["0", 4],
+    ["-2px", 4],
+    ["var(--x)", 4],
+    ["2", 4],
+  ] as const)("takes a base of %j as %spx a step", (base, px) => {
+    expect(spacingBasePx(base)).toBe(px);
+  });
+
+  it.each([
+    [16, 4, 4],
+    [10, 4, 2.5],
+    [0, 4, 0],
+    [-8, 4, -2],
+    [13, 4, null],
+    [9, 4, null],
+    [9.6, 4.8, 2],
+    [16.0004, 4, 4],
+  ] as const)("finds %spx on a %spx base at the step %s", (px, base, step) => {
+    expect(spacingStepAt(px, base)).toBe(step);
+  });
+
+  it("gives a step's length in the base's own unit", () => {
+    expect(spacingLength("0.25rem", 9)).toBe("2.25rem");
+    expect(spacingLength("4px", 2.5)).toBe("10px");
+    expect(spacingLength(undefined, 4)).toBe("1rem");
+    expect(spacingLength("var(--x)", 4)).toBeNull();
   });
 });

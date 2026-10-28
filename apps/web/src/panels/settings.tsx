@@ -10,6 +10,7 @@ import {
   describeSuggestions,
   type SetupSuggestions,
 } from "@ultrapaint/contracts/setup";
+import { tokensOfKind } from "@ultrapaint/contracts/token-table";
 import { cn } from "cn";
 import {
   ArrowLeft,
@@ -132,7 +133,7 @@ const DesignSystemGroup = () => {
       <Row
         description={
           designSystem
-            ? `Imported: ${designSystem.colors.reduce((n, g) => n + g.tokens.length, 0)} colours, ${designSystem.typography.styles.length} text styles. Kept in design-system.json in the designs directory, and DESIGN.md at the root of the repository.`
+            ? `Imported: ${tokensOfKind(designSystem, "color").length} colours, ${designSystem.typography.styles.length} text styles. Kept in design-system.json in the designs directory, and DESIGN.md at the root of the repository.`
             : "Not imported yet. An agent reads the Tailwind v4 theme and the components, asks you about the application, and writes design-system.json and DESIGN.md."
         }
         title={designSystem ? "Imported design system" : "Design system"}

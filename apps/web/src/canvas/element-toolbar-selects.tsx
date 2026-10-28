@@ -14,10 +14,15 @@ import type {
   TextNode,
 } from "@ultrapaint/contracts/document";
 import {
+  shortName,
+  spacingBasePx,
+  tokensOfKind,
+} from "@ultrapaint/contracts/token-table";
+import {
   attachTextStyle,
   groupTextStyles,
 } from "@ultrapaint/design-document/text-styles";
-import { tokenRef, toPixels } from "@ultrapaint/design-document/tokens";
+import { tokenRef } from "@ultrapaint/design-document/tokens";
 import {
   ALargeSmall,
   BetweenHorizontalStart,
@@ -69,7 +74,6 @@ import { previewRunning, useProject } from "../state/project.ts";
 import { drawSpecimen, pictureKey } from "./specimens.ts";
 import { Targets, useTargetNodes } from "./toolbar-targets.ts";
 
-const COLOR_PREFIX_RE = /^color-/;
 const NO_STYLES: readonly TextStyle[] = [];
 
 /** One value when every node has it, `mixed` when they differ. */
@@ -91,14 +95,11 @@ const FIELD: Record<
   tint: { icon: Palette, name: "tint", utility: "bg" },
 };
 
-const spacingBaseOf = (ds: DesignSystem | null) =>
-  toPixels(ds?.spacing.base ?? "0.25rem") ?? 4;
-
 const colorTokens = (ds: DesignSystem | null) =>
   (ds?.colors ?? []).map((group) => ({
     name: group.name,
     tokens: group.tokens.map((t) => ({
-      label: t.name.replace(COLOR_PREFIX_RE, ""),
+      label: shortName(t.name),
       swatch: t.value,
       value: tokenRef(t.name),
     })),
@@ -415,7 +416,7 @@ export const TokenSelect = ({
 }) => {
   const targets = useContext(Targets);
   const ds = useDesignSystem((s) => s.designSystem);
-  const base = spacingBaseOf(ds);
+  const base = spacingBasePx(ds?.spacing.base);
   const field = FIELD[control.field];
   const raw = (node as unknown as Record<string, JsonValue | undefined>)[
     control.field
@@ -479,11 +480,8 @@ export const TokenSelect = ({
       </DropdownMenuRadioItem>
     ));
   } else {
-    const tokens =
-      control.token === "radius" ? (ds?.radius ?? []) : (ds?.shadows ?? []);
-    const prefix = control.token === "radius" ? "radius-" : "shadow-";
-    items = tokens.map((t) => {
-      const short = t.name.replace(prefix, "");
+    items = tokensOfKind(ds, control.token).map((t) => {
+      const short = shortName(t.name);
       return (
         <DropdownMenuRadioItem key={t.name} value={tokenRef(t.name)}>
           <span className="flex-1 font-mono">

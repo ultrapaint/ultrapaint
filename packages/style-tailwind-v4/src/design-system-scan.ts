@@ -16,6 +16,14 @@ import {
   type Token,
   type TokenGroup,
 } from "@ultrapaint/contracts/design-system";
+import { DEFAULT_SPACING_BASE } from "@ultrapaint/contracts/token-table";
+import {
+  parseNumber,
+  ROOT_PX,
+  resolveVars,
+  toMs,
+  toPx,
+} from "@ultrapaint/contracts/token-value";
 import type {
   DesignSystemContext,
   DesignSystemScan,
@@ -25,7 +33,6 @@ import {
   isReset,
   masked,
   parseStylesheet,
-  resolveVars,
 } from "./stylesheet.ts";
 
 const IMPORT_RE = /@import\s+(?:url\()?\s*["']([^"']+)["']/g;
@@ -239,26 +246,9 @@ const byName = (a: { name: string }, b: { name: string }) =>
 const byLength = (a: Token, b: Token) =>
   lengthOf(a.value) - lengthOf(b.value) || byName(a, b);
 
-const MS_RE = /^([\d.]+)ms$/;
-const S_RE = /^([\d.]+)s$/;
-
-/** A length or a duration as one number to sort by: rem as 16px, seconds as 1000ms. */
-const lengthOf = (value: string) => {
-  const v = value.trim();
-  const ms: RegExpExecArray | null = MS_RE.exec(v);
-  if (ms) {
-    return Number(ms[1]);
-  }
-  const s: RegExpExecArray | null = S_RE.exec(v);
-  if (s) {
-    return Number(s[1]) * 1000;
-  }
-  const n = Number.parseFloat(v);
-  if (!Number.isFinite(n)) {
-    return 0;
-  }
-  return v.endsWith("rem") ? n * 16 : n;
-};
+/** A length or a duration as one number to sort by: pixels (an `em` as the root's) or milliseconds. */
+const lengthOf = (value: string) =>
+  toPx(value, { em: ROOT_PX }) ?? toMs(value) ?? parseNumber(value) ?? 0;
 
 /** Icon packages a React project draws with, the most common first, and the sizes they default to. */
 const ICON_PACKAGES: readonly (readonly [string, readonly number[]])[] = [
@@ -420,7 +410,7 @@ const classify = (
   const palettes = new Map<string, Token[]>();
   const semantic: Token[] = [];
   const sizes: FontSizeToken[] = [];
-  let spacingBase = "0.25rem";
+  let spacingBase = DEFAULT_SPACING_BASE;
   const color = (name: string, raw: string) => {
     const palette: RegExpExecArray | null = PALETTE_RE.exec(name);
     const group = palette?.[1];

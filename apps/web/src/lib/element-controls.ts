@@ -6,6 +6,8 @@
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { DesignNode } from "@ultrapaint/contracts/document";
+import { shortName, spacingStepAt } from "@ultrapaint/contracts/token-table";
+import { isToken, tokenName } from "@ultrapaint/design-document/tokens";
 import type { FieldTokenKind } from "./token-options.tsx";
 
 export type TokenField =
@@ -111,15 +113,6 @@ export const propValue = (
   return options.includes("default") ? "default" : (options[0] ?? "");
 };
 
-const PREFIX: Record<TokenField, string> = {
-  color: "color-",
-  fill: "color-",
-  gap: "spacing-",
-  radius: "radius-",
-  shadow: "shadow-",
-  tint: "color-",
-};
-
 /**
  * A field's value as the toolbar shows it: a token by its short name (`card`, `lg`), pixels on the
  * spacing scale as its step (`4` for 16px on a 4px base), `none` when unset.
@@ -136,17 +129,9 @@ export const tokenLabel = (
     return "mixed";
   }
   if (typeof value === "number") {
-    if (field === "gap") {
-      const step = value / spacingBase;
-      return Number.isInteger(step * 2) ? String(step) : `${value}px`;
-    }
-    return `${value}px`;
+    const step = field === "gap" ? spacingStepAt(value, spacingBase) : null;
+    return step === null ? `${value}px` : String(step);
   }
   const text = String(value);
-  if (text.startsWith("$")) {
-    const name = text.slice(1);
-    const prefix = PREFIX[field];
-    return name.startsWith(prefix) ? name.slice(prefix.length) : name;
-  }
-  return text;
+  return isToken(text) ? shortName(tokenName(text)) : text;
 };

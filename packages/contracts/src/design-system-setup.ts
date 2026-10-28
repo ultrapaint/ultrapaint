@@ -5,6 +5,7 @@
  */
 import { Schema } from "effect";
 import type { DesignSystem } from "./design-system.ts";
+import { tokensOfKind } from "./token-table.ts";
 
 export const SetupStepId = Schema.Literals([
   "inventory",
@@ -285,21 +286,7 @@ export const targetsOf = (
   ds: DesignSystem,
   components: readonly string[]
 ): readonly string[] => {
-  const names = (tokens: readonly { readonly name: string }[] | undefined) =>
-    (tokens ?? []).map((t) => t.name);
   switch (kind) {
-    case "color":
-      return ds.colors.flatMap((g) => names(g.tokens));
-    case "spacing":
-      return names(ds.spacing.tokens);
-    case "fontSize":
-      return names(ds.typography.sizes);
-    case "fontWeight":
-      return names(ds.typography.weights);
-    case "radius":
-      return names(ds.radius);
-    case "shadow":
-      return names(ds.shadows);
     case "zIndex":
       return (ds.elevation ?? []).flatMap((l) =>
         l.layer === undefined ? [] : [String(l.layer)]
@@ -307,6 +294,6 @@ export const targetsOf = (
     case "element":
       return components;
     default:
-      return [];
+      return tokensOfKind(ds, kind).map((t) => t.name);
   }
 };
