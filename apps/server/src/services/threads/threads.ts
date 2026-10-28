@@ -8,15 +8,14 @@
  * agent waits on) is its session's (`thread-session.ts`); this service makes and lists threads
  * and routes each call to the thread's session.
  */
-import { Conflict, NotFound } from "@ultrapaint/contracts/errors";
-import {
-  type Answers,
-  isBusy,
-  type PromptInput,
-  type Question,
-  type QueuedPrompt,
-  type Thread,
-  type ThreadPurpose,
+import { NotFound } from "@ultrapaint/contracts/errors";
+import type {
+  Answers,
+  PromptInput,
+  Question,
+  QueuedPrompt,
+  Thread,
+  ThreadPurpose,
 } from "@ultrapaint/contracts/threads";
 import { Clock, Context, Effect, Layer } from "effect";
 import { makeId } from "../../ids.ts";
@@ -24,14 +23,13 @@ import { AgentConfigs } from "./agent-configs.ts";
 import { AgentDiscovery } from "./agent-discovery.ts";
 import { ChatPreferences } from "./chat-preferences.ts";
 import {
+  SWITCHED,
   type ThreadFailure,
   type ThreadSession,
   ThreadSessions,
 } from "./thread-session.ts";
 import { ThreadStore } from "./thread-store.ts";
 import { UNTITLED } from "./turns.ts";
-
-const SWITCHED = "Switched to";
 
 export class ThreadService extends Context.Service<
   ThreadService,
@@ -80,7 +78,12 @@ export class ThreadService extends Context.Service<
       optionId: string,
       remember: boolean
     ) => Effect.Effect<void, ThreadFailure>;
-    /** The agent the next prompt goes to. */
+    /**
+     * Stops the thread's turn and waits for it to end, briefly: what comes next must not run
+     * under an agent still writing.
+     */
+    readonly stop: (threadId: string) => Effect.Effect<void>;
+    /** The agent the next prompt goes to; refused while a prompt is accepted or a turn runs. */
     readonly setAgent: (
       threadId: string,
       agentId: string
@@ -104,7 +107,6 @@ export class ThreadService extends Context.Service<
       const preferences = yield* ChatPreferences;
       const discovery = yield* AgentDiscovery;
       const sessions = yield* ThreadSessions;
-      const newItemId = makeId("item");
 
       /** What the thread's session does. */
       const on = <A, E>(
@@ -158,44 +160,27 @@ export class ThreadService extends Context.Service<
         if (thread.agentId === agentId) {
           return;
         }
-        if (isBusy(thread.status)) {
-          return yield* new Conflict({
-            message: "the agent is still working on the previous prompt",
-          });
-        }
         const agent = yield* agents.get(agentId);
         const options = yield* preferences.optionsFor(agentId);
         // A session belongs to its agent. The next one starts with the next prompt, and is
         // told what was said before it.
         yield* on(threadId, (session) =>
-          session.switchAgent({
-            configOptions: undefined,
-            currentModeId: undefined,
-            modes: undefined,
-            sandboxed: undefined,
-            sandboxProblem: undefined,
-            ...options,
-            agentId,
-            sessionId: undefined,
-          })
+          session.switchAgent(
+            {
+              configOptions: undefined,
+              currentModeId: undefined,
+              modes: undefined,
+              sandboxed: undefined,
+              sandboxProblem: undefined,
+              ...options,
+              agentId,
+              sessionId: undefined,
+            },
+            `${SWITCHED} ${agent.name}`
+          )
         );
         if (options.configOptions === undefined) {
           yield* discovery.discoverInBackground(agentId);
-        }
-        const last = (yield* store.items(threadId)).at(-1);
-        const text = `${SWITCHED} ${agent.name}`;
-        // Switching again before a prompt replaces the note rather than stacking another.
-        if (last?.kind === "status" && last.text.startsWith(SWITCHED)) {
-          yield* store.patchItem(threadId, last.id, (item) =>
-            item.kind === "status" ? { ...item, text } : item
-          );
-        } else if (last) {
-          yield* store.push(threadId, {
-            at: yield* Clock.currentTimeMillis,
-            id: yield* newItemId,
-            kind: "status",
-            text,
-          });
         }
       });
 
@@ -221,6 +206,7 @@ export class ThreadService extends Context.Service<
           on(threadId, (session) => session.setConfigOption(optionId, value)),
         setMode: (threadId, modeId) =>
           on(threadId, (session) => session.setMode(modeId)),
+        stop: (threadId) => on(threadId, (session) => session.stop),
         unqueue: (threadId, id) =>
           on(threadId, (session) => session.unqueue(id)),
       });

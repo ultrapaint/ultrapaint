@@ -17,7 +17,7 @@ import type {
 import { makeTerminalManager } from "@ultrapaint/acp/terminal-manager";
 import {
   AgentFailure,
-  type Conflict,
+  Conflict,
   type ForbiddenPath,
   type NotConfigured,
   NotFound,
@@ -39,19 +39,19 @@ import {
   Exit,
   Fiber,
   Layer,
+  Option,
   Path,
   Scope,
   Semaphore,
+  Stream,
 } from "effect";
 import { ChildProcessSpawner } from "effect/process";
 import { AppLog } from "../../app-log.ts";
-import { connectHost, ServerConfig } from "../../config.ts";
+import { ServerConfig } from "../../config.ts";
 import { EventBus } from "../../events.ts";
 import { makeId } from "../../ids.ts";
-import { ListenPort } from "../../listen-port.ts";
 import { ProjectManager } from "../../project.ts";
 import { McpAccess } from "../mcp/access.ts";
-import { MCP_PATH, MCP_TOKEN_HEADER } from "../mcp/route.ts";
 import { RepoPaths } from "../repo-paths.ts";
 import { type TreeStamp, WorkingTree } from "../working-tree.ts";
 import { makeAgentClient } from "./agent-client.ts";
@@ -80,6 +80,12 @@ export type ThreadFailure =
   | Conflict
   | ForbiddenPath
   | AgentFailure;
+
+/** How long a stopped turn is waited for before what comes next goes ahead without it. */
+const TURN_END_WAIT = "10 seconds";
+
+/** A switch of agent leaves this in the transcript, with the agent's name. */
+export const SWITCHED = "Switched to";
 
 // ---- status ----
 
@@ -180,10 +186,19 @@ export interface ThreadSession {
   ) => Effect.Effect<void, ThreadFailure>;
   readonly setMode: (modeId: string) => Effect.Effect<void, ThreadFailure>;
   /**
-   * The session ends with the agent it belongs to; the thread takes `patch` (its new agent and
-   * that agent's options) and is idle.
+   * Stops the turn and waits for it to end, `TURN_END_WAIT` at most: what comes next must not
+   * run under an agent still writing. A thread without a turn is left as it is.
    */
-  readonly switchAgent: (patch: Partial<Thread>) => Effect.Effect<void>;
+  readonly stop: Effect.Effect<void>;
+  /**
+   * The session ends with the agent it belongs to; the thread takes `patch` (its new agent and
+   * that agent's options), is idle, and its transcript says `note`. Refused while a prompt is
+   * being accepted or a turn runs: the turn would lose its session, or run on a thread shown idle.
+   */
+  readonly switchAgent: (
+    patch: Partial<Thread>,
+    note: string
+  ) => Effect.Effect<void, Conflict>;
   /** Takes a queued prompt back out; null when it was already sent. */
   readonly unqueue: (
     id: string
@@ -201,8 +216,7 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
   const launcher = yield* AgentLauncher;
   const access = yield* McpAccess;
   const checkpoints = yield* Checkpoints;
-  const { host, mcp: mcpEnabled } = yield* ServerConfig;
-  const listen = yield* ListenPort;
+  const { mcp: mcpEnabled } = yield* ServerConfig;
   const project = yield* ProjectManager;
   const events = yield* EventBus;
   const log = yield* AppLog;
@@ -385,11 +399,12 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       const mcpServers: McpServerConfig[] = [];
       if (mcpEnabled) {
         const token = yield* Scope.provide(access.issue(threadId), scope);
+        const { header, url } = yield* access.endpoint;
         mcpServers.push({
-          headers: [{ name: MCP_TOKEN_HEADER, value: token }],
+          headers: [{ name: header, value: token }],
           name: EDITOR_MCP_SERVER,
           type: "http",
-          url: `http://${connectHost(host)}:${yield* listen.get}${MCP_PATH}`,
+          url,
         });
       }
 
@@ -755,6 +770,54 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       }
     }).pipe(Effect.withSpan("ThreadService.cancel"));
 
+    /** Until the thread no longer works on a turn, looked at again whenever the store changes. */
+    const turnEnded = Effect.scoped(
+      Effect.gen(function* () {
+        // Subscribed before the first look, so that no change slips between the two.
+        const changes = yield* Stream.toPull(events.subscribe("agent"));
+        while (isBusy((yield* store.get(threadId))?.status)) {
+          yield* Effect.orDie(changes);
+        }
+      })
+    );
+
+    const stop = Effect.gen(function* () {
+      // An agent that cannot be asked to stop may still end its turn: it is waited for alike.
+      yield* Effect.ignore(cancel, { log: true });
+      yield* Effect.timeoutOption(turnEnded, TURN_END_WAIT);
+    }).pipe(Effect.withSpan("ThreadService.stop"));
+
+    const busy = () =>
+      new Conflict({
+        message: "the agent is still working on the previous prompt",
+      });
+
+    /** Under `prompting`, so that no prompt is half accepted while the agent changes. */
+    const switchAgent = Effect.fnUntraced(function* (
+      patch: Partial<Thread>,
+      note: string
+    ) {
+      if (isBusy((yield* store.get(threadId))?.status)) {
+        return yield* busy();
+      }
+      yield* stopLive;
+      yield* transition({ _tag: "AgentSwitched" }, patch);
+      const last = (yield* store.items(threadId)).at(-1);
+      // Switching again before a prompt replaces the note rather than stacking another.
+      if (last?.kind === "status" && last.text.startsWith(SWITCHED)) {
+        yield* store.patchItem(threadId, last.id, (item) =>
+          item.kind === "status" ? { ...item, text: note } : item
+        );
+      } else if (last) {
+        yield* store.push(threadId, {
+          at: yield* Clock.currentTimeMillis,
+          id: yield* newItemId,
+          kind: "status",
+          text: note,
+        });
+      }
+    });
+
     const setConfigOption = Effect.fn("ThreadService.setConfigOption")(
       function* (optionId: string, value: string) {
         const chosen = (yield* store.get(threadId))?.configOptions?.map((o) =>
@@ -809,8 +872,21 @@ const makeSessionFactory = Effect.fnUntraced(function* (deps: {
       sendQueued: detached(sendQueued),
       setConfigOption,
       setMode,
-      switchAgent: (patch) =>
-        Effect.andThen(stopLive, transition({ _tag: "AgentSwitched" }, patch)),
+      stop,
+      switchAgent: (patch, note) =>
+        detached(
+          prompting
+            .withPermitsIfAvailable(1)(switchAgent(patch, note))
+            .pipe(
+              Effect.flatMap(
+                Option.match({
+                  onNone: () => Effect.fail(busy()),
+                  onSome: Effect.succeed,
+                })
+              ),
+              Effect.withSpan("ThreadService.switchAgent")
+            )
+        ),
       unqueue: (id) => detached(taking.withPermit(takeQueued(id))),
     };
   };

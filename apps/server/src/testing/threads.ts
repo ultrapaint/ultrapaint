@@ -4,8 +4,8 @@
  * fixture folder and a home of their own, without the HTTP server, the preview or the project's
  * other services. The briefing and the slash commands are
  * stand-ins: the briefing says which purpose it was asked for, and a command `/name rest` stands
- * for the task `taskFor` writes, with the purpose of the request it reads as. Two agents are
- * configured, `scripted` and `other`.
+ * for the task `taskFor` writes, with the purpose of the request it reads as; `/hold` is written
+ * only once the test lets it go (`HeldTask`). Two agents are configured, `scripted` and `other`.
  */
 import { NodeServices } from "@effect/platform-node";
 import { NotConfigured } from "@ultrapaint/contracts/errors";
@@ -14,6 +14,7 @@ import { parseCommand, taskPurpose } from "@ultrapaint/contracts/tasks";
 import type { Thread, ThreadItem } from "@ultrapaint/contracts/threads";
 import {
   Context,
+  Deferred,
   Effect,
   Exit,
   FileSystem,
@@ -115,15 +116,39 @@ const COMMAND_RE = /^\/([\w-]+)(?:\s+([\s\S]*))?$/;
 export const taskFor = (name: string, rest = "") =>
   `<ultrapaint-task command="${name}">\n${rest}\n</ultrapaint-task>`;
 
-const commands = Layer.succeed(
+/**
+ * A prompt held while it is accepted: `/hold`'s task is written once the test lets it go
+ * (`release`), and `reached` says the prompt has come that far.
+ */
+export class HeldTask extends Context.Service<
+  HeldTask,
+  {
+    readonly reached: Deferred.Deferred<void>;
+    readonly release: Deferred.Deferred<void>;
+  }
+>()("ultrapaint/server/testing/HeldTask") {}
+
+const held = Layer.effect(
+  HeldTask,
+  Effect.all({
+    reached: Deferred.make<void>(),
+    release: Deferred.make<void>(),
+  })
+);
+
+const commands = Layer.effect(
   SlashCommands,
-  SlashCommands.of({
-    expand: (text) =>
-      Effect.sync(() => {
+  Effect.map(HeldTask, ({ reached, release }) =>
+    SlashCommands.of({
+      expand: Effect.fnUntraced(function* (text: string) {
         const match: RegExpExecArray | null = COMMAND_RE.exec(text.trim());
         const name = match?.[1];
         if (name === undefined) {
           return null;
+        }
+        if (name === "hold") {
+          yield* Deferred.succeed(reached, undefined);
+          yield* Deferred.await(release);
         }
         const parsed = parseCommand(text);
         return {
@@ -134,8 +159,9 @@ const commands = Layer.succeed(
           text: taskFor(name, match?.[2]?.trim()),
         };
       }),
-    list: [],
-  })
+      list: [],
+    })
+  )
 );
 
 const briefing = Layer.succeed(
@@ -165,7 +191,11 @@ export const ThreadTest = Layer.unwrap(
     }
     return ThreadsLayer.pipe(
       Layer.provideMerge(
-        Layer.mergeAll(briefing, commands, TestAdapters.agents)
+        Layer.mergeAll(
+          briefing,
+          Layer.provideMerge(commands, held),
+          TestAdapters.agents
+        )
       ),
       Layer.provideMerge(projectOf(repo)),
       Layer.provideMerge(Foundation),

@@ -9,6 +9,7 @@ import type { DesignNode, PageDocument } from "@ultrapaint/contracts/document";
 import {
   BadRequest,
   type Conflict,
+  type ForbiddenPath,
   NotFound,
 } from "@ultrapaint/contracts/errors";
 import {
@@ -100,6 +101,13 @@ export interface WrittenFrame {
 }
 
 type ImportFailure = NotFound | BadRequest;
+
+/** A component's mapping as it was kept, the import after it, and what to know about it. */
+export interface MappedComponent {
+  readonly file: FigmaImport;
+  readonly mapping: ComponentMapping | null;
+  readonly notes: readonly string[];
+}
 
 const frameSummary = (
   file: FigFile,
@@ -211,12 +219,17 @@ export class FigmaImportService extends Context.Service<
      */
     readonly theme: Effect.Effect<Record<string, string>, BadRequest>;
     readonly list: Effect.Effect<readonly FigmaImport[]>;
-    /** Says what a component becomes; null forgets the decision. */
+    /**
+     * Says what a component becomes; null forgets the decision. A component of this repository
+     * must be in the catalogue, and is imported from where the design system says, else from
+     * where the catalogue found it, unless the mapping says; the notes are its props the
+     * component does not declare, which are passed on anyway.
+     */
     readonly map: (
       id: string,
       key: string,
       mapping: ComponentMapping | null
-    ) => Effect.Effect<FigmaImport, ImportFailure>;
+    ) => Effect.Effect<MappedComponent, ImportFailure | ForbiddenPath>;
     /**
      * Writes a frame as a page of the canvas, named after the frame and serving `route` when one
      * is given, with its images in the shared assets.
@@ -426,12 +439,57 @@ export class FigmaImportService extends Context.Service<
         return yield* withCandidates(summary);
       });
 
+      /** The mapping as it is kept, its import resolved, and the props the component lacks. */
+      const checkMapping = Effect.fnUntraced(function* (
+        mapping: ComponentMapping
+      ) {
+        if (mapping.kind !== "component") {
+          return { mapping, notes: [] as string[] };
+        }
+        const { components } = yield* catalogue.get(false);
+        const component = components.find((c) => c.name === mapping.component);
+        if (!component) {
+          const close = components
+            .filter((c) =>
+              c.name.toLowerCase().includes(mapping.component.toLowerCase())
+            )
+            .map((c) => c.name)
+            .slice(0, 5);
+          return yield* new NotFound({
+            message: `no component named ${mapping.component} in this repository${close.length > 0 ? `; close: ${close.join(", ")}` : ""}. list_components has them all, or map it as {kind:"expand"} to keep the Figma layers.`,
+          });
+        }
+        const { designSystem: saved } = yield* designSystem.get;
+        const from =
+          mapping.from ??
+          saved?.components?.[component.name]?.from ??
+          component.importFrom;
+        const known = new Set(component.props.map((p) => p.name));
+        const named = [
+          ...Object.keys(mapping.props ?? {}),
+          ...Object.values(mapping.propMap ?? {}).flatMap((rule) =>
+            rule.prop === undefined ? [] : [rule.prop]
+          ),
+        ];
+        const notes = named
+          .filter((prop) => !known.has(prop))
+          .map(
+            (prop) =>
+              `${component.name} does not declare a prop ${prop}; it is passed on anyway`
+          );
+        return { mapping: { ...mapping, from }, notes };
+      });
+
       const map = Effect.fn("FigmaImportService.map")(function* (
         id: string,
         key: string,
-        mapping: ComponentMapping | null
+        given: ComponentMapping | null
       ) {
-        return yield* writing.withPermits(1)(
+        const { mapping, notes } =
+          given === null
+            ? { mapping: null, notes: [] }
+            : yield* checkMapping(given);
+        const file = yield* writing.withPermits(1)(
           Effect.gen(function* () {
             const summary = yield* readSummary(id);
             if (!summary.components.some((c) => c.key === key)) {
@@ -449,6 +507,7 @@ export class FigmaImportService extends Context.Service<
             return yield* withCandidates(next);
           })
         );
+        return { file, mapping, notes } satisfies MappedComponent;
       });
 
       const frameOf = Effect.fnUntraced(function* (

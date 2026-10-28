@@ -21,7 +21,13 @@ import {
   Semaphore,
 } from "effect";
 import { makeWriteAtomic } from "../../atomic-write.ts";
+import { connectHost, ServerConfig } from "../../config.ts";
+import { ListenPort } from "../../listen-port.ts";
 import { Storage } from "../storage.ts";
+
+/** Where the editor's MCP server is served, and the header a caller's token goes in. */
+export const MCP_PATH = "/mcp";
+export const MCP_TOKEN_HEADER = "x-ultrapaint-token";
 
 /**
  * A token nobody can guess: 256 bits from the operating system's generator. A page in the
@@ -56,6 +62,14 @@ export class McpAccess extends Context.Service<
   {
     /** Whether this token may call at all, from a thread or from outside. */
     readonly allows: (token: string | undefined) => Effect.Effect<boolean>;
+    /**
+     * Where an agent reaches the editor's MCP server, once the server listens, and the header
+     * its token goes in.
+     */
+    readonly endpoint: Effect.Effect<{
+      readonly header: string;
+      readonly url: string;
+    }>;
     /** The project's own token, for agents outside the editor. Made once, kept with the state. */
     readonly external: Effect.Effect<string>;
     /**
@@ -75,6 +89,8 @@ export class McpAccess extends Context.Service<
     McpAccess,
     Effect.gen(function* () {
       const storage = yield* Storage;
+      const { host } = yield* ServerConfig;
+      const listen = yield* ListenPort;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const writeAtomic = makeWriteAtomic(fs, path);
@@ -145,6 +161,10 @@ export class McpAccess extends Context.Service<
           }
           return Effect.map(external, (project) => sameToken(token, project));
         },
+        endpoint: Effect.map(listen.get, (port) => ({
+          header: MCP_TOKEN_HEADER,
+          url: `http://${connectHost(host)}:${port}${MCP_PATH}`,
+        })),
         external,
         issue: (threadId) =>
           Effect.acquireRelease(
