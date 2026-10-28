@@ -357,3 +357,28 @@ test, `server.test.ts`'s socket tests that `ProjectTest` could run).
    page's class and style kept when the editor shows it again, input off and on, an event from a
    frame), `document-elements.test.ts` 2 more (the editor changing its own, the body's whole
    style).
+7. **The preview server's config, a module** (`packages/framework-react-vite/src/serve-config.ts`).
+   `serveConfig({ options, vite, host, port, log })` builds the preview server's Vite config from
+   the serve script's options and a loaded Vite: what it takes from the anchor's own (its plugins
+   that belong to the application left out, the rest spared our bundles and Vite's cache), the
+   plugins in their order (`ultrapaintResolve`, `serveAsset`, then `patchedClient`, `publicUrls`
+   and `guardedCode`, each `post`, then React's and Tailwind's plugins when the anchor lacks
+   them), the virtual ids and where it serves from; it gives the directories to watch beyond the
+   root with it. `ServeOptions`, `realOptions` (the real paths the bundler compares) and
+   `anchorModules` (whether the anchor resolves a package, and loading the repository's copy or
+   ours) are its too. `serve.ts` keeps reading argv into the options, refusing an anchor without
+   React, loading Vite, creating the server, watching, listening and stopping, as before:
+   `node serve.mjs <options.json> <port> [host]`, the ready signal the server's probe of the URL.
+   The warmed-up modules read `EDITOR_FILE` and `COMPONENTS_FILE` in place of `"editor.ts"` and
+   `"components.ts"`. No behaviour changes. `serve-config.test.ts` creates one Vite server per
+   file in middleware mode (no port, socket or watcher) over `fixtures/sandbox-host` as it is,
+   with the generated directory and the bundles' in a temporary one, and has 8 tests: the anchor's
+   config taken (its alias, `define`, proxy moved under the base) with the cache in the generated
+   directory; the plugins' order and `enforce` among the anchor's and Vite's own; a component of
+   the repository guarded (numbered loops, `async` marked, the module's start and end) and its
+   public URL under the base; React as Vite bundled it given the loop checks only; the generated
+   modules left alone; Vite's client patched; `virtual:ultrapaint/guard` resolved and loaded;
+   the public files' module listing the fixture's `public/`. A dependency is read as Vite
+   bundled it: one served from its own path outside the fixture's root is outside `fs.allow`.
+   Left to `pnpm e2e:sandbox`: the image route (a middleware, which needs a request) and the
+   anchor without React's plugin or with Tailwind's, which the fixture is not.

@@ -8,7 +8,7 @@ import { toPosix } from "@ultrapaint/shared/path";
 import { ASSET_PATH } from "./asset-route.ts";
 import type { PreviewBundles } from "./build.ts";
 import { PUBLIC_FILES_ID } from "./public-urls.ts";
-import type { ServeOptions } from "./serve.ts";
+import type { ServeOptions } from "./serve-config.ts";
 
 const LEADING_NON_DOT_RE = /^(?!\.)/;
 const LEADING_NON_SLASH_RE = /^(?!\/)/;
