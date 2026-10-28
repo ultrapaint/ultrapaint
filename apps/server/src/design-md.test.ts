@@ -74,10 +74,8 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             name: "color-brand",
             value: "#1d4ed8",
           });
-          // The document follows the design system once the change is heard, just after.
-          const second = yield* waitFor(fs.readFileString(file), (text) =>
-            text.includes('brand: "#1d4ed8"')
-          );
+          const second = yield* fs.readFileString(file);
+          assert.include(second, 'brand: "#1d4ed8"');
           assert.include(second, "Calm and dense.");
 
           // A value changed in the document is held for Sync, while the code's own changes
@@ -99,10 +97,9 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             name: "radius-card",
             value: "1rem",
           });
-          const third = yield* waitFor(fs.readFileString(file), (text) =>
-            text.includes("card: 1rem")
-          );
+          const third = yield* fs.readFileString(file);
           assert.include(third, 'ink: "#000000"');
+          assert.include(third, "card: 1rem");
         }),
       30_000
     );

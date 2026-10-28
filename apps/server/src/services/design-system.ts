@@ -11,7 +11,15 @@ import type { SourceToken, TokenChange } from "@ultrapaint/contracts/tokens";
 import { breakpointsOf } from "@ultrapaint/design-document/breakpoints";
 import { type CodeOptions, toCode } from "@ultrapaint/design-document/code";
 import type { DesignSystemScan } from "@ultrapaint/framework-api/node";
-import { Context, Effect, FileSystem, Layer, Path, Stream } from "effect";
+import {
+  Context,
+  Effect,
+  FileSystem,
+  Layer,
+  Path,
+  Semaphore,
+  Stream,
+} from "effect";
 import { EventBus } from "../events.ts";
 import { makeStampedCache } from "../file-stamp.ts";
 import { CatalogueService } from "./catalogue.ts";
@@ -187,7 +195,19 @@ export class DesignSystemService extends Context.Service<
         yield* tx.write(tokensRel, texts.tokens);
       });
 
-      /** DESIGN.md's front matter brought up to the design system as the files read now. */
+      /**
+       * A write and what follows from it on disk (DESIGN.md's front matter, the code with
+       * `codeTokens: auto`) run one at a time, and finish before the write returns: whoever
+       * reads the files next reads them current. Only telling the editor waits for the changes
+       * to settle.
+       */
+      const writes = yield* Semaphore.make(1);
+      const serially = writes.withPermits(1);
+
+      /**
+       * DESIGN.md's front matter brought up to the design system as the files read now: inside
+       * a write, or under its lock, so a reading made before a write never follows after it.
+       */
       const mirror = Effect.flatMap(filesRead, ({ designSystem }) =>
         designMd.follow(designSystem)
       );
@@ -324,7 +344,7 @@ export class DesignSystemService extends Context.Service<
         );
         yield* mirror;
         return { designSystem, findings: written?.findings ?? [] };
-      });
+      }, serially);
 
       const replace = Effect.fn("DesignSystemService.replace")(function* (
         designSystem: DesignSystem,
@@ -332,7 +352,7 @@ export class DesignSystemService extends Context.Service<
         label: string
       ) {
         yield* save(designSystem, label, document);
-      });
+      }, serially);
 
       const detect = Effect.flatMap(scan, (found) =>
         Effect.map(write(found.designSystem), (w) => w.designSystem)
@@ -361,7 +381,7 @@ export class DesignSystemService extends Context.Service<
         );
         const followed = yield* code.follow(changes, saved);
         return { files: [systemRel, tokensRel, ...followed.files] };
-      });
+      }, serially);
 
       const setToken = Effect.fn("DesignSystemService.setToken")(function* (
         change: TokenChange
@@ -401,7 +421,7 @@ export class DesignSystemService extends Context.Service<
         Stream.debounce("50 millis"),
         Stream.runForEach(() =>
           Effect.gen(function* () {
-            yield* mirror;
+            yield* serially(mirror);
             yield* events.publish("designSystem", yield* get);
           })
         ),
@@ -410,7 +430,10 @@ export class DesignSystemService extends Context.Service<
 
       // The components' classes, as soon as the catalogue is read: DESIGN.md gets their tokens,
       // and the editor hears of it when the document is written.
-      yield* designMd.refresh.pipe(Effect.andThen(mirror), Effect.forkScoped);
+      yield* designMd.refresh.pipe(
+        Effect.andThen(serially(mirror)),
+        Effect.forkScoped
+      );
 
       return DesignSystemService.of({
         codeOf: (node, options) =>
@@ -424,7 +447,7 @@ export class DesignSystemService extends Context.Service<
         get,
         refresh: code.refresh.pipe(
           Effect.andThen(designMd.refresh),
-          Effect.andThen(mirror),
+          Effect.andThen(serially(mirror)),
           Effect.andThen(get)
         ),
         replace,
