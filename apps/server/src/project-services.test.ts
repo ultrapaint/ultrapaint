@@ -223,4 +223,31 @@ describe("a project in-process", () => {
         })
     );
   });
+
+  const DEFAULTS = { fill: "$color-background", theme: "dark" };
+  layer(
+    ProjectTest({
+      files: {
+        "designs/canvas.json": JSON.stringify({
+          ...HOME_WITH_A_VIEW,
+          defaults: DEFAULTS,
+        }),
+      },
+    }),
+    { excludeTestServices: true }
+  )((it) => {
+    it.effect(
+      "keeps what the canvas's pages are drawn in when its frames are written",
+      () =>
+        Effect.gen(function* () {
+          yield* callTool(EditorTools, "set_frame", {
+            route: "home.page.json",
+            width: 1280,
+          });
+          const layout = yield* pages((p) => p.readCanvas(""));
+          assert.strictEqual(layout.frames["home.page.json"]?.width, 1280);
+          assert.deepStrictEqual(layout.defaults, DEFAULTS);
+        })
+    );
+  });
 });
