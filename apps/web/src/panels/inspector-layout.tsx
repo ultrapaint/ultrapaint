@@ -20,6 +20,7 @@ import { Segmented } from "../components/segmented.tsx";
 import { SidesIcon } from "../components/sides-icon.tsx";
 import type { StyleOption } from "../components/style-combobox.tsx";
 import { ValueField } from "../components/value-field.tsx";
+import { TOKEN_FIELDS } from "../lib/node-fields.ts";
 import { MIXED, type Shared, shownAs } from "../lib/shared-value.ts";
 import { type Side, sharedSide, withSides } from "../lib/sides.ts";
 import { useTokenOptions } from "../lib/token-options.tsx";
@@ -27,6 +28,7 @@ import { rootOfFrame, useDocuments } from "../state/documents.ts";
 import { useEditor } from "../state/editor.ts";
 import { useInstances } from "../state/instances.ts";
 import {
+  NodeValueField,
   nullIfMixed,
   type Stack,
   set,
@@ -36,13 +38,12 @@ import {
 } from "./inspector-fields.tsx";
 
 /** A field of a page, a row or a column, which a group does not have. */
-const flexField = <K extends "gap" | "align" | "crossAlign" | "wrap">(
+const flexField = <K extends "align" | "crossAlign" | "wrap">(
   node: Stack,
   field: K
 ) => (node.type === "group" ? undefined : node[field]);
 
 export const LayoutSection = ({ nodes }: { nodes: readonly Stack[] }) => {
-  const spacing = useTokenOptions("spacing");
   const [node] = nodes;
   if (!node) {
     return null;
@@ -87,13 +88,10 @@ export const LayoutSection = ({ nodes }: { nodes: readonly Stack[] }) => {
       {flex ? (
         <>
           <Row label="Gap">
-            <ValueField
-              onChange={(v) => set("gap", v)}
-              options={spacing}
-              {...shownAs(
-                sharedOf(nodes, (n) => flexField(n, "gap")),
-                "0"
-              )}
+            <NodeValueField
+              field={TOKEN_FIELDS.gap}
+              nodes={nodes}
+              placeholder="0"
             />
           </Row>
           <Row label="Align">
@@ -296,7 +294,7 @@ export const SidesSection = ({
         leading={<SidesIcon className="text-foreground" lit={[key]} />}
         // Each node keeps its own other sides.
         onChange={(v) =>
-          setEach(`Change ${field}`, (n) => ({
+          setEach(`Change the ${field}`, (n) => ({
             [field]: withSides(n[field], [key], v),
           }))
         }

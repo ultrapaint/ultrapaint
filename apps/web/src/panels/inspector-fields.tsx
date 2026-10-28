@@ -6,8 +6,18 @@ import { type ReactNode, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ValueField } from "../components/value-field.tsx";
-import { updateSelection, updateSelectionWith } from "../lib/node-actions.ts";
-import { MIXED, type Shared, sharedValue } from "../lib/shared-value.ts";
+import {
+  setField,
+  updateSelection,
+  updateSelectionWith,
+} from "../lib/node-actions.ts";
+import { sharedField, type TokenValueField } from "../lib/node-fields.ts";
+import {
+  MIXED,
+  type Shared,
+  sharedValue,
+  shownAs,
+} from "../lib/shared-value.ts";
 import {
   type FieldTokenKind,
   Swatch,
@@ -166,25 +176,50 @@ export const TokenField = ({
   );
 };
 
-export const ColorField = ({
+/** A field of the table both the inspector and the toolbar edit, as the inspector draws it. */
+export const NodeValueField = ({
+  accept,
   field,
-  value,
+  leading,
+  nodes,
   placeholder,
 }: {
-  field: string;
-  value: JsonValue | undefined;
+  accept?: (query: string) => boolean;
+  field: TokenValueField;
+  leading?: ReactNode;
+  nodes: readonly DesignNode[];
   placeholder?: string;
 }) => {
-  const options = useTokenOptions("color");
-  const color = useColorOf(value);
+  const options = useTokenOptions(field.options);
   return (
     <ValueField
-      accept={(q) => CSS.supports("color", q)}
-      leading={<Swatch color={color} />}
-      onChange={(v) => set(field, v)}
+      accept={accept}
+      leading={leading}
+      onChange={(v) => setField(field, v)}
       options={options}
+      {...shownAs(sharedField(field, nodes), placeholder)}
+    />
+  );
+};
+
+export const ColorField = ({
+  field,
+  nodes,
+  placeholder,
+}: {
+  field: TokenValueField;
+  nodes: readonly DesignNode[];
+  placeholder?: string;
+}) => {
+  const shared = sharedField(field, nodes);
+  const color = useColorOf(shared === MIXED ? undefined : shared);
+  return (
+    <NodeValueField
+      accept={(q) => CSS.supports("color", q)}
+      field={field}
+      leading={<Swatch color={color} />}
+      nodes={nodes}
       placeholder={placeholder ?? "None"}
-      value={value}
     />
   );
 };

@@ -115,6 +115,12 @@ review found.
   right-clicked in another view takes it there. The inspector, the element toolbar, the outlines
   and Layers read the selected nodes as that view draws them, and what several share as one value
   or `MIXED`.
+- **Field**: one of a node's fields that the inspector and the element toolbar both edit (align,
+  text style, colour, fill, tint, radius, shadow, gap), declared once in the web's `node-fields`:
+  how the nodes selected read as one value, what a node without it is drawn with (a text's
+  align is `start`), what setting a value writes (`null` takes it off), its undo label and the
+  kind of token it offers. Both surfaces draw it; an edit lands at the view's breakpoint, where
+  unset is the value a node is drawn with.
 - **Layers' tree**: the Layers panel's rows as data (the web's `layer-tree`): what a filter leaves
   of them, their **folds** (the rows flipped from pages open and layers folded, or folded among
   what a filter finds), the way down to the selection a reveal opens, and where a dragged row

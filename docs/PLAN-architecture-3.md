@@ -285,3 +285,36 @@ test, `server.test.ts`'s socket tests that `ProjectTest` could run).
    hex token after it and the palette's white; the rewrite's takes the first of two radii; Sync's
    is `design-system-sync-rules`' one value. `value-field.test.ts` failed first (no check read a
    value); `normaliseColor`'s test in figma-import goes.
+5. **A node's fields, one table for the inspector and the toolbar** (`apps/web/src/lib/node-fields.ts`).
+   A `NodeField` says what a node holds as its view draws it (`read`, a missing value read as the
+   field's `unset` where it has one), what setting a value writes (`write`, `null` taking a field
+   off) and its undo step's name (`label`); `sharedField` reads the nodes as one value or `MIXED`.
+   The table is `ALIGN` (a text's, `unset` start), `TEXT_STYLE` (read by name, written by
+   `attachTextStyle`) and `TOKEN_FIELDS` (colour, fill, tint, radius, shadow, gap), each of which
+   names the kind of token it offers. `node-actions`' `setField(field, value, targets)` sets one
+   under its label, the selection's nodes when none are given. The inspector's text, appearance,
+   layout and image sections draw them through `ColorField` and `NodeValueField`, which take the
+   field and the nodes; the element toolbar's `TokenSelect`, `AlignSelect` and `TextStyleSelect`
+   read and write them, and its controls name a field (`element-controls`' `TokenField` and each
+   control's token kind go); the context menu's text style sets `TEXT_STYLE`. Their read/write
+   pairs go, as do the toolbar's `as unknown as Record` casts and its `colorTokens`:
+   `token-options`' `colorGroups` builds the colour options for both, and the toolbar's radius
+   and shadow menus list `tokenOptions`. Where an edit lands is `breakpoint-edits`' as before, with
+   one rule more: a field unset at a breakpoint is its `unset` value there (`unsetValueOf`), so
+   start over a centred base is written `start` at `md`, and unset where nothing below differs.
+   Fixed: unset and `"start"` are one align, written as unset; the inspector wrote `"start"` and
+   read a text without one as nothing (a mix showed "Mixed" there and "Left" in the toolbar), and
+   the toolbar's `null` at a breakpoint took the override away and showed the align below. Also:
+   the inspector shows Start pressed for a text with no align; the undo labels are the toolbar's
+   wording on both ("Align the text", "Change the colour", "Change the fill", "Change the tint",
+   "Change the radius", "Change the shadow", "Change the gap", and the inspector's "Change the
+   padding" and "Change the margin"); the toolbar compares the nodes' values rather than their
+   labels (a gap of 16 beside `$spacing-4`, both "4", reads as mixed). Left where they are: props, which both set
+   through `setPropsOfNodes` ("Change a prop") and read differently on purpose (the inspector
+   shows a prop unset, the toolbar the variant it falls back on); padding and margin, already
+   `sides`' on both; the fields only the inspector edits. `node-fields.test.ts` has table tests over
+   node fixtures for each field's shared value, write and label, and `unsetValueOf`; the align
+   tests failed first against the inspector's read and write (four of them). `node-actions.test.ts`
+   sets start in the md view over a centred base and an unset one and in the base view, which
+   failed first with `null` at `md`. No render-free test reads both surfaces' use of a field:
+   both are components.

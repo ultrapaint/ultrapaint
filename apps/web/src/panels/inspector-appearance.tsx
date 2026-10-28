@@ -5,10 +5,12 @@ import { Row, Section } from "../components/panel.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import type { StyleOption } from "../components/style-combobox.tsx";
 import { ValueField } from "../components/value-field.tsx";
+import { TOKEN_FIELDS } from "../lib/node-fields.ts";
 import { MIXED, shownAs } from "../lib/shared-value.ts";
 import { Swatch, useColorOf, useTokenOptions } from "../lib/token-options.tsx";
 import {
   ColorField,
+  NodeValueField,
   nullIfMixed,
   set,
   setEach,
@@ -42,8 +44,6 @@ export const AppearanceSection = ({
 }: {
   nodes: readonly DesignNode[];
 }) => {
-  const radius = useTokenOptions("radius");
-  const shadows = useTokenOptions("shadow");
   const borderWidths = useTokenOptions("borderWidth");
   const border = (field: "width" | "color" | "style") =>
     sharedOf(nodes, (n) => n.border?.[field]);
@@ -60,10 +60,7 @@ export const AppearanceSection = ({
     <>
       <Section title="Fill">
         <Row label="Background">
-          <ColorField
-            field="fill"
-            {...shownAs(sharedOf(nodes, (n) => n.fill))}
-          />
+          <ColorField field={TOKEN_FIELDS.fill} nodes={nodes} />
         </Row>
       </Section>
       <Section title="Border">
@@ -103,26 +100,20 @@ export const AppearanceSection = ({
           />
         </Row>
         <Row label="Radius">
-          <ValueField
-            onChange={(v) => set("radius", v)}
-            options={radius}
-            {...shownAs(
-              sharedOf(nodes, (n) => n.radius),
-              "0"
-            )}
+          <NodeValueField
+            field={TOKEN_FIELDS.radius}
+            nodes={nodes}
+            placeholder="0"
           />
         </Row>
       </Section>
       <Section title="Effects">
         <Row label="Shadow">
-          <ValueField
+          <NodeValueField
             accept={(q) => CSS.supports("box-shadow", q)}
-            onChange={(v) => set("shadow", v)}
-            options={shadows}
-            {...shownAs(
-              sharedOf(nodes, (n) => n.shadow),
-              "None"
-            )}
+            field={TOKEN_FIELDS.shadow}
+            nodes={nodes}
+            placeholder="None"
           />
         </Row>
         <Row label="Opacity">

@@ -9,7 +9,6 @@ import type { JsonValue } from "@ultrapaint/contracts/base";
 import { familyOf } from "@ultrapaint/contracts/canvas-layout";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import { isBusy } from "@ultrapaint/contracts/threads";
-import { attachTextStyle } from "@ultrapaint/design-document/text-styles";
 import { tokenRef } from "@ultrapaint/design-document/tokens";
 import { toast } from "sonner";
 import { canvasPoint } from "../canvas/drag.ts";
@@ -99,6 +98,7 @@ import {
   renameNode,
   selected,
   selectParent,
+  setField,
   setHidden,
   setLocked,
   unwrapSelection,
@@ -106,6 +106,7 @@ import {
   updateSelectionWith,
   wrapSelection,
 } from "./node-actions.ts";
+import { TEXT_STYLE } from "./node-fields.ts";
 import { copyNodeLink, copyNodeRef } from "./node-links.ts";
 import {
   adoptPages,
@@ -712,10 +713,7 @@ const runTextStyle = (
         .designSystem?.typography.styles.find((s) => s.name === target.name);
       const nodes = nodesAt(actedOn());
       return style && nodes.length > 0 && nodes.every((n) => n.type === "text")
-        ? updateSelection(
-            attachTextStyle(style),
-            `Set the text in ${target.name}`
-          )
+        ? setField(TEXT_STYLE, style)
         : undefined;
     }
     default:

@@ -20,12 +20,14 @@ import {
   insertNodesAt,
   moveNode,
   resetAt,
+  setField,
   setHidden,
   showBy,
   updateNodes,
   updateSelection,
   wrapSelection,
 } from "./node-actions.ts";
+import { ALIGN } from "./node-fields.ts";
 
 vi.mock(
   "../state/connection.ts",
@@ -242,6 +244,35 @@ describe("a field edited", () => {
     expect(applied()[0]?.edits[0]?.ops).toEqual([
       { at: "md", id: "title", op: "update", set: { fontWeight: 700 } },
       { at: "md", id: "lede", op: "update", set: { fontWeight: 700 } },
+    ]);
+  });
+
+  it("aligns a text to the start where its view draws it, unset where nothing below differs", async () => {
+    useDocuments.setState((s) => ({
+      docs: {
+        ...s.docs,
+        [HOME]: stateOf(HOME, {
+          children: [
+            column("hero", [text("title", { align: "center" }), text("lede")]),
+          ],
+          id: "home",
+          type: "page",
+        }),
+      },
+    }));
+    await setField(ALIGN, "start", [{ frame: TABLET, nodeId: "title" }]);
+    await setField(ALIGN, "start", [{ frame: TABLET, nodeId: "lede" }]);
+    await setField(ALIGN, "start", [{ frame: PHONE, nodeId: "title" }]);
+    expect(applied().map((a) => [a.label, a.edits[0]?.ops])).toEqual([
+      [
+        "Align the text",
+        [{ at: "md", id: "title", op: "update", set: { align: "start" } }],
+      ],
+      [
+        "Align the text",
+        [{ at: "md", id: "lede", op: "update", set: { align: null } }],
+      ],
+      ["Align the text", [{ id: "title", op: "update", set: { align: null } }]],
     ]);
   });
 
