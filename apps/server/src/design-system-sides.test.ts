@@ -312,12 +312,12 @@ describe("DESIGN.md's side", () => {
   layer(
     ProjectTest({
       files: { "styles/app.css": INK },
-      settings: { hostCss: ["../../styles/app.css"] },
+      settings: { codeTokens: "auto", hostCss: ["../../styles/app.css"] },
     }),
     { excludeTestServices: true }
   )((it) => {
     it.effect(
-      "moves its baseline with the design system: placed, then mirrored",
+      "moves its baseline with the design system, placed then mirrored, before a token set returns",
       () =>
         Effect.gen(function* () {
           const { repo } = yield* ProjectFixture;
@@ -337,20 +337,27 @@ describe("DESIGN.md's side", () => {
           );
           assert.strictEqual((yield* agreed)["colors.ink"], "#111827");
 
-          yield* inProject(
+          // Read as soon as the call returns, while the editor has not been told yet: DESIGN.md
+          // and, with `codeTokens: auto`, the code are written already.
+          const { files } = yield* inProject(
             Effect.flatMap(DesignSystemService, (d) =>
               d.setToken({ name: "color-ink", value: "#333333" })
             )
           );
-          assert.strictEqual(
-            tokenValue(yield* designSystem, "color-ink"),
-            "#333333"
-          );
+          assert.include(files, "styles/app.css");
           assert.include(
             yield* fs.readFileString(path.join(repo, "DESIGN.md")),
             'ink: "#333333"'
           );
+          assert.include(
+            yield* fs.readFileString(path.join(repo, "styles/app.css")),
+            "--color-ink: #333333"
+          );
           assert.strictEqual((yield* agreed)["colors.ink"], "#333333");
+          assert.strictEqual(
+            tokenValue(yield* designSystem, "color-ink"),
+            "#333333"
+          );
         })
     );
   });

@@ -174,9 +174,13 @@ unless the step says otherwise.
    (782) is `sync-plan.ts` (397) and `sync-readings.ts` (379). The target tokens differed only on
    paper: the adapters' list kept the style system's defaults and the tasks' did not, but every
    use in the adapters (the engine's comparison and rules, Figma's baseline, the targets) took
-   only the code's own, so no outcome changed; the one list takes the code's own. Also: the
-   editor hears of a change once, about 50 ms after it (a token set with `codeTokens: auto` was
-   published two or three times, the first before the call returned); placing DESIGN.md sets its
+   only the code's own, so no outcome changed; the one list takes the code's own. A design write
+   (`write`, `setTokens`, `replace`) and what follows from it on disk (DESIGN.md's front matter,
+   the code with `codeTokens: auto`) run one at a time under one lock and are done when the call
+   returns; the loop's mirror runs under the same lock, so it never follows a design system read
+   before a write. Also: the editor hears of a change once, about 50 ms after it (a token set
+   with `codeTokens: auto` was published two or three times, the first before the call returned),
+   only that being coalesced; two token sets at once no longer race to save; placing DESIGN.md sets its
    baseline in `design-system.json` as the file has it rather than writing both files again, and
    leaves it as it was when they share no value; a Figma baseline waiting in the state directory
    is removed with `force`. `design-system-sides.test.ts` has 6 tests on `ProjectTest`: the code
@@ -185,7 +189,8 @@ unless the step says otherwise.
    changes by hand and the agreement moved by an import and an export, Sync's Figma comparison
    and the `/sync figma` task matching to the code's own tokens past Tailwind's defaults, Figma's
    baseline waiting, none for another file, then taken in by a design system written, DESIGN.md's
-   baseline moved by placing and by the mirror, and `documentBaseline`'s matches kept, forgotten
+   baseline moved by placing and by the mirror, DESIGN.md and the code read current as soon as a
+   token set with `codeTokens: auto` returns, and `documentBaseline`'s matches kept, forgotten
    and saved before anything is agreed. `design-system-files.test.ts` has 1 more (`withAgreement`
    with the same values).
 4. **Settings in force** (`ProjectManager` in `apps/server/src/project.ts`, the web's side in
