@@ -373,3 +373,50 @@ callers and its tests share.
    the Redesign canvas before and after: load 469 / 429 ms, pan 18–19% / 18–19% busy, zoom 40% /
    40%, Layers' select p50 108 / 111 ms, memory 771 / 771 MB. `pnpm e2e:sandbox` passes its 23
    checks.
+12. **Editor frame** (`apps/web/src/canvas/editor-frame.ts`). `frameOf(id)` is the one handle on
+   frame `id`, made the first time it is asked for and kept: `open({ canvas, holder, preview,
+   className, style, keep, still, retryFrozenNextLoad })` puts its host in the holder, with
+   `data-ed-frame-host`, drawn by the preview, or the host kept for it with the same preview and
+   canvas, moved there as it is; it gives `{ host, close }`, or null for a frame the watchdog holds
+   back (one that froze the editor), and with `retryFrozenNextLoad` (the pictures) tries it again
+   at the next load. `close` parks a frame opened with `keep` that has drawn and throws any other
+   away; a close of an earlier opening does nothing. The pool of `preview-pool.ts` (parking,
+   `PARKED_MAX`, trimming the least recently seen, the load timeout, `isWarm`, `onPoolChange`) is
+   in it, with `data-ed-drawn` written when a frame says it drew or threw. `listen(listeners)`
+   takes one listener per kind (`FrameListeners`: `FrameEvents` and `ready`, told to a listener as
+   it starts listening to an open frame and to every listener when the frame is opened anew) and
+   `useFrameEvents(id, listeners)` is the hook over it, calling the listeners of the last render.
+   `render` skips a draw the frame shows already; `hitTest`, `measure` and `tokens` answer at once
+   (`screenshot` stays a promise); `watchRects`, `skeleton`, `setInteractive` (the runtime and the
+   host's `pointer-events`), `setTitle` and `setAway` are kept and told again to a frame opened
+   later, whether it was parked or thrown away. `useFrameFrozen(id)` is the freeze check the canvas
+   frame draws its placeholder by. The canvas frame, `PreviewSurface` (the prototype, the type
+   samples, a component's matrix) and the pictures open frames through it and no longer make
+   hosts, call `mountFrame` or check the watchdog themselves; `PreviewSurface` draws `FrozenPage`
+   for a frozen frame, so the prototype's own check goes. `bridge.ts` (`FrameBridge`, `bridgeFor`,
+   `removeBridge`, its message translation and its `Promise.resolve`s), `use-frame-bridge.ts` and
+   `preview-pool.ts` are gone, and with them the six switches on `msg.type`: the frame, the
+   prototype, the hotspots, the pictures and both panels pass typed listeners. contracts'
+   `HostMessage` and its Schema go (nothing decoded it; `ed:hit`, `ed:measured`, `ed:screenshot`
+   and `ed:tokens` were sent by nobody), and `Rect` and `HostError` become interfaces. With
+   synchronous answers, the hit tests and measures of the pointer, the drag, the create tool,
+   pasting, comments, the menus and the type samples are called without `await` (eleven sites, and
+   the functions above them: `hitUnlocked`, `dropAt`, `placementAt` and the pointer's handlers are
+   synchronous), and the two queues that let only the latest lookup count (`moveDrag`,
+   `followDrop`) and the hover's lookup counter go. `pnpm bench:canvas` still hears `ed:ready` and
+   `ed:rendered` through the `ed:frame` event in development. `editor-frame.test.ts` drives the
+   module with a fake `Preview` in happy-dom: the host and its attribute, answers before and after
+   opening, the freeze check with and without the retry, what is told again to a frame opened
+   later (rects, skeletons, input, title), the interactive flag on runtime and host, skipped
+   draws and a draw again in a frame drawn anew, typed listeners and `ready`, the last render
+   drawn, parking and taking back as it was, a frame closed before it drew and one not kept
+   thrown away, replay after one was thrown away, another preview or canvas and a stale close,
+   trimming beyond 32, and the load timeout; `bridge.test.ts` went into it, and `drag.test.ts`,
+   `use-frame-pointer.test.ts` and `specimens.test.ts` run on it. Also: the type samples and a
+   component's matrix show the placeholder when they froze the editor, rather than drawing again;
+   what a frame watches or shows as skeletons is no longer lost when the pool drops the frame
+   while it is away; a canvas frame kept from another preview is drawn anew rather than given
+   back; a comment placed on the canvas or in the prototype is pinned to its element at once.
+   `pnpm bench:canvas` on the Redesign canvas before and after: load 463 / 471 ms, pan 18–19% /
+   18–19% busy, zoom 40% / 40%, Layers' select p50 80 / 91–112 ms (two runs; step 11 measured
+   108 / 111), memory 749 / 767 MB. `pnpm e2e:sandbox` passes its 23 checks.

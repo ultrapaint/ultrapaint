@@ -143,7 +143,7 @@ const instrument = () => {
     messages: [],
   };
   (window as unknown as BenchWindow).__bench = bench;
-  // What the frames say, which their bridges dispatch for this in development (ADR 0034).
+  // What the frames say, which `editor-frame.ts` dispatches for this in development (ADR 0034).
   window.addEventListener("ed:frame", (ev) => {
     const { frame, type } = (ev as CustomEvent<{ frame: string; type: string }>)
       .detail;

@@ -11,8 +11,8 @@ import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { provideDesignLook } from "./canvas/bridge.ts";
 import { Canvas } from "./canvas/canvas.tsx";
+import { provideDesignLook } from "./canvas/editor-frame.ts";
 import {
   NoUrlWarning,
   Prototype,

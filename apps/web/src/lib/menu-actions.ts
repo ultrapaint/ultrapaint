@@ -11,8 +11,8 @@ import { attachTextStyle } from "@ultrapaint/design-document/text-styles";
 import { tokenRef } from "@ultrapaint/design-document/tokens";
 import { basePathOf } from "@ultrapaint/shared/route";
 import { toast } from "sonner";
-import { bridgeFor } from "../canvas/bridge.ts";
 import { canvasPoint, insertAt } from "../canvas/drag.ts";
+import { frameOf } from "../canvas/editor-frame.ts";
 import { sendComment } from "../canvas/send-to-agent.tsx";
 import { confirmDialog, promptDialog } from "../components/dialogs.tsx";
 import { askLinkUrl } from "../components/link-field.tsx";
@@ -322,7 +322,7 @@ const viewCode = (target: Selection) => {
  * Starts a comment on the node: where it was clicked, else in the middle of it. Comments are
  * pinned on pages, so a node of the canvas has none.
  */
-const commentOn = async (target: Selection, at?: Point) => {
+const commentOn = (target: Selection, at?: Point) => {
   const { docs } = useDocuments.getState();
   const node = nodeIn(
     docs,
@@ -335,7 +335,7 @@ const commentOn = async (target: Selection, at?: Point) => {
   }
   let point = at;
   if (!point) {
-    const rect = (await bridgeFor(target.frame).measure([node.id]))[node.id];
+    const rect = frameOf(target.frame).measure([node.id])[node.id];
     point = rect
       ? { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }
       : { x: 24, y: 24 };
@@ -368,7 +368,7 @@ const zoomToNode = (target: Selection) => {
 
 const editText = (target: Selection) => {
   select(target);
-  bridgeFor(target.frame).editText(target.nodeId);
+  frameOf(target.frame).editText(target.nodeId);
 };
 
 /** Items whose id carries an argument: `wrap:row`, `arrange:up`. */

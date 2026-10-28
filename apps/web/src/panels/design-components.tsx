@@ -29,7 +29,7 @@ import {
   NativeSelectOption,
 } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
-import { bridgeFor } from "../canvas/bridge.ts";
+import { frameOf } from "../canvas/editor-frame.ts";
 import { usePreview } from "../canvas/preview-module.ts";
 import { PreviewSurface } from "../canvas/preview-surface.tsx";
 import { confirmDialog } from "../components/dialogs.tsx";
@@ -252,7 +252,7 @@ const Matrix = ({
       return;
     }
     const look = designLook();
-    bridgeFor(frame).render({
+    frameOf(frame).render({
       designSystem: ds,
       look: {
         // The spec being edited stands in for the saved one.
@@ -280,11 +280,7 @@ const Matrix = ({
         className="w-full"
         frameId={frame}
         hostClassName="block w-full"
-        onMessage={(msg) => {
-          if (msg.type === "ed:ready") {
-            setReady(true);
-          }
-        }}
+        listeners={{ ready: () => setReady(true) }}
         title={`${spec.component} in its variants and states`}
       />
     </div>

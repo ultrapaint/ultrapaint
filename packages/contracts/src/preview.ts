@@ -1,9 +1,10 @@
 import { Schema } from "effect";
 
 /**
- * What the editor and a frame drawn in its page (ADR 0034) say to each other: the editor holds
- * the documents and tells a frame what to draw; the frame answers with where things are. The
- * frame is called directly; these are the messages its bridge hands what it says on as.
+ * What the editor and a frame drawn in its page (ADR 0034) share: the editor holds the documents
+ * and tells a frame what to draw; the frame answers with where things are and how it drew them.
+ * The frame is called directly (`framework-api/browser.ts`), and what it says is a typed callback
+ * per kind, not a message.
  */
 
 /**
@@ -14,21 +15,21 @@ import { Schema } from "effect";
  */
 export const PREVIEW_BASE = "/preview/";
 
-export const Rect = Schema.Struct({
-  height: Schema.Number,
-  width: Schema.Number,
-  x: Schema.Number,
-  y: Schema.Number,
-});
-export type Rect = typeof Rect.Type;
+/** A box in a frame's own coordinates: the page's pixels, whatever the canvas's zoom. */
+export interface Rect {
+  readonly height: number;
+  readonly width: number;
+  readonly x: number;
+  readonly y: number;
+}
 
-export const HostError = Schema.Struct({
-  file: Schema.optional(Schema.String),
-  line: Schema.optional(Schema.Number),
-  message: Schema.String,
-  stack: Schema.optional(Schema.String),
-});
-export type HostError = typeof HostError.Type;
+/** What a frame's page threw, and where, when it can be told. */
+export interface HostError {
+  readonly file?: string | undefined;
+  readonly line?: number | undefined;
+  readonly message: string;
+  readonly stack?: string | undefined;
+}
 
 /**
  * How the preview drew an instance. `layout` is how the element holding the instance's children
@@ -50,81 +51,3 @@ export type InstanceDrawn = typeof InstanceDrawn.Type;
  */
 export const RenderMode = Schema.Literals(["page", "fit"]);
 export type RenderMode = typeof RenderMode.Type;
-
-/** Messages the preview sends to the editor. */
-export const HostMessage = Schema.Union([
-  Schema.Struct({
-    /** The frame: one on the canvas, the prototype, a specimen. */
-    frame: Schema.String,
-    type: Schema.Literal("ed:ready"),
-  }),
-  /** A render reached the screen; `renderId` is the one `ed:render` carried. */
-  Schema.Struct({
-    renderId: Schema.Number,
-    type: Schema.Literal("ed:rendered"),
-  }),
-  /** The drawn size of what a `fit` render shows, whenever it changes. */
-  Schema.Struct({
-    height: Schema.Number,
-    type: Schema.Literal("ed:size"),
-    width: Schema.Number,
-  }),
-  Schema.Struct({ type: Schema.Literal("ed:hmr") }),
-  Schema.Struct({ error: HostError, type: Schema.Literal("ed:error") }),
-  /** The nodes under the point, outermost first; empty when the point is on nothing. */
-  Schema.Struct({
-    nodeIds: Schema.Array(Schema.String),
-    requestId: Schema.Number,
-    type: Schema.Literal("ed:hit"),
-  }),
-  Schema.Struct({
-    rects: Schema.Record(Schema.String, Rect),
-    type: Schema.Literal("ed:rects"),
-  }),
-  /** How instances were drawn, by node id: sent for the ones that changed since the last. */
-  Schema.Struct({
-    instances: Schema.Record(Schema.String, InstanceDrawn),
-    type: Schema.Literal("ed:instances"),
-  }),
-  /** Answers `ed:measure`; a node that renders nothing is left out. */
-  Schema.Struct({
-    rects: Schema.Record(Schema.String, Rect),
-    requestId: Schema.Number,
-    type: Schema.Literal("ed:measured"),
-  }),
-  Schema.Struct({
-    nodeId: Schema.String,
-    text: Schema.String,
-    type: Schema.Literal("ed:textCommit"),
-  }),
-  Schema.Struct({
-    dataUrl: Schema.NullOr(Schema.String),
-    requestId: Schema.Number,
-    type: Schema.Literal("ed:screenshot"),
-  }),
-  /** The CSS custom properties the page's stylesheets define, resolved. */
-  Schema.Struct({
-    requestId: Schema.Number,
-    tokens: Schema.Record(Schema.String, Schema.String),
-    type: Schema.Literal("ed:tokens"),
-  }),
-  /**
-   * A click while the preview takes input: the nodes under it, outermost first, empty when it
-   * landed on none. The editor shows what can be pressed when it led nowhere.
-   */
-  Schema.Struct({
-    nodeIds: Schema.Array(Schema.String),
-    type: Schema.Literal("ed:pressed"),
-  }),
-  /**
-   * A node with a link was pressed. The preview does not move: the editor holds the route and
-   * sends the page it leads to. `route` is the link as the node has it: a page file, a URL,
-   * `back` or another site.
-   */
-  Schema.Struct({
-    replace: Schema.Boolean,
-    route: Schema.String,
-    type: Schema.Literal("ed:navigateTo"),
-  }),
-]);
-export type HostMessage = typeof HostMessage.Type;

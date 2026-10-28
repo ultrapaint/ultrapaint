@@ -12,8 +12,8 @@ import { create } from "zustand";
 import { placeOnCanvas } from "../state/canvas-grid.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useEditor } from "../state/editor.ts";
-import { bridgeFor, type FrameBridge } from "./bridge.ts";
 import { canvasPoint, type Drop, insertAt, placementAt } from "./drag.ts";
+import { type EditorFrame, frameOf } from "./editor-frame.ts";
 
 export type CreateTool = "group" | "text";
 
@@ -51,29 +51,9 @@ export const boxOf = (a: Point, b: Point) => ({
   y: Math.min(a.y, b.y),
 });
 
-// Lookups in the preview are asynchronous; only the latest one counts.
-let pending = false;
-let queued: Point | null = null;
-
-const followDrop = (p: Point) => {
-  if (pending) {
-    queued = p;
-    return;
-  }
-  pending = true;
-  placementAt(p.x, p.y)
-    .then((drop) => useCreate.setState({ drop }))
-    .catch(() => undefined)
-    .finally(() => {
-      pending = false;
-      const next = queued;
-      queued = null;
-      // A press fixes where it lands; the pointer drawing the group no longer moves it.
-      if (next && !useCreate.getState().from) {
-        followDrop(next);
-      }
-    });
-};
+/** Shows where a press at `p` would put what the tool makes. */
+const followDrop = (p: Point) =>
+  useCreate.setState({ drop: placementAt(p.x, p.y) });
 
 /** The pointer over the canvas with a tool picked: shows where a press would put it. */
 export const hoverCreate = (clientX: number, clientY: number) => {
@@ -86,7 +66,6 @@ export const hoverCreate = (clientX: number, clientY: number) => {
 export const beginCreate = (clientX: number, clientY: number, free = false) => {
   const p = placeOnCanvas(canvasPoint(clientX, clientY), free);
   useCreate.setState({ from: p, to: p });
-  queued = null;
   followDrop(p);
 };
 
@@ -126,13 +105,8 @@ const EDIT_TRIES = 30;
 const EDIT_INTERVAL_MS = 100;
 
 /** Whether the frame's preview is up and has the node on screen. */
-const isDrawn = async (bridge: FrameBridge, nodeId: string) => {
-  if (!bridge.ready) {
-    return false;
-  }
-  const rects = await bridge.measure([nodeId]);
-  return nodeId in rects;
-};
+const isDrawn = (frame: EditorFrame, nodeId: string) =>
+  frame.ready && nodeId in frame.measure([nodeId]);
 
 /**
  * Starts editing a new text once its frame has drawn it. A text placed on the canvas gets a frame
@@ -145,12 +119,12 @@ const editWhenDrawn = async (nodeId: string) => {
     if (selection?.nodeId !== nodeId) {
       return;
     }
-    const bridge = bridgeFor(selection.frame);
-    // biome-ignore lint/performance/noAwaitInLoops: each try waits for the preview to catch up.
-    if (await isDrawn(bridge, nodeId)) {
-      bridge.editText(nodeId);
+    const frame = frameOf(selection.frame);
+    if (isDrawn(frame, nodeId)) {
+      frame.editText(nodeId);
       return;
     }
+    // biome-ignore lint/performance/noAwaitInLoops: each try waits for the preview to catch up.
     await new Promise((resolve) => setTimeout(resolve, EDIT_INTERVAL_MS));
   }
 };
@@ -162,7 +136,7 @@ export const endCreate = async (tool: CreateTool) => {
   if (!(from && to)) {
     return;
   }
-  const drop = (await placementAt(from.x, from.y)) ?? { kind: "canvas" };
+  const drop = placementAt(from.x, from.y) ?? { kind: "canvas" };
   const box = boxOf(from, to);
   const node =
     tool === "group"

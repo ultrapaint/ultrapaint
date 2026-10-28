@@ -33,7 +33,7 @@ import {
   useDocuments,
 } from "../state/documents.ts";
 import { allFrames, type Box, holdUntil, useEditor } from "../state/editor.ts";
-import { bridgeFor } from "./bridge.ts";
+import { frameOf } from "./editor-frame.ts";
 import { snapPoint } from "./snap.ts";
 
 /** Type of the data an Assets entry's drag carries: the node it inserts, as JSON. */
@@ -225,11 +225,7 @@ const edgeOf = (node: DesignNode, holds: boolean) => {
 };
 
 /** The drop one node offers: beside it near its edges, else inside it when it holds others. */
-export const dropAt = async (
-  spot: Spot,
-  px: number,
-  py: number
-): Promise<Drop | null> => {
+export const dropAt = (spot: Spot, px: number, py: number): Drop | null => {
   const { exclude, frame, frameId, node, parent } = spot;
   const holds = holdsChildren(node);
   const inner = holds ? childrenOf(node).filter((c) => c.id !== exclude) : [];
@@ -238,7 +234,7 @@ export const dropAt = async (
     : [];
   // The siblings too: which way they run is read off where they are drawn.
   const ids = new Set([node, ...inner, ...siblings].map((n) => n.id));
-  const rects = await bridgeFor(frameId).measure([...ids]);
+  const rects = frameOf(frameId).measure([...ids]);
   const own = rects[node.id];
   if (!own) {
     return null;
@@ -273,12 +269,12 @@ export const dropAt = async (
  * Where something dropped at this point of a frame goes: inside the innermost container under
  * it, or beside the innermost node, whichever the pointer is nearer to meaning.
  */
-const placementIn = async (
+const placementIn = (
   frameId: string,
   px: number,
   py: number,
   dragged: Dragged
-): Promise<Drop | null> => {
+): Drop | null => {
   const s = useEditor.getState();
   const frame = allFrames()[frameId];
   const root = rootOfFrame(useDocuments.getState().docs, s.canvas, frameId);
@@ -287,7 +283,7 @@ const placementIn = async (
   }
   const doc = docOfFrame(frameId, s.canvas);
   const exclude = draggedIn(dragged, doc);
-  const chain = await bridgeFor(frameId).hitTest(px - frame.x, py - frame.y);
+  const chain = frameOf(frameId).hitTest(px - frame.x, py - frame.y);
   const innermost = chain.at(-1) ?? root.id;
   const path = findPath(root, innermost) ?? [root];
   for (let i = path.length - 1; i >= 0; i -= 1) {
@@ -301,8 +297,8 @@ const placementIn = async (
       node: path[i] as DesignNode,
       parent: (path[i - 1] as DesignNode | undefined) ?? null,
     };
-    // biome-ignore lint/performance/noAwaitInLoops: the innermost that takes the drop wins.
-    const drop = await dropAt(at, px, py);
+    // The innermost that takes the drop wins.
+    const drop = dropAt(at, px, py);
     if (drop) {
       return drop;
     }
@@ -311,14 +307,6 @@ const placementIn = async (
 };
 
 // ---- The drag itself ----
-
-let pending = false;
-let queued: {
-  clientX: number;
-  clientY: number;
-  alt: boolean;
-  free: boolean;
-} | null = null;
 
 /** Starts a drag. What is dragged keeps its place until the drop. */
 export const beginDrag = (
@@ -346,7 +334,7 @@ export const beginDrag = (
   useEditor.getState().setHover(null);
 };
 
-/** Follows the pointer. Lookups in the preview are asynchronous; only the latest one counts. */
+/** Follows the pointer: where it would land is asked of the frame under it as it goes. */
 export const moveDrag = (
   clientX: number,
   clientY: number,
@@ -358,41 +346,22 @@ export const moveDrag = (
     return;
   }
   const p = canvasPoint(clientX, clientY);
-  useDrag.setState({ copy: alt, free, pointer: p });
-  if (pending) {
-    queued = { alt, clientX, clientY, free };
-    return;
-  }
-  pending = true;
-  resolveDrop(p.x, p.y, dragged)
-    .then((drop) => {
-      if (useDrag.getState().dragged === dragged) {
-        useDrag.setState({ drop });
-      }
-    })
-    .catch(() => undefined)
-    .finally(() => {
-      pending = false;
-      const next = queued;
-      queued = null;
-      if (next) {
-        moveDrag(next.clientX, next.clientY, next.alt, next.free);
-      }
-    });
+  useDrag.setState({
+    copy: alt,
+    drop: resolveDrop(p.x, p.y, dragged),
+    free,
+    pointer: p,
+  });
 };
 
-const resolveDrop = async (
-  x: number,
-  y: number,
-  dragged: Dragged
-): Promise<Drop | null> => {
+const resolveDrop = (x: number, y: number, dragged: Dragged): Drop | null => {
   const except = dragged.kind === "loose" ? dragged.frame : undefined;
   const frameId = frameAt(x, y, except);
   if (!frameId) {
     // A node on the canvas dragged over nothing is only being moved; anything else lands there.
     return dragged.kind === "loose" ? null : { kind: "canvas" };
   }
-  return await placementIn(frameId, x, y, dragged);
+  return placementIn(frameId, x, y, dragged);
 };
 
 export const cancelDrag = () => useDrag.setState({ dragged: null, drop: null });

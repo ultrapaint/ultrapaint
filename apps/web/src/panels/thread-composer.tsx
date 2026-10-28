@@ -41,7 +41,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { bridgeFor } from "../canvas/bridge.ts";
+import { frameOf } from "../canvas/editor-frame.ts";
 import { frameIdOf } from "../canvas/prototype.tsx";
 import { IconButton } from "../components/icon-button.tsx";
 import { shortcutLabel } from "../lib/keys.ts";
@@ -105,7 +105,7 @@ const collectAttachments = async (
     }
   }
   if (shotOf) {
-    const dataUrl = await bridgeFor(shotOf.frameId).screenshot();
+    const dataUrl = await frameOf(shotOf.frameId).screenshot();
     if (dataUrl) {
       attachments.push({
         dataUrl,

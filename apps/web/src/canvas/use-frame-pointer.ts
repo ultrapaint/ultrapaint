@@ -21,8 +21,8 @@ import { holdMenu, openMenuAt, showMenu } from "../state/context-menu.ts";
 import { nodeIn, rootOfFrame, useDocuments } from "../state/documents.ts";
 import { selectForMenu, useEditor } from "../state/editor.ts";
 import { stepInto } from "../state/tree.ts";
-import { bridgeFor } from "./bridge.ts";
 import { beginDrag, type Dragged, endDrag, moveDrag, useDrag } from "./drag.ts";
+import { frameOf } from "./editor-frame.ts";
 import { hitUnlocked } from "./hit-test.ts";
 import { holdsFree } from "./snap.ts";
 
@@ -50,11 +50,10 @@ const contains = (outer: Rect, inner: Rect) =>
   inner.y + inner.height <= outer.y + outer.height;
 
 /**
- * Forgets what the pointer hovers over in a frame, and the hover lookup still on its way: the
- * pointer left the frame, or the layer it hovered over went away under it.
+ * Forgets what the pointer hovers over in a frame: the pointer left the frame, or the layer it
+ * hovered over went away under it.
  */
-export const leaveHover = (asked: { current: number }, frameId: string) => {
-  asked.current += 1;
+export const leaveHover = (frameId: string) => {
   const s = useEditor.getState();
   if (s.hover?.frame === frameId) {
     s.setHover(null);
@@ -78,13 +77,11 @@ export const useFramePointer = ({
 }) => {
   // Pointer interaction in select mode.
   const lastHit = useRef(0);
-  /** Counts the hover lookups: only the latest one's answer counts, and none after a leave. */
-  const hoverAsked = useRef(0);
   /**
    * The select layer taken away under a resting pointer (Space held, another mode) sends no
    * pointerleave, and the hover would stay drawn: the layer calls this as it goes.
    */
-  const onSelectLayerGone = () => leaveHover(hoverAsked, frameId);
+  const onSelectLayerGone = () => leaveHover(frameId);
   const toFrame = (e: ReactPointerEvent | ReactMouseEvent) => {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
     // The zoom the frame is drawn at: read when the pointer acts, so a zoom redraws no frame.
@@ -98,27 +95,21 @@ export const useFramePointer = ({
       frameId
     );
   /** The node a pointer event at this position means, given what is selected. */
-  const nodeAt = async (e: ReactPointerEvent | ReactMouseEvent) => {
+  const nodeAt = (e: ReactPointerEvent | ReactMouseEvent) => {
     const { x, y } = toFrame(e);
-    const chain = await hitUnlocked(frameId, x, y);
+    const chain = hitUnlocked(frameId, x, y);
     const store = useEditor.getState();
     const selected =
       store.selection?.frame === frameId ? store.selection.nodeId : null;
     return stepInto(chain, currentRoot(), selected, e.altKey);
   };
-  const onMove = async (e: ReactPointerEvent) => {
+  const onMove = (e: ReactPointerEvent) => {
     const now = performance.now();
     if (now - lastHit.current < 40) {
       return;
     }
     lastHit.current = now;
-    hoverAsked.current += 1;
-    const asked = hoverAsked.current;
-    const id = await nodeAt(e);
-    // A later move was answered first, or the pointer has left the frame since.
-    if (asked !== hoverAsked.current) {
-      return;
-    }
+    const id = nodeAt(e);
     const store = useEditor.getState();
     if (id) {
       store.setHover({ frame: frameId, nodeId: id });
@@ -138,14 +129,14 @@ export const useFramePointer = ({
       store.select(null);
     }
   };
-  const onClick = async (e: ReactMouseEvent) => {
+  const onClick = (e: ReactMouseEvent) => {
     // Keyboard activation (Enter/Space) has no pointer position to hit-test: it only picks
     // the frame, which is also what a click on nothing inside it means.
     if (e.detail === 0) {
       selectFrame();
       return;
     }
-    const id = await nodeAt(e);
+    const id = nodeAt(e);
     if (id && e.shiftKey) {
       useEditor.getState().toggleSelected({ frame: frameId, nodeId: id });
     } else if (id) {
@@ -154,17 +145,16 @@ export const useFramePointer = ({
       selectFrame();
     }
   };
-  const onDoubleClick = async (e: ReactMouseEvent) => {
+  const onDoubleClick = (e: ReactMouseEvent) => {
     const { x, y } = toFrame(e);
-    const bridge = bridgeFor(frameId);
     // Text is edited where it is written, whatever the two clicks before this selected.
-    const id = (await hitUnlocked(frameId, x, y)).at(-1);
+    const id = hitUnlocked(frameId, x, y).at(-1);
     const node = id
       ? nodeIn(useDocuments.getState().docs, canvas, frameId, id)
       : null;
     if (id && node?.type === "text") {
       select(id);
-      bridge.editText(id);
+      frameOf(frameId).editText(id);
     }
   };
 
@@ -172,8 +162,8 @@ export const useFramePointer = ({
    * What a press or a right-click here is about: what is selected, when the point is inside
    * it, else what a click would select.
    */
-  const pickAt = async (x: number, y: number, alt: boolean) => {
-    const chain = await hitUnlocked(frameId, x, y);
+  const pickAt = (x: number, y: number, alt: boolean) => {
+    const chain = hitUnlocked(frameId, x, y);
     const store = useEditor.getState();
     const selected =
       store.selection?.frame === frameId ? store.selection.nodeId : null;
@@ -186,13 +176,8 @@ export const useFramePointer = ({
    * What a press here picks up if it turns into a drag: what `pickAt` says. On a node placed on
    * the canvas, its root is the node itself, and dragging it moves it around the canvas.
    */
-  const dragTarget = async (
-    x: number,
-    y: number,
-    alt: boolean
-  ): Promise<Dragged | null> => {
-    const bridge = bridgeFor(frameId);
-    const id = await pickAt(x, y, alt);
+  const dragTarget = (x: number, y: number, alt: boolean): Dragged | null => {
+    const id = pickAt(x, y, alt);
     const store = useEditor.getState();
     const current = currentRoot();
     if (!(id && current)) {
@@ -209,7 +194,7 @@ export const useFramePointer = ({
     if (id === current.id) {
       return null;
     }
-    const rect = (await bridge.measure([id]))[id];
+    const rect = frameOf(frameId).measure([id])[id];
     const node = nodeIn(
       useDocuments.getState().docs,
       store.canvas,
@@ -229,7 +214,7 @@ export const useFramePointer = ({
     /** Where it began in the frame, for a marquee. */
     at: { x: number; y: number };
     last: { x: number; y: number; alt: boolean; free: boolean };
-    target: Promise<Dragged | null>;
+    target: Dragged | null;
   } | null>(null);
   /**
    * A drag from the page itself, or from a container that is not selected, draws a marquee in
@@ -306,35 +291,30 @@ export const useFramePointer = ({
       return;
     }
     dragging.current = true;
-    p.target.then((target) => {
-      // Released before the preview answered: it was a click after all.
-      if (press.current !== p) {
-        return;
-      }
-      if (!target) {
-        if (kind === "page") {
-          marqueeIn.current = currentRoot();
-          marqueeFrom.current = p.at;
-        }
-        return;
-      }
-      if (
-        target.kind === "node" &&
-        isContainer(target.node) &&
-        !isSelected(target.node.id)
-      ) {
-        marqueeIn.current = target.node;
+    const { target } = p;
+    if (!target) {
+      if (kind === "page") {
+        marqueeIn.current = currentRoot();
         marqueeFrom.current = p.at;
-        return;
       }
-      // What is dragged is what is selected, as it would be after a click on it.
-      const id = draggedId(target);
-      if (id && useEditor.getState().selection?.nodeId !== id) {
-        select(id);
-      }
-      beginDrag(target, p.x, p.y, p.last.alt, p.last.free);
-      moveDrag(p.last.x, p.last.y, p.last.alt, p.last.free);
-    });
+      return;
+    }
+    if (
+      target.kind === "node" &&
+      isContainer(target.node) &&
+      !isSelected(target.node.id)
+    ) {
+      marqueeIn.current = target.node;
+      marqueeFrom.current = p.at;
+      return;
+    }
+    // What is dragged is what is selected, as it would be after a click on it.
+    const id = draggedId(target);
+    if (id && useEditor.getState().selection?.nodeId !== id) {
+      select(id);
+    }
+    beginDrag(target, p.x, p.y, p.last.alt, p.last.free);
+    moveDrag(p.last.x, p.last.y, p.last.alt, p.last.free);
   };
   const onPointerUp = () => {
     press.current = null;
@@ -348,7 +328,7 @@ export const useFramePointer = ({
       const drawn = waiting?.rect ?? marquee;
       setMarquee(null);
       if (drawn) {
-        selectInMarquee(drawn).catch(() => undefined);
+        selectInMarquee(drawn);
       }
       return;
     }
@@ -362,7 +342,7 @@ export const useFramePointer = ({
    * it touches only one and does not cover it whole, that one's children instead: the way a
    * designer means the nodes the rectangle is drawn across.
    */
-  const selectInMarquee = async (area: Rect) => {
+  const selectInMarquee = (area: Rect) => {
     const within = marqueeIn.current ?? currentRoot();
     marqueeIn.current = null;
     if (!within) {
@@ -370,8 +350,7 @@ export const useFramePointer = ({
     }
     let level = childrenOf(within);
     for (;;) {
-      // biome-ignore lint/performance/noAwaitInLoops: each level is measured once the one above is known.
-      const measured = await bridgeFor(frameId).measure(level.map((n) => n.id));
+      const measured = frameOf(frameId).measure(level.map((n) => n.id));
       const hits = level.filter((n) => {
         const r = measured[n.id];
         return r !== undefined && !n.locked && intersects(r, area);
@@ -405,7 +384,7 @@ export const useFramePointer = ({
   };
 
   /** Places a comment where the page was clicked, on the innermost node there. */
-  const onPlaceComment = async (e: ReactMouseEvent) => {
+  const onPlaceComment = (e: ReactMouseEvent) => {
     if (kind !== "page") {
       return;
     }
@@ -414,35 +393,28 @@ export const useFramePointer = ({
     if (!comments.visible) {
       comments.toggleVisible();
     }
-    const draft = { element: null, nodeId: null, pageId: frameId, x, y };
-    comments.setDraft(draft);
-    const chain = await bridgeFor(frameId).hitTest(x, y);
-    const id = chain.at(-1);
+    const id = frameOf(frameId).hitTest(x, y).at(-1);
     const node = id
       ? nodeIn(useDocuments.getState().docs, canvas, frameId, id)
       : null;
-    // Only if the draft is still this one: another click may have moved it meanwhile.
-    if (
-      node &&
-      node.type !== "page" &&
-      useComments.getState().draft === draft
-    ) {
-      comments.setDraft({
-        ...draft,
-        element: nodeLabel(node),
-        nodeId: node.id,
-      });
-    }
+    const pinned = node && node.type !== "page" ? node : null;
+    comments.setDraft({
+      element: pinned ? nodeLabel(pinned) : null,
+      nodeId: pinned?.id ?? null,
+      pageId: frameId,
+      x,
+      y,
+    });
   };
 
   /**
    * A right-click selects what it is on, as a click would, and opens that node's menu; on
    * nothing but the page, the page's. What is selected stays selected when it is clicked in.
    */
-  const onContextMenu = async (e: ReactMouseEvent) => {
+  const onContextMenu = (e: ReactMouseEvent) => {
     const anchor = holdMenu(e);
     const at = toFrame(e);
-    const id = await pickAt(at.x, at.y, e.altKey);
+    const id = pickAt(at.x, at.y, e.altKey);
     const current = currentRoot();
     const store = useEditor.getState();
     if (id && current && (kind === "node" || id !== current.id)) {
@@ -464,7 +436,7 @@ export const useFramePointer = ({
     openMenuAt(e, { at: toFrame(e), kind: "page", pageId: frameId });
   };
 
-  const onPointerLeave = () => leaveHover(hoverAsked, frameId);
+  const onPointerLeave = () => leaveHover(frameId);
 
   return {
     marquee,

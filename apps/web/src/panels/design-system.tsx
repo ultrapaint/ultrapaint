@@ -40,7 +40,7 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@/components/ui/input-group";
-import { bridgeFor } from "../canvas/bridge.ts";
+import { frameOf } from "../canvas/editor-frame.ts";
 import { usePreview } from "../canvas/preview-module.ts";
 import { PreviewSurface } from "../canvas/preview-surface.tsx";
 import { IconButton } from "../components/icon-button.tsx";
@@ -263,7 +263,7 @@ const TypeSpecimen = ({ ds, q }: { ds: DesignSystem; q: string }) => {
   const frame = "design-system:typography";
   useEffect(() => {
     if (ready) {
-      bridgeFor(frame).render({
+      frameOf(frame).render({
         designSystem: ds,
         mode: "fit",
         root: typeSpecimen(ds, q),
@@ -271,16 +271,13 @@ const TypeSpecimen = ({ ds, q }: { ds: DesignSystem; q: string }) => {
     }
   }, [ready, ds, q]);
   // The samples are one picture: which one was right-clicked is asked of the preview.
-  const onContextMenu = async (e: React.MouseEvent) => {
+  const onContextMenu = (e: React.MouseEvent) => {
     const anchor = holdMenu(e);
     const r = ref.current?.getBoundingClientRect();
     if (!r) {
       return;
     }
-    const chain = await bridgeFor(frame).hitTest(
-      e.clientX - r.left,
-      e.clientY - r.top
-    );
+    const chain = frameOf(frame).hitTest(e.clientX - r.left, e.clientY - r.top);
     const target = sampleTarget(ds, q, chain);
     if (target) {
       showMenu(target, anchor);
@@ -305,11 +302,7 @@ const TypeSpecimen = ({ ds, q }: { ds: DesignSystem; q: string }) => {
           className="w-full"
           frameId={frame}
           hostClassName="block w-full"
-          onMessage={(msg) => {
-            if (msg.type === "ed:ready") {
-              setReady(true);
-            }
-          }}
+          listeners={{ ready: () => setReady(true) }}
           title="Type samples"
         />
       </div>

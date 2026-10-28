@@ -1,6 +1,6 @@
 import { childrenOf } from "@ultrapaint/design-document/tree";
 import { useEffect } from "react";
-import { bridgeFor } from "../canvas/bridge.ts";
+import { frameOf } from "../canvas/editor-frame.ts";
 import { openCommandPalette } from "../components/command-palette.tsx";
 import { openShortcutSheet } from "../components/shortcut-sheet.tsx";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
@@ -93,7 +93,7 @@ const handleEditKey = (e: KeyboardEvent, s: EditorState, meta: boolean) => {
     const current = selected();
     if (current?.node.type === "text") {
       e.preventDefault();
-      bridgeFor(s.selection.frame).editText(s.selection.nodeId);
+      frameOf(s.selection.frame).editText(s.selection.nodeId);
       return true;
     }
   }
