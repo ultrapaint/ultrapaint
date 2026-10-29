@@ -54,7 +54,7 @@ import {
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { makeStamp } from "../file-stamp.ts";
 import { makeId, safeFileId } from "../ids.ts";
-import { CatalogueService } from "./catalogue.ts";
+import { ComponentService } from "./components.ts";
 import { DesignSystemService } from "./design-system.ts";
 import type { EditFailure } from "./edit.ts";
 import { PagesService } from "./pages.ts";
@@ -248,7 +248,7 @@ export class FigmaImportService extends Context.Service<
     Effect.gen(function* () {
       const storage = yield* Storage;
       const paths = yield* RepoPaths;
-      const catalogue = yield* CatalogueService;
+      const { catalogue } = yield* ComponentService;
       const designSystem = yield* DesignSystemService;
       const pages = yield* PagesService;
       const fs = yield* FileSystem.FileSystem;
@@ -307,14 +307,11 @@ export class FigmaImportService extends Context.Service<
         ).pipe(Effect.mapError(notSaved(`${summary.name}'s import`)));
       });
 
-      /** The catalogue's guesses for each component, from the names; nothing when it is not built. */
+      /** The catalogue's guesses for each component, from the names. */
       const withCandidates = Effect.fnUntraced(function* (
         summary: FigmaImport
       ) {
-        const components = yield* Effect.orElseSucceed(
-          Effect.map(catalogue.get(false), (c) => c.components),
-          () => []
-        );
+        const components = yield* catalogue;
         return {
           ...summary,
           components: summary.components.map((entry) => ({
@@ -447,7 +444,7 @@ export class FigmaImportService extends Context.Service<
         if (mapping.kind !== "component") {
           return { mapping, notes: [] as string[] };
         }
-        const { components } = yield* catalogue.get(false);
+        const components = yield* catalogue;
         const component = components.find((c) => c.name === mapping.component);
         if (!component) {
           const close = components

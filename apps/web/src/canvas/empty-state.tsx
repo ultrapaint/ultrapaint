@@ -18,7 +18,7 @@ import { newCanvas } from "../lib/canvas-actions.ts";
 import { pickFigmaFile } from "../lib/import-figma.ts";
 import { newPage } from "../lib/page-actions.ts";
 import { startInit, startPrompt } from "../lib/start-thread.ts";
-import { useCatalogue } from "../state/catalogue.ts";
+import { useComponents } from "../state/components.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useEditor } from "../state/editor.ts";
 import { showLeftPanel } from "../state/panels.ts";
@@ -211,7 +211,7 @@ const OtherWay = () => (
 const Starters = ({ canvas }: { canvas: string }) => {
   const designSystem = useDesignSystem((s) => s.designSystem);
   const loaded = useDesignSystem((s) => s.loaded);
-  const catalogue = useCatalogue((s) => s.catalogue);
+  const catalogue = useComponents((s) => s.catalogue);
   const name = useProject(
     (s) => s.canvases.find((c) => c.id === canvas)?.name ?? canvas
   );
@@ -227,12 +227,7 @@ const Starters = ({ canvas }: { canvas: string }) => {
     <div className="flex max-w-full flex-col items-center gap-5 px-6 @max-[54rem]:[zoom:0.8]">
       <div className="flex flex-col items-center gap-2 text-center">
         <span className="font-medium">Start {name} from</span>
-        {theme && (
-          <SystemPill
-            components={catalogue?.components.length ?? 0}
-            theme={theme}
-          />
-        )}
+        {theme && <SystemPill components={catalogue.length} theme={theme} />}
         {loaded && !theme && (
           <span className="font-body text-muted-foreground">
             Plain wireframes, until the design system is set up

@@ -17,7 +17,6 @@ import type { Thread } from "@ultrapaint/contracts/threads";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeApi } from "../testing/fake-api.ts";
 import { useAgents } from "./agents.ts";
-import { useCatalogue } from "./catalogue.ts";
 import { useComments } from "./comments.ts";
 import { useComponents } from "./components.ts";
 import { useDesignSystem } from "./design-system.ts";
@@ -174,11 +173,6 @@ const answerAll = () => {
     document: null,
     problem: `css ${v()}`,
   }));
-  fakeApi.respond("catalogue.get", () => ({
-    builtAt: v(),
-    components: [],
-    coverage: { total: 0, usable: 0 },
-  }));
   fakeApi.respond("components.list", () => ({
     components: [{ file: `v${v()}.component.json` }],
   }));
@@ -202,7 +196,6 @@ const answerAll = () => {
 /** What the editor holds of the server, by the version each store says it read. */
 const held = () => ({
   agents: useAgents.getState().threads.map((t) => t.id),
-  catalogue: useCatalogue.getState().catalogue?.builtAt,
   checkpoints: useKept.getState().checkpoints?.map((c) => c.id),
   commands: useSlashCommands.getState().commands.length,
   comments: useComments.getState().comments.map((c) => c.text),
@@ -223,7 +216,6 @@ const held = () => ({
 
 const heldAt = (v: number) => ({
   agents: [`t${v}`],
-  catalogue: v,
   checkpoints: [`cp${v}`],
   commands: v,
   comments: [`c${v}`],
@@ -248,7 +240,6 @@ const openEditor = async () => {
   useEditor.setState({ canvas: "" });
   await Promise.all([
     useDesignSystem.getState().load(),
-    useCatalogue.getState().load(),
     useComponents.getState().load(),
     useImplementation.getState().load(),
     useSync.getState().load(),

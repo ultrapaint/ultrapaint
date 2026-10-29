@@ -48,7 +48,6 @@ import {
   useColorOf,
   useTokenOptions,
 } from "../lib/token-options.tsx";
-import { useCatalogue } from "../state/catalogue.ts";
 import { useComponents } from "../state/components.ts";
 import { api } from "../state/connection.ts";
 import { useDesignSystem } from "../state/design-system.ts";
@@ -1157,13 +1156,15 @@ const AppDetail = ({
 
 export const ComponentsView = ({ q }: { q: string }) => {
   // The system components the editor has; the app components are the files'.
-  const catalogue = useCatalogue((s) => s.system);
+  const catalogue = useComponents((s) => s.catalogue).filter(
+    (c) => c.importFrom === SYSTEM_FROM
+  );
   const files = useComponents((s) => s.components);
   const entries = useComponents((s) => s.entries);
   const problems = entries.filter((e) => e.problem !== undefined);
   const byTarget = useImplementation((s) => s.byTarget);
   const [open, setOpen] = useState<string | null>(null);
-  const listed = listedOf(catalogue?.components ?? [], files).filter(
+  const listed = listedOf(catalogue, files).filter(
     (l) => !q || l.name.toLowerCase().includes(q)
   );
   const opened = open ? listed.find((l) => l.name === open) : undefined;

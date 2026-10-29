@@ -38,8 +38,11 @@ import {
   isRepositoryInstance,
 } from "@ultrapaint/system-components/migrate";
 import { promptDialog } from "../components/dialogs.tsx";
-import { holdsChildren } from "../state/catalogue.ts";
-import { appComponentOf, useComponents } from "../state/components.ts";
+import {
+  appComponentOf,
+  holdsChildren,
+  useComponents,
+} from "../state/components.ts";
 import {
   applyEdits,
   canvasNodes,

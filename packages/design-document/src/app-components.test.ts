@@ -3,7 +3,6 @@ import type { InstanceNode } from "@ultrapaint/contracts/document";
 import { describe, expect, it } from "vitest";
 import {
   appComponentCycle,
-  appComponentMeta,
   detachedOf,
   expandAppInstance,
 } from "./app-components.ts";
@@ -139,21 +138,5 @@ describe("appComponentCycle", () => {
       "A",
     ]);
     expect(appComponentCycle([placing("A", "B"), PLAN])).toBeNull();
-  });
-});
-
-describe("appComponentMeta", () => {
-  it("lists the properties as props, the choices as axes and the slots as a system component's", () => {
-    const meta = appComponentMeta(PLAN);
-    expect(meta.importFrom).toBe("#app");
-    expect(meta.props.map((p) => [p.name, p.type.kind])).toEqual([
-      ["title", "string"],
-      ["tone", "enum"],
-      ["badge", "boolean"],
-    ]);
-    expect(meta.variants).toEqual({ tone: ["outline", "primary"] });
-    expect(meta.slots).toEqual([
-      { holds: "default", label: "body", layout: "column", name: "body" },
-    ]);
   });
 });

@@ -5,7 +5,7 @@
  * one of its slots. Each change is the component's file saved whole, one undo step.
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
-import type { PropMeta } from "@ultrapaint/contracts/catalogue";
+import { metaOf, type PropMeta } from "@ultrapaint/contracts/catalogue";
 import type {
   AppComponentFile,
   ComponentProperty,
@@ -31,7 +31,6 @@ import {
 } from "@/components/ui/native-select";
 import { promptDialog } from "../components/dialogs.tsx";
 import { Row, Section } from "../components/panel.tsx";
-import { componentMetaOf, useCatalogue } from "../state/catalogue.ts";
 import { appComponentOf, useComponents } from "../state/components.ts";
 import { api } from "../state/connection.ts";
 import { useIsolation } from "../state/isolation.ts";
@@ -295,8 +294,8 @@ const exposedProp = (node: DesignNode, prop: PropMeta): Exposable | null => {
 
 /** The fields of a node a property can set. */
 const useExposable = (node: DesignNode, isRoot: boolean): Exposable[] => {
-  const meta = useCatalogue((s) =>
-    node.type === "instance" ? componentMetaOf(s.catalogue, node) : undefined
+  const meta = useComponents((s) =>
+    node.type === "instance" ? metaOf(s.catalogue, node) : undefined
   );
   const label = nodeLabel(node).toLowerCase();
   const fields: Exposable[] = [];

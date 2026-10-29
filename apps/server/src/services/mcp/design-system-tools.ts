@@ -1,14 +1,15 @@
 /**
  * The tools of the design system and the components: the design system as recorded, read from
- * the stylesheets or written, and the editor's system components with an instance to start from.
+ * the stylesheets or written, and the catalogue's components with an instance to start from.
  */
 import { Json } from "@ultrapaint/contracts/base";
+import { typeText } from "@ultrapaint/contracts/catalogue";
 import type { DesignFinding } from "@ultrapaint/contracts/design-system";
 import { newInstance } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
 import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
-import { CatalogueService } from "../catalogue.ts";
+import { ComponentService } from "../components.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { TOOLS } from "../threads/agent-ways.ts";
 import { makeLookup } from "./lookup.ts";
@@ -76,7 +77,7 @@ export const WriteDesignSystem = Tool.make("write_design_system", {
 
 export const ListComponents = Tool.make("list_components", {
   description:
-    "ultrapaint's system components, their variants and slots; match narrows the list. Prefer them to plain HTML.",
+    "The system and app components, their variants and slots; match narrows the list. Prefer them to plain HTML.",
   failure: Failure,
   parameters: Schema.Struct({
     /** Narrows the list; leave empty for all of them. */
@@ -87,13 +88,12 @@ export const ListComponents = Tool.make("list_components", {
 
 export const GetComponent = Tool.make("get_component", {
   description:
-    "One system component in full: every prop with its type, its variants, its slots and an instance node to start from.",
+    "One component in full: every prop with its type, its variants, its slots and an instance node to start from.",
   failure: Failure,
   parameters: Schema.Struct({ name: Schema.String }),
   success: Schema.Struct({
     /** An instance node that uses it, ready for apply_operations. */
     example: Json,
-    file: Schema.String,
     importFrom: Schema.String,
     name: Schema.String,
     props: Schema.Array(
@@ -117,8 +117,8 @@ const DesignSystemTools = Toolkit.make(
 
 export const designSystemToolHandlers = Effect.gen(function* () {
   const { project } = yield* makeLookup;
-  const catalogueOf = project.use(
-    Effect.flatMap(CatalogueService, (c) => c.get(false))
+  const catalogue = reported(
+    project.use(Effect.flatMap(ComponentService, (c) => c.catalogue))
   );
 
   const designSystem = <A, E extends { readonly message: string }>(
@@ -127,8 +127,7 @@ export const designSystemToolHandlers = Effect.gen(function* () {
 
   return DesignSystemTools.of({
     get_component: Effect.fn("EditorTools.get_component")(function* ({ name }) {
-      const catalogue = yield* reported(catalogueOf);
-      const component = catalogue.components.find((c) => c.name === name);
+      const component = (yield* catalogue).find((c) => c.name === name);
       if (!component) {
         return yield* missing(
           `no component named ${name}; call ${TOOLS.list_components} to see what there is`
@@ -142,13 +141,12 @@ export const designSystemToolHandlers = Effect.gen(function* () {
       );
       return {
         example: asJson(example),
-        file: component.file,
         importFrom: component.importFrom,
         name: component.name,
         props: component.props.map((prop) => ({
           name: prop.name,
           required: prop.required,
-          type: prop.type.raw,
+          type: typeText(prop.type),
         })),
         variants: component.variants,
       };
@@ -157,10 +155,9 @@ export const designSystemToolHandlers = Effect.gen(function* () {
     list_components: Effect.fn("EditorTools.list_components")(function* ({
       match,
     }) {
-      const catalogue = yield* reported(catalogueOf);
       const needle = match?.toLowerCase();
       return {
-        components: catalogue.components
+        components: (yield* catalogue)
           .filter(
             (component) =>
               !needle || component.name.toLowerCase().includes(needle)

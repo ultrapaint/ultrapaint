@@ -13,7 +13,6 @@ import {
   newInstance,
 } from "@ultrapaint/design-document/factories";
 import { makeIdGenerator } from "@ultrapaint/design-document/ids";
-import { cn } from "cn";
 import {
   ArrowDown,
   ArrowRight,
@@ -22,7 +21,6 @@ import {
   Image,
   LayoutGrid,
   List,
-  RefreshCw,
   Search,
   Type,
 } from "lucide-react";
@@ -35,11 +33,10 @@ import {
 } from "@/components/ui/input-group";
 import { ASSET_MIME, beginDrag, cancelDrag, useDrag } from "../canvas/drag.ts";
 import { drawSpecimen, hashOf } from "../canvas/specimens.ts";
-import { IconButton } from "../components/icon-button.tsx";
 import { Segmented } from "../components/segmented.tsx";
 import { SetupEmpty } from "../components/setup-dialog.tsx";
 import { insertNode, insertTarget } from "../lib/node-actions.ts";
-import { useCatalogue } from "../state/catalogue.ts";
+import { useComponents } from "../state/components.ts";
 import { api } from "../state/connection.ts";
 import { openMenuAt } from "../state/context-menu.ts";
 import { useDesignSystem } from "../state/design-system.ts";
@@ -172,19 +169,18 @@ const GridItem = ({
 );
 
 /**
- * Thumbnails of the components, drawn once per catalogue and design system and kept by the
+ * Thumbnails of the components, drawn once per design system and components and kept by the
  * server. Missing ones are drawn one at a time while the grid is open.
  */
 const useThumbnails = (
   components: readonly ComponentMeta[],
   active: boolean
 ) => {
-  const builtAt = useCatalogue((s) => s.catalogue?.builtAt ?? 0);
   const designSystem = useDesignSystem((s) => s.designSystem);
   // The project's looks draw them too (ADRs 0028, 0041).
   const { components: files, styles } = useDesignLook();
   const key = hashOf(
-    `${builtAt}:${JSON.stringify(designSystem?.components ?? {})}:${JSON.stringify(designSystem?.colors ?? [])}:${styles}:${JSON.stringify(files)}`
+    `${JSON.stringify(designSystem?.components ?? {})}:${JSON.stringify(designSystem?.colors ?? [])}:${styles}:${JSON.stringify(files)}`
   );
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
@@ -256,9 +252,7 @@ const categoryOf = (
 
 export const Assets = () => {
   const configured = useProject((s) => s.info.configured);
-  const catalogue = useCatalogue((s) => s.catalogue);
-  const loading = useCatalogue((s) => s.loading);
-  const load = useCatalogue((s) => s.load);
+  const components = useComponents((s) => s.catalogue);
   // The target is worked out from the selection and the documents.
   const selection = useEditor((s) => s.selection);
   const selectedPage = useEditor((s) => s.selectedPage);
@@ -270,7 +264,6 @@ export const Assets = () => {
   const [view, setView] = useState<View>(
     () => (localStorage.getItem(VIEW_KEY) as View | null) ?? "list"
   );
-  const components = catalogue?.components ?? [];
   const q = query.trim().toLowerCase();
   const list = components.filter(
     (c) =>
@@ -279,12 +272,6 @@ export const Assets = () => {
       categoryOf(c, designSystem).toLowerCase().includes(q)
   );
   const thumbnails = useThumbnails(list, view === "grid");
-
-  useEffect(() => {
-    if (configured && !catalogue && !loading) {
-      load();
-    }
-  }, [configured, catalogue, loading, load]);
 
   const onView = (next: View) => {
     setView(next);
@@ -349,13 +336,6 @@ export const Assets = () => {
             value={view}
           />
         </div>
-        <IconButton
-          disabled={loading}
-          onClick={() => load(true)}
-          tooltip="Re-index"
-        >
-          <RefreshCw className={cn(loading && "animate-spin")} />
-        </IconButton>
       </div>
       <div className="border-b px-2 py-1 font-body text-muted-foreground">
         {target ? (
@@ -370,58 +350,49 @@ export const Assets = () => {
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
         {!q && <Elements />}
-        {catalogue ? null : (
-          <div className="p-3 font-body text-muted-foreground">
-            {loading
-              ? "Indexing the design system…"
-              : "No components catalogued"}
-          </div>
-        )}
-        {catalogue
-          ? sections.map((section) => (
-              <section key={section.title}>
-                <div className="border-t px-2 pt-2 pb-1 font-medium text-foreground">
-                  {section.title}
-                </div>
-                {section.count === 0 && section.title === "App" && !q ? (
-                  <p className="px-2 pb-2 font-body text-muted-foreground">
-                    Your own components. Select part of a page and choose "Make
-                    an app component…" in its menu.
-                  </p>
-                ) : null}
-                {Array.from(section.byCategory.entries()).map(
-                  ([category, items]) => (
-                    <div key={category}>
-                      {/* An app component no category is given is the section's own. */}
-                      {category === section.title ? null : (
-                        <div className="sticky top-0 z-10 bg-sidebar px-2 py-1 font-heading-xsmall text-muted-foreground uppercase">
-                          {category}
-                        </div>
-                      )}
-                      {view === "list" ? (
-                        items.map((c) => (
-                          <ListItem
-                            component={c}
-                            key={`${c.group}:${c.name}`}
-                          />
-                        ))
-                      ) : (
-                        <div className="grid grid-cols-2 gap-1.5 px-2 pb-2">
-                          {items.map((c) => (
-                            <GridItem
-                              component={c}
-                              key={`${c.group}:${c.name}`}
-                              thumbnail={thumbnails[c.name]}
-                            />
-                          ))}
-                        </div>
-                      )}
+        {sections.map((section) => (
+          <section key={section.title}>
+            <div className="border-t px-2 pt-2 pb-1 font-medium text-foreground">
+              {section.title}
+            </div>
+            {section.count === 0 && section.title === "App" && !q ? (
+              <p className="px-2 pb-2 font-body text-muted-foreground">
+                Your own components. Select part of a page and choose "Make an
+                app component…" in its menu.
+              </p>
+            ) : null}
+            {Array.from(section.byCategory.entries()).map(
+              ([category, items]) => (
+                <div key={category}>
+                  {/* An app component no category is given is the section's own. */}
+                  {category === section.title ? null : (
+                    <div className="sticky top-0 z-10 bg-sidebar px-2 py-1 font-heading-xsmall text-muted-foreground uppercase">
+                      {category}
                     </div>
-                  )
-                )}
-              </section>
-            ))
-          : null}
+                  )}
+                  {view === "list" ? (
+                    items.map((c) => (
+                      <ListItem
+                        component={c}
+                        key={`${c.importFrom}:${c.name}`}
+                      />
+                    ))
+                  ) : (
+                    <div className="grid grid-cols-2 gap-1.5 px-2 pb-2">
+                      {items.map((c) => (
+                        <GridItem
+                          component={c}
+                          key={`${c.importFrom}:${c.name}`}
+                          thumbnail={thumbnails[c.name]}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            )}
+          </section>
+        ))}
       </div>
     </div>
   );

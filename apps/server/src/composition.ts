@@ -12,7 +12,6 @@ import { AppLog } from "./app-log.ts";
 import { EventBus } from "./events.ts";
 import { ListenPort } from "./listen-port.ts";
 import { ProjectManager, type ProjectRequirements } from "./project.ts";
-import { CatalogueService } from "./services/catalogue.ts";
 import { CodeSide } from "./services/code-side.ts";
 import { CommentsService } from "./services/comments.ts";
 import { ComponentService } from "./services/components.ts";
@@ -77,15 +76,18 @@ export const ServerAdapters = {
 export const projectLayer = (settings: Settings) =>
   // Pictures of the pages, drawn from the documents as they change; and what a design target
   // names, with its behaviour notes in a component's file or in comments (ADR 0030).
-  Layer.mergeAll(PagePngs.layer, DesignTargets.layer).pipe(
+  // Figma's import maps a frame's components to the catalogue's.
+  Layer.mergeAll(
+    PagePngs.layer,
+    DesignTargets.layer,
+    FigmaImportService.layer
+  ).pipe(
     // The components: a system component's look as the design says it, an app component's tree
     // (ADR 0041).
     Layer.provideMerge(ComponentService.layer),
     // The link to the code reads the pages, their documents and the components (ADR 0030).
     Layer.provideMerge(ImplementationService.layer),
-    Layer.provideMerge(
-      Layer.mergeAll(DocumentService.layer, FigmaImportService.layer)
-    ),
+    Layer.provideMerge(DocumentService.layer),
     Layer.provideMerge(
       Layer.mergeAll(DesignSystemService.layer, SkillsService.layer)
     ),
@@ -94,7 +96,6 @@ export const projectLayer = (settings: Settings) =>
     Layer.provideMerge(Layer.mergeAll(DesignMd.layer, FigmaBaseline.layer)),
     Layer.provideMerge(
       Layer.mergeAll(
-        CatalogueService.layer,
         CodeSide.layer,
         PagesService.layer,
         Thumbnails.layer,

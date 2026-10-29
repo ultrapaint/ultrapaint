@@ -70,7 +70,7 @@ import {
 import { TOOLBAR_SPACING } from "../lib/spacing.ts";
 import { colorGroups, tokenOptions } from "../lib/token-options.tsx";
 import { ComponentProps } from "../panels/component-props.tsx";
-import { useCatalogue } from "../state/catalogue.ts";
+import { useComponents } from "../state/components.ts";
 import { useDesignSystem } from "../state/design-system.ts";
 import { useEditor } from "../state/editor.ts";
 import { drawSpecimen, pictureKey } from "./specimens.ts";
@@ -167,7 +167,7 @@ const useVariantPreviews = (
 ) => {
   const ds = useDesignSystem((s) => s.designSystem);
   const canvas = useEditor((s) => s.canvas) ?? "";
-  const builtAt = useCatalogue((s) => s.catalogue?.builtAt ?? 0);
+  const components = useComponents((s) => s.components);
   const [pictures, setPictures] = useState<Record<string, string | null>>({});
   const optionsKey = options.join("|");
   useEffect(() => {
@@ -175,11 +175,11 @@ const useVariantPreviews = (
       return;
     }
     let live = true;
-    // The same instance looks different in another design system, code or canvas.
+    // The same instance looks different in another design system, components or canvas.
     const keyOf = (option: string) =>
       pictureKey(
         [node.component, node.from, node.props, node.text, name, option],
-        { builtAt, canvas, designSystem: ds }
+        { canvas, components, designSystem: ds }
       );
     (async () => {
       for (const option of optionsKey.split("|")) {
@@ -211,7 +211,7 @@ const useVariantPreviews = (
     return () => {
       live = false;
     };
-  }, [open, ds, canvas, builtAt, optionsKey, node, name]);
+  }, [open, ds, canvas, components, optionsKey, node, name]);
   return (option: string) => pictures[option] ?? null;
 };
 

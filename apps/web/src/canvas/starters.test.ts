@@ -11,13 +11,10 @@ import {
   starterTheme,
 } from "./starters.ts";
 
-const library = (...names: string[]): Catalogue => ({
-  builtAt: 0,
-  components: names.map(
-    (name) => ({ importFrom: "@/components/ui", name }) as ComponentMeta
-  ),
-  coverage: { total: names.length, usable: names.length },
-});
+const library = (...names: string[]): Catalogue =>
+  names.map(
+    (name) => ({ importFrom: "@ultrapaint/system", name }) as ComponentMeta
+  );
 
 const system = (over: Partial<DesignSystem> = {}): DesignSystem => ({
   colors: [],
@@ -74,7 +71,7 @@ describe("a starter's prompt", () => {
   });
 
   it("asks for a plain wireframe without a design system", () => {
-    const [landing] = offeredStarters(null, false);
+    const [landing] = offeredStarters(library(), false);
     expect(landing && starterPrompt(landing, "Home", false)).toContain(
       "on the Home canvas, as a plain wireframe."
     );

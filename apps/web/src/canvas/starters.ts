@@ -81,7 +81,7 @@ const SHOWN = 4;
 const CAPITAL = /[A-Z]/;
 
 const has = (catalogue: Catalogue, name: string) =>
-  catalogue.components.some(
+  catalogue.some(
     (c) =>
       c.name === name ||
       (c.name.startsWith(name) && CAPITAL.test(c.name.charAt(name.length)))
@@ -94,14 +94,14 @@ export interface Offered {
 }
 
 /**
- * The starters shown. Without a design system, or before the library is read, they are the
- * first ones and plain: nothing of the library goes into them.
+ * The starters shown. Without a design system they are the first ones and plain: nothing of the
+ * library goes into them.
  */
 export const offeredStarters = (
-  catalogue: Catalogue | null,
+  catalogue: Catalogue,
   withSystem: boolean
 ): readonly Offered[] => {
-  if (!(withSystem && catalogue)) {
+  if (!withSystem) {
     return STARTERS.slice(0, SHOWN).map((starter) => ({ starter, uses: [] }));
   }
   return STARTERS.filter(

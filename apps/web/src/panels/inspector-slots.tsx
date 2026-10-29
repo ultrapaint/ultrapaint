@@ -4,7 +4,7 @@
  * footer is the instance's child that names `dialog-footer`, laid out as the footer lays out its
  * children. A child that names no slot fills the default one.
  */
-import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
+import { type ComponentMeta, metaOf } from "@ultrapaint/contracts/catalogue";
 import { APP_FROM, SYSTEM_FROM } from "@ultrapaint/contracts/component-names";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 import {
@@ -23,7 +23,7 @@ import {
 import { Row, Section } from "../components/panel.tsx";
 import { insertNodesAt } from "../lib/node-actions.ts";
 import { childrenInSlot, type Slot } from "../lib/slots.ts";
-import { componentMetaOf, useCatalogue } from "../state/catalogue.ts";
+import { useComponents } from "../state/components.ts";
 import { useEditor } from "../state/editor.ts";
 
 /** What a slot can be given from here: the elements a slot is mostly made of, and a button. */
@@ -70,11 +70,9 @@ export const SlotsSection = ({
   frame: string;
   node: InstanceNode;
 }) => {
-  const meta = useCatalogue((s) => componentMetaOf(s.catalogue, node));
-  const button = useCatalogue((s) =>
-    s.catalogue?.components.find(
-      (c) => c.name === "Button" && c.importFrom === SYSTEM_FROM
-    )
+  const meta = useComponents((s) => metaOf(s.catalogue, node));
+  const button = useComponents((s) =>
+    s.catalogue.find((c) => c.name === "Button" && c.importFrom === SYSTEM_FROM)
   );
   const slots = (meta?.slots ?? []).filter((slot) => slot.holds);
   if (

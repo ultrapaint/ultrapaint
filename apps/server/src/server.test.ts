@@ -744,28 +744,6 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
     );
 
     it.effect(
-      "answers the catalogue with the editor's system components, whatever the repository holds",
-      () =>
-        Effect.gen(function* () {
-          const { client, settings } = yield* TestEnv;
-          yield* client["settings.set"]({ ...settings, libraryDirs: ["ui"] });
-          const catalogue = yield* client["catalogue.get"]({ refresh: true });
-          const button = catalogue.components.find((c) => c.name === "Button");
-          assert.strictEqual(button?.importFrom, "@ultrapaint/system");
-          assert.deepStrictEqual(
-            button?.props.map((p) => [p.name, p.type.kind]),
-            [
-              ["variant", "enum"],
-              ["size", "enum"],
-              ["disabled", "boolean"],
-              ["loading", "boolean"],
-            ]
-          );
-        }),
-      30_000
-    );
-
-    it.effect(
       "imports the design system without an agent, and says so",
       () =>
         Effect.gen(function* () {

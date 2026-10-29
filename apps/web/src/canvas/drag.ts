@@ -26,7 +26,7 @@ import {
   type Place,
 } from "../lib/node-actions.ts";
 import { useCanvasGrid } from "../state/canvas-grid.ts";
-import { holdsChildren } from "../state/catalogue.ts";
+import { holdsChildren } from "../state/components.ts";
 import {
   docOfFrame,
   isNodeFrame,

@@ -27,7 +27,6 @@ import { walk } from "@ultrapaint/design-document/tree";
 import { plural } from "@ultrapaint/shared/text";
 import { Effect } from "effect";
 import { ProjectManager } from "../../project.ts";
-import { CatalogueService } from "../catalogue.ts";
 import { ComponentService } from "../components.ts";
 import { DesignSystemService } from "../design-system.ts";
 import { DesignTargets } from "../design-targets.ts";
@@ -634,11 +633,8 @@ ${ways.editPages(named(id))}
           return yield* unknownCanvas("components", id, canvases);
         }
         const { designSystem } = yield* (yield* DesignSystemService).get;
-        const catalogue = yield* Effect.orElseSucceed(
-          (yield* CatalogueService).get(false),
-          () => null
-        );
-        const known = (catalogue?.components ?? []).map((c) => {
+        const catalogue = yield* (yield* ComponentService).catalogue;
+        const known = catalogue.map((c) => {
           const notes = designSystem?.components?.[c.name];
           const variants = Object.entries(c.variants)
             .map(([name, values]) => `${name}=${values.join("|")}`)

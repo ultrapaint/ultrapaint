@@ -12,7 +12,7 @@ import { Clock, Effect, FileSystem, Path } from "effect";
 import { makeWriteAtomic } from "../atomic-write.ts";
 import { toPosix } from "../hash.ts";
 import { ProjectManager } from "../project.ts";
-import { CatalogueService } from "./catalogue.ts";
+import { ComponentService } from "./components.ts";
 import { DesignSystemService } from "./design-system.ts";
 import { refuse } from "./design-system-setup-store.ts";
 import { RepoPaths } from "./repo-paths.ts";
@@ -54,7 +54,6 @@ export const makeCodebaseReader = Effect.gen(function* () {
         const tree = yield* WorkingTree;
         const { usage } = yield* ProjectStyleSystem;
         const designSystem = yield* DesignSystemService;
-        const catalogue = yield* CatalogueService;
         const saved = (yield* designSystem.get).designSystem;
         if (required && !saved) {
           return yield* refuse(
@@ -62,10 +61,8 @@ export const makeCodebaseReader = Effect.gen(function* () {
           );
         }
         const theme = saved ? null : yield* designSystem.scan;
-        const components = yield* catalogue.get(false).pipe(
-          Effect.map((c) => c.components.map((component) => component.name)),
-          // A catalogue that cannot be built only means plain elements are not reported.
-          Effect.orElseSucceed((): string[] => [])
+        const components = (yield* (yield* ComponentService).catalogue).map(
+          (component) => component.name
         );
         const designs = paths.relative(paths.designsDir);
         const files = (yield* tree.files).filter(

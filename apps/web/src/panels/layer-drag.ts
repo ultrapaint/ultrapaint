@@ -5,7 +5,7 @@
  */
 import type { DragEvent } from "react";
 import { create } from "zustand";
-import { holdsChildren } from "../state/catalogue.ts";
+import { holdsChildren } from "../state/components.ts";
 import {
   type DropPosition,
   dropPositionAt,

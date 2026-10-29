@@ -5,6 +5,7 @@
  * then captured.
  */
 
+import type { ComponentFile } from "@ultrapaint/contracts/components";
 import type { DesignSystem } from "@ultrapaint/contracts/design-system";
 import type { DesignNode } from "@ultrapaint/contracts/document";
 import type { PageDefaults } from "@ultrapaint/contracts/pages";
@@ -171,9 +172,9 @@ export const hashOf = (text: string) => {
 
 /** What a picture is drawn in besides the node: a change to any of it draws the node again. */
 export interface DrawnIn {
-  /** When the components' code was last read, as the catalogue says. */
-  readonly builtAt: number;
   readonly canvas: string;
+  /** The project's components: the looks it owns and its app components (ADR 0041). */
+  readonly components: readonly ComponentFile[];
   readonly designSystem: DesignSystem | null;
 }
 
@@ -181,7 +182,7 @@ export interface DrawnIn {
 export const pictureKey = (shown: unknown, drawnIn: DrawnIn) =>
   JSON.stringify([
     hashOf(
-      JSON.stringify([drawnIn.designSystem, drawnIn.builtAt, drawnIn.canvas])
+      JSON.stringify([drawnIn.designSystem, drawnIn.components, drawnIn.canvas])
     ),
     shown,
   ]);
