@@ -117,11 +117,11 @@ describe("an app component edited in place", () => {
     };
     // The edit's answer comes first; the file the components list has is still the old one.
     useDocuments.getState().put({ doc, hash: "h1", root: edited });
-    expect(useDocuments.getState().docs[doc]?.root).toBe(edited);
+    expect(useDocuments.getState().docs[doc]?.root).toEqual(edited);
     useComponents.setState({
       components: [...useComponents.getState().components],
     });
-    expect(useDocuments.getState().docs[doc]?.root).toBe(edited);
+    expect(useDocuments.getState().docs[doc]?.root).toEqual(edited);
     // A canvas read again starts it from the file once more.
     useDocuments.setState({ docs: {} });
     expect(nodeIn(useDocuments.getState().docs, "", HOME, "title")).toEqual(

@@ -15,6 +15,7 @@ import {
   childrenOf,
   findNode,
   findPath,
+  shareUnchanged,
 } from "@ultrapaint/design-document/tree";
 import { canvasIdOf } from "@ultrapaint/shared/canvas";
 import { create } from "zustand";
@@ -49,9 +50,21 @@ export const useDocuments = create<DocumentsStore>((set) => ({
         const { [state.doc]: _gone, ...docs } = s.docs;
         return { docs };
       }
-      return { docs: { ...s.docs, [state.doc]: state } };
+      return { docs: { ...s.docs, [state.doc]: sharedWith(s.docs, state) } };
     }),
 }));
+
+/**
+ * A document as the server sent it, the nodes that did not change kept as they were
+ * (`shareUnchanged`): what is drawn of them, and read from them, stays as it is.
+ */
+const sharedWith = (
+  docs: Record<string, DocumentState>,
+  state: DocumentState
+): DocumentState => {
+  const root = shareUnchanged(docs[state.doc]?.root ?? null, state.root);
+  return root === state.root ? state : { ...state, root };
+};
 
 /**
  * The documents of the canvas open, and every change the server reports, whoever made it; a
@@ -59,10 +72,10 @@ export const useDocuments = create<DocumentsStore>((set) => ({
  */
 const documentsData = follow({
   apply: (states: readonly DocumentState[]) =>
-    useDocuments.setState({
-      docs: Object.fromEntries(states.map((s) => [s.doc, s])),
+    useDocuments.setState(({ docs }) => ({
+      docs: Object.fromEntries(states.map((s) => [s.doc, sharedWith(docs, s)])),
       loaded: true,
-    }),
+    })),
   key: () => useDocuments.getState().canvas,
   on: {
     document: (state) => {

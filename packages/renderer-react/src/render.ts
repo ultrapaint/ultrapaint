@@ -62,6 +62,7 @@ import {
   Component,
   createContext,
   createElement,
+  memo,
   type ReactNode,
   startTransition,
   useContext,
@@ -264,7 +265,12 @@ interface RootOverride {
   readonly style: Style;
 }
 
-const NodeView = ({
+/**
+ * A node drawn, and everything under it. Memoised by its props: a node the document keeps as it
+ * was (`shareUnchanged`) under a scope that stayed the same is not drawn again, so an edit draws
+ * again only the way down to what changed.
+ */
+const NodeView = memo(function NodeDrawn({
   node,
   own,
   parent,
@@ -273,7 +279,7 @@ const NodeView = ({
   /** Set on an app component's root, which stands for the instance on the page. */
   own?: RootOverride | undefined;
   parent: ParentLayout;
-}): ReactNode => {
+}): ReactNode {
   const scope = useContext(ScopeContext) as Scope;
   if (scope.filled?.has(node.id)) {
     // A node of the page's in an app component's slot: selectable as the page's again.
@@ -334,7 +340,7 @@ const NodeView = ({
       createElement(NodeView, { key: child.id, node: child, parent: layout })
     )
   );
-};
+});
 
 /** The marks every instance's element carries: its id, and what a look finds it by. */
 const marksOf = (scope: Scope, node: InstanceNode) => ({
@@ -653,12 +659,26 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
     }
   };
 
-  const draw = (request: Drawing) => {
-    restyle(request);
+  /** The scope of the last draw: kept while what it is made of is, so no node is drawn again for it. */
+  let lastScope: Scope | null = null;
+  const scopeOf = (request: Drawing): Scope => {
+    const at = request.at ?? null;
+    const was = lastScope;
+    if (
+      was &&
+      was.apps === apps &&
+      was.at === at &&
+      was.breakpoints === breakpoints &&
+      was.catalogue === catalogue &&
+      was.isolating === request.isolate &&
+      was.styles === styles &&
+      was.systems === systems
+    ) {
+      return was;
+    }
     const pageAttribute =
       request.isolate === undefined ? NODE_ATTRIBUTE : OUTSIDE_ATTRIBUTE;
-    const at = request.at ?? null;
-    const scope: Scope = {
+    lastScope = {
       apps,
       assetUrl: setup.assetUrl,
       at,
@@ -673,6 +693,27 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
       styles,
       systems,
     };
+    return lastScope;
+  };
+
+  /** A page's root as a frame draws it, the same object while the page's is. */
+  const framed = new WeakMap<DesignNode, DesignNode>();
+  const framedPage = (node: DesignNode): DesignNode => {
+    let known = framed.get(node);
+    if (!known) {
+      // A frame is the page's window: what fills the window's height fills the frame's.
+      known = {
+        ...node,
+        minHeight: node.minHeight ?? "100cqh",
+      } as DesignNode;
+      framed.set(node, known);
+    }
+    return known;
+  };
+
+  const draw = (request: Drawing) => {
+    restyle(request);
+    const scope = scopeOf(request);
     const { root: node } = request;
     let body: ReactNode;
     if (request.message !== undefined || node === null) {
@@ -681,11 +722,7 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
       });
     } else if (request.mode === "page" && node.type === "page") {
       body = createElement(NodeView, {
-        node: {
-          ...node,
-          // A frame is the page's window: what fills the window's height fills the frame's.
-          minHeight: node.minHeight ?? "100cqh",
-        },
+        node: framedPage(node),
         parent: "free",
       });
     } else {
