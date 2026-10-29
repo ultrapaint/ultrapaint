@@ -78,11 +78,13 @@ import {
   allOf,
   allStacks,
   ColorField,
+  InspectedKey,
   nullIfMixed,
   oneComponent,
   set,
   sharedOf,
   TextInput,
+  useDraft,
 } from "./inspector-fields.tsx";
 import {
   LayoutSection,
@@ -102,37 +104,40 @@ export const Inspector = () => {
     );
   }
   const { frame, node, nodes } = inspected;
+  // Updated in place from one selection to the next, not mounted again: a selection costs what
+  // changes, not every field and control drawn anew.
   return (
-    <div
-      className="flex flex-col pb-8"
-      key={`${frame}#${nodes.map((n) => n.id).join(",")}`}
+    <InspectedKey.Provider
+      value={`${frame}#${nodes.map((n) => n.id).join(",")}`}
     >
-      <Header frame={frame} node={node} nodes={nodes} />
-      {nodes.length === 1 && <IsolatedComponent frame={frame} node={node} />}
-      {nodes.length === 1 && <BreakpointSection frame={frame} node={node} />}
-      {node.type === "page" && nodes.length === 1 && (
-        <PageSection frame={frame} />
-      )}
-      {oneComponent(nodes) && <InstanceSection frame={frame} nodes={nodes} />}
-      {allOf(nodes, "text") && <TextSection nodes={nodes} />}
-      {allOf(nodes, "image") && <ImageSection nodes={nodes} />}
-      {allStacks(nodes) && <LayoutSection nodes={nodes} />}
-      <SizeSection frame={frame} nodes={nodes} />
-      <SidesSection field="padding" nodes={nodes} title="Padding" />
-      <SidesSection field="margin" nodes={nodes} title="Margin" />
-      <AppearanceSection nodes={nodes} />
-      {/* A node placed beside the pages is never in the prototype: nothing would follow it. */}
-      {node.type !== "page" && !isNodeFrame(frame) && (
-        <LinkSection nodes={nodes} />
-      )}
-    </div>
+      <div className="flex flex-col pb-8">
+        <Header frame={frame} node={node} nodes={nodes} />
+        {nodes.length === 1 && <IsolatedComponent frame={frame} node={node} />}
+        {nodes.length === 1 && <BreakpointSection frame={frame} node={node} />}
+        {node.type === "page" && nodes.length === 1 && (
+          <PageSection frame={frame} />
+        )}
+        {oneComponent(nodes) && <InstanceSection frame={frame} nodes={nodes} />}
+        {allOf(nodes, "text") && <TextSection nodes={nodes} />}
+        {allOf(nodes, "image") && <ImageSection nodes={nodes} />}
+        {allStacks(nodes) && <LayoutSection nodes={nodes} />}
+        <SizeSection frame={frame} nodes={nodes} />
+        <SidesSection field="padding" nodes={nodes} title="Padding" />
+        <SidesSection field="margin" nodes={nodes} title="Margin" />
+        <AppearanceSection nodes={nodes} />
+        {/* A node placed beside the pages is never in the prototype: nothing would follow it. */}
+        {node.type !== "page" && !isNodeFrame(frame) && (
+          <LinkSection nodes={nodes} />
+        )}
+      </div>
+    </InspectedKey.Provider>
   );
 };
 
 // ---- Header and actions ----
 
 const NameInput = ({ node }: { node: DesignNode }) => {
-  const [draft, setDraft] = useState<string | null>(null);
+  const [draft, setDraft] = useDraft<string>();
   const commit = () => {
     if (draft === null) {
       return;

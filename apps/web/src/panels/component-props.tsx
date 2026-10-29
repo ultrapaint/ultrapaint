@@ -7,13 +7,13 @@ import {
 } from "@ultrapaint/contracts/catalogue";
 import type { InstanceNode } from "@ultrapaint/contracts/document";
 import type * as React from "react";
-import { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { OptionSelect } from "../components/option-select.tsx";
 import { Row, Section } from "../components/panel.tsx";
 import { useComponents } from "../state/components.ts";
+import { useDraft } from "./inspector-fields.tsx";
 
 const HIDDEN = new Set(["children", "className", "key", "ref", "style"]);
 const NONE: ReadonlySet<string> = new Set();
@@ -197,7 +197,7 @@ const NumberControl = ({
   onSet: SetProp;
   disabled: boolean;
 }) => {
-  const [draft, setDraft] = useState<string | null>(null);
+  const [draft, setDraft] = useDraft<string>();
   const onBlur = () => {
     if (draft === null) {
       return;
@@ -241,7 +241,7 @@ const TextControl = ({
   onSet: SetProp;
   disabled: boolean;
 }) => {
-  const [draft, setDraft] = useState<string | null>(null);
+  const [draft, setDraft] = useDraft<string>();
   const onBlur = () => {
     if (draft === null) {
       return;

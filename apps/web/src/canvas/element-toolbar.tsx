@@ -145,7 +145,16 @@ const AgentAtWork = ({ thread }: { thread: Thread }) => {
 };
 
 /** A box over the element, in the frame's toolbar layer, that the toolbar hangs from. */
-const OverFrame = ({ children, rect }: { children: ReactNode; rect: Rect }) => {
+const OverFrame = ({
+  children,
+  hidden = false,
+  rect,
+}: {
+  children: ReactNode;
+  /** Kept but not drawn: its element is not measured yet. */
+  hidden?: boolean;
+  rect: Rect;
+}) => {
   const layer = useContext(ToolbarLayer);
   return layer
     ? createPortal(
@@ -155,6 +164,7 @@ const OverFrame = ({ children, rect }: { children: ReactNode; rect: Rect }) => {
             height: rect.height,
             left: rect.x,
             top: rect.y,
+            visibility: hidden ? "hidden" : undefined,
             width: rect.width,
           }}
         >
@@ -167,12 +177,15 @@ const OverFrame = ({ children, rect }: { children: ReactNode; rect: Rect }) => {
 
 export const ElementToolbar = ({
   frame,
+  hidden = false,
   inv,
   node,
   rect,
 }: {
   /** The frame's size, which the toolbar stays inside while it fits. */
   frame: { height: number; width: number };
+  /** Kept but not drawn, while the element it is over is measured. */
+  hidden?: boolean;
   inv: number;
   node: DesignNode;
   /** Where the element is in the frame, which decides where the toolbar can go. */
@@ -186,7 +199,7 @@ export const ElementToolbar = ({
     return null;
   }
   return (
-    <OverFrame rect={rect}>
+    <OverFrame hidden={hidden} rect={rect}>
       <div
         aria-label={`Toolbar of ${nodeLabel(node)}`}
         className="pointer-events-auto absolute left-1/2 flex items-center gap-0.5 whitespace-nowrap rounded-[10px] border bg-popover p-0.5 text-popover-foreground shadow-lg"

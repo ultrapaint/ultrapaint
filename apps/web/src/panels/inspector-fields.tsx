@@ -2,7 +2,7 @@
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 import { TriangleAlert } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { createContext, type ReactNode, useContext, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ValueField } from "../components/value-field.tsx";
@@ -26,6 +26,31 @@ import {
 } from "../lib/token-options.tsx";
 
 type SetField = (field: string, value: JsonValue) => void;
+
+/**
+ * What the inspector shows, as a key: its frame and its nodes. The inspector stays mounted from
+ * one selection to the next, its fields updated in place; a draft is the key's it was typed for.
+ */
+export const InspectedKey = createContext("");
+
+/**
+ * A field's draft while it is typed, dropped once the inspector shows other nodes: a change
+ * typed and left is committed on blur, which comes before the selection changes.
+ */
+export const useDraft = <T,>(): readonly [
+  T | null,
+  (draft: T | null) => void,
+] => {
+  const key = useContext(InspectedKey);
+  const [draft, setDraft] = useState<{
+    readonly key: string;
+    readonly value: T;
+  } | null>(null);
+  return [
+    draft?.key === key ? draft.value : null,
+    (value) => setDraft(value === null ? null : { key, value }),
+  ] as const;
+};
 
 /** Sets a field of every node inspected. */
 export const set: SetField = (field, value) =>
@@ -97,7 +122,7 @@ export const TextInput = ({
   placeholder?: string;
   multiline?: boolean;
 }) => {
-  const [draft, setDraft] = useState<string | null>(null);
+  const [draft, setDraft] = useDraft<string>();
   const commit = () => {
     if (draft !== null && draft !== (value ?? "")) {
       onChange(draft);

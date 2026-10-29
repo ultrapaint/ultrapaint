@@ -223,8 +223,9 @@ export const useFramePointer = ({
     y: number;
     /** Where it began in the frame, for a marquee. */
     at: { x: number; y: number };
+    /** Whether Alt was held as it began, which steps into what it picks. */
+    alt: boolean;
     last: { x: number; y: number; alt: boolean; free: boolean };
-    target: Dragged | null;
   } | null>(null);
   /**
    * A drag from the page itself, or from a container that is not selected, draws a marquee in
@@ -242,10 +243,12 @@ export const useFramePointer = ({
     }
     dragging.current = false;
     const { x, y } = toFrame(e);
+    // What it picks up is found once it travels: a press that stays a click hit-tests and
+    // measures nothing more than the click does.
     press.current = {
+      alt: e.altKey,
       at: { x, y },
       last: { alt: e.altKey, free: holdsFree(e), x: e.clientX, y: e.clientY },
-      target: dragTarget(x, y, e.altKey),
       x: e.clientX,
       y: e.clientY,
     };
@@ -294,7 +297,7 @@ export const useFramePointer = ({
       return;
     }
     dragging.current = true;
-    const { target } = p;
+    const target = dragTarget(p.at.x, p.at.y, p.alt);
     if (!target) {
       if (kind === "page") {
         beginMarquee(currentRoot(), p.at);
