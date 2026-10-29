@@ -9,14 +9,7 @@ import { Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
 import { RepoPaths } from "../repo-paths.ts";
 import { makeLookup } from "./lookup.ts";
-import {
-  asJson,
-  finite,
-  opt,
-  PAGE_PARAMETER,
-  reported,
-  ToolFailure,
-} from "./tool-helpers.ts";
+import { asJson, finite, opt, reported, ToolFailure } from "./tool-helpers.ts";
 
 const Failure = ToolFailure;
 
@@ -25,7 +18,7 @@ const Failure = ToolFailure;
  * outside the editor, which has no briefing. `get_context` answers with it, once, rather than
  * every tool carrying a share of it on every turn.
  */
-const GUIDE = `Designs are kept in canvases. Each has its own pages, the URLs they serve in its prototype, and loose nodes placed beside the pages; when there are several, tools take canvas (an id from canvases; the designs directory's own is ""). A page is a <name>.page.json design document, not code: a tree of nodes (page, row, column, group, text, image, and instance of one of ultrapaint's system components, its children filling its slots), each with an id. Its URL is optional, and a page without one is reached by no link. pricing@bold.page.json is pricing.page.json drawn again for the variant bold, shown in its place when the prototype is in that variant. A page is one tree for every width, mobile-first: a node's fields are the smallest screen's, and its at says what differs from a design system breakpoint up (at.md); a page's views draw it at other widths beside its frame. Images live in the designs directory's assets/, or a canvas's own assets/ to replace a shared file. Change pages through these tools (read_page, then apply_operations), not by editing the files: get_document_format has the whole format and get_component an instance to start from. Call focus before changing nodes, so the user sees where you work, and get_screenshot to look at the result.`;
+const GUIDE = `Designs are kept in canvases. Each has its own pages, the URLs they serve in its prototype, and loose nodes placed beside the pages; when there are several, tools take canvas (an id from canvases; the designs directory's own is ""). A page is a <name>.page.json design document, not code: a tree of nodes (page, row, column, group, text, image, and instance of a component, system or app, its children filling its slots), each with an id. Tools name a page by its URL, or its file when it has none, and a page without one is reached by no link. pricing@bold.page.json is pricing.page.json drawn again for the variant bold, shown in its place when the prototype is in that variant. A page is one tree for every width, mobile-first: a node's fields are the smallest screen's, and its at says what differs from a design system breakpoint up (at.md); a page's views draw it at other widths beside its frame. Images live in the designs directory's assets/, or a canvas's own assets/ to replace a shared file. Change pages through these tools (read_page, an outline first with depth when it is big, then apply_operations), not by editing the files: get_document_format has the whole format and get_component an instance to start from. Call focus before changing nodes, so the user sees where you work, and get_screenshot to look at the result.`;
 
 const PageSummary = Schema.Struct({
   canvas: Schema.String,
@@ -49,7 +42,7 @@ const CanvasSummary = Schema.Struct({
 
 export const GetContext = Tool.make("get_context", {
   description:
-    "The project: repository root, designs directory, the package pages import from, its canvases and page count, and a guide to how designs are kept. Call it first unless told the pages.",
+    "The project: root, designs directory, canvases and a guide to the designs. Call it first unless told the pages.",
   failure: Failure,
   success: Schema.Struct({
     canvases: Schema.Array(CanvasSummary),
@@ -64,20 +57,20 @@ export const GetContext = Tool.make("get_context", {
 
 export const ListPages = Tool.make("list_pages", {
   description:
-    "Every page: its canvas, name, file, and the URL it serves in the prototype, if any. A variant's page (pricing@bold.page.json) serves its base page's URL: name it by its file.",
+    "Every page: canvas, name, file and URL. A variant (pricing@bold.page.json) shares its base's URL: name it by file.",
   failure: Failure,
   success: Schema.Struct({ pages: Schema.Array(PageSummary) }),
 }).annotate(Tool.Readonly, true);
 
 export const SetFrame = Tool.make("set_frame", {
   description:
-    "Size a page's frame, the window it is drawn in on the canvas and in get_screenshot: a preset, or width and height in pixels. A long page needs a tall frame. views: widths drawn beside it.",
+    "Size a page's frame (canvas and get_screenshot): a preset, or width and height; a long page needs a tall one. views: widths drawn beside it.",
   failure: Failure,
   parameters: Schema.Struct({
     canvas: opt(Schema.String),
     height: opt(finite(100, 20_000)),
     preset: opt(Schema.Literals(["mobile", "tablet", "desktop"])),
-    route: Schema.String.annotate({ description: PAGE_PARAMETER }),
+    route: Schema.String,
     views: opt(Schema.Array(finite(200, 8000))),
     width: opt(finite(200, 8000)),
   }),
@@ -90,7 +83,7 @@ export const SetFrame = Tool.make("set_frame", {
 
 export const CreatePage = Tool.make("create_page", {
   description:
-    "Add a page; its file is its name made safe (Billing settings: billing-settings.page.json). A screen of the application gets a URL, for the prototype and links; a sketch needs none. Then fill it with apply_operations.",
+    "Add a page, its file named after it (billing-settings.page.json); route for a screen of the application, none for a sketch.",
   failure: Failure,
   parameters: Schema.Struct({
     canvas: opt(Schema.String),
@@ -109,26 +102,25 @@ export const CreatePage = Tool.make("create_page", {
 });
 
 export const RenamePage = Tool.make("rename_page", {
-  description:
-    "Rename a page: its file and its variants' files move; its URL and the links to it stay.",
+  description: "Rename a page and its variants' files; its URL and links stay.",
   failure: Failure,
   parameters: Schema.Struct({
     /** Needed only when the URL is a page in more than one canvas. */
     canvas: opt(Schema.String),
     name: Schema.String,
-    route: Schema.String.annotate({ description: PAGE_PARAMETER }),
+    route: Schema.String,
   }),
   success: Schema.Struct({ file: Schema.String }),
 });
 
 export const SetPageUrl = Tool.make("set_page_url", {
   description:
-    "Set the URL a page serves in its canvas's prototype, or null for none. Links to the old URL lead nowhere afterwards. A variant's page sets its base page's.",
+    "Set the URL a page serves in its canvas's prototype, null for none; links to the old one break.",
   failure: Failure,
   parameters: Schema.Struct({
     /** Needed only when the URL is a page in more than one canvas. */
     canvas: opt(Schema.String),
-    route: Schema.String.annotate({ description: PAGE_PARAMETER }),
+    route: Schema.String,
     /** The new URL, `/settings/billing`; null for none. */
     url: Schema.NullOr(Schema.String),
   }),
@@ -140,12 +132,12 @@ export const SetPageUrl = Tool.make("set_page_url", {
 
 export const DeletePage = Tool.make("delete_page", {
   description:
-    "Delete a page, with its variants' pages and its comments; one undo step brings them back. Links to its URL lead nowhere afterwards (list_links).",
+    "Delete a page with its variants and comments; links to it break (list_links).",
   failure: Failure,
   parameters: Schema.Struct({
     /** Needed only when the URL is a page in more than one canvas. */
     canvas: opt(Schema.String),
-    route: Schema.String.annotate({ description: PAGE_PARAMETER }),
+    route: Schema.String,
   }),
   success: Schema.Struct({
     /** Every file deleted: the page's, then its variants'. */
@@ -155,18 +147,18 @@ export const DeletePage = Tool.make("delete_page", {
 
 export const DuplicatePage = Tool.make("duplicate_page", {
   description:
-    "Copy a page into a new file beside it (pricing-2.page.json), keeping its node ids. The copy serves no URL until set_page_url gives it one.",
+    "Copy a page beside it (pricing-2.page.json), node ids kept, with no URL.",
   failure: Failure,
   parameters: Schema.Struct({
     /** Needed only when the URL is a page in more than one canvas. */
     canvas: opt(Schema.String),
-    route: Schema.String.annotate({ description: PAGE_PARAMETER }),
+    route: Schema.String,
   }),
   success: Schema.Struct({ file: Schema.String }),
 });
 
 export const ListTemplates = Tool.make("list_templates", {
-  description: "The templates create_page can start from, by id and name.",
+  description: "The templates create_page starts from.",
   failure: Failure,
   success: Schema.Struct({
     templates: Schema.Array(

@@ -1081,8 +1081,9 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           );
           // What reaches the model: the name, the description and the input schema. Output
           // schemas stay on the wire (Claude Code and Codex both leave them out). The tools
-          // cost about 7,900 tokens before the descriptions were cut down; raise this only
-          // for a tool that earns it.
+          // cost about 7,900 tokens before the descriptions were cut down, and 16,000
+          // characters before they were cut again with the schemas' defaults (ADR 0043);
+          // raise this only for a tool that earns it.
           const visible = listed.result.tools.map((tool) =>
             JSON.stringify({
               description: tool.description,
@@ -1091,7 +1092,7 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
             })
           );
           const total = visible.join("").length;
-          assert.isBelow(total, 16_000, `the tools take ${total} characters`);
+          assert.isBelow(total, 13_600, `the tools take ${total} characters`);
           // An optional parameter is a plain property, not a union with null, and a number is a
           // number, not also the strings "NaN" and "Infinity".
           for (const tool of listed.result.tools) {
@@ -1158,6 +1159,29 @@ layer(TestServer, { excludeTestServices: true, timeout: "60 seconds" })(
           assert.strictEqual(
             (part.result.structuredContent.document as { id: string }).id,
             "box"
+          );
+          // An outline first: the row at the last level shown counts its children.
+          const outline = yield* call("read_page", {
+            canvas: "",
+            depth: 1,
+            route: "/parts",
+          });
+          const { root } = outline.result.structuredContent.document as {
+            root: { children: Record<string, unknown>[] };
+          };
+          assert.deepInclude(root.children, {
+            childCount: 1,
+            id: "box",
+            type: "row",
+          });
+          const components = yield* call("list_components", {
+            match: "dialog",
+          });
+          assert.deepStrictEqual(
+            components.result.structuredContent.components,
+            [
+              "Dialog — size: md|sm|lg; props: title, description, open; slots: trigger, dialog-header, dialog-content*, dialog-footer",
+            ]
           );
           const gone = yield* call("read_page", {
             canvas: "",

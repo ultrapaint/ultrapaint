@@ -17,13 +17,7 @@ import { PagesService } from "../pages.ts";
 import { Screenshots } from "../screenshots.ts";
 import { TOOLS } from "../threads/agent-ways.ts";
 import { makeLookup } from "./lookup.ts";
-import {
-  finite,
-  missing,
-  opt,
-  PAGE_PARAMETER,
-  reported,
-} from "./tool-helpers.ts";
+import { finite, leanSchema, missing, opt, reported } from "./tool-helpers.ts";
 
 /** The width a node on the canvas is drawn in, when it fills its parent. */
 const CANVAS_WIDTH = 1200;
@@ -31,7 +25,7 @@ const CANVAS_HEIGHT = 900;
 
 export const GetScreenshot = Tool.make("get_screenshot", {
   description:
-    "A picture of a page, or of one node, as the repository draws it: look after a change; fix spacing, alignment, overflow, contrast. Drawn at its frame's size, or at width. node may be a node reference (/orders#c_8x2k1q) alone; a loose node needs loose: true. Needs the editor open in a browser.",
+    "A picture of a page or node as drawn, at its frame's size or width: look after a change; fix spacing, alignment, overflow, contrast. node may be a node reference; loose: true for a loose one.",
   parameters: Schema.Struct({
     /** Needed only when the project has several canvases. */
     canvas: opt(Schema.String),
@@ -40,7 +34,7 @@ export const GetScreenshot = Tool.make("get_screenshot", {
     /** Id of the node to crop to; the whole page when left out. */
     node: opt(Schema.String),
     /** URL or file of the page; leave out with `loose: true`. */
-    route: opt(Schema.String.annotate({ description: PAGE_PARAMETER })),
+    route: opt(Schema.String),
     /** Viewport width in CSS pixels, for a page: 390 for a phone, 1440 for a desktop. */
     width: opt(finite(200, 4000)),
   }),
@@ -191,7 +185,9 @@ export const ScreenshotToolLive = Layer.effectDiscard(
       tool: new McpSchema.Tool({
         annotations: { readOnlyHint: true },
         description: Tool.getDescription(GetScreenshot),
-        inputSchema: Tool.getJsonSchema(GetScreenshot) as McpSchema.ToolJson,
+        inputSchema: leanSchema(
+          Tool.getJsonSchema(GetScreenshot) as McpSchema.ToolJson
+        ),
         name: GetScreenshot.name,
       }),
     });

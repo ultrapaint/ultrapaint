@@ -21,7 +21,7 @@ const CommentSummary = Schema.Struct({
 
 export const ListComments = Tool.make("list_comments", {
   description:
-    "The comments on the designs, where the user asks for things; open ones only, unless includeResolved.",
+    "Open comments on the designs, where the user asks for things; includeResolved for all.",
   failure: Failure,
   parameters: Schema.Struct({
     canvas: opt(Schema.String),
@@ -32,7 +32,7 @@ export const ListComments = Tool.make("list_comments", {
 }).annotate(Tool.Readonly, true);
 
 export const ReplyToComment = Tool.make("reply_to_comment", {
-  description: "Answer a comment in the thread under it, where the user asked.",
+  description: "Answer a comment in its thread.",
   failure: Failure,
   parameters: Schema.Struct({
     canvas: opt(Schema.String),
@@ -43,7 +43,7 @@ export const ReplyToComment = Tool.make("reply_to_comment", {
 });
 
 export const ResolveComment = Tool.make("resolve_comment", {
-  description: "Mark a comment done, once its work is.",
+  description: "Mark a comment done once its work is.",
   failure: Failure,
   parameters: Schema.Struct({
     canvas: opt(Schema.String),

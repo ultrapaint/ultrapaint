@@ -5,6 +5,7 @@
 import { DesignSystem } from "@ultrapaint/contracts/design-system";
 import { PageDocument } from "@ultrapaint/contracts/document";
 import { Schema } from "effect";
+import { compactSchema } from "./compact-schema.ts";
 
 /**
  * Why a request cannot be a task: what it names is not there, or it needs what this server or
@@ -40,11 +41,11 @@ export const needsTools = (
 
 /** The design system's schema, for an agent that has to write the file without the tools. */
 export const designSystemSchema = () =>
-  JSON.stringify(Schema.toJsonSchemaDocument(DesignSystem).schema);
+  JSON.stringify(compactSchema(Schema.toJsonSchemaDocument(DesignSystem)));
 
 /** The page format's schema, for agents. */
 export const pageSchema = () =>
-  JSON.stringify(Schema.toJsonSchemaDocument(PageDocument));
+  JSON.stringify(compactSchema(Schema.toJsonSchemaDocument(PageDocument)));
 
 /** What the user typed after the command's argument, passed on as it is. */
 export const userAdds = (extra: string | undefined) =>

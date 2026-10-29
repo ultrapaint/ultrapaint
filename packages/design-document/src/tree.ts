@@ -251,3 +251,25 @@ export const shareUnchanged = (
   }
   return "children" in next ? ({ ...next, children } as DesignNode) : next;
 };
+
+/**
+ * A tree shown `depth` levels down: a node at the last level shown keeps its fields but not its
+ * children, which it counts instead (`childCount`), so a big page is read an outline first and a
+ * part at a time after.
+ */
+export const outlineOf = (node: DesignNode, depth: number): DesignNode => {
+  const kids = childrenOf(node);
+  if (kids.length === 0) {
+    return node;
+  }
+  if (depth <= 0) {
+    const { children: _children, ...own } = node as DesignNode & {
+      children?: unknown;
+    };
+    return { ...own, childCount: kids.length } as unknown as DesignNode;
+  }
+  return {
+    ...node,
+    children: kids.map((child) => outlineOf(child, depth - 1)),
+  } as DesignNode;
+};

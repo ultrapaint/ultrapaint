@@ -5,6 +5,7 @@
  */
 import { Schema } from "effect";
 import { Json } from "./base.ts";
+import { APP_FROM } from "./component-names.ts";
 
 export const PropType = Schema.Struct({
   kind: Schema.Literals(["string", "number", "boolean", "enum", "list"]),
@@ -79,3 +80,35 @@ export const metaOf = (
   catalogue.find(
     (c) => c.name === instance.component && c.importFrom === instance.from
   ) ?? catalogue.find((c) => c.name === instance.component);
+
+/**
+ * A component in one line, as an agent picks one: the project's own marked (app), its variants,
+ * with `props` its other props, and the slots its children fill, the default one marked `*`
+ * (`Dialog — size: md|sm|lg; slots: trigger, dialog-content*, dialog-footer`).
+ */
+export const componentLine = (
+  component: ComponentMeta,
+  options: { readonly props?: boolean } = {}
+): string => {
+  const variants = Object.entries(component.variants).map(
+    ([name, members]) => `${name}: ${members.join("|")}`
+  );
+  const others = options.props
+    ? component.props
+        .map((p) => p.name)
+        .filter((name) => !(name in component.variants))
+    : [];
+  const slots = component.slots.flatMap((slot) => {
+    if (slot.holds === undefined) {
+      return [];
+    }
+    return [slot.holds === "default" ? `${slot.name}*` : slot.name];
+  });
+  const about = [
+    ...variants,
+    ...(others.length > 0 ? [`props: ${others.join(", ")}`] : []),
+    ...(slots.length > 0 ? [`slots: ${slots.join(", ")}`] : []),
+  ].join("; ");
+  const origin = component.importFrom === APP_FROM ? " (app)" : "";
+  return `${component.name}${origin}${about ? ` — ${about}` : ""}`;
+};

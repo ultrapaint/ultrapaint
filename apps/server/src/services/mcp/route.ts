@@ -7,7 +7,13 @@
  */
 import { EDITOR_MCP_SERVER } from "@ultrapaint/contracts/threads";
 import { Effect, Layer } from "effect";
-import { McpProtocol, McpServer } from "effect/ai";
+import {
+  McpProtocol,
+  McpSchema,
+  McpServer,
+  type Tool,
+  type Toolkit,
+} from "effect/ai";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 import { handoffCall, TOOLS } from "../threads/agent-ways.ts";
 import {
@@ -20,6 +26,7 @@ import { AskUserToolLive } from "./ask-user.ts";
 import { FigmaTools, FigmaToolsLive } from "./figma-tools.ts";
 import { ScreenshotToolLive } from "./screenshot.ts";
 import { SetupTools, SetupToolsLive } from "./setup-tools.ts";
+import { leanSchema } from "./tool-helpers.ts";
 import { EditorTools, EditorToolsLive } from "./tools.ts";
 
 const MCP_VERSION_HEADER = "mcp-protocol-version";
@@ -71,10 +78,42 @@ export const ToolkitHandlers = Layer.mergeAll(
   SetupToolsLive
 );
 
+/**
+ * A toolkit registered as `McpServer.toolkit` registers it, each tool's input schema without what
+ * JSON Schema says anyway (`leanSchema`): every agent reads every tool's schema, every session.
+ */
+const leanToolkit = <Tools extends Record<string, Tool.Any>>(
+  toolkit: Toolkit.Toolkit<Tools>
+): Layer.Layer<
+  never,
+  never,
+  | Tool.HandlersFor<Tools>
+  | Exclude<Tool.HandlerServices<Tools>, McpSchema.McpRequestContext>
+> =>
+  Layer.effectDiscard(
+    Effect.flatMap(McpServer.McpServer, (server) =>
+      Effect.provideService(
+        McpServer.registerToolkit(toolkit),
+        McpServer.McpServer,
+        McpServer.McpServer.of({
+          ...server,
+          addTool: (options) =>
+            server.addTool({
+              ...options,
+              tool: new McpSchema.Tool({
+                ...options.tool,
+                inputSchema: leanSchema(options.tool.inputSchema),
+              }),
+            }),
+        })
+      )
+    )
+  ).pipe(Layer.provide(McpServer.McpServer.layer));
+
 const Tools = Layer.mergeAll(
-  McpServer.toolkit(EditorTools),
-  McpServer.toolkit(FigmaTools),
-  McpServer.toolkit(SetupTools),
+  leanToolkit(EditorTools),
+  leanToolkit(FigmaTools),
+  leanToolkit(SetupTools),
   ScreenshotToolLive,
   AskUserToolLive
 ).pipe(Layer.provide(ToolkitHandlers));
