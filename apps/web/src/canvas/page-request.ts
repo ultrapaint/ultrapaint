@@ -1,7 +1,6 @@
 /**
  * What a page's frame draws, for the canvas and the prototype: the page as it is at the frame's
- * width (its breakpoints' values, ADR 0036), in the design system, the canvas's defaults and the
- * design's look, or why there is nothing to draw. Pure: what it gives for the same parts has the
+ * width (its breakpoints' values, ADR 0036), in the design system and the canvas's defaults, or why there is nothing to draw. Pure: what it gives for the same parts has the
  * same parts, so a frame told it again draws nothing (`useFrameDrawing`).
  */
 import type { Box } from "@ultrapaint/contracts/canvas-layout";
@@ -11,7 +10,6 @@ import type { PageDefaults } from "@ultrapaint/contracts/pages";
 import type { RenderMode } from "@ultrapaint/contracts/preview";
 import { resolveAt } from "@ultrapaint/design-document/breakpoints";
 import { breakpointsFor } from "../state/design-system.ts";
-import type { DesignLook } from "../state/look.ts";
 import type { RenderRequest } from "./editor-frame.ts";
 
 export interface PageDrawing {
@@ -24,7 +22,6 @@ export interface PageDrawing {
   readonly held?: Partial<Box> | undefined;
   /** An app component's instance edited in place in the frame (ADR 0041). */
   readonly isolate?: RenderRequest["isolate"];
-  readonly look: DesignLook;
   /** A page fills its frame; a node on the canvas is drawn as large as it is (`fit`). */
   readonly mode: RenderMode;
   /** Why the page's file cannot be read, when it cannot. */
@@ -78,7 +75,6 @@ export const pageRequest = (page: PageDrawing): RenderRequest => {
     defaults: page.defaults,
     designSystem,
     ...(page.isolate && { isolate: page.isolate }),
-    look: page.look,
     mode: page.mode,
     root: sized && resolveAt(sized, breakpointsFor(designSystem), at),
     ...(message !== undefined && { message }),

@@ -1,7 +1,8 @@
 /**
  * The stylesheets every frame of the editor's page adopts (ADR 0034, 0040): the frame's own base,
- * the components' look (the system components'), and the design's (every token's value and the component
- * specs, ADR 0028 and 0029). Each is parsed once and shared by every frame.
+ * the system components' default look, and the design's (every token's value and the looks the
+ * project owns, ADRs 0028, 0041). Each is parsed once and shared by every frame; a frame given a
+ * look of its own adopts its own design sheet in place of the shared one (ADR 0042).
  */
 import {
   BODY_ATTRIBUTE,
@@ -112,12 +113,25 @@ const sheet = (key: keyof typeof sheets): CSSStyleSheet => {
   return found;
 };
 
-/** The sheets a frame adopts, in the order they apply: the design's last, so it wins. */
-export const frameSheets = (): CSSStyleSheet[] => [
+/**
+ * The sheets a frame adopts, in the order they apply: the design's last, so it wins; `own` in
+ * place of the shared design sheet.
+ */
+export const frameSheets = (own?: CSSStyleSheet): CSSStyleSheet[] => [
   sheet("base"),
   sheet("components"),
-  sheet("design"),
+  own ?? sheet("design"),
 ];
+
+/**
+ * A design sheet of one frame's (a component's unsaved look): its font faces are the design's,
+ * which the shared sheet lifts to the document already.
+ */
+export const ownDesignSheet = (css: string): CSSStyleSheet => {
+  const own = new CSSStyleSheet();
+  own.replaceSync(css ? frameCss(css).frame : "");
+  return own;
+};
 
 /** Font faces and registered properties go to the editor's document, where the frames see them. */
 const liftToDocument = () => {
@@ -148,16 +162,10 @@ export const setComponentsCss = (css: string) => {
   }
 };
 
-/** The design's stylesheet, the same for every frame: written again only when it changed. */
+/** The design's stylesheet, shared by every frame: written again only when it changed. */
 export const setDesignCss = (css: string) => {
   if (css !== designText) {
     designText = css;
     write("design", css);
   }
 };
-
-/** Every rule the frames adopt, for what reads the stylesheets: the tokens. */
-export const adoptedSheets = (): CSSStyleSheet[] => [
-  sheet("components"),
-  sheet("design"),
-];

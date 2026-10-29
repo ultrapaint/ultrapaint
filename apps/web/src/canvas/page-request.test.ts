@@ -38,14 +38,12 @@ const designSystem = {
   version: 1,
 } as DesignSystem;
 
-const look = { components: [], styles: ":host{}" };
 const defaults = { font: "Inter" };
 
 const drawn = (over: Partial<Parameters<typeof pageRequest>[0]>) =>
   pageRequest({
     defaults,
     designSystem,
-    look,
     mode: "page",
     root: page,
     width: 1200,
@@ -56,9 +54,10 @@ const gapOf = (root: DesignNode | null) =>
   (root as { gap?: unknown } | null)?.gap;
 
 describe("pageRequest", () => {
-  it("draws a page with the canvas's defaults, the design system and the look", () => {
+  it("draws a page with the canvas's defaults and the design system, in the preview's look", () => {
     const request = drawn({});
-    expect(request).toMatchObject({ defaults, designSystem, look });
+    expect(request).toMatchObject({ defaults, designSystem });
+    expect(request.look).toBeUndefined();
     expect(request.mode).toBe("page");
     expect(request.message).toBeUndefined();
   });

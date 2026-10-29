@@ -6,14 +6,15 @@
  * For tests only: imported as `@ultrapaint/preview-core/testing`, never by the editor.
  */
 import type {
+  Drawing,
   Preview,
   RenderSetup,
   RenderToCanvas,
 } from "@ultrapaint/framework-api/browser";
 import { createPreview } from "./frame.ts";
 
-/** What a page does as its frame draws. */
-export type PageCode = (setup: RenderSetup) => void;
+/** What a page does as its frame draws: what it is given, and what it is told to draw. */
+export type PageCode = (setup: RenderSetup, drawing: Drawing) => void;
 
 export interface ScriptedPreview {
   /** What the page does whenever a frame draws, from now on; nothing at first. */
@@ -31,9 +32,9 @@ export const scriptedPreview = (): ScriptedPreview => {
   let code: PageCode = () => undefined;
   // Draws as a renderer does: the page's code runs, then the render has reached the screen.
   const render: RenderToCanvas = (setup) => ({
-    render: (request) => {
-      code(setup);
-      setup.onRendered(request.renderId);
+    render: (drawing) => {
+      code(setup, drawing);
+      setup.onRendered(drawing.renderId);
     },
     unmount: () => undefined,
   });

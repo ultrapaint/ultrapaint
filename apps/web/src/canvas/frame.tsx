@@ -32,7 +32,6 @@ import {
 import { useEditor } from "../state/editor.ts";
 import { useInstances } from "../state/instances.ts";
 import { useIsolatedRequest } from "../state/isolation.ts";
-import { useDesignLook } from "../state/look.ts";
 import { useFrameBreakpoint, useSelectedIn } from "../state/selection.ts";
 import { FramePresence } from "./agent-presence.tsx";
 import { AgentWorkOverlay, useFrameWork, useSkeletons } from "./agent-work.tsx";
@@ -141,7 +140,6 @@ export const Frame = memo(
     const designSystem = useDesignSystem((s) => s.designSystem);
     const defaults = useEditor((s) => s.layout.defaults);
     const held = useEditor((s) => s.held[frameId]);
-    const look = useDesignLook();
     const holdsCard = useComments(
       (s) =>
         s.draft?.pageId === frameId ||
@@ -172,8 +170,8 @@ export const Frame = memo(
       textCommit: (nodeId, text) => commitText(frameId, nodeId, text),
     });
 
-    // The document at the frame's width, in the design system and the design's look, drawn
-    // while it is on screen. A page is as wide as its frame; a node on the canvas as it is held
+    // The document at the frame's width, in the design system (the preview's look over it),
+    // drawn while it is on screen. A page is as wide as its frame; a node on the canvas as it is held
     // while it is resized, or as its own width.
     useFrameDrawing(
       drawn ? frameId : null,
@@ -182,7 +180,6 @@ export const Frame = memo(
         designSystem,
         held,
         isolate,
-        look,
         mode: kind === "page" ? "page" : "fit",
         problem,
         root: drawnRoot,

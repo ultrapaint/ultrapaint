@@ -38,6 +38,7 @@ import type {
   RenderRequest as FrameRequest,
   FrameRuntime,
   FrameShown,
+  Look,
   PageError,
   Preview,
 } from "@ultrapaint/framework-api/browser";
@@ -48,7 +49,6 @@ import {
   useRef,
   useSyncExternalStore,
 } from "react";
-import type { DesignLook } from "../state/look.ts";
 
 /** How many frames stay drawn while they are off the canvas. */
 export const PARKED_MAX = 32;
@@ -75,8 +75,8 @@ export interface RenderRequest {
   readonly designSystem: DesignSystem | null;
   /** An app component's instance edited in place (ADR 0041). */
   readonly isolate?: FrameRequest["isolate"];
-  /** The design's look over the code's (ADR 0028, 0029); the current one when left out. */
-  readonly look?: DesignLook;
+  /** A look of its own (a component's unsaved one); the preview's when left out (ADR 0042). */
+  readonly look?: Look | undefined;
   readonly message?: string;
   readonly mode: RenderMode;
   readonly root: DesignNode | null;
@@ -122,27 +122,16 @@ interface Mount {
 
 /** What the frame was last told to draw, by which runtime. */
 interface Shown {
-  readonly components: DesignLook["components"];
   readonly defaults: PageDefaults | undefined;
   readonly designSystem: DesignSystem | null;
   readonly isolate: RenderRequest["isolate"];
+  readonly look: Look | undefined;
   readonly message: string | undefined;
   readonly mode: RenderMode;
   readonly renderId: number;
   readonly root: DesignNode | null;
   readonly runtime: FrameRuntime;
-  readonly styles: DesignLook["styles"];
 }
-
-/**
- * Where the design's look comes from when a render does not say: the app hands it the stores'
- * at startup, which keeps the frames free of them.
- */
-const NO_LOOK: DesignLook = { components: [], styles: "" };
-let currentLook = (): DesignLook => NO_LOOK;
-export const provideDesignLook = (look: () => DesignLook) => {
-  currentLook = look;
-};
 
 const frames = new Map<string, EditorFrame>();
 const poolListeners = new Set<() => void>();
@@ -472,7 +461,6 @@ export class EditorFrame {
    * is not told again: a frame taken back from the pool is not drawn for nothing.
    */
   render(request: RenderRequest): number {
-    const look = request.look ?? currentLook();
     const runtime = this.mount?.runtime ?? null;
     const { shown } = this;
     if (
@@ -485,8 +473,7 @@ export class EditorFrame {
       shown.root === request.root &&
       shown.mode === request.mode &&
       shown.message === request.message &&
-      shown.components === look.components &&
-      shown.styles === look.styles
+      shown.look === request.look
     ) {
       return shown.renderId;
     }
@@ -496,26 +483,24 @@ export class EditorFrame {
       return renders;
     }
     this.shown = {
-      components: look.components,
       defaults: request.defaults,
       designSystem: request.designSystem,
       isolate: request.isolate,
+      look: request.look,
       message: request.message,
       mode: request.mode,
       renderId: renders,
       root: request.root,
       runtime,
-      styles: look.styles,
     };
     runtime.render({
-      ...(look.components.length > 0 && { components: look.components }),
       defaults: request.defaults,
       designSystem: request.designSystem,
       ...(request.isolate && { isolate: request.isolate }),
       mode: request.mode,
       renderId: renders,
       root: request.root,
-      ...(look.styles && { styles: look.styles }),
+      ...(request.look && { look: request.look }),
       ...(request.message !== undefined && { message: request.message }),
     });
     return renders;

@@ -19,7 +19,6 @@ import type { InstanceDrawn } from "@ultrapaint/contracts/preview";
 import { expandAppInstance } from "@ultrapaint/design-document/app-components";
 import {
   COMPONENT_ATTRIBUTE,
-  lookCss,
   VARIANT_ATTRIBUTE,
   variantAttributeOf,
 } from "@ultrapaint/design-document/component-look";
@@ -35,6 +34,7 @@ import {
 } from "@ultrapaint/design-document/css";
 import { childrenOf } from "@ultrapaint/design-document/tree";
 import {
+  type Drawing,
   type Mounted,
   NODE_ATTRIBUTE,
   type RenderRequest,
@@ -47,7 +47,6 @@ import {
   systemComponentOf,
 } from "@ultrapaint/system-components/catalogue";
 import { SYSTEM_COMPONENT_VIEWS } from "@ultrapaint/system-components/components";
-import { looksOf } from "@ultrapaint/system-components/defaults";
 import {
   type ComponentFrame,
   ComponentFrameProvider,
@@ -666,7 +665,7 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
   });
   let designSystem: DesignSystem | null = null;
   let styles = makeStyleContext(null);
-  let components: readonly ComponentFile[] | undefined;
+  let components: readonly ComponentFile[] = [];
   let apps: ReadonlyMap<string, AppComponentFile> = new Map();
   let systems: ReadonlyMap<string, SystemComponentFile> = new Map();
   const onError = (error: Error) =>
@@ -696,40 +695,20 @@ export const renderToCanvas: RenderToCanvas = (setup: RenderSetup, canvas) => {
   };
 
   let first = true;
-  /** What the request changes of the design system, the components and the design's stylesheet. */
-  let tokenCss: string | undefined;
-  const restyle = (request: RenderRequest) => {
-    const restyled =
-      request.designSystem !== designSystem ||
-      request.components !== components ||
-      request.styles !== tokenCss;
-    if (request.designSystem !== designSystem) {
-      ({ designSystem } = request);
+  /** What the drawing changes of the design system and the components. */
+  const restyle = (drawing: Drawing) => {
+    if (drawing.designSystem !== designSystem) {
+      ({ designSystem } = drawing);
       styles = makeStyleContext(designSystem);
     }
-    if (request.components !== components) {
-      ({ components } = request);
-      apps = new Map(appComponentsIn(components ?? []).map((c) => [c.name, c]));
-      systems = new Map(
-        systemComponentsIn(components ?? []).map((c) => [c.name, c])
-      );
-    }
-    tokenCss = request.styles;
-    // The design's own stylesheet (ADRs 0028, 0041): every token's value and the looks of the
-    // system components the project owns, which the core puts after every other sheet of the frames.
-    if (restyled) {
-      setup.setDesignCss(
-        [
-          tokenCss ?? "",
-          lookCss(looksOf(systemComponentsIn(components ?? [])), styles),
-        ]
-          .filter(Boolean)
-          .join("\n\n")
-      );
+    if (drawing.components !== components) {
+      ({ components } = drawing);
+      apps = new Map(appComponentsIn(components).map((c) => [c.name, c]));
+      systems = new Map(systemComponentsIn(components).map((c) => [c.name, c]));
     }
   };
 
-  const draw = (request: RenderRequest) => {
+  const draw = (request: Drawing) => {
     restyle(request);
     const pageAttribute =
       request.isolate === undefined ? NODE_ATTRIBUTE : OUTSIDE_ATTRIBUTE;

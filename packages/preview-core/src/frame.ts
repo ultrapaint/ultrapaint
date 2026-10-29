@@ -16,6 +16,7 @@ import type {
   FrameRect,
   FrameRuntime,
   FrameShown,
+  Look,
   Mounted,
   MountFrameOptions,
   Preview,
@@ -29,7 +30,12 @@ import { BODY_ATTRIBUTE } from "./frame-css.ts";
 import { showHost, writeClasses, writeStyle } from "./frame-host.ts";
 import { elementAt, type HitScope } from "./hit.ts";
 import { renderSetup } from "./render-setup.ts";
-import { adoptedSheets, frameSheets, setComponentsCss } from "./styles.ts";
+import {
+  frameSheets,
+  ownDesignSheet,
+  setComponentsCss,
+  setDesignCss,
+} from "./styles.ts";
 import { readTokens } from "./tokens.ts";
 
 const SKELETON_ATTRIBUTE = "data-ed-skeleton";
@@ -83,22 +89,44 @@ export const createPreview = (
   }
   /** The hosts of the mounted frames: an event with one on its path is from a frame. */
   const hosts = new Set<EventTarget>();
+  /** The mounted frames, each drawn again when the look changes. */
+  const frames = new Set<MountedFrame>();
+  let look: Look = { components: [], css: "" };
   return {
     fromFrame: (event) =>
       event.composedPath().some((target) => hosts.has(target)),
     mountFrame: (host, options) => {
-      const frame = mountFrame(host, options, render, input);
+      const frame = mountFrame(host, options, render, input, () => look);
       hosts.add(host);
+      frames.add(frame);
       return {
         ...frame.runtime,
         unmount: () => {
           hosts.delete(host);
+          frames.delete(frame);
           frame.runtime.unmount();
         },
       };
     },
+    setLook: (next) => {
+      if (next === look) {
+        return;
+      }
+      look = next;
+      setDesignCss(next.css);
+      for (const frame of frames) {
+        frame.relook();
+      }
+    },
   };
 };
+
+/** A frame as the preview keeps it. */
+interface MountedFrame {
+  /** Draws its last request again with the preview's look, unless it has one of its own. */
+  readonly relook: () => void;
+  readonly runtime: FrameRuntime;
+}
 
 /** The frame's body and root elements, as an iframe's document would have them. */
 const buildFrame = (host: HTMLElement, theme: string) => {
@@ -158,8 +186,9 @@ const mountFrame = (
   host: HTMLElement,
   options: MountFrameOptions,
   draw: RenderToCanvas,
-  input: PreviewSetup
-): { mounted: Mounted; runtime: FrameRuntime } => {
+  input: PreviewSetup,
+  previewLook: () => Look
+): MountedFrame => {
   const { events } = options;
   const { body, root: canvas, shadow } = buildFrame(host, input.theme);
   // The editor's one rule for an event from a frame is the registered frames (`fromFrame`); the
@@ -249,18 +278,40 @@ const mountFrame = (
       requestAnimationFrame(sendSize);
     },
   });
-  const mounted = draw(setup, canvas);
+  const mounted: Mounted = draw(setup, canvas);
   const resize = new ResizeObserver(sendSize);
   resize.observe(canvas);
 
+  /** The last request, drawn again when the preview's look changes. */
+  let last: RenderRequest | null = null;
+  /** The look given with a request, in a stylesheet of the frame's own. */
+  let own: { readonly look: Look; readonly sheet: CSSStyleSheet } | null = null;
+  const adopt = (look: Look | undefined) => {
+    if (look === own?.look) {
+      return;
+    }
+    own = look ? { look, sheet: ownDesignSheet(look.css) } : null;
+    shadow.adoptedStyleSheets = frameSheets(own?.sheet);
+  };
   const render = (request: RenderRequest) => {
     if (editing) {
       finishTextEdit(false);
     }
+    last = request;
+    adopt(request.look);
     applyDefaults(body, request, input.theme);
     fill = request.root?.width === "fill";
     applyMode(request.mode);
-    mounted.render(request);
+    const { look: _look, ...drawing } = request;
+    mounted.render({
+      ...drawing,
+      components: (request.look ?? previewLook()).components,
+    });
+  };
+  const relook = () => {
+    if (last && !last.look) {
+      render(last);
+    }
   };
 
   // ---- Skeletons ----
@@ -537,7 +588,8 @@ const mountFrame = (
       skeletons = [...nodeIds];
       applySkeletons();
     },
-    tokens: (prefixes) => readTokens(prefixes, adoptedSheets(), body),
+    tokens: (prefixes) =>
+      readTokens(prefixes, shadow.adoptedStyleSheets.slice(1), body),
     unmount: () => {
       finishTextEdit(false);
       mo.disconnect();
@@ -553,5 +605,5 @@ const mountFrame = (
       scheduleRects();
     },
   };
-  return { mounted, runtime };
+  return { relook, runtime };
 };

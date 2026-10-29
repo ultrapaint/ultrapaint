@@ -178,9 +178,9 @@ const useThumbnails = (
 ) => {
   const designSystem = useDesignSystem((s) => s.designSystem);
   // The project's looks draw them too (ADRs 0028, 0041).
-  const { components: files, styles } = useDesignLook();
+  const { components: files, css } = useDesignLook();
   const key = hashOf(
-    `${JSON.stringify(designSystem?.components ?? {})}:${JSON.stringify(designSystem?.colors ?? [])}:${styles}:${JSON.stringify(files)}`
+    `${JSON.stringify(designSystem?.components ?? {})}:${JSON.stringify(designSystem?.colors ?? [])}:${css}:${JSON.stringify(files)}`
   );
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
   const [loadedKey, setLoadedKey] = useState<string | null>(null);

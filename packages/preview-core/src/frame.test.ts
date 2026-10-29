@@ -142,3 +142,70 @@ describe("a frame's error", () => {
     page(() => undefined);
   });
 });
+
+describe("the design's look (ADR 0042)", () => {
+  const sheetText = (sheet: CSSStyleSheet | undefined) =>
+    Array.from(sheet?.cssRules ?? [])
+      .map((rule) => rule.cssText)
+      .join("\n");
+  const card = {
+    base: {},
+    name: "Card",
+    origin: "system",
+    states: {},
+    variants: {},
+    version: 1,
+  } as const;
+
+  it("is written once for every frame, which draw again with its components", () => {
+    const a = open("a", "light");
+    const b = open("b", "light");
+    const drawn: string[] = [];
+    a.draw((_setup, drawing) =>
+      drawn.push(`a:${drawing.components.map((c) => c.name).join(",")}`)
+    );
+    b.runtime.render({
+      designSystem: null,
+      mode: "page",
+      renderId: 2,
+      root: null,
+    });
+    drawn.length = 0;
+    preview.setLook({ components: [card], css: ":root { --x: 1px; }" });
+    expect(drawn).toEqual(["a:Card", "a:Card"]);
+    const [sheetA, sheetB] = [a, b].map((f) =>
+      f.host.shadowRoot?.adoptedStyleSheets.at(-1)
+    );
+    expect(sheetA).toBe(sheetB);
+    expect(sheetText(sheetA)).toContain("--x: 1px");
+  });
+
+  it("given with a render is the frame's own: the others keep the preview's", () => {
+    preview.setLook({ components: [], css: ":root { --x: 1px; }" });
+    const shared = open("shared", "light");
+    const own = open("own", "light");
+    shared.draw(() => undefined);
+    const drawn: string[] = [];
+    page((_setup, drawing) =>
+      drawn.push(drawing.components.map((c) => c.name).join(","))
+    );
+    own.runtime.render({
+      designSystem: null,
+      look: { components: [card], css: ":root { --x: 2px; }" },
+      mode: "page",
+      renderId: 3,
+      root: null,
+    });
+    expect(drawn).toEqual(["Card"]);
+    const sharedSheet = shared.host.shadowRoot?.adoptedStyleSheets.at(-1);
+    const ownSheet = own.host.shadowRoot?.adoptedStyleSheets.at(-1);
+    expect(ownSheet).not.toBe(sharedSheet);
+    expect(sheetText(sharedSheet)).toContain("--x: 1px");
+    expect(sheetText(ownSheet)).toContain("--x: 2px");
+    // The preview's look changing leaves a frame with its own as it is.
+    drawn.length = 0;
+    preview.setLook({ components: [], css: ":root { --x: 3px; }" });
+    expect(drawn).toEqual([""]);
+    expect(sheetText(ownSheet)).toContain("--x: 2px");
+  });
+});

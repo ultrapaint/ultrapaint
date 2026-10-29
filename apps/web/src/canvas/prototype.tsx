@@ -41,7 +41,6 @@ import { useDesignSystem } from "../state/design-system.ts";
 import { useDocuments } from "../state/documents.ts";
 import { pagesOfCanvas, useEditor } from "../state/editor.ts";
 import { goTo } from "../state/location.ts";
-import { useDesignLook } from "../state/look.ts";
 import { useProject } from "../state/project.ts";
 import { commentCursor, FrameComments, placeComment } from "./comments.tsx";
 import { useFrameDrawing, useFrameError } from "./editor-frame.ts";
@@ -209,14 +208,12 @@ export const Prototype = () => {
   );
   const designSystem = useDesignSystem((s) => s.designSystem);
   const defaults = useEditor((s) => s.layout.defaults);
-  const look = useDesignLook();
   useFrameDrawing(
     shown ? frameIdOf(canvas) : null,
     pageRequest({
       absent: activePage ? undefined : noPage(route),
       defaults,
       designSystem,
-      look,
       mode: "page",
       problem: document?.problem,
       root: document?.root ?? null,
