@@ -167,7 +167,7 @@ const SettingsStep = ({ index, step }: { index: number; step: SyncStep }) => (
 const bringUpToDate = async () => {
   try {
     const { components, documents, drawn } = await api().request(
-      "components.migrate",
+      "migration.run",
       undefined
     );
     toast.success(
