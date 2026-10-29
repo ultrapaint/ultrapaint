@@ -3,6 +3,7 @@ import { specTarget } from "@ultrapaint/contracts/implementation";
 import { PRIMITIVES_FROM } from "@ultrapaint/contracts/spec-names";
 import { findNode } from "@ultrapaint/design-document/tree";
 import { makeFixture as makeFigFile } from "@ultrapaint/figma-import/testing/fixture";
+import { defaultSpecOf } from "@ultrapaint/primitives/defaults";
 import { Effect, Fiber, Option, Stream } from "effect";
 import { EventBus } from "./events.ts";
 import { runCommand } from "./process.ts";
@@ -38,23 +39,27 @@ const nextEvent = <A, E, R>(name: "git", effect: Effect.Effect<A, E, R>) =>
 describe("flows in the services", () => {
   layer(ProjectTest(), { excludeTestServices: true })((it) => {
     it.effect(
-      "links a primitive's spec to no file: what implements its look is found when it is implemented",
+      "starts a primitive's spec from its default look, linked to no file until it is implemented",
       () =>
         Effect.gen(function* () {
           const project = yield* ProjectManager;
           const spec = project.service(SpecService);
           const read = yield* spec((s) => s.fromCode("Button", undefined));
-          assert.strictEqual(read.spec?.look, "code");
+          assert.strictEqual(read.spec?.look, "design");
+          assert.deepStrictEqual(
+            read.spec?.base,
+            defaultSpecOf("Button")?.base
+          );
           assert.deepStrictEqual((yield* linkOf("Button")).files, []);
           assert.notStrictEqual(
             (yield* linkOf("Button")).status,
             "implemented"
           );
-          // A primitive has no classes of the code's to read: reading every spec reads none.
-          assert.deepStrictEqual(yield* spec((s) => s.fromCodeAll()), {
-            linked: 0,
-            read: 0,
-          });
+          // Only a primitive has a default look to start from.
+          const missing = yield* Effect.flip(
+            spec((s) => s.fromCode("PricingCard", undefined))
+          );
+          assert.strictEqual(missing._tag, "NotFound");
         })
     );
   });

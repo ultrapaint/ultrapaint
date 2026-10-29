@@ -1,9 +1,9 @@
 /**
- * The Design system panel's Components tab (ADR 0029): every component of the code and every
- * draft, with who owns its look. Opening one shows its spec as a live matrix of its variants and
- * states, drawn by the preview with the real component, and the fields of one slot in the base,
- * a variant or a state. A spec is read off the code's classes; taking its look over lets the
- * design restyle the component while its behaviour stays the code's.
+ * The Design system panel's Components tab (ADR 0029, 0040): every primitive and every draft,
+ * each in its default look or in the project's. Opening one shows its look as a live matrix of
+ * its variants and states, drawn by the preview with the primitive itself, and the fields of one
+ * slot in the base, a variant or a state. Taking a primitive's look over starts the project's
+ * spec from its default, so the fields hold real values; resetting it removes the spec.
  */
 import type { JsonValue } from "@ultrapaint/contracts/base";
 import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
@@ -18,7 +18,8 @@ import {
   type SpecStyle,
 } from "@ultrapaint/contracts/specs";
 import { STATE_ATTRIBUTE } from "@ultrapaint/design-document/spec";
-import { ArrowLeft, Code2, Trash2, X } from "lucide-react";
+import { defaultSpecOf } from "@ultrapaint/primitives/defaults";
+import { ArrowLeft, Code2, RotateCcw, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -28,12 +29,10 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/ui/native-select";
-import { Spinner } from "@/components/ui/spinner";
 import { useFrameDrawing } from "../canvas/editor-frame.ts";
 import { PreviewSurface } from "../canvas/preview-surface.tsx";
 import { confirmDialog } from "../components/dialogs.tsx";
 import { PanelEmpty } from "../components/panel.tsx";
-import { Segmented } from "../components/segmented.tsx";
 import { ValueField } from "../components/value-field.tsx";
 import { startTask } from "../lib/start-thread.ts";
 import {
@@ -78,14 +77,12 @@ const listedOf = (
   return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
 };
 
+/** Whose look a component is drawn in: a spec that mirrors nothing draws the default. */
 const lookLabel = (spec: ComponentSpec | undefined) => {
-  if (!spec) {
-    return "code";
-  }
-  if (spec.draft) {
+  if (spec?.draft) {
     return "draft";
   }
-  return spec.look === "design" ? "design" : "mirrored";
+  return spec?.look === "design" ? "your look" : "default look";
 };
 
 /** Saves a spec; what the server refuses is said. */
@@ -298,7 +295,7 @@ const Field = ({
         })}
         onChange={onChange}
         options={kind === "opacity" ? [] : options}
-        placeholder="The code's"
+        placeholder="Not set"
         title={label}
         value={value}
       />
@@ -538,7 +535,7 @@ const SpecDetail = ({
   const [slot, setSlot] = useState(ROOT_SLOT);
   const item = useImplementation((s) => s.byTarget[specTarget(listed.name)]);
 
-  const read = async (look: "code" | "design") => {
+  const read = async (look: "design") => {
     try {
       const entry = await api().request("specs.fromCode", {
         component: listed.name,
@@ -565,24 +562,28 @@ const SpecDetail = ({
     </div>
   );
 
-  if (!spec) {
+  const fallback = defaultSpecOf(listed.name);
+  if (!spec || (spec.look !== "design" && !spec.draft)) {
     return (
       <div className="flex h-full flex-col">
         {header}
-        <div className="flex flex-col gap-2 p-3 font-body">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3 font-body">
+          {fallback ? <Matrix meta={listed.meta} spec={fallback} /> : null}
           <p className="text-muted-foreground">
-            {listed.name}'s look is its code's. Read it into a spec to see its
-            variants and states; take it over to restyle it here, while what it
-            does stays the code's.
+            {listed.name} is drawn in its default look, over your tokens. Take
+            it over to change any part of it here; implementing gives your
+            application's own {listed.name} the look.
           </p>
           <div className="flex flex-wrap gap-1.5">
-            <Button onClick={() => read("design")} size="sm">
+            <Button
+              disabled={!fallback}
+              onClick={() => read("design")}
+              size="sm"
+            >
               Take the look over
             </Button>
-            <Button onClick={() => read("code")} size="sm" variant="outline">
-              Mirror the code
-            </Button>
           </div>
+          {saved ? <Notes dirty={false} spec={saved} /> : null}
         </div>
       </div>
     );
@@ -603,17 +604,18 @@ const SpecDetail = ({
       value: placeKey({ kind: "state", state }),
     })),
   ];
-  const editable = spec.look === "design";
   const dirty = JSON.stringify(spec) !== JSON.stringify(saved);
 
   const remove = async () => {
     if (
       !(await confirmDialog({
-        confirmLabel: "Delete",
+        confirmLabel: spec.draft ? "Delete" : "Reset",
         description: spec.draft
           ? `The draft's tree goes with it; pages that use ${spec.component} show it missing.`
-          : `${spec.component} is drawn as its code draws it again.`,
-        title: `Delete the ${spec.component} spec?`,
+          : `${spec.component} is drawn in its default look again; its behaviour notes go with the spec.`,
+        title: spec.draft
+          ? `Delete the ${spec.component} draft?`
+          : `Reset ${spec.component} to its default look?`,
       }))
     ) {
       return;
@@ -635,22 +637,7 @@ const SpecDetail = ({
             <Badge variant="outline">
               Draft: the code does not have it yet
             </Badge>
-          ) : (
-            <div className="w-40">
-              <Segmented
-                onChange={(look) => {
-                  const next = { ...spec, look };
-                  setSpec(next);
-                  save(next);
-                }}
-                options={[
-                  { label: "Code's look", value: "code" as const },
-                  { label: "Design's", value: "design" as const },
-                ]}
-                value={spec.look}
-              />
-            </div>
-          )}
+          ) : null}
           <Button
             className="ml-auto"
             onClick={() =>
@@ -662,110 +649,74 @@ const SpecDetail = ({
             <Code2 />
             Implement
           </Button>
-          <Button onClick={remove} size="icon-sm" variant="ghost">
-            <Trash2 />
-          </Button>
+          {spec.draft ? (
+            <Button onClick={remove} size="icon-sm" variant="ghost">
+              <Trash2 />
+            </Button>
+          ) : (
+            <Button onClick={remove} size="sm" variant="ghost">
+              <RotateCcw />
+              Reset to default
+            </Button>
+          )}
         </div>
         <Matrix meta={listed.meta} spec={spec} />
-        {editable || spec.draft ? (
-          <>
-            <div className="grid grid-cols-2 gap-1.5">
-              <NativeSelect
-                aria-label="Where"
-                onChange={(e) => setPlace(e.target.value)}
-                size="sm"
-                value={placeKeyed}
-              >
-                {places.map((p) => (
-                  <NativeSelectOption key={p.value} value={p.value}>
-                    {p.label}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-              <NativeSelect
-                aria-label="Part"
-                onChange={(e) => setSlot(e.target.value)}
-                size="sm"
-                value={slot}
-              >
-                {spec.slots.map((s) => (
-                  <NativeSelectOption key={s.name} value={s.name}>
-                    {s.label ??
-                      (s.name === ROOT_SLOT ? "The component" : s.name)}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </div>
-            <SlotFields
-              onChange={(style) => setSpec(withStyle(spec, place, slot, style))}
-              style={styleAt(spec, place, slot)}
-            />
-            <div className="flex gap-1.5">
-              <Button
-                disabled={!dirty}
-                onClick={async () => {
-                  await save(spec);
-                  toast.success(
-                    `${spec.component}'s look is saved: implement it to bring the code along.`
-                  );
-                }}
-                size="sm"
-              >
-                Save
-              </Button>
-              <Button
-                disabled={!dirty}
-                onClick={() => setSpec(saved)}
-                size="sm"
-                variant="ghost"
-              >
-                Discard
-              </Button>
-            </div>
-          </>
-        ) : (
-          <p className="text-muted-foreground">
-            The spec mirrors the code. Take the look over to change it here.
-          </p>
-        )}
+
+        <div className="grid grid-cols-2 gap-1.5">
+          <NativeSelect
+            aria-label="Where"
+            onChange={(e) => setPlace(e.target.value)}
+            size="sm"
+            value={placeKeyed}
+          >
+            {places.map((p) => (
+              <NativeSelectOption key={p.value} value={p.value}>
+                {p.label}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+          <NativeSelect
+            aria-label="Part"
+            onChange={(e) => setSlot(e.target.value)}
+            size="sm"
+            value={slot}
+          >
+            {spec.slots.map((s) => (
+              <NativeSelectOption key={s.name} value={s.name}>
+                {s.label ?? (s.name === ROOT_SLOT ? "The component" : s.name)}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </div>
+        <SlotFields
+          onChange={(style) => setSpec(withStyle(spec, place, slot, style))}
+          style={styleAt(spec, place, slot)}
+        />
+        <div className="flex gap-1.5">
+          <Button
+            disabled={!dirty}
+            onClick={async () => {
+              await save(spec);
+              toast.success(
+                `${spec.component}'s look is saved: implement it to bring the code along.`
+              );
+            }}
+            size="sm"
+          >
+            Save
+          </Button>
+          <Button
+            disabled={!dirty}
+            onClick={() => setSpec(saved)}
+            size="sm"
+            variant="ghost"
+          >
+            Discard
+          </Button>
+        </div>
+
         {saved ? <Notes dirty={dirty} spec={saved} /> : null}
       </div>
-    </div>
-  );
-};
-
-/**
- * Every component of the code with classes to read and no spec yet, read into a spec that mirrors
- * it and linked to its file as implemented (ADR 0029, 0030): how a project built before it came
- * into the editor brings its components in. One undo step for the specs, one for the links.
- */
-const ReadAll = ({ count }: { count: number }) => {
-  const [busy, setBusy] = useState(false);
-  const run = async () => {
-    setBusy(true);
-    try {
-      const { linked, read } = await api().request("specs.fromCodeAll", {
-        look: "code",
-      });
-      toast.success(
-        `${read} spec${read === 1 ? "" : "s"} read from the code, ${linked} linked to ${linked === 1 ? "its component's file" : "their components' files"}.`
-      );
-    } catch (error) {
-      reportError(error);
-    }
-    setBusy(false);
-  };
-  return (
-    <div className="flex flex-col items-start gap-1.5 border-b px-3 py-2">
-      <span className="text-muted-foreground">
-        {count === 1 ? "A component has" : `${count} components have`} no spec
-        yet: read from its classes, it mirrors the code and is linked to its
-        file.
-      </span>
-      <Button disabled={busy} onClick={run} size="sm" variant="outline">
-        {busy ? <Spinner /> : null}
-        Read every spec from the code
-      </Button>
     </div>
   );
 };
@@ -781,9 +732,6 @@ export const ComponentsView = ({ q }: { q: string }) => {
     (l) => !q || l.name.toLowerCase().includes(q)
   );
   const opened = open ? listed.find((l) => l.name === open) : undefined;
-  const unread = (catalogue?.components ?? []).filter(
-    (c) => c.styles !== undefined && !specs.some((s) => s.component === c.name)
-  ).length;
 
   useEffect(() => {
     useImplementation.getState().load();
@@ -797,7 +745,6 @@ export const ComponentsView = ({ q }: { q: string }) => {
   }
   return (
     <div className="flex flex-col font-body">
-      {unread > 0 ? <ReadAll count={unread} /> : null}
       {problems.map((p) => (
         <p className="border-b px-3 py-1.5 text-destructive" key={p.file}>
           {p.file}: {p.problem}
@@ -827,11 +774,7 @@ export const ComponentsView = ({ q }: { q: string }) => {
                     </span>
                   ) : null}
                   <Badge
-                    variant={
-                      look === "design" || look === "draft"
-                        ? "default"
-                        : "outline"
-                    }
+                    variant={look === "default look" ? "outline" : "default"}
                   >
                     {look}
                   </Badge>

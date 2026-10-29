@@ -104,8 +104,25 @@ describe("specCss", () => {
     expect(css).toBe(
       `${ROOT} {\n  background-color: var(--color-primary, #123456);\n}\n\n` +
         '[data-ed-c="Button"]:not([data-ed-wrapper]) [data-slot="icon"],\n' +
-        '[data-ed-c="Button"][data-ed-wrapper] > * [data-slot="icon"] {\n  width: 16px;\n}\n'
+        '[data-ed-c="Button"][data-ed-wrapper] > * [data-slot="icon"],\n' +
+        '[data-ed-p="Button"] [data-slot="icon"],\n' +
+        '[data-ed-p="Button"][data-slot="icon"] {\n  width: 16px;\n}\n'
     );
+  });
+
+  it("finds a part in a portal of the component's, a variant or a state on the portal", () => {
+    const dialog: ComponentSpec = {
+      ...emptySpec("Dialog", "@ultrapaint/primitives"),
+      defaults: { size: "md" },
+      slots: [{ name: "root" }, { name: "dialog" }],
+      variants: { size: { lg: { dialog: { width: 640 } } } },
+    };
+    expect(selectorsOf(specCss([dialog], ctx))[0]).toEqual([
+      '[data-ed-c="Dialog"]:not([data-ed-wrapper])[data-ed-v~="size:lg"] [data-slot="dialog"]',
+      '[data-ed-c="Dialog"][data-ed-wrapper][data-ed-v~="size:lg"] > * [data-slot="dialog"]',
+      '[data-ed-p="Dialog"][data-ed-v~="size:lg"] [data-slot="dialog"]',
+      '[data-ed-p="Dialog"][data-ed-v~="size:lg"][data-slot="dialog"]',
+    ]);
   });
 
   it("matches a member, and the default when the instance does not set its axis", () => {

@@ -1,19 +1,17 @@
 /**
  * Component specs (ADR 0029): `specs/<Component>.spec.json` in the designs directory, what a
- * component looks like as the design says it. The behaviour stays the code's; a spec with
- * `look: design` is drawn over the component in the preview. A spec is written as given and
- * validated, read off the code's cva classes through the style system, or made from a node of a
- * page as a draft, which the code does not have yet.
+ * primitive looks like as the design says it (ADR 0040). A primitive without one is drawn in its
+ * default look (`defaults.ts`); taking its look over starts the project's spec from that default,
+ * and removing the spec goes back to it. A spec is written as given and validated, started from a
+ * primitive's default, or made from a node of a page as a draft, which the code does not have yet.
  */
 
-import type { ComponentMeta } from "@ultrapaint/contracts/catalogue";
 import type { DesignNode, InstanceNode } from "@ultrapaint/contracts/document";
 import {
   BadRequest,
   type Conflict,
   NotFound,
 } from "@ultrapaint/contracts/errors";
-import { specTarget } from "@ultrapaint/contracts/implementation";
 import {
   ComponentSpec,
   DRAFT_FROM,
@@ -27,13 +25,13 @@ import {
   type SpecNote,
   specFileOf,
 } from "@ultrapaint/contracts/specs";
-import type { SourceToken } from "@ultrapaint/contracts/tokens";
 import { serialise } from "@ultrapaint/design-document/factories";
 import {
   childrenOf,
   findNode,
   findPath,
 } from "@ultrapaint/design-document/tree";
+import { defaultSpecOf } from "@ultrapaint/primitives/defaults";
 import {
   Context,
   Effect,
@@ -45,45 +43,13 @@ import {
 } from "effect";
 import { EventBus } from "../events.ts";
 import { makeId } from "../ids.ts";
-import { CatalogueService } from "./catalogue.ts";
-import { CodeSide } from "./code-side.ts";
 import { DocumentService } from "./documents.ts";
 import { type EditFailure, EditService } from "./edit.ts";
-import { ImplementationService } from "./implementation.ts";
 import { RepoPaths } from "./repo-paths.ts";
-import { ProjectStyleSystem } from "./style-system.ts";
 
 const decodeSpec = Schema.decodeUnknownEffect(ComponentSpec);
 
 const COMPONENT_NAME_RE = /^[A-Z][A-Za-z0-9]*$/;
-const DATA_SLOT_RE = /data-slot=["']([a-z0-9-]+)["']/g;
-
-/** The `data-slot`s a component's file writes, in the order they appear. */
-export const slotsInSource = (source: string): string[] => [
-  ...new Set([...source.matchAll(DATA_SLOT_RE)].map((m) => m[1] ?? "")),
-];
-
-/**
- * The parts of a component that its own file names: the slot whose name is the component's in
- * kebab case is its root, the others are parts inside it. A file with several components (a
- * card's header, title, content) names theirs too: only the slots that start with the root's
- * name and are not another export's root are this component's.
- */
-export const slotsOf = (
-  component: string,
-  slots: readonly string[],
-  siblings: readonly string[]
-): string[] => {
-  const kebab = component.replace(/(?<!^)([A-Z])/g, "-$1").toLowerCase();
-  const others = new Set(
-    siblings.map((s) => s.replace(/(?<!^)([A-Z])/g, "-$1").toLowerCase())
-  );
-  return slots.filter(
-    (slot) =>
-      slot !== kebab && slot.startsWith(`${kebab}-`) && !others.has(slot)
-  );
-};
-
 /** The fields a draft's instance takes over from the node it replaces: where it sits. */
 const PLACEMENT_FIELDS = [
   "height",
@@ -152,28 +118,16 @@ export class SpecService extends Context.Service<
     readonly specs: Effect.Effect<readonly ComponentSpec[]>;
     readonly write: (spec: unknown) => Effect.Effect<SpecEntry, EditFailure>;
     /**
-     * A component's spec read off its code, saved with the look given (`code` when none). Read
-     * off the code, the spec is what its component's file draws, so it is linked to that file
-     * as implemented (ADR 0030); one that keeps behaviour notes keeps its link as it was, since
-     * what a note asks of the code is not read off it.
+     * A primitive's spec started from its default look (ADR 0040), saved with the look given
+     * (`design` when none), so the design edits real values. One there was keeps its behaviour
+     * notes, which are not the look.
      */
     readonly fromCode: (
       component: string,
       from: string | undefined,
       look?: SpecLook
     ) => Effect.Effect<SpecEntry, EditFailure>;
-    /**
-     * A spec read off the code for every component with classes to read and no spec yet, in one
-     * undo step, each linked to its component's file as implemented: how a project whose
-     * components are built already comes in. Answers with how many were read and linked.
-     */
-    readonly fromCodeAll: (look?: SpecLook) => Effect.Effect<
-      {
-        readonly linked: number;
-        readonly read: number;
-      },
-      EditFailure
-    >;
+    /** Removes a component's spec: a primitive is drawn in its default look again. */
     readonly remove: (
       component: string
     ) => Effect.Effect<void, EditFailure | NotFound>;
@@ -201,11 +155,7 @@ export class SpecService extends Context.Service<
       const events = yield* EventBus;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const catalogue = yield* CatalogueService;
-      const styleSystem = yield* ProjectStyleSystem;
-      const code = yield* CodeSide;
       const documents = yield* DocumentService;
-      const implementation = yield* ImplementationService;
       const dir = path.join(paths.designsDir, SPECS_DIR);
 
       /** A spec file's path inside the designs directory and in the repository. */
@@ -255,156 +205,25 @@ export class SpecService extends Context.Service<
         return yield* save(spec, `Change the ${spec.component} spec`);
       });
 
-      /** The catalogue's entry for a component, by name and, when given, module. */
-      const metaOf = Effect.fnUntraced(function* (
-        component: string,
-        from: string | undefined
-      ) {
-        const { components } = yield* catalogue.get(false).pipe(
-          Effect.mapError(
-            (error) =>
-              new BadRequest({
-                message: `the catalogue cannot be read: ${error.message}`,
-              })
-          )
-        );
-        const found =
-          components.find(
-            (c) =>
-              c.name === component &&
-              (from === undefined || c.importFrom === from)
-          ) ?? components.find((c) => c.name === component);
-        if (!found) {
-          return yield* new NotFound({
-            message: `no component ${component} in the catalogue`,
-          });
-        }
-        return { all: components, meta: found };
-      });
-
-      /** The slots a component's own file names, after its root. */
-      const slotsFor = Effect.fnUntraced(function* (
-        meta: ComponentMeta,
-        all: readonly ComponentMeta[]
-      ) {
-        const source = yield* fs
-          .readFileString(path.resolve(paths.root, meta.file))
-          .pipe(Effect.orElseSucceed(() => ""));
-        const siblings = all
-          .filter((c) => c.file === meta.file && c.name !== meta.name)
-          .map((c) => c.name);
-        return slotsOf(meta.name, slotsInSource(source), siblings);
-      });
-
-      /** A component's spec read off its cva classes; one there was keeps its behaviour notes. */
-      const specFromCode = Effect.fnUntraced(function* (
-        meta: ComponentMeta,
-        all: readonly ComponentMeta[],
-        look: SpecLook,
-        tokens: readonly SourceToken[],
-        kept: ComponentSpec | undefined
-      ) {
-        const { styles } = meta;
-        const read = styles
-          ? yield* Effect.try({
-              catch: (error) =>
-                new BadRequest({
-                  message: `${meta.name}'s classes could not be read: ${String(error)}`,
-                }),
-              try: () => styleSystem.componentSpec(styles, tokens),
-            })
-          : { base: {}, defaults: {}, states: {}, variants: {} };
-        // A primitive's parts are the catalogue's (ADR 0040); a component of the code's, its file's.
-        const parts = meta.slots
-          ? meta.slots
-              .map((slot) => slot.name)
-              .filter((name) => name !== ROOT_SLOT)
-          : yield* slotsFor(meta, all);
-        // Read again, a spec keeps its behaviour notes: they are not the code's look.
-        const notes = kept?.notes;
-        return {
-          ...emptySpec(meta.name, meta.importFrom, look),
-          ...read,
-          ...(meta.description !== undefined && {
-            description: meta.description,
-          }),
-          ...(notes && notes.length > 0 && { notes }),
-          slots: [{ name: ROOT_SLOT }, ...parts.map((name) => ({ name }))],
-        } satisfies ComponentSpec;
-      });
-
-      /** Specs read off the code, each linked to the file of its component as implemented. */
-      const link = (read: readonly { file: string; spec: ComponentSpec }[]) =>
-        implementation.markAll(
-          read.map(({ file, spec }) => ({
-            files: [file],
-            target: specTarget(spec.component),
-          }))
-        );
-
       const fromCode = Effect.fn("SpecService.fromCode")(function* (
         component: string,
-        from: string | undefined,
-        look: SpecLook = "code"
+        _from: string | undefined,
+        look: SpecLook = "design"
       ) {
-        const { all, meta } = yield* metaOf(component, from);
-        const spec = yield* specFromCode(
-          meta,
-          all,
-          look,
-          (yield* code.tokens).tokens,
-          (yield* specs).find((s) => s.component === meta.name)
-        );
-        const entry = yield* save(
-          spec,
-          `Read the ${meta.name} spec from the code`
-        );
-        // A primitive has no file of the repository's to be linked to: what implements its look
-        // is found when it is implemented.
-        if (!spec.notes && meta.file !== "") {
-          yield* link([{ file: meta.file, spec }]);
+        const start = defaultSpecOf(component);
+        if (!start) {
+          return yield* new NotFound({
+            message: `${component} is no primitive: only a primitive has a default look to start from`,
+          });
         }
-        return entry;
-      });
-
-      const fromCodeAll = Effect.fn("SpecService.fromCodeAll")(function* (
-        look: SpecLook = "code"
-      ) {
-        const { components } = yield* catalogue.get(false).pipe(
-          Effect.mapError(
-            (error) =>
-              new BadRequest({
-                message: `the catalogue cannot be read: ${error.message}`,
-              })
-          )
+        // Started again, a spec keeps its behaviour notes: they are not the look.
+        const notes = (yield* specs).find(
+          (s) => s.component === component
+        )?.notes;
+        return yield* save(
+          { ...start, look, ...(notes && notes.length > 0 && { notes }) },
+          `Take ${component}'s look over`
         );
-        const have = new Set((yield* specs).map((s) => s.component));
-        // A component without classes to read would be an empty spec; one with a spec keeps it.
-        const open = components.filter(
-          (c) => c.styles !== undefined && !have.has(c.name)
-        );
-        const { tokens } = yield* code.tokens;
-        const read = yield* Effect.forEach(open, (meta) =>
-          Effect.map(
-            specFromCode(meta, components, look, tokens, undefined),
-            (spec) => ({ file: meta.file, spec })
-          )
-        );
-        if (read.length === 0) {
-          return { linked: 0, read: 0 };
-        }
-        yield* edit.transaction(
-          `Read ${read.length} spec${read.length === 1 ? "" : "s"} from the code`,
-          (tx) =>
-            Effect.forEach(
-              read,
-              ({ spec }) =>
-                tx.write(fileOf(spec.component).repo, serialise(spec)),
-              { discard: true }
-            )
-        );
-        yield* publish;
-        return { linked: yield* link(read), read: read.length };
       });
 
       const remove = Effect.fn("SpecService.remove")(function* (
@@ -431,7 +250,7 @@ export class SpecService extends Context.Service<
         const spec = (yield* specs).find((s) => s.component === component);
         if (!spec) {
           return yield* new NotFound({
-            message: `no spec for ${component}: read it from the code first`,
+            message: `no spec for ${component}: take its look over first`,
           });
         }
         if (text.trim() === "") {
@@ -552,7 +371,6 @@ export class SpecService extends Context.Service<
         addNote,
         draftFrom,
         fromCode,
-        fromCodeAll,
         list,
         remove,
         specs,

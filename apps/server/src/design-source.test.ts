@@ -265,25 +265,25 @@ layer(TestServer, { excludeTestServices: true, timeout: "120 seconds" })(
     );
 
     it.effect(
-      "starts a primitive's spec from its parts, and makes a draft of a node",
+      "starts a primitive's spec from its default look, and makes a draft of a node",
       () =>
         Effect.gen(function* () {
           const { client, repo } = yield* TestEnv;
           const fs = yield* FileSystem.FileSystem;
           // A primitive (ADR 0040): nothing of the repository's is read, its parts are the
-          // catalogue's, and its look starts as the primitive's own.
+          // catalogue's, and its look starts as the primitive's default.
           const read = yield* client["specs.fromCode"]({ component: "Button" });
           const { spec } = read;
           assert.strictEqual(read.file, "specs/Button.spec.json");
-          assert.strictEqual(spec?.look, "code");
+          assert.strictEqual(spec?.look, "design");
           assert.strictEqual(spec?.from, PRIMITIVES_FROM);
           assert.deepStrictEqual(
             spec?.slots.map((s) => s.name),
             ["root", "button-spinner"]
           );
-          assert.deepStrictEqual(spec?.base, {});
+          assert.strictEqual(spec?.base.root?.fill, "$color-primary");
 
-          // The design takes the look over.
+          // The design changes the look.
           if (!spec) {
             return;
           }

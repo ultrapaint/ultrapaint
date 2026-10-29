@@ -111,7 +111,7 @@ review found.
   editor's React. An instance names one with `from: "@ultrapaint/primitives"`. Its **catalogue**
   entry says its props, variant axes, parts (`data-slot`), slots, states and **layer**: in the
   page's flow (`inline`), anchored above it (`anchored`) or over it (`blocking`). Its look is its
-  default look (`look.ts`) under its spec (0029).
+  default look (a spec of its own, `defaults.ts`, drawn by `look.ts`) under the project's spec (0029).
 - **Slot**: a part of a primitive that holds nodes (a Dialog's `trigger`, `dialog-header`,
   `dialog-content`, `dialog-footer`): an instance's child fills the slot it names (`slot`), the
   rest fill the **default** slot.
