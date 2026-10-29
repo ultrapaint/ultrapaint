@@ -104,6 +104,8 @@ const IMAGE_EXTENSIONS = new Set([
   "webp",
 ]);
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+/** How many documents' trees are kept by their text, so the same text is parsed once. */
+const PARSED_KEPT = 64;
 
 /** What a document is on disk: its text, and the tree it holds when it holds one. */
 interface Loaded {
@@ -209,13 +211,39 @@ export class DocumentService extends Context.Service<
         };
       };
 
+      /**
+       * The latest documents read, by their text's hash: an edit reads its document before the
+       * step, in it, and again to tell the editor, and the text is the same each time but the last,
+       * which the step wrote and knows the tree of.
+       */
+      const parsedByHash = new Map<
+        string,
+        Effect.Success<ReturnType<typeof parseDocument>>
+      >();
+      const keepParsed = (
+        key: string,
+        parsed: Effect.Success<ReturnType<typeof parseDocument>>
+      ) => {
+        parsedByHash.delete(key);
+        parsedByHash.set(key, parsed);
+        if (parsedByHash.size > PARSED_KEPT) {
+          const [oldest] = parsedByHash.keys();
+          if (oldest !== undefined) {
+            parsedByHash.delete(oldest);
+          }
+        }
+      };
+
       /** What a document's text is as a document, or why it is not one. */
       const loadedFrom = Effect.fnUntraced(function* (
         text: string,
         canvas: boolean
       ) {
         const hash = hashContent(text);
-        const parsed = yield* parseDocument(text, canvas);
+        const key = `${canvas ? "canvas" : "page"}:${hash}`;
+        const parsed =
+          parsedByHash.get(key) ?? (yield* parseDocument(text, canvas));
+        keepParsed(key, parsed);
         const loaded: Loaded =
           "problem" in parsed
             ? { hash, problem: parsed.problem, root: null, text }
@@ -400,7 +428,12 @@ export class DocumentService extends Context.Service<
             root: edited,
             version: DOCUMENT_VERSION,
           }).pipe(Effect.mapError(invalid));
-          yield* tx.write(yield* fileOf(doc), serialiseDocument(document));
+          const text = serialiseDocument(document);
+          keepParsed(`page:${hashContent(text)}`, {
+            filled: false,
+            root: document.root,
+          });
+          yield* tx.write(yield* fileOf(doc), text);
         } else {
           const nodes = yield* decodeNodes(childrenOf(edited)).pipe(
             Effect.mapError(invalid)
