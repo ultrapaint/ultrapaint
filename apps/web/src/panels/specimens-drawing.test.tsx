@@ -93,7 +93,7 @@ const ds = {
   version: 1,
 } as unknown as DesignSystem;
 
-const specOf = (component: string): SystemComponentFile =>
+const lookOf = (component: string): SystemComponentFile =>
   emptySystemComponent(component);
 
 let root: Root | null = null;
@@ -126,17 +126,17 @@ describe("a specimen's drawing", () => {
   it("draws the matrix again when another component's file changes, and not for nothing", () => {
     const { preview, renders } = fakePreview();
     setPreview(preview);
-    const button = specOf("Button");
+    const button = lookOf("Button");
     show(<Matrix component={button} meta={undefined} />);
     expect(renders).toHaveLength(1);
     expect(renders[0]?.look?.components).toEqual([button]);
 
-    // Drawn again with the same spec: nothing changed, nothing is drawn.
+    // Drawn again with the same look: nothing changed, nothing is drawn.
     show(<Matrix component={button} meta={undefined} />);
     expect(renders).toHaveLength(1);
 
-    // A card drawn inside the button looks as its spec says.
-    const card = specOf("Card");
+    // A card drawn inside the button looks as its file says.
+    const card = lookOf("Card");
     act(() => useComponents.setState({ components: [card] }));
     expect(renders).toHaveLength(2);
     expect(renders[1]?.look?.components).toEqual([card, button]);
@@ -145,7 +145,7 @@ describe("a specimen's drawing", () => {
   it("draws the file being edited in place of the saved one, in a look of its own", () => {
     const { preview, renders } = fakePreview();
     setPreview(preview);
-    const saved = specOf("Button");
+    const saved = lookOf("Button");
     useComponents.setState({ components: [saved] });
     const edited = { ...saved, base: { root: { fill: "#f00" } } };
     show(<Matrix component={edited} meta={undefined} />);

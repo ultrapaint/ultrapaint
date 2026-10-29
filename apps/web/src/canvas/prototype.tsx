@@ -46,7 +46,6 @@ import { commentCursor, FrameComments, placeComment } from "./comments.tsx";
 import { useFrameDrawing, useFrameError } from "./editor-frame.ts";
 import { HotspotLayer, HotspotsToggle, onPrototypePress } from "./hotspots.tsx";
 import { pageRequest } from "./page-request.ts";
-import { usePreview } from "./preview-module.ts";
 import { PreviewSurface } from "./preview-surface.tsx";
 
 /** Room kept free around the page for the cards at the top and the bottom strip. */
@@ -158,7 +157,6 @@ export const Prototype = () => {
   const pages = useProject((s) => s.pages);
   const title =
     route ?? pages.find((p) => p.id === activePage)?.name ?? "Prototype";
-  const preview = usePreview();
   const device = useDevice((s) => s.device);
   const [area, setArea] = useState({ height: 0, width: 0 });
   const [reloads, setReloads] = useState(0);
@@ -191,12 +189,7 @@ export const Prototype = () => {
     (area.height - inset.top - inset.bottom) / size.height
   );
 
-  let content: string | null = null;
-  if (!hasPages) {
-    content = "This canvas has no pages yet";
-  } else if (!preview) {
-    content = "Preview host not running";
-  }
+  const content = hasPages ? null : "This canvas has no pages yet";
   // The frame only exists once the area is measured, which is after the first render.
   const shown = content === null && canvas !== null && scale > 0;
 

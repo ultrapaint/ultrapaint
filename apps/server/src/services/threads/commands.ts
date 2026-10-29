@@ -17,7 +17,7 @@ import { STEPS_NEXT } from "./setup-tasks.ts";
 import { type AgentTask, AgentTasks } from "./tasks.ts";
 
 /** What the agent is told when what the user ran cannot be done as asked, and what to say. */
-export const failedTask = (failure: {
+const failedTask = (failure: {
   readonly command: string;
   readonly message: string;
   readonly next: string;

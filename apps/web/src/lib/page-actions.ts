@@ -167,13 +167,13 @@ export const implementPage = (page: Page) =>
   );
 
 /** The template a page starts from when none is picked, as the New page form has it. */
-export const DEFAULT_TEMPLATE = "centered";
+const DEFAULT_TEMPLATE = "centered";
 
 /**
  * Makes a page in the open canvas and goes to it. The URL is optional: a page is drawn first,
  * and given one when the prototype should reach it.
  */
-export const createPage = async (input: {
+const createPage = async (input: {
   name: string;
   route?: string;
   template?: string;

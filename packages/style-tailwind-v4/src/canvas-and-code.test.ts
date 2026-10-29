@@ -3,7 +3,7 @@
  * designs, as they are and with overrides at the breakpoints, every declaration the canvas draws
  * a node with is set by a class the writer gives it, to the same value, as Tailwind itself
  * compiles that class at that width; and every property a class sets is one the canvas draws.
- * And the classes read back: what the spec reader models of a node's declarations, written as
+ * And the classes read back: what the class reader models of a node's declarations, written as
  * classes and read by it, comes back the same.
  */
 import { readdirSync, readFileSync } from "node:fs";

@@ -34,7 +34,7 @@ import { CommandKeys } from "./shortcut-sheet.tsx";
 
 /** Where the cards sit: this far from the window's edges, and this tall. */
 export const EDGE = 8;
-export const TITLE_HEIGHT = 44;
+const TITLE_HEIGHT = 44;
 
 // Saving needs settings to save; before the first ones exist the setup dialog is the way in.
 const openSaveConfig = () => {

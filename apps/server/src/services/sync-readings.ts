@@ -49,7 +49,7 @@ export const designTokensOf = (ds: DesignSystem): SourceToken[] =>
     }));
 
 /** Every value of a list of tokens by `name` and `name@theme`, as a baseline keeps them. */
-export const valuesByKey = (
+const valuesByKey = (
   tokens: readonly SourceToken[]
 ): Record<string, string> => {
   const values: Record<string, string> = {};
@@ -234,7 +234,7 @@ export const documentSideTokens = (
  * matches kept by path; what the two agreed is one value by path, the document's and the design
  * system's being the same then.
  */
-export const documentSide = (
+const documentSide = (
   tokens: readonly SideToken[],
   design: readonly SourceToken[],
   baseline: DocumentBaseline | null
@@ -268,7 +268,7 @@ export const compareDocument = (
  * design system's it does not have, except the spacing base: a code that does not name it has
  * the style system's.
  */
-export const codeSide = (
+const codeSide = (
   code: readonly SourceToken[],
   design: readonly SourceToken[],
   baseline: DocumentBaseline | null,

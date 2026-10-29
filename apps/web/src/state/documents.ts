@@ -190,7 +190,7 @@ export const editedAtOf = (frame: string): string | null =>
   editedAs?.frame === frame ? editedAs.at : null;
 
 /** The document a frame shows: the page it is, or the canvas's loose nodes. */
-export const shownDocOf = (frame: string, canvas: string | null): string =>
+const shownDocOf = (frame: string, canvas: string | null): string =>
   isNodeFrame(frame) ? canvasDocOf(canvas ?? "") : pageOfFrame(frame);
 
 /**

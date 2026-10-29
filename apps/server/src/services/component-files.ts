@@ -322,7 +322,7 @@ const replaceProperty = (
 });
 
 /** A property renamed, with the variants of a choice's members its tree keeps. */
-export const renameProperty = (
+const renameProperty = (
   file: AppComponentFile,
   name: string,
   to: string
@@ -342,7 +342,7 @@ export const renameProperty = (
 };
 
 /** A choice's member renamed, its default and the overrides its tree keeps for it with it. */
-export const renameMember = (
+const renameMember = (
   file: AppComponentFile,
   name: string,
   member: string,
@@ -391,7 +391,7 @@ const withMembers = (
 };
 
 /** A property taken out, with the overrides its tree keeps for a choice's members. */
-export const removeProperty = (
+const removeProperty = (
   file: AppComponentFile,
   name: string
 ): AppComponentFile => {

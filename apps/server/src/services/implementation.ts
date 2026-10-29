@@ -218,7 +218,7 @@ const flatten = (
 };
 
 /** What changed in a component's file, a line per field. */
-export const describeComponentChanges = (
+const describeComponentChanges = (
   before: Omit<ComponentFile, "notes">,
   after: Omit<ComponentFile, "notes">
 ): string[] => {
@@ -233,7 +233,7 @@ export const describeComponentChanges = (
 };
 
 /** What changed in the behaviour notes, a line per note. */
-export const describeNoteChanges = (
+const describeNoteChanges = (
   before: readonly Note[],
   after: readonly Note[]
 ): string[] => {

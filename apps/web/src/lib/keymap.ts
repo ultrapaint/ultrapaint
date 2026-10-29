@@ -35,7 +35,7 @@ interface Chorded {
 }
 
 /** Every chord of a binding, shown or not, as this platform presses them. */
-export const chordsOf = (binding: Chorded, mac = isMac) =>
+const chordsOf = (binding: Chorded, mac = isMac) =>
   [...(binding.keys ?? []), ...(binding.also ?? [])].map((k) =>
     parseChord(chordText(k, mac))
   );
@@ -61,7 +61,7 @@ export const bindingFor = <B extends Chorded>(
  * open (the settings page replaces the editor: nothing on it is there to be acted on); in a text
  * field, only what nothing is typed with; else the editor's, and the canvas's on the canvas.
  */
-export const windowScopes = (e: Event): readonly WindowScope[] => {
+const windowScopes = (e: Event): readonly WindowScope[] => {
   if (overlayOpen() || useProject.getState().settingsOpen) {
     return [];
   }

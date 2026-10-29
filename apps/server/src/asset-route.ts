@@ -27,7 +27,7 @@ const CONTENT_TYPES: Readonly<Record<string, string>> = {
  * Where the file `src` names for a canvas may be, in order: the canvas's own, then the shared one;
  * a path that leaves the designs directory is none.
  */
-export const assetCandidates = (
+const assetCandidates = (
   designsDir: string,
   canvas: string,
   src: string

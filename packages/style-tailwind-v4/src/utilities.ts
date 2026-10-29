@@ -3,7 +3,7 @@
  * (ADR 0024): how a class is written (its variants, `!`, sign, utility and value, a colour's
  * opacity, an arbitrary value with its type), the steps of Tailwind's default scales, and the
  * keywords a utility takes for a length or a colour, both ways (`w-full` is `100%`, `100%` is
- * `w-full`). What a class means to a reader (a spec's field, DESIGN.md's token, the inventory's
+ * `w-full`). What a class means to a reader (a look's field, DESIGN.md's token, the inventory's
  * kind) is the reader's. Pure.
  */
 
