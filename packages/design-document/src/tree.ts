@@ -189,3 +189,65 @@ export const canvasRoot = (nodes: readonly DesignNode[]): GroupNode => ({
   id: CANVAS_ROOT_ID,
   type: "group",
 });
+
+/** Whether two JSON values are the same value. */
+const sameJson = (a: unknown, b: unknown): boolean => {
+  if (a === b) {
+    return true;
+  }
+  if (
+    typeof a !== "object" ||
+    typeof b !== "object" ||
+    a === null ||
+    b === null ||
+    Array.isArray(a) !== Array.isArray(b)
+  ) {
+    return false;
+  }
+  const ka = Object.keys(a);
+  const kb = Object.keys(b);
+  return (
+    ka.length === kb.length &&
+    ka.every((k) =>
+      sameJson(
+        (a as Record<string, unknown>)[k],
+        (b as Record<string, unknown>)[k]
+      )
+    )
+  );
+};
+
+/**
+ * `next` with every node that is as it was in `prev` the very node `prev` had, found by id: a
+ * document read again keeps the objects of what did not change, so what draws it (memoised by
+ * node) draws again only what did. `prev` itself when nothing changed.
+ */
+export const shareUnchanged = (
+  prev: DesignNode | null,
+  next: DesignNode | null
+): DesignNode | null => {
+  if (prev === null || next === null || prev === next) {
+    return next;
+  }
+  const before = new Map(childrenOf(prev).map((c) => [c.id, c]));
+  const kids = childrenOf(next);
+  let same = kids.length === childrenOf(prev).length && prev.id === next.id;
+  const children = kids.map((child, i) => {
+    const was = before.get(child.id);
+    const shared = was ? (shareUnchanged(was, child) as DesignNode) : child;
+    same &&= shared === childrenOf(prev)[i];
+    return shared;
+  });
+  const { children: _p, ...own } = prev as DesignNode & { children?: unknown };
+  const { children: _n, ...ownNext } = next as DesignNode & {
+    children?: unknown;
+  };
+  if (
+    same &&
+    "children" in prev === "children" in next &&
+    sameJson(own, ownNext)
+  ) {
+    return prev;
+  }
+  return "children" in next ? ({ ...next, children } as DesignNode) : next;
+};
