@@ -62,8 +62,12 @@ follow-ups.
   one undo step per request: insert, remove, move, update, set props, wrap, unwrap, duplicate,
   and **replace**, which puts a node where sibling nodes were (an instance drawn as now, detached
   from its component by `detachedOf`, or made one of nodes by `appComponentFrom`, both keeping
-  one list of where a node sits). The editor keeps the nodes a document comes back with unchanged
-  as the objects it had (`shareUnchanged`), so what is drawn of them is not drawn again. A tree's
+  one list of where a node sits). A **document change** is how the editors are told of one
+  (ADR 0044): a **patch** of the nodes it made new or changed since the state they have (`from`),
+  each with its children by id (`changedNodes`, put into a copy by `withChangedNodes`), or the
+  whole document when it cannot be said; a copy at another state reads the document again. The
+  editor keeps the nodes that did not change as the objects it had (`shareUnchanged` for a whole
+  document), so what is drawn of them is not drawn again. A tree's
   **outline** is it shown some levels down, a node at the last counting its children
   (`outlineOf`): how an agent reads a big page first.
 - **Canvas layout**: where frames go on a canvas, with one gap (contracts' `canvas-layout`): a
@@ -139,7 +143,9 @@ follow-ups.
   entry in the catalogue's source (`SYSTEM_COMPONENTS`) says its props, variant axes, parts (`data-slot`, the optional ones a look
   may leave out), slots, states and **layer**: in the page's flow (`inline`), anchored above it
   (`anchored`) or over it (`blocking`). Its **look** is its file: style fields per part at its
-  base, in each variant and state, layout per part, content for a slot given nothing, the
+  base, in each variant, in each state and in a **state in a variant** (`variantStates`, ADR
+  0044: an outline button's hover), the more specific winning and disabled over the other
+  states, layout per part, content for a slot given nothing, the
   optional parts left out, a Select's or a Menu's item template; without a file, its default look
   (`defaults.ts`, drawn by `look.ts` through `lookCss`). Its behavioural parts are fixed.
 - **App component**: one of the project's own components (ADR 0041), built from system

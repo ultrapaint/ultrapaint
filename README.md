@@ -443,8 +443,12 @@ and a click outside close it), each in its own frame.
 each in its **default look** (over your tokens) or **your look**: open one to **take the look
 over**, which starts its file from the default's values, and the panel draws it live in each
 variant and state (hover, focus, disabled, open, checked, highlighted…) while the fields set any
-part of it in your tokens: its fill, text, border, radius, padding (per side), size, gap, shadow,
-and how it lays out what it holds (direction, alignment, order). It can leave out an optional
+part of it in your tokens. Pick a variant, a state, or both: both together set that state in that
+variant alone (an outline button's hover), over the state's own values, and a field left empty
+says what it takes and from where (the state, the variant, the base or the default look). The
+fields set: its fill, text, border, radius, padding (per side), size, gap, shadow,
+and how it lays out what it holds (direction, alignment, order); a value can be any CSS over your
+tokens' variables, a hover's `color-mix()`. It can leave out an optional
 part (a dialog's close, a card's description), give a slot content for when an instance gives it
 none, and draw a Select's or a Menu's items from nodes of yours (**Use selection**). **Reset to
 default** removes the file. **Implement** has an agent give your application's own component that
