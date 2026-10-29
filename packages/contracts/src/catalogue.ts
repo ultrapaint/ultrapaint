@@ -40,7 +40,11 @@ export const ComponentSlot = Schema.Struct({
   label: Schema.String,
   /** How it lays out what it holds: the catalogue's, a look's `direction` at its base over it. */
   layout: Schema.optional(SlotLayout),
-  /** How it lays them out in a variant whose look sets a `direction`, by `<axis>=<member>`. */
+  /**
+   * How it lays them out where that differs: in a variant whose look sets a `direction` or whose
+   * container's type differs (`<axis>=<member>`), at a breakpoint an app component's container
+   * turns at (`md`).
+   */
   layoutIn: Schema.optional(Schema.Record(Schema.String, SlotLayout)),
   name: Schema.String,
 });

@@ -24,6 +24,7 @@ import {
   type Breakpoint,
   breakpointsUsed,
   resolveAtBreakpoint,
+  upTo,
 } from "./breakpoints.ts";
 import {
   declarationsOf,
@@ -87,14 +88,23 @@ interface Writing {
   readonly at: readonly ReadonlyMap<string, DesignNode>[];
   readonly classes: ClassWriter;
   readonly hrefOf: (link: string) => string;
-  /** How the instance or the part a child is in lays it out, by the child's id. */
-  readonly inSlots: ReadonlyMap<string, ParentLayout>;
+  /** How the instance or the part a child is in lays it out, by the child's id, at each level. */
+  readonly inSlots: InSlots;
   /** The base (null), then the breakpoints the tree sets anything at, smallest first. */
   readonly levels: readonly (string | null)[];
   /** The name each instance's component is imported as (`importKey`), unique in the file. */
   readonly localNames: ReadonlyMap<string, string>;
   /** The design system's text styles and tokens, made once. */
   readonly styles: StyleContext;
+}
+
+/** How the slot each instance's child fills lays it out, by the child's id, at each level. */
+type InSlots = Map<string, readonly ParentLayout[]>;
+
+/** The levels a tree is written at: the base, then each breakpoint it sets, with what holds at each. */
+interface Levels {
+  readonly breakpoints: readonly Breakpoint[];
+  readonly names: readonly (string | null)[];
 }
 
 // ---- System components as the application's components ----
@@ -145,23 +155,39 @@ const asApplicationCode = (
   node: DesignNode,
   base: string,
   catalogue: Catalogue,
-  inSlots: Map<string, ParentLayout>
+  levels: Levels,
+  inSlots: InSlots
 ): DesignNode => {
   if (node.type !== "instance") {
     return isParent(node)
       ? ({
           ...node,
           children: node.children.map((c) =>
-            asApplicationCode(c, base, catalogue, inSlots)
+            asApplicationCode(c, base, catalogue, levels, inSlots)
           ),
         } as DesignNode)
       : node;
   }
+  // The instance at each level: its variant may turn with a breakpoint, its slot's layout too.
+  const atLevels = levels.names.map((name) => ({
+    holding: upTo(levels.breakpoints, name),
+    instance: resolveAtBreakpoint(
+      node,
+      levels.breakpoints,
+      name
+    ) as InstanceNode,
+  }));
   for (const child of node.children ?? []) {
-    inSlots.set(child.id, slotLayoutOf(node, child.slot, catalogue) ?? "block");
+    inSlots.set(
+      child.id,
+      atLevels.map(
+        ({ holding, instance }) =>
+          slotLayoutOf(instance, child.slot, catalogue, holding) ?? "block"
+      )
+    );
   }
   const children = (node.children ?? []).map((c) =>
-    asApplicationCode(c, base, catalogue, inSlots)
+    asApplicationCode(c, base, catalogue, levels, inSlots)
   );
   if (node.from === APP_FROM) {
     return asAppComponentCode(node, children, base);
@@ -442,14 +468,15 @@ const nodeAt = (node: DesignNode, w: Writing, level: number): DesignNode =>
 const hiddenEverywhere = (node: DesignNode, w: Writing) =>
   w.levels.every((_, level) => nodeAt(node, w, level).hidden);
 
-/** How a node lays out a child: an instance, or a part of one, as the slot it fills does. */
+/** How a node lays out a child at a level: an instance, or a part of one, as the slot it fills does. */
 const childLayoutOf = (
   node: DesignNode,
   child: DesignNode,
-  w: Writing
+  w: Writing,
+  level: number
 ): ParentLayout =>
   node.type === "instance"
-    ? (w.inSlots.get(child.id) ?? "block")
+    ? (w.inSlots.get(child.id)?.[level] ?? "block")
     : layoutOf(node);
 
 /** What its parent lays a node out as, at each level. */
@@ -461,7 +488,7 @@ const childrenFor = (node: DesignNode, w: Writing): Child[] =>
       child,
       w,
       w.levels.map((_, level) =>
-        childLayoutOf(nodeAt(node, w, level), child, w)
+        childLayoutOf(nodeAt(node, w, level), child, w, level)
       )
     )
   );
@@ -671,18 +698,19 @@ export const toCode = (
   classes: ClassWriter,
   options: CodeOptions = {}
 ): string => {
-  const inSlots = new Map<string, ParentLayout>();
+  const breakpoints = options.breakpoints ?? [];
+  const used = breakpointsUsed(given, breakpoints);
+  const levels = [null, ...used.map((b) => b.name)];
+  const inSlots: InSlots = new Map();
   const node = asApplicationCode(
     given,
     options.componentsFrom ?? DEFAULT_COMPONENTS_FROM,
     options.catalogue ?? [],
+    { breakpoints, names: levels },
     inSlots
   );
   const parent = options.parent ?? "free";
   const asComponent = node.type === "page" && options.component !== undefined;
-  const breakpoints = options.breakpoints ?? [];
-  const used = breakpointsUsed(node, breakpoints);
-  const levels = [null, ...used.map((b) => b.name)];
   const at = levels.map((name) => {
     const tree = resolveAtBreakpoint(node, breakpoints, name);
     return new Map(Array.from(walk(tree), (n) => [n.id, n] as const));

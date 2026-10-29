@@ -610,16 +610,30 @@ const propOf = (property: ComponentProperty): PropMeta => ({
       : { kind: property.kind === "boolean" ? "boolean" : "string" },
 });
 
-/** How a slot's container lays out what it holds. */
-const layoutOfSlot = (
-  tree: DesignNode,
-  id: string
-): "row" | "column" | "block" => {
-  const node = findNode(tree, id);
-  if (node?.type === "row" || node?.type === "column") {
-    return node.type;
+/** How a container of a type lays out what it holds. */
+const layoutOfType = (type: string | undefined): "row" | "column" | "block" => {
+  if (type === "row" || type === "column") {
+    return type;
   }
-  return node?.type === "page" ? "column" : "block";
+  return type === "page" ? "column" : "block";
+};
+
+/**
+ * How a slot's container lays out what it holds: at its base, and where its type turns, in a
+ * choice's member (`size=lg`) or at a breakpoint (`md`), as its `at` keeps it.
+ */
+const slotLayoutsOf = (tree: DesignNode, id: string) => {
+  const node = findNode(tree, id);
+  const at = (node?.at ?? {}) as Record<string, { type?: string }>;
+  const layoutIn = Object.fromEntries(
+    Object.entries(at).flatMap(([key, over]) =>
+      over.type === undefined ? [] : [[key, layoutOfType(over.type)] as const]
+    )
+  );
+  return {
+    layout: layoutOfType(node?.type),
+    ...(Object.keys(layoutIn).length > 0 && { layoutIn }),
+  };
 };
 
 /**
@@ -634,7 +648,7 @@ const appEntryOf = (file: AppComponentFile): ComponentMeta => ({
   props: file.properties.map(propOf),
   slots: file.slots.map((s) => ({
     ...componentSlotOf(s),
-    layout: layoutOfSlot(file.tree, s.node),
+    ...slotLayoutsOf(file.tree, s.node),
   })),
   variants: Object.fromEntries(
     file.properties.flatMap((p) =>

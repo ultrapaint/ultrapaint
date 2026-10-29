@@ -122,4 +122,40 @@ describe("slotLayoutOf", () => {
       slotLayoutOf(dialog({ component: "Unknown" }), undefined, catalogue)
     ).toBeNull();
   });
+
+  it("lays a child out as its slot does in the instance's variant, then at the breakpoints that hold", () => {
+    const plan: Catalogue = [
+      {
+        category: "App",
+        importFrom: "#app",
+        name: "Plan",
+        props: [],
+        slots: [
+          {
+            holds: "default",
+            label: "Body",
+            layout: "column",
+            layoutIn: { lg: "column", md: "row", "tone=loud": "row" },
+            name: "body",
+          },
+        ],
+        variants: { tone: ["plain", "loud"] },
+      },
+    ];
+    const instance = (tone: string): InstanceNode => ({
+      component: "Plan",
+      from: "#app",
+      id: "p",
+      props: { tone },
+      type: "instance",
+    });
+    expect(slotLayoutOf(instance("plain"), undefined, plan)).toBe("column");
+    expect(slotLayoutOf(instance("loud"), undefined, plan)).toBe("row");
+    expect(slotLayoutOf(instance("plain"), undefined, plan, ["sm", "md"])).toBe(
+      "row"
+    );
+    expect(
+      slotLayoutOf(instance("loud"), undefined, plan, ["sm", "md", "lg"])
+    ).toBe("column");
+  });
 });
